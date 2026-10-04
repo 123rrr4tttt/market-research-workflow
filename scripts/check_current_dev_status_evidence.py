@@ -8,6 +8,7 @@ the CURRENT_DEV index is consistent enough for a final completion audit.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -18,6 +19,7 @@ from urllib.parse import unquote
 
 
 DEFAULT_INDEX = "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md"
+TOPIC_ALLOWLIST = Path("development/latest-dev-docs/development-plans/TARGET_TOPIC_ALLOWLIST.json")
 STATUS_SECTIONS = {
     "Partial": "partial",
     "Not Closed": "not_closed",
@@ -210,10 +212,42 @@ def parse_entries(root: Path, index: Path, text: str) -> tuple[Entry, ...]:
     return tuple(entries)
 
 
-def find_empty_dirs(current_dev: Path) -> tuple[Path, ...]:
+def retained_evidence_dirs(root: Path, current_dev: Path, problems: list[Problem]) -> tuple[Path, ...]:
+    """Use the existing topic classifier's evidence roots, never directory names."""
+    allowlist = root / TOPIC_ALLOWLIST
+    if not allowlist.exists():
+        return ()
+    try:
+        data = json.loads(allowlist.read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or not isinstance(data.get("evidence_roots", []), list):
+            raise ValueError("evidence_roots must be a list in an object")
+        roots = []
+        for item in data.get("evidence_roots", []):
+            raw = item.get("path") if isinstance(item, dict) else item
+            if not isinstance(raw, str):
+                raise ValueError("evidence root must be a path string or an object with path")
+            path = (root / raw).resolve()
+            if path.parent != current_dev.resolve():
+                continue
+            if not path.is_dir():
+                raise ValueError(f"retained evidence directory is missing: {raw}")
+            roots.append(path)
+        return tuple(roots)
+    except (OSError, ValueError) as exc:
+        problems.append(Problem(allowlist, None, f"invalid topic classification: {exc}"))
+        return ()
+
+
+def find_empty_dirs(current_dev: Path, retained: tuple[Path, ...] = ()) -> tuple[Path, ...]:
     if not current_dev.is_dir():
         return ()
-    return tuple(sorted(path for path in current_dev.rglob("*") if path.is_dir() and not any(path.iterdir())))
+    empty_dirs = []
+    for directory, dirs, files in os.walk(current_dev):
+        path = Path(directory)
+        dirs[:] = [name for name in dirs if (path / name).resolve() not in retained]
+        if not dirs and not files and path != current_dev and path.resolve() not in retained:
+            empty_dirs.append(path)
+    return tuple(sorted(empty_dirs))
 
 
 def _current_dev_topic_dir(current_dev: Path, path: Path) -> Path | None:
@@ -226,7 +260,9 @@ def _current_dev_topic_dir(current_dev: Path, path: Path) -> Path | None:
     return current_dev / relative.parts[0]
 
 
-def find_inactive_current_dev_dirs(current_dev: Path, entries: tuple[Entry, ...]) -> tuple[Path, ...]:
+def find_inactive_current_dev_dirs(
+    current_dev: Path, entries: tuple[Entry, ...], retained: tuple[Path, ...] = ()
+) -> tuple[Path, ...]:
     if not current_dev.is_dir():
         return ()
     linked_topic_dirs: set[Path] = set()
@@ -240,7 +276,7 @@ def find_inactive_current_dev_dirs(current_dev: Path, entries: tuple[Entry, ...]
 
     inactive_dirs: list[Path] = []
     for path in sorted(item for item in current_dev.iterdir() if item.is_dir()):
-        if path.name in ALLOWED_CURRENT_DEV_DIRS:
+        if path.name in ALLOWED_CURRENT_DEV_DIRS or path.resolve() in retained:
             continue
         if path.resolve() not in linked_topic_dirs:
             inactive_dirs.append(path)
@@ -298,13 +334,14 @@ def check(root: Path, index_rel: str) -> Result:
             elif not any(link.exists for link in matches):
                 problems.append(Problem(index, entry.line_no, f"{tag} evidence links do not resolve"))
 
-    empty_dirs = find_empty_dirs(index.parent)
+    retained = retained_evidence_dirs(root, index.parent, problems)
+    empty_dirs = find_empty_dirs(index.parent, retained)
     for empty_dir in empty_dirs:
         mentioned = any(empty_dir.name in entry.raw and (entry.is_placeholder or entry.has_blocker_text) for entry in entries)
         if not mentioned:
             problems.append(Problem(empty_dir, None, "empty CURRENT_DEV directory is not identified as placeholder/blocker"))
 
-    inactive_dirs = find_inactive_current_dev_dirs(index.parent, entries)
+    inactive_dirs = find_inactive_current_dev_dirs(index.parent, entries, retained)
     for inactive_dir in inactive_dirs:
         problems.append(Problem(inactive_dir, None, "CURRENT_DEV directory is not backed by an active status row"))
 

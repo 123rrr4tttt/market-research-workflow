@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 
 MANIFESTS = (
@@ -34,11 +36,14 @@ class Problem:
 
 def load_json(path: Path) -> tuple[dict[str, Any] | None, list[Problem]]:
     try:
-        return json.loads(path.read_text(encoding="utf-8")), []
+        data = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return None, [Problem(path, "manifest is missing")]
     except json.JSONDecodeError as exc:
         return None, [Problem(path, f"manifest is not valid JSON: {exc}")]
+    if not isinstance(data, dict):
+        return None, [Problem(path, "manifest must be an object")]
+    return data, []
 
 
 def is_relative_to(path: Path, root: Path) -> bool:
@@ -53,6 +58,36 @@ def same_path(left: Path, right: Path) -> bool:
     return left.resolve() == right.resolve()
 
 
+def relative_markdown_links(readme: Path, text: str) -> set[Path]:
+    """Resolve inline navigation links, excluding examples and comments."""
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    text = re.sub(
+        r"^[ ]{0,3}(`{3,}|~{3,})[^\n]*\n.*?^[ ]{0,3}\1[ ]*$",
+        "",
+        text,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    text = re.sub(r"^(?: {4}|\t)[^\n]*", "", text, flags=re.MULTILINE)
+    text = re.sub(r"(`+).*?\1", "", text, flags=re.DOTALL)
+    pattern = re.compile(
+        r"(?<![!\\])\[[^\]\n]+\]\(\s*(?:<([^>\n]+)>|([^\s()<>]+))"
+        r"(?:\s+(?:\"[^\"\n]*\"|'[^'\n]*'))?\s*\)"
+    )
+    links: set[Path] = set()
+    for match in pattern.finditer(text):
+        destination = urlsplit(match.group(1) or match.group(2))
+        if destination.scheme or destination.netloc or not destination.path:
+            continue
+        relative_path = Path(unquote(destination.path))
+        if not relative_path.is_absolute():
+            links.add((readme.parent / relative_path).resolve())
+    return links
+
+
+def links_owning_manifest(readme: Path, text: str, manifest_path: Path) -> bool:
+    return manifest_path.is_file() and manifest_path.resolve() in relative_markdown_links(readme, text)
+
+
 def validate_content_shim(
     repo_root: Path,
     entry_path: Path,
@@ -64,6 +99,7 @@ def validate_content_shim(
     target_raw: str,
     target_text: str,
     entry: dict[str, Any],
+    readme_links_manifest: bool = False,
 ) -> list[Problem]:
     problems: list[Problem] = []
 
@@ -83,12 +119,12 @@ def validate_content_shim(
             problems.append(Problem(target_root, "content_shim target_root is outside manifest root"))
         if not same_path(target, target_root / "README.md"):
             problems.append(Problem(target, "content_shim target must be target_root/README.md"))
-        if target_root_raw not in target_text:
+        if not readme_links_manifest and target_root_raw not in target_text:
             problems.append(Problem(target, f"content_shim README does not mention target_root: {target_root_raw}"))
 
     if shim_raw != target_raw:
         problems.append(Problem(entry_path, "content_shim shim must match target README path"))
-    elif shim_raw not in target_text:
+    elif not readme_links_manifest and shim_raw not in target_text:
         problems.append(Problem(target, f"content_shim README does not mention shim path: {shim_raw}"))
 
     if not isinstance(compatibility_entry_raw, str):
@@ -106,7 +142,7 @@ def validate_content_shim(
             )
         if source.is_file() and not same_path(compatibility_entry, source):
             problems.append(Problem(entry_path, "content_shim file source must use the source as compatibility_entry"))
-        if compatibility_entry_raw not in target_text:
+        if not readme_links_manifest and compatibility_entry_raw not in target_text:
             problems.append(
                 Problem(
                     target,
@@ -114,7 +150,7 @@ def validate_content_shim(
                 )
             )
 
-    if "content shim" not in target_text.lower():
+    if not readme_links_manifest and "content shim" not in target_text.lower():
         problems.append(Problem(target, "content_shim README must identify itself as a content shim"))
 
     return problems
@@ -131,6 +167,7 @@ def validate_content_moved_batch(
     target_raw: str,
     target_text: str,
     entry: dict[str, Any],
+    readme_links_manifest: bool = False,
 ) -> list[Problem]:
     problems: list[Problem] = []
 
@@ -153,12 +190,12 @@ def validate_content_moved_batch(
             problems.append(Problem(target_root, "content_moved_batch target_root is outside manifest root"))
         if not same_path(target, target_root / "README.md"):
             problems.append(Problem(target, "content_moved_batch target must remain target_root/README.md"))
-        if target_root_raw not in target_text:
+        if not readme_links_manifest and target_root_raw not in target_text:
             problems.append(Problem(target, f"content_moved_batch README does not mention target_root: {target_root_raw}"))
 
     if shim_raw != target_raw:
         problems.append(Problem(entry_path, "content_moved_batch shim must match target README path"))
-    elif shim_raw not in target_text:
+    elif not readme_links_manifest and shim_raw not in target_text:
         problems.append(Problem(target, f"content_moved_batch README does not mention shim path: {shim_raw}"))
 
     if not isinstance(compatibility_entry_raw, str):
@@ -174,7 +211,7 @@ def validate_content_moved_batch(
                     f"content_moved_batch compatibility_entry is not within source path: {source_raw}",
                 )
             )
-        if compatibility_entry_raw not in target_text:
+        if not readme_links_manifest and compatibility_entry_raw not in target_text:
             problems.append(
                 Problem(
                     target,
@@ -185,7 +222,7 @@ def validate_content_moved_batch(
     if not isinstance(moved_files_raw, list) or not moved_files_raw:
         return problems + [Problem(entry_path, "content_moved_batch moved_files must be a non-empty list")]
 
-    if "content moved" not in target_text.lower():
+    if not readme_links_manifest and "content moved" not in target_text.lower():
         problems.append(Problem(target, "content_moved_batch README must identify moved content"))
 
     for file_index, moved_file in enumerate(moved_files_raw):
@@ -224,7 +261,7 @@ def validate_content_moved_batch(
             problems.append(Problem(file_path, "moved file source_status must be compatibility_shim"))
 
         for required in (moved_source_raw, moved_target_raw):
-            if isinstance(required, str) and required and required not in target_text:
+            if not readme_links_manifest and isinstance(required, str) and required and required not in target_text:
                 problems.append(Problem(target, f"content_moved_batch README does not mention moved path: {required}"))
 
         if moved_source is not None and moved_source.is_file() and isinstance(moved_target_raw, str):
@@ -263,6 +300,8 @@ def validate_navigation_promotions(
     expected_root_readme_raw = f"{root_raw}/README.md"
     expected_root_readme = repo_root / expected_root_readme_raw
     root_text = expected_root_readme.read_text(encoding="utf-8") if expected_root_readme.is_file() else ""
+    readme_links_manifest = links_owning_manifest(expected_root_readme, root_text, manifest_path)
+    root_links = relative_markdown_links(expected_root_readme, root_text)
 
     for promotion_index, promotion in enumerate(promotions_raw):
         promotion_path = Path(f"{manifest_path}#navigation_promotions[{promotion_index}]")
@@ -295,12 +334,12 @@ def validate_navigation_promotions(
         navigation_section = promotion.get("navigation_section")
         if not isinstance(navigation_section, str) or not navigation_section:
             problems.append(Problem(promotion_path, "navigation promotion navigation_section is missing"))
-        elif navigation_section not in root_text:
+        elif not readme_links_manifest and navigation_section not in root_text:
             problems.append(
                 Problem(expected_root_readme, f"navigation section is missing: {navigation_section}")
             )
 
-        if isinstance(promotion_id, str) and promotion_id and promotion_id not in root_text:
+        if not readme_links_manifest and isinstance(promotion_id, str) and promotion_id and promotion_id not in root_text:
             problems.append(Problem(expected_root_readme, f"navigation promotion id is not mentioned: {promotion_id}"))
 
         navigation_entries = promotion.get("entries")
@@ -383,9 +422,13 @@ def validate_navigation_promotions(
                 )
                 if isinstance(value, str) and value
             ]
-            for required in required_root_text:
-                if required not in root_text:
-                    problems.append(Problem(expected_root_readme, f"navigation README does not mention: {required}"))
+            if readme_links_manifest:
+                if target is not None and target.resolve() not in root_links:
+                    problems.append(Problem(expected_root_readme, f"navigation README does not link target: {target_raw}"))
+            else:
+                for required in required_root_text:
+                    if required not in root_text:
+                        problems.append(Problem(expected_root_readme, f"navigation README does not mention: {required}"))
 
             partial_boundary = navigation_entry.get("partial_boundary")
             if not isinstance(partial_boundary, str) or not partial_boundary:
@@ -474,7 +517,8 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> tuple[list[Proble
             problems.append(Problem(target, "target entry is outside its manifest root"))
 
         target_text = target.read_text(encoding="utf-8")
-        if source_raw not in target_text:
+        readme_links_manifest = links_owning_manifest(target, target_text, manifest_path)
+        if not readme_links_manifest and source_raw not in target_text:
             problems.append(Problem(target, f"target README does not mention mapped source: {source_raw}"))
         if status == "content_shim":
             problems.extend(
@@ -489,6 +533,7 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> tuple[list[Proble
                     target_raw=target_raw,
                     target_text=target_text,
                     entry=entry,
+                    readme_links_manifest=readme_links_manifest,
                 )
             )
         elif status == "content_moved_batch":
@@ -504,6 +549,7 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> tuple[list[Proble
                     target_raw=target_raw,
                     target_text=target_text,
                     entry=entry,
+                    readme_links_manifest=readme_links_manifest,
                 )
             )
 

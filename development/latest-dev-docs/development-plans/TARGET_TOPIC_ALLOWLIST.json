@@ -1,6 +1,6 @@
 {
   "schema": "development-plans-target-topic-allowlist/v1",
-  "updated": "2026-05-23 PST",
+  "updated": "2026-10-05 Asia/Shanghai",
   "purpose": "Separate real development target topics from evidence/process records, navigation directories, compatibility shims, and external reference material.",
   "external_blocker_manifest": "development/latest-dev-docs/development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json",
   "target_roots": [
@@ -8,7 +8,9 @@
       "path": "development/latest-dev-docs/development-plans/CURRENT_DEV",
       "status": "active_current",
       "entrypoint": "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
-      "allowed_non_topic_dirs": ["main"]
+      "allowed_non_topic_dirs": [
+        "main"
+      ]
     },
     {
       "path": "docs/development/development-plans/ARCHIVE_CLOSED",
@@ -187,7 +189,22 @@
   ],
   "evidence_roots": [
     "development/latest-dev-docs/automation-runs",
-    "docs/development/development-plans/archive-closed-file-classification-2026-05-23.json"
+    "docs/development/development-plans/archive-closed-file-classification-2026-05-23.json",
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration",
+      "role": "retained_completed_evidence",
+      "reason": "原生迁移与冻结身份历史；后续清简实施已完成，保留原始证据和路径。"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release",
+      "role": "retained_completed_evidence",
+      "reason": "进度顶部记录本地验收与清理完成、执行停止、发布延后；历史证据保持原位。"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-24-information-topology",
+      "role": "retained_completed_evidence",
+      "reason": "合同执行记录记载本轮功能集成与测试/E2E完成；保留所列投影与外部材料边界。"
+    }
   ],
   "reference_excludes": [
     "**/references/repos/**"

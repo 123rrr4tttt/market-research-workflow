@@ -1,16 +1,3 @@
-# CURRENT_DEV Standard Main Index
+# 开发主题兼容入口
 
-更新时间：2026-05-22（PST）
-
-## Canonical Current Entry
-
-- [../INDEX.md](../INDEX.md)
-
-## Compatibility Entry
-
-- [../main index.md](../main%20index.md)
-
-## Notes
-
-- `CURRENT_DEV` remains the working entry for unfinished development-plan topics.
-- This standard `main/index.md` exists so directory scanners that expect the project-wide `main/index.md` convention can resolve `CURRENT_DEV` without depending on the legacy `main index.md` filename.
+[主题登记](../INDEX.md)拥有当前目录分类；使用、开发和历史资料见[文档导航](../../../../../docs/README.md)。

@@ -3,10 +3,8 @@
 
 This checker is intentionally read-only. Worker branches can use the default
 audit mode to verify the target docs/development navigation surfaces they own
-while still reporting the integration-owned shared navigation drift. The final
-integration lane can use --require-clean to fail until both the target surfaces
-and shared latest-dev-docs indexes cite the latest docs-root topic-local
-evidence.
+while still reporting shared navigation drift. Evidence may be linked directly
+or through its single historical index; every original anchor remains checked.
 """
 
 from __future__ import annotations
@@ -22,6 +20,7 @@ from urllib.parse import unquote
 
 
 TOPIC_DIR = Path("docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring")
+EVIDENCE_INDEX = Path("docs/history/documentation-migration.md")
 CONTENT_PLAN = Path("docs/development/latest-dev-docs-content-plan.json")
 REQUIRED_BLOCKERS = {"shared_navigation_sync", "MERGED_OVERVIEW_drift"}
 POST_WAVE25_MIN_PREFIX = 14
@@ -133,6 +132,8 @@ def markdown_links(repo_root: Path, surface: Surface, problems: list[Problem]) -
     for _, _, raw_target in LINK_RE.findall(surface_path.read_text(encoding="utf-8")):
         resolved = resolve_link(repo_root, surface_path, raw_target)
         if resolved is not None:
+            if not (repo_root / resolved).exists():
+                problems.append(Problem(surface.path, f"local navigation target is missing: {resolved}"))
             links.add(resolved)
     return links
 
@@ -244,6 +245,10 @@ def missing_references(
     missing: list[MissingReference] = []
     for surface in surfaces:
         links = markdown_links(repo_root, surface, problems)
+        if EVIDENCE_INDEX in links:
+            links |= markdown_links(
+                repo_root, Surface("migration evidence index", EVIDENCE_INDEX), problems
+            )
         for anchor in anchors:
             if anchor not in links:
                 missing.append(MissingReference(anchor=anchor, surface=surface))

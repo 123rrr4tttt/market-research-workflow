@@ -1,9 +1,5 @@
-# Snapshot Sync Status
+# 历史快照同步记录
 
-- Last Checked: `2026-05-07 17:06:59 PDT`
-- Checked Mappings: `41`
-- In Sync: `41`
-- Diff: `0`
-- Missing: `0`
+最后一次原同步检查为 2026-05-07，检查 41 个映射，当时全部一致。此记录只描述该次检查，不声明旧快照与当前源码持续一致。
 
-All snapshot files are synchronized with current source files.
+当前文件归属见[文档迁移清单](../../docs/history/documentation-migration.md)，日常阅读见[统一导航](../../docs/README.md)。
