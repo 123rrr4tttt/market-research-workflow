@@ -25,7 +25,15 @@ def configured_python_matrix() -> tuple[Path, ...]:
     """Use an explicit execution-environment matrix without fabricating venvs."""
     raw = os.environ.get("MRW_TEST_PYTHON_EXECUTABLES")
     if raw is None:
-        return (Path(".venv/bin/python"), Path("main/backend/.venv311/bin/python"))
+        configured = tuple(
+            path
+            for path in (
+                Path(".venv/bin/python"),
+                Path("main/backend/.venv311/bin/python"),
+            )
+            if path.exists()
+        )
+        return configured or (Path(sys.executable),)
     values = json.loads(raw)
     if (
         not isinstance(values, list) or not values

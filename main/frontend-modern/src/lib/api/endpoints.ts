@@ -36,6 +36,12 @@ export const endpoints = {
     archive: (projectKey: string) => `${API_BASE}/projects/${encodeURIComponent(projectKey)}/archive`,
     restore: (projectKey: string) => `${API_BASE}/projects/${encodeURIComponent(projectKey)}/restore`,
   },
+  projectRetrieval: {
+    currentMode: `${API_BASE}/project-retrieval/modes/current`,
+    preview: `${API_BASE}/project-retrieval/plans/preview`,
+    runs: `${API_BASE}/project-retrieval/runs`,
+    runById: (runId: string) => `${API_BASE}/project-retrieval/runs/${encodeURIComponent(runId)}`,
+  },
   crawler: {
     projects: `${API_BASE}/crawler/projects`,
     projectByKey: (crawlerProjectKey: string) => `${API_BASE}/crawler/projects/${encodeURIComponent(crawlerProjectKey)}`,
@@ -102,15 +108,11 @@ export const endpoints = {
     retryByJob: (jobId: string) => `${API_BASE}/agent-batch/jobs/${encodeURIComponent(jobId)}/retry`,
     eventsByJob: (jobId: string) => `${API_BASE}/agent-batch/jobs/${encodeURIComponent(jobId)}/events`,
     ruleSetValidate: `${API_BASE}/agent-batch/rule-sets/validate`,
-    nlCommand: `${API_BASE}/agent-batch/nl-command`,
-    nlCommandDirect: `${API_BASE}/agent-batch/nl-command/direct`,
   },
   agentChat: {
     capabilities: `${API_BASE}/agent-chat/capabilities`,
-    models: `${API_BASE}/agent-chat/models`,
     turn: `${API_BASE}/agent-chat/turn`,
     turnStream: `${API_BASE}/agent-chat/turn/stream`,
-    approvalContinue: (approvalId: string) => `${API_BASE}/agent-chat/approvals/${encodeURIComponent(approvalId)}/continue`,
   },
   agentSessions: {
     root: `${API_BASE}/agent-sessions`,
@@ -215,6 +217,12 @@ export const endpoints = {
       `${API_BASE}/workflow-graph/templates/${encodeURIComponent(templateId)}/versions/${encodeURIComponent(versionId)}`,
     templateVersionActivate: (templateId: string, versionId: string) =>
       `${API_BASE}/workflow-graph/templates/${encodeURIComponent(templateId)}/versions/${encodeURIComponent(versionId)}/activate`,
+  },
+  functorial: {
+    operators: `${API_BASE}/functorial/operators`,
+    motifs: `${API_BASE}/functorial/motifs`,
+    workflows: `${API_BASE}/functorial/workflows`,
+    workflowRun: (workflowId: string) => `${API_BASE}/functorial/workflows/${encodeURIComponent(workflowId)}/run`,
   },
   llm: {
     root: `${API_BASE}/llm-config`,

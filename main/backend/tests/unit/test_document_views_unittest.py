@@ -55,7 +55,7 @@ class DocumentViewsUnitTestCase(unittest.TestCase):
                     "key_points": [" one ", "", 3],
                 },
                 "entities_relations": {
-                    "entities": [{"name": "Lottery", "type": "org"}],
+                    "entities": [{"name": "Energy", "type": "org"}],
                     "relations": [{"predicate": "applies_to"}],
                 },
             },
@@ -67,20 +67,20 @@ class DocumentViewsUnitTestCase(unittest.TestCase):
         self.assertEqual(summary["state"], "CA")
         self.assertEqual(summary["summary"], "fallback summary")
         self.assertEqual(summary["key_points"], ["one"])
-        self.assertEqual(detail["entities"], [{"name": "Lottery", "type": "org"}])
+        self.assertEqual(detail["entities"], [{"name": "Energy", "type": "org"}])
         self.assertEqual(detail["relations"], [{"predicate": "applies_to"}])
 
     def test_market_view_builds_fallback_payload(self):
         doc = SimpleNamespace(
             state="TX",
             publish_date=date(2026, 3, 4),
-            extracted_data={"keyword": "powerball"},
+            extracted_data={"keyword": "smart meters"},
         )
 
         market = get_market_data(doc)
 
         self.assertEqual(market["state"], "TX")
-        self.assertEqual(market["game"], "powerball")
+        self.assertEqual(market["game"], "smart meters")
         self.assertEqual(market["report_date"], "2026-03-04")
 
     def test_social_view_falls_back_to_entities_relations_and_key_phrases(self):
@@ -96,27 +96,27 @@ class DocumentViewsUnitTestCase(unittest.TestCase):
                 "username": " user-a ",
                 "sentiment": {
                     "sentiment_orientation": "positive",
-                    "key_phrases": ["jackpot", "", 2],
-                    "topic": "Lottery",
-                    "sentiment_tags": ["win", 3],
+                    "key_phrases": ["grid", "", 2],
+                    "topic": "Energy",
+                    "sentiment_tags": ["growth", 3],
                 },
-                "entities_relations": {"entities": [{"name": "Mega Millions"}]},
+                "entities_relations": {"entities": [{"name": "Grid Systems"}]},
             }
         )
 
-        self.assertEqual(get_social_keywords(doc), ["jackpot"])
-        self.assertEqual(get_social_entities(doc), [{"name": "Mega Millions"}])
+        self.assertEqual(get_social_keywords(doc), ["grid"])
+        self.assertEqual(get_social_entities(doc), [{"name": "Grid Systems"}])
         self.assertEqual(get_social_platform_label(doc), "Reddit")
         self.assertEqual(get_social_sentiment_orientation(doc), "positive")
-        self.assertEqual(get_social_sentiment_terms(doc), ["jackpot", "Lottery", "win"])
+        self.assertEqual(get_social_sentiment_terms(doc), ["grid", "Energy", "growth"])
 
         item = build_social_data_item(doc)
 
         self.assertEqual(item["platform"], "Reddit")
         self.assertEqual(item["username"], "user-a")
         self.assertEqual(item["sentiment_orientation"], "positive")
-        self.assertEqual(item["key_phrases"], ["jackpot"])
-        self.assertEqual(item["entities"], [{"name": "Mega Millions"}])
+        self.assertEqual(item["key_phrases"], ["grid"])
+        self.assertEqual(item["entities"], [{"name": "Grid Systems"}])
 
     def test_stats_view_builds_prompt_time_density_fields(self):
         explicit = SimpleNamespace(

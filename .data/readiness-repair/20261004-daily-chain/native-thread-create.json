@@ -1,0 +1,68 @@
+{
+  "http_status": 201,
+  "response": {
+    "thread": {
+      "id": "01a1060e-968e-7502-bfbb-cbb615369e3b",
+      "environments": [
+        {
+          "environmentId": "local",
+          "cwd": "/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-daily-chain",
+          "runtimeWorkspaceRoots": [
+            "/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-daily-chain"
+          ]
+        }
+      ],
+      "extra": null,
+      "sessionId": "01a1060e-968e-7502-bfbb-cbb615369e3b",
+      "forkedFromId": null,
+      "parentThreadId": null,
+      "preview": "",
+      "ephemeral": false,
+      "section": null,
+      "sectionEnteredAt": null,
+      "projectId": null,
+      "historyMode": "paginated",
+      "modelProvider": "codex_model_router_v2",
+      "model": "glm-5.3-zhipu-glm-en",
+      "reasoningEffort": "high",
+      "createdAt": 1791102986,
+      "updatedAt": 1791102986,
+      "recencyAt": 1791102986,
+      "status": {
+        "type": "idle"
+      },
+      "path": "/Users/wangyiliang/.codex-mrw-agent/sessions/2026/10/04/rollout-2026-10-04T16-36-23-01a1060e-968e-7502-bfbb-cbb615369e3b.jsonl",
+      "cwd": "/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-daily-chain",
+      "cliVersion": "0.160.0",
+      "originator": "codex_webui",
+      "source": "vscode",
+      "canAcceptDirectInput": true,
+      "threadSource": null,
+      "agentNickname": null,
+      "agentRole": null,
+      "gitInfo": null,
+      "name": null,
+      "daybreakEnabled": null,
+      "turns": []
+    },
+    "model": "glm-5.3-zhipu-glm-en",
+    "modelProvider": "codex_model_router_v2",
+    "serviceTier": null,
+    "disabledPluginIds": [],
+    "cwd": "/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-daily-chain",
+    "runtimeWorkspaceRoots": [
+      "/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-daily-chain"
+    ],
+    "instructionSources": [
+      "/Users/wangyiliang/market-research-workflow/AGENTS.md"
+    ],
+    "approvalPolicy": "never",
+    "approvalsReviewer": "user",
+    "sandbox": {
+      "type": "dangerFullAccess"
+    },
+    "activePermissionProfile": null,
+    "reasoningEffort": "high",
+    "multiAgentMode": "explicitRequestOnly"
+  }
+}

@@ -13,10 +13,10 @@ from typing import Annotated, Any, Sequence
 from urllib import error, request
 
 try:
-    from scripts._automation_runtime import utc_now, write_json
+    from scripts._automation_runtime import WORKER_REQUIRED_LINE_KEYS, utc_now, write_json
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from _automation_runtime import utc_now, write_json
+    from _automation_runtime import WORKER_REQUIRED_LINE_KEYS, utc_now, write_json
 
 
 SCHEMA_VERSION = "business_line_worker_readback_smoke_triggers.v1"
@@ -25,12 +25,6 @@ STATUS_PASSED = "passed"
 STATUS_FAILED = "failed"
 STATUS_BLOCKED = "blocked_by_environment"
 
-WORKER_REQUIRED_LINE_KEYS = (
-    "ingest",
-    "search_discovery_index",
-    "resource_source_library",
-    "writing_knowledge_graph_agent",
-)
 
 
 @dataclass(frozen=True)

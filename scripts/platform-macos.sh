@@ -11,9 +11,13 @@ DOCKER_DEPLOY_SCRIPT="${ROOT_DIR}/scripts/docker-deploy.sh"
 DOCKER_LAUNCHER_SCRIPT="${ROOT_DIR}/scripts/docker-launcher-ui.sh"
 DOCKER_APP_CONTROL_SCRIPT="${ROOT_DIR}/scripts/docker-app-control.sh"
 CONFIG_SCRIPT="${ROOT_DIR}/scripts/configure-external-services.py"
+LAUNCHER_CONTRACT="${ROOT_DIR}/scripts/launcher-contract.sh"
+source "${LAUNCHER_CONTRACT}"
 
 usage() {
-  echo "Usage: $(basename "$0") {ui|start|stop|restart|status|health|local-start|local-stop|docker-start|docker-full-start|docker-stop|docker-restart|docker-status|configure|doctor|config-status} [extra args...]"
+  echo "Usage: $(basename "$0") {ui|start|stop|restart|status|health|local-start|local-stop|docker-start|docker-app-start|docker-full-start|docker-stop|docker-restart|docker-status|configure|doctor|config-status} [extra args...]"
+  echo "  docker-start      Start/open Docker control console only (${MRW_DOCKER_LAUNCHER_URL:-http://127.0.0.1:5176})"
+  echo "  docker-app-start  Start the complete Docker MRW app stack"
 }
 
 if [[ ! -d "${BACKEND_DIR}" ]]; then
@@ -81,7 +85,7 @@ case "${cmd}" in
     echo "Running: ${cmd}"
     exec "${DOCKER_LAUNCHER_SCRIPT}" "$@"
     ;;
-  docker-full-start)
+  docker-app-start|docker-full-start)
     echo "Running: ${cmd}"
     exec "${DOCKER_DEPLOY_SCRIPT}" start --profile modern-ui "$@"
     ;;

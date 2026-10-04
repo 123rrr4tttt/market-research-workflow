@@ -158,14 +158,21 @@ def test_shared_traversal_dependency_is_bound_read_only() -> None:
     )
 
 
-def test_topic_fragment_write_is_stable_and_matches_build() -> None:
+def test_topic_fragment_write_is_stable_and_matches_build(tmp_path: Path) -> None:
     generator = _load_generator()
+    canonical_before = _TOPIC_FRAGMENT.read_bytes()
     first_bytes = generator.fragment_bytes(generator.build_fragment())
+    target = tmp_path / "C3.json"
+    generator.FRAGMENT_PATH = target
+
     generator.write_fragment()
+
     second_bytes = generator.fragment_bytes(generator.build_fragment())
     assert second_bytes == first_bytes
-    assert _TOPIC_FRAGMENT.read_bytes() == first_bytes
-    written = json.loads(_TOPIC_FRAGMENT.read_bytes())
+    assert generator.write_fragment() == target
+    assert target.read_bytes() == first_bytes
+    assert _TOPIC_FRAGMENT.read_bytes() == canonical_before
+    written = json.loads(target.read_bytes())
     assert written["content_digest"] == _canonical_digest(
         {key: value for key, value in written.items() if key != "content_digest"}
     )

@@ -8,6 +8,7 @@ import AgentWritingAssistantPanel, {
   type WritingAgentToolAction,
   type WritingAgentWorkbenchTool,
 } from '../components/writing/AgentWritingAssistantPanel'
+import ReportTopologyPanel from '../components/writing/ReportTopologyPanel'
 import CitationBasket from '../components/writing/CitationBasket'
 import { toDraggedCardPreview, type WritingDraggedCardPayload } from '../components/writing/dragPayload'
 import KeywordInsightSidebar from '../components/writing/KeywordInsightSidebar'
@@ -1946,8 +1947,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
             message: buildWritingAgentCommand(command),
             project_key: projectKey || null,
             session_id: writingAgentSessionId || null,
-            enable_model_tool_loop: true,
-            require_high_risk_approval: false,
+            runtime_variant: 'agent_macro_native',
           },
           {
             onStatus: setWritingAgentStreamStatus,
@@ -2535,6 +2535,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           </aside>
         ) : null}
 
+        <ReportTopologyPanel projectKey={projectKey} documentId={effectiveDocumentId} bodyVersion={documentDetailQuery.data?.version ?? null} />
         <main className={`writing-canvas-stage is-${viewMode}`} data-testid="writing-canvas-stage">
           {(viewMode === 'write' || viewMode === 'split') ? (
             <section className="writing-canvas-pane writing-canvas-pane--editor" data-testid="writing-editor-pane">

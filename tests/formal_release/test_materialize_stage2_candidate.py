@@ -90,11 +90,17 @@ def setup_pair(
             for path in (ROOT / CORE_ROOT).glob("*.py")
             if path.relative_to(ROOT).as_posix() not in required
         ]
-        mrw_paths.extend(Path(path) for path in REQUIRED_CONSUMERS)
         for relative in mrw_paths:
             destination = source / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / relative, destination)
+        for consumer, imports in REQUIRED_CONSUMERS.items():
+            destination = source / consumer
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(
+                "".join(f"from {module} import {name}\n" for module, name in imports),
+                encoding="utf-8",
+            )
     git(source, "add", ".")
     git(source, "commit", "-m", "base")
     base = git(source, "rev-parse", "HEAD")

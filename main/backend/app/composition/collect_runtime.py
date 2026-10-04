@@ -17,6 +17,7 @@ from app.services.collect_runtime.adapters.url_pool import UrlPoolAdapter
 from app.services.collect_runtime.contracts import CollectAdapter, CollectRequest, CollectResult
 from app.services.collect_runtime.runtime import (
     register_collect_adapters,
+    register_successor_collect_effect_gateway,
     register_source_library_compat_projector,
     run_collect,
     run_source_library_item_compat,
@@ -39,8 +40,28 @@ def configure_default_collect_adapters(*, force: bool = False) -> None:
     global _CONFIGURED
     if _CONFIGURED and not force:
         return
-    register_collect_adapters(default_collect_adapters())
+    adapters = default_collect_adapters()
+    register_collect_adapters(adapters)
     register_source_library_compat_projector(to_source_library_response)
+
+    def run_successor_effect(request: CollectRequest) -> CollectResult:
+        # C3 owns ordering and outcome interpretation; the existing channel
+        # adapter remains the explicit effect owner. Unknown channels fail
+        # closed instead of falling back to legacy dispatch.
+        adapter = adapters.get(str(request.channel or "").strip())
+        if adapter is None:
+            return CollectResult(
+                flow=request.flow,
+                channel=request.channel,
+                status="failed",
+                errors=[{
+                    "code": "collect_effect_not_registered",
+                    "message": f"no successor collect effect is registered for {request.channel!r}",
+                }],
+            )
+        return adapter.run(request)
+
+    register_successor_collect_effect_gateway(run_successor_effect)
     _CONFIGURED = True
 
 

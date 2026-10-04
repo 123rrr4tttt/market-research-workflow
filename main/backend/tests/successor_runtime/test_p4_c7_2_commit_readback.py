@@ -11,8 +11,8 @@ from app.successor_migration.document_repository_c7 import (
     TestDocumentRepositoryC7,
     document_ref_from_readback,
 )
-from app.successor_runtime.capabilities import ingest_c7_common as c7
-from app.successor_runtime.capabilities.ingest_c7_interpreters import (
+from app.successor_runtime.capabilities import material_ingest_common as c7
+from app.successor_runtime.capabilities.material_ingest_interpreters import (
     interpret_commit_readback,
 )
 from tests.successor_runtime.p4_c7_fixture import (
@@ -101,7 +101,7 @@ def test_document_ref_comes_from_canonical_readback_not_runtime_intent() -> None
 
 
 def test_only_c7_2_admission_carries_write_boundary() -> None:
-    from app.successor_runtime.capabilities.ingest_c7_common import (
+    from app.successor_runtime.capabilities.material_ingest_common import (
         stage_ingest_submission,
     )
     from tests.successor_runtime.p4_c7_fixture import submission
@@ -109,4 +109,4 @@ def test_only_c7_2_admission_carries_write_boundary() -> None:
     staged = stage_ingest_submission(submission())
     assert staged.receipt["document_write_boundary"] is False
     assert c7.ADMISSION_WRITE_BOUNDARY
-    assert c7.C7_INGEST_OWNER != c7.DOCUMENT_CANONICAL_OWNER
+    assert c7.MATERIAL_INGEST_OWNER != c7.DOCUMENT_CANONICAL_OWNER

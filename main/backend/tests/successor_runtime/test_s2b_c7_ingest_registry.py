@@ -9,21 +9,21 @@ from typing import Any
 
 import pytest
 
-from app.successor_runtime.capabilities.ingest_c7_registry import (
-    IngestRegistryAuthority,
-    IngestRegistryBackendUnavailableError,
-    IngestRegistryCompleteCommand,
-    IngestRegistryConflictError,
-    IngestRegistryCredentialError,
-    IngestRegistryForgetCommand,
-    IngestRegistryReadback,
-    IngestRegistryReserveCommand,
-    IngestRegistryState,
-    LocalSuccessorIngestRegistryStore,
-    complete_submission,
+from app.successor_runtime.capabilities.material_ingest_registry import (
+    MaterialIngestRegistryAuthority,
+    MaterialIngestRegistryBackendUnavailableError,
+    MaterialIngestRegistryCompleteCommand,
+    MaterialIngestRegistryConflictError,
+    MaterialIngestRegistryCredentialError,
+    MaterialIngestRegistryForgetCommand,
+    MaterialIngestRegistryReadback,
+    MaterialIngestRegistryReserveCommand,
+    MaterialIngestRegistryState,
+    LocalSuccessorMaterialIngestRegistryStore,
+    complete_material_submission,
     derive_registry_identity,
-    forget_submission,
-    reserve_submission,
+    forget_material_submission,
+    reserve_material_submission,
 )
 from app.successor_runtime.language.object_contracts import (
     OperationContractRef,
@@ -87,12 +87,12 @@ def _reserve_command(
     request_payload: dict[str, Any] | None = None,
     subject_payload: dict[str, Any] | None = None,
     idempotency_key: str = _IDEMPOTENCY_KEY,
-    authority: IngestRegistryAuthority | None = None,
-) -> IngestRegistryReserveCommand:
+    authority: MaterialIngestRegistryAuthority | None = None,
+) -> MaterialIngestRegistryReserveCommand:
     resolved_request = (
         request_payload if request_payload is not None else _request_payload()
     )
-    return IngestRegistryReserveCommand(
+    return MaterialIngestRegistryReserveCommand(
         identity=_identity(resolved_request, idempotency_key=idempotency_key),
         subject_payload=(
             subject_payload if subject_payload is not None else _subject_payload()
@@ -117,7 +117,7 @@ def _binding(
 
 
 def _new_handler(
-    store: LocalSuccessorIngestRegistryStore,
+    store: LocalSuccessorMaterialIngestRegistryStore,
     command: object,
     *,
     handler_binding_digest: str | None = None,
@@ -222,7 +222,7 @@ def _context() -> RuntimeExecutionContext:
     )
 
 
-def _observability_json(readback: IngestRegistryReadback) -> str:
+def _observability_json(readback: MaterialIngestRegistryReadback) -> str:
     payload: dict[str, Any] = {
         "identity": readback.identity.to_plain(),
         "lifecycle_state": readback.lifecycle_state.value,
@@ -277,26 +277,26 @@ def test_s2b_c7_registry_identity_is_deterministic_and_canonical() -> None:
 
 
 def test_s2b_c7_reserve_first_duplicate_and_hash_conflict() -> None:
-    store = LocalSuccessorIngestRegistryStore()
+    store = LocalSuccessorMaterialIngestRegistryStore()
     command = _reserve_command()
 
-    first = reserve_submission(store, command)
+    first = reserve_material_submission(store, command)
 
     assert first.duplicate is False
-    assert first.lifecycle_state is IngestRegistryState.SUBMITTED
+    assert first.lifecycle_state is MaterialIngestRegistryState.SUBMITTED
     assert first.observed_status == "submitted"
     assert first.revision == 1
     assert first.response_payload is None
     assert store.inserts == 1
     assert store.updates == 0
 
-    duplicate = reserve_submission(store, command)
+    duplicate = reserve_material_submission(store, command)
     assert duplicate.duplicate is True
     assert duplicate.identity == first.identity
     assert duplicate.subject_payload == first.subject_payload
     assert store.inserts == 1
 
-    duplicate_again = reserve_submission(store, command)
+    duplicate_again = reserve_material_submission(store, command)
     assert duplicate_again == duplicate
     assert duplicate_again.readback_digest == duplicate.readback_digest
 
@@ -304,37 +304,37 @@ def test_s2b_c7_reserve_first_duplicate_and_hash_conflict() -> None:
         request_payload={"url": "https://example.com/other"},
         idempotency_key=_IDEMPOTENCY_KEY,
     )
-    with pytest.raises(IngestRegistryConflictError):
-        reserve_submission(store, conflicting)
+    with pytest.raises(MaterialIngestRegistryConflictError):
+        reserve_material_submission(store, conflicting)
     assert store.find(first.identity.registry_key) is not None
     assert store.inserts == 1
 
 
 def test_s2b_c7_complete_terminal_replay_and_terminal_conflict() -> None:
-    store = LocalSuccessorIngestRegistryStore()
+    store = LocalSuccessorMaterialIngestRegistryStore()
     command = _reserve_command()
-    reserved = reserve_submission(store, command)
+    reserved = reserve_material_submission(store, command)
     registry_key = reserved.identity.registry_key
 
-    queued = complete_submission(
+    queued = complete_material_submission(
         store,
-        IngestRegistryCompleteCommand(
+        MaterialIngestRegistryCompleteCommand(
             registry_key=registry_key,
-            lifecycle_state=IngestRegistryState.QUEUED,
+            lifecycle_state=MaterialIngestRegistryState.QUEUED,
             observed_status="queued",
             response_payload={"stage": "queued"},
             task_id="task-1",
         ),
     )
-    assert queued.lifecycle_state is IngestRegistryState.QUEUED
+    assert queued.lifecycle_state is MaterialIngestRegistryState.QUEUED
     assert queued.task_id == "task-1"
     assert queued.revision == 2
 
-    queued_replay = complete_submission(
+    queued_replay = complete_material_submission(
         store,
-        IngestRegistryCompleteCommand(
+        MaterialIngestRegistryCompleteCommand(
             registry_key=registry_key,
-            lifecycle_state=IngestRegistryState.QUEUED,
+            lifecycle_state=MaterialIngestRegistryState.QUEUED,
             observed_status="queued",
             response_payload={"stage": "queued"},
             task_id="task-1",
@@ -345,26 +345,26 @@ def test_s2b_c7_complete_terminal_replay_and_terminal_conflict() -> None:
     assert store.updates == 1
 
     completed_response = {"status": "ok", "rows": [1, 2, 3]}
-    completed = complete_submission(
+    completed = complete_material_submission(
         store,
-        IngestRegistryCompleteCommand(
+        MaterialIngestRegistryCompleteCommand(
             registry_key=registry_key,
-            lifecycle_state=IngestRegistryState.COMPLETED,
+            lifecycle_state=MaterialIngestRegistryState.COMPLETED,
             observed_status="completed",
             response_payload=completed_response,
             task_id="task-1",
         ),
     )
-    assert completed.lifecycle_state is IngestRegistryState.COMPLETED
+    assert completed.lifecycle_state is MaterialIngestRegistryState.COMPLETED
     assert completed.revision == 3
     assert completed.response_payload == completed_response
     assert store.updates == 2
 
-    replay = complete_submission(
+    replay = complete_material_submission(
         store,
-        IngestRegistryCompleteCommand(
+        MaterialIngestRegistryCompleteCommand(
             registry_key=registry_key,
-            lifecycle_state=IngestRegistryState.COMPLETED,
+            lifecycle_state=MaterialIngestRegistryState.COMPLETED,
             observed_status="completed",
             response_payload=completed_response,
             task_id="task-1",
@@ -374,23 +374,23 @@ def test_s2b_c7_complete_terminal_replay_and_terminal_conflict() -> None:
     assert replay.readback_digest == completed.readback_digest
     assert store.updates == 2
 
-    with pytest.raises(IngestRegistryConflictError):
-        complete_submission(
+    with pytest.raises(MaterialIngestRegistryConflictError):
+        complete_material_submission(
             store,
-            IngestRegistryCompleteCommand(
+            MaterialIngestRegistryCompleteCommand(
                 registry_key=registry_key,
-                lifecycle_state=IngestRegistryState.FAILED,
+                lifecycle_state=MaterialIngestRegistryState.FAILED,
                 observed_status="failed",
                 response_payload={"error": "terminal conflict"},
                 task_id="task-1",
             ),
         )
-    with pytest.raises(IngestRegistryConflictError):
-        complete_submission(
+    with pytest.raises(MaterialIngestRegistryConflictError):
+        complete_material_submission(
             store,
-            IngestRegistryCompleteCommand(
+            MaterialIngestRegistryCompleteCommand(
                 registry_key=registry_key,
-                lifecycle_state=IngestRegistryState.COMPLETED,
+                lifecycle_state=MaterialIngestRegistryState.COMPLETED,
                 observed_status="completed",
                 response_payload={"status": "different-terminal-content"},
                 task_id="task-1",
@@ -400,37 +400,39 @@ def test_s2b_c7_complete_terminal_replay_and_terminal_conflict() -> None:
 
 
 def test_s2b_c7_forget_missing_noop_and_allows_re_reserve() -> None:
-    store = LocalSuccessorIngestRegistryStore()
+    store = LocalSuccessorMaterialIngestRegistryStore()
     command = _reserve_command()
-    first = reserve_submission(store, command)
+    first = reserve_material_submission(store, command)
     registry_key = first.identity.registry_key
 
-    deleted = forget_submission(
+    deleted = forget_material_submission(
         store,
-        IngestRegistryForgetCommand(registry_key=registry_key),
+        MaterialIngestRegistryForgetCommand(registry_key=registry_key),
     )
     assert deleted.deleted is True
     assert deleted.registry_key == registry_key
     assert store.find(registry_key) is None
     assert store.deletes == 1
 
-    missing = forget_submission(
+    missing = forget_material_submission(
         store,
-        IngestRegistryForgetCommand(registry_key=registry_key),
+        MaterialIngestRegistryForgetCommand(registry_key=registry_key),
     )
     assert missing.deleted is False
     assert store.deletes == 1
 
-    again = reserve_submission(store, command)
+    again = reserve_material_submission(store, command)
     assert again.duplicate is False
     assert store.inserts == 2
     assert store.find(registry_key) is not None
 
 
 def test_s2b_c7_authority_stays_false_and_true_construction_raises() -> None:
-    authority = IngestRegistryAuthority()
+    authority = MaterialIngestRegistryAuthority()
     plain = authority.to_plain()
-    assert plain["schema_ref"] == "mrw.successor.ingest-c7.registry.authority.v1"
+    assert plain["schema_ref"] == (
+        "mrw.material.ingest.submission-registry.authority.v2"
+    )
     for name, value in plain.items():
         if name != "schema_ref":
             assert value is False
@@ -447,10 +449,10 @@ def test_s2b_c7_authority_stays_false_and_true_construction_raises() -> None:
         "candidate_created",
     ):
         with pytest.raises(ValueError):
-            IngestRegistryAuthority(**{name: True})
+            MaterialIngestRegistryAuthority(**{name: True})
 
-    store = LocalSuccessorIngestRegistryStore()
-    readback = reserve_submission(store, _reserve_command(authority=authority))
+    store = LocalSuccessorMaterialIngestRegistryStore()
+    readback = reserve_material_submission(store, _reserve_command(authority=authority))
     assert readback.authority.to_plain()["canonical_write"] is False
     assert readback.authority.to_plain()["live_provider"] is False
 
@@ -464,34 +466,34 @@ def test_s2b_c7_rejects_credential_like_keys_without_readback_leak(
 ) -> None:
     secret_value = "super-secret-value"
     for payload_field in ("subject", "request"):
-        store = LocalSuccessorIngestRegistryStore()
+        store = LocalSuccessorMaterialIngestRegistryStore()
         poisoned: dict[str, Any] = {"nested": {marker: secret_value}}
         if payload_field == "subject":
             command = _reserve_command(subject_payload=poisoned)
         else:
             command = _reserve_command(request_payload=poisoned)
-        with pytest.raises(IngestRegistryCredentialError) as exc:
-            reserve_submission(store, command)
+        with pytest.raises(MaterialIngestRegistryCredentialError) as exc:
+            reserve_material_submission(store, command)
         assert secret_value not in str(exc.value)
         assert store.find(command.identity.registry_key) is None
         assert store.inserts == 0
 
-    store = LocalSuccessorIngestRegistryStore()
-    clean = reserve_submission(store, _reserve_command())
-    with pytest.raises(IngestRegistryCredentialError):
-        complete_submission(
+    store = LocalSuccessorMaterialIngestRegistryStore()
+    clean = reserve_material_submission(store, _reserve_command())
+    with pytest.raises(MaterialIngestRegistryCredentialError):
+        complete_material_submission(
             store,
-            IngestRegistryCompleteCommand(
+            MaterialIngestRegistryCompleteCommand(
                 registry_key=clean.identity.registry_key,
-                lifecycle_state=IngestRegistryState.COMPLETED,
+                lifecycle_state=MaterialIngestRegistryState.COMPLETED,
                 observed_status="completed",
                 response_payload={"api_key": secret_value},
             ),
         )
     assert store.updates == 0
 
-    store = LocalSuccessorIngestRegistryStore()
-    observable = reserve_submission(store, _reserve_command())
+    store = LocalSuccessorMaterialIngestRegistryStore()
+    observable = reserve_material_submission(store, _reserve_command())
     blob = _observability_json(observable).lower()
     assert "secret" not in blob
     assert "password" not in blob
@@ -499,40 +501,40 @@ def test_s2b_c7_rejects_credential_like_keys_without_readback_leak(
 
 
 def test_s2b_c7_store_only_uses_successor_registry_table() -> None:
-    store = LocalSuccessorIngestRegistryStore()
+    store = LocalSuccessorMaterialIngestRegistryStore()
     assert store.table_name == "successor_ingest_submission_registry"
     assert store.legacy_table_writes == 0
 
-    first = reserve_submission(store, _reserve_command())
+    first = reserve_material_submission(store, _reserve_command())
     assert store.inserts == 1
-    complete_submission(
+    complete_material_submission(
         store,
-        IngestRegistryCompleteCommand(
+        MaterialIngestRegistryCompleteCommand(
             registry_key=first.identity.registry_key,
-            lifecycle_state=IngestRegistryState.COMPLETED,
+            lifecycle_state=MaterialIngestRegistryState.COMPLETED,
             observed_status="completed",
             response_payload={"status": "ok"},
         ),
     )
     assert store.updates == 1
-    forget_submission(
+    forget_material_submission(
         store,
-        IngestRegistryForgetCommand(registry_key=first.identity.registry_key),
+        MaterialIngestRegistryForgetCommand(registry_key=first.identity.registry_key),
     )
     assert store.deletes == 1
     assert store.legacy_table_writes == 0
 
     with pytest.raises(TypeError):
-        LocalSuccessorIngestRegistryStore(table_name="ingest_submission_registry")
+        LocalSuccessorMaterialIngestRegistryStore(table_name="ingest_submission_registry")
     assert store.legacy_table_writes == 0
 
 
 def test_s2b_c7_store_reserve_duplicate_and_conflict() -> None:
     command = _reserve_command()
-    source_store = LocalSuccessorIngestRegistryStore()
-    readback = reserve_submission(source_store, command)
+    source_store = LocalSuccessorMaterialIngestRegistryStore()
+    readback = reserve_material_submission(source_store, command)
 
-    store = LocalSuccessorIngestRegistryStore()
+    store = LocalSuccessorMaterialIngestRegistryStore()
     stored, duplicate = store.reserve(readback)
     assert duplicate is False
     assert stored.identity == readback.identity
@@ -542,27 +544,27 @@ def test_s2b_c7_store_reserve_duplicate_and_conflict() -> None:
     assert duplicate_again is True
     assert store.inserts == 1
 
-    conflicting_source = LocalSuccessorIngestRegistryStore()
-    conflicting = reserve_submission(
+    conflicting_source = LocalSuccessorMaterialIngestRegistryStore()
+    conflicting = reserve_material_submission(
         conflicting_source,
         _reserve_command(
             request_payload={"url": "https://example.com/conflict"},
             idempotency_key=_IDEMPOTENCY_KEY,
         ),
     )
-    with pytest.raises(IngestRegistryConflictError):
+    with pytest.raises(MaterialIngestRegistryConflictError):
         store.reserve(conflicting)
 
 
 class _UnavailableStore:
-    def find(self, registry_key: str) -> IngestRegistryReadback | None:
-        raise IngestRegistryBackendUnavailableError(
+    def find(self, registry_key: str) -> MaterialIngestRegistryReadback | None:
+        raise MaterialIngestRegistryBackendUnavailableError(
             "successor registry backend unavailable",
             registry_key=registry_key,
         )
 
     def delete(self, registry_key: str) -> bool:
-        raise IngestRegistryBackendUnavailableError(
+        raise MaterialIngestRegistryBackendUnavailableError(
             "successor registry backend unavailable",
             registry_key=registry_key,
         )
@@ -572,27 +574,27 @@ def test_s2b_c7_backend_unavailable_is_not_degraded_to_memory() -> None:
     command = _reserve_command()
     registry_key = command.identity.registry_key
 
-    with pytest.raises(IngestRegistryBackendUnavailableError):
-        reserve_submission(_UnavailableStore(), command)
-    with pytest.raises(IngestRegistryBackendUnavailableError):
-        complete_submission(
+    with pytest.raises(MaterialIngestRegistryBackendUnavailableError):
+        reserve_material_submission(_UnavailableStore(), command)
+    with pytest.raises(MaterialIngestRegistryBackendUnavailableError):
+        complete_material_submission(
             _UnavailableStore(),
-            IngestRegistryCompleteCommand(
+            MaterialIngestRegistryCompleteCommand(
                 registry_key=registry_key,
-                lifecycle_state=IngestRegistryState.COMPLETED,
+                lifecycle_state=MaterialIngestRegistryState.COMPLETED,
                 observed_status="completed",
                 response_payload={"status": "ok"},
             ),
         )
-    with pytest.raises(IngestRegistryBackendUnavailableError):
-        forget_submission(
+    with pytest.raises(MaterialIngestRegistryBackendUnavailableError):
+        forget_material_submission(
             _UnavailableStore(),
-            IngestRegistryForgetCommand(registry_key=registry_key),
+            MaterialIngestRegistryForgetCommand(registry_key=registry_key),
         )
 
 
 def test_s2b_c7_handler_executes_reserve_command() -> None:
-    store = LocalSuccessorIngestRegistryStore()
+    store = LocalSuccessorMaterialIngestRegistryStore()
     command = _reserve_command()
     handler, binding = _new_handler(store, command)
     assignment = _assignment(handler, binding)
@@ -601,7 +603,7 @@ def test_s2b_c7_handler_executes_reserve_command() -> None:
     outcome = handler.execute(assignment, claim, _context())
 
     assert handler.execute_calls == 1
-    assert isinstance(handler.last_readback, IngestRegistryReadback)
+    assert isinstance(handler.last_readback, MaterialIngestRegistryReadback)
     assert handler.last_readback.duplicate is False
     assert handler.operation_reason == "INGEST_REGISTRY_RESERVE_READBACK_ONLY"
     assert store.inserts == 1
@@ -612,12 +614,12 @@ def test_s2b_c7_handler_executes_reserve_command() -> None:
 
 
 def test_s2b_c7_handler_executes_complete_command() -> None:
-    store = LocalSuccessorIngestRegistryStore()
-    reserved = reserve_submission(store, _reserve_command())
+    store = LocalSuccessorMaterialIngestRegistryStore()
+    reserved = reserve_material_submission(store, _reserve_command())
     registry_key = reserved.identity.registry_key
-    command = IngestRegistryCompleteCommand(
+    command = MaterialIngestRegistryCompleteCommand(
         registry_key=registry_key,
-        lifecycle_state=IngestRegistryState.COMPLETED,
+        lifecycle_state=MaterialIngestRegistryState.COMPLETED,
         observed_status="completed",
         response_payload={"status": "ok"},
         task_id="task-handler",
@@ -629,8 +631,8 @@ def test_s2b_c7_handler_executes_complete_command() -> None:
     outcome = handler.execute(assignment, claim, _context())
 
     assert handler.execute_calls == 1
-    assert isinstance(handler.last_readback, IngestRegistryReadback)
-    assert handler.last_readback.lifecycle_state is IngestRegistryState.COMPLETED
+    assert isinstance(handler.last_readback, MaterialIngestRegistryReadback)
+    assert handler.last_readback.lifecycle_state is MaterialIngestRegistryState.COMPLETED
     assert handler.operation_reason == "INGEST_REGISTRY_COMPLETE_READBACK_ONLY"
     assert store.updates == 1
     assert outcome.result_digest == handler.last_readback.readback_digest
@@ -638,10 +640,10 @@ def test_s2b_c7_handler_executes_complete_command() -> None:
 
 
 def test_s2b_c7_handler_executes_forget_command() -> None:
-    store = LocalSuccessorIngestRegistryStore()
-    reserved = reserve_submission(store, _reserve_command())
+    store = LocalSuccessorMaterialIngestRegistryStore()
+    reserved = reserve_material_submission(store, _reserve_command())
     registry_key = reserved.identity.registry_key
-    command = IngestRegistryForgetCommand(registry_key=registry_key)
+    command = MaterialIngestRegistryForgetCommand(registry_key=registry_key)
     handler, binding = _new_handler(store, command)
     assignment = _assignment(handler, binding)
     claim = _claim(handler, assignment)
@@ -658,7 +660,7 @@ def test_s2b_c7_handler_executes_forget_command() -> None:
 
 
 def test_s2b_c7_handler_claim_drift_fails_closed() -> None:
-    store = LocalSuccessorIngestRegistryStore()
+    store = LocalSuccessorMaterialIngestRegistryStore()
     handler, binding = _new_handler(store, _reserve_command())
     assignment = _assignment(handler, binding, trace_id="trace:claim-bind")
     claim = _claim(handler, assignment)
@@ -673,7 +675,7 @@ def test_s2b_c7_handler_claim_drift_fails_closed() -> None:
 
 
 def test_s2b_c7_handler_digest_drift_fails_closed() -> None:
-    store = LocalSuccessorIngestRegistryStore()
+    store = LocalSuccessorMaterialIngestRegistryStore()
     command = _reserve_command()
     handler, binding = _new_handler(
         store,
@@ -686,6 +688,9 @@ def test_s2b_c7_handler_digest_drift_fails_closed() -> None:
     with pytest.raises(DefiniteInterpreterFailure) as exc:
         handler.execute(assignment, claim, _context())
 
-    assert exc.value.failure_code == "EXACT_C7_INGEST_REGISTRY_HANDLER_BINDING_DRIFT"
+    assert (
+        exc.value.failure_code
+        == "EXACT_MATERIAL_INGEST_REGISTRY_HANDLER_BINDING_DRIFT"
+    )
     assert handler.execute_calls == 0
     assert store.inserts == 0

@@ -1,0 +1,290 @@
+[
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "ed4560e2-1a42-48d6-8bb2-9ddc2a71e949",
+    "item_key": "news.general.regulation",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  },
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "eae7143b-796e-469b-8867-19a951d0113c",
+    "item_key": "market.general.baseline",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  },
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "9430749d-1ebd-40a4-8100-c436d0fadac2",
+    "item_key": "news.general.regulation",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  },
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "b1a655d8-e973-4dc1-a54d-1a6e85e387aa",
+    "item_key": "market.general.baseline",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  },
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "072340a4-da77-481f-abea-a18417deaa36",
+    "item_key": "news.general.regulation",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  },
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "6a48a86f-175f-4a45-ad9f-edc7d60ccb08",
+    "item_key": "market.general.baseline",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  },
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "f4a34d1c-c15e-41cb-8e90-cea7bd3797ef",
+    "item_key": "news.general.regulation",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  },
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "a975c4db-6b12-48c7-9d10-ecfbd471a399",
+    "item_key": "market.general.baseline",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  },
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "e6e1af1b-65fe-455e-a20a-0fa80ea88d98",
+    "item_key": "news.general.regulation",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  },
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "eaf24a09-fc88-40b4-aacd-a1da6b868ce8",
+    "item_key": "market.general.baseline",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  },
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "90303ef1-bf15-4d5d-93e4-d045a6446d71",
+    "item_key": "news.general.regulation",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  },
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "7ce9900d-9cb8-4e89-8774-cd91519d38a3",
+    "item_key": "market.general.baseline",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  },
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "ea99bd35-1e5b-4d75-99e0-bdf899783be0",
+    "item_key": "news.general.regulation",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  },
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "cb724381-ee0d-49c1-bd5c-e233fbcec998",
+    "item_key": "market.general.baseline",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  },
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "56b45e5b-d5e3-4ad2-a436-06e53c91a741",
+    "item_key": "news.general.regulation",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  },
+  {
+    "task": "app.services.tasks.task_run_source_library_item",
+    "id": "93103894-344a-4f5f-b08f-decc9cb87035",
+    "item_key": "market.general.baseline",
+    "project_key": "proj-nl",
+    "override_keys": [
+      "query_terms",
+      "max_items",
+      "limit",
+      "provider",
+      "language",
+      "workflow_run_id",
+      "trace_id",
+      "line_key",
+      "queue",
+      "runtime_readback"
+    ]
+  }
+]

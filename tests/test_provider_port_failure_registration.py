@@ -13,7 +13,6 @@ from mrw_functorial_kit.core.provider_port_failures import (
     collect_runtime_failures,
     crawler_registry_contract_failures,
     ingest_google_news_failures,
-    ingest_market_failures,
     ingest_policy_failures,
     ingest_reddit_failures,
     resource_pool_http_fetch_failures,
@@ -30,7 +29,6 @@ if str(BACKEND_ROOT) not in sys.path:
 _FAMILIES = {
     family.name: family
     for family in (
-        ingest_market_failures,
         ingest_policy_failures,
         ingest_reddit_failures,
         ingest_google_news_failures,
@@ -117,7 +115,6 @@ def test_FAILURE_PRESERVED__ingest_provider_adapters_fail_closed_by_boundary() -
     from app.services.ingest import provider_ports
 
     boundaries = (
-        ("_MARKET_ADAPTER_RESOLVER", "get_market_adapters", "market adapter provider"),
         ("_POLICY_ADAPTER_RESOLVER", "get_policy_adapter", "policy adapter provider"),
         ("_REDDIT_ADAPTER_FACTORY", "get_reddit_adapter", "Reddit adapter provider"),
         (
@@ -131,7 +128,7 @@ def test_FAILURE_PRESERVED__ingest_provider_adapters_fail_closed_by_boundary() -
         for attribute, accessor, message in boundaries:
             setattr(provider_ports, attribute, None)
             with pytest.raises(RuntimeError, match=message):
-                if accessor in {"get_market_adapters", "get_policy_adapter"}:
+                if accessor == "get_policy_adapter":
                     getattr(provider_ports, accessor)("CA")
                 else:
                     getattr(provider_ports, accessor)()
@@ -153,15 +150,6 @@ def _assert_lazy_iteration_precedes_job_start(
     assert source.index(iteration_expression) < source.index(job_expression)
 
 
-def test_FAILURE_PRESERVED__market_lazy_iteration_remains_observable() -> None:
-    _assert_lazy_iteration_precedes_job_start(
-        "main/backend/app/services/ingest/market.py",
-        "ingest_market_data",
-        "materialize_market_records(adapters",
-        "start_job('ingest_market', {'state': state})",
-    )
-
-
 def test_FAILURE_PRESERVED__policy_lazy_iteration_remains_observable() -> None:
     _assert_lazy_iteration_precedes_job_start(
         "main/backend/app/services/ingest/policy.py",
@@ -178,23 +166,6 @@ class _ExplodingIterable:
 
 def _unexpected_job_start(*_args: Any, **_kwargs: Any) -> None:
     raise AssertionError("job started before provider iteration completed")
-
-
-def test_FAILURE_PRESERVED__market_iteration_failure_precedes_job_and_persistence(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from app.services.ingest import market
-
-    class _Adapter:
-        @staticmethod
-        def fetch_records() -> _ExplodingIterable:
-            return _ExplodingIterable()
-
-    monkeypatch.setattr(market, "get_market_adapters", lambda *_args, **_kwargs: [_Adapter()])
-    monkeypatch.setattr(market, "start_job", _unexpected_job_start)
-
-    with pytest.raises(RuntimeError, match="provider iteration failed"):
-        market.ingest_market_data("CA")
 
 
 def test_FAILURE_PRESERVED__policy_iteration_failure_precedes_job_and_persistence(
@@ -275,7 +246,6 @@ def test_FAILURE_PRESERVED__collect_registration_contracts_fail_closed() -> None
 def test_INVARIANT__runtime_failure_literals_are_bounded_by_source() -> None:
     provider_tree = _parse("main/backend/app/services/ingest/provider_ports.py")
     expected_provider_messages = {
-        "market adapter provider is not configured",
         "policy adapter provider is not configured",
         "Reddit adapter provider is not configured",
         "Google News adapter provider is not configured",
@@ -283,7 +253,6 @@ def test_INVARIANT__runtime_failure_literals_are_bounded_by_source() -> None:
     actual_provider_messages = {
         message
         for name in (
-            "get_market_adapters",
             "get_policy_adapter",
             "get_reddit_adapter",
             "get_google_news_adapter",

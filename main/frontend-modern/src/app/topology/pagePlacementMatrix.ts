@@ -41,7 +41,7 @@ const PAGE_PLACEMENT_BASELINE: readonly PagePlacementRecord[] = [
     },
   },
   {
-    page: 'AgentChatPage',
+    page: 'CodexAgentPage',
     navModes: ['flowAgentChat'],
     phase1Surface: 'workbench',
     reason: 'Continuous agent conversation with staged execution feedback and session context.',

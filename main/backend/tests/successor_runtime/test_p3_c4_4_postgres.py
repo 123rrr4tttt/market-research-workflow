@@ -21,11 +21,11 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool
 
-from app.successor_runtime.capabilities import agent_batch_c4 as c4
+from app.successor_runtime.capabilities import batch_task as c4
 from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
-from app.successor_runtime.substrate.postgres.agent_batch_c4 import (
-    C4SubmissionConflict,
-    PostgresC4SubmissionRepository,
+from app.successor_runtime.substrate.postgres.batch_task_submission_store import (
+    BatchTaskSubmissionConflict,
+    PostgresBatchTaskSubmissionRepository,
 )
 from app.successor_runtime.substrate.postgres.idempotency import (
     IdempotencyBinding,
@@ -146,7 +146,7 @@ def test_postgres_idempotency_reserve_replay_conflict_terminal(
 ) -> None:
     scope = _scope()
     with disposable_database.begin() as connection:
-        repo = PostgresC4SubmissionRepository(connection, scope)
+        repo = PostgresBatchTaskSubmissionRepository(connection, scope)
         binding = _binding()
         reserved, state = repo.reserve(binding)
         assert state == "STARTED"
@@ -163,7 +163,7 @@ def test_postgres_idempotency_reserve_replay_conflict_terminal(
         assert replay.request_digest == binding.request_digest
         assert replay.run_id == binding.run_id
 
-        with pytest.raises(C4SubmissionConflict):
+        with pytest.raises(BatchTaskSubmissionConflict):
             repo.reserve(_binding(request_digest=_digest("mutated")))
 
         terminal = repo.record_terminal(
@@ -201,7 +201,7 @@ def test_postgres_shared_repository_rejects_digest_drift(
 ) -> None:
     scope = _scope()
     with disposable_database.begin() as connection:
-        repo = PostgresC4SubmissionRepository(connection, scope)
+        repo = PostgresBatchTaskSubmissionRepository(connection, scope)
         original = _binding(
             request_digest=_digest("shared-repo-original"),
             logical_request_id="request:p3:c4:pg:shared",
@@ -209,7 +209,7 @@ def test_postgres_shared_repository_rejects_digest_drift(
             run_id="run:p3:c4:pg:shared",
         )
         repo.reserve(original)
-        with pytest.raises(C4SubmissionConflict):
+        with pytest.raises(BatchTaskSubmissionConflict):
             repo.reserve(
                 _binding(
                     request_digest=_digest("mutated"),
@@ -237,7 +237,7 @@ def test_postgres_database_enum_is_generic_started_terminal(
 ) -> None:
     scope = _scope()
     with disposable_database.begin() as connection:
-        repo = PostgresC4SubmissionRepository(connection, scope)
+        repo = PostgresBatchTaskSubmissionRepository(connection, scope)
         binding = _binding(
             request_digest=_digest("enum-check"),
             logical_request_id="request:p3:c4:pg:enum",

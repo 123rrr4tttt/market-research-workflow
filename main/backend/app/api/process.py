@@ -288,13 +288,23 @@ def _async_result_snapshot(task_id: str | None) -> dict[str, Any]:
         ready = bool(result.ready())
         snapshot = {
             "status": _normalize_runtime_status(getattr(result, "status", None)),
-            "result": getattr(result, "result", None) if ready else None,
+            "result": _project_async_result_value(getattr(result, "result", None) if ready else None),
             "progress": getattr(result, "info", None) if not ready else None,
             "ready": ready,
         }
         return snapshot
     except Exception:
         return {}
+
+
+def _project_async_result_value(value: Any) -> Any:
+    """Render Celery failure values without changing successful result payloads."""
+    if isinstance(value, BaseException):
+        return {
+            "message": str(value),
+            "type": type(value).__name__,
+        }
+    return value
 
 
 def _line_matches_filter(item_line_key: str | None, requested_line_key: str | None) -> bool:
@@ -1226,7 +1236,7 @@ def get_task_info(
             "ready": result.ready(),
             "successful": result.successful() if result.ready() else None,
             "failed": result.failed() if result.ready() else None,
-            "result": result.result if result.ready() else None,
+            "result": _project_async_result_value(result.result if result.ready() else None),
             "progress": result.info if not result.ready() and isinstance(getattr(result, "info", None), dict) else None,
             "traceback": result.traceback if result.failed() else None,
         }

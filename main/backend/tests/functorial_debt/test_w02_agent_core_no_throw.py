@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from functorial_kit import Failure
 
-from app.services.agent_core.project_tools import (
+from app.services.agent_core.authoring_tools import (
     _apply_writing_body_operation,
     _normalize_long_task_stage,
     _normalize_long_task_stage_status,

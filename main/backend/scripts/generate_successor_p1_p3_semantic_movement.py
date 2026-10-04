@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Deterministically generate the P1-P3 retrospective semantic movement backfill.
+"""Generate the frozen P1-P3 retrospective semantic-movement reports.
+
+This serializer preserves the historical family set, including C6. Its output
+is migration evidence only; it cannot create current capability, runtime
+assembly, or current-byte binding declarations.
 
 The generator consumes the mainline P1-P3 semantic-movement spec and the
 independent C7 external design artifacts, then projects them into:

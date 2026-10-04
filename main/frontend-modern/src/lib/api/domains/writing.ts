@@ -216,6 +216,9 @@ export type WritingLlmActionResponse = {
   trace_id?: string | null
   job_id?: number | null
   status: string
+  requested_async: boolean
+  execution_mode: 'inline'
+  async_honored: boolean
   capability_truth: Record<string, unknown>
   observability: Record<string, unknown>
   action_boundary: Record<string, unknown>

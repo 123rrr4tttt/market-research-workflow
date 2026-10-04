@@ -7,10 +7,9 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
-
-from app.successor_runtime.capabilities import collect_c3 as c3
-from app.successor_runtime.capabilities import collect_c3_interpreters as ci
-from app.successor_runtime.capabilities import collect_c3_program as cp
+from app.successor_runtime.capabilities import acquisition_batch as acquisition
+from app.successor_runtime.capabilities import acquisition_batch_interpreters as ci
+from app.successor_runtime.capabilities import acquisition_batch_program as cp
 from app.successor_runtime.language.algebra import ValueRef, freeze_json_object
 from app.successor_runtime.language.checksum import sha256_hex
 from app.successor_runtime.language.combinators import default_registries
@@ -21,6 +20,7 @@ from app.successor_runtime.language.program import (
 )
 from app.successor_runtime.research.codec import canonical_bytes
 from app.successor_runtime.runtime.activation import ProgramInput, activate_plan
+from functorial_kit import Failure
 
 pytestmark = pytest.mark.unit
 
@@ -40,20 +40,20 @@ def _scope() -> SimpleScope:
     return SimpleScope(PROJECT_KEY, REGISTRY_REVISION, SCOPE_DIGEST)
 
 
-def _bundle() -> c3.CollectC3CapabilityBundle:
-    return c3.build_collect_c3_bundle()
+def _bundle() -> acquisition.AcquisitionBatchCapabilityBundle:
+    return acquisition.build_acquisition_batch_bundle()
 
 
 def _catalog() -> Any:
-    return c3.build_collect_c3_catalog(_bundle())
+    return acquisition.build_acquisition_batch_catalog(_bundle())
 
 
 def _registry() -> Any:
-    return c3.build_collect_c3_registry(_bundle())
+    return acquisition.build_acquisition_batch_registry(_bundle())
 
 
-def _request_ref(request_id: str = "req-1") -> c3.CollectRequestRef:
-    return c3.build_collect_request_ref(
+def _request_ref(request_id: str = "req-1") -> acquisition.CollectRequestRef:
+    return acquisition.build_collect_request_ref(
         request_id=request_id,
         project_key=PROJECT_KEY,
         channel="search.market",
@@ -67,24 +67,24 @@ def _snapshot(
     options: dict[str, Any] | None = None,
     source_context: dict[str, Any] | None = None,
     channel: str = "search.market",
-) -> c3.CollectLegacyRequestSnapshot:
-    return c3.CollectLegacyRequestSnapshot(
-        schema_version=c3.COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
+) -> acquisition.CollectLegacyRequestSnapshot:
+    return acquisition.CollectLegacyRequestSnapshot(
+        schema_version=acquisition.COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
         flow="collect",
         channel=channel,
         project_key=PROJECT_KEY,
         query_terms=terms,
         urls=(),
         limit=limit,
-        options=c3.freeze_json_object(dict(options or {})),
-        source_context=c3.freeze_json_object(dict(source_context or {})),
+        options=acquisition.freeze_json_object(dict(options or {})),
+        source_context=acquisition.freeze_json_object(dict(source_context or {})),
         snapshot_digest="",
     )
 
 
-def _policy(max_parallelism: int = 2) -> c3.CollectResourcePolicy:
-    return c3.CollectResourcePolicy(
-        schema_ref=c3.COLLECT_RESOURCE_POLICY_SCHEMA_REF,
+def _policy(max_parallelism: int = 2) -> acquisition.CollectResourcePolicy:
+    return acquisition.CollectResourcePolicy(
+        schema_ref=acquisition.COLLECT_RESOURCE_POLICY_SCHEMA_REF,
         max_parallelism=max_parallelism,
         deadline_seconds=60,
         cancellation="COORDINATED",
@@ -97,14 +97,14 @@ def _policy(max_parallelism: int = 2) -> c3.CollectResourcePolicy:
 def _plan(
     *,
     plan_id: str = "c3.contracts.plan",
-    static_elements: tuple[c3.CollectBatchElement, ...] | None = None,
+    static_elements: tuple[acquisition.CollectBatchElement, ...] | None = None,
     traversal_policy: str = "MATERIALIZED_SHAPE",
     options: dict[str, Any] | None = None,
     terms: tuple[str, ...] = ("t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"),
     limit: int | None = 80,
     channel: str = "search.market",
-) -> c3.CollectBatchPlan:
-    return c3.build_collect_batch_plan(
+) -> acquisition.CollectBatchPlan:
+    return acquisition.build_collect_batch_plan(
         request_ref=_request_ref(),
         snapshot=_snapshot(options=options, terms=terms, limit=limit, channel=channel),
         plan_id=plan_id,
@@ -116,13 +116,13 @@ def _plan(
 
 
 def _element_payload(
-    plan: c3.CollectBatchPlan,
+    plan: acquisition.CollectBatchPlan,
     *,
     index: int = 0,
-    snapshot: c3.CollectLegacyRequestSnapshot | None = None,
-) -> c3.CollectBatchElementPayload:
+    snapshot: acquisition.CollectLegacyRequestSnapshot | None = None,
+) -> acquisition.CollectBatchElementPayload:
     element = plan.elements[index]
-    return c3.collect_batch_element_payload_from_dicts(
+    return acquisition.collect_batch_element_payload_from_dicts(
         request_ref=_request_ref().to_plain(),
         request_snapshot=(snapshot or _snapshot()).to_plain(),
         element=element.to_plain(),
@@ -131,8 +131,8 @@ def _element_payload(
     )
 
 
-def _program_c3_1(payload: c3.CollectBatchElementPayload) -> Any:
-    return cp.build_collect_c3_1_program(
+def _program_c3_1(payload: acquisition.CollectBatchElementPayload) -> Any:
+    return cp.build_collect_batch_element_program(
         payload=payload,
         catalog=_catalog(),
         program_id="c3-1.contracts.program",
@@ -142,8 +142,8 @@ def _program_c3_1(payload: c3.CollectBatchElementPayload) -> Any:
     )
 
 
-def _compiled_c3_1(payload: c3.CollectBatchElementPayload) -> Any:
-    return cp.compile_collect_c3_program(
+def _compiled_c3_1(payload: acquisition.CollectBatchElementPayload) -> Any:
+    return cp.compile_collect_program(
         _program_c3_1(payload),
         _catalog(),
         operation_contracts=_registry(),
@@ -154,21 +154,30 @@ def test_operation_kinds_owners_and_catalog_are_exact() -> None:
     bundle = _bundle()
     catalog = _catalog()
     registry = _registry()
-    assert c3.COLLECT_C3_1_KIND == "collect.execute_batch_element.v1"
-    assert c3.COLLECT_C3_2_KIND == "collect.fold_ordered_results.v1"
-    assert bundle.operation_c3_1.owner_capability_id == c3.COLLECT_C3_1_OWNER
-    assert bundle.operation_c3_2.owner_capability_id == c3.COLLECT_C3_2_OWNER
-    assert catalog.lookup(c3.COLLECT_C3_1_KIND) == bundle.operation_c3_1.ref
-    assert catalog.lookup(c3.COLLECT_C3_2_KIND) == bundle.operation_c3_2.ref
-    assert registry.resolve_required(bundle.operation_c3_1.ref).ref == (
-        bundle.operation_c3_1.ref
+    assert acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND == "collect.execute_batch_element.v1"
+    assert acquisition.COLLECT_FOLD_ORDERED_RESULTS_KIND == "collect.fold_ordered_results.v1"
+    assert acquisition.ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER == "acquisition.batch.execute_element.v2"
+    assert acquisition.ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_OWNER == "acquisition.batch.fold_ordered_results.v2"
+    assert acquisition.ACQUISITION_BATCH_ELEMENT_PAYLOAD_CODEC_ID == "mrw.acquisition.batch-element.codec.v2"
+    assert acquisition.ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_CODEC_ID == (
+        "mrw.acquisition.ordered-result-fold.codec.v2"
     )
-    assert registry.resolve_required(bundle.operation_c3_2.ref).ref == (
-        bundle.operation_c3_2.ref
+    assert bundle.batch_element_payload_codec().codec_version == "2"
+    assert bundle.ordered_result_fold_payload_codec().codec_version == "2"
+    assert bundle.execute_element_operation.owner_capability_id == acquisition.ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER
+    assert (
+        bundle.fold_ordered_results_operation.owner_capability_id
+        == acquisition.ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_OWNER
     )
-    assert bundle.operation_c3_1.output_type == c3.COLLECT_C3_1_RESULT_TYPE
-    assert c3.COLLECT_C3_1_RESULT_TYPE == c3.COLLECT_ELEMENT_OUTCOME_TYPE
-    assert bundle.operation_c3_2.output_type == c3.COLLECT_FOLD_RESULT_TYPE
+    assert catalog.lookup(acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND) == bundle.execute_element_operation.ref
+    assert catalog.lookup(acquisition.COLLECT_FOLD_ORDERED_RESULTS_KIND) == bundle.fold_ordered_results_operation.ref
+    assert registry.resolve_required(bundle.execute_element_operation.ref).ref == (bundle.execute_element_operation.ref)
+    assert registry.resolve_required(bundle.fold_ordered_results_operation.ref).ref == (
+        bundle.fold_ordered_results_operation.ref
+    )
+    assert bundle.execute_element_operation.output_type == acquisition.COLLECT_ELEMENT_OUTCOME_TYPE
+    assert acquisition.COLLECT_ELEMENT_OUTCOME_TYPE == acquisition.COLLECT_ELEMENT_OUTCOME_TYPE
+    assert bundle.fold_ordered_results_operation.output_type == acquisition.COLLECT_FOLD_RESULT_TYPE
 
 
 def test_schemas_and_profiles_are_frozen() -> None:
@@ -184,7 +193,7 @@ def test_schemas_and_profiles_are_frozen() -> None:
         "COLLECT_AGGREGATE_OUTCOME_SCHEMA",
         "COLLECT_TRAVERSAL_OBSERVATION_SCHEMA",
     ):
-        schema = getattr(c3, name)
+        schema = getattr(acquisition, name)
         assert schema.schema_ref
         assert len(schema.schema_digest) == 64
     profiles = bundle.profiles
@@ -198,62 +207,99 @@ def test_payload_codecs_round_trip_c3_1_and_c3_2() -> None:
     bundle = _bundle()
     plan = _plan()
     payload = _element_payload(plan)
-    decoded = bundle.payload_codec_c3_1().decode_payload(
-        bundle.payload_codec_c3_1().encode_payload(payload)
+    decoded = bundle.batch_element_payload_codec().decode_payload(
+        bundle.batch_element_payload_codec().encode_payload(payload)
     )
     assert decoded.payload_digest == payload.payload_digest
     assert decoded.element.element_digest == payload.element.element_digest
 
-    outcome = c3.CollectElementSucceeded(
-        schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+    outcome = acquisition.CollectElementSucceeded(
+        schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
         element_id="e0",
         input_index=0,
-        counts=c3.CollectCounts(inserted=4),
+        counts=acquisition.CollectCounts(inserted=4),
         links=("https://example.com/a",),
         legacy_observation_ref="legacy:" + "0" * 64,
         outcome_digest="",
     )
-    seq = c3.OrderedCollectElementOutcomeSequence(
-        schema_version="mrw.successor.collect.c3.outcome-sequence.v1",
+    seq = acquisition.OrderedCollectElementOutcomeSequence(
+        schema_version=acquisition.ORDERED_OUTCOME_SEQUENCE_SCHEMA_REF,
         parent_request_ref=_request_ref(),
         outcomes=(outcome,),
         sequence_digest="",
     )
-    fold_payload = c3.build_collect_fold_payload(
+    fold_payload = acquisition.build_collect_fold_payload(
         parent_request_ref=_request_ref(),
         ordered_outcomes=seq,
     )
-    decoded_fold = bundle.payload_codec_c3_2().decode_payload(
-        bundle.payload_codec_c3_2().encode_payload(fold_payload)
+    decoded_fold = bundle.ordered_result_fold_payload_codec().decode_payload(
+        bundle.ordered_result_fold_payload_codec().encode_payload(fold_payload)
     )
     assert decoded_fold.payload_digest == fold_payload.payload_digest
 
 
-def test_plan_rules_are_deterministic_legacy_compatible() -> None:
-    assert (
-        c3.should_auto_batch(_snapshot(terms=("a", "b", "c", "d", "e"), limit=20))
-        is False
+def test_historical_c3_payload_bytes_have_explicit_decoder_only() -> None:
+    bundle = _bundle()
+    payload = _element_payload(_plan())
+    historical = payload.to_plain()
+    historical["schema_version"] = acquisition.HISTORICAL_ACQUISITION_BATCH_ELEMENT_PAYLOAD_SCHEMA
+    historical["payload_digest"] = acquisition.content_digest(historical, omit_fields=("payload_digest",))
+
+    with pytest.raises(ValueError):
+        bundle.batch_element_payload_codec().decode_payload(historical)
+    decoded = acquisition.try_decode_historical_acquisition_payload(
+        acquisition.HISTORICAL_ACQUISITION_BATCH_ELEMENT_PAYLOAD_CODEC_ID, historical
     )
-    assert c3.should_auto_batch(_snapshot(terms=("a", "b", "c", "d", "e", "f"))) is True
-    assert c3.should_auto_batch(_snapshot(terms=(), limit=60)) is True
-    assert c3.should_auto_batch(_snapshot(channel="url_pool")) is False
-    assert c3.split_query_terms(("t1", "t2", "t3", "t4", "t5")) == [
-        ["t1", "t2", "t3", "t4", "t5"]
-    ]
-    assert c3.split_query_terms(("t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8")) == [
+    assert not isinstance(decoded, Failure)
+    assert decoded == historical
+
+    malformed = dict(historical, payload_digest="not-a-digest")
+    malformed_result = acquisition.try_decode_historical_acquisition_payload(
+        acquisition.HISTORICAL_ACQUISITION_BATCH_ELEMENT_PAYLOAD_CODEC_ID, malformed
+    )
+    assert isinstance(malformed_result, Failure)
+    assert malformed_result.family == "acquisition.batch.failure"
+    assert malformed_result.code == "INVALID_INPUT"
+    assert malformed_result.context is not None
+    assert malformed_result.context["reason_code"] == "codec_contract_invalid"
+
+
+def test_authority_requirement_preserves_history_and_types_unknown_current_kind() -> None:
+    historical_metadata = {
+        "schema": "mrw.successor.collect.c3.authority.v1",
+        "canonical_owner": "collect.c3.v1",
+        "authority": (
+            "execute bounded collect elements and fold observed receipts; "
+            "never admits documents, qualifies evidence or completes queued acks"
+        ),
+        "grant_scope": "project",
+    }
+    assert ci.authority_requirement_digest() == acquisition.content_digest(historical_metadata)
+    assert ci.authority_requirement_digest(acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND) != (
+        ci.authority_requirement_digest()
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="unsupported acquisition authority operation 'collect.unknown.v1'",
+    ):
+        ci.authority_requirement_digest("collect.unknown.v1")
+
+
+def test_plan_rules_are_deterministic_legacy_compatible() -> None:
+    assert acquisition.should_auto_batch(_snapshot(terms=("a", "b", "c", "d", "e"), limit=20)) is False
+    assert acquisition.should_auto_batch(_snapshot(terms=("a", "b", "c", "d", "e", "f"))) is True
+    assert acquisition.should_auto_batch(_snapshot(terms=(), limit=60)) is True
+    assert acquisition.should_auto_batch(_snapshot(channel="url_pool")) is False
+    assert acquisition.split_query_terms(("t1", "t2", "t3", "t4", "t5")) == [["t1", "t2", "t3", "t4", "t5"]]
+    assert acquisition.split_query_terms(("t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8")) == [
         ["t1", "t2", "t3", "t4"],
         ["t5", "t6", "t7", "t8"],
     ]
-    assert c3.per_batch_limit_for(80, 2) == 40
-    assert c3.per_batch_limit_for(9, 3) == 10
-    assert (
-        c3.resolve_auto_batch_parallelism(_snapshot(options={"batch_parallelism": 7}))
-        == 7
-    )
-    assert (
-        c3.resolve_auto_batch_fail_fast(_snapshot(options={"batch_fail_fast": "yes"}))
-        is True
-    )
+    assert acquisition.per_batch_limit_for(80, 2) == 40
+    assert acquisition.per_batch_limit_for(9, 3) == 10
+    assert acquisition.resolve_auto_batch_parallelism(_snapshot(options={"batch_parallelism": 7})) == 7
+    assert acquisition.resolve_auto_batch_fail_fast(_snapshot(options={"batch_fail_fast": "yes"})) is True
 
 
 def test_singleton_static_and_materialized_shape_identity() -> None:
@@ -265,7 +311,7 @@ def test_singleton_static_and_materialized_shape_identity() -> None:
     derived = _plan()
     assert derived.disposition == "TRAVERSE"
     static_elements = tuple(
-        c3.CollectBatchElement(
+        acquisition.CollectBatchElement(
             schema_version=element.schema_version,
             element_id=element.element_id,
             input_index=element.input_index,
@@ -281,19 +327,15 @@ def test_singleton_static_and_materialized_shape_identity() -> None:
         static_elements=static_elements,
         traversal_policy="STATIC_SHAPE",
     )
-    assert [element.element_id for element in static.elements] == [
-        element.element_id for element in derived.elements
-    ]
-    assert [element.query_terms for element in static.elements] == [
-        element.query_terms for element in derived.elements
-    ]
+    assert [element.element_id for element in static.elements] == [element.element_id for element in derived.elements]
+    assert [element.query_terms for element in static.elements] == [element.query_terms for element in derived.elements]
     assert static.per_batch_limit == derived.per_batch_limit
     assert static.plan_digest != derived.plan_digest
     assert static.traversal_policy == "STATIC_SHAPE"
     with pytest.raises(ValueError, match="STATIC_SHAPE"):
         wrong = (
-            c3.CollectBatchElement(
-                schema_version=c3.COLLECT_BATCH_ELEMENT_SCHEMA_REF,
+            acquisition.CollectBatchElement(
+                schema_version=acquisition.COLLECT_BATCH_ELEMENT_SCHEMA_REF,
                 element_id=derived.elements[0].element_id,
                 input_index=derived.elements[0].input_index,
                 query_terms=("different",),
@@ -317,8 +359,8 @@ def test_bypass_and_element_identity_are_stable() -> None:
     assert bypass.batches_total == 0
 
     plan = _plan()
-    rebuilt = c3.CollectBatchElement(
-        schema_version=c3.COLLECT_BATCH_ELEMENT_SCHEMA_REF,
+    rebuilt = acquisition.CollectBatchElement(
+        schema_version=acquisition.COLLECT_BATCH_ELEMENT_SCHEMA_REF,
         element_id=plan.elements[0].element_id,
         input_index=plan.elements[0].input_index,
         query_terms=plan.elements[0].query_terms,
@@ -367,25 +409,25 @@ def test_plan_invariants_enforce_batches_policies_parent_and_order() -> None:
 
 def test_pure_fold_program_realizes_as_registered_transform() -> None:
     request_ref = _request_ref()
-    outcome = c3.CollectElementSucceeded(
-        schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+    outcome = acquisition.CollectElementSucceeded(
+        schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
         element_id="e0",
         input_index=0,
-        counts=c3.CollectCounts(inserted=1),
+        counts=acquisition.CollectCounts(inserted=1),
         legacy_observation_ref="legacy:" + "0" * 64,
         outcome_digest="",
     )
-    sequence = c3.OrderedCollectElementOutcomeSequence(
-        schema_version="mrw.successor.collect.c3.outcome-sequence.v1",
+    sequence = acquisition.OrderedCollectElementOutcomeSequence(
+        schema_version=acquisition.ORDERED_OUTCOME_SEQUENCE_SCHEMA_REF,
         parent_request_ref=request_ref,
         outcomes=(outcome,),
         sequence_digest="",
     )
-    fold_payload = c3.build_collect_fold_payload(
+    fold_payload = acquisition.build_collect_fold_payload(
         parent_request_ref=request_ref,
         ordered_outcomes=sequence,
     )
-    program = cp.build_collect_c3_2_pure_fold_program(
+    program = cp.build_collect_fold_ordered_results_pure_program(
         payload=fold_payload,
         catalog=_catalog(),
         program_id="c3-2.pure-fold",
@@ -399,20 +441,18 @@ def test_pure_fold_program_realizes_as_registered_transform() -> None:
         program,
         _catalog(),
         operation_contracts=_registry(),
-        transform_registry=cp.build_collect_c3_transform_registry(),
+        transform_registry=cp.build_acquisition_batch_transform_registry(),
     )
     assert [step.step_kind for step in plan.ordered_steps] == ["TRANSFORM"]
     assert plan.ordered_steps[0].transform_ref.name == cp.COLLECT_FOLD_TRANSFORM_NAME
     assert plan.ordered_steps[0].effect_profile_ref == "PURE_TRANSFORM"
-    assert plan.output_type.type_id == c3.COLLECT_FOLD_RESULT_TYPE.type_id
+    assert plan.output_type.type_id == acquisition.COLLECT_FOLD_RESULT_TYPE.type_id
 
 
 def test_composed_program_binds_traverse_epoch_and_fold_contract() -> None:
     plan = _plan()
-    payloads = tuple(
-        _element_payload(plan, index=index) for index in range(len(plan.elements))
-    )
-    program = cp.build_collect_c3_composed_program(
+    payloads = tuple(_element_payload(plan, index=index) for index in range(len(plan.elements)))
+    program = cp.build_acquisition_batch_composed_program(
         element_payloads=payloads,
         catalog=_catalog(),
         program_id="c3.composed",
@@ -426,15 +466,14 @@ def test_composed_program_binds_traverse_epoch_and_fold_contract() -> None:
         program,
         _catalog(),
         operation_contracts=_registry(),
-        transform_registry=cp.build_collect_c3_transform_registry(),
+        transform_registry=cp.build_acquisition_batch_transform_registry(),
     )
     kinds = [
-        (step.step_kind, step.transform_ref.name if step.transform_ref else None)
-        for step in compiled.ordered_steps
+        (step.step_kind, step.transform_ref.name if step.transform_ref else None) for step in compiled.ordered_steps
     ]
     assert kinds == [
         ("TRANSFORM", "mrw.traverse_ordered.materialize"),
-        ("TRANSFORM", "collect.sequence_to_fold_payload"),
+        ("TRANSFORM", "acquisition.sequence_to_fold_payload"),
         ("EFFECT", None),
     ]
     effect = next(
@@ -442,8 +481,8 @@ def test_composed_program_binds_traverse_epoch_and_fold_contract() -> None:
         for step in compiled.ordered_steps
         if step.step_kind == "EFFECT" and step.operation_contract_ref is not None
     )
-    assert effect.operation_contract_ref.kind == c3.COLLECT_C3_2_KIND
-    assert compiled.output_type.type_id == c3.COLLECT_FOLD_RESULT_TYPE.type_id
+    assert effect.operation_contract_ref.kind == acquisition.COLLECT_FOLD_ORDERED_RESULTS_KIND
+    assert compiled.output_type.type_id == acquisition.COLLECT_FOLD_RESULT_TYPE.type_id
     assert compiled.input_type.type_id.startswith("sequence:")
     assert dict(program.metadata)["compiled_traversal"] is True
 
@@ -455,11 +494,9 @@ def test_single_atom_program_compiles_without_faking_traversal() -> None:
     compiled = _compiled_c3_1(payload)
     assert program.program_digest == program.digest()
     assert compiled.program_digest == program.program_digest
-    effect_steps = [
-        step for step in compiled.ordered_steps if step.step_kind == "EFFECT"
-    ]
+    effect_steps = [step for step in compiled.ordered_steps if step.step_kind == "EFFECT"]
     assert len(effect_steps) == 1
-    assert effect_steps[0].operation_contract_ref.kind == c3.COLLECT_C3_1_KIND
+    assert effect_steps[0].operation_contract_ref.kind == acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND
     assert not any(step.step_kind == "ADMISSION" for step in compiled.ordered_steps)
     assert dict(program.metadata)["compiled_traversal"] is False
 
@@ -514,17 +551,17 @@ def test_static_traversal_requires_exact_shape_binding() -> None:
         project_key=PROJECT_KEY,
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
-        semantic_identity=c3.COLLECT_C3_1_SEMANTIC_IDENTITY,
+        semantic_identity=acquisition.ACQUISITION_BATCH_EXECUTE_ELEMENT_SEMANTIC_IDENTITY,
         input_type=root.input_type,
         output_type=root.output_type,
         root=root,
         algebra_refs=atom_program.algebra_refs,
         transform_refs=(),
-        observation_profile=c3.COLLECT_TRAVERSAL_OBSERVATION_PROFILE,
+        observation_profile=acquisition.COLLECT_TRAVERSAL_OBSERVATION_PROFILE,
         metadata=freeze_json_object(
             {
-                "schema": "mrw.successor.collect.c3.declared-traversal.v1",
-                "operation_kind": c3.COLLECT_C3_1_KIND,
+                "schema": ("mrw.acquisition.batch.execute_element.declared-traversal.v2"),
+                "operation_kind": acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND,
                 "traversal_policy": "STATIC_SHAPE",
                 "compiled_traversal": True,
                 "program_id": "c3-1.declared-static-blocked",
@@ -545,9 +582,7 @@ def test_static_traversal_requires_exact_shape_binding() -> None:
 def test_static_traversal_with_exact_shape_metadata_compiles() -> None:
     plan = _plan()
     payload = _element_payload(plan)
-    element_payloads = tuple(
-        _element_payload(plan, index=index) for index in range(len(plan.elements))
-    )
+    element_payloads = tuple(_element_payload(plan, index=index) for index in range(len(plan.elements)))
     shape_digest = traversal_shape_digest(element_payloads)
     declared = cp.build_declared_traversal_program(
         element_payload=payload,
@@ -603,16 +638,16 @@ def test_static_traversal_with_exact_shape_metadata_compiles() -> None:
 
 def test_deployment_catalog_digest_is_distinct_from_operation_catalog() -> None:
     catalog = _catalog()
-    deployment = c3.deployment_catalog_digest()
+    deployment = acquisition.deployment_catalog_digest()
     assert len(deployment) == 64
     assert deployment != catalog.catalog_digest
-    assert catalog.lookup(c3.COLLECT_C3_1_KIND).contract_digest != deployment
+    assert catalog.lookup(acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND).contract_digest != deployment
 
 
 def test_collect_runtime_mode_is_fail_closed() -> None:
-    assert c3.collect_runtime_mode("off") == "legacy"
-    assert c3.collect_runtime_mode(None) == "legacy"
-    assert c3.collect_runtime_mode("weird") == "legacy"
-    assert c3.collect_runtime_mode("shadow") == "shadow"
-    assert c3.collect_runtime_mode("canary") == "canary"
-    assert c3.collect_runtime_mode("on") == "on"
+    assert acquisition.collect_runtime_mode("off") == "legacy"
+    assert acquisition.collect_runtime_mode(None) == "legacy"
+    assert acquisition.collect_runtime_mode("weird") == "legacy"
+    assert acquisition.collect_runtime_mode("shadow") == "shadow"
+    assert acquisition.collect_runtime_mode("canary") == "canary"
+    assert acquisition.collect_runtime_mode("on") == "on"

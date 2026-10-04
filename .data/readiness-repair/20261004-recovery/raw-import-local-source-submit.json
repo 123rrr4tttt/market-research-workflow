@@ -1,0 +1,50 @@
+{
+  "project_key": "readiness_repair",
+  "phrase": "MRW persisted readiness policy 98952f281da9",
+  "source_file": "/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+  "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+  "payload": {
+    "items": [
+      {
+        "title": "MRW persisted readiness policy 98952f281da9",
+        "text": "MRW persisted readiness policy 98952f281da9. This is a local synthetic policy fixture for project-scoped index and readback verification.\n",
+        "uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+        "doc_type": "policy"
+      }
+    ],
+    "source_name": "readiness_repair_recovery",
+    "source_kind": "manual",
+    "default_doc_type": "policy",
+    "extraction_mode": "policy",
+    "enable_extraction": false,
+    "infer_from_links": false,
+    "fetch_url_when_text_empty": false,
+    "fetch_url_also_when_text_present": false,
+    "overwrite_on_uri": false,
+    "chunk_size": 2800,
+    "chunk_overlap": 0,
+    "max_chunks": 1,
+    "url_to_market": false,
+    "async_mode": true
+  },
+  "response": {
+    "status": "ok",
+    "data": {
+      "task_id": "fae77b30-cead-47ec-8d27-46baaf85f2f0",
+      "async": true,
+      "status": "queued",
+      "result": null,
+      "params": {
+        "source_name": "readiness_repair_recovery",
+        "items_total": 1
+      }
+    },
+    "error": null,
+    "meta": {
+      "trace_id": "ca44feb2-dc0f-46a0-85e6-173af2b6c5ad",
+      "pagination": null,
+      "project_key": "readiness_repair",
+      "deprecated": null
+    }
+  }
+}

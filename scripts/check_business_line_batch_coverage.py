@@ -10,10 +10,14 @@ from pathlib import Path
 from typing import Annotated, Any, Sequence
 
 try:
-    from scripts._automation_runtime import repo_root, utc_now
+    from scripts._automation_runtime import (
+        CANONICAL_LINE_KEYS,
+        repo_root,
+        utc_now,
+    )
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from _automation_runtime import repo_root, utc_now
+    from _automation_runtime import CANONICAL_LINE_KEYS, repo_root, utc_now
 
 
 CONTRACT_VERSION = "business_line.evidence_matrix.v1"
@@ -21,15 +25,7 @@ SCHEMA_VERSION = "business_line_batch_coverage_check.v1"
 STATUS_PASSED = "passed"
 STATUS_FAILED = "failed"
 
-REQUIRED_LINE_KEYS = (
-    "ingest",
-    "search_discovery_index",
-    "resource_source_library",
-    "projects_config_workflow",
-    "dashboard_admin_governance",
-    "writing_knowledge_graph_agent",
-    "runtime_ops",
-)
+REQUIRED_LINE_KEYS = CANONICAL_LINE_KEYS
 
 REQUIRED_LINE_FIELDS = ("current_gaps", "next_remediation", "verification_commands")
 

@@ -65,7 +65,7 @@ WorkflowHandler = Callable[[Dict[str, Any]], Dict[str, Any]]
 
 _WORKFLOW_HANDLERS: dict[str, WorkflowHandler] = {
     "ingest.reddit": lambda params: collect_reddit_discussions(
-        subreddit=str(params.get("subreddit") or "Lottery"),
+        subreddit=str(params.get("subreddit") or "news"),
         limit=int(params.get("limit", 20)),
     ),
     "ingest.google_news": lambda params: collect_google_news(

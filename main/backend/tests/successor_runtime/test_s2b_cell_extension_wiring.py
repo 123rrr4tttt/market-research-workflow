@@ -2,7 +2,7 @@
 
 Each family assembly builder installs its typed successor route only when the
 caller supplies the corresponding deterministic closure.  These tests prove
-the C7.2 ingest-registry handler, C9.1 evidence-matrix route and C8.3
+the C7.2 ingest-registry handler, historical C9 evidence-matrix route and C8.3
 export/token-state handler are really carried by the family assemblies and by
 the serial successor composition root without granting authority.
 """
@@ -10,37 +10,41 @@ the serial successor composition root without granting authority.
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import create_engine
-
 from app.successor_runtime.assembly.base import (
-    C7AssemblyOptions,
-    C8AssemblyOptions,
-    C9AssemblyOptions,
+    MaterialIngestAssemblyOptions,
+    KnowledgeAssemblyOptions,
+    ProjectionAssemblyOptions,
     FamilyAssemblyOptions,
     local_assembly_scope_digest,
 )
-from app.successor_runtime.assembly.c7_assembly import build_c7_assembly
-from app.successor_runtime.assembly.c8_assembly import build_c8_assembly
-from app.successor_runtime.assembly.c9_assembly import build_c9_assembly
+from app.successor_runtime.assembly.material_ingest_assembly import build_material_ingest_assembly
+from app.successor_runtime.assembly.knowledge_assembly import build_knowledge_assembly
+from app.successor_runtime.assembly.projection_assembly import build_projection_assembly
 from app.successor_runtime.assembly.successor_assembly import assemble_successor_runtime
-from app.successor_runtime.capabilities.c8_report_export_token_state import (
+from app.successor_runtime.capabilities.knowledge_report_export_token_state import (
     ClaimExportTokenCommand,
     LocalSuccessorReportExportTokenStore,
 )
-from app.successor_runtime.capabilities.c9_evidence_matrix import (
+from app.successor_runtime.capabilities.projection_evidence_matrix import (
     BUSINESS_LINE_KEYS,
     WORKER_REQUIRED_BUSINESS_LINE_KEYS,
     BusinessLineEvidenceRecord,
     EvidenceRowStatus,
     EvidenceSourceRef,
 )
-from app.successor_runtime.capabilities.ingest_c7_registry import (
-    IngestRegistryReserveCommand,
-    LocalSuccessorIngestRegistryStore,
+from app.successor_runtime.capabilities.material_ingest_registry import (
+    MaterialIngestRegistryReserveCommand,
+    LocalSuccessorMaterialIngestRegistryStore,
     derive_registry_identity,
 )
+from app.successor_runtime.capabilities.material_native_contribution import (
+    MATERIAL_COMMIT_READBACK_CELL_ID,
+)
+from app.successor_runtime.runtime.projection_native_contribution import (
+    PROJECTION_READ_MODEL_CELL_ID,
+)
 from app.successor_runtime.substrate.postgres.c8_export_token_state_handler import (
-    C8_3ExportTokenStateRuntimeHandler,
+    KnowledgeReportExportTokenStateRuntimeHandler,
 )
 from app.successor_runtime.substrate.postgres.ingest_c7_registry_handler import (
     C7IngestRegistryRuntimeHandler,
@@ -48,6 +52,7 @@ from app.successor_runtime.substrate.postgres.ingest_c7_registry_handler import 
 from app.successor_runtime.substrate.projections.evidence_matrix import (
     C9EvidenceMatrixRouteHandler,
 )
+from sqlalchemy import create_engine
 
 pytestmark = pytest.mark.unit
 
@@ -55,16 +60,16 @@ _PROJECT_KEY = "s2b-local"
 _OBSERVED_AT = "2026-09-02T16:00:00+00:00"
 
 
-def _c7_options() -> C7AssemblyOptions:
+def _c7_options() -> MaterialIngestAssemblyOptions:
     identity = derive_registry_identity(
         project_key=_PROJECT_KEY,
         trigger_type="ingest.url.single",
         idempotency_key="idem:s2b-cell-extension:001",
         request_payload={"url": "https://example.com/article", "kind": "url"},
     )
-    return C7AssemblyOptions(
-        registry_store=LocalSuccessorIngestRegistryStore(),
-        registry_command=IngestRegistryReserveCommand(
+    return MaterialIngestAssemblyOptions(
+        registry_store=LocalSuccessorMaterialIngestRegistryStore(),
+        registry_command=MaterialIngestRegistryReserveCommand(
             identity=identity,
             subject_payload={"url": "https://example.com/article"},
             request_payload={"url": "https://example.com/article", "kind": "url"},
@@ -72,8 +77,8 @@ def _c7_options() -> C7AssemblyOptions:
     )
 
 
-def _c8_options() -> C8AssemblyOptions:
-    return C8AssemblyOptions(
+def _c8_options() -> KnowledgeAssemblyOptions:
+    return KnowledgeAssemblyOptions(
         export_token_store=LocalSuccessorReportExportTokenStore(),
         export_token_command=ClaimExportTokenCommand(
             artifact_id="artifact:s2b-cell-extension:001",
@@ -110,12 +115,12 @@ def _evidence_records() -> tuple[BusinessLineEvidenceRecord, ...]:
     return tuple(records)
 
 
-def _c9_options() -> C9AssemblyOptions:
-    return C9AssemblyOptions(evidence_records=_evidence_records())
+def _c9_options() -> ProjectionAssemblyOptions:
+    return ProjectionAssemblyOptions(evidence_records=_evidence_records())
 
 
 def test_s2b_c7_2_ingest_registry_handler_wired_in_c7_assembly() -> None:
-    assembly = build_c7_assembly(
+    assembly = build_material_ingest_assembly(
         options=_c7_options(),
         project_scope_digest=local_assembly_scope_digest(),
     )
@@ -126,16 +131,16 @@ def test_s2b_c7_2_ingest_registry_handler_wired_in_c7_assembly() -> None:
         if isinstance(handler, C7IngestRegistryRuntimeHandler)
     ]
     assert len(registry_handlers) == 1
-    assert assembly.cell("C7.2").status == "INSTALLED"
+    assert assembly.cell(MATERIAL_COMMIT_READBACK_CELL_ID).status == "INSTALLED"
     assert "ingest-submission registry typed route handler installed" in (
-        assembly.cell("C7.2").note
+        assembly.cell(MATERIAL_COMMIT_READBACK_CELL_ID).note
     )
     assert registry_handlers[0].execute_calls == 0
 
 
-def test_s2b_c8_3_export_token_state_handler_wired_in_c8_assembly() -> None:
+def test_s2b_knowledge_report_export_token_state_handler_wired_in_assembly() -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
-    assembly = build_c8_assembly(
+    assembly = build_knowledge_assembly(
         engine=engine,
         project_scope_digest=local_assembly_scope_digest(),
         options=_c8_options(),
@@ -144,18 +149,18 @@ def test_s2b_c8_3_export_token_state_handler_wired_in_c8_assembly() -> None:
     export_handlers = [
         handler
         for handler in assembly.handlers
-        if isinstance(handler, C8_3ExportTokenStateRuntimeHandler)
+        if isinstance(handler, KnowledgeReportExportTokenStateRuntimeHandler)
     ]
     assert len(export_handlers) == 1
-    assert assembly.cell("C8.3").status == "INSTALLED"
+    assert assembly.cell("knowledge.report.v2").status == "INSTALLED"
     assert "report-export/token-state successor route installed" in (
-        assembly.cell("C8.3").note
+        assembly.cell("knowledge.report.v2").note
     )
     assert export_handlers[0].execute_calls == 0
 
 
 def test_s2b_c9_evidence_matrix_route_wired_in_c9_assembly() -> None:
-    assembly = build_c9_assembly(options=_c9_options())
+    assembly = build_projection_assembly(options=_c9_options())
 
     matrix_handlers = [
         handler
@@ -164,7 +169,7 @@ def test_s2b_c9_evidence_matrix_route_wired_in_c9_assembly() -> None:
     ]
     assert len(matrix_handlers) == 1
     assert "evidence-matrix read-only route handler carried by the family" in (
-        assembly.cell("C9.3").note
+        assembly.cell(PROJECTION_READ_MODEL_CELL_ID).note
     )
     assert matrix_handlers[0].execute_calls == 0
 
@@ -181,9 +186,9 @@ def test_s2b_successor_assembly_carries_all_three_cell_extension_handlers() -> N
     )
 
     handler_types = {
-        C7IngestRegistryRuntimeHandler: "C7.2",
-        C8_3ExportTokenStateRuntimeHandler: "C8.3",
-        C9EvidenceMatrixRouteHandler: "C9.3",
+        C7IngestRegistryRuntimeHandler: MATERIAL_COMMIT_READBACK_CELL_ID,
+        KnowledgeReportExportTokenStateRuntimeHandler: "knowledge.report.v2",
+        C9EvidenceMatrixRouteHandler: PROJECTION_READ_MODEL_CELL_ID,
     }
     for handler_type, cell_id in handler_types.items():
         matches = [
@@ -201,17 +206,17 @@ def test_s2b_successor_assembly_carries_all_three_cell_extension_handlers() -> N
 def test_s2b_assembly_requires_pairwise_store_and_command() -> None:
     scope = local_assembly_scope_digest()
     with pytest.raises(ValueError, match="registry_store"):
-        build_c7_assembly(
-            options=C7AssemblyOptions(
-                registry_store=LocalSuccessorIngestRegistryStore()
+        build_material_ingest_assembly(
+            options=MaterialIngestAssemblyOptions(
+                registry_store=LocalSuccessorMaterialIngestRegistryStore()
             ),
             project_scope_digest=scope,
         )
     with pytest.raises(ValueError, match="export_token_store"):
-        build_c8_assembly(
+        build_knowledge_assembly(
             engine=create_engine("sqlite+pysqlite:///:memory:", future=True),
             project_scope_digest=scope,
-            options=C8AssemblyOptions(
+            options=KnowledgeAssemblyOptions(
                 export_token_command=ClaimExportTokenCommand(
                     artifact_id="artifact:s2b-cell-extension:002",
                     actor_digest="actor:sha256:0011223344556677",
@@ -222,7 +227,7 @@ def test_s2b_assembly_requires_pairwise_store_and_command() -> None:
 
 def test_s2b_cell_extension_handlers_keep_authority_false_until_execute() -> None:
     scope = local_assembly_scope_digest()
-    c7_assembly = build_c7_assembly(options=_c7_options(), project_scope_digest=scope)
+    c7_assembly = build_material_ingest_assembly(options=_c7_options(), project_scope_digest=scope)
     c7_handler = next(
         handler
         for handler in c7_assembly.handlers
@@ -230,7 +235,7 @@ def test_s2b_cell_extension_handlers_keep_authority_false_until_execute() -> Non
     )
     assert c7_handler.command.authority is None
 
-    c8_assembly = build_c8_assembly(
+    c8_assembly = build_knowledge_assembly(
         engine=create_engine("sqlite+pysqlite:///:memory:", future=True),
         project_scope_digest=scope,
         options=_c8_options(),
@@ -238,7 +243,7 @@ def test_s2b_cell_extension_handlers_keep_authority_false_until_execute() -> Non
     c8_handler = next(
         handler
         for handler in c8_assembly.handlers
-        if isinstance(handler, C8_3ExportTokenStateRuntimeHandler)
+        if isinstance(handler, KnowledgeReportExportTokenStateRuntimeHandler)
     )
     assert all(
         not value
@@ -246,7 +251,7 @@ def test_s2b_cell_extension_handlers_keep_authority_false_until_execute() -> Non
         if isinstance(value, bool)
     )
 
-    c9_assembly = build_c9_assembly(options=_c9_options())
+    c9_assembly = build_projection_assembly(options=_c9_options())
     c9_handler = next(
         handler
         for handler in c9_assembly.handlers

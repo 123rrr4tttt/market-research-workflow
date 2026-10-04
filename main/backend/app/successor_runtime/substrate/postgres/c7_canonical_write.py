@@ -17,7 +17,7 @@ from typing import Protocol, runtime_checkable
 
 from sqlalchemy.engine import Connection
 
-from app.successor_runtime.capabilities.ingest_c7_movements import (
+from app.successor_runtime.capabilities.material_ingest_movements import (
     StructuredMaterialCandidate,
     VerifiedMaterialCandidate,
 )

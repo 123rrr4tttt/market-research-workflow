@@ -59,7 +59,7 @@ def test_w01_failure_constructors_use_registered_families() -> None:
         "source_library.resolver.failure",
         "indexer.policy.failure",
         "llm.report.request.failure",
-        "source_library.single_source_guard.failure",
+        "source.single-source-guard.failure",
     }
 
 

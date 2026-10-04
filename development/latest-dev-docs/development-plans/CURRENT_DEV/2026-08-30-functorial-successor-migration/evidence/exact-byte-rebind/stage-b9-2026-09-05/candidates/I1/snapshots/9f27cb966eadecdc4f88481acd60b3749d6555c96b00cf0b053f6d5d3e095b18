@@ -1,0 +1,127 @@
+{
+  "schema": "mrw.functorial_successor.capability_cell_spec.v1",
+  "version": "1.0.0",
+  "cell_id": "C4.2",
+  "family_id": "C4",
+  "owner_capability_id": "agent_batch.c4.v1",
+  "entrypoint_kind": "PROGRAM",
+  "commutativity_claim": "NOT_CLAIMED",
+  "input_contract_refs": [
+    "mrw.successor.agent-batch.c4-2.payload.v1",
+    "RetryAction.v1",
+    "RetryBudget.v1"
+  ],
+  "output_contract_refs": [
+    "RetryTransition.v1",
+    "RetryAttemptIntent.v1"
+  ],
+  "object_contract_refs": [
+    "RetryAction.v1",
+    "RetryBudget.v1",
+    "RetryReducerInput.v1",
+    "RetryTransition.v1",
+    "RetryAttemptIntent.v1"
+  ],
+  "operation_contract_refs": [
+    "agent_batch.reduce_retry_action.v1"
+  ],
+  "program_shape_ref": "mrw.successor.agent-batch.c4-2.program-shape.v1",
+  "ordered_composition_refs": [
+    "agent_batch.reduce_retry_action.v1"
+  ],
+  "interpreter_refs": [
+    "successor.agent_batch.retry_action.reducer.v1",
+    "legacy.agent_batch.retry_loop.v1"
+  ],
+  "profile_refs": [
+    "mrw.successor.agent-batch.c4-2.observation.v1"
+  ],
+  "deployment_binding_refs": [
+    "deployment.local-only.no-network.no-provider.no-canonical-write.v1"
+  ],
+  "legacy_oracle_ref": "legacy.agent_batch.retry_loop.v1",
+  "shadow_observation_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C4.json#/cells/1/successor_observation",
+  "failure_union_refs": [
+    "RETRY_ACTION_INVALID"
+  ],
+  "declared_lossy_projection_refs": [
+    "agent_batch.c4.source_mode_rewrite.loss.v1"
+  ],
+  "effect_policy_ref": "mrw.successor.agent-batch.c4-2.effect.pure.v1",
+  "resource_policy_ref": "mrw.successor.agent-batch.c4-2.resource.v1",
+  "recovery_policy_ref": "mrw.successor.agent-batch.c4-2.recovery.v1",
+  "readback_policy_ref": "mrw.successor.runtime.readback.not-applicable.v1",
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false
+  },
+  "adoption_prerequisites": [
+    "P3_AUTHORITY_RECORD_DIVERGENCE",
+    "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+  ],
+  "source_bindings": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P1FunctorizationEligibility.v1.json",
+      "file_sha256": "16dac2d34f2cdcaeffa4718fe2e63733f48b29ad0ba64daab32ed011527d4642",
+      "role": "p1_eligibility"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p1-fragments/C4.json",
+      "file_sha256": "afd63bec6bfca18c543a94f0b1aebd6c15436f68517b227511d3ef2d22872657",
+      "role": "p1_fragment"
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/agent_loop.py",
+      "file_sha256": "49094cc2f6f3297082ac10df60001429b734bb0e0a85ee14041d47a915f882c8",
+      "role": "legacy_donor_c4_1_c4_2"
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/task_contract.py",
+      "file_sha256": "ab47bab386fc2388f510c8d67f183da8b27b0854f9dfbc51ccfbb1aa71312122",
+      "role": "legacy_donor_c4_1_c4_2_c4_3"
+    },
+    {
+      "path": "main/backend/app/api/agent_batch.py",
+      "file_sha256": "696b84b1640578af56a8e5d6f10f6329f7ef7374e25f8c76e3e47999220c794a",
+      "role": "legacy_donor_c4_3"
+    }
+  ],
+  "test_bindings": [
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c4_2_retry_reducer.py",
+      "file_sha256": "71ca07a2bde5df8bb93e86aacfe3b8665c0e59c0ce3eda424a757b84a637ff23",
+      "role": "c4_2_retry_reducer"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c4_1_parity.py",
+      "file_sha256": "29a8bdfd006e151223d6c1ef796021b0903050d8a1e31c853c5569dfd287c3ee",
+      "role": "c4_1_parity"
+    }
+  ],
+  "rollback_bindings": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C4.json",
+      "file_sha256": "058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188",
+      "role": "rollback_observation"
+    },
+    {
+      "path": "main/backend/app/successor_migration/legacy_agent_batch.py",
+      "file_sha256": "83fb7158bdadc595ad5c66d44d6897a9ff5780ab2ebcf9f07b3af05f2f32b0c7",
+      "role": "legacy_rollback_route"
+    }
+  ],
+  "generated_ownership_refs": [
+    "capability-spec.contract-ref-scaffolding.C4.2.v1",
+    "capability-spec.build-manifest.C4.2.v1"
+  ],
+  "handwritten_ownership_refs": [
+    "main/backend/app/successor_runtime/capabilities/agent_batch_c4.py",
+    "main/backend/app/successor_runtime/capabilities/agent_batch_c4_program.py",
+    "main/backend/app/successor_runtime/capabilities/agent_batch_c4_interpreters.py",
+    "main/backend/app/successor_migration/legacy_agent_batch.py",
+    "main/backend/app/successor_runtime/specification/c4_p3.py"
+  ]
+}

@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+
 import pytest
 
-from app.successor_runtime.capabilities.c9_2_search_retrieval_panel import (
+from app.successor_runtime.capabilities.search_retrieval_panel import (
     DECLARED_LOSS,
+    LEGACY_SURFACE_SCHEMA_V1,
     SearchRetrievalRunObservation,
+    SURFACE_SCHEMA,
     project_search_retrieval_panel,
 )
-from app.successor_runtime.capabilities.c9_2_search_retrieval_panel import (
+from app.successor_runtime.capabilities.search_retrieval_panel import (
+    decode_legacy_search_retrieval_panel_v1,
     authority_ceiling as panel_authority_ceiling,
 )
 from app.successor_runtime.capabilities.source_library_worker_readback import (
@@ -40,6 +46,7 @@ def _search_row(
 
 def test_search_panel_empty_is_no_panel_and_readiness_is_not_faked() -> None:
     payload = project_search_retrieval_panel(())
+    assert payload.schema == SURFACE_SCHEMA
     assert payload.panel_status == "NO_PANEL"
     assert payload.no_fake_panel_success is True
     assert payload.authority == panel_authority_ceiling()
@@ -65,6 +72,26 @@ def test_search_panel_terminal_fresh_is_ready() -> None:
     )
     assert payload.panel_status == "READY"
     assert "search-index-write-no-call" in payload.declared_loss
+
+
+def test_search_panel_legacy_v1_reads_exact_bytes_and_rejects_unknown_version() -> None:
+    current = project_search_retrieval_panel((_search_row(),))
+    historical = current.to_plain()
+    historical["schema"] = LEGACY_SURFACE_SCHEMA_V1
+    raw = json.dumps(historical, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    digest = hashlib.sha256(raw).hexdigest()
+    readback = decode_legacy_search_retrieval_panel_v1(raw, expected_digest=digest)
+    assert readback.raw_bytes == raw
+    assert readback.content_digest == digest
+    assert readback.payload == historical
+    assert readback.rows == current.rows
+
+    unknown = json.dumps({**historical, "schema": "mrw.projection.search-retrieval-panel.surface.v999"}).encode()
+    unknown_digest = hashlib.sha256(unknown).hexdigest()
+    with pytest.raises(ValueError, match="unsupported legacy search panel schema version"):
+        decode_legacy_search_retrieval_panel_v1(unknown, expected_digest=unknown_digest)
+    with pytest.raises(ValueError, match="exact bytes do not match"):
+        decode_legacy_search_retrieval_panel_v1(raw, expected_digest="0" * 64)
 
 
 def _worker_row(

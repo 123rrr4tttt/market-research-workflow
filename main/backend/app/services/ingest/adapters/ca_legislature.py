@@ -21,7 +21,7 @@ class CaliforniaLegislatureAdapter(PolicyAdapter):
 
     SEARCH_URL = (
         "https://leginfo.legislature.ca.gov/faces/billSearchClient.xhtml"
-        "?session_year=2023&keyword=lottery"
+        "?session_year=2023&keyword=policy"
     )
 
     def fetch_documents(self) -> Iterable[PolicyDocument]:
@@ -69,7 +69,7 @@ class CaliforniaLegislatureAdapter(PolicyAdapter):
             snippet = text[:1200]
             yield PolicyDocument(
                 state="CA",
-                title="California Lottery Legislative Update (fallback)",
+                title="California Legislative Update (fallback)",
                 status=None,
                 publish_date=today,
                 summary=snippet[:300] or None,
@@ -77,5 +77,4 @@ class CaliforniaLegislatureAdapter(PolicyAdapter):
                 uri=self.SEARCH_URL,
                 source_name="CA Legislature Search",
             )
-
 

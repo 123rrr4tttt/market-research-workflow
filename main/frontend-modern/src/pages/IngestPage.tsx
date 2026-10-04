@@ -539,7 +539,6 @@ export type IngestPageViewProps = {
   onIngestEcom: () => void
   onLoadRetrievalRunReadback: (retrievalRunId: string) => void
   onSubmitAgentBatch: () => void
-  onSubmitNlAgentBatch: () => void
   onRefreshBatchStatus: () => void
   onRetryBatchItem: (item: AgentBatchItemRow) => void
   onRefreshHistory: () => void
@@ -575,7 +574,6 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
     listAgentBatchItems,
     getAgentBatchEvents,
     retryAgentBatchJob,
-    runAgentBatchNlCommand,
   } = useIngestActions(projectKey)
 
   const sourceItems = useQuery({ queryKey: queryKeys.sourceLibrary.items(projectKey), queryFn: listSourceItems })
@@ -777,25 +775,6 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
     setAgentBatchRejectedReasonCodes(Array.from(new Set(reasonCodes)))
   }
 
-  const onSubmitNlAgentBatch = async () => {
-    const command = splitTerms(form.queryTerms).join('，')
-    if (!command) throw new Error(t('ingestPage.error.queryTerms'))
-    const requestCommand = formatIngestTemplate(translate(DEFAULT_APP_LOCALE, 'ingestPage.agentBatch.nlCommand'), {
-      days: toNullableInt(form.daysBack, 1, 365) ?? 7,
-      command,
-    })
-    const result = await runAgentBatchNlCommand({
-      command: requestCommand,
-      project_key: projectKey,
-      idempotency_key: `ingest-ui-nl-${Date.now()}`,
-    })
-    if (!result?.submit?.job_id) return
-    setAgentBatchJobId(String(result.submit.job_id))
-    const rejected = Array.isArray(result.submit.rejected_job_items) ? result.submit.rejected_job_items : []
-    const reasonCodes = rejected.map((item) => String(item.reason_code || '').trim()).filter(Boolean)
-    setAgentBatchRejectedReasonCodes(Array.from(new Set(reasonCodes)))
-  }
-
   const onRetryBatchItem = async (item: AgentBatchItemRow) => {
     if (!agentBatchJobId || !item.item_id) return
     const result = await retryAgentBatchJob(agentBatchJobId, {
@@ -893,9 +872,6 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
       onSubmitAgentBatch={() => {
         void onSubmitAgentBatch()
       }}
-      onSubmitNlAgentBatch={() => {
-        void onSubmitNlAgentBatch()
-      }}
       onRefreshBatchStatus={() => {
         void Promise.all([agentBatchJob.refetch(), agentBatchItems.refetch(), agentBatchEvents.refetch()])
       }}
@@ -943,7 +919,6 @@ export function IngestPageView({
   onIngestEcom,
   onLoadRetrievalRunReadback,
   onSubmitAgentBatch,
-  onSubmitNlAgentBatch,
   onRefreshBatchStatus,
   onRetryBatchItem,
   onRefreshHistory,
@@ -1331,7 +1306,6 @@ export function IngestPageView({
 
                 <div className="inline-actions ingest-task-toolbar">
                   <button disabled={actionPending} onClick={onSubmitAgentBatch}><Play size={15} />{t('ingestPage.action.submitBatch')}</button>
-                  <button disabled={actionPending} onClick={onSubmitNlAgentBatch}><Sparkles size={15} />{t('ingestPage.action.startNlCommand')}</button>
                   {hasBatch ? (
                     <button disabled={actionPending} onClick={onRefreshBatchStatus}>
                       <RefreshCw size={15} />{t('ingestPage.action.refreshBatchStatus')}

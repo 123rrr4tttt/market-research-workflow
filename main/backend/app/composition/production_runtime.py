@@ -510,7 +510,7 @@ def _installed_canonical_writer_bindings() -> tuple[InstalledCanonicalWriterBind
         InstalledCanonicalWriterBinding(
             operation="rebuild_projection",
             canonical_owner_ref="successor-runtime",
-            writer_port_kind="postgres.c9_projection_rebuild.v1",
+            writer_port_kind="postgres.projection_rebuild.v2",
             port=C9ProjectionCanonicalWriterBinding(),
         ),
     )

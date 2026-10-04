@@ -1,0 +1,35 @@
+{
+  "http_status": 200,
+  "response": {
+    "status": "ok",
+    "data": {
+      "task_id": "fae77b30-cead-47ec-8d27-46baaf85f2f0",
+      "status": "FAILURE",
+      "ready": true,
+      "successful": false,
+      "failed": true,
+      "result": {
+        "message": "Multiple rows were found when one or none was required",
+        "type": "MultipleResultsFound"
+      },
+      "progress": null,
+      "traceback": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.11/site-packages/celery/app/trace.py\", line 453, in trace_task\n    R = retval = fun(*args, **kwargs)\n                 ^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/celery/app/trace.py\", line 736, in __protected_call__\n    return self.run(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/services/tasks.py\", line 935, in task_raw_import_documents\n    return run_raw_import_documents(payload=payload or {}, project_key=project_key or \"\")\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/services/ingest/raw_import.py\", line 297, in run_raw_import_documents\n    source = session.execute(select(Source).where(Source.name == source_name)).scalar_one_or_none()\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/result.py\", line 1487, in scalar_one_or_none\n    return self._only_one_row(\n           ^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/result.py\", line 805, in _only_one_row\n    raise exc.MultipleResultsFound(\nsqlalchemy.exc.MultipleResultsFound: Multiple rows were found when one or none was required\n",
+      "inserted_valid": null,
+      "rejected_count": 0,
+      "rejection_breakdown": {},
+      "degradation_flags": [],
+      "quality_score": null,
+      "error_code": "TASK_FAILED",
+      "handler_used": null,
+      "skip_reason": null,
+      "name": null
+    },
+    "error": null,
+    "meta": {
+      "trace_id": "258a3e53-428f-4635-8c4a-1fb322176b48",
+      "pagination": null,
+      "project_key": "readiness_repair",
+      "deprecated": null
+    }
+  }
+}

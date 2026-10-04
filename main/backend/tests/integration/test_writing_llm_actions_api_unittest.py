@@ -47,7 +47,19 @@ class WritingLlmActionsApiIntegrationTestCase(unittest.TestCase):
         self.assertTrue(response.json()["data"]["valid"])
 
     def test_llm_action_and_history_success(self):
-        history_item = LlmActionHistoryItem(job_id=7, job_type="wr_action", status="completed")
+        history_item = LlmActionHistoryItem(
+            job_id=7,
+            job_type="wr_action",
+            status="completed",
+            request_meta={"requested_async": True},
+            result_summary={
+                "content": "Output",
+                "requested_async": True,
+                "execution_mode": "inline",
+                "async_honored": False,
+            },
+            content="Output",
+        )
         with (
             patch(
                 "app.api.writing.dispatch_action",
@@ -57,14 +69,20 @@ class WritingLlmActionsApiIntegrationTestCase(unittest.TestCase):
                     trace_id="trace-1",
                     job_id=7,
                     capability_truth={
-                        "contract_version": "writing.llm_action.capability_truth.v1",
+                        "contract_version": "writing.llm_action.capability_truth.v2",
                         "declared_capability": "writing_action",
                         "implementation_kind": "rule_template_action",
                         "real_model_path": False,
                         "fallback_path": True,
                         "route_kind": "sync",
                         "status": "completed",
+                        "requested_async": True,
+                        "execution_mode": "inline",
+                        "async_honored": False,
                     },
+                    requested_async=True,
+                    execution_mode="inline",
+                    async_honored=False,
                 ),
             ),
             patch("app.api.writing.get_action_history", return_value=[history_item]),
@@ -72,7 +90,7 @@ class WritingLlmActionsApiIntegrationTestCase(unittest.TestCase):
         ):
             action_response = self.client.post(
                 "/api/v1/writing/llm-actions",
-                json={"project_key": "demo_proj", "action_id": "selection_rewrite", "input_markdown": "draft", "async": False},
+                json={"project_key": "demo_proj", "action_id": "selection_rewrite", "input_markdown": "draft", "async": True},
                 headers=self.headers,
             )
             history_response = self.client.get("/api/v1/writing/llm-actions/history", headers=self.headers)
@@ -82,8 +100,16 @@ class WritingLlmActionsApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(history_response.status_code, 200)
         self.assertEqual(detail_response.status_code, 200)
         self.assertEqual(action_response.json()["data"]["job_id"], 7)
+        self.assertEqual(action_response.json()["data"]["content"], "Output")
+        self.assertEqual(action_response.json()["data"]["status"], "completed")
+        self.assertEqual(action_response.json()["data"]["requested_async"], True)
+        self.assertEqual(action_response.json()["data"]["execution_mode"], "inline")
+        self.assertFalse(action_response.json()["data"]["async_honored"])
         self.assertEqual(action_response.json()["data"]["capability_truth"]["implementation_kind"], "rule_template_action")
         self.assertEqual(history_response.json()["data"]["items"][0]["job_id"], 7)
+        self.assertEqual(history_response.json()["data"]["items"][0]["content"], "Output")
+        self.assertEqual(detail_response.json()["data"]["content"], "Output")
+        self.assertEqual(history_response.json()["data"]["items"][0]["result_summary"]["execution_mode"], "inline")
 
     def test_llm_action_detail_not_found_returns_structured_error(self):
         with patch("app.api.writing.get_action_detail", side_effect=KeyError("action not found")):

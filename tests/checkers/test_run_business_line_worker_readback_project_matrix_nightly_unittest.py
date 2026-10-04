@@ -7,6 +7,7 @@ import json
 import os
 import shlex
 import subprocess
+import sys
 import tempfile
 import textwrap
 import unittest
@@ -519,7 +520,7 @@ class BusinessLineWorkerReadbackProjectMatrixNightlyTestCase(unittest.TestCase):
 
         checker = subprocess.run(
             [
-                os.environ.get("PYTHON", "/Users/wangyiliang/.local/bin/python3.11"),
+                os.environ.get("PYTHON", sys.executable),
                 str(REPO_ROOT / "scripts/check_scheduled_automation_artifacts.py"),
                 "--root",
                 str(checker_root),

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.source_library_c2_3 import (
+from app.successor_runtime.capabilities.source_provider_acquisition import (
     AcceptedProviderEffect,
     CapturedSourceRecordRef,
     CompletedProviderEffect,

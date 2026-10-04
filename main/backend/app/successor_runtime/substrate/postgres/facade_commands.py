@@ -1,4 +1,4 @@
-"""Family-local PostgreSQL command/query adapters for the C9 facade.
+"""PostgreSQL command/query adapters for the material projection facade.
 
 The command adapter reserves the exact request through the shared
 ``runtime_idempotency`` root inside the caller transaction.  A PostgreSQL
@@ -7,7 +7,7 @@ project/capability/command id; the first exact reservation is durable and
 every later exact duplicate returns the same receipt.  A changed body raises
 a typed conflict and never submits a second command.  The default repository
 is submission-only for compatibility; production installs it with
-``execute_effects=True`` so the approved C9 rebuild runs in the same
+``execute_effects=True`` so the approved projection rebuild runs in the same
 transaction before its command receipt commits.  The query adapter is
 read-only and reads the active ``runtime_projection_offsets`` row only.
 """
@@ -25,6 +25,9 @@ from sqlalchemy.engine import Connection
 from app.successor_runtime.research.codec import sha256_hex
 from app.successor_runtime.runtime.facade_contracts import (
     C9_ROLLBACK_TRANSITION_CONTRACT,
+    MATERIAL_PROJECTION_CANDIDATE_SCHEMA,
+    MATERIAL_PROJECTION_CLOSURE_ID,
+    PROJECTION_ROLLBACK_TRANSITION_CONTRACT,
     C9CommandBaseConflict,
     C9CommandBlocked,
     C9CommandConflict,
@@ -38,6 +41,7 @@ from app.successor_runtime.runtime.facade_contracts import (
     ProjectionResponseMetaV2,
     ProjectionSnapshotDataV2,
     QueryResult,
+    derive_historical_c9_request_identity,
     validate_command_v2,
     validate_query_v2,
 )
@@ -52,6 +56,10 @@ from app.successor_runtime.substrate.postgres.authority import (
 )
 from app.successor_runtime.substrate.postgres.authority_provider import (
     PostgresAuthorityProvider,
+)
+from app.successor_runtime.substrate.postgres.projection_sources import (
+    PROJECT_SOURCE_KIND,
+    load_exact_project_source_closure,
 )
 from app.successor_runtime.substrate.postgres.idempotency import (
     IdempotencyBinding,
@@ -78,25 +86,42 @@ from app.successor_runtime.substrate.postgres.values import (
     ReceiptRepository,
     ValueRepository,
 )
-from app.successor_runtime.substrate.postgres.c9_projection_sources import (
-    load_exact_semantic_source_closure,
+from app.successor_runtime.substrate.projections.projection_sources import (
+    TASK_VIEW_SCHEMA,
+    KNOWLEDGE_VIEW_SCHEMA,
+    MATERIAL_VIEW_SCHEMA,
 )
 
 __all__ = [
     "C9_CAPABILITY_ID",
+    "LEGACY_C9_CAPABILITY_ID",
+    "PROJECTION_COMMAND_RECEIPT_SCHEMA",
     "PostgresC9CommandRepository",
     "PostgresC9QueryRepository",
     "derive_c9_receipt_ref",
+    "derive_projection_command_receipt_ref",
 ]
 
-C9_CAPABILITY_ID = "capability:successor-runtime:c9"
-_C9_OPERATION_KIND_PREFIX = "successor.runtime.c9."
-_ADVISORY_LOCK_PREFIX = "mrw.c9.submission."
-_C9_LOCAL_SINK_OBJECT_TYPES: Mapping[str, str] = {
+C9_CAPABILITY_ID = "capability:material-projections:v2"
+LEGACY_C9_CAPABILITY_ID = "capability:successor-runtime:c9"
+PROJECTION_COMMAND_RECEIPT_SCHEMA = "material.projections.command-receipt.v2"
+LEGACY_C9_COMMAND_RECEIPT_SCHEMA = "mrw.successor.c9.command-receipt.v1"
+_C9_OPERATION_KIND_PREFIX = "material.projections.v2."
+_ADVISORY_LOCK_PREFIX = "mrw.material-projections.command."
+_PROJECTION_LOCAL_SINK_OBJECT_TYPES: Mapping[str, str] = {
+    "task": TASK_VIEW_SCHEMA,
+    "knowledge": KNOWLEDGE_VIEW_SCHEMA,
+    "material": MATERIAL_VIEW_SCHEMA,
+}
+_LEGACY_C9_LOCAL_SINK_OBJECT_TYPES: Mapping[str, str] = {
     "agent_session": "AgentSessionLocalProjection.v1",
     "graph": "GraphLocalProjection.v1",
     "search": "SearchLocalProjection.v1",
 }
+_LEGACY_C9_PROJECTION_ID = "projection.c9-movement-closure.v1"
+_LEGACY_C9_CANDIDATE_SCHEMA = (
+    "mrw.successor.c9.projection-candidate-envelope.v1"
+)
 _EXPECTED_BASE_PATTERN = re.compile(
     r"^generation:(?P<generation>[0-9]+)\|revision:(?P<revision>[0-9]+)\|"
     r"incarnation:(?P<incarnation>[A-Za-z0-9][A-Za-z0-9._:/-]{0,127})$"
@@ -104,20 +129,53 @@ _EXPECTED_BASE_PATTERN = re.compile(
 
 
 def derive_c9_receipt_ref(row: Mapping[str, Any]) -> str:
-    """Return the durable receipt ref bound to the canonical idempotency row."""
+    """Return the exact historical receipt ref for explicit v1 readback."""
 
     return f"c9-receipt:{row['idempotency_id']}"
 
 
+def derive_projection_command_receipt_ref(row: Mapping[str, Any]) -> str:
+    """Return the current business receipt ref bound to its idempotency row."""
+
+    return f"material-projection-receipt:{row['idempotency_id']}"
+
+
 def _binding(command: FacadeCommandV2) -> IdempotencyBinding:
     return IdempotencyBinding(
-        idempotency_id=f"idem:c9:{command.command_id}",
+        idempotency_id=f"idem:material-projections:{command.command_id}",
         capability_id=C9_CAPABILITY_ID,
         logical_request_id=command.command_id,
         operation_kind=f"{_C9_OPERATION_KIND_PREFIX}{command.command_kind}",
         request_digest=command.idempotency_key,
         run_id=None,
     )
+
+
+def _historical_request_digest(command: FacadeCommandV2) -> str:
+    return derive_historical_c9_request_identity(
+        scope_digest=command.project_scope_ref.scope_digest,
+        actor_ref=command.actor_ref,
+        command_id=command.command_id,
+        command_kind=command.command_kind,
+        payload=command.payload,
+        expected_base_token=command.expected_base_token,
+        approval_locator=command.approval_locator,
+    )
+
+
+def _load_existing_binding(
+    repository: IdempotencyRepository,
+    command: FacadeCommandV2,
+    *,
+    historical: bool,
+) -> tuple[Mapping[str, Any], str, bool]:
+    """Read the binding version selected by the persisted receipt identity."""
+
+    if not historical:
+        row = repository.load(C9_CAPABILITY_ID, command.command_id)
+        return row, command.idempotency_key, False
+    row = repository.load(LEGACY_C9_CAPABILITY_ID, command.command_id)
+    return row, _historical_request_digest(command), True
 
 
 def _command_source_key(command: FacadeCommandV2) -> ProjectionOffsetKey:
@@ -154,7 +212,7 @@ def _require_effect_authority(
     *,
     canonical_base_revision: int,
     canonical_incarnation: str,
-) -> AuthorityContext:
+) -> tuple[AuthorityContext, str]:
     """Reuse the existing scope/grant/approval authority boundary."""
 
     if command.project_scope_ref != scope.project_scope:
@@ -168,15 +226,29 @@ def _require_effect_authority(
     except (RecordNotFound, ExactBindingConflict) as exc:
         raise C9CommandBlocked("project scope binding is stale or absent") from exc
     approval_refs = (command.approval_locator,) if command.approval_locator else ()
+    provider = PostgresAuthorityProvider(connection, scope)
+    authority_capability_id = C9_CAPABILITY_ID
     try:
-        context = PostgresAuthorityProvider(connection, scope).current_context(
+        context = provider.current_context(
             command.actor_ref,
-            capability_id=C9_CAPABILITY_ID,
+            capability_id=authority_capability_id,
             approval_refs=approval_refs,
             canonical_base_revision=canonical_base_revision,
             canonical_incarnation=canonical_incarnation,
         )
-    except (ExactBindingConflict, RecordNotFound) as exc:
+    except RecordNotFound:
+        authority_capability_id = LEGACY_C9_CAPABILITY_ID
+        try:
+            context = provider.current_context(
+                command.actor_ref,
+                capability_id=authority_capability_id,
+                approval_refs=approval_refs,
+                canonical_base_revision=canonical_base_revision,
+                canonical_incarnation=canonical_incarnation,
+            )
+        except (ExactBindingConflict, RecordNotFound) as exc:
+            raise C9CommandBlocked(str(exc)) from exc
+    except ExactBindingConflict as exc:
         raise C9CommandBlocked(str(exc)) from exc
     for approval_ref in approval_refs:
         approval = ApprovalRepository(connection, scope).load(approval_ref)
@@ -186,7 +258,7 @@ def _require_effect_authority(
             )
     grants = AuthorityGrantRepository(connection, scope).current_for(
         actor_id=command.actor_ref,
-        capability_id=C9_CAPABILITY_ID,
+        capability_id=authority_capability_id,
         at=datetime.now(UTC),
     )
     if not grants:
@@ -202,16 +274,22 @@ def _require_effect_authority(
         raise C9CommandBlocked(
             "authority grant does not cover the requested command kind"
         )
-    return context
+    return context, authority_capability_id
 
 
 def _command_receipt_id(command_id: str) -> str:
+    return f"material-projection:command-receipt:{sha256_hex(command_id)[:16]}"
+
+
+def _legacy_command_receipt_id(command_id: str) -> str:
     return f"c9:command-receipt:{sha256_hex(command_id)[:16]}"
 
 
 def _command_receipt_content(
     *,
     receipt_ref: str,
+    idempotency_id: str,
+    authority_capability_id: str,
     command: FacadeCommandV2,
     context: AuthorityContext,
     canonical_base_revision: int,
@@ -221,8 +299,12 @@ def _command_receipt_content(
     effect_result: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     content: dict[str, Any] = {
-        "schema_version": "mrw.successor.c9.command-receipt.v1",
+        "schema_version": PROJECTION_COMMAND_RECEIPT_SCHEMA,
         "receipt_ref": receipt_ref,
+        "idempotency_id": idempotency_id,
+        "capability_id": C9_CAPABILITY_ID,
+        "operation_kind": f"{_C9_OPERATION_KIND_PREFIX}{command.command_kind}",
+        "authority_capability_id": authority_capability_id,
         "command_id": command.command_id,
         "request_digest": command.idempotency_key,
         "authority_context_digest": context.context_digest,
@@ -244,17 +326,40 @@ def _receipt_from_row(
     row: Mapping[str, Any],
     *,
     command: FacadeCommandV2,
+    binding: Mapping[str, Any],
+    historical: bool,
     state: str,
 ) -> CommandReceipt:
     content = row["receipt_json"]
     if not isinstance(content, Mapping):
         raise C9CommandConflict("persisted command receipt payload is malformed")
+    expected_schema = (
+        LEGACY_C9_COMMAND_RECEIPT_SCHEMA
+        if historical
+        else PROJECTION_COMMAND_RECEIPT_SCHEMA
+    )
+    if content.get("schema_version") != expected_schema:
+        raise C9CommandConflict("persisted command receipt schema identity drift")
+    if not historical:
+        if content.get("idempotency_id") != binding["idempotency_id"]:
+            raise C9CommandConflict("persisted command receipt idempotency drift")
+        if content.get("capability_id") != C9_CAPABILITY_ID:
+            raise C9CommandConflict("persisted command receipt capability drift")
+        if content.get("operation_kind") != binding["operation_kind"]:
+            raise C9CommandConflict("persisted command receipt operation drift")
+        if content.get("authority_capability_id") not in {
+            C9_CAPABILITY_ID,
+            LEGACY_C9_CAPABILITY_ID,
+        }:
+            raise C9CommandConflict(
+                "persisted command receipt authority capability drift"
+            )
     return CommandReceipt(
         receipt_ref=str(content["receipt_ref"]),
         command_id=str(content["command_id"]),
         request_digest=str(content["request_digest"]),
         state=state,  # type: ignore[arg-type]
-        idempotency_id=f"idem:c9:{command.command_id}",
+        idempotency_id=str(binding["idempotency_id"]),
         logical_request_id=command.command_id,
         run_id=None,
         authority_context_digest=str(content["authority_context_digest"]),
@@ -300,8 +405,7 @@ class PostgresC9CommandRepository:
             )
         project_key = self.scope.project_scope.project_key
         lock_key = (
-            f"{_ADVISORY_LOCK_PREFIX}{project_key}.{C9_CAPABILITY_ID}."
-            f"{command.command_id}"
+            f"{_ADVISORY_LOCK_PREFIX}{project_key}.{command.command_id}"
         )
         self.connection.execute(
             text("SELECT pg_advisory_xact_lock(hashtext(:lock_key))"),
@@ -309,6 +413,7 @@ class PostgresC9CommandRepository:
         )
         key = _command_source_key(command)
         receipt_id = _command_receipt_id(command.command_id)
+        legacy_receipt_id = _legacy_command_receipt_id(command.command_id)
         receipt_table = self.tables.successor_receipts
         existing = (
             self.connection.execute(
@@ -320,6 +425,19 @@ class PostgresC9CommandRepository:
             .mappings()
             .one_or_none()
         )
+        historical_receipt = False
+        if existing is None:
+            existing = (
+                self.connection.execute(
+                    select(receipt_table).where(
+                        receipt_table.c.project_key == project_key,
+                        receipt_table.c.receipt_id == legacy_receipt_id,
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            historical_receipt = existing is not None
         if existing is not None:
             persisted_content = existing["receipt_json"]
             if not isinstance(persisted_content, Mapping):
@@ -329,16 +447,31 @@ class PostgresC9CommandRepository:
             if sha256_hex(persisted_content) != existing["receipt_digest"]:
                 raise C9CommandConflict("persisted command receipt digest drift")
             try:
-                persisted_binding = IdempotencyRepository(
-                    self.connection, self.scope
-                ).load(C9_CAPABILITY_ID, command.command_id)
+                persisted_binding, expected_request_digest, historical = (
+                    _load_existing_binding(
+                        IdempotencyRepository(self.connection, self.scope),
+                        command,
+                        historical=historical_receipt,
+                    )
+                )
             except RecordNotFound as exc:
                 raise C9CommandConflict(
                     "persisted command receipt lacks an idempotency binding"
                 ) from exc
+            if persisted_binding["request_digest"] != expected_request_digest:
+                identity = "historical" if historical else "current"
+                raise C9CommandConflict(
+                    f"persisted {identity} idempotency request digest drift"
+                )
             state = str(persisted_binding["state"])
-            persisted = _receipt_from_row(existing, command=command, state=state)
-            if persisted.request_digest != command.idempotency_key:
+            persisted = _receipt_from_row(
+                existing,
+                command=command,
+                binding=persisted_binding,
+                historical=historical,
+                state=state,
+            )
+            if persisted.request_digest != expected_request_digest:
                 raise C9CommandConflict(
                     "persisted command receipt request digest drift"
                 )
@@ -358,6 +491,22 @@ class PostgresC9CommandRepository:
                         "persisted terminal command lacks exact effect evidence"
                     )
             return persisted
+        try:
+            historical_binding = IdempotencyRepository(
+                self.connection,
+                self.scope,
+            ).load(LEGACY_C9_CAPABILITY_ID, command.command_id)
+        except RecordNotFound:
+            historical_binding = None
+        if historical_binding is not None:
+            expected_historical_digest = _historical_request_digest(command)
+            if historical_binding["request_digest"] != expected_historical_digest:
+                raise C9CommandConflict(
+                    "historical command id is bound to a different request body"
+                )
+            raise C9CommandConflict(
+                "historical command binding has no exact persisted receipt"
+            )
         # First-time request: the full authority/approval/scope/base validation
         # must complete before reservation, so a typed rejection leaves zero
         # idempotency/receipt residue and cannot occupy the command id.
@@ -388,7 +537,7 @@ class PostgresC9CommandRepository:
             if offset_row is not None
             else self.scope.project_scope.incarnation
         )
-        context = _require_effect_authority(
+        context, authority_capability_id = _require_effect_authority(
             self.connection,
             self.scope,
             command,
@@ -407,13 +556,14 @@ class PostgresC9CommandRepository:
                     "command id is already bound to a different request body"
                 ) from exc
             state = str(row["state"])
-            receipt_ref = derive_c9_receipt_ref(row)
+            receipt_ref = derive_projection_command_receipt_ref(row)
             effect_result: Mapping[str, Any] | None = None
             terminal_observation_ref: str | None = None
             if self.execute_effects:
                 effect_result = self._execute_effect(
                     command,
                     key,
+                    authority_capability_id=authority_capability_id,
                     canonical_base_revision=canonical_base_revision,
                     canonical_incarnation=canonical_incarnation,
                 )
@@ -422,7 +572,7 @@ class PostgresC9CommandRepository:
                 )
                 if not terminal_observation_ref:
                     raise C9TransactionFatal(
-                        "successful C9 effect lacks a terminal observation reference"
+                        "successful projection effect lacks a terminal observation reference"
                     )
                 row = IdempotencyRepository(
                     self.connection, self.scope
@@ -435,6 +585,8 @@ class PostgresC9CommandRepository:
                 state = str(row["state"])
             content = _command_receipt_content(
                 receipt_ref=receipt_ref,
+                idempotency_id=str(row["idempotency_id"]),
+                authority_capability_id=authority_capability_id,
                 command=command,
                 context=context,
                 canonical_base_revision=canonical_base_revision,
@@ -449,10 +601,11 @@ class PostgresC9CommandRepository:
                 scope=self.scope,
                 receipt_id=receipt_id,
                 receipt_digest=receipt_digest,
-                delivery_intent_ref=f"c9-command-submission:{project_key}",
-                attempt_ref=f"c9-submission:{command.command_id}",
+                delivery_intent_ref=f"material-projection-command:{project_key}",
+                attempt_ref=f"material-projection-command:{command.command_id}",
                 provider_locator=(
-                    f"local:postgres:{self.scope.project_scope.resolved_schema}:commands"
+                    "local:postgres:"
+                    f"{self.scope.project_scope.resolved_schema}:material-projections"
                 ),
                 content=content,
                 outcome_time=observed_at,
@@ -484,6 +637,8 @@ class PostgresC9CommandRepository:
                 "outcome_time": observed_at,
             },
             command=command,
+            binding=row,
+            historical=False,
             state=state,
         )
 
@@ -492,21 +647,23 @@ class PostgresC9CommandRepository:
         command: FacadeCommandV2,
         key: ProjectionOffsetKey,
         *,
+        authority_capability_id: str,
         canonical_base_revision: int,
         canonical_incarnation: str,
     ) -> Mapping[str, Any]:
-        """Execute the one production-admitted C9 effect in this transaction."""
+        """Execute the production-admitted projection effect in this transaction."""
 
         if command.command_kind != "rebuild_projection":
             raise C9Unavailable(
-                f"production C9 command effect is not implemented: {command.command_kind}"
+                "production projection command effect is not implemented: "
+                f"{command.command_kind}"
             )
         try:
             PostgresAuthorityProvider(
                 self.connection, self.scope
             ).require_exact_effect_authority(
                 actor_id=command.actor_ref,
-                capability_id=C9_CAPABILITY_ID,
+                capability_id=authority_capability_id,
                 operation_kind=command.command_kind,
                 payload_digest=command.idempotency_key,
                 approval_ref=command.approval_locator,
@@ -519,7 +676,7 @@ class PostgresC9CommandRepository:
         # digest or revision that could be treated as authority.
         from scripts.c9_projection_rebuild import PostgresC9ProjectionRebuilder
 
-        closure = load_exact_semantic_source_closure(self.connection, self.scope)
+        closure = load_exact_project_source_closure(self.connection, self.scope)
         outcome = PostgresC9ProjectionRebuilder(
             self.connection,
             self.scope,
@@ -532,17 +689,17 @@ class PostgresC9CommandRepository:
         )
         if not outcome.generation_activated:
             raise C9Unavailable(
-                "C9 projection rebuild did not activate a complete generation"
+                "projection rebuild did not activate a complete generation"
             )
         activated_offset = outcome.activated_offset
         if not isinstance(activated_offset, Mapping):
             raise C9Unavailable(
-                "C9 projection rebuild lacks its activated offset observation"
+                "projection rebuild lacks its activated offset observation"
             )
         terminal_observation_ref = str(activated_offset.get("offset_ref", ""))
         if not terminal_observation_ref:
             raise C9Unavailable(
-                "C9 projection rebuild lacks a durable offset observation reference"
+                "projection rebuild lacks a durable offset observation reference"
             )
         return {
             "operation": command.command_kind,
@@ -629,7 +786,13 @@ class PostgresC9CommandRepository:
                 raise C9TransactionFatal(
                     "committed real-effect receipt lacks terminal evidence"
                 )
-        return _receipt_from_row(receipt, command=command, state=state)
+        return _receipt_from_row(
+            receipt,
+            command=command,
+            binding=binding,
+            historical=False,
+            state=state,
+        )
 
 
 class PostgresC9QueryRepository:
@@ -676,7 +839,7 @@ class PostgresC9QueryRepository:
             key = ProjectionOffsetKey(
                 projector_id=params["projector_id"],
                 projector_version=params["projector_version"],
-                source_kind=params.get("source_kind", "successor_values"),
+                source_kind=params.get("source_kind", PROJECT_SOURCE_KIND),
                 source_ref=params["source_ref"],
                 source_incarnation=params["source_incarnation"],
             )
@@ -717,7 +880,11 @@ class PostgresC9QueryRepository:
             source_digest=str(row["source_digest"]),
             cursor=int(row["source_revision"]),
             offset_ref=str(row["offset_ref"]),
-            candidate_values=self._projection_candidates(key, generation),
+            candidate_values=self._projection_candidates(
+                key,
+                generation,
+                requested_projection_id=str(projection_id),
+            ),
             rollback_transition=self._rollback_transition(
                 key,
                 generation,
@@ -733,6 +900,8 @@ class PostgresC9QueryRepository:
         self,
         key: ProjectionOffsetKey,
         generation: int,
+        *,
+        requested_projection_id: str,
     ) -> tuple[ProjectionCandidateValueV2, ...]:
         """Exact one-candidate-per-required-sink readback with full verification."""
 
@@ -742,7 +911,12 @@ class PostgresC9QueryRepository:
                 select(table).where(
                     table.c.project_key == self.scope.project_scope.project_key,
                     table.c.object_type.in_(
-                        tuple(_C9_LOCAL_SINK_OBJECT_TYPES.values())
+                        tuple(
+                            {
+                                *_PROJECTION_LOCAL_SINK_OBJECT_TYPES.values(),
+                                *_LEGACY_C9_LOCAL_SINK_OBJECT_TYPES.values(),
+                            }
+                        )
                     ),
                     table.c.provenance_json["projector_id"].as_string()
                     == key.projector_id,
@@ -763,8 +937,23 @@ class PostgresC9QueryRepository:
         by_object_type: dict[str, list[Mapping[str, Any]]] = {}
         for row in rows:
             by_object_type.setdefault(str(row["object_type"]), []).append(row)
+        candidate_types = set(by_object_type)
+        if candidate_types == set(_PROJECTION_LOCAL_SINK_OBJECT_TYPES.values()):
+            object_types = _PROJECTION_LOCAL_SINK_OBJECT_TYPES
+            expected_projection_id = MATERIAL_PROJECTION_CLOSURE_ID
+        elif candidate_types == set(_LEGACY_C9_LOCAL_SINK_OBJECT_TYPES.values()):
+            object_types = _LEGACY_C9_LOCAL_SINK_OBJECT_TYPES
+            expected_projection_id = _LEGACY_C9_PROJECTION_ID
+        else:
+            raise C9Unavailable(
+                "required projection candidates mix current and historical families"
+            )
+        if requested_projection_id != expected_projection_id:
+            raise C9Unavailable(
+                "projection snapshot identity does not match persisted candidates"
+            )
         candidates: list[ProjectionCandidateValueV2] = []
-        for sink, object_type in _C9_LOCAL_SINK_OBJECT_TYPES.items():
+        for sink, object_type in object_types.items():
             matches = by_object_type.get(object_type, [])
             if not matches:
                 raise C9Unavailable(f"required projection candidate missing: {sink}")
@@ -809,6 +998,30 @@ class PostgresC9QueryRepository:
             raise C9Unavailable(
                 f"required projection candidate envelope missing: {sink}"
             )
+        historical = sink in _LEGACY_C9_LOCAL_SINK_OBJECT_TYPES
+        expected_envelope = {
+            "schema_version": (
+                _LEGACY_C9_CANDIDATE_SCHEMA
+                if historical
+                else MATERIAL_PROJECTION_CANDIDATE_SCHEMA
+            ),
+            "projection_id": (
+                _LEGACY_C9_PROJECTION_ID
+                if historical
+                else MATERIAL_PROJECTION_CLOSURE_ID
+            ),
+            "projector_id": key.projector_id,
+            "projector_version": key.projector_version,
+            "source_kind": key.source_kind,
+            "source_ref": key.source_ref,
+            "source_incarnation": key.source_incarnation,
+            "projection_generation": generation,
+        }
+        for field, expected in expected_envelope.items():
+            if envelope.get(field) != expected:
+                raise C9Unavailable(
+                    f"required projection candidate envelope drift: {sink}.{field}"
+                )
         payload = envelope.get("payload")
         if not isinstance(payload, Mapping):
             raise C9Unavailable(
@@ -854,7 +1067,10 @@ class PostgresC9QueryRepository:
             self.connection.execute(
                 select(table).where(
                     table.c.project_key == self.scope.project_scope.project_key,
-                    table.c.receipt_id.like("c9:rollback-transition:%"),
+                    table.c.receipt_id.like(
+                        "material-projection:rollback-transition:%"
+                    )
+                    | table.c.receipt_id.like("c9:rollback-transition:%"),
                 )
             )
             .mappings()
@@ -865,7 +1081,13 @@ class PostgresC9QueryRepository:
             content = row["receipt_json"]
             if not isinstance(content, Mapping):
                 continue
-            if content.get("contract") != C9_ROLLBACK_TRANSITION_CONTRACT:
+            contract = content.get("contract")
+            if contract == PROJECTION_ROLLBACK_TRANSITION_CONTRACT:
+                pass
+            elif contract == C9_ROLLBACK_TRANSITION_CONTRACT:
+                # Historical v1 readback is accepted exactly as persisted.
+                pass
+            else:
                 continue
             if content.get("projector_id") != key.projector_id:
                 continue

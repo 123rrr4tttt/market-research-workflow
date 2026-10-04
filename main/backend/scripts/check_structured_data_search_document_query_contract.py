@@ -36,7 +36,7 @@ def main() -> int:
     envelope = build_structured_data_search_document_query_envelope(
         project_key="demo_proj",
         query=" robotics ",
-        datasets_requested=("documents", "market_stats"),
+        datasets_requested=("documents",),
         limit=999,
         query_mode="search",
         total_matches=3,
@@ -76,7 +76,7 @@ def main() -> int:
         checks["contract_version"] == DOCUMENT_QUERY_CONTRACT_VERSION
         and checks["consumer"] == "project.structured_data.search"
         and checks["project_key"] == "demo_proj"
-        and checks["dataset_filter"] == {"field": "dataset", "op": "in", "value": ["documents", "market_stats"]}
+        and checks["dataset_filter"] == {"field": "dataset", "op": "in", "value": ["documents"]}
         and checks["limit"] == 100
         and checks["result_count"] == 1
         and checks["pagination_total"] == 3

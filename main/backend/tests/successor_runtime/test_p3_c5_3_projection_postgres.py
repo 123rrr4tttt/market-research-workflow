@@ -32,8 +32,13 @@ from app.successor_runtime.substrate.projections.agent_session import (
     fold_agent_session,
 )
 from app.successor_runtime.substrate.projections.runtime_run import (
+    HISTORICAL_RUNTIME_RUN_PROJECTOR_ID,
+    HISTORICAL_RUNTIME_RUN_PROJECTOR_VERSION,
     PostgresRuntimeRunProjector,
+    RUN_OBSERVATION_PROJECTOR_ID,
+    RUN_OBSERVATION_PROJECTOR_VERSION,
     RuntimeJournalSource,
+    RuntimeProjectionError,
 )
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool
@@ -450,6 +455,78 @@ def test_session_projection_agrees_with_existing_runtime_projection(
     assert session.tasks[0].status is TaskStatus.COMPLETED
     assert session.tasks[0].attempt_id == "attempt:p3-c5"
     assert session == folded
+
+
+def test_business_v1_projection_and_explicit_historical_read_preserve_identity(
+    c5_database: LiveC5Database,
+) -> None:
+    source = _seed_run(
+        c5_database,
+        run_id=HAPPY_RUN_ID,
+        incarnation=HAPPY_INCARNATION,
+        events=_happy_events(),
+        snapshot_state="RUNNING",
+    )
+    with RuntimeUnitOfWork(engine=c5_database.engine) as uow:
+        current = PostgresRuntimeRunProjector(
+            uow.connection,
+            c5_database.scope,
+        ).apply(source)
+        uow.commit()
+
+    assert current["projector_id"] == RUN_OBSERVATION_PROJECTOR_ID
+    assert current["projector_version"] == RUN_OBSERVATION_PROJECTOR_VERSION
+    original_digest = current["projection_digest"]
+
+    projection_table = PUBLIC_TABLES["runtime_run_projections"]
+    offset_table = PUBLIC_TABLES["runtime_projection_offsets"]
+    with c5_database.engine.begin() as connection:
+        connection.execute(
+            sa.update(projection_table)
+            .where(
+                projection_table.c.projector_id == RUN_OBSERVATION_PROJECTOR_ID,
+                projection_table.c.projector_version
+                == RUN_OBSERVATION_PROJECTOR_VERSION,
+                projection_table.c.source_ref == source.source_ref,
+            )
+            .values(
+                projector_id=HISTORICAL_RUNTIME_RUN_PROJECTOR_ID,
+                projector_version=HISTORICAL_RUNTIME_RUN_PROJECTOR_VERSION,
+            )
+        )
+        connection.execute(
+            sa.update(offset_table)
+            .where(
+                offset_table.c.projector_id == RUN_OBSERVATION_PROJECTOR_ID,
+                offset_table.c.projector_version == RUN_OBSERVATION_PROJECTOR_VERSION,
+                offset_table.c.source_ref == source.source_ref,
+            )
+            .values(
+                projector_id=HISTORICAL_RUNTIME_RUN_PROJECTOR_ID,
+                projector_version=HISTORICAL_RUNTIME_RUN_PROJECTOR_VERSION,
+            )
+        )
+
+    with (
+        _capture_statements(c5_database) as statements,
+        c5_database.engine.connect() as connection,
+    ):
+        projector = PostgresRuntimeRunProjector(connection, c5_database.scope)
+        historical = projector.load_historical(source)
+        with pytest.raises(
+            RuntimeProjectionError,
+            match="unsupported historical runtime projector identity",
+        ):
+            projector.load_historical(source, projector_version="9.0.0")
+
+    assert historical["projector_id"] == HISTORICAL_RUNTIME_RUN_PROJECTOR_ID
+    assert historical["projector_version"] == HISTORICAL_RUNTIME_RUN_PROJECTOR_VERSION
+    assert historical["projection_digest"] == original_digest
+    assert all(
+        statement.lstrip().startswith("SELECT")
+        for statement in statements
+        if statement.strip()
+    )
 
 
 def test_control_terminal_snapshot_cannot_fabricate_journal_derived_completion(

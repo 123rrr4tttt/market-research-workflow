@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from app.successor_runtime.capabilities.ingest_c7_common import (
-    INGEST_STAGE_CANDIDATE,
+from app.successor_runtime.capabilities.material_ingest_common import (
+    MATERIAL_INGEST_STAGE_CANDIDATE,
     EffectOutcome,
     stage_ingest_submission,
 )
@@ -15,7 +15,7 @@ def test_stage_creates_candidate_without_admission_or_provider_effect() -> None:
     assert isinstance(outcome, EffectOutcome)
     assert outcome.disposition == "SUCCEEDED"
     assert outcome.receipt["candidate_id"] == "candidate-1"
-    assert outcome.receipt["stage"] == INGEST_STAGE_CANDIDATE
+    assert outcome.receipt["stage"] == MATERIAL_INGEST_STAGE_CANDIDATE
     assert outcome.receipt["admission_implied"] is False
     assert outcome.receipt["provider_calls"] == 0
     assert outcome.receipt["authority"] is False

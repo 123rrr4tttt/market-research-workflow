@@ -29,7 +29,7 @@ def _ok_doc(doc_id: int) -> SimpleNamespace:
         id=doc_id,
         extracted_data={
             "sentiment": {"topic": "robotics"},
-            "market": {"state": "CA", "game": "Powerball", "report_date": "2025-01-01"},
+            "market": {"state": "CA", "game": "smart meters", "report_date": "2025-01-01"},
             "policy": {"state": "CA", "policy_type": "regulation"},
             "company_structured": {"entities": [{"text": "Acme", "type": "company"}], "topics": ["company"]},
             "product_structured": {"entities": [{"text": "RoboArm", "type": "product"}], "topics": ["product"]},
@@ -119,13 +119,13 @@ def _social_graph() -> Graph:
 def _market_graph() -> Graph:
     market = GraphNode(type="MarketData", id="1", properties={})
     state = GraphNode(type="State", id="CA", properties={})
-    seg = GraphNode(type="Segment", id="powerball", properties={})
+    seg = GraphNode(type="Segment", id="smart_meters", properties={})
     entity = GraphNode(type="Entity", id="e1", properties={})
     return Graph(
         nodes={
             "MarketData:1": market,
             "State:CA": state,
-            "Segment:powerball": seg,
+            "Segment:smart_meters": seg,
             "Entity:e1": entity,
         },
         edges=[

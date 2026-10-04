@@ -13,7 +13,7 @@ pytestmark = pytest.mark.unit
 
 try:
     from app.contracts.schemas.writing import LlmActionRequest
-    from app.services.writing.llm_action_service import dispatch_action
+    from app.services.writing.llm_action_service import _job_to_history_item, dispatch_action
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -80,6 +80,83 @@ class WritingLlmActionServiceUnitTestCase(unittest.TestCase):
                 for item in runtime_readback["events"]
             )
         )
+
+    def test_async_request_completes_inline_and_returns_the_generated_content(self):
+        responses = []
+        complete_calls = []
+        start_calls = []
+        for requested_async in (False, True):
+            payload = LlmActionRequest(
+                project_key="demo_proj",
+                action_id="outline_generate",
+                input_markdown="# Alpha\n## Beta",
+                async_mode=requested_async,
+                agent_role="business_capability_wrapper",
+            )
+            with (
+                patch(
+                    "app.services.writing.llm_action_service.start_job",
+                    side_effect=lambda *args, **kwargs: start_calls.append((args, kwargs)) or 103,
+                ),
+                patch(
+                    "app.services.writing.llm_action_service.complete_job",
+                    side_effect=lambda *args, **kwargs: complete_calls.append((args, kwargs)),
+                ),
+            ):
+                responses.append(dispatch_action(payload))
+
+        sync_response, inline_response = responses
+        self.assertEqual(sync_response.status, "completed")
+        self.assertEqual(inline_response.status, "completed")
+        self.assertEqual(sync_response.content, "- Alpha\n- Beta")
+        self.assertEqual(inline_response.content, sync_response.content)
+        self.assertEqual(sync_response.requested_async, False)
+        self.assertEqual(inline_response.requested_async, True)
+        self.assertTrue(sync_response.async_honored)
+        self.assertFalse(inline_response.async_honored)
+        self.assertEqual(sync_response.execution_mode, "inline")
+        self.assertEqual(inline_response.execution_mode, "inline")
+        self.assertIn("async_not_supported_executed_inline", inline_response.warnings)
+        self.assertEqual([call[1]["status"] for call in complete_calls], ["completed", "completed"])
+        for index, response in enumerate(responses):
+            result = complete_calls[index][1]["result"]
+            self.assertEqual(result["content"], response.content)
+            self.assertEqual(result["execution_mode"], "inline")
+            self.assertEqual(result["requested_async"], response.requested_async)
+            self.assertEqual(result["async_honored"], response.async_honored)
+            self.assertEqual(result["runtime_readback"]["execution_mode"], "inline")
+            self.assertEqual(result["runtime_readback"]["async_honored"], response.async_honored)
+            self.assertEqual(result["capability_truth"]["contract_version"], "writing.llm_action.capability_truth.v2")
+            self.assertEqual(result["capability_truth"]["execution_mode"], "inline")
+            request_meta = start_calls[index][0][1]
+            self.assertEqual(request_meta["requested_async"], response.requested_async)
+
+    def test_action_history_projects_new_execution_metadata_and_accepts_old_records(self):
+        current = _job_to_history_item(
+            {
+                "id": 104,
+                "job_type": "wr_action",
+                "status": "completed",
+                "params": {
+                    "content": "Persisted output",
+                    "requested_async": True,
+                    "execution_mode": "inline",
+                    "async_honored": False,
+                },
+            }
+        )
+        legacy = _job_to_history_item(
+            {"id": 105, "job_type": "wr_action", "status": "completed", "params": {}}
+        )
+
+        self.assertEqual(current.request_meta["requested_async"], True)
+        self.assertEqual(current.result_summary["content"], "Persisted output")
+        self.assertEqual(current.content, "Persisted output")
+        self.assertIsNone(legacy.content)
+        self.assertEqual(current.result_summary["requested_async"], True)
+        self.assertEqual(current.result_summary["execution_mode"], "inline")
+        self.assertFalse(current.result_summary["async_honored"])
+        self.assertIsNone(legacy.result_summary["execution_mode"])
 
 
 if __name__ == "__main__":

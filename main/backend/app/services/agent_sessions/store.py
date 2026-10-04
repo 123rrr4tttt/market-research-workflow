@@ -57,6 +57,7 @@ class InMemoryAgentSessionStore:
         self._tasks: dict[str, dict[str, dict[str, Any]]] = {}
         self._messages: dict[str, list[dict[str, Any]]] = {}
         self._artifacts: dict[str, dict[str, dict[str, Any]]] = {}
+        self._project_artifacts: dict[str, dict[str, dict[str, Any]]] = {}
         self._events: dict[str, list[dict[str, Any]]] = {}
         self._approvals: dict[str, dict[str, Any]] = {}
         self._lock = RLock()
@@ -220,6 +221,30 @@ class InMemoryAgentSessionStore:
             if isinstance(session, Failure):
                 return session
             return [_clone(item) for item in sorted(self._artifacts[session_id].values(), key=_artifact_sort_key)]
+
+    def upsert_project_artifact(self, payload: dict[str, Any]) -> dict[str, Any] | Failure:
+        project_key = str(payload.get("project_key") or "").strip()
+        name = str(payload.get("name") or "").strip()
+        if not project_key or not name:
+            return _failure("project_artifact_identity_required", "project_key and name are required")
+        with self._lock:
+            bucket = self._project_artifacts.setdefault(project_key, {})
+            existing = bucket.get(name)
+            item = _clone(existing or {})
+            item.update(_clone(payload))
+            item["project_key"] = project_key
+            item["artifact_id"] = str((existing or {}).get("artifact_id") or payload.get("artifact_id") or f"artifact-{uuid4().hex[:16]}")
+            item.setdefault("created_at", _as_iso(_utcnow()))
+            item["updated_at"] = _as_iso(_utcnow())
+            bucket[name] = item
+            return _clone(item)
+
+    def get_project_artifact(self, *, project_key: str, name: str) -> dict[str, Any] | Failure:
+        with self._lock:
+            item = self._project_artifacts.get(str(project_key or ""), {}).get(str(name or ""))
+            if item is None:
+                return _failure("artifact_not_found", "project artifact was not found", project_key=project_key, name=name)
+            return _clone(item)
 
     def append_event(
         self,
@@ -621,6 +646,48 @@ class SqlAgentSessionStore:
                 .all()
             )
             return [_artifact_row_to_dict(row) for row in rows]
+
+    def upsert_project_artifact(self, payload: dict[str, Any]) -> dict[str, Any] | Failure:
+        project_key = str(payload.get("project_key") or "").strip()
+        name = str(payload.get("name") or "").strip()
+        session_id = str(payload.get("session_id") or "").strip()
+        if not project_key or not name or not session_id:
+            return _failure("project_artifact_identity_required", "project_key, name and session_id are required")
+        with SessionLocal() as session:
+            row = None
+            for candidate in session.query(AgentArtifact).filter(AgentArtifact.artifact_type == "agent_macro.registration_package").all():
+                metadata = dict(candidate.metadata_json or {})
+                if metadata.get("project_key") == project_key and candidate.name == name:
+                    row = candidate
+                    break
+            if row is None:
+                row = AgentArtifact(
+                    artifact_id=str(payload.get("artifact_id") or f"artifact-{uuid4().hex[:16]}"),
+                    session_id=session_id,
+                    task_id=payload.get("task_id"),
+                    artifact_type=str(payload.get("artifact_type") or "agent_macro.registration_package"),
+                    name=name,
+                    mime_type=payload.get("mime_type"),
+                    content_text=payload.get("content_text"),
+                    content_json=dict(payload.get("content_json") or {}),
+                    metadata_json={**dict(payload.get("metadata") or {}), "project_key": project_key, "project_scope": True},
+                )
+                session.add(row)
+            else:
+                row.content_text = payload.get("content_text", row.content_text)
+                row.content_json = dict(payload.get("content_json") or {})
+                row.metadata_json = {**dict(payload.get("metadata") or {}), "project_key": project_key, "project_scope": True}
+            session.commit()
+            session.refresh(row)
+            return _artifact_row_to_dict(row)
+
+    def get_project_artifact(self, *, project_key: str, name: str) -> dict[str, Any] | Failure:
+        with SessionLocal() as session:
+            for row in session.query(AgentArtifact).filter(AgentArtifact.artifact_type == "agent_macro.registration_package").all():
+                metadata = dict(row.metadata_json or {})
+                if metadata.get("project_key") == str(project_key or "") and row.name == str(name or ""):
+                    return _artifact_row_to_dict(row)
+        return _failure("artifact_not_found", "project artifact was not found", project_key=project_key, name=name)
 
     def append_event(
         self,

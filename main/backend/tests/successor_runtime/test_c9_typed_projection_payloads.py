@@ -8,7 +8,7 @@ import re
 
 import pytest
 
-from app.successor_runtime.substrate.projections import c9_sources as c9
+from app.successor_runtime.substrate.projections import projection_sources as c9
 
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -19,9 +19,9 @@ def _event(
     event_ref: str,
     *,
     note: str = "",
-) -> c9.RuntimeSessionEventV1:
-    return c9.RuntimeSessionEventV1(
-        schema_version=c9.RUNTIME_SESSION_EVENT_SCHEMA,
+) -> c9.TaskSourceEvent:
+    return c9.TaskSourceEvent(
+        schema_version=c9.TASK_EVENT_SCHEMA,
         sequence=sequence,
         event_kind=event_kind,
         event_ref=event_ref,
@@ -34,15 +34,15 @@ def _session_source(
     session_ref: str = "sess-1",
     revision: str = "r1",
     incarnation: str = "inc-1",
-    events: tuple[c9.RuntimeSessionEventV1, ...] | None = None,
-) -> c9.RuntimeSessionSourceV1:
+    events: tuple[c9.TaskSourceEvent, ...] | None = None,
+) -> c9.TaskSource:
     if events is None:
         events = (
-            _event(0, c9.SESSION_CREATED, "e0", note="created"),
-            _event(1, c9.SESSION_TASK_ASSIGNED, "e1", note="assigned"),
+            _event(0, c9.TASK_CREATED, "e0", note="created"),
+            _event(1, c9.TASK_ASSIGNED, "e1", note="assigned"),
         )
-    return c9.RuntimeSessionSourceV1(
-        schema_version=c9.RUNTIME_SESSION_SOURCE_SCHEMA,
+    return c9.TaskSource(
+        schema_version=c9.TASK_SOURCE_SCHEMA,
         project_scope_ref="proj-a",
         session_ref=session_ref,
         revision=revision,
@@ -51,9 +51,9 @@ def _session_source(
     )
 
 
-def _object(object_id: str, label: str) -> c9.ResearchGraphObjectV1:
-    return c9.ResearchGraphObjectV1(
-        schema_version=c9.RESEARCH_GRAPH_OBJECT_SCHEMA,
+def _object(object_id: str, label: str) -> c9.KnowledgeObject:
+    return c9.KnowledgeObject(
+        schema_version=c9.KNOWLEDGE_OBJECT_SCHEMA,
         object_id=object_id,
         object_type="concept",
         label=label,
@@ -64,9 +64,9 @@ def _relation(
     relation_id: str,
     source_object_id: str,
     target_object_id: str,
-) -> c9.ResearchGraphRelationV1:
-    return c9.ResearchGraphRelationV1(
-        schema_version=c9.RESEARCH_GRAPH_RELATION_SCHEMA,
+) -> c9.KnowledgeRelation:
+    return c9.KnowledgeRelation(
+        schema_version=c9.KNOWLEDGE_RELATION_SCHEMA,
         relation_id=relation_id,
         relation_type="relates",
         source_object_id=source_object_id,
@@ -80,9 +80,9 @@ def _graph_source(
     graph_ref: str = "graph-1",
     revision: str = "r1",
     incarnation: str = "inc-1",
-) -> c9.ResearchGraphSourceV1:
-    return c9.ResearchGraphSourceV1(
-        schema_version=c9.RESEARCH_GRAPH_SOURCE_SCHEMA,
+) -> c9.KnowledgeSource:
+    return c9.KnowledgeSource(
+        schema_version=c9.KNOWLEDGE_SOURCE_SCHEMA,
         project_scope_ref="proj-a",
         graph_ref=graph_ref,
         revision=revision,
@@ -96,13 +96,13 @@ def _segment(
     segment_id: str,
     *,
     field_path: str = "payload.structured_material.body",
-) -> c9.C7SearchSegmentV1:
-    return c9.C7SearchSegmentV1(
-        schema_version=c9.C7_SEARCH_SEGMENT_SCHEMA,
+) -> c9.MaterialSegment:
+    return c9.MaterialSegment(
+        schema_version=c9.MATERIAL_SEGMENT_SCHEMA,
         segment_id=segment_id,
         field_path=field_path,
         segment_text="market evidence",
-        segment_kind=c9.C7_SEGMENT_KIND_TEXT,
+        segment_kind=c9.MATERIAL_SEGMENT_KIND_TEXT,
     )
 
 
@@ -111,9 +111,9 @@ def _search_source(
     search_ref: str = "search-1",
     revision: str = "r1",
     incarnation: str = "inc-1",
-) -> c9.C7SearchSourceV1:
-    return c9.C7SearchSourceV1(
-        schema_version=c9.C7_SEARCH_SOURCE_SCHEMA,
+) -> c9.MaterialSource:
+    return c9.MaterialSource(
+        schema_version=c9.MATERIAL_SOURCE_SCHEMA,
         project_scope_ref="proj-a",
         search_ref=search_ref,
         revision=revision,
@@ -127,8 +127,8 @@ def _loss(
     *,
     loss_kind: str = c9.LOSS_KIND_DECLARED,
     reason: str = "bounded local projection",
-) -> c9.ProjectionFieldLossV1:
-    return c9.ProjectionFieldLossV1(
+) -> c9.ProjectionFieldLoss:
+    return c9.ProjectionFieldLoss(
         schema_version=c9.PROJECTION_FIELD_LOSS_SCHEMA,
         field_path=field_path,
         loss_kind=loss_kind,
@@ -136,8 +136,8 @@ def _loss(
     )
 
 
-def _session_payload() -> c9.AgentSessionProjectionPayloadV1:
-    return c9.build_agent_session_payload(
+def _session_payload() -> c9.TaskView:
+    return c9.build_task_view(
         _session_source(),
         declared_losses=(
             _loss("events.terminal_ref", loss_kind=c9.LOSS_KIND_NOT_EXECUTED),
@@ -145,8 +145,8 @@ def _session_payload() -> c9.AgentSessionProjectionPayloadV1:
     )
 
 
-def _graph_payload() -> c9.ResearchGraphProjectionPayloadV1:
-    return c9.build_research_graph_payload(
+def _graph_payload() -> c9.KnowledgeView:
+    return c9.build_knowledge_view(
         _graph_source(),
         declared_losses=(
             _loss("objects.label", reason="projected labels are bounded"),
@@ -154,8 +154,8 @@ def _graph_payload() -> c9.ResearchGraphProjectionPayloadV1:
     )
 
 
-def _search_payload() -> c9.SearchProjectionPayloadV1:
-    return c9.build_search_payload(
+def _search_payload() -> c9.MaterialView:
+    return c9.build_material_view(
         _search_source(),
         declared_losses=(_loss("segments.text", loss_kind=c9.LOSS_KIND_OMITTED_FIELD),),
     )
@@ -190,44 +190,44 @@ def test_canonical_json_is_deterministic_with_string_keys_and_finite_values() ->
 
 def test_runtime_terminal_status_derives_only_from_event_chain() -> None:
     terminal_events = (
-        _event(0, c9.SESSION_CREATED, "e0"),
-        _event(1, c9.SESSION_TERMINAL_SUCCEEDED, "e1"),
+        _event(0, c9.TASK_CREATED, "e0"),
+        _event(1, c9.TASK_TERMINAL_SUCCEEDED, "e1"),
     )
     source = _session_source(events=terminal_events)
     assert source.terminal_event is not None
     assert source.terminal_event.event_ref == "e1"
-    payload = c9.build_agent_session_payload(
+    payload = c9.build_task_view(
         source,
         declared_losses=(
             _loss("events.terminal_ref", loss_kind=c9.LOSS_KIND_NOT_EXECUTED),
         ),
     )
-    assert payload.status == c9.SESSION_STATUS_TERMINAL_SUCCEEDED
+    assert payload.status == c9.TASK_STATUS_TERMINAL_SUCCEEDED
     assert payload.terminal_event_ref == "e1"
 
     running = _session_source()
     assert running.terminal_event is None
-    running_payload = c9.build_agent_session_payload(
+    running_payload = c9.build_task_view(
         running,
         declared_losses=(
             _loss("events.terminal_ref", loss_kind=c9.LOSS_KIND_NOT_EXECUTED),
         ),
     )
-    assert running_payload.status == c9.SESSION_STATUS_RUNNING
+    assert running_payload.status == c9.TASK_STATUS_RUNNING
     assert running_payload.terminal_event_ref is None
 
     with pytest.raises(ValueError, match="terminal runtime event must be the last"):
         _session_source(
             events=(
-                _event(0, c9.SESSION_TERMINAL_FAILED, "e0"),
-                _event(1, c9.SESSION_CREATED, "e1"),
+                _event(0, c9.TASK_TERMINAL_FAILED, "e0"),
+                _event(1, c9.TASK_CREATED, "e1"),
             )
         )
     with pytest.raises(ValueError, match="more than one terminal event"):
         _session_source(
             events=(
-                _event(0, c9.SESSION_TERMINAL_SUCCEEDED, "e0"),
-                _event(1, c9.SESSION_TERMINAL_FAILED, "e1"),
+                _event(0, c9.TASK_TERMINAL_SUCCEEDED, "e0"),
+                _event(1, c9.TASK_TERMINAL_FAILED, "e1"),
             )
         )
 
@@ -241,7 +241,7 @@ def test_session_payload_digest_is_deterministic_and_identity_sensitive() -> Non
     assert HEX64.match(first.closure_ref)
     assert HEX64.match(first.source_digest)
 
-    other = c9.build_agent_session_payload(
+    other = c9.build_task_view(
         _session_source(session_ref="sess-2"),
         declared_losses=(
             _loss("events.terminal_ref", loss_kind=c9.LOSS_KIND_NOT_EXECUTED),
@@ -276,8 +276,8 @@ def test_graph_payload_keeps_objects_and_relations_one_to_one() -> None:
     assert HEX64.match(payload.payload_digest)
 
     with pytest.raises(ValueError, match="does not exist in the same source"):
-        c9.ResearchGraphSourceV1(
-            schema_version=c9.RESEARCH_GRAPH_SOURCE_SCHEMA,
+        c9.KnowledgeSource(
+            schema_version=c9.KNOWLEDGE_SOURCE_SCHEMA,
             project_scope_ref="proj-a",
             graph_ref="graph-dangling",
             revision="r1",
@@ -309,8 +309,8 @@ def test_search_segments_carry_field_path_and_not_executed_statuses() -> None:
         assert forbidden not in keys
 
     with pytest.raises(ValueError, match="provider_status must be NOT_EXECUTED"):
-        c9.C7SearchSourceV1(
-            schema_version=c9.C7_SEARCH_SOURCE_SCHEMA,
+        c9.MaterialSource(
+            schema_version=c9.MATERIAL_SOURCE_SCHEMA,
             project_scope_ref="proj-a",
             search_ref="search-1",
             revision="r1",
@@ -331,30 +331,30 @@ def test_field_level_loss_records_are_bound_to_payloads() -> None:
     with pytest.raises(ValueError, match="unsupported projection loss kind"):
         _loss("events", loss_kind="UNKNOWN_LOSS")
     with pytest.raises(ValueError, match="requires declared field losses"):
-        c9.build_agent_session_payload(_session_source(), declared_losses=())
+        c9.build_task_view(_session_source(), declared_losses=())
 
 
 def test_unknown_types_and_kinds_fail_closed() -> None:
     with pytest.raises(TypeError, match="requires RuntimeSessionSourceV1"):
-        c9.build_agent_session_payload(
+        c9.build_task_view(
             None,  # type: ignore[arg-type]
             declared_losses=(_loss("events"),),
         )
     with pytest.raises(TypeError, match="requires ResearchGraphSourceV1"):
-        c9.build_research_graph_payload(
+        c9.build_knowledge_view(
             _session_source(),  # type: ignore[arg-type]
             declared_losses=(_loss("objects"),),
         )
     with pytest.raises(TypeError, match="requires C7SearchSourceV1"):
-        c9.build_search_payload(
+        c9.build_material_view(
             _graph_source(),  # type: ignore[arg-type]
             declared_losses=(_loss("segments"),),
         )
     with pytest.raises(ValueError, match="unsupported runtime event kind"):
         _session_source(events=(_event(0, "UNKNOWN_EVENT", "e0"),))
     with pytest.raises(ValueError, match="unsupported search segment kind"):
-        c9.C7SearchSegmentV1(
-            schema_version=c9.C7_SEARCH_SEGMENT_SCHEMA,
+        c9.MaterialSegment(
+            schema_version=c9.MATERIAL_SEGMENT_SCHEMA,
             segment_id="s1",
             field_path="payload.body",
             segment_text="text",
@@ -364,9 +364,9 @@ def test_unknown_types_and_kinds_fail_closed() -> None:
 
 def test_c8_coverage_flags_are_non_empty_and_closed() -> None:
     source = _session_source()
-    assert source.coverage_incomplete_flags == (c9.C8_COVERAGE_INCOMPLETE_SESSION,)
-    closure = c9.C9SemanticSourceClosureV1(
-        schema_version=c9.C9_SEMANTIC_SOURCE_CLOSURE_SCHEMA,
+    assert source.coverage_incomplete_flags == (c9.PROJECTION_TASK_COVERAGE_INCOMPLETE,)
+    closure = c9.ProjectSourceClosure(
+        schema_version=c9.PROJECT_SOURCE_CLOSURE_SCHEMA,
         project_scope_ref="proj-a",
         closure_id="closure-1",
         revision="r1",
@@ -376,31 +376,31 @@ def test_c8_coverage_flags_are_non_empty_and_closed() -> None:
         c7_search_source=_search_source(),
     )
     assert set(closure.coverage_incomplete_flags) == set(
-        c9.C8_COVERAGE_INCOMPLETE_FLAGS
+        c9.PROJECTION_COVERAGE_INCOMPLETE_FLAGS
     )
     assert HEX64.match(closure.closure_digest)
     assert HEX64.match(closure.closure_ref)
 
     with pytest.raises(ValueError, match="unsupported coverage flag"):
-        c9.RuntimeSessionSourceV1(
-            schema_version=c9.RUNTIME_SESSION_SOURCE_SCHEMA,
+        c9.TaskSource(
+            schema_version=c9.TASK_SOURCE_SCHEMA,
             project_scope_ref="proj-a",
             session_ref="sess-1",
             revision="r1",
             incarnation="inc-1",
-            events=(_event(0, c9.SESSION_CREATED, "e0"),),
+            events=(_event(0, c9.TASK_CREATED, "e0"),),
             coverage_incomplete_flags=("C8.UNKNOWN_FLAG",),
         )
     with pytest.raises(ValueError, match="must share project_scope_ref"):
-        c9.C9SemanticSourceClosureV1(
-            schema_version=c9.C9_SEMANTIC_SOURCE_CLOSURE_SCHEMA,
+        c9.ProjectSourceClosure(
+            schema_version=c9.PROJECT_SOURCE_CLOSURE_SCHEMA,
             project_scope_ref="proj-a",
             closure_id="closure-1",
             revision="r1",
             incarnation="inc-1",
             runtime_session_source=_session_source(),
-            research_graph_source=c9.ResearchGraphSourceV1(
-                schema_version=c9.RESEARCH_GRAPH_SOURCE_SCHEMA,
+            research_graph_source=c9.KnowledgeSource(
+                schema_version=c9.KNOWLEDGE_SOURCE_SCHEMA,
                 project_scope_ref="other-project",
                 graph_ref="graph-1",
                 revision="r1",
@@ -413,13 +413,13 @@ def test_c8_coverage_flags_are_non_empty_and_closed() -> None:
 
 
 def test_cross_family_coverage_flags_cannot_substitute_required_flag() -> None:
-    session_flag = c9.C8_COVERAGE_INCOMPLETE_SESSION
-    graph_flag = c9.C8_COVERAGE_INCOMPLETE_GRAPH
-    search_flag = c9.C8_COVERAGE_INCOMPLETE_SEARCH
+    session_flag = c9.PROJECTION_TASK_COVERAGE_INCOMPLETE
+    graph_flag = c9.PROJECTION_KNOWLEDGE_COVERAGE_INCOMPLETE
+    search_flag = c9.PROJECTION_MATERIAL_COVERAGE_INCOMPLETE
 
     with pytest.raises(ValueError, match="must include required C8 coverage flag"):
-        c9.ResearchGraphSourceV1(
-            schema_version=c9.RESEARCH_GRAPH_SOURCE_SCHEMA,
+        c9.KnowledgeSource(
+            schema_version=c9.KNOWLEDGE_SOURCE_SCHEMA,
             project_scope_ref="proj-a",
             graph_ref="graph-wrong-flag",
             revision="r1",
@@ -429,8 +429,8 @@ def test_cross_family_coverage_flags_cannot_substitute_required_flag() -> None:
             coverage_incomplete_flags=(session_flag,),
         )
     with pytest.raises(ValueError, match="must include required C8 coverage flag"):
-        c9.C7SearchSourceV1(
-            schema_version=c9.C7_SEARCH_SOURCE_SCHEMA,
+        c9.MaterialSource(
+            schema_version=c9.MATERIAL_SOURCE_SCHEMA,
             project_scope_ref="proj-a",
             search_ref="search-wrong-flag",
             revision="r1",
@@ -439,13 +439,13 @@ def test_cross_family_coverage_flags_cannot_substitute_required_flag() -> None:
             coverage_incomplete_flags=(graph_flag,),
         )
     with pytest.raises(ValueError, match="must include required C8 coverage flag"):
-        c9.RuntimeSessionSourceV1(
-            schema_version=c9.RUNTIME_SESSION_SOURCE_SCHEMA,
+        c9.TaskSource(
+            schema_version=c9.TASK_SOURCE_SCHEMA,
             project_scope_ref="proj-a",
             session_ref="sess-wrong-flag",
             revision="r1",
             incarnation="inc-1",
-            events=(_event(0, c9.SESSION_CREATED, "e0"),),
+            events=(_event(0, c9.TASK_CREATED, "e0"),),
             coverage_incomplete_flags=(search_flag,),
         )
 
@@ -460,8 +460,8 @@ def test_cross_family_coverage_flags_cannot_substitute_required_flag() -> None:
 
 
 def test_extra_legal_coverage_flags_are_allowed_alongside_required_flag() -> None:
-    graph_source = c9.ResearchGraphSourceV1(
-        schema_version=c9.RESEARCH_GRAPH_SOURCE_SCHEMA,
+    graph_source = c9.KnowledgeSource(
+        schema_version=c9.KNOWLEDGE_SOURCE_SCHEMA,
         project_scope_ref="proj-a",
         graph_ref="graph-extra",
         revision="r1",
@@ -469,46 +469,46 @@ def test_extra_legal_coverage_flags_are_allowed_alongside_required_flag() -> Non
         objects=(_object("o1", "alpha"), _object("o2", "beta")),
         relations=(_relation("r1", "o1", "o2"),),
         coverage_incomplete_flags=(
-            c9.C8_COVERAGE_INCOMPLETE_GRAPH,
-            c9.C8_COVERAGE_INCOMPLETE_SEARCH,
+            c9.PROJECTION_KNOWLEDGE_COVERAGE_INCOMPLETE,
+            c9.PROJECTION_MATERIAL_COVERAGE_INCOMPLETE,
         ),
     )
     assert graph_source.coverage_incomplete_flags == (
-        c9.C8_COVERAGE_INCOMPLETE_GRAPH,
-        c9.C8_COVERAGE_INCOMPLETE_SEARCH,
+        c9.PROJECTION_KNOWLEDGE_COVERAGE_INCOMPLETE,
+        c9.PROJECTION_MATERIAL_COVERAGE_INCOMPLETE,
     )
-    graph_payload = c9.build_research_graph_payload(
+    graph_payload = c9.build_knowledge_view(
         graph_source,
         declared_losses=(_loss("objects.label"),),
     )
-    assert c9.C8_COVERAGE_INCOMPLETE_GRAPH in graph_payload.coverage_incomplete_flags
-    assert c9.C8_COVERAGE_INCOMPLETE_SEARCH in graph_payload.coverage_incomplete_flags
+    assert c9.PROJECTION_KNOWLEDGE_COVERAGE_INCOMPLETE in graph_payload.coverage_incomplete_flags
+    assert c9.PROJECTION_MATERIAL_COVERAGE_INCOMPLETE in graph_payload.coverage_incomplete_flags
 
-    session_source = c9.RuntimeSessionSourceV1(
-        schema_version=c9.RUNTIME_SESSION_SOURCE_SCHEMA,
+    session_source = c9.TaskSource(
+        schema_version=c9.TASK_SOURCE_SCHEMA,
         project_scope_ref="proj-a",
         session_ref="sess-extra",
         revision="r1",
         incarnation="inc-1",
         events=(
-            _event(0, c9.SESSION_CREATED, "e0"),
-            _event(1, c9.SESSION_TASK_ASSIGNED, "e1"),
+            _event(0, c9.TASK_CREATED, "e0"),
+            _event(1, c9.TASK_ASSIGNED, "e1"),
         ),
         coverage_incomplete_flags=(
-            c9.C8_COVERAGE_INCOMPLETE_SESSION,
-            c9.C8_COVERAGE_INCOMPLETE_GRAPH,
+            c9.PROJECTION_TASK_COVERAGE_INCOMPLETE,
+            c9.PROJECTION_KNOWLEDGE_COVERAGE_INCOMPLETE,
         ),
     )
-    session_payload = c9.build_agent_session_payload(
+    session_payload = c9.build_task_view(
         session_source,
         declared_losses=(
             _loss("events.terminal_ref", loss_kind=c9.LOSS_KIND_NOT_EXECUTED),
         ),
     )
     assert (
-        c9.C8_COVERAGE_INCOMPLETE_SESSION in session_payload.coverage_incomplete_flags
+        c9.PROJECTION_TASK_COVERAGE_INCOMPLETE in session_payload.coverage_incomplete_flags
     )
-    assert c9.C8_COVERAGE_INCOMPLETE_GRAPH in session_payload.coverage_incomplete_flags
+    assert c9.PROJECTION_KNOWLEDGE_COVERAGE_INCOMPLETE in session_payload.coverage_incomplete_flags
 
 
 def test_payloads_have_no_generic_inputs_manifest() -> None:
@@ -523,9 +523,9 @@ def test_payload_schemas_are_semantically_distinct() -> None:
     session_plain = _session_payload().to_plain()
     graph_plain = _graph_payload().to_plain()
     search_plain = _search_payload().to_plain()
-    assert session_plain["schema_version"] == c9.AGENT_SESSION_PROJECTION_PAYLOAD_SCHEMA
-    assert graph_plain["schema_version"] == c9.RESEARCH_GRAPH_PROJECTION_PAYLOAD_SCHEMA
-    assert search_plain["schema_version"] == c9.SEARCH_PROJECTION_PAYLOAD_SCHEMA
+    assert session_plain["schema_version"] == c9.TASK_VIEW_SCHEMA
+    assert graph_plain["schema_version"] == c9.KNOWLEDGE_VIEW_SCHEMA
+    assert search_plain["schema_version"] == c9.MATERIAL_VIEW_SCHEMA
     assert "events" in session_plain
     assert "objects" in graph_plain and "relations" in graph_plain
     assert "segments" in search_plain

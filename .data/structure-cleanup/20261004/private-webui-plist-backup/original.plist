@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.mrw.codex-webui</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/ops/codex-webui/dist/main.js</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/ops/codex-webui</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PORT</key><string>8172</string>
+    <key>WEBUI_API_KEY</key><string>mrw-codex-agent</string>
+    <key>CODEX_HOME</key><string>/Users/wangyiliang/.codex-mrw-agent</string>
+    <key>CODEX_BIN</key><string>codex</string>
+    <key>WEBUI_DB_PATH</key><string>/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/ops/codex-webui/.tmp/codex-webui.sqlite</string>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>KeepAlive</key><true/>
+  <key>ProcessType</key><string>Background</string>
+  <key>RunAtLoad</key><true/>
+</dict>
+</plist>

@@ -74,8 +74,10 @@ assertIncludes(graphPage, "requestProjectionEngineChange('legacy')", files.graph
 assertIncludes(graphPage, 'graphPage.error.force3dRenderFallback', files.graphPage)
 assertIncludes(graphPage, 'graphPage.error.force3dLoadFallback', files.graphPage)
 assertIncludes(graphPage, 'data-testid="graph-force3d-canvas-host"', files.graphPage)
-assertIncludes(graphPage, 'width={forceViewport.width}', files.graphPage)
-assertIncludes(graphPage, 'height={forceViewport.height}', files.graphPage)
+assertIncludes(graphPage, 'width={forceViewport.width || displayResource.width}', files.graphPage)
+assertIncludes(graphPage, 'height={forceViewport.height || displayResource.height}', files.graphPage)
+assertIncludes(graphPage, 'key={`${displayResourceKey}:${displayResource.epoch}`}', files.graphPage)
+assertIncludes(graphPage, 'displayResource.ready', files.graphPage)
 assertIncludes(graphPage, "window.__graph3dDebug = debugApi", files.graphPage)
 assertIncludes(graphPage, 'getVisibilityStats: () => force3DVisibilityStatsGetterRef.current()', files.graphPage)
 assertIncludes(graphPage, 'const visibleForceNodes = forceGraphData.nodes.filter', files.graphPage)
@@ -86,7 +88,7 @@ assertIncludes(graphPage, '<option value="force3d">react-force-graph-3d</option>
 assertIncludes(graphPage, "style={showForceGraphCanvas ? { display: 'none' } : undefined}", files.graphPage)
 assertRegex(
   graphPage,
-  /const\s+forceGraphRenderBoundaryKey\s*=\s*`\$\{renderMode\}:\$\{projectionEngine\}:\$\{forceGraphData\.nodes\.length\}:\$\{forceGraphData\.links\.length\}`/,
+  /const\s+forceGraphRenderBoundaryKey\s*=\s*`\$\{displayResourceKey\}:\$\{displayResource\.epoch\}:\$\{renderMode\}:\$\{projectionEngine\}:\$\{forceGraphData\.nodes\.length\}:\$\{forceGraphData\.links\.length\}`/,
   files.graphPage,
 )
 

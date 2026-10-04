@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Deterministic read-only P3/P4 successor migration batch validator.
+"""Read-only validator for versioned P3/P4 migration evidence batches.
+
+P3's C2-C6 coverage is part of the historical batch contract. A passing report
+validates that frozen migration record only; it does not assert current C6
+capability or runtime availability.
 
 This tool validates a successor migration batch manifest that binds P3
 (C2-C6) and P4 (C7-C9) evidence fragments, source bindings, source evidence,

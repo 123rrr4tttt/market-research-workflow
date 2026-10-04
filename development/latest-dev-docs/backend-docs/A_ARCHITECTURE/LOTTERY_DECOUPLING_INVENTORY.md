@@ -3,7 +3,7 @@
 > Status: compatibility shim.
 > Moved on: 2026-05-22 Wave19 docs-root content move batch 4.
 
-The authoritative backend-docs architecture content moved to:
+The authoritative backend-docs architecture content now points to the retirement note at:
 
 - [docs/architecture/backend-docs/A_ARCHITECTURE/LOTTERY_DECOUPLING_INVENTORY.md](../../../../docs/architecture/backend-docs/A_ARCHITECTURE/LOTTERY_DECOUPLING_INVENTORY.md)
 

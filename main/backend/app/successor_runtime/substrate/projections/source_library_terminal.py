@@ -22,9 +22,11 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Connection
 
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.source_library_c2_4_projection import (
-    SOURCE_LIBRARY_C2_4_PROJECTOR_ID,
-    SOURCE_LIBRARY_C2_4_PROJECTOR_VERSION,
+from app.successor_runtime.capabilities.source_terminal_projection import (
+    SOURCE_COLLECTION_PROJECTION_SOURCE_SCHEMA,
+    SOURCE_TERMINAL_PROJECTION_PROJECTOR_ID,
+    SOURCE_TERMINAL_PROJECTION_PROJECTOR_VERSION,
+    HistoricalSourceCollectionProjectionSource,
     ProjectedWithLoss,
     ProjectionRejected,
     ProjectionResult,
@@ -35,6 +37,10 @@ from app.successor_runtime.capabilities.source_library_c2_4_projection import (
 
 __all__ = [
     "InMemorySourceLibraryTerminalProjector",
+    "HISTORICAL_PROJECTOR_ID",
+    "HISTORICAL_PROJECTOR_VERSION",
+    "HISTORICAL_PROJECTION_TABLE",
+    "PostgresHistoricalSourceLibraryTerminalReader",
     "PostgresSourceLibraryTerminalProjector",
     "ProjectionStaleError",
     "ReadRoutingRollback",
@@ -45,7 +51,10 @@ __all__ = [
 ]
 
 
-DEFAULT_PROJECTION_TABLE = "mrw_p3_c2_source_library_terminal"
+DEFAULT_PROJECTION_TABLE = "mrw_source_terminal_projection_v2"
+HISTORICAL_PROJECTION_TABLE = "mrw_p3_c2_source_library_terminal"
+HISTORICAL_PROJECTOR_ID = "successor.source_library.c2_4.terminal_compat.v1"
+HISTORICAL_PROJECTOR_VERSION = "1.0.0"
 
 
 class ProjectionStaleError(RuntimeError):
@@ -94,11 +103,11 @@ def rollback_read_routing() -> ReadRoutingRollback:
     """Switch future read routing only; never deletes successor rows/offsets."""
 
     values = {
-        "schema": "mrw.successor.source-library.c2-4.read-routing-rollback.v1",
+        "schema": "mrw.source.project-terminal-result.read-routing-rollback.v2",
         "claim_owner": "legacy",
         "projection_rows_retained": True,
         "reason": (
-            "future query/read routing returns to legacy; successor journal, "
+            "future query/read routing returns to legacy; current journal, "
             "offsets and projections are retained and no provider effect reruns"
         ),
     }
@@ -125,11 +134,13 @@ def _materialization_digest(
     source_digest: str,
     generation: int,
     projected: ProjectedWithLoss,
+    projector_id: str = SOURCE_TERMINAL_PROJECTION_PROJECTOR_ID,
+    projector_version: str = SOURCE_TERMINAL_PROJECTION_PROJECTOR_VERSION,
 ) -> str:
     return content_digest(
         {
-            "projector_id": SOURCE_LIBRARY_C2_4_PROJECTOR_ID,
-            "projector_version": SOURCE_LIBRARY_C2_4_PROJECTOR_VERSION,
+            "projector_id": projector_id,
+            "projector_version": projector_version,
             "source_ref": source_ref,
             "source_digest": source_digest,
             "generation": generation,
@@ -143,8 +154,8 @@ def _materialization_digest(
 class InMemorySourceLibraryTerminalProjector:
     """Deterministic reference projector with offset and delete/rebuild."""
 
-    projector_id = SOURCE_LIBRARY_C2_4_PROJECTOR_ID
-    projector_version = SOURCE_LIBRARY_C2_4_PROJECTOR_VERSION
+    projector_id = SOURCE_TERMINAL_PROJECTION_PROJECTOR_ID
+    projector_version = SOURCE_TERMINAL_PROJECTION_PROJECTOR_VERSION
     source_kind = "RUNTIME_JOURNAL"
 
     def __init__(self, *, failpoint: Any = None) -> None:
@@ -296,8 +307,8 @@ class PostgresSourceLibraryTerminalProjector:
     drops it on teardown; no shared migration or catalog is modified.
     """
 
-    projector_id = SOURCE_LIBRARY_C2_4_PROJECTOR_ID
-    projector_version = SOURCE_LIBRARY_C2_4_PROJECTOR_VERSION
+    projector_id = SOURCE_TERMINAL_PROJECTION_PROJECTOR_ID
+    projector_version = SOURCE_TERMINAL_PROJECTION_PROJECTOR_VERSION
     source_kind = "RUNTIME_JOURNAL"
 
     def __init__(
@@ -473,5 +484,69 @@ class PostgresSourceLibraryTerminalProjector:
     def _require_source(self, source: SourceCollectionProjectionSource) -> None:
         if source.source_kind != "RUNTIME_JOURNAL":
             raise ProjectionStaleError("projector source kind mismatch")
+        if source.schema_version != SOURCE_COLLECTION_PROJECTION_SOURCE_SCHEMA:
+            raise ProjectionStaleError("current projector rejects historical source schema")
         if source.project_key != self.project_key:
             raise ProjectionStaleError("projector project key does not match source")
+
+
+class PostgresHistoricalSourceLibraryTerminalReader:
+    """Read and verify old C2.4 materializations without creating new rows."""
+
+    projector_id = HISTORICAL_PROJECTOR_ID
+    projector_version = HISTORICAL_PROJECTOR_VERSION
+
+    def __init__(
+        self,
+        connection: Connection,
+        *,
+        project_key: str,
+        table: sa.Table,
+    ) -> None:
+        self.connection = connection
+        self.project_key = project_key
+        self.table = table
+
+    def load(
+        self, source: HistoricalSourceCollectionProjectionSource
+    ) -> SourceLibraryTerminalMaterialization:
+        if source.project_key != self.project_key:
+            raise ProjectionStaleError(
+                "historical reader project key does not match source"
+            )
+        row = self.connection.execute(
+            select(self.table).where(
+                self.table.c.project_key == self.project_key,
+                self.table.c.source_ref == source.source_ref,
+            )
+        ).mappings().first()
+        if row is None:
+            raise SourceLibraryProjectionNotFound(source.source_ref)
+        if (
+            row["source_incarnation"] != source.source_incarnation
+            or int(row["source_revision"]) != source.source_revision
+            or row["source_digest"] != source.source_digest
+        ):
+            raise ProjectionStaleError(
+                "historical source does not match retained materialization"
+            )
+        materialization = PostgresSourceLibraryTerminalProjector._row_to_materialization(
+            row
+        )
+        expected = content_digest(
+            {
+                "projector_id": self.projector_id,
+                "projector_version": self.projector_version,
+                "source_ref": materialization.source_ref,
+                "source_digest": materialization.source_digest,
+                "generation": materialization.generation,
+                "terminal_digest": materialization.terminal["projection_digest"],
+                "compat_digest": materialization.compat["compat_digest"],
+                "summary_digest": materialization.summary["projection_digest"],
+            }
+        )
+        if materialization.materialization_digest != expected:
+            raise ProjectionStaleError(
+                "historical materialization digest does not match retained projector identity"
+            )
+        return materialization

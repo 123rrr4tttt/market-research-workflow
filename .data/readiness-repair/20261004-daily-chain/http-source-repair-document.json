@@ -1,0 +1,37 @@
+{
+  "task_id": "d18a9e98-3c74-4b75-a68c-93a5a406de20",
+  "http_status": 200,
+  "doc_id": 2,
+  "source_uri": "https://www.rfc-editor.org/rfc/rfc9110.txt",
+  "content_chars": 502906,
+  "content_sha256": "10df50c6497a62bfe33779fe131de25017c11f2ecc9f64296adc4188e1b9e4dd",
+  "first_160_chars": "﻿\n\n\n\nInternet Engineering Task Force (IETF)                  R. Fielding, Ed.\nRequest for Comments: 9110                                         Adobe\nSTD: 97  ",
+  "last_160_chars": "schke (editor)\n   greenbytes GmbH\n   Hafenweg 16\n   48155 Münster\n   Germany\n   Email: julian.reschke@greenbytes.de\n   URI:   https://greenbytes.de/tech/webdav/",
+  "material_input": {
+    "kind": "resource",
+    "mime_type": "text/plain",
+    "raw_content_digest": "21c1cdce6ab0e5509b04d84a28000836c7a087cf786efe6f04877ebfff47232a"
+  },
+  "extraction_profile": {
+    "signals": {
+      "article_hint_hits": 679
+    },
+    "js_heavy": true,
+    "main_title": "RFC 9110 HTTP Semantics",
+    "readerable": false,
+    "block_count": 8659,
+    "page_family": "unknown",
+    "shell_heavy": true,
+    "extractor_name": "ingest.material_text.v1",
+    "prefix_trimmed": false,
+    "raw_text_chars": 502906,
+    "main_text_chars": 502906,
+    "main_text_ratio": 1.0,
+    "js_template_hits": 9,
+    "main_block_count": 8659,
+    "shell_marker_hits": 162,
+    "duplicate_line_ratio": 0.0986,
+    "extractor_confidence": 100.0
+  },
+  "fetch_status": 200
+}

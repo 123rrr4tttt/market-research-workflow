@@ -17,7 +17,6 @@ from ..models.base import SessionLocal
 from ..models.entities import (
     Document,
     Source,
-    MarketStat,
     SearchHistory,
     EtlJobRun,
     MarketMetricPoint,
@@ -1484,12 +1483,19 @@ def get_global_stats():
 
 
 @router.get("/stats", response_model=ApiEnvelope[dict[str, Any]])
-def get_dashboard_stats():
+def get_dashboard_stats(request: Request):
     """获取仪表盘概览统计数据"""
     try:
+        project_key = _dashboard_project_key_from_request(request)
         with SessionLocal() as session:
             # 文档统计
             doc_total = session.execute(select(func.count(Document.id))).scalar() or 0
+            topology_service = getattr(request.app.state, "information_topology_service", None)
+            topology_document_total = (
+                topology_service.count_current_elements(project_key, "material")
+                if topology_service is not None and hasattr(topology_service, "count_current_elements")
+                else 0
+            )
             today = datetime.now().date()
             doc_recent_today = session.execute(
                 select(func.count(Document.id)).where(
@@ -1509,14 +1515,6 @@ def get_dashboard_stats():
             source_total = session.execute(select(func.count(Source.id))).scalar() or 0
             source_enabled = session.execute(
                 select(func.count(Source.id)).where(Source.enabled == True)
-            ).scalar() or 0
-            
-            # 市场数据统计
-            market_total = session.execute(select(func.count(MarketStat.id))).scalar() or 0
-            
-            # 覆盖的州数
-            states_count = session.execute(
-                select(func.count(func.distinct(MarketStat.state)))
             ).scalar() or 0
             
             # 搜索历史统计
@@ -1566,7 +1564,9 @@ def get_dashboard_stats():
             return ok({
                 "documents": _with_dashboard_sources(
                     {
-                        "total": doc_total,
+                        "total": doc_total + topology_document_total,
+                        "table_total": doc_total,
+                        "topology_material_total": topology_document_total,
                         "recent_today": doc_recent_today,
                         "recent_7d": doc_recent_7d,
                         "type_distribution": doc_type_distribution,
@@ -1593,16 +1593,6 @@ def get_dashboard_stats():
                     table="sources",
                     metrics=["total", "enabled"],
                     columns=["id", "enabled"],
-                ),
-                "market_stats": _with_dashboard_sources(
-                    {
-                        "total": market_total,
-                        "states_count": states_count,
-                    },
-                    "market_stats",
-                    table="market_stats",
-                    metrics=["total", "states_count"],
-                    columns=["id", "state"],
                 ),
                 "search_history": _with_dashboard_sources(
                     {
@@ -1691,19 +1681,6 @@ def _serialize_source_drilldown_row(row: Any) -> dict[str, Any]:
     }
 
 
-def _serialize_market_stat_drilldown_row(row: Any) -> dict[str, Any]:
-    return {
-        "id": getattr(row, "id", None),
-        "state": getattr(row, "state", None),
-        "game": getattr(row, "game", None),
-        "date": _isoformat_or_none(getattr(row, "date", None)),
-        "revenue": _decimal_to_float(getattr(row, "revenue", None)),
-        "sales_volume": _decimal_to_float(getattr(row, "sales_volume", None)),
-        "source_name": getattr(row, "source_name", None),
-        "source_uri": getattr(row, "source_uri", None),
-    }
-
-
 def _serialize_search_history_drilldown_row(row: Any) -> dict[str, Any]:
     return {
         "id": getattr(row, "id", None),
@@ -1736,9 +1713,6 @@ _DASHBOARD_DRILLDOWN_ALIASES = {
     "sources": "sources",
     "sources.total": "sources",
     "sources.enabled": "sources",
-    "market_stats": "market_stats",
-    "market_stats.total": "market_stats",
-    "market_stats.states_count": "market_stats",
     "search_history": "search_history",
     "search_history.total": "search_history",
     "tasks": "tasks",
@@ -1780,14 +1754,6 @@ def _dashboard_drilldown_config(metric: str) -> dict[str, Any]:
             "base_filters": {},
             "query": select(Source).order_by(Source.updated_at.desc(), Source.id.desc()),
             "serializer": _serialize_source_drilldown_row,
-        }
-    if metric == "market_stats":
-        return {
-            "table": "market_stats",
-            "columns": ["id", "state", "game", "date", "revenue", "sales_volume", "source_uri"],
-            "base_filters": {},
-            "query": select(MarketStat).order_by(MarketStat.date.desc(), MarketStat.id.desc()),
-            "serializer": _serialize_market_stat_drilldown_row,
         }
     if metric == "search_history":
         return {
@@ -2072,135 +2038,6 @@ def create_dashboard_report_from_filter(payload: DashboardReportFromFilterReques
             "evidence_metadata": evidence_metadata,
         }
     )
-
-
-@router.get("/market-trends", response_model=ApiEnvelope[dict[str, Any]])
-def get_market_trends(
-    state: Optional[str] = Query(None, description="州过滤"),
-    game: Optional[str] = Query(None, description="游戏类型过滤"),
-    start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
-    end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
-    period: str = Query("daily", pattern="^(daily|monthly)$", description="聚合周期"),
-):
-    """获取市场趋势数据"""
-    start = _parse_ymd_date_param(start_date, field="start_date")
-    end = _parse_ymd_date_param(end_date, field="end_date")
-
-    with SessionLocal() as session:
-        query = select(MarketStat)
-        
-        conditions = []
-        if state:
-            conditions.append(MarketStat.state == state.upper())
-        if game:
-            conditions.append(MarketStat.game.ilike(f"%{game}%"))
-        if start:
-            conditions.append(MarketStat.date >= start)
-        if end:
-            conditions.append(MarketStat.date <= end)
-        
-        if conditions:
-            query = query.where(and_(*conditions))
-        
-        if period == "monthly":
-            # 按月聚合
-            rows = session.execute(
-                select(
-                    func.date_trunc("month", MarketStat.date).label("month"),
-                    MarketStat.state,
-                    MarketStat.game,
-                    func.avg(MarketStat.revenue).label("avg_revenue"),
-                    func.avg(MarketStat.sales_volume).label("avg_sales_volume"),
-                    func.avg(MarketStat.jackpot).label("avg_jackpot"),
-                    func.sum(MarketStat.revenue).label("total_revenue"),
-                    func.sum(MarketStat.sales_volume).label("total_sales_volume"),
-                )
-                .where(and_(*conditions) if conditions else True)
-                .group_by(
-                    func.date_trunc("month", MarketStat.date),
-                    MarketStat.state,
-                    MarketStat.game,
-                )
-                .order_by(func.date_trunc("month", MarketStat.date))
-            ).all()
-            
-            series = []
-            for row in rows:
-                series.append({
-                    "date": row.month.date().isoformat() if row.month else None,
-                    "state": row.state,
-                    "game": row.game,
-                    "revenue": _decimal_to_float(row.avg_revenue),
-                    "sales_volume": _decimal_to_float(row.avg_sales_volume),
-                    "jackpot": _decimal_to_float(row.avg_jackpot),
-                    "total_revenue": _decimal_to_float(row.total_revenue),
-                    "total_sales_volume": _decimal_to_float(row.total_sales_volume),
-                })
-        else:
-            # 按日聚合
-            rows = session.execute(
-                query.order_by(MarketStat.date.asc())
-            ).scalars().all()
-            
-            series = []
-            for stat in rows:
-                series.append({
-                    "date": stat.date.isoformat() if stat.date else None,
-                    "state": stat.state,
-                    "game": stat.game,
-                    "revenue": _decimal_to_float(stat.revenue),
-                    "sales_volume": _decimal_to_float(stat.sales_volume),
-                    "jackpot": _decimal_to_float(stat.jackpot),
-                    "ticket_price": _decimal_to_float(stat.ticket_price),
-                    "yoy": _decimal_to_float(stat.yoy),
-                    "mom": _decimal_to_float(stat.mom),
-                })
-        
-        # 州分布统计
-        state_dist = session.execute(
-            select(
-                MarketStat.state,
-                func.count(MarketStat.id).label("count"),
-                func.sum(MarketStat.revenue).label("total_revenue"),
-            )
-            .where(and_(*conditions) if conditions else True)
-            .group_by(MarketStat.state)
-        ).all()
-        state_distribution = [
-            {
-                "state": row.state,
-                "count": row.count,
-                "total_revenue": _decimal_to_float(row.total_revenue),
-            }
-            for row in state_dist
-        ]
-        
-        # 游戏类型分布
-        game_dist = session.execute(
-            select(
-                MarketStat.game,
-                func.count(MarketStat.id).label("count"),
-                func.avg(MarketStat.revenue).label("avg_revenue"),
-            )
-            .where(and_(*conditions) if conditions else True)
-            .where(MarketStat.game.isnot(None))
-            .group_by(MarketStat.game)
-        ).all()
-        game_distribution = [
-            {
-                "game": row.game,
-                "count": row.count,
-                "avg_revenue": _decimal_to_float(row.avg_revenue),
-            }
-            for row in game_dist
-        ]
-        
-        return ok({
-            "series": series,
-            "state_distribution": state_distribution,
-            "game_distribution": game_distribution,
-            "period": period,
-        })
 
 
 @router.get("/document-analysis", response_model=ApiEnvelope[dict[str, Any]])

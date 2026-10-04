@@ -1,0 +1,10 @@
+{
+  "mode": "local-host-oauth-direct",
+  "iframe_mounted": true,
+  "host_bootstrap_http200": true,
+  "codex_status_http200": true,
+  "websocket_observed": true,
+  "page_errors": [],
+  "root_attached": true,
+  "jwt_present": true
+}

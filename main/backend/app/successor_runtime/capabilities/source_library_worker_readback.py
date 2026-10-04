@@ -12,7 +12,10 @@ from dataclasses import dataclass
 from typing import Any, Literal, NoReturn
 
 from functorial_kit import Failure
-from mrw_functorial_kit.core.w06_semantics import c9_evidence_surface_failures
+
+from mrw_functorial_kit.core.w06_semantics import (
+    projection_evidence_surface_failures,
+)
 
 AUTHORITY_KEYS: tuple[str, ...] = (
     "canonical_write",
@@ -41,7 +44,7 @@ def _failure(
     public_exception: str = "ValueError",
     site: str = "source_library_worker_readback",
 ) -> Failure:
-    return c9_evidence_surface_failures.fail(
+    return projection_evidence_surface_failures.fail(
         code,
         message,
         {
@@ -59,12 +62,12 @@ def _raise_contract_failure(
 ) -> NoReturn:
     context = failure.context or {}
     if (
-        failure.family != c9_evidence_surface_failures.name
+        failure.family != projection_evidence_surface_failures.name
         or context.get("public_exception") != exception_type.__name__
     ):
         # kit:boundary owner=source_library_worker_readback.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c9_total_core_failure_lifts
         raise TypeError("source-library worker readback failure lift context is incomplete")
-    # kit:boundary owner=source_library_worker_readback.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c9.evidence_surface.failure witness=test:test_w06_c9_total_core_failure_lifts
+    # kit:boundary owner=source_library_worker_readback.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=projection.evidence-surface.failure witness=test:test_w06_c9_total_core_failure_lifts
     raise exception_type(str(context.get("public_message", failure.message)))
 
 

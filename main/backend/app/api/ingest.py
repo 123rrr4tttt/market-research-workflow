@@ -858,10 +858,6 @@ class SingleUrlIngestRequest(BaseModel):
     async_mode: bool = Field(default=False, description="是否走 Celery 异步任务")
 
 
-class CaliforniaReportRequest(BaseModel):
-    limit: int = Field(default=3, ge=1, le=20, description="要保存的 PDF 报告数量上限")
-
-
 class NewsRequest(BaseModel):
     limit: int = Field(default=10, ge=1, le=50, description="抓取的条数")
     async_mode: bool = Field(default=False, description="是否异步执行")
@@ -1186,15 +1182,6 @@ def ingest_history(limit: int = 20):
                 details={"reason": error_msg},
             ),
         )
-
-
-@router.post("/reports/california", response_model=IngestAnyEnvelope)
-def ingest_california_reports(payload: CaliforniaReportRequest):
-    try:
-        from ..services.ingest.reports.california import collect_california_sales_reports
-        return success_response(collect_california_sales_reports(limit=payload.limit))
-    except Exception as exc:  # noqa: BLE001
-        return _error_500(exc)
 
 
 def _dispatch_news_resource(resource_id: str, payload: NewsRequest):

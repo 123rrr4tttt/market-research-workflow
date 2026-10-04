@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Validate and assemble the 30-cell P1 eligibility evidence artifact."""
+"""Rebuild the frozen 30-cell P1 migration eligibility report.
+
+This is a history-report serializer, not a current capability or execution
+generator. Its C6 rows describe the original P1 migration snapshot and do not
+assert that C6 source code or runtime assembly still exists.
+"""
 
 from __future__ import annotations
 

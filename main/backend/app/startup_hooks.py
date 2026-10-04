@@ -7,11 +7,22 @@ from fastapi import FastAPI
 from sqlalchemy import text
 
 from .models.base import Base, engine
+from .models.information_topology_entities import InformationTopologyLink, InformationTopologyState
+from .models.project_retrieval import ProjectRetrievalMode, ProjectRetrievalPlan, ProjectRetrievalRun
+from .models.base import SessionLocal
 from .settings.config import settings
 from .services.projects.schema_initialization import (
     initialize_default_project_schema,
     run_serialized_schema_ddl,
 )
+from .services.information_topology.catalog import profile_catalog
+from .services.information_topology.io.retrieval import (
+    RepositoryRetrievalStore,
+    RetrievalStructureIO,
+    resolve_domain_vocabulary,
+)
+from .services.information_topology.repository import InformationTopologyRepository
+from .services.information_topology.service import InformationTopologyDependencies, InformationTopologyService
 from .models.entities import (
     AgentApproval,
     AgentArtifact,
@@ -54,6 +65,25 @@ from .models.writing_entities import WritingDocument, WritingDocumentCitation, W
 def register_startup_hooks(app: FastAPI) -> None:
     logger = logging.getLogger("app")
 
+    # Construct services without opening a connection. Project context and the
+    # session's search_path scope each request to its existing tenant schema.
+    profiles = dict(profile_catalog())
+    topology_repository = InformationTopologyRepository(profiles)
+    retrieval_io = RetrievalStructureIO(
+        vocabulary_resolver=resolve_domain_vocabulary,
+        store=RepositoryRetrievalStore(topology_repository),
+        session_factory=SessionLocal,
+    )
+    app.state.information_topology_service = InformationTopologyService(
+        InformationTopologyDependencies(
+            profiles=profiles,
+            mappings={},
+            io=retrieval_io,
+            repository=topology_repository,
+            session_factory=SessionLocal,
+        )
+    )
+
     @app.on_event("startup")
     def _ensure_default_project_schema() -> None:
         initialize_default_project_schema(logger_obj=logger)
@@ -93,63 +123,12 @@ def register_startup_hooks(app: FastAPI) -> None:
         Bootstrap control-plane projects with neutral defaults.
 
         Meaning:
-        - Optional one-time migration: legacy project_key "default" -> "online_lottery"
-          (schema rename, table moves, aggregator remap), controlled by
-          `enable_legacy_default_to_online_lottery_migration`.
         - First install: if no projects exist, create "business_survey" (商业调查) as the initial project.
         - All projects are peers. "public" schema is reserved for control-plane and shared tables.
         """
         try:
             def _bootstrap(conn: object) -> None:
                 conn.execute(text('SET search_path TO "public"'))
-
-                legacy = conn.execute(
-                    text("SELECT project_key, schema_name FROM public.projects WHERE project_key = 'default' LIMIT 1")
-                ).first()
-                if legacy and bool(getattr(settings, "enable_legacy_default_to_online_lottery_migration", False)):
-                    has_old_schema = conn.execute(
-                        text("SELECT to_regclass('project_default.documents') IS NOT NULL")
-                    ).scalar()
-                    has_new_schema = conn.execute(
-                        text("SELECT to_regclass('project_online_lottery.documents') IS NOT NULL")
-                    ).scalar()
-                    if has_old_schema and not has_new_schema:
-                        target_has_any = conn.execute(
-                            text(
-                                """
-                                SELECT EXISTS(
-                                  SELECT 1 FROM pg_tables WHERE schemaname='project_online_lottery' LIMIT 1
-                                )
-                                """
-                            )
-                        ).scalar()
-                        if not target_has_any:
-                            conn.execute(text('DROP SCHEMA IF EXISTS "project_online_lottery" CASCADE'))
-                        conn.execute(text('ALTER SCHEMA "project_default" RENAME TO "project_online_lottery"'))
-
-                    conn.execute(
-                        text(
-                            """
-                            UPDATE public.projects
-                            SET project_key = 'online_lottery',
-                                name = COALESCE(NULLIF(name, ''), '线上彩票项目'),
-                                schema_name = 'project_online_lottery'
-                            WHERE project_key = 'default'
-                            """
-                        )
-                    )
-                    conn.execute(
-                        text("UPDATE public.project_sync_state SET project_key='online_lottery' WHERE project_key='default'")
-                    )
-                    conn.execute(text('CREATE SCHEMA IF NOT EXISTS "aggregator"'))
-                    for t in ["documents_agg", "market_metric_points_agg", "price_observations_agg"]:
-                        exists = conn.execute(text(f"SELECT to_regclass('aggregator.{t}') IS NOT NULL")).scalar()
-                        if exists:
-                            conn.execute(
-                                text(
-                                    f'UPDATE aggregator."{t}" SET project_key = \'online_lottery\' WHERE project_key = \'default\''
-                                )
-                            )
 
                 count = conn.execute(text("SELECT COUNT(*) FROM public.projects")).scalar() or 0
                 if int(count) == 0 and bool(getattr(settings, "bootstrap_create_initial_project", False)):
@@ -237,6 +216,11 @@ def register_startup_hooks(app: FastAPI) -> None:
             WritingDocument.__table__,
             WritingDocumentDraft.__table__,
             WritingDocumentCitation.__table__,
+            InformationTopologyState.__table__,
+            InformationTopologyLink.__table__,
+            ProjectRetrievalMode.__table__,
+            ProjectRetrievalPlan.__table__,
+            ProjectRetrievalRun.__table__,
         ]
         try:
             with engine.begin() as conn:

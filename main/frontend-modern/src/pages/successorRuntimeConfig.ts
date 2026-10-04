@@ -3,23 +3,26 @@ import type { SuccessorProjectSourceKey, SuccessorQueryOptions } from '../lib/ap
 /**
  * Read-only projection identity for the successor runtime kernel module.
  *
- * The source key names the real committed C7 canonical document that the
- * production-registry HTTP read facade answers from PostgreSQL
- * (c7_movement_canonical_documents) through the deterministic search
- * projector.  In a LOCAL_ONLY mount the query fails closed as unavailable,
- * which is the intended production semantics: the page only displays real
- * committed data once the registry-backed backend is serving it.  The page
- * never constructs a v2 URL itself and never submits a command.
+ * The source key names the active project material source.  The
+ * production-registry HTTP read facade resolves that business identity to an
+ * exact project-scoped revision/incarnation/digest before returning data.  If
+ * the project has no committed material source the query remains honestly
+ * unavailable; the UI never substitutes a historical acceptance document.
  */
 export const SUCCESSOR_RUNTIME_OBSERVATION_PROJECTION_ID =
-  'projection.c7-production-document.v1'
+  'projection.project-material.v2'
 
-export const SUCCESSOR_RUNTIME_OBSERVATION_SOURCE_KEY: SuccessorProjectSourceKey = {
-  projector_id: 'successor.ingest_index.search.projector',
-  projector_version: '1.0.0',
-  source_kind: 'ingest_canonical',
-  source_ref: 'document:ingest-doc:c7-production-cutover-acceptance-2026-09-03',
-  source_incarnation: 'incarnation:production-go-live:v1',
+export function buildSuccessorRuntimeObservationSourceKey(
+  projectLocator: string,
+): SuccessorProjectSourceKey {
+  const projectKey = projectLocator.trim()
+  return {
+    projector_id: 'projection.project-material.v2',
+    projector_version: '2.0.0',
+    source_kind: 'material',
+    source_ref: `material:${projectKey}`,
+    source_incarnation: `active-project:${projectKey}`,
+  }
 }
 
 export function buildSuccessorRuntimeObservationQueryOptions(
@@ -32,7 +35,7 @@ export function buildSuccessorRuntimeObservationQueryOptions(
     params: {
       params_kind: 'projection_snapshot',
       projection_id: SUCCESSOR_RUNTIME_OBSERVATION_PROJECTION_ID,
-      ...SUCCESSOR_RUNTIME_OBSERVATION_SOURCE_KEY,
+      ...buildSuccessorRuntimeObservationSourceKey(projectLocator),
       page_size: 25,
     },
   }

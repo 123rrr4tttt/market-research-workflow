@@ -21,13 +21,14 @@ from app.successor_migration.document_repository_c7 import (
     DocumentRef,
 )
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.ingest_c7_common import (
-    C7_INGEST_OWNER,
-    C7_OPERATION_CATALOG_ID,
-    C7_OPERATION_CATALOG_VERSION,
+from app.successor_runtime.capabilities.material_ingest_common import (
+    MATERIAL_INGEST_OWNER,
+    MATERIAL_OPERATION_CATALOG_ID,
+    MATERIAL_OPERATION_CATALOG_VERSION,
     DOCUMENT_CANONICAL_OWNER,
+    HISTORICAL_C7_INGEST_OWNER,
 )
-from app.successor_runtime.capabilities.ingest_c7_movements import (
+from app.successor_runtime.capabilities.material_ingest_movements import (
     DeterministicChunkPort,
     DeterministicExtractPort,
     DeterministicPassThroughPort,
@@ -35,10 +36,13 @@ from app.successor_runtime.capabilities.ingest_c7_movements import (
     StructuredMaterialCandidate,
     VerifiedMaterialCandidate,
     capture_raw_snapshot_exact,
-    execute_c7_movement,
+    execute_material_movement,
     normalize_ingest_envelope,
     select_exactly_one_digestion_alternative,
     verify_structured_candidate,
+)
+from app.successor_runtime.capabilities.material_ingest_interpreters import (
+    MATERIAL_INTERPRETER_PROFILE_IDS,
 )
 from app.successor_runtime.runtime.admission import VerificationBinding
 from app.successor_runtime.runtime.assignments import canonical_digest
@@ -50,15 +54,23 @@ from app.successor_runtime.substrate.postgres.commit_intents import (
 from app.successor_runtime.substrate.postgres.ingest_c7_candidate_values import (
     C7_STRUCTURED_VALUE_CODEC_ID,
     C7_STRUCTURED_VALUE_OBJECT_TYPE,
+    C7ValueIntegrityError,
+    LEGACY_C7_STRUCTURED_VALUE_CODEC_ID,
+    LEGACY_C7_STRUCTURED_VALUE_OBJECT_TYPE,
+    LEGACY_C7_STRUCTURED_VALUE_PREFIX,
     candidate_value_id,
     candidate_value_incarnation,
     candidate_value_ref,
+    readback_candidate_value,
+    readback_legacy_candidate_value,
 )
 from app.successor_runtime.substrate.postgres.ingest_c7_movement_admission import (
     C7_ADMISSION_REQUEST_EVENT_TYPE,
     C7_ADMISSION_SCHEMA_VERSION,
     C7_EVENT_SCHEMA_VERSION,
     C7_MOVEMENT_CANONICAL_DOCUMENTS,
+    LEGACY_C7_ADMISSION_SCHEMA_VERSION,
+    MATERIAL_ADMISSION_SCHEMA_VERSION,
     C7AdmissionConfig,
     C7AdmissionReceipt,
     C7AdmissionResult,
@@ -79,6 +91,7 @@ from app.successor_runtime.substrate.postgres.ingest_c7_movement_admission impor
     candidate_receipt_digest,
     load_authoritative_readback,
     readback_by_idempotency,
+    readback_legacy_c7_by_idempotency,
     require_locked_canonical_events,
     require_locked_runtime_step_attempt,
 )
@@ -245,7 +258,7 @@ def _base_pair() -> tuple[StructuredMaterialCandidate, VerifiedMaterialCandidate
     assert envelope.source_character_length == len(snapshot.raw_bytes.decode("utf-8"))
     decision = select_exactly_one_digestion_alternative(envelope)
     assert decision.source_character_length == envelope.source_character_length
-    trace = execute_c7_movement(
+    trace = execute_material_movement(
         snapshot=snapshot,
         envelope=envelope,
         decision=decision,
@@ -388,10 +401,10 @@ def _admission_binding(
         "input_closure_digest": verified.snapshot_identity_digest,
         "output_content_digest": verified.payload_content_digest,
         "ordered_event_payloads": _ordered_event_payloads(verified, config),
-        "schema_digest": content_digest({"schema": "ingest.c7.admission.v1"}),
+        "schema_digest": content_digest({"schema": MATERIAL_ADMISSION_SCHEMA_VERSION}),
         "compiler_identity": plan.compiler_id,
-        "interpreter_identity": "successor.ingest_index.c7.pure.v1",
-        "verifier_identity": "ingest.validator.c7.v1",
+        "interpreter_identity": MATERIAL_INTERPRETER_PROFILE_IDS["staged_candidate"],
+        "verifier_identity": "material.ingest.validator.v2",
         "actor_id": verified.actor,
         "project_key": verified.project_key,
         "authority_digest": verified.authority_digest,
@@ -420,7 +433,7 @@ def _config(**overrides: Any) -> C7AdmissionConfig:
         "attempt_id": ATTEMPT_ID,
         "program_id": PROGRAM_ID,
         "plan_id": plan.plan_id,
-        "capability_id": C7_INGEST_OWNER,
+        "capability_id": MATERIAL_INGEST_OWNER,
         "idempotency_key": IDEMPOTENCY_KEY,
         "execution_epoch": EXECUTION_EPOCH,
         "attempt_incarnation": ATTEMPT_INCARNATION,
@@ -502,8 +515,8 @@ def _seed_base(connection: sa.Connection) -> None:
             project_storage_ref="project-value:plan:c7-target-admission",
             compiler_id=plan.compiler_id,
             compiler_version=plan.compiler_version,
-            operation_catalog_id=C7_OPERATION_CATALOG_ID,
-            catalog_version=C7_OPERATION_CATALOG_VERSION,
+            operation_catalog_id=MATERIAL_OPERATION_CATALOG_ID,
+            catalog_version=MATERIAL_OPERATION_CATALOG_VERSION,
             catalog_digest=catalog().catalog_digest,
             effect_closure_digest=plan.effect_closure_digest,
             authority_closure_digest=plan.authority_closure_digest,
@@ -550,7 +563,7 @@ def _seed_base(connection: sa.Connection) -> None:
             output_digest=AUTHORITY_DIGEST,
             effect_class="EFFECTFUL",
             resource_class="CPU_LIGHT",
-            capability_id=C7_INGEST_OWNER,
+            capability_id=MATERIAL_INGEST_OWNER,
             claim_owner="successor",
             claim_authority_epoch=AUTHORITY_EPOCH,
             claim_policy_digest=AUTHORITY_DIGEST,
@@ -583,7 +596,7 @@ def _seed_base(connection: sa.Connection) -> None:
         .insert()
         .values(
             project_key=PROJECT_KEY,
-            capability_id=C7_INGEST_OWNER,
+            capability_id=MATERIAL_INGEST_OWNER,
             mode="on",
             authority_epoch=AUTHORITY_EPOCH,
             successor_claim_enabled=True,
@@ -643,7 +656,7 @@ def _seed_canonical_head(
         "run_id": RUN_ID,
         "step_id": STEP_ID,
         "attempt_id": ATTEMPT_ID,
-        "capability_id": C7_INGEST_OWNER,
+        "capability_id": MATERIAL_INGEST_OWNER,
         "actor_id": verified.actor,
         "program_digest": binding.program_digest,
         "plan_digest": binding.plan_digest,
@@ -800,7 +813,7 @@ def test_actual_pure_candidate_commits_and_reads_back(
         assert result.receipt.disposable is True
 
         intent = CommitIntentRepository(connection, _scope()).find_for_readback(
-            C7_INGEST_OWNER,
+            MATERIAL_INGEST_OWNER,
             config.idempotency_key,
         )
         assert intent["state"] == CommitIntentStatus.COMMITTED.value
@@ -822,7 +835,7 @@ def test_actual_pure_candidate_commits_and_reads_back(
         assert head["incarnation"] == SCOPE_INCARNATION
         assert head["commit_intent_id"] == config.commit_intent_id
         assert head["attempt_id"] == ATTEMPT_ID
-        assert head["capability_id"] == C7_INGEST_OWNER
+        assert head["capability_id"] == MATERIAL_INGEST_OWNER
         assert head["candidate_id"] == verified.candidate_id
         assert head["snapshot_ref"] == verified.snapshot_ref
         assert head["alternative"] == verified.alternative
@@ -907,6 +920,178 @@ def test_candidate_value_written_exact(disposable_database: Engine) -> None:
         assert head["value_digest"] == verified.payload_content_digest
 
 
+def test_historical_candidate_value_is_explicit_and_not_rehashed(
+    disposable_database: Engine,
+) -> None:
+    verified = _pure_verified_candidate()
+    binding = _admission_binding(verified)
+    with disposable_database.begin() as connection:
+        _admit(connection, verified, binding)
+        current = (
+            connection.execute(
+                sa.select(_value_table()).where(
+                    _value_table().c.project_key == PROJECT_KEY,
+                    _value_table().c.value_id
+                    == candidate_value_id(verified.candidate_id),
+                )
+            )
+            .mappings()
+            .one()
+        )
+        legacy_id = f"{LEGACY_C7_STRUCTURED_VALUE_PREFIX}{verified.candidate_id}"
+        legacy_digest = "f" * 64
+        legacy_row = dict(current)
+        legacy_row.update(
+            value_id=legacy_id,
+            object_type=LEGACY_C7_STRUCTURED_VALUE_OBJECT_TYPE,
+            codec_id=LEGACY_C7_STRUCTURED_VALUE_CODEC_ID,
+            incarnation=f"{LEGACY_C7_STRUCTURED_VALUE_PREFIX}historical",
+            content_digest=legacy_digest,
+        )
+        connection.execute(_value_table().insert().values(**legacy_row))
+        legacy_ref = candidate_value_ref(legacy_id)
+        historical = readback_legacy_candidate_value(
+            connection,
+            scope=_scope(),
+            value_ref=legacy_ref,
+            expected_digest=legacy_digest,
+        )
+        assert historical["content_digest"] == legacy_digest
+
+        head = (
+            connection.execute(
+                sa.select(C7_MOVEMENT_CANONICAL_DOCUMENTS).where(
+                    C7_MOVEMENT_CANONICAL_DOCUMENTS.c.project_key == PROJECT_KEY,
+                    C7_MOVEMENT_CANONICAL_DOCUMENTS.c.object_id == CANDIDATE_ID,
+                )
+            )
+            .mappings()
+            .one()
+        )
+        legacy_head = dict(head)
+        legacy_head.update(
+            value_ref=legacy_ref,
+            value_incarnation=f"{LEGACY_C7_STRUCTURED_VALUE_PREFIX}historical",
+            value_digest=legacy_digest,
+        )
+        with pytest.raises(
+            C7ValueIntegrityError,
+            match="material v2 codec",
+        ):
+            readback_candidate_value(
+                connection,
+                scope=_scope(),
+                head=legacy_head,
+                candidate=verified,
+            )
+
+
+def test_historical_admission_requires_explicit_identity_and_keeps_stored_digest(
+    disposable_database: Engine,
+) -> None:
+    verified = _pure_verified_candidate()
+    binding = _admission_binding(verified)
+    config = _config()
+    legacy_idempotency_key = "idem:c7-target-admission:historical"
+    legacy_digest = "e" * 64
+    legacy_value_id = f"{LEGACY_C7_STRUCTURED_VALUE_PREFIX}{verified.candidate_id}"
+    legacy_value_ref = candidate_value_ref(legacy_value_id)
+    legacy_incarnation = f"{LEGACY_C7_STRUCTURED_VALUE_PREFIX}historical-admission"
+
+    with disposable_database.begin() as connection:
+        _admit(connection, verified, binding, config=config)
+        current_value = (
+            connection.execute(
+                sa.select(_value_table()).where(
+                    _value_table().c.project_key == PROJECT_KEY,
+                    _value_table().c.value_id
+                    == candidate_value_id(verified.candidate_id),
+                )
+            )
+            .mappings()
+            .one()
+        )
+        legacy_value = dict(current_value)
+        legacy_value.update(
+            value_id=legacy_value_id,
+            object_type=LEGACY_C7_STRUCTURED_VALUE_OBJECT_TYPE,
+            codec_id=LEGACY_C7_STRUCTURED_VALUE_CODEC_ID,
+            incarnation=legacy_incarnation,
+            content_digest=legacy_digest,
+        )
+        connection.execute(_value_table().insert().values(**legacy_value))
+        connection.execute(
+            PUBLIC_TABLES["runtime_commit_intents"]
+            .update()
+            .where(
+                PUBLIC_TABLES["runtime_commit_intents"].c.project_key == PROJECT_KEY,
+                PUBLIC_TABLES["runtime_commit_intents"].c.commit_intent_id
+                == config.commit_intent_id,
+            )
+            .values(
+                capability_id=HISTORICAL_C7_INGEST_OWNER,
+                idempotency_key=legacy_idempotency_key,
+            )
+        )
+        connection.execute(
+            C7_MOVEMENT_CANONICAL_DOCUMENTS.update()
+            .where(
+                C7_MOVEMENT_CANONICAL_DOCUMENTS.c.project_key == PROJECT_KEY,
+                C7_MOVEMENT_CANONICAL_DOCUMENTS.c.object_id == CANDIDATE_ID,
+            )
+            .values(
+                capability_id=HISTORICAL_C7_INGEST_OWNER,
+                value_ref=legacy_value_ref,
+                value_incarnation=legacy_incarnation,
+                value_digest=legacy_digest,
+            )
+        )
+        historical_head = dict(
+            connection.execute(
+                sa.select(C7_MOVEMENT_CANONICAL_DOCUMENTS).where(
+                    C7_MOVEMENT_CANONICAL_DOCUMENTS.c.project_key == PROJECT_KEY,
+                    C7_MOVEMENT_CANONICAL_DOCUMENTS.c.object_id == CANDIDATE_ID,
+                )
+            )
+            .mappings()
+            .one()
+        )
+        historical_head["head_closure_digest"] = canonical_digest(
+            {
+                key: value
+                for key, value in historical_head.items()
+                if key != "head_closure_digest"
+            }
+        )
+        connection.execute(
+            C7_MOVEMENT_CANONICAL_DOCUMENTS.update()
+            .where(
+                C7_MOVEMENT_CANONICAL_DOCUMENTS.c.project_key == PROJECT_KEY,
+                C7_MOVEMENT_CANONICAL_DOCUMENTS.c.object_id == CANDIDATE_ID,
+            )
+            .values(head_closure_digest=historical_head["head_closure_digest"])
+        )
+
+        with pytest.raises(C7CapabilityMismatchError):
+            readback_by_idempotency(
+                connection,
+                scope=_scope(),
+                capability_id=HISTORICAL_C7_INGEST_OWNER,
+                idempotency_key=legacy_idempotency_key,
+                binding=binding,
+            )
+        result = readback_legacy_c7_by_idempotency(
+            connection,
+            scope=_scope(),
+            idempotency_key=legacy_idempotency_key,
+            binding=binding,
+        )
+        assert result.receipt.schema_version == LEGACY_C7_ADMISSION_SCHEMA_VERSION
+        assert result.receipt.capability_id == HISTORICAL_C7_INGEST_OWNER
+        assert result.readback.idempotency_key == legacy_idempotency_key
+        assert legacy_digest != content_digest(dict(current_value["content_json"]))
+
+
 def test_exact_duplicate_returns_same_value_head_and_document_ref(
     disposable_database: Engine,
 ) -> None:
@@ -960,7 +1145,7 @@ def test_value_mutation_fails_closed(disposable_database: Engine) -> None:
             readback_by_idempotency(
                 connection,
                 scope=_scope(),
-                capability_id=C7_INGEST_OWNER,
+                capability_id=MATERIAL_INGEST_OWNER,
                 idempotency_key=config.idempotency_key,
                 binding=binding,
             )
@@ -985,7 +1170,7 @@ def test_value_stale_revision_fails_closed(disposable_database: Engine) -> None:
             readback_by_idempotency(
                 connection,
                 scope=_scope(),
-                capability_id=C7_INGEST_OWNER,
+                capability_id=MATERIAL_INGEST_OWNER,
                 idempotency_key=config.idempotency_key,
                 binding=binding,
             )
@@ -1004,13 +1189,13 @@ def test_value_incarnation_aba_fails_closed(disposable_database: Engine) -> None
                 _value_table().c.project_key == PROJECT_KEY,
                 _value_table().c.value_id == candidate_value_id(verified.candidate_id),
             )
-            .values(incarnation="c7:structured:other")
+            .values(incarnation="material:structured:other")
         )
         with pytest.raises(C7ReadbackIntegrityError):
             readback_by_idempotency(
                 connection,
                 scope=_scope(),
-                capability_id=C7_INGEST_OWNER,
+                capability_id=MATERIAL_INGEST_OWNER,
                 idempotency_key=config.idempotency_key,
                 binding=binding,
             )
@@ -1034,7 +1219,7 @@ def test_missing_value_fails_closed(disposable_database: Engine) -> None:
             readback_by_idempotency(
                 connection,
                 scope=_scope(),
-                capability_id=C7_INGEST_OWNER,
+                capability_id=MATERIAL_INGEST_OWNER,
                 idempotency_key=config.idempotency_key,
                 binding=binding,
             )
@@ -1075,7 +1260,7 @@ def test_journal_and_head_receipt_consistent_after_commit(
         )
         assert head["receipt_digest"] == config.receipt_digest
         intent = CommitIntentRepository(connection, _scope()).find_for_readback(
-            C7_INGEST_OWNER,
+            MATERIAL_INGEST_OWNER,
             config.idempotency_key,
         )
         assert intent["receipt_digest"] == config.receipt_digest
@@ -1468,7 +1653,7 @@ def test_authority_epoch_drift_and_revocation_are_rejected(
             authority_table.update()
             .where(
                 authority_table.c.project_key == PROJECT_KEY,
-                authority_table.c.capability_id == C7_INGEST_OWNER,
+                authority_table.c.capability_id == MATERIAL_INGEST_OWNER,
             )
             .values(authority_epoch=AUTHORITY_EPOCH + 1)
         )
@@ -1479,7 +1664,7 @@ def test_authority_epoch_drift_and_revocation_are_rejected(
             authority_table.update()
             .where(
                 authority_table.c.project_key == PROJECT_KEY,
-                authority_table.c.capability_id == C7_INGEST_OWNER,
+                authority_table.c.capability_id == MATERIAL_INGEST_OWNER,
             )
             .values(mode="off", successor_claim_enabled=False)
         )
@@ -1860,7 +2045,7 @@ def test_readback_tamper_fails_closed(disposable_database: Engine) -> None:
             readback_by_idempotency(
                 connection,
                 scope=_scope(),
-                capability_id=C7_INGEST_OWNER,
+                capability_id=MATERIAL_INGEST_OWNER,
                 idempotency_key=config.idempotency_key,
                 binding=binding,
             )
@@ -1907,7 +2092,7 @@ def test_head_attempt_tamper_with_recomputed_closure_rejected(
             readback_by_idempotency(
                 connection,
                 scope=_scope(),
-                capability_id=C7_INGEST_OWNER,
+                capability_id=MATERIAL_INGEST_OWNER,
                 idempotency_key=config.idempotency_key,
                 binding=binding,
             )
@@ -1933,7 +2118,7 @@ def test_commit_intent_id_tamper_rejected(disposable_database: Engine) -> None:
             readback_by_idempotency(
                 connection,
                 scope=_scope(),
-                capability_id=C7_INGEST_OWNER,
+                capability_id=MATERIAL_INGEST_OWNER,
                 idempotency_key=config.idempotency_key,
                 binding=binding,
             )
@@ -1950,7 +2135,7 @@ def test_readback_by_idempotency_returns_stored_facts(
         stored = readback_by_idempotency(
             connection,
             scope=_scope(),
-            capability_id=C7_INGEST_OWNER,
+            capability_id=MATERIAL_INGEST_OWNER,
             idempotency_key=config.idempotency_key,
             binding=binding,
         )
@@ -2010,7 +2195,7 @@ def test_by_idempotency_readback_survives_runtime_terminalization(
         stored = readback_by_idempotency(
             connection,
             scope=_scope(),
-            capability_id=C7_INGEST_OWNER,
+            capability_id=MATERIAL_INGEST_OWNER,
             idempotency_key=config.idempotency_key,
             binding=binding,
         )

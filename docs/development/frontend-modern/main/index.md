@@ -4,6 +4,7 @@
 # Frontend Modern Main Entry
 
 - [MERGED_FRONTEND_MODERN.md](./MERGED_FRONTEND_MODERN.md)
+- [ADMIN_PRESENTATION_PLAN.md](./ADMIN_PRESENTATION_PLAN.md) — 2026-09-26 管理页面呈现规划（待实施）
 
 ## Current Evidence
 

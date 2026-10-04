@@ -13,6 +13,57 @@ from ..models.base import SessionLocal
 from ..models.entities import EtlJobRun
 from .job_logger import complete_job, fail_job, start_job
 from .projects import bind_project
+
+
+@celery_app.task(name="project_retrieval.execute")
+def task_project_retrieval_run(project_key: str, run_id: str) -> dict[str, Any]:
+    """Interpret one manually authorized, version-pinned retrieval plan."""
+    from .agent_sessions import get_agent_session_service
+    from .project_retrieval.execution import execute_retrieval_run
+    from .project_retrieval.service import ProjectRetrievalService
+    from .project_retrieval.topology import build_topology_service
+
+    with bind_project(project_key):
+        service = ProjectRetrievalService()
+        run = service.read_run(project_key, run_id)
+        if run["status"] != "queued" or not service.claim_run(project_key, run_id):
+            # Duplicate deliveries must not start a second Agent session or
+            # compete for the run-owned topology identity.
+            return service.read_run(project_key, run_id)
+        plan = service.read_plan(project_key, run["plan_id"])
+        plan["run_id"] = run_id
+        plan["topology_ref"] = {
+            "project_key": project_key, "module_id": "retrieval",
+            "namespace": "rapid", "state_id": f"retrieval-run:{run_id}",
+        }
+
+        def emit(kind: str, payload: Any) -> None:
+            phase = "search" if kind == "tool.result" else "session" if kind == "run.started" else "readback"
+            service.update_run(project_key, run_id, status="running", phase=phase,
+                               receipt={"latest_event": kind, "latest_event_payload": dict(payload)})
+
+        try:
+            result = dict(execute_retrieval_run(
+                project_key=project_key, plan=plan,
+                topology_service=build_topology_service(),
+                session_factory=get_agent_session_service, emit=emit,
+            ))
+        except Exception as exc:  # persist failures rather than leave an endless running row
+            result = {"status": "failed", "failures": [{"phase": "worker", "kind": type(exc).__name__,
+                                                        "message": str(exc)}]}
+        status = str(result.get("status") or "failed")
+        if status not in {"completed", "partial", "blocked", "failed"}:
+            status = "failed"
+        counts = {
+            "attempts": len(result.get("attempts") or []),
+            "candidates": len(result.get("candidates") or []),
+            "materials": len(result.get("materials") or []),
+            "formal_graphs": len((result.get("report") or {}).get("formal_graph_refs") or []),
+        }
+        visible_errors = list(result.get("failures") or []) + list(result.get("gaps") or [])
+        service.update_run(project_key, run_id, status=status, phase="finished", counts=counts,
+                           errors=visible_errors, receipt=result)
+        return {"run_id": run_id, "status": status, "counts": counts}
 from .task_readback_metadata import (
     extract_runtime_readback_payload,
     merge_request_runtime_context,
@@ -536,24 +587,6 @@ def task_index_policy(document_ids: list[int], project_key: str | None = None) -
 
 
 @celery_app.task
-def task_collect_calottery_news(limit: int = 10, project_key: str | None = None) -> dict:
-    from ..subprojects.online_lottery.services import collect_calottery_news_for_project
-
-    ctx = bind_project(project_key) if project_key else nullcontext()
-    with ctx:
-        return collect_calottery_news_for_project(limit=limit)
-
-
-@celery_app.task
-def task_collect_calottery_retailer(limit: int = 10, project_key: str | None = None) -> dict:
-    from ..subprojects.online_lottery.services import collect_calottery_retailer_updates_for_project
-
-    ctx = bind_project(project_key) if project_key else nullcontext()
-    with ctx:
-        return collect_calottery_retailer_updates_for_project(limit=limit)
-
-
-@celery_app.task
 def task_collect_news_resource(
     resource_id: str,
     limit: int = 10,
@@ -738,12 +771,12 @@ def task_discover_site_entries_batched(
 
 
 @celery_app.task
-def task_collect_reddit(subreddit: str = "Lottery", limit: int = 20, project_key: str | None = None) -> dict:
-    from ..subprojects.online_lottery.services import collect_reddit_discussions_for_project
+def task_collect_reddit(subreddit: str = "news", limit: int = 20, project_key: str | None = None) -> dict:
+    from .ingest.news import collect_reddit_discussions
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        return collect_reddit_discussions_for_project(subreddit=subreddit, limit=limit)
+        return collect_reddit_discussions(subreddit=subreddit, limit=limit)
 
 
 @celery_app.task

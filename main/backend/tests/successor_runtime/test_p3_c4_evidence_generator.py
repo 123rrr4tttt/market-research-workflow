@@ -186,7 +186,7 @@ def test_current_legacy_and_shared_generators_drift_from_frozen_canonical() -> N
     assert shared_check.returncode == 1, shared_check.stdout + shared_check.stderr
     assert "DRIFT" in shared_check.stdout + shared_check.stderr
     assert legacy_check.returncode == 1, legacy_check.stdout + legacy_check.stderr
-    assert "drift" in legacy_check.stdout + legacy_check.stderr
+    assert "DRIFT" in legacy_check.stdout + legacy_check.stderr
     assert _file_snapshot(canonical) == before
 
 

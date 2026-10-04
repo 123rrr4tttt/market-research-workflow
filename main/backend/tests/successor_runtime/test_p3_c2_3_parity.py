@@ -5,9 +5,9 @@ from __future__ import annotations
 from app.successor_migration.legacy_source_library_c2_3 import (
     LegacySourceLibraryC2_3Adapter,
 )
-from app.successor_runtime.capabilities import source_library_c2_3 as c23
+from app.successor_runtime.capabilities import source_provider_acquisition as c23
 from app.successor_runtime.capabilities import (
-    source_library_c2_3_test_interpreters as c23_fixtures,
+    source_provider_test_interpreters as c23_fixtures,
 )
 
 from .test_p3_c2_3_contracts import _effect_request

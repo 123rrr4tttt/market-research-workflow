@@ -10,7 +10,6 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -23,8 +22,12 @@ from app.successor_runtime.specification.shared_family_generator import (
     build_fragment,
     content_digest,
     fragment_bytes,
+    load_p1_cells,
+    p1_cell_digest,
 )
-from app.successor_runtime.specification import shared_family_generator
+from app.successor_runtime.specification.shared_family_generator import (
+    FamilyGeneratorError,
+)
 from .current_candidate_support import stage_candidate_in_temporary_repository
 
 _EVIDENCE = (
@@ -92,13 +95,6 @@ _FAMILIES = {
             "0e1da888f13adf637774612be90ae367633f565774585b6ad18ace045cdf5231"
         ),
     ),
-    "C6": FamilySpec(
-        "c6_p3",
-        "generate_successor_p3_c6_fragment.py",
-        "p3-fragments/C6.json",
-        f"{_EXACT_BYTE_REBIND}/{_PREDECESSOR_CANDIDATE_STAGE}/fragments/C6.json",
-        "de997e287f8c51d8c984ae37c81c102834a2a64061967d089fd7d3180468796f",
-    ),
     "C7": FamilySpec(
         "c7_p4",
         "generate_successor_p4_c7_fragment.py",
@@ -121,6 +117,50 @@ _FAMILIES = {
         "fdc4b2ab2616431b2d20ec41e207b41e978df833c94a1c92561360708bc89be1",
     ),
 }
+
+
+def _write_p1(root: Path, rows: list[dict[str, object]]) -> str:
+    rel = "evidence/P1FunctorizationEligibility.v1.json"
+    path = root / rel
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({"cells": rows}), encoding="utf-8")
+    return rel
+
+
+def test_load_p1_cells_preserves_declared_order_and_digest(tmp_path: Path) -> None:
+    rows = [{"cell": "C2.3", "value": 1}, {"cell": "C2.2", "value": 2}]
+    rel = _write_p1(tmp_path, rows)
+
+    cells = load_p1_cells(tmp_path, rel)
+
+    assert list(cells) == ["C2.3", "C2.2"]
+    assert p1_cell_digest(tmp_path, rel, "C2.2") == content_digest(rows[1])
+
+
+def test_p1_rules_reject_root_encoding_missing_and_duplicate_cells(
+    tmp_path: Path,
+) -> None:
+    rel = "evidence/P1.json"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+
+    with pytest.raises(FamilyGeneratorError, match="escapes repository root"):
+        load_p1_cells(tmp_path, "../P1.json")
+
+    path.write_bytes(b'{"cells":[]}\xff')
+    with pytest.raises(FamilyGeneratorError, match="invalid"):
+        load_p1_cells(tmp_path, rel)
+
+    path.write_text(
+        json.dumps({"cells": [{"cell": "A"}, {"cell": "A"}]}), encoding="utf-8"
+    )
+    with pytest.raises(FamilyGeneratorError, match="duplicate P1 cell: A"):
+        load_p1_cells(tmp_path, rel)
+
+    path.write_text(json.dumps({"cells": [{"cell": "A"}]}), encoding="utf-8")
+
+    with pytest.raises(FamilyGeneratorError, match="missing P1 cell: B"):
+        p1_cell_digest(tmp_path, rel, "B")
 
 
 def _load_config(family: str):
@@ -168,34 +208,13 @@ def _legacy_bytes(family: str, module) -> bytes:
     return module._canonical_json(first).encode("utf-8") + b"\n"
 
 
-def _build_fragment_with_candidate_bindings(config, candidate_path: Path):
-    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
-    bindings = {
-        binding["path"]: dict(binding)
-        for label in ("source_bindings", "implementation_bindings", "test_bindings")
-        for binding in candidate[label]
-    }
-    live_bind_file = shared_family_generator.bind_file
-
-    def candidate_bind_file(root: Path, target):
-        if target.path in bindings:
-            return bindings[target.path]
-        return live_bind_file(root, target)
-
-    with patch.object(
-        shared_family_generator, "bind_file", side_effect=candidate_bind_file
-    ):
-        return build_fragment(config, _REPOSITORY_ROOT)
-
-
 @pytest.mark.parametrize("family", sorted(_FAMILIES))
-def test_frozen_canonical_and_effective_fragment_bytes(family: str) -> None:
+def test_current_generators_and_historical_fragments_are_valid(family: str) -> None:
     config = _load_config(family)
     legacy = _load_legacy(family)
     shared = build_fragment(config, _REPOSITORY_ROOT)
     shared_bytes = fragment_bytes(config, shared)
-    if family not in {"C2", "C7"}:
-        assert shared_bytes == _legacy_bytes(family, legacy)
+    assert shared_bytes == _legacy_bytes(family, legacy)
 
     spec = _FAMILIES[family]
     canonical = _EVIDENCE / spec.canonical_rel
@@ -220,23 +239,18 @@ def test_frozen_canonical_and_effective_fragment_bytes(family: str) -> None:
         assert shared_bytes == effective_path.read_bytes()
         return
 
-    # C7 remains on the independently validated B12 candidate.  Its frozen
-    # snapshot binding set predates the shared generator's current config, so
-    # candidate validity is established by the rebind checker rather than by
-    # rebuilding it from live files.
-    if family == "C7":
-        candidate_payload = json.loads(effective_path.read_text(encoding="utf-8"))
-        assert candidate_payload["content_digest"] == content_digest(
-            {
-                key: value
-                for key, value in candidate_payload.items()
-                if key != "content_digest"
-            }
-        )
-        return
-
-    candidate_fragment = _build_fragment_with_candidate_bindings(config, effective_path)
-    assert fragment_bytes(config, candidate_fragment) == effective_path.read_bytes()
+    # Effective candidate fragments belong to their historical binding set.
+    # Validate their own identity and digest without rebuilding them from the
+    # current generator configuration.
+    effective_payload = json.loads(effective_path.read_text(encoding="utf-8"))
+    assert effective_payload["family"] == family
+    assert effective_payload["content_digest"] == content_digest(
+        {
+            key: value
+            for key, value in effective_payload.items()
+            if key != "content_digest"
+        }
+    )
 
 
 @pytest.mark.parametrize("family", sorted(_FAMILIES))

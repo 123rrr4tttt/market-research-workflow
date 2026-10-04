@@ -395,9 +395,39 @@ def good_workflow() -> str:
     )
 
 
+def test_yaml_sequence_comments_are_ignored_and_quoted_hash_is_scalar() -> None:
+    text = """
+services:
+  x:
+    command:
+      - before # trailing comment
+      # A standalone comment is not a sequence item.
+      - 'value # not a comment'
+"""
+
+    parsed = checker.StrictYamlParser(text).parse()
+
+    assert parsed == {
+        "services": {
+            "x": {"command": ["before", "value # not a comment"]},
+        }
+    }
+
+
+def test_yaml_sequence_mixed_mapping_item_remains_rejected() -> None:
+    text = "services:\n  x:\n    command:\n      - before\n      command: mixed\n"
+
+    try:
+        checker.StrictYamlParser(text).parse()
+    except checker.StrictParseError as error:
+        assert str(error) == "mixed_mapping_and_sequence"
+    else:
+        raise AssertionError("mixed sequence item must remain rejected")
+
+
 class StaticProductionContractTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        temp_dir = tempfile.TemporaryDirectory(prefix="s1-r3-static-", dir="/private/tmp")
+        temp_dir = tempfile.TemporaryDirectory(prefix="s1-r3-static-")
         self.addCleanup(temp_dir.cleanup)
         self.root = Path(temp_dir.name)
 

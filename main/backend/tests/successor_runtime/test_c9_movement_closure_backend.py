@@ -12,13 +12,10 @@ import dataclasses
 import hashlib
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from pydantic import ValidationError
-
 from app.api import successor_runtime as api_module
 from app.contracts.successor_runtime import (
     API_STATUS_KINDS_V2,
@@ -34,11 +31,11 @@ from app.successor_runtime.runtime import facade as facade_module
 from app.successor_runtime.runtime.facade import SuccessorRuntimeFacade
 from app.successor_runtime.runtime.facade_contracts import (
     API_STATUS_KINDS,
-    C9_ROLLBACK_TRANSITION_CONTRACT,
+    PROJECTION_REQUEST_IDENTITY_CONTRACT,
+    PROJECTION_ROLLBACK_TRANSITION_CONTRACT,
     C9CommandBaseConflict,
     C9CommandBlocked,
     C9CommandConflict,
-    C9RollbackTransitionReceiptV1,
     C9Unavailable,
     CommandMetaV2,
     CommandReceipt,
@@ -47,35 +44,57 @@ from app.successor_runtime.runtime.facade_contracts import (
     FacadeQueryV2,
     ProjectionCandidateValueV2,
     ProjectionResponseMetaV2,
+    ProjectionRollbackTransitionReceiptV2,
     ProjectionSnapshotDataV2,
     QueryMetaV2,
     QueryReadPort,
     QueryResult,
     RollbackPositionV1,
-    derive_c9_request_digest,
+    derive_projection_request_identity,
     validate_api_envelope_v2,
     validate_projection_snapshot_data_v2,
 )
-from app.successor_runtime.runtime.ports import ProjectScopeRef
+from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
+from app.successor_runtime.substrate.postgres import projection_query_read_port
+from app.successor_runtime.substrate.postgres.c7_projector_driver import (
+    MATERIAL_CANONICAL_SOURCE_KIND,
+    MATERIAL_SEARCH_PROJECTOR_ID,
+    MATERIAL_SEARCH_PROJECTOR_VERSION,
+)
 from app.successor_runtime.substrate.postgres.projection_offsets import (
     ProjectionOffsetKey,
 )
-from app.successor_runtime.substrate.projections.c9_sources import (
-    C7SearchSegmentV1,
-    C7SearchSourceV1,
-    C9SemanticSourceClosureV1,
-    ResearchGraphObjectV1,
-    ResearchGraphSourceV1,
-    RuntimeSessionEventV1,
-    RuntimeSessionSourceV1,
-    build_research_graph_payload,
+from app.successor_runtime.substrate.postgres.projection_query_read_port import (
+    ACTIVE_PROJECT_MATERIAL_PROJECTOR_ID,
+    ACTIVE_PROJECT_MATERIAL_PROJECTOR_VERSION,
+    PostgresProjectionQueryReadPort,
 )
-from app.successor_runtime.substrate.projections.c9_sources import (
+from app.successor_runtime.substrate.projections.projection_sources import (
+    MATERIAL_SEGMENT_SCHEMA,
+    MATERIAL_SOURCE_SCHEMA,
+    PROJECT_SOURCE_CLOSURE_SCHEMA,
+    KNOWLEDGE_OBJECT_SCHEMA,
+    KNOWLEDGE_SOURCE_SCHEMA,
+    TASK_EVENT_SCHEMA,
+    TASK_SOURCE_SCHEMA,
+    MaterialSegment,
+    MaterialSource,
+    ProjectSourceClosure,
+    KnowledgeObject,
+    KnowledgeSource,
+    TaskSourceEvent,
+    TaskSource,
+    build_knowledge_view,
+)
+from app.successor_runtime.substrate.projections.projection_sources import (
     canonical_json as c9_canonical_json,
 )
-from app.successor_runtime.substrate.projections.c9_sources import (
+from app.successor_runtime.substrate.projections.projection_sources import (
     content_digest as c9_content_digest,
 )
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 _BACKEND = Path(__file__).resolve().parents[2]
 _REBUILD_SCRIPT = _BACKEND / "scripts" / "c9_projection_rebuild.py"
@@ -91,10 +110,10 @@ ACTOR = "actor:user-1"
 TRACE = "trace-v2-1"
 PROJECTION_ID = "projection.run-summary.v1"
 SOURCE_IDENTITY = {
-    "projector_id": "projector:c9-movement-closure",
-    "projector_version": "1",
-    "source_kind": "successor_values",
-    "source_ref": "c9:source-closure:001",
+    "projector_id": "projection.project-source-identity.v2",
+    "projector_version": "2.0.0",
+    "source_kind": "projection_source",
+    "source_ref": f"projection:{SCOPE.project_key}:source",
     "source_incarnation": SCOPE.incarnation,
 }
 REBUILD_KEY = ProjectionOffsetKey(
@@ -181,6 +200,129 @@ def _query(**overrides: Any) -> FacadeQueryV2:
     return FacadeQueryV2(**values)
 
 
+def test_active_material_selector_resolves_to_exact_persisted_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime_scope = RuntimeScope(project_scope=SCOPE, actor_id=ACTOR)
+    material_payload = {
+        "schema_version": "mrw.projection.material-source.v2",
+        "material_ref": f"material:{SCOPE.project_key}",
+        "revision": 7,
+        "incarnation": SCOPE.incarnation,
+        "segments": [],
+    }
+    resolved = SimpleNamespace(
+        projector_id="projection.project-source-identity.v2",
+        projector_version="2.0.0",
+        source_kind="projection_source",
+        source_ref=f"projection:{SCOPE.project_key}:source",
+        source_incarnation=SCOPE.incarnation,
+        projection_generation=3,
+        offset_revision=5,
+        source_revision=7,
+        source_digest="c" * 64,
+        offset_ref="projection:source:manifest:7",
+        material_value_id="projection:source:material:7",
+        material_value_ref="project-value:projection:source:material:7",
+        material_content_digest="d" * 64,
+        material_byte_size=123,
+        material_source=SimpleNamespace(to_plain=lambda: material_payload),
+    )
+    monkeypatch.setattr(
+        projection_query_read_port,
+        "load_current_material_projection_source",
+        lambda connection, scope: resolved,
+    )
+    monkeypatch.setattr(
+        PostgresProjectionQueryReadPort,
+        "_require_current_scope",
+        lambda self: None,
+    )
+    query = FacadeQueryV2(
+        query_id="query:active-material",
+        query_kind="projection_snapshot",
+        project_scope_ref=SCOPE,
+        actor_ref=ACTOR,
+        meta=QueryMetaV2(
+            project_key=SCOPE.project_key,
+            trace_id="trace:active-material",
+            query_id="query:active-material",
+            project_scope_ref=SCOPE,
+        ),
+        params={
+            "params_kind": "projection_snapshot",
+            "projection_id": ACTIVE_PROJECT_MATERIAL_PROJECTOR_ID,
+            "projector_id": ACTIVE_PROJECT_MATERIAL_PROJECTOR_ID,
+            "projector_version": ACTIVE_PROJECT_MATERIAL_PROJECTOR_VERSION,
+            "source_kind": "material",
+            "source_ref": f"material:{SCOPE.project_key}",
+            "source_incarnation": f"active-project:{SCOPE.project_key}",
+            "page_size": 25,
+        },
+    )
+
+    result = PostgresProjectionQueryReadPort(object(), runtime_scope).read(query)  # type: ignore[arg-type]
+
+    assert result.meta.projection_id == ACTIVE_PROJECT_MATERIAL_PROJECTOR_ID
+    assert result.meta.projector_id == resolved.projector_id
+    assert result.meta.source_ref == resolved.source_ref
+    assert result.meta.source_incarnation == SCOPE.incarnation
+    assert result.meta.source_digest == "c" * 64
+    assert result.data.offset_ref == resolved.offset_ref
+    assert result.data.projection_revision == 7
+    assert result.data.candidate_values[0].sink == "material"
+    assert result.data.candidate_values[0].payload == material_payload
+    assert validate_projection_snapshot_data_v2(result.data, result.meta).valid
+
+
+@pytest.mark.parametrize("source_ref", ("", "document:"))
+def test_material_document_source_ref_errors_use_business_identity(
+    source_ref: str,
+) -> None:
+    with pytest.raises(C9Unavailable, match="material projection") as exc:
+        projection_query_read_port._object_id_from_source_ref(source_ref)
+
+    assert "C7" not in str(exc.value)
+
+
+def test_material_projector_rejects_development_projection_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime_scope = RuntimeScope(project_scope=SCOPE, actor_id=ACTOR)
+    monkeypatch.setattr(
+        PostgresProjectionQueryReadPort,
+        "_require_current_scope",
+        lambda self: None,
+    )
+    query = FacadeQueryV2(
+        query_id="query:material-projection-identity",
+        query_kind="projection_snapshot",
+        project_scope_ref=SCOPE,
+        actor_ref=ACTOR,
+        meta=QueryMetaV2(
+            project_key=SCOPE.project_key,
+            trace_id="trace:material-projection-identity",
+            query_id="query:material-projection-identity",
+            project_scope_ref=SCOPE,
+        ),
+        params={
+            "params_kind": "projection_snapshot",
+            "projection_id": "projection.development-placeholder.v1",
+            "projector_id": MATERIAL_SEARCH_PROJECTOR_ID,
+            "projector_version": MATERIAL_SEARCH_PROJECTOR_VERSION,
+            "source_kind": MATERIAL_CANONICAL_SOURCE_KIND,
+            "source_ref": "document:material-1",
+            "source_incarnation": SCOPE.incarnation,
+            "page_size": 25,
+        },
+    )
+
+    with pytest.raises(C9Unavailable, match="material projection_id") as exc:
+        PostgresProjectionQueryReadPort(object(), runtime_scope).read(query)  # type: ignore[arg-type]
+
+    assert "C7" not in str(exc.value)
+
+
 class CountingSubmissionPort(CommandSubmissionPort):
     def __init__(
         self,
@@ -199,11 +341,14 @@ class CountingSubmissionPort(CommandSubmissionPort):
         if self.error is not None:
             raise self.error
         return self.receipt or CommandReceipt(
-            receipt_ref="c9-receipt:idem:c9:cmd-v2-1",
+            receipt_ref=(
+                "material-projection-receipt:"
+                "idem:material-projections:cmd-v2-1"
+            ),
             command_id=command.command_id,
             request_digest=command.idempotency_key,
             state="STARTED",
-            idempotency_id="idem:c9:cmd-v2-1",
+            idempotency_id="idem:material-projections:cmd-v2-1",
             logical_request_id=command.command_id,
         )
 
@@ -344,7 +489,7 @@ def test_v2_envelope_variant_rules_are_exact() -> None:
     for status in ("ok", "waiting"):
         ok_envelope = SuccessorRuntimeEnvelopeV2DTO(
             status=status,
-            data={"receipt_ref": "c9-receipt:1"},
+            data={"receipt_ref": "material-projection-receipt:1"},
             meta=meta,
         )
         assert ok_envelope.error is None
@@ -399,18 +544,20 @@ def test_facade_calls_submission_port_exactly_once_and_maps_receipts() -> None:
     assert port.calls == 1
     assert envelope.status == "waiting"
     assert envelope.data is not None
-    assert envelope.data["receipt_ref"] == "c9-receipt:idem:c9:cmd-v2-1"
+    assert envelope.data["receipt_ref"] == (
+        "material-projection-receipt:idem:material-projections:cmd-v2-1"
+    )
     assert envelope.error is None
     assert envelope.control_feedback is False
     assert validate_api_envelope_v2(envelope).valid
 
     terminal_port = CountingSubmissionPort(
         receipt=CommandReceipt(
-            receipt_ref="c9-receipt:terminal",
+            receipt_ref="material-projection-receipt:terminal",
             command_id="cmd-v2-1",
             request_digest="a" * 64,
             state="TERMINAL",
-            idempotency_id="idem:c9:cmd-v2-1",
+            idempotency_id="idem:material-projections:cmd-v2-1",
             logical_request_id="cmd-v2-1",
         )
     )
@@ -441,11 +588,11 @@ def test_facade_terminal_replay_is_stable_and_started_never_claims_completion() 
     assert started.data["state"] == "STARTED"
 
     terminal_receipt = CommandReceipt(
-        receipt_ref="c9-receipt:terminal-stable",
+        receipt_ref="material-projection-receipt:terminal-stable",
         command_id="cmd-v2-1",
         request_digest="a" * 64,
         state="TERMINAL",
-        idempotency_id="idem:c9:cmd-v2-1",
+        idempotency_id="idem:material-projections:cmd-v2-1",
         logical_request_id="cmd-v2-1",
         authority_context_digest="b" * 64,
         grant_epoch=7,
@@ -516,17 +663,22 @@ def _typed_projection_result() -> tuple[
         projection_revision=1,
         source_digest="c" * 64,
         cursor=4,
-        offset_ref=f"value:{SCOPE.resolved_schema}:c9:generation:1:cc",
+        offset_ref=(
+            f"value:{SCOPE.resolved_schema}:material-projection:generation:1:cc"
+        ),
         candidate_values=(
             ProjectionCandidateValueV2(
-                value_id="c9:graph:gen-1:dddddddddddd",
-                value_ref=f"value:{SCOPE.resolved_schema}:c9:graph:gen-1:dddddddddddd",
+                value_id="material-projection:knowledge:generation-1:dddddddddddd",
+                value_ref=(
+                    f"value:{SCOPE.resolved_schema}:material-projection:"
+                    "knowledge:generation-1:dddddddddddd"
+                ),
                 content_digest="d" * 64,
                 byte_size=10,
-                sink="graph",
+                sink="knowledge",
                 payload={
-                    "schema_version": "mrw.successor.c9.graph-projection-payload.v1",
-                    "sink": "graph",
+                    "schema_version": "mrw.projection.knowledge-view.v2",
+                    "sink": "knowledge",
                     "declared_losses": ["LOCAL_EXACT", "postgres readback"],
                 },
             ),
@@ -661,8 +813,9 @@ def test_facade_rejects_invalid_command_without_calling_port() -> None:
     assert envelope.error.code == "COMMAND_CONTRACT_VIOLATION"
 
 
-def test_request_digest_binds_scope_actor_command_and_payload() -> None:
-    base = derive_c9_request_digest(
+def test_request_identity_binds_contract_scope_actor_command_and_payload() -> None:
+    assert PROJECTION_REQUEST_IDENTITY_CONTRACT == "projection.request_identity.v2"
+    base = derive_projection_request_identity(
         scope_digest=SCOPE.scope_digest,
         actor_ref=ACTOR,
         command_id="cmd-v2-1",
@@ -672,7 +825,7 @@ def test_request_digest_binds_scope_actor_command_and_payload() -> None:
         approval_locator="approval:c9:grant",
     )
     assert len(base) == 64
-    assert base != derive_c9_request_digest(
+    assert base != derive_projection_request_identity(
         scope_digest="c" * 64,
         actor_ref=ACTOR,
         command_id="cmd-v2-1",
@@ -681,7 +834,7 @@ def test_request_digest_binds_scope_actor_command_and_payload() -> None:
         expected_base_token="generation:1|revision:1|incarnation:scope-inc-c9-v2",
         approval_locator="approval:c9:grant",
     )
-    assert base != derive_c9_request_digest(
+    assert base != derive_projection_request_identity(
         scope_digest=SCOPE.scope_digest,
         actor_ref="actor:other",
         command_id="cmd-v2-1",
@@ -690,7 +843,7 @@ def test_request_digest_binds_scope_actor_command_and_payload() -> None:
         expected_base_token="generation:1|revision:1|incarnation:scope-inc-c9-v2",
         approval_locator="approval:c9:grant",
     )
-    assert base != derive_c9_request_digest(
+    assert base != derive_projection_request_identity(
         scope_digest=SCOPE.scope_digest,
         actor_ref=ACTOR,
         command_id="cmd-v2-2",
@@ -699,7 +852,7 @@ def test_request_digest_binds_scope_actor_command_and_payload() -> None:
         expected_base_token="generation:1|revision:1|incarnation:scope-inc-c9-v2",
         approval_locator="approval:c9:grant",
     )
-    assert base != derive_c9_request_digest(
+    assert base != derive_projection_request_identity(
         scope_digest=SCOPE.scope_digest,
         actor_ref=ACTOR,
         command_id="cmd-v2-1",
@@ -708,7 +861,7 @@ def test_request_digest_binds_scope_actor_command_and_payload() -> None:
         expected_base_token="generation:2|revision:1|incarnation:scope-inc-c9-v2",
         approval_locator="approval:c9:grant",
     )
-    assert base != derive_c9_request_digest(
+    assert base != derive_projection_request_identity(
         scope_digest=SCOPE.scope_digest,
         actor_ref=ACTOR,
         command_id="cmd-v2-1",
@@ -784,7 +937,7 @@ def test_rollback_projection_dto_model_dump_frontend_fixture() -> None:
 
 def test_rollback_receipt_wire_known_vector_and_model_dump() -> None:
     wire = {
-        "contract": C9_ROLLBACK_TRANSITION_CONTRACT,
+        "contract": PROJECTION_ROLLBACK_TRANSITION_CONTRACT,
         "ref": "rollback:" + "a" * 64,
         "digest": "",
         "projection_id": PROJECTION_ID,
@@ -799,7 +952,10 @@ def test_rollback_receipt_wire_known_vector_and_model_dump() -> None:
             "projection_revision": 1,
             "source_digest": "c" * 64,
             "cursor": 4,
-            "offset_ref": f"value:{SCOPE.resolved_schema}:c9:generation:0:aa",
+            "offset_ref": (
+                f"value:{SCOPE.resolved_schema}:material-projection:"
+                "generation:0:aa"
+            ),
         },
         "to": {
             "projection_generation": 1,
@@ -807,7 +963,10 @@ def test_rollback_receipt_wire_known_vector_and_model_dump() -> None:
             "projection_revision": 1,
             "source_digest": "c" * 64,
             "cursor": 4,
-            "offset_ref": f"value:{SCOPE.resolved_schema}:c9:generation:1:cc",
+            "offset_ref": (
+                f"value:{SCOPE.resolved_schema}:material-projection:"
+                "generation:1:cc"
+            ),
         },
         "generation_completeness_digest": "e" * 64,
     }
@@ -817,9 +976,9 @@ def test_rollback_receipt_wire_known_vector_and_model_dump() -> None:
     observed = hashlib.sha256(
         c9_canonical_json(content_without_digest).encode("utf-8")
     ).hexdigest()
-    expected = "5b31df3c4e8c2ce62f11b32fa61aedfb70d8a2ff56207a0708943cd37a0e99bd"
+    expected = "b398cf1cd88dc2de2076237728dc24203a03c31f8dcc9485541f15158204fddd"
     assert observed == expected
-    receipt = C9RollbackTransitionReceiptV1(
+    receipt = ProjectionRollbackTransitionReceiptV2(
         ref=wire["ref"],
         digest=observed,
         projection_id=wire["projection_id"],
@@ -903,7 +1062,7 @@ def test_api_router_factory_is_bounded_and_injects_dependencies() -> None:
     app.include_router(router)
     with TestClient(app) as client:
         response = client.post(
-            "/successor-runtime/v2/commands",
+            "/material-projections/v2/commands",
             json={
                 "command_id": "cmd-v2-1",
                 "command_kind": "rebuild_projection",
@@ -919,7 +1078,9 @@ def test_api_router_factory_is_bounded_and_injects_dependencies() -> None:
         assert response.status_code == 200
         body = response.json()
         assert body["status"] == "waiting"
-        assert body["data"]["receipt_ref"] == "c9-receipt:idem:c9:cmd-v2-1"
+        assert body["data"]["receipt_ref"] == (
+            "material-projection-receipt:idem:material-projections:cmd-v2-1"
+        )
         assert body["error"] is None
         assert body["meta"]["command_id"] == "cmd-v2-1"
         assert body["meta"]["project_scope_ref"]["scope_digest"] == SCOPE.scope_digest
@@ -928,7 +1089,7 @@ def test_api_router_factory_is_bounded_and_injects_dependencies() -> None:
     assert submission.calls == 1
 
     query_response = client.post(
-        "/successor-runtime/v2/queries",
+        "/material-projections/v2/queries",
         json={
             "query_id": "query-v2-1",
             "query_kind": "projection_snapshot",
@@ -967,7 +1128,7 @@ def test_api_resolver_and_actor_failures_return_typed_envelope_not_http_500() ->
     )
     with TestClient(app) as client:
         response = client.post(
-            "/successor-runtime/v2/commands",
+            "/material-projections/v2/commands",
             json={
                 "command_id": "cmd-v2-resolve-fail",
                 "command_kind": "rebuild_projection",
@@ -997,7 +1158,7 @@ def test_api_resolver_and_actor_failures_return_typed_envelope_not_http_500() ->
     )
     with TestClient(app) as client:
         response = client.post(
-            "/successor-runtime/v2/queries",
+            "/material-projections/v2/queries",
             json={
                 "query_id": "query-v2-actor-fail",
                 "query_kind": "projection_snapshot",
@@ -1047,31 +1208,31 @@ def test_api_envelope_dto_rejects_unknown_status() -> None:
         )
 
 
-def _canonical_closure() -> C9SemanticSourceClosureV1:
-    session = RuntimeSessionSourceV1(
-        schema_version="mrw.successor.c9.runtime-session-source.v1",
+def _canonical_closure() -> ProjectSourceClosure:
+    session = TaskSource(
+        schema_version=TASK_SOURCE_SCHEMA,
         project_scope_ref=SCOPE.project_key,
         session_ref="runtime-session:closure:001",
         revision="1",
         incarnation=SCOPE.incarnation,
         events=(
-            RuntimeSessionEventV1(
-                schema_version="mrw.successor.c9.runtime-session-event.v1",
+            TaskSourceEvent(
+                schema_version=TASK_EVENT_SCHEMA,
                 sequence=0,
                 event_kind="SESSION_CREATED",
                 event_ref="event:closure:001:created",
             ),
         ),
     )
-    graph = ResearchGraphSourceV1(
-        schema_version="mrw.successor.c9.research-graph-source.v1",
+    graph = KnowledgeSource(
+        schema_version=KNOWLEDGE_SOURCE_SCHEMA,
         project_scope_ref=SCOPE.project_key,
         graph_ref="research-graph:closure:001",
         revision="1",
         incarnation=SCOPE.incarnation,
         objects=(
-            ResearchGraphObjectV1(
-                schema_version="mrw.successor.c9.research-graph-object.v1",
+            KnowledgeObject(
+                schema_version=KNOWLEDGE_OBJECT_SCHEMA,
                 object_id="obj:closure:001",
                 object_type="Market",
                 label="market",
@@ -1079,15 +1240,15 @@ def _canonical_closure() -> C9SemanticSourceClosureV1:
         ),
         relations=(),
     )
-    search = C7SearchSourceV1(
-        schema_version="mrw.successor.c9.c7-search-source.v1",
+    search = MaterialSource(
+        schema_version=MATERIAL_SOURCE_SCHEMA,
         project_scope_ref=SCOPE.project_key,
         search_ref="c7-search:closure:001",
         revision="1",
         incarnation=SCOPE.incarnation,
         segments=(
-            C7SearchSegmentV1(
-                schema_version="mrw.successor.c9.c7-search-segment.v1",
+            MaterialSegment(
+                schema_version=MATERIAL_SEGMENT_SCHEMA,
                 segment_id="seg:closure:001",
                 field_path="text",
                 segment_text="robots",
@@ -1096,10 +1257,10 @@ def _canonical_closure() -> C9SemanticSourceClosureV1:
         provider_status="NOT_EXECUTED",
         vectorization_status="NOT_EXECUTED",
     )
-    return C9SemanticSourceClosureV1(
-        schema_version="mrw.successor.c9.semantic-source-closure.v1",
+    return ProjectSourceClosure(
+        schema_version=PROJECT_SOURCE_CLOSURE_SCHEMA,
         project_scope_ref=SCOPE.project_key,
-        closure_id="c9:source-closure:001",
+        closure_id=f"projection:{SCOPE.project_key}:source",
         revision="1",
         incarnation=SCOPE.incarnation,
         runtime_session_source=session,
@@ -1121,16 +1282,16 @@ def test_rebuild_script_pure_surface_is_deterministic_and_loss_explicit() -> Non
     assert (
         c9_content_digest(closure.to_plain()) == hashlib.sha256(raw_bytes).hexdigest()
     )
-    first = module._payload_for_sink("graph", closure)
-    expected = build_research_graph_payload(
+    first = module._payload_for_sink("knowledge", closure)
+    expected = build_knowledge_view(
         closure.research_graph_source,
-        declared_losses=module._projection_declared_losses("graph"),
+        declared_losses=module._projection_declared_losses("knowledge"),
     ).to_plain()
     assert first == expected
     assert first["project_scope_ref"] == SCOPE.project_key
     assert first["declared_losses"]
-    assert first["coverage_incomplete_flags"][0].startswith("C8.")
-    assert "COVERAGE_INCOMPLETE" in first["coverage_incomplete_flags"][0]
+    assert first["coverage_incomplete_flags"][0].startswith("projection.")
+    assert "coverage-incomplete" in first["coverage_incomplete_flags"][0]
     assert c9_content_digest(first) == c9_content_digest(expected)
     assert module.build_loss_profile("elasticsearch") == (
         "DECLARED_LOSS",
@@ -1144,37 +1305,44 @@ def test_rebuild_script_pure_surface_is_deterministic_and_loss_explicit() -> Non
         "DECLARED_LOSS",
         "no provider call",
     )
-    assert module.build_loss_profile("graph") == (
+    assert module.build_loss_profile("knowledge") == (
         "LOCAL_EXACT",
         "postgres readback",
     )
-    assert module.CANDIDATE_OBJECT_TYPES["graph"] == "GraphLocalProjection.v1"
+    assert module.CANDIDATE_OBJECT_TYPES["knowledge"] == (
+        "mrw.projection.knowledge-view.v2"
+    )
     assert "graph_provider" in module.EXTERNAL_DECLARED_LOSS_SINKS
     assert "graph_provider" not in module.REQUIRED_LOCAL_SINKS
-    value_id = module.candidate_value_id("graph", REBUILD_KEY, 1, "d" * 64)
-    assert value_id.startswith("c9:graph:")
-    assert "gen-1:" in value_id
+    value_id = module.candidate_value_id("knowledge", REBUILD_KEY, 1, "d" * 64)
+    assert value_id.startswith("material-projection:knowledge:")
+    assert "generation-1:" in value_id
     assert value_id.endswith(":" + "d" * 12)
     other_key = ProjectionOffsetKey(
         projector_id="projector:other",
-        projector_version="1",
-        source_kind="successor_values",
-        source_ref="c9:source-closure:other",
+        projector_version="2.0.0",
+        source_kind="projection_source",
+        source_ref="projection:other:source",
         source_incarnation=SCOPE.incarnation,
     )
-    assert module.candidate_value_id("graph", other_key, 1, "d" * 64) != value_id
+    assert (
+        module.candidate_value_id("knowledge", other_key, 1, "d" * 64)
+        != value_id
+    )
     source_rows = (
         {
-            "value_id": "c9:source:graph:001",
-            "object_type": "GraphSource.v1",
+            "value_id": "projection:source:knowledge:001",
+            "object_type": KNOWLEDGE_SOURCE_SCHEMA,
             "content_digest": "e" * 64,
             "byte_size": 10,
             "revision": 1,
         },
     )
     assert module.source_closure_digest(
-        "c9:source-closure:001", source_rows
-    ) == module.source_closure_digest("c9:source-closure:001", source_rows)
+        f"projection:{SCOPE.project_key}:source", source_rows
+    ) == module.source_closure_digest(
+        f"projection:{SCOPE.project_key}:source", source_rows
+    )
     assert module.source_closure_revision(source_rows) == 1
     assert (
         "required_sinks"

@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -95,7 +95,6 @@ class Settings(BaseSettings):
     project_key_require_in_non_dev: bool = Field(default=True)
     project_schema_prefix: str = Field(default="project_")
     bootstrap_create_initial_project: bool = Field(default=False)
-    enable_legacy_default_to_online_lottery_migration: bool = Field(default=False)
     default_reddit_subreddit: str = Field(default="news")
 
     # Elasticsearch / Redis
@@ -141,8 +140,6 @@ class Settings(BaseSettings):
     workflow_graph_db_store_enabled: bool = Field(default=True)
     workflow_graph_db_store_fail_closed: bool = Field(default=True)
     agent_session_db_store_enabled: bool = Field(default=True)
-    agent_session_db_store_fail_closed: bool = Field(default=False)
-    agent_runtime_v2_enabled: bool = Field(default=True)
     agent_stream_enabled: bool = Field(default=True)
     agent_batch_as_tool_enabled: bool = Field(default=True)
     agent_session_memory_token_threshold: int = Field(default=4000)
@@ -150,10 +147,13 @@ class Settings(BaseSettings):
     agent_session_memory_event_threshold: int = Field(default=16)
     codex_auth_enabled: bool = Field(default=False)
     codex_auth_tokens: str = Field(default="")
+    codex_webui_internal_url: str = Field(default="http://127.0.0.1:8172")
+    codex_webui_server_api_key: SecretStr = Field(default=SecretStr(""))
     codex_auth_protected_prefixes: str = Field(
         default=(
             "/api/v1/agent-chat,/api/v1/agent-batch,/api/v1/agent-sessions,"
             "/api/v1/agent-approvals,/api/v1/workflow-graph,/api/v1/skills,"
+            "/api/v1/codex-auth/webui/bootstrap,"
             + _SUCCESSOR_MOUNT_DEFAULT_PREFIX
         )
     )
@@ -199,12 +199,6 @@ class Settings(BaseSettings):
     codex_cli_llm_reuse_thread: bool = Field(default=False)
     codex_cli_llm_persistent_idle_ttl_seconds: int = Field(default=300)
     codex_cli_llm_persistent_start_timeout_seconds: int = Field(default=20)
-    agent_chat_turn_decision_timeout_seconds: int = Field(default=8)
-    agent_chat_model_answer_timeout_seconds: int = Field(default=45)
-    agent_core_e2e_scripted_provider_enabled: bool = Field(default=False)
-    agent_core_model_provider: str = Field(
-        default="auto"
-    )  # auto | openai | codex_cli ; auto preserves current OpenAI-then-Codex behavior
 
     # LLM providers
     # Allowed values now include: openai | azure | ollama | litellm | local
@@ -240,8 +234,6 @@ class Settings(BaseSettings):
     azure_search_endpoint: Optional[str] = Field(default="https://lotto.search.windows.net")
     azure_search_key: Optional[str] = Field(default=None)
     azure_search_index_name: Optional[str] = Field(default="index1761979777378")
-    magayo_api_key: Optional[str] = Field(default=None)
-    lotterydata_api_key: Optional[str] = Field(default=None)
     reddit_client_id: Optional[str] = Field(default=None)
     reddit_client_secret: Optional[str] = Field(default=None)
     reddit_user_agent: Optional[str] = Field(default=None)
@@ -268,7 +260,7 @@ class Settings(BaseSettings):
     def _normalize_successor_mount_mode(cls, value: str) -> str:
         normalized = str(value or "").strip().lower()
         if normalized not in SUCCESSOR_MOUNT_MODES:
-            raise ValueError(
+            raise ValueError(  # kit:boundary owner=settings.successor_mount_mode class=PROGRAMMER_DEFECT failure_family=none witness=test:test_invalid_mount_mode_is_rejected
                 "successor_mount_mode must be one of "
                 f"{SUCCESSOR_MOUNT_MODES}; got {value!r}"
             )
@@ -304,7 +296,7 @@ def validate_successor_mount_mode(
 
     normalized = str(mount_mode or "").strip().lower()
     if normalized not in SUCCESSOR_MOUNT_MODES:
-        raise ValueError(
+        raise ValueError(  # kit:boundary owner=settings.successor_mount_mode class=PROGRAMMER_DEFECT failure_family=none witness=test:test_invalid_mount_mode_is_rejected
             "successor_mount_mode must be one of "
             f"{SUCCESSOR_MOUNT_MODES}; got {mount_mode!r}"
         )
@@ -313,7 +305,7 @@ def validate_successor_mount_mode(
         and bool(production_requires_auth)
         and not bool(codex_auth_enabled)
     ):
-        raise ValueError(
+        raise ValueError(  # kit:boundary owner=settings.successor_mount_mode.auth class=PROGRAMMER_DEFECT failure_family=none witness=test:test_production_registry_without_auth_fails_closed
             "successor_mount_mode=production_registry requires "
             "codex_auth_enabled=true when "
             "successor_production_requires_auth=true"

@@ -12,7 +12,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 pytestmark = pytest.mark.unit
 
-import app.main as main_module  # noqa: E402
+from app.production_observability import health as production_health  # noqa: E402
+from app.production_observability import http as production_http  # noqa: E402
+from app.release_identity import RELEASE_VERSION  # noqa: E402
 from app.production_observability import (  # noqa: E402
     ProjectionDriftStatus,
     ProjectionReadStatus,
@@ -24,16 +26,12 @@ from app.production_observability import (  # noqa: E402
     RuntimeBindingStatus,
     RuntimeAuthorityReadSignal,
     RuntimeAuthorityReadStatus,
-    ProductionObservabilityController,
-    production_observability_config_from_settings,
 )
 
 
 class Stage5RuntimeHealthSourceWiringTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        self.old_controller = getattr(main_module.app.state, "production_observability_r7", None)
-        self.old_bindings = getattr(main_module.app.state, "production_runtime_bindings", None)
-        settings = SimpleNamespace(
+        self.settings = SimpleNamespace(
             production_observability_runtime_id="stage5-runtime-source-test",
             production_canary_route_enabled=False,
             production_domain_rejection_trigger_ratio=0.10,
@@ -42,26 +40,10 @@ class Stage5RuntimeHealthSourceWiringTestCase(unittest.TestCase):
             production_route_error_recover_ratio=0.01,
             production_release_error_trigger_ratio=0.05,
             production_release_error_recover_ratio=0.01,
+            db_pool_max_overflow=5,
         )
-        self.controller = ProductionObservabilityController(
-            production_observability_config_from_settings(
-                settings,
-                release_version=main_module.RELEASE_VERSION,
-            )
-        )
-        main_module.app.state.production_observability_r7 = self.controller
-        main_module.app.state.production_runtime_bindings = SimpleNamespace(
-            project_scope_resolver=object(),
-            actor_scopes=object(),
-            approvals=object(),
-            rate_observations=object(),
-            provider_catalog=object(),
-            provider_selection=object(),
-            canonical_writer=object(),
-        )
-
         self.authority_signal = RuntimeAuthorityReadSignal(
-            source=main_module._AUTHORITY_READ_SOURCE,
+            source=production_health.AUTHORITY_READ_SOURCE,
             read_status=RuntimeAuthorityReadStatus.OBSERVED,
             task_id="run:authority:test",
             tenant_id="tenant:authority:test",
@@ -74,10 +56,6 @@ class Stage5RuntimeHealthSourceWiringTestCase(unittest.TestCase):
             expected_project_registry_revision=7,
             expected_claim_authority_epoch=1,
         )
-
-    def tearDown(self) -> None:
-        main_module.app.state.production_observability_r7 = self.old_controller
-        main_module.app.state.production_runtime_bindings = self.old_bindings
 
     def test_deep_health_sources_build_typed_runtime_snapshot(self) -> None:
         queue_signal = QueueRuntimeSignal(
@@ -97,33 +75,38 @@ class Stage5RuntimeHealthSourceWiringTestCase(unittest.TestCase):
             offset_ref="c9:semantic-source:test:closure_manifest",
         )
         with (
-            patch.object(main_module, "_read_runtime_queue_signal", return_value=queue_signal),
+            patch.object(production_health, "read_runtime_queue_signal", return_value=queue_signal),
             patch.object(
-                main_module,
-                "_read_runtime_projection_signal",
+                production_health,
+                "read_runtime_projection_signal",
                 return_value=projection_signal,
             ),
             patch.object(
-                main_module,
-                "_read_runtime_authority_signal",
+                production_health,
+                "read_runtime_authority_signal",
                 return_value=self.authority_signal,
             ),
-            patch.dict(main_module.os.environ, {}, clear=False),
+            patch.dict(production_health.os.environ, {}, clear=False),
         ):
-            main_module.os.environ.pop("STAGE5_SIMULATE_PROVIDER_FAILURE", None)
-            item = main_module._build_runtime_health_snapshot(
+            production_health.os.environ.pop("STAGE5_SIMULATE_PROVIDER_FAILURE", None)
+            item = production_health.build_runtime_health_snapshot(
                 database_connection_status="ok",
                 database_pool_status="ok",
                 pool_status={"size": 3, "checkedout": 1},
                 runtime_status={"runtime_mode": "docker"},
+                engine=object(),
+                settings_obj=self.settings,
+                release_version=RELEASE_VERSION,
+                production_runtime=False,
+                service_version=RELEASE_VERSION,
             )
 
         self.assertEqual(item.queue, queue_signal)
         self.assertEqual(item.database.source, "sqlalchemy.engine:select_1+pool_status")
         self.assertEqual(item.database.pool_size, 3)
         self.assertEqual(item.database.pool_limit, 8)
-        self.assertEqual(item.provider.status, ProviderRuntimeStatus.SIMULATED_HEALTHY)
-        self.assertTrue(item.provider.simulated)
+        self.assertEqual(item.provider.status, ProviderRuntimeStatus.NOT_OBSERVED)
+        self.assertFalse(item.provider.simulated)
         self.assertEqual(item.runtime_binding.authority_status, RuntimeBindingStatus.BOUND)
         self.assertEqual(item.runtime_binding.authority_read, self.authority_signal)
         self.assertEqual(
@@ -152,19 +135,19 @@ class Stage5RuntimeHealthSourceWiringTestCase(unittest.TestCase):
             authority_epoch=1,
         )
 
-        normal = main_module._runtime_authority_read_signal_from_rows(
+        normal = production_health.runtime_authority_read_signal_from_rows(
             scope=scope,
             step=normal_step,
             capability=capability,
             task_id="run:authority:test",
         )
-        mismatched = main_module._runtime_authority_read_signal_from_rows(
+        mismatched = production_health.runtime_authority_read_signal_from_rows(
             scope=scope,
             step=normal_step,
             capability=SimpleNamespace(**{**vars(capability), "authority_epoch": 2}),
             task_id="run:authority:test",
         )
-        recovered = main_module._runtime_authority_read_signal_from_rows(
+        recovered = production_health.runtime_authority_read_signal_from_rows(
             scope=scope,
             step=normal_step,
             capability=capability,
@@ -177,7 +160,7 @@ class Stage5RuntimeHealthSourceWiringTestCase(unittest.TestCase):
         self.assertEqual(recovered.read_status, RuntimeAuthorityReadStatus.OBSERVED)
 
     def test_task_authority_without_identity_is_not_observed(self) -> None:
-        signal = main_module._authority_not_observed(
+        signal = production_health.authority_not_observed(
             "task id and tenant id are required",
             task_id=None,
             tenant_id=None,
@@ -195,7 +178,7 @@ class Stage5RuntimeHealthSourceWiringTestCase(unittest.TestCase):
         def observer(**kwargs: object) -> None:
             calls.append(kwargs)
 
-        main_module._observe_production_http_request(
+        production_http.observe_production_http_request(
             controller=SimpleNamespace(observe_http_request=observer),
             request_id="request-1",
             status_code=200,
@@ -214,3 +197,20 @@ class Stage5RuntimeHealthSourceWiringTestCase(unittest.TestCase):
                 }
             ],
         )
+
+    def test_provider_without_explicit_evidence_is_not_reported_healthy(self) -> None:
+        with patch.dict(production_health.os.environ, {}, clear=False):
+            production_health.os.environ.pop("STAGE5_SIMULATE_PROVIDER_FAILURE", None)
+            local = production_health.read_runtime_provider_signal(
+                self.settings,
+                production_runtime=False,
+            )
+            production_signal = production_health.read_runtime_provider_signal(
+                self.settings,
+                production_runtime=True,
+            )
+
+        self.assertEqual(local.status, ProviderRuntimeStatus.NOT_OBSERVED)
+        self.assertEqual(production_signal.status, ProviderRuntimeStatus.UNSUPPORTED)
+        self.assertFalse(local.simulated)
+        self.assertFalse(production_signal.simulated)

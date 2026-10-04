@@ -20,7 +20,7 @@ pytestmark = pytest.mark.unit
 class LlmReportGeneratorUnitTest(unittest.TestCase):
     def test_generate_structured_report_with_sources(self):
         report = build_structured_report(
-            topic="北美在线彩票增长",
+            topic="北美绿色能源市场增长",
             sources=[
                 {
                     "id": "S1",
@@ -33,12 +33,12 @@ class LlmReportGeneratorUnitTest(unittest.TestCase):
         )
 
         data = report.to_dict()
-        self.assertEqual(data["topic"], "北美在线彩票增长")
+        self.assertEqual(data["topic"], "北美绿色能源市场增长")
         self.assertGreaterEqual(len(data["sections"]), 3)
         self.assertEqual(data["sources"][0]["id"], "S1")
 
         md = render_markdown(report)
-        self.assertIn("# 研究报告：北美在线彩票增长", md)
+        self.assertIn("# 研究报告：北美绿色能源市场增长", md)
         self.assertIn("[S1]", md)
         self.assertIn("## Sources", md)
 
@@ -164,7 +164,7 @@ class LlmReportGeneratorUnitTest(unittest.TestCase):
 
     def test_quality_gate_observability_fields_exist(self):
         report = build_structured_report(
-            topic="北美在线彩票增长",
+            topic="北美绿色能源市场增长",
             sources=[
                 {
                     "id": "S1",
@@ -188,7 +188,7 @@ class LlmReportGeneratorUnitTest(unittest.TestCase):
 
     def test_quality_gate_metrics_export_contains_stable_keys(self):
         report = build_structured_report(
-            topic="北美在线彩票增长",
+            topic="北美绿色能源市场增长",
             sources=[
                 {
                     "id": "S1",
@@ -212,7 +212,7 @@ class LlmReportGeneratorUnitTest(unittest.TestCase):
 
     def test_quality_gate_must_minset_baseline(self):
         pass_report = build_structured_report(
-            topic="北美在线彩票增长",
+            topic="北美绿色能源市场增长",
             sources=[
                 {
                     "id": "S1",

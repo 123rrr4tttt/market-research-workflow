@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from app.successor_runtime.capabilities.ingest_c7_common import (
+from app.successor_runtime.capabilities.material_ingest_common import (
     DOCUMENT_CANONICAL_OWNER,
 )
 from app.successor_runtime.runtime.assignments import (

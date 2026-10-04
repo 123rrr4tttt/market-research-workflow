@@ -689,7 +689,7 @@ def build_production_composition(
     }
     if writer_refs and writer_refs != {"successor-runtime"}:
         raise RuntimeError("production canonical writer route bindings are not exact")
-    if writer_ports and writer_ports != {"postgres.c9_projection_rebuild.v1"}:
+    if writer_ports and writer_ports != {"postgres.projection_rebuild.v2"}:
         raise RuntimeError("production canonical writer route bindings are not exact")
     declared_writer_owner = str(
         _setting(settings_obj, "production_canonical_writer_owner", default="") or ""
@@ -798,16 +798,18 @@ def _operation_payload_digest(
     scope: ProjectScopeRef,
     actor_id: str,
 ) -> str:
-    """Use the canonical C9 command digest for its approval observation."""
+    """Use the canonical projection request identity for approval observation."""
 
-    if binding.route_template != "/api/v1/successor-runtime/v2/commands":
+    if binding.route_template != "/api/v1/material-projections/v2/commands":
         return hashlib.sha256(body).hexdigest()
     try:
         from app.contracts.successor_runtime import SuccessorRuntimeCommandV2DTO
-        from app.successor_runtime.runtime.facade_contracts import derive_c9_request_digest
+        from app.successor_runtime.runtime.facade_contracts import (
+            derive_projection_request_identity,
+        )
 
         dto = SuccessorRuntimeCommandV2DTO.model_validate(json.loads(body))
-        return derive_c9_request_digest(
+        return derive_projection_request_identity(
             scope_digest=scope.scope_digest,
             actor_ref=actor_id,
             command_id=dto.command_id,

@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from sqlalchemy import MetaData, select
 from sqlalchemy.engine import Connection
 
-from app.successor_runtime.capabilities import c8_common as c8
+from app.successor_runtime.capabilities import knowledge_common as c8
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     content_digest,
@@ -51,6 +51,9 @@ __all__ = [
     "C8_KNOWLEDGE_VALUE_SCHEMA",
     "C8_KNOWLEDGE_VALUE_STATE",
     "C8_VALUE_REF_PREFIX",
+    "LEGACY_C8_KNOWLEDGE_VALUE_CODEC_ID",
+    "LEGACY_C8_KNOWLEDGE_VALUE_OBJECT_TYPE",
+    "LEGACY_C8_KNOWLEDGE_VALUE_SCHEMA",
     "C8MaterialHandlerError",
     "C8MaterialIntegrityError",
     "C8MaterialMissingError",
@@ -63,13 +66,18 @@ __all__ = [
     "stage_knowledge_value",
 ]
 
-C8_KNOWLEDGE_VALUE_SCHEMA = "mrw.successor.c8.knowledge-value.v1"
-C8_KNOWLEDGE_VALUE_OBJECT_TYPE = "C8TypedKnowledgeCandidate.v1"
+C8_KNOWLEDGE_VALUE_SCHEMA = "mrw.knowledge.staged-candidate.v2"
+C8_KNOWLEDGE_VALUE_OBJECT_TYPE = "TypedKnowledgeCandidate.v2"
 C8_KNOWLEDGE_VALUE_CODEC_ID = (
-    "mrw.successor.c8.typed-knowledge-candidate.canonical-json.v1"
+    "mrw.knowledge.typed-knowledge-candidate.canonical-json.v2"
 )
 C8_KNOWLEDGE_VALUE_STATE = "AVAILABLE"
 C8_VALUE_REF_PREFIX = "project-value:"
+LEGACY_C8_KNOWLEDGE_VALUE_SCHEMA = "mrw.successor.c8.knowledge-value.v1"
+LEGACY_C8_KNOWLEDGE_VALUE_OBJECT_TYPE = "C8TypedKnowledgeCandidate.v1"
+LEGACY_C8_KNOWLEDGE_VALUE_CODEC_ID = (
+    "mrw.successor.c8.typed-knowledge-candidate.canonical-json.v1"
+)
 
 
 class C8MaterialHandlerError(RuntimeError):
@@ -180,7 +188,7 @@ def _value_row_from_head(
     if not isinstance(content, dict):
         raise C8MaterialIntegrityError("C7 structured payload is not content_json")
     try:
-        recomputed = c8.c8_canonical_digest(dict(content))
+        recomputed = c8.knowledge_canonical_digest(dict(content))
     except (TypeError, ValueError) as exc:
         raise C8MaterialIntegrityError(
             "stored C7 payload is not deep-freeze canonical"
@@ -236,7 +244,7 @@ def read_canonical_material(
             material,
             project_key=scope.project_scope.project_key,
         )
-    except c8.C8ProjectionError as exc:
+    except c8.KnowledgeProjectionError as exc:
         raise C8MaterialIntegrityError(str(exc)) from exc
     return material
 
@@ -263,7 +271,19 @@ def form_knowledge_candidate(
 
 
 def knowledge_value_id(candidate_id: str) -> str:
+    return f"knowledge:staged-candidate:{candidate_id}"
+
+
+def _legacy_knowledge_value_id(candidate_id: str) -> str:
     return f"c8:knowledge:{candidate_id}"
+
+
+def _knowledge_incarnation(candidate_digest: str) -> str:
+    return f"knowledge:staged-candidate:{candidate_digest}"
+
+
+def _legacy_knowledge_incarnation(candidate_digest: str) -> str:
+    return f"c8:knowledge:{candidate_digest}"
 
 
 def _knowledge_body(candidate: c8.TypedKnowledgeCandidate) -> dict[str, object]:
@@ -307,7 +327,7 @@ def stage_knowledge_value(
             material=material,
             project_key=scope.project_scope.project_key,
         )
-    except c8.C8ProjectionError as exc:
+    except c8.KnowledgeProjectionError as exc:
         raise C8MaterialIntegrityError(str(exc)) from exc
     value_id = knowledge_value_id(candidate.candidate_id)
     exact = _knowledge_bytes(candidate)
@@ -315,7 +335,7 @@ def stage_knowledge_value(
         raise C8MaterialIntegrityError(
             "knowledge candidate bytes do not match candidate digest"
         )
-    incarnation = f"c8:knowledge:{candidate.candidate_digest}"
+    incarnation = _knowledge_incarnation(candidate.candidate_digest)
     provenance = _knowledge_provenance(material, candidate)
     provenance_digest = content_digest(provenance)
     try:
@@ -367,30 +387,117 @@ def read_staged_knowledge_value(
 ) -> bytes:
     """Exact-read the staged knowledge value before handle issuance."""
 
-    value_id = knowledge_value_id(candidate.candidate_id)
-    if expected_value is not None and expected_value.value_id != value_id:
-        raise C8MaterialIntegrityError("staged knowledge value identity drift")
-    try:
-        exact = ValueRepository(
-            connection,
-            project_tables(MetaData(), scope.project_scope.resolved_schema),
-        ).get_exact(
-            scope,
-            value_id,
-            expected_revision=1,
-            expected_incarnation=f"c8:knowledge:{candidate.candidate_digest}",
-            expected_digest=candidate.candidate_digest,
+    current_value_id = knowledge_value_id(candidate.candidate_id)
+    legacy_value_id = _legacy_knowledge_value_id(candidate.candidate_id)
+    if expected_value is None:
+        identities = (
+            (
+                current_value_id,
+                _knowledge_incarnation(candidate.candidate_digest),
+                C8_KNOWLEDGE_VALUE_OBJECT_TYPE,
+                C8_KNOWLEDGE_VALUE_CODEC_ID,
+                C8_KNOWLEDGE_VALUE_SCHEMA,
+            ),
+            (
+                legacy_value_id,
+                _legacy_knowledge_incarnation(candidate.candidate_digest),
+                LEGACY_C8_KNOWLEDGE_VALUE_OBJECT_TYPE,
+                LEGACY_C8_KNOWLEDGE_VALUE_CODEC_ID,
+                LEGACY_C8_KNOWLEDGE_VALUE_SCHEMA,
+            ),
         )
-    except (ProjectRecordNotFound, ExactContentConflict, ProjectCASConflict) as exc:
-        raise C8MaterialIntegrityError(
-            "staged knowledge value is absent or drifted"
-        ) from exc
+    elif expected_value.value_id == current_value_id:
+        identities = (
+            (
+                current_value_id,
+                _knowledge_incarnation(candidate.candidate_digest),
+                C8_KNOWLEDGE_VALUE_OBJECT_TYPE,
+                C8_KNOWLEDGE_VALUE_CODEC_ID,
+                C8_KNOWLEDGE_VALUE_SCHEMA,
+            ),
+        )
+    elif expected_value.value_id == legacy_value_id:
+        identities = (
+            (
+                legacy_value_id,
+                _legacy_knowledge_incarnation(candidate.candidate_digest),
+                LEGACY_C8_KNOWLEDGE_VALUE_OBJECT_TYPE,
+                LEGACY_C8_KNOWLEDGE_VALUE_CODEC_ID,
+                LEGACY_C8_KNOWLEDGE_VALUE_SCHEMA,
+            ),
+        )
+    else:
+        raise C8MaterialIntegrityError("staged knowledge value identity drift")
+    tables = project_tables(MetaData(), scope.project_scope.resolved_schema)
+    exact: bytes | None = None
+    selected: tuple[str, str, str, str, str] | None = None
+    for identity in identities:
+        value_id, incarnation, _object_type, _codec_id, _schema = identity
+        try:
+            exact = ValueRepository(connection, tables).get_exact(
+                scope,
+                value_id,
+                expected_revision=1,
+                expected_incarnation=incarnation,
+                expected_digest=candidate.candidate_digest,
+            )
+        except ProjectRecordNotFound:
+            continue
+        except (ExactContentConflict, ProjectCASConflict) as exc:
+            raise C8MaterialIntegrityError(
+                "staged knowledge value is absent or drifted"
+            ) from exc
+        selected = identity
+        break
+    if exact is None or selected is None:
+        raise C8MaterialIntegrityError("staged knowledge value is absent or drifted")
+    value_id, incarnation, object_type, codec_id, schema = selected
+    row = (
+        connection.execute(
+            select(tables.successor_values).where(
+                tables.successor_values.c.project_key
+                == scope.project_scope.project_key,
+                tables.successor_values.c.value_id == value_id,
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise C8MaterialIntegrityError("staged knowledge value readback failed")
+    provenance = row["provenance_json"]
+    if not isinstance(provenance, dict):
+        raise C8MaterialIntegrityError("staged knowledge provenance is not an object")
+    checks = (
+        ("object type", str(row["object_type"]), object_type),
+        ("codec", str(row["codec_id"]), codec_id),
+        ("incarnation", str(row["incarnation"]), incarnation),
+        ("state", str(row["state"]), C8_KNOWLEDGE_VALUE_STATE),
+        ("source", str(row["source_ref"]), material.snapshot_ref),
+        ("provenance schema", str(provenance.get("schema")), schema),
+    )
+    for label, stored, expected in checks:
+        if stored != expected:
+            raise C8MaterialIntegrityError(f"staged knowledge value {label} drift")
+    expected_provenance = _knowledge_provenance(material, candidate)
+    expected_provenance["schema"] = schema
+    if dict(provenance) != expected_provenance:
+        raise C8MaterialIntegrityError("staged knowledge value provenance drift")
+    if content_digest(dict(provenance)) != str(row["provenance_digest"]):
+        raise C8MaterialIntegrityError("staged knowledge provenance digest drift")
     if exact != _knowledge_bytes(candidate):
         raise C8MaterialIntegrityError("staged knowledge value bytes drift")
-    if expected_value is not None and expected_value.content_digest != sha256_hex(
-        exact
-    ):
-        raise C8MaterialIntegrityError(
-            "staged knowledge value digest drifted since issuance"
+    if expected_value is not None:
+        expected_binding = (
+            expected_value.value_ref == C8_VALUE_REF_PREFIX + value_id
+            and expected_value.revision == 1
+            and expected_value.incarnation == incarnation
+            and expected_value.content_digest == sha256_hex(exact)
+            and expected_value.provenance_digest == str(row["provenance_digest"])
+            and expected_value.source_ref == material.snapshot_ref
         )
+        if not expected_binding:
+            raise C8MaterialIntegrityError(
+                "staged knowledge value drifted since issuance"
+            )
     return exact

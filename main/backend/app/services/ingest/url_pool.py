@@ -32,8 +32,8 @@ from .frontdoor_slo import (
 )
 from .gate_reason_codes import normalize_reason_code
 from .frontdoor_router_contract import build_frontdoor_fetch_router_contract, router_contract_from_profile
+from .content_extraction import _locate_main_text_from_html
 from .content_cleaner import normalize_content_for_ingest
-from ..resource_pool.http_port import make_html_parser
 from .source_search_contract import build_query_url_from_contract, normalize_source_search_contract
 from .url_unwrap import unwrap_url
 
@@ -639,19 +639,11 @@ def _collect_urls_from_list_with_runtime_targets(
 def _extract_text_from_html(html: str) -> str:
     """Extract main text from HTML for storage."""
     try:
-        parser = make_html_parser(html)
-        for selector in ("article", "main article", "[role='main'] article", "main"):
-            node = parser.css_first(selector)
-            if node is None:
-                continue
-            text = str(node.text(separator="\n", strip=True) or "").strip()
-            if len(text) >= 120:
-                return normalize_content_for_ingest(text, max_chars=50000)
-        body = parser.body
-        if body:
-            text = str(body.text(separator="\n", strip=True) or "").strip()
-            return normalize_content_for_ingest(text, max_chars=50000)
-        return ""
+        return _locate_main_text_from_html(
+            html,
+            selectors=("article", "main article", "[role='main'] article", "main"),
+            transform=lambda text: normalize_content_for_ingest(text, max_chars=50000),
+        )
     except Exception:  # noqa: BLE001
         return ""
 

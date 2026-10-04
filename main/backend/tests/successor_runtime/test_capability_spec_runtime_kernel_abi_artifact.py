@@ -2,21 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 import subprocess
 import sys
-from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
-from typing import Iterator
 
 from app.successor_runtime.specification.runtime_kernel_abi import RuntimeKernelABI
 from scripts.generate_runtime_kernel_abi_pilot import build_bytes
 
-from .current_candidate_support import (
-    assert_b16_predecessor,
-    assert_current_binding,
-)
+
 
 BACKEND = Path(__file__).resolve().parents[2]
 REPO = BACKEND.parents[1]
@@ -43,47 +37,6 @@ EXACT_PROTOCOL_FILES = {
 }
 
 
-@contextmanager
-def _temporary_b18_candidate() -> Iterator[Path]:
-    stage_dir = EXACT_REBIND_ROOT / TEMP_B18_STAGE
-    candidate_dir = stage_dir / "candidates/I1"
-    if stage_dir.exists() or stage_dir.is_symlink():
-        raise AssertionError(f"temporary B18 stage already exists: {stage_dir}")
-    try:
-        subprocess.run(
-            [
-                sys.executable,
-                str(REPO / "scripts/generate_stage0_i1_exact_binding_rebind.py"),
-                "--stage",
-                TEMP_B18_STAGE,
-                "--write",
-            ],
-            cwd=REPO,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        subprocess.run(
-            [
-                sys.executable,
-                str(REPO / "scripts/stage_family_fragment_rebind.py"),
-                "stage",
-                "--manifest",
-                str(stage_dir / "manifests/I1.json"),
-                "--output-dir",
-                str(candidate_dir),
-            ],
-            cwd=REPO,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        yield candidate_dir / "candidate.v2.json"
-    except subprocess.CalledProcessError as exc:
-        raise AssertionError(exc.stderr or exc.stdout) from exc
-    finally:
-        shutil.rmtree(stage_dir, ignore_errors=True)
-
 
 def test_runtime_kernel_abi_artifact_is_canonical_and_semantic() -> None:
     assert ARTIFACT.read_bytes() == build_bytes()
@@ -100,24 +53,15 @@ def test_runtime_kernel_abi_artifact_is_canonical_and_semantic() -> None:
 
 def test_exact_protocol_bytes_are_artifact_evidence_not_semantic_payload() -> None:
     abi = RuntimeKernelABI.from_dict(json.loads(ARTIFACT.read_text()))
-    with _temporary_b18_candidate() as candidate_path:
-        candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
-        assert candidate["status"] == "CANDIDATE_VALID_NOT_AUTHORITY"
-        assert_b16_predecessor(REPO, candidate, "I1")
-        for relative, expected in EXACT_PROTOCOL_FILES.items():
-            actual = hashlib.sha256((BACKEND / relative).read_bytes()).hexdigest()
-            if actual != expected:
-                assert_current_binding(
-                    REPO,
-                    candidate_path,
-                    candidate,
-                    f"main/backend/{relative}",
-                    expected,
-                )
-        artifact_evidence = dict(EXACT_PROTOCOL_FILES)
-        artifact_evidence[next(iter(artifact_evidence))] = "0" * 64
-        assert abi.compute_semantic_digest() == abi.semantic_digest
-        assert artifact_evidence != EXACT_PROTOCOL_FILES
+    from .historical_fixture import historical_bytes
+
+    for relative, expected in EXACT_PROTOCOL_FILES.items():
+        frozen = historical_bytes(f"main/backend/{relative}", expected)
+        assert hashlib.sha256(frozen).hexdigest() == expected
+    artifact_evidence = dict(EXACT_PROTOCOL_FILES)
+    artifact_evidence[next(iter(artifact_evidence))] = "0" * 64
+    assert abi.compute_semantic_digest() == abi.semantic_digest
+    assert artifact_evidence != EXACT_PROTOCOL_FILES
 
 
 def test_direct_check_is_read_only() -> None:

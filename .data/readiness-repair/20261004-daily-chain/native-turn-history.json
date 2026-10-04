@@ -1,0 +1,41 @@
+{
+  "http_status": 200,
+  "response": {
+    "data": [
+      {
+        "id": "01a1060e-a9d3-7f53-b863-aa1625be17e0",
+        "items": [
+          {
+            "type": "userMessage",
+            "id": "01a1060e-b684-7d33-b0d2-42f9721af36d",
+            "clientId": null,
+            "content": [
+              {
+                "type": "text",
+                "text": "Return exactly MRW_NATIVE_CHAIN_OK. Do not use tools or modify any files.",
+                "text_elements": []
+              }
+            ]
+          },
+          {
+            "type": "agentMessage",
+            "id": "msg_202610041636311dbb069b46c34801",
+            "text": "MRW_NATIVE_CHAIN_OK",
+            "phase": null,
+            "memoryCitation": null,
+            "delivery": null,
+            "questions": null
+          }
+        ],
+        "itemsView": "full",
+        "status": "completed",
+        "error": null,
+        "startedAt": 1791102987,
+        "completedAt": 1791102996,
+        "durationMs": 9145
+      }
+    ],
+    "nextCursor": null,
+    "backwardsCursor": "{\"requestedThreadId\":\"01a1060e-968e-7502-bfbb-cbb615369e3b\",\"rolloutOrdinal\":1,\"includeAnchor\":true,\"scope\":{\"kind\":\"turns\"}}"
+  }
+}

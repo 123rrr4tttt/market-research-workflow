@@ -11,7 +11,6 @@ import {
   ingestDataApi,
   listAgentBatchItems,
   retryAgentBatchJob,
-  runAgentBatchNlCommand,
   runSourceLibrary,
   submitAgentBatchJob,
   syncSourceLibrary,
@@ -31,8 +30,6 @@ type SourceLibraryRunPayload = {
 type AgentBatchSubmitPayload = Parameters<typeof submitAgentBatchJob>[0]
 type AgentBatchRetryPayload = Parameters<typeof retryAgentBatchJob>[1]
 type AgentBatchRuleSetValidatePayload = Parameters<typeof validateAgentBatchRuleSet>[0]
-type AgentBatchNlCommandPayload = Parameters<typeof runAgentBatchNlCommand>[0]
-
 export type IngestActionStatusState = {
   phase: 'idle' | 'running' | 'submitted' | 'completed' | 'failed'
   name: string
@@ -248,8 +245,6 @@ export function useIngestActions(projectKey: string) {
       runAction('重试批量采集任务', () => retryAgentBatchJob(jobId, payload || {})),
     validateAgentBatchRuleSet: (payload: AgentBatchRuleSetValidatePayload) =>
       runAction('校验规则集', () => validateAgentBatchRuleSet(payload)),
-    runAgentBatchNlCommand: (payload: AgentBatchNlCommandPayload) =>
-      runAction('自然语言触发批量采集', () => runAgentBatchNlCommand(payload)),
   }
 }
 

@@ -7,7 +7,6 @@ from typing import Annotated, Any
 
 CAPABILITY_CALL_CONTRACT_VERSION = "interactive_agent.capability_call.v1"
 TOOL_DEFINITION_CONTRACT_VERSION = "interactive_agent.tool_definition.v1"
-RUN_LOOP_CONTRACT_VERSION = "interactive_agent.run_loop.v1"
 READ_ONLY_TOOL_PROTOCOL = "read_only"
 STREAM_PROTOCOL_VERSION = "agent_session.sse.v1"
 

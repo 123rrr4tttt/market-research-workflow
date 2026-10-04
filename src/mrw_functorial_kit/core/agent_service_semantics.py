@@ -17,9 +17,7 @@ AgentBatchFailureCode = Literal[
     "approval_not_found",
     "approval_token_required",
     "channel_unknown",
-    "command_required",
     "lane_invalid",
-    "planner_no_executable_tasks",
 ]
 
 AgentFunctorialProjectionFailureCode = Literal[
@@ -42,15 +40,10 @@ AgentFunctorialProjectionFailureCode = Literal[
 ]
 
 AgentRuntimeFailureCode = Literal[
-    "approval_binding_incomplete",
     "approval_id_required",
-    "approval_not_approved",
-    "approval_type_invalid",
     "capability_input_missing",
-    "conversation_empty_answer",
     "long_task_stage_invalid",
     "long_task_stage_status_invalid",
-    "message_required",
     "session_project_mismatch",
     "write_set_conflict",
     "writing_anchor_not_found",

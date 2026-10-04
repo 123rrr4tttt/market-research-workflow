@@ -17,9 +17,7 @@ from app.services.projects import context as project_context
 from app.services.projects import workflow as project_workflow
 from app.services.request_identity import require_trusted_actor_context
 from app.subprojects import registry as extraction_registry
-import app.subprojects.online_lottery as online_lottery
 from mrw_functorial_kit.core.application_failure_semantics import (
-    online_lottery_compatibility_failures,
     project_operation_failures,
     request_identity_failures,
 )
@@ -31,7 +29,6 @@ OWNED_FILES = {
     "main/backend/app/services/projects/context.py",
     "main/backend/app/services/projects/workflow.py",
     "main/backend/app/services/request_identity.py",
-    "main/backend/app/subprojects/online_lottery/__init__.py",
     "main/backend/app/subprojects/registry.py",
 }
 
@@ -107,15 +104,6 @@ def test_w01_request_identity_preserves_http_403_detail_envelope() -> None:
         public_exception="ValueError",
     )
     assert project_operation_failures.matches(failure)
-
-
-def test_w01_online_lottery_dynamic_getattr_preserves_attribute_error() -> None:
-    with pytest.raises(AttributeError, match="^missing_attribute$"):
-        online_lottery.missing_attribute
-
-    failure = online_lottery._compatibility_failure("missing_attribute")
-    assert type(failure) is Failure
-    assert online_lottery_compatibility_failures.matches(failure)
 
 
 def test_w01_request_and_project_failure_families_are_visible() -> None:

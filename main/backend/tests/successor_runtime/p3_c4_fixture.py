@@ -5,54 +5,58 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
-from app.successor_runtime.capabilities import agent_batch_c4 as c4
-from app.successor_runtime.capabilities import source_library_c2_shared as c2_shared
-from app.successor_runtime.capabilities.agent_batch_c4 import (
+from app.successor_runtime.capabilities import (
+    batch_task as batch_task,
+)
+from app.successor_runtime.capabilities import source_contracts as c2_shared
+from app.successor_runtime.capabilities.batch_task import (
     AgentBatchTask,
     BatchPlanPayload,
     CriticDecision,
     RetryAction,
     RetryBudget,
     RetryReducerInput,
-    build_agent_batch_c4_bundle,
-    build_agent_batch_c4_catalog,
-    build_agent_batch_c4_registry,
+    build_batch_task_bundle,
+    build_batch_task_catalog,
+    build_batch_task_registry,
 )
-from app.successor_runtime.capabilities.agent_batch_c4_program import (
-    build_agent_batch_c4_1_program,
-    build_agent_batch_c4_2_program,
-    compile_agent_batch_c4_program,
+from app.successor_runtime.capabilities.batch_task_program import (
+    build_batch_task_plan_program,
+    build_batch_task_retry_program,
+    compile_batch_task_program,
 )
 from app.successor_runtime.capabilities.checksum import sha256_hex
-from app.successor_runtime.capabilities.source_library_c2_shared import (
+from app.successor_runtime.capabilities.source_contracts import (
     build_channel_catalog_snapshot,
     project_scope_digest,
 )
 
-PROJECT_KEY = "p3-c4-demo"
+PROJECT_KEY = "batch-task-demo"
 REGISTRY_REVISION = 3
-RESOLVED_SCHEMA = "mrw_p3_c4_demo"
-SCOPE_INCARNATION = "scope-inc-c4"
+RESOLVED_SCHEMA = "mrw_batch_task_demo"
+SCOPE_INCARNATION = "scope-inc-batch-task-demo"
 SCOPE_DIGEST = project_scope_digest(
     PROJECT_KEY,
     RESOLVED_SCHEMA,
     REGISTRY_REVISION,
     SCOPE_INCARNATION,
 )
-DEPLOYMENT_CATALOG_DIGEST = sha256_hex(b"mrw.successor.deployment-catalog.c4.v1")
-PROGRAM_ID = "program:p3-c4-family"
+DEPLOYMENT_CATALOG_DIGEST = sha256_hex(
+    batch_task.BATCH_TASK_DEPLOYMENT_CATALOG_ID.encode("utf-8")
+)
+PROGRAM_ID = "program:batch-task-direct-test"
 
 
 def bundle() -> Any:
-    return build_agent_batch_c4_bundle()
+    return build_batch_task_bundle()
 
 
 def catalog() -> Any:
-    return build_agent_batch_c4_catalog(bundle())
+    return build_batch_task_catalog(bundle())
 
 
 def registry() -> Any:
-    return build_agent_batch_c4_registry(bundle())
+    return build_batch_task_registry(bundle())
 
 
 def contract_ref(kind: str) -> Any:
@@ -74,7 +78,7 @@ def _source_item(
         "params": {},
         "extra": {},
         "revision": 3,
-        "incarnation": "item-inc-c4",
+        "incarnation": "item-inc-batch-task-demo",
     }
     values["content_digest"] = c2_shared.source_item_definition_content_digest(values)
     return c2_shared.source_item_definition_from_dict(values)
@@ -96,7 +100,7 @@ def c2_snapshot(
 ) -> C2ProducerSnapshotView:
     catalog = build_channel_catalog_snapshot(
         revision=catalog_revision,
-        incarnation="channel-catalog-inc-c4",
+        incarnation="channel-catalog-inc-batch-task-demo",
         entries=(),
     )
     disabled = set(item_keys) - set(enabled_keys or item_keys)
@@ -135,8 +139,8 @@ def plan_payload(
     max_source_tasks: int = 2,
 ) -> BatchPlanPayload:
     return BatchPlanPayload(
-        schema_version=c4.BATCH_PLAN_PAYLOAD_SCHEMA,
-        operation_kind=c4.BATCH_PLAN_KIND,
+        schema_version=batch_task.BATCH_PLAN_PAYLOAD_SCHEMA,
+        operation_kind=batch_task.BATCH_PLAN_KIND,
         project_key=PROJECT_KEY,
         registry_revision=REGISTRY_REVISION,
         resolved_schema=RESOLVED_SCHEMA,
@@ -154,7 +158,7 @@ def plan_payload(
 
 
 def plan_program_and_plan(payload: BatchPlanPayload) -> tuple[Any, Any, Any, Any]:
-    program = build_agent_batch_c4_1_program(
+    program = build_batch_task_plan_program(
         payload=payload,
         catalog=catalog(),
         program_id=PROGRAM_ID,
@@ -162,7 +166,7 @@ def plan_program_and_plan(payload: BatchPlanPayload) -> tuple[Any, Any, Any, Any
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    plan = compile_agent_batch_c4_program(
+    plan = compile_batch_task_program(
         program,
         catalog(),
         operation_contracts=registry(),
@@ -184,8 +188,8 @@ def retry_payload(
     dry_run: bool = False,
 ) -> RetryReducerInput:
     return RetryReducerInput(
-        schema_version=c4.RETRY_REDUCER_PAYLOAD_SCHEMA,
-        operation_kind=c4.RETRY_REDUCE_KIND,
+        schema_version=batch_task.RETRY_REDUCER_PAYLOAD_SCHEMA,
+        operation_kind=batch_task.RETRY_REDUCE_KIND,
         project_key=PROJECT_KEY,
         registry_revision=REGISTRY_REVISION,
         resolved_schema=RESOLVED_SCHEMA,
@@ -218,7 +222,7 @@ def retry_payload(
 
 
 def retry_program_and_plan(payload: RetryReducerInput) -> tuple[Any, Any, Any, Any]:
-    program = build_agent_batch_c4_2_program(
+    program = build_batch_task_retry_program(
         payload=payload,
         catalog=catalog(),
         program_id=PROGRAM_ID,
@@ -226,7 +230,7 @@ def retry_program_and_plan(payload: RetryReducerInput) -> tuple[Any, Any, Any, A
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    plan = compile_agent_batch_c4_program(
+    plan = compile_batch_task_program(
         program,
         catalog(),
         operation_contracts=registry(),

@@ -2,21 +2,21 @@
 
 > Status: CURRENT as of 2026-05-22. Generated from the running FastAPI app OpenAPI surface by `main/backend/scripts/generate_api_schema_inventory.py`.
 >
-> Scope: every `/api/v1` OpenAPI operation exposed by `app.main.app`, including the 297 router operations covered by `API_ROUTE_MAP_2026-05-22.md` plus 3 non-`app.api` operations (`/api/v1/health`, `/api/v1/health/deep`, `/api/v1/maps/usa`).
+> Scope: every `/api/v1` OpenAPI operation exposed by `app.main.app`, including the 307 router operations covered by `API_ROUTE_MAP_2026-05-22.md` plus 3 non-`app.api` operations (`/api/v1/health`, `/api/v1/health/deep`, `/api/v1/maps/usa`).
 >
 > Drift guard: `main/backend/tests/contract/test_api_schema_inventory_contract_unittest.py` regenerates this document from the current FastAPI OpenAPI schema and compares it byte-for-byte.
 
 ## Summary
 
-- OpenAPI `/api/v1` operations: **300**.
-- API router operations also covered by `API_ROUTE_MAP_2026-05-22.md`: **297**.
+- OpenAPI `/api/v1` operations: **310**.
+- API router operations also covered by `API_ROUTE_MAP_2026-05-22.md`: **307**.
 - App-level `/api/v1` operations outside `main/backend/app/api/*.py`: **3**.
-- Component schemas advertised by OpenAPI: **274**.
-- Method distribution: `DELETE` 9, `GET` 140, `PATCH` 5, `POST` 140, `PUT` 6.
-- Operations with JSON request bodies: **136**.
-- Operations with explicit FastAPI `response_model`: **292**.
+- Component schemas advertised by OpenAPI: **293**.
+- Method distribution: `DELETE` 9, `GET` 140, `PATCH` 5, `POST` 150, `PUT` 6.
+- Operations with JSON request bodies: **144**.
+- Operations with explicit FastAPI `response_model`: **302**.
 - Operations whose OpenAPI 200 response schema is still untyped: **0**.
-- 200 response schema distribution: `ApiEnvelope_Any_` 40, `ApiEnvelope_ClueChainCloseData_` 1, `ApiEnvelope_ClueChainDecisionResponseData_` 1, `ApiEnvelope_ClueChainDetailData_` 2, `ApiEnvelope_ClueChainExpansionData_` 1, `ApiEnvelope_ClueChainListData_` 1, `ApiEnvelope_CopyLlmConfigsData_` 1, `ApiEnvelope_CrawlerDeployActionData_` 2, `ApiEnvelope_CrawlerDeployRunData_` 1, `ApiEnvelope_CrawlerDeployRunsData_` 2, `ApiEnvelope_CrawlerProjectData_` 2, `ApiEnvelope_CrawlerProjectsData_` 1, `ApiEnvelope_EnvSettingsUpdateData_` 1, `ApiEnvelope_KeywordCardDetailResponse_` 1, `ApiEnvelope_KeywordCardListResponse_` 1, `ApiEnvelope_KeywordCardPreviewResponse_` 1, `ApiEnvelope_KeywordHistoryData_` 1, `ApiEnvelope_KeywordPriorUpsertData_` 1, `ApiEnvelope_KeywordPriorsData_` 1, `ApiEnvelope_KeywordVectorizationCandidatesData_` 1, `ApiEnvelope_LlmActionHistoryItem_` 1, `ApiEnvelope_LlmActionHistoryListData_` 1, `ApiEnvelope_LlmActionResponse_` 1, `ApiEnvelope_LlmConfigMessageData_` 2, `ApiEnvelope_LlmServiceConfigResponse_` 5, `ApiEnvelope_PoliciesListData_` 1, `ApiEnvelope_PolicyDetail_` 1, `ApiEnvelope_PolicyStateDetail_` 1, `ApiEnvelope_PolicyStats_` 1, `ApiEnvelope_ProjectLlmConfigItemData_` 3, `ApiEnvelope_ProjectLlmConfigListData_` 1, `ApiEnvelope_ProjectLlmConfigMessageData_` 1, `ApiEnvelope_PromptTimeDensityCloudData_` 1, `ApiEnvelope_PromptTimeDensityData_` 1, `ApiEnvelope_PromptTimeDensityPriorityData_` 1, `ApiEnvelope_PromptTimeDensityWindowSelectionData_` 1, `ApiEnvelope_ReloadConfigData_` 1, `ApiEnvelope_RuntimeConfigData_` 1, `ApiEnvelope_SuggestResponse_` 1, `ApiEnvelope_TemplateValidateResponse_` 1, `ApiEnvelope_WorkflowGraphAuditListData_` 1, `ApiEnvelope_WorkflowGraphCuratedStateData_` 5, `ApiEnvelope_WorkflowGraphEvidencePackData_` 1, `ApiEnvelope_WorkflowGraphHandoffData_` 2, `ApiEnvelope_WorkflowGraphHandoffListData_` 1, `ApiEnvelope_WorkflowGraphHandoffReplayData_` 1, `ApiEnvelope_WritingCitationListData_` 2, `ApiEnvelope_WritingDocumentData_` 3, `ApiEnvelope_WritingDocumentDeleteData_` 1, `ApiEnvelope_WritingDocumentDraftData_` 1, `ApiEnvelope_WritingDocumentListData_` 1, `ApiEnvelope_WritingTemplateListData_` 1, `ApiEnvelope_dict_str__Any__` 112, `ApiEnvelope_list_LlmServiceConfigResponse__` 1, `LegacySourceLibraryRunErrorEnvelope` 1, `SuccessorRuntimeEnvelopeV2DTO` 2, `TypedKnowledgeRouteContractEnvelope` 1, `missing` 2, `non-json` 6, `object` 65.
+- 200 response schema distribution: `ApiEnvelope_Any_` 39, `ApiEnvelope_ClueChainCloseData_` 1, `ApiEnvelope_ClueChainDecisionResponseData_` 1, `ApiEnvelope_ClueChainDetailData_` 2, `ApiEnvelope_ClueChainExpansionData_` 1, `ApiEnvelope_ClueChainListData_` 1, `ApiEnvelope_CopyLlmConfigsData_` 1, `ApiEnvelope_CrawlerDeployActionData_` 2, `ApiEnvelope_CrawlerDeployRunData_` 1, `ApiEnvelope_CrawlerDeployRunsData_` 2, `ApiEnvelope_CrawlerProjectData_` 2, `ApiEnvelope_CrawlerProjectsData_` 1, `ApiEnvelope_EnvSettingsUpdateData_` 1, `ApiEnvelope_KeywordCardDetailResponse_` 1, `ApiEnvelope_KeywordCardListResponse_` 1, `ApiEnvelope_KeywordCardPreviewResponse_` 1, `ApiEnvelope_KeywordHistoryData_` 1, `ApiEnvelope_KeywordPriorUpsertData_` 1, `ApiEnvelope_KeywordPriorsData_` 1, `ApiEnvelope_KeywordVectorizationCandidatesData_` 1, `ApiEnvelope_LlmActionHistoryItem_` 1, `ApiEnvelope_LlmActionHistoryListData_` 1, `ApiEnvelope_LlmActionResponse_` 1, `ApiEnvelope_LlmConfigMessageData_` 2, `ApiEnvelope_LlmServiceConfigResponse_` 5, `ApiEnvelope_PoliciesListData_` 1, `ApiEnvelope_PolicyDetail_` 1, `ApiEnvelope_PolicyStateDetail_` 1, `ApiEnvelope_PolicyStats_` 1, `ApiEnvelope_ProjectLlmConfigItemData_` 3, `ApiEnvelope_ProjectLlmConfigListData_` 1, `ApiEnvelope_ProjectLlmConfigMessageData_` 1, `ApiEnvelope_PromptTimeDensityCloudData_` 1, `ApiEnvelope_PromptTimeDensityData_` 1, `ApiEnvelope_PromptTimeDensityPriorityData_` 1, `ApiEnvelope_PromptTimeDensityWindowSelectionData_` 1, `ApiEnvelope_ReloadConfigData_` 1, `ApiEnvelope_RuntimeConfigData_` 1, `ApiEnvelope_SuggestResponse_` 1, `ApiEnvelope_TemplateValidateResponse_` 1, `ApiEnvelope_WorkflowGraphAuditListData_` 1, `ApiEnvelope_WorkflowGraphCuratedStateData_` 5, `ApiEnvelope_WorkflowGraphEvidencePackData_` 1, `ApiEnvelope_WorkflowGraphHandoffData_` 2, `ApiEnvelope_WorkflowGraphHandoffListData_` 1, `ApiEnvelope_WorkflowGraphHandoffReplayData_` 1, `ApiEnvelope_WritingCitationListData_` 2, `ApiEnvelope_WritingDocumentData_` 3, `ApiEnvelope_WritingDocumentDeleteData_` 1, `ApiEnvelope_WritingDocumentDraftData_` 1, `ApiEnvelope_WritingDocumentListData_` 1, `ApiEnvelope_WritingTemplateListData_` 1, `ApiEnvelope_dict_str__Any__` 123, `ApiEnvelope_list_LlmServiceConfigResponse__` 1, `LegacySourceLibraryRunErrorEnvelope` 1, `SuccessorRuntimeEnvelopeV2DTO` 2, `TypedKnowledgeRouteContractEnvelope` 1, `missing` 2, `non-json` 6, `object` 65.
 
 ## Contract Meaning
 
@@ -28,31 +28,32 @@ It does not prove runtime envelope conformance for every handler. A typed OpenAP
 
 | Source Module | Operations | Request Bodies | Explicit Response Models | Untyped 200 Schemas |
 |---|---:|---:|---:|---:|
-| admin.py | 17 | 10 | 17 | 0 |
+| admin.py | 16 | 9 | 16 | 0 |
 | agent_batch.py | 16 | 7 | 16 | 0 |
-| agent_chat.py | 5 | 3 | 4 | 0 |
+| agent_chat.py | 4 | 3 | 3 | 0 |
 | agent_sessions.py | 17 | 5 | 16 | 0 |
 | app.web_ui_routes | 1 | 0 | 1 | 0 |
 | business_lines.py | 4 | 0 | 4 | 0 |
 | clue_chains.py | 6 | 4 | 6 | 0 |
-| codex_auth.py | 6 | 0 | 4 | 0 |
+| codex_auth.py | 7 | 0 | 5 | 0 |
 | config.py | 4 | 1 | 4 | 0 |
 | crawler.py | 8 | 3 | 8 | 0 |
-| dashboard.py | 13 | 1 | 13 | 0 |
+| dashboard.py | 12 | 1 | 12 | 0 |
 | discovery.py | 5 | 5 | 5 | 0 |
 | functorial.py | 9 | 4 | 9 | 0 |
 | governance.py | 2 | 2 | 2 | 0 |
 | indexer.py | 1 | 1 | 1 | 0 |
-| ingest.py | 19 | 16 | 19 | 0 |
+| information_topology.py | 9 | 7 | 9 | 0 |
+| ingest.py | 18 | 15 | 18 | 0 |
 | keywords.py | 5 | 1 | 5 | 0 |
 | llm_config.py | 14 | 6 | 14 | 0 |
 | llm_report.py | 5 | 4 | 2 | 0 |
 | main.py | 2 | 0 | 2 | 0 |
-| market.py | 2 | 0 | 2 | 0 |
 | policies.py | 4 | 0 | 4 | 0 |
 | process.py | 9 | 0 | 9 | 0 |
 | products.py | 4 | 2 | 4 | 0 |
 | project_customization.py | 14 | 7 | 14 | 0 |
+| project_retrieval.py | 6 | 3 | 6 | 0 |
 | projects.py | 9 | 4 | 9 | 0 |
 | reports.py | 1 | 1 | 1 | 0 |
 | resource_pool.py | 21 | 15 | 21 | 0 |
@@ -73,18 +74,10 @@ It does not prove runtime envelope conformance for every handler. A typed OpenAP
 | GET | `/api/v1/health` | `health_check` | `main.py` | - | - | `-` | `dict` | `object` | 200 |
 | GET | `/api/v1/health/deep` | `deep_health_check` | `main.py` | - | - | `-` | `dict` | `object` | 200 |
 | GET | `/api/v1/maps/usa` | `get_usa_map` | `app.web_ui_routes` | - | - | `-` | `dict` | `object` | 200 |
-| GET | `/api/v1/codex-auth/login` | `codex_auth_login` | `codex_auth.py` | - | next_url?, force_oauth? | `-` | `none` | `missing` | 302, 400, 422 |
-| GET | `/api/v1/codex-auth/callback` | `codex_auth_callback` | `codex_auth.py` | - | code?, state?, error? | `-` | `none` | `missing` | 302, 422 |
-| GET | `/api/v1/codex-auth/status` | `codex_auth_status` | `codex_auth.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
-| POST | `/api/v1/codex-auth/logout` | `codex_auth_logout` | `codex_auth.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
-| POST | `/api/v1/codex-auth/token-sink/profile/revoke` | `codex_auth_revoke_token_sink_profile` | `codex_auth.py` | - | profile_name? | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
-| POST | `/api/v1/codex-auth/cli/bootstrap` | `codex_cli_bootstrap` | `codex_auth.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
 | GET | `/api/v1/policies` | `list_policies` | `policies.py` | - | state?, policy_type?, status?, start?, end?, start_date?, end_date?, page?, page_size?, sort_by?, sort_order? | `-` | `ApiEnvelope[PoliciesListData]` | `ApiEnvelope_PoliciesListData_` | 200, 422 |
 | GET | `/api/v1/policies/stats` | `get_policy_stats` | `policies.py` | - | start?, end?, start_date?, end_date? | `-` | `ApiEnvelope[PolicyStats]` | `ApiEnvelope_PolicyStats_` | 200, 422 |
 | GET | `/api/v1/policies/state/{state}` | `get_state_policies` | `policies.py` | state | start?, end?, start_date?, end_date? | `-` | `ApiEnvelope[PolicyStateDetail]` | `ApiEnvelope_PolicyStateDetail_` | 200, 422 |
 | GET | `/api/v1/policies/{policy_id}` | `get_policy_detail` | `policies.py` | policy_id | - | `-` | `ApiEnvelope[PolicyDetail]` | `ApiEnvelope_PolicyDetail_` | 200, 422 |
-| GET | `/api/v1/market` | `market_stats` | `market.py` | - | state, period?, game? | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
-| GET | `/api/v1/market/games` | `market_games` | `market.py` | - | state | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | GET | `/api/v1/search/runs/{retrieval_run_id}` | `get_search_retrieval_run` | `search.py` | retrieval_run_id | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | GET | `/api/v1/search` | `search` | `search.py` | - | q?, state?, modality?, rank?, top_k? | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | POST | `/api/v1/search/_init` | `init_search_indices` | `search.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
@@ -98,7 +91,6 @@ It does not prove runtime envelope conformance for every handler. A typed OpenAP
 | POST | `/api/v1/ingest/market` | `ingest_market` | `ingest.py` | - | - | `MarketIngestRequest` | `ApiEnvelope[Any]` | `ApiEnvelope_Any_` | 200, 422 |
 | POST | `/api/v1/ingest/url/single` | `ingest_url_single` | `ingest.py` | - | - | `SingleUrlIngestRequest` | `ApiEnvelope[Any]` | `ApiEnvelope_Any_` | 200, 422 |
 | GET | `/api/v1/ingest/history` | `ingest_history` | `ingest.py` | - | limit? | `-` | `ApiEnvelope[Any]` | `ApiEnvelope_Any_` | 200, 422 |
-| POST | `/api/v1/ingest/reports/california` | `ingest_california_reports` | `ingest.py` | - | - | `CaliforniaReportRequest` | `ApiEnvelope[Any]` | `ApiEnvelope_Any_` | 200, 422 |
 | POST | `/api/v1/ingest/source-library/run` | `ingest_source_library_run` | `ingest.py` | - | - | `SourceLibraryRunPayload` | `ApiEnvelope[Any]` | `ApiEnvelope_Any_` | 200, 422 |
 | POST | `/api/v1/ingest/source-library/sync` | `ingest_source_library_sync` | `ingest.py` | - | - | `SourceLibrarySyncPayload` | `ApiEnvelope[Any]` | `ApiEnvelope_Any_` | 200, 422 |
 | GET | `/api/v1/ingest/news-resources` | `list_news_resources` | `ingest.py` | - | project_key?, scope? | `-` | `ApiEnvelope[Any]` | `ApiEnvelope_Any_` | 200, 422 |
@@ -112,6 +104,21 @@ It does not prove runtime envelope conformance for every handler. A typed OpenAP
 | POST | `/api/v1/ingest/policy/regulation` | `ingest_policy_regulation` | `ingest.py` | - | - | `PolicyRegulationRequest` | `ApiEnvelope[Any]` | `ApiEnvelope_Any_` | 200, 422 |
 | POST | `/api/v1/ingest/commodity/metrics` | `ingest_commodity` | `ingest.py` | - | - | `CommodityRequest` | `ApiEnvelope[Any]` | `ApiEnvelope_Any_` | 200, 422 |
 | POST | `/api/v1/ingest/ecom/prices` | `ingest_ecom_prices` | `ingest.py` | - | - | `EcomPriceRequest` | `ApiEnvelope[Any]` | `ApiEnvelope_Any_` | 200, 422 |
+| GET | `/api/v1/information-topology/profiles` | `describe_profiles` | `information_topology.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
+| GET | `/api/v1/information-topology/topologies` | `list_topologies` | `information_topology.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
+| POST | `/api/v1/information-topology/resolve` | `resolve_refs` | `information_topology.py` | - | - | `ResolveRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
+| POST | `/api/v1/information-topology/topologies/read` | `read_topology` | `information_topology.py` | - | - | `TopologyReadRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
+| POST | `/api/v1/information-topology/relations/find` | `find_relations` | `information_topology.py` | - | - | `RelationsFindRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
+| POST | `/api/v1/information-topology/mappings/preview` | `preview_mapping` | `information_topology.py` | - | - | `MappingPreviewRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
+| POST | `/api/v1/information-topology/patches` | `apply_patch` | `information_topology.py` | - | - | `PatchRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
+| POST | `/api/v1/information-topology/imports` | `import_structure` | `information_topology.py` | - | - | `ImportRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
+| POST | `/api/v1/information-topology/exports` | `export_structure` | `information_topology.py` | - | - | `ExportRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
+| GET | `/api/v1/project-retrieval/modes/current` | `current_mode` | `project_retrieval.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
+| POST | `/api/v1/project-retrieval/modes/refresh` | `refresh_mode` | `project_retrieval.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
+| POST | `/api/v1/project-retrieval/plans/preview` | `preview` | `project_retrieval.py` | - | - | `PreviewRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
+| POST | `/api/v1/project-retrieval/runs` | `start` | `project_retrieval.py` | - | - | `StartRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
+| GET | `/api/v1/project-retrieval/runs/{run_id}` | `read_run` | `project_retrieval.py` | run_id | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
+| POST | `/api/v1/project-retrieval/rapid-proposals/{proposal_id}/continue` | `continue_saved_frontier` | `project_retrieval.py` | proposal_id | - | `RapidContinuationRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | POST | `/api/v1/discovery/search` | `discovery_search` | `discovery.py` | - | debug?, persist? | `DiscoveryRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 400, 404, 422, 429, 500, 502 |
 | POST | `/api/v1/discovery/smart` | `discovery_smart` | `discovery.py` | - | persist? | `SmartDiscoveryRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 400, 404, 422, 429, 500, 502 |
 | POST | `/api/v1/discovery/deep` | `discovery_deep` | `discovery.py` | - | persist? | `DeepDiscoveryRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 400, 404, 422, 429, 500, 502 |
@@ -137,7 +144,6 @@ It does not prove runtime envelope conformance for every handler. A typed OpenAP
 | POST | `/api/v1/admin/documents/re-extract` | `re_extract_documents` | `admin.py` | - | - | `ReExtractRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | POST | `/api/v1/admin/documents/topic-extract` | `topic_extract_documents` | `admin.py` | - | - | `TopicExtractRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | POST | `/api/v1/admin/sources/list` | `list_sources` | `admin.py` | - | - | `SourceListRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
-| POST | `/api/v1/admin/market-stats/list` | `list_market_stats` | `admin.py` | - | - | `MarketStatsListRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | POST | `/api/v1/admin/social-data/list` | `list_social_data` | `admin.py` | - | - | `SocialDataListRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | GET | `/api/v1/admin/export-graph` | `export_graph` | `admin.py` | - | doc_ids | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | GET | `/api/v1/admin/content-graph` | `get_content_graph` | `admin.py` | - | start_date?, end_date?, platform?, topic?, limit? | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
@@ -149,7 +155,6 @@ It does not prove runtime envelope conformance for every handler. A typed OpenAP
 | GET | `/api/v1/dashboard/stats` | `get_dashboard_stats` | `dashboard.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
 | GET | `/api/v1/dashboard/drilldown` | `get_dashboard_drilldown` | `dashboard.py` | - | metric?, source_ref?, limit? | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | POST | `/api/v1/dashboard/report-from-filter` | `create_dashboard_report_from_filter` | `dashboard.py` | - | - | `DashboardReportFromFilterRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
-| GET | `/api/v1/dashboard/market-trends` | `get_market_trends` | `dashboard.py` | - | state?, game?, start_date?, end_date?, period? | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | GET | `/api/v1/dashboard/document-analysis` | `get_document_analysis` | `dashboard.py` | - | start_date?, end_date? | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | GET | `/api/v1/dashboard/sentiment-analysis` | `get_sentiment_analysis` | `dashboard.py` | - | start_date?, end_date? | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | GET | `/api/v1/dashboard/sentiment-sources` | `get_sentiment_sources` | `dashboard.py` | - | sentiment?, platform?, start_date?, end_date?, limit? | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
@@ -157,6 +162,10 @@ It does not prove runtime envelope conformance for every handler. A typed OpenAP
 | GET | `/api/v1/dashboard/search-analytics` | `get_search_analytics` | `dashboard.py` | - | limit? | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | GET | `/api/v1/dashboard/commodity-trends` | `get_commodity_trends` | `dashboard.py` | - | metric_key?, start_date?, end_date?, period? | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | GET | `/api/v1/dashboard/ecom-price-trends` | `get_ecom_price_trends` | `dashboard.py` | - | product_id?, start_date?, end_date? | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
+| GET | `/api/v1/business-lines/evidence-matrix` | `get_business_line_evidence_matrix` | `business_lines.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
+| GET | `/api/v1/business-lines/scheduled-matrix-artifact-summary` | `get_scheduled_matrix_artifact_summary` | `business_lines.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
+| GET | `/api/v1/business-lines/scheduled-artifact-summaries` | `get_scheduled_artifact_summaries` | `business_lines.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
+| GET | `/api/v1/business-lines/scheduled-artifact-drilldown` | `get_scheduled_artifact_drilldown` | `business_lines.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
 | GET | `/api/v1/llm-config` | `list_llm_configs` | `llm_config.py` | - | - | `-` | `ApiEnvelope[list[LlmServiceConfigResponse]]` | `ApiEnvelope_list_LlmServiceConfigResponse__` | 200 |
 | POST | `/api/v1/llm-config` | `create_llm_config` | `llm_config.py` | - | - | `LlmServiceConfigCreate` | `ApiEnvelope[LlmServiceConfigResponse]` | `ApiEnvelope_LlmServiceConfigResponse_` | 200, 422 |
 | DELETE | `/api/v1/llm-config/service/{service_name}` | `delete_llm_config` | `llm_config.py` | service_name | - | `-` | `ApiEnvelope[LlmConfigMessageData]` | `ApiEnvelope_LlmConfigMessageData_` | 200, 422 |
@@ -334,7 +343,6 @@ It does not prove runtime envelope conformance for every handler. A typed OpenAP
 | POST | `/api/v1/agent-batch/nl-command` | `run_agent_batch_nl_command` | `agent_batch.py` | - | - | `AgentBatchNlCommandRequest` | `dict` | `object` | 200, 422 |
 | POST | `/api/v1/agent-batch/nl-command/direct` | `run_agent_batch_nl_command_direct` | `agent_batch.py` | - | - | `AgentBatchNlCommandRequest` | `dict` | `object` | 200, 422 |
 | GET | `/api/v1/agent-batch/executor/health` | `get_agent_batch_executor_health` | `agent_batch.py` | - | - | `-` | `dict` | `object` | 200 |
-| GET | `/api/v1/agent-chat/models` | `list_agent_chat_models` | `agent_chat.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
 | GET | `/api/v1/agent-chat/capabilities` | `list_agent_chat_capabilities` | `agent_chat.py` | - | project_key? | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | POST | `/api/v1/agent-chat/turn` | `run_agent_chat_turn` | `agent_chat.py` | - | - | `AgentChatTurnRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | POST | `/api/v1/agent-chat/turn/stream` | `stream_agent_chat_turn` | `agent_chat.py` | - | - | `AgentChatTurnRequest` | `none` | `non-json` | 200, 422 |
@@ -356,12 +364,12 @@ It does not prove runtime envelope conformance for every handler. A typed OpenAP
 | POST | `/api/v1/agent-sessions/{session_id}/actions/coordinator-pass` | `run_agent_session_coordinator_pass` | `agent_sessions.py` | session_id | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | POST | `/api/v1/agent-sessions/{session_id}/actions/request-approval` | `request_agent_session_approval` | `agent_sessions.py` | session_id | - | `AgentApprovalRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
 | POST | `/api/v1/agent-approvals/{approval_id}/resolve` | `resolve_agent_approval` | `agent_sessions.py` | approval_id | - | `AgentApprovalResolveRequest` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
-| GET | `/api/v1/business-lines/evidence-matrix` | `get_business_line_evidence_matrix` | `business_lines.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
-| GET | `/api/v1/business-lines/scheduled-matrix-artifact-summary` | `get_scheduled_matrix_artifact_summary` | `business_lines.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
-| GET | `/api/v1/business-lines/scheduled-artifact-summaries` | `get_scheduled_artifact_summaries` | `business_lines.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
-| GET | `/api/v1/business-lines/scheduled-artifact-drilldown` | `get_scheduled_artifact_drilldown` | `business_lines.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
 | GET | `/api/v1/skills` | `list_skills` | `skills.py` | - | - | `-` | `dict` | `object` | 200 |
 | POST | `/api/v1/skills/invoke` | `invoke_skill_api` | `skills.py` | - | - | `SkillInvokeRequest` | `dict` | `object` | 200, 422 |
+| POST | `/api/v1/codex-auth/webui/bootstrap` | `codex_auth_webui_bootstrap` | `codex_auth.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
+| POST | `/api/v1/codex-auth/logout` | `codex_auth_logout` | `codex_auth.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
+| POST | `/api/v1/codex-auth/token-sink/profile/revoke` | `codex_auth_revoke_token_sink_profile` | `codex_auth.py` | - | profile_name? | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200, 422 |
+| POST | `/api/v1/codex-auth/cli/bootstrap` | `codex_cli_bootstrap` | `codex_auth.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
 | GET | `/api/v1/clue-chains` | `list_clue_chains` | `clue_chains.py` | - | project_key?, graph_id?, status?, limit? | `-` | `ApiEnvelope[ClueChainListData]` | `ApiEnvelope_ClueChainListData_` | 200, 422 |
 | POST | `/api/v1/clue-chains` | `create_clue_chain` | `clue_chains.py` | - | - | `ClueChainCreateRequest` | `ApiEnvelope[ClueChainDetailData]` | `ApiEnvelope_ClueChainDetailData_` | 200, 422 |
 | GET | `/api/v1/clue-chains/{chain_id}` | `get_clue_chain` | `clue_chains.py` | chain_id | - | `-` | `ApiEnvelope[ClueChainDetailData]` | `ApiEnvelope_ClueChainDetailData_` | 200, 422 |
@@ -370,3 +378,6 @@ It does not prove runtime envelope conformance for every handler. A typed OpenAP
 | POST | `/api/v1/clue-chains/{chain_id}/close` | `close_clue_chain` | `clue_chains.py` | chain_id | - | `ClueChainCloseRequest` | `ApiEnvelope[ClueChainCloseData]` | `ApiEnvelope_ClueChainCloseData_` | 200, 422 |
 | POST | `/api/v1/successor-runtime/v2/commands` | `submit_command` | `successor_runtime.py` | - | - | `SuccessorRuntimeCommandV2DTO` | `SuccessorRuntimeEnvelopeV2DTO` | `SuccessorRuntimeEnvelopeV2DTO` | 200, 422 |
 | POST | `/api/v1/successor-runtime/v2/queries` | `run_query` | `successor_runtime.py` | - | - | `SuccessorRuntimeQueryV2DTO` | `SuccessorRuntimeEnvelopeV2DTO` | `SuccessorRuntimeEnvelopeV2DTO` | 200, 422 |
+| GET | `/api/v1/codex-auth/login` | `codex_auth_login` | `codex_auth.py` | - | next_url?, force_oauth? | `-` | `none` | `missing` | 302, 400, 422 |
+| GET | `/api/v1/codex-auth/callback` | `codex_auth_callback` | `codex_auth.py` | - | code?, state?, error? | `-` | `none` | `missing` | 302, 422 |
+| GET | `/api/v1/codex-auth/status` | `codex_auth_status` | `codex_auth.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |

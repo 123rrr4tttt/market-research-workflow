@@ -154,6 +154,7 @@ def _run_normal_backend_checks(client: SmokeClient, *, project_key: str, source_
         "/api/v1/workflow-graph/compile",
         payload={
             "graph_id": graph_id,
+            "project_key": project_key,
             "dsl": {
                 "version": "1.0",
                 "nodes": [
@@ -180,7 +181,7 @@ def _run_normal_backend_checks(client: SmokeClient, *, project_key: str, source_
     workflow_run = client.request(
         "POST",
         "/api/v1/workflow-graph/run",
-        payload={"graph_id": compiled_graph_id, "input": {"query": "market research"}},
+        payload={"graph_id": compiled_graph_id, "project_key": project_key, "input": {"query": "market research"}},
     )
     _require(workflow_run.status == 200, f"/workflow-graph/run expected 200, got {workflow_run.status}")
     run_data = _unwrap_data(workflow_run.body)

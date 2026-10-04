@@ -136,7 +136,6 @@ function createIngestViewProps(overrides: Partial<IngestPageViewProps> = {}): In
     onIngestEcom: () => undefined,
     onLoadRetrievalRunReadback: () => undefined,
     onSubmitAgentBatch: () => undefined,
-    onSubmitNlAgentBatch: () => undefined,
     onRefreshBatchStatus: () => undefined,
     onRetryBatchItem: () => undefined,
     onRefreshHistory: () => undefined,
@@ -198,7 +197,6 @@ function applyIngestMocks(mode: 'ready' | 'empty' | 'market-error' | 'loading') 
   mocked(api.listAgentBatchItems).mockResolvedValue({ items: [] } as never)
   mocked(api.getAgentBatchEvents).mockResolvedValue({ events: [] } as never)
   mocked(api.retryAgentBatchJob).mockResolvedValue({ ok: true } as never)
-  mocked(api.runAgentBatchNlCommand).mockResolvedValue({ job_id: 'batch-nl-001' } as never)
   mocked(api.validateAgentBatchRuleSet).mockResolvedValue({ valid: true } as never)
   mocked(api.generateKeywords).mockResolvedValue({ keywords: ['储能', '电池'], provider: 'storybook' } as never)
   mocked(api.ingestMarket).mockImplementation(() => {

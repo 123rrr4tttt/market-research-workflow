@@ -15,21 +15,21 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool
 
-from app.successor_runtime.capabilities import c8_common as c8
-from app.successor_runtime.capabilities import c8_program as c8p
-from app.successor_runtime.capabilities.c8_program import (
-    C8_3_INPUT_TYPE,
-    C8_3_KIND,
-    C8_ADMISSION_KIND,
-    C8_DELIVERY_INTENT_PREPARE_KIND,
-    C8_DELIVERY_INTENT_TYPE,
-    C8_RESEARCH_ARTIFACT_TYPE,
-    C8_VERIFY_KIND,
+from app.successor_runtime.capabilities import knowledge_common as c8
+from app.successor_runtime.capabilities import knowledge_program as c8p
+from app.successor_runtime.capabilities.knowledge_program import (
+    KNOWLEDGE_REPORT_INPUT_TYPE,
+    KNOWLEDGE_REPORT_KIND,
+    KNOWLEDGE_ADMISSION_KIND,
+    KNOWLEDGE_DELIVERY_INTENT_PREPARE_KIND,
+    KNOWLEDGE_DELIVERY_INTENT_TYPE,
+    KNOWLEDGE_RESEARCH_ARTIFACT_TYPE,
+    KNOWLEDGE_VERIFY_KIND,
     DELIVERY_INTERNAL_EXPORT_KIND,
-    build_c8_catalog,
-    build_c8_delivery_bridge_bundle,
-    build_c8_delivery_bridge_program,
-    compile_c8_delivery_bridge_program,
+    build_knowledge_catalog,
+    build_knowledge_delivery_bridge_bundle,
+    build_knowledge_delivery_bridge_program,
+    compile_knowledge_delivery_bridge_program,
 )
 from app.successor_runtime.capabilities.checksum import canonical_json, content_digest
 from app.successor_runtime.capabilities.first_specimen import (
@@ -318,7 +318,7 @@ def _install_control_facts(
         runtime_protocol_version="1",
         started_at=NOW - timedelta(minutes=1),
     )
-    capability_id = "report.c8.3.v1"
+    capability_id = "knowledge.report.v2"
     operation_kinds = tuple(
         entry.interpreter_binding.operation_contract_digest
         for entry in activation_catalog.entries
@@ -342,7 +342,7 @@ def _install_control_facts(
     )
     connection.execute(
         sa.insert(PUBLIC_TABLES["runtime_resource_policies"]).values(
-            resource_policy_id="policy:report.c8.3.v1",
+            resource_policy_id="policy:knowledge.report.v2",
             project_key=PROJECT_KEY,
             capability_id=capability_id,
             resource_class=ResourceClass.CPU_LIGHT.value,
@@ -366,10 +366,10 @@ def _install_control_facts(
                 operation_kinds=tuple(
                     item
                     for item in (
-                        C8_3_KIND,
-                        C8_VERIFY_KIND,
-                        C8_ADMISSION_KIND,
-                        C8_DELIVERY_INTENT_PREPARE_KIND,
+                        KNOWLEDGE_REPORT_KIND,
+                        KNOWLEDGE_VERIFY_KIND,
+                        KNOWLEDGE_ADMISSION_KIND,
+                        KNOWLEDGE_DELIVERY_INTENT_PREPARE_KIND,
                         DELIVERY_INTERNAL_EXPORT_KIND,
                     )
                 ),
@@ -421,9 +421,9 @@ def _runtime_program():
     first = build_first_specimen_bundle()
     delivery_op = first.operation_by_kind(DELIVERY_INTERNAL_EXPORT_KIND)
     delivery_codec = first.codec_by_kind(DELIVERY_INTERNAL_EXPORT_KIND)
-    bundle = build_c8_delivery_bridge_bundle(delivery_op, delivery_codec)
-    catalog = build_c8_catalog(bundle)
-    stage_payload = c8p.C8ReportStageInput(
+    bundle = build_knowledge_delivery_bridge_bundle(delivery_op, delivery_codec)
+    catalog = build_knowledge_catalog(bundle)
+    stage_payload = c8p.KnowledgeReportStageInput(
         project_key=PROJECT_KEY,
         report_id="report:c8-runtime",
         topic="runtime delivery",
@@ -431,7 +431,7 @@ def _runtime_program():
     )
     program_id = "program:c8-runtime"
     program = normalize_program(
-        build_c8_delivery_bridge_program(
+        build_knowledge_delivery_bridge_program(
             delivery_operation=delivery_op,
             delivery_codec=delivery_codec,
             delivery_payload_ref=_ref(
@@ -445,14 +445,14 @@ def _runtime_program():
                 program_id=program_id,
                 project_key=PROJECT_KEY,
                 suffix="research-artifact",
-                object_type=C8_RESEARCH_ARTIFACT_TYPE,
+                object_type=KNOWLEDGE_RESEARCH_ARTIFACT_TYPE,
                 codec_id=CANONICAL_CODEC_ID,
             ),
             intent_input_ref=_ref(
                 program_id=program_id,
                 project_key=PROJECT_KEY,
                 suffix="delivery-intent",
-                object_type=C8_DELIVERY_INTENT_TYPE,
+                object_type=KNOWLEDGE_DELIVERY_INTENT_TYPE,
                 codec_id=CANONICAL_CODEC_ID,
             ),
             stage_payload=stage_payload,
@@ -463,23 +463,23 @@ def _runtime_program():
             project_scope_digest=PROJECT_SCOPE_DIGEST,
         )
     )
-    plan = compile_c8_delivery_bridge_program(
+    plan = compile_knowledge_delivery_bridge_program(
         program,
         catalog,
         operation_contracts=OperationContractRegistry(catalog, bundle.operations),
     )
     eligibility = QueueEligibility(
         project_key=PROJECT_KEY,
-        capability_id="report.c8.3.v1",
+        capability_id="knowledge.report.v2",
         resource_class=ResourceClass.CPU_LIGHT,
         units=1,
         policy_epoch=RESOURCE_POLICY_EPOCH,
         policy_digest=RESOURCE_POLICY_DIGEST,
-        concurrency_key="report.c8.3.v1",
+        concurrency_key="knowledge.report.v2",
     )
     activation = build_c8_delivery_activation_catalog(
         plan,
-        interpreter_profile_digest=bundle.profiles["C8.3"][
+        interpreter_profile_digest=bundle.profiles["knowledge.report.v2"][
             "interpreter"
         ].profile_digest,
         deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
@@ -499,7 +499,7 @@ def _bootstrap_runtime(
     scope: RuntimeScope,
     *,
     catalog: object,
-    stage_payload: c8p.C8ReportStageInput,
+    stage_payload: c8p.KnowledgeReportStageInput,
     program: object,
     plan: object,
     activation: FirstSpecimenActivationCatalog,
@@ -507,7 +507,7 @@ def _bootstrap_runtime(
     run_id = "run:c8-runtime"
     run_incarnation = "run-inc:c8-runtime"
     compiler = CompilerBinding.from_content(
-        compiler_id="mrw.c8.delivery.compiler",
+        compiler_id="mrw.knowledge.report.delivery.compiler",
         compiler_version="1.0.0",
         compiler_digest=_digest("c8-delivery-compiler"),
         operation_catalog_digest=catalog.catalog_digest,
@@ -519,7 +519,7 @@ def _bootstrap_runtime(
         assignment_kind=AssignmentKind.COMPILE,
         project_key=PROJECT_KEY,
         run_id=run_id,
-        capability_id="mrw.c8.compile",
+        capability_id="knowledge.report.compile.v2",
         handler_binding_kind=HandlerBindingKind.COMPILER,
         handler_binding_ref=f"handler-binding:sha256:{compiler.binding_digest}",
         handler_binding_digest=compiler.binding_digest,
@@ -537,11 +537,11 @@ def _bootstrap_runtime(
         trace_id="trace:c8:compile",
     )
     atoms = {item.operation.operation_id: item for item in _atoms(program.root)}
-    stage_ref = atoms["c8.report.stage"].operation.payload_ref
+    stage_ref = atoms["knowledge.report.stage"].operation.payload_ref
     stage_exact = canonical_json(dataclasses.asdict(stage_payload)).encode("utf-8")
     assert hashlib.sha256(stage_exact).hexdigest() == stage_ref.content_digest
     stage_provenance = {
-        "schema": "mrw.successor.c8.c8-3.payload-provenance.v1",
+        "schema": "mrw.knowledge.report-stage.payload-provenance.v2",
         "program_id": program.program_id,
         "project_key": PROJECT_KEY,
         "semantic_payload_digest": stage_payload.payload_digest,
@@ -616,7 +616,7 @@ def _bootstrap_runtime(
         )
         context = PostgresAuthorityProvider(connection, scope).current_context(
             scope.actor_id,
-            capability_id="report.c8.3.v1",
+            capability_id="knowledge.report.v2",
             canonical_base_revision=0,
             canonical_incarnation="c8-artifact-inc-1",
             now=NOW,
@@ -634,7 +634,7 @@ def _bootstrap_runtime(
             elif kind == DELIVERY_INTERNAL_EXPORT_KIND:
                 base_revision = 0
                 incarnation = "c8-delivery-receipt-inc-1"
-            elif kind == C8_ADMISSION_KIND:
+            elif kind == KNOWLEDGE_ADMISSION_KIND:
                 base_revision = 0
                 incarnation = "c8-artifact-inc-1"
             else:
@@ -647,7 +647,7 @@ def _bootstrap_runtime(
                     step_id=step.step_id,
                     operation_kind=kind,
                     operation_contract_digest=step.operation_contract_ref.contract_digest,
-                    capability_id="report.c8.3.v1",
+                    capability_id="knowledge.report.v2",
                     claim_owner="successor",
                     claim_authority_epoch=AUTHORITY_EPOCH,
                     claim_policy_digest=CLAIM_POLICY_DIGEST,
@@ -703,7 +703,7 @@ def _bootstrap_runtime(
             assignment_kind=AssignmentKind.QUALIFY,
             project_key=PROJECT_KEY,
             run_id=run_id,
-            capability_id="mrw.c8.qualify",
+            capability_id="knowledge.report.qualify.v2",
             handler_binding_kind="QUALIFICATION",
             handler_binding_ref=(
                 f"handler-binding:sha256:{qualification_handler.binding_digest}"
@@ -845,7 +845,7 @@ def _stage_runtime_draft(engine: Engine, scope: RuntimeScope, plan: object) -> N
         for step in plan.ordered_steps
         if step.step_kind == "EFFECT"
         and step.operation_contract_ref is not None
-        and step.operation_contract_ref.kind == C8_3_KIND
+        and step.operation_contract_ref.kind == KNOWLEDGE_REPORT_KIND
     )
     with engine.begin() as connection:
         stage_artifact(
@@ -865,15 +865,15 @@ def test_delivery_bridge_program_and_catalog_bind_exact_shared_contract(
     first = build_first_specimen_bundle()
     delivery_op = first.operation_by_kind(DELIVERY_INTERNAL_EXPORT_KIND)
     delivery_codec = first.codec_by_kind(DELIVERY_INTERNAL_EXPORT_KIND)
-    bundle = build_c8_delivery_bridge_bundle(delivery_op, delivery_codec)
-    catalog = build_c8_catalog(bundle)
-    stage_payload = c8p.C8ReportStageInput(
+    bundle = build_knowledge_delivery_bridge_bundle(delivery_op, delivery_codec)
+    catalog = build_knowledge_catalog(bundle)
+    stage_payload = c8p.KnowledgeReportStageInput(
         project_key=PROJECT_KEY,
         report_id="report:c8-delivery",
         topic="robotics",
         source_keys=("knowledge:1",),
     )
-    program = build_c8_delivery_bridge_program(
+    program = build_knowledge_delivery_bridge_program(
         delivery_operation=delivery_op,
         delivery_codec=delivery_codec,
         delivery_payload_ref=_ref(
@@ -887,14 +887,14 @@ def test_delivery_bridge_program_and_catalog_bind_exact_shared_contract(
             program_id="program:c8-delivery",
             project_key=PROJECT_KEY,
             suffix="research-artifact",
-            object_type=C8_RESEARCH_ARTIFACT_TYPE,
+            object_type=KNOWLEDGE_RESEARCH_ARTIFACT_TYPE,
             codec_id=CANONICAL_CODEC_ID,
         ),
         intent_input_ref=_ref(
             program_id="program:c8-delivery",
             project_key=PROJECT_KEY,
             suffix="delivery-intent",
-            object_type=C8_DELIVERY_INTENT_TYPE,
+            object_type=KNOWLEDGE_DELIVERY_INTENT_TYPE,
             codec_id=CANONICAL_CODEC_ID,
         ),
         stage_payload=stage_payload,
@@ -904,10 +904,10 @@ def test_delivery_bridge_program_and_catalog_bind_exact_shared_contract(
         project_registry_revision=1,
         project_scope_digest="0" * 64,
     )
-    plan = compile_c8_delivery_bridge_program(
+    plan = compile_knowledge_delivery_bridge_program(
         program,
         catalog,
-        operation_contracts=c8p.build_c8_registry(bundle),
+        operation_contracts=c8p.build_knowledge_registry(bundle),
     )
     kinds = tuple(
         step.operation_contract_ref.kind
@@ -916,10 +916,12 @@ def test_delivery_bridge_program_and_catalog_bind_exact_shared_contract(
     )
     assert DELIVERY_INTERNAL_EXPORT_KIND in kinds
     assert len(set(kinds)) == 5
-    profile_digest = bundle.profiles["C8.3"]["interpreter"].profile_digest
+    profile_digest = bundle.profiles["knowledge.report.v2"][
+        "interpreter"
+    ].profile_digest
     eligibility = QueueEligibility(
         project_key=PROJECT_KEY,
-        capability_id="report.c8.3.v1",
+        capability_id="knowledge.report.v2",
         resource_class=ResourceClass.CPU_LIGHT,
         units=1,
         policy_epoch=1,
@@ -946,7 +948,7 @@ def test_delivery_bridge_program_and_catalog_bind_exact_shared_contract(
         assert entry.recovery_binding.interpreter_profile_digest == (
             entry.interpreter_binding.interpreter_profile_digest
         )
-    assert program.input_type == C8_3_INPUT_TYPE
+    assert program.input_type == KNOWLEDGE_REPORT_INPUT_TYPE
     assembly = build_postgres_c8_delivery_assembly(
         engine=disposable_database,
         bundle=bundle,
@@ -1167,7 +1169,7 @@ def test_c8_delivery_bridge_runs_through_gate_runtime_node_and_receipt_readback(
                 PUBLIC_TABLES["runtime_capability_authority"].c.project_key
                 == PROJECT_KEY,
                 PUBLIC_TABLES["runtime_capability_authority"].c.capability_id
-                == "report.c8.3.v1",
+                == "knowledge.report.v2",
             )
             .values(
                 successor_claim_enabled=False,

@@ -1,0 +1,92 @@
+from __future__ import annotations
+
+from typing import Any, Literal, Protocol, get_args
+
+from ..crawlers.base import CrawlerDispatchRequest, CrawlerDispatchResult
+
+
+CrawlerProviderResolutionCode = Literal[
+    "resolver_not_configured",
+    "provider_unavailable",
+    "provider_unsupported",
+]
+_CRAWLER_PROVIDER_RESOLUTION_CODES = frozenset(
+    get_args(CrawlerProviderResolutionCode)
+)
+
+
+def normalize_crawler_provider_type(provider_type: str) -> str:
+    return str(provider_type or "").strip().lower()
+
+
+class CrawlerProviderResolutionError(RuntimeError):
+    def __init__(
+        self,
+        code: CrawlerProviderResolutionCode,
+        provider_type: str,
+        message: str,
+    ) -> None:
+        if code not in _CRAWLER_PROVIDER_RESOLUTION_CODES:
+            # kit:boundary owner=source_library.crawler_provider_resolution class=PROGRAMMER_DEFECT failure_family=source_library.crawler_provider_resolution.failure witness=test:test_FAILURE_PRESERVED__crawler_resolution_error_rejects_unknown_code  # noqa: E501
+            raise ValueError(f"unknown crawler provider resolution code: {code}")  # noqa: TRY003
+        self.code = code
+        self.provider_type = normalize_crawler_provider_type(provider_type)
+        super().__init__(message)
+
+
+class CrawlerProvider(Protocol):
+    provider_type: str
+
+    def dispatch(self, request: CrawlerDispatchRequest) -> CrawlerDispatchResult:
+        ...
+
+
+class CrawlerProviderResolver(Protocol):
+    def resolve(
+        self,
+        provider_type: str,
+        *,
+        channel: dict[str, Any],
+        params: dict[str, Any],
+    ) -> CrawlerProvider:
+        ...
+
+
+_CRAWLER_PROVIDER_RESOLVER: CrawlerProviderResolver | None = None
+
+
+def set_crawler_provider_resolver(resolver: CrawlerProviderResolver | None) -> None:
+    global _CRAWLER_PROVIDER_RESOLVER
+    _CRAWLER_PROVIDER_RESOLVER = resolver
+
+
+def resolve_crawler_provider(
+    provider_type: str,
+    *,
+    channel: dict[str, Any],
+    params: dict[str, Any],
+) -> CrawlerProvider:
+    normalized_provider_type = normalize_crawler_provider_type(provider_type)
+    if _CRAWLER_PROVIDER_RESOLVER is None:
+        # kit:boundary owner=source_library.crawler_provider_resolution class=SHELL_BOUNDARY_EXCEPTION failure_family=source_library.crawler_provider_resolution.failure witness=test:test_FAILURE_PRESERVED__unconfigured_crawler_resolver_fails_closed  # noqa: E501
+        raise CrawlerProviderResolutionError(
+            "resolver_not_configured",
+            normalized_provider_type,
+            "crawler provider resolver is not configured",
+        )
+    return _CRAWLER_PROVIDER_RESOLVER.resolve(
+        normalized_provider_type,
+        channel=channel,
+        params=params,
+    )
+
+
+__all__ = [
+    "CrawlerProvider",
+    "CrawlerProviderResolver",
+    "CrawlerProviderResolutionCode",
+    "CrawlerProviderResolutionError",
+    "normalize_crawler_provider_type",
+    "resolve_crawler_provider",
+    "set_crawler_provider_resolver",
+]

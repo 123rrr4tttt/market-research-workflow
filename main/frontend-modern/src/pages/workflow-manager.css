@@ -1,0 +1,337 @@
+/* WorkflowManager-specific surface. Graph workspace visuals come from index.css. */
+
+.workflow-manager-page {
+  min-width: 0;
+  padding: 16px;
+  color: #17233a;
+  background: #f6f8fb;
+}
+
+.workflow-manager-page .gv2-main {
+  padding: 12px;
+  overflow: hidden;
+  border: 1px solid #dbe6f5;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 28px -22px rgba(15, 23, 42, 0.28);
+}
+
+.workflow-manager-page .gv2-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  border: 1px solid #dbe6f5;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.workflow-manager-page .gv2-head > div:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.workflow-manager-page .gv2-head > div:first-child strong {
+  overflow: hidden;
+  color: #17233a;
+  font-size: 15px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.workflow-manager-page .wm-head-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex: none;
+}
+
+.workflow-manager-page .wm-head-right span {
+  padding: 4px 8px;
+  border: 1px solid #dbe6f5;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+}
+
+.workflow-manager-page .wm-head-right .is-error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.workflow-manager-page .wm-field-label {
+  color: #52627b;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.workflow-manager-page .wm-field-hint {
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.workflow-manager-page .wm-input,
+.workflow-manager-page .wm-textarea,
+.workflow-manager-page .wm-select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid #c6d6ec;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #17233a;
+  font-size: 12px;
+}
+
+.workflow-manager-page .wm-textarea {
+  min-height: 68px;
+  resize: vertical;
+}
+
+.workflow-manager-page .wm-input:focus,
+.workflow-manager-page .wm-textarea:focus,
+.workflow-manager-page .wm-select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
+}
+
+.workflow-manager-page .wm-input--mono,
+.workflow-manager-page .wm-textarea--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+}
+
+.workflow-manager-page .wm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 31px;
+  padding: 7px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.workflow-manager-page .wm-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.workflow-manager-page .wm-btn--primary {
+  background: #2563eb;
+  color: #fff;
+}
+
+.workflow-manager-page .wm-btn--primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.workflow-manager-page .secondary {
+  border: 1px solid #c6d6ec;
+  border-radius: 7px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.workflow-manager-page .secondary:hover {
+  background: #f1f5f9;
+}
+
+.workflow-manager-page .wm-feedback {
+  display: flex;
+  gap: 7px;
+  padding: 8px 9px;
+  border-radius: 7px;
+  color: #334155;
+  font-size: 11.5px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.workflow-manager-page .wm-feedback--ok {
+  border: 1px solid #a7f3d0;
+  background: #ecfdf5;
+  color: #166534;
+}
+
+.workflow-manager-page .wm-feedback--err {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.workflow-manager-page .wm-catalog-list {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  max-height: 175px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.workflow-manager-page .wm-catalog-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #334155;
+  cursor: pointer;
+  text-align: left;
+}
+
+.workflow-manager-page .wm-catalog-item:hover {
+  background: #f1f5f9;
+}
+
+.workflow-manager-page .wm-catalog-item.is-selected {
+  border-color: #c7d9f7;
+  background: #eef4ff;
+}
+
+.workflow-manager-page .wm-catalog-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  color: #17233a;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.workflow-manager-page .wm-catalog-item.is-selected .wm-catalog-label {
+  color: #1d4ed8;
+  font-weight: 650;
+}
+
+.workflow-manager-page .wm-catalog-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.workflow-manager-page .wm-catalog-id {
+  overflow: hidden;
+  color: #94a3b8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.workflow-manager-page .wm-catalog-empty,
+.workflow-manager-page .wm-graph-hit-hint {
+  padding: 5px 3px;
+  color: #64748b;
+  font-size: 11.5px;
+}
+
+.workflow-manager-page .wm-context-close {
+  width: fit-content;
+  padding: 5px 9px;
+}
+
+/* The graph component expects this positioned host; index.css styles its children. */
+.workflow-manager-page .gv2-floating-toolbar-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.workflow-manager-page .gv2-floating-toolbar-layer > * {
+  pointer-events: auto;
+}
+
+.workflow-manager-page .gv2-node-context {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.workflow-manager-page .gv2-node-context > strong {
+  overflow-wrap: anywhere;
+  color: #1d4ed8;
+  font-size: 12px;
+}
+
+.workflow-manager-page .gv2-node-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.workflow-manager-page .gv2-node-tags span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 3px 7px;
+  border: 1px solid #dbe6f5;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 10.5px;
+}
+
+.workflow-manager-page .gv2-macro-stats {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.workflow-manager-page .gv2-macro-stat {
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid #dbe6f5;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.workflow-manager-page .gv2-macro-stat span {
+  display: block;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 10.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.workflow-manager-page .gv2-macro-stat strong {
+  display: block;
+  overflow: hidden;
+  color: #17233a;
+  font-size: 15px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 1120px) {
+  .workflow-manager-page .gv2-macro-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .workflow-manager-page {
+    padding: 10px;
+  }
+
+  .workflow-manager-page .gv2-macro-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

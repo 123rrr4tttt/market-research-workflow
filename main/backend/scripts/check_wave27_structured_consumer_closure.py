@@ -106,7 +106,7 @@ def _build_endpoint_projection_gate(root: Path) -> dict[str, Any]:
     structured_envelope = build_structured_data_search_document_query_envelope(
         project_key="demo_proj",
         query="robotics",
-        datasets_requested=("documents", "market_stats"),
+        datasets_requested=("documents",),
         limit=8,
         query_mode="search",
         total_matches=1,

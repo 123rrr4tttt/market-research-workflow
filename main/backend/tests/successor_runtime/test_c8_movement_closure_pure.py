@@ -23,17 +23,17 @@ def _return_metadata(function):
     assert function.__name__ in inspect.getsource(function)
     return metadata
 from app.successor_migration.legacy_c8_writing import LegacyC8WritingAdapter
-from app.successor_runtime.capabilities import c8_common as c8
-from app.successor_runtime.capabilities import c8_consumer
-from app.successor_runtime.capabilities.c8_consumer import (
+from app.successor_runtime.capabilities import knowledge_common as knowledge
+from app.successor_runtime.capabilities import knowledge_consumer
+from app.successor_runtime.capabilities.knowledge_consumer import (
     consume_graph_projection_test_only,
 )
-from app.successor_runtime.capabilities.c8_graph import (
+from app.successor_runtime.capabilities.knowledge_graph_projection import (
     project_graph_occurrences,
     project_graph_occurrences_test_only,
 )
-from app.successor_runtime.capabilities.c8_report import (
-    build_c8_research_artifact_candidate,
+from app.successor_runtime.capabilities.knowledge_report import (
+    build_knowledge_research_artifact_candidate,
     build_report_admission_intent_v2,
     build_report_delivery_intent_v2,
     build_report_stage,
@@ -43,17 +43,17 @@ from app.successor_runtime.capabilities.c8_report import (
     research_artifact_from_candidate,
     verify_report_stage,
 )
-from app.successor_runtime.capabilities.c8_test_interpreter import (
+from app.successor_runtime.capabilities.knowledge_test_interpreter import (
     TestOnlyLossProfileRegistry,
     TestOnlyMaterialIssuanceRegistry,
     TestOnlyVerifierRegistry,
 )
-from app.successor_runtime.capabilities.c8_typed_knowledge import (
+from app.successor_runtime.capabilities.typed_knowledge import (
     StrictReadHandleRegistry,
     strict_issued_demand_read,
     strict_issued_demand_read_test_only,
 )
-from app.successor_runtime.capabilities.c8_writing import (
+from app.successor_runtime.capabilities.knowledge_writing import (
     LEGACY_CARD_METADATA_LOSS,
     compose_markdown_draft,
     compose_markdown_draft_test_only,
@@ -62,13 +62,13 @@ from app.successor_runtime.research.artifacts import artifact_exact_ref
 
 from .p4_c8_fixture import PROJECT_KEY, legacy_item
 
-FORMATION_PROFILE = c8.FormationProfile(
+FORMATION_PROFILE = knowledge.FormationProfile(
     profile_id="mrw.c8.formation.structured-material.v1",
     profile_version="1",
 )
 
 
-def _material(**overrides: object) -> c8.CanonicalMaterialRead:
+def _material(**overrides: object) -> knowledge.CanonicalMaterialRead:
     payload = {
         "title": "Robotics Market",
         "text": "机器人产品市场证据",
@@ -84,17 +84,17 @@ def _material(**overrides: object) -> c8.CanonicalMaterialRead:
         "head_closure_digest": "0" * 64,
         "value_revision": 1,
         "value_incarnation": "value-1",
-        "value_digest": c8.c8_canonical_digest(payload),
+        "value_digest": knowledge.knowledge_canonical_digest(payload),
         "snapshot_ref": "c7-snapshot:001",
-        "provenance_digest": c8.c8_canonical_digest({"snapshot": "c7-snapshot:001"}),
+        "provenance_digest": knowledge.knowledge_canonical_digest({"snapshot": "c7-snapshot:001"}),
         "structured_payload": payload,
     }
     values.update(overrides)
-    return c8.CanonicalMaterialRead(**values)
+    return knowledge.CanonicalMaterialRead(**values)
 
 
-def _candidate(material: c8.CanonicalMaterialRead) -> c8.TypedKnowledgeCandidate:
-    return c8.form_typed_knowledge_candidate(
+def _candidate(material: knowledge.CanonicalMaterialRead) -> knowledge.TypedKnowledgeCandidate:
+    return knowledge.form_typed_knowledge_candidate(
         material,
         formation_profile=FORMATION_PROFILE,
         candidate_id="knowledge-candidate:001",
@@ -116,9 +116,9 @@ def _context() -> tuple:
 def _read(
     context: tuple,
     *,
-    material: c8.CanonicalMaterialRead | None = None,
-    candidate: c8.TypedKnowledgeCandidate | None = None,
-) -> c8.IssuedKnowledgeRead:
+    material: knowledge.CanonicalMaterialRead | None = None,
+    candidate: knowledge.TypedKnowledgeCandidate | None = None,
+) -> knowledge.IssuedKnowledgeRead:
     _issuance, witness, registry = context
     material = material or _material()
     candidate = candidate or _candidate(material)
@@ -132,11 +132,11 @@ def _read(
 
 
 def _citation(
-    read: c8.IssuedKnowledgeRead,
+    read: knowledge.IssuedKnowledgeRead,
     citation_id: str,
     position: int,
-) -> c8.CitationRef:
-    return c8.CitationRef(
+) -> knowledge.CitationRef:
+    return knowledge.CitationRef(
         citation_id=citation_id,
         source_identity=read.handle.canonical_identity,
         source_digest=read.handle.canonical_digest,
@@ -148,8 +148,8 @@ def _citation(
     )
 
 
-def _spec(citation_ceiling: int = 2) -> c8.WritingCompositionSpec:
-    return c8.WritingCompositionSpec(
+def _spec(citation_ceiling: int = 2) -> knowledge.WritingCompositionSpec:
+    return knowledge.WritingCompositionSpec(
         project_key=PROJECT_KEY,
         base_revision=1,
         base_incarnation="value-1",
@@ -167,16 +167,16 @@ def test_strict_issued_demand_read_is_field_bounded() -> None:
 
 
 def test_read_handle_canonical_read_metadata() -> None:
-    assert _return_metadata(c8.build_read_handle) == (
+    assert _return_metadata(knowledge.build_read_handle) == (
         "kit:canonical-read canonical_owner=c8_common.CanonicalRef "
         "witness=test:test_read_handle_canonical_read_metadata"
     )
 
-    handle = c8.build_read_handle(
+    handle = knowledge.build_read_handle(
         domain="graph",
         object_key="knowledge-candidate:001",
         project_key=PROJECT_KEY,
-        canonical_ref=c8.CanonicalRef(
+        canonical_ref=knowledge.CanonicalRef(
             identity="material:p4-c8:001",
             content_digest="0" * 64,
             revision=1,
@@ -184,7 +184,7 @@ def test_read_handle_canonical_read_metadata() -> None:
         ),
         field_mask=("canonical_statement", "evidence_refs"),
     )
-    assert isinstance(handle, c8.ReadHandle)
+    assert isinstance(handle, knowledge.ReadHandle)
     assert handle.canonical_identity == "material:p4-c8:001"
     assert handle.canonical_digest == "0" * 64
 
@@ -203,11 +203,11 @@ def test_forged_handle_is_rejected() -> None:
         other_context[2],
         fields=("canonical_statement",),
     ).handle
-    with pytest.raises(c8.UnavailableProjection, match="forged"):
+    with pytest.raises(knowledge.UnavailableProjection, match="forged"):
         registry.resolve(forged, material=material, candidate=candidate)
-    with pytest.raises(c8.C8ProjectionError, match="digest mismatch"):
+    with pytest.raises(knowledge.KnowledgeProjectionError, match="digest mismatch"):
         dataclasses.replace(read.handle, handle_id="0" * 64)
-    with pytest.raises(c8.C8ProjectionError, match="digest mismatch"):
+    with pytest.raises(knowledge.KnowledgeProjectionError, match="digest mismatch"):
         dataclasses.replace(
             read,
             fields={"canonical_statement": "tampered"},
@@ -215,7 +215,7 @@ def test_forged_handle_is_rejected() -> None:
 
 
 def test_c8_research_artifact_candidate_prepared_command_metadata() -> None:
-    assert _return_metadata(build_c8_research_artifact_candidate) == (
+    assert _return_metadata(build_knowledge_research_artifact_candidate) == (
         "kit:prepared-command "
         "effect_boundary=c8_report.research_artifact_from_candidate "
         "witness=test:test_c8_research_artifact_candidate_prepared_command_metadata"
@@ -228,7 +228,7 @@ def test_material_registration_requires_exact_entry_and_capability() -> None:
     material = _material()
     candidate = _candidate(material)
     unregistered = _material(material_identity="material:unregistered")
-    with pytest.raises(c8.UnavailableProjection, match="not an issued exact registry"):
+    with pytest.raises(knowledge.UnavailableProjection, match="not an issued exact registry"):
         registry.issue(
             material=unregistered,
             witness=context[1],
@@ -238,7 +238,7 @@ def test_material_registration_requires_exact_entry_and_capability() -> None:
             fields=("canonical_statement",),
         )
     issuance = context[0]
-    with pytest.raises(c8.C8ProjectionError, match="not authentic"):
+    with pytest.raises(knowledge.KnowledgeProjectionError, match="not authentic"):
         issuance.register(
             material,
             _FakeCapability(_secret=object()),
@@ -267,7 +267,7 @@ def test_stale_aba_project_and_head_drift_are_rejected() -> None:
         value_revision=2,
         attestation_digest="",
     )
-    with pytest.raises(c8.UnavailableProjection, match="drifted"):
+    with pytest.raises(knowledge.UnavailableProjection, match="drifted"):
         registry.resolve(
             read.handle,
             material=stale_material,
@@ -279,7 +279,7 @@ def test_stale_aba_project_and_head_drift_are_rejected() -> None:
         value_incarnation="value-2",
         attestation_digest="",
     )
-    with pytest.raises(c8.UnavailableProjection, match="drifted"):
+    with pytest.raises(knowledge.UnavailableProjection, match="drifted"):
         registry.resolve(
             read.handle,
             material=aba_material,
@@ -294,7 +294,7 @@ def test_stale_aba_project_and_head_drift_are_rejected() -> None:
         project_key="other-project",
         attestation_digest="",
     )
-    with pytest.raises(c8.UnavailableProjection, match="drifted"):
+    with pytest.raises(knowledge.UnavailableProjection, match="drifted"):
         registry.resolve(
             read.handle,
             material=project_material,
@@ -305,7 +305,7 @@ def test_stale_aba_project_and_head_drift_are_rejected() -> None:
         head_revision=2,
         attestation_digest="",
     )
-    with pytest.raises(c8.UnavailableProjection, match="drifted"):
+    with pytest.raises(knowledge.UnavailableProjection, match="drifted"):
         registry.resolve(
             read.handle,
             material=head_drift,
@@ -318,14 +318,14 @@ def test_issued_read_fields_are_immutable_and_read_digest_full() -> None:
     with pytest.raises(TypeError):
         read.fields["canonical_statement"] = "tampered"
     mutable = dict(read.fields)
-    constructed = c8.IssuedKnowledgeRead(
+    constructed = knowledge.IssuedKnowledgeRead(
         handle=read.handle,
         candidate=read.candidate,
         fields=mutable,
     )
     mutable["canonical_statement"] = "tampered"
     assert constructed.fields["canonical_statement"] == "机器人产品市场证据"
-    expected_digest = c8.c8_canonical_digest(
+    expected_digest = knowledge.knowledge_canonical_digest(
         {
             "handle_id": constructed.handle.handle_id,
             "candidate_digest": constructed.candidate.candidate_digest,
@@ -339,20 +339,20 @@ def test_issued_read_fields_are_immutable_and_read_digest_full() -> None:
 
 def test_deep_freeze_rejects_unsupported_and_non_string_keys() -> None:
     with pytest.raises(TypeError, match="string mapping keys"):
-        c8.c8_canonical_digest({1: "value"})
+        knowledge.knowledge_canonical_digest({1: "value"})
     with pytest.raises(TypeError, match="finite"):
-        c8.c8_canonical_digest({"value": float("nan")})
+        knowledge.knowledge_canonical_digest({"value": float("nan")})
     with pytest.raises(TypeError, match="unsupported"):
-        c8.c8_canonical_digest({"value": {"nested": object()}})
+        knowledge.knowledge_canonical_digest({"value": {"nested": object()}})
 
 
 def test_material_payload_deep_freeze_and_value_digest_recompute() -> None:
     payload = {"nested": {"x": 1}, "items": [1, 2]}
-    material = c8.CanonicalMaterialRead(
+    material = knowledge.CanonicalMaterialRead(
         **{
             **_material_payload_values(),
             "structured_payload": payload,
-            "value_digest": c8.c8_canonical_digest(payload),
+            "value_digest": knowledge.knowledge_canonical_digest(payload),
         }
     )
     assert isinstance(material.structured_payload, MappingProxyType)
@@ -365,16 +365,16 @@ def test_material_payload_deep_freeze_and_value_digest_recompute() -> None:
         material.structured_payload["nested"]["x"] = 99
     with pytest.raises(TypeError):
         material.structured_payload["items"][0] = 99
-    assert material.value_digest == c8.canonical_material_digest(material)
-    assert c8.validate_canonical_material(material) is material
-    with pytest.raises(c8.C8ProjectionError, match="value digest"):
+    assert material.value_digest == knowledge.canonical_material_digest(material)
+    assert knowledge.validate_canonical_material(material) is material
+    with pytest.raises(knowledge.KnowledgeProjectionError, match="value digest"):
         dataclasses.replace(
             material,
             value_digest="1" * 64,
             attestation_digest="",
         )
     with pytest.raises(TypeError, match="string mapping keys"):
-        c8.CanonicalMaterialRead(
+        knowledge.CanonicalMaterialRead(
             **{
                 **_material_payload_values(),
                 "structured_payload": {1: "x"},
@@ -382,7 +382,7 @@ def test_material_payload_deep_freeze_and_value_digest_recompute() -> None:
             }
         )
     with pytest.raises(TypeError, match="finite"):
-        c8.CanonicalMaterialRead(
+        knowledge.CanonicalMaterialRead(
             **{
                 **_material_payload_values(),
                 "structured_payload": {"v": float("inf")},
@@ -390,7 +390,7 @@ def test_material_payload_deep_freeze_and_value_digest_recompute() -> None:
             }
         )
     with pytest.raises(TypeError, match="unsupported"):
-        c8.CanonicalMaterialRead(
+        knowledge.CanonicalMaterialRead(
             **{
                 **_material_payload_values(),
                 "structured_payload": {"v": object()},
@@ -411,7 +411,7 @@ def _material_payload_values() -> dict[str, object]:
         "value_revision": 1,
         "value_incarnation": "value-1",
         "snapshot_ref": "c7-snapshot:001",
-        "provenance_digest": c8.c8_canonical_digest({"snapshot": "c7-snapshot:001"}),
+        "provenance_digest": knowledge.knowledge_canonical_digest({"snapshot": "c7-snapshot:001"}),
     }
 
 
@@ -423,38 +423,38 @@ def test_registry_no_overwrite_and_duplicate_idempotency() -> None:
     second = issuance.register(material, capability)
     assert first is second
     other = dataclasses.replace(material, value_revision=2, attestation_digest="")
-    with pytest.raises(c8.C8ProjectionError, match="rebinding"):
+    with pytest.raises(knowledge.KnowledgeProjectionError, match="rebinding"):
         issuance.register(other, capability)
 
 
 def test_citation_order_removal_duplicate_and_conflict() -> None:
     refs = (
-        c8.CitationRef("c:1", "source:1", "0" * 64, 1),
-        c8.CitationRef("c:2", "source:2", "0" * 64, 2),
-        c8.CitationRef("c:1", "source:1", "0" * 64, 3),
+        knowledge.CitationRef("c:1", "source:1", "0" * 64, 1),
+        knowledge.CitationRef("c:2", "source:2", "0" * 64, 2),
+        knowledge.CitationRef("c:1", "source:1", "0" * 64, 3),
     )
-    with pytest.raises(c8.C8ProjectionError, match="duplicate citation"):
-        c8.validate_citation_closure(c8.CitationClosure(refs))
-    collapsed, dropped = c8.collapse_duplicate_citations(c8.CitationClosure(refs))
+    with pytest.raises(knowledge.KnowledgeProjectionError, match="duplicate citation"):
+        knowledge.validate_citation_closure(knowledge.CitationClosure(refs))
+    collapsed, dropped = knowledge.collapse_duplicate_citations(knowledge.CitationClosure(refs))
     assert [ref.citation_id for ref in collapsed.refs] == ["c:1", "c:2"]
     assert dropped == ("c:1",)
     bad_order = (
-        c8.CitationRef("c:1", "source:1", "0" * 64, 2),
-        c8.CitationRef("c:2", "source:2", "0" * 64, 3),
+        knowledge.CitationRef("c:1", "source:1", "0" * 64, 2),
+        knowledge.CitationRef("c:2", "source:2", "0" * 64, 3),
     )
-    with pytest.raises(c8.C8ProjectionError, match="contiguous"):
-        c8.validate_citation_closure(c8.CitationClosure(bad_order))
+    with pytest.raises(knowledge.KnowledgeProjectionError, match="contiguous"):
+        knowledge.validate_citation_closure(knowledge.CitationClosure(bad_order))
     conflicting = (
-        c8.CitationRef("c:1", "source:1", "0" * 64, 1),
-        c8.CitationRef("c:1", "source:other", "0" * 64, 2),
+        knowledge.CitationRef("c:1", "source:1", "0" * 64, 1),
+        knowledge.CitationRef("c:1", "source:other", "0" * 64, 2),
     )
-    with pytest.raises(c8.C8ProjectionError, match="conflicting citation"):
-        c8.validate_citation_closure(c8.CitationClosure(conflicting))
+    with pytest.raises(knowledge.KnowledgeProjectionError, match="conflicting citation"):
+        knowledge.validate_citation_closure(knowledge.CitationClosure(conflicting))
 
 
 def test_markdown_draft_preserves_citations_and_declares_legacy_loss() -> None:
     read = _read(_context())
-    closure = c8.CitationClosure(
+    closure = knowledge.CitationClosure(
         (
             _citation(read, "ev:1", 1),
             _citation(read, "ev:2", 2),
@@ -466,7 +466,7 @@ def test_markdown_draft_preserves_citations_and_declares_legacy_loss() -> None:
         citation_closure=closure,
         spec=_spec(),
     )
-    assert artifact.artifact_digest == c8.research_draft_artifact_digest(artifact)
+    assert artifact.artifact_digest == knowledge.research_draft_artifact_digest(artifact)
     assert b"1. ev:1 (material:p4-c8:001)" in artifact.markdown_bytes
     assert artifact.provenance_closure[0].identity == "material:p4-c8:001"
     assert artifact.provenance_closure[0].fields_digest == read.handle.fields_digest
@@ -489,9 +489,9 @@ def test_citation_must_bind_exact_issued_read() -> None:
         other_registry,
         fields=("canonical_statement", "evidence_refs"),
     )
-    closure = c8.CitationClosure(
+    closure = knowledge.CitationClosure(
         (
-            c8.CitationRef(
+            knowledge.CitationRef(
                 citation_id="ev:1",
                 source_identity=other_read.handle.canonical_identity,
                 source_digest=other_read.handle.canonical_digest,
@@ -504,7 +504,7 @@ def test_citation_must_bind_exact_issued_read() -> None:
             _citation(read, "ev:2", 2),
         )
     )
-    with pytest.raises(c8.UnavailableProjection, match="not an issued read"):
+    with pytest.raises(knowledge.UnavailableProjection, match="not an issued read"):
         compose_markdown_draft_test_only(
             artifact_id="draft:bad",
             reads=(read,),
@@ -515,13 +515,13 @@ def test_citation_must_bind_exact_issued_read() -> None:
 
 def test_production_writing_rejects_test_only_read() -> None:
     read = _read(_context())
-    closure = c8.CitationClosure((_citation(read, "ev:1", 1),))
-    with pytest.raises(c8.UnavailableProjection, match="TEST_ONLY"):
+    closure = knowledge.CitationClosure((_citation(read, "ev:1", 1),))
+    with pytest.raises(knowledge.UnavailableProjection, match="TEST_ONLY"):
         compose_markdown_draft(
             artifact_id="draft:prod",
             reads=(read,),
             citation_closure=closure,
-            spec=c8.WritingCompositionSpec(
+            spec=knowledge.WritingCompositionSpec(
                 project_key=PROJECT_KEY,
                 base_revision=1,
                 base_incarnation="value-1",
@@ -533,7 +533,7 @@ def test_production_writing_rejects_test_only_read() -> None:
 
 def test_report_authority_separation_and_state_variants() -> None:
     read = _read(_context())
-    closure = c8.CitationClosure(
+    closure = knowledge.CitationClosure(
         (
             _citation(read, "ev:1", 1),
             _citation(read, "ev:2", 2),
@@ -580,20 +580,20 @@ def test_report_authority_separation_and_state_variants() -> None:
         approval_epoch=1,
     )
     assert delivery.state == "APPROVED"
-    with pytest.raises(c8.UnavailableProjection, match="external delivery"):
+    with pytest.raises(knowledge.UnavailableProjection, match="external delivery"):
         build_report_delivery_intent_v2(
             preparation,
             approval_digest="0" * 64,
             approval_epoch=1,
             external=True,
         )
-    with pytest.raises(c8.UnavailableProjection, match="approval digest"):
+    with pytest.raises(knowledge.UnavailableProjection, match="approval digest"):
         build_report_delivery_intent_v2(
             preparation,
             approval_digest="",
             approval_epoch=1,
         )
-    unverified = c8.ReportVerification(
+    unverified = knowledge.ReportVerification(
         verification_id="verification:unverified",
         stage_id=stage.stage_id,
         project_key=PROJECT_KEY,
@@ -602,7 +602,7 @@ def test_report_authority_separation_and_state_variants() -> None:
         state="UNVERIFIED",
         failure_reason="not verified",
     )
-    with pytest.raises(c8.UnavailableProjection, match="verified"):
+    with pytest.raises(knowledge.UnavailableProjection, match="verified"):
         build_report_admission_intent_v2(unverified)
 
 
@@ -613,8 +613,8 @@ def _occurrence(
     target: str = "target:1",
     position: int = 1,
     edge_type: str = "references",
-) -> c8.GraphOccurrence:
-    occurrence = c8.GraphOccurrence(
+) -> knowledge.GraphOccurrence:
+    occurrence = knowledge.GraphOccurrence(
         occurrence_id=occurrence_id,
         edge_type=edge_type,
         source_identity=source,
@@ -623,12 +623,12 @@ def _occurrence(
     )
     return dataclasses.replace(
         occurrence,
-        occurrence_digest=c8.graph_occurrence_digest(occurrence),
+        occurrence_digest=knowledge.graph_occurrence_digest(occurrence),
     )
 
 
 def _loss_context() -> tuple:
-    profile = c8.GraphLossProfile(
+    profile = knowledge.GraphLossProfile(
         profile_id="mrw.c8.graph-loss.v1",
         filter=("blocked",),
         truncation=("long",),
@@ -644,7 +644,7 @@ def _loss_context() -> tuple:
 
 def test_graph_occurrence_collision_and_loss_profile() -> None:
     profile, registry, witness = _loss_context()
-    with pytest.raises(c8.C8ProjectionError, match="collision"):
+    with pytest.raises(knowledge.KnowledgeProjectionError, match="collision"):
         project_graph_occurrences_test_only(
             generation_id="gen:1",
             project_key=PROJECT_KEY,
@@ -705,7 +705,7 @@ def test_consumer_preserves_provenance_and_never_synthesizes() -> None:
     assert result.provider_calls == 0
     assert result.store_writes == 0
     assert result.export_calls == 0
-    with pytest.raises(c8.C8ProjectionError, match="never creates claim"):
+    with pytest.raises(knowledge.KnowledgeProjectionError, match="never creates claim"):
         consume_graph_projection_test_only(
             consumer_id="consumer:1",
             projection=generation,
@@ -715,7 +715,7 @@ def test_consumer_preserves_provenance_and_never_synthesizes() -> None:
             active_provenance_digest="0" * 64,
             request_claim_support=True,
         )
-    with pytest.raises(c8.C8ProjectionError, match="stale graph generation"):
+    with pytest.raises(knowledge.KnowledgeProjectionError, match="stale graph generation"):
         consume_graph_projection_test_only(
             consumer_id="consumer:1",
             projection=generation,
@@ -742,8 +742,8 @@ def test_production_consumer_rejects_test_only_active_handle() -> None:
         offset="0",
         provenance_digest="0" * 64,
     )
-    with pytest.raises(c8.C8ProjectionError, match="TEST_ONLY"):
-        c8_consumer.consume_graph_projection(
+    with pytest.raises(knowledge.KnowledgeProjectionError, match="TEST_ONLY"):
+        knowledge_consumer.consume_graph_projection(
             consumer_id="consumer:1",
             projection=generation,
             project_key=PROJECT_KEY,
@@ -751,7 +751,7 @@ def test_production_consumer_rejects_test_only_active_handle() -> None:
         )
 
 
-class _ActiveReadHandle(c8.TestOnlySealedValue):
+class _ActiveReadHandle(knowledge.TestOnlySealedValue):
     def __init__(
         self, *, generation_id: str, offset: str, provenance_digest: str
     ) -> None:
@@ -764,7 +764,7 @@ def test_self_signed_material_verifier_and_loss_rejected_by_production() -> None
     context = _context()
     material = _material()
     candidate = _candidate(material)
-    with pytest.raises(c8.UnavailableProjection, match="TEST_ONLY"):
+    with pytest.raises(knowledge.UnavailableProjection, match="TEST_ONLY"):
         strict_issued_demand_read(
             material,
             context[1],
@@ -773,7 +773,7 @@ def test_self_signed_material_verifier_and_loss_rejected_by_production() -> None
             fields=("canonical_statement",),
         )
     read = _read(context)
-    closure = c8.CitationClosure(
+    closure = knowledge.CitationClosure(
         (
             _citation(read, "ev:1", 1),
             _citation(read, "ev:2", 2),
@@ -802,7 +802,7 @@ def test_self_signed_material_verifier_and_loss_rejected_by_production() -> None
         verifier_registry.authorize(),
     )
     stamped = verifier_registry.resolve(verification.verification_id)
-    with pytest.raises(c8.UnavailableProjection, match="TEST_ONLY"):
+    with pytest.raises(knowledge.UnavailableProjection, match="TEST_ONLY"):
         confirm_report_admission_readback(
             build_report_admission_intent_v2(stamped),
             witness=verification_witness,
@@ -810,7 +810,7 @@ def test_self_signed_material_verifier_and_loss_rejected_by_production() -> None
             verification=stamped,
         )
     profile, registry, witness = _loss_context()
-    with pytest.raises(c8.C8ProjectionError, match="TEST_ONLY"):
+    with pytest.raises(knowledge.KnowledgeProjectionError, match="TEST_ONLY"):
         project_graph_occurrences(
             generation_id="gen:1",
             project_key=PROJECT_KEY,
@@ -843,7 +843,7 @@ def test_legacy_card_metadata_loss_named_observation() -> None:
 
 def test_research_artifact_candidate_adapter_is_deterministic_and_closed() -> None:
     read = _read(_context())
-    closure = c8.CitationClosure(
+    closure = knowledge.CitationClosure(
         (
             _citation(read, "ev:1", 1),
             _citation(read, "ev:2", 2),
@@ -866,7 +866,7 @@ def test_research_artifact_candidate_adapter_is_deterministic_and_closed() -> No
         citation_closure=closure,
         artifact=draft,
     )
-    candidate = build_c8_research_artifact_candidate(
+    candidate = build_knowledge_research_artifact_candidate(
         candidate_id="artifact:001",
         draft=draft,
         verification=verification,
@@ -882,7 +882,7 @@ def test_research_artifact_candidate_adapter_is_deterministic_and_closed() -> No
     assert candidate.canonical_revision == 1
     assert candidate.canonical_incarnation == "research-artifact-1"
     assert candidate.payload_digest
-    second = build_c8_research_artifact_candidate(
+    second = build_knowledge_research_artifact_candidate(
         candidate_id="artifact:001",
         draft=draft,
         verification=verification,
@@ -895,11 +895,11 @@ def test_research_artifact_candidate_adapter_is_deterministic_and_closed() -> No
     assert artifact.format == "markdown"
     assert artifact_exact_ref(artifact)
 
-    with pytest.raises(c8.UnavailableProjection, match="verified"):
-        build_c8_research_artifact_candidate(
+    with pytest.raises(knowledge.UnavailableProjection, match="verified"):
+        build_knowledge_research_artifact_candidate(
             candidate_id="artifact:bad",
             draft=draft,
-            verification=c8.ReportVerification(
+            verification=knowledge.ReportVerification(
                 verification_id="v:unverified",
                 stage_id=stage.stage_id,
                 project_key=PROJECT_KEY,
@@ -911,11 +911,11 @@ def test_research_artifact_candidate_adapter_is_deterministic_and_closed() -> No
             markdown_digest="0" * 64,
             provenance_digest="0" * 64,
         )
-    with pytest.raises(c8.UnavailableProjection, match="stale"):
-        build_c8_research_artifact_candidate(
+    with pytest.raises(knowledge.UnavailableProjection, match="stale"):
+        build_knowledge_research_artifact_candidate(
             candidate_id="artifact:bad",
             draft=draft,
-            verification=c8.ReportVerification(
+            verification=knowledge.ReportVerification(
                 verification_id="v:stale",
                 stage_id="s:1",
                 project_key=PROJECT_KEY,
@@ -927,11 +927,11 @@ def test_research_artifact_candidate_adapter_is_deterministic_and_closed() -> No
             markdown_digest="0" * 64,
             provenance_digest="0" * 64,
         )
-    with pytest.raises(c8.UnavailableProjection, match="cross-project"):
-        build_c8_research_artifact_candidate(
+    with pytest.raises(knowledge.UnavailableProjection, match="cross-project"):
+        build_knowledge_research_artifact_candidate(
             candidate_id="artifact:bad",
             draft=draft,
-            verification=c8.ReportVerification(
+            verification=knowledge.ReportVerification(
                 verification_id="v:cross",
                 stage_id=stage.stage_id,
                 project_key="other-project",
@@ -943,8 +943,8 @@ def test_research_artifact_candidate_adapter_is_deterministic_and_closed() -> No
             markdown_digest="0" * 64,
             provenance_digest="0" * 64,
         )
-    with pytest.raises(c8.UnavailableProjection, match="TEST_ONLY"):
-        build_c8_research_artifact_candidate(
+    with pytest.raises(knowledge.UnavailableProjection, match="TEST_ONLY"):
+        build_knowledge_research_artifact_candidate(
             candidate_id="artifact:bad",
             draft=draft,
             verification=verification,

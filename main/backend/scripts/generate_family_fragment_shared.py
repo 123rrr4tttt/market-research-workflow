@@ -26,10 +26,9 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
 _FAMILY_MODULES = {
     "C2": "app.successor_runtime.specification.c2_p3",
-    "C3": "app.successor_runtime.specification.c3_p3",
+    "C3": "app.successor_runtime.specification.acquisition_batch_p3",
     "C4": "app.successor_runtime.specification.c4_p3",
     "C5": "app.successor_runtime.specification.c5_p3",
-    "C6": "app.successor_runtime.specification.c6_p3",
     "C7": "app.successor_runtime.specification.c7_p4",
     "C8": "app.successor_runtime.specification.c8_p4",
     "C9": "app.successor_runtime.specification.c9_p4",

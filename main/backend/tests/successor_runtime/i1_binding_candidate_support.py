@@ -368,8 +368,8 @@ def _checked_semantic_successor_registry() -> dict[str, Any]:
     return registry
 
 
-def _match_direct_successor(registry, cell_id, group, binding, actual):
-    """A direct declaration admits only its explicitly frozen cell and role."""
+def _match_historical_direct_successor(registry, cell_id, group, binding, actual):
+    """Read a frozen direct-successor declaration without granting current status."""
     matches = []
     for row in registry["successors"]:
         if (row.get("relation") != "C5_C6_I1_SHARED_EXACT_BINDING_SUCCESSOR"
@@ -391,6 +391,13 @@ def _match_direct_successor(registry, cell_id, group, binding, actual):
     return matches[0] if matches else None
 
 
+def _match_direct_successor(registry, cell_id, group, binding, actual):
+    """Resolve only the surviving C5.2 current identity from historical rows."""
+    if cell_id != "C5.2":
+        return None
+    return _match_historical_direct_successor(registry, cell_id, group, binding, actual)
+
+
 def direct_successor_binding_keys() -> set[tuple[str, str, str, str, str]]:
     registry = _checked_direct_successor_registry()
     return {
@@ -398,6 +405,7 @@ def direct_successor_binding_keys() -> set[tuple[str, str, str, str, str]]:
         for row in registry["successors"]
         if row.get("relation") == "C5_C6_I1_SHARED_EXACT_BINDING_SUCCESSOR"
         for cell in row["frozen_cell_sources"]
+        if cell["cell_id"] == "C5.2"
     }
 
 

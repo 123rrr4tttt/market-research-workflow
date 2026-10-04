@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from typing import Literal, get_args
 
-from functorial_kit import define_failure_family
-
+from functorial_kit import FailureFamily, define_failure_family
 
 C1CapabilityFailureCode = Literal[
     "C1_ACCEPTANCE_DIGEST_INVALID",
@@ -44,14 +43,14 @@ C2ProviderEffectFailureCode = Literal[
     "UNSUPPORTED_PROVIDER",
 ]
 
-C7IngestContractFailureCode = Literal[
+MaterialIngestContractFailureCode = Literal[
     "input_contract_invalid",
     "lookup_not_found",
     "program_binding_invalid",
     "stage_invalid",
 ]
 
-C7IngestRegistryFailureCode = Literal[
+MaterialIngestRegistryFailureCode = Literal[
     "backend_unavailable",
     "conflict",
     "credential_rejected",
@@ -93,7 +92,7 @@ C8ReportExportTokenStateFailureCode = Literal[
     "not_found",
 ]
 
-C9EvidenceSurfaceFailureCode = Literal[
+ProjectionEvidenceSurfaceFailureCode = Literal[
     "authority_contract_invalid",
     "evidence_integrity_invalid",
     "evidence_line_set_invalid",
@@ -101,6 +100,10 @@ C9EvidenceSurfaceFailureCode = Literal[
     "projection_input_invalid",
     "surface_contract_invalid",
 ]
+
+# Historical metadata readers retain this source-era type name without making
+# it the authority for current projection failures.
+C9EvidenceSurfaceFailureCode = ProjectionEvidenceSurfaceFailureCode
 
 CapabilityPrimitiveContractFailureCode = Literal[
     "codec_input_type_invalid",
@@ -153,41 +156,102 @@ SourceLibrarySingleSourceGuardFailureCode = Literal[
 ]
 
 
-c1_capability_failures = define_failure_family(
-    "c1.capability.failure",
-    get_args(C1CapabilityFailureCode),
-)
-c2_interpreter_failures = define_failure_family(
-    "c2.interpreter.failure",
+def read_historical_c1_capability_failure_family() -> FailureFamily:
+    """Read the retired C1 metadata without declaring a current failure family."""
+
+    return FailureFamily(
+        "c1.capability.failure",
+        get_args(C1CapabilityFailureCode),
+    )
+
+
+c1_capability_failures = read_historical_c1_capability_failure_family()
+source_runtime_binding_failures = define_failure_family(
+    "source.runtime-binding.failure",
     get_args(C2InterpreterFailureCode),
 )
-c2_provider_effect_failures = define_failure_family(
-    "c2.provider_effect.failure",
+source_provider_acquisition_failures = define_failure_family(
+    "source.provider-acquisition.failure",
     get_args(C2ProviderEffectFailureCode),
 )
-c7_ingest_contract_failures = define_failure_family(
-    "c7.ingest.contract_failure",
-    get_args(C7IngestContractFailureCode),
+material_ingest_contract_failures = define_failure_family(
+    "material.ingest.contract_failure",
+    get_args(MaterialIngestContractFailureCode),
 )
-c7_ingest_registry_failures = define_failure_family(
-    "c7.ingest_registry.failure",
-    get_args(C7IngestRegistryFailureCode),
+material_ingest_registry_failures = define_failure_family(
+    "material.ingest.registry_failure",
+    get_args(MaterialIngestRegistryFailureCode),
 )
-c8_contract_failures = define_failure_family(
-    "c8.contract.failure",
-    get_args(C8ContractFailureCode),
+
+
+def read_historical_c7_ingest_contract_failure_family() -> FailureFamily:
+    """Read exact retired C7 contract failure metadata without live registration."""
+
+    return FailureFamily(
+        "c7.ingest.contract_failure",
+        get_args(MaterialIngestContractFailureCode),
+    )
+
+
+def read_historical_c7_ingest_registry_failure_family() -> FailureFamily:
+    """Read exact retired C7 registry failure metadata without live registration."""
+
+    return FailureFamily(
+        "c7.ingest_registry.failure",
+        get_args(MaterialIngestRegistryFailureCode),
+    )
+
+
+# Compatibility type spellings retain source-level annotations only.
+C7IngestContractFailureCode = MaterialIngestContractFailureCode
+C7IngestRegistryFailureCode = MaterialIngestRegistryFailureCode
+
+
+def read_historical_c8_contract_failure_family() -> FailureFamily:
+    """Read retired C8 contract metadata without declaring a live family."""
+
+    return FailureFamily("c8.contract.failure", get_args(C8ContractFailureCode))
+
+
+def read_historical_c8_report_export_token_failure_family() -> FailureFamily:
+    """Read retired C8 token metadata without declaring a live family."""
+
+    return FailureFamily(
+        "c8.report_export_token.failure",
+        get_args(C8ReportExportTokenFailureCode),
+    )
+
+
+def read_historical_c8_report_export_token_state_failure_family() -> FailureFamily:
+    """Read retired C8 token-state metadata without declaring a live family."""
+
+    return FailureFamily(
+        "c8.report_export_token_state.failure",
+        get_args(C8ReportExportTokenStateFailureCode),
+    )
+
+
+c8_contract_failures = read_historical_c8_contract_failure_family()
+c8_report_export_token_failures = (
+    read_historical_c8_report_export_token_failure_family()
 )
-c8_report_export_token_failures = define_failure_family(
-    "c8.report_export_token.failure",
-    get_args(C8ReportExportTokenFailureCode),
+c8_report_export_token_state_failures = (
+    read_historical_c8_report_export_token_state_failure_family()
 )
-c8_report_export_token_state_failures = define_failure_family(
-    "c8.report_export_token_state.failure",
-    get_args(C8ReportExportTokenStateFailureCode),
-)
-c9_evidence_surface_failures = define_failure_family(
-    "c9.evidence_surface.failure",
-    get_args(C9EvidenceSurfaceFailureCode),
+
+def read_historical_c9_evidence_surface_failure_family() -> FailureFamily:
+    """Read retired C9 evidence metadata without declaring a live family."""
+
+    return FailureFamily(
+        "c9.evidence_surface.failure",
+        get_args(C9EvidenceSurfaceFailureCode),
+    )
+
+
+c9_evidence_surface_failures = read_historical_c9_evidence_surface_failure_family()
+projection_evidence_surface_failures = define_failure_family(
+    "projection.evidence-surface.failure",
+    get_args(ProjectionEvidenceSurfaceFailureCode),
 )
 capability_primitive_contract_failures = define_failure_family(
     "capability.primitive.contract_failure",
@@ -205,8 +269,8 @@ quality_promotion_contract_failures = define_failure_family(
     "quality.promotion.contract_failure",
     get_args(QualityPromotionContractFailureCode),
 )
-source_library_single_source_guard_failures = define_failure_family(
-    "source_library.single_source_guard.failure",
+source_single_source_guard_failures = define_failure_family(
+    "source.single-source-guard.failure",
     get_args(SourceLibrarySingleSourceGuardFailureCode),
 )
 
@@ -217,27 +281,38 @@ __all__ = [
     "C2ProviderEffectFailureCode",
     "C7IngestContractFailureCode",
     "C7IngestRegistryFailureCode",
+    "MaterialIngestContractFailureCode",
+    "MaterialIngestRegistryFailureCode",
     "C8ContractFailureCode",
     "C8ReportExportTokenFailureCode",
     "C8ReportExportTokenStateFailureCode",
     "C9EvidenceSurfaceFailureCode",
+    "ProjectionEvidenceSurfaceFailureCode",
     "CapabilityPrimitiveContractFailureCode",
     "FirstSpecimenCapabilityFailureCode",
     "LineEventReadbackFailureCode",
     "QualityPromotionContractFailureCode",
     "SourceLibrarySingleSourceGuardFailureCode",
     "c1_capability_failures",
-    "c2_interpreter_failures",
-    "c2_provider_effect_failures",
-    "c7_ingest_contract_failures",
-    "c7_ingest_registry_failures",
+    "read_historical_c1_capability_failure_family",
+    "source_runtime_binding_failures",
+    "source_provider_acquisition_failures",
+    "material_ingest_contract_failures",
+    "material_ingest_registry_failures",
+    "read_historical_c7_ingest_contract_failure_family",
+    "read_historical_c7_ingest_registry_failure_family",
     "c8_contract_failures",
     "c8_report_export_token_failures",
     "c8_report_export_token_state_failures",
+    "read_historical_c8_contract_failure_family",
+    "read_historical_c8_report_export_token_failure_family",
+    "read_historical_c8_report_export_token_state_failure_family",
     "c9_evidence_surface_failures",
+    "read_historical_c9_evidence_surface_failure_family",
+    "projection_evidence_surface_failures",
     "capability_primitive_contract_failures",
     "first_specimen_capability_failures",
     "line_event_readback_failures",
     "quality_promotion_contract_failures",
-    "source_library_single_source_guard_failures",
+    "source_single_source_guard_failures",
 ]

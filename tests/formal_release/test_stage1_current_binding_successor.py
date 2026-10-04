@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -18,7 +19,16 @@ def _copy(root: Path, relative: Path | str) -> None:
     relative = Path(relative)
     destination = root / relative
     destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(ROOT / relative, destination)
+    source = ROOT / relative
+    if source.is_file():
+        shutil.copyfile(source, destination)
+        return
+    completed = subprocess.run(
+        ("git", "-C", str(ROOT), "show", f"HEAD:{relative.as_posix()}"),
+        check=True,
+        capture_output=True,
+    )
+    destination.write_bytes(completed.stdout)
 
 
 def successor_fixture(tmp_path: Path) -> Path:
@@ -40,6 +50,11 @@ def successor_fixture(tmp_path: Path) -> Path:
     }
     fixed.update(stage1._api_rels(ROOT))
     fixed.update(stage1._migration_rels(ROOT))
+    fixed.update(
+        Path(row["path"])
+        for rows in historical["bindings"]["required_files"].values()
+        for row in rows
+    )
     fixed.update(
         Path(command["receipt"]["path"])
         for command in historical["commands"].values()

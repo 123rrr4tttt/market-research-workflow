@@ -20,6 +20,7 @@ for path in (str(BACKEND_ROOT), str(REPOSITORY_ROOT / "src")):
         sys.path.insert(0, path)
 
 from app import main as main_module
+from app.production_observability import http as production_http
 
 
 pytestmark = pytest.mark.unit
@@ -30,10 +31,10 @@ class _Metric:
         self.calls: list[tuple[object, ...]] = []
         self.fail = fail
 
-    def labels(self, *labels: object) -> _Metric:
+    def labels(self, *labels: object, **named_labels: object) -> _Metric:
         if self.fail:
             raise RuntimeError("metric unavailable")
-        self.calls.append(labels)
+        self.calls.append((*labels, *named_labels.values()))
         return self
 
     def inc(self) -> None:
@@ -76,10 +77,10 @@ def _request(path: str = "/api/v1/test") -> Request:
 
 
 def _patch_metrics(monkeypatch: pytest.MonkeyPatch, *, legacy_fail: bool = False) -> None:
-    monkeypatch.setattr(main_module, "REQUEST_COUNT", _Metric(fail=legacy_fail))
-    monkeypatch.setattr(main_module, "REQUEST_LATENCY", _Metric(fail=legacy_fail))
-    monkeypatch.setattr(main_module, "PRODUCTION_REQUEST_COUNT", _Metric())
-    monkeypatch.setattr(main_module, "PRODUCTION_REQUEST_LATENCY", _Metric())
+    monkeypatch.setattr(production_http, "REQUEST_COUNT", _Metric(fail=legacy_fail))
+    monkeypatch.setattr(production_http, "REQUEST_LATENCY", _Metric(fail=legacy_fail))
+    monkeypatch.setattr(production_http, "PRODUCTION_REQUEST_COUNT", _Metric())
+    monkeypatch.setattr(production_http, "PRODUCTION_REQUEST_LATENCY", _Metric())
 
 
 def _finalize(
@@ -89,7 +90,7 @@ def _finalize(
     *,
     terminal_outcome: str | None = None,
 ) -> None:
-    main_module._finalize_request_metrics(
+    production_http.finalize_request_metrics(
         request=request,
         response=response,
         request_id="r7-test",
@@ -109,7 +110,7 @@ def test_json_response_observes_once_after_finalize(monkeypatch: pytest.MonkeyPa
 
     assert len(controller.observations) == 1
     assert controller.observations[0]["status_code"] == 200
-    assert "terminal_outcome" not in controller.observations[0]
+    assert controller.observations[0]["terminal_outcome"] is None
 
 
 @pytest.mark.asyncio
@@ -131,8 +132,6 @@ async def test_sse_observation_is_deferred_until_full_consumption(monkeypatch: p
         return response
 
     monkeypatch.setattr(main_module, "_is_codex_protected_path", lambda _path: False)
-    monkeypatch.setattr(main_module, "resolve_request_actor_context", lambda _request: None)
-    monkeypatch.setattr(main_module, "set_request_actor_context", lambda *_args: None)
     monkeypatch.setattr(
         main_module,
         "_resolve_request_project_context",
@@ -193,8 +192,6 @@ async def test_sse_iterator_failure_preserves_original_exception_and_latches(mon
         return response
 
     monkeypatch.setattr(main_module, "_is_codex_protected_path", lambda _path: False)
-    monkeypatch.setattr(main_module, "resolve_request_actor_context", lambda _request: None)
-    monkeypatch.setattr(main_module, "set_request_actor_context", lambda *_args: None)
     monkeypatch.setattr(main_module, "_resolve_request_project_context", lambda _request: ("demo", "header", False))
     monkeypatch.setattr(main_module, "get_effective_project_key_enforcement_mode", lambda: "require")
     monkeypatch.setattr(main_module, "is_production_environment", lambda: True)

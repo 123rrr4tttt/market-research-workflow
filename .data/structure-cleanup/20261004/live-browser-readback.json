@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "mode": "local-host-oauth-direct",
+  "iframe_src": "http://127.0.0.1:8172/",
+  "iframe_mounted": true,
+  "bootstrap_http": 200,
+  "runtime_status_http": 200,
+  "browser_bootstrap_observed": true,
+  "browser_runtime_status_observed": true,
+  "websocket_observed": true,
+  "page_errors": [],
+  "threads": [
+    {
+      "thread": "01a1060e-968e-7502-bfbb-cbb615369e3b",
+      "turn": "01a1060e-a9d3-7f53-b863-aa1625be17e0",
+      "http": 200,
+      "marker_readback": true
+    },
+    {
+      "thread": "01a1066b-3c98-7d50-b9fd-1c00095b8a5b",
+      "turn": "01a1066b-3ec4-74e3-b824-4aab4a8cf6d8",
+      "http": 200,
+      "marker_readback": true
+    }
+  ],
+  "new_provider_turns": 0
+}

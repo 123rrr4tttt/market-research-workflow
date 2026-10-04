@@ -9,12 +9,16 @@ from typing import Any
 from sqlalchemy import select
 
 from ...models.base import SessionLocal
-from ...models.entities import Document, Source
+from ...models.entities import Document
 from ..job_logger import complete_job, fail_job, start_job
 from ..resource_pool.http_port import fetch_html, make_html_parser
+from .content_extraction import _locate_main_text_from_html
 from .frontdoor_ingress import build_raw_import_ingress_envelope
+from .material_ingress import MaterialSourceContext, MaterialTargetSpec, build_material_frontdoor_payload
+from .material_input import FetchedResource, GivenContent, PreparedMaterial, ResourceRef, prepare_material
 from .postprocess_frontdoor import run_postprocess_frontdoor
 from .structured_extraction import build_structured_summary
+from .terminal_writer import _get_or_create_source
 
 logger = logging.getLogger(__name__)
 
@@ -88,18 +92,11 @@ def _normalize_uri_list(item: dict[str, Any], infer_from_text: bool) -> list[str
 
 def _extract_text_from_html(html: str) -> str:
     try:
-        parser = make_html_parser(html)
-        for selector in ("article", "main article", "[role='main'] article", "main"):
-            node = parser.css_first(selector)
-            if node is None:
-                continue
-            text = str(node.text(separator="\n", strip=True) or "").strip()
-            if len(text) >= 120:
-                return text[:50000]
-        body = parser.body
-        if body:
-            text = str(body.text(separator="\n", strip=True) or "").strip()
-            return text[:50000]
+        return _locate_main_text_from_html(
+            html,
+            selectors=("article", "main article", "[role='main'] article", "main"),
+            transform=lambda text: text[:50000],
+        )
     except Exception:
         return ""
     return ""
@@ -114,6 +111,24 @@ def _extract_title_from_html(html: str) -> str:
         return str(node.text(strip=True) or "").strip()
     except Exception:
         return ""
+
+
+def _response_mime_type(response: Any) -> str:
+    headers = getattr(response, "headers", None)
+    if not hasattr(headers, "items"):
+        return ""
+    try:
+        for name, value in headers.items():
+            if str(name).lower() == "content-type":
+                return str(value)
+        return ""
+    except Exception:
+        return ""
+
+
+def _is_explicit_text_mime(mime_type: str) -> bool:
+    normalized = str(mime_type or "").split(";", 1)[0].strip().lower()
+    return normalized in {"text/plain", "text/markdown"}
 
 
 def _merge_raw_and_url_text(raw_text: str, url_text: str) -> str:
@@ -298,12 +313,6 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
 
     try:
         with SessionLocal() as session:
-            source = session.execute(select(Source).where(Source.name == source_name)).scalar_one_or_none()
-            if source is None:
-                source = Source(name=source_name, kind=source_kind, base_url=None, enabled=True)
-                session.add(source)
-                session.flush()
-
             inserted = 0
             updated = 0
             skipped = 0
@@ -313,15 +322,19 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
             for idx, raw_item in enumerate(items):
                 item = raw_item if isinstance(raw_item, dict) else {}
                 try:
-                    text = str(item.get("text") or "").strip()
+                    given_text = str(item.get("text") or "")
+                    text = given_text.strip()
                     uri_list = _normalize_uri_list(item, infer_from_links)
                     uri = uri_list[0] if uri_list else None
                     fetched_from_url = False
                     fetched_url_error = None
                     fetched_url_status = None
                     fetched_title = ""
+                    prepared_resource: PreparedMaterial | None = None
+                    given_only = str(item.get("material_input_kind") or "").strip().lower() == "given"
                     should_fetch_url = bool(
                         uri
+                        and not given_only
                         and (
                             (not text and fetch_url_when_text_empty)
                             or (bool(text) and fetch_url_also_when_text_present)
@@ -331,11 +344,30 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                         try:
                             html, response = fetch_html(uri, timeout=float(url_fetch_timeout), retries=1)
                             fetched_url_status = int(getattr(response, "status_code", 0) or 0)
-                            fetched_text = _extract_text_from_html(html)
-                            if fetched_text:
+                            response_mime = _response_mime_type(response)
+                            if _is_explicit_text_mime(response_mime):
+                                # ResourceRef owns the locator, while this callback only
+                                # transfers bytes already returned by the single fetch.
+                                url_prepared = prepare_material(
+                                    ResourceRef(uri),
+                                    fetch_resource=lambda _url: FetchedResource(
+                                        raw_bytes=response.content,
+                                        mime_type=response_mime,
+                                        final_url=str(getattr(response, "final_url", "") or uri),
+                                    ),
+                                )
+                                if given_text.strip():
+                                    text = _merge_raw_and_url_text(given_text, url_prepared.text)
+                                else:
+                                    prepared_resource = url_prepared
+                                    text = prepared_resource.text
                                 fetched_from_url = True
-                                fetched_title = _extract_title_from_html(html)
-                                text = _merge_raw_and_url_text(text, fetched_text)
+                            else:
+                                fetched_text = _extract_text_from_html(html)
+                                if fetched_text:
+                                    fetched_from_url = True
+                                    fetched_title = _extract_title_from_html(html)
+                                    text = _merge_raw_and_url_text(text, fetched_text)
                         except Exception as exc:  # noqa: BLE001
                             fetched_url_error = str(exc)
                     if not text:
@@ -350,6 +382,15 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                             }
                         )
                         continue
+
+                    # A supplied text body is already available. Keep the old
+                    # mixed text/URL path until it has a separate fetch witness.
+                    prepared_given = (
+                        prepare_material(GivenContent.from_text(given_text, source_locator=uri))
+                        if given_text.strip() and prepared_resource is None and not fetched_from_url
+                        else None
+                    )
+                    prepared_material = prepared_resource or prepared_given
 
                     title = str(item.get("title") or "").strip() or None
                     if not title:
@@ -383,6 +424,12 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                     if doc is None:
                         pass
                     else:
+                        source = _get_or_create_source(
+                            session,
+                            name=source_name,
+                            kind=source_kind,
+                            base_url=None,
+                        )
                         doc.source_id = source.id
                         doc.state = item.get("state") or doc.state
                         doc.doc_type = doc_type or doc.doc_type
@@ -412,8 +459,16 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                         "chunk_overlap": int(chunk_overlap),
                         "truncated_for_extraction": truncated,
                     }
+                    if prepared_material is not None:
+                        raw_meta["material_input"] = {
+                            "kind": prepared_material.input_kind,
+                            "raw_content_digest": prepared_material.raw_content_digest,
+                            "mime_type": prepared_material.mime_type,
+                        }
                     extracted_base = doc.extracted_data if doc is not None and isinstance(doc.extracted_data, dict) else {}
                     extracted_base["_raw_input"] = _deep_merge_json(extracted_base.get("_raw_input", {}), raw_meta)
+                    if prepared_material is None and isinstance(extracted_base["_raw_input"], dict):
+                        extracted_base["_raw_input"].pop("material_input", None)
 
                     extraction_flags = _resolve_extraction_flags(extraction_mode, doc_type)
                     mode = str(extraction_flags.get("mode") or extraction_mode)
@@ -445,42 +500,70 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                         item=frontdoor_item,
                     )
                     collection_payload = ingress_envelope.get("collection_payload") if isinstance(ingress_envelope.get("collection_payload"), dict) else {}
-                    collection_payload["document_candidate"] = {
-                        "source_name": source_name,
-                        "source_kind": source_kind,
-                        "source_base_url": None,
-                        "state": item.get("state") or None,
-                        "doc_type": doc_type,
-                        "title": title,
-                        "publish_date": publish_date_value,
-                        "content": text,
-                        "summary": summary,
-                        "text_hash": text_hash,
-                        "uri": uri,
-                        "status": None,
-                        "extracted_data_base": extracted_base,
-                    }
-                    collection_payload["terminal_context"] = {
-                        "platform": "raw_import",
-                        "ingestion_entrypoint": "ingest.raw_import",
-                        "source_mode": "raw_import",
-                        "quality_score": 0.0,
-                        "degradation_flags": [],
-                        "http_status": fetched_url_status,
-                        "capability_profile": {},
-                        "light_filter": {},
-                    }
-                    collection_payload["extraction_plan"] = {
-                        "enabled": bool(enable_extraction),
-                        "mode": mode,
-                        "chunks": list(chunks),
-                        "include_policy": bool(extraction_flags.get("include_policy")),
-                        "include_market": bool(extraction_flags.get("include_market")),
-                        "include_sentiment": bool(extraction_flags.get("include_sentiment")),
-                        "include_company": bool(extraction_flags.get("include_company")),
-                        "include_product": bool(extraction_flags.get("include_product")),
-                        "include_operation": bool(extraction_flags.get("include_operation")),
-                    }
+                    if prepared_material is not None:
+                        collection_payload.update(
+                            build_material_frontdoor_payload(
+                                prepared_material,
+                                target=MaterialTargetSpec(
+                                    doc_type=doc_type,
+                                    title=title,
+                                    summary=summary,
+                                    publish_date=publish_date_value,
+                                    state=item.get("state") or None,
+                                    extraction_enabled=bool(enable_extraction),
+                                    extraction_mode=mode,
+                                    chunks=tuple(chunks),
+                                    extraction_flags=extraction_flags,
+                                ),
+                                source=MaterialSourceContext(
+                                    source_name=source_name,
+                                    source_kind=source_kind,
+                                    uri=uri,
+                                    platform="raw_import",
+                                    entrypoint="ingest.raw_import",
+                                    source_mode="raw_import",
+                                    http_status=fetched_url_status,
+                                ),
+                                extracted_data_base=extracted_base,
+                            )
+                        )
+                    else:
+                        collection_payload["document_candidate"] = {
+                            "source_name": source_name,
+                            "source_kind": source_kind,
+                            "source_base_url": None,
+                            "state": item.get("state") or None,
+                            "doc_type": doc_type,
+                            "title": title,
+                            "publish_date": publish_date_value,
+                            "content": text,
+                            "summary": summary,
+                            "text_hash": text_hash,
+                            "uri": uri,
+                            "status": None,
+                            "extracted_data_base": extracted_base,
+                        }
+                        collection_payload["terminal_context"] = {
+                            "platform": "raw_import",
+                            "ingestion_entrypoint": "ingest.raw_import",
+                            "source_mode": "raw_import",
+                            "quality_score": 0.0,
+                            "degradation_flags": [],
+                            "http_status": fetched_url_status,
+                            "capability_profile": {},
+                            "light_filter": {},
+                        }
+                        collection_payload["extraction_plan"] = {
+                            "enabled": bool(enable_extraction),
+                            "mode": mode,
+                            "chunks": list(chunks),
+                            "include_policy": bool(extraction_flags.get("include_policy")),
+                            "include_market": bool(extraction_flags.get("include_market")),
+                            "include_sentiment": bool(extraction_flags.get("include_sentiment")),
+                            "include_company": bool(extraction_flags.get("include_company")),
+                            "include_product": bool(extraction_flags.get("include_product")),
+                            "include_operation": bool(extraction_flags.get("include_operation")),
+                        }
 
                     if doc is None:
                         frontdoor_result = run_postprocess_frontdoor(
@@ -535,7 +618,7 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                 "error_count": len(errors),
                 "errors": errors[:20],
                 "items": item_results[:50],
-                "source_name": source.name,
+                "source_name": source_name,
                 "project_key": project_key,
             }
             job_status = "failed" if items and len(errors) == len(items) else "completed"

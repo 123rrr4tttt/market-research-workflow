@@ -1,24 +1,53 @@
 # Development Documentation Root
 
-> Date: 2026-05-23
-> Status: target root prepared; docs-root topic archived; CURRENT_DEV remains supervisor-owned active status surface
+> Last updated: 2026-10-05
+> Status: current reading root; local daily evidence, stopped production history, and archived development records are kept as separate facts
 
-## Purpose
+## Current Reading Path
 
-`docs/development/` is the target root for active development planning and execution history that is currently concentrated under `development/latest-dev-docs`.
+This is the single current entry for development reading. Start from the role you need:
+
+- **Local daily operation**: use [README.md](../../README.md) for the 2026-10-04 local chain, business capabilities, ports, worker/Codex WebUI lifecycle, OAuth ownership, and evidence path `.data/readiness-repair/20261004-daily-chain/daily-chain-state.json`. The vendored service entry is [main/ops/codex-webui/README.md](../../main/ops/codex-webui/README.md).
+- **Stopped production history**: read the production stage record at [development-plans/CURRENT_DEV/2026-09-04-formal-production-release/06_production-deployment-stage-progress.v1.md](../../development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/06_production-deployment-stage-progress.v1.md). Its current header records local acceptance, cleanup completion, stopped execution, deferred release, and no production authority. Treat later sections as historical snapshots.
+- **Current maintenance framework and dispatch packages**: read [MRW maintenance plan §10](./MRW结构整理方案与分发包.md#10-当前维护收敛框架与串并行分发包) for the 2026-10-05 framework, package ownership, sequential/parallel dependencies, test resources, and exit conditions. All 15 maintenance packages are complete; implementation results, validation, and retained history are recorded in §10.11.
+- **Completed structure and repair work**: read [MRW structure result §8](./MRW结构整理方案与分发包.md#8-实际实施进度) for the completed 2026-10-04 implementation scope and [full-repair package §4](./MRW全量核查修复分发包.md#4-可直接复用的验证入口) for reusable repair verification. The machine summary [execution-state.json](../../.data/structure-cleanup/20261004/execution-state.json) retains that execution's attribution and does not report the new maintenance packages as complete.
+- **Stable implementation and operations**: use [docs/architecture](../architecture/) and [docs/implementation](../implementation/).
+- **Closed and blocked development history**: use the development-plans indexes below.
+
+The compatibility tree remains at [development/latest-dev-docs](../../development/latest-dev-docs/README.md). It is a compatibility and historical index, not the default current reading root.
+
+## Development Surfaces
 
 Use this root for:
 
 - active plans and execution boards;
 - design briefs and atomic tasklists;
-- stage-specific evidence and review notes that have not become stable implementation guidance;
-- historical development archives after they have been classified.
+- bounded execution and review evidence that has not become stable implementation guidance;
+- classified historical archives and compatibility shims.
 
-## Compatibility Path
+| Surface | Read here | Meaning |
+| --- | --- | --- |
+| Root README | [README.md](../../README.md) | Current usage, local runtime, project contribution checks, and stopped-production boundary |
+| Current maintenance work | [MRW maintenance plan §10](./MRW结构整理方案与分发包.md#10-当前维护收敛框架与串并行分发包) | 15 packages complete; implementation and validation in §10.11 |
+| Completed structure work | [MRW structure result §8](./MRW结构整理方案与分发包.md#8-实际实施进度) | Completed 2026-10-04 scope and verification attribution |
+| Historical development plans | [development-plans/README.md](./development-plans/README.md) | Archive and migration navigation; current maintenance work is linked above |
+| Frontend records | [frontend-modern/README.md](./frontend-modern/README.md) | Frontend planning and review records |
+| Root plans | [root-plans/README.md](./root-plans/README.md) | Repository-level planning records |
+| Architecture | [docs/architecture](../architecture/) | Long-lived structure and target-state decisions |
+| Implementation | [docs/implementation](../implementation/) | Adopted workflows, API/interface notes, test baselines, and accepted delivery evidence |
 
-The current readable entrypoint remains [development/latest-dev-docs](../../development/latest-dev-docs/README.md). Do not remove or bypass that compatibility path until a migration batch has updated the shared navigation and passed structure plus link checks.
+## Daily Versus Production Facts
 
-The docs-root restructuring plan is tracked in [2026-03-07 docs root restructuring](./development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md).
+Daily facts are observable from the current machine: the local frontend, API, Codex WebUI, launchd worker, host OAuth sharing, and daily-chain evidence are described by the root README and its evidence JSON. Production facts remain historical: the 2026-09-13 production-stage record says local acceptance and cleanup completed, execution stopped, release was deferred, and release authority was not established. A later archived note can explain why a decision changed; it cannot turn stopped history into a current production instruction.
+
+## Migration Governance and Compatibility
+
+The compatibility tree remains reachable for old links and shared-history readers. Historical Wave25/31 shim records, evidence anchors, promoted navigation, and checker fields are retained in the collapsed migration record below; current reading starts at the top of this README.
+
+<details>
+<summary>Historical migration governance and Wave25/31 records</summary>
+
+The docs-root restructuring record is [2026-03-07 docs root restructuring](./development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md).
 
 The first content shim batch is recorded in [latest-dev-docs-entry-manifest.json](./latest-dev-docs-entry-manifest.json). These entries keep `development/latest-dev-docs` as the content authority while the README shims under this root provide readable pointers to the current compatibility entries. Shared navigation still belongs to the integration lane.
 
@@ -58,6 +87,8 @@ Manifest promotion `development-root-reader-navigation-wave11` makes the existin
 | `development/latest-dev-docs/*/F_PLAN/` | `docs/development/<source>/F_PLAN/` | Default destination for explicit planning material. |
 | `development/latest-dev-docs/frontend-modern/` | `docs/development/frontend-modern/` | Development-oriented by default unless later promoted. |
 | Mixed `main/` or archive trees | file-level routing only | Do not move whole mixed trees without classification. |
+
+</details>
 
 ## Adjacent Roots
 

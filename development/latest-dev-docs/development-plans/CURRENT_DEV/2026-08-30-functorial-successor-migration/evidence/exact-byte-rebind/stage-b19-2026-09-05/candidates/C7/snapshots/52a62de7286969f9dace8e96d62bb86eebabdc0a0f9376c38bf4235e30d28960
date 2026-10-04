@@ -1,0 +1,408 @@
+#!/usr/bin/env python3
+"""Generate the additive C7 exact-byte rebind inputs for stages B12, B18, and B19.
+
+The P4 fragment and the B8/B11/B12 stages remain immutable predecessors.  B12
+is checked against its fixed predecessor bytes.  B18 and B19 rebuild the C7
+observation fragment from current implementation bytes and emit stage-v2
+manifests.  B19 treats B18 as its direct immutable predecessor.  Targets are
+create-only.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib.util
+import re
+import json
+import os
+import sys
+from datetime import date
+from pathlib import Path
+from types import ModuleType
+from typing import Any
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+BACKEND_ROOT = REPO_ROOT / "main/backend"
+for import_root in (REPO_ROOT / "src", BACKEND_ROOT):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
+EVIDENCE_REL = Path(
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "2026-08-30-functorial-successor-migration/evidence"
+)
+DEFAULT_B12_STAGE = "stage-b12-2026-09-05"
+DEFAULT_B18_STAGE = "stage-b18-2026-09-05"
+DEFAULT_B19_STAGE = "stage-b19-2026-09-05"
+EXACT_REBIND_REL = EVIDENCE_REL / "exact-byte-rebind"
+
+ORIGINAL_GENERATOR_REL = Path(
+    "main/backend/scripts/generate_successor_p4_c7_fragment.py"
+)
+P4_FRAGMENT_REL = EVIDENCE_REL / "p4-fragments/C7.json"
+B8_STAGE_REL = EVIDENCE_REL / "exact-byte-rebind/stage-b8-2026-09-05"
+B8_FRAGMENT_REL = B8_STAGE_REL / "fragments/C7.json"
+B8_MANIFEST_REL = B8_STAGE_REL / "manifests/C7.json"
+B8_CANDIDATE_REL = B8_STAGE_REL / "candidates/C7/candidate.v2.json"
+B11_STAGE_REL = EVIDENCE_REL / "exact-byte-rebind/stage-b11-2026-09-05"
+B11_FRAGMENT_REL = B11_STAGE_REL / "fragments/C7.json"
+B11_MANIFEST_REL = B11_STAGE_REL / "manifests/C7.json"
+B11_CANDIDATE_REL = B11_STAGE_REL / "candidates/C7/candidate.v2.json"
+B12_STAGE_REL = EXACT_REBIND_REL / DEFAULT_B12_STAGE
+B12_FRAGMENT_REL = B12_STAGE_REL / "fragments/C7.json"
+B12_MANIFEST_REL = B12_STAGE_REL / "manifests/C7.json"
+B12_CANDIDATE_REL = B12_STAGE_REL / "candidates/C7/candidate.v2.json"
+B19_STAGE_REL = EXACT_REBIND_REL / DEFAULT_B19_STAGE
+B19_FRAGMENT_REL = B19_STAGE_REL / "fragments/C7.json"
+B19_MANIFEST_REL = B19_STAGE_REL / "manifests/C7.json"
+B19_CANDIDATE_REL = B19_STAGE_REL / "candidates/C7/candidate.v2.json"
+
+MANIFEST_SCHEMA = "mrw.family_fragment_rebind.stage_manifest.v2"
+B12_AMENDMENT = "STAGE_B12_C7_FINAL_FAILURE_REBIND_CANDIDATE_NOT_AUTHORITY"
+B18_AMENDMENT = "STAGE_B18_C7_CURRENT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+B19_AMENDMENT = "STAGE_B19_C7_CURRENT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+
+FROZEN_PREDECESSORS = {
+    P4_FRAGMENT_REL: "d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+    B8_FRAGMENT_REL: "d1724ee0a77f6808f6266106c5aea9640e0649c3b29a9527518a14b3af3b30e7",
+    B8_MANIFEST_REL: "10d6200d1c2d36523ef71ac3ca3ec255333d714e953405f22294974557bd4321",
+    B8_CANDIDATE_REL: "6101a031f6b089ee628af41e993d599dab7170a69d686cb714b8b2d00c01508a",
+    B11_FRAGMENT_REL: "70f35fb895558ab2c98f8f203c8130ea0d5af9098d02b9dbfbb7f2ae65926266",
+    B11_MANIFEST_REL: "5a08ea38b8e987b2efbfd0c9bd329285391d10d66ba23dafa02c21b2f1f83c1d",
+    B11_CANDIDATE_REL: "8ff4a4173a9708f6f15eb43ead435d1037dd868083113759e86c7f1e32c65bbf",
+}
+B12_PREDECESSORS = {
+    B12_FRAGMENT_REL: "23b3d2978e19c53ef9cf2689ed687b9e7a670bf922a9861ef622ce0804793489",
+    B12_MANIFEST_REL: "371ebdf820bf60fc633dc0ae18090942404afc355832d312b7b5207416ae206e",
+    B12_CANDIDATE_REL: "12cc0ecd4c0bf7e529ac51a18d225685f048c5e5a7b5e19d9c204a7b6910a817",
+}
+B19_PREDECESSORS = {
+    EXACT_REBIND_REL / DEFAULT_B18_STAGE / "fragments/C7.json": "f4f571eab84dca83015cd5d247f221696aedc30ca99f97fe3530ce4b97a25ff2",
+    EXACT_REBIND_REL / DEFAULT_B18_STAGE / "manifests/C7.json": "d12a24c3de1894f08796b5eef736b9a5f17d1ada90c44b4fad0fc179ad4d1c92",
+    EXACT_REBIND_REL / DEFAULT_B18_STAGE / "candidates/C7/candidate.v2.json": "b018ee04a5108beb5e9603e47ecac81d4c69496a4fb97037071cea24ee3aa340",
+}
+
+STAGE_CHECKER_REL = "scripts/stage_family_fragment_rebind.py"
+
+BOUND_IMPLEMENTATIONS = (
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py",
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_common.py",
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_program.py",
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_registry.py",
+    "src/mrw_functorial_kit/core/c7_semantics.py",
+    "src/mrw_functorial_kit/core/w06_semantics.py",
+    "registries/failures.json",
+    "main/backend/app/successor_runtime/specification/c7_p4.py",
+    "main/backend/app/successor_runtime/specification/shared_family_generator.py",
+    ORIGINAL_GENERATOR_REL.as_posix(),
+    "scripts/generate_c7_exact_byte_rebind.py",
+)
+
+EXTRA_WITNESS_TESTS = (
+    "tests/test_c7_runtime_failure_closure.py",
+    "tests/test_c7_semantic_registration.py",
+    "tests/test_family_fragment_exact_byte_rebind.py",
+    "main/backend/tests/successor_runtime/test_p4_c7_1_program.py",
+    "main/backend/tests/successor_runtime/test_c7_movement_failure_reverse.py",
+    "main/backend/tests/successor_runtime/test_s2b_c7_ingest_registry.py",
+)
+
+
+class GenerationError(RuntimeError):
+    """A required immutable or live input cannot be established."""
+
+
+def _sha256(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _canonical_json(value: Any) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def _content_digest(value: dict[str, Any]) -> str:
+    return _sha256(
+        _canonical_json({key: item for key, item in value.items() if key != "content_digest"})
+    )
+
+
+def _require_file(root: Path, relative: Path | str) -> Path:
+    path = root / relative
+    if not path.is_file():
+        raise GenerationError(f"required input missing: {relative}")
+    return path
+
+
+def _raw_ref(root: Path, relative: Path | str) -> dict[str, str]:
+    relative_path = Path(relative)
+    payload = _require_file(root, relative_path).read_bytes()
+    return {
+        "path": relative_path.as_posix(),
+        "file_sha256": _sha256(payload),
+    }
+
+
+def _fragment_binding(root: Path, relative: str, role: str) -> dict[str, object]:
+    payload = _require_file(root, relative).read_bytes()
+    return {
+        "path": relative,
+        "sha256": _sha256(payload),
+        "bytes": len(payload),
+        "lines": len(payload.splitlines()),
+        "role": role,
+    }
+
+
+def _load_original_generator(root: Path) -> ModuleType:
+    path = _require_file(root, ORIGINAL_GENERATOR_REL)
+    spec = importlib.util.spec_from_file_location("_mrw_c7_fragment_generator", path)
+    if spec is None or spec.loader is None:
+        raise GenerationError(f"cannot load original C7 generator: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _validate_stage(stage: str) -> str:
+    if stage == "B12":
+        return DEFAULT_B12_STAGE
+    if stage == "B18":
+        return DEFAULT_B18_STAGE
+    if stage == "B19":
+        return DEFAULT_B19_STAGE
+    if stage == DEFAULT_B12_STAGE:
+        return stage
+    if not re.fullmatch(r"stage-b(?:18|19)-\d{4}-\d{2}-\d{2}", stage):
+        raise GenerationError(
+            "invalid stage; expected B12, B18, stage-b12-2026-09-05, "
+            "stage-b18-YYYY-MM-DD, or stage-b19-YYYY-MM-DD"
+        )
+    try:
+        date.fromisoformat(re.sub(r"^stage-b(?:18|19)-", "", stage))
+    except ValueError as exc:
+        raise GenerationError(
+            "invalid stage; expected B12, B18, stage-b12-2026-09-05, "
+            "stage-b18-YYYY-MM-DD, or stage-b19-YYYY-MM-DD"
+        ) from exc
+    return stage
+
+
+validate_stage = _validate_stage
+
+
+def _predecessor_hashes(stage_name: str) -> dict[Path, str]:
+    if stage_name.startswith("stage-b19-"):
+        return dict(B19_PREDECESSORS)
+    if stage_name.startswith("stage-b18-"):
+        return {**FROZEN_PREDECESSORS, **B12_PREDECESSORS}
+    if stage_name == DEFAULT_B12_STAGE:
+        return dict(FROZEN_PREDECESSORS)
+    return {}
+
+
+def _guard_predecessors(root: Path, stage_name: str) -> None:
+    for relative, expected in _predecessor_hashes(stage_name).items():
+        actual = _sha256(_require_file(root, relative).read_bytes())
+        if actual != expected:
+            raise GenerationError(
+                f"frozen predecessor drift: {relative} expected={expected} actual={actual}"
+            )
+
+
+def _build_fragment(root: Path, stage_name: str) -> dict[str, Any]:
+    generator = _load_original_generator(root)
+    fragment = generator.build_fragment()
+    if not isinstance(fragment, dict) or fragment.get("family") != "C7":
+        raise GenerationError("original generator did not produce a C7 object")
+    authority = fragment.get("authority")
+    if not isinstance(authority, dict) or any(authority.values()):
+        raise GenerationError("C7 fragment exceeds the all-false authority ceiling")
+
+    bindings = fragment.get("implementation_bindings")
+    if not isinstance(bindings, list):
+        raise GenerationError("C7 fragment implementation_bindings must be a list")
+    by_path = {
+        item.get("path"): item
+        for item in bindings
+        if isinstance(item, dict) and isinstance(item.get("path"), str)
+    }
+    roles = {
+        BOUND_IMPLEMENTATIONS[0]: "c7_total_movement_failure_semantics",
+        BOUND_IMPLEMENTATIONS[1]: "c7_total_common_contract_semantics",
+        BOUND_IMPLEMENTATIONS[2]: "c7_total_program_binding_semantics",
+        BOUND_IMPLEMENTATIONS[3]: "c7_total_registry_failure_semantics",
+        BOUND_IMPLEMENTATIONS[4]: "c7_terminal_failure_family_projection",
+        BOUND_IMPLEMENTATIONS[5]: "c7_contract_and_registry_failure_family_projection",
+        BOUND_IMPLEMENTATIONS[6]: "closed_failure_registry",
+        BOUND_IMPLEMENTATIONS[7]: "c7_family_config",
+        BOUND_IMPLEMENTATIONS[8]: "shared_family_generator",
+        BOUND_IMPLEMENTATIONS[9]: "predecessor_evidence_generator",
+        BOUND_IMPLEMENTATIONS[10]: "additive_rebind_generator",
+    }
+    for relative in BOUND_IMPLEMENTATIONS:
+        by_path[relative] = _fragment_binding(root, relative, roles[relative])
+    if stage_name.startswith(("stage-b18-", "stage-b19-")):
+        by_path[STAGE_CHECKER_REL] = _fragment_binding(
+            root, STAGE_CHECKER_REL, "stage_candidate_protocol"
+        )
+    fragment["implementation_bindings"] = [
+        by_path[path] for path in sorted(by_path)
+    ]
+    fragment["content_digest"] = _content_digest(fragment)
+    return fragment
+
+
+def _build_b12_documents(root: Path) -> dict[Path, bytes]:
+    _guard_predecessors(root, DEFAULT_B12_STAGE)
+    for relative, expected in B12_PREDECESSORS.items():
+        actual = _sha256(_require_file(root, relative).read_bytes())
+        if actual != expected:
+            raise GenerationError(
+                f"immutable B12 predecessor drift: {relative} expected={expected} actual={actual}"
+            )
+    return {
+        B12_FRAGMENT_REL: _require_file(root, B12_FRAGMENT_REL).read_bytes(),
+        B12_MANIFEST_REL: _require_file(root, B12_MANIFEST_REL).read_bytes(),
+    }
+
+
+def _build_b18_documents(root: Path, stage_name: str) -> dict[Path, bytes]:
+    _guard_predecessors(root, stage_name)
+    stage_rel = EXACT_REBIND_REL / stage_name
+    fragment_rel = stage_rel / "fragments/C7.json"
+    manifest_rel = stage_rel / "manifests/C7.json"
+    fragment = _build_fragment(root, stage_name)
+    fragment_payload = _canonical_json(fragment) + b"\n"
+
+    bound_sources: set[str] = {
+        item["path"]
+        for group in ("source_bindings", "implementation_bindings")
+        for item in fragment[group]
+    }
+    bound_sources.update(
+        path.as_posix() for path in _predecessor_hashes(stage_name)
+    )
+    bound_tests: set[str] = {
+        item["path"] for item in fragment["test_bindings"]
+    }
+    bound_tests.update(EXTRA_WITNESS_TESTS)
+
+    manifest: dict[str, Any] = {
+        "schema": MANIFEST_SCHEMA,
+        "family": "C7",
+        "amendment": B19_AMENDMENT if stage_name.startswith("stage-b19-") else B18_AMENDMENT,
+        "fragments": [
+            {
+                "path": fragment_rel.as_posix(),
+                "file_sha256": _sha256(fragment_payload),
+                "content_digest": fragment["content_digest"],
+            }
+        ],
+        "sources": [_raw_ref(root, path) for path in sorted(bound_sources)],
+        "tests": [_raw_ref(root, path) for path in sorted(bound_tests)],
+    }
+    manifest_payload = _canonical_json(manifest) + b"\n"
+    return {
+        fragment_rel: fragment_payload,
+        manifest_rel: manifest_payload,
+    }
+
+
+def _build_documents(root: Path, stage: str) -> dict[Path, bytes]:
+    stage_name = _validate_stage(stage)
+    if stage_name == DEFAULT_B12_STAGE:
+        documents = _build_b12_documents(root)
+    else:
+        documents = _build_b18_documents(root, stage_name)
+        _guard_create_only(root, documents)
+    return documents
+
+
+def _safe_relative(root: Path, relative: Path) -> Path:
+    if relative.is_absolute() or ".." in relative.parts or relative.parts[0] == "~":
+        raise GenerationError(f"path escapes repository root: {relative}")
+    return relative
+
+
+def _guard_create_only(root: Path, documents: dict[Path, bytes]) -> None:
+    for relative in documents:
+        safe = _safe_relative(root, relative)
+        target = root / safe
+        if target.exists() or target.is_symlink():
+            raise GenerationError(f"refusing to overwrite existing target: {safe.as_posix()}")
+        parent = target.parent
+        while parent != root:
+            if parent.is_symlink() or (parent.exists() and not parent.is_dir()):
+                raise GenerationError(f"invalid stage output parent: {parent}")
+            parent = parent.parent
+
+
+def _write_documents(root: Path, documents: dict[Path, bytes]) -> None:
+    _guard_create_only(root, documents)
+    created: list[Path] = []
+    try:
+        for relative, payload in sorted(documents.items()):
+            target = root / _safe_relative(root, relative)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+            try:
+                with os.fdopen(descriptor, "wb") as stream:
+                    stream.write(payload)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                created.append(target)
+            except Exception:
+                try:
+                    target.unlink()
+                except OSError:
+                    pass
+                raise
+    except Exception as exc:
+        for target in reversed(created):
+            try:
+                target.unlink()
+            except OSError:
+                pass
+        raise GenerationError(f"cannot create additive stage: {exc}") from exc
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo-root", type=Path, default=REPO_ROOT)
+    parser.add_argument("--stage", required=True)
+    parser.add_argument("--write", action="store_true")
+    args = parser.parse_args(argv)
+    root = args.repo_root.expanduser().resolve()
+    try:
+        stage_name = _validate_stage(args.stage)
+        if args.write and stage_name == DEFAULT_B12_STAGE:
+            raise GenerationError("B12 predecessor is immutable and cannot be written")
+        documents = _build_documents(root, args.stage)
+        paths = [path.as_posix() for path in sorted(documents)]
+        if not args.write:
+            status = "CHECK_OK" if stage_name == DEFAULT_B12_STAGE else "DRY_RUN"
+            print(
+                json.dumps(
+                    {"paths": paths, "stage": args.stage, "status": status},
+                    sort_keys=True,
+                )
+            )
+            return 0
+        _write_documents(root, documents)
+    except (GenerationError, OSError, TypeError, ValueError, KeyError) as exc:
+        print(f"INVALID: {exc}")
+        return 2
+
+    print(json.dumps({"paths": paths, "stage": args.stage, "status": "WROTE"}, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

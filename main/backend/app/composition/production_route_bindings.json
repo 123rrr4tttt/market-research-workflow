@@ -270,29 +270,6 @@
       }
     },
     {
-      "route_template": "/api/v1/admin/market-stats/list",
-      "domain": "admin",
-      "operation": "admin.list_market_stats",
-      "metrics_label": "admin:/api/v1/admin/market-stats/list",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": null,
-        "conditional_branches": []
-      }
-    },
-    {
       "route_template": "/api/v1/admin/policy-graph",
       "domain": "admin",
       "operation": "admin.get_policy_graph",
@@ -753,7 +730,7 @@
     {
       "route_template": "/api/v1/agent-batch/nl-command",
       "domain": "agent-batch",
-      "operation": "agent-batch.run_agent_batch_nl_command",
+      "operation": "agent-batch.reject_agent_batch_nl_command",
       "metrics_label": "agent-batch:/api/v1/agent-batch/nl-command",
       "methods": [
         "POST"
@@ -762,24 +739,21 @@
       "required_approval_ids": [],
       "capability_id": null,
       "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
+        "effect_class": "pure_compute",
+        "admission": "admitted",
         "provider_port": null,
         "provider_class": "null",
         "canonical_writer_port": null,
         "external_auth_port": null,
         "filesystem_port": null,
-        "conditional_discriminator": "handler_effect_path.v1",
-        "conditional_branches": [
-          "no_effect_or_read",
-          "external_or_legacy_effect"
-        ]
+        "conditional_discriminator": null,
+        "conditional_branches": []
       }
     },
     {
       "route_template": "/api/v1/agent-batch/nl-command/direct",
       "domain": "agent-batch",
-      "operation": "agent-batch.run_agent_batch_nl_command_direct",
+      "operation": "agent-batch.reject_agent_batch_nl_command_direct",
       "metrics_label": "agent-batch:/api/v1/agent-batch/nl-command/direct",
       "methods": [
         "POST"
@@ -788,18 +762,15 @@
       "required_approval_ids": [],
       "capability_id": null,
       "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
+        "effect_class": "pure_compute",
+        "admission": "admitted",
         "provider_port": null,
         "provider_class": "null",
         "canonical_writer_port": null,
         "external_auth_port": null,
         "filesystem_port": null,
-        "conditional_discriminator": "handler_effect_path.v1",
-        "conditional_branches": [
-          "no_effect_or_read",
-          "external_or_legacy_effect"
-        ]
+        "conditional_discriminator": null,
+        "conditional_branches": []
       }
     },
     {
@@ -879,29 +850,6 @@
       "domain": "agent-chat",
       "operation": "agent-chat.list_agent_chat_capabilities",
       "metrics_label": "agent-chat:/api/v1/agent-chat/capabilities",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": null,
-        "conditional_branches": []
-      }
-    },
-    {
-      "route_template": "/api/v1/agent-chat/models",
-      "domain": "agent-chat",
-      "operation": "agent-chat.list_agent_chat_models",
-      "metrics_label": "agent-chat:/api/v1/agent-chat/models",
       "methods": [
         "GET"
       ],
@@ -1692,6 +1640,29 @@
       }
     },
     {
+      "route_template": "/api/v1/codex-auth/webui/bootstrap",
+      "domain": "codex-auth",
+      "operation": "codex-auth.codex_auth_webui_bootstrap",
+      "metrics_label": "codex-auth:/api/v1/codex-auth/webui/bootstrap",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "external_auth",
+        "admission": "admitted",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": "codex_webui.session_exchange.v1",
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
       "route_template": "/api/v1/config",
       "domain": "config",
       "operation": "config.get_config",
@@ -2093,29 +2064,6 @@
       "domain": "dashboard",
       "operation": "dashboard.get_dashboard_llm_report_detail",
       "metrics_label": "dashboard:/api/v1/dashboard/llm-report-detail",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": null,
-        "conditional_branches": []
-      }
-    },
-    {
-      "route_template": "/api/v1/dashboard/market-trends",
-      "domain": "dashboard",
-      "operation": "dashboard.get_market_trends",
-      "metrics_label": "dashboard:/api/v1/dashboard/market-trends",
       "methods": [
         "GET"
       ],
@@ -2688,6 +2636,213 @@
       }
     },
     {
+      "route_template": "/api/v1/information-topology/exports",
+      "domain": "information-topology",
+      "operation": "information-topology.export_structure",
+      "metrics_label": "information-topology:/api/v1/information-topology/exports",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "filesystem_subprocess",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/information-topology/imports",
+      "domain": "information-topology",
+      "operation": "information-topology.import_structure",
+      "metrics_label": "information-topology:/api/v1/information-topology/imports",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/information-topology/mappings/preview",
+      "domain": "information-topology",
+      "operation": "information-topology.preview_mapping",
+      "metrics_label": "information-topology:/api/v1/information-topology/mappings/preview",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "read",
+        "admission": "admitted",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/information-topology/patches",
+      "domain": "information-topology",
+      "operation": "information-topology.apply_patch",
+      "metrics_label": "information-topology:/api/v1/information-topology/patches",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/information-topology/profiles",
+      "domain": "information-topology",
+      "operation": "information-topology.describe_profiles",
+      "metrics_label": "information-topology:/api/v1/information-topology/profiles",
+      "methods": [
+        "GET"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "read",
+        "admission": "admitted",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/information-topology/relations/find",
+      "domain": "information-topology",
+      "operation": "information-topology.find_relations",
+      "metrics_label": "information-topology:/api/v1/information-topology/relations/find",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "read",
+        "admission": "admitted",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/information-topology/resolve",
+      "domain": "information-topology",
+      "operation": "information-topology.resolve_refs",
+      "metrics_label": "information-topology:/api/v1/information-topology/resolve",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "read",
+        "admission": "admitted",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/information-topology/topologies",
+      "domain": "information-topology",
+      "operation": "information-topology.list_topologies",
+      "metrics_label": "information-topology:/api/v1/information-topology/topologies",
+      "methods": [
+        "GET"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "read",
+        "admission": "admitted",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/information-topology/topologies/read",
+      "domain": "information-topology",
+      "operation": "information-topology.read_topology",
+      "metrics_label": "information-topology:/api/v1/information-topology/topologies/read",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "read",
+        "admission": "admitted",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
       "route_template": "/api/v1/ingest/commodity/metrics",
       "domain": "ingest",
       "operation": "ingest.ingest_commodity",
@@ -2943,32 +3098,6 @@
       "domain": "ingest",
       "operation": "ingest.ingest_policy_regulation",
       "metrics_label": "ingest:/api/v1/ingest/policy/regulation",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": "handler_effect_path.v1",
-        "conditional_branches": [
-          "no_effect_or_read",
-          "external_or_legacy_effect"
-        ]
-      }
-    },
-    {
-      "route_template": "/api/v1/ingest/reports/california",
-      "domain": "ingest",
-      "operation": "ingest.ingest_california_reports",
-      "metrics_label": "ingest:/api/v1/ingest/reports/california",
       "methods": [
         "POST"
       ],
@@ -3760,22 +3889,22 @@
       }
     },
     {
-      "route_template": "/api/v1/market",
-      "domain": "market",
-      "operation": "market.market_stats",
-      "metrics_label": "market:/api/v1/market",
+      "route_template": "/api/v1/material-projections/v2/commands",
+      "domain": "material-projections",
+      "operation": "rebuild_projection",
+      "metrics_label": "material-projections:/api/v1/material-projections/v2/commands",
       "methods": [
-        "GET"
+        "POST"
       ],
       "required_scope": "api:invoke",
       "required_approval_ids": [],
-      "capability_id": null,
+      "capability_id": "capability:material-projections:v2",
       "effect_contract": {
-        "effect_class": "read",
+        "effect_class": "canonical_write",
         "admission": "admitted",
         "provider_port": null,
         "provider_class": "null",
-        "canonical_writer_port": null,
+        "canonical_writer_port": "postgres.projection_rebuild.v2",
         "external_auth_port": null,
         "filesystem_port": null,
         "conditional_discriminator": null,
@@ -3783,12 +3912,12 @@
       }
     },
     {
-      "route_template": "/api/v1/market/games",
-      "domain": "market",
-      "operation": "market.market_games",
-      "metrics_label": "market:/api/v1/market/games",
+      "route_template": "/api/v1/material-projections/v2/queries",
+      "domain": "material-projections",
+      "operation": "material-projections.run_query",
+      "metrics_label": "material-projections:/api/v1/material-projections/v2/queries",
       "methods": [
-        "GET"
+        "POST"
       ],
       "required_scope": "api:invoke",
       "required_approval_ids": [],
@@ -4527,6 +4656,150 @@
       "domain": "project-customization",
       "operation": "project-customization.list_workflow_template_versions",
       "metrics_label": "project-customization:/api/v1/project-customization/workflows/{workflow_name}/template/versions",
+      "methods": [
+        "GET"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "read",
+        "admission": "admitted",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/project-retrieval/modes/current",
+      "domain": "project-retrieval",
+      "operation": "project-retrieval.current_mode",
+      "metrics_label": "project-retrieval:/api/v1/project-retrieval/modes/current",
+      "methods": [
+        "GET"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/project-retrieval/modes/refresh",
+      "domain": "project-retrieval",
+      "operation": "project-retrieval.refresh_mode",
+      "metrics_label": "project-retrieval:/api/v1/project-retrieval/modes/refresh",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/project-retrieval/plans/preview",
+      "domain": "project-retrieval",
+      "operation": "project-retrieval.preview",
+      "metrics_label": "project-retrieval:/api/v1/project-retrieval/plans/preview",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/project-retrieval/rapid-proposals/{proposal_id}/continue",
+      "domain": "project-retrieval",
+      "operation": "project-retrieval.continue_saved_frontier",
+      "metrics_label": "project-retrieval:/api/v1/project-retrieval/rapid-proposals/{proposal_id}/continue",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "conditional",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": "handler_effect_path.v1",
+        "conditional_branches": [
+          "no_effect_or_read",
+          "external_or_legacy_effect"
+        ]
+      }
+    },
+    {
+      "route_template": "/api/v1/project-retrieval/runs",
+      "domain": "project-retrieval",
+      "operation": "project-retrieval.start",
+      "metrics_label": "project-retrieval:/api/v1/project-retrieval/runs",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "conditional",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": "handler_effect_path.v1",
+        "conditional_branches": [
+          "no_effect_or_read",
+          "external_or_legacy_effect"
+        ]
+      }
+    },
+    {
+      "route_template": "/api/v1/project-retrieval/runs/{run_id}",
+      "domain": "project-retrieval",
+      "operation": "project-retrieval.read_run",
+      "metrics_label": "project-retrieval:/api/v1/project-retrieval/runs/{run_id}",
       "methods": [
         "GET"
       ],
@@ -5792,20 +6065,20 @@
     {
       "route_template": "/api/v1/successor-runtime/v2/commands",
       "domain": "successor-runtime",
-      "operation": "rebuild_projection",
+      "operation": "material-projections.reject_retired_command_route",
       "metrics_label": "successor-runtime:/api/v1/successor-runtime/v2/commands",
       "methods": [
         "POST"
       ],
       "required_scope": "api:invoke",
       "required_approval_ids": [],
-      "capability_id": "capability:successor-runtime:c9",
+      "capability_id": null,
       "effect_contract": {
-        "effect_class": "canonical_write",
+        "effect_class": "read",
         "admission": "admitted",
         "provider_port": null,
         "provider_class": "null",
-        "canonical_writer_port": "postgres.c9_projection_rebuild.v1",
+        "canonical_writer_port": null,
         "external_auth_port": null,
         "filesystem_port": null,
         "conditional_discriminator": null,

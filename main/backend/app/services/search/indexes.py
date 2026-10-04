@@ -6,7 +6,6 @@ def ensure_indices(es: Elasticsearch) -> dict:
     results: dict[str, str] = {}
 
     policy_index = "policy_docs_es"
-    market_index = "market_stats_es"
     metric_index = "market_metric_points_es"
     ecom_index = "price_observations_es"
 
@@ -31,29 +30,6 @@ def ensure_indices(es: Elasticsearch) -> dict:
         results[policy_index] = "created"
     else:
         results[policy_index] = "exists"
-
-    if not es.indices.exists(index=market_index):
-        es.indices.create(
-            index=market_index,
-            mappings={
-                "properties": {
-                    "project_key": {"type": "keyword"},
-                    "topic": {"type": "keyword"},
-                    "domain": {"type": "keyword"},
-                    "state": {"type": "keyword"},
-                    "date": {"type": "date"},
-                    "sales_volume": {"type": "double"},
-                    "revenue": {"type": "double"},
-                    "jackpot": {"type": "double"},
-                    "ticket_price": {"type": "double"},
-                    "yoy": {"type": "double"},
-                    "mom": {"type": "double"},
-                }
-            },
-        )
-        results[market_index] = "created"
-    else:
-        results[market_index] = "exists"
 
     if not es.indices.exists(index=metric_index):
         es.indices.create(

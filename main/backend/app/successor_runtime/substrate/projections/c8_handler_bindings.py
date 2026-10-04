@@ -10,13 +10,13 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Protocol
 
-from app.successor_runtime.capabilities import c8_common as c8
-from app.successor_runtime.capabilities.c8_common import c8_canonical_digest
-from app.successor_runtime.capabilities.c8_program import (
-    C8_3_KIND,
-    C8_ADMISSION_KIND,
-    C8_DELIVERY_INTENT_PREPARE_KIND,
-    C8_VERIFY_KIND,
+from app.successor_runtime.capabilities import knowledge_common as c8
+from app.successor_runtime.capabilities.knowledge_common import knowledge_canonical_digest
+from app.successor_runtime.capabilities.knowledge_program import (
+    KNOWLEDGE_REPORT_KIND,
+    KNOWLEDGE_ADMISSION_KIND,
+    KNOWLEDGE_DELIVERY_INTENT_PREPARE_KIND,
+    KNOWLEDGE_VERIFY_KIND,
     DELIVERY_INTERNAL_EXPORT_KIND,
 )
 from app.successor_runtime.language.combinators import default_registries
@@ -42,10 +42,10 @@ __all__ = [
 ]
 
 C8_DELIVERY_BRIDGE_OPERATION_KINDS = (
-    C8_3_KIND,
-    C8_VERIFY_KIND,
-    C8_ADMISSION_KIND,
-    C8_DELIVERY_INTENT_PREPARE_KIND,
+    KNOWLEDGE_REPORT_KIND,
+    KNOWLEDGE_VERIFY_KIND,
+    KNOWLEDGE_ADMISSION_KIND,
+    KNOWLEDGE_DELIVERY_INTENT_PREPARE_KIND,
     DELIVERY_INTERNAL_EXPORT_KIND,
 )
 
@@ -86,7 +86,7 @@ def build_c8_delivery_activation_catalog(
 ]:
     """Build the exact five-entry C8 delivery-bridge activation catalog."""
 
-    from app.successor_runtime.capabilities.c8_program import (
+    from app.successor_runtime.capabilities.knowledge_program import (
         handler_binding_payload,
     )
 
@@ -180,7 +180,7 @@ class C8RecoveryReadbackHandler:
         cell_id: str,
         attempt_digest: str,
         readback_profile_ref: str | None = None,
-    ) -> c8.C8RecoveryResult:
+    ) -> c8.KnowledgeRecoveryResult:
         self.readback_calls += 1
         if (
             readback_profile_ref is not None
@@ -201,7 +201,7 @@ class C8RecoveryReadbackHandler:
             binding_digest=binding.binding_digest,
             attempt_digest=attempt_digest,
             readback_profile_ref=resolved_profile,
-            outcome_digest=c8_canonical_digest(outcome),
+            outcome_digest=knowledge_canonical_digest(outcome),
         )
 
 

@@ -7,16 +7,16 @@ from datetime import UTC, datetime
 import pytest
 
 from app.successor_runtime.assembly.base import (
-    C4AssemblyOptions,
+    BatchTaskAssemblyOptions,
     local_assembly_scope_digest,
     successor_binding,
 )
-from app.successor_runtime.assembly.c4_assembly import (
-    _C4_DEPLOYMENT_CATALOG_DIGEST,
-    _C4_QUALITY_PROMOTION_AUTHORITY_DIGEST,
-    _C4_QUALITY_PROMOTION_INTERPRETER_DIGEST,
-    _C4_QUALITY_PROMOTION_OPERATION_DIGEST,
-    build_c4_assembly,
+from app.successor_runtime.assembly.batch_task_assembly import (
+    _BATCH_TASK_DEPLOYMENT_CATALOG_DIGEST,
+    _BATCH_TASK_QUALITY_PROMOTION_AUTHORITY_DIGEST,
+    _BATCH_TASK_QUALITY_PROMOTION_INTERPRETER_DIGEST,
+    _BATCH_TASK_QUALITY_PROMOTION_OPERATION_DIGEST,
+    build_batch_task_assembly,
 )
 from app.successor_runtime.capabilities.quality_promotion_port import (
     BoundedRetryReadback,
@@ -47,8 +47,8 @@ from app.successor_runtime.runtime.node import (
     NodeIdentity,
     RuntimeExecutionContext,
 )
-from app.successor_runtime.substrate.postgres.agent_batch_c4_quality_promotion_handler import (
-    C4QualityPromotionRuntimeHandler,
+from app.successor_runtime.substrate.postgres.batch_task_quality_promotion_handler import (
+    BatchTaskQualityPromotionRuntimeHandler,
 )
 
 pytestmark = pytest.mark.unit
@@ -142,36 +142,36 @@ def _full_closed_evidence() -> QualityGateEvidence:
     )
 
 
-def _binding(handler: C4QualityPromotionRuntimeHandler) -> InterpreterBinding:
+def _binding(handler: BatchTaskQualityPromotionRuntimeHandler) -> InterpreterBinding:
     binding = successor_binding(
         operation_contract_digest=handler.operation_contract_digest,
         interpreter_profile_digest=handler.interpreter_profile_digest,
         deployment_catalog_digest=handler.deployment_catalog_digest,
         project_scope_digest=local_assembly_scope_digest(),
-        authority_requirement_digest=_C4_QUALITY_PROMOTION_AUTHORITY_DIGEST,
+        authority_requirement_digest=_BATCH_TASK_QUALITY_PROMOTION_AUTHORITY_DIGEST,
     )
     assert binding.binding_digest == handler.handler_binding_digest
     return binding
 
 
-def _handler(evidence: QualityGateEvidence) -> C4QualityPromotionRuntimeHandler:
-    return C4QualityPromotionRuntimeHandler(
+def _handler(evidence: QualityGateEvidence) -> BatchTaskQualityPromotionRuntimeHandler:
+    return BatchTaskQualityPromotionRuntimeHandler(
         evidence=evidence,
         handler_binding_digest=successor_binding(
-            operation_contract_digest=_C4_QUALITY_PROMOTION_OPERATION_DIGEST,
-            interpreter_profile_digest=_C4_QUALITY_PROMOTION_INTERPRETER_DIGEST,
-            deployment_catalog_digest=_C4_DEPLOYMENT_CATALOG_DIGEST,
+            operation_contract_digest=_BATCH_TASK_QUALITY_PROMOTION_OPERATION_DIGEST,
+            interpreter_profile_digest=_BATCH_TASK_QUALITY_PROMOTION_INTERPRETER_DIGEST,
+            deployment_catalog_digest=_BATCH_TASK_DEPLOYMENT_CATALOG_DIGEST,
             project_scope_digest=local_assembly_scope_digest(),
-            authority_requirement_digest=_C4_QUALITY_PROMOTION_AUTHORITY_DIGEST,
+            authority_requirement_digest=_BATCH_TASK_QUALITY_PROMOTION_AUTHORITY_DIGEST,
         ).binding_digest,
-        interpreter_profile_digest=_C4_QUALITY_PROMOTION_INTERPRETER_DIGEST,
-        operation_contract_digest=_C4_QUALITY_PROMOTION_OPERATION_DIGEST,
-        deployment_catalog_digest=_C4_DEPLOYMENT_CATALOG_DIGEST,
+        interpreter_profile_digest=_BATCH_TASK_QUALITY_PROMOTION_INTERPRETER_DIGEST,
+        operation_contract_digest=_BATCH_TASK_QUALITY_PROMOTION_OPERATION_DIGEST,
+        deployment_catalog_digest=_BATCH_TASK_DEPLOYMENT_CATALOG_DIGEST,
     )
 
 
 def _assignment(
-    handler: C4QualityPromotionRuntimeHandler,
+    handler: BatchTaskQualityPromotionRuntimeHandler,
     binding: InterpreterBinding,
 ) -> RuntimeAssignment:
     return RuntimeAssignment(
@@ -218,7 +218,7 @@ def _assignment(
 
 
 def _claim(
-    handler: C4QualityPromotionRuntimeHandler,
+    handler: BatchTaskQualityPromotionRuntimeHandler,
     assignment: RuntimeAssignment,
 ) -> ClaimBinding:
     return ClaimBinding.bind(
@@ -244,7 +244,7 @@ def _context() -> RuntimeExecutionContext:
     )
 
 
-def _execute(handler: C4QualityPromotionRuntimeHandler) -> object:
+def _execute(handler: BatchTaskQualityPromotionRuntimeHandler) -> object:
     binding = _binding(handler)
     assignment = _assignment(handler, binding)
     claim = _claim(handler, assignment)
@@ -328,15 +328,15 @@ def test_health_anomaly_fails_closed() -> None:
 
 
 def test_c4_assembly_installs_quality_promotion_handler_with_evidence() -> None:
-    assembly = build_c4_assembly(
+    assembly = build_batch_task_assembly(
         uow_factory=lambda: object(),  # type: ignore[arg-type]
         project_scope_digest=local_assembly_scope_digest(),
-        options=C4AssemblyOptions(quality_evidence=_full_closed_evidence()),
+        options=BatchTaskAssemblyOptions(quality_evidence=_full_closed_evidence()),
     )
     quality_handlers = [
         handler
         for handler in assembly.handlers
-        if isinstance(handler, C4QualityPromotionRuntimeHandler)
+        if isinstance(handler, BatchTaskQualityPromotionRuntimeHandler)
     ]
     assert len(quality_handlers) == 1
     assert "QUALITY_PROMOTION_HANDLER_INSTALLED_READBACK_ONLY" in (

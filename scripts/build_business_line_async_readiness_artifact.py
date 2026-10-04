@@ -10,10 +10,10 @@ from pathlib import Path
 from typing import Annotated, Any, Sequence
 
 try:
-    from scripts._automation_runtime import utc_now, write_json
+    from scripts._automation_runtime import CANONICAL_LINE_KEYS, utc_now, write_json
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from _automation_runtime import utc_now, write_json
+    from _automation_runtime import CANONICAL_LINE_KEYS, utc_now, write_json
 
 
 ARTIFACT_SCHEMA_VERSION = "business_line_async_readiness.v1"
@@ -22,15 +22,7 @@ STATUS_PASSED = "passed"
 STATUS_FAILED = "failed"
 STATUS_BLOCKED = "blocked_by_environment"
 
-REQUIRED_LINE_KEYS = (
-    "ingest",
-    "search_discovery_index",
-    "resource_source_library",
-    "projects_config_workflow",
-    "dashboard_admin_governance",
-    "writing_knowledge_graph_agent",
-    "runtime_ops",
-)
+REQUIRED_LINE_KEYS = CANONICAL_LINE_KEYS
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:

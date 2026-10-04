@@ -259,13 +259,13 @@ def _source_bindings(design_root: Path) -> list[dict[str, Any]]:
         ),
         _binding(
             design_root,
-            Path("main/backend/app/successor_runtime/capabilities/ingest_c7_common.py"),
+            Path("main/backend/app/successor_runtime/capabilities/material_ingest_common.py"),
             "current_target_realization",
         ),
         _binding(
             design_root,
             Path(
-                "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py"
+                "main/backend/app/successor_runtime/capabilities/material_ingest_movements.py"
             ),
             "pure_movement_implementation",
         ),

@@ -69,6 +69,12 @@ from .runtime import (
     RuntimeEvaluation,
     install_production_observability,
 )
+from .http import (
+    finalize_request_metrics,
+    is_sse_response,
+    observe_production_http_request,
+    wrap_stream_response,
+)
 
 __all__ = [
     "ALERT_DIRECTION",
@@ -95,6 +101,7 @@ __all__ = [
     "CanaryRouteDecision",
     "ContinueRequest",
     "DatabaseRuntimeSignal",
+    "finalize_request_metrics",
     "MetricFamily",
     "ProjectionDriftStatus",
     "ProjectionReadStatus",
@@ -128,8 +135,11 @@ __all__ = [
     "RuntimeAuthorityReadStatus",
     "RuntimeHealthSnapshot",
     "install_production_observability",
+    "is_sse_response",
+    "observe_production_http_request",
     "parse_production_observability_config",
     "production_observability_config_from_settings",
     "observation_digest",
     "validate_production_receipt",
+    "wrap_stream_response",
 ]

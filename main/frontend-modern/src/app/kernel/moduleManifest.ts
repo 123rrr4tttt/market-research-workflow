@@ -4,81 +4,11 @@ const WRITING_LOOPS = ['edit', 'preview', 'template', 'llm-assist', 'citation-ba
 const WORKFLOW_LOOPS = ['node-template', 'edge-link', 'run-params', 'result-review', 'import-export'] as const
 const INGEST_LOOPS = ['input-config', 'execute', 'status-feedback', 'result-review'] as const
 const RAW_DATA_LOOPS = ['data-input', 'process-chain', 'result-review', 'continue-operation'] as const
-const AGENT_CHAT_LOOPS = ['session-context', 'nl-command', 'stage-observe', 'report-review'] as const
+const AGENT_LOOPS = ['project-scope', 'native-tool-observe', 'auth-refresh'] as const
 const VISUAL_LOOPS = ['view-switch', 'filter', 'object-selection', 'detail-inspect'] as const
 const RESOURCE_LOOPS = ['search', 'filter', 'recommendation', 'site-entry-maintenance', 'batch-actions'] as const
 const PROCESS_LOOPS = ['task-list', 'detail', 'auto-refresh', 'cancel', 'history'] as const
 const GOVERNANCE_LOOPS = ['project-switch', 'crawler-import', 'crawler-deploy', 'crawler-rollback', 'settings-edit'] as const
-
-const MODULE_TITLE_KEY_BY_MODULE: Record<KernelModuleKey, TitleMessageKey> = {
-  overviewTasks: 'shell.title.overviewTasks',
-  overviewData: 'shell.title.overviewData',
-  dataDashboard: 'shell.title.dataDashboard',
-  dataMarket: 'shell.title.dataMarket',
-  dataSocial: 'shell.title.dataSocial',
-  dataPolicy: 'shell.title.dataPolicy',
-  dataCatalog: 'shell.title.dataCatalog',
-  graphMarket: 'shell.title.graphMarket',
-  graphPolicy: 'shell.title.graphPolicy',
-  graphSocial: 'shell.title.graphSocial',
-  graphCompany: 'shell.title.graphCompany',
-  graphProduct: 'shell.title.graphProduct',
-  graphOperation: 'shell.title.graphOperation',
-  graphDeep: 'shell.title.graphDeep',
-  graphBuilder: 'shell.title.graphBuilder',
-  flowIngest: 'shell.title.flowIngest',
-  flowSpecialized: 'shell.title.flowSpecialized',
-  flowProcessing: 'shell.title.flowProcessing',
-  flowRawData: 'shell.title.flowRawData',
-  flowExtract: 'shell.title.flowExtract',
-  flowAnalysis: 'shell.title.flowAnalysis',
-  flowBoard: 'shell.title.flowBoard',
-  flowWriting: 'shell.title.flowWriting',
-  flowAgentChat: 'shell.title.flowAgentChat',
-  flowLlmNodeDesign: 'shell.title.flowLlmNodeDesign',
-  sysProjects: 'shell.title.sysProjects',
-  sysCrawler: 'shell.title.sysCrawler',
-  sysResource: 'shell.title.sysResource',
-  sysBackend: 'shell.title.sysBackend',
-  sysSettings: 'shell.title.sysSettings',
-  sysLlm: 'shell.title.sysLlm',
-  sysSuccessorRuntime: 'shell.title.sysSuccessorRuntime',
-}
-
-const MODULE_NAV_LABEL_KEY_BY_MODULE: Record<KernelModuleKey, NavMessageKey> = {
-  overviewTasks: 'navigation.item.overviewTasks',
-  overviewData: 'navigation.item.overviewData',
-  dataDashboard: 'navigation.item.dataDashboard',
-  dataMarket: 'navigation.item.dataMarket',
-  dataSocial: 'navigation.item.dataSocial',
-  dataPolicy: 'navigation.item.dataPolicy',
-  dataCatalog: 'navigation.item.dataCatalog',
-  graphMarket: 'navigation.item.graphMarket',
-  graphPolicy: 'navigation.item.graphPolicy',
-  graphSocial: 'navigation.item.graphSocial',
-  graphCompany: 'navigation.item.graphCompany',
-  graphProduct: 'navigation.item.graphProduct',
-  graphOperation: 'navigation.item.graphOperation',
-  graphDeep: 'navigation.item.graphDeep',
-  graphBuilder: 'navigation.item.graphBuilder',
-  flowIngest: 'navigation.item.flowIngest',
-  flowSpecialized: 'navigation.item.flowSpecialized',
-  flowProcessing: 'navigation.item.flowProcessing',
-  flowRawData: 'navigation.item.flowRawData',
-  flowExtract: 'navigation.item.flowExtract',
-  flowAnalysis: 'navigation.item.flowAnalysis',
-  flowBoard: 'navigation.item.flowBoard',
-  flowWriting: 'navigation.item.flowWriting',
-  flowAgentChat: 'navigation.item.flowAgentChat',
-  flowLlmNodeDesign: 'navigation.item.flowLlmNodeDesign',
-  sysProjects: 'navigation.item.sysProjects',
-  sysCrawler: 'navigation.item.sysCrawler',
-  sysResource: 'navigation.item.sysResource',
-  sysBackend: 'navigation.item.sysBackend',
-  sysSettings: 'navigation.item.sysSettings',
-  sysLlm: 'navigation.item.sysLlm',
-  sysSuccessorRuntime: 'navigation.item.sysSuccessorRuntime',
-}
 
 const DESIGN_SOURCES = {
   figma: 'development/latest-dev-docs/ops-frontend/F_PLAN/frontend-modern-figma-sync-PULL_STATUS_2026-02-27.md',
@@ -94,7 +24,7 @@ function buildDesignSources(layerId: ModuleManifestEntry['layerId'], moduleKey: 
   const shared = [DESIGN_SOURCES.figma]
   if (layerId === 'A') {
     const sources: string[] = [DESIGN_SOURCES.quiet, DESIGN_SOURCES.outlineSidebar]
-    if (moduleKey === 'flowWriting' || moduleKey === 'flowAgentChat') sources.push(DESIGN_SOURCES.silverbulletChat)
+    if (moduleKey === 'flowWriting') sources.push(DESIGN_SOURCES.silverbulletChat)
     if (moduleKey === 'flowWriting' || moduleKey === 'flowLlmNodeDesign' || moduleKey === 'flowRawData') {
       sources.push(DESIGN_SOURCES.codemirrorTooltip)
     }
@@ -117,14 +47,17 @@ function defineModule(
   supportsInfoCard: boolean,
   additionalLegacyHashes: readonly string[] = [],
 ): ModuleManifestEntry {
+  const titleKey = `shell.title.${moduleKey}` as TitleMessageKey
+  const navLabelKey = `navigation.item.${moduleKey}` as NavMessageKey
+
   return {
     moduleKey,
     layerId,
     surfaceKind,
     entryRoute,
     legacyHashes: [legacyHash, ...additionalLegacyHashes],
-    titleKey: MODULE_TITLE_KEY_BY_MODULE[moduleKey],
-    navLabelKey: MODULE_NAV_LABEL_KEY_BY_MODULE[moduleKey],
+    titleKey,
+    navLabelKey,
     navGroupKey,
     storybookGroup: STORYBOOK_GROUP_BY_LAYER[layerId],
     requiredContext: ['project_key'],
@@ -137,6 +70,12 @@ function defineModule(
 }
 
 export const DEFAULT_KERNEL_MODULE: KernelModuleKey = 'overviewTasks'
+
+// Presentation grouping only. Routes, labels and module identities still come from the manifest.
+export const ADMIN_NAV_SECTIONS: readonly { labelKey: 'shell.admin.group.projectWork' | 'shell.admin.group.platform'; primary: readonly KernelModuleKey[]; secondary: readonly KernelModuleKey[] }[] = [
+  { labelKey: 'shell.admin.group.projectWork', primary: ['overviewTasks', 'overviewData', 'sysCrawler'], secondary: ['flowProcessing', 'sysResource', 'flowExtract'] },
+  { labelKey: 'shell.admin.group.platform', primary: ['sysProjects', 'sysSettings', 'sysBackend'], secondary: ['sysLlm', 'sysSuccessorRuntime'] },
+]
 
 export const moduleManifest: readonly ModuleManifestEntry[] = [
   defineModule('overviewTasks', 'C', 'management', '/admin/process', '#process-management.html', 'navigation.group.overview', PROCESS_LOOPS, false),
@@ -169,7 +108,7 @@ export const moduleManifest: readonly ModuleManifestEntry[] = [
     '/workbench/agent',
     '#agent-chat.html',
     'navigation.group.flow',
-    AGENT_CHAT_LOOPS,
+    AGENT_LOOPS,
     false,
     ['#agent-chat-compat.html'],
   ),

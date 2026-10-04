@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Query, Request
+from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List, Any, Literal
@@ -13,7 +14,7 @@ import re
 import logging
 
 from ..models.base import SessionLocal
-from ..models.entities import Document, Source, MarketStat, SearchHistory
+from ..models.entities import Document, Source, SearchHistory
 from ..services.extraction.extract import extract_policy_info, extract_market_info, extract_entities_relations
 from ..services.extraction.topic_workflow import (
     TOPIC_FIELDS as WORKFLOW_TOPIC_FIELDS,
@@ -23,6 +24,8 @@ from ..services.extraction.topic_workflow import (
     topic_has_data as wf_topic_has_data,
 )
 from ..services.projects import bind_project
+from ..services.information_topology.service import InformationTopologyService
+from ..services.information_topology.structural_schema import derive_structural_attributes
 from ..services.graph.relation_ontology import relation_annotation
 from ..contracts import ApiEnvelope, ErrorCode, error_response, success_response, task_result_response
 from ..services.ingest.adapters.http_utils import fetch_html
@@ -234,6 +237,55 @@ class DocumentListRequest(BaseModel):
     search: Optional[str] = None
     sort_by: Optional[str] = Field(default="created_at", description="排序字段: created_at, publish_date, id")
     sort_order: Optional[str] = Field(default="desc", pattern="^(asc|desc)$", description="排序方向: asc, desc")
+    include_topology_materials: bool = Field(default=False, description="同时列出信息拓扑 current material 的只读文档投影")
+
+
+def _topology_material_document_items(request: Request, project_key: str) -> list[dict[str, Any]]:
+    from functorial_kit import Failure
+
+    service = getattr(request.app.state, "information_topology_service", None)
+    if not isinstance(service, InformationTopologyService):
+        raise HTTPException(status_code=503, detail="information-topology dependencies are not configured")
+    topologies = service.list_topologies(project_key)
+    if isinstance(topologies, Failure):
+        raise HTTPException(status_code=422, detail=topologies.message)
+    items: list[dict[str, Any]] = []
+    for topology in topologies["items"]:
+        topology_ref = topology["topology_ref"]
+        created_at = topology.get("created_at")
+        for element in topology["topology"]["elements"]:
+            ref = element["ref"]["ref"]
+            if ref["type_id"] != "material":
+                continue
+            attributes = element.get("attributes", {})
+            structural = derive_structural_attributes("material", attributes)
+            title = str(structural.get("content_name") or "").strip()
+            if attributes.get("reference_status") == "unresolved_reference":
+                title = "未解析材料引用"
+            items.append({
+                "id": ":".join((
+                    "topology", str(topology_ref["module_id"]), str(topology_ref["namespace"]),
+                    str(topology_ref["state_id"]), str(ref["local_id"]),
+                )),
+                "title": title,
+                "doc_type": "topology_material",
+                "uri": str(structural.get("source_uri") or "").strip(),
+                "state": "ACTIVE",
+                "source_id": None,
+                "created_at": created_at,
+                "updated_at": created_at,
+                "publish_date": None,
+                "has_extracted_data": False,
+                "source_kind": "information_topology_material",
+                "source_ref": {
+                    "topology_ref": topology_ref,
+                    "material_ref": ref,
+                    "observed_revision": element["ref"].get("observed_revision"),
+                    "content_digest": element["ref"].get("content_digest"),
+                },
+                "readonly": True,
+            })
+    return items
 
 
 class SourceListRequest(BaseModel):
@@ -242,17 +294,6 @@ class SourceListRequest(BaseModel):
     kind: Optional[str] = None
     enabled: Optional[bool] = None
     sort_by: Optional[str] = Field(default="created_at", description="排序字段: created_at, id, name, document_count")
-    sort_order: Optional[str] = Field(default="desc", pattern="^(asc|desc)$", description="排序方向: asc, desc")
-
-
-class MarketStatsListRequest(BaseModel):
-    page: int = Field(default=1, ge=1)
-    page_size: int = Field(default=20, ge=1, le=100)
-    state: Optional[str] = None
-    game: Optional[str] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    sort_by: Optional[str] = Field(default="date", description="排序字段: date, id, sales_volume, revenue, jackpot")
     sort_order: Optional[str] = Field(default="desc", pattern="^(asc|desc)$", description="排序方向: asc, desc")
 
 
@@ -1305,15 +1346,19 @@ def get_stats(request: Request):
         # 数据源统计
             source_total = session.execute(select(func.count(Source.id))).scalar() or 0
         
-        # 市场数据统计
-            market_total = session.execute(select(func.count(MarketStat.id))).scalar() or 0
-        
         # 搜索历史统计
             history_total = session.execute(select(func.count(SearchHistory.id))).scalar() or 0
-        
+
+            topology_service = getattr(request.app.state, "information_topology_service", None)
+            topology_document_total = 0
+            if isinstance(topology_service, InformationTopologyService):
+                topology_document_total = topology_service.count_current_elements(project_key, "material")
+
             return success_response({
                 "documents": {
-                    "total": doc_total,
+                    "total": doc_total + topology_document_total,
+                    "table_total": doc_total,
+                    "topology_material_total": topology_document_total,
                     "recent_today": doc_recent,
                 },
                 "social_data": {
@@ -1322,9 +1367,6 @@ def get_stats(request: Request):
                 },
                 "sources": {
                     "total": source_total,
-                },
-                "market_stats": {
-                    "total": market_total,
                 },
                 "search_history": {
                     "total": history_total,
@@ -1380,6 +1422,79 @@ def list_documents(request: Request, payload: DocumentListRequest):
         
         if conditions:
             query = query.where(and_(*conditions))
+
+        if payload.include_topology_materials:
+            # The unified list is a read model: Document rows remain writable
+            # records, while topology materials are projected observations with
+            # stable source references and no document-table side effects.
+            base_query = select(Document)
+            if conditions:
+                base_query = base_query.where(and_(*conditions))
+            sort_by = payload.sort_by or "created_at"
+            sort_order = payload.sort_order or "desc"
+            if sort_by == "publish_date":
+                ordered_documents = base_query.order_by(
+                    nullslast(Document.publish_date.desc() if sort_order == "desc" else Document.publish_date.asc()),
+                    Document.id.desc() if sort_order == "desc" else Document.id.asc(),
+                )
+            elif sort_by == "id":
+                ordered_documents = base_query.order_by(
+                    Document.id.desc() if sort_order == "desc" else Document.id.asc()
+                )
+            else:
+                ordered_documents = base_query.order_by(
+                    nullslast(Document.created_at.desc() if sort_order == "desc" else Document.created_at.asc()),
+                    Document.id.desc() if sort_order == "desc" else Document.id.asc(),
+                )
+            documents = session.execute(ordered_documents).scalars().all()
+            combined: list[dict[str, Any]] = [{
+                "id": doc.id,
+                "title": doc.title,
+                "doc_type": doc.doc_type,
+                "state": doc.state,
+                "uri": doc.uri,
+                "source_id": doc.source_id,
+                "created_at": doc.created_at.isoformat() if doc.created_at else None,
+                "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
+                "publish_date": doc.publish_date.isoformat() if doc.publish_date else None,
+                "has_extracted_data": doc.extracted_data is not None,
+                "source_kind": "document",
+                "readonly": False,
+            } for doc in documents]
+            combined.extend(_topology_material_document_items(request, project_key))
+            if payload.state:
+                combined = [item for item in combined if str(item.get("state") or "").upper() == payload.state.upper()]
+            if payload.doc_type:
+                combined = [item for item in combined if item.get("doc_type") == payload.doc_type]
+            if payload.has_extracted_data is True:
+                combined = [item for item in combined if item.get("has_extracted_data") is True]
+            elif payload.has_extracted_data is False:
+                combined = [item for item in combined if item.get("has_extracted_data") is not True]
+            if payload.search:
+                term = payload.search.casefold()
+                combined = [
+                    item for item in combined
+                    if term in str(item.get("title") or "").casefold()
+                    or term in str(item.get("uri") or "").casefold()
+                    or term in str(item.get("id") or "").casefold()
+                ]
+
+            def sort_key(item: dict[str, Any]) -> tuple[bool, Any]:
+                value = item.get(sort_by if sort_by in {"created_at", "publish_date"} else "id")
+                if not isinstance(value, str):
+                    value = str(value)
+                return (value is None, value)
+
+            combined.sort(key=sort_key, reverse=sort_order == "desc")
+            total = len(combined)
+            offset = (payload.page - 1) * payload.page_size
+            page_items = combined[offset:offset + payload.page_size]
+            return success_response({
+                "items": page_items,
+                "total": total,
+                "page": payload.page,
+                "page_size": payload.page_size,
+            })
         
         # 总数
         total_query = select(func.count()).select_from(Document)
@@ -2083,104 +2198,6 @@ def list_sources(payload: SourceListRequest):
                 "enabled": src.enabled,
                 "document_count": doc_count,
                 "created_at": src.created_at.isoformat() if src.created_at else None,
-            })
-        
-        return success_response({
-            "items": items,
-            "total": total,
-            "page": payload.page,
-            "page_size": payload.page_size,
-        })
-
-
-@router.post("/market-stats/list", response_model=ApiEnvelope[dict[str, Any]])
-def list_market_stats(payload: MarketStatsListRequest):
-    """列出市场数据"""
-    with SessionLocal() as session:
-        query = select(MarketStat)
-        
-        conditions = []
-        if payload.state:
-            conditions.append(MarketStat.state == payload.state.upper())
-        if payload.game:
-            conditions.append(MarketStat.game.ilike(f"%{payload.game}%"))
-        if payload.start_date:
-            try:
-                start = datetime.fromisoformat(payload.start_date).date()
-                conditions.append(MarketStat.date >= start)
-            except Exception:
-                pass
-        if payload.end_date:
-            try:
-                end = datetime.fromisoformat(payload.end_date).date()
-                conditions.append(MarketStat.date <= end)
-            except Exception:
-                pass
-        
-        if conditions:
-            query = query.where(and_(*conditions))
-        
-        # 总数
-        total_query = select(func.count()).select_from(MarketStat)
-        if conditions:
-            total_query = total_query.where(and_(*conditions))
-        total = session.execute(total_query).scalar() or 0
-        
-        # 排序
-        sort_by = payload.sort_by or "date"
-        sort_order = payload.sort_order or "desc"
-        
-        if sort_by == "date":
-            if sort_order == "desc":
-                query = query.order_by(MarketStat.date.desc().nullslast())
-            else:
-                query = query.order_by(MarketStat.date.asc().nullslast())
-        elif sort_by == "id":
-            if sort_order == "desc":
-                query = query.order_by(MarketStat.id.desc())
-            else:
-                query = query.order_by(MarketStat.id.asc())
-        elif sort_by == "sales_volume":
-            if sort_order == "desc":
-                query = query.order_by(MarketStat.sales_volume.desc().nullslast())
-            else:
-                query = query.order_by(MarketStat.sales_volume.asc().nullslast())
-        elif sort_by == "revenue":
-            if sort_order == "desc":
-                query = query.order_by(MarketStat.revenue.desc().nullslast())
-            else:
-                query = query.order_by(MarketStat.revenue.asc().nullslast())
-        elif sort_by == "jackpot":
-            if sort_order == "desc":
-                query = query.order_by(MarketStat.jackpot.desc().nullslast())
-            else:
-                query = query.order_by(MarketStat.jackpot.asc().nullslast())
-        else:
-            query = query.order_by(MarketStat.date.desc())
-        
-        # 分页
-        offset = (payload.page - 1) * payload.page_size
-        query = query.offset(offset).limit(payload.page_size)
-        
-        stats = session.execute(query).scalars().all()
-        
-        items = []
-        for stat in stats:
-            items.append({
-                "id": stat.id,
-                "state": stat.state,
-                "game": stat.game,
-                "date": stat.date.isoformat() if stat.date else None,
-                "sales_volume": float(stat.sales_volume) if stat.sales_volume else None,
-                "revenue": float(stat.revenue) if stat.revenue else None,
-                "revenue_estimated": float(stat.revenue_estimated) if stat.revenue_estimated else None,
-                "jackpot": float(stat.jackpot) if stat.jackpot else None,
-                "ticket_price": float(stat.ticket_price) if stat.ticket_price else None,
-                "draw_number": stat.draw_number,
-                "yoy": float(stat.yoy) if stat.yoy else None,
-                "mom": float(stat.mom) if stat.mom else None,
-                "source_name": stat.source_name,
-                "source_uri": stat.source_uri,
             })
         
         return success_response({

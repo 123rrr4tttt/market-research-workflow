@@ -21,19 +21,19 @@ from typing import Annotated
 from sqlalchemy import MetaData
 from sqlalchemy.engine import Connection, Engine
 
-from app.successor_runtime.capabilities import c8_common as c8
-from app.successor_runtime.capabilities.c8_consumer import (
+from app.successor_runtime.capabilities import knowledge_common as c8
+from app.successor_runtime.capabilities.knowledge_consumer import (
     consume_graph_projection,
 )
-from app.successor_runtime.capabilities.c8_program import (
-    C8_3_KIND,
-    C8_ADMISSION_KIND,
-    C8_DELIVERY_INTENT_PREPARE_KIND,
-    C8_VERIFY_KIND,
+from app.successor_runtime.capabilities.knowledge_program import (
+    KNOWLEDGE_REPORT_KIND,
+    KNOWLEDGE_ADMISSION_KIND,
+    KNOWLEDGE_DELIVERY_INTENT_PREPARE_KIND,
+    KNOWLEDGE_VERIFY_KIND,
     DELIVERY_INTERNAL_EXPORT_KIND,
-    C8CapabilityBundle,
+    KnowledgeCapabilityBundle,
 )
-from app.successor_runtime.capabilities.c8_report import (
+from app.successor_runtime.capabilities.knowledge_report import (
     build_report_admission_intent_v2,
     build_report_delivery_intent_v2,
     build_report_stage,
@@ -41,12 +41,12 @@ from app.successor_runtime.capabilities.c8_report import (
     prepare_report_export,
     verify_report_stage,
 )
-from app.successor_runtime.capabilities.c8_typed_knowledge import (
+from app.successor_runtime.capabilities.typed_knowledge import (
     IssuedKnowledgeRead,
     StrictReadHandleRegistry,
     strict_issued_demand_read,
 )
-from app.successor_runtime.capabilities.c8_writing import (
+from app.successor_runtime.capabilities.knowledge_writing import (
     compose_markdown_draft,
     validate_citation_closure,
 )
@@ -81,6 +81,9 @@ from app.successor_runtime.substrate.postgres.c8_artifact_handler import (
     verify_artifact,
 )
 from app.successor_runtime.substrate.postgres.c8_graph_projector import (
+    KNOWLEDGE_GRAPH_PROJECTOR_ID,
+    C8GraphProjectionUnavailableError,
+    LEGACY_C8_GRAPH_PROJECTOR_ID,
     project_graph_generation as project_graph_generation_db,
 )
 from app.successor_runtime.substrate.postgres.c8_graph_projector import (
@@ -140,6 +143,8 @@ from app.successor_runtime.substrate.postgres.unit_of_work import RuntimeUnitOfW
 
 __all__ = [
     "PRODUCTION_AUTHORITY_ID",
+    "LEGACY_PRODUCTION_AUTHORITY_DIGEST",
+    "LEGACY_PRODUCTION_AUTHORITY_ID",
     "C8DeliveryUnavailableError",
     "C8PostgresDeliveryAssembly",
     "C8ProductionRoot",
@@ -154,14 +159,30 @@ __all__ = [
     "build_postgres_c8_delivery_assembly",
 ]
 
-PRODUCTION_AUTHORITY_ID = "c8.production.v1"
-PRODUCTION_AUTHORITY_DIGEST = c8.c8_canonical_digest(
+PRODUCTION_AUTHORITY_ID = "knowledge.production.v2"
+PRODUCTION_AUTHORITY_DIGEST = c8.knowledge_canonical_digest(
     {"authority_id": PRODUCTION_AUTHORITY_ID}
 )
+LEGACY_PRODUCTION_AUTHORITY_ID = "c8.production.v1"
+LEGACY_PRODUCTION_AUTHORITY_DIGEST = c8.knowledge_canonical_digest(
+    {"authority_id": LEGACY_PRODUCTION_AUTHORITY_ID}
+)
+_LEGACY_GRAPH_LOSS_REGISTRY_ID = (
+    "c8.graph-loss-profile.c8.production.v1"
+)
+_LEGACY_GRAPH_LOSS_REGISTRY_DIGEST = c8.knowledge_canonical_digest(
+    {
+        "registry_id": _LEGACY_GRAPH_LOSS_REGISTRY_ID,
+        "authority_id": LEGACY_PRODUCTION_AUTHORITY_ID,
+        "authority_digest": LEGACY_PRODUCTION_AUTHORITY_DIGEST,
+    }
+)
+_CURRENT_GRAPH_PROJECTOR_ID = KNOWLEDGE_GRAPH_PROJECTOR_ID
+_LEGACY_GRAPH_PROJECTOR_ID = LEGACY_C8_GRAPH_PROJECTOR_ID
 _PRODUCTION_SEAL = object()
 
 FAMILY_LOSS_PROFILE = c8.GraphLossProfile(
-    profile_id="mrw.c8.graph-loss.v1",
+    profile_id="mrw.knowledge.graph-loss.v2",
     filter=("blocked",),
     truncation=("long",),
     redaction=("secret",),
@@ -177,6 +198,42 @@ class C8ProductionTrustRootError(RuntimeError):
 
 class C8DeliveryUnavailableError(C8ProductionTrustRootError):
     """Internal delivery attempt is typed unavailable in this milestone."""
+
+
+def _read_active_graph_compatible(
+    connection: Connection,
+    *,
+    scope: RuntimeScope,
+    graph_id: str,
+    source_ref: str,
+    source_incarnation: str,
+    projector_id: str,
+    projector_version: str,
+) -> c8.GraphProjectionGeneration:
+    """Read current identity first, then one exact legacy projector identity."""
+
+    try:
+        return read_active_graph(
+            connection,
+            scope=scope,
+            graph_id=graph_id,
+            source_ref=source_ref,
+            source_incarnation=source_incarnation,
+            projector_id=projector_id,
+            projector_version=projector_version,
+        )
+    except C8GraphProjectionUnavailableError:
+        if projector_id != _CURRENT_GRAPH_PROJECTOR_ID:
+            raise
+        return read_active_graph(
+            connection,
+            scope=scope,
+            graph_id=graph_id,
+            source_ref=source_ref,
+            source_incarnation=source_incarnation,
+            projector_id=_LEGACY_GRAPH_PROJECTOR_ID,
+            projector_version=projector_version,
+        )
 
 
 class _ProductionAuthority:
@@ -275,7 +332,7 @@ class _ProductionRegistry:
         self.authority_id = self._authority.authority_id
         self.authority_digest = self._authority.authority_digest
         self.registry_id = f"{registry_prefix}.{self.authority_id}"
-        self.registry_digest = c8.c8_canonical_digest(
+        self.registry_digest = c8.knowledge_canonical_digest(
             {
                 "registry_id": self.registry_id,
                 "authority_id": self.authority_id,
@@ -326,7 +383,7 @@ class _ProductionRegistry:
 
 class _ProductionMaterialIssuanceRegistry(_ProductionRegistry):
     def __init__(self) -> None:
-        super().__init__("c8.material-issuance")
+        super().__init__("knowledge.material-issuance")
         self._witnesses: dict[str, ProductionMaterialWitness] = {}
 
     def register_material(
@@ -358,7 +415,7 @@ class _ProductionMaterialIssuanceRegistry(_ProductionRegistry):
 
 class _ProductionVerifierRegistry(_ProductionRegistry):
     def __init__(self) -> None:
-        super().__init__("c8.report-verifier")
+        super().__init__("knowledge.report-verifier")
 
     def register_verification(
         self,
@@ -388,7 +445,7 @@ class _ProductionVerifierRegistry(_ProductionRegistry):
 
 class _ProductionLossProfileRegistry(_ProductionRegistry):
     def __init__(self) -> None:
-        super().__init__("c8.graph-loss-profile")
+        super().__init__("knowledge.graph-loss-profile")
 
     def register_profile(
         self,
@@ -552,7 +609,7 @@ class C8PostgresDeliveryAssembly:
 def build_postgres_c8_delivery_assembly(
     *,
     engine: Engine,
-    bundle: C8CapabilityBundle,
+    bundle: KnowledgeCapabilityBundle,
     activation_catalog: FirstSpecimenActivationCatalog,
     delivery_interpreter: InternalExportInterpreter,
 ) -> Annotated[
@@ -563,10 +620,10 @@ def build_postgres_c8_delivery_assembly(
     """Install the exact five-entry C8 bridge on a real RuntimeNode."""
 
     bridge_kinds = (
-        C8_3_KIND,
-        C8_VERIFY_KIND,
-        C8_ADMISSION_KIND,
-        C8_DELIVERY_INTENT_PREPARE_KIND,
+        KNOWLEDGE_REPORT_KIND,
+        KNOWLEDGE_VERIFY_KIND,
+        KNOWLEDGE_ADMISSION_KIND,
+        KNOWLEDGE_DELIVERY_INTENT_PREPARE_KIND,
         DELIVERY_INTERNAL_EXPORT_KIND,
     )
 
@@ -586,7 +643,7 @@ def build_postgres_c8_delivery_assembly(
     uow_factory = runtime_uow_factory(engine)
     activation = PostgresFirstSpecimenActivationPort(
         activation_catalog,
-        trace_prefix="trace:c8:delivery-bridge:activation",
+        trace_prefix="trace:knowledge:report-delivery:activation",
     )
     c8_effects = C8BridgeEffectStore(uow_factory)
     delivery_effects = FirstSpecimenDeliveryEffectStore(
@@ -612,7 +669,7 @@ def build_postgres_c8_delivery_assembly(
             )
             for operation, mode in (
                 (
-                    operation_for(C8_ADMISSION_KIND),
+                    operation_for(KNOWLEDGE_ADMISSION_KIND),
                     ResearchAdmissionMode.ARTIFACT_OBJECT,
                 ),
                 (
@@ -656,7 +713,7 @@ def build_postgres_c8_delivery_assembly(
                     handler_binding_digest=binding.binding_digest,
                     interpreter_profile_digest=profile,
                     output_type=operation.output_type,
-                    admission_required=(operation.ref.kind == C8_ADMISSION_KIND),
+                    admission_required=(operation.ref.kind == KNOWLEDGE_ADMISSION_KIND),
                 ),
                 c8_effects,
             )
@@ -667,7 +724,7 @@ def build_postgres_c8_delivery_assembly(
                 handler_binding_digest=binding.binding_digest,
                 interpreter_profile_digest=profile,
             )
-            if operation.ref.kind in {C8_ADMISSION_KIND, DELIVERY_INTERNAL_EXPORT_KIND}
+            if operation.ref.kind in {KNOWLEDGE_ADMISSION_KIND, DELIVERY_INTERNAL_EXPORT_KIND}
             else None
         )
         handlers.append(
@@ -1265,7 +1322,7 @@ class C8ProductionRoot:
     def build_delivery_assembly(
         self,
         *,
-        bundle: C8CapabilityBundle,
+        bundle: KnowledgeCapabilityBundle,
         activation_catalog: FirstSpecimenActivationCatalog,
         delivery_interpreter: InternalExportInterpreter,
     ) -> C8PostgresDeliveryAssembly:
@@ -1289,7 +1346,7 @@ class C8ProductionRoot:
         source_incarnation: str,
         source_digest: str,
         source_revision: int,
-        projector_id: str = "c8.graph.projector",
+        projector_id: str = _CURRENT_GRAPH_PROJECTOR_ID,
         projector_version: str = "1",
         expected_offset_revision: int | None = None,
         expected_generation: int | None = None,
@@ -1331,12 +1388,12 @@ class C8ProductionRoot:
         graph_id: str,
         source_ref: str,
         source_incarnation: str,
-        projector_id: str = "c8.graph.projector",
+        projector_id: str = _CURRENT_GRAPH_PROJECTOR_ID,
         projector_version: str = "1",
     ) -> ProductionGraphReadHandle:
         """Issue an active handle from offset+generation in one transaction."""
 
-        generation = read_active_graph(
+        generation = _read_active_graph_compatible(
             self._connection,
             scope=self._scope,
             graph_id=graph_id,
@@ -1362,21 +1419,24 @@ class C8ProductionRoot:
         self,
         generation: c8.GraphProjectionGeneration,
     ) -> None:
-        if generation.authority_kind != PRODUCTION_AUTHORITY_ID:
+        current_authority = (
+            generation.authority_kind == PRODUCTION_AUTHORITY_ID
+            and generation.authority_digest == PRODUCTION_AUTHORITY_DIGEST
+            and generation.loss_profile_registry_id == self._loss_registry.registry_id
+            and generation.loss_profile_registry_digest
+            == self._loss_registry.registry_digest
+        )
+        legacy_authority = (
+            generation.authority_kind == LEGACY_PRODUCTION_AUTHORITY_ID
+            and generation.authority_digest == LEGACY_PRODUCTION_AUTHORITY_DIGEST
+            and generation.loss_profile_registry_id
+            == _LEGACY_GRAPH_LOSS_REGISTRY_ID
+            and generation.loss_profile_registry_digest
+            == _LEGACY_GRAPH_LOSS_REGISTRY_DIGEST
+        )
+        if not (current_authority or legacy_authority):
             raise C8ProductionTrustRootError(
-                "active graph generation is not production authority"
-            )
-        if generation.authority_digest != PRODUCTION_AUTHORITY_DIGEST:
-            raise C8ProductionTrustRootError(
-                "active graph generation authority digest drift"
-            )
-        if (
-            generation.loss_profile_registry_id != self._loss_registry.registry_id
-            or generation.loss_profile_registry_digest
-            != self._loss_registry.registry_digest
-        ):
-            raise C8ProductionTrustRootError(
-                "active graph generation loss registry digest drift"
+                "active graph generation production authority or loss registry drift"
             )
 
     def consume_graph(
@@ -1387,7 +1447,7 @@ class C8ProductionRoot:
         source_ref: str,
         source_incarnation: str,
         request_claim_support: bool = False,
-        projector_id: str = "c8.graph.projector",
+        projector_id: str = _CURRENT_GRAPH_PROJECTOR_ID,
         projector_version: str = "1",
     ) -> c8.GraphConsumerResult:
         """Re-read the active offset/value and reject stale handles."""
@@ -1399,7 +1459,7 @@ class C8ProductionRoot:
             raise C8ProductionTrustRootError(
                 "active graph handle was not issued by this root"
             )
-        generation = read_active_graph(
+        generation = _read_active_graph_compatible(
             self._connection,
             scope=self._scope,
             graph_id=active_handle.graph_id,

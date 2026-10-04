@@ -25,8 +25,12 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 from sqlalchemy.pool import NullPool
 
-from app.successor_runtime.capabilities import source_library_c2_1 as c2_1_cap
+from app.successor_runtime.capabilities import source_resolution as c2_1_cap
+from app.successor_runtime.capabilities import (
+    source_provider_test_interpreters as c2_3_fixtures,
+)
 from app.successor_runtime.capabilities.checksum import canonical_json
+from app.successor_runtime.assembly.source_assembly import build_source_assembly
 from app.successor_runtime.runtime.assignments import AssignmentKind
 from app.successor_runtime.runtime.claims import ClaimBinding
 from app.successor_runtime.runtime.node import (
@@ -66,6 +70,7 @@ from app.successor_runtime.substrate.postgres.source_library_c2_1_handler import
     C2_1_PAYLOAD_STORE_DRIFT,
     C2_1_PLAN_STORE_DRIFT,
     C2_1_SCOPE_REHYDRATION_DRIFT,
+    HISTORICAL_C2_1_FAILURE_CODES,
     SourceLibraryC2_1StoreRehydratedHandler,
     c2_1_expected_payload_value_identity,
 )
@@ -97,18 +102,28 @@ class _Prepared:
 def _make_handler(
     engine: Engine | None,
 ) -> SourceLibraryC2_1StoreRehydratedHandler:
-    c2_1 = canary._c2_1()
-    return SourceLibraryC2_1StoreRehydratedHandler(
-        uow_factory=(
+    uow_factory = (
             runtime_uow_factory(engine)
             if engine is not None
             else lambda: (_ for _ in ()).throw(AssertionError("handler not executed"))
-        ),
-        handler_binding_digest=c2_1.successor_binding.binding_digest,
-        interpreter_profile_digest=(c2_1.successor_binding.interpreter_profile_digest),
-        operation_contract_digest=c2_1.contract_ref.contract_digest,
-        deployment_catalog_digest=canary.DEPLOYMENT_CATALOG_DIGEST,
     )
+    gateway = c2_3_fixtures.FixtureProviderEffectGateway(
+        credentials=c2_3_fixtures.FixtureCredentialResolverPort(),
+        effect=c2_3_fixtures.FixtureProviderEffectPort(),
+        readback=c2_3_fixtures.FixtureProviderReadbackPort(),
+    )
+    assembly = build_source_assembly(
+        uow_factory=uow_factory,
+        project_scope_digest=canary.SCOPE_DIGEST,
+        provider_gateway=gateway,
+    )
+    handlers = tuple(
+        handler
+        for handler in assembly.handlers
+        if isinstance(handler, SourceLibraryC2_1StoreRehydratedHandler)
+    )
+    assert len(handlers) == 1
+    return handlers[0]
 
 
 def _persist_payload_stores(engine: Engine, c2_1: Any) -> None:
@@ -327,21 +342,37 @@ def rehydrated_database(
     return _Prepared(engine=engine, c2_1=c2_1, authorization=authorization)
 
 
-def test_p2_packet_digests_bound_to_store_rehydration_handler() -> None:
+def test_frozen_packet_stays_historical_and_current_handler_comes_from_native_assembly() -> None:
     packet = json.loads(_PACKET.read_bytes())
     c2_1 = canary._c2_1()
     contract = packet["operation_contract"]
-    assert contract["contract_digest"] == c2_1.contract_ref.contract_digest
-    assert contract["operation_catalog_digest"] == c2_1.catalog.catalog_digest
-    assert contract["deployment_catalog_digest"] == canary.DEPLOYMENT_CATALOG_DIGEST
+    assert contract["owner_capability_id"] == "source_library.c2_1.v1"
+    assert (
+        contract["payload_codec_id"]
+        == c2_1_cap.SOURCE_RESOLUTION_HISTORICAL_PAYLOAD_CODEC_ID
+    )
+    assert contract["contract_digest"] != c2_1.contract_ref.contract_digest
+    assert contract["operation_catalog_digest"] != c2_1.catalog.catalog_digest
     assert contract["deployment_catalog_digest"] != contract["operation_catalog_digest"]
-    assert contract["payload_codec_id"] == c2_1_cap.SOURCE_LIBRARY_C2_1_PAYLOAD_CODEC_ID
-    assert packet["interpreters"]["same_program_digest"] == c2_1.program.program_digest
-    assert packet["interpreters"]["same_plan_digest"] == c2_1.plan.plan_digest
+    assert packet["interpreters"]["same_program_digest"] != c2_1.program.program_digest
+    assert packet["interpreters"]["same_plan_digest"] != c2_1.plan.plan_digest
     handler = _make_handler(None)
     assert handler.handler_binding_digest == c2_1.successor_binding.binding_digest
-    assert handler.operation_contract_digest == contract["contract_digest"]
-    assert handler.deployment_catalog_digest == contract["deployment_catalog_digest"]
+    assert handler.operation_contract_digest == c2_1.contract_ref.contract_digest
+    assert handler.deployment_catalog_digest == canary.DEPLOYMENT_CATALOG_DIGEST
+
+
+def test_current_failure_codes_are_business_named_and_history_is_not_rewritten() -> None:
+    current = {
+        C2_1_DEPLOYMENT_CATALOG_DRIFT,
+        C2_1_PAYLOAD_CODEC_DRIFT,
+        C2_1_PAYLOAD_STORE_DRIFT,
+        C2_1_PLAN_STORE_DRIFT,
+        C2_1_SCOPE_REHYDRATION_DRIFT,
+    }
+    assert all(code.startswith("SOURCE_REQUEST_RESOLUTION_") for code in current)
+    assert "C2_1_PAYLOAD_CODEC_DRIFT" in HISTORICAL_C2_1_FAILURE_CODES
+    assert current.isdisjoint(HISTORICAL_C2_1_FAILURE_CODES)
 
 
 def test_fresh_handler_rehydrates_stores_and_completes_exact_terminal(

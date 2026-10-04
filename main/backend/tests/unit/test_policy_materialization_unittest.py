@@ -11,7 +11,7 @@ from app.services.ingest.policy import (
     materialize_policy_documents,
 )
 from app.services.ingest.provider_ports import PolicyDocument
-from app.successor_runtime.capabilities import collect_c3 as c3
+from app.successor_runtime.capabilities import acquisition_batch as acquisition
 
 
 def _doc(index: int) -> PolicyDocument:
@@ -40,7 +40,7 @@ def test_policy_materialization_is_bounded_ordered_and_replayable() -> None:
     )
     assert [document.title for document in documents] == ["Policy 0", "Policy 1"]
     assert consumed == [0, 1]
-    assert isinstance(traversal, c3.OrderedTraversalCompleted)
+    assert isinstance(traversal, acquisition.OrderedTraversalCompleted)
     outcomes = traversal.observation.ordered_outcomes
     assert [outcome.input_index for outcome in outcomes] == [0, 1]
     assert all(outcome.receipt is not None for outcome in outcomes)
@@ -50,7 +50,7 @@ def test_policy_materialization_is_bounded_ordered_and_replayable() -> None:
 
     sequence, aggregate = _policy_materialization_typed_views(traversal, state="CA")
     assert sequence.sequence_digest
-    assert isinstance(aggregate, c3.CollectAggregateSucceeded)
+    assert isinstance(aggregate, acquisition.CollectAggregateSucceeded)
     assert aggregate.receipts[0].provider_job_id == outcomes[0].receipt.provider_job_id
 
 
@@ -61,7 +61,7 @@ def test_policy_materialization_cancellation_is_typed_and_partial() -> None:
         cancel_check=lambda index: index == 2,
     )
     assert len(documents) == 2
-    assert isinstance(traversal, c3.OrderedTraversalAborted)
+    assert isinstance(traversal, acquisition.OrderedTraversalAborted)
     assert traversal.cancellation_observed is True
     assert traversal.cancellation_receipt is not None
     assert traversal.cancellation_receipt.trigger_input_index == 2
@@ -73,9 +73,9 @@ def test_policy_materialization_invalid_item_is_typed_failure() -> None:
         [SimpleNamespace(state="CA", title="bad")], state="CA"
     )
     assert documents == []
-    assert isinstance(traversal, (c3.OrderedTraversalCompleted, c3.CollectTraversalSingleton))
+    assert isinstance(traversal, (acquisition.OrderedTraversalCompleted, acquisition.CollectTraversalSingleton))
     observation = getattr(traversal, "observation")
-    assert isinstance(observation.ordered_outcomes[0], c3.CollectElementFailed)
+    assert isinstance(observation.ordered_outcomes[0], acquisition.CollectElementFailed)
     assert observation.ordered_outcomes[0].error is not None
 
 
@@ -97,10 +97,10 @@ def test_policy_materialization_records_provider_next_failure_after_partial_pref
     assert len(iteration_errors) == 1
     assert isinstance(iteration_errors[0], ProviderFailure)
     assert str(iteration_errors[0]) == "provider next failed"
-    assert isinstance(traversal, c3.OrderedTraversalCompleted)
+    assert isinstance(traversal, acquisition.OrderedTraversalCompleted)
     outcomes = traversal.observation.ordered_outcomes
     assert [outcome.input_index for outcome in outcomes] == [0, 1, 2]
-    assert isinstance(outcomes[-1], c3.CollectElementFailed)
+    assert isinstance(outcomes[-1], acquisition.CollectElementFailed)
     assert outcomes[-1].error is not None
     assert outcomes[-1].error.exception_type == "ProviderFailure"
     assert outcomes[-1].error.message == "provider next failed"

@@ -10,12 +10,41 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 pytestmark = pytest.mark.contract
 
+_TARGET_MODULE_OPERATIONS = {
+    "indexer.py": frozenset((("POST", "/api/v1/indexer/policy"),)),
+    "reports.py": frozenset((("POST", "/api/v1/reports"),)),
+    "search.py": frozenset(
+        (
+            ("GET", "/api/v1/search/runs/{retrieval_run_id}"),
+            ("GET", "/api/v1/search"),
+            ("POST", "/api/v1/search/_init"),
+        )
+    ),
+    "writing.py": frozenset(
+        (
+            ("GET", "/api/v1/writing/documents"),
+            ("POST", "/api/v1/writing/documents"),
+            ("DELETE", "/api/v1/writing/documents/{doc_id}"),
+            ("GET", "/api/v1/writing/documents/{doc_id}"),
+            ("PATCH", "/api/v1/writing/documents/{doc_id}"),
+            ("POST", "/api/v1/writing/documents/{doc_id}/draft"),
+            ("GET", "/api/v1/writing/documents/{doc_id}/citations"),
+            ("POST", "/api/v1/writing/documents/{doc_id}/citations"),
+            ("GET", "/api/v1/writing/templates"),
+            ("POST", "/api/v1/writing/templates/validate"),
+            ("POST", "/api/v1/writing/keyword-cards"),
+            ("POST", "/api/v1/writing/keyword-cards/preview"),
+            ("GET", "/api/v1/writing/cards/{card_id}"),
+            ("GET", "/api/v1/writing/suggest"),
+            ("POST", "/api/v1/writing/llm-actions"),
+            ("GET", "/api/v1/writing/llm-actions/history"),
+            ("GET", "/api/v1/writing/llm-actions/{job_id}"),
+            ("POST", "/api/v1/writing/export/markdown"),
+        )
+    ),
+}
 _TARGET_MODULE_COUNTS = {
-    "indexer.py": 1,
-    "market.py": 2,
-    "reports.py": 1,
-    "search.py": 3,
-    "writing.py": 18,
+    module: len(operations) for module, operations in _TARGET_MODULE_OPERATIONS.items()
 }
 
 try:
@@ -38,7 +67,7 @@ class ApiSchemaWritingSearchSmallContractTestCase(unittest.TestCase):
         return [
             operation
             for operation in inventory["operations"]
-            if operation["source_module"] in _TARGET_MODULE_COUNTS
+            if operation["source_module"] in _TARGET_MODULE_OPERATIONS
         ]
 
     def test_target_modules_have_expected_operation_coverage(self):
@@ -47,7 +76,19 @@ class ApiSchemaWritingSearchSmallContractTestCase(unittest.TestCase):
             counts[operation["source_module"]] += 1
 
         self.assertEqual(counts, _TARGET_MODULE_COUNTS)
-        self.assertEqual(sum(counts.values()), 25)
+        self.assertEqual(sum(counts.values()), 23)
+        actual_operations = {
+            module: {
+                (operation["method"], operation["path"])
+                for operation in self._target_operations()
+                if operation["source_module"] == module
+            }
+            for module in _TARGET_MODULE_OPERATIONS
+        }
+        self.assertEqual(
+            actual_operations,
+            {module: set(operations) for module, operations in _TARGET_MODULE_OPERATIONS.items()},
+        )
 
     def test_target_operations_have_no_untyped_200_schemas(self):
         untyped = [

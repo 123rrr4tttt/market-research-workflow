@@ -17,9 +17,9 @@ def collect_weekly_market_reports(limit: int = 10) -> dict:
     job_id = start_job("weekly_market_reports", {"limit": limit})
     try:
         keywords = [
-            "NASPL weekly lottery sales report",
-            "California Lottery Second Chance winners",
-            "Lottery retailer weekly reference guide",
+            "weekly market report",
+            "weekly economic indicators report",
+            "industry weekly research report",
         ]
         results = []
         for keyword in keywords:
@@ -38,9 +38,9 @@ def collect_monthly_financial_reports(limit: int = 8) -> dict:
     job_id = start_job("monthly_financial_reports", {"limit": limit})
     try:
         keywords = [
-            "California Lottery monthly financial report PDF",
-            "California education lottery allocation report",
-            "NASPL monthly market analysis",
+            "monthly financial report",
+            "monthly market analysis",
+            "monthly economic indicators report",
         ]
         results = []
         for keyword in keywords:
@@ -89,7 +89,7 @@ def _store_documents(
 
             document = Document(
                 source_id=source.id,
-                state="CA",
+                state=None,
                 doc_type=doc_type,
                 title=item.get("title"),
                 summary=item.get("snippet"),

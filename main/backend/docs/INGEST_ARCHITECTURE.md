@@ -45,7 +45,7 @@ API 层 (app/api/ingest.py) — 需 project_key，绑定项目 schema
 
 ## 5. 适配器选择逻辑（概要）
 
-- `source_hint` 优先（例如 `magayo` / `lotterydata`）
+- `source_hint` 优先（例如 `legiscan`）
 - 否则按 `state` 选择州级适配器
 - 如指定 `game`，再过滤到特定游戏适配器
 
@@ -124,4 +124,3 @@ API 层 (app/api/ingest.py) — 需 project_key，绑定项目 schema
 
 - `main/backend/docs/archive/ingest-architecture/INGEST_FLOW_DIAGRAM.md`
 - `main/backend/docs/archive/ingest-architecture/INGEST_PIPELINE_ANALYSIS.md`
-

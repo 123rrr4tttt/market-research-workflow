@@ -1,0 +1,145 @@
+{
+  "adoption_prerequisites": [
+    "P3_AGGREGATE_PROMOTED_LOCAL_ONLY",
+    "C9_READY_FOR_P4_ADOPTION_REVIEW",
+    "PILOT_CORE_ALLOWED",
+    "NO_ROUTE_OR_CONTROL_EFFECT"
+  ],
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "canonical_write": false,
+    "cutover": false,
+    "external_delivery": false,
+    "live_provider": false
+  },
+  "commutativity_claim": "NOT_CLAIMED",
+  "declared_lossy_projection_refs": [
+    "c9.legacy-active-project-fallback-excluded.v1",
+    "c9.legacy-dual-error-shape-normalized.v1"
+  ],
+  "deployment_binding_refs": [
+    "deployment.route-free.validation-fixture.c9.v1"
+  ],
+  "effect_policy_ref": "effect.policy.facade.validation-only.execute-false.query-read-only.dispatch-false.no-control.v1",
+  "entrypoint_kind": "FACADE_VALIDATION",
+  "failure_union_refs": [
+    "C9_REQUEST_INVALID",
+    "C9_SCOPE_UNAVAILABLE",
+    "C9_PROJECTION_STALE"
+  ],
+  "cell_id": "C9.1",
+  "family_id": "C9",
+  "generated_ownership_refs": [
+    "generated:facade-contract-descriptors",
+    "generated:validation-surface",
+    "generated:evidence-binding-manifest",
+    "generated:focused-gates",
+    "generated:rollback-harness-descriptor"
+  ],
+  "handwritten_ownership_refs": [
+    "handwritten:c9.transport-contract",
+    "handwritten:c9.server-scope-injection",
+    "handwritten:c9.status-unions",
+    "handwritten:c9.sse-sequencing",
+    "handwritten:c9.no-control-feedback"
+  ],
+  "input_contract_refs": [
+    "api.command.external.locator-typed-intent.v1",
+    "api.query.external.locator-typed-intent.v1"
+  ],
+  "interpreter_refs": [
+    "successor.c9.facade.validation-only.v1",
+    "legacy.c9.envelope-shape-oracle.v1"
+  ],
+  "legacy_oracle_ref": "legacy.c9.envelope-sse-contract-fixtures.dispatch-false.v1",
+  "object_contract_refs": [
+    "mrw.transport.command-envelope.v1",
+    "mrw.transport.query-envelope.v1",
+    "mrw.projection.response-meta.v1"
+  ],
+  "operation_contract_refs": [
+    "facade.command.description-validation.execute-false.v1",
+    "facade.query.read-only.v1",
+    "api.envelope.status-data-error-meta.v1",
+    "api.status.ok-error-unavailable-blocked-waiting.v1",
+    "facade.sse.after-seq-exclusive.v1",
+    "facade.response.control-feedback-forbidden.v1",
+    "api.external.dto.forbid-scope-schema-actor-authority-control.v1",
+    "api.internal.server.inject-scope-actor-idempotency-revision-approval.v1"
+  ],
+  "ordered_composition_refs": [
+    "facade.command.description-validation.execute-false.v1",
+    "facade.query.read-only.v1",
+    "api.envelope.status-data-error-meta.v1",
+    "api.status.ok-error-unavailable-blocked-waiting.v1",
+    "facade.sse.after-seq-exclusive.v1",
+    "facade.response.control-feedback-forbidden.v1",
+    "api.external.dto.forbid-scope-schema-actor-authority-control.v1",
+    "api.internal.server.inject-scope-actor-idempotency-revision-approval.v1"
+  ],
+  "output_contract_refs": [
+    "api.envelope.status-data-error-meta.v1",
+    "api.status.five-state.v1",
+    "ui.observation.six-state-independent.v1",
+    "api.sse.after-seq-exclusive.v1"
+  ],
+  "owner_capability_id": "api_frontend.c9.v1",
+  "profile_refs": [
+    "c9.semantic.facade.v1",
+    "c9.effect.validation-only.v1",
+    "c9.resource.no-runtime-resource.v1",
+    "c9.failure.typed.v1",
+    "c9.authority.server-scope-only.v1",
+    "c9.interpreter.route-free.v1",
+    "c9.observation.envelope-sse.v1",
+    "projection.profile.api-five-state-ui-six-state-independent.v1"
+  ],
+  "program_shape_ref": "facade.command-query-envelope-status-sse-validation.v1",
+  "readback_policy_ref": "c9.facade.no-effect-read-only-query.v1",
+  "recovery_policy_ref": "NONE",
+  "resource_policy_ref": "c9.facade.no-runtime-resource.v1",
+  "rollback_bindings": [
+    {
+      "file_sha256": "2cf1a4959c2ad80a53224b6ec8a513a21b9d29b88b5792c2a73f0bca18dfd35f",
+      "path": "main/backend/tests/successor_runtime/test_p4_c9_5_p1_consistency_and_public_payload.py",
+      "role": "no-route-cutover-rollback-gate"
+    }
+  ],
+  "schema": "mrw.functorial_successor.capability_cell_spec.v1",
+  "shadow_observation_ref": "c9.envelope-sse.validation-only-shadow.dispatch-false.v1",
+  "source_bindings": [
+    {
+      "file_sha256": "47a0a10c17465ea2e6c76fa091fe09747e84dfdcc258968c5aafa51f18ca6b03",
+      "path": "main/backend/app/successor_runtime/runtime/facade_contracts.py",
+      "role": "handwritten_internal_facade_validation_contracts"
+    },
+    {
+      "file_sha256": "4a494839fab913e2f6615822fe16df2076317c529a9ccf2a1fc25c40cbb6a068",
+      "path": "main/backend/app/contracts/successor_runtime.py",
+      "role": "handwritten_external_transport_dto_boundary"
+    },
+    {
+      "file_sha256": "87bcfcd3d229f54d724c3bff6a54e84328bd85ff5285267e9e5c23f387b38afa",
+      "path": "main/backend/app/contracts/responses.py",
+      "role": "legacy-envelope-oracle"
+    },
+    {
+      "file_sha256": "1dd4c2c12c6a8c164b9f5b1464ae9801347b14a6a3ed75bf202c45b255b59959",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/10_functorial-successor-domain-contract-snapshot.v1.json",
+      "role": "frozen10_strict_domain_semantics"
+    }
+  ],
+  "test_bindings": [
+    {
+      "file_sha256": "e7a7f03b7d0f8f734a2efc8f9b1734258e5f6d7e90df714d63cddb42e9f15107",
+      "path": "main/backend/tests/successor_runtime/test_p4_c9_1_facade_contracts.py",
+      "role": "facade-envelope-sse-contract"
+    },
+    {
+      "file_sha256": "2bf88d20238b3fe0693440bc34ac7c8b4f19b5a2431099ad55327101c7b2ee03",
+      "path": "main/backend/tests/successor_runtime/test_p4_c9_3_transport_dto.py",
+      "role": "transport-server-scope-negative"
+    }
+  ],
+  "version": "1.0.0"
+}

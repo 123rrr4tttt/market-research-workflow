@@ -1,0 +1,12 @@
+{
+  "queue_length": 0,
+  "unacked": 0,
+  "worker_ping": [
+    {
+      "mrw-daily@MacBook-Air-489.local": {
+        "ok": "pong"
+      }
+    }
+  ],
+  "health_status": "ok"
+}

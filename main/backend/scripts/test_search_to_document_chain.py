@@ -6,7 +6,7 @@ Verifies the search chain can automatically obtain documents in one call.
 
 Usage:
   cd main/ops && docker compose exec backend python -m scripts.test_search_to_document_chain
-  PROJECT_KEY=online_lottery docker compose exec backend python -m scripts.test_search_to_document_chain
+  PROJECT_KEY=business_survey docker compose exec backend python -m scripts.test_search_to_document_chain
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-PROJECT_KEY = os.environ.get("PROJECT_KEY", "online_lottery")
+PROJECT_KEY = os.environ.get("PROJECT_KEY", "business_survey")
 TEST_ITEM_KEY = "test.unified_search.e2e"
 
 
@@ -37,7 +37,7 @@ def main() -> int:
 
     project_key = os.environ.get("PROJECT_KEY", PROJECT_KEY)
     logger.info("Testing search->document chain (auto_ingest) for project_key=%s", project_key)
-    ensure_project_schema_ready(project_key, name="Online Lottery")
+    ensure_project_schema_ready(project_key, name="Business Survey")
 
     # Ensure we have site entries and a temp item
     entries, _ = list_site_entries(scope="effective", project_key=project_key, page=1, page_size=20)
@@ -88,7 +88,7 @@ def main() -> int:
         result = unified_search_by_item(
             project_key=project_key,
             item_key=TEST_ITEM_KEY,
-            query_terms=["lottery", "california", "news"],
+            query_terms=["renewable energy", "market", "news"],
             max_candidates=30,
             write_to_pool=True,
             pool_scope="project",

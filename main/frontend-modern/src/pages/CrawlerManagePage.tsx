@@ -13,6 +13,7 @@ import { translate, useAppLocale, type MessageKey } from '../app/platform/i18n'
 import { getLocalJson, setLocalJson } from '../lib/localStore'
 import { queryKeys } from '../lib/queryKeys'
 import type { CrawlerDeployRunItem, CrawlerProjectItem } from '../lib/types'
+import './crawler-management-page.css'
 
 type Props = {
   projectKey: string
@@ -239,8 +240,8 @@ export default function CrawlerManagePage({ projectKey }: Props) {
     : []
 
   return (
-    <div className="content-stack crawler-page">
-      <section className="panel">
+    <div className="content-stack crawler-page crawler-management-page">
+      <section className="panel crawler-import-panel">
         <div className="panel-header">
           <h2><Bot size={15} />{t('crawlerManagePage.section.import')}</h2>
           <span className="status-line">{tf('crawlerManagePage.field.project', { projectKey })}</span>
@@ -377,7 +378,7 @@ export default function CrawlerManagePage({ projectKey }: Props) {
         {message ? <p className="status-line" style={{ marginTop: 10 }}>{message}</p> : null}
       </section>
 
-      <section className="panel">
+      <section className="panel crawler-projects-panel">
         <div className="panel-header">
           <h2><CircleDashed size={15} />{t('crawlerManagePage.section.projects')}</h2>
           <button onClick={() => crawlerProjects.refetch()}><RefreshCw size={14} />{t('crawlerManagePage.action.refresh')}</button>
@@ -394,6 +395,9 @@ export default function CrawlerManagePage({ projectKey }: Props) {
               </tr>
             </thead>
             <tbody>
+              {crawlerProjects.isLoading && (
+                <tr><td colSpan={5} className="empty-cell">{t('crawlerManagePage.empty.selectProject')}</td></tr>
+              )}
               {sortedProjects.map((row) => (
                 <tr key={row.project_key}>
                   <td>
@@ -410,7 +414,7 @@ export default function CrawlerManagePage({ projectKey }: Props) {
                   <td>{row.deployed_version || '-'}</td>
                 </tr>
               ))}
-              {!sortedProjects.length && (
+              {!crawlerProjects.isLoading && !sortedProjects.length && (
                 <tr>
                   <td colSpan={5} className="empty-cell">{t('crawlerManagePage.empty.crawlerProjects')}</td>
                 </tr>
@@ -420,7 +424,7 @@ export default function CrawlerManagePage({ projectKey }: Props) {
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel crawler-detail-panel">
         <div className="panel-header">
           <h2><Clock3 size={15} />{t('crawlerManagePage.section.deployRunsDetail')}</h2>
           <button onClick={() => { void crawlerDetail.refetch(); void deployRuns.refetch() }}><RefreshCw size={14} />{t('crawlerManagePage.action.refresh')}</button>
@@ -453,7 +457,7 @@ export default function CrawlerManagePage({ projectKey }: Props) {
                   <td>{row.finished_at || '-'}</td>
                 </tr>
               ))}
-              {!(deployRuns.data || []).length && (
+              {!deployRuns.isLoading && !(deployRuns.data || []).length && (
                 <tr>
                   <td colSpan={7} className="empty-cell">{t('crawlerManagePage.empty.deployRuns')}</td>
                 </tr>
@@ -486,6 +490,7 @@ export default function CrawlerManagePage({ projectKey }: Props) {
           </table>
         </div>
       </section>
+
     </div>
   )
 }

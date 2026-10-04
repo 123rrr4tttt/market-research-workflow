@@ -4,28 +4,18 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from ..candidate_aggregation import (
+    aggregate_written_counts,
+    batch_max_candidates,
+    candidate_record_stats,
+    normalize_handler_candidate_limits,
+    normalize_query_terms,
+    split_query_batches,
+    unique_candidates,
+    unique_site_entries,
+)
 from ..relevance_review import annotate_records_with_relevance_review_queue
 from ..relevance_review import merge_relevance_review_queues
-
-
-def _normalize_terms(value: Any) -> list[str]:
-    if isinstance(value, list):
-        out: list[str] = []
-        for x in value:
-            s = str(x or "").strip()
-            if s and s not in out:
-                out.append(s)
-        return out
-    s = str(value or "").strip()
-    return [s] if s else []
-
-
-def _split_batches(terms: list[str], chunk_size: int) -> list[list[str]]:
-    clean = _normalize_terms(terms)
-    if not clean:
-        return [[]]
-    size = max(1, int(chunk_size))
-    return [clean[i : i + size] for i in range(0, len(clean), size)]
 
 
 def _source_library_item_context(params: Dict[str, Any]) -> dict[str, Any]:
@@ -66,26 +56,24 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
         or item_params.get("topic_keywords")
         or []
     )
-    q = _normalize_terms(q_raw)
+    q = normalize_query_terms(q_raw)
     batch_size = int(item_params.get("keyword_batch_size") or 4)
-    term_batches = _split_batches(q, batch_size)
-    per_keyword_limit = max(1, int(item_params.get("per_keyword_limit") or item_params.get("limit") or 5))
-    global_max_candidates = max(1, int(item_params.get("max_candidates") or 200))
-    global_ingest_limit = max(1, int(item_params.get("ingest_limit") or item_params.get("limit") or 20))
-    sitemap_max_depth = max(0, int(item_params.get("sitemap_max_depth") or 2))
-    sitemap_max_sitemaps = max(1, int(item_params.get("sitemap_max_sitemaps") or 50))
+    term_batches = split_query_batches(q, batch_size)
+    candidate_limits = normalize_handler_candidate_limits(item_params)
+    per_keyword_limit = candidate_limits.per_keyword_limit
+    global_ingest_limit = candidate_limits.global_ingest_limit
+    sitemap_max_depth = candidate_limits.sitemap_max_depth
+    sitemap_max_sitemaps = candidate_limits.sitemap_max_sitemaps
 
     us_runs = []
     for term_batch in term_batches:
-        batch_term_count = max(1, len(term_batch))
-        batch_max_candidates = min(global_max_candidates, per_keyword_limit * batch_term_count)
-        batch_ingest_limit = min(global_ingest_limit, per_keyword_limit * batch_term_count)
+        batch_ingest_limit = min(global_ingest_limit, per_keyword_limit * max(1, len(term_batch)))
         us_runs.append(
             unified_search_by_item_payload(
                 project_key=str(project_key or ""),
                 item=item,
                 query_terms=term_batch,
-                max_candidates=batch_max_candidates,
+                max_candidates=batch_max_candidates(candidate_limits, len(term_batch)),
                 write_to_pool=bool(item_params.get("write_to_pool", True)),
                 pool_scope=str(item_params.get("pool_scope") or "project"),
                 probe_timeout=float(item_params.get("probe_timeout") or 10.0),
@@ -99,17 +87,14 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
         )
 
     benign_markers = {"url_term_filter_empty_fallback_used", "url_term_filter_empty_no_fallback"}
-    merged_site_entries = []
+    merged_site_entries = unique_site_entries(us_runs)
+    merged_candidates = unique_candidates(us_runs)
+    written_urls_new, written_urls_skipped = aggregate_written_counts(us_runs)
     merged_runtime_diagnostics = []
     merged_review_queues = []
-    seen_entry = set()
     seen_runtime = set()
-    merged_candidates = []
-    seen_cand = set()
     merged_error_details = []
     merged_errors = []
-    written_urls_new = 0
-    written_urls_skipped = 0
     ingest_inserted = 0
     ingest_updated = 0
     ingest_skipped = 0
@@ -118,11 +103,6 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
     rejection_breakdown_total: dict[str, int] = {}
 
     for us in us_runs:
-        for e in (us.site_entries_used or []):
-            key = str(e.get("site_url") or e.get("id") or "")
-            if key and key not in seen_entry:
-                seen_entry.add(key)
-                merged_site_entries.append(e)
         runtime_rows = list(getattr(us, "runtime_diagnostics", None) or [])
         if not runtime_rows:
             runtime_rows = [dict(entry) for entry in (us.site_entries_used or []) if isinstance(entry, dict)]
@@ -136,11 +116,6 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
         review_queue = getattr(us, "relevance_review_queue", None)
         if isinstance(review_queue, dict):
             merged_review_queues.append(review_queue)
-        for u in (us.candidates or []):
-            s = str(u or "").strip()
-            if s and s not in seen_cand:
-                seen_cand.add(s)
-                merged_candidates.append(s)
         for e in (us.errors or []):
             if not isinstance(e, dict):
                 continue
@@ -148,9 +123,6 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
             msg = str(e.get("error") or "").strip()
             if msg and msg not in benign_markers:
                 merged_errors.append(msg)
-        w = us.written or {}
-        written_urls_new += int(w.get("urls_new") or 0)
-        written_urls_skipped += int(w.get("urls_skipped") or 0)
         if terminal_output_only:
             continue
         ir = us.ingest_result or {}
@@ -200,12 +172,7 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
     records = annotate_records_with_relevance_review_queue(records, relevance_review_queue)
 
     response = {
-        "record_stats": {
-            "fetched": len(merged_candidates),
-            "normalized": len(records),
-            "dropped": max(len(merged_candidates) - len(records), 0),
-            "errors": len(merged_errors),
-        },
+        "record_stats": candidate_record_stats(merged_candidates, records, errors=merged_errors),
         "errors": merged_errors,
         "query_terms": q,
         "per_keyword_limit": per_keyword_limit,

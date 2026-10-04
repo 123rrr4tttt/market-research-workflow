@@ -1,0 +1,28 @@
+{
+  "doc_id": 2,
+  "source_uri": "https://www.rfc-editor.org/rfc/rfc9110.txt",
+  "content_chars": 69,
+  "content": "for a GET request (Section 9.3.1) on the URI \"http://www.example.com/",
+  "quality_content_extraction": {
+    "signals": {
+      "article_hint_hits": 56
+    },
+    "js_heavy": true,
+    "main_title": "Public HTTP source verification: RFC 9110",
+    "readerable": false,
+    "block_count": 965,
+    "page_family": "unknown",
+    "shell_heavy": true,
+    "main_content": "for a GET request (Section 9.3.1) on the URI \"http://www.example.com/",
+    "extractor_name": "heuristic.main_content.v1",
+    "prefix_trimmed": true,
+    "raw_text_chars": 50000,
+    "main_text_chars": 69,
+    "main_text_ratio": 0.0014,
+    "js_template_hits": 4,
+    "main_block_count": 1,
+    "shell_marker_hits": 15,
+    "duplicate_line_ratio": 0.0383,
+    "extractor_confidence": 13.57
+  }
+}

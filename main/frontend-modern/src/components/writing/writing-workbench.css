@@ -1553,3 +1553,25 @@
     max-height: 104px;
   }
 }
+.writing-topology-panel {
+  /* The toolbar floats over the canvas; leave its initial desktop footprint clear. */
+  margin: 0 16px 12px;
+  padding: 72px 16px 14px;
+  border: 1px solid var(--border-subtle, #d7dce2);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+}
+.writing-topology-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.writing-topology-panel h2 { margin: 0; font-size: 1rem; }
+.writing-topology-panel p { margin: 6px 0; }
+.writing-topology-panel__section { display: grid; gap: 8px; margin-top: 12px; padding: 12px; border: 1px solid var(--border-subtle, #e3e6ea); border-radius: 8px; }
+.writing-topology-panel label { display: grid; gap: 5px; font-size: .86rem; }
+.writing-topology-panel input { min-width: 0; padding: 7px 9px; border: 1px solid var(--border-subtle, #cbd1d8); border-radius: 6px; }
+.writing-topology-panel__refs { display: flex; flex-wrap: wrap; gap: 8px; font-size: .82rem; }
+.writing-topology-panel__refs span { padding: 4px 7px; border-radius: 5px; background: var(--surface-muted, #f2f4f7); }
+.writing-topology-panel__drift { color: #9b4d00; font-weight: 600; }
+.writing-topology-panel__order { display: flex; gap: 8px; }
+
+@media (max-width: 1280px) {
+  .writing-topology-panel { padding-top: 132px; }
+}

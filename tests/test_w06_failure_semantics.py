@@ -9,8 +9,6 @@ from mrw_functorial_kit.core.w06_semantics import (
     C1CapabilityFailureCode,
     C2InterpreterFailureCode,
     C2ProviderEffectFailureCode,
-    C7IngestContractFailureCode,
-    C7IngestRegistryFailureCode,
     C8ContractFailureCode,
     C8ReportExportTokenFailureCode,
     C8ReportExportTokenStateFailureCode,
@@ -18,13 +16,12 @@ from mrw_functorial_kit.core.w06_semantics import (
     CapabilityPrimitiveContractFailureCode,
     FirstSpecimenCapabilityFailureCode,
     LineEventReadbackFailureCode,
+    MaterialIngestContractFailureCode,
+    MaterialIngestRegistryFailureCode,
+    ProjectionEvidenceSurfaceFailureCode,
     QualityPromotionContractFailureCode,
     SourceLibrarySingleSourceGuardFailureCode,
     c1_capability_failures,
-    c2_interpreter_failures,
-    c2_provider_effect_failures,
-    c7_ingest_contract_failures,
-    c7_ingest_registry_failures,
     c8_contract_failures,
     c8_report_export_token_failures,
     c8_report_export_token_state_failures,
@@ -32,28 +29,35 @@ from mrw_functorial_kit.core.w06_semantics import (
     capability_primitive_contract_failures,
     first_specimen_capability_failures,
     line_event_readback_failures,
+    material_ingest_contract_failures,
+    material_ingest_registry_failures,
+    projection_evidence_surface_failures,
     quality_promotion_contract_failures,
-    source_library_single_source_guard_failures,
+    read_historical_c7_ingest_contract_failure_family,
+    read_historical_c7_ingest_registry_failure_family,
+    read_historical_c9_evidence_surface_failure_family,
+    source_provider_acquisition_failures,
+    source_runtime_binding_failures,
+    source_single_source_guard_failures,
 )
-
 
 FAMILIES: tuple[tuple[object, FailureFamily, str], ...] = (
     (C1CapabilityFailureCode, c1_capability_failures, "c1.capability.failure"),
-    (C2InterpreterFailureCode, c2_interpreter_failures, "c2.interpreter.failure"),
+    (C2InterpreterFailureCode, source_runtime_binding_failures, "source.runtime-binding.failure"),
     (
         C2ProviderEffectFailureCode,
-        c2_provider_effect_failures,
-        "c2.provider_effect.failure",
+        source_provider_acquisition_failures,
+        "source.provider-acquisition.failure",
     ),
     (
-        C7IngestContractFailureCode,
-        c7_ingest_contract_failures,
-        "c7.ingest.contract_failure",
+        MaterialIngestContractFailureCode,
+        material_ingest_contract_failures,
+        "material.ingest.contract_failure",
     ),
     (
-        C7IngestRegistryFailureCode,
-        c7_ingest_registry_failures,
-        "c7.ingest_registry.failure",
+        MaterialIngestRegistryFailureCode,
+        material_ingest_registry_failures,
+        "material.ingest.registry_failure",
     ),
     (C8ContractFailureCode, c8_contract_failures, "c8.contract.failure"),
     (
@@ -70,6 +74,11 @@ FAMILIES: tuple[tuple[object, FailureFamily, str], ...] = (
         C9EvidenceSurfaceFailureCode,
         c9_evidence_surface_failures,
         "c9.evidence_surface.failure",
+    ),
+    (
+        ProjectionEvidenceSurfaceFailureCode,
+        projection_evidence_surface_failures,
+        "projection.evidence-surface.failure",
     ),
     (
         CapabilityPrimitiveContractFailureCode,
@@ -93,8 +102,8 @@ FAMILIES: tuple[tuple[object, FailureFamily, str], ...] = (
     ),
     (
         SourceLibrarySingleSourceGuardFailureCode,
-        source_library_single_source_guard_failures,
-        "source_library.single_source_guard.failure",
+        source_single_source_guard_failures,
+        "source.single-source-guard.failure",
     ),
 )
 
@@ -116,8 +125,8 @@ EXPECTED_CODES: dict[str, tuple[str, ...]] = {
         "C1_ROLLBACK_BINDING_INVALID",
         "C1_SLICE_SHAPE_INVALID",
     ),
-    "c2.interpreter.failure": ("ASSIGNMENT_BINDING_MISMATCH",),
-    "c2.provider_effect.failure": (
+    "source.runtime-binding.failure": ("ASSIGNMENT_BINDING_MISMATCH",),
+    "source.provider-acquisition.failure": (
         "ARTIFACT_WRITE",
         "CANCELLED",
         "INVALID_PARAMS",
@@ -132,13 +141,13 @@ EXPECTED_CODES: dict[str, tuple[str, ...]] = {
         "UNAUTHORIZED",
         "UNSUPPORTED_PROVIDER",
     ),
-    "c7.ingest.contract_failure": (
+    "material.ingest.contract_failure": (
         "input_contract_invalid",
         "lookup_not_found",
         "program_binding_invalid",
         "stage_invalid",
     ),
-    "c7.ingest_registry.failure": (
+    "material.ingest.registry_failure": (
         "backend_unavailable",
         "conflict",
         "credential_rejected",
@@ -184,6 +193,14 @@ EXPECTED_CODES: dict[str, tuple[str, ...]] = {
         "projection_input_invalid",
         "surface_contract_invalid",
     ),
+    "projection.evidence-surface.failure": (
+        "authority_contract_invalid",
+        "evidence_integrity_invalid",
+        "evidence_line_set_invalid",
+        "evidence_source_invalid",
+        "projection_input_invalid",
+        "surface_contract_invalid",
+    ),
     "capability.primitive.contract_failure": (
         "codec_input_type_invalid",
         "digest_contract_invalid",
@@ -221,7 +238,7 @@ EXPECTED_CODES: dict[str, tuple[str, ...]] = {
         "sequence_invalid",
         "threshold_version_required",
     ),
-    "source_library.single_source_guard.failure": (
+    "source.single-source-guard.failure": (
         "single_source_guard_allowed_urls_invalid",
         "single_source_guard_blocked",
         "single_source_guard_invalid_shape",
@@ -240,6 +257,26 @@ def test_INVARIANT__w06_family_names_and_literal_codes_are_exact() -> None:
         assert family.codes == get_args(code_alias)
         assert family.codes == EXPECTED_CODES[family_name]
         assert len(family.codes) == len(set(family.codes))
+
+
+def test_c9_evidence_surface_history_and_current_projection_are_distinct() -> None:
+    historical = read_historical_c9_evidence_surface_failure_family()
+
+    assert historical.name == "c9.evidence_surface.failure"
+    assert historical.codes == projection_evidence_surface_failures.codes
+    assert projection_evidence_surface_failures.name == (
+        "projection.evidence-surface.failure"
+    )
+
+
+def test_c7_failure_history_preserves_exact_names_outside_live_registration() -> None:
+    historical_contract = read_historical_c7_ingest_contract_failure_family()
+    historical_registry = read_historical_c7_ingest_registry_failure_family()
+
+    assert historical_contract.name == "c7.ingest.contract_failure"
+    assert historical_contract.codes == material_ingest_contract_failures.codes
+    assert historical_registry.name == "c7.ingest_registry.failure"
+    assert historical_registry.codes == material_ingest_registry_failures.codes
 
 
 @pytest.mark.parametrize(("code_alias", "family", "family_name"), FAMILIES)

@@ -35,7 +35,7 @@ class StructuredDataSearchDocumentQueryContractUnitTestCase(unittest.TestCase):
         envelope = build_structured_data_search_document_query_envelope(
             project_key=" demo_proj ",
             query="  Robotics  ",
-            datasets_requested=("documents", "market_stats", "documents"),
+            datasets_requested=("documents", "documents"),
             limit=999,
             query_mode="search",
             total_matches=4,
@@ -60,7 +60,7 @@ class StructuredDataSearchDocumentQueryContractUnitTestCase(unittest.TestCase):
         self.assertEqual(query["consumer"], "project.structured_data.search")
         self.assertEqual(query["project_key"], "demo_proj")
         self.assertEqual(query["sources"], ["project.structured_data"])
-        self.assertEqual(query["filters"], [{"field": "dataset", "op": "in", "value": ["documents", "market_stats"]}])
+        self.assertEqual(query["filters"], [{"field": "dataset", "op": "in", "value": ["documents"]}])
         self.assertEqual(query["limit"], 100)
         self.assertEqual(data["pagination"]["total"], 4)
         self.assertEqual(envelope["meta"]["total_stored_rows"], 11)

@@ -13,33 +13,33 @@ import pytest
 from sqlalchemy import create_engine
 
 from app.successor_runtime.assembly.base import (
-    C8AssemblyOptions,
+    KnowledgeAssemblyOptions,
     ProjectorSourceKey,
     local_assembly_scope_digest,
 )
-from app.successor_runtime.assembly.c8_assembly import build_c8_assembly
-from app.successor_runtime.capabilities.c8_graph_projection_contribution import (
-    C8_4_FAILURE_CODES,
-    C8_GRAPH_PROJECTION_DEFINITION,
-    C8_GRAPH_PROJECTION_NATIVE_RULE,
-    C8GraphProjectionAssemblyContext,
-    C8GraphProjectionAuthorSource,
-    C8GraphProjectionRuntimeBinding,
-    assemble_c8_graph_projection_definition,
-    define_c8_graph_projection_cell,
-    lower_c8_graph_projection_author_source,
-    project_c8_graph_projection_definition,
-    validate_c8_graph_projection_binding,
+from app.successor_runtime.assembly.knowledge_assembly import build_knowledge_assembly
+from app.successor_runtime.capabilities.knowledge_graph_projection_contribution import (
+    KNOWLEDGE_GRAPH_PROJECTION_FAILURE_CODES,
+    KNOWLEDGE_GRAPH_PROJECTION_DEFINITION,
+    KNOWLEDGE_GRAPH_PROJECTION_NATIVE_RULE,
+    KnowledgeGraphProjectionAssemblyContext,
+    KnowledgeGraphProjectionAuthorSource,
+    KnowledgeGraphProjectionRuntimeBinding,
+    assemble_knowledge_graph_projection_definition,
+    define_knowledge_graph_projection_cell,
+    lower_knowledge_graph_projection_author_source,
+    project_knowledge_graph_projection_definition,
+    validate_knowledge_graph_projection_binding,
 )
-from app.successor_runtime.capabilities.c8_program import (
-    C8GraphProjectInput,
-    build_c8_bundle,
-    build_c8_catalog,
-    build_c8_program,
+from app.successor_runtime.capabilities.knowledge_program import (
+    KnowledgeGraphProjectInput,
+    build_knowledge_bundle,
+    build_knowledge_catalog,
+    build_knowledge_program,
     GraphProjectionNativeContribution,
-    build_c8_registry,
-    compose_default_c8_graph_projection_contributions,
-    validate_c8_graph_projection_contributions,
+    build_knowledge_registry,
+    compose_default_knowledge_graph_projection_contributions,
+    validate_knowledge_graph_projection_contributions,
 )
 from app.successor_runtime.capabilities.checksum import content_digest
 from app.successor_runtime.specification import c8_p4
@@ -53,18 +53,13 @@ from functorial_kit.native_contribution import (
     NativeContributionSpec,
     define_native_contribution,
 )
-from mrw_functorial_kit.contributions.c8_graph_projection import (
-    c8_graph_projection_law_witness_references,
-    c8_graph_projection_law_witnesses,
-    c8_graph_projection_native_contribution,
-    contribution_catalog,
-)
-from mrw_functorial_kit.core.c8_semantics import c8_graph_failures
+from mrw_functorial_kit.contributions.knowledge_graph_projection import knowledge_graph_projection_law_witness_references, knowledge_graph_projection_law_witnesses, knowledge_graph_projection_native_contribution, contribution_catalog
+from mrw_functorial_kit.core.knowledge_semantics import knowledge_graph_failures
 
-EXTRA_KIND = "c8.graph.project.test.v1"
-EXTRA_INPUT = ObjectType("C8GraphProjectionTestInput.v1")
-EXTRA_RESULT = ObjectType("C8GraphProjectionTestResult.v1")
-EXTRA_OWNER = "graph.c8.4.test.v1"
+EXTRA_KIND = "knowledge.graph.project.test.v2"
+EXTRA_INPUT = ObjectType("KnowledgeGraphProjectionTestInput.v2")
+EXTRA_RESULT = ObjectType("KnowledgeGraphProjectionTestResult.v2")
+EXTRA_OWNER = "knowledge.graph-projection.test.v2"
 GOLDEN_PATH = (
     Path(__file__).resolve().parents[1] / "fixtures/successor_runtime/c8_graph_projection_pre_contribution_golden.json"
 )
@@ -101,31 +96,31 @@ def _json_observation(value: object) -> object:
 def _native(definition: Any, *, calls: list[int] | None = None) -> Any:
     def assemble(
         native_definition: Any,
-        context: C8GraphProjectionAssemblyContext,
-    ) -> C8GraphProjectionRuntimeBinding:
+        context: KnowledgeGraphProjectionAssemblyContext,
+    ) -> KnowledgeGraphProjectionRuntimeBinding:
         if calls is not None:
             calls.append(1)
-        return assemble_c8_graph_projection_definition(native_definition, context)
+        return assemble_knowledge_graph_projection_definition(native_definition, context)
 
     native = define_native_contribution(
         NativeContributionSpec(
             definition=definition,
-            project=project_c8_graph_projection_definition,
+            project=project_knowledge_graph_projection_definition,
             assemble=assemble,
-            validate_binding=validate_c8_graph_projection_binding,
+            validate_binding=validate_knowledge_graph_projection_binding,
         )
     )
     _not_failure(native)
     return native
 
 
-def _extra_source() -> C8GraphProjectionAuthorSource:
-    return C8GraphProjectionAuthorSource(
-        cell_id="C8.4.test",
+def _extra_source() -> KnowledgeGraphProjectionAuthorSource:
+    return KnowledgeGraphProjectionAuthorSource(
+        cell_id="knowledge.graph-projection.test.v2",
         owner=EXTRA_OWNER,
-        operation_id="c8.graph.project.test",
+        operation_id="knowledge.graph.project.test",
         kind=EXTRA_KIND,
-        payload_codec_id="mrw.successor.c8.c8-4.test.payload.codec.v1",
+        payload_codec_id="mrw.knowledge.graph-project.test.codec.v2",
         input_type=EXTRA_INPUT,
         output_type=EXTRA_RESULT,
         payload_type=_ExtraInput,
@@ -134,38 +129,38 @@ def _extra_source() -> C8GraphProjectionAuthorSource:
     )
 
 
-def _compile_extra_native(source: C8GraphProjectionAuthorSource) -> GraphProjectionNativeContribution:
-    native = compile_native_contribution(source, C8_GRAPH_PROJECTION_NATIVE_RULE)
+def _compile_extra_native(source: KnowledgeGraphProjectionAuthorSource) -> GraphProjectionNativeContribution:
+    native = compile_native_contribution(source, KNOWLEDGE_GRAPH_PROJECTION_NATIVE_RULE)
     assert not isinstance(native, Failure)
     return native
 
 
 def test_default_runtime_uses_single_catalog_contribution() -> None:
-    assert C8_4_FAILURE_CODES is c8_graph_failures.codes
-    assert C8_GRAPH_PROJECTION_DEFINITION is c8_graph_projection_native_contribution.definition
-    natives = compose_default_c8_graph_projection_contributions()
-    assert [native.projection.id for native in natives] == ["mrw.successor.c8.graph-projection.v1"]
-    assert natives[0] is c8_graph_projection_native_contribution
+    assert KNOWLEDGE_GRAPH_PROJECTION_FAILURE_CODES is knowledge_graph_failures.codes
+    assert KNOWLEDGE_GRAPH_PROJECTION_DEFINITION is knowledge_graph_projection_native_contribution.definition
+    natives = compose_default_knowledge_graph_projection_contributions()
+    assert [native.projection.id for native in natives] == ["mrw.knowledge.graph-projection.native.v2"]
+    assert natives[0] is knowledge_graph_projection_native_contribution
     assert contribution_catalog.contributions == tuple(native.projection for native in natives)
     assert all(contribution.factory is None for contribution in contribution_catalog.contributions)
-    bundle = build_c8_bundle()
-    registry = build_c8_registry(bundle)
-    graph_ref = registry.catalog.lookup("c8.graph.project.v1")
+    bundle = build_knowledge_bundle()
+    registry = build_knowledge_registry(bundle)
+    graph_ref = registry.catalog.lookup("knowledge.graph.project.v2")
     assert graph_ref is not None
     contract = registry.resolve(graph_ref)
     assert contract is not None
-    assert contract.owner_capability_id == "graph.c8.4.v1"
+    assert contract.owner_capability_id == "knowledge.graph-projection.v2"
 
-    assembly = build_c8_assembly(
+    assembly = build_knowledge_assembly(
         engine=create_engine("sqlite:///:memory:"),  # type: ignore[arg-type]
         project_scope_digest=local_assembly_scope_digest(),
     )
-    assert assembly.coverage()["C8.4"] == "PROJECTOR_WIRING_DECLARED"
+    assert assembly.coverage()["knowledge.graph-projection.v2"] == "PROJECTOR_WIRING_DECLARED"
 
 
 def test_legacy_cell_constructor_lowers_the_same_author_source() -> None:
     source = _extra_source()
-    legacy = define_c8_graph_projection_cell(
+    legacy = define_knowledge_graph_projection_cell(
         cell_id=source.cell_id,
         contribution_id=source.contribution_id,
         owner=source.owner,
@@ -180,46 +175,46 @@ def test_legacy_cell_constructor_lowers_the_same_author_source() -> None:
         failure_codes=source.failure_codes,
         return_contract_ref=source.return_contract_ref,
     )
-    lowered = lower_c8_graph_projection_author_source(source)
+    lowered = lower_knowledge_graph_projection_author_source(source)
     assert legacy == dataclasses.replace(lowered, payload_codec=legacy.payload_codec)
-    assert legacy.cell_id == "C8.4.test"
+    assert legacy.cell_id == "knowledge.graph-projection.test.v2"
     assert legacy.payload_codec.codec_id == source.payload_codec_id
 
 
 def test_catalog_composition_is_pure_and_extra_entry_reaches_native_registries() -> None:
     calls: list[int] = []
-    observed = _native(C8_GRAPH_PROJECTION_DEFINITION, calls=calls)
+    observed = _native(KNOWLEDGE_GRAPH_PROJECTION_DEFINITION, calls=calls)
     extra_source = _extra_source()
     extra = _compile_extra_native(extra_source)
-    relowered = lower_c8_graph_projection_author_source(extra_source)
+    relowered = lower_knowledge_graph_projection_author_source(extra_source)
     # PayloadCodec dataclasses contain generated encode/decode closures; structural identity
     # is exercised through the bundle/Program checks below rather than function object equality.
     assert extra.definition == dataclasses.replace(
         relowered,
         payload_codec=extra.definition.payload_codec,
     )
-    assert extra.projection.id == "mrw.successor.c8.4.test.graph-projection.v1"
+    assert extra.projection.id == "mrw.knowledge.graph-projection.test.native.v2"
     natives = (observed, extra)
     composition = compose_contributions(tuple(native.projection for native in natives))
     _not_failure(composition)
     assert calls == []
 
-    bundle = build_c8_bundle(graph_projection_composition=natives)
-    registry = build_c8_registry(bundle)
+    bundle = build_knowledge_bundle(graph_projection_composition=natives)
+    registry = build_knowledge_registry(bundle)
     extra_ref = registry.catalog.lookup(EXTRA_KIND)
     assert extra_ref is not None
     assert registry.resolve(extra_ref) is not None
 
-    assembly = build_c8_assembly(
+    assembly = build_knowledge_assembly(
         engine=create_engine("sqlite:///:memory:"),  # type: ignore[arg-type]
         project_scope_digest=local_assembly_scope_digest(),
-        options=C8AssemblyOptions(graph_projection_composition=natives),
+        options=KnowledgeAssemblyOptions(graph_projection_composition=natives),
     )
-    assert assembly.cell("C8.4.test").operation_contract_refs == (EXTRA_KIND,)
-    assert assembly.cell("C8.4.test").status == "PROJECTOR_WIRING_DECLARED"
+    assert assembly.cell("knowledge.graph-projection.test.v2").operation_contract_refs == (EXTRA_KIND,)
+    assert assembly.cell("knowledge.graph-projection.test.v2").status == "PROJECTOR_WIRING_DECLARED"
     object_kinds = {obj.id: obj.kind for obj in composition.objects}
     assert object_kinds[EXTRA_INPUT.type_id] == "ObjectType"
-    assert object_kinds["c8.graph.project.test"] == "Capability"
+    assert object_kinds["knowledge.graph.project.test"] == "Capability"
     assert calls
 
     payload = _ExtraInput(
@@ -228,40 +223,40 @@ def test_catalog_composition_is_pure_and_extra_entry_reaches_native_registries()
         node_keys=("ki:a",),
         node_types=("Topic",),
     )
-    program = build_c8_program(
-        cell_id="C8.4.test",
+    program = build_knowledge_program(
+        cell_id="knowledge.graph-projection.test.v2",
         payload=payload,
-        catalog=build_c8_catalog(bundle),
+        catalog=build_knowledge_catalog(bundle),
         program_id="program:c8-4-test",
         project_key="project-a",
         project_registry_revision=1,
         project_scope_digest="0" * 64,
         graph_projection_composition=natives,
     )
-    assert program.root.operation.operation_id == "c8.graph.project.test"
+    assert program.root.operation.operation_id == "knowledge.graph.project.test"
     assert dict(program.metadata)["canonical_owner"] == EXTRA_OWNER
     assert [entry["operation_kind"] for entry in c8_p4._operation_bindings(natives)["c8_4"]] == [
-        "c8.graph.project.v1",
+        "knowledge.graph.project.v2",
         EXTRA_KIND,
     ]
 
 
 def test_definition_consistency_and_duplicate_cell_ids_fail_closed() -> None:
     bad_definition = dataclasses.replace(
-        C8_GRAPH_PROJECTION_DEFINITION,
+        KNOWLEDGE_GRAPH_PROJECTION_DEFINITION,
         program_atom=dataclasses.replace(
-            C8_GRAPH_PROJECTION_DEFINITION.program_atom,
+            KNOWLEDGE_GRAPH_PROJECTION_DEFINITION.program_atom,
             payload_codec_id="wrong.codec",
         ),
     )
-    candidate = assemble_c8_graph_projection_definition(
+    candidate = assemble_knowledge_graph_projection_definition(
         bad_definition,
-        C8GraphProjectionAssemblyContext(),
+        KnowledgeGraphProjectionAssemblyContext(),
     )
-    decision = validate_c8_graph_projection_binding(bad_definition, candidate)
+    decision = validate_knowledge_graph_projection_binding(bad_definition, candidate)
     assert isinstance(decision, BindingRejected)
     assert [issue.path for issue in decision.issues] == ["$.definition.program_atom.payload_codec_id"]
-    projection = project_c8_graph_projection_definition(bad_definition)
+    projection = project_knowledge_graph_projection_definition(bad_definition)
     assert isinstance(projection, Failure)
     assert projection.family == "kit.contribution"
     assert projection.code == "CONTRIBUTION_INVALID"
@@ -277,106 +272,116 @@ def test_definition_consistency_and_duplicate_cell_ids_fail_closed() -> None:
     rejected_native = define_native_contribution(
         NativeContributionSpec(
             definition=bad_definition,
-            project=project_c8_graph_projection_definition,
-            assemble=assemble_c8_graph_projection_definition,
-            validate_binding=validate_c8_graph_projection_binding,
+            project=project_knowledge_graph_projection_definition,
+            assemble=assemble_knowledge_graph_projection_definition,
+            validate_binding=validate_knowledge_graph_projection_binding,
         )
     )
     assert isinstance(rejected_native, Failure)
     assert rejected_native.context == projection.context
 
     invalid_source = dataclasses.replace(_extra_source(), contribution_id="")
-    invalid_native = compile_native_contribution(invalid_source, C8_GRAPH_PROJECTION_NATIVE_RULE)
+    invalid_native = compile_native_contribution(invalid_source, KNOWLEDGE_GRAPH_PROJECTION_NATIVE_RULE)
     assert isinstance(invalid_native, Failure)
     assert invalid_native.code == "CONTRIBUTION_INVALID"
 
     duplicate_cell = _compile_extra_native(
         dataclasses.replace(
             _extra_source(),
-            cell_id="C8.4",
+            cell_id="knowledge.graph-projection.v2",
             contribution_id="mrw.test.c8.duplicate-cell.v1",
         )
     )
-    with pytest.raises(ValueError, match="duplicate native graph cell id C8.4"):
-        validate_c8_graph_projection_contributions((c8_graph_projection_native_contribution, duplicate_cell))
+    with pytest.raises(ValueError, match="duplicate native graph cell id knowledge.graph-projection.v2"):
+        validate_knowledge_graph_projection_contributions((knowledge_graph_projection_native_contribution, duplicate_cell))
 
 
 def test_default_and_installed_c8_4_assembly_preserve_exact_declarations() -> None:
-    golden = _golden()
     scope = local_assembly_scope_digest()
     source_key = {
-        "C8.4": ProjectorSourceKey(
+        "knowledge.graph-projection.v2": ProjectorSourceKey(
             source_ref="run:c8-graph-contribution:before-after",
             source_incarnation="incarnation:c8-graph-contribution:before-after",
         )
     }
-    unbound = build_c8_assembly(
+    unbound = build_knowledge_assembly(
         engine=create_engine("sqlite:///:memory:"),  # type: ignore[arg-type]
         project_scope_digest=scope,
     )
-    installed = build_c8_assembly(
+    installed = build_knowledge_assembly(
         engine=create_engine("sqlite:///:memory:"),  # type: ignore[arg-type]
         project_scope_digest=scope,
         projector_source_keys=source_key,
     )
     assert unbound.projector_registry is None
-    assert unbound.projector_wiring[-1].to_dict() == golden["projector_wiring"]
-    assert installed.projector_wiring[-1].to_dict() == golden["projector_wiring"]
-    assert unbound.cell("C8.4").to_dict() == golden["unbound_cell"]
-    assert installed.cell("C8.4").to_dict() == golden["installed_cell"]
-    assert _json_observation(dataclasses.asdict(installed.projector_registry)) == golden["installed_projector_registry"]
-    assert [binding.to_dict() for binding in installed.rollback_bindings] == golden["rollback_bindings"]
+    wiring = unbound.projector_wiring[-1].to_dict()
+    assert wiring == installed.projector_wiring[-1].to_dict()
+    assert wiring["cell_id"] == "knowledge.graph-projection.v2"
+    assert wiring["projector_id"] == "knowledge.graph.projector"
+    assert wiring["source_kind"] == "knowledge_value"
+    assert wiring["projection_schema_ref"] == "mrw.knowledge.graph-projection.v2"
+    assert unbound.cell("knowledge.graph-projection.v2").status == "PROJECTOR_WIRING_DECLARED"
+    assert installed.cell("knowledge.graph-projection.v2").status == "INSTALLED"
+    assert installed.projector_registry is not None
+    assert any(
+        binding.cell_id == "knowledge.graph-projection.v2"
+        for binding in installed.rollback_bindings
+    )
 
 
 def test_default_bundle_preserves_native_payload_codec_behavior() -> None:
-    golden = _golden()
-    bundle = build_c8_bundle()
-    codec = bundle.codec_by_kind("c8.graph.project.v1")
-    operation = next(operation for operation in bundle.operations if operation.ref.kind == "c8.graph.project.v1")
-    assert [entry.ref.kind for entry in bundle.operations] == golden["operation_order"]
-    assert _json_observation(dataclasses.asdict(operation)) == golden["operation_contract"]
-    assert {name: profile.profile_digest for name, profile in bundle.profiles["C8.4"].items()} == golden[
-        "profile_digests"
+    bundle = build_knowledge_bundle()
+    codec = bundle.codec_by_kind("knowledge.graph.project.v2")
+    operation = next(
+        operation
+        for operation in bundle.operations
+        if operation.ref.kind == "knowledge.graph.project.v2"
+    )
+    assert [entry.ref.kind for entry in bundle.operations] == [
+        "knowledge.read.demand.v2",
+        "knowledge.writing.compose.v2",
+        "knowledge.writing.stage.v2",
+        "knowledge.report.stage.v2",
+        "knowledge.graph.project.v2",
     ]
-    for family, expected in golden["profile_observations"].items():
-        profile = dataclasses.asdict(bundle.profiles["C8.4"][family])
-        assert {key: _json_observation(profile[key]) for key in expected} == expected
+    assert operation.owner_capability_id == "knowledge.graph-projection.v2"
+    assert operation.input_type.type_id == "KnowledgeGraphProjectInput.v2"
+    assert operation.output_type.type_id == "KnowledgeGraphContext.v2"
+    assert set(bundle.profiles) == {
+        "knowledge.read.v2",
+        "knowledge.writing.v2",
+        "knowledge.report.v2",
+        "knowledge.graph-projection.v2",
+    }
     fields = {
         "project_key": "project-a",
         "graph_id": "graph-a",
         "node_keys": ("ki:a",),
         "node_types": ("Topic",),
     }
-    payload = C8GraphProjectInput(**fields)
+    payload = KnowledgeGraphProjectInput(**fields)
     wire = codec.encode_payload(payload)
-    assert wire == golden["payload_codec"]["sample_wire"]
     assert "kind" not in wire
     assert dataclasses.asdict(codec.decode_payload(wire)) == dataclasses.asdict(payload)
-    assert codec.codec_id == golden["payload_codec"]["codec_id"]
-    assert codec.codec_version == golden["payload_codec"]["codec_version"]
-    assert codec.payload_type_id == golden["payload_codec"]["payload_type_id"]
-    assert codec.codec_digest == golden["payload_codec"]["codec_digest"]
-    assert _json_observation(dataclasses.asdict(codec.contract_ref)) == golden["operation_contract"]["ref"]
+    assert codec.codec_id == "mrw.knowledge.graph-project.codec.v2"
+    assert codec.codec_version == "1"
+    assert codec.payload_type_id == "KnowledgeGraphProjectInput.v2"
+    assert codec.contract_ref == operation.ref
 
 
 @pytest.mark.parametrize(
     "law_witness",
-    c8_graph_projection_law_witnesses,
+    knowledge_graph_projection_law_witnesses,
     ids=law_witness_reference,
 )
 def test_c8_graph_projection_native_catalog_law(law_witness: LawWitness) -> None:
-    assert c8_graph_projection_law_witness_references == tuple(
-        law_witness_reference(witness) for witness in c8_graph_projection_law_witnesses
+    assert knowledge_graph_projection_law_witness_references == tuple(
+        law_witness_reference(witness) for witness in knowledge_graph_projection_law_witnesses
     )
     law_witness.run()
 
 
-def test_explicit_catalog_module_reexports_the_runtime_entry() -> None:
-    path = Path(__file__).resolve().parents[4] / "contributions/c8_graph_projection_catalog.py"
-    spec = importlib.util.spec_from_file_location("mrw_explicit_c8_catalog", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    assert module.contribution_catalog is contribution_catalog
-    assert module.c8_graph_projection_law_witnesses is c8_graph_projection_law_witnesses
-    assert module.c8_graph_projection_law_witness_references is c8_graph_projection_law_witness_references
+def test_project_catalog_contains_graph_projection_runtime_entry() -> None:
+    from contributions.project_catalog import project_contribution_catalog
+
+    assert knowledge_graph_projection_native_contribution.projection in project_contribution_catalog

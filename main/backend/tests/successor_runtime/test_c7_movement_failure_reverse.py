@@ -7,15 +7,15 @@ from typing import Any
 
 import pytest
 
-from app.successor_runtime.capabilities import ingest_c7_movements as c7_movements
-from app.successor_runtime.capabilities.ingest_c7_movements import (
-    C7_CHUNK_MAX_BYTES,
-    C7_CHUNK_MAX_COUNT,
-    C7_NEW_ATTEMPT_POLICY,
-    C7_NORMALIZATION_ONLY_LOSS,
-    C7Deferred,
-    C7Rejected,
-    C7ReverseReturn,
+from app.successor_runtime.capabilities import material_ingest_movements as c7_movements
+from app.successor_runtime.capabilities.material_ingest_movements import (
+    MATERIAL_CHUNK_MAX_BYTES,
+    MATERIAL_CHUNK_MAX_COUNT,
+    MATERIAL_NEW_ATTEMPT_POLICY,
+    MATERIAL_NORMALIZATION_ONLY_LOSS,
+    MaterialDeferred,
+    MaterialRejected,
+    MaterialReverseReturn,
     DeterministicChunkPort,
     DeterministicExtractPort,
     DeterministicPassThroughPort,
@@ -24,7 +24,7 @@ from app.successor_runtime.capabilities.ingest_c7_movements import (
     StructuredMaterialCandidate,
     VerifiedMaterialCandidate,
     capture_raw_snapshot_exact,
-    execute_c7_movement,
+    execute_material_movement,
     normalize_ingest_envelope,
     return_for_cleanup,
     select_exactly_one_digestion_alternative,
@@ -38,7 +38,7 @@ def test_c7_movement_failure_contract_lifts() -> None:
         "C7 movement input is invalid",
         site="test.contract.lift",
     )
-    assert failure.family == "c7.ingest.contract_failure"
+    assert failure.family == "material.ingest.contract_failure"
     assert failure.code == "input_contract_invalid"
     assert failure.context == {
         "owner": "successor_runtime.capabilities.ingest_c7_movements",
@@ -102,7 +102,7 @@ def _trace(
         DeterministicSummarizePort(),
         DeterministicPassThroughPort(),
     )
-    return execute_c7_movement(
+    return execute_material_movement(
         snapshot=snapshot,
         envelope=envelope,
         decision=decision,
@@ -149,7 +149,7 @@ def test_malformed_structured_json_is_typed_rejected() -> None:
         input_kind="url_driven_external",
         content_format="structured_json",
     )
-    assert isinstance(trace.outcome, C7Rejected)
+    assert isinstance(trace.outcome, MaterialRejected)
     assert trace.outcome.failure_code == "malformed_structured_json"
     assert trace.outcome.snapshot_ref == snapshot.snapshot_ref
     assert trace.outcome.provider_calls == 0
@@ -175,7 +175,7 @@ def test_structured_json_non_finite_constants_are_malformed(
         input_kind="url_driven_external",
         content_format="structured_json",
     )
-    assert isinstance(trace.outcome, C7Rejected)
+    assert isinstance(trace.outcome, MaterialRejected)
     assert trace.outcome.failure_code == "malformed_structured_json"
     assert trace.outcome.snapshot_ref == snapshot.snapshot_ref
     assert trace.outcome.provider_calls == 0
@@ -192,7 +192,7 @@ def test_empty_structured_output_is_typed_rejected() -> None:
         input_kind="url_driven_external",
         content_format="structured_json",
     )
-    assert isinstance(trace.outcome, C7Rejected)
+    assert isinstance(trace.outcome, MaterialRejected)
     assert trace.outcome.failure_code == "empty_structured_output"
 
 
@@ -211,7 +211,7 @@ def test_chunk_resource_ceiling_fails_closed() -> None:
             max_chunk_count=2,
         ),
     )
-    assert isinstance(trace.outcome, C7Rejected)
+    assert isinstance(trace.outcome, MaterialRejected)
     assert trace.outcome.failure_code == "chunk_count_ceiling_exceeded"
     assert trace.outcome.provider_calls == 0
     assert trace.canonical_write is False
@@ -219,22 +219,22 @@ def test_chunk_resource_ceiling_fails_closed() -> None:
 
 def test_chunk_port_constructor_rejects_global_ceiling_violations() -> None:
     with pytest.raises(ValueError, match="global C7 chunk byte ceiling"):
-        DeterministicChunkPort(max_chunk_bytes=C7_CHUNK_MAX_BYTES + 1)
+        DeterministicChunkPort(max_chunk_bytes=MATERIAL_CHUNK_MAX_BYTES + 1)
     with pytest.raises(ValueError, match="global C7 chunk count ceiling"):
-        DeterministicChunkPort(max_chunk_count=C7_CHUNK_MAX_COUNT + 1)
+        DeterministicChunkPort(max_chunk_count=MATERIAL_CHUNK_MAX_COUNT + 1)
 
 
 def test_chunk_port_instance_field_mutation_rejected_before_candidate() -> None:
     snapshot = _snapshot("word " * 800, name="chunk-mutated", mime_type="text/plain")
     port = DeterministicChunkPort()
-    port.max_chunk_bytes = C7_CHUNK_MAX_BYTES + 1
+    port.max_chunk_bytes = MATERIAL_CHUNK_MAX_BYTES + 1
     trace = _trace(
         snapshot,
         input_kind="report_shaped",
         content_format="plain_text",
         chunk_port=port,
     )
-    assert isinstance(trace.outcome, C7Rejected)
+    assert isinstance(trace.outcome, MaterialRejected)
     assert trace.outcome.failure_code == "chunk_policy_ceiling_exceeded"
     assert trace.outcome.candidate_ref is None
     assert trace.outcome.provider_calls == 0
@@ -252,7 +252,7 @@ def test_chunk_port_infinite_policy_mutation_is_typed_rejected(field: str) -> No
         content_format="plain_text",
         chunk_port=port,
     )
-    assert isinstance(trace.outcome, C7Rejected)
+    assert isinstance(trace.outcome, MaterialRejected)
     assert trace.outcome.failure_code == "chunk_policy_ceiling_exceeded"
     assert trace.outcome.candidate_ref is None
 
@@ -268,9 +268,9 @@ def test_chunk_candidate_never_forms_oversized_byte_chunk() -> None:
     assert isinstance(candidate, StructuredMaterialCandidate)
     chunks = candidate.structured_payload["chunks"]
     assert chunks
-    assert all(chunk["byte_size"] <= C7_CHUNK_MAX_BYTES for chunk in chunks)
+    assert all(chunk["byte_size"] <= MATERIAL_CHUNK_MAX_BYTES for chunk in chunks)
     assert candidate.structured_payload["chunk_policy"]["max_chunk_bytes"] == (
-        C7_CHUNK_MAX_BYTES
+        MATERIAL_CHUNK_MAX_BYTES
     )
 
 
@@ -289,7 +289,7 @@ def test_multibyte_codepoint_exceeding_chunk_ceiling_is_typed_rejected() -> None
             max_chunk_count=4,
         ),
     )
-    assert isinstance(trace.outcome, C7Rejected)
+    assert isinstance(trace.outcome, MaterialRejected)
     assert trace.outcome.failure_code == "chunk_codepoint_exceeds_ceiling"
     assert trace.outcome.snapshot_ref == snapshot.snapshot_ref
     assert trace.outcome.provider_calls == 0
@@ -304,7 +304,7 @@ def test_empty_pass_through_is_rejected_without_candidate() -> None:
         content_format="other",
         text="",
     )
-    assert isinstance(trace.outcome, C7Rejected)
+    assert isinstance(trace.outcome, MaterialRejected)
     assert trace.outcome.failure_code == "empty_pass_through_rejected"
     assert trace.outcome.candidate_ref is None
 
@@ -316,7 +316,7 @@ def test_unsafe_pass_through_is_deferred() -> None:
         input_kind="url_driven_external",
         content_format="plain_text",
     )
-    assert isinstance(trace.outcome, C7Deferred)
+    assert isinstance(trace.outcome, MaterialDeferred)
     assert trace.outcome.failure_code == "unsafe_pass_through_deferred"
     assert trace.outcome.provider_calls == 0
     assert trace.outcome.canonical_write is False
@@ -337,13 +337,13 @@ def test_reverse_return_retains_snapshot_and_forbids_new_attempt() -> None:
         reason="repair required",
         failure="content_quality",
     )
-    assert isinstance(reverse, C7ReverseReturn)
+    assert isinstance(reverse, MaterialReverseReturn)
     assert reverse.snapshot_ref == snapshot.snapshot_ref
     assert reverse.snapshot_identity_digest == snapshot.snapshot_identity_digest
     assert reverse.candidate_ref == candidate.payload_ref
     assert reverse.admission_disabled is True
     assert reverse.projection_disabled is True
-    assert reverse.new_attempt_policy == C7_NEW_ATTEMPT_POLICY
+    assert reverse.new_attempt_policy == MATERIAL_NEW_ATTEMPT_POLICY
     assert reverse.failure_digest
     assert len(reverse.failure_digest) == 64
     assert reverse.provider_calls == 0
@@ -435,7 +435,7 @@ def test_candidate_payload_mutation_and_verify_mismatch_fail_closed() -> None:
             expected_candidate_digest=candidate.candidate_digest,
         )
     )
-    assert isinstance(rejected, C7Rejected)
+    assert isinstance(rejected, MaterialRejected)
     assert rejected.failure_code == "expected_candidate_digest_mismatch"
 
     synced_forge = verify_structured_candidate(
@@ -447,7 +447,7 @@ def test_candidate_payload_mutation_and_verify_mismatch_fail_closed() -> None:
             expected_candidate_digest=self_consistent_forged.candidate_digest,
         )
     )
-    assert isinstance(synced_forge, C7Rejected)
+    assert isinstance(synced_forge, MaterialRejected)
     assert synced_forge.failure_code == "candidate_replay_mismatch"
 
     rejected = verify_structured_candidate(
@@ -459,7 +459,7 @@ def test_candidate_payload_mutation_and_verify_mismatch_fail_closed() -> None:
             expected_project_key="other_project",
         )
     )
-    assert isinstance(rejected, C7Rejected)
+    assert isinstance(rejected, MaterialRejected)
     assert rejected.failure_code == "project_key_mismatch"
 
 
@@ -519,7 +519,7 @@ def test_verify_success_grants_no_canonical_write_and_epoch_can_defer() -> None:
             revoked_authority_epochs=frozenset({2}),
         )
     )
-    assert isinstance(deferred, C7Deferred)
+    assert isinstance(deferred, MaterialDeferred)
     assert deferred.failure_code == "authority_epoch_revoked"
 
 
@@ -562,7 +562,7 @@ def test_verify_allows_base_revision_zero_and_rejects_negative() -> None:
             canonical_base_revision=-1,
         )
     )
-    assert isinstance(rejected, C7Rejected)
+    assert isinstance(rejected, MaterialRejected)
     assert rejected.failure_code == "server_identity_missing"
 
     with pytest.raises(ValueError, match="must be >= 0"):
@@ -619,12 +619,12 @@ def test_chunk_verify_replays_digest_bound_non_default_policy() -> None:
             expected_candidate_digest=zero_forged.candidate_digest,
         )
     )
-    assert isinstance(rejected, C7Rejected)
+    assert isinstance(rejected, MaterialRejected)
     assert rejected.failure_code == "chunk_policy_invalid"
 
     oversized_policy = dict(candidate.structured_payload)
     oversized_policy["chunk_policy"] = {
-        "max_chunk_bytes": C7_CHUNK_MAX_BYTES + 1,
+        "max_chunk_bytes": MATERIAL_CHUNK_MAX_BYTES + 1,
         "max_chunk_count": 16,
     }
     oversized_forged = dataclasses.replace(
@@ -642,7 +642,7 @@ def test_chunk_verify_replays_digest_bound_non_default_policy() -> None:
             expected_candidate_digest=oversized_forged.candidate_digest,
         )
     )
-    assert isinstance(rejected, C7Rejected)
+    assert isinstance(rejected, MaterialRejected)
     assert rejected.failure_code == "chunk_policy_invalid"
 
 
@@ -661,17 +661,17 @@ def test_pass_through_reports_normalization_loss_and_retains_raw_snapshot() -> N
     )
     candidate = trace.outcome
     assert isinstance(candidate, StructuredMaterialCandidate)
-    assert envelope.normalization_loss == C7_NORMALIZATION_ONLY_LOSS
+    assert envelope.normalization_loss == MATERIAL_NORMALIZATION_ONLY_LOSS
     assert envelope.normalization_profile_ref
     assert envelope.raw_content_digest == snapshot.raw_content_digest
     assert envelope.raw_byte_length == len(snapshot.raw_bytes)
     assert envelope.snapshot_identity_digest == snapshot.snapshot_identity_digest
     assert snapshot.raw_bytes == raw_text.encode("utf-8")
-    assert candidate.failure_loss_profile == C7_NORMALIZATION_ONLY_LOSS
+    assert candidate.failure_loss_profile == MATERIAL_NORMALIZATION_ONLY_LOSS
     payload = candidate.structured_payload
     assert payload["raw_snapshot_retained"] is True
     assert payload["raw_content_digest"] == snapshot.raw_content_digest
-    assert payload["normalization_loss"] == C7_NORMALIZATION_ONLY_LOSS
+    assert payload["normalization_loss"] == MATERIAL_NORMALIZATION_ONLY_LOSS
     assert payload["normalization_profile_ref"] == envelope.normalization_profile_ref
 
 
@@ -687,17 +687,17 @@ def test_reverse_return_binds_failure_outcome_digest_and_retry_prohibition() -> 
         content_format="structured_json",
     )
     rejected = trace.outcome
-    assert isinstance(rejected, C7Rejected)
+    assert isinstance(rejected, MaterialRejected)
     reverse = return_for_cleanup(
         snapshot=snapshot,
         reason="repair required",
         failure="malformed_structured_json",
         outcome=rejected,
     )
-    assert isinstance(reverse, C7ReverseReturn)
+    assert isinstance(reverse, MaterialReverseReturn)
     assert reverse.snapshot_identity_digest == snapshot.snapshot_identity_digest
     assert reverse.failure_digest == rejected.rejected_digest
-    assert reverse.new_attempt_policy == C7_NEW_ATTEMPT_POLICY
+    assert reverse.new_attempt_policy == MATERIAL_NEW_ATTEMPT_POLICY
     assert reverse.admission_disabled is True
     assert reverse.projection_disabled is True
     assert reverse.provider_calls == 0
@@ -722,7 +722,7 @@ def test_typed_reject_defer_short_circuits_branch_admission_write() -> None:
         ports=ports,
     )
     deferred = trace.outcome
-    assert isinstance(deferred, C7Deferred)
+    assert isinstance(deferred, MaterialDeferred)
     assert sum(port.calls for port in ports) == 1
     assert ports[3].calls == 1
     reverse = return_for_cleanup(
@@ -821,7 +821,7 @@ def test_return_for_cleanup_outcome_must_match_snapshot() -> None:
         content_format="structured_json",
     )
     other_outcome = other_trace.outcome
-    assert isinstance(other_outcome, C7Rejected)
+    assert isinstance(other_outcome, MaterialRejected)
     with pytest.raises(
         ValueError, match="outcome is not bound to the returned snapshot"
     ):
@@ -832,7 +832,7 @@ def test_return_for_cleanup_outcome_must_match_snapshot() -> None:
             outcome=other_outcome,
         )
     same_outcome = trace.outcome
-    assert isinstance(same_outcome, C7Rejected)
+    assert isinstance(same_outcome, MaterialRejected)
     reverse = return_for_cleanup(
         snapshot=snapshot,
         reason="repair required",

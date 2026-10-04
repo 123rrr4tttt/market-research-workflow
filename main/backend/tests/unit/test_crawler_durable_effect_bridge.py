@@ -9,7 +9,7 @@ from app.services.crawlers.durable_effect_bridge import (
     InMemoryCrawlerAttemptStore,
     RequestDigestMismatch,
 )
-from app.successor_runtime.capabilities.source_library_c2_shared import CancelReceipt
+from app.successor_runtime.capabilities.source_contracts import CancelReceipt
 
 
 class _Provider:

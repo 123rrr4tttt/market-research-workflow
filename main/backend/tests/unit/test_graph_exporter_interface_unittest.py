@@ -17,7 +17,7 @@ from app.services.graph.models import Graph, GraphEdge, GraphNode
 class GraphExporterInterfaceUnitTestCase(unittest.TestCase):
     def test_export_to_json_keeps_interface_shape(self):
         post = GraphNode(type=" Post ", id=" p-1 ", properties={"title": "hello", "type": "reserved"})
-        keyword = GraphNode(type="Keyword", id="k-1", properties={"text": "lottery"})
+        keyword = GraphNode(type="Keyword", id="k-1", properties={"text": "clean energy"})
         graph = Graph(
             nodes={
                 "Post:p-1": post,
@@ -60,4 +60,3 @@ class GraphExporterInterfaceUnitTestCase(unittest.TestCase):
         payload = export_to_json(graph)
 
         self.assertEqual(payload["graph_schema_version"], "v1")
-

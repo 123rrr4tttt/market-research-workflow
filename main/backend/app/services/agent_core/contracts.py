@@ -1,37 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Literal, Protocol
+from typing import Any, Literal
 from uuid import uuid4
 
 
-CoreEventType = Literal[
-    "session_started",
-    "user_message",
-    "assistant_delta",
-    "assistant_message",
-    "tool_call_requested",
-    "permission_requested",
-    "tool_call_started",
-    "tool_progress",
-    "tool_result",
-    "artifact_created",
-    "approval_resolved",
-    "run_interrupted",
-    "run_resumed",
-    "run_compacted",
-    "turn_state",
-    "final_answer",
-    "error",
-]
+CoreEventType = Literal["tool_progress"]
 ToolRisk = Literal["read_only", "write_shared", "write_external", "privileged"]
 ToolPermission = Literal["allow", "ask", "deny", "explicit_user_request"]
 ToolConcurrency = Literal["parallel", "serial", "exclusive"]
 ToolSource = Literal["builtin", "project", "skill", "mcp", "legacy_adapter"]
 ToolStatus = Literal["completed", "failed", "canceled", "needs_approval", "deferred"]
-ModelStepType = Literal["assistant_delta", "final_answer", "tool_calls"]
 AGENT_CORE_TOOL_CALL_CONTRACT_VERSION = "agent_core.tool_call_shape.v1"
 CORE_TOOL_CALL_REQUIRED_KEYS = ("call_id", "tool_name", "arguments", "reason")
 
@@ -198,121 +178,9 @@ class CoreToolResult:
 
 
 @dataclass(frozen=True)
-class CorePermissionRequest:
-    approval_id: str
-    session_id: str
-    turn_id: str
-    tool_call: CoreToolCall
-    tool_spec: CoreToolSpec
-    reason: str
-    created_at: str = field(default_factory=utcnow_iso)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "approval_id": self.approval_id,
-            "session_id": self.session_id,
-            "turn_id": self.turn_id,
-            "tool_call": self.tool_call.to_dict(),
-            "tool_spec": self.tool_spec.to_dict(),
-            "reason": self.reason,
-            "created_at": self.created_at,
-        }
-
-
-@dataclass(frozen=True)
-class CoreApprovalResume:
-    approval_id: str
-    tool_call: CoreToolCall
-    approved: bool
-    approved_by: str = "user"
-    updated_arguments: dict[str, Any] | None = None
-
-    def resolved_tool_call(self) -> CoreToolCall:
-        if self.updated_arguments is None:
-            return self.tool_call
-        return CoreToolCall(
-            tool_name=self.tool_call.tool_name,
-            arguments=dict(self.updated_arguments),
-            call_id=self.tool_call.call_id,
-            reason=self.tool_call.reason,
-        )
-
-
-@dataclass(frozen=True)
-class CoreModelStep:
-    step_type: ModelStepType
-    content: str = ""
-    tool_calls: tuple[CoreToolCall, ...] = ()
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def final(cls, answer: str, **metadata: Any) -> "CoreModelStep":
-        return cls(step_type="final_answer", content=answer, metadata=dict(metadata))
-
-    @classmethod
-    def tools(cls, *tool_calls: CoreToolCall, **metadata: Any) -> "CoreModelStep":
-        return cls(step_type="tool_calls", tool_calls=tuple(tool_calls), metadata=dict(metadata))
-
-    @classmethod
-    def delta(cls, content: str, **metadata: Any) -> "CoreModelStep":
-        return cls(step_type="assistant_delta", content=content, metadata=dict(metadata))
-
-
-@dataclass(frozen=True)
 class AgentCoreRequest:
     message: str
     session_id: str
     project_key: str | None = None
     turn_id: str = field(default_factory=lambda: new_core_id("turn"))
     context: dict[str, Any] = field(default_factory=dict)
-    max_iterations: int = 6
-    max_tool_calls: int = 12
-    resume: CoreApprovalResume | None = None
-    approved_call_ids: tuple[str, ...] = ()
-    approval_policy: Literal["frozen", "enabled"] = "frozen"
-
-
-@dataclass(frozen=True)
-class AgentCoreRunResult:
-    session_id: str
-    turn_id: str
-    events: tuple[CoreEvent, ...]
-    final_answer: str
-    tool_results: tuple[CoreToolResult, ...] = ()
-    permission_request: CorePermissionRequest | None = None
-    stop_reason: str = "final_answer"
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "session_id": self.session_id,
-            "turn_id": self.turn_id,
-            "events": [event.to_dict() for event in self.events],
-            "final_answer": self.final_answer,
-            "tool_results": [result.to_dict() for result in self.tool_results],
-            "permission_request": self.permission_request.to_dict() if self.permission_request else None,
-            "stop_reason": self.stop_reason,
-        }
-
-
-class CoreProvider(Protocol):
-    def next_step(
-        self,
-        *,
-        request: AgentCoreRequest,
-        tools: list[CoreToolSpec],
-        transcript: list[dict[str, Any]],
-        remaining_budget: dict[str, Any],
-    ) -> CoreModelStep:
-        ...
-
-
-class CoreToolExecutor(Protocol):
-    def execute_tool(
-        self,
-        *,
-        tool_call: CoreToolCall,
-        tool_spec: CoreToolSpec,
-        request: AgentCoreRequest,
-        emit: Callable[[CoreEvent], None],
-    ) -> CoreToolResult:
-        ...

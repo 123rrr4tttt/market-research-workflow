@@ -1,0 +1,98 @@
+{
+  "status": "passed",
+  "gate": "launcher_first_dry_run",
+  "dry_run": true,
+  "destructive_actions": [],
+  "checks": [
+    {
+      "name": "platform_macos_routes_docker_start_to_launcher_ui",
+      "passed": true,
+      "evidence": "scripts/platform-macos.sh"
+    },
+    {
+      "name": "platform_macos_exposes_docker_status",
+      "passed": true,
+      "evidence": "scripts/platform-macos.sh"
+    },
+    {
+      "name": "launcher_ui_starts_only_launcher_services",
+      "passed": true,
+      "evidence": "scripts/docker-launcher-ui.sh"
+    },
+    {
+      "name": "launcher_start_does_not_build_images_inline",
+      "passed": true,
+      "evidence": "main/ops/launcher-agent/launcher_agent.py"
+    },
+    {
+      "name": "compose_dependencies_stay_container_internal",
+      "passed": true,
+      "evidence": "main/ops/docker-compose.yml"
+    },
+    {
+      "name": "docker_status_is_read_only_ps",
+      "passed": true,
+      "evidence": "scripts/docker-app-control.sh"
+    },
+    {
+      "name": "gui_launcher_exposes_docker_launcher_action",
+      "passed": true,
+      "evidence": "scripts/launch.py"
+    },
+    {
+      "name": "compose_defines_launcher_services",
+      "passed": true,
+      "evidence": "main/ops/docker-compose.yml + main/ops/launcher-ui/nginx.conf"
+    },
+    {
+      "name": "macos_swift_launcher_build_entry_exists",
+      "passed": true,
+      "evidence": "scripts/build-macos-launcher.sh + tools/macos/Launcher.swift"
+    },
+    {
+      "name": "swift_monitor_preserves_cwd_and_separates_runtime_owners",
+      "passed": true,
+      "evidence": "tools/macos/Launcher.swift"
+    },
+    {
+      "name": "swift_deep_health_requires_json_status_ok",
+      "passed": true,
+      "evidence": "tools/macos/Launcher.swift"
+    },
+    {
+      "name": "swift_docker_stack_requires_three_core_services",
+      "passed": true,
+      "evidence": "tools/macos/Launcher.swift"
+    },
+    {
+      "name": "swift_launcher_url_probes_5176",
+      "passed": true,
+      "evidence": "tools/macos/Launcher.swift"
+    },
+    {
+      "name": "macos_settings_cover_current_external_service_contract",
+      "passed": true,
+      "evidence": "tools/macos/Launcher.swift"
+    },
+    {
+      "name": "local_backend_action_is_backend_only_and_non_destructive",
+      "passed": true,
+      "evidence": "scripts/local-deploy.sh + main/backend/start-local.sh + scripts/local-service-control.sh"
+    },
+    {
+      "name": "docker_launcher_help_and_build_are_guarded",
+      "passed": true,
+      "evidence": "scripts/docker-launcher-ui.sh"
+    },
+    {
+      "name": "macos_launcher_build_is_staged_and_verified",
+      "passed": true,
+      "evidence": "scripts/build-macos-launcher.sh"
+    }
+  ],
+  "runtime_fingerprint": {
+    "generated_at_utc": "2026-09-23T03:24:02.158896Z",
+    "python_version": "3.14.7",
+    "git_head": "5a742be1ebbacb50390a20c35d7bd8526abcdffd"
+  }
+}

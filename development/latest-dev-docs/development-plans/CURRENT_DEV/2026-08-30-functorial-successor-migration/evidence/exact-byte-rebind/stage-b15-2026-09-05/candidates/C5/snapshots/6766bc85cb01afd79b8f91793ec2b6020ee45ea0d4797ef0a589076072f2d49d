@@ -1,0 +1,26 @@
+from __future__ import annotations
+
+from celery import Celery
+
+from .composition.collect_runtime import configure_default_collect_adapters
+from .composition.ingest import configure_ingest_adapters
+from .composition.llm import configure_llm_providers
+from .composition.resource_pool import configure_resource_pool_ports
+from .composition.source_library import configure_source_library_adapters
+from .settings.config import settings
+
+
+configure_default_collect_adapters()
+configure_resource_pool_ports()
+configure_ingest_adapters()
+configure_llm_providers()
+configure_source_library_adapters()
+
+
+celery_app = Celery(
+    "lottery_intel",
+    broker=settings.redis_url,
+    backend=settings.redis_url,
+)
+
+celery_app.autodiscover_tasks(["app.services.tasks"])

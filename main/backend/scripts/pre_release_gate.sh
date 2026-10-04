@@ -56,9 +56,6 @@ if [[ "$MODE" == "quick" ]]; then
     tests/unit/test_streamplus_contracts_unittest.py \
     tests/unit/test_collect_runtime_process_fallback_unittest.py \
     tests/unit/test_agent_control_tools_unittest.py \
-    tests/unit/test_agent_run_loop_unittest.py \
-    tests/unit/test_agent_session_memory_unittest.py \
-    tests/unit/test_interactive_agent_runtime_unittest.py \
     tests/unit/test_local_index_service_unittest.py \
     tests/unit/test_material_ontology_unittest.py \
     tests/unit/test_search_web_provider_adapters_unittest.py \
@@ -68,8 +65,6 @@ if [[ "$MODE" == "quick" ]]; then
     tests/unit/test_time_semantics_release_gate_unittest.py \
     tests/unit/test_time_semantics_sample_provenance_readback_unittest.py \
     tests/integration/test_agent_chat_api_unittest.py \
-    tests/integration/test_agent_runtime_artifact_idle_replay_unittest.py \
-    tests/integration/test_agent_runtime_scenario_replay_unittest.py \
     tests/integration/test_writing_api_unittest.py
 else
   "$PYTHON_BIN" -m pytest -q \
@@ -86,7 +81,11 @@ fi
 if [[ -n "${TIME_SEMANTICS_LIVE_EVIDENCE_JSON:-}" ]]; then
   TIME_SEMANTICS_GATE_ARGS+=(--live-evidence-json "$TIME_SEMANTICS_LIVE_EVIDENCE_JSON")
 fi
-"$PYTHON_BIN" scripts/check_time_semantics_release_gate.py "${TIME_SEMANTICS_GATE_ARGS[@]}"
+if (( ${#TIME_SEMANTICS_GATE_ARGS[@]} > 0 )); then
+  "$PYTHON_BIN" scripts/check_time_semantics_release_gate.py "${TIME_SEMANTICS_GATE_ARGS[@]}"
+else
+  "$PYTHON_BIN" scripts/check_time_semantics_release_gate.py
+fi
 
 echo "[gate] step 4/4: api import guard"
 if [[ "$STRICT" == "true" ]]; then

@@ -48,12 +48,10 @@ CORE_TOOL_IDS = {
 }
 
 FEATURE_FLAGGED_TOOL_IDS = {
-    "agent_batch.nl_command.submit": "agent_batch_as_tool_enabled",
     "agent_batch.submit": "agent_batch_as_tool_enabled",
 }
 
 IMPLEMENTED_TOOL_IDS = CORE_TOOL_IDS | {
-    "agent_batch.nl_command.submit",
     "agent_batch.submit",
     "agent_task.plan.append",
     "agent_investigation.leads.append",
@@ -86,13 +84,11 @@ def default_agent_runtime_feature_flags() -> dict[str, bool]:
         from app.settings.config import settings
 
         return {
-            "agent_runtime_v2_enabled": bool(getattr(settings, "agent_runtime_v2_enabled", True)),
             "agent_stream_enabled": bool(getattr(settings, "agent_stream_enabled", True)),
             "agent_batch_as_tool_enabled": bool(getattr(settings, "agent_batch_as_tool_enabled", True)),
         }
     except Exception:  # noqa: BLE001
         return {
-            "agent_runtime_v2_enabled": True,
             "agent_stream_enabled": True,
             "agent_batch_as_tool_enabled": True,
         }
@@ -332,13 +328,13 @@ def _agent_core_standard_capabilities() -> list[dict[str, Any]]:
         {
             "capability_id": "agent_batch.submit",
             "name": "Agent batch submit",
-            "description": "Submit governed background agent_batch work from a command or structured jobs.",
+            "description": "Submit governed background agent_batch work from structured jobs.",
             "domain": "agent_batch",
             "call_pattern": "async",
             "approval_level": "high",
             "concurrency_class": "write_external",
             "entrypoints": [{"type": "agent_core_tool", "id": "agent_batch.submit"}],
-            "required_input": ["command|jobs", "project_key"],
+            "required_input": ["jobs", "project_key"],
             "risks": ["external_collection", "cost", "data_mutation"],
         },
         {

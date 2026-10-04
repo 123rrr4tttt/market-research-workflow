@@ -4,6 +4,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+import shutil
 from pathlib import Path
 
 import pytest
@@ -20,14 +21,39 @@ sys.modules[SPEC.name] = materializer
 SPEC.loader.exec_module(materializer)
 
 
-def test_INVARIANT__manifest_pins_exact_base_patch_and_runtime_identity() -> None:
+def _historical_pyproject_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> Path:
+    root = tmp_path / "consumer-gate-history"
+    root.mkdir()
+    pyproject = root / "pyproject.toml"
+    completed = subprocess.run(
+        ("git", "-C", str(ROOT), "show", "HEAD:pyproject.toml"),
+        check=True,
+        capture_output=True,
+    )
+    pyproject.write_bytes(completed.stdout)
+    tool_root = root / "tools" / "functorial-kit"
+    tool_root.mkdir(parents=True)
+    shutil.copy2(MANIFEST, tool_root / MANIFEST.name)
+    shutil.copy2(PATCH, tool_root / PATCH.name)
+    monkeypatch.setattr(materializer, "ROOT", root)
+    return root
+
+
+def test_INVARIANT__manifest_pins_exact_base_patch_and_runtime_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    historical_root = _historical_pyproject_root(tmp_path, monkeypatch)
     payload = json.loads(MANIFEST.read_text(encoding="utf-8"))
     dependency = payload["runtime_identity"]["pyproject_runtime_dependency"]
 
     assert materializer.load_manifest(MANIFEST) == payload
     assert payload["base"]["git_commit"] == "785ff25e201c9eae84c862e68e786bc975e7a800"
     assert materializer._sha256(PATCH) == payload["patch"]["sha256"]
-    assert dependency in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert dependency in (historical_root / "pyproject.toml").read_text(encoding="utf-8")
     assert payload["runtime_identity"]["pyproject_runtime_pin_modified"] is False
     assert payload["role"] == "test_tool_only"
 
@@ -63,7 +89,11 @@ def test_NEGATIVE__existing_output_is_rejected(tmp_path: Path) -> None:
         materializer.materialize(tmp_path, output)
 
 
-def test_NEGATIVE__wrong_commit_leaves_no_output(tmp_path: Path) -> None:
+def test_NEGATIVE__wrong_commit_leaves_no_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _historical_pyproject_root(tmp_path, monkeypatch)
     repo = tmp_path / "repo"
     repo.mkdir()
     for args in (

@@ -11,7 +11,6 @@ mechanics and the read-only check gate live in ``shared_family_generator``.
 from __future__ import annotations
 
 import dataclasses
-import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -23,6 +22,8 @@ from app.successor_runtime.specification.shared_family_generator import (
     BindingTarget,
     FamilyFragmentConfig,
     content_digest,
+    load_p1_cells,
+    p1_cell_digest,
 )
 from app.successor_runtime.substrate.projections import registry as c9r
 
@@ -102,18 +103,12 @@ OPEN_FINDINGS = (
 )
 
 
-def _p1_cells() -> dict[str, dict[str, Any]]:
-    artifact = json.loads(
-        (
-            REPOSITORY_ROOT / _EVIDENCE_ROOT / "P1FunctorizationEligibility.v1.json"
-        ).read_text(encoding="utf-8")
-    )
-    return {str(cell["cell"]): cell for cell in artifact["cells"]}
-
-
 def _p1_cell_digest(cell_id: str) -> str:
-    cell = _p1_cells()[cell_id]
-    return content_digest(cell)
+    return p1_cell_digest(
+        REPOSITORY_ROOT,
+        f"{_EVIDENCE_ROOT}/P1FunctorizationEligibility.v1.json",
+        cell_id,
+    )
 
 
 def _operation_binding(
@@ -438,7 +433,10 @@ def _cell_9_3() -> dict[str, object]:
 
 
 def _owner_mapping() -> dict[str, dict[str, str]]:
-    p1 = _p1_cells()
+    p1 = load_p1_cells(
+        REPOSITORY_ROOT,
+        f"{_EVIDENCE_ROOT}/P1FunctorizationEligibility.v1.json",
+    )
     return {
         cell_id: {
             "cell_id": cell_id,

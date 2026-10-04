@@ -26,11 +26,17 @@ def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _build_capability_truth(*, action_id: str, route_kind: str, status: str) -> dict[str, Any]:
+def _build_capability_truth(
+    *,
+    action_id: str,
+    route_kind: str,
+    status: str,
+    execution: dict[str, Any],
+) -> dict[str, Any]:
     resolved_route_kind = str(route_kind or "").strip().lower() or "unknown"
     resolved_status = str(status or "").strip().lower() or "completed"
     return {
-        "contract_version": "writing.llm_action.capability_truth.v1",
+        "contract_version": "writing.llm_action.capability_truth.v2",
         "declared_capability": "writing_action",
         "action_id": str(action_id or "").strip(),
         "implementation_kind": "rule_template_action",
@@ -38,6 +44,7 @@ def _build_capability_truth(*, action_id: str, route_kind: str, status: str) -> 
         "fallback_path": True,
         "route_kind": resolved_route_kind,
         "status": resolved_status,
+        **execution,
         "semantic_warning": "current implementation is rule/template-driven and should not be interpreted as a guaranteed real-model execution path",
     }
 
@@ -82,8 +89,9 @@ def _complete_writing_runtime_readback(
     *,
     job_id: int,
     status: str = "completed",
+    execution: dict[str, Any],
 ) -> dict[str, Any]:
-    return merge_runtime_readback_payload(
+    completed = merge_runtime_readback_payload(
         {
             **dict(runtime_readback or {}),
             "run_id": str(job_id),
@@ -93,6 +101,7 @@ def _complete_writing_runtime_readback(
         event=status if status in {"completed", "succeeded", "applied", "available", "healthy"} else None,
         event_source="writing_llm_action_service",
     )
+    return {**completed, **execution}
 
 
 def try_dispatch_action(payload: LlmActionRequest) -> LlmActionResponse | Failure:
@@ -119,6 +128,11 @@ def try_dispatch_action(payload: LlmActionRequest) -> LlmActionResponse | Failur
         default_model=None,
     )
     trace_id = identity.trace_id
+    execution = {
+        "requested_async": payload.async_mode,
+        "execution_mode": "inline",
+        "async_honored": not payload.async_mode,
+    }
     runtime_readback = _build_writing_runtime_readback(trace_id=trace_id)
     job_id = start_job(
         _WRITING_JOB_TYPE,
@@ -161,6 +175,7 @@ def try_dispatch_action(payload: LlmActionRequest) -> LlmActionResponse | Failur
                 action_id=payload.action_id,
                 route_kind=routing.route_kind,
                 status=status,
+                execution=execution,
             )
             warnings = list(agent_boundary.denied_reasons) or ["agent_boundary_rejected"]
             result = {
@@ -173,12 +188,14 @@ def try_dispatch_action(payload: LlmActionRequest) -> LlmActionResponse | Failur
                 "request_id": identity.request_id,
                 "route_kind": routing.route_kind,
                 "agent_boundary_allowed": False,
+                **execution,
                 "capability_truth": capability_truth,
                 "error_code": "AGENT_BOUNDARY_REJECTED",
                 "runtime_readback": _complete_writing_runtime_readback(
                     runtime_readback,
                     job_id=job_id,
                     status=status,
+                    execution=execution,
                 ),
             }
             complete_job(job_id, status=status, result=result)
@@ -190,13 +207,14 @@ def try_dispatch_action(payload: LlmActionRequest) -> LlmActionResponse | Failur
                 trace_id=trace_id,
                 job_id=job_id,
                 status=status,
+                **execution,
                 capability_truth=capability_truth,
                 observability={
                     "job_id": job_id,
                     "trace_id": trace_id,
                     "request_id": identity.request_id,
                     "project_key": identity.project_key,
-                    "requested_async": payload.async_mode,
+                    **execution,
                     "gate_mode": payload.gate_mode,
                     "template_version": payload.template_version,
                     "identity": identity.to_dict(),
@@ -218,14 +236,18 @@ def try_dispatch_action(payload: LlmActionRequest) -> LlmActionResponse | Failur
             )
 
         content, warnings = _build_action_result(payload)
-        status = "queued" if payload.async_mode else "completed"
+        status = "completed"
+        if payload.async_mode:
+            warnings = [*warnings, "async_not_supported_executed_inline"]
         capability_truth = _build_capability_truth(
             action_id=payload.action_id,
             route_kind=routing.route_kind,
             status=status,
+            execution=execution,
         )
         result = {
             "trace_id": trace_id,
+            "content": content,
             "action_id": payload.action_id,
             "template_key": payload.template_key,
             "template_version": payload.template_version,
@@ -234,29 +256,32 @@ def try_dispatch_action(payload: LlmActionRequest) -> LlmActionResponse | Failur
             "request_id": identity.request_id,
             "route_kind": routing.route_kind,
             "agent_boundary_allowed": True,
+            **execution,
             "capability_truth": capability_truth,
             "runtime_readback": _complete_writing_runtime_readback(
                 runtime_readback,
                 job_id=job_id,
                 status="completed",
+                execution=execution,
             ),
         }
-        complete_job(job_id, result=result)
+        complete_job(job_id, status=status, result=result)
         return LlmActionResponse(
-            content="" if payload.async_mode else content,
+            content=content,
             sources=[],
             mode=payload.action_id,
             warnings=warnings,
             trace_id=trace_id,
             job_id=job_id,
             status=status,
+            **execution,
             capability_truth=capability_truth,
             observability={
                 "job_id": job_id,
                 "trace_id": trace_id,
                 "request_id": identity.request_id,
                 "project_key": identity.project_key,
-                "requested_async": payload.async_mode,
+                **execution,
                 "gate_mode": payload.gate_mode,
                 "template_version": payload.template_version,
                 "identity": identity.to_dict(),
@@ -326,10 +351,15 @@ def _job_to_history_item(job: dict[str, Any]) -> LlmActionHistoryItem | None:
         trace_id=str(params.get("trace_id") or "") or None,
         created_at=started_at or None,
         duration_ms=duration_ms,
+        content=str(params.get("content") or "") or None,
         result_summary={
+            "content": params.get("content"),
             "warning_count": params.get("warning_count"),
             "completed_at": params.get("completed_at"),
             "error_code": params.get("error_code"),
+            "requested_async": params.get("requested_async"),
+            "execution_mode": params.get("execution_mode"),
+            "async_honored": params.get("async_honored"),
         },
     )
 

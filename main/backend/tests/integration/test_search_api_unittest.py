@@ -60,6 +60,21 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
             body["data"]["index_freshness"]["freshness_state"],
         )
 
+    def test_search_passes_explicit_request_scope_to_hybrid_search(self):
+        mocked_search = patch("app.api.search.hybrid_search", return_value=[{"id": "doc-1"}])
+        mocked_backends = patch("app.api.search.get_last_used_backends", return_value=["opensearch"])
+        with mocked_search as hybrid_mock, mocked_backends:
+            response = self.client.get("/api/v1/search", params={"q": "market"}, headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        hybrid_mock.assert_called_once_with(
+            "market",
+            None,
+            10,
+            "hybrid",
+            project_key="demo_proj",
+        )
+
     def test_search_retrieval_run_readback_reads_success_response_run_id(self):
         mocked_results = [
             {

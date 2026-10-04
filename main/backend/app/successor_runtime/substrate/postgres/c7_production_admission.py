@@ -28,25 +28,25 @@ Scope boundaries
 
 from __future__ import annotations
 
-import dataclasses
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection, Engine
 
-from app.successor_runtime.capabilities import ingest_c7_common as c7
+from app.successor_runtime.capabilities import material_ingest_common as c7
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.ingest_c7_common import (
-    C7_INGEST_OWNER,
-    C7_OPERATION_CATALOG_ID,
-    C7_OPERATION_CATALOG_VERSION,
+from app.successor_runtime.capabilities.material_ingest_common import (
+    MATERIAL_OPERATION_CATALOG_ID,
+    MATERIAL_OPERATION_CATALOG_VERSION,
     DOCUMENT_CANONICAL_OWNER,
+    HISTORICAL_C7_INGEST_OWNER,
+    MATERIAL_INGEST_OWNER,
 )
-from app.successor_runtime.capabilities.ingest_c7_movements import (
+from app.successor_runtime.capabilities.material_ingest_movements import (
     DeterministicChunkPort,
     DeterministicExtractPort,
     DeterministicPassThroughPort,
@@ -54,14 +54,17 @@ from app.successor_runtime.capabilities.ingest_c7_movements import (
     StructuredMaterialCandidate,
     VerifiedMaterialCandidate,
     capture_raw_snapshot_exact,
-    execute_c7_movement,
+    execute_material_movement,
     normalize_ingest_envelope,
     select_exactly_one_digestion_alternative,
     verify_structured_candidate,
 )
-from app.successor_runtime.capabilities.ingest_c7_program import (
-    build_ingest_c7_1_program,
-    compile_ingest_c7_program,
+from app.successor_runtime.capabilities.material_ingest_interpreters import (
+    MATERIAL_INTERPRETER_PROFILE_IDS,
+)
+from app.successor_runtime.capabilities.material_ingest_program import (
+    build_material_stage_candidate_program,
+    compile_material_ingest_program,
 )
 from app.successor_runtime.runtime.admission import VerificationBinding
 from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
@@ -75,6 +78,7 @@ from app.successor_runtime.substrate.postgres.authority import (
 from app.successor_runtime.substrate.postgres.ingest_c7_movement_admission import (
     C7_ADMISSION_REQUEST_EVENT_TYPE,
     C7_EVENT_SCHEMA_VERSION,
+    MATERIAL_ADMISSION_SCHEMA_VERSION,
     C7_MOVEMENT_CANONICAL_DOCUMENTS,
     C7AdmissionConfig,
     C7AdmissionResult,
@@ -193,7 +197,7 @@ def resolve_active_scope(
 def _authority_digest(*, project_key: str, approval_ref: str) -> str:
     return content_digest(
         {
-            "authority": "c7-production",
+            "authority": "material-ingest-production",
             "project_key": project_key,
             "approval_ref": approval_ref,
         }
@@ -220,19 +224,19 @@ def _program_plan(
     admission_input: C7ProductionAdmissionInput,
     scope: RuntimeScope,
 ) -> tuple[Any, Any, Any]:
-    bundle = c7.build_ingest_c7_bundle()
-    catalog = c7.build_ingest_c7_catalog(bundle)
-    registry = c7.build_ingest_c7_registry(bundle)
-    program_id = f"program:c7-production:{admission_input.trace_id}"
-    request_key = f"req:c7-production:{admission_input.trace_id}"
-    submission = c7.C7IngestSubmission(
-        idempotency_key=f"idem:c7-production:{admission_input.trace_id}",
+    bundle = c7.build_material_ingest_bundle()
+    catalog = c7.build_material_ingest_catalog(bundle)
+    registry = c7.build_material_ingest_registry(bundle)
+    program_id = f"program:material-ingest:{admission_input.trace_id}"
+    request_key = f"req:material-ingest:{admission_input.trace_id}"
+    submission = c7.MaterialIngestSubmission(
+        idempotency_key=f"idem:material-ingest:{admission_input.trace_id}",
         project_key=admission_input.project_key,
         source_locator=admission_input.source_locator,
         request_key=request_key,
         raw_payload=_submission_payload(admission_input),
     )
-    program = build_ingest_c7_1_program(
+    program = build_material_stage_candidate_program(
         payload=submission,
         catalog=catalog,
         program_id=program_id,
@@ -240,7 +244,7 @@ def _program_plan(
         project_registry_revision=scope.project_scope.project_registry_revision,
         project_scope_digest=scope.project_scope.scope_digest,
     )
-    plan = compile_ingest_c7_program(program, catalog, operation_contracts=registry)
+    plan = compile_material_ingest_program(program, catalog, operation_contracts=registry)
     steps = [step for step in plan.ordered_steps if step.step_kind == "ADMISSION"]
     if len(steps) != 1:
         raise AssertionError("C7.1 plan must contain exactly one ADMISSION step")
@@ -269,7 +273,7 @@ def _verified_pair(
         content_format=admission_input.content_format,
     )
     decision = select_exactly_one_digestion_alternative(envelope)
-    trace = execute_c7_movement(
+    trace = execute_material_movement(
         snapshot=snapshot,
         envelope=envelope,
         decision=decision,
@@ -391,29 +395,29 @@ def _config(
 ) -> C7AdmissionConfig:
     trace = admission_input.trace_id
     return C7AdmissionConfig(
-        commit_intent_id=f"commit:c7-production:{trace}",
-        run_id=f"run:c7-production:{trace}",
+        commit_intent_id=f"commit:material-ingest:{trace}",
+        run_id=f"run:material-ingest:{trace}",
         step_id=str(admission_step.step_id),
-        attempt_id=content_digest({"attempt": f"c7-production:{trace}"}),
-        program_id=f"program:c7-production:{trace}",
+        attempt_id=content_digest({"attempt": f"material-ingest:{trace}"}),
+        program_id=f"program:material-ingest:{trace}",
         plan_id=str(plan.plan_id),
-        capability_id=C7_INGEST_OWNER,
-        idempotency_key=f"idem:c7-production:{trace}",
+        capability_id=MATERIAL_INGEST_OWNER,
+        idempotency_key=f"idem:material-ingest:{trace}",
         execution_epoch=1,
-        attempt_incarnation=f"attempt-inc:c7-production:{trace}",
+        attempt_incarnation=f"attempt-inc:material-ingest:{trace}",
         assignment_digest=content_digest(
-            {"assignment": f"c7-production:{trace}"}
+            {"assignment": f"material-ingest:{trace}"}
         ),
         handler_binding_digest=content_digest(
-            {"handler": f"c7-production:{trace}"}
+            {"handler": f"material-ingest:{trace}"}
         ),
         handler_realization_digest=content_digest(
-            {"handler": f"c7-production:{trace}"}
+            {"handler": f"material-ingest:{trace}"}
         ),
         expected_step_revision=0,
         expected_attempt_revision=0,
-        canonical_commit_ref=f"canonical:document:c7-production:{trace}",
-        receipt_digest=content_digest({"receipt": f"c7-production:{trace}"}),
+        canonical_commit_ref=f"canonical:document:material-ingest:{trace}",
+        receipt_digest=content_digest({"receipt": f"material-ingest:{trace}"}),
     )
 
 
@@ -434,10 +438,10 @@ def _binding(
         input_closure_digest=verified.snapshot_identity_digest,
         output_content_digest=verified.payload_content_digest,
         ordered_event_payloads=list(_ordered_event_payloads(verified, config)),
-        schema_digest=content_digest({"schema": "ingest.c7.admission.v1"}),
+        schema_digest=content_digest({"schema": MATERIAL_ADMISSION_SCHEMA_VERSION}),
         compiler_identity=str(plan.compiler_id),
-        interpreter_identity="successor.ingest_index.c7.pure.v1",
-        verifier_identity="ingest.validator.c7.v1",
+        interpreter_identity=MATERIAL_INTERPRETER_PROFILE_IDS["staged_candidate"],
+        verifier_identity="material.ingest.validator.v2",
         actor_id=verified.actor,
         project_key=verified.project_key,
         authority_digest=verified.authority_digest,
@@ -458,7 +462,13 @@ def _binding(
 def build_c7_production_parts(
     admission_input: C7ProductionAdmissionInput,
     scope: RuntimeScope,
-) -> C7RuntimeSeed:
+) -> Annotated[
+    C7RuntimeSeed,
+    "kit:non-authoritative "
+    "derived_as=staged_admission_parts "
+    "fact_source=c7_production_admission_input_and_runtime_scope "
+    "witness=test:test_runner_seeds_exact_runtime_authority",
+]:
     """Build every exact value consumed by the proven admission slice."""
 
     program, plan, admission_step = _program_plan(admission_input, scope)
@@ -510,7 +520,6 @@ def seed_c7_runtime_preflight(
     authority_digest = verified.authority_digest
     now = datetime.now(UTC)
 
-    registry_row = PUBLIC_TABLES["project_scope_registry"]
     active_scope = ProjectScopeRegistryRepository(connection, scope).load()
     if int(active_scope["registry_revision"]) != scope.project_scope.project_registry_revision:
         raise RuntimeError("project scope registry revision drifted during admission")
@@ -529,7 +538,7 @@ def seed_c7_runtime_preflight(
                 program_id=config.program_id,
                 project_key=scope.project_scope.project_key,
                 program_digest=program.program_digest,
-                project_storage_ref=f"project-value:program:c7-production:{admission_input.trace_id}",
+                project_storage_ref=f"project-value:program:material-ingest:{admission_input.trace_id}",
                 contract_version="mrw.functorial-successor.program-spec.v1",
             )
         )
@@ -550,13 +559,13 @@ def seed_c7_runtime_preflight(
                 plan_digest=plan.plan_digest,
                 program_id=config.program_id,
                 program_digest=program.program_digest,
-                project_storage_ref=f"project-value:plan:c7-production:{admission_input.trace_id}",
+                project_storage_ref=f"project-value:plan:material-ingest:{admission_input.trace_id}",
                 compiler_id=plan.compiler_id,
                 compiler_version=plan.compiler_version,
-                operation_catalog_id=C7_OPERATION_CATALOG_ID,
-                catalog_version=C7_OPERATION_CATALOG_VERSION,
-                catalog_digest=c7.build_ingest_c7_catalog(
-                    c7.build_ingest_c7_bundle()
+                operation_catalog_id=MATERIAL_OPERATION_CATALOG_ID,
+                catalog_version=MATERIAL_OPERATION_CATALOG_VERSION,
+                catalog_digest=c7.build_material_ingest_catalog(
+                    c7.build_material_ingest_bundle()
                 ).catalog_digest,
                 effect_closure_digest=plan.effect_closure_digest,
                 authority_closure_digest=plan.authority_closure_digest,
@@ -590,7 +599,7 @@ def seed_c7_runtime_preflight(
                 revision=0,
                 next_event_seq=len(events) + 1,
                 execution_epoch=config.execution_epoch,
-                incarnation=f"run-inc:c7-production:{admission_input.trace_id}",
+                incarnation=f"run-inc:material-ingest:{admission_input.trace_id}",
                 submission_authority_digest=authority_digest,
                 qualification_digest=authority_digest,
             )
@@ -630,7 +639,7 @@ def seed_c7_runtime_preflight(
                 project_key=scope.project_scope.project_key,
                 run_id=config.run_id,
                 step_id=config.step_id,
-                operation_id="ingest_index.verify_admit",
+                operation_id="material.ingest.verify_admit",
                 operation_kind="ingest_index.verify_admit.v1",
                 operation_version="1.0.0",
                 state="RUNNING",
@@ -640,7 +649,7 @@ def seed_c7_runtime_preflight(
                 output_digest=authority_digest,
                 effect_class="EFFECTFUL",
                 resource_class="CPU_LIGHT",
-                capability_id=C7_INGEST_OWNER,
+                capability_id=MATERIAL_INGEST_OWNER,
                 claim_owner="successor",
                 claim_authority_epoch=admission_input.authority_epoch,
                 claim_policy_digest=authority_digest,
@@ -670,7 +679,7 @@ def seed_c7_runtime_preflight(
                 idempotency_key=config.idempotency_key,
                 authorization_digest=authority_digest,
                 input_digest=verified.snapshot_identity_digest,
-                claim_binding_json={"claim": f"c7-production:{admission_input.trace_id}"},
+                claim_binding_json={"claim": f"material-ingest:{admission_input.trace_id}"},
                 claim_binding_digest=authority_digest,
                 disposition="IN_FLIGHT",
                 revision=config.expected_attempt_revision,
@@ -683,13 +692,13 @@ def seed_c7_runtime_preflight(
         authority_table,
         where=(
             authority_table.c.project_key == scope.project_scope.project_key,
-            authority_table.c.capability_id == C7_INGEST_OWNER,
+            authority_table.c.capability_id == MATERIAL_INGEST_OWNER,
         ),
     ):
         connection.execute(
             authority_table.insert().values(
                 project_key=scope.project_scope.project_key,
-                capability_id=C7_INGEST_OWNER,
+                capability_id=MATERIAL_INGEST_OWNER,
                 mode="on",
                 authority_epoch=admission_input.authority_epoch,
                 successor_claim_enabled=True,
@@ -699,7 +708,7 @@ def seed_c7_runtime_preflight(
                 effective_at=now,
                 updated_by=admission_input.actor_id,
                 approval_ref=admission_input.approval_ref,
-                rollback_target_ref=f"rollback:c7-production:{admission_input.trace_id}",
+                rollback_target_ref=f"rollback:material-ingest:{admission_input.trace_id}",
             )
         )
 
@@ -762,14 +771,35 @@ def run_c7_production_cutover_admission(
         config = seed.config
         repo = CommitIntentRepository(connection, scope)
         try:
-            existing = repo.find_for_readback(C7_INGEST_OWNER, config.idempotency_key)
+            existing = repo.find_for_readback(
+                MATERIAL_INGEST_OWNER,
+                config.idempotency_key,
+            )
         except RecordNotFound:
             existing = None
+        if existing is None:
+            historical_keys = (
+                f"idem:c7-production:{admission_input.trace_id}",
+                config.idempotency_key,
+            )
+            for historical_key in historical_keys:
+                try:
+                    repo.find_for_readback(
+                        HISTORICAL_C7_INGEST_OWNER,
+                        historical_key,
+                    )
+                except RecordNotFound:
+                    continue
+                raise RuntimeError(
+                    "historical material admission requires its original v1 "
+                    "VerificationBinding and explicit legacy readback; new "
+                    "identity replay is refused"
+                )
         if existing is not None and existing["state"] == CommitIntentStatus.COMMITTED.value:
             result = readback_by_idempotency(
                 connection,
                 scope=scope,
-                capability_id=C7_INGEST_OWNER,
+                capability_id=MATERIAL_INGEST_OWNER,
                 idempotency_key=config.idempotency_key,
                 binding=seed.binding,
             )

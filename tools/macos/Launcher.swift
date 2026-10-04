@@ -4,6 +4,11 @@ import Foundation
 
 enum LauncherConfig {
     static let repoPath = "/Users/wangyiliang/market-research-workflow"
+    static let localBackendURL = "http://127.0.0.1:8000"
+    static let localFrontendURL = "http://127.0.0.1:5173"
+    static let dockerBackendURL = "http://127.0.0.1:8000"
+    static let dockerFrontendURL = "http://127.0.0.1:5174"
+    static let dockerLauncherURL = "http://127.0.0.1:5176"
 }
 
 struct CodexBootstrapEnvelope: Decodable {
@@ -127,7 +132,7 @@ struct LauncherView: View {
                         .foregroundStyle(.cyan)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Market Research Workflow")
+                    Text("Market Research Workflow · Runtime Launcher")
                         .font(.system(size: 23, weight: .semibold))
                         .foregroundStyle(.white)
                     Text(lastAction)
@@ -205,31 +210,45 @@ struct LauncherView: View {
     private var runModes: some View {
         return HStack(spacing: 12) {
             ActionCard(
-                title: "Local",
-                subtitle: "Backend + frontend + worker",
+                title: "Local 开发",
+                subtitle: "本地 backend · frontend · worker",
                 icon: "laptopcomputer",
                 tint: .cyan,
                 statusText: localRunningCount == 3 ? "Running" : "\(localRunningCount)/3 online",
                 statusColor: localRunningCount == 3 ? .green : .orange
             ) {
                 runTerminalAction(
-                    name: "Switch to Local",
+                    name: "Start Local Development",
                     command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/local-deploy.sh start --force"
                         + enhancementArgs
                 )
             }
 
             ActionCard(
-                title: "Docker",
-                subtitle: "Open launcher first, then control services",
+                title: "Docker 控制台",
+                subtitle: "只启动控制面，不启动业务栈",
                 icon: "shippingbox",
                 tint: .orange,
                 statusText: dockerStatusText,
                 statusColor: check(id: "docker")?.state.color ?? .gray
             ) {
                 runTerminalAction(
-                    name: "Open Docker Launcher",
+                    name: "Open Docker Control Console",
                     command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/docker-launcher-ui.sh"
+                )
+            }
+
+            ActionCard(
+                title: "Docker 应用栈",
+                subtitle: "backend · worker · frontend-modern",
+                icon: "shippingbox.fill",
+                tint: .green,
+                statusText: dockerAppStatusText,
+                statusColor: dockerAppRunning ? .green : .orange
+            ) {
+                runTerminalAction(
+                    name: "Start Docker App Stack",
+                    command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/platform-macos.sh docker-app-start"
                 )
             }
         }
@@ -266,8 +285,8 @@ struct LauncherView: View {
             SmallButton(title: "Stop Local", icon: "stop.fill") {
                 runTerminalAction(name: "Stop Local", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/local-service-control.sh local-stop")
             }
-            SmallButton(title: "Stop Docker", icon: "xmark.octagon.fill") {
-                runTerminalAction(name: "Stop Docker App", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/docker-app-control.sh stop --with-search")
+            SmallButton(title: "Stop Docker 应用栈", icon: "xmark.octagon.fill") {
+                runTerminalAction(name: "Stop Docker App Stack", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/docker-app-control.sh stop --with-search")
             }
             SmallButton(title: "Status", icon: "waveform.path.ecg") {
                 runTerminalAction(name: "Status", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/local-deploy.sh status; echo; ./scripts/docker-deploy.sh status")
@@ -284,11 +303,14 @@ struct LauncherView: View {
             SmallButton(title: "Frontend", icon: "safari.fill") {
                 openURL(preferredFrontendURL())
             }
-            SmallButton(title: "Docker UI", icon: "globe") {
-                openURL("http://127.0.0.1:5176")
+            SmallButton(title: "Open Docker 控制台", icon: "globe") {
+                openURL(LauncherConfig.dockerLauncherURL)
+            }
+            SmallButton(title: "Open MRW Docker 前端", icon: "rectangle.inset.filled") {
+                openURL(LauncherConfig.dockerFrontendURL)
             }
             SmallButton(title: "API Docs", icon: "doc.text.fill") {
-                openURL("http://localhost:8000/docs")
+                openURL(preferredBackendURL() + "/docs")
             }
             SmallButton(title: "Codex Auth", icon: "person.crop.circle.badge.checkmark") {
                 openCodexAuth()
@@ -508,7 +530,7 @@ struct LauncherView: View {
             }
         case "health", "deep":
             if check.state == .good {
-                openURL("http://localhost:8000/docs")
+                openURL(preferredBackendURL() + "/docs")
             } else {
                 runTerminalAction(name: "Start Local Backend", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/local-service-control.sh backend-start")
             }
@@ -520,10 +542,20 @@ struct LauncherView: View {
             }
         case "dockerLauncher":
             if check.state == .good {
-                openURL("http://127.0.0.1:5176")
+                openURL(LauncherConfig.dockerLauncherURL)
             } else {
                 runTerminalAction(name: "Open Docker Launcher", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/docker-launcher-ui.sh")
             }
+        case "dockerApp":
+            if check.state == .good {
+                runTerminalAction(name: "Stop Docker App Stack", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/docker-app-control.sh stop --with-search")
+            } else {
+                runTerminalAction(name: "Start Docker App Stack", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/platform-macos.sh docker-app-start")
+            }
+        case "localUserBackend":
+            if check.state == .good { openURL("http://127.0.0.1:18132/docs") }
+        case "localUserFrontend":
+            if check.state == .good { openURL("http://127.0.0.1:15132") }
         case "searxng":
             if check.state == .good {
                 runTerminalAction(name: "Stop SearXNG", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/optional-enhancements.sh stop --searxng")
@@ -622,6 +654,15 @@ struct LauncherView: View {
         return docker.detail
     }
 
+    private var dockerAppRunning: Bool {
+        check(id: "dockerApp")?.state == .good
+    }
+
+    private var dockerAppStatusText: String {
+        guard let app = check(id: "dockerApp") else { return "Waiting" }
+        return app.state == .good ? "Running" : "Stopped / partial"
+    }
+
     private func check(id: String) -> ServiceCheck? {
         checks.first { $0.id == id }
     }
@@ -635,11 +676,23 @@ struct LauncherView: View {
     }
 
     private func preferredFrontendURL() -> String {
-        let docker = check(id: "docker")
-        if docker?.state == .good {
-            return "http://localhost:5174"
+        if check(id: "localUserFrontend")?.state == .good {
+            return "http://127.0.0.1:15132"
         }
-        return "http://localhost:5173"
+        if dockerAppRunning {
+            return LauncherConfig.dockerFrontendURL
+        }
+        return LauncherConfig.localFrontendURL
+    }
+
+    private func preferredBackendURL() -> String {
+        if check(id: "localUserBackend")?.state == .good {
+            return "http://127.0.0.1:18132"
+        }
+        if dockerAppRunning {
+            return LauncherConfig.dockerBackendURL
+        }
+        return LauncherConfig.localBackendURL
     }
 }
 
@@ -658,6 +711,8 @@ struct ServiceCheck: Identifiable {
         ServiceCheck(id: "deep", title: "Deep Health", detail: "Waiting", state: .unknown, icon: "waveform.path.ecg.rectangle"),
         ServiceCheck(id: "docker", title: "Docker", detail: "Waiting", state: .unknown, icon: "shippingbox"),
         ServiceCheck(id: "dockerLauncher", title: "Docker Launcher", detail: "Waiting", state: .unknown, icon: "rectangle.connected.to.line.below"),
+        ServiceCheck(id: "localUserBackend", title: "Isolated Backend", detail: "Waiting", state: .unknown, icon: "server.rack"),
+        ServiceCheck(id: "localUserFrontend", title: "Isolated Frontend", detail: "Waiting", state: .unknown, icon: "display"),
         ServiceCheck(id: "env", title: "Env", detail: "Waiting", state: .unknown, icon: "doc.badge.gearshape"),
         ServiceCheck(id: "llm", title: "LLM", detail: "Waiting", state: .unknown, icon: "brain.head.profile"),
         ServiceCheck(id: "search", title: "Search Keys", detail: "Waiting", state: .unknown, icon: "magnifyingglass.circle"),
@@ -1340,8 +1395,11 @@ func monitorCommand() -> String {
     deep=down
     docker_state=off
     docker_count=0
+    docker_app=down
     docker_frontend=down
     docker_launcher=down
+    local_user_backend=down
+    local_user_frontend=down
     env_file=missing
     llm=missing
     search=missing
@@ -1369,6 +1427,8 @@ func monitorCommand() -> String {
     deep_json=$(curl -fsS --max-time 3 http://127.0.0.1:8000/api/v1/health/deep 2>/dev/null || true)
     deep_status=$(printf '%s' "$deep_json" | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin).get("status",""))' 2>/dev/null || true)
     [ "$deep_status" = "ok" ] && deep=ok
+    curl -fsS --max-time 2 http://127.0.0.1:18132/api/v1/health >/dev/null 2>&1 && local_user_backend=up
+    curl -fsS --max-time 2 http://127.0.0.1:15132/ >/dev/null 2>&1 && local_user_frontend=up
 
     has_docker_service() {
       printf '%s\\n' "$docker_services" | grep -qx "$1"
@@ -1378,7 +1438,8 @@ func monitorCommand() -> String {
       docker_services=$( (cd main/ops && docker compose --profile modern-ui --profile search-enhancements ps --status running --services 2>/dev/null) || true )
       has_docker_service backend && docker_backend=up
       has_docker_service frontend-modern && docker_frontend=up
-      has_docker_service celery-worker && docker_worker=up
+    has_docker_service celery-worker && docker_worker=up
+    has_docker_service backend && has_docker_service frontend-modern && has_docker_service celery-worker && docker_app=up
       docker_count=0
       has_docker_service backend && docker_count=$((docker_count + 1))
       has_docker_service frontend-modern && docker_count=$((docker_count + 1))
@@ -1417,8 +1478,11 @@ func monitorCommand() -> String {
     printf 'health=%s\\n' "$health"
     printf 'deep=%s\\n' "$deep"
     printf 'docker=%s:%s\\n' "$docker_state" "$docker_count"
+    printf 'docker_app=%s\\n' "$docker_app"
     printf 'docker_frontend=%s\\n' "$docker_frontend"
     printf 'docker_launcher=%s\\n' "$docker_launcher"
+    printf 'local_user_backend=%s\\n' "$local_user_backend"
+    printf 'local_user_frontend=%s\\n' "$local_user_frontend"
     printf 'env_file=%s\\n' "$env_file"
     printf 'llm=%s\\n' "$llm"
     printf 'search=%s\\n' "$search"
@@ -1463,10 +1527,13 @@ func parseMonitorOutput(_ output: String) -> [ServiceCheck] {
     let workerValue = values["worker"] ?? "down"
     let workerUp = workerValue.hasPrefix("up:")
     let dockerWorkerUp = values["docker_worker"] == "up"
+    let dockerAppUp = values["docker_app"] == "up"
     let healthOk = values["health"] == "ok"
     let deepOk = values["deep"] == "ok"
     let dockerValue = values["docker"] ?? "off:0"
     let dockerLauncherUp = values["docker_launcher"] == "up"
+    let localUserBackendUp = values["local_user_backend"] == "up"
+    let localUserFrontendUp = values["local_user_frontend"] == "up"
     let dockerParts = dockerValue.split(separator: ":", maxSplits: 1).map(String.init)
     let dockerReady = dockerParts.first == "ready"
     let dockerCount = dockerParts.count > 1 ? dockerParts[1] : "0"
@@ -1516,7 +1583,10 @@ func parseMonitorOutput(_ output: String) -> [ServiceCheck] {
         ServiceCheck(id: "health", title: "Health", detail: healthOk ? "API ok" : "No response", state: healthOk ? .good : .bad, icon: "heart.text.square"),
         ServiceCheck(id: "deep", title: "Deep Health", detail: deepOk ? "DB + ES ok" : "Check degraded", state: deepOk ? .good : .warning, icon: "waveform.path.ecg.rectangle"),
         ServiceCheck(id: "docker", title: "Docker", detail: dockerReady ? "\(dockerCount)/3 core services" : "Docker not ready", state: dockerStackComplete ? .good : .warning, icon: "shippingbox"),
+        ServiceCheck(id: "dockerApp", title: "Docker App Stack", detail: dockerAppUp ? "Backend + worker + frontend :5174" : "App stack not running", state: dockerAppUp ? .good : .warning, icon: "shippingbox.fill"),
         ServiceCheck(id: "dockerLauncher", title: "Docker Launcher", detail: dockerLauncherUp ? "Reachable :5176" : "Offline", state: dockerLauncherUp ? .good : .warning, icon: "rectangle.connected.to.line.below"),
+        ServiceCheck(id: "localUserBackend", title: "Isolated Backend", detail: localUserBackendUp ? "Docker local-user :18132" : "Offline", state: localUserBackendUp ? .good : .warning, icon: "server.rack"),
+        ServiceCheck(id: "localUserFrontend", title: "Isolated Frontend", detail: localUserFrontendUp ? "Docker local-user :15132" : "Offline", state: localUserFrontendUp ? .good : .warning, icon: "display"),
         ServiceCheck(id: "env", title: "Env", detail: envPresent ? ".env present" : ".env missing", state: envPresent ? .good : .bad, icon: "doc.badge.gearshape"),
         ServiceCheck(id: "llm", title: "LLM", detail: llmConfigured ? "Configured" : "Missing key", state: llmConfigured ? .good : .warning, icon: "brain.head.profile"),
         ServiceCheck(id: "search", title: "Search Keys", detail: searchConfigured ? "Configured" : "Missing key", state: searchConfigured ? .good : .warning, icon: "magnifyingglass.circle"),

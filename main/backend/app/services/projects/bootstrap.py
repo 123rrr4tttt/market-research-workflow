@@ -5,6 +5,8 @@ import logging
 from sqlalchemy import text
 
 from ...models.base import engine
+from ...models.information_topology_entities import InformationTopologyLink, InformationTopologyState
+from ...models.project_retrieval import ProjectRetrievalMode, ProjectRetrievalPlan, ProjectRetrievalRun
 from ...models.entities import (
     ConfigState,
     Document,
@@ -55,6 +57,11 @@ TENANT_TABLES = [
     WritingDocument.__table__,
     WritingDocumentDraft.__table__,
     WritingDocumentCitation.__table__,
+    InformationTopologyState.__table__,
+    InformationTopologyLink.__table__,
+    ProjectRetrievalMode.__table__,
+    ProjectRetrievalPlan.__table__,
+    ProjectRetrievalRun.__table__,
 ]
 
 

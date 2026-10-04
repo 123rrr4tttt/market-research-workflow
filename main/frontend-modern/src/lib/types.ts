@@ -68,14 +68,72 @@ export type BusinessLineScheduledMatrixDiagnostics = {
   [key: string]: unknown
 }
 
+export type BusinessLineWorkerReadbackContract = {
+  contract_version: 'business_line.worker_readback_contract.v2'
+  covered_line_keys: string[]
+  runner_script: string
+  manifest_cli: string
+  manifest_checker_script: string
+  candidate_builder_script: string
+  evidence_chain_script: string
+  artifact_checker_script: string
+  required_manifest_fields: string[]
+  required_live_readback_fields: string[]
+  process_runtime_endpoints: string[]
+  aggregation_contract: string
+  blocked_semantics: string
+  completion_claim: 'not_observed_without_live_worker_readback'
+}
+
+export type BusinessLineScheduledObservation = {
+  observation_status: 'not_observed' | string
+  scheduled_run_evidence: 'not_observed' | string
+  install_status: 'unknown' | string
+  codex_retirement_status: 'not_observed' | string
+  evidence_endpoint: string
+  summary_contract_version: string
+  reason: string
+  completion_claim: 'not_observed' | string
+}
+
+export type BusinessLineUiBoundary = {
+  reset_telemetry: {
+    event_name: string
+    event_scope: string
+    filter_transition: { from: string; to: string }
+    sort_behavior: string
+    api_payload_behavior: string
+    scheduled_evidence_write: 'none' | string
+    scheduled_completion_proof: false
+    scheduled_evidence_controller: string
+    telemetry_scope: string
+  }
+  read_only_context: {
+    not_report_proof: true
+    not_quality_gate_input: true
+    not_scheduled_run_evidence_proof: true
+    scheduled_evidence_write: 'none' | string
+    scheduled_completion_proof_behavior: string
+    audit_outcome_behavior: string
+    scheduled_evidence_controller: string
+    observation_status: string
+    boundary: string
+  }
+}
+
 export type BusinessLineEvidenceMatrix = {
-  contract_version: 'business_line.evidence_matrix.v1' | string
+  contract_version: 'business_line.evidence_matrix.v2'
+  vocabulary_version: string
   lines: BusinessLineEvidenceMatrixLine[]
-  batch_orchestration?: Record<string, unknown> | null
-  matrix_diagnostics_guidance?: BusinessLineScheduledMatrixDiagnostics | null
-  scheduled_matrix_diagnostics?: BusinessLineScheduledMatrixDiagnostics | null
-  generated_at?: string | null
-  [key: string]: unknown
+  coverage: {
+    covered_line_count: number
+    covered_line_keys: string[]
+    not_admin_only: true
+  }
+  worker_readback: BusinessLineWorkerReadbackContract
+  scheduled_observation: BusinessLineScheduledObservation
+  ui_boundary: BusinessLineUiBoundary
+  matrix_diagnostics_guidance: BusinessLineScheduledMatrixDiagnostics
 }
 
 export type BusinessLineScheduledMatrixArtifactDiagnostics = {
@@ -591,35 +649,12 @@ export type AgentBatchRuleSetValidateResult = {
   unsupported_fields?: string[]
 }
 
-export type AgentBatchNlCommandPayload = {
-  command: string
-  project_key?: string | null
-  idempotency_key?: string | null
-}
-
-export type AgentBatchNlCommandResult = {
-  command: string
-  parsed?: Record<string, unknown>
-  submit?: AgentBatchSubmitResult
-  session_id?: string | null
-  root_task_id?: string | null
-  current_phase?: string | null
-  compat_mode?: boolean | null
-  compat_projection_version?: string | null
-  session?: AgentSessionItem | null
-}
-
 export type AgentChatTurnPayload = {
   message: string
   project_key?: string | null
   session_id?: string | null
   idempotency_key?: string | null
-  dry_run?: boolean | null
-  enable_bounded_retry?: boolean | null
-  enable_limited_branching?: boolean | null
-  enable_model_tool_loop?: boolean | null
-  require_high_risk_approval?: boolean | null
-  runtime_variant?: 'agent_runtime_v2' | 'legacy_batch' | 'legacy' | 'v2' | string | null
+  runtime_variant: 'agent_macro_native' | 'agent_macro_rapid_native'
   model?: string | null
   reasoning_effort?: string | null
 }
@@ -631,12 +666,7 @@ export type CodexModelOption = {
   supported_reasoning_efforts: string[]
 }
 
-export type CodexModelCatalog = {
-  provider?: string | null
-  current_model?: string | null
-  current_reasoning_effort?: string | null
-  items: CodexModelOption[]
-}
+
 
 export type AgentChatCapabilityCall = {
   call_id?: string | null
@@ -714,7 +744,7 @@ export type AgentChatTurnResult = {
   plan?: Record<string, unknown> | null
   capability_calls?: AgentChatCapabilityCall[] | null
   suggested_next_actions?: string[] | null
-  loop_result?: AgentBatchNlCommandResult | Record<string, unknown> | null
+  loop_result?: Record<string, unknown> | null
   run_loop?: Record<string, unknown> | null
   approval_requests?: Record<string, unknown>[] | null
   stream?: {
@@ -727,25 +757,9 @@ export type AgentChatTurnResult = {
   final_answer?: string | null
 }
 
-export type AgentChatApprovalContinuePayload = {
-  approved_by?: string | null
-  binding_payload_overrides?: Record<string, unknown> | null
-}
 
-export type AgentChatApprovalContinueResult = {
-  contract_version?: string | null
-  approval?: AgentApprovalItem | Record<string, unknown> | null
-  session?: AgentSessionItem | null
-  tasks?: AgentTaskItem[] | null
-  messages?: AgentMessageItem[] | null
-  events?: AgentEventItem[] | null
-  artifacts?: AgentArtifactItem[] | null
-  approvals?: AgentApprovalItem[] | null
-  capability_call?: AgentChatCapabilityCall | Record<string, unknown> | null
-  continued?: boolean | null
-  stream?: Record<string, unknown> | null
-  final_answer?: string | null
-}
+
+
 
 export type AgentSessionStatus = 'pending' | 'active' | 'blocked' | 'completed' | 'failed' | 'canceled' | string
 
@@ -1024,12 +1038,6 @@ export type DashboardStats = {
   sources?: {
     total?: number
     enabled?: number
-    source_query?: DashboardStatsSourceQuery
-    source_refs?: DashboardStatsSourceRef[]
-  }
-  market_stats?: {
-    total?: number
-    states_count?: number
     source_query?: DashboardStatsSourceQuery
     source_refs?: DashboardStatsSourceRef[]
   }
@@ -2035,10 +2043,11 @@ export type AdminDocumentListPayload = {
   search?: string | null
   sort_by?: 'created_at' | 'publish_date' | 'id'
   sort_order?: 'asc' | 'desc'
+  include_topology_materials?: boolean
 }
 
 export type AdminDocumentItem = {
-  id: number
+  id: number | string
   title?: string | null
   doc_type?: string | null
   state?: string | null
@@ -2047,6 +2056,10 @@ export type AdminDocumentItem = {
   updated_at?: string | null
   publish_date?: string | null
   has_extracted_data?: boolean
+  uri?: string | null
+  source_kind?: 'document' | 'information_topology_material' | string
+  source_ref?: Record<string, unknown>
+  readonly?: boolean
 }
 
 export type AdminDocumentListResponse = {
@@ -2398,15 +2411,14 @@ export type AdminStats = {
   documents?: {
     total?: number
     recent_today?: number
+    table_total?: number
+    topology_material_total?: number
   }
   social_data?: {
     total?: number
     recent_today?: number
   }
   sources?: {
-    total?: number
-  }
-  market_stats?: {
     total?: number
   }
   search_history?: {
@@ -2437,10 +2449,13 @@ export type GraphNodeItem = {
 }
 
 export type GraphEdgeItem = {
+  id?: string
   type?: string
   predicate?: string
   predicate_raw?: string
   relation_class?: string
+  /** Project-declared domain relation token, derived by the topology read model. */
+  relation_token?: string
   from: GraphNodeRef
   to: GraphNodeRef
   [key: string]: unknown
@@ -2449,6 +2464,12 @@ export type GraphEdgeItem = {
 export type GraphResponse = {
   nodes: GraphNodeItem[]
   edges: GraphEdgeItem[]
+  /** Optional label supplied by a project-bound semantic projection. */
+  source_label?: string
+  /** Optional project binding into the frontend edge-style catalog. */
+  edge_style_bindings?: Record<string, unknown>
+  /** Ordered relation vocabulary a project-bound topology declares for its edges. */
+  relation_vocabulary?: string[]
 }
 
 export type GraphConfigResponse = {
@@ -2460,6 +2481,8 @@ export type GraphConfigResponse = {
   graph_field_labels?: Record<string, string>
   graph_edge_types?: Record<string, string[]>
   graph_relation_labels?: Record<string, string>
+  graph_edge_style_bindings?: Record<string, unknown>
+  graph_projections?: unknown
 }
 
 export type GraphStructuredSelectedNode = {

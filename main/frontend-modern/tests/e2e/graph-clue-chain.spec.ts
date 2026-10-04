@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page, type Route } from '@playwright/test'
 
 type ClueChainDecisionRequest = {
   action?: string
@@ -149,6 +149,54 @@ async function setupGraphMocks(
       },
     ],
   }
+
+  const fulfillKernelRuntime = async (route: Route, data: unknown) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok', data }),
+    })
+  }
+
+  await page.route(/\/api\/v1\/health(?=\?|$)/, async (route) => {
+    await fulfillKernelRuntime(route, { status: 'ok', provider: 'mock', env: 'graph-clue-e2e' })
+  })
+  await page.route(/\/api\/v1\/config\/env(?=\?|$)/, async (route) => {
+    await fulfillKernelRuntime(route, {
+      DATABASE_URL: 'postgresql://graph-clue-e2e.example/mrw',
+      OPENAI_API_KEY: 'configured-for-graph-clue-e2e',
+      SERPAPI_KEY: '',
+      NEWS_API_KEY: '',
+    })
+  })
+  await page.route(/\/api\/v1\/projects(?=\?|$)/, async (route) => {
+    await fulfillKernelRuntime(route, {
+      items: [{ project_key: 'default', name: 'Default', enabled: true, is_active: true }],
+      total: 1,
+    })
+  })
+  await page.route(/\/api\/v1\/codex-auth\/status(?=\?|$)/, async (route) => {
+    await fulfillKernelRuntime(route, {
+      authenticated: false,
+      token_sink_authenticated: false,
+      codex_oauth_enabled: true,
+    })
+  })
+  await page.route(/\/api\/v1\/information-topology\/topologies(?=\?|$)/, async (route) => {
+    await fulfillKernelRuntime(route, { items: [], total: 0 })
+  })
+  await page.route(/\/api\/v1\/information-topology\/topologies\/read(?=\?|$)/, async (route) => {
+    await route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        detail: {
+          status: 'error',
+          error: { code: 'NOT_FOUND', message: 'topology state was not found' },
+        },
+      }),
+    })
+  })
 
   await page.route('**/api/v1/project-customization/graph-config**', async (route) => {
     await route.fulfill({

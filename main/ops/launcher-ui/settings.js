@@ -29,43 +29,9 @@ const els = {
   backendState: document.getElementById('backend-state'),
   count: document.getElementById('settings-count'),
   message: document.getElementById('settings-message'),
-  codexPanel: document.getElementById('codex-device-panel'),
-  codexCode: document.getElementById('codex-device-code'),
-  copyCodexCode: document.getElementById('copy-codex-code'),
-  openCodexAuth: document.getElementById('open-codex-auth'),
-  codexCliState: document.getElementById('codex-cli-state'),
-  codexAuthState: document.getElementById('codex-auth-state'),
-  codexCoreState: document.getElementById('codex-core-state'),
-  codexUpdated: document.getElementById('codex-updated'),
   save: document.getElementById('save-settings'),
   reload: document.getElementById('reload-settings'),
   refresh: document.getElementById('refresh-settings'),
-  codexAuth: document.getElementById('codex-auth'),
-}
-
-let codexDeviceUrl = ''
-let codexDeviceCode = ''
-
-async function copyCodexCode() {
-  if (!codexDeviceCode) return
-  await navigator.clipboard?.writeText(codexDeviceCode).catch(() => {})
-  els.message.textContent = `Device code copied: ${codexDeviceCode}`
-}
-
-function showCodexDeviceAuth(data) {
-  codexDeviceUrl = data.device_url || ''
-  codexDeviceCode = data.device_code || ''
-  els.codexCode.textContent = codexDeviceCode || 'No code returned'
-  els.codexPanel.hidden = false
-  els.message.textContent = codexDeviceCode
-    ? `Device code is ready and copied when allowed. Use it on the Codex auth page.`
-    : data.hint || 'Codex CLI authentication did not return a device code.'
-  copyCodexCode()
-}
-
-function openCodexAuthPage() {
-  if (!codexDeviceUrl) return
-  window.open(codexDeviceUrl, '_blank', 'noopener,noreferrer')
 }
 
 function envelopeData(payload) {
@@ -139,7 +105,7 @@ async function loadSettings() {
   els.message.textContent = ''
   els.state.textContent = 'Loading settings...'
   els.state.className = 'state'
-  refreshCodexStatus()
+  window.launcherCodex?.refresh()
   try {
     const payload = await api('/api/launcher/config/env')
     renderFields(envelopeData(payload))
@@ -151,29 +117,6 @@ async function loadSettings() {
     els.state.textContent = 'Backend config unavailable'
     els.backendState.textContent = 'Backend offline'
     els.message.textContent = error instanceof Error ? error.message : String(error)
-  }
-}
-
-function renderCodexStatus(payload) {
-  const data = envelopeData(payload)
-  const core = data.persistent_core || {}
-  const cliReady = Boolean(data.codex_cli_installed)
-  const authed = Boolean(data.authenticated || data.token_sink_authenticated)
-  els.codexCliState.textContent = `CLI: ${cliReady ? 'ready' : 'missing'}`
-  els.codexAuthState.textContent = `Auth: ${authed ? 'authenticated' : data.device_auth_pending ? 'waiting for device auth' : 'not authenticated'}`
-  els.codexCoreState.textContent = `Core: ${core.running ? 'running' : 'idle'}`
-  els.codexUpdated.textContent = `Updated ${new Date().toLocaleTimeString()}`
-}
-
-async function refreshCodexStatus() {
-  try {
-    const payload = await api('/api/launcher/codex/status')
-    renderCodexStatus(payload)
-  } catch (error) {
-    els.codexCliState.textContent = 'CLI: unknown'
-    els.codexAuthState.textContent = 'Auth: unknown'
-    els.codexCoreState.textContent = 'Core: unknown'
-    els.codexUpdated.textContent = error instanceof Error ? error.message : 'Unavailable'
   }
 }
 
@@ -214,35 +157,9 @@ async function reloadSettings() {
   }
 }
 
-async function startCodexAuth() {
-  els.message.textContent = 'Starting Codex CLI authentication...'
-  try {
-    const result = await api('/api/launcher/codex/cli/bootstrap', {
-      method: 'POST',
-      body: JSON.stringify({}),
-    })
-    const data = envelopeData(result)
-    if (data.authenticated) {
-      els.message.textContent = 'Codex is already authenticated.'
-      return
-    }
-    if (data.device_url) {
-      showCodexDeviceAuth(data)
-      refreshCodexStatus()
-      return
-    }
-    els.message.textContent = data.hint || 'Codex CLI authentication did not return a device URL.'
-  } catch (error) {
-    els.message.textContent = error instanceof Error ? error.message : String(error)
-  }
-}
-
 els.refresh.addEventListener('click', loadSettings)
 els.save.addEventListener('click', saveSettings)
 els.reload.addEventListener('click', reloadSettings)
-els.codexAuth.addEventListener('click', startCodexAuth)
-els.copyCodexCode.addEventListener('click', copyCodexCode)
-els.openCodexAuth.addEventListener('click', openCodexAuthPage)
 
 renderFields({})
 loadSettings()

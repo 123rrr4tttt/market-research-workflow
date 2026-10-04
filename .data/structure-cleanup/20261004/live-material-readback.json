@@ -1,0 +1,199 @@
+{
+  "http_status": 200,
+  "response": {
+    "status": "ok",
+    "data": {
+      "id": 3,
+      "title": "MRW structure user-chain a2724f6e-f976-4dbb-b222-9d1b21fd8ba5",
+      "doc_type": "raw_note",
+      "state": null,
+      "status": null,
+      "publish_date": null,
+      "content": "MRW structure user-chain a2724f6e-f976-4dbb-b222-9d1b21fd8ba5\nLocal material verifies API dispatch, independent worker and persistent readback.",
+      "summary": "",
+      "uri": "urn:mrw:structure-check:194ccdda-c136-4771-804e-15b85f1ea0d8",
+      "extracted_data": {
+        "domains": {
+          "market": null,
+          "policy": null,
+          "entities": null,
+          "sentiment": null,
+          "company_structured": null,
+          "entities_relations": null,
+          "product_structured": null,
+          "operation_structured": null
+        },
+        "platform": "raw_import",
+        "terminal": {
+          "trace_id": null,
+          "project_key": "readiness_daily_20261004",
+          "source_mode": "raw_import",
+          "ingress_type": "raw_import",
+          "ingestion_entrypoint": "ingest.raw_import"
+        },
+        "_raw_input": {
+          "uris": [
+            "urn:mrw:structure-check:194ccdda-c136-4771-804e-15b85f1ea0d8"
+          ],
+          "uri_count": 1,
+          "chunk_size": 2800,
+          "chunk_count": 1,
+          "chunk_overlap": 200,
+          "material_input": {
+            "kind": "given",
+            "mime_type": "text/plain",
+            "raw_content_digest": "8cc0d69d29289955d97100cf0170a5eb641db4cb670ba1c39a2fb53c682f6399"
+          },
+          "fetch_url_error": "Failed to fetch urn:mrw:structure-check:194ccdda-c136-4771-804e-15b85f1ea0d8",
+          "fetch_url_status": null,
+          "fetched_from_url": false,
+          "truncated_for_extraction": false
+        },
+        "extraction": {
+          "error": null,
+          "reason": "extraction_not_requested",
+          "status": "skipped",
+          "summary": {},
+          "http_status": null,
+          "light_filter": {
+            "diagnostics": {
+              "domain": "",
+              "reasons": [],
+              "min_score": 30,
+              "entry_type": ""
+            },
+            "filter_score": 100,
+            "filter_decision": "allow",
+            "filter_reason_code": "ok",
+            "keep_for_vectorization": true
+          },
+          "model_profile": {},
+          "quality_score": 100.0,
+          "prompt_profile": {},
+          "degradation_flags": [],
+          "extractor_version": "unified.structured.v1",
+          "capability_profile": {},
+          "structured_output_mode": "unknown"
+        },
+        "source_ref": {
+          "url": "urn:mrw:structure-check:194ccdda-c136-4771-804e-15b85f1ea0d8",
+          "locator": "urn:mrw:structure-check:194ccdda-c136-4771-804e-15b85f1ea0d8",
+          "entrypoint": "ingest.raw_import",
+          "project_key": "readiness_daily_20261004",
+          "source_mode": "raw_import",
+          "ingress_type": "raw_import"
+        },
+        "source_mode": "raw_import",
+        "quality_score": 100.0,
+        "schema_version": "terminal.ingest.v1.1",
+        "degradation_flags": [],
+        "_quality_frontdoor": {
+          "cleaning": {
+            "title_changed": false,
+            "content_changed": false,
+            "summary_changed": false,
+            "content_chars_after": 143,
+            "summary_chars_after": 0,
+            "content_chars_before": 143,
+            "summary_chars_before": 0
+          },
+          "gate_plus": {
+            "checks": [
+              {
+                "stage": "pre_fetch_url_gate",
+                "reason": "disabled",
+                "blocked": false,
+                "accepted": true,
+                "diagnostics": {
+                  "path": "mrw:structure-check:194ccdda-c136-4771-804e-15b85f1ea0d8",
+                  "domain": ""
+                },
+                "reason_code": "disabled",
+                "quality_score": 100.0
+              },
+              {
+                "stage": "pre_write_content_gate",
+                "reason": "disabled",
+                "blocked": false,
+                "accepted": true,
+                "diagnostics": {
+                  "uri": "urn:mrw:structure-check:194ccdda-c136-4771-804e-15b85f1ea0d8",
+                  "doc_type": "raw_note",
+                  "semantic_len": 141,
+                  "min_semantic_len": 500
+                },
+                "reason_code": "disabled",
+                "quality_score": 100.0
+              }
+            ],
+            "blocked": false,
+            "blocked_stage": null,
+            "blocked_reason": null
+          },
+          "cleanup_actions": [],
+          "content_extraction": {
+            "signals": {
+              "article_hint_hits": 0
+            },
+            "js_heavy": false,
+            "main_title": "MRW structure user-chain a2724f6e-f976-4dbb-b222-9d1b21fd8ba5",
+            "readerable": false,
+            "block_count": 2,
+            "page_family": "unknown",
+            "shell_heavy": false,
+            "main_content": "MRW structure user-chain a2724f6e-f976-4dbb-b222-9d1b21fd8ba5\nLocal material verifies API dispatch, independent worker and persistent readback.",
+            "extractor_name": "ingest.material_text.v1",
+            "prefix_trimmed": false,
+            "raw_text_chars": 143,
+            "main_text_chars": 143,
+            "main_text_ratio": 1.0,
+            "js_template_hits": 0,
+            "main_block_count": 2,
+            "shell_marker_hits": 0,
+            "duplicate_line_ratio": 0.0,
+            "extractor_confidence": 100.0
+          },
+          "quality_assessment": {
+            "content_ok": true,
+            "meaningful": true,
+            "readerable": false,
+            "page_family": "unknown",
+            "provenance_ok": true,
+            "quality_score": 100.0,
+            "strict_gate_source": "disabled",
+            "strict_gate_enabled": false,
+            "guardrail_rollout_mode": "canary",
+            "guardrail_closure_claim": false,
+            "guardrail_canary_matched": false
+          }
+        },
+        "_structured_summary": {
+          "has_market": false,
+          "has_policy": false,
+          "chunks_used": 1,
+          "has_company": false,
+          "has_product": false,
+          "entity_count": 0,
+          "has_operation": false,
+          "has_sentiment": false,
+          "relation_count": 0,
+          "extraction_mode": "comprehensive",
+          "extraction_enabled": false
+        },
+        "ingestion_entrypoint": "ingest.raw_import",
+        "structured_extraction_reason": "extraction_not_requested",
+        "structured_extraction_status": "skipped"
+      },
+      "source_id": 3,
+      "created_at": "2026-10-04T05:32:14.288353-07:00",
+      "updated_at": "2026-10-04T05:32:14.288353-07:00"
+    },
+    "error": null,
+    "meta": {
+      "trace_id": "93ec565d-90a3-42da-b2be-a41b7efa29d6",
+      "pagination": null,
+      "project_key": "readiness_daily_20261004",
+      "deprecated": null
+    }
+  }
+}

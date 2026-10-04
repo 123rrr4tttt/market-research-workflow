@@ -1,0 +1,10 @@
+onlyBuiltDependencies:
+  - "@nestjs/core"
+  - "@scarf/scarf"
+  - "@swc/core"
+  - better-sqlite3
+  - esbuild
+  - node-pty
+  - unrs-resolver
+overrides:
+  fastify: 5.8.5

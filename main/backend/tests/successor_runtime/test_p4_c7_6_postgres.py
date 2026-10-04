@@ -23,7 +23,7 @@ from app.successor_migration.search_projector_c7 import (
     SEARCH_SOURCE_KIND,
     rebuild_search_projection,
 )
-from app.successor_runtime.capabilities import ingest_c7_common as c7
+from app.successor_runtime.capabilities import material_ingest_common as c7
 from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
 from app.successor_runtime.runtime.transitions import EffectDisposition
 from app.successor_runtime.substrate.postgres.commit_intents import (
@@ -189,7 +189,7 @@ def _seed_scope_and_run(connection: sa.Connection) -> None:
             execution_epoch=1,
             input_digest=AUTHORITY_DIGEST,
             output_digest=AUTHORITY_DIGEST,
-            effect_class=c7.build_ingest_c7_bundle().profiles["effect"].execution_class,
+            effect_class=c7.build_material_ingest_bundle().profiles["effect"].execution_class,
             resource_class="CPU_LIGHT",
             capability_id="ingest_index.c7.v1",
             claim_owner="successor",
@@ -273,7 +273,7 @@ def _commit_binding() -> CommitIntentBinding:
 def test_c7_2_commit_intent_prepare_commit_and_typed_readback(
     disposable_database: Engine,
 ) -> None:
-    assert c7.build_ingest_c7_bundle().profiles["effect"].execution_class == (
+    assert c7.build_material_ingest_bundle().profiles["effect"].execution_class == (
         "EFFECTFUL"
     )
     with disposable_database.connect() as connection:

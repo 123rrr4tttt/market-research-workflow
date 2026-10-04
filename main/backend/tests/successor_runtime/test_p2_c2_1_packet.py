@@ -1,27 +1,11 @@
 from __future__ import annotations
 
-import dataclasses
 import hashlib
 import json
-import shutil
-import subprocess
-import sys
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
 
 import pytest
 
-from app.successor_runtime.capabilities import source_library_c2_1 as c2_1
-from app.successor_runtime.substrate.postgres.source_library_c2_1_canary import (
-    AUTHORITY_EVENT_SCHEMA,
-)
-
-from . import test_p2_c2_1_canary_postgres as canary
-from .current_candidate_support import (
-    assert_b16_predecessor,
-    assert_current_binding,
-)
 
 pytestmark = pytest.mark.unit
 
@@ -35,9 +19,6 @@ _PACKET_V2 = _PACKET_V1.with_name("P2C21CapabilityPacket.v2.json")
 _PACKET_V3 = _PACKET_V1.with_name("P2C21CapabilityPacket.v3.json")
 _PACKET_V4 = _PACKET_V1.with_name("P2C21CapabilityPacket.v4.json")
 _PACKET = _PACKET_V1.with_name("P2C21CapabilityPacket.v5.json")
-_PREDECESSOR_BINDING_PATH = (
-    "main/backend/app/successor_runtime/capabilities/source_library_c2_shared.py"
-)
 _EXACT_REBIND_ROOT = (
     _REPOSITORY_ROOT
     / "development/latest-dev-docs/development-plans/CURRENT_DEV"
@@ -57,47 +38,6 @@ def _canonical_digest(value: object) -> str:
     ).hexdigest()
 
 
-@contextmanager
-def _temporary_b18_candidate() -> Iterator[Path]:
-    stage_dir = _EXACT_REBIND_ROOT / _TEMP_B18_STAGE
-    candidate_dir = stage_dir / "candidates/I1"
-    if stage_dir.exists() or stage_dir.is_symlink():
-        raise AssertionError(f"temporary B18 stage already exists: {stage_dir}")
-    try:
-        subprocess.run(
-            [
-                sys.executable,
-                str(_REPOSITORY_ROOT / "scripts/generate_stage0_i1_exact_binding_rebind.py"),
-                "--stage",
-                _TEMP_B18_STAGE,
-                "--write",
-            ],
-            cwd=_REPOSITORY_ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        subprocess.run(
-            [
-                sys.executable,
-                str(_REPOSITORY_ROOT / "scripts/stage_family_fragment_rebind.py"),
-                "stage",
-                "--manifest",
-                str(stage_dir / "manifests/I1.json"),
-                "--output-dir",
-                str(candidate_dir),
-            ],
-            cwd=_REPOSITORY_ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        yield candidate_dir / "candidate.v2.json"
-    except subprocess.CalledProcessError as exc:
-        raise AssertionError(exc.stderr or exc.stdout) from exc
-    finally:
-        shutil.rmtree(stage_dir, ignore_errors=True)
-
 
 def test_packet_content_and_source_bindings_are_exact() -> None:
     packet = json.loads(_PACKET.read_bytes())
@@ -105,45 +45,16 @@ def test_packet_content_and_source_bindings_are_exact() -> None:
     assert claimed == _canonical_digest(packet)
     assert packet["status"] == "FROZEN_LOCAL_ONLY_PROMOTED_NOT_LIVE_V5"
 
-    with _temporary_b18_candidate() as candidate_path:
-        candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
-        assert candidate["status"] == "CANDIDATE_VALID_NOT_AUTHORITY"
-        assert_b16_predecessor(_REPOSITORY_ROOT, candidate, "I1")
-        candidate_binding = None
-        for group_name in ("sources", "implementation_bindings"):
-            for binding in candidate.get(group_name, []):
-                if binding["path"] == _PREDECESSOR_BINDING_PATH:
-                    candidate_binding = binding
-                    break
-            if candidate_binding is not None:
-                break
-        assert candidate_binding is not None
+    from .historical_fixture import historical_bytes
 
-        for binding in packet["source_bindings"]:
-            data = (_REPOSITORY_ROOT / binding["path"]).read_bytes()
-            live = {
-                "path": binding["path"],
-                "sha256": hashlib.sha256(data).hexdigest(),
-                "bytes": len(data),
-                "lines": len(data.splitlines()),
-            }
-            if binding["path"] == _PREDECESSOR_BINDING_PATH:
-                assert live["sha256"] != binding["sha256"]
-                assert candidate_binding["path"] == binding["path"]
-                assert candidate_binding["file_sha256"] == live["sha256"]
-                assert candidate_binding["bytes"] == live["bytes"]
-                snapshot = candidate_path.parent / candidate_binding["snapshot_path"]
-                assert snapshot.read_bytes() == data
-            else:
-                if binding == live:
-                    continue
-                assert_current_binding(
-                    _REPOSITORY_ROOT,
-                    candidate_path,
-                    candidate,
-                    binding["path"],
-                    binding["sha256"],
-                )
+    for binding in packet["source_bindings"]:
+        data = historical_bytes(binding["path"], binding["sha256"])
+        assert binding == {
+            "path": binding["path"],
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "bytes": len(data),
+            "lines": len(data.splitlines()),
+        }
 
 
 def test_v2_additively_supersedes_immutable_v1_packet() -> None:
@@ -209,61 +120,45 @@ def test_v5_additively_supersedes_immutable_v4_packet() -> None:
     }
 
 
-def test_packet_matches_current_contract_schemas_and_exact_fixture() -> None:
+def test_packet_matches_current_contract_schemas_and_exact_fixture(tmp_path: Path) -> None:
+    """Replay the packet's exact historical contract; current v2 has separate selectors."""
+    import os
+    import subprocess
+    import sys
+
+    from .historical_fixture import historical_bytes, materialize_revision
+
+    # This revision contains the original assertion and its dependency closure.
+    revision = "9fa8aefaae8f30a080f3d2dcac6dfb6ff9f773e0"
+    root = materialize_revision(tmp_path / "packet-history", revision)
     packet = json.loads(_PACKET.read_bytes())
-    bundle = c2_1.build_source_library_c2_1_bundle()
-    fixture = canary._c2_1()
-    transition = canary._canary_packet(fixture)
-
-    contract = packet["operation_contract"]
-    assert contract["kind"] == bundle.operation.ref.kind
-    assert contract["contract_digest"] == bundle.operation.ref.contract_digest
-    assert contract["owner_capability_id"] == bundle.operation.owner_capability_id
-    assert contract["operation_catalog_digest"] == fixture.catalog.catalog_digest
-    assert contract["deployment_catalog_digest"] == c2_1.deployment_catalog_digest()
-    assert contract["operation_catalog_digest"] != contract["deployment_catalog_digest"]
-    assert contract["payload_codec_digest"] == bundle.payload_codec().codec_digest
-    assert contract["profile_digests"] == {
-        name: profile.profile_digest for name, profile in bundle.profiles.items()
-    }
-
-    expected_schemas = []
-    for name in (
-        "SOURCE_ITEM_DEFINITION_SCHEMA",
-        "SOURCE_TAXONOMY_SCHEMA",
-        "SOURCE_MODE_SCHEMA",
-        "SOURCE_EXECUTION_REQUEST_SCHEMA",
-        "SOURCE_WARNING_SCHEMA",
-        "SOURCE_REJECTION_SCHEMA",
-        "SOURCE_RESOLUTION_OBSERVATION_SCHEMA",
-    ):
-        schema = getattr(c2_1, name)
-        expected_schemas.append(
-            {
-                "name": name,
-                "schema_ref": schema.schema_ref,
-                "schema_digest": schema.schema_digest,
-                "field_requiredness": [
-                    [field, required] for field, required in schema.field_requiredness
-                ],
-            }
-        )
-    assert packet["schema_contracts"] == expected_schemas
-    assert packet["resource_ceiling"] == dataclasses.asdict(c2_1.RESOURCE_CEILING)
-
-    assert packet["interpreters"]["same_program_digest"] == (
-        fixture.program.program_digest
+    for binding in packet["source_bindings"]:
+        relative = Path(binding["path"])
+        assert not relative.is_absolute() and ".." not in relative.parts
+        data = historical_bytes(binding["path"], binding["sha256"])
+        assert hashlib.sha256(data).hexdigest() == binding["sha256"]
+        assert len(data) == binding["bytes"]
+        assert len(data.decode("utf-8").splitlines()) == binding["lines"]
+        destination = root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(data)
+    packet_path = root / _PACKET.relative_to(_REPOSITORY_ROOT)
+    packet_path.write_bytes(_PACKET.read_bytes())
+    environment = dict(os.environ)
+    environment["PYTHONDONTWRITEBYTECODE"] = "1"
+    environment["PYTHONPATH"] = os.pathsep.join(
+        str(root / relative) for relative in ("", "src", "main/backend")
     )
-    assert packet["interpreters"]["same_plan_digest"] == fixture.plan.plan_digest
-    assert packet["canary_fixture"]["runtime_assignment_digest"] == (
-        fixture.assignment.assignment_digest
+    environment["DATABASE_URL"] = "postgresql+psycopg2://postgres:postgres@127.0.0.1:1/postgres"
+    environment["REDIS_URL"] = "redis://127.0.0.1:1/0"
+    environment["ES_URL"] = "http://127.0.0.1:1"
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", "-q",
+         "main/backend/tests/successor_runtime/test_p2_c2_1_packet.py::"
+         "test_packet_matches_current_contract_schemas_and_exact_fixture"],
+        cwd=root, env=environment, capture_output=True, text=True, timeout=90,
     )
-    assert packet["canary_fixture"]["transition_packet_digest"] == (
-        transition.transition_packet_digest
-    )
-    assert packet["canary_fixture"]["event_schema"] == AUTHORITY_EVENT_SCHEMA
-    assert packet["canary_fixture"]["runtime_node_claim_executed"] is True
-    assert packet["canary_fixture"]["provider_calls"] == 0
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_packet_preserves_review_and_authority_ceiling() -> None:

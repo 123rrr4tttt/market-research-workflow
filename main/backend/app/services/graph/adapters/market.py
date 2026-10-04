@@ -68,7 +68,7 @@ class MarketAdapter:
                     logger.warning(f"Document {doc.id} publish_date conversion failed: {e}")
         
         try:
-            market, market_quality = normalize_market_payload(market, scope="lottery.market")
+            market, market_quality = normalize_market_payload(market, scope="market")
             if market_quality:
                 market["_numeric_quality"] = market_quality
         except Exception as e:

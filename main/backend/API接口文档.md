@@ -182,18 +182,6 @@
 - `game` (string, 可选): 玩法过滤，如 "SuperLotto Plus"
 - `limit` (int, 可选): 抓取条数上限
 
-### 3.3 加州报告摄取
-**POST** `/api/v1/ingest/reports/california`
-
-摄取加州销售报告（PDF）。
-
-**请求体**:
-```json
-{
-  "limit": 3
-}
-```
-
 **参数说明**:
 - `limit` (int): PDF 报告数量上限，范围 1-20，默认 3
 

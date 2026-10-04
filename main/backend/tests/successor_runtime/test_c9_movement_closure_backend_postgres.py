@@ -35,6 +35,11 @@ from app.successor_runtime.runtime.authority_grants import (
 )
 from app.successor_runtime.runtime.facade import SuccessorRuntimeFacade
 from app.successor_runtime.runtime.facade_contracts import (
+    C9_ROLLBACK_TRANSITION_CONTRACT,
+    MATERIAL_PROJECTION_CLOSURE_ID,
+    MATERIAL_PROJECTION_PROJECTOR_ID,
+    MATERIAL_PROJECTION_PROJECTOR_VERSION,
+    MATERIAL_PROJECTION_SOURCE_KIND,
     C9CommandBaseConflict,
     C9CommandBlocked,
     C9CommandConflict,
@@ -44,7 +49,8 @@ from app.successor_runtime.runtime.facade_contracts import (
     FacadeCommandV2,
     FacadeQueryV2,
     QueryMetaV2,
-    derive_c9_request_digest,
+    derive_historical_c9_request_identity,
+    derive_projection_request_identity,
 )
 from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
 from app.successor_runtime.runtime.qualification import StepAuthorizationBinding
@@ -59,12 +65,14 @@ from app.successor_runtime.substrate.postgres.authority import (
 from app.successor_runtime.substrate.postgres.authority_provider import (
     PostgresAuthorityProvider,
 )
-from app.successor_runtime.substrate.postgres.c9_projection_sources import (
-    build_semantic_source_closure,
-    load_exact_semantic_source_closure,
-    put_semantic_source_rows,
+from app.successor_runtime.substrate.postgres.projection_sources import (
+    build_project_source_closure,
+    load_exact_project_source_closure,
+    put_project_source_rows,
 )
 from app.successor_runtime.substrate.postgres.facade_commands import (
+    C9_CAPABILITY_ID,
+    LEGACY_C9_CAPABILITY_ID,
     PostgresC9CommandRepository,
     PostgresC9QueryRepository,
 )
@@ -87,6 +95,7 @@ from app.successor_runtime.substrate.postgres.projection_offsets import (
     ProjectionOffsetRepository,
 )
 from app.successor_runtime.substrate.postgres.runtime_journal import (
+    RecordNotFound,
     StaleRevisionError,
 )
 from app.successor_runtime.substrate.postgres.session import compute_scope_digest
@@ -94,7 +103,7 @@ from app.successor_runtime.substrate.postgres.values import (
     ReceiptRepository,
     ValueRepository,
 )
-from app.successor_runtime.substrate.projections import c9_sources as c9
+from app.successor_runtime.substrate.projections import projection_sources as c9
 from scripts.c9_projection_rebuild import (
     CANDIDATE_OBJECT_TYPES,
     EXTERNAL_DECLARED_LOSS_SINKS,
@@ -132,15 +141,15 @@ SCOPE = RuntimeScope(
     ),
     actor_id=ACTOR,
 )
-SOURCE_REF = f"project:{PROJECT_KEY}:semantic-sources"
+SOURCE_REF = f"projection:{PROJECT_KEY}:source"
 SOURCE_REVISION = 0
-PROJECTION_ID = "projection.c9-movement-closure.v1"
-PROJECTOR_ID = "projector:c9-movement-closure"
-PROJECTOR_VERSION = "1"
+PROJECTION_ID = MATERIAL_PROJECTION_CLOSURE_ID
+PROJECTOR_ID = MATERIAL_PROJECTION_PROJECTOR_ID
+PROJECTOR_VERSION = MATERIAL_PROJECTION_PROJECTOR_VERSION
 SOURCE_IDENTITY = {
     "projector_id": PROJECTOR_ID,
     "projector_version": PROJECTOR_VERSION,
-    "source_kind": "successor_values",
+    "source_kind": MATERIAL_PROJECTION_SOURCE_KIND,
     "source_ref": SOURCE_REF,
     "source_incarnation": SCOPE_INCARNATION,
 }
@@ -235,7 +244,11 @@ def _clean_tables(database: tuple[Engine, ProjectTables]) -> Iterator[None]:
     yield
 
 
-def _seed_authority(connection: Any) -> None:
+def _seed_authority(
+    connection: Any,
+    *,
+    capability_id: str = C9_CAPABILITY_ID,
+) -> None:
     connection.execute(
         sa.insert(PUBLIC_TABLES["project_scope_registry"]).values(
             project_key=PROJECT_KEY,
@@ -297,11 +310,11 @@ def _seed_authority(connection: Any) -> None:
             authority_digest=sha256_hex({"authority": APPROVAL_ID}),
         )
     )
-    _seed_grant(connection)
+    _seed_grant(connection, capability_id=capability_id)
     connection.execute(
         sa.insert(PUBLIC_TABLES["runtime_capability_authority"]).values(
             project_key=PROJECT_KEY,
-            capability_id="capability:successor-runtime:c9",
+            capability_id=capability_id,
             mode="on",
             authority_epoch=1,
             successor_claim_enabled=True,
@@ -319,12 +332,16 @@ def _seed_authority(connection: Any) -> None:
     )
 
 
-def _seed_grant(connection: Any) -> None:
+def _seed_grant(
+    connection: Any,
+    *,
+    capability_id: str = C9_CAPABILITY_ID,
+) -> None:
     AuthorityGrantRepository(connection, SCOPE).create(
         AuthorityGrant(
             grant_id=GRANT_ID,
             actor_id=ACTOR,
-            capability_id="capability:successor-runtime:c9",
+            capability_id=capability_id,
             operation_scope_json=AuthorityOperationScope.from_content(
                 operation_kinds=("rebuild_projection", "invalidate_projection"),
                 project_scope_digest=SCOPE_DIGEST,
@@ -368,6 +385,7 @@ def _seed_exact_effect_authority(
     approval_id: str,
     step_id: str,
     canonical_base_revision: int = 0,
+    capability_id: str = C9_CAPABILITY_ID,
 ) -> None:
     _seed_approval_for_digest(
         connection,
@@ -381,13 +399,13 @@ def _seed_exact_effect_authority(
             PUBLIC_TABLES["runtime_capability_authority"].c.project_key
             == PROJECT_KEY,
             PUBLIC_TABLES["runtime_capability_authority"].c.capability_id
-            == "capability:successor-runtime:c9",
+            == capability_id,
         )
         .values(effective_at=datetime(2020, 1, 1, tzinfo=UTC))
     )
     context = PostgresAuthorityProvider(connection, SCOPE).current_context(
         ACTOR,
-        capability_id="capability:successor-runtime:c9",
+        capability_id=capability_id,
         approval_refs=(approval_id,),
         canonical_base_revision=canonical_base_revision,
         canonical_incarnation=SCOPE_INCARNATION,
@@ -398,7 +416,7 @@ def _seed_exact_effect_authority(
         step_id=step_id,
         operation_kind=command.command_kind,
         operation_contract_digest=_digest(f"operation-contract:{step_id}"),
-        capability_id="capability:successor-runtime:c9",
+        capability_id=capability_id,
         claim_owner="successor",
         claim_authority_epoch=1,
         claim_policy_digest=_digest("claim-policy:c9"),
@@ -433,7 +451,7 @@ def _seed_exact_effect_authority(
             effect_class="LOCAL_TEST_ONLY",
             resource_class="CPU_LIGHT",
             concurrency_key=f"c9:{step_id}",
-            capability_id="capability:successor-runtime:c9",
+            capability_id=capability_id,
             claim_owner="successor",
             claim_authority_epoch=1,
             claim_policy_digest=binding.claim_policy_digest,
@@ -489,7 +507,7 @@ def _command(
 ) -> FacadeCommandV2:
     payload = payload or {"projection_id": PROJECTION_ID, **SOURCE_IDENTITY}
     if request_digest is None:
-        request_digest = derive_c9_request_digest(
+        request_digest = derive_projection_request_identity(
             scope_digest=SCOPE_DIGEST,
             actor_ref=actor_ref,
             command_id=command_id,
@@ -542,7 +560,7 @@ def _key(source_ref: str = SOURCE_REF) -> ProjectionOffsetKey:
     return ProjectionOffsetKey(
         projector_id=PROJECTOR_ID,
         projector_version=PROJECTOR_VERSION,
-        source_kind="successor_values",
+        source_kind=MATERIAL_PROJECTION_SOURCE_KIND,
         source_ref=source_ref,
         source_incarnation=SCOPE_INCARNATION,
     )
@@ -554,8 +572,8 @@ def _digest(label: str) -> str:
 
 def _seed_source_tables(connection: Any, project: ProjectTables) -> None:
     for seq, event_kind in (
-        (1, c9.SESSION_CREATED),
-        (2, c9.SESSION_PROJECTION_REFRESHED),
+        (1, c9.TASK_CREATED),
+        (2, c9.TASK_PROJECTION_REFRESHED),
     ):
         connection.execute(
             PUBLIC_TABLES["runtime_events"]
@@ -741,8 +759,8 @@ def _seed_sources(
     if not run_exists:
         _seed_authority(connection)
     _seed_source_tables(connection, project)
-    closure = build_semantic_source_closure(connection, SCOPE)
-    put_semantic_source_rows(connection, SCOPE, closure)
+    closure = build_project_source_closure(connection, SCOPE)
+    put_project_source_rows(connection, SCOPE, closure)
     return closure.closure_digest, int(closure.revision)
 
 
@@ -751,11 +769,7 @@ def _gen0_candidate_value_id(
     project: ProjectTables,
     sink: str,
 ) -> str:
-    object_type = {
-        "agent_session": "AgentSessionLocalProjection.v1",
-        "graph": "GraphLocalProjection.v1",
-        "search": "SearchLocalProjection.v1",
-    }[sink]
+    object_type = CANDIDATE_OBJECT_TYPES[sink]
     rows = (
         connection.execute(
             sa.select(project.successor_values.c.value_id).where(
@@ -784,7 +798,7 @@ def _gen0_receipt_id(
             sa.select(project.successor_receipts.c.receipt_id).where(
                 project.successor_receipts.c.project_key == PROJECT_KEY,
                 project.successor_receipts.c.receipt_id.like(
-                    f"c9:{sink}:receipt:%:gen-0:%"
+                    f"material-projection:{sink}:receipt:%:generation-0:%"
                 ),
             )
         )
@@ -801,7 +815,9 @@ def test_rollback_rejects_deleted_old_generation_candidate(
     engine, project = database
     with engine.begin() as connection:
         _ready_projection(connection, project)
-        graph_value_id = _gen0_candidate_value_id(connection, project, "graph")
+        graph_value_id = _gen0_candidate_value_id(
+            connection, project, "knowledge"
+        )
         connection.execute(
             sa.delete(project.successor_values).where(
                 project.successor_values.c.project_key == PROJECT_KEY,
@@ -820,7 +836,7 @@ def test_rollback_rejects_missing_old_generation_receipt(
     engine, project = database
     with engine.begin() as connection:
         _ready_projection(connection, project)
-        receipt_id = _gen0_receipt_id(connection, project, "agent_session")
+        receipt_id = _gen0_receipt_id(connection, project, "task")
         connection.execute(
             sa.delete(project.successor_receipts).where(
                 project.successor_receipts.c.project_key == PROJECT_KEY,
@@ -841,27 +857,32 @@ def test_rollback_rejects_duplicate_old_generation_receipt(
         _ready_projection(connection, project)
         source_hash = rebuild_module._key_digest(_key())[:8]
         content = {
-            "schema_version": "mrw.successor.c9.projection-receipt.v1",
-            "sink": "graph",
+            "schema_version": "mrw.projection.material-closure-receipt.v2",
+            "sink": "knowledge",
             "projector_id": PROJECTOR_ID,
             "projector_version": PROJECTOR_VERSION,
-            "source_kind": "successor_values",
+            "source_kind": "projection_source",
             "source_ref": SOURCE_REF,
             "source_incarnation": SCOPE_INCARNATION,
             "projection_generation": 0,
-            "rebuild_id": "rebuild:c9:duplicate-receipt",
+            "rebuild_id": "material-projection:rebuild:duplicate-receipt",
             "candidate_value_id": _gen0_candidate_value_id(
-                connection, project, "graph"
+                connection, project, "knowledge"
             ),
             "candidate_digest": "0" * 64,
         }
         ReceiptRepository(connection, project).put_exact(
             scope=SCOPE,
-            receipt_id=f"c9:graph:receipt:{source_hash}:gen-0:duplicate",
+            receipt_id=(
+                "material-projection:knowledge:receipt:"
+                f"{source_hash}:generation-0:duplicate"
+            ),
             receipt_digest=sha256_hex(content),
-            delivery_intent_ref="c9-local-projection:graph:gen-0",
-            attempt_ref="rebuild:c9:duplicate-receipt",
-            provider_locator=f"local:postgres:{PROJECT_SCHEMA}:graph",
+            delivery_intent_ref="material-projection:knowledge:generation-0",
+            attempt_ref="material-projection:rebuild:duplicate-receipt",
+            provider_locator=(
+                f"local:postgres:{PROJECT_SCHEMA}:material-projection:knowledge"
+            ),
             content=content,
             outcome_time=NOW,
         )
@@ -877,7 +898,7 @@ def test_rollback_rejects_tampered_old_generation_receipt(
     engine, project = database
     with engine.begin() as connection:
         _ready_projection(connection, project)
-        receipt_id = _gen0_receipt_id(connection, project, "search")
+        receipt_id = _gen0_receipt_id(connection, project, "material")
         content = dict(
             connection.execute(
                 sa.select(project.successor_receipts.c.receipt_json).where(
@@ -928,7 +949,9 @@ def test_rollback_offset_and_receipt_are_atomic_on_failure(
             .select_from(project.successor_receipts)
             .where(
                 project.successor_receipts.c.project_key == PROJECT_KEY,
-                project.successor_receipts.c.receipt_id.like("c9:rollback-receipt:%"),
+                project.successor_receipts.c.receipt_id.like(
+                    "material-projection:rollback-transition:%"
+                ),
             )
         ).scalar()
         assert rollback_receipts == 0
@@ -953,7 +976,7 @@ def test_rollback_retry_returns_same_receipt_and_fresh_session_transition(
         assert query_result.data.projection_generation == 0
         assert query_result.data.rollback_transition is not None
         transition = query_result.data.rollback_transition
-        assert transition["contract"] == "C9RollbackTransitionReceipt.v1"
+        assert transition["contract"] == "projection.rollback_transition.v2"
         assert transition["ref"] == first.receipt_ref
         assert transition["to"]["offset_revision"] == first.offset_revision
         assert transition["to"]["projection_generation"] == 0
@@ -1003,7 +1026,7 @@ def test_rollback_transition_tamper_fails_closed(
                 sa.select(project.successor_receipts).where(
                     project.successor_receipts.c.project_key == PROJECT_KEY,
                     project.successor_receipts.c.receipt_id.like(
-                        "c9:rollback-transition:%"
+                        "material-projection:rollback-transition:%"
                     ),
                 )
             )
@@ -1072,12 +1095,69 @@ def test_rollback_transition_tamper_fails_closed(
         }
 
 
+def test_historical_rollback_receipt_reads_exact_bytes_without_relabeling(
+    database: tuple[Engine, ProjectTables],
+) -> None:
+    engine, project = database
+    with engine.begin() as connection:
+        _ready_projection(connection, project)
+        rebuilder = PostgresC9ProjectionRebuilder(connection, SCOPE, tables=project)
+        current = rebuilder.rollback_with_receipt(key=_key(), target_generation=0)
+        row = (
+            connection.execute(
+                sa.select(project.successor_receipts).where(
+                    project.successor_receipts.c.project_key == PROJECT_KEY,
+                    project.successor_receipts.c.receipt_id == current.receipt_id,
+                )
+            )
+            .mappings()
+            .one()
+        )
+        historical = dict(row["receipt_json"])
+        historical["contract"] = C9_ROLLBACK_TRANSITION_CONTRACT
+        historical["digest"] = sha256_hex(
+            {
+                name: value
+                for name, value in historical.items()
+                if name != "digest"
+            }
+        )
+        historical_receipt_id = str(row["receipt_id"]).replace(
+            "material-projection:rollback-transition:",
+            "c9:rollback-transition:",
+            1,
+        )
+        connection.execute(
+            sa.update(project.successor_receipts)
+            .where(
+                project.successor_receipts.c.project_key == PROJECT_KEY,
+                project.successor_receipts.c.receipt_id == row["receipt_id"],
+            )
+            .values(
+                receipt_id=historical_receipt_id,
+                receipt_json=historical,
+                receipt_digest=sha256_hex(historical),
+            )
+        )
+
+        observed = PostgresC9QueryRepository(connection, SCOPE).read(_query())
+
+        assert observed.data.rollback_transition == historical
+        assert observed.data.rollback_transition["contract"] == (
+            C9_ROLLBACK_TRANSITION_CONTRACT
+        )
+        assert observed.data.rollback_transition["digest"] == historical["digest"]
+        replay = rebuilder.rollback_with_receipt(key=_key(), target_generation=0)
+        assert replay.receipt_id == historical_receipt_id
+        assert replay.receipt_ref == historical["ref"]
+
+
 def _initialize_offset(
     connection: Any,
     project: ProjectTables,
     source_digest: str,
     *,
-    projection_offset_id: str = "offset:c9-movement:001",
+    projection_offset_id: str = "offset:material-projection:001",
     source_ref: str = SOURCE_REF,
 ) -> None:
     PostgresC9ProjectionRebuilder(connection, SCOPE, tables=project).initialize(
@@ -1171,7 +1251,7 @@ def test_command_repository_effect_success_is_terminal_and_exact_replay(
         assert int(offset["revision"]) == 1
         binding = facade_commands_module.IdempotencyRepository(
             connection, SCOPE
-        ).load("capability:successor-runtime:c9", command.command_id)
+        ).load(C9_CAPABILITY_ID, command.command_id)
         receipt = (
             connection.execute(
                 sa.select(project.successor_receipts).where(
@@ -1184,10 +1264,25 @@ def test_command_repository_effect_success_is_terminal_and_exact_replay(
             .one()
         )
         assert binding["state"] == "TERMINAL"
+        assert binding["idempotency_id"] == (
+            f"idem:material-projections:{command.command_id}"
+        )
+        assert binding["operation_kind"] == "material.projections.v2.rebuild_projection"
         assert binding["terminal_observation_ref"] == (
             receipt["receipt_json"]["effect_result"]["terminal_observation_ref"]
         )
         assert receipt["receipt_json"]["state"] == "TERMINAL"
+        assert receipt["receipt_id"].startswith(
+            "material-projection:command-receipt:"
+        )
+        assert receipt["receipt_json"]["schema_version"] == (
+            "material.projections.command-receipt.v2"
+        )
+        assert receipt["receipt_json"]["capability_id"] == C9_CAPABILITY_ID
+        assert receipt["receipt_json"]["authority_capability_id"] == C9_CAPABILITY_ID
+        assert receipt["receipt_json"]["receipt_ref"].startswith(
+            "material-projection-receipt:idem:material-projections:"
+        )
         assert receipt["receipt_json"]["terminal_observation_ref"] == (
             binding["terminal_observation_ref"]
         )
@@ -1204,6 +1299,148 @@ def test_command_repository_effect_success_is_terminal_and_exact_replay(
             sink_outcomes[sink] == "DECLARED_LOSS_NO_CALL"
             for sink in EXTERNAL_DECLARED_LOSS_SINKS
         )
+
+
+def test_current_command_preserves_exact_legacy_authority_without_copying_grants(
+    database: tuple[Engine, ProjectTables],
+) -> None:
+    engine, project = database
+    approval_id = "approval:c9:legacy-authority-current-command"
+    command = _command(
+        command_id="cmd-current-with-legacy-authority",
+        approval_locator=approval_id,
+        expected_base_token=(
+            f"generation:0|revision:0|incarnation:{SCOPE_INCARNATION}"
+        ),
+    )
+    with engine.begin() as connection:
+        _seed_authority(
+            connection,
+            capability_id=LEGACY_C9_CAPABILITY_ID,
+        )
+        _seed_sources(connection, project)
+        source_digest, _ = _source_digest(connection, project)
+        _initialize_offset(connection, project, source_digest)
+        _seed_exact_effect_authority(
+            connection,
+            command,
+            approval_id=approval_id,
+            step_id="step:c9:legacy-authority-current-command",
+            capability_id=LEGACY_C9_CAPABILITY_ID,
+        )
+
+        observed = PostgresC9CommandRepository(
+            connection,
+            SCOPE,
+            tables=project,
+            execute_effects=True,
+        ).submit(command)
+
+        assert observed.state == "TERMINAL"
+        current_binding = facade_commands_module.IdempotencyRepository(
+            connection,
+            SCOPE,
+        ).load(C9_CAPABILITY_ID, command.command_id)
+        assert current_binding["request_digest"] == command.idempotency_key
+        receipt = (
+            connection.execute(
+                sa.select(project.successor_receipts).where(
+                    project.successor_receipts.c.project_key == PROJECT_KEY,
+                    project.successor_receipts.c.receipt_id
+                    == facade_commands_module._command_receipt_id(command.command_id),
+                )
+            )
+            .mappings()
+            .one()
+        )
+        assert receipt["receipt_json"]["authority_capability_id"] == (
+            LEGACY_C9_CAPABILITY_ID
+        )
+        grants = connection.execute(
+            sa.select(PUBLIC_TABLES["runtime_authority_grants"]).where(
+                PUBLIC_TABLES["runtime_authority_grants"].c.project_key
+                == PROJECT_KEY
+            )
+        ).mappings().all()
+        assert [row["capability_id"] for row in grants] == [
+            LEGACY_C9_CAPABILITY_ID
+        ]
+
+
+def test_command_repository_reads_historical_identity_without_relabeling(
+    database: tuple[Engine, ProjectTables],
+) -> None:
+    engine, project = database
+    command = _command(command_id="cmd-c9-pg-historical-readback")
+    historical_digest = derive_historical_c9_request_identity(
+        scope_digest=SCOPE_DIGEST,
+        actor_ref=command.actor_ref,
+        command_id=command.command_id,
+        command_kind=command.command_kind,
+        payload=command.payload,
+        expected_base_token=command.expected_base_token,
+        approval_locator=command.approval_locator,
+    )
+    with engine.begin() as connection:
+        binding = facade_commands_module.IdempotencyRepository(
+            connection,
+            SCOPE,
+        ).reserve(
+            facade_commands_module.IdempotencyBinding(
+                idempotency_id=f"idem:c9:{command.command_id}",
+                capability_id=LEGACY_C9_CAPABILITY_ID,
+                logical_request_id=command.command_id,
+                operation_kind=f"successor.runtime.c9.{command.command_kind}",
+                request_digest=historical_digest,
+                run_id=None,
+            )
+        )
+        receipt_ref = facade_commands_module.derive_c9_receipt_ref(binding)
+        content = {
+            "schema_version": "mrw.successor.c9.command-receipt.v1",
+            "receipt_ref": receipt_ref,
+            "command_id": command.command_id,
+            "request_digest": historical_digest,
+            "authority_context_digest": "e" * 64,
+            "grant_epoch": 1,
+            "grants_digest": "f" * 64,
+            "approval_refs": [],
+            "canonical_base_revision": 0,
+            "canonical_incarnation": SCOPE_INCARNATION,
+            "state": "STARTED",
+        }
+        ReceiptRepository(connection, project).put_exact(
+            scope=SCOPE,
+            receipt_id=facade_commands_module._legacy_command_receipt_id(
+                command.command_id
+            ),
+            receipt_digest=sha256_hex(content),
+            delivery_intent_ref=f"c9-command-submission:{PROJECT_KEY}",
+            attempt_ref=f"c9-submission:{command.command_id}",
+            provider_locator=f"local:postgres:{PROJECT_SCHEMA}:commands",
+            content=content,
+            outcome_time=NOW,
+        )
+
+        observed = PostgresC9CommandRepository(
+            connection,
+            SCOPE,
+            tables=project,
+        ).submit(command)
+
+        assert observed.request_digest == historical_digest
+        assert observed.receipt_ref == receipt_ref
+        assert observed.idempotency_id == f"idem:c9:{command.command_id}"
+        persisted = facade_commands_module.IdempotencyRepository(
+            connection,
+            SCOPE,
+        ).load(LEGACY_C9_CAPABILITY_ID, command.command_id)
+        assert persisted["request_digest"] == historical_digest
+        with pytest.raises(RecordNotFound):
+            facade_commands_module.IdempotencyRepository(
+                connection,
+                SCOPE,
+            ).load(C9_CAPABILITY_ID, command.command_id)
 
 
 def test_command_repository_effect_mode_rejects_legacy_started_replay(
@@ -1228,7 +1465,7 @@ def test_command_repository_effect_mode_rejects_legacy_started_replay(
 
         binding = facade_commands_module.IdempotencyRepository(
             connection, SCOPE
-        ).load("capability:successor-runtime:c9", command.command_id)
+        ).load(C9_CAPABILITY_ID, command.command_id)
         assert binding["state"] == "STARTED"
         assert binding["terminal_observation_ref"] is None
         assert _command_receipt_count(connection, project) == 1
@@ -1989,7 +2226,7 @@ def test_inconsistent_partial_commit_fatal_escapes_facade_and_outer_rolls_back(
     engine, project = database
     original = sa.engine.Connection.begin_nested
     command = _command(command_id="cmd-c9-pg-fatal-partial")
-    receipt_id = f"c9:command-receipt:{sha256_hex(command.command_id)[:16]}"
+    receipt_id = facade_commands_module._command_receipt_id(command.command_id)
 
     def partial_begin_nested(self: Any) -> Any:
         return _PartialCommitSavepoint(original(self), self, project, receipt_id)
@@ -2070,7 +2307,7 @@ def test_rebuild_rollback_restores_prior_source_binding(
         rolled = rebuilder.rollback(key=_key(), target_generation=0)
         assert int(rolled["projection_generation"]) == 0
         assert rolled["source_digest"] == digest0
-        assert "c9:generation:0:" in rolled["offset_ref"]
+        assert "material-projection:generation:0:" in rolled["offset_ref"]
         active = rebuilder.readback(_key())
         assert active["projection_generation"] == 0
         assert active["source_digest"] == digest0
@@ -2173,7 +2410,7 @@ def test_rebuild_required_sink_failure_does_not_activate_and_retry_is_idempotent
         rebuilder = PostgresC9ProjectionRebuilder(connection, SCOPE, tables=project)
         failing = FailingSinkWriter(
             PostgresProjectionSinkWriter(connection, SCOPE, project),
-            {"graph"},
+            {"knowledge"},
         )
         outcome = rebuilder.rebuild(
             key=_key(),
@@ -2183,7 +2420,10 @@ def test_rebuild_required_sink_failure_does_not_activate_and_retry_is_idempotent
             writer=failing,
         )
         assert outcome.generation_activated is False
-        assert "c9:repair:required-sink:graph" in outcome.repair_refs
+        assert (
+            "material-projection:repair:required-sink:knowledge"
+            in outcome.repair_refs
+        )
         offset = rebuilder.readback(_key())
         assert offset["projection_generation"] == 0
 
@@ -2240,7 +2480,7 @@ def test_rebuild_prior_generation_rollback_and_readback(
         assert active["projection_generation"] == 1
         rolled = rebuilder.rollback(key=_key(), target_generation=0)
         assert int(rolled["projection_generation"]) == 0
-        assert "c9:generation:0:" in rolled["offset_ref"]
+        assert "material-projection:generation:0:" in rolled["offset_ref"]
         receipt_count = connection.execute(
             sa.select(sa.func.count())
             .select_from(project.successor_receipts)
@@ -2252,7 +2492,7 @@ def test_rebuild_prior_generation_rollback_and_readback(
             .select_from(project.successor_values)
             .where(
                 project.successor_values.c.project_key == PROJECT_KEY,
-                project.successor_values.c.value_id.like("c9:semantic-source:%"),
+                project.successor_values.c.value_id.like("projection:source:%"),
             )
         ).scalar()
         # Three immutable typed source rows plus one immutable exact-closure
@@ -2440,7 +2680,7 @@ def _ready_projection(
     graph_value_id = next(
         value.value_id
         for value in query_result.data.candidate_values
-        if value.value_id.startswith("c9:graph:")
+        if value.value_id.startswith("material-projection:knowledge:")
     )
     return source_digest, graph_value_id
 
@@ -2450,6 +2690,174 @@ def _query_facade(connection: Any) -> SuccessorRuntimeFacade:
         submission_port=PostgresC9CommandRepository(connection, SCOPE),
         query_port=PostgresC9QueryRepository(connection, SCOPE),
     )
+
+
+def test_query_reads_historical_candidate_family_without_relabeling(
+    database: tuple[Engine, ProjectTables],
+) -> None:
+    engine, project = database
+    sink_names = {
+        "task": "agent_session",
+        "knowledge": "graph",
+        "material": "search",
+    }
+    historical_types = {
+        "agent_session": "AgentSessionLocalProjection.v1",
+        "graph": "GraphLocalProjection.v1",
+        "search": "SearchLocalProjection.v1",
+    }
+    historical_codecs = {
+        "agent_session": (
+            "mrw.successor.c9.agent-session-projection.canonical-json.v1"
+        ),
+        "graph": "mrw.successor.c9.graph-projection.canonical-json.v1",
+        "search": "mrw.successor.c9.search-projection.canonical-json.v1",
+    }
+    with engine.begin() as connection:
+        _ready_projection(connection, project)
+        candidate_rows = (
+            connection.execute(
+                sa.select(project.successor_values).where(
+                    project.successor_values.c.project_key == PROJECT_KEY,
+                    project.successor_values.c.object_type.in_(
+                        tuple(CANDIDATE_OBJECT_TYPES.values())
+                    ),
+                    project.successor_values.c.provenance_json[
+                        "projection_generation"
+                    ].as_integer()
+                    == 1,
+                )
+            )
+            .mappings()
+            .all()
+        )
+        assert len(candidate_rows) == 3
+        candidate_id_map: dict[str, tuple[str, str]] = {}
+        for row in candidate_rows:
+            provenance = dict(row["provenance_json"])
+            current_sink = str(provenance["sink"])
+            historical_sink = sink_names[current_sink]
+            historical_rebuild_id = str(provenance["rebuild_id"]).replace(
+                "material-projection:rebuild:",
+                "rebuild:c9:",
+                1,
+            )
+            provenance.update(
+                sink=historical_sink,
+                rebuild_id=historical_rebuild_id,
+            )
+            content = dict(row["content_json"])
+            content.update(
+                schema_version=(
+                    "mrw.successor.c9.projection-candidate-envelope.v1"
+                ),
+                projection_id="projection.c9-movement-closure.v1",
+            )
+            content_digest = sha256_hex(content)
+            historical_id = (
+                f"c9:{historical_sink}:historical:gen-1:"
+                f"{content_digest[:12]}"
+            )
+            candidate_id_map[str(row["value_id"])] = (
+                historical_id,
+                content_digest,
+            )
+            connection.execute(
+                sa.update(project.successor_values)
+                .where(
+                    project.successor_values.c.project_key == PROJECT_KEY,
+                    project.successor_values.c.value_id == row["value_id"],
+                )
+                .values(
+                    value_id=historical_id,
+                    object_type=historical_types[historical_sink],
+                    codec_id=historical_codecs[historical_sink],
+                    content_json=content,
+                    content_digest=content_digest,
+                    byte_size=len(canonical_bytes(content)),
+                    provenance_json=provenance,
+                    provenance_digest=sha256_hex(provenance),
+                )
+            )
+
+        receipt_rows = (
+            connection.execute(
+                sa.select(project.successor_receipts).where(
+                    project.successor_receipts.c.project_key == PROJECT_KEY,
+                    project.successor_receipts.c.receipt_id.like(
+                        "material-projection:%:receipt:%:generation-1:%"
+                    ),
+                )
+            )
+            .mappings()
+            .all()
+        )
+        assert len(receipt_rows) == 3
+        source_hash = rebuild_module._key_digest(_key())[:8]
+        for row in receipt_rows:
+            content = dict(row["receipt_json"])
+            historical_sink = sink_names[str(content["sink"])]
+            historical_id, historical_digest = candidate_id_map[
+                str(content["candidate_value_id"])
+            ]
+            historical_rebuild_id = str(content["rebuild_id"]).replace(
+                "material-projection:rebuild:",
+                "rebuild:c9:",
+                1,
+            )
+            content.update(
+                schema_version="mrw.successor.c9.projection-receipt.v1",
+                sink=historical_sink,
+                rebuild_id=historical_rebuild_id,
+                candidate_value_id=historical_id,
+                candidate_digest=historical_digest,
+            )
+            receipt_digest = sha256_hex(content)
+            receipt_id = (
+                f"c9:{historical_sink}:receipt:{source_hash}:"
+                f"gen-1:{receipt_digest[:12]}"
+            )
+            connection.execute(
+                sa.update(project.successor_receipts)
+                .where(
+                    project.successor_receipts.c.project_key == PROJECT_KEY,
+                    project.successor_receipts.c.receipt_id == row["receipt_id"],
+                )
+                .values(
+                    receipt_id=receipt_id,
+                    receipt_json=content,
+                    receipt_digest=receipt_digest,
+                    delivery_intent_ref=(
+                        f"c9-local-projection:{historical_sink}:gen-1"
+                    ),
+                    attempt_ref=f"rebuild:{historical_rebuild_id}",
+                    provider_locator=(
+                        f"local:postgres:{PROJECT_SCHEMA}:{historical_sink}"
+                    ),
+                )
+            )
+
+        observed = PostgresC9QueryRepository(connection, SCOPE).read(
+            _query(projection_id="projection.c9-movement-closure.v1")
+        )
+        assert {value.sink for value in observed.data.candidate_values} == {
+            "agent_session",
+            "graph",
+            "search",
+        }
+        assert {
+            value.value_id for value in observed.data.candidate_values
+        } == {value[0] for value in candidate_id_map.values()}
+        completeness = PostgresC9ProjectionRebuilder(
+            connection,
+            SCOPE,
+            tables=project,
+        ).validate_generation_completeness(key=_key(), generation=1)
+        assert {candidate["sink"] for candidate in completeness.candidates} == {
+            "agent_session",
+            "graph",
+            "search",
+        }
 
 
 def test_query_rejects_missing_required_sink_candidate(
@@ -2489,24 +2897,24 @@ def test_query_rejects_duplicate_required_sink_candidate(
         provenance = {
             "projector_id": PROJECTOR_ID,
             "projector_version": PROJECTOR_VERSION,
-            "source_kind": "successor_values",
+            "source_kind": "projection_source",
             "source_ref": SOURCE_REF,
             "source_incarnation": SCOPE_INCARNATION,
-            "projection_offset_id": "offset:c9-movement:001",
-            "sink": "graph",
+            "projection_offset_id": "offset:material-projection:001",
+            "sink": "knowledge",
             "projection_generation": 1,
-            "rebuild_id": "rebuild:c9:duplicate",
+            "rebuild_id": "material-projection:rebuild:duplicate",
         }
         content = {
-            "schema_version": "mrw.successor.c9.projection-candidate.v1",
+            "schema_version": "mrw.projection.material-closure-candidate.v2",
             "projection_id": PROJECTION_ID,
-            "sink": "graph",
+            "sink": "knowledge",
             "projector_id": PROJECTOR_ID,
             "projector_version": PROJECTOR_VERSION,
-            "source_kind": "successor_values",
+            "source_kind": "projection_source",
             "source_ref": SOURCE_REF,
             "source_incarnation": SCOPE_INCARNATION,
-            "projection_offset_id": "offset:c9-movement:001",
+            "projection_offset_id": "offset:material-projection:001",
             "projection_generation": 1,
             "source_revision": SOURCE_REVISION,
             "source_digest": sha256_hex({"source": SOURCE_REF}),
@@ -2517,9 +2925,9 @@ def test_query_rejects_duplicate_required_sink_candidate(
         digest = sha256_hex(content)
         ValueRepository(connection, project).put_exact(
             scope=SCOPE,
-            value_id="c9:graph:duplicate:gen-1:dup",
-            object_type="GraphLocalProjection.v1",
-            codec_id="mrw.successor.c9.projection-candidate.canonical-json.v1",
+            value_id="material-projection:knowledge:duplicate:generation-1:dup",
+            object_type=CANDIDATE_OBJECT_TYPES["knowledge"],
+            codec_id=rebuild_module.CANDIDATE_CODECS["knowledge"],
             content=content,
             expected_digest=digest,
             provenance_digest=sha256_hex(provenance),
@@ -2611,5 +3019,5 @@ def _source_digest(
     source_ref: str = SOURCE_REF,
 ) -> tuple[str, int]:
     assert source_ref == SOURCE_REF
-    closure = load_exact_semantic_source_closure(connection, SCOPE)
+    closure = load_exact_project_source_closure(connection, SCOPE)
     return closure.closure_digest, int(closure.revision)

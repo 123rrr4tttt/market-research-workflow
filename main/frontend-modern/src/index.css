@@ -112,8 +112,8 @@ button, select, input, textarea { font-family: inherit; }
 
 .kernel-admin {
   min-height: 100vh;
-  background: #060606;
-  color: #f3f3f3;
+  background: var(--app-background-app);
+  color: var(--app-text-primary);
 }
 
 .kernel-admin__rail {
@@ -167,15 +167,15 @@ button, select, input, textarea { font-family: inherit; }
 
 .kernel-admin__shell {
   display: grid;
-  grid-template-columns: 160px minmax(0, 1fr);
-  min-height: calc(100vh - 118px);
+  grid-template-columns: 218px minmax(0, 1fr);
+  min-height: calc(100vh - 104px);
 }
 
 .kernel-admin__sidebar {
-  border-right: 1px solid rgba(255, 255, 255, 0.16);
-  background: transparent;
+  border-right: 1px solid var(--app-border-default);
+  background: var(--app-surface-base);
   color: inherit;
-  padding: 20px;
+  padding: 16px;
   display: grid;
   align-content: start;
   gap: 18px;
@@ -189,28 +189,27 @@ button, select, input, textarea { font-family: inherit; }
 .kernel-admin__brand span,
 .kernel-admin__section-title,
 .kernel-bridge__eyebrow {
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(243, 243, 243, 0.5);
+  font-size: 12px;
+  letter-spacing: 0;
+  color: var(--app-text-secondary);
 }
 
 .kernel-admin__brand strong {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 28px;
+  font-size: 21px;
   letter-spacing: 0.02em;
 }
 
 .kernel-admin__nav {
   display: grid;
-  gap: 22px;
+  gap: 16px;
 }
 
 .kernel-admin__section {
   display: grid;
-  gap: 10px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  gap: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--app-border-default);
 }
 
 .kernel-admin__section:first-child {
@@ -220,26 +219,26 @@ button, select, input, textarea { font-family: inherit; }
 
 .kernel-admin__section-title {
   margin: 0;
-  font-size: 10px;
+  padding: 6px 10px;
+  font-weight: 650;
 }
 
-.kernel-admin__nav-item {
+.kernel-admin .kernel-admin__nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: inherit;
-  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  padding: 8px 10px;
   text-align: left;
   cursor: pointer;
   transition: color 0.18s ease, transform 0.18s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 12px;
-  color: rgba(243, 243, 243, 0.64);
+  letter-spacing: 0;
+  font-size: 14px;
+  color: var(--app-text-secondary);
 }
 
 .kernel-admin__nav-item svg {
@@ -251,17 +250,19 @@ button, select, input, textarea { font-family: inherit; }
   flex: 1;
 }
 
-.kernel-admin__nav-item:hover {
-  transform: translateX(2px);
-  color: #f3f3f3;
+.kernel-admin .kernel-admin__nav-item:hover {
+  background: var(--app-interactive-hover);
+  color: var(--app-text-primary);
 }
 
 .kernel-admin__nav-item:hover svg {
   opacity: 0.9;
 }
 
-.kernel-admin__nav-item.is-active {
-  color: #f3f3f3;
+.kernel-admin .kernel-admin__nav-item.is-active {
+  background: var(--app-interactive-active);
+  color: var(--app-text-primary);
+  font-weight: 650;
 }
 
 .kernel-admin__nav-item.is-active svg {
@@ -272,16 +273,18 @@ button, select, input, textarea { font-family: inherit; }
 .kernel-admin__main {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
-  padding: 18px 20px 20px;
+  min-width: 0;
+  padding: 16px 22px 24px;
 }
 
 .kernel-admin__topbar {
   display: grid;
-  grid-template-columns: minmax(260px, 0.8fr) minmax(480px, 1.2fr);
-  align-items: start;
-  gap: 14px 20px;
-  padding: 12px 20px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  grid-template-columns: minmax(180px, 1fr) auto;
+  align-items: center;
+  gap: 10px 18px;
+  padding: 10px 22px;
+  border-bottom: 1px solid var(--app-border-default);
+  background: var(--app-surface-base);
 }
 
 .kernel-admin__topbar-heading {
@@ -290,10 +293,8 @@ button, select, input, textarea { font-family: inherit; }
 
 .kernel-admin__topbar-heading p {
   margin: 0;
-  color: rgba(243, 243, 243, 0.5);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 10px;
+  color: var(--app-text-secondary);
+  font-size: 12px;
 }
 
 .kernel-admin__title-row {
@@ -306,8 +307,8 @@ button, select, input, textarea { font-family: inherit; }
 
 .kernel-admin__title-row h1 {
   margin: 0;
-  font-size: clamp(28px, 3.2vw, 42px);
-  line-height: 1;
+  font-size: clamp(20px, 2vw, 26px);
+  line-height: 1.25;
   font-weight: 650;
   letter-spacing: -0.02em;
 }
@@ -322,20 +323,55 @@ button, select, input, textarea { font-family: inherit; }
 
 .kernel-admin__topbar-diagnostics {
   display: flex;
-  align-items: start;
+  align-items: center;
   justify-content: end;
   gap: 14px;
   min-width: 0;
 }
 
+.kernel-admin__diagnostics,
+.kernel-admin__project-actions,
+.kernel-admin__secondary-nav { position: relative; }
+.kernel-admin__diagnostics > summary,
+.kernel-admin__project-actions > summary,
+.kernel-admin__secondary-nav > summary {
+  cursor: pointer;
+  color: var(--app-text-secondary);
+  font-size: 13px;
+}
+.kernel-admin__diagnostics[open] .kernel-admin__status-strip,
+.kernel-admin__project-actions[open] > button {
+  position: absolute;
+  z-index: 30;
+  right: 0;
+  top: calc(100% + 8px);
+  width: min(460px, calc(100vw - 28px));
+  padding: 12px;
+  border: 1px solid var(--app-border-default);
+  border-radius: 10px;
+  background: var(--app-surface-raised);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .15);
+}
+.kernel-admin__project-actions[open] > button { width: max-content; max-width: calc(100vw - 28px); }
+.kernel-admin__secondary-nav { padding: 6px 10px; }
+.kernel-admin__secondary-nav > summary { padding: 5px 0; }
+.kernel-admin__nav-item.is-secondary { font-size: 13px; }
+.kernel-admin__help-link { margin-top: 8px; }
+.kernel-admin__mobile-nav-toggle { display: none; }
+
 .kernel-admin__project-bar {
   grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) repeat(3, minmax(140px, 0.42fr));
-  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   min-width: 0;
 }
+
+.kernel-admin__project-bar .kernel-admin__control-field { display: flex; align-items: center; gap: 8px; }
+.kernel-admin__current-project { font-size: 13px; font-weight: 650; color: var(--app-text-primary); overflow-wrap: anywhere; }
+.kernel-admin__project-bar .kernel-admin__control-field span { flex: 0 0 auto; white-space: nowrap; }
+.kernel-admin__project-bar select { flex: 0 0 auto; max-width: 185px; min-height: 34px; }
 
 .kernel-admin__project-bar button {
   min-height: 30px;
@@ -512,42 +548,38 @@ button, select, input, textarea { font-family: inherit; }
 
 .kernel-admin__status-strip-chips {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
-.kernel-admin__status-strip-chips button {
+.kernel-admin .kernel-admin__status-strip-chips button {
   width: 100%;
   min-height: 26px;
   padding: 3px 8px;
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  letter-spacing: 0;
   text-transform: none;
-  background: transparent !important;
-  border: 0 !important;
-  border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
-  color: var(--admin-text-secondary) !important;
+  background: var(--app-surface-base);
+  border: 1px solid var(--app-border-default);
+  color: var(--app-text-secondary);
   justify-content: flex-start;
 }
 
-.kernel-admin__status-strip-chips button:hover {
-  background: rgba(255, 255, 255, 0.04) !important;
-  color: var(--admin-text-primary) !important;
+.kernel-admin .kernel-admin__status-strip-chips button:hover {
+  background: var(--app-interactive-hover);
+  color: var(--app-text-primary);
 }
 
 .kernel-admin__status-strip-chips .chip-ok {
-  color: rgba(243, 243, 243, 0.82) !important;
+  color: var(--app-status-success);
 }
 
 .kernel-admin__status-strip-chips .chip-warn {
-  color: rgba(243, 243, 243, 0.64) !important;
+  color: var(--app-status-warning);
 }
 
 .kernel-admin__status-strip-chips .chip-danger {
-  color: rgba(243, 243, 243, 0.5) !important;
+  color: var(--app-status-danger);
 }
 
 .kernel-admin__stage { background: transparent; }
@@ -569,6 +601,63 @@ button, select, input, textarea { font-family: inherit; }
 }
 
 .kernel-admin__stage { min-width: 0; min-height: 0; }
+
+.business-chain-guide {
+  margin: 0 0 14px;
+  border: 1px solid rgba(122, 146, 176, 0.28);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(248, 251, 255, 0.98), rgba(238, 245, 252, 0.92));
+  overflow: hidden;
+}
+.business-chain-guide.is-collapsed { margin-top: 24px; background: var(--app-surface-base); border-color: var(--app-border-default); }
+.business-chain-guide.is-collapsed .business-chain-guide__header { padding: 10px 14px; align-items: center; }
+.business-chain-guide.is-collapsed .business-chain-guide__eyebrow { display: none; }
+.business-chain-guide.is-collapsed h2 { color: var(--app-text-primary); font-size: 14px; }
+.business-chain-guide.is-collapsed .business-chain-guide__heading > svg { color: var(--app-text-secondary); }
+.business-chain-guide.is-collapsed .business-chain-guide__toggle { background: var(--app-surface-raised); color: var(--app-text-primary); border-color: var(--app-border-default); font-size: 12px; }
+.business-chain-guide__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 18px; }
+.business-chain-guide__heading { display: flex; gap: 11px; align-items: flex-start; }
+.business-chain-guide__heading > svg { margin-top: 3px; color: #2c6e9e; }
+.business-chain-guide__eyebrow { margin: 0 0 3px; color: #66809a; font: 600 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; text-transform: uppercase; }
+.business-chain-guide h2 { margin: 0; color: #17324d; font-size: 16px; }
+.business-chain-guide__heading p:last-child { margin: 5px 0 0; color: #5e748a; font-size: 12px; }
+.business-chain-guide__toggle { border: 1px solid rgba(56, 105, 143, .25); border-radius: 8px; background: rgba(255,255,255,.72); color: #2b638d; cursor: pointer; padding: 6px 10px; font-size: 11px; }
+.business-chain-guide__graph-wrap { overflow-x: auto; padding: 0 16px 8px; }
+.business-chain-guide__graph { display: block; min-width: 1300px; width: 100%; height: auto; }
+.business-chain-guide__edge { stroke: #a4b8c9; stroke-width: 1.4; opacity: .8; }
+.business-chain-guide__node rect { stroke-width: 1.2; }
+.business-chain-guide__node text { fill: #1e3850; font-size: 11px; font-weight: 650; }
+.business-chain-guide__node-detail { fill: #678096 !important; font-size: 8px !important; font-weight: 450 !important; }
+.business-chain-guide__node.is-root rect { fill: #173b5a; stroke: #173b5a; }
+.business-chain-guide__node.is-root text { fill: #fff; }
+.business-chain-guide__node.is-chain rect { fill: #e4f0fa; stroke: #79a8c8; }
+.business-chain-guide__node.is-input rect { fill: #fff3d8; stroke: #d1a94b; }
+.business-chain-guide__node.is-transform rect { fill: #e9f4ec; stroke: #75aa83; }
+.business-chain-guide__node.is-effect rect { fill: #fce9e7; stroke: #d78b84; }
+.business-chain-guide__node.is-evidence rect { fill: #eee9fa; stroke: #9b8cc4; }
+.business-chain-guide__node.is-projection rect { fill: #e8eef9; stroke: #819ec9; }
+.business-chain-guide__legend { display: flex; flex-wrap: wrap; gap: 10px 15px; padding: 4px 18px 12px; color: #587087; font-size: 11px; }
+.business-chain-guide__legend span { display: inline-flex; align-items: center; gap: 5px; }
+.business-chain-guide__swatch { width: 9px; height: 9px; border-radius: 3px; border: 1px solid currentColor; display: inline-block; }
+.business-chain-guide__swatch.is-input { color: #d1a94b; background: #fff3d8; }
+.business-chain-guide__swatch.is-transform { color: #75aa83; background: #e9f4ec; }
+.business-chain-guide__swatch.is-effect { color: #d78b84; background: #fce9e7; }
+.business-chain-guide__swatch.is-evidence { color: #9b8cc4; background: #eee9fa; }
+.business-chain-guide__swatch.is-projection { color: #819ec9; background: #e8eef9; }
+.business-chain-guide__cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; padding: 0 18px 14px; }
+.business-chain-guide__card { min-width: 0; border: 1px solid rgba(122, 146, 176, .2); border-radius: 10px; background: rgba(255,255,255,.68); padding: 10px; }
+.business-chain-guide__card-title { display: flex; align-items: center; gap: 6px; color: #214b6b; font-size: 12px; }
+.business-chain-guide__card-title svg { color: #6b91ad; }
+.business-chain-guide__card p { min-height: 31px; margin: 6px 0 8px; color: #60758a; font-size: 10px; line-height: 1.45; }
+.business-chain-guide__card dl { margin: 0; display: grid; gap: 5px; }
+.business-chain-guide__card dl > div { display: grid; gap: 2px; }
+.business-chain-guide__card dt { color: #8294a5; font-size: 9px; }
+.business-chain-guide__card dd { display: flex; align-items: center; gap: 4px; margin: 0; overflow-wrap: anywhere; color: #39566e; font-size: 10px; }
+.business-chain-guide__card dd svg { flex: 0 0 auto; color: #6b9c80; }
+.business-chain-guide__note { display: flex; align-items: center; gap: 5px; margin: 0; padding: 0 18px 14px; color: #71869a; font-size: 10px; }
+.business-chain-guide__note svg:last-child { margin-left: auto; color: #9aafbf; }
+@media (max-width: 1100px) { .business-chain-guide__cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 680px) { .business-chain-guide__cards { grid-template-columns: 1fr; } .business-chain-guide__header { padding: 13px; } .business-chain-guide__graph-wrap, .business-chain-guide__legend, .business-chain-guide__cards, .business-chain-guide__note { padding-left: 13px; padding-right: 13px; } }
 
 .kernel-admin__stage {
   overflow: auto;
@@ -596,10 +685,19 @@ button, select, input, textarea { font-family: inherit; }
 }
 
 .kernel-admin {
-  --admin-text-primary: rgba(243, 243, 243, 0.9);
-  --admin-text-secondary: rgba(243, 243, 243, 0.72);
-  --admin-text-tertiary: rgba(243, 243, 243, 0.54);
-  --admin-text-muted: rgba(243, 243, 243, 0.4);
+  --admin-text-primary: var(--app-text-primary);
+  --admin-text-secondary: var(--app-text-secondary);
+  --admin-text-tertiary: var(--app-text-secondary);
+  --admin-text-muted: var(--app-text-secondary);
+  --admin-surface: var(--app-surface-base);
+  --admin-border: var(--app-border-default);
+  --admin-accent: var(--app-accent-primary);
+  --surface-raised: var(--app-surface-raised);
+  --surface-muted: var(--app-surface-raised);
+  --border-subtle: var(--app-border-default);
+  --text-primary: var(--app-text-primary);
+  --text-muted: var(--app-text-secondary);
+  --status-warning: var(--app-status-warning);
   color: var(--admin-text-primary);
 }
 
@@ -640,23 +738,20 @@ button, select, input, textarea { font-family: inherit; }
 .kernel-admin textarea,
 .kernel-admin select,
 .kernel-admin button {
-  border-radius: 0 !important;
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 .kernel-admin .panel,
 .kernel-admin .table-wrap,
 .kernel-admin .kpi-card {
-  background: transparent;
-  border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-color: var(--app-border-default);
 }
 
 .kernel-admin input,
 .kernel-admin textarea,
 .kernel-admin select {
-  background: #050505;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--app-surface-base);
+  border: 1px solid var(--app-border-default);
   color: var(--admin-text-primary);
 }
 
@@ -667,39 +762,26 @@ button, select, input, textarea { font-family: inherit; }
 .kernel-admin textarea:focus-visible,
 .kernel-admin select:focus-visible {
   outline: none;
-  background: #050505 !important;
-  border-color: rgba(255, 255, 255, 0.3) !important;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  background: var(--app-surface-base);
+  border-color: var(--app-interactive-focus);
+  box-shadow: 0 0 0 2px var(--app-interactive-focus);
 }
 
 .kernel-admin button {
-  background: #050505;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--app-surface-base);
+  border: 1px solid var(--app-border-default);
   color: var(--admin-text-primary);
 }
 
 .kernel-admin button:hover {
-  background: #111111;
-  border-color: rgba(255, 255, 255, 0.28);
+  background: var(--app-interactive-hover);
+  border-color: var(--app-border-strong);
 }
 
 .kernel-admin .chip {
-  background: #050505;
-  border-color: rgba(255, 255, 255, 0.16);
+  background: var(--app-surface-base);
+  border-color: var(--app-border-default);
   color: var(--admin-text-primary);
-}
-
-.kernel-admin .topbar,
-.kernel-admin h2,
-.kernel-admin h3,
-.kernel-admin td,
-.kernel-admin th,
-.kernel-admin label,
-.kernel-admin p,
-.kernel-admin span,
-.kernel-admin div,
-.kernel-admin strong {
-  color: inherit;
 }
 
 .kernel-admin .status-line {
@@ -713,12 +795,12 @@ button, select, input, textarea { font-family: inherit; }
 
 .kernel-admin select,
 .kernel-admin option {
-  background: #050505;
+  background: var(--app-surface-base);
   color: var(--admin-text-primary);
 }
 
 .kernel-admin select {
-  color-scheme: dark;
+  color-scheme: light dark;
 }
 
 .kernel-admin label > span,
@@ -730,14 +812,6 @@ button, select, input, textarea { font-family: inherit; }
   color: var(--admin-text-tertiary);
 }
 
-.kernel-admin td,
-.kernel-admin p,
-.kernel-admin strong,
-.kernel-admin button,
-.kernel-admin .chip {
-  color: var(--admin-text-primary);
-}
-
 .kernel-admin .projects-page,
 .kernel-admin .crawler-page,
 .kernel-admin .process-page,
@@ -745,6 +819,7 @@ button, select, input, textarea { font-family: inherit; }
 .kernel-admin .ops-page,
 .kernel-admin .settings-page {
   gap: 22px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .kernel-admin .projects-page > .panel:first-child,
@@ -757,11 +832,6 @@ button, select, input, textarea { font-family: inherit; }
   padding-top: 0;
 }
 
-.kernel-admin .resource-page > .panel:first-child,
-.kernel-admin .ops-page > .panel:first-child {
-  display: none;
-}
-
 .kernel-admin .process-page .kpi-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
@@ -769,8 +839,10 @@ button, select, input, textarea { font-family: inherit; }
 }
 
 .kernel-admin .process-page .kpi-card {
-  min-height: 132px;
-  padding: 18px 0 8px;
+  min-height: 108px;
+  padding: 14px;
+  background: var(--app-surface-base);
+  border: 1px solid var(--app-border-default);
   display: grid;
   align-content: space-between;
 }
@@ -782,15 +854,15 @@ button, select, input, textarea { font-family: inherit; }
 .kernel-admin .ops-page .panel-header h2,
 .kernel-admin .settings-page .panel-header h2,
 .kernel-admin .process-page .panel-header h2 {
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-size: 10px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 15px;
 }
 
 .kernel-admin .process-page .kpi-card strong {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 42px;
-  line-height: 0.9;
+  font-size: 30px;
+  line-height: 1.1;
 }
 
 .kernel-admin .process-page .kpi-card small {
@@ -813,7 +885,7 @@ button, select, input, textarea { font-family: inherit; }
 .kernel-admin .resource-page .panel-header,
 .kernel-admin .ops-page .panel-header,
 .kernel-admin .settings-page .panel-header {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid var(--app-border-default);
   padding-bottom: 14px;
   margin-bottom: 14px;
 }
@@ -836,6 +908,9 @@ button, select, input, textarea { font-family: inherit; }
 .kernel-admin .settings-page .inline-actions {
   gap: 8px;
 }
+.kernel-admin .process-page .panel-header { flex-wrap: wrap; gap: 10px; }
+.kernel-admin .process-page .panel-header .inline-actions { flex-wrap: wrap; justify-content: flex-end; }
+.kernel-admin .process-page .panel-header label { white-space: nowrap; }
 
 .kernel-admin .process-page .table-wrap,
 .kernel-admin .projects-page .table-wrap,
@@ -897,11 +972,11 @@ button, select, input, textarea { font-family: inherit; }
 .kernel-admin .resource-page thead th,
 .kernel-admin .ops-page thead th,
 .kernel-admin .settings-page thead th {
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 10px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
   color: var(--admin-text-tertiary);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom: 1px solid var(--app-border-default);
   padding-top: 12px;
   padding-bottom: 12px;
 }
@@ -912,7 +987,7 @@ button, select, input, textarea { font-family: inherit; }
 .kernel-admin .resource-page tbody td,
 .kernel-admin .ops-page tbody td,
 .kernel-admin .settings-page tbody td {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--app-border-default);
   background: transparent !important;
 }
 
@@ -922,7 +997,7 @@ button, select, input, textarea { font-family: inherit; }
 .kernel-admin .resource-page tbody tr:hover,
 .kernel-admin .ops-page tbody tr:hover,
 .kernel-admin .settings-page tbody tr:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--app-interactive-hover);
 }
 
 .kernel-admin .process-page tbody tr:hover td,
@@ -931,7 +1006,7 @@ button, select, input, textarea { font-family: inherit; }
 .kernel-admin .resource-page tbody tr:hover td,
 .kernel-admin .ops-page tbody tr:hover td,
 .kernel-admin .settings-page tbody tr:hover td {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: var(--app-interactive-hover) !important;
 }
 
 .kernel-admin .process-page .empty-cell,
@@ -948,9 +1023,9 @@ button, select, input, textarea { font-family: inherit; }
 .kernel-admin .process-page .status-success,
 .kernel-admin .process-page .status-failure,
 .kernel-admin .process-page .status-retry {
-  background: #050505;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  color: #f3f3f3;
+  background: var(--app-surface-raised);
+  border: 1px solid var(--app-border-default);
+  color: var(--app-text-primary);
 }
 
 .kernel-admin .settings-page .form-grid,
@@ -974,8 +1049,8 @@ button, select, input, textarea { font-family: inherit; }
 }
 
 .kernel-admin .settings-page .app-settings-guide {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: #050505;
+  border: 1px solid var(--app-border-default);
+  background: var(--app-surface-raised);
   padding: 14px;
   margin-bottom: 14px;
 }
@@ -1043,7 +1118,7 @@ button, select, input, textarea { font-family: inherit; }
   width: 14px;
   height: 14px;
   margin: 0;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border: 1px solid var(--app-border-strong);
   background: transparent;
   display: inline-grid;
   place-items: center;
@@ -1053,7 +1128,7 @@ button, select, input, textarea { font-family: inherit; }
   content: '';
   width: 7px;
   height: 7px;
-  background: #f3f3f3;
+  background: var(--app-accent-primary);
   transform: scale(0);
   transition: transform 120ms ease-out;
 }
@@ -1075,20 +1150,20 @@ button, select, input, textarea { font-family: inherit; }
 
 .kernel-admin .resource-page .action-grid button {
   justify-content: center;
-  background: #050505 !important;
-  border: 1px solid rgba(255, 255, 255, 0.16) !important;
-  color: #f3f3f3 !important;
+  background: var(--app-surface-base);
+  border: 1px solid var(--app-border-default);
+  color: var(--app-text-primary);
 }
 
 .kernel-admin .resource-page .action-grid button:hover {
-  background: #111111 !important;
-  border-color: rgba(255, 255, 255, 0.28) !important;
+  background: var(--app-interactive-hover);
+  border-color: var(--app-border-strong);
 }
 
 .kernel-admin .resource-page .action-grid button:disabled {
-  background: #0b0b0b !important;
-  color: var(--admin-text-muted) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: var(--app-background-subtle);
+  color: var(--admin-text-muted);
+  border-color: var(--app-border-default);
   opacity: 1;
 }
 
@@ -3594,29 +3669,25 @@ tbody tr:last-child td { border-bottom: 0; }
   .kernel-admin {
     display: block;
   }
-  .kernel-admin__topbar,
-  .kernel-admin__project-bar,
-  .kernel-admin__status-strip-chips {
-    grid-template-columns: 1fr;
-  }
   .kernel-admin__topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
   }
+  .kernel-admin__project-bar { grid-column: 1 / -1; }
+  .kernel-admin__status-strip-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kernel-admin__topbar-diagnostics {
-    display: grid;
-    justify-content: stretch;
+    justify-content: end;
   }
   .kernel-admin__status-strip {
     justify-self: stretch;
     width: 100%;
   }
   .kernel-admin__shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: 190px minmax(0, 1fr);
     min-height: 0;
   }
   .kernel-admin__sidebar {
-    border-right: 0;
-    border-bottom: 1px solid rgba(34, 52, 70, 0.12);
+    padding: 12px;
   }
   .kernel-workbench__rail {
     grid-template-columns: 1fr;
@@ -4141,6 +4212,112 @@ button {
   padding: 10px;
 }
 
+.gv2-projection-tabs {
+  display: block;
+  margin: 0 0 10px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--gv2-line);
+  background: linear-gradient(180deg, rgba(7, 12, 20, 0.96) 0%, rgba(4, 8, 15, 0.98) 100%);
+}
+
+.gv2-projection-tab-track {
+  display: flex;
+  align-items: flex-end;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(125, 211, 252, 0.32) transparent;
+}
+
+.gv2-projection-tab {
+  --projection-tab-height: 38px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  min-width: 108px;
+  max-width: 184px;
+  height: var(--projection-tab-height);
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-right: 1px solid rgba(31, 42, 58, 0.85);
+  border-bottom: 1px solid var(--gv2-line);
+  /* Restore the IDE-tab shape against the app-wide square-button rule. */
+  border-radius: 7px 7px 0 0 !important;
+  background: rgba(8, 13, 22, 0.72);
+  color: var(--gv2-text-soft);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.gv2-projection-tab::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 0;
+  height: 2px;
+  border-radius: 999px 999px 0 0;
+  background: transparent;
+}
+
+.gv2-projection-tab:hover {
+  background: rgba(14, 23, 37, 0.88);
+  color: #dceeff;
+}
+
+.gv2-projection-tab:focus-visible {
+  outline: none;
+  border-color: rgba(125, 211, 252, 0.58);
+  box-shadow: inset 0 0 0 1px rgba(125, 211, 252, 0.24);
+}
+
+.gv2-projection-tab.is-active {
+  height: calc(var(--projection-tab-height) + 1px);
+  border-color: var(--gv2-line-strong) transparent var(--gv2-line-strong) var(--gv2-line-strong);
+  border-bottom-color: transparent;
+  background: linear-gradient(180deg, rgba(20, 39, 60, 0.98) 0%, rgba(2, 5, 11, 1) 100%);
+  color: #edf7ff;
+}
+
+.gv2-projection-tab.is-active::before {
+  background: linear-gradient(90deg, var(--gv2-accent), var(--gv2-accent-soft));
+}
+
+.gv2-projection-tab-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.gv2-projection-tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 680px) {
+  .kernel-admin__topbar { grid-template-columns: minmax(0, 1fr); padding: 10px 14px; }
+  .kernel-admin__topbar-diagnostics { justify-content: space-between; flex-wrap: wrap; }
+  .kernel-admin__project-bar { grid-column: 1; }
+  .kernel-admin__project-bar .kernel-admin__control-field { flex: 1 1 100%; }
+  .kernel-admin__project-bar select { flex: 1 1 auto; max-width: none; min-width: 0; }
+  .kernel-admin__shell { display: block; }
+  .kernel-admin__mobile-nav-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 14px; background: var(--app-surface-base); border: 0; border-bottom: 1px solid var(--app-border-default); color: var(--app-text-primary); text-align: left; }
+  .kernel-admin__sidebar { display: none; border-right: 0; border-bottom: 1px solid var(--app-border-default); }
+  .kernel-admin__sidebar.is-open { display: grid; }
+  .kernel-admin__brand { display: none; }
+  .kernel-admin__main { padding: 12px 14px 20px; }
+  .gv2-projection-tabs,
+  .gv2-projection-tab-track {
+    max-width: calc(100vw - 44px);
+  }
+}
+
 .gv2-checkbox {
   padding: 6px 8px;
   border: 1px solid var(--gv2-line);
@@ -4657,6 +4834,12 @@ button {
   border-left: calc(5px * var(--edge-badge-scale, 1)) solid var(--edge-color, var(--gv2-accent));
   border-top: calc(4px * var(--edge-badge-scale, 1)) solid transparent;
   border-bottom: calc(4px * var(--edge-badge-scale, 1)) solid transparent;
+}
+
+.gv2-edge-svg-badge {
+  height: 20px;
+  flex: 0 0 auto;
+  display: block;
 }
 
 .gv2-node-card {

@@ -1,0 +1,48 @@
+{
+  "status": "ok",
+  "data": {
+    "task_id": "b8703943-9c0d-4863-b0ea-485ead20f1e1",
+    "status": "SUCCESS",
+    "ready": true,
+    "successful": true,
+    "failed": false,
+    "result": {
+      "inserted": 1,
+      "updated": 0,
+      "skipped": 0,
+      "error_count": 0,
+      "errors": [],
+      "items": [
+        {
+          "index": 0,
+          "doc_id": 1,
+          "status": "ok",
+          "uri": null,
+          "uris": [],
+          "fetched_from_url": false,
+          "doc_type": "policy"
+        }
+      ],
+      "source_name": "readiness_repair_recovery",
+      "project_key": "readiness_repair"
+    },
+    "progress": null,
+    "traceback": null,
+    "inserted_valid": null,
+    "rejected_count": 0,
+    "rejection_breakdown": {},
+    "degradation_flags": [],
+    "quality_score": null,
+    "error_code": "OK",
+    "handler_used": null,
+    "skip_reason": null,
+    "name": null
+  },
+  "error": null,
+  "meta": {
+    "trace_id": "66cd9434-2335-402f-84a8-4cae893532d0",
+    "pagination": null,
+    "project_key": "readiness_repair",
+    "deprecated": null
+  }
+}

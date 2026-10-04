@@ -38,7 +38,7 @@ class CrawlerAttemptRecord:
     def attempt_ref(self) -> Any:
         """Materialize the canonical C2.3 attempt reference on demand."""
 
-        from app.successor_runtime.capabilities.source_library_c2_shared import ProviderAttemptRef
+        from app.successor_runtime.capabilities.source_contracts import ProviderAttemptRef
 
         return ProviderAttemptRef(
             attempt_id=self.attempt_id,
@@ -424,7 +424,7 @@ class DurableCrawlerEffectBridge:
             return record.cancel_receipt
         if record.terminal:
             try:
-                from app.successor_runtime.capabilities.source_library_c2_shared import (
+                from app.successor_runtime.capabilities.source_contracts import (
                     CancelReceipt,
                     ProviderAttemptRef,
                 )
@@ -451,7 +451,7 @@ class DurableCrawlerEffectBridge:
                 f"crawler provider does not support cancel(): {record.provider}",
             )
         try:
-            from app.successor_runtime.capabilities.source_library_c2_shared import CancelReceipt, ProviderAttemptRef
+            from app.successor_runtime.capabilities.source_contracts import CancelReceipt, ProviderAttemptRef
 
             attempt = ProviderAttemptRef(
                 attempt_id=record.attempt_id,

@@ -1,0 +1,140 @@
+{
+  "schema_version": "mrw.structure-cleanup.docker-deep-cleanup.v1",
+  "completed_at": "2026-10-04T22:13:59+08:00",
+  "status": "completed",
+  "scope": "Docker-only deep cleanup after the structure cleanup was accepted; no host business data or frozen evidence archives were deleted",
+  "before": {
+    "docker_system_df": {
+      "images": {"system_df_count": 45, "images_minus_a_count": 47, "size": "16.44GB", "active": 1},
+      "containers": {"count": 1, "size": "20.48kB", "active": 0},
+      "volumes": {"count": 52, "size": "1.84GB", "active": 2},
+      "build_cache": {"count": 408, "size": "19.54GB", "active": 0}
+    },
+    "docker_raw_allocated_bytes": 36765544448,
+    "docker_raw_allocated_gib": 34.24
+  },
+  "after": {
+    "docker_system_df": {
+      "images": {"count": 5, "size": "3.958GB", "active": 1},
+      "containers": {"count": 1, "size": "20.48kB", "active": 0},
+      "volumes": {"count": 9, "size": "550MB", "active": 2},
+      "build_cache": {"count": 0, "size": "0B", "active": 0}
+    },
+    "docker_raw_allocated_bytes": 6036193280,
+    "docker_raw_allocated_gib": 5.62,
+    "host_free_bytes": 56089133056,
+    "host_free_gib": 52.23
+  },
+  "direct_docker_raw_reduction": {
+    "bytes": 30729351168,
+    "gib": 28.62,
+    "measurement": "st_blocks * 512 on Docker.raw, not logical capacity"
+  },
+  "space_boundary": "Docker.raw reduction is direct. Host free-space change is larger and includes concurrent macOS/APFS activity, so it is not reported as the cleanup result.",
+  "removed": {
+    "build_cache": {
+      "count": 408,
+      "logical_size_before": "19.54GB",
+      "reason": "all records were inactive; 11.13GB private records were removed first, then 8.414GB records shared only by deleted images were removed after image retirement",
+      "record_level_inventory_limitation": "individual BuildKit record IDs were not persisted before the second pass; the object set is bounded by the before/after system df counts and total size"
+    },
+    "images": {
+      "count": 42,
+      "ids": [
+        "05a558da40b9", "061eaef70efb", "06356c352508", "069c6800b8bd",
+        "0fa157c495de", "2fdb05402a2c", "35b37cc4eb89", "3b409669bb82",
+        "3d9a08c80abb", "4510eed4c67a", "4b6dd0dc5c9a", "528257d48c1d",
+        "59f120f1c0a1", "62f43ca701fb", "65645c7bb6a0", "6573196e5dbe",
+        "65e1acb87a2b", "66807fd419c5", "6f7ffcbabc08", "74f3123b4556",
+        "76f9ec5b3832", "7d1042ce588a", "83757acf202b", "87c4483c7924",
+        "8c221b83ce24", "8e7a68641868", "8ef7235b26d0", "9534e5a8e315",
+        "a4fc589b32e8", "bcdb54504942", "c04e9578dc2c", "ccc6e83d6e35",
+        "cf78e76683b9", "d72688f24fb8", "d9e853e87e55", "dcb22203acd3",
+        "e2b22eac59c0", "e48f7159d5aa", "e5736a25fe02", "f247a1492400",
+        "f5641ba6d2b5", "f9a606e271af"
+      ],
+      "reason": "retired stage/r13/ops/test/launcher images and Docker-resident copies of the r13x candidate tags; checksum-bound canonical OCI archives remain the recovery authority"
+    },
+    "volumes": {
+      "count": 43,
+      "names": [
+        "0a5b135fce70ecade3b6cb2f6a7620bff2eb4c4cd3ad9ee704417e57648c44ab",
+        "0a5e8e27c6c9425555aac17b586ab02e59c48d236395be2afea151488ec97b1b",
+        "1c63155f6434c937d84a53957f0b95dd703bafff87c3bd769887c5c5bca1ca88",
+        "1e987aaade6c90a6dd87a840378d944301c0e0ddc69aea50eeeff640ae12af0b",
+        "1ec49f3d7e6d33cd70081304286e4800bad35a4e3b1234a2c1996623c65becef",
+        "2b8fe44acc77413a513d7275c5ff70fca34bf842ac88ea5129599836ee439037",
+        "3d3249ad156e501dd303c0e504b37ca2123c2ffc376c3d0a64e19920c5334354",
+        "4e2bafae97e15ad6d4d65d47e6ce55320df63ba676cd45947e2d8d0958e6b38",
+        "6a8a3b479f17a58d4cb80c452774445d92795f8510637d60d4949d16b79af32b",
+        "6c9d44404f269c55409eaca630274a0a91a277c3fd4d510203f73b5a6034710e",
+        "6e88c7746f21f2c67742a54abb665bf88e043bc20f011f3012661446b33accac",
+        "06e11f67dd60e1661f43aa2198bb78ff0d58dab063fb8d753e6113c8793a42be",
+        "7a4d52317ebf75cb3b9762d3f1c92a86e4786107045413d563a378e66a888310",
+        "7a11750ef2c2a4f80df851100be2f45fa4b5f147a3be31f4e0eb5e7a488563a6",
+        "7ba65afba49d41381a07016e7027574e38291e74e0e26ffbabcbeb3d8197c80c",
+        "07b35ddddd567a73eadf065eac1856b382f5f780b2063f18cd226cdea742e709",
+        "8b927dd38fdb0577bbdc241bcb13d5376b21942e93f8603094bc08c799b8d113",
+        "27d6a951f0f141888701626de8a74f78f303e8aa4399692ba188307eec0d87bf",
+        "66e4015be00e10453533355795b9fc492f43004705ee9894d2c9c990d4cfc824",
+        "69c7857e8da733f867cb16a440326d5d67b655d7a20d790691e272954e008dcb",
+        "633e6666146babcddcec128fd31c32f25bac2690cca7200b66b40572718ea5e2",
+        "715f6921689b235d918380f6c4d841d2f6f7b87ed70eaa2bf18d1c0859cb44bd",
+        "384730d316b427656c8ab5f24f2d1450ecdc19cad2e2fbd47bc9a666a5f3781f",
+        "0554953c9815d47aba4557bfad10e9054e0d5ff062710c01d73fa3e6dc7a8e07",
+        "4274868e3e671cf446141999058938e03c110c60a9ff925c1366b56a3728d453",
+        "af6ec06eec87e8beda22b9834c17c8818b15b30d1f33a09b6e15d0a44ed5b6fc",
+        "af14dd355831d8b087e01d838633c75d16e6977ef1791a1c33f56d76598a3f6f",
+        "b053d4efb4c384de76189aaf56b8ea0774288293f955ba46f1ab5b8a017933d5",
+        "b1333f40e65199e426d636cb1a233835e2c35f7999801cb06918c4edd95aca1b",
+        "bfe41820f155dad5287cf9798726c70157bd366b3f4d394c1b47cb68a5e3b3ef",
+        "c1cb0c9889e0b47ddfced795e885e70631151d88741a689a3065435265e8946a",
+        "c72fbd038ffe519f143a891733f0ccf2a464c6981edf85f98a04f25cc32d7f4b",
+        "d6e22e89accab8484486eda9bb08aa441e29667b743248317a75f80e080054a",
+        "e0d088c0fc8aad9ffa971506d55439399c615dffc63e28437dcf2999ae737719",
+        "e73b34ea19586a64649ed1cd6657017d31e1f8faf7b90a99ee64ed4e6a2936f1",
+        "fcbb6067eaa03795656806250b01c1a7a69519dacad19aa75031ec4aebf1634e",
+        "fd3dfe30c971a2dc8ef1dcdea78782a883ff0ab9189ef62b267022e606f403ab",
+        "mrw-readiness-tests-20261004_db_data",
+        "mrw-readiness-tests-20261004_es_data",
+        "mrw-repair-20261004_codex_auth",
+        "mrw-repair-20261004_db_data",
+        "mrw-repair-20261004_es_data",
+        "mrw-repair-capacity-socket-20261004"
+      ],
+      "reason": "inactive anonymous volumes plus explicitly completed readiness/repair test volumes; the two anonymous volumes mounted by ops-scrapyd-1 were retained"
+    }
+  },
+  "retained": {
+    "images": [
+      {"id": "71da9275c5f3", "ref": "redis:7.4", "reason": "offline r13x runtime base"},
+      {"id": "01c1732062b4", "ref": "docker.elastic.co/elasticsearch/elasticsearch:8.15.3", "reason": "offline r13x runtime base"},
+      {"id": "956744bd14e9", "ref": "ankane/pgvector:latest", "reason": "offline r13x runtime base"},
+      {"id": "d1f1f7a82419", "ref": "vimagick/scrapyd:latest", "reason": "required by retained ops-scrapyd-1 container"},
+      {"id": "28a898719c18", "ref": "moby/buildkit:buildx-stable-1", "reason": "local buildx bootstrap"}
+    ],
+    "volumes": [
+      "d7be092734aeb32d51bb9f64f36ed96a73f7e2cdb2453d476b6c16afe2b6f82f",
+      "95782ad41162aa23e30db020cd9dbd05258b6a62b662c2d3c882c8608e881137",
+      "mrw-local-user_db_data",
+      "mrw-local-user_es_data",
+      "mrw-local-user_local_user_logs",
+      "mrw-local-user_local_user_redis",
+      "ops_codex_auth",
+      "ops_db_data",
+      "ops_es_data"
+    ],
+    "container": "ops-scrapyd-1",
+    "r13x_authority": "checksum-bound canonical/replay OCI archives and canonical layouts; Docker tags are no longer the authority"
+  },
+  "recovery": {
+    "r13x_archives_checksum_check": "candidate backend/frontend/migration-runner image.oci.tar all OK",
+    "docker_tag_restore": "docker load the corresponding canonical OCI archive and verify image ID per local-runbook.r13x.md"
+  },
+  "validation": {
+    "backend_health": {"http": 200, "body": "{\"status\":\"ok\",\"provider\":\"openai\",\"env\":\"dev\"}"},
+    "frontend_http": 200,
+    "webui_http": 200,
+    "ops_scrapyd_container": "retained, exited; its two mounted crawler volumes remain present"
+  }
+}

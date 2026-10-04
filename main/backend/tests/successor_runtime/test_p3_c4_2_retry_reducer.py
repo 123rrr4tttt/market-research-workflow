@@ -6,7 +6,7 @@ import dataclasses
 
 import pytest
 
-from app.successor_runtime.capabilities.agent_batch_c4 import (
+from app.successor_runtime.capabilities.batch_task import (
     AgentBatchTask,
     RetryAction,
     RetryBudget,
@@ -14,7 +14,7 @@ from app.successor_runtime.capabilities.agent_batch_c4 import (
     validate_retry_action,
 )
 
-from .p3_c4_fixture import retry_payload
+from .p3_c4_fixture import PROJECT_KEY, retry_payload
 
 
 def _narrow_payload(score: float = 0.5):
@@ -38,7 +38,7 @@ def test_scheduled_retry_preserves_order_and_emits_fresh_attempt_intent() -> Non
     intent = transition.attempt_intent
     assert intent.prior_attempt_ref == "attempt:round-1"
     assert intent.round_index == 1
-    assert intent.attempt_id == "attempt:p3-c4-demo:attempt:round-1:retry:1"
+    assert intent.attempt_id == f"attempt:{PROJECT_KEY}:attempt:round-1:retry:1"
     assert intent.idempotency_key == "attempt:round-1:retry:1"
     assert intent.attempt_intent_digest
     assert transition.tasks[-1].channel == "source_library"

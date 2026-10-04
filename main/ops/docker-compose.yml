@@ -38,6 +38,7 @@ services:
   redis:
     image: redis:7.4
   backend:
+    platform: ${MRW_DOCKER_PLATFORM:-linux/amd64}
     build:
       context: ../../
       dockerfile: ./main/backend/Dockerfile
@@ -56,8 +57,11 @@ services:
       YACY_RESOURCE_MODE: ${YACY_RESOURCE_MODE:-local}
       RUN_MIGRATIONS: ${RUN_MIGRATIONS_BACKEND:-true}
       CELERY_LOG_FILE: /var/log/celery/worker.log
-      OPENAI_API_BASE: "https://api.openai.com/v1"
       MODERN_FRONTEND_URL: ${MODERN_FRONTEND_URL:-http://localhost:5174}
+      CODEX_WEBUI_INTERNAL_URL: ${CODEX_WEBUI_INTERNAL_URL:-http://host.docker.internal:8172}
+      PYTHONPATH: /app:/opt/functorial-kit:/opt/mrw/src
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy
@@ -70,6 +74,9 @@ services:
     volumes:
       - ../backend:/app
       - ../../信息源库:/app/信息源库:ro
+      # Native successor runtime imports the sibling functorial-kit package.
+      # Keep the host path configurable while matching the local-user overlay.
+      - ${MRW_FUNCTORIAL_KIT_PATH:-../../../Desktop/functorial-kit/python}:/opt/functorial-kit:ro
       - ../backend/docker-entrypoint.sh:/docker-entrypoint.sh:ro
       - ../logs:/var/log/celery
       - codex_auth:/root/.codex
@@ -84,6 +91,7 @@ services:
       retries: 3
       start_period: 40s
   celery-worker:
+    platform: ${MRW_DOCKER_PLATFORM:-linux/amd64}
     build:
       context: ../../
       dockerfile: ./main/backend/Dockerfile
@@ -102,6 +110,7 @@ services:
       YACY_RESOURCE_MODE: ${YACY_RESOURCE_MODE:-local}
       RUN_MIGRATIONS: ${RUN_MIGRATIONS_WORKER:-false}
       CELERY_LOG_FILE: /var/log/celery/worker.log
+      PYTHONPATH: /app:/opt/functorial-kit:/opt/mrw/src
     depends_on:
       backend:
         condition: service_healthy
@@ -112,6 +121,7 @@ services:
     volumes:
       - ../backend:/app
       - ../../信息源库:/app/信息源库:ro
+      - ${MRW_FUNCTORIAL_KIT_PATH:-../../../Desktop/functorial-kit/python}:/opt/functorial-kit:ro
       - ../logs:/var/log/celery
       - codex_auth:/root/.codex
     command: >-

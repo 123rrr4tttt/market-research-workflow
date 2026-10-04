@@ -1,0 +1,17 @@
+{
+  "http_status": 200,
+  "response": {
+    "status": "ok",
+    "data": {
+      "indexed": 1,
+      "documents": 1
+    },
+    "error": null,
+    "meta": {
+      "trace_id": "2bb56683-826a-45c6-9adb-e7e649997a52",
+      "pagination": null,
+      "project_key": "readiness_daily_20261004",
+      "deprecated": null
+    }
+  }
+}

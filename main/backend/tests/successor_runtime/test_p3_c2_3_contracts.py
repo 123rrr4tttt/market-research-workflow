@@ -5,21 +5,25 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from app.successor_runtime.capabilities import source_library_c2_1 as c21
-from app.successor_runtime.capabilities import source_library_c2_2 as c22
-from app.successor_runtime.capabilities import source_library_c2_2_interpreters as c22i
-from app.successor_runtime.capabilities import source_library_c2_3 as c23
+import dataclasses
+import pytest
+
+from app.successor_runtime.capabilities import source_resolution as c21
+from app.successor_runtime.capabilities import source_planning as c22
+from app.successor_runtime.capabilities import source_planning_interpreters as c22i
+from app.successor_runtime.capabilities import source_provider_acquisition as c23
+from app.successor_runtime.capabilities import source_contracts as c2_shared
 from app.successor_runtime.capabilities import (
-    source_library_c2_3_ports as c23_ports,
+    source_provider_ports as c23_ports,
 )
 from app.successor_runtime.capabilities import (
-    source_library_c2_3_test_interpreters as c23_fixtures,
+    source_provider_test_interpreters as c23_fixtures,
 )
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.source_library_c2_1 import (
+from app.successor_runtime.capabilities.source_resolution import (
     source_item_definition_content_digest,
 )
-from app.successor_runtime.capabilities.source_library_c2_1_interpreters import (
+from app.successor_runtime.capabilities.source_resolution_interpreters import (
     resolve_source_execution_request,
 )
 
@@ -30,7 +34,7 @@ SCOPE_INCARNATION = "scope-inc-5"
 SCOPE_DIGEST = c21.project_scope_digest(
     PROJECT_KEY, RESOLVED_SCHEMA, REGISTRY_REVISION, SCOPE_INCARNATION
 )
-ORCHESTRATION_POLICY_REF = "mrw.successor.source-library.c2-2.policy.v1"
+ORCHESTRATION_POLICY_REF = "mrw.source.plan-source-mode.policy.v2"
 
 
 def _effect_request() -> c23.ProviderEffectRequest:
@@ -90,17 +94,17 @@ def _effect_request() -> c23.ProviderEffectRequest:
     return plan.plan.ordered_tasks[0].effect_request
 
 
-def _bundle() -> c23.SourceLibraryC2_3CapabilityBundle:
-    return c23.build_source_library_c2_3_bundle()
+def _bundle() -> c23.SourceProviderAcquisitionCapabilityBundle:
+    return c23.build_source_provider_acquisition_bundle()
 
 
 def test_c2_3_bundle_contract_profiles_and_registry() -> None:
     bundle = _bundle()
-    catalog = c23.build_source_library_c2_3_catalog(bundle)
-    registry = c23.build_source_library_c2_3_registry(bundle)
+    catalog = c23.build_source_provider_acquisition_catalog(bundle)
+    registry = c23.build_source_provider_acquisition_registry(bundle)
     contract = bundle.operation
     assert contract.ref.kind == "source_library.execute_provider_effect.v1"
-    assert contract.owner_capability_id == "source_library.c2_3.v1"
+    assert contract.owner_capability_id == c23.SOURCE_PROVIDER_ACQUISITION_OWNER
     assert catalog.lookup(contract.ref.kind) == contract.ref
     assert registry.resolve_required(contract.ref).ref == contract.ref
     assert bundle.profiles["effect"].execution_class == "EFFECTFUL"
@@ -110,7 +114,7 @@ def test_c2_3_bundle_contract_profiles_and_registry() -> None:
     assert bundle.profiles["failure"].readback_or_compensation == (
         "authoritative_readback_or_reconcile"
     )
-    assert bundle.profiles["authority"].canonical_owner == "source_library.c2_3.v1"
+    assert bundle.profiles["authority"].canonical_owner == c23.SOURCE_PROVIDER_ACQUISITION_OWNER
 
 
 def test_payload_codec_roundtrip_is_exact() -> None:
@@ -124,6 +128,72 @@ def test_payload_codec_roundtrip_is_exact() -> None:
     assert decoded.to_plain() == request.to_plain()
     assert decoded.request_digest == request.request_digest
     assert "SECRET" not in str(encoded)
+
+
+def test_historical_provider_payload_is_explicit_and_keeps_digest() -> None:
+    current = _effect_request()
+    historical_refs = tuple(
+        dataclasses.replace(
+            ref,
+            schema_version=c2_shared.CREDENTIAL_REF_HISTORICAL_SCHEMA,
+        )
+        for ref in current.credential_refs
+    )
+    historical_policy = dataclasses.replace(
+        current.policy,
+        schema_version=c2_shared.RESOURCE_POLICY_HISTORICAL_SCHEMA,
+    )
+    historical = dataclasses.replace(
+        current,
+        schema_version=c23.SOURCE_PROVIDER_ACQUISITION_HISTORICAL_PAYLOAD_SCHEMA,
+        credential_refs=historical_refs,
+        policy=historical_policy,
+        request_digest="",
+    )
+    encoded = historical.to_plain()
+    with pytest.raises(ValueError, match="historical provider acquisition payload"):
+        _bundle().payload_codec().decode_payload(encoded)
+    decoded = c23.provider_effect_request_from_historical_plain(encoded)
+    assert decoded.to_plain() == encoded
+    assert decoded.request_digest == historical.request_digest
+
+    wrong_version = dict(encoded)
+    wrong_version["schema_version"] = "mrw.source.unknown.v9"
+    with pytest.raises(ValueError, match="exact C2 schema"):
+        c23.provider_effect_request_from_historical_plain(wrong_version)
+
+
+def test_historical_provider_receipt_keeps_original_digest_preimage() -> None:
+    values = {
+        "receipt_id": "receipt:historical-provider",
+        "provider": "fixture",
+        "provider_job_id": "job:historical-provider",
+        "provider_status": "COMPLETED",
+        "attempt_ref": "provider-attempt:historical-provider",
+        "observed_at": "2026-09-02T00:00:00.000Z",
+        "provider_job_uri": None,
+    }
+    historical_digest = c23.provider_receipt_digest(
+        **values,
+        schema_version=c2_shared.PROVIDER_RECEIPT_HISTORICAL_SCHEMA,
+    )
+    receipt = c23.ProviderReceipt(
+        **values,
+        schema_version=c2_shared.PROVIDER_RECEIPT_HISTORICAL_SCHEMA,
+        receipt_digest=historical_digest,
+    )
+    assert receipt.receipt_digest == historical_digest
+    assert historical_digest != c23.provider_receipt_digest(**values)
+    encoded = receipt.to_plain()
+    with pytest.raises(ValueError, match="historical provider receipt"):
+        c23.provider_receipt_from_plain(encoded)
+    decoded = c23.provider_receipt_from_historical_plain(encoded)
+    assert decoded.to_plain() == encoded
+
+    wrong_version = dict(encoded)
+    wrong_version["schema_version"] = "mrw.source.unknown.v9"
+    with pytest.raises(ValueError, match="exact C2 schema"):
+        c23.provider_receipt_from_historical_plain(wrong_version)
 
 
 def _no_secret_scan(value: Any, path: str = "") -> None:

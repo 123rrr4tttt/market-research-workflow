@@ -1,0 +1,827 @@
+[
+  {
+    "cell": "C6.1",
+    "boundary": "AgentCore program tool loop",
+    "locator_paths": [
+      "main/backend/app/services/agent_core/core.py",
+      "main/backend/app/services/agent_core/project_tools.py",
+      "main/backend/app/services/agent_core/contracts.py",
+      "main/backend/app/services/agent_core/registry.py",
+      "main/backend/app/api/agent_chat.py",
+      "main/backend/tests/unit/test_agent_core_unittest.py",
+      "main/backend/tests/integration/test_agent_chat_api_unittest.py"
+    ],
+    "locator_status": "OBSERVED_ELIGIBILITY_PENDING",
+    "observed_symbols": [
+      "AgentCore.run",
+      "AgentCore._execute_tool_call",
+      "AgentCore._permission_request_if_needed",
+      "AgentCore._tool_specs_for_model",
+      "AgentCore._schema_validation_result_if_invalid",
+      "CoreToolRegistry",
+      "build_project_core_tool_registry",
+      "_spec_from_tool_definition",
+      "_spec_from_capability",
+      "_handler_for_capability",
+      "_run_agent_core_turn",
+      "_continue_agent_core_approval",
+      "_persist_agent_core_result"
+    ],
+    "object_types": {
+      "input": "AgentCoreRequest",
+      "output": "AgentCoreRunResult",
+      "intermediate": [
+        "CoreModelStep",
+        "CoreToolSpec",
+        "CoreToolCall",
+        "CoreToolResult",
+        "CorePermissionRequest",
+        "CoreApprovalResume",
+        "CoreEvent"
+      ],
+      "typing_limit": "request.context, transcript entries, tool schemas and structured_content remain Mapping[str, Any]-shaped and have no frozen successor ObjectType or codec digest"
+    },
+    "atom_kind": {
+      "status": "CANDIDATE_NOT_FROZEN",
+      "candidate": [
+        "agent.model_step.v1",
+        "capability-owned tool operation kinds derived from versioned CoreToolSpec contracts"
+      ],
+      "excluded": "AgentCore.run must not become a durable-runtime control Atom; it remains the capability interpreter that chooses model/tool continuations while successor Runtime owns durable effect steps"
+    },
+    "payload_schema": {
+      "model_step": {
+        "request_ref": "AgentCoreRequest or successor typed request ref",
+        "visible_tool_contract_refs": "ordered immutable operation-contract references",
+        "transcript_ref": "project-scoped transcript/value reference",
+        "remaining_budget": [
+          "max_iterations",
+          "iteration",
+          "max_tool_calls",
+          "remaining_tool_calls"
+        ]
+      },
+      "tool_call": {
+        "contract_version": "agent_core.tool_call_shape.v1",
+        "required": [
+          "call_id",
+          "tool_name",
+          "arguments",
+          "reason"
+        ]
+      },
+      "result": {
+        "required": [
+          "call_id",
+          "tool_name",
+          "status",
+          "model_summary",
+          "structured_content"
+        ],
+        "optional": [
+          "ui_summary",
+          "artifact_refs",
+          "error",
+          "retry_hint"
+        ]
+      },
+      "gap": "No canonical schema digest binds tool input/output, effect, failure, authority and resource profiles as one successor OperationContract"
+    },
+    "program_combinators": {
+      "allowed_candidate": [
+        "Identity for direct final answers",
+        "Then for ordered model-step -> tool-result -> next-model-step",
+        "Decide for model-step type, validation, permission, cancel and terminal decisions",
+        "TraverseOrdered for provider-ordered tool-call batches"
+      ],
+      "not_currently_justified": [
+        "ZipOrdered parallel realization",
+        "unordered tool-call execution",
+        "commutativity",
+        "provider naturality"
+      ],
+      "observation": "AgentCore.run executes step.tool_calls in source order; CoreToolSpec.concurrency is metadata only in this path. Separate agent_runtime v2 has a ThreadPoolExecutor read-only policy, but it is not the AgentCore execution semantics."
+    },
+    "failure_return_union": {
+      "returns": [
+        "FINAL_ANSWER",
+        "NO_MORE_TOOLS",
+        "PERMISSION_REQUESTED",
+        "APPROVAL_DENIED",
+        "MAX_TOOL_CALLS_EXCEEDED",
+        "MAX_ITERATIONS_EXCEEDED",
+        "TOOL_COMPLETED",
+        "TOOL_FAILED",
+        "TOOL_CANCELED",
+        "TOOL_NEEDS_APPROVAL",
+        "TOOL_DEFERRED"
+      ],
+      "failures": [
+        "tool_schema_validation_failed",
+        "tool_permission_denied",
+        "tool_not_registered",
+        "unsupported_model_step",
+        "handler exception converted to CoreToolResult.failed",
+        "session_canceled"
+      ],
+      "missing_successor_cases": [
+        "OUTCOME_UNKNOWN after a possibly visible effect",
+        "authoritative readback result",
+        "durable attempt/receipt identity",
+        "lease loss and reconciliation"
+      ]
+    },
+    "canonical_owner": {
+      "loop": "AgentCore owns only model/tool-loop interpretation and emitted conversational events",
+      "business_objects": "Each capability service/repository remains canonical owner of its business state and artifacts",
+      "session_projection": "AgentSessionService/store owns legacy session, message, approval and replay projections",
+      "durable_execution": "Successor Runtime Journal must own successor run/step/attempt state; AgentCore must not acquire scheduler, claim, retry or canonical-admission authority"
+    },
+    "effect_profile": {
+      "current": "Synchronous in-process provider calls and direct CoreToolRegistry handler execution; event_sink is a callback and persistence occurs after AgentCore.run returns",
+      "external_visibility": "Varies by registered tool risk and capability owner",
+      "cancellation": "Cooperative session-status checks exist in selected project_tools handlers; no uniform interrupt or durable cancellation point",
+      "recovery": "No durable attempt, authoritative readback or OUTCOME_UNKNOWN reconciliation in AgentCore",
+      "successor_requirement": "Model/tool-loop interpretation may request capability effects, but every visible effect must be represented by a successor RuntimeAssignment and interpreted by the capability-specific effect interpreter"
+    },
+    "authority_profile": {
+      "current": "CoreToolSpec risk/permission plus request approval_policy; approval_policy=frozen rewrites ask/explicit_user_request tools to model-visible allow and executes them without a pause",
+      "pause_resume": "approval_policy=enabled returns CorePermissionRequest; API persistence and CoreApprovalResume re-execute the same call_id",
+      "gap": "No content-addressed authority profile, grant epoch, approval digest, credential reference or revalidation binding",
+      "successor_limit": "AgentCore may decide or pause but cannot mint grants, select credentials, bypass capability authority or authorize durable Runtime execution"
+    },
+    "resource_profile": {
+      "current": [
+        "AgentCoreRequest.max_iterations",
+        "AgentCoreRequest.max_tool_calls",
+        "CoreToolSpec.timeout_seconds",
+        "CoreToolSpec.result_budget",
+        "CoreToolSpec.concurrency"
+      ],
+      "enforcement_gap": "AgentCore enforces iteration/tool-call counts, but CoreToolRegistry does not enforce timeout_seconds, result_budget, reservations, provider cost or concurrency class",
+      "candidate": "LLM_CALL plus capability-specific resource classes, stable ordering key, provider budget, deadline and cancellation/readback bounds"
+    },
+    "legacy_interpreter": "app.services.agent_core.core.AgentCore with CoreToolRegistry and build_project_core_tool_registry; synchronous in-process capability interpreter",
+    "successor_interpreter_candidate": {
+      "id": "successor_migration.legacy_agent_core.AgentCoreCapabilityInterpreter.v1",
+      "status": "NOT_IMPLEMENTED",
+      "placement": "Sibling successor_migration adapter, never imported by successor_runtime core",
+      "semantic_limit": "Preserve model/tool-loop behavior and ordered observations only; delegate every durable effect to successor Runtime"
+    },
+    "observation_profile": {
+      "preserve": [
+        "ordered CoreEvent sequence",
+        "call_id and canonical tool name",
+        "visible tool-contract window",
+        "tool result status and error",
+        "validation-before-authority behavior",
+        "permission pause/resume binding",
+        "cooperative cancellation observation",
+        "stop_reason and final answer"
+      ],
+      "counterobservations": [
+        "CoreToolSpec parallel metadata is not exercised by AgentCore",
+        "events and tool arguments are emitted before any redaction boundary",
+        "post-run event persistence is not crash-safe",
+        "API completion status can summarize a synchronous turn but is not durable effect completion"
+      ],
+      "verification": [
+        "9 selected no-network AgentCore tests passed with -p no:cacheprovider",
+        "No provider/live call was enabled"
+      ]
+    },
+    "fixture_ids": [
+      "test_free_conversation_returns_final_answer_without_tools",
+      "test_model_selected_project_tool_result_is_fed_back_before_final_answer",
+      "test_invalid_tool_arguments_return_recoverable_result_before_retry",
+      "test_high_risk_tool_can_still_pause_when_approval_policy_enabled",
+      "test_approved_resume_executes_same_tool_call_and_continues_model",
+      "test_denied_tool_is_blocked_without_approval_prompt",
+      "test_source_library_run_stops_dispatching_after_session_cancel",
+      "test_agent_chat_turn_can_use_legacy_batch_runtime_variant",
+      "test_agent_chat_turn_defaults_to_agent_core_v3"
+    ],
+    "rollback_observation": {
+      "observed": "The API accepts explicit runtime_variant=agent_runtime_v2 or legacy_batch while defaulting to agent_core_v3",
+      "limit": "This is a legacy route switch, not a successor shadow/cutover rollback receipt; no successor C6 interpreter or authority transfer exists to roll back",
+      "required": "Per-capability allowlist rollback must retain successor journal history and prohibit dual claim/write authority"
+    },
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "The ordered model/tool-loop semantics, typed dataclasses, validation, event order and permission fixtures are valuable donors. The cell cannot be adapted directly because project_tools is a large legacy-service projection, the registry is in-memory, effects execute synchronously inside the loop, event persistence is post-run, resource metadata is largely unenforced, and recovery/readback is absent. Extract the capability-interpreter algebra and rewrite it outside the durable runtime boundary.",
+    "prerequisites": [
+      "Freeze successor ObjectTypes/codecs for model step, tool call, tool result, permission continuation and observation receipt",
+      "Map each eligible tool schema to a capability-owned versioned operation kind and profile digests",
+      "Implement sibling legacy_agent_core adapter without successor_runtime importing legacy services",
+      "Bind effectful tool calls to durable RuntimeAssignment/attempt/receipt/readback",
+      "Define ordered multi-tool semantics and separately prove any read-only parallel eligibility",
+      "Bind authority grants, approval identity and cancellation points",
+      "Apply versioned redaction before any event, transcript, approval or receipt persistence"
+    ],
+    "risk": {
+      "level": "HIGH",
+      "codes": [
+        "SYNC_LOOP_MISTAKEN_FOR_DURABLE_RUNTIME",
+        "IN_MEMORY_REGISTRY",
+        "POST_RUN_EVENT_PERSISTENCE",
+        "UNENFORCED_TIMEOUT_RESULT_BUDGET_CONCURRENCY",
+        "APPROVAL_FROZEN_EXECUTES_ASK_TOOLS",
+        "NO_OUTCOME_UNKNOWN_READBACK",
+        "RAW_ARGUMENT_EVENT_EXPOSURE"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 23",
+        "claim": "Frozen locator identifies C6.1 core.py/project_tools.py and keeps it ELIGIBILITY_PENDING."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2344-2350",
+        "claim": "AgentCore must remain responsible for the model/tool loop while successor Runtime owns durable effect steps."
+      },
+      {
+        "path": "main/backend/app/services/agent_core/core.py",
+        "symbol_or_lines": "AgentCore.run, lines 43-362",
+        "claim": "The current loop interprets provider steps, validates and sequentially executes tool calls, handles permission stops and returns an in-memory AgentCoreRunResult."
+      },
+      {
+        "path": "main/backend/app/services/agent_core/core.py",
+        "symbol_or_lines": "AgentCore._execute_tool_call, lines 364-434",
+        "claim": "Tool arguments/specs are emitted, then the in-process registry handler executes; exceptions are collapsed to failed CoreToolResult."
+      },
+      {
+        "path": "main/backend/app/services/agent_core/project_tools.py",
+        "symbol_or_lines": "build_project_core_tool_registry, lines 97-244",
+        "claim": "Legacy runtime tools, control tools, capabilities, skills and MCP tools are projected into one in-memory CoreToolRegistry and handlers directly invoke legacy services."
+      },
+      {
+        "path": "main/backend/app/services/agent_core/project_tools.py",
+        "symbol_or_lines": "_spec_from_tool_definition/_spec_from_capability, lines 5717-5831",
+        "claim": "Legacy definitions are mapped to schema, risk, permission and concurrency metadata, but no successor OperationContract digest is produced."
+      },
+      {
+        "path": "main/backend/app/api/agent_chat.py",
+        "symbol_or_lines": "_persist_agent_core_result, lines 1139-1213",
+        "claim": "AgentCore events and approvals are persisted after the synchronous run, so the path is not a durable effect journal or atomic execution UoW."
+      },
+      {
+        "path": "main/backend/tests/unit/test_agent_core_unittest.py",
+        "symbol_or_lines": "tests at lines 47-137, 504-600, 824-903, 1239-1368",
+        "claim": "Fixtures cover direct answers, ordered tool-result feedback, schema failure, cancellation, permission pause and same-call resume."
+      }
+    ]
+  },
+  {
+    "cell": "C6.2",
+    "boundary": "provider interpretation",
+    "locator_paths": [
+      "main/backend/app/services/agent_core",
+      "main/backend/app/services/llm",
+      "main/backend/app/services/agent_core/contracts.py",
+      "main/backend/app/services/agent_core/native_provider.py",
+      "main/backend/app/services/agent_core/json_provider.py",
+      "main/backend/app/services/agent_core/fake_provider.py",
+      "main/backend/app/services/agent_core/provider_readiness.py",
+      "main/backend/app/services/agent_core/tool_calling_quality.py",
+      "main/backend/app/services/agent_core/live_provider_shim.py",
+      "main/backend/app/services/agent_core/external_provider_live_readback.py",
+      "main/backend/app/services/llm/provider.py",
+      "main/backend/app/services/llm/adapters/langchain_provider.py",
+      "main/backend/app/api/agent_chat.py",
+      "main/backend/tests/unit/test_agent_core_unittest.py",
+      "main/backend/tests/unit/test_agent_core_provider_live_readiness_unittest.py",
+      "main/backend/tests/unit/test_agent_core_tool_calling_quality_unittest.py",
+      "main/backend/tests/unit/test_agent_core_external_provider_live_readback_unittest.py"
+    ],
+    "locator_status": "OBSERVED_ELIGIBILITY_PENDING",
+    "observed_symbols": [
+      "CoreProvider.next_step",
+      "NativeToolCallingCoreProvider",
+      "NativeToolCallingCoreProvider.next_step",
+      "NativeToolCallingCoreProvider._fallback_next_step",
+      "NativeToolCallingCoreProvider._to_native_tools",
+      "NativeToolCallingCoreProvider._extract_tool_calls",
+      "JsonCoreProvider",
+      "FakeCoreProvider",
+      "get_chat_model",
+      "build_agent_core_provider_live_readiness_contract",
+      "build_agent_core_tool_calling_quality_contract",
+      "build_agent_core_external_provider_live_readback_evidence",
+      "_build_agent_core_provider"
+    ],
+    "object_types": {
+      "input": {
+        "request": "AgentCoreRequest",
+        "tools": "list[CoreToolSpec]",
+        "transcript": "list[dict[str, Any]]",
+        "remaining_budget": "dict[str, Any]"
+      },
+      "output": "CoreModelStep = assistant_delta | final_answer | tool_calls",
+      "provider_wire_inputs": [
+        "LangChain message list",
+        "native bind_tools function schema",
+        "JSON protocol prompt"
+      ],
+      "typing_limit": "Provider requests, transcript and metadata are not frozen content-addressed successor values; exceptions and fallback decisions are not represented by a typed failure union."
+    },
+    "atom_kind": {
+      "status": "CANDIDATE_NOT_FROZEN",
+      "candidate": "agent.model_step.v1",
+      "interpretations": [
+        "named native_tool_calling provider profile",
+        "named JSON-protocol provider profile",
+        "deterministic fake fixture profile"
+      ],
+      "rule": "Provider replacement may claim only named observational compatibility for a fixed request/tool/transcript profile; no general naturality or semantic equivalence claim is justified."
+    },
+    "payload_schema": {
+      "request": {
+        "message_ref": "redacted/project-scoped value ref",
+        "session_id": "opaque identifier",
+        "turn_id": "opaque identifier",
+        "project_scope_ref": "required when project data is visible",
+        "tool_contract_refs": "ordered immutable refs with canonical-to-wire name map",
+        "transcript_ref": "bounded redacted transcript ref",
+        "budget": [
+          "max_iterations",
+          "iteration",
+          "max_tool_calls",
+          "remaining_tool_calls",
+          "deadline",
+          "token/request/cost ceiling"
+        ],
+        "provider_profile_ref": "provider/model/version/dependency digest",
+        "credential_ref": "opaque reference only"
+      },
+      "success": {
+        "step_type": "assistant_delta | final_answer | tool_calls",
+        "content_ref": "redacted value ref",
+        "tool_calls": "ordered CoreToolCall-compatible values",
+        "provider_observation_ref": "redacted response-shape/latency/profile receipt"
+      },
+      "gap": "Current get_chat_model reads process-global settings and Native/Json providers cache model objects in class state."
+    },
+    "program_combinators": {
+      "allowed_candidate": [
+        "Atom(agent.model_step.v1)",
+        "MapOutput from provider wire response to typed CoreModelStep",
+        "Then only through the C6.1 ordered loop"
+      ],
+      "forbidden_claims": [
+        "provider commutativity",
+        "provider interchange",
+        "backend naturality without a component family and naturality square",
+        "fallback equivalence to the primary provider"
+      ]
+    },
+    "failure_return_union": {
+      "candidate": [
+        "ProviderStepSucceeded",
+        "ProviderUnavailable",
+        "ProviderInvocationFailed",
+        "ProviderProtocolInvalid",
+        "ProviderTimeout",
+        "ProviderRateLimited",
+        "ProviderCredentialRejected",
+        "ProviderFallbackSelected",
+        "ProviderOutcomeUnknown"
+      ],
+      "current_behavior": [
+        "native model construction/invocation errors fall back to JsonCoreProvider with native_fallback_reason",
+        "invalid JSON may become a final answer with parse_error",
+        "fake/native/json fixtures return CoreModelStep",
+        "normal production provider calls do not emit a durable provider attempt/receipt"
+      ],
+      "semantic_risk": "Fallback currently changes the interpreter and may change semantics while returning an ordinary CoreModelStep; the failure/fallback distinction survives only in metadata."
+    },
+    "canonical_owner": {
+      "provider_response": "External provider/account is authoritative for its own response identifiers and readback, when supported",
+      "provider_configuration": "Configuration owner and credential store retain provider/model/secret authority",
+      "runtime": "Successor Runtime owns only provider attempt state and redacted receipt references",
+      "agent_core": "AgentCore may select a named interpreter binding but must not claim provider liveness, account authority or canonical business completion"
+    },
+    "effect_profile": {
+      "class": "LLM_CALL",
+      "current": "NativeToolCallingCoreProvider invokes a LangChain model; JsonCoreProvider invokes a model using an explicit JSON protocol; Native falls back to JSON on unavailable bind_tools or invocation exceptions",
+      "live_boundary": "External live evidence is explicitly gated by allow_external_network; this audit did not enable it",
+      "successor_requirement": "Exact provider/model/profile/dependency binding, credential ref, deadline, redacted request digest, response-shape receipt, failure taxonomy and readback/reconciliation policy"
+    },
+    "authority_profile": {
+      "current": "Provider selection comes from settings.llm_provider through get_chat_model; API constructs NativeToolCallingCoreProvider with JsonCoreProvider fallback",
+      "credential_handling": "Provider libraries receive API keys from settings; no successor CredentialRef or grant epoch is bound to the call",
+      "required": "RuntimeAssignment must bind an approved provider profile and opaque credential reference; provider adapter cannot elevate tool authority or mutate business state"
+    },
+    "resource_profile": {
+      "current": [
+        "AgentCore remaining tool-call budget passed to provider prompt",
+        "get_chat_model max_tokens=1200 in normal AgentCore construction",
+        "bounded external-readback timeout only in the explicit evidence builder"
+      ],
+      "gap": "No ordinary AgentCore provider reservation, provider concurrency key, cost/token accounting receipt, hard timeout enforcement or backpressure state",
+      "candidate": "LLM_CALL units with provider/model concurrency key, token/request/cost ceilings, deadline, retry budget and authoritative outcome/readback bound"
+    },
+    "legacy_interpreter": [
+      "app.services.agent_core.native_provider.NativeToolCallingCoreProvider",
+      "app.services.agent_core.json_provider.JsonCoreProvider",
+      "app.services.agent_core.fake_provider.FakeCoreProvider",
+      "app.services.llm.provider.get_chat_model"
+    ],
+    "successor_interpreter_candidate": {
+      "id": "successor_migration.legacy_agent_core.NamedProviderModelStepInterpreter.v1",
+      "status": "NOT_IMPLEMENTED",
+      "native_target": "successor-native named provider EffectInterpreter for agent.model_step.v1",
+      "compatibility": "Per-provider observational profile only; fallback is a separately named interpreter outcome"
+    },
+    "observation_profile": {
+      "preserve": [
+        "provider/profile identifier",
+        "model identifier when observed",
+        "canonical tool name and provider-safe wire name",
+        "ordered tool-call shape",
+        "final-answer/tool-call step distinction",
+        "fallback reason",
+        "network scope",
+        "response-shape class",
+        "latency and timeout classification",
+        "external model-call count",
+        "redacted trace/request/call identifiers"
+      ],
+      "evidence_ceiling": [
+        "Deterministic fake/json/native fixtures prove shape and local dispatch only",
+        "Repo-local live shim explicitly does not prove an external provider",
+        "External provider test injects _FakeExternalToolCallingChat and is not a real account/network observation",
+        "No external provider invocation was run in this audit"
+      ],
+      "verification": "23 provider trace/readiness/tool-quality/external-readback unit tests passed with -p no:cacheprovider; all live behavior was disabled or fixture-injected."
+    },
+    "fixture_ids": [
+      "agent_core.provider_live_readiness.v1",
+      "agent_core.tool_calling_quality.v1",
+      "agent_core.provider_trace_readback.v1",
+      "agent_core.repo_local_live_provider_shim.v1",
+      "agent_core.external_provider_live_readback.v1",
+      "test_native_tool_calling_provider_maps_safe_names_to_canonical_tools",
+      "test_native_tool_calling_provider_falls_back_when_bind_tools_is_unavailable",
+      "test_readiness_contract_records_configured_provider_fixtures_and_live_gaps",
+      "test_tool_calling_quality_contract_records_provider_shape_and_live_gap",
+      "test_external_network_must_be_explicitly_allowed"
+    ],
+    "rollback_observation": {
+      "observed": "Native provider falls back to the JSON provider on unavailable bind_tools/model construction/invocation; API can select legacy runtime variants separately",
+      "limit": "Fallback is not rollback evidence: it has no durable attempt identity, semantic parity proof or authoritative provider readback and may change outputs",
+      "required": "Rollback must select an exact prior interpreter profile before claim or reconcile an already-started provider attempt; it must never silently reissue an uncertain external request"
+    },
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "The CoreProvider boundary, native-name mapping, tool-call normalization and evidence fixtures are reusable semantic donors. Direct ADAPT is not justified because request/transcript metadata remain untyped, provider selection and model caches use global state, failures are collapsed into fallback metadata, normal calls lack durable attempt/resource/receipt/readback bindings, and fixture green does not establish live provider semantics. Extract the provider algebra and rewrite named interpreters behind successor effect ports.",
+    "prerequisites": [
+      "Freeze agent.model_step.v1 input/output/failure schemas and codec digests",
+      "Define immutable named provider/interpreter profiles with model and dependency digests",
+      "Replace settings/global model-cache lookup with injected deployment bindings",
+      "Use CredentialRef and authority/grant epochs without exposing secret bytes",
+      "Represent fallback as an explicit typed outcome and separate interpreter binding",
+      "Add timeout, reservation, cost/token/request receipts and OUTCOME_UNKNOWN policy",
+      "Define provider-specific authoritative readback or NonStartProof limits",
+      "Freeze named observational compatibility fixtures; do not claim naturality"
+    ],
+    "risk": {
+      "level": "HIGH",
+      "codes": [
+        "GLOBAL_PROVIDER_SETTINGS",
+        "CLASS_LEVEL_MODEL_CACHE",
+        "FALLBACK_SEMANTIC_DRIFT",
+        "UNTYPED_TRANSCRIPT_CONTEXT",
+        "NO_DURABLE_PROVIDER_ATTEMPT",
+        "NO_COST_TIMEOUT_RESERVATION",
+        "FIXTURE_MISTAKEN_FOR_LIVE_PROVIDER",
+        "CREDENTIAL_REF_NOT_BOUND"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 24",
+        "claim": "Frozen locator identifies agent_core and services/llm for C6.2 and keeps it ELIGIBILITY_PENDING."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2344-2350",
+        "claim": "Provider replacement is limited to named observational compatibility."
+      },
+      {
+        "path": "main/backend/app/services/agent_core/contracts.py",
+        "symbol_or_lines": "CoreProvider, lines 297-306; CoreModelStep, lines 241-258",
+        "claim": "A replaceable next_step protocol and three-way model-step result exist, but transcript/budget inputs remain Any-shaped dictionaries."
+      },
+      {
+        "path": "main/backend/app/services/agent_core/native_provider.py",
+        "symbol_or_lines": "NativeToolCallingCoreProvider.next_step/_fallback_next_step, lines 34-124",
+        "claim": "Native bind_tools responses are normalized to CoreModelStep; model/unavailable/invocation errors transparently fall back to another provider with metadata."
+      },
+      {
+        "path": "main/backend/app/services/agent_core/native_provider.py",
+        "symbol_or_lines": "_get_model, lines 126-149",
+        "claim": "Normal provider creation reads global settings and uses class-level shared model cache state."
+      },
+      {
+        "path": "main/backend/app/services/llm/provider.py",
+        "symbol_or_lines": "get_chat_model, lines 21-74",
+        "claim": "Provider selection and credentials are sourced from process settings and routed among LiteLLM and LangChain adapters."
+      },
+      {
+        "path": "main/backend/app/services/agent_core/external_provider_live_readback.py",
+        "symbol_or_lines": "build_agent_core_external_provider_live_readback_evidence, lines 28-103",
+        "claim": "External provider execution is explicitly gated and otherwise returns blocked evidence; the audit did not authorize this gate."
+      },
+      {
+        "path": "main/backend/tests/unit/test_agent_core_provider_live_readiness_unittest.py",
+        "symbol_or_lines": "lines 18-136",
+        "claim": "Tests preserve partial/live-gap classifications and distinguish a repo-local shim from external-provider evidence."
+      },
+      {
+        "path": "main/backend/tests/unit/test_agent_core_tool_calling_quality_unittest.py",
+        "symbol_or_lines": "lines 27-133",
+        "claim": "Deterministic provider fixtures validate tool-call wire shape while explicitly disallowing an external-provider quality claim."
+      }
+    ]
+  },
+  {
+    "cell": "C6.3",
+    "boundary": "redaction evidence",
+    "locator_paths": [
+      "main/backend/app/services/agent_core",
+      "main/backend/app/services/agent_runtime",
+      "main/backend/app/services/agent_core/provider_trace.py",
+      "main/backend/app/services/agent_core/live_provider_shim.py",
+      "main/backend/app/services/agent_core/external_provider_live_readback.py",
+      "main/backend/app/services/agent_core/core.py",
+      "main/backend/app/services/agent_core/contracts.py",
+      "main/backend/app/services/agent_runtime/run_loop.py",
+      "main/backend/app/services/agent_runtime/tool_execution.py",
+      "main/backend/app/services/agent_runtime/interactive_agent.py",
+      "main/backend/app/api/agent_chat.py",
+      "main/backend/tests/unit/test_agent_core_provider_trace_readback_unittest.py",
+      "main/backend/tests/unit/test_agent_core_provider_live_readiness_unittest.py",
+      "main/backend/tests/unit/test_agent_core_external_provider_live_readback_unittest.py"
+    ],
+    "locator_status": "OBSERVED_ELIGIBILITY_PENDING",
+    "observed_symbols": [
+      "build_agent_core_provider_trace_readback_contract",
+      "_redaction_replay_readback",
+      "_redacted_tool_event_replay",
+      "_redacted_arguments_snapshot",
+      "_redacted_value_snapshot",
+      "_raw_sensitive_values_absent",
+      "build_repo_local_live_provider_shim_evidence",
+      "build_agent_core_external_provider_live_readback_evidence",
+      "AgentCore._emit",
+      "AgentRunLoop._emit",
+      "AgentRunLoop._execute_one_tool_call",
+      "_persist_agent_core_result"
+    ],
+    "object_types": {
+      "input": [
+        "CoreEvent",
+        "CoreToolCall",
+        "CoreToolResult",
+        "provider request/response observation",
+        "agent_runtime capability-call event"
+      ],
+      "output": [
+        "RedactedToolEventSnapshot",
+        "RedactedArgumentsSnapshot",
+        "ProviderTraceEvidence",
+        "StatusDataErrorMetaTrace",
+        "RedactionReplayEvidence"
+      ],
+      "typing_limit": "Redaction snapshot types are ad hoc dictionaries in evidence builders; there is no common frozen RedactionPolicyRef, source-event digest or provenance-bearing receipt type."
+    },
+    "atom_kind": {
+      "status": "CANDIDATE_NOT_FROZEN",
+      "candidate": "observability.redact_evidence.v1",
+      "semantic_class": "Pure or bounded CPU transformation that must execute before persistence/export of events, traces, transcripts, approvals and receipts",
+      "excluded": "Post-hoc evidence sanitization cannot authorize persistence of the original unredacted value"
+    },
+    "payload_schema": {
+      "required_input": [
+        "source_observation_ref",
+        "source_observation_digest",
+        "source_kind",
+        "provider/interpreter profile ref",
+        "trace_id/request_id/call_id",
+        "redaction_policy_id",
+        "redaction_policy_version",
+        "redaction_policy_digest",
+        "field classification map"
+      ],
+      "required_output": [
+        "redacted_value_ref or redacted canonical bytes",
+        "redacted_digest",
+        "redacted_field paths/classes",
+        "omitted field paths/classes",
+        "fingerprints where policy permits",
+        "raw_value_persisted=false",
+        "policy application receipt",
+        "source-to-redacted provenance binding"
+      ],
+      "forbidden": [
+        "secret bytes",
+        "API keys",
+        "authorization headers",
+        "tokens",
+        "cookies",
+        "session credentials",
+        "database passwords",
+        "raw provider request/response bodies"
+      ],
+      "current_gap": "Current evidence records contract_version, marker, keys, lengths and hashes, but it does not bind a policy digest, source observation digest, classifier version or canonical owner."
+    },
+    "program_combinators": {
+      "allowed_candidate": [
+        "MapOutput from an observed provider/tool value to a redacted evidence value",
+        "Then(redact, persist) with redaction strictly before persistence",
+        "TraverseOrdered over event sequences while preserving order"
+      ],
+      "forbidden": [
+        "persist then redact",
+        "reordering redaction after external export",
+        "parallelization that exposes raw shared buffers",
+        "identity claim when fields are removed or fingerprinted"
+      ],
+      "declared_loss": "Redaction is intentionally lossy and must carry a versioned loss/policy profile rather than masquerading as identity preservation."
+    },
+    "failure_return_union": {
+      "candidate": [
+        "RedactionSucceeded",
+        "RedactionPolicyMissing",
+        "RedactionPolicyUnsupported",
+        "SensitiveFieldUnclassified",
+        "SerializationFailed",
+        "SourceDigestMismatch",
+        "RedactedDigestMismatch",
+        "ForbiddenRawValueDetected"
+      ],
+      "required_behavior": "All failures are fail-closed before persistence or external visibility",
+      "current_behavior": "Evidence builders can construct sanitized derivative dictionaries and test raw-sensitive-value absence inside those derivative artifacts, but production AgentCore/agent_runtime emitters still carry raw tool inputs/arguments/results."
+    },
+    "canonical_owner": {
+      "policy": "A versioned security/observability policy owner must own redaction classification and policy digests",
+      "evidence": "Project-scoped immutable evidence/receipt store owns the redacted evidence object",
+      "secrets": "Credential/secret owner retains secret authority; neither AgentCore nor Runtime Journal may copy secret bytes",
+      "current_gap": "No single observed canonical redaction owner or pre-persistence enforcement port exists"
+    },
+    "effect_profile": {
+      "candidate": "CPU_LIGHT deterministic transformation plus content-addressed value storage",
+      "current": "provider_trace/live-provider evidence builders generate redacted snapshots after an in-memory run; AgentCore and agent_runtime emit raw dictionaries to callbacks and legacy stores",
+      "external_visibility": "Redacted evidence may be persisted/exported; raw values must remain interpreter-local and ephemeral",
+      "recovery": "Redaction can be replayed only from an authorized ephemeral/source value; a leaked raw persisted event cannot be made unobserved by later redaction"
+    },
+    "authority_profile": {
+      "current": "Evidence helpers self-declare raw_*_persisted=false for their generated artifact; no policy authority is checked at AgentCore._emit, AgentRunLoop._emit or API append_event",
+      "required": "Only a bound redaction policy may approve an evidence value for persistence; redaction cannot grant provider, tool, runtime or business authority",
+      "credential_rule": "Only opaque CredentialRef values may cross the interpreter boundary"
+    },
+    "resource_profile": {
+      "class": "CPU_LIGHT",
+      "units": [
+        "serialized input bytes",
+        "hashing bytes",
+        "event count"
+      ],
+      "limits": [
+        "maximum redaction input size",
+        "maximum event batch",
+        "bounded hash/serialization time",
+        "no raw spill to logs/temp files"
+      ],
+      "current_gap": "Current hashing helpers have no explicit size/resource ceiling and are not integrated with the normal event persistence path."
+    },
+    "legacy_interpreter": {
+      "evidence_helpers": [
+        "app.services.agent_core.provider_trace",
+        "app.services.agent_core.live_provider_shim",
+        "app.services.agent_core.external_provider_live_readback"
+      ],
+      "production_status": "NO_COMMON_PRODUCTION_REDACTION_INTERPRETER"
+    },
+    "successor_interpreter_candidate": {
+      "id": "successor_runtime.adapters.observability.VersionedRedactionEvidenceInterpreter.v1",
+      "status": "NOT_IMPLEMENTED",
+      "legacy_adapter": "successor_migration.legacy_agent_core.RedactedObservationAdapter.v1",
+      "placement_rule": "Generic policy/codec may be successor-native; legacy event extraction remains only in sibling successor_migration"
+    },
+    "observation_profile": {
+      "preserve": [
+        "source event order",
+        "event/call/trace/request identity",
+        "provider/interpreter profile",
+        "field names or approved classification summary",
+        "redaction policy identity/version/digest",
+        "redacted content digest",
+        "raw-sensitive-value absence",
+        "declared loss",
+        "external/live evidence ceiling"
+      ],
+      "counterexamples": [
+        "AgentCore._execute_tool_call emits tool_call.to_dict and CoreToolResult.to_dict with raw arguments/structured_content",
+        "_persist_agent_core_result appends event.to_dict directly to the legacy store",
+        "AgentRunLoop emits and returns input_payload directly",
+        "provider_trace proves only that its derived evidence artifact omits fixture secrets, not that the production event store never received them"
+      ],
+      "verification": [
+        "Provider trace redaction replay tests passed",
+        "Provider readiness/live-readback fixture tests passed",
+        "No external provider call was enabled",
+        "The passing tests do not close the pre-persistence provenance gap"
+      ]
+    },
+    "fixture_ids": [
+      "agent_core.provider_trace_redaction_replay.v1",
+      "agent_core.provider_trace_readback.v1",
+      "agent_core.external_provider_live_readback.redaction.v1",
+      "agent_core.repo_local_live_provider_shim.v1",
+      "test_provider_trace_redaction_replay_omits_sensitive_request_bodies",
+      "test_validator_rejects_raw_sensitive_value_persistence",
+      "test_repo_local_live_provider_shim_closes_selected_runtime_without_external_claim",
+      "test_external_network_must_be_explicitly_allowed"
+    ],
+    "rollback_observation": {
+      "observed": "Redaction evidence can be deterministically regenerated from fixture observations and validated for raw-sensitive-value absence",
+      "limit": "Redaction is lossy and irreversible; once a raw value is persisted or exported, later sanitized evidence is not rollback and cannot erase the disclosure",
+      "required": "Fail closed before persistence, retain policy/source/redacted digests, and rotate/revoke affected credentials if forbidden raw persistence is detected"
+    },
+    "disposition": "REIMPLEMENT",
+    "rationale": "Only the behavioral fixtures, redacted shape and evidence-ceiling distinctions should be retained. The existing redaction code is duplicated among evidence builders and is post-hoc; normal AgentCore and agent_runtime paths emit and persist raw argument/input/result dictionaries without a versioned policy or provenance binding. This matches the frozen REIMPLEMENT condition: do not reuse the implementation, and build one pre-persistence, fail-closed, versioned redaction/evidence interpreter.",
+    "prerequisites": [
+      "Freeze RedactionPolicyRef, RedactedEvidence and declared-loss schemas/codecs",
+      "Assign canonical policy and evidence owners",
+      "Insert redaction before AgentCore, provider, agent_runtime, approval, transcript and receipt persistence/export",
+      "Bind source observation digest, policy digest and redacted digest",
+      "Classify credential and sensitive fields fail-closed",
+      "Remove duplicated self-asserted raw_*_persisted flags as sufficient evidence",
+      "Add production-store negative tests proving sentinel absence after event/approval/transcript persistence",
+      "Add crash/replay tests proving no raw temporary or journal value survives"
+    ],
+    "risk": {
+      "level": "CRITICAL",
+      "codes": [
+        "POST_HOC_REDACTION_ONLY",
+        "RAW_TOOL_ARGUMENTS_EMITTED",
+        "RAW_RUNTIME_INPUT_EMITTED",
+        "RAW_EVENT_PERSISTENCE",
+        "SELF_ASSERTED_NO_RAW_PERSISTENCE",
+        "NO_POLICY_DIGEST",
+        "NO_SOURCE_TO_REDACTED_PROVENANCE",
+        "DUPLICATED_REDACTION_HELPERS",
+        "IRREVERSIBLE_DISCLOSURE_NOT_ROLLBACKABLE"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 25",
+        "claim": "Frozen locator identifies agent_core and agent_runtime for C6.3 and keeps it ELIGIBILITY_PENDING."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 953-965 and 2344-2350",
+        "claim": "Secrets must not enter Program, assignment, event, receipt, trace, evidence or digest, and receipts require versioned redaction before persistence."
+      },
+      {
+        "path": "main/backend/app/services/agent_core/provider_trace.py",
+        "symbol_or_lines": "build_agent_core_provider_trace_readback_contract, lines 46-100",
+        "claim": "The deterministic evidence builder uses FakeCoreProvider and explicitly keeps the real external provider call open."
+      },
+      {
+        "path": "main/backend/app/services/agent_core/provider_trace.py",
+        "symbol_or_lines": "_redacted_tool_event_replay/_redacted_arguments_snapshot/_redacted_value_snapshot, lines 571-677",
+        "claim": "Redacted derivative snapshots preserve keys/types/lengths/hashes and omit raw values, but carry no source or policy digest."
+      },
+      {
+        "path": "main/backend/app/services/agent_core/core.py",
+        "symbol_or_lines": "AgentCore._execute_tool_call, lines 364-434",
+        "claim": "Normal AgentCore events include raw tool_call dictionaries and tool results before any redaction port."
+      },
+      {
+        "path": "main/backend/app/api/agent_chat.py",
+        "symbol_or_lines": "_persist_agent_core_result, lines 1148-1175",
+        "claim": "The API persists event.to_dict and permission tool_call/tool_spec dictionaries directly."
+      },
+      {
+        "path": "main/backend/app/services/agent_runtime/run_loop.py",
+        "symbol_or_lines": "AgentRunLoop.run/_execute_one_tool_call, lines 444-468 and 597-647",
+        "claim": "agent_runtime events, hooks, transcript calls and failures retain input_payload directly."
+      },
+      {
+        "path": "main/backend/tests/unit/test_agent_core_provider_trace_readback_unittest.py",
+        "symbol_or_lines": "lines 20-139",
+        "claim": "Tests prove fixture evidence serialization omits sentinel values and reject a mutated raw_sensitive_values_absent flag; they do not inspect the production AgentSession event store."
+      },
+      {
+        "path": "main/backend/app/services/agent_core/external_provider_live_readback.py",
+        "symbol_or_lines": "_evidence_from_result, lines 191-265",
+        "claim": "External-readback evidence constructs a sanitized derivative tool shape and self-reports raw persistence flags after the AgentCore run."
+      }
+    ]
+  }
+]

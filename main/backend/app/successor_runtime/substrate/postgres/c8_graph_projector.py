@@ -20,13 +20,13 @@ from typing import Literal
 from sqlalchemy import MetaData, select, update
 from sqlalchemy.engine import Connection
 
-from app.successor_runtime.capabilities import c8_common as c8
-from app.successor_runtime.capabilities.c8_graph import project_graph_occurrences
-from app.successor_runtime.capabilities.c8_graph_projection_contribution import (
-    C8_GRAPH_PROJECTOR_ID,
-    C8_GRAPH_PROJECTOR_VERSION,
-    C8_GRAPH_SOURCE_KIND,
-    C8_GRAPH_VALUE_SCHEMA,
+from app.successor_runtime.capabilities import knowledge_common as c8
+from app.successor_runtime.capabilities.knowledge_graph_projection import project_graph_occurrences
+from app.successor_runtime.capabilities.knowledge_graph_projection_contribution import (
+    KNOWLEDGE_GRAPH_PROJECTOR_ID,
+    KNOWLEDGE_GRAPH_PROJECTOR_VERSION,
+    KNOWLEDGE_GRAPH_SOURCE_KIND,
+    KNOWLEDGE_GRAPH_VALUE_SCHEMA,
 )
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
@@ -49,12 +49,17 @@ from app.successor_runtime.substrate.postgres.runtime_journal import (
 from app.successor_runtime.substrate.postgres.values import ValueRepository
 
 __all__ = [
-    "C8_GRAPH_PROJECTOR_ID",
-    "C8_GRAPH_PROJECTOR_VERSION",
-    "C8_GRAPH_SOURCE_KIND",
+    "KNOWLEDGE_GRAPH_PROJECTOR_ID",
+    "KNOWLEDGE_GRAPH_PROJECTOR_VERSION",
+    "KNOWLEDGE_GRAPH_SOURCE_KIND",
     "C8_GRAPH_VALUE_CODEC_ID",
     "C8_GRAPH_VALUE_OBJECT_TYPE",
-    "C8_GRAPH_VALUE_SCHEMA",
+    "KNOWLEDGE_GRAPH_VALUE_SCHEMA",
+    "LEGACY_C8_GRAPH_PROJECTOR_ID",
+    "LEGACY_C8_GRAPH_SOURCE_KIND",
+    "LEGACY_C8_GRAPH_VALUE_CODEC_ID",
+    "LEGACY_C8_GRAPH_VALUE_OBJECT_TYPE",
+    "LEGACY_C8_GRAPH_VALUE_SCHEMA",
     "C8GraphOffsetCasError",
     "C8GraphProjectionIntegrityError",
     "C8GraphProjectionUnavailableError",
@@ -65,12 +70,19 @@ __all__ = [
     "read_active_graph",
 ]
 
-C8_GRAPH_VALUE_OBJECT_TYPE = "GraphProjectionGeneration.v1"
+C8_GRAPH_VALUE_OBJECT_TYPE = "KnowledgeGraphProjectionGeneration.v2"
 C8_GRAPH_VALUE_CODEC_ID = (
-    "mrw.successor.c8.graph-projection-generation.canonical-json.v1"
+    "mrw.knowledge.graph-projection-generation.canonical-json.v2"
 )
 C8_GRAPH_VALUE_STATE = "AVAILABLE"
 C8_VALUE_REF_PREFIX = "project-value:"
+LEGACY_C8_GRAPH_PROJECTOR_ID = "c8.graph.projector"
+LEGACY_C8_GRAPH_SOURCE_KIND = "successor_value"
+LEGACY_C8_GRAPH_VALUE_SCHEMA = "mrw.successor.c8.graph-projection.v1"
+LEGACY_C8_GRAPH_VALUE_OBJECT_TYPE = "GraphProjectionGeneration.v1"
+LEGACY_C8_GRAPH_VALUE_CODEC_ID = (
+    "mrw.successor.c8.graph-projection-generation.canonical-json.v1"
+)
 
 
 class C8GraphProjectorError(RuntimeError):
@@ -104,15 +116,68 @@ class C8GraphProjectorResult:
 
 
 def graph_value_id(graph_id: str, generation: int) -> str:
+    return f"knowledge:graph:{graph_id}:generation:{generation}"
+
+
+def _legacy_graph_value_id(graph_id: str, generation: int) -> str:
     return f"c8:graph:{graph_id}:gen:{generation}"
+
+
+def _graph_generation_id(graph_id: str, generation: int) -> str:
+    return f"knowledge.graph.generation:{graph_id}:{generation}"
+
+
+def _graph_incarnation(projection_digest: str) -> str:
+    return f"knowledge:graph:{projection_digest}"
+
+
+@dataclass(frozen=True, slots=True)
+class _GraphStorageIdentity:
+    value_id: str
+    offset_id: str
+    generation_prefix: str
+    object_type: str
+    codec_id: str
+    schema: str
+    incarnation: str
+    source_kind: str
+
+
+def _graph_storage_identity(
+    *,
+    graph_id: str,
+    generation: int,
+    projection_digest: str,
+    legacy: bool,
+) -> _GraphStorageIdentity:
+    if legacy:
+        return _GraphStorageIdentity(
+            value_id=_legacy_graph_value_id(graph_id, generation),
+            offset_id=f"c8:graph:offset:{graph_id}",
+            generation_prefix=f"c8.graph.generation:{graph_id}:",
+            object_type=LEGACY_C8_GRAPH_VALUE_OBJECT_TYPE,
+            codec_id=LEGACY_C8_GRAPH_VALUE_CODEC_ID,
+            schema=LEGACY_C8_GRAPH_VALUE_SCHEMA,
+            incarnation=f"c8:graph:{projection_digest}",
+            source_kind=LEGACY_C8_GRAPH_SOURCE_KIND,
+        )
+    return _GraphStorageIdentity(
+        value_id=graph_value_id(graph_id, generation),
+        offset_id=f"knowledge:graph:offset:{graph_id}",
+        generation_prefix=f"knowledge.graph.generation:{graph_id}:",
+        object_type=C8_GRAPH_VALUE_OBJECT_TYPE,
+        codec_id=C8_GRAPH_VALUE_CODEC_ID,
+        schema=KNOWLEDGE_GRAPH_VALUE_SCHEMA,
+        incarnation=_graph_incarnation(projection_digest),
+        source_kind=KNOWLEDGE_GRAPH_SOURCE_KIND,
+    )
 
 
 def _graph_source_key(graph_id: str, source_ref: str) -> str:
     return f"graph:{graph_id}:{source_ref}"
 
 
-def _generation_number(graph_id: str, generation_id: str) -> int:
-    prefix = f"c8.graph.generation:{graph_id}:"
+def _generation_number(generation_id: str, *, prefix: str) -> int:
     if not generation_id.startswith(prefix):
         raise C8GraphProjectionIntegrityError(
             "graph generation id is not bound to the requested graph"
@@ -193,7 +258,7 @@ def _generation_from_body(
         loss_profile_registry_digest=str(body["loss_profile_registry_digest"]),
         projection_digest=content_digest_value,
     )
-    recomputed = c8.c8_canonical_digest(_generation_body(generation))
+    recomputed = c8.knowledge_canonical_digest(_generation_body(generation))
     if recomputed != content_digest_value:
         raise C8GraphProjectionIntegrityError(
             "stored graph generation fails content readback"
@@ -307,7 +372,7 @@ def _write_generation_value(
             "graph generation bytes do not match projection digest"
         )
     provenance = {
-        "schema": C8_GRAPH_VALUE_SCHEMA,
+        "schema": KNOWLEDGE_GRAPH_VALUE_SCHEMA,
         "graph_value_id": value_id,
         "generation_id": generation.generation_id,
         "projection_digest": generation.projection_digest,
@@ -330,7 +395,7 @@ def _write_generation_value(
         expected_digest=generation.projection_digest,
         provenance_digest=content_digest(provenance),
         expected_revision=0,
-        expected_incarnation=f"c8:graph:{generation.projection_digest}",
+        expected_incarnation=_graph_incarnation(generation.projection_digest),
         source_ref=source_ref,
         provenance=provenance,
         state=C8_GRAPH_VALUE_STATE,
@@ -352,8 +417,8 @@ def project_graph_generation(
     source_incarnation: str,
     source_digest: str,
     source_revision: int,
-    projector_id: str = C8_GRAPH_PROJECTOR_ID,
-    projector_version: str = C8_GRAPH_PROJECTOR_VERSION,
+    projector_id: str = KNOWLEDGE_GRAPH_PROJECTOR_ID,
+    projector_version: str = KNOWLEDGE_GRAPH_PROJECTOR_VERSION,
     expected_offset_revision: int | None = None,
     expected_generation: int | None = None,
 ) -> C8GraphProjectorResult:
@@ -361,8 +426,12 @@ def project_graph_generation(
 
     if generation < 0 or source_revision < 0:
         raise ValueError("graph generation and source revision must be non-negative")
+    if projector_id == LEGACY_C8_GRAPH_PROJECTOR_ID:
+        raise C8GraphProjectionIntegrityError(
+            "legacy graph projector identity is read-only"
+        )
     pure_generation = project_graph_occurrences(
-        generation_id=f"c8.graph.generation:{graph_id}:{generation}",
+        generation_id=_graph_generation_id(graph_id, generation),
         project_key=scope.project_scope.project_key,
         occurrences=occurrences,
         loss_profile=loss_profile,
@@ -380,11 +449,11 @@ def project_graph_generation(
     key = ProjectionOffsetKey(
         projector_id=projector_id,
         projector_version=projector_version,
-        source_kind=C8_GRAPH_SOURCE_KIND,
+        source_kind=KNOWLEDGE_GRAPH_SOURCE_KIND,
         source_ref=_graph_source_key(graph_id, source_ref),
         source_incarnation=source_incarnation,
     )
-    projection_offset_id = f"c8:graph:offset:{graph_id}"
+    projection_offset_id = f"knowledge:graph:offset:{graph_id}"
     repo = ProjectionOffsetRepository(connection, scope)
     try:
         with connection.begin_nested():
@@ -455,15 +524,22 @@ def read_active_graph(
     graph_id: str,
     source_ref: str,
     source_incarnation: str,
-    projector_id: str = C8_GRAPH_PROJECTOR_ID,
-    projector_version: str = C8_GRAPH_PROJECTOR_VERSION,
+    projector_id: str = KNOWLEDGE_GRAPH_PROJECTOR_ID,
+    projector_version: str = KNOWLEDGE_GRAPH_PROJECTOR_VERSION,
 ) -> c8.GraphProjectionGeneration:
     """Read the active generation through the exact projection offset."""
 
+    legacy = projector_id == LEGACY_C8_GRAPH_PROJECTOR_ID
+    storage = _graph_storage_identity(
+        graph_id=graph_id,
+        generation=0,
+        projection_digest="",
+        legacy=legacy,
+    )
     key = ProjectionOffsetKey(
         projector_id=projector_id,
         projector_version=projector_version,
-        source_kind=C8_GRAPH_SOURCE_KIND,
+        source_kind=storage.source_kind,
         source_ref=_graph_source_key(graph_id, source_ref),
         source_incarnation=source_incarnation,
     )
@@ -481,8 +557,8 @@ def read_active_graph(
     value_id = _value_id_from_ref(offset_ref)
     row = _projection_value(connection, scope=scope, value_id=value_id)
     if (
-        str(row["object_type"]) != C8_GRAPH_VALUE_OBJECT_TYPE
-        or str(row["codec_id"]) != C8_GRAPH_VALUE_CODEC_ID
+        str(row["object_type"]) != storage.object_type
+        or str(row["codec_id"]) != storage.codec_id
     ):
         raise C8GraphProjectionIntegrityError(
             "active graph value codec/object type drift"
@@ -498,10 +574,50 @@ def read_active_graph(
         raise C8GraphProjectionIntegrityError(
             "active graph offset source identity drift"
         )
-    generation_number = _generation_number(graph_id, generation.generation_id)
-    if value_id != graph_value_id(graph_id, generation_number):
+    generation_number = _generation_number(
+        generation.generation_id,
+        prefix=storage.generation_prefix,
+    )
+    storage = _graph_storage_identity(
+        graph_id=graph_id,
+        generation=generation_number,
+        projection_digest=generation.projection_digest,
+        legacy=legacy,
+    )
+    if value_id != storage.value_id:
         raise C8GraphProjectionIntegrityError(
             "active graph value ref is not bound to the requested graph"
+        )
+    if str(offset["projection_offset_id"]) != storage.offset_id:
+        raise C8GraphProjectionIntegrityError(
+            "active graph offset identity is not bound to the requested graph"
+        )
+    if str(row["incarnation"]) != storage.incarnation:
+        raise C8GraphProjectionIntegrityError("active graph value incarnation drift")
+    if str(row["source_ref"]) != source_ref:
+        raise C8GraphProjectionIntegrityError("active graph value source drift")
+    provenance = row["provenance_json"]
+    if not isinstance(provenance, dict):
+        raise C8GraphProjectionIntegrityError(
+            "active graph value provenance is not an object"
+        )
+    expected_provenance = {
+        "schema": storage.schema,
+        "graph_value_id": value_id,
+        "generation_id": generation.generation_id,
+        "projection_digest": generation.projection_digest,
+        "provenance_digest": generation.provenance_digest,
+        "source_ref": source_ref,
+        "authority_kind": generation.authority_kind,
+        "authority_digest": generation.authority_digest,
+        "loss_profile_registry_id": generation.loss_profile_registry_id,
+        "loss_profile_registry_digest": generation.loss_profile_registry_digest,
+    }
+    if dict(provenance) != expected_provenance:
+        raise C8GraphProjectionIntegrityError("active graph value provenance drift")
+    if content_digest(dict(provenance)) != str(row["provenance_digest"]):
+        raise C8GraphProjectionIntegrityError(
+            "active graph value provenance digest drift"
         )
     if int(offset["projection_generation"]) != generation_number:
         raise C8GraphProjectionIntegrityError(

@@ -1,0 +1,7 @@
+{
+  "iframe_mounted": false,
+  "exchange_http200": false,
+  "codex_status_http200": false,
+  "websocket_observed": false,
+  "page_errors": []
+}

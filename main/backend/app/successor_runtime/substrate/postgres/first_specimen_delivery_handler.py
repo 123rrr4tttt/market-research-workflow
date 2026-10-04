@@ -18,6 +18,8 @@ from typing import Any, Protocol, Self
 from sqlalchemy import MetaData, select
 from sqlalchemy.engine import Connection
 
+from app.successor_runtime.language.program import Atom
+
 from app.successor_runtime.capabilities.first_specimen import (
     InternalExportInput,
     build_first_specimen_bundle,
@@ -26,13 +28,8 @@ from app.successor_runtime.language.object_contracts import (
     build_first_specimen_return_contract_registry,
 )
 from app.successor_runtime.language.program import (
-    Atom,
-    Decide,
-    MapOutput,
     ProgramNode,
-    Then,
-    TraverseOrdered,
-    ZipOrdered,
+    program_atoms,
 )
 from app.successor_runtime.research.artifacts import (
     DeliveryIntent,
@@ -208,24 +205,6 @@ class DeliveryEffectPort(Protocol):
         claim: ClaimBinding,
         context: RuntimeExecutionContext,
     ) -> InterpreterOutcome: ...
-
-
-def _atoms(node: ProgramNode) -> tuple[Atom, ...]:
-    if isinstance(node, Atom):
-        return (node,)
-    if isinstance(node, Then):
-        return _atoms(node.first) + _atoms(node.second)
-    if isinstance(node, MapOutput):
-        return _atoms(node.source)
-    if isinstance(node, ZipOrdered):
-        return _atoms(node.left) + _atoms(node.right)
-    if isinstance(node, TraverseOrdered):
-        return _atoms(node.element_program)
-    if isinstance(node, Decide):
-        return tuple(
-            atom for branch in node.branches for atom in _atoms(branch.program)
-        )
-    return ()
 
 
 def _value_id(locator: str) -> str:
@@ -570,7 +549,7 @@ class PostgresFirstSpecimenDeliveryReplay:
             raise DeliveryReplayDrift("Plan delivery operation contract drift")
         atoms = tuple(
             atom
-            for atom in _atoms(program.root)
+            for atom in program_atoms(program.root)
             if atom.operation.operation_id == step.operation_id
         )
         if (

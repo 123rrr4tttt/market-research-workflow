@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Generate the bounded capability-spec route decision and ownership evidence.
+"""Generate the bounded, versioned capability-spec route decision evidence.
+
+Historical C6 entries remain part of the recorded migration decision. The
+artifact is not a current execution or current-byte binding declaration.
 
 This generator records a user-authorized development decision.  It does not
 amend the frozen contract, start a pilot, adopt P4 scaffolding, or authorize a

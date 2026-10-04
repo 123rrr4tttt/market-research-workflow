@@ -1,8 +1,56 @@
-# Docker 启动指南
+# 本地与容器运行入口
 
-## 当前工作树的本地用户环境（2026-09-21）
+## 本机日常运行
 
-本机可使用保留的 Stage4 backend 镜像与当前源码只读挂载启动用户界面，无需重建镜像。
+当前宿主日常链路由业务前端、后端 API、Codex WebUI、launchd 管理的 Celery worker 和
+Elasticsearch 组成。访问地址为前端 <http://127.0.0.1:5173>、API
+<http://127.0.0.1:8000/docs>、Codex WebUI <http://127.0.0.1:8172>。OAuth 身份由宿主
+`~/.codex/auth.json` 共享给 WebUI；WebUI home 是 `~/.codex-mrw-agent`，并通过共享
+symlink 读取宿主身份。当前全链路证据见
+[`.data/readiness-repair/20261004-daily-chain/daily-chain-state.json`](../../.data/readiness-repair/20261004-daily-chain/daily-chain-state.json)。结构整理后的服务重载、正式worker材料链和WebUI浏览器读回见
+[结构整理实施结果](../../docs/development/MRW结构整理方案与分发包.md#8-实际实施进度)。
+
+### Codex WebUI 生命周期
+
+当前服务来自 [vendored README](./codex-webui/README.md) 所描述的主仓副本，运行主程序为
+`main/ops/codex-webui/dist/main.js`，协议依赖固定为 `@openai/codex@0.160.0`。原 SQLite
+数据已完整迁入 `main/ops/codex-webui/.tmp`；宿主 LaunchAgent 指向主仓路径，
+`com.mrw.codex-webui` 的认证 symlink 仍共享宿主 `~/.codex/auth.json`。
+
+启动时由已有私密配置提供 `WEBUI_API_KEY`；不要打印、记录或提交该密钥：
+
+```bash
+./main/ops/codex-webui/start.sh
+```
+
+停止同一 LaunchAgent：
+
+```bash
+./main/ops/codex-webui/stop.sh
+```
+
+构建、版本校验、认证 symlink、数据库路径和 LaunchAgent 生成的完整说明见
+[`./codex-webui/README.md`](./codex-webui/README.md)。
+
+本机状态与健康检查：
+
+```bash
+./scripts/local-deploy.sh status
+./scripts/local-deploy.sh health
+```
+
+分面控制使用既有入口：
+
+```bash
+./scripts/local-service-control.sh frontend-start
+./scripts/local-service-control.sh worker-start
+./scripts/local-service-control.sh backend-start
+```
+
+## Compose 隔离本地用户环境（2026-09-21）
+
+这个模式用于容器边界下的本地用户验证，不是当前宿主 daily 默认叙述。本机可使用此前
+生产部署验证保留的 backend 镜像与当前源码只读挂载启动用户界面，无需重建镜像。
 这不是冻结候选的 exact-byte replay，也不是生产部署。Compose project 固定为
 `mrw-local-user`；数据保存在该 project 的独立命名卷中，不使用宿主 PostgreSQL/Redis。
 
@@ -57,13 +105,13 @@ Celery 任务产生。用户操作：项目管理切换该项目 → 管理/提�
 `app.services.tasks.task_raw_import_documents`；可通过 Process 详情读回任务结果，再从文档列表检索新记录。2026-09-21 的有界验证及回执位于下方运行记录目录。
 
 本次运行证据：[`local-user-chain/2026-09-21`](../../development/latest-dev-docs/automation-runs/local-user-chain/2026-09-21/)。
-Stage4–6 历史验收结果保持原义，本环境不启动 Stage7–9 或授予发布权限。
+此前生产部署的历史验收结果保持原义；本环境不延续那轮已停止的执行，也不授予发布权限。
 
 > 最后更新：2026-05-14 | 首次运行请确保 `../backend/.env` 存在（可复制 `.env.example`）
 
 ## ⚠️ 重要提示
 
-**本项目推荐使用统一的容器启动脚本作为默认入口。**
+**在容器/Compose 模式中，推荐使用统一的容器启动脚本作为该模式入口；本机 daily 默认入口仍见顶部。**
 
 推荐入口：
 - `./start-all.sh`

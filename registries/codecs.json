@@ -1,37 +1,45 @@
 {
-  "version": "kit-registry.codecs.v1",
   "entries": [
     {
-      "name": "c7.digestion.alternative",
-      "discriminant": "c7.digestion.alternative.v1"
+      "discriminant": "mrw.functorial_successor.p3_fragment.v1",
+      "name": "shared.family.generator.p3_fragment"
     },
     {
-      "name": "c7.ingest.content_format",
-      "discriminant": "c7.ingest.content_format.v1"
+      "discriminant": "mrw.functorial_successor.p4_fragment.v1",
+      "name": "shared.family.generator.p4_fragment"
     },
     {
-      "name": "c7.ingest.input_kind",
-      "discriminant": "c7.ingest.input_kind.v1"
+      "discriminant": "scheduled_automation_artifact_evidence.v1",
+      "name": "scheduled.automation.evidence.report"
     },
     {
-      "name": "c7.movement.disposition",
-      "discriminant": "c7.movement.disposition.v1"
+      "discriminant": "CandidateSearchRequest.v1",
+      "name": "retrieval.candidate.discover.v1.request.v1"
     },
     {
-      "name": "c7.movement.terminal_outcome",
-      "discriminant": "c7.movement.terminal_outcome.v1"
+      "discriminant": "information_topology.state.v1",
+      "name": "information-topology-state"
     },
     {
-      "name": "shared.family.generator.p3_fragment",
-      "discriminant": "mrw.functorial_successor.p3_fragment.v1"
+      "discriminant": "material.digestion.alternative.v2",
+      "name": "material.digestion.alternative"
     },
     {
-      "name": "shared.family.generator.p4_fragment",
-      "discriminant": "mrw.functorial_successor.p4_fragment.v1"
+      "discriminant": "material.ingest.input_kind.v2",
+      "name": "material.ingest.input_kind"
     },
     {
-      "name": "scheduled.automation.evidence.report",
-      "discriminant": "scheduled_automation_artifact_evidence.v1"
+      "discriminant": "material.ingest.content_format.v2",
+      "name": "material.ingest.content_format"
+    },
+    {
+      "discriminant": "material.ingest.movement_disposition.v2",
+      "name": "material.ingest.movement_disposition"
+    },
+    {
+      "discriminant": "material.ingest.terminal_outcome.v2",
+      "name": "material.ingest.terminal_outcome"
     }
-  ]
+  ],
+  "version": "kit-registry.codecs.v1"
 }

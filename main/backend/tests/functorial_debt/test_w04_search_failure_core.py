@@ -38,7 +38,7 @@ def test_w04_search_qdrant_public_compatibility_lift(monkeypatch: pytest.MonkeyP
         "embed_failed: provider unavailable",
         RuntimeError("provider unavailable"),
     )
-    monkeypatch.setattr(hybrid, "try_qdrant_vector_search", lambda *_args: failure)
+    monkeypatch.setattr(hybrid, "try_qdrant_vector_search", lambda *_args, **_kwargs: failure)
 
     with pytest.raises(RuntimeError, match=r"^embed_failed: provider unavailable$"):
         hybrid.qdrant_vector_search("market", None, 3)
@@ -57,7 +57,7 @@ def test_w04_search_vector_fallback_consumes_typed_provider_failure(
         def embed_query(self, _query: str) -> list[float]:
             raise RuntimeError("fallback embeddings unavailable")
 
-    monkeypatch.setattr(hybrid, "try_qdrant_vector_search", lambda *_args: failure)
+    monkeypatch.setattr(hybrid, "try_qdrant_vector_search", lambda *_args, **_kwargs: failure)
     monkeypatch.setattr(hybrid, "get_embeddings", lambda: UnavailableEmbeddings())
 
     assert hybrid.vector_search("market", None, 3) == []

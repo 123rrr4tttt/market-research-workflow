@@ -137,6 +137,7 @@ class AgentBatchApiUnitTest(unittest.TestCase):
         self.assertTrue(second["data"]["idempotency_reused"])
         self.assertEqual(second["data"]["accepted_count"], 2)
         self.assertEqual(second["data"]["session_id"], first["data"]["session_id"])
+        self.assertNotIn("current_phase", second["data"])
         self.assertEqual(len(second["data"]["run_ids"]), 2)
         self.assertTrue(delay_stub.calls[0][2]["workflow_run_id"].endswith("-run"))
         self.assertTrue((delay_stub.calls[0][3] or "").endswith("-run"))
@@ -159,26 +160,37 @@ class AgentBatchApiUnitTest(unittest.TestCase):
             side_effect=lambda task_id: status_by_task[task_id],
         ):
             job = agent_batch_api.get_agent_batch_job(job_id)
+            session_id = str(job["data"]["session_id"])
+            session_service = agent_batch_api.get_agent_session_service()
+            event_count_after_job_read = len(session_service.list_events(session_id))
             items = agent_batch_api.list_agent_batch_items(job_id)
             events = agent_batch_api.get_agent_batch_events(job_id)
+            event_count_after_repeated_reads = len(session_service.list_events(session_id))
 
         self.assertEqual(job["status"], "ok")
         self.assertEqual(job["data"]["status"], "completed")
         self.assertTrue(str(job["data"].get("session_id") or ""))
-        self.assertEqual(job["data"]["progress"], {"total": 2, "succeeded": 1, "failed": 1, "running": 0, "queued": 0})
+        self.assertEqual(job["data"]["progress"], {"total": 2, "succeeded": 1, "failed": 1, "cancelled": 0, "running": 0, "queued": 0})
+        self.assertEqual(job["data"]["delivery_progress"]["unknown"], 2)
+        self.assertEqual(job["data"]["phase"], "awaiting_delivery")
+        self.assertFalse(job["data"]["delivery_ready"])
         self.assertEqual(len(job["data"]["run_ids"]), 2)
         self.assertEqual(items["status"], "ok")
         self.assertEqual(len(items["data"]["items"]), 2)
         self.assertEqual(items["data"]["items"][0]["run_id"], job["data"]["run_ids"][0])
         self.assertEqual(items["data"]["items"][0]["output"], {"doc_id": 101})
+        self.assertEqual(items["data"]["items"][0]["delivery"]["state"], "unknown")
         self.assertEqual(items["data"]["items"][1]["error"], "boom")
         self.assertEqual(events["status"], "ok")
         self.assertEqual(events["data"]["events"][0]["run_id"], job["data"]["run_ids"][0])
         event_types = [e["event_type"] for e in events["data"]["events"]]
         self.assertIn("task.success", event_types)
         self.assertIn("task.failure", event_types)
-        self.assertIn("agent_session.session.created", event_types)
-        self.assertIn("agent_session.compat.job_state_projected", event_types)
+        self.assertFalse(any(event_type.startswith("agent_session.") for event_type in event_types))
+        self.assertEqual(event_count_after_repeated_reads, event_count_after_job_read)
+        record = agent_batch_api._BATCH_JOB_REGISTRY[job_id]
+        self.assertNotIn("root_task_id", record.metadata)
+        self.assertNotIn("current_phase", record.metadata)
         projected = agent_batch_api.get_agent_session_service().find_session_by_compat_job_id(job_id)
         self.assertIsNotNone(projected)
         session_bundle = agent_batch_api.get_agent_session_service().get_session_bundle(projected["session_id"])
@@ -193,7 +205,117 @@ class AgentBatchApiUnitTest(unittest.TestCase):
             if str(dict(task.get("metadata") or {}).get("compat_projection") or "") == "agent_batch.job_verification"
         )
         self.assertEqual({task["status"] for task in implementation_tasks}, {"completed", "failed"})
-        self.assertEqual(verification_task["status"], "failed")
+        self.assertEqual(verification_task["status"], "pending")
+
+    def test_delivery_projection_requires_matching_provider_terminal_readback(self):
+        waiting = agent_batch_api._delivery_from_snapshot({
+            "status": "success",
+            "result": {
+                "terminal_output": {
+                    "status": "accepted",
+                    "meta": {
+                        "provider_job_id": "job-7",
+                        "terminal_readback": {"kind": "waiting", "attempt_ref": "attempt-7"},
+                    },
+                },
+            },
+        })
+        terminal = {
+            "status": "success",
+            "result": {
+                "terminal_output": {
+                    "status": "completed",
+                    "meta": {
+                        "provider_job_id": "job-7",
+                        "terminal_readback": {
+                            "kind": "terminal",
+                            "readback": {"provider_job_id": "job-7", "terminal_status": "completed"},
+                        },
+                    },
+                },
+            },
+        }
+        delivered = agent_batch_api._delivery_from_snapshot(terminal)
+        terminal["result"]["terminal_output"]["meta"]["terminal_readback"]["readback"]["provider_job_id"] = "other-job"
+        mismatched = agent_batch_api._delivery_from_snapshot(terminal)
+
+        self.assertEqual(waiting["state"], "waiting")
+        self.assertEqual(delivered["provider_state"], "delivered")
+        self.assertEqual(delivered["state"], "unknown")
+        self.assertFalse(delivered["ready_for_successor"])
+        self.assertEqual(mismatched["state"], "unknown")
+        self.assertEqual(mismatched["provider_state"], "unknown")
+
+    def test_retry_waits_for_original_provider_job_readback(self):
+        record = agent_batch_api._BatchJobRecord(
+            job_id="job-retry-readback",
+            project_key="proj-test",
+            items=[agent_batch_api._BatchItemRecord(
+                item_id="item-1", item_key="source-a", project_key="proj-test",
+                channel="source_library", task_id="task-1",
+            )],
+        )
+        agent_batch_api._BATCH_JOB_REGISTRY[record.job_id] = record
+        pending = _AsyncResultStub(
+            status="FAILURE", ready=True, successful=False, failed=True,
+            result={"provider_job_id": "provider-1", "provider_status": "accepted"},
+        )
+        with patch.object(agent_batch_api.celery_app, "AsyncResult", return_value=pending), patch.object(
+            agent_batch_api, "_submit_batch_item"
+        ) as submit:
+            response = agent_batch_api.retry_agent_batch_job(record.job_id, agent_batch_api.AgentBatchRetryRequest())
+        submit.assert_not_called()
+        self.assertEqual(response["data"]["retry_count"], 0)
+        self.assertEqual(response["data"]["blocked_items"][0]["provider_job_id"], "provider-1")
+        self.assertEqual(response["data"]["blocked_items"][0]["blocked_by"], "PROVIDER_READBACK_REQUIRED")
+        missing_id = _AsyncResultStub(status="FAILURE", ready=True, successful=False, failed=True, result="worker exited")
+        with patch.object(agent_batch_api.celery_app, "AsyncResult", return_value=missing_id), patch.object(
+            agent_batch_api, "_submit_batch_item"
+        ) as submit:
+            no_id_response = agent_batch_api.retry_agent_batch_job(record.job_id, agent_batch_api.AgentBatchRetryRequest())
+        submit.assert_not_called()
+        self.assertEqual(no_id_response["data"]["blocked_items"][0]["blocked_by"], "EFFECT_OUTCOME_UNKNOWN")
+
+    def test_job_surfaces_share_awaiting_delivery_phase_and_revoked_progress(self):
+        record = agent_batch_api._BatchJobRecord(
+            job_id="job-phase",
+            project_key="proj-test",
+            items=[agent_batch_api._BatchItemRecord(
+                item_id="item-1", item_key="source-a", project_key="proj-test",
+                channel="source_library", task_id="task-1",
+            )],
+        )
+        agent_batch_api._BATCH_JOB_REGISTRY[record.job_id] = record
+        succeeded = _AsyncResultStub(status="SUCCESS", ready=True, successful=True, failed=False, result={"doc_id": 1})
+        phases = []
+
+        def project(**kwargs):
+            phases.append(kwargs["phase"])
+            return None
+
+        with patch.object(agent_batch_api.celery_app, "AsyncResult", return_value=succeeded), patch.object(
+            agent_batch_api, "_project_agent_session_from_job_state", side_effect=project
+        ):
+            job = agent_batch_api.get_agent_batch_job(record.job_id)
+            agent_batch_api.list_agent_batch_items(record.job_id)
+            agent_batch_api.get_agent_batch_events(record.job_id)
+            wait = agent_batch_api._await_job_completion(job_id=record.job_id, timeout_seconds=1, poll_seconds=0.2)
+        self.assertEqual(phases, ["awaiting_delivery"] * 4)
+        self.assertEqual(job["data"]["phase"], "awaiting_delivery")
+        self.assertEqual(wait["phase"], "awaiting_delivery")
+        self.assertTrue(wait["executor_completed"])
+        self.assertFalse(wait["delivery_ready"])
+
+        revoked = agent_batch_api._job_observation_summary([{"status": "revoked", "result": None}])
+        self.assertEqual(revoked["phase"], "awaiting_delivery")
+        self.assertEqual(revoked["progress"]["cancelled"], 1)
+        self.assertEqual(revoked["progress"]["queued"], 0)
+        terminal_cancelled = agent_batch_api._job_observation_summary([{
+            "status": "revoked", "result": {"provider_job_id": "job-cancelled", "terminal_readback": {
+                "kind": "terminal", "provider_job_id": "job-cancelled", "status": "cancelled",
+            }},
+        }])
+        self.assertEqual(terminal_cancelled["phase"], "cancelled")
 
     def test_retry_replays_failed_items_only(self):
         delay_stub = _DelayTaskStub()
@@ -204,7 +326,14 @@ class AgentBatchApiUnitTest(unittest.TestCase):
                 agent_batch_api.celery_app,
                 "AsyncResult",
                 side_effect=lambda task_id: {
-                    "task-1": _AsyncResultStub(status="FAILURE", ready=True, successful=False, failed=True, result="bad"),
+                    "task-1": _AsyncResultStub(
+                        status="FAILURE", ready=True, successful=False, failed=True,
+                        result={"provider_job_id": "provider-1", "terminal_readback": {
+                            "kind": "terminal", "readback": {
+                                "provider_job_id": "provider-1", "terminal_status": "failed",
+                            },
+                        }},
+                    ),
                     "task-2": _AsyncResultStub(status="SUCCESS", ready=True, successful=True, failed=False, result={"ok": True}),
                 }[task_id],
             ):
@@ -482,331 +611,6 @@ class AgentBatchApiUnitTest(unittest.TestCase):
         self.assertNotIn("source_mode", override_params)
         self.assertEqual(override_params["workflow_run_id"], workflow_run_id)
 
-    def test_nl_command_dispatches_search_market_batch(self):
-        market_delay_stub = _MarketDelayTaskStub()
-        payload = agent_batch_api.AgentBatchNlCommandRequest(
-            command="采集最近14天美国在线彩票市场新闻和监管政策，前30条",
-            project_key="proj-nl",
-            idempotency_key="idem-nl-1",
-        )
-        with patch.object(agent_batch_api.tasks_module, "task_ingest_market", market_delay_stub), patch.object(
-            __import__("app.services.agent_batch.agent_loop", fromlist=["invoke_skill_safe"]),
-            "invoke_skill_safe",
-            return_value={"ok": False, "result": None, "error": "planner unavailable"},
-        ), patch.object(
-            agent_batch_api,
-            "inspect_executor_health",
-            return_value={"worker_online": True, "workers": ["celery@test"]},
-        ):
-            resp = agent_batch_api.run_agent_batch_nl_command(payload)
-
-        self.assertEqual(resp["status"], "ok")
-        parsed = resp["data"]["parsed"]
-        self.assertEqual(parsed["channel"], "search.market")
-        self.assertEqual(parsed["days_back"], 14)
-        self.assertEqual(parsed["max_items"], 30)
-        self.assertEqual(parsed["language"], "zh")
-        self.assertEqual(parsed["intent"], "regulatory_monitoring")
-        self.assertGreaterEqual(parsed["task_count"], 2)
-        self.assertEqual(resp["data"]["submit"]["accepted_count"], parsed["task_count"])
-        self.assertEqual(resp["data"]["submit"]["accepted_job_items"][0]["task_id"], "mkt-1")
-        self.assertEqual(len(market_delay_stub.calls), parsed["task_count"])
-        self.assertFalse(resp["data"]["plan"]["search_brief"]["source_preferences"]["attach_source_library"])
-        autonomous_stage = next(stage for stage in resp["data"]["stages"] if stage["name"] == "autonomous_mix")
-        self.assertEqual(autonomous_stage["status"], "skipped")
-        self.assertEqual(autonomous_stage["reason"], "web_first_intent")
-        self.assertTrue(resp["data"]["executor"]["worker_online"])
-        self.assertTrue(resp["data"]["compat_mode"])
-        self.assertTrue(str(resp["data"]["session_id"]))
-        self.assertTrue(str(resp["data"]["root_task_id"]))
-
-    def test_nl_command_supports_dry_run_without_dispatch(self):
-        market_delay_stub = _MarketDelayTaskStub()
-        payload = agent_batch_api.AgentBatchNlCommandRequest(
-            command="帮我搜索人工智能终端成功案例，最近7天，前10条",
-            project_key="proj-nl",
-            dry_run=True,
-        )
-        with patch.object(agent_batch_api.tasks_module, "task_ingest_market", market_delay_stub), patch.object(
-            __import__("app.services.agent_batch.agent_loop", fromlist=["invoke_skill_safe"]),
-            "invoke_skill_safe",
-            return_value={"ok": False, "result": None, "error": "planner unavailable"},
-        ), patch.object(
-            agent_batch_api,
-            "inspect_executor_health",
-            return_value={"worker_online": False, "workers": []},
-        ):
-            resp = agent_batch_api.run_agent_batch_nl_command(payload)
-
-        self.assertEqual(resp["status"], "ok")
-        self.assertTrue(resp["data"]["dry_run"])
-        self.assertIsNone(resp["data"]["submit"])
-        self.assertGreaterEqual(len(resp["data"]["plan"]["tasks"]), 1)
-        self.assertEqual(len(market_delay_stub.calls), 0)
-
-    def test_nl_command_preserves_search_market_override_params_from_loop_tasks(self):
-        market_delay_stub = _MarketDelayTaskStub()
-        payload = agent_batch_api.AgentBatchNlCommandRequest(
-            command="search ai chips last 7 days top 5",
-            project_key="proj-nl",
-        )
-        with patch.object(
-            __import__("app.services.agent_batch.agent_loop", fromlist=["invoke_skill_safe"]),
-            "invoke_skill_safe",
-            return_value={"ok": False, "result": None, "error": "planner unavailable"},
-        ), patch.object(
-            agent_batch_api,
-            "plan_batch_search_command",
-            return_value={
-                "intent": "market_news",
-                "strategy": "single_query",
-                "tasks": [
-                    {
-                        "channel": "search.market",
-                        "query_terms": ["ai chips"],
-                        "max_items": 5,
-                        "provider": "google",
-                        "language": "en",
-                        "days_back": 7,
-                        "override_params": {"enable_extraction": False, "start_offset": 9},
-                    }
-                ],
-            },
-        ), patch.object(agent_batch_api.tasks_module, "task_ingest_market", market_delay_stub), patch.object(
-            agent_batch_api,
-            "inspect_executor_health",
-            return_value={"worker_online": True, "workers": ["celery@test"]},
-        ):
-            resp = agent_batch_api.run_agent_batch_nl_command(payload)
-
-        self.assertEqual(resp["status"], "ok")
-        self.assertEqual(resp["data"]["submit"]["accepted_count"], 1)
-        self.assertEqual(len(market_delay_stub.calls), 1)
-        call = market_delay_stub.calls[0]
-        self.assertFalse(call[2])
-        self.assertEqual(call[4], 9)
-
-    def test_nl_command_rejects_unsupported_override_params_from_loop_tasks(self):
-        market_delay_stub = _MarketDelayTaskStub()
-        payload = agent_batch_api.AgentBatchNlCommandRequest(
-            command="search ai chips last 7 days top 5",
-            project_key="proj-nl",
-        )
-        with patch.object(
-            __import__("app.services.agent_batch.agent_loop", fromlist=["invoke_skill_safe"]),
-            "invoke_skill_safe",
-            return_value={"ok": False, "result": None, "error": "planner unavailable"},
-        ), patch.object(
-            agent_batch_api,
-            "plan_batch_search_command",
-            return_value={
-                "intent": "market_news",
-                "strategy": "single_query",
-                "tasks": [
-                    {
-                        "channel": "search.market",
-                        "query_terms": ["ai chips"],
-                        "override_params": {"per_keyword_limit": 3},
-                    }
-                ],
-            },
-        ), patch.object(agent_batch_api.tasks_module, "task_ingest_market", market_delay_stub), patch.object(
-            agent_batch_api,
-            "inspect_executor_health",
-            return_value={"worker_online": True, "workers": ["celery@test"]},
-        ):
-            resp = agent_batch_api.run_agent_batch_nl_command(payload)
-
-        self.assertEqual(resp["status"], "ok")
-        self.assertEqual(resp["data"]["submit"]["accepted_count"], 0)
-        self.assertEqual(resp["data"]["submit"]["rejected_count"], 1)
-        rejected = resp["data"]["submit"]["rejected_job_items"][0]
-        self.assertEqual(rejected["reason_code"], "override_params_keys_unsupported")
-        autonomous_stage = next(stage for stage in resp["data"]["stages"] if stage["name"] == "autonomous_mix")
-        self.assertEqual(autonomous_stage["reason"], "web_first_intent")
-        self.assertEqual(len(market_delay_stub.calls), 0)
-
-    def test_nl_command_submit_response_preserves_optional_run_id_when_present(self):
-        payload = agent_batch_api.AgentBatchNlCommandRequest(
-            command="search ai chips last 7 days top 5",
-            project_key="proj-nl",
-        )
-        with patch.object(
-            __import__("app.services.agent_batch.agent_loop", fromlist=["invoke_skill_safe"]),
-            "invoke_skill_safe",
-            return_value={"ok": False, "result": None, "error": "planner unavailable"},
-        ), patch.object(
-            agent_batch_api,
-            "plan_batch_search_command",
-            return_value={
-                "intent": "market_news",
-                "strategy": "single_query",
-                "tasks": [
-                    {
-                        "channel": "search.market",
-                        "query_terms": ["ai chips"],
-                        "max_items": 5,
-                        "provider": "auto",
-                        "language": "en",
-                        "days_back": 7,
-                    }
-                ],
-            },
-        ), patch.object(
-            agent_batch_api,
-            "submit_agent_batch_job",
-            return_value={"status": "ok", "data": {"job_id": "abj-1", "accepted_count": 1, "run_id": "run-123"}},
-        ), patch.object(
-            agent_batch_api,
-            "inspect_executor_health",
-            return_value={"worker_online": True, "workers": ["celery@test"]},
-        ):
-            resp = agent_batch_api.run_agent_batch_nl_command(payload)
-
-        self.assertEqual(resp["status"], "ok")
-        self.assertEqual(resp["data"]["submit"]["run_id"], "run-123")
-
-    def test_nl_command_submit_response_allows_missing_optional_run_id(self):
-        payload = agent_batch_api.AgentBatchNlCommandRequest(
-            command="search ai chips last 7 days top 5",
-            project_key="proj-nl",
-        )
-        with patch.object(
-            __import__("app.services.agent_batch.agent_loop", fromlist=["invoke_skill_safe"]),
-            "invoke_skill_safe",
-            return_value={"ok": False, "result": None, "error": "planner unavailable"},
-        ), patch.object(
-            agent_batch_api,
-            "plan_batch_search_command",
-            return_value={
-                "intent": "market_news",
-                "strategy": "single_query",
-                "tasks": [
-                    {
-                        "channel": "search.market",
-                        "query_terms": ["ai chips"],
-                        "max_items": 5,
-                        "provider": "auto",
-                        "language": "en",
-                        "days_back": 7,
-                    }
-                ],
-            },
-        ), patch.object(
-            agent_batch_api,
-            "submit_agent_batch_job",
-            return_value={"status": "ok", "data": {"job_id": "abj-1", "accepted_count": 1}},
-        ), patch.object(
-            agent_batch_api,
-            "inspect_executor_health",
-            return_value={"worker_online": True, "workers": ["celery@test"]},
-        ):
-            resp = agent_batch_api.run_agent_batch_nl_command(payload)
-
-        self.assertEqual(resp["status"], "ok")
-        self.assertNotIn("run_id", resp["data"]["submit"])
-
-    def test_nl_command_defaults_to_skill_planner_path_metadata(self):
-        payload = agent_batch_api.AgentBatchNlCommandRequest(
-            command="search semiconductor regulation updates last 7 days top 5",
-            project_key="proj-nl",
-        )
-        skill_text = (
-            '{"intent":"regulatory_monitoring","strategy":"single_query","tasks":[{"channel":"search.market",'
-            '"query_terms":["semiconductor regulation updates"],"max_items":5,"provider":"auto","language":"en","days_back":7}]}'
-        )
-        with patch.object(
-            __import__("app.services.agent_batch.agent_loop", fromlist=["invoke_skill_safe"]),
-            "invoke_skill_safe",
-            return_value={"ok": True, "result": {"result": {"text": skill_text}}, "error": None},
-        ), patch.object(
-            agent_batch_api,
-            "plan_batch_search_command",
-            return_value={
-                "intent": "regulatory_monitoring",
-                "strategy": "single_query",
-                "tasks": [
-                    {
-                        "channel": "search.market",
-                        "query_terms": ["semiconductor regulation updates"],
-                        "max_items": 5,
-                        "provider": "auto",
-                        "language": "en",
-                        "days_back": 7,
-                    }
-                ],
-                "loop": {
-                    "planner": "skill",
-                    "planner_path": "skill_planner",
-                    "degradation_flags": [],
-                    "iteration": 1,
-                },
-            },
-        ), patch.object(
-            agent_batch_api,
-            "submit_agent_batch_job",
-            return_value={"status": "ok", "data": {"job_id": "abj-1", "accepted_count": 1}},
-        ), patch.object(
-            agent_batch_api,
-            "inspect_executor_health",
-            return_value={"worker_online": True, "workers": ["celery@test"]},
-        ):
-            resp = agent_batch_api.run_agent_batch_nl_command(payload)
-
-        self.assertEqual(resp["status"], "ok")
-        self.assertEqual(resp["data"]["plan"]["loop"]["planner"], "skill")
-        self.assertEqual(resp["data"]["plan"]["loop"]["planner_path"], "skill_planner")
-        self.assertEqual(resp["data"]["plan"]["loop"]["degradation_flags"], [])
-
-    def test_nl_command_skill_failure_fallback_has_degradation_flags(self):
-        payload = agent_batch_api.AgentBatchNlCommandRequest(
-            command="search payment market news last 3 days top 8",
-            project_key="proj-nl",
-        )
-        with patch.object(
-            __import__("app.services.agent_batch.agent_loop", fromlist=["invoke_skill_safe"]),
-            "invoke_skill_safe",
-            return_value={"ok": False, "result": None, "error": "skill_invoke_error"},
-        ), patch.object(
-            agent_batch_api,
-            "plan_batch_search_command",
-            return_value={
-                "intent": "market_news",
-                "strategy": "single_query",
-                "tasks": [
-                    {
-                        "channel": "search.market",
-                        "query_terms": ["payment market news"],
-                        "max_items": 8,
-                        "provider": "auto",
-                        "language": "en",
-                        "days_back": 3,
-                    }
-                ],
-                "loop": {
-                    "planner": "rule",
-                    "planner_path": "rule_planner_fallback",
-                    "degradation_flags": ["skill_planner_failed"],
-                    "fallback_reason": "skill_invoke_error",
-                },
-            },
-        ), patch.object(
-            agent_batch_api,
-            "submit_agent_batch_job",
-            return_value={"status": "ok", "data": {"job_id": "abj-2", "accepted_count": 1}},
-        ), patch.object(
-            agent_batch_api,
-            "inspect_executor_health",
-            return_value={"worker_online": True, "workers": ["celery@test"]},
-        ):
-            resp = agent_batch_api.run_agent_batch_nl_command(payload)
-
-        self.assertEqual(resp["status"], "ok")
-        loop_meta = resp["data"]["plan"]["loop"]
-        self.assertEqual(loop_meta["planner"], "rule")
-        self.assertEqual(loop_meta["planner_path"], "rule_planner_fallback")
-        self.assertIn("skill_planner_failed", loop_meta["degradation_flags"])
-
     def test_executor_health_endpoint_wraps_service_output(self):
         with patch.object(
             agent_batch_api,
@@ -816,254 +620,6 @@ class AgentBatchApiUnitTest(unittest.TestCase):
             resp = agent_batch_api.get_agent_batch_executor_health()
         self.assertEqual(resp["status"], "ok")
         self.assertEqual(resp["data"]["workers"], ["celery@w1"])
-
-    def test_nl_command_direct_waits_completion_and_returns_completion_block(self):
-        market_delay_stub = _MarketDelayTaskStub()
-        payload = agent_batch_api.AgentBatchNlCommandRequest(
-            command="search ai chips last 7 days top 3",
-            project_key="proj-nl",
-            completion_timeout_seconds=3,
-            completion_poll_seconds=0.2,
-        )
-        with patch.object(agent_batch_api.tasks_module, "task_ingest_market", market_delay_stub), patch.object(
-            __import__("app.services.agent_batch.agent_loop", fromlist=["invoke_skill_safe"]),
-            "invoke_skill_safe",
-            return_value={"ok": False, "result": None, "error": "planner unavailable"},
-        ), patch.object(
-            agent_batch_api,
-            "inspect_executor_health",
-            return_value={"worker_online": True, "workers": ["celery@test"]},
-        ), patch.object(
-            agent_batch_api.celery_app,
-            "AsyncResult",
-            return_value=_AsyncResultStub(status="SUCCESS", ready=True, successful=True, failed=False, result={"ok": True}),
-        ):
-            resp = agent_batch_api.run_agent_batch_nl_command_direct(payload)
-
-        self.assertEqual(resp["status"], "ok")
-        completion = resp["data"].get("completion") or {}
-        self.assertTrue(completion.get("completed"))
-        self.assertFalse(completion.get("timed_out"))
-        self.assertEqual(str(completion.get("phase")), "completed")
-        self.assertEqual((completion.get("progress") or {}).get("failed"), 0)
-
-    def test_nl_command_persists_search_brief_into_job_meta_and_events(self):
-        market_delay_stub = _MarketDelayTaskStub()
-        payload = agent_batch_api.AgentBatchNlCommandRequest(
-            command="search ai terminal market signals last 14 days top 20",
-            project_key="proj-nl",
-            dry_run=False,
-        )
-        skill_text = (
-            '{"intent":"market_news","strategy":"parallel_by_query_term","tasks":[{"channel":"search.market",'
-            '"query_terms":["ai terminal market signals"],"max_items":20,"provider":"auto","language":"en","days_back":14}]}'
-        )
-        with patch.object(agent_batch_api.tasks_module, "task_ingest_market", market_delay_stub), patch.object(
-            __import__("app.services.agent_batch.agent_loop", fromlist=["invoke_skill_safe"]),
-            "invoke_skill_safe",
-            return_value={"ok": True, "result": {"result": {"text": skill_text}}, "error": None},
-        ), patch.object(
-            agent_batch_api,
-            "inspect_executor_health",
-            return_value={"worker_online": True, "workers": ["celery@test"]},
-        ):
-            resp = agent_batch_api.run_agent_batch_nl_command(payload)
-            job_id = str((resp["data"].get("submit") or {}).get("job_id") or "")
-
-        self.assertEqual(resp["status"], "ok")
-        self.assertTrue(job_id)
-        self.assertIn("search_brief", resp["data"]["plan"])
-
-        with patch.object(
-            agent_batch_api.celery_app,
-            "AsyncResult",
-            return_value=_AsyncResultStub(status="SUCCESS", ready=True, successful=True, failed=False, result={"ok": True}),
-        ):
-            job = agent_batch_api.get_agent_batch_job(job_id)
-            events = agent_batch_api.get_agent_batch_events(job_id)
-
-        self.assertEqual(job["status"], "ok")
-        self.assertIn("search_brief", job["data"]["meta"])
-        self.assertTrue(str(job["data"].get("session_id") or ""))
-        self.assertEqual(job["data"]["meta"]["search_brief"]["goal"], "search ai terminal market signals last 14 days top 20")
-        self.assertEqual(job["data"]["meta"]["search_brief"]["time_strategy"]["days_back"], 14)
-        self.assertIn("stage_artifacts", job["data"]["meta"])
-        self.assertEqual(job["data"]["meta"]["stage_artifacts"]["search_brief"]["name"], "search_brief")
-
-        event_types = [event["event_type"] for event in events["data"]["events"]]
-        self.assertIn("search_brief.created", event_types)
-        self.assertIn("search_critic.scored", event_types)
-        self.assertIn("search_retry.skipped", event_types)
-        self.assertIn("agent_session.session.created", event_types)
-        search_brief_event = next(event for event in events["data"]["events"] if event["event_type"] == "search_brief.created")
-        self.assertEqual(search_brief_event["payload"]["search_brief"]["goal"], "search ai terminal market signals last 14 days top 20")
-        self.assertEqual(search_brief_event["payload"]["stage"]["name"], "search_brief")
-
-    def test_nl_command_persists_retry_state_when_bounded_retry_is_enabled(self):
-        market_delay_stub = _MarketDelayTaskStub()
-        payload = agent_batch_api.AgentBatchNlCommandRequest(
-            command="search chip pricing regulation last 120 days top 6",
-            project_key="proj-nl",
-            dry_run=False,
-            enable_bounded_retry=True,
-        )
-        skill_text = (
-            '{"intent":"market_news","strategy":"single_query","tasks":[{"channel":"search.market",'
-            '"query_terms":["chip pricing regulation"],"max_items":6,"provider":"auto","language":"en","days_back":120}]}'
-        )
-        with patch.object(agent_batch_api.tasks_module, "task_ingest_market", market_delay_stub), patch.object(
-            __import__("app.services.agent_batch.agent_loop", fromlist=["invoke_skill_safe"]),
-            "invoke_skill_safe",
-            return_value={"ok": True, "result": {"result": {"text": skill_text}}, "error": None},
-        ), patch.object(
-            agent_batch_api,
-            "inspect_executor_health",
-            return_value={"worker_online": True, "workers": ["celery@test"]},
-        ):
-            resp = agent_batch_api.run_agent_batch_nl_command(payload)
-            job_id = str((resp["data"].get("submit") or {}).get("job_id") or "")
-
-        self.assertEqual(resp["status"], "ok")
-        self.assertEqual(len(market_delay_stub.calls), 2)
-        self.assertTrue(job_id)
-        self.assertEqual(len(resp["data"]["submit_rounds"]), 2)
-        self.assertTrue(resp["data"]["plan"]["search_retry"]["scheduled"])
-        self.assertEqual(resp["data"]["plan"]["search_retry"]["action"]["action"], "narrow_query_terms")
-
-        with patch.object(
-            agent_batch_api.celery_app,
-            "AsyncResult",
-            return_value=_AsyncResultStub(status="SUCCESS", ready=True, successful=True, failed=False, result={"ok": True}),
-        ):
-            job = agent_batch_api.get_agent_batch_job(job_id)
-            events = agent_batch_api.get_agent_batch_events(job_id)
-            metrics = agent_batch_api.get_agent_batch_search_policy_metrics()
-
-        self.assertEqual(job["status"], "ok")
-        self.assertIn("search_retry", job["data"]["meta"])
-        self.assertTrue(job["data"]["meta"]["search_retry"]["scheduled"])
-        self.assertEqual(job["data"]["meta"]["search_retry"]["round"], 2)
-        self.assertEqual(len(job["data"]["meta"]["submit_rounds"]), 2)
-        self.assertEqual(job["data"]["meta"]["stage_artifacts"]["search_retry"]["name"], "search_retry")
-        event_types = [event["event_type"] for event in events["data"]["events"]]
-        self.assertIn("search_round.completed", event_types)
-        self.assertIn("search_critic.scored", event_types)
-        self.assertIn("search_retry.scheduled", event_types)
-        self.assertEqual(metrics["status"], "ok")
-        self.assertEqual(metrics["data"]["contract_version"], "agent_batch.search_policy_metrics.v1")
-        self.assertGreaterEqual(int(metrics["data"]["retry_outcome_counts"]["scheduled"]), 1)
-
-    def test_nl_command_retry_can_attach_source_library_and_preserve_runtime_fields(self):
-        market_delay_stub = _MarketDelayTaskStub()
-        source_delay_stub = _DelayTaskStub()
-        payload = agent_batch_api.AgentBatchNlCommandRequest(
-            command="search ai terminal products companies web only last 30 days top 10",
-            project_key="proj-nl",
-            dry_run=False,
-            enable_bounded_retry=True,
-        )
-        skill_text = (
-            '{"intent":"market_research_general","strategy":"single_query","constraints":{"retrieval_mode":"web_only"},'
-            '"tasks":[{"channel":"search.market","query_terms":["ai terminal products companies"],'
-            '"max_items":10,"provider":"auto","language":"en","days_back":30}]}'
-        )
-        with patch.object(agent_batch_api.tasks_module, "task_ingest_market", market_delay_stub), patch.object(
-            agent_batch_api.tasks_module, "task_run_source_library_item", source_delay_stub
-        ), patch.object(
-            __import__("app.services.agent_batch.agent_loop", fromlist=["invoke_skill_safe"]),
-            "invoke_skill_safe",
-            return_value={"ok": True, "result": {"result": {"text": skill_text}}, "error": None},
-        ), patch(
-            "app.services.agent_batch.agent_loop._list_effective_source_items",
-            return_value=[
-                {
-                    "item_key": "ai_terminal.weekly",
-                    "name": "AI Terminal Weekly",
-                    "channel_key": "handler.cluster",
-                    "enabled": True,
-                    "params": {
-                        "site_entries": ["https://example.com/search?q={{q}}"],
-                        "expected_entry_type": "search_template",
-                    },
-                }
-            ],
-        ), patch(
-            "app.services.agent_batch.agent_loop._build_channel_capability_index",
-            return_value={"handler.cluster": {"channel_key": "handler.cluster", "provider": "handler", "credential_refs": []}},
-        ), patch(
-            "app.services.agent_batch.agent_loop._is_item_credentials_ready",
-            return_value=True,
-        ), patch.object(
-            agent_batch_api,
-            "inspect_executor_health",
-            return_value={"worker_online": True, "workers": ["celery@test"]},
-        ):
-            resp = agent_batch_api.run_agent_batch_nl_command(payload)
-
-        self.assertEqual(resp["status"], "ok")
-        self.assertEqual(len(market_delay_stub.calls), 2)
-        self.assertEqual(len(source_delay_stub.calls), 1)
-        self.assertTrue(resp["data"]["plan"]["search_retry"]["scheduled"])
-        self.assertEqual(resp["data"]["plan"]["search_retry"]["action"]["action"], "attach_source_library")
-        self.assertEqual(len(resp["data"]["submit_rounds"]), 2)
-        self.assertEqual(resp["data"]["submit_rounds"][1]["accepted_count"], 2)
-
-        item_key, project_key, override_params, workflow_run_id = source_delay_stub.calls[0]
-        self.assertEqual(item_key, "ai_terminal.weekly")
-        self.assertEqual(project_key, "proj-nl")
-        self.assertEqual(override_params["query_terms"], ["ai terminal products companies"])
-        self.assertEqual(override_params["provider"], "auto")
-        self.assertEqual(override_params["max_items"], 10)
-        self.assertEqual(override_params["limit"], 10)
-        self.assertNotIn("source_mode", override_params)
-        self.assertEqual(override_params["workflow_run_id"], workflow_run_id)
-        self.assertEqual(override_params["line_key"], "resource_source_library")
-        self.assertEqual(override_params["queue"], agent_batch_api._resolve_queue_for_lane("subagent"))
-        self.assertEqual(override_params["trace_id"], source_delay_stub.kwargs_calls[0]["trace_id"])
-        self.assertEqual(override_params["runtime_readback"], source_delay_stub.kwargs_calls[0]["runtime_readback"])
-        self.assertEqual(source_delay_stub.kwargs_calls[0]["line_key"], "resource_source_library")
-        self.assertEqual(source_delay_stub.kwargs_calls[0]["queue"], agent_batch_api._resolve_queue_for_lane("subagent"))
-        self.assertEqual(source_delay_stub.kwargs_calls[0]["workflow_run_id"], workflow_run_id)
-        self.assertEqual(source_delay_stub.kwargs_calls[0]["runtime_readback"]["run_id"], workflow_run_id)
-        self.assertTrue(source_delay_stub.kwargs_calls[0]["trace_id"].startswith("trace-"))
-        self.assertTrue(all(call["line_key"] == "search_discovery_index" for call in market_delay_stub.kwargs_calls))
-        self.assertTrue(all(call["queue"] == agent_batch_api._resolve_queue_for_lane("main") for call in market_delay_stub.kwargs_calls))
-        self.assertTrue(all(call["runtime_readback"]["run_id"] == call["workflow_run_id"] for call in market_delay_stub.kwargs_calls))
-
-    def test_retry_attach_source_library_preserves_existing_target_count_when_rewrite_omits_max_items(self):
-        agent_loop_module = __import__("app.services.agent_batch.agent_loop", fromlist=["_apply_retry_action"])
-        tasks = [
-            {
-                "channel": "search.market",
-                "query_terms": ["ai terminal products companies"],
-                "max_items": 8,
-                "provider": "auto",
-                "language": "en",
-                "days_back": 30,
-            }
-        ]
-        retried = agent_loop_module._apply_retry_action(
-            tasks=tasks,
-            retry_action={
-                "action": "attach_source_library",
-                "channel": "source_library",
-                "rewrite": {
-                    "item_key": "ai_terminal.weekly",
-                    "query_terms": ["ai terminal products companies"],
-                    "provider": "auto",
-                    "language": "en",
-                },
-            },
-            command="search ai terminal products companies web only last 30 days top 8",
-        )
-
-        self.assertEqual(len(retried), 2)
-        source_task = retried[1]
-        self.assertEqual(source_task["channel"], "source_library")
-        self.assertEqual(source_task["item_key"], "ai_terminal.weekly")
-        self.assertEqual(source_task["max_items"], 8)
-        self.assertEqual(source_task["query_terms"], ["ai terminal products companies"])
-        self.assertIsNone(source_task["source_mode"])
 
     def test_search_policy_benchmark_pack_and_gate_endpoints_return_contract_shapes(self):
         pack = agent_batch_api.get_agent_batch_search_policy_benchmark_pack()
@@ -1370,23 +926,23 @@ class AgentBatchApiUnitTest(unittest.TestCase):
         self.assertEqual(ctx.exception.detail["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertIn("binding mismatch", ctx.exception.detail["error"]["message"])
 
-    def test_nl_command_requires_command_with_structured_error(self):
-        with self.assertRaises(HTTPException) as ctx:
-            agent_batch_api.run_agent_batch_nl_command(
-                agent_batch_api.AgentBatchNlCommandRequest(command="   ", project_key="proj-test")
-            )
-        self.assertEqual(ctx.exception.status_code, 400)
-        self.assertEqual(ctx.exception.detail["error"]["code"], ErrorCode.INVALID_INPUT.value)
-        self.assertEqual(ctx.exception.detail["error"]["message"], "command is required")
-
-    def test_nl_command_loop_failure_raises_structured_invalid_input(self):
-        payload = agent_batch_api.AgentBatchNlCommandRequest(command="collect ai", project_key="proj-test")
-        with patch.object(agent_batch_api, "run_agent_batch_nl_command_loop", side_effect=RuntimeError("loop exploded")):
-            with self.assertRaises(HTTPException) as ctx:
-                agent_batch_api.run_agent_batch_nl_command(payload)
-        self.assertEqual(ctx.exception.status_code, 400)
-        self.assertEqual(ctx.exception.detail["error"]["code"], ErrorCode.INVALID_INPUT.value)
-        self.assertIn("loop exploded", ctx.exception.detail["error"]["message"])
+    def test_retired_nl_command_routes_return_gone_without_session_effect(self):
+        payload = agent_batch_api.AgentBatchNlCommandRequest(
+            command="collect ai", project_key="proj-test"
+        )
+        with patch.object(agent_batch_api, "get_agent_session_service") as get_session_service:
+            for route in (
+                agent_batch_api.run_agent_batch_nl_command,
+                agent_batch_api.run_agent_batch_nl_command_direct,
+            ):
+                with self.subTest(route=route.__name__):
+                    with self.assertRaises(HTTPException) as ctx:
+                        route(payload)
+                    self.assertEqual(ctx.exception.status_code, 410)
+                    self.assertEqual(
+                        ctx.exception.detail["error"]["code"], "agent_runtime_retired"
+                    )
+            get_session_service.assert_not_called()
 
     def test_resolve_item_key_missing_identifiers_raises_structured_invalid_input(self):
         job = agent_batch_api.AgentBatchItemSubmit(item_id="missing-key")

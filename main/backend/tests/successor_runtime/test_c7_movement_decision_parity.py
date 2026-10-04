@@ -11,11 +11,11 @@ from app.successor_migration.legacy_c7_decision_oracle import (
     legacy_c7_decision_oracle,
 )
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.ingest_c7_movements import (
-    C7_ALTERNATIVES,
-    C7_LONG_REPORT_MIN_LENGTH,
-    C7_PROVIDER_ENRICHMENT_DECLARED_LOSS_REF,
-    C7_STAGING_ONLY_AUTHORITY,
+from app.successor_runtime.capabilities.material_ingest_movements import (
+    MATERIAL_INGEST_ALTERNATIVES,
+    MATERIAL_LONG_REPORT_MIN_LENGTH,
+    MATERIAL_PROVIDER_ENRICHMENT_DECLARED_LOSS_REF,
+    MATERIAL_STAGING_ONLY_AUTHORITY,
     DeterministicChunkPort,
     DeterministicExtractPort,
     DeterministicPassThroughPort,
@@ -25,7 +25,7 @@ from app.successor_runtime.capabilities.ingest_c7_movements import (
     StagingAuthority,
     StructuredMaterialCandidate,
     capture_raw_snapshot_exact,
-    execute_c7_movement,
+    execute_material_movement,
     normalize_ingest_envelope,
     select_exactly_one_digestion_alternative,
     verify_structured_candidate,
@@ -113,7 +113,7 @@ def _run_mode(
     )
     decision = select_exactly_one_digestion_alternative(envelope)
     extract, chunk, summarize, pass_through = _ports()
-    trace = execute_c7_movement(
+    trace = execute_material_movement(
         snapshot=snapshot,
         envelope=envelope,
         decision=decision,
@@ -169,7 +169,7 @@ def test_exactly_one_target_branch_executes_per_trace() -> None:
     }
     for name in _cases():
         snapshot, envelope, _legacy, decision, trace, ports = _run_mode(name)
-        assert decision.alternative in C7_ALTERNATIVES
+        assert decision.alternative in MATERIAL_INGEST_ALTERNATIVES
         assert not hasattr(decision, "extract_required")
         assert not hasattr(decision, "chunking_required")
         assert not hasattr(decision, "summarize_required")
@@ -214,7 +214,7 @@ def test_legacy_dual_flag_conflicts_are_not_silently_normalized() -> None:
         )
         assert structure["extract_required"]["provider_calls"] == 0
         assert trace.outcome.failure_loss_profile == (
-            C7_PROVIDER_ENRICHMENT_DECLARED_LOSS_REF
+            MATERIAL_PROVIDER_ENRICHMENT_DECLARED_LOSS_REF
         )
         assert "without_extract" not in decision.reason
 
@@ -242,7 +242,7 @@ def test_candidate_digests_bind_snapshot_decision_and_branch() -> None:
         assert candidate.provenance_closure
         assert candidate.candidate_digest
         assert len(candidate.candidate_digest) == 64
-        assert candidate.authority.value == C7_STAGING_ONLY_AUTHORITY
+        assert candidate.authority.value == MATERIAL_STAGING_ONLY_AUTHORITY
 
 
 def test_decision_digest_is_stable_and_content_addressed() -> None:
@@ -254,7 +254,7 @@ def test_decision_digest_is_stable_and_content_addressed() -> None:
 
 
 def test_four_alternatives_one_of_common_prefix_only() -> None:
-    assert C7_ALTERNATIVES == (
+    assert MATERIAL_INGEST_ALTERNATIVES == (
         "EXTRACT",
         "CHUNK",
         "SUMMARIZE",
@@ -264,7 +264,7 @@ def test_four_alternatives_one_of_common_prefix_only() -> None:
         _snapshot, _envelope, _legacy, decision, _trace, ports = _run_mode(name)
         selected = [port.calls for port in ports if port.receipts and port.calls == 1]
         assert len(selected) == 1
-        assert decision.alternative in C7_ALTERNATIVES
+        assert decision.alternative in MATERIAL_INGEST_ALTERNATIVES
 
 
 def test_snapshot_identity_binds_project_source_and_provenance() -> None:
@@ -300,12 +300,12 @@ def test_snapshot_identity_binds_project_source_and_provenance() -> None:
         assert changed.snapshot_identity_digest != base.snapshot_identity_digest
         assert changed.snapshot_ref != base.snapshot_ref
         assert changed.snapshot_ref == (
-            f"raw:c7:sha256:{changed.snapshot_identity_digest}"
+            f"material:raw:sha256:{changed.snapshot_identity_digest}"
         )
 
 
 def test_raw_byte_length_boundary_matches_legacy_selector() -> None:
-    for length in (C7_LONG_REPORT_MIN_LENGTH - 1, C7_LONG_REPORT_MIN_LENGTH):
+    for length in (MATERIAL_LONG_REPORT_MIN_LENGTH - 1, MATERIAL_LONG_REPORT_MIN_LENGTH):
         raw_text = "a" * length
         snapshot = capture_raw_snapshot_exact(
             project_key="demo_proj",
@@ -327,7 +327,7 @@ def test_raw_byte_length_boundary_matches_legacy_selector() -> None:
             content_length=length,
         )
         decision = select_exactly_one_digestion_alternative(envelope)
-        expected = "PASS_THROUGH" if length < C7_LONG_REPORT_MIN_LENGTH else "CHUNK"
+        expected = "PASS_THROUGH" if length < MATERIAL_LONG_REPORT_MIN_LENGTH else "CHUNK"
         assert decision.alternative == expected
         assert legacy["stage"] == (
             "pass_through" if expected == "PASS_THROUGH" else "chunk_first"
@@ -701,7 +701,7 @@ def test_direct_envelope_construction_cannot_drift() -> None:
         normalized_text="forged normalized text",
     )
     with pytest.raises(ValueError, match="normalized text does not match"):
-        execute_c7_movement(
+        execute_material_movement(
             snapshot=snapshot,
             envelope=forged_text,
             decision=decision,
@@ -723,7 +723,7 @@ def test_direct_envelope_construction_cannot_drift() -> None:
         normalized_text="exact raw text",
     )
     with pytest.raises(ValueError, match="source character length does not match"):
-        execute_c7_movement(
+        execute_material_movement(
             snapshot=snapshot,
             envelope=forged_length,
             decision=decision,
@@ -739,7 +739,7 @@ def test_instance_execute_substitution_rejected() -> None:
     port = DeterministicPassThroughPort()
     port.execute = lambda *args, **kwargs: None  # type: ignore[method-assign]
     with pytest.raises(TypeError, match="exact built-in class implementation"):
-        execute_c7_movement(
+        execute_material_movement(
             snapshot=snapshot,
             envelope=envelope,
             decision=decision,
@@ -755,7 +755,7 @@ def test_instance_finish_substitution_and_state_override_rejected() -> None:
     finish_port = DeterministicPassThroughPort()
     finish_port._finish = lambda *args, **kwargs: None  # type: ignore[method-assign]
     with pytest.raises(TypeError, match="exact built-in base implementation"):
-        execute_c7_movement(
+        execute_material_movement(
             snapshot=snapshot,
             envelope=envelope,
             decision=decision,
@@ -768,7 +768,7 @@ def test_instance_finish_substitution_and_state_override_rejected() -> None:
     state_port = DeterministicPassThroughPort()
     state_port.forbidden_state = True  # type: ignore[attr-defined]
     with pytest.raises(ValueError, match="forbidden instance state"):
-        execute_c7_movement(
+        execute_material_movement(
             snapshot=snapshot,
             envelope=envelope,
             decision=decision,
@@ -814,7 +814,7 @@ def test_exact_builtin_port_class_rejects_subclass() -> None:
 
     snapshot, envelope, _legacy, decision, _trace, _ports = _run_mode("pass_through")
     with pytest.raises(TypeError, match="exact built-in C7 port class"):
-        execute_c7_movement(
+        execute_material_movement(
             snapshot=snapshot,
             envelope=envelope,
             decision=decision,

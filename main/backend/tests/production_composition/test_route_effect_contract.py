@@ -11,8 +11,11 @@ import sys
 import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
+REPOSITORY_ROOT = BACKEND_ROOT.parent.parent
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
+if str(REPOSITORY_ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
 
 from app.composition.production import load_production_route_bindings
 from app.production_contract import (
@@ -198,7 +201,7 @@ def test_v3_registry_shape_and_route_effect_invariants() -> None:
     conditional = [contract for contract in contracts if contract.effect_class is EffectClass.CONDITIONAL]
     provider_calls = [contract for contract in contracts if contract.effect_class is EffectClass.PROVIDER_CALL]
 
-    assert len(bindings) == 298
+    assert len(bindings) == 310
     canonical_writes = [
         contract for contract in contracts if contract.effect_class is EffectClass.CANONICAL_WRITE
     ]
@@ -206,13 +209,51 @@ def test_v3_registry_shape_and_route_effect_invariants() -> None:
     # remains local/non-authoritative; all other effectful routes stay blocked.
     assert len(canonical_writes) == 1
     assert canonical_writes[0].admission is EffectAdmission.ADMITTED
-    assert canonical_writes[0].canonical_writer_port == "postgres.c9_projection_rebuild.v1"
-    assert len(conditional) == 77
+    assert canonical_writes[0].canonical_writer_port == "postgres.projection_rebuild.v2"
+    assert len(conditional) == 76
     assert len(provider_calls) == 2
     assert all(
         contract.admission is EffectAdmission.BLOCKED_UNTIL_EFFECT_BINDING
         for contract in conditional
     )
+    operations = {binding.operation for binding in bindings}
+    assert not {
+        "agent-batch.run_agent_batch_nl_command",
+        "agent-batch.run_agent_batch_nl_command_direct",
+    } & operations
+    for operation in (
+        "agent-batch.reject_agent_batch_nl_command",
+        "agent-batch.reject_agent_batch_nl_command_direct",
+    ):
+        contract = next(binding.effect_contract for binding in bindings if binding.operation == operation)
+        assert contract.effect_class is EffectClass.PURE_COMPUTE
+        assert contract.admission is EffectAdmission.ADMITTED
+    new_routes = {
+        "information-topology.describe_profiles": EffectClass.READ,
+        "information-topology.list_topologies": EffectClass.READ,
+        "information-topology.resolve_refs": EffectClass.READ,
+        "information-topology.read_topology": EffectClass.READ,
+        "information-topology.find_relations": EffectClass.READ,
+        "information-topology.preview_mapping": EffectClass.READ,
+        "information-topology.apply_patch": EffectClass.LEGACY_WRITE,
+        "information-topology.import_structure": EffectClass.LEGACY_WRITE,
+        "information-topology.export_structure": EffectClass.FILESYSTEM_SUBPROCESS,
+        "project-retrieval.current_mode": EffectClass.LEGACY_WRITE,
+        "project-retrieval.refresh_mode": EffectClass.LEGACY_WRITE,
+        "project-retrieval.preview": EffectClass.LEGACY_WRITE,
+        "project-retrieval.start": EffectClass.CONDITIONAL,
+        "project-retrieval.read_run": EffectClass.READ,
+        "project-retrieval.continue_saved_frontier": EffectClass.CONDITIONAL,
+    }
+    for operation, expected_class in new_routes.items():
+        contract = next(binding.effect_contract for binding in bindings if binding.operation == operation)
+        assert contract.effect_class is expected_class
+        expected_admission = (
+            EffectAdmission.ADMITTED
+            if expected_class is EffectClass.READ
+            else EffectAdmission.BLOCKED_UNTIL_EFFECT_BINDING
+        )
+        assert contract.admission is expected_admission
     assert all(
         contract.conditional_discriminator == "handler_effect_path.v1"
         and contract.conditional_branches

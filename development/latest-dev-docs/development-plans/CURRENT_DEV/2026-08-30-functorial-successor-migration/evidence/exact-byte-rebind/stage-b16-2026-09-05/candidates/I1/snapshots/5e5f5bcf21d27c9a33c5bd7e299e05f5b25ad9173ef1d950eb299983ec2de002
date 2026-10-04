@@ -1,0 +1,480 @@
+#!/usr/bin/env python3
+# ruff: noqa: TRY003
+"""Prepare a Stage 0/B13 additive I1 exact-binding rebind candidate.
+
+The capability specifications and build manifests are immutable predecessors.
+Only a new stage fragment and manifest are eligible outputs; an existing stage
+is never updated in place.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime
+import hashlib
+import importlib.util
+import json
+import os
+import re
+import sys
+from pathlib import Path
+from typing import Annotated, Any
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = REPO_ROOT
+BASE_GENERATOR_REL = Path("scripts/generate_i1_exact_binding_rebind.py")
+STAGE0_GENERATOR_REL = Path("scripts/generate_stage0_i1_exact_binding_rebind.py")
+EVIDENCE_REL = Path(
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence"
+)
+EXACT_REBIND_REL = EVIDENCE_REL / "exact-byte-rebind"
+EXACT_BYTE_REBIND_REL = EXACT_REBIND_REL
+SPECS_REL = EVIDENCE_REL / "capability-specs"
+BUILDS_REL = EVIDENCE_REL / "capability-spec-builds"
+STAGE_PREFIX = "stage-b13-"
+DEFAULT_STAGE = "stage-b13-2026-09-05"
+DEFAULT_B14_STAGE = "stage-b14-2026-09-05"
+DEFAULT_B15_STAGE = "stage-b15-2026-09-05"
+DEFAULT_B16_STAGE = "stage-b16-2026-09-05"
+FRAGMENT_NAME = "fragments/I1.json"
+MANIFEST_NAME = "manifests/I1.json"
+
+FRAGMENT_SCHEMA = "mrw.i1.exact_binding_rebind.fragment.v1"
+MANIFEST_SCHEMA = "mrw.family_fragment_rebind.stage_manifest.v2"
+AMENDMENT = "STAGE_B13_I1_EXACT_BINDING_REBIND_CANDIDATE_NOT_AUTHORITY"
+B14_AMENDMENT = "STAGE_B14_I1_EXACT_BINDING_REBIND_CANDIDATE_NOT_AUTHORITY"
+B15_AMENDMENT = "STAGE_B15_I1_EXACT_BINDING_REBIND_CANDIDATE_NOT_AUTHORITY"
+B16_AMENDMENT = "STAGE_B16_I1_EXACT_BINDING_REBIND_CANDIDATE_NOT_AUTHORITY"
+
+WITNESS_TESTS = (
+    "main/backend/tests/successor_runtime/test_capability_spec_core.py",
+    "main/backend/tests/successor_runtime/test_capability_spec_runtime_kernel_abi_artifact.py",
+    "main/backend/tests/successor_runtime/test_compiler.py",
+    "tests/formal_release/test_generate_stage0_i1_exact_binding_rebind.py",
+)
+
+# These are immutable B9/B10 predecessor documents.  Their hashes are part of
+# the input contract, rather than values copied into the generated fragment.
+PREDECESSOR_HASHES = {
+    EVIDENCE_REL / "exact-byte-rebind/stage-b9-2026-09-05/fragments/I1.json": (
+        "d33d9ea2f8b55af1ac0202ae02caeb1a8666881637be285deb5ef5356a533ce8"
+    ),
+    EVIDENCE_REL / "exact-byte-rebind/stage-b9-2026-09-05/manifests/I1.json": (
+        "2b0e1d2e699ce30fdc93621958b63aaa72e289c136a5e6637eb0d4f82c1cd127"
+    ),
+    EVIDENCE_REL / "exact-byte-rebind/stage-b9-2026-09-05/candidates/I1/candidate.v2.json": (
+        "80ad9f6482ca28e48e5fc6d2592ca98d55e5fe64bb8d90a25019d8b11af5836f"
+    ),
+    EVIDENCE_REL / "exact-byte-rebind/stage-b10-2026-09-05/fragments/I1.json": (
+        "c260f41421d24b13d5b1f07b45fda355534e13dce3436d171628d8365149ec1e"
+    ),
+    EVIDENCE_REL / "exact-byte-rebind/stage-b10-2026-09-05/manifests/I1.json": (
+        "8ed4840b56d94e164f6dc5c045423856cda7cfe6d274a732149c43a38b48e2ee"
+    ),
+    EVIDENCE_REL / "exact-byte-rebind/stage-b10-2026-09-05/candidates/I1/candidate.v2.json": (
+        "e125a86ee2f031a4ad739905e594090d9a4fe2d99c392a18a6a0802d04867bfa"
+    ),
+}
+B13_PREDECESSOR_HASHES = {
+    EVIDENCE_REL / "exact-byte-rebind/stage-b13-2026-09-05/fragments/I1.json": (
+        "d5ea00daa7d7f59dc5d678c966287668422e93944c205283de39a0afb900fd8e"
+    ),
+    EVIDENCE_REL / "exact-byte-rebind/stage-b13-2026-09-05/manifests/I1.json": (
+        "68aaf69a3928209ba8733d46f691de25eb9dc650ed0b38398c983e7ec55b8490"
+    ),
+    EVIDENCE_REL / "exact-byte-rebind/stage-b13-2026-09-05/candidates/I1/candidate.v2.json": (
+        "d721b9097cae227861a4ae3f677ad1cc1309757ce6b3c149e59627a3ef0ab595"
+    ),
+}
+B14_PREDECESSOR_HASHES = {
+    EVIDENCE_REL / "exact-byte-rebind/stage-b14-2026-09-05/fragments/I1.json": (
+        "b84bb52f3954aca0f4a5da4344aecece2361422f25e9b483c0846da5db780b92"
+    ),
+    EVIDENCE_REL / "exact-byte-rebind/stage-b14-2026-09-05/manifests/I1.json": (
+        "92a7d0e5e628c3260dabfa12392cf8557275697d9391b1d42a8c16b6bb223927"
+    ),
+    EVIDENCE_REL / "exact-byte-rebind/stage-b14-2026-09-05/candidates/I1/candidate.v2.json": (
+        "17eba061172c035803723681cdc425b8fcd2625fa9c625c8f8fd9fa06399fb2c"
+    ),
+}
+B15_PREDECESSOR_HASHES = {
+    EVIDENCE_REL / "exact-byte-rebind/stage-b15-2026-09-05/fragments/I1.json": (
+        "418281226ff9f93f028c2ba079f871e1011389deae961e601f7e8346db4752b1"
+    ),
+    EVIDENCE_REL / "exact-byte-rebind/stage-b15-2026-09-05/manifests/I1.json": (
+        "c5b7263110478b16d9471fd42d379f3957a2491cb386c5c674a6c6e91c93e399"
+    ),
+    EVIDENCE_REL / "exact-byte-rebind/stage-b15-2026-09-05/candidates/I1/candidate.v2.json": (
+        "e9635c288454b68b0055e2e6f0e8741d4c45528d21308a0ed2fb528b208390cf"
+    ),
+}
+
+
+class GenerationError(RuntimeError):
+    """A required immutable or live input cannot be established."""
+
+
+def _sha256(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _canonical_json(value: Any) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def _load_base_generator(root: Path):
+    path = _require_file(root, BASE_GENERATOR_REL)
+    spec = importlib.util.spec_from_file_location("_stage0_i1_base_generator", path)
+    if spec is None or spec.loader is None:
+        raise GenerationError(f"cannot load base I1 generator: {path}")  # noqa: TRY003
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _safe_relative(root: Path, relative: Path | str) -> Path:
+    candidate = Path(relative)
+    if (
+        candidate.is_absolute()
+        or "\\" in str(relative)
+        or not candidate.parts
+        or any(part in {"", ".", ".."} for part in candidate.parts)
+    ):
+        raise GenerationError(f"path escapes repository root: {relative}")  # noqa: TRY003
+    resolved = (root / candidate).resolve()
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError as exc:
+        raise GenerationError(f"path escapes repository root: {relative}") from exc  # noqa: TRY003
+    return candidate
+
+
+def _require_file(root: Path, relative: Path | str) -> Path:
+    safe = _safe_relative(root, relative)
+    path = root / safe
+    if not path.is_file() or path.is_symlink():
+        raise GenerationError(f"required input missing: {safe.as_posix()}")  # noqa: TRY003
+    return path
+
+
+def _raw_ref(root: Path, relative: Path | str) -> dict[str, str]:
+    safe = _safe_relative(root, relative)
+    payload = _require_file(root, safe).read_bytes()
+    return {"path": safe.as_posix(), "file_sha256": _sha256(payload)}
+
+
+def _validate_stage(stage: str) -> str:
+    if stage == "B13":
+        return DEFAULT_STAGE
+    if stage == "B14":
+        return DEFAULT_B14_STAGE
+    if stage == "B15":
+        return DEFAULT_B15_STAGE
+    if stage == "B16":
+        return DEFAULT_B16_STAGE
+    if not re.fullmatch(r"stage-b1[3456]-\d{4}-\d{2}-\d{2}", stage):
+        raise GenerationError(  # noqa: TRY003
+            "invalid stage; expected B13/B14/B15/B16 or stage-b13/stage-b14/stage-b15/stage-b16-YYYY-MM-DD"
+        )
+    try:
+        datetime.date.fromisoformat(re.sub(r"^stage-b1[3456]-", "", stage))
+    except ValueError as exc:
+        raise GenerationError(  # noqa: TRY003
+            "invalid stage; expected B13/B14/B15/B16 or stage-b13/stage-b14/stage-b15/stage-b16-YYYY-MM-DD"
+        ) from exc
+    return stage
+
+
+validate_stage = _validate_stage
+
+
+def _predecessor_hashes(stage: str | None = None) -> dict[Path, str]:
+    stage_name = _validate_stage(stage) if stage is not None else DEFAULT_STAGE
+    if stage_name.startswith("stage-b16-"):
+        return {
+            **PREDECESSOR_HASHES,
+            **B13_PREDECESSOR_HASHES,
+            **B14_PREDECESSOR_HASHES,
+            **B15_PREDECESSOR_HASHES,
+        }
+    if stage_name.startswith("stage-b15-"):
+        return {**PREDECESSOR_HASHES, **B13_PREDECESSOR_HASHES, **B14_PREDECESSOR_HASHES}
+    if stage_name.startswith("stage-b14-"):
+        return {**PREDECESSOR_HASHES, **B13_PREDECESSOR_HASHES}
+    return dict(PREDECESSOR_HASHES)
+
+
+def _guard_predecessors(root: Path, stage: str | None = None) -> None:
+    for relative, expected in _predecessor_hashes(stage).items():
+        actual = _sha256(_require_file(root, relative).read_bytes())
+        if actual != expected:
+            raise GenerationError(  # noqa: TRY003
+                f"frozen predecessor drift: {relative.as_posix()} expected={expected} actual={actual}"
+            )
+
+
+def _guard_binding_path(root: Path, relative: str) -> None:
+    safe = _safe_relative(root, relative)
+    resolved = (root / safe).resolve()
+    for frozen in (SPECS_REL, BUILDS_REL):
+        frozen_path = (root / frozen).resolve()
+        try:
+            resolved.relative_to(frozen_path)
+        except ValueError:
+            continue
+        raise GenerationError(f"frozen binding path is not writable: {relative}")  # noqa: TRY003
+    _require_file(root, safe)
+
+
+def _collect_binding_paths(root: Path) -> set[str]:
+    try:
+        specs = sorted((root / SPECS_REL).glob("C*.v1.json"))
+    except OSError as exc:
+        raise GenerationError(f"cannot scan frozen specs: {exc}") from exc  # noqa: TRY003
+    if len(specs) != 30:
+        raise GenerationError(f"expected 30 frozen capability specs, found {len(specs)}")  # noqa: TRY003
+    builds = sorted((root / BUILDS_REL).glob("*.BuildManifest.v1.json"))
+    if len(builds) != 30:
+        raise GenerationError(f"expected 30 frozen build manifests, found {len(builds)}")  # noqa: TRY003
+    paths: set[str] = set()
+    for spec_path in specs:
+        try:
+            payload = json.loads(spec_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise GenerationError(f"invalid frozen spec {spec_path}: {exc}") from exc  # noqa: TRY003
+        if not isinstance(payload, dict):
+            raise GenerationError(f"frozen spec must be an object: {spec_path}")  # noqa: TRY003
+        for group in ("source_bindings", "test_bindings", "rollback_bindings"):
+            values = payload.get(group, ())
+            if not isinstance(values, list):
+                raise GenerationError(f"invalid {group} in frozen spec: {spec_path}")  # noqa: TRY003
+            for binding in values:
+                if not isinstance(binding, dict) or not isinstance(binding.get("path"), str):
+                    raise GenerationError(f"invalid binding in frozen spec: {spec_path}")  # noqa: TRY003
+                _guard_binding_path(root, binding["path"])
+                paths.add(_safe_relative(root, binding["path"]).as_posix())
+    return paths
+
+
+def _documents(root: Path, stage_rel: Path, amendment: str = AMENDMENT) -> dict[Path, bytes]:
+    """Delegate byte construction to the predecessor generator under B13 names."""
+
+    base = _load_base_generator(root)
+    original = {
+        "STAGE_REL": base.STAGE_REL,
+        "FRAGMENT_REL": base.FRAGMENT_REL,
+        "MANIFEST_REL": base.MANIFEST_REL,
+        "AMENDMENT": base.AMENDMENT,
+    }
+    fragment_rel = stage_rel / FRAGMENT_NAME
+    manifest_rel = stage_rel / MANIFEST_NAME
+    base.STAGE_REL = stage_rel
+    base.FRAGMENT_REL = fragment_rel
+    base.MANIFEST_REL = manifest_rel
+    base.AMENDMENT = amendment
+    try:
+        return base._documents(root)
+    finally:
+        for name, value in original.items():
+            setattr(base, name, value)
+
+
+def _build_documents(root: Path, stage: str) -> dict[Path, bytes]:
+    stage_name = _validate_stage(stage)
+    stage_rel = EXACT_REBIND_REL / stage_name
+    amendment = (
+        B16_AMENDMENT
+        if stage_name.startswith("stage-b16-")
+        else B15_AMENDMENT
+        if stage_name.startswith("stage-b15-")
+        else B14_AMENDMENT
+        if stage_name.startswith("stage-b14-")
+        else AMENDMENT
+    )
+    fragment_rel = stage_rel / FRAGMENT_NAME
+    manifest_rel = stage_rel / MANIFEST_NAME
+    _safe_relative(root, fragment_rel)
+    _safe_relative(root, manifest_rel)
+    _guard_predecessors(root, stage_name)
+    binding_paths = _collect_binding_paths(root)
+
+    documents = _documents(root, stage_rel, amendment)
+
+    fragment_payload = documents[fragment_rel]
+    fragment = json.loads(fragment_payload.decode("utf-8"))
+    if fragment.get("schema") != FRAGMENT_SCHEMA:
+        raise GenerationError("base generator produced an unexpected I1 fragment schema")  # noqa: TRY003
+    for item in fragment.get("bindings", ()):
+        if not isinstance(item, dict) or not isinstance(item.get("path"), str):
+            raise GenerationError("generated fragment contains an invalid binding")  # noqa: TRY003
+        path = Path(item["path"])
+        if path.is_absolute() or ".." in path.parts:
+            raise GenerationError("generated fragment contains a path escape")  # noqa: TRY003
+        group = item.get("binding_group")
+        if group != "rollback_bindings" and {"p3-fragments", "p4-fragments"} & set(path.parts):
+            raise GenerationError("generated fragment targets a frozen P3/P4 path")  # noqa: TRY003
+
+    source_paths = set(binding_paths)
+    source_paths.update(relative.as_posix() for relative in _predecessor_hashes(stage_name))
+    source_paths.add(BASE_GENERATOR_REL.as_posix())
+    source_paths.add(STAGE0_GENERATOR_REL.as_posix())
+    source_paths.add("main/backend/app/successor_runtime/specification/capability_cell_spec.py")
+    source_paths.add("main/backend/app/successor_runtime/specification/runtime_kernel_abi.py")
+    source_paths.add("main/backend/app/successor_runtime/specification/compiler.py")
+    source_paths.add((SPECS_REL / "RuntimeKernelABI.v1.json").as_posix())
+    for spec_path in sorted((root / SPECS_REL).glob("C*.v1.json")):
+        source_paths.add(_safe_relative(root, spec_path.relative_to(root)).as_posix())
+    for spec_path in sorted((root / BUILDS_REL).glob("*.BuildManifest.v1.json")):
+        source_paths.add(_safe_relative(root, spec_path.relative_to(root)).as_posix())
+
+    manifest = {
+        "amendment": amendment,
+        "family": "I1",
+        "fragments": [
+            {
+                "content_digest": fragment["content_digest"],
+                "file_sha256": _sha256(fragment_payload),
+                "path": fragment_rel.as_posix(),
+            }
+        ],
+        "schema": MANIFEST_SCHEMA,
+        "sources": [_raw_ref(root, path) for path in sorted(source_paths)],
+        "tests": [_raw_ref(root, path) for path in WITNESS_TESTS],
+    }
+    return {
+        fragment_rel: fragment_payload,
+        manifest_rel: _canonical_json(manifest) + b"\n",
+    }
+
+
+def build_documents(repo_root: Path, stage: str) -> Annotated[
+    dict[Path, bytes],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=base_I1_generator_frozen_predecessors_current_specs_builds_bindings "
+    "witness=test:test_generate_stage0_i1_documents_metadata",
+]:
+    """Build B13 fragment and manifest bytes without touching the repository."""
+
+    root = Path(repo_root).expanduser().resolve(strict=True)
+    documents = _build_documents(root, stage)
+    _guard_create_only(root, documents)
+    return documents
+
+
+def _guard_create_only(root: Path, documents: dict[Path, bytes]) -> None:
+    stage_dirs: set[Path] = set()
+    for relative in documents:
+        safe = _safe_relative(root, relative)
+        path = root / safe
+        stage_dir = path.parents[1]
+        stage_dirs.add(stage_dir)
+        if path.exists() or path.is_symlink():
+            raise GenerationError(  # noqa: TRY003
+                f"refusing to overwrite existing target: {safe.as_posix()}"
+            )
+        parent = path.parent
+        while parent != root:
+            if parent.is_symlink():
+                raise GenerationError(  # noqa: TRY003
+                    f"stage output parent must not be a symlink: {parent}"
+                )
+            if parent.exists() and not parent.is_dir():
+                raise GenerationError(  # noqa: TRY003
+                    f"stage output parent must be a directory: {parent}"
+                )
+            parent = parent.parent
+    for stage_dir in stage_dirs:
+        if stage_dir.is_symlink() or (stage_dir.exists() and not stage_dir.is_dir()):
+            raise GenerationError(  # noqa: TRY003
+                f"stage output must be a directory: {stage_dir.relative_to(root).as_posix()}"
+            )
+
+
+def _write_documents(root: Path, documents: dict[Path, bytes], stage: str) -> None:
+    _guard_create_only(root, documents)
+    stage_dir = root / EXACT_REBIND_REL / _validate_stage(stage)
+    stage_was_existing = stage_dir.exists()
+    if not stage_was_existing:
+        stage_dir.mkdir(parents=True, exist_ok=False)
+    created: list[Path] = []
+    created_dirs: list[Path] = []
+    try:
+        for relative in sorted(documents):
+            target = root / relative
+            if not target.parent.exists():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                created_dirs.append(target.parent)
+            target.parent.mkdir(parents=False, exist_ok=True)
+            descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+            try:
+                with os.fdopen(descriptor, "wb") as stream:
+                    stream.write(documents[relative])
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                created.append(target)
+            except Exception:
+                try:
+                    target.unlink()
+                except OSError:
+                    pass
+                raise
+    except Exception as exc:
+        for target in reversed(created):
+            try:
+                target.unlink()
+            except OSError:
+                pass
+        for child in reversed(created_dirs):
+            try:
+                child.rmdir()
+            except OSError:
+                pass
+        if not stage_was_existing:
+            try:
+                stage_dir.rmdir()
+            except OSError:
+                pass
+        raise GenerationError(f"cannot create additive stage: {exc}") from exc  # noqa: TRY003
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo-root", type=Path, default=REPO_ROOT)
+    parser.add_argument("--stage", required=True)
+    parser.add_argument("--write", action="store_true")
+    args = parser.parse_args(argv)
+    root = args.repo_root.expanduser().resolve()
+    try:
+        documents = build_documents(root, args.stage)
+    except (GenerationError, OSError, TypeError, ValueError, KeyError) as exc:
+        print(f"INVALID: {exc}", file=sys.stderr)
+        return 2
+
+    paths = sorted(relative.as_posix() for relative in documents)
+    if not args.write:
+        print(
+            json.dumps(
+                {"paths": paths, "stage": args.stage, "status": "DRY_RUN"},
+                sort_keys=True,
+            )
+        )
+        return 0
+    _write_documents(root, documents, args.stage)
+    print(
+        json.dumps(
+            {"paths": paths, "stage": args.stage, "status": "WROTE"},
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

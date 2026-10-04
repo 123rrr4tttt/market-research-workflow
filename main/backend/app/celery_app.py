@@ -22,7 +22,7 @@ configure_source_library_adapters()
 
 
 celery_app = Celery(
-    "lottery_intel",
+    "market_research_workflow",
     broker=settings.redis_url,
     backend=settings.redis_url,
 )

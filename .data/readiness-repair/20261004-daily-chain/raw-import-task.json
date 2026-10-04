@@ -1,0 +1,53 @@
+{
+  "http_status": 200,
+  "response": {
+    "status": "ok",
+    "data": {
+      "task_id": "3279e16e-fa36-4349-ba58-53ea76a80be1",
+      "status": "SUCCESS",
+      "ready": true,
+      "successful": true,
+      "failed": false,
+      "result": {
+        "inserted": 1,
+        "updated": 0,
+        "skipped": 0,
+        "error_count": 0,
+        "errors": [],
+        "items": [
+          {
+            "index": 0,
+            "doc_id": 1,
+            "status": "ok",
+            "uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-daily-chain/daily-policy-material.txt",
+            "uris": [
+              "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-daily-chain/daily-policy-material.txt"
+            ],
+            "fetched_from_url": false,
+            "doc_type": "policy"
+          }
+        ],
+        "source_name": "readiness_daily_20261004",
+        "project_key": "readiness_daily_20261004"
+      },
+      "progress": null,
+      "traceback": null,
+      "inserted_valid": null,
+      "rejected_count": 0,
+      "rejection_breakdown": {},
+      "degradation_flags": [],
+      "quality_score": null,
+      "error_code": "OK",
+      "handler_used": null,
+      "skip_reason": null,
+      "name": null
+    },
+    "error": null,
+    "meta": {
+      "trace_id": "caf038d2-d718-4185-a630-a29c87c10d79",
+      "pagination": null,
+      "project_key": "readiness_daily_20261004",
+      "deprecated": null
+    }
+  }
+}

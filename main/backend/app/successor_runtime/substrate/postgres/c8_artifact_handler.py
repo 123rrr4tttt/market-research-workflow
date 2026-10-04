@@ -22,15 +22,15 @@ from typing import Any, Literal, Protocol, Self
 from sqlalchemy import MetaData, select
 from sqlalchemy.engine import Connection
 
-from app.successor_runtime.capabilities import c8_common as c8
-from app.successor_runtime.capabilities.c8_program import (
-    C8_3_KIND,
-    C8_ADMISSION_KIND,
-    C8_DELIVERY_INTENT_PREPARE_KIND,
-    C8_VERIFY_KIND,
+from app.successor_runtime.capabilities import knowledge_common as c8
+from app.successor_runtime.capabilities.knowledge_program import (
+    KNOWLEDGE_REPORT_KIND,
+    KNOWLEDGE_ADMISSION_KIND,
+    KNOWLEDGE_DELIVERY_INTENT_PREPARE_KIND,
+    KNOWLEDGE_VERIFY_KIND,
 )
-from app.successor_runtime.capabilities.c8_report import (
-    build_c8_research_artifact_candidate,
+from app.successor_runtime.capabilities.knowledge_report import (
+    build_knowledge_research_artifact_candidate,
     build_report_stage,
     research_artifact_from_candidate,
     verify_report_stage,
@@ -103,6 +103,7 @@ from app.successor_runtime.substrate.postgres.values import (
 
 __all__ = [
     "C8_ARTIFACT_OWNER",
+    "LEGACY_C8_ARTIFACT_OWNER",
     "C8_REPORT_VALUE_CODEC_ID",
     "C8_REPORT_VALUE_OBJECT_TYPE",
     "C8_STAGED_ARTIFACT_CODEC_ID",
@@ -128,19 +129,29 @@ __all__ = [
     "verify_artifact",
 ]
 
-C8_ARTIFACT_OWNER = "report.c8.3.v1"
-C8_STAGED_ARTIFACT_OBJECT_TYPE = "ResearchDraftArtifactDraft.v1"
-C8_STAGED_ARTIFACT_CODEC_ID = "mrw.successor.c8.draft-markdown.canonical-utf8.v1"
-C8_REPORT_VALUE_OBJECT_TYPE = "ResearchDraftArtifact.v1"
-C8_REPORT_VALUE_CODEC_ID = "mrw.successor.c8.report-artifact.canonical-json.v1"
-C8_ARTIFACT_SCHEMA = "mrw.successor.c8.artifact-lifecycle.v1"
+C8_ARTIFACT_OWNER = "knowledge.report.v2"
+C8_STAGED_ARTIFACT_OBJECT_TYPE = "KnowledgeReportDraft.v2"
+C8_STAGED_ARTIFACT_CODEC_ID = "mrw.knowledge.report-draft-markdown.codec.v2"
+C8_REPORT_VALUE_OBJECT_TYPE = "KnowledgeReportArtifact.v2"
+C8_REPORT_VALUE_CODEC_ID = "mrw.knowledge.report-artifact.codec.v2"
+C8_ARTIFACT_SCHEMA = "mrw.knowledge.report-artifact-lifecycle.v2"
+LEGACY_C8_ARTIFACT_OWNER = "report.c8.3.v1"
+_LEGACY_C8_STAGED_ARTIFACT_OBJECT_TYPE = "ResearchDraftArtifactDraft.v1"
+_LEGACY_C8_STAGED_ARTIFACT_CODEC_ID = (
+    "mrw.successor.c8.draft-markdown.canonical-utf8.v1"
+)
+_LEGACY_C8_REPORT_VALUE_OBJECT_TYPE = "ResearchDraftArtifact.v1"
+_LEGACY_C8_REPORT_VALUE_CODEC_ID = (
+    "mrw.successor.c8.report-artifact.canonical-json.v1"
+)
+_LEGACY_C8_ARTIFACT_SCHEMA = "mrw.successor.c8.artifact-lifecycle.v1"
 C8_VALUE_REF_PREFIX = "project-value:"
 C8_BRIDGE_EFFECT_OPERATION_KINDS = frozenset(
     {
-        C8_3_KIND,
-        C8_VERIFY_KIND,
-        C8_ADMISSION_KIND,
-        C8_DELIVERY_INTENT_PREPARE_KIND,
+        KNOWLEDGE_REPORT_KIND,
+        KNOWLEDGE_VERIFY_KIND,
+        KNOWLEDGE_ADMISSION_KIND,
+        KNOWLEDGE_DELIVERY_INTENT_PREPARE_KIND,
     }
 )
 
@@ -189,7 +200,7 @@ class C8BridgeHandlerInstallation:
             "interpreter_profile_digest",
         ):
             require_digest(getattr(self, field_name), field_name)
-        if self.admission_required != (self.operation_kind == C8_ADMISSION_KIND):
+        if self.admission_required != (self.operation_kind == KNOWLEDGE_ADMISSION_KIND):
             raise ValueError(
                 "only c8.report.admission.v1 stages ResearchArtifact admission"
             )
@@ -246,11 +257,66 @@ class C8ArtifactReadback:
 
 
 def staged_artifact_value_id(artifact_id: str) -> str:
-    return f"c8:staged-artifact:{artifact_id}"
+    return f"knowledge:staged-report:{artifact_id}"
 
 
 def report_value_id(artifact_id: str) -> str:
+    return f"knowledge:report:{artifact_id}"
+
+
+def _legacy_staged_artifact_value_id(artifact_id: str) -> str:
+    return f"c8:staged-artifact:{artifact_id}"
+
+
+def _legacy_report_value_id(artifact_id: str) -> str:
     return f"c8:report:{artifact_id}"
+
+
+@dataclass(frozen=True, slots=True)
+class _ArtifactStorageIdentity:
+    value_id: str
+    object_type: str
+    codec_id: str
+    artifact_schema: str
+    incarnation_prefix: str
+    source_prefix: str
+
+    def incarnation(self, artifact_digest: str) -> str:
+        return f"{self.incarnation_prefix}{artifact_digest}"
+
+    def source_ref(self, artifact_id: str) -> str:
+        return f"{self.source_prefix}{artifact_id}"
+
+
+def _current_staged_identity(artifact_id: str) -> _ArtifactStorageIdentity:
+    return _ArtifactStorageIdentity(
+        value_id=staged_artifact_value_id(artifact_id),
+        object_type=C8_STAGED_ARTIFACT_OBJECT_TYPE,
+        codec_id=C8_STAGED_ARTIFACT_CODEC_ID,
+        artifact_schema=C8_ARTIFACT_SCHEMA,
+        incarnation_prefix="knowledge:staged-report:",
+        source_prefix="knowledge:report-artifact:",
+    )
+
+
+def _staged_identity_for_value(
+    artifact_id: str,
+    value_id: str,
+) -> _ArtifactStorageIdentity:
+    current = _current_staged_identity(artifact_id)
+    if value_id == current.value_id:
+        return current
+    legacy = _ArtifactStorageIdentity(
+        value_id=_legacy_staged_artifact_value_id(artifact_id),
+        object_type=_LEGACY_C8_STAGED_ARTIFACT_OBJECT_TYPE,
+        codec_id=_LEGACY_C8_STAGED_ARTIFACT_CODEC_ID,
+        artifact_schema=_LEGACY_C8_ARTIFACT_SCHEMA,
+        incarnation_prefix="c8:staged-artifact:",
+        source_prefix="c8:artifact:",
+    )
+    if value_id == legacy.value_id:
+        return legacy
+    raise C8ArtifactIntegrityError("staged artifact value identity drift")
 
 
 def _bridge_result_value_id(assignment: RuntimeAssignment) -> str:
@@ -282,7 +348,7 @@ def _bridge_output_provenance(
     claim: ClaimBinding,
 ) -> dict[str, object]:
     return {
-        "contract": "C8ResearchArtifactDeliveryBridgeOutput.v1",
+        "contract": "KnowledgeReportDeliveryBridgeOutput.v2",
         "operation_kind": installation.operation_kind,
         "project_key": assignment.project_key,
         "run_id": assignment.run_id,
@@ -423,13 +489,13 @@ class C8BridgeEffectStore:
         assignment: RuntimeAssignment,
         claim: ClaimBinding,
     ) -> _C8BridgeProduct:
-        if installation.operation_kind == C8_3_KIND:
+        if installation.operation_kind == KNOWLEDGE_REPORT_KIND:
             return self._stage(connection, scope, installation, assignment, claim)
-        if installation.operation_kind == C8_VERIFY_KIND:
+        if installation.operation_kind == KNOWLEDGE_VERIFY_KIND:
             return self._verify(connection, scope, installation, assignment, claim)
-        if installation.operation_kind == C8_ADMISSION_KIND:
+        if installation.operation_kind == KNOWLEDGE_ADMISSION_KIND:
             return self._admission(connection, scope, installation, assignment, claim)
-        if installation.operation_kind == C8_DELIVERY_INTENT_PREPARE_KIND:
+        if installation.operation_kind == KNOWLEDGE_DELIVERY_INTENT_PREPARE_KIND:
             return self._prepare(
                 connection,
                 scope,
@@ -464,19 +530,23 @@ class C8BridgeEffectStore:
             scope=scope,
             artifact_id=report_id,
         )
+        staged = _load_staged(connection, scope, report_id)
+        staged_identity = _staged_identity_for_value(
+            report_id,
+            str(staged["value_id"]),
+        )
+        markdown_ref = f"{C8_VALUE_REF_PREFIX}{staged_identity.value_id}"
         staged_row = _bridge_project_value_row(
             connection,
             scope=scope,
-            locator=f"{C8_VALUE_REF_PREFIX}{staged_artifact_value_id(report_id)}",
+            locator=markdown_ref,
         )
         body = {
-            "schema": "mrw.successor.c8.report-stage-runtime.v1",
+            "schema": "mrw.knowledge.report-stage-runtime.v2",
             "project_key": artifact.project_key,
             "artifact_id": artifact.artifact_id,
             "artifact_digest": artifact.artifact_digest,
-            "markdown_ref": (
-                f"{C8_VALUE_REF_PREFIX}{staged_artifact_value_id(report_id)}"
-            ),
+            "markdown_ref": markdown_ref,
             "markdown_digest": hashlib.sha256(artifact.markdown_bytes).hexdigest(),
             "provenance_digest": str(staged_row["provenance_digest"]),
         }
@@ -550,7 +620,7 @@ class C8BridgeEffectStore:
             connection, scope, assignment
         )
         body = {
-            "schema": "mrw.successor.c8.report-verification-runtime.v1",
+            "schema": "mrw.knowledge.report-verification-runtime.v2",
             "project_key": artifact.project_key,
             "artifact_id": artifact.artifact_id,
             "artifact_digest": artifact.artifact_digest,
@@ -616,7 +686,7 @@ class C8BridgeEffectStore:
             raise C8ArtifactIntegrityError(
                 "C8 report admission verification/draft drift"
             )
-        candidate = build_c8_research_artifact_candidate(
+        candidate = build_knowledge_research_artifact_candidate(
             candidate_id=f"research-artifact:{artifact.artifact_id}",
             draft=artifact,
             verification=verification,
@@ -624,7 +694,9 @@ class C8BridgeEffectStore:
             markdown_digest=str(marker["markdown_digest"]),
             provenance_digest=str(marker["provenance_digest"]),
             canonical_revision=1,
-            canonical_incarnation=f"c8:{assignment.run_id}:research-artifact:1",
+            canonical_incarnation=(
+                f"knowledge:{assignment.run_id}:report-artifact:1"
+            ),
         )
         research_artifact = dataclasses.replace(
             research_artifact_from_candidate(candidate),
@@ -714,7 +786,7 @@ class C8BridgeEffectStore:
             )
         canonical = rows[0]
         body = {
-            "schema": "mrw.successor.c8.delivery-intent-preparation-runtime.v1",
+            "schema": "mrw.knowledge.delivery-intent-preparation-runtime.v2",
             "project_key": scope.project_scope.project_key,
             "artifact_id": artifact.artifact_id,
             "artifact_revision": artifact.revision,
@@ -1022,7 +1094,7 @@ def _report_provenance(
     artifact: c8.ResearchDraftArtifact,
 ) -> dict[str, object]:
     return {
-        "schema": "mrw.successor.c8.report-value.v1",
+        "schema": "mrw.knowledge.report-value.v2",
         "artifact_id": artifact.artifact_id,
         "artifact_digest": artifact.artifact_digest,
         "project_key": artifact.project_key,
@@ -1127,35 +1199,78 @@ def stage_artifact(
     """Stage exact Markdown bytes and the runtime staged-artifact row."""
 
     require_exact_artifact(artifact, scope.project_scope.project_key)
-    value_id = staged_artifact_value_id(artifact.artifact_id)
+    staged_repository = StagedArtifactRepository(connection, scope)
+    try:
+        existing = staged_repository.load(artifact.artifact_id)
+    except RecordNotFound:
+        existing = None
+    if existing is not None:
+        if str(existing["state"]) != "STAGED":
+            raise C8ArtifactLifecycleError(
+                f"stage requires a new or STAGED artifact, observed {existing['state']}"
+            )
+        persisted_identity = _staged_identity_for_value(
+            artifact.artifact_id,
+            str(existing["value_id"]),
+        )
+        exact_binding = (
+            str(existing["run_id"]) == run_id
+            and str(existing["step_id"]) == step_id
+            and existing["attempt_id"] == attempt_id
+            and str(existing["qualifier_ref"]) == qualifier_ref
+        )
+        if not exact_binding:
+            raise C8ArtifactIdempotencyConflictError(
+                "staged report replay changed its exact runtime binding"
+            )
+        persisted_artifact = read_staged_artifact(
+            connection,
+            scope=scope,
+            artifact_id=artifact.artifact_id,
+        )
+        if persisted_artifact != artifact:
+            raise C8ArtifactIdempotencyConflictError(
+                "staged report replay changed its exact artifact"
+            )
+        return C8StagedArtifactRef(
+            artifact_id=artifact.artifact_id,
+            value_id=persisted_identity.value_id,
+            value_ref=C8_VALUE_REF_PREFIX + persisted_identity.value_id,
+            revision=1,
+            incarnation=persisted_identity.incarnation(artifact.artifact_digest),
+            content_digest=sha256_hex(artifact.markdown_bytes),
+            state=str(existing["state"]),
+        )
+    identity = _current_staged_identity(artifact.artifact_id)
+    value_id = identity.value_id
     exact = artifact.markdown_bytes
     content_digest_value = sha256_hex(exact)
-    incarnation = f"c8:staged-artifact:{artifact.artifact_digest}"
+    incarnation = identity.incarnation(artifact.artifact_digest)
     provenance = _staged_provenance(artifact)
     provenance_digest = content_digest(provenance)
     stored = _put_value(
         connection,
         scope=scope,
         value_id=value_id,
-        object_type=C8_STAGED_ARTIFACT_OBJECT_TYPE,
-        codec_id=C8_STAGED_ARTIFACT_CODEC_ID,
+        object_type=identity.object_type,
+        codec_id=identity.codec_id,
         content=exact,
         expected_digest=content_digest_value,
         provenance_digest=provenance_digest,
         incarnation=incarnation,
-        source_ref=f"c8:artifact:{artifact.artifact_id}",
+        source_ref=identity.source_ref(artifact.artifact_id),
         provenance=provenance,
     )
     _runtime_value_index(
         connection,
         scope=scope,
         value_id=value_id,
-        object_type=C8_STAGED_ARTIFACT_OBJECT_TYPE,
-        codec_id=C8_STAGED_ARTIFACT_CODEC_ID,
+        object_type=identity.object_type,
+        codec_id=identity.codec_id,
         content_digest_value=content_digest_value,
         byte_size=len(exact),
     )
-    staged = StagedArtifactRepository(connection, scope).stage(
+    staged = staged_repository.stage(
         StagedArtifactBinding(
             artifact_id=artifact.artifact_id,
             run_id=run_id,
@@ -1203,9 +1318,8 @@ def read_staged_artifact(
     """Exact-read the durable staged artifact and rebuild its DTO."""
 
     staged = _load_staged(connection, scope, artifact_id)
-    value_id = staged_artifact_value_id(artifact_id)
-    if str(staged["value_id"]) != value_id:
-        raise C8ArtifactIntegrityError("staged artifact value identity drift")
+    identity = _staged_identity_for_value(artifact_id, str(staged["value_id"]))
+    value_id = identity.value_id
     tables = project_tables(MetaData(), scope.project_scope.resolved_schema)
     row = (
         connection.execute(
@@ -1221,15 +1335,15 @@ def read_staged_artifact(
     if row is None:
         raise C8ArtifactMissingError(f"staged artifact value not found: {artifact_id}")
     if (
-        str(row["object_type"]) != C8_STAGED_ARTIFACT_OBJECT_TYPE
-        or str(row["codec_id"]) != C8_STAGED_ARTIFACT_CODEC_ID
+        str(row["object_type"]) != identity.object_type
+        or str(row["codec_id"]) != identity.codec_id
     ):
         raise C8ArtifactIntegrityError("staged artifact value codec/object type drift")
     if str(row["state"]) != "AVAILABLE":
         raise C8ArtifactIntegrityError("staged artifact value state drift")
     if int(row["revision"]) != 1:
         raise C8ArtifactIntegrityError("staged artifact value revision drift")
-    if str(row["source_ref"]) != f"c8:artifact:{artifact_id}":
+    if str(row["source_ref"]) != identity.source_ref(artifact_id):
         raise C8ArtifactIntegrityError("staged artifact value source ref drift")
     if row["content_json"] is not None:
         raise C8ArtifactIntegrityError(
@@ -1253,7 +1367,7 @@ def read_staged_artifact(
             "staged artifact provenance fails digest readback"
         )
     if (
-        str(provenance.get("schema")) != C8_ARTIFACT_SCHEMA
+        str(provenance.get("schema")) != identity.artifact_schema
         or str(provenance.get("artifact_id")) != artifact_id
         or str(provenance.get("project_key")) != scope.project_scope.project_key
     ):
@@ -1304,18 +1418,18 @@ def read_staged_artifact(
         raise C8ArtifactIntegrityError(
             "staged artifact digest drift on durable readback"
         )
-    if str(row["incarnation"]) != f"c8:staged-artifact:{artifact.artifact_digest}":
+    if str(row["incarnation"]) != identity.incarnation(artifact.artifact_digest):
         raise C8ArtifactIntegrityError("staged artifact value incarnation drift")
     expected_write_intent = derive_value_write_intent_digest(
         project_key=scope.project_scope.project_key,
         value_id=value_id,
-        object_type=C8_STAGED_ARTIFACT_OBJECT_TYPE,
-        codec_id=C8_STAGED_ARTIFACT_CODEC_ID,
+        object_type=identity.object_type,
+        codec_id=identity.codec_id,
         content_digest=str(row["content_digest"]),
         provenance_digest=str(row["provenance_digest"]),
-        source_ref=f"c8:artifact:{artifact_id}",
+        source_ref=identity.source_ref(artifact_id),
         expected_revision=0,
-        expected_incarnation=f"c8:staged-artifact:{artifact.artifact_digest}",
+        expected_incarnation=identity.incarnation(artifact.artifact_digest),
         state="AVAILABLE",
     )
     if str(row["write_intent_digest"]) != expected_write_intent:
@@ -1366,9 +1480,11 @@ def verify_artifact(
         raise C8ArtifactLifecycleError(
             f"verify requires STAGED, observed {staged['state']}"
         )
-    value_id = staged_artifact_value_id(artifact.artifact_id)
-    if str(staged["value_id"]) != value_id:
-        raise C8ArtifactIntegrityError("staged artifact value identity drift")
+    identity = _staged_identity_for_value(
+        artifact.artifact_id,
+        str(staged["value_id"]),
+    )
+    value_id = identity.value_id
     try:
         exact = ValueRepository(
             connection,
@@ -1377,7 +1493,7 @@ def verify_artifact(
             scope,
             value_id,
             expected_revision=1,
-            expected_incarnation=f"c8:staged-artifact:{artifact.artifact_digest}",
+            expected_incarnation=identity.incarnation(artifact.artifact_digest),
             expected_digest=sha256_hex(artifact.markdown_bytes),
         )
     except ProjectRecordNotFound as exc:
@@ -1397,7 +1513,31 @@ def verify_artifact(
 
 
 def artifact_idempotency_key(artifact_id: str) -> str:
+    return f"knowledge:report:admit:{artifact_id}"
+
+
+def _legacy_artifact_idempotency_key(artifact_id: str) -> str:
     return f"c8:report:admit:{artifact_id}"
+
+
+def _find_artifact_intent(
+    repository: CommitIntentRepository,
+    artifact_id: str,
+) -> tuple[Mapping[str, object], bool]:
+    candidates = (
+        (C8_ARTIFACT_OWNER, artifact_idempotency_key(artifact_id), False),
+        (
+            LEGACY_C8_ARTIFACT_OWNER,
+            _legacy_artifact_idempotency_key(artifact_id),
+            True,
+        ),
+    )
+    for capability_id, idempotency_key, legacy in candidates:
+        try:
+            return repository.find_for_readback(capability_id, idempotency_key), legacy
+        except RecordNotFound:
+            continue
+    raise RecordNotFound(f"report commit intent not found: {artifact_id}")
 
 
 def _commit_binding(
@@ -1409,18 +1549,18 @@ def _commit_binding(
     idempotency_key: str,
 ) -> CommitIntentBinding:
     return CommitIntentBinding(
-        commit_intent_id=f"commit:c8:report:{artifact.artifact_id}",
+        commit_intent_id=f"commit:knowledge:report:{artifact.artifact_id}",
         run_id=run_id,
         step_id=step_id,
         capability_id=C8_ARTIFACT_OWNER,
         canonical_owner_ref=C8_ARTIFACT_OWNER,
-        object_identity_ref=f"c8:report:{artifact.artifact_id}",
+        object_identity_ref=f"knowledge:report:{artifact.artifact_id}",
         expected_base_revision=artifact.base_revision,
         expected_base_incarnation=artifact.base_incarnation,
         content_digest=artifact.artifact_digest,
         event_digest=content_digest(
             {
-                "schema": "mrw.successor.c8.report-admission.v1",
+                "schema": "mrw.knowledge.report-admission.v2",
                 "artifact_id": artifact.artifact_id,
                 "artifact_digest": artifact.artifact_digest,
                 "project_key": artifact.project_key,
@@ -1445,16 +1585,22 @@ def _artifact_readback(
     verification: c8.ReportVerification,
     idempotency_key: str,
 ) -> C8ArtifactReadback:
-    intent = CommitIntentRepository(connection, scope).find_for_readback(
-        C8_ARTIFACT_OWNER,
-        idempotency_key,
+    intent, legacy = _find_artifact_intent(
+        CommitIntentRepository(connection, scope),
+        artifact.artifact_id,
+    )
+    persisted_idempotency_key = str(intent["idempotency_key"])
+    expected_object_identity = (
+        f"c8:report:{artifact.artifact_id}"
+        if legacy
+        else f"knowledge:report:{artifact.artifact_id}"
     )
     if str(intent["state"]) != CommitIntentStatus.COMMITTED.value:
         raise C8ArtifactOutcomeUnknownError(
             "report readback requires a committed commit intent"
         )
     if (
-        str(intent["object_identity_ref"]) != f"c8:report:{artifact.artifact_id}"
+        str(intent["object_identity_ref"]) != expected_object_identity
         or intent["content_digest"] != artifact.artifact_digest
         or int(intent["expected_base_revision"]) != artifact.base_revision
         or intent["expected_base_incarnation"] != artifact.base_incarnation
@@ -1469,15 +1615,25 @@ def _artifact_readback(
         raise C8ArtifactIntegrityError(
             f"readback requires ADMITTED, observed {staged['state']}"
         )
+    report_value = (
+        _legacy_report_value_id(artifact.artifact_id)
+        if legacy
+        else report_value_id(artifact.artifact_id)
+    )
+    report_incarnation = (
+        f"c8:report:{artifact.artifact_digest}"
+        if legacy
+        else f"knowledge:report:{artifact.artifact_digest}"
+    )
     try:
         canonical = ValueRepository(
             connection,
             project_tables(MetaData(), scope.project_scope.resolved_schema),
         ).get_exact(
             scope,
-            report_value_id(artifact.artifact_id),
+            report_value,
             expected_revision=1,
-            expected_incarnation=f"c8:report:{artifact.artifact_digest}",
+            expected_incarnation=report_incarnation,
             expected_digest=artifact.artifact_digest,
         )
     except ProjectRecordNotFound as exc:
@@ -1488,11 +1644,84 @@ def _artifact_readback(
         raise C8ArtifactIntegrityError(str(exc)) from exc
     if canonical != _report_bytes(artifact):
         raise C8ArtifactIntegrityError("canonical report value bytes drift")
+    tables = project_tables(MetaData(), scope.project_scope.resolved_schema)
+    report_row = (
+        connection.execute(
+            select(tables.successor_values).where(
+                tables.successor_values.c.project_key
+                == scope.project_scope.project_key,
+                tables.successor_values.c.value_id == report_value,
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if report_row is None:
+        raise C8ArtifactIntegrityError("canonical report value readback failed")
+    expected_object_type = (
+        _LEGACY_C8_REPORT_VALUE_OBJECT_TYPE
+        if legacy
+        else C8_REPORT_VALUE_OBJECT_TYPE
+    )
+    expected_codec_id = (
+        _LEGACY_C8_REPORT_VALUE_CODEC_ID if legacy else C8_REPORT_VALUE_CODEC_ID
+    )
+    expected_source_ref = (
+        f"c8:artifact:{artifact.artifact_id}"
+        if legacy
+        else f"knowledge:report-artifact:{artifact.artifact_id}"
+    )
+    report_provenance = _report_provenance(artifact)
+    if legacy:
+        report_provenance["schema"] = "mrw.successor.c8.report-value.v1"
+    if (
+        str(report_row["object_type"]) != expected_object_type
+        or str(report_row["codec_id"]) != expected_codec_id
+        or str(report_row["incarnation"]) != report_incarnation
+        or str(report_row["source_ref"]) != expected_source_ref
+        or int(report_row["revision"]) != 1
+        or str(report_row["state"]) != "AVAILABLE"
+    ):
+        raise C8ArtifactIntegrityError(
+            "canonical report value storage identity drift"
+        )
+    stored_provenance = report_row["provenance_json"]
+    if not isinstance(stored_provenance, dict) or dict(
+        stored_provenance
+    ) != report_provenance:
+        raise C8ArtifactIntegrityError("canonical report value provenance drift")
+    if content_digest(report_provenance) != str(report_row["provenance_digest"]):
+        raise C8ArtifactIntegrityError(
+            "canonical report value provenance digest drift"
+        )
+    expected_write_intent = derive_value_write_intent_digest(
+        project_key=scope.project_scope.project_key,
+        value_id=report_value,
+        object_type=expected_object_type,
+        codec_id=expected_codec_id,
+        content_digest=artifact.artifact_digest,
+        provenance_digest=str(report_row["provenance_digest"]),
+        source_ref=expected_source_ref,
+        expected_revision=0,
+        expected_incarnation=report_incarnation,
+        state="AVAILABLE",
+    )
+    if (
+        str(report_row["write_intent_digest"]) != expected_write_intent
+        or report_row["write_receipt_digest"] is not None
+    ):
+        raise C8ArtifactIntegrityError(
+            "canonical report value write binding drift"
+        )
     readback_digest = content_digest(
         {
-            "schema": "mrw.successor.c8.report-readback.v1",
+            "schema": (
+                "mrw.successor.c8.report-readback.v1"
+                if legacy
+                else "mrw.knowledge.report-readback.v2"
+            ),
             "commit_intent_id": intent["commit_intent_id"],
-            "idempotency_key": idempotency_key,
+            "idempotency_key": persisted_idempotency_key,
             "artifact_id": artifact.artifact_id,
             "artifact_digest": artifact.artifact_digest,
             "canonical_commit_ref": intent["canonical_commit_ref"],
@@ -1504,8 +1733,8 @@ def _artifact_readback(
     )
     return C8ArtifactReadback(
         commit_intent_id=str(intent["commit_intent_id"]),
-        idempotency_key=idempotency_key,
-        capability_id=C8_ARTIFACT_OWNER,
+        idempotency_key=persisted_idempotency_key,
+        capability_id=str(intent["capability_id"]),
         project_key=artifact.project_key,
         artifact_id=artifact.artifact_id,
         artifact_digest=artifact.artifact_digest,
@@ -1545,11 +1774,11 @@ def admit_artifact(
             f"admit requires VERIFIED, observed {staged['state']}"
         )
     canonical_commit_ref = (
-        f"canonical:report:{artifact.project_key}:{artifact.artifact_id}:1"
+        f"canonical:knowledge-report:{artifact.project_key}:{artifact.artifact_id}:1"
     )
     receipt_digest = content_digest(
         {
-            "schema": "mrw.successor.c8.report-receipt.v1",
+            "schema": "mrw.knowledge.report-receipt.v2",
             "artifact_id": artifact.artifact_id,
             "artifact_digest": artifact.artifact_digest,
             "project_key": artifact.project_key,
@@ -1560,9 +1789,13 @@ def admit_artifact(
     )
     repo = CommitIntentRepository(connection, scope)
     try:
-        existing = repo.find_for_readback(C8_ARTIFACT_OWNER, idempotency_key)
+        existing, existing_is_legacy = _find_artifact_intent(
+            repo,
+            artifact.artifact_id,
+        )
     except RecordNotFound:
         existing = None
+        existing_is_legacy = False
     if existing is not None and (
         existing["state"] == CommitIntentStatus.COMMITTED.value
     ):
@@ -1572,6 +1805,11 @@ def admit_artifact(
             artifact=artifact,
             verification=verification,
             idempotency_key=idempotency_key,
+        )
+    if existing is not None and existing_is_legacy:
+        raise C8ArtifactOutcomeUnknownError(
+            "legacy report admission intent is not committed; exact old outcome "
+            "must be resolved before a current admission can start"
         )
     binding = _commit_binding(
         artifact,
@@ -1600,8 +1838,8 @@ def admit_artifact(
                 content=report_exact,
                 expected_digest=artifact.artifact_digest,
                 provenance_digest=content_digest(report_provenance),
-                incarnation=f"c8:report:{artifact.artifact_digest}",
-                source_ref=f"c8:artifact:{artifact.artifact_id}",
+                incarnation=f"knowledge:report:{artifact.artifact_digest}",
+                source_ref=f"knowledge:report-artifact:{artifact.artifact_id}",
                 provenance=report_provenance,
             )
             _runtime_value_index(

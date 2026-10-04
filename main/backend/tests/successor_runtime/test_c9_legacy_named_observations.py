@@ -23,11 +23,12 @@ from app.services.graph.adapters import normalize_document
 from app.services.graph.backfill_graph_nodes import run_graph_node_backfill
 from app.services.graph.builder import build_graph, build_topic_subgraph
 from app.services.indexer.policy import _build_vector_contract_payload
-from app.successor_runtime.substrate.projections import c9_sources as c9
+from app.services.projects.context import bind_project
+from app.successor_runtime.substrate.projections import projection_sources as c9
 
 pytestmark = pytest.mark.unit
 
-PROJECT_SCOPE_REF = "project:legacy-c9-observation"
+PROJECT_SCOPE_REF = "legacy_c9_observation"
 SESSION_PROFILE_ID = "legacy-as-session-c9-observation"
 GRAPH_PROFILE_ID = "legacy-graph-project-c9-observation"
 SEARCH_PROFILE_ID = "legacy-vector-contract-c9-observation"
@@ -37,14 +38,14 @@ INCARNATION = "legacy-c9-inc1"
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 _LEGACY_EVENT_KINDS = {
-    "session.created": c9.SESSION_CREATED,
-    "task.created": c9.SESSION_TASK_ASSIGNED,
-    "task.completed": c9.SESSION_PROJECTION_REFRESHED,
-    "session.completed": c9.SESSION_TERMINAL_SUCCEEDED,
+    "session.created": c9.TASK_CREATED,
+    "task.created": c9.TASK_ASSIGNED,
+    "task.completed": c9.TASK_PROJECTION_REFRESHED,
+    "session.completed": c9.TASK_TERMINAL_SUCCEEDED,
 }
 
 _WRITE_TARGETS = (
-    "app.successor_runtime.substrate.postgres.c9_projection_sources.put_semantic_source_rows",
+    "app.successor_runtime.substrate.postgres.projection_sources.put_project_source_rows",
     "app.services.indexer.policy.index_policy_documents",
     "app.services.indexer.policy.get_embeddings",
     "app.services.indexer.policy.get_es_client",
@@ -62,8 +63,8 @@ def _loss(
     *,
     loss_kind: str = c9.LOSS_KIND_OMITTED_FIELD,
     reason: str,
-) -> c9.ProjectionFieldLossV1:
-    return c9.ProjectionFieldLossV1(
+) -> c9.ProjectionFieldLoss:
+    return c9.ProjectionFieldLoss(
         schema_version=c9.PROJECTION_FIELD_LOSS_SCHEMA,
         field_path=field_path,
         loss_kind=loss_kind,
@@ -97,7 +98,7 @@ def _unmapped_losses(
     mapped_paths: set[str],
     *,
     reason: str,
-) -> tuple[c9.ProjectionFieldLossV1, ...]:
+) -> tuple[c9.ProjectionFieldLoss, ...]:
     unmapped = sorted(legacy_paths - mapped_paths)
     return tuple(_loss(path, reason=reason) for path in unmapped)
 
@@ -273,7 +274,7 @@ def _observe_legacy_session() -> dict[str, Any]:
     return first
 
 
-def _runtime_events(bundle: dict[str, Any]) -> tuple[c9.RuntimeSessionEventV1, ...]:
+def _runtime_events(bundle: dict[str, Any]) -> tuple[c9.TaskSourceEvent, ...]:
     events = []
     for index, legacy_event in enumerate(bundle["events"]):
         legacy_type = str(legacy_event.get("event_type") or "")
@@ -285,8 +286,8 @@ def _runtime_events(bundle: dict[str, Any]) -> tuple[c9.RuntimeSessionEventV1, .
         if task_id:
             event_ref = f"{event_ref}:{task_id}"
         events.append(
-            c9.RuntimeSessionEventV1(
-                schema_version=c9.RUNTIME_SESSION_EVENT_SCHEMA,
+            c9.TaskSourceEvent(
+                schema_version=c9.TASK_EVENT_SCHEMA,
                 sequence=index,
                 event_kind=kind,
                 event_ref=event_ref,
@@ -306,9 +307,9 @@ def _mapped_session_paths(bundle: dict[str, Any]) -> set[str]:
     return mapped
 
 
-def _session_source(bundle: dict[str, Any]) -> c9.RuntimeSessionSourceV1:
-    return c9.RuntimeSessionSourceV1(
-        schema_version=c9.RUNTIME_SESSION_SOURCE_SCHEMA,
+def _session_source(bundle: dict[str, Any]) -> c9.TaskSource:
+    return c9.TaskSource(
+        schema_version=c9.TASK_SOURCE_SCHEMA,
         project_scope_ref=str(bundle["session"]["project_key"]),
         session_ref=str(bundle["session"]["session_id"]),
         revision=REVISION,
@@ -320,8 +321,8 @@ def _session_source(bundle: dict[str, Any]) -> c9.RuntimeSessionSourceV1:
 def _session_observation(
     bundle: dict[str, Any],
 ) -> tuple[
-    c9.RuntimeSessionSourceV1,
-    c9.AgentSessionProjectionPayloadV1,
+    c9.TaskSource,
+    c9.TaskView,
     set[str],
     set[str],
 ]:
@@ -353,7 +354,7 @@ def _session_observation(
             reason="task dependency/blocking is not carried by the C9 runtime session source",
         ),
     )
-    payload = c9.build_agent_session_payload(source, declared_losses=losses)
+    payload = c9.build_task_view(source, declared_losses=losses)
     return source, payload, mapped, legacy_paths
 
 
@@ -477,13 +478,13 @@ def _node_label(node: Any) -> str:
     return str(node.id)
 
 
-def _graph_source(graph: Any) -> c9.ResearchGraphSourceV1:
+def _graph_source(graph: Any) -> c9.KnowledgeSource:
     objects = []
     for key in sorted(graph.nodes):
         node = graph.nodes[key]
         objects.append(
-            c9.ResearchGraphObjectV1(
-                schema_version=c9.RESEARCH_GRAPH_OBJECT_SCHEMA,
+            c9.KnowledgeObject(
+                schema_version=c9.KNOWLEDGE_OBJECT_SCHEMA,
                 object_id=key,
                 object_type=node.type,
                 label=_node_label(node),
@@ -494,8 +495,8 @@ def _graph_source(graph: Any) -> c9.ResearchGraphSourceV1:
         source_id = f"{edge.from_node.type}:{edge.from_node.id}"
         target_id = f"{edge.to_node.type}:{edge.to_node.id}"
         relations.append(
-            c9.ResearchGraphRelationV1(
-                schema_version=c9.RESEARCH_GRAPH_RELATION_SCHEMA,
+            c9.KnowledgeRelation(
+                schema_version=c9.KNOWLEDGE_RELATION_SCHEMA,
                 relation_id=f"legacy-edge-{index}",
                 relation_type=edge.type,
                 source_object_id=source_id,
@@ -503,8 +504,8 @@ def _graph_source(graph: Any) -> c9.ResearchGraphSourceV1:
                 occurrence_ref=f"{edge.type}:{source_id}->{target_id}",
             )
         )
-    return c9.ResearchGraphSourceV1(
-        schema_version=c9.RESEARCH_GRAPH_SOURCE_SCHEMA,
+    return c9.KnowledgeSource(
+        schema_version=c9.KNOWLEDGE_SOURCE_SCHEMA,
         project_scope_ref=PROJECT_SCOPE_REF,
         graph_ref=GRAPH_PROFILE_ID,
         revision=REVISION,
@@ -553,8 +554,8 @@ def _mapped_graph_paths(plain: dict[str, Any]) -> set[str]:
 def _graph_observation(
     graph: Any,
 ) -> tuple[
-    c9.ResearchGraphSourceV1,
-    c9.ResearchGraphProjectionPayloadV1,
+    c9.KnowledgeSource,
+    c9.KnowledgeView,
     dict[str, Any],
     set[str],
     set[str],
@@ -599,7 +600,7 @@ def _graph_observation(
             ),
         ),
     )
-    payload = c9.build_research_graph_payload(source, declared_losses=losses)
+    payload = c9.build_knowledge_view(source, declared_losses=losses)
     return source, payload, plain, mapped, legacy_paths
 
 
@@ -621,25 +622,26 @@ def _vector_doc() -> SimpleNamespace:
 
 
 def _observe_legacy_vector() -> dict[str, Any]:
-    return _build_vector_contract_payload(
-        _vector_doc(), "  AI market momentum is accelerating.  "
-    )
+    with bind_project(PROJECT_SCOPE_REF):
+        return _build_vector_contract_payload(
+            _vector_doc(), "  AI market momentum is accelerating.  "
+        )
 
 
-def _search_source(legacy: dict[str, Any]) -> c9.C7SearchSourceV1:
-    return c9.C7SearchSourceV1(
-        schema_version=c9.C7_SEARCH_SOURCE_SCHEMA,
+def _search_source(legacy: dict[str, Any]) -> c9.MaterialSource:
+    return c9.MaterialSource(
+        schema_version=c9.MATERIAL_SOURCE_SCHEMA,
         project_scope_ref=str(legacy["project_key"]),
         search_ref=SEARCH_PROFILE_ID,
         revision=REVISION,
         incarnation=INCARNATION,
         segments=(
-            c9.C7SearchSegmentV1(
-                schema_version=c9.C7_SEARCH_SEGMENT_SCHEMA,
+            c9.MaterialSegment(
+                schema_version=c9.MATERIAL_SEGMENT_SCHEMA,
                 segment_id=f"{legacy['object_type']}:{legacy['object_id']}:0",
                 field_path="legacy.vector_contract.clean_text",
                 segment_text=str(legacy["clean_text"]),
-                segment_kind=c9.C7_SEGMENT_KIND_TEXT,
+                segment_kind=c9.MATERIAL_SEGMENT_KIND_TEXT,
             ),
         ),
     )
@@ -649,8 +651,8 @@ def _vector_observation(
     legacy: dict[str, Any] | None = None,
 ) -> tuple[
     dict[str, Any],
-    c9.C7SearchSourceV1,
-    c9.SearchProjectionPayloadV1,
+    c9.MaterialSource,
+    c9.MaterialView,
     set[str],
     set[str],
 ]:
@@ -691,7 +693,7 @@ def _vector_observation(
             reason="Qdrant point write is not executed",
         ),
     )
-    payload = c9.build_search_payload(source, declared_losses=losses)
+    payload = c9.build_material_view(source, declared_losses=losses)
     return legacy, source, payload, mapped, legacy_paths
 
 
@@ -707,12 +709,12 @@ def test_named_legacy_session_observation_maps_identity_status_blocked_terminal(
     assert payload.source_ref == f"runtime-session:{source.session_ref}"
 
     assert bundle["session"]["status"] == "completed"
-    assert payload.status == c9.SESSION_STATUS_TERMINAL_SUCCEEDED
+    assert payload.status == c9.TASK_STATUS_TERMINAL_SUCCEEDED
     assert source.terminal_event is not None
     assert payload.terminal_event_ref == source.terminal_event.event_ref
     assert source.terminal_event.sequence == len(source.events) - 1
 
-    assert "blocked" not in c9.SESSION_STATUSES
+    assert "blocked" not in c9.TASK_STATUSES
     assert "tasks" not in payload.to_plain()
     loss_paths = {loss.field_path for loss in payload.declared_losses}
     assert loss_paths >= legacy_paths - mapped

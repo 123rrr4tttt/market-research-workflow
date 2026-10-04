@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Dict, Set, Optional
+from typing import Any, Callable, List, Dict, Set, Optional
 from datetime import datetime, timedelta
 import os
 import logging
@@ -19,6 +19,7 @@ from ..llm.config_loader import get_llm_config, format_prompt_template
 from ...settings.config import settings
 from ...models.base import SessionLocal
 from ...models.entities import Document
+from .candidate_contracts import FailureKind, ProviderObservation, ProviderStatus
 
 # Azure AI Search removed - it's for searching your own data, not web search
 
@@ -361,6 +362,9 @@ def search_sources(
     days_back: Optional[int] = None,
     exclude_existing: bool = True,
     start_offset: Optional[int] = None,
+    keywords_override: Optional[List[str]] = None,
+    observation_sink: Optional[List[dict]] = None,
+    occurrence_sink: Optional[List[dict]] = None,
 ) -> List[dict]:
     """搜索外部资源
     
@@ -389,7 +393,7 @@ def search_sources(
             topic = f"{topic} {year} 最新 最近"
         logger.info("search_sources: added time keywords days_back=%d topic=%s", days_back, topic)
     
-    keywords = generate_keywords(topic, language)
+    keywords = _dedup_keywords(keywords_override) if keywords_override is not None else generate_keywords(topic, language)
     # 如果关键词生成失败，使用topic本身作为关键词
     if not keywords:
         keywords = [topic]
@@ -397,6 +401,44 @@ def search_sources(
     logger.info("search_sources: start topic=%s lang=%s keywords=%s max=%d provider=%s", topic, language, keywords, max_results, provider)
     results: List[dict] = []
     seen_links: Set[str] = set()
+
+    def _observe(name: str, keyword: str | None, status: ProviderStatus, count: int = 0, error: Exception | None = None) -> ProviderObservation:
+        kind: FailureKind | None = None
+        if status == "not_configured":
+            kind = "not_configured"
+        elif error is not None:
+            detail = str(error).lower()
+            kind = "rate_limited" if isinstance(error, RatelimitException) or "rate limit" in detail or "quota" in detail or "429" in detail else ("timeout" if isinstance(error, TimeoutError) or "timeout" in detail or "timed out" in detail else "exception")
+        route = ("auto:" if provider == "auto" else "explicit:") + name
+        if provider == "google" and name == "ddg":
+            route = "fallback:ddg"
+        observed = ProviderObservation(provider=name, route=route, keyword=keyword, status=status, returned_count=count, failure_kind=kind, error_type=type(error).__name__ if error else None, error_message=str(error) if error else None)
+        if observation_sink is not None:
+            observation_sink.append({"provider": observed.provider, "route": observed.route, "keyword": observed.keyword, "status": observed.status, "returned_count": observed.returned_count, "failure_kind": observed.failure_kind, "error_type": observed.error_type, "error_message": observed.error_message})
+        return observed
+
+    def _observed_call(name: str, keyword: str, call):
+        start = len(observation_sink) if observation_sink is not None else 0
+        try:
+            items = call()
+        except Exception as exc:
+            logger.warning("search_sources: %s keyword=%s failed: %s", name, keyword, exc, exc_info=True)
+            return _observe(name, keyword, "failed", error=exc)
+        internal_failure = observation_sink is not None and any(
+            row["status"] == "failed" for row in observation_sink[start:]
+        )
+        if items or not internal_failure:
+            _observe(name, keyword, "completed", len(items))
+        return items
+
+    def _call_google(keyword: str, cse_id: str, limit: int, auth_kw: dict):
+        if observation_sink is None:
+            return _google_search(keyword, cse_id, limit, start_offset, **auth_kw)
+        return _google_search(
+            keyword, cse_id, limit, start_offset, **auth_kw,
+            on_error=lambda exc: _observe("google", keyword, "failed", error=exc),
+        )
+
     
     # 如果指定了特定提供商，直接使用
     if provider != "auto":
@@ -417,36 +459,44 @@ def search_sources(
                                     "snippet": result.get("body"),
                                     "source": result.get("source") or "ddg",
                                 }
-                                if _add_result_dedup(results, seen_links, item):
+                                if _add_result_dedup(results, seen_links, item, occurrence_sink=occurrence_sink, request_provider=provider, branch_provider="ddg"):
                                     pass
                                 count += 1
                             logger.info("search_sources: ddg keyword=%s got %d", keyword, count)
+                            _observe("ddg", keyword, "completed", count)
                         except RatelimitException as e:
                             logger.warning("search_sources: ddg rate limited (202 Ratelimit) - DuckDuckGo 已限流，建议使用其他搜索服务: %s", e)
+                            _observe("ddg", keyword, "failed", error=e)
                             # DDG 被限流，返回已获取的结果（如果有）
                             break
                         except Exception as e:
                             logger.warning("search_sources: ddg keyword=%s failed: %s", keyword, e, exc_info=True)
+                            _observe("ddg", keyword, "failed", error=e)
                             continue
             except RatelimitException as e:
                 logger.error("search_sources: ddg provider rate limited (202 Ratelimit) - DuckDuckGo 已限流，建议使用 Google/Serpstack/SerpAPI: %s", e)
+                _observe("ddg", None, "failed", error=e)
                 return results
             except Exception as e:
                 logger.error("search_sources: ddg provider unavailable: %s", e, exc_info=True)
+                _observe("ddg", None, "failed", error=e)
                 return results
 
         elif provider == "serper":
             serper_key = os.getenv("SERPER_API_KEY") or getattr(_settings, "serper_api_key", None)
             if not serper_key:
                 logger.error("search_sources: serper key not configured")
+                _observe("serper", None, "not_configured")
                 return results
             per_kw = max(1, max_results // max(1, len(keywords)))
             for keyword in keywords:
                 try:
-                    items = _serper_search(keyword, serper_key, per_kw, language=language)
+                    items = _observed_call("serper", keyword, lambda: _serper_search(keyword, serper_key, per_kw, language=language))
+                    if isinstance(items, ProviderObservation):
+                        continue
                     for it in items:
                         it["keyword"] = keyword
-                        _add_result_dedup(results, seen_links, it)
+                        _add_result_dedup(results, seen_links, it, occurrence_sink=occurrence_sink, request_provider=provider)
                     logger.info("search_sources: serper keyword=%s got %d", keyword, len(items))
                 except Exception as e:
                     logger.warning("search_sources: serper keyword=%s failed: %s", keyword, e, exc_info=True)
@@ -456,14 +506,17 @@ def search_sources(
             serpstack_key = os.getenv("SERPSTACK_KEY") or _settings.serpstack_key
             if not serpstack_key:
                 logger.error("search_sources: serpstack key not configured")
+                _observe("serpstack", None, "not_configured")
                 return results
             per_kw = max(1, max_results // max(1, len(keywords)))
             for keyword in keywords:
                 try:
-                    items = _serpstack_search(keyword, serpstack_key, per_kw)
+                    items = _observed_call("serpstack", keyword, lambda: _serpstack_search(keyword, serpstack_key, per_kw))
+                    if isinstance(items, ProviderObservation):
+                        continue
                     for it in items:
                         it["keyword"] = keyword
-                        _add_result_dedup(results, seen_links, it)
+                        _add_result_dedup(results, seen_links, it, occurrence_sink=occurrence_sink, request_provider=provider)
                     logger.info("search_sources: serpstack keyword=%s got %d", keyword, len(items))
                 except Exception as e:
                     logger.warning("search_sources: serpstack keyword=%s failed: %s", keyword, e, exc_info=True)
@@ -477,6 +530,7 @@ def search_sources(
             google_configured = google_cse_id and (google_api_key or google_oauth_token)
             if not google_configured:
                 logger.warning("search_sources: google not configured (need CSE_ID + API_KEY or GOOGLE_APPLICATION_CREDENTIALS), falling back to ddg")
+                _observe("google", None, "not_configured")
                 # Fallback to DDG when Google CSE not configured
                 try:
                     with DDGS() as ddgs:
@@ -491,13 +545,16 @@ def search_sources(
                                         "snippet": result.get("body"),
                                         "source": "ddg",
                                     }
-                                    _add_result_dedup(results, seen_links, item)
+                                    _add_result_dedup(results, seen_links, item, occurrence_sink=occurrence_sink, request_provider=provider, branch_provider="ddg")
                                 logger.info("search_sources: ddg fallback keyword=%s got results", keyword)
+                                _observe("ddg", keyword, "completed")
                             except (RatelimitException, Exception) as e:
                                 logger.warning("search_sources: ddg fallback keyword=%s failed: %s", keyword, e)
+                                _observe("ddg", keyword, "failed", error=e)
                                 continue
                 except (RatelimitException, Exception) as e:
                     logger.warning("search_sources: ddg fallback failed: %s", e)
+                    _observe("ddg", None, "failed", error=e)
             else:
                 # Google API: OAuth 优先于 API Key；batch requests with delay
                 auth_kw = {"oauth_token": google_oauth_token} if google_oauth_token else {"api_key": google_api_key}
@@ -510,10 +567,12 @@ def search_sources(
                         time.sleep(1.0)  # delay between keywords
                     try:
                         remaining = max_results - len(results)
-                        items = _google_search(keyword, google_cse_id, remaining, start_offset, **auth_kw)
+                        items = _observed_call("google", keyword, lambda: _call_google(keyword, google_cse_id, remaining, auth_kw))
+                        if isinstance(items, ProviderObservation):
+                            continue
                         for it in items:
                             it["keyword"] = keyword
-                            _add_result_dedup(results, seen_links, it)
+                            _add_result_dedup(results, seen_links, it, occurrence_sink=occurrence_sink, request_provider=provider)
                         logger.info("search_sources: google keyword=%s got %d (total=%d)", keyword, len(items), len(results))
                     except Exception as e:
                         logger.warning("search_sources: google keyword=%s failed: %s", keyword, e, exc_info=True)
@@ -523,14 +582,17 @@ def search_sources(
             serp_key = os.getenv("SERPAPI_KEY") or os.getenv("SERPAPI_API_KEY") or _settings.serpapi_key
             if not serp_key:
                 logger.error("search_sources: serpapi key not configured")
+                _observe("serpapi", None, "not_configured")
                 return results
             per_kw = max(1, max_results // max(1, len(keywords)))
             for keyword in keywords:
                 try:
-                    items = _serpapi_search(keyword, serp_key, per_kw)
+                    items = _observed_call("serpapi", keyword, lambda: _serpapi_search(keyword, serp_key, per_kw))
+                    if isinstance(items, ProviderObservation):
+                        continue
                     for it in items:
                         it["keyword"] = keyword
-                        _add_result_dedup(results, seen_links, it)
+                        _add_result_dedup(results, seen_links, it, occurrence_sink=occurrence_sink, request_provider=provider)
                     logger.info("search_sources: serpapi keyword=%s got %d", keyword, len(items))
                 except Exception as e:
                     logger.warning("search_sources: serpapi keyword=%s failed: %s", keyword, e, exc_info=True)
@@ -541,10 +603,12 @@ def search_sources(
             per_kw = max(1, max_results // max(1, len(keywords)))
             for keyword in keywords:
                 try:
-                    items = _searxng_search(keyword, base_url, per_kw, language=language)
+                    items = _observed_call("searxng", keyword, lambda: _searxng_search(keyword, base_url, per_kw, language=language))
+                    if isinstance(items, ProviderObservation):
+                        continue
                     for it in items:
                         it["keyword"] = keyword
-                        _add_result_dedup(results, seen_links, it)
+                        _add_result_dedup(results, seen_links, it, occurrence_sink=occurrence_sink, request_provider=provider)
                     logger.info("search_sources: searxng keyword=%s got %d", keyword, len(items))
                 except Exception as e:
                     logger.warning("search_sources: searxng keyword=%s failed: %s", keyword, e, exc_info=True)
@@ -556,10 +620,12 @@ def search_sources(
             per_kw = max(1, max_results // max(1, len(keywords)))
             for keyword in keywords:
                 try:
-                    items = _yacy_search(keyword, base_url, per_kw, resource_mode=resource_mode)
+                    items = _observed_call("yacy", keyword, lambda: _yacy_search(keyword, base_url, per_kw, resource_mode=resource_mode))
+                    if isinstance(items, ProviderObservation):
+                        continue
                     for it in items:
                         it["keyword"] = keyword
-                        _add_result_dedup(results, seen_links, it)
+                        _add_result_dedup(results, seen_links, it, occurrence_sink=occurrence_sink, request_provider=provider)
                     logger.info("search_sources: yacy keyword=%s resource=%s got %d", keyword, resource_mode, len(items))
                 except Exception as e:
                     logger.warning("search_sources: yacy keyword=%s failed: %s", keyword, e, exc_info=True)
@@ -581,10 +647,12 @@ def search_sources(
                 break
             try:
                 remaining = max_results - len(results)
-                items = _serper_search(keyword, serper_key, min(per_kw, remaining), language=language)
+                items = _observed_call("serper", keyword, lambda: _serper_search(keyword, serper_key, min(per_kw, remaining), language=language))
+                if isinstance(items, ProviderObservation):
+                    continue
                 for it in items:
                     it["keyword"] = keyword
-                    _add_result_dedup(results, seen_links, it)
+                    _add_result_dedup(results, seen_links, it, occurrence_sink=occurrence_sink, request_provider=provider)
             except Exception as e:
                 logger.warning("search_sources: serper keyword=%s failed: %s", keyword, e, exc_info=True)
                 continue
@@ -603,10 +671,12 @@ def search_sources(
                 time.sleep(1.0)  # delay between keywords
             try:
                 remaining = max_results - len(results)
-                items = _google_search(keyword, google_cse_id, remaining, start_offset, **auth_kw)
+                items = _observed_call("google", keyword, lambda: _call_google(keyword, google_cse_id, remaining, auth_kw))
+                if isinstance(items, ProviderObservation):
+                    continue
                 for it in items:
                     it["keyword"] = keyword
-                    _add_result_dedup(results, seen_links, it)
+                    _add_result_dedup(results, seen_links, it, occurrence_sink=occurrence_sink, request_provider=provider)
                 if items:
                     logger.info("search_sources: google keyword=%s got %d (total=%d)", keyword, len(items), len(results))
             except Exception as e:
@@ -622,10 +692,12 @@ def search_sources(
             per_kw = max(1, max_results // max(1, len(keywords)))
             for keyword in keywords:
                 try:
-                    items = _serpstack_search(keyword, serpstack_key, per_kw)
+                    items = _observed_call("serpstack", keyword, lambda: _serpstack_search(keyword, serpstack_key, per_kw))
+                    if isinstance(items, ProviderObservation):
+                        continue
                     for it in items:
                         it["keyword"] = keyword
-                        _add_result_dedup(results, seen_links, it)
+                        _add_result_dedup(results, seen_links, it, occurrence_sink=occurrence_sink, request_provider=provider)
                     if items:
                         logger.info("search_sources: serpstack keyword=%s got %d", keyword, len(items))
                         break  # 成功获取结果，退出循环
@@ -641,10 +713,12 @@ def search_sources(
                 per_kw = max(1, max_results // max(1, len(keywords)))
                 for keyword in keywords:
                     try:
-                        items = _serpapi_search(keyword, serp_key, per_kw)
+                        items = _observed_call("serpapi", keyword, lambda: _serpapi_search(keyword, serp_key, per_kw))
+                        if isinstance(items, ProviderObservation):
+                            continue
                         for it in items:
                             it["keyword"] = keyword
-                            _add_result_dedup(results, seen_links, it)
+                            _add_result_dedup(results, seen_links, it, occurrence_sink=occurrence_sink, request_provider=provider)
                         logger.info("search_sources: serpapi keyword=%s got %d", keyword, len(items))
                     except Exception:
                         logger.warning("search_sources: serpapi keyword=%s failed", keyword, exc_info=True)
@@ -659,10 +733,12 @@ def search_sources(
             per_kw = max(1, max_results // max(1, len(keywords)))
             for keyword in keywords[:3]:  # 控制请求量
                 try:
-                    items = _serpapi_search_news(keyword, serp_key, per_kw)
+                    items = _observed_call("serpapi_news", keyword, lambda: _serpapi_search_news(keyword, serp_key, per_kw))
+                    if isinstance(items, ProviderObservation):
+                        continue
                     for it in items:
                         it["keyword"] = keyword
-                        _add_result_dedup(results, seen_links, it)
+                        _add_result_dedup(results, seen_links, it, occurrence_sink=occurrence_sink, request_provider=provider)
                 except Exception:
                     continue
 
@@ -687,16 +763,21 @@ def search_sources(
                                 "snippet": result.get("body"),
                                 "source": result.get("source"),
                             }
-                            _add_result_dedup(results, seen_links, item)
-                    except RatelimitException:
+                            _add_result_dedup(results, seen_links, item, occurrence_sink=occurrence_sink, request_provider=provider, branch_provider="ddg")
+                        _observe("ddg", keyword, "completed")
+                    except RatelimitException as e:
                         logger.warning("search_sources: ddg rate limited in site fallback, skipping")
+                        _observe("ddg", keyword, "failed", error=e)
                         break
-                    except Exception:
+                    except Exception as e:
+                        _observe("ddg", keyword, "failed", error=e)
                         continue
-        except RatelimitException:
+        except RatelimitException as e:
             logger.warning("search_sources: ddg rate limited in site fallback")
-        except Exception:
+            _observe("ddg", None, "failed", error=e)
+        except Exception as e:
             logger.warning("search_sources: site search fallback failed", exc_info=True)
+            _observe("ddg", None, "failed", error=e)
 
     # 过滤已存在的文档
     if exclude_existing:
@@ -959,6 +1040,7 @@ def _google_search(
     *,
     api_key: Optional[str] = None,
     oauth_token: Optional[str] = None,
+    on_error: Callable[[Exception], None] | None = None,
 ) -> List[dict]:
     """Google Custom Search API: 每天100次免费请求
     支持 API Key 或 OAuth 2.0（Service Account）认证。
@@ -1029,6 +1111,8 @@ def _google_search(
 
         except Exception as e:
             logger.warning("google_search: API error at page %d (start=%d): %s", page + 1, start_index, e)
+            if on_error is not None:
+                on_error(e)
             if "quota" in str(e).lower() or "429" in str(e):
                 logger.error("google_search: quota exceeded")
             if page == 0:
@@ -1038,12 +1122,23 @@ def _google_search(
     return items[:limit]  # 确保不超过请求的限制
 
 
-def _add_result_dedup(results: List[dict], seen_links: Set[str], item: Dict[str, str]) -> bool:
+def _add_result_dedup(results: List[dict], seen_links: Set[str], item: Dict[str, str], *, occurrence_sink: Optional[List[dict]] = None, request_provider: str = "auto", branch_provider: str | None = None) -> bool:
     link = (item.get("link") or "").strip()
     if not link:
         return False
 
     canonical_link = _canonicalize_url(link)
+    if occurrence_sink is not None:
+        source = str(branch_provider or item.get("source") or request_provider)
+        route = str(item.get("provider_route") or (("auto:" if request_provider == "auto" else "explicit:") + source))
+        if request_provider == "google" and source == "ddg":
+            route = "fallback:ddg"
+        supplied_rank = item.get("rank")
+        original_rank = supplied_rank if isinstance(supplied_rank, int) and supplied_rank > 0 else 1 + sum(
+            1 for row in occurrence_sink
+            if row["provider"] == source and row["keyword"] == item.get("keyword") and row["route"] == route
+        )
+        occurrence_sink.append({"resource_uri": canonical_link, "keyword": item.get("keyword"), "provider": source, "route": route, "original_rank": original_rank, "retained": canonical_link not in seen_links})
     if canonical_link in seen_links:
         return False
     seen_links.add(canonical_link)

@@ -11,11 +11,13 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-
 from app.successor_runtime.assembly.base import local_assembly_scope_digest
-from app.successor_runtime.assembly.c2_assembly import build_c2_assembly
+from app.successor_runtime.assembly.source_assembly import (
+    SOURCE_PROVIDER_ACQUISITION_CELL_ID,
+    build_source_assembly,
+)
 from app.successor_runtime.capabilities import single_source_guard_port as guard
-from app.successor_runtime.capabilities.source_library_c2_3_guard_runtime import (
+from app.successor_runtime.capabilities.source_provider_guard import (
     SingleSourceGuardedProviderGateway,
 )
 from app.successor_runtime.substrate.postgres.source_library_c2_23_canary import (
@@ -156,7 +158,7 @@ def test_request_without_guard_declaration_preserves_unguarded_dispatch() -> Non
 
 
 def test_c2_assembly_installs_guarded_gateway_around_c23_dispatch() -> None:
-    assembly = build_c2_assembly(
+    assembly = build_source_assembly(
         uow_factory=lambda: object(),  # type: ignore[arg-type]
         project_scope_digest=local_assembly_scope_digest(),
     )
@@ -170,7 +172,7 @@ def test_c2_assembly_installs_guarded_gateway_around_c23_dispatch() -> None:
     assert handler.single_source_guard_port is not None
     assert isinstance(handler.guarded_gateway, SingleSourceGuardedProviderGateway)
     assert "SINGLE_SOURCE_GUARD_PORT_CONSUMED_BEFORE_DISPATCH" in (
-        assembly.cell("C2.3").note
+        assembly.cell(SOURCE_PROVIDER_ACQUISITION_CELL_ID).note
     )
     assert handler.guarded_gateway.guard_decisions == []
     assert handler.guarded_gateway.execution_facts == []

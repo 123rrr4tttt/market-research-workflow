@@ -170,7 +170,7 @@ def normalize_numeric_scalar(value: Any, *, expect_percent: bool = False) -> flo
 def normalize_market_payload(
     market: Dict[str, Any],
     *,
-    scope: str = "lottery.market",
+    scope: str = "market",
 ) -> tuple[Dict[str, Any], Dict[str, Any]]:
     """Normalize market payload numeric fields in-place semantics and return quality report."""
     if not isinstance(market, dict):
@@ -196,8 +196,6 @@ def normalize_market_payload(
     field_rules = {
         "sales_volume": False,
         "revenue": False,
-        "jackpot": False,
-        "ticket_price": False,
         "yoy_change": True,
         "mom_change": True,
     }

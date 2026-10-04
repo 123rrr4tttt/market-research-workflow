@@ -55,18 +55,6 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         "risks": [],
     },
     {
-        "capability_id": "agent_batch.nl_command.submit",
-        "name": "Natural-language project execution",
-        "description": "Turn a user request into governed agent_batch tasks that can call search, source_library, ingest, and workflow handoff paths.",
-        "domain": "agent_batch",
-        "call_pattern": "async",
-        "approval_level": "medium",
-        "concurrency_class": "write_shared",
-        "entrypoints": [{"type": "internal_service", "id": "agent_batch.run_agent_batch_nl_command_loop"}],
-        "required_input": ["command", "project_key"],
-        "risks": ["external_collection", "cost", "data_mutation"],
-    },
-    {
         "capability_id": "source_library.item.list",
         "name": "Source library discovery",
         "description": "Inspect available project and shared source-library data-source items from the database before execution.",
@@ -881,7 +869,6 @@ def select_capabilities_for_goal(goal: str) -> list[dict[str, Any]]:
             add("ingest.status.read", reason="request asks for ingest/source-library run status")
         add("agent_session.stream", reason="interactive progress and final-answer delivery")
     else:
-        add("agent_batch.nl_command.submit", reason="primary autonomous execution path for natural-language project tasks")
         add("agent_session.stream", reason="interactive progress and final-answer delivery")
         if _contains_any(text, _SESSION_STATUS_TOKENS):
             add("agent_session.context.read", reason="request references current session state")

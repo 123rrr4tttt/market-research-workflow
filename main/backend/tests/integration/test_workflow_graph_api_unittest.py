@@ -821,6 +821,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
 
     def test_compiler_service_compile_from_template_version(self):
         from app.services.workflow_graph import WorkflowGraphCompilerService
+        from app.services.workflow_graph.store import InMemoryCompiledGraphStore
 
         dsl = {
             "version": "1.0",
@@ -846,7 +847,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
             "app.services.workflow_graph.templates.get_ingest_config",
             return_value={"payload": stored_payload},
         ):
-            service = WorkflowGraphCompilerService()
+            service = WorkflowGraphCompilerService(store=InMemoryCompiledGraphStore())
             result = service.compile({"template_id": "tpl-1", "version_id": "v1", "graph_id": "g-template"})
 
         self.assertEqual(result["graph_id"], "g-template")

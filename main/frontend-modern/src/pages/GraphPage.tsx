@@ -1,67 +1,124 @@
 import { Component, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { EChartsType } from 'echarts/core'
-import { GitBranchPlus, LoaderCircle } from 'lucide-react'
+import { Activity, Boxes, Building2, ChartPie, GitBranchPlus, LoaderCircle, Network, Package, Workflow } from 'lucide-react'
 import * as THREE from 'three'
-import * as graphApi from '../lib/api'
 import {
   getGraphConfig,
   getMarketGraph,
   getPolicyGraph,
   getSocialGraph,
-  applyWorkflowTemplateRollback,
-  diffWorkflowTemplate,
-  listWorkflowTemplateVersions,
   listSourceItems,
   buildWorkflowGraphReportingHandoff,
   listWorkflowGraphCuratedAudits,
-  previewWorkflowTemplateRollback,
-  promoteWorkflowTemplate,
   replayWorkflowGraphHandoff,
   rollbackWorkflowGraphCuratedState,
-  runWorkflow,
   saveWorkflowGraphCuratedDraft,
-  stageWorkflowTemplate,
   submitGraphStructuredSearchTasks,
   submitWorkflowGraphCuratedDraft,
   syncWorkflowGraphCuratedState,
 } from '../lib/api'
-import { isApiClientError } from '../lib/api/client'
-import type { WorkflowGraphAuditRecord, WorkflowGraphCuratedDsl, WorkflowGraphCuratedStateResponse } from '../lib/api'
+import type { WorkflowGraphAuditRecord, WorkflowGraphCuratedStateResponse } from '../lib/api'
 import type {
   GraphEdgeItem,
   GraphNodeItem,
+  GraphResponse,
   GraphStructuredDashboardParams,
   GraphStructuredSearchResponse,
   SourceLibraryItem,
-  WorkflowTemplateDiffResponse,
-  WorkflowTemplateDiffStep,
-  WorkflowTemplatePayload,
-  WorkflowTemplateRollbackResponse,
-  WorkflowRunResult,
-  WorkflowTemplateStageMutationResponse,
   WorkflowTemplateStageName,
-  WorkflowTemplateStageRecord,
-  WorkflowTemplateVersionListResponse,
 } from '../lib/types'
 import { queryKeys } from '../lib/queryKeys'
 import { GRAPH_COLOR_THEMES, assignLegendColors, type PaletteKey } from '../lib/graph-colors'
 import { applyRenderer2D, RENDERER_2D_CAPABILITIES } from './graph/renderers/renderer2dEcharts'
+import { graphCanvasPixelRatio } from './graph/renderers/canvasPixelRatio'
 import {
   applyRendererProjection3D,
   RENDERER_PROJECTION_3D_CAPABILITIES,
+  quatFromAxisAngle,
+  quatFromEulerDeg,
+  quatMul,
+  rotateVecByQuat,
+  type QuaternionLike,
   type Projection3DPhysicsState,
 } from './graph/renderers/renderer3dProjection'
 import { getOrCreateForceNodeObject, linkEnds, pruneForceNodeObjectCache } from './graph/renderers/force3dObjects'
 import { collectFocusNodeKeys, computeCoreNumber, computePageRank, computeVisibleSubgraph } from './graph/domain/topology'
 import { useForceGraph3DLoader } from './graph/hooks/useForceGraph3DLoader'
 import { useForceGraphViewport } from './graph/hooks/useForceGraphViewport'
+import { useGraphDisplayResourceScheduler } from './graph/hooks/useGraphDisplayResourceScheduler'
 import { useGraphVisualState } from './graph/hooks/useGraphVisualState'
 import { useGraphSelectionState } from './graph/hooks/useGraphSelectionState'
 import { useGraphModeSwitch, type ProjectionEngine } from './graph/hooks/useGraphModeSwitch'
 import { useGraphDraft } from './graph/hooks/useGraphDraft'
+import { useWorkflowTemplateController } from './graph/hooks/useWorkflowTemplateController'
 import type { RenderNode } from './graph/renderers/types'
 import { ClueChainInspector } from './graph/ClueChainInspector'
+import { GraphTopologyPanel } from './graph/GraphTopologyPanel'
+import { getGraphProjection, GRAPH_PROJECTIONS_BY_KIND, type GraphProjectionId } from './graph/realizer/definitions'
+import type { GraphProjectionDefinition } from './graph/realizer/contract'
+import { readGraphProjection } from './graph/realizer/sourceAdapter'
+import {
+  applyWorkspaceTabBindings,
+  coerceGraphProjectionBindings,
+  GRAPH_WORKSPACE_TABS,
+  type GraphWorkspaceTab,
+} from './graph/realizer/workspaceNavigation'
+import {
+  classifyGraphLegendType,
+  compareGraphLegendGroups,
+  GRAPH_LEGEND_GROUP_LABEL_KEY,
+  type GraphLegendGroupId,
+} from './graph/realizer/legendClassification'
+import {
+  coerceGraphEdgeStyleBinding,
+  defaultRelationTokenBinding,
+  EDGE_STYLE_CATALOG,
+  edgeLegendKey,
+  edgeLegendLabel,
+  edgeLegendTier,
+  edgeLinePattern,
+  graphEdgeProfile,
+  mergeEdgeStyleBindings,
+  GRAPH_EDGE_STROKE_LABEL_KEY,
+  GRAPH_EDGE_LINE_TYPE_LABEL_KEY,
+  type EdgeLegendTier,
+  type EdgeLegendItem,
+  type EdgeLineType,
+  type EdgeStrokeKind,
+  type EdgeSymbolName,
+} from './graph/realizer/edgeStyleLibrary'
+import { EdgeLegendBadge } from './graph/realizer/EdgeLegendBadge'
+import { NodeLegendShape } from './graph/renderers/NodeLegendShape'
+import {
+  clampControlPanelWidth,
+  clampFloatingPanelHeight,
+  clampFloatingPanelWidth,
+  computeNodeVisualSize,
+  normalizeMapValues,
+  percentile,
+  NODE_SIZE_MIN_APPROX,
+} from './graph/realizer/graphGeometry'
+import {
+  normalizeNodeType,
+  resolveNodeSymbol,
+  symbolSizeGain,
+  computeEmptyNodeBorderWidth,
+  toGraphSymbol,
+  TOPIC_TAG_CONVEX_SYMBOL_PATH,
+  type BuiltinGraphSymbol,
+} from './graph/realizer/nodeStyleLibrary'
+import {
+  buildCuratedWorkflowGraphDsl,
+  curatedSubmitFailure,
+  curatedNodeId,
+  formatContractList,
+  formatWorkflowDiffStepSide,
+  formatWorkflowRunScalar,
+  isPlainRecord,
+  snapshotDslFromCuratedState,
+  temporaryCuratedNodeIds,
+} from './graph/realizer/workflowTemplate'
 import {
   createClueChain,
   decideClueChainCandidate,
@@ -71,7 +128,18 @@ import {
 } from './graph/clueChainClient'
 import { translate, useAppLocale, type MessageKey } from '../app/platform/i18n'
 
-type Variant = 'graphMarket' | 'graphPolicy' | 'graphSocial' | 'graphCompany' | 'graphProduct' | 'graphOperation' | 'graphDeep'
+type Variant = GraphProjectionId
+
+const GRAPH_WORKSPACE_TAB_ICONS: Record<string, typeof Network> = {
+  graphMarket: ChartPie,
+  graphPolicy: Network,
+  graphSocial: Activity,
+  graphCompany: Building2,
+  graphProduct: Package,
+  graphOperation: Workflow,
+  graphDeep: Boxes,
+  graphBuilder: GitBranchPlus,
+}
 
 type Props = {
   projectKey: string
@@ -81,7 +149,16 @@ type Props = {
 
 type GraphMessageParams = Record<string, number | string>
 
-type GraphKind = 'policy' | 'social' | 'market' | 'market_deep_entities' | 'company' | 'product' | 'operation'
+type ForceLinkStyle = {
+  color: string
+  width: number
+  opacity: number
+  curvature: number
+  curveRotation: number
+  arrowLength: number
+}
+
+type GraphKind = GraphProjectionDefinition['graphKind']
 type ForceGraphApi = {
   scene?: () => THREE.Scene | undefined
   resumeAnimation?: () => void
@@ -169,68 +246,8 @@ async function loadGraphEchartsCore() {
   return echartsCorePromise
 }
 
-const TYPE_TO_KIND: Record<Variant, GraphKind> = {
-  graphMarket: 'market',
-  graphPolicy: 'policy',
-  graphSocial: 'social',
-  graphCompany: 'company',
-  graphProduct: 'product',
-  graphOperation: 'operation',
-  graphDeep: 'market_deep_entities',
-}
-
-const GRAPH_VARIANT_LABEL_KEY: Record<Variant, MessageKey> = {
-  graphMarket: 'graphPage.variant.graphMarket',
-  graphPolicy: 'graphPage.variant.graphPolicy',
-  graphSocial: 'graphPage.variant.graphSocial',
-  graphCompany: 'graphPage.variant.graphCompany',
-  graphProduct: 'graphPage.variant.graphProduct',
-  graphOperation: 'graphPage.variant.graphOperation',
-  graphDeep: 'graphPage.variant.graphDeep',
-}
-
-const SYMBOLS: Record<string, string> = {
-  Policy: 'circle',
-  State: 'rect',
-  PolicyType: 'diamond',
-  KeyPoint: 'roundRect',
-  Entity: 'triangle',
-  Post: 'circle',
-  Keyword: 'diamond',
-  Topic: 'triangle',
-  SentimentTag: 'pin',
-  User: 'roundRect',
-  Subreddit: 'arrow',
-  MarketData: 'circle',
-  Segment: 'diamond',
-  Game: 'diamond',
-  CompanyEntity: 'circle',
-  CompanyBrand: 'emptyDiamond',
-  CompanyUnit: 'rect',
-  CompanyPartner: 'emptyTriangle',
-  CompanyChannel: 'pin',
-  ProductEntity: 'roundRect',
-  ProductModel: 'emptyDiamond',
-  ProductCategory: 'rect',
-  ProductBrand: 'emptyCircle',
-  ProductComponent: 'triangle',
-  ProductScenario: 'emptyPin',
-  OperationEntity: 'roundRect',
-  OperationPlatform: 'emptyCircle',
-  OperationStore: 'diamond',
-  OperationChannel: 'emptyRect',
-  OperationMetric: 'triangle',
-  OperationStrategy: 'emptyPin',
-  OperationRegion: 'arrow',
-  OperationPeriod: 'emptyRoundRect',
-  TopicTag: 'convexStar',
-}
-
-type BuiltinGraphSymbol = 'circle' | 'rect' | 'roundRect' | 'triangle' | 'diamond' | 'pin' | 'arrow'
-const TOPIC_TAG_CONVEX_SYMBOL_PATH = 'path://M10 2.2 L12.6 6.6 L17.6 7.8 L14.2 11.4 L15 16.6 L10 14.4 L5 16.6 L5.8 11.4 L2.4 7.8 L7.4 6.6 Z'
 const FORCE_3D_GLOBAL_SIZE_GAIN = 1.32
 const FORCE_3D_SIZE_COMPENSATION_MAX_X = 8
-const NODE_BASE_SIZE_MULTIPLIER = 4
 const NODE_SIZE_SLIDER_MIN = 0
 const NODE_SIZE_SLIDER_MAX = 220
 const NODE_CONTRAST_SLIDER_MIN = 0
@@ -238,124 +255,13 @@ const NODE_CONTRAST_SLIDER_MAX = 100
 const RANK_WEIGHT_SLIDER_MIN = 0
 const RANK_WEIGHT_SLIDER_MAX = 100
 const RANK_WEIGHT_DEFAULT = 50
-const NODE_SIZE_MIN_APPROX = 0.2
-const SYMBOL_SIZE_GAIN: Record<string, number> = {
-  circle: 1.0,
-  rect: 0.92,
-  roundRect: 0.92,
-  diamond: 1.05,
-  triangle: 1.12,
-  pin: 1.12,
-  arrow: 1.18,
-  emptyCircle: 1.0,
-  emptyRect: 0.92,
-  emptyRoundRect: 0.92,
-  emptyDiamond: 1.05,
-  emptyTriangle: 1.12,
-  emptyPin: 1.12,
-  convexStar: 0.9,
-}
-function symbolSizeGain(symbol: string) {
-  const key = String(symbol || '').trim()
-  return SYMBOL_SIZE_GAIN[key] || 1
-}
-
-function computeEmptyNodeBorderWidth(size: number, selected: boolean) {
-  const base = Math.max(1.35, Math.min(4.8, size * 0.16 + 0.55))
-  return selected ? Math.max(1.5, base * 1.18) : base
-}
-
+// Node labels follow the explicit "show labels" control: density is handled by
+// the renderer's overlap hiding, not by hiding every label behind a size gate.
+const NODE_LABEL_MAX_VISIBLE_NODES = 220
+const NODE_LABEL_MIN_SIZE_PX = 10
 function computeForce3DSizeCompensationX(nodeScale: number) {
   void nodeScale
   return FORCE_3D_SIZE_COMPENSATION_MAX_X
-}
-const SYMBOL_TYPE_BY_COMPACT: Record<string, string> = Object.fromEntries(
-  Object.keys(SYMBOLS).map((key) => [key.toLowerCase().replace(/[\s_-]+/g, ''), key]),
-)
-
-function resolveNodeSymbol(rawType: string) {
-  const normalized = normalizeNodeType(rawType)
-  return String(SYMBOLS[normalized] || SYMBOLS[rawType] || 'circle')
-}
-
-function toGraphSymbol(symbol: string): BuiltinGraphSymbol {
-  const key = String(symbol || '').trim()
-  if (key === 'emptyCircle') return 'circle'
-  if (key === 'emptyRect') return 'rect'
-  if (key === 'emptyRoundRect') return 'roundRect'
-  if (key === 'emptyDiamond') return 'diamond'
-  if (key === 'emptyTriangle') return 'triangle'
-  if (key === 'emptyPin') return 'pin'
-  if (key === 'rect' || key === 'roundRect' || key === 'triangle' || key === 'diamond' || key === 'pin' || key === 'arrow') return key
-  return 'circle'
-}
-
-function NodeLegendShape({ nodeType, color }: { nodeType: string; color: string }) {
-  const rawSymbol = resolveNodeSymbol(nodeType)
-  const stroke = color
-  const fill = rawSymbol.startsWith('empty') ? '#ffffff' : color
-  const common = { strokeWidth: 1.5, strokeLinejoin: 'round' as const }
-  const icon = (() => {
-    if (rawSymbol === 'rect' || rawSymbol === 'emptyRect') {
-      return <rect x="4.6" y="4.6" width="10.8" height="10.8" fill={fill} stroke={stroke} {...common} />
-    }
-    if (rawSymbol === 'roundRect' || rawSymbol === 'emptyRoundRect') {
-      return <rect x="4.2" y="5" width="11.6" height="10" rx="2.4" fill={fill} stroke={stroke} {...common} />
-    }
-    if (rawSymbol === 'diamond' || rawSymbol === 'emptyDiamond') {
-      return <polygon points="10,3.8 16.2,10 10,16.2 3.8,10" fill={fill} stroke={stroke} {...common} />
-    }
-    if (rawSymbol === 'triangle' || rawSymbol === 'emptyTriangle') {
-      return <polygon points="10,3.8 16.2,15.8 3.8,15.8" fill={fill} stroke={stroke} {...common} />
-    }
-    if (rawSymbol === 'pin' || rawSymbol === 'emptyPin') {
-      return (
-        <>
-          <circle cx="10" cy="8.1" r="3.4" fill={fill} stroke={stroke} {...common} />
-          <polygon points="10,17 6.8,11.6 13.2,11.6" fill={fill} stroke={stroke} {...common} />
-        </>
-      )
-    }
-    if (rawSymbol === 'arrow') {
-      return <polygon points="4,6 15.6,10 4,14.2 7.3,10" fill={color} stroke={stroke} {...common} />
-    }
-    if (rawSymbol === 'convexStar') {
-      return <polygon points="10,3 12.8,7.1 17.3,8.2 14.4,11.7 15.1,16.3 10,14.3 4.9,16.3 5.6,11.7 2.7,8.2 7.2,7.1" fill={color} stroke={stroke} {...common} />
-    }
-    return <circle cx="10" cy="10" r="5.2" fill={fill} stroke={stroke} {...common} />
-  })()
-  return (
-    <span className="gv2-node-shape-badge" data-symbol={rawSymbol}>
-      <svg viewBox="0 0 20 20" aria-hidden="true">{icon}</svg>
-    </span>
-  )
-}
-
-function normalizeNodeType(rawType: unknown) {
-  const raw = String(rawType || '').trim()
-  if (!raw) return raw
-  const compact = raw.toLowerCase().replace(/[\s_-]+/g, '')
-  const aliasMap: Record<string, string> = {
-    productsenario: 'ProductScenario',
-    prodctscenario: 'ProductScenario',
-    prodctsenario: 'ProductScenario',
-    proudctscenario: 'ProductScenario',
-    proudctsenario: 'ProductScenario',
-    productcomponent: 'ProductComponent',
-    prodctcomponent: 'ProductComponent',
-    productmodel: 'ProductModel',
-    prodctmodel: 'ProductModel',
-    productentity: 'ProductEntity',
-    prodctentity: 'ProductEntity',
-    productcategory: 'ProductCategory',
-    prodctcategory: 'ProductCategory',
-    productbrand: 'ProductBrand',
-    prodctbrand: 'ProductBrand',
-    product: 'ProductEntity',
-    prodct: 'ProductEntity',
-    proudct: 'ProductEntity',
-  }
-  return aliasMap[compact] || SYMBOL_TYPE_BY_COMPACT[compact] || raw
 }
 
 function hashText(input: string) {
@@ -383,94 +289,27 @@ function nodeKey(node: GraphNodeItem) {
 }
 
 function nodeName(node: GraphNodeItem) {
-  return String(node.title || node.name || node.text || node.canonical_name || node.id)
+  return String(node.name || node.title || node.text || node.canonical_name || node.id)
 }
 
 function nodeTypeLabel(nodeType: string, labels?: Record<string, string>) {
-  return labels?.[nodeType] || nodeType
+  if (labels?.[nodeType]) return labels[nodeType]
+  return nodeType.startsWith('node:') ? nodeType.slice('node:'.length) : nodeType
 }
 
-function groupOfType(type: string) {
-  if (type.startsWith('Company')) return 'company'
-  if (type.startsWith('Product')) return 'product'
-  if (type.startsWith('Operation')) return 'operation'
-  if (['Policy', 'PolicyType', 'KeyPoint', 'State'].includes(type)) return 'policy'
-  if (['Post', 'Keyword', 'Topic', 'SentimentTag', 'User', 'Subreddit'].includes(type)) return 'social'
-  if (['MarketData', 'Segment', 'Game', 'Entity', 'TopicTag'].includes(type)) return 'market'
-  return 'other'
-}
-
-const GRAPH_GROUP_LABEL_KEY: Record<string, MessageKey> = {
-  company: 'graphPage.group.company',
-  product: 'graphPage.group.product',
-  operation: 'graphPage.group.operation',
-  policy: 'graphPage.group.policy',
-  social: 'graphPage.group.social',
-  market: 'graphPage.group.market',
-  other: 'graphPage.group.other',
-}
-
-type EdgeLegendTier = 'class' | 'pred' | 'type'
-
-type EdgeLineType = 'solid' | 'dashed' | 'dotted'
-
-type EdgeLegendItem = {
-  key: string
-  tier: EdgeLegendTier
-  shapeKind: EdgeShapeKind
-  strokeKind: EdgeStrokeKind
-  lineType: EdgeLineType
-  label: string
-  count: number
-  color: string
-}
 
 const GRAPH_EDGE_TIER_LABEL_KEY: Record<EdgeLegendTier, MessageKey> = {
+  domain: 'graphPage.edgeTier.domain',
   class: 'graphPage.edgeTier.class',
   pred: 'graphPage.edgeTier.pred',
   type: 'graphPage.edgeTier.type',
 }
 
-type EdgeShapeKind = 'influence' | 'hierarchy' | 'flow' | 'association' | 'temporal' | 'directed'
-
-type EdgeSymbolName = 'none' | 'arrow' | 'circle' | 'diamond' | 'triangle'
-type EdgeStrokeKind = 'straight' | 'curved' | 'wavy' | 'double'
-
-const EDGE_PROFILE_BY_SHAPE: Record<EdgeShapeKind, {
-  strokeKind: EdgeStrokeKind
-  symbol: [EdgeSymbolName, EdgeSymbolName]
-  symbolSize: [number, number]
-}> = {
-  influence: { strokeKind: 'straight', symbol: ['none', 'arrow'], symbolSize: [0, 8] },
-  hierarchy: { strokeKind: 'double', symbol: ['none', 'diamond'], symbolSize: [0, 9] },
-  flow: { strokeKind: 'curved', symbol: ['circle', 'arrow'], symbolSize: [4, 8] },
-  association: { strokeKind: 'wavy', symbol: ['circle', 'circle'], symbolSize: [4, 4] },
-  temporal: { strokeKind: 'curved', symbol: ['none', 'triangle'], symbolSize: [0, 8] },
-  directed: { strokeKind: 'straight', symbol: ['none', 'arrow'], symbolSize: [0, 7] },
-}
-
-const EDGE_LINE_TYPE_BY_STROKE: Record<EdgeStrokeKind, EdgeLineType> = {
-  straight: 'solid',
-  curved: 'solid',
-  wavy: 'dashed',
-  double: 'solid',
-}
-
-const EDGE_CURVENESS_BY_STROKE: Record<EdgeStrokeKind, number> = {
-  straight: 0,
-  curved: 0.2,
-  wavy: 0.34,
-  double: 0.06,
-}
-
-const GRAPH_EDGE_STROKE_LABEL_KEY: Record<EdgeStrokeKind, MessageKey> = {
-  straight: 'graphPage.edgeStroke.straight',
-  curved: 'graphPage.edgeStroke.curved',
-  wavy: 'graphPage.edgeStroke.wavy',
-  double: 'graphPage.edgeStroke.double',
-}
-
 const GRAPH_RELATION_CLASS_LABEL_KEY: Record<string, MessageKey> = {
+  evidence: 'graphPage.relationClass.evidence',
+  judgment: 'graphPage.relationClass.judgment',
+  clue: 'graphPage.relationClass.clue',
+  topology_incidence: 'graphPage.relationClass.incidence',
   governance: 'graphPage.relationClass.governance',
   event: 'graphPage.relationClass.event',
   metric: 'graphPage.relationClass.metric',
@@ -502,85 +341,6 @@ const GRAPH_CARD_FIELD_LABEL_KEY: Record<string, MessageKey> = {
   date: 'graphPage.field.date',
 }
 
-const EDGE_WIDTH_BY_TIER: Record<EdgeLegendTier, number> = {
-  class: 1.8,
-  pred: 1.4,
-  type: 1.2,
-}
-
-function normalizeEdgeToken(value: unknown) {
-  return String(value || '').trim()
-}
-
-function edgeSemanticTokens(edge: GraphEdgeItem) {
-  return [
-    normalizeEdgeToken(edge.relation_class).toLowerCase(),
-    normalizeEdgeToken(edge.predicate).toLowerCase(),
-    normalizeEdgeToken(edge.type).toLowerCase(),
-  ].filter(Boolean)
-}
-
-function matchEdgeToken(tokens: string[], patterns: string[]) {
-  return tokens.some((token) => patterns.some((pattern) => token.includes(pattern)))
-}
-
-function edgeShapeKind(edge: GraphEdgeItem): EdgeShapeKind {
-  const tokens = edgeSemanticTokens(edge)
-  if (matchEdgeToken(tokens, ['taxonomy', 'category', 'classify', 'compose', 'composition', 'part', 'belong', 'include'])) {
-    return 'hierarchy'
-  }
-  if (matchEdgeToken(tokens, ['supply', 'distribution', 'channel', 'pipeline', 'flow', 'route'])) {
-    return 'flow'
-  }
-  if (matchEdgeToken(tokens, ['impact', 'influ', 'cause', 'drive', 'effect', 'lift', 'drop'])) {
-    return 'influence'
-  }
-  if (matchEdgeToken(tokens, ['competition', 'collab', 'partner', 'depend', 'relation', 'associate', 'peer'])) {
-    return 'association'
-  }
-  if (matchEdgeToken(tokens, ['event', 'period', 'time', 'timeline', 'phase', 'season', 'date'])) {
-    return 'temporal'
-  }
-  return 'directed'
-}
-
-function edgeLegendTier(edge: GraphEdgeItem): EdgeLegendTier {
-  if (normalizeEdgeToken(edge.relation_class)) return 'class'
-  if (normalizeEdgeToken(edge.predicate)) return 'pred'
-  return 'type'
-}
-
-function edgeLegendRawValue(edge: GraphEdgeItem): string {
-  const tier = edgeLegendTier(edge)
-  if (tier === 'class') return normalizeEdgeToken(edge.relation_class).toLowerCase()
-  if (tier === 'pred') return normalizeEdgeToken(edge.predicate).toLowerCase()
-  return normalizeEdgeToken(edge.type).toUpperCase() || 'REL'
-}
-
-function edgeLegendKey(edge: GraphEdgeItem): string {
-  const tier = edgeLegendTier(edge)
-  return `${tier}:${edgeLegendRawValue(edge)}`
-}
-
-function relationLabel(token: string, labels?: Record<string, string>) {
-  const raw = String(token || '').trim()
-  if (!raw) return '-'
-  const variants = [raw, raw.toUpperCase(), raw.toLowerCase()]
-  for (const key of variants) {
-    if (labels?.[key]) return labels[key]
-  }
-  return raw
-}
-
-function edgeLegendLabel(edge: GraphEdgeItem, labels: Record<string, string> | undefined, relationClassLabel: (token: string) => string) {
-  const tier = edgeLegendTier(edge)
-  if (tier === 'class') {
-    const cls = edgeLegendRawValue(edge)
-    return relationClassLabel(cls)
-  }
-  return relationLabel(edgeLegendRawValue(edge), labels)
-}
-
 function formatGraphMessage(template: string, params: GraphMessageParams) {
   return Object.entries(params).reduce(
     (message, [key, value]) => message.split(`{${key}}`).join(String(value)),
@@ -588,15 +348,9 @@ function formatGraphMessage(template: string, params: GraphMessageParams) {
   )
 }
 
-const DEFAULT_NODE_TYPES_BY_KIND: Record<GraphKind, string[]> = {
-  policy: ['Policy', 'State', 'PolicyType', 'KeyPoint', 'Entity'],
-  social: ['Post', 'Keyword', 'Entity', 'Topic', 'SentimentTag', 'User', 'Subreddit'],
-  market: ['MarketData', 'State', 'Segment', 'Entity'],
-  market_deep_entities: ['MarketData', 'State', 'Segment', 'Entity', 'CompanyEntity', 'CompanyBrand', 'CompanyUnit', 'CompanyPartner', 'CompanyChannel', 'ProductEntity', 'ProductModel', 'ProductCategory', 'ProductBrand', 'ProductComponent', 'ProductScenario', 'OperationEntity', 'OperationPlatform', 'OperationStore', 'OperationChannel', 'OperationMetric', 'OperationStrategy', 'OperationRegion', 'OperationPeriod', 'TopicTag'],
-  company: ['MarketData', 'CompanyEntity', 'CompanyBrand', 'CompanyUnit', 'CompanyPartner', 'CompanyChannel', 'TopicTag'],
-  product: ['MarketData', 'ProductEntity', 'ProductModel', 'ProductCategory', 'ProductBrand', 'ProductComponent', 'ProductScenario', 'TopicTag'],
-  operation: ['MarketData', 'OperationEntity', 'OperationPlatform', 'OperationStore', 'OperationChannel', 'OperationMetric', 'OperationStrategy', 'OperationRegion', 'OperationPeriod', 'TopicTag'],
-}
+const DEFAULT_NODE_TYPES_BY_KIND = Object.fromEntries(
+  Object.values(GRAPH_PROJECTIONS_BY_KIND).map((definition) => [definition.graphKind, definition.nodeTypes]),
+) as Record<GraphKind, readonly string[]>
 
 type FilterState = {
   startDate: string
@@ -625,136 +379,12 @@ const RIGHT_TOGGLE_DEDUPE_MS = 220
 const GRAPH_LIMIT_MIN = 1
 const GRAPH_LIMIT_MAX = 2000
 const GRAPH_LIMIT_DEFAULT = 100
-const CONTROL_PANEL_MIN_WIDTH = 280
-const CONTROL_PANEL_MAX_WIDTH = 720
-const FLOATING_PANEL_MIN_HEIGHT = 120
-const FLOATING_PANEL_MAX_HEIGHT = 920
 
 function clampGraphLimit(value: number) {
   if (!Number.isFinite(value)) return GRAPH_LIMIT_DEFAULT
   return Math.max(GRAPH_LIMIT_MIN, Math.min(GRAPH_LIMIT_MAX, Math.trunc(value)))
 }
 
-function clampControlPanelWidth(value: number, viewportWidth: number) {
-  const viewportBound = Math.max(CONTROL_PANEL_MIN_WIDTH, viewportWidth - 28)
-  const maxAllowed = Math.min(CONTROL_PANEL_MAX_WIDTH, viewportBound)
-  return Math.max(CONTROL_PANEL_MIN_WIDTH, Math.min(maxAllowed, Math.round(value)))
-}
-
-function clampFloatingPanelWidth(value: number, viewportWidth: number) {
-  const maxAllowed = Math.max(40, viewportWidth - 28)
-  return Math.max(16, Math.min(maxAllowed, Math.round(value)))
-}
-
-function clampFloatingPanelHeight(value: number, viewportHeight: number) {
-  const maxAllowed = Math.max(FLOATING_PANEL_MIN_HEIGHT, viewportHeight - 24)
-  return Math.max(16, Math.min(Math.max(FLOATING_PANEL_MAX_HEIGHT, maxAllowed), Math.round(value)))
-}
-
-function computeNodeVisualSize(
-  centralScore: number,
-  centralMinValue: number,
-  centralRangeValue: number,
-  neighborScore: number,
-  neighborMinValue: number,
-  neighborRangeValue: number,
-  nodeScale: number,
-  centralContrast: number,
-  neighborContrast: number,
-) {
-  const centralNorm = Math.max(0, (centralScore - centralMinValue) / Math.max(1e-12, centralRangeValue))
-  const neighborNorm = Math.max(0, (neighborScore - neighborMinValue) / Math.max(1e-12, neighborRangeValue))
-  const scaleT = Math.max(0, nodeScale / 100)
-  const centralStrength = Math.max(0, centralContrast / 100)
-  const neighborStrength = Math.max(0, neighborContrast / 100)
-  // Pure enhancement formula:
-  // no base term, only (difference term * coefficient).
-  // strength=0 => contribution is exactly 0.
-  const centralContrastExponent = 1 + centralStrength * 0.9
-  const neighborContrastExponent = 1 + neighborStrength * 0.9
-  const minPx = NODE_SIZE_MIN_APPROX + scaleT * 4
-  const maxPx = NODE_SIZE_MIN_APPROX + scaleT * 30
-  const centralEnhanced = Math.pow(centralNorm, centralContrastExponent)
-  const neighborEnhanced = Math.pow(neighborNorm, neighborContrastExponent)
-  const blendedContribution = Math.max(0, (centralStrength * centralEnhanced + neighborStrength * neighborEnhanced) / 2)
-  const size = (minPx + (maxPx - minPx) * blendedContribution) * NODE_BASE_SIZE_MULTIPLIER
-  return Math.max(NODE_SIZE_MIN_APPROX, size)
-}
-
-function percentile(values: number[], p: number) {
-  if (!values.length) return 0
-  const sorted = [...values].sort((a, b) => a - b)
-  const t = Math.max(0, Math.min(1, p))
-  const idx = t * (sorted.length - 1)
-  const lo = Math.floor(idx)
-  const hi = Math.ceil(idx)
-  if (lo === hi) return sorted[lo]
-  const w = idx - lo
-  return sorted[lo] * (1 - w) + sorted[hi] * w
-}
-
-function normalizeMapValues(input: Map<string, number>) {
-  const values = Array.from(input.values())
-  const min = values.length ? Math.min(...values) : 0
-  const max = values.length ? Math.max(...values) : 1
-  const range = Math.max(max - min, 1e-12)
-  const out = new Map<string, number>()
-  input.forEach((value, key) => {
-    out.set(key, Math.max(0, Math.min(1, (value - min) / range)))
-  })
-  return out
-}
-
-type QuaternionLike = { x: number; y: number; z: number; w: number }
-
-function normalizeQuat(q: QuaternionLike): QuaternionLike {
-  const len = Math.sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w) || 1
-  return { x: q.x / len, y: q.y / len, z: q.z / len, w: q.w / len }
-}
-
-function quatMul(a: QuaternionLike, b: QuaternionLike): QuaternionLike {
-  return normalizeQuat({
-    w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
-    x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
-    y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
-    z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
-  })
-}
-
-function quatFromAxisAngle(ax: number, ay: number, az: number, angle: number): QuaternionLike {
-  const norm = Math.sqrt(ax * ax + ay * ay + az * az) || 1
-  const half = angle / 2
-  const s = Math.sin(half) / norm
-  return normalizeQuat({
-    x: ax * s,
-    y: ay * s,
-    z: az * s,
-    w: Math.cos(half),
-  })
-}
-
-function quatFromEulerDeg(xDeg: number, yDeg: number, zDeg: number): QuaternionLike {
-  const qx = quatFromAxisAngle(1, 0, 0, (xDeg * Math.PI) / 180)
-  const qy = quatFromAxisAngle(0, 1, 0, (yDeg * Math.PI) / 180)
-  const qz = quatFromAxisAngle(0, 0, 1, (zDeg * Math.PI) / 180)
-  return quatMul(qz, quatMul(qy, qx))
-}
-
-function rotateVecByQuat(v: { x: number; y: number; z: number }, q: QuaternionLike) {
-  const nq = normalizeQuat(q)
-  const qx = nq.x
-  const qy = nq.y
-  const qz = nq.z
-  const qw = nq.w
-  const tx = 2 * (qy * v.z - qz * v.y)
-  const ty = 2 * (qz * v.x - qx * v.z)
-  const tz = 2 * (qx * v.y - qy * v.x)
-  return {
-    x: v.x + qw * tx + (qy * tz - qz * ty),
-    y: v.y + qw * ty + (qz * tx - qx * tz),
-    z: v.z + qw * tz + (qx * ty - qy * tx),
-  }
-}
 
 function cardFields(node: GraphNodeItem, labelFor: (field: keyof typeof GRAPH_CARD_FIELD_LABEL_KEY) => string) {
   const list: Array<[string, string]> = [
@@ -898,142 +528,6 @@ function buildDefaultCuratedGraphId(projectKey: string, graphKind: GraphKind) {
   return raw.replace(/[^a-zA-Z0-9_.:-]+/g, '-').replace(/^-+|-+$/g, '') || 'graphpage-market'
 }
 
-function curatedNodeId(node: GraphNodeItem) {
-  return String(node.node_id || node.id || node.key || '').trim()
-}
-
-function curatedNodeType(node: GraphNodeItem) {
-  return String(node.node_type || node.type || '').trim() || 'Entity'
-}
-
-function curatedRefId(ref: GraphEdgeItem['from'] | GraphEdgeItem['to']) {
-  if (!ref) return ''
-  const row = ref as Record<string, unknown>
-  return String(row.node_id || row.id || row.key || '').trim()
-}
-
-function curatedEdgeType(edge: GraphEdgeItem) {
-  return String(edge.edge_type || edge.type || edge.predicate || '').trim() || 'RELATED_TO'
-}
-
-function readOptionalString(row: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    const value = String(row[key] || '').trim()
-    if (value) return value
-  }
-  return ''
-}
-
-function buildCuratedWorkflowGraphDsl(nodes: GraphNodeItem[], edges: GraphEdgeItem[]): WorkflowGraphCuratedDsl {
-  const nodeById = new Map<string, { node_id: string; node_type: string }>()
-  const normalizedNodes = nodes
-    .map<WorkflowGraphCuratedDsl['nodes'][number] | null>((node) => {
-      const row = node as Record<string, unknown>
-      const node_id = curatedNodeId(node)
-      if (!node_id) return null
-      const node_type = curatedNodeType(node)
-      const title = readOptionalString(row, ['title', 'name', 'label', 'text', 'canonical_name']) || node_id
-      const name = readOptionalString(row, ['name', 'title', 'label', 'text', 'canonical_name']) || title
-      const summary = readOptionalString(row, ['summary', 'description', 'text'])
-      const source_uri = readOptionalString(row, ['source_uri', 'uri', 'url'])
-      const provenance = row.provenance && typeof row.provenance === 'object'
-        ? row.provenance as Record<string, unknown>
-        : {}
-      nodeById.set(node_id, { node_id, node_type })
-      return {
-        id: node_id,
-        type: node_type,
-        node_id,
-        node_type,
-        title,
-        name,
-        ...(summary ? { summary } : {}),
-        ...(source_uri ? { source_uri } : {}),
-        provenance,
-      }
-    })
-    .filter((node): node is WorkflowGraphCuratedDsl['nodes'][number] => node !== null)
-
-  const edgeByKey = new Map<string, WorkflowGraphCuratedDsl['edges'][number]>()
-  edges.forEach((edge) => {
-    const from_node_id = String(edge.from_node_id || curatedRefId(edge.from)).trim()
-    const to_node_id = String(edge.to_node_id || curatedRefId(edge.to)).trim()
-    if (!from_node_id || !to_node_id || !nodeById.has(from_node_id) || !nodeById.has(to_node_id)) return
-    const edge_type = curatedEdgeType(edge)
-    const key = `${from_node_id}>${to_node_id}|${edge_type}`
-    if (edgeByKey.has(key)) return
-    const fromNode = nodeById.get(from_node_id)
-    const toNode = nodeById.get(to_node_id)
-    edgeByKey.set(key, {
-      from_node_id,
-      to_node_id,
-      edge_type,
-      type: edge_type,
-      predicate: String(edge.predicate || edge_type),
-      from: { id: from_node_id, type: fromNode?.node_type || String(edge.from?.type || '') || 'Entity' },
-      to: { id: to_node_id, type: toNode?.node_type || String(edge.to?.type || '') || 'Entity' },
-      ...(edge.evidence ? { evidence: String(edge.evidence) } : {}),
-      ...(edge.confidence != null ? { confidence: edge.confidence } : {}),
-    })
-  })
-
-  return {
-    nodes: normalizedNodes,
-    edges: Array.from(edgeByKey.values()),
-  }
-}
-
-function temporaryCuratedNodeIds(dsl: WorkflowGraphCuratedDsl) {
-  return dsl.nodes
-    .map((node) => String(node.node_id || node.id || '').trim())
-    .filter((id) => /^(draft|tmp|temp)-/i.test(id))
-}
-
-function snapshotDslFromCuratedState(state: WorkflowGraphCuratedStateResponse) {
-  const snapshot = state.server_snapshot?.dsl || state.draft?.dsl
-  if (!snapshot || !Array.isArray(snapshot.nodes) || !Array.isArray(snapshot.edges)) return null
-  return snapshot
-}
-
-function recordFrom(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' ? value as Record<string, unknown> : null
-}
-
-function curatedSubmitFailure(error: unknown, formatMessage: (key: MessageKey, params: GraphMessageParams) => string) {
-  const errorRecord = recordFrom(error)
-  const response = recordFrom(errorRecord?.response)
-  const responseData = recordFrom(response?.data)
-  const responseError = recordFrom(responseData?.error)
-  const details = isApiClientError(error) ? error.details : recordFrom(responseError?.details)
-  const code = isApiClientError(error) ? error.code : String(responseError?.code || '')
-  const message = isApiClientError(error)
-    ? error.message
-    : String(responseError?.message || errorRecord?.message || formatMessage('graphPage.error.submitFailed', {}))
-  const category = String(details?.category || '')
-  const expected = details?.expected_revision
-  const actual = details?.actual_revision
-  const isConflict =
-    category === 'version_conflict' ||
-    /conflict|revision mismatch|version_conflict/i.test(`${code} ${message}`)
-  if (!isConflict) {
-    return {
-      status: `submit_failed: ${message}`,
-      graphStatus: formatMessage('graphPage.error.curatedSubmitFailed', { message }),
-      alertMessage: formatMessage('graphPage.error.curatedSubmitFailed', { message }),
-    }
-  }
-  const revisionHint =
-    expected !== undefined || actual !== undefined
-      ? ` expected=${String(expected ?? 'unknown')} actual=${String(actual ?? 'unknown')}`
-      : ''
-  const status = `submit_conflict: version_conflict${revisionHint}`
-  return {
-    status,
-    graphStatus: formatMessage('graphPage.error.curatedSubmitConflict', { message }),
-    alertMessage: formatMessage('graphPage.error.curatedSubmitConflict', { message }),
-  }
-}
-
 function mergeGraphPayloads(payloads: Array<{ nodes?: GraphNodeItem[]; edges?: GraphEdgeItem[] }>) {
   const nodeMap = new Map<string, GraphNodeItem>()
   const edgeMap = new Map<string, GraphEdgeItem>()
@@ -1151,344 +645,61 @@ function rankDocumentNodeKeysById(params: {
     .map((item) => item.key)
 }
 
-type GraphTemplateRecord = {
-  key: string
-  name: string
-  activeVersion?: string | null
-}
-
-type GraphTemplateVersionRecord = {
-  key: string
-  name: string
-  activated?: boolean
-}
-
-type TemplateStageAuditSummary = {
-  currentVersion?: number | null
-  nextVersion?: number | null
-  stage?: string | null
-  activeVersion?: number | null
-  draftVersion?: number | null
-  stagingVersion?: number | null
-  requiresPublish?: boolean
-}
-
-const WORKFLOW_TEMPLATE_STAGE_ORDER: WorkflowTemplateStageName[] = ['draft', 'staging', 'active']
-
-type ApiMethod = (...args: unknown[]) => Promise<unknown> | unknown
-
-function readCandidateApiMethod(...names: string[]) {
-  const bag = graphApi as unknown as Record<string, unknown>
-  for (const name of names) {
-    const fn = bag[name]
-    if (typeof fn === 'function') {
-      return { name, fn: fn as ApiMethod }
-    }
-  }
-  return null
-}
-
-function asTemplateRecord(raw: unknown): GraphTemplateRecord | null {
-  if (!raw || typeof raw !== 'object') return null
-  const row = raw as Record<string, unknown>
-  const key = String(row.template_id || row.template_key || row.key || row.name || row.template || '').trim()
-  if (!key) return null
-  return {
-    key,
-    name: String(row.name || row.template_name || row.label || key),
-    activeVersion: String(row.active_version_id || row.active_version || row.activated_version || row.current_version || '').trim() || null,
-  }
-}
-
-function asVersionRecord(raw: unknown): GraphTemplateVersionRecord | null {
-  if (!raw || typeof raw !== 'object') return null
-  const row = raw as Record<string, unknown>
-  const key = String(row.version_id || row.version_key || row.key || row.version || row.name || '').trim()
-  if (!key) return null
-  return {
-    key,
-    name: String(row.version_name || row.name || row.label || key),
-    activated: Boolean(row.activated ?? row.active ?? row.is_active),
-  }
-}
-
-function asNumberOrNull(value: unknown): number | null {
-  const n = Number(value)
-  return Number.isFinite(n) ? n : null
-}
-
-function normalizeWorkflowTemplateStageRecords(items: unknown[]): WorkflowTemplateStageRecord[] {
-  return items
-    .map((item) => (isPlainRecord(item) ? item as WorkflowTemplateStageRecord : null))
-    .filter((item): item is WorkflowTemplateStageRecord => Boolean(item && String(item.stage || '').trim()))
-    .sort((a, b) => {
-      const aIndex = WORKFLOW_TEMPLATE_STAGE_ORDER.indexOf(String(a.stage) as WorkflowTemplateStageName)
-      const bIndex = WORKFLOW_TEMPLATE_STAGE_ORDER.indexOf(String(b.stage) as WorkflowTemplateStageName)
-      return (aIndex === -1 ? 99 : aIndex) - (bIndex === -1 ? 99 : bIndex)
-    })
-}
-
-function buildTemplateStageAuditSummary(
-  payload: WorkflowTemplateVersionListResponse | WorkflowTemplateStageMutationResponse,
-): TemplateStageAuditSummary {
-  const record = payload as Record<string, unknown>
-  const versionSummary = isPlainRecord(record.version_summary) ? record.version_summary : {}
-  const stageSummary = isPlainRecord(record.stage_summary) ? record.stage_summary : {}
-  const currentVersion = asNumberOrNull(record.current_version)
-  const nextVersion = asNumberOrNull(record.next_version) ?? (currentVersion !== null ? currentVersion + 1 : null)
-  const draftVersion = asNumberOrNull(versionSummary.draft_version ?? stageSummary.draft_version)
-  const stagingVersion = asNumberOrNull(versionSummary.staging_version ?? stageSummary.staging_version)
-  const activeVersion = asNumberOrNull(versionSummary.active_version ?? stageSummary.active_version)
-  const stage = String(versionSummary.stage || record.stage || record.to_stage || (stagingVersion ? 'staging' : draftVersion ? 'draft' : 'active'))
-  const explicitRequiresPublish = versionSummary.requires_publish
-  const requiresPublish = typeof explicitRequiresPublish === 'boolean'
-    ? explicitRequiresPublish
-    : Boolean(draftVersion || stagingVersion)
-  return {
-    currentVersion,
-    nextVersion,
-    stage,
-    activeVersion,
-    draftVersion,
-    stagingVersion,
-    requiresPublish,
-  }
-}
-
-function buildTemplateRollbackTraceId(workflowName: string, targetStage: string, targetVersion: number | null) {
-  const versionPart = targetVersion === null ? 'latest' : String(targetVersion)
-  return `graph-ui-rollback-${workflowName}-${targetStage}-${versionPart}`
-}
-
-function parseTemplateRollbackVersion(value: string) {
-  const text = value.trim()
-  if (!text) return null
-  const n = Number(text)
-  return Number.isInteger(n) && n > 0 ? n : null
-}
-
-function describeTemplateRollbackPlan(response: WorkflowTemplateRollbackResponse | null) {
-  const plan = response?.rollback_plan || {}
-  const canExecute = Boolean(plan.can_execute ?? plan.executable)
-  const willMutate = Boolean(plan.will_mutate)
-  const targetRecord = isPlainRecord(plan.target_stage_record) ? plan.target_stage_record : {}
-  const targetStepCount = Array.isArray(targetRecord.steps) ? targetRecord.steps.length : 0
-  return {
-    mode: String(plan.mode || (response?.rollback_preview ? 'preview_only' : '-')),
-    canExecute,
-    willMutate,
-    targetVersion: plan.target_version ?? response?.version_summary?.target_version ?? '-',
-    fromStage: plan.from_stage || '-',
-    toStage: plan.to_stage || response?.version_summary?.stage || '-',
-    targetStepCount,
-    blockedReason: String(plan.blocked_reason || plan.reason || '-'),
-    applyEndpoint: String(plan.apply_endpoint || '-'),
-    requiresExplicitApply: Boolean(plan.requires_explicit_apply),
-  }
-}
-
-function describeTemplateRollbackAudit(response: WorkflowTemplateRollbackResponse | null) {
-  const audit = response?.audit || {}
-  return {
-    action: audit.action || '-',
-    actor: audit.actor || audit.requested_by || '-',
-    appliedBy: audit.applied_by || '-',
-    traceId: audit.trace_id || '-',
-    createdAt: audit.created_at || '-',
-    fromStage: audit.from_stage || '-',
-    toStage: audit.to_stage || '-',
-  }
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
-}
-
-function formatWorkflowRunScalar(value: unknown) {
-  if (value === undefined || value === null || value === '') return '-'
-  if (typeof value === 'boolean') return String(value)
-  if (typeof value === 'number' || typeof value === 'string') return String(value)
-  try {
-    return JSON.stringify(value)
-  } catch {
-    return String(value)
-  }
-}
-
-function getWorkflowRunField(result: WorkflowRunResult | null, key: string) {
-  if (!result) return undefined
-  const row = result as Record<string, unknown>
-  return row[key]
-}
-
-function summarizeWorkflowDryRunResult(result: WorkflowRunResult | null) {
-  const versionSummary = isPlainRecord(getWorkflowRunField(result, 'version_summary'))
-    ? getWorkflowRunField(result, 'version_summary') as Record<string, unknown>
-    : {}
-  const readiness = getWorkflowRunField(result, 'readiness')
-    ?? getWorkflowRunField(result, 'ready')
-    ?? versionSummary.readiness
-    ?? versionSummary.ready
-  return {
-    configVersion: getWorkflowRunField(result, 'config_version')
-      ?? getWorkflowRunField(result, 'configVersion')
-      ?? versionSummary.config_version
-      ?? versionSummary.active_version
-      ?? versionSummary.current_version,
-    readiness,
-    willExecute: getWorkflowRunField(result, 'will_execute') ?? getWorkflowRunField(result, 'willExecute'),
-    writesBlocked: getWorkflowRunField(result, 'writes_blocked') ?? getWorkflowRunField(result, 'writesBlocked'),
-    requiresPublish: getWorkflowRunField(result, 'requires_publish') ?? getWorkflowRunField(result, 'requiresPublish') ?? versionSummary.requires_publish,
-  }
-}
-
-function normalizeWorkflowDryRunSteps(result: WorkflowRunResult | null) {
-  const raw = result?.steps
-  const rows = Array.isArray(raw)
-    ? raw
-    : (isPlainRecord(raw) ? Object.entries(raw).map(([key, value]) => ({ key, ...(isPlainRecord(value) ? value : { status: value }) })) : [])
-  return rows
-    .map((step, index) => {
-      const row: Record<string, unknown> = isPlainRecord(step) ? step : {}
-      const name = row.name ?? row.step ?? row.step_name ?? row.key ?? row.id ?? index + 1
-      return {
-        index: index + 1,
-        name: String(name),
-        status: row.status ?? row.readiness ?? row.state ?? '-',
-        willExecute: row.will_execute ?? row.willExecute ?? '-',
-        writesBlocked: row.writes_blocked ?? row.writesBlocked ?? '-',
-      }
-    })
-}
-
-function inferWorkflowHandlerFromNode(node: GraphNodeItem) {
-  const row = node as Record<string, unknown>
-  return String(
-    row.handler ||
-    row.module_key ||
-    row.moduleKey ||
-    row.task_key ||
-    row.type ||
-    row.id ||
-    'custom',
-  ).trim() || 'custom'
-}
-
-function buildWorkflowTemplatePayloadFromDraft({
-  projectKey,
-  nodes,
-  edges,
-  graphKind,
-}: {
-  projectKey: string
-  nodes: GraphNodeItem[]
-  edges: GraphEdgeItem[]
-  graphKind: GraphKind
-}): WorkflowTemplatePayload {
-  const workflowNodes = nodes.map((node) => {
-    const row = node as Record<string, unknown>
-    const params = isPlainRecord(row.params) ? row.params : {}
-    return {
-      id: nodeKey(node),
-      name: nodeName(node),
-      title: nodeName(node),
-      type: String(node.type || 'Entity'),
-      module_key: String(row.module_key || row.moduleKey || inferWorkflowHandlerFromNode(node)),
-      handler: inferWorkflowHandlerFromNode(node),
-      params,
-      data_type: String(row.data_type || row.dataType || graphKind),
-    }
-  })
-
-  const workflowEdges = edges.map((edge, index) => {
-    const sourceType = String(edge.from?.type || '').trim()
-    const sourceId = String(curatedRefId(edge.from) || '').trim()
-    const targetType = String(edge.to?.type || '').trim()
-    const targetId = String(curatedRefId(edge.to) || '').trim()
-    return {
-      id: String(edge.id || `e${index + 1}`),
-      source: sourceType || sourceId ? `${normalizeNodeType(sourceType)}:${sourceId}` : '',
-      target: targetType || targetId ? `${normalizeNodeType(targetType)}:${targetId}` : '',
-      mapping: isPlainRecord(edge.mapping) ? edge.mapping : { relation: String(edge.predicate || edge.type || 'RELATED_TO') },
-    }
-  }).filter((edge) => edge.source && edge.target)
-
-  return {
-    project_key: projectKey,
-    steps: workflowNodes.map((node) => ({
-      handler: node.handler,
-      params: node.params,
-      enabled: true,
-      name: node.name,
-    })),
-    board_layout: {
-      layout: graphKind,
-      graph: {
-        nodes: workflowNodes,
-        edges: workflowEdges,
-      },
-      auto_interface: true,
-      design: {
-        global_data_type: graphKind,
-        visualization_module: graphKind,
-        llm_policy: 'auto',
-      },
-      data_flow: ['documents', 'extracted_data', 'visualization'],
-    },
-  }
-}
-
-function formatDiffValue(value: unknown) {
-  if (value == null) return '-'
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value)
-  try {
-    return JSON.stringify(value)
-  } catch {
-    return String(value)
-  }
-}
-
-function formatWorkflowDiffStepSide(
-  step: WorkflowTemplateDiffStep['before'] | WorkflowTemplateDiffStep['after'],
-  formatMessage: (key: MessageKey, params: GraphMessageParams) => string,
-) {
-  if (!step) return '-'
-  const handler = formatDiffValue(step.handler)
-  const parts = [
-    handler,
-    step.name ? String(step.name) : '',
-    typeof step.enabled === 'boolean'
-      ? formatMessage('graphPage.status.configDiffStepEnabled', { value: String(step.enabled) })
-      : '',
-    step.params && Object.keys(step.params).length
-      ? formatMessage('graphPage.status.configDiffStepParams', { value: formatDiffValue(step.params) })
-      : '',
-  ].filter(Boolean)
-  return parts.join(' ')
-}
-
-function formatContractList(value: unknown) {
-  return Array.isArray(value) && value.length ? value.map((item) => String(item)).join(', ') : '-'
-}
-
-const SPECIAL_PREFIX_BY_KIND: Partial<Record<GraphKind, string>> = {
-  company: 'Company',
-  product: 'Product',
-  operation: 'Operation',
-}
+const SPECIAL_PREFIX_BY_KIND: Partial<Record<GraphKind, string>> = Object.fromEntries(
+  Object.values(GRAPH_PROJECTIONS_BY_KIND)
+    .filter((definition) => Boolean(definition.specialNodePrefix))
+    .map((definition) => [definition.graphKind, definition.specialNodePrefix]),
+)
 
 export default function GraphPage({ projectKey, variant, templateBuilder = false }: Props) {
   const locale = useAppLocale()
   const t = useCallback((key: MessageKey) => translate(locale, key), [locale])
   const tf = useCallback((key: MessageKey, params: GraphMessageParams) => formatGraphMessage(t(key), params), [t])
-  const graphKind = TYPE_TO_KIND[variant]
-  const graphVariantLabel = t(GRAPH_VARIANT_LABEL_KEY[variant])
+  const activeProjectionId = variant
+  const graphProjection = getGraphProjection(activeProjectionId)
+  const graphConfig = useQuery({
+    queryKey: queryKeys.graph.config(projectKey),
+    queryFn: getGraphConfig,
+    enabled: Boolean(projectKey),
+  })
+  // Projects may bind the projection tabs: which entry points are visible, in
+  // what order, their labels, and how each narrows the unified topology.
+  const declaredProjections = useMemo(
+    () => coerceGraphProjectionBindings(graphConfig.data?.graph_projections),
+    [graphConfig.data?.graph_projections],
+  )
+  const workspaceTabs = useMemo(
+    () => applyWorkspaceTabBindings(GRAPH_WORKSPACE_TABS, declaredProjections),
+    [declaredProjections],
+  )
+  const activeWorkspaceTab = useMemo(
+    () => workspaceTabs.find((tab) => (
+      templateBuilder ? tab.isBuilder : tab.projectionId === activeProjectionId
+    )) || workspaceTabs[0],
+    [workspaceTabs, activeProjectionId, templateBuilder],
+  )
+  // Bindings are addressed by graph entry point (module key), which is the same
+  // identity the tab strip navigates by.
+  const activeBinding = useMemo(
+    () => declaredProjections.find((binding) => binding.id === activeWorkspaceTab.moduleKey),
+    [declaredProjections, activeWorkspaceTab.moduleKey],
+  )
+  const activeTopologyFilter = activeBinding?.topologyFilter
+  const selectWorkspaceTab = useCallback((moduleKey: GraphWorkspaceTab['moduleKey']) => {
+    const target = workspaceTabs.find((tab) => tab.moduleKey === moduleKey)
+    if (!target || target.moduleKey === activeWorkspaceTab.moduleKey) return
+    window.location.assign(`#${target.routePath}`)
+  }, [workspaceTabs, activeWorkspaceTab.moduleKey])
+  const graphKind = graphProjection.graphKind
+  const sourceProjection = GRAPH_PROJECTIONS_BY_KIND[graphProjection.dataSourceKind]
+  const graphVariantLabel = activeBinding?.label || t(graphProjection.labelKey)
   const graphGroupLabel = useCallback((group: string) => {
-    const key = GRAPH_GROUP_LABEL_KEY[group]
+    const key = GRAPH_LEGEND_GROUP_LABEL_KEY[group as GraphLegendGroupId]
     return key ? t(key) : group
   }, [t])
   const edgeTierLabel = useCallback((tier: EdgeLegendTier) => t(GRAPH_EDGE_TIER_LABEL_KEY[tier]), [t])
   const edgeStrokeLabel = useCallback((strokeKind: EdgeStrokeKind) => t(GRAPH_EDGE_STROKE_LABEL_KEY[strokeKind]), [t])
+  const edgeLineTypeLabel = useCallback((lineType: EdgeLineType) => t(GRAPH_EDGE_LINE_TYPE_LABEL_KEY[lineType]), [t])
   const relationClassLabel = useCallback((token: string) => {
     const key = GRAPH_RELATION_CLASS_LABEL_KEY[token]
     return key ? t(key) : token
@@ -1590,29 +801,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const [newNodeType, setNewNodeType] = useState('Entity')
   const [newNodeName, setNewNodeName] = useState('')
   const [edgeDraft, setEdgeDraft] = useState({ sourceKey: '', targetKey: '', relation: '' })
-  const [templateItems, setTemplateItems] = useState<GraphTemplateRecord[]>([])
-  const [versionItems, setVersionItems] = useState<GraphTemplateVersionRecord[]>([])
-  const [templateStageItems, setTemplateStageItems] = useState<WorkflowTemplateStageRecord[]>([])
-  const [templateStageAuditSummary, setTemplateStageAuditSummary] = useState<TemplateStageAuditSummary | null>(null)
-  const [templateRollbackDraft, setTemplateRollbackDraft] = useState({
-    targetStage: 'staging' as WorkflowTemplateStageName,
-    targetVersion: '',
-    reason: '',
-  })
-  const [templateRollbackPreview, setTemplateRollbackPreview] = useState<WorkflowTemplateRollbackResponse | null>(null)
-  const [templateRollbackError, setTemplateRollbackError] = useState('')
-  const [templateNameDraft, setTemplateNameDraft] = useState('')
-  const [renameTemplateDraft, setRenameTemplateDraft] = useState('')
-  const [versionNameDraft, setVersionNameDraft] = useState('')
-  const [activeTemplateKey, setActiveTemplateKey] = useState('')
-  const [activeVersionKey, setActiveVersionKey] = useState('')
-  const [templateBusy, setTemplateBusy] = useState(false)
-  const [templateStageBusy, setTemplateStageBusy] = useState(false)
-  const [templateRollbackBusy, setTemplateRollbackBusy] = useState(false)
-  const [templateDiffBusy, setTemplateDiffBusy] = useState(false)
-  const [templateDiffPreview, setTemplateDiffPreview] = useState<WorkflowTemplateDiffResponse | null>(null)
-  const [templateDryRunBusy, setTemplateDryRunBusy] = useState(false)
-  const [templateDryRunResult, setTemplateDryRunResult] = useState<WorkflowRunResult | null>(null)
   const [nodeEditDraft, setNodeEditDraft] = useState({
     key: '',
     id: '',
@@ -1684,6 +872,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const forceGraphRef = useRef<ForceGraphApi | null>(null)
   const forceNodeObjectCacheRef = useRef<Map<string, THREE.Object3D>>(new Map())
   const forceNodePhysicsRef = useRef<Map<string, ForceNodePhysics>>(new Map())
+  const [forceNodeSeedPhysics, setForceNodeSeedPhysics] = useState<Map<string, ForceNodePhysics>>(() => new Map())
   const forceGlobalGravityStrengthRef = useRef(0)
   const forceGlobalGravityForceRef = useRef<(((alpha: number) => void) & { initialize?: (nodes: Array<Record<string, unknown>>) => void }) | null>(null)
   const force3DVisibilityStatsGetterRef = useRef<() => Graph3DVisibilityStats>(() => ({
@@ -1722,31 +911,34 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       if (nodeDragHoldTimerRef.current != null) window.clearTimeout(nodeDragHoldTimerRef.current)
       if (forceHoverRafRef.current != null) window.cancelAnimationFrame(forceHoverRafRef.current)
     }
-  }, [])
-
-  const graphConfig = useQuery({
-    queryKey: queryKeys.graph.config(projectKey),
-    queryFn: getGraphConfig,
-    enabled: Boolean(projectKey),
-  })
+  }, [setCuratedRevision, setCuratedStatus])
 
   const effectiveLimit = clampGraphLimit(appliedFilters.limit)
 
   const effectiveQueryLimit = templateBuilder ? GRAPH_LIMIT_MAX : effectiveLimit
-  const graphDataQueryKind = templateBuilder ? `${graphKind}:template_builder` : graphKind
-  const graphData = useQuery({
-    queryKey: queryKeys.graph.data(
-      projectKey,
-      graphDataQueryKind,
-      appliedFilters.startDate,
-      appliedFilters.endDate,
-      appliedFilters.state,
-      appliedFilters.policyType,
-      appliedFilters.platform,
-      appliedFilters.topic,
-      appliedFilters.game,
-      effectiveLimit,
-    ),
+  const graphDataQueryKind = templateBuilder ? `${graphKind}:template_builder` : graphProjection.dataSourceKind
+  // The data cache follows the actual read scope, not the presenting tab. Tabs
+  // without a filter share the total graph; equivalent topology filters share
+  // one narrowed read. Token order is not part of contains-any semantics.
+  const graphDataViewKey = activeTopologyFilter
+    ? ['topology-filter', activeTopologyFilter.attribute, [...activeTopologyFilter.containsAny].sort()]
+    : ['total-graph']
+  const graphData = useQuery<GraphResponse>({
+    queryKey: [
+      ...queryKeys.graph.data(
+        projectKey,
+        graphDataQueryKind,
+        appliedFilters.startDate,
+        appliedFilters.endDate,
+        appliedFilters.state,
+        appliedFilters.policyType,
+        appliedFilters.platform,
+        appliedFilters.topic,
+        appliedFilters.game,
+        effectiveLimit,
+      ),
+      graphDataViewKey,
+    ],
     queryFn: async () => {
       if (templateBuilder) {
         const [policy, social, marketDeep] = await Promise.all([
@@ -1775,40 +967,38 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         ])
         return mergeGraphPayloads([policy, social, marketDeep])
       }
-      if (graphKind === 'policy') {
-        return getPolicyGraph({
-          start_date: appliedFilters.startDate,
-          end_date: appliedFilters.endDate,
-          state: appliedFilters.state,
-          policy_type: appliedFilters.policyType,
-          limit: effectiveQueryLimit,
-        })
-      }
-      if (graphKind === 'social') {
-        return getSocialGraph({
-          start_date: appliedFilters.startDate,
-          end_date: appliedFilters.endDate,
-          platform: appliedFilters.platform,
-          topic: appliedFilters.topic,
-          limit: effectiveQueryLimit,
-        })
-      }
-      return getMarketGraph({
-        start_date: appliedFilters.startDate,
-        end_date: appliedFilters.endDate,
+      return readGraphProjection(sourceProjection, {
+        startDate: appliedFilters.startDate,
+        endDate: appliedFilters.endDate,
         state: appliedFilters.state,
+        policyType: appliedFilters.policyType,
+        platform: appliedFilters.platform,
+        topic: appliedFilters.topic,
         game: appliedFilters.game,
-        view: graphKind === 'market_deep_entities' || graphKind === 'company' || graphKind === 'product' || graphKind === 'operation'
-          ? 'market_deep_entities'
-          : undefined,
-        topic_scope: graphKind === 'company' || graphKind === 'product' || graphKind === 'operation'
-          ? graphKind
-          : undefined,
         limit: effectiveQueryLimit,
-      })
+      }, activeTopologyFilter)
     },
     enabled: Boolean(projectKey),
   })
+  const realizedGraphLabel = graphData.data?.source_label || graphVariantLabel
+  const topologyEdgeStyleBinding = useMemo(
+    () => coerceGraphEdgeStyleBinding(graphData.data?.edge_style_bindings),
+    [graphData.data?.edge_style_bindings],
+  )
+  const configuredEdgeStyleBinding = useMemo(
+    () => coerceGraphEdgeStyleBinding(graphConfig.data?.graph_edge_style_bindings),
+    [graphConfig.data?.graph_edge_style_bindings],
+  )
+  // Projects declare their relation vocabulary in authored order; that order
+  // seeds distinct default styles per relation, and explicit bindings win.
+  const derivedEdgeStyleBinding = useMemo(
+    () => defaultRelationTokenBinding(graphData.data?.relation_vocabulary),
+    [graphData.data?.relation_vocabulary],
+  )
+  const edgeStyleBinding = useMemo(
+    () => mergeEdgeStyleBindings(derivedEdgeStyleBinding, topologyEdgeStyleBinding, configuredEdgeStyleBinding),
+    [derivedEdgeStyleBinding, topologyEdgeStyleBinding, configuredEdgeStyleBinding],
+  )
 
   const sourceItemsQuery = useQuery({
     queryKey: queryKeys.sourceLibrary.itemsForGraph(projectKey),
@@ -1836,6 +1026,66 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     sourceEdges: sourceGraphEdges,
     getNodeKey: nodeKey,
   })
+  const {
+    templateItems,
+    versionItems,
+    templateStageItems,
+    templateStageAuditSummary,
+    templateRollbackDraft,
+    setTemplateRollbackDraft,
+    templateRollbackPreview,
+    templateRollbackError,
+    templateNameDraft,
+    setTemplateNameDraft,
+    renameTemplateDraft,
+    setRenameTemplateDraft,
+    versionNameDraft,
+    setVersionNameDraft,
+    activeTemplateKey,
+    activeVersionKey,
+    setActiveVersionKey,
+    templateBusy,
+    templateStageBusy,
+    templateRollbackBusy,
+    templateDiffBusy,
+    templateDiffPreview,
+    templateDryRunBusy,
+    templateDryRunResult,
+    templateDryRunSummary,
+    templateDryRunSteps,
+    templateRollbackPlan,
+    templateRollbackAudit,
+    templateRollbackHistoryCount,
+    hasDraftTemplateStage,
+    hasStagingTemplateStage,
+    loadTemplateList,
+    selectTemplate,
+    handleLoadTemplateVersions,
+    handlePreviewWorkflowTemplateDiff,
+    handleWorkflowTemplateDryRun,
+    handleRefreshWorkflowTemplateStages,
+    handleSaveWorkflowTemplateDraftStage,
+    handlePromoteWorkflowTemplateStage,
+    handlePreviewWorkflowTemplateRollback,
+    handleApplyWorkflowTemplateRollback,
+    handleCreateTemplate,
+    handleRenameTemplate,
+    handleDeleteTemplate,
+    handleSaveVersion,
+    handleLoadVersion,
+    handleActivateVersion,
+  } = useWorkflowTemplateController({
+    enabled: editMode,
+    projectKey,
+    graphKind,
+    draftNodes,
+    draftEdges,
+    markDraftSaved,
+    replaceDraft,
+    setGraphEditStatus,
+    translate: t,
+    formatMessage: tf,
+  })
   const effectiveGraphData = useMemo(
     () => ({
       nodes: editMode ? draftNodes : sourceGraphNodes,
@@ -1858,16 +1108,19 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   }, [colorRotate, absoluteContrast])
 
   const nodeTypes = useMemo(() => {
+    const nodes = effectiveGraphData.nodes || []
+    if (nodes.some((node) => 'topology_ref' in node)) {
+      return Array.from(new Set(nodes.map((node) => normalizeNodeType(node.type)).filter(Boolean)))
+        .sort((a, b) => a.localeCompare(b, 'zh-CN'))
+    }
     const set = new Set<string>(DEFAULT_NODE_TYPES_BY_KIND[graphKind])
     const cfg = graphConfig.data?.graph_node_types || {}
-    const cfgKey = graphKind === 'market_deep_entities' || graphKind === 'company' || graphKind === 'product' || graphKind === 'operation'
-      ? 'market'
-      : graphKind
+    const cfgKey = graphProjection.configKey
     const fromCfg = Array.isArray(cfg[cfgKey]) ? cfg[cfgKey] : []
     fromCfg.forEach((t) => set.add(normalizeNodeType(t)))
-    ;(effectiveGraphData.nodes || []).forEach((n) => set.add(normalizeNodeType(n.type)))
+    nodes.forEach((n) => set.add(normalizeNodeType(n.type)))
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'))
-  }, [effectiveGraphData.nodes, graphConfig.data?.graph_node_types, graphKind])
+  }, [effectiveGraphData.nodes, graphConfig.data?.graph_node_types, graphKind, graphProjection])
 
   const nodeTypeColor = useMemo(() => {
     return assignLegendColors(nodeTypes, paletteKey, 'node', colorDistribution)
@@ -1883,24 +1136,26 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const legendGroups = useMemo(() => {
     const grouped: Record<string, string[]> = {}
     nodeTypes.forEach((type) => {
-      const g = groupOfType(type)
+      const g = classifyGraphLegendType(type)
       if (!grouped[g]) grouped[g] = []
       grouped[g].push(type)
     })
-    return Object.entries(grouped).sort(([a], [b]) => graphGroupLabel(a).localeCompare(graphGroupLabel(b), locale))
-  }, [nodeTypes, graphGroupLabel, locale])
+    return (Object.entries(grouped) as Array<[GraphLegendGroupId, string[]]>)
+      .sort(([a], [b]) => compareGraphLegendGroups(a, b))
+  }, [nodeTypes])
 
   const defaultNodeTypesForCompute = useMemo(() => {
     const cfg = graphConfig.data?.graph_node_types || {}
-    const cfgKey = graphKind === 'market_deep_entities' || graphKind === 'company' || graphKind === 'product' || graphKind === 'operation'
-      ? 'market'
-      : graphKind
+    const cfgKey = graphProjection.configKey
     const configuredTypes = Array.isArray(cfg[cfgKey])
       ? cfg[cfgKey].map((item) => normalizeNodeType(item)).filter(Boolean)
       : []
     const allTypes = Array.from(new Set([
       ...DEFAULT_NODE_TYPES_BY_KIND[graphKind],
       ...configuredTypes,
+      ...(effectiveGraphData.nodes.some((node) => 'topology_ref' in node)
+        ? effectiveGraphData.nodes.map((node) => normalizeNodeType(node.type)).filter(Boolean)
+        : []),
       ...(templateBuilder
         ? (effectiveGraphData.nodes || []).map((n) => normalizeNodeType(n.type)).filter(Boolean)
         : []),
@@ -1909,7 +1164,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       ...DEFAULT_NODE_TYPES_BY_KIND,
       [graphKind]: allTypes,
     }
-  }, [templateBuilder, effectiveGraphData.nodes, graphConfig.data?.graph_node_types, graphKind])
+  }, [templateBuilder, effectiveGraphData.nodes, graphConfig.data?.graph_node_types, graphKind, graphProjection])
 
   const docNodeTypeSetForBuilder = useMemo(() => {
     if (!templateBuilder) return new Set<string>()
@@ -1931,7 +1186,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       edges,
       graphKind,
       hiddenTypes,
-      defaultNodeTypesByKind: defaultNodeTypesForCompute,
+      defaultNodeTypesByKind: Object.fromEntries(Object.entries(defaultNodeTypesForCompute).map(([key, values]) => [key, [...values]])),
       specialPrefixByKind: SPECIAL_PREFIX_BY_KIND,
       normalizeNodeType,
     })
@@ -2158,21 +1413,21 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     const colorByKey = assignLegendColors(sortedKeys, paletteKey, 'edge', colorDistribution)
     const items = Array.from(counters.entries()).map(([key, info]) => {
       const tier = edgeLegendTier(info.sample)
-      const shapeKind = edgeShapeKind(info.sample)
-      const strokeKind = EDGE_PROFILE_BY_SHAPE[shapeKind].strokeKind
+      const profile = graphEdgeProfile(info.sample, edgeStyleBinding)
       return {
         key,
         tier,
-        shapeKind,
-        strokeKind,
-        lineType: EDGE_LINE_TYPE_BY_STROKE[strokeKind],
-        label: `${edgeLegendLabel(info.sample, labels, relationClassLabel)} · ${edgeStrokeLabel(strokeKind)}`,
+        shapeKind: 'directed',
+        styleId: profile.styleId,
+        strokeKind: profile.strokeKind,
+        lineType: profile.lineType,
+        label: `${edgeLegendLabel(info.sample, labels, relationClassLabel)} · ${edgeStrokeLabel(profile.strokeKind)} · ${edgeLineTypeLabel(profile.lineType)}`,
         count: info.count,
         color: colorByKey[key] || '#7dd3fc',
       } satisfies EdgeLegendItem
     })
     return items.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'zh-CN'))
-  }, [topology.connectedEdges, graphConfig.data?.graph_relation_labels, paletteKey, colorDistribution, relationClassLabel, edgeStrokeLabel])
+  }, [topology.connectedEdges, graphConfig.data?.graph_relation_labels, paletteKey, colorDistribution, relationClassLabel, edgeStrokeLabel, edgeLineTypeLabel, edgeStyleBinding])
 
   const edgeLegendItemByKey = useMemo(() => {
     return new Map(edgeLegendItems.map((item) => [item.key, item]))
@@ -2180,6 +1435,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
 
   const edgeLegendGroups = useMemo(() => {
     const grouped: Record<EdgeLegendTier, EdgeLegendItem[]> = {
+      domain: [],
       class: [],
       pred: [],
       type: [],
@@ -2201,17 +1457,20 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const useForceGraph3D = renderMode === 'projection3d' && projectionEngine === 'force3d'
   const useLegacyProjection3D = renderMode === 'projection3d' && projectionEngine === 'legacy'
   const { component: ForceGraph3DComp, error: forceGraphLoadError, retry: retryForceGraph3D } = useForceGraph3DLoader(useForceGraph3D)
-  const forceViewport = useForceGraphViewport(renderMode === 'projection3d', fullscreenWrapRef)
+  const displayResourceKey = `${projectKey}:${activeProjectionId}:${graphDataQueryKind}`
+  const displayResource = useGraphDisplayResourceScheduler(displayResourceKey, useForceGraph3D, fullscreenWrapRef, forceGraphRef)
+  const forceViewport = useForceGraphViewport(useForceGraph3D && displayResource.ready, fullscreenWrapRef)
   const synced3DRepulsionPercent = Math.max(0, Math.min(400, visualApplied.repulsion / 1.8))
   const synced3DGravity = Math.max(0, Math.min(0.6, 0.1 * (visualApplied.gravityPercent / 100)))
-  const chartReady = chartReadyRaw && !useForceGraph3D && Boolean(chartInstRef.current)
-  const showForceGraphCanvas = renderMode === 'projection3d' && useForceGraph3D && Boolean(ForceGraph3DComp) && !forceGraphLoadError
+  const chartReady = chartReadyRaw && !useForceGraph3D
+  const showForceGraphCanvas = useForceGraph3D && displayResource.ready && Boolean(ForceGraph3DComp) && !forceGraphLoadError
 
   const projectionResetKey = useLegacyProjection3D ? graphKind : null
-  if (projectionResetKey !== previousProjectionResetKeyRef.current) {
+  useEffect(() => {
+    if (projectionResetKey === previousProjectionResetKeyRef.current) return
     previousProjectionResetKeyRef.current = projectionResetKey
     setProjectionFrameEpoch((epoch) => epoch + 1)
-  }
+  }, [projectionResetKey])
 
   useEffect(() => {
     if (projectionEngine !== 'force3d') {
@@ -2294,7 +1553,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     }
   }, [connectedNodeMap, setManualSelectedNodeKeys, setManualDeselectedNodeKeys, setSelectionEnabled])
 
-  if (previousGraphKindRef.current !== graphKind) {
+  useEffect(() => {
+    if (previousGraphKindRef.current === graphKind) return
     previousGraphKindRef.current = graphKind
     setHiddenTypes({})
     setHiddenEdgeKinds({})
@@ -2305,7 +1565,14 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     setRadiationSelectionByCenter({})
     setSelectionPinned(false)
     setHoverNodeKey(null)
-  }
+  }, [
+    graphKind,
+    setHoverNodeKey,
+    setManualDeselectedNodeKeys,
+    setManualSelectedNodeKeys,
+    setRadiationSelectionByCenter,
+    setSelectionPinned,
+  ])
 
   useEffect(() => {
     projectionPhysicsRef.current = { positions: {}, velocities: {} }
@@ -2390,7 +1657,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   }, [sourceItemsQuery.data, sourceItemKeyword])
 
   const selectedNodeKeyList = useMemo(() => Array.from(selectedNodeKeys), [selectedNodeKeys])
-  const previousNodeEditSourceRef = useRef<{ firstKey: string; map: typeof draftNodeMap } | null>(null)
+  const [previousNodeEditSource, setPreviousNodeEditSource] = useState<{ firstKey: string; map: typeof draftNodeMap } | null>(null)
   const editableNodeItems = useMemo(
     () => draftNodes.map((node) => ({ key: nodeKey(node), label: `${nodeName(node)} (${node.type}:${String(node.id)})` })),
     [draftNodes],
@@ -2412,113 +1679,26 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     return draftNodeMap.get(nodeEditDraft.key) || null
   }, [nodeEditDraft.key, draftNodeMap])
 
-  if (templateBuilder && !editMode && previousTemplateBuilderRef.current !== templateBuilder) {
-    previousTemplateBuilderRef.current = templateBuilder
-    setEditMode(true)
-  } else if (!templateBuilder) {
-    previousTemplateBuilderRef.current = templateBuilder
-  }
-
-  const callApiByCandidates = useCallback(async (methodNames: string[], ...args: unknown[]) => {
-    const candidate = readCandidateApiMethod(...methodNames)
-    if (!candidate) {
-      throw new Error(`missing_api_method:${methodNames[0] || 'unknown'}`)
-    }
-    return candidate.fn(...args)
-  }, [])
-
-  const loadTemplateList = useCallback(async () => {
-    const raw = await callApiByCandidates(
-      ['listWorkflowGraphTemplates', 'listGraphTemplates', 'listGraphDraftTemplates', 'listGraphEditTemplates', 'listWorkflows'],
-    )
-    const rows = Array.isArray(raw)
-      ? raw
-      : (raw && typeof raw === 'object' && Array.isArray((raw as { items?: unknown[] }).items)
-        ? ((raw as { items?: unknown[] }).items || [])
-        : [])
-    const parsed = rows.map(asTemplateRecord).filter((item): item is GraphTemplateRecord => Boolean(item))
-    setTemplateItems(parsed)
-    if (!activeTemplateKey && parsed[0]) setActiveTemplateKey(parsed[0].key)
-    return parsed
-  }, [callApiByCandidates, activeTemplateKey])
-
-  const loadVersionList = useCallback(async (templateKey: string) => {
-    if (!templateKey) {
-      setVersionItems([])
-      return []
-    }
-    const raw = await callApiByCandidates(
-      ['listWorkflowGraphTemplateVersions', 'listGraphTemplateVersions', 'listGraphDraftTemplateVersions', 'listGraphVersions'],
-      templateKey,
-    )
-    const activeVersion = raw && typeof raw === 'object'
-      ? String((raw as { active_version_id?: unknown }).active_version_id || '').trim()
-      : ''
-    const rows = Array.isArray(raw)
-      ? raw
-      : (raw && typeof raw === 'object' && Array.isArray((raw as { items?: unknown[] }).items)
-        ? ((raw as { items?: unknown[] }).items || [])
-        : [])
-    const parsed = rows
-      .map(asVersionRecord)
-      .filter((item): item is GraphTemplateVersionRecord => Boolean(item))
-      .map((item) => ({ ...item, activated: item.key === activeVersion || item.activated }))
-    setVersionItems(parsed)
-    if (activeVersion) setActiveVersionKey(activeVersion)
-    else if (!activeVersionKey && parsed[0]) setActiveVersionKey(parsed[0].key)
-    return parsed
-  }, [callApiByCandidates, activeVersionKey])
-
-  const loadWorkflowTemplateStageAudit = useCallback(async (workflowName: string) => {
-    if (!workflowName) {
-      setTemplateStageItems([])
-      setTemplateStageAuditSummary(null)
-      return []
-    }
-    const raw = await listWorkflowTemplateVersions(workflowName, projectKey)
-    const items = normalizeWorkflowTemplateStageRecords(Array.isArray(raw.items) ? raw.items : [])
-    setTemplateStageItems(items)
-    setTemplateStageAuditSummary(buildTemplateStageAuditSummary(raw))
-    return items
-  }, [projectKey])
-
   useEffect(() => {
-    if (!editMode) return
-    let canceled = false
-    const run = async () => {
-      setTemplateBusy(true)
-      try {
-        const list = await loadTemplateList()
-        const key = activeTemplateKey || list[0]?.key || ''
-        if (!canceled && key) {
-          await loadVersionList(key)
-          await loadWorkflowTemplateStageAudit(key)
-        }
-      } catch (error) {
-        if (canceled) return
-        const message = error instanceof Error ? error.message : t('graphPage.error.templateListLoadFailed')
-        setGraphEditStatus(tf('graphPage.error.templateListLoadFailedWithMessage', { message }))
-      } finally {
-        if (!canceled) setTemplateBusy(false)
-      }
+    if (templateBuilder && !editMode && previousTemplateBuilderRef.current !== templateBuilder) {
+      previousTemplateBuilderRef.current = templateBuilder
+      setEditMode(true)
+      return
     }
-    void run()
-    return () => {
-      canceled = true
-    }
-  }, [editMode, loadTemplateList, loadVersionList, loadWorkflowTemplateStageAudit, activeTemplateKey, t, tf])
+    if (templateBuilder) return
+    previousTemplateBuilderRef.current = templateBuilder
+  }, [editMode, templateBuilder])
 
   if (editMode) {
     const firstKey = selectedNodeKeyList[0] || ''
     const editSource = { firstKey, map: draftNodeMap }
-    const previousEditSource = previousNodeEditSourceRef.current
     if (
       firstKey
-      && (!previousEditSource
-        || previousEditSource.firstKey !== firstKey
-        || previousEditSource.map !== draftNodeMap)
+      && (!previousNodeEditSource
+        || previousNodeEditSource.firstKey !== firstKey
+        || previousNodeEditSource.map !== draftNodeMap)
     ) {
-      previousNodeEditSourceRef.current = editSource
+      setPreviousNodeEditSource(editSource)
       const node = draftNodeMap.get(firstKey)
       if (node) {
         setNodeEditDraft({
@@ -2533,18 +1713,21 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         })
       }
     }
-  } else {
-    previousNodeEditSourceRef.current = null
+  } else if (previousNodeEditSource) {
+    setPreviousNodeEditSource(null)
   }
 
-  if (previousCuratedGraphIdDefaultRef.current !== defaultCuratedGraphId) {
+  useEffect(() => {
+    if (previousCuratedGraphIdDefaultRef.current === defaultCuratedGraphId) return
     previousCuratedGraphIdDefaultRef.current = defaultCuratedGraphId
     setCuratedGraphId((prev) => (prev.trim() ? prev : defaultCuratedGraphId))
-  }
-  if (previousCuratedHandoffTopicDefaultRef.current !== defaultCuratedHandoffTopic) {
+  }, [defaultCuratedGraphId])
+
+  useEffect(() => {
+    if (previousCuratedHandoffTopicDefaultRef.current === defaultCuratedHandoffTopic) return
     previousCuratedHandoffTopicDefaultRef.current = defaultCuratedHandoffTopic
     setCuratedHandoffTopic((prev) => (prev.trim() ? prev : defaultCuratedHandoffTopic))
-  }
+  }, [defaultCuratedHandoffTopic])
 
   const applyCuratedState = useCallback((state: WorkflowGraphCuratedStateResponse, fallbackLabel: string) => {
     if (typeof state.revision === 'number') setCuratedRevision(state.revision)
@@ -2552,9 +1735,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     const revision = typeof state.revision === 'number' ? ` r${state.revision}` : ''
     const version = state.active_version_id ? ` ${state.active_version_id}` : ''
     setCuratedStatus(`${status}${revision}${version}`)
-  }, [])
+  }, [setCuratedRevision, setCuratedStatus])
 
-  const readCuratedAudits = useCallback(async (graphId: string) => {
+  const readCuratedAudits = async (graphId: string) => {
     const auditList = await listWorkflowGraphCuratedAudits(graphId, 10)
     const items = Array.isArray(auditList.items) ? auditList.items : []
     setCuratedAuditItems(items)
@@ -2563,9 +1746,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       setCuratedRollbackVersionId((prev) => (prev.trim() ? prev : String(rollbackCandidate)))
     }
     return items
-  }, [])
+  }
 
-  const handleListCuratedAudits = useCallback(async () => {
+  const handleListCuratedAudits = async () => {
     const graphId = curatedGraphId.trim()
     if (!graphId) {
       window.alert(t('graphPage.error.curatedGraphIdRequired'))
@@ -2586,9 +1769,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     } finally {
       setCuratedBusy(false)
     }
-  }, [curatedGraphId, readCuratedAudits, t, tf])
+  }
 
-  const handleRollbackCuratedGraph = useCallback(async () => {
+  const handleRollbackCuratedGraph = async () => {
     const graphId = curatedGraphId.trim()
     const targetVersionId = curatedRollbackVersionId.trim()
     if (!graphId) {
@@ -2621,17 +1804,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     } finally {
       setCuratedBusy(false)
     }
-  }, [
-    applyCuratedState,
-    curatedGraphId,
-    curatedRevision,
-    curatedRollbackReason,
-    curatedRollbackVersionId,
-    markDraftSaved,
-    readCuratedAudits,
-    t,
-    tf,
-  ])
+  }
 
   const handleReplayCuratedHandoff = useCallback(async () => {
     const runId = curatedHandoffReplay.runId.trim()
@@ -2654,7 +1827,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     } finally {
       setCuratedBusy(false)
     }
-  }, [curatedHandoffReplay, t, tf])
+  }, [curatedHandoffReplay, setCuratedBusy, setCuratedStatus, setGraphEditStatus, t, tf])
 
   const handleSyncCuratedGraph = useCallback(async () => {
     const graphId = curatedGraphId.trim()
@@ -2682,7 +1855,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     } finally {
       setCuratedBusy(false)
     }
-  }, [curatedGraphId, curatedRevision, replaceDraft, applyCuratedState, t, tf])
+  }, [curatedGraphId, curatedRevision, replaceDraft, applyCuratedState, setCuratedBusy, setCuratedStatus, setGraphEditStatus, t, tf])
 
   const handleSaveCuratedDraft = useCallback(async () => {
     const graphId = curatedGraphId.trim()
@@ -2713,7 +1886,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     } finally {
       setCuratedBusy(false)
     }
-  }, [curatedGraphId, curatedRevision, draftNodes, draftEdges, applyCuratedState, markDraftSaved, t, tf])
+  }, [curatedGraphId, curatedRevision, draftNodes, draftEdges, applyCuratedState, markDraftSaved, setCuratedBusy, setCuratedStatus, setGraphEditStatus, t, tf])
 
   const handleSubmitCuratedGraph = useCallback(async () => {
     const graphId = curatedGraphId.trim()
@@ -2758,7 +1931,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     } finally {
       setCuratedBusy(false)
     }
-  }, [curatedGraphId, curatedRevision, draftNodes, draftEdges, applyCuratedState, markDraftSaved, t, tf])
+  }, [curatedGraphId, curatedRevision, draftNodes, draftEdges, applyCuratedState, markDraftSaved, setCuratedBusy, setCuratedStatus, setGraphEditStatus, t, tf])
 
   const handleBuildCuratedReportingHandoff = useCallback(async () => {
     const graphId = curatedGraphId.trim()
@@ -2799,12 +1972,10 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     } finally {
       setCuratedBusy(false)
     }
-  }, [curatedGraphId, curatedHandoffTopic, selectedEditableNodes, t, tf])
+  }, [curatedGraphId, curatedHandoffTopic, selectedEditableNodes, setCuratedBusy, setCuratedHandoffReplay, setCuratedStatus, setGraphEditStatus, t, tf])
 
   const selectedExportPayload = useMemo(() => {
-    const scopedTopicFocus = graphKind === 'company' || graphKind === 'product' || graphKind === 'operation'
-      ? graphKind
-      : undefined
+    const scopedTopicFocus = graphProjection.topicScope
     const selectedNodes = Array.from(selectedNodeKeys)
       .map((key) => connectedNodeMap.get(key))
       .filter((node): node is GraphNodeItem => Boolean(node))
@@ -2836,7 +2007,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       })),
       edges: selectedEdges,
     }
-  }, [selectedNodeKeys, connectedNodeMap, visibleEdges, topology.edgeResolvedKeyMap, projectKey, graphKind, dashboardParams, dashboard.llmAssist])
+  }, [selectedNodeKeys, connectedNodeMap, visibleEdges, topology.edgeResolvedKeyMap, projectKey, graphKind, graphProjection.topicScope, dashboardParams, dashboard.llmAssist])
 
   const clueChainSeedNodes = useMemo<ClueChainSeedNode[]>(() => {
     const selectedSeeds = selectedExportPayload.selected_nodes.map((node) => ({
@@ -2898,6 +2069,11 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     topology.visibleNodes.length,
     variant,
     graphVariantLabel,
+    setActiveClueChain,
+    setClueChainBusy,
+    setClueChainOpen,
+    setClueChainStatus,
+    setSelectedClueEvidenceId,
     t,
     tf,
   ])
@@ -2928,7 +2104,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     } finally {
       setClueChainBusy(false)
     }
-  }, [activeClueChain, clueChainSeedNodes, graphKind, projectKey, t, tf])
+  }, [activeClueChain, clueChainSeedNodes, graphKind, projectKey, setActiveClueChain, setClueChainBusy, setClueChainOpen, setClueChainStatus, setSelectedClueEvidenceId, t, tf])
 
   const handleReviewClueChainCandidate = useCallback(async (candidateId: string, decision: 'promote' | 'reject') => {
     if (!activeClueChain) return
@@ -2952,7 +2128,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     } finally {
       setClueChainBusy(false)
     }
-  }, [activeClueChain, t, tf])
+  }, [activeClueChain, setActiveClueChain, setClueChainBusy, setClueChainOpen, setClueChainStatus, t, tf])
 
   const copyStructuredPayload = async () => {
     const text = JSON.stringify(selectedExportPayload, null, 2)
@@ -3107,12 +2283,16 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     return topology.connectedNodeKeys.has(key) ? key : null
   }, [selectedNode, topology.connectedNodeKeys])
 
+  useEffect(() => {
+    setForceNodeSeedPhysics(new Map(forceNodePhysicsRef.current))
+  }, [activeProjectionId])
+
   const forceGraphData = useMemo(() => {
     if (renderMode !== 'projection3d') return { nodes: [] as Array<{ id: string; key: string; name: string; rawNode: GraphNodeItem; score: number; x?: number; y?: number; z?: number; vx?: number; vy?: number; vz?: number }>, links: [] as Array<{ source: string; target: string }> }
     const nodes = topology.connectedNodes.map((node) => {
       const key = nodeKey(node)
       const score = topology.scoreMap.get(key) || 0
-      const prev = forceNodePhysicsRef.current.get(key) || {}
+      const prev = forceNodeSeedPhysics.get(`${activeProjectionId}\u0000${key}`) || {}
       return {
         id: key,
         key,
@@ -3138,7 +2318,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       })
       .filter((item): item is { source: string; target: string } => Boolean(item))
     return { nodes, links }
-  }, [renderMode, topology.connectedNodes, topology.connectedEdges, topology.scoreMap, topology.edgeResolvedKeyMap])
+  }, [renderMode, activeProjectionId, forceNodeSeedPhysics, topology.connectedNodes, topology.connectedEdges, topology.scoreMap, topology.edgeResolvedKeyMap])
 
   const forceVisibleNodeKeySet = useMemo(() => new Set(topology.visibleNodes.map((node) => nodeKey(node))), [topology.visibleNodes])
   const forceVisibleLinkKeySet = useMemo(() => {
@@ -3209,8 +2389,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   }, [autoFocusEnabled, hoverNodeKey, topology.visibleNodeKeys, adjacencyConnectedMap])
 
   const forceLinkStyleByKey = useMemo(() => {
-    if (renderMode !== 'projection3d') return new Map<string, { color: string; width: number; opacity: number }>()
-    const map = new Map<string, { color: string; width: number; opacity: number }>()
+    if (renderMode !== 'projection3d') return new Map<string, ForceLinkStyle>()
+    const map = new Map<string, ForceLinkStyle>()
     const enableAutoFocusDim = autoFocusEnabled && forceAutoFocusSet.size > 0
     const edgeAlphaT = Math.max(0, Math.min(1, visualApplied.edgeAlpha / 100))
     topology.connectedEdges.forEach((edge) => {
@@ -3220,6 +2400,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       const toKey = resolved.toKey
       const style = edgeLegendItemByKey.get(edgeLegendKey(edge))
       const colorHex = style?.color || '#7dd3fc'
+      const profile = graphEdgeProfile(edge, edgeStyleBinding)
       const { r, g, b } = hexToRgb(colorHex)
       const dimByAutoFocus = enableAutoFocusDim && !(forceAutoFocusSet.has(fromKey) && forceAutoFocusSet.has(toKey))
       map.set(
@@ -3230,13 +2411,18 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
             : `rgba(${r}, ${g}, ${b}, ${Math.max(0.04, edgeAlphaT)})`,
           width: dimByAutoFocus
             ? 0.7
-            : Math.max(0.5, (EDGE_WIDTH_BY_TIER[style?.tier || 'type'] || 1.2) * (visualApplied.edgeWidth / 100)),
+            : Math.max(0.5, profile.width * (visualApplied.edgeWidth / 100)),
           opacity: dimByAutoFocus ? 0.08 : Math.max(0.08, edgeAlphaT),
+          curvature: Math.abs(profile.curveness),
+          curveRotation: profile.curveness < 0 ? Math.PI : 0,
+          arrowLength: profile.symbol[1] === 'none' || dimByAutoFocus
+            ? 0
+            : Math.max(0, 4.5 * (visualApplied.edgeWidth / 100)),
         },
       )
     })
     return map
-  }, [renderMode, topology.connectedEdges, topology.edgeResolvedKeyMap, edgeLegendItemByKey, visualApplied.edgeWidth, visualApplied.edgeAlpha, autoFocusEnabled, forceAutoFocusSet])
+  }, [renderMode, topology.connectedEdges, topology.edgeResolvedKeyMap, edgeLegendItemByKey, edgeStyleBinding, visualApplied.edgeWidth, visualApplied.edgeAlpha, autoFocusEnabled, forceAutoFocusSet])
 
   const applyForceObjectVisualState = useCallback((object: THREE.Object3D, selected: boolean, dimmed: boolean) => {
     if (!object || typeof object !== 'object') return
@@ -3300,7 +2486,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   }, [])
 
   useEffect(() => {
-    if (!useForceGraph3D) return
+    if (!useForceGraph3D || !displayResource.ready) return
     const raf = window.requestAnimationFrame(() => {
       const api = forceGraphRef.current
       const scene = api?.scene?.()
@@ -3319,7 +2505,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       })
     })
     return () => window.cancelAnimationFrame(raf)
-  }, [useForceGraph3D, selectedNodeKeys, selectedNodeKeysRef, forceGraphData.nodes, autoFocusEnabled, forceAutoFocusSet, applyForceObjectVisualState])
+  }, [useForceGraph3D, displayResource.ready, selectedNodeKeys, selectedNodeKeysRef, forceGraphData.nodes, autoFocusEnabled, forceAutoFocusSet, applyForceObjectVisualState])
 
   useEffect(() => {
     if (renderMode === 'projection3d') return
@@ -3353,7 +2539,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
 
   useEffect(() => {
     try {
-      if (useForceGraph3D) {
+      if (useForceGraph3D && displayResource.ready) {
         forceGraphRef.current?.resumeAnimation?.()
       } else {
         forceGraphRef.current?.pauseAnimation?.()
@@ -3361,7 +2547,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     } catch {
       // noop
     }
-  }, [useForceGraph3D])
+  }, [useForceGraph3D, displayResource.ready])
 
   useEffect(() => {
     if (!useForceGraph3D) return
@@ -3763,8 +2949,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         chartInstRef.current = echartsLibRef.current.init(chartRef.current, undefined, {
           renderer: 'canvas',
           useDirtyRect: true,
-          // Prioritize frame throughput over retina sharpness for smoother motion.
-          devicePixelRatio: 1,
+          devicePixelRatio: graphCanvasPixelRatio(),
         })
         const syncNodeCardFromParams = (
           params: { event?: { event?: MouseEvent } },
@@ -4149,7 +3334,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     } catch {
       // keep previous cached positions
     }
-    const shouldShowNodeLabel = visualApplied.showLabel && visibleNodes.length <= 220
+    const shouldShowNodeLabel =
+      visualApplied.showLabel && visibleNodes.length <= NODE_LABEL_MAX_VISIBLE_NODES
     const shouldShowEdgeLabel = false
     const autoFocusSet = new Set<string>()
     // In 3D mode, card selection should not become autofocus center.
@@ -4178,7 +3364,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         visualApplied.nodeContrastNeighbor,
       )
       const size = Math.max(NODE_SIZE_MIN_APPROX, baseSize * symbolSizeGain(rawSymbol))
-      const show = shouldShowNodeLabel && size >= 24
+      const show = shouldShowNodeLabel && size >= NODE_LABEL_MIN_SIZE_PX
       const selected = selectedNodeKeys.has(key)
       const dimByPinnedOnly = enablePinnedOnlyDim && !selected
       const dimByAutoFocus = enableAutoFocusDim && !autoFocusSet.has(key)
@@ -4234,10 +3420,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         !(autoFocusSet.has(fromKey) && autoFocusSet.has(toKey))
       const dimByFocus = enablePinnedOnlyDim ? dimByPinnedOnly : dimByAutoFocus
       const style = edgeLegendItemByKey.get(edgeLegendKey(edge))
-      const tier = style?.tier || 'type'
-      const shapeKind = style?.shapeKind || edgeShapeKind(edge)
-      const profile = EDGE_PROFILE_BY_SHAPE[shapeKind]
+      const profile = graphEdgeProfile(edge, edgeStyleBinding)
       const strokeKind = style?.strokeKind || profile.strokeKind
+      const lineType = style?.lineType || profile.lineType
       const edgeColor = style?.color || '#7dd3fc'
       const { r, g, b } = hexToRgb(edgeColor)
       const edgeAlphaT = Math.max(0, Math.min(1, visualApplied.edgeAlpha / 100))
@@ -4248,12 +3433,12 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         Math.max(0, profile.symbolSize[1] * symbolScale),
       ]
       const hideEdgeSymbol = scaledSymbolSize[1] < 2
-      const baseCurveness = edge.type === 'POLICY_RELATION' ? 0.18 : EDGE_CURVENESS_BY_STROKE[strokeKind]
+      const baseCurveness = edge.type === 'POLICY_RELATION' ? 0.18 : profile.curveness
       const resolvedEdgeAlpha = edgeAlphaT
       const baseColor = dimByFocus
         ? 'rgba(125, 211, 252, 0.04)'
         : `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, resolvedEdgeAlpha))})`
-      const baseWidth = dimByFocus ? 0.7 : Math.max(0, EDGE_WIDTH_BY_TIER[tier] * widthFactor)
+      const baseWidth = dimByFocus ? 0.7 : Math.max(0, profile.width * widthFactor)
       const baseLine = {
         source: fromKey,
         target: toKey,
@@ -4263,7 +3448,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         lineStyle: {
           color: baseColor,
           width: baseWidth,
-          type: style?.lineType || EDGE_LINE_TYPE_BY_STROKE[strokeKind],
+          type: edgeLinePattern(lineType),
           curveness: baseCurveness,
         },
         label: {
@@ -4378,9 +3563,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
               const classToken = String(edge.relation_class || '').trim().toLowerCase()
               const classLabel = classToken ? relationClassLabel(classToken) : ''
               const predicate = String(edge.predicate || '').trim()
-              const shapeKind = edgeShapeKind(edge)
-              const strokeKind = EDGE_PROFILE_BY_SHAPE[shapeKind].strokeKind
-              return `${t('graphPage.tooltip.relation')}: ${edge.type || 'REL'}${classLabel ? `<br/>${t('graphPage.tooltip.class')}: ${classLabel}` : ''}${predicate ? `<br/>${t('graphPage.tooltip.predicate')}: ${predicate}` : ''}<br/>${t('graphPage.tooltip.stroke')}: ${edgeStrokeLabel(strokeKind)}`
+              const profile = graphEdgeProfile(edge, edgeStyleBinding)
+              return `${t('graphPage.tooltip.relation')}: ${edge.type || 'REL'}${classLabel ? `<br/>${t('graphPage.tooltip.class')}: ${classLabel}` : ''}${predicate ? `<br/>${t('graphPage.tooltip.predicate')}: ${predicate}` : ''}<br/>${t('graphPage.tooltip.stroke')}: ${edgeStrokeLabel(profile.strokeKind)} · ${edgeLineTypeLabel(profile.lineType)}`
             }
             return ''
           },
@@ -4404,7 +3588,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       })
       nodePositionRef.current = mergedPositions
     }
-  }, [topology, visibleEdges, edgeLegendItemByKey, visualApplied, nodeTypeColor, graphKind, chartReady, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey, autoFocusEnabled, selectedNode, selectedNodeKey, renderMode, selectionEnabled, projectionRotateX, projectionRotateY, projectionRotateZ, synced3DRepulsionPercent, physicsFrame, projectionFrameEpoch, useLegacyProjection3D, useForceGraph3D, t, relationClassLabel, edgeStrokeLabel])
+  }, [topology, visibleEdges, edgeLegendItemByKey, edgeStyleBinding, visualApplied, nodeTypeColor, graphKind, chartReady, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey, autoFocusEnabled, selectedNode, selectedNodeKey, renderMode, selectionEnabled, projectionRotateX, projectionRotateY, projectionRotateZ, synced3DRepulsionPercent, physicsFrame, projectionFrameEpoch, useLegacyProjection3D, useForceGraph3D, t, relationClassLabel, edgeStrokeLabel, edgeLineTypeLabel])
 
   const onControlResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (isCompactViewport) return
@@ -4657,7 +3841,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     if (autoFocusEnabledRef.current) scheduleForceHoverNodeKey(null)
     // In selection mode, left click toggles selection directly.
     if (selectionEnabledRef.current) toggleForceNodeSelectionByKey(key)
-  }, [scheduleForceHoverNodeKey, toggleForceNodeSelectionByKey, autoFocusEnabledRef, selectionEnabledRef])
+  }, [scheduleForceHoverNodeKey, toggleForceNodeSelectionByKey, autoFocusEnabledRef, selectionEnabledRef, setNodeCardAnchor, setSelectedNode])
 
   const handleForceNodeRightClick = useCallback((node: unknown, event: unknown) => {
     const mouseEvent = event as MouseEvent | undefined
@@ -4807,7 +3991,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     })
     setNewNodeName('')
     setGraphEditStatus(tf('graphPage.status.nodeCreated', { key }))
-  }, [createDraftNode, newNodeType, newNodeName, tf])
+  }, [createDraftNode, newNodeType, newNodeName, setGraphEditStatus, setNewNodeName, setNodeEditDraft, tf])
 
   const handleDeleteSelectedDraftNodes = useCallback(() => {
     const result = removeDraftNodesByKeys(selectedNodeKeyList)
@@ -4819,7 +4003,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     setManualDeselectedNodeKeys(new Set())
     setRadiationSelectionByCenter({})
     setGraphEditStatus(tf('graphPage.status.nodesDeleted', { nodes: result.removedNodes, edges: result.removedEdges }))
-  }, [removeDraftNodesByKeys, selectedNodeKeyList, setManualSelectedNodeKeys, setManualDeselectedNodeKeys, setRadiationSelectionByCenter, t, tf])
+  }, [removeDraftNodesByKeys, selectedNodeKeyList, setGraphEditStatus, setManualSelectedNodeKeys, setManualDeselectedNodeKeys, setRadiationSelectionByCenter, t, tf])
 
   const handleCreateDraftEdge = useCallback(() => {
     const sourceKey = edgeDraft.sourceKey.trim()
@@ -4838,7 +4022,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       return
     }
     setGraphEditStatus(tf('graphPage.status.edgeCreated', { source: sourceKey, target: targetKey }))
-  }, [edgeDraft, createDraftEdgeByNodeKeys, t, tf])
+  }, [edgeDraft, createDraftEdgeByNodeKeys, setGraphEditStatus, t, tf])
 
   const handleApplyNodeEditDraft = useCallback(() => {
     if (!nodeEditDraft.key) return
@@ -4863,404 +4047,17 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       return
     }
     setGraphEditStatus(tf('graphPage.status.nodeUpdated', { key: nodeEditDraft.key }))
-  }, [nodeEditDraft, updateDraftNodeByKey, t, tf])
-
-  const handleLoadTemplateVersions = useCallback(async () => {
-    if (!activeTemplateKey) return
-    setTemplateBusy(true)
-    try {
-      await loadVersionList(activeTemplateKey)
-      setGraphEditStatus(tf('graphPage.status.templateVersionsLoaded', { templateKey: activeTemplateKey }))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('graphPage.error.versionListLoadFailed')
-      setGraphEditStatus(tf('graphPage.error.versionListLoadFailedWithMessage', { message }))
-      window.alert(tf('graphPage.error.versionListLoadFailedWithMessage', { message }))
-    } finally {
-      setTemplateBusy(false)
-    }
-  }, [activeTemplateKey, loadVersionList, t, tf])
-
-  const handlePreviewWorkflowTemplateDiff = useCallback(async () => {
-    const workflowName = activeTemplateKey.trim()
-    if (!workflowName) {
-      window.alert(t('graphPage.error.selectTemplate'))
-      return
-    }
-    if (!draftNodes.length) {
-      window.alert(t('graphPage.error.noSubmittableDraftNodes'))
-      return
-    }
-    setTemplateDiffBusy(true)
-    try {
-      const preview = await diffWorkflowTemplate(workflowName, buildWorkflowTemplatePayloadFromDraft({
-        projectKey,
-        nodes: draftNodes,
-        edges: draftEdges,
-        graphKind,
-      }))
-      setTemplateDiffPreview(preview)
-      setGraphEditStatus(tf('graphPage.status.configDiffLoaded', {
-        workflowName,
-        current: preview.current_version ?? '-',
-        next: preview.next_version ?? '-',
-      }))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('graphPage.error.configDiffFailed')
-      setGraphEditStatus(tf('graphPage.error.configDiffFailedWithMessage', { message }))
-      window.alert(tf('graphPage.error.configDiffFailedWithMessage', { message }))
-    } finally {
-      setTemplateDiffBusy(false)
-    }
-  }, [activeTemplateKey, draftNodes, draftEdges, projectKey, graphKind, t, tf])
-
-  const handleWorkflowTemplateDryRun = useCallback(async () => {
-    const workflowName = activeTemplateKey.trim()
-    if (!workflowName) {
-      window.alert(t('graphPage.error.selectTemplate'))
-      return
-    }
-    setTemplateDryRunBusy(true)
-    try {
-      const result = await runWorkflow(workflowName, {}, { dryRun: true })
-      const summary = summarizeWorkflowDryRunResult(result)
-      setTemplateDryRunResult(result)
-      setGraphEditStatus(tf('graphPage.status.workflowDryRunLoaded', {
-        workflowName,
-        configVersion: formatWorkflowRunScalar(summary.configVersion),
-        readiness: formatWorkflowRunScalar(summary.readiness),
-        writesBlocked: formatWorkflowRunScalar(summary.writesBlocked),
-      }))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('graphPage.error.workflowDryRunFailed')
-      setGraphEditStatus(tf('graphPage.error.workflowDryRunFailedWithMessage', { message }))
-      window.alert(tf('graphPage.error.workflowDryRunFailedWithMessage', { message }))
-    } finally {
-      setTemplateDryRunBusy(false)
-    }
-  }, [activeTemplateKey, t, tf])
-
-  const handleRefreshWorkflowTemplateStages = useCallback(async () => {
-    if (!activeTemplateKey) return
-    setTemplateStageBusy(true)
-    try {
-      await loadWorkflowTemplateStageAudit(activeTemplateKey)
-      setGraphEditStatus(tf('graphPage.status.templateStageAuditLoaded', { templateKey: activeTemplateKey }))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('graphPage.error.templateStageAuditLoadFailed')
-      setGraphEditStatus(tf('graphPage.error.templateStageAuditLoadFailedWithMessage', { message }))
-      window.alert(tf('graphPage.error.templateStageAuditLoadFailedWithMessage', { message }))
-    } finally {
-      setTemplateStageBusy(false)
-    }
-  }, [activeTemplateKey, loadWorkflowTemplateStageAudit, t, tf])
-
-  const handleSaveWorkflowTemplateDraftStage = useCallback(async () => {
-    const workflowName = activeTemplateKey.trim()
-    if (!workflowName) {
-      window.alert(t('graphPage.error.selectTemplate'))
-      return
-    }
-    if (!draftNodes.length) {
-      window.alert(t('graphPage.error.noSubmittableDraftNodes'))
-      return
-    }
-    setTemplateStageBusy(true)
-    try {
-      const response = await stageWorkflowTemplate(workflowName, {
-        ...buildWorkflowTemplatePayloadFromDraft({
-          projectKey,
-          nodes: draftNodes,
-          edges: draftEdges,
-          graphKind,
-        }),
-        stage: 'draft',
-      })
-      setTemplateStageAuditSummary(buildTemplateStageAuditSummary(response))
-      await loadWorkflowTemplateStageAudit(workflowName)
-      setGraphEditStatus(tf('graphPage.status.templateStageDraftSaved', {
-        next: response.next_version ?? '-',
-        requiresPublish: String(Boolean(response.version_summary?.requires_publish)),
-      }))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('graphPage.error.templateStageSaveFailed')
-      setGraphEditStatus(tf('graphPage.error.templateStageSaveFailedWithMessage', { message }))
-      window.alert(tf('graphPage.error.templateStageSaveFailedWithMessage', { message }))
-    } finally {
-      setTemplateStageBusy(false)
-    }
-  }, [activeTemplateKey, draftNodes, draftEdges, projectKey, graphKind, loadWorkflowTemplateStageAudit, t, tf])
-
-  const handlePromoteWorkflowTemplateStage = useCallback(async (
-    fromStage: Extract<WorkflowTemplateStageName, 'draft' | 'staging'>,
-    toStage: Extract<WorkflowTemplateStageName, 'staging' | 'active'>,
-  ) => {
-    const workflowName = activeTemplateKey.trim()
-    if (!workflowName) {
-      window.alert(t('graphPage.error.selectTemplate'))
-      return
-    }
-    setTemplateStageBusy(true)
-    try {
-      const response = await promoteWorkflowTemplate(workflowName, {
-        project_key: projectKey,
-        from_stage: fromStage,
-        to_stage: toStage,
-      })
-      setTemplateStageAuditSummary(buildTemplateStageAuditSummary(response))
-      await loadWorkflowTemplateStageAudit(workflowName)
-      setGraphEditStatus(tf('graphPage.status.templateStagePromoted', {
-        fromStage,
-        toStage,
-        next: response.next_version ?? '-',
-        requiresPublish: String(Boolean(response.version_summary?.requires_publish)),
-      }))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('graphPage.error.templateStagePromoteFailed')
-      setGraphEditStatus(tf('graphPage.error.templateStagePromoteFailedWithMessage', { message }))
-      window.alert(tf('graphPage.error.templateStagePromoteFailedWithMessage', { message }))
-    } finally {
-      setTemplateStageBusy(false)
-    }
-  }, [activeTemplateKey, projectKey, loadWorkflowTemplateStageAudit, t, tf])
-
-  const handlePreviewWorkflowTemplateRollback = useCallback(async () => {
-    const workflowName = activeTemplateKey.trim()
-    if (!workflowName) {
-      window.alert(t('graphPage.error.selectTemplate'))
-      return
-    }
-    const targetVersion = parseTemplateRollbackVersion(templateRollbackDraft.targetVersion)
-    if (targetVersion === null) {
-      window.alert(t('graphPage.error.templateRollbackVersionRequired'))
-      return
-    }
-    setTemplateRollbackBusy(true)
-    setTemplateRollbackError('')
-    try {
-      const response = await previewWorkflowTemplateRollback(workflowName, {
-        project_key: projectKey,
-        target_stage: templateRollbackDraft.targetStage,
-        target_version: targetVersion,
-        reason: templateRollbackDraft.reason.trim() || undefined,
-        actor: 'graph-ui',
-        requested_by: 'graph-ui',
-        trace_id: buildTemplateRollbackTraceId(workflowName, templateRollbackDraft.targetStage, targetVersion),
-      })
-      setTemplateRollbackPreview(response)
-      setGraphEditStatus(tf('graphPage.status.templateRollbackPreviewLoaded', {
-        targetStage: templateRollbackDraft.targetStage,
-        targetVersion,
-        canExecute: String(Boolean(response.rollback_plan?.can_execute ?? response.rollback_plan?.executable)),
-        willMutate: String(Boolean(response.rollback_plan?.will_mutate)),
-      }))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('graphPage.error.templateRollbackPreviewFailed')
-      setTemplateRollbackError(message)
-      setGraphEditStatus(tf('graphPage.error.templateRollbackPreviewFailedWithMessage', { message }))
-    } finally {
-      setTemplateRollbackBusy(false)
-    }
-  }, [activeTemplateKey, projectKey, templateRollbackDraft, t, tf])
-
-  const handleApplyWorkflowTemplateRollback = useCallback(async () => {
-    const workflowName = activeTemplateKey.trim()
-    if (!workflowName) {
-      window.alert(t('graphPage.error.selectTemplate'))
-      return
-    }
-    const targetVersion = parseTemplateRollbackVersion(templateRollbackDraft.targetVersion)
-    if (targetVersion === null) {
-      window.alert(t('graphPage.error.templateRollbackVersionRequired'))
-      return
-    }
-    setTemplateRollbackBusy(true)
-    setTemplateRollbackError('')
-    try {
-      const response = await applyWorkflowTemplateRollback(workflowName, {
-        project_key: projectKey,
-        target_stage: templateRollbackDraft.targetStage,
-        target_version: targetVersion,
-        reason: templateRollbackDraft.reason.trim() || undefined,
-        actor: 'graph-ui',
-        requested_by: 'graph-ui',
-        trace_id: buildTemplateRollbackTraceId(workflowName, templateRollbackDraft.targetStage, targetVersion),
-      })
-      setTemplateRollbackPreview(response)
-      setTemplateStageAuditSummary(buildTemplateStageAuditSummary(response))
-      await loadWorkflowTemplateStageAudit(workflowName)
-      setGraphEditStatus(tf('graphPage.status.templateRollbackApplied', {
-        targetStage: templateRollbackDraft.targetStage,
-        targetVersion,
-        next: response.next_version ?? '-',
-      }))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('graphPage.error.templateRollbackApplyFailed')
-      setTemplateRollbackError(message)
-      setGraphEditStatus(tf('graphPage.error.templateRollbackApplyFailedWithMessage', { message }))
-    } finally {
-      setTemplateRollbackBusy(false)
-    }
-  }, [activeTemplateKey, projectKey, templateRollbackDraft, loadWorkflowTemplateStageAudit, t, tf])
-
-  const handleCreateTemplate = useCallback(async () => {
-    const name = templateNameDraft.trim()
-    if (!name) return
-    setTemplateBusy(true)
-    try {
-      const templateId = name.replace(/\s+/g, '_')
-      await callApiByCandidates(
-        ['createWorkflowGraphTemplate', 'createGraphTemplate', 'createGraphDraftTemplate', 'upsertGraphTemplate'],
-        {
-          template_id: templateId,
-          name,
-          dsl: { nodes: draftNodes, edges: draftEdges },
-        },
-      )
-      setTemplateNameDraft('')
-      setGraphEditStatus(tf('graphPage.status.templateCreated', { name }))
-      await loadTemplateList()
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('graphPage.error.templateCreateFailed')
-      setGraphEditStatus(tf('graphPage.error.templateCreateFailedWithMessage', { message }))
-      window.alert(tf('graphPage.error.templateCreateFailedWithMessage', { message }))
-    } finally {
-      setTemplateBusy(false)
-    }
-  }, [templateNameDraft, callApiByCandidates, draftNodes, draftEdges, loadTemplateList, t, tf])
-
-  const handleRenameTemplate = useCallback(async () => {
-    if (!activeTemplateKey) return
-    const name = renameTemplateDraft.trim()
-    if (!name) return
-    setTemplateBusy(true)
-    try {
-      await callApiByCandidates(
-        ['updateWorkflowGraphTemplate', 'renameGraphTemplate', 'renameGraphDraftTemplate'],
-        activeTemplateKey,
-        { name },
-      )
-      setRenameTemplateDraft('')
-      setGraphEditStatus(tf('graphPage.status.templateRenamed', { name }))
-      await loadTemplateList()
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('graphPage.error.templateRenameFailed')
-      setGraphEditStatus(tf('graphPage.error.templateRenameFailedWithMessage', { message }))
-      window.alert(tf('graphPage.error.templateRenameFailedWithMessage', { message }))
-    } finally {
-      setTemplateBusy(false)
-    }
-  }, [activeTemplateKey, renameTemplateDraft, callApiByCandidates, loadTemplateList, t, tf])
-
-  const handleDeleteTemplate = useCallback(async () => {
-    if (!activeTemplateKey) return
-    setTemplateBusy(true)
-    try {
-      await callApiByCandidates(
-        ['deleteWorkflowGraphTemplate', 'deleteGraphTemplate', 'deleteGraphDraftTemplate', 'deleteWorkflowTemplate'],
-        activeTemplateKey,
-      )
-      setGraphEditStatus(tf('graphPage.status.templateDeleted', { templateKey: activeTemplateKey }))
-      setActiveTemplateKey('')
-      setActiveVersionKey('')
-      setVersionItems([])
-      setTemplateStageItems([])
-      setTemplateStageAuditSummary(null)
-      setTemplateDryRunResult(null)
-      setTemplateRollbackPreview(null)
-      setTemplateRollbackError('')
-      await loadTemplateList()
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('graphPage.error.templateDeleteFailed')
-      setGraphEditStatus(tf('graphPage.error.templateDeleteFailedWithMessage', { message }))
-      window.alert(tf('graphPage.error.templateDeleteFailedWithMessage', { message }))
-    } finally {
-      setTemplateBusy(false)
-    }
-  }, [activeTemplateKey, callApiByCandidates, loadTemplateList, t, tf])
-
-  const handleSaveVersion = useCallback(async () => {
-    if (!activeTemplateKey) {
-      window.alert(t('graphPage.error.selectTemplate'))
-      return
-    }
-    const versionName = versionNameDraft.trim() || `v-${new Date().toISOString()}`
-    setTemplateBusy(true)
-    try {
-      await callApiByCandidates(
-        ['createWorkflowGraphTemplateVersion', 'saveGraphTemplateVersion', 'createGraphTemplateVersion', 'saveGraphVersion'],
-        activeTemplateKey,
-        { version_id: versionName, dsl: { nodes: draftNodes, edges: draftEdges } },
-      )
-      setVersionNameDraft('')
-      setGraphEditStatus(tf('graphPage.status.versionSaved', { versionName }))
-      await loadVersionList(activeTemplateKey)
-      markDraftSaved()
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('graphPage.error.versionSaveFailed')
-      setGraphEditStatus(tf('graphPage.error.versionSaveFailedWithMessage', { message }))
-      window.alert(tf('graphPage.error.versionSaveFailedWithMessage', { message }))
-    } finally {
-      setTemplateBusy(false)
-    }
-  }, [activeTemplateKey, versionNameDraft, callApiByCandidates, draftNodes, draftEdges, loadVersionList, markDraftSaved, t, tf])
-
-  const handleLoadVersion = useCallback(async () => {
-    if (!activeTemplateKey || !activeVersionKey) return
-    setTemplateBusy(true)
-    try {
-      const raw = await callApiByCandidates(
-        ['getWorkflowGraphTemplateVersion', 'loadGraphTemplateVersion', 'getGraphTemplateVersion'],
-        activeTemplateKey,
-        activeVersionKey,
-      )
-      const payload = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
-      const versionPayload = payload.version && typeof payload.version === 'object' ? payload.version as Record<string, unknown> : payload
-      const dslPayload = versionPayload.dsl && typeof versionPayload.dsl === 'object' ? versionPayload.dsl as Record<string, unknown> : versionPayload
-      const nextNodes = Array.isArray(dslPayload.nodes) ? dslPayload.nodes as GraphNodeItem[] : []
-      const nextEdges = Array.isArray(dslPayload.edges) ? dslPayload.edges as GraphEdgeItem[] : []
-      if (!nextNodes.length && !nextEdges.length) {
-        window.alert(t('graphPage.status.versionLoadedEmpty'))
-      }
-      replaceDraft(nextNodes, nextEdges, { markAsDirty: true })
-      setGraphEditStatus(tf('graphPage.status.versionLoaded', { versionKey: activeVersionKey }))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('graphPage.error.versionLoadFailed')
-      setGraphEditStatus(tf('graphPage.error.versionLoadFailedWithMessage', { message }))
-      window.alert(tf('graphPage.error.versionLoadFailedWithMessage', { message }))
-    } finally {
-      setTemplateBusy(false)
-    }
-  }, [activeTemplateKey, activeVersionKey, callApiByCandidates, replaceDraft, t, tf])
-
-  const handleActivateVersion = useCallback(async () => {
-    if (!activeTemplateKey || !activeVersionKey) return
-    setTemplateBusy(true)
-    try {
-      await callApiByCandidates(
-        ['activateWorkflowGraphTemplateVersion', 'activateGraphTemplateVersion', 'activateGraphVersion'],
-        activeTemplateKey,
-        activeVersionKey,
-      )
-      setGraphEditStatus(tf('graphPage.status.versionActivated', { versionKey: activeVersionKey }))
-      await loadVersionList(activeTemplateKey)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('graphPage.error.versionActivateFailed')
-      setGraphEditStatus(tf('graphPage.error.versionActivateFailedWithMessage', { message }))
-      window.alert(tf('graphPage.error.versionActivateFailedWithMessage', { message }))
-    } finally {
-      setTemplateBusy(false)
-    }
-  }, [activeTemplateKey, activeVersionKey, callApiByCandidates, loadVersionList, t, tf])
+  }, [nodeEditDraft, updateDraftNodeByKey, setGraphEditStatus, t, tf])
 
   const handleForceGraphRenderError = useCallback((message: string) => {
     setForceGraphFallbackNotice(tf('graphPage.error.force3dRenderFallback', { message: message ? ` (${message})` : '' }))
     requestProjectionEngineChange('legacy')
-  }, [requestProjectionEngineChange, tf])
+  }, [requestProjectionEngineChange, setForceGraphFallbackNotice, tf])
 
-  const forceGraphRenderBoundaryKey = `${renderMode}:${projectionEngine}:${forceGraphData.nodes.length}:${forceGraphData.links.length}`
+  const forceGraphRenderBoundaryKey = `${displayResourceKey}:${displayResource.epoch}:${renderMode}:${projectionEngine}:${forceGraphData.nodes.length}:${forceGraphData.links.length}`
 
   const forceGraphCanvasNode = useMemo(() => {
-    if (!(renderMode === 'projection3d' && showForceGraphCanvas && ForceGraph3DComp)) return null
+    if (!(renderMode === 'projection3d' && showForceGraphCanvas && ForceGraph3DComp && displayResource.ready)) return null
     return (
       <div
         ref={forceChartRef}
@@ -5274,9 +4071,10 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
           onError={handleForceGraphRenderError}
         >
           <ForceGraph3DComp
+            key={`${displayResourceKey}:${displayResource.epoch}`}
             ref={forceGraphRef}
-            width={forceViewport.width}
-            height={forceViewport.height}
+            width={forceViewport.width || displayResource.width}
+            height={forceViewport.height || displayResource.height}
             graphData={forceGraphData}
             nodeVisibility={(node: unknown) => {
               const id = String((node as { id?: string }).id || '')
@@ -5297,6 +4095,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
               return String(forceNodeStyleById.get(id)?.color || '#7dd3fc')
             }}
             nodeOpacity={Math.max(0.2, Math.min(1, visualApplied.nodeAlpha / 100))}
+            nodeLabel={(node: unknown) => String((node as { name?: string }).name || '')}
             nodeThreeObject={(node: unknown) => {
               const n = node as { id?: string; rawNode?: GraphNodeItem }
               const id = String(n.id || '')
@@ -5322,20 +4121,36 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
               const { source, target } = linkEnds(link)
               return Number(forceLinkStyleByKey.get(`${source}>${target}`)?.width || 1)
             }}
+            linkCurvature={(link: unknown) => {
+              const { source, target } = linkEnds(link)
+              return Number(forceLinkStyleByKey.get(`${source}>${target}`)?.curvature || 0)
+            }}
+            linkCurveRotation={(link: unknown) => {
+              const { source, target } = linkEnds(link)
+              return Number(forceLinkStyleByKey.get(`${source}>${target}`)?.curveRotation || 0)
+            }}
             linkOpacity={(link: unknown) => {
               const { source, target } = linkEnds(link)
               return Number(forceLinkStyleByKey.get(`${source}>${target}`)?.opacity || Math.max(0.06, Math.min(1, visualApplied.edgeAlpha / 100)))
+            }}
+            linkDirectionalArrowLength={(link: unknown) => {
+              const { source, target } = linkEnds(link)
+              return Number(forceLinkStyleByKey.get(`${source}>${target}`)?.arrowLength || 0)
+            }}
+            linkDirectionalArrowColor={(link: unknown) => {
+              const { source, target } = linkEnds(link)
+              return String(forceLinkStyleByKey.get(`${source}>${target}`)?.color || '#7dd3fc')
             }}
             onNodeHover={handleForceNodeHover}
             onNodeClick={handleForceNodeClick}
             onNodeRightClick={handleForceNodeRightClick}
             onBackgroundClick={handleForceBackgroundClick}
             onEngineTick={() => {
-              const next = new Map<string, ForceNodePhysics>()
+              const next = new Map(forceNodePhysicsRef.current)
               forceGraphData.nodes.forEach((node) => {
                 const id = String(node.id || '')
                 if (!id) return
-                next.set(id, {
+                next.set(`${activeProjectionId}\u0000${id}`, {
                   x: node.x,
                   y: node.y,
                   z: node.z,
@@ -5353,11 +4168,17 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   }, [
     renderMode,
     showForceGraphCanvas,
+    displayResource.ready,
+    displayResourceKey,
+    displayResource.epoch,
+    displayResource.width,
+    displayResource.height,
     ForceGraph3DComp,
     forceGraphRenderBoundaryKey,
     forceViewport.width,
     forceViewport.height,
     forceGraphData,
+    activeProjectionId,
     forceVisibleNodeKeySet,
     forceVisibleLinkKeySet,
     visualApplied.nodeAlpha,
@@ -5398,21 +4219,64 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     : templateDiffImpact.affected_areas
   const templateDiffReasonCode = String(templateDiffContract.reason_code || templateDiffImpact.reason_code || '-')
   const templateDiffRiskLevel = String(templateDiffContract.risk_level || templateDiffImpact.risk_level || '-')
-  const templateDryRunSummary = summarizeWorkflowDryRunResult(templateDryRunResult)
-  const templateDryRunSteps = normalizeWorkflowDryRunSteps(templateDryRunResult)
-  const hasDraftTemplateStage = templateStageItems.some((item) => item.stage === 'draft')
-  const hasStagingTemplateStage = templateStageItems.some((item) => item.stage === 'staging')
-  const templateRollbackPlan = describeTemplateRollbackPlan(templateRollbackPreview)
-  const templateRollbackAudit = describeTemplateRollbackAudit(templateRollbackPreview)
-  const templateRollbackHistoryCount = Array.isArray(templateRollbackPreview?.history) ? templateRollbackPreview.history.length : 0
 
   return (
     <div className="content-stack gv2-root">
       <section className="panel gv2-main">
+        {workspaceTabs.length > 1 ? (
+          <div
+            role="tablist"
+            aria-label={t('graphPage.macro.graph')}
+            className="gv2-projection-tabs"
+            onKeyDown={(event) => {
+              if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+              event.preventDefault()
+              const currentIndex = workspaceTabs.findIndex((tab) => tab.moduleKey === activeWorkspaceTab.moduleKey)
+              let nextIndex = currentIndex
+              if (event.key === 'ArrowLeft') nextIndex = currentIndex === -1 ? 0 : (currentIndex - 1 + workspaceTabs.length) % workspaceTabs.length
+              if (event.key === 'ArrowRight') nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % workspaceTabs.length
+              if (event.key === 'Home') nextIndex = 0
+              if (event.key === 'End') nextIndex = workspaceTabs.length - 1
+              const nextTab = workspaceTabs[nextIndex]
+              if (!nextTab) return
+              selectWorkspaceTab(nextTab.moduleKey)
+              window.requestAnimationFrame(() => {
+                document.getElementById(`graph-workspace-tab-${nextTab.moduleKey}`)?.focus()
+              })
+            }}
+          >
+            <div className="gv2-projection-tab-track">
+              {workspaceTabs.map((tab) => {
+                const Icon = GRAPH_WORKSPACE_TAB_ICONS[tab.moduleKey]
+                const active = tab.moduleKey === activeWorkspaceTab.moduleKey
+                return (
+                  <button
+                    key={tab.moduleKey}
+                    id={`graph-workspace-tab-${tab.moduleKey}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    aria-controls="graph-projection-panel"
+                    tabIndex={active ? 0 : -1}
+                    data-testid={`graph-workspace-tab-${tab.moduleKey}`}
+                    className={`gv2-projection-tab ${tab.isBuilder ? 'is-builder' : ''} ${active ? 'is-active' : ''}`.trim()}
+                    onClick={() => selectWorkspaceTab(tab.moduleKey)}
+                  >
+                    <Icon aria-hidden="true" className="gv2-projection-tab-icon" />
+                    <span className="gv2-projection-tab-label">{tab.label || t(tab.labelKey)}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ) : null}
         <div className="gv2-layout">
           <div
             className={`gv2-chart-wrap gv2-chart-wrap--fullscreen-ready ${isFullscreen ? 'is-fullscreen' : ''}`}
             ref={fullscreenWrapRef}
+            id="graph-projection-panel"
+            role="tabpanel"
+            aria-labelledby={`graph-workspace-tab-${activeWorkspaceTab.moduleKey}`}
           >
             {graphData.isFetching ? <div className="gv2-loading">{t('graphPage.loading.fetching')}</div> : null}
             {graphData.error ? (
@@ -5987,16 +4851,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       {t('graphPage.field.templateList')}
                       <select
                         value={activeTemplateKey}
-                        onChange={(e) => {
-                          const key = e.target.value
-                          setActiveTemplateKey(key)
-                          setTemplateDiffPreview(null)
-                          setTemplateDryRunResult(null)
-                          setTemplateRollbackPreview(null)
-                          setTemplateRollbackError('')
-                          void loadVersionList(key)
-                          void loadWorkflowTemplateStageAudit(key)
-                        }}
+                        data-testid="graph-template-select"
+                        onChange={(e) => selectTemplate(e.target.value)}
                         disabled={!editMode || templateBusy}
                       >
                         <option value="">{t('graphPage.placeholder.selectTemplate')}</option>
@@ -6009,23 +4865,23 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                     </label>
                     <label className="gv2-control-chip">
                       {t('graphPage.field.createTemplate')}
-                      <input value={templateNameDraft} onChange={(e) => setTemplateNameDraft(e.target.value)} placeholder={t('graphPage.placeholder.templateName')} disabled={!editMode || templateBusy} />
+                      <input value={templateNameDraft} data-testid="graph-template-create-name" onChange={(e) => setTemplateNameDraft(e.target.value)} placeholder={t('graphPage.placeholder.templateName')} disabled={!editMode || templateBusy} />
                     </label>
                     <div className="gv2-control-chip">
-                      <button type="button" onClick={() => void handleCreateTemplate()} disabled={!editMode || templateBusy || !templateNameDraft.trim()}>{t('graphPage.action.createTemplate')}</button>
+                      <button type="button" data-testid="graph-template-create" onClick={() => void handleCreateTemplate()} disabled={!editMode || templateBusy || !templateNameDraft.trim()}>{t('graphPage.action.createTemplate')}</button>
                       <button type="button" className="secondary" onClick={() => void loadTemplateList()} disabled={!editMode || templateBusy}>{t('graphPage.action.refreshTemplateList')}</button>
                     </div>
                     <label className="gv2-control-chip">
                       {t('graphPage.field.renameTemplate')}
-                      <input value={renameTemplateDraft} onChange={(e) => setRenameTemplateDraft(e.target.value)} placeholder={t('graphPage.placeholder.newName')} disabled={!editMode || !activeTemplateKey || templateBusy} />
+                      <input value={renameTemplateDraft} data-testid="graph-template-rename-name" onChange={(e) => setRenameTemplateDraft(e.target.value)} placeholder={t('graphPage.placeholder.newName')} disabled={!editMode || !activeTemplateKey || templateBusy} />
                     </label>
                     <div className="gv2-control-chip">
-                      <button type="button" onClick={() => void handleRenameTemplate()} disabled={!editMode || !activeTemplateKey || !renameTemplateDraft.trim() || templateBusy}>{t('graphPage.action.rename')}</button>
-                      <button type="button" className="secondary" onClick={() => void handleDeleteTemplate()} disabled={!editMode || !activeTemplateKey || templateBusy}>{t('graphPage.action.deleteTemplate')}</button>
+                      <button type="button" data-testid="graph-template-rename" onClick={() => void handleRenameTemplate()} disabled={!editMode || !activeTemplateKey || !renameTemplateDraft.trim() || templateBusy}>{t('graphPage.action.rename')}</button>
+                      <button type="button" className="secondary" data-testid="graph-template-delete" onClick={() => void handleDeleteTemplate()} disabled={!editMode || !activeTemplateKey || templateBusy}>{t('graphPage.action.deleteTemplate')}</button>
                     </div>
                     <label className="gv2-control-chip">
                       {t('graphPage.field.versionList')}
-                      <select value={activeVersionKey} onChange={(e) => setActiveVersionKey(e.target.value)} disabled={!editMode || !activeTemplateKey || templateBusy}>
+                      <select value={activeVersionKey} data-testid="graph-template-version-select" onChange={(e) => setActiveVersionKey(e.target.value)} disabled={!editMode || !activeTemplateKey || templateBusy}>
                         <option value="">{t('graphPage.placeholder.selectVersion')}</option>
                         {versionItems.map((item) => (
                           <option key={item.key} value={item.key}>{item.name}{item.activated ? t('graphPage.status.activeSuffix') : ''}</option>
@@ -6037,12 +4893,12 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                     </div>
                     <div className="gv2-control-chip">
                       <strong>{t('graphPage.field.templateStageAudit')}</strong>
-                      <button type="button" className="secondary" onClick={() => void handleRefreshWorkflowTemplateStages()} disabled={!editMode || !activeTemplateKey || templateStageBusy}>{t('graphPage.action.refreshStageAudit')}</button>
+                      <button type="button" className="secondary" data-testid="graph-template-stage-audit-refresh" onClick={() => void handleRefreshWorkflowTemplateStages()} disabled={!editMode || !activeTemplateKey || templateStageBusy}>{t('graphPage.action.refreshStageAudit')}</button>
                     </div>
                     <div className="gv2-control-chip">
-                      <button type="button" onClick={() => void handleSaveWorkflowTemplateDraftStage()} disabled={!editMode || !activeTemplateKey || templateStageBusy || !draftNodes.length}>{t('graphPage.action.saveDraftStage')}</button>
-                      <button type="button" className="secondary" onClick={() => void handlePromoteWorkflowTemplateStage('draft', 'staging')} disabled={!editMode || !activeTemplateKey || templateStageBusy || !hasDraftTemplateStage}>{t('graphPage.action.promoteDraftToStaging')}</button>
-                      <button type="button" className="secondary" onClick={() => void handlePromoteWorkflowTemplateStage('staging', 'active')} disabled={!editMode || !activeTemplateKey || templateStageBusy || !hasStagingTemplateStage}>{t('graphPage.action.applyStaging')}</button>
+                      <button type="button" data-testid="graph-template-stage-save" onClick={() => void handleSaveWorkflowTemplateDraftStage()} disabled={!editMode || !activeTemplateKey || templateStageBusy || !draftNodes.length}>{t('graphPage.action.saveDraftStage')}</button>
+                      <button type="button" className="secondary" data-testid="graph-template-stage-promote" onClick={() => void handlePromoteWorkflowTemplateStage('draft', 'staging')} disabled={!editMode || !activeTemplateKey || templateStageBusy || !hasDraftTemplateStage}>{t('graphPage.action.promoteDraftToStaging')}</button>
+                      <button type="button" className="secondary" data-testid="graph-template-stage-apply" onClick={() => void handlePromoteWorkflowTemplateStage('staging', 'active')} disabled={!editMode || !activeTemplateKey || templateStageBusy || !hasStagingTemplateStage}>{t('graphPage.action.applyStaging')}</button>
                     </div>
                     {templateStageAuditSummary ? (
                       <div className="status-line">
@@ -6078,6 +4934,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         {t('graphPage.field.rollbackTargetStage')}
                         <select
                           value={templateRollbackDraft.targetStage}
+                          data-testid="graph-template-rollback-stage"
                           onChange={(e) => setTemplateRollbackDraft((prev) => ({
                             ...prev,
                             targetStage: e.target.value as WorkflowTemplateStageName,
@@ -6095,6 +4952,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                           type="number"
                           min="1"
                           value={templateRollbackDraft.targetVersion}
+                          data-testid="graph-template-rollback-version"
                           onChange={(e) => setTemplateRollbackDraft((prev) => ({ ...prev, targetVersion: e.target.value }))}
                           placeholder={t('graphPage.placeholder.rollbackTargetVersion')}
                           disabled={!editMode || templateRollbackBusy}
@@ -6104,6 +4962,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         {t('graphPage.field.rollbackReason')}
                         <input
                           value={templateRollbackDraft.reason}
+                          data-testid="graph-template-rollback-reason"
                           onChange={(e) => setTemplateRollbackDraft((prev) => ({ ...prev, reason: e.target.value }))}
                           placeholder={t('graphPage.placeholder.rollbackReason')}
                           disabled={!editMode || templateRollbackBusy}
@@ -6114,6 +4973,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       <button
                         type="button"
                         className="secondary"
+                        data-testid="graph-template-rollback-preview"
                         onClick={() => void handlePreviewWorkflowTemplateRollback()}
                         disabled={!editMode || !activeTemplateKey || templateRollbackBusy || !templateRollbackDraft.targetVersion.trim()}
                       >
@@ -6122,6 +4982,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       <button
                         type="button"
                         className="secondary"
+                        data-testid="graph-template-rollback-apply"
                         onClick={() => void handleApplyWorkflowTemplateRollback()}
                         disabled={!editMode || !activeTemplateKey || templateRollbackBusy || !templateRollbackDraft.targetVersion.trim()}
                       >
@@ -6129,7 +4990,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       </button>
                     </div>
                     {templateRollbackPreview ? (
-                      <div data-testid="graph-template-rollback-preview">
+                      <div data-testid="graph-template-rollback-result">
                         <div className="status-line">
                           {tf('graphPage.status.templateRollbackPlan', {
                             mode: templateRollbackPlan.mode,
@@ -6169,18 +5030,19 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                     ) : null}
                     <label className="gv2-control-chip">
                       {t('graphPage.field.versionName')}
-                      <input value={versionNameDraft} onChange={(e) => setVersionNameDraft(e.target.value)} placeholder={t('graphPage.placeholder.versionName')} disabled={!editMode || templateBusy} />
+                      <input value={versionNameDraft} data-testid="graph-template-version-name" onChange={(e) => setVersionNameDraft(e.target.value)} placeholder={t('graphPage.placeholder.versionName')} disabled={!editMode || templateBusy} />
                     </label>
                     <div className="gv2-control-chip">
-                      <button type="button" onClick={() => void handleSaveVersion()} disabled={!editMode || !activeTemplateKey || templateBusy}>{t('graphPage.action.saveVersion')}</button>
-                      <button type="button" className="secondary" onClick={() => void handleLoadVersion()} disabled={!editMode || !activeTemplateKey || !activeVersionKey || templateBusy}>{t('graphPage.action.loadVersion')}</button>
-                      <button type="button" className="secondary" onClick={() => void handleActivateVersion()} disabled={!editMode || !activeTemplateKey || !activeVersionKey || templateBusy}>{t('graphPage.action.activateVersion')}</button>
+                      <button type="button" data-testid="graph-template-version-save" onClick={() => void handleSaveVersion()} disabled={!editMode || !activeTemplateKey || templateBusy}>{t('graphPage.action.saveVersion')}</button>
+                      <button type="button" className="secondary" data-testid="graph-template-version-load" onClick={() => void handleLoadVersion()} disabled={!editMode || !activeTemplateKey || !activeVersionKey || templateBusy}>{t('graphPage.action.loadVersion')}</button>
+                      <button type="button" className="secondary" data-testid="graph-template-version-activate" onClick={() => void handleActivateVersion()} disabled={!editMode || !activeTemplateKey || !activeVersionKey || templateBusy}>{t('graphPage.action.activateVersion')}</button>
                     </div>
                     <div className="gv2-control-chip">
                       <strong>{t('graphPage.field.configDiff')}</strong>
                       <button
                         type="button"
                         className="secondary"
+                        data-testid="graph-template-diff"
                         onClick={() => void handlePreviewWorkflowTemplateDiff()}
                         disabled={!editMode || !activeTemplateKey || templateDiffBusy || !draftNodes.length}
                       >
@@ -6225,7 +5087,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       </div>
                     ) : null}
                     {templateDiffPreview ? (
-                      <>
+                      <div data-testid="graph-template-diff-result">
                         <div className="status-line">
                           {tf('graphPage.status.configDiffVersions', {
                             stage: String(templateDiffSummary.stage || '-'),
@@ -6281,7 +5143,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         )) : (
                           <div className="status-line">{t('graphPage.status.configDiffNoStepChanges')}</div>
                         )}
-                      </>
+                      </div>
                     ) : null}
                     <div className="status-line">
                       {(templateBusy || templateStageBusy || templateRollbackBusy || templateDryRunBusy) ? t('graphPage.status.templateBusy') : (graphEditStatus || t('graphPage.status.editReady'))}
@@ -6380,7 +5242,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         }}
                       />
                     </label>
-                    {(graphKind === 'policy' || graphKind === 'market' || graphKind === 'market_deep_entities' || graphKind === 'company' || graphKind === 'product' || graphKind === 'operation') ? (
+                    {(graphProjection.configKey === 'policy' || graphKind === 'market' || Boolean(graphProjection.marketView)) ? (
                       <label className="gv2-control-chip">
                         {t('graphPage.field.state')}
                         <input value={state} placeholder={t('graphPage.placeholder.state')} onChange={(e) => setState(e.target.value)} />
@@ -6404,7 +5266,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         </label>
                       </>
                     ) : null}
-                    {(graphKind === 'market' || graphKind === 'market_deep_entities' || graphKind === 'company' || graphKind === 'product' || graphKind === 'operation') ? (
+                    {(graphKind === 'market' || Boolean(graphProjection.marketView)) ? (
                       <label className="gv2-control-chip">
                         {t('graphPage.field.game')}
                         <input value={game} placeholder={t('graphPage.placeholder.game')} onChange={(e) => setGame(e.target.value)} />
@@ -6632,12 +5494,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                             })
                           }}
                         >
-                          <span
-                            className={`gv2-edge-line-badge is-${sample.lineType} is-stroke-${sample.strokeKind}`}
-                            style={{ '--edge-color': sample.color, '--edge-badge-scale': edgeBadgeScale } as CSSProperties}
-                          >
-                            <i />
-                          </span>
+                          <EdgeLegendBadge profile={EDGE_STYLE_CATALOG[sample.styleId]} color={sample.color} scale={edgeBadgeScale} />
                           <span className="gv2-legend-node-label">{edgeTierLabel(tier)}</span>
                         </button>
                       )
@@ -6654,12 +5511,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                             className={`gv2-type gv2-type--edge ${hidden ? 'is-hidden' : ''}`}
                             onClick={() => setHiddenEdgeKinds((prev) => ({ ...prev, [item.key]: !prev[item.key] }))}
                           >
-                            <span
-                              className={`gv2-edge-line-badge is-${item.lineType} is-stroke-${item.strokeKind}`}
-                              style={{ '--edge-color': item.color, '--edge-badge-scale': edgeBadgeScale } as CSSProperties}
-                            >
-                              <i />
-                            </span>
+                        <EdgeLegendBadge profile={EDGE_STYLE_CATALOG[item.styleId]} color={item.color} scale={edgeBadgeScale} />
                             <span>{item.label}</span>
                             <small>{item.count}</small>
                           </button>
@@ -7046,13 +5898,16 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
           ) : null}
           </div>
           <div className="gv2-macro-stats">
-            <div className="gv2-macro-stat"><span>{t('graphPage.macro.graph')}</span><strong>{graphVariantLabel}</strong></div>
+            <div className="gv2-macro-stat"><span>{t('graphPage.macro.graph')}</span><strong>{realizedGraphLabel}</strong></div>
             <div className="gv2-macro-stat"><span>{t('graphPage.macro.totalNodes')}</span><strong>{stats.nodes}</strong></div>
             <div className="gv2-macro-stat"><span>{t('graphPage.macro.totalEdges')}</span><strong>{stats.edges}</strong></div>
             <div className="gv2-macro-stat"><span>{t('graphPage.macro.nodeTypes')}</span><strong>{stats.typeCount}</strong></div>
             <div className="gv2-macro-stat"><span>{t('graphPage.macro.selectedNodes')}</span><strong>{selectedNodeKeys.size}</strong></div>
             <div className="gv2-macro-stat"><span>{t('graphPage.macro.visibleNow')}</span><strong>{topology.visibleNodes.length} / {topology.visibleEdges.length}</strong></div>
           </div>
+          <GraphTopologyPanel
+            graphIdentity={graphKind}
+          />
         </div>
       </section>
     </div>

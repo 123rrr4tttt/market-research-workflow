@@ -1,0 +1,44 @@
+.graph-topology-panel {
+  position: relative;
+  z-index: 6;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--gv2-line, rgba(125, 211, 252, 0.2));
+  background: rgba(3, 7, 18, 0.72);
+  color: var(--gv2-text, #e5eef8);
+}
+
+.graph-topology-panel__head,
+.graph-topology-panel__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.graph-topology-panel__head h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.graph-topology-panel__head p,
+.graph-topology-panel > p {
+  color: var(--gv2-text-soft, #aab8ca);
+  font-size: 12px;
+}
+
+.graph-topology-panel .topology-detail {
+  margin-top: 12px;
+  max-height: 440px;
+  overflow: auto;
+}
+
+@media (max-width: 700px) {
+  .graph-topology-panel__head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .graph-topology-panel__actions {
+    width: 100%;
+  }
+}

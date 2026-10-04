@@ -68,7 +68,7 @@ def fetch_html(
         except requests.RequestException as exc:  # pragma: no cover - network issues
             last_exc = exc
         else:
-            # Some lottery sites return branded HTML pages for certain errors. Treat
+            # Some provider sites return branded HTML pages for certain errors. Treat
             # 4xx as fatal but retry on transient 5xx.
             if response.status_code >= 500:
                 last_exc = HttpFetchError(

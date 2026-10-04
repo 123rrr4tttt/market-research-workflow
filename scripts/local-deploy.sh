@@ -7,6 +7,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BACKEND_DIR="${ROOT_DIR}/main/backend"
 OPTIONAL_ENHANCEMENTS_SCRIPT="${ROOT_DIR}/scripts/optional-enhancements.sh"
 WORKER_PID_FILE="/tmp/celery-local-worker.pid"
+WORKER_LAUNCHD_LABEL="com.mrw.local-worker"
 
 usage() {
   cat <<USAGE
@@ -51,6 +52,19 @@ resolve_backend_python() {
 is_listening() {
   local port="$1"
   lsof -nP -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1
+}
+
+worker_launchd_pid() {
+  local output pid_line
+  output="$(launchctl list "${WORKER_LAUNCHD_LABEL}" 2>/dev/null || true)"
+  pid_line="$(printf '%s\n' "${output}" | sed -n 's/^[[:space:]]*"PID"[[:space:]]*=[[:space:]]*\([0-9][0-9]*\);.*/\1/p' | head -n 1)"
+  if [[ "${pid_line}" =~ ^[0-9]+$ ]]; then
+    printf '%s\n' "${pid_line}"
+  fi
+}
+
+worker_plist_path() {
+  printf '%s/Library/LaunchAgents/%s.plist' "${HOME}" "${WORKER_LAUNCHD_LABEL}"
 }
 
 preflight_records_file=""
@@ -401,7 +415,14 @@ case "$cmd" in
     else
       echo "❌ frontend-modern not listening on :5173"
     fi
-    if [[ -f "${WORKER_PID_FILE}" ]]; then
+    if [[ "${OSTYPE}" == darwin* && -f "$(worker_plist_path)" ]]; then
+      worker_pid="$(worker_launchd_pid)"
+      if [[ -n "${worker_pid}" ]]; then
+        echo "✅ celery worker running (launchd PID ${worker_pid})"
+      else
+        echo "❌ celery worker not running under launchd"
+      fi
+    elif [[ -f "${WORKER_PID_FILE}" ]]; then
       worker_pid="$(cat "${WORKER_PID_FILE}" 2>/dev/null || true)"
       if [[ -n "${worker_pid:-}" ]] && kill -0 "${worker_pid}" >/dev/null 2>&1; then
         echo "✅ celery worker running (PID ${worker_pid})"

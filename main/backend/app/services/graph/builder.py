@@ -585,7 +585,7 @@ def build_market_graph(
                 )
                 graph.nodes[f"State:{state_id}"] = state_node
         
-        # Segment节点（通用：lottery的game、demo的segment等均适配为此）
+        # Segment节点：映射市场数据的分类或细分概念。
         if market_data.game:
             seg_id = market_data.game.lower().strip()
             if f"Segment:{seg_id}" not in graph.nodes:

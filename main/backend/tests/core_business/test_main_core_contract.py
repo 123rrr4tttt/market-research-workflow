@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import patch
 
@@ -31,6 +32,17 @@ except Exception as exc:  # noqa: BLE001
 
 if _IMPORT_ERROR is not None:
     pytest.skip(f"main core contract tests require backend dependencies: {_IMPORT_ERROR}", allow_module_level=True)
+
+
+@pytest.fixture(autouse=True)
+def restore_test_routes() -> Iterator[None]:
+    original_routes = list(backend_app.router.routes)
+    original_schema = backend_app.openapi_schema
+    try:
+        yield
+    finally:
+        backend_app.router.routes[:] = original_routes
+        backend_app.openapi_schema = original_schema
 
 
 def _ensure_route(path: str, endpoint, *, methods: list[str] | None = None) -> None:

@@ -75,10 +75,32 @@ def _infer_effective_time(document: Document, extracted_data: dict) -> str | Non
     return None
 
 
+def _required_project_key(extracted_data: dict) -> str:
+    bound_project_key = _as_non_empty_text(current_project_key())
+    declared_project_key = _as_non_empty_text(extracted_data.get("project_key"))
+    if not bound_project_key:
+        _raise_indexer_failure(
+            _indexer_failure(
+                "vector_contract_missing_fields",
+                "project_scope_required",
+                site="vector_contract.project_key",
+            )
+        )
+    if declared_project_key is not None and declared_project_key != bound_project_key:
+        _raise_indexer_failure(
+            _indexer_failure(
+                "vector_contract_missing_fields",
+                "project_scope_conflict",
+                site="vector_contract.project_key",
+            )
+        )
+    return bound_project_key
+
+
 def _build_vector_contract_payload(document: Document, clean_text: str) -> dict:
     extracted_data = get_extracted_data(document)
     payload = {
-        "project_key": _as_non_empty_text(extracted_data.get("project_key") or current_project_key()),
+        "project_key": _required_project_key(extracted_data),
         "object_type": _EMBEDDING_OBJECT_TYPE,
         "object_id": int(document.id),
         "vector_version": _as_non_empty_text(extracted_data.get("vector_version") or _VECTOR_VERSION),
@@ -174,12 +196,6 @@ def index_policy_documents(document_ids: Sequence[int] | None = None, state: str
             if not content:
                 continue
 
-            # remove existing embeddings
-            session.query(Embedding).filter(
-                Embedding.object_type == _EMBEDDING_OBJECT_TYPE,
-                Embedding.object_id == doc.id,
-            ).delete(synchronize_session=False)
-
             splits = splitter.split_text(content)
             for idx, chunk_text in enumerate(splits):
                 chunks.append(PolicyChunk(document=doc, text=chunk_text, chunk_index=idx))
@@ -188,22 +204,35 @@ def index_policy_documents(document_ids: Sequence[int] | None = None, state: str
             session.commit()
             return {"indexed": 0, "deleted": 0}
 
+        prepared_chunks: list[tuple[PolicyChunk, dict]] = []
         try:
+            for chunk in chunks:
+                vector_contract = _build_vector_contract_payload(chunk.document, chunk.text)
+                vector_contract_failure = _validate_vector_contract_payload(vector_contract)
+                if vector_contract_failure is not None:
+                    _raise_indexer_failure(vector_contract_failure)
+                prepared_chunks.append((chunk, vector_contract))
+
+            document_ids = {chunk.document.id for chunk, _ in prepared_chunks}
+            for document_id in sorted(document_ids):
+                session.query(Embedding).filter(
+                    Embedding.object_type == _EMBEDDING_OBJECT_TYPE,
+                    Embedding.object_id == document_id,
+                ).delete(synchronize_session=False)
+
             embedding_model = get_embeddings()
             vectors = embedding_model.embed_documents([chunk.text for chunk in chunks])
 
             es = get_es_client()
-            _delete_existing_es_docs(es, {chunk.document.id for chunk in chunks})
+            _delete_existing_es_docs(
+                es, document_ids, prepared_chunks[0][1]["project_key"]
+            )
 
             es_actions = []
             # Collect Qdrant points opportunistically (id, vector, payload)
             qdrant_points: list[tuple[int, list[float], dict]] = []
             qdrant_collection = os.environ.get("QDRANT_COLLECTION", "policy_chunks")
-            for chunk, vector in zip(chunks, vectors):
-                vector_contract = _build_vector_contract_payload(chunk.document, chunk.text)
-                vector_contract_failure = _validate_vector_contract_payload(vector_contract)
-                if vector_contract_failure is not None:
-                    _raise_indexer_failure(vector_contract_failure)
+            for (chunk, vector_contract), vector in zip(prepared_chunks, vectors):
                 embedding_row = Embedding(
                     object_id=chunk.document.id,
                     object_type=_EMBEDDING_OBJECT_TYPE,
@@ -219,7 +248,9 @@ def index_policy_documents(document_ids: Sequence[int] | None = None, state: str
                 es_actions.append(
                     {
                         "_index": _ES_INDEX,
-                        "_id": f"policy-{chunk.document.id}-{embedding_row.id}",
+                        "_id": _es_document_id(
+                            vector_contract["project_key"], chunk.document.id, chunk.chunk_index
+                        ),
                         "embedding_id": embedding_row.id,
                         "project_key": vector_contract["project_key"],
                         "object_type": vector_contract["object_type"],
@@ -272,14 +303,14 @@ def index_policy_documents(document_ids: Sequence[int] | None = None, state: str
                     pass
 
             session.commit()
+            if es_actions:
+                # Committed DB state remains committed if ES bulk fails.
+                bulk(es, es_actions)
         except Exception as exc:  # noqa: BLE001
             session.rollback()
             fail_job(job_id, str(exc))
             # kit:boundary owner=indexer.policy.execution class=SHELL_BOUNDARY_EXCEPTION failure_family=indexer.policy.failure witness=test:test_w03_effect_boundaries
             raise
-
-        if es_actions:
-            bulk(es, es_actions)
 
         result = {"indexed": len(es_actions), "documents": len({chunk.document.id for chunk in chunks})}
         complete_job(job_id, result=result)
@@ -299,14 +330,31 @@ def index_policy_documents(document_ids: Sequence[int] | None = None, state: str
         return result
 
 
-def _delete_existing_es_docs(es: Elasticsearch, document_ids: Iterable[int]) -> None:
-    for doc_id in document_ids:
-        es.delete_by_query(
-            index=_ES_INDEX,
-            body={"query": {"term": {"document_id": doc_id}}},
-            ignore=[404],
-            refresh=True,
-        )
+def _delete_existing_es_docs(
+    es: Elasticsearch, document_ids: Iterable[int], project_key: str
+) -> None:
+    ids = list(document_ids)
+    if not ids:
+        return
+    es.delete_by_query(
+        index=_ES_INDEX,
+        body={
+            "query": {
+                "bool": {
+                    "filter": [
+                        {"term": {"project_key": project_key}},
+                        {"terms": {"document_id": ids}},
+                    ]
+                }
+            }
+        },
+        ignore=[404],
+        refresh=True,
+    )
+
+
+def _es_document_id(project_key: str, document_id: int, chunk_index: int) -> str:
+    return f"policy-{project_key}-{document_id}-{chunk_index}"
 
 
 def _get_qdrant_client() -> object | None:

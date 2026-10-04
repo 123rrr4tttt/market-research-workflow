@@ -1,4 +1,4 @@
-"""HTTP/read-facade projection wiring over real PostgreSQL (C7 canonical).
+"""HTTP/read-facade projection wiring over real PostgreSQL material canonical.
 
 The suite proves the registry-backed HTTP composition root can answer a
 ``projection_snapshot`` query with real committed successor data.  It commits
@@ -11,29 +11,24 @@ admission runner on a disposable database, then reads it back twice:
 
 The responses must bind the exact committed content digest and carry
 read-only/no-write markers.  No legacy table is created or written and the
-whole database is dropped on teardown.
+   whole database is dropped on teardown.
 """
 
 from __future__ import annotations
 
+import hashlib
 import os
 from collections.abc import Iterator
 
 import pytest
 import sqlalchemy as sa
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlalchemy import text
-from sqlalchemy.engine import Engine, make_url
-from sqlalchemy.exc import OperationalError
-from sqlalchemy.pool import NullPool
-
 from app.api import successor_runtime as api_module
 from app.settings.config import settings as app_settings
 from app.successor_runtime.assembly.app_assembly import (
     SUCCESSOR_DEPENDENCIES_STATE_ATTR,
     build_successor_registry_app_dependencies,
 )
+from app.successor_runtime.research.codec import canonical_bytes
 from app.successor_runtime.runtime.facade_contracts import (
     FacadeQueryV2,
     QueryMetaV2,
@@ -44,19 +39,34 @@ from app.successor_runtime.substrate.postgres.c7_production_admission import (
     run_c7_production_cutover_admission,
 )
 from app.successor_runtime.substrate.postgres.c7_projector_driver import (
-    C7_CANONICAL_SOURCE_KIND,
-    C7_SEARCH_PROJECTOR_ID,
-    C7_SEARCH_PROJECTOR_VERSION,
+    MATERIAL_CANONICAL_SOURCE_KIND,
+    MATERIAL_PROJECTION_VALUE_PREFIX,
+    MATERIAL_SEARCH_PROJECTION_ID,
+    MATERIAL_SEARCH_PROJECTION_SCHEMA,
+    MATERIAL_SEARCH_PROJECTOR_ID,
+    MATERIAL_SEARCH_PROJECTOR_VERSION,
+)
+from app.successor_runtime.substrate.postgres.projection_sources import (
+    build_project_source_closure,
+    put_project_source_rows,
 )
 from app.successor_runtime.substrate.postgres.ingest_c7_movement_admission import (
     C7_MOVEMENT_CANONICAL_DOCUMENTS,
 )
 from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES, project_tables
 from app.successor_runtime.substrate.postgres.projection_query_read_port import (
-    C7_DOCUMENT_SOURCE_PREFIX,
+    ACTIVE_PROJECT_MATERIAL_PROJECTOR_ID,
+    ACTIVE_PROJECT_MATERIAL_PROJECTOR_VERSION,
+    MATERIAL_DOCUMENT_SOURCE_PREFIX,
     EngineBackedProjectionQueryReadPort,
 )
 from app.successor_runtime.substrate.postgres.session import compute_scope_digest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import text
+from sqlalchemy.engine import Engine, make_url
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.pool import NullPool
 
 pytestmark = pytest.mark.integration
 
@@ -127,14 +137,14 @@ def disposable_database() -> Iterator[Engine]:
         .render_as_string(hide_password=False),
         poolclass=NullPool,
     )
+    project_metadata = sa.MetaData()
+    project_tables(project_metadata, RESOLVED_SCHEMA)
     with engine.begin() as connection:
         connection.execute(text(f'CREATE SCHEMA "{RESOLVED_SCHEMA}"'))
         for table in PUBLIC_TABLES.values():
             table.create(connection)
         C7_MOVEMENT_CANONICAL_DOCUMENTS.create(connection)
-        project_tables(sa.MetaData(), RESOLVED_SCHEMA).successor_values.create(
-            connection
-        )
+        project_metadata.create_all(connection)
         connection.execute(
             PUBLIC_TABLES["project_scope_registry"]
             .insert()
@@ -213,12 +223,39 @@ def _query(scope, source_incarnation: str) -> FacadeQueryV2:
         ),
         params={
             "params_kind": "projection_snapshot",
-            "projection_id": "projection.http-projection-read.v1",
-            "projector_id": C7_SEARCH_PROJECTOR_ID,
-            "projector_version": C7_SEARCH_PROJECTOR_VERSION,
-            "source_kind": C7_CANONICAL_SOURCE_KIND,
-            "source_ref": f"{C7_DOCUMENT_SOURCE_PREFIX}{OBJECT_ID}",
+            "projection_id": MATERIAL_SEARCH_PROJECTION_ID,
+            "projector_id": MATERIAL_SEARCH_PROJECTOR_ID,
+            "projector_version": MATERIAL_SEARCH_PROJECTOR_VERSION,
+            "source_kind": MATERIAL_CANONICAL_SOURCE_KIND,
+            "source_ref": f"{MATERIAL_DOCUMENT_SOURCE_PREFIX}{OBJECT_ID}",
             "source_incarnation": source_incarnation,
+            "page_size": 25,
+        },
+        read_only=True,
+    )
+
+
+def _active_material_query(scope) -> FacadeQueryV2:
+    query_id = "q:http-active-material"
+    return FacadeQueryV2(
+        query_id=query_id,
+        query_kind="projection_snapshot",
+        project_scope_ref=scope.project_scope,
+        actor_ref=ACTOR_ID,
+        meta=QueryMetaV2(
+            project_key=scope.project_scope.project_key,
+            trace_id="trace:http-active-material",
+            query_id=query_id,
+            project_scope_ref=scope.project_scope,
+        ),
+        params={
+            "params_kind": "projection_snapshot",
+            "projection_id": ACTIVE_PROJECT_MATERIAL_PROJECTOR_ID,
+            "projector_id": ACTIVE_PROJECT_MATERIAL_PROJECTOR_ID,
+            "projector_version": ACTIVE_PROJECT_MATERIAL_PROJECTOR_VERSION,
+            "source_kind": "material",
+            "source_ref": f"material:{PROJECT_KEY}",
+            "source_incarnation": f"active-project:{PROJECT_KEY}",
             "page_size": 25,
         },
         read_only=True,
@@ -243,14 +280,20 @@ def test_committed_document_reads_through_registry_read_port(
 
     assert result.meta.source_digest == committed["content_digest"]
     assert result.meta.project_key == PROJECT_KEY
-    assert result.meta.source_kind == C7_CANONICAL_SOURCE_KIND
+    assert result.meta.projection_id == MATERIAL_SEARCH_PROJECTION_ID
+    assert result.meta.projector_id == MATERIAL_SEARCH_PROJECTOR_ID
+    assert result.meta.source_kind == MATERIAL_CANONICAL_SOURCE_KIND
     assert result.meta.cursor == committed["revision"]
     assert result.data.source_digest == result.meta.source_digest
     assert result.data.candidate_values
     candidate = result.data.candidate_values[0]
     assert candidate.sink == "search"
-    assert candidate.content_digest == committed["content_digest"]
+    assert candidate.value_id.startswith(f"{MATERIAL_PROJECTION_VALUE_PREFIX}:search:")
     payload = candidate.payload
+    assert candidate.content_digest == hashlib.sha256(
+        canonical_bytes(payload)
+    ).hexdigest()
+    assert payload["schema_version"] == MATERIAL_SEARCH_PROJECTION_SCHEMA
     assert payload["no_postgres_write"] is True
     assert payload["read_only"] is True
     assert payload["document_ref"]["content_digest"] == committed["content_digest"]
@@ -289,33 +332,142 @@ def test_http_query_returns_real_committed_document(
         "trace_id": "trace:http-projection-read:2",
         "params": {
             "params_kind": "projection_snapshot",
-            "projection_id": "projection.http-projection-read.v1",
-            "projector_id": C7_SEARCH_PROJECTOR_ID,
-            "projector_version": C7_SEARCH_PROJECTOR_VERSION,
-            "source_kind": C7_CANONICAL_SOURCE_KIND,
-            "source_ref": f"{C7_DOCUMENT_SOURCE_PREFIX}{OBJECT_ID}",
+            "projection_id": MATERIAL_SEARCH_PROJECTION_ID,
+            "projector_id": MATERIAL_SEARCH_PROJECTOR_ID,
+            "projector_version": MATERIAL_SEARCH_PROJECTOR_VERSION,
+            "source_kind": MATERIAL_CANONICAL_SOURCE_KIND,
+            "source_ref": f"{MATERIAL_DOCUMENT_SOURCE_PREFIX}{OBJECT_ID}",
             "source_incarnation": str(committed["incarnation"]),
             "page_size": 25,
         },
     }
     with TestClient(app) as client:
         response = client.post(
-            "/api/v1/successor-runtime/v2/queries",
+            "/api/v1/material-projections/v2/queries",
             json=body,
         )
     assert response.status_code == 200
     envelope = response.json()
-    assert envelope["status"] == "ok"
+    assert envelope["status"] == "ok", envelope
     assert envelope["control_feedback"] is False
     assert envelope["error"] is None
     meta = envelope["meta"]
     assert meta["project_key"] == PROJECT_KEY
     assert meta["project_scope_ref"]["resolved_schema"] == scope.project_scope.resolved_schema
     assert meta["source_digest"] == committed["content_digest"]
-    assert meta["source_kind"] == C7_CANONICAL_SOURCE_KIND
+    assert meta["projection_id"] == MATERIAL_SEARCH_PROJECTION_ID
+    assert meta["projector_id"] == MATERIAL_SEARCH_PROJECTOR_ID
+    assert meta["source_kind"] == MATERIAL_CANONICAL_SOURCE_KIND
     assert envelope["data"]["source_digest"] == committed["content_digest"]
     candidates = envelope["data"]["candidate_values"]
     assert len(candidates) == 1
     assert candidates[0]["sink"] == "search"
+    assert candidates[0]["value_id"].startswith(
+        f"{MATERIAL_PROJECTION_VALUE_PREFIX}:search:"
+    )
+    assert candidates[0]["payload"]["schema_version"] == (
+        MATERIAL_SEARCH_PROJECTION_SCHEMA
+    )
+    assert candidates[0]["content_digest"] == hashlib.sha256(
+        canonical_bytes(candidates[0]["payload"])
+    ).hexdigest()
     assert candidates[0]["payload"]["document_ref"]["object_id"] == OBJECT_ID
     assert candidates[0]["payload"]["no_postgres_write"] is True
+
+
+def test_active_material_selector_reads_persisted_source_through_http_without_write(
+    disposable_database: Engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    outcome = run_c7_production_cutover_admission(
+        disposable_database,
+        admission_input=_admission_input(),
+    )
+    assert outcome.status in {"COMMITTED", "REPLAYED_COMMITTED"}
+    scope = _scope(disposable_database)
+    with disposable_database.begin() as connection:
+        closure = build_project_source_closure(connection, scope)
+        persisted = put_project_source_rows(connection, scope, closure)
+    assert persisted.closure_digest == closure.closure_digest
+
+    direct = EngineBackedProjectionQueryReadPort(
+        engine=disposable_database
+    ).read(_active_material_query(scope))
+    assert direct.meta.projection_id == ACTIVE_PROJECT_MATERIAL_PROJECTOR_ID
+    assert direct.meta.projector_id == "projection.project-source-identity.v2"
+    assert direct.meta.projector_version == "2.0.0"
+    assert direct.meta.source_kind == "projection_source"
+    assert direct.meta.source_ref == f"projection:{PROJECT_KEY}:source"
+    assert direct.meta.source_incarnation == scope.project_scope.incarnation
+    assert direct.meta.source_digest == closure.closure_digest
+    assert len(direct.data.candidate_values) == 1
+    direct_candidate = direct.data.candidate_values[0]
+    assert direct_candidate.sink == "material"
+    assert direct_candidate.payload["schema_version"] == (
+        "mrw.projection.material-source.v2"
+    )
+    assert direct_candidate.payload["material_ref"] == f"material:{PROJECT_KEY}"
+
+    project = project_tables(sa.MetaData(), RESOLVED_SCHEMA)
+    with disposable_database.connect() as connection:
+        before = {
+            "values": connection.execute(
+                sa.select(sa.func.count()).select_from(project.successor_values)
+            ).scalar_one(),
+            "offsets": connection.execute(
+                sa.select(sa.func.count()).select_from(
+                    PUBLIC_TABLES["runtime_projection_offsets"]
+                )
+            ).scalar_one(),
+        }
+
+    monkeypatch.setattr(app_settings, "successor_mount_mode", "production_registry")
+    monkeypatch.setattr(app_settings, "codex_auth_enabled", True)
+    monkeypatch.setattr(app_settings, "successor_production_requires_auth", True)
+    dependencies = build_successor_registry_app_dependencies(
+        engine=disposable_database,
+        actor_provider=lambda request: ACTOR_ID,
+    )
+    app = FastAPI()
+    setattr(app.state, SUCCESSOR_DEPENDENCIES_STATE_ATTR, dependencies)
+    app.include_router(
+        api_module.create_successor_runtime_state_router(),
+        prefix="/api/v1",
+    )
+    query = _active_material_query(scope)
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/material-projections/v2/queries",
+            json={
+                "query_id": query.query_id,
+                "query_kind": query.query_kind,
+                "project_locator": PROJECT_KEY,
+                "trace_id": query.meta.trace_id,
+                "params": dict(query.params),
+            },
+        )
+    assert response.status_code == 200
+    envelope = response.json()
+    assert envelope["status"] == "ok"
+    assert envelope["error"] is None
+    assert envelope["meta"]["source_digest"] == closure.closure_digest
+    assert envelope["meta"]["source_ref"] == f"projection:{PROJECT_KEY}:source"
+    candidate = envelope["data"]["candidate_values"][0]
+    assert candidate["sink"] == "material"
+    assert candidate["payload"]["material_ref"] == f"material:{PROJECT_KEY}"
+    assert candidate["payload"]["schema_version"] == (
+        "mrw.projection.material-source.v2"
+    )
+
+    with disposable_database.connect() as connection:
+        after = {
+            "values": connection.execute(
+                sa.select(sa.func.count()).select_from(project.successor_values)
+            ).scalar_one(),
+            "offsets": connection.execute(
+                sa.select(sa.func.count()).select_from(
+                    PUBLIC_TABLES["runtime_projection_offsets"]
+                )
+            ).scalar_one(),
+        }
+    assert after == before

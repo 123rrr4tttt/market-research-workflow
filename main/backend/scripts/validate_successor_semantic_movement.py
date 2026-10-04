@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Read-only validator for the P1-P3 semantic movement backfill artifacts.
+"""Read-only validator for frozen P1-P3 semantic-movement history.
+
+The historical family coverage includes C6 and does not attest current
+capability or runtime availability.
 
 The validator recomputes every generated artifact from the mainline inputs,
 compares persisted bytes, and runs the declared-scope and predecessor-to-

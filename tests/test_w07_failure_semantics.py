@@ -116,6 +116,7 @@ def test_INVARIANT__w07_family_names_and_codes_are_exact() -> None:
             "NODE_HANDLER_CONTRACT_INVALID",
             "NODE_PORT_RESULT_INVALID",
             "NON_START_PROOF_INVALID",
+            "PROCESS_OBSERVATION_INVALID",
             "PROJECT_SCOPE_INVALID",
             "QUALIFICATION_INVALID",
             "RECONCILIATION_BINDING_REJECTED",

@@ -61,100 +61,17 @@ class RuntimeOpsErrorContractIntegrationTestCase(unittest.TestCase):
         self.assertEqual(payload["error"]["code"], ErrorCode.NOT_FOUND.value)
         self.assertEqual(response.headers.get("x-error-code"), ErrorCode.NOT_FOUND.value)
 
-    def test_market_stats_db_failure_returns_structured_upstream_error(self):
-        class _BoomSessionLocal:
-            def __enter__(self):
-                raise RuntimeError("database timeout")
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-        with patch("app.api.market.SessionLocal", return_value=_BoomSessionLocal()):
-            response = self.client.get("/api/v1/market", params={"state": "CA"}, headers=self.headers)
-
-        self.assertEqual(response.status_code, 503)
-        payload = response.json()
-        self.assertEqual(payload["status"], "error")
-        self.assertEqual(payload["error"]["code"], ErrorCode.UPSTREAM_ERROR.value)
-        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.UPSTREAM_ERROR.value)
-
-    def test_market_stats_success_returns_standard_ok_envelope(self):
-        row = SimpleNamespace(
-            date=SimpleNamespace(isoformat=lambda: "2026-01-01"),
-            revenue=10,
-            sales_volume=20,
-            jackpot=30,
-            ticket_price=2,
-            game="Powerball",
-            source_name="src",
-            source_uri="https://example.com",
+    def test_legacy_market_statistics_routes_are_retired(self):
+        routes = (
+            ("get", "/api/v1/market"),
+            ("get", "/api/v1/market/games"),
+            ("get", "/api/v1/dashboard/market-trends"),
+            ("post", "/api/v1/admin/market-stats/list"),
         )
-        query = Mock()
-        query.filter.return_value = query
-        query.order_by.return_value = query
-        query.all.return_value = [row]
-        session = Mock()
-        session.query.return_value = query
-
-        class _SessionLocal:
-            def __enter__(self):
-                return session
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-        with patch("app.api.market.SessionLocal", return_value=_SessionLocal()):
-            response = self.client.get("/api/v1/market", params={"state": "CA"}, headers=self.headers)
-
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertEqual(payload["status"], "ok")
-        self.assertEqual(payload["data"]["state"], "CA")
-        self.assertEqual(payload["data"]["series"][0]["game"], "Powerball")
-
-    def test_market_validation_error_returns_invalid_input_envelope(self):
-        response = self.client.get("/api/v1/market", params={"state": "CA", "period": "yearly"}, headers=self.headers)
-
-        self.assertEqual(response.status_code, 422)
-        payload = response.json()
-        self.assertEqual(payload["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
-        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
-
-    def test_market_games_internal_error_returns_structured_internal_error(self):
-        class _BoomSessionLocal:
-            def __enter__(self):
-                raise RuntimeError("boom")
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-        with patch("app.api.market.SessionLocal", return_value=_BoomSessionLocal()):
-            response = self.client.get("/api/v1/market/games", params={"state": "CA"}, headers=self.headers)
-
-        self.assertEqual(response.status_code, 500)
-        payload = response.json()
-        self.assertEqual(payload["status"], "error")
-        self.assertEqual(payload["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
-        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INTERNAL_ERROR.value)
-
-    def test_market_games_success_returns_standard_ok_envelope(self):
-        session = Mock()
-        session.query.return_value.filter.return_value.distinct.return_value.all.return_value = [("Powerball",), ("Mega",)]
-
-        class _SessionLocal:
-            def __enter__(self):
-                return session
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-        with patch("app.api.market.SessionLocal", return_value=_SessionLocal()):
-            response = self.client.get("/api/v1/market/games", params={"state": "CA"}, headers=self.headers)
-
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertEqual(payload["status"], "ok")
-        self.assertEqual(payload["data"]["games"], ["Powerball", "Mega"])
+        for method, path in routes:
+            with self.subTest(path=path):
+                response = getattr(self.client, method)(path, headers=self.headers)
+                self.assertEqual(response.status_code, 404)
 
     def test_governance_cleanup_runtime_error_returns_structured_internal_error(self):
         with patch("app.api.governance.cleanup_old_data", side_effect=RuntimeError("cleanup failed")):
@@ -234,152 +151,94 @@ class RuntimeOpsErrorContractIntegrationTestCase(unittest.TestCase):
         self.assertEqual(payload["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
         self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INTERNAL_ERROR.value)
 
-    def test_health_runtime_status_returns_local_contract(self):
+    def test_health_reports_provider_and_environment_without_dependency_probes(self):
         with (
-            patch("app.main.os.path.exists", return_value=False),
-            patch.dict(
-                "app.main.os.environ",
-                {
-                    "APP_RUNTIME_MODE": "",
-                    "DOCKER_ENV": "false",
-                    "KUBERNETES_SERVICE_HOST": "",
-                    "RUNTIME_MODE": "",
-                },
-            ),
-            patch("app.main.settings.database_url", "postgresql+psycopg2://postgres:postgres@localhost:5432/postgres"),
-            patch("app.main.settings.es_url", "http://localhost:9200"),
-            patch("app.main.settings.redis_url", "redis://localhost:6379/0"),
             patch("app.main.settings.llm_provider", "local"),
+            patch("app.main.settings.env", "test"),
+            patch("app.main.engine.connect") as connect,
+            patch("app.main.get_db_pool_status") as pool,
+            patch("app.main.get_es_client") as es,
         ):
             response = self.client.get("/api/v1/health", headers=self.headers)
 
         self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertEqual(payload["status"], "ok")
-        self.assertEqual(payload["runtime_mode"], "local")
-        self.assertEqual(payload["health_url"], "/api/v1/health")
-        self.assertEqual(payload["port_hints"]["api"], 8000)
-        self.assertEqual(payload["services"]["api"]["status"], "ok")
-        self.assertEqual(payload["services"]["database"]["mode"], "local")
-        self.assertIn("missing_dependencies", payload)
+        self.assertEqual(response.json(), {"status": "ok", "provider": "local", "env": "test"})
+        connect.assert_not_called()
+        pool.assert_not_called()
+        es.assert_not_called()
 
-    def test_health_runtime_status_reports_mixed_contract(self):
-        with (
-            patch("app.main.os.path.exists", return_value=False),
-            patch.dict(
-                "app.main.os.environ",
-                {
-                    "APP_RUNTIME_MODE": "",
-                    "DOCKER_ENV": "false",
-                    "KUBERNETES_SERVICE_HOST": "",
-                    "RUNTIME_MODE": "",
-                },
-            ),
-            patch("app.main.settings.database_url", "postgresql+psycopg2://postgres:postgres@db:5432/postgres"),
-            patch("app.main.settings.es_url", "http://localhost:9200"),
-            patch("app.main.settings.redis_url", "redis://redis:6379/0"),
-            patch("app.main.settings.llm_provider", "local"),
-        ):
-            response = self.client.get("/api/v1/health", headers=self.headers)
-
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertEqual(payload["runtime_mode"], "mixed")
-        self.assertEqual(payload["services"]["database"]["mode"], "docker")
-        self.assertEqual(payload["services"]["elasticsearch"]["mode"], "local")
-        self.assertEqual(payload["services"]["redis"]["mode"], "docker")
-
-    def test_deep_health_runtime_dependency_ping_returns_startup_contract(self):
+    def test_deep_health_reports_actual_database_pool_and_es_probes(self):
         connect_context = MagicMock()
         es_client = Mock()
         es_client.ping.return_value = True
+        pool_status = {"size": 5, "checkedout": 0}
         with (
-            patch("app.main.os.path.exists", return_value=False),
-            patch.dict(
-                "app.main.os.environ",
-                {
-                    "APP_RUNTIME_MODE": "",
-                    "DOCKER_ENV": "false",
-                    "KUBERNETES_SERVICE_HOST": "",
-                    "RUNTIME_MODE": "",
-                },
-            ),
-            patch("app.main.settings.database_url", "postgresql+psycopg2://postgres:postgres@localhost:5432/postgres"),
-            patch("app.main.settings.es_url", "http://localhost:9200"),
-            patch("app.main.settings.redis_url", "redis://localhost:6379/0"),
-            patch("app.main.settings.llm_provider", "local"),
-            patch("app.main.engine.connect", return_value=connect_context),
-            patch("app.main.get_db_pool_status", return_value={"size": 5, "checkedout": 0}),
-            patch("app.main.get_es_client", return_value=es_client),
-            patch("app.main._tcp_dependency_ping", return_value=(True, None)),
+            patch("app.main.engine.connect", return_value=connect_context) as connect,
+            patch("app.main.get_db_pool_status", return_value=pool_status) as pool,
+            patch("app.main.get_es_client", return_value=es_client) as es,
         ):
             response = self.client.get("/api/v1/health/deep", headers=self.headers)
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(payload["startup_contract_version"], "runtime-startup.v1")
-        self.assertEqual(payload["runtime_mode"], "local")
-        self.assertFalse(payload["mixed_environment"]["detected"])
-        self.assertEqual(payload["dependency_ping"]["status"], "ok")
-        self.assertEqual(payload["service_results"]["database"]["status"], "ok")
-        self.assertTrue(payload["service_results"]["database"]["reachable"])
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["database"], "ok")
+        self.assertEqual(payload["database_pool"], "ok")
+        self.assertEqual(payload["elasticsearch"], "ok")
+        self.assertEqual(payload["details"]["database_pool"], pool_status)
+        for key in ("database_latency_ms", "elasticsearch_latency_ms"):
+            self.assertIsInstance(payload["details"][key], (int, float))
+            self.assertGreaterEqual(payload["details"][key], 0)
+        connect.assert_called_once_with()
+        conn = connect_context.__enter__.return_value
+        conn.execute.assert_called_once()
+        self.assertEqual(str(conn.execute.call_args.args[0]), "SELECT 1")
+        pool.assert_called_once_with()
+        es.assert_called_once_with()
+        es_client.ping.assert_called_once_with()
 
-    def test_deep_health_runtime_dependency_ping_reports_missing_dependencies(self):
+    def test_deep_health_reports_es_ping_failure_and_exception_independently(self):
+        for side_effect, ping_result, expected in (
+            (None, False, "error: ping failed"),
+            (RuntimeError("es unavailable"), True, "error: RuntimeError"),
+        ):
+            with self.subTest(expected=expected):
+                connect_context = MagicMock()
+                es_client = Mock()
+                es_client.ping.side_effect = side_effect
+                es_client.ping.return_value = ping_result
+                with (
+                    patch("app.main.engine.connect", return_value=connect_context),
+                    patch("app.main.get_db_pool_status", return_value={"size": 5, "checkedout": 0}),
+                    patch("app.main.get_es_client", return_value=es_client),
+                ):
+                    response = self.client.get("/api/v1/health/deep", headers=self.headers)
+
+                self.assertEqual(response.status_code, 200)
+                payload = response.json()
+                self.assertEqual(payload["status"], "degraded")
+                self.assertEqual(payload["database"], "ok")
+                self.assertEqual(payload["database_pool"], "ok")
+                self.assertEqual(payload["elasticsearch"], expected)
+                es_client.ping.assert_called_once_with()
+
+    def test_deep_health_reports_pool_probe_failure_independently(self):
+        es_client = Mock()
+        es_client.ping.return_value = True
         with (
-            patch("app.main.settings.database_url", ""),
-            patch("app.main.settings.es_url", ""),
-            patch("app.main.settings.redis_url", ""),
-            patch("app.main.settings.llm_provider", "openai"),
-            patch("app.main.settings.openai_api_key", ""),
-            patch("app.main.engine.connect", side_effect=RuntimeError("db unavailable")),
+            patch("app.main.engine.connect", return_value=MagicMock()),
             patch("app.main.get_db_pool_status", side_effect=RuntimeError("pool unavailable")),
-            patch("app.main.get_es_client", side_effect=RuntimeError("es unavailable")),
-            patch("app.main._tcp_dependency_ping", return_value=(False, "ConnectionRefusedError")),
+            patch("app.main.get_es_client", return_value=es_client),
         ):
             response = self.client.get("/api/v1/health/deep", headers=self.headers)
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["status"], "degraded")
-        self.assertIn("DATABASE_URL", payload["missing_dependencies"])
-        self.assertIn("ES_URL", payload["missing_dependencies"])
-        self.assertIn("REDIS_URL", payload["missing_dependencies"])
-        self.assertIn("OPENAI_API_KEY", payload["missing_dependencies"])
-        self.assertEqual(payload["dependency_ping"]["status"], "missing_dependencies")
-        self.assertEqual(payload["service_results"]["database"]["status"], "missing")
-
-    def test_deep_health_runtime_dependency_ping_reports_mixed_environment(self):
-        connect_context = MagicMock()
-        es_client = Mock()
-        es_client.ping.return_value = True
-        with (
-            patch("app.main.os.path.exists", return_value=False),
-            patch.dict(
-                "app.main.os.environ",
-                {
-                    "APP_RUNTIME_MODE": "",
-                    "DOCKER_ENV": "false",
-                    "KUBERNETES_SERVICE_HOST": "",
-                    "RUNTIME_MODE": "",
-                },
-            ),
-            patch("app.main.settings.database_url", "postgresql+psycopg2://postgres:postgres@db:5432/postgres"),
-            patch("app.main.settings.es_url", "http://localhost:9200"),
-            patch("app.main.settings.redis_url", "redis://redis:6379/0"),
-            patch("app.main.settings.llm_provider", "local"),
-            patch("app.main.engine.connect", return_value=connect_context),
-            patch("app.main.get_db_pool_status", return_value={"size": 5, "checkedout": 0}),
-            patch("app.main.get_es_client", return_value=es_client),
-            patch("app.main._tcp_dependency_ping", return_value=(True, None)),
-        ):
-            response = self.client.get("/api/v1/health/deep", headers=self.headers)
-
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertEqual(payload["runtime_mode"], "mixed")
-        self.assertTrue(payload["mixed_environment"]["detected"])
-        self.assertEqual(payload["mixed_environment"]["modes_by_service"]["database"], "docker")
-        self.assertEqual(payload["mixed_environment"]["modes_by_service"]["elasticsearch"], "local")
+        self.assertEqual(payload["database"], "ok")
+        self.assertEqual(payload["database_pool"], "error: RuntimeError")
+        self.assertEqual(payload["elasticsearch"], "ok")
+        es_client.ping.assert_called_once_with()
 
 
 if __name__ == "__main__":

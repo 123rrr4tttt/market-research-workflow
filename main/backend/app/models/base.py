@@ -46,7 +46,7 @@ def _get_connect_args():
     if "postgresql" in settings.database_url:
         connect_args = {
             "connect_timeout": settings.db_connect_timeout_seconds,
-            "application_name": "lottery_intel",
+            "application_name": "market_research_workflow",
         }
         if _is_local_database():
             # 本地开发尽量保持可连通，避免 ssl 强制导致启动失败

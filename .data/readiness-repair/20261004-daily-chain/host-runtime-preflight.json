@@ -1,0 +1,21 @@
+{
+  "backend_cwd": "/Users/wangyiliang/market-research-workflow/main/backend",
+  "environment": "dev",
+  "active_project_key": "demo_proj_compare_0303_121137",
+  "db_host": "localhost",
+  "redis_host": "localhost",
+  "redis_db_path": "/0",
+  "queue_lists": [
+    {
+      "queue": "celery",
+      "length": 16
+    },
+    {
+      "queue": "b4aa1a85-7341-3285-b20b-1c1e3d9b19f1.reply.celery.pidbox",
+      "length": 1
+    }
+  ],
+  "unacked": 0,
+  "unacked_index": 0,
+  "same_launchd_env_for_worker": true
+}

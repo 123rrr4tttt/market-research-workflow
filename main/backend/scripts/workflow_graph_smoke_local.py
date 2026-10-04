@@ -95,7 +95,7 @@ def build_cases() -> Annotated[
                 ],
                 [("vec", "llm")],
             ),
-            {"query": "ca lottery"},
+            {"query": "renewable energy"},
         ),
         SmokeCase(
             "04_join_two",

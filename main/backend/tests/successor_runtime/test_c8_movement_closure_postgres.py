@@ -14,17 +14,17 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool
 
-from app.successor_runtime.capabilities import c8_common as c8
-from app.successor_runtime.capabilities.c8_consumer import (
+from app.successor_runtime.capabilities import knowledge_common as c8
+from app.successor_runtime.capabilities.knowledge_consumer import (
     consume_graph_projection,
 )
-from app.successor_runtime.capabilities.c8_graph import (
+from app.successor_runtime.capabilities.knowledge_graph_projection import (
     project_graph_occurrences,
 )
-from app.successor_runtime.capabilities.c8_report import (
+from app.successor_runtime.capabilities.knowledge_report import (
     confirm_report_admission_readback,
 )
-from app.successor_runtime.capabilities.c8_test_interpreter import (
+from app.successor_runtime.capabilities.knowledge_test_interpreter import (
     TestOnlyLossProfileRegistry,
     TestOnlyLossWitness,
     TestOnlyMaterialIssuanceRegistry,
@@ -32,17 +32,17 @@ from app.successor_runtime.capabilities.c8_test_interpreter import (
     TestOnlyVerificationWitness,
     TestOnlyVerifierRegistry,
 )
-from app.successor_runtime.capabilities.c8_typed_knowledge import (
+from app.successor_runtime.capabilities.typed_knowledge import (
     StrictReadHandleRegistry,
     UnavailableProjection,
     strict_issued_demand_read,
 )
-from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.ingest_c7_common import (
-    C7_INGEST_OWNER,
+from app.successor_runtime.capabilities.checksum import canonical_json, content_digest
+from app.successor_runtime.capabilities.material_ingest_common import (
+    MATERIAL_INGEST_OWNER,
     DOCUMENT_CANONICAL_OWNER,
 )
-from app.successor_runtime.capabilities.ingest_c7_movements import (
+from app.successor_runtime.capabilities.material_ingest_movements import (
     DeterministicChunkPort,
     DeterministicExtractPort,
     DeterministicPassThroughPort,
@@ -50,7 +50,7 @@ from app.successor_runtime.capabilities.ingest_c7_movements import (
     StructuredMaterialCandidate,
     VerifiedMaterialCandidate,
     capture_raw_snapshot_exact,
-    execute_c7_movement,
+    execute_material_movement,
     normalize_ingest_envelope,
     select_exactly_one_digestion_alternative,
     verify_structured_candidate,
@@ -60,19 +60,39 @@ from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
 from app.successor_runtime.substrate.postgres.c8_artifact_handler import (
     C8ArtifactIntegrityError,
     C8ArtifactOutcomeUnknownError,
+    read_staged_artifact,
+    stage_artifact,
     staged_artifact_value_id,
 )
 from app.successor_runtime.substrate.postgres.c8_graph_projector import (
+    C8_GRAPH_VALUE_CODEC_ID,
+    C8_GRAPH_VALUE_OBJECT_TYPE,
+    KNOWLEDGE_GRAPH_VALUE_SCHEMA,
     C8GraphOffsetCasError,
     C8GraphProjectionUnavailableError,
+    LEGACY_C8_GRAPH_PROJECTOR_ID,
+    LEGACY_C8_GRAPH_SOURCE_KIND,
+    LEGACY_C8_GRAPH_VALUE_CODEC_ID,
+    LEGACY_C8_GRAPH_VALUE_OBJECT_TYPE,
+    LEGACY_C8_GRAPH_VALUE_SCHEMA,
     graph_value_id,
     read_active_graph,
 )
 from app.successor_runtime.substrate.postgres.c8_material_handler import (
+    C8_KNOWLEDGE_VALUE_CODEC_ID,
+    C8_KNOWLEDGE_VALUE_OBJECT_TYPE,
+    C8_KNOWLEDGE_VALUE_SCHEMA,
     C8MaterialIntegrityError,
     C8MaterialMissingError,
+    C8StoredKnowledgeValue,
+    LEGACY_C8_KNOWLEDGE_VALUE_CODEC_ID,
+    LEGACY_C8_KNOWLEDGE_VALUE_OBJECT_TYPE,
+    LEGACY_C8_KNOWLEDGE_VALUE_SCHEMA,
+    read_staged_knowledge_value,
 )
 from app.successor_runtime.substrate.postgres.c8_production import (
+    LEGACY_PRODUCTION_AUTHORITY_DIGEST,
+    LEGACY_PRODUCTION_AUTHORITY_ID,
     PRODUCTION_AUTHORITY_ID,
     C8DeliveryUnavailableError,
     C8ProductionRoot,
@@ -106,7 +126,19 @@ from app.successor_runtime.substrate.postgres.models import (
 from app.successor_runtime.substrate.postgres.runtime_journal import (
     StaleRevisionError,
 )
+from app.successor_runtime.substrate.postgres.runtime_values import (
+    RuntimeValueBinding,
+    RuntimeValueRepository,
+)
+from app.successor_runtime.substrate.postgres.projection_offsets import (
+    ProjectionOffsetKey,
+    ProjectionOffsetRepository,
+)
 from app.successor_runtime.substrate.postgres.session import compute_scope_digest
+from app.successor_runtime.substrate.postgres.values import (
+    ValueRepository,
+    derive_value_write_intent_digest,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -275,8 +307,8 @@ def _seed_runtime_rows(connection: sa.Connection) -> None:
             project_storage_ref="project-value:plan:c8-pg",
             compiler_id="compiler:c8-pg",
             compiler_version="1",
-            operation_catalog_id="mrw.functorial-successor.c8.operations",
-            catalog_version="1.0.0",
+            operation_catalog_id="mrw.knowledge.operations",
+            catalog_version="2.0.0",
             catalog_digest=AUTHORITY_DIGEST,
             effect_closure_digest=AUTHORITY_DIGEST,
             authority_closure_digest=AUTHORITY_DIGEST,
@@ -312,8 +344,8 @@ def _seed_runtime_rows(connection: sa.Connection) -> None:
             project_key=PROJECT_KEY,
             run_id=RUN_ID,
             step_id=STEP_ID,
-            operation_id="c8.report.stage",
-            operation_kind="c8.report.stage.v1",
+            operation_id="knowledge.report.stage",
+            operation_kind="knowledge.report.stage.v2",
             operation_version="1.0.0",
             state="RUNNING",
             revision=0,
@@ -322,7 +354,7 @@ def _seed_runtime_rows(connection: sa.Connection) -> None:
             output_digest=AUTHORITY_DIGEST,
             effect_class="EFFECTFUL",
             resource_class="CPU_LIGHT",
-            capability_id="report.c8.3.v1",
+            capability_id="knowledge.report.v2",
             claim_owner="successor",
             claim_authority_epoch=AUTHORITY_EPOCH,
             claim_policy_digest=AUTHORITY_DIGEST,
@@ -345,7 +377,7 @@ def _base_pair() -> tuple[StructuredMaterialCandidate, VerifiedMaterialCandidate
         content_format="structured_json",
     )
     decision = select_exactly_one_digestion_alternative(envelope)
-    trace = execute_c7_movement(
+    trace = execute_material_movement(
         snapshot=snapshot,
         envelope=envelope,
         decision=decision,
@@ -389,7 +421,7 @@ def _seed_c7_material(connection: sa.Connection) -> None:
         "run_id": RUN_ID,
         "step_id": STEP_ID,
         "attempt_id": ATTEMPT_ID,
-        "capability_id": C7_INGEST_OWNER,
+        "capability_id": MATERIAL_INGEST_OWNER,
         "actor_id": verified.actor,
         "program_digest": PROGRAM_DIGEST,
         "plan_digest": PLAN_DIGEST,
@@ -606,11 +638,11 @@ def test_nested_payload_mutation_and_noncanonical_values_fail_closed(
         with pytest.raises(C8MaterialIntegrityError, match="digest readback"):
             _root(connection).read_material(candidate_id=_base_pair()[1].candidate_id)
     with pytest.raises(TypeError, match="finite"):
-        c8.c8_canonical_digest({"title": " Q2 Market ", "bad_key": float("nan")})
+        c8.knowledge_canonical_digest({"title": " Q2 Market ", "bad_key": float("nan")})
     with pytest.raises(TypeError, match="string mapping keys"):
-        c8.c8_canonical_digest({1: "bad-key"})
+        c8.knowledge_canonical_digest({1: "bad-key"})
     with pytest.raises(TypeError, match="unsupported"):
-        c8.c8_canonical_digest({"bad": object()})
+        c8.knowledge_canonical_digest({"bad": object()})
 
 
 def test_head_value_snapshot_revision_incarnation_provenance_drift_fails_closed(
@@ -806,7 +838,7 @@ def test_test_only_registries_rejected_by_production_paths(
             _secret=test_loss._authority._secret,
         )
         test_loss._entries[profile.profile_id] = profile
-        with pytest.raises(c8.C8ProjectionError, match="TEST_ONLY"):
+        with pytest.raises(c8.KnowledgeProjectionError, match="TEST_ONLY"):
             project_graph_occurrences(
                 generation_id="gen:test",
                 project_key=PROJECT_KEY,
@@ -830,10 +862,12 @@ def test_test_only_registries_rejected_by_production_paths(
             offset="0",
             authority_kind=PRODUCTION_AUTHORITY_ID,
             authority_digest=root.authority_digest,
-            loss_profile_registry_id="c8.graph-loss-profile.c8.production.v1",
+            loss_profile_registry_id=(
+                "knowledge.graph-loss-profile.knowledge.production.v2"
+            ),
             loss_profile_registry_digest="0" * 64,
         )
-        with pytest.raises(c8.C8ProjectionError, match="TEST_ONLY"):
+        with pytest.raises(c8.KnowledgeProjectionError, match="TEST_ONLY"):
             consume_graph_projection(
                 consumer_id="consumer:test",
                 projection=generation,
@@ -864,6 +898,81 @@ def test_knowledge_stage_exact_read_and_handle(
             .one()
         )
         assert row["content_digest"] == handle.issued_read.candidate.candidate_digest
+        assert handle.stored_value.value_id.startswith("knowledge:staged-candidate:")
+        assert row["object_type"] == C8_KNOWLEDGE_VALUE_OBJECT_TYPE
+        assert row["codec_id"] == C8_KNOWLEDGE_VALUE_CODEC_ID
+        assert row["provenance_json"]["schema"] == C8_KNOWLEDGE_VALUE_SCHEMA
+
+
+def test_legacy_staged_knowledge_value_is_exact_read_only(
+    disposable_database: Engine,
+) -> None:
+    _seed_material(disposable_database)
+    with disposable_database.begin() as connection:
+        material = _material_handle(_root(connection)).material
+        candidate = c8.form_typed_knowledge_candidate(
+            material,
+            formation_profile=FORMATION_PROFILE,
+            candidate_id="knowledge-candidate:legacy",
+            canonical_statement="Historical staged knowledge",
+            primary_type_node_key="Topic",
+            evidence_refs=("ev:legacy:1",),
+        )
+        body = {
+            name: value
+            for name, value in dataclasses.asdict(candidate).items()
+            if name != "candidate_digest"
+        }
+        exact = canonical_json(body).encode("utf-8")
+        legacy_value_id = f"c8:knowledge:{candidate.candidate_id}"
+        legacy_incarnation = f"c8:knowledge:{candidate.candidate_digest}"
+        provenance = {
+            "schema": LEGACY_C8_KNOWLEDGE_VALUE_SCHEMA,
+            "material_identity": material.material_identity,
+            "candidate_id": candidate.candidate_id,
+            "snapshot_ref": material.snapshot_ref,
+            "material_value_digest": material.value_digest,
+            "material_provenance_digest": material.provenance_digest,
+        }
+        provenance_digest = content_digest(provenance)
+        ValueRepository(connection, PROJECT_TABLES).put_exact(
+            _scope(),
+            value_id=legacy_value_id,
+            object_type=LEGACY_C8_KNOWLEDGE_VALUE_OBJECT_TYPE,
+            codec_id=LEGACY_C8_KNOWLEDGE_VALUE_CODEC_ID,
+            content=exact,
+            expected_digest=candidate.candidate_digest,
+            provenance_digest=provenance_digest,
+            expected_revision=0,
+            expected_incarnation=legacy_incarnation,
+            source_ref=material.snapshot_ref,
+            provenance=provenance,
+        )
+        expected = C8StoredKnowledgeValue(
+            value_id=legacy_value_id,
+            value_ref=f"project-value:{legacy_value_id}",
+            revision=1,
+            incarnation=legacy_incarnation,
+            content_digest=candidate.candidate_digest,
+            provenance_digest=provenance_digest,
+            source_ref=material.snapshot_ref,
+        )
+        assert read_staged_knowledge_value(
+            connection,
+            scope=_scope(),
+            material=material,
+            candidate=candidate,
+            expected_value=expected,
+        ) == exact
+        current_rows = connection.execute(
+            sa.select(sa.func.count())
+            .select_from(_value_table())
+            .where(
+                _value_table().c.value_id
+                == f"knowledge:staged-candidate:{candidate.candidate_id}"
+            )
+        ).scalar_one()
+        assert int(current_rows) == 0
 
 
 def test_writing_resolves_handles_and_rejects_citation_mismatch(
@@ -886,6 +995,28 @@ def test_writing_resolves_handles_and_rejects_citation_mismatch(
         )
         assert writing.artifact.artifact_digest
         assert writing.artifact.citation_closure.refs[0].citation_id == "ev:c8-pg:1"
+        staged_count = _count_rows(
+            connection,
+            PUBLIC_TABLES["runtime_staged_artifacts"],
+        )
+        value_count = _count_rows(connection, _value_table())
+        replay = root.compose_and_stage_writing(
+            artifact_id="draft:c8-pg:001",
+            knowledge_handles=(knowledge,),
+            citation_ids=("ev:c8-pg:1",),
+            spec=_writing_spec(
+                base_incarnation=knowledge.issued_read.handle.incarnation
+            ),
+            run_id=RUN_ID,
+            step_id=STEP_ID,
+            qualifier_ref="qualifier:c8-pg:draft",
+        )
+        assert replay == writing
+        assert _count_rows(
+            connection,
+            PUBLIC_TABLES["runtime_staged_artifacts"],
+        ) == staged_count
+        assert _count_rows(connection, _value_table()) == value_count
         forged = ProductionKnowledgeHandle(
             issued_read=knowledge.issued_read,
             stored_value=knowledge.stored_value,
@@ -929,6 +1060,142 @@ def test_writing_resolves_handles_and_rejects_citation_mismatch(
                 step_id=STEP_ID,
                 qualifier_ref="qualifier:dup",
             )
+
+
+def test_legacy_staged_report_replays_without_current_duplicate(
+    disposable_database: Engine,
+) -> None:
+    _seed_material(disposable_database)
+    with disposable_database.begin() as connection:
+        root = _root(connection)
+        knowledge = _knowledge_handle(root)
+        writing = root.compose_and_stage_writing(
+            artifact_id="draft:c8-pg:legacy-stage",
+            knowledge_handles=(knowledge,),
+            citation_ids=("ev:c8-pg:1",),
+            spec=_writing_spec(
+                base_incarnation=knowledge.issued_read.handle.incarnation
+            ),
+            run_id=RUN_ID,
+            step_id=STEP_ID,
+            qualifier_ref="qualifier:legacy-stage",
+        )
+        artifact = writing.artifact
+        current_value_id = staged_artifact_value_id(artifact.artifact_id)
+        legacy_value_id = f"c8:staged-artifact:{artifact.artifact_id}"
+        legacy_object_type = "ResearchDraftArtifactDraft.v1"
+        legacy_codec_id = "mrw.successor.c8.draft-markdown.canonical-utf8.v1"
+        legacy_incarnation = f"c8:staged-artifact:{artifact.artifact_digest}"
+        legacy_source_ref = f"c8:artifact:{artifact.artifact_id}"
+        row = (
+            connection.execute(
+                sa.select(_value_table()).where(
+                    _value_table().c.value_id == current_value_id
+                )
+            )
+            .mappings()
+            .one()
+        )
+        legacy_provenance = dict(row["provenance_json"])
+        legacy_provenance["schema"] = "mrw.successor.c8.artifact-lifecycle.v1"
+        legacy_provenance_digest = content_digest(legacy_provenance)
+        legacy_write_intent = derive_value_write_intent_digest(
+            project_key=PROJECT_KEY,
+            value_id=legacy_value_id,
+            object_type=legacy_object_type,
+            codec_id=legacy_codec_id,
+            content_digest=str(row["content_digest"]),
+            provenance_digest=legacy_provenance_digest,
+            source_ref=legacy_source_ref,
+            expected_revision=0,
+            expected_incarnation=legacy_incarnation,
+            state="AVAILABLE",
+        )
+        connection.execute(
+            _value_table()
+            .update()
+            .where(_value_table().c.value_id == current_value_id)
+            .values(
+                value_id=legacy_value_id,
+                object_type=legacy_object_type,
+                codec_id=legacy_codec_id,
+                source_ref=legacy_source_ref,
+                incarnation=legacy_incarnation,
+                provenance_json=legacy_provenance,
+                provenance_digest=legacy_provenance_digest,
+                write_intent_digest=legacy_write_intent,
+            )
+        )
+        legacy_project_ref = f"project-value:{legacy_value_id}"
+        legacy_storage_digest = content_digest(
+            {
+                "contract": "ProjectRuntimeValueBinding.v1",
+                "project_key": PROJECT_KEY,
+                "runtime_value_id": legacy_value_id,
+                "project_value_ref": legacy_project_ref,
+                "content_digest": str(row["content_digest"]),
+                "codec_id": legacy_codec_id,
+            }
+        )
+        RuntimeValueRepository(connection, _scope()).put_exact(
+            RuntimeValueBinding(
+                value_id=legacy_value_id,
+                object_type=legacy_object_type,
+                codec_id=legacy_codec_id,
+                content_digest=str(row["content_digest"]),
+                byte_size=int(row["byte_size"]),
+                project_value_ref=legacy_project_ref,
+                storage_digest=legacy_storage_digest,
+                write_intent_digest=legacy_write_intent,
+            )
+        )
+        connection.execute(
+            PUBLIC_TABLES["runtime_staged_artifacts"]
+            .update()
+            .where(
+                PUBLIC_TABLES["runtime_staged_artifacts"].c.project_key
+                == PROJECT_KEY,
+                PUBLIC_TABLES["runtime_staged_artifacts"].c.artifact_id
+                == artifact.artifact_id,
+            )
+            .values(value_id=legacy_value_id)
+        )
+        connection.execute(
+            PUBLIC_TABLES["runtime_values"].delete().where(
+                PUBLIC_TABLES["runtime_values"].c.project_key == PROJECT_KEY,
+                PUBLIC_TABLES["runtime_values"].c.value_id == current_value_id,
+            )
+        )
+        assert read_staged_artifact(
+            connection,
+            scope=_scope(),
+            artifact_id=artifact.artifact_id,
+        ) == artifact
+        replay = stage_artifact(
+            connection,
+            scope=_scope(),
+            artifact=artifact,
+            run_id=RUN_ID,
+            step_id=STEP_ID,
+            qualifier_ref="qualifier:legacy-stage",
+        )
+        assert replay.value_id == legacy_value_id
+        current_rows = connection.execute(
+            sa.select(sa.func.count())
+            .select_from(_value_table())
+            .where(_value_table().c.value_id == current_value_id)
+        ).scalar_one()
+        assert int(current_rows) == 0
+        runtime_rows = connection.execute(
+            sa.select(PUBLIC_TABLES["runtime_values"]).where(
+                PUBLIC_TABLES["runtime_values"].c.project_key == PROJECT_KEY,
+                PUBLIC_TABLES["runtime_values"].c.value_id == legacy_value_id,
+            )
+        ).mappings().all()
+        assert len(runtime_rows) == 1
+        assert runtime_rows[0]["object_type"] == legacy_object_type
+        assert runtime_rows[0]["codec_id"] == legacy_codec_id
+        assert runtime_rows[0]["project_value_ref"] == legacy_project_ref
 
 
 def test_cross_root_writing_and_verifier_rejected(
@@ -1035,14 +1302,14 @@ def test_admission_ack_loss_readback_no_duplicate_effect(
         report_rows = connection.execute(
             sa.select(sa.func.count())
             .select_from(_value_table())
-            .where(_value_table().c.value_id.startswith("c8:report:"))
+            .where(_value_table().c.value_id.startswith("knowledge:report:"))
         ).scalar_one()
         assert int(report_rows) == 1
         readback = root.readback_admission(verifier)
         assert readback.readback == first.readback
         intent = CommitIntentRepository(connection, _scope()).find_for_readback(
-            "report.c8.3.v1",
-            "c8:report:admit:draft:c8-pg:report",
+            "knowledge.report.v2",
+            "knowledge:report:admit:draft:c8-pg:report",
         )
         assert intent["state"] == CommitIntentStatus.COMMITTED.value
 
@@ -1069,7 +1336,7 @@ def test_admission_finalize_fault_rolls_back_and_never_duplicates(
         report_rows = check.execute(
             sa.select(sa.func.count())
             .select_from(_value_table())
-            .where(_value_table().c.value_id.startswith("c8:report:"))
+            .where(_value_table().c.value_id.startswith("knowledge:report:"))
         ).scalar_one()
         assert int(report_rows) == 0
         staged_row = (
@@ -1168,7 +1435,7 @@ def test_fresh_reissue_rejects_stale_digest_tamper(
         ),
         (
             "incarnation",
-            {"incarnation": "c8:staged-artifact:stale"},
+            {"incarnation": "knowledge:staged-report:stale"},
             "incarnation",
         ),
         (
@@ -1250,8 +1517,21 @@ def test_graph_fixed_family_loss_catalog_and_active_handle(
         assert first.generation.authority_kind == PRODUCTION_AUTHORITY_ID
         assert first.authority_digest == root.authority_digest
         assert first.loss_profile_registry_id.startswith(
-            "c8.graph-loss-profile.c8.production.v1"
+            "knowledge.graph-loss-profile.knowledge.production.v2"
         )
+        graph_row = (
+            connection.execute(
+                sa.select(_value_table()).where(
+                    _value_table().c.value_id
+                    == graph_value_id("graph:c8-pg", 0)
+                )
+            )
+            .mappings()
+            .one()
+        )
+        assert graph_row["object_type"] == C8_GRAPH_VALUE_OBJECT_TYPE
+        assert graph_row["codec_id"] == C8_GRAPH_VALUE_CODEC_ID
+        assert graph_row["provenance_json"]["schema"] == KNOWLEDGE_GRAPH_VALUE_SCHEMA
         active = root.issue_active_graph_handle(
             graph_id="graph:c8-pg",
             source_ref=source["source_ref"],
@@ -1304,7 +1584,7 @@ def test_graph_stale_active_handle_rejected_and_cas_failure_keeps_old(
                     PUBLIC_TABLES["runtime_projection_offsets"].c.project_key
                     == PROJECT_KEY,
                     PUBLIC_TABLES["runtime_projection_offsets"].c.projection_offset_id
-                    == "c8:graph:offset:graph:c8-pg-stale",
+                    == "knowledge:graph:offset:graph:c8-pg-stale",
                 )
             )
             .mappings()
@@ -1359,6 +1639,111 @@ def test_graph_stale_active_handle_rejected_and_cas_failure_keeps_old(
             .where(_value_table().c.value_id == graph_value_id("graph:c8-pg-stale", 2))
         ).scalar_one()
         assert int(gen2) == 0
+
+
+def test_legacy_graph_offset_and_value_are_exact_read_only(
+    disposable_database: Engine,
+) -> None:
+    source = _graph_source()
+    graph_id = "graph:c8-pg-legacy"
+    legacy_value_id = f"c8:graph:{graph_id}:gen:0"
+    legacy_offset_ref = f"project-value:{legacy_value_id}"
+    legacy_registry_id = "c8.graph-loss-profile.c8.production.v1"
+    legacy_registry_digest = c8.knowledge_canonical_digest(
+        {
+            "registry_id": legacy_registry_id,
+            "authority_id": LEGACY_PRODUCTION_AUTHORITY_ID,
+            "authority_digest": LEGACY_PRODUCTION_AUTHORITY_DIGEST,
+        }
+    )
+    generation = c8.GraphProjectionGeneration(
+        generation_id=f"c8.graph.generation:{graph_id}:0",
+        project_key=PROJECT_KEY,
+        occurrences=(_occurrence("legacy:o:1"),),
+        declared_loss=("c8.graph.historical-loss.v1",),
+        provenance_digest="0" * 64,
+        offset=legacy_offset_ref,
+        authority_kind=LEGACY_PRODUCTION_AUTHORITY_ID,
+        authority_digest=LEGACY_PRODUCTION_AUTHORITY_DIGEST,
+        loss_profile_registry_id=legacy_registry_id,
+        loss_profile_registry_digest=legacy_registry_digest,
+    )
+    body = {
+        "generation_id": generation.generation_id,
+        "project_key": generation.project_key,
+        "occurrences": [
+            {
+                "occurrence_id": occurrence.occurrence_id,
+                "edge_type": occurrence.edge_type,
+                "source_identity": occurrence.source_identity,
+                "target_identity": occurrence.target_identity,
+                "position": occurrence.position,
+                "occurrence_digest": occurrence.occurrence_digest,
+            }
+            for occurrence in generation.occurrences
+        ],
+        "declared_loss": list(generation.declared_loss),
+        "provenance_digest": generation.provenance_digest,
+        "offset": generation.offset,
+        "authority_kind": generation.authority_kind,
+        "authority_digest": generation.authority_digest,
+        "loss_profile_registry_id": generation.loss_profile_registry_id,
+        "loss_profile_registry_digest": generation.loss_profile_registry_digest,
+    }
+    exact = canonical_json(body).encode("utf-8")
+    provenance = {
+        "schema": LEGACY_C8_GRAPH_VALUE_SCHEMA,
+        "graph_value_id": legacy_value_id,
+        "generation_id": generation.generation_id,
+        "projection_digest": generation.projection_digest,
+        "provenance_digest": generation.provenance_digest,
+        "source_ref": source["source_ref"],
+        "authority_kind": generation.authority_kind,
+        "authority_digest": generation.authority_digest,
+        "loss_profile_registry_id": generation.loss_profile_registry_id,
+        "loss_profile_registry_digest": generation.loss_profile_registry_digest,
+    }
+    with disposable_database.begin() as connection:
+        ValueRepository(connection, PROJECT_TABLES).put_exact(
+            _scope(),
+            value_id=legacy_value_id,
+            object_type=LEGACY_C8_GRAPH_VALUE_OBJECT_TYPE,
+            codec_id=LEGACY_C8_GRAPH_VALUE_CODEC_ID,
+            content=exact,
+            expected_digest=generation.projection_digest,
+            provenance_digest=content_digest(provenance),
+            expected_revision=0,
+            expected_incarnation=f"c8:graph:{generation.projection_digest}",
+            source_ref=source["source_ref"],
+            provenance=provenance,
+        )
+        ProjectionOffsetRepository(connection, _scope()).create(
+            projection_offset_id=f"c8:graph:offset:{graph_id}",
+            key=ProjectionOffsetKey(
+                projector_id=LEGACY_C8_GRAPH_PROJECTOR_ID,
+                projector_version="1",
+                source_kind=LEGACY_C8_GRAPH_SOURCE_KIND,
+                source_ref=f"graph:{graph_id}:{source['source_ref']}",
+                source_incarnation=source["source_incarnation"],
+            ),
+            projection_generation=0,
+            source_revision=1,
+            source_digest=source["source_digest"],
+            offset_ref=legacy_offset_ref,
+        )
+        active = _root(connection).issue_active_graph_handle(
+            graph_id=graph_id,
+            source_ref=source["source_ref"],
+            source_incarnation=source["source_incarnation"],
+        )
+        assert active.generation_id == generation.generation_id
+        assert active.offset == legacy_offset_ref
+        current_rows = connection.execute(
+            sa.select(sa.func.count())
+            .select_from(_value_table())
+            .where(_value_table().c.value_id == graph_value_id(graph_id, 0))
+        ).scalar_one()
+        assert int(current_rows) == 0
 
 
 def test_graph_wrong_graph_id_cannot_read_other_graph(
@@ -1425,7 +1810,7 @@ def test_graph_consumer_never_synthesizes_evidence(
             source_ref=source["source_ref"],
             source_incarnation=source["source_incarnation"],
         )
-        with pytest.raises(c8.C8ProjectionError, match="never creates claim"):
+        with pytest.raises(c8.KnowledgeProjectionError, match="never creates claim"):
             root.consume_graph(
                 active,
                 consumer_id="consumer:c8-pg",

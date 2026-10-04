@@ -28,7 +28,16 @@ class ContractsErrorsCoreContractTestCase(unittest.TestCase):
     def setUpClass(cls):
         if _IMPORT_ERROR is not None:
             raise unittest.SkipTest(f"contracts error core contract tests require backend dependencies: {_IMPORT_ERROR}")
+        original_routes = list(backend_app.router.routes)
+        original_schema = backend_app.openapi_schema
+
+        def restore_routes() -> None:
+            backend_app.router.routes[:] = original_routes
+            backend_app.openapi_schema = original_schema
+
+        cls.addClassCleanup(restore_routes)
         cls.client = TestClient(backend_app)
+        cls.addClassCleanup(cls.client.close)
         cls.headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "contracts-errors-core"}
 
         cls.known_code_path = "/api/v1/test/contracts-errors/http-known-code"

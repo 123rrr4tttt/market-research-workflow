@@ -188,7 +188,7 @@ def _process_social_docs(
 
 
 def re_extract_all(
-    project_key: str = "online_lottery",
+    project_key: str = "business_survey",
     doc_types: Optional[list[str]] = None,
     limit: Optional[int] = None,
     dry_run: bool = False,
@@ -199,7 +199,7 @@ def re_extract_all(
     Re-extract structured data for all documents.
 
     Args:
-        project_key: Project context (online_lottery, demo_proj, etc.)
+        project_key: Project context (business_survey, demo_proj, etc.)
         doc_types: List of doc_types to process (default: all supported)
         limit: Max documents per type (None = no limit)
         dry_run: If True, do not persist changes
@@ -311,7 +311,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Re-extract structured data for all documents")
-    parser.add_argument("--project", default="online_lottery", help="Project key")
+    parser.add_argument("--project", default="business_survey", help="Project key")
     parser.add_argument("--types", nargs="+", default=None, help="Doc types (social_sentiment, policy, policy_regulation, market_info)")
     parser.add_argument("--limit", type=int, default=None, help="Max docs per type")
     parser.add_argument("--dry-run", action="store_true", help="Do not persist")

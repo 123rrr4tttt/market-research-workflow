@@ -4,7 +4,7 @@ from typing import Any
 
 from functorial_kit import Failure
 
-from .conversation import runtime_failure
+from .failures import runtime_failure
 
 
 _DEFAULT_SERVICE_STATUS: tuple[dict[str, Any], ...] = (

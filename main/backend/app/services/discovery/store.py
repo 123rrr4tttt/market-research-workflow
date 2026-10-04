@@ -676,13 +676,8 @@ def _classify_kind(title: str, snippet: str, content: str | None) -> str:
 
 
 _DOMAIN_STATE = {
-    "www.calottery.com": "CA",
-    "calottery.com": "CA",
-    "static.www.calottery.com": "CA",
     "data.ny.gov": "NY",
     "ny.gov": "NY",
-    "www.texaslottery.com": "TX",
-    "texaslottery.com": "TX",
 }
 
 

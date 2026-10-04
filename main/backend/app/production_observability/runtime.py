@@ -1,26 +1,27 @@
 from __future__ import annotations
 
-# ruff: noqa: TRY003
+import math
+from collections.abc import Iterable, Mapping
 
+# ruff: noqa: TRY003
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-import math
 from threading import RLock
-from collections.abc import Iterable, Mapping
 from typing import Any, Literal
 
 from .config import (
-    LOCAL_STAGE5_LATENCY_BREACH_SECONDS,
+    LOCAL_RUNTIME_ALERT_THRESHOLD_PROVENANCE,
+    LOCAL_RUNTIME_LATENCY_BREACH_SECONDS,
     ProductionObservabilityConfig,
     parse_production_observability_config,
 )
 from .contracts import (
-    AlertState,
-    CanaryRouteAction,
     CANARY_ROUTE_DECISION_CONTRACT_VERSION,
-    MetricFamily,
     PRODUCTION_HTTP_OBSERVATION_CONTRACT_VERSION,
     PRODUCTION_RUNTIME_HEALTH_OBSERVATION_CONTRACT_VERSION,
+    AlertState,
+    CanaryRouteAction,
+    MetricFamily,
 )
 from .decision import (
     CanaryRouteDecision,
@@ -34,14 +35,13 @@ from .health import (
     ProjectionReadStatus,
     ProviderRuntimeStatus,
     QueueReadStatus,
-    RuntimeBindingStatus,
     RuntimeAuthorityReadStatus,
+    RuntimeBindingStatus,
     RuntimeHealthSnapshot,
 )
-from .metrics import RUNTIME_HEALTH_GAUGE
+from .metrics import ALERT_STATE_GAUGE, RUNTIME_HEALTH_GAUGE
 from .observations import Observation, make_observation, parse_observed_at, utc_now
 from .receipts import ObservationReceipt, make_observation_receipt
-
 
 RUNTIME_STATE_KEY = "production_observability_r7"
 RUNTIME_PROJECTION_CONTRACT_VERSION = "production.observability.runtime_projection.v1"
@@ -239,6 +239,13 @@ class ProductionObservabilityController:
                     item.rule_id: item.state for item in decision.alert_evaluations
                 },
             )
+            for rule in binding.alert_rules:
+                current_state = self._alert_states.get(rule.rule_id, AlertState.UNKNOWN)
+                for candidate_state in AlertState:
+                    ALERT_STATE_GAUGE.labels(
+                        rule_id=rule.rule_id,
+                        state=candidate_state.value,
+                    ).set(1.0 if candidate_state is current_state else 0.0)
             object.__setattr__(self, "_last_evaluation", evaluation)
             return evaluation
 
@@ -311,11 +318,11 @@ class ProductionObservabilityController:
                 *values,
                 (
                     MetricFamily.REQUEST_LATENCY_BREACH_RATE,
-                    1.0 if latency_seconds >= LOCAL_STAGE5_LATENCY_BREACH_SECONDS else 0.0,
+                    1.0 if latency_seconds >= LOCAL_RUNTIME_LATENCY_BREACH_SECONDS else 0.0,
                     {
                         "latency_seconds": f"{float(latency_seconds):.6f}",
-                        "threshold_seconds": str(LOCAL_STAGE5_LATENCY_BREACH_SECONDS),
-                        "threshold_provenance": "local_stage5_validation_non_production",
+                        "threshold_seconds": str(LOCAL_RUNTIME_LATENCY_BREACH_SECONDS),
+                        "threshold_provenance": LOCAL_RUNTIME_ALERT_THRESHOLD_PROVENANCE,
                     },
                 ),
             )
@@ -351,7 +358,7 @@ class ProductionObservabilityController:
         """Observe typed runtime-health signals as closed normalized ratios.
 
         Raw signals stay bound to their runtime sources; conversion uses the
-        declared Stage 5 local validation thresholds.
+        declared local runtime validation thresholds.
         """
 
         if not isinstance(snapshot, RuntimeHealthSnapshot):
@@ -372,7 +379,7 @@ class ProductionObservabilityController:
                     "read_status": snapshot.queue.read_status.value,
                     "depth": str(snapshot.queue.depth),
                     "threshold": "1",
-                    "threshold_provenance": "local_stage5_validation_non_production",
+                    "threshold_provenance": LOCAL_RUNTIME_ALERT_THRESHOLD_PROVENANCE,
                 },
             ),
             (
@@ -387,16 +394,24 @@ class ProductionObservabilityController:
                     "pool_limit": str(database.pool_limit),
                 },
             ),
-            (
-                MetricFamily.PROVIDER_FAILURE,
-                1.0 if provider.status is ProviderRuntimeStatus.SIMULATED_FAILURE else 0.0,
-                {
-                    "source": provider.source,
-                    "status": provider.status.value,
-                    "simulated": "true",
-                },
-            ),
         ]
+        if provider.status in {
+            ProviderRuntimeStatus.SIMULATED_HEALTHY,
+            ProviderRuntimeStatus.SIMULATED_FAILURE,
+        }:
+            values.append(
+                (
+                    MetricFamily.PROVIDER_FAILURE,
+                    1.0
+                    if provider.status is ProviderRuntimeStatus.SIMULATED_FAILURE
+                    else 0.0,
+                    {
+                        "source": provider.source,
+                        "status": provider.status.value,
+                        "simulated": "true",
+                    },
+                )
+            )
         authority_read = runtime_binding.authority_read
         authority_known = (
             runtime_binding.authority_status

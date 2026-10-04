@@ -1,6 +1,6 @@
 # 后端文档索引
 
-> 最后更新：2026-02-27
+> 最后更新：2026-09-24
 
 本目录存放 `main/backend` 的设计说明、接口规范、配置指南与阶段性研究资料。
 
@@ -93,6 +93,9 @@
 | 文档 | 说明 |
 |------|------|
 | [UNIFIED_COLLECT_ARCHITECTURE.md](UNIFIED_COLLECT_ARCHITECTURE.md) | 统一采集架构（横向/纵向） |
+| [信息检索架构：语义、方法、结构与实现](/Users/wangyiliang/market-research-workflow/main/backend/docs/INFORMATION_RETRIEVAL_FRAMEWORK_DESIGN.md) | 信息结构、领域语义、索引方法和原生装配；§13 为 Agent 宏胞腔细节开发框架，包含代码接缝、跨包接口及 Rapid 读写接入 |
+| [Agent 宏胞腔架构](AGENT_MACRO_ARCHITECTURE.md) | 边界注册完整概念规定层，信息拓扑规格为其中一环；tool／skill spec 将基本 Agent–System 交互虚边化，沿既有 Codex Core 原生使用并保留必要实边交接与自由表达 |
+| [信息采集与宏胞腔分发计划](INFORMATION_RETRIEVAL_IMPLEMENTATION_DISPATCH_PLAN.md) | 当前 M0–M8 的子 Agent 任务包、阶段串并行、独占写面、模型路由与验收命令；旧 R0–R6 记录保留历史归属 |
 | [STRUCTURED_VS_GRAPH_ALIGNMENT.md](STRUCTURED_VS_GRAPH_ALIGNMENT.md) | 结构化提取与图谱元素对齐 |
 | [LOTTERY_DECOUPLING_INVENTORY.md](LOTTERY_DECOUPLING_INVENTORY.md) | 彩票耦合点清单（解耦基线） |
 

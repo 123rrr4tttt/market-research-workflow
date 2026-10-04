@@ -19,6 +19,7 @@ self-check and the read-only check gate.
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
@@ -245,6 +246,39 @@ def _load_json_object(path: Path, label: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise FamilyGeneratorError(f"{label} must be a JSON object: {path}")
     return value
+
+
+def load_p1_cells(
+    root: Path, artifact_rel: str
+) -> dict[str, Mapping[str, Any]]:
+    """Load P1 eligibility cells from a root-confined UTF-8 artifact."""
+
+    artifact = _load_json_object(confine(root, artifact_rel), "P1 eligibility")
+    rows = artifact.get("cells")
+    if not isinstance(rows, list):
+        raise FamilyGeneratorError("P1 eligibility cells must be a JSON array")
+    cells: dict[str, Mapping[str, Any]] = {}
+    for index, row in enumerate(rows):
+        if not isinstance(row, Mapping):
+            raise FamilyGeneratorError(f"P1 cell {index} must be a JSON object")
+        cell_id = row.get("cell")
+        if not isinstance(cell_id, str) or not cell_id.strip():
+            raise FamilyGeneratorError(f"P1 cell {index} must have a non-empty cell")
+        if cell_id in cells:
+            raise FamilyGeneratorError(f"duplicate P1 cell: {cell_id}")
+        cells[cell_id] = dict(row)
+    return cells
+
+
+def p1_cell_digest(
+    root: Path, artifact_rel: str, cell_id: str
+) -> str:
+    """Compute the shared canonical digest for one declared P1 cell."""
+
+    cell = load_p1_cells(root, artifact_rel).get(cell_id)
+    if cell is None:
+        raise FamilyGeneratorError(f"missing P1 cell: {cell_id}")
+    return content_digest(cell)
 
 
 def validate_inputs(root: Path, config: FamilyFragmentConfig) -> None:
@@ -575,3 +609,48 @@ def run_generate(
     write_atomic_if_changed(output, expected)
     print(f"WROTE: {output}")
     return 0
+
+
+def run_legacy_cli(
+    config: FamilyFragmentConfig,
+    argv: list[str] | None,
+    *,
+    prog: str,
+    description: str,
+    repo_root: Path,
+    output_path: Path,
+    fragment_path_argument: bool = False,
+    missing_exit: int = 1,
+) -> int:
+    """Run one former family-specific CLI through the shared writer.
+
+    The old family entrypoints differ only in parser identity, optional
+    ``--fragment-path`` support and their missing-output exit code.  Keep those
+    compatibility facts here instead of reproducing parser/check/writer logic
+    in each adapter.
+    """
+
+    parser = argparse.ArgumentParser(prog=prog, description=description)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="read-only byte gate; drift exits 1 without writing",
+    )
+    if fragment_path_argument:
+        parser.add_argument(
+            "--fragment-path",
+            type=Path,
+            default=output_path,
+            help="fragment output path (default: the canonical evidence path)",
+        )
+    args = parser.parse_args(argv)
+    target = Path(getattr(args, "fragment_path", output_path))
+    if args.check and not target.is_file():
+        print(f"UNKNOWN: missing fragment output: {target}", file=os.sys.stderr)
+        return missing_exit
+    return run_generate(
+        config,
+        repo_root,
+        check=args.check,
+        output_path=target,
+    )

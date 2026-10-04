@@ -33,14 +33,22 @@ class DeepHealthDbDegradedIntegrationTestCase(unittest.TestCase):
 
     def test_deep_health_returns_degraded_when_database_check_fails(self):
         headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "deep-health-db-fail-it"}
-        with patch("app.main.engine.connect", side_effect=RuntimeError("db unavailable")):
+        fake_es = MagicMock()
+        fake_es.ping.return_value = True
+        with (
+            patch("app.main.engine.connect", side_effect=RuntimeError("db unavailable")),
+            patch("app.main.get_db_pool_status", return_value={"size": 5, "checkedout": 0}),
+            patch("app.main.get_es_client", return_value=fake_es),
+        ):
             response = self.client.get("/api/v1/health/deep", headers=headers)
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["status"], "degraded")
         self.assertEqual(payload["database"], "error: RuntimeError")
-        self.assertIn("elasticsearch", payload)
+        self.assertEqual(payload["database_pool"], "ok")
+        self.assertEqual(payload["elasticsearch"], "ok")
+        fake_es.ping.assert_called_once_with()
 
     def test_deep_health_returns_degraded_when_pool_is_exhausted(self):
         headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "deep-health-pool-exhausted-it"}

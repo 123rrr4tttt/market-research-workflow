@@ -1,22 +1,20 @@
-"""I1 assembly wiring for the bounded C2.3/C6.2 live provider ports."""
+"""I1 assembly wiring for the bounded C2.3 live provider port."""
 
 from __future__ import annotations
 
 from typing import Any
 
 import pytest
-
 from app.successor_runtime.assembly.base import local_assembly_scope_digest
-from app.successor_runtime.assembly.c2_assembly import build_c2_assembly
-from app.successor_runtime.assembly.c6_assembly import (
-    build_c6_assembly,
-    build_openai_live_fixture_options,
+from app.successor_runtime.assembly.source_assembly import (
+    SOURCE_PROVIDER_ACQUISITION_CELL_ID,
+    build_source_assembly,
 )
 from app.successor_runtime.capabilities import (
-    agent_core_c6_2_live_model_port as c6_2_live,
+    source_provider_worker as c23_live,
 )
-from app.successor_runtime.capabilities import (
-    source_library_c2_3_live_provider as c23_live,
+from app.successor_runtime.substrate.postgres.source_library_c2_23_canary import (
+    C2_3StoreRehydratedHandler,
 )
 
 pytestmark = pytest.mark.unit
@@ -44,15 +42,20 @@ def test_c2_assembly_wires_explicit_live_gateway_without_calling_it() -> None:
         transport=transport,
     )
     assert gateway is not None
-    assembly = build_c2_assembly(
+    assembly = build_source_assembly(
         uow_factory=_uow_factory(),
         project_scope_digest=_scope_digest(),
         provider_gateway=gateway,
     )
-    cell = assembly.cell("C2.3")
+    cell = assembly.cell(SOURCE_PROVIDER_ACQUISITION_CELL_ID)
     assert cell.status == "INSTALLED"
     assert "LIVE_PROVIDER_DIMENSION_RESOLVED_SERPER" in cell.note
-    assert assembly.handlers[2].gateway is gateway
+    handler = next(
+        item
+        for item in assembly.handlers
+        if isinstance(item, C2_3StoreRehydratedHandler)
+    )
+    assert handler.gateway is gateway
     assert calls == []
     assert gateway.provider_calls == []
 
@@ -61,63 +64,10 @@ def test_c2_assembly_default_without_env_key_stays_fixture(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("SERPER_API_KEY", raising=False)
-    assembly = build_c2_assembly(
+    assembly = build_source_assembly(
         uow_factory=_uow_factory(),
         project_scope_digest=_scope_digest(),
     )
-    cell = assembly.cell("C2.3")
+    cell = assembly.cell(SOURCE_PROVIDER_ACQUISITION_CELL_ID)
     assert cell.status == "INSTALLED"
     assert "LIVE_PROVIDER_DIMENSION_UNRESOLVED" in cell.note
-
-
-def test_c6_assembly_wires_live_openai_port_without_calling_it() -> None:
-    calls: list[tuple[Any, ...]] = []
-
-    def transport(*args: Any) -> tuple[int, dict[str, Any]]:
-        calls.append(args)
-        return 200, {"choices": []}
-
-    options = build_openai_live_fixture_options(
-        api_key_provider=lambda: _TEST_KEY,
-        transport=transport,
-        model="fixture-model",
-        base_url="https://fixture.example/v1",
-    )
-    assert options is not None
-    assert isinstance(options.provider_port, c6_2_live.OpenAILiveProviderPort)
-    assembly = build_c6_assembly(
-        uow_factory=_uow_factory(),
-        project_scope_digest=_scope_digest(),
-        options=options,
-    )
-    assert assembly.coverage() == {
-        "C6.1": "INSTALLED",
-        "C6.2": "INSTALLED",
-        "C6.3": "INSTALLED",
-    }
-    cell = assembly.cell("C6.2")
-    assert "LIVE_PROVIDER_DIMENSION_RESOLVED_OPENAI" in cell.note
-    assert calls == []
-    assert options.provider_port.provider_calls == 0
-
-
-def test_c6_live_options_helper_returns_none_without_key() -> None:
-    options = build_openai_live_fixture_options(api_key_provider=lambda: None)
-    assert options is None
-
-
-def test_c6_assembly_auto_env_closure_wires_live_without_calling_it(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("OPENAI_API_KEY", _TEST_KEY)
-    monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    assembly = build_c6_assembly(
-        uow_factory=_uow_factory(),
-        project_scope_digest=_scope_digest(),
-    )
-    coverage = assembly.coverage()
-    assert coverage["C6.2"] == "INSTALLED"
-    assert coverage["C6.1"] == "FIXTURE_CLOSURE_REQUIRED"
-    assert coverage["C6.3"] == "FIXTURE_CLOSURE_REQUIRED"
-    assert "LIVE_PROVIDER_DIMENSION_RESOLVED_OPENAI" in assembly.cell("C6.2").note
-    assert len(assembly.handlers) == 1

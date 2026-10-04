@@ -87,13 +87,15 @@ def test_frozen_p1_and_implementation_changes_change_fragment(
 
 def test_implementation_binding_missing_fails_closed(monkeypatch) -> None:
     module = _load_generator()
-    original_exists = Path.exists
+    original_exists = Path.is_file
 
     def missing_exists(self):
         if str(self).endswith("runtime/facade_contracts.py"):
             return False
         return original_exists(self)
 
-    monkeypatch.setattr(Path, "exists", missing_exists)
-    with pytest.raises(FileNotFoundError):
+    monkeypatch.setattr(Path, "is_file", missing_exists)
+    from app.successor_runtime.specification.shared_family_generator import FamilyGeneratorError
+
+    with pytest.raises(FamilyGeneratorError, match="binding missing"):
         module.build_fragment()

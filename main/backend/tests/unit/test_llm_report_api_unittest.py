@@ -35,7 +35,7 @@ class LlmReportApiUnitTest(unittest.TestCase):
 
     def test_generate_llm_report_returns_quality_gate_envelope(self):
         payload = llm_report_api.GenerateReportRequest(
-            topic="北美在线彩票增长",
+            topic="北美绿色能源市场增长",
             sources=[
                 llm_report_api.SourceInput(
                     id="S1",

@@ -129,6 +129,9 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
             patch("app.main.settings.env", "prod"),
             patch("app.main.settings.project_key_require_in_non_dev", True),
             patch("app.main.settings.production_metrics_token", "test-observability-token"),
+            patch("app.main.production_metrics_label", return_value={
+                "domain": "project-key-policy", "route": "health", "release_version": "1.0.0",
+            }),
         ):
             resp = client.get(
                 "/api/v1/health",
@@ -260,16 +263,24 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         body = resp.json()
         self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
 
-    def test_agent_batch_nl_command_missing_project_key_in_require_mode_fails(self):
+    def test_agent_batch_nl_command_retired_contract_precedes_project_key_requirement(self):
         client = TestClient(backend_app)
         with patch("app.api.agent_batch.settings.project_key_enforcement_mode", "require"):
             resp = client.post(
                 "/api/v1/agent-batch/nl-command",
                 json={"command": "collect acme"},
             )
-        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.status_code, 410)
         body = resp.json()
-        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+        self.assertEqual(body["detail"]["error"]["code"], "agent_runtime_retired")
+        self.assertEqual(
+            body["detail"]["error"]["message"],
+            "agent batch natural-language command execution is retired; submit structured jobs",
+        )
+        self.assertEqual(
+            body["detail"]["error"]["details"],
+            {"runtime_variant": "legacy_nl_command"},
+        )
 
     def test_source_library_project_scope_missing_project_key_in_require_mode_fails(self):
         client = TestClient(backend_app)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import ast
 from dataclasses import FrozenInstanceError, fields, is_dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -81,6 +82,37 @@ from app.successor_runtime.research.sources import SourceRef  # noqa: E402
 
 UTC = timezone.utc
 DIGEST64 = "a" * 64
+
+
+def imported_modules(path: Path) -> frozenset[str]:
+    """Return absolute modules actually named by import statements."""
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    package_parts = path.relative_to(ROOT).with_suffix("").parts[:-1]
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level == 0:
+                if node.module:
+                    modules.add(node.module)
+                continue
+            base = list(package_parts)
+            if node.level > 1:
+                del base[-(node.level - 1) :]
+            if node.module:
+                base.extend(node.module.split("."))
+            modules.add(".".join(base))
+    return frozenset(modules)
+
+
+def forbidden_imports(path: Path, forbidden: tuple[str, ...]) -> frozenset[str]:
+    actual = imported_modules(path)
+    return frozenset(
+        module
+        for module in actual
+        if any(module == prefix or module.startswith(prefix + ".") for prefix in forbidden)
+    )
 
 
 def make_source_ref() -> SourceRef:
@@ -635,16 +667,15 @@ def test_successor_pure_core_has_no_forbidden_facility_or_legacy_imports() -> No
         "sqlalchemy",
         "celery",
         "redis",
-        "settings",
+        "app.settings",
         "app.services",
         "app.api",
         "app.models",
     )
     for pure_root in ("research", "language", "capabilities"):
         for path in (package_root / pure_root).rglob("*.py"):
-            text = path.read_text().lower()
-            for token in forbidden:
-                assert token not in text, f"{path} references forbidden token {token}"
+            violations = forbidden_imports(path, forbidden)
+            assert not violations, f"{path} imports forbidden facility modules: {sorted(violations)}"
 
 
 def test_claim_and_gap_require_frozen_scope_and_reopen_fields() -> None:

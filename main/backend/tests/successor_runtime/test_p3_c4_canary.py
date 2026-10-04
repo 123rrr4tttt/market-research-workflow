@@ -9,8 +9,8 @@ from app.successor_migration.legacy_agent_batch import (
     build_successor_agent_batch_c4_plan_binding,
     build_successor_agent_batch_c4_retry_binding,
 )
-from app.successor_runtime.capabilities import agent_batch_c4 as c4
-from app.successor_runtime.capabilities.agent_batch_c4_interpreters import (
+from app.successor_runtime.capabilities import batch_task as c4
+from app.successor_runtime.capabilities.batch_task_interpreters import (
     successor_plan_interpreter_profile_digest,
     successor_retry_interpreter_profile_digest,
 )
@@ -24,9 +24,9 @@ from app.successor_runtime.runtime.assignments import (
 )
 from app.successor_runtime.runtime.claims import ClaimBinding
 from app.successor_runtime.runtime.node import NodeIdentity, RuntimeExecutionContext
-from app.successor_runtime.substrate.postgres.agent_batch_c4_canary import (
-    C4_1_BatchPlanRuntimeHandler,
-    C4_2_RetryRuntimeHandler,
+from app.successor_runtime.substrate.postgres.batch_task_canary_handlers import (
+    BatchTaskPlanRuntimeHandler,
+    BatchTaskRetryRuntimeHandler,
 )
 
 from .p3_c4_fixture import (
@@ -83,7 +83,7 @@ def _assignment(
         run_id=f"run:{work_item_id}",
         step_id=step.step_id,
         step_role=CompiledStepRole.EFFECT,
-        capability_id=c4.AGENT_BATCH_C4_OWNER,
+        capability_id=c4.BATCH_TASK_OWNER,
         operation_contract_ref=contract_ref,
         operation_contract_digest=contract_ref.contract_digest,
         return_contract_binding=return_binding,
@@ -136,7 +136,7 @@ def test_c4_1_canary_handler_runs_pure_plan_with_exact_fixture_closure() -> None
         binding.interpreter_profile_digest
         == successor_plan_interpreter_profile_digest()
     )
-    handler = C4_1_BatchPlanRuntimeHandler(
+    handler = BatchTaskPlanRuntimeHandler(
         program=program,
         plan=plan,
         contract_ref=ref,
@@ -175,7 +175,7 @@ def test_c4_2_canary_handler_runs_pure_retry_reducer() -> None:
         binding.interpreter_profile_digest
         == successor_retry_interpreter_profile_digest()
     )
-    handler = C4_2_RetryRuntimeHandler(
+    handler = BatchTaskRetryRuntimeHandler(
         program=program,
         plan=plan,
         contract_ref=ref,
@@ -203,5 +203,5 @@ def test_c4_2_canary_handler_runs_pure_retry_reducer() -> None:
 
 
 def test_canary_is_deterministic_fixture_without_live_effects() -> None:
-    assert C4_1_BatchPlanRuntimeHandler is not None
-    assert C4_2_RetryRuntimeHandler is not None
+    assert BatchTaskPlanRuntimeHandler is not None
+    assert BatchTaskRetryRuntimeHandler is not None

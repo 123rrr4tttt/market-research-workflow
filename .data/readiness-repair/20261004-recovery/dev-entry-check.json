@@ -1,0 +1,10 @@
+{
+  "command": "contributions check",
+  "catalog": "/Users/wangyiliang/market-research-workflow/contributions/project_catalog.py",
+  "root": "/Users/wangyiliang/market-research-workflow",
+  "clean": false,
+  "issues": [
+    "catalog import failed: No module named 'sqlalchemy'"
+  ],
+  "changed_paths": []
+}

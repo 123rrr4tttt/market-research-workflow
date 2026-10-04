@@ -13,11 +13,33 @@ from prometheus_client import Counter, Histogram, REGISTRY, generate_latest, CON
 
 from .contracts.errors import ErrorCode, map_exception_to_error, map_status_to_error_code
 from .contracts.responses import ApiMetaModel, fail, ok
+from .composition.production import is_production_environment, production_metrics_label
 from .settings.config import get_effective_project_key_enforcement_mode, settings
 from .models.base import engine, get_db_pool_status
+from .release_identity import RELEASE_VERSION
+from .production_observability import (
+    install_production_observability,
+    production_observability_config_from_settings,
+)
+from .production_observability import http as production_http
+from .production_observability.health import build_runtime_health_snapshot
 from .services.search.es_client import get_es_client
 from .services.projects import bind_project
-from .services.codex_oauth import codex_cookie_name, codex_oauth_enabled, get_session, has_valid_token_sink
+from .services.codex_oauth import (
+    TokenSinkClaimsContext,
+    codex_cookie_name,
+    codex_oauth_enabled,
+    get_session,
+    get_token_sink_claims_context,
+    has_valid_token_sink,
+)
+from .services.request_identity import (
+    RequestActorContext,
+    actor_id_from_secret,
+    authenticated_actor_context,
+    legacy_actor_id_from_request,
+    set_request_actor_context,
+)
 from .startup_hooks import register_startup_hooks
 from .web_ui_routes import register_ui_routes
 
@@ -27,7 +49,7 @@ from .web_ui_routes import register_ui_routes
 
 # Stable service metadata for observability
 _SERVICE_NAME = os.getenv("SERVICE_NAME", "market-intel-api")
-_SERVICE_VERSION = os.getenv("SERVICE_VERSION", "0.1.0-rc.1")
+_SERVICE_VERSION = os.getenv("SERVICE_VERSION", RELEASE_VERSION)
 _DEPLOY_COLOR = os.getenv("DEPLOY_COLOR", os.getenv("COLOR", "blue"))
 
 class _StaticContextFilter(logging.Filter):
@@ -95,6 +117,29 @@ logging.getLogger().addFilter(
 
 # Create FastAPI app
 app = FastAPI(title="Market Intel API", version=_SERVICE_VERSION)
+
+@app.on_event("startup")
+def _validate_production_composition() -> None:
+    """Install the existing production authority ports before serving requests."""
+    from .composition.production import validate_production_startup
+    from .composition.production_runtime import build_production_runtime_bindings
+
+    if not is_production_environment(settings):
+        return
+    runtime_id = str(settings.production_observability_runtime_id or "").strip()
+    if not runtime_id:
+        raise RuntimeError("production observability runtime_id is required")
+    observability_config = production_observability_config_from_settings(
+        settings,
+        release_version=RELEASE_VERSION,
+    )
+    runtime = build_production_runtime_bindings(engine, settings)
+    validate_production_startup(
+        settings, routes=app.routes, runtime_bindings=runtime
+    )
+    app.state.production_runtime_bindings = runtime
+    install_production_observability(app, observability_config)
+
 
 # Cache active project for fallback routing
 _ACTIVE_PROJECT_CACHE_KEY: str | None = None
@@ -204,6 +249,69 @@ def _is_already_envelope(payload: object) -> bool:
     )
 
 
+def _enrich_existing_envelope_meta(
+    payload: dict,
+    *,
+    trace_id: str,
+    project_key: str,
+) -> dict:
+    meta = payload.get("meta")
+    if not isinstance(meta, dict):
+        return payload
+
+    updated_meta = dict(meta)
+    if updated_meta.get("trace_id") is None and trace_id:
+        updated_meta["trace_id"] = trace_id
+    if updated_meta.get("project_key") is None and project_key:
+        updated_meta["project_key"] = project_key
+    return {**payload, "meta": updated_meta}
+
+
+def _response_chunk_bytes(chunk) -> bytes:
+    if isinstance(chunk, str):
+        return chunk.encode("utf-8")
+    return bytes(chunk)
+
+
+def _preserve_response_metadata(source: Response, target: Response) -> None:
+    target.raw_headers = [
+        (key, value)
+        for key, value in source.raw_headers
+        if key.lower() != b"content-length"
+    ] + [(b"content-length", str(len(target.body)).encode("latin-1"))]
+    target.background = source.background
+
+
+async def _materialize_success_json_response(
+    request: Request,
+    response: Response,
+) -> Response:
+    if not _is_contract_api_path(request.url.path):
+        return response
+    if response.status_code < 200 or response.status_code >= 300:
+        return response
+
+    content_type = (response.headers.get("content-type") or "").lower()
+    if "application/json" not in content_type:
+        return response
+    if getattr(response, "body", None) is not None:
+        return response
+
+    body_iterator = getattr(response, "body_iterator", None)
+    if body_iterator is None:
+        return response
+
+    chunks = []
+    async for chunk in body_iterator:
+        chunks.append(_response_chunk_bytes(chunk))
+    materialized = Response(
+        content=b"".join(chunks),
+        status_code=response.status_code,
+    )
+    _preserve_response_metadata(response, materialized)
+    return materialized
+
+
 def _maybe_wrap_success_json_response(
     request: Request,
     response: Response,
@@ -231,16 +339,24 @@ def _maybe_wrap_success_json_response(
         return response
 
     if _is_already_envelope(payload):
-        return response
+        enriched_payload = _enrich_existing_envelope_meta(
+            payload,
+            trace_id=trace_id,
+            project_key=project_key,
+        )
+        if enriched_payload is payload:
+            return response
+        enriched_response = JSONResponse(
+            status_code=response.status_code,
+            content=enriched_payload,
+        )
+        _preserve_response_metadata(response, enriched_response)
+        return enriched_response
 
     meta = ApiMetaModel(trace_id=trace_id, project_key=project_key)
     wrapped = ok(payload, meta=meta)
     wrapped_response = JSONResponse(status_code=response.status_code, content=wrapped)
-    for k, v in response.headers.items():
-        lk = k.lower()
-        if lk in {"content-length", "content-type"}:
-            continue
-        wrapped_response.headers[k] = v
+    _preserve_response_metadata(response, wrapped_response)
     return wrapped_response
 
 def _get_active_project_key_fallback() -> str | None:
@@ -263,6 +379,25 @@ def _get_active_project_key_fallback() -> str | None:
     return None
 
 
+_ENDPOINT_OWNED_PROJECT_CONTEXT_PATHS = frozenset(
+    {
+        "/api/v1/agent-chat/turn",
+        "/api/v1/agent-chat/turn/stream",
+        "/api/v1/agent-batch/nl-command",
+        "/api/v1/agent-batch/nl-command/direct",
+    }
+)
+
+
+def _uses_endpoint_owned_project_context(path: str) -> bool:
+    if path in _ENDPOINT_OWNED_PROJECT_CONTEXT_PATHS:
+        return True
+    return (
+        path.startswith("/api/v1/agent-chat/approvals/")
+        and path.endswith("/continue")
+    )
+
+
 def _resolve_request_project_context(request: Request) -> tuple[str, str, bool]:
     """Resolve project key source for observability and fallback warning."""
     header_key = (request.headers.get("X-Project-Key") or "").strip()
@@ -271,6 +406,8 @@ def _resolve_request_project_context(request: Request) -> tuple[str, str, bool]:
     query_key = (request.query_params.get("project_key") or "").strip()
     if query_key:
         return query_key, "query", False
+    if _uses_endpoint_owned_project_context(request.url.path):
+        return "", "endpoint_payload", False
     fallback = _get_active_project_key_fallback() or settings.active_project_key
     return fallback, "fallback", True
 
@@ -305,6 +442,99 @@ def _has_valid_codex_oauth_session(request: Request) -> bool:
     if not sid:
         return has_valid_token_sink()
     return get_session(sid) is not None or has_valid_token_sink()
+
+
+def _actor_from_verified_claims(
+    claims: dict | None,
+    *,
+    request: Request,
+    actor_source: str,
+    actor_auth_mode: str,
+    actor_metadata: dict[str, object] | None = None,
+) -> RequestActorContext | None:
+    clean_claims = claims if isinstance(claims, dict) else {}
+    subject = str(clean_claims.get("sub") or "").strip()
+    email = str(clean_claims.get("email") or "").strip()
+    email_verified = clean_claims.get("email_verified") is True
+    if subject:
+        actor_id = subject
+    elif email and email_verified:
+        actor_id = actor_id_from_secret("codex_oauth_email", email)
+    else:
+        return None
+    return authenticated_actor_context(
+        actor_id=actor_id,
+        source=actor_source,
+        auth_mode=actor_auth_mode,
+        legacy_actor_id=legacy_actor_id_from_request(request),
+        actor_metadata=actor_metadata,
+    )
+
+
+def _token_sink_actor_metadata(claims_context: TokenSinkClaimsContext) -> dict[str, object]:
+    metadata = claims_context.profile_metadata()
+    allowed_fields = ("profile_name", "profile_name_hash", "expires_at", "fallback_used")
+    return {field: metadata[field] for field in allowed_fields if field in metadata}
+
+
+def _resolve_codex_oauth_actor_context(request: Request) -> RequestActorContext | None:
+    sid = (request.cookies.get(codex_cookie_name()) or "").strip()
+    if sid:
+        session = get_session(sid)
+        if session is not None:
+            claims_actor = _actor_from_verified_claims(
+                session.claims,
+                request=request,
+                actor_source="authenticated_oauth_session_claims",
+                actor_auth_mode="codex_oauth_session_oidc_claims",
+            )
+            if claims_actor is not None:
+                return claims_actor
+            return authenticated_actor_context(
+                actor_id=actor_id_from_secret("codex_oauth_session", session.session_id),
+                source="authenticated_oauth_session",
+                auth_mode="codex_oauth_session",
+                legacy_actor_id=legacy_actor_id_from_request(request),
+            )
+
+    claims_context = get_token_sink_claims_context()
+    if claims_context.has_valid_token_sink and claims_context.from_token_sink:
+        claims_actor = _actor_from_verified_claims(
+            claims_context.claims,
+            request=request,
+            actor_source="authenticated_oauth_token_sink_claims",
+            actor_auth_mode="codex_oauth_token_sink_oidc_claims",
+            actor_metadata=_token_sink_actor_metadata(claims_context),
+        )
+        if claims_actor is not None:
+            return claims_actor
+
+        return authenticated_actor_context(
+            actor_id="codex_oauth_token_sink",
+            source="authenticated_oauth_token_sink",
+            auth_mode="codex_oauth_token_sink",
+            legacy_actor_id=legacy_actor_id_from_request(request),
+            actor_metadata=_token_sink_actor_metadata(claims_context),
+        )
+
+    if not has_valid_token_sink():
+        return None
+
+    return authenticated_actor_context(
+        actor_id="codex_oauth_token_sink",
+        source="authenticated_oauth_token_sink",
+        auth_mode="codex_oauth_token_sink",
+        legacy_actor_id=legacy_actor_id_from_request(request),
+    )
+
+
+def _static_codex_token_actor(request: Request, token: str) -> RequestActorContext:
+    return authenticated_actor_context(
+        actor_id=actor_id_from_secret("actor:codex-token", token),
+        source="authenticated_codex_token",
+        auth_mode="codex_static_token",
+        legacy_actor_id=legacy_actor_id_from_request(request),
+    )
 
 
 def _build_codex_auth_error(request: Request, *, reason: str) -> JSONResponse:
@@ -373,23 +603,43 @@ async def legacy_route_rewrite_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
+    controller = getattr(app.state, "production_observability_r7", None)
+    production_runtime = is_production_environment()
+    observe_http = production_runtime or controller is not None
+    authenticated_actor: RequestActorContext | None = None
+    auth_error_response: Response | None = None
     if _is_codex_protected_path(request.url.path):
         valid_tokens = _parse_codex_auth_tokens()
         token = _extract_codex_token(request)
         if token and token in valid_tokens:
-            pass
-        elif _has_valid_codex_oauth_session(request):
-            pass
-        elif token:
-            return _build_codex_auth_error(request, reason="invalid_token")
-        elif valid_tokens:
-            return _build_codex_auth_error(request, reason="missing_token")
-        elif codex_oauth_enabled():
-            return _build_codex_auth_error(request, reason="missing_oauth_session")
+            authenticated_actor = _static_codex_token_actor(request, token)
         else:
-            return _build_codex_auth_error(request, reason="codex_auth_tokens_not_configured")
+            authenticated_actor = _resolve_codex_oauth_actor_context(request)
+            if authenticated_actor is None:
+                if token:
+                    auth_error_response = _build_codex_auth_error(
+                        request, reason="invalid_token"
+                    )
+                elif valid_tokens:
+                    auth_error_response = _build_codex_auth_error(
+                        request, reason="missing_token"
+                    )
+                elif codex_oauth_enabled():
+                    auth_error_response = _build_codex_auth_error(
+                        request, reason="missing_oauth_session"
+                    )
+                else:
+                    auth_error_response = _build_codex_auth_error(
+                        request, reason="codex_auth_tokens_not_configured"
+                    )
 
-    project_key, project_key_source, project_key_is_fallback = _resolve_request_project_context(request)
+    if authenticated_actor is not None:
+        set_request_actor_context(request, authenticated_actor)
+
+    if auth_error_response is None:
+        project_key, project_key_source, project_key_is_fallback = _resolve_request_project_context(request)
+    else:
+        project_key, project_key_source, project_key_is_fallback = "", "auth_rejected", False
     effective_project_key_mode = get_effective_project_key_enforcement_mode()
     request_id = (request.headers.get("X-Request-Id") or "").strip() or str(uuid.uuid4())
     trace_id = _resolve_request_trace_id(request, request_id) or request_id
@@ -399,8 +649,14 @@ async def metrics_middleware(request: Request, call_next):
     request.state.project_key_resolved = project_key
     request.state.project_key_source = project_key_source
     request.state.project_key_is_fallback = project_key_is_fallback
-    with bind_project(project_key):
-        response: Response = await call_next(request)
+    if auth_error_response is not None:
+        response: Response = auth_error_response
+    elif project_key:
+        with bind_project(project_key):
+            response = await call_next(request)
+    else:
+        response = await call_next(request)
+    response = await _materialize_success_json_response(request, response)
     response = _maybe_wrap_success_json_response(
         request,
         response,
@@ -410,6 +666,17 @@ async def metrics_middleware(request: Request, call_next):
     )
     elapsed = time.perf_counter() - start
     endpoint = request.url.path
+    if request.scope.get("route") is None:
+        request.scope["route"] = next(
+            (
+                route
+                for route in app.routes
+                if getattr(route, "path", None) == request.url.path
+                and request.method in getattr(route, "methods", ())
+            ),
+            None,
+        )
+    metric_labels = production_metrics_label(request)
     response.headers["X-Request-Id"] = request_id
     response.headers["X-Trace-Id"] = trace_id
     response.headers["X-Project-Key-Resolved"] = project_key
@@ -418,8 +685,6 @@ async def metrics_middleware(request: Request, call_next):
     response.headers["X-Project-Key-Fallback-Allowed"] = "false" if effective_project_key_mode == "require" else "true"
     if project_key_is_fallback:
         response.headers["X-Project-Key-Warning"] = "fallback_used"
-    REQUEST_COUNT.labels(request.method, endpoint, response.status_code).inc()
-    REQUEST_LATENCY.labels(endpoint).observe(elapsed)
     if project_key_is_fallback:
         _REQUEST_LOGGER.warning(
             "event=project_key_fallback http_target=%s project_key=%s request_id=%s enforcement_mode=%s fallback_allowed=%s",
@@ -443,6 +708,33 @@ async def metrics_middleware(request: Request, call_next):
         duration_ms,
         error_code,
     )
+    if observe_http and production_http.is_sse_response(response):
+        production_http.wrap_stream_response(
+            request,
+            response,
+            finalize=lambda terminal_outcome: production_http.finalize_request_metrics(
+                request=request,
+                response=response,
+                request_id=request_id,
+                endpoint=endpoint,
+                metric_labels=metric_labels,
+                elapsed=time.perf_counter() - start,
+                production_runtime=observe_http,
+                controller=controller,
+                terminal_outcome=terminal_outcome,
+            ),
+        )
+    else:
+        production_http.finalize_request_metrics(
+            request=request,
+            response=response,
+            request_id=request_id,
+            endpoint=endpoint,
+            metric_labels=metric_labels,
+            elapsed=elapsed,
+            production_runtime=observe_http,
+            controller=controller,
+        )
     return response
 
 
@@ -502,10 +794,11 @@ def health_check() -> dict:
 
 
 @app.get("/api/v1/health/deep")
-def deep_health_check() -> dict:
+def deep_health_check(request: Request) -> dict:
     """Deep health check: DB + pool + Elasticsearch connectivity and simple latency probes."""
     checks: dict[str, str] = {}
     details: dict[str, object] = {}
+    pool_status: dict[str, object] = {}
 
     # DB check
     db_start = time.perf_counter()
@@ -553,6 +846,47 @@ def deep_health_check() -> dict:
         checks["elasticsearch"] = f"error: {type(e).__name__}"
 
     status = "ok" if all(v == "ok" for v in checks.values()) else "degraded"
+    controller = getattr(app.state, "production_observability_r7", None)
+    if controller is not None:
+        observation_id = (
+            getattr(request.state, "request_id", None)
+            or f"deep-health:{uuid.uuid4()}"
+        )
+        try:
+            snapshot = build_runtime_health_snapshot(
+                database_connection_status=str(checks.get("database", "error: unavailable")),
+                database_pool_status=str(checks.get("database_pool", "error: unavailable")),
+                pool_status=pool_status,
+                runtime_status={"runtime_mode": settings.env},
+                engine=engine,
+                settings_obj=settings,
+                release_version=RELEASE_VERSION,
+                production_runtime=is_production_environment(),
+                service_version=_SERVICE_VERSION,
+            )
+            controller.observe_runtime_health(
+                observation_id=observation_id,
+                snapshot=snapshot,
+            )
+        except Exception as exc:  # noqa: BLE001 - health observation cannot replace health output
+            _ERROR_LOGGER.warning(
+                "runtime health observation failed request_id=%s error_type=%s",
+                observation_id,
+                type(exc).__name__,
+                exc_info=exc,
+            )
+            try:
+                controller.latch_runtime_failure(
+                    request_id=f"{observation_id}:runtime-health-observation",
+                    reason=f"runtime health observation failed: {type(exc).__name__}",
+                )
+            except Exception as latch_exc:  # noqa: BLE001 - latching cannot replace health output
+                _ERROR_LOGGER.error(
+                    "runtime health observation latch failed request_id=%s error_type=%s",
+                    observation_id,
+                    type(latch_exc).__name__,
+                    exc_info=latch_exc,
+                )
     return {"status": status, **checks, "details": details}
 
 

@@ -10,7 +10,8 @@ from ..job_logger import start_job, complete_job, fail_job
 from ..collect_runtime.display_meta import build_display_meta
 from ..collect_runtime.contracts import CollectRequest, CollectResult
 from ..projects import current_project_key
-from ..search.web import search_sources
+from ..search.candidate_contracts import CandidateSearchRequest
+from ..search.facets import MARKET_FACET
 from ...models.base import SessionLocal
 from ...models.entities import Document, Source
 from .doc_type_mapper import normalize_doc_type
@@ -20,6 +21,13 @@ from ..resource_pool.http_port import fetch_html
 from .url_pool import collect_urls_from_list
 from .url_pool import _extract_text_from_html
 from ..task_readback_metadata import merge_runtime_readback_payload
+from .search_and_ingest import (
+    SearchAndIngestSpec,
+    SearchIngestPorts,
+    SearchIngestSource,
+    SearchIngestTarget,
+    run_search_and_ingest,
+)
 
 logger = logging.getLogger(__name__)
 BATCH_COMMIT_SIZE = 100
@@ -48,6 +56,7 @@ def collect_market_info(
     days_back: int | None = None,
     language: str = "en",
     runtime_readback: dict[str, Any] | None = None,
+    project_key: str | None = None,
 ) -> dict:
     """
     Collect market-related info via search API.
@@ -65,122 +74,66 @@ def collect_market_info(
 
     try:
         normalized_doc_type = normalize_doc_type("market_info")
-        results = search_sources(
+        effective_project = (project_key or current_project_key() or "").strip() or None
+        request = CandidateSearchRequest(
             topic=" ".join(keywords),
+            keywords=tuple(keywords),
             max_results=limit,
             provider=provider,
             exclude_existing=False,
             start_offset=start_offset,
             days_back=days_back,
             language=language,
+            project_ref=effective_project,
+        )
+        spec = SearchAndIngestSpec(
+            facet=MARKET_FACET,
+            request=request,
+            project_key=effective_project,
+            target=SearchIngestTarget(
+                doc_type=normalized_doc_type,
+                extraction_enabled=bool(enable_extraction),
+                extraction_flags={
+                    "include_market": True,
+                    "include_policy": False,
+                    "include_sentiment": False,
+                    "include_company": True,
+                    "include_product": True,
+                    "include_operation": True,
+                },
+            ),
+            source=SearchIngestSource(
+                name="Search API Market",
+                kind="search",
+                base_url="search",
+                entrypoint="ingest.market_web",
+            ),
+            missing_body="route",
+            retention="none",
+            legacy_projectless=True,
+            legacy_payload_shape=True,
         )
 
-        inserted = 0
-        skipped = 0
-        links: List[str] = []
-        routed_for_body_fetch: List[str] = []
-        pending_inserts = 0
+        def fetch_body(link: str) -> str | None:
+            html, _ = fetch_html(link, timeout=8.0, retries=1)
+            return (_extract_text_from_html(html) or "").strip()
 
-        with SessionLocal() as session:
-            source = _get_or_create_source(session, "Search API Market", "search", "search")
-            source_id = source.id
+        def write_frontdoor(data: dict[str, Any]) -> dict[str, Any]:
+            ingress_envelope = build_frontdoor_ingress_envelope(
+                ingress_type="discovery",
+                **data,
+            )
+            frontdoor_result = run_postprocess_frontdoor(
+                ingress_envelope=ingress_envelope,
+                run_writer=True,
+            )
+            body = frontdoor_result.get("data")
+            return dict((body or {}).get("writer_result") or {}) if isinstance(body, dict) else {}
 
-            for item in results:
-                link = (item.get("link") or "").strip()
-                if not link:
-                    continue
-                links.append(link)
-
-                existed = session.query(Document).filter(Document.uri == link).first()
-                if existed:
-                    skipped += 1
-                    continue
-
-                title = item.get("title") or ""
-                snippet = item.get("snippet") or ""
-                content = None
-                try:
-                    # Disable snippet-only quick-save: try fetching正文 before入库.
-                    html, _ = fetch_html(link, timeout=8.0, retries=1)
-                    text = (_extract_text_from_html(html) or "").strip()
-                    if text:
-                        content = text
-                except Exception:
-                    content = None
-                if not str(content or "").strip():
-                    routed_for_body_fetch.append(link)
-                    continue
-
-                extracted_data = {
-                    "platform": item.get("source") or provider,
-                    "keyword": item.get("keyword"),
-                }
-
-                ingress_envelope = build_frontdoor_ingress_envelope(
-                    ingress_type="discovery",
-                    entrypoint="ingest.market_web",
-                    source_mode="protocol_search",
-                    project_key=(current_project_key() or "").strip() or None,
-                    source_ref={"url": link, "locator": link},
-                    collection_payload={
-                        "document_candidate": {
-                            "source_name": "Search API Market",
-                            "source_kind": "search",
-                            "source_base_url": "search",
-                            "state": None,
-                            "doc_type": normalized_doc_type,
-                            "title": title,
-                            "summary": snippet,
-                            "publish_date": None,
-                            "content": content,
-                            "text_hash": None,
-                            "uri": link,
-                            "status": None,
-                            "extracted_data_base": extracted_data,
-                        },
-                        "terminal_context": {
-                            "platform": item.get("source") or provider or "market_search",
-                            "ingestion_entrypoint": "ingest.market_web",
-                            "source_mode": "protocol_search",
-                            "quality_score": 0.0,
-                            "degradation_flags": [],
-                            "http_status": None,
-                            "capability_profile": {},
-                            "light_filter": {},
-                        },
-                        "extraction_plan": {
-                            "enabled": bool(enable_extraction),
-                            "include_market": True,
-                            "include_policy": False,
-                            "include_sentiment": False,
-                            "include_company": True,
-                            "include_product": True,
-                            "include_operation": True,
-                        },
-                    },
-                    raw_snapshot={"item": dict(item or {}), "link": link},
-                )
-                frontdoor_result = run_postprocess_frontdoor(
-                    ingress_envelope=ingress_envelope,
-                    run_writer=True,
-                )
-                writer_result = (frontdoor_result.get("data") or {}).get("writer_result") if isinstance(frontdoor_result.get("data"), dict) else {}
-                inserted += int((writer_result or {}).get("inserted") or 0)
-                skipped += int((writer_result or {}).get("skipped") or 0)
-
-            if pending_inserts > 0:
-                session.commit()
-
-        routed_result = {
-            "inserted": 0,
-            "inserted_valid": 0,
-            "skipped": 0,
-            "queued": 0,
-        }
-        if routed_for_body_fetch:
-            routed_result = collect_urls_from_list(
-                routed_for_body_fetch,
-                project_key=(current_project_key() or "").strip() or None,
+        def route_missing(urls: list[str]) -> dict[str, Any]:
+            return collect_urls_from_list(
+                urls,
+                project_key=effective_project,
                 query_terms=list(keywords or []),
                 extra_params={
                     "dispatch_mode": "inline",
@@ -192,16 +145,30 @@ def collect_market_info(
                 },
                 enable_extraction=enable_extraction,
             )
-            inserted += int(routed_result.get("inserted") or 0)
-            skipped += int(routed_result.get("skipped") or 0)
+
+        with SessionLocal() as session:
+            _get_or_create_source(session, "Search API Market", "search", "search")
+            collection = run_search_and_ingest(
+                spec,
+                SearchIngestPorts(
+                    exists=lambda link: session.query(Document).filter(Document.uri == link).first() is not None,
+                    fetch_text=fetch_body,
+                    write=write_frontdoor,
+                    route_missing=route_missing,
+                ),
+            )
+
+        routed_result = collection.routed
+        inserted = collection.inserted
+        skipped = collection.skipped
 
         result = {
             "inserted": inserted,
             "inserted_valid": inserted,
             "skipped": skipped,
-            "links": links,
+            "links": list(collection.links),
             "doc_type": normalized_doc_type,
-            "body_fetch_routed_urls": len(routed_for_body_fetch),
+            "body_fetch_routed_urls": len(collection.missing_urls),
             "body_fetch_inserted": int(routed_result.get("inserted") or 0),
             "body_fetch_skipped": int(routed_result.get("skipped") or 0),
         }

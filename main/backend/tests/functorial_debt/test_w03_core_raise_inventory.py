@@ -15,7 +15,7 @@ from app.services.crawlers import registry, scrapyd_runtime
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SERVICES_ROOT = REPO_ROOT / "main" / "backend" / "app" / "services"
 
-# This is the frozen W03 ownership set. It deliberately does not scan the
+# This is the current W03 ownership set. It deliberately does not scan the
 # repository: other packets may change their own core paths concurrently.
 W03_NO_THROW_FILES: tuple[str, ...] = (
     "collect_runtime/runtime.py",
@@ -32,12 +32,10 @@ W03_NO_THROW_FILES: tuple[str, ...] = (
     "ingest/digestion_scaffold.py",
     "ingest/ecom.py",
     "ingest/frontdoor_ingress.py",
-    "ingest/market.py",
     "ingest/market_web.py",
     "ingest/news.py",
     "ingest/policy.py",
     "ingest/raw_import.py",
-    "ingest/reports/california.py",
     "ingest/reports/general.py",
     "ingest/social.py",
     "ingest/url_pool.py",
@@ -68,8 +66,8 @@ def _raise_windows(source: str) -> Iterable[tuple[int, str]]:
 
 
 def test_w03_no_throw_closure_for_exact_owned_files() -> None:
-    assert len(W03_NO_THROW_FILES) == 29
-    assert len(set(W03_NO_THROW_FILES)) == 29
+    assert len(W03_NO_THROW_FILES) == 27
+    assert len(set(W03_NO_THROW_FILES)) == 27
 
     retained: list[tuple[str, int, str]] = []
     for relative_path in W03_NO_THROW_FILES:

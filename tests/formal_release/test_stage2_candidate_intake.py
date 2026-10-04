@@ -9,6 +9,7 @@ import stat
 import subprocess
 import sys
 import shlex
+import tarfile
 import unicodedata
 from pathlib import Path
 from typing import Annotated, Any, get_args, get_origin, get_type_hints
@@ -657,7 +658,87 @@ def test_candidate_specific_current_byte_successor_resolution(
         )
 
 
+def _head_snapshot(root: Path) -> Path:
+    snapshot = root / "v3-history"
+    snapshot.mkdir()
+    archive = snapshot / "head.tar"
+    subprocess.run(
+        (
+            "git",
+            "-C",
+            str(ROOT),
+            "-c",
+            "safe.directory=*",
+            "archive",
+            "--format=tar",
+            "HEAD",
+        ),
+        stdout=archive.open("wb"),
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    with tarfile.open(archive, mode="r:") as bundle:
+        bundle.extractall(snapshot)
+    archive.unlink()
+    stage_b23_candidates = (
+        ROOT
+        / "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        / "2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/"
+        / "stage-b23-2026-09-05/candidates"
+    )
+    for family in stage_b23_candidates.iterdir():
+        if family.is_dir():
+            shutil.copytree(
+                family / "snapshots",
+                snapshot / family.relative_to(ROOT) / "snapshots",
+                dirs_exist_ok=True,
+            )
+            candidate_path = family / "candidate.v2.json"
+            candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+            reference_groups = (
+                value if isinstance(value, list) else [value]
+                for key, value in candidate.items()
+                if key in {"manifest", "fragments", "sources", "tests"}
+                and value is not None
+            )
+            for references in reference_groups:
+                for reference in references:
+                    baseline = family / reference["snapshot_path"]
+                    target = snapshot / reference["path"]
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(baseline, target)
+    v3_registry_path = (
+        ROOT
+        / "stage1-successor-evidence/current-byte-remediation-v3/bindings/"
+        / "current-byte-binding-successors.v3.json"
+    )
+    v3_registry = json.loads(v3_registry_path.read_text(encoding="utf-8"))
+    overlaid_successors: set[tuple[str, str]] = set()
+    for row in v3_registry["successors"]:
+        source_path = row.get("source_path")
+        successor_sha256 = row.get("successor_sha256")
+        if not isinstance(source_path, str) or not isinstance(successor_sha256, str):
+            continue
+        if (source_path, successor_sha256) in overlaid_successors:
+            continue
+        for snapshot_root in sorted(
+            (ROOT / "stage1-successor-evidence").glob(
+                "current-byte-remediation-*/bindings/snapshots"
+            )
+        ):
+            successor = snapshot_root / successor_sha256
+            if not successor.is_file():
+                continue
+            target = snapshot / source_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(successor, target)
+            overlaid_successors.add((source_path, successor_sha256))
+            break
+    return snapshot
+
+
 def test_v3_inherits_shared_i1_successor_and_resolves_real_current_candidates(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -665,20 +746,39 @@ def test_v3_inherits_shared_i1_successor_and_resolves_real_current_candidates(
         "check_candidate",
         REAL_CHECK_CANDIDATE,
     )
-    builder_path = ROOT / tool.CONVERGENCE_CURRENT_BYTE_SUCCESSOR_REGISTRY.parent / (
+    def historical_check_candidate(path, *, repo_root, history_only):
+        previous_cwd = Path.cwd()
+        os.chdir(repo_root)
+        try:
+            return REAL_CHECK_CANDIDATE(
+                repo_root / path,
+                repo_root=repo_root,
+                history_only=history_only,
+            )
+        finally:
+            os.chdir(previous_cwd)
+
+    monkeypatch.setattr(
+        tool.stage_family_fragment_rebind,
+        "check_candidate",
+        historical_check_candidate,
+    )
+    historical_root = _head_snapshot(tmp_path)
+    builder_path = historical_root / tool.CONVERGENCE_CURRENT_BYTE_SUCCESSOR_REGISTRY.parent / (
         "build_current_byte_binding_successors_v3.py"
     )
     spec = importlib.util.spec_from_file_location("intake_v3_binding_builder", builder_path)
     assert spec is not None and spec.loader is not None
     builder = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(builder)
-    # Validate current bytes without creating any formal binding output.
-    registry = json.loads(builder.build_documents(ROOT)[builder.REGISTRY_REL])
+    # Consume the frozen v3 registry directly; its input bytes belong to the
+    # historical v3 contract and must not be rebuilt against retired live paths.
+    registry = json.loads((historical_root / builder.REGISTRY_REL).read_text(encoding="utf-8"))
     rows = tool._registry_resolution_rows(
-        ROOT,
-        tool.STAGE0_CANDIDATE_PATHS,
+        historical_root,
+        tuple(path for path in tool.STAGE0_CANDIDATE_PATHS),
         registry,
-        expected_identity=tool.directory_identity(ROOT),
+        expected_identity=tool.directory_identity(historical_root),
     )
     shared_rows = [
         row for row in rows

@@ -1,0 +1,10 @@
+{
+  "browser_oauth_authenticated": false,
+  "host_oauth_authenticated": true,
+  "iframe_src": "http://127.0.0.1:8172/",
+  "frame_root_attached": true,
+  "webui_jwt_present": true,
+  "native_status_http_200": true,
+  "mrw_browser_exchange_used": false,
+  "page_errors": []
+}

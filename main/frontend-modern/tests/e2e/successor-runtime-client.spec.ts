@@ -1,10 +1,14 @@
 import { expect, test } from '@playwright/test'
 import {
   SUCCESSOR_ENVELOPE_STATUSES,
+  SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT,
+  SUCCESSOR_HISTORICAL_ROLLBACK_RECEIPT_CONTRACT,
   SUCCESSOR_PENDING_COMMANDS_KEY,
   SUCCESSOR_PROJECT_PREFERENCE_KEY,
+  LEGACY_SUCCESSOR_V2_COMMAND_URL,
   SUCCESSOR_V2_COMMAND_URL,
   SUCCESSOR_V2_QUERY_URL,
+  SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT,
   SuccessorBindingError,
   SuccessorConflictError,
   SuccessorDecodeError,
@@ -18,6 +22,7 @@ import {
   computeSuccessorCommandFingerprint,
   createSuccessorQueryRefetcher,
   decodeSuccessorRollbackTransitionReceipt,
+  decodeHistoricalSuccessorRollbackTransitionReceiptV1,
   decodeSuccessorEnvelope,
   fetchSuccessorQuery,
   getSuccessorProjectPreference,
@@ -173,7 +178,7 @@ function position(overrides: Record<string, unknown> = {}) {
 
 function rollbackReceipt(overrides: Record<string, unknown> = {}): SuccessorRollbackTransitionReceipt {
   const receipt = {
-    contract: 'C9RollbackTransitionReceipt.v1' as const,
+    contract: SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT,
     ref: 'rollback-1',
     digest: '',
     projection_id: 'proj-1',
@@ -707,11 +712,13 @@ test('localStorage stores only preference and pending identity; fetch has no pro
           ...sourceKey(),
         },
       ),
+      fingerprint_contract: SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT,
     })
     expect(Object.keys(pending[pendingKey('demo', 'cmd-1')]).sort()).toEqual([
       'command_id',
       'command_kind',
       'endpoint',
+      'fingerprint_contract',
       'payload_digest',
       'project_locator',
     ])
@@ -826,6 +833,61 @@ test('command fingerprint binds expected base token and approval locator', async
       { expectedBaseToken: 'base-1' },
     ),
   ).toBe(boundBase)
+})
+
+test('historical pending fingerprint is explicitly matched then migrated to the business contract', async () => {
+  const payload = {
+    payload_kind: 'rebuild_projection' as const,
+    projection_id: 'proj-1',
+    mode: 'FULL' as const,
+    ...sourceKey(),
+  }
+  const historicalDigest = '8ce94a90c6906303935a003474623c7aae2aaae31634e2848ad4109f9d53fdd8'
+  localStorage.setItem(
+    SUCCESSOR_PENDING_COMMANDS_KEY,
+    JSON.stringify({
+      [pendingKey('demo', 'cmd-historical')]: {
+        command_id: 'cmd-historical',
+        command_kind: 'rebuild_projection',
+        project_locator: 'demo',
+        endpoint: LEGACY_SUCCESSOR_V2_COMMAND_URL,
+        payload_digest: historicalDigest,
+      },
+    }),
+  )
+  const currentDigest = computeSuccessorCommandFingerprint(
+    SUCCESSOR_V2_COMMAND_URL,
+    'demo',
+    'cmd-historical',
+    'rebuild_projection',
+    payload,
+  )
+  expect(currentDigest).not.toBe(historicalDigest)
+
+  const harness = installFetchHarness(() =>
+    jsonResponse(
+      envelope('waiting', {
+        meta: commandMeta({ command_id: 'cmd-historical', trace_id: 'trace-historical' }),
+      }),
+    ),
+  )
+  try {
+    await submitSuccessorCommand({
+      commandId: 'cmd-historical',
+      commandKind: 'rebuild_projection',
+      projectLocator: 'demo',
+      actorRef: 'actor-1',
+      payload,
+      traceId: 'trace-historical',
+    })
+    expect(readSuccessorPendingCommands()[pendingKey('demo', 'cmd-historical')]).toMatchObject({
+      endpoint: SUCCESSOR_V2_COMMAND_URL,
+      payload_digest: currentDigest,
+      fingerprint_contract: SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT,
+    })
+  } finally {
+    harness.restore()
+  }
 })
 
 test('changed base/approval binding with same command id conflicts while pending', async () => {
@@ -1945,10 +2007,9 @@ test('rollback duplicate click is one fetch and changed intent conflicts', async
 test('rollback transition receipt decodes strictly from backend fixture', () => {
   const receipt = rollbackReceipt()
   const decoded = decodeSuccessorRollbackTransitionReceipt(receipt)
-  expect(decoded.contract).toBe('C9RollbackTransitionReceipt.v1')
+  expect(decoded.contract).toBe(SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT)
   expect(decoded.ref).toBe('rollback-1')
   expect(decoded.digest).toBe(computeSuccessorRollbackReceiptDigest(receipt))
-  expect(decoded.digest).toBe('a179e8bb0430aaab5fe6e443f6d58d06d17dcf5a2101ba4081e48c8b7dbe4b60')
   expect(decoded.from).toEqual(receipt.from)
   expect(decoded.to).toEqual(receipt.to)
   expect(decoded.projection_id).toBe('proj-1')
@@ -1981,6 +2042,22 @@ test('rollback transition receipt decodes strictly from backend fixture', () => 
   expect(() =>
     decodeSuccessorRollbackTransitionReceipt({ ...receipt, contract: 'WrongContract.v1' }),
   ).toThrow(SuccessorDecodeError)
+})
+
+test('historical rollback receipt is decoded explicitly without relabelling or rehashing', () => {
+  const current = rollbackReceipt()
+  const historical = {
+    ...current,
+    contract: SUCCESSOR_HISTORICAL_ROLLBACK_RECEIPT_CONTRACT,
+    digest: '',
+  }
+  historical.digest = computeSuccessorRollbackReceiptDigest(historical)
+
+  const decoded = decodeHistoricalSuccessorRollbackTransitionReceiptV1(historical)
+  expect(decoded).toEqual(historical)
+  expect(decoded.contract).toBe(SUCCESSOR_HISTORICAL_ROLLBACK_RECEIPT_CONTRACT)
+  expect(decoded.digest).not.toBe(current.digest)
+  expect(decodeSuccessorRollbackTransitionReceipt(historical)).toEqual(historical)
 })
 
 test('sanctioned rollback transitions the projection clock with a valid receipt', async () => {
@@ -2555,7 +2632,7 @@ test('backend model_dump snapshot with candidate sink/payload and nested rollbac
     )
     expect(transition.meta).toMatchObject({ projection_generation: 3, offset_revision: 8, cursor: 7 })
     expect(transitionData.rollback_transition?.ref).toBe('rollback-1')
-    expect(transitionData.rollback_transition?.contract).toBe('C9RollbackTransitionReceipt.v1')
+    expect(transitionData.rollback_transition?.contract).toBe(SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT)
     expect(transitionData.rollback_transition?.digest).toBe(
       computeSuccessorRollbackReceiptDigest(transitionData.rollback_transition!),
     )

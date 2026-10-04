@@ -5,34 +5,31 @@ from typing import get_args
 import pytest
 
 from mrw_functorial_kit.core.provider_port_failures import (
-    CrawlerRuntimeFailureCode,
     CollectRuntimeFailureCode,
     CrawlerRegistryContractFailureCode,
+    CrawlerRuntimeFailureCode,
+    IndexerPolicyFailureCode,
     IngestGoogleNewsFailureCode,
     IngestLongCycleFailureCode,
-    IngestMarketFailureCode,
     IngestOperationFailureCode,
     IngestPolicyFailureCode,
     IngestRedditFailureCode,
-    IndexerPolicyFailureCode,
     JobHistoryFailureCode,
     ResourcePoolContractFailureCode,
     ResourcePoolHttpFetchFailureCode,
     collect_runtime_failures,
     crawler_registry_contract_failures,
     crawler_runtime_failures,
+    indexer_policy_failures,
     ingest_google_news_failures,
     ingest_long_cycle_failures,
-    ingest_market_failures,
     ingest_operation_failures,
     ingest_policy_failures,
     ingest_reddit_failures,
-    indexer_policy_failures,
     job_history_failures,
     resource_pool_contract_failures,
     resource_pool_http_fetch_failures,
 )
-
 
 _EXPECTED_CODES: dict[str, tuple[str, ...]] = {
     "collect.runtime.failure": (
@@ -41,11 +38,8 @@ _EXPECTED_CODES: dict[str, tuple[str, ...]] = {
         "compat_projector_contract_invalid",
         "collect_channel_unsupported",
         "auto_batch_execution_failed",
-    ),
-    "ingest.market.failure": (
-        "market_adapter_not_configured",
-        "market_provider_iteration_failed",
-        "market_persistence_failed",
+        "product_mode_unsupported",
+        "successor_effect_gateway_invalid",
     ),
     "ingest.policy.failure": (
         "policy_adapter_not_configured",
@@ -142,7 +136,6 @@ _EXPECTED_CODES: dict[str, tuple[str, ...]] = {
 def test_FAILURE_PRESERVED__w03_literal_aliases_match_exact_families() -> None:
     aliases: dict[str, tuple[str, ...]] = {
         "collect.runtime.failure": get_args(CollectRuntimeFailureCode),
-        "ingest.market.failure": get_args(IngestMarketFailureCode),
         "ingest.policy.failure": get_args(IngestPolicyFailureCode),
         "ingest.reddit.failure": get_args(IngestRedditFailureCode),
         "ingest.google_news.failure": get_args(IngestGoogleNewsFailureCode),
@@ -168,10 +161,6 @@ def test_FAILURE_PRESERVED__w03_preexisting_codes_are_not_removed() -> None:
         "collect_adapter_contract_invalid",
         "compat_projector_contract_invalid",
     )
-    assert ingest_market_failures.codes[:2] == (
-        "market_adapter_not_configured",
-        "market_provider_iteration_failed",
-    )
     assert ingest_policy_failures.codes[:2] == (
         "policy_adapter_not_configured",
         "policy_provider_iteration_failed",
@@ -192,7 +181,6 @@ def test_FAILURE_PRESERVED__w03_members_are_closed_and_unknown_codes_rejected() 
 ):
     families = {
         collect_runtime_failures.name: collect_runtime_failures,
-        ingest_market_failures.name: ingest_market_failures,
         ingest_policy_failures.name: ingest_policy_failures,
         ingest_reddit_failures.name: ingest_reddit_failures,
         ingest_google_news_failures.name: ingest_google_news_failures,

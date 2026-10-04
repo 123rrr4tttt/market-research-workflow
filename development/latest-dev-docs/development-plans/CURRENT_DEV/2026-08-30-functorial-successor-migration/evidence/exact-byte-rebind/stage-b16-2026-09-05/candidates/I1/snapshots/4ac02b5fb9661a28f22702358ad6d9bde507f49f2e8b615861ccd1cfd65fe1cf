@@ -1,0 +1,209 @@
+{
+  "schema": "mrw.functorial_successor.capability_cell_spec.v1",
+  "version": "1.0.0",
+  "cell_id": "C3.1",
+  "family_id": "C3",
+  "owner_capability_id": "collect.c3_1.v1",
+  "entrypoint_kind": "PROGRAM",
+  "commutativity_claim": "NOT_CLAIMED",
+  "input_contract_refs": [
+    "mrw.successor.collect.c3.request-ref.v1",
+    "mrw.successor.collect.c3.legacy-request-snapshot.v1",
+    "mrw.successor.collect.c3.batch-element.v1",
+    "mrw.successor.collect.c3.batch-plan.v1",
+    "mrw.successor.collect.c3.resource-policy.v1"
+  ],
+  "output_contract_refs": [
+    "mrw.successor.collect.c3.element-outcome.v1",
+    "mrw.successor.collect.c3.traversal-observation.v1",
+    "mrw.successor.collect.c3.cancellation-receipt.v1"
+  ],
+  "object_contract_refs": [
+    "CollectBatchElement.v1",
+    "CollectBatchPlan.v1",
+    "OrderedCollectElementOutcomeSequence.v1",
+    "CollectElementSucceeded|CollectElementFailed"
+  ],
+  "operation_contract_refs": [
+    "collect.execute_batch_element.v1",
+    "mrw.traverse_ordered.materialize"
+  ],
+  "program_shape_ref": "mrw.successor.collect.c3-1.program-shape.v1",
+  "ordered_composition_refs": [
+    "collect.execute_batch_element.v1",
+    "mrw.traverse_ordered.materialize",
+    "collect.fold_ordered_results.v1"
+  ],
+  "interpreter_refs": [
+    "successor.collect_runtime.batch_traverse.v1",
+    "legacy.collect_runtime.batch_traverse.v1"
+  ],
+  "profile_refs": [
+    "collect.batch_traverse.ordered_observation.v1"
+  ],
+  "deployment_binding_refs": [
+    "deployment.local-only.no-network.no-provider.no-canonical-write.v1"
+  ],
+  "legacy_oracle_ref": "legacy.collect_runtime.batch_traverse.v1",
+  "shadow_observation_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json#/cells/0/successor_observation",
+  "failure_union_refs": [
+    "INVALID_INPUT",
+    "ASSIGNMENT_BINDING_MISMATCH",
+    "INTERPRETER_UNAVAILABLE",
+    "TRAVERSAL_COMPILE_PENDING",
+    "FOLD_CONTRACT_FAILURE",
+    "ELEMENT_EXECUTION_FAILED",
+    "ORDERED_TRAVERSAL_ABORTED",
+    "RESOURCE_POLICY_EXCEEDED",
+    "auto_batch_execution_failed",
+    "element_rejected",
+    "runner_unavailable"
+  ],
+  "declared_lossy_projection_refs": [],
+  "effect_policy_ref": "mrw.successor.collect.c3-1.effect.v1",
+  "resource_policy_ref": "mrw.successor.collect.c3-1.resource.v1",
+  "recovery_policy_ref": "mrw.successor.collect.c3-1.recovery.v1",
+  "readback_policy_ref": "mrw.successor.runtime.readback.not-applicable.v1",
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false
+  },
+  "adoption_prerequisites": [
+    "P3_AUTHORITY_RECORD_DIVERGENCE",
+    "C3_POSTGRES_CANARY_DISPOSABLE_ONLY",
+    "C3_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+    "C3_DURABLE_RUNTIME_NODE_NOT_PROVEN",
+    "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+  ],
+  "source_bindings": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P1FunctorizationEligibility.v1.json",
+      "file_sha256": "16dac2d34f2cdcaeffa4718fe2e63733f48b29ad0ba64daab32ed011527d4642",
+      "role": "p1_eligibility"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p1-fragments/C3.json",
+      "file_sha256": "52824449d8d28ec603f7b46128a83f8a27d4e711f1534d621726c748acba861c",
+      "role": "p1_fragment"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P2C21CapabilityPacket.v4.json",
+      "file_sha256": "d0d275be378c11553e595ffc726906275dd7aa9f030af32172c2b8805252ab9a",
+      "role": "shared_traversal_review_evidence"
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/runtime.py",
+      "file_sha256": "c7591aee60b1ed6966a67fd88044356bc2a618890bddc2da0e60714989eea482",
+      "role": "legacy_donor_c3"
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/contracts.py",
+      "file_sha256": "847ac17742818979200fbbdee006646c02a96ca3a54056dc699d6046fdca83e0",
+      "role": "legacy_donor_c3"
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/display_meta.py",
+      "file_sha256": "ab538c3dace7eab1ed29289b2ac32ad32846e631914106bc46e30db05ee23145",
+      "role": "legacy_donor_c3"
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/adapters/crawler_scrapy.py",
+      "file_sha256": "d9bf07661df0c9c15c4489f8b73197c0e38979b22b47bacaa760c247622b4fa2",
+      "role": "legacy_donor_c3"
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/adapters/source_library.py",
+      "file_sha256": "e4f2d2652361fc98834d53a0f1f2c923c4b88f2493d94cef2fc6842970b13393",
+      "role": "legacy_donor_c3"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/language/compile.py",
+      "file_sha256": "91b06329b8476d06193e8030746288be5550f065b6f471b81dce650608d61dd5",
+      "role": "shared_dependency_traverse_ordered"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/language/program.py",
+      "file_sha256": "eba5147e44ada7ee264606cb64347132b902d86beebba14b9b9a1c3bb6f01e02",
+      "role": "shared_dependency_traverse_ordered"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/language/plan.py",
+      "file_sha256": "a8f5ab8ccc38c56ebfb67b6b7a1b36132bf45e132014f6d2a2ed0ee3ba7cfb82",
+      "role": "shared_dependency_traverse_ordered"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/language/normalize.py",
+      "file_sha256": "888feb73ab4ad6ffadf4846be033a4f2edb1afd692b261092343a9b28ad18f48",
+      "role": "shared_dependency_traverse_ordered"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/language/validate.py",
+      "file_sha256": "2222d867491cde7cfd4772c4e31c06101e0faf12eee1e9209189d2202638abdc",
+      "role": "shared_dependency_traverse_ordered"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/language/transforms.py",
+      "file_sha256": "1fd0a9543967bdec8ed7d1387dbf9d34e9859b92632567667c37224f03de55b5",
+      "role": "shared_dependency_traverse_ordered"
+    }
+  ],
+  "test_bindings": [
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c3_contracts.py",
+      "file_sha256": "b7b9e8bec3b9818695f78d0500af0806f27e2134bb0b10ab323d7e9659e8e3a4",
+      "role": "c3_contracts_tests"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c3_micro.py",
+      "file_sha256": "baf41189b4d16b710a27d8411edf9f335ec2f8873aabdac56befa9d85b4db2be",
+      "role": "c3_micro_tests"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c3_replay_shadow.py",
+      "file_sha256": "2a35294b9b75e89e69247ee7d5acbf25f1c65645712497b4170b503be599bfb5",
+      "role": "c3_replay_shadow_tests"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c3_rollback.py",
+      "file_sha256": "2da862764b8ea87ef98b3eab6761c5d937140a2c8d9e7122432130e1bc5fa8ae",
+      "role": "c3_rollback_tests"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c3_canary_postgres.py",
+      "file_sha256": "2f9c7a22a7f015554cbbda52d6429ca840072eb7e39d955c02ca9d2e9943ce1c",
+      "role": "c3_canary_postgres_tests"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c3_fragment.py",
+      "file_sha256": "38e105746983ca2692de73785ce758750a103953729ad5c52e3f3db28bb37b8d",
+      "role": "c3_fragment_tests"
+    }
+  ],
+  "rollback_bindings": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json",
+      "file_sha256": "915aee69e65f2020fec859aa65a2f49be14325e4eff077f3881b025a89ef0133",
+      "role": "rollback_observation"
+    },
+    {
+      "path": "main/backend/app/successor_migration/legacy_collect_runtime.py",
+      "file_sha256": "93993dcd0165047c6b4cf2101a86f3aeda49b963f30f2081f4ca773616d8de62",
+      "role": "legacy_rollback_route"
+    }
+  ],
+  "generated_ownership_refs": [
+    "capability-spec.contract-ref-scaffolding.C3.1.v1",
+    "capability-spec.build-manifest.C3.1.v1"
+  ],
+  "handwritten_ownership_refs": [
+    "main/backend/app/successor_runtime/capabilities/collect_c3.py",
+    "main/backend/app/successor_runtime/capabilities/collect_c3_program.py",
+    "main/backend/app/successor_runtime/capabilities/collect_c3_interpreters.py",
+    "main/backend/app/successor_migration/legacy_collect_runtime.py",
+    "main/backend/app/successor_runtime/substrate/postgres/collect_c3_canary.py",
+    "main/backend/app/successor_runtime/specification/c3_p3.py"
+  ]
+}

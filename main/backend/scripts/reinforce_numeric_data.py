@@ -3,10 +3,9 @@
 
 Use cases:
 - Normalize `Document.extracted_data.market` numeric fields that were stored as text.
-- Optionally normalize numeric fields hidden in `MarketStat.extra` into numeric columns.
 
 Usage:
-  python scripts/reinforce_numeric_data.py --scope lottery.market --doc-types market_info market --limit 200
+  python scripts/reinforce_numeric_data.py --scope market --doc-types market_info market --limit 200
 """
 from __future__ import annotations
 
@@ -26,7 +25,7 @@ project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
 from app.models.base import SessionLocal
-from app.models.entities import Document, MarketStat
+from app.models.entities import Document
 from app.services.extraction.numeric import normalize_market_payload
 from app.services.extraction.json_utils import extract_json_payload
 from app.services.projects.context import bind_project
@@ -57,22 +56,6 @@ _MKT_NUM_FIELD_KEYWORDS = {
         "营业收入",
         "总营收",
         "收入额",
-    },
-    "jackpot": {
-        "jackpot",
-        "奖池",
-        "奖金",
-        "头奖",
-        "prize",
-        "中彩金",
-    },
-    "ticket_price": {
-        "ticket",
-        "票价",
-        "购买彩票",
-        "每注",
-        "ticket price",
-        "彩票",
     },
     "yoy_change": {
         "同比",
@@ -123,18 +106,12 @@ _MARKET_SEMANTIC_KEYWORDS = (
     "销售",
     "收入",
     "营收",
-    "jackpot",
-    "奖金",
     "增长",
     "同比",
     "环比",
-    "ticket",
-    "票价",
     "volume",
     "revenue",
     "market",
-    "prize",
-    "彩票",
 )
 
 _MEANINGFUL_NUMBER_UNITS = {
@@ -155,7 +132,7 @@ _MEANINGFUL_NUMBER_UNITS = {
     "usd",
     "eur",
 }
-_MARKET_NUMERIC_FIELDS = ("sales_volume", "revenue", "jackpot", "ticket_price", "yoy_change", "mom_change")
+_MARKET_NUMERIC_FIELDS = ("sales_volume", "revenue", "yoy_change", "mom_change")
 
 
 def _to_project_ctx(project_key: str | None):
@@ -252,10 +229,10 @@ def _numeric_context_score(field: str, context: str, raw_token: str) -> int:
     if field in {"yoy_change", "mom_change"} and "%" in raw_token:
         score += 1
 
-    if field in {"sales_volume", "revenue", "jackpot", "ticket_price"}:
+    if field in {"sales_volume", "revenue"}:
         if re.search(r"\b(?:万|千|百万|千万|亿|十亿|k|m|b|bn)\b", raw_token.lower()):
             score += 1
-        if any(s in raw_token for s in ("$", "\u00a5", "¥", "€” , "元", "美元")):
+        if any(s in raw_token for s in ("$", "\u00a5", "¥", "€", "元", "美元")):
             score += 1
 
     return score
@@ -286,7 +263,7 @@ def _infer_market_payload_from_text(text: str) -> Dict[str, Any]:
 
         selected_field = None
         best_score = 0
-        for field in ("sales_volume", "revenue", "jackpot", "ticket_price", "yoy_change", "mom_change"):
+        for field in _MARKET_NUMERIC_FIELDS:
             score = _numeric_context_score(field, context, raw)
             if score > best_score:
                 best_score = score
@@ -300,12 +277,6 @@ def _infer_market_payload_from_text(text: str) -> Dict[str, Any]:
                 best_score = 1
             elif "%" in raw and any(kw in context for kw in ("环比", "month over month", "mom", "上月", "较上月")):
                 selected_field = "mom_change"
-                best_score = 1
-            elif any(kw in context for kw in ("jackpot", "奖金", "奖池", "头奖")):
-                selected_field = "jackpot"
-                best_score = 1
-            elif any(kw in context for kw in ("票价", "ticket", "每注")):
-                selected_field = "ticket_price"
                 best_score = 1
             elif any(
                 kw in context
@@ -410,7 +381,7 @@ def reinforce_documents(
     session,
     *,
     doc_types: Sequence[str] | None = None,
-    scope: str = "lottery.market",
+    scope: str = "market",
     limit: int | None = None,
     dry_run: bool = False,
     batch_size: int = 100,
@@ -486,8 +457,6 @@ def reinforce_documents(
                 for k in (
                     "sales_volume",
                     "revenue",
-                    "jackpot",
-                    "ticket_price",
                     "yoy_change",
                     "mom_change",
                 )
@@ -539,123 +508,6 @@ def reinforce_documents(
     return stats
 
 
-def _pick_raw_market_fields(extra: Dict[str, Any]) -> Dict[str, Any]:
-    payload: Dict[str, Any] = {}
-
-    sales_volume = next((extra.get(k) for k in ["sales_volume", "sales_volume_raw"] if extra.get(k) not in (None, "")), None)
-    if sales_volume is not None:
-        payload["sales_volume"] = sales_volume
-
-    revenue = next((extra.get(k) for k in ["revenue", "revenue_raw"] if extra.get(k) not in (None, "")), None)
-    if revenue is not None:
-        payload["revenue"] = revenue
-
-    jackpot = next((extra.get(k) for k in ["jackpot", "jackpot_raw"] if extra.get(k) not in (None, "")), None)
-    if jackpot is not None:
-        payload["jackpot"] = jackpot
-
-    ticket_price = next((extra.get(k) for k in ["ticket_price", "ticket_price_raw"] if extra.get(k) not in (None, "")), None)
-    if ticket_price is not None:
-        payload["ticket_price"] = ticket_price
-
-    yoy = next((extra.get(k) for k in ["yoy", "yoy_change", "yoy_change_raw"] if extra.get(k) not in (None, "")), None)
-    if yoy is not None:
-        payload["yoy_change"] = yoy
-
-    mom = next((extra.get(k) for k in ["mom", "mom_change", "mom_change_raw"] if extra.get(k) not in (None, "")), None)
-    if mom is not None:
-        payload["mom_change"] = mom
-
-    return payload
-
-
-def reinforce_market_stats(
-    session,
-    *,
-    scope: str = "lottery.market",
-    limit: int | None = None,
-    dry_run: bool = False,
-    batch_size: int = 100,
-    force: bool = False,
-) -> Dict[str, int]:
-    query = select(MarketStat)
-    if limit:
-        query = query.limit(int(limit))
-    rows = list(session.execute(query).scalars().all())
-
-    stats: Dict[str, int] = {
-        "total": len(rows),
-        "updated": 0,
-        "unchanged": 0,
-        "skipped": 0,
-        "errors": 0,
-    }
-
-    pending = 0
-    for row in rows:
-        try:
-            extra = row.extra
-            if not isinstance(extra, dict):
-                stats["skipped"] += 1
-                continue
-
-            payload = _pick_raw_market_fields(extra)
-            if not payload:
-                stats["unchanged"] += 1
-                continue
-
-            normalized_market, quality = _normalize_market_dict(payload, scope=scope)
-            changed = False
-
-            if force or row.sales_volume is None:
-                if normalized_market.get("sales_volume") is not None:
-                    row.sales_volume = _decimal_or_none(normalized_market["sales_volume"])
-                    changed = True
-            if force or row.revenue is None:
-                if normalized_market.get("revenue") is not None:
-                    row.revenue = _decimal_or_none(normalized_market["revenue"])
-                    changed = True
-            if force or row.jackpot is None:
-                if normalized_market.get("jackpot") is not None:
-                    row.jackpot = _decimal_or_none(normalized_market["jackpot"])
-                    changed = True
-            if force or row.ticket_price is None:
-                if normalized_market.get("ticket_price") is not None:
-                    row.ticket_price = _decimal_or_none(normalized_market["ticket_price"])
-                    changed = True
-
-            existing_quality = extra.get("numeric_quality")
-            if isinstance(existing_quality, dict):
-                extra["numeric_quality"] = {
-                    "source": existing_quality,
-                    "supplement": quality,
-                }
-            else:
-                extra["numeric_quality"] = quality
-
-            if changed:
-                flag_modified(row, "extra")
-                stats["updated"] += 1
-                pending += 1
-                if pending >= batch_size and not dry_run:
-                    session.flush()
-                    session.commit()
-                    pending = 0
-            else:
-                stats["unchanged"] += 1
-
-            row.extra = extra
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("market_stat reinforce failed id=%s err=%s", row.id, exc)
-            stats["errors"] += 1
-
-    if pending and not dry_run:
-        session.flush()
-        session.commit()
-
-    return stats
-
-
 def _parse_doc_types(raw: str | None) -> List[str] | None:
     if not raw:
         return None
@@ -665,8 +517,8 @@ def _parse_doc_types(raw: str | None) -> List[str] | None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="数字化补齐工具（数值标准化）")
-    parser.add_argument("--project-key", default=None, help="绑定项目（例如 online_lottery）")
-    parser.add_argument("--scope", default="lottery.market", help="normalize_market_payload scope")
+    parser.add_argument("--project-key", default=None, help="绑定项目")
+    parser.add_argument("--scope", default="market", help="normalize_market_payload scope")
     parser.add_argument(
         "--doc-types",
         default="market_info,market",
@@ -675,7 +527,6 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=None, help="限制处理记录数（可选）")
     parser.add_argument("--batch-size", type=int, default=100, help="批量提交大小")
     parser.add_argument("--dry-run", action="store_true", help="仅预览不入库")
-    parser.add_argument("--include-market-stats", action="store_true", help="同时处理 MarketStat.extra 上的候选数字")
     parser.add_argument(
         "--no-infer-from-text",
         action="store_true",
@@ -685,11 +536,6 @@ def main() -> int:
         "--llm-fallback",
         action="store_true",
         help="当文本符号化无结果时启用 LLM 回退抽取",
-    )
-    parser.add_argument(
-        "--force-market-stats",
-        action="store_true",
-        help="MarketStat 数值列有值时也覆盖（默认仅补齐空值）",
     )
 
     args = parser.parse_args()
@@ -707,26 +553,11 @@ def main() -> int:
                 infer_from_text=not args.no_infer_from_text,
                 llm_fallback=args.llm_fallback,
             )
-            market_stat_stats = None
-            if args.include_market_stats:
-                market_stat_stats = reinforce_market_stats(
-                    session,
-                    scope=args.scope,
-                    limit=args.limit,
-                    dry_run=args.dry_run,
-                    batch_size=args.batch_size,
-                    force=args.force_market_stats,
-                )
-
             if args.dry_run:
                 session.rollback()
 
             logger.info("documents stats=%s", doc_stats)
-            if market_stat_stats is not None:
-                logger.info("market_stats stats=%s", market_stat_stats)
             print("documents:", doc_stats)
-            if market_stat_stats is not None:
-                print("market_stats:", market_stat_stats)
             return 0
 
 

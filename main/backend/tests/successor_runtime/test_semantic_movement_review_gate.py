@@ -9,6 +9,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 _BACKEND = Path(__file__).resolve().parents[2]
 _DEFAULT_REPO = _BACKEND.parents[1]
 REPO = Path(
@@ -20,6 +22,27 @@ EVIDENCE = (
     "2026-08-30-functorial-successor-migration/evidence/semantic-movement"
 )
 VALIDATOR = _BACKEND / "scripts/validate_successor_semantic_movement.py"
+
+
+@pytest.fixture(scope="module")
+def historical_input_root(tmp_path_factory) -> Path:
+    from .historical_fixture import materialize_revision
+    from .test_semantic_movement_generator import _FROZEN_PREDECESSOR_COMMIT
+
+    return materialize_revision(tmp_path_factory.mktemp("movement-history"), _FROZEN_PREDECESSOR_COMMIT)
+
+
+@pytest.fixture(autouse=True)
+def historical_projection_output(tmp_path: Path, monkeypatch, historical_input_root: Path) -> None:
+    from .test_semantic_movement_generator import _load_generator
+    from .historical_fixture import write_documents
+
+    generator = _load_generator()
+    write_documents(tmp_path, generator.build_documents(historical_input_root))
+    relative = EVIDENCE.relative_to(OUTPUT)
+    monkeypatch.setattr(sys.modules[__name__], "REPO", historical_input_root)
+    monkeypatch.setattr(sys.modules[__name__], "OUTPUT", tmp_path)
+    monkeypatch.setattr(sys.modules[__name__], "EVIDENCE", tmp_path / relative)
 
 
 def _load(name: str) -> dict:
@@ -105,7 +128,7 @@ def test_gate_reports_declared_scope_and_predecessor_gate() -> None:
     )
 
 
-def test_validator_preserves_all_semantics_for_current_canonical_rebuild() -> None:
+def test_validator_preserves_all_semantics_for_historical_canonical_rebuild() -> None:
     paths = sorted(path for path in EVIDENCE.rglob("*") if path.is_file())
     fragment_paths = list((EVIDENCE / "fragments").glob("*.v1.json"))
     aggregate_names = (

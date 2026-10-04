@@ -1,0 +1,362 @@
+#!/usr/bin/env python3
+# ruff: noqa: TRY003
+"""Prepare additive Stage-0/B13 family exact-byte rebind documents.
+
+The family configuration and shared generator remain the source of truth for
+fragment construction.  This command only prepares ``fragments`` and
+``manifests`` below a new ``stage-b13-YYYY-MM-DD`` directory; it never edits a
+P3/P4 predecessor, a registry, a baseline, or a progress record.  The default
+mode is a deterministic dry run.  ``--write`` creates the complete stage only
+when the stage directory and every target are absent.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib
+import json
+import os
+import re
+import sys
+from collections.abc import Iterable
+from pathlib import Path
+from typing import Any
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+BACKEND_ROOT = REPOSITORY_ROOT / "main/backend"
+SOURCE_ROOT = REPOSITORY_ROOT / "src"
+for _root in (BACKEND_ROOT, SOURCE_ROOT):
+    if str(_root) not in sys.path:
+        sys.path.insert(0, str(_root))
+
+from app.successor_runtime.specification.shared_family_generator import (  # noqa: E402
+    FamilyFragmentConfig,
+    build_fragment,
+    fragment_bytes,
+)
+
+
+EVIDENCE_REL = Path(
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "2026-08-30-functorial-successor-migration/evidence"
+)
+EXACT_BYTE_REBIND_REL = EVIDENCE_REL / "exact-byte-rebind"
+ALLOWED_FAMILIES = frozenset({"C2", "C3", "C4", "C5", "C6", "C8", "C9"})
+_FAMILY_MODULES = {
+    "C2": "app.successor_runtime.specification.c2_p3",
+    "C3": "app.successor_runtime.specification.c3_p3",
+    "C4": "app.successor_runtime.specification.c4_p3",
+    "C5": "app.successor_runtime.specification.c5_p3",
+    "C6": "app.successor_runtime.specification.c6_p3",
+    "C8": "app.successor_runtime.specification.c8_p4",
+    "C9": "app.successor_runtime.specification.c9_p4",
+}
+_STAGE_RE = re.compile(r"^stage-b13-[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+MANIFEST_SCHEMA = "mrw.family_fragment_rebind.stage_manifest.v2"
+AMENDMENT_TEMPLATE = "STAGE_B13_{family}_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+
+# These are mechanical inputs to the shared pipeline, not hand-selected
+# family bindings.  The fragment's three binding groups are expanded below in
+# full, then these common dependencies are included in the manifest as well.
+COMMON_SOURCE_RELS = (
+    "main/backend/app/successor_runtime/specification/shared_family_generator.py",
+    "main/backend/app/successor_runtime/specification/capability_cell_spec.py",
+    "main/backend/app/successor_runtime/specification/runtime_kernel_abi.py",
+    "main/backend/scripts/generate_family_fragment_shared.py",
+    "scripts/stage_family_fragment_rebind.py",
+    "scripts/generate_stage0_family_exact_byte_rebind.py",
+)
+
+
+class GenerationError(RuntimeError):
+    """A requested additive stage cannot be established safely."""
+
+
+def _canonical(value: Any) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def _sha256(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _content_digest(value: dict[str, Any]) -> str:
+    return _sha256(
+        _canonical({key: item for key, item in value.items() if key != "content_digest"})
+    )
+
+
+def _repo_relative(root: Path, raw: str | Path, *, label: str) -> str:
+    candidate = Path(raw)
+    if candidate.is_absolute() or "\\" in str(raw):
+        raise GenerationError(f"{label} must be repository-relative POSIX path: {raw}")
+    if not str(raw) or any(part in {"", ".", ".."} for part in str(raw).split("/")):
+        raise GenerationError(f"{label} must be normalized: {raw}")
+    if (root / candidate).is_symlink():
+        raise GenerationError(f"{label} must not be a symlink: {raw}")
+    try:
+        resolved = (root / candidate).resolve(strict=True)
+        return resolved.relative_to(root.resolve()).as_posix()
+    except (FileNotFoundError, ValueError) as exc:
+        raise GenerationError(f"{label} is missing or escapes repository root: {raw}") from exc
+
+
+def _reject_frozen_path(relative: str, *, label: str) -> None:
+    parts = set(Path(relative).parts)
+    if {"p3-fragments", "p4-fragments"} & parts:
+        raise GenerationError(f"{label} must not target a frozen P3/P4 fragment: {relative}")
+
+
+def validate_stage(stage: str) -> str:
+    """Validate the single stage directory name and reject traversal."""
+
+    if not isinstance(stage, str) or not _STAGE_RE.fullmatch(stage):
+        raise GenerationError(
+            "stage must match stage-b13-YYYY-MM-DD (repository-relative single directory)"
+        )
+    return stage
+
+
+def validate_families(families: Iterable[str]) -> tuple[str, ...]:
+    values: list[str] = []
+    for raw in families:
+        for family in str(raw).split(","):
+            family = family.strip()
+            if not family:
+                continue
+            if family not in ALLOWED_FAMILIES:
+                raise GenerationError(
+                    f"unknown family {family!r}; allowed families: {','.join(sorted(ALLOWED_FAMILIES))}"
+                )
+            values.append(family)
+    if not values:
+        raise GenerationError("at least one family is required")
+    if len(set(values)) != len(values):
+        raise GenerationError("families must be unique")
+    return tuple(sorted(values))
+
+
+def config_for(family: str) -> FamilyFragmentConfig:
+    """Load one of the explicitly allowed thin family configurations."""
+
+    try:
+        module_name = _FAMILY_MODULES[family]
+    except KeyError as exc:
+        raise GenerationError(f"unknown family: {family}") from exc
+    try:
+        return importlib.import_module(module_name).CONFIG
+    except (ImportError, AttributeError) as exc:
+        raise GenerationError(f"cannot load family configuration {family}: {exc}") from exc
+
+
+def _raw_ref(root: Path, relative: str) -> dict[str, str]:
+    normalized = _repo_relative(root, relative, label="manifest source")
+    _reject_frozen_path(normalized, label="manifest source")
+    payload = (root / normalized).read_bytes()
+    return {"path": normalized, "file_sha256": _sha256(payload)}
+
+
+def _binding_paths(fragment: dict[str, Any], group: str) -> list[str]:
+    values = fragment.get(group)
+    if not isinstance(values, list) or not values:
+        raise GenerationError(f"fragment {group} must be a non-empty list")
+    paths: list[str] = []
+    for index, value in enumerate(values):
+        if not isinstance(value, dict) or not isinstance(value.get("path"), str):
+            raise GenerationError(f"fragment {group}[{index}] has no path")
+        paths.append(value["path"])
+    return paths
+
+
+def _config_relative(family: str) -> str:
+    phase = "p4" if family in {"C8", "C9"} else "p3"
+    return f"main/backend/app/successor_runtime/specification/{family.lower()}_{phase}.py"
+
+
+def _build_one(root: Path, stage: str, family: str) -> tuple[Path, bytes, Path, bytes]:
+    config = config_for(family)
+    fragment = build_fragment(config, root)
+    payload = fragment_bytes(config, fragment)
+    try:
+        parsed = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise GenerationError(f"{family} fragment is not JSON: {exc}") from exc
+    if not isinstance(parsed, dict) or parsed.get("family") != family:
+        raise GenerationError(f"{family} shared generator returned the wrong family")
+    if parsed.get("content_digest") != _content_digest(parsed):
+        raise GenerationError(f"{family} fragment content_digest mismatch")
+    if not isinstance(parsed.get("authority"), dict) or any(parsed["authority"].values()):
+        raise GenerationError(f"{family} fragment exceeds the all-false authority ceiling")
+
+    source_paths: set[str] = set(COMMON_SOURCE_RELS)
+    source_paths.add(_config_relative(family))
+    source_paths.update(_binding_paths(parsed, "source_bindings"))
+    source_paths.update(_binding_paths(parsed, "implementation_bindings"))
+    test_paths = set(_binding_paths(parsed, "test_bindings"))
+    # Keep the manifest closed over the declared config as well as the
+    # serialized fragment.  This catches a family body builder that accidentally
+    # drops a current dependency from its projection.
+    for target in (
+        *getattr(config, "source_bindings", ()),
+        *getattr(config, "implementation_bindings", ()),
+    ):
+        path = getattr(target, "path", None)
+        if isinstance(path, str):
+            source_paths.add(path)
+    for target in getattr(config, "test_bindings", ()):
+        path = getattr(target, "path", None)
+        if isinstance(path, str):
+            test_paths.add(path)
+    if source_paths & test_paths:
+        raise GenerationError(f"{family} source/test binding path overlap")
+
+    sources = [_raw_ref(root, path) for path in sorted(source_paths)]
+    tests = [_raw_ref(root, path) for path in sorted(test_paths)]
+    fragment_rel = EXACT_BYTE_REBIND_REL / stage / "fragments" / f"{family}.json"
+    manifest_rel = EXACT_BYTE_REBIND_REL / stage / "manifests" / f"{family}.json"
+    fragment_rel_text = fragment_rel.as_posix()
+    manifest = {
+        "schema": MANIFEST_SCHEMA,
+        "family": family,
+        "amendment": AMENDMENT_TEMPLATE.format(family=family),
+        "fragments": [
+            {
+                "path": fragment_rel_text,
+                "file_sha256": _sha256(payload),
+                "content_digest": parsed["content_digest"],
+            }
+        ],
+        "sources": sources,
+        "tests": tests,
+    }
+    manifest_payload = _canonical(manifest) + b"\n"
+    return fragment_rel, payload, manifest_rel, manifest_payload
+
+
+def build_documents(
+    repo_root: Path,
+    *,
+    stage: str,
+    families: Iterable[str],
+) -> dict[Path, bytes]:
+    """Build all requested documents without touching the repository."""
+
+    root = Path(repo_root).expanduser().resolve(strict=True)
+    stage_name = validate_stage(stage)
+    selected = validate_families(families)
+    documents: dict[Path, bytes] = {}
+    for family in selected:
+        fragment_rel, fragment_payload, manifest_rel, manifest_payload = _build_one(
+            root, stage_name, family
+        )
+        documents[fragment_rel] = fragment_payload
+        documents[manifest_rel] = manifest_payload
+    _validate_targets(root, documents, stage_name)
+    return documents
+
+
+def _validate_targets(root: Path, documents: dict[Path, bytes], stage: str) -> None:
+    stage_root = root / EXACT_BYTE_REBIND_REL / stage
+    try:
+        stage_root.resolve().relative_to((root / EXACT_BYTE_REBIND_REL).resolve())
+    except ValueError as exc:
+        raise GenerationError("stage output escapes exact-byte-rebind root") from exc
+    _reject_frozen_path(stage_root.relative_to(root).as_posix(), label="stage output")
+    if stage_root.exists():
+        raise GenerationError(f"create-only stage already exists: {stage_root.relative_to(root)}")
+    for relative in documents:
+        target = root / relative
+        parent = target.parent
+        while parent != root:
+            if parent.is_symlink():
+                raise GenerationError(f"stage output parent must not be a symlink: {parent}")
+            if parent.exists() and not parent.is_dir():
+                raise GenerationError(f"stage output parent must be a directory: {parent}")
+            parent = parent.parent
+        if target.exists() or target.is_symlink():
+            raise GenerationError(f"create-only target already exists: {relative.as_posix()}")
+
+
+def _write_documents(root: Path, documents: dict[Path, bytes], stage: str) -> None:
+    _validate_targets(root, documents, stage)
+    stage_root = root / EXACT_BYTE_REBIND_REL / stage
+    stage_root.mkdir(parents=True, exist_ok=False)
+    created: list[Path] = []
+    try:
+        for relative, payload in sorted(documents.items(), key=lambda item: item[0].as_posix()):
+            target = root / relative
+            target.parent.mkdir(parents=False, exist_ok=True)
+            descriptor = os.open(
+                target,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                0o644,
+            )
+            try:
+                with os.fdopen(descriptor, "wb") as stream:
+                    stream.write(payload)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                created.append(target)
+            except Exception:
+                try:
+                    target.unlink()
+                except OSError:
+                    pass
+                raise
+    except Exception as exc:
+        for target in reversed(created):
+            try:
+                target.unlink()
+            except OSError:
+                pass
+        for child in (stage_root / "fragments", stage_root / "manifests"):
+            try:
+                child.rmdir()
+            except OSError:
+                pass
+        try:
+            stage_root.rmdir()
+        except OSError:
+            pass
+        raise GenerationError(f"cannot create additive stage: {exc}") from exc
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo-root", type=Path, default=REPOSITORY_ROOT)
+    parser.add_argument("--stage", required=True)
+    parser.add_argument("--families", nargs="+", required=True)
+    parser.add_argument("--write", action="store_true")
+    args = parser.parse_args(argv)
+    try:
+        documents = build_documents(
+            args.repo_root,
+            stage=args.stage,
+            families=args.families,
+        )
+        root = args.repo_root.expanduser().resolve()
+        if args.write:
+            _write_documents(root, documents, args.stage)
+        report = {
+            "families": list(validate_families(args.families)),
+            "paths": [path.as_posix() for path in sorted(documents)],
+            "stage": args.stage,
+            "status": "WROTE" if args.write else "DRY_RUN",
+        }
+    except (GenerationError, OSError, TypeError, ValueError, KeyError) as exc:
+        print(f"INVALID: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps(report, ensure_ascii=True, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

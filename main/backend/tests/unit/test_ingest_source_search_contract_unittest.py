@@ -103,3 +103,30 @@ class IngestSourceSearchContractUnitTestCase(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_search_policy_adapter_forwards_explicit_project_context(monkeypatch):
+    from app.services.collect_runtime.adapters.search_policy import SearchPolicyAdapter
+    from app.services.collect_runtime.contracts import CollectRequest
+
+    captured = {}
+
+    def fake_collect_policy_and_regulation(**kwargs):
+        captured.update(kwargs)
+        return {"inserted": 1, "skipped": 0}
+
+    monkeypatch.setattr(
+        "app.services.ingest.social.collect_policy_and_regulation",
+        fake_collect_policy_and_regulation,
+    )
+    request = CollectRequest(
+        channel="search.policy",
+        project_key="project-policy",
+        query_terms=["privacy regulation"],
+        limit=5,
+    )
+
+    result = SearchPolicyAdapter().run(request)
+
+    assert captured["project_key"] == "project-policy"
+    assert result.inserted == 1

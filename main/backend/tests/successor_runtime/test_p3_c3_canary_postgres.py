@@ -27,11 +27,13 @@ from sqlalchemy.pool import NullPool
 
 from app.successor_migration.legacy_collect_runtime import (
     build_legacy_collect_c3_1_binding,
-    build_successor_collect_c3_2_binding,
 )
-from app.successor_runtime.capabilities import collect_c3 as c3
-from app.successor_runtime.capabilities import collect_c3_interpreters as ci
-from app.successor_runtime.capabilities import collect_c3_program as cp
+from app.successor_runtime.assembly.base import (
+    successor_binding as build_successor_binding,
+)
+from app.successor_runtime.capabilities import acquisition_batch as acquisition
+from app.successor_runtime.capabilities import acquisition_batch_interpreters as ci
+from app.successor_runtime.capabilities import acquisition_batch_program as cp
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     content_digest,
@@ -85,9 +87,9 @@ from app.successor_runtime.substrate.postgres.authority import (
 from app.successor_runtime.substrate.postgres.authority_provider import (
     PostgresAuthorityProvider,
 )
-from app.successor_runtime.substrate.postgres.collect_c3_canary import (
-    C3CollectComposedRuntimeHandler,
-    C3CollectRollbackService,
+from app.successor_runtime.substrate.postgres.acquisition_batch_canary import (
+    AcquisitionBatchComposedRuntimeHandler,
+    AcquisitionBatchRollbackService,
     CanaryPhase,
     authority_digest,
     select_future_owner,
@@ -148,7 +150,7 @@ PROGRAM_ID = "program:p3-c3-canary"
 TRAVERSAL_PROGRAM_ID = "program:p3-c3-canary-traversal"
 PURE_FOLD_PROGRAM_ID = "program:p3-c3-canary-pure-fold"
 WORK_ITEM_ID = "work:p3-c3-canary"
-CAPABILITY_ID = "collect.c3_1.v1"
+CAPABILITY_ID = "acquisition.batch.execute_element.v2"
 ROLLBACK_TARGET = "rollback:legacy:c3"
 CANARY_APPROVAL_ID = "approval:c3-promote-canary"
 ROLLBACK_APPROVAL_ID = "approval:c3-rollback-legacy"
@@ -164,7 +166,7 @@ def _digest(value: str) -> str:
 
 ALLOWLIST_DIGEST = _digest("c3-allowlist")
 CONFIG_DIGEST = _digest("c3-config")
-DEPLOYMENT_CATALOG_DIGEST = c3.deployment_catalog_digest()
+DEPLOYMENT_CATALOG_DIGEST = acquisition.deployment_catalog_digest()
 CLAIM_POLICY_DIGEST = _digest("c3-claim-policy")
 RESOURCE_POLICY_DIGEST = _digest("c3-resource-policy")
 NODE_PROFILE_DIGEST = _digest("c3-node-profile")
@@ -225,24 +227,24 @@ class _C3Fixture:
 _C3: _C3Fixture | None = None
 
 
-def _snapshot() -> c3.CollectLegacyRequestSnapshot:
-    return c3.CollectLegacyRequestSnapshot(
-        schema_version=c3.COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
+def _snapshot() -> acquisition.CollectLegacyRequestSnapshot:
+    return acquisition.CollectLegacyRequestSnapshot(
+        schema_version=acquisition.COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
         flow="collect",
         channel="search.market",
         project_key=PROJECT_KEY,
         query_terms=("t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"),
         urls=(),
         limit=80,
-        options=c3.freeze_json_object({}),
-        source_context=c3.freeze_json_object({}),
+        options=acquisition.freeze_json_object({}),
+        source_context=acquisition.freeze_json_object({}),
         snapshot_digest="",
     )
 
 
-def _policy() -> c3.CollectResourcePolicy:
-    return c3.CollectResourcePolicy(
-        schema_ref=c3.COLLECT_RESOURCE_POLICY_SCHEMA_REF,
+def _policy() -> acquisition.CollectResourcePolicy:
+    return acquisition.CollectResourcePolicy(
+        schema_ref=acquisition.COLLECT_RESOURCE_POLICY_SCHEMA_REF,
         max_parallelism=2,
         deadline_seconds=60,
         cancellation="COORDINATED",
@@ -257,18 +259,18 @@ def _c3() -> _C3Fixture:
     if _C3 is not None:
         return _C3
 
-    bundle = c3.build_collect_c3_bundle()
-    catalog = c3.build_collect_c3_catalog(bundle)
-    registry = c3.build_collect_c3_registry(bundle)
-    contract_ref = cp.exact_contract_ref(catalog, kind=c3.COLLECT_C3_1_KIND)
-    request_ref = c3.build_collect_request_ref(
+    bundle = acquisition.build_acquisition_batch_bundle()
+    catalog = acquisition.build_acquisition_batch_catalog(bundle)
+    registry = acquisition.build_acquisition_batch_registry(bundle)
+    contract_ref = cp.exact_contract_ref(catalog, kind=acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND)
+    request_ref = acquisition.build_collect_request_ref(
         request_id="c3-canary-request",
         project_key=PROJECT_KEY,
         channel="search.market",
     )
     snapshot = _snapshot()
     policy = _policy()
-    family_plan = c3.build_collect_batch_plan(
+    family_plan = acquisition.build_collect_batch_plan(
         request_ref=request_ref,
         snapshot=snapshot,
         plan_id=f"shadow:{PROGRAM_ID}",
@@ -276,7 +278,7 @@ def _c3() -> _C3Fixture:
         authority_scope_ref="project:p3-c3-canary-postgres",
     )
     element_payloads = tuple(
-        c3.collect_batch_element_payload_from_dicts(
+        acquisition.collect_batch_element_payload_from_dicts(
             request_ref=request_ref.to_plain(),
             request_snapshot=snapshot.to_plain(),
             element=family_plan.elements[index].to_plain(),
@@ -285,7 +287,7 @@ def _c3() -> _C3Fixture:
         )
         for index in range(len(family_plan.elements))
     )
-    composed_program = cp.build_collect_c3_composed_program(
+    composed_program = cp.build_acquisition_batch_composed_program(
         element_payloads=element_payloads,
         catalog=catalog,
         program_id=PROGRAM_ID,
@@ -302,10 +304,10 @@ def _c3() -> _C3Fixture:
     if len(effect_steps) != 1:  # pragma: no cover - fixture guard
         raise RuntimeError("composed C3 plan must compile exactly one EFFECT step")
     step = effect_steps[0]
-    if step.operation_contract_ref.kind != c3.COLLECT_C3_2_KIND:
+    if step.operation_contract_ref.kind != acquisition.COLLECT_FOLD_ORDERED_RESULTS_KIND:
         raise RuntimeError("composed fold step must bind the C3.2 fold contract")
     step_id = step.step_id
-    fold_contract_ref = bundle.operation_c3_2.ref
+    fold_contract_ref = bundle.fold_ordered_results_operation.ref
 
     value_ref = cp.build_family_payload_value_ref(
         element_payloads,
@@ -313,26 +315,26 @@ def _c3() -> _C3Fixture:
         project_key=PROJECT_KEY,
     )
 
-    fold_sequence = c3.OrderedCollectElementOutcomeSequence(
-        schema_version="mrw.successor.collect.c3.outcome-sequence.v1",
+    fold_sequence = acquisition.OrderedCollectElementOutcomeSequence(
+        schema_version=acquisition.ORDERED_OUTCOME_SEQUENCE_SCHEMA_REF,
         parent_request_ref=request_ref,
         outcomes=(
-            c3.CollectElementSucceeded(
-                schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+            acquisition.CollectElementSucceeded(
+                schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
                 element_id="e0",
                 input_index=0,
-                counts=c3.CollectCounts(inserted=1),
+                counts=acquisition.CollectCounts(inserted=1),
                 legacy_observation_ref="legacy:" + "0" * 64,
                 outcome_digest="",
             ),
         ),
         sequence_digest="",
     )
-    fold_payload = c3.build_collect_fold_payload(
+    fold_payload = acquisition.build_collect_fold_payload(
         parent_request_ref=request_ref,
         ordered_outcomes=fold_sequence,
     )
-    pure_fold_program = cp.build_collect_c3_2_pure_fold_program(
+    pure_fold_program = cp.build_collect_fold_ordered_results_pure_program(
         payload=fold_payload,
         catalog=catalog,
         program_id=PURE_FOLD_PROGRAM_ID,
@@ -342,10 +344,14 @@ def _c3() -> _C3Fixture:
     )
     pure_fold_plan = _compile_with_registry(pure_fold_program, catalog, registry)
 
-    successor_binding = build_successor_collect_c3_2_binding(
-        contract_digest=fold_contract_ref.contract_digest,
+    successor_binding = build_successor_binding(
+        operation_contract_digest=fold_contract_ref.contract_digest,
+        interpreter_profile_digest=ci.successor_fold_ordered_results_interpreter_profile_digest(),
         deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
         project_scope_digest=SCOPE_DIGEST,
+        authority_requirement_digest=ci.authority_requirement_digest(
+            fold_contract_ref.kind
+        ),
         resource_policy_epoch=RESOURCE_POLICY_EPOCH,
         runtime_protocol_version="1",
     )
@@ -408,12 +414,12 @@ def _c3() -> _C3Fixture:
     )
 
     class _ExpectedRunner:
-        def run(self, element: c3.CollectBatchElement) -> c3.CollectElementOutcome:
-            return c3.CollectElementSucceeded(
-                schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+        def run(self, element: acquisition.CollectBatchElement) -> acquisition.CollectElementOutcome:
+            return acquisition.CollectElementSucceeded(
+                schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
                 element_id=element.element_id,
                 input_index=element.input_index,
-                counts=c3.CollectCounts(inserted=len(element.query_terms)),
+                counts=acquisition.CollectCounts(inserted=len(element.query_terms)),
                 links=tuple(
                     f"https://shadow.example/{term}" for term in element.query_terms
                 ),
@@ -421,7 +427,7 @@ def _c3() -> _C3Fixture:
                 legacy_observation_ref="legacy:"
                 + content_digest(
                     {
-                        "schema": "mrw.successor.collect.c3.shadow-element.v1",
+                        "schema": "mrw.acquisition.batch.shadow-element.v2",
                         "element_id": element.element_id,
                         "input_index": element.input_index,
                     }
@@ -433,18 +439,18 @@ def _c3() -> _C3Fixture:
     observation = getattr(traversal_result, "observation", None)
     if observation is None:  # pragma: no cover - fixture guard
         raise RuntimeError("canary fixture traversal aborted")
-    sequence = c3.OrderedCollectElementOutcomeSequence(
-        schema_version="mrw.successor.collect.c3.outcome-sequence.v1",
+    sequence = acquisition.OrderedCollectElementOutcomeSequence(
+        schema_version=acquisition.ORDERED_OUTCOME_SEQUENCE_SCHEMA_REF,
         parent_request_ref=request_ref,
         outcomes=observation.ordered_outcomes,
         sequence_digest="",
     )
-    aggregate = c3.fold_ordered_results(
+    aggregate = acquisition.fold_ordered_results(
         sequence,
-        aggregation_policy_ref=c3.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
-        observation_profile_ref=c3.COLLECT_FOLD_OBSERVATION_PROFILE,
+        aggregation_policy_ref=acquisition.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
+        observation_profile_ref=acquisition.COLLECT_FOLD_OBSERVATION_PROFILE,
     )
-    assert isinstance(aggregate, c3.CollectAggregateSucceeded)
+    assert isinstance(aggregate, acquisition.CollectAggregateSucceeded)
     expected_aggregate_digest = aggregate.aggregate_digest
 
     shadow_before_digest = authority_digest(
@@ -527,7 +533,7 @@ def _compile_with_registry(program: Any, catalog: Any, registry: Any) -> Any:
         program,
         catalog,
         operation_contracts=registry,
-        transform_registry=cp.build_collect_c3_transform_registry(),
+        transform_registry=cp.build_acquisition_batch_transform_registry(),
     )
 
 
@@ -823,7 +829,7 @@ def _seed(connection: sa.Connection, c3_fixture: _C3Fixture) -> None:
             operation_scope_json=AuthorityOperationScope.from_content(
                 operation_kinds=(
                     c3_fixture.contract_ref.kind,
-                    c3_fixture.bundle.operation_c3_2.ref.kind,
+                    c3_fixture.bundle.fold_ordered_results_operation.ref.kind,
                 ),
                 project_scope_digest=SCOPE_DIGEST,
             ),
@@ -894,7 +900,7 @@ def _persist_qualification(engine: Engine, c3_fixture: _C3Fixture) -> tuple[Any,
             catalog_version=c3_fixture.catalog.catalog_version,
             catalog_digest=c3_fixture.catalog.catalog_digest,
         )
-        fold_contract = c3_fixture.bundle.operation_c3_2.ref
+        fold_contract = c3_fixture.bundle.fold_ordered_results_operation.ref
         context = PostgresAuthorityProvider(connection, SCOPE).current_context(
             ACTOR,
             capability_id=CAPABILITY_ID,
@@ -987,10 +993,10 @@ def _build_node(
     engine: Engine,
     c3_fixture: _C3Fixture,
     *,
-    handler: C3CollectComposedRuntimeHandler | None = None,
-) -> tuple[RuntimeNode, C3CollectComposedRuntimeHandler]:
+    handler: AcquisitionBatchComposedRuntimeHandler | None = None,
+) -> tuple[RuntimeNode, AcquisitionBatchComposedRuntimeHandler]:
     if handler is None:
-        handler = C3CollectComposedRuntimeHandler(
+        handler = AcquisitionBatchComposedRuntimeHandler(
             composed_program=c3_fixture.composed_program,
             composed_plan=c3_fixture.composed_plan,
             catalog=c3_fixture.catalog,
@@ -1134,7 +1140,7 @@ def _store_mutated_payload(
             ),
             source_ref=value_ref.storage_ref,
             provenance={
-                "schema": "mrw.successor.collect.c3.family-payload-provenance.v1",
+                "schema": cp.FAMILY_PAYLOAD_PROVENANCE_SCHEMA,
                 "program_id": PROGRAM_ID,
                 "project_key": PROJECT_KEY,
                 "element_count": len(payloads),
@@ -1150,7 +1156,7 @@ def _tampered_composed_handler(
     mutated_payloads: tuple[Any, ...],
     element_digests_override: tuple[str, ...] | None = None,
     count_override: int | None = None,
-) -> tuple[C3CollectComposedRuntimeHandler, Any]:
+) -> tuple[AcquisitionBatchComposedRuntimeHandler, Any]:
     mutated_ref = cp.build_family_payload_value_ref(
         mutated_payloads,
         program_id=PROGRAM_ID,
@@ -1212,7 +1218,7 @@ def _tampered_composed_handler(
             ),
         }
     )
-    handler = C3CollectComposedRuntimeHandler(
+    handler = AcquisitionBatchComposedRuntimeHandler(
         composed_program=tampered_program,
         composed_plan=tampered_plan,
         catalog=c3_fixture.catalog,
@@ -1270,7 +1276,7 @@ def _seed_payload_value(engine: Engine, c3_fixture: _C3Fixture) -> None:
             expected_incarnation=metadata["payload_incarnation"],
             source_ref=metadata["payload_storage_ref"],
             provenance={
-                "schema": "mrw.successor.collect.c3.family-payload-provenance.v1",
+                "schema": cp.FAMILY_PAYLOAD_PROVENANCE_SCHEMA,
                 "program_id": c3_fixture.composed_program.program_id,
                 "project_key": PROJECT_KEY,
                 "element_count": len(c3_fixture.element_payloads),
@@ -1321,7 +1327,7 @@ def test_runtime_node_claims_compiled_traversal_and_commits_ordered_fold(
     assert handler.composed_program_digest == c3_fixture.composed_program.program_digest
     assert handler.composed_plan_digest == c3_fixture.composed_plan.plan_digest
     assert c3_fixture.composed_plan.output_type.type_id == (
-        c3.COLLECT_FOLD_RESULT_TYPE.type_id
+        acquisition.COLLECT_FOLD_RESULT_TYPE.type_id
     )
 
     with engine.connect() as connection:
@@ -1409,7 +1415,7 @@ def test_rollback_changes_only_future_owner_and_preserves_terminal_facts(
         run_revision = int(run_row["revision"])
 
     with RuntimeUnitOfWork(engine=engine) as uow:
-        service = C3CollectRollbackService(uow.connection, SCOPE)
+        service = AcquisitionBatchRollbackService(uow.connection, SCOPE)
         rollback = service.rollback_future_owner_only(
             transition_id="transition:c3:rollback-legacy",
             capability_id=CAPABILITY_ID,
@@ -1490,7 +1496,7 @@ def test_stale_run_revision_rolls_back_rollback_authority_and_event_together(
         pytest.raises(StaleRevisionError),
         RuntimeUnitOfWork(engine=engine) as uow,
     ):
-        C3CollectRollbackService(uow.connection, SCOPE).rollback_future_owner_only(
+        AcquisitionBatchRollbackService(uow.connection, SCOPE).rollback_future_owner_only(
             transition_id="transition:c3:stale",
             capability_id=CAPABILITY_ID,
             run_id=RUN_ID,
@@ -1532,7 +1538,7 @@ def test_restart_handler_rehydrates_exact_payload_closure(
     assert report.claimed == 1
     assert handler.provider_calls == 0
 
-    fresh = C3CollectComposedRuntimeHandler(
+    fresh = AcquisitionBatchComposedRuntimeHandler(
         composed_program=c3_fixture.composed_program,
         composed_plan=c3_fixture.composed_plan,
         catalog=c3_fixture.catalog,
@@ -1557,7 +1563,7 @@ def test_mutated_stored_payload_content_fails_before_effect(
     canary_database: tuple[Engine, _C3Fixture],
 ) -> None:
     engine, c3_fixture = canary_database
-    handler = C3CollectComposedRuntimeHandler(
+    handler = AcquisitionBatchComposedRuntimeHandler(
         composed_program=c3_fixture.composed_program,
         composed_plan=c3_fixture.composed_plan,
         catalog=c3_fixture.catalog,
@@ -1592,7 +1598,7 @@ def test_tampered_assignment_ref_or_digest_fails_closed(
     canary_database: tuple[Engine, _C3Fixture],
 ) -> None:
     engine, c3_fixture = canary_database
-    handler = C3CollectComposedRuntimeHandler(
+    handler = AcquisitionBatchComposedRuntimeHandler(
         composed_program=c3_fixture.composed_program,
         composed_plan=c3_fixture.composed_plan,
         catalog=c3_fixture.catalog,

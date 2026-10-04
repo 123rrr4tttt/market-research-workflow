@@ -10,10 +10,10 @@ from pathlib import Path
 from typing import Annotated, Any, Sequence
 
 try:
-    from scripts._automation_runtime import repo_root, utc_now
+    from scripts._automation_runtime import CANONICAL_LINE_KEYS, repo_root, utc_now
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from _automation_runtime import repo_root, utc_now
+    from _automation_runtime import CANONICAL_LINE_KEYS, repo_root, utc_now
 
 
 ARTIFACT_SCHEMA_VERSION = "business_line_real_backend_browser_smoke.v1"
@@ -24,15 +24,7 @@ STATUS_FAILED = "failed"
 STATUS_BLOCKED = "blocked_by_environment"
 PROOF_LEVEL_REAL_BACKEND_BROWSER = "real_backend_browser_smoke"
 
-REQUIRED_LINE_KEYS = (
-    "ingest",
-    "search_discovery_index",
-    "resource_source_library",
-    "projects_config_workflow",
-    "dashboard_admin_governance",
-    "writing_knowledge_graph_agent",
-    "runtime_ops",
-)
+REQUIRED_LINE_KEYS = CANONICAL_LINE_KEYS
 
 REQUIRED_LINE_FIELDS = ("line_key", "status", "proof_level", "mocked", "skipped")
 

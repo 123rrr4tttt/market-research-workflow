@@ -14,10 +14,20 @@ from typing import Annotated, Any, Sequence
 from urllib import error, parse, request
 
 try:
-    from scripts._automation_runtime import utc_now, write_json
+    from scripts._automation_runtime import (
+        CANONICAL_LINE_KEYS,
+        WORKER_REQUIRED_LINE_KEYS,
+        utc_now,
+        write_json,
+    )
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from _automation_runtime import utc_now, write_json
+    from _automation_runtime import (
+        CANONICAL_LINE_KEYS,
+        WORKER_REQUIRED_LINE_KEYS,
+        utc_now,
+        write_json,
+    )
 
 
 SCHEMA_VERSION = "business_line_async_task_readback_live_samples.v1"
@@ -27,15 +37,7 @@ STATUS_PASSED = "passed"
 STATUS_FAILED = "failed"
 STATUS_BLOCKED = "blocked_by_environment"
 
-EXPECTED_LINE_KEYS = (
-    "ingest",
-    "search_discovery_index",
-    "resource_source_library",
-    "projects_config_workflow",
-    "dashboard_admin_governance",
-    "writing_knowledge_graph_agent",
-    "runtime_ops",
-)
+EXPECTED_LINE_KEYS = CANONICAL_LINE_KEYS
 
 NON_WORKER_TERMINAL_STATUS = {
     "projects_config_workflow": "applied",
@@ -49,12 +51,6 @@ FALLBACK_READBACK_PATHS = {
     "runtime_ops": "/api/v1/health/deep",
 }
 
-WORKER_REQUIRED_LINE_KEYS = {
-    "ingest",
-    "search_discovery_index",
-    "resource_source_library",
-    "writing_knowledge_graph_agent",
-}
 
 PLACEHOLDER_PATTERN = re.compile(r"{([A-Za-z_][A-Za-z0-9_]*)}")
 SUCCESS_TERMINAL_STATUSES = ("completed", "succeeded", "applied", "available", "healthy")

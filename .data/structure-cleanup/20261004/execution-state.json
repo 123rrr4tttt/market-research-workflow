@@ -1,0 +1,100 @@
+{
+  "status": "completed_local_runtime_verified",
+  "scope": "local_development",
+  "packages": {
+    "navigation": "passed",
+    "collect": "passed",
+    "native_request": "passed",
+    "projection_sources": "passed",
+    "catalog_exits": "passed",
+    "projection_identity": "passed",
+    "native_semantics": "passed",
+    "webui": "passed_local_cutover_and_fresh_browser_readback"
+  },
+  "new_evidence": {
+    "source_postgres": "23 passed / source-identity-postgres-attempt2.exit=0",
+    "health": "16 passed / observability-focused-attempt2.exit=0",
+    "webui_browser": "local-host-oauth-direct iframe/status/jwt/websocket verified",
+    "webui_turn": "webui-native-canary.json exact completed + marker",
+    "author_coverage": "27 cells derived from actual author declarations; import only, not runtime pass",
+    "active_material_http": "passed in projection-rebuild-readback-attempt1; no write during read",
+    "frontend_lint": "passed frontend-lint-final-attempt1",
+    "projection_rebuild": "28 passed attempt2; active HTTP1 passed attempt1",
+    "frontend": "lint/build exit0; client/page/observation67 passed",
+    "shared_assembly": "64 passed shared-assembly-consumers-attempt-02",
+    "local_default_assembly": "27 INSTALLED structural smoke, no effects executed",
+    "postgres_final": "217 passed; eight package groups serial; no skips; integration-postgres-final-summary.json",
+    "dev_test_final": "156 passed / integration-dev-test-final-attempt2.exit=0",
+    "shared_final": "148 passed / 13 subtests / integration-shared-final-attempt2.exit=0",
+    "fresh_user_chain": "live-user-chain-result.json",
+    "fresh_browser_readback": "live-browser-readback.json",
+    "host_final_runtime": "host-final-runtime-attempt1.exit=0; queue0/unacked0, pong, business task registered/old absent",
+    "architecture_final": "280 passed / integration-gates-final-attempt3.exit=0",
+    "contribution_check_final": "clean=true/issues=[]/changed_paths=[] / integration-check-final-attempt3.exit=0"
+  },
+  "environment": {
+    "docker_recovered": true,
+    "test_postgres": "task-owned tmpfs removed after completed consumers",
+    "resource_cleanup": "post-acceptance-resource-cleanup.json",
+    "disk_free_gib_approx": 12,
+    "host_disk_percent_approx": 98
+  },
+  "evidence_deviations": [
+    "browser first observation assumed authenticated cookie proxy route; actual host OAuth local direct route verified separately",
+    "Docker socket unavailable during health first attempt; original exit1 preserved",
+    "source Postgres first attempt 21 passed/2 failed; test expectation fixes and v2 material fields then 23 passed",
+    "projection rebuild affected PostgreSQL: 28 failed due shared pointer/rebuild offset owner collision, 1 HTTP read passed; owner repairing",
+    "task first PG URL named postgres refused before connections; task-owned mrw_structure_task_test configured, final10 passed",
+    "knowledge historical staged fixture foreign key rejected,27 other PG passed; owner correcting legal historical fixture",
+    "C5 owner performed one adoption sync outside shared-owner assignment; main resumed sole sync ownership and subsequent consistency check required",
+    "shared authority first check85 passed/3 failed: duplicate material alias/core exports and unmanaged projection sketches; repaired at authored sources",
+    "host observation first omitted kit path; corrected observation passed, venv-specific attempt timed out30s and retained",
+    "final whole gates attempt2 279pass/1fail: material import-time partition raise removed at authority, existing equality witness7pass"
+  ],
+  "cost": {
+    "implementation_packages_dispatched": 8,
+    "complete_packages": 8,
+    "main_tokens": "not_available",
+    "agent_tokens": "not_available",
+    "elapsed_to_first_common_acceptance": "exact_dispatch_timestamp_unavailable",
+    "main_repairs": "shared types, health diagnostics, project catalog, production route bindings, local launchd/database cutover",
+    "route_recovery": "GLM429 preserved partial work; five remaining packages re-routed to gpt-5.6-sol/high",
+    "runtime_identity_packages_dispatched": 8,
+    "runtime_identity_packages_complete": 8
+  },
+  "runtime_identity_packages": {
+    "workflow": "passed_native_pure_and_current_postgres",
+    "source": "passed_native_pure_and_current_postgres",
+    "acquisition": "passed_native_pure_and_current_postgres",
+    "batch": "passed_native_pure_and_current_postgres",
+    "task": "passed_native_pure_and_current_postgres",
+    "material": "passed_native_pure_and_current_postgres",
+    "knowledge": "passed_native_pure_and_current_postgres",
+    "projection": "passed_native_pure_and_current_postgres",
+    "horizontal": "passed_pure_declaration_only"
+  },
+  "remaining": [],
+  "kept_evidence": {
+    "frontend": "lint/build and67 tests unchanged final-source inputs",
+    "database": "217 actual tests this run; final no-throw change preserves exact declaration values, no runtime effect/binding change",
+    "retrieval": "prior daily BM25/pgvector/hybrid observations retained with original execution attribution"
+  },
+  "completed_at": "2026-10-04T12:39:26.931916+00:00",
+  "verification_counts": {
+    "postgres_actual_passed": 217,
+    "postgres_skipped": 0,
+    "dev_contribution_actual_passed": 156,
+    "shared_actual_passed": 148,
+    "shared_subtests_actual_passed": 13,
+    "architecture_actual_passed": 280,
+    "counts_overlap": "not summed"
+  },
+  "scope_limitations": [
+    "remote production release deferred",
+    "optional Qdrant old point migration unchanged",
+    "HK historical material unavailable unchanged",
+    "old full backend exit1 preserved; related suite passes do not claim whole backend suite pass",
+    "host disk about98percent; capacity not changed by code cleanup"
+  ],
+  "redundancy_cleanup": "redundancy-cleanup-result.json"
+}

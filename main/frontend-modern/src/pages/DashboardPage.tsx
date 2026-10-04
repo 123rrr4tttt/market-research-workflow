@@ -116,23 +116,29 @@ function textValue(value: unknown) {
 }
 
 function dashboardResetTelemetryBoundaryLines(matrix: BusinessLineEvidenceMatrix | undefined) {
-  const batchOrchestration = asRecord(matrix?.batch_orchestration)
-  const asyncTaskReadback = asRecord(batchOrchestration?.async_task_readback_extension)
-  const metadata = asRecord(asyncTaskReadback?.scheduled_artifact_warning_empty_reset_telemetry_ui_extension)
-  const uiEventContract = asRecord(metadata?.ui_event_contract)
-  const apiContract = asRecord(metadata?.api_contract)
+  const uiBoundary = asRecord(matrix?.ui_boundary)
+  const metadata = asRecord(uiBoundary?.reset_telemetry)
+  const filterTransition = asRecord(metadata?.filter_transition)
 
-  const eventName = textValue(uiEventContract?.event_name)
-  const eventScope = textValue(uiEventContract?.event_scope)
-  const scheduledEvidenceWrite = textValue(uiEventContract?.scheduled_evidence_write)
-  const scheduledCompletionProofChanged = apiContract?.scheduled_completion_proof_changed
-  const scheduledEvidenceController = textValue(apiContract?.scheduled_evidence_controller)
+  const eventName = textValue(metadata?.event_name)
+  const eventScope = textValue(metadata?.event_scope)
+  const filterFrom = textValue(filterTransition?.from)
+  const filterTo = textValue(filterTransition?.to)
+  const sortBehavior = textValue(metadata?.sort_behavior)
+  const apiPayloadBehavior = textValue(metadata?.api_payload_behavior)
+  const scheduledEvidenceWrite = textValue(metadata?.scheduled_evidence_write)
+  const scheduledCompletionProof = metadata?.scheduled_completion_proof
+  const scheduledEvidenceController = textValue(metadata?.scheduled_evidence_controller)
 
   if (
     eventName !== 'reset_empty_warning_view'
     || eventScope !== 'ui_event_log_only'
+    || filterFrom !== 'warning_only'
+    || filterTo !== 'all'
+    || sortBehavior !== 'unchanged'
+    || apiPayloadBehavior !== 'unchanged'
     || scheduledEvidenceWrite !== 'none'
-    || scheduledCompletionProofChanged !== false
+    || scheduledCompletionProof !== false
     || scheduledEvidenceController !== 'scheduled_run_evidence'
   ) {
     return [
@@ -146,7 +152,12 @@ function dashboardResetTelemetryBoundaryLines(matrix: BusinessLineEvidenceMatrix
   return [
     eventName,
     eventScope,
+    `filter=${filterFrom}->${filterTo}`,
+    `sort=${sortBehavior}`,
+    `api_payload=${apiPayloadBehavior}`,
     `scheduled_evidence_write=${scheduledEvidenceWrite}`,
+    `scheduled_completion_proof=${scheduledCompletionProof}`,
+    `scheduled_evidence_controller=${scheduledEvidenceController}`,
     'scheduled_completion_proof unchanged',
     'not scheduled_run_evidence proof',
   ]
@@ -154,7 +165,7 @@ function dashboardResetTelemetryBoundaryLines(matrix: BusinessLineEvidenceMatrix
 
 type ResetTelemetryBoundaryContext = {
   scope: 'ui_read_only_evidence_context'
-  source: 'business_lines.evidence_matrix.async_task_readback_extension'
+  source: 'business_lines.evidence_matrix.ui_boundary.reset_telemetry'
   lines: string[]
   not_report_proof: true
   not_scheduled_run_evidence_proof: true
@@ -285,11 +296,6 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
       refs: dashboardStats.data?.sources?.source_refs || [],
     },
     {
-      key: 'market_stats.total',
-      label: t('dashboardPage.kpi.marketStats'),
-      refs: dashboardStats.data?.market_stats?.source_refs || [],
-    },
-    {
       key: 'tasks.total',
       label: t('dashboardPage.kpi.runningTasks'),
       refs: dashboardStats.data?.tasks?.source_refs || [],
@@ -308,7 +314,7 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
   )
   const resetTelemetryBoundaryContext = useMemo<ResetTelemetryBoundaryContext>(() => ({
     scope: 'ui_read_only_evidence_context',
-    source: 'business_lines.evidence_matrix.async_task_readback_extension',
+    source: 'business_lines.evidence_matrix.ui_boundary.reset_telemetry',
     lines: resetTelemetryBoundaryLines,
     not_report_proof: true,
     not_scheduled_run_evidence_proof: true,
@@ -532,11 +538,6 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
           <span>{t('dashboardPage.kpi.sources')}</span>
           <strong>{formattedNumber(dashboardStats.data?.sources?.enabled)}</strong>
           <small>{formatTemplate('dashboardPage.kpi.sourcesTotal', { count: formattedNumber(dashboardStats.data?.sources?.total) })}</small>
-        </article>
-        <article className="kpi-card">
-          <span>{t('dashboardPage.kpi.marketStats')}</span>
-          <strong>{formattedNumber(dashboardStats.data?.market_stats?.total)}</strong>
-          <small>{formatTemplate('dashboardPage.kpi.marketStates', { count: formattedNumber(dashboardStats.data?.market_stats?.states_count) })}</small>
         </article>
         <article className="kpi-card">
           <span>{t('dashboardPage.kpi.runningTasks')}</span>

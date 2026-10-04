@@ -1,4 +1,5 @@
 import { moduleManifest } from '../../kernel/moduleManifest'
+import { moduleRendererBindings } from '../../kernel/moduleContributionRule'
 import { resolveInteractionSurface } from '../../topology/contracts'
 import type { InteractionSurface } from '../../topology/surfaces'
 import type { ModuleDescriptor, ModuleNavGroupKey, RegisteredNavMode } from './types'
@@ -14,6 +15,7 @@ function defineModule(mode: RegisteredNavMode, navGroupKey: ModuleNavGroupKey, h
     interactionProfile,
     visibleInNav,
     enabled,
+    rendererBinding: moduleRendererBindings[mode],
   }
 }
 

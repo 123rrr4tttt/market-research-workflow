@@ -137,18 +137,6 @@ CASES: list[tuple[str, str, object, str]] = [
         _metadata("C5.1-C5.4_observations+repo_bindings"),
     ),
     (
-        "generate_successor_p3_c6_fragment",
-        "build_fragment",
-        dict,
-        _metadata("C6.1-C6.3_closures+repo_bindings"),
-    ),
-    (
-        "generate_successor_p3_c6_fragment",
-        "build_digested_fragment",
-        dict,
-        _metadata("C6_fragment_build"),
-    ),
-    (
         "generate_successor_p4_c7_fragment",
         "build_fragment",
         dict,

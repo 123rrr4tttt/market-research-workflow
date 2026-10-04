@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.successor_runtime.capabilities.ingest_c7_common import content_digest
+from app.successor_runtime.capabilities.material_ingest_common import content_digest
 
 from .document_repository_c7 import CanonicalDocumentState
 

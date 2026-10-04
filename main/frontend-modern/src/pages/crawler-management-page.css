@@ -1,0 +1,20 @@
+.crawler-management-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.crawler-management-page > .crawler-projects-panel { order: 1; }
+.crawler-management-page > .crawler-detail-panel { order: 2; }
+.crawler-management-page > .crawler-import-panel { order: 3; }
+
+.crawler-management-page .empty-cell {
+  min-height: 48px;
+  color: var(--text-muted, #687386);
+}
+
+@media (max-width: 768px) {
+  .crawler-management-page { gap: 12px; }
+  .crawler-management-page .table-wrap { overflow-x: auto; }
+  .crawler-management-page table { min-width: 640px; }
+}

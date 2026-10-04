@@ -74,25 +74,21 @@ class _FakeDashboardSession:
             case 5:
                 return _FakeResult(scalar_value=2)  # source_enabled
             case 6:
-                return _FakeResult(scalar_value=8)  # market_total
-            case 7:
-                return _FakeResult(scalar_value=5)  # states_count
-            case 8:
                 return _FakeResult(scalar_value=7)  # history_total
-            case 9:
+            case 7:
                 return _FakeResult(scalar_value=9)  # task_total
-            case 10:
+            case 8:
                 return _FakeResult(scalar_value=1)  # task_running
-            case 11:
+            case 9:
                 return _FakeResult(scalar_value=6)  # task_completed
-            case 12:
+            case 10:
                 return _FakeResult(scalar_value=2)  # task_failed
-            case 13:
+            case 11:
                 rows = [SimpleNamespace(doc_type="policy", count=6), SimpleNamespace(doc_type="news", count=4)]
                 return _FakeResult(all_value=rows)  # doc_type_dist
-            case 14:
+            case 12:
                 return _FakeResult(scalar_value=5)  # doc_with_extracted
-            case 15:
+            case 13:
                 rows = [
                     SimpleNamespace(
                         params={
@@ -410,6 +406,11 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             }
         ]
         with (
+            patch.object(
+                backend_app.state, "information_topology_service",
+                SimpleNamespace(count_current_elements=lambda _project, _kind: 0),
+                create=True,
+            ),
             patch("app.api.dashboard.SessionLocal", return_value=_FakeSessionLocalOk()),
             patch(
                 "app.api.dashboard.list_quality_trend_records",
@@ -434,7 +435,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["data"]["documents"]["source_refs"][0]["id"], "dashboard.stats.documents")
         self.assertEqual(body["data"]["documents"]["source_refs"][0]["table"], "documents")
         self.assertEqual(body["data"]["sources"]["source_query"]["card"], "sources")
-        self.assertEqual(body["data"]["market_stats"]["source_query"]["card"], "market_stats")
+        self.assertNotIn("market_stats", body["data"])
         self.assertEqual(body["data"]["search_history"]["source_refs"][0]["table"], "search_history")
         self.assertEqual(body["data"]["tasks"]["source_query"]["card"], "tasks")
         llm_quality = body["data"]["llm_report_quality"]
@@ -489,6 +490,11 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
 
     def test_dashboard_stats_empty_data_returns_stable_pending_actions(self):
         with (
+            patch.object(
+                backend_app.state, "information_topology_service",
+                SimpleNamespace(count_current_elements=lambda _project, _kind: 0),
+                create=True,
+            ),
             patch("app.api.dashboard.SessionLocal", return_value=_FakeSessionLocalEmpty()),
             patch("app.api.dashboard.list_quality_trend_records", return_value=([], {})),
         ):

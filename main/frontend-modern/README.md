@@ -84,7 +84,6 @@ npm run storybook
   - `src/pages/ConceptMonolithPage.stories.tsx`
   - `src/pages/ConceptOrbitalPage.stories.tsx`
   - `src/pages/WritingWorkbenchPage.stories.tsx`
-  - `src/pages/AgentChatPage.stories.tsx`
   - `src/pages/CatalogPage.stories.tsx`
   - `src/pages/CrawlerManagePage.stories.tsx`
   - `src/pages/DashboardPage.stories.tsx`

@@ -45,6 +45,21 @@ async function mockShellApis(page: Page) {
   })
 }
 
+test('specialized ingest exposes direct URL collection without an NL command control', async ({ page }) => {
+  const nlCommandRequests: string[] = []
+  page.on('request', (request) => {
+    if (request.url().includes('/agent-batch/nl-command')) {
+      nlCommandRequests.push(request.url())
+    }
+  })
+  await mockShellApis(page)
+  await page.goto('/#/workbench/ingest/specialized')
+
+  await expect(page.getByRole('button', { name: '执行单 URL 入库' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '自然语言触发批量采集' })).toHaveCount(0)
+  expect(nlCommandRequests).toEqual([])
+})
+
 test('single url ingest sends standardized payload and shows task feedback', async ({ page }) => {
   let capturedPayload: Record<string, unknown> | null = null
   let submitted = false

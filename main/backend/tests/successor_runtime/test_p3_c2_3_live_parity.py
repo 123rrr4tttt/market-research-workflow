@@ -7,13 +7,13 @@ from typing import Any
 
 import pytest
 
-from app.successor_runtime.capabilities import source_library_c2_3 as c23
+from app.successor_runtime.capabilities import source_provider_acquisition as c23
 from app.successor_runtime.capabilities import (
-    source_library_c2_3_test_interpreters as c23_fixtures,
+    source_provider_test_interpreters as c23_fixtures,
 )
-from app.successor_runtime.capabilities import source_library_c2_shared as shared
+from app.successor_runtime.capabilities import source_contracts as shared
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.source_library_c2_3_live_provider import (
+from app.successor_runtime.capabilities.source_provider_worker import (
     LIVE_PROVIDER,
     SerperLiveCredentialResolverPort,
     SerperLiveEffectPort,

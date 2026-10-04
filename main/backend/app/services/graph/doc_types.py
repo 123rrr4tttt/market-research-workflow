@@ -273,6 +273,33 @@ def resolve_graph_relation_labels(project_key: str | None = None) -> dict[str, s
     return labels
 
 
+def resolve_graph_edge_style_bindings(project_key: str | None = None) -> dict[str, object]:
+    """Transport project-owned edge-style bindings; the frontend validates catalog ids."""
+    customization = get_project_customization(project_key)
+    field_mapping = customization.get_field_mapping() or {}
+    raw = field_mapping.get("graph_edge_style_bindings")
+
+    if not isinstance(raw, dict):
+        return {}
+
+    bindings: dict[str, dict[str, str]] = {}
+    for axis in ("byRelationClass", "byRelationToken", "byPredicate", "byType"):
+        values = raw.get(axis)
+        if not isinstance(values, dict):
+            continue
+        normalized = {
+            str(key or "").strip().lower(): str(value or "").strip()
+            for key, value in values.items()
+            if str(key or "").strip() and str(value or "").strip()
+        }
+        if normalized:
+            bindings[axis] = normalized
+    default_style = str(raw.get("default") or "").strip()
+    if default_style:
+        bindings["default"] = default_style
+    return bindings
+
+
 def resolve_graph_topic_scope_entities(project_key: str | None = None) -> dict[str, list[str]]:
     customization = get_project_customization(project_key)
     field_mapping = customization.get_field_mapping() or {}
@@ -325,3 +352,42 @@ def _normalize_string_list(value: Any) -> list[str]:
         seen.add(key)
         normalized.append(key)
     return normalized
+
+
+def resolve_graph_projections(project_key: str | None = None) -> list[dict[str, Any]]:
+    """Project-owned view bindings over the shared graph realizer.
+
+    A project may select, order, relabel and filter the built-in graph entry
+    points. This introduces no new renderer, route or route identity: each entry
+    binds to one existing projection id, and an optional ``topology_filter``
+    narrows the unified information-topology read model for that view.
+    """
+    customization = get_project_customization(project_key)
+    field_mapping = customization.get_field_mapping() or {}
+    raw = field_mapping.get("graph_projections")
+    if not isinstance(raw, list):
+        return []
+
+    resolved: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        view_id = str(item.get("id") or "").strip()
+        if not view_id or view_id in seen_ids:
+            continue
+        seen_ids.add(view_id)
+        entry: dict[str, Any] = {"id": view_id}
+        label = str(item.get("label") or "").strip()
+        if label:
+            entry["label"] = label
+        if bool(item.get("hidden")):
+            entry["hidden"] = True
+        filter_raw = item.get("topology_filter")
+        if isinstance(filter_raw, dict):
+            attribute = str(filter_raw.get("attribute") or "").strip()
+            tokens = _normalize_string_list(filter_raw.get("contains_any"))
+            if attribute and tokens:
+                entry["topology_filter"] = {"attribute": attribute, "contains_any": tokens}
+        resolved.append(entry)
+    return resolved

@@ -21,6 +21,7 @@ pytestmark = pytest.mark.integration
 
 try:
     from fastapi.testclient import TestClient
+    from fastapi.responses import JSONResponse
     from starlette.requests import Request
 
     from app import main as backend_main
@@ -419,6 +420,88 @@ class CodexOauthBrowserFlowIntegrationTestCase(unittest.TestCase):
 
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json().get("status"), "ok")
+
+    def test_protected_static_token_sets_trusted_hashed_request_actor(self):
+        request = _request_with_headers_and_cookie(
+            path="/api/v1/agent-batch/rule-sets/validate",
+            headers={
+                **self.headers,
+                "Authorization": "Bearer static-token-for-state-witness",
+                "X-Actor-Id": "spoofed-header-actor",
+            },
+            cookie_name="codex_session",
+            cookie_value="",
+        )
+        observed: dict[str, object] = {}
+
+        async def call_next(next_request: Request) -> JSONResponse:
+            observed["actor_context"] = getattr(next_request.state, "actor_context", None)
+            return JSONResponse({"status": "ok"})
+
+        with (
+            patch("app.main.settings.codex_auth_enabled", True),
+            patch("app.main.settings.codex_auth_protected_prefixes", "/api/v1/agent-batch"),
+            patch("app.main.settings.codex_auth_tokens", "static-token-for-state-witness"),
+            patch("app.main._resolve_request_project_context", return_value=("demo_proj", "header", False)),
+            patch("app.main.get_effective_project_key_enforcement_mode", return_value="require"),
+        ):
+            response = asyncio.run(backend_main.metrics_middleware(request, call_next))
+
+        self.assertEqual(response.status_code, 200)
+        actor_context = observed.get("actor_context")
+        self.assertIsInstance(actor_context, dict)
+        assert isinstance(actor_context, dict)
+        self.assertTrue(actor_context["actor_trusted"])
+        self.assertEqual(actor_context["actor_source"], "authenticated_codex_token")
+        self.assertEqual(actor_context["actor_auth_mode"], "codex_static_token")
+        self.assertTrue(str(actor_context["actor_id"]).startswith("actor:codex-token:"))
+        self.assertNotEqual(actor_context["actor_id"], "static-token-for-state-witness")
+        self.assertNotIn("static-token-for-state-witness", str(actor_context["actor_id"]))
+        self.assertEqual(actor_context["legacy_actor_id"], "spoofed-header-actor")
+
+    def test_oauth_middleware_does_not_read_cli_fallback_after_valid_token_sink(self):
+        request = _request_with_headers_and_cookie(
+            path="/api/v1/agent-batch/rule-sets/validate",
+            headers=self.headers,
+            cookie_name="codex_session",
+            cookie_value="",
+        )
+        claims_context = _token_sink_claims_context_from_id_token(
+            _fake_signed_jwt(
+                {
+                    "sub": "single-read-token-sink-sub",
+                    "email": "single-read-token-sink@example.test",
+                    "email_verified": True,
+                }
+            ),
+            profile_name="work",
+            expires_at=int(time.time()) + 3600,
+            fallback_used=False,
+        )
+        observed: dict[str, object] = {}
+
+        async def call_next(next_request: Request) -> JSONResponse:
+            observed["actor_context"] = getattr(next_request.state, "actor_context", None)
+            return JSONResponse({"status": "ok"})
+
+        with (
+            patch("app.main.settings.codex_auth_enabled", True),
+            patch("app.main.settings.codex_auth_protected_prefixes", "/api/v1/agent-batch"),
+            patch("app.main.settings.codex_auth_tokens", ""),
+            patch("app.main.get_token_sink_claims_context", return_value=claims_context),
+            patch("app.main.has_valid_token_sink", side_effect=AssertionError("CLI fallback must not be read")),
+            patch("app.main._resolve_request_project_context", return_value=("demo_proj", "header", False)),
+            patch("app.main.get_effective_project_key_enforcement_mode", return_value="require"),
+        ):
+            response = asyncio.run(backend_main.metrics_middleware(request, call_next))
+
+        self.assertEqual(response.status_code, 200)
+        actor_context = observed.get("actor_context")
+        self.assertIsInstance(actor_context, dict)
+        assert isinstance(actor_context, dict)
+        self.assertEqual(actor_context["actor_id"], "single-read-token-sink-sub")
+        self.assertEqual(actor_context["actor_source"], "authenticated_oauth_token_sink_claims")
+        self.assertTrue(actor_context["actor_trusted"])
 
     def test_codex_session_old_constructor_without_claims_stays_compatible(self):
         session = CodexSession(
@@ -2633,6 +2716,9 @@ class CodexOauthBrowserFlowIntegrationTestCase(unittest.TestCase):
                 "email_verified": True,
             },
             from_token_sink=False,
+            profile_name="cli-profile",
+            expires_at=int(time.time()) + 3600,
+            fallback_used=False,
         )
         cli_request = _request_with_headers_and_cookie(
             path="/api/v1/agent-batch/rule-sets/validate",
@@ -2759,6 +2845,7 @@ class CodexOauthBrowserFlowIntegrationTestCase(unittest.TestCase):
         self.assertEqual(actor_context.actor_source, "authenticated_oauth_token_sink")
         self.assertEqual(actor_context.actor_auth_mode, "codex_oauth_token_sink")
         self.assertEqual(actor_context.legacy_actor_id, "spoofed-header-actor")
+        self.assertNoTokenSinkProfileMetadata(actor_context.to_observability())
 
     def test_login_redirects_to_oauth_provider(self):
         with (

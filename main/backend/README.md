@@ -1,6 +1,8 @@
 # 市场情报（market-intel）后端数据采集扩展说明
 
-> 最后更新：2026-02 | API 文档：`API接口文档.md` | 文档索引：`docs/README.md`
+> 最后更新：2026-10-05 | 当前入口：[`../../README.md`](../../README.md) | API 文档：[`API接口文档.md`](API接口文档.md) | 文档索引：[`docs/README.md`](docs/README.md)
+
+本文件说明后端采集、发现接口与配置边界。当前实现状态、运行入口和生产历史以根 README 和 [2026-10-04 本机日常链路证据](../../.data/readiness-repair/20261004-daily-chain/daily-chain-state.json) 为准。
 
 ## 配置项（`.env`）
 
@@ -10,43 +12,50 @@ LLM：`OPENAI_API_KEY`、`AZURE_*`、`OLLAMA_BASE_URL`（提取与发现依赖�
 
 搜索/发现：`SERPER_API_KEY`、`GOOGLE_SEARCH_API_KEY`、`GOOGLE_SEARCH_CSE_ID`、`SERPAPI_KEY`、`SERPSTACK_KEY`、`BING_SEARCH_KEY`（见 `SEARCH_API_SETUP.md`）
 
-数据源：`magayo_api_key`、`lotterydata_api_key`、`reddit_client_id`/`reddit_client_secret`/`reddit_user_agent`、`twitter_*`（api_key/secret/bearer_token/access_token/access_token_secret）、`rapidapi_key`
+数据源：`reddit_client_id`/`reddit_client_secret`/`reddit_user_agent`、`twitter_*`（api_key/secret/bearer_token/access_token/access_token_secret）、`rapidapi_key`
 
 未配置时相关抓取/发现会自动跳过。
 
 ## 抓取能力
 
-- 政策、市场数据（州彩票 API / 官网）
-- 区域官网新闻 / 公告（如加州彩票）
+- 政策、市场数据（按项目接入）
+- 区域官网新闻 / 公告（按项目接入）
 - Reddit、Twitter（作为数据 API 来源）
 - 周度 / 月度报告、商品指标、电商价格
 - 发现搜索（网页搜索 + 智能/深度发现）
 
 ## 主要接口
 
-- `POST /api/v1/ingest/market`、`/news/calottery`、`/social/reddit`、`/data-api`、`/reports/weekly`、`/commodity/metrics`、`/ecom/prices` 等
+- `POST /api/v1/ingest/market`、`/news/resource/{resource_id}`、`/social/reddit`、`/data-api`、`/reports/weekly`、`/commodity/metrics`、`/ecom/prices` 等
 - `POST /api/v1/discovery/search`、`/smart`、`/deep`、`/generate-keywords`
 
 均支持 `async_mode=true` 触发 Celery 任务。完整接口见 `API接口文档.md` 或 `http://localhost:8000/docs`。
 
-## 当前状态差异（已实现 vs 规划）
+## 当前能力边界
 
-本文件关注后端实现与能力边界；与根目录 `README.md` 的 8.x 状态保持一致：  
+- **来源与采集**：来源库、文件导入、HTTP 来源获取和异步采集任务继续由原服务与 Celery worker 执行；任务状态和业务结果从 Process/文档接口读回。
+- **发现与检索**：网页搜索、智能/深度发现入口和 BM25、向量、混合检索并存；2026-10-04 日常链路证据覆盖 pgvector 后端的实际读回。
+- **Agent 对话**：`/api/v1/agent-chat` 只接受显式 `agent_macro_native` 或 `agent_macro_rapid_native`。两者通过 `CodexAppServerCore.invoke_native` 和项目绑定执行；旧 Agent runtime 请求返回 410，旧控制字段返回 400。
+- **WebUI 边界**：Codex WebUI 的源码、协议版本、OAuth 和 LaunchAgent 说明见 [`../ops/codex-webui/README.md`](../ops/codex-webui/README.md)，其线程存储不自动等同于后端 native binding 的会话。
 
-- `8.1 来源池自动提取与整合`：**已完成**（来源抽取与统一搜索链路已稳定）
-- `8.2 完善工作流平台化`：**部分完成**（已落地模板读取/保存 + 运行触发最小闭环）
-- `8.3 集成 Perplexity`：**未开始**
-- `8.4 时间轴与事件/实体演化`：**进行中**（时间线展示在前端有覆盖，但缺统一模型）
-- `8.5 RAG + LLM 对话与分析报告`：**部分完成**（检索/向量能力到位，未有闭环对话与报表 API）
-- `8.6 公司/商品/电商对象化采集`：**部分完成**（专题抽取与图谱资产存在，链路未统一）
-- `8.7 数据类型优化`：**进行中**（提取与结构化持续优化）
-- `8.8 其他迭代`：**进行中**（适配器稳定性、测试、脚本清理仍在持续）
+## 贡献开发入口
 
-建议参照：
-- `README.md`：完整进度与验收动作
-- `plans/status-8x-2026-02-27.md`：8.x 分项 owner/验收清单
-- `plans/8x-multi-agent-kickoff-2026-02-27.md`：并行执行启动与角色说明
-- `plans/8x-round-1-2026-02-27.md`：第1轮执行记录
-- `plans/decision-log-2026-02-27.md`：关键决策与口径说明
-- `plans/8x-round-2-2026-02-27.md`：第2轮执行记录（P0）
-- `plans/8x-round-2-2026-02-27-taskboard.md`：P0 任务看板（8.2/8.5/8.6）
+后端贡献检查从仓库根执行 `python3 scripts/dev.py`，默认选择本目录的 `.venv311`，或用 `MRW_DEV_PYTHON` 指向等价环境。默认 kit 来源由根 [`pyproject.toml`](../../pyproject.toml) 固定为 Git revision `6dbae536a72ab235998b21c9647b8b00d15a71e6`；`setup` 显式安装并回验，`check` 只核验不安装。
+
+显式本地开发时，同一子命令追加 `--local-kit <checkout>/python`。该路径必须是真实 functorial-kit Git checkout 的 `python` 包目录，先经 `setup --local-kit` 安装为 editable，后续子命令核验安装路径一致：
+
+```bash
+python3 scripts/dev.py setup --local-kit /path/to/functorial-kit/python
+python3 scripts/dev.py check --local-kit /path/to/functorial-kit/python
+python3 scripts/dev.py validate --local-kit /path/to/functorial-kit/python
+```
+
+`test` 和 `validate` 还要求所选环境已有 SQLAlchemy 等后端测试依赖；完整子命令和验证口径见根 [`README.md`](../../README.md#项目贡献检查)。
+
+## 历史状态入口
+
+以下 2026-02-27 文件是当时 8.x 路线的工作快照，仅用于追溯分项 owner、验收和执行记录；它们不是当前实现状态或新的执行指令：
+
+- [`../../plans/status-8x-2026-02-27.md`](../../plans/status-8x-2026-02-27.md)
+- [`../../plans/8x-multi-agent-kickoff-2026-02-27.md`](../../plans/8x-multi-agent-kickoff-2026-02-27.md)
+- [`../../development/latest-dev-docs/root-plans/G_REVIEW/MERGED_PLAN_REVIEW.md`](../../development/latest-dev-docs/root-plans/G_REVIEW/MERGED_PLAN_REVIEW.md)：记录当时同组缺失的 round/decision 文件及合并审查结论。

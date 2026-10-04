@@ -19,17 +19,17 @@ from app.successor_migration.legacy_agent_batch import (
     LegacyAgentBatchPlanAdapter,
     LegacyAgentBatchRetryAdapter,
 )
-from app.successor_runtime.capabilities import agent_batch_c4 as c4
+from app.successor_runtime.capabilities import batch_task as c4
 from app.successor_runtime.capabilities import (
-    agent_batch_c4_interpreters as c4i,
+    batch_task_interpreters as c4i,
 )
-from app.successor_runtime.capabilities import agent_batch_c4_program as c4p
-from app.successor_runtime.capabilities import source_library_c2_shared as c2_shared
-from app.successor_runtime.capabilities.agent_batch_c4_program import (
-    build_agent_batch_c4_3_program,
+from app.successor_runtime.capabilities import batch_task_program as c4p
+from app.successor_runtime.capabilities import source_contracts as c2_shared
+from app.successor_runtime.capabilities.batch_task_program import (
+    build_batch_task_submission_program,
 )
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.source_library_c2_1 import (
+from app.successor_runtime.capabilities.source_resolution import (
     build_channel_catalog_snapshot,
     project_scope_digest,
 )
@@ -37,6 +37,7 @@ from app.successor_runtime.specification.shared_family_generator import (
     BindingsByKind,
     BindingTarget,
     FamilyFragmentConfig,
+    p1_cell_digest,
 )
 from tests.successor_runtime.p3_c4_fixture import C2ProducerSnapshotView
 
@@ -58,6 +59,7 @@ _EVIDENCE_ROOT = (
     "development/latest-dev-docs/development-plans/CURRENT_DEV/"
     "2026-08-30-functorial-successor-migration/evidence"
 )
+_P1_ELIGIBILITY_REL = f"{_EVIDENCE_ROOT}/P1FunctorizationEligibility.v1.json"
 FRAGMENT_OUTPUT_REL = f"{_EVIDENCE_ROOT}/p3-fragments/C4.json"
 
 AUTHORITY = {
@@ -108,10 +110,6 @@ _SOURCE_BINDINGS = (
     ),
     BindingTarget(f"{_EVIDENCE_ROOT}/p1-fragments/C4.json", "p1_fragment"),
     BindingTarget(
-        "main/backend/app/services/agent_batch/agent_loop.py",
-        "legacy_donor_c4_1_c4_2",
-    ),
-    BindingTarget(
         "main/backend/app/services/agent_batch/task_contract.py",
         "legacy_donor_c4_1_c4_2_c4_3",
     ),
@@ -120,15 +118,15 @@ _SOURCE_BINDINGS = (
 
 _IMPLEMENTATION_BINDINGS = (
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/agent_batch_c4.py",
+        "main/backend/app/successor_runtime/capabilities/batch_task.py",
         "c4_contracts",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/agent_batch_c4_program.py",
+        "main/backend/app/successor_runtime/capabilities/batch_task_program.py",
         "c4_program",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/agent_batch_c4_interpreters.py",
+        "main/backend/app/successor_runtime/capabilities/batch_task_interpreters.py",
         "c4_interpreters",
     ),
     BindingTarget(
@@ -136,15 +134,15 @@ _IMPLEMENTATION_BINDINGS = (
         "c4_legacy_adapter",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4.py",
+        "main/backend/app/successor_runtime/substrate/postgres/batch_task_submission_store.py",
         "c4_3_submission_repository_scaffold",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_canary.py",
+        "main/backend/app/successor_runtime/substrate/postgres/batch_task_canary_handlers.py",
         "c4_canary_handler",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_3_handler.py",
+        "main/backend/app/successor_runtime/substrate/postgres/batch_task_submission_handler.py",
         "c4_3_store_rehydrated_handler",
     ),
     BindingTarget(
@@ -205,18 +203,8 @@ _TEST_BINDINGS = (
 )
 
 
-def _p1_cells(root: Path) -> dict[str, dict[str, Any]]:
-    artifact = json.loads(
-        (root / _EVIDENCE_ROOT / "P1FunctorizationEligibility.v1.json").read_text(
-            encoding="utf-8"
-        )
-    )
-    return {str(cell["cell"]): cell for cell in artifact["cells"]}
-
-
 def _p1_cell_digest(root: Path, cell_id: str) -> str:
-    cell = _p1_cells(root)[cell_id]
-    return content_digest(cell)
+    return p1_cell_digest(root, _P1_ELIGIBILITY_REL, cell_id)
 
 
 def _c2_snapshot() -> C2ProducerSnapshotView:
@@ -318,9 +306,9 @@ def _retry_payload() -> c4.RetryReducerInput:
 
 
 def _program_and_plan_digests(payload: Any, builder: Any) -> tuple[str, str]:
-    bundle = c4.build_agent_batch_c4_bundle()
-    catalog = c4.build_agent_batch_c4_catalog(bundle)
-    registry = c4.build_agent_batch_c4_registry(bundle)
+    bundle = c4.build_batch_task_bundle()
+    catalog = c4.build_batch_task_catalog(bundle)
+    registry = c4.build_batch_task_registry(bundle)
     program = builder(
         payload=payload,
         catalog=catalog,
@@ -329,7 +317,7 @@ def _program_and_plan_digests(payload: Any, builder: Any) -> tuple[str, str]:
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    compiled = c4p.compile_agent_batch_c4_program(
+    compiled = c4p.compile_batch_task_program(
         program, catalog, operation_contracts=registry
     )
     return program.program_digest, compiled.plan_digest
@@ -338,12 +326,12 @@ def _program_and_plan_digests(payload: Any, builder: Any) -> tuple[str, str]:
 def _c4_1_plan_observation() -> tuple[dict[str, object], dict[str, object]]:
     payload = _plan_payload()
     program_digest, plan_digest = _program_and_plan_digests(
-        payload, c4p.build_agent_batch_c4_1_program
+        payload, c4p.build_batch_task_plan_program
     )
-    bundle = c4.build_agent_batch_c4_bundle()
-    catalog = c4.build_agent_batch_c4_catalog(bundle)
-    registry = c4.build_agent_batch_c4_registry(bundle)
-    traversal_program = c4p.build_agent_batch_c4_1_traversal_program(
+    bundle = c4.build_batch_task_bundle()
+    catalog = c4.build_batch_task_catalog(bundle)
+    registry = c4.build_batch_task_registry(bundle)
+    traversal_program = c4p.build_batch_task_plan_traversal_program(
         payloads=[payload],
         catalog=catalog,
         program_id="p3-c4-fragment.traverse",
@@ -352,7 +340,7 @@ def _c4_1_plan_observation() -> tuple[dict[str, object], dict[str, object]]:
         project_scope_digest=SCOPE_DIGEST,
     )
     traversal_binding = c4p.traversal_shape_binding([payload])
-    traversal_plan = c4p.compile_agent_batch_c4_program(
+    traversal_plan = c4p.compile_batch_task_program(
         traversal_program,
         catalog,
         operation_contracts=registry,
@@ -390,7 +378,7 @@ def _c4_1_plan_observation() -> tuple[dict[str, object], dict[str, object]]:
 def _c4_2_retry_observation() -> tuple[dict[str, object], dict[str, object]]:
     payload = _retry_payload()
     program_digest, plan_digest = _program_and_plan_digests(
-        payload, c4p.build_agent_batch_c4_2_program
+        payload, c4p.build_batch_task_retry_program
     )
     successor = c4.reduce_retry_action(payload)
     assert successor.attempt_intent is not None
@@ -447,9 +435,9 @@ def _submission_payload() -> c4.AgentBatchSubmission:
 
 def _c4_3_submission_observation() -> dict[str, object]:
     payload = _submission_payload()
-    bundle_obj = c4.build_agent_batch_c4_bundle()
-    catalog_obj = c4.build_agent_batch_c4_catalog(bundle_obj)
-    program = build_agent_batch_c4_3_program(
+    bundle_obj = c4.build_batch_task_bundle()
+    catalog_obj = c4.build_batch_task_catalog(bundle_obj)
+    program = build_batch_task_submission_program(
         payload=payload,
         catalog=catalog_obj,
         program_id="p3-c4-fragment.submission",
@@ -457,10 +445,10 @@ def _c4_3_submission_observation() -> dict[str, object]:
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    plan = c4p.compile_agent_batch_c4_program(
+    plan = c4p.compile_batch_task_program(
         program,
         catalog_obj,
-        operation_contracts=c4.build_agent_batch_c4_registry(bundle_obj),
+        operation_contracts=c4.build_batch_task_registry(bundle_obj),
     )
     return {
         "contract_owner": c4.SUBMISSION_OWNER,
@@ -479,7 +467,7 @@ def _c4_3_submission_observation() -> dict[str, object]:
 
 
 def _operation_bindings() -> tuple[list[dict[str, object]], ...]:
-    bundle = c4.build_agent_batch_c4_bundle()
+    bundle = c4.build_batch_task_bundle()
     plan_bindings = [
         {
             "operation_kind": operation.ref.kind,
@@ -521,7 +509,7 @@ def _build_body(root: Path, bindings: BindingsByKind) -> dict[str, Any]:
             "cell_id": "C4.1",
             "p1_cell_digest": _p1_cell_digest(root, "C4.1"),
             "operation_bindings": plan_bindings,
-            "owner_capability_id": c4.AGENT_BATCH_C4_OWNER,
+            "owner_capability_id": c4.BATCH_TASK_OWNER,
             "program_digest": {
                 "value": c4_1_successor["program_digest"],
                 "reason": "single-Atom Program plus STATIC_SHAPE TraverseOrdered program with exact traversal_shape_digest/element_count metadata",
@@ -532,7 +520,7 @@ def _build_body(root: Path, bindings: BindingsByKind) -> dict[str, Any]:
             },
             "legacy_observation": c4_1_legacy,
             "successor_observation": {
-                "interpreter_id": c4i.AGENT_BATCH_C4_SUCCESSOR_PLAN_INTERPRETER_ID,
+                "interpreter_id": c4i.BATCH_TASK_SUCCESSOR_PLAN_INTERPRETER_ID,
                 "result_digest": c4_1_successor["result_digest"],
                 "ordered_tasks": c4_1_successor["ordered_tasks"],
                 "supplementation_enabled": c4_1_successor["supplementation_enabled"],
@@ -562,7 +550,7 @@ def _build_body(root: Path, bindings: BindingsByKind) -> dict[str, Any]:
             "cell_id": "C4.2",
             "p1_cell_digest": _p1_cell_digest(root, "C4.2"),
             "operation_bindings": retry_bindings,
-            "owner_capability_id": c4.AGENT_BATCH_C4_OWNER,
+            "owner_capability_id": c4.BATCH_TASK_OWNER,
             "program_digest": {
                 "value": c4_2_successor["program_digest"],
                 "reason": "single-Atom Program for the exact retry-reducer payload",
@@ -573,7 +561,7 @@ def _build_body(root: Path, bindings: BindingsByKind) -> dict[str, Any]:
             },
             "legacy_observation": c4_2_legacy,
             "successor_observation": {
-                "interpreter_id": c4i.AGENT_BATCH_C4_SUCCESSOR_RETRY_INTERPRETER_ID,
+                "interpreter_id": c4i.BATCH_TASK_SUCCESSOR_RETRY_INTERPRETER_ID,
                 "transition_digest": c4_2_successor["transition_digest"],
                 "kind": c4_2_successor["kind"],
                 "attempt_id": c4_2_successor["attempt_id"],

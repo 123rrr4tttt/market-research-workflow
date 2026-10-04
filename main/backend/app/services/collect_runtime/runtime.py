@@ -1,18 +1,21 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextvars import copy_context
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from math import ceil
-from collections.abc import Mapping
+from types import SimpleNamespace
 from typing import Any, NoReturn
 
 from functorial_kit import Failure
-from mrw_functorial_kit.core.provider_port_failures import collect_runtime_failures
-from .contracts import CollectAdapter, CollectRequest, CollectResult, FLOW_SOURCE_COLLECT
-from ..agent_batch.task_contract import parse_source_library_runtime_params
 
+from mrw_functorial_kit.core.provider_port_failures import collect_runtime_failures
+
+from ..agent_batch.task_contract import parse_source_library_runtime_params
+from .contracts import FLOW_SOURCE_COLLECT, CollectAdapter, CollectRequest, CollectResult
+from .delivery import DeliveryObservation, observe_delivery, resource_compatibility
 
 _AUTO_BATCH_CHANNELS = {"search.market", "search.policy"}
 _DEFAULT_AUTO_BATCH_PARALLELISM = 1
@@ -121,10 +124,9 @@ def _resolve_collect_adapter(channel: str) -> CollectAdapter | None:
             return _SKILL_REGISTRY[key]
     return None
 
-# Environment-driven workflow boundary switch.
-# - INGEST_WORKFLOW_ADAPTER: off|legacy -> legacy path (default)
-# - INGEST_WORKFLOW_ADAPTER: on|workflow|canary -> use WorkflowRoutingAdapter boundary
-# Read env directly (no settings dependency) and keep return types unchanged.
+# Compatibility input from the former workflow-boundary rollout. Both accepted
+# values now use the same original dispatcher; the parser remains for callers
+# and tests that still express their deployment configuration this way.
 def _resolve_workflow_mode() -> str:
     # Local import for unit-safety and to avoid global side effects.
     import os  # unit-safe import
@@ -136,70 +138,44 @@ def _resolve_workflow_mode() -> str:
     return "legacy"
 
 
-class WorkflowRoutingAdapter:
-    """Adapter boundary for workflow-based routing.
-
-    Thin indirection that preserves existing adapter return semantics while
-    allowing future orchestration (Temporal/Dagster/etc.) behind an env switch.
-    """
-
-    def run(self, request: CollectRequest) -> CollectResult:
-        adapter = _resolve_collect_adapter(request.channel)
-        if adapter is None:
-            _raise_collect_contract(
-                _collect_contract_failure(
-                    "collect_channel_unsupported",
-                    f"unsupported collect channel: {request.channel}",
-                    site="workflow_routing_adapter.channel",
-                )
-            )
-        # Delegate to existing channel adapter. Keep result types and display_meta.
-        return adapter.run(request)
-
-
 def run_collect(request: CollectRequest) -> CollectResult:
     """Runtime entry.
 
-    Routes to legacy adapter path or the workflow boundary based on
-    INGEST_WORKFLOW_ADAPTER. Defaults to legacy for safe rollback.
-    Auto-batch behavior and display_meta building are preserved.
+    Routes explicit typed collection modes first, then uses the original
+    adapter dispatcher for legacy-compatible execution. The former
+    INGEST_WORKFLOW_ADAPTER boundary is accepted as compatibility input but no
+    longer creates a second dispatch path.
     """
     successor_mode = _resolve_successor_collect_mode()
     if successor_mode in {"on", "canary"}:
         successor_result = _run_successor_collect(request)
         if successor_result is not None:
-            return successor_result
+            return _attach_delivery_observation(successor_result)
         # Explicit successor mode never silently falls back to the legacy
         # registry for an ineligible/non-C3 request.
         from .successor_bridge import outcome_unknown_result
 
-        return outcome_unknown_result(request)
-    elif _successor_switch_configured():
+        return _attach_delivery_observation(outcome_unknown_result(request))
+    if successor_mode == "shadow":
+        _raise_collect_contract(
+            _collect_contract_failure(
+                "product_mode_unsupported",
+                "Collect shadow mode is not implemented for product collection requests",
+                site="run_collect.product_mode",
+            )
+        )
+    if _successor_switch_configured():
         # An explicit off/legacy value is the rollback authority and must not
         # be shadowed by the older workflow switch.
         batched = _maybe_run_auto_batched(request)
         if batched is not None:
-            return batched
+            return _attach_delivery_observation(batched)
         return _run_collect_no_batch(request)
 
-    mode = _resolve_workflow_mode()
-
-    if mode == "legacy":
-        # Legacy path (default): existing auto-batch + direct adapter dispatch.
-        batched = _maybe_run_auto_batched(request)
-        if batched is not None:
-            return batched
-        return _run_collect_no_batch(request)
-
-    # Workflow boundary path: reuse the same batching rules, but delegate each
-    # execution to WorkflowRoutingAdapter. Return types remain CollectResult.
-    wr = WorkflowRoutingAdapter()
-    batch_result = _run_auto_batch(request, wr.run)
-    if batch_result is not None:
-        return batch_result
-
-    # No auto-batch; single-run through workflow boundary.
-    return wr.run(request)
+    batched = _maybe_run_auto_batched(request)
+    if batched is not None:
+        return _attach_delivery_observation(batched)
+    return _run_collect_no_batch(request)
 
 
 def _resolve_successor_collect_mode() -> str:
@@ -211,7 +187,7 @@ def _resolve_successor_collect_mode() -> str:
     if raw is None:
         return "legacy"
     try:
-        from app.successor_runtime.capabilities.collect_c3 import collect_runtime_mode
+        from app.successor_runtime.capabilities.acquisition_batch import collect_runtime_mode
 
         return collect_runtime_mode(raw)
     except Exception:
@@ -252,70 +228,79 @@ def _successor_request_id(request: CollectRequest) -> str:
     )
 
 
-def _successor_independence_is_explicit(request: CollectRequest) -> bool:
-    options = request.options if isinstance(request.options, dict) else {}
-    source_context = request.source_context if isinstance(request.source_context, dict) else {}
-    raw = options.get(
-        "batch_independence_policy",
-        options.get(
-            "independence_policy",
-            source_context.get(
-                "batch_independence_policy", source_context.get("independence_policy")
-            ),
-        ),
-    )
-    if isinstance(raw, bool):
-        return raw
-    return str(raw or "").strip().lower() in {
-        "explicit",
-        "independent",
-        "disjoint_resources",
-        "proven",
-    }
-
-
-def _successor_resource_policy(request: CollectRequest, c3: Any) -> Any:
-    requested = _resolve_auto_batch_parallelism(request)
-    if not _successor_independence_is_explicit(request):
-        requested = 1
+def _successor_resource_policy(request: CollectRequest, acquisition: Any) -> Any:
+    # C3 has a provider key but no write scopes or capacity ledger. A caller's
+    # independence hint cannot establish that two effects are compatible.
+    provider_key = f"{request.channel}:{request.provider or 'default'}"
+    siblings = SimpleNamespace(provider_concurrency_key=provider_key)
+    compatibility = resource_compatibility(siblings, siblings)
+    requested = _resolve_auto_batch_parallelism(request) if compatibility == "compatible" else 1
     options = request.options if isinstance(request.options, dict) else {}
     raw_deadline = options.get("deadline_seconds")
     try:
         deadline = None if raw_deadline is None else max(1, int(raw_deadline))
     except (TypeError, ValueError):
         deadline = None
-    return c3.CollectResourcePolicy(
-        schema_ref=c3.COLLECT_RESOURCE_POLICY_SCHEMA_REF,
+    return acquisition.CollectResourcePolicy(
+        schema_ref=acquisition.COLLECT_RESOURCE_POLICY_SCHEMA_REF,
         max_parallelism=max(1, requested),
         deadline_seconds=deadline,
         cancellation=("COORDINATED" if _resolve_auto_batch_fail_fast(request) else "NONE"),
         backpressure=True,
-        provider_concurrency_key=f"{request.channel}:{request.provider or 'default'}",
+        provider_concurrency_key=provider_key,
         policy_digest="",
     )
 
 
-def _collect_result_to_c3_outcome(result: CollectResult, element: Any, c3: Any) -> Any:
+def _collect_delivery_observation(
+    result: CollectResult, *, expected_delivery: str = "unknown"
+) -> DeliveryObservation:
+    meta = result.meta if isinstance(result.meta, dict) else {}
+    raw = meta.get("raw") if isinstance(meta.get("raw"), dict) else {}
+    raw_result = raw.get("result") if isinstance(raw.get("result"), dict) else {}
+    terminal_output = meta.get("terminal_output") if isinstance(meta.get("terminal_output"), dict) else {}
+    terminal_meta = terminal_output.get("meta") if isinstance(terminal_output.get("meta"), dict) else {}
+    handoff = terminal_meta.get("provider_handoff") if isinstance(terminal_meta.get("provider_handoff"), dict) else {}
+    readback = (
+        meta.get("terminal_readback") or raw.get("terminal_readback")
+        or raw_result.get("terminal_readback") or terminal_meta.get("terminal_readback")
+    )
+    provider_job_id = result.provider_job_id or raw.get("provider_job_id") or raw_result.get("provider_job_id") or terminal_meta.get("provider_job_id") or handoff.get("provider_job_id")
+    return observe_delivery(SimpleNamespace(
+        status=result.status,
+        provider_job_id=provider_job_id,
+        provider_type=result.provider_type or raw.get("provider_type") or raw_result.get("provider_type") or handoff.get("provider_type"),
+        provider_status=result.provider_status or raw.get("provider_status") or raw_result.get("provider_status") or handoff.get("provider_status") or terminal_output.get("status"),
+        meta={"terminal_readback": readback},
+    ), expected_delivery=expected_delivery)
+
+
+def _attach_delivery_observation(result: CollectResult) -> CollectResult:
+    observation = _collect_delivery_observation(result)
+    result.meta = dict(result.meta or {})
+    result.meta["delivery_observation"] = asdict(observation)
+    raw = result.meta.get("raw")
+    if isinstance(raw, dict):
+        result.meta["raw"] = {**raw, "delivery_observation": asdict(observation)}
+    return result
+
+
+def _collect_result_to_c3_outcome(result: CollectResult, element: Any, acquisition: Any) -> Any:
     from app.successor_runtime.capabilities.checksum import content_digest
 
     raw = dict((result.meta or {}).get("raw") or {})
     links = tuple(str(link).strip() for link in (raw.get("links") or []) if str(link).strip())
-    terminal_readback = (result.meta or {}).get("terminal_readback") or raw.get("terminal_readback")
-    terminal_readback_ok = (
-        isinstance(terminal_readback, dict)
-        and str(terminal_readback.get("kind") or "").strip().lower() == "terminal"
-        and str(terminal_readback.get("status") or "").strip().lower()
-        in {"completed", "complete", "succeeded"}
-    )
+    delivery = _collect_delivery_observation(result)
+    target_delivery_ok = delivery.state == "delivered"
     receipt = None
-    if result.provider_job_id:
+    if delivery.provider_job_id:
         provider_status = None if result.provider_status is None else str(result.provider_status)
-        authoritative = terminal_readback_ok
-        receipt = c3.CollectAttemptReceipt(
-            schema_version=c3.COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
+        authoritative = target_delivery_ok
+        receipt = acquisition.CollectAttemptReceipt(
+            schema_version=acquisition.COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
             receipt_kind=("AUTHORITATIVE_READBACK" if authoritative else "DISPATCH_ACKNOWLEDGEMENT"),
             provider_type=str(result.provider_type or "unknown"),
-            provider_job_id=str(result.provider_job_id),
+            provider_job_id=delivery.provider_job_id,
             provider_status=provider_status,
             attempt_count=int(result.attempt_count or 0),
             observed_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
@@ -323,19 +308,15 @@ def _collect_result_to_c3_outcome(result: CollectResult, element: Any, c3: Any) 
             authoritative_readback=authoritative,
             receipt_digest="",
         )
-    counts = c3.CollectCounts(
+    counts = acquisition.CollectCounts(
         inserted=int(result.inserted or 0),
         updated=int(result.updated or 0),
         skipped=int(result.skipped or 0),
     )
     legacy_ref = "legacy:" + content_digest({"element": element.element_id, "result": raw})
-    if (
-        str(result.status or "").strip().lower()
-        in {"completed", "complete", "succeeded"}
-        and terminal_readback_ok
-    ):
-        return c3.CollectElementSucceeded(
-            schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+    if target_delivery_ok:
+        return acquisition.CollectElementSucceeded(
+            schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
             element_id=element.element_id,
             input_index=element.input_index,
             counts=counts,
@@ -345,17 +326,17 @@ def _collect_result_to_c3_outcome(result: CollectResult, element: Any, c3: Any) 
             outcome_digest="",
         )
     first_error = (result.errors or [{}])[0]
-    if not terminal_readback_ok and not first_error.get("message"):
+    if not target_delivery_ok and not first_error.get("message"):
         first_error = {
             "code": "runner_unavailable",
-            "message": "provider terminal readback is required for successor completion",
+            "message": "target delivery readback is required for successor completion",
         }
-    return c3.CollectElementFailed(
-        schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+    return acquisition.CollectElementFailed(
+        schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
         element_id=element.element_id,
         input_index=element.input_index,
-        error=c3.CollectElementError(
-            code=(str(first_error.get("code") or "auto_batch_execution_failed") if str(first_error.get("code") or "") in c3.COLLECT_ELEMENT_ERROR_CODES else "auto_batch_execution_failed"),
+        error=acquisition.CollectElementError(
+            code=(str(first_error.get("code") or "auto_batch_execution_failed") if str(first_error.get("code") or "") in acquisition.COLLECT_ELEMENT_ERROR_CODES else "auto_batch_execution_failed"),
             message=str(first_error.get("message") or result.status or "collect element failed"),
             query_terms=tuple(element.query_terms),
             exception_type=first_error.get("exception_type"),
@@ -378,33 +359,39 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
         from .successor_bridge import outcome_unknown_result
 
         return outcome_unknown_result(request)
-    from app.successor_runtime.capabilities import collect_c3 as c3
-    from app.successor_runtime.capabilities import collect_c3_interpreters as ci
-    from app.successor_runtime.capabilities import collect_c3_program as cp
+    from app.successor_runtime.capabilities import acquisition_batch as acquisition
+    from app.successor_runtime.capabilities import acquisition_batch_interpreters as ci
+    from app.successor_runtime.capabilities import acquisition_batch_program as cp
+    from app.successor_runtime.capabilities.acquisition_native_contribution import (
+        default_acquisition_native_definition,
+    )
     from app.successor_runtime.runtime.assignments import InterpreterBinding
+    from functorial_kit.core.failure import Failure
 
-    bundle = c3.build_collect_c3_bundle()
-    catalog = c3.build_collect_c3_catalog(bundle)
-    registry = c3.build_collect_c3_registry(bundle)
-    request_ref = c3.build_collect_request_ref(
+    native_definition = default_acquisition_native_definition()
+    if isinstance(native_definition, Failure):
+        return None
+    catalog = native_definition.catalog
+    registry = native_definition.registry
+    request_ref = acquisition.build_collect_request_ref(
         request_id=_successor_request_id(request),
         project_key=str(request.project_key),
         channel=request.channel,
     )
-    snapshot = c3.CollectLegacyRequestSnapshot(
-        schema_version=c3.COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
+    snapshot = acquisition.CollectLegacyRequestSnapshot(
+        schema_version=acquisition.COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
         flow=request.flow,
         channel=request.channel,
         project_key=request.project_key,
         query_terms=tuple(request.query_terms or ()),
         urls=tuple(request.urls or ()),
         limit=request.limit,
-        options=c3.freeze_json_object(dict(request.options or {})),
-        source_context=c3.freeze_json_object(dict(request.source_context or {})),
+        options=acquisition.freeze_json_object(dict(request.options or {})),
+        source_context=acquisition.freeze_json_object(dict(request.source_context or {})),
         snapshot_digest="",
     )
-    policy = _successor_resource_policy(request, c3)
-    plan = c3.build_collect_batch_plan(
+    policy = _successor_resource_policy(request, acquisition)
+    plan = acquisition.build_collect_batch_plan(
         request_ref=request_ref,
         snapshot=snapshot,
         plan_id=f"successor:{request_ref.request_id}",
@@ -414,14 +401,42 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
     scope = _CollectProjectScope(
         project_key=str(request.project_key),
         registry_revision=1,
-        scope_digest=c3.content_digest({"project_key": request.project_key, "revision": 1}),
+        scope_digest=acquisition.content_digest({"project_key": request.project_key, "revision": 1}),
     )
+    delivery_by_index: dict[int, dict[str, Any]] = {}
+
+    def _run_bound_effect(element: Any) -> Any:
+        effect_request = replace(
+            request,
+            query_terms=list(element.query_terms),
+            limit=element.per_batch_limit,
+            source_context={
+                **dict(request.source_context or {}),
+                "auto_batched_child": True,
+            },
+        )
+        effect_result = _SUCCESSOR_EFFECT_GATEWAY(effect_request)
+        effect_raw = (effect_result.meta or {}).get("raw")
+        effect_raw = effect_raw if isinstance(effect_raw, dict) else {}
+        delivery_by_index[element.input_index] = {
+            "element_id": element.element_id,
+            "input_index": element.input_index,
+            "query_terms": list(element.query_terms),
+            "observation": asdict(_collect_delivery_observation(effect_result)),
+            "counts": {
+                "inserted": int(effect_result.inserted or 0),
+                "updated": int(effect_result.updated or 0),
+                "skipped": int(effect_result.skipped or 0),
+            },
+            "links": [str(link) for link in (effect_raw.get("links") or []) if str(link).strip()],
+        }
+        return _collect_result_to_c3_outcome(effect_result, element, acquisition)
 
     class _BoundRunner:
         def run(self, element: Any) -> Any:
-            payload = c3.CollectBatchElementPayload(
-                schema_version=c3.COLLECT_C3_1_PAYLOAD_SCHEMA,
-                operation_kind=c3.COLLECT_C3_1_KIND,
+            payload = acquisition.CollectBatchElementPayload(
+                schema_version=acquisition.ACQUISITION_BATCH_ELEMENT_PAYLOAD_SCHEMA,
+                operation_kind=acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND,
                 parent_request_ref=request_ref,
                 request_snapshot=snapshot,
                 element=element,
@@ -429,8 +444,10 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
                 authority_scope_ref=f"project:{request.project_key}",
                 payload_digest="",
             )
-            program_id = f"{plan.plan_id}:c3.1:{element.input_index}"
-            program = cp.build_collect_c3_1_program(
+            program_id = (
+                f"{plan.plan_id}:execute-element:{element.input_index}"
+            )
+            program = cp.build_collect_batch_element_program(
                 payload=payload,
                 catalog=catalog,
                 program_id=program_id,
@@ -438,7 +455,7 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
                 project_registry_revision=scope.registry_revision,
                 project_scope_digest=scope.scope_digest,
             )
-            bound_plan = cp.compile_collect_c3_program(program, catalog, operation_contracts=registry)
+            bound_plan = cp.compile_collect_program(program, catalog, operation_contracts=registry)
             outcome = ci.CollectTraversalSuccessorInterpreter().interpret(
                 program=program,
                 plan=bound_plan,
@@ -447,59 +464,47 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
                 payload=payload,
                 project_scope=scope,
                 catalog=catalog,
-                deployment_catalog_digest=c3.deployment_catalog_digest(),
+                deployment_catalog_digest=acquisition.deployment_catalog_digest(),
                 binding=InterpreterBinding.from_content(
                     operation_contract_digest=program.root.operation.contract_ref.contract_digest,
-                    interpreter_profile_digest=ci.successor_interpreter_profile_digest_c3_1(),
-                    deployment_catalog_digest=c3.deployment_catalog_digest(),
+                    interpreter_profile_digest=ci.successor_execute_element_interpreter_profile_digest(),
+                    deployment_catalog_digest=acquisition.deployment_catalog_digest(),
                     runtime_protocol_version="mrw.runtime.protocol.v1",
                     project_scope_digest=scope.scope_digest,
                     resource_policy_epoch=1,
-                    authority_requirement_digest=ci.authority_requirement_digest(),
+                    authority_requirement_digest=ci.authority_requirement_digest(
+                        acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND
+                    ),
                 ),
                 runner=type(
                     "AdapterRunner",
                     (),
                     {
-                        "run": lambda _self, e: _collect_result_to_c3_outcome(
-                            _SUCCESSOR_EFFECT_GATEWAY(
-                                replace(
-                                    request,
-                                    query_terms=list(e.query_terms),
-                                    limit=e.per_batch_limit,
-                                    source_context={
-                                        **dict(request.source_context or {}),
-                                        "auto_batched_child": True,
-                                    },
-                                )
-                            ),
-                            e,
-                            c3,
-                        )
+                        "run": lambda _self, e: _run_bound_effect(e)
                     },
                 )(),
             )
             if isinstance(outcome, ci.InterpreterSuccess):
                 return outcome.value
-            return c3.CollectElementFailed(
-                schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+            return acquisition.CollectElementFailed(
+                schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
                 element_id=element.element_id,
                 input_index=element.input_index,
-                error=c3.CollectElementError(
+                error=acquisition.CollectElementError(
                     code="auto_batch_execution_failed",
                     message=outcome.message,
                     query_terms=tuple(element.query_terms),
                     error_digest="",
                 ),
-                counts=c3.CollectCounts(),
+                counts=acquisition.CollectCounts(),
                 links=(),
                 receipt=None,
-                legacy_observation_ref="legacy:" + c3.content_digest({"element": element.element_id, "error": outcome.code}),
+                legacy_observation_ref="legacy:" + acquisition.content_digest({"element": element.element_id, "error": outcome.code}),
                 outcome_digest="",
             )
 
     traversal = ci.run_ordered_traversal(plan, _BoundRunner())
-    if isinstance(traversal, c3.OrderedTraversalAborted):
+    if isinstance(traversal, acquisition.OrderedTraversalAborted):
         ordered_outcomes = tuple(sorted(traversal.partial_outcomes, key=lambda item: item.input_index))
         cancelled = True
         cancellation = traversal.cancellation_receipt
@@ -510,22 +515,95 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
         ordered_outcomes = observation.ordered_outcomes
         cancelled = False
         cancellation = None
-    sequence = c3.OrderedCollectElementOutcomeSequence(
-        schema_version="mrw.successor.collect.c3.outcome-sequence.v1",
+    outcome_indexes = {item.input_index for item in ordered_outcomes}
+    delivery_rows = []
+    for element in plan.elements:
+        row = delivery_by_index.get(element.input_index)
+        if row is None:
+            row = {
+                "element_id": element.element_id,
+                "input_index": element.input_index,
+                "query_terms": list(element.query_terms),
+                "observation": asdict(observe_delivery(None)),
+            }
+        delivery_rows.append({
+            **row,
+            "execution_state": (
+                "attempted" if element.input_index in delivery_by_index
+                else "attempted_unknown" if element.input_index in outcome_indexes
+                else "not_attempted"
+            ),
+        })
+    delivery_states = [
+        row["observation"]["state"]
+        for row in delivery_rows if row["execution_state"] == "attempted"
+    ]
+    pending_delivery = any(state in {"waiting", "unknown"} for state in delivery_states)
+    delivery_cancelled = any(state == "cancelled" for state in delivery_states)
+    if pending_delivery or delivery_cancelled:
+        # C3 currently has only succeeded/failed element variants. Preserve
+        # uncertain or cancelled owner observations before its fold would
+        # mislabel them as failures, and do not unlock the next collect step.
+        counts = {
+            key: sum(int((row.get("counts") or {}).get(key) or 0) for row in delivery_rows)
+            for key in ("inserted", "updated", "skipped")
+        }
+        links = list(dict.fromkeys(
+            link for row in delivery_rows for link in (row.get("links") or [])
+        ))
+        state = "unknown" if pending_delivery else "cancelled"
+        requested_parallelism = _resolve_auto_batch_parallelism(request)
+        fail_fast = _resolve_auto_batch_fail_fast(request)
+        reason = (
+            "target_delivery_readback_required"
+            if any(
+                row["observation"]["state"] == "unknown"
+                and row["observation"]["provider_state"] == "delivered"
+                for row in delivery_rows if row["execution_state"] == "attempted"
+            )
+            else "provider_readback_pending" if pending_delivery else "provider_cancelled"
+        )
+        return CollectResult(
+            flow=request.flow,
+            channel=request.channel,
+            status=state,
+            inserted=counts["inserted"],
+            updated=counts["updated"],
+            skipped=counts["skipped"],
+            meta={
+                "batch_parallelism": policy.max_parallelism,
+                "batch_parallelism_requested": requested_parallelism,
+                "batch_fail_fast": fail_fast,
+                "raw": {
+                    **counts,
+                    "links": links,
+                    "outcome": "OutcomeUnknown" if pending_delivery else "Cancelled",
+                    "reason": reason,
+                    "batch_parallelism": policy.max_parallelism,
+                    "batch_parallelism_requested": requested_parallelism,
+                    "batch_fail_fast": fail_fast,
+                    "delivery_observations": delivery_rows,
+                    "typed_batch_results": [item.to_plain() for item in ordered_outcomes],
+                    **({"cancellation_receipt": cancellation.to_plain()} if cancellation is not None else {}),
+                },
+            },
+        )
+    sequence = acquisition.OrderedCollectElementOutcomeSequence(
+        schema_version=acquisition.ORDERED_OUTCOME_SEQUENCE_SCHEMA_REF,
         parent_request_ref=request_ref,
         outcomes=ordered_outcomes,
         sequence_digest="",
     )
-    fold_payload = c3.build_collect_fold_payload(parent_request_ref=request_ref, ordered_outcomes=sequence)
-    fold_program = cp.build_collect_c3_2_program(
+    fold_payload = acquisition.build_collect_fold_payload(parent_request_ref=request_ref, ordered_outcomes=sequence)
+    fold_program = cp.build_collect_fold_ordered_results_program(
         payload=fold_payload,
         catalog=catalog,
-        program_id=f"{plan.plan_id}:c3.2",
+        program_id=f"{plan.plan_id}:fold-ordered-results",
         project_key=scope.project_key,
         project_registry_revision=scope.registry_revision,
         project_scope_digest=scope.scope_digest,
     )
-    fold_plan = cp.compile_collect_c3_program(fold_program, catalog, operation_contracts=registry)
+    fold_plan = cp.compile_collect_program(fold_program, catalog, operation_contracts=registry)
     fold_result = ci.CollectFoldSuccessorInterpreter().interpret(
         program=fold_program,
         plan=fold_plan,
@@ -534,15 +612,17 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
         payload=fold_payload,
         project_scope=scope,
         catalog=catalog,
-        deployment_catalog_digest=c3.deployment_catalog_digest(),
+        deployment_catalog_digest=acquisition.deployment_catalog_digest(),
         binding=InterpreterBinding.from_content(
             operation_contract_digest=fold_program.root.operation.contract_ref.contract_digest,
-            interpreter_profile_digest=ci.successor_interpreter_profile_digest_c3_2(),
-            deployment_catalog_digest=c3.deployment_catalog_digest(),
+            interpreter_profile_digest=ci.successor_fold_ordered_results_interpreter_profile_digest(),
+            deployment_catalog_digest=acquisition.deployment_catalog_digest(),
             runtime_protocol_version="mrw.runtime.protocol.v1",
             project_scope_digest=scope.scope_digest,
             resource_policy_epoch=1,
-            authority_requirement_digest=ci.authority_requirement_digest(),
+            authority_requirement_digest=ci.authority_requirement_digest(
+                acquisition.COLLECT_FOLD_ORDERED_RESULTS_KIND
+            ),
         ),
     )
     if not isinstance(fold_result, ci.InterpreterSuccess):
@@ -555,9 +635,11 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
         aggregate,
         sequence,
         plan,
-        c3,
+        acquisition,
         cancellation=(cancellation if cancelled else None),
     )
+    result.meta["delivery_observations"] = delivery_rows
+    result.meta["raw"]["delivery_observations"] = delivery_rows
     from .display_meta import build_display_meta
 
     result.display_meta = build_display_meta(request, result, summary=(request.source_context or {}).get("summary"))
@@ -585,6 +667,7 @@ def _merge_collect_results(parent_request: CollectRequest, batch_results: list[t
     links_seen: set[str] = set()
     merged_links: list[str] = []
     raw_batches: list[dict[str, Any]] = []
+    delivery_observations: list[dict[str, Any]] = []
     provider_types: set[str] = set()
     provider_statuses: list[str] = []
     provider_job_ids: list[str] = []
@@ -593,6 +676,8 @@ def _merge_collect_results(parent_request: CollectRequest, batch_results: list[t
     has_attempt_count = False
     batches_failed = 0
     for terms, cr in batch_results:
+        delivery = asdict(_collect_delivery_observation(cr))
+        delivery_observations.append(delivery)
         out.inserted += int(cr.inserted or 0)
         out.updated += int(cr.updated or 0)
         out.skipped += int(cr.skipped or 0)
@@ -600,7 +685,7 @@ def _merge_collect_results(parent_request: CollectRequest, batch_results: list[t
         if str(cr.status or "").lower() == "failed":
             batches_failed += 1
         raw = dict((cr.meta or {}).get("raw") or {})
-        batch_meta: dict[str, Any] = {"query_terms": terms, "result": raw}
+        batch_meta: dict[str, Any] = {"query_terms": terms, "result": raw, "delivery_observation": delivery}
         if cr.provider_job_id:
             batch_meta["provider_job_id"] = cr.provider_job_id
         if cr.provider_type:
@@ -633,6 +718,7 @@ def _merge_collect_results(parent_request: CollectRequest, batch_results: list[t
         "batches_failed": batches_failed,
         "batches_succeeded": max(0, len(batch_results) - batches_failed),
         "batch_results": raw_batches,
+        "delivery_observations": delivery_observations,
     }
     if merged_links:
         raw_merged["links"] = merged_links
@@ -651,6 +737,7 @@ def _merge_collect_results(parent_request: CollectRequest, batch_results: list[t
         "batches_failed": batches_failed,
         "batches_succeeded": max(0, len(batch_results) - batches_failed),
         "query_term_batches": [terms for terms, _ in batch_results],
+        "delivery_observations": delivery_observations,
     }
     # Adapter-specific summary stays same; display_meta builder will fill standard stats.
     from .display_meta import build_display_meta
@@ -678,7 +765,7 @@ def _run_collect_no_batch(request: CollectRequest) -> CollectResult:
                 site="run_collect.channel",
             )
         )
-    return adapter.run(request)
+    return _attach_delivery_observation(adapter.run(request))
 
 
 def _maybe_run_auto_batched(request: CollectRequest) -> CollectResult | None:
@@ -696,7 +783,9 @@ def _run_auto_batch(
         return None
     per_batch_limit = max(10, int(ceil(max(1, int(request.limit or 20)) / len(term_batches))))
     fail_fast = _resolve_auto_batch_fail_fast(request)
-    max_workers = min(len(term_batches), _resolve_auto_batch_parallelism(request))
+    # Legacy batches have the same missing write scopes and capacity evidence
+    # as C3. Options are intent, not proof of independent provider effects.
+    max_workers = 1
     batch_results = _execute_auto_batch(request, term_batches, per_batch_limit, runner, max_workers=max_workers, fail_fast=fail_fast)
     merged = _merge_collect_results(request, batch_results)
     merged.meta = {

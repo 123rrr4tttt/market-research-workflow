@@ -7,7 +7,7 @@ keyword collection service can find candidates and push material into the
 project document pipeline.
 
 Usage:
-  PROJECT_KEY=online_lottery python -m scripts.test_source_library_keyword_collect_smoke
+  PROJECT_KEY=business_survey python -m scripts.test_source_library_keyword_collect_smoke
 
 Useful knobs:
   SOURCE_LIBRARY_SMOKE_QUERY="artificial intelligence startup funding"
@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-PROJECT_KEY = os.environ.get("PROJECT_KEY", "online_lottery")
+PROJECT_KEY = os.environ.get("PROJECT_KEY", "business_survey")
 PACK_KEY = os.environ.get("SOURCE_LIBRARY_SMOKE_PACK", "keyword_research_foundation")
 ITEM_KEY = os.environ.get("SOURCE_LIBRARY_SMOKE_ITEM_KEY", "smoke.keyword_research_foundation")
 QUERY = os.environ.get("SOURCE_LIBRARY_SMOKE_QUERY", "artificial intelligence startup funding")
@@ -98,7 +98,7 @@ def run_smoke() -> dict:
     from app.services.resource_pool.unified_search import unified_search_by_item
 
     query_terms = _terms(QUERY)
-    ensure_project_schema_ready(PROJECT_KEY, name="Online Lottery")
+    ensure_project_schema_ready(PROJECT_KEY, name="Business Survey")
     logger.info("Importing source preset pack=%s project_key=%s", PACK_KEY, PROJECT_KEY)
     imported = import_open_source_preset_pack(
         pack_key=PACK_KEY,

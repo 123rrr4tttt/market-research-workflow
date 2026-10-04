@@ -12,7 +12,7 @@ from ....settings.config import settings
 class LegiScanApiAdapter(PolicyAdapter):
     BASE_URL = "https://api.legiscan.com/"
 
-    def __init__(self, state: str, keyword: str = "lottery"):
+    def __init__(self, state: str, keyword: str = "policy"):
         super().__init__(state)
         self.keyword = keyword
         if not settings.legiscan_api_key:
@@ -66,4 +66,3 @@ class LegiScanApiAdapter(PolicyAdapter):
                 uri=bill.get("state_link") or bill.get("text_url"),
                 source_name="LegiScan API",
             )
-

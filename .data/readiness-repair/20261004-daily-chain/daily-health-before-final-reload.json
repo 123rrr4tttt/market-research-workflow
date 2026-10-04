@@ -1,0 +1,18 @@
+{
+  "status": "ok",
+  "database": "ok",
+  "database_pool": "ok",
+  "elasticsearch": "ok",
+  "details": {
+    "database_latency_ms": 1.93,
+    "database_pool": {
+      "pool_class": "QueuePool",
+      "status": "Pool size: 10  Connections in pool: 5 Current Overflow: -5 Current Checked out connections: 0",
+      "size": 10,
+      "checkedin": 5,
+      "checkedout": 0,
+      "overflow": -5
+    },
+    "elasticsearch_latency_ms": 20.04
+  }
+}

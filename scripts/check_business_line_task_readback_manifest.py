@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import Annotated, Any, Sequence
 
 try:
-    from scripts._automation_runtime import repo_root, utc_now
+    from scripts._automation_runtime import WORKER_REQUIRED_LINE_KEYS, repo_root, utc_now
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from _automation_runtime import repo_root, utc_now
+    from _automation_runtime import WORKER_REQUIRED_LINE_KEYS, repo_root, utc_now
 
 
 SCHEMA_VERSION = "business_line_task_readback_manifest_check.v1"
@@ -23,12 +23,7 @@ STATUS_PASSED = "passed"
 STATUS_FAILED = "failed"
 STATUS_BLOCKED = "blocked"
 
-REQUIRED_LINE_KEYS = (
-    "ingest",
-    "search_discovery_index",
-    "resource_source_library",
-    "writing_knowledge_graph_agent",
-)
+REQUIRED_LINE_KEYS = WORKER_REQUIRED_LINE_KEYS
 
 MANIFEST_CONTAINER_KEYS = (
     "items",

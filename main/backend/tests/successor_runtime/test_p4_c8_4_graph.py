@@ -6,13 +6,13 @@ import dataclasses
 
 import pytest
 
-from app.successor_runtime.capabilities.c8_graph import (
+from app.successor_runtime.capabilities.knowledge_graph_projection import (
     GRAPH_CONTEXT_PROJECTION,
     build_graph_context_from_items,
     project_graph_context,
 )
-from app.successor_runtime.capabilities.c8_typed_knowledge import (
-    C8ProjectionError,
+from app.successor_runtime.capabilities.typed_knowledge import (
+    KnowledgeProjectionError,
     item_digest,
 )
 
@@ -157,7 +157,7 @@ def test_graph_rejects_item_with_stale_canonical_ref() -> None:
             content_digest=item_digest(other_body),
         ),
     )
-    with pytest.raises(C8ProjectionError, match="body digest"):
+    with pytest.raises(KnowledgeProjectionError, match="body digest"):
         build_graph_context_from_items(
             graph_id="graph-6",
             project_key=PROJECT_KEY,

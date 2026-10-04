@@ -9,6 +9,7 @@ import {
 
 const PROJECT_KEY = process.env.FRONTEND_E2E_PROJECT_KEY || 'default'
 const PAGE_ORIGIN = `http://127.0.0.1:${process.env.FRONTEND_E2E_PORT || '4173'}`
+const GRAPH_FIXTURE_MODE = process.env.FRONTEND_E2E_GRAPH_FIXTURE || 'generic'
 
 let backendReadiness: RealBackendReadinessResult | undefined
 
@@ -176,6 +177,75 @@ function requireNonEmptyList(data: unknown, label: string) {
   }
 }
 
+type GraphNodePayload = {
+  type: unknown
+  id: unknown
+}
+
+type GraphEdgePayload = {
+  type: unknown
+  from: GraphNodePayload
+  to: GraphNodePayload
+}
+
+function graphNodeKey(node: GraphNodePayload) {
+  return `${String(node.type)}:${String(node.id)}`
+}
+
+function graphEdgeKey(edge: GraphEdgePayload) {
+  return [
+    String(edge.type),
+    graphNodeKey(edge.from),
+    graphNodeKey(edge.to),
+  ].join('>')
+}
+
+function requireGraphArrays(data: unknown, label: string) {
+  const payload = requireObject(data, label)
+  if (!Array.isArray(payload.nodes) || !Array.isArray(payload.edges)) {
+    throw new Error(`${label} is missing nodes/edges arrays.`)
+  }
+  return { nodes: payload.nodes as GraphNodePayload[], edges: payload.edges as GraphEdgePayload[] }
+}
+
+function requireSimp11NonEmptyMarketGraph(data: unknown) {
+  const { nodes, edges } = requireGraphArrays(data, 'Market graph')
+  const actualNodeKeys = nodes.map(graphNodeKey).sort()
+  const actualEdgeKeys = edges.map(graphEdgeKey).sort()
+  const expectedNodeKeys = [
+    'MarketData:41101',
+    'MarketData:41102',
+    'State:CA',
+    'Segment:ai-terminal',
+    'Segment:research-agent',
+  ].sort()
+  const expectedEdgeKeys = [
+    'IN_STATE>MarketData:41101>State:CA',
+    'IN_STATE>MarketData:41102>State:CA',
+    'HAS_SEGMENT>MarketData:41101>Segment:ai-terminal',
+    'HAS_SEGMENT>MarketData:41102>Segment:research-agent',
+  ].sort()
+
+  if (actualNodeKeys.length < 2 || actualEdgeKeys.length < 1) {
+    throw new Error('Market graph returned an empty or near-empty graph.')
+  }
+  if (JSON.stringify(actualNodeKeys) !== JSON.stringify(expectedNodeKeys)) {
+    throw new Error(`Market graph node identities mismatch: ${JSON.stringify(actualNodeKeys)}`)
+  }
+  if (JSON.stringify(actualEdgeKeys) !== JSON.stringify(expectedEdgeKeys)) {
+    throw new Error(`Market graph edge identities mismatch: ${JSON.stringify(actualEdgeKeys)}`)
+  }
+}
+
+function requireSelectedGraphFixtureMode() {
+  if (GRAPH_FIXTURE_MODE !== 'generic' && GRAPH_FIXTURE_MODE !== 'simp11_nonempty') {
+    throw new Error(
+      `FRONTEND_E2E_GRAPH_FIXTURE must be 'simp11_nonempty' for the fixture oracle or unset for generic graph proof; received ${JSON.stringify(GRAPH_FIXTURE_MODE)}.`,
+    )
+  }
+  return GRAPH_FIXTURE_MODE
+}
+
 function truncate(value: string) {
   return value.length > 500 ? `${value.slice(0, 500)}...` : value
 }
@@ -257,24 +327,25 @@ test('real-backend business line smoke [line_key=projects_config_workflow] class
   })
   await page.goto('/#/admin/projects')
   await projectsResponse
-  await expectVisible(lineKey, page.getByRole('heading', { name: '项目管理' }))
+  await expectVisible(lineKey, page.getByRole('heading', { name: '项目与模板' }))
   await expectVisible(lineKey, page.getByTestId('projects-list'))
 })
 
 test('real-backend business line smoke [line_key=writing_knowledge_graph_agent] classifies endpoint, data, and browser failures', async ({ page, request }) => {
   const lineKey: CanonicalBusinessLineKey = 'writing_knowledge_graph_agent'
+  const graphFixtureMode = requireSelectedGraphFixtureMode()
   skipWhenBackendCheckBypassed()
   await probeEndpoint(request, `${lineKey} graph config`, '/api/v1/project-customization/graph-config', {
     requireData: (data) => requireObject(data, 'Graph config'),
   })
-  await probeEndpoint(request, `${lineKey} market graph`, '/api/v1/admin/market-graph', {
-    requireData: (data) => {
-      const payload = requireObject(data, 'Market graph')
-      if (!Array.isArray(payload.nodes) || !Array.isArray(payload.edges)) {
-        throw new Error('Market graph payload is missing nodes/edges arrays.')
-      }
-    },
-  })
+  const marketGraph = requireGraphArrays(
+    await probeEndpoint(request, `${lineKey} market graph`, '/api/v1/admin/market-graph?view=market_deep_entities&limit=100', {
+      requireData: graphFixtureMode === 'simp11_nonempty'
+        ? requireSimp11NonEmptyMarketGraph
+        : (data) => requireGraphArrays(data, 'Market graph'),
+    }),
+    'Market graph',
+  )
 
   await bootstrapRealBackendPage(page)
   const graphConfigResponse = page.waitForResponse((response) => {
@@ -285,9 +356,54 @@ test('real-backend business line smoke [line_key=writing_knowledge_graph_agent] 
   })
   await page.goto('/#/visual/graph/market')
   await graphConfigResponse
-  await marketGraphResponse
+  const browserMarketGraph = await marketGraphResponse.then(async (response) => {
+    const body = await response.text()
+    if (!response.ok()) {
+      throw new Error(`Browser market graph response failed: status=${response.status()} body=${truncate(body)}`)
+    }
+    return unwrapEnvelope(parseJsonOrText(body))
+  })
+  const browserGraph = requireGraphArrays(browserMarketGraph, 'Browser market graph')
+  expect(browserGraph.nodes.map(graphNodeKey).sort()).toEqual(marketGraph.nodes.map(graphNodeKey).sort())
+  expect(browserGraph.edges.map(graphEdgeKey).sort()).toEqual(marketGraph.edges.map(graphEdgeKey).sort())
   await expectVisible(lineKey, page.getByRole('heading', { name: '市场图谱' }))
-  await expectVisible(lineKey, page.getByText('节点总数', { exact: true }))
+
+  const nodeSummary = page.locator('.gv2-macro-stat').filter({
+    has: page.getByText('节点总数', { exact: true }),
+  }).locator('strong')
+  const edgeSummary = page.locator('.gv2-macro-stat').filter({
+    has: page.getByText('边总数', { exact: true }),
+  }).locator('strong')
+  await expectVisible(lineKey, nodeSummary)
+  await expectVisible(lineKey, edgeSummary)
+  await expect(nodeSummary).toHaveText(String(marketGraph.nodes.length))
+  await expect(edgeSummary).toHaveText(String(marketGraph.edges.length))
+
+  if (graphFixtureMode === 'simp11_nonempty') {
+    const selected = await page.evaluate(() => {
+      const graphPage = window as Window & {
+        __graphPageE2E?: { selectNode: (nodeId: string) => boolean }
+      }
+      return graphPage.__graphPageE2E?.selectNode('41101') === true
+    })
+    if (!selected) {
+      throw new Error('Market graph browser state did not contain the persisted MarketData:41101 node.')
+    }
+    const selectedNodeCard = page.getByTestId('graph-selected-node-card')
+    await expectVisible(lineKey, selectedNodeCard)
+    await expect(selectedNodeCard).toContainText('SIMP11 nonempty graph market 41101')
+    await expect(selectedNodeCard).toContainText('MarketData')
+    await expect(selectedNodeCard).toContainText('41101')
+    await expect(selectedNodeCard).toContainText('CA')
+    await expect(selectedNodeCard).toContainText('ai-terminal')
+    await expectVisible(lineKey, selectedNodeCard.getByRole('button', { name: 'IN_STATE (1)' }))
+    await expectVisible(lineKey, selectedNodeCard.getByRole('button', { name: 'HAS_SEGMENT (1)' }))
+
+    await selectedNodeCard.getByRole('button', { name: 'IN_STATE (1)' }).click()
+    await expectVisible(lineKey, selectedNodeCard.getByText('出 · CA'))
+    await selectedNodeCard.getByRole('button', { name: 'HAS_SEGMENT (1)' }).click()
+    await expectVisible(lineKey, selectedNodeCard.getByText('出 · ai-terminal'))
+  }
 })
 
 test('real-backend business line smoke [line_key=resource_source_library] classifies endpoint, data, and browser failures', async ({ page, request }) => {

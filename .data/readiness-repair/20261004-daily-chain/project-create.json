@@ -1,0 +1,17 @@
+{
+  "http_status": 200,
+  "response": {
+    "status": "ok",
+    "data": {
+      "id": 78,
+      "schema_name": "project_readiness_daily_20261004"
+    },
+    "error": null,
+    "meta": {
+      "trace_id": "6e09d6ff-d0c4-499c-9e52-77ee7b985eaf",
+      "pagination": null,
+      "project_key": "readiness_daily_20261004",
+      "deprecated": null
+    }
+  }
+}

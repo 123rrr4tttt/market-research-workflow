@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlparse
 
@@ -131,6 +132,46 @@ def analyze_frontdoor_content(
 
 def apply_main_content_extraction(document_candidate: dict[str, Any] | None) -> tuple[dict[str, Any], dict[str, Any]]:
     candidate = dict(document_candidate or {})
+    if is_declared_prepared_text_body(candidate):
+        body = str(candidate.get("content") or "").strip()
+        analysis = analyze_frontdoor_content(
+            uri=str(candidate.get("uri") or "").strip() or None,
+            title=str(candidate.get("title") or "").strip() or None,
+            content=body,
+        )
+        analysis.update(
+            {
+                "main_text_chars": len(body),
+                "main_text_ratio": 1.0 if body else 0.0,
+                "extractor_name": "ingest.material_text.v1",
+                "extractor_confidence": 100.0,
+                "prefix_trimmed": False,
+                "main_content": body,
+                "main_block_count": int(analysis.get("block_count") or 0),
+            }
+        )
+        return candidate, analysis
+    if is_extracted_pdf_body(candidate):
+        # The URL adapter has already parsed the PDF bytes into text. The
+        # HTML main-block heuristic would discard all but one PDF paragraph.
+        body = str(candidate["content"]).strip()
+        return candidate, {
+            "page_family": "article",
+            "readerable": len(body) >= 400,
+            "shell_heavy": False,
+            "js_heavy": False,
+            "raw_text_chars": len(body),
+            "main_text_chars": len(body),
+            "main_text_ratio": 1.0,
+            "extractor_name": "source_library.pdf_text.v1",
+            "extractor_confidence": 100.0,
+            "shell_marker_hits": 0,
+            "js_template_hits": 0,
+            "duplicate_line_ratio": 0.0,
+            "prefix_trimmed": False,
+            "main_content": body,
+            "main_title": str(candidate.get("title") or "").strip(),
+        }
     analysis = analyze_frontdoor_content(
         uri=str(candidate.get("uri") or "").strip() or None,
         title=str(candidate.get("title") or "").strip() or None,
@@ -142,24 +183,68 @@ def apply_main_content_extraction(document_candidate: dict[str, Any] | None) -> 
     return candidate, analysis
 
 
+def is_declared_prepared_text_body(candidate: dict[str, Any]) -> bool:
+    extracted_data = candidate.get("extracted_data_base")
+    raw_input = extracted_data.get("_raw_input") if isinstance(extracted_data, dict) else None
+    material_input = raw_input.get("material_input") if isinstance(raw_input, dict) else None
+    if not isinstance(material_input, dict):
+        return False
+    digest = str(material_input.get("raw_content_digest") or "")
+    return bool(
+        material_input.get("kind") in {"given", "resource"}
+        and str(material_input.get("mime_type") or "").split(";", 1)[0].strip().lower()
+        in {"text/plain", "text/markdown"}
+        and len(digest) == 64
+        and all(char in "0123456789abcdef" for char in digest.lower())
+        and str(candidate.get("content") or "").strip()
+    )
+
+
+def is_extracted_pdf_body(candidate: dict[str, Any]) -> bool:
+    extracted_data = candidate.get("extracted_data_base")
+    record_meta = extracted_data.get("record_meta") if isinstance(extracted_data, dict) else None
+    content = str(candidate.get("content") or "")
+    return bool(
+        isinstance(record_meta, dict)
+        and record_meta.get("content_format") == "pdf"
+        and record_meta.get("text_extraction_status") == "succeeded"
+        and content.strip()
+        and not content.lstrip().startswith("%PDF")
+    )
+
+
 def extract_main_text_from_html(html: str) -> str:
     raw_html = str(html or "").strip()
     if not raw_html:
         return ""
     try:
-        parser = make_html_parser(raw_html)
-        for selector in ("article", "main article", "[role='main'] article", "main", "[role='main']"):
-            node = parser.css_first(selector)
-            if node is None:
-                continue
-            text = str(node.text(separator="\n", strip=True) or "").strip()
-            if len(text) >= 120:
-                return text
-        body = parser.body
-        if body is not None:
-            return str(body.text(separator="\n", strip=True) or "").strip()
+        return _locate_main_text_from_html(
+            raw_html,
+            selectors=("article", "main article", "[role='main'] article", "main", "[role='main']"),
+        )
     except Exception:  # noqa: BLE001
         return ""
+    return ""
+
+
+def _locate_main_text_from_html(
+    html: Any,
+    *,
+    selectors: tuple[str, ...],
+    transform: Callable[[str], str] | None = None,
+) -> str:
+    parser = make_html_parser(html)
+    for selector in selectors:
+        node = parser.css_first(selector)
+        if node is None:
+            continue
+        text = str(node.text(separator="\n", strip=True) or "").strip()
+        if len(text) >= 120:
+            return transform(text) if transform else text
+    body = parser.body
+    if body is not None:
+        text = str(body.text(separator="\n", strip=True) or "").strip()
+        return transform(text) if transform else text
     return ""
 
 

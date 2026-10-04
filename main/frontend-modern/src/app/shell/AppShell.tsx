@@ -11,6 +11,7 @@ import { getModuleDescriptor, verifyRegistryHashCompatibility } from '../platfor
 import { applyThemeTokens, useAppTheme } from '../platform/theme'
 import { renderKernelModuleContent } from '../kernel/renderKernelModuleContent'
 import { resolveKernelRoute } from '../kernel/routes'
+import BusinessChainGuide from '../kernel/BusinessChainGuide'
 import { buildProjectOptions, hasProject, isReservedProjectKey, resolveBootstrapTarget, resolveEffectiveProjectKey } from '../kernel/projectKeys'
 import type { ProjectItem } from '../../lib/types'
 import { resolveInteractionSurface } from '../topology/contracts'
@@ -443,6 +444,7 @@ export default function AppShell() {
 
         <Suspense fallback={<section className="panel"><p className="status-line">页面加载中...</p></section>}>
           <div className={`content-stack ${isLlmDesignerMode ? 'content-stack--immersive' : ''}`}>
+            {activeSurface === 'management' ? <BusinessChainGuide /> : null}
             {modernContent}
           </div>
         </Suspense>

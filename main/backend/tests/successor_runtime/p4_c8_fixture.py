@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
-from app.successor_runtime.capabilities.c8_typed_knowledge import (
+from app.successor_runtime.capabilities.typed_knowledge import (
     CanonicalRef,
     KnowledgeItem,
     ReadHandleRegistry,

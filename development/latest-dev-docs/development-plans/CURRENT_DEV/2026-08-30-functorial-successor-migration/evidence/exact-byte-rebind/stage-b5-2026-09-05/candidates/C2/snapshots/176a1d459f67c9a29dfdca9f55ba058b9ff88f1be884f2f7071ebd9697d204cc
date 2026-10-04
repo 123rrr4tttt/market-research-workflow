@@ -1,0 +1,82 @@
+"""Closed failure projections for provider and crawler port boundaries."""
+
+from __future__ import annotations
+
+from typing import Literal, get_args
+
+from functorial_kit import define_failure_family
+
+
+IngestMarketFailureCode = Literal[
+    "market_adapter_not_configured",
+    "market_provider_iteration_failed",
+]
+IngestPolicyFailureCode = Literal[
+    "policy_adapter_not_configured",
+    "policy_provider_iteration_failed",
+]
+IngestRedditFailureCode = Literal["reddit_adapter_not_configured"]
+IngestGoogleNewsFailureCode = Literal["google_news_adapter_not_configured"]
+ResourcePoolHttpFetchFailureCode = Literal[
+    "port_not_configured",
+    "transport",
+    "http_status",
+]
+ResourcePoolOfficialAccessFailureCode = Literal[
+    "official_access_port_not_configured",
+]
+CollectRuntimeFailureCode = Literal[
+    "skill_id_required",
+    "collect_adapter_contract_invalid",
+    "compat_projector_contract_invalid",
+]
+SourceLibraryCrawlerProviderResolutionFailureCode = Literal[
+    "resolver_not_configured",
+    "provider_unavailable",
+    "provider_unsupported",
+]
+
+ingest_market_failures = define_failure_family(
+    "ingest.market.failure",
+    get_args(IngestMarketFailureCode),
+)
+ingest_policy_failures = define_failure_family(
+    "ingest.policy.failure",
+    get_args(IngestPolicyFailureCode),
+)
+ingest_reddit_failures = define_failure_family(
+    "ingest.reddit.failure",
+    get_args(IngestRedditFailureCode),
+)
+ingest_google_news_failures = define_failure_family(
+    "ingest.google_news.failure",
+    get_args(IngestGoogleNewsFailureCode),
+)
+resource_pool_http_fetch_failures = define_failure_family(
+    "resource_pool.http_fetch.failure",
+    get_args(ResourcePoolHttpFetchFailureCode),
+)
+resource_pool_official_access_failures = define_failure_family(
+    "resource_pool.official_access.failure",
+    get_args(ResourcePoolOfficialAccessFailureCode),
+)
+collect_runtime_failures = define_failure_family(
+    "collect.runtime.failure",
+    get_args(CollectRuntimeFailureCode),
+)
+source_library_crawler_provider_resolution_failures = define_failure_family(
+    "source_library.crawler_provider_resolution.failure",
+    get_args(SourceLibraryCrawlerProviderResolutionFailureCode),
+)
+
+
+__all__ = [
+    "collect_runtime_failures",
+    "ingest_google_news_failures",
+    "ingest_market_failures",
+    "ingest_policy_failures",
+    "ingest_reddit_failures",
+    "resource_pool_http_fetch_failures",
+    "resource_pool_official_access_failures",
+    "source_library_crawler_provider_resolution_failures",
+]

@@ -6,7 +6,7 @@ This profile is intentionally heavier than smoke. It is meant for answering:
 and push into downstream project flows?"
 
 Usage:
-  PROJECT_KEY=online_lottery python -m scripts.test_source_library_keyword_collect_strength
+  PROJECT_KEY=business_survey python -m scripts.test_source_library_keyword_collect_strength
 
 Useful knobs:
   SOURCE_LIBRARY_STRENGTH_QUERY="artificial intelligence startup funding"
@@ -37,7 +37,7 @@ from scripts.test_source_library_keyword_collect_smoke import (  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-PROJECT_KEY = os.environ.get("PROJECT_KEY", "online_lottery")
+PROJECT_KEY = os.environ.get("PROJECT_KEY", "business_survey")
 PACK_KEY = os.environ.get("SOURCE_LIBRARY_STRENGTH_PACK", "keyword_research_foundation")
 ITEM_KEY = os.environ.get("SOURCE_LIBRARY_STRENGTH_ITEM_KEY", "strength.keyword_research_foundation")
 QUERY = os.environ.get("SOURCE_LIBRARY_STRENGTH_QUERY", "artificial intelligence startup funding")
@@ -74,7 +74,7 @@ def run_strength() -> dict:
     from app.services.resource_pool.unified_search import unified_search_by_item
 
     query_terms = _terms(QUERY)
-    ensure_project_schema_ready(PROJECT_KEY, name="Online Lottery")
+    ensure_project_schema_ready(PROJECT_KEY, name="Business Survey")
     imported = import_open_source_preset_pack(
         pack_key=PACK_KEY,
         scope="project",

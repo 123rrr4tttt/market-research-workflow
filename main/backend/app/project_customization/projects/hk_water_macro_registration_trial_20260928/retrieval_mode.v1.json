@@ -1,0 +1,1220 @@
+{
+  "schema": "mrw.project-retrieval-mode.v1",
+  "project_key": "hk_water_macro_registration_trial_20260928",
+  "mode_id": "hk-water-investigation-retrieval",
+  "version": "1",
+  "source_revision": "85ce356b18d8b29bfe24b43ecc3dd47371d9c8187ec71eee3906a2ec4373f1bd",
+  "source_snapshot": {
+    "kind": "checked_in_project_binding",
+    "files": {
+      "分析总纲.md": {
+        "sha256": "a2a6d5640f7353a0fc8295568a1d4ae7a8fcf0bf74455aaccb15e3059bdfe9a9",
+        "bytes": 27598
+      },
+      "域.json": {
+        "sha256": "68853b41e9b902c0c077fa1c7d730d72c9fc0f70fd13462e612d587bd3587e13",
+        "bytes": 1181
+      },
+      "来源池.md": {
+        "sha256": "03329881f65eeb13b2b829b119e61910a72130443a7ef1a003106a18c08e4ed6",
+        "bytes": 9197
+      },
+      "初始关键词池.md": {
+        "sha256": "dd3d54bf8290aaf75547f8c21b073f90536cc8db006696befabd1910ef588174",
+        "bytes": 17866
+      }
+    }
+  },
+  "outline_summary": {
+    "title": "香港水资源与水治理",
+    "sections": [
+      {
+        "section": "1",
+        "label": "供水与水资源物质基础"
+      },
+      {
+        "section": "2",
+        "label": "排水河流与防洪"
+      },
+      {
+        "section": "3",
+        "label": "港湾填海与航道"
+      },
+      {
+        "section": "4",
+        "label": "社会关系、阶级意识与生活"
+      }
+    ],
+    "research_scope": "从水文运动、供水、排水河流、港湾与生活现场调查物质过程、社会关系、阶级意识和文化再生产；具体关系待材料核实。",
+    "authority": "分析总纲.md 正文是搜集解释的事实源；域.json 是派生运行时词表。"
+  },
+  "domain_vocabulary": {
+    "域名": "香港水资源与水治理",
+    "节点类型": [
+      "现场",
+      "环节",
+      "行动者",
+      "阶级机体",
+      "社会关系",
+      "技术物",
+      "制度安排",
+      "货币流",
+      "剩余",
+      "意识形式",
+      "生活实践"
+    ],
+    "边类型": [
+      "介入",
+      "管理",
+      "支配",
+      "统治",
+      "依赖",
+      "中介",
+      "剩余流向",
+      "外溢",
+      "上收",
+      "传播",
+      "赋能",
+      "组成",
+      "组织",
+      "占有",
+      "分配",
+      "再生产",
+      "表达",
+      "判断",
+      "正当化",
+      "调和",
+      "转移",
+      "爆发"
+    ],
+    "问题意识视角": [
+      "水文运动与时空边界",
+      "人化自然与使用资格",
+      "资本组织与阶层内部关系",
+      "生产消费与生活再生产",
+      "价格成本与剩余分配",
+      "治理工程与第二自然",
+      "阶级机体与阶级意识",
+      "文化与欲望再生产",
+      "矛盾的水形式与自然调和",
+      "各阶层与水的生活关联"
+    ],
+    "大纲节": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "池": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "实践"
+    ],
+    "档": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ]
+  },
+  "domain_source_ref": {
+    "ref": {
+      "project_key": "hk_water_investigation",
+      "module_id": "retrieval",
+      "namespace": "brief",
+      "type_id": "source",
+      "local_id": "analysis-brief"
+    },
+    "observed_revision": "85ce356b18d8b29bfe24b43ecc3dd47371d9c8187ec71eee3906a2ec4373f1bd",
+    "content_digest": "a2a6d5640f7353a0fc8295568a1d4ae7a8fcf0bf74455aaccb15e3059bdfe9a9"
+  },
+  "limits": {
+    "max_queries": 10,
+    "max_materials": 20,
+    "max_followups": 2
+  },
+  "routes": [
+    {
+      "route_id": "route:supply",
+      "label": "供水协议、接入与收费规则、年报",
+      "pool": "A",
+      "outline_anchor": "1 供水与水资源物质基础",
+      "outline_sections": [
+        "1"
+      ],
+      "perspectives": [
+        "人化自然与使用资格",
+        "生产消费与生活再生产"
+      ],
+      "node_types": [
+        "现场",
+        "环节",
+        "制度安排"
+      ],
+      "target_edges": [
+        "依赖",
+        "分配"
+      ],
+      "source_leads": [
+        "src:A:水务署"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:supply"
+      ],
+      "priority": "首批",
+      "status": "active",
+      "query_ids": [
+        "query:01",
+        "query:02"
+      ]
+    },
+    {
+      "route_id": "route:finance",
+      "label": "预算、审计、工程支付、补贴与财务报表",
+      "pool": "A",
+      "outline_anchor": "1 供水与水资源物质基础",
+      "outline_sections": [
+        "1",
+        "3"
+      ],
+      "perspectives": [
+        "价格成本与剩余分配"
+      ],
+      "node_types": [
+        "货币流",
+        "制度安排",
+        "剩余"
+      ],
+      "target_edges": [
+        "分配",
+        "占有"
+      ],
+      "source_leads": [
+        "src:A:审计署",
+        "src:A:立法会"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:finance"
+      ],
+      "priority": "首批",
+      "status": "active",
+      "query_ids": [
+        "query:03",
+        "query:04"
+      ]
+    },
+    {
+      "route_id": "route:planning",
+      "label": "河岸土地用途、住房、桥梁与行人联系、规划咨询",
+      "pool": "A",
+      "outline_anchor": "2 排水河流与防洪",
+      "outline_sections": [
+        "2"
+      ],
+      "perspectives": [
+        "矛盾的水形式与自然调和"
+      ],
+      "node_types": [
+        "现场",
+        "制度安排",
+        "社会关系"
+      ],
+      "target_edges": [
+        "分配",
+        "调和",
+        "转移"
+      ],
+      "source_leads": [
+        "src:A:发展局",
+        "src:A:土木工程拓展署",
+        "待找规划档案发布入口"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:planning",
+        "kw:access"
+      ],
+      "priority": "首批",
+      "status": "active",
+      "query_ids": [
+        "query:05",
+        "query:06",
+        "query:39"
+      ]
+    },
+    {
+      "route_id": "route:land",
+      "label": "岸线用途、批地、租赁、开发权、土地交易与公共投入",
+      "pool": "A",
+      "outline_anchor": "3 港湾填海与航道",
+      "outline_sections": [
+        "3"
+      ],
+      "perspectives": [
+        "价格成本与剩余分配",
+        "人化自然与使用资格"
+      ],
+      "node_types": [
+        "制度安排",
+        "货币流",
+        "社会关系"
+      ],
+      "target_edges": [
+        "占有",
+        "分配"
+      ],
+      "source_leads": [
+        "src:A:发展局",
+        "src:A:香港法例",
+        "待找土地记录发布入口"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:land"
+      ],
+      "priority": "后续",
+      "status": "active",
+      "query_ids": [
+        "query:07",
+        "query:08"
+      ]
+    },
+    {
+      "route_id": "route:ports",
+      "label": "港口经营、航运物流、疏浚合约、维护与装卸劳动",
+      "pool": "A",
+      "outline_anchor": "3 港湾填海与航道",
+      "outline_sections": [
+        "3"
+      ],
+      "perspectives": [
+        "资本组织与阶层内部关系",
+        "治理工程与第二自然"
+      ],
+      "node_types": [
+        "环节",
+        "技术物",
+        "行动者"
+      ],
+      "target_edges": [
+        "组织",
+        "依赖"
+      ],
+      "source_leads": [
+        "待找港口主管机关、经营者及合约发布入口"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:ports"
+      ],
+      "priority": "首批",
+      "status": "active",
+      "query_ids": [
+        "query:09",
+        "query:10"
+      ]
+    },
+    {
+      "route_id": "route:labour",
+      "label": "水务与港口雇佣、外包、集体协议、工会资料、劳动访谈",
+      "pool": "B",
+      "outline_anchor": "1 供水与水资源物质基础",
+      "outline_sections": [
+        "1",
+        "3",
+        "4"
+      ],
+      "perspectives": [
+        "资本组织与阶层内部关系",
+        "生产消费与生活再生产"
+      ],
+      "node_types": [
+        "行动者",
+        "社会关系",
+        "环节"
+      ],
+      "target_edges": [
+        "组织",
+        "支配",
+        "再生产"
+      ],
+      "source_leads": [
+        "待找工会、劳动调查和承包商组织入口"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:labour"
+      ],
+      "priority": "首批",
+      "status": "active",
+      "query_ids": [
+        "query:11",
+        "query:12"
+      ]
+    },
+    {
+      "route_id": "route:household",
+      "label": "家庭支出、住房、供水经验、照料时间与生活记录",
+      "pool": "B",
+      "outline_anchor": "1 供水与水资源物质基础",
+      "outline_sections": [
+        "1",
+        "4"
+      ],
+      "perspectives": [
+        "生产消费与生活再生产",
+        "各阶层与水的生活关联"
+      ],
+      "node_types": [
+        "生活实践",
+        "社会关系",
+        "货币流"
+      ],
+      "target_edges": [
+        "再生产",
+        "依赖"
+      ],
+      "source_leads": [
+        "待找社会调查、大学资料库、社区口述发布入口"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:household"
+      ],
+      "priority": "首批",
+      "status": "active",
+      "query_ids": [
+        "query:13",
+        "query:14"
+      ]
+    },
+    {
+      "route_id": "route:organizations",
+      "label": "组织形成、成员与领导、活动报告、刊物及协作记录",
+      "pool": "B",
+      "outline_anchor": "4 社会关系、阶级意识与生活",
+      "outline_sections": [
+        "4"
+      ],
+      "perspectives": [
+        "阶级机体与阶级意识",
+        "资本组织与阶层内部关系"
+      ],
+      "node_types": [
+        "行动者",
+        "阶级机体",
+        "意识形式"
+      ],
+      "target_edges": [
+        "组成",
+        "组织",
+        "表达"
+      ],
+      "source_leads": [
+        "待找行业、专业、工会、渔民、环保及社区团体"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:organizations"
+      ],
+      "priority": "首批",
+      "status": "active",
+      "query_ids": [
+        "query:15",
+        "query:16"
+      ]
+    },
+    {
+      "route_id": "route:life",
+      "label": "地方史、游泳垂钓、岸边交往、水域技艺与记忆",
+      "pool": "B",
+      "outline_anchor": "2 排水河流与防洪",
+      "outline_sections": [
+        "2",
+        "3",
+        "4"
+      ],
+      "perspectives": [
+        "各阶层与水的生活关联"
+      ],
+      "node_types": [
+        "生活实践",
+        "意识形式",
+        "现场"
+      ],
+      "target_edges": [
+        "依赖",
+        "表达"
+      ],
+      "source_leads": [
+        "待找地方档案、公共图书馆、口述史及社群记录"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:life",
+        "kw:access"
+      ],
+      "priority": "后续",
+      "status": "active",
+      "query_ids": [
+        "query:17",
+        "query:18",
+        "query:40"
+      ]
+    },
+    {
+      "route_id": "route:multilingual",
+      "label": "不同语种的供水与生活资料、社群刊物、组织声明和口述",
+      "pool": "B",
+      "outline_anchor": "1 供水与水资源物质基础",
+      "outline_sections": [
+        "1",
+        "4"
+      ],
+      "perspectives": [
+        "生产消费与生活再生产",
+        "阶级机体与阶级意识",
+        "各阶层与水的生活关联"
+      ],
+      "node_types": [
+        "生活实践",
+        "行动者",
+        "意识形式"
+      ],
+      "target_edges": [
+        "组织",
+        "表达",
+        "再生产"
+      ],
+      "source_leads": [
+        "待找香港印尼语、菲律宾语/他加禄语社群发布入口",
+        "尼泊尔语、乌尔都语材料入口待发现"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:indonesian",
+        "kw:tagalog",
+        "kw:cantonese"
+      ],
+      "priority": "后续",
+      "status": "active",
+      "query_ids": [
+        "query:31",
+        "query:32",
+        "query:33",
+        "query:34",
+        "query:35",
+        "query:36"
+      ]
+    },
+    {
+      "route_id": "route:hydrology",
+      "label": "测站、水位、降雨、水质、泥沙与历史岸线",
+      "pool": "C",
+      "outline_anchor": "1 供水与水资源物质基础",
+      "outline_sections": [
+        "1",
+        "2",
+        "3"
+      ],
+      "perspectives": [
+        "水文运动与时空边界"
+      ],
+      "node_types": [
+        "现场",
+        "技术物",
+        "环节"
+      ],
+      "target_edges": [
+        "依赖",
+        "介入"
+      ],
+      "source_leads": [
+        "src:A:水务署",
+        "src:A:渠务署",
+        "src:A:环保署",
+        "待找监测与地质资料入口"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:hydrology"
+      ],
+      "priority": "首批",
+      "status": "active",
+      "query_ids": [
+        "query:19",
+        "query:20"
+      ]
+    },
+    {
+      "route_id": "route:engineering",
+      "label": "设计、施工、运行维护与后续监测，预测与实测分别保存",
+      "pool": "C",
+      "outline_anchor": "2 排水河流与防洪",
+      "outline_sections": [
+        "2",
+        "3"
+      ],
+      "perspectives": [
+        "治理工程与第二自然"
+      ],
+      "node_types": [
+        "现场",
+        "技术物",
+        "环节",
+        "制度安排"
+      ],
+      "target_edges": [
+        "介入",
+        "管理",
+        "依赖"
+      ],
+      "source_leads": [
+        "src:A:渠务署",
+        "src:A:土木工程拓展署",
+        "东深供水、淡化、污水与明暗渠项目的待找发布主体"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:engineering"
+      ],
+      "priority": "首批",
+      "status": "active",
+      "query_ids": [
+        "query:21",
+        "query:22"
+      ]
+    },
+    {
+      "route_id": "route:events",
+      "label": "供排水、岸线、迁徙及水浸事件报道与原始出处",
+      "pool": "D",
+      "outline_anchor": "1 供水与水资源物质基础",
+      "outline_sections": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "perspectives": [
+        "矛盾的水形式与自然调和"
+      ],
+      "node_types": [
+        "环节",
+        "行动者",
+        "社会关系"
+      ],
+      "target_edges": [
+        "爆发",
+        "转移"
+      ],
+      "source_leads": [
+        "待找本地新闻媒体和相关语种报道",
+        "事件只作为线索"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:events"
+      ],
+      "priority": "后续",
+      "status": "active",
+      "query_ids": [
+        "query:23",
+        "query:24"
+      ]
+    },
+    {
+      "route_id": "route:judgment",
+      "label": "政策说明、标准、组织报告、咨询及会议文本",
+      "pool": "E",
+      "outline_anchor": "1 供水与水资源物质基础",
+      "outline_sections": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "perspectives": [
+        "阶级机体与阶级意识"
+      ],
+      "node_types": [
+        "意识形式",
+        "制度安排",
+        "行动者"
+      ],
+      "target_edges": [
+        "判断",
+        "正当化",
+        "表达"
+      ],
+      "source_leads": [
+        "src:A:立法会",
+        "src:A:水务署",
+        "src:A:渠务署",
+        "route:organizations"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:judgment",
+        "kw:governance"
+      ],
+      "priority": "首批",
+      "status": "active",
+      "query_ids": [
+        "query:25",
+        "query:26",
+        "query:37",
+        "query:38"
+      ]
+    },
+    {
+      "route_id": "route:opinion",
+      "label": "组织刊物、媒体、社群论述的传播与接受、反对记录",
+      "pool": "E",
+      "outline_anchor": "4 社会关系、阶级意识与生活",
+      "outline_sections": [
+        "4"
+      ],
+      "perspectives": [
+        "阶级机体与阶级意识"
+      ],
+      "node_types": [
+        "意识形式",
+        "行动者",
+        "阶级机体"
+      ],
+      "target_edges": [
+        "传播",
+        "组织"
+      ],
+      "source_leads": [
+        "route:organizations",
+        "route:multilingual",
+        "route:events"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:opinion"
+      ],
+      "priority": "后续",
+      "status": "active",
+      "query_ids": [
+        "query:27",
+        "query:28"
+      ]
+    },
+    {
+      "route_id": "route:desire",
+      "label": "滨水广告、作品、地方记忆、消费与共同活动",
+      "pool": "E",
+      "outline_anchor": "3 港湾填海与航道",
+      "outline_sections": [
+        "3",
+        "4"
+      ],
+      "perspectives": [
+        "文化与欲望再生产",
+        "各阶层与水的生活关联"
+      ],
+      "node_types": [
+        "意识形式",
+        "生活实践"
+      ],
+      "target_edges": [
+        "再生产",
+        "表达",
+        "传播"
+      ],
+      "source_leads": [
+        "待找广告原件、文化作品、展览及社群生活记录",
+        "route:life"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [
+        "kw:desire"
+      ],
+      "priority": "后续",
+      "status": "active",
+      "query_ids": [
+        "query:29",
+        "query:30"
+      ]
+    },
+    {
+      "route_id": "route:practice",
+      "label": "预留：由实际材料支持的实践条件，当前不提出行动方案",
+      "pool": "实践",
+      "outline_anchor": "4 社会关系、阶级意识与生活",
+      "outline_sections": [
+        "4"
+      ],
+      "perspectives": [
+        "资本组织与阶层内部关系",
+        "生产消费与生活再生产"
+      ],
+      "node_types": [
+        "行动者",
+        "生活实践"
+      ],
+      "target_edges": [
+        "赋能",
+        "组织"
+      ],
+      "source_leads": [
+        "待分析形成实际问题后再选入口"
+      ],
+      "source_urls": [],
+      "keyword_group_ids": [],
+      "priority": "预留",
+      "status": "reserved",
+      "query_ids": []
+    }
+  ],
+  "queries": [
+    {
+      "query_id": "query:01",
+      "route_id": "route:supply",
+      "keyword_group_id": "kw:supply",
+      "expression": "香港 東江水 供水協議 文件",
+      "outline_sections": [
+        "1"
+      ],
+      "perspective": "人化自然与使用资格",
+      "target_edge": "依赖"
+    },
+    {
+      "query_id": "query:02",
+      "route_id": "route:supply",
+      "keyword_group_id": "kw:supply",
+      "expression": "Hong Kong water supply connection charges household",
+      "outline_sections": [
+        "1"
+      ],
+      "perspective": "生产消费与生活再生产",
+      "target_edge": "分配"
+    },
+    {
+      "query_id": "query:03",
+      "route_id": "route:finance",
+      "keyword_group_id": "kw:finance",
+      "expression": "香港 水務 財政預算 審計",
+      "outline_sections": [
+        "1"
+      ],
+      "perspective": "价格成本与剩余分配",
+      "target_edge": "分配"
+    },
+    {
+      "query_id": "query:04",
+      "route_id": "route:finance",
+      "keyword_group_id": "kw:finance",
+      "expression": "Hong Kong reclamation public expenditure audit",
+      "outline_sections": [
+        "3"
+      ],
+      "perspective": "价格成本与剩余分配",
+      "target_edge": "占有"
+    },
+    {
+      "query_id": "query:05",
+      "route_id": "route:planning",
+      "keyword_group_id": "kw:planning",
+      "expression": "城門河 兩岸 土地用途 住宅 規劃",
+      "outline_sections": [
+        "2"
+      ],
+      "perspective": "矛盾的水形式与自然调和",
+      "target_edge": "调和"
+    },
+    {
+      "query_id": "query:06",
+      "route_id": "route:planning",
+      "keyword_group_id": "kw:planning",
+      "expression": "Shing Mun River pedestrian bridge housing planning",
+      "outline_sections": [
+        "2"
+      ],
+      "perspective": "矛盾的水形式与自然调和",
+      "target_edge": "分配"
+    },
+    {
+      "query_id": "query:07",
+      "route_id": "route:land",
+      "keyword_group_id": "kw:land",
+      "expression": "香港 填海 批地 租契",
+      "outline_sections": [
+        "3"
+      ],
+      "perspective": "价格成本与剩余分配",
+      "target_edge": "占有"
+    },
+    {
+      "query_id": "query:08",
+      "route_id": "route:land",
+      "keyword_group_id": "kw:land",
+      "expression": "Hong Kong waterfront land lease public access",
+      "outline_sections": [
+        "3"
+      ],
+      "perspective": "人化自然与使用资格",
+      "target_edge": "分配"
+    },
+    {
+      "query_id": "query:09",
+      "route_id": "route:ports",
+      "keyword_group_id": "kw:ports",
+      "expression": "香港 航道 疏浚 維修 合約",
+      "outline_sections": [
+        "3"
+      ],
+      "perspective": "治理工程与第二自然",
+      "target_edge": "依赖"
+    },
+    {
+      "query_id": "query:10",
+      "route_id": "route:ports",
+      "keyword_group_id": "kw:ports",
+      "expression": "Hong Kong terminal workers employment contract",
+      "outline_sections": [
+        "3"
+      ],
+      "perspective": "资本组织与阶层内部关系",
+      "target_edge": "组织"
+    },
+    {
+      "query_id": "query:11",
+      "route_id": "route:labour",
+      "keyword_group_id": "kw:labour",
+      "expression": "香港 水務 工人 外判 工會",
+      "outline_sections": [
+        "1"
+      ],
+      "perspective": "资本组织与阶层内部关系",
+      "target_edge": "组织"
+    },
+    {
+      "query_id": "query:12",
+      "route_id": "route:labour",
+      "keyword_group_id": "kw:labour",
+      "expression": "Hong Kong port workers wages working hours",
+      "outline_sections": [
+        "3"
+      ],
+      "perspective": "生产消费与生活再生产",
+      "target_edge": "再生产"
+    },
+    {
+      "query_id": "query:13",
+      "route_id": "route:household",
+      "keyword_group_id": "kw:household",
+      "expression": "香港 家庭 用水 支出 調查",
+      "outline_sections": [
+        "1"
+      ],
+      "perspective": "生产消费与生活再生产",
+      "target_edge": "再生产"
+    },
+    {
+      "query_id": "query:14",
+      "route_id": "route:household",
+      "keyword_group_id": "kw:household",
+      "expression": "Hong Kong household water daily life interview",
+      "outline_sections": [
+        "4"
+      ],
+      "perspective": "各阶层与水的生活关联",
+      "target_edge": "依赖"
+    },
+    {
+      "query_id": "query:15",
+      "route_id": "route:organizations",
+      "keyword_group_id": "kw:organizations",
+      "expression": "香港 水 環保團體 會員 年報",
+      "outline_sections": [
+        "4"
+      ],
+      "perspective": "阶级机体与阶级意识",
+      "target_edge": "组成"
+    },
+    {
+      "query_id": "query:16",
+      "route_id": "route:organizations",
+      "keyword_group_id": "kw:organizations",
+      "expression": "Hong Kong water community organisation membership report",
+      "outline_sections": [
+        "4"
+      ],
+      "perspective": "资本组织与阶层内部关系",
+      "target_edge": "组织"
+    },
+    {
+      "query_id": "query:17",
+      "route_id": "route:life",
+      "keyword_group_id": "kw:life",
+      "expression": "香港 海邊 游泳 口述歷史",
+      "outline_sections": [
+        "3"
+      ],
+      "perspective": "各阶层与水的生活关联",
+      "target_edge": "表达"
+    },
+    {
+      "query_id": "query:18",
+      "route_id": "route:life",
+      "keyword_group_id": "kw:life",
+      "expression": "Hong Kong riverside everyday life oral history",
+      "outline_sections": [
+        "2"
+      ],
+      "perspective": "各阶层与水的生活关联",
+      "target_edge": "依赖"
+    },
+    {
+      "query_id": "query:19",
+      "route_id": "route:hydrology",
+      "keyword_group_id": "kw:hydrology",
+      "expression": "城門河 水位 水質 監測",
+      "outline_sections": [
+        "2"
+      ],
+      "perspective": "水文运动与时空边界",
+      "target_edge": "介入"
+    },
+    {
+      "query_id": "query:20",
+      "route_id": "route:hydrology",
+      "keyword_group_id": "kw:hydrology",
+      "expression": "Hong Kong harbour sediment water quality monitoring",
+      "outline_sections": [
+        "3"
+      ],
+      "perspective": "水文运动与时空边界",
+      "target_edge": "依赖"
+    },
+    {
+      "query_id": "query:21",
+      "route_id": "route:engineering",
+      "keyword_group_id": "kw:engineering",
+      "expression": "啟德河 整治 運作 維修",
+      "outline_sections": [
+        "2"
+      ],
+      "perspective": "治理工程与第二自然",
+      "target_edge": "管理"
+    },
+    {
+      "query_id": "query:22",
+      "route_id": "route:engineering",
+      "keyword_group_id": "kw:engineering",
+      "expression": "Kai Tak River drainage improvement monitoring report",
+      "outline_sections": [
+        "2"
+      ],
+      "perspective": "治理工程与第二自然",
+      "target_edge": "介入"
+    },
+    {
+      "query_id": "query:23",
+      "route_id": "route:events",
+      "keyword_group_id": "kw:events",
+      "expression": "城門河 水浸 社區 回應",
+      "outline_sections": [
+        "2"
+      ],
+      "perspective": "矛盾的水形式与自然调和",
+      "target_edge": "爆发"
+    },
+    {
+      "query_id": "query:24",
+      "route_id": "route:events",
+      "keyword_group_id": "kw:events",
+      "expression": "Hong Kong waterfront relocation dispute statement",
+      "outline_sections": [
+        "3"
+      ],
+      "perspective": "矛盾的水形式与自然调和",
+      "target_edge": "转移"
+    },
+    {
+      "query_id": "query:25",
+      "route_id": "route:judgment",
+      "keyword_group_id": "kw:judgment",
+      "expression": "香港 防洪 標準 成本效益 諮詢",
+      "outline_sections": [
+        "2"
+      ],
+      "perspective": "阶级机体与阶级意识",
+      "target_edge": "判断"
+    },
+    {
+      "query_id": "query:26",
+      "route_id": "route:judgment",
+      "keyword_group_id": "kw:judgment",
+      "expression": "Hong Kong water supply policy consultation criteria",
+      "outline_sections": [
+        "1"
+      ],
+      "perspective": "阶级机体与阶级意识",
+      "target_edge": "正当化"
+    },
+    {
+      "query_id": "query:27",
+      "route_id": "route:opinion",
+      "keyword_group_id": "kw:opinion",
+      "expression": "香港 水議題 團體 意見 回應",
+      "outline_sections": [
+        "4"
+      ],
+      "perspective": "阶级机体与阶级意识",
+      "target_edge": "传播"
+    },
+    {
+      "query_id": "query:28",
+      "route_id": "route:opinion",
+      "keyword_group_id": "kw:opinion",
+      "expression": "Hong Kong water consultation organisation objections responses",
+      "outline_sections": [
+        "4"
+      ],
+      "perspective": "阶级机体与阶级意识",
+      "target_edge": "组织"
+    },
+    {
+      "query_id": "query:29",
+      "route_id": "route:desire",
+      "keyword_group_id": "kw:desire",
+      "expression": "香港 海景住宅 廣告 生活",
+      "outline_sections": [
+        "3"
+      ],
+      "perspective": "文化与欲望再生产",
+      "target_edge": "再生产"
+    },
+    {
+      "query_id": "query:30",
+      "route_id": "route:desire",
+      "keyword_group_id": "kw:desire",
+      "expression": "Hong Kong waterfront leisure community memory",
+      "outline_sections": [
+        "4"
+      ],
+      "perspective": "各阶层与水的生活关联",
+      "target_edge": "表达"
+    },
+    {
+      "query_id": "query:31",
+      "route_id": "route:multilingual",
+      "keyword_group_id": "kw:indonesian",
+      "expression": "Hong Kong air minum rumah tangga",
+      "outline_sections": [
+        "1"
+      ],
+      "perspective": "生产消费与生活再生产",
+      "target_edge": "再生产"
+    },
+    {
+      "query_id": "query:32",
+      "route_id": "route:multilingual",
+      "keyword_group_id": "kw:indonesian",
+      "expression": "Hong Kong air bersih kehidupan sehari-hari",
+      "outline_sections": [
+        "4"
+      ],
+      "perspective": "各阶层与水的生活关联",
+      "target_edge": "表达"
+    },
+    {
+      "query_id": "query:33",
+      "route_id": "route:multilingual",
+      "keyword_group_id": "kw:indonesian",
+      "expression": "Hong Kong organisasi komunitas air minum",
+      "outline_sections": [
+        "4"
+      ],
+      "perspective": "阶级机体与阶级意识",
+      "target_edge": "组织"
+    },
+    {
+      "query_id": "query:34",
+      "route_id": "route:multilingual",
+      "keyword_group_id": "kw:tagalog",
+      "expression": "Hong Kong inuming tubig tahanan",
+      "outline_sections": [
+        "1"
+      ],
+      "perspective": "生产消费与生活再生产",
+      "target_edge": "再生产"
+    },
+    {
+      "query_id": "query:35",
+      "route_id": "route:multilingual",
+      "keyword_group_id": "kw:tagalog",
+      "expression": "Hong Kong malinis na tubig araw-araw na buhay",
+      "outline_sections": [
+        "4"
+      ],
+      "perspective": "各阶层与水的生活关联",
+      "target_edge": "表达"
+    },
+    {
+      "query_id": "query:36",
+      "route_id": "route:multilingual",
+      "keyword_group_id": "kw:cantonese",
+      "expression": "香港 停水 冲涼 街坊",
+      "outline_sections": [
+        "1"
+      ],
+      "perspective": "各阶层与水的生活关联",
+      "target_edge": "表达"
+    },
+    {
+      "query_id": "query:37",
+      "route_id": "route:judgment",
+      "keyword_group_id": "kw:governance",
+      "expression": "香港 水務 會議 決策 公眾參與",
+      "outline_sections": [
+        "4"
+      ],
+      "perspective": "阶级机体与阶级意识",
+      "target_edge": "判断"
+    },
+    {
+      "query_id": "query:38",
+      "route_id": "route:judgment",
+      "keyword_group_id": "kw:governance",
+      "expression": "Hong Kong water governance public participation minutes",
+      "outline_sections": [
+        "4"
+      ],
+      "perspective": "阶级机体与阶级意识",
+      "target_edge": "表达"
+    },
+    {
+      "query_id": "query:39",
+      "route_id": "route:planning",
+      "keyword_group_id": "kw:access",
+      "expression": "城門河 行人橋 連接 兩岸",
+      "outline_sections": [
+        "2"
+      ],
+      "perspective": "矛盾的水形式与自然调和",
+      "target_edge": "调和"
+    },
+    {
+      "query_id": "query:40",
+      "route_id": "route:life",
+      "keyword_group_id": "kw:access",
+      "expression": "Shing Mun River riverside public space access",
+      "outline_sections": [
+        "2"
+      ],
+      "perspective": "各阶层与水的生活关联",
+      "target_edge": "依赖"
+    }
+  ]
+}

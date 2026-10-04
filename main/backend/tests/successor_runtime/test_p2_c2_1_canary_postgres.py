@@ -26,7 +26,7 @@ from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import NullPool
 
-from app.successor_runtime.capabilities.source_library_c2_1 import (
+from app.successor_runtime.capabilities.source_resolution import (
     deployment_catalog_digest,
 )
 from app.successor_runtime.runtime.assignments import (
@@ -233,26 +233,26 @@ def _c2_1() -> _C2_1Fixture:
         build_legacy_source_library_c2_1_binding,
         build_successor_source_library_c2_1_binding,
     )
-    from app.successor_runtime.capabilities.source_library_c2_1 import (
+    from app.successor_runtime.capabilities.source_resolution import (
         ResolvedResolution,
-        build_source_library_c2_1_bundle,
-        build_source_library_c2_1_catalog,
-        build_source_library_c2_1_registry,
+        build_source_resolution_bundle,
+        build_source_resolution_catalog,
+        build_source_resolution_registry,
         payload_from_dicts,
         resource_ceiling_digest,
         source_item_definition_content_digest,
     )
-    from app.successor_runtime.capabilities.source_library_c2_1_interpreters import (
+    from app.successor_runtime.capabilities.source_resolution_interpreters import (
         InterpreterFailure,
         InterpreterSuccess,
         ResolutionBindingMismatch,
-        SourceLibraryC2_1SuccessorInterpreter,
+        SourceResolutionSuccessorInterpreter,
         require_exact_resolution_binding,
         require_resource_ceiling,
     )
-    from app.successor_runtime.capabilities.source_library_c2_1_program import (
-        build_source_library_c2_1_program,
-        compile_source_library_c2_1_program,
+    from app.successor_runtime.capabilities.source_resolution_program import (
+        build_source_resolution_program,
+        compile_source_resolution_program,
         exact_contract_ref,
         payload_value_ref,
     )
@@ -260,9 +260,9 @@ def _c2_1() -> _C2_1Fixture:
     from app.successor_runtime.language.object_contracts import OperationContractRef
     from app.successor_runtime.research.codec import sha256_hex
 
-    bundle = build_source_library_c2_1_bundle()
-    catalog = build_source_library_c2_1_catalog(bundle)
-    registry = build_source_library_c2_1_registry(bundle)
+    bundle = build_source_resolution_bundle()
+    catalog = build_source_resolution_catalog(bundle)
+    registry = build_source_resolution_registry(bundle)
     contract_ref = exact_contract_ref(catalog)
     item = {
         "item_key": "handler.cluster.news",
@@ -300,7 +300,7 @@ def _c2_1() -> _C2_1Fixture:
         item=item,
         params={"query_terms": ["robotics"]},
     )
-    program = build_source_library_c2_1_program(
+    program = build_source_resolution_program(
         payload=payload,
         catalog=catalog,
         program_id=PROGRAM_ID,
@@ -308,7 +308,7 @@ def _c2_1() -> _C2_1Fixture:
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    plan = compile_source_library_c2_1_program(
+    plan = compile_source_resolution_program(
         program,
         catalog,
         operation_contracts=registry,
@@ -482,7 +482,7 @@ def _c2_1() -> _C2_1Fixture:
         shadow_before_digest=shadow_before_digest,
         canary_after_digest=canary_after_digest,
         rollback_after_digest=rollback_after_digest,
-        interpreter=SourceLibraryC2_1SuccessorInterpreter(),
+        interpreter=SourceResolutionSuccessorInterpreter(),
         require_exact_resolution_binding=require_exact_resolution_binding,
         resolution_binding_mismatch=ResolutionBindingMismatch,
         interpreter_failure=InterpreterFailure,

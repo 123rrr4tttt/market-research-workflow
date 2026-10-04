@@ -38,6 +38,7 @@ from app.successor_runtime.language.normalize import (
     normalized_equivalent,
 )
 from app.successor_runtime.language.program import (
+    DecisionBranch,
     Decide,
     Identity,
     MapOutput,
@@ -53,6 +54,7 @@ from app.successor_runtime.language.program import (
     encode_program_spec,
     identity_node,
     map_output_node,
+    program_atoms,
     pure_node,
     then_node,
     zip_ordered_node,
@@ -411,6 +413,63 @@ def test_decide_keeps_branch_order_and_guards() -> None:
     )
     assert isinstance(decide, Decide)
     assert [branch.branch_id for branch in decide.branches] == ["claim", "gap"]
+
+
+def test_program_atoms_follows_static_branch_order() -> None:
+    catalog = specimen_catalog()
+
+    def atom(operation_id: str, input_type: ObjectType = INTENT):
+        return atom_node(
+            _op(
+                operation_id,
+                "material.read_canonical_ref.v1",
+                input_type,
+                MATERIAL_REF,
+                catalog,
+            ),
+            input_type=input_type,
+            output_type=MATERIAL_REF,
+        )
+
+    left, right = map(atom, ("a", "b"))
+    after = atom("e", MATERIAL_REF)
+    transform = TransformRef(
+        name="t",
+        version="1",
+        digest="0" * 64,
+        transform_kind="transform",
+    )
+    discriminator = DiscriminatorRef(
+        name="d",
+        version="1",
+        digest="0" * 64,
+        transform_kind="discriminator",
+    )
+    merge = MergeRef(name="m", version="1", digest="0" * 64, transform_kind="merge")
+    zipped_then_mapped = map_output_node(
+        zip_ordered_node(left, right, merge), transform, MATERIAL_REF
+    )
+    program = then_node(zipped_then_mapped, after)
+    nested, branch_two = atom("c"), atom("d")
+    decide = decide_node(
+        discriminator,
+        (
+            DecisionBranch(
+                "one", "left", map_output_node(nested, transform, MATERIAL_REF)
+            ),
+            DecisionBranch("two", "right", branch_two),
+        ),
+    )
+
+    assert [item.operation.operation_id for item in program_atoms(program)] == [
+        "a",
+        "b",
+        "e",
+    ]
+    assert [item.operation.operation_id for item in program_atoms(decide)] == [
+        "c",
+        "d",
+    ]
 
 
 def test_gap_successor_materialization_is_post_run_and_deterministic() -> None:

@@ -48,12 +48,8 @@ from app.successor_runtime.language.object_contracts import (
 )
 from app.successor_runtime.language.program import (
     Atom,
-    Decide,
-    MapOutput,
     ProgramNode,
-    Then,
-    TraverseOrdered,
-    ZipOrdered,
+    program_atoms,
 )
 from app.successor_runtime.research import (
     CapturedMaterialSnapshot,
@@ -326,24 +322,6 @@ class FirstSpecimenEffectOutputPort(Protocol):
     ) -> InterpreterOutcome: ...
 
 
-def _atoms(node: ProgramNode) -> tuple[Atom, ...]:
-    if isinstance(node, Atom):
-        return (node,)
-    if isinstance(node, Then):
-        return _atoms(node.first) + _atoms(node.second)
-    if isinstance(node, MapOutput):
-        return _atoms(node.source)
-    if isinstance(node, ZipOrdered):
-        return _atoms(node.left) + _atoms(node.right)
-    if isinstance(node, TraverseOrdered):
-        return _atoms(node.element_program)
-    if isinstance(node, Decide):
-        return tuple(
-            atom for branch in node.branches for atom in _atoms(branch.program)
-        )
-    return ()
-
-
 def _value_id(ref: ValueRef) -> str:
     prefix = "project-value:"
     if (
@@ -446,7 +424,7 @@ class PostgresFirstSpecimenEffectReplay:
             raise FirstSpecimenReplayDrift("Plan/assignment operation contract drift")
         atoms = tuple(
             atom
-            for atom in _atoms(program.root)
+            for atom in program_atoms(program.root)
             if atom.operation.operation_id == step.operation_id
         )
         if len(atoms) != 1:

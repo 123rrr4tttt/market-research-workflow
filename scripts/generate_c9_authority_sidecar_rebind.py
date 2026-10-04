@@ -77,21 +77,21 @@ B7_STAGE_REL = EXACT_REBIND_REL / "stage-b7-2026-09-05"
 B8_STAGE_REL = EXACT_REBIND_REL / "stage-b8-2026-09-05"
 B8_CANDIDATE_REL = B8_STAGE_REL / "candidates/C9/candidate.v2.json"
 
-SOURCE_REL = Path("main/backend/app/successor_runtime/substrate/projections/c9_sources.py")
-CANONICAL_SOURCE_REL = Path("main/backend/app/successor_runtime/substrate/postgres/c9_projection_sources.py")
+SOURCE_REL = Path("main/backend/app/successor_runtime/substrate/projections/projection_sources.py")
+CANONICAL_SOURCE_REL = Path("main/backend/app/successor_runtime/substrate/postgres/projection_sources.py")
 SPEC_REL = EVIDENCE_REL / "capability-specs/C9.3.v1.json"
 BUILD_REL = EVIDENCE_REL / "capability-spec-builds/C9.3.BuildManifest.v1.json"
 
 PROJECTION_FUNCTIONS = (
-    "build_agent_session_payload",
-    "build_research_graph_payload",
-    "build_search_payload",
+    "build_task_view",
+    "build_knowledge_view",
+    "build_material_view",
 )
 CANONICAL_FUNCTIONS = (
-    "read_runtime_session_source",
-    "read_research_graph_source",
-    "read_c7_search_source",
-    "build_semantic_source_closure",
+    "read_task_source",
+    "read_knowledge_source",
+    "read_material_source",
+    "build_project_source_closure",
 )
 WITNESS_TESTS = (
     "main/backend/tests/successor_runtime/test_p4_c9_1_facade_contracts.py",

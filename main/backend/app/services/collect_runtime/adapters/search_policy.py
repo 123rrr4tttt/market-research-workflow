@@ -16,6 +16,7 @@ class SearchPolicyAdapter:
             start_offset=request.options.get("start_offset"),
             days_back=request.options.get("days_back"),
             language=str(request.language or "en"),
+            project_key=request.project_key,
         )
         cr = CollectResult(
             channel=request.channel or "search.policy",

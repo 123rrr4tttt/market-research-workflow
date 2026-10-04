@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>ACTIVE_PROJECT_KEY</key>
+		<string>demo_proj_compare_0303_121137</string>
+		<key>CODEX_AUTH_ENABLED</key>
+		<string>true</string>
+		<key>CODEX_AUTH_TOKENS</key>
+		<string>prod-deploy-token-2026</string>
+		<key>CODEX_CLI_AUTH_PATH</key>
+		<string>/Users/wangyiliang/.codex/auth.json</string>
+		<key>CODEX_OAUTH_ENABLED</key>
+		<string>true</string>
+		<key>CODEX_OAUTH_TOKEN_SINK_ENABLED</key>
+		<string>true</string>
+		<key>CODEX_OAUTH_TOKEN_SINK_PATH</key>
+		<string>/Users/wangyiliang/.codex/auth_openai.json</string>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>PYTHONPATH</key>
+		<string>/Users/wangyiliang/market-research-workflow/src</string>
+		<key>SUCCESSOR_MOUNT_MODE</key>
+		<string>production_registry</string>
+		<key>SUCCESSOR_PRODUCTION_REQUIRES_AUTH</key>
+		<string>true</string>
+	</dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>com.mrw.successor-backend</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python</string>
+		<string>-B</string>
+		<string>-m</string>
+		<string>uvicorn</string>
+		<string>app.main:app</string>
+		<string>--host</string>
+		<string>127.0.0.1</string>
+		<string>--port</string>
+		<string>8000</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/tmp/mrw-successor-backend.err.log</string>
+	<key>StandardOutPath</key>
+	<string>/tmp/mrw-successor-backend.out.log</string>
+	<key>ThrottleInterval</key>
+	<integer>5</integer>
+	<key>WorkingDirectory</key>
+	<string>/Users/wangyiliang/market-research-workflow/main/backend</string>
+</dict>
+</plist>

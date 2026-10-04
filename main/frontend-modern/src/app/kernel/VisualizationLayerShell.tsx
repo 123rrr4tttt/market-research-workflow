@@ -1,5 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { translate, useAppLocale } from '../platform/i18n'
+import { getGraphConfig } from '../../lib/api'
+import { queryKeys } from '../../lib/queryKeys'
+import { coerceGraphProjectionBindings } from '../../pages/graph/realizer/workspaceNavigation'
 import { getKernelModuleContract } from './contracts'
 import LayerSwitch from './LayerSwitch'
 import { getVisualizationShellCoverage, MODULE_ICON_BY_KEY, VISUALIZATION_SHELL_SECTIONS } from './moduleChrome'
@@ -26,6 +30,18 @@ function statusChipClass(value: string | boolean) {
 export default function VisualizationLayerShell({ activeModule, runtime }: Props) {
   const locale = useAppLocale()
   const activeContract = getKernelModuleContract(activeModule)
+  const projectKey = runtime.projectKey
+  // A project may bind the graph entry points; the masthead follows the same
+  // declaration as the projection tabs instead of the shared module label.
+  const graphConfig = useQuery({
+    queryKey: queryKeys.graph.config(projectKey),
+    queryFn: getGraphConfig,
+    enabled: Boolean(projectKey) && activeModule.startsWith('graph'),
+  })
+  const boundModuleLabel = useMemo(() => {
+    const bindings = coerceGraphProjectionBindings(graphConfig.data?.graph_projections)
+    return bindings.find((binding) => binding.id === activeModule)?.label
+  }, [graphConfig.data?.graph_projections, activeModule])
 
   useEffect(() => {
     const coverage = getVisualizationShellCoverage()
@@ -42,7 +58,7 @@ export default function VisualizationLayerShell({ activeModule, runtime }: Props
         <div className="kernel-visual__heading">
           <div>
             <p>{runtime.projectKey} / observation surface / {activeContract.entryRoute}</p>
-            <h1>{translate(locale, activeContract.navLabelKey, activeModule)}</h1>
+            <h1>{boundModuleLabel || translate(locale, activeContract.navLabelKey, activeModule)}</h1>
           </div>
           <div className="kernel-visual__project-switch">
             <label className="kernel-visual__project-field">

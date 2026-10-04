@@ -149,8 +149,7 @@ def test_cli_check_accepts_expected_frozen_canonical_drift_without_write() -> No
     before = target.stat()
     proc = _run_cli("--check")
     assert proc.returncode == 1, proc.stdout + proc.stderr
-    assert "check drift" in proc.stderr
-    assert "no write performed" in proc.stderr
+    assert "DRIFT" in proc.stderr
     after = target.stat()
     assert before.st_mtime_ns == after.st_mtime_ns
     assert before.st_size == after.st_size
@@ -163,7 +162,7 @@ def test_cli_check_is_read_only_against_current_output(tmp_path: Path) -> None:
     before_bytes = target.read_bytes()
     proc = _run_cli("--check", "--fragment-path", str(target))
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "unchanged" in proc.stdout
+    assert "MATCH" in proc.stdout
     assert target.read_bytes() == before_bytes
     assert target.stat().st_mtime_ns == before.st_mtime_ns
 
@@ -176,7 +175,7 @@ def test_cli_check_drift_exits_1_without_writing(tmp_path: Path) -> None:
     target.write_bytes(corrupted)
     proc = _run_cli("--check", "--fragment-path", str(target))
     assert proc.returncode == 1
-    assert "no write performed" in proc.stderr
+    assert "DRIFT" in proc.stderr
     assert target.read_bytes() == corrupted
 
 

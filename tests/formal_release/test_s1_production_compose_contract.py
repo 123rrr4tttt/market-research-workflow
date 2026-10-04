@@ -382,10 +382,19 @@ def test_development_compose_remains_renderable_with_current_service_names() -> 
     services = config["services"]
     for name in ("db", "es", "redis", "backend", "celery-worker"):
         assert name in services
+
     for name in ("db", "es", "redis"):
-        assert services[name]["ports"][0]["host_ip"] == "127.0.0.1"
+        published_ports = services[name].get("ports")
+        if published_ports is None:
+            continue
+        assert published_ports
+        assert all(port["host_ip"] == "127.0.0.1" for port in published_ports)
+
+    backend_environment = services["backend"]["environment"]
     assert services["backend"]["build"]["dockerfile"] == "./main/backend/Dockerfile"
-    assert services["backend"]["environment"]["DATABASE_URL"] == fixture["DATABASE_URL"]
+    assert backend_environment["DATABASE_URL"] == fixture["DATABASE_URL"]
+    assert backend_environment["ES_URL"] == "http://es:9200"
+    assert backend_environment["REDIS_URL"] == "redis://redis:6379/0"
     assert all(volume["type"] == "bind" or volume["type"] == "volume" for volume in services["backend"]["volumes"])
 
 

@@ -114,7 +114,6 @@ PromptTimeDensityRequestFailureCode = Literal[
     "max_windows_not_positive",
 ]
 TaskReadbackContractFailureCode = Literal["line_key_required"]
-OnlineLotteryCompatibilityFailureCode = Literal["attribute_not_found"]
 
 
 ingest_long_cycle_contract_failures = define_failure_family(
@@ -177,19 +176,12 @@ task_readback_contract_failures = define_failure_family(
     "task.readback.contract_failure",
     get_args(TaskReadbackContractFailureCode),
 )
-online_lottery_compatibility_failures = define_failure_family(
-    "online_lottery.compatibility.failure",
-    get_args(OnlineLotteryCompatibilityFailureCode),
-)
-
-
 __all__ = [
     "CodexInvocationFailureCode",
     "DatabaseSessionRetryFailureCode",
     "IngestLongCycleContractFailureCode",
     "KeywordMemoryContractFailureCode",
     "LlmReportRequestFailureCode",
-    "OnlineLotteryCompatibilityFailureCode",
     "ProjectOperationFailureCode",
     "PromptTimeDensityRequestFailureCode",
     "ReportQueryContractFailureCode",
@@ -205,7 +197,6 @@ __all__ = [
     "ingest_long_cycle_contract_failures",
     "keyword_memory_contract_failures",
     "llm_report_request_failures",
-    "online_lottery_compatibility_failures",
     "project_operation_failures",
     "prompt_time_density_request_failures",
     "report_query_contract_failures",

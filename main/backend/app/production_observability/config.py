@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-# ruff: noqa: TRY003
-
-from dataclasses import dataclass
 from collections.abc import Iterable, Mapping
+
+# ruff: noqa: TRY003
+from dataclasses import dataclass
 from typing import Any
 
 from .alerts import AlertRule
-from .contracts import AlertDirection, MetricFamily, PRODUCTION_OBSERVABILITY_RUNTIME_CONTRACT_VERSION
+from .contracts import PRODUCTION_OBSERVABILITY_RUNTIME_CONTRACT_VERSION, AlertDirection, MetricFamily
 from .errors import ObservabilityTypeError, ObservabilityValueError
 
-LOCAL_STAGE5_BOOLEAN_TRIGGER_RATIO = 1.0
-LOCAL_STAGE5_BOOLEAN_RECOVER_RATIO = 0.0
-LOCAL_STAGE5_LATENCY_BREACH_SECONDS = 0.25
-LOCAL_STAGE5_ALERT_THRESHOLD_PROVENANCE = "local_stage5_validation_non_production"
+LOCAL_RUNTIME_BOOLEAN_TRIGGER_RATIO = 1.0
+LOCAL_RUNTIME_BOOLEAN_RECOVER_RATIO = 0.0
+LOCAL_RUNTIME_LATENCY_BREACH_SECONDS = 0.25
+LOCAL_RUNTIME_ALERT_THRESHOLD_PROVENANCE = "local_runtime_validation_non_production.v2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,12 +176,12 @@ def production_observability_config_from_settings(
         ),
     )
     local_gap_pairs = (
-        ("stage5-local-queue", MetricFamily.QUEUE_DEPTH),
-        ("stage5-local-db-connection", MetricFamily.DATABASE_CONNECTION_UNAVAILABLE),
-        ("stage5-local-provider-failure", MetricFamily.PROVIDER_FAILURE),
-        ("stage5-local-authority-mismatch", MetricFamily.AUTHORITY_MISMATCH),
-        ("stage5-local-projection-drift", MetricFamily.PROJECTION_DRIFT),
-        ("stage5-local-request-latency", MetricFamily.REQUEST_LATENCY_BREACH_RATE),
+        ("local-runtime-queue.v2", MetricFamily.QUEUE_DEPTH),
+        ("local-runtime-db-connection.v2", MetricFamily.DATABASE_CONNECTION_UNAVAILABLE),
+        ("local-runtime-provider-failure.v2", MetricFamily.PROVIDER_FAILURE),
+        ("local-runtime-authority-mismatch.v2", MetricFamily.AUTHORITY_MISMATCH),
+        ("local-runtime-projection-drift.v2", MetricFamily.PROJECTION_DRIFT),
+        ("local-runtime-request-latency.v2", MetricFamily.REQUEST_LATENCY_BREACH_RATE),
     )
     existing_rules = tuple(
         AlertRule(
@@ -202,8 +202,8 @@ def production_observability_config_from_settings(
             domain=domain,
             route=route,
             release_version=release_version,
-            trigger_threshold=LOCAL_STAGE5_BOOLEAN_TRIGGER_RATIO,
-            recover_threshold=LOCAL_STAGE5_BOOLEAN_RECOVER_RATIO,
+            trigger_threshold=LOCAL_RUNTIME_BOOLEAN_TRIGGER_RATIO,
+            recover_threshold=LOCAL_RUNTIME_BOOLEAN_RECOVER_RATIO,
         )
         for rule_id, family in local_gap_pairs
     )
@@ -222,10 +222,10 @@ def production_observability_config_from_settings(
 
 
 __all__ = [
-    "LOCAL_STAGE5_ALERT_THRESHOLD_PROVENANCE",
-    "LOCAL_STAGE5_BOOLEAN_RECOVER_RATIO",
-    "LOCAL_STAGE5_BOOLEAN_TRIGGER_RATIO",
-    "LOCAL_STAGE5_LATENCY_BREACH_SECONDS",
+    "LOCAL_RUNTIME_ALERT_THRESHOLD_PROVENANCE",
+    "LOCAL_RUNTIME_BOOLEAN_RECOVER_RATIO",
+    "LOCAL_RUNTIME_BOOLEAN_TRIGGER_RATIO",
+    "LOCAL_RUNTIME_LATENCY_BREACH_SECONDS",
     "PRODUCTION_OBSERVABILITY_RUNTIME_CONTRACT_VERSION",
     "ProductionObservabilityConfig",
     "parse_production_observability_config",

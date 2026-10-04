@@ -58,6 +58,36 @@ class _AsyncResultSnapshot:
         return False
 
 
+class _AsyncResultFailureSnapshot:
+    status = "FAILURE"
+    result = RuntimeError("sqlalchemy.exc.MultipleResultsFound: original failure")
+    traceback = "Traceback (most recent call last): ..."
+
+    def ready(self):
+        return True
+
+    def successful(self):
+        return False
+
+    def failed(self):
+        return True
+
+
+class _AsyncResultSuccessSnapshot:
+    status = "SUCCESS"
+    result = {"inserted": 1, "project_key": "readiness_repair"}
+    traceback = None
+
+    def ready(self):
+        return True
+
+    def successful(self):
+        return True
+
+    def failed(self):
+        return False
+
+
 def _empty_inspect():
     return SimpleNamespace(
         active=lambda: {},
@@ -278,6 +308,65 @@ def test_process_tasks_do_not_treat_business_state_as_runtime_status(
     item = resp.json()["data"]["items"][0]
     assert item["status"] == "running"
     assert item["status"] != "ca"
+
+
+def test_process_failed_celery_task_result_is_json_compatible(
+    core_business_client,
+    contract_headers: dict[str, str],
+) -> None:
+    task_id = "fae77b30-cead-47ec-8d27-46baaf85f2f0"
+
+    with (
+        patch("app.api.process.SessionLocal", new=_RuntimeReadbackSessionLocal([])),
+        patch("app.api.process.celery_app.AsyncResult", return_value=_AsyncResultFailureSnapshot()),
+    ):
+        resp = core_business_client.get(
+            f"/api/v1/process/{task_id}?project_key=readiness_repair",
+            headers=contract_headers,
+        )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["status"] == "ok"
+    data = body["data"]
+    assert data["task_id"] == task_id
+    assert data["status"] == "FAILURE"
+    assert data["ready"] is True
+    assert data["successful"] is False
+    assert data["failed"] is True
+    assert data["result"] == {
+        "message": "sqlalchemy.exc.MultipleResultsFound: original failure",
+        "type": "RuntimeError",
+    }
+    assert data["traceback"] == "Traceback (most recent call last): ..."
+    assert data["error_code"] == "TASK_FAILED"
+
+
+def test_process_async_result_snapshot_projects_failed_result_without_dumping_success_shape():
+    from app.api.process import _async_result_snapshot
+
+    with patch("app.api.process.celery_app.AsyncResult", return_value=_AsyncResultFailureSnapshot()):
+        failed_snapshot = _async_result_snapshot("failed-task")
+
+    assert failed_snapshot == {
+        "status": "failed",
+        "result": {
+            "message": "sqlalchemy.exc.MultipleResultsFound: original failure",
+            "type": "RuntimeError",
+        },
+        "progress": None,
+        "ready": True,
+    }
+
+    with patch("app.api.process.celery_app.AsyncResult", return_value=_AsyncResultSuccessSnapshot()):
+        success_snapshot = _async_result_snapshot("success-task")
+
+    assert success_snapshot == {
+        "status": "completed",
+        "result": {"inserted": 1, "project_key": "readiness_repair"},
+        "progress": None,
+        "ready": True,
+    }
 
 
 def test_process_db_job_exact_endpoint_exposes_runtime_readback_fields_at_data_root(

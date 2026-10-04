@@ -1,0 +1,18 @@
+{
+  "source_name": "readiness_daily_public_http",
+  "source_kind": "manual",
+  "async_mode": true,
+  "enable_extraction": false,
+  "default_doc_type": "raw_note",
+  "overwrite_on_uri": true,
+  "fetch_url_when_text_empty": true,
+  "chunk_size": 8000,
+  "max_chunks": 1,
+  "items": [
+    {
+      "uri": "https://www.rfc-editor.org/rfc/rfc9110.txt",
+      "doc_type": "raw_note",
+      "title": "RFC 9110 HTTP Semantics"
+    }
+  ]
+}

@@ -61,7 +61,7 @@ const EXPECTED_STATIC_GATE_IDS = [
 
 const NAMED_STATIC_CHECK_SCRIPTS = [
   'check:graph-force3d-frontend-contract',
-  'check:agent-chat-i18n-slice',
+  'check:codex-agent-page-i18n-slice',
   'check:projects-i18n-slice',
   'check:settings-page-i18n-slice',
   'check:catalog-page-i18n-slice',

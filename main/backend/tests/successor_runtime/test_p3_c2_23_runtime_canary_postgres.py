@@ -26,29 +26,31 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool
 
-from app.successor_runtime.capabilities import source_library_c2_1 as c21
-from app.successor_runtime.capabilities import source_library_c2_2 as c22
-from app.successor_runtime.capabilities import source_library_c2_2_interpreters as c22i
-from app.successor_runtime.capabilities import source_library_c2_2_program as c22p
-from app.successor_runtime.capabilities import source_library_c2_3 as c23
+from app.successor_runtime.assembly.source_assembly import build_source_assembly
+
+from app.successor_runtime.capabilities import source_resolution as c21
+from app.successor_runtime.capabilities import source_planning as c22
+from app.successor_runtime.capabilities import source_planning_interpreters as c22i
+from app.successor_runtime.capabilities import source_planning_program as c22p
+from app.successor_runtime.capabilities import source_provider_acquisition as c23
 from app.successor_runtime.capabilities import (
-    source_library_c2_3_test_interpreters as c23_fixtures,
+    source_provider_test_interpreters as c23_fixtures,
 )
 from app.successor_runtime.capabilities.checksum import canonical_json, content_digest
-from app.successor_runtime.capabilities.source_library_c2_1 import (
+from app.successor_runtime.capabilities.source_resolution import (
     source_item_definition_content_digest,
 )
-from app.successor_runtime.capabilities.source_library_c2_1_interpreters import (
+from app.successor_runtime.capabilities.source_resolution_interpreters import (
     resolve_source_execution_request,
 )
-from app.successor_runtime.capabilities.source_library_c2_2 import (
+from app.successor_runtime.capabilities.source_planning import (
     CollectionCompleted,
     SourceCollectionTerminal,
 )
-from app.successor_runtime.capabilities.source_library_c2_3 import (
+from app.successor_runtime.capabilities.source_provider_acquisition import (
     CapturedSourceRecordRef,
 )
-from app.successor_runtime.capabilities.source_library_c2_4_projection import (
+from app.successor_runtime.capabilities.source_terminal_projection import (
     SourceCollectionProjectionSource,
 )
 from app.successor_runtime.research.codec import sha256_hex
@@ -164,8 +166,8 @@ ALLOWLIST_DIGEST = canary.ALLOWLIST_DIGEST
 CONFIG_DIGEST = canary.CONFIG_DIGEST
 ROLLBACK_TARGET = canary.ROLLBACK_TARGET
 
-C2_2_CAPABILITY = "source_library.c2_2.v1"
-C2_3_CAPABILITY = "source_library.c2_3.v1"
+C2_2_CAPABILITY = c22.SOURCE_PLANNING_PROTOCOL_SEARCH_OWNER
+C2_3_CAPABILITY = c23.SOURCE_PROVIDER_ACQUISITION_OWNER
 C2_2_RUN = "run:p3-c2-23:c2-2"
 C2_2_WORK = "work:p3-c2-23:c2-2"
 C2_2_MIXED_RUN = "run:p3-c2-23:c2-2-mixed"
@@ -182,7 +184,7 @@ C2_3_FAILED_WORK = "work:p3-c2-23:c2-3-failed"
 C2_3_FAILED_RECONCILE_RUN = "run:p3-c2-23:c2-3-failed-reconcile"
 C2_3_FAILED_RECONCILE_WORK = "work:p3-c2-23:c2-3-failed-reconcile"
 RUN_INCARNATION = "run-inc:p3-c2-23"
-ORCHESTRATION_POLICY_REF = "mrw.successor.source-library.c2-2.policy.v1"
+ORCHESTRATION_POLICY_REF = "mrw.source.plan-source-mode.policy.v2"
 
 _PROJECTION_METADATA = sa.MetaData()
 PROJECTION_TABLE = build_source_library_terminal_table(_PROJECTION_METADATA)
@@ -329,12 +331,12 @@ def _build_c2_2_closure(
     payload: Any, request: c21.SourceExecutionRequest
 ) -> dict[str, Any]:
     planning = _c2_2_planning(payload, request)
-    bundle = c22.build_source_library_c2_2_bundle()
-    catalog = c22.build_source_library_c2_2_catalog(bundle)
-    registry = c22.build_source_library_c2_2_registry(bundle)
+    bundle = c22.build_source_planning_bundle()
+    catalog = c22.build_source_planning_catalog(bundle)
+    registry = c22.build_source_planning_registry(bundle)
     contract_ref = catalog.lookup(planning.operation_kind)
     assert contract_ref is not None
-    program = c22p.build_source_library_c2_2_program(
+    program = c22p.build_source_planning_program(
         payload=planning,
         catalog=catalog,
         program_id=C2_2_PROGRAM,
@@ -342,7 +344,7 @@ def _build_c2_2_closure(
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    plan = c22p.compile_source_library_c2_2_program(
+    plan = c22p.compile_source_planning_program(
         program, catalog, operation_contracts=registry
     )
     effect_steps = [
@@ -363,10 +365,10 @@ def _build_c2_2_closure(
         runtime_protocol_version="1",
     )
     recovery_binding = canary.RecoveryBinding.from_content(
-        recovery_handler_id="recovery.source_library.c2_2.planner.v1",
-        recovery_handler_version="1",
+        recovery_handler_id="recovery.source.plan-source-mode.planner.v2",
+        recovery_handler_version="2",
         interpreter_profile_digest=binding.interpreter_profile_digest,
-        authoritative_readback_profile_ref="readback:c2-2-plan.v1",
+        authoritative_readback_profile_ref="readback:source-plan.v2",
     )
     return_binding = ReturnContractBinding.from_contract(
         step.return_contract_ref or "mrw.return.runtime-value.v1",
@@ -426,10 +428,10 @@ def _build_c2_3_closure(
     work_item_id: str,
     program_id: str,
 ) -> dict[str, Any]:
-    bundle = c23.build_source_library_c2_3_bundle()
-    catalog = c23.build_source_library_c2_3_catalog(bundle)
-    registry = c23.build_source_library_c2_3_registry(bundle)
-    contract_ref = catalog.lookup(c23.SOURCE_LIBRARY_C2_3_KIND)
+    bundle = c23.build_source_provider_acquisition_bundle()
+    catalog = c23.build_source_provider_acquisition_catalog(bundle)
+    registry = c23.build_source_provider_acquisition_registry(bundle)
+    contract_ref = catalog.lookup(c23.SOURCE_PROVIDER_ACQUISITION_KIND)
     assert contract_ref is not None
     program = build_c2_3_fixture_program(
         request=request,
@@ -1077,7 +1079,7 @@ def test_c2_23_runtime_canary_and_projection(
                         attempt_ref=unknown_attempt.as_ref_string(),
                         provider_job_id="job:p3-c2-23",
                         terminal_status="COMPLETED",
-                        readback_receipt_id="readback:p3-c2-23",
+                        readback_receipt_id="readback:source-provider-acquisition",
                         observed_at="2030-09-01T08:01:00Z",
                     )
                 )
@@ -1107,7 +1109,9 @@ def test_c2_23_runtime_canary_and_projection(
     _seed_payload(
         engine,
         c2_2,
-        codec_id=c22.SOURCE_MODE_PLANNING_PAYLOAD_TYPE.codec_id,
+        codec_id=c22.SOURCE_PLANNING_CODEC_IDS[
+            c2_2["planning"].operation_kind
+        ],
         object_type=c22.SOURCE_MODE_PLANNING_PAYLOAD_TYPE.type_id,
         plain_value=__import__("dataclasses").asdict(c2_2["planning"]),
     )
@@ -1133,22 +1137,31 @@ def test_c2_23_runtime_canary_and_projection(
         c2_3_completed["plan"].program_digest
         == c2_3_completed["program"].program_digest
     )
-    c2_2_handler = C2_2StoreRehydratedHandler(
+    assembly = build_source_assembly(
         uow_factory=runtime_uow_factory(engine),
-        handler_binding_digest=c2_2["binding"].binding_digest,
-        interpreter_profile_digest=c2_2["binding"].interpreter_profile_digest,
-        operation_contract_digest=c2_2["contract_ref"].contract_digest,
-        deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
+        project_scope_digest=SCOPE_DIGEST,
+        provider_gateway=gateway,
     )
-    c2_3_handler = C2_3StoreRehydratedHandler(
-        uow_factory=runtime_uow_factory(engine),
-        handler_binding_digest=c2_3_completed["binding"].binding_digest,
-        interpreter_profile_digest=c2_3_completed["binding"].interpreter_profile_digest,
-        operation_contract_digest=c2_3_completed["contract_ref"].contract_digest,
-        deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
-        gateway=gateway,
+    c2_2_handler = next(
+        handler
+        for handler in assembly.handlers
+        if (
+            isinstance(handler, C2_2StoreRehydratedHandler)
+            and handler.operation_contract_digest
+            == c2_2["contract_ref"].contract_digest
+        )
     )
-    node = _build_node(engine, (c2_2_handler, c2_3_handler))
+    c2_3_handler = next(
+        handler
+        for handler in assembly.handlers
+        if isinstance(handler, C2_3StoreRehydratedHandler)
+    )
+    assert c2_2_handler.handler_binding_digest == c2_2["binding"].binding_digest
+    assert (
+        c2_3_handler.handler_binding_digest
+        == c2_3_completed["binding"].binding_digest
+    )
+    node = _build_node(engine, assembly.handlers)
     report = node.run_once()
     assert report.claimed == 1
     assert report.results[0].state.value == "COMMITTED"
@@ -1177,13 +1190,66 @@ def test_c2_23_runtime_canary_and_projection(
     assert len(attempts) == 1
     assert len(reservations) == 1
 
+    # Persisted codec identity is part of the exact current readback closure.
+    # A historical codec cannot be decoded through the current writer path.
+    planning_codec = c22.SOURCE_PLANNING_CODEC_IDS[
+        c2_2["planning"].operation_kind
+    ]
+    historical_codec = c22.SOURCE_PLANNING_HISTORICAL_CODEC_IDS[
+        c2_2["planning"].operation_kind
+    ]
+    values_table = project_tables(sa.MetaData(), PROJECT_SCHEMA).successor_values
+    with engine.begin() as connection:
+        connection.execute(
+            sa.update(values_table)
+            .where(values_table.c.value_id == c2_2["payload_ref"].value_id)
+            .values(codec_id=historical_codec)
+        )
+    from app.successor_runtime.runtime.claims import ClaimBinding as _CodecClaimBinding
+    from app.successor_runtime.runtime.node import (
+        DefiniteInterpreterFailure as _CodecFailure,
+        RuntimeExecutionContext as _CodecExecutionContext,
+    )
+
+    codec_claim = _CodecClaimBinding.bind(
+        c2_2["assignment"],
+        authorization_digest=canary._digest("source-plan-codec-authority"),
+        lease_token="lease:source-plan-codec-drift",
+        lease_expires_at=NOW + timedelta(minutes=5),
+        node_id=NODE_ID,
+        node_profile_digest=NODE_PROFILE_DIGEST,
+        authority_digest=canary._digest("source-plan-codec-authority"),
+        interpreter_profile_digest=c2_2["binding"].interpreter_profile_digest,
+    )
+    try:
+        with pytest.raises(_CodecFailure, match="SOURCE_PAYLOAD_CODEC_DRIFT"):
+            c2_2_handler.execute(
+                c2_2["assignment"],
+                codec_claim,
+                _CodecExecutionContext(
+                    node=NodeIdentity(
+                        node_id=NODE_ID,
+                        incarnation=NODE_INCARNATION,
+                        started_at=NOW - timedelta(minutes=1),
+                    ),
+                    observed_at=NOW,
+                ),
+            )
+    finally:
+        with engine.begin() as connection:
+            connection.execute(
+                sa.update(values_table)
+                .where(values_table.c.value_id == c2_2["payload_ref"].value_id)
+                .values(codec_id=planning_codec)
+            )
+
     _seed_closure(engine, c2_3_completed, capability_id=C2_3_CAPABILITY)
     _persist_qualification(engine, c2_3_completed, capability_id=C2_3_CAPABILITY)
     _seed_payload(
         engine,
         c2_3_completed,
-        codec_id=c23.SOURCE_LIBRARY_C2_3_PAYLOAD_CODEC_ID,
-        object_type=c23.SOURCE_LIBRARY_C2_3_PAYLOAD_TYPE.type_id,
+        codec_id=c23.SOURCE_PROVIDER_ACQUISITION_PAYLOAD_CODEC_ID,
+        object_type=c23.SOURCE_PROVIDER_ACQUISITION_PAYLOAD_TYPE.type_id,
         plain_value=c2_3_completed["request"].to_plain(),
     )
     report = node.run_once()
@@ -1198,8 +1264,8 @@ def test_c2_23_runtime_canary_and_projection(
     _seed_payload(
         engine,
         c2_3_unknown,
-        codec_id=c23.SOURCE_LIBRARY_C2_3_PAYLOAD_CODEC_ID,
-        object_type=c23.SOURCE_LIBRARY_C2_3_PAYLOAD_TYPE.type_id,
+        codec_id=c23.SOURCE_PROVIDER_ACQUISITION_PAYLOAD_CODEC_ID,
+        object_type=c23.SOURCE_PROVIDER_ACQUISITION_PAYLOAD_TYPE.type_id,
         plain_value=c2_3_unknown["request"].to_plain(),
     )
     report = node.run_once()
@@ -1263,7 +1329,7 @@ def test_c2_23_runtime_canary_and_projection(
                     attempt_ref=original_attempt_id,
                     provider_job_id="job:p3-c2-23",
                     terminal_status="COMPLETED",
-                    readback_receipt_id="readback:p3-c2-23",
+                    readback_receipt_id="readback:source-provider-acquisition",
                     observed_at="2030-09-01T08:01:00Z",
                 )
             )
@@ -1336,8 +1402,8 @@ def test_c2_23_runtime_canary_and_projection(
     _seed_payload(
         engine,
         c2_3_failed,
-        codec_id=c23.SOURCE_LIBRARY_C2_3_PAYLOAD_CODEC_ID,
-        object_type=c23.SOURCE_LIBRARY_C2_3_PAYLOAD_TYPE.type_id,
+        codec_id=c23.SOURCE_PROVIDER_ACQUISITION_PAYLOAD_CODEC_ID,
+        object_type=c23.SOURCE_PROVIDER_ACQUISITION_PAYLOAD_TYPE.type_id,
         plain_value=c2_3_failed["request"].to_plain(),
     )
     report = node.run_once()
@@ -1385,8 +1451,8 @@ def test_c2_23_runtime_canary_and_projection(
         )
     failed_attempt_id = str(failed_attempt["attempt_id"])
     failed_recovery = canary.RecoveryBinding.from_content(
-        recovery_handler_id="recovery.source_library.c2_3.fixture_failed_readback.v1",
-        recovery_handler_version="1",
+        recovery_handler_id="recovery.source.provider-acquisition.fixture-failed-readback.v2",
+        recovery_handler_version="2",
         interpreter_profile_digest=c2_3_failed["binding"].interpreter_profile_digest,
         authoritative_readback_profile_ref="mrw.successor.source-library.c2-3.readback.v1",
     )
@@ -1397,7 +1463,7 @@ def test_c2_23_runtime_canary_and_projection(
                     attempt_ref=failed_attempt_id,
                     provider_job_id="job:p3-c2-23-failed",
                     terminal_status="FAILED",
-                    readback_receipt_id="readback:p3-c2-23-failed",
+                    readback_receipt_id="readback:source-provider-acquisition-failed",
                     observed_at="2030-09-01T08:02:00Z",
                 )
             )
@@ -1453,21 +1519,21 @@ def test_c2_23_runtime_canary_and_projection(
     assert len(c2_3_handler.fixture_calls) == 3  # failed readback never re-executes
 
     # Mixed Program A + Plan B must fail closed before any effect/terminal.
-    program_b = c22p.build_source_library_c2_2_program(
+    program_b = c22p.build_source_planning_program(
         payload=c2_2["planning"],
-        catalog=c22.build_source_library_c2_2_catalog(
-            c22.build_source_library_c2_2_bundle()
+        catalog=c22.build_source_planning_catalog(
+            c22.build_source_planning_bundle()
         ),
         program_id="p3-mixed-program-b",
         project_key=PROJECT_KEY,
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    plan_b = c22p.compile_source_library_c2_2_program(
+    plan_b = c22p.compile_source_planning_program(
         program_b,
-        c22.build_source_library_c2_2_catalog(c22.build_source_library_c2_2_bundle()),
-        operation_contracts=c22.build_source_library_c2_2_registry(
-            c22.build_source_library_c2_2_bundle()
+        c22.build_source_planning_catalog(c22.build_source_planning_bundle()),
+        operation_contracts=c22.build_source_planning_registry(
+            c22.build_source_planning_bundle()
         ),
     )
     mixed_assignment = c2_2["assignment"].model_copy(
@@ -1501,7 +1567,9 @@ def test_c2_23_runtime_canary_and_projection(
     _seed_payload(
         engine,
         mixed_closure,
-        codec_id=c22.SOURCE_MODE_PLANNING_PAYLOAD_TYPE.codec_id,
+        codec_id=c22.SOURCE_PLANNING_CODEC_IDS[
+            c2_2["planning"].operation_kind
+        ],
         object_type=c22.SOURCE_MODE_PLANNING_PAYLOAD_TYPE.type_id,
         plain_value=__import__("dataclasses").asdict(c2_2["planning"]),
     )
@@ -1513,13 +1581,7 @@ def test_c2_23_runtime_canary_and_projection(
         RuntimeExecutionContext as _RuntimeExecutionContext,
     )
 
-    direct_handler = C2_2StoreRehydratedHandler(
-        uow_factory=runtime_uow_factory(engine),
-        handler_binding_digest=c2_2["binding"].binding_digest,
-        interpreter_profile_digest=c2_2["binding"].interpreter_profile_digest,
-        operation_contract_digest=c2_2["contract_ref"].contract_digest,
-        deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
-    )
+    direct_handler = c2_2_handler
     direct_claim = _ClaimBinding.bind(
         mixed_assignment,
         authorization_digest=canary._digest("c2-2-mixed-authority"),
@@ -1543,7 +1605,7 @@ def test_c2_23_runtime_canary_and_projection(
                 observed_at=NOW,
             ),
         )
-    assert mixed_exc.value.failure_code == "C2_2_PLAN_PROGRAM_BINDING_MISMATCH"
+    assert mixed_exc.value.failure_code == "SOURCE_PLAN_PROGRAM_BINDING_MISMATCH"
     with engine.connect() as connection:
         mixed_attempts = (
             connection.execute(

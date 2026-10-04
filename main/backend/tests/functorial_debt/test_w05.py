@@ -2,96 +2,54 @@
 
 from __future__ import annotations
 
-import ast
 import inspect
 import typing
 from pathlib import Path
 
 from functorial_kit.arch.gates import scan_project
 
-from app.successor_runtime.capabilities.agent_batch_c4 import (
-    build_agent_batch_c4_bundle,
-    build_agent_batch_c4_catalog,
-    build_agent_batch_c4_registry,
-    build_agent_batch_submission_digest,
-    build_batch_plan,
-    build_search_brief,
+from app.successor_runtime.capabilities.batch_task import build_batch_task_bundle, build_batch_task_catalog, build_batch_task_registry, build_agent_batch_submission_digest, build_batch_plan, build_search_brief
+from app.successor_runtime.capabilities.batch_task_program import (
+    build_batch_task_plan_program,
+    build_batch_task_plan_traversal_program,
+    build_batch_task_retry_program,
+    build_batch_task_submission_program,
 )
-from app.successor_runtime.capabilities.agent_batch_c4_program import (
-    build_agent_batch_c4_1_program,
-    build_agent_batch_c4_1_traversal_program,
-    build_agent_batch_c4_2_program,
-    build_agent_batch_c4_3_program,
-)
-from app.successor_runtime.capabilities.agent_core_c6_1 import (
-    build_agent_core_c6_1_bundle,
-    build_agent_core_c6_1_catalog,
-    build_agent_core_c6_1_registry,
-)
-from app.successor_runtime.capabilities.agent_core_c6_1_program import (
-    build_agent_core_c6_1_program,
-)
-from app.successor_runtime.capabilities.agent_core_c6_2 import (
-    build_agent_core_c6_2_bundle,
-    build_agent_core_c6_2_catalog,
-    build_agent_core_c6_2_registry,
-    build_c6_2_receipt_only_evidence,
-)
-from app.successor_runtime.capabilities.agent_core_c6_2_live_model_port import (
-    build_openai_live_provider_port,
-)
-from app.successor_runtime.capabilities.agent_core_c6_2_program import (
-    build_agent_core_c6_2_program,
-)
-from app.successor_runtime.capabilities.agent_core_c6_3 import (
-    build_agent_core_c6_3_bundle,
-    build_agent_core_c6_3_catalog,
-    build_agent_core_c6_3_registry,
-)
-from app.successor_runtime.capabilities.agent_core_c6_3_program import (
-    build_agent_core_c6_3_program,
-)
-from app.successor_runtime.capabilities.agent_core_c6_common import (
-    build_p3_c6_fragment,
-    build_payload_codec,
-)
-from app.successor_runtime.capabilities.collect_c3 import (
+from app.successor_runtime.capabilities.acquisition_batch import (
     build_collect_batch_plan,
-    build_collect_c3_bundle,
-    build_collect_c3_catalog,
-    build_collect_c3_registry,
+    build_acquisition_batch_bundle,
+    build_acquisition_batch_catalog,
+    build_acquisition_batch_registry,
     build_collect_fold_payload,
     build_collect_request_ref,
 )
-from app.successor_runtime.capabilities.collect_c3_program import (
-    build_collect_c3_1_program,
-    build_collect_c3_2_program,
-    build_collect_c3_2_pure_fold_program,
-    build_collect_c3_composed_program,
-    build_collect_c3_program,
-    build_collect_c3_transform_registry,
+from app.successor_runtime.capabilities.acquisition_batch_program import (
+    build_collect_batch_element_program,
+    build_collect_fold_ordered_results_program,
+    build_collect_fold_ordered_results_pure_program,
+    build_acquisition_batch_composed_program,
+    build_collect_program,
+    build_acquisition_batch_transform_registry,
     build_declared_traversal_program,
     build_family_payload_value_ref,
 )
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-W05_ROOT = REPO_ROOT / "main" / "backend" / "app" / "successor_runtime" / "capabilities"
-
 _VIEWS: dict[object, tuple[str, str, str]] = {
-    build_agent_batch_c4_bundle: (
+    build_batch_task_bundle: (
         "view",
-        "AGENT_BATCH_C4_OWNER+capability_contract_constants",
+        "BATCH_TASK_OWNER+capability_contract_constants",
         "test_w05_agent_batch_authority_metadata",
     ),
-    build_agent_batch_c4_catalog: (
+    build_batch_task_catalog: (
         "view",
-        "AgentBatchC4CapabilityBundle.operations",
+        "BatchTaskCapabilityBundle.operations",
         "test_w05_agent_batch_authority_metadata",
     ),
-    build_agent_batch_c4_registry: (
+    build_batch_task_registry: (
         "view",
-        "AgentBatchC4CapabilityBundle+catalog_snapshot",
+        "BatchTaskCapabilityBundle+catalog_snapshot",
         "test_w05_agent_batch_authority_metadata",
     ),
     build_agent_batch_submission_digest: (
@@ -109,69 +67,24 @@ _VIEWS: dict[object, tuple[str, str, str]] = {
         "normalized_batch_tasks+candidate_keys",
         "test_w05_agent_batch_authority_metadata",
     ),
-    build_agent_core_c6_1_bundle: (
-        "view",
-        "AGENT_CORE_C6_1_OWNER+capability_contract_constants",
-        "test_w05_agent_core_authority_metadata",
-    ),
-    build_agent_core_c6_1_catalog: (
-        "view",
-        "AgentCoreC6_1CapabilityBundle.operations",
-        "test_w05_agent_core_authority_metadata",
-    ),
-    build_agent_core_c6_1_registry: (
-        "view",
-        "AgentCoreC6_1CapabilityBundle+catalog_snapshot",
-        "test_w05_agent_core_authority_metadata",
-    ),
-    build_agent_core_c6_2_bundle: (
-        "view",
-        "AGENT_CORE_C6_2_OWNER+capability_contract_constants",
-        "test_w05_agent_core_authority_metadata",
-    ),
-    build_agent_core_c6_2_catalog: (
-        "view",
-        "AgentCoreC6_2CapabilityBundle.operations",
-        "test_w05_agent_core_authority_metadata",
-    ),
-    build_agent_core_c6_2_registry: (
-        "view",
-        "AgentCoreC6_2CapabilityBundle+catalog_snapshot",
-        "test_w05_agent_core_authority_metadata",
-    ),
-    build_agent_core_c6_3_bundle: (
-        "view",
-        "AGENT_CORE_C6_3_OWNER+capability_contract_constants",
-        "test_w05_agent_core_authority_metadata",
-    ),
-    build_agent_core_c6_3_catalog: (
-        "view",
-        "AgentCoreC6_3CapabilityBundle.operations",
-        "test_w05_agent_core_authority_metadata",
-    ),
-    build_agent_core_c6_3_registry: (
-        "view",
-        "AgentCoreC6_3CapabilityBundle+catalog_snapshot",
-        "test_w05_agent_core_authority_metadata",
-    ),
     build_collect_batch_plan: (
         "view",
         "CollectBatchPlanPayload+ordered_element_policy",
         "test_w05_collect_authority_metadata",
     ),
-    build_collect_c3_bundle: (
+    build_acquisition_batch_bundle: (
         "view",
         "COLLECT_C3_OWNER+capability_contract_constants",
         "test_w05_collect_authority_metadata",
     ),
-    build_collect_c3_catalog: (
+    build_acquisition_batch_catalog: (
         "view",
-        "CollectC3CapabilityBundle.operations",
+        "AcquisitionBatchCapabilityBundle.operations",
         "test_w05_collect_authority_metadata",
     ),
-    build_collect_c3_registry: (
+    build_acquisition_batch_registry: (
         "view",
-        "CollectC3CapabilityBundle+catalog_snapshot",
+        "AcquisitionBatchCapabilityBundle+catalog_snapshot",
         "test_w05_collect_authority_metadata",
     ),
     build_collect_fold_payload: (
@@ -184,68 +97,46 @@ _VIEWS: dict[object, tuple[str, str, str]] = {
         "normalized_collect_request_inputs",
         "test_w05_collect_authority_metadata",
     ),
-    build_c6_2_receipt_only_evidence: (
-        "generated_evidence",
-        "ReceiptOnlyProviderPort+receipt_fields",
-        "test_w05_agent_core_authority_metadata",
-    ),
-    build_p3_c6_fragment: (
-        "generated_evidence",
-        "ordered_files+ordered_cells+independent_review",
-        "test_w05_agent_core_authority_metadata",
-    ),
 }
 
 _PREPARED: dict[object, tuple[str, str]] = {
-    build_agent_batch_c4_1_program: (
+    build_batch_task_plan_program: (
         "successor_program_interpreter",
         "test_w05_agent_batch_authority_metadata",
     ),
-    build_agent_batch_c4_1_traversal_program: (
+    build_batch_task_plan_traversal_program: (
         "successor_program_interpreter",
         "test_w05_agent_batch_authority_metadata",
     ),
-    build_agent_batch_c4_2_program: (
+    build_batch_task_retry_program: (
         "successor_program_interpreter",
         "test_w05_agent_batch_authority_metadata",
     ),
-    build_agent_batch_c4_3_program: (
+    build_batch_task_submission_program: (
         "successor_program_interpreter",
         "test_w05_agent_batch_authority_metadata",
     ),
-    build_agent_core_c6_1_program: (
-        "successor_program_interpreter",
-        "test_w05_agent_core_authority_metadata",
-    ),
-    build_agent_core_c6_2_program: (
-        "successor_program_interpreter",
-        "test_w05_agent_core_authority_metadata",
-    ),
-    build_agent_core_c6_3_program: (
-        "successor_program_interpreter",
-        "test_w05_agent_core_authority_metadata",
-    ),
-    build_collect_c3_1_program: (
+    build_collect_batch_element_program: (
         "successor_program_interpreter",
         "test_w05_collect_authority_metadata",
     ),
-    build_collect_c3_2_program: (
+    build_collect_fold_ordered_results_program: (
         "successor_program_interpreter",
         "test_w05_collect_authority_metadata",
     ),
-    build_collect_c3_2_pure_fold_program: (
+    build_collect_fold_ordered_results_pure_program: (
         "successor_program_interpreter",
         "test_w05_collect_authority_metadata",
     ),
-    build_collect_c3_composed_program: (
+    build_acquisition_batch_composed_program: (
         "successor_program_interpreter",
         "test_w05_collect_authority_metadata",
     ),
-    build_collect_c3_program: (
+    build_collect_program: (
         "successor_program_interpreter",
         "test_w05_collect_authority_metadata",
     ),
-    build_collect_c3_transform_registry: (
+    build_acquisition_batch_transform_registry: (
         "pure_transform_registry",
         "test_w05_collect_authority_metadata",
     ),
@@ -257,34 +148,15 @@ _PREPARED: dict[object, tuple[str, str]] = {
         "successor_values_storage",
         "test_w05_collect_authority_metadata",
     ),
-    build_openai_live_provider_port: (
-        "openai_live_provider_transport",
-        "test_w05_agent_core_authority_metadata",
-    ),
-    build_payload_codec: (
-        "typed_payload_encode_decode",
-        "test_w05_agent_core_authority_metadata",
-    ),
 }
 
 _W05_OWNED_CAPABILITY_FILES = {
-    "agent_batch_c4.py",
-    "agent_batch_c4_interpreters.py",
-    "agent_batch_c4_program.py",
-    "agent_core_c6_1.py",
-    "agent_core_c6_1_interpreters.py",
-    "agent_core_c6_1_program.py",
-    "agent_core_c6_2.py",
-    "agent_core_c6_2_interpreters.py",
-    "agent_core_c6_2_live_model_port.py",
-    "agent_core_c6_2_program.py",
-    "agent_core_c6_3.py",
-    "agent_core_c6_3_interpreters.py",
-    "agent_core_c6_3_program.py",
-    "agent_core_c6_common.py",
-    "collect_c3.py",
-    "collect_c3_interpreters.py",
-    "collect_c3_program.py",
+    "batch_task.py",
+    "batch_task_interpreters.py",
+    "batch_task_program.py",
+    "acquisition_batch.py",
+    "acquisition_batch_interpreters.py",
+    "acquisition_batch_program.py",
 }
 
 
@@ -304,18 +176,18 @@ def test_w05_agent_batch_authority_metadata() -> None:
     assert {
         function for function, value in _VIEWS.items() if value[2].startswith("test_w05_agent_batch")
     } == {
-        build_agent_batch_c4_bundle,
-        build_agent_batch_c4_catalog,
-        build_agent_batch_c4_registry,
+        build_batch_task_bundle,
+        build_batch_task_catalog,
+        build_batch_task_registry,
         build_agent_batch_submission_digest,
         build_batch_plan,
         build_search_brief,
     }
     for function in (
-        build_agent_batch_c4_1_program,
-        build_agent_batch_c4_1_traversal_program,
-        build_agent_batch_c4_2_program,
-        build_agent_batch_c4_3_program,
+        build_batch_task_plan_program,
+        build_batch_task_plan_traversal_program,
+        build_batch_task_retry_program,
+        build_batch_task_submission_program,
     ):
         marker, fields = _authority(function)
         assert marker == "kit:prepared-command"
@@ -325,53 +197,14 @@ def test_w05_agent_batch_authority_metadata() -> None:
         }
 
 
-def test_w05_agent_core_authority_metadata() -> None:
-    assert {
-        function
-        for function, value in _VIEWS.items()
-        if value[2].startswith("test_w05_agent_core")
-    } == {
-        build_agent_core_c6_1_bundle,
-        build_agent_core_c6_1_catalog,
-        build_agent_core_c6_1_registry,
-        build_agent_core_c6_2_bundle,
-        build_agent_core_c6_2_catalog,
-        build_agent_core_c6_2_registry,
-        build_agent_core_c6_3_bundle,
-        build_agent_core_c6_3_catalog,
-        build_agent_core_c6_3_registry,
-        build_c6_2_receipt_only_evidence,
-        build_p3_c6_fragment,
-    }
-    assert {
-        function
-        for function, value in _PREPARED.items()
-        if value[1].startswith("test_w05_agent_core")
-    } == {
-        build_agent_core_c6_1_program,
-        build_agent_core_c6_2_program,
-        build_agent_core_c6_3_program,
-        build_openai_live_provider_port,
-        build_payload_codec,
-    }
-    for function in (
-        build_agent_core_c6_1_program,
-        build_agent_core_c6_2_program,
-        build_agent_core_c6_3_program,
-    ):
-        marker, fields = _authority(function)
-        assert marker == "kit:prepared-command"
-        assert fields["effect_boundary"] == "successor_program_interpreter"
-
-
 def test_w05_collect_authority_metadata() -> None:
     assert {
         function for function, value in _VIEWS.items() if value[2].startswith("test_w05_collect")
     } == {
         build_collect_batch_plan,
-        build_collect_c3_bundle,
-        build_collect_c3_catalog,
-        build_collect_c3_registry,
+        build_acquisition_batch_bundle,
+        build_acquisition_batch_catalog,
+        build_acquisition_batch_registry,
         build_collect_fold_payload,
         build_collect_request_ref,
     }
@@ -384,7 +217,7 @@ def test_w05_collect_authority_metadata() -> None:
 
 def test_w05_metadata_exact_and_runtime_types_preserved() -> None:
     all_functions = {*_VIEWS, *_PREPARED}
-    assert len(all_functions) == 40
+    assert len(all_functions) == 24
     for function in all_functions:
         marker, fields = _authority(function)
         if function in _VIEWS:

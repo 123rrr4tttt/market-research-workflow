@@ -6,9 +6,9 @@ from typing import get_args
 import pytest
 
 from app.successor_runtime.capabilities import (
-    source_library_c2_3_test_interpreters as c23_fixtures,
+    source_provider_test_interpreters as c23_fixtures,
 )
-from app.successor_runtime.capabilities import source_library_c2_shared as shared
+from app.successor_runtime.capabilities import source_contracts as shared
 from app.successor_runtime.capabilities.checksum import content_digest
 
 
@@ -26,8 +26,8 @@ def _effect_request() -> shared.ProviderEffectRequest:
         ),
     )
     return shared.ProviderEffectRequest(
-        schema_version=shared.SOURCE_LIBRARY_C2_3_PAYLOAD_SCHEMA,
-        operation_kind=shared.SOURCE_LIBRARY_C2_3_KIND,
+        schema_version=shared.SOURCE_PROVIDER_ACQUISITION_PAYLOAD_SCHEMA,
+        operation_kind=shared.SOURCE_PROVIDER_ACQUISITION_KIND,
         request_id="request:c2-runtime-closure",
         idempotency_key="idem:c2-runtime-closure",
         project_scope=scope,
@@ -42,7 +42,7 @@ def _effect_request() -> shared.ProviderEffectRequest:
         effect_payload_digest=content_digest({"payload": "demo"}),
         effect_payload={"query": "demo"},
         credential_refs=(),
-        policy=shared.C2_3_DEFAULT_RESOURCE_POLICY,
+        policy=shared.SOURCE_PROVIDER_ACQUISITION_DEFAULT_RESOURCE_POLICY,
         catalog_revision=1,
         catalog_incarnation="catalog-inc-1",
         catalog_digest=content_digest({"catalog": "demo"}),
@@ -54,7 +54,7 @@ def test_literal_aliases_reuse_frozen_runtime_unions() -> None:
     assert set(get_args(shared.SourceRejectionCode)) == shared.SOURCE_REJECTION_CODES
     assert (
         set(get_args(shared.PlanningRejectionCode))
-        == shared.C2_2_PLANNING_FAILURE_CODES
+        == shared.SOURCE_PLANNING_FAILURE_CODES
     )
     assert set(get_args(shared.ProviderRejectionCode)) == (
         shared.PROVIDER_REJECTION_CODES
@@ -66,10 +66,10 @@ def test_literal_aliases_reuse_frozen_runtime_unions() -> None:
         shared.CREDENTIAL_REJECTION_CODES
     )
     assert set(get_args(shared.AggregateProviderFailureCode)) == (
-        shared.C2_3_FAILURE_CODES
+        shared.SOURCE_PROVIDER_ACQUISITION_FAILURE_CODES
     )
-    assert set(get_args(shared.SourceLibraryC2_2OperationKind)) == set(
-        shared.SOURCE_LIBRARY_C2_2_KINDS
+    assert set(get_args(shared.SourcePlanningOperationKind)) == set(
+        shared.SOURCE_PLANNING_KINDS
     )
     assert set(get_args(shared.SourceModeLiteral)) == set(shared.SOURCE_MODES)
 

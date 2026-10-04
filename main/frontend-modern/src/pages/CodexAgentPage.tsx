@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
 import { Bot, Radio, RefreshCw, ShieldCheck } from 'lucide-react'
-import { useEffect, useState } from 'react'
 import { getCodexAuthStatus } from '../lib/api/domains/codex-auth'
 import { translate, useAppLocale, type AppLocale } from '../app/platform/i18n'
 import './codex-agent-page.css'
@@ -9,14 +8,21 @@ type CodexAgentPageProps = {
   projectKey: string
 }
 
-function codexUiUrl() {
-  // The MRW formal frontend proxies /codex/ to the host codex-web-remote proxy.
-  // Keep the default localhost-only path; swap via env when a different origin is used.
-  return '/codex/'
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
+const HOST_WEBUI_URL = 'http://127.0.0.1:8172/'
+
+function isExplicitLocalHttpOrigin() {
+  return window.location.protocol === 'http:' && LOCAL_HOSTNAMES.has(window.location.hostname)
 }
 
-function statusCopy(locale: AppLocale, codexReady: boolean) {
-  if (codexReady) {
+function statusCopy(locale: AppLocale, surfaceReady: boolean, statusFailed: boolean) {
+  if (statusFailed) {
+    return {
+      label: translate(locale, 'codexAgentPage.status.error'),
+      detail: translate(locale, 'codexAgentPage.status.errorDetail'),
+    }
+  }
+  if (surfaceReady) {
     return {
       label: translate(locale, 'codexAgentPage.status.ready'),
       detail: translate(locale, 'codexAgentPage.status.readyDetail'),
@@ -30,12 +36,6 @@ function statusCopy(locale: AppLocale, codexReady: boolean) {
 
 export default function CodexAgentPage({ projectKey }: CodexAgentPageProps) {
   const locale = useAppLocale()
-  // authTried: true once we stop waiting for auto-login (success or timeout), so
-  // the boot overlay always clears and the iframe (authed or manual-login) shows.
-  const [authTried, setAuthTried] = useState(
-    () => typeof window !== 'undefined' && Boolean(window.localStorage.getItem('codex.webui.jwt')),
-  )
-  const [frameKey, setFrameKey] = useState(0)
   const codexAuthQuery = useQuery({
     queryKey: ['codex-agent-auth'],
     queryFn: getCodexAuthStatus,
@@ -43,44 +43,18 @@ export default function CodexAgentPage({ projectKey }: CodexAgentPageProps) {
     refetchInterval: 60_000,
     retry: false,
   })
-  const codexReady = Boolean(
-    codexAuthQuery.data?.authenticated || codexAuthQuery.data?.token_sink_authenticated,
-  )
-  const status = statusCopy(locale, codexReady)
+  const browserAuthenticated = Boolean(codexAuthQuery.data?.authenticated)
   const hostConnected = Boolean(codexAuthQuery.data?.token_sink_authenticated)
-
-  // Auto-login into the embedded Codex WebUI. The codex-webui backend issues a
-  // JWT at its own /api/auth/bootstrap (localhost/single-user) so the API key
-  // never reaches the browser; we persist it in localStorage (shared with the
-  // same-origin iframe) and remount the iframe so it loads already-authenticated.
-  useEffect(() => {
-    if (authTried) return
-    let cancelled = false
-    ;(async () => {
-      try {
-        const timeout = window.setTimeout(() => {
-          if (!cancelled) setAuthTried(true)
-        }, 5000)
-        const res = await fetch('/codex/api/auth/bootstrap')
-        if (res.ok) {
-          const payload = (await res.json()) as { accessToken?: string }
-          if (payload.accessToken) {
-            window.localStorage.setItem('codex.webui.jwt', payload.accessToken)
-            if (!cancelled) {
-              setFrameKey((k) => k + 1)
-            }
-          }
-        }
-        window.clearTimeout(timeout)
-        if (!cancelled) setAuthTried(true)
-      } catch {
-        if (!cancelled) setAuthTried(true)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [authTried])
+  const hostDirectAllowed = hostConnected && isExplicitLocalHttpOrigin()
+  const codexUiUrl = browserAuthenticated
+    ? '/codex/'
+    : hostDirectAllowed
+      ? HOST_WEBUI_URL
+      : null
+  const status = statusCopy(locale, codexUiUrl !== null, codexAuthQuery.isError)
+  const connectionDetail = hostConnected
+    ? translate(locale, 'codexAgentPage.auth.remoteHostDetail')
+    : translate(locale, 'codexAgentPage.auth.detail')
 
   return (
     <div className="codex-agent-page" data-testid="codex-agent-page">
@@ -96,15 +70,23 @@ export default function CodexAgentPage({ projectKey }: CodexAgentPageProps) {
           </div>
         </div>
         <div className="codex-agent-page__status">
-          <span className={`codex-agent-page__pill is-${codexReady ? 'ok' : 'wait'}`}>
-            {codexReady ? <Radio size={13} /> : <ShieldCheck size={13} />}
+          <span
+            className={`codex-agent-page__pill is-${codexUiUrl ? 'ok' : 'wait'}`}
+            data-testid="codex-agent-browser-auth"
+          >
+            {codexUiUrl ? <Radio size={13} /> : <ShieldCheck size={13} />}
             {status.label}
           </span>
-          {hostConnected ? (
-            <span className="codex-agent-page__pill">
-              {translate(locale, 'codexAgentPage.status.hostAuth')}
-            </span>
-          ) : null}
+          <span className="codex-agent-page__pill is-muted" data-testid="codex-agent-host-auth">
+            {translate(
+              locale,
+              codexAuthQuery.data
+                ? hostConnected
+                  ? 'codexAgentPage.status.hostAuth'
+                  : 'codexAgentPage.status.hostAuthMissing'
+                : 'codexAgentPage.status.hostAuthUnknown',
+            )}
+          </span>
           <span className="codex-agent-page__pill is-muted">
             {translate(locale, 'codexAgentPage.status.snapshot')}
           </span>
@@ -121,29 +103,45 @@ export default function CodexAgentPage({ projectKey }: CodexAgentPageProps) {
           <span className="codex-agent-page__hint" title={status.detail}>
             {status.detail}
           </span>
-          <a
-            className="codex-agent-page__compat-link"
-            href="#agent-chat-compat.html"
-            data-testid="agent-chat-compat-link"
-          >
-            Agent Chat compatibility
-          </a>
         </div>
       </header>
-      <div className="codex-agent-page__stage">
-        <iframe
-          className="codex-agent-page__frame"
-          key={frameKey}
-          data-testid="codex-agent-frame"
-          title="Codex Agent"
-          src={codexUiUrl()}
-          allow="clipboard-write"
-        />
-        {!authTried ? (
-          <div className="codex-agent-page__boot" data-testid="codex-agent-boot">
-            <span>{translate(locale, 'codexAgentPage.status.booting')}</span>
-          </div>
-        ) : null}
+      <div
+        className="codex-agent-page__stage"
+        aria-busy={codexAuthQuery.isFetching}
+        aria-label={translate(locale, 'codexAgentPage.status.booting')}
+      >
+        {codexUiUrl ? (
+          <iframe
+            className="codex-agent-page__frame"
+            data-testid="codex-agent-frame"
+            title="Codex Agent"
+            src={codexUiUrl}
+            allow="clipboard-write"
+          />
+        ) : (
+          <section className="codex-agent-page__auth" data-testid="codex-agent-auth-panel">
+            <ShieldCheck size={20} aria-hidden="true" />
+            <div>
+              <strong>{translate(locale, 'codexAgentPage.auth.title')}</strong>
+              <p>
+                {codexAuthQuery.isError
+                  ? translate(locale, 'codexAgentPage.status.errorDetail')
+                  : connectionDetail}
+              </p>
+            </div>
+            {codexAuthQuery.isError ? (
+              <button
+                type="button"
+                data-testid="codex-agent-auth-retry"
+                onClick={() => void codexAuthQuery.refetch()}
+                disabled={codexAuthQuery.isFetching}
+              >
+                <RefreshCw size={14} aria-hidden="true" />
+                {translate(locale, 'codexAgentPage.auth.retry')}
+              </button>
+            ) : null}
+          </section>
+        )}
       </div>
     </div>
   )

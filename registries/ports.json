@@ -26,9 +26,6 @@
       "name": "OfficialAccessPort"
     },
     {
-      "name": "MarketAdapterPort"
-    },
-    {
       "name": "PolicyAdapterPort"
     },
     {

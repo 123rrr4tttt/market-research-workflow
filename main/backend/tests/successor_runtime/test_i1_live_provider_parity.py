@@ -1,4 +1,4 @@
-"""Bounded real-call parity probes for the C2.3/C6.2 live adapters.
+"""Bounded real-call parity probe for the C2.3 live adapter.
 
 These tests perform one real provider call per adapter and are skipped unless
 ``MRW_LIVE_PROVIDER_PARITY=1`` and the matching credential is present.  The
@@ -13,17 +13,12 @@ from time import perf_counter
 
 import pytest
 
-from app.successor_runtime.capabilities import agent_core_c6_2 as c6_2
+from app.successor_runtime.capabilities import source_provider_acquisition as c23
 from app.successor_runtime.capabilities import (
-    agent_core_c6_2_live_model_port as c6_2_live,
-)
-from app.successor_runtime.capabilities import source_library_c2_3 as c23
-from app.successor_runtime.capabilities import (
-    source_library_c2_3_live_provider as c23_live,
+    source_provider_worker as c23_live,
 )
 
 from .test_p3_c2_3_live_parity import _AUTHORIZATION, _live_request
-from .test_p3_c6_2_live_parity import _request as _c6_request
 
 _REAL_MARKER = os.getenv("MRW_LIVE_PROVIDER_PARITY") == "1"
 
@@ -64,38 +59,3 @@ def test_real_serper_c2_3_parity_probe(capsys: pytest.CaptureFixture[str]) -> No
         "latency_ms": latency_ms,
     }
     print("LIVE_PARITY_C2_3=" + json.dumps(summary, sort_keys=True))
-
-
-def test_real_openai_c6_2_parity_probe(capsys: pytest.CaptureFixture[str]) -> None:
-    if not _REAL_MARKER:
-        pytest.skip("real provider calls require MRW_LIVE_PROVIDER_PARITY=1")
-    api_key = _require_credential(c6_2_live.ENV_VAR_NAME)
-    port = c6_2_live.build_openai_live_provider_port()
-    assert port is not None
-    request = _c6_request()
-    started = perf_counter()
-    result = c6_2.interpret_model_step(
-        request,
-        port,
-        attempt_id="attempt:c6-2:live:real:001",
-    )
-    latency_ms = round((perf_counter() - started) * 1000, 3)
-
-    assert result.step is not None
-    assert result.step.step_type == "final_answer"
-    assert result.receipt.outcome_code == "ProviderStepSucceeded"
-    assert result.receipt.provider_calls == 1
-    assert port.provider_calls == 1
-    assert api_key not in json.dumps(result.receipt.to_plain())
-    summary = {
-        "provider": "openai",
-        "model": port.model,
-        "endpoint": port.base_url.rstrip("/") + c6_2_live.CHAT_COMPLETIONS_PATH,
-        "outcome_code": result.receipt.outcome_code,
-        "readback_status": result.receipt.readback_status,
-        "provider_calls": port.provider_calls,
-        "receipt_digest": result.receipt.receipt_digest,
-        "result_digest": result.result_digest,
-        "latency_ms": latency_ms,
-    }
-    print("LIVE_PARITY_C6_2=" + json.dumps(summary, sort_keys=True))

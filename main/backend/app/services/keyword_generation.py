@@ -5,14 +5,19 @@ import logging
 from typing import List, Optional, Dict
 
 from .llm.provider import get_chat_model
+from .llm.macro_work import KEYWORD_GENERATION_WORK
 from .llm.config_loader import get_llm_config, format_prompt_template, ensure_prompt_has_guidelines
 from .ingest.keyword_library import (
-    clean_keywords as clean_lottery_keywords,
-    store_keywords as store_lottery_keywords,
+    clean_keywords,
+    store_keywords,
 )
 from ..settings.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Describes this existing business operation for later native binding. The
+# declaration is inert: execution remains in this service and its provider.
+MACRO_WORK_BINDING = KEYWORD_GENERATION_WORK
 
 _BILINGUAL_LANG_MODES = {"bi", "bilingual", "zh-en", "zh_en", "both", "multi", "multilingual"}
 
@@ -84,14 +89,14 @@ def generate_social_keywords(
         logger.info("generate_social_keywords: using fallback (no LLM key), topic=%s lang=%s platform=%s", 
                    topic, language, platform)
         if return_combined:
-            search_kw = clean_lottery_keywords(_get_fallback_keywords(topic, language, platform))
+            search_kw = clean_keywords(_get_fallback_keywords(topic, language, platform))
             if platform and search_kw:
-                store_lottery_keywords(platform, search_kw)
+                store_keywords(platform, search_kw)
             subreddit_kw = _get_fallback_subreddit_keywords(topic, base_keywords)
             return {"search_keywords": search_kw, "subreddit_keywords": subreddit_kw}
-        fallback_keywords = clean_lottery_keywords(_get_fallback_keywords(topic, language, platform))
+        fallback_keywords = clean_keywords(_get_fallback_keywords(topic, language, platform))
         if platform and fallback_keywords:
-            store_lottery_keywords(platform, fallback_keywords)
+            store_keywords(platform, fallback_keywords)
         return fallback_keywords
     
     try:
@@ -225,11 +230,11 @@ def generate_social_keywords(
                 # 如果解析失败，使用fallback
                 if not search_keywords and not subreddit_keywords:
                     logger.warning("Failed to parse combined keywords, using fallback")
-                    search_kw = clean_lottery_keywords(
+                    search_kw = clean_keywords(
                         _get_fallback_keywords(topic, language, platform)
                     )
                     if platform:
-                        store_lottery_keywords(platform, search_kw)
+                        store_keywords(platform, search_kw)
                     subreddit_kw = _get_fallback_subreddit_keywords(topic, base_keywords)
                     return {"search_keywords": search_kw, "subreddit_keywords": subreddit_kw}
                 
@@ -248,14 +253,14 @@ def generate_social_keywords(
                             search_keywords.append(kw)
 
                 raw_search = search_keywords.copy()
-                search_keywords = clean_lottery_keywords(search_keywords)
+                search_keywords = clean_keywords(search_keywords)
                 if not search_keywords:
                     if raw_search:
                         search_keywords = raw_search[:10]
                     elif base_keywords:
                         search_keywords = list(dict.fromkeys(str(k).strip() for k in base_keywords if str(k).strip()))
                     if not search_keywords:
-                        search_keywords = clean_lottery_keywords(
+                        search_keywords = clean_keywords(
                             _get_fallback_keywords(topic, language, platform)
                         ) or ([topic.strip()] if topic.strip() else [])
 
@@ -263,7 +268,7 @@ def generate_social_keywords(
                     search_keywords = _ensure_bilingual_search_keywords(search_keywords, topic, platform)
 
                 if platform and search_keywords:
-                    store_lottery_keywords(platform, search_keywords)
+                    store_keywords(platform, search_keywords)
                     logger.info(
                         "Stored %d social keywords for platform=%s",
                         len(search_keywords),
@@ -361,14 +366,14 @@ def generate_social_keywords(
                 topic,
                 platform,
             )
-            cleaned_keywords = clean_lottery_keywords(keywords)
+            cleaned_keywords = clean_keywords(keywords)
             if not cleaned_keywords:
-                logger.warning("No valid lottery keywords after cleaning raw llm output, using fallback")
-                cleaned_keywords = clean_lottery_keywords(
+                logger.warning("No valid keywords after cleaning raw llm output, using fallback")
+                cleaned_keywords = clean_keywords(
                     _get_fallback_keywords(topic, language, platform)
                 )
             if platform and cleaned_keywords:
-                store_lottery_keywords(platform, cleaned_keywords)
+                store_keywords(platform, cleaned_keywords)
             if cleaned_keywords:
                 logger.info(
                     "generate_social_keywords: cleaned llm keywords=%s (topic=%s, platform=%s)",
@@ -385,19 +390,19 @@ def generate_social_keywords(
     # Fallback without LLM
     logger.info("generate_social_keywords: using static fallback topic=%s", topic)
     if return_combined:
-        search_kw = clean_lottery_keywords(_get_fallback_keywords(topic, language, platform))
+        search_kw = clean_keywords(_get_fallback_keywords(topic, language, platform))
         if not search_kw and base_keywords:
             search_kw = list(dict.fromkeys(str(k).strip() for k in base_keywords if str(k).strip()))
         if not search_kw:
             search_kw = [topic.strip()] if topic.strip() else []
         if platform and search_kw:
-            store_lottery_keywords(platform, search_kw)
+            store_keywords(platform, search_kw)
         subreddit_kw = _get_fallback_subreddit_keywords(topic, base_keywords)
         logger.info("generate_social_keywords: fallback search_keywords=%s subreddit_keywords=%s", search_kw, subreddit_kw)
         return {"search_keywords": search_kw, "subreddit_keywords": subreddit_kw}
-    fallback_keywords = clean_lottery_keywords(_get_fallback_keywords(topic, language, platform))
+    fallback_keywords = clean_keywords(_get_fallback_keywords(topic, language, platform))
     if platform and fallback_keywords:
-        store_lottery_keywords(platform, fallback_keywords)
+        store_keywords(platform, fallback_keywords)
     return fallback_keywords
 
 

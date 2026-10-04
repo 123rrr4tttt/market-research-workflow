@@ -24,22 +24,28 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool
 
-from app.successor_runtime.assembly.c7_assembly import (
-    C7_AUTHORITY_REQUIREMENT_DIGEST,
-    C7_2CanonicalCommitWriteHandler,
-    C7_3ProjectorDriverHandler,
-    C7CanonicalWriteClosure,
-    C7ProjectorDriverClosure,
-    build_c7_assembly,
+from app.successor_runtime.assembly.material_ingest_assembly import (
+    MaterialCanonicalCommitWriteHandler,
+    MaterialProjectorDriverHandler,
+    MaterialCanonicalWriteClosure,
+    MaterialProjectorDriverClosure,
+    build_material_ingest_assembly,
 )
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.ingest_c7_common import (
-    C7_INGEST_OWNER,
-    C7_OPERATION_CATALOG_ID,
-    C7_OPERATION_CATALOG_VERSION,
+from app.successor_runtime.capabilities.material_native_contribution import (
+    DEFAULT_MATERIAL_NATIVE_SOURCE,
+    MATERIAL_COMMIT_READBACK_CELL_ID,
+    MATERIAL_PROJECTION_DIFF_CELL_ID,
+    MATERIAL_RECONCILIATION_CELL_ID,
+    MATERIAL_STAGE_CANDIDATE_CELL_ID,
+)
+from app.successor_runtime.capabilities.material_ingest_common import (
+    MATERIAL_INGEST_OWNER,
+    MATERIAL_OPERATION_CATALOG_ID,
+    MATERIAL_OPERATION_CATALOG_VERSION,
     DOCUMENT_CANONICAL_OWNER,
 )
-from app.successor_runtime.capabilities.ingest_c7_movements import (
+from app.successor_runtime.capabilities.material_ingest_movements import (
     DeterministicChunkPort,
     DeterministicExtractPort,
     DeterministicPassThroughPort,
@@ -47,10 +53,13 @@ from app.successor_runtime.capabilities.ingest_c7_movements import (
     StructuredMaterialCandidate,
     VerifiedMaterialCandidate,
     capture_raw_snapshot_exact,
-    execute_c7_movement,
+    execute_material_movement,
     normalize_ingest_envelope,
     select_exactly_one_digestion_alternative,
     verify_structured_candidate,
+)
+from app.successor_runtime.capabilities.material_ingest_interpreters import (
+    MATERIAL_INTERPRETER_PROFILE_IDS,
 )
 from app.successor_runtime.language.object_contracts import (
     OperationContractRef,
@@ -82,7 +91,13 @@ from app.successor_runtime.substrate.postgres.c7_projector_driver import (
     C7_SEARCH_PROJECTOR_ID,
     C7ProjectorDriver,
     C7ProjectorIntegrityError,
+    LEGACY_C7_PROJECTION_CODEC_ID,
+    LEGACY_C7_PROJECTION_VALUE_PREFIX,
+    LEGACY_C7_SEARCH_VALUE_OBJECT_TYPE,
+    MATERIAL_GRAPH_PROJECTION_ID,
+    MATERIAL_SEARCH_PROJECTION_ID,
     projection_offset_key,
+    read_legacy_projection_value_exact,
     verify_projection_value_readback,
 )
 from app.successor_runtime.substrate.postgres.commit_intents import (
@@ -93,6 +108,7 @@ from app.successor_runtime.substrate.postgres.ingest_c7_movement_admission impor
     C7_ADMISSION_REQUEST_EVENT_TYPE,
     C7_EVENT_SCHEMA_VERSION,
     C7_MOVEMENT_CANONICAL_DOCUMENTS,
+    MATERIAL_ADMISSION_SCHEMA_VERSION,
     C7AdmissionConfig,
     C7AdmissionResult,
     C7CanonicalAbaError,
@@ -239,7 +255,7 @@ def _base_pair() -> tuple[StructuredMaterialCandidate, VerifiedMaterialCandidate
         content_format="structured_json",
     )
     decision = select_exactly_one_digestion_alternative(envelope)
-    trace = execute_c7_movement(
+    trace = execute_material_movement(
         snapshot=snapshot,
         envelope=envelope,
         decision=decision,
@@ -375,10 +391,10 @@ def _admission_binding(
         "input_closure_digest": verified.snapshot_identity_digest,
         "output_content_digest": verified.payload_content_digest,
         "ordered_event_payloads": _ordered_event_payloads(verified, config),
-        "schema_digest": content_digest({"schema": "ingest.c7.admission.v1"}),
+        "schema_digest": content_digest({"schema": MATERIAL_ADMISSION_SCHEMA_VERSION}),
         "compiler_identity": plan.compiler_id,
-        "interpreter_identity": "successor.ingest_index.c7.pure.v1",
-        "verifier_identity": "ingest.validator.c7.v1",
+        "interpreter_identity": MATERIAL_INTERPRETER_PROFILE_IDS["staged_candidate"],
+        "verifier_identity": "material.ingest.validator.v2",
         "actor_id": verified.actor,
         "project_key": verified.project_key,
         "authority_digest": verified.authority_digest,
@@ -407,7 +423,7 @@ def _config(**overrides: Any) -> C7AdmissionConfig:
         "attempt_id": ATTEMPT_ID,
         "program_id": PROGRAM_ID,
         "plan_id": plan.plan_id,
-        "capability_id": C7_INGEST_OWNER,
+        "capability_id": MATERIAL_INGEST_OWNER,
         "idempotency_key": IDEMPOTENCY_KEY,
         "execution_epoch": EXECUTION_EPOCH,
         "attempt_incarnation": ATTEMPT_INCARNATION,
@@ -489,8 +505,8 @@ def _seed_base(connection: sa.Connection) -> None:
             project_storage_ref="project-value:plan:c7-canonical-write",
             compiler_id=plan.compiler_id,
             compiler_version=plan.compiler_version,
-            operation_catalog_id=C7_OPERATION_CATALOG_ID,
-            catalog_version=C7_OPERATION_CATALOG_VERSION,
+            operation_catalog_id=MATERIAL_OPERATION_CATALOG_ID,
+            catalog_version=MATERIAL_OPERATION_CATALOG_VERSION,
             catalog_digest=catalog().catalog_digest,
             effect_closure_digest=plan.effect_closure_digest,
             authority_closure_digest=plan.authority_closure_digest,
@@ -537,7 +553,7 @@ def _seed_base(connection: sa.Connection) -> None:
             output_digest=AUTHORITY_DIGEST,
             effect_class="EFFECTFUL",
             resource_class="CPU_LIGHT",
-            capability_id=C7_INGEST_OWNER,
+            capability_id=MATERIAL_INGEST_OWNER,
             claim_owner="successor",
             claim_authority_epoch=AUTHORITY_EPOCH,
             claim_policy_digest=AUTHORITY_DIGEST,
@@ -570,7 +586,7 @@ def _seed_base(connection: sa.Connection) -> None:
         .insert()
         .values(
             project_key=PROJECT_KEY,
-            capability_id=C7_INGEST_OWNER,
+            capability_id=MATERIAL_INGEST_OWNER,
             mode="on",
             authority_epoch=AUTHORITY_EPOCH,
             successor_claim_enabled=True,
@@ -633,11 +649,11 @@ def _admit(
     )
 
 
-def _canonical_write_closure(engine: Engine) -> C7CanonicalWriteClosure:
+def _canonical_write_closure(engine: Engine) -> MaterialCanonicalWriteClosure:
     verified = _base_verified()
     config = _config()
     binding = _admission_binding(verified, config=config)
-    return C7CanonicalWriteClosure(
+    return MaterialCanonicalWriteClosure(
         write_port=PostgresC7CanonicalWritePort(),
         connection_factory=engine.connect,
         structured_candidate=_base_structured(),
@@ -649,17 +665,17 @@ def _canonical_write_closure(engine: Engine) -> C7CanonicalWriteClosure:
     )
 
 
-def _canonical_write_handler(engine: Engine) -> C7_2CanonicalCommitWriteHandler:
-    assembly = build_c7_assembly(
+def _canonical_write_handler(engine: Engine) -> MaterialCanonicalCommitWriteHandler:
+    assembly = build_material_ingest_assembly(
         project_scope_digest=SCOPE_DIGEST,
         canonical_write=_canonical_write_closure(engine),
     )
     handler = next(
         item
         for item in assembly.handlers
-        if isinstance(item, C7_2CanonicalCommitWriteHandler)
+        if isinstance(item, MaterialCanonicalCommitWriteHandler)
     )
-    assert assembly.cell("C7.2").status == "INSTALLED"
+    assert assembly.cell(MATERIAL_COMMIT_READBACK_CELL_ID).status == "INSTALLED"
     return handler
 
 
@@ -671,7 +687,11 @@ def _interpreter_binding(handler: object) -> InterpreterBinding:
         runtime_protocol_version="1",
         project_scope_digest=SCOPE_DIGEST,
         resource_policy_epoch=1,
-        authority_requirement_digest=C7_AUTHORITY_REQUIREMENT_DIGEST,
+        authority_requirement_digest=content_digest((
+            DEFAULT_MATERIAL_NATIVE_SOURCE.canonical_writer_ref,
+            DEFAULT_MATERIAL_NATIVE_SOURCE.production_admission_ref,
+            DEFAULT_MATERIAL_NATIVE_SOURCE.projector_driver_ref,
+        )),
     )
     assert binding.binding_digest == handler.handler_binding_digest
     return binding
@@ -687,7 +707,7 @@ def _assignment_for(handler: object) -> RuntimeAssignment:
         run_id=RUN_ID,
         step_id=STEP_ID,
         step_role=CompiledStepRole.EFFECT,
-        capability_id=C7_INGEST_OWNER,
+        capability_id=MATERIAL_INGEST_OWNER,
         operation_contract_ref=OperationContractRef(
             kind="ingest_index.commit_intent.readback.v1",
             contract_version="1",
@@ -695,7 +715,7 @@ def _assignment_for(handler: object) -> RuntimeAssignment:
         ),
         operation_contract_digest=handler.operation_contract_digest,
         return_contract_binding=ReturnContractBinding.from_contract(
-            "mrw.successor.c7.admission.v1",
+            MATERIAL_ADMISSION_SCHEMA_VERSION,
             ReturnContract(
                 success_modes=("SUCCEEDED",),
                 failure_modes=("FAILED",),
@@ -770,7 +790,7 @@ def _seed_canonical_head(
         "run_id": RUN_ID,
         "step_id": STEP_ID,
         "attempt_id": ATTEMPT_ID,
-        "capability_id": C7_INGEST_OWNER,
+        "capability_id": MATERIAL_INGEST_OWNER,
         "actor_id": verified.actor,
         "program_digest": binding.program_digest,
         "plan_digest": binding.plan_digest,
@@ -825,18 +845,18 @@ def _seed_canonical_head(
 def test_c7_2_assembly_installs_canonical_write_handler(
     disposable_database: Engine,
 ) -> None:
-    assembly = build_c7_assembly(
+    assembly = build_material_ingest_assembly(
         project_scope_digest=SCOPE_DIGEST,
         canonical_write=_canonical_write_closure(disposable_database),
     )
-    assert assembly.coverage()["C7.2"] == "INSTALLED"
-    assert assembly.coverage()["C7.1"] == "UNWIRED_DECLARED"
-    assert assembly.coverage()["C7.4"] == "UNWIRED_DECLARED"
+    assert assembly.coverage()[MATERIAL_COMMIT_READBACK_CELL_ID] == "INSTALLED"
+    assert assembly.coverage()[MATERIAL_STAGE_CANDIDATE_CELL_ID] == "UNWIRED_DECLARED"
+    assert assembly.coverage()[MATERIAL_RECONCILIATION_CELL_ID] == "UNWIRED_DECLARED"
     rollback = {item.cell_id: item for item in assembly.rollback_bindings}
-    assert rollback["C7.2"].status == "PRESENT"
-    assert rollback["C7.2"].binding_refs
-    assert rollback["C7.1"].status == "DECLARED_GAP"
-    assert rollback["C7.4"].status == "DECLARED_GAP"
+    assert rollback[MATERIAL_COMMIT_READBACK_CELL_ID].status == "PRESENT"
+    assert rollback[MATERIAL_COMMIT_READBACK_CELL_ID].binding_refs
+    assert rollback[MATERIAL_STAGE_CANDIDATE_CELL_ID].status == "DECLARED_GAP"
+    assert rollback[MATERIAL_RECONCILIATION_CELL_ID].status == "DECLARED_GAP"
 
 
 def test_c7_2_handler_commits_and_reads_back(
@@ -866,7 +886,7 @@ def test_c7_2_handler_commits_and_reads_back(
         assert int(head["revision"]) == 1
         assert head["commit_intent_id"] == _config().commit_intent_id
         intent = CommitIntentRepository(connection, _scope()).find_for_readback(
-            C7_INGEST_OWNER,
+            MATERIAL_INGEST_OWNER,
             IDEMPOTENCY_KEY,
         )
         assert intent["state"] == CommitIntentStatus.COMMITTED.value
@@ -911,7 +931,7 @@ def test_c7_2_authority_epoch_drift_fails_closed(
                 PUBLIC_TABLES["runtime_capability_authority"].c.project_key
                 == PROJECT_KEY,
                 PUBLIC_TABLES["runtime_capability_authority"].c.capability_id
-                == C7_INGEST_OWNER,
+                == MATERIAL_INGEST_OWNER,
             )
             .values(authority_epoch=AUTHORITY_EPOCH + 1)
         )
@@ -940,31 +960,31 @@ def test_c7_2_aba_rejects_same_identity_different_bytes(
 def test_c7_3_assembly_registers_search_and_graph_projectors(
     disposable_database: Engine,
 ) -> None:
-    closure = C7ProjectorDriverClosure(
+    closure = MaterialProjectorDriverClosure(
         connection_factory=disposable_database.connect,
         scope=_scope(),
         object_id=CANDIDATE_ID,
         expected_source_incarnation=SCOPE_INCARNATION,
     )
-    assembly = build_c7_assembly(
+    assembly = build_material_ingest_assembly(
         project_scope_digest=SCOPE_DIGEST,
         projector_driver=closure,
     )
-    assert assembly.coverage()["C7.3"] == "INSTALLED"
-    assert assembly.coverage()["C7.1"] == "UNWIRED_DECLARED"
-    assert assembly.coverage()["C7.4"] == "UNWIRED_DECLARED"
+    assert assembly.coverage()[MATERIAL_PROJECTION_DIFF_CELL_ID] == "INSTALLED"
+    assert assembly.coverage()[MATERIAL_STAGE_CANDIDATE_CELL_ID] == "UNWIRED_DECLARED"
+    assert assembly.coverage()[MATERIAL_RECONCILIATION_CELL_ID] == "UNWIRED_DECLARED"
     assert assembly.projector_registry is not None
     registered = {
         (contract.key.projector_id, contract.projection_id)
         for contract in assembly.projector_registry.projectors
     }
     assert registered == {
-        (C7_SEARCH_PROJECTOR_ID, "projection.c7-search.v1"),
-        (C7_GRAPH_PROJECTOR_ID, "projection.c7-graph.v1"),
+        (C7_SEARCH_PROJECTOR_ID, MATERIAL_SEARCH_PROJECTION_ID),
+        (C7_GRAPH_PROJECTOR_ID, MATERIAL_GRAPH_PROJECTION_ID),
     }
     rollback = {item.cell_id: item for item in assembly.rollback_bindings}
-    assert rollback["C7.3"].status == "PRESENT"
-    assert rollback["C7.3"].binding_refs
+    assert rollback[MATERIAL_PROJECTION_DIFF_CELL_ID].status == "PRESENT"
+    assert rollback[MATERIAL_PROJECTION_DIFF_CELL_ID].binding_refs
 
 
 def test_c7_3_driver_persists_offsets_and_rebuilds(
@@ -1085,6 +1105,59 @@ def test_c7_3_driver_persists_offsets_and_rebuilds(
             )
 
 
+def test_historical_projection_value_is_explicit_and_not_rehashed(
+    disposable_database: Engine,
+) -> None:
+    verified = _base_verified()
+    binding = _admission_binding(verified)
+    with disposable_database.begin() as connection:
+        _admit(connection, verified, binding)
+        scope = _scope()
+        search = C7ProjectorDriver(connection, scope).drive(
+            CANDIDATE_ID,
+            "search",
+            mode="FULL",
+            expected_source_incarnation=SCOPE_INCARNATION,
+        )
+        current_id = search.value_ref.removeprefix("project-value:")
+        current = (
+            connection.execute(
+                sa.select(_PROJECT_VALUE_TABLE).where(
+                    _PROJECT_VALUE_TABLE.c.project_key == PROJECT_KEY,
+                    _PROJECT_VALUE_TABLE.c.value_id == current_id,
+                )
+            )
+            .mappings()
+            .one()
+        )
+        legacy_id = f"{LEGACY_C7_PROJECTION_VALUE_PREFIX}:search:historical"
+        legacy_digest = "e" * 64
+        legacy_row = dict(current)
+        legacy_row.update(
+            value_id=legacy_id,
+            object_type=LEGACY_C7_SEARCH_VALUE_OBJECT_TYPE,
+            codec_id=LEGACY_C7_PROJECTION_CODEC_ID,
+            incarnation="c7:search:historical",
+            content_digest=legacy_digest,
+        )
+        connection.execute(_PROJECT_VALUE_TABLE.insert().values(**legacy_row))
+        legacy_ref = f"project-value:{legacy_id}"
+        historical = read_legacy_projection_value_exact(
+            connection,
+            scope,
+            value_ref=legacy_ref,
+            expected_digest=legacy_digest,
+        )
+        assert historical["content_digest"] == legacy_digest
+        with pytest.raises(C7ProjectorIntegrityError, match="material v2 codec"):
+            verify_projection_value_readback(
+                connection,
+                scope,
+                value_ref=legacy_ref,
+                projection_digest=legacy_digest,
+            )
+
+
 def test_c7_3_driver_rejects_incarnation_drift(
     disposable_database: Engine,
 ) -> None:
@@ -1111,20 +1184,20 @@ def test_c7_3_driver_rejects_incarnation_drift(
 def test_c7_3_handler_rejects_drifted_binding(
     disposable_database: Engine,
 ) -> None:
-    closure = C7ProjectorDriverClosure(
+    closure = MaterialProjectorDriverClosure(
         connection_factory=disposable_database.connect,
         scope=_scope(),
         object_id=CANDIDATE_ID,
         expected_source_incarnation=SCOPE_INCARNATION,
     )
-    assembly = build_c7_assembly(
+    assembly = build_material_ingest_assembly(
         project_scope_digest=SCOPE_DIGEST,
         projector_driver=closure,
     )
     handler = next(
         item
         for item in assembly.handlers
-        if isinstance(item, C7_3ProjectorDriverHandler)
+        if isinstance(item, MaterialProjectorDriverHandler)
     )
     assignment = _assignment_for(handler)
     claim = _claim_for(handler, assignment)

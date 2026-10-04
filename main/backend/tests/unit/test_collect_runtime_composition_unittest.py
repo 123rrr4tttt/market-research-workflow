@@ -30,6 +30,18 @@ def test_INVARIANT__composition_registers_adapters_and_compat_projector() -> Non
     assert "search.market" in runtime.list_collect_skills()
     assert "collect.source_library" in runtime.list_collect_skills()
     assert "crawler.scrapy" in runtime.list_collect_skills()
+    assert callable(runtime._SUCCESSOR_EFFECT_GATEWAY)
+
+
+def test_FAILURE_PRESERVED__successor_composition_does_not_fallback_for_unknown_channel() -> None:
+    from app.composition import collect_runtime as composition
+    from app.services.collect_runtime.contracts import CollectRequest
+    from app.services.collect_runtime import runtime
+
+    composition.configure_default_collect_adapters(force=True)
+    result = runtime._SUCCESSOR_EFFECT_GATEWAY(CollectRequest(channel="not.registered"))
+    assert result.status == "failed"
+    assert result.errors[0]["code"] == "collect_effect_not_registered"
 
 
 def test_FAILURE_PRESERVED__compat_projector_missing_fails_closed() -> None:

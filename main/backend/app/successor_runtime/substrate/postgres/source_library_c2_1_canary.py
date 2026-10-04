@@ -25,9 +25,9 @@ from typing import Any, Literal
 from sqlalchemy import select
 from sqlalchemy.engine import Connection
 
-from app.successor_runtime.capabilities.source_library_c2_1_interpreters import (
+from app.successor_runtime.capabilities.source_resolution_interpreters import (
     InterpreterFailure,
-    SourceLibraryC2_1SuccessorInterpreter,
+    SourceResolutionSuccessorInterpreter,
 )
 from app.successor_runtime.runtime.assignments import (
     RuntimeAssignment,
@@ -57,9 +57,9 @@ from .runtime_journal import (
     validate_runtime_assignment_row,
 )
 
-TRANSITION_SCHEMA = "mrw.successor.source-library.c2-1.canary-transition.v1"
+TRANSITION_SCHEMA = "mrw.source.resolve-execution-request.canary-transition.v2"
 AUTHORITY_EVENT_TYPE = "CapabilityAuthorityChanged"
-AUTHORITY_EVENT_SCHEMA = "mrw.successor.source-library.c2-1.authority-event.v1"
+AUTHORITY_EVENT_SCHEMA = "mrw.source.resolve-execution-request.authority-event.v2"
 
 _OPAQUE_PAYLOAD_REF_PREFIXES = (
     "value:",
@@ -141,10 +141,14 @@ class C2_1SuccessorResolutionHandler(RuntimeHandler):
             assignment.handler_binding_digest != self.handler_binding_digest
             or assignment.operation_contract_digest != self.operation_contract_digest
         ):
-            raise DefiniteInterpreterFailure("EXACT_C2_1_HANDLER_BINDING_DRIFT")
+            raise DefiniteInterpreterFailure(
+                "EXACT_SOURCE_REQUEST_RESOLUTION_HANDLER_BINDING_DRIFT"
+            )
         if assignment.deployment_catalog_digest != self.deployment_catalog_digest:
-            raise DefiniteInterpreterFailure("EXACT_C2_1_DEPLOYMENT_CATALOG_DRIFT")
-        outcome = SourceLibraryC2_1SuccessorInterpreter().interpret(
+            raise DefiniteInterpreterFailure(
+                "EXACT_SOURCE_REQUEST_RESOLUTION_DEPLOYMENT_CATALOG_DRIFT"
+            )
+        outcome = SourceResolutionSuccessorInterpreter().interpret(
             program=self.program,
             plan=self.plan,
             contract_ref=self.contract_ref,
@@ -244,7 +248,7 @@ class SourceLibraryC2_1CanaryTransitionPacket:
     before_authority_digest: str
     after_authority_digest: str
     schema_version: Literal[
-        "mrw.successor.source-library.c2-1.canary-transition.v1"
+        TRANSITION_SCHEMA
     ] = TRANSITION_SCHEMA
     transition_packet_digest: str = ""
 

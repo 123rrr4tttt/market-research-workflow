@@ -97,7 +97,7 @@ def test_twitter_api():
     print("=" * 60)
     
     try:
-        query = "lottery"
+        query = "renewable energy"
         print(f"搜索查询: {query}")
         
         tweets = client.search_recent_tweets(
@@ -197,4 +197,3 @@ def test_twitter_api():
 if __name__ == "__main__":
     success = test_twitter_api()
     sys.exit(0 if success else 1)
-

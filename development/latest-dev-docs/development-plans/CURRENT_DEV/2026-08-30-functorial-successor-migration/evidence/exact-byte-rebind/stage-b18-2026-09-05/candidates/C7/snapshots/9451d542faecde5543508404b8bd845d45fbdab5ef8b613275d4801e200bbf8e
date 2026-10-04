@@ -1,0 +1,965 @@
+{
+  "version": "kit-registry.failures.v1",
+  "entries": [
+    {
+      "name": "c7.movement.terminal_failure",
+      "codes": [
+        "alternative_mismatch",
+        "authority_digest_invalid",
+        "authority_epoch_revoked",
+        "authority_mismatch",
+        "branch_mismatch",
+        "candidate_digest_mismatch",
+        "candidate_id_mismatch",
+        "candidate_replay_mismatch",
+        "chunk_codepoint_exceeds_ceiling",
+        "chunk_count_ceiling_exceeded",
+        "chunk_mode_mismatch",
+        "chunk_policy_ceiling_exceeded",
+        "chunk_policy_invalid",
+        "decision_digest_mismatch",
+        "derived_mode_mismatch",
+        "empty_chunk_input",
+        "empty_or_insufficient_derived_report",
+        "empty_pass_through_rejected",
+        "empty_structured_output",
+        "envelope_digest_mismatch",
+        "expected_candidate_digest_invalid",
+        "expected_candidate_digest_mismatch",
+        "format_mismatch",
+        "input_closure_mismatch",
+        "malformed_structured_json",
+        "ordered_source_closure_mismatch",
+        "ordered_source_mismatch",
+        "pass_through_resource_limit_exceeded",
+        "payload_content_digest_mismatch",
+        "payload_ref_mismatch",
+        "project_key_mismatch",
+        "provenance_closure_mismatch",
+        "provenance_mismatch",
+        "raw_content_digest_mismatch",
+        "raw_snapshot_limit_exceeded",
+        "replay_terminal",
+        "server_identity_missing",
+        "snapshot_identity_mismatch",
+        "snapshot_ref_mismatch",
+        "structured_payload_limit_exceeded",
+        "unsafe_pass_through_deferred"
+      ]
+    },
+    {
+      "name": "c2.shared.contract_failure",
+      "codes": [
+        "schema_contract_invalid",
+        "digest_contract_invalid",
+        "scope_contract_invalid",
+        "catalog_contract_invalid",
+        "mode_contract_invalid",
+        "provider_effect_contract_invalid",
+        "terminal_contract_invalid",
+        "legacy_input_union_invalid"
+      ]
+    },
+    {
+      "name": "typed_knowledge.persistence_boundary_failure",
+      "codes": [
+        "typed_knowledge_persistence_boundary_violation"
+      ]
+    },
+    {
+      "name": "llm.provider_resolution.failure",
+      "codes": [
+        "provider_not_registered"
+      ]
+    },
+    {
+      "name": "c8.typed_knowledge.failure",
+      "codes": [
+        "DEMAND_READ_UNAVAILABLE",
+        "DEMAND_READ_AMBIGUOUS",
+        "CANONICAL_REF_VALIDATION_FAILED"
+      ]
+    },
+    {
+      "name": "c8.writing.failure",
+      "codes": [
+        "WRITING_SYNTHESIS_INCOMPLETE",
+        "WRITING_STAGE_INVALID"
+      ]
+    },
+    {
+      "name": "c8.graph.failure",
+      "codes": [
+        "GRAPH_PROJECTION_DECLARED_LOSS",
+        "GRAPH_ITEM_CANONICAL_REF_INVALID"
+      ]
+    },
+    {
+      "name": "c8.report_delivery.failure",
+      "codes": [
+        "REPORT_LOCATOR_READ_ONLY_UNAVAILABLE",
+        "REPORT_ADMISSION_INTERFACE_ONLY",
+        "REPORT_EXPORT_NOT_EXECUTED"
+      ]
+    },
+    {
+      "name": "c9.projector.failure",
+      "codes": [
+        "SOURCE_UNAVAILABLE",
+        "SOURCE_DRIFT",
+        "SOURCE_INCARNATION_STALE",
+        "OFFSET_STALE",
+        "PROJECTION_OFFSET_CLOSURE_DRIFT",
+        "EXTERNAL_INDEX_EFFECT_FAILED",
+        "REBUILD_FAILED"
+      ]
+    },
+    {
+      "name": "first_specimen.handler_failure",
+      "codes": [
+        "first_specimen_handler_contract_invalid",
+        "first_specimen_operation_unsupported",
+        "first_specimen_semantic_product_invalid",
+        "first_specimen_replay_projection_invalid",
+        "first_specimen_activation_binding_invalid",
+        "first_specimen_handler_binding_invalid",
+        "first_specimen_output_write_invalid",
+        "first_specimen_output_readback_invalid"
+      ]
+    },
+    {
+      "name": "shared.family.generator.failure",
+      "codes": [
+        "config_invalid",
+        "authority_enabled",
+        "path_escape",
+        "input_invalid",
+        "binding_missing",
+        "fragment_invariant_invalid",
+        "nondeterministic_output",
+        "check_drift",
+        "check_unknown"
+      ]
+    },
+    {
+      "name": "scheduled.automation.evidence.failure",
+      "codes": [
+        "report_not_object",
+        "report_status_invalid",
+        "checker_contract_invalid"
+      ]
+    },
+    {
+      "name": "ingest.market.failure",
+      "codes": [
+        "market_adapter_not_configured",
+        "market_provider_iteration_failed",
+        "market_persistence_failed"
+      ]
+    },
+    {
+      "name": "ingest.policy.failure",
+      "codes": [
+        "policy_adapter_not_configured",
+        "policy_provider_iteration_failed",
+        "policy_persistence_failed",
+        "policy_indexing_failed"
+      ]
+    },
+    {
+      "name": "ingest.reddit.failure",
+      "codes": [
+        "reddit_adapter_not_configured",
+        "reddit_collection_failed"
+      ]
+    },
+    {
+      "name": "ingest.google_news.failure",
+      "codes": [
+        "google_news_adapter_not_configured",
+        "google_news_collection_failed"
+      ]
+    },
+    {
+      "name": "resource_pool.http_fetch.failure",
+      "codes": [
+        "port_not_configured",
+        "transport",
+        "http_status",
+        "response_invalid"
+      ]
+    },
+    {
+      "name": "resource_pool.official_access.failure",
+      "codes": [
+        "official_access_port_not_configured"
+      ]
+    },
+    {
+      "name": "collect.runtime.failure",
+      "codes": [
+        "skill_id_required",
+        "collect_adapter_contract_invalid",
+        "compat_projector_contract_invalid",
+        "collect_channel_unsupported",
+        "auto_batch_execution_failed"
+      ]
+    },
+    {
+      "name": "source_library.crawler_provider_resolution.failure",
+      "codes": [
+        "resolver_not_configured",
+        "provider_unavailable",
+        "provider_unsupported"
+      ]
+    },
+    {
+      "name": "codex.invocation.failure",
+      "codes": [
+        "prompt_required",
+        "cli_not_installed",
+        "cli_auth_unavailable",
+        "cli_command_failed",
+        "home_preparation_failed",
+        "process_start_failed",
+        "endpoint_timeout",
+        "server_event_error",
+        "rpc_error",
+        "thread_id_missing",
+        "empty_output"
+      ]
+    },
+    {
+      "name": "database.session_retry.failure",
+      "codes": [
+        "operation_failed",
+        "retry_exhausted"
+      ]
+    },
+    {
+      "name": "ingest.long_cycle.contract_failure",
+      "codes": [
+        "required_text_empty"
+      ]
+    },
+    {
+      "name": "keyword_memory.contract_failure",
+      "codes": [
+        "keyword_required"
+      ]
+    },
+    {
+      "name": "llm.report.request.failure",
+      "codes": [
+        "invalid_export_token_format",
+        "invalid_export_token_signature",
+        "invalid_export_token_payload",
+        "unsupported_export_token_contract",
+        "export_token_markdown_hash_mismatch",
+        "export_token_missing_gate",
+        "export_token_missing_expiry",
+        "export_token_expired",
+        "export_token_actor_mismatch",
+        "export_token_revoked",
+        "export_token_already_used",
+        "retention_days_invalid",
+        "topic_required",
+        "unsupported_export_format"
+      ]
+    },
+    {
+      "name": "online_lottery.compatibility.failure",
+      "codes": [
+        "attribute_not_found"
+      ]
+    },
+    {
+      "name": "project.operation.failure",
+      "codes": [
+        "project_key_required",
+        "project_binding_conflict",
+        "schema_binding_conflict",
+        "workflow_not_found",
+        "workflow_handler_not_found",
+        "prefix_required"
+      ]
+    },
+    {
+      "name": "source_library.contract_failure",
+      "codes": [
+        "external_project_manifest_invalid",
+        "external_project_evidence_insufficient",
+        "external_project_execution_mode_unsupported",
+        "channel_not_found",
+        "channel_disabled",
+        "required_params_missing",
+        "crawler_project_required",
+        "crawler_spider_required",
+        "channel_credentials_missing",
+        "channel_provider_unsupported",
+        "policy_state_required",
+        "market_keywords_required",
+        "google_news_keywords_required",
+        "url_routing_urls_required",
+        "frontdoor_runtime_targets_invalid",
+        "frontdoor_entrypoint_rejected",
+        "source_item_disabled"
+      ]
+    },
+    {
+      "name": "source_library.loader.failure",
+      "codes": [
+        "yaml_parser_unavailable"
+      ]
+    },
+    {
+      "name": "source_library.resolver.failure",
+      "codes": [
+        "parallel_item_failed",
+        "parallel_timeout"
+      ]
+    },
+    {
+      "name": "prompt_time_density.request.failure",
+      "codes": [
+        "bucket_invalid",
+        "candidate_window_format_invalid",
+        "smoothing_invalid",
+        "date_range_invalid",
+        "keyword_required",
+        "peak_percentile_out_of_range",
+        "uncertainty_out_of_range",
+        "candidate_windows_required",
+        "eta_negative",
+        "delta_max_out_of_range",
+        "tau_negative",
+        "min_overlap_out_of_range",
+        "target_overlap_out_of_range",
+        "max_windows_not_positive"
+      ]
+    },
+    {
+      "name": "report.query.contract_failure",
+      "codes": [
+        "date_format_invalid"
+      ]
+    },
+    {
+      "name": "request_identity.failure",
+      "codes": [
+        "actor_context_invalid",
+        "authority_contract_invalid",
+        "observation_type_invalid",
+        "trusted_actor_required"
+      ]
+    },
+    {
+      "name": "successor_runtime.dto.contract_failure",
+      "codes": [
+        "command_payload_kind_mismatch",
+        "query_params_kind_mismatch",
+        "successful_envelope_data_missing",
+        "successful_envelope_error_present",
+        "error_envelope_details_missing",
+        "error_envelope_data_present",
+        "non_error_envelope_details_present",
+        "sse_event_not_after_cursor",
+        "sse_events_not_strictly_ascending",
+        "sse_next_seq_mismatch"
+      ]
+    },
+    {
+      "name": "task.readback.contract_failure",
+      "codes": [
+        "line_key_required"
+      ]
+    },
+    {
+      "name": "writing.request.contract_failure",
+      "codes": [
+        "query_required"
+      ]
+    },
+    {
+      "name": "agent.batch.failure",
+      "codes": [
+        "approval_expired",
+        "approval_not_found",
+        "approval_token_required",
+        "channel_unknown",
+        "command_required",
+        "lane_invalid",
+        "planner_no_executable_tasks"
+      ]
+    },
+    {
+      "name": "agent.functorial_projection.failure",
+      "codes": [
+        "catalog_record_malformed",
+        "composition_step_invalid",
+        "motif_id_required",
+        "ref_cycle",
+        "ref_empty",
+        "ref_id_missing",
+        "ref_invalid_format",
+        "ref_kind_unsupported",
+        "ref_unresolved",
+        "workflow_id_required",
+        "workflow_no_operator",
+        "workflow_order_incompatible",
+        "workflow_step_invalid",
+        "workflow_steps_empty",
+        "workflow_steps_invalid_type",
+        "workflow_steps_required"
+      ]
+    },
+    {
+      "name": "agent.runtime.failure",
+      "codes": [
+        "approval_binding_incomplete",
+        "approval_id_required",
+        "approval_not_approved",
+        "approval_type_invalid",
+        "capability_input_missing",
+        "conversation_empty_answer",
+        "long_task_stage_invalid",
+        "long_task_stage_status_invalid",
+        "message_required",
+        "session_project_mismatch",
+        "write_set_conflict",
+        "writing_anchor_not_found",
+        "writing_anchor_required",
+        "writing_cursor_offset_required",
+        "writing_operation_unsupported",
+        "writing_range_invalid",
+        "tool_name_required",
+        "tool_status_unsupported"
+      ]
+    },
+    {
+      "name": "agent.session.failure",
+      "codes": [
+        "approval_id_required",
+        "approval_not_found",
+        "artifact_identity_required",
+        "backend_unavailable",
+        "execution_mode_invalid",
+        "phase_invalid",
+        "session_already_exists",
+        "session_id_required",
+        "session_not_found",
+        "status_invalid",
+        "task_dependencies_incomplete",
+        "task_identity_required",
+        "task_not_claimable",
+        "task_not_found"
+      ]
+    },
+    {
+      "name": "codex.oauth.failure",
+      "codes": [
+        "codex_oauth_authorize_url_missing",
+        "codex_oauth_client_id_missing",
+        "codex_oauth_disabled",
+        "codex_oauth_redirect_uri_missing",
+        "codex_oauth_token_url_missing",
+        "invalid_or_expired_state",
+        "state_expired",
+        "state_missing_verifier",
+        "state_required",
+        "token_exchange_failed",
+        "token_sink_owner_mismatch",
+        "token_sink_parent_missing",
+        "token_sink_parent_must_be_directory",
+        "token_sink_parent_must_not_be_group_or_world_writable",
+        "token_sink_parent_must_not_be_symlink",
+        "token_sink_path_contains_control_character",
+        "token_sink_path_must_be_absolute",
+        "token_sink_path_must_be_file",
+        "token_sink_path_must_not_be_symlink"
+      ]
+    },
+    {
+      "name": "agent.skill_runtime.failure",
+      "codes": [
+        "actor_role_invalid",
+        "approval_context_required",
+        "approval_required",
+        "invoke_denied",
+        "loop_detected",
+        "skill_id_required",
+        "skill_not_found",
+        "write_set_conflict"
+      ]
+    },
+    {
+      "name": "crawler.runtime.failure",
+      "codes": [
+        "provider_not_registered",
+        "provider_poll_unsupported",
+        "poll_project_required",
+        "scrapyd_base_url_required",
+        "scrapyd_compose_file_missing",
+        "scrapyd_compose_unavailable",
+        "scrapyd_module_unavailable",
+        "scrapyd_unavailable",
+        "scrapyd_lazy_start_failed",
+        "scrapyd_readiness_timeout",
+        "scrapyd_transport",
+        "scrapyd_http_status",
+        "scrapyd_response_invalid",
+        "bootstrap_project_name_invalid",
+        "bootstrap_build_failed",
+        "bootstrap_artifact_missing",
+        "bootstrap_project_required",
+        "bootstrap_deploy_failed"
+      ]
+    },
+    {
+      "name": "crawler.registry.contract_failure",
+      "codes": [
+        "provider_key_required"
+      ]
+    },
+    {
+      "name": "ingest.long_cycle.failure",
+      "codes": [
+        "lifecycle_transition_invalid",
+        "window_bounds_invalid",
+        "candidate_window_invalid",
+        "required_ref_missing",
+        "task_state_invalid",
+        "jsonl_invalid",
+        "lifecycle_event_invalid",
+        "live_enqueue_required",
+        "queue_empty",
+        "task_record_missing",
+        "repository_type_invalid"
+      ]
+    },
+    {
+      "name": "ingest.operation.failure",
+      "codes": [
+        "canary_readback_not_object",
+        "commodity_collection_failed",
+        "ecom_collection_failed",
+        "official_news_collection_failed",
+        "market_web_collection_failed",
+        "raw_import_failed",
+        "california_report_collection_failed",
+        "weekly_report_collection_failed",
+        "monthly_report_collection_failed",
+        "social_sentiment_collection_failed",
+        "policy_regulation_collection_failed",
+        "url_pool_collection_failed"
+      ]
+    },
+    {
+      "name": "indexer.policy.failure",
+      "codes": [
+        "vector_contract_missing_fields",
+        "vector_contract_not_vectorizable",
+        "embedding_provider_not_configured",
+        "index_execution_failed",
+        "embedding_dimension_invalid"
+      ]
+    },
+    {
+      "name": "job.history.failure",
+      "codes": [
+        "history_read_failed"
+      ]
+    },
+    {
+      "name": "resource_pool.contract.failure",
+      "codes": [
+        "preset_pack_unknown",
+        "query_terms_required",
+        "search_template_invalid",
+        "entry_domain_required",
+        "scope_invalid",
+        "site_url_required",
+        "project_key_required",
+        "item_key_required",
+        "source_item_not_found",
+        "item_payload_key_required",
+        "site_entries_required"
+      ]
+    },
+    {
+      "name": "clue_chain.failure",
+      "codes": [
+        "input_invalid",
+        "provider_result_invalid",
+        "chain_not_found",
+        "object_not_found",
+        "chain_closed",
+        "graph_projection_invalid"
+      ]
+    },
+    {
+      "name": "document_query.failure",
+      "codes": [
+        "filter_invalid",
+        "sort_invalid",
+        "statement_invalid",
+        "result_envelope_invalid",
+        "document_not_found"
+      ]
+    },
+    {
+      "name": "graph.backfill.failure",
+      "codes": [
+        "transaction_failed"
+      ]
+    },
+    {
+      "name": "search.failure",
+      "codes": [
+        "backend_unavailable",
+        "embedding_failed",
+        "vector_search_failed",
+        "global_vector_object_invalid",
+        "evidence_hit_invalid",
+        "retrieval_run_invalid"
+      ]
+    },
+    {
+      "name": "typed_knowledge.contract_failure",
+      "codes": [
+        "object_contract_invalid",
+        "relationship_contract_invalid",
+        "downstream_contract_invalid",
+        "writing_handoff_contract_invalid",
+        "writing_context_contract_invalid",
+        "governance_transition_invalid"
+      ]
+    },
+    {
+      "name": "workflow_graph.failure",
+      "codes": [
+        "contract_invalid",
+        "integrity_invalid",
+        "object_not_found",
+        "revision_conflict",
+        "executor_not_registered",
+        "required_input_missing",
+        "store_unavailable"
+      ]
+    },
+    {
+      "name": "writing.failure",
+      "codes": [
+        "document_not_found",
+        "version_conflict",
+        "card_not_found",
+        "action_not_found",
+        "action_execution_failed"
+      ]
+    },
+    {
+      "name": "c1.capability.failure",
+      "codes": [
+        "C1_ACCEPTANCE_DIGEST_INVALID",
+        "C1_ACCEPTANCE_INPUT_INVALID",
+        "C1_CONTRACT_KIND_UNSUPPORTED",
+        "C1_DSL_COMPILE_FAILURE",
+        "C1_DSL_CYCLE",
+        "C1_DSL_DUPLICATE_NODE_ID",
+        "C1_DSL_MALFORMED_PAYLOAD",
+        "C1_DSL_MISSING_ENDPOINT",
+        "C1_DSL_UNSUPPORTED_NODE_TYPE",
+        "C1_OBSERVATION_SHAPE_INVALID",
+        "C1_PROGRAM_PLAN_BINDING_INVALID",
+        "C1_RECEIPT_CONTRACT_INVALID",
+        "C1_ROLLBACK_BINDING_INVALID",
+        "C1_SLICE_SHAPE_INVALID"
+      ]
+    },
+    {
+      "name": "c2.interpreter.failure",
+      "codes": [
+        "ASSIGNMENT_BINDING_MISMATCH"
+      ]
+    },
+    {
+      "name": "c2.provider_effect.failure",
+      "codes": [
+        "ARTIFACT_WRITE",
+        "CANCELLED",
+        "INVALID_PARAMS",
+        "MISSING_CREDENTIAL",
+        "OUTCOME_UNKNOWN",
+        "PROVIDER_REJECTED",
+        "RATE_LIMIT",
+        "REQUEST_BINDING_MISMATCH",
+        "RESOURCE_CEILING_EXCEEDED",
+        "TIMEOUT",
+        "TRANSPORT",
+        "UNAUTHORIZED",
+        "UNSUPPORTED_PROVIDER"
+      ]
+    },
+    {
+      "name": "c7.ingest.contract_failure",
+      "codes": [
+        "input_contract_invalid",
+        "lookup_not_found",
+        "program_binding_invalid",
+        "stage_invalid"
+      ]
+    },
+    {
+      "name": "c7.ingest_registry.failure",
+      "codes": [
+        "backend_unavailable",
+        "conflict",
+        "credential_rejected",
+        "input_contract_invalid",
+        "integrity_violation",
+        "not_found"
+      ]
+    },
+    {
+      "name": "c8.contract.failure",
+      "codes": [
+        "authority_contract_invalid",
+        "canonical_json_invalid",
+        "digest_binding_invalid",
+        "evidence_surface_invalid",
+        "input_contract_invalid",
+        "lookup_not_found",
+        "operation_contract_invalid",
+        "payload_codec_invalid",
+        "program_binding_invalid"
+      ]
+    },
+    {
+      "name": "c8.report_export_token.failure",
+      "codes": [
+        "export_token_actor_mismatch",
+        "export_token_already_used",
+        "export_token_expired",
+        "export_token_markdown_hash_mismatch",
+        "export_token_missing_expiry",
+        "export_token_revoked",
+        "invalid_export_token_format",
+        "invalid_export_token_payload",
+        "invalid_export_token_signature",
+        "unsupported_export_token_contract"
+      ]
+    },
+    {
+      "name": "c8.report_export_token_state.failure",
+      "codes": [
+        "backend_unavailable",
+        "conflict",
+        "credential_rejected",
+        "input_contract_invalid",
+        "not_found"
+      ]
+    },
+    {
+      "name": "c9.evidence_surface.failure",
+      "codes": [
+        "authority_contract_invalid",
+        "evidence_integrity_invalid",
+        "evidence_line_set_invalid",
+        "evidence_source_invalid",
+        "projection_input_invalid",
+        "surface_contract_invalid"
+      ]
+    },
+    {
+      "name": "capability.primitive.contract_failure",
+      "codes": [
+        "codec_input_type_invalid",
+        "digest_contract_invalid"
+      ]
+    },
+    {
+      "name": "first_specimen.capability.failure",
+      "codes": [
+        "CAPABILITY_CONTRACT_INVALID",
+        "DELIVERY_AUTHORITY_OR_APPROVAL_INVALID",
+        "DELIVERY_GATE_REJECTED",
+        "DOCUMENT_OBSERVATION_MISMATCH",
+        "GAP_SUCCESSOR_REJECTED",
+        "INTERNAL_EXPORT_READBACK_CONFLICT",
+        "INTERNAL_EXPORT_REJECTED",
+        "INTERPRETER_UNAVAILABLE",
+        "INVALID_ARTIFACT_CLOSURE",
+        "INVALID_CAPTURED_MATERIAL",
+        "INVALID_CLAIM_OR_GAP",
+        "INVALID_EVIDENCE_QUALIFICATION",
+        "LOOKUP_NOT_FOUND",
+        "SUBMISSION_REJECTED"
+      ]
+    },
+    {
+      "name": "line_event.readback.failure",
+      "codes": [
+        "event_migration_illegal",
+        "line_event_unknown",
+        "line_key_unknown"
+      ]
+    },
+    {
+      "name": "quality.promotion.contract_failure",
+      "codes": [
+        "boolean_invalid",
+        "case_id_required",
+        "evidence_type_invalid",
+        "executor_health_invalid",
+        "integer_invalid",
+        "number_invalid",
+        "provider_replay_invalid",
+        "sample_count_invalid",
+        "sequence_invalid",
+        "threshold_version_required"
+      ]
+    },
+    {
+      "name": "source_library.single_source_guard.failure",
+      "codes": [
+        "single_source_guard_allowed_urls_invalid",
+        "single_source_guard_blocked",
+        "single_source_guard_invalid_shape",
+        "single_source_guard_missing",
+        "single_source_guard_site_entries_mismatch",
+        "single_source_guard_strict_source_required"
+      ]
+    },
+    {
+      "name": "successor.language.failure",
+      "codes": [
+        "CANONICAL_VALUE_INVALID",
+        "COMPILED_PLAN_INVALID",
+        "CONTRACT_BINDING_MISSING",
+        "CONTRACT_REGISTRY_INVALID",
+        "DEPENDENCY_CYCLE",
+        "DUPLICATE_STEP_ID",
+        "FIRST_SPECIMEN_INPUT_REJECTED",
+        "INVALID_PROGRAM",
+        "MISSING_DEPENDENCY",
+        "MISSING_OPERATION_CONTRACT_RESOLVER",
+        "PROFILE_INVALID",
+        "PROGRAM_CODEC_INVALID",
+        "PROGRAM_DIGEST_MISMATCH",
+        "PROGRAM_MATERIALIZATION_INVALID",
+        "PROGRAM_TYPE_INVALID",
+        "SUCCESSOR_MATERIALIZATION_REJECTED",
+        "TRANSFORM_BINDING_MISSING",
+        "TRANSFORM_CALLABLE_INVALID",
+        "TRANSFORM_REGISTRY_INVALID",
+        "TRANSFORM_TYPE_INVALID",
+        "TRAVERSAL_SHAPE_BINDING_REQUIRED",
+        "TYPE_MISMATCH",
+        "UNKNOWN_NODE_KIND",
+        "UNKNOWN_RETURN_CONTRACT",
+        "UNRESOLVED_OPERATION_CONTRACT",
+        "UNSUPPORTED_TRAVERSAL"
+      ]
+    },
+    {
+      "name": "successor.ops_surface.failure",
+      "codes": [
+        "AUTHORITY_PROJECTION_FORBIDDEN",
+        "DASHBOARD_ADMIN_SURFACE_INVALID",
+        "HEALTH_MATRIX_SURFACE_INVALID",
+        "NORMALIZED_STRING_TUPLE_INVALID",
+        "NORMALIZED_TEXT_INVALID",
+        "OPS_MISC_SURFACE_INVALID",
+        "PROJECTS_CONFIG_SURFACE_INVALID",
+        "RUNTIME_OPS_SURFACE_INVALID"
+      ]
+    },
+    {
+      "name": "successor.research.failure",
+      "codes": [
+        "ARTIFACT_IDENTITY_INVALID",
+        "ARTIFACT_INVALID",
+        "CANONICAL_ENCODING_INVALID",
+        "CANONICAL_JSON_ROOT_INVALID",
+        "CANONICAL_VALUE_UNSUPPORTED",
+        "CLAIM_INVALID",
+        "DELIVERY_ATTEMPT_INVALID",
+        "DELIVERY_INTENT_INVALID",
+        "DIGEST_FINALIZATION_INVALID",
+        "EVIDENCE_QUALIFICATION_INVALID",
+        "GAP_INVALID",
+        "INQUIRY_INVALID",
+        "MATERIAL_REF_INVALID",
+        "RELATION_INVALID",
+        "RESEARCH_INTENT_INVALID",
+        "RESEARCH_OBJECT_REF_INVALID",
+        "RESEARCH_PLAN_INVALID",
+        "SOURCE_REF_INVALID",
+        "VALIDITY_INVALID"
+      ]
+    },
+    {
+      "name": "successor.runtime.failure",
+      "codes": [
+        "ACTIVATION_INVALID",
+        "ADMISSION_BINDING_REJECTED",
+        "ADMISSION_COMMIT_READBACK_INVALID",
+        "ADMISSION_REGISTRY_INVALID",
+        "ADMISSION_ROW_INVALID",
+        "ASSIGNMENT_INVALID",
+        "AUTHORITY_DRIFT",
+        "AUTHORITY_EXPIRED",
+        "AUTHORITY_GRANT_INVALID",
+        "BRANCH_CONTROL_INVALID",
+        "BRANCH_DECISION_UNRESOLVED",
+        "CAPACITY_CONTRACT_INVALID",
+        "CLAIM_BINDING_INVALID",
+        "CLOCK_OBSERVATION_INVALID",
+        "CONTROL_PLANE_PERMISSION_DENIED",
+        "CONTROL_PLANE_SCOPE_INVALID",
+        "FACADE_CONTRACT_INVALID",
+        "FACADE_INPUT_INVALID",
+        "FACADE_PORT_RESULT_INVALID",
+        "FAILURE_POLICY_INVALID",
+        "GUARD_EXPRESSION_INVALID",
+        "ILLEGAL_RUN_TRANSITION",
+        "ILLEGAL_STEP_TRANSITION",
+        "LEGACY_OBSERVATION_INVALID",
+        "NODE_CLAIM_REJECTED",
+        "NODE_CONTRACT_INVALID",
+        "NODE_HANDLER_CONTRACT_INVALID",
+        "NODE_PORT_RESULT_INVALID",
+        "NON_START_PROOF_INVALID",
+        "PROJECT_SCOPE_INVALID",
+        "QUALIFICATION_INVALID",
+        "RECONCILIATION_BINDING_REJECTED",
+        "RECONCILIATION_READBACK_INVALID",
+        "RECONCILIATION_RESULT_INVALID",
+        "REPLAY_BINDING_DRIFT",
+        "REPLAY_EVENT_INVALID",
+        "REPLAY_PROJECTION_INVALID",
+        "REPLAY_SEQUENCE_INVALID",
+        "REPLAY_STATE_INVALID",
+        "RESOURCE_CONTRACT_INVALID",
+        "RUN_EVENT_INVALID",
+        "STAGED_RECOVERY_BINDING_REJECTED",
+        "STAGED_RECOVERY_READBACK_INVALID",
+        "STAGED_RECOVERY_REQUEST_INVALID",
+        "SUCCESSOR_ATTEMPT_NOT_AUTHORIZED",
+        "VERIFICATION_BINDING_INVALID",
+        "WORK_ITEM_INVALID"
+      ]
+    },
+    {
+      "name": "successor.capability.contract_failure",
+      "codes": [
+        "schema_contract_invalid",
+        "digest_contract_invalid",
+        "scope_contract_invalid",
+        "catalog_contract_invalid",
+        "program_binding_invalid",
+        "codec_contract_invalid"
+      ]
+    }
+  ]
+}

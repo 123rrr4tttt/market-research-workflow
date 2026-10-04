@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from app.successor_runtime.capabilities import source_library_c2_1 as c21
-from app.successor_runtime.capabilities import source_library_c2_shared as shared
+from app.successor_runtime.capabilities import source_resolution as resolution
+from app.successor_runtime.capabilities import source_contracts as contracts
 
 _CANONICAL_NAMES = (
     "AuthenticatedProjectScope",
@@ -32,11 +32,11 @@ _CANONICAL_NAMES = (
 
 def test_shared_c2_1_canonical_names_are_c2_1_identities() -> None:
     for name in _CANONICAL_NAMES:
-        assert getattr(shared, name) is getattr(c21, name), name
+        assert getattr(contracts, name) is getattr(resolution, name), name
 
 
 def test_c2_1_payload_and_observation_types_remain_exact() -> None:
-    assert c21.SourceResolutionPayload.__name__ == "SourceResolutionPayload"
-    assert c21.SourceResolutionObservation.__name__ == "SourceResolutionObservation"
-    assert c21.ResolvedResolution.__name__ == "ResolvedResolution"
-    assert c21.RejectedResolution.__name__ == "RejectedResolution"
+    assert resolution.SourceResolutionPayload.__name__ == "SourceResolutionPayload"
+    assert resolution.SourceResolutionObservation.__name__ == "SourceResolutionObservation"
+    assert resolution.ResolvedResolution.__name__ == "ResolvedResolution"
+    assert resolution.RejectedResolution.__name__ == "RejectedResolution"

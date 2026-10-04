@@ -1,0 +1,15 @@
+{
+  "http_status": 201,
+  "response": {
+    "turn": {
+      "id": "01a1060e-a9d3-7f53-b863-aa1625be17e0",
+      "items": [],
+      "itemsView": "notLoaded",
+      "status": "inProgress",
+      "error": null,
+      "startedAt": null,
+      "completedAt": null,
+      "durationMs": null
+    }
+  }
+}

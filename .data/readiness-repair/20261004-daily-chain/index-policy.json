@@ -1,0 +1,30 @@
+{
+  "http_status": 500,
+  "response": {
+    "status": "error",
+    "data": null,
+    "error": {
+      "code": "INTERNAL_ERROR",
+      "message": "1 document(s) failed to index.",
+      "details": {
+        "exception_type": "BulkIndexError"
+      }
+    },
+    "meta": {
+      "trace_id": null,
+      "pagination": null,
+      "project_key": null,
+      "deprecated": null
+    },
+    "detail": {
+      "error": {
+        "code": "INTERNAL_ERROR",
+        "message": "1 document(s) failed to index.",
+        "details": {
+          "exception_type": "BulkIndexError"
+        }
+      },
+      "message": "1 document(s) failed to index."
+    }
+  }
+}

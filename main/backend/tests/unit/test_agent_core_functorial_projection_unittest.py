@@ -220,3 +220,46 @@ def test_ORDERED_COMPOSITION__workflow_program_flattens_motif_once(monkeypatch: 
         "operator:two",
     ]
     assert all(node["kind"] == "operator" for node in spec.program["nodes"])
+
+
+def test_authoring_capability_sources_preserve_original_loop_semantics() -> None:
+    from app.services.agent_core.authoring_tools import (
+        authoring_capability_sources,
+    )
+
+    capabilities = [
+        {"capability_id": "unrelated.read"},
+        {
+            "capability_id": "report.generate",
+            "name": "Generate Report",
+            "description": "Generate a durable report draft.",
+            "approval_level": "explicit_user_request",
+            "concurrency_class": "write_shared",
+            "risks": ["shared_write"],
+        },
+        {
+            "capability_id": "workflow_graph.run",
+            "name": "Run Workflow",
+            "description": "Start a governed workflow graph.",
+            "approval_level": "explicit_user_request",
+            "concurrency_class": "write_shared",
+            "risks": ["shared_write"],
+        },
+    ]
+
+    sources = authoring_capability_sources(object(), capabilities)
+
+    assert [source.tool_spec.name for source in sources] == [
+        "report.generate",
+        "workflow_graph.run",
+    ]
+    report_spec = sources[0].tool_spec
+    workflow_spec = sources[1].tool_spec
+    assert report_spec.source == "legacy_adapter"
+    assert report_spec.permission == "explicit_user_request"
+    assert report_spec.risk == "write_shared"
+    assert report_spec.concurrency == "serial"
+    assert report_spec.input_schema["required"] == ["topic", "output_path"]
+    assert workflow_spec.input_schema["required"] == ["graph_id", "inputs"]
+    assert sources[0].executor_ref == "report.generate"
+    assert sources[1].executor_ref == "workflow_graph.run"

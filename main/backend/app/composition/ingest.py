@@ -8,7 +8,6 @@ from app.services.ingest.adapters.legiscan_api import LegiScanApiAdapter
 from app.services.ingest.adapters.news_google import GoogleNewsAdapter
 from app.services.ingest.adapters.social_reddit import RedditAdapter
 from app.services.ingest.provider_ports import set_ingest_adapter_providers
-from app.composition.online_lottery import resolve_market_adapters
 
 
 def _resolve_policy_adapter(state: str, source_hint: str | None) -> PolicyAdapter:
@@ -22,7 +21,6 @@ def _resolve_policy_adapter(state: str, source_hint: str | None) -> PolicyAdapte
 
 def configure_ingest_adapters() -> None:
     set_ingest_adapter_providers(
-        market_resolver=resolve_market_adapters,
         policy_resolver=_resolve_policy_adapter,
         reddit_factory=RedditAdapter,
         google_news_factory=GoogleNewsAdapter,

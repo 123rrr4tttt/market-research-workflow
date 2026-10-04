@@ -46,6 +46,32 @@ from app.successor_runtime.substrate.projections.registry import (
 )
 
 __all__ = [
+    "MATERIAL_CANONICAL_SOURCE_KIND",
+    "MATERIAL_GRAPH_PROJECTION_SCHEMA",
+    "MATERIAL_GRAPH_PROJECTION_ID",
+    "MATERIAL_GRAPH_PROJECTOR_ID",
+    "MATERIAL_GRAPH_PROJECTOR_VERSION",
+    "MATERIAL_GRAPH_VALUE_OBJECT_TYPE",
+    "MATERIAL_PROJECTION_CODEC_ID",
+    "MATERIAL_PROJECTION_VALUE_PREFIX",
+    "MATERIAL_SEARCH_PROJECTION_SCHEMA",
+    "MATERIAL_SEARCH_PROJECTION_ID",
+    "MATERIAL_SEARCH_PROJECTOR_ID",
+    "MATERIAL_SEARCH_PROJECTOR_VERSION",
+    "MATERIAL_SEARCH_VALUE_OBJECT_TYPE",
+    "LEGACY_C7_CANONICAL_SOURCE_KIND",
+    "LEGACY_C7_GRAPH_PROJECTION_SCHEMA",
+    "LEGACY_C7_GRAPH_PROJECTION_ID",
+    "LEGACY_C7_GRAPH_PROJECTOR_ID",
+    "LEGACY_C7_GRAPH_VALUE_OBJECT_TYPE",
+    "LEGACY_C7_PROJECTION_CODEC_ID",
+    "LEGACY_C7_PROJECTION_VALUE_PREFIX",
+    "LEGACY_C7_SEARCH_PROJECTION_SCHEMA",
+    "LEGACY_C7_SEARCH_PROJECTION_ID",
+    "LEGACY_C7_SEARCH_PROJECTOR_ID",
+    "LEGACY_C7_SEARCH_VALUE_OBJECT_TYPE",
+    "legacy_projection_offset_key",
+    "read_legacy_projection_value_exact",
     "C7_CANONICAL_SOURCE_KIND",
     "C7_GRAPH_PROJECTION_SCHEMA",
     "C7_GRAPH_PROJECTOR_ID",
@@ -72,17 +98,41 @@ __all__ = [
     "verify_projection_value_readback",
 ]
 
-C7_CANONICAL_SOURCE_KIND = "ingest_canonical"
-C7_SEARCH_PROJECTOR_ID = "successor.ingest_index.search.projector"
-C7_SEARCH_PROJECTOR_VERSION = "1.0.0"
-C7_GRAPH_PROJECTOR_ID = "successor.ingest_index.graph.projector"
-C7_GRAPH_PROJECTOR_VERSION = "1.0.0"
-C7_PROJECTION_CODEC_ID = "mrw.successor.c7.projection.canonical-json.v1"
-C7_PROJECTION_VALUE_PREFIX = "c7:projection"
-C7_SEARCH_VALUE_OBJECT_TYPE = "C7SearchProjection.v1"
-C7_GRAPH_VALUE_OBJECT_TYPE = "C7GraphProjection.v1"
-C7_SEARCH_PROJECTION_SCHEMA = "mrw.successor.c7.search-projection.v1"
-C7_GRAPH_PROJECTION_SCHEMA = "mrw.successor.c7.graph-projection.v1"
+MATERIAL_CANONICAL_SOURCE_KIND = "material.canonical"
+MATERIAL_SEARCH_PROJECTOR_ID = "projection.material.search.v2"
+MATERIAL_SEARCH_PROJECTOR_VERSION = "2.0.0"
+MATERIAL_GRAPH_PROJECTOR_ID = "projection.material.graph.v2"
+MATERIAL_GRAPH_PROJECTOR_VERSION = "2.0.0"
+MATERIAL_SEARCH_PROJECTION_ID = MATERIAL_SEARCH_PROJECTOR_ID
+MATERIAL_GRAPH_PROJECTION_ID = MATERIAL_GRAPH_PROJECTOR_ID
+MATERIAL_PROJECTION_CODEC_ID = "mrw.material.projection.canonical-json.v2"
+MATERIAL_PROJECTION_VALUE_PREFIX = "material:projection"
+MATERIAL_SEARCH_VALUE_OBJECT_TYPE = "MaterialSearchProjection.v2"
+MATERIAL_GRAPH_VALUE_OBJECT_TYPE = "MaterialGraphProjection.v2"
+MATERIAL_SEARCH_PROJECTION_SCHEMA = "mrw.material.search-projection.v2"
+MATERIAL_GRAPH_PROJECTION_SCHEMA = "mrw.material.graph-projection.v2"
+LEGACY_C7_CANONICAL_SOURCE_KIND = "ingest_canonical"
+LEGACY_C7_SEARCH_PROJECTOR_ID = "successor.ingest_index.search.projector"
+LEGACY_C7_GRAPH_PROJECTOR_ID = "successor.ingest_index.graph.projector"
+LEGACY_C7_SEARCH_PROJECTION_ID = "projection.c7-search.v1"
+LEGACY_C7_GRAPH_PROJECTION_ID = "projection.c7-graph.v1"
+LEGACY_C7_PROJECTION_CODEC_ID = "mrw.successor.c7.projection.canonical-json.v1"
+LEGACY_C7_PROJECTION_VALUE_PREFIX = "c7:projection"
+LEGACY_C7_SEARCH_VALUE_OBJECT_TYPE = "C7SearchProjection.v1"
+LEGACY_C7_GRAPH_VALUE_OBJECT_TYPE = "C7GraphProjection.v1"
+LEGACY_C7_SEARCH_PROJECTION_SCHEMA = "mrw.successor.c7.search-projection.v1"
+LEGACY_C7_GRAPH_PROJECTION_SCHEMA = "mrw.successor.c7.graph-projection.v1"
+C7_CANONICAL_SOURCE_KIND = MATERIAL_CANONICAL_SOURCE_KIND
+C7_SEARCH_PROJECTOR_ID = MATERIAL_SEARCH_PROJECTOR_ID
+C7_SEARCH_PROJECTOR_VERSION = MATERIAL_SEARCH_PROJECTOR_VERSION
+C7_GRAPH_PROJECTOR_ID = MATERIAL_GRAPH_PROJECTOR_ID
+C7_GRAPH_PROJECTOR_VERSION = MATERIAL_GRAPH_PROJECTOR_VERSION
+C7_PROJECTION_CODEC_ID = MATERIAL_PROJECTION_CODEC_ID
+C7_PROJECTION_VALUE_PREFIX = MATERIAL_PROJECTION_VALUE_PREFIX
+C7_SEARCH_VALUE_OBJECT_TYPE = MATERIAL_SEARCH_VALUE_OBJECT_TYPE
+C7_GRAPH_VALUE_OBJECT_TYPE = MATERIAL_GRAPH_VALUE_OBJECT_TYPE
+C7_SEARCH_PROJECTION_SCHEMA = MATERIAL_SEARCH_PROJECTION_SCHEMA
+C7_GRAPH_PROJECTION_SCHEMA = MATERIAL_GRAPH_PROJECTION_SCHEMA
 
 
 class C7ProjectorDriverError(RuntimeError):
@@ -235,6 +285,26 @@ def projection_offset_key(
     )
 
 
+def legacy_projection_offset_key(
+    projection_kind: Literal["search", "graph"],
+    document_ref: DocumentRef,
+) -> ProjectionOffsetKey:
+    """Return the immutable historical v1 key for explicit readback only."""
+
+    projector_id = (
+        LEGACY_C7_SEARCH_PROJECTOR_ID
+        if projection_kind == "search"
+        else LEGACY_C7_GRAPH_PROJECTOR_ID
+    )
+    return ProjectionOffsetKey(
+        projector_id=projector_id,
+        projector_version="1.0.0",
+        source_kind=LEGACY_C7_CANONICAL_SOURCE_KIND,
+        source_ref=f"document:{document_ref.object_id}",
+        source_incarnation=document_ref.incarnation,
+    )
+
+
 def _value_id(
     projection_kind: Literal["search", "graph"],
     document_ref: DocumentRef,
@@ -251,7 +321,7 @@ def _value_incarnation(
     projection_kind: Literal["search", "graph"],
     projection_digest: str,
 ) -> str:
-    return f"c7:{projection_kind}:{projection_digest[:16]}"
+    return f"material:{projection_kind}:{projection_digest[:16]}"
 
 
 def _value_ref(value_id: str) -> str:
@@ -315,7 +385,9 @@ class C7ProjectorDriver:
             else rebuild_c7_graph_projection(document_ref)
         )
         key = projection_offset_key(projection_kind, document_ref)
-        projection_offset_id = f"c7:{projection_kind}:{document_ref.object_id}:offset"
+        projection_offset_id = (
+            f"material:{projection_kind}:{document_ref.object_id}:offset"
+        )
         value_id = _value_id(
             projection_kind,
             document_ref,
@@ -335,7 +407,7 @@ class C7ProjectorDriver:
             .one_or_none()
         )
         provenance = {
-            "contract_ref": "mrw.successor.c7.projector-driver.v1",
+            "contract_ref": "mrw.material.projector-driver.v2",
             "project_key": document_ref.project_key,
             "projection_kind": projection_kind,
             "source_ref": key.source_ref,
@@ -473,6 +545,18 @@ def verify_projection_value_readback(
         raise C7ProjectorUnavailableError(
             f"projected successor value not found: {value_id}"
         )
+    object_type = str(row["object_type"])
+    expected_object_types = {
+        MATERIAL_SEARCH_VALUE_OBJECT_TYPE,
+        MATERIAL_GRAPH_VALUE_OBJECT_TYPE,
+    }
+    if (
+        object_type not in expected_object_types
+        or str(row["codec_id"]) != MATERIAL_PROJECTION_CODEC_ID
+    ):
+        raise C7ProjectorIntegrityError(
+            "current projection readback requires the material v2 codec"
+        )
     if str(row["content_digest"]) != projection_digest:
         raise C7ProjectorIntegrityError("projection value digest drift")
     content = row["content_json"]
@@ -480,3 +564,48 @@ def verify_projection_value_readback(
         raise C7ProjectorIntegrityError("projection value is not content_json")
     if hashlib.sha256(canonical_bytes(content)).hexdigest() != projection_digest:
         raise C7ProjectorIntegrityError("projection value bytes fail digest readback")
+
+
+def read_legacy_projection_value_exact(
+    connection: Connection,
+    scope: RuntimeScope,
+    *,
+    value_ref: str,
+    expected_digest: str,
+) -> Mapping[str, object]:
+    """Read an explicit historical v1 projection without recoding or rehashing it."""
+
+    prefix = "project-value:"
+    if not value_ref.startswith(prefix):
+        raise C7ProjectorIntegrityError("historical projection ref is not a value ref")
+    value_id = value_ref[len(prefix) :]
+    if not value_id.startswith(LEGACY_C7_PROJECTION_VALUE_PREFIX):
+        raise C7ProjectorIntegrityError(
+            "historical projection readback requires the exact legacy value id"
+        )
+    tables = project_tables(MetaData(), scope.project_scope.resolved_schema)
+    row = (
+        connection.execute(
+            select(tables.successor_values).where(
+                tables.successor_values.c.project_key
+                == scope.project_scope.project_key,
+                tables.successor_values.c.value_id == value_id,
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise C7ProjectorUnavailableError(
+            f"historical projected value not found: {value_id}"
+        )
+    if str(row["codec_id"]) != LEGACY_C7_PROJECTION_CODEC_ID:
+        raise C7ProjectorIntegrityError("historical projection codec drift")
+    if str(row["object_type"]) not in {
+        LEGACY_C7_SEARCH_VALUE_OBJECT_TYPE,
+        LEGACY_C7_GRAPH_VALUE_OBJECT_TYPE,
+    }:
+        raise C7ProjectorIntegrityError("historical projection object type drift")
+    if str(row["content_digest"]) != expected_digest:
+        raise C7ProjectorIntegrityError("historical projection digest drift")
+    return row

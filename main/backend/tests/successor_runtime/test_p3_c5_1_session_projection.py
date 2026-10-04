@@ -18,10 +18,16 @@ from app.successor_runtime.runtime.replay import (
 )
 from app.successor_runtime.runtime.transitions import RunState
 from app.successor_runtime.substrate.projections.agent_session import (
+    AGENT_SESSION_PROJECTOR_ID,
+    AGENT_SESSION_PROJECTOR_VERSION,
+    AGENT_SESSION_SNAPSHOT_SCHEMA_V1,
+    AGENT_TASK_SNAPSHOT_SCHEMA_V1,
     AgentSessionProjectionError,
+    HISTORICAL_AGENT_SESSION_SNAPSHOT_SCHEMA_V1,
     SessionStatus,
     TaskStatus,
     fold_agent_session,
+    read_historical_agent_session_snapshot,
 )
 
 from .test_p0d_event_replay import _real_happy_event_shape
@@ -48,6 +54,29 @@ def test_happy_journal_folds_to_completed_session_with_digest_binding() -> None:
     assert task.attempt_id == "attempt-a"
     assert task.disposition.value == "SUCCEEDED"
     assert fold_agent_session(projection) == snapshot
+    assert snapshot.schema_version == AGENT_SESSION_SNAPSHOT_SCHEMA_V1
+    assert task.schema_version == AGENT_TASK_SNAPSHOT_SCHEMA_V1
+    assert AGENT_SESSION_PROJECTOR_ID == "mrw.task.session-observation.projector.v1"
+    assert AGENT_SESSION_PROJECTOR_VERSION == "1.0.0"
+
+
+def test_historical_session_snapshot_preserves_digest_and_rejects_wrong_version() -> None:
+    payload = {
+        "schema_version": HISTORICAL_AGENT_SESSION_SNAPSHOT_SCHEMA_V1,
+        "session_id": "historical-session",
+        "status": "active",
+        "projection_digest": "a" * 64,
+    }
+
+    historical = read_historical_agent_session_snapshot(payload)
+
+    assert historical.content is payload
+    assert historical.projection_digest == "a" * 64
+    assert historical.schema_version == HISTORICAL_AGENT_SESSION_SNAPSHOT_SCHEMA_V1
+    with pytest.raises(AgentSessionProjectionError, match="schema mismatch"):
+        read_historical_agent_session_snapshot(
+            {**payload, "schema_version": AGENT_SESSION_SNAPSHOT_SCHEMA_V1}
+        )
 
 
 def test_terminal_control_snapshot_without_terminal_event_cannot_fabricate() -> None:

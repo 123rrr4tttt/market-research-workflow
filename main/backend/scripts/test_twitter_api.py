@@ -44,7 +44,7 @@ def test_search_tweets(adapter):
         print("跳过测试（适配器未初始化）")
         return
     
-    test_queries = ["lottery", "Powerball"]
+    test_queries = ["renewable energy", "EV charging"]
     
     for query in test_queries:
         print(f"\n搜索查询: {query}")
@@ -76,8 +76,8 @@ def test_keyword_filtering(adapter):
         print("跳过测试（适配器未初始化）")
         return
     
-    query = "lottery"
-    keywords = ["powerball", "winner"]
+    query = "renewable energy"
+    keywords = ["solar", "wind"]
     
     print(f"搜索查询: {query}")
     print(f"过滤关键词: {keywords}")
@@ -118,4 +118,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-

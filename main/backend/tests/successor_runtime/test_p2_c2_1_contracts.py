@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import inspect
 import json
@@ -9,12 +10,13 @@ from pathlib import Path
 
 import pytest
 
-from app.successor_runtime.capabilities.source_library_c2_1 import (
+from app.successor_runtime.capabilities.source_resolution import (
     RESOURCE_CEILING,
     SOURCE_EXECUTION_REQUEST_SCHEMA,
     SOURCE_ITEM_DEFINITION_SCHEMA,
-    SOURCE_LIBRARY_C2_1_KIND,
-    SOURCE_LIBRARY_C2_1_OWNER,
+    SOURCE_RESOLUTION_KIND,
+    SOURCE_RESOLUTION_HISTORICAL_PAYLOAD_SCHEMA,
+    SOURCE_RESOLUTION_OWNER,
     SOURCE_MODE_SCHEMA,
     SOURCE_REJECTION_SCHEMA,
     SOURCE_RESOLUTION_OBSERVATION_SCHEMA,
@@ -25,22 +27,23 @@ from app.successor_runtime.capabilities.source_library_c2_1 import (
     NormalizedParamsSnapshot,
     RejectedResolution,
     SourceResolutionPayload,
-    build_source_library_c2_1_bundle,
-    build_source_library_c2_1_catalog,
-    build_source_library_c2_1_registry,
+    build_source_resolution_bundle,
+    build_source_resolution_catalog,
+    build_source_resolution_registry,
     deployment_catalog_digest,
+    decode_historical_source_resolution_payload,
     payload_from_dicts,
     project_scope_digest,
     resource_ceiling_digest,
     source_item_definition_content_digest,
 )
-from app.successor_runtime.capabilities.source_library_c2_1_interpreters import (
+from app.successor_runtime.capabilities.source_resolution_interpreters import (
     normalize_item_taxonomy_dict,
     resolve_source_execution_request,
 )
-from app.successor_runtime.capabilities.source_library_c2_1_program import (
-    build_source_library_c2_1_program,
-    compile_source_library_c2_1_program,
+from app.successor_runtime.capabilities.source_resolution_program import (
+    build_source_resolution_program,
+    compile_source_resolution_program,
 )
 from app.successor_runtime.language.algebra import freeze_json_object
 from app.successor_runtime.language.program import Atom, decode_program_spec
@@ -51,9 +54,7 @@ PROJECT_KEY = "demo_proj"
 REGISTRY_REVISION = 5
 RESOLVED_SCHEMA = "mrw_p_demo_proj"
 SCOPE_INCARNATION = "scope-inc-5"
-SCOPE_DIGEST = project_scope_digest(
-    PROJECT_KEY, RESOLVED_SCHEMA, REGISTRY_REVISION, SCOPE_INCARNATION
-)
+SCOPE_DIGEST = project_scope_digest(PROJECT_KEY, RESOLVED_SCHEMA, REGISTRY_REVISION, SCOPE_INCARNATION)
 ITEM_REVISION = 3
 ITEM_INCARNATION = "item-inc-3"
 DEPLOYMENT_CATALOG_DIGEST = deployment_catalog_digest()
@@ -68,39 +69,25 @@ _SHARED_ROOT_RELATIVES = (
     "runtime/work_items.py",
 )
 _SHARED_ROOT_BASELINE = {
-    "language/program.py": (
-        "eba5147e44ada7ee264606cb64347132b902d86beebba14b9b9a1c3bb6f01e02"
-    ),
+    "language/program.py": ("eba5147e44ada7ee264606cb64347132b902d86beebba14b9b9a1c3bb6f01e02"),
     # P3 locality rebind changed the reviewed shared compile/plan bytes after
     # the P0 baseline; packet v4 bound the new authoritative locality hashes.
     # This P2 contract baseline is corrected to the current reviewed shared
     # roots (compile=91b063..., plan=a8f5ab...), invalidating packet v3/v4
     # source-byte baselines until the additive v5 packet.
-    "language/compile.py": (
-        "91b06329b8476d06193e8030746288be5550f065b6f471b81dce650608d61dd5"
-    ),
-    "language/plan.py": (
-        "a8f5ab8ccc38c56ebfb67b6b7a1b36132bf45e132014f6d2a2ed0ee3ba7cfb82"
-    ),
-    "runtime/reducer.py": (
-        "0462576d08ec7748aaf96fabf739707ca44b3b6a4a9c1f85f52574122af31856"
-    ),
-    "runtime/transitions.py": (
-        "5fca6cda9ec554e660ea615ec32a848d819d7be48dc2a32ef5481f4bd5a88b4b"
-    ),
-    "runtime/assignments.py": (
-        "5cf914fbb3c49bc00f929ab184c5c5014f8013a6526af57e3283a12a8b8ca0b0"
-    ),
-    "runtime/work_items.py": (
-        "5acf8ecdfc4c85aec16af6798f7ea24053b7b77a3ab49187a6a3387a4c5d75f2"
-    ),
+    "language/compile.py": ("91b06329b8476d06193e8030746288be5550f065b6f471b81dce650608d61dd5"),
+    "language/plan.py": ("a8f5ab8ccc38c56ebfb67b6b7a1b36132bf45e132014f6d2a2ed0ee3ba7cfb82"),
+    "runtime/reducer.py": ("0462576d08ec7748aaf96fabf739707ca44b3b6a4a9c1f85f52574122af31856"),
+    "runtime/transitions.py": ("5fca6cda9ec554e660ea615ec32a848d819d7be48dc2a32ef5481f4bd5a88b4b"),
+    "runtime/assignments.py": ("5cf914fbb3c49bc00f929ab184c5c5014f8013a6526af57e3283a12a8b8ca0b0"),
+    "runtime/work_items.py": ("5acf8ecdfc4c85aec16af6798f7ea24053b7b77a3ab49187a6a3387a4c5d75f2"),
 }
 
-# Additive candidate witness for the current worktree.  The historical
+# Additive candidate witness for the current worktree. The historical
 # baseline remains authoritative for the original packet; this candidate is
 # accepted only with its explicit non-authoritative witness and exact bytes.
 _SHARED_ROOT_CANDIDATE = {
-    "language/program.py": "8d7da65e371de33aabd31c30070dcdbd51bbd19f73ecfe8ab61eca689b361448",
+    "language/program.py": "d6cafde456556d97a0432064accdaaad6f8a8d7030bb7b27bcd31c0d69a93639",
     "language/compile.py": "7ded4fd0a05765cccac5aee262ce0d94267c7d9e71ff0d08869e03374c7aae2c",
     "language/plan.py": "33219cf74d2113e91cd17b58c0878bbb3089db012c79f8c60cdefa16e5b22530",
     "runtime/reducer.py": "cea068c447de63f7106df8694b3acb7cec32effc9d88415abfaa3d957a14d928",
@@ -110,27 +97,25 @@ _SHARED_ROOT_CANDIDATE = {
 }
 _SHARED_ROOT_CANDIDATE_WITNESS = {
     "schema": "mrw.successor_runtime.shared_root_rebind.v1",
-    "candidate_id": "stage0-current-worktree-2026-09-05",
+    "candidate_id": "simp04-program-atoms-2026-10-03",
     "disposition": "CANDIDATE_NOT_AUTHORITY",
-    "reason": "current shared-root bytes observed after additive failure-boundary edits",
+    "reason": "current shared-root bytes include the SIMP-04 static source-order program_atoms traversal",
     "requires": "independent exact-byte review before any authority claim",
-    "candidate_state_digest": "f5f6f777af8fa9c845c497d5c1943a42cb87cdd648fa4848c30e35f91ba348a3",
+    "candidate_state_digest": "a94c2562d290843ff607738f7d8dea17e1866769a8332a94fa1e0509263aa7f3",
 }
-_SHARED_ROOT_CANDIDATE_WITNESS_DIGEST = (
-    "b42283c07adce60fff9fba589ebd2941dcfa3f09efd559f7b0a87672dd969b83"
-)
+_SHARED_ROOT_CANDIDATE_WITNESS_DIGEST = "bec1a4516386878fe5fb231ff17e8e4edede0aabf6e42c49263f2691a40df5d0"
 
 
 def _bundle():
-    return build_source_library_c2_1_bundle()
+    return build_source_resolution_bundle()
 
 
 def _catalog():
-    return build_source_library_c2_1_catalog(_bundle())
+    return build_source_resolution_catalog(_bundle())
 
 
 def _registry():
-    return build_source_library_c2_1_registry(_bundle())
+    return build_source_resolution_registry(_bundle())
 
 
 def _channels():
@@ -194,7 +179,7 @@ def _payload(**overrides):
 
 
 def _program(payload):
-    return build_source_library_c2_1_program(
+    return build_source_resolution_program(
         payload=payload,
         catalog=_catalog(),
         program_id="c2-1.contracts.program",
@@ -205,16 +190,11 @@ def _program(payload):
 
 
 def _plan(program):
-    return compile_source_library_c2_1_program(
-        program, _catalog(), operation_contracts=_registry()
-    )
+    return compile_source_resolution_program(program, _catalog(), operation_contracts=_registry())
 
 
 def _shared_state(root: Path) -> dict[str, object]:
-    return {
-        relative: hashlib.sha256((root / relative).read_bytes()).hexdigest()
-        for relative in _SHARED_ROOT_RELATIVES
-    }
+    return {relative: hashlib.sha256((root / relative).read_bytes()).hexdigest() for relative in _SHARED_ROOT_RELATIVES}
 
 
 def _accepted_shared_state(current: dict[str, str]) -> dict[str, str]:
@@ -247,14 +227,14 @@ def test_operation_kind_owner_and_catalog_are_exact() -> None:
     catalog = _catalog()
     registry = _registry()
     contract = bundle.operation
-    assert SOURCE_LIBRARY_C2_1_KIND == "source_library.resolve_execution_request.v1"
-    assert contract.owner_capability_id == SOURCE_LIBRARY_C2_1_OWNER
-    assert contract.ref.kind == SOURCE_LIBRARY_C2_1_KIND
+    assert SOURCE_RESOLUTION_KIND == "source_library.resolve_execution_request.v1"
+    assert contract.owner_capability_id == SOURCE_RESOLUTION_OWNER
+    assert contract.ref.kind == SOURCE_RESOLUTION_KIND
     assert contract.ref.contract_version == "1.0.0"
-    assert catalog.lookup(SOURCE_LIBRARY_C2_1_KIND) == contract.ref
+    assert catalog.lookup(SOURCE_RESOLUTION_KIND) == contract.ref
     assert registry.resolve_required(contract.ref).ref == contract.ref
-    assert contract.effect_profile_ref.profile_id.endswith(".effect")
-    assert contract.authority_profile_ref.profile_id.endswith(".authority")
+    assert contract.effect_profile_ref.profile_id == ("mrw.source.resolve-execution-request.effect.v2")
+    assert contract.authority_profile_ref.profile_id == ("mrw.source.resolve-execution-request.authority.v2")
     observation_profile = bundle.profiles["observation"]
     for dimension in (
         "project_scope",
@@ -274,9 +254,7 @@ def test_deployment_catalog_digest_is_distinct_from_operation_catalog() -> None:
     catalog = _catalog()
     assert DEPLOYMENT_CATALOG_DIGEST != catalog.catalog_digest
     assert DEPLOYMENT_CATALOG_DIGEST == deployment_catalog_digest()
-    assert DEPLOYMENT_CATALOG_DIGEST == (
-        "0ff9607540d47e3c0562b30e0d0ade1d9ed523ad8458a124bae044dfa7b9cbc2"
-    )
+    assert DEPLOYMENT_CATALOG_DIGEST == ("b3a7be980b359fedc3844fd12767f2b7e6631e3d1546683b9da16dcb2b009a83")
 
 
 def test_payload_codec_round_trip_and_extra_field_reject() -> None:
@@ -347,12 +325,7 @@ def test_scope_digest_matches_canonical_compute_scope_digest_and_rejects_aba() -
         REGISTRY_REVISION,
         SCOPE_INCARNATION,
     )
-    assert (
-        project_scope_digest(
-            PROJECT_KEY, RESOLVED_SCHEMA, REGISTRY_REVISION, SCOPE_INCARNATION
-        )
-        == expected
-    )
+    assert project_scope_digest(PROJECT_KEY, RESOLVED_SCHEMA, REGISTRY_REVISION, SCOPE_INCARNATION) == expected
     scope = AuthenticatedProjectScope(
         project_key=PROJECT_KEY,
         registry_revision=REGISTRY_REVISION,
@@ -397,28 +370,37 @@ def test_item_identity_is_required_and_digest_verified() -> None:
     assert payload.item.content_digest == source_item_definition_content_digest(_item())
 
 
+def test_historical_payload_requires_explicit_decoder_and_preserves_identity() -> None:
+    historical = dataclasses.replace(
+        _payload(),
+        schema_version=SOURCE_RESOLUTION_HISTORICAL_PAYLOAD_SCHEMA,
+        payload_digest="",
+    )
+    encoded = _bundle().payload_codec().encode_payload(historical)
+    with pytest.raises(ValueError, match="historical resolution payload"):
+        _bundle().payload_codec().decode_payload(encoded)
+    decoded = decode_historical_source_resolution_payload(encoded)
+    assert _bundle().payload_codec().encode_payload(decoded) == encoded
+    assert decoded.payload_digest == historical.payload_digest
+
+    wrong_version = dict(encoded)
+    wrong_version["schema_version"] = "mrw.source.unknown.v9"
+    with pytest.raises(ValueError, match="exact C2 payload schema"):
+        decode_historical_source_resolution_payload(wrong_version)
+
+
 def test_versioned_schema_maps_are_pinned() -> None:
     pinned = {
-        SOURCE_ITEM_DEFINITION_SCHEMA.schema_ref: (
-            "6ce6d1428f086a79721fb2f4db3b350146f21319dd90d53d9f8f2bc7dfe75ffb"
-        ),
-        SOURCE_TAXONOMY_SCHEMA.schema_ref: (
-            "5def9878c36271631c018f8b9b21ff9ab9dd746beab46e77450c7be794a0c9dd"
-        ),
-        SOURCE_MODE_SCHEMA.schema_ref: (
-            "7cc15ea37762692d96d7e755b4652bf9b14bcfe4a2c59e564105860475547ef2"
-        ),
+        SOURCE_ITEM_DEFINITION_SCHEMA.schema_ref: ("55d7007b0b87206b17f31dbf72e096e415ed2550e4de04883248215eeca49371"),
+        SOURCE_TAXONOMY_SCHEMA.schema_ref: ("da0661b45a19007a5b3fa8d7f582434b2a62c726a5f39157887632907c203442"),
+        SOURCE_MODE_SCHEMA.schema_ref: ("cf2c533ea4ece1d59e1e088449fbf89ad7814f5d1675ec833ebb50205c0c7fb3"),
         SOURCE_EXECUTION_REQUEST_SCHEMA.schema_ref: (
-            "3da70d0fbfdf0ed20afc0333545ae3856c9c2cf620319e4bb2b551bbc2886146"
+            "6c6c060b22e7cb01a474e82f46ba0091f9ee81cc99e32055b2d74c0cff728aba"
         ),
-        SOURCE_WARNING_SCHEMA.schema_ref: (
-            "0a757ef9c3ec3ce553d2da931865702002d0849c517c88ea6fe19e4420bb42b4"
-        ),
-        SOURCE_REJECTION_SCHEMA.schema_ref: (
-            "a6083032fc7edac3d6cd609e6b5839b06e1c66a9491db05430c0d60c31829e46"
-        ),
+        SOURCE_WARNING_SCHEMA.schema_ref: ("538fe5dce05af8b29c291a66c3a71ad623160750669472566e7bcb287985f847"),
+        SOURCE_REJECTION_SCHEMA.schema_ref: ("c251325496d94a31132adf9522605f100103d10559ee255031675db26cfa463a"),
         SOURCE_RESOLUTION_OBSERVATION_SCHEMA.schema_ref: (
-            "f9c90edf8094fb3334cc4b5604477ca916133b77a48a4b06f1194f18d5de704b"
+            "b25c6eb29805719375a07e43f50c81f9d93a3384b267b722c7789f8cd2f826d7"
         ),
     }
     for schema in (
@@ -432,35 +414,23 @@ def test_versioned_schema_maps_are_pinned() -> None:
     ):
         assert schema.schema_digest == pinned[schema.schema_ref]
     assert ("revision", True) in SOURCE_ITEM_DEFINITION_SCHEMA.field_requiredness
-    assert ("project_scope", True) in (
-        SOURCE_EXECUTION_REQUEST_SCHEMA.field_requiredness
-    )
-    assert ("catalog_digest", True) in (
-        SOURCE_RESOLUTION_OBSERVATION_SCHEMA.field_requiredness
-    )
+    assert ("project_scope", True) in (SOURCE_EXECUTION_REQUEST_SCHEMA.field_requiredness)
+    assert ("catalog_digest", True) in (SOURCE_RESOLUTION_OBSERVATION_SCHEMA.field_requiredness)
 
 
 def test_profile_and_contract_digests_are_pinned() -> None:
     bundle = _bundle()
     profiles = bundle.profiles
     assert profiles["observation"].profile_digest == (
-        "df8cf0230b3b56af8b3c6a78acf93be30d9efd882f3b6678d5cf919252e8ecc8"
+        "eb5f5b75c53f7fbaa25c339302d46886fd98bdd7fd136a5d3c6997e4d37c69e0"
     )
-    assert profiles["failure"].profile_digest == (
-        "b16d2f93bf0a8cc7b90ad38936f34bb060dd5d992cc0302a1f2c3de5677fc1c8"
-    )
-    assert bundle.operation.ref.contract_digest == (
-        "8d125dbb52dcb2db204fc155b44db0731085914d248dd050b373555b7267f6d7"
-    )
+    assert profiles["failure"].profile_digest == ("c3f850c5453f687a32c6b99996787fe656514035a82b950ee68c250e958d36d8")
+    assert bundle.operation.ref.contract_digest == ("6ced6266314f92d80b4590532c2fa491c407a64a7923cd587499c05ebbfc66d4")
 
 
 def test_resource_ceiling_rejects_over_limit_inputs() -> None:
-    too_many_channels = [
-        {"channel_key": f"ch.{index}", "enabled": True} for index in range(257)
-    ]
-    catalog_rejected = resolve_source_execution_request(
-        _payload(channels=too_many_channels)
-    )
+    too_many_channels = [{"channel_key": f"ch.{index}", "enabled": True} for index in range(257)]
+    catalog_rejected = resolve_source_execution_request(_payload(channels=too_many_channels))
     assert isinstance(catalog_rejected, RejectedResolution)
     assert catalog_rejected.rejection.code == "RESOURCE_CEILING_EXCEEDED"
 
@@ -482,20 +452,14 @@ def test_resource_ceiling_rejects_over_limit_inputs() -> None:
     assert "urls" in many_urls.rejection.message
 
     many_site_entries = resolve_source_execution_request(
-        _payload(
-            params={
-                "site_entries": [f"https://example.com/{index}" for index in range(257)]
-            }
-        )
+        _payload(params={"site_entries": [f"https://example.com/{index}" for index in range(257)]})
     )
     assert isinstance(many_site_entries, RejectedResolution)
     assert many_site_entries.rejection.code == "RESOURCE_CEILING_EXCEEDED"
     assert "site entries" in many_site_entries.rejection.message
 
     long_scalar = resolve_source_execution_request(
-        _payload(
-            params={"query_terms": ["x" * (RESOURCE_CEILING.max_scalar_length + 1)]}
-        )
+        _payload(params={"query_terms": ["x" * (RESOURCE_CEILING.max_scalar_length + 1)]})
     )
     assert isinstance(long_scalar, RejectedResolution)
     assert long_scalar.rejection.code == "RESOURCE_CEILING_EXCEEDED"
@@ -516,9 +480,7 @@ def test_resource_ceiling_digest_is_bound_into_resource_profile() -> None:
 
 
 def test_params_snapshot_to_dict_maps_raw_flag_field() -> None:
-    snapshot = NormalizedParamsSnapshot.from_dict(
-        {"query_terms": ["x"], "_allow_internal_generic_web": True}
-    )
+    snapshot = NormalizedParamsSnapshot.from_dict({"query_terms": ["x"], "_allow_internal_generic_web": True})
     restored = snapshot.to_dict()
     assert restored["_allow_internal_generic_web"] is True
 
@@ -528,10 +490,8 @@ def test_program_ast_single_atom_and_plan_exact() -> None:
     program = _program(payload)
     assert isinstance(program.root, Atom)
     assert program.root.node_kind == "atom"
-    assert program.root.operation.operation_id == (
-        "source_library.resolve_execution_request"
-    )
-    assert program.root.operation.contract_ref.kind == SOURCE_LIBRARY_C2_1_KIND
+    assert program.root.operation.operation_id == ("source_library.resolve_execution_request")
+    assert program.root.operation.contract_ref.kind == SOURCE_RESOLUTION_KIND
     assert program.root.input_type.type_id == "SourceResolutionPayload.v1"
     assert program.root.output_type.type_id == "SourceResolutionResult.v1"
 
@@ -548,9 +508,7 @@ def test_program_ast_single_atom_and_plan_exact() -> None:
     assert plan.program_id == program.program_id
     assert plan.program_digest == program.program_digest
     effect_steps = [
-        step
-        for step in plan.ordered_steps
-        if step.step_kind == "EFFECT" and step.operation_contract_ref is not None
+        step for step in plan.ordered_steps if step.step_kind == "EFFECT" and step.operation_contract_ref is not None
     ]
     assert len(effect_steps) == 1
     assert effect_steps[0].operation_contract_ref == program.root.operation.contract_ref
@@ -596,9 +554,7 @@ def test_ordered_mode_precedence_and_counterexample() -> None:
     url_result = resolve_source_execution_request(url_payload)
     assert isinstance(url_result, RejectedResolution) is False
     assert url_result.request.source_mode.mode == "url_execution"
-    assert [warning.code for warning in url_result.request.warnings] == [
-        "SOURCE_MODE_OVERRIDDEN_BY_URLS"
-    ]
+    assert [warning.code for warning in url_result.request.warnings] == ["SOURCE_MODE_OVERRIDDEN_BY_URLS"]
 
     crawler_payload = _payload(
         item=_item(
@@ -640,9 +596,7 @@ def test_ordered_mode_precedence_and_counterexample() -> None:
     )
     invalid_result = resolve_source_execution_request(invalid_mode)
     assert invalid_result.request.source_mode.mode == "protocol_search"
-    assert [warning.code for warning in invalid_result.request.warnings] == [
-        "SOURCE_MODE_INVALID_IGNORED"
-    ]
+    assert [warning.code for warning in invalid_result.request.warnings] == ["SOURCE_MODE_INVALID_IGNORED"]
     assert invalid_result.request.warnings[0].ordered_payload == ("not_a_mode",)
 
     explicit_honored = resolve_source_execution_request(
@@ -717,13 +671,13 @@ def test_no_provider_or_credential_work() -> None:
     assert profiles["effect"].external_visibility == "NONE"
     assert profiles["effect"].network_required is False
     assert profiles["effect"].execution_class == "PURE_TRANSFORM"
-    assert profiles["authority"].canonical_owner == SOURCE_LIBRARY_C2_1_OWNER
+    assert profiles["authority"].canonical_owner == SOURCE_RESOLUTION_OWNER
     assert profiles["authority"].credential_refs == ()
     assert profiles["interpreter"].credential_requirements_ref is None
     for module_name in (
-        "app.successor_runtime.capabilities.source_library_c2_1",
-        "app.successor_runtime.capabilities.source_library_c2_1_program",
-        "app.successor_runtime.capabilities.source_library_c2_1_interpreters",
+        "app.successor_runtime.capabilities.source_resolution",
+        "app.successor_runtime.capabilities.source_resolution_program",
+        "app.successor_runtime.capabilities.source_resolution_interpreters",
     ):
         source = inspect.getsource(__import__(module_name, fromlist=["*"]))
         assert "from app.services" not in source
@@ -751,9 +705,7 @@ def test_shared_root_hashes_unchanged() -> None:
 def test_import_boundaries_and_dependency_lint() -> None:
     from scripts.check_successor_runtime_dependencies import check
 
-    adapter_source = inspect.getsource(
-        __import__("app.successor_migration.legacy_source_library", fromlist=["*"])
-    )
+    adapter_source = inspect.getsource(__import__("app.successor_migration.legacy_source_library", fromlist=["*"]))
     assert "from app.services.source_library.item_resolver import" in adapter_source
     assert "from app.services.source_library.resolver import" in adapter_source
     assert "run_item_payload(" not in adapter_source

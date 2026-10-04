@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from .content_extraction import is_declared_prepared_text_body
+
 
 _LINE_NOISE_MARKERS = (
     "skip to content",
@@ -230,7 +232,10 @@ def clean_frontdoor_document_candidate(document_candidate: dict[str, Any] | None
 
     cleaned_title = original_title.replace("\x00", "").strip()
     cleaned_summary = normalize_content_for_ingest(original_summary, max_chars=2000) if original_summary else ""
-    cleaned_content = normalize_content_for_ingest(original_content, max_chars=50000) if original_content else ""
+    if is_declared_prepared_text_body(candidate):
+        cleaned_content = original_content
+    else:
+        cleaned_content = normalize_content_for_ingest(original_content, max_chars=50000) if original_content else ""
 
     candidate["title"] = cleaned_title
     candidate["summary"] = cleaned_summary

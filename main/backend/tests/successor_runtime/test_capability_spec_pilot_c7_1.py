@@ -14,7 +14,7 @@ from typing import Any
 from app.successor_migration.legacy_ingest_c7 import (
     capture_legacy_ingest_c7_fixture,
 )
-from app.successor_runtime.capabilities import ingest_c7_common as c7
+from app.successor_runtime.capabilities import material_ingest_common as c7
 from app.successor_runtime.specification import (
     CapabilityCellSpec,
     RuntimeKernelABI,
@@ -100,7 +100,7 @@ def _run_cli(
     )
 
 
-def test_spec_maps_the_current_c7_1_semantics_without_authority_expansion() -> None:
+def test_spec_preserves_historical_c7_1_owner_without_current_authority_expansion() -> None:
     spec = _spec()
     manifest = _load(BUILD_PATH)
     fragment = _load(C7_FRAGMENT_PATH)
@@ -114,14 +114,15 @@ def test_spec_maps_the_current_c7_1_semantics_without_authority_expansion() -> N
         "EFFECT:ingest_index.stage_candidate.v1",
         "ADMISSION:mrw.return.ingest.document-admission.v1",
     )
-    assert spec.operation_contract_refs == (c7.STAGE_CANDIDATE_KIND,)
-    assert c7.C7_ADMISSION_RETURN_CONTRACT_REF in spec.output_contract_refs
-    assert c7.C7_INGEST_OWNER == spec.owner_capability_id
-    assert c7.C7_INGEST_OWNER != c7.DOCUMENT_CANONICAL_OWNER
+    assert spec.operation_contract_refs == (c7.MATERIAL_STAGE_CANDIDATE_KIND,)
+    assert c7.MATERIAL_ADMISSION_RETURN_CONTRACT_REF in spec.output_contract_refs
+    assert spec.owner_capability_id == c7.HISTORICAL_C7_INGEST_OWNER
+    assert c7.MATERIAL_INGEST_OWNER != spec.owner_capability_id
+    assert c7.MATERIAL_INGEST_OWNER != c7.DOCUMENT_CANONICAL_OWNER
     assert any("EFFECTFUL" in ref for ref in spec.profile_refs)
     assert cell["successor_observation"]["step_kinds"] == ["EFFECT", "ADMISSION"]
     assert cell["successor_observation"]["return_contract_ref"] == (
-        c7.C7_ADMISSION_RETURN_CONTRACT_REF
+        c7.MATERIAL_ADMISSION_RETURN_CONTRACT_REF
     )
     assert cell["successor_observation"]["execution_class"] == "EFFECTFUL"
     assert cell["legacy_observation"]["writer_calls"] == 0
@@ -167,7 +168,7 @@ def test_spec_binds_frozen_10_and_predecessor_source_test_rollback_bytes() -> No
             assert live_digest == binding.file_sha256
 
 
-def test_stage_b12_candidate_witnesses_current_c7_spec_source_bytes() -> None:
+def test_stage_b12_candidate_keeps_historical_source_bytes_outside_current_authority() -> None:
     candidate = _load(B12_CANDIDATE_PATH)
     fragment = _load(B12_FRAGMENT_PATH)
     assert candidate["schema"] == "mrw.family_fragment_rebind.candidate.v2"
@@ -191,8 +192,8 @@ def test_stage_b12_candidate_witnesses_current_c7_spec_source_bytes() -> None:
         source = REPOSITORY_ROOT / path
         live_digest = hashlib.sha256(source.read_bytes()).hexdigest()
         witness = candidate_refs[path]
-        assert witness["file_sha256"] == live_digest, path
-        assert witness["bytes"] == source.stat().st_size, path
+        assert witness["file_sha256"] != live_digest, path
+        assert witness["bytes"] != source.stat().st_size, path
         assert spec_bindings[path].file_sha256 != live_digest, path
 
 

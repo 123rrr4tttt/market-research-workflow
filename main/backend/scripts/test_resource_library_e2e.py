@@ -11,7 +11,7 @@ Flow:
 Usage:
   cd main/ops && docker compose run --rm backend python -m scripts.test_resource_library_e2e
   # or with project_key:
-  PROJECT_KEY=online_lottery docker compose run --rm backend python -m scripts.test_resource_library_e2e
+  PROJECT_KEY=business_survey docker compose run --rm backend python -m scripts.test_resource_library_e2e
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-PROJECT_KEY = os.environ.get("PROJECT_KEY", "online_lottery")
+PROJECT_KEY = os.environ.get("PROJECT_KEY", "business_survey")
 TEST_ITEM_KEY = "test.unified_search.e2e"
 
 
@@ -119,7 +119,7 @@ def run_e2e(project_key: str = PROJECT_KEY) -> dict:
 
     schema_name = project_schema_name(project_key)
     logger.info("Schema isolation: project_key=%s -> schema=%s", project_key, schema_name)
-    ensure_project_schema_ready(project_key, name="Online Lottery")
+    ensure_project_schema_ready(project_key, name="Business Survey")
 
     results: dict = {}
     doc_count_before = _count_docs_in_schema(project_key)
@@ -201,7 +201,7 @@ def run_e2e(project_key: str = PROJECT_KEY) -> dict:
             unified_search_by_item,
             project_key=project_key,
             item_key=TEST_ITEM_KEY,
-            query_terms=["lottery", "news"],
+            query_terms=["renewable energy", "news"],
             max_candidates=50,
             write_to_pool=True,
             pool_scope="project",

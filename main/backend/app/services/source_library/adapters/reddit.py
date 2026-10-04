@@ -9,7 +9,7 @@ def handle_reddit(params: Dict[str, Any], _project_key: str | None) -> Dict[str,
     """Collect Reddit discussions from subreddit(s)."""
     from ...ingest.news import collect_reddit_discussions
 
-    subreddit = str(params.get("subreddit") or "Lottery")
+    subreddit = str(params.get("subreddit") or "news")
     limit = int(params.get("limit", 20))
     keywords = params.get("keywords")
     if isinstance(keywords, str):

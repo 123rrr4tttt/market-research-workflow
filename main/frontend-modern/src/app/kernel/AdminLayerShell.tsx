@@ -10,6 +10,8 @@ import {
   Settings2,
   ShieldCheck,
   Workflow,
+  Menu,
+  HelpCircle,
   type LucideIcon,
 } from 'lucide-react'
 import { bootstrapCodexCliLogin } from '../../lib/api'
@@ -17,6 +19,8 @@ import { translate, useAppLocale, type MessageKey } from '../platform/i18n'
 import { getKernelModuleContract } from './contracts'
 import LayerSwitch from './LayerSwitch'
 import ModuleRenderer from './ModuleRenderer'
+import BusinessChainGuide from './BusinessChainGuide'
+import { ADMIN_NAV_SECTIONS } from './moduleManifest'
 import type { KernelModuleKey } from './types'
 import type { useKernelRuntime } from './useKernelRuntime'
 
@@ -26,12 +30,6 @@ type Props = {
   activeModule: KernelModuleKey
   runtime: Runtime
 }
-
-const ADMIN_GROUPS: Array<{ labelKey: MessageKey; items: KernelModuleKey[] }> = [
-  { labelKey: 'shell.admin.group.operations', items: ['overviewTasks', 'flowProcessing', 'overviewData', 'sysBackend'] },
-  { labelKey: 'shell.admin.group.governance', items: ['sysProjects', 'sysCrawler', 'sysResource', 'flowExtract'] },
-  { labelKey: 'shell.admin.group.system', items: ['sysSettings', 'sysLlm', 'sysSuccessorRuntime'] },
-]
 
 const ICON_BY_MODULE: Record<KernelModuleKey, LucideIcon> = {
   overviewTasks: Activity,
@@ -84,12 +82,12 @@ function formatCatalogTemplate(template: string, values: Record<string, string |
 export default function AdminLayerShell({ activeModule, runtime }: Props) {
   const locale = useAppLocale()
   const t = (key: MessageKey) => translate(locale, key)
-  const activeContract = getKernelModuleContract(activeModule)
-  const activeLabel = translate(locale, activeContract.navLabelKey, activeModule)
-  const loadedProjects = runtime.projects.data?.length || 0
+  const activeLabel = translate(locale, getKernelModuleContract(activeModule).navLabelKey, activeModule)
   const [codexActionPending, setCodexActionPending] = useState(false)
+  const [navOpen, setNavOpen] = useState(false)
   const codexLabel = t(runtime.status.codexReady ? 'shell.admin.status.ready' : codexActionPending ? 'shell.admin.status.starting' : 'shell.admin.status.login')
-  const availabilityLabel = (ready: boolean) => t(ready ? 'shell.admin.status.ready' : 'shell.admin.status.missing')
+  const availabilityLabel = (ready: boolean) => t(runtime.envSettings.isError ? 'shell.admin.status.readFailed' : runtime.envSettings.isPending ? 'shell.admin.status.checking' : ready ? 'shell.admin.status.configured' : 'shell.admin.status.missing')
+  const apiLabel = runtime.health.isError ? t('shell.admin.status.readFailed') : runtime.health.isPending ? t('shell.admin.status.checking') : runtime.status.api
 
   const handleCodexAuthClick = async () => {
     if (codexActionPending) return
@@ -151,36 +149,32 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
     <div className="kernel-admin">
       <header className="kernel-admin__topbar">
         <div className="kernel-admin__topbar-heading">
-          <p>
-            {formatCatalogTemplate(t('shell.admin.header.surface'), {
-              entryRoute: activeContract.entryRoute,
-              projectKey: runtime.projectKey,
-            })}
-          </p>
+          <p>{t('shell.admin.header.management')}</p>
           <div className="kernel-admin__title-row">
             <h1>{activeLabel}</h1>
-            <span>{formatCatalogTemplate(t('shell.admin.header.projectsLoaded'), { count: loadedProjects })}</span>
           </div>
         </div>
 
         <div className="kernel-admin__topbar-diagnostics">
           <LayerSwitch activeLayer="C" runtime={runtime} />
-          <section className="kernel-admin__status-strip" aria-label={t('shell.admin.aria.statusMatrix')}>
+          <details className="kernel-admin__diagnostics">
+            <summary>{t('shell.admin.action.diagnostics')}</summary>
+            <section className="kernel-admin__status-strip" aria-label={t('shell.admin.aria.statusMatrix')}>
             <span className="kernel-admin__status-strip-label">{t('shell.admin.label.statusMatrix')}</span>
             <div className="kernel-admin__status-strip-chips">
-              <button className={statusChipClass(runtime.status.api)} onClick={() => runtime.navigateToModule('sysBackend')}>
-                API {runtime.status.api}
+              <button className={statusChipClass(runtime.health.isError ? 'error' : runtime.status.api)} onClick={() => runtime.navigateToModule('sysBackend')}>
+                API {apiLabel}
               </button>
-              <button className={statusChipClass(runtime.status.llmReady)} onClick={() => runtime.navigateToModule('sysLlm')}>
+              <button className="chip" onClick={() => runtime.navigateToModule('sysLlm')}>
                 LLM {availabilityLabel(runtime.status.llmReady)}
               </button>
-              <button className={statusChipClass(runtime.status.searchReady)} onClick={() => runtime.navigateToModule('sysSettings')}>
+              <button className="chip" onClick={() => runtime.navigateToModule('sysSettings')}>
                 SEARCH {availabilityLabel(runtime.status.searchReady)}
               </button>
-              <button className={statusChipClass(runtime.status.newsReady)} onClick={() => runtime.navigateToModule('sysSettings')}>
+              <button className="chip" onClick={() => runtime.navigateToModule('sysSettings')}>
                 NEWS {availabilityLabel(runtime.status.newsReady)}
               </button>
-              <button className={statusChipClass(runtime.status.dbReady)} onClick={() => runtime.navigateToModule('sysBackend')}>
+              <button className="chip" onClick={() => runtime.navigateToModule('sysBackend')}>
                 DB {availabilityLabel(runtime.status.dbReady)}
               </button>
               <button
@@ -195,9 +189,11 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
               </button>
             </div>
           </section>
+          </details>
         </div>
 
         <div className="kernel-admin__project-bar">
+          <span className="kernel-admin__current-project">{t('shell.admin.label.currentProject')}: {runtime.projectKey}</span>
           <label className="kernel-admin__control-field">
             <span>{t('shell.admin.label.targetProject')}</span>
             <select
@@ -219,36 +215,37 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
           >
             {t(runtime.activateMutation.isPending ? 'shell.admin.action.switching' : 'shell.admin.action.activateProject')}
           </button>
-          <button
-            onClick={() => {
-              const target = String(runtime.pendingProjectKey || '').trim()
-              if (!target) return
-              const ok = window.confirm(formatCatalogTemplate(t('shell.admin.confirm.injectTemplate'), { target }))
-              if (!ok) return
-              runtime.injectInitialMutation.mutate(target)
-            }}
-            disabled={runtime.injectInitialMutation.isPending || !runtime.pendingProjectKey}
-          >
-            {t(runtime.injectInitialMutation.isPending ? 'shell.admin.action.injecting' : 'shell.admin.action.injectTemplate')}
-          </button>
-          <button type="button" onClick={() => runtime.navigateToModule('overviewTasks')}>
-            {t('shell.admin.action.processHome')}
-          </button>
+          <details className="kernel-admin__project-actions">
+            <summary>{t('shell.admin.action.moreProjectActions')}</summary>
+            <button
+              onClick={() => {
+                const target = String(runtime.pendingProjectKey || '').trim()
+                if (!target) return
+                const ok = window.confirm(formatCatalogTemplate(t('shell.admin.confirm.injectTemplate'), { target }))
+                if (!ok) return
+                runtime.injectInitialMutation.mutate(target)
+              }}
+              disabled={runtime.injectInitialMutation.isPending || !runtime.pendingProjectKey}
+            >
+              {t(runtime.injectInitialMutation.isPending ? 'shell.admin.action.injecting' : 'shell.admin.action.injectTemplate')}
+            </button>
+          </details>
           {runtime.message ? <p className="kernel-admin__message">{runtime.message}</p> : null}
         </div>
       </header>
 
       <section className="kernel-admin__shell">
-        <aside className="kernel-admin__sidebar">
+        <button type="button" className="kernel-admin__mobile-nav-toggle" onClick={() => setNavOpen((open) => !open)} aria-expanded={navOpen} aria-controls="kernel-admin-nav"><Menu size={17} />{t('shell.admin.action.menu')}</button>
+        <aside id="kernel-admin-nav" className={`kernel-admin__sidebar ${navOpen ? 'is-open' : ''}`}>
           <div className="kernel-admin__brand">
             <span>{t('shell.admin.brand.layerC')}</span>
             <strong>MRW</strong>
           </div>
           <div className="kernel-admin__nav">
-            {ADMIN_GROUPS.map((group) => (
+            {ADMIN_NAV_SECTIONS.map((group) => (
               <section key={group.labelKey} className="kernel-admin__section">
                 <p className="kernel-admin__section-title">{t(group.labelKey)}</p>
-                {group.items.map((moduleKey) => {
+                {group.primary.map((moduleKey) => {
                   const Icon = ICON_BY_MODULE[moduleKey]
                   const contract = getKernelModuleContract(moduleKey)
                   const active = moduleKey === activeModule
@@ -257,15 +254,26 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
                       key={moduleKey}
                       type="button"
                       className={`kernel-admin__nav-item ${active ? 'is-active' : ''}`.trim()}
-                      onClick={() => runtime.navigateToModule(moduleKey)}
+                      onClick={() => { runtime.navigateToModule(moduleKey); setNavOpen(false) }}
+                      aria-current={active ? 'page' : undefined}
                     >
                       <Icon size={15} />
                       <span>{translate(locale, contract.navLabelKey, moduleKey)}</span>
                     </button>
                   )
                 })}
+                <details className="kernel-admin__secondary-nav" open={group.secondary.includes(activeModule) ? true : undefined}>
+                  <summary>{t('shell.admin.action.moreSections')}</summary>
+                  {group.secondary.map((moduleKey) => {
+                    const Icon = ICON_BY_MODULE[moduleKey]
+                    const contract = getKernelModuleContract(moduleKey)
+                    const active = moduleKey === activeModule
+                    return <button key={moduleKey} type="button" className={`kernel-admin__nav-item is-secondary ${active ? 'is-active' : ''}`} onClick={() => { runtime.navigateToModule(moduleKey); setNavOpen(false) }} aria-current={active ? 'page' : undefined}><Icon size={15} /><span>{translate(locale, contract.navLabelKey, moduleKey)}</span></button>
+                  })}
+                </details>
               </section>
             ))}
+            <button type="button" className="kernel-admin__nav-item kernel-admin__help-link" onClick={() => document.getElementById('admin-business-guide')?.scrollIntoView({ behavior: 'smooth' })}><HelpCircle size={15} /><span>{t('shell.admin.action.businessGuide')}</span></button>
           </div>
         </aside>
 
@@ -279,6 +287,7 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
                 shellMode="admin"
               />
             </section>
+            <div id="admin-business-guide"><BusinessChainGuide /></div>
           </section>
         </section>
       </section>

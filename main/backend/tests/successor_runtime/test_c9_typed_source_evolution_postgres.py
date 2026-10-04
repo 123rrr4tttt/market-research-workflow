@@ -17,23 +17,28 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy import text
-from sqlalchemy.engine import Engine, make_url
-from sqlalchemy.pool import NullPool
-
 from app.successor_runtime.capabilities.checksum import sha256_hex
 from app.successor_runtime.research.codec import canonical_bytes
 from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
-from app.successor_runtime.substrate.postgres.c9_projection_sources import (
-    C9_CLOSURE_MANIFEST_OBJECT_TYPE,
-    C9_TYPED_SOURCE_PROJECTOR_ID,
-    C9SourceClosureDriftError,
-    C9SourceMissingRowError,
-    C9SourceProvenanceDriftError,
-    C9SourceValueConflictError,
-    build_semantic_source_closure,
-    load_exact_semantic_source_closure,
-    put_semantic_source_rows,
+from app.successor_runtime.substrate.postgres import projection_sources as source_module
+from app.successor_runtime.substrate.postgres.projection_sources import (
+    PROJECT_SOURCE_MANIFEST_OBJECT_TYPE,
+    PROJECT_SOURCE_KIND,
+    PROJECTION_SOURCE_VALUE_ID_PREFIX,
+    PROJECT_SOURCE_IDENTITY_PROJECTOR_ID,
+    LEGACY_PROJECT_SOURCE_KIND,
+    LEGACY_PROJECTION_SOURCE_CODEC_ID,
+    LEGACY_PROJECTION_SOURCE_VALUE_ID_PREFIX,
+    LEGACY_PROJECT_SOURCE_IDENTITY_PROJECTOR_ID,
+    ProjectionSourceClosureDriftError,
+    ProjectionSourceMissingRowError,
+    ProjectionSourceProvenanceDriftError,
+    ProjectionSourceValueConflictError,
+    LegacyProjectionSourceReadbackV1,
+    build_project_source_closure,
+    load_exact_project_source_closure,
+    load_legacy_project_source_closure_v1,
+    put_project_source_rows,
 )
 from app.successor_runtime.substrate.postgres.ingest_c7_candidate_values import (
     C7_STRUCTURED_VALUE_CODEC_ID,
@@ -48,8 +53,16 @@ from app.successor_runtime.substrate.postgres.models import (
     PUBLIC_TABLES,
     project_tables,
 )
+from app.successor_runtime.substrate.postgres.projection_offsets import (
+    ProjectionOffsetKey,
+    ProjectionOffsetRepository,
+)
 from app.successor_runtime.substrate.postgres.session import compute_scope_digest
-from app.successor_runtime.substrate.projections import c9_sources as c9
+from app.successor_runtime.substrate.postgres.values import ValueRepository
+from app.successor_runtime.substrate.projections import projection_sources as c9
+from sqlalchemy import text
+from sqlalchemy.engine import Engine, make_url
+from sqlalchemy.pool import NullPool
 
 pytestmark = pytest.mark.integration
 
@@ -254,7 +267,7 @@ def _seed_runtime_project(
         )
     )
     for seq in range(1, event_count + 1):
-        event_kind = c9.SESSION_CREATED if seq == 1 else c9.SESSION_PROJECTION_REFRESHED
+        event_kind = c9.TASK_CREATED if seq == 1 else c9.TASK_PROJECTION_REFRESHED
         connection.execute(
             PUBLIC_TABLES["runtime_events"]
             .insert()
@@ -460,7 +473,7 @@ def _pointer_rows(connection: sa.Connection) -> list[dict[str, Any]]:
     rows = connection.execute(
         sa.select(table).where(
             table.c.project_key == PROJECT_KEY,
-            table.c.projector_id == C9_TYPED_SOURCE_PROJECTOR_ID,
+            table.c.projector_id == PROJECT_SOURCE_IDENTITY_PROJECTOR_ID,
         )
     )
     return [dict(row) for row in rows.mappings().all()]
@@ -472,9 +485,9 @@ def test_same_closure_put_is_idempotent_and_loads_exact(
     _, project = _project_metadata()
     with disposable_database.begin() as connection:
         scope = _scope()
-        closure = build_semantic_source_closure(connection, scope)
-        first = put_semantic_source_rows(connection, scope, closure)
-        second = put_semantic_source_rows(connection, scope, closure)
+        closure = build_project_source_closure(connection, scope)
+        first = put_project_source_rows(connection, scope, closure)
+        second = put_project_source_rows(connection, scope, closure)
     assert first.changed is True
     assert second.changed is False
     assert first.value_ids == second.value_ids
@@ -483,14 +496,14 @@ def test_same_closure_put_is_idempotent_and_loads_exact(
     assert first.manifest_value_id == second.manifest_value_id
     assert first.pointer_ref == second.pointer_ref == first.manifest_value_id
     with disposable_database.connect() as connection:
-        loaded = load_exact_semantic_source_closure(connection, scope)
+        loaded = load_exact_project_source_closure(connection, scope)
         pointers = _pointer_rows(connection)
         manifest_rows = (
             connection.execute(
                 sa.select(project.successor_values).where(
                     project.successor_values.c.project_key == PROJECT_KEY,
                     project.successor_values.c.object_type
-                    == C9_CLOSURE_MANIFEST_OBJECT_TYPE,
+                    == PROJECT_SOURCE_MANIFEST_OBJECT_TYPE,
                 )
             )
             .mappings()
@@ -499,10 +512,141 @@ def test_same_closure_put_is_idempotent_and_loads_exact(
     assert loaded == closure
     assert len(pointers) == 1
     assert pointers[0]["source_digest"] == closure.closure_digest
+    assert pointers[0]["source_kind"] == PROJECT_SOURCE_KIND
+    assert pointers[0]["source_ref"] == f"projection:{PROJECT_KEY}:source"
     assert pointers[0]["offset_ref"] == first.manifest_value_id
     assert pointers[0]["revision"] == 0
     assert len(manifest_rows) == 1
     assert manifest_rows[0]["value_id"] == first.manifest_value_id
+
+
+def test_historical_v1_decoder_reads_exact_rows_without_v2_rehash(
+    disposable_database: Engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, project = _project_metadata()
+    scope = _scope()
+    closure_digest = _digest("historical-projection-source-closure")
+    legacy_source_ref = f"{LEGACY_PROJECTION_SOURCE_VALUE_ID_PREFIX}:{PROJECT_KEY}"
+    legacy_incarnation = f"c9:semantic-source:{closure_digest[:32]}"
+    legacy_sources: dict[str, dict[str, Any]]
+    with disposable_database.begin() as connection:
+        current = build_project_source_closure(connection, scope)
+        task = current.task_source.to_plain()
+        task["schema_version"] = c9.LEGACY_TASK_SOURCE_SCHEMA
+        task["session_ref"] = task.pop("task_ref")
+        for event in task["events"]:
+            event["schema_version"] = "mrw.successor.c9.runtime-session-event.v1"
+        knowledge = current.knowledge_source.to_plain()
+        knowledge["schema_version"] = c9.LEGACY_KNOWLEDGE_SOURCE_SCHEMA
+        knowledge["graph_ref"] = knowledge.pop("knowledge_ref")
+        for obj in knowledge["objects"]:
+            obj["schema_version"] = "mrw.successor.c9.research-graph-object.v1"
+        for relation in knowledge["relations"]:
+            relation["schema_version"] = "mrw.successor.c9.research-graph-relation.v1"
+        material = current.material_source.to_plain()
+        material["schema_version"] = c9.LEGACY_MATERIAL_SOURCE_SCHEMA
+        material["search_ref"] = material.pop("material_ref")
+        for segment in material["segments"]:
+            segment["schema_version"] = "mrw.successor.c9.c7-search-segment.v1"
+        legacy_sources = {
+            "runtime_session": task,
+            "research_graph": knowledge,
+            "c7_search": material,
+        }
+        object_types = {
+            "runtime_session": c9.LEGACY_TASK_SOURCE_SCHEMA,
+            "research_graph": c9.LEGACY_KNOWLEDGE_SOURCE_SCHEMA,
+            "c7_search": c9.LEGACY_MATERIAL_SOURCE_SCHEMA,
+        }
+        repository = ValueRepository(connection, project)
+        source_ids: dict[str, str] = {}
+        for source_kind, content in legacy_sources.items():
+            value_id = f"{legacy_source_ref}:{source_kind}:historical"
+            source_ids[source_kind] = value_id
+            content_digest = sha256_hex(canonical_bytes(content))
+            provenance = {
+                "contract_ref": c9.LEGACY_PROJECTION_SOURCES_CONTRACT,
+                "project_key": scope.project_scope.scope_digest,
+                "source_ref": legacy_source_ref,
+                "incarnation": scope.project_scope.incarnation,
+                "source_kind": source_kind,
+                "closure_digest": closure_digest,
+            }
+            repository.put_exact(
+                scope,
+                value_id=value_id,
+                object_type=object_types[source_kind],
+                codec_id=LEGACY_PROJECTION_SOURCE_CODEC_ID,
+                content=content,
+                expected_digest=content_digest,
+                provenance_digest=sha256_hex(canonical_bytes(provenance)),
+                expected_revision=0,
+                expected_incarnation=legacy_incarnation,
+                source_ref=legacy_source_ref,
+                provenance=provenance,
+            )
+        closure_id = f"project:{PROJECT_KEY}:semantic-sources"
+        manifest_source_ref = f"{legacy_source_ref}:closure_manifest"
+        manifest = {
+            "schema_version": "mrw.successor.c9.semantic-source-closure-manifest.v1",
+            "contract_ref": c9.LEGACY_PROJECTION_SOURCES_CONTRACT,
+            "project_key": PROJECT_KEY,
+            "project_scope_ref": scope.project_scope.scope_digest,
+            "closure_id": closure_id,
+            "revision": "0",
+            "incarnation": scope.project_scope.incarnation,
+            "closure_digest": closure_digest,
+            "sources": source_ids,
+        }
+        manifest_value_id = f"{manifest_source_ref}:historical"
+        manifest_provenance = {
+            "contract_ref": c9.LEGACY_PROJECTION_SOURCES_CONTRACT,
+            "project_key": scope.project_scope.scope_digest,
+            "source_ref": manifest_source_ref,
+            "incarnation": scope.project_scope.incarnation,
+            "source_kind": "closure_manifest",
+            "closure_digest": closure_digest,
+        }
+        repository.put_exact(
+            scope,
+            value_id=manifest_value_id,
+            object_type="C9SemanticSourceClosureManifest.v1",
+            codec_id=LEGACY_PROJECTION_SOURCE_CODEC_ID,
+            content=manifest,
+            expected_digest=sha256_hex(canonical_bytes(manifest)),
+            provenance_digest=sha256_hex(canonical_bytes(manifest_provenance)),
+            expected_revision=0,
+            expected_incarnation=legacy_incarnation,
+            source_ref=manifest_source_ref,
+            provenance=manifest_provenance,
+        )
+        ProjectionOffsetRepository(connection, scope).create(
+            projection_offset_id=f"c9:semantic-source:{PROJECT_KEY}:historical",
+            key=ProjectionOffsetKey(
+                projector_id=LEGACY_PROJECT_SOURCE_IDENTITY_PROJECTOR_ID,
+                projector_version="1.0.0",
+                source_kind=LEGACY_PROJECT_SOURCE_KIND,
+                source_ref=closure_id,
+                source_incarnation=scope.project_scope.incarnation,
+            ),
+            projection_generation=0,
+            source_revision=0,
+            source_digest=closure_digest,
+            offset_ref=manifest_value_id,
+        )
+
+    def reject_rehash(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("historical decoder must not hash stored v1 bytes")
+
+    monkeypatch.setattr(source_module.hashlib, "sha256", reject_rehash)
+    with disposable_database.connect() as connection:
+        historical = load_legacy_project_source_closure_v1(connection, scope)
+
+    assert isinstance(historical, LegacyProjectionSourceReadbackV1)
+    assert historical.closure_digest == closure_digest
+    assert historical.manifest_value_id == manifest_value_id
+    assert canonical_bytes(historical.sources) == canonical_bytes(legacy_sources)
 
 
 def test_legitimate_advance_writes_new_versions_retains_old_and_loads_current(
@@ -511,8 +655,8 @@ def test_legitimate_advance_writes_new_versions_retains_old_and_loads_current(
     _, project = _project_metadata()
     with disposable_database.begin() as connection:
         scope = _scope()
-        closure_a = build_semantic_source_closure(connection, scope)
-        first = put_semantic_source_rows(connection, scope, closure_a)
+        closure_a = build_project_source_closure(connection, scope)
+        first = put_project_source_rows(connection, scope, closure_a)
         # Legal Research Ledger advance: new runtime revision/event and graph row.
         connection.execute(
             sa.update(PUBLIC_TABLES["runtime_runs"])
@@ -526,11 +670,11 @@ def test_legitimate_advance_writes_new_versions_retains_old_and_loads_current(
                 project_key=PROJECT_KEY,
                 run_id=RUN_ID,
                 seq=3,
-                event_type=c9.SESSION_PROJECTION_REFRESHED,
+                event_type=c9.TASK_PROJECTION_REFRESHED,
                 schema_version="mrw.runtime.event.v1",
                 step_id="step:1",
                 attempt_id=None,
-                event_metadata_json={"kind": c9.SESSION_PROJECTION_REFRESHED},
+                event_metadata_json={"kind": c9.TASK_PROJECTION_REFRESHED},
                 payload_ref="value:event:3",
                 payload_digest=_digest(f"{PROJECT_KEY}:event:3"),
                 authority_digest=_digest(f"{PROJECT_KEY}:authority:3"),
@@ -554,16 +698,16 @@ def test_legitimate_advance_writes_new_versions_retains_old_and_loads_current(
                 updated_at=NOW,
             )
         )
-        closure_b = build_semantic_source_closure(connection, scope)
+        closure_b = build_project_source_closure(connection, scope)
         assert closure_b.closure_digest != closure_a.closure_digest
-        second = put_semantic_source_rows(connection, scope, closure_b)
-        loaded = load_exact_semantic_source_closure(connection, scope)
+        second = put_project_source_rows(connection, scope, closure_b)
+        loaded = load_exact_project_source_closure(connection, scope)
         rows = (
             connection.execute(
                 sa.select(project.successor_values).where(
                     project.successor_values.c.project_key == PROJECT_KEY,
                     project.successor_values.c.source_ref
-                    == f"c9:semantic-source:{PROJECT_KEY}",
+                    == f"{PROJECTION_SOURCE_VALUE_ID_PREFIX}:{PROJECT_KEY}",
                 )
             )
             .mappings()
@@ -590,7 +734,7 @@ def test_legitimate_advance_writes_new_versions_retains_old_and_loads_current(
         old = by_id[value_id]
         assert old["value_id"] == value_id
         assert old["revision"] == 1
-    assert old_manifest["object_type"] == C9_CLOSURE_MANIFEST_OBJECT_TYPE
+    assert old_manifest["object_type"] == PROJECT_SOURCE_MANIFEST_OBJECT_TYPE
     assert len(pointers) == 1
     assert pointers[0]["source_digest"] == closure_b.closure_digest
     assert pointers[0]["offset_ref"] == second.manifest_value_id
@@ -604,8 +748,8 @@ def test_reversion_to_old_closure_fails_closed(
     _, project = _project_metadata()
     with disposable_database.begin() as connection:
         scope = _scope()
-        closure_a = build_semantic_source_closure(connection, scope)
-        put_semantic_source_rows(connection, scope, closure_a)
+        closure_a = build_project_source_closure(connection, scope)
+        put_project_source_rows(connection, scope, closure_a)
         connection.execute(
             sa.update(PUBLIC_TABLES["runtime_runs"])
             .where(PUBLIC_TABLES["runtime_runs"].c.project_key == PROJECT_KEY)
@@ -618,11 +762,11 @@ def test_reversion_to_old_closure_fails_closed(
                 project_key=PROJECT_KEY,
                 run_id=RUN_ID,
                 seq=3,
-                event_type=c9.SESSION_PROJECTION_REFRESHED,
+                event_type=c9.TASK_PROJECTION_REFRESHED,
                 schema_version="mrw.runtime.event.v1",
                 step_id="step:1",
                 attempt_id=None,
-                event_metadata_json={"kind": c9.SESSION_PROJECTION_REFRESHED},
+                event_metadata_json={"kind": c9.TASK_PROJECTION_REFRESHED},
                 payload_ref="value:event:3",
                 payload_digest=_digest(f"{PROJECT_KEY}:event:3"),
                 authority_digest=_digest(f"{PROJECT_KEY}:authority:3"),
@@ -630,17 +774,17 @@ def test_reversion_to_old_closure_fails_closed(
                 updated_at=NOW,
             )
         )
-        closure_b = build_semantic_source_closure(connection, scope)
-        put_semantic_source_rows(connection, scope, closure_b)
-        with pytest.raises(C9SourceValueConflictError):
-            put_semantic_source_rows(connection, scope, closure_a)
-        loaded = load_exact_semantic_source_closure(connection, scope)
+        closure_b = build_project_source_closure(connection, scope)
+        put_project_source_rows(connection, scope, closure_b)
+        with pytest.raises(ProjectionSourceValueConflictError):
+            put_project_source_rows(connection, scope, closure_a)
+        loaded = load_exact_project_source_closure(connection, scope)
         rows = (
             connection.execute(
                 sa.select(project.successor_values).where(
                     project.successor_values.c.project_key == PROJECT_KEY,
                     project.successor_values.c.source_ref
-                    == f"c9:semantic-source:{PROJECT_KEY}",
+                    == f"{PROJECTION_SOURCE_VALUE_ID_PREFIX}:{PROJECT_KEY}",
                 )
             )
             .mappings()
@@ -658,8 +802,8 @@ def test_payload_tamper_fails_closed(disposable_database: Engine) -> None:
     _, project = _project_metadata()
     with disposable_database.begin() as connection:
         scope = _scope()
-        closure = build_semantic_source_closure(connection, scope)
-        result = put_semantic_source_rows(connection, scope, closure)
+        closure = build_project_source_closure(connection, scope)
+        result = put_project_source_rows(connection, scope, closure)
         stored = (
             connection.execute(
                 sa.select(project.successor_values).where(
@@ -671,7 +815,7 @@ def test_payload_tamper_fails_closed(disposable_database: Engine) -> None:
             .one()
         )
         tampered = dict(stored["content_json"])
-        tampered["session_ref"] = "run:tampered"
+        tampered["task_ref"] = "task:tampered"
         connection.execute(
             sa.update(project.successor_values)
             .where(
@@ -680,8 +824,8 @@ def test_payload_tamper_fails_closed(disposable_database: Engine) -> None:
             )
             .values(content_json=tampered)
         )
-        with pytest.raises(C9SourceClosureDriftError):
-            load_exact_semantic_source_closure(connection, scope)
+        with pytest.raises(ProjectionSourceClosureDriftError):
+            load_exact_project_source_closure(connection, scope)
 
 
 def test_cross_scope_read_and_closure_identity_write_fail_closed(
@@ -695,20 +839,20 @@ def test_cross_scope_read_and_closure_identity_write_fail_closed(
             incarnation=OTHER_INCARNATION,
             resolved_schema=OTHER_PROJECT_SCHEMA,
         )
-        with pytest.raises(C9SourceMissingRowError):
-            load_exact_semantic_source_closure(connection, foreign_scope)
+        with pytest.raises(ProjectionSourceMissingRowError):
+            load_exact_project_source_closure(connection, foreign_scope)
     with disposable_database.begin() as connection:
         scope = _scope()
-        local_closure = build_semantic_source_closure(connection, scope)
-        foreign_closure = c9.C9SemanticSourceClosureV1(
-            schema_version=c9.C9_SEMANTIC_SOURCE_CLOSURE_SCHEMA,
+        local_closure = build_project_source_closure(connection, scope)
+        foreign_closure = c9.ProjectSourceClosure(
+            schema_version=c9.PROJECT_SOURCE_CLOSURE_SCHEMA,
             project_scope_ref=local_closure.project_scope_ref,
-            closure_id=f"project:{OTHER_PROJECT_KEY}:semantic-sources",
+            closure_id=f"projection:{OTHER_PROJECT_KEY}:source",
             revision=local_closure.revision,
             incarnation=local_closure.incarnation,
-            runtime_session_source=local_closure.runtime_session_source,
-            research_graph_source=local_closure.research_graph_source,
-            c7_search_source=local_closure.c7_search_source,
+            task_source=local_closure.task_source,
+            knowledge_source=local_closure.knowledge_source,
+            material_source=local_closure.material_source,
         )
-        with pytest.raises(C9SourceProvenanceDriftError):
-            put_semantic_source_rows(connection, scope, foreign_closure)
+        with pytest.raises(ProjectionSourceProvenanceDriftError):
+            put_project_source_rows(connection, scope, foreign_closure)

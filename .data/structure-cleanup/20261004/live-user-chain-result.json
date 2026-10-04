@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "scope": "local single-user",
+  "project": "readiness_daily_20261004",
+  "task_id": "7afe6c39-5732-448e-ad67-4530481b0443",
+  "document_id": 3,
+  "content_sha256": "8cc0d69d29289955d97100cf0170a5eb641db4cb670ba1c39a2fb53c682f6399",
+  "fresh_readback_matches": true,
+  "original_policy_preserved": true,
+  "provider_calls_requested": 0
+}

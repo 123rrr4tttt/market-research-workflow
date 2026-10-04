@@ -5,9 +5,13 @@ from typing import Any
 from ..celery_app import celery_app
 from .task_readback_metadata import merge_request_runtime_context, merge_runtime_readback_payload
 
+WORKER_OBSERVATION_TASK_NAME = "task_worker_observation_probe"
+WORKER_OBSERVATION_LINE_KEY = "worker_observation"
+WORKER_OBSERVATION_FALLBACK_WORKER_NAME = "local.task_worker_observation_probe"
 
-@celery_app.task(bind=True, name="task_stage5_worker_observability_probe")
-def task_stage5_worker_observability_probe(
+
+@celery_app.task(bind=True, name=WORKER_OBSERVATION_TASK_NAME)
+def task_worker_observation_probe(
     self,
     *,
     request_id: str,
@@ -17,20 +21,21 @@ def task_stage5_worker_observability_probe(
     candidate_review_key: str,
     candidate_id: str,
     queue: str,
-    line_key: str = "stage5_worker_probe",
+    line_key: str = WORKER_OBSERVATION_LINE_KEY,
     runtime_readback: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run a task-owned no-op worker chain without DB, provider, or IO effects."""
 
     runtime = merge_request_runtime_context(
-        runtime_readback or {
+        runtime_readback
+        or {
             "line_key": line_key,
             "run_id": run_id,
             "trace_id": trace_id,
             "queue": queue,
         },
         getattr(self, "request", None),
-        fallback_worker_name="stage5-eager-worker",
+        fallback_worker_name=WORKER_OBSERVATION_FALLBACK_WORKER_NAME,
         fallback_queue=queue,
         status="running",
         event="worker_execution_started",

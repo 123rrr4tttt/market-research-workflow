@@ -5,6 +5,7 @@ import { activateProject, archiveProject, autoCreateProject, createProject, dele
 import { translate, useAppLocale } from '../app/platform/i18n'
 import { queryKeys } from '../lib/queryKeys'
 import { buildProjectReadiness, READINESS_STATUS_LABEL_KEY_BY_STATUS } from '../lib/projectReadiness'
+import './project-management-page.css'
 
 type ProjectsPageProps = {
   projectKey: string
@@ -142,7 +143,7 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
 
   return (
     <div className="content-stack projects-page">
-      <section className="panel">
+      <section className="panel projects-create-panel">
         <div className="panel-header"><h2><CopyPlus size={15} />{translate(locale, 'projects.create.title')}</h2></div>
         <div className="form-grid cols-3">
           <label><span>{translate(locale, 'projects.field.projectKey')}</span><input value={newProjectKey} onChange={(e) => setNewProjectKey(e.target.value)} placeholder={translate(locale, 'projects.placeholder.projectKey')} /></label>
@@ -156,7 +157,6 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
             <span>{translate(locale, 'projects.field.templateProject')}</span>
             <select value={templateProjectKey} onChange={(e) => setTemplateProjectKey(e.target.value)}>
               <option value="demo_proj">demo_proj</option>
-              <option value="online_lottery">online_lottery</option>
               <option value="business_survey">business_survey</option>
             </select>
           </label>
@@ -185,7 +185,7 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
         </div>
       </section>
 
-      <section className="panel" aria-label={translate(locale, 'projects.readiness.title')} data-testid="projects-readiness-panel">
+      <section className="panel projects-readiness-panel" aria-label={translate(locale, 'projects.readiness.title')} data-testid="projects-readiness-panel">
         <div className="panel-header">
           <h2><ShieldCheck size={15} />{translate(locale, 'projects.readiness.title')}</h2>
           <span className="status-line">
@@ -240,44 +240,47 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
         </div>
       </section>
 
-      <section className="panel" data-testid="projects-list">
+      <section className="panel projects-list-panel" data-testid="projects-list">
         <div className="panel-header"><h2><HardDriveDownload size={15} />{translate(locale, 'projects.list.title')}</h2><button onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.projects.all() })}><RefreshCw size={14} />{translate(locale, 'projects.action.refresh')}</button></div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>{translate(locale, 'projects.field.projectKey')}</th><th>{translate(locale, 'projects.field.name')}</th><th>{translate(locale, 'projects.field.schema')}</th><th>{translate(locale, 'projects.field.enabled')}</th><th>{translate(locale, 'projects.field.active')}</th><th>{translate(locale, 'projects.field.actions')}</th></tr></thead>
+            <thead><tr><th>{translate(locale, 'projects.field.name')}</th><th>{translate(locale, 'projects.field.enabled')}</th><th>{translate(locale, 'projects.field.active')}</th><th>{translate(locale, 'projects.field.actions')}</th></tr></thead>
             <tbody>
-              {(projects.data || []).map((item) => (
+              {!projects.isLoading && !projects.isError && (projects.data || []).map((item) => (
                 <tr key={item.project_key}>
-                  <td>{item.project_key}</td>
                   <td>
                     {editingProject?.key === item.project_key ? (
                       <input value={editingProject.name} onChange={(e) => setEditingProject({ key: item.project_key, name: e.target.value })} />
                     ) : (
-                      item.name || '-'
+                      <div className="project-name-cell"><strong>{item.name || item.project_key}</strong><span className="project-key-hint">{item.project_key}</span>{item.project_key === projectKey && <span className="status-line">{currentProjectMarker}</span>}</div>
                     )}
                   </td>
-                  <td>{item.schema_name || '-'}</td>
-                  <td>{item.enabled ? 'true' : 'false'}</td>
-                  <td>{item.is_active ? 'true' : 'false'}{item.project_key === projectKey ? currentProjectMarker : ''}</td>
+                  <td>{item.enabled ? translate(locale, 'projects.field.enabled') : translate(locale, 'projects.action.archive')}</td>
+                  <td>{item.is_active ? translate(locale, 'projects.status.current') : '-'}</td>
                   <td>
-                    <div className="inline-actions">
+                    <div className="inline-actions project-row-actions">
                       <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'activateProject', key: item.project_key })}>{translate(locale, 'projects.action.activate')}</button>
                       {editingProject?.key === item.project_key ? (
                         <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'update', key: item.project_key, name: editingProject.name })}><Edit3 size={12} />{translate(locale, 'projects.action.save')}</button>
                       ) : (
                         <button onClick={() => setEditingProject({ key: item.project_key, name: item.name || '' })}><Edit3 size={12} />{translate(locale, 'projects.action.rename')}</button>
                       )}
-                      {item.enabled ? (
-                        <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'archive', key: item.project_key })}><Archive size={12} />{translate(locale, 'projects.action.archive')}</button>
-                      ) : (
-                        <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'restore', key: item.project_key })}><RefreshCw size={12} />{translate(locale, 'projects.action.restore')}</button>
-                      )}
-                      <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'delete', key: item.project_key })}><Trash2 size={12} />{translate(locale, 'projects.action.delete')}</button>
+                      <details className="project-more-actions"><summary>{translate(locale, 'projects.field.actions')}</summary><div className="project-action-menu">
+                        <div className="project-technical-details"><span>{translate(locale, 'projects.field.projectKey')}: <code>{item.project_key}</code></span><span>{translate(locale, 'projects.field.schema')}: <code>{item.schema_name || '-'}</code></span></div>
+                        {item.enabled ? (
+                          <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'archive', key: item.project_key })}><Archive size={12} />{translate(locale, 'projects.action.archive')}</button>
+                        ) : (
+                          <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'restore', key: item.project_key })}><RefreshCw size={12} />{translate(locale, 'projects.action.restore')}</button>
+                        )}
+                        <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'delete', key: item.project_key })}><Trash2 size={12} />{translate(locale, 'projects.action.delete')}</button>
+                      </div></details>
                     </div>
                   </td>
                 </tr>
               ))}
-              {!projects.data?.length && <tr><td colSpan={6} className="empty-cell">{translate(locale, 'projects.list.empty')}</td></tr>}
+              {projects.isLoading && <tr><td colSpan={4} className="empty-cell projects-list-state" aria-live="polite">{translate(locale, 'shared.loading')}</td></tr>}
+              {projects.isError && <tr><td colSpan={4} className="empty-cell projects-list-state projects-list-state--error" role="alert">{translate(locale, 'shell.admin.status.readFailed')}</td></tr>}
+              {!projects.isLoading && !projects.isError && !projects.data?.length && <tr><td colSpan={4} className="empty-cell projects-list-state">{translate(locale, 'projects.list.empty')}</td></tr>}
             </tbody>
           </table>
         </div>

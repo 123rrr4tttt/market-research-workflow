@@ -1,0 +1,777 @@
+{
+  "status": "ok",
+  "data": {
+    "query": "MRW persisted readiness policy 98952f281da9",
+    "state": null,
+    "modality": "any",
+    "rank": "bm25",
+    "top_k": 10,
+    "results": [
+      {
+        "document_id": 2,
+        "project_key": "readiness_repair",
+        "object_type": "policy_chunk",
+        "object_id": 2,
+        "chunk_id": null,
+        "source_id": null,
+        "vector_version": "v1",
+        "embedding_model": null,
+        "embedding_dim": null,
+        "score": 4.6029134,
+        "chunk_index": 0,
+        "title": "MRW persisted readiness policy 98952f281da9",
+        "summary": "",
+        "text": "MRW persisted readiness policy 98952f281da9.\nThis is a local synthetic policy fixture for project-scoped index and readback verification.",
+        "highlight": [
+          "<em>MRW</em> <em>persisted</em> <em>readiness</em> <em>policy</em> <em>98952f281da9</em>."
+        ],
+        "state": null,
+        "publish_date": null,
+        "source_uri": null,
+        "source_domain": "localhost",
+        "effective_time": "2026-10-04T07:52:16.897295+00:00",
+        "language": "unknown",
+        "mode": "bm25",
+        "backend": "opensearch",
+        "tags": [
+          "lexical",
+          "bm25"
+        ]
+      }
+    ],
+    "document_query_contract_version": "document_queries.v1",
+    "document_query": {
+      "contract_version": "document_queries.v1",
+      "query": "MRW persisted readiness policy 98952f281da9",
+      "normalized_query": "mrw persisted readiness policy 98952f281da9",
+      "project_key": "readiness_repair",
+      "consumer": "api.search",
+      "sources": [
+        "document"
+      ],
+      "filters": [],
+      "sort": [
+        {
+          "field": "relevance",
+          "direction": "desc"
+        }
+      ],
+      "limit": 10,
+      "offset": 0,
+      "query_id": "dfa317ca9b9f10b1"
+    },
+    "document_query_results": [
+      {
+        "document_id": 2,
+        "project_key": "readiness_repair",
+        "object_type": "policy_chunk",
+        "object_id": 2,
+        "chunk_id": null,
+        "source_id": null,
+        "vector_version": "v1",
+        "embedding_model": null,
+        "embedding_dim": null,
+        "score": 4.6029134,
+        "chunk_index": 0,
+        "title": "MRW persisted readiness policy 98952f281da9",
+        "summary": "",
+        "text": "MRW persisted readiness policy 98952f281da9.\nThis is a local synthetic policy fixture for project-scoped index and readback verification.",
+        "highlight": [
+          "<em>MRW</em> <em>persisted</em> <em>readiness</em> <em>policy</em> <em>98952f281da9</em>."
+        ],
+        "state": null,
+        "publish_date": null,
+        "source_uri": null,
+        "source_domain": "localhost",
+        "effective_time": "2026-10-04T07:52:16.897295+00:00",
+        "language": "unknown",
+        "mode": "bm25",
+        "backend": "opensearch",
+        "tags": [
+          "lexical",
+          "bm25"
+        ],
+        "id": null,
+        "snippet": "",
+        "url": null,
+        "uri": null,
+        "source_type": "document",
+        "publisher": null,
+        "published_at": null,
+        "rank": 1,
+        "raw": {
+          "document_id": 2,
+          "project_key": "readiness_repair",
+          "object_type": "policy_chunk",
+          "object_id": 2,
+          "chunk_id": null,
+          "source_id": null,
+          "vector_version": "v1",
+          "embedding_model": null,
+          "embedding_dim": null,
+          "score": 4.6029134,
+          "chunk_index": 0,
+          "title": "MRW persisted readiness policy 98952f281da9",
+          "summary": "",
+          "text": "MRW persisted readiness policy 98952f281da9.\nThis is a local synthetic policy fixture for project-scoped index and readback verification.",
+          "highlight": [
+            "<em>MRW</em> <em>persisted</em> <em>readiness</em> <em>policy</em> <em>98952f281da9</em>."
+          ],
+          "state": null,
+          "publish_date": null,
+          "source_uri": null,
+          "source_domain": "localhost",
+          "effective_time": "2026-10-04T07:52:16.897295+00:00",
+          "language": "unknown",
+          "mode": "bm25",
+          "backend": "opensearch",
+          "tags": [
+            "lexical",
+            "bm25"
+          ]
+        }
+      }
+    ],
+    "document_query_pagination": {
+      "limit": 10,
+      "offset": 0,
+      "result_count": 1,
+      "total": 1
+    },
+    "document_query_meta": {
+      "contract_version": "document_queries.v1",
+      "query_id": "dfa317ca9b9f10b1",
+      "consumer": "api.search",
+      "source": "api.search.hybrid",
+      "result_count": 1,
+      "endpoint": "/api/v1/search",
+      "rank_mode": "bm25",
+      "modality": "any",
+      "top_k": 10,
+      "search_backends_used": [
+        "opensearch_lexical"
+      ]
+    },
+    "global_vector_object_contract_version": "global_vector_object.v1",
+    "evidence_hit_contract_version": "search_evidence_hit.v1",
+    "query_group_id": "qg_0021ece2aa6c6412",
+    "evidence_hits": [
+      {
+        "contract_version": "search_evidence_hit.v1",
+        "hit_id": "eh_b76ee0b9c4feda4f",
+        "rank": 1,
+        "query_group_id": "qg_0021ece2aa6c6412",
+        "matrix_branch_id": "branch_473b80f65a22b91d",
+        "retrieval_mode": "keyword",
+        "retrieval_family": "main_search",
+        "backend": "opensearch_lexical",
+        "evidence_class": "policy_chunk",
+        "verification_state": "unverified",
+        "score": 4.6029134,
+        "rank_features": {
+          "rank": 1,
+          "score": 4.6029134,
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "vector_score": 0.0,
+          "backend": "opensearch_lexical",
+          "retrieval_mode": "keyword",
+          "tags": [
+            "lexical",
+            "bm25"
+          ]
+        },
+        "provenance": {
+          "source_uri": null,
+          "source_domain": "localhost",
+          "effective_time": "2026-10-04T07:52:16.897295+00:00",
+          "language": "unknown",
+          "provider": "opensearch_lexical",
+          "backend": "opensearch_lexical",
+          "retrieval_mode": "keyword",
+          "provider_payload_kind": "opensearch_lexical",
+          "embedding_model": "unknown_embedding_model",
+          "embedding_model_version": "v1",
+          "embedding_dim": null,
+          "vector_version": "v1",
+          "source": "document:2",
+          "source_id": "document:2",
+          "source_reference": "document:2",
+          "reference": "document:2",
+          "score": 4.6029134,
+          "fallback_reason": null,
+          "project_key": "readiness_repair",
+          "document_id": "2",
+          "chunk_id": "2:chunk:0",
+          "matrix_branch_id": "branch_473b80f65a22b91d"
+        },
+        "global_vector_object": {
+          "contract_version": "global_vector_object.v1",
+          "project_key": "readiness_repair",
+          "object_type": "policy_chunk",
+          "object_id": "2",
+          "chunk_id": "2:chunk:0",
+          "source_id": "document:2",
+          "document_id": "2",
+          "vector_version": "v1",
+          "embedding_model": "unknown_embedding_model",
+          "embedding_dim": null,
+          "matrix_branch_id": "branch_473b80f65a22b91d",
+          "provenance": {
+            "source_uri": null,
+            "source_domain": "localhost",
+            "effective_time": "2026-10-04T07:52:16.897295+00:00",
+            "language": "unknown",
+            "provider": "opensearch_lexical",
+            "backend": "opensearch_lexical",
+            "retrieval_mode": "keyword",
+            "provider_payload_kind": "opensearch_lexical",
+            "embedding_model": "unknown_embedding_model",
+            "embedding_model_version": "v1",
+            "embedding_dim": null,
+            "vector_version": "v1",
+            "source": "document:2",
+            "source_id": "document:2",
+            "source_reference": "document:2",
+            "reference": "document:2",
+            "score": 4.6029134,
+            "fallback_reason": null
+          }
+        }
+      }
+    ],
+    "retrieval_run_contract_version": "search_retrieval_run.v1",
+    "retrieval_run_id": "retrieval_run_095c661577e57ac3",
+    "search_branches": [
+      {
+        "matrix_branch_id": "branch_473b80f65a22b91d",
+        "retrieval_mode": "keyword",
+        "backend": "opensearch_lexical",
+        "retrieval_family": "main_search",
+        "hit_ids": [
+          "eh_b76ee0b9c4feda4f"
+        ],
+        "hit_count": 1,
+        "top_score": 4.6029134,
+        "global_vector_object_refs": [
+          {
+            "document_id": "2",
+            "chunk_id": "2:chunk:0",
+            "source_id": "document:2",
+            "vector_version": "v1"
+          }
+        ],
+        "verification_states": [
+          "unverified"
+        ],
+        "contract_version": "search_retrieval_branch.v1",
+        "run_id": "retrieval_run_095c661577e57ac3",
+        "retrieval_run_id": "retrieval_run_095c661577e57ac3",
+        "query_group_id": "qg_0021ece2aa6c6412",
+        "query_text": "MRW persisted readiness policy 98952f281da9",
+        "rank_mode": "bm25",
+        "provider_or_index": "opensearch_lexical",
+        "status": "completed",
+        "filters": {
+          "state": null,
+          "modality": "any",
+          "top_k": 10
+        }
+      }
+    ],
+    "branch_hit_details": [
+      {
+        "contract_version": "search_retrieval_hit.v1",
+        "run_id": "retrieval_run_095c661577e57ac3",
+        "retrieval_run_id": "retrieval_run_095c661577e57ac3",
+        "query_group_id": "qg_0021ece2aa6c6412",
+        "matrix_branch_id": "branch_473b80f65a22b91d",
+        "hit_id": "eh_b76ee0b9c4feda4f",
+        "rank": 1,
+        "score": 4.6029134,
+        "retrieval_mode": "keyword",
+        "retrieval_family": "main_search",
+        "backend": "opensearch_lexical",
+        "object_type": "policy_chunk",
+        "object_id": "2",
+        "chunk_id": "2:chunk:0",
+        "document_id": "2",
+        "source_id": "document:2",
+        "evidence_class": "policy_chunk",
+        "verification_state": "unverified",
+        "provenance": {
+          "source_uri": null,
+          "source_domain": "localhost",
+          "effective_time": "2026-10-04T07:52:16.897295+00:00",
+          "language": "unknown",
+          "provider": "opensearch_lexical",
+          "backend": "opensearch_lexical",
+          "retrieval_mode": "keyword",
+          "provider_payload_kind": "opensearch_lexical",
+          "embedding_model": "unknown_embedding_model",
+          "embedding_model_version": "v1",
+          "embedding_dim": null,
+          "vector_version": "v1",
+          "source": "document:2",
+          "source_id": "document:2",
+          "source_reference": "document:2",
+          "reference": "document:2",
+          "score": 4.6029134,
+          "fallback_reason": null,
+          "project_key": "readiness_repair",
+          "document_id": "2",
+          "chunk_id": "2:chunk:0",
+          "matrix_branch_id": "branch_473b80f65a22b91d"
+        },
+        "global_vector_object": {
+          "contract_version": "global_vector_object.v1",
+          "project_key": "readiness_repair",
+          "object_type": "policy_chunk",
+          "object_id": "2",
+          "chunk_id": "2:chunk:0",
+          "source_id": "document:2",
+          "document_id": "2",
+          "vector_version": "v1",
+          "embedding_model": "unknown_embedding_model",
+          "embedding_dim": null,
+          "matrix_branch_id": "branch_473b80f65a22b91d",
+          "provenance": {
+            "source_uri": null,
+            "source_domain": "localhost",
+            "effective_time": "2026-10-04T07:52:16.897295+00:00",
+            "language": "unknown",
+            "provider": "opensearch_lexical",
+            "backend": "opensearch_lexical",
+            "retrieval_mode": "keyword",
+            "provider_payload_kind": "opensearch_lexical",
+            "embedding_model": "unknown_embedding_model",
+            "embedding_model_version": "v1",
+            "embedding_dim": null,
+            "vector_version": "v1",
+            "source": "document:2",
+            "source_id": "document:2",
+            "source_reference": "document:2",
+            "reference": "document:2",
+            "score": 4.6029134,
+            "fallback_reason": null
+          }
+        }
+      }
+    ],
+    "retrieval_run": {
+      "contract_version": "search_retrieval_run.v1",
+      "run_id": "retrieval_run_095c661577e57ac3",
+      "retrieval_run_id": "retrieval_run_095c661577e57ac3",
+      "query_group_id": "qg_0021ece2aa6c6412",
+      "retrieval_family": "main_search",
+      "query": "MRW persisted readiness policy 98952f281da9",
+      "query_text": "MRW persisted readiness policy 98952f281da9",
+      "project_key": "readiness_repair",
+      "rank_mode": "bm25",
+      "state": null,
+      "modality": "any",
+      "top_k": 10,
+      "filters": {
+        "state": null,
+        "modality": "any",
+        "top_k": 10
+      },
+      "branch_records": [
+        {
+          "matrix_branch_id": "branch_473b80f65a22b91d",
+          "retrieval_mode": "keyword",
+          "backend": "opensearch_lexical",
+          "retrieval_family": "main_search",
+          "hit_ids": [
+            "eh_b76ee0b9c4feda4f"
+          ],
+          "hit_count": 1,
+          "top_score": 4.6029134,
+          "global_vector_object_refs": [
+            {
+              "document_id": "2",
+              "chunk_id": "2:chunk:0",
+              "source_id": "document:2",
+              "vector_version": "v1"
+            }
+          ],
+          "verification_states": [
+            "unverified"
+          ]
+        }
+      ],
+      "retrieval_branches": [
+        {
+          "matrix_branch_id": "branch_473b80f65a22b91d",
+          "retrieval_mode": "keyword",
+          "backend": "opensearch_lexical",
+          "retrieval_family": "main_search",
+          "hit_ids": [
+            "eh_b76ee0b9c4feda4f"
+          ],
+          "hit_count": 1,
+          "top_score": 4.6029134,
+          "global_vector_object_refs": [
+            {
+              "document_id": "2",
+              "chunk_id": "2:chunk:0",
+              "source_id": "document:2",
+              "vector_version": "v1"
+            }
+          ],
+          "verification_states": [
+            "unverified"
+          ],
+          "contract_version": "search_retrieval_branch.v1",
+          "run_id": "retrieval_run_095c661577e57ac3",
+          "retrieval_run_id": "retrieval_run_095c661577e57ac3",
+          "query_group_id": "qg_0021ece2aa6c6412",
+          "query_text": "MRW persisted readiness policy 98952f281da9",
+          "rank_mode": "bm25",
+          "provider_or_index": "opensearch_lexical",
+          "status": "completed",
+          "filters": {
+            "state": null,
+            "modality": "any",
+            "top_k": 10
+          }
+        }
+      ],
+      "retrieval_hits": [
+        {
+          "contract_version": "search_retrieval_hit.v1",
+          "run_id": "retrieval_run_095c661577e57ac3",
+          "retrieval_run_id": "retrieval_run_095c661577e57ac3",
+          "query_group_id": "qg_0021ece2aa6c6412",
+          "matrix_branch_id": "branch_473b80f65a22b91d",
+          "hit_id": "eh_b76ee0b9c4feda4f",
+          "rank": 1,
+          "score": 4.6029134,
+          "retrieval_mode": "keyword",
+          "retrieval_family": "main_search",
+          "backend": "opensearch_lexical",
+          "object_type": "policy_chunk",
+          "object_id": "2",
+          "chunk_id": "2:chunk:0",
+          "document_id": "2",
+          "source_id": "document:2",
+          "evidence_class": "policy_chunk",
+          "verification_state": "unverified",
+          "provenance": {
+            "source_uri": null,
+            "source_domain": "localhost",
+            "effective_time": "2026-10-04T07:52:16.897295+00:00",
+            "language": "unknown",
+            "provider": "opensearch_lexical",
+            "backend": "opensearch_lexical",
+            "retrieval_mode": "keyword",
+            "provider_payload_kind": "opensearch_lexical",
+            "embedding_model": "unknown_embedding_model",
+            "embedding_model_version": "v1",
+            "embedding_dim": null,
+            "vector_version": "v1",
+            "source": "document:2",
+            "source_id": "document:2",
+            "source_reference": "document:2",
+            "reference": "document:2",
+            "score": 4.6029134,
+            "fallback_reason": null,
+            "project_key": "readiness_repair",
+            "document_id": "2",
+            "chunk_id": "2:chunk:0",
+            "matrix_branch_id": "branch_473b80f65a22b91d"
+          },
+          "global_vector_object": {
+            "contract_version": "global_vector_object.v1",
+            "project_key": "readiness_repair",
+            "object_type": "policy_chunk",
+            "object_id": "2",
+            "chunk_id": "2:chunk:0",
+            "source_id": "document:2",
+            "document_id": "2",
+            "vector_version": "v1",
+            "embedding_model": "unknown_embedding_model",
+            "embedding_dim": null,
+            "matrix_branch_id": "branch_473b80f65a22b91d",
+            "provenance": {
+              "source_uri": null,
+              "source_domain": "localhost",
+              "effective_time": "2026-10-04T07:52:16.897295+00:00",
+              "language": "unknown",
+              "provider": "opensearch_lexical",
+              "backend": "opensearch_lexical",
+              "retrieval_mode": "keyword",
+              "provider_payload_kind": "opensearch_lexical",
+              "embedding_model": "unknown_embedding_model",
+              "embedding_model_version": "v1",
+              "embedding_dim": null,
+              "vector_version": "v1",
+              "source": "document:2",
+              "source_id": "document:2",
+              "source_reference": "document:2",
+              "reference": "document:2",
+              "score": 4.6029134,
+              "fallback_reason": null
+            }
+          }
+        }
+      ],
+      "evidence_hits": [
+        {
+          "contract_version": "search_evidence_hit.v1",
+          "hit_id": "eh_b76ee0b9c4feda4f",
+          "rank": 1,
+          "query_group_id": "qg_0021ece2aa6c6412",
+          "matrix_branch_id": "branch_473b80f65a22b91d",
+          "retrieval_mode": "keyword",
+          "retrieval_family": "main_search",
+          "backend": "opensearch_lexical",
+          "evidence_class": "policy_chunk",
+          "verification_state": "unverified",
+          "score": 4.6029134,
+          "rank_features": {
+            "rank": 1,
+            "score": 4.6029134,
+            "fusion_score": 0.0,
+            "lexical_score": 0.0,
+            "vector_score": 0.0,
+            "backend": "opensearch_lexical",
+            "retrieval_mode": "keyword",
+            "tags": [
+              "lexical",
+              "bm25"
+            ]
+          },
+          "provenance": {
+            "source_uri": null,
+            "source_domain": "localhost",
+            "effective_time": "2026-10-04T07:52:16.897295+00:00",
+            "language": "unknown",
+            "provider": "opensearch_lexical",
+            "backend": "opensearch_lexical",
+            "retrieval_mode": "keyword",
+            "provider_payload_kind": "opensearch_lexical",
+            "embedding_model": "unknown_embedding_model",
+            "embedding_model_version": "v1",
+            "embedding_dim": null,
+            "vector_version": "v1",
+            "source": "document:2",
+            "source_id": "document:2",
+            "source_reference": "document:2",
+            "reference": "document:2",
+            "score": 4.6029134,
+            "fallback_reason": null,
+            "project_key": "readiness_repair",
+            "document_id": "2",
+            "chunk_id": "2:chunk:0",
+            "matrix_branch_id": "branch_473b80f65a22b91d"
+          },
+          "global_vector_object": {
+            "contract_version": "global_vector_object.v1",
+            "project_key": "readiness_repair",
+            "object_type": "policy_chunk",
+            "object_id": "2",
+            "chunk_id": "2:chunk:0",
+            "source_id": "document:2",
+            "document_id": "2",
+            "vector_version": "v1",
+            "embedding_model": "unknown_embedding_model",
+            "embedding_dim": null,
+            "matrix_branch_id": "branch_473b80f65a22b91d",
+            "provenance": {
+              "source_uri": null,
+              "source_domain": "localhost",
+              "effective_time": "2026-10-04T07:52:16.897295+00:00",
+              "language": "unknown",
+              "provider": "opensearch_lexical",
+              "backend": "opensearch_lexical",
+              "retrieval_mode": "keyword",
+              "provider_payload_kind": "opensearch_lexical",
+              "embedding_model": "unknown_embedding_model",
+              "embedding_model_version": "v1",
+              "embedding_dim": null,
+              "vector_version": "v1",
+              "source": "document:2",
+              "source_id": "document:2",
+              "source_reference": "document:2",
+              "reference": "document:2",
+              "score": 4.6029134,
+              "fallback_reason": null
+            }
+          }
+        }
+      ],
+      "branch_count": 1,
+      "hit_count": 1,
+      "status": "completed"
+    },
+    "retrieval_run_readback": {
+      "contract_version": "search_retrieval_run_readback.v1",
+      "status": "passed",
+      "write_performed": true,
+      "readback_performed": true,
+      "readback_available": true,
+      "storage_kind": "local_jsonl",
+      "path": "/tmp/market-research-workflow/search_retrieval_runs.jsonl",
+      "run_id": "retrieval_run_095c661577e57ac3",
+      "retrieval_run_id": "retrieval_run_095c661577e57ac3",
+      "branch_count": 1,
+      "hit_count": 1,
+      "closed_repo_local_blockers": [
+        "retrieval_runs_branches_hits_persistence_not_implemented"
+      ],
+      "remaining_repo_local_blockers": []
+    },
+    "search_fallback_order": [
+      "opensearch_lexical",
+      "qdrant_vector",
+      "pgvector_fallback"
+    ],
+    "search_backends_used": [
+      "opensearch_lexical"
+    ],
+    "provider_trace": {
+      "contract_version": "search.provider_trace.compat.v1",
+      "status": "completed",
+      "retrieval_run_id": "retrieval_run_095c661577e57ac3",
+      "query_group_id": "qg_0021ece2aa6c6412",
+      "providers_used": [
+        "opensearch_lexical"
+      ],
+      "fallback_order": [
+        "opensearch_lexical",
+        "qdrant_vector",
+        "pgvector_fallback"
+      ],
+      "index_backend": "opensearch_lexical",
+      "fallback_used": false,
+      "index_freshness": {
+        "contract_version": "search.index_freshness.v1",
+        "freshness_state": "available",
+        "readback_available": true,
+        "fallback_used": false
+      },
+      "branches": [
+        {
+          "matrix_branch_id": "branch_473b80f65a22b91d",
+          "retrieval_mode": "keyword",
+          "backend": "opensearch_lexical",
+          "provider_or_index": "opensearch_lexical",
+          "hit_count": 1,
+          "status": "completed"
+        }
+      ]
+    },
+    "index_backend": "opensearch_lexical",
+    "fallback_used": false,
+    "result_groups": [
+      {
+        "group_key": "opensearch_lexical|policy_chunk|document:2",
+        "backend": "opensearch_lexical",
+        "source_type": "policy_chunk",
+        "provenance_key": "document:2",
+        "count": 1,
+        "result_ids": [
+          "eh_b76ee0b9c4feda4f"
+        ]
+      }
+    ],
+    "index_freshness": {
+      "contract_version": "search.index_freshness.v1",
+      "index_backend": "opensearch_lexical",
+      "readback_available": true,
+      "freshness_state": "available",
+      "fallback_used": false,
+      "retrieval_run_id": "retrieval_run_095c661577e57ac3",
+      "retrieval_run_status": "completed",
+      "readback_status": "passed",
+      "branch_count": 1,
+      "hit_count": 1,
+      "freshness_basis": "retrieval_run_readback",
+      "known_limitations": [
+        "no_real_index_timestamp"
+      ]
+    },
+    "trace_chain": {
+      "contract_version": "ingest_search.trace_chain.v1",
+      "trace_id": "retrieval_run_095c661577e57ac3",
+      "project_key": "readiness_repair",
+      "entrypoint": "search.query",
+      "run_order": [
+        {
+          "order": 1,
+          "stage": "search_request",
+          "query": "MRW persisted readiness policy 98952f281da9",
+          "query_group_id": "qg_0021ece2aa6c6412",
+          "status": "accepted"
+        },
+        {
+          "order": 2,
+          "stage": "provider_trace",
+          "providers_used": [
+            "opensearch_lexical"
+          ],
+          "fallback_order": [
+            "opensearch_lexical",
+            "qdrant_vector",
+            "pgvector_fallback"
+          ],
+          "status": "completed"
+        },
+        {
+          "order": 3,
+          "stage": "retrieval_run",
+          "retrieval_run_id": "retrieval_run_095c661577e57ac3",
+          "readback_available": true,
+          "status": "completed"
+        },
+        {
+          "order": 4,
+          "stage": "index_freshness",
+          "index_backend": "opensearch_lexical",
+          "freshness_state": "available",
+          "real_timestamp_available": false,
+          "timestamp_status": "not_available"
+        }
+      ],
+      "ids": {
+        "submission_id": null,
+        "task_id": null,
+        "retrieval_run_id": "retrieval_run_095c661577e57ac3"
+      },
+      "provider": "opensearch_lexical",
+      "fallback": {
+        "used": false,
+        "fallback_order": [
+          "opensearch_lexical",
+          "qdrant_vector",
+          "pgvector_fallback"
+        ],
+        "reason": "no_fallback_detected"
+      },
+      "index": {
+        "index_backend": "opensearch_lexical",
+        "freshness_state": "available",
+        "readback_available": true,
+        "freshness_basis": "retrieval_run_readback",
+        "real_timestamp_available": false,
+        "timestamp_status": "not_available"
+      },
+      "replay": {
+        "retrieval_run_readback_status": "passed",
+        "storage_kind": "local_jsonl",
+        "path": "/tmp/market-research-workflow/search_retrieval_runs.jsonl"
+      },
+      "known_limitations": [
+        "no_real_index_timestamp"
+      ]
+    }
+  },
+  "error": null,
+  "meta": {
+    "trace_id": "d9e4ee89-5e6b-4a4f-a110-f6a8f72f375c",
+    "pagination": null,
+    "project_key": "readiness_repair",
+    "deprecated": null
+  }
+}

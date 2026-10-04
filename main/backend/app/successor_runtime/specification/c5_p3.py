@@ -59,6 +59,7 @@ from app.successor_runtime.specification.shared_family_generator import (
     BindingsByKind,
     BindingTarget,
     FamilyFragmentConfig,
+    p1_cell_digest,
 )
 from app.successor_runtime.substrate.projections.agent_session import (
     fold_agent_session,
@@ -178,16 +179,12 @@ def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _p1_cells() -> dict[str, dict[str, Any]]:
-    artifact = json.loads(
-        (EVIDENCE_ROOT / "P1FunctorizationEligibility.v1.json").read_text()
-    )
-    return {str(cell["cell"]): cell for cell in artifact["cells"]}
-
-
 def _p1_cell_digest(cell_id: str) -> str:
-    cell = _p1_cells()[cell_id]
-    return content_digest(cell)
+    return p1_cell_digest(
+        REPOSITORY_ROOT,
+        f"{_EVIDENCE_ROOT}/P1FunctorizationEligibility.v1.json",
+        cell_id,
+    )
 
 
 def _validate_adjudication(
@@ -692,14 +689,6 @@ _SOURCE_BINDINGS = (
     BindingTarget(
         "main/backend/app/services/agent_sessions/store.py",
         "legacy_donor_c5_1_c5_3",
-    ),
-    BindingTarget(
-        "main/backend/app/services/agent_runtime/run_loop.py",
-        "legacy_donor_c5_2",
-    ),
-    BindingTarget(
-        "main/backend/app/services/agent_runtime/interactive_agent.py",
-        "legacy_donor_c5_2",
     ),
     BindingTarget(
         "main/backend/app/api/agent_batch.py",

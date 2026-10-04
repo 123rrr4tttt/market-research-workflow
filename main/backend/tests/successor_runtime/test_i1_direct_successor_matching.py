@@ -1,4 +1,4 @@
-"""A shared direct successor cannot authorize a different frozen binding."""
+"""Historical direct-successor declarations remain read-only identity evidence."""
 import copy
 from types import SimpleNamespace
 
@@ -10,7 +10,7 @@ pytestmark = pytest.mark.unit
 
 
 def fixture():
-    binding = SimpleNamespace(path="run_loop.py", role="legacy_donor_c5_2", file_sha256="old")
+    binding = SimpleNamespace(path="history/c5.2-source-binding.json", role="legacy_donor_c5_2", file_sha256="old")
     row = dict(relation="C5_C6_I1_SHARED_EXACT_BINDING_SUCCESSOR", source_path=binding.path,
                binding_group="source_bindings", predecessor_sha256="old", successor_sha256="new",
                frozen_cell_sources=[dict(cell_id="C5.2", role=binding.role)],
@@ -49,3 +49,16 @@ def test_direct_successor_rejects_duplicate_authorizing_rows():
     registry["successors"].append(copy.deepcopy(registry["successors"][0]))
     with pytest.raises(AssertionError, match="ambiguous"):
         support._match_direct_successor(registry, "C5.2", "source_bindings", binding, "new")
+
+
+def test_historical_c6_relation_is_parseable_but_not_current_identity():
+    binding, registry = fixture()
+    row = registry["successors"][0]
+    row["frozen_cell_sources"] = [dict(cell_id="C6.1", role=binding.role)]
+
+    assert support._match_historical_direct_successor(
+        registry, "C6.1", "source_bindings", binding, "new"
+    ) is row
+    assert support._match_direct_successor(
+        registry, "C6.1", "source_bindings", binding, "new"
+    ) is None

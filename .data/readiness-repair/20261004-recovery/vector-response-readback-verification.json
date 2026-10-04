@@ -1,0 +1,13 @@
+{
+  "state": "passed",
+  "source": "search-vector-local-source-after-fix.json",
+  "matching_result_count": 1,
+  "matching_evidence_hit_count": 1,
+  "project_key": "readiness_repair",
+  "document_id": 2,
+  "backend": "pgvector",
+  "original_probe_exit": 1,
+  "original_probe_error": "incorrect top-level result.project_key assertion",
+  "readback_verification": "results identity plus evidence_hits.provenance/global_vector_object project scope",
+  "additional_provider_requests": 0
+}

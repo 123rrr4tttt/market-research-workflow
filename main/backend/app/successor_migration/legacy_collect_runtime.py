@@ -20,23 +20,23 @@ from dataclasses import dataclass, replace
 from math import ceil
 from typing import Annotated, Any, Protocol, runtime_checkable
 
-from app.successor_runtime.capabilities import collect_c3 as c3
+from app.successor_runtime.capabilities import acquisition_batch as acquisition
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.collect_c3_interpreters import (
-    COLLECT_C3_1_LEGACY_INTERPRETER_ID,
-    COLLECT_C3_2_LEGACY_INTERPRETER_ID,
+from app.successor_runtime.capabilities import (
+    COLLECT_EXECUTE_BATCH_ELEMENT_LEGACY_INTERPRETER_ID,
+    COLLECT_FOLD_ORDERED_RESULTS_LEGACY_INTERPRETER_ID,
     CollectBindingMismatch,
     InterpreterFailure,
     InterpreterSuccess,
     authority_requirement_digest,
     deterministic_composed_element_runner,
-    legacy_interpreter_profile_digest_c3_1,
-    legacy_interpreter_profile_digest_c3_2,
+    legacy_execute_element_interpreter_profile_digest,
+    legacy_fold_ordered_results_interpreter_profile_digest,
     require_exact_collect_binding,
     require_exact_composed_binding,
     run_ordered_traversal,
-    successor_interpreter_profile_digest_c3_1,
-    successor_interpreter_profile_digest_c3_2,
+    successor_execute_element_interpreter_profile_digest,
+    successor_fold_ordered_results_interpreter_profile_digest,
 )
 from app.successor_runtime.runtime.assignments import InterpreterBinding
 
@@ -62,7 +62,7 @@ class LegacyElementRunner(Protocol):
 
 
 def _legacy_request_from_snapshot(
-    snapshot: c3.CollectLegacyRequestSnapshot,
+    snapshot: acquisition.CollectLegacyRequestSnapshot,
 ) -> Any:
     from app.services.collect_runtime.contracts import CollectRequest
 
@@ -82,7 +82,7 @@ def _legacy_request_from_snapshot(
 def _legacy_plan_values(
     request: Any,
     *,
-    resource_policy: c3.CollectResourcePolicy,
+    resource_policy: acquisition.CollectResourcePolicy,
 ) -> dict[str, Any]:
     from app.services.collect_runtime.runtime import (
         _resolve_auto_batch_fail_fast,
@@ -126,21 +126,21 @@ def _legacy_plan_values(
 
 def _typed_plan_from_legacy_values(
     *,
-    request_ref: c3.CollectRequestRef,
-    snapshot: c3.CollectLegacyRequestSnapshot,
+    request_ref: acquisition.CollectRequestRef,
+    snapshot: acquisition.CollectLegacyRequestSnapshot,
     plan_id: str,
-    resource_policy: c3.CollectResourcePolicy,
+    resource_policy: acquisition.CollectResourcePolicy,
     authority_scope_ref: str,
     values: dict[str, Any],
-) -> c3.CollectBatchPlan:
+) -> acquisition.CollectBatchPlan:
     failure_policy = (
         "FAIL_FAST_WITH_PARTIAL_OBSERVATION" if values["fail_fast"] else "ACCUMULATE"
     )
-    elements: tuple[c3.CollectBatchElement, ...] = ()
+    elements: tuple[acquisition.CollectBatchElement, ...] = ()
     if values["disposition"] != "BYPASSED":
         elements = tuple(
-            c3.CollectBatchElement(
-                schema_version=c3.COLLECT_BATCH_ELEMENT_SCHEMA_REF,
+            acquisition.CollectBatchElement(
+                schema_version=acquisition.COLLECT_BATCH_ELEMENT_SCHEMA_REF,
                 element_id=f"{plan_id}:element:{index}",
                 input_index=index,
                 query_terms=tuple(batch),
@@ -151,8 +151,8 @@ def _typed_plan_from_legacy_values(
             )
             for index, batch in enumerate(values["term_batches"])
         )
-    return c3.CollectBatchPlan(
-        schema_version=c3.COLLECT_BATCH_PLAN_SCHEMA_REF,
+    return acquisition.CollectBatchPlan(
+        schema_version=acquisition.COLLECT_BATCH_PLAN_SCHEMA_REF,
         plan_id=plan_id,
         request_ref=request_ref,
         disposition=values["disposition"],
@@ -169,11 +169,11 @@ def _typed_plan_from_legacy_values(
 
 def _outcome_from_legacy_result(
     *,
-    element: c3.CollectBatchElement,
+    element: acquisition.CollectBatchElement,
     terms: list[str],
     result: Any,
     raw_digest: str,
-) -> c3.CollectElementOutcome:
+) -> acquisition.CollectElementOutcome:
     failed = str(getattr(result, "status", "") or "").strip().lower() == "failed"
     links = tuple(
         str(link or "").strip()
@@ -182,7 +182,7 @@ def _outcome_from_legacy_result(
         )
         if str(link or "").strip()
     )
-    receipt: c3.CollectAttemptReceipt | None = None
+    receipt: acquisition.CollectAttemptReceipt | None = None
     provider_job_id = getattr(result, "provider_job_id", None)
     if provider_job_id:
         provider_type = str(getattr(result, "provider_type", "") or "").strip()
@@ -192,8 +192,8 @@ def _outcome_from_legacy_result(
             "complete",
             "succeeded",
         }
-        receipt = c3.CollectAttemptReceipt(
-            schema_version=c3.COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
+        receipt = acquisition.CollectAttemptReceipt(
+            schema_version=acquisition.COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
             receipt_kind=(
                 "AUTHORITATIVE_READBACK"
                 if authoritative
@@ -208,7 +208,7 @@ def _outcome_from_legacy_result(
             authoritative_readback=authoritative,
             receipt_digest="",
         )
-    counts = c3.CollectCounts(
+    counts = acquisition.CollectCounts(
         inserted=int(getattr(result, "inserted", None) or 0),
         updated=int(getattr(result, "updated", None) or 0),
         skipped=int(getattr(result, "skipped", None) or 0),
@@ -227,10 +227,10 @@ def _outcome_from_legacy_result(
     )
     if failed:
         first_error = ((getattr(result, "errors", None) or []) or [{}])[0]
-        error = c3.CollectElementError(
+        error = acquisition.CollectElementError(
             code=(
                 str(first_error.get("code") or "auto_batch_execution_failed")
-                if first_error.get("code") in c3.COLLECT_ELEMENT_ERROR_CODES
+                if first_error.get("code") in acquisition.COLLECT_ELEMENT_ERROR_CODES
                 else "auto_batch_execution_failed"
             ),
             message=str(first_error.get("message") or "legacy element failed"),
@@ -238,8 +238,8 @@ def _outcome_from_legacy_result(
             exception_type=first_error.get("exception_type"),
             error_digest="",
         )
-        return c3.CollectElementFailed(
-            schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+        return acquisition.CollectElementFailed(
+            schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
             element_id=element.element_id,
             input_index=element.input_index,
             error=error,
@@ -249,8 +249,8 @@ def _outcome_from_legacy_result(
             legacy_observation_ref=legacy_ref,
             outcome_digest="",
         )
-    return c3.CollectElementSucceeded(
-        schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+    return acquisition.CollectElementSucceeded(
+        schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
         element_id=element.element_id,
         input_index=element.input_index,
         counts=counts,
@@ -301,7 +301,7 @@ class LegacyCollectTrace:
 class LegacyCollectBatchTraverseAdapter:
     """Legacy sibling interpreter for the C3.1 batch traverse atom."""
 
-    interpreter_id = COLLECT_C3_1_LEGACY_INTERPRETER_ID
+    interpreter_id = COLLECT_EXECUTE_BATCH_ELEMENT_LEGACY_INTERPRETER_ID
 
     def __init__(self) -> None:
         self.resolves = 0
@@ -309,8 +309,8 @@ class LegacyCollectBatchTraverseAdapter:
 
     def _legacy_trace_values(
         self,
-        payload: c3.CollectBatchElementPayload,
-        resource_policy: c3.CollectResourcePolicy,
+        payload: acquisition.CollectBatchElementPayload,
+        resource_policy: acquisition.CollectResourcePolicy,
     ) -> dict[str, Any]:
         request = _legacy_request_from_snapshot(payload.request_snapshot)
         return _legacy_plan_values(
@@ -320,7 +320,7 @@ class LegacyCollectBatchTraverseAdapter:
 
     def _trace(
         self,
-        payload: c3.CollectBatchElementPayload,
+        payload: acquisition.CollectBatchElementPayload,
         *,
         trace_id: str = "legacy.collect.c3_1.trace",
     ) -> LegacyCollectTrace:
@@ -341,7 +341,7 @@ class LegacyCollectBatchTraverseAdapter:
 
     def resolve(
         self,
-        payload: c3.CollectBatchElementPayload,
+        payload: acquisition.CollectBatchElementPayload,
         *,
         program: Any,
         plan: Any,
@@ -367,7 +367,7 @@ class LegacyCollectBatchTraverseAdapter:
                 binding=binding,
                 expected_interpreter_profile_digest=(
                     expected_interpreter_profile_digest
-                    or legacy_interpreter_profile_digest_c3_1()
+                    or legacy_execute_element_interpreter_profile_digest()
                 ),
             )
         except CollectBindingMismatch as exc:
@@ -387,7 +387,7 @@ class LegacyCollectBatchTraverseAdapter:
             authority_scope_ref=payload.authority_scope_ref,
             values=values,
         )
-        successor_plan = c3.build_collect_batch_plan(
+        successor_plan = acquisition.build_collect_batch_plan(
             request_ref=payload.parent_request_ref,
             snapshot=payload.request_snapshot,
             plan_id=plan_id,
@@ -403,7 +403,7 @@ class LegacyCollectBatchTraverseAdapter:
                 retryable=False,
             )
 
-        outcomes: list[c3.CollectElementOutcome] = []
+        outcomes: list[acquisition.CollectElementOutcome] = []
         for element in typed_plan.elements:
             sub = replace(
                 _legacy_request_from_snapshot(payload.request_snapshot),
@@ -418,7 +418,7 @@ class LegacyCollectBatchTraverseAdapter:
                 result = runner.run(sub)
             except Exception as exc:  # noqa: BLE001 - legacy runner boundary
                 if typed_plan.failure_policy == "FAIL_FAST_WITH_PARTIAL_OBSERVATION":
-                    error = c3.CollectElementError(
+                    error = acquisition.CollectElementError(
                         code="auto_batch_execution_failed",
                         message=str(exc) or exc.__class__.__name__,
                         query_terms=element.query_terms,
@@ -428,12 +428,12 @@ class LegacyCollectBatchTraverseAdapter:
                     partial = tuple(
                         outcomes
                         + [
-                            c3.CollectElementFailed(
-                                schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+                            acquisition.CollectElementFailed(
+                                schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
                                 element_id=element.element_id,
                                 input_index=element.input_index,
                                 error=error,
-                                counts=c3.CollectCounts(),
+                                counts=acquisition.CollectCounts(),
                                 links=(),
                                 receipt=None,
                                 legacy_observation_ref=("legacy:" + error.error_digest),
@@ -442,7 +442,7 @@ class LegacyCollectBatchTraverseAdapter:
                         ]
                     )
                     return InterpreterSuccess(
-                        c3.OrderedTraversalAborted(
+                        acquisition.OrderedTraversalAborted(
                             schema_version=(
                                 "mrw.successor.collect.c3.traversal-result.v1"
                             ),
@@ -494,9 +494,9 @@ class LegacyCollectBatchTraverseAdapter:
 
         self.resolves += 1
         ordered = tuple(sorted(outcomes, key=lambda item: item.input_index))
-        observation = c3.CollectTraversalObservation(
-            schema_version=c3.COLLECT_TRAVERSAL_OBSERVATION_SCHEMA_REF,
-            observation_profile=c3.COLLECT_TRAVERSAL_OBSERVATION_PROFILE,
+        observation = acquisition.CollectTraversalObservation(
+            schema_version=acquisition.COLLECT_TRAVERSAL_OBSERVATION_SCHEMA_REF,
+            observation_profile=acquisition.COLLECT_TRAVERSAL_OBSERVATION_PROFILE,
             request_ref=payload.parent_request_ref,
             traversal_policy="MATERIALIZED_SHAPE",
             failure_policy=typed_plan.failure_policy,
@@ -508,13 +508,13 @@ class LegacyCollectBatchTraverseAdapter:
         )
         if len(ordered) <= 1:
             return InterpreterSuccess(
-                c3.CollectTraversalSingleton(
+                acquisition.CollectTraversalSingleton(
                     schema_version="mrw.successor.collect.c3.traversal-result.v1",
                     observation=observation,
                 )
             )
         return InterpreterSuccess(
-            c3.OrderedTraversalCompleted(
+            acquisition.OrderedTraversalCompleted(
                 schema_version="mrw.successor.collect.c3.traversal-result.v1",
                 observation=observation,
             )
@@ -524,14 +524,14 @@ class LegacyCollectBatchTraverseAdapter:
 class LegacyCollectResultFoldAdapter:
     """Legacy sibling interpreter for the C3.2 ordered result fold."""
 
-    interpreter_id = COLLECT_C3_2_LEGACY_INTERPRETER_ID
+    interpreter_id = COLLECT_FOLD_ORDERED_RESULTS_LEGACY_INTERPRETER_ID
 
     def __init__(self) -> None:
         self.folds = 0
 
     def fold(
         self,
-        payload: c3.CollectFoldPayload,
+        payload: acquisition.CollectFoldPayload,
         *,
         program: Any,
         plan: Any,
@@ -556,7 +556,7 @@ class LegacyCollectResultFoldAdapter:
                 binding=binding,
                 expected_interpreter_profile_digest=(
                     expected_interpreter_profile_digest
-                    or legacy_interpreter_profile_digest_c3_2()
+                    or legacy_fold_ordered_results_interpreter_profile_digest()
                 ),
             )
         except CollectBindingMismatch as exc:
@@ -569,16 +569,16 @@ class LegacyCollectResultFoldAdapter:
         from app.services.collect_runtime.runtime import _merge_collect_results
 
         legacy_request = _legacy_request_from_snapshot(
-            c3.CollectLegacyRequestSnapshot(
-                schema_version=c3.COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
+            acquisition.CollectLegacyRequestSnapshot(
+                schema_version=acquisition.COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
                 flow="collect",
                 channel=payload.parent_request_ref.channel,
                 project_key=payload.parent_request_ref.project_key,
                 query_terms=(),
                 urls=(),
                 limit=None,
-                options=c3.freeze_json_object({}),
-                source_context=c3.freeze_json_object({}),
+                options=acquisition.freeze_json_object({}),
+                source_context=acquisition.freeze_json_object({}),
                 snapshot_digest="",
             )
         )
@@ -590,12 +590,12 @@ class LegacyCollectResultFoldAdapter:
         merged = _merge_collect_results(legacy_request, batch_results)
         self.folds += 1
 
-        successor_aggregate = c3.fold_ordered_results(
+        successor_aggregate = acquisition.fold_ordered_results(
             payload.ordered_outcomes,
             aggregation_policy_ref=payload.aggregation_policy_ref,
             observation_profile_ref=payload.observation_profile_ref,
         )
-        if isinstance(successor_aggregate, c3.CollectFoldContractFailure):
+        if isinstance(successor_aggregate, acquisition.CollectFoldContractFailure):
             return InterpreterSuccess(successor_aggregate)
 
         legacy_counts = (
@@ -612,8 +612,8 @@ class LegacyCollectResultFoldAdapter:
         legacy_links = tuple(str(link) for link in (raw.get("links") or []))
         if legacy_counts != typed_counts or legacy_links != successor_aggregate.links:
             return InterpreterSuccess(
-                c3.CollectFoldContractFailure(
-                    schema_version=c3.COLLECT_AGGREGATE_OUTCOME_SCHEMA_REF,
+                acquisition.CollectFoldContractFailure(
+                    schema_version=acquisition.COLLECT_AGGREGATE_OUTCOME_SCHEMA_REF,
                     reason="legacy fold parity mismatch",
                     unconsumed_outcomes=payload.ordered_outcomes,
                     aggregate_digest="",
@@ -622,16 +622,16 @@ class LegacyCollectResultFoldAdapter:
         return InterpreterSuccess(successor_aggregate)
 
 
-def outcome_terms(outcome: c3.CollectElementOutcome) -> tuple[str, ...]:
+def outcome_terms(outcome: acquisition.CollectElementOutcome) -> tuple[str, ...]:
     """Return the element terms carried by a typed outcome."""
 
     return getattr(outcome, "query_terms", ()) or ()
 
 
-def _legacy_result_for_outcome(outcome: c3.CollectElementOutcome) -> Any:
+def _legacy_result_for_outcome(outcome: acquisition.CollectElementOutcome) -> Any:
     from app.services.collect_runtime.contracts import CollectResult
 
-    failed = isinstance(outcome, c3.CollectElementFailed)
+    failed = isinstance(outcome, acquisition.CollectElementFailed)
     errors: list[dict[str, Any]] = []
     if failed and outcome.error is not None:
         errors = [
@@ -662,6 +662,34 @@ def _legacy_result_for_outcome(outcome: c3.CollectElementOutcome) -> Any:
     )
 
 
+def require_c3_binding_authority() -> None:
+    """Validate compatibility code at its owning boundary before building bindings."""
+
+    from app.successor_runtime.capabilities.acquisition_native_contribution import (
+        DEFAULT_ACQUISITION_NATIVE_SOURCE,
+    )
+
+    source = DEFAULT_ACQUISITION_NATIVE_SOURCE
+    # Reference identity is authored once by the native source.  This boundary
+    # supplies the actual compatibility implementations, without runtime imports
+    # pointing back into migration or string-based dynamic module loading.
+    refs = source.legacy_binding_refs + source.successor_binding_refs
+    implementations = (
+        build_legacy_collect_c3_1_binding,
+        build_legacy_collect_c3_2_binding,
+        build_successor_collect_c3_1_binding,
+        build_successor_collect_c3_2_binding,
+    )
+    resolved = {
+        f"legacy_collect_runtime.{implementation.__name__}": implementation
+        for implementation in implementations
+        if callable(implementation)
+    }
+    for ref in refs:
+        if ref not in resolved:
+            raise ValueError(f"unresolved C3 compatibility binding ref {ref}")
+
+
 def build_legacy_collect_c3_1_binding(
     *,
     contract_digest: str,
@@ -675,9 +703,10 @@ def build_legacy_collect_c3_1_binding(
     "legacy_collect_runtime.build_legacy_collect_c3_1_binding "
     "witness=test:test_legacy_and_successor_bindings_are_distinct_and_exact",
 ]:
+    require_c3_binding_authority()
     return InterpreterBinding.from_content(
         operation_contract_digest=contract_digest,
-        interpreter_profile_digest=legacy_interpreter_profile_digest_c3_1(),
+        interpreter_profile_digest=legacy_execute_element_interpreter_profile_digest(),
         deployment_catalog_digest=deployment_catalog_digest,
         runtime_protocol_version=runtime_protocol_version,
         project_scope_digest=project_scope_digest,
@@ -699,9 +728,10 @@ def build_successor_collect_c3_1_binding(
     "legacy_collect_runtime.build_successor_collect_c3_1_binding "
     "witness=test:test_legacy_and_successor_bindings_are_distinct_and_exact",
 ]:
+    require_c3_binding_authority()
     return InterpreterBinding.from_content(
         operation_contract_digest=contract_digest,
-        interpreter_profile_digest=successor_interpreter_profile_digest_c3_1(),
+        interpreter_profile_digest=successor_execute_element_interpreter_profile_digest(),
         deployment_catalog_digest=deployment_catalog_digest,
         runtime_protocol_version=runtime_protocol_version,
         project_scope_digest=project_scope_digest,
@@ -723,9 +753,10 @@ def build_legacy_collect_c3_2_binding(
     "legacy_collect_runtime.build_legacy_collect_c3_2_binding "
     "witness=test:test_legacy_and_successor_bindings_are_distinct_and_exact",
 ]:
+    require_c3_binding_authority()
     return InterpreterBinding.from_content(
         operation_contract_digest=contract_digest,
-        interpreter_profile_digest=legacy_interpreter_profile_digest_c3_2(),
+        interpreter_profile_digest=legacy_fold_ordered_results_interpreter_profile_digest(),
         deployment_catalog_digest=deployment_catalog_digest,
         runtime_protocol_version=runtime_protocol_version,
         project_scope_digest=project_scope_digest,
@@ -747,9 +778,10 @@ def build_successor_collect_c3_2_binding(
     "legacy_collect_runtime.build_successor_collect_c3_2_binding "
     "witness=test:test_legacy_and_successor_bindings_are_distinct_and_exact",
 ]:
+    require_c3_binding_authority()
     return InterpreterBinding.from_content(
         operation_contract_digest=contract_digest,
-        interpreter_profile_digest=successor_interpreter_profile_digest_c3_2(),
+        interpreter_profile_digest=successor_fold_ordered_results_interpreter_profile_digest(),
         deployment_catalog_digest=deployment_catalog_digest,
         runtime_protocol_version=runtime_protocol_version,
         project_scope_digest=project_scope_digest,
@@ -836,7 +868,7 @@ class LegacyComposedCollectInterpreter:
                 retryable=False,
             )
         if binding.interpreter_profile_digest != (
-            legacy_interpreter_profile_digest_c3_2()
+            legacy_fold_ordered_results_interpreter_profile_digest()
         ):
             return InterpreterFailure(
                 code="ASSIGNMENT_BINDING_MISMATCH",
@@ -863,7 +895,7 @@ class LegacyComposedCollectInterpreter:
                 retryable=False,
             )
         first_payload = element_payloads[0]
-        family_plan = c3.build_collect_batch_plan(
+        family_plan = acquisition.build_collect_batch_plan(
             request_ref=first_payload.parent_request_ref,
             snapshot=first_payload.request_snapshot,
             plan_id=f"shadow:{program.program_id}",
@@ -881,18 +913,18 @@ class LegacyComposedCollectInterpreter:
                 message="legacy composed shadow traversal aborted",
                 retryable=False,
             )
-        sequence = c3.OrderedCollectElementOutcomeSequence(
+        sequence = acquisition.OrderedCollectElementOutcomeSequence(
             schema_version="mrw.successor.collect.c3.outcome-sequence.v1",
             parent_request_ref=first_payload.parent_request_ref,
             outcomes=observation.ordered_outcomes,
             sequence_digest="",
         )
-        typed = c3.fold_ordered_results(
+        typed = acquisition.fold_ordered_results(
             sequence,
-            aggregation_policy_ref=c3.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
-            observation_profile_ref=c3.COLLECT_FOLD_OBSERVATION_PROFILE,
+            aggregation_policy_ref=acquisition.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
+            observation_profile_ref=acquisition.COLLECT_FOLD_OBSERVATION_PROFILE,
         )
-        if isinstance(typed, c3.CollectFoldContractFailure):
+        if isinstance(typed, acquisition.CollectFoldContractFailure):
             return InterpreterFailure(
                 code="FOLD_CONTRACT_FAILURE",
                 message=typed.reason,

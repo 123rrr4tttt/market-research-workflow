@@ -9,7 +9,7 @@ class SearchMarketAdapter:
     def run(self, request: CollectRequest) -> CollectResult:
         from ...ingest.market_web import collect_market_info
 
-        result = collect_market_info(
+        kwargs = dict(
             keywords=request.query_terms,
             limit=int(request.limit or 20),
             enable_extraction=bool(request.options.get("enable_extraction", True)),
@@ -19,6 +19,9 @@ class SearchMarketAdapter:
             language=str(request.language or "en"),
             runtime_readback=extract_runtime_readback_payload(request.source_context, request.options),
         )
+        if request.project_key:
+            kwargs["project_key"] = request.project_key
+        result = collect_market_info(**kwargs)
         cr = CollectResult(
             channel=request.channel or "search.market",
             inserted=int(result.get("inserted") or 0),

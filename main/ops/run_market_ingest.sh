@@ -1,8 +1,8 @@
 #!/bin/bash
 # Run market info ingest workflow via API.
 # Usage: ./run_market_ingest.sh [query_terms...]
-# Example: ./run_market_ingest.sh "lottery market" "California lottery sales"
-#          ./run_market_ingest.sh "Powerball jackpot" --max 5 --provider serper
+# Example: ./run_market_ingest.sh "renewable energy" "solar market report"
+#          ./run_market_ingest.sh "EV charging" --max 5 --provider serper
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,7 +28,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ${#QUERY_TERMS[@]} -eq 0 ]]; then
-  QUERY_TERMS=("lottery market report" "California lottery sales")
+  QUERY_TERMS=("renewable energy report" "solar market sales")
 fi
 
 # Build JSON array for query_terms

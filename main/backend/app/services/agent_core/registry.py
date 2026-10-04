@@ -6,14 +6,14 @@ from typing import Any
 from functorial_kit import Failure
 from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failures
 
-from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, CoreToolExecutor, CoreToolResult, CoreToolSpec
+from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, CoreToolResult, CoreToolSpec
 
 
 ToolHandler = Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]
 TOOL_SCHEMA_INVENTORY_CONTRACT_VERSION = "agent_core.tool_schema_inventory.v1"
 
 
-class CoreToolRegistry(CoreToolExecutor):
+class CoreToolRegistry:
     """In-process tool registry used by AgentCore.
 
     It intentionally stores model-visible tool specs and execution handlers in

@@ -23,7 +23,7 @@ type ResetTelemetryBoundaryContext = {
 function expectResetTelemetryBoundaryContext(context: ResetTelemetryBoundaryContext) {
   expect(context).toMatchObject({
     scope: 'ui_read_only_evidence_context',
-    source: 'business_lines.evidence_matrix.async_task_readback_extension',
+    source: 'business_lines.evidence_matrix.ui_boundary.reset_telemetry',
     not_report_proof: true,
     not_scheduled_run_evidence_proof: true,
     scheduled_evidence_write: 'none',
@@ -223,7 +223,7 @@ function businessLineEvidenceMatrixPayload() {
     {
       line_key: 'writing_knowledge_graph_agent',
       label: '写作 / 知识 / 图谱 / Agent',
-      entrypoints: ['WritingWorkbenchPage', 'GraphPage', 'AgentChatPage'],
+      entrypoints: ['WritingWorkbenchPage', 'GraphPage', 'CodexAgentPage'],
       api_groups: ['/api/v1/writing/*', '/api/v1/workflow_graph/*', '/api/v1/agent-batch/*'],
       current_gaps: ['graph and agent evidence need a visible same-batch coverage row'],
       next_remediation: 'Track graph/agent coverage explicitly instead of relying on follow-up batches.',
@@ -240,44 +240,8 @@ function businessLineEvidenceMatrixPayload() {
     },
   ]
   return {
-    contract_version: 'business_line.evidence_matrix.v1',
-    batch_id: 'batch_66',
-    batch_orchestration: {
-      statement: '本批按实现边界覆盖所有条线，不把下一批作为本批漏项修补; not next batch leak.',
-      covered_line_count: lines.length,
-      covered_line_keys: lines.map((line) => line.line_key),
-      async_task_readback_extension: {
-        scheduled_artifact_warning_empty_reset_telemetry_ui_extension: {
-          batch: '111',
-          proof_level: 'scheduled_artifact_warning_empty_reset_telemetry_ui_extension',
-          ui_event_contract: {
-            event_name: 'reset_empty_warning_view',
-            event_scope: 'ui_event_log_only',
-            filter_transition: {
-              from: 'warning_only',
-              to: 'all',
-            },
-            sort_behavior: 'unchanged',
-            api_payload_behavior: 'unchanged',
-            scheduled_evidence_write: 'none',
-          },
-          api_contract: {
-            proof_addition: 'none',
-            api_proof_added: false,
-            api_fields_changed: false,
-            api_payload_changed: false,
-            scheduled_completion_proof_changed: false,
-            scheduled_evidence_controller: 'scheduled_run_evidence',
-          },
-        },
-      },
-    },
-    coverage_policy: {
-      expected_line_count: 7,
-      observed_line_count: lines.length,
-      all_lines_in_same_batch: true,
-      semantic_guard: 'not next batch leak / 覆盖所有条线',
-    },
+    contract_version: 'business_line.evidence_matrix.v2',
+    vocabulary_version: 'business_line.vocabulary.current.v1',
     matrix_diagnostics_guidance: {
       source_lane: 'business_line_worker_readback_project_matrix_nightly',
       source_artifact: 'nightly-manifest.json:matrix_diagnostics',
@@ -314,10 +278,44 @@ function businessLineEvidenceMatrixPayload() {
         completion_claim: 'does_not_claim_real_scheduler_run',
       },
     },
-    summary: {
-      status: 'passed',
-      line_count: lines.length,
-      semantic_guards: ['not next batch leak', '覆盖所有条线'],
+    coverage: {
+      covered_line_count: lines.length,
+      covered_line_keys: lines.map((line) => line.line_key),
+      not_admin_only: true,
+    },
+    worker_readback: {
+      contract_version: 'business_line.worker_readback_contract.v2',
+      covered_line_keys: ['ingest', 'search_discovery_index', 'writing_knowledge_graph_agent'],
+      completion_claim: 'not_observed_without_live_worker_readback',
+    },
+    scheduled_observation: {
+      observation_status: 'not_observed',
+      scheduled_run_evidence: 'not_observed',
+      install_status: 'unknown',
+      codex_retirement_status: 'not_observed',
+      completion_claim: 'not_observed',
+    },
+    ui_boundary: {
+      reset_telemetry: {
+        event_name: 'reset_empty_warning_view',
+        event_scope: 'ui_event_log_only',
+        filter_transition: { from: 'warning_only', to: 'all' },
+        sort_behavior: 'unchanged',
+        api_payload_behavior: 'unchanged',
+        scheduled_evidence_write: 'none',
+        scheduled_completion_proof: false,
+        scheduled_evidence_controller: 'scheduled_run_evidence',
+      },
+      read_only_context: {
+        not_report_proof: true,
+        not_quality_gate_input: true,
+        not_scheduled_run_evidence_proof: true,
+        scheduled_evidence_write: 'none',
+        scheduled_completion_proof_behavior: 'unchanged',
+        audit_outcome_behavior: 'unchanged',
+        observation_status: 'not_applicable_ui_boundary',
+        boundary: 'UI-only read-only context is not report proof, quality gate input, or scheduled_run_evidence proof.',
+      },
     },
     lines,
   }
@@ -325,8 +323,12 @@ function businessLineEvidenceMatrixPayload() {
 
 function businessLineEvidenceMatrixWithoutResetTelemetryPayload() {
   const payload = businessLineEvidenceMatrixPayload()
-  const asyncTaskReadback = payload.batch_orchestration.async_task_readback_extension
-  delete asyncTaskReadback.scheduled_artifact_warning_empty_reset_telemetry_ui_extension
+  const uiBoundary = payload.ui_boundary as {
+    reset_telemetry?: unknown
+    read_only_context: typeof payload.ui_boundary.read_only_context
+  }
+  delete uiBoundary.reset_telemetry
+  payload.ui_boundary = uiBoundary
   return payload
 }
 
@@ -763,6 +765,8 @@ async function setupMockedBusinessLineRail(
   const hits = {
     dashboardStats: 0,
     dashboardReportDetail: 0,
+    topologyDiscovery: 0,
+    topologyRead: 0,
     graphConfig: 0,
     ingestSingleUrl: 0,
     searchRetrievalRun: 0,
@@ -1201,6 +1205,24 @@ async function setupMockedBusinessLineRail(
             + 'not proof, not quality gate input, not scheduled_run_evidence proof'
           ),
         },
+      })
+      return
+    }
+
+    if (pathname === '/api/v1/information-topology/topologies' && method === 'GET') {
+      hits.topologyDiscovery += 1
+      await fulfillJson(route, { items: [], total: 0 })
+      return
+    }
+
+    if (pathname === '/api/v1/information-topology/topologies/read' && method === 'POST') {
+      hits.topologyRead += 1
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          detail: { status: 'error', error: { code: 'NOT_FOUND', message: 'topology state was not found' } },
+        }),
       })
       return
     }
@@ -1931,7 +1953,12 @@ test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Op
   await expect(dashboardResetTelemetryBoundary).toContainText('scheduled artifact reset telemetry boundary')
   await expect(dashboardResetTelemetryBoundary).toContainText('reset_empty_warning_view')
   await expect(dashboardResetTelemetryBoundary).toContainText('ui_event_log_only')
+  await expect(dashboardResetTelemetryBoundary).toContainText('filter=warning_only->all')
+  await expect(dashboardResetTelemetryBoundary).toContainText('sort=unchanged')
+  await expect(dashboardResetTelemetryBoundary).toContainText('api_payload=unchanged')
   await expect(dashboardResetTelemetryBoundary).toContainText('scheduled_evidence_write=none')
+  await expect(dashboardResetTelemetryBoundary).toContainText('scheduled_completion_proof=false')
+  await expect(dashboardResetTelemetryBoundary).toContainText('scheduled_evidence_controller=scheduled_run_evidence')
   await expect(dashboardResetTelemetryBoundary).toContainText('scheduled_completion_proof unchanged')
   await expect(dashboardResetTelemetryBoundary).toContainText('not scheduled_run_evidence proof')
   await expect(dashboardResetTelemetryBoundary).not.toContainText('reset telemetry metadata unavailable')
@@ -1955,7 +1982,12 @@ test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Op
   await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('report detail reset telemetry boundary')
   await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('reset_empty_warning_view')
   await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('ui_event_log_only')
+  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('filter=warning_only->all')
+  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('sort=unchanged')
+  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('api_payload=unchanged')
   await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('scheduled_evidence_write=none')
+  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('scheduled_completion_proof=false')
+  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('scheduled_evidence_controller=scheduled_run_evidence')
   await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('scheduled_completion_proof unchanged')
   await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('not scheduled_run_evidence proof')
   await expect(dashboardReportDetailResetTelemetryBoundary).not.toContainText('reset telemetry metadata unavailable')
@@ -1976,7 +2008,12 @@ test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Op
   expect(resetTelemetryBoundaryContext.lines).toEqual(expect.arrayContaining([
     'reset_empty_warning_view',
     'ui_event_log_only',
+    'filter=warning_only->all',
+    'sort=unchanged',
+    'api_payload=unchanged',
     'scheduled_evidence_write=none',
+    'scheduled_completion_proof=false',
+    'scheduled_evidence_controller=scheduled_run_evidence',
     'scheduled_completion_proof unchanged',
     'not scheduled_run_evidence proof',
   ]))
@@ -2013,8 +2050,8 @@ test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Op
   expect(hits.dashboardReportFromFilter).toBe(1)
 
   await page.goto('/#/admin/projects')
-  await expect(page.getByRole('heading', { name: '项目管理' })).toBeVisible()
-  await expect(page.getByRole('cell', { name: MOCK_PROJECT_KEY, exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '项目与模板' })).toBeVisible()
+  await expect(page.getByTestId('projects-list')).toContainText(MOCK_PROJECT_KEY)
   await expect(page.getByTestId('projects-readiness-action-card')).toBeVisible()
   await expect(page.getByTestId('projects-readiness-action-label')).toContainText('可以提交任务')
   await page.getByTestId('projects-readiness-copy-action').click()
@@ -2033,15 +2070,15 @@ test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Op
   await page.getByPlaceholder('demo_proj_2').fill('mocked_created_58')
   await page.getByPlaceholder('演示项目 2').fill('Mocked Created 58')
   await page.getByRole('button', { name: /^创建$/ }).click()
-  await expect(page.getByRole('cell', { name: 'mocked_created_58', exact: true })).toBeVisible()
+  await expect(page.getByTestId('projects-list')).toContainText('mocked_created_58')
 
   await page.goto('/#/visual/graph/market')
   await expect(page.getByRole('heading', { name: '市场图谱' })).toBeVisible()
-  await expect(page.getByText('节点总数', { exact: true })).toBeVisible()
-  await expect(page.getByText('边总数', { exact: true })).toBeVisible()
   await expect(page.getByTestId('graph-chart-2d')).toBeVisible()
   await page.getByRole('button', { name: '刷新' }).last().click()
   await expect.poll(() => hits.marketGraph).toBeGreaterThanOrEqual(2)
+  expect(hits.topologyDiscovery).toBeGreaterThanOrEqual(1)
+  expect(hits.topologyRead).toBeGreaterThanOrEqual(1)
   expect(hits.graphConfig).toBeGreaterThanOrEqual(1)
 
   await page.goto('/#writing-workbench.html')
@@ -2107,12 +2144,15 @@ test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Op
   await page.goto('/#/admin/ops')
   await expect(page.getByRole('heading', { name: '运行态状态' })).toBeVisible()
   await expect(page.getByText('mode mocked')).toBeVisible()
+  await page.getByTestId('ops-technical-toggle').getByRole('button').click()
   await expect(page.getByRole('cell', { name: 'api', exact: true })).toBeVisible()
   const evidenceMatrix = page.getByTestId('ops-business-line-evidence-matrix')
   await expect(evidenceMatrix).toBeVisible()
-  await expect(evidenceMatrix).toContainText('business_line.evidence_matrix.v1')
+  await expect(evidenceMatrix).toContainText('business_line.evidence_matrix.v2')
   await expect(evidenceMatrix).toContainText('覆盖所有条线')
-  await expect(evidenceMatrix).toContainText('not next batch leak')
+  await expect(evidenceMatrix).toContainText('not_admin_only=true')
+  await expect(evidenceMatrix).toContainText('business_line.vocabulary.current.v1')
+  await expect(evidenceMatrix).toContainText('not_observed_without_live_worker_readback')
   const scheduledArtifactSummary = page.getByTestId('ops-business-line-scheduled-matrix-artifact-summary')
   await expect(scheduledArtifactSummary).toBeVisible()
   await expect(scheduledArtifactSummary).toContainText('missing')
@@ -2310,7 +2350,7 @@ test('batch 114 Dashboard reset telemetry fallback keeps missing metadata as not
   const fallbackResetTelemetryBoundaryContext = fallbackReportPayload.dashboard.reset_telemetry_boundary_context
   expect(fallbackResetTelemetryBoundaryContext).toMatchObject({
     scope: 'ui_read_only_evidence_context',
-    source: 'business_lines.evidence_matrix.async_task_readback_extension',
+    source: 'business_lines.evidence_matrix.ui_boundary.reset_telemetry',
     not_report_proof: true,
     not_scheduled_run_evidence_proof: true,
     scheduled_evidence_write: 'none',
@@ -2346,6 +2386,7 @@ test('batch 108 Ops scheduled artifact drilldown warning-only empty state is not
   })
 
   await page.goto('/#/admin/ops')
+  await page.getByTestId('ops-technical-toggle').getByRole('button').click()
   const scheduledArtifactDrilldown = page.getByTestId('ops-business-line-scheduled-artifact-drilldown')
   await expect(scheduledArtifactDrilldown).toBeVisible()
   await expect(scheduledArtifactDrilldown).toContainText('warning lane filter: all')

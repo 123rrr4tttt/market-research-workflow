@@ -44,28 +44,28 @@ from app.successor_migration.legacy_c8_typed_knowledge import (
 )
 from app.successor_migration.legacy_c8_writing import LegacyC8WritingAdapter
 from app.successor_runtime.capabilities import (
-    c8_common as c8common,
+    knowledge_common as c8common,
 )
 from app.successor_runtime.capabilities import (
-    c8_graph as c8g,
+    knowledge_graph_projection as c8g,
 )
 from app.successor_runtime.capabilities import (
-    c8_program as c8p,
+    knowledge_program as c8p,
 )
 from app.successor_runtime.capabilities import (
-    c8_report as c8r,
+    knowledge_report as c8r,
 )
 from app.successor_runtime.capabilities import (
-    c8_typed_knowledge as c8,
+    typed_knowledge as c8,
 )
-from app.successor_runtime.capabilities.c8_typed_knowledge import (
+from app.successor_runtime.capabilities.typed_knowledge import (
     CanonicalRef,
     KnowledgeItem,
     ReadHandleRegistry,
     demand_read,
     item_digest,
 )
-from app.successor_runtime.capabilities.c8_writing import (
+from app.successor_runtime.capabilities.knowledge_writing import (
     compose_writing_handoff,
     project_writing_card,
     stage_writing_artifact,
@@ -75,6 +75,8 @@ from app.successor_runtime.specification.shared_family_generator import (
     BindingsByKind,
     BindingTarget,
     FamilyFragmentConfig,
+    load_p1_cells,
+    p1_cell_digest,
 )
 from app.successor_runtime.substrate.projections.c8_handler_bindings import (
     build_c8_interpreter_binding,
@@ -119,17 +121,26 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
 
 
 def _p1_cells() -> dict[str, dict[str, Any]]:
-    artifact = json.loads(
-        (
-            REPOSITORY_ROOT / _EVIDENCE_ROOT / "P1FunctorizationEligibility.v1.json"
-        ).read_text()
+    return load_p1_cells(
+        REPOSITORY_ROOT,
+        f"{_EVIDENCE_ROOT}/P1FunctorizationEligibility.v1.json",
     )
-    return {str(cell["cell"]): cell for cell in artifact["cells"]}
 
 
 def _p1_cell_digest(cell_id: str) -> str:
-    cell = _p1_cells()[cell_id]
-    return content_digest(cell)
+    return p1_cell_digest(
+        REPOSITORY_ROOT,
+        f"{_EVIDENCE_ROOT}/P1FunctorizationEligibility.v1.json",
+        cell_id,
+    )
+
+
+_AUTHORED_CELL_ID_BY_P1_CELL_ID = {
+    "C8.1": c8p.KNOWLEDGE_READ_CELL_ID,
+    "C8.2": c8p.KNOWLEDGE_WRITING_CELL_ID,
+    "C8.3": c8p.KNOWLEDGE_REPORT_CELL_ID,
+    "C8.4": c8p.KNOWLEDGE_GRAPH_PROJECTION_CELL_ID,
+}
 
 
 def _successor_item(
@@ -205,13 +216,13 @@ def _demand_read() -> c8.KnowledgeRead:
 
 def _c8_payload(cell_id: str) -> Any:
     if cell_id == "C8.1":
-        return c8p.C8DemandReadInput(
+        return c8p.KnowledgeDemandReadInput(
             project_key=PROJECT_KEY,
             item_key="ki:robotics",
             fields=("canonical_statement", "evidence_refs"),
         )
     if cell_id == "C8.2":
-        return c8p.C8WritingComposeInput(
+        return c8p.KnowledgeWritingComposeInput(
             project_key=PROJECT_KEY,
             knowledge_item_key="ki:robotics",
             selection_hash=SELECTION_HASH,
@@ -219,13 +230,13 @@ def _c8_payload(cell_id: str) -> Any:
             demand_fields=("canonical_statement", "evidence_refs"),
         )
     if cell_id == "C8.3":
-        return c8p.C8ReportStageInput(
+        return c8p.KnowledgeReportStageInput(
             project_key=PROJECT_KEY,
             report_id="p4-c8-report-1",
             topic=TOPIC,
             source_keys=("ki:robotics",),
         )
-    return c8p.C8GraphProjectInput(
+    return c8p.KnowledgeGraphProjectInput(
         project_key=PROJECT_KEY,
         graph_id="p4-c8-graph-1",
         node_keys=("ki:a", "ki:b"),
@@ -239,14 +250,15 @@ def _program_observation(
     graph_projection_composition: Any | None = None,
     payload: Any | None = None,
 ) -> dict[str, object]:
-    bundle = c8p.build_c8_bundle(
+    authored_cell_id = _AUTHORED_CELL_ID_BY_P1_CELL_ID[cell_id]
+    bundle = c8p.build_knowledge_bundle(
         graph_projection_composition=graph_projection_composition,
     )
-    catalog = c8p.build_c8_catalog(bundle)
-    registry = c8p.build_c8_registry(bundle)
+    catalog = c8p.build_knowledge_catalog(bundle)
+    registry = c8p.build_knowledge_registry(bundle)
     payload = _c8_payload(cell_id) if payload is None else payload
-    program = c8p.build_c8_program(
-        cell_id=cell_id,
+    program = c8p.build_knowledge_program(
+        cell_id=authored_cell_id,
         payload=payload,
         catalog=catalog,
         program_id=f"program:p4-c8-{cell_id.lower().replace('.', '-')}",
@@ -255,24 +267,24 @@ def _program_observation(
         project_scope_digest=PROJECT_SCOPE_DIGEST,
         graph_projection_composition=graph_projection_composition,
     )
-    plan = c8p.compile_c8_program(
+    plan = c8p.compile_knowledge_program(
         program,
         catalog,
         operation_contracts=registry,
     )
     primary_kind = (
         {
-            "C8.1": c8p.C8_1_KIND,
-            "C8.2": c8p.C8_2_COMPOSE_KIND,
-            "C8.3": c8p.C8_3_KIND,
+            "C8.1": c8p.KNOWLEDGE_READ_KIND,
+            "C8.2": c8p.KNOWLEDGE_WRITING_COMPOSE_KIND,
+            "C8.3": c8p.KNOWLEDGE_REPORT_KIND,
         }.get(cell_id)
         or c8p.graph_projection_definition(
-            cell_id,
+            authored_cell_id,
             graph_projection_composition=graph_projection_composition,
         ).kind
     )
     contract = c8p.exact_contract_ref(catalog, kind=primary_kind)
-    cell_profiles = bundle.profiles[cell_id]
+    cell_profiles = bundle.profiles[authored_cell_id]
     interpreter_profile_digest = cell_profiles["interpreter"].profile_digest
     primary_binding = build_c8_interpreter_binding(
         c8p.handler_binding_payload(
@@ -306,7 +318,7 @@ def _program_observation(
     items_by_key = {"ki:robotics": _legacy_item()}
     if cell_id == "C8.1":
         donors.register(
-            catalog.lookup(c8p.C8_1_KIND).contract_digest,
+            catalog.lookup(c8p.KNOWLEDGE_READ_KIND).contract_digest,
             LegacyC8DemandReadDonor(
                 items_by_key=items_by_key,
                 selection_hash=SELECTION_HASH,
@@ -315,7 +327,7 @@ def _program_observation(
         )
     elif cell_id == "C8.2":
         donors.register(
-            catalog.lookup(c8p.C8_2_COMPOSE_KIND).contract_digest,
+            catalog.lookup(c8p.KNOWLEDGE_WRITING_COMPOSE_KIND).contract_digest,
             LegacyC8WritingComposeDonor(
                 items_by_key=items_by_key,
                 selection_hash=SELECTION_HASH,
@@ -323,21 +335,21 @@ def _program_observation(
             ).run,
         )
         donors.register(
-            catalog.lookup(c8p.C8_2_STAGE_KIND).contract_digest,
+            catalog.lookup(c8p.KNOWLEDGE_WRITING_STAGE_KIND).contract_digest,
             LegacyC8WritingStageDonor(
                 normalized_query=NORMALIZED_QUERY,
             ).run,
         )
     elif cell_id == "C8.3":
         donors.register(
-            catalog.lookup(c8p.C8_3_KIND).contract_digest,
+            catalog.lookup(c8p.KNOWLEDGE_REPORT_KIND).contract_digest,
             LegacyC8ReportDonor().run,
         )
     else:
         post = LegacyGraphNode(type="Post", id="1")
         keyword = LegacyGraphNode(type="Keyword", id="k1")
         graph_definition = c8p.graph_projection_definition(
-            cell_id,
+            authored_cell_id,
             graph_projection_composition=graph_projection_composition,
         )
         donors.register(
@@ -511,8 +523,8 @@ def _c8_3_observations() -> tuple[dict[str, object], dict[str, object]]:
         ],
         "admission_contract": admission.contract_version,
         "delivery_contract": delivery.contract_version,
-        "admission_interface_digest": c8common.C8_3_ADMISSION_INTERFACE_DIGEST,
-        "delivery_interface_digest": c8common.C8_3_DELIVERY_INTERFACE_DIGEST,
+        "admission_interface_digest": c8common.KNOWLEDGE_REPORT_ADMISSION_INTERFACE_DIGEST,
+        "delivery_interface_digest": c8common.KNOWLEDGE_REPORT_DELIVERY_INTERFACE_DIGEST,
         "admission_intent_admitted": admission.admitted,
         "delivery_intent_delivered": delivery.delivered,
         "admission_calls": 0,
@@ -586,7 +598,7 @@ def _c8_4_observations() -> tuple[dict[str, object], dict[str, object]]:
 def _operation_bindings(
     graph_projection_composition: Any | None = None,
 ) -> dict[str, list[dict[str, object]]]:
-    bundle = c8p.build_c8_bundle(
+    bundle = c8p.build_knowledge_bundle(
         graph_projection_composition=graph_projection_composition,
     )
     by_kind = {operation.ref.kind: operation for operation in bundle.operations}
@@ -603,9 +615,9 @@ def _operation_bindings(
             "operation_kind": operation_kind,
             "contract_digest": {
                 c8r.REPORT_ADMISSION_CONTRACT: (
-                    c8common.C8_3_ADMISSION_INTERFACE_DIGEST
+                    c8common.KNOWLEDGE_REPORT_ADMISSION_INTERFACE_DIGEST
                 ),
-                c8r.REPORT_DELIVERY_CONTRACT: (c8common.C8_3_DELIVERY_INTERFACE_DIGEST),
+                c8r.REPORT_DELIVERY_CONTRACT: (c8common.KNOWLEDGE_REPORT_DELIVERY_INTERFACE_DIGEST),
             }[operation_kind],
             "role": role,
         }
@@ -613,16 +625,16 @@ def _operation_bindings(
     return {
         "c8_1": [
             binding(
-                c8p.C8_1_KIND,
+                c8p.KNOWLEDGE_READ_KIND,
                 "typed_knowledge_demand_read",
             )
         ],
         "c8_2": [
-            binding(c8p.C8_2_COMPOSE_KIND, "writing_ordered_composition"),
-            binding(c8p.C8_2_STAGE_KIND, "writing_staged_artifact"),
+            binding(c8p.KNOWLEDGE_WRITING_COMPOSE_KIND, "writing_ordered_composition"),
+            binding(c8p.KNOWLEDGE_WRITING_STAGE_KIND, "writing_staged_artifact"),
         ],
         "c8_3": [
-            binding(c8p.C8_3_KIND, "report_stage"),
+            binding(c8p.KNOWLEDGE_REPORT_KIND, "report_stage"),
             interface_binding(
                 c8r.REPORT_ADMISSION_CONTRACT, "report_admission_interface"
             ),
@@ -636,7 +648,7 @@ def _operation_bindings(
                 "graph_declared_loss_projection",
             )
             for native in (
-                c8p.compose_default_c8_graph_projection_contributions()
+                c8p.compose_default_knowledge_graph_projection_contributions()
                 if graph_projection_composition is None
                 else graph_projection_composition
             )
@@ -687,11 +699,11 @@ _SOURCE_BINDINGS = (
 
 _IMPLEMENTATION_BINDINGS = (
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/c8_common.py",
+        "main/backend/app/successor_runtime/capabilities/knowledge_common.py",
         "c8_common_contracts",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/c8_program.py",
+        "main/backend/app/successor_runtime/capabilities/knowledge_program.py",
         "c8_program_contracts",
     ),
     BindingTarget(
@@ -700,19 +712,19 @@ _IMPLEMENTATION_BINDINGS = (
         "c8_handler_binding_substrate",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/c8_typed_knowledge.py",
+        "main/backend/app/successor_runtime/capabilities/typed_knowledge.py",
         "c8_1_typed_knowledge",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/c8_writing.py",
+        "main/backend/app/successor_runtime/capabilities/knowledge_writing.py",
         "c8_2_writing",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/c8_report.py",
+        "main/backend/app/successor_runtime/capabilities/knowledge_report.py",
         "c8_3_report",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/c8_graph.py",
+        "main/backend/app/successor_runtime/capabilities/knowledge_graph_projection.py",
         "c8_4_graph",
     ),
     BindingTarget(
@@ -802,7 +814,7 @@ def _build_body(_root: Path, bindings: BindingsByKind) -> dict[str, Any]:
             "cell_id": "C8.1",
             "p1_cell_digest": _p1_cell_digest("C8.1"),
             "operation_bindings": operations["c8_1"],
-            "owner_capability_id": c8.C8_CAPABILITY_OWNER,
+            "owner_capability_id": c8.KNOWLEDGE_CAPABILITY_OWNER,
             "program_digest": {
                 "value": c8_1_successor["program_digest"],
                 "reason": (
@@ -828,7 +840,7 @@ def _build_body(_root: Path, bindings: BindingsByKind) -> dict[str, Any]:
             "cell_id": "C8.2",
             "p1_cell_digest": _p1_cell_digest("C8.2"),
             "operation_bindings": operations["c8_2"],
-            "owner_capability_id": c8.C8_CAPABILITY_OWNER,
+            "owner_capability_id": c8.KNOWLEDGE_CAPABILITY_OWNER,
             "program_digest": {
                 "value": c8_2_successor["program_digest"],
                 "reason": (
@@ -854,7 +866,7 @@ def _build_body(_root: Path, bindings: BindingsByKind) -> dict[str, Any]:
             "cell_id": "C8.3",
             "p1_cell_digest": _p1_cell_digest("C8.3"),
             "operation_bindings": operations["c8_3"],
-            "owner_capability_id": c8.C8_CAPABILITY_OWNER,
+            "owner_capability_id": c8.KNOWLEDGE_CAPABILITY_OWNER,
             "program_digest": {
                 "value": c8_3_successor["program_digest"],
                 "reason": (
@@ -884,7 +896,7 @@ def _build_body(_root: Path, bindings: BindingsByKind) -> dict[str, Any]:
             "cell_id": "C8.4",
             "p1_cell_digest": _p1_cell_digest("C8.4"),
             "operation_bindings": operations["c8_4"],
-            "owner_capability_id": c8.C8_CAPABILITY_OWNER,
+            "owner_capability_id": c8.KNOWLEDGE_CAPABILITY_OWNER,
             "program_digest": {
                 "value": c8_4_successor["program_digest"],
                 "reason": (

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.successor_runtime.capabilities.c8_report import (
+from app.successor_runtime.capabilities.knowledge_report import (
     REPORT_ADMISSION_CONTRACT,
     REPORT_DELIVERY_CONTRACT,
     REPORT_STAGE_SEQUENCE,
@@ -14,7 +14,7 @@ from app.successor_runtime.capabilities.c8_report import (
     build_report_artifact,
     build_report_delivery_intent,
 )
-from app.successor_runtime.capabilities.c8_typed_knowledge import (
+from app.successor_runtime.capabilities.typed_knowledge import (
     UnavailableProjection,
     demand_read,
 )

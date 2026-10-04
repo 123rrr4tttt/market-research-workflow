@@ -15,6 +15,10 @@ from __future__ import annotations
 import pytest
 
 from app.successor_runtime.runtime.facade_contracts import (
+    C9RollbackTransitionReceiptV1,
+    PROJECTION_ROLLBACK_TRANSITION_CONTRACT,
+    ProjectionRollbackTransitionReceiptV2,
+    RollbackPositionV1,
     rollback_transition_id,
     rollback_transition_ref,
 )
@@ -152,3 +156,35 @@ def test_rollback_transition_identity_is_deterministic_and_aba_aware() -> None:
     )
     assert aba_id != first_id
     assert rollback_transition_ref(first_id) == f"rollback:{first_id}"
+
+
+def test_current_and_historical_receipts_keep_distinct_contract_identity() -> None:
+    position = RollbackPositionV1(
+        projection_generation=1,
+        offset_revision=2,
+        projection_revision=1,
+        source_digest="a" * 64,
+        cursor=0,
+        offset_ref="value:schema:projection:generation:1:aa",
+    )
+    common = {
+        "ref": "rollback:" + "b" * 64,
+        "digest": "c" * 64,
+        "projection_id": "projection.local-sinks.v1",
+        "projector_id": "projector:local-sinks",
+        "projector_version": "1",
+        "source_kind": "successor_values",
+        "source_ref": "source:001",
+        "source_incarnation": "incarnation:001",
+        "from_position": position,
+        "to_position": position,
+        "generation_completeness_digest": "d" * 64,
+    }
+    current = ProjectionRollbackTransitionReceiptV2(**common)
+    historical = C9RollbackTransitionReceiptV1(**common)
+
+    assert current.contract == PROJECTION_ROLLBACK_TRANSITION_CONTRACT
+    assert current.contract == "projection.rollback_transition.v2"
+    assert historical.contract == "C9RollbackTransitionReceipt.v1"
+    assert current.to_plain()["contract"] != historical.to_plain()["contract"]
+    assert current.ref == historical.ref

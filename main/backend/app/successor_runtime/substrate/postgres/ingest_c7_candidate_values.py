@@ -1,9 +1,9 @@
-"""C7 structured candidate exact-value handoff into project values.
+"""Material structured candidate exact-value handoff into project values.
 
 The family-local slice stores the canonical structured payload JSON of a
 verified C7 candidate in the existing project ``successor_values`` table
 through :class:`ValueRepository`.  The value identity is deterministic
-``c7:structured:<candidate_id>``, the codec/object type are frozen, the stored
+``material:structured:<candidate_id>``, the codec/object type are frozen, the stored
 content digest must equal ``VerifiedMaterialCandidate.payload_content_digest``,
 and the provenance is exact.  Values are creation-only revision 1 with a
 non-reusable incarnation bound to the candidate digest.  This module performs
@@ -20,7 +20,7 @@ from sqlalchemy import MetaData, select
 from sqlalchemy.engine import Connection
 
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.ingest_c7_movements import (
+from app.successor_runtime.capabilities.material_ingest_movements import (
     StructuredMaterialCandidate,
     VerifiedMaterialCandidate,
 )
@@ -35,6 +35,14 @@ from app.successor_runtime.substrate.postgres.research_ledger import (
 from app.successor_runtime.substrate.postgres.values import ValueRepository
 
 __all__ = [
+    "MATERIAL_STRUCTURED_VALUE_CODEC_ID",
+    "MATERIAL_STRUCTURED_VALUE_OBJECT_TYPE",
+    "MATERIAL_STRUCTURED_VALUE_SOURCE_KIND",
+    "LEGACY_C7_STRUCTURED_VALUE_CODEC_ID",
+    "LEGACY_C7_STRUCTURED_VALUE_OBJECT_TYPE",
+    "LEGACY_C7_STRUCTURED_VALUE_SOURCE_KIND",
+    "LEGACY_C7_STRUCTURED_VALUE_PREFIX",
+    "readback_legacy_candidate_value",
     "C7_STRUCTURED_VALUE_CODEC_ID",
     "C7_STRUCTURED_VALUE_OBJECT_TYPE",
     "C7_STRUCTURED_VALUE_SOURCE_KIND",
@@ -53,12 +61,22 @@ __all__ = [
     "store_candidate_value",
 ]
 
-C7_STRUCTURED_VALUE_CODEC_ID = "mrw.successor.c7.structured-payload.canonical-json.v1"
-C7_STRUCTURED_VALUE_OBJECT_TYPE = "StructuredMaterialCandidatePayload.v1"
-C7_STRUCTURED_VALUE_SOURCE_KIND = "c7:structured-material-candidate"
+MATERIAL_STRUCTURED_VALUE_CODEC_ID = (
+    "mrw.material.candidate.structured-payload.canonical-json.v2"
+)
+MATERIAL_STRUCTURED_VALUE_OBJECT_TYPE = "StructuredMaterialCandidatePayload.v2"
+MATERIAL_STRUCTURED_VALUE_SOURCE_KIND = "material:structured-material-candidate"
+LEGACY_C7_STRUCTURED_VALUE_CODEC_ID = (
+    "mrw.successor.c7.structured-payload.canonical-json.v1"
+)
+LEGACY_C7_STRUCTURED_VALUE_OBJECT_TYPE = "StructuredMaterialCandidatePayload.v1"
+LEGACY_C7_STRUCTURED_VALUE_SOURCE_KIND = "c7:structured-material-candidate"
+LEGACY_C7_STRUCTURED_VALUE_PREFIX = "c7:structured:"
 C7_STRUCTURED_VALUE_STATE = "AVAILABLE"
+C7_STRUCTURED_VALUE_CODEC_ID = MATERIAL_STRUCTURED_VALUE_CODEC_ID
+C7_STRUCTURED_VALUE_OBJECT_TYPE = MATERIAL_STRUCTURED_VALUE_OBJECT_TYPE
+C7_STRUCTURED_VALUE_SOURCE_KIND = MATERIAL_STRUCTURED_VALUE_SOURCE_KIND
 _C7_VALUE_REF_PREFIX = "project-value:"
-
 
 class C7ValueHandoffError(RuntimeError):
     """Base fail-closed C7 candidate value handoff error."""
@@ -84,7 +102,7 @@ class C7StructuredValueRef:
 
 
 def candidate_value_id(candidate_id: str) -> str:
-    return f"c7:structured:{candidate_id}"
+    return f"material:structured:{candidate_id}"
 
 
 def candidate_value_ref(value_id: str) -> str:
@@ -92,7 +110,7 @@ def candidate_value_ref(value_id: str) -> str:
 
 
 def candidate_value_incarnation(verified: VerifiedMaterialCandidate) -> str:
-    return f"c7:structured:{verified.candidate_digest}"
+    return f"material:structured:{verified.candidate_digest}"
 
 
 def candidate_value_provenance(verified: VerifiedMaterialCandidate) -> dict[str, str]:
@@ -241,11 +259,15 @@ def readback_candidate_value(
         raise C7ValueIntegrityError("head value ref is not a project-value ref")
     value_id = value_ref[len(_C7_VALUE_REF_PREFIX) :]
     row = load_candidate_value_row(connection, scope=scope, value_id=value_id)
+    object_type = str(row["object_type"])
+    codec_id = str(row["codec_id"])
     if (
-        str(row["object_type"]) != C7_STRUCTURED_VALUE_OBJECT_TYPE
-        or str(row["codec_id"]) != C7_STRUCTURED_VALUE_CODEC_ID
+        object_type != MATERIAL_STRUCTURED_VALUE_OBJECT_TYPE
+        or codec_id != MATERIAL_STRUCTURED_VALUE_CODEC_ID
     ):
-        raise C7ValueIntegrityError("candidate value codec/object type drift")
+        raise C7ValueIntegrityError(
+            "current candidate readback requires the material v2 codec"
+        )
     checks = (
         ("value_id", row["value_id"], value_id),
         ("revision", int(row["revision"]), int(head["value_revision"])),
@@ -285,4 +307,31 @@ def readback_candidate_value(
         or row["source_ref"] != head["snapshot_ref"]
     ):
         raise C7ValueIntegrityError("candidate value state/source drift")
+    return row
+
+
+def readback_legacy_candidate_value(
+    connection: Connection,
+    *,
+    scope: RuntimeScope,
+    value_ref: str,
+    expected_digest: str,
+) -> Mapping[str, object]:
+    """Read an explicit historical v1 value without recoding or rehashing it."""
+
+    if not value_ref.startswith(_C7_VALUE_REF_PREFIX):
+        raise C7ValueIntegrityError("historical candidate ref is not a value ref")
+    value_id = value_ref[len(_C7_VALUE_REF_PREFIX) :]
+    if not value_id.startswith(LEGACY_C7_STRUCTURED_VALUE_PREFIX):
+        raise C7ValueIntegrityError(
+            "historical candidate readback requires the exact legacy value id"
+        )
+    row = load_candidate_value_row(connection, scope=scope, value_id=value_id)
+    if (
+        str(row["object_type"]) != LEGACY_C7_STRUCTURED_VALUE_OBJECT_TYPE
+        or str(row["codec_id"]) != LEGACY_C7_STRUCTURED_VALUE_CODEC_ID
+    ):
+        raise C7ValueIntegrityError("historical candidate codec/object type drift")
+    if str(row["content_digest"]) != expected_digest:
+        raise C7ValueIntegrityError("historical candidate digest drift")
     return row

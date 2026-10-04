@@ -1,0 +1,2607 @@
+{
+  "manifest": "hk-water-investigation-db-export-manifest.v1",
+  "created_at": "2026-09-24T13:42:22+08:00",
+  "project": {
+    "project_key": "hk_water_investigation",
+    "display_name": "香港水域调查",
+    "database": "postgres",
+    "schema": "project_hk_water_investigation",
+    "enabled": true,
+    "is_active": false
+  },
+  "source_project_root": "/Users/wangyiliang/Desktop/科学/项目/05-案例、原型与验证/政治生态模型/香港水资源与水治理_信息搜集",
+  "source_domain_name": "香港水资源与水治理",
+  "database_export_root": "/tmp/hk-water-investigation-db-export",
+  "rapid_projection": {
+    "formal_graph_files": 57,
+    "sources": 57,
+    "materials": 316,
+    "clues": 57,
+    "nodes": 496,
+    "judgments": 366,
+    "evidence": 548,
+    "logical_dependencies": 0,
+    "candidate_facets": 29,
+    "candidates": 757,
+    "warnings": 178,
+    "conflicts": 0,
+    "raw_attempt_rows": 2557,
+    "normalized_attempts": 2057,
+    "normalized_attempt_statuses": {
+      "miss": 591,
+      "hit": 952,
+      "off_topic": 347,
+      "access_failed": 167
+    },
+    "rows_with_execution_fields_missing_retained_only_in_original_tsv": 500
+  },
+  "database_observation": {
+    "current_states": 57,
+    "all_state_revision_rows": 60,
+    "elements_by_type": {
+      "node:现场": 57,
+      "node:环节": 47,
+      "node:行动者": 167,
+      "node:制度安排": 122,
+      "node:货币流": 24,
+      "judgment": 366,
+      "evidence": 548,
+      "clue": 57,
+      "material": 325,
+      "attempt": 2057,
+      "domain_vocabulary": 57,
+      "node:阶级机体": 24,
+      "node:社会关系": 31,
+      "node:生活实践": 27,
+      "node:意识形式": 41,
+      "node:技术物": 41,
+      "node:剩余": 3
+    },
+    "total_elements": 3994,
+    "link_rows_current": 0,
+    "unresolved_material_placeholders": [
+      "item:2026-09-19:r2-02d-c03",
+      "item:2026-09-19:r2-02d-c07",
+      "item:2026-09-19:r2-02d-c09",
+      "item:2026-09-19:r2-02d-c11"
+    ]
+  },
+  "source_inventory": {
+    "all_source_files": 4857,
+    "all_source_bytes": 1486593158,
+    "pdf_files_external": 296,
+    "pdf_bytes_external": 1186231835,
+    "exported_structural_files": 287,
+    "exported_structural_bytes": 9496982,
+    "exact_byte_matches": 287,
+    "report_markdown_files": 86,
+    "facet_json_files": 35
+  },
+  "roundtrip": "full Rapid read_projection(all_rounds=True) output identical after normalizing only source root path strings",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 4761,
+      "sha256": "49212ff36701fa26d5dde347ab63c937a75a47dd91fb1b8aa6807a5f2a34bac4",
+      "source_sha256": "49212ff36701fa26d5dde347ab63c937a75a47dd91fb1b8aa6807a5f2a34bac4",
+      "byte_equal": true
+    },
+    {
+      "path": "从总纲生成域.py",
+      "bytes": 4887,
+      "sha256": "d31408fcb3b73ffad3499154a616657f1517b8dca0f1f1b46138a7a6c8a03310",
+      "source_sha256": "d31408fcb3b73ffad3499154a616657f1517b8dca0f1f1b46138a7a6c8a03310",
+      "byte_equal": true
+    },
+    {
+      "path": "分析总纲.md",
+      "bytes": 27598,
+      "sha256": "a2a6d5640f7353a0fc8295568a1d4ae7a8fcf0bf74455aaccb15e3059bdfe9a9",
+      "source_sha256": "a2a6d5640f7353a0fc8295568a1d4ae7a8fcf0bf74455aaccb15e3059bdfe9a9",
+      "byte_equal": true
+    },
+    {
+      "path": "初始关键词池.md",
+      "bytes": 17866,
+      "sha256": "dd3d54bf8290aaf75547f8c21b073f90536cc8db006696befabd1910ef588174",
+      "source_sha256": "dd3d54bf8290aaf75547f8c21b073f90536cc8db006696befabd1910ef588174",
+      "byte_equal": true
+    },
+    {
+      "path": "图.example.json",
+      "bytes": 5035,
+      "sha256": "2c51c20344a91a9c3267036df0daebbae4995e9fc8525c6c88ce586836370e77",
+      "source_sha256": "2c51c20344a91a9c3267036df0daebbae4995e9fc8525c6c88ce586836370e77",
+      "byte_equal": true
+    },
+    {
+      "path": "图.schema.json",
+      "bytes": 10421,
+      "sha256": "92e5a964cd542b3d6ad995767a3c1103667771c213606b13c50ada9f2f8a4fa2",
+      "source_sha256": "92e5a964cd542b3d6ad995767a3c1103667771c213606b13c50ada9f2f8a4fa2",
+      "byte_equal": true
+    },
+    {
+      "path": "域.json",
+      "bytes": 1181,
+      "sha256": "68853b41e9b902c0c077fa1c7d730d72c9fc0f70fd13462e612d587bd3587e13",
+      "source_sha256": "68853b41e9b902c0c077fa1c7d730d72c9fc0f70fd13462e612d587bd3587e13",
+      "byte_equal": true
+    },
+    {
+      "path": "域.py",
+      "bytes": 1647,
+      "sha256": "eb5e7651f252c9e99507d7dbd954735d914367ef47b3a46f21fb6f60f2516871",
+      "source_sha256": "eb5e7651f252c9e99507d7dbd954735d914367ef47b3a46f21fb6f60f2516871",
+      "byte_equal": true
+    },
+    {
+      "path": "已固化源.md",
+      "bytes": 8848,
+      "sha256": "4df662c408c695980178e292c4f55245f806e46892158dfae1c45c4dcfe5ecae",
+      "source_sha256": "4df662c408c695980178e292c4f55245f806e46892158dfae1c45c4dcfe5ecae",
+      "byte_equal": true
+    },
+    {
+      "path": "建索引.py",
+      "bytes": 45934,
+      "sha256": "1080c91ad15672a0f2cb80feafc8199b5af2d225df5189d373f7bdc358e69cda",
+      "source_sha256": "1080c91ad15672a0f2cb80feafc8199b5af2d225df5189d373f7bdc358e69cda",
+      "byte_equal": true
+    },
+    {
+      "path": "来源池.md",
+      "bytes": 9197,
+      "sha256": "03329881f65eeb13b2b829b119e61910a72130443a7ef1a003106a18c08e4ed6",
+      "source_sha256": "03329881f65eeb13b2b829b119e61910a72130443a7ef1a003106a18c08e4ed6",
+      "byte_equal": true
+    },
+    {
+      "path": "校验图.py",
+      "bytes": 19841,
+      "sha256": "f0e1ac7e16b14f59ce0ac139fee26d8995cceea36e8806b0d1c7d4df68e8914f",
+      "source_sha256": "f0e1ac7e16b14f59ce0ac139fee26d8995cceea36e8806b0d1c7d4df68e8914f",
+      "byte_equal": true
+    },
+    {
+      "path": "检索记录.tsv",
+      "bytes": 838705,
+      "sha256": "0377efa71ee1381943651ffaf37d8c81c0f053ff459ec877b11073c015014307",
+      "source_sha256": "0377efa71ee1381943651ffaf37d8c81c0f053ff459ec877b11073c015014307",
+      "byte_equal": true
+    },
+    {
+      "path": "缺口.tsv",
+      "bytes": 166,
+      "sha256": "44598950e6fa0ff4a8a81fcba94fbf41a2e05e8b29b2d53e8123e0b17c12104c",
+      "source_sha256": "44598950e6fa0ff4a8a81fcba94fbf41a2e05e8b29b2d53e8123e0b17c12104c",
+      "byte_equal": true
+    },
+    {
+      "path": "证据规则.py",
+      "bytes": 5184,
+      "sha256": "4dd30dbce793752dc7e58cb4b5793be0d3cf2eee5f8f3d4b3db5d9de3cc83249",
+      "source_sha256": "4dd30dbce793752dc7e58cb4b5793be0d3cf2eee5f8f3d4b3db5d9de3cc83249",
+      "byte_equal": true
+    },
+    {
+      "path": "读图.py",
+      "bytes": 86788,
+      "sha256": "8d28c49e43f6aac776a4e37fbf61149a75acc5043fab5e313b971202a09cb32d",
+      "source_sha256": "8d28c49e43f6aac776a4e37fbf61149a75acc5043fab5e313b971202a09cb32d",
+      "byte_equal": true
+    },
+    {
+      "path": "调查与收集清单.md",
+      "bytes": 5867,
+      "sha256": "8402b0b4153a4feb65307db74c5ed312eff72bcf364f550fd2f3bd6b1a6450d5",
+      "source_sha256": "8402b0b4153a4feb65307db74c5ed312eff72bcf364f550fd2f3bd6b1a6450d5",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/01_供水财政/分面.json",
+      "bytes": 20102,
+      "sha256": "8c4b4bccd1bbb5178fd69cda6e55fcd3d91a4b599832ad56677df9222eae74a8",
+      "source_sha256": "8c4b4bccd1bbb5178fd69cda6e55fcd3d91a4b599832ad56677df9222eae74a8",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/01_供水财政/报告.md",
+      "bytes": 2983,
+      "sha256": "e6fa1f58a9330e7f1947859749845cd32e0aeeb4a04e4767cf85fc4bab338eaa",
+      "source_sha256": "e6fa1f58a9330e7f1947859749845cd32e0aeeb4a04e4767cf85fc4bab338eaa",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/02_河流防洪治理/分面.json",
+      "bytes": 8755,
+      "sha256": "e88f0dbbecdc532e9bdbf890ee1672b0dcf9cdfba8eb71091e577c1488502f21",
+      "source_sha256": "e88f0dbbecdc532e9bdbf890ee1672b0dcf9cdfba8eb71091e577c1488502f21",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/02_河流防洪治理/报告.md",
+      "bytes": 4762,
+      "sha256": "9a58c0a807e97e9c93d10fb2a3464373100b554f4dc16828184ef8b1f9243c2c",
+      "source_sha256": "9a58c0a807e97e9c93d10fb2a3464373100b554f4dc16828184ef8b1f9243c2c",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/03_港湾航道土地/分面.json",
+      "bytes": 10718,
+      "sha256": "b543b69d53284f58e5b7b8d74cae68611c9ff671f392c39fc9604b5f072d2e1d",
+      "source_sha256": "b543b69d53284f58e5b7b8d74cae68611c9ff671f392c39fc9604b5f072d2e1d",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/03_港湾航道土地/报告.md",
+      "bytes": 2746,
+      "sha256": "ff639fd9baabb0b84a860f803d4b9f67705bd7d4f729adc745c64e7e1efd8c8c",
+      "source_sha256": "ff639fd9baabb0b84a860f803d4b9f67705bd7d4f729adc745c64e7e1efd8c8c",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/04_社会劳动生活/分面.json",
+      "bytes": 12777,
+      "sha256": "77e81f224dd9819bef18d7f9d0a572dd2bfd69f7aaf77fdf2775154d088f2650",
+      "source_sha256": "77e81f224dd9819bef18d7f9d0a572dd2bfd69f7aaf77fdf2775154d088f2650",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/04_社会劳动生活/报告.md",
+      "bytes": 3340,
+      "sha256": "c7436b4aac8ef83ba979cc2825dcb97df1a6a4b4bd80be37fbd7f41e4644cd0c",
+      "source_sha256": "c7436b4aac8ef83ba979cc2825dcb97df1a6a4b4bd80be37fbd7f41e4644cd0c",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/05_事件意识欲望/分面.json",
+      "bytes": 15327,
+      "sha256": "899219db336439104558d2eb72560bb5c10a8292d9c4d7c2642a0e1c71ea7442",
+      "source_sha256": "899219db336439104558d2eb72560bb5c10a8292d9c4d7c2642a0e1c71ea7442",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/05_事件意识欲望/报告.md",
+      "bytes": 2443,
+      "sha256": "5e5258e049f88e28b4bc9e69072ed24ea6c73b13e2c1137efc6c19903301f911",
+      "source_sha256": "5e5258e049f88e28b4bc9e69072ed24ea6c73b13e2c1137efc6c19903301f911",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/clue-01-供水财政/图.json",
+      "bytes": 12171,
+      "sha256": "89aabff5b1c5997aab04dba5d8a9510681094338ac3f1e77a64301d1a390918e",
+      "source_sha256": "89aabff5b1c5997aab04dba5d8a9510681094338ac3f1e77a64301d1a390918e",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/clue-01-供水财政/材料.tsv",
+      "bytes": 3434,
+      "sha256": "9afaa0ae69a4eff824be4dc0488b1fb030bd931604634e27a4fabf6ef6ee312c",
+      "source_sha256": "9afaa0ae69a4eff824be4dc0488b1fb030bd931604634e27a4fabf6ef6ee312c",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/clue-02-城门河防洪/图.json",
+      "bytes": 10409,
+      "sha256": "84cc1df87a91c82348d92bacb4c35b914c7a7f46c70ff674e220b3efb0cbb91b",
+      "source_sha256": "84cc1df87a91c82348d92bacb4c35b914c7a7f46c70ff674e220b3efb0cbb91b",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/clue-02-城门河防洪/材料.tsv",
+      "bytes": 3214,
+      "sha256": "f8d82c6a4bbb0c33eba1c3189f493fdd7a0e7585fb35987ec493410234cea2b6",
+      "source_sha256": "f8d82c6a4bbb0c33eba1c3189f493fdd7a0e7585fb35987ec493410234cea2b6",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/clue-03-竹篙湾填海/图.json",
+      "bytes": 11089,
+      "sha256": "c1e479eb9a5a92288d3ed1326c767104984107d859993deee22164a0959b50f8",
+      "source_sha256": "c1e479eb9a5a92288d3ed1326c767104984107d859993deee22164a0959b50f8",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/clue-03-竹篙湾填海/材料.tsv",
+      "bytes": 1614,
+      "sha256": "eb5f1a177ec842618158ef59b3ebe6c54d1b82b4d070c92a406cbbdd89720d4b",
+      "source_sha256": "eb5f1a177ec842618158ef59b3ebe6c54d1b82b4d070c92a406cbbdd89720d4b",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/clue-04-香港水域航道/图.json",
+      "bytes": 8210,
+      "sha256": "b948a504b7a3b996d947fd5f938a375bd378665529f1a7a71d6ca181aff5174e",
+      "source_sha256": "b948a504b7a3b996d947fd5f938a375bd378665529f1a7a71d6ca181aff5174e",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/clue-04-香港水域航道/材料.tsv",
+      "bytes": 925,
+      "sha256": "31914db01d238ddb7224a52a81fc86f6c500f4e442855850847d0c95c98a4f91",
+      "source_sha256": "31914db01d238ddb7224a52a81fc86f6c500f4e442855850847d0c95c98a4f91",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/clue-05-香港港口劳动/图.json",
+      "bytes": 8748,
+      "sha256": "8881748c7c665cfa09f567376060ba8641d00a099331fd453fa12795f17061a7",
+      "source_sha256": "8881748c7c665cfa09f567376060ba8641d00a099331fd453fa12795f17061a7",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/clue-05-香港港口劳动/材料.tsv",
+      "bytes": 1583,
+      "sha256": "b9b971d885681fdd439977b251396b549ba8a4353a4fde1d7b471cca80fbe648",
+      "source_sha256": "b9b971d885681fdd439977b251396b549ba8a4353a4fde1d7b471cca80fbe648",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/clue-06-海滨意识与生活/图.json",
+      "bytes": 8489,
+      "sha256": "a91fff292fb4f01c379a6aa74c3d07ca72863a504e98df073ad508ae3b5600d5",
+      "source_sha256": "a91fff292fb4f01c379a6aa74c3d07ca72863a504e98df073ad508ae3b5600d5",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/clue-06-海滨意识与生活/材料.tsv",
+      "bytes": 2480,
+      "sha256": "a743a1b14a158240fd632fc1ec370e765c7f6d037a5047dca7e4f786534c7ec9",
+      "source_sha256": "a743a1b14a158240fd632fc1ec370e765c7f6d037a5047dca7e4f786534c7ec9",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/图谱数据.json",
+      "bytes": 74679,
+      "sha256": "ad63755096d68c0a2a9c1f58dc1553c9a0b4a02c9d5d25fd5b4888b2fdf61e74",
+      "source_sha256": "ad63755096d68c0a2a9c1f58dc1553c9a0b4a02c9d5d25fd5b4888b2fdf61e74",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/图谱数据.正式合并.json",
+      "bytes": 57793,
+      "sha256": "160cf248ec03db0e493f260838c8304e4ef1fd2fbf42f869e763d6f7b32f2d0d",
+      "source_sha256": "160cf248ec03db0e493f260838c8304e4ef1fd2fbf42f869e763d6f7b32f2d0d",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/复核说明.md",
+      "bytes": 1580,
+      "sha256": "bc729f5a3d1d56cacb6599bbb16aad1461150c686c3446dd02e9bcf70e87b95d",
+      "source_sha256": "bc729f5a3d1d56cacb6599bbb16aad1461150c686c3446dd02e9bcf70e87b95d",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/快照审计.tsv",
+      "bytes": 17925,
+      "sha256": "3fab416d9112dcf99c46bdab7b5104211efb6589b4dc43e7110616d2efe6fc39",
+      "source_sha256": "3fab416d9112dcf99c46bdab7b5104211efb6589b4dc43e7110616d2efe6fc39",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/本轮.md",
+      "bytes": 856,
+      "sha256": "c2cc35b89e52fbe4bd3d7d773698572cf9e74a4d651c738d47f34fb8945f6170",
+      "source_sha256": "c2cc35b89e52fbe4bd3d7d773698572cf9e74a4d651c738d47f34fb8945f6170",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/材料总表.tsv",
+      "bytes": 31211,
+      "sha256": "2dcb15a0dc37a7790185e60acd7666717ded1a278072d5637e8f2bd6a59185ea",
+      "source_sha256": "2dcb15a0dc37a7790185e60acd7666717ded1a278072d5637e8f2bd6a59185ea",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/来源HTTP复核.tsv",
+      "bytes": 18111,
+      "sha256": "8c31e894a330d33d035436a4294451e523f9b2b511ad42c1c6598f88a0551164",
+      "source_sha256": "8c31e894a330d33d035436a4294451e523f9b2b511ad42c1c6598f88a0551164",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/来源总表.tsv",
+      "bytes": 6290,
+      "sha256": "fd868f8776fff248a04c7b9d209ec0fded20eed3ef408a28eadeff3fe5649d96",
+      "source_sha256": "fd868f8776fff248a04c7b9d209ec0fded20eed3ef408a28eadeff3fe5649d96",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/索引.md",
+      "bytes": 3557,
+      "sha256": "c0052cc3772add87a661294a7149f0b604119821e1a7cac24ef10cb40a8eeb66",
+      "source_sha256": "c0052cc3772add87a661294a7149f0b604119821e1a7cac24ef10cb40a8eeb66",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_01/轮次报告.md",
+      "bytes": 5833,
+      "sha256": "a43d5e2e567e865a95133704ffc763e0221e8ea3576d5cd50b2b3677b2f5e0a8",
+      "source_sha256": "a43d5e2e567e865a95133704ffc763e0221e8ea3576d5cd50b2b3677b2f5e0a8",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/01a_东江协议原文/分面.json",
+      "bytes": 12565,
+      "sha256": "82b2eb147390d4c16cf4d6f79b1c9d753d3fc01e0f4b916604cf1e61d268503f",
+      "source_sha256": "82b2eb147390d4c16cf4d6f79b1c9d753d3fc01e0f4b916604cf1e61d268503f",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/01a_东江协议原文/报告.md",
+      "bytes": 2283,
+      "sha256": "8ac8b001bc122054e83b9c7f1441058db8bba51e36ba1ae5eb975c0927324451",
+      "source_sha256": "8ac8b001bc122054e83b9c7f1441058db8bba51e36ba1ae5eb975c0927324451",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/01b_水务财政审计/分面.json",
+      "bytes": 33893,
+      "sha256": "3c583d220662d06beb75967069abbbea1ac4e3166ec4634081a83b9ebef9ba49",
+      "source_sha256": "3c583d220662d06beb75967069abbbea1ac4e3166ec4634081a83b9ebef9ba49",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/01b_水务财政审计/报告.md",
+      "bytes": 11723,
+      "sha256": "4b2ffc34d4454f38ae01c109fc62f5aef1501f41a57d3e038ae83d1a5185dc5c",
+      "source_sha256": "4b2ffc34d4454f38ae01c109fc62f5aef1501f41a57d3e038ae83d1a5185dc5c",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/01c_水费生活负担/分面.json",
+      "bytes": 23410,
+      "sha256": "ccd786e4377aad4283f2d61a96b853e064064e48819ee6e85e466bbca8c1dd9b",
+      "source_sha256": "ccd786e4377aad4283f2d61a96b853e064064e48819ee6e85e466bbca8c1dd9b",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/01c_水费生活负担/报告.md",
+      "bytes": 5192,
+      "sha256": "169397862ba4123d58e7888de1c45e873142546eed47b1f0a20f28ffc197d7aa",
+      "source_sha256": "169397862ba4123d58e7888de1c45e873142546eed47b1f0a20f28ffc197d7aa",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/02a_城门河城规通行/分面.json",
+      "bytes": 8412,
+      "sha256": "69cd76ac48b61da0fd7d3dc3e82b9edf12fae11fd99a8f1387c2060b7ec46d9a",
+      "source_sha256": "69cd76ac48b61da0fd7d3dc3e82b9edf12fae11fd99a8f1387c2060b7ec46d9a",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/02a_城门河城规通行/报告.md",
+      "bytes": 2455,
+      "sha256": "8871a793a369dd96a0a1ec5c593b92650a5533d87e17bd083d6b7b5542d49c37",
+      "source_sha256": "8871a793a369dd96a0a1ec5c593b92650a5533d87e17bd083d6b7b5542d49c37",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/02b_启德河工程环评/分面.json",
+      "bytes": 12841,
+      "sha256": "7d839689050b7df653ca67e0121d3285aea48664f01b9122030d9d57d0354834",
+      "source_sha256": "7d839689050b7df653ca67e0121d3285aea48664f01b9122030d9d57d0354834",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/02b_启德河工程环评/报告.md",
+      "bytes": 3355,
+      "sha256": "41ed88a2c2295b63af8478023db2714b8f46059b6ba2ee3d976fd5afecb23030",
+      "source_sha256": "41ed88a2c2295b63af8478023db2714b8f46059b6ba2ee3d976fd5afecb23030",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/02c_防洪标准运维/分面.json",
+      "bytes": 17922,
+      "sha256": "240f8e06ae0816fd2dde91b332f0cc25bd79d5ab12aadf069c476274f605a0cc",
+      "source_sha256": "240f8e06ae0816fd2dde91b332f0cc25bd79d5ab12aadf069c476274f605a0cc",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/02c_防洪标准运维/报告.md",
+      "bytes": 5654,
+      "sha256": "a9a7f2181e8c62aa347a96722779c0973ec5c05317126cfeed34e11019716a5f",
+      "source_sha256": "a9a7f2181e8c62aa347a96722779c0973ec5c05317126cfeed34e11019716a5f",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/02d_河岸住区环境不均/分面.json",
+      "bytes": 59726,
+      "sha256": "389d86447e342e115d183f535be252f6da5959396fb412a9d98ae0290c7ede73",
+      "source_sha256": "389d86447e342e115d183f535be252f6da5959396fb412a9d98ae0290c7ede73",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/02d_河岸住区环境不均/报告.md",
+      "bytes": 11982,
+      "sha256": "cd5991fe0e320a91d55a551e48b55ec6ccc506730ae0caa352980f123ae6b745",
+      "source_sha256": "cd5991fe0e320a91d55a551e48b55ec6ccc506730ae0caa352980f123ae6b745",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/03a_竹篙湾批地工程/分面.json",
+      "bytes": 35138,
+      "sha256": "fd4b72d1dffa71dd27354c7fca4d3814240c8e70ae531e30e1716316b6eefa4b",
+      "source_sha256": "fd4b72d1dffa71dd27354c7fca4d3814240c8e70ae531e30e1716316b6eefa4b",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/03a_竹篙湾批地工程/报告.md",
+      "bytes": 12553,
+      "sha256": "b48dd7fcc5dacee782e683408156765feec7b5b76cefa6fd7a074b9cb0637ac4",
+      "source_sha256": "b48dd7fcc5dacee782e683408156765feec7b5b76cefa6fd7a074b9cb0637ac4",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/03b_港口航道治理/分面.json",
+      "bytes": 42870,
+      "sha256": "0910777610385d82d37437b7cb73e914b81704291e8a7a738e4525b279bea7a2",
+      "source_sha256": "0910777610385d82d37437b7cb73e914b81704291e8a7a738e4525b279bea7a2",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/03b_港口航道治理/报告.md",
+      "bytes": 5420,
+      "sha256": "2ddb343f5504d490054c31cea0e52eb62628ecf3825c1f38cbe30e1a0fe06a9e",
+      "source_sha256": "2ddb343f5504d490054c31cea0e52eb62628ecf3825c1f38cbe30e1a0fe06a9e",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/03c_码头劳动雇佣/分面.json",
+      "bytes": 5946,
+      "sha256": "e1434065c9a973cae19118631fab0979e86871cfe9e23229cf485f1b6dae924c",
+      "source_sha256": "e1434065c9a973cae19118631fab0979e86871cfe9e23229cf485f1b6dae924c",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/03c_码头劳动雇佣/报告.md",
+      "bytes": 3223,
+      "sha256": "9cf5c2c5b92707959481f8330dec295d482266846d232cfb190bd1b8118198a9",
+      "source_sha256": "9cf5c2c5b92707959481f8330dec295d482266846d232cfb190bd1b8118198a9",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/04a_水务劳动外包安全/分面.json",
+      "bytes": 20388,
+      "sha256": "ba49731d31998c945f1942700a6c26a7fc0c876b21f6fc3b67268387f71d06ce",
+      "source_sha256": "ba49731d31998c945f1942700a6c26a7fc0c876b21f6fc3b67268387f71d06ce",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/04a_水务劳动外包安全/报告.md",
+      "bytes": 3468,
+      "sha256": "2b08d3a1bb27e7388ceb776b449e78f7272c736d5085d51c3dd2d752b95a2a09",
+      "source_sha256": "2b08d3a1bb27e7388ceb776b449e78f7272c736d5085d51c3dd2d752b95a2a09",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/04b_家庭用水生活/分面.json",
+      "bytes": 33641,
+      "sha256": "ac8dabe64c7b7c778bec4357e8d8dc67cb4bb8c81880fdb10409f2fe7cc3dadf",
+      "source_sha256": "ac8dabe64c7b7c778bec4357e8d8dc67cb4bb8c81880fdb10409f2fe7cc3dadf",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/04b_家庭用水生活/报告.md",
+      "bytes": 9391,
+      "sha256": "f9619d18bc0e8807d705b30cf4d402d5ad53a8382040f52e00fc42f52e846f85",
+      "source_sha256": "f9619d18bc0e8807d705b30cf4d402d5ad53a8382040f52e00fc42f52e846f85",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/04c_组织社群多语种/分面.json",
+      "bytes": 9105,
+      "sha256": "89494528dbf3e306543025e8a57585c2c0b1de968562b4af661456d3155486d4",
+      "source_sha256": "89494528dbf3e306543025e8a57585c2c0b1de968562b4af661456d3155486d4",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/04c_组织社群多语种/报告.md",
+      "bytes": 3037,
+      "sha256": "7bffbb8cd3111b7b4dfd38a23fdc0234523ee5c44b1b47a9547ec9fe342222f0",
+      "source_sha256": "7bffbb8cd3111b7b4dfd38a23fdc0234523ee5c44b1b47a9547ec9fe342222f0",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/05a_水浸事件原始记录/分面.json",
+      "bytes": 45403,
+      "sha256": "6ec8f104583f1de7a49528b8d1d4dcc4e5882b2adafebcabadeb1219fb9bb1e9",
+      "source_sha256": "6ec8f104583f1de7a49528b8d1d4dcc4e5882b2adafebcabadeb1219fb9bb1e9",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/05a_水浸事件原始记录/报告.md",
+      "bytes": 10386,
+      "sha256": "07f823c6249a7f286075472943d8339b50a038c4b72b9e1125c74e24275a04ce",
+      "source_sha256": "07f823c6249a7f286075472943d8339b50a038c4b72b9e1125c74e24275a04ce",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/05b_海港咨询法律政治/分面.json",
+      "bytes": 20130,
+      "sha256": "046ab0c3017fa4336ec1d099e1e450630e3093f8623f3c380cc8a6cf5432af72",
+      "source_sha256": "046ab0c3017fa4336ec1d099e1e450630e3093f8623f3c380cc8a6cf5432af72",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/05b_海港咨询法律政治/报告.md",
+      "bytes": 13008,
+      "sha256": "17cd99525fbb82ef67084c0271173eb615b54de00b17192e563d4ae067eea701",
+      "source_sha256": "17cd99525fbb82ef67084c0271173eb615b54de00b17192e563d4ae067eea701",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/05c_滨水宣传生活图景/分面.json",
+      "bytes": 48889,
+      "sha256": "44cfda292dc08628a005bd8b3907d9d7229a3b7e99bd7911a82e8b26253aad10",
+      "source_sha256": "44cfda292dc08628a005bd8b3907d9d7229a3b7e99bd7911a82e8b26253aad10",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/05c_滨水宣传生活图景/报告.md",
+      "bytes": 11245,
+      "sha256": "ab500734a466b2eb46afb62cf02dd5db8c704844658136907614ea3bb57c2865",
+      "source_sha256": "ab500734a466b2eb46afb62cf02dd5db8c704844658136907614ea3bb57c2865",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-供水东江协议/图.json",
+      "bytes": 9860,
+      "sha256": "e76f3ad2bb5df6b690c8342d73b4be61d06ecda2658433f14b40d3aed398af26",
+      "source_sha256": "e76f3ad2bb5df6b690c8342d73b4be61d06ecda2658433f14b40d3aed398af26",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-供水东江协议/报告.md",
+      "bytes": 2875,
+      "sha256": "b48c6292753cbce6429529d47bcea7863fe6e6ddf90024be0b066703db9d4bf4",
+      "source_sha256": "b48c6292753cbce6429529d47bcea7863fe6e6ddf90024be0b066703db9d4bf4",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-供水东江协议/材料.tsv",
+      "bytes": 1776,
+      "sha256": "ddf6035d7cac2942664efd8643a1b249e71d252240266faed3e7f915aa8e714e",
+      "source_sha256": "ddf6035d7cac2942664efd8643a1b249e71d252240266faed3e7f915aa8e714e",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-供水水费负担/图.json",
+      "bytes": 15467,
+      "sha256": "ab12be57d9a80e886f50d52b0403484306887d150b69ee6814ab94f0fa092085",
+      "source_sha256": "ab12be57d9a80e886f50d52b0403484306887d150b69ee6814ab94f0fa092085",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-供水水费负担/报告.md",
+      "bytes": 2397,
+      "sha256": "d951ddac58b01ed4810d5b2a2435034d6f8c6d23762cd9775d6cbf1e8f73a242",
+      "source_sha256": "d951ddac58b01ed4810d5b2a2435034d6f8c6d23762cd9775d6cbf1e8f73a242",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-供水水费负担/材料.tsv",
+      "bytes": 3184,
+      "sha256": "9aa5b19722074af69d63a813c37de9cc6cfc21ac0a944401561fb4b665b7b224",
+      "source_sha256": "9aa5b19722074af69d63a813c37de9cc6cfc21ac0a944401561fb4b665b7b224",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-供水财政/图.json",
+      "bytes": 13924,
+      "sha256": "b3753c767b8e9c08d49404e1542a14e1cd53ffed4ecdd7cc6f2ec9caa7657755",
+      "source_sha256": "b3753c767b8e9c08d49404e1542a14e1cd53ffed4ecdd7cc6f2ec9caa7657755",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-供水财政/报告.md",
+      "bytes": 2439,
+      "sha256": "161792d3542efb45628cfb83f2ff5cbd03547d0285c3dc82cfbcf875d7b245ad",
+      "source_sha256": "161792d3542efb45628cfb83f2ff5cbd03547d0285c3dc82cfbcf875d7b245ad",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-供水财政/材料.tsv",
+      "bytes": 2125,
+      "sha256": "195c27618540e72b5d13673a68e8936a3ea3ee65c75c804156084b88f9bf20a6",
+      "source_sha256": "195c27618540e72b5d13673a68e8936a3ea3ee65c75c804156084b88f9bf20a6",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-劳动-组织多语种/图.json",
+      "bytes": 22320,
+      "sha256": "8824c9191cb0a69383cf88b3c808c7598d631a94c921990a723ad7c19d8d464e",
+      "source_sha256": "8824c9191cb0a69383cf88b3c808c7598d631a94c921990a723ad7c19d8d464e",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-劳动-组织多语种/报告.md",
+      "bytes": 3770,
+      "sha256": "f4ef71aa17325aabb81497927d5c8f8be3b9cf3d45f209c431366b0687151c24",
+      "source_sha256": "f4ef71aa17325aabb81497927d5c8f8be3b9cf3d45f209c431366b0687151c24",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-劳动-组织多语种/材料.tsv",
+      "bytes": 4767,
+      "sha256": "3c8c21263438bb74450be075238a2cbe5b058147fc38c69c72e1e65b39ebf1f0",
+      "source_sha256": "3c8c21263438bb74450be075238a2cbe5b058147fc38c69c72e1e65b39ebf1f0",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-劳动-香港水务/图.json",
+      "bytes": 25896,
+      "sha256": "2fe25243a706aa3407284ba83afc6208f608cd4332cae69d9fc27e2276e05284",
+      "source_sha256": "2fe25243a706aa3407284ba83afc6208f608cd4332cae69d9fc27e2276e05284",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-劳动-香港水务/报告.md",
+      "bytes": 3761,
+      "sha256": "1004a124a3de814ff49e1133a90a8efeed1a618059d5b7e362f2d0a63f0faa12",
+      "source_sha256": "1004a124a3de814ff49e1133a90a8efeed1a618059d5b7e362f2d0a63f0faa12",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-劳动-香港水务/材料.tsv",
+      "bytes": 5401,
+      "sha256": "eaad674e1ddeb499ab3ad30b46ae4b5a4d6bfe67ed233959f0ec7a5e6f38f993",
+      "source_sha256": "eaad674e1ddeb499ab3ad30b46ae4b5a4d6bfe67ed233959f0ec7a5e6f38f993",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-劳动-香港港口/图.json",
+      "bytes": 14333,
+      "sha256": "7c52455b9a95b1e6a43adefe666a3d83be7e2d30156a0b6da26faaf2913547f5",
+      "source_sha256": "7c52455b9a95b1e6a43adefe666a3d83be7e2d30156a0b6da26faaf2913547f5",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-劳动-香港港口/报告.md",
+      "bytes": 2902,
+      "sha256": "306fb508b0e5f1063277e772fda9e5ac94056fe6ff14a5b7fb405078ae6c56aa",
+      "source_sha256": "306fb508b0e5f1063277e772fda9e5ac94056fe6ff14a5b7fb405078ae6c56aa",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-劳动-香港港口/材料.tsv",
+      "bytes": 1759,
+      "sha256": "8151aff1be3f6bd237d5d6f5eac73dba43b46fb901189679ee51657d19336c98",
+      "source_sha256": "8151aff1be3f6bd237d5d6f5eac73dba43b46fb901189679ee51657d19336c98",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-意识-2025城门河水浸事件/图.json",
+      "bytes": 5589,
+      "sha256": "4e9b8d9c66d9c66f36e2361318d83dad981435fb10672a651053417753b97dba",
+      "source_sha256": "4e9b8d9c66d9c66f36e2361318d83dad981435fb10672a651053417753b97dba",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-意识-2025城门河水浸事件/报告.md",
+      "bytes": 2391,
+      "sha256": "0e9ae90acdd72d152e6fb8fb9b1ee235f468653717c6df976206555d02b70e7f",
+      "source_sha256": "0e9ae90acdd72d152e6fb8fb9b1ee235f468653717c6df976206555d02b70e7f",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-意识-2025城门河水浸事件/材料.tsv",
+      "bytes": 1190,
+      "sha256": "7cb8c57a79a187e4a49b4f84ea1c6986bbfd4bc658a4ad16ee216101e13dca81",
+      "source_sha256": "7cb8c57a79a187e4a49b4f84ea1c6986bbfd4bc658a4ad16ee216101e13dca81",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-意识-海港修例与咨询政治/图.json",
+      "bytes": 25483,
+      "sha256": "9ef4f199d81986640ea3232aa53ae902a8158daa9b9364aa28029d13a56e8c5c",
+      "source_sha256": "9ef4f199d81986640ea3232aa53ae902a8158daa9b9364aa28029d13a56e8c5c",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-意识-海港修例与咨询政治/报告.md",
+      "bytes": 2892,
+      "sha256": "0082dd3df2a5fd31f67b6be26fd20efe9e0e727d2ea9445ec49de5da229c824d",
+      "source_sha256": "0082dd3df2a5fd31f67b6be26fd20efe9e0e727d2ea9445ec49de5da229c824d",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-意识-海港修例与咨询政治/材料.tsv",
+      "bytes": 6033,
+      "sha256": "50505a63c16fc39bebbd91056684e990de7f39635e1cfe08a1c8a5fc6fe11cc5",
+      "source_sha256": "50505a63c16fc39bebbd91056684e990de7f39635e1cfe08a1c8a5fc6fe11cc5",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-意识-滨水宣传生活图景/图.json",
+      "bytes": 11235,
+      "sha256": "806273fc883f0096a8565bad618d657f24e71e6952cc8e423e47ae7fd87c3986",
+      "source_sha256": "806273fc883f0096a8565bad618d657f24e71e6952cc8e423e47ae7fd87c3986",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-意识-滨水宣传生活图景/报告.md",
+      "bytes": 2307,
+      "sha256": "68fc433cf4b967b24be21a862abe21063a480a144d7ae6c08ca9162b4d9f305b",
+      "source_sha256": "68fc433cf4b967b24be21a862abe21063a480a144d7ae6c08ca9162b4d9f305b",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-意识-滨水宣传生活图景/材料.tsv",
+      "bytes": 2509,
+      "sha256": "edca06d88e80d711a397c51111bfa45d6064caf9d414c4b6f8f19273a3805141",
+      "source_sha256": "edca06d88e80d711a397c51111bfa45d6064caf9d414c4b6f8f19273a3805141",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-河流启德河/图.json",
+      "bytes": 18963,
+      "sha256": "12f1cb6319d6c5e8bffe3cb7994c738971a01bf9b6d598435ce1ab101fed4727",
+      "source_sha256": "12f1cb6319d6c5e8bffe3cb7994c738971a01bf9b6d598435ce1ab101fed4727",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-河流启德河/报告.md",
+      "bytes": 1347,
+      "sha256": "e57a60657ccb94a88d6befe3dde801f7fa6d16c97228120fb6614daf8fab9e4b",
+      "source_sha256": "e57a60657ccb94a88d6befe3dde801f7fa6d16c97228120fb6614daf8fab9e4b",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-河流启德河/材料.tsv",
+      "bytes": 5190,
+      "sha256": "44b189c919ac4aa2739a9150a9fb45be41cfbabdceccbc3a670e638d3319d740",
+      "source_sha256": "44b189c919ac4aa2739a9150a9fb45be41cfbabdceccbc3a670e638d3319d740",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-河流城门河/图.json",
+      "bytes": 13422,
+      "sha256": "0c9ecd0f094d0c980586af93954e8902d437ce5b2fc09b10c628594546ec8240",
+      "source_sha256": "0c9ecd0f094d0c980586af93954e8902d437ce5b2fc09b10c628594546ec8240",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-河流城门河/报告.md",
+      "bytes": 1124,
+      "sha256": "0501acee845ce74eef51d2aa14a8c1fb7dafb743a6cb1793e9f7734b93a394ed",
+      "source_sha256": "0501acee845ce74eef51d2aa14a8c1fb7dafb743a6cb1793e9f7734b93a394ed",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-河流城门河/材料.tsv",
+      "bytes": 2481,
+      "sha256": "1b189b92ed1a8f48b4fac78cc83390e05e2060d86c91ea5497e7d7ac4356c9b7",
+      "source_sha256": "1b189b92ed1a8f48b4fac78cc83390e05e2060d86c91ea5497e7d7ac4356c9b7",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-河流防洪体系/图.json",
+      "bytes": 21285,
+      "sha256": "7c8385246a6a3ca6d2f5af142c354ee3d08331613b253ca6f83cf8fdc8edd9fb",
+      "source_sha256": "7c8385246a6a3ca6d2f5af142c354ee3d08331613b253ca6f83cf8fdc8edd9fb",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-河流防洪体系/报告.md",
+      "bytes": 1509,
+      "sha256": "8e8de632472125e06945c82666874df884a613c6d8bfe7b39493435f48986773",
+      "source_sha256": "8e8de632472125e06945c82666874df884a613c6d8bfe7b39493435f48986773",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-河流防洪体系/材料.tsv",
+      "bytes": 4997,
+      "sha256": "dd0c461ac0a66a963d3c0609396155ed008d270d1c4f42808d1df641834964b0",
+      "source_sha256": "dd0c461ac0a66a963d3c0609396155ed008d270d1c4f42808d1df641834964b0",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-港湾-竹篙湾开发批地/图.json",
+      "bytes": 17299,
+      "sha256": "4706b73294233b8094e323c190278f754c1c0364edbcb8e09da9da494d98ae7d",
+      "source_sha256": "4706b73294233b8094e323c190278f754c1c0364edbcb8e09da9da494d98ae7d",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-港湾-竹篙湾开发批地/报告.md",
+      "bytes": 3183,
+      "sha256": "af4ee5554b50866f5396ea037143b80826c02969e559c3f2dc7bffe58af21b5e",
+      "source_sha256": "af4ee5554b50866f5396ea037143b80826c02969e559c3f2dc7bffe58af21b5e",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-港湾-竹篙湾开发批地/材料.tsv",
+      "bytes": 3083,
+      "sha256": "054073b3a8c112770aedfa86ae715236bd5014542e124a3dcbc0e8da828a9b20",
+      "source_sha256": "054073b3a8c112770aedfa86ae715236bd5014542e124a3dcbc0e8da828a9b20",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-港湾-香港水域航道治理/图.json",
+      "bytes": 13056,
+      "sha256": "3c513a132c8111399015f3ff2c90377cd19483feff0703a2a97ef762a47f05b7",
+      "source_sha256": "3c513a132c8111399015f3ff2c90377cd19483feff0703a2a97ef762a47f05b7",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-港湾-香港水域航道治理/报告.md",
+      "bytes": 2335,
+      "sha256": "80db41c72eb714fbd6a62785ab27a0cfb6d8f9fb377d65818218c2ec19a0ea31",
+      "source_sha256": "80db41c72eb714fbd6a62785ab27a0cfb6d8f9fb377d65818218c2ec19a0ea31",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-港湾-香港水域航道治理/材料.tsv",
+      "bytes": 1435,
+      "sha256": "43a5f7e98840df8dda271cccc8ab4e1619c1faa34d1391501856f867ba7c63f9",
+      "source_sha256": "43a5f7e98840df8dda271cccc8ab4e1619c1faa34d1391501856f867ba7c63f9",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-生活-家庭用水再生产/图.json",
+      "bytes": 23392,
+      "sha256": "427d60ff968a3f0be52e0df74794a9a27fbb1ca115dd2d5b7fb3cfd6fabd2d39",
+      "source_sha256": "427d60ff968a3f0be52e0df74794a9a27fbb1ca115dd2d5b7fb3cfd6fabd2d39",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-生活-家庭用水再生产/报告.md",
+      "bytes": 2234,
+      "sha256": "21d1b71033ba1eec7cccf765fdb3c0dad744c87b8db87aacbadb8ba010d50d29",
+      "source_sha256": "21d1b71033ba1eec7cccf765fdb3c0dad744c87b8db87aacbadb8ba010d50d29",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-生活-家庭用水再生产/材料.tsv",
+      "bytes": 4327,
+      "sha256": "f57df2c33f7b9903ca50a59c51769fb3a342cbf7f43506d81060200a7a2ac7df",
+      "source_sha256": "f57df2c33f7b9903ca50a59c51769fb3a342cbf7f43506d81060200a7a2ac7df",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-生活-河岸环境不均/图.json",
+      "bytes": 22821,
+      "sha256": "0ec8f8cc3cd6b28f42059ae02f0399d9fa39903a82413247dbc38c463c8b6e4d",
+      "source_sha256": "0ec8f8cc3cd6b28f42059ae02f0399d9fa39903a82413247dbc38c463c8b6e4d",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-生活-河岸环境不均/报告.md",
+      "bytes": 2001,
+      "sha256": "ac037338bfbe7f6139ac87755e6fa86049cd9626cad74626ef8f4156b8d485ee",
+      "source_sha256": "ac037338bfbe7f6139ac87755e6fa86049cd9626cad74626ef8f4156b8d485ee",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/clue-r2-生活-河岸环境不均/材料.tsv",
+      "bytes": 4117,
+      "sha256": "e66a856babb86a95f10814f0d1f798158974091c2324393f76967552430869b2",
+      "source_sha256": "e66a856babb86a95f10814f0d1f798158974091c2324393f76967552430869b2",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/候选提升审计.tsv",
+      "bytes": 199698,
+      "sha256": "d66f664b25f9a6a18262ae59314b175ba84992b4d2eaf74899efdfeca0249c1f",
+      "source_sha256": "d66f664b25f9a6a18262ae59314b175ba84992b4d2eaf74899efdfeca0249c1f",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/候选提升规则.md",
+      "bytes": 1587,
+      "sha256": "9e32885c50925c251ff6a519bda15a1494c7164df847e0c2f652080ecc20607f",
+      "source_sha256": "9e32885c50925c251ff6a519bda15a1494c7164df847e0c2f652080ecc20607f",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/候选材料总表.tsv",
+      "bytes": 231916,
+      "sha256": "1ea6600aa7816e5c7f0bf178062974140be29a33f75550f50be96941ffd0f75f",
+      "source_sha256": "1ea6600aa7816e5c7f0bf178062974140be29a33f75550f50be96941ffd0f75f",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/分面统计.tsv",
+      "bytes": 803,
+      "sha256": "b2e3b311e9ace4cd3be6db733aa200cd23da60ec47ccbc65f5965305fb6d1112",
+      "source_sha256": "b2e3b311e9ace4cd3be6db733aa200cd23da60ec47ccbc65f5965305fb6d1112",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/图谱数据.全轮.json",
+      "bytes": 432132,
+      "sha256": "004e092c7670e5c476620978c7e6957a0cac73930ced73ab4de1f6e8ece80039",
+      "source_sha256": "004e092c7670e5c476620978c7e6957a0cac73930ced73ab4de1f6e8ece80039",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/图谱数据.正式合并.json",
+      "bytes": 193976,
+      "sha256": "87e3900deb220c8eb4ab4687e3bba51f1e41574f337a848009ad4c39bfcd06f5",
+      "source_sha256": "87e3900deb220c8eb4ab4687e3bba51f1e41574f337a848009ad4c39bfcd06f5",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/成图索引.md",
+      "bytes": 2730,
+      "sha256": "d600a70c170b384828449806b2a35fefa4a2cc681ca7dbae1b07ffd492306a27",
+      "source_sha256": "d600a70c170b384828449806b2a35fefa4a2cc681ca7dbae1b07ffd492306a27",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/成图计划.md",
+      "bytes": 2830,
+      "sha256": "1d9782ccd853efed4781e2be491fb4d13e3e21fea1ef9d82ef787ae87a6ecb18",
+      "source_sha256": "1d9782ccd853efed4781e2be491fb4d13e3e21fea1ef9d82ef787ae87a6ecb18",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/本轮.md",
+      "bytes": 528,
+      "sha256": "91087f8c8ba777c26bfbb11530013efce87dc0dfefdf7b40ebe036fd7a3319e7",
+      "source_sha256": "91087f8c8ba777c26bfbb11530013efce87dc0dfefdf7b40ebe036fd7a3319e7",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/检索策略.优化.md",
+      "bytes": 3277,
+      "sha256": "6c8567b674f8e202fbd70f61d6fba8482dc9e1e8336a4268a5a3d8bd1eed2c01",
+      "source_sha256": "6c8567b674f8e202fbd70f61d6fba8482dc9e1e8336a4268a5a3d8bd1eed2c01",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/检索记录汇总.tsv",
+      "bytes": 644765,
+      "sha256": "5fc8c69d02d9538aeed4b83483dd29b3e99c9bcfec00faddd06d170acc78b29e",
+      "source_sha256": "5fc8c69d02d9538aeed4b83483dd29b3e99c9bcfec00faddd06d170acc78b29e",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/索引.md",
+      "bytes": 3223,
+      "sha256": "39d2468ff9ba1ca9268fc80cd7a661b57806817b02883fa66963abea13b94ac7",
+      "source_sha256": "39d2468ff9ba1ca9268fc80cd7a661b57806817b02883fa66963abea13b94ac7",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/轮次.json",
+      "bytes": 795,
+      "sha256": "70c77b32c29dc49a89cca58c5787b4a38965c6598be2c691e62a604fcbb98f40",
+      "source_sha256": "70c77b32c29dc49a89cca58c5787b4a38965c6598be2c691e62a604fcbb98f40",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-19_02/轮次报告.md",
+      "bytes": 9434,
+      "sha256": "f5b48ddbf42247a153ef2ac3ad37d64613742e7ad44baae030ec403b6d297cc1",
+      "source_sha256": "f5b48ddbf42247a153ef2ac3ad37d64613742e7ad44baae030ec403b6d297cc1",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03a_支配统治上收/03a1_法定权力与决策程序/分面.json",
+      "bytes": 12789,
+      "sha256": "ac7ec2d85452f3be199f220be63652c54cae9f7c10499b0c8e393616f34be1f5",
+      "source_sha256": "ac7ec2d85452f3be199f220be63652c54cae9f7c10499b0c8e393616f34be1f5",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03a_支配统治上收/03a1_法定权力与决策程序/报告.md",
+      "bytes": 2438,
+      "sha256": "89099b8faa663b758b900f66589f2c6c0e52631ef8225011c4cd4ea4ad6f6822",
+      "source_sha256": "89099b8faa663b758b900f66589f2c6c0e52631ef8225011c4cd4ea4ad6f6822",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03a_支配统治上收/03a2_预算控制与央地关系/分面.json",
+      "bytes": 9231,
+      "sha256": "8c214ea53cf264de87fe9cc7be6a006590811727d3128cabc15e229f00abfeba",
+      "source_sha256": "8c214ea53cf264de87fe9cc7be6a006590811727d3128cabc15e229f00abfeba",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03a_支配统治上收/03a2_预算控制与央地关系/报告.md",
+      "bytes": 2757,
+      "sha256": "86835f22a6db76e4aeb842f544871e69b3ffbcb1f90c93e0c301e68e5d6fb276",
+      "source_sha256": "86835f22a6db76e4aeb842f544871e69b3ffbcb1f90c93e0c301e68e5d6fb276",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03a_支配统治上收/分面.json",
+      "bytes": 21701,
+      "sha256": "0aeb55f84a715db6582c14cd2cacd0398390ef883689316514231384ab57c113",
+      "source_sha256": "0aeb55f84a715db6582c14cd2cacd0398390ef883689316514231384ab57c113",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03a_支配统治上收/报告.md",
+      "bytes": 1458,
+      "sha256": "bf582d24f3a51d409dc156968f6e2e1a2907a9a6a627319e9cb3f5d8424272c2",
+      "source_sha256": "bf582d24f3a51d409dc156968f6e2e1a2907a9a6a627319e9cb3f5d8424272c2",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03b_土地资本剩余/sub_01_pennys_bay_land_and_finance/分面.json",
+      "bytes": 40247,
+      "sha256": "4c9e33c54bb3068661809f9dccb45b4421ee30d1ac0fa9af0b253dc4b3d6c925",
+      "source_sha256": "4c9e33c54bb3068661809f9dccb45b4421ee30d1ac0fa9af0b253dc4b3d6c925",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03b_土地资本剩余/sub_01_pennys_bay_land_and_finance/报告.md",
+      "bytes": 9257,
+      "sha256": "65c1291ed9492ceda5710ba41e682b8b491d29135aeb06a15385ea6a62bb221d",
+      "source_sha256": "65c1291ed9492ceda5710ba41e682b8b491d29135aeb06a15385ea6a62bb221d",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03b_土地资本剩余/sub_02_water_ppp_concessions/分面.json",
+      "bytes": 19000,
+      "sha256": "fe172e5dc780caef7c72f0582941d42d6d79b905b3f6474fe2d5c0621d4a892f",
+      "source_sha256": "fe172e5dc780caef7c72f0582941d42d6d79b905b3f6474fe2d5c0621d4a892f",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03b_土地资本剩余/sub_02_water_ppp_concessions/报告.md",
+      "bytes": 8661,
+      "sha256": "a3ca3323e821ab7e28fea71d9ee580c1d79e087193eaafc6fbb5f86da98964a4",
+      "source_sha256": "a3ca3323e821ab7e28fea71d9ee580c1d79e087193eaafc6fbb5f86da98964a4",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03b_土地资本剩余/sub_03_water_land_lease_income/分面.json",
+      "bytes": 20484,
+      "sha256": "05635c7fce6fe660b03a3dabcdb9487f02188489a90e6a5ac294ecaaeb0f8fdd",
+      "source_sha256": "05635c7fce6fe660b03a3dabcdb9487f02188489a90e6a5ac294ecaaeb0f8fdd",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03b_土地资本剩余/sub_03_water_land_lease_income/报告.md",
+      "bytes": 7499,
+      "sha256": "3cd4f518c8576237cd6d81df21a6a3062c3c75aee5d96d3206f74f80ba224562",
+      "source_sha256": "3cd4f518c8576237cd6d81df21a6a3062c3c75aee5d96d3206f74f80ba224562",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03b_土地资本剩余/分面.json",
+      "bytes": 88993,
+      "sha256": "b5812dd4bd65297c2fa754a745b29832c9f97fdc15eed943daf7534457f22143",
+      "source_sha256": "b5812dd4bd65297c2fa754a745b29832c9f97fdc15eed943daf7534457f22143",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03b_土地资本剩余/报告.md",
+      "bytes": 5163,
+      "sha256": "5928a640ac4cba65004e3b7e25c7993fa0417dbc4a598100a1c0c92a1527d861",
+      "source_sha256": "5928a640ac4cba65004e3b7e25c7993fa0417dbc4a598100a1c0c92a1527d861",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03c_劳动外包阶级机体/分面.json",
+      "bytes": 66811,
+      "sha256": "787d2216644a2834de5deb889d9415d1e854a939cd8cf26af1659f6865140cdc",
+      "source_sha256": "787d2216644a2834de5deb889d9415d1e854a939cd8cf26af1659f6865140cdc",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03c_劳动外包阶级机体/报告.md",
+      "bytes": 14109,
+      "sha256": "a2daa8d478d1b508df2aa9a2fca351309ac389c396e80d00ffdaf5f356d9da8a",
+      "source_sha256": "a2daa8d478d1b508df2aa9a2fca351309ac389c396e80d00ffdaf5f356d9da8a",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03d_空间调和转移/分面.json",
+      "bytes": 44601,
+      "sha256": "56e414f09d802ce1eac306544c9d148f9d946f2e6c4975d11db7b925097868e2",
+      "source_sha256": "56e414f09d802ce1eac306544c9d148f9d946f2e6c4975d11db7b925097868e2",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03d_空间调和转移/报告.md",
+      "bytes": 13639,
+      "sha256": "e8feed6143a4f2cfbaf3d994bf3a7423ef996b13db9aa6223b7d072894863a36",
+      "source_sha256": "e8feed6143a4f2cfbaf3d994bf3a7423ef996b13db9aa6223b7d072894863a36",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03e_一般居民生活/分面.json",
+      "bytes": 57106,
+      "sha256": "7b0d14927678d8ffb39a3e6f75792757d951f11ff416680c904a1bfa2b4a80e7",
+      "source_sha256": "7b0d14927678d8ffb39a3e6f75792757d951f11ff416680c904a1bfa2b4a80e7",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03e_一般居民生活/报告.md",
+      "bytes": 13923,
+      "sha256": "3504eae8a4b54cdbe61d765e54a436c87bc9a51ed5b9323ec14a5e28cdc10c7c",
+      "source_sha256": "3504eae8a4b54cdbe61d765e54a436c87bc9a51ed5b9323ec14a5e28cdc10c7c",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03f_弱势群体照料/children_lowincome_housing/分面.json",
+      "bytes": 28737,
+      "sha256": "bb43df9d24f3a156bd50061f8dcd10fb91ea37aa41a2c6e35181b507d07d93ed",
+      "source_sha256": "bb43df9d24f3a156bd50061f8dcd10fb91ea37aa41a2c6e35181b507d07d93ed",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03f_弱势群体照料/children_lowincome_housing/报告.md",
+      "bytes": 10869,
+      "sha256": "f445ad42aa078ca68ad39219f5169ef8b222b4350bb982ab6efe01ee399356a7",
+      "source_sha256": "f445ad42aa078ca68ad39219f5169ef8b222b4350bb982ab6efe01ee399356a7",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03f_弱势群体照料/分面.json",
+      "bytes": 80063,
+      "sha256": "2429e12010e651032356ec8ced7b211e7b2ea559ff7418d5d80956336ee963ee",
+      "source_sha256": "2429e12010e651032356ec8ced7b211e7b2ea559ff7418d5d80956336ee963ee",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03f_弱势群体照料/报告.md",
+      "bytes": 5355,
+      "sha256": "db28c6191e996a2fc94fa8cf656e198cab7c8b97b51b112255be9669d0fca281",
+      "source_sha256": "db28c6191e996a2fc94fa8cf656e198cab7c8b97b51b112255be9669d0fca281",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03g_移民与多语种族群/分面.json",
+      "bytes": 45139,
+      "sha256": "70e56d05314715bfc4159c99664b10fdd51f7536b78b5d170b3238a8ecdf9dea",
+      "source_sha256": "70e56d05314715bfc4159c99664b10fdd51f7536b78b5d170b3238a8ecdf9dea",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03g_移民与多语种族群/报告.md",
+      "bytes": 5110,
+      "sha256": "2e315bf24c89159b08c9729a8eb0e9e829c17981ba68d245d50acebf735ba1ce",
+      "source_sha256": "2e315bf24c89159b08c9729a8eb0e9e829c17981ba68d245d50acebf735ba1ce",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03h_反证独立来源/分面.json",
+      "bytes": 94032,
+      "sha256": "2353ff3a2a8727374bf8b511df5466d70841adffb9f90849c58297f1c17b2a2f",
+      "source_sha256": "2353ff3a2a8727374bf8b511df5466d70841adffb9f90849c58297f1c17b2a2f",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/03h_反证独立来源/报告.md",
+      "bytes": 8116,
+      "sha256": "c4b0a067d64e175f4b9ed42f73022363a2f876a7eda5d64a39fc27c74a1711de",
+      "source_sha256": "c4b0a067d64e175f4b9ed42f73022363a2f876a7eda5d64a39fc27c74a1711de",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/URL审计.tsv",
+      "bytes": 304294,
+      "sha256": "3acc73459d459fa7c5b79fbafe57e1a1a92fb094b9a48a70e66be456be32ab18",
+      "source_sha256": "3acc73459d459fa7c5b79fbafe57e1a1a92fb094b9a48a70e66be456be32ab18",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-劳动-外判支配与组成/图.json",
+      "bytes": 24993,
+      "sha256": "eeb56053c1fe8f036780371d075dbf48d511cdcd4d3143a4f3856376525f2a94",
+      "source_sha256": "eeb56053c1fe8f036780371d075dbf48d511cdcd4d3143a4f3856376525f2a94",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-劳动-外判支配与组成/报告.md",
+      "bytes": 3969,
+      "sha256": "5470029fced524216a2b2f5d7f09611f0033f6554e19833343b29903e0864807",
+      "source_sha256": "5470029fced524216a2b2f5d7f09611f0033f6554e19833343b29903e0864807",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-劳动-外判支配与组成/材料.tsv",
+      "bytes": 6786,
+      "sha256": "18fdc2f211fba8e8d798a395ba869a0e8df9b24327570046ee28c36bf2d4df65",
+      "source_sha256": "18fdc2f211fba8e8d798a395ba869a0e8df9b24327570046ee28c36bf2d4df65",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-劳动-工会组织与再生产/图.json",
+      "bytes": 40947,
+      "sha256": "383d6b1c87cdc82eaa7c354fcf2c12d4a563cba9ae06163d5c5fb8e75c3c658b",
+      "source_sha256": "383d6b1c87cdc82eaa7c354fcf2c12d4a563cba9ae06163d5c5fb8e75c3c658b",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-劳动-工会组织与再生产/报告.md",
+      "bytes": 7628,
+      "sha256": "75c496dfcad9b44ffe59aa2f72ec03e32c43a840690f2fdc3bfa4d66b36e51d3",
+      "source_sha256": "75c496dfcad9b44ffe59aa2f72ec03e32c43a840690f2fdc3bfa4d66b36e51d3",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-劳动-工会组织与再生产/材料.tsv",
+      "bytes": 7732,
+      "sha256": "bafd73415d86bf066c695cc9e23bc17e896bb4d0c3401350ec7b1f2b62d5fbba",
+      "source_sha256": "bafd73415d86bf066c695cc9e23bc17e896bb4d0c3401350ec7b1f2b62d5fbba",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-劳动-工伤轮班与再生产/图.json",
+      "bytes": 41607,
+      "sha256": "c296e2463205c8606f9133760bcb516f7e9f8a8ac062328366ed3f3b552fa173",
+      "source_sha256": "c296e2463205c8606f9133760bcb516f7e9f8a8ac062328366ed3f3b552fa173",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-劳动-工伤轮班与再生产/报告.md",
+      "bytes": 6880,
+      "sha256": "fa0f2c2e166fd26e4f371ec9ca26f4a55bd1b8497a3b3fbfa11c6437ec69b29e",
+      "source_sha256": "fa0f2c2e166fd26e4f371ec9ca26f4a55bd1b8497a3b3fbfa11c6437ec69b29e",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-劳动-工伤轮班与再生产/材料.tsv",
+      "bytes": 6567,
+      "sha256": "82e170d147eefbe99ad6627d39cbfd605289695a5e8a2ee84fc00c942ffe05c3",
+      "source_sha256": "82e170d147eefbe99ad6627d39cbfd605289695a5e8a2ee84fc00c942ffe05c3",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-劳动-码头外判与罢工/图.json",
+      "bytes": 61017,
+      "sha256": "1a4414aaa1bd84a82ccaa3b4cfff8bf646e507c3205c04e72b412e35f53e1469",
+      "source_sha256": "1a4414aaa1bd84a82ccaa3b4cfff8bf646e507c3205c04e72b412e35f53e1469",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-劳动-码头外判与罢工/报告.md",
+      "bytes": 6597,
+      "sha256": "a5debaa7a6c823983816bee3c2b546032e581a5a6859bfeb1e84edd18216f0ed",
+      "source_sha256": "a5debaa7a6c823983816bee3c2b546032e581a5a6859bfeb1e84edd18216f0ed",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-劳动-码头外判与罢工/材料.tsv",
+      "bytes": 10488,
+      "sha256": "9a8d0f0b45b25ab68950cdb8e61a7f707e8dc751943e201673dc0928edf3d4b0",
+      "source_sha256": "9a8d0f0b45b25ab68950cdb8e61a7f707e8dc751943e201673dc0928edf3d4b0",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-反证分间单位执法候选/图.json",
+      "bytes": 2870,
+      "sha256": "dbce018d1f5c7119f953036d4de825ba540e678e86da8fbb2201623f1d7fe94a",
+      "source_sha256": "dbce018d1f5c7119f953036d4de825ba540e678e86da8fbb2201623f1d7fe94a",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-反证分间单位执法候选/报告.md",
+      "bytes": 3735,
+      "sha256": "344a7ea16b0ac5cbc59b24973fc5e42e7cc14b8dbe7da3cb77c55d8b46968a01",
+      "source_sha256": "344a7ea16b0ac5cbc59b24973fc5e42e7cc14b8dbe7da3cb77c55d8b46968a01",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-反证分间单位执法候选/材料.tsv",
+      "bytes": 954,
+      "sha256": "4b0bfef0008744e5f2d755eab70ec8fdc511ec6ab09936bb6fd3432a6146dd4a",
+      "source_sha256": "4b0bfef0008744e5f2d755eab70ec8fdc511ec6ab09936bb6fd3432a6146dd4a",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-土地-地价收入与水务支出/图.json",
+      "bytes": 11192,
+      "sha256": "d06b093524baab47938e9b20faa71b95533e7db22ca954e6c06dec82166b5837",
+      "source_sha256": "d06b093524baab47938e9b20faa71b95533e7db22ca954e6c06dec82166b5837",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-土地-地价收入与水务支出/报告.md",
+      "bytes": 2576,
+      "sha256": "d3e79a1f3ee287fd17ca55c38606fd935fc8f04ca395a8e502851123526d5086",
+      "source_sha256": "d3e79a1f3ee287fd17ca55c38606fd935fc8f04ca395a8e502851123526d5086",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-土地-地价收入与水务支出/材料.tsv",
+      "bytes": 1823,
+      "sha256": "a0fafc5b7e3d194ea09a73fca65ba6cfac9db8f063403d8138900d4f9fb41a00",
+      "source_sha256": "a0fafc5b7e3d194ea09a73fca65ba6cfac9db8f063403d8138900d4f9fb41a00",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-土地-将军澳化淡厂用地与DBO付款/图.json",
+      "bytes": 10875,
+      "sha256": "866444d7499e300a1ea359cb29ec127efdbbc843650b88e82cd819fa13ac9f07",
+      "source_sha256": "866444d7499e300a1ea359cb29ec127efdbbc843650b88e82cd819fa13ac9f07",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-土地-将军澳化淡厂用地与DBO付款/报告.md",
+      "bytes": 2267,
+      "sha256": "9d6c0c7d01db50b3f80999d4d3e2796b8d4ee52885a33d719baac58ba02b6b29",
+      "source_sha256": "9d6c0c7d01db50b3f80999d4d3e2796b8d4ee52885a33d719baac58ba02b6b29",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-土地-将军澳化淡厂用地与DBO付款/材料.tsv",
+      "bytes": 2731,
+      "sha256": "f5e2033701ccb324088f412f418af55c4c26f162f8ae60be43a484d3f55ec956",
+      "source_sha256": "f5e2033701ccb324088f412f418af55c4c26f162f8ae60be43a484d3f55ec956",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-土地-租金征收与欠收限制/图.json",
+      "bytes": 10700,
+      "sha256": "64c59891356e0ea21b16a7e6cd0d37542fd1a014bb4d16cf288166d4259dd450",
+      "source_sha256": "64c59891356e0ea21b16a7e6cd0d37542fd1a014bb4d16cf288166d4259dd450",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-土地-租金征收与欠收限制/报告.md",
+      "bytes": 2127,
+      "sha256": "5bf2680f67406412da74cac23b3b60cca77f061a46347475a89dafc1824f37a5",
+      "source_sha256": "5bf2680f67406412da74cac23b3b60cca77f061a46347475a89dafc1824f37a5",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-土地-租金征收与欠收限制/材料.tsv",
+      "bytes": 1297,
+      "sha256": "44877ecf796f076c875f46e185fe533eba16f27a9ed14819d2656c64c935d844",
+      "source_sha256": "44877ecf796f076c875f46e185fe533eba16f27a9ed14819d2656c64c935d844",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-土地-竹篙湾批地与回款/图.json",
+      "bytes": 25243,
+      "sha256": "837bc7844e4913fe4732b0adc5b64bca1c9b8a28476cd077836ecf4703a7f172",
+      "source_sha256": "837bc7844e4913fe4732b0adc5b64bca1c9b8a28476cd077836ecf4703a7f172",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-土地-竹篙湾批地与回款/报告.md",
+      "bytes": 6459,
+      "sha256": "9f2a04fc5732badf9ba2c6ea69f7581a7983cda18dfc99128b6488d5027430f4",
+      "source_sha256": "9f2a04fc5732badf9ba2c6ea69f7581a7983cda18dfc99128b6488d5027430f4",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-土地-竹篙湾批地与回款/材料.tsv",
+      "bytes": 4127,
+      "sha256": "1d39bef3c32d90d574dae3e14347baa392f258f7d8c01e538f35c3ae26983aa8",
+      "source_sha256": "1d39bef3c32d90d574dae3e14347baa392f258f7d8c01e538f35c3ae26983aa8",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-多语种劏房水费信息/图.json",
+      "bytes": 5989,
+      "sha256": "2e3d4b95872688fef9dc78a9ad64104d450b46b53b4f896af656083d55180d98",
+      "source_sha256": "2e3d4b95872688fef9dc78a9ad64104d450b46b53b4f896af656083d55180d98",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-多语种劏房水费信息/报告.md",
+      "bytes": 3639,
+      "sha256": "1dc004f15040ebc0284db05d42fbaedaab51461fb7e66e9383c5024c41d74d69",
+      "source_sha256": "1dc004f15040ebc0284db05d42fbaedaab51461fb7e66e9383c5024c41d74d69",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-多语种劏房水费信息/材料.tsv",
+      "bytes": 1554,
+      "sha256": "04e9ee14f117f2c3100f567e53dbe93c1dfa94eca8f00afc8f91cb9c333edbbe",
+      "source_sha256": "04e9ee14f117f2c3100f567e53dbe93c1dfa94eca8f00afc8f91cb9c333edbbe",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-居民-休闲与泳滩海滨/图.json",
+      "bytes": 42613,
+      "sha256": "7b42888f5e898e132c61dd132ea3ae6f92c7ad156527ee47c1be70d2434225b5",
+      "source_sha256": "7b42888f5e898e132c61dd132ea3ae6f92c7ad156527ee47c1be70d2434225b5",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-居民-休闲与泳滩海滨/报告.md",
+      "bytes": 11730,
+      "sha256": "9ee1acae42c4b55b1f1fb7af9db7c33bff571146087fb379121d119f5137559e",
+      "source_sha256": "9ee1acae42c4b55b1f1fb7af9db7c33bff571146087fb379121d119f5137559e",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-居民-休闲与泳滩海滨/材料.tsv",
+      "bytes": 5468,
+      "sha256": "6135adf8ef4c461918ff283dea59668d02f3a7a55f2df373d771e0fb199c322a",
+      "source_sha256": "6135adf8ef4c461918ff283dea59668d02f3a7a55f2df373d771e0fb199c322a",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-居民-停水与应急供水/图.json",
+      "bytes": 29811,
+      "sha256": "7eaa96fc90f0457a65d589f489cde2af9aaff73932776f513c9df3ad40642b88",
+      "source_sha256": "7eaa96fc90f0457a65d589f489cde2af9aaff73932776f513c9df3ad40642b88",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-居民-停水与应急供水/报告.md",
+      "bytes": 9255,
+      "sha256": "a42c9fc31de96a68c72912a066dff48392190a717eb0d47f63c6d1b2576b3f5b",
+      "source_sha256": "a42c9fc31de96a68c72912a066dff48392190a717eb0d47f63c6d1b2576b3f5b",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-居民-停水与应急供水/材料.tsv",
+      "bytes": 3691,
+      "sha256": "e645d73d81086c116a1b9569b581a70cab4d579cd1d6f95fbe79bb6f7a384cc6",
+      "source_sha256": "e645d73d81086c116a1b9569b581a70cab4d579cd1d6f95fbe79bb6f7a384cc6",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-居民-居住与公屋轮候/图.json",
+      "bytes": 33938,
+      "sha256": "36736a6f1c2d5bba4915228f9095e9f8503ca98b451ab95ac557fd973265ac76",
+      "source_sha256": "36736a6f1c2d5bba4915228f9095e9f8503ca98b451ab95ac557fd973265ac76",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-居民-居住与公屋轮候/报告.md",
+      "bytes": 10549,
+      "sha256": "d15f6db884b0ddce6fe9f0307010d5b4cf508270dca135809e492cb3009009e7",
+      "source_sha256": "d15f6db884b0ddce6fe9f0307010d5b4cf508270dca135809e492cb3009009e7",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-居民-居住与公屋轮候/材料.tsv",
+      "bytes": 3276,
+      "sha256": "d1ae6389c21784284d60edbbc3a51a0f76f539ace8a547f1b5d4b4c5d8e4f82f",
+      "source_sha256": "d1ae6389c21784284d60edbbc3a51a0f76f539ace8a547f1b5d4b4c5d8e4f82f",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-居民-日常用水与缴费/图.json",
+      "bytes": 34448,
+      "sha256": "46015f676748ce0d72f3514e2c26495573bb80e04d30c60e3ea88c06ee4deeb3",
+      "source_sha256": "46015f676748ce0d72f3514e2c26495573bb80e04d30c60e3ea88c06ee4deeb3",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-居民-日常用水与缴费/报告.md",
+      "bytes": 9177,
+      "sha256": "0a7de6e984225cf1f02775703bc4611e6be4ae20d701bf74839a308f5618c60e",
+      "source_sha256": "0a7de6e984225cf1f02775703bc4611e6be4ae20d701bf74839a308f5618c60e",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-居民-日常用水与缴费/材料.tsv",
+      "bytes": 3491,
+      "sha256": "89e30c7d899b70fd3d336895e8109e90005c614822d59df0a8876011d26d3d62",
+      "source_sha256": "89e30c7d899b70fd3d336895e8109e90005c614822d59df0a8876011d26d3d62",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-居民-通行与通勤/图.json",
+      "bytes": 42116,
+      "sha256": "0a226cd3fb918ae2265fd33e04ded49f5ddd93bb495142c340e3957b2a132175",
+      "source_sha256": "0a226cd3fb918ae2265fd33e04ded49f5ddd93bb495142c340e3957b2a132175",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-居民-通行与通勤/报告.md",
+      "bytes": 8084,
+      "sha256": "6a6e049d4e100ffd55b549041f32adb9266dddc77a8605c1c4387daf58cb63bc",
+      "source_sha256": "6a6e049d4e100ffd55b549041f32adb9266dddc77a8605c1c4387daf58cb63bc",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-居民-通行与通勤/材料.tsv",
+      "bytes": 2131,
+      "sha256": "b5af8e0a2befb2268c36024c5a697c06070e0db1274182fb01f8c77ed04461c5",
+      "source_sha256": "b5af8e0a2befb2268c36024c5a697c06070e0db1274182fb01f8c77ed04461c5",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-权力-东江价格机制正当化/图.json",
+      "bytes": 10129,
+      "sha256": "a83f8473bd981edb12830c050df8ee9819dccb3b3ce3e771ae0482ff7a725882",
+      "source_sha256": "a83f8473bd981edb12830c050df8ee9819dccb3b3ce3e771ae0482ff7a725882",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-权力-东江价格机制正当化/报告.md",
+      "bytes": 3351,
+      "sha256": "7de2e2c3b539c306fd25272b4dc267f8499868c4aff6aeb600b58c1751e3227c",
+      "source_sha256": "7de2e2c3b539c306fd25272b4dc267f8499868c4aff6aeb600b58c1751e3227c",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-权力-东江价格机制正当化/材料.tsv",
+      "bytes": 1783,
+      "sha256": "307014d3f5f81823317827f15201822e99ab9c4246e4d202d788f99feae05283",
+      "source_sha256": "307014d3f5f81823317827f15201822e99ab9c4246e4d202d788f99feae05283",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-权力-东江协议与供水授权/图.json",
+      "bytes": 9826,
+      "sha256": "f71b87f8d48198b2b59ab44607f63d15e6e11fdf63973af8cb1c3bc4649049ff",
+      "source_sha256": "f71b87f8d48198b2b59ab44607f63d15e6e11fdf63973af8cb1c3bc4649049ff",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-权力-东江协议与供水授权/报告.md",
+      "bytes": 3064,
+      "sha256": "8d23e689de698afdcb4fec8a7fc58698b680cdf0d79101f64e75ece808418ace",
+      "source_sha256": "8d23e689de698afdcb4fec8a7fc58698b680cdf0d79101f64e75ece808418ace",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-权力-东江协议与供水授权/材料.tsv",
+      "bytes": 1934,
+      "sha256": "109ab26e88f677bbaaf561f7dc41dfdf3fadca315b1c5a405fd6bc2dff5f3bb7",
+      "source_sha256": "109ab26e88f677bbaaf561f7dc41dfdf3fadca315b1c5a405fd6bc2dff5f3bb7",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-权力-工程拨款审批与风险理由/图.json",
+      "bytes": 12028,
+      "sha256": "50b97aa6b1edc33603483ecc7d81f5a5f278de48e2c8296698a932e41468f962",
+      "source_sha256": "50b97aa6b1edc33603483ecc7d81f5a5f278de48e2c8296698a932e41468f962",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-权力-工程拨款审批与风险理由/报告.md",
+      "bytes": 3659,
+      "sha256": "ae57a4f19535f714100b26c85599f49eea5a3742e1d8cc9e679c06e1f743305d",
+      "source_sha256": "ae57a4f19535f714100b26c85599f49eea5a3742e1d8cc9e679c06e1f743305d",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-权力-工程拨款审批与风险理由/材料.tsv",
+      "bytes": 1707,
+      "sha256": "58bf5368cfd22a9d231c4f27ae2d705bcacfa2ba0ce4e3b59c43b2e358d2c2aa",
+      "source_sha256": "58bf5368cfd22a9d231c4f27ae2d705bcacfa2ba0ce4e3b59c43b2e358d2c2aa",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-权力-水务法定层级与执行/图.json",
+      "bytes": 13436,
+      "sha256": "b1e3ff1bed9bbd8de39404f312a92194e3f0141b86c539dbf7e994d5300df309",
+      "source_sha256": "b1e3ff1bed9bbd8de39404f312a92194e3f0141b86c539dbf7e994d5300df309",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-权力-水务法定层级与执行/报告.md",
+      "bytes": 3223,
+      "sha256": "a06a35054d2052588b29515dc6f533cc4d6b6d2d210d176ed8ea6140330139e1",
+      "source_sha256": "a06a35054d2052588b29515dc6f533cc4d6b6d2d210d176ed8ea6140330139e1",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-权力-水务法定层级与执行/材料.tsv",
+      "bytes": 2470,
+      "sha256": "ce8ac56edbc3733b14797c753e91b635824bf9b1f5bf23038d0915ca323bf91d",
+      "source_sha256": "ce8ac56edbc3733b14797c753e91b635824bf9b1f5bf23038d0915ca323bf91d",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-儿童与单亲家庭/图.json",
+      "bytes": 29347,
+      "sha256": "ed8fbd111f8b20830c386c20cc01709dfbcba6c646e023a8c7df624df1c9b858",
+      "source_sha256": "ed8fbd111f8b20830c386c20cc01709dfbcba6c646e023a8c7df624df1c9b858",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-儿童与单亲家庭/报告.md",
+      "bytes": 10716,
+      "sha256": "72bc6454f9e4a6ee6caee6dfb89508e1c7112d03a4e10db88c92cefc701a9250",
+      "source_sha256": "72bc6454f9e4a6ee6caee6dfb89508e1c7112d03a4e10db88c92cefc701a9250",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-儿童与单亲家庭/材料.tsv",
+      "bytes": 3812,
+      "sha256": "ecddb08830ac3e4a448d1c93da720f6db4ca85d34131b3c3a03d109c58c69db7",
+      "source_sha256": "ecddb08830ac3e4a448d1c93da720f6db4ca85d34131b3c3a03d109c58c69db7",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-分间单位水费/图.json",
+      "bytes": 48661,
+      "sha256": "adb1893be1b34bd4fbad1b700b9e1c1d146e5565c72a56a23105691e19bd550d",
+      "source_sha256": "adb1893be1b34bd4fbad1b700b9e1c1d146e5565c72a56a23105691e19bd550d",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-分间单位水费/报告.md",
+      "bytes": 11821,
+      "sha256": "4a04c89e06ac9d1fb58b4beece10942d9da4a578dbc390eb516943fed93b7fe5",
+      "source_sha256": "4a04c89e06ac9d1fb58b4beece10942d9da4a578dbc390eb516943fed93b7fe5",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-分间单位水费/材料.tsv",
+      "bytes": 5674,
+      "sha256": "75678f59ff7537d4c1e9c8fd28f5682dc7fd1aaf9f6925af8983baca8303ffea",
+      "source_sha256": "75678f59ff7537d4c1e9c8fd28f5682dc7fd1aaf9f6925af8983baca8303ffea",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-无家者与紧急援助/图.json",
+      "bytes": 28272,
+      "sha256": "155fa7ead7752c4fd44c21b7131883eb89c6f513e06958530db230350ba0a28f",
+      "source_sha256": "155fa7ead7752c4fd44c21b7131883eb89c6f513e06958530db230350ba0a28f",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-无家者与紧急援助/报告.md",
+      "bytes": 10872,
+      "sha256": "7d7dac82332344fd692cf67a9784e3bf5223b52ff28d8e83a4fdc653db16c9e6",
+      "source_sha256": "7d7dac82332344fd692cf67a9784e3bf5223b52ff28d8e83a4fdc653db16c9e6",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-无家者与紧急援助/材料.tsv",
+      "bytes": 3244,
+      "sha256": "f062943738eb91b7a8de0fc0d24be6712cb86564f1a4eb154de5141289074caf",
+      "source_sha256": "f062943738eb91b7a8de0fc0d24be6712cb86564f1a4eb154de5141289074caf",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-残障与病患服务组织/图.json",
+      "bytes": 40295,
+      "sha256": "a0f2b8548aaa38172161591744e82652cc46076a9b7fad592fc5c74095c57611",
+      "source_sha256": "a0f2b8548aaa38172161591744e82652cc46076a9b7fad592fc5c74095c57611",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-残障与病患服务组织/报告.md",
+      "bytes": 10971,
+      "sha256": "e4950a88e63071cdbb4c4cad570b54b1ab7cb6a61cdb012d4292e2f4094db200",
+      "source_sha256": "e4950a88e63071cdbb4c4cad570b54b1ab7cb6a61cdb012d4292e2f4094db200",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-残障与病患服务组织/材料.tsv",
+      "bytes": 7503,
+      "sha256": "3434f32902f1967b988b76d338afd2c5f393b13225cc704b7650ce1c5698d4a9",
+      "source_sha256": "3434f32902f1967b988b76d338afd2c5f393b13225cc704b7650ce1c5698d4a9",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-社区互助与组织/图.json",
+      "bytes": 41779,
+      "sha256": "6220aa156d157e7debce6a3dac32a472907ab16607da5c2f26bc5c504f41f3f8",
+      "source_sha256": "6220aa156d157e7debce6a3dac32a472907ab16607da5c2f26bc5c504f41f3f8",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-社区互助与组织/报告.md",
+      "bytes": 11273,
+      "sha256": "0ecd49665947df89f999d3bc6cf600254f8b2d363ccd61cebcdfc12940d248b9",
+      "source_sha256": "0ecd49665947df89f999d3bc6cf600254f8b2d363ccd61cebcdfc12940d248b9",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-社区互助与组织/材料.tsv",
+      "bytes": 6320,
+      "sha256": "d349a49e398c8897a0763284ba8901eebf4e89561c5c684acdcf0c6dd16b315f",
+      "source_sha256": "d349a49e398c8897a0763284ba8901eebf4e89561c5c684acdcf0c6dd16b315f",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-长者与照料者/图.json",
+      "bytes": 40612,
+      "sha256": "5e5aecda141814491430d5c2cf040a2c79e10b7454e10ccea0f13b1c1039bfbd",
+      "source_sha256": "5e5aecda141814491430d5c2cf040a2c79e10b7454e10ccea0f13b1c1039bfbd",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-长者与照料者/报告.md",
+      "bytes": 8421,
+      "sha256": "6c993c8968d7eded142d3273dc32bf4d405b72f92d98e545f801e90fc2b032a5",
+      "source_sha256": "6c993c8968d7eded142d3273dc32bf4d405b72f92d98e545f801e90fc2b032a5",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-照料-长者与照料者/材料.tsv",
+      "bytes": 3642,
+      "sha256": "f849f9e45a298d32b390572de26db2487669291be908051e6462b56206303471",
+      "source_sha256": "f849f9e45a298d32b390572de26db2487669291be908051e6462b56206303471",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-九龙东OZP改划/图.json",
+      "bytes": 9535,
+      "sha256": "efece781c3302679691b0d8a6cafe79efb8329d79d0503366b8a94e1bf7b4ac9",
+      "source_sha256": "efece781c3302679691b0d8a6cafe79efb8329d79d0503366b8a94e1bf7b4ac9",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-九龙东OZP改划/报告.md",
+      "bytes": 2216,
+      "sha256": "12175b8ce44f23a6e6abd65dcf7926754cd05fc511f9f0ef57465c8745c10def",
+      "source_sha256": "12175b8ce44f23a6e6abd65dcf7926754cd05fc511f9f0ef57465c8745c10def",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-九龙东OZP改划/材料.tsv",
+      "bytes": 1207,
+      "sha256": "600ed1624849141ef03c644064529349bd7b775141c3d1628bad6c802f3e5e07",
+      "source_sha256": "600ed1624849141ef03c644064529349bd7b775141c3d1628bad6c802f3e5e07",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-启德河排洪调和/图.json",
+      "bytes": 13923,
+      "sha256": "8389585961ef9b0ff272cce111943e99111efc0f6528966c3c193d6d3f37d8ef",
+      "source_sha256": "8389585961ef9b0ff272cce111943e99111efc0f6528966c3c193d6d3f37d8ef",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-启德河排洪调和/报告.md",
+      "bytes": 6522,
+      "sha256": "00746d4a2dbe5fa92ec68d620b23964d5f4d2ae7047fbd590dcb93b616cc562a",
+      "source_sha256": "00746d4a2dbe5fa92ec68d620b23964d5f4d2ae7047fbd590dcb93b616cc562a",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-启德河排洪调和/材料.tsv",
+      "bytes": 822,
+      "sha256": "51aa7b462f9485b7b413b6ab95a3fcdab661111dce985269e6e7290ed388c97e",
+      "source_sha256": "51aa7b462f9485b7b413b6ab95a3fcdab661111dce985269e6e7290ed388c97e",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-城门河规划调和/图.json",
+      "bytes": 15291,
+      "sha256": "fe1ba88e55d353956601c3a56ac1bcfdcbd67ec2f4e00579b04046cdc4a21f39",
+      "source_sha256": "fe1ba88e55d353956601c3a56ac1bcfdcbd67ec2f4e00579b04046cdc4a21f39",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-城门河规划调和/报告.md",
+      "bytes": 6891,
+      "sha256": "b34e45c732ffff5f93b7c5cecaab56b58f1b6deaf6d6909dae10a4d5dec91b04",
+      "source_sha256": "b34e45c732ffff5f93b7c5cecaab56b58f1b6deaf6d6909dae10a4d5dec91b04",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-城门河规划调和/材料.tsv",
+      "bytes": 1846,
+      "sha256": "1a9726e0aa632f1e2e0115bd86c2c53a682394bc25fabb59106142a6f4fe0b9e",
+      "source_sha256": "1a9726e0aa632f1e2e0115bd86c2c53a682394bc25fabb59106142a6f4fe0b9e",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-新界北与元朗排水转移/图.json",
+      "bytes": 18034,
+      "sha256": "10072c7cee7785b845bfb20c99336192db92e79604982fc1aa1d1f7cafce7d3a",
+      "source_sha256": "10072c7cee7785b845bfb20c99336192db92e79604982fc1aa1d1f7cafce7d3a",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-新界北与元朗排水转移/报告.md",
+      "bytes": 7416,
+      "sha256": "5e4c7b66fad2c74dc1f6e6bce6b651d6e5a133a4394b89a7cf2385451046e93f",
+      "source_sha256": "5e4c7b66fad2c74dc1f6e6bce6b651d6e5a133a4394b89a7cf2385451046e93f",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-新界北与元朗排水转移/材料.tsv",
+      "bytes": 1900,
+      "sha256": "523d8a8bd37a4a05c12f67371d6d1019b0afa25ed4f9f24e957c23517ad7e2a8",
+      "source_sha256": "523d8a8bd37a4a05c12f67371d6d1019b0afa25ed4f9f24e957c23517ad7e2a8",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-沿岸低洼住宅调和/图.json",
+      "bytes": 21023,
+      "sha256": "8e2ea1a27fc2af78e50ddf6da02a6f9cdf1067f1884bd2471777568ad26edb1d",
+      "source_sha256": "8e2ea1a27fc2af78e50ddf6da02a6f9cdf1067f1884bd2471777568ad26edb1d",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-沿岸低洼住宅调和/报告.md",
+      "bytes": 4263,
+      "sha256": "19ccbe640b306c1e00585ce83e11f4229cf49af494a939b8bca12b2b2748d03c",
+      "source_sha256": "19ccbe640b306c1e00585ce83e11f4229cf49af494a939b8bca12b2b2748d03c",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-沿岸低洼住宅调和/材料.tsv",
+      "bytes": 3450,
+      "sha256": "47e0ecbcd861b1dd6b30054eb6ff014683b39b9ea3e5c1b88386854be284edb2",
+      "source_sha256": "47e0ecbcd861b1dd6b30054eb6ff014683b39b9ea3e5c1b88386854be284edb2",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-海滨公众空间调和/图.json",
+      "bytes": 17787,
+      "sha256": "c7811d6fe621b6a59cd1ccec1ad27099e8df618acefc44c361122590b9b4fdec",
+      "source_sha256": "c7811d6fe621b6a59cd1ccec1ad27099e8df618acefc44c361122590b9b4fdec",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-海滨公众空间调和/报告.md",
+      "bytes": 7010,
+      "sha256": "2cca985c239ffaa1140ef76debd6e2ddaaae8cc4a40f3e048340a4e257e6688d",
+      "source_sha256": "2cca985c239ffaa1140ef76debd6e2ddaaae8cc4a40f3e048340a4e257e6688d",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-海滨公众空间调和/材料.tsv",
+      "bytes": 2379,
+      "sha256": "c6a13d0077a731942b53f26423a33a0534d85c3f452ae78f95c311895a13f227",
+      "source_sha256": "c6a13d0077a731942b53f26423a33a0534d85c3f452ae78f95c311895a13f227",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-清拆安置调和/图.json",
+      "bytes": 25128,
+      "sha256": "ff9e40fdc7329d683c18189cc8c3f22b71d99ba59092b41209537079737cb60f",
+      "source_sha256": "ff9e40fdc7329d683c18189cc8c3f22b71d99ba59092b41209537079737cb60f",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-清拆安置调和/报告.md",
+      "bytes": 8088,
+      "sha256": "966360fd24a14e64fd2199f01fe55e4ed4363699b346e9d2ddd063975ba7f63b",
+      "source_sha256": "966360fd24a14e64fd2199f01fe55e4ed4363699b346e9d2ddd063975ba7f63b",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-清拆安置调和/材料.tsv",
+      "bytes": 3078,
+      "sha256": "b87a2195c460e2fdc0d39edf1cc386249475608c807a4e4b4d0b7c594b567ca6",
+      "source_sha256": "b87a2195c460e2fdc0d39edf1cc386249475608c807a4e4b4d0b7c594b567ca6",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-港口填海土地转移/图.json",
+      "bytes": 9743,
+      "sha256": "e275ceac64b8cdf03770ed6be7c3258be12aa9251483159523cbf5a5b855116b",
+      "source_sha256": "e275ceac64b8cdf03770ed6be7c3258be12aa9251483159523cbf5a5b855116b",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-港口填海土地转移/报告.md",
+      "bytes": 2033,
+      "sha256": "c1657391625a2594bffb4cc43f732a8398d4ba1d4e3a77bbf5c42b46d45ba2b5",
+      "source_sha256": "c1657391625a2594bffb4cc43f732a8398d4ba1d4e3a77bbf5c42b46d45ba2b5",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-港口填海土地转移/材料.tsv",
+      "bytes": 856,
+      "sha256": "e215f178375276f34c41a234b5ad526e0e7c929284597d3d4da3523bf5dc9c4f",
+      "source_sha256": "e215f178375276f34c41a234b5ad526e0e7c929284597d3d4da3523bf5dc9c4f",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-竹篙湾填海成本转移/图.json",
+      "bytes": 13626,
+      "sha256": "7b6b7d85c3dabac26595c00cb8bd149ce9a0cc68ac77176ea5cdb36976c09c14",
+      "source_sha256": "7b6b7d85c3dabac26595c00cb8bd149ce9a0cc68ac77176ea5cdb36976c09c14",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-竹篙湾填海成本转移/报告.md",
+      "bytes": 3453,
+      "sha256": "e673fad4df7f56e5db62e85559bc1444d341f12f4afcdb2c4e10148e6b8dabdd",
+      "source_sha256": "e673fad4df7f56e5db62e85559bc1444d341f12f4afcdb2c4e10148e6b8dabdd",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-竹篙湾填海成本转移/材料.tsv",
+      "bytes": 1583,
+      "sha256": "02b43703bdaf2fd448d1d6bd216aa953ebea5c4e13f85b9f5c9c711e5166a1ea",
+      "source_sha256": "02b43703bdaf2fd448d1d6bd216aa953ebea5c4e13f85b9f5c9c711e5166a1ea",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-跨区地积转移/图.json",
+      "bytes": 20372,
+      "sha256": "7b33cf9bda7bd3db955b75a533e71bced61b870e4a3677366b3d365494f0d625",
+      "source_sha256": "7b33cf9bda7bd3db955b75a533e71bced61b870e4a3677366b3d365494f0d625",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-跨区地积转移/报告.md",
+      "bytes": 7953,
+      "sha256": "53787940b8dae23cc357852fbd34f32bf3ed17fdb61b4e3421f0ddd493d74ec6",
+      "source_sha256": "53787940b8dae23cc357852fbd34f32bf3ed17fdb61b4e3421f0ddd493d74ec6",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/clue-r3-空间-跨区地积转移/材料.tsv",
+      "bytes": 1665,
+      "sha256": "d58c096706d0e061158f2e90f0b542763cbd4c6dc1257e50da4ab1ce97f8ee70",
+      "source_sha256": "d58c096706d0e061158f2e90f0b542763cbd4c6dc1257e50da4ab1ce97f8ee70",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/候选材料总表.tsv",
+      "bytes": 192100,
+      "sha256": "8cbe500ead87aeea12f0615caba39f6cdfc1066476f32cc34b08776c15bd8c8c",
+      "source_sha256": "8cbe500ead87aeea12f0615caba39f6cdfc1066476f32cc34b08776c15bd8c8c",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/分面统计.tsv",
+      "bytes": 439,
+      "sha256": "ddb80e378e95adaa6c738c04ea2fbce5888ee4a219766d334e4705c043b1d2d5",
+      "source_sha256": "ddb80e378e95adaa6c738c04ea2fbce5888ee4a219766d334e4705c043b1d2d5",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/图谱数据.全轮.json",
+      "bytes": 1440379,
+      "sha256": "42e491bda9af34b7b8addb4af821a5f5d5f352e5c2dcc240b9e571de73001d07",
+      "source_sha256": "42e491bda9af34b7b8addb4af821a5f5d5f352e5c2dcc240b9e571de73001d07",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/成图索引.md",
+      "bytes": 10487,
+      "sha256": "5059aee3fc3757e4258f02e1f03c01e6a0185bfdd38f786e2f1815805c3788b1",
+      "source_sha256": "5059aee3fc3757e4258f02e1f03c01e6a0185bfdd38f786e2f1815805c3788b1",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/成图计划.md",
+      "bytes": 1574,
+      "sha256": "67d057396c40b38d06011e1203375dad3fea1c0cb44989feb2bc0b4b81b57d5d",
+      "source_sha256": "67d057396c40b38d06011e1203375dad3fea1c0cb44989feb2bc0b4b81b57d5d",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/本轮.md",
+      "bytes": 239,
+      "sha256": "1bdc8ad78d43e34e0f57319055adf2ba86d4176f6abf9c4ae3d20e8fa9399548",
+      "source_sha256": "1bdc8ad78d43e34e0f57319055adf2ba86d4176f6abf9c4ae3d20e8fa9399548",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/检索策略.优化.md",
+      "bytes": 3515,
+      "sha256": "6aceb7f33974ff4833e0a307cbbe3e42ad01105dd2a74a42e755ee0d0e84407d",
+      "source_sha256": "6aceb7f33974ff4833e0a307cbbe3e42ad01105dd2a74a42e755ee0d0e84407d",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/检索记录汇总.tsv",
+      "bytes": 1485990,
+      "sha256": "90b9e0b646f796a0b4513eb42e823d5338ad118413ea5d4dafa49440944138ed",
+      "source_sha256": "90b9e0b646f796a0b4513eb42e823d5338ad118413ea5d4dafa49440944138ed",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/索引.md",
+      "bytes": 1842,
+      "sha256": "cf0e76e96e6009a25fbaa84c7d0fc97eba9e65fe23cf76c4fb6769aad0b0c32a",
+      "source_sha256": "cf0e76e96e6009a25fbaa84c7d0fc97eba9e65fe23cf76c4fb6769aad0b0c32a",
+      "byte_equal": true
+    },
+    {
+      "path": "资料/材料/_轮次/2026-09-20_03/轮次报告.md",
+      "bytes": 6136,
+      "sha256": "ccde0501dd9251f01397616681ad7916d8c7dde63e109e91d3a522f2a776b503",
+      "source_sha256": "ccde0501dd9251f01397616681ad7916d8c7dde63e109e91d3a522f2a776b503",
+      "byte_equal": true
+    }
+  ],
+  "states": [
+    {
+      "state_id": "rapid:00cff30acdbe65bc6c6e981c3cdb96f8",
+      "revision": 2,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "49e4ccdf6b3757f8279d96f81722e11f1cff058c34cf78725f11c07d9458d57b",
+      "source_digest": "8cd76e1d04f46841b2460305146f4b70e65b26ec3864f49b7b1d6065c0d48312",
+      "elements": 98
+    },
+    {
+      "state_id": "rapid:04218ee0e213b02bc9fd632b07378f5c",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "c6a349dffcf27a5c110bb409ac682af5a60f4c15333d8ea5e481a3433d51b249",
+      "source_digest": "4db701ca2d507f525c0193060272c36bedb8700f86e1dec126c09154a278214b",
+      "elements": 89
+    },
+    {
+      "state_id": "rapid:06e25daa6dfbab07b1281ccb2e23f596",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "114f05945351299fc7a9338e7968a1e6ffe482734d6ac0d3c275ad47ad3d7719",
+      "source_digest": "f49cd932ee8a31fe9816d018373b709c43d5ed368baba3a99382e75bffd42e71",
+      "elements": 23
+    },
+    {
+      "state_id": "rapid:085770607370916f1f05966d75f1a48a",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "5a51a15c3a2dc0fc70948dbdb0e571cf94745f3b7f8016e48013109685f4255c",
+      "source_digest": "10106f800b9610745efec875a5b031e5c62df6a963162bc64e3d6dda411be548",
+      "elements": 45
+    },
+    {
+      "state_id": "rapid:0a552fdcfa6f1c0369d47ff44ae1bb69",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "381780ab2aa07a36ec0347fa645e1ad49470021fd28a5ebe83b02dc9e7a0d72e",
+      "source_digest": "b5888e607fe976dd569d4d7f9731c4275279fd072daa48c49740a1f9e84da1cd",
+      "elements": 24
+    },
+    {
+      "state_id": "rapid:11b691a840d8781d46446ae095c8515e",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "cc371de32914e988b4347c3beab24a10aabcbd490ef1fca70b2bdbff96c536b0",
+      "source_digest": "582f0ebbefecd81986759d897f7d1895d4bebd5f6f460f2deb6b01ffcf4272f2",
+      "elements": 23
+    },
+    {
+      "state_id": "rapid:1411c04339c5177efcc238964c7582dd",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "f2a92598073e4d057eae5c24b29119f2307e164c331a84d84ac6406d3b546036",
+      "source_digest": "6182bf0405d16ad4c4557418b2f111c47b903d5539da4bf25e693de9a89cb4d1",
+      "elements": 42
+    },
+    {
+      "state_id": "rapid:19d18231e7b3331b28e76e7f18a9a124",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "2848bf33fee5f00a0f8fc7c31a4f30a0f79cd0d859370fcd5e5d4cc39114872c",
+      "source_digest": "f7b783d7938c70d032f7d56f017444d8d8825afbda790d08dfe424e2d9e414a3",
+      "elements": 38
+    },
+    {
+      "state_id": "rapid:1a9ab616af99f7beb2eb5844926e2693",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "36b5a08b6ad67fccb0d56b523eb077ca772bfc798f26cb842285ebc49d0fa2d5",
+      "source_digest": "c03c8dfa3e2ba3417ed35ea3f136ff5ebde2568f3fb2fc6fa7a3a1817828e504",
+      "elements": 48
+    },
+    {
+      "state_id": "rapid:1e3f746da96c94015b74f396fe331f15",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "91c47c22b8cc7b29275ba6e19fc0b53d16074894e9b85af9a829266c2230fb78",
+      "source_digest": "ac12df955290c7a8368f210f47a6ef3fdc82093b8a19beb8726d8afdd63484f5",
+      "elements": 62
+    },
+    {
+      "state_id": "rapid:25bcb949120cbf878629ba0417d940b2",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "fccb96155e447654700a79963518e3dab5b4b927da46918bc20228390bf6e34b",
+      "source_digest": "78a893d922cd54039d21b86cc33ae6b5a41acf566f195e51b54001ef2c1f02af",
+      "elements": 26
+    },
+    {
+      "state_id": "rapid:2601cc528ca0712f28d5dcceae5093e2",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "cf3938b04e7f5d20107747b7ea351681eadc3dd70b9bc87d7bcf74193d6f0867",
+      "source_digest": "ddd7703f92d7c1a242a09f3775404e9eed0c0c68c67e13257c7759036eb17a55",
+      "elements": 49
+    },
+    {
+      "state_id": "rapid:3076afc595dc04707976a5a92807d60e",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "198e7ac3a0c9b8f25c00a0715754015dabafe73915f8e9f7c852517b5b375713",
+      "source_digest": "bd783b30b808cddaaf603c4d2c15fc8ebc97a99662be8f621a3031f3b50c4a4a",
+      "elements": 21
+    },
+    {
+      "state_id": "rapid:3205e583b488464737ced0ee24eb60be",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "a4861fbe48a1d36248e1619a8f97b2a230c8e46eab3e28d2c2bb5353c10ecc79",
+      "source_digest": "3d8c89bc4e0610089af964568648b0139963fadc910ec11bd864f1624cb65521",
+      "elements": 45
+    },
+    {
+      "state_id": "rapid:35878cab7d0a27cf5c0cc4f0ad2b936c",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "421a8ffa776c082ca98c0c720e39b5aa09dea15eb1134906778962944d748866",
+      "source_digest": "3bbda9446033be291e1bb8f72cec66ff9116f816cf5d559b42a204bd31c1f4cc",
+      "elements": 48
+    },
+    {
+      "state_id": "rapid:36fc719610b1889d071d15ac33a70ff8",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "82ad7974d9ea97bfde9dab562f059756e4b098d361db6a0a3ec7590e610bff61",
+      "source_digest": "e591d362c7a2ac15dd2d927d111703c71cbb4a8e750e0a2753a1fd17118c7269",
+      "elements": 36
+    },
+    {
+      "state_id": "rapid:387f3f328c0f71145dfe01e3295ee6d1",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "1737655d6780dde8c0a08c1260c7f64f8fe497063093783cefd440a387723f6d",
+      "source_digest": "581568c906f9f99fc12634693b3f1bbf01b32331811f939202fb5ed5ac60015c",
+      "elements": 28
+    },
+    {
+      "state_id": "rapid:3b7b69061498bcdd04542a8ca51355e8",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "7f7d4e1db7aaccd4ee1fcdd5bcf3c552df9b943ac142d53ab4b45837e868e3e5",
+      "source_digest": "4a695b0b127b2fe7c28b44f5bf951ad613057e2a44a1fc225f16e82625b38cf0",
+      "elements": 22
+    },
+    {
+      "state_id": "rapid:3ef845887725bd5d44e2a525a4a2e8af",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "3b830a2f154b9fda62c9c4b330882e2aec6a46ef3558f3aa7c30264e3986439c",
+      "source_digest": "17242af00d2aa13c253ec27980fec9971d12e8d9c829eb0dd9bb741b6a1e8832",
+      "elements": 25
+    },
+    {
+      "state_id": "rapid:435d8ef6be272fe8392ff4a7736bbfac",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "44c076cfc676ecf774089bb9363f4505b0225498d0a07ad8e41cec30ca99d81d",
+      "source_digest": "12cc8fdd8a9842c449d9209a1a4965b1e627af7cadd1cf07d63d77fc72736bae",
+      "elements": 69
+    },
+    {
+      "state_id": "rapid:49382dbd532d7a83d410c63b50b8623d",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "a9351f152e64bd7f97e29e6cee62e7a60a63779b690a45f8ae372a360fe030da",
+      "source_digest": "10df08444c076b1036443d18922166aa108e18d0a7547156cf521a3bbb1f7879",
+      "elements": 30
+    },
+    {
+      "state_id": "rapid:4a3550ecbcb14643262e74ff023a5dcc",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "44cd91e99cc249e3a94150f18635fcccc0287036a34d097302e1fea5fad2616b",
+      "source_digest": "26cff020acfe361f70b9c396a354c865f35050a736a2c9c74bde6c48b75a7d9e",
+      "elements": 50
+    },
+    {
+      "state_id": "rapid:4b011c91e92a8f10862557f51362321e",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "fcc35b8e46f52098caee2152f13896e3ba686fb9dfe593679b97713ade681212",
+      "source_digest": "7095fab057a79fcd1e01dce314d661f7ca67c500920083a320b3608dce8d1f7f",
+      "elements": 51
+    },
+    {
+      "state_id": "rapid:4c8002eddbf91e1be6e318f627796243",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "38ca6b65223ee56107a5188ee9326deeeb050505d0046c1402a8e0c15be91879",
+      "source_digest": "6687ff414dc6f5adfea1d0c92c4ab01a48a5458552e1933f98f5fd78f042da9d",
+      "elements": 7
+    },
+    {
+      "state_id": "rapid:51fdd5f103fd8f32fa0433ab9af86b38",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "18dceb59797b4b0fae453b0a46d6029c3660ef2a9b1525fc4ff16499fc363092",
+      "source_digest": "3f81f9a048800f10eeb16eb8fd4568f8d7e8e423be6aa9650189d4035aa835e7",
+      "elements": 52
+    },
+    {
+      "state_id": "rapid:5682bbc7095fbc66d366c94c15f5ab59",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "f22199ca94f5bd4918be92572fe73b90e71cbc4db2290abba9a651543f8e73d2",
+      "source_digest": "0947cad77ac35839532e4aa78c659ff5b14cef10f6c0cd1ebcceafff569264df",
+      "elements": 23
+    },
+    {
+      "state_id": "rapid:57331519442ff57322b2ae1d60706125",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "850b5933b801101160841278ebe1be28e4ec21e0d045b1f10d8732b4066fc937",
+      "source_digest": "87a0d9123646a2a3a61381a238cff82dd2a1e8499d7b79104ba9422856404f4e",
+      "elements": 17
+    },
+    {
+      "state_id": "rapid:5e1c9c1c759d81b484480c1b38ac29ac",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "ddcfd7a757e8bc3980b1af5f1fa1db243beef87763c0b83fb377fb4a2bc4dc76",
+      "source_digest": "b132cbe4da4bfd6196928d842eb7876e47302d60daf4ab982a049f666187094d",
+      "elements": 41
+    },
+    {
+      "state_id": "rapid:62c7731c691f699374c4f48b19d63dc8",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "9414f86c5c092f8a27f421a9c47fceaceb0b7b38ff051501d1ad3a31816a0307",
+      "source_digest": "16e4b47447cd987124bbcf16d58a9f1ec0dff5e63672d6f82447f46426e70b5e",
+      "elements": 67
+    },
+    {
+      "state_id": "rapid:690a68112e5938aa280d6d605ecb704a",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "862c8b9b7714676fada18defa3fe0bb75ff5bb23845aa184004f0b2e03dcea50",
+      "source_digest": "845127bafb2d5ff30a53550104ecd039f7273916fb3726c3a43d45ea59079515",
+      "elements": 24
+    },
+    {
+      "state_id": "rapid:6cb21246623526c872775ff79038565e",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "028f95e52232223c098a4efe93c58f32d66a9911c6edbc20de7f836f28feb791",
+      "source_digest": "762e926bf50cadccaf40c8367760e0cdfcf871963fbebf37bad0921d5a3ce714",
+      "elements": 26
+    },
+    {
+      "state_id": "rapid:7248f54af21f38c3729995645b7a0bd3",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "557488e21ab307e5d9721856f9e967ad7fd3cb590774b037b4e53eb2e1c702e5",
+      "source_digest": "fd343ba5c6cd7de28f14645ef1c3c8894e47403cc637c75fe284466b0fc01469",
+      "elements": 48
+    },
+    {
+      "state_id": "rapid:725c7fc3df4e0c577f1de89e71a5452f",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "161b0c4f7e9334139763700b66a4e73e382550feac82c92f104bbc90488c34ea",
+      "source_digest": "8008572d7c6fcea87b0614e6ae8e12d532417df6b9895336d7a781fa9182a172",
+      "elements": 23
+    },
+    {
+      "state_id": "rapid:8bd988bb94b467fe59dc91523e4bc75d",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "d3f87224e0e0418e27572c6c38ba5211b9f746d55d8aaa0b66145e157a788da6",
+      "source_digest": "266200ac1d91a91a935da88bfbafcc4aa26748f9c3ab6487203ebaa2a8104e9c",
+      "elements": 29
+    },
+    {
+      "state_id": "rapid:8cf452d4321037f10c2c596831a5a6b8",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "9d1724db6c117f646dc2b21f3ad06baf69e5933fe0190a95745397415a00a0a9",
+      "source_digest": "863ee4316cf373258f533002d1b7f673eff84a5b9432382dd45562890b9d9099",
+      "elements": 45
+    },
+    {
+      "state_id": "rapid:90ac020abf6e3b73047590420e1c44ee",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "f6ff3dedd4b2c063e1df3deb52bc4855078a5e00df602f00593596ba02300f81",
+      "source_digest": "30fdd3bff56b7d8510cedd71df461a2cb9fdb807a05fa3bf1577bdc9f6a47292",
+      "elements": 21
+    },
+    {
+      "state_id": "rapid:937b5eddc4bada9d8df06aca67310d64",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "31544efde5cfbf45f5f8385106e75a568f675a157eca889f9a53d9dbaf3fbd28",
+      "source_digest": "fce3156d72babf6bd698cdd89bfff58b71692d22100cc1aff8ab6d953b00f8a8",
+      "elements": 55
+    },
+    {
+      "state_id": "rapid:974eacddc5d949f4db9b3e34eb541348",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "5d4a226537e1800cf8b72bbcbfa7bcdd075635f848665c1c4be100a47e0904bb",
+      "source_digest": "763df1069a419bf6aa02df21fc434e8a027e7fdd45eeaa6590dc7bd0c8f85518",
+      "elements": 21
+    },
+    {
+      "state_id": "rapid:993da100cc205610ad86840aaed418aa",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "71d0e3e8aece920317441cca7b4b211f595504178b114bcfa59d4ef679efb11e",
+      "source_digest": "86bb76ad788fecb4c7f96ceec4c74ebea8b526f886689d7bd09aa4248425520b",
+      "elements": 49
+    },
+    {
+      "state_id": "rapid:a0eef7995ca06105bbc82b84be021f88",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "791e461cda1a2e1d3d75fd512490f6c3e3693fed9cf4482a138f138689ed9e4b",
+      "source_digest": "58b22c85b7ba05b1cd78fbcbebdb49b479181796c774dd132ece8045978a54d1",
+      "elements": 10
+    },
+    {
+      "state_id": "rapid:b35fa5fd3ee2b0832e3d9afa4ba013d4",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "d60526a0f2d8871c4e4df5e71d3b3cb9f0166dbf08150c6cc3ebe135211f477e",
+      "source_digest": "fe198926927a3b58cb274f428d89ebd6e81b97a26c176daba8b3fd1b22b6fe57",
+      "elements": 29
+    },
+    {
+      "state_id": "rapid:b5bae47e3258703c9aa272fff541ecc2",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "5cf8ad9af8080f80dab100698cad762e1598b9820d59fe00a3cb3ffafd4c7c4f",
+      "source_digest": "4f929dda519f50000a7043eb84d0f7ca42f53f0e215087be007705c5f873aaeb",
+      "elements": 38
+    },
+    {
+      "state_id": "rapid:b7c7da0eb5d42cf814cc2fd6a28d0441",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "15adf14bb71f7cbb260789970723d76361ec25ed48f6b04733bf13e1ddb55ac5",
+      "source_digest": "14b1b6e4523ecb08241012b9d6e95dfc3b1b77be2c7a356ef8d379973dde65a8",
+      "elements": 22
+    },
+    {
+      "state_id": "rapid:b7d03ded2c65ce932fa5370a242de5b3",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "814c6ee09259dbd763fb5aecb1f91ef17f96aa5ecaba93653948192243def46d",
+      "source_digest": "9bbad67bc5917c9d6f7628225d30aae32011970cd32f7df7f7b71c883c5f4523",
+      "elements": 33
+    },
+    {
+      "state_id": "rapid:bd108d1ce2296ad5cfe7978e092b6e74",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "1c9be83395ce1c34d3d54d857e749f8bba9f4915a3d575241154ad937b07cefa",
+      "source_digest": "6351b48c13b524667d6d0460451ce83b18eb368486d67f540b65b9130038d407",
+      "elements": 25
+    },
+    {
+      "state_id": "rapid:bd5fd78c777b721d73a6927c25a98891",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "5b84768e939d1ae8a20b310257ca25ccc680f05174f0a2b36dcfd661ffadc47c",
+      "source_digest": "7c02522104378abda5f843fe615757684bc37117cd764f0f7712598d0d4c13e1",
+      "elements": 61
+    },
+    {
+      "state_id": "rapid:c8a3bd6c9381fb3c4fb336197453cff2",
+      "revision": 2,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "724e0153c56d9b6b36460baf88913e3df4445ab6f9f5f145050eab63688fa847",
+      "source_digest": "d3c738d2fdfed5ae177c77636f7776d2bcee556791c55d717aa87eb7bbc7c72c",
+      "elements": 1275
+    },
+    {
+      "state_id": "rapid:cfdccb8a4bd5258e5545b70d6e3fe2f0",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "bb0c14915fce08ab4af1a2b1c8d40e5dabd7eb3ce0a55b6ee037772257ba4549",
+      "source_digest": "0fb22e558fe11983136939ba1dd6a4f0387106c1031af0c859e7582a6c0b841f",
+      "elements": 18
+    },
+    {
+      "state_id": "rapid:d44dfba018003359d7f9c445f48009bb",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "cd8482f6e65cd476237621306ea4777e71d88a79cd8eab0a38199de59de9886c",
+      "source_digest": "82cb324f43cedd4909d893cdec9d406b2f77a3e62cc3c5eaff45bbe8dc0cea29",
+      "elements": 23
+    },
+    {
+      "state_id": "rapid:d9b4ffbe51b89b04f49f59aa6d7c6d30",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "3dbb2a0cd691b9e37136a822719c2d92efa5b314374adfa7a3196099634cf039",
+      "source_digest": "2f77215a408aea838ab88c3eca2cb1c1440e6b5e674266a0a7ff2df439ecaa6d",
+      "elements": 17
+    },
+    {
+      "state_id": "rapid:dc65766f3eeada3a0712d37a3b9e20cf",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "47a0f353fb613fd669e9c110a1fe2b9e9b4bff910cbd5e7f072fcbe31d8976b5",
+      "source_digest": "7ec7a0cb6cebdcaa690c5a2021871555a117d6e4f8de6ca23f2380314930aabb",
+      "elements": 17
+    },
+    {
+      "state_id": "rapid:e49b6e9de4f37d8a8dcc9facae7e5ac7",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "cc28c68482a5ebe0a25820985f7422bdf774829b1485fa3605104afbc08751bb",
+      "source_digest": "ccc9992295f5773b96d114ef765ca55e9700bc1176bc135ae5b0cd97c292ce1c",
+      "elements": 32
+    },
+    {
+      "state_id": "rapid:e4da9d354fcdd7157a27e78975cd1438",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "7bbc62bf4ae022df385f306bd182fda529dbd0397f5033dc7442d21b5fd42a20",
+      "source_digest": "0ed5b43eb179b3295a3d8a6becaebfc2bcfdfcb5516ed2fd3077324230f4c17d",
+      "elements": 11
+    },
+    {
+      "state_id": "rapid:ee7966d703103f4fd3b5b8499f83ec83",
+      "revision": 2,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "701869f83da522388ba415b10270607417e1755fd1a7945b12dbbbd9bc5561a8",
+      "source_digest": "7999719542ebe6ca83218ee579c328499f130a07425271a93e8ac0017a047488",
+      "elements": 780
+    },
+    {
+      "state_id": "rapid:f11bf740b0ec929c0a979a290605a4dc",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "28e87bae20f9fa9583623eccc6a2cb28123907875a697a017a7906b87106ad9a",
+      "source_digest": "95880275a176c4f42e02563b072c96221c7b89330ea782423f14a278aa5e5d30",
+      "elements": 21
+    },
+    {
+      "state_id": "rapid:f5f857564fd77f43f8248315e44b56dd",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "65bc76649eaccba229db71f4853ebf2817e5a00a5290ebeb367e6b7bdb44b8a7",
+      "source_digest": "de41d66a434fb1d124c191f67af909a24e5f9f72f054ad0a7d6db66a7c1c6eff",
+      "elements": 23
+    },
+    {
+      "state_id": "rapid:fe17aeb9cdd1426a31163a607bbe9112",
+      "revision": 1,
+      "profile_id": "retrieval.domain.d39db743423cf683771b79ca7703107b0d67278669106646938aaaa74351c608",
+      "profile_version": "1+335147a82f5519de6844451dfd07531390e8e92870b1f50143c275adb09c13c2",
+      "payload_sha256": "fba55bb3ab9f148564671ca7c78ea8fbf15f68af3980c70622800b1f02777cb1",
+      "source_digest": "07763344108a6b426e308409630de985c007edb3f4ec2c70f4052b14b46bf46e",
+      "elements": 19
+    }
+  ]
+}

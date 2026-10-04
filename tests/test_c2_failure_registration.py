@@ -4,11 +4,10 @@ import ast
 import json
 from pathlib import Path
 
-from mrw_functorial_kit.core.c2_semantics import c2_shared_contract_failures
-
+from mrw_functorial_kit.core.source_semantics import source_contract_failures
 
 ROOT = Path(__file__).resolve().parents[1]
-C2_SOURCE = ROOT / "main/backend/app/successor_runtime/capabilities/source_library_c2_shared.py"
+C2_SOURCE = ROOT / "main/backend/app/successor_runtime/capabilities/source_contracts.py"
 
 LEGACY_OWNERS = {"VersionedWarning", "versioned_warning_from_legacy_string", "SourceRejection"}
 SCOPE_OWNERS = {"project_scope_digest", "AuthenticatedProjectScope", "SourceExecutionRequest"}
@@ -30,6 +29,8 @@ MODE_OWNERS = {
     "RejectedPlanning",
     "mode_for_kind",
     "kind_for_mode",
+    "source_mode_planning_payload_from_plain",
+    "source_mode_planning_payload_from_historical_plain",
 }
 TERMINAL_OWNERS = {
     "SourceCollectionTerminal",
@@ -76,7 +77,7 @@ def _owners_with_contract_rejections() -> set[str]:
         if any(
             isinstance(child, ast.Call)
             and isinstance(child.func, ast.Name)
-            and child.func.id == "_reject_c2_contract"
+            and child.func.id == "_reject_source_contract"
             for child in ast.walk(node)
         ):
             owners.add(node.name)
@@ -86,7 +87,7 @@ def _owners_with_contract_rejections() -> set[str]:
 def test_INVARIANT__c2_failure_family_matches_registry() -> None:
     entries = json.loads((ROOT / "registries/failures.json").read_text())["entries"]
     registered = {entry["name"]: tuple(entry["codes"]) for entry in entries}
-    assert registered["c2.shared.contract_failure"] == c2_shared_contract_failures.codes
+    assert registered["source.contract.failure"] == source_contract_failures.codes
 
 
 def test_INVARIANT__every_c2_constructor_failure_owner_is_classified() -> None:
@@ -113,8 +114,8 @@ def test_INVARIANT__c2_failure_categories_are_closed_and_nonempty() -> None:
         "terminal_contract_invalid",
         "legacy_input_union_invalid",
     }
-    assert set(c2_shared_contract_failures.codes) == expected
+    assert set(source_contract_failures.codes) == expected
     for code in expected:
-        assert c2_shared_contract_failures.matches(
-            c2_shared_contract_failures.fail(code, "registered C2 contract failure")
+        assert source_contract_failures.matches(
+            source_contract_failures.fail(code, "registered C2 contract failure")
         )

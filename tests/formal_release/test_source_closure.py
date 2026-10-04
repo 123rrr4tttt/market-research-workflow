@@ -61,12 +61,18 @@ def _fixture(tmp_path: Path) -> Path:
         path.relative_to(ROOT)
         for path in (ROOT / CORE_ROOT).glob("*.py")
     ]
-    relatives.extend(Path(path) for path in REQUIRED_CONSUMERS)
     for relative in relatives:
         source = ROOT / relative
         target = root / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
+    for consumer, imports in REQUIRED_CONSUMERS.items():
+        target = root / consumer
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            "".join(f"from {module} import {name}\n" for module, name in imports),
+            encoding="utf-8",
+        )
     return root
 
 

@@ -1,0 +1,696 @@
+[
+  {
+    "cell": "C5.1",
+    "boundary": "session task state machine",
+    "locator_paths": [
+      "main/backend/app/services/agent_sessions/service.py",
+      "main/backend/app/services/agent_sessions/store.py"
+    ],
+    "locator_status": "RESOLVED",
+    "observed_symbols": [
+      "AgentSessionService.create_session",
+      "AgentSessionService.claim_task",
+      "AgentSessionService.heartbeat_task",
+      "AgentSessionService.release_task",
+      "AgentSessionService.retry_task",
+      "AgentSessionService.reclaim_expired_tasks",
+      "AgentSessionService.cancel_session",
+      "AgentSessionService._sync_session_state",
+      "InMemoryAgentSessionStore",
+      "SqlAgentSessionStore",
+      "resolve_session_status",
+      "AgentSession",
+      "AgentTask"
+    ],
+    "object_types": [
+      "AgentSession",
+      "AgentTask",
+      "TaskDependency",
+      "TaskLease",
+      "TaskStatus",
+      "SessionStatus"
+    ],
+    "atom_kind": {
+      "observed": "implicit method-level mutations without a versioned Atom discriminator",
+      "successor_candidate": "agent_session.task_transition.v1"
+    },
+    "payload_schema": {
+      "legacy": "unversioned dict payloads containing session_id, task_id, status, owner, lease_until, result_payload, blocked_by, write_set, counters and timestamps",
+      "successor_candidate": {
+        "input": [
+          "run_id",
+          "step_id",
+          "expected_revision",
+          "transition_kind",
+          "actor_binding",
+          "claim_or_lease_binding",
+          "typed_payload"
+        ],
+        "return": [
+          "TransitionApplied",
+          "TransitionRejected",
+          "StaleRevision",
+          "DependencyUnresolved",
+          "WriteConflict",
+          "StoreUnavailable"
+        ]
+      }
+    },
+    "program_combinators": [
+      "Identity",
+      "Then",
+      "MapOutput",
+      "Decide"
+    ],
+    "failure_return_union": [
+      "TransitionApplied",
+      "InvalidTransition",
+      "TaskNotFound",
+      "SessionNotFound",
+      "DependencyUnresolved",
+      "WriteSetConflict",
+      "StaleRevision",
+      "LeaseExpired",
+      "StoreUnavailable"
+    ],
+    "canonical_owner": {
+      "legacy_observed": "mutable public.agent_sessions and public.agent_tasks rows, or process-local memory fallback",
+      "successor_required": "runtime journal owns run/step lifecycle; AgentSession and AgentTask are rebuildable projections only"
+    },
+    "effect_profile": {
+      "effects": [
+        "PostgreSQL reads and writes",
+        "process-local dictionary mutation",
+        "clock reads",
+        "UUID generation",
+        "event and artifact writes"
+      ],
+      "boundary_quality": "implicit; task row update, session rescan and event append occur through separate store calls and separate transactions"
+    },
+    "authority_profile": {
+      "legacy_observed": "service methods and API/control callers can directly set mutable task/session status; no expected revision, exact claim binding or transition authority is required",
+      "successor_required": "only a reducer/UoW operating on exact run, step, claim, lease, authority and revision bindings may advance lifecycle state"
+    },
+    "resource_profile": {
+      "legacy_observed": "PostgreSQL or RLock-protected process memory; lease_seconds is bounded but no claim-time resource reservation or policy epoch exists",
+      "successor_required": "PostgreSQL row claim, durable lease, CAS revision and resource reservation in one transaction"
+    },
+    "legacy_interpreter": "AgentSessionService + InMemoryAgentSessionStore|SqlAgentSessionStore",
+    "successor_interpreter_candidate": "RuntimeLifecycleRepository and RuntimeJournalRepository, followed by a non-authoritative AgentSession/AgentTask projector",
+    "observation_profile": {
+      "legacy_observed": "mutable task/session rows plus separately appended AgentEvent rows",
+      "successor_required": "canonical journal event and exact revision are observed first; session/task state is a derived projection with source digest and offset"
+    },
+    "fixture_ids": [
+      "tests/unit/test_agent_sessions_service_unittest.py::AgentSessionServiceUnitTest::test_claim_and_complete_task_unblocks_dependents",
+      "tests/unit/test_agent_sessions_service_unittest.py::AgentSessionServiceUnitTest::test_claim_rejects_write_set_conflict",
+      "tests/unit/test_agent_sessions_service_unittest.py::AgentSessionServiceUnitTest::test_retry_task_resets_downstream_dependents",
+      "tests/unit/test_agent_sessions_service_unittest.py::AgentSessionServiceUnitTest::test_reclaim_expired_tasks_marks_task_expired"
+    ],
+    "rollback_observation": "The legacy AgentSession view may remain readable behind a projection feature flag, but rollback must not restore its write authority or dual-claim a successor run.",
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "The status vocabulary, dependency relation, lease fields and pure helpers provide usable behavioral evidence, but the state machine is not an explicit algebra. Claim, mutation, session aggregation and event append are non-atomic; release and retry do not enforce a closed transition table; SQL operations lack CAS; and DB failure defaults to a process-memory truth source. Extract the semantic objects and fixtures, then rewrite the reducer and persistence boundary.",
+    "prerequisites": [
+      "Freeze a typed transition table and versioned transition payload",
+      "Require expected_revision and exact claim/lease/authority binding",
+      "Commit task transition, session derivation and journal event in one RuntimeUnitOfWork",
+      "Remove process-memory fallback from any canonical runtime path",
+      "Add concurrent claim, stale lease, reopen, retry and DB-outage fail-closed fixtures",
+      "Keep AgentSession and AgentTask as projections after authority transfer"
+    ],
+    "risk": {
+      "level": "HIGH",
+      "items": [
+        "concurrent claim and update races",
+        "arbitrary or backward terminal transitions",
+        "DB outage silently creates a second in-memory truth source",
+        "status mutation may commit without its corresponding event",
+        "legacy retry can reset work without an effect-attempt non-start proof"
+      ],
+      "verification": "Read-only source and fixture audit; targeted pytest execution was unavailable because the active Python environment has no pytest module."
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 19",
+        "claim": "The frozen locator defines C5.1 as the session task state-machine boundary over service.py and store.py."
+      },
+      {
+        "path": "main/backend/app/services/agent_sessions/service.py",
+        "symbol_or_lines": "claim_task, lines 288-319",
+        "claim": "Claim performs read, dependency/write-conflict checks, row update, session sync and event append as separate operations without CAS."
+      },
+      {
+        "path": "main/backend/app/services/agent_sessions/service.py",
+        "symbol_or_lines": "release_task and retry_task, lines 365-442",
+        "claim": "A caller-supplied status is written directly, and retry resets task/downstream state without a typed transition or effect-attempt proof."
+      },
+      {
+        "path": "main/backend/app/services/agent_sessions/store.py",
+        "symbol_or_lines": "SqlAgentSessionStore.update_task, lines 421-478",
+        "claim": "Task mutation is a direct mutable-row update committed independently of AgentEvent append."
+      },
+      {
+        "path": "main/backend/app/services/agent_sessions/store.py",
+        "symbol_or_lines": "build_agent_session_store, lines 670-686",
+        "claim": "Unless agent_session_db_store_fail_closed is enabled, DB initialization failure falls back to process memory."
+      },
+      {
+        "path": "main/backend/tests/unit/test_agent_sessions_service_unittest.py",
+        "symbol_or_lines": "lines 38-107 and 172-185",
+        "claim": "Fixtures cover basic claim, dependency unblocking, retry and lease expiry, but not SQL concurrent claims, CAS or DB-outage fail-closed behavior."
+      },
+      {
+        "path": "main/backend/app/successor_runtime/substrate/postgres/runtime_lifecycle.py",
+        "symbol_or_lines": "RuntimeLifecycleRepository, lines 222-275",
+        "claim": "An existing successor repository provides the exact-binding PostgreSQL lifecycle substrate suitable for the rewritten state machine."
+      }
+    ]
+  },
+  {
+    "cell": "C5.2",
+    "boundary": "effect attempt reconciliation",
+    "locator_paths": [
+      "main/backend/app/services/agent_runtime",
+      "main/backend/app/services/agent_sessions"
+    ],
+    "locator_status": "RESOLVED_BROAD_DIRECTORY",
+    "observed_symbols": [
+      "AgentRunLoop._execute_one_tool_call",
+      "ToolCallExecutionRecord",
+      "build_capability_call",
+      "InteractiveAgentRuntime._record_capability_call",
+      "InteractiveAgentRuntime._record_run_loop_event",
+      "AgentControlToolRuntime.task_retry",
+      "ToolExecutionHooks",
+      "task_ingest_url_via_source_library",
+      "_record_agent_url_pool_task_event"
+    ],
+    "object_types": [
+      "CapabilityCall",
+      "ToolCallExecutionRecord",
+      "ToolExecutionContext",
+      "AgentEvent",
+      "AgentArtifact",
+      "UrlPoolTaskEvent",
+      "EffectAttemptObservation",
+      "AuthoritativeEffectReadback"
+    ],
+    "atom_kind": {
+      "observed": [
+        "interactive_agent.capability_call.v1",
+        "interactive_agent.tool_call_started",
+        "interactive_agent.tool_call_result",
+        "ingest.url_pool.task_event.v1"
+      ],
+      "successor_candidate": [
+        "runtime.effect.execute.v1",
+        "runtime.effect.reconcile.v1"
+      ]
+    },
+    "payload_schema": {
+      "legacy": "capability call dictionaries containing turn_id, call_id, capability_id, status, summary, result/error and optional idempotency_key; no exact attempt, assignment, interpreter, provider or readback binding",
+      "successor_candidate": {
+        "attempt": [
+          "attempt_id",
+          "assignment_digest",
+          "handler_binding_digest",
+          "interpreter_profile_digest",
+          "interpreter_id",
+          "interpreter_version",
+          "provider_id",
+          "provider_version",
+          "external_idempotency_key",
+          "authoritative_readback_locator",
+          "disposition"
+        ],
+        "readback": [
+          "attempt_id",
+          "disposition",
+          "provider_locator",
+          "receipt_digest",
+          "failure_digest",
+          "observation_digest",
+          "reason"
+        ]
+      }
+    },
+    "program_combinators": [
+      "Atom",
+      "Then",
+      "MapOutput",
+      "Decide"
+    ],
+    "failure_return_union": [
+      "EffectSucceeded",
+      "EffectFailed",
+      "OutcomeUnknown",
+      "AuthoritativeReadbackSucceeded",
+      "AuthoritativeReadbackFailed",
+      "ReadbackUnavailable",
+      "NonStartProven",
+      "NonStartUnprovable",
+      "BindingMismatch",
+      "ApprovalRequired",
+      "CanceledBeforeEffect"
+    ],
+    "canonical_owner": {
+      "execution_attempt": "Execution Journal/runtime effect-attempt store",
+      "external_outcome": "provider or capability canonical store witnessed through authoritative readback",
+      "projection": "AgentSession events and artifacts own no effect-completion fact"
+    },
+    "effect_profile": {
+      "legacy_observed": "tool/provider/Celery effects execute directly; started/result events and capability artifacts are written before or after calls through independent callbacks",
+      "successor_required": "exact EffectInterpreter executes one bound attempt; any crash after possible effect yields OUTCOME_UNKNOWN and only the bound ReadbackInterpreter may reconcile it"
+    },
+    "authority_profile": {
+      "legacy_observed": "tool-definition approval metadata and caller status dictionaries influence execution reporting, but call_id/idempotency_key do not establish attempt or recovery authority",
+      "successor_required": "exact RuntimeAssignment, InterpreterBinding, RecoveryBinding, attempt identity and authoritative readback profile are mandatory"
+    },
+    "resource_profile": {
+      "legacy_observed": "tool definition timeout/result budgets and optional ThreadPoolExecutor parallelism; no durable reservation, provider budget epoch or recovery lease",
+      "successor_required": "claim-time reservation, durable attempt lease, bounded readback/reconciliation resource policy"
+    },
+    "legacy_interpreter": "AgentRunLoop + InteractiveAgentRuntime + tool runtimes/hooks + selected Celery task functions",
+    "successor_interpreter_candidate": "Exact EffectInterpreter/ReadbackInterpreter bindings mediated by EffectReconciler and PostgresReconciliationOwner",
+    "observation_profile": {
+      "legacy_observed": "started/result events and final capability-call dictionaries; absence of a result is not represented as a typed unknown attempt",
+      "successor_required": "execution-attempt observation, provider-authoritative readback and projection observation are distinct; OUTCOME_UNKNOWN remains non-terminal until readback or a valid NonStartProof"
+    },
+    "fixture_ids": [
+      "tests/unit/test_agent_run_loop_unittest.py::AgentRunLoopTest::test_run_loop_executes_read_only_tools_and_emits_tool_events",
+      "tests/unit/test_agent_run_loop_unittest.py::AgentRunLoopTest::test_run_loop_returns_canceled_tool_result_when_abort_signal_is_set",
+      "tests/unit/test_agent_run_loop_unittest.py::AgentRunLoopTest::test_tool_execution_policy_requires_approval_for_external_or_high_risk_tools",
+      "tests/unit/test_interactive_agent_runtime_unittest.py::InteractiveAgentRuntimeTest::test_high_risk_capability_can_request_approval_without_batch_dispatch"
+    ],
+    "rollback_observation": "During shadowing, the successor may consume legacy fixtures, receipts and readbacks but must not repeat a real effect. If an original attempt is OUTCOME_UNKNOWN, rollback cannot redispatch it; recovery remains bound to the original attempt until authoritative resolution.",
+    "disposition": "REIMPLEMENT",
+    "rationale": "The legacy call and hook records are useful fixtures, but they are not durable effect attempts. call_id and optional idempotency_key omit assignment, interpreter, authority and provider-readback identity; exceptions collapse directly to failed; artifact/event writes are not atomic with execution; and no OUTCOME_UNKNOWN or authoritative reconciliation protocol exists. Reusing these implementations would preserve unsafe recovery semantics.",
+    "prerequisites": [
+      "Freeze an exact effect-attempt and recovery-binding schema",
+      "Map each eligible tool/capability to a versioned operation and exact interpreter profile",
+      "Define typed EffectSucceeded, EffectFailed and OutcomeUnknown returns",
+      "Require provider locator, receipt/failure digest and observation digest for terminal readback",
+      "Prohibit redispatch unless NonStartProof authorizes a successor attempt",
+      "Add crash-before-effect, effect-after-crash, receipt-loss and idempotent reconciliation fixtures"
+    ],
+    "risk": {
+      "level": "CRITICAL",
+      "items": [
+        "effect duplication after crash or ambiguous callback loss",
+        "false failure or false success inferred from a capability-call dictionary",
+        "retry of an already-started external effect",
+        "artifact/event persistence diverges from actual provider outcome",
+        "parallel execution lacks durable attempt and reservation identity"
+      ],
+      "verification": "Read-only source and fixture audit; targeted pytest execution was unavailable because the active Python environment has no pytest module."
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 20",
+        "claim": "The frozen locator defines C5.2 over agent_runtime and agent_sessions."
+      },
+      {
+        "path": "main/backend/app/services/agent_runtime/run_loop.py",
+        "symbol_or_lines": "_execute_one_tool_call, lines 597-647",
+        "claim": "Execution directly calls the tool runtime and converts exceptions into a failed capability-call dictionary; no durable effect attempt or readback identity is created."
+      },
+      {
+        "path": "main/backend/app/services/agent_runtime/run_loop.py",
+        "symbol_or_lines": "lines 444-530",
+        "claim": "Requested, started and result events are emitted around execution, but the events are callback observations rather than an atomic attempt protocol."
+      },
+      {
+        "path": "main/backend/app/services/agent_runtime/interactive_agent.py",
+        "symbol_or_lines": "_record_capability_call, lines 937-962",
+        "claim": "The same call dictionary is persisted independently as an artifact and an AgentEvent after execution."
+      },
+      {
+        "path": "main/backend/app/services/agent_runtime/interactive_agent.py",
+        "symbol_or_lines": "_build_capability_call, lines 1694-1723",
+        "claim": "A dispatched agent-batch job is labeled status=completed even though the summary says dispatched, demonstrating execution-attempt and downstream completion are not separated."
+      },
+      {
+        "path": "main/backend/app/successor_runtime/runtime/reconciliation.py",
+        "symbol_or_lines": "EffectAttemptObservation and AuthoritativeEffectReadback, lines 36-84",
+        "claim": "Existing successor contracts bind readback to exact attempt, interpreter, provider, idempotency key and locator, with receipts or failure digests required for terminal evidence."
+      },
+      {
+        "path": "main/backend/app/successor_runtime/runtime/reconciliation.py",
+        "symbol_or_lines": "EffectReconciler, lines 172-225",
+        "claim": "The successor reconciler resolves only authoritative success/failure and otherwise preserves OUTCOME_UNKNOWN or NON_START_UNPROVABLE."
+      }
+    ]
+  },
+  {
+    "cell": "C5.3",
+    "boundary": "event fold snapshot",
+    "locator_paths": [
+      "main/backend/app/services/agent_sessions/service.py",
+      "main/backend/app/services/agent_sessions/store.py"
+    ],
+    "locator_status": "RESOLVED",
+    "observed_symbols": [
+      "InMemoryAgentSessionStore.append_event",
+      "SqlAgentSessionStore.append_event",
+      "SqlAgentSessionStore.list_events",
+      "AgentSessionService._sync_session_state",
+      "AgentSessionService.project_agent_batch_job_state",
+      "AgentSessionService.get_session_bundle",
+      "AgentEvent",
+      "iter_session_events"
+    ],
+    "object_types": [
+      "AgentEvent",
+      "AgentSessionSnapshot",
+      "AgentTaskSnapshot",
+      "ProjectionOffset",
+      "RuntimeReplayProjection"
+    ],
+    "atom_kind": {
+      "observed": "arbitrary string event_type plus unversioned JSON payload",
+      "successor_candidate": "runtime.event.project.v1"
+    },
+    "payload_schema": {
+      "legacy": [
+        "session_id",
+        "seq",
+        "event_type",
+        "task_id",
+        "payload",
+        "ts"
+      ],
+      "successor_candidate": [
+        "event_id",
+        "run_id",
+        "run_incarnation",
+        "seq",
+        "event_kind",
+        "typed_payload",
+        "source_digest",
+        "previous_chain_digest",
+        "observed_at"
+      ]
+    },
+    "program_combinators": [
+      "Identity",
+      "Then",
+      "MapOutput",
+      "TraverseOrdered"
+    ],
+    "failure_return_union": [
+      "ProjectionApplied",
+      "ProjectionUnchanged",
+      "ProjectionRebuilt",
+      "EventGap",
+      "SequenceConflict",
+      "SourceDigestMismatch",
+      "ProjectionDigestMismatch",
+      "UnsupportedEvent",
+      "StoreUnavailable"
+    ],
+    "canonical_owner": {
+      "legacy_observed": "mutable AgentSession/AgentTask snapshots coexist with append-only AgentEvent feed",
+      "successor_required": "runtime_events journal is canonical for run/step/attempt lifecycle; every snapshot is disposable and rebuildable"
+    },
+    "effect_profile": {
+      "legacy_observed": "snapshot rows are mutated and committed first; event sequence is computed by MAX(seq)+1 and appended in a later independent transaction; SSE repeatedly polls all events",
+      "successor_required": "event append and lifecycle transition share one UoW; projector consumes an ordered, digest-bound source after an exact durable offset"
+    },
+    "authority_profile": {
+      "legacy_observed": "arbitrary callers may append arbitrary event_type/payload, while mutable rows independently determine displayed state",
+      "successor_required": "only reducer-validated journal events advance canonical state; projectors have read/write authority solely over disposable read models"
+    },
+    "resource_profile": {
+      "legacy_observed": "PostgreSQL or process memory plus polling SSE; no projector version, source digest, durable offset or rebuild generation",
+      "successor_required": "PostgreSQL journal source, locked projection offset, projector version and bounded incremental replay"
+    },
+    "legacy_interpreter": "AgentSessionService mutators + AgentSessionStore append/list methods + polling SSE watcher",
+    "successor_interpreter_candidate": "replay_runtime_events + PostgresRuntimeRunProjector + ProjectionOffsetRepository",
+    "observation_profile": {
+      "legacy_observed": "events are presentation/feed observations and are not folded to produce session/task snapshots",
+      "successor_required": "observed, derived and inferred events are distinct; every projection binds source identity, source digest, projector version, offset and projection digest"
+    },
+    "fixture_ids": [
+      "tests/integration/test_agent_sessions_api_unittest.py::AgentSessionsApiIntegrationTestCase::test_agent_session_stream_route",
+      "tests/unit/test_agent_runtime_watchers_unittest.py::AgentRuntimeWatchersTest::test_iter_session_events_emits_stored_events",
+      "tests/unit/test_agent_runtime_watchers_unittest.py::AgentRuntimeWatchersTest::test_iter_session_events_throttles_duplicate_session_streams",
+      "tests/unit/test_agent_runtime_watchers_unittest.py::AgentRuntimeWatchersTest::test_iter_session_events_throttles_reopen_bursts"
+    ],
+    "rollback_observation": "A legacy view may be restored as a read-only projection. The successor projection can be deleted and rebuilt from the journal; rollback must never reconstruct or overwrite canonical run state from AgentSession rows.",
+    "disposition": "REIMPLEMENT",
+    "rationale": "There is no event fold: snapshots are mutated directly and events are appended afterward. SQL sequence allocation uses MAX(seq)+1 without locking, mutation and append are separate commits, arbitrary event payloads lack versioned types, and there is no source digest, projector version, offset or rebuild path. Only event shapes and stream fixtures should be retained.",
+    "prerequisites": [
+      "Freeze a closed typed event union and canonical event codec",
+      "Make lifecycle transition and event append atomic",
+      "Introduce source identity, chain/source digest and monotonic sequence enforcement",
+      "Implement projector version, durable offset and rebuild generation",
+      "Separate observed, derived and inferred event kinds",
+      "Add concurrent append, event-gap, corrupt-prefix, delete/rebuild and DB-outage fixtures",
+      "Stop synthesizing terminal event sequences from terminal snapshots"
+    ],
+    "risk": {
+      "level": "CRITICAL",
+      "items": [
+        "snapshot/event divergence after partial commit",
+        "concurrent MAX(seq)+1 collision",
+        "unrebuildable projections",
+        "arbitrary payload drift",
+        "terminal snapshots can manufacture feed events without a canonical transition history"
+      ],
+      "verification": "Read-only source and fixture audit; no legacy SQL concurrency or projection-rebuild fixture was found. Targeted pytest execution was unavailable because the active Python environment has no pytest module."
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 21",
+        "claim": "The frozen locator defines C5.3 as event fold snapshot over service.py and store.py."
+      },
+      {
+        "path": "main/backend/app/services/agent_sessions/store.py",
+        "symbol_or_lines": "SqlAgentSessionStore.append_event, lines 560-586",
+        "claim": "SQL event sequencing is MAX(seq)+1 and commits independently; there is no row lock, expected offset or shared lifecycle UoW."
+      },
+      {
+        "path": "main/backend/app/models/entities.py",
+        "symbol_or_lines": "AgentEvent, lines 802-816",
+        "claim": "The event model has a unique session_id/seq pair but an open string event_type and unversioned JSON payload."
+      },
+      {
+        "path": "main/backend/app/services/agent_sessions/service.py",
+        "symbol_or_lines": "_sync_session_state, lines 1679-1695",
+        "claim": "Session status is derived by scanning mutable task snapshots, not by folding AgentEvent."
+      },
+      {
+        "path": "main/backend/app/services/agent_sessions/service.py",
+        "symbol_or_lines": "release_task, lines 383-409",
+        "claim": "Task and session snapshots are committed before the corresponding task terminal event is appended."
+      },
+      {
+        "path": "main/backend/tests/integration/test_agent_sessions_api_unittest.py",
+        "symbol_or_lines": "test_agent_session_stream_route, lines 56-71",
+        "claim": "The stream fixture verifies event delivery only; it does not verify fold equivalence, source digests, offsets or rebuild."
+      },
+      {
+        "path": "main/backend/app/successor_runtime/substrate/projections/runtime_run.py",
+        "symbol_or_lines": "PostgresRuntimeRunProjector, lines 64-162",
+        "claim": "The successor projector already binds source identity, locked offsets, replay validation, projection digests and delete/rebuild semantics."
+      }
+    ]
+  },
+  {
+    "cell": "C5.4",
+    "boundary": "Celery DB process readback projection",
+    "locator_paths": [
+      "main/backend/app/services/tasks.py",
+      "main/backend/app/services/agent_sessions",
+      "main/backend/app/celery_app.py"
+    ],
+    "locator_status": "RESOLVED_WITH_06_CALLER_DRIFT",
+    "observed_symbols": [
+      "celery_app",
+      "_map_provider_status",
+      "_map_control_status",
+      "_load_db_job_tracking",
+      "task_submit_crawler_job",
+      "task_poll_crawler_job",
+      "task_discover_site_entries_batched",
+      "_record_agent_url_pool_task_event",
+      "AgentSessionService.project_agent_batch_job_state",
+      "AgentSessionService._map_agent_batch_task_status",
+      "AgentSessionService._map_agent_batch_job_phase_to_task_status",
+      "agent_batch._task_snapshot",
+      "process.list_tasks",
+      "process.get_task_info",
+      "process.get_task_logs"
+    ],
+    "object_types": [
+      "CeleryTaskObservation",
+      "CeleryWorkerObservation",
+      "EtlJobRunObservation",
+      "ProcessLogObservation",
+      "AgentSessionProjection",
+      "AgentTaskProjection",
+      "ObservationSourceBinding"
+    ],
+    "atom_kind": {
+      "observed": [
+        "Celery inspect/AsyncResult snapshots",
+        "DB EtlJobRun snapshots",
+        "compat.job_state_projected",
+        "ingest.url_pool.task_event.v1"
+      ],
+      "successor_candidate": "legacy.runtime_observation.project.v1"
+    },
+    "payload_schema": {
+      "legacy": "heterogeneous dictionaries from Celery inspect, AsyncResult, EtlJobRun, worker logs and provider poll responses; statuses are normalized to running/completed/failed",
+      "successor_candidate": {
+        "observation": [
+          "source_kind",
+          "source_locator",
+          "source_identity",
+          "observed_state",
+          "observation_class",
+          "observed_at",
+          "source_digest",
+          "freshness",
+          "linked_run_id",
+          "linked_step_id",
+          "linked_attempt_id"
+        ],
+        "return": [
+          "Observed",
+          "Unavailable",
+          "Stale",
+          "Contradictory",
+          "Unbound"
+        ]
+      }
+    },
+    "program_combinators": [
+      "Identity",
+      "Then",
+      "MapOutput",
+      "TraverseOrdered",
+      "Decide"
+    ],
+    "failure_return_union": [
+      "Observed",
+      "ObservationUnavailable",
+      "ObservationStale",
+      "ObservationContradictory",
+      "ObservationUnbound",
+      "SourceBindingMismatch",
+      "UnsupportedSourceState",
+      "ProjectionWriteFailed"
+    ],
+    "canonical_owner": {
+      "runtime_execution": "successor runtime journal owns run/step/attempt state",
+      "legacy_job_record": "EtlJobRun owns its bounded legacy DB record only",
+      "external_effect": "provider/capability canonical store via authoritative readback",
+      "celery_process_projection": "owns no completion, cancellation, admission or recovery fact"
+    },
+    "effect_profile": {
+      "readback_projection": [
+        "Celery control.inspect",
+        "Celery AsyncResult/Redis backend reads",
+        "PostgreSQL EtlJobRun reads",
+        "worker log-file reads",
+        "AgentSession projection writes"
+      ],
+      "boundary_violation": "current Celery snapshots are mapped to mutable AgentTask terminal states and events; task functions also mix provider/DB execution with reporting"
+    },
+    "authority_profile": {
+      "legacy_observed": "AsyncResult SUCCESS/FAILURE and aggregate progress are translated into AgentTask completed/failed and session status; process.py also co-locates readback with revoke/retry controls",
+      "successor_required": "all sources are typed observations only; Celery/Redis/process/log absence or state can never authorize terminal state, retry, cancellation or NOT_STARTED"
+    },
+    "resource_profile": {
+      "legacy_observed": "Redis broker/result backend, Celery workers/inspect, PostgreSQL EtlJobRun, process filesystem logs and polling callers",
+      "successor_required": "bounded read-only observation adapters with timeouts, freshness metadata and no mandatory Celery dependency for core closure"
+    },
+    "legacy_interpreter": "Celery app/tasks + agent_batch AsyncResult caller + AgentSession compat projector + process.py DB/Celery/log readback routes",
+    "successor_interpreter_candidate": "new read-only LegacyProcessObservationAdapter feeding a typed projector; runtime status continues to come from PostgresRuntimeRunProjector, not Celery",
+    "observation_profile": {
+      "celery_inspect": "observed transport/worker state only",
+      "celery_async_result": "backend-derived observation, never canonical completion evidence",
+      "etl_job_run": "bounded legacy DB observation with its own owner",
+      "process_log": "diagnostic observation only",
+      "agent_session": "derived projection",
+      "contradiction_rule": "conflicting sources remain explicitly contradictory and cannot be collapsed to a terminal run state"
+    },
+    "fixture_ids": [
+      "tests/unit/test_agent_batch_api_unittest.py::AgentBatchApiUnitTest::test_get_job_and_items_and_events_reflect_celery_task_snapshots",
+      "tests/integration/test_agent_batch_workflow_closure_unittest.py::AgentBatchWorkflowClosureIntegrationTestCase::test_agent_batch_to_workflow_handoff_replay_closure",
+      "tests/core_business/test_api_group_b_core_contract.py::ApiGroupBCoreContractTestCase::test_process_stats_success_contract",
+      "tests/core_business/test_api_group_b_core_contract.py::ApiGroupBCoreContractTestCase::test_process_stats_failure_maps_to_internal_error",
+      "tests/integration/test_runtime_ops_error_contract_unittest.py::RuntimeOpsErrorContractIntegrationTestCase::test_process_list_failure_returns_structured_internal_error"
+    ],
+    "rollback_observation": "Disable the successor observation projector and return the legacy Process/AgentSession view read-only. Do not delete the successor journal, dual-write run authority, or use Celery state to redispatch an uncertain attempt.",
+    "disposition": "REIMPLEMENT",
+    "rationale": "The current boundary merges Redis/Celery worker state, AsyncResult state, EtlJobRun rows, logs and provider polling into untyped status strings. AsyncResult terminal state is then written into AgentTask/session projections as completed or failed, exactly the authority inversion forbidden by the frozen architecture. The frozen architecture also names a task_readback_metadata.py path that is absent from the checkout, while the locator inventory points instead to tasks.py/celery_app.py. Preserve response fixtures and source-specific extractors only; implement a new typed, non-authoritative observation adapter.",
+    "prerequisites": [
+      "Resolve and freeze the 06 versus 13 locator drift; task_readback_metadata.py is absent",
+      "Define source-kind-specific observation schemas and freshness rules",
+      "Bind every observation to runtime run, step and attempt identity when available",
+      "Remove Celery SUCCESS/FAILURE to AgentTask terminal-authority mapping",
+      "Represent unavailable, stale, contradictory and unbound observations explicitly",
+      "Separate process readback routes from revoke/retry command authority",
+      "Add queue outage, Redis loss, worker restart, stale DB row, contradictory source and OUTCOME_UNKNOWN fixtures"
+    ],
+    "risk": {
+      "level": "CRITICAL",
+      "items": [
+        "Celery backend state becomes a false canonical completion fact",
+        "DB and broker states are merged without provenance or contradiction handling",
+        "terminal events are synthesized from readback snapshots",
+        "missing result is mistaken for not-started or safe retry",
+        "readback and process-control authority are co-located",
+        "frozen locator documentation has an absent path"
+      ],
+      "verification": "Read-only source and fixture audit; targeted pytest execution was unavailable because the active Python environment has no pytest module."
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 22",
+        "claim": "The frozen locator inventory maps C5.4 to tasks.py, agent_sessions and celery_app.py."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2336-2342",
+        "claim": "The frozen architecture requires runtime journal authority, projection-only AgentSession/Process, no fabricated terminal sequence, DB fail-closed and OUTCOME_UNKNOWN; it also names the absent services/task_readback_metadata.py path."
+      },
+      {
+        "path": "main/backend/app/celery_app.py",
+        "symbol_or_lines": "lines 8-14",
+        "claim": "Celery uses the same Redis URL as broker and result backend and auto-discovers app.services.tasks."
+      },
+      {
+        "path": "main/backend/app/api/agent_batch.py",
+        "symbol_or_lines": "_task_snapshot, lines 469-489",
+        "claim": "AsyncResult status, ready/successful/failed and result are read directly into an untyped snapshot."
+      },
+      {
+        "path": "main/backend/app/services/agent_sessions/service.py",
+        "symbol_or_lines": "project_agent_batch_job_state, lines 758-877",
+        "claim": "Celery-derived snapshots are mapped to mutable AgentTask terminal states and task.completed/task.failed events, then aggregated into session status."
+      },
+      {
+        "path": "main/backend/app/api/process.py",
+        "symbol_or_lines": "list_tasks, lines 224-406",
+        "claim": "The process projection merges Celery active/scheduled/reserved observations with DB running jobs and labels both as active tasks."
+      },
+      {
+        "path": "main/backend/app/services/tasks.py",
+        "symbol_or_lines": "_map_provider_status and _map_control_status, lines 46-65",
+        "claim": "Heterogeneous provider/control states are collapsed to running, completed or failed."
+      },
+      {
+        "path": "main/backend/tests/unit/test_agent_batch_api_unittest.py",
+        "symbol_or_lines": "test_get_job_and_items_and_events_reflect_celery_task_snapshots, lines 143-192",
+        "claim": "The fixture explicitly expects AsyncResult SUCCESS/FAILURE to produce completed/failed AgentSession tasks and projected terminal events."
+      }
+    ]
+  }
+]

@@ -20,23 +20,23 @@ from typing import Any, NoReturn
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 
-from app.successor_runtime.capabilities import source_library_c2_1 as c2_1
+from app.successor_runtime.capabilities import source_resolution as c2_1
 from app.successor_runtime.capabilities.checksum import (
     canonical_json as checksum_canonical_json,
 )
 from app.successor_runtime.capabilities.checksum import (
     content_digest as checksum_content_digest,
 )
-from app.successor_runtime.capabilities.source_library_c2_1 import (
-    build_source_library_c2_1_bundle,
-    build_source_library_c2_1_catalog,
+from app.successor_runtime.capabilities.source_resolution import (
+    build_source_resolution_bundle,
+    build_source_resolution_catalog,
 )
-from app.successor_runtime.capabilities.source_library_c2_1_interpreters import (
+from app.successor_runtime.capabilities.source_resolution_interpreters import (
     InterpreterFailure,
-    SourceLibraryC2_1SuccessorInterpreter,
+    SourceResolutionSuccessorInterpreter,
     require_resource_ceiling,
 )
-from app.successor_runtime.capabilities.source_library_c2_1_program import (
+from app.successor_runtime.capabilities.source_resolution_program import (
     exact_contract_ref,
     payload_value_ref,
 )
@@ -83,20 +83,35 @@ from app.successor_runtime.substrate.postgres.values import (
     derive_value_write_intent_digest,
 )
 
-C2_1_ASSIGNMENT_BINDING_MISSING = "C2_1_ASSIGNMENT_BINDING_MISSING"
-C2_1_RUN_STORE_DRIFT = "C2_1_RUN_STORE_DRIFT"
-C2_1_SCOPE_REHYDRATION_DRIFT = "C2_1_SCOPE_REHYDRATION_DRIFT"
-C2_1_PROGRAM_STORE_DRIFT = "C2_1_PROGRAM_STORE_DRIFT"
-C2_1_PLAN_STORE_DRIFT = "C2_1_PLAN_STORE_DRIFT"
-C2_1_OPERATION_CATALOG_DRIFT = "C2_1_OPERATION_CATALOG_DRIFT"
-C2_1_DEPLOYMENT_CATALOG_DRIFT = "C2_1_DEPLOYMENT_CATALOG_DRIFT"
-C2_1_PAYLOAD_STORE_DRIFT = "C2_1_PAYLOAD_STORE_DRIFT"
-C2_1_PAYLOAD_CODEC_DRIFT = "C2_1_PAYLOAD_CODEC_DRIFT"
-C2_1_STORE_REHYDRATION_REJECTED = "C2_1_STORE_REHYDRATION_REJECTED"
+C2_1_ASSIGNMENT_BINDING_MISSING = "SOURCE_REQUEST_RESOLUTION_ASSIGNMENT_BINDING_MISSING"
+C2_1_RUN_STORE_DRIFT = "SOURCE_REQUEST_RESOLUTION_RUN_STORE_DRIFT"
+C2_1_SCOPE_REHYDRATION_DRIFT = "SOURCE_REQUEST_RESOLUTION_SCOPE_REHYDRATION_DRIFT"
+C2_1_PROGRAM_STORE_DRIFT = "SOURCE_REQUEST_RESOLUTION_PROGRAM_STORE_DRIFT"
+C2_1_PLAN_STORE_DRIFT = "SOURCE_REQUEST_RESOLUTION_PLAN_STORE_DRIFT"
+C2_1_OPERATION_CATALOG_DRIFT = "SOURCE_REQUEST_RESOLUTION_OPERATION_CATALOG_DRIFT"
+C2_1_DEPLOYMENT_CATALOG_DRIFT = "SOURCE_REQUEST_RESOLUTION_DEPLOYMENT_CATALOG_DRIFT"
+C2_1_PAYLOAD_STORE_DRIFT = "SOURCE_REQUEST_RESOLUTION_PAYLOAD_STORE_DRIFT"
+C2_1_PAYLOAD_CODEC_DRIFT = "SOURCE_REQUEST_RESOLUTION_PAYLOAD_CODEC_DRIFT"
+C2_1_STORE_REHYDRATION_REJECTED = "SOURCE_REQUEST_RESOLUTION_STORE_REHYDRATION_REJECTED"
 
-_PAYLOAD_VALUE_ID_SUFFIX = ":payload:c2-1"
+HISTORICAL_C2_1_FAILURE_CODES = frozenset(
+    {
+        "C2_1_ASSIGNMENT_BINDING_MISSING",
+        "C2_1_RUN_STORE_DRIFT",
+        "C2_1_SCOPE_REHYDRATION_DRIFT",
+        "C2_1_PROGRAM_STORE_DRIFT",
+        "C2_1_PLAN_STORE_DRIFT",
+        "C2_1_OPERATION_CATALOG_DRIFT",
+        "C2_1_DEPLOYMENT_CATALOG_DRIFT",
+        "C2_1_PAYLOAD_STORE_DRIFT",
+        "C2_1_PAYLOAD_CODEC_DRIFT",
+        "C2_1_STORE_REHYDRATION_REJECTED",
+    }
+)
+
+_PAYLOAD_VALUE_ID_SUFFIX = ":payload:source-resolve"
 _PAYLOAD_VALUE_IDENTITY_SCHEMA = (
-    "mrw.successor.source-library.c2-1.payload-value-identity.v1"
+    "mrw.source.resolve-execution-request.payload-value-identity.v2"
 )
 _C2_1_EXPECTED_VALUE_REVISION = 1
 _PAYLOAD_IDENTITY_METADATA_FIELDS = (
@@ -183,7 +198,7 @@ def c2_1_expected_payload_value_identity(
     require_digest(content_digest_hex, "payload_content_digest")
     require_digest(provenance_digest_hex, "payload_provenance_digest")
     provenance: dict[str, Any] = {
-        "schema": "mrw.successor.source-library.c2-1.payload-provenance.v1",
+        "schema": "mrw.source.resolve-execution-request.payload-provenance.v2",
         "program_id": program_id,
         "project_key": project_key,
         "project_registry_revision": metadata["project_registry_revision"],
@@ -214,8 +229,8 @@ def c2_1_expected_payload_value_identity(
     write_intent_digest = derive_value_write_intent_digest(
         project_key=project_key,
         value_id=value_id,
-        object_type=c2_1.SOURCE_LIBRARY_C2_1_PAYLOAD_TYPE.type_id,
-        codec_id=c2_1.SOURCE_LIBRARY_C2_1_PAYLOAD_CODEC_ID,
+        object_type=c2_1.SOURCE_RESOLUTION_PAYLOAD_TYPE.type_id,
+        codec_id=c2_1.SOURCE_RESOLUTION_PAYLOAD_CODEC_ID,
         content_digest=content_digest_hex,
         provenance_digest=provenance_digest_hex,
         source_ref=storage_ref,
@@ -228,8 +243,8 @@ def c2_1_expected_payload_value_identity(
         project_key=project_key,
         value_id=value_id,
         storage_ref=storage_ref,
-        object_type=c2_1.SOURCE_LIBRARY_C2_1_PAYLOAD_TYPE.type_id,
-        codec_id=c2_1.SOURCE_LIBRARY_C2_1_PAYLOAD_CODEC_ID,
+        object_type=c2_1.SOURCE_RESOLUTION_PAYLOAD_TYPE.type_id,
+        codec_id=c2_1.SOURCE_RESOLUTION_PAYLOAD_CODEC_ID,
         content_digest=content_digest_hex,
         provenance_digest=provenance_digest_hex,
         revision=_C2_1_EXPECTED_VALUE_REVISION,
@@ -295,16 +310,20 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
             assignment.handler_binding_digest != self.handler_binding_digest
             or assignment.operation_contract_digest != self.operation_contract_digest
         ):
-            raise DefiniteInterpreterFailure("EXACT_C2_1_HANDLER_BINDING_DRIFT")
+            raise DefiniteInterpreterFailure(
+                "EXACT_SOURCE_REQUEST_RESOLUTION_HANDLER_BINDING_DRIFT"
+            )
         if assignment.deployment_catalog_digest != self.deployment_catalog_digest:
-            raise DefiniteInterpreterFailure("EXACT_C2_1_DEPLOYMENT_CATALOG_DRIFT")
+            raise DefiniteInterpreterFailure(
+                "EXACT_SOURCE_REQUEST_RESOLUTION_DEPLOYMENT_CATALOG_DRIFT"
+            )
 
         loaded = self._load_exact_closure(assignment, context.node.node_id)
         ceiling_rejection = require_resource_ceiling(loaded.payload)
         if ceiling_rejection is not None:
             raise DefiniteInterpreterFailure("RESOURCE_CEILING_EXCEEDED")
 
-        outcome = SourceLibraryC2_1SuccessorInterpreter().interpret(
+        outcome = SourceResolutionSuccessorInterpreter().interpret(
             program=loaded.program,
             plan=loaded.plan,
             contract_ref=loaded.contract_ref,
@@ -668,12 +687,12 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
         Any,
         Any,
     ]:
-        bundle = build_source_library_c2_1_bundle()
-        catalog = build_source_library_c2_1_catalog(bundle)
+        bundle = build_source_resolution_bundle()
+        catalog = build_source_resolution_catalog(bundle)
         contract_ref = exact_contract_ref(catalog)
         codec = bundle.payload_codec()
         if (
-            codec.codec_id != c2_1.SOURCE_LIBRARY_C2_1_PAYLOAD_CODEC_ID
+            codec.codec_id != c2_1.SOURCE_RESOLUTION_PAYLOAD_CODEC_ID
             or catalog.catalog_id != plan_ref["operation_catalog_id"]
             or catalog.catalog_version != plan_ref["catalog_version"]
             or catalog.catalog_digest != plan_ref["catalog_digest"]
@@ -944,6 +963,7 @@ __all__ = [
     "C2_1_RUN_STORE_DRIFT",
     "C2_1_SCOPE_REHYDRATION_DRIFT",
     "C2_1_STORE_REHYDRATION_REJECTED",
+    "HISTORICAL_C2_1_FAILURE_CODES",
     "C2_1PayloadValueIdentity",
     "SourceLibraryC2_1StoreRehydratedHandler",
     "c2_1_expected_payload_value_identity",

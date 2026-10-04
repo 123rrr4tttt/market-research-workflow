@@ -1,0 +1,135 @@
+{
+  "schema": "mrw.functorial_successor.capability_cell_spec.v1",
+  "version": "1.0.0",
+  "cell_id": "C2.1",
+  "family_id": "C2",
+  "owner_capability_id": "source_library.c2_1.v1",
+  "entrypoint_kind": "PROGRAM",
+  "commutativity_claim": "NOT_CLAIMED",
+  "input_contract_refs": [
+    "mrw.successor.source-library.c2-1.source-item-definition.v1",
+    "mrw.successor.source-library.c2-1.source-taxonomy.v1",
+    "mrw.successor.source-library.c2-1.source-mode.v1",
+    "mrw.successor.source-library.c2-1.execution-request.v1",
+    "mrw.successor.source-library.c2-1.payload.v1"
+  ],
+  "output_contract_refs": [
+    "mrw.successor.source-library.c2-1.observation.v1",
+    "mrw.successor.source-library.c2-1.warning.v1",
+    "mrw.successor.source-library.c2-1.rejection.v1"
+  ],
+  "object_contract_refs": [
+    "SourceItemDefinition.v1",
+    "SourceTaxonomy.v1",
+    "SourceMode.v1",
+    "SourceExecutionRequest.v1",
+    "SourceResolutionPayload.v1",
+    "SourceResolutionResult.v1"
+  ],
+  "operation_contract_refs": [
+    "source_library.resolve_execution_request.v1"
+  ],
+  "program_shape_ref": "mrw.successor.source-library.c2-1.program-shape.v1",
+  "ordered_composition_refs": [
+    "source_library.resolve_execution_request.v1"
+  ],
+  "interpreter_refs": [
+    "successor.source_library.c2_1.resolve.v1",
+    "legacy.source_library.c2_1.resolve.v1"
+  ],
+  "profile_refs": [
+    "mrw.successor.source-library.c2-1.observation.v1",
+    "mrw.successor.source-library.c2-1.effect.pure.v1",
+    "mrw.successor.source-library.c2-1.resource-ceiling.v1"
+  ],
+  "deployment_binding_refs": [
+    "deployment.local-only.no-network.no-provider.no-canonical-write.v1"
+  ],
+  "legacy_oracle_ref": "legacy.source_library.c2_1.resolve.v1",
+  "shadow_observation_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P2C21CapabilityPacket.v5.json#/interpreters",
+  "failure_union_refs": [
+    "INVALID_INPUT",
+    "INVALID_ITEM",
+    "INVALID_MODE",
+    "FORBIDDEN_INTERNAL_ADAPTER",
+    "RESOURCE_CEILING_EXCEEDED"
+  ],
+  "declared_lossy_projection_refs": [],
+  "effect_policy_ref": "mrw.successor.source-library.c2-1.effect.pure.v1",
+  "resource_policy_ref": "mrw.successor.source-library.c2-1.resource-ceiling.v1",
+  "recovery_policy_ref": "mrw.successor.source-library.c2-1.recovery.v1",
+  "readback_policy_ref": "mrw.successor.runtime.readback.not-applicable.v1",
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false
+  },
+  "adoption_prerequisites": [
+    "P3_AUTHORITY_RECORD_DIVERGENCE",
+    "P3_C2_CHAIN_REHYDRATION_LOCAL_ONLY",
+    "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+  ],
+  "source_bindings": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P1FunctorizationEligibility.v1.json",
+      "file_sha256": "16dac2d34f2cdcaeffa4718fe2e63733f48b29ad0ba64daab32ed011527d4642",
+      "role": "p1_eligibility"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p1-fragments/C2.json",
+      "file_sha256": "0364d2c7e9c759a8a9dc59fe419a09c55c2dbcef5000dfd2772cb4bec82e4e9c",
+      "role": "p1_fragment"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P2C21CapabilityPacket.v5.json",
+      "file_sha256": "81051ed22585b72e07f0e773ceebe70cccad7cbeee08aa7b2106c454517b0b09",
+      "role": "p2_packet"
+    },
+    {
+      "path": "main/backend/app/services/source_library/item_resolver.py",
+      "file_sha256": "50762f4b27d85ea4bd1f9e98f05f9930cc637b770ac55dc12aac7a115e595b12",
+      "role": "legacy_donor_c2_1"
+    },
+    {
+      "path": "main/backend/app/services/source_library/resolver.py",
+      "file_sha256": "27245d6bef47495d0f20f0d4a219994e2765c7210606af0318f39903404e6aea",
+      "role": "legacy_donor_c2_1"
+    }
+  ],
+  "test_bindings": [
+    {
+      "path": "main/backend/tests/successor_runtime/test_p2_c2_1_contracts.py",
+      "file_sha256": "6414d7663e14f1111c37c9cc69cebd1e4e2b40702454a6f00e7adef5eb096163",
+      "role": "c2_1_contracts"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p2_c2_1_parity.py",
+      "file_sha256": "614710855f6453734578e41dd4a7836fe7fe6ea269dda3066fc9e0c1d23b34b7",
+      "role": "c2_1_parity"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c2_1_rehydration_postgres.py",
+      "file_sha256": "4aafef6647b5a469d0946b4249a3cf9e0d6155c6ef89034fc8fb464365381d63",
+      "role": "c2_1_rehydration_postgres"
+    }
+  ],
+  "rollback_bindings": [
+    {
+      "path": "main/backend/app/successor_migration/legacy_source_library.py",
+      "file_sha256": "a52f7e3373172a768cd2602c997a8f4f28d07ec78bb18ff0ce3a34aabff9f7bc",
+      "role": "legacy_rollback_route"
+    }
+  ],
+  "generated_ownership_refs": [
+    "capability-spec.contract-ref-scaffolding.C2.1.v1",
+    "capability-spec.build-manifest.C2.1.v1"
+  ],
+  "handwritten_ownership_refs": [
+    "main/backend/app/successor_runtime/capabilities/source_library_c2_1.py",
+    "main/backend/app/successor_runtime/capabilities/source_library_c2_1_interpreters.py",
+    "main/backend/app/successor_runtime/capabilities/source_library_c2_shared.py",
+    "main/backend/app/successor_migration/legacy_source_library.py"
+  ]
+}

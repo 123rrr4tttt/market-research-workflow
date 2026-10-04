@@ -1,0 +1,53 @@
+{
+  "http_status": 200,
+  "response": {
+    "status": "ok",
+    "data": {
+      "task_id": "d18a9e98-3c74-4b75-a68c-93a5a406de20",
+      "status": "SUCCESS",
+      "ready": true,
+      "successful": true,
+      "failed": false,
+      "result": {
+        "inserted": 0,
+        "updated": 1,
+        "skipped": 0,
+        "error_count": 0,
+        "errors": [],
+        "items": [
+          {
+            "index": 0,
+            "doc_id": 2,
+            "status": "ok",
+            "uri": "https://www.rfc-editor.org/rfc/rfc9110.txt",
+            "uris": [
+              "https://www.rfc-editor.org/rfc/rfc9110.txt"
+            ],
+            "fetched_from_url": true,
+            "doc_type": "raw_note"
+          }
+        ],
+        "source_name": "readiness_daily_public_http",
+        "project_key": "readiness_daily_20261004"
+      },
+      "progress": null,
+      "traceback": null,
+      "inserted_valid": null,
+      "rejected_count": 0,
+      "rejection_breakdown": {},
+      "degradation_flags": [],
+      "quality_score": null,
+      "error_code": "OK",
+      "handler_used": null,
+      "skip_reason": null,
+      "name": null
+    },
+    "error": null,
+    "meta": {
+      "trace_id": "368c3d20-4923-492d-8669-dd6d640f8b7f",
+      "pagination": null,
+      "project_key": "readiness_daily_20261004",
+      "deprecated": null
+    }
+  }
+}

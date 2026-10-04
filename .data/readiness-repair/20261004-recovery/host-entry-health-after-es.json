@@ -1,0 +1,18 @@
+{
+  "8000/api/v1/health/deep": {
+    "http_status": 200,
+    "safe_observation": {
+      "status": "ok",
+      "database": "ok",
+      "elasticsearch": "ok"
+    }
+  },
+  "8172/codex/api/auth/bootstrap": {
+    "http_status": 200,
+    "safe_observation": {}
+  },
+  "8172/codex/api/auth/status": {
+    "http_status": 200,
+    "safe_observation": {}
+  }
+}

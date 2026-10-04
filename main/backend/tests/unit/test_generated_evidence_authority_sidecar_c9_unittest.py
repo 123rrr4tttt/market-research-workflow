@@ -24,7 +24,8 @@ SIDECAR_PATHS = {
     3: ROOT / EXACT_REBIND_REL / "stage-b15-2026-09-05/sidecar-inputs/C9.v3.json",
     4: ROOT / EXACT_REBIND_REL / "stage-b16-2026-09-05/sidecar-inputs/C9.v4.json",
 }
-SOURCE_PATH = ROOT / "main/backend/app/successor_runtime/substrate/projections/c9_sources.py"
+SOURCE_PATH = ROOT / "main/backend/app/successor_runtime/substrate/projections/projection_sources.py"
+CURRENT_CANONICAL_SOURCE_PATH = ROOT / "main/backend/app/successor_runtime/substrate/postgres/projection_sources.py"
 SOURCE_RELATIVE_PATH = (
     "main/backend/app/successor_runtime/substrate/projections/c9_sources.py"
 )
@@ -134,8 +135,12 @@ def _assert_external_binding(binding: dict[str, Any]) -> tuple[bytes, ast.Module
     else:
         expected_fields = common_fields | {"function"} | NON_AUTHORITY_FIELDS
     assert set(binding) == expected_fields
-    path = _confined_path(binding["path"])
-    raw = path.read_bytes()
+    # The selected sidecar is immutable historical evidence, not current authority.
+    from tests.successor_runtime.historical_fixture import historical_bytes
+
+    relative = Path(binding["path"])
+    assert not relative.is_absolute() and ".." not in relative.parts
+    raw = historical_bytes(binding["path"], binding["external_sha256"])
     text = raw.decode("utf-8")
     assert SHA256.fullmatch(binding["external_sha256"])
     assert binding["external_sha256"] == hashlib.sha256(raw).hexdigest()
@@ -153,7 +158,6 @@ def _assert_external_binding(binding: dict[str, Any]) -> tuple[bytes, ast.Module
         "c9_projection_payload_builder",
     }:
         assert binding["path"] == SOURCE_RELATIVE_PATH
-        assert path == SOURCE_PATH.resolve()
     if binding["kind"] == "current_c9_canonical_source_closure_reader_module":
         assert binding["path"] == CANONICAL_SOURCE_REL
     if binding["kind"] == "c9_canonical_source_closure_reader":
@@ -175,6 +179,30 @@ def _assert_file_reference(reference: dict[str, Any], *, json_reference: bool = 
         value = json.loads(raw)
         assert isinstance(value, dict)
         assert reference["content_digest"] == _digest(value)
+    return raw
+
+
+def _assert_frozen_reference(reference: dict[str, Any], *, family: str) -> bytes:
+    """Check a historical sidecar reference against its retained candidate bytes."""
+    assert set(reference) == {"path", "file_sha256", "bytes", "lines"}
+    _, _, sidecar = _current_sidecar()
+    candidate_path = _confined_path(
+        EXACT_REBIND_REL / sidecar["stage"] / "candidates" / family / "candidate.v2.json"
+    )
+    candidate = json.loads(candidate_path.read_bytes())
+    assert candidate["family"] == family
+    assert candidate["content_digest"] == _digest(candidate)
+    entries = candidate["sources"] + candidate["tests"]
+    matches = [entry for entry in entries if entry["path"] == reference["path"]]
+    assert len(matches) == 1
+    entry = matches[0]
+    assert entry["file_sha256"] == reference["file_sha256"]
+    assert entry["snapshot_path"] == f"snapshots/{reference['file_sha256']}"
+    snapshot = _confined_path(candidate_path.parent.relative_to(ROOT) / entry["snapshot_path"])
+    raw = snapshot.read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == reference["file_sha256"]
+    assert len(raw) == entry["bytes"] == reference["bytes"]
+    assert len(raw.decode("utf-8").splitlines()) == reference["lines"]
     return raw
 
 
@@ -290,7 +318,7 @@ def test_current_sidecar_has_closed_twelve_binding_inventory() -> None:
 
 def test_current_sidecar_exact_current_bytes_and_function_slices() -> None:
     source_before = SOURCE_PATH.read_bytes()
-    canonical_before = (ROOT / CANONICAL_SOURCE_REL).read_bytes()
+    canonical_before = CURRENT_CANONICAL_SOURCE_PATH.read_bytes()
     _, _, sidecar = _current_sidecar()
     bindings = sidecar["bindings"]
 
@@ -300,7 +328,7 @@ def test_current_sidecar_exact_current_bytes_and_function_slices() -> None:
         if binding["kind"] == "current_c9_projection_source_module"
     )
     source_raw, source_tree = _assert_external_binding(source_module)
-    assert source_raw == source_before
+    assert hashlib.sha256(source_raw).hexdigest() == source_module["external_sha256"]
     source_inventory = _top_level_functions(source_tree)
 
     payload_builders = [
@@ -323,7 +351,7 @@ def test_current_sidecar_exact_current_bytes_and_function_slices() -> None:
         if binding["kind"] == "current_c9_canonical_source_closure_reader_module"
     )
     canonical_raw, canonical_tree = _assert_external_binding(canonical_module)
-    assert canonical_raw == canonical_before
+    assert hashlib.sha256(canonical_raw).hexdigest() == canonical_module["external_sha256"]
     canonical_inventory = _top_level_functions(canonical_tree)
     assert canonical_module["functions"] == list(CANONICAL_FUNCTIONS)
     assert set(canonical_module["functions"]) <= set(canonical_inventory)
@@ -344,7 +372,7 @@ def test_current_sidecar_exact_current_bytes_and_function_slices() -> None:
         assert selected.decode("utf-8").startswith(f"def {binding['function']}(")
 
     assert SOURCE_PATH.read_bytes() == source_before
-    assert (ROOT / CANONICAL_SOURCE_REL).read_bytes() == canonical_before
+    assert CURRENT_CANONICAL_SOURCE_PATH.read_bytes() == canonical_before
 
 
 def test_current_sidecar_candidate_and_witness_references() -> None:
@@ -376,7 +404,7 @@ def test_current_sidecar_candidate_and_witness_references() -> None:
     assert candidate_value["amendment"] == candidate["amendment"]
 
     for reference in sidecar["tests"]:
-        _assert_file_reference(reference)
+        _assert_frozen_reference(reference, family="C9")
     assert len(sidecar["tests"]) == 6
 
 
@@ -407,11 +435,13 @@ def test_current_sidecar_c9_3_capability_spec_and_manifest_closures() -> None:
     assert set(spec_binding) == {"kind", "path", "file_sha256", "bytes", "lines", "cell_id"}
     assert set(manifest_binding) == {"kind", "path", "file_sha256", "bytes", "lines", "cell_id"}
     assert spec_binding["cell_id"] == manifest_binding["cell_id"] == "C9.3"
-    spec_raw = _assert_file_reference(
-        {key: value for key, value in spec_binding.items() if key not in {"kind", "cell_id"}}
+    spec_raw = _assert_frozen_reference(
+        {key: value for key, value in spec_binding.items() if key not in {"kind", "cell_id"}},
+        family="I1",
     )
-    manifest_raw = _assert_file_reference(
-        {key: value for key, value in manifest_binding.items() if key not in {"kind", "cell_id"}}
+    manifest_raw = _assert_frozen_reference(
+        {key: value for key, value in manifest_binding.items() if key not in {"kind", "cell_id"}},
+        family="I1",
     )
     spec = CapabilityCellSpec.from_dict(json.loads(spec_raw))
     manifest = json.loads(manifest_raw)

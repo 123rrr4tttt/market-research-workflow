@@ -74,10 +74,7 @@ export default function FrontendKernelApp() {
   }
 
   if (route.layerId === 'A') {
-    if (!route.renderVariant) {
-      return <WorkbenchLayerShell activeModule={route.moduleKey} runtime={runtime} />
-    }
-    return <WorkbenchLayerShell activeModule={route.moduleKey} runtime={runtime} renderVariant={route.renderVariant} />
+    return <WorkbenchLayerShell activeModule={route.moduleKey} runtime={runtime} />
   }
 
   if (route.layerId === 'B') {

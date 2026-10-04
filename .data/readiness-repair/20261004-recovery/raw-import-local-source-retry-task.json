@@ -1,0 +1,53 @@
+{
+  "http_status": 200,
+  "response": {
+    "status": "ok",
+    "data": {
+      "task_id": "95dbbb01-a4c0-4535-be90-09f74178687a",
+      "status": "SUCCESS",
+      "ready": true,
+      "successful": true,
+      "failed": false,
+      "result": {
+        "inserted": 1,
+        "updated": 0,
+        "skipped": 0,
+        "error_count": 0,
+        "errors": [],
+        "items": [
+          {
+            "index": 0,
+            "doc_id": 2,
+            "status": "ok",
+            "uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "uris": [
+              "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt"
+            ],
+            "fetched_from_url": false,
+            "doc_type": "policy"
+          }
+        ],
+        "source_name": "readiness_repair_recovery",
+        "project_key": "readiness_repair"
+      },
+      "progress": null,
+      "traceback": null,
+      "inserted_valid": null,
+      "rejected_count": 0,
+      "rejection_breakdown": {},
+      "degradation_flags": [],
+      "quality_score": null,
+      "error_code": "OK",
+      "handler_used": null,
+      "skip_reason": null,
+      "name": null
+    },
+    "error": null,
+    "meta": {
+      "trace_id": "2ff76b95-4bd9-4d5e-834c-1c93e9e442ca",
+      "pagination": null,
+      "project_key": "readiness_repair",
+      "deprecated": null
+    }
+  }
+}

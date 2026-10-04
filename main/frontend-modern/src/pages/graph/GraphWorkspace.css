@@ -1,0 +1,33 @@
+@media (max-width: 980px) {
+  .gv2-chart-wrap .gv2-floating-controls,
+  .gv2-chart-wrap .gv2-legend-float {
+    position: static;
+    inset: auto;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    z-index: auto;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .gv2-chart-wrap .gv2-floating-controls {
+    margin: 10px 0 0;
+  }
+
+  .gv2-chart-wrap .gv2-legend-float {
+    margin: 10px 0 0;
+  }
+
+  .gv2-chart-wrap .gv2-floating-controls.is-collapsed,
+  .gv2-chart-wrap .gv2-legend-float.is-collapsed {
+    display: none;
+  }
+
+  .gv2-chart-wrap .gv2-chart {
+    height: 54vh;
+    min-height: 380px;
+  }
+}

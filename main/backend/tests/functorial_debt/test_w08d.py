@@ -9,7 +9,7 @@ from typing import get_args, get_type_hints
 from functorial_kit.arch.gates import scan_project
 from functorial_kit.arch.scan import ratchet, violation_key
 
-from app.successor_runtime.capabilities import source_library_c2_3 as c23
+from app.successor_runtime.capabilities import source_provider_acquisition as c23
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     sha256_hex,
@@ -158,8 +158,8 @@ def test_w08d_program_spec_preserves_prepared_command_abi() -> None:
         request_id="request:w08d-program",
         request_digest="",
     )
-    bundle = c23.build_source_library_c2_3_bundle()
-    catalog = c23.build_source_library_c2_3_catalog(bundle)
+    bundle = c23.build_source_provider_acquisition_bundle()
+    catalog = c23.build_source_provider_acquisition_catalog(bundle)
     assert isinstance(catalog, OperationContractCatalogSnapshot)
     program = build_c2_3_fixture_program(
         request=request,

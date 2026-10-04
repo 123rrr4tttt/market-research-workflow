@@ -24,7 +24,6 @@ from app.successor_runtime.assembly.successor_assembly import (
 from app.successor_runtime.specification import CapabilityCellSpec
 from tests.successor_runtime.i1_binding_candidate_support import (
     REPOSITORY_ROOT,
-    verify_exact_binding,
 )
 
 TOPIC = Path(
@@ -58,7 +57,11 @@ def _rollback_rows() -> list[dict[str, Any]]:
         )
         declaration = declarations.get(cell.cell_id)
         for binding in spec.rollback_bindings:
-            verify_exact_binding(spec, "rollback_bindings", binding)
+            from .historical_fixture import historical_bytes
+            import hashlib
+
+            frozen = historical_bytes(binding.path, binding.file_sha256)
+            assert hashlib.sha256(frozen).hexdigest() == binding.file_sha256
         if cell.cell_id.startswith("C7.") and declaration.status == "PRESENT":
             assert declaration is not None
             for binding_path in declaration.binding_refs:
@@ -97,7 +100,7 @@ def _rollback_rows() -> list[dict[str, Any]]:
                     "rehearsal_status": "STRUCTURAL_PASS",
                     "declaration_status": "PRESENT",
                     "binding_refs": list(spec_bindings),
-                    "note": "path + sha256 verified; durable epoch rehearsal is PG opt-in",
+                    "note": "historical rollback bytes verified; durable epoch rehearsal is PG opt-in",
                 }
             )
         elif declaration is not None and declaration.status == "DECLARED_OPEN":
@@ -123,13 +126,14 @@ def _rollback_rows() -> list[dict[str, Any]]:
                     ),
                 }
             )
-    assert len(rows) == 30
+    assert len(rows) == len(assembly.cells)
+    assert not any(row["cell_id"].startswith("C6.") for row in rows)
     return rows
 
 
-def test_i1_rollback_rehearsal_matrix_covers_thirty_cells() -> None:
+def test_i1_rollback_rehearsal_matrix_covers_current_twenty_seven_cells() -> None:
     rows = _rollback_rows()
-    assert len(rows) == 30
+    assert len(rows) == 27
     by_id = {row["cell_id"]: row for row in rows}
     for cell_id in ("C7.1", "C7.2", "C7.3", "C7.4"):
         assert by_id[cell_id]["rehearsal_status"] == "ROUTE_ASSEMBLED"

@@ -114,7 +114,7 @@ def typed_crawler_readback(
 ) -> Any:
     """Map provider poll output into the shared C2.3 readback vocabulary."""
 
-    from app.successor_runtime.capabilities.source_library_c2_shared import (
+    from app.successor_runtime.capabilities.source_contracts import (
         AuthoritativeProviderReadback,
         ReadbackTerminal,
         ReadbackUnavailable,

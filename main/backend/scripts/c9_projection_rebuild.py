@@ -1,4 +1,4 @@
-"""C9 projection generation/rebuild over existing P0-D substrate (C9-M004/M005).
+"""Material projection generation/rebuild over existing P0-D substrate.
 
 The rebuild is deterministic and database-bound.  It reads the canonical
 source closure from the existing project ``successor_values`` table and
@@ -29,21 +29,25 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal, Protocol, runtime_checkable
 
-from sqlalchemy import select, update
-from sqlalchemy.engine import Connection, Engine
-
 from app.successor_runtime.research.codec import sha256_hex
 from app.successor_runtime.runtime.facade_contracts import (
     C9_LOCAL_SINK_NAMES,
     C9_ROLLBACK_TRANSITION_CONTRACT,
+    MATERIAL_PROJECTION_CANDIDATE_SCHEMA,
+    MATERIAL_PROJECTION_CLOSURE_ID,
+    MATERIAL_PROJECTION_PROJECTOR_ID,
+    MATERIAL_PROJECTION_PROJECTOR_VERSION,
+    MATERIAL_PROJECTION_RECEIPT_SCHEMA,
+    PROJECTION_ROLLBACK_TRANSITION_CONTRACT,
     C9Unavailable,
     projection_key_digest,
     rollback_transition_id,
     rollback_transition_ref,
 )
 from app.successor_runtime.runtime.ports import RuntimeScope
-from app.successor_runtime.substrate.postgres.c9_projection_sources import (
-    load_exact_semantic_source_closure,
+from app.successor_runtime.substrate.postgres.projection_sources import (
+    PROJECT_SOURCE_KIND,
+    load_exact_project_source_closure,
 )
 from app.successor_runtime.substrate.postgres.models import (
     PUBLIC_TABLES,
@@ -66,22 +70,32 @@ from app.successor_runtime.substrate.postgres.values import (
     ReceiptRepository,
     ValueRepository,
 )
-from app.successor_runtime.substrate.projections.c9_sources import (
+from app.successor_runtime.substrate.projections.projection_sources import (
+    TASK_VIEW_SCHEMA,
+    MATERIAL_SOURCE_SCHEMA,
     PROJECTION_FIELD_LOSS_SCHEMA,
-    C9SemanticSourceClosureV1,
-    ProjectionFieldLossV1,
-    build_agent_session_payload,
-    build_research_graph_payload,
-    build_search_payload,
+    KNOWLEDGE_VIEW_SCHEMA,
+    KNOWLEDGE_SOURCE_SCHEMA,
+    TASK_SOURCE_SCHEMA,
+    MATERIAL_VIEW_SCHEMA,
+    ProjectSourceClosure,
+    ProjectionFieldLoss,
+    build_task_view,
+    build_knowledge_view,
+    build_material_view,
 )
-from app.successor_runtime.substrate.projections.c9_sources import (
+from app.successor_runtime.substrate.projections.projection_sources import (
     content_digest as c9_content_digest,
 )
+from sqlalchemy import select, update
+from sqlalchemy.engine import Connection, Engine
 
 __all__ = [
     "C9_REBUILD_CODEC_ID",
     "C9_RECEIPT_CODEC_ID",
     "C9_SOURCE_KIND",
+    "PROJECTION_PROJECTOR_ID",
+    "PROJECTION_PROJECTOR_VERSION",
     "CANDIDATE_CODECS",
     "CANDIDATE_OBJECT_TYPES",
     "EXTERNAL_DECLARED_LOSS_SINKS",
@@ -103,31 +117,51 @@ __all__ = [
     "source_closure_revision",
 ]
 
-C9_SOURCE_KIND = "successor_values"
-C9_REBUILD_CODEC_ID = "mrw.successor.c9.projection-candidate.canonical-json.v1"
-C9_RECEIPT_CODEC_ID = "mrw.successor.c9.projection-receipt.canonical-json.v1"
-PROJECTION_ID = "projection.c9-movement-closure.v1"
-REQUIRED_LOCAL_SINKS: tuple[str, ...] = tuple(C9_LOCAL_SINK_NAMES)
+C9_SOURCE_KIND = PROJECT_SOURCE_KIND
+C9_REBUILD_CODEC_ID = "mrw.projection.material-closure-candidate.canonical-json.v2"
+C9_RECEIPT_CODEC_ID = "mrw.projection.material-closure-receipt.canonical-json.v2"
+PROJECTION_ID = MATERIAL_PROJECTION_CLOSURE_ID
+PROJECTION_PROJECTOR_ID = MATERIAL_PROJECTION_PROJECTOR_ID
+PROJECTION_PROJECTOR_VERSION = MATERIAL_PROJECTION_PROJECTOR_VERSION
+REQUIRED_LOCAL_SINKS: tuple[str, ...] = ("task", "knowledge", "material")
+LEGACY_REQUIRED_LOCAL_SINKS: tuple[str, ...] = tuple(C9_LOCAL_SINK_NAMES)
 EXTERNAL_DECLARED_LOSS_SINKS: tuple[str, ...] = (
     "elasticsearch",
     "qdrant",
     "graph_provider",
 )
 CANDIDATE_OBJECT_TYPES: Mapping[str, str] = {
+    "task": TASK_VIEW_SCHEMA,
+    "knowledge": KNOWLEDGE_VIEW_SCHEMA,
+    "material": MATERIAL_VIEW_SCHEMA,
+}
+CANDIDATE_CODECS: Mapping[str, str] = {
+    "task": "mrw.projection.task-view.canonical-json.v2",
+    "knowledge": "mrw.projection.knowledge-view.canonical-json.v2",
+    "material": "mrw.projection.material-view.canonical-json.v2",
+}
+SOURCE_OBJECT_TYPES: Mapping[str, str] = {
+    "task": TASK_SOURCE_SCHEMA,
+    "knowledge": KNOWLEDGE_SOURCE_SCHEMA,
+    "material": MATERIAL_SOURCE_SCHEMA,
+}
+LEGACY_CANDIDATE_OBJECT_TYPES: Mapping[str, str] = {
     "agent_session": "AgentSessionLocalProjection.v1",
     "graph": "GraphLocalProjection.v1",
     "search": "SearchLocalProjection.v1",
 }
-CANDIDATE_CODECS: Mapping[str, str] = {
+LEGACY_CANDIDATE_CODECS: Mapping[str, str] = {
     "agent_session": "mrw.successor.c9.agent-session-projection.canonical-json.v1",
     "graph": "mrw.successor.c9.graph-projection.canonical-json.v1",
     "search": "mrw.successor.c9.search-projection.canonical-json.v1",
 }
-SOURCE_OBJECT_TYPES: Mapping[str, str] = {
-    "agent_session": "AgentSessionSource.v1",
-    "graph": "GraphSource.v1",
-    "search": "SearchSource.v1",
-}
+LEGACY_CANDIDATE_ENVELOPE_SCHEMA = (
+    "mrw.successor.c9.projection-candidate-envelope.v1"
+)
+LEGACY_RECEIPT_SCHEMA = "mrw.successor.c9.projection-receipt.v1"
+LEGACY_PROJECTION_FIELD_LOSS_SCHEMA = (
+    "mrw.successor.c9.projection-field-loss.v1"
+)
 
 
 def build_loss_profile(
@@ -196,7 +230,7 @@ def derive_rebuild_id(
         character not in "0123456789abcdef" for character in closure_digest
     ):
         raise ValueError("closure digest must be canonical SHA-256 hex")
-    return "rebuild:c9:" + sha256_hex(
+    return "material-projection:rebuild:" + sha256_hex(
         {
             "key": _key_identity(key),
             "projection_generation": generation,
@@ -207,11 +241,11 @@ def derive_rebuild_id(
 
 def _projection_declared_losses(
     sink: str,
-) -> tuple[ProjectionFieldLossV1, ...]:
+) -> tuple[ProjectionFieldLoss, ...]:
     """Fixed local field-loss profile; external realization is not called."""
 
     return (
-        ProjectionFieldLossV1(
+        ProjectionFieldLoss(
             schema_version=PROJECTION_FIELD_LOSS_SCHEMA,
             field_path=f"{sink}.provider_realization",
             loss_kind="DECLARED_LOSS",
@@ -222,24 +256,24 @@ def _projection_declared_losses(
 
 def _payload_for_sink(
     sink: str,
-    closure: C9SemanticSourceClosureV1,
+    closure: ProjectSourceClosure,
 ) -> dict[str, Any]:
     """Project one canonical source through the parallel typed builder."""
 
     losses = _projection_declared_losses(sink)
-    if sink == "agent_session":
-        return build_agent_session_payload(
+    if sink == "task":
+        return build_task_view(
             closure.runtime_session_source, declared_losses=losses
         ).to_plain()
-    if sink == "graph":
-        return build_research_graph_payload(
+    if sink == "knowledge":
+        return build_knowledge_view(
             closure.research_graph_source, declared_losses=losses
         ).to_plain()
-    if sink == "search":
-        return build_search_payload(
+    if sink == "material":
+        return build_material_view(
             closure.c7_search_source, declared_losses=losses
         ).to_plain()
-    raise ValueError(f"unregistered C9 projection sink: {sink}")
+    raise ValueError(f"unregistered material projection sink: {sink}")
 
 
 def candidate_value_id(
@@ -253,7 +287,10 @@ def candidate_value_id(
     ):
         raise ValueError("candidate digest must be canonical SHA-256 hex")
     source_hash = _key_digest(key)[:8]
-    return f"c9:{sink}:{source_hash}:gen-{generation}:{digest[:12]}"
+    return (
+        f"material-projection:{sink}:{source_hash}:"
+        f"generation-{generation}:{digest[:12]}"
+    )
 
 
 def receipt_payload(
@@ -266,7 +303,7 @@ def receipt_payload(
     candidate_digest: str,
 ) -> dict[str, Any]:
     return {
-        "schema_version": "mrw.successor.c9.projection-receipt.v1",
+        "schema_version": MATERIAL_PROJECTION_RECEIPT_SCHEMA,
         "sink": sink,
         "projector_id": key.projector_id,
         "projector_version": key.projector_version,
@@ -318,7 +355,10 @@ def generation_closure_ref(
         character not in "0123456789abcdef" for character in closure_digest
     ):
         raise ValueError("closure digest must be canonical SHA-256 hex")
-    return f"value:{resolved_schema}:c9:generation:{generation}:{closure_digest}"
+    return (
+        f"value:{resolved_schema}:material-projection:"
+        f"generation:{generation}:{closure_digest}"
+    )
 
 
 def _put_receipt_idempotent(
@@ -425,7 +465,7 @@ class LocalSinkWriter(Protocol):
         key: ProjectionOffsetKey,
         projection_offset_id: str,
         generation: int,
-        closure: C9SemanticSourceClosureV1,
+        closure: ProjectSourceClosure,
         rebuild_id: str,
     ) -> Mapping[str, Any]: ...
 
@@ -460,11 +500,11 @@ class PostgresProjectionSinkWriter:
         key: ProjectionOffsetKey,
         projection_offset_id: str,
         generation: int,
-        closure: C9SemanticSourceClosureV1,
+        closure: ProjectSourceClosure,
         rebuild_id: str,
     ) -> Mapping[str, Any]:
         content = {
-            "schema_version": "mrw.successor.c9.projection-candidate-envelope.v1",
+            "schema_version": MATERIAL_PROJECTION_CANDIDATE_SCHEMA,
             "projection_id": PROJECTION_ID,
             "projector_id": key.projector_id,
             "projector_version": key.projector_version,
@@ -526,17 +566,23 @@ class PostgresProjectionSinkWriter:
         )
         digest = sha256_hex(content)
         source_hash = _key_digest(key)[:8]
-        receipt_id = f"c9:{sink}:receipt:{source_hash}:gen-{generation}:{digest[:12]}"
+        receipt_id = (
+            f"material-projection:{sink}:receipt:{source_hash}:"
+            f"generation-{generation}:{digest[:12]}"
+        )
         return _put_receipt_idempotent(
             self.connection,
             self.scope,
             self.tables,
             receipt_id=receipt_id,
             receipt_digest=digest,
-            delivery_intent_ref=f"c9-local-projection:{sink}:gen-{generation}",
-            attempt_ref=f"rebuild:{rebuild_id}",
+            delivery_intent_ref=(
+                f"material-projection:{sink}:generation-{generation}"
+            ),
+            attempt_ref=rebuild_id,
             provider_locator=(
-                f"local:postgres:{self.scope.project_scope.resolved_schema}:{sink}"
+                f"local:postgres:{self.scope.project_scope.resolved_schema}:"
+                f"material-projection:{sink}"
             ),
             content=content,
         )
@@ -699,7 +745,9 @@ class PostgresC9ProjectionRebuilder:
                         failure_code=f"{type(exc).__name__}:{exc}",
                     )
                 )
-                repair_refs.append(f"c9:repair:required-sink:{sink}")
+                repair_refs.append(
+                    f"material-projection:repair:required-sink:{sink}"
+                )
                 continue
             statuses.append(
                 RebuildSinkStatus(
@@ -864,7 +912,7 @@ class PostgresC9ProjectionRebuilder:
             )
             ref = rollback_transition_ref(transition_id)
             content = {
-                "contract": C9_ROLLBACK_TRANSITION_CONTRACT,
+                "contract": PROJECTION_ROLLBACK_TRANSITION_CONTRACT,
                 "ref": ref,
                 "digest": "",
                 "projection_id": PROJECTION_ID,
@@ -884,7 +932,9 @@ class PostgresC9ProjectionRebuilder:
                     if key_name != "digest"
                 }
             )
-            receipt_id = f"c9:rollback-transition:{transition_id[:32]}"
+            receipt_id = (
+                f"material-projection:rollback-transition:{transition_id[:32]}"
+            )
             key_digest = projection_key_digest(
                 projector_id=key.projector_id,
                 projector_version=key.projector_version,
@@ -899,11 +949,14 @@ class PostgresC9ProjectionRebuilder:
                 receipt_id=receipt_id,
                 receipt_digest=c9_content_digest(content),
                 delivery_intent_ref=(
-                    f"c9-rollback:{key_digest[:16]}:{transition_id[:16]}"
+                    "material-projection-rollback:"
+                    f"{key_digest[:16]}:{transition_id[:16]}"
                 ),
                 attempt_ref=f"rollback:{ref}",
                 provider_locator=(
-                    f"local:postgres:{self.scope.project_scope.resolved_schema}:rollback"
+                    "local:postgres:"
+                    f"{self.scope.project_scope.resolved_schema}:"
+                    "material-projection-rollback"
                 ),
                 content=content,
             )
@@ -928,7 +981,10 @@ class PostgresC9ProjectionRebuilder:
             self.connection.execute(
                 select(table).where(
                     table.c.project_key == self.scope.project_scope.project_key,
-                    table.c.receipt_id.like("c9:rollback-transition:%"),
+                    table.c.receipt_id.like(
+                        "material-projection:rollback-transition:%"
+                    )
+                    | table.c.receipt_id.like("c9:rollback-transition:%"),
                 )
             )
             .mappings()
@@ -939,7 +995,14 @@ class PostgresC9ProjectionRebuilder:
             content = row["receipt_json"]
             if not isinstance(content, Mapping):
                 continue
-            if content.get("contract") != C9_ROLLBACK_TRANSITION_CONTRACT:
+            contract = content.get("contract")
+            if contract == PROJECTION_ROLLBACK_TRANSITION_CONTRACT:
+                pass
+            elif contract == C9_ROLLBACK_TRANSITION_CONTRACT:
+                # Historical v1 readback preserves the persisted contract and
+                # digest bytes; it is never relabelled or rehashed as v2.
+                pass
+            else:
                 continue
             if content.get("projector_id") != key.projector_id:
                 continue
@@ -1164,14 +1227,14 @@ class PostgresC9ProjectionRebuilder:
         self,
         source_ref: str,
         key: ProjectionOffsetKey,
-    ) -> C9SemanticSourceClosureV1:
+    ) -> ProjectSourceClosure:
         """Load the official exact closure and bind it to the source key."""
 
         if source_ref != key.source_ref:
             raise C9Unavailable(
                 "source_ref does not exactly match the projection source key"
             )
-        closure = load_exact_semantic_source_closure(self.connection, self.scope)
+        closure = load_exact_project_source_closure(self.connection, self.scope)
         if closure.closure_id != key.source_ref:
             raise C9Unavailable(
                 "semantic source closure identity does not match the projection "
@@ -1230,8 +1293,18 @@ class PostgresC9ProjectionRebuilder:
         by_object_type: dict[str, list[Mapping[str, Any]]] = {}
         for row in candidates:
             by_object_type.setdefault(str(row["object_type"]), []).append(row)
+        candidate_types = set(by_object_type)
+        if candidate_types == set(CANDIDATE_OBJECT_TYPES.values()):
+            object_types = CANDIDATE_OBJECT_TYPES
+        elif candidate_types == set(LEGACY_CANDIDATE_OBJECT_TYPES.values()):
+            object_types = LEGACY_CANDIDATE_OBJECT_TYPES
+        else:
+            raise C9Unavailable(
+                "generation completeness: current and historical candidate "
+                "families cannot be mixed"
+            )
         verified: list[Mapping[str, Any]] = []
-        for sink, object_type in CANDIDATE_OBJECT_TYPES.items():
+        for sink, object_type in object_types.items():
             matches = by_object_type.get(object_type, [])
             if len(matches) != 1:
                 raise C9Unavailable(
@@ -1241,7 +1314,11 @@ class PostgresC9ProjectionRebuilder:
             verified.append(
                 self._verify_completeness_candidate(matches[0], key, generation, sink)
             )
-        receipts = self._generation_receipts(key, generation)
+        receipts = self._generation_receipts(
+            key,
+            generation,
+            expected_sinks=tuple(object_types),
+        )
         candidate_by_value = {
             candidate["value_id"]: candidate for candidate in verified
         }
@@ -1302,15 +1379,29 @@ class PostgresC9ProjectionRebuilder:
         envelope = row["content_json"]
         if not isinstance(envelope, Mapping):
             raise C9Unavailable(f"generation candidate payload missing: {sink}")
+        envelope_schema = envelope.get("schema_version")
+        expected_envelope_schema = (
+            LEGACY_CANDIDATE_ENVELOPE_SCHEMA
+            if sink in LEGACY_REQUIRED_LOCAL_SINKS
+            else MATERIAL_PROJECTION_CANDIDATE_SCHEMA
+        )
+        if envelope_schema != expected_envelope_schema:
+            raise C9Unavailable(
+                f"generation candidate envelope schema drift: {sink}"
+            )
         payload = envelope.get("payload")
         if not isinstance(payload, Mapping):
             raise C9Unavailable(f"generation candidate typed payload missing: {sink}")
         losses = payload.get("declared_losses")
         if not isinstance(losses, list) or not losses:
             raise C9Unavailable(f"generation candidate loss records missing: {sink}")
+        allowed_loss_schemas = {PROJECTION_FIELD_LOSS_SCHEMA}
+        if sink in LEGACY_REQUIRED_LOCAL_SINKS:
+            allowed_loss_schemas.add(LEGACY_PROJECTION_FIELD_LOSS_SCHEMA)
         for loss in losses:
-            if not isinstance(loss, Mapping) or loss.get("schema_version") != (
-                PROJECTION_FIELD_LOSS_SCHEMA
+            if (
+                not isinstance(loss, Mapping)
+                or loss.get("schema_version") not in allowed_loss_schemas
             ):
                 raise C9Unavailable(f"generation candidate loss record drift: {sink}")
         exact = ValueRepository(self.connection, self.tables).get_exact(
@@ -1338,6 +1429,8 @@ class PostgresC9ProjectionRebuilder:
         self,
         key: ProjectionOffsetKey,
         generation: int,
+        *,
+        expected_sinks: tuple[str, ...],
     ) -> tuple[Mapping[str, Any], ...]:
         table = self.tables.successor_receipts
         source_hash = projection_key_digest(
@@ -1347,33 +1440,50 @@ class PostgresC9ProjectionRebuilder:
             source_ref=key.source_ref,
             source_incarnation=key.source_incarnation,
         )[:8]
-        pattern = f"c9:%:receipt:{source_hash}:gen-{generation}:%"
+        current_pattern = (
+            f"material-projection:%:receipt:{source_hash}:"
+            f"generation-{generation}:%"
+        )
+        historical_pattern = f"c9:%:receipt:{source_hash}:gen-{generation}:%"
         rows = (
             self.connection.execute(
                 select(table).where(
                     table.c.project_key == self.scope.project_scope.project_key,
-                    table.c.receipt_id.like(pattern),
+                    table.c.receipt_id.like(current_pattern)
+                    | table.c.receipt_id.like(historical_pattern),
                 )
             )
             .mappings()
             .all()
         )
-        if len(rows) != len(CANDIDATE_OBJECT_TYPES):
+        if len(rows) != len(expected_sinks):
             raise C9Unavailable(
-                f"generation completeness: expected {len(CANDIDATE_OBJECT_TYPES)} "
+                f"generation completeness: expected {len(expected_sinks)} "
                 f"receipts for generation {generation}, got {len(rows)}"
             )
+        historical = set(expected_sinks) == set(LEGACY_REQUIRED_LOCAL_SINKS)
         sinks: set[str] = set()
         for row in rows:
             content = row["receipt_json"]
             if not isinstance(content, Mapping):
                 raise C9Unavailable("generation receipt payload is malformed")
-            sinks.add(str(content.get("sink")))
-            if row["delivery_intent_ref"] != (
-                f"c9-local-projection:{content.get('sink')}:gen-{generation}"
-            ):
+            sink = str(content.get("sink"))
+            sinks.add(sink)
+            expected_schema = (
+                LEGACY_RECEIPT_SCHEMA
+                if historical
+                else MATERIAL_PROJECTION_RECEIPT_SCHEMA
+            )
+            if content.get("schema_version") != expected_schema:
+                raise C9Unavailable("generation receipt schema drift")
+            expected_delivery = (
+                f"c9-local-projection:{sink}:gen-{generation}"
+                if historical
+                else f"material-projection:{sink}:generation-{generation}"
+            )
+            if row["delivery_intent_ref"] != expected_delivery:
                 raise C9Unavailable("generation receipt delivery intent drift")
-        if sinks != set(CANDIDATE_OBJECT_TYPES):
+        if sinks != set(expected_sinks):
             raise C9Unavailable("generation receipt sink set is incomplete/duplicated")
         return tuple(rows)
 
@@ -1385,7 +1495,14 @@ class PostgresC9ProjectionRebuilder:
         table = self.tables.successor_values
         statement = select(table).where(
             table.c.project_key == self.scope.project_scope.project_key,
-            table.c.object_type.in_(tuple(CANDIDATE_OBJECT_TYPES.values())),
+            table.c.object_type.in_(
+                tuple(
+                    {
+                        *CANDIDATE_OBJECT_TYPES.values(),
+                        *LEGACY_CANDIDATE_OBJECT_TYPES.values(),
+                    }
+                )
+            ),
             table.c.provenance_json["projector_id"].as_string() == key.projector_id,
             table.c.provenance_json["projector_version"].as_string()
             == key.projector_version,
@@ -1428,7 +1545,7 @@ def _cli_rebuild(args: argparse.Namespace) -> dict[str, Any]:
             incarnation=args.incarnation,
             scope_digest=args.scope_digest,
         ),
-        actor_id="server:c9-projection-rebuild",
+        actor_id="server:material-projection-rebuild",
     )
     validate_project_scope_ref(scope.project_scope)
     key = ProjectionOffsetKey(
@@ -1464,7 +1581,9 @@ def _cli_rebuild(args: argparse.Namespace) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="C9 projection generation/rebuild over existing P0-D substrate"
+        description=(
+            "material projection generation/rebuild over the project source closure"
+        )
     )
     parser.add_argument("--mode", choices=("rebuild", "readback"), required=True)
     parser.add_argument(
@@ -1476,8 +1595,11 @@ def main() -> int:
     parser.add_argument("--registry-revision", type=int, default=1)
     parser.add_argument("--incarnation", required=True)
     parser.add_argument("--scope-digest", required=True)
-    parser.add_argument("--projector-id", required=True)
-    parser.add_argument("--projector-version", default="1")
+    parser.add_argument("--projector-id", default=PROJECTION_PROJECTOR_ID)
+    parser.add_argument(
+        "--projector-version",
+        default=PROJECTION_PROJECTOR_VERSION,
+    )
     parser.add_argument("--source-kind", default=C9_SOURCE_KIND)
     parser.add_argument("--source-ref", required=True)
     parser.add_argument("--source-incarnation", required=True)
@@ -1490,7 +1612,7 @@ def main() -> int:
     try:
         print(repr(_cli_rebuild(args)))
     except Exception as exc:  # noqa: BLE001 - CLI fail closed
-        print(f"c9 projection rebuild failed: {exc}", file=sys.stderr)
+        print(f"material projection rebuild failed: {exc}", file=sys.stderr)
         return 1
     return 0
 

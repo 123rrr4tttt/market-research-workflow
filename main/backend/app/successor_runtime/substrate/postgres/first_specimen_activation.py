@@ -14,6 +14,7 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import MetaData, insert, select, update
 from sqlalchemy.engine import Connection

@@ -22,7 +22,7 @@ from app.services.agent_runtime import (
 )
 from .store import build_agent_session_store
 
-SESSION_STATUSES = frozenset({"pending", "active", "blocked", "completed", "failed", "canceled"})
+TASK_STATUSES = frozenset({"pending", "active", "blocked", "completed", "failed", "canceled"})
 TASK_STATUSES = frozenset({"pending", "claimed", "in_progress", "blocked", "completed", "failed", "canceled", "expired"})
 TASK_PHASES = frozenset({"conversation", "research", "synthesis", "implementation", "verification", "maintenance"})
 EXECUTION_MODES = frozenset({"coordinator", "worker", "system"})
@@ -728,7 +728,7 @@ class AgentSessionService:
         metadata: dict[str, Any] | None = None,
         audit_log: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | Failure:
-        normalized_status = _normalize_status(status, allowed=SESSION_STATUSES | {"approved", "pending"}, default="pending")
+        normalized_status = _normalize_status(status, allowed=TASK_STATUSES | {"approved", "pending"}, default="pending")
         if isinstance(normalized_status, Failure):
             return normalized_status
         row = self.store.create_or_update_approval(
@@ -863,83 +863,6 @@ class AgentSessionService:
     def run_coordinator_pass(self, session_id: str) -> dict[str, Any]:
         return self.coordinator_runtime.run_pass(self, session_id)
 
-    def project_agent_batch_compat(
-        self,
-        *,
-        command: str,
-        project_key: str | None,
-        request_payload: dict[str, Any],
-        loop_result: dict[str, Any],
-    ) -> dict[str, Any]:
-        submit = dict(loop_result.get("submit") or {})
-        compat_job_id = str(submit.get("job_id") or "").strip() or None
-        plan = dict(loop_result.get("plan") or {})
-        task_blueprints = self._build_agent_batch_compat_blueprints(command=command, loop_result=loop_result)
-        metadata = {
-            "compat_projection_version": "claude-agent.v1",
-            "agent_batch": {
-                "job_id": compat_job_id,
-                "dry_run": bool(loop_result.get("dry_run") or request_payload.get("dry_run")),
-                "enable_bounded_retry": bool(request_payload.get("enable_bounded_retry")),
-                "enable_limited_branching": bool(request_payload.get("enable_limited_branching")),
-            },
-            "loop_result": {
-                "parsed": dict(loop_result.get("parsed") or {}),
-                "executor": dict(loop_result.get("executor") or {}),
-                "plan": {
-                    "intent": plan.get("intent"),
-                    "strategy": plan.get("strategy"),
-                    "loop": dict(plan.get("loop") or {}),
-                    "search_brief": dict(plan.get("search_brief") or {}),
-                    "search_critic": dict(plan.get("search_critic") or {}),
-                    "search_retry": dict(plan.get("search_retry") or {}),
-                    "branching": dict(plan.get("branching") or {}),
-                },
-                "completion": dict(loop_result.get("completion") or {}),
-            },
-        }
-        bundle = self.create_session(
-            source="agent_batch",
-            entrypoint_type="nl_command",
-            goal=str(command or "").strip(),
-            project_key=project_key,
-            initial_context=request_payload,
-            compat_mode=True,
-            compat_job_id=compat_job_id,
-            metadata=metadata,
-            task_blueprints=task_blueprints,
-        )
-        session_id = bundle["session"]["session_id"]
-        self.store.upsert_artifact(
-            {
-                "session_id": session_id,
-                "artifact_type": "compat.loop_result",
-                "name": "compat.loop_result.json",
-                "mime_type": "application/json",
-                "content_json": loop_result,
-                "metadata": {"source": "agent_batch.nl_command"},
-            }
-        )
-        search_brief = dict(plan.get("search_brief") or {})
-        if search_brief:
-            self.store.upsert_artifact(
-                {
-                    "session_id": session_id,
-                    "artifact_type": "research_summary_json",
-                    "name": "search_brief.json",
-                    "mime_type": "application/json",
-                    "content_json": search_brief,
-                    "metadata": {"source": "agent_batch.plan.search_brief"},
-                }
-            )
-        self.store.append_event(
-            session_id,
-            event_type="compat.projected",
-            payload={"compat_job_id": compat_job_id, "command": command, "task_count": len(task_blueprints)},
-        )
-        self._refresh_memory_artifacts(session_id, force=True)
-        return self.get_session_bundle(session_id)
-
     def project_agent_batch_job_submission(
         self,
         *,
@@ -1036,6 +959,7 @@ class AgentSessionService:
             ),
             None,
         )
+        changed_any = False
         for projected in projected_items:
             item_id = str(projected.get("item_id") or "").strip()
             if not item_id:
@@ -1058,6 +982,7 @@ class AgentSessionService:
                     },
                 )
                 item_tasks[item_id] = task
+                changed_any = True
             snapshot = dict(projected.get("snapshot") or {})
             mapped_status = self._map_agent_batch_task_status(str(snapshot.get("status") or "pending"))
             changes = {
@@ -1080,39 +1005,65 @@ class AgentSessionService:
                 "last_activity": f"compat job item {item_id} status={snapshot.get('status')}",
                 "recent_activities": [f"compat job item {item_id} status={snapshot.get('status')}"],
                 "lease_until": None,
+                "completed_at": (
+                    task.get("completed_at") or _utcnow()
+                    if mapped_status in FINAL_TASK_STATUSES
+                    else None
+                ),
             }
-            if mapped_status in FINAL_TASK_STATUSES:
-                changes["completed_at"] = _utcnow()
-            updated = self.store.update_task(session_id, task["task_id"], changes)
-            self.store.update_task(session_id, task["task_id"], {"summary_label": build_summary_label(updated)})
-            self.store.append_event(
-                session_id,
-                event_type=f"task.{mapped_status}",
-                task_id=task["task_id"],
-                payload={
-                    "compat_job_id": compat_job_id,
-                    "item_id": item_id,
-                    "run_id": projected.get("run_id"),
-                    "workflow_run_id": projected.get("workflow_run_id"),
-                },
-            )
+            changes = {key: value for key, value in changes.items() if task.get(key) != value}
+            if changes:
+                updated = self.store.update_task(session_id, task["task_id"], changes)
+                summary_label = build_summary_label(updated)
+                if updated.get("summary_label") != summary_label:
+                    updated = self.store.update_task(
+                        session_id, task["task_id"], {"summary_label": summary_label}
+                    )
+                self.store.append_event(
+                    session_id,
+                    event_type=f"task.{mapped_status}",
+                    task_id=task["task_id"],
+                    payload={
+                        "compat_job_id": compat_job_id,
+                        "item_id": item_id,
+                        "run_id": projected.get("run_id"),
+                        "workflow_run_id": projected.get("workflow_run_id"),
+                    },
+                )
+                changed_any = True
 
         if verification_task is not None:
             verification_status = self._map_agent_batch_job_phase_to_task_status(phase, progress=progress)
-            updated = self.store.update_task(
-                session_id,
-                verification_task["task_id"],
-                {
-                    "status": verification_status,
-                    "result_summary": _short_json({"phase": phase, "progress": progress}, limit=180),
-                    "result_payload": {"phase": phase, "progress": progress},
-                    "last_activity": f"compat job {compat_job_id} phase={phase}",
-                    "recent_activities": [f"compat job {compat_job_id} phase={phase}"],
-                    "lease_until": None,
-                    "completed_at": _utcnow() if verification_status in FINAL_TASK_STATUSES else None,
-                },
-            )
-            self.store.update_task(session_id, verification_task["task_id"], {"summary_label": build_summary_label(updated)})
+            verification_changes = {
+                "status": verification_status,
+                "result_summary": _short_json({"phase": phase, "progress": progress}, limit=180),
+                "result_payload": {"phase": phase, "progress": progress},
+                "last_activity": f"compat job {compat_job_id} phase={phase}",
+                "recent_activities": [f"compat job {compat_job_id} phase={phase}"],
+                "lease_until": None,
+                "completed_at": (
+                    verification_task.get("completed_at") or _utcnow()
+                    if verification_status in FINAL_TASK_STATUSES
+                    else None
+                ),
+            }
+            verification_changes = {
+                key: value
+                for key, value in verification_changes.items()
+                if verification_task.get(key) != value
+            }
+            if verification_changes:
+                updated = self.store.update_task(
+                    session_id, verification_task["task_id"], verification_changes
+                )
+                summary_label = build_summary_label(updated)
+                if updated.get("summary_label") != summary_label:
+                    self.store.update_task(
+                        session_id,
+                        verification_task["task_id"],
+                        {"summary_label": summary_label},
+                    )
+                changed_any = True
         session = self.store.get_session(session_id)
         metadata = dict(session.get("metadata") or {})
         agent_batch_meta = dict(metadata.get("agent_batch") or {})
@@ -1126,8 +1077,10 @@ class AgentSessionService:
                 event_type="compat.job_state_projected",
                 payload={"compat_job_id": compat_job_id, "phase": phase, "progress": progress},
             )
-        self._sync_session_state(session_id)
-        self._refresh_memory_artifacts(session_id, force=True)
+            changed_any = True
+        if changed_any:
+            self._sync_session_state(session_id)
+            self._refresh_memory_artifacts(session_id, force=True)
         return self.get_session_bundle(session_id)
 
     def create_workflow_graph_session(
@@ -1738,140 +1691,6 @@ class AgentSessionService:
         for item in materialized:
             item["blocks"] = blockers.get(item["task_id"], [])
         return materialized
-
-    def _build_agent_batch_compat_blueprints(self, *, command: str, loop_result: dict[str, Any]) -> list[dict[str, Any]]:
-        plan = dict(loop_result.get("plan") or {})
-        parsed = dict(loop_result.get("parsed") or {})
-        submit = dict(loop_result.get("submit") or {})
-        completion = dict(loop_result.get("completion") or {})
-        plan_tasks = list(plan.get("tasks") or [])
-        blueprints: list[dict[str, Any]] = []
-        research_task_ids: list[str] = []
-        for idx, item in enumerate(plan_tasks, start=1):
-            task_id = _new_id("task")
-            research_task_ids.append(task_id)
-            query_terms = _normalize_string_list(item.get("query_terms"))
-            channel = str(item.get("channel") or "research").strip() or "research"
-            item_key = str(item.get("item_key") or "").strip()
-            target_scope = item_key or ",".join(query_terms) or channel
-            blueprints.append(
-                {
-                    "task_id": task_id,
-                    "subject": f"Research {idx}: {channel}",
-                    "description": f"Projected from agent_batch plan task {idx}.",
-                    "task_type": "research",
-                    "phase": "research",
-                    "status": "completed",
-                    "execution_mode": "worker",
-                    "priority": idx,
-                    "write_set": [],
-                    "read_set": [f"agent_batch.plan:{channel}"],
-                    "result_summary": f"Planned {channel} target {target_scope}".strip(),
-                    "metadata": {"compat_projection": "agent_batch.plan_task", "channel": channel, "source_task": item},
-                    "task_spec": {
-                        "task_type": "research",
-                        "goal": command,
-                        "context": {"parsed": parsed},
-                        "target_scope": target_scope,
-                        "write_set": [],
-                        "completion_criteria": ["Represent the planned research task in the session ledger."],
-                        "verification_steps": ["Ensure projected task reflects the original plan task."],
-                        "artifact_targets": ["search_brief.json", "scratchpad.md"],
-                    },
-                }
-            )
-        blueprints.append(
-            {
-                "task_id": _new_id("task"),
-                "subject": "Synthesis",
-                "description": "Projected from search_brief/search_critic/search_retry artifacts.",
-                "task_type": "synthesis",
-                "phase": "synthesis",
-                "status": "completed",
-                "execution_mode": "coordinator",
-                "priority": 50,
-                "blocked_by": research_task_ids,
-                "result_summary": _short_json(
-                    {
-                        "search_brief": dict(plan.get("search_brief") or {}),
-                        "search_critic": dict(plan.get("search_critic") or {}),
-                        "search_retry": dict(plan.get("search_retry") or {}),
-                    },
-                    limit=180,
-                ),
-                "metadata": {"compat_projection": "agent_batch.plan_summary"},
-                "task_spec": {
-                    "task_type": "synthesis",
-                    "goal": command,
-                    "context": {"plan_loop": dict(plan.get("loop") or {})},
-                    "target_scope": "agent_batch.plan",
-                    "write_set": [],
-                    "completion_criteria": ["Carry forward the synthesized search plan state."],
-                    "verification_steps": ["Confirm search_brief and critic payloads are attached."],
-                    "artifact_targets": ["search_brief.json", "scratchpad.md", "memory.md"],
-                },
-            }
-        )
-        implementation_status = "blocked"
-        verification_status = "blocked"
-        if submit:
-            implementation_status = "completed" if bool(completion.get("completed")) else "in_progress"
-            verification_status = "completed" if bool(completion.get("completed")) else "pending"
-        blueprints.append(
-            {
-                "task_id": _new_id("task"),
-                "subject": "Implementation",
-                "description": "Projected from agent_batch dispatch job state.",
-                "task_type": "implementation",
-                "phase": "implementation",
-                "status": implementation_status,
-                "execution_mode": "worker",
-                "priority": 60,
-                "blocked_by_refs": ["prev"],
-                "write_set": [f"agent_batch.job:{submit.get('job_id') or 'dry-run'}"],
-                "read_set": [],
-                "result_summary": f"job_id={submit.get('job_id') or 'n/a'} accepted={submit.get('accepted_count') or 0}",
-                "metadata": {"compat_projection": "agent_batch.submit", "submit": submit},
-                "task_spec": {
-                    "task_type": "implementation",
-                    "goal": command,
-                    "context": {"submit": submit},
-                    "target_scope": str(submit.get("job_id") or "agent_batch.dry_run"),
-                    "write_set": [f"agent_batch.job:{submit.get('job_id') or 'dry-run'}"],
-                    "completion_criteria": ["Track the batch dispatch state in the session task bus."],
-                    "verification_steps": ["Inspect linked job progress and completion state."],
-                    "artifact_targets": ["compat.loop_result.json", "scratchpad.md"],
-                },
-            }
-        )
-        blueprints.append(
-            {
-                "task_id": _new_id("task"),
-                "subject": "Verification",
-                "description": "Projected from agent_batch completion state.",
-                "task_type": "verification",
-                "phase": "verification",
-                "status": verification_status,
-                "execution_mode": "worker",
-                "priority": 70,
-                "blocked_by_refs": ["prev"],
-                "write_set": [],
-                "read_set": [f"agent_batch.job:{submit.get('job_id') or 'dry-run'}"],
-                "result_summary": _short_json(completion, limit=180) if completion else None,
-                "metadata": {"compat_projection": "agent_batch.completion", "completion": completion},
-                "task_spec": {
-                    "task_type": "verification",
-                    "goal": command,
-                    "context": {"completion": completion},
-                    "target_scope": str(submit.get("job_id") or "agent_batch.dry_run"),
-                    "write_set": [],
-                    "completion_criteria": ["Reflect whether the projected compat job has completed verification."],
-                    "verification_steps": ["Observe completion payload and task statuses."],
-                    "artifact_targets": ["compat.loop_result.json", "memory.md", "scratchpad.md"],
-                },
-            }
-        )
-        return blueprints
 
     def _build_agent_batch_job_blueprints(
         self,

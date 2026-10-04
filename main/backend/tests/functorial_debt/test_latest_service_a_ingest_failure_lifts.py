@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -19,17 +18,14 @@ from app.services.ingest import (  # noqa: E402
     ecom,
     frontdoor_ingress,
     policy,
-    market,
     market_web,
 )
-from app.services.ingest.provider_ports import MarketRecord  # noqa: E402
 from app.services.source_library import provider_ports as source_provider_ports  # noqa: E402
 from mrw_functorial_kit.core.application_failure_semantics import (  # noqa: E402
     source_library_contract_failures,
 )
 from mrw_functorial_kit.core.provider_port_failures import (  # noqa: E402
     ingest_long_cycle_failures,
-    ingest_market_failures,
     ingest_operation_failures,
     ingest_policy_failures,
 )
@@ -54,6 +50,14 @@ class _ExplodingSession:
 class _ExplodingIterable:
     def __iter__(self):
         raise ValueError("provider iteration failed")
+
+
+class _NullSession:
+    def __enter__(self) -> "_NullSession":
+        return self
+
+    def __exit__(self, *_args: object) -> bool:
+        return False
 
 
 def test_crawler_resolution_programmer_defect() -> None:
@@ -84,23 +88,6 @@ def test_unconfigured_crawler_resolver_fails_closed() -> None:
 
 
 def test_latest_ingest_provider_iteration_failure_lifts() -> None:
-    market_cause = ValueError("market provider iteration failed")
-    market_failure = market._market_provider_iteration_failure("ca", market_cause)
-    assert market_failure.family == ingest_market_failures.name
-    assert market_failure.code == "market_provider_iteration_failed"
-    assert market_failure.context == {
-        "state": "CA",
-        "cause_message": "market provider iteration failed",
-        "exception_type": "ValueError",
-    }
-    with pytest.raises(ValueError, match="^market provider iteration failed$") as raised:
-        market._raise_market_provider_iteration_failure(market_failure, market_cause)
-    assert raised.value is market_cause
-    with pytest.raises(TypeError, match="^market provider iteration failure lift context is inconsistent$"):
-        market._raise_market_provider_iteration_failure(
-            Failure("other.family", "bad", "bad", {}), market_cause
-        )
-
     policy_cause = ValueError("policy provider iteration failed")
     policy_failure = policy._policy_provider_iteration_failure("ca", policy_cause)
     assert policy_failure.family == ingest_policy_failures.name
@@ -120,11 +107,6 @@ def test_latest_ingest_provider_iteration_failure_lifts() -> None:
 
 
 def test_latest_ingest_provider_iteration_preserves_legacy_abi() -> None:
-    class _MarketAdapter:
-        @staticmethod
-        def fetch_records() -> _ExplodingIterable:
-            return _ExplodingIterable()
-
     class _PolicyAdapter:
         @staticmethod
         def fetch_documents() -> _ExplodingIterable:
@@ -132,13 +114,6 @@ def test_latest_ingest_provider_iteration_preserves_legacy_abi() -> None:
 
     def _unexpected_job_start(*_args: object, **_kwargs: object) -> None:
         raise AssertionError("job started before provider iteration completed")
-
-    with (
-        patch.object(market, "get_market_adapters", return_value=[_MarketAdapter()]),
-        patch.object(market, "start_job", _unexpected_job_start),
-        pytest.raises(ValueError, match="^provider iteration failed$"),
-    ):
-        market.ingest_market_data("CA")
 
     with (
         patch.object(policy, "get_policy_adapter", return_value=_PolicyAdapter()),
@@ -210,26 +185,15 @@ def test_ingest_service_a_failure_lifts() -> None:
         ecom.collect_ecom_price_observations(limit=1)
     ecom_fail.assert_called_once_with(2, "database session failed")
 
-    adapter = type(
-        "Adapter",
-        (),
-        {"fetch_records": lambda self: iter([MarketRecord(state="CA", date=date(2026, 1, 1))])},
-    )()
-    with (
-        patch.object(market, "get_market_adapters", return_value=[adapter]),
-        patch.object(market, "start_job", return_value=3),
-        patch.object(market, "fail_job") as market_fail,
-        patch.object(market, "SessionLocal", return_value=_ExplodingSession()),
-        patch.object(market, "_get_existing", side_effect=RuntimeError("market persistence failed")),
-        pytest.raises(RuntimeError, match="^market persistence failed$"),
-    ):
-        market.ingest_market_data("CA")
-    market_fail.assert_called_once_with(3, "market persistence failed")
-
     with (
         patch.object(market_web, "start_job", return_value=4),
         patch.object(market_web, "fail_job") as market_web_fail,
-        patch.object(market_web, "search_sources", side_effect=RuntimeError("search provider failed")),
+        patch.object(market_web, "SessionLocal", return_value=_NullSession()),
+        patch.object(market_web, "_get_or_create_source", return_value=object()),
+        patch(
+            "app.services.search.candidate_search.search_sources",
+            side_effect=RuntimeError("search provider failed"),
+        ),
         pytest.raises(RuntimeError, match="^search provider failed$"),
     ):
         market_web.collect_market_info(["robotics"], limit=1)

@@ -1,3 +1,6 @@
+;(() => {
+'use strict'
+
 const APP_TOTAL = 6
 
 const serviceOrder = [
@@ -22,6 +25,115 @@ const serviceMeta = {
   yacy: { label: 'YaCy', detail: 'Local corpus :8090', optional: true },
 }
 
+function createCodexAuth({ request }) {
+  const codexEls = {
+    panel: document.getElementById('codex-device-panel'),
+    code: document.getElementById('codex-device-code'),
+    copy: document.getElementById('copy-codex-code'),
+    open: document.getElementById('open-codex-auth'),
+    cliState: document.getElementById('codex-cli-state'),
+    authState: document.getElementById('codex-auth-state'),
+    coreState: document.getElementById('codex-core-state'),
+    updated: document.getElementById('codex-updated'),
+    auth: document.getElementById('codex-auth'),
+    message:
+      document.getElementById('settings-message') ||
+      document.getElementById('message'),
+  }
+  let deviceUrl = ''
+  let deviceCode = ''
+
+  function showMessage(text) {
+    if (codexEls.message) codexEls.message.textContent = text
+  }
+
+  async function copyCode() {
+    if (!deviceCode) return
+    await navigator.clipboard?.writeText(deviceCode).catch(() => {})
+    showMessage(`Device code copied: ${deviceCode}`)
+  }
+
+  function showDeviceAuth(data) {
+    deviceUrl = data.device_url || ''
+    deviceCode = data.device_code || ''
+    codexEls.code.textContent = deviceCode || 'No code returned'
+    codexEls.panel.hidden = false
+    showMessage(
+      deviceCode
+        ? 'Device code is ready and copied when allowed. Use it on the Codex auth page.'
+        : data.hint || 'Codex CLI authentication did not return a device code.',
+    )
+    copyCode()
+  }
+
+  function openAuthPage() {
+    if (!deviceUrl) return
+    window.open(deviceUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  function unwrap(payload) {
+    if (payload && (payload.status === 'ok' || payload.ok)) return payload.data || {}
+    return payload || {}
+  }
+
+  function renderStatus(payload) {
+    const data = unwrap(payload)
+    const core = data.persistent_core || {}
+    const cliReady = Boolean(data.codex_cli_installed)
+    const authed = Boolean(data.authenticated || data.token_sink_authenticated)
+    codexEls.cliState.textContent = `CLI: ${cliReady ? 'ready' : 'missing'}`
+    codexEls.authState.textContent = `Auth: ${authed ? 'authenticated' : data.device_auth_pending ? 'waiting for device auth' : 'not authenticated'}`
+    codexEls.coreState.textContent = `Core: ${core.running ? 'running' : 'idle'}`
+    codexEls.updated.textContent = `Updated ${new Date().toLocaleTimeString()}`
+  }
+
+  function showUnavailable(error) {
+    codexEls.cliState.textContent = 'CLI: unknown'
+    codexEls.authState.textContent = 'Auth: unknown'
+    codexEls.coreState.textContent = 'Core: unknown'
+    codexEls.updated.textContent = error instanceof Error ? error.message : 'Unavailable'
+  }
+
+  async function refreshStatus() {
+    try {
+      renderStatus(await request('/api/launcher/codex/status'))
+    } catch (error) {
+      showUnavailable(error)
+    }
+  }
+
+  async function start() {
+    showMessage('Starting Codex CLI authentication...')
+    try {
+      const data = unwrap(
+        await request('/api/launcher/codex/cli/bootstrap', {
+          method: 'POST',
+          body: JSON.stringify({}),
+        }),
+      )
+      if (data.authenticated) {
+        showMessage('Codex is already authenticated.')
+        return
+      }
+      if (data.device_url) {
+        showDeviceAuth(data)
+        refreshStatus()
+        return
+      }
+      showMessage(data.hint || 'Codex CLI authentication did not return a device URL.')
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  const controls = { start, refresh: refreshStatus }
+  codexEls.auth.addEventListener('click', start)
+  codexEls.copy.addEventListener('click', copyCode)
+  codexEls.open.addEventListener('click', openAuthPage)
+  window.launcherCodex = controls
+  return controls
+}
+
 const els = {
   state: document.getElementById('state'),
   headline: document.getElementById('headline'),
@@ -35,46 +147,12 @@ const els = {
   ops: document.getElementById('ops'),
   updated: document.getElementById('updated'),
   message: document.getElementById('message'),
-  codexPanel: document.getElementById('codex-device-panel'),
-  codexCode: document.getElementById('codex-device-code'),
-  copyCodexCode: document.getElementById('copy-codex-code'),
-  openCodexAuth: document.getElementById('open-codex-auth'),
-  codexCliState: document.getElementById('codex-cli-state'),
-  codexAuthState: document.getElementById('codex-auth-state'),
-  codexCoreState: document.getElementById('codex-core-state'),
-  codexUpdated: document.getElementById('codex-updated'),
   start: document.getElementById('start'),
   stop: document.getElementById('stop'),
   restart: document.getElementById('restart'),
   refresh: document.getElementById('refresh'),
-  codexAuth: document.getElementById('codex-auth'),
   withSearxng: document.getElementById('with-searxng'),
   withYacy: document.getElementById('with-yacy'),
-}
-
-let codexDeviceUrl = ''
-let codexDeviceCode = ''
-
-async function copyCodexCode() {
-  if (!codexDeviceCode) return
-  await navigator.clipboard?.writeText(codexDeviceCode).catch(() => {})
-  els.message.textContent = `Device code copied: ${codexDeviceCode}`
-}
-
-function showCodexDeviceAuth(data) {
-  codexDeviceUrl = data.device_url || ''
-  codexDeviceCode = data.device_code || ''
-  els.codexCode.textContent = codexDeviceCode || 'No code returned'
-  els.codexPanel.hidden = false
-  els.message.textContent = codexDeviceCode
-    ? `Device code is ready and copied when allowed. Use it on the Codex auth page.`
-    : data.hint || 'Codex CLI authentication did not return a device code.'
-  copyCodexCode()
-}
-
-function openCodexAuthPage() {
-  if (!codexDeviceUrl) return
-  window.open(codexDeviceUrl, '_blank', 'noopener,noreferrer')
 }
 
 async function request(path, options = {}) {
@@ -86,11 +164,15 @@ async function request(path, options = {}) {
     },
   })
   const payload = await response.json().catch(() => ({}))
-  if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || payload.output || `request failed: ${response.status}`)
+  if (!response.ok || payload.ok === false || payload.status === 'error') {
+    throw new Error(
+      payload?.error?.message || payload?.error || payload?.output || `request failed: ${response.status}`,
+    )
   }
   return payload
 }
+
+const codexAuth = createCodexAuth({ request })
 
 function selectedProfiles({ includeAllOptional = false } = {}) {
   const profiles = ['modern-ui']
@@ -173,32 +255,9 @@ async function refresh() {
   try {
     const payload = await request('/api/launcher/status')
     render(payload)
-    refreshCodexStatus()
+    codexAuth.refresh()
   } catch (error) {
     els.message.textContent = error instanceof Error ? error.message : String(error)
-  }
-}
-
-function renderCodexStatus(payload) {
-  const data = payload.data || payload
-  const core = data.persistent_core || {}
-  const cliReady = Boolean(data.codex_cli_installed)
-  const authed = Boolean(data.authenticated || data.token_sink_authenticated)
-  els.codexCliState.textContent = `CLI: ${cliReady ? 'ready' : 'missing'}`
-  els.codexAuthState.textContent = `Auth: ${authed ? 'authenticated' : data.device_auth_pending ? 'waiting for device auth' : 'not authenticated'}`
-  els.codexCoreState.textContent = `Core: ${core.running ? 'running' : 'idle'}`
-  els.codexUpdated.textContent = `Updated ${new Date().toLocaleTimeString()}`
-}
-
-async function refreshCodexStatus() {
-  try {
-    const payload = await request('/api/launcher/codex/status')
-    renderCodexStatus(payload)
-  } catch (error) {
-    els.codexCliState.textContent = 'CLI: unknown'
-    els.codexAuthState.textContent = 'Auth: unknown'
-    els.codexCoreState.textContent = 'Core: unknown'
-    els.codexUpdated.textContent = error instanceof Error ? error.message : 'Unavailable'
   }
 }
 
@@ -239,45 +298,22 @@ async function serviceAction(service, actionName) {
   }
 }
 
-async function startCodexAuth() {
-  els.message.textContent = 'Starting Codex CLI authentication...'
-  try {
-    const payload = await request('/api/launcher/codex/cli/bootstrap', {
-      method: 'POST',
-      body: JSON.stringify({}),
-    })
-    const data = payload.data || payload
-    if (data.authenticated) {
-      els.message.textContent = 'Codex is already authenticated.'
-      return
-    }
-    if (data.device_url) {
-      showCodexDeviceAuth(data)
-      refreshCodexStatus()
-      return
-    }
-    els.message.textContent = data.hint || 'Codex CLI authentication did not return a device URL.'
-  } catch (error) {
-    els.message.textContent = error instanceof Error ? error.message : String(error)
-  }
+if (els.start) {
+  els.start.addEventListener('click', () => action('start'))
+  els.stop.addEventListener('click', () => action('stop'))
+  els.restart.addEventListener('click', () => action('restart'))
+  els.refresh.addEventListener('click', refresh)
+  els.services.addEventListener('click', (event) => {
+    const target = event.target
+    if (!(target instanceof HTMLElement)) return
+    const button = target.closest('[data-service-action]')
+    if (!(button instanceof HTMLElement)) return
+    const service = button.dataset.service
+    const actionName = button.dataset.serviceAction
+    if (service && actionName) serviceAction(service, actionName)
+  })
+
+  refresh()
+  window.setInterval(refresh, 5000)
 }
-
-els.start.addEventListener('click', () => action('start'))
-els.stop.addEventListener('click', () => action('stop'))
-els.restart.addEventListener('click', () => action('restart'))
-els.refresh.addEventListener('click', refresh)
-els.codexAuth.addEventListener('click', startCodexAuth)
-els.copyCodexCode.addEventListener('click', copyCodexCode)
-els.openCodexAuth.addEventListener('click', openCodexAuthPage)
-els.services.addEventListener('click', (event) => {
-  const target = event.target
-  if (!(target instanceof HTMLElement)) return
-  const button = target.closest('[data-service-action]')
-  if (!(button instanceof HTMLElement)) return
-  const service = button.dataset.service
-  const actionName = button.dataset.serviceAction
-  if (service && actionName) serviceAction(service, actionName)
-})
-
-refresh()
-window.setInterval(refresh, 5000)
+})()

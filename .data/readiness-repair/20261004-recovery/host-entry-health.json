@@ -1,0 +1,43 @@
+{
+  "8000/api/v1/health": {
+    "http_status": 200,
+    "data": {
+      "status": "ok",
+      "provider": "openai",
+      "env": "dev"
+    }
+  },
+  "8000/api/v1/health/deep": {
+    "http_status": 200,
+    "data": {
+      "status": "degraded",
+      "database": "ok",
+      "database_pool": "ok",
+      "elasticsearch": "error: ping failed",
+      "details": {
+        "database_latency_ms": 1.12,
+        "database_pool": {
+          "pool_class": "QueuePool",
+          "status": "Pool size: 10  Connections in pool: 1 Current Overflow: -9 Current Checked out connections: 0",
+          "size": 10,
+          "checkedin": 1,
+          "checkedout": 0,
+          "overflow": -9
+        },
+        "elasticsearch_latency_ms": 20.49
+      }
+    }
+  },
+  "8172/": {
+    "http_status": 200,
+    "data": {
+      "page_bytes": 575
+    }
+  },
+  "8172/codex/api/auth/bootstrap": {
+    "http_status": 200,
+    "data": {
+      "page_bytes": 575
+    }
+  }
+}

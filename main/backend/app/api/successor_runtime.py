@@ -13,7 +13,7 @@ import dataclasses
 from collections.abc import Callable
 from typing import Protocol, runtime_checkable
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
 
 from app.contracts.successor_runtime import (
@@ -35,17 +35,22 @@ from app.successor_runtime.runtime.facade_contracts import (
     ProjectionResponseMetaV2,
     ProjectionSnapshotDataV2,
     QueryMetaV2,
-    derive_c9_request_digest,
+    derive_projection_request_identity,
 )
 from app.successor_runtime.runtime.ports import ProjectScopeRef
 from app.successor_runtime.substrate.postgres.session import ProjectScopeResolver
 
 __all__ = [
+    "MATERIAL_PROJECTION_ROUTE_PREFIX",
+    "LEGACY_SUCCESSOR_RUNTIME_ROUTE_PREFIX",
     "bind_server_command",
     "bind_server_query",
     "create_successor_runtime_router",
     "create_successor_runtime_state_router",
 ]
+
+MATERIAL_PROJECTION_ROUTE_PREFIX = "/material-projections/v2"
+LEGACY_SUCCESSOR_RUNTIME_ROUTE_PREFIX = "/successor-runtime/v2"
 
 
 @runtime_checkable
@@ -73,7 +78,7 @@ def bind_server_command(
     """Inject server scope/actor and derive the exact request identity."""
 
     payload = dto.payload.model_dump(mode="json")
-    request_digest = derive_c9_request_digest(
+    request_digest = derive_projection_request_identity(
         scope_digest=scope.scope_digest,
         actor_ref=actor_ref,
         command_id=dto.command_id,
@@ -85,7 +90,7 @@ def bind_server_command(
     return FacadeCommandV2(
         command_id=dto.command_id,
         command_kind=dto.command_kind,
-        description=f"successor runtime command {dto.command_kind}",
+        description=f"material projection command {dto.command_kind}",
         project_scope_ref=scope,
         actor_ref=actor_ref,
         idempotency_key=request_digest,
@@ -273,10 +278,10 @@ def create_successor_runtime_router(
 ) -> APIRouter:
     """Return an unregistered router bound to injected server dependencies."""
 
-    router = APIRouter(prefix="/successor-runtime/v2", tags=["successor-runtime-v2"])
+    router = APIRouter(tags=["material-projections-v2"])
 
     @router.post(
-        "/commands",
+        f"{MATERIAL_PROJECTION_ROUTE_PREFIX}/commands",
         response_model=SuccessorRuntimeEnvelopeV2DTO,
     )
     def submit_command(
@@ -292,13 +297,43 @@ def create_successor_runtime_router(
         )
 
     @router.post(
-        "/queries",
+        f"{MATERIAL_PROJECTION_ROUTE_PREFIX}/queries",
         response_model=SuccessorRuntimeEnvelopeV2DTO,
     )
     def run_query(
         dto: SuccessorRuntimeQueryV2DTO,
         request: Request,
     ) -> SuccessorRuntimeEnvelopeV2DTO:
+        return _handle_query(
+            dto,
+            request,
+            _DirectDependencies(
+                resolver=resolver, facade=facade, actor_provider=actor_provider
+            ),
+        )
+
+    @router.post(
+        f"{LEGACY_SUCCESSOR_RUNTIME_ROUTE_PREFIX}/commands",
+        response_model=SuccessorRuntimeEnvelopeV2DTO,
+        deprecated=True,
+        responses={410: {"model": SuccessorRuntimeEnvelopeV2DTO}},
+    )
+    def reject_legacy_command(
+        dto: SuccessorRuntimeCommandV2DTO,
+    ):
+        return _deprecated_command_response(dto)
+
+    @router.post(
+        f"{LEGACY_SUCCESSOR_RUNTIME_ROUTE_PREFIX}/queries",
+        response_model=SuccessorRuntimeEnvelopeV2DTO,
+        deprecated=True,
+    )
+    def run_legacy_query(
+        dto: SuccessorRuntimeQueryV2DTO,
+        request: Request,
+        response: Response,
+    ) -> SuccessorRuntimeEnvelopeV2DTO:
+        response.headers["Deprecation"] = "true"
         return _handle_query(
             dto,
             request,
@@ -328,11 +363,29 @@ def _mount_unavailable_response(
         dto,
         code="MOUNT_NOT_INITIALIZED",
         message=(
-            "successor production registry mount is not initialized; "
-            "startup must call initialize_successor_registry_mount"
+            "material projection registry mount is not initialized; "
+            "startup must initialize the production projection registry"
         ),
     )
     return JSONResponse(status_code=503, content=envelope.model_dump(mode="json"))
+
+
+def _deprecated_command_response(
+    dto: SuccessorRuntimeCommandV2DTO,
+) -> JSONResponse:
+    envelope = _resolution_failure_dto(
+        dto,
+        code="ROUTE_DEPRECATED",
+        message=(
+            "the successor runtime command route is read-compatibility only; "
+            "submit material projection commands through /material-projections/v2"
+        ),
+    )
+    return JSONResponse(
+        status_code=410,
+        content=envelope.model_dump(mode="json"),
+        headers={"Deprecation": "true"},
+    )
 
 
 def create_successor_runtime_state_router() -> APIRouter:
@@ -345,10 +398,10 @@ def create_successor_runtime_state_router() -> APIRouter:
     LOCAL_ONLY mount.
     """
 
-    router = APIRouter(prefix="/successor-runtime/v2", tags=["successor-runtime-v2"])
+    router = APIRouter(tags=["material-projections-v2"])
 
     @router.post(
-        "/commands",
+        f"{MATERIAL_PROJECTION_ROUTE_PREFIX}/commands",
         response_model=SuccessorRuntimeEnvelopeV2DTO,
         responses={503: {"model": SuccessorRuntimeEnvelopeV2DTO}},
     )
@@ -362,7 +415,7 @@ def create_successor_runtime_state_router() -> APIRouter:
         return _handle_command(dto, request, dependencies)
 
     @router.post(
-        "/queries",
+        f"{MATERIAL_PROJECTION_ROUTE_PREFIX}/queries",
         response_model=SuccessorRuntimeEnvelopeV2DTO,
         responses={503: {"model": SuccessorRuntimeEnvelopeV2DTO}},
     )
@@ -370,6 +423,34 @@ def create_successor_runtime_state_router() -> APIRouter:
         dto: SuccessorRuntimeQueryV2DTO,
         request: Request,
     ):
+        dependencies = _state_dependencies(request)
+        if dependencies is None:
+            return _mount_unavailable_response(dto)
+        return _handle_query(dto, request, dependencies)
+
+    @router.post(
+        f"{LEGACY_SUCCESSOR_RUNTIME_ROUTE_PREFIX}/commands",
+        response_model=SuccessorRuntimeEnvelopeV2DTO,
+        deprecated=True,
+        responses={410: {"model": SuccessorRuntimeEnvelopeV2DTO}},
+    )
+    def reject_legacy_command(
+        dto: SuccessorRuntimeCommandV2DTO,
+    ):
+        return _deprecated_command_response(dto)
+
+    @router.post(
+        f"{LEGACY_SUCCESSOR_RUNTIME_ROUTE_PREFIX}/queries",
+        response_model=SuccessorRuntimeEnvelopeV2DTO,
+        deprecated=True,
+        responses={503: {"model": SuccessorRuntimeEnvelopeV2DTO}},
+    )
+    def run_legacy_query(
+        dto: SuccessorRuntimeQueryV2DTO,
+        request: Request,
+        response: Response,
+    ):
+        response.headers["Deprecation"] = "true"
         dependencies = _state_dependencies(request)
         if dependencies is None:
             return _mount_unavailable_response(dto)

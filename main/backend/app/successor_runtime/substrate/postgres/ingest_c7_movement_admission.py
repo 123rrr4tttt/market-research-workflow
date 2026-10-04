@@ -11,7 +11,7 @@ event closure.  Event metadata contains only digest/ref/id scalar values.
 The slice never promotes, never calls a live provider, and never claims
 production canonical authority.  The only database writes are made to a
 disposable test/CI database.  The capability identity is fixed to
-``C7_INGEST_OWNER``; the admission step must be ``RUNNING`` and its effect
+``MATERIAL_INGEST_OWNER``; the admission step must be ``RUNNING`` and its effect
 attempt ``IN_FLIGHT`` with exact epoch/incarnation/assignment/handler/revision
 identity.  Step, attempt, project-scope and capability-authority rows are
 locked ``FOR UPDATE`` and revalidated before the canonical mutation, which runs
@@ -31,12 +31,13 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.ingest_c7_common import (
-    ADMISSION_READBACK_CONTRACT_ID,
-    C7_INGEST_OWNER,
+from app.successor_runtime.capabilities.material_ingest_common import (
+    MATERIAL_ADMISSION_READBACK_CONTRACT_ID,
     DOCUMENT_CANONICAL_OWNER,
+    HISTORICAL_C7_INGEST_OWNER,
+    MATERIAL_INGEST_OWNER,
 )
-from app.successor_runtime.capabilities.ingest_c7_movements import (
+from app.successor_runtime.capabilities.material_ingest_movements import (
     StructuredMaterialCandidate,
     VerifiedMaterialCandidate,
 )
@@ -79,6 +80,7 @@ from .ingest_c7_candidate_values import (
     candidate_value_incarnation,
     candidate_value_ref,
     readback_candidate_value,
+    readback_legacy_candidate_value,
     require_exact_candidate_pair,
     store_candidate_value,
 )
@@ -86,6 +88,9 @@ from .ingest_c7_candidate_values import (
 __all__ = [
     "C7_ADMISSION_REQUEST_EVENT_TYPE",
     "C7_ADMISSION_SCHEMA_VERSION",
+    "LEGACY_C7_ADMISSION_SCHEMA_VERSION",
+    "LEGACY_C7_EVENT_SCHEMA_VERSION",
+    "readback_legacy_c7_by_idempotency",
     "C7AdmissionConfig",
     "C7AdmissionReceipt",
     "C7AdmissionResult",
@@ -113,9 +118,13 @@ __all__ = [
     "require_locked_runtime_step_attempt",
 ]
 
-C7_ADMISSION_SCHEMA_VERSION = "mrw.successor.c7.verify-admit.v1"
+MATERIAL_ADMISSION_SCHEMA_VERSION = "mrw.material.ingest.admission.v2"
+LEGACY_C7_ADMISSION_SCHEMA_VERSION = "mrw.successor.c7.verify-admit.v1"
 C7_ADMISSION_REQUEST_EVENT_TYPE = "admission_requested"
-C7_EVENT_SCHEMA_VERSION = "mrw.successor.ingest-c7.events.v1"
+MATERIAL_EVENT_SCHEMA_VERSION = "mrw.material.ingest.events.v2"
+LEGACY_C7_EVENT_SCHEMA_VERSION = "mrw.successor.ingest-c7.events.v1"
+C7_ADMISSION_SCHEMA_VERSION = MATERIAL_ADMISSION_SCHEMA_VERSION
+C7_EVENT_SCHEMA_VERSION = MATERIAL_EVENT_SCHEMA_VERSION
 _DIGEST_REF_METADATA_SUFFIXES = (
     "_digest",
     "_ref",
@@ -253,7 +262,7 @@ class C7AdmissionConfig:
 @dataclass(frozen=True, slots=True)
 class C7AdmissionReceipt:
     schema_version: str = C7_ADMISSION_SCHEMA_VERSION
-    readback_contract_ref: str = ADMISSION_READBACK_CONTRACT_ID
+    readback_contract_ref: str = MATERIAL_ADMISSION_READBACK_CONTRACT_ID
     commit_intent_id: str = ""
     idempotency_key: str = ""
     capability_id: str = ""
@@ -304,7 +313,7 @@ def candidate_evidence_digest(candidate: VerifiedMaterialCandidate) -> str:
 
     return content_digest(
         {
-            "schema": "mrw.successor.c7.admission.evidence.v1",
+            "schema": "mrw.material.ingest.admission.evidence.v2",
             "snapshot_identity_digest": candidate.snapshot_identity_digest,
             "decision_digest": candidate.decision_digest,
             "candidate_digest": candidate.candidate_digest,
@@ -318,7 +327,7 @@ def candidate_provenance_digest(candidate: VerifiedMaterialCandidate) -> str:
 
     return content_digest(
         {
-            "schema": "mrw.successor.c7.admission.provenance.v1",
+            "schema": "mrw.material.ingest.admission.provenance.v2",
             "provenance_closure_digest": candidate.provenance_closure_digest,
         }
     )
@@ -329,7 +338,7 @@ def candidate_receipt_digest(candidate: VerifiedMaterialCandidate) -> str:
 
     return content_digest(
         {
-            "schema": "mrw.successor.c7.admission.receipt.v1",
+            "schema": "mrw.material.ingest.admission.receipt.v2",
             "verification_profile_ref": candidate.verification_profile_ref,
             "verification_receipt": candidate.verification_receipt,
         }
@@ -716,7 +725,7 @@ def require_locked_capability_authority(
 
     try:
         row = CapabilityAuthorityRepository(connection, scope).load(
-            C7_INGEST_OWNER,
+            MATERIAL_INGEST_OWNER,
             for_update=True,
         )
     except RecordNotFound as exc:
@@ -743,9 +752,9 @@ def _load_persisted_runtime(
     config: C7AdmissionConfig,
     for_update: bool,
 ) -> tuple[Mapping[str, object], Mapping[str, object], Mapping[str, object]]:
-    if config.capability_id != C7_INGEST_OWNER:
+    if config.capability_id != MATERIAL_INGEST_OWNER:
         raise C7CapabilityMismatchError(
-            "admission capability must be exactly C7_INGEST_OWNER"
+            "admission capability must be exactly MATERIAL_INGEST_OWNER"
         )
     if binding.step_id != config.step_id:
         raise C7RuntimeBindingError("binding step_id does not equal config step_id")
@@ -808,9 +817,9 @@ def _load_persisted_runtime(
     step = connection.execute(step_statement).mappings().one_or_none()
     if step is None:
         raise C7RuntimeBindingError("persisted runtime step is absent")
-    if step["capability_id"] != C7_INGEST_OWNER:
+    if step["capability_id"] != MATERIAL_INGEST_OWNER:
         raise C7CapabilityMismatchError(
-            "persisted step capability is not C7_INGEST_OWNER"
+            "persisted step capability is not MATERIAL_INGEST_OWNER"
         )
     if step["state"] != "RUNNING":
         raise C7RuntimeBindingError("persisted step is not RUNNING")
@@ -963,7 +972,7 @@ def _head_matches(
         and head["run_id"] == config.run_id
         and head["step_id"] == config.step_id
         and head["attempt_id"] == config.attempt_id
-        and head["capability_id"] == C7_INGEST_OWNER
+        and head["capability_id"] == MATERIAL_INGEST_OWNER
         and head["actor_id"] == candidate.actor
         and head["program_digest"] == binding.program_digest
         and head["plan_digest"] == binding.plan_digest
@@ -1026,7 +1035,7 @@ def build_commit_binding(
         commit_intent_id=config.commit_intent_id,
         run_id=config.run_id,
         step_id=config.step_id,
-        capability_id=C7_INGEST_OWNER,
+        capability_id=MATERIAL_INGEST_OWNER,
         canonical_owner_ref=DOCUMENT_CANONICAL_OWNER,
         object_identity_ref=candidate.canonical_object_id,
         expected_base_revision=candidate.expected_base_revision,
@@ -1100,7 +1109,7 @@ def _insert_canonical_head(
         "run_id": config.run_id,
         "step_id": config.step_id,
         "attempt_id": config.attempt_id,
-        "capability_id": C7_INGEST_OWNER,
+        "capability_id": MATERIAL_INGEST_OWNER,
         "actor_id": candidate.actor,
         "program_digest": binding.program_digest,
         "plan_digest": binding.plan_digest,
@@ -1237,7 +1246,7 @@ def _require_intent_head_closure(
             binding.ordered_event_payload_closure_digest,
         ),
         ("verification_digest", head["verification_digest"], binding.binding_digest),
-        ("capability_id", head["capability_id"], C7_INGEST_OWNER),
+        ("capability_id", head["capability_id"], str(intent["capability_id"])),
         (
             "input_closure_digest",
             head["input_closure_digest"],
@@ -1351,6 +1360,166 @@ def _require_intent_head_closure(
             )
 
 
+def _require_legacy_intent_head_closure(
+    intent: Mapping[str, object],
+    head: Mapping[str, object],
+    binding: VerificationBinding,
+) -> None:
+    """Validate a v1 admission only against its persisted identities.
+
+    Historical candidates are intentionally not reconstructed as the current
+    ``VerifiedMaterialCandidate`` and their value bytes are not re-encoded.
+    The original binding, intent, head and value row therefore remain the
+    authorities for this read-only path.
+    """
+
+    if (
+        str(intent["capability_id"]) != HISTORICAL_C7_INGEST_OWNER
+        or str(head["capability_id"]) != HISTORICAL_C7_INGEST_OWNER
+    ):
+        raise C7ReadbackIntegrityError(
+            "historical readback requires the exact legacy capability identity"
+        )
+    if str(head["head_closure_digest"]) != _head_closure_digest(head):
+        raise C7ReadbackIntegrityError(
+            "historical canonical head closure digest mismatch"
+        )
+    intent_checks = (
+        ("commit_intent_id", intent["commit_intent_id"], head["commit_intent_id"]),
+        ("project_key", intent["project_key"], head["project_key"]),
+        ("object_id", intent["object_identity_ref"], head["object_id"]),
+        ("canonical_owner", intent["canonical_owner_ref"], head["canonical_owner"]),
+        ("capability_id", intent["capability_id"], head["capability_id"]),
+        ("run_id", intent["run_id"], head["run_id"]),
+        ("step_id", intent["step_id"], head["step_id"]),
+        (
+            "expected_base_revision",
+            intent["expected_base_revision"],
+            head["expected_base_revision"],
+        ),
+        (
+            "expected_base_incarnation",
+            intent["expected_base_incarnation"],
+            head["expected_base_incarnation"],
+        ),
+        ("content_digest", intent["content_digest"], head["content_digest"]),
+        (
+            "ordered_event_closure_digest",
+            intent["event_digest"],
+            head["ordered_event_closure_digest"],
+        ),
+        (
+            "verification_digest",
+            intent["verification_digest"],
+            head["verification_digest"],
+        ),
+        ("authority_digest", intent["authority_digest"], head["authority_digest"]),
+        (
+            "canonical_commit_ref",
+            intent["canonical_commit_ref"],
+            head["canonical_commit_ref"],
+        ),
+        ("receipt_digest", intent["receipt_digest"], head["receipt_digest"]),
+    )
+    for field, stored, expected in intent_checks:
+        if stored != expected:
+            raise C7ReadbackIntegrityError(
+                f"historical canonical head {field} does not match committed intent"
+            )
+    if int(head["revision"]) != int(head["expected_base_revision"]) + 1:
+        raise C7ReadbackIntegrityError(
+            "historical canonical revision does not follow its persisted base"
+        )
+    binding_checks = (
+        ("program_digest", head["program_digest"], binding.program_digest),
+        ("plan_digest", head["plan_digest"], binding.plan_digest),
+        ("step_id", head["step_id"], binding.step_id),
+        ("attempt_id", head["attempt_id"], binding.attempt_id),
+        ("actor_id", head["actor_id"], binding.actor_id),
+        ("project_key", head["project_key"], binding.project_key),
+        ("canonical_owner", head["canonical_owner"], binding.canonical_owner),
+        ("object_id", head["object_id"], binding.canonical_object_id),
+        (
+            "expected_base_revision",
+            int(head["expected_base_revision"]),
+            binding.canonical_base_revision,
+        ),
+        (
+            "expected_base_incarnation",
+            head["expected_base_incarnation"],
+            binding.canonical_incarnation,
+        ),
+        ("authority_digest", head["authority_digest"], binding.authority_digest),
+        (
+            "ordered_event_closure_digest",
+            head["ordered_event_closure_digest"],
+            binding.ordered_event_payload_closure_digest,
+        ),
+        ("verification_digest", head["verification_digest"], binding.binding_digest),
+        (
+            "input_closure_digest",
+            head["input_closure_digest"],
+            binding.input_closure_digest,
+        ),
+        ("content_digest", head["content_digest"], binding.output_content_digest),
+        (
+            "payload_content_digest",
+            head["payload_content_digest"],
+            binding.output_content_digest,
+        ),
+        ("evidence_digest", head["evidence_digest"], binding.evidence_digest),
+        (
+            "candidate_receipt_digest",
+            head["candidate_receipt_digest"],
+            binding.receipt_digest,
+        ),
+        (
+            "provenance_digest",
+            head["provenance_digest"],
+            binding.provenance_digest,
+        ),
+    )
+    for field, stored, expected in binding_checks:
+        if stored != expected:
+            raise C7ReadbackIntegrityError(
+                f"historical canonical head {field} does not match original binding"
+            )
+
+
+def _require_legacy_value_closure(
+    connection: Connection,
+    *,
+    scope: RuntimeScope,
+    head: Mapping[str, object],
+) -> None:
+    try:
+        row = readback_legacy_candidate_value(
+            connection,
+            scope=scope,
+            value_ref=str(head["value_ref"]),
+            expected_digest=str(head["value_digest"]),
+        )
+    except C7ValueHandoffError as exc:
+        raise C7ReadbackIntegrityError(
+            f"historical canonical value closure failed: {exc}"
+        ) from exc
+    checks = (
+        ("revision", int(row["revision"]), int(head["value_revision"])),
+        ("incarnation", row["incarnation"], head["value_incarnation"]),
+        (
+            "provenance_digest",
+            row["provenance_digest"],
+            head["value_provenance_digest"],
+        ),
+        ("source_ref", row["source_ref"], head["snapshot_ref"]),
+    )
+    for field, stored, expected in checks:
+        if stored != expected:
+            raise C7ReadbackIntegrityError(
+                f"historical canonical value {field} does not match head"
+            )
+
+
 def _require_head_runtime_closure(
     connection: Connection,
     head: Mapping[str, object],
@@ -1431,10 +1600,16 @@ def _readback_digest(
     intent: Mapping[str, object],
     head: Mapping[str, object],
 ) -> str:
+    capability_id = str(intent["capability_id"])
+    schema_version = (
+        LEGACY_C7_ADMISSION_SCHEMA_VERSION
+        if capability_id == HISTORICAL_C7_INGEST_OWNER
+        else MATERIAL_ADMISSION_SCHEMA_VERSION
+    )
     return canonical_digest(
         {
-            "schema_version": C7_ADMISSION_SCHEMA_VERSION,
-            "readback_contract_ref": ADMISSION_READBACK_CONTRACT_ID,
+            "schema_version": schema_version,
+            "readback_contract_ref": MATERIAL_ADMISSION_READBACK_CONTRACT_ID,
             "commit_intent_id": str(intent["commit_intent_id"]),
             "idempotency_key": str(intent["idempotency_key"]),
             "capability_id": str(head["capability_id"]),
@@ -1483,32 +1658,12 @@ def _readback_digest(
     )
 
 
-def _readback_committed(
-    connection: Connection,
-    *,
-    scope: RuntimeScope,
+def _stored_admission_result(
     intent: Mapping[str, object],
-    binding: VerificationBinding,
-    verify_current_runtime: bool,
+    head: Mapping[str, object],
+    *,
+    schema_version: str,
 ) -> C7AdmissionResult:
-    head = _canonical_head(connection, scope, str(intent["object_identity_ref"]))
-    if head is None:
-        raise C7OutcomeUnknownError("committed intent has no canonical head")
-    candidate = _reconstruct_candidate(head)
-    _require_intent_head_closure(intent, head, binding, candidate)
-    if verify_current_runtime:
-        _require_head_runtime_closure(connection, head)
-    try:
-        readback_candidate_value(
-            connection,
-            scope=scope,
-            head=head,
-            candidate=candidate,
-        )
-    except C7ValueHandoffError as exc:
-        raise C7ReadbackIntegrityError(
-            f"canonical head value closure failed: {exc}"
-        ) from exc
     readback = CanonicalCommitReadback(
         commit_intent_id=str(intent["commit_intent_id"]),
         idempotency_key=str(intent["idempotency_key"]),
@@ -1521,6 +1676,7 @@ def _readback_committed(
         canonical_commit_ref=str(head["canonical_commit_ref"]),
     )
     receipt = C7AdmissionReceipt(
+        schema_version=schema_version,
         commit_intent_id=str(intent["commit_intent_id"]),
         idempotency_key=str(intent["idempotency_key"]),
         capability_id=str(intent["capability_id"]),
@@ -1558,6 +1714,39 @@ def _readback_committed(
         readback=readback,
         document_ref=document_ref_from_readback(readback),
         receipt=receipt,
+    )
+
+
+def _readback_committed(
+    connection: Connection,
+    *,
+    scope: RuntimeScope,
+    intent: Mapping[str, object],
+    binding: VerificationBinding,
+    verify_current_runtime: bool,
+) -> C7AdmissionResult:
+    head = _canonical_head(connection, scope, str(intent["object_identity_ref"]))
+    if head is None:
+        raise C7OutcomeUnknownError("committed intent has no canonical head")
+    candidate = _reconstruct_candidate(head)
+    _require_intent_head_closure(intent, head, binding, candidate)
+    if verify_current_runtime:
+        _require_head_runtime_closure(connection, head)
+    try:
+        readback_candidate_value(
+            connection,
+            scope=scope,
+            head=head,
+            candidate=candidate,
+        )
+    except C7ValueHandoffError as exc:
+        raise C7ReadbackIntegrityError(
+            f"canonical head value closure failed: {exc}"
+        ) from exc
+    return _stored_admission_result(
+        intent,
+        head,
+        schema_version=MATERIAL_ADMISSION_SCHEMA_VERSION,
     )
 
 
@@ -1602,9 +1791,9 @@ def readback_by_idempotency(
 ) -> C7AdmissionResult:
     """Stored-fact readback keyed only by capability and idempotency."""
 
-    if capability_id != C7_INGEST_OWNER:
+    if capability_id != MATERIAL_INGEST_OWNER:
         raise C7CapabilityMismatchError(
-            "readback capability must be exactly C7_INGEST_OWNER"
+            "current readback requires the material admission identity"
         )
     try:
         intent = CommitIntentRepository(connection, scope).find_for_readback(
@@ -1623,6 +1812,47 @@ def readback_by_idempotency(
         intent=dict(intent),
         binding=binding,
         verify_current_runtime=False,
+    )
+
+
+def readback_legacy_c7_by_idempotency(
+    connection: Connection,
+    *,
+    scope: RuntimeScope,
+    idempotency_key: str,
+    binding: VerificationBinding,
+) -> C7AdmissionResult:
+    """Read one immutable historical admission without migrating its identity."""
+
+    try:
+        intent = CommitIntentRepository(connection, scope).find_for_readback(
+            HISTORICAL_C7_INGEST_OWNER,
+            idempotency_key,
+        )
+    except RecordNotFound as exc:
+        raise C7OutcomeUnknownError(
+            "historical readback intent not found for legacy identity"
+        ) from exc
+    if intent["state"] != CommitIntentStatus.COMMITTED.value:
+        raise C7OutcomeUnknownError(
+            "historical readback requires a committed legacy intent"
+        )
+    stored_intent = dict(intent)
+    head = _canonical_head(
+        connection,
+        scope,
+        str(stored_intent["object_identity_ref"]),
+    )
+    if head is None:
+        raise C7OutcomeUnknownError(
+            "committed historical intent has no canonical head"
+        )
+    _require_legacy_intent_head_closure(stored_intent, head, binding)
+    _require_legacy_value_closure(connection, scope=scope, head=head)
+    return _stored_admission_result(
+        stored_intent,
+        head,
+        schema_version=LEGACY_C7_ADMISSION_SCHEMA_VERSION,
     )
 
 

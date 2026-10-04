@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Build deterministic, working-tree-bound P3 aggregate evidence.
+"""Build the historical P3 migration aggregate from its bound evidence.
+
+This report generator preserves the original P3 family coverage, including
+C6, as migration history. It does not generate current capabilities, runtime
+assembly, or current-byte bindings.
 
 The default mode is read-only.  Incomplete external reviews are represented as
 unsatisfied prerequisites, never inferred from fragment-local review text.  An

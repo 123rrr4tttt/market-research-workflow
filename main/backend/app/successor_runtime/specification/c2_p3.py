@@ -10,7 +10,6 @@ in ``shared_family_generator``.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -24,33 +23,34 @@ from app.successor_migration.legacy_source_library_c2_3 import (
 from app.successor_migration.legacy_source_library_c2_4 import (
     LegacySourceLibraryC2_4Adapter,
 )
-from app.successor_runtime.capabilities import source_library_c2_1 as c21
-from app.successor_runtime.capabilities import source_library_c2_2 as c22
-from app.successor_runtime.capabilities import source_library_c2_2_interpreters as c22i
-from app.successor_runtime.capabilities import source_library_c2_2_program as c22p
-from app.successor_runtime.capabilities import source_library_c2_3 as c23
+from app.successor_runtime.capabilities import source_resolution as c21
+from app.successor_runtime.capabilities import source_planning as c22
+from app.successor_runtime.capabilities import source_planning_interpreters as c22i
+from app.successor_runtime.capabilities import source_planning_program as c22p
+from app.successor_runtime.capabilities import source_provider_acquisition as c23
 from app.successor_runtime.capabilities import (
-    source_library_c2_3_test_interpreters as c23_fixtures,
+    source_provider_test_interpreters as c23_fixtures,
 )
-from app.successor_runtime.capabilities import source_library_c2_4_projection as c24
+from app.successor_runtime.capabilities import source_terminal_projection as c24
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.source_library_c2_1 import (
+from app.successor_runtime.capabilities.source_resolution import (
     source_item_definition_content_digest,
 )
-from app.successor_runtime.capabilities.source_library_c2_1_interpreters import (
+from app.successor_runtime.capabilities.source_resolution_interpreters import (
     resolve_source_execution_request,
 )
-from app.successor_runtime.capabilities.source_library_c2_2 import (
+from app.successor_runtime.capabilities.source_planning import (
     CollectionCompleted,
     SourceCollectionTerminal,
 )
-from app.successor_runtime.capabilities.source_library_c2_3 import (
+from app.successor_runtime.capabilities.source_provider_acquisition import (
     CapturedSourceRecordRef,
 )
 from app.successor_runtime.specification.shared_family_generator import (
     BindingsByKind,
     BindingTarget,
     FamilyFragmentConfig,
+    p1_cell_digest,
 )
 from app.successor_runtime.substrate.postgres.source_library_c2_23_canary import (
     build_c2_3_fixture_program,
@@ -80,6 +80,7 @@ _EVIDENCE_ROOT = (
     "2026-08-30-functorial-successor-migration/evidence"
 )
 REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
+_P1_ELIGIBILITY_REL = f"{_EVIDENCE_ROOT}/P1FunctorizationEligibility.v1.json"
 FRAGMENT_OUTPUT_REL = f"{_EVIDENCE_ROOT}/p3-fragments/C2.json"
 
 AUTHORITY = {
@@ -146,18 +147,8 @@ OPEN_FINDINGS = (
 )
 
 
-def _p1_cells() -> dict[str, dict[str, Any]]:
-    artifact = json.loads(
-        (
-            REPOSITORY_ROOT / _EVIDENCE_ROOT / "P1FunctorizationEligibility.v1.json"
-        ).read_text(encoding="utf-8")
-    )
-    return {str(cell["cell"]): cell for cell in artifact["cells"]}
-
-
 def _p1_cell_digest(cell_id: str) -> str:
-    cell = _p1_cells()[cell_id]
-    return content_digest(cell)
+    return p1_cell_digest(REPOSITORY_ROOT, _P1_ELIGIBILITY_REL, cell_id)
 
 
 def _resolved() -> tuple[
@@ -230,10 +221,10 @@ def _plan(payload: Any, request: c21.SourceExecutionRequest) -> c22.SourceModePl
 def _c2_2_program_digests(
     planning: c22.SourceModePlanningPayload,
 ) -> tuple[str, str]:
-    bundle = c22.build_source_library_c2_2_bundle()
-    catalog = c22.build_source_library_c2_2_catalog(bundle)
-    registry = c22.build_source_library_c2_2_registry(bundle)
-    program = c22p.build_source_library_c2_2_program(
+    bundle = c22.build_source_planning_bundle()
+    catalog = c22.build_source_planning_catalog(bundle)
+    registry = c22.build_source_planning_registry(bundle)
+    program = c22p.build_source_planning_program(
         payload=planning,
         catalog=catalog,
         program_id="p3-c2-fragment.program",
@@ -241,7 +232,7 @@ def _c2_2_program_digests(
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    compiled = c22p.compile_source_library_c2_2_program(
+    compiled = c22p.compile_source_planning_program(
         program, catalog, operation_contracts=registry
     )
     return program.program_digest, compiled.plan_digest
@@ -420,35 +411,35 @@ _IMPLEMENTATION_BINDINGS = (
         "legacy_crawler_provider_worker_wiring",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/source_library_c2_shared.py",
+        "main/backend/app/successor_runtime/capabilities/source_contracts.py",
         "shared_contracts",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/source_library_c2_2.py",
+        "main/backend/app/successor_runtime/capabilities/source_planning.py",
         "c2_2_contracts",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/source_library_c2_2_interpreters.py",
+        "main/backend/app/successor_runtime/capabilities/source_planning_interpreters.py",
         "c2_2_interpreters",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/source_library_c2_2_program.py",
+        "main/backend/app/successor_runtime/capabilities/source_planning_program.py",
         "c2_2_program",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/source_library_c2_3.py",
+        "main/backend/app/successor_runtime/capabilities/source_provider_acquisition.py",
         "c2_3_contracts",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/source_library_c2_3_ports.py",
+        "main/backend/app/successor_runtime/capabilities/source_provider_ports.py",
         "c2_3_ports",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/source_library_c2_3_test_interpreters.py",
+        "main/backend/app/successor_runtime/capabilities/source_provider_test_interpreters.py",
         "c2_3_test_interpreters",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/source_library_c2_4_projection.py",
+        "main/backend/app/successor_runtime/capabilities/source_terminal_projection.py",
         "c2_4_projection",
     ),
     BindingTarget(
@@ -550,11 +541,11 @@ def _build_body(_root: Path, bindings: BindingsByKind) -> dict[str, Any]:
     outcome = _provider_fixture(effect_request)
     projection = _projection(plan, request)
     program_digest, plan_digest = _c2_2_program_digests(planning)
-    c2_3_catalog_snapshot = c23.build_source_library_c2_3_catalog(
-        c23.build_source_library_c2_3_bundle()
+    c2_3_catalog_snapshot = c23.build_source_provider_acquisition_catalog(
+        c23.build_source_provider_acquisition_bundle()
     )
-    c2_3_registry = c23.build_source_library_c2_3_registry(
-        c23.build_source_library_c2_3_bundle()
+    c2_3_registry = c23.build_source_provider_acquisition_registry(
+        c23.build_source_provider_acquisition_bundle()
     )
     c2_3_program = build_c2_3_fixture_program(
         request=effect_request,
@@ -570,8 +561,8 @@ def _build_body(_root: Path, bindings: BindingsByKind) -> dict[str, Any]:
         operation_contracts=c2_3_registry,
     )
 
-    c2_2_bundle = c22.build_source_library_c2_2_bundle()
-    c2_3_bundle = c23.build_source_library_c2_3_bundle()
+    c2_2_bundle = c22.build_source_planning_bundle()
+    c2_3_bundle = c23.build_source_provider_acquisition_bundle()
     c2_2_operation_bindings = [
         {
             "operation_kind": operation.ref.kind,
@@ -628,7 +619,7 @@ def _build_body(_root: Path, bindings: BindingsByKind) -> dict[str, Any]:
             },
             "legacy_observation": legacy_c2_2,
             "successor_observation": {
-                "interpreter_id": c22i.SOURCE_LIBRARY_C2_2_SUCCESSOR_INTERPRETER_ID,
+                "interpreter_id": c22i.SOURCE_PLANNING_SUCCESSOR_INTERPRETER_ID,
                 "mode": plan.mode,
                 "ordered_tasks": len(plan.ordered_tasks),
                 "plan_digest": plan.plan_digest,
@@ -714,8 +705,8 @@ def _build_body(_root: Path, bindings: BindingsByKind) -> dict[str, Any]:
             },
             "legacy_observation": legacy_c2_4,
             "successor_observation": {
-                "projector_id": c24.SOURCE_LIBRARY_C2_4_PROJECTOR_ID,
-                "projector_version": c24.SOURCE_LIBRARY_C2_4_PROJECTOR_VERSION,
+                "projector_id": c24.SOURCE_TERMINAL_PROJECTION_PROJECTOR_ID,
+                "projector_version": c24.SOURCE_TERMINAL_PROJECTION_PROJECTOR_VERSION,
                 "terminal_digest": projection.terminal.projection_digest,
                 "compat_digest": projection.compat.compat_digest,
                 "summary_digest": projection.summary.projection_digest,

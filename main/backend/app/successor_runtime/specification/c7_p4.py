@@ -29,9 +29,9 @@ from app.successor_migration.search_projector_c7 import (
     rebuild_search_projection,
     search_named_observation_digest,
 )
-from app.successor_runtime.capabilities import ingest_c7_common as c7
-from app.successor_runtime.capabilities import ingest_c7_interpreters as c7i
-from app.successor_runtime.capabilities import ingest_c7_program as c7p
+from app.successor_runtime.capabilities import material_ingest_common as c7
+from app.successor_runtime.capabilities import material_ingest_interpreters as c7i
+from app.successor_runtime.capabilities import material_ingest_program as c7p
 from app.successor_runtime.specification.shared_family_generator import (
     BindingTarget,
     CellFragmentConfig,
@@ -164,7 +164,7 @@ _SOURCE_BINDINGS = (
 
 _IMPLEMENTATION_BINDINGS = (
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py",
+        "main/backend/app/successor_runtime/capabilities/material_ingest_movements.py",
         "c7_movement_contracts",
     ),
     BindingTarget(
@@ -172,19 +172,19 @@ _IMPLEMENTATION_BINDINGS = (
         "shared_http_fetch_port",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/ingest_c7_common.py",
+        "main/backend/app/successor_runtime/capabilities/material_ingest_common.py",
         "c7_common_contracts",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/ingest_c7.py",
+        "main/backend/app/successor_runtime/capabilities/material_ingest.py",
         "c7_contracts",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/ingest_c7_program.py",
+        "main/backend/app/successor_runtime/capabilities/material_ingest_program.py",
         "c7_program",
     ),
     BindingTarget(
-        "main/backend/app/successor_runtime/capabilities/ingest_c7_interpreters.py",
+        "main/backend/app/successor_runtime/capabilities/material_ingest_interpreters.py",
         "c7_interpreters",
     ),
     BindingTarget(
@@ -280,8 +280,8 @@ _CELLS = (
     CellFragmentConfig(
         cell_id="C7.1",
         contract_ids=(
-            c7.STAGE_CANDIDATE_KIND,
-            c7.NONSTART_RECONCILIATION_CONTRACT_ID,
+            c7.MATERIAL_STAGE_CANDIDATE_KIND,
+            c7.MATERIAL_NONSTART_RECONCILIATION_CONTRACT_ID,
         ),
         p1_locator_paths=(
             "main/backend/app/services/ingest/frontdoor_orchestrator.py",
@@ -297,8 +297,8 @@ _CELLS = (
     CellFragmentConfig(
         cell_id="C7.2",
         contract_ids=(
-            c7.COMMIT_INTENT_CONTRACT_ID,
-            c7.ADMISSION_READBACK_CONTRACT_ID,
+            c7.MATERIAL_COMMIT_INTENT_CONTRACT_ID,
+            c7.MATERIAL_ADMISSION_READBACK_CONTRACT_ID,
         ),
         p1_locator_paths=(
             "main/backend/app/services/ingest",
@@ -313,7 +313,7 @@ _CELLS = (
     ),
     CellFragmentConfig(
         cell_id="C7.3",
-        contract_ids=(c7.PROJECTION_DIFF_CONTRACT_ID,),
+        contract_ids=(c7.MATERIAL_PROJECTION_DIFF_CONTRACT_ID,),
         p1_locator_paths=(
             "main/backend/app/services/indexer",
             "main/backend/app/services/graph",
@@ -328,8 +328,8 @@ _CELLS = (
     CellFragmentConfig(
         cell_id="C7.4",
         contract_ids=(
-            c7.READBACK_RECONCILIATION_CONTRACT_ID,
-            c7.NONSTART_RECONCILIATION_CONTRACT_ID,
+            c7.MATERIAL_READBACK_RECONCILIATION_CONTRACT_ID,
+            c7.MATERIAL_NONSTART_RECONCILIATION_CONTRACT_ID,
         ),
         p1_locator_paths=(
             "main/backend/app/services/ingest",
@@ -347,8 +347,8 @@ _CELLS = (
 )
 
 
-def _submission() -> c7.C7IngestSubmission:
-    return c7.C7IngestSubmission(
+def _submission() -> c7.MaterialIngestSubmission:
+    return c7.MaterialIngestSubmission(
         idempotency_key="idem:p4-c7-fragment:001",
         project_key=PROJECT_KEY,
         source_locator="https://example.invalid/report",
@@ -365,10 +365,10 @@ def _verification_binding() -> Any:
 
     submission = _submission()
     normalized = c7.normalize_ingest_submission(submission)
-    bundle = c7.build_ingest_c7_bundle()
-    catalog = c7.build_ingest_c7_catalog(bundle)
-    registry = c7.build_ingest_c7_registry(bundle)
-    program = c7p.build_ingest_c7_1_program(
+    bundle = c7.build_material_ingest_bundle()
+    catalog = c7.build_material_ingest_catalog(bundle)
+    registry = c7.build_material_ingest_registry(bundle)
+    program = c7p.build_material_stage_candidate_program(
         payload=submission,
         catalog=catalog,
         program_id="program:p4-c7-fragment",
@@ -376,7 +376,7 @@ def _verification_binding() -> Any:
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    plan = c7p.compile_ingest_c7_program(
+    plan = c7p.compile_material_ingest_program(
         program,
         catalog,
         operation_contracts=registry,
@@ -464,10 +464,10 @@ def _commit_intent() -> Any:
 
 def _c7_1_observation() -> tuple[dict[str, object], dict[str, object]]:
     payload = _submission()
-    bundle = c7.build_ingest_c7_bundle()
-    catalog = c7.build_ingest_c7_catalog(bundle)
-    registry = c7.build_ingest_c7_registry(bundle)
-    program = c7p.build_ingest_c7_1_program(
+    bundle = c7.build_material_ingest_bundle()
+    catalog = c7.build_material_ingest_catalog(bundle)
+    registry = c7.build_material_ingest_registry(bundle)
+    program = c7p.build_material_stage_candidate_program(
         payload=payload,
         catalog=catalog,
         program_id="program:p4-c7-fragment",
@@ -475,7 +475,7 @@ def _c7_1_observation() -> tuple[dict[str, object], dict[str, object]]:
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    plan = c7p.compile_ingest_c7_program(
+    plan = c7p.compile_material_ingest_program(
         program,
         catalog,
         operation_contracts=registry,
@@ -495,7 +495,7 @@ def _c7_1_observation() -> tuple[dict[str, object], dict[str, object]]:
         "plan_digest": plan.plan_digest,
         "step_kinds": [step.step_kind for step in plan.ordered_steps],
         "admission_required": True,
-        "return_contract_ref": c7.C7_ADMISSION_RETURN_CONTRACT_REF,
+        "return_contract_ref": c7.MATERIAL_ADMISSION_RETURN_CONTRACT_REF,
         "execution_class": bundle.profiles["effect"].execution_class,
         "runtime_assignment_closure": {
             "program_digest": program.program_digest,
@@ -561,7 +561,7 @@ def _c7_3_observation() -> tuple[dict[str, object], dict[str, object]]:
     readback = CanonicalCommitReadback(
         commit_intent_id=intent.commit_intent_id,
         idempotency_key=intent.idempotency_key,
-        capability_id=c7.C7_INGEST_OWNER,
+        capability_id=c7.MATERIAL_INGEST_OWNER,
         project_key=intent.project_key,
         object_id=intent.object_id,
         committed_revision=1,

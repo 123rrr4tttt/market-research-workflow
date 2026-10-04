@@ -16,12 +16,12 @@ from typing import Any
 import pytest
 import sqlalchemy as sa
 
-from app.successor_runtime.capabilities.c1_slice_acceptance import (
-    C1NamedStepObservation,
-    C1RollbackBeforeAfter,
-    C1RuntimeEvidenceRefs,
-    C1StepStatus,
-    accept_c1_slice,
+from app.successor_runtime.capabilities.workflow_slice_acceptance import (
+    WorkflowNamedStepObservation,
+    WorkflowRollbackBeforeAfter,
+    WorkflowRuntimeEvidenceRefs,
+    WorkflowStepStatus,
+    accept_workflow_slice,
 )
 from app.successor_runtime.research.codec import canonical_bytes
 from app.successor_runtime.runtime.assignments import (
@@ -97,14 +97,14 @@ def _tag() -> str:
 
 def _observations(
     prepared: PreparedC1Slice,
-) -> tuple[C1NamedStepObservation, ...]:
+) -> tuple[WorkflowNamedStepObservation, ...]:
     outcomes = prepared.handler.outcomes
     assert len(outcomes) == len(prepared.steps)
     return tuple(
-        C1NamedStepObservation(
+        WorkflowNamedStepObservation(
             name=f"step-{index}:{step.step_kind.lower()}",
             step_id=step.step_id,
-            status=C1StepStatus.SUCCESS,
+            status=WorkflowStepStatus.SUCCESS,
             result_digest=outcomes[step.step_id][0],
             evidence_ref=outcomes[step.step_id][1],
         )
@@ -115,19 +115,19 @@ def _observations(
 def _evidence_refs(
     prepared: PreparedC1Slice,
     replay_digest_value: str,
-) -> tuple[C1RuntimeEvidenceRefs, C1RollbackBeforeAfter]:
+) -> tuple[WorkflowRuntimeEvidenceRefs, WorkflowRollbackBeforeAfter]:
     receipts = tuple(
         prepared.handler.outcomes[step.step_id][1] for step in prepared.steps
     )
     journal_ref = f"journal:{prepared.run_id}"
     readback_ref = f"readback:{prepared.run_id}"
-    runtime_evidence = C1RuntimeEvidenceRefs(
+    runtime_evidence = WorkflowRuntimeEvidenceRefs(
         runtime_evidence_refs=receipts,
         journal_refs=(journal_ref,),
         readback_refs=(readback_ref,),
         replay_refs=(f"replay:sha256:{replay_digest_value}",),
     )
-    rollback = C1RollbackBeforeAfter(
+    rollback = WorkflowRollbackBeforeAfter(
         rollback_ref=f"rollback:{prepared.run_id}:future-owner",
         before_authority_epoch=prepared.authority_epoch,
         after_authority_epoch=prepared.authority_epoch + 1,
@@ -145,7 +145,7 @@ def _accept(
 ) -> Any:
     runtime_evidence, rollback = _evidence_refs(prepared, replay_digest_value)
     observations = _observations(prepared)
-    return accept_c1_slice(
+    return accept_workflow_slice(
         in_slice_id=prepared.slice_id,
         in_program=prepared.program,
         in_plan=prepared.plan,
@@ -289,7 +289,7 @@ def test_c1_slice_runtime_node_replay_restart_and_rollback(
         "replay": second_digest,
         "rollback": rollback,
     }
-    acceptance_from_module_vars = accept_c1_slice(
+    acceptance_from_module_vars = accept_workflow_slice(
         in_slice_id=prepared.slice_id,
         in_program=in_slice["program"],
         in_plan=in_slice["plan"],

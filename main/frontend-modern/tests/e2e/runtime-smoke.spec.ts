@@ -90,20 +90,39 @@ async function mockDashboardReportApi(
 
     if (pathname === '/api/v1/business-lines/evidence-matrix') {
       await fulfillJson(route, {
-        contract_version: 'business_line.evidence_matrix.v1',
-        batch_orchestration: {
-          async_task_readback_extension: {
-            scheduled_artifact_warning_empty_reset_telemetry_ui_extension: {
-              ui_event_contract: {
-                event_name: 'reset_empty_warning_view',
-                event_scope: 'ui_event_log_only',
-                scheduled_evidence_write: 'none',
-              },
-              api_contract: {
-                scheduled_completion_proof_changed: false,
-                scheduled_evidence_controller: 'scheduled_run_evidence',
-              },
-            },
+        contract_version: 'business_line.evidence_matrix.v2',
+        vocabulary_version: 'business_line.vocabulary.current.v1',
+        coverage: { covered_line_count: 0, covered_line_keys: [], not_admin_only: true },
+        worker_readback: {
+          contract_version: 'business_line.worker_readback_contract.v2',
+          covered_line_keys: [],
+          completion_claim: 'not_observed_without_live_worker_readback',
+        },
+        scheduled_observation: {
+          observation_status: 'not_observed',
+          scheduled_run_evidence: 'not_observed',
+          install_status: 'unknown',
+          completion_claim: 'not_observed',
+        },
+        ui_boundary: {
+          reset_telemetry: {
+            event_name: 'reset_empty_warning_view',
+            event_scope: 'ui_event_log_only',
+            filter_transition: { from: 'warning_only', to: 'all' },
+            sort_behavior: 'unchanged',
+            api_payload_behavior: 'unchanged',
+            scheduled_evidence_write: 'none',
+            scheduled_completion_proof: false,
+            scheduled_evidence_controller: 'scheduled_run_evidence',
+          },
+          read_only_context: {
+            not_report_proof: true,
+            not_quality_gate_input: true,
+            not_scheduled_run_evidence_proof: true,
+            scheduled_evidence_write: 'none',
+            scheduled_completion_proof_behavior: 'unchanged',
+            audit_outcome_behavior: 'unchanged',
+            observation_status: 'not_applicable_ui_boundary',
           },
         },
       })
@@ -416,6 +435,9 @@ async function bootstrapMockedDashboard(page: Page) {
 test('homepage runtime smoke uses live backend', async ({ page, request }) => {
   const backendReadiness = await requireRealBackendReadiness(request)
   skipWhenBackendCheckBypassed(backendReadiness)
+  await page.addInitScript(() => {
+    window.localStorage.setItem('app_locale_v1', 'zh-CN')
+  })
   const projectsResponse = page.waitForResponse((response) => {
     return response.url().includes('/api/v1/projects') && response.status() === 200
   })
@@ -424,8 +446,8 @@ test('homepage runtime smoke uses live backend', async ({ page, request }) => {
   expect(response?.ok()).toBeTruthy()
   await projectsResponse
 
-  await expect(page.getByRole('heading', { level: 1, name: '任务', exact: true })).toBeVisible()
-  await expect(page.getByRole('combobox', { name: 'target project' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '运行记录', exact: true })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: '目标项目', exact: true })).toBeVisible()
 })
 
 test('graph runtime smoke loads against live graph endpoints', async ({ page, request }) => {

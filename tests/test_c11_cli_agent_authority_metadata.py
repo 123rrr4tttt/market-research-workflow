@@ -23,42 +23,6 @@ CASES: dict[str, tuple[str, str, str]] = {
         "build_contract",
         "kit:non-authoritative derived_as=preflight fact_source=app.services.agent_core.batch_search",
     ),
-    "derived-marked|main/backend/scripts/check_agent_core_external_provider_live_readback.py|"
-    "build_contract_snapshot returns an unmarked derived value": (
-        "check_agent_core_external_provider_live_readback",
-        "build_contract_snapshot",
-        "kit:canonical-read canonical_owner=app.services.agent_core.external_provider_live_readback",
-    ),
-    "derived-marked|main/backend/scripts/check_agent_core_platform_contract.py|"
-    "build_contract_snapshot returns an unmarked derived value": (
-        "check_agent_core_platform_contract",
-        "build_contract_snapshot",
-        "kit:non-authoritative derived_as=generated_evidence fact_source=AgentCoreFakeProviderDispatch",
-    ),
-    "derived-marked|main/backend/scripts/check_agent_core_provider_live_readiness.py|"
-    "build_contract_snapshot returns an unmarked derived value": (
-        "check_agent_core_provider_live_readiness",
-        "build_contract_snapshot",
-        "kit:canonical-read canonical_owner=app.services.agent_core.provider_readiness",
-    ),
-    "derived-marked|main/backend/scripts/check_agent_core_provider_trace_readback.py|"
-    "build_contract_snapshot returns an unmarked derived value": (
-        "check_agent_core_provider_trace_readback",
-        "build_contract_snapshot",
-        "kit:canonical-read canonical_owner=app.services.agent_core.provider_trace",
-    ),
-    "derived-marked|main/backend/scripts/check_agent_core_tool_calling_quality.py|"
-    "build_contract_snapshot returns an unmarked derived value": (
-        "check_agent_core_tool_calling_quality",
-        "build_contract_snapshot",
-        "kit:canonical-read canonical_owner=app.services.agent_core.tool_calling_quality",
-    ),
-    "derived-marked|main/backend/scripts/check_agent_symbolic_batch_search_contract.py|"
-    "build_contract returns an unmarked derived value": (
-        "check_agent_symbolic_batch_search_contract",
-        "build_contract",
-        "kit:non-authoritative derived_as=preflight fact_source=app.services.agent_core.symbolic_search",
-    ),
     "derived-marked|main/backend/scripts/check_agent_symbolic_provider_quality_readiness.py|"
     "build_contract returns an unmarked derived value": (
         "check_agent_symbolic_provider_quality_readiness",
@@ -122,7 +86,7 @@ def _function(module_name: str, function_name: str):
 
 
 def test_c11_cli_agent_authority_metadata() -> None:
-    assert len(CASES) == 17
+    assert len(CASES) == 11
 
     for baseline_key, (module_name, function_name, expected_authority) in CASES.items():
         function = _function(module_name, function_name)

@@ -350,7 +350,7 @@ class RedditAdapter:
                     continue
             
             # 策略2: 从关键词生成可能的子论坛名称
-            # 例如: "lottery" -> ["lottery", "Lottery", "lotteries"]
+            # 例如: "markets" -> ["markets", "Markets", "marketss"]
             for keyword in keywords:
                 keyword_clean = keyword.strip().lower()
                 if keyword_clean:
@@ -363,7 +363,7 @@ class RedditAdapter:
                         discovered_subreddits.add(keyword_clean + 's')
             
             # 策略3: 组合关键词生成可能的子论坛名
-            # 例如: ["powerball", "lottery"] -> ["powerballlottery", "powerball_lottery"]
+            # 例如: ["market", "policy"] -> ["marketpolicy", "market_policy"]
             if len(keywords) >= 2:
                 for i, kw1 in enumerate(keywords[:2]):
                     for kw2 in keywords[i+1:3]:
@@ -389,4 +389,3 @@ class RedditAdapter:
                 if keyword_clean:
                     fallback.append(keyword_clean)
             return fallback[:max_results]
-

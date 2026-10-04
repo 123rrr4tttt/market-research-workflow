@@ -5,7 +5,6 @@ projection. It has no production canonical-write, promotion, cutover, or
 authority-transfer authority. Catalog reads/upserts use the shared local
 projection services; workflow execution delegates to ``run_workflow``.
 """
-
 from __future__ import annotations
 
 from typing import Any
@@ -22,12 +21,13 @@ from ..services.agent_core.functorial.catalog import (
     upsert_operator,
 )
 from ..services.agent_core.functorial.contracts import OperatorRisk
-from ..services.agent_core.functorial.operator import OperatorValidationError
 from ..services.agent_core.functorial.motif import compose_motif
+from ..services.agent_core.functorial.operator import OperatorValidationError
 from ..services.agent_core.functorial.operator import OperatorSpec
 from ..services.agent_core.functorial.registry import catalog as functorial_catalog
 from ..services.agent_core.functorial.run import run_workflow
 from ..services.agent_core.functorial.workflow import build_workflow_program
+
 
 router = APIRouter(prefix="/functorial", tags=["functorial"])
 
@@ -102,7 +102,7 @@ def functorial_upsert_operator(payload: OperatorUpsertPayload) -> dict[str, Any]
     try:
         spec = OperatorSpec(**payload.model_dump())
         record = upsert_operator(spec)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         raise _service_http_error(exc) from exc
     return ok({"operator": record})
 
@@ -117,7 +117,7 @@ def functorial_list_motifs() -> dict[str, Any]:
 def functorial_compose_motif(payload: MotifComposePayload) -> dict[str, Any]:
     try:
         spec = compose_motif(payload.motif_id, payload.name, payload.composition)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         raise _service_http_error(exc) from exc
     record = functorial_catalog.get("motifs", spec.motif_id)
     return ok({"motif": record if record is not None else spec.to_dict()})
@@ -131,9 +131,7 @@ def functorial_list_workflows() -> dict[str, Any]:
 
 @router.get("/workflows/{workflow_id}", response_model=FunctorialEnvelope)
 def functorial_get_workflow(workflow_id: str) -> dict[str, Any]:
-    record = _require_record(
-        functorial_catalog.get("workflows", workflow_id), "workflow"
-    )
+    record = _require_record(functorial_catalog.get("workflows", workflow_id), "workflow")
     return ok({"workflow": record})
 
 
@@ -146,16 +144,14 @@ def functorial_build_workflow(payload: WorkflowBuildPayload) -> dict[str, Any]:
             steps=payload.steps,
             laws=payload.laws,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         raise _service_http_error(exc) from exc
     record = functorial_catalog.get("workflows", spec.workflow_id)
     return ok({"workflow": record if record is not None else spec.to_dict()})
 
 
 @router.post("/workflows/{workflow_id}/run", response_model=FunctorialEnvelope)
-def functorial_run_workflow(
-    workflow_id: str, body: WorkflowRunPayload
-) -> dict[str, Any]:
+def functorial_run_workflow(workflow_id: str, body: WorkflowRunPayload) -> dict[str, Any]:
     _require_record(functorial_catalog.get("workflows", workflow_id), "workflow")
     project_key = (body.project_key or "").strip() or "demo_proj_compare_0303_121137"
     result = run_workflow(workflow_id, body.inputs, project_key)

@@ -1,0 +1,165 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Any
+from unittest.mock import patch
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+pytestmark = pytest.mark.unit
+
+
+def test_FAILURE_PRESERVED__crawler_resolution_error_rejects_unknown_code() -> None:
+    from app.services.source_library.provider_ports import CrawlerProviderResolutionError
+
+    with pytest.raises(ValueError, match="unknown crawler provider resolution code"):
+        CrawlerProviderResolutionError(  # type: ignore[arg-type]
+            "unregistered",
+            "scrapy",
+            "unregistered failure",
+        )
+
+
+def test_FAILURE_PRESERVED__unconfigured_crawler_resolver_fails_closed() -> None:
+    from app.services.source_library import provider_ports
+    from app.services.source_library.provider_ports import CrawlerProviderResolutionError
+
+    original = provider_ports._CRAWLER_PROVIDER_RESOLVER
+    provider_ports._CRAWLER_PROVIDER_RESOLVER = None
+    try:
+        with pytest.raises(
+            CrawlerProviderResolutionError,
+            match="resolver is not configured",
+        ) as exc_info:
+            provider_ports.resolve_crawler_provider(
+                " Scrapy ",
+                channel={"channel_key": "crawler.demo"},
+                params={},
+            )
+
+        assert exc_info.value.code == "resolver_not_configured"
+        assert exc_info.value.provider_type == "scrapy"
+    finally:
+        provider_ports._CRAWLER_PROVIDER_RESOLVER = original
+
+
+def test_INVARIANT__fake_crawler_resolver_can_be_injected() -> None:
+    from app.services.source_library import provider_ports
+
+    class FakeProvider:
+        provider_type = "fake"
+
+        def dispatch(self, request: Any) -> Any:
+            return request
+
+    class FakeResolver:
+        def resolve(
+            self,
+            provider_type: str,
+            *,
+            channel: dict[str, Any],
+            params: dict[str, Any],
+        ) -> FakeProvider:
+            self.calls = [(provider_type, channel, params)]
+            return FakeProvider()
+
+    original = provider_ports._CRAWLER_PROVIDER_RESOLVER
+    resolver = FakeResolver()
+    provider_ports.set_crawler_provider_resolver(resolver)
+    try:
+        provider = provider_ports.resolve_crawler_provider(
+            "fake",
+            channel={"channel_key": "crawler.fake"},
+            params={"spider": "example"},
+        )
+
+        assert isinstance(provider, FakeProvider)
+        assert resolver.calls == [("fake", {"channel_key": "crawler.fake"}, {"spider": "example"})]
+    finally:
+        provider_ports.set_crawler_provider_resolver(original)
+
+
+def test_FAILURE_PRESERVED__unavailable_scrapy_provider_fails_with_resolution_error() -> None:
+    from app.composition.source_library import DefaultCrawlerProviderResolver
+    from app.services.source_library.provider_ports import CrawlerProviderResolutionError
+
+    resolver = DefaultCrawlerProviderResolver()
+    with (
+        patch("app.services.crawlers.registry.get_provider", return_value=None),
+        patch(
+            "app.services.crawlers.providers.scrapy.ScrapyCrawlerProvider",
+            side_effect=RuntimeError("transport unavailable"),
+        ),
+        pytest.raises(
+            CrawlerProviderResolutionError,
+            match="is unavailable",
+        ) as exc_info,
+    ):
+        resolver.resolve(" Scrapy ", channel={}, params={})  # type: ignore[arg-type]
+
+    assert exc_info.value.code == "provider_unavailable"
+    assert exc_info.value.provider_type == "scrapy"
+
+
+def test_FAILURE_PRESERVED__unsupported_crawler_provider_fails_with_resolution_error() -> None:
+    from app.composition.source_library import DefaultCrawlerProviderResolver
+    from app.services.source_library.provider_ports import CrawlerProviderResolutionError
+
+    resolver = DefaultCrawlerProviderResolver()
+    with patch("app.services.crawlers.registry.get_provider", return_value=None):
+        with pytest.raises(
+            CrawlerProviderResolutionError,
+            match="unsupported crawler provider_type",
+        ) as exc_info:
+            resolver.resolve(" Unknown ", channel={}, params={})  # type: ignore[arg-type]
+
+    assert exc_info.value.code == "provider_unsupported"
+    assert exc_info.value.provider_type == "unknown"
+
+
+def test_INVARIANT__default_composition_lazily_constructs_and_registers_scrapy_provider() -> None:
+    from app.composition.source_library import (
+        DefaultCrawlerProviderResolver,
+        configure_source_library_adapters,
+    )
+    from app.services.source_library import provider_ports
+
+    original = provider_ports._CRAWLER_PROVIDER_RESOLVER
+    configure_source_library_adapters()
+    resolver = provider_ports._CRAWLER_PROVIDER_RESOLVER
+    assert isinstance(resolver, DefaultCrawlerProviderResolver)
+
+    class FakeProvider:
+        provider_type = "scrapy"
+
+    channel = {
+        "provider_config": {
+            "project": "demo_proj",
+            "scrapyd_base_url": "http://channel.scrapyd",
+        }
+    }
+    params = {
+        "spider": "news_spider",
+        "scrapyd_base_url": "http://params.scrapyd",
+        "scrapyd_timeout": 12,
+    }
+
+    try:
+        with (
+            patch("app.services.crawlers.registry.get_provider", return_value=None),
+            patch("app.services.crawlers.registry.register_provider") as register_provider,
+            patch(
+                "app.services.crawlers.providers.scrapy.ScrapyCrawlerProvider",
+                return_value=FakeProvider(),
+            ) as scrapy_provider,
+        ):
+            provider = resolver.resolve(" scrapy ", channel=channel, params=params)  # type: ignore[union-attr]
+
+        assert isinstance(provider, FakeProvider)
+        scrapy_provider.assert_called_once_with(base_url="http://params.scrapyd", timeout=12.0)
+        register_provider.assert_called_once_with("scrapy", provider)
+    finally:
+        provider_ports.set_crawler_provider_resolver(original)

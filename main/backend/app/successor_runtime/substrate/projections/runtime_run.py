@@ -43,6 +43,12 @@ class RuntimeProjectionError(ExactBindingConflict):
     """Projection source/read-model/offset closure is not exact."""
 
 
+RUN_OBSERVATION_PROJECTOR_ID = "mrw.task.run-observation.projector.v1"
+RUN_OBSERVATION_PROJECTOR_VERSION = "1.0.0"
+HISTORICAL_RUNTIME_RUN_PROJECTOR_ID = "successor-runtime-run-projector"
+HISTORICAL_RUNTIME_RUN_PROJECTOR_VERSION = "1.1.0"
+
+
 class ProjectionFailpoint(Protocol):
     def __call__(self, point: str) -> None: ...
 
@@ -62,11 +68,11 @@ class RuntimeJournalSource:
 
 
 class PostgresRuntimeRunProjector:
-    projector_id = "successor-runtime-run-projector"
-    # v1.1 binds the real first-specimen CompileSucceeded/StepActivated stream
-    # and strict activation/attempt replay semantics.  Reusing v1.0 offsets
-    # would silently reinterpret an older projection shape.
-    projector_version = "1.1.0"
+    projector_id = RUN_OBSERVATION_PROJECTOR_ID
+    # The business projector starts at v1. Historical successor v1.1 rows and
+    # offsets stay under their original projector key and are read only by
+    # load_historical.
+    projector_version = RUN_OBSERVATION_PROJECTOR_VERSION
     source_kind = "runtime_journal"
 
     def __init__(
@@ -166,7 +172,57 @@ class PostgresRuntimeRunProjector:
         if row is None:
             raise RecordNotFound(f"runtime projection not found: {source.source_ref}")
         offset = self._offsets.load_source(self._key(source))
-        self._decode_current(source, offset, row)
+        self._decode_bound(
+            source,
+            offset,
+            row,
+            projector_id=self.projector_id,
+            projector_version=self.projector_version,
+        )
+        return row
+
+    def load_historical(
+        self,
+        source: RuntimeJournalSource,
+        *,
+        projector_id: str = HISTORICAL_RUNTIME_RUN_PROJECTOR_ID,
+        projector_version: str = HISTORICAL_RUNTIME_RUN_PROJECTOR_VERSION,
+    ) -> Mapping[str, object]:
+        """Read one explicit historical projection/offset pair without writes."""
+
+        if (
+            projector_id != HISTORICAL_RUNTIME_RUN_PROJECTOR_ID
+            or projector_version != HISTORICAL_RUNTIME_RUN_PROJECTOR_VERSION
+        ):
+            raise RuntimeProjectionError(
+                "unsupported historical runtime projector identity"
+            )
+
+        key = ProjectionOffsetKey(
+            projector_id=projector_id,
+            projector_version=projector_version,
+            source_kind=self.source_kind,
+            source_ref=source.source_ref,
+            source_incarnation=source.run_incarnation,
+        )
+        row = self._load_bound_projection(
+            source,
+            projector_id=projector_id,
+            projector_version=projector_version,
+            for_update=False,
+        )
+        if row is None:
+            raise RecordNotFound(
+                f"historical runtime projection not found: {source.source_ref}"
+            )
+        offset = self._offsets.load_source(key)
+        self._decode_bound(
+            source,
+            offset,
+            row,
+            projector_id=projector_id,
+            projector_version=projector_version,
+        )
         return row
 
     def _key(self, source: RuntimeJournalSource) -> ProjectionOffsetKey:
@@ -248,11 +304,26 @@ class PostgresRuntimeRunProjector:
     def _load_projection(
         self, source: RuntimeJournalSource, *, for_update: bool
     ) -> Mapping[str, object] | None:
+        return self._load_bound_projection(
+            source,
+            projector_id=self.projector_id,
+            projector_version=self.projector_version,
+            for_update=for_update,
+        )
+
+    def _load_bound_projection(
+        self,
+        source: RuntimeJournalSource,
+        *,
+        projector_id: str,
+        projector_version: str,
+        for_update: bool,
+    ) -> Mapping[str, object] | None:
         table = _table("runtime_run_projections")
         statement = select(table).where(
             table.c.project_key == _scope_key(self.scope),
-            table.c.projector_id == self.projector_id,
-            table.c.projector_version == self.projector_version,
+            table.c.projector_id == projector_id,
+            table.c.projector_version == projector_version,
             table.c.source_ref == source.source_ref,
             table.c.source_incarnation == source.run_incarnation,
             table.c.run_id == source.run_id,
@@ -266,6 +337,26 @@ class PostgresRuntimeRunProjector:
         source: RuntimeJournalSource,
         offset: Mapping[str, object] | None,
         row: Mapping[str, object] | None,
+        *,
+        projector_id: str | None = None,
+        projector_version: str | None = None,
+    ) -> RuntimeReplayProjection | None:
+        return self._decode_bound(
+            source,
+            offset,
+            row,
+            projector_id=projector_id or self.projector_id,
+            projector_version=projector_version or self.projector_version,
+        )
+
+    def _decode_bound(
+        self,
+        source: RuntimeJournalSource,
+        offset: Mapping[str, object] | None,
+        row: Mapping[str, object] | None,
+        *,
+        projector_id: str,
+        projector_version: str,
     ) -> RuntimeReplayProjection | None:
         if (offset is None) != (row is None):
             raise RuntimeProjectionError(
@@ -275,8 +366,8 @@ class PostgresRuntimeRunProjector:
             return None
         for name, expected in (
             ("project_key", _scope_key(self.scope)),
-            ("projector_id", self.projector_id),
-            ("projector_version", self.projector_version),
+            ("projector_id", projector_id),
+            ("projector_version", projector_version),
             ("source_ref", source.source_ref),
             ("source_incarnation", source.run_incarnation),
             ("run_id", source.run_id),
@@ -431,8 +522,12 @@ def _no_failpoint(_point: str) -> None:
 
 
 __all__ = [
+    "HISTORICAL_RUNTIME_RUN_PROJECTOR_ID",
+    "HISTORICAL_RUNTIME_RUN_PROJECTOR_VERSION",
     "PostgresRuntimeRunProjector",
     "ProjectionFailpoint",
+    "RUN_OBSERVATION_PROJECTOR_ID",
+    "RUN_OBSERVATION_PROJECTOR_VERSION",
     "RuntimeJournalSource",
     "RuntimeProjectionError",
 ]

@@ -11,7 +11,7 @@ from functorial_kit import Failure
 from mrw_functorial_kit.core.application_failure_semantics import report_query_contract_failures
 
 from ..models.base import SessionLocal
-from ..models.entities import Document, MarketStat
+from ..models.entities import Document
 from ..project_customization import get_project_customization
 from .llm.service import summarize_policy_text
 
@@ -97,23 +97,11 @@ def _load_policies(states: Sequence[str], start: date | None, end: date | None) 
         return [row[0] for row in session.execute(stmt.limit(50)).all()]
 
 
-def _load_market(states: Sequence[str], start: date | None, end: date | None) -> list[MarketStat]:
-    with SessionLocal() as session:
-        stmt = select(MarketStat).filter(MarketStat.state.in_([s.upper() for s in states]))
-        if start:
-            stmt = stmt.filter(MarketStat.date >= start)
-        if end:
-            stmt = stmt.filter(MarketStat.date <= end)
-        stmt = stmt.order_by(MarketStat.date.desc())
-        return [row[0] for row in session.execute(stmt.limit(200)).all()]
-
-
 def generate_html_report(states: Sequence[str], start: str | None, end: str | None) -> str:
     start_date = _parse_date(start, field="start")
     end_date = _parse_date(end, field="end")
 
     policies = _load_policies(states, start_date, end_date)
-    market = _load_market(states, start_date, end_date)
 
     policy_items = []
     for doc in policies:
@@ -132,18 +120,6 @@ def generate_html_report(states: Sequence[str], start: str | None, end: str | No
             }
         )
 
-    market_rows = []
-    for stat in market:
-        market_rows.append(
-            {
-                "state": stat.state,
-                "date": stat.date.isoformat(),
-                "revenue": float(stat.revenue or 0),
-                "sales_volume": float(stat.sales_volume or 0),
-                "jackpot": float(stat.jackpot or 0),
-            }
-        )
-
     title = get_project_customization().get_report_title()
     html = [f"<section><h1>{title}</h1>"]
     html.append(f"<p>州：{', '.join(states)}；时间：{start or '全部'} - {end or '全部'}</p>")
@@ -156,14 +132,7 @@ def generate_html_report(states: Sequence[str], start: str | None, end: str | No
         )
     html.append("</ul>")
 
-    html.append("<h2>市场数据</h2><table border=1 cellpadding=4 cellspacing=0><thead><tr>"
-                "<th>州</th><th>日期</th><th>销售额</th><th>销量</th><th>奖池</th></tr></thead><tbody>")
-    for row in market_rows:
-        html.append(
-            f"<tr><td>{row['state']}</td><td>{row['date']}</td>"
-            f"<td>{row['revenue']}</td><td>{row['sales_volume']}</td><td>{row['jackpot']}</td></tr>"
-        )
-    html.append("</tbody></table></section>")
+    html.append("</section>")
 
     return "".join(html)
 
@@ -173,11 +142,9 @@ def generate_csv_report(states: Sequence[str], start: str | None, end: str | Non
     end_date = _parse_date(end, field="end")
 
     policies = _load_policies(states, start_date, end_date)
-    market = _load_market(states, start_date, end_date)
-
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["type", "state", "date", "title", "summary", "revenue", "sales_volume", "jackpot"])
+    writer.writerow(["type", "state", "date", "title", "summary"])
 
     for doc in policies:
         writer.writerow([
@@ -186,21 +153,6 @@ def generate_csv_report(states: Sequence[str], start: str | None, end: str | Non
             doc.publish_date.isoformat() if doc.publish_date else "",
             doc.title or "",
             doc.summary or "",
-            "",
-            "",
-            "",
-        ])
-
-    for stat in market:
-        writer.writerow([
-            "market",
-            stat.state,
-            stat.date.isoformat(),
-            "",
-            "",
-            float(stat.revenue or 0),
-            float(stat.sales_volume or 0),
-            float(stat.jackpot or 0),
         ])
 
     return buffer.getvalue().encode("utf-8")

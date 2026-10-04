@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.source_library_c2_2 import (
+from app.successor_runtime.capabilities.source_planning import (
     CollectionCompleted,
     CollectionOutcomeUnknown,
     CollectionPartiallyCompleted,
@@ -15,15 +15,18 @@ from app.successor_runtime.capabilities.source_library_c2_2 import (
     ProviderHandoff,
     SourceCollectionTerminal,
 )
-from app.successor_runtime.capabilities.source_library_c2_3 import (
+from app.successor_runtime.capabilities.source_provider_acquisition import (
     CapturedSourceRecordRef,
 )
-from app.successor_runtime.capabilities.source_library_c2_4_projection import (
+from app.successor_runtime.capabilities.source_terminal_projection import (
     DECLARED_LOSS_PROFILE_REF,
+    SOURCE_COLLECTION_PROJECTION_SOURCE_HISTORICAL_SCHEMA,
+    SOURCE_TERMINAL_PROJECTION_OWNER,
     ProjectedWithLoss,
     ProjectionRejected,
     SourceCollectionProjectionSource,
-    build_source_library_c2_4_profiles,
+    build_source_terminal_projection_profiles,
+    historical_source_collection_projection_source_from_plain,
     project_source_collection,
 )
 from app.successor_runtime.substrate.projections.source_library_terminal import (
@@ -95,15 +98,64 @@ def _source(
     )
 
 
+def _historical_source_plain() -> dict[str, Any]:
+    outcome = {
+        "kind": "outcome_unknown",
+        "reason": "retained historical readback",
+    }
+    outcome["outcome_digest"] = content_digest(
+        {
+            "schema": "mrw.successor.source-library.c2-2.collection-outcome.v1",
+            **outcome,
+        }
+    )
+    plain: dict[str, Any] = {
+        "schema_version": SOURCE_COLLECTION_PROJECTION_SOURCE_HISTORICAL_SCHEMA,
+        "source_kind": "RUNTIME_JOURNAL",
+        "source_ref": "runtime-run:run:p3-c2-4-history",
+        "run_id": "run:p3-c2-4-history",
+        "run_incarnation": "run-inc:p3-c2-4-history",
+        "source_revision": 7,
+        "source_incarnation": "inc:p3-c2-4-history",
+        "project_key": "demo_proj",
+        "project_scope_digest": SCOPE_DIGEST,
+        "source_mode": "site_search",
+        "collection_outcome": outcome,
+        "record_refs": [],
+        "ordered_failures": [],
+        "provider_handoff": None,
+        "observed_at": "2030-08-31T08:00:00Z",
+    }
+    plain["source_digest"] = content_digest(
+        {
+            "schema": SOURCE_COLLECTION_PROJECTION_SOURCE_HISTORICAL_SCHEMA,
+            "source_ref": plain["source_ref"],
+            "run_id": plain["run_id"],
+            "run_incarnation": plain["run_incarnation"],
+            "source_revision": plain["source_revision"],
+            "source_incarnation": plain["source_incarnation"],
+            "project_key": plain["project_key"],
+            "project_scope_digest": plain["project_scope_digest"],
+            "source_mode": plain["source_mode"],
+            "collection_outcome_digest": outcome["outcome_digest"],
+            "record_refs": [],
+            "ordered_failures": [],
+            "provider_handoff": None,
+            "observed_at": plain["observed_at"],
+        }
+    )
+    return plain
+
+
 def test_profiles_declare_projection_loss_and_zero_authority() -> None:
-    profiles = build_source_library_c2_4_profiles()
+    profiles = build_source_terminal_projection_profiles()
     semantic = profiles["semantic"]
     assert DECLARED_LOSS_PROFILE_REF in semantic.declared_loss
     assert profiles["effect"].execution_class == "PROJECTION"
     assert profiles["effect"].network_required is False
     assert "SOURCE_STALE" in profiles["failure"].typed_failures
     assert "OFFSET_STALE" in profiles["failure"].typed_failures
-    assert profiles["authority"].canonical_owner == "source_library.c2_4.v1"
+    assert profiles["authority"].canonical_owner == SOURCE_TERMINAL_PROJECTION_OWNER
 
 
 def test_projection_is_declared_loss_and_never_authority() -> None:
@@ -194,6 +246,22 @@ def test_unsupported_schema_and_malformed_mode_fail_closed() -> None:
     assert result.code == "UNSUPPORTED_VERSION"
     with pytest.raises(ValueError):
         pytest.importorskip("dataclasses").replace(source, source_mode="not_a_mode")
+
+
+def test_historical_projection_source_uses_explicit_read_only_decoder() -> None:
+    plain = _historical_source_plain()
+    source = historical_source_collection_projection_source_from_plain(plain)
+    assert source.to_plain() == plain
+    assert source.source_digest == plain["source_digest"]
+
+    current_result = project_source_collection(source)  # type: ignore[arg-type]
+    assert isinstance(current_result, ProjectionRejected)
+    assert current_result.code == "UNSUPPORTED_VERSION"
+
+    wrong_version = dict(plain)
+    wrong_version["schema_version"] = "mrw.source.unknown.v9"
+    with pytest.raises(ValueError, match="exact C2.4 schema"):
+        historical_source_collection_projection_source_from_plain(wrong_version)
 
 
 def test_in_memory_delete_rebuild_is_digest_equivalent() -> None:

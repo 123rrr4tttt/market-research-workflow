@@ -238,6 +238,71 @@
   box-shadow: 0 18px 46px rgba(24, 44, 74, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
+.codex-agent-page__auth {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  justify-items: start;
+  gap: 16px;
+  width: min(100%, 680px);
+  min-height: 0;
+  margin: auto;
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--codex-ink);
+  box-shadow: 0 18px 46px rgba(24, 44, 74, 0.08);
+}
+
+.codex-agent-page__auth > svg {
+  color: var(--codex-blue);
+}
+
+.codex-agent-page__auth div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.codex-agent-page__auth strong {
+  font-size: 15px;
+}
+
+.codex-agent-page__auth p {
+  margin: 0;
+  color: var(--codex-muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.codex-agent-page__auth button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--codex-blue);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.codex-agent-page__auth button:hover:not(:disabled),
+.codex-agent-page__auth button:focus-visible {
+  background: #345cb9;
+}
+
+.codex-agent-page__auth button:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
 .codex-agent-page__stage {
   position: relative;
   min-height: 0;
@@ -294,5 +359,21 @@
 
   .codex-agent-page__pill svg {
     display: none;
+  }
+
+  .codex-agent-page__auth {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    margin: 0;
+    padding: 16px;
+    overflow: auto;
+  }
+
+  .codex-agent-page__auth > svg {
+    display: none;
+  }
+
+  .codex-agent-page__auth button {
+    width: 100%;
   }
 }

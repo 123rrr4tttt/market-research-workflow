@@ -6,14 +6,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 OPS_DIR="${ROOT_DIR}/main/ops"
 HOST_PROJECT_ROOT="${HOST_PROJECT_ROOT:-${ROOT_DIR}}"
-LAUNCHER_PROJECT_NAME="${LAUNCHER_PROJECT_NAME:-mrw-launcher}"
-LAUNCHER_URL="${LAUNCHER_URL:-http://127.0.0.1:5176}"
+source "${SCRIPT_DIR}/launcher-contract.sh"
+LAUNCHER_PROJECT_NAME="${LAUNCHER_PROJECT_NAME:-${MRW_LAUNCHER_PROJECT_NAME}}"
+LAUNCHER_URL="${LAUNCHER_URL:-${MRW_DOCKER_LAUNCHER_URL}}"
 MAX_WAIT="${MAX_WAIT:-90}"
 REBUILD=0
 UP_BUILD_ARG=(--no-build)
 
 usage() {
-  echo "Usage: $(basename "$0") [-h|--help] [--rebuild]"
+  cat <<USAGE
+Usage: $(basename "$0") [-h|--help] [--rebuild]
+
+Starts only the Docker control console (launcher-agent + launcher-ui).
+It does not start the MRW application stack. Use the console's Start action,
+or ./scripts/platform-macos.sh docker-app-start, for backend/worker/frontend.
+Console URL: ${LAUNCHER_URL}
+USAGE
 }
 
 while [[ $# -gt 0 ]]; do
@@ -80,7 +88,7 @@ wait_for_launcher() {
 }
 
 if curl -fsS --max-time 1 "$LAUNCHER_URL" >/dev/null 2>&1; then
-  echo "Docker Web Launcher is already reachable: $LAUNCHER_URL"
+  echo "Docker control console is already reachable: $LAUNCHER_URL"
   open_url "$LAUNCHER_URL"
   exit 0
 fi
@@ -88,14 +96,14 @@ fi
 ensure_docker_ready
 
 cd "$OPS_DIR"
-echo "Starting Docker control UI only..."
+echo "Starting Docker control console only (MRW app stack is unchanged)..."
 HOST_PROJECT_ROOT="$HOST_PROJECT_ROOT" LAUNCHER_PROJECT_NAME="$LAUNCHER_PROJECT_NAME" \
   docker compose --project-name "$LAUNCHER_PROJECT_NAME" --profile modern-ui stop launcher-ui launcher-agent >/dev/null 2>&1 || true
 HOST_PROJECT_ROOT="$HOST_PROJECT_ROOT" LAUNCHER_PROJECT_NAME="$LAUNCHER_PROJECT_NAME" \
   docker compose --project-name "$LAUNCHER_PROJECT_NAME" --profile modern-ui up -d "${UP_BUILD_ARG[@]}" launcher-agent launcher-ui
 
 if wait_for_launcher; then
-  echo "Opening Docker Web Launcher: $LAUNCHER_URL"
+  echo "Opening Docker control console: $LAUNCHER_URL"
   open_url "$LAUNCHER_URL"
 else
   echo "Docker Web Launcher did not become reachable: $LAUNCHER_URL" >&2

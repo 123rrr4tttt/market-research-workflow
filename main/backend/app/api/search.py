@@ -620,7 +620,13 @@ def search(
 ):
     """Placeholder: 混合检索统一接口（MVP 后续接 ES/pgvector）。"""
     try:
-        results = hybrid_search(q, state, top_k, rank)
+        results = hybrid_search(
+            q,
+            state,
+            top_k,
+            rank,
+            project_key=getattr(request.state, "project_key_resolved", None),
+        )
         # Diagnostics about fallback/backends (contract-safe: added under data)
         fallback_order = [
             "opensearch_lexical",

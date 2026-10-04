@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from app.successor_runtime.capabilities.c8_typed_knowledge import (
+from app.successor_runtime.capabilities.typed_knowledge import (
     UnavailableProjection,
     demand_read,
 )
-from app.successor_runtime.capabilities.c8_writing import (
+from app.successor_runtime.capabilities.knowledge_writing import (
     WRITING_HANDOFF_CONTRACT_VERSION,
     WRITING_STAGE_SEQUENCE,
     compose_writing_handoff,

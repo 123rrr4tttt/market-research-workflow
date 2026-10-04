@@ -36,9 +36,9 @@ from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, NoReturn, Protocol, runtime_checkable
 
 from functorial_kit import Failure
-from mrw_functorial_kit.core.w06_semantics import source_library_single_source_guard_failures
 
 from app.successor_runtime.capabilities.checksum import sha256_hex
+from mrw_functorial_kit.core.w06_semantics import source_single_source_guard_failures
 
 SINGLE_SOURCE_GUARD_DECISION_SCHEMA = "mrw.successor.source-library.single-source-guard.decision.v1"
 SINGLE_SOURCE_GUARD_FACT_SCHEMA = "mrw.successor.source-library.single-source-guard.execution-fact.v1"
@@ -67,7 +67,7 @@ _FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
 def _failure(
     code: str, message: str, *, public_exception: str = "ValueError", site: str = "single_source_guard_port"
 ) -> Failure:
-    return source_library_single_source_guard_failures.fail(
+    return source_single_source_guard_failures.fail(
         code,
         message,
         {
@@ -83,12 +83,12 @@ def _failure(
 def _raise_contract_failure(failure: Failure, exception_type: type[Exception] = ValueError) -> NoReturn:
     context = failure.context or {}
     if (
-        failure.family != source_library_single_source_guard_failures.name
+        failure.family != source_single_source_guard_failures.name
         or context.get("public_exception") != exception_type.__name__
     ):
         # kit:boundary owner=single_source_guard_port.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
         raise TypeError("single-source guard contract lift context is incomplete")  # noqa: TRY003
-    # kit:boundary owner=single_source_guard_port.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.single_source_guard.failure witness=test:test_w06_c2_total_core_failure_lifts
+    # kit:boundary owner=single_source_guard_port.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source.single-source-guard.failure witness=test:test_w06_c2_total_core_failure_lifts
     raise exception_type(str(context.get("public_message", failure.message)))
 
 
@@ -99,7 +99,7 @@ def _reject(
 
 
 def _raise_guard_error(message: str, details: GuardRejectionDetails) -> NoReturn:
-    # kit:boundary owner=single_source_guard_port.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.single_source_guard.failure witness=test:test_w06_c2_total_core_failure_lifts
+    # kit:boundary owner=single_source_guard_port.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source.single-source-guard.failure witness=test:test_w06_c2_total_core_failure_lifts
     raise SourceLibrarySingleSourceGuardError(message, details=details)
 
 

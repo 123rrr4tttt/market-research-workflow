@@ -13,8 +13,8 @@ from app.successor_runtime.assembly.base import (
     local_assembly_scope_digest,
     successor_binding,
 )
-from app.successor_runtime.capabilities import c9_evidence_matrix as capability
-from app.successor_runtime.capabilities.c9_evidence_matrix import (
+from app.successor_runtime.capabilities import projection_evidence_matrix as capability
+from app.successor_runtime.capabilities.projection_evidence_matrix import (
     BUSINESS_LINE_KEYS,
     NON_WORKER_TERMINAL_STATUS,
     WORKER_REQUIRED_BUSINESS_LINE_KEYS,
@@ -184,7 +184,7 @@ def _assignment(
         ),
         operation_contract_digest=operation_digest,
         return_contract_binding=ReturnContractBinding.from_contract(
-            "mrw.successor.runtime.c9-1.evidence-matrix-readback.v1",
+            "mrw.projection.evidence-matrix-readback.v2",
             ReturnContract(
                 success_modes=("SUCCEEDED",),
                 failure_modes=("FAILED",),
@@ -405,7 +405,7 @@ def test_s2b_c9_authority_all_false_and_completion_claim_false() -> None:
             EvidenceMatrixAuthority(**{name: True})
     assert matrix.completion_claim is False
     assert authority["schema_ref"] == (
-        "mrw.successor.runtime.c9-1.evidence-matrix-authority.v1"
+        "mrw.projection.evidence-matrix-authority.v2"
     )
 
     with pytest.raises(ValueError):

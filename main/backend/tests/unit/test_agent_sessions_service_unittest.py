@@ -444,33 +444,5 @@ class AgentSessionServiceUnitTest(unittest.TestCase):
         artifacts = self.service.list_artifacts(session_id)
         self.assertTrue(any(item["name"] == "coordinator.spec.json" for item in artifacts))
 
-    def test_project_agent_batch_compat_creates_session_bundle(self):
-        bundle = self.service.project_agent_batch_compat(
-            command="search ai terminals last 7 days top 5",
-            project_key="proj-nl",
-            request_payload={"dry_run": False},
-            loop_result={
-                "parsed": {"channel": "search.market"},
-                "plan": {
-                    "tasks": [
-                        {
-                            "channel": "search.market",
-                            "query_terms": ["ai terminals"],
-                            "max_items": 5,
-                        }
-                    ],
-                    "search_brief": {"summary": "brief"},
-                },
-                "submit": {"job_id": "abj-1", "accepted_count": 1},
-            },
-        )
-
-        self.assertTrue(bundle["session"]["compat_mode"])
-        self.assertEqual(bundle["session"]["compat_job_id"], "abj-1")
-        artifact_names = [item["name"] for item in bundle["artifacts"]]
-        self.assertIn("compat.loop_result.json", artifact_names)
-        self.assertIn("search_brief.json", artifact_names)
-
-
 if __name__ == "__main__":
     unittest.main()

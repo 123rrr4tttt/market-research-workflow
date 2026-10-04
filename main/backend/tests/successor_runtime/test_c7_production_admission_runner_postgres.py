@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
-from typing import Any
 
 import pytest
 import sqlalchemy as sa
@@ -19,6 +18,10 @@ from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.pool import NullPool
 
+from app.successor_runtime.capabilities.material_ingest_common import (
+    HISTORICAL_C7_INGEST_OWNER,
+    MATERIAL_INGEST_OWNER,
+)
 from app.successor_runtime.substrate.postgres.c7_production_admission import (
     C7ProductionAdmissionInput,
     run_c7_production_cutover_admission,
@@ -166,7 +169,7 @@ def test_fresh_commit_then_idempotent_replay(disposable_database: Engine) -> Non
     assert first.canonical_rows_before == 0
     assert first.canonical_rows_after == 1
     assert first.result.readback.idempotency_key == (
-        f"idem:c7-production:{admission_input.trace_id}"
+        f"idem:material-ingest:{admission_input.trace_id}"
     )
     assert first.result.readback.project_key == PROJECT_KEY
     assert first.result.receipt.committed_revision == 1
@@ -181,6 +184,53 @@ def test_fresh_commit_then_idempotent_replay(disposable_database: Engine) -> Non
     assert second.result.readback == first.result.readback
     assert second.result.receipt == first.result.receipt
     assert _legacy_count(disposable_database) == 1
+
+
+def test_historical_idempotency_cannot_be_readmitted_under_material_identity(
+    disposable_database: Engine,
+) -> None:
+    admission_input = _input()
+    first = run_c7_production_cutover_admission(
+        disposable_database,
+        admission_input=admission_input,
+    )
+    with disposable_database.begin() as connection:
+        connection.execute(
+            PUBLIC_TABLES["runtime_commit_intents"]
+            .update()
+            .where(
+                PUBLIC_TABLES["runtime_commit_intents"].c.project_key == PROJECT_KEY,
+                PUBLIC_TABLES["runtime_commit_intents"].c.commit_intent_id
+                == first.result.readback.commit_intent_id,
+            )
+            .values(
+                capability_id=HISTORICAL_C7_INGEST_OWNER,
+                idempotency_key=f"idem:c7-production:{admission_input.trace_id}",
+            )
+        )
+
+    try:
+        with pytest.raises(RuntimeError, match="explicit legacy readback"):
+            run_c7_production_cutover_admission(
+                disposable_database,
+                admission_input=admission_input,
+            )
+    finally:
+        with disposable_database.begin() as connection:
+            connection.execute(
+                PUBLIC_TABLES["runtime_commit_intents"]
+                .update()
+                .where(
+                    PUBLIC_TABLES["runtime_commit_intents"].c.project_key
+                    == PROJECT_KEY,
+                    PUBLIC_TABLES["runtime_commit_intents"].c.commit_intent_id
+                    == first.result.readback.commit_intent_id,
+                )
+                .values(
+                    capability_id=MATERIAL_INGEST_OWNER,
+                    idempotency_key=first.result.readback.idempotency_key,
+                )
+            )
 
 
 def test_runner_seeds_exact_runtime_authority(disposable_database: Engine) -> None:

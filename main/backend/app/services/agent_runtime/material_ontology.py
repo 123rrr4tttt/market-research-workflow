@@ -413,7 +413,7 @@ def capability_material_category(capability_id: str | None) -> MaterialCategory:
         return SOURCE_CATALOG
     if item in {"source.discovery.plan", "source.web.search", "source.candidate.review"}:
         return EXTERNAL_DISCOVERY
-    if item in {"ingest.source_library.run", "ingest.url_pool.submit", "agent_batch.nl_command.submit", "agent_batch.submit"}:
+    if item in {"ingest.source_library.run", "ingest.url_pool.submit", "agent_batch.submit"}:
         return EXTERNAL_INGEST
     if item in {"ingest.url_pool.status", "source.history.read"}:
         return INTERNAL_EXISTING

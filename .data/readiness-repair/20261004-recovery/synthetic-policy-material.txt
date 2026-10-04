@@ -1,0 +1,1 @@
+MRW persisted readiness policy 98952f281da9. This is a local synthetic policy fixture for project-scoped index and readback verification.

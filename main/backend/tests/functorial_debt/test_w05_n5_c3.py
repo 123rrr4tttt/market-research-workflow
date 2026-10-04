@@ -7,39 +7,34 @@ import re
 from pathlib import Path
 
 import pytest
-from functorial_kit import Failure
-
-from app.successor_runtime.capabilities import collect_c3 as c3
-from app.successor_runtime.capabilities import collect_c3_program as cp
-from app.successor_runtime.capabilities.collect_c3_interpreters import (
+from app.successor_runtime.capabilities import acquisition_batch as acquisition
+from app.successor_runtime.capabilities import acquisition_batch_program as cp
+from app.successor_runtime.capabilities.acquisition_batch_interpreters import (
     CollectBindingMismatch,
 )
-from mrw_functorial_kit.core.w05_capability_semantics import (
-    successor_capability_contract_failures,
-)
-
+from functorial_kit import Failure
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 C3_FILES = (
-    REPO_ROOT / "main/backend/app/successor_runtime/capabilities/collect_c3.py",
+    REPO_ROOT / "main/backend/app/successor_runtime/capabilities/acquisition_batch.py",
     REPO_ROOT
-    / "main/backend/app/successor_runtime/capabilities/collect_c3_interpreters.py",
-    REPO_ROOT / "main/backend/app/successor_runtime/capabilities/collect_c3_program.py",
+    / "main/backend/app/successor_runtime/capabilities/acquisition_batch_interpreters.py",
+    REPO_ROOT / "main/backend/app/successor_runtime/capabilities/acquisition_batch_program.py",
 )
 CONTRACT_WITNESS = "test:test_w05_n5_c3_contract_failures_use_canonical_value"
 
 
-def _request_ref() -> c3.CollectRequestRef:
-    return c3.build_collect_request_ref(
+def _request_ref() -> acquisition.CollectRequestRef:
+    return acquisition.build_collect_request_ref(
         request_id="req.w05.n5",
         project_key="demo_proj",
         channel="search.market",
     )
 
 
-def _snapshot() -> c3.CollectLegacyRequestSnapshot:
-    return c3.CollectLegacyRequestSnapshot(
-        schema_version=c3.COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
+def _snapshot() -> acquisition.CollectLegacyRequestSnapshot:
+    return acquisition.CollectLegacyRequestSnapshot(
+        schema_version=acquisition.COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
         flow="search",
         channel="search.market",
         project_key="demo_proj",
@@ -52,9 +47,9 @@ def _snapshot() -> c3.CollectLegacyRequestSnapshot:
     )
 
 
-def _policy() -> c3.CollectResourcePolicy:
-    return c3.CollectResourcePolicy(
-        schema_ref=c3.COLLECT_RESOURCE_POLICY_SCHEMA_REF,
+def _policy() -> acquisition.CollectResourcePolicy:
+    return acquisition.CollectResourcePolicy(
+        schema_ref=acquisition.COLLECT_RESOURCE_POLICY_SCHEMA_REF,
         max_parallelism=2,
         deadline_seconds=60,
         cancellation="COORDINATED",
@@ -64,10 +59,10 @@ def _policy() -> c3.CollectResourcePolicy:
     )
 
 
-def _static_elements_with_wrong_shape() -> tuple[c3.CollectBatchElement, ...]:
+def _static_elements_with_wrong_shape() -> tuple[acquisition.CollectBatchElement, ...]:
     return (
-        c3.CollectBatchElement(
-            schema_version=c3.COLLECT_BATCH_ELEMENT_SCHEMA_REF,
+        acquisition.CollectBatchElement(
+            schema_version=acquisition.COLLECT_BATCH_ELEMENT_SCHEMA_REF,
             element_id="plan.wrong:element:0",
             input_index=0,
             query_terms=("different",),
@@ -79,8 +74,8 @@ def _static_elements_with_wrong_shape() -> tuple[c3.CollectBatchElement, ...]:
     )
 
 
-def _valid_plan() -> c3.CollectBatchPlan:
-    return c3.build_collect_batch_plan(
+def _valid_plan() -> acquisition.CollectBatchPlan:
+    return acquisition.build_collect_batch_plan(
         request_ref=_request_ref(),
         snapshot=_snapshot(),
         plan_id="plan.w05.n5",
@@ -89,10 +84,10 @@ def _valid_plan() -> c3.CollectBatchPlan:
     )
 
 
-def _element_payload(element: c3.CollectBatchElement) -> c3.CollectBatchElementPayload:
-    return c3.CollectBatchElementPayload(
-        schema_version=c3.COLLECT_C3_1_PAYLOAD_SCHEMA,
-        operation_kind=c3.COLLECT_C3_1_KIND,
+def _element_payload(element: acquisition.CollectBatchElement) -> acquisition.CollectBatchElementPayload:
+    return acquisition.CollectBatchElementPayload(
+        schema_version=acquisition.ACQUISITION_BATCH_ELEMENT_PAYLOAD_SCHEMA,
+        operation_kind=acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND,
         parent_request_ref=_request_ref(),
         request_snapshot=_snapshot(),
         element=element,
@@ -103,8 +98,9 @@ def _element_payload(element: c3.CollectBatchElement) -> c3.CollectBatchElementP
 
 
 def test_w05_n5_c3_contract_failures_use_canonical_value() -> None:
-    failure = c3.collect_contract_failure(
-        code="schema_contract_invalid",
+    failure = acquisition.collect_contract_failure(
+        code="INVALID_INPUT",
+        reason_code="schema_contract_invalid",
         message="exact rejection",
         operation="collect.test",
         site="test",
@@ -112,14 +108,16 @@ def test_w05_n5_c3_contract_failures_use_canonical_value() -> None:
     )
 
     assert isinstance(failure, Failure)
-    assert successor_capability_contract_failures.matches(failure)
-    assert failure.family == "successor.capability.contract_failure"
+    assert acquisition.ACQUISITION_BATCH_FAILURES.matches(failure)
+    assert failure.family == "acquisition.batch.failure"
+    assert failure.code == "INVALID_INPUT"
     assert failure.context is not None
+    assert failure.context["reason_code"] == "schema_contract_invalid"
     assert failure.context["witness"] == CONTRACT_WITNESS
 
 
 def test_w05_n5_c3_total_boundaries_preserve_failure_outcomes() -> None:
-    plan_result = c3.try_build_collect_batch_plan(
+    plan_result = acquisition.try_build_collect_batch_plan(
         request_ref=_request_ref(),
         snapshot=_snapshot(),
         plan_id="plan.w05.n5",
@@ -129,20 +127,22 @@ def test_w05_n5_c3_total_boundaries_preserve_failure_outcomes() -> None:
         static_elements=_static_elements_with_wrong_shape(),
     )
     assert isinstance(plan_result, Failure)
-    assert plan_result.code == "schema_contract_invalid"
+    assert plan_result.code == "INVALID_INPUT"
     assert plan_result.context is not None
+    assert plan_result.context["reason_code"] == "schema_contract_invalid"
     assert plan_result.context["domain_outcome"] == "INVALID_INPUT"
 
-    bundle = c3.build_collect_c3_bundle()
-    codec_result = c3.try_decode_c3_payload(bundle.payload_codec_c3_2(), [])
+    bundle = acquisition.build_acquisition_batch_bundle()
+    codec_result = acquisition.try_decode_acquisition_payload(bundle.ordered_result_fold_payload_codec(), [])
     assert isinstance(codec_result, Failure)
-    assert codec_result.code == "codec_contract_invalid"
+    assert codec_result.code == "FOLD_CONTRACT_FAILURE"
     assert codec_result.context is not None
+    assert codec_result.context["reason_code"] == "codec_contract_invalid"
     assert codec_result.context["domain_outcome"] == "FOLD_CONTRACT_FAILURE"
 
     program_result = cp.try_build_declared_traversal_program(
         element_payload=None,
-        catalog=c3.build_collect_c3_catalog(bundle),
+        catalog=acquisition.build_acquisition_batch_catalog(bundle),
         program_id="program.w05.n5",
         project_key="demo_proj",
         project_registry_revision=7,
@@ -150,8 +150,9 @@ def test_w05_n5_c3_total_boundaries_preserve_failure_outcomes() -> None:
         traversal_policy="UNSUPPORTED_SHAPE",
     )
     assert isinstance(program_result, Failure)
-    assert program_result.code == "program_binding_invalid"
+    assert program_result.code == "ASSIGNMENT_BINDING_MISMATCH"
     assert program_result.context is not None
+    assert program_result.context["reason_code"] == "program_binding_invalid"
     assert program_result.context["domain_outcome"] == "INVALID_INPUT"
 
 
@@ -160,7 +161,7 @@ def test_w05_n5_c3_legacy_compatibility_lift_preserves_exception_abi() -> None:
         ValueError,
         match="^STATIC_SHAPE elements do not match the derived finite ordered shape$",
     ):
-        c3.build_collect_batch_plan(
+        acquisition.build_collect_batch_plan(
             request_ref=_request_ref(),
             snapshot=_snapshot(),
             plan_id="plan.w05.n5",
@@ -170,12 +171,13 @@ def test_w05_n5_c3_legacy_compatibility_lift_preserves_exception_abi() -> None:
             static_elements=_static_elements_with_wrong_shape(),
         )
 
-    fold_codec = c3.build_collect_c3_bundle().payload_codec_c3_2()
+    fold_codec = acquisition.build_acquisition_batch_bundle().ordered_result_fold_payload_codec()
     with pytest.raises(TypeError, match="^payload codec requires a JSON object$"):
         fold_codec.decode_payload([])
 
-    binding_failure = c3.collect_contract_failure(
-        code="program_binding_invalid",
+    binding_failure = acquisition.collect_contract_failure(
+        code="ASSIGNMENT_BINDING_MISMATCH",
+        reason_code="program_binding_invalid",
         message="C3 binding drift",
         operation="collect.require_exact_binding",
         site="test",
@@ -183,7 +185,7 @@ def test_w05_n5_c3_legacy_compatibility_lift_preserves_exception_abi() -> None:
         public_exception="CollectBindingMismatch",
     )
     with pytest.raises(CollectBindingMismatch, match="^C3 binding drift$"):
-        c3.raise_collect_contract_failure(
+        acquisition.raise_collect_contract_failure(
             binding_failure,
             CollectBindingMismatch,
         )
@@ -191,13 +193,13 @@ def test_w05_n5_c3_legacy_compatibility_lift_preserves_exception_abi() -> None:
 
 def test_w05_n5_c3_programmer_defect_lift_preserves_exception_abi() -> None:
     incomplete = Failure(
-        family=successor_capability_contract_failures.name,
-        code="schema_contract_invalid",
+        family=acquisition.ACQUISITION_BATCH_FAILURES.name,
+        code="INVALID_INPUT",
         message="incomplete",
     )
 
     with pytest.raises(TypeError, match="^C3 contract lift context is invalid$"):
-        c3.raise_collect_contract_failure(incomplete, ValueError)
+        acquisition.raise_collect_contract_failure(incomplete, ValueError)
 
 
 def test_w05_n5_c3_ordered_composition_and_wire_abi() -> None:
@@ -210,15 +212,15 @@ def test_w05_n5_c3_ordered_composition_and_wire_abi() -> None:
     )
 
     payloads = tuple(_element_payload(element) for element in plan.elements)
-    bundle = c3.build_collect_c3_bundle()
-    codec = bundle.payload_codec_c3_1()
+    bundle = acquisition.build_acquisition_batch_bundle()
+    codec = bundle.batch_element_payload_codec()
     for payload in payloads:
         encoded = codec.encode_payload(payload)
         assert codec.decode_payload(encoded).to_plain() == payload.to_plain()
 
-    program = cp.build_collect_c3_composed_program(
+    program = cp.build_acquisition_batch_composed_program(
         element_payloads=payloads,
-        catalog=c3.build_collect_c3_catalog(bundle),
+        catalog=acquisition.build_acquisition_batch_catalog(bundle),
         program_id="program.w05.n5.composed",
         project_key="demo_proj",
         project_registry_revision=7,

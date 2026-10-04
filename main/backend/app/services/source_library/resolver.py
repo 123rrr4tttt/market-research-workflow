@@ -27,6 +27,15 @@ from ...models.entities import (
 from ..ingest_config.service import get_config as get_ingest_config
 from ..projects import bind_project, bind_schema
 from .external_project import EXTERNAL_PROJECT_CHANNEL_KEY
+from .candidate_aggregation import (
+    aggregate_written_counts,
+    batch_max_candidates,
+    candidate_record_stats,
+    normalize_handler_candidate_limits,
+    split_query_batches,
+    unique_candidates,
+    unique_site_entries,
+)
 from .item_resolver import (
     ExecutionRequest,
     ItemResolver,
@@ -2025,17 +2034,17 @@ def _run_handler_cluster_item(
         total_url_tasks=0,
     )
     batch_size = pre_plan.batch_size
-    term_batches = _split_batches(q, batch_size)
+    term_batches = split_query_batches(q, batch_size)
     concurrency_plan = build_source_concurrency_plan(
         params=params,
         total_search_tasks=len(term_batches),
         total_url_tasks=0,
     )
     search_parallelism = concurrency_plan.search.parallelism
-    per_keyword_limit = max(1, int(params.get("per_keyword_limit") or params.get("limit") or 5))
-    global_max_candidates = max(1, int(params.get("max_candidates") or 200))
-    sitemap_max_depth = max(0, int(params.get("sitemap_max_depth") or 2))
-    sitemap_max_sitemaps = max(1, int(params.get("sitemap_max_sitemaps") or 50))
+    candidate_limits = normalize_handler_candidate_limits(params)
+    per_keyword_limit = candidate_limits.per_keyword_limit
+    sitemap_max_depth = candidate_limits.sitemap_max_depth
+    sitemap_max_sitemaps = candidate_limits.sitemap_max_sitemaps
     merged_search_item = dict(item or {})
     merged_search_item["params"] = {
         **dict(item_params or {}),
@@ -2052,21 +2061,19 @@ def _run_handler_cluster_item(
     execution_plan = build_item_execution_plan(merged_search_item)
 
     def _run_search_batch(term_batch: list[str]):
-        batch_term_count = max(1, len(term_batch))
-        batch_max_candidates = min(global_max_candidates, per_keyword_limit * batch_term_count)
         return unified_search_by_item_payload(
             project_key=str(project_key or ""),
             item=merged_search_item,
             execution_plan=execution_plan,
             query_terms=term_batch,
-            max_candidates=batch_max_candidates,
+            max_candidates=batch_max_candidates(candidate_limits, len(term_batch)),
             write_to_pool=bool(params.get("write_to_pool", True)),
             pool_scope=str(params.get("pool_scope") or "project"),
             probe_timeout=float(params.get("probe_timeout") or 10.0),
             sitemap_max_depth=sitemap_max_depth,
             sitemap_max_sitemaps=sitemap_max_sitemaps,
             auto_ingest=False,
-            ingest_limit=max(1, int(params.get("ingest_limit") or params.get("limit") or 20)),
+            ingest_limit=candidate_limits.global_ingest_limit,
             enable_extraction=bool(params.get("enable_extraction", True)),
             allow_term_fallback=bool(params.get("allow_term_fallback", False)),
         )
@@ -2095,24 +2102,16 @@ def _run_handler_cluster_item(
     )
 
     benign_markers = {"url_term_filter_empty_fallback_used", "url_term_filter_empty_no_fallback"}
-    merged_site_entries: list[dict[str, Any]] = []
+    merged_site_entries = unique_site_entries(us_runs)
+    merged_candidates = unique_candidates(us_runs)
+    written_urls_new, written_urls_skipped = aggregate_written_counts(us_runs)
     merged_runtime_diagnostics: list[dict[str, Any]] = []
     merged_review_queues: list[dict[str, Any]] = []
-    seen_entry: set[str] = set()
     seen_runtime: set[str] = set()
-    merged_candidates: list[str] = []
-    seen_cand: set[str] = set()
     merged_error_details: list[dict[str, Any]] = []
     merged_errors: list[str] = []
-    written_urls_new = 0
-    written_urls_skipped = 0
 
     for us in us_runs:
-        for e in (us.site_entries_used or []):
-            key = str(e.get("site_url") or e.get("id") or "")
-            if key and key not in seen_entry:
-                seen_entry.add(key)
-                merged_site_entries.append(e)
         runtime_rows = list(getattr(us, "runtime_diagnostics", None) or [])
         if not runtime_rows:
             runtime_rows = [dict(entry) for entry in (us.site_entries_used or []) if isinstance(entry, dict)]
@@ -2124,11 +2123,6 @@ def _run_handler_cluster_item(
         review_queue = getattr(us, "relevance_review_queue", None)
         if isinstance(review_queue, dict):
             merged_review_queues.append(review_queue)
-        for u in (us.candidates or []):
-            s = str(u or "").strip()
-            if s and s not in seen_cand:
-                seen_cand.add(s)
-                merged_candidates.append(s)
         for e in (us.errors or []):
             if not isinstance(e, dict):
                 continue
@@ -2136,9 +2130,6 @@ def _run_handler_cluster_item(
             msg = str(e.get("error") or "").strip()
             if msg and msg not in benign_markers and msg not in merged_errors:
                 merged_errors.append(msg)
-        w = us.written or {}
-        written_urls_new += int(w.get("urls_new") or 0)
-        written_urls_skipped += int(w.get("urls_skipped") or 0)
 
     routed_result = {
         "inserted": 0,
@@ -2242,12 +2233,7 @@ def _run_handler_cluster_item(
         list(result_records),
         relevance_review_queue,
     )
-    result_stats = {
-        "fetched": len(merged_candidates),
-        "normalized": len(result_records),
-        "dropped": max(len(merged_candidates) - len(result_records), 0),
-        "errors": len(merged_errors),
-    }
+    result_stats = candidate_record_stats(merged_candidates, result_records, errors=merged_errors)
     candidate_source_types = sorted(
         {
             str(entry.get("entry_type") or "").strip().lower()

@@ -17,11 +17,11 @@ from app.successor_migration import legacy_workflow_graph as legacy_graph
 from app.successor_migration.legacy_ingest_c7 import (
     capture_legacy_ingest_c7_fixture,
 )
-from app.successor_runtime.capabilities import c1_legacy_dsl as c1_dsl
-from app.successor_runtime.capabilities import collect_c3 as c3
-from app.successor_runtime.capabilities import collect_c3_interpreters as ci
-from app.successor_runtime.capabilities.c1_slice_acceptance import C1StepStatus
-from app.successor_runtime.capabilities.ingest_c7_movements import (
+from app.successor_runtime.capabilities import workflow_legacy_dsl as c1_dsl
+from app.successor_runtime.capabilities import acquisition_batch as acquisition
+from app.successor_runtime.capabilities import acquisition_batch_interpreters as ci
+from app.successor_runtime.capabilities.workflow_slice_acceptance import WorkflowStepStatus
+from app.successor_runtime.capabilities.material_ingest_movements import (
     verify_structured_candidate,
 )
 
@@ -59,11 +59,11 @@ from .test_p5_c1_legacy_oracle import _compare as _c1_oracle_compare
 
 
 def _c1_status():
-    return C1StepStatus.SUCCESS
+    return WorkflowStepStatus.SUCCESS
 
 
 def _deployment_digest() -> str:
-    return c3.deployment_catalog_digest()
+    return acquisition.deployment_catalog_digest()
 
 
 def _verify_c7(forged, snapshot, envelope, decision, trace):
@@ -157,7 +157,7 @@ def _c3_2_fold_replay_digest() -> str:
     second = _failed(1, message="batch exploded", terms=("t5",))
     third = _succeeded(2, inserted=3, links=("https://b", "https://c"))
     sequence = _sequence(first, second, third)
-    fold_payload = c3.build_collect_fold_payload(
+    fold_payload = acquisition.build_collect_fold_payload(
         parent_request_ref=_request_ref(),
         ordered_outcomes=sequence,
     )
@@ -242,8 +242,8 @@ def _c1_dsl_replay_digest() -> str:
             {"from": "draft", "to": "combine"},
         ],
     }
-    first = c1_dsl.parse_and_validate_legacy_dsl(payload)
-    second = c1_dsl.parse_and_validate_legacy_dsl(payload)
+    first = c1_dsl.parse_and_validate_workflow_dsl(payload)
+    second = c1_dsl.parse_and_validate_workflow_dsl(payload)
     assert first.ok and second.ok
     assert first.program_digest == second.program_digest
     assert first.plan_digest == second.plan_digest

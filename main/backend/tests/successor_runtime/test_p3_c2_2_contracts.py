@@ -7,16 +7,18 @@ from typing import Any
 
 import pytest
 
-from app.successor_runtime.capabilities import source_library_c2_1 as c21
-from app.successor_runtime.capabilities import source_library_c2_1_program as c21p
-from app.successor_runtime.capabilities import source_library_c2_2 as c22
-from app.successor_runtime.capabilities import source_library_c2_2_interpreters as c22i
-from app.successor_runtime.capabilities import source_library_c2_2_program as c22p
+from app.successor_runtime.capabilities import source_resolution as c21
+from app.successor_runtime.capabilities import source_resolution_program as c21p
+from app.successor_runtime.capabilities import source_planning as c22
+from app.successor_runtime.capabilities import source_planning_interpreters as c22i
+from app.successor_runtime.capabilities import source_planning_program as c22p
+from app.successor_runtime.capabilities import source_provider_acquisition as c23
+from app.successor_runtime.capabilities import source_contracts as c2_shared
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.source_library_c2_1 import (
+from app.successor_runtime.capabilities.source_resolution import (
     source_item_definition_content_digest,
 )
-from app.successor_runtime.capabilities.source_library_c2_1_interpreters import (
+from app.successor_runtime.capabilities.source_resolution_interpreters import (
     resolve_source_execution_request,
 )
 from app.successor_runtime.language.program import (
@@ -31,7 +33,7 @@ SCOPE_INCARNATION = "scope-inc-5"
 SCOPE_DIGEST = c21.project_scope_digest(
     PROJECT_KEY, RESOLVED_SCHEMA, REGISTRY_REVISION, SCOPE_INCARNATION
 )
-ORCHESTRATION_POLICY_REF = "mrw.successor.source-library.c2-2.policy.v1"
+ORCHESTRATION_POLICY_REF = "mrw.source.plan-source-mode.policy.v2"
 
 
 def _channels() -> list[dict[str, Any]]:
@@ -95,16 +97,16 @@ def _planning_payload(
     )
 
 
-def _bundle() -> c22.SourceLibraryC2_2CapabilityBundle:
-    return c22.build_source_library_c2_2_bundle()
+def _bundle() -> c22.SourcePlanningCapabilityBundle:
+    return c22.build_source_planning_bundle()
 
 
 def _catalog() -> Any:
-    return c22.build_source_library_c2_2_catalog(_bundle())
+    return c22.build_source_planning_catalog(_bundle())
 
 
 def _registry() -> Any:
-    return c22.build_source_library_c2_2_registry(_bundle())
+    return c22.build_source_planning_registry(_bundle())
 
 
 def test_c2_2_bundle_registers_four_exact_operations() -> None:
@@ -119,13 +121,17 @@ def test_c2_2_bundle_registers_four_exact_operations() -> None:
         "source_library.url_execution.v1",
     )
     for operation in bundle.operations:
-        assert operation.owner_capability_id == "source_library.c2_2.v1"
+        assert operation.owner_capability_id == c22.SOURCE_PLANNING_OWNERS[
+            operation.ref.kind
+        ]
         assert operation.ref.contract_version == "1.0.0"
         assert catalog.lookup(operation.ref.kind) == operation.ref
         assert registry.resolve_required(operation.ref).ref == operation.ref
     assert bundle.profiles["effect"].execution_class == "PURE_TRANSFORM"
     assert bundle.profiles["effect"].network_required is False
-    assert bundle.profiles["authority"].canonical_owner == "source_library.c2_2.v1"
+    assert bundle.profiles["authority"].canonical_owner == (
+        c22.SOURCE_PLANNING_URL_EXECUTION_OWNER
+    )
     assert "RESOURCE_CEILING_EXCEEDED" in bundle.profiles["failure"].typed_failures
 
 
@@ -249,9 +255,7 @@ def test_site_search_forces_handler_cluster_and_credentials_are_opaque() -> None
         for ref in task.effect_request.credential_refs:
             assert ref.ref.startswith("credential:/")
             assert ref.ref == ref.ref.strip()
-            assert ref.schema_version == (
-                "mrw.successor.source-library.c2-3.credential-ref.v1"
-            )
+            assert ref.schema_version == c23.CREDENTIAL_REF_SCHEMA
 
 
 def test_url_execution_preserves_input_order() -> None:
@@ -300,7 +304,7 @@ def test_generic_web_direct_execution_is_rejected() -> None:
     )
     planning = c22.SourceModePlanningPayload(
         schema_version=c22.SOURCE_MODE_PLANNING_PAYLOAD_SCHEMA,
-        operation_kind=c22.SOURCE_LIBRARY_C2_2_PROTOCOL_SEARCH_KIND,
+        operation_kind=c22.SOURCE_PLANNING_PROTOCOL_SEARCH_KIND,
         project_scope=request.project_scope,
         execution_request=request,
         execution_request_digest=content_digest(request.to_plain()),
@@ -336,7 +340,7 @@ def test_url_execution_rebinds_generic_web_and_is_rejected() -> None:
     )
     planning = c22.SourceModePlanningPayload(
         schema_version=c22.SOURCE_MODE_PLANNING_PAYLOAD_SCHEMA,
-        operation_kind=c22.SOURCE_LIBRARY_C2_2_URL_EXECUTION_KIND,
+        operation_kind=c22.SOURCE_PLANNING_URL_EXECUTION_KIND,
         project_scope=request.project_scope,
         execution_request=request,
         execution_request_digest=content_digest(request.to_plain()),
@@ -353,7 +357,7 @@ def test_url_execution_rebinds_generic_web_and_is_rejected() -> None:
 
 
 def test_resource_ceiling_rejects_excessive_url_plan() -> None:
-    urls = [f"https://example.com/{index}" for index in range(c22.C2_2_MAX_URLS + 1)]
+    urls = [f"https://example.com/{index}" for index in range(c22.SOURCE_PLANNING_MAX_URLS + 1)]
     payload, resolved = _resolve(
         {
             "item_key": "market.1",
@@ -392,7 +396,7 @@ def test_program_compiles_one_effect_step_and_roundtrips() -> None:
         {"query_terms": ["robotics"]},
     )
     planning = _planning_payload(payload, resolved)
-    program = c22p.build_source_library_c2_2_program(
+    program = c22p.build_source_planning_program(
         payload=planning,
         catalog=_catalog(),
         program_id="p3-c2-2.contracts.program",
@@ -400,7 +404,7 @@ def test_program_compiles_one_effect_step_and_roundtrips() -> None:
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    plan = c22p.compile_source_library_c2_2_program(
+    plan = c22p.compile_source_planning_program(
         program, _catalog(), operation_contracts=_registry()
     )
     decoded = decode_program_spec(encode_program_spec(program))
@@ -421,6 +425,76 @@ def test_program_compiles_one_effect_step_and_roundtrips() -> None:
     assert ref.provenance_digest == metadata["payload_provenance_digest"]
 
 
+def test_historical_planning_payload_is_explicit_and_keeps_digest() -> None:
+    payload, resolved = _resolve(
+        {
+            "item_key": "market.2",
+            "channel_key": "market.default",
+            "enabled": True,
+            "params": {},
+            "extra": {},
+            "revision": 3,
+            "incarnation": "item-inc-3",
+        },
+        {"query_terms": ["robotics"]},
+    )
+    planning = _planning_payload(payload, resolved)
+    historical_request = dataclasses.replace(
+        planning.execution_request,
+        schema_version=c2_shared.SOURCE_EXECUTION_REQUEST_HISTORICAL_SCHEMA_REF,
+        source_mode=dataclasses.replace(
+            planning.execution_request.source_mode,
+            schema_version=c2_shared.SOURCE_MODE_HISTORICAL_SCHEMA_REF,
+        ),
+        taxonomy=dataclasses.replace(
+            planning.execution_request.taxonomy,
+            schema_version=c2_shared.SOURCE_TAXONOMY_HISTORICAL_SCHEMA_REF,
+        ),
+        warnings=tuple(
+            dataclasses.replace(
+                warning,
+                schema_version=c2_shared.SOURCE_WARNING_HISTORICAL_SCHEMA_REF,
+            )
+            for warning in planning.execution_request.warnings
+        ),
+    )
+    historical_catalog = dataclasses.replace(
+        planning.catalog,
+        schema_version=c2_shared.CHANNEL_CATALOG_HISTORICAL_SCHEMA_REF,
+        digest="",
+    )
+    historical_request = dataclasses.replace(
+        historical_request,
+        catalog_digest=historical_catalog.digest,
+    )
+    historical_ceiling_digest = content_digest(
+        {
+            "schema": "mrw.successor.source-library.c2-1.resource-ceiling.v1",
+            "max_catalog_entries": 256,
+            "max_payload_bytes": 64 * 1024,
+            "max_query_terms": 32,
+            "max_urls": 256,
+            "max_site_entries": 256,
+            "max_scalar_length": 4096,
+        }
+    )
+    historical = dataclasses.replace(
+        planning,
+        schema_version=c2_shared.SOURCE_MODE_PLANNING_HISTORICAL_PAYLOAD_SCHEMA,
+        execution_request=historical_request,
+        execution_request_digest=content_digest(historical_request.to_plain()),
+        catalog=historical_catalog,
+        resource_ceiling_digest=historical_ceiling_digest,
+        payload_digest="",
+    )
+    encoded = historical.to_plain()
+    with pytest.raises(ValueError, match="historical source planning payload"):
+        c2_shared.source_mode_planning_payload_from_plain(encoded)
+    decoded = c2_shared.source_mode_planning_payload_from_historical_plain(encoded)
+    assert decoded.to_plain() == encoded
+    assert decoded.payload_digest == historical.payload_digest
+
+
 def test_c2_1_to_c2_2_materialization_is_exact() -> None:
     payload, resolved = _resolve(
         {
@@ -435,10 +509,10 @@ def test_c2_1_to_c2_2_materialization_is_exact() -> None:
         {"query_terms": ["robotics"]},
     )
     planning = _planning_payload(payload, resolved)
-    c2_1_bundle = c21.build_source_library_c2_1_bundle()
-    c2_1_catalog = c21.build_source_library_c2_1_catalog(c2_1_bundle)
-    c2_1_registry = c21.build_source_library_c2_1_registry(c2_1_bundle)
-    c2_1_program = c21p.build_source_library_c2_1_program(
+    c2_1_bundle = c21.build_source_resolution_bundle()
+    c2_1_catalog = c21.build_source_resolution_catalog(c2_1_bundle)
+    c2_1_registry = c21.build_source_resolution_registry(c2_1_bundle)
+    c2_1_program = c21p.build_source_resolution_program(
         payload=payload,
         catalog=c2_1_catalog,
         program_id="p3-c2-2.chain.c2-1",
@@ -446,7 +520,7 @@ def test_c2_1_to_c2_2_materialization_is_exact() -> None:
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    c2_1_plan = c21p.compile_source_library_c2_1_program(
+    c2_1_plan = c21p.compile_source_resolution_program(
         c2_1_program, c2_1_catalog, operation_contracts=c2_1_registry
     )
     c2_1_value_ref = c21p.payload_value_ref(
@@ -454,7 +528,7 @@ def test_c2_1_to_c2_2_materialization_is_exact() -> None:
         program_id="p3-c2-2.chain.c2-1",
         project_key=PROJECT_KEY,
     )
-    successor_program = c22p.build_source_library_c2_2_program(
+    successor_program = c22p.build_source_planning_program(
         payload=planning,
         catalog=_catalog(),
         program_id="p3-c2-2.chain.c2-2",
@@ -462,7 +536,7 @@ def test_c2_1_to_c2_2_materialization_is_exact() -> None:
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    materialization = c22p.build_c2_1_to_c2_2_materialization(
+    materialization = c22p.build_resolution_to_planning_materialization(
         materialization_id="materialization:p3-c2-2.chain",
         predecessor_run_id="run:p3-c2-2.chain",
         predecessor_step_id="step:p3-c2-2.chain",
@@ -493,7 +567,7 @@ def test_mixed_program_plan_binding_fails_closed() -> None:
         {"query_terms": ["robotics"]},
     )
     planning = _planning_payload(payload, resolved)
-    program_a = c22p.build_source_library_c2_2_program(
+    program_a = c22p.build_source_planning_program(
         payload=planning,
         catalog=_catalog(),
         program_id="p3-mixed-program-a",
@@ -501,7 +575,7 @@ def test_mixed_program_plan_binding_fails_closed() -> None:
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    program_b = c22p.build_source_library_c2_2_program(
+    program_b = c22p.build_source_planning_program(
         payload=planning,
         catalog=_catalog(),
         program_id="p3-mixed-program-b",
@@ -509,10 +583,10 @@ def test_mixed_program_plan_binding_fails_closed() -> None:
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    plan_a = c22p.compile_source_library_c2_2_program(
+    plan_a = c22p.compile_source_planning_program(
         program_a, _catalog(), operation_contracts=_registry()
     )
-    plan_b = c22p.compile_source_library_c2_2_program(
+    plan_b = c22p.compile_source_planning_program(
         program_b, _catalog(), operation_contracts=_registry()
     )
     assert program_a.program_digest != program_b.program_digest
@@ -523,7 +597,7 @@ def test_mixed_program_plan_binding_fails_closed() -> None:
     # Mixed Program A + Plan B must fail closed before any effect.
     with pytest.raises(c22i.PlanningBindingMismatch):
         c22i.require_exact_planning_binding(planning, program=program_a, plan=plan_b)
-    outcome = c22i.SourceLibraryC2_2SuccessorInterpreter().interpret(
+    outcome = c22i.SourcePlanningSuccessorInterpreter().interpret(
         planning,
         program=program_a,
         plan=plan_b,
@@ -556,7 +630,7 @@ def test_planning_binding_mismatch_fails_closed() -> None:
     planning = _planning_payload(payload, resolved)
     wrong_mode = dataclasses.replace(
         planning,
-        operation_kind=c22.SOURCE_LIBRARY_C2_2_SITE_SEARCH_KIND,
+        operation_kind=c22.SOURCE_PLANNING_SITE_SEARCH_KIND,
         payload_digest="",
     )
     with pytest.raises(c22i.PlanningBindingMismatch):

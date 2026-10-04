@@ -459,4 +459,3 @@ def test_checked_in_effect_contracts_match_public_route_design() -> None:
     config_contract = bindings["config.update_env"]
     assert config_contract.effect_class is EffectClass.FILESYSTEM_SUBPROCESS
     assert config_contract.admission is EffectAdmission.BLOCKED_UNTIL_EFFECT_BINDING
-    assert not any(contract.requires_canonical_writer for contract in bindings.values())

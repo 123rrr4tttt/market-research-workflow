@@ -1,7 +1,7 @@
 import { parseLegacyHashToMode } from '../navigation'
 import { getKernelModuleContract, routeManifest } from './contracts'
 import { DEFAULT_KERNEL_MODULE } from './moduleManifest'
-import type { KernelModuleKey, KernelRouteRenderVariant, KernelRouteState } from './types'
+import type { KernelModuleKey, KernelRouteState } from './types'
 
 const routeByPath = new Map<string, (typeof routeManifest)[number]>(routeManifest.map((item) => [item.routePath, item]))
 
@@ -18,13 +18,8 @@ export function buildLayerRouteHash(moduleKey: KernelModuleKey): `#/${string}` {
   return `#${getKernelModuleContract(moduleKey).entryRoute}` as `#/${string}`
 }
 
-function resolveRenderVariant(normalizedPath: string): KernelRouteRenderVariant | undefined {
-  return normalizedPath === '/agent-chat-compat.html' ? 'agent-chat-compat' : undefined
-}
-
 export function resolveKernelRoute(hash: string): KernelRouteState {
   const normalizedPath = normalizeHashPath(hash)
-  const renderVariant = resolveRenderVariant(normalizedPath)
   if (normalizedPath) {
     const layered = routeByPath.get(normalizedPath)
     if (layered) {
@@ -35,7 +30,6 @@ export function resolveKernelRoute(hash: string): KernelRouteState {
         surfaceKind: layered.surfaceKind,
         routePath: layered.routePath,
         routeHash: `#${layered.routePath}` as `#/${string}`,
-        renderVariant,
       }
     }
   }
@@ -50,7 +44,6 @@ export function resolveKernelRoute(hash: string): KernelRouteState {
       surfaceKind: contract.surfaceKind,
       routePath: contract.entryRoute,
       routeHash: buildLayerRouteHash(legacyMode),
-      renderVariant,
     }
   }
 

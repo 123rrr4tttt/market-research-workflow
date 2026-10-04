@@ -1,0 +1,47 @@
+{
+  "project_key": "readiness_repair",
+  "phrase": "MRW recovery policy material cd23670e7d95",
+  "payload": {
+    "items": [
+      {
+        "title": "MRW recovery policy material cd23670e7d95",
+        "text": "MRW recovery policy material cd23670e7d95. This synthetic policy material verifies durable import and project-scoped search.",
+        "doc_type": "policy"
+      }
+    ],
+    "source_name": "readiness_repair_recovery",
+    "source_kind": "manual",
+    "default_doc_type": "policy",
+    "extraction_mode": "policy",
+    "enable_extraction": false,
+    "infer_from_links": false,
+    "fetch_url_when_text_empty": false,
+    "fetch_url_also_when_text_present": false,
+    "overwrite_on_uri": false,
+    "chunk_size": 2800,
+    "chunk_overlap": 0,
+    "max_chunks": 1,
+    "url_to_market": false,
+    "async_mode": true
+  },
+  "response": {
+    "status": "ok",
+    "data": {
+      "task_id": "b8703943-9c0d-4863-b0ea-485ead20f1e1",
+      "async": true,
+      "status": "queued",
+      "result": null,
+      "params": {
+        "source_name": "readiness_repair_recovery",
+        "items_total": 1
+      }
+    },
+    "error": null,
+    "meta": {
+      "trace_id": "c5456ba2-2bd4-424b-9088-6197bcdd20d2",
+      "pagination": null,
+      "project_key": "readiness_repair",
+      "deprecated": null
+    }
+  }
+}

@@ -7,10 +7,11 @@ from pathlib import Path
 import pytest
 from sqlalchemy import create_engine
 
-from app.successor_runtime.assembly.base import C8AssemblyOptions
-from app.successor_runtime.assembly.c8_assembly import (
-    C8_3_ROLLBACK_REF,
-    C8_FAMILY_ID,
+from app.successor_runtime.assembly.base import KnowledgeAssemblyOptions
+from app.successor_runtime.assembly.knowledge_assembly import (
+    ASSEMBLY_CELL_IDS,
+    KNOWLEDGE_REPORT_ROLLBACK_REF,
+    KNOWLEDGE_FAMILY_ID,
 )
 from app.successor_runtime.assembly.successor_assembly import (
     assemble_successor_runtime,
@@ -21,6 +22,7 @@ pytestmark = pytest.mark.unit
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY_ROOT = BACKEND_ROOT.parents[1]
+REPORT_CELL_ID = ASSEMBLY_CELL_IDS[2]
 
 
 def _engine():
@@ -35,7 +37,7 @@ def _closed_assembly():
 
 def _c8_family(assembly):
     matches = tuple(
-        family for family in assembly.families if family.family_id == C8_FAMILY_ID
+        family for family in assembly.families if family.family_id == KNOWLEDGE_FAMILY_ID
     )
     assert len(matches) == 1
     return matches[0]
@@ -43,11 +45,11 @@ def _c8_family(assembly):
 
 def test_i1_c8_3_closed_assembly_installs_delivery_bridge() -> None:
     assembly, options = _closed_assembly()
-    assert isinstance(options.c8, C8AssemblyOptions)
+    assert isinstance(options.c8, KnowledgeAssemblyOptions)
     assert options.c8.bundle is not None
     assert options.c8.activation_catalog is not None
     assert options.c8.delivery_interpreter is not None
-    cell = assembly.by_cell("C8.3")
+    cell = assembly.by_cell(REPORT_CELL_ID)
     assert cell.status == "INSTALLED"
     assert cell.handler_binding_digest is not None
     assert "reuses build_postgres_c8_delivery_assembly unchanged" in cell.note
@@ -74,7 +76,7 @@ def test_i1_c8_3_bridge_structure_and_digest_uniqueness() -> None:
         assert handler.handler_binding_digest is not None
     all_digests = tuple(handler.handler_binding_digest for handler in family.handlers)
     assert len(set(all_digests)) == len(all_digests)
-    c8_3_cell = assembly.by_cell("C8.3")
+    c8_3_cell = assembly.by_cell(REPORT_CELL_ID)
     assert (
         sum(digest == c8_3_cell.handler_binding_digest for digest in all_digests) == 1
     )
@@ -89,11 +91,11 @@ def test_i1_c8_3_bridge_structure_and_digest_uniqueness() -> None:
 def test_i1_c8_3_rollback_binding_is_present() -> None:
     assembly, _ = _closed_assembly()
     declaration = next(
-        item for item in assembly.rollback_bindings if item.cell_id == "C8.3"
+        item for item in assembly.rollback_bindings if item.cell_id == REPORT_CELL_ID
     )
     assert declaration.status == "PRESENT"
-    assert C8_3_ROLLBACK_REF in declaration.binding_refs
-    rollback_path = REPOSITORY_ROOT / C8_3_ROLLBACK_REF
+    assert KNOWLEDGE_REPORT_ROLLBACK_REF in declaration.binding_refs
+    rollback_path = REPOSITORY_ROOT / KNOWLEDGE_REPORT_ROLLBACK_REF
     assert rollback_path.is_file()
 
 
@@ -111,15 +113,15 @@ def test_i1_c8_3_closure_is_deterministic() -> None:
     assert first_entries == second_entries
     first_assembly = assemble_successor_runtime(engine=_engine(), options=first)
     second_assembly = assemble_successor_runtime(engine=_engine(), options=second)
-    assert first_assembly.by_cell("C8.3").handler_binding_digest == (
-        second_assembly.by_cell("C8.3").handler_binding_digest
+    assert first_assembly.by_cell(REPORT_CELL_ID).handler_binding_digest == (
+        second_assembly.by_cell(REPORT_CELL_ID).handler_binding_digest
     )
 
 
 def test_i1_c8_3_default_options_remain_fail_closed() -> None:
     assembly = assemble_successor_runtime(engine=_engine())
-    assert assembly.by_cell("C8.3").status == "UNWIRED_DECLARED"
-    assert assembly.by_cell("C8.3").handler_binding_digest is None
+    assert assembly.by_cell(REPORT_CELL_ID).status == "UNWIRED_DECLARED"
+    assert assembly.by_cell(REPORT_CELL_ID).handler_binding_digest is None
     family = _c8_family(assembly)
     assert family.handlers == ()
     assert family.recovery_handlers == ()

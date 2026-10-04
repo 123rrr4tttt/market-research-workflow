@@ -1,0 +1,17 @@
+{
+  "source_name": "readiness_daily_20261004",
+  "source_kind": "manual",
+  "async_mode": true,
+  "enable_extraction": false,
+  "default_doc_type": "policy",
+  "fetch_url_when_text_empty": false,
+  "fetch_url_also_when_text_present": false,
+  "items": [
+    {
+      "title": "MRW daily full-chain policy 20261004 6a18d9",
+      "uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-daily-chain/daily-policy-material.txt",
+      "text": "MRW daily full-chain policy 20261004 6a18d9\nLocal synthetic policy source for verifying daily runtime persistence and retrieval.\n",
+      "doc_type": "policy"
+    }
+  ]
+}

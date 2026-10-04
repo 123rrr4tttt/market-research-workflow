@@ -6,7 +6,7 @@ from typing import Any, NoReturn
 
 from sqlalchemy.orm import Session
 
-from app.successor_runtime.capabilities import collect_c3 as c3
+from app.successor_runtime.capabilities import acquisition_batch as acquisition
 from app.successor_runtime.capabilities.checksum import content_digest
 from functorial_kit import Failure
 from mrw_functorial_kit.core.provider_port_failures import ingest_policy_failures
@@ -44,12 +44,12 @@ def _policy_request_ref(
     *,
     request_id: str | None = None,
     idempotency_key: str | None = None,
-) -> c3.CollectRequestRef:
+) -> acquisition.CollectRequestRef:
     state_key = str(state).strip().upper()
     identity = str(request_id or idempotency_key or "").strip()
     if not identity:
         identity = content_digest({"state": state_key, "channel": "search.policy"})
-    return c3.build_collect_request_ref(
+    return acquisition.build_collect_request_ref(
         request_id=f"policy-materialize:{state_key}:{identity}",
         project_key=f"policy:{state_key}",
         channel="search.policy",
@@ -61,7 +61,7 @@ def _policy_document_observation(
     document: PolicyDocument,
     state: str,
     input_index: int,
-) -> c3.CollectElementSucceeded:
+) -> acquisition.CollectElementSucceeded:
     raw = {
         "state": str(getattr(document, "state", None) or state),
         "title": str(getattr(document, "title", None) or ""),
@@ -85,8 +85,8 @@ def _policy_document_observation(
             "raw_digest": raw_digest,
         }
     )
-    receipt = c3.CollectAttemptReceipt(
-        schema_version=c3.COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
+    receipt = acquisition.CollectAttemptReceipt(
+        schema_version=acquisition.COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
         # The iterable yields a provider value, but the local content digest
         # is not an authoritative provider readback. Keep the acknowledgement
         # explicit so callers cannot treat materialization as completion.
@@ -100,11 +100,11 @@ def _policy_document_observation(
         authoritative_readback=False,
         receipt_digest="",
     )
-    return c3.CollectElementSucceeded(
-        schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+    return acquisition.CollectElementSucceeded(
+        schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
         element_id=f"policy:{str(state).strip().upper()}:document:{input_index}",
         input_index=input_index,
-        counts=c3.CollectCounts(),
+        counts=acquisition.CollectCounts(),
         links=((str(raw["uri"]).strip(),) if raw["uri"] else ()),
         receipt=receipt,
         legacy_observation_ref=f"legacy:{replay_identity}",
@@ -121,7 +121,7 @@ def materialize_policy_documents(
     request_id: str | None = None,
     idempotency_key: str | None = None,
     _iteration_error_out: list[BaseException] | None = None,
-) -> tuple[list[PolicyDocument], c3.CollectTraversalResult]:
+) -> tuple[list[PolicyDocument], acquisition.CollectTraversalResult]:
     """Materialize a bounded policy iterable with C3 ordered observations.
 
     The iterable is consumed in input order and each yielded document receives
@@ -131,7 +131,7 @@ def materialize_policy_documents(
     """
     bounded = max(0, int(max_documents)) if max_documents is not None else None
     materialized: list[PolicyDocument] = []
-    outcomes: list[c3.CollectElementOutcome] = []
+    outcomes: list[acquisition.CollectElementOutcome] = []
     request_ref = _policy_request_ref(
         state,
         request_id=request_id,
@@ -141,19 +141,19 @@ def materialize_policy_documents(
     index = 0
     while bounded is None or index < bounded:
         if cancel_check is not None and bool(cancel_check(index)):
-            cause = c3.CollectElementError(
+            cause = acquisition.CollectElementError(
                 code="auto_batch_execution_failed",
                 message="policy materialization cancelled",
                 query_terms=(str(state).strip().upper(),),
                 exception_type="CancellationRequested",
                 error_digest="",
             )
-            return materialized, c3.OrderedTraversalAborted(
+            return materialized, acquisition.OrderedTraversalAborted(
                 schema_version="mrw.successor.collect.c3.traversal-result.v1",
                 partial_outcomes=tuple(outcomes),
                 cause=cause,
-                cancellation_receipt=c3.CollectCancellationReceipt(
-                    schema_version=c3.COLLECT_CANCELLATION_RECEIPT_SCHEMA_REF,
+                cancellation_receipt=acquisition.CollectCancellationReceipt(
+                    schema_version=acquisition.COLLECT_CANCELLATION_RECEIPT_SCHEMA_REF,
                     code="FAIL_FAST_CANCELLED",
                     message=cause.message,
                     trigger_input_index=index,
@@ -170,7 +170,7 @@ def materialize_policy_documents(
         except Exception as exc:  # noqa: BLE001 - provider iterable boundary
             if _iteration_error_out is not None:
                 _iteration_error_out.append(exc)
-            error = c3.CollectElementError(
+            error = acquisition.CollectElementError(
                 code="auto_batch_execution_failed",
                 message=str(exc) or exc.__class__.__name__,
                 query_terms=(str(state).strip().upper(),),
@@ -178,8 +178,8 @@ def materialize_policy_documents(
                 error_digest="",
             )
             outcomes.append(
-                c3.CollectElementFailed(
-                    schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+                acquisition.CollectElementFailed(
+                    schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
                     element_id=f"policy:{str(state).strip().upper()}:document:{index}",
                     input_index=index,
                     error=error,
@@ -191,7 +191,7 @@ def materialize_policy_documents(
         # Keep the legacy structural port contract: adapters and tests may
         # return compatible record objects rather than the concrete dataclass.
         if any(not hasattr(document, field) for field in ("content", "title", "state")):
-            error = c3.CollectElementError(
+            error = acquisition.CollectElementError(
                 code="auto_batch_execution_failed",
                 message="policy provider yielded an invalid document",
                 query_terms=(str(state).strip().upper(),),
@@ -199,8 +199,8 @@ def materialize_policy_documents(
                 error_digest="",
             )
             outcomes.append(
-                c3.CollectElementFailed(
-                    schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+                acquisition.CollectElementFailed(
+                    schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
                     element_id=f"policy:{str(state).strip().upper()}:document:{index}",
                     input_index=index,
                     error=error,
@@ -220,9 +220,9 @@ def materialize_policy_documents(
         )
         index += 1
 
-    observation = c3.CollectTraversalObservation(
-        schema_version=c3.COLLECT_TRAVERSAL_OBSERVATION_SCHEMA_REF,
-        observation_profile=c3.COLLECT_TRAVERSAL_OBSERVATION_PROFILE,
+    observation = acquisition.CollectTraversalObservation(
+        schema_version=acquisition.COLLECT_TRAVERSAL_OBSERVATION_SCHEMA_REF,
+        observation_profile=acquisition.COLLECT_TRAVERSAL_OBSERVATION_PROFILE,
         request_ref=request_ref,
         traversal_policy="MATERIALIZED_SHAPE",
         failure_policy="ACCUMULATE",
@@ -232,14 +232,14 @@ def materialize_policy_documents(
         cancellation_observed=False,
         observation_digest="",
     )
-    traversal: c3.CollectTraversalResult
+    traversal: acquisition.CollectTraversalResult
     if len(outcomes) == 1:
-        traversal = c3.CollectTraversalSingleton(
+        traversal = acquisition.CollectTraversalSingleton(
             schema_version="mrw.successor.collect.c3.traversal-result.v1",
             observation=observation,
         )
     else:
-        traversal = c3.OrderedTraversalCompleted(
+        traversal = acquisition.OrderedTraversalCompleted(
             schema_version="mrw.successor.collect.c3.traversal-result.v1",
             observation=observation,
         )
@@ -274,19 +274,19 @@ def _extraction_readback(
 
 
 def _policy_materialization_typed_views(
-    traversal: c3.CollectTraversalResult,
+    traversal: acquisition.CollectTraversalResult,
     *,
     state: str,
     request_id: str | None = None,
     idempotency_key: str | None = None,
-) -> tuple[c3.OrderedCollectElementOutcomeSequence, c3.CollectAggregateOutcome]:
+) -> tuple[acquisition.OrderedCollectElementOutcomeSequence, acquisition.CollectAggregateOutcome]:
     observation = getattr(traversal, "observation", None)
     outcomes = (
         getattr(observation, "ordered_outcomes", None)
         if observation is not None
         else getattr(traversal, "partial_outcomes", ())
     ) or ()
-    sequence = c3.OrderedCollectElementOutcomeSequence(
+    sequence = acquisition.OrderedCollectElementOutcomeSequence(
         schema_version="mrw.successor.collect.c3.outcome-sequence.v1",
         parent_request_ref=(
             getattr(observation, "request_ref", None)
@@ -299,10 +299,10 @@ def _policy_materialization_typed_views(
         outcomes=tuple(outcomes),
         sequence_digest="",
     )
-    aggregate = c3.fold_ordered_results(
+    aggregate = acquisition.fold_ordered_results(
         sequence,
-        aggregation_policy_ref=c3.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
-        observation_profile_ref=c3.COLLECT_FOLD_OBSERVATION_PROFILE,
+        aggregation_policy_ref=acquisition.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
+        observation_profile_ref=acquisition.COLLECT_FOLD_OBSERVATION_PROFILE,
     )
     return sequence, aggregate
 
@@ -506,13 +506,13 @@ def ingest_policy_documents(
         materialized_outcomes = sequence.outcomes
         materialization_status = (
             "CANCELLED"
-            if isinstance(materialization, c3.OrderedTraversalAborted)
+            if isinstance(materialization, acquisition.OrderedTraversalAborted)
             else "FAILED"
-            if any(isinstance(outcome, c3.CollectElementFailed) for outcome in materialized_outcomes)
+            if any(isinstance(outcome, acquisition.CollectElementFailed) for outcome in materialized_outcomes)
             else "OUTCOME_UNKNOWN"
             if any(
                 outcome.receipt is not None
-                and not c3.receipt_implies_completed(outcome.receipt)
+                and not acquisition.receipt_implies_completed(outcome.receipt)
                 for outcome in materialized_outcomes
             )
             else "COMPLETED"
@@ -533,7 +533,7 @@ def ingest_policy_documents(
             },
             "extraction": extraction_stats,
         }
-        if isinstance(materialization, c3.OrderedTraversalAborted):
+        if isinstance(materialization, acquisition.OrderedTraversalAborted):
             fail_job(job_id, "policy materialization cancelled")
         else:
             complete_job(job_id, result=result)

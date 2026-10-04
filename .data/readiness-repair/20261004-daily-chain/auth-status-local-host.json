@@ -1,0 +1,6 @@
+{
+  "http_status": 200,
+  "browser_authenticated": false,
+  "host_oauth_authenticated": true,
+  "codex_cli_installed": true
+}

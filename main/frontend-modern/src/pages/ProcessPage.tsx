@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { translate, useAppLocale, type AppLocale } from '../app/platform/i18n'
 import { useProcessData } from '../hooks/useProcessData'
 import type { ProcessHistoryResponse, ProcessTaskDetail, ProcessTaskItem, ProcessTaskList, ProcessTaskStats } from '../lib/types'
+import './process-page-management.css'
 
 export type ProcessPageProps = {
   projectKey: string
@@ -45,8 +46,14 @@ export type ProcessPageViewProps = {
   autoRefreshEnabled: boolean
   refreshIntervalSec: number
   processStats: ProcessTaskStats | undefined
+  processStatsLoading: boolean
+  processStatsError: boolean
   processList: ProcessTaskList | undefined
+  processListLoading: boolean
+  processListError: boolean
   processHistory: ProcessHistoryResponse | undefined
+  processHistoryLoading: boolean
+  processHistoryError: boolean
   taskDetail: ProcessTaskDetail | undefined
   taskLogsText: string | undefined
   taskLogsError: boolean
@@ -414,8 +421,14 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
       autoRefreshEnabled={autoRefreshEnabled}
       refreshIntervalSec={refreshIntervalSec}
       processStats={processStats.data}
+      processStatsLoading={processStats.isLoading}
+      processStatsError={processStats.isError}
       processList={processList.data}
+      processListLoading={processList.isLoading}
+      processListError={processList.isError}
       processHistory={processHistory.data}
+      processHistoryLoading={processHistory.isLoading}
+      processHistoryError={processHistory.isError}
       taskDetail={taskDetail.data}
       taskLogsText={taskLogs.data?.text}
       taskLogsError={taskLogs.isError}
@@ -473,8 +486,14 @@ export function ProcessPageView({
   autoRefreshEnabled,
   refreshIntervalSec,
   processStats,
+  processStatsLoading,
+  processStatsError,
   processList,
+  processListLoading,
+  processListError,
   processHistory,
+  processHistoryLoading,
+  processHistoryError,
   taskDetail,
   taskLogsText,
   taskLogsError,
@@ -508,6 +527,8 @@ export function ProcessPageView({
   onRefreshHistory,
 }: ProcessPageViewProps) {
   const locale = useAppLocale()
+  const [statusFilter, setStatusFilter] = useState<'all' | 'running' | 'failed' | 'completed'>('all')
+  const [query, setQuery] = useState('')
   const summaryLabels = useMemo(() => getProcessSummaryLabels(locale), [locale])
   const t = (key: ProcessMessageKey, fallback?: string) => translate(locale, key, fallback)
   const formatTemplate = (key: ProcessMessageKey, values: Record<string, string | number>) =>
@@ -519,44 +540,67 @@ export function ProcessPageView({
     formatMetaValue('processPage.meta.channel', selectedMeta?.channel),
     formatMetaValue('processPage.meta.provider', selectedMeta?.provider),
   ].filter(Boolean)
+  const normalizedQuery = query.trim().toLowerCase()
+  const matchesStatus = (status: unknown) => {
+    const value = String(status || '').toLowerCase()
+    if (statusFilter === 'running') return ['active', 'pending', 'reserved', 'started', 'running'].some((part) => value.includes(part))
+    if (statusFilter === 'failed') return value.includes('fail') || value.includes('error')
+    if (statusFilter === 'completed') return value.includes('done') || value.includes('success') || value.includes('complete')
+    return true
+  }
+  const matchesQuery = (values: unknown[]) => !normalizedQuery || values.some((value) => String(value || '').toLowerCase().includes(normalizedQuery))
+  const visibleTasks = (processList?.tasks || []).filter((task) => matchesStatus(task.status) && matchesQuery([task.task_id, task.name, task.worker, getTaskSourceKind(task)]))
+  const visibleHistory = (processHistory?.history || []).filter((row) => matchesStatus(row.status) && matchesQuery([row.id, row.task_id, row.task_name, row.job_type, row.source]))
+  const filterLabels = [
+    ['all', t('processPage.filter.all')],
+    ['running', locale === 'zh-CN' ? '进行中' : 'Running'],
+    ['failed', locale === 'zh-CN' ? '失败' : 'Failed'],
+    ['completed', locale === 'zh-CN' ? '已完成' : 'Completed'],
+  ] as const
 
   return (
     <div className={`content-stack process-page process-page--${variant}`}>
-      <section className="panel">
+      {(deepLinkParams.historyId || deepLinkParams.taskId || deepLinkParams.traceId) ? <section className="panel">
         <div className="panel-header">
           <h2>{variant === 'processing' ? t('processPage.title.processing') : t('processPage.title.process')}</h2>
         </div>
-        {deepLinkParams.historyId || deepLinkParams.taskId || deepLinkParams.traceId ? (
-          <p className="status-line">
+        <p className="status-line">
             {formatTemplate('processPage.status.deepLinkContext', {
               source: deepLinkParams.source || '-',
               historyId: deepLinkParams.historyId || '-',
               taskId: deepLinkParams.taskId || '-',
               traceId: deepLinkParams.traceId || '-',
             })}
-          </p>
-        ) : null}
+        </p>
+      </section> : null}
+      <section className="process-list-toolbar" aria-label={t('processPage.section.currentQueue')}>
+        <div className="process-filter-tabs" role="tablist">
+          {filterLabels.map(([value, label]) => (
+            <button key={value} type="button" className={statusFilter === value ? 'is-active' : ''} onClick={() => setStatusFilter(value)} role="tab" aria-selected={statusFilter === value}>{label}</button>
+          ))}
+        </div>
+        <input className="process-filter-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('processPage.field.name')} aria-label={t('processPage.field.name')} />
       </section>
       <section className="kpi-grid">
         <article className="kpi-card">
           <span>{t('processPage.kpi.runningTasks')}</span>
-          <strong>{processStats?.total_running || 0}</strong>
-          <small>{formatTemplate('processPage.kpi.activeTasks', { count: processStats?.active_tasks || 0 })}</small>
+          <strong>{processStatsLoading ? '…' : processStatsError ? '—' : processStats?.total_running ?? 0}</strong>
+          <small>{processStatsLoading ? (locale === 'zh-CN' ? '读取中' : 'Loading') : processStatsError ? (locale === 'zh-CN' ? '读取失败' : 'Read failed') : formatTemplate('processPage.kpi.activeTasks', { count: processStats?.active_tasks ?? 0 })}</small>
         </article>
         <article className="kpi-card">
           <span>{t('processPage.kpi.scheduledTasks')}</span>
-          <strong>{processStats?.scheduled_tasks || 0}</strong>
-          <small>{formatTemplate('processPage.kpi.reservedTasks', { count: processStats?.reserved_tasks || 0 })}</small>
+          <strong>{processStatsLoading ? '…' : processStatsError ? '—' : processStats?.scheduled_tasks ?? 0}</strong>
+          <small>{processStatsLoading ? (locale === 'zh-CN' ? '读取中' : 'Loading') : processStatsError ? (locale === 'zh-CN' ? '读取失败' : 'Read failed') : formatTemplate('processPage.kpi.reservedTasks', { count: processStats?.reserved_tasks ?? 0 })}</small>
         </article>
         <article className="kpi-card">
           <span>{t('processPage.kpi.workers')}</span>
-          <strong>{processStats?.workers || 0}</strong>
-          <small>{(processStats?.worker_names || []).slice(0, 2).join(', ') || '-'}</small>
+          <strong>{processStatsLoading ? '…' : processStatsError ? '—' : processStats?.workers ?? 0}</strong>
+          <small>{processStatsLoading ? (locale === 'zh-CN' ? '读取中' : 'Loading') : processStatsError ? (locale === 'zh-CN' ? '读取失败' : 'Read failed') : (processStats?.worker_names || []).slice(0, 2).join(', ') || '-'}</small>
         </article>
         <article className="kpi-card">
           <span>{t('processPage.kpi.totalTasks')}</span>
-          <strong>{processList?.stats?.total_tasks || 0}</strong>
-          <small>{formatTemplate('processPage.kpi.pendingTasks', { count: processList?.stats?.pending_tasks || 0 })}</small>
+          <strong>{processListLoading ? '…' : processListError ? '—' : processList?.stats?.total_tasks ?? 0}</strong>
+          <small>{processListLoading ? (locale === 'zh-CN' ? '读取中' : 'Loading') : processListError ? (locale === 'zh-CN' ? '读取失败' : 'Read failed') : formatTemplate('processPage.kpi.pendingTasks', { count: processList?.stats?.pending_tasks ?? 0 })}</small>
         </article>
       </section>
 
@@ -607,12 +651,13 @@ export function ProcessPageView({
                 <th>{t('processPage.field.worker')}</th>
                 <th>{t('processPage.field.source')}</th>
                 <th>{t('processPage.field.started')}</th>
+                <th>{t('processPage.field.result')}</th>
                 <th>{t('processPage.field.selected')}</th>
                 <th>{t('processPage.field.actions')}</th>
               </tr>
             </thead>
             <tbody>
-              {(processList?.tasks || []).map((task) => (
+              {visibleTasks.map((task) => (
                 <tr key={task.task_id}>
                   <td>{task.task_id}</td>
                   <td>{task.name || '-'}</td>
@@ -631,6 +676,7 @@ export function ProcessPageView({
                     ) : null}
                   </td>
                   <td>{formatDate(task.started_at, locale)}</td>
+                  <td>{buildResultSummary({ display_meta: task.display_meta as Record<string, unknown> | null, params: task.kwargs as Record<string, unknown> | null, progress: task.progress as Record<string, unknown> | null }, summaryLabels)}</td>
                   <td>
                     <input type="checkbox" checked={selectedTaskIds.includes(task.task_id)} onChange={() => onToggleTaskSelect(task.task_id)} disabled={!canCancelTask(task)} />
                   </td>
@@ -645,9 +691,11 @@ export function ProcessPageView({
                   </td>
                 </tr>
               ))}
-              {!processList?.tasks?.length ? (
+              {!visibleTasks.length ? (
                 <tr>
-                  <td colSpan={8} className="empty-cell">{t('processPage.empty.runningTasks')}</td>
+                  <td colSpan={9} className="empty-cell">
+                    {processListLoading ? (locale === 'zh-CN' ? '读取中…' : 'Loading…') : processListError ? (locale === 'zh-CN' ? '读取失败，请刷新重试' : 'Read failed; refresh to retry') : t('processPage.empty.runningTasks')}
+                  </td>
                 </tr>
               ) : null}
             </tbody>
@@ -751,7 +799,7 @@ export function ProcessPageView({
               </tr>
             </thead>
             <tbody>
-              {(processHistory?.history || []).map((row) => {
+              {visibleHistory.map((row) => {
                 const rowRejectionView = buildRejectionView({
                   display_meta: row.display_meta as Record<string, unknown> | null,
                   params: row.params || null,
@@ -776,9 +824,11 @@ export function ProcessPageView({
                   </tr>
                 )
               })}
-              {!processHistory?.history?.length ? (
+              {!visibleHistory.length ? (
                 <tr>
-                  <td colSpan={11} className="empty-cell">{t('processPage.empty.history')}</td>
+                  <td colSpan={11} className="empty-cell">
+                    {processHistoryLoading ? (locale === 'zh-CN' ? '读取中…' : 'Loading…') : processHistoryError ? (locale === 'zh-CN' ? '读取失败，请刷新重试' : 'Read failed; refresh to retry') : t('processPage.empty.history')}
+                  </td>
                 </tr>
               ) : null}
             </tbody>

@@ -1,0 +1,2 @@
+MRW daily full-chain policy 20261004 6a18d9
+Local synthetic policy source for verifying daily runtime persistence and retrieval.

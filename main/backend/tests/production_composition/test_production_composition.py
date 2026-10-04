@@ -35,6 +35,7 @@ from app.composition.production import (
     validate_production_route_coverage,
 )
 from app.main import app as production_app
+from app.release_identity import RELEASE_VERSION
 from app.production_observability import (
     CanaryRouteAction,
     CanaryRouteAdvice,
@@ -228,7 +229,16 @@ def test_checked_in_route_registry_exactly_covers_installed_routes() -> None:
     agent_chat = next(
         binding for binding in bindings if binding.operation == "agent-chat.run_agent_chat_turn"
     )
-    assert not any(binding.effect_contract.requires_canonical_writer for binding in bindings)
+    canonical_writer_bindings = [
+        binding
+        for binding in bindings
+        if binding.effect_contract.requires_canonical_writer
+    ]
+    assert [binding.operation for binding in canonical_writer_bindings] == ["rebuild_projection"]
+    assert canonical_writer_bindings[0].effect_contract.canonical_writer_port == (
+        "postgres.projection_rebuild.v2"
+    )
+    assert not agent_chat.effect_contract.requires_canonical_writer
     agent_contract = agent_chat.effect_contract
     assert agent_contract.effect_class is EffectClass.CONDITIONAL
     assert agent_contract.admission is EffectAdmission.BLOCKED_UNTIL_EFFECT_BINDING
@@ -482,7 +492,7 @@ def test_exact_observability_exemption_has_stable_production_metric_label(
     assert production_metrics_label(request) == {
         "domain": "exempt",
         "route": "/api/v1/health",
-        "release_version": production_app.version,
+        "release_version": RELEASE_VERSION,
     }
 
 
@@ -494,7 +504,7 @@ def test_dev_metrics_keep_low_risk_fallback(monkeypatch: pytest.MonkeyPatch) -> 
     assert production_metrics_label(request) == {
         "domain": "unknown",
         "route": "/local/path",
-        "release_version": production_app.version,
+        "release_version": RELEASE_VERSION,
     }
 
 

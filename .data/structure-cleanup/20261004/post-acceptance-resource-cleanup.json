@@ -1,0 +1,42 @@
+{
+  "container_id": "1ed7d3d2a0028c43e71d7ea3878be9f9da4aa445863f231b1353f705f3f430cc",
+  "container_name": "mrw-structure-postgres-20261004",
+  "network": "mrw-structure-20261004",
+  "ownership": "task-owned isolated tmpfs PostgreSQL; eight test groups completed",
+  "mounts": [],
+  "tmpfs_paths": [
+    "/var/lib/postgresql/data"
+  ],
+  "disk_before_free_bytes": 12567855104,
+  "retained": "image, logs, test results, business services and business databases",
+  "operations": [
+    {
+      "argv": [
+        "docker",
+        "stop",
+        "mrw-structure-postgres-20261004"
+      ],
+      "exit": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "rm",
+        "mrw-structure-postgres-20261004"
+      ],
+      "exit": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "network",
+        "rm",
+        "mrw-structure-20261004"
+      ],
+      "exit": 0
+    }
+  ],
+  "disk_after_free_bytes": 12567654400,
+  "host_space_release_claim": "not_measured; tmpfs test data removed, no global prune",
+  "status": "closed"
+}

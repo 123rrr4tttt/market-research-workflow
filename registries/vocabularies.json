@@ -2,126 +2,12 @@
   "entries": [
     {
       "members": [
-        "EXTRACT",
-        "CHUNK",
-        "SUMMARIZE",
-        "PASS_THROUGH"
-      ],
-      "name": "c7.digestion.alternatives"
-    },
-    {
-      "members": [
-        "url_driven_external",
-        "raw_import",
-        "report_shaped",
-        "derived_llm_report",
-        "derived_writing_markdown",
-        "unknown"
-      ],
-      "name": "c7.ingest.input_kind"
-    },
-    {
-      "members": [
-        "plain_text",
-        "markdown",
-        "html",
-        "pdf",
-        "structured_json",
-        "other"
-      ],
-      "name": "c7.ingest.content_format"
-    },
-    {
-      "members": [
-        "PRESERVED_AS",
-        "MOVED_TO",
-        "REIMPLEMENTED_AS",
-        "DECLARED_LOSS",
-        "EXPLICITLY_REJECTED",
-        "UNASSIGNED_BLOCKER"
-      ],
-      "name": "c7.movement.disposition"
-    },
-    {
-      "members": [
-        "STRUCTURED_MATERIAL_CANDIDATE",
-        "REJECTED",
-        "DEFERRED"
-      ],
-      "name": "c7.movement.terminal_outcome"
-    },
-    {
-      "members": [
         "openai",
         "azure",
         "ollama",
         "litellm"
       ],
       "name": "llm.provider.name"
-    },
-    {
-      "members": [
-        "c8.typed_knowledge.demand_read.v1",
-        "c8.writing.compose.v1",
-        "c8.writing.stage.v1",
-        "c8.report.stage.v1",
-        "c8.graph.project.v1",
-        "c8.report.verify.v1",
-        "c8.report.admission.v1",
-        "c8.delivery_intent_prepare.v1",
-        "delivery.internal_export.v1"
-      ],
-      "name": "c8.operation.kind"
-    },
-    {
-      "members": [
-        "PROJECTION_APPLIED",
-        "PROJECTION_REBUILT",
-        "PROJECTION_NO_CHANGE"
-      ],
-      "name": "c9.projector.outcome"
-    },
-    {
-      "members": [
-        "SESSION_CREATED",
-        "SESSION_TASK_ASSIGNED",
-        "SESSION_PROJECTION_REFRESHED",
-        "SESSION_TERMINAL_SUCCEEDED",
-        "SESSION_TERMINAL_FAILED"
-      ],
-      "name": "c9.runtime.event.kind"
-    },
-    {
-      "members": [
-        "WAITING",
-        "RUNNING",
-        "TERMINAL_SUCCEEDED",
-        "TERMINAL_FAILED"
-      ],
-      "name": "c9.session.status"
-    },
-    {
-      "members": [
-        "TEXT_SEGMENT",
-        "FIELD_SEGMENT"
-      ],
-      "name": "c9.search.segment.kind"
-    },
-    {
-      "members": [
-        "DECLARED_LOSS",
-        "OMITTED_FIELD",
-        "NOT_EXECUTED"
-      ],
-      "name": "c9.projection.loss.kind"
-    },
-    {
-      "members": [
-        "mrw.successor.c9.runtime-session-source.v1",
-        "mrw.successor.c9.research-graph-source.v1",
-        "mrw.successor.c9.c7-search-source.v1"
-      ],
-      "name": "c9.projection.source.schema"
     },
     {
       "members": [
@@ -188,6 +74,120 @@
         "scheduled_run_evidence"
       ],
       "name": "scheduled.automation.evidence.schedule_source_value"
+    },
+    {
+      "members": [
+        "knowledge.read.demand.v2",
+        "knowledge.writing.compose.v2",
+        "knowledge.writing.stage.v2",
+        "knowledge.report.stage.v2",
+        "knowledge.graph.project.v2",
+        "knowledge.report.verify.v2",
+        "knowledge.report.admission.v2",
+        "knowledge.report.prepare_delivery_intent.v2",
+        "delivery.internal_export.v1"
+      ],
+      "name": "knowledge.operation.kind"
+    },
+    {
+      "members": [
+        "PROJECTION_APPLIED",
+        "PROJECTION_REBUILT",
+        "PROJECTION_NO_CHANGE"
+      ],
+      "name": "projection.outcome"
+    },
+    {
+      "members": [
+        "TASK_CREATED",
+        "TASK_ASSIGNED",
+        "TASK_PROJECTION_REFRESHED",
+        "TASK_TERMINAL_SUCCEEDED",
+        "TASK_TERMINAL_FAILED"
+      ],
+      "name": "projection.task.event.kind"
+    },
+    {
+      "members": [
+        "WAITING",
+        "RUNNING",
+        "TERMINAL_SUCCEEDED",
+        "TERMINAL_FAILED"
+      ],
+      "name": "projection.task.status"
+    },
+    {
+      "members": [
+        "TEXT_SEGMENT",
+        "FIELD_SEGMENT"
+      ],
+      "name": "projection.material.segment.kind"
+    },
+    {
+      "members": [
+        "DECLARED_LOSS",
+        "OMITTED_FIELD",
+        "NOT_EXECUTED"
+      ],
+      "name": "projection.loss.kind"
+    },
+    {
+      "members": [
+        "mrw.projection.task-source.v2",
+        "mrw.projection.knowledge-source.v2",
+        "mrw.projection.material-source.v2"
+      ],
+      "name": "projection.source.schema"
+    },
+    {
+      "members": [
+        "EXTRACT",
+        "CHUNK",
+        "SUMMARIZE",
+        "PASS_THROUGH"
+      ],
+      "name": "material.digestion.alternatives"
+    },
+    {
+      "members": [
+        "url_driven_external",
+        "raw_import",
+        "report_shaped",
+        "derived_llm_report",
+        "derived_writing_markdown",
+        "unknown"
+      ],
+      "name": "material.ingest.input_kind"
+    },
+    {
+      "members": [
+        "plain_text",
+        "markdown",
+        "html",
+        "pdf",
+        "structured_json",
+        "other"
+      ],
+      "name": "material.ingest.content_format"
+    },
+    {
+      "members": [
+        "PRESERVED_AS",
+        "MOVED_TO",
+        "REIMPLEMENTED_AS",
+        "DECLARED_LOSS",
+        "EXPLICITLY_REJECTED",
+        "UNASSIGNED_BLOCKER"
+      ],
+      "name": "material.ingest.movement_disposition"
+    },
+    {
+      "members": [
+        "STRUCTURED_MATERIAL_CANDIDATE",
+        "REJECTED",
+        "DEFERRED"
+      ],
+      "name": "material.ingest.terminal_outcome"
     }
   ],
   "version": "kit-registry.vocabularies.v1"

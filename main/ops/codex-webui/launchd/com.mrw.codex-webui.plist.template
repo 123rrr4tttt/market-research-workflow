@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.mrw.codex-webui</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NODE_BIN__</string>
+    <string>__WEBUI_ROOT__/dist/main.js</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__WEBUI_ROOT__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>CODEX_BIN</key>
+    <string>__WEBUI_ROOT__/node_modules/.bin/codex</string>
+    <key>CODEX_HOME</key>
+    <string>__HOME__/.codex-mrw-agent</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>PORT</key>
+    <string>8172</string>
+    <key>WEBUI_API_KEY</key>
+    <string>__SET_BY_START_SH__</string>
+    <key>WEBUI_DB_PATH</key>
+    <string>__WEBUI_ROOT__/.tmp/codex-webui.sqlite</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

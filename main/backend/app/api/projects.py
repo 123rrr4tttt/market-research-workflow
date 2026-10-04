@@ -14,6 +14,8 @@ from ..contracts import ErrorCode, error_response
 from ..contracts.responses import ok
 from ..models.base import SessionLocal, engine
 from ..models.base import Base
+from ..models.information_topology_entities import InformationTopologyLink, InformationTopologyState
+from ..models.project_retrieval import ProjectRetrievalMode, ProjectRetrievalPlan, ProjectRetrievalRun
 from ..models.entities import (
     ConfigState,
     Document,
@@ -150,6 +152,11 @@ TENANT_TABLES = [
     WritingDocument.__table__,
     WritingDocumentDraft.__table__,
     WritingDocumentCitation.__table__,
+    InformationTopologyState.__table__,
+    InformationTopologyLink.__table__,
+    ProjectRetrievalMode.__table__,
+    ProjectRetrievalPlan.__table__,
+    ProjectRetrievalRun.__table__,
 ]
 
 # Seed/inject path uses a safe subset of tenant tables (exclude embeddings/vector + llm configs).
@@ -761,6 +768,10 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> dict:
         conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{target_schema}"'))
         conn.execute(text(f'SET search_path TO "{target_schema}"'))
         Base.metadata.create_all(bind=conn, tables=INITIAL_PROJECT_TABLES, checkfirst=True)
+        # Topology tables are project-local but never cloned from the seed
+        # project's structural state; new projects start with empty topology.
+        InformationTopologyState.__table__.create(bind=conn, checkfirst=True)
+        InformationTopologyLink.__table__.create(bind=conn, checkfirst=True)
 
         copied_counts: dict[str, int] = {}
         # Copy only tables that exist in source schema.

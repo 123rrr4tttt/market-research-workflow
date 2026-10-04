@@ -1,0 +1,8 @@
+{
+  "container": "mrw-repair-20261004-celery-worker-1",
+  "prior_status": "running",
+  "prior_restart_count": 75,
+  "observed_tail": "startup waiting for PostgreSQL, no worker execution ready",
+  "action": "stop task-owned prior repair container; preserve container and image",
+  "exit": 0
+}

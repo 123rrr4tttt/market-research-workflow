@@ -38,10 +38,7 @@ import type {
   AgentSessionItem,
   AgentSessionListResult,
   AgentApprovalRequestPayload,
-  AgentChatApprovalContinuePayload,
-  AgentChatApprovalContinueResult,
   AgentChatCapabilitiesResult,
-  CodexModelCatalog,
   AgentSessionTaskRetryPayload,
   AgentChatTurnPayload,
   AgentChatTurnResult,
@@ -51,8 +48,6 @@ import type {
   AgentBatchEventsResult,
   AgentBatchJobDetail,
   AgentBatchItemsResult,
-  AgentBatchNlCommandPayload,
-  AgentBatchNlCommandResult,
   AgentBatchRetryPayload,
   AgentBatchRetryResult,
   AgentBatchRuleSetValidatePayload,
@@ -528,19 +523,32 @@ export async function validateAgentBatchRuleSet(payload: AgentBatchRuleSetValida
   return post<AgentBatchRuleSetValidateResult>(endpoints.agentBatch.ruleSetValidate, payload)
 }
 
-export async function runAgentBatchNlCommand(payload: AgentBatchNlCommandPayload) {
-  return post<AgentBatchNlCommandResult>(endpoints.agentBatch.nlCommandDirect, payload)
+const retiredAgentChatControlOptions = [
+  'dry_run',
+  'enable_bounded_retry',
+  'enable_limited_branching',
+  'enable_model_tool_loop',
+  'require_high_risk_approval',
+] as const
+
+function prepareNativeAgentChatTurnPayload(payload: AgentChatTurnPayload) {
+  const retiredOptions = retiredAgentChatControlOptions.filter(option => option in payload)
+  if (retiredOptions.length) {
+    throw new Error(`unsupported agent chat option(s): ${retiredOptions.join(', ')}`)
+  }
+  return payload
 }
 
 export async function runAgentChatTurn(payload: AgentChatTurnPayload) {
-  return post<AgentChatTurnResult>(endpoints.agentChat.turn, payload)
+  return post<AgentChatTurnResult>(endpoints.agentChat.turn, prepareNativeAgentChatTurnPayload(payload))
 }
 
 export async function runAgentChatTurnStream(payload: AgentChatTurnPayload) {
+  const nativePayload = prepareNativeAgentChatTurnPayload(payload)
   return fetch(resolveApiUrl(endpoints.agentChat.turnStream), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(nativePayload),
   })
 }
 
@@ -644,14 +652,6 @@ export async function listAgentChatCapabilities(projectKey?: string | null) {
   if (projectKey) query.set('project_key', projectKey)
   const suffix = query.toString()
   return get<AgentChatCapabilitiesResult>(suffix ? `${endpoints.agentChat.capabilities}?${suffix}` : endpoints.agentChat.capabilities)
-}
-
-export async function listAgentChatModels() {
-  return get<CodexModelCatalog>(endpoints.agentChat.models)
-}
-
-export async function continueAgentChatApproval(approvalId: string, payload: AgentChatApprovalContinuePayload = {}) {
-  return post<AgentChatApprovalContinueResult>(endpoints.agentChat.approvalContinue(approvalId), payload)
 }
 
 export async function createAgentSession(payload: AgentSessionCreatePayload) {

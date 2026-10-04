@@ -10,13 +10,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from app.successor_runtime.capabilities.c1_slice_acceptance import (
-    C1NamedStepObservation,
-    C1RollbackBeforeAfter,
-    C1RuntimeEvidenceRefs,
-    C1SliceAcceptance,
-    C1SliceId,
-    accept_c1_slice,
+from app.successor_runtime.capabilities.workflow_slice_acceptance import (
+    WorkflowNamedStepObservation,
+    WorkflowRollbackBeforeAfter,
+    WorkflowRuntimeEvidenceRefs,
+    WorkflowSliceAcceptance,
+    WorkflowSliceId,
+    accept_workflow_slice,
 )
 from app.successor_runtime.capabilities.checksum import content_digest
 from app.successor_runtime.language.plan import ExecutionPlan
@@ -37,7 +37,7 @@ class LegacyWorkflowGraphOracleError(ValueError):
 class LegacyWorkflowGraphReceipt:
     schema: str
     oracle_id: str
-    acceptance: C1SliceAcceptance
+    acceptance: WorkflowSliceAcceptance
     consumed_program_digest: str
     consumed_plan_digest: str
     provider_calls: int = 0
@@ -108,15 +108,15 @@ class LegacyWorkflowGraphOracle:
     def compare(
         self,
         *,
-        in_slice_id: C1SliceId,
+        in_slice_id: WorkflowSliceId,
         in_legacy_program: ProgramSpec,
         in_legacy_plan: ExecutionPlan,
         in_successor_program: ProgramSpec,
         in_successor_plan: ExecutionPlan,
-        in_legacy_step_observations: tuple[C1NamedStepObservation, ...],
-        in_successor_step_observations: tuple[C1NamedStepObservation, ...],
-        in_runtime_evidence: C1RuntimeEvidenceRefs,
-        in_rollback_before_after: C1RollbackBeforeAfter,
+        in_legacy_step_observations: tuple[WorkflowNamedStepObservation, ...],
+        in_successor_step_observations: tuple[WorkflowNamedStepObservation, ...],
+        in_runtime_evidence: WorkflowRuntimeEvidenceRefs,
+        in_rollback_before_after: WorkflowRollbackBeforeAfter,
     ) -> LegacyWorkflowGraphReceipt:
         """Compare named observations without interpreting either execution path."""
 
@@ -126,7 +126,7 @@ class LegacyWorkflowGraphOracle:
             in_successor_program=in_successor_program,
             in_successor_plan=in_successor_plan,
         )
-        acceptance = accept_c1_slice(
+        acceptance = accept_workflow_slice(
             in_slice_id=in_slice_id,
             in_program=in_successor_program,
             in_plan=in_successor_plan,

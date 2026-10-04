@@ -18,13 +18,13 @@ from __future__ import annotations
 import dataclasses
 from typing import Annotated, Any
 
-from app.services.agent_batch.agent_loop import (
+from app.services.agent_batch.task_contract import (
     _apply_retry_action as _legacy_apply_retry_action,
 )
-from app.services.agent_batch.agent_loop import (
+from app.services.agent_batch.task_contract import (
     _build_search_brief as _legacy_build_search_brief,
 )
-from app.services.agent_batch.agent_loop import (
+from app.services.agent_batch.task_contract import (
     _expand_tasks_with_limited_branching as _legacy_expand_tasks_with_limited_branching,
 )
 from app.services.agent_batch.task_contract import (
@@ -33,10 +33,10 @@ from app.services.agent_batch.task_contract import (
 from app.services.agent_batch.task_contract import (
     validate_retry_action_payload as _legacy_validate_retry_action_payload,
 )
-from app.successor_runtime.capabilities import agent_batch_c4 as c4
-from app.successor_runtime.capabilities.agent_batch_c4_interpreters import (
-    AGENT_BATCH_C4_LEGACY_PLAN_INTERPRETER_ID,
-    AGENT_BATCH_C4_LEGACY_RETRY_INTERPRETER_ID,
+from app.successor_runtime.capabilities import batch_task as c4
+from app.successor_runtime.capabilities.batch_task_interpreters import (
+    BATCH_TASK_LEGACY_PLAN_INTERPRETER_ID,
+    BATCH_TASK_LEGACY_RETRY_INTERPRETER_ID,
     InterpreterFailure,
     InterpreterSuccess,
     authority_requirement_digest,
@@ -91,7 +91,7 @@ def _to_typed_tasks(
 class LegacyAgentBatchPlanAdapter:
     """Deterministic legacy replay of the C4.1 ordered plan slice."""
 
-    interpreter_id = AGENT_BATCH_C4_LEGACY_PLAN_INTERPRETER_ID
+    interpreter_id = BATCH_TASK_LEGACY_PLAN_INTERPRETER_ID
 
     def __init__(self) -> None:
         self.plan_calls = 0
@@ -303,7 +303,7 @@ class LegacyAgentBatchPlanAdapter:
 class LegacyAgentBatchRetryAdapter:
     """Legacy retry rewrite replay without the submit effect."""
 
-    interpreter_id = AGENT_BATCH_C4_LEGACY_RETRY_INTERPRETER_ID
+    interpreter_id = BATCH_TASK_LEGACY_RETRY_INTERPRETER_ID
 
     def __init__(self) -> None:
         self.reduce_calls = 0

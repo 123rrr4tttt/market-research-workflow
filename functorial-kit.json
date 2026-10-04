@@ -35,7 +35,6 @@
     "main/backend/app/services/agent_core/functorial/registry.py",
     "main/backend/app/services/agent_core/functorial/motif.py",
     "main/backend/app/services/agent_core/functorial/workflow.py",
-    "main/backend/app/services/agent_runtime/interactive_agent.py",
     "main/backend/app/services/agent_runtime/read_only_tools.py",
     "main/backend/app/services/ingest/canary_handoff_live.py",
     "main/backend/app/services/projects/schema_initialization.py",
@@ -73,7 +72,10 @@
     "main/backend/scripts",
     "scripts",
     "main/ops/production_contract",
-    "src/mrw_functorial_kit/shell"
+    "src/mrw_functorial_kit/shell",
+    "main/backend/app/services/agent_core/query_tools.py",
+    "main/backend/app/services/agent_core/authoring_tools.py",
+    "main/backend/app/services/agent_core/tool_support.py"
   ],
   "test_paths": [
     "main/backend/tests",

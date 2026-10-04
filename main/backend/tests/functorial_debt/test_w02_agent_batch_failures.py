@@ -9,7 +9,6 @@ from functorial_kit import Failure
 from functorial_kit.arch.gates import scan_project
 
 from app.services.agent_batch.approval_binding import approve_approval
-from app.services.agent_batch.planner import plan_batch_search_command
 from app.services.agent_batch.routing import validate_lane
 from app.services.agent_batch.task_contract import (
     _raise_legacy_agent_batch_failure,
@@ -20,9 +19,7 @@ from mrw_functorial_kit.core.agent_service_semantics import agent_batch_failures
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 OWNED_FILES = {
-    "main/backend/app/services/agent_batch/agent_loop.py",
     "main/backend/app/services/agent_batch/approval_binding.py",
-    "main/backend/app/services/agent_batch/planner.py",
     "main/backend/app/services/agent_batch/routing.py",
     "main/backend/app/services/agent_batch/task_contract.py",
 }
@@ -44,8 +41,6 @@ def test_w02_agent_batch_core_failures_use_closed_family() -> None:
 
 
 def test_w02_legacy_lift_preserves_public_exception_observation() -> None:
-    with pytest.raises(ValueError, match="^command is required$"):
-        plan_batch_search_command("   ")
     with pytest.raises(ValueError, match="^lane is required"):
         validate_lane("invalid")
     with pytest.raises(KeyError, match="unknown agent batch channel: bad"):

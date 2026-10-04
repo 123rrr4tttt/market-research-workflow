@@ -1,66 +1,799 @@
 {
   "registries": {
-    "codecs": {},
+    "codecs": {
+      "information-topology-state": {
+        "content": {
+          "discriminant": "information_topology.state.v1",
+          "name": "information-topology-state"
+        }
+      },
+      "material.digestion.alternative": {
+        "content": {
+          "discriminant": "material.digestion.alternative.v2",
+          "name": "material.digestion.alternative"
+        }
+      },
+      "material.ingest.content_format": {
+        "content": {
+          "discriminant": "material.ingest.content_format.v2",
+          "name": "material.ingest.content_format"
+        }
+      },
+      "material.ingest.input_kind": {
+        "content": {
+          "discriminant": "material.ingest.input_kind.v2",
+          "name": "material.ingest.input_kind"
+        }
+      },
+      "material.ingest.movement_disposition": {
+        "content": {
+          "discriminant": "material.ingest.movement_disposition.v2",
+          "name": "material.ingest.movement_disposition"
+        }
+      },
+      "material.ingest.terminal_outcome": {
+        "content": {
+          "discriminant": "material.ingest.terminal_outcome.v2",
+          "name": "material.ingest.terminal_outcome"
+        }
+      },
+      "retrieval.candidate.discover.v1.request.v1": {
+        "content": {
+          "discriminant": "CandidateSearchRequest.v1",
+          "name": "retrieval.candidate.discover.v1.request.v1"
+        }
+      }
+    },
     "failures": {
-      "c8.graph.failure": {
+      "acquisition.batch.failure": {
+        "content": {
+          "codes": [
+            "INVALID_INPUT",
+            "ASSIGNMENT_BINDING_MISMATCH",
+            "INTERPRETER_UNAVAILABLE",
+            "TRAVERSAL_COMPILE_PENDING",
+            "FOLD_CONTRACT_FAILURE",
+            "ELEMENT_EXECUTION_FAILED",
+            "ORDERED_TRAVERSAL_ABORTED",
+            "RESOURCE_POLICY_EXCEEDED",
+            "AGGREGATE_ALL_FAILED",
+            "QUEUED_ACK_NOT_COMPLETION"
+          ],
+          "name": "acquisition.batch.failure"
+        }
+      },
+      "batch.task.failure": {
+        "content": {
+          "codes": [
+            "BATCH_TASK_SCHEMA_INVALID",
+            "BATCH_TASK_DIGEST_INVALID",
+            "BATCH_TASK_SCOPE_INVALID",
+            "BATCH_TASK_CATALOG_INVALID",
+            "BATCH_TASK_PROGRAM_BINDING_INVALID",
+            "BATCH_TASK_CODEC_INVALID"
+          ],
+          "name": "batch.task.failure"
+        }
+      },
+      "collect.runtime.failure": {
+        "content": {
+          "codes": [
+            "skill_id_required",
+            "collect_adapter_contract_invalid",
+            "compat_projector_contract_invalid",
+            "collect_channel_unsupported",
+            "auto_batch_execution_failed",
+            "product_mode_unsupported",
+            "successor_effect_gateway_invalid"
+          ],
+          "name": "collect.runtime.failure"
+        }
+      },
+      "information_topology": {
+        "content": {
+          "codes": [
+            "INVALID_STRUCTURE",
+            "INVALID_PATCH",
+            "VERSION_CONFLICT",
+            "NOT_FOUND",
+            "STALE_REFERENCE",
+            "UNRESOLVABLE_REFERENCE",
+            "UNKNOWN_PROFILE",
+            "MAPPING_NOT_APPLICABLE",
+            "SOURCE_CHANGED",
+            "IDENTITY_CONFLICT",
+            "INVALID_WIRE_FORMAT"
+          ],
+          "name": "information_topology"
+        }
+      },
+      "kit.contribution": {
+        "content": {
+          "codes": [
+            "CONTRIBUTION_INVALID"
+          ],
+          "name": "kit.contribution"
+        }
+      },
+      "knowledge.graph.failure": {
         "content": {
           "codes": [
             "GRAPH_PROJECTION_DECLARED_LOSS",
             "GRAPH_ITEM_CANONICAL_REF_INVALID"
           ],
-          "name": "c8.graph.failure"
+          "name": "knowledge.graph.failure"
         }
       },
-      "c8.report_delivery.failure": {
-        "content": {
-          "codes": [
-            "REPORT_LOCATOR_READ_ONLY_UNAVAILABLE",
-            "REPORT_ADMISSION_INTERFACE_ONLY",
-            "REPORT_EXPORT_NOT_EXECUTED"
-          ],
-          "name": "c8.report_delivery.failure"
-        }
-      },
-      "c8.typed_knowledge.failure": {
+      "knowledge.read.failure": {
         "content": {
           "codes": [
             "DEMAND_READ_UNAVAILABLE",
             "DEMAND_READ_AMBIGUOUS",
             "CANONICAL_REF_VALIDATION_FAILED"
           ],
-          "name": "c8.typed_knowledge.failure"
+          "name": "knowledge.read.failure"
         }
       },
-      "c8.writing.failure": {
+      "knowledge.report-delivery.failure": {
+        "content": {
+          "codes": [
+            "REPORT_LOCATOR_READ_ONLY_UNAVAILABLE",
+            "REPORT_ADMISSION_INTERFACE_ONLY",
+            "REPORT_EXPORT_NOT_EXECUTED"
+          ],
+          "name": "knowledge.report-delivery.failure"
+        }
+      },
+      "knowledge.report.export-contract.failure": {
+        "content": {
+          "codes": [
+            "authority_contract_invalid",
+            "canonical_json_invalid",
+            "digest_binding_invalid",
+            "evidence_surface_invalid",
+            "input_contract_invalid",
+            "lookup_not_found",
+            "operation_contract_invalid",
+            "payload_codec_invalid",
+            "program_binding_invalid"
+          ],
+          "name": "knowledge.report.export-contract.failure"
+        }
+      },
+      "knowledge.report.export-token-state.failure": {
+        "content": {
+          "codes": [
+            "backend_unavailable",
+            "conflict",
+            "credential_rejected",
+            "input_contract_invalid",
+            "not_found"
+          ],
+          "name": "knowledge.report.export-token-state.failure"
+        }
+      },
+      "knowledge.report.export-token.failure": {
+        "content": {
+          "codes": [
+            "export_token_actor_mismatch",
+            "export_token_already_used",
+            "export_token_expired",
+            "export_token_markdown_hash_mismatch",
+            "export_token_missing_expiry",
+            "export_token_revoked",
+            "invalid_export_token_format",
+            "invalid_export_token_payload",
+            "invalid_export_token_signature",
+            "unsupported_export_token_contract"
+          ],
+          "name": "knowledge.report.export-token.failure"
+        }
+      },
+      "knowledge.writing.failure": {
         "content": {
           "codes": [
             "WRITING_SYNTHESIS_INCOMPLETE",
             "WRITING_STAGE_INVALID"
           ],
-          "name": "c8.writing.failure"
+          "name": "knowledge.writing.failure"
+        }
+      },
+      "material.ingest.contract_failure": {
+        "content": {
+          "codes": [
+            "input_contract_invalid",
+            "lookup_not_found",
+            "program_binding_invalid",
+            "stage_invalid"
+          ],
+          "name": "material.ingest.contract_failure"
+        }
+      },
+      "material.ingest.failure": {
+        "content": {
+          "codes": [
+            "INGEST_SUBMISSION_INVALID",
+            "STAGED_CANDIDATE_FAILED",
+            "COMMIT_INTENT_READBACK_UNAVAILABLE",
+            "PROJECTION_OFFSET_DRIFT",
+            "RECONCILIATION_TERMINAL_READBACK_REQUIRED",
+            "RECONCILIATION_AUTHORITY_MISMATCH",
+            "alternative_mismatch",
+            "authority_digest_invalid",
+            "authority_epoch_revoked",
+            "authority_mismatch",
+            "branch_mismatch",
+            "candidate_digest_mismatch",
+            "candidate_id_mismatch",
+            "candidate_replay_mismatch",
+            "chunk_codepoint_exceeds_ceiling",
+            "chunk_count_ceiling_exceeded",
+            "chunk_mode_mismatch",
+            "chunk_policy_ceiling_exceeded",
+            "chunk_policy_invalid",
+            "decision_digest_mismatch",
+            "derived_mode_mismatch",
+            "empty_chunk_input",
+            "empty_or_insufficient_derived_report",
+            "empty_pass_through_rejected",
+            "empty_structured_output",
+            "envelope_digest_mismatch",
+            "expected_candidate_digest_invalid",
+            "expected_candidate_digest_mismatch",
+            "format_mismatch",
+            "input_closure_mismatch",
+            "malformed_structured_json",
+            "ordered_source_closure_mismatch",
+            "ordered_source_mismatch",
+            "pass_through_resource_limit_exceeded",
+            "payload_content_digest_mismatch",
+            "payload_ref_mismatch",
+            "project_key_mismatch",
+            "provenance_closure_mismatch",
+            "provenance_mismatch",
+            "raw_content_digest_mismatch",
+            "raw_snapshot_limit_exceeded",
+            "replay_terminal",
+            "server_identity_missing",
+            "snapshot_identity_mismatch",
+            "snapshot_ref_mismatch",
+            "structured_payload_limit_exceeded",
+            "unsafe_pass_through_deferred"
+          ],
+          "name": "material.ingest.failure"
+        }
+      },
+      "material.ingest.registry_failure": {
+        "content": {
+          "codes": [
+            "backend_unavailable",
+            "conflict",
+            "credential_rejected",
+            "input_contract_invalid",
+            "integrity_violation",
+            "not_found"
+          ],
+          "name": "material.ingest.registry_failure"
+        }
+      },
+      "project_retrieval.failure": {
+        "content": {
+          "codes": [
+            "MODE_INVALID",
+            "PLAN_INVALID",
+            "FORMALIZATION_INPUT_INVALID",
+            "FORMALIZATION_RESPONSE_INVALID",
+            "FORMALIZATION_PROPOSAL_INVALID",
+            "FORMALIZATION_PROVIDER_FAILED",
+            "PROJECT_MISMATCH",
+            "MODE_NOT_FOUND",
+            "MODE_VERSION_CONFLICT",
+            "INVALID_PLAN",
+            "INVALID_IDEMPOTENCY_KEY",
+            "IDEMPOTENCY_CONFLICT",
+            "PLAN_NOT_FOUND",
+            "PLAN_BLOCKED",
+            "DISPATCH_FAILED",
+            "RUN_NOT_FOUND"
+          ],
+          "name": "project_retrieval.failure"
+        }
+      },
+      "projection.evidence-surface.failure": {
+        "content": {
+          "codes": [
+            "authority_contract_invalid",
+            "evidence_integrity_invalid",
+            "evidence_line_set_invalid",
+            "evidence_source_invalid",
+            "projection_input_invalid",
+            "surface_contract_invalid"
+          ],
+          "name": "projection.evidence-surface.failure"
+        }
+      },
+      "projection.processing.failure": {
+        "content": {
+          "codes": [
+            "SOURCE_UNAVAILABLE",
+            "SOURCE_DRIFT",
+            "SOURCE_INCARNATION_STALE",
+            "OFFSET_STALE",
+            "PROJECTION_OFFSET_CLOSURE_DRIFT",
+            "EXTERNAL_INDEX_EFFECT_FAILED",
+            "REBUILD_FAILED"
+          ],
+          "name": "projection.processing.failure"
+        }
+      },
+      "source.acquire.failure": {
+        "content": {
+          "codes": [
+            "SOURCE_SCHEMA_INVALID",
+            "SOURCE_DIGEST_INVALID",
+            "SOURCE_SCOPE_INVALID",
+            "SOURCE_CATALOG_INVALID",
+            "SOURCE_PROGRAM_BINDING_INVALID",
+            "SOURCE_CODEC_INVALID"
+          ],
+          "name": "source.acquire.failure"
+        }
+      },
+      "source.contract.failure": {
+        "content": {
+          "codes": [
+            "schema_contract_invalid",
+            "digest_contract_invalid",
+            "scope_contract_invalid",
+            "catalog_contract_invalid",
+            "mode_contract_invalid",
+            "provider_effect_contract_invalid",
+            "terminal_contract_invalid",
+            "legacy_input_union_invalid"
+          ],
+          "name": "source.contract.failure"
+        }
+      },
+      "source.provider-acquisition.failure": {
+        "content": {
+          "codes": [
+            "ARTIFACT_WRITE",
+            "CANCELLED",
+            "INVALID_PARAMS",
+            "MISSING_CREDENTIAL",
+            "OUTCOME_UNKNOWN",
+            "PROVIDER_REJECTED",
+            "RATE_LIMIT",
+            "REQUEST_BINDING_MISMATCH",
+            "RESOURCE_CEILING_EXCEEDED",
+            "TIMEOUT",
+            "TRANSPORT",
+            "UNAUTHORIZED",
+            "UNSUPPORTED_PROVIDER"
+          ],
+          "name": "source.provider-acquisition.failure"
+        }
+      },
+      "source.runtime-binding.failure": {
+        "content": {
+          "codes": [
+            "ASSIGNMENT_BINDING_MISMATCH"
+          ],
+          "name": "source.runtime-binding.failure"
+        }
+      },
+      "source.single-source-guard.failure": {
+        "content": {
+          "codes": [
+            "single_source_guard_allowed_urls_invalid",
+            "single_source_guard_blocked",
+            "single_source_guard_invalid_shape",
+            "single_source_guard_missing",
+            "single_source_guard_site_entries_mismatch",
+            "single_source_guard_strict_source_required"
+          ],
+          "name": "source.single-source-guard.failure"
+        }
+      },
+      "successor.capability.contract_failure": {
+        "content": {
+          "codes": [
+            "schema_contract_invalid",
+            "digest_contract_invalid",
+            "scope_contract_invalid",
+            "catalog_contract_invalid",
+            "program_binding_invalid",
+            "codec_contract_invalid"
+          ],
+          "name": "successor.capability.contract_failure"
+        }
+      },
+      "successor.runtime.failure": {
+        "content": {
+          "codes": [
+            "ACTIVATION_INVALID",
+            "ADMISSION_BINDING_REJECTED",
+            "ADMISSION_COMMIT_READBACK_INVALID",
+            "ADMISSION_REGISTRY_INVALID",
+            "ADMISSION_ROW_INVALID",
+            "ASSIGNMENT_INVALID",
+            "AUTHORITY_DRIFT",
+            "AUTHORITY_EXPIRED",
+            "AUTHORITY_GRANT_INVALID",
+            "BRANCH_CONTROL_INVALID",
+            "BRANCH_DECISION_UNRESOLVED",
+            "CAPACITY_CONTRACT_INVALID",
+            "CLAIM_BINDING_INVALID",
+            "CLOCK_OBSERVATION_INVALID",
+            "CONTROL_PLANE_PERMISSION_DENIED",
+            "CONTROL_PLANE_SCOPE_INVALID",
+            "FACADE_CONTRACT_INVALID",
+            "FACADE_INPUT_INVALID",
+            "FACADE_PORT_RESULT_INVALID",
+            "FAILURE_POLICY_INVALID",
+            "GUARD_EXPRESSION_INVALID",
+            "ILLEGAL_RUN_TRANSITION",
+            "ILLEGAL_STEP_TRANSITION",
+            "LEGACY_OBSERVATION_INVALID",
+            "NODE_CLAIM_REJECTED",
+            "NODE_CONTRACT_INVALID",
+            "NODE_HANDLER_CONTRACT_INVALID",
+            "NODE_PORT_RESULT_INVALID",
+            "NON_START_PROOF_INVALID",
+            "PROCESS_OBSERVATION_INVALID",
+            "PROJECT_SCOPE_INVALID",
+            "QUALIFICATION_INVALID",
+            "RECONCILIATION_BINDING_REJECTED",
+            "RECONCILIATION_READBACK_INVALID",
+            "RECONCILIATION_RESULT_INVALID",
+            "REPLAY_BINDING_DRIFT",
+            "REPLAY_EVENT_INVALID",
+            "REPLAY_PROJECTION_INVALID",
+            "REPLAY_SEQUENCE_INVALID",
+            "REPLAY_STATE_INVALID",
+            "RESOURCE_CONTRACT_INVALID",
+            "RUN_EVENT_INVALID",
+            "STAGED_RECOVERY_BINDING_REJECTED",
+            "STAGED_RECOVERY_READBACK_INVALID",
+            "STAGED_RECOVERY_REQUEST_INVALID",
+            "SUCCESSOR_ATTEMPT_NOT_AUTHORIZED",
+            "VERIFICATION_BINDING_INVALID",
+            "WORK_ITEM_INVALID"
+          ],
+          "name": "successor.runtime.failure"
+        }
+      },
+      "workflow.definition.failure": {
+        "content": {
+          "codes": [
+            "WORKFLOW_ACCEPTANCE_DIGEST_INVALID",
+            "WORKFLOW_ACCEPTANCE_INPUT_INVALID",
+            "WORKFLOW_CONTRACT_KIND_UNSUPPORTED",
+            "WORKFLOW_DSL_COMPILE_FAILURE",
+            "WORKFLOW_DSL_CYCLE",
+            "WORKFLOW_DSL_DUPLICATE_NODE_ID",
+            "WORKFLOW_DSL_MALFORMED_PAYLOAD",
+            "WORKFLOW_DSL_MISSING_ENDPOINT",
+            "WORKFLOW_DSL_UNSUPPORTED_NODE_TYPE",
+            "WORKFLOW_OBSERVATION_SHAPE_INVALID",
+            "WORKFLOW_PROGRAM_PLAN_BINDING_INVALID",
+            "WORKFLOW_RECEIPT_CONTRACT_INVALID",
+            "WORKFLOW_ROLLBACK_BINDING_INVALID",
+            "WORKFLOW_SLICE_SHAPE_INVALID"
+          ],
+          "name": "workflow.definition.failure"
         }
       }
     },
     "ports": {},
     "vocabularies": {
-      "c8.operation.kind": {
+      "knowledge.operation.kind": {
         "content": {
           "members": [
-            "c8.typed_knowledge.demand_read.v1",
-            "c8.writing.compose.v1",
-            "c8.writing.stage.v1",
-            "c8.report.stage.v1",
-            "c8.graph.project.v1",
-            "c8.report.verify.v1",
-            "c8.report.admission.v1",
-            "c8.delivery_intent_prepare.v1",
+            "knowledge.read.demand.v2",
+            "knowledge.writing.compose.v2",
+            "knowledge.writing.stage.v2",
+            "knowledge.report.stage.v2",
+            "knowledge.graph.project.v2",
+            "knowledge.report.verify.v2",
+            "knowledge.report.admission.v2",
+            "knowledge.report.prepare_delivery_intent.v2",
             "delivery.internal_export.v1"
           ],
-          "name": "c8.operation.kind"
+          "name": "knowledge.operation.kind"
+        }
+      },
+      "material.digestion.alternatives": {
+        "content": {
+          "members": [
+            "EXTRACT",
+            "CHUNK",
+            "SUMMARIZE",
+            "PASS_THROUGH"
+          ],
+          "name": "material.digestion.alternatives"
+        }
+      },
+      "material.ingest.content_format": {
+        "content": {
+          "members": [
+            "plain_text",
+            "markdown",
+            "html",
+            "pdf",
+            "structured_json",
+            "other"
+          ],
+          "name": "material.ingest.content_format"
+        }
+      },
+      "material.ingest.input_kind": {
+        "content": {
+          "members": [
+            "url_driven_external",
+            "raw_import",
+            "report_shaped",
+            "derived_llm_report",
+            "derived_writing_markdown",
+            "unknown"
+          ],
+          "name": "material.ingest.input_kind"
+        }
+      },
+      "material.ingest.movement_disposition": {
+        "content": {
+          "members": [
+            "PRESERVED_AS",
+            "MOVED_TO",
+            "REIMPLEMENTED_AS",
+            "DECLARED_LOSS",
+            "EXPLICITLY_REJECTED",
+            "UNASSIGNED_BLOCKER"
+          ],
+          "name": "material.ingest.movement_disposition"
+        }
+      },
+      "material.ingest.terminal_outcome": {
+        "content": {
+          "members": [
+            "STRUCTURED_MATERIAL_CANDIDATE",
+            "REJECTED",
+            "DEFERRED"
+          ],
+          "name": "material.ingest.terminal_outcome"
+        }
+      },
+      "projection.loss.kind": {
+        "content": {
+          "members": [
+            "DECLARED_LOSS",
+            "OMITTED_FIELD",
+            "NOT_EXECUTED"
+          ],
+          "name": "projection.loss.kind"
+        }
+      },
+      "projection.material.segment.kind": {
+        "content": {
+          "members": [
+            "TEXT_SEGMENT",
+            "FIELD_SEGMENT"
+          ],
+          "name": "projection.material.segment.kind"
+        }
+      },
+      "projection.outcome": {
+        "content": {
+          "members": [
+            "PROJECTION_APPLIED",
+            "PROJECTION_REBUILT",
+            "PROJECTION_NO_CHANGE"
+          ],
+          "name": "projection.outcome"
+        }
+      },
+      "projection.source.schema": {
+        "content": {
+          "members": [
+            "mrw.projection.task-source.v2",
+            "mrw.projection.knowledge-source.v2",
+            "mrw.projection.material-source.v2"
+          ],
+          "name": "projection.source.schema"
+        }
+      },
+      "projection.task.event.kind": {
+        "content": {
+          "members": [
+            "TASK_CREATED",
+            "TASK_ASSIGNED",
+            "TASK_PROJECTION_REFRESHED",
+            "TASK_TERMINAL_SUCCEEDED",
+            "TASK_TERMINAL_FAILED"
+          ],
+          "name": "projection.task.event.kind"
+        }
+      },
+      "projection.task.status": {
+        "content": {
+          "members": [
+            "WAITING",
+            "RUNNING",
+            "TERMINAL_SUCCEEDED",
+            "TERMINAL_FAILED"
+          ],
+          "name": "projection.task.status"
         }
       }
     }
   },
-  "sketches": {},
+  "sketches": {
+    "mrw.projection.material-closure.native.v2.source-anchor": {
+      "content": {
+        "axes": {
+          "closed": "project source schemas, source identity projector, offset key, and projection processing failures",
+          "open": "storage interpreters"
+        },
+        "change": {
+          "declared_loss": [
+            "live delivery, cutover, and runtime failure closure"
+          ],
+          "kind": "extension"
+        },
+        "derived": {
+          "authoritative": false,
+          "derived_as": "anchor"
+        },
+        "equations": [
+          {
+            "claim": "same project source put is idempotent and loads exactly",
+            "class": "testable",
+            "witness": "test:test_same_closure_put_is_idempotent_and_loads_exact"
+          },
+          {
+            "claim": "legitimate project source advance writes new versions and retains old versions",
+            "class": "testable",
+            "witness": "test:test_legitimate_advance_writes_new_versions_retains_old_and_loads_current"
+          },
+          {
+            "claim": "reversion to an old project source closure fails closed",
+            "class": "testable",
+            "witness": "test:test_reversion_to_old_closure_fails_closed"
+          },
+          {
+            "claim": "project source payload tampering fails closed",
+            "class": "testable",
+            "witness": "test:test_payload_tamper_fails_closed"
+          }
+        ],
+        "failures": [
+          "projection.processing.failure"
+        ],
+        "objects": [
+          {
+            "kind": "schema",
+            "name": "mrw.projection.project-source-closure.v2",
+            "owner": "main/backend/app/successor_runtime/substrate/projections/projection_sources.py"
+          },
+          {
+            "kind": "schema",
+            "name": "mrw.projection.project-source-manifest.v2",
+            "owner": "main/backend/app/successor_runtime/substrate/postgres/projection_sources.py"
+          },
+          {
+            "kind": "projector",
+            "name": "projection.project-source-identity.v2",
+            "owner": "main/backend/app/successor_runtime/substrate/postgres/projection_sources.py"
+          },
+          {
+            "kind": "record",
+            "name": "ProjectionOffsetKey",
+            "owner": "main/backend/app/successor_runtime/substrate/postgres/projection_offsets.py"
+          }
+        ],
+        "operations": [
+          {
+            "name": "build_semantic_source_closure",
+            "order_depends_on": []
+          },
+          {
+            "name": "put_semantic_source_rows",
+            "order_depends_on": [
+              "build_semantic_source_closure"
+            ]
+          },
+          {
+            "name": "load_exact_semantic_source_closure",
+            "order_depends_on": [
+              "put_semantic_source_rows"
+            ]
+          }
+        ],
+        "shape": "anchor"
+      },
+      "entry_index": 13
+    },
+    "mrw.projection.material-closure.native.v2.source-views": {
+      "content": {
+        "axes": {
+          "closed": "task events and statuses, material segment kinds, loss kinds, and project source schemas",
+          "open": "projection interpreters"
+        },
+        "change": {
+          "declared_loss": [
+            "external provider realization"
+          ],
+          "kind": "extension"
+        },
+        "derived": {
+          "authoritative": false,
+          "derived_as": "view"
+        },
+        "equations": [
+          {
+            "claim": "terminal task status derives only from the ordered event chain",
+            "class": "testable",
+            "witness": "test:test_runtime_terminal_status_derives_only_from_event_chain"
+          },
+          {
+            "claim": "knowledge projection keeps objects and relations one-to-one",
+            "class": "testable",
+            "witness": "test:test_graph_payload_keeps_objects_and_relations_one_to_one"
+          },
+          {
+            "claim": "material segments retain field paths and NOT_EXECUTED provider status",
+            "class": "testable",
+            "witness": "test:test_search_segments_carry_field_path_and_not_executed_statuses"
+          },
+          {
+            "claim": "field-level loss records are bound to projection view payloads",
+            "class": "testable",
+            "witness": "test:test_field_level_loss_records_are_bound_to_payloads"
+          }
+        ],
+        "failures": [
+          "projection.processing.failure"
+        ],
+        "objects": [
+          {
+            "kind": "schema",
+            "name": "mrw.projection.project-source-closure.v2",
+            "owner": "main/backend/app/successor_runtime/substrate/projections/projection_sources.py"
+          },
+          {
+            "kind": "schema",
+            "name": "mrw.projection.task-view.v2",
+            "owner": "main/backend/app/successor_runtime/substrate/projections/projection_sources.py"
+          },
+          {
+            "kind": "schema",
+            "name": "mrw.projection.knowledge-view.v2",
+            "owner": "main/backend/app/successor_runtime/substrate/projections/projection_sources.py"
+          },
+          {
+            "kind": "schema",
+            "name": "mrw.projection.material-view.v2",
+            "owner": "main/backend/app/successor_runtime/substrate/projections/projection_sources.py"
+          }
+        ],
+        "operations": [
+          {
+            "name": "build_agent_session_payload",
+            "order_depends_on": []
+          },
+          {
+            "name": "build_research_graph_payload",
+            "order_depends_on": []
+          },
+          {
+            "name": "build_search_payload",
+            "order_depends_on": []
+          }
+        ],
+        "shape": "views-fold"
+      },
+      "entry_index": 12
+    }
+  },
   "version": "kit.contributions.sync.v1"
 }

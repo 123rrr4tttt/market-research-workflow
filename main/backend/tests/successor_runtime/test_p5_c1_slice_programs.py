@@ -7,14 +7,18 @@ from dataclasses import replace
 import pytest
 
 from app.successor_runtime.capabilities import build_first_specimen_bundle
-from app.successor_runtime.capabilities import c8_program as c8p
-from app.successor_runtime.capabilities.c1_slice_acceptance import (
-    C1AcceptanceError,
-    C1NamedStepObservation,
-    C1RollbackBeforeAfter,
-    C1RuntimeEvidenceRefs,
-    C1StepStatus,
-    accept_c1_slice,
+from app.successor_runtime.capabilities import knowledge_program as c8p
+from app.successor_runtime.capabilities.workflow_slice_acceptance import (
+    WorkflowAcceptanceError,
+    WorkflowNamedStepObservation,
+    WorkflowRollbackBeforeAfter,
+    WorkflowRuntimeEvidenceRefs,
+    WorkflowStepStatus,
+    HISTORICAL_C1_ACCEPTANCE_SCHEMA,
+    WORKFLOW_ACCEPTANCE_SCHEMA,
+    accept_workflow_slice,
+    read_workflow_acceptance_artifact,
+    replay_workflow_acceptance_artifact,
 )
 from app.successor_runtime.capabilities.checksum import content_digest
 from app.successor_runtime.language.algebra import ValueRef
@@ -28,13 +32,13 @@ PROJECT_KEY = "c1-slice-acceptance"
 SCOPE_DIGEST = content_digest({"project": PROJECT_KEY, "scope": 1})
 
 
-def _observation_digest(name: str, status: C1StepStatus) -> str:
+def _observation_digest(name: str, status: WorkflowStepStatus) -> str:
     return content_digest({"name": name, "status": status.value})
 
 
-def _observations(plan, status: C1StepStatus = C1StepStatus.SUCCESS):
+def _observations(plan, status: WorkflowStepStatus = WorkflowStepStatus.SUCCESS):
     return tuple(
-        C1NamedStepObservation(
+        WorkflowNamedStepObservation(
             name=f"step-{index}:{step.step_kind.lower()}",
             step_id=step.step_id,
             status=status,
@@ -45,8 +49,8 @@ def _observations(plan, status: C1StepStatus = C1StepStatus.SUCCESS):
     )
 
 
-def _runtime_evidence() -> C1RuntimeEvidenceRefs:
-    return C1RuntimeEvidenceRefs(
+def _runtime_evidence() -> WorkflowRuntimeEvidenceRefs:
+    return WorkflowRuntimeEvidenceRefs(
         runtime_evidence_refs=("runtime:c1:receipt",),
         journal_refs=("journal:c1:run",),
         readback_refs=("readback:c1:run",),
@@ -54,8 +58,8 @@ def _runtime_evidence() -> C1RuntimeEvidenceRefs:
     )
 
 
-def _rollback() -> C1RollbackBeforeAfter:
-    return C1RollbackBeforeAfter(
+def _rollback() -> WorkflowRollbackBeforeAfter:
+    return WorkflowRollbackBeforeAfter(
         rollback_ref="rollback:c1:future-owner",
         before_authority_epoch=7,
         after_authority_epoch=8,
@@ -68,7 +72,7 @@ def _rollback() -> C1RollbackBeforeAfter:
 
 def _accept(slice_id, program, plan, *, observations=None):
     captured = observations or _observations(plan)
-    return accept_c1_slice(
+    return accept_workflow_slice(
         in_slice_id=slice_id,
         in_program=program,
         in_plan=plan,
@@ -80,11 +84,11 @@ def _accept(slice_id, program, plan, *, observations=None):
 
 
 def _c8_writing_program_plan():
-    bundle = c8p.build_c8_bundle()
-    catalog = c8p.build_c8_catalog(bundle)
-    program = c8p.build_c8_program(
-        cell_id="C8.2",
-        payload=c8p.C8WritingComposeInput(
+    bundle = c8p.build_knowledge_bundle()
+    catalog = c8p.build_knowledge_catalog(bundle)
+    program = c8p.build_knowledge_program(
+        cell_id=c8p.KNOWLEDGE_WRITING_CELL_ID,
+        payload=c8p.KnowledgeWritingComposeInput(
             project_key=PROJECT_KEY,
             knowledge_item_key="knowledge:c1",
             selection_hash="selection:c1",
@@ -97,10 +101,10 @@ def _c8_writing_program_plan():
         project_registry_revision=1,
         project_scope_digest=SCOPE_DIGEST,
     )
-    plan = c8p.compile_c8_program(
+    plan = c8p.compile_knowledge_program(
         program,
         catalog,
-        operation_contracts=c8p.build_c8_registry(bundle),
+        operation_contracts=c8p.build_knowledge_registry(bundle),
     )
     return program, plan
 
@@ -135,14 +139,14 @@ def _c8_delivery_program_plan():
         c8p.DELIVERY_INTERNAL_EXPORT_KIND
     )
     delivery_codec = first_specimen.codec_by_kind(c8p.DELIVERY_INTERNAL_EXPORT_KIND)
-    bundle = c8p.build_c8_delivery_bridge_bundle(
+    bundle = c8p.build_knowledge_delivery_bridge_bundle(
         delivery_operation,
         delivery_codec,
     )
-    catalog = c8p.build_c8_catalog(bundle)
+    catalog = c8p.build_knowledge_catalog(bundle)
     program_id = "program:c1:slice-c"
     program = normalize_program(
-        c8p.build_c8_delivery_bridge_program(
+        c8p.build_knowledge_delivery_bridge_program(
             delivery_operation=delivery_operation,
             delivery_codec=delivery_codec,
             delivery_payload_ref=_value_ref(
@@ -154,16 +158,16 @@ def _c8_delivery_program_plan():
             artifact_input_ref=_value_ref(
                 program_id=program_id,
                 suffix="research-artifact",
-                object_type=c8p.C8_RESEARCH_ARTIFACT_TYPE,
+                object_type=c8p.KNOWLEDGE_RESEARCH_ARTIFACT_TYPE,
                 codec_id=CANONICAL_CODEC_ID,
             ),
             intent_input_ref=_value_ref(
                 program_id=program_id,
                 suffix="delivery-intent",
-                object_type=c8p.C8_DELIVERY_INTENT_TYPE,
+                object_type=c8p.KNOWLEDGE_DELIVERY_INTENT_TYPE,
                 codec_id=CANONICAL_CODEC_ID,
             ),
-            stage_payload=c8p.C8ReportStageInput(
+            stage_payload=c8p.KnowledgeReportStageInput(
                 project_key=PROJECT_KEY,
                 report_id="report:c1",
                 topic="C1 report delivery acceptance",
@@ -176,10 +180,10 @@ def _c8_delivery_program_plan():
             project_scope_digest=SCOPE_DIGEST,
         )
     )
-    plan = c8p.compile_c8_delivery_bridge_program(
+    plan = c8p.compile_knowledge_delivery_bridge_program(
         program,
         catalog,
-        operation_contracts=c8p.build_c8_registry(bundle),
+        operation_contracts=c8p.build_knowledge_registry(bundle),
     )
     return program, plan
 
@@ -198,6 +202,7 @@ def test_slice_a_uses_real_c7_ingest_admission_shape_and_exact_closure() -> None
     assert len(acceptance.catalog_digest) == 64
     assert len(acceptance.source_map_digest) == 64
     assert len(acceptance.dependency_index_digest) == 64
+    assert acceptance.schema == WORKFLOW_ACCEPTANCE_SCHEMA
 
 
 def test_slice_b_preserves_ordered_writing_composition_without_projectors() -> None:
@@ -206,8 +211,8 @@ def test_slice_b_preserves_ordered_writing_composition_without_projectors() -> N
 
     assert acceptance.accepted
     assert acceptance.ordered_operation_kinds == (
-        "c8.writing.compose.v1",
-        "c8.writing.stage.v1",
+        "knowledge.writing.compose.v2",
+        "knowledge.writing.stage.v2",
     )
     assert acceptance.ordered_step_kinds == ("EFFECT", "EFFECT")
     assert all(
@@ -223,10 +228,10 @@ def test_slice_c_keeps_delivery_separately_admitted_and_excludes_api_ui() -> Non
 
     assert acceptance.accepted
     assert acceptance.ordered_operation_kinds == (
-        "c8.report.stage.v1",
-        "c8.report.verify.v1",
-        "c8.report.admission.v1",
-        "c8.delivery_intent_prepare.v1",
+        "knowledge.report.stage.v2",
+        "knowledge.report.verify.v2",
+        "knowledge.report.admission.v2",
+        "knowledge.report.prepare_delivery_intent.v2",
         "delivery.internal_export.v1",
     )
     assert acceptance.ordered_step_kinds[-2:] == ("EFFECT", "ADMISSION")
@@ -262,13 +267,13 @@ def test_identity_and_digest_sensitivity_are_bounded_to_exact_inputs() -> None:
 def test_stale_plan_fails_closed_before_any_acceptance_receipt() -> None:
     program, plan = _c8_writing_program_plan()
     stale = replace(plan, plan_digest="f" * 64)
-    with pytest.raises(C1AcceptanceError, match="stale plan_digest"):
+    with pytest.raises(WorkflowAcceptanceError, match="stale plan_digest"):
         _accept("B", program, stale)
 
 
 def test_rollback_only_advances_future_owner_epoch_and_retains_refs() -> None:
-    with pytest.raises(C1AcceptanceError, match="retain exact journal"):
-        C1RollbackBeforeAfter(
+    with pytest.raises(WorkflowAcceptanceError, match="retain exact journal"):
+        WorkflowRollbackBeforeAfter(
             rollback_ref="rollback:c1:bad",
             before_authority_epoch=7,
             after_authority_epoch=8,
@@ -276,4 +281,23 @@ def test_rollback_only_advances_future_owner_epoch_and_retains_refs() -> None:
             after_journal_refs=("journal:c1:other",),
             before_readback_refs=("readback:c1:run",),
             after_readback_refs=("readback:c1:run",),
+        )
+
+
+def test_historical_acceptance_readback_preserves_bytes_and_rejects_unknown_schema() -> None:
+    raw = (
+        b'{"schema":"mrw.functorial-successor.c1-slice-acceptance.v1",'
+        b'"acceptance_digest":"historical-byte-identity"}'
+    )
+    historical = read_workflow_acceptance_artifact(
+        schema=HISTORICAL_C1_ACCEPTANCE_SCHEMA,
+        raw_bytes=raw,
+    )
+    assert historical.identity.era == "historical_c1"
+    assert replay_workflow_acceptance_artifact(historical) == raw
+
+    with pytest.raises(ValueError, match="unsupported workflow acceptance schema"):
+        read_workflow_acceptance_artifact(
+            schema="mrw.workflow.runtime.acceptance.v999",
+            raw_bytes=b"{}",
         )

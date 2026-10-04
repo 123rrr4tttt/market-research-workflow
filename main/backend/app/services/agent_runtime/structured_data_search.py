@@ -15,7 +15,6 @@ from app.models.entities import (
     KeywordHistory,
     KeywordPrior,
     MarketMetricPoint,
-    MarketStat,
     PriceObservation,
     Product,
     ResourcePoolSiteEntry,
@@ -35,7 +34,6 @@ DatasetItemMapper = Callable[[Any], dict[str, Any]]
 DATASET_ORDER: tuple[str, ...] = (
     "documents",
     "graph_nodes",
-    "market_stats",
     "metric_points",
     "products",
     "price_observations",
@@ -50,7 +48,6 @@ DATASET_ORDER: tuple[str, ...] = (
 DATASET_LABELS: dict[str, str] = {
     "documents": "Documents and extracted JSON",
     "graph_nodes": "Projected graph nodes",
-    "market_stats": "Market statistics",
     "metric_points": "Metric time-series points",
     "products": "Products",
     "price_observations": "Price observations",
@@ -573,19 +570,6 @@ def _query_sources(session: Any, query: str, limit: int) -> tuple[list[dict[str,
     )
 
 
-def _query_market_stats(session: Any, query: str, limit: int) -> tuple[list[dict[str, Any]], int | None]:
-    return _query_model(
-        session,
-        MarketStat,
-        dataset="market_stats",
-        query=query,
-        limit=limit,
-        mapper=_market_stat_item,
-        search_columns=(MarketStat.state, MarketStat.game, MarketStat.source_name, MarketStat.source_uri, MarketStat.extra),
-        order_columns=(MarketStat.date, MarketStat.created_at),
-    )
-
-
 def _query_metric_points(session: Any, query: str, limit: int) -> tuple[list[dict[str, Any]], int | None]:
     return _query_model(
         session,
@@ -784,34 +768,6 @@ def _source_item(row: Source) -> dict[str, Any]:
             "updated_at": _serialize_value(row.updated_at),
         },
         source_uri=row.base_url,
-    )
-
-
-def _market_stat_item(row: MarketStat) -> dict[str, Any]:
-    summary = f"{row.state or '-'} {row.game or ''} {row.date}: sales={row.sales_volume}, revenue={row.revenue}"
-    return _record(
-        "market_stats",
-        row.id,
-        f"{row.state or '-'} {row.game or 'market'} {row.date}",
-        summary,
-        {
-            "state": row.state,
-            "game": row.game,
-            "date": _serialize_value(row.date),
-            "sales_volume": _serialize_value(row.sales_volume),
-            "revenue": _serialize_value(row.revenue),
-            "revenue_estimated": _serialize_value(row.revenue_estimated),
-            "jackpot": _serialize_value(row.jackpot),
-            "ticket_price": _serialize_value(row.ticket_price),
-            "draw_number": row.draw_number,
-            "yoy": _serialize_value(row.yoy),
-            "mom": _serialize_value(row.mom),
-            "source_name": row.source_name,
-            "source_uri": row.source_uri,
-            "extra": _compact_json_value(row.extra, max_items=8, max_depth=3),
-        },
-        source_uri=row.source_uri,
-        date_value=row.date,
     )
 
 
@@ -1153,7 +1109,6 @@ def _compact_json_value(value: Any, *, max_items: int, max_depth: int, max_strin
 _DATASET_HANDLERS: dict[str, DatasetHandler] = {
     "documents": _query_documents,
     "graph_nodes": _query_graph_nodes,
-    "market_stats": _query_market_stats,
     "metric_points": _query_metric_points,
     "products": _query_products,
     "price_observations": _query_price_observations,
@@ -1168,7 +1123,6 @@ _DATASET_HANDLERS: dict[str, DatasetHandler] = {
 _DATASET_MODELS: dict[str, Any] = {
     "documents": Document,
     "graph_nodes": GraphNodeRecord,
-    "market_stats": MarketStat,
     "metric_points": MarketMetricPoint,
     "products": Product,
     "price_observations": PriceObservation,
@@ -1183,7 +1137,6 @@ _DATASET_MODELS: dict[str, Any] = {
 _DATASET_ITEM_MAPPERS: dict[str, DatasetItemMapper] = {
     "documents": _document_item,
     "graph_nodes": _graph_node_item,
-    "market_stats": _market_stat_item,
     "metric_points": _metric_point_item,
     "products": _product_item,
     "price_observations": lambda row: _price_observation_item(row, product_name=None, product_category=None),

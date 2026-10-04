@@ -18,9 +18,9 @@ from app.services.ingest.frontdoor_ingress import (
 from app.services.ingest.postprocess_frontdoor import (
     run_postprocess_frontdoor as _legacy_run_postprocess_frontdoor,
 )
-from app.successor_runtime.capabilities.ingest_c7_common import (
+from app.successor_runtime.capabilities.material_ingest_common import (
     AHEAD_OF_TIME_SCAFFOLDING_UNADOPTED,
-    C7IngestSubmission,
+    MaterialIngestSubmission,
     content_digest,
 )
 
@@ -72,7 +72,7 @@ class LegacyIngestC7Replay:
 
     def capture(
         self,
-        submission: C7IngestSubmission,
+        submission: MaterialIngestSubmission,
     ) -> dict[str, Any]:
         """Run the actual postprocess pipeline with writer/extraction disabled."""
 
@@ -141,7 +141,7 @@ class LegacyIngestC7Replay:
 
 
 def capture_legacy_ingest_c7_fixture(
-    submission: C7IngestSubmission,
+    submission: MaterialIngestSubmission,
 ) -> tuple[dict[str, Any], LegacyIngestC7Replay]:
     replay = LegacyIngestC7Replay()
     fixture = replay.capture(submission)

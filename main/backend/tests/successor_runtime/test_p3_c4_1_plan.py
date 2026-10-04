@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 
-from app.successor_runtime.capabilities.agent_batch_c4 import (
+from app.successor_runtime.capabilities.batch_task import (
     AgentBatchTask,
     build_batch_plan,
 )
@@ -150,7 +150,7 @@ def test_scope_digest_and_catalog_digest_are_exact_bound() -> None:
     snapshot = payload.candidates
     assert snapshot.catalog.digest
     assert snapshot.catalog.revision == 9
-    assert snapshot.catalog.incarnation == "channel-catalog-inc-c4"
+    assert snapshot.catalog.incarnation == "channel-catalog-inc-batch-task-demo"
     for item in snapshot.source_items:
         assert item.content_digest
         assert item.item_key

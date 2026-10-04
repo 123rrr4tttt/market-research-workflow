@@ -1,0 +1,85 @@
+from __future__ import annotations
+
+from typing import Any, Literal, Protocol
+
+
+CrawlerProviderResolutionCode = Literal[
+    "resolver_not_configured",
+    "provider_unavailable",
+    "provider_unsupported",
+]
+
+
+def normalize_crawler_provider_type(provider_type: str) -> str:
+    return str(provider_type or "").strip().lower()
+
+
+class CrawlerProviderResolutionError(RuntimeError):
+    def __init__(
+        self,
+        code: CrawlerProviderResolutionCode,
+        provider_type: str,
+        message: str,
+    ) -> None:
+        self.code = code
+        self.provider_type = normalize_crawler_provider_type(provider_type)
+        super().__init__(message)
+
+
+class CrawlerProvider(Protocol):
+    provider_type: str
+
+    def dispatch(self, request: Any) -> Any:
+        ...
+
+
+class CrawlerProviderResolver(Protocol):
+    def resolve(
+        self,
+        provider_type: str,
+        *,
+        channel: dict[str, Any],
+        params: dict[str, Any],
+    ) -> CrawlerProvider:
+        ...
+
+
+_CRAWLER_PROVIDER_RESOLVER: CrawlerProviderResolver | None = None
+
+
+def set_crawler_provider_resolver(resolver: CrawlerProviderResolver | None) -> None:
+    global _CRAWLER_PROVIDER_RESOLVER
+    _CRAWLER_PROVIDER_RESOLVER = resolver
+
+
+def resolve_crawler_provider(
+    provider_type: str,
+    *,
+    channel: dict[str, Any],
+    params: dict[str, Any],
+) -> CrawlerProvider:
+    normalized_provider_type = normalize_crawler_provider_type(provider_type)
+    if _CRAWLER_PROVIDER_RESOLVER is None:
+        # kit:boundary - owner=source_library.crawler_provider_resolution
+        # failure_family=source_library.crawler_provider_resolution.failure
+        raise CrawlerProviderResolutionError(
+            "resolver_not_configured",
+            normalized_provider_type,
+            "crawler provider resolver is not configured",
+        )
+    return _CRAWLER_PROVIDER_RESOLVER.resolve(
+        normalized_provider_type,
+        channel=channel,
+        params=params,
+    )
+
+
+__all__ = [
+    "CrawlerProvider",
+    "CrawlerProviderResolver",
+    "CrawlerProviderResolutionCode",
+    "CrawlerProviderResolutionError",
+    "normalize_crawler_provider_type",
+    "resolve_crawler_provider",
+    "set_crawler_provider_resolver",
+]

@@ -299,6 +299,7 @@ def collect_policy_and_regulation(
     start_offset: int | None = None,
     days_back: int | None = None,
     language: str = "en",
+    project_key: str | None = None,
 ) -> dict:
     """
     收集政策法规相关新闻，通过搜索 API（默认 Google Custom Search）。
@@ -309,7 +310,17 @@ def collect_policy_and_regulation(
         enable_extraction: 是否启用LLM结构化提取
         provider: 搜索服务，默认 google（Google Custom Search）
     """
-    from ..search.web import search_sources
+    from ..projects import current_project_key
+    from ..search.candidate_contracts import CandidateSearchRequest
+    from ..search.facets import POLICY_FACET
+    from .search_and_ingest import (
+        SearchAndIngestSpec,
+        SearchIngestPorts,
+        SearchIngestSource,
+        SearchIngestTarget,
+        run_search_and_ingest,
+    )
+    from .url_pool import collect_urls_from_list
 
     job_id = start_job(
         "policy_regulation",
@@ -318,121 +329,112 @@ def collect_policy_and_regulation(
 
     try:
         normalized_doc_type = normalize_doc_type("policy_regulation")
-        results = search_sources(
+        effective_project = (project_key or current_project_key() or "").strip() or None
+        request = CandidateSearchRequest(
             topic=" ".join(keywords),
+            keywords=tuple(keywords),
             max_results=limit,
             provider=provider,
             exclude_existing=False,
-            keywords=keywords,
             start_offset=start_offset,
             days_back=days_back,
             language=language,
+            project_ref=effective_project,
+            source_ref="policy",
+        )
+        spec = SearchAndIngestSpec(
+            facet=POLICY_FACET,
+            request=request,
+            project_key=effective_project,
+            target=SearchIngestTarget(
+                doc_type=normalized_doc_type,
+                extraction_enabled=bool(enable_extraction),
+                extraction_flags={
+                    "include_market": False,
+                    "include_policy": True,
+                    "include_sentiment": False,
+                    "include_company": True,
+                    "include_product": True,
+                    "include_operation": True,
+                },
+            ),
+            source=SearchIngestSource(
+                name="Search API Policy",
+                kind="search",
+                base_url="search",
+                entrypoint="ingest.policy_regulation",
+            ),
+            missing_body="route",
+            retention="resource_pool" if effective_project else "none",
+            legacy_projectless=effective_project is None,
+            legacy_payload_shape=True,
         )
 
-        inserted = 0
-        skipped = 0
-        links: List[str] = []
-        pending_inserts = 0
+        def fetch_body(link: str) -> str | None:
+            html, _ = fetch_html(link, timeout=8.0, retries=1)
+            return (_extract_text_from_html(html) or "").strip()
+
+        def retain_candidate(candidate) -> None:
+            if effective_project:
+                from ..resource_pool import DefaultResourcePoolAppendAdapter
+
+                DefaultResourcePoolAppendAdapter().append_url(
+                    candidate.resource_uri,
+                    source="ingest",
+                    source_ref={"keyword": candidate.keyword},
+                    project_key=effective_project,
+                    job_type="policy_regulation",
+                )
+
+        def write_frontdoor(data: dict) -> dict:
+            ingress_envelope = build_frontdoor_ingress_envelope(
+                ingress_type="discovery",
+                **data,
+            )
+            frontdoor_result = run_postprocess_frontdoor(
+                ingress_envelope=ingress_envelope,
+                run_writer=True,
+            )
+            body = frontdoor_result.get("data")
+            return dict((body or {}).get("writer_result") or {}) if isinstance(body, dict) else {}
+
+        def route_missing(urls: list[str]) -> dict:
+            return collect_urls_from_list(
+                urls,
+                project_key=effective_project,
+                query_terms=list(keywords or []),
+                extra_params={
+                    "dispatch_mode": "inline",
+                    "url_routing_frontdoor_enabled": True,
+                    "front_door_owner": "ingest.policy_regulation",
+                    "frontdoor_route_decision": "front_door_url_routing",
+                    "frontdoor_write_mode": "front_door_url_routing",
+                    "frontdoor_execution_mode": "url_routing",
+                },
+                enable_extraction=enable_extraction,
+            )
 
         with SessionLocal() as session:
-            source = _get_or_create_source(session, "Search API Policy", "search", "search")
-            source_id = source.id
+            _get_or_create_source(session, "Search API Policy", "search", "search")
 
-            for item in results:
-                link = (item.get("link") or "").strip()
-                if not link:
-                    continue
-                links.append(link)
-                try:
-                    from ..resource_pool import DefaultResourcePoolAppendAdapter
-                    from ..projects import current_project_key
-                    pk = (current_project_key() or "").strip()
-                    if pk:
-                        DefaultResourcePoolAppendAdapter().append_url(
-                            link, source="ingest", source_ref={"keyword": item.get("keyword")},
-                            project_key=pk, job_type="policy_regulation",
-                        )
-                except Exception:  # noqa: BLE001
-                    pass
+            collection = run_search_and_ingest(
+                spec,
+                SearchIngestPorts(
+                    exists=lambda link: session.query(Document).filter(Document.uri == link).first() is not None,
+                    fetch_text=fetch_body,
+                    write=write_frontdoor,
+                    route_missing=route_missing,
+                    retain=retain_candidate if effective_project else None,
+                ),
+            )
 
-                existed = session.query(Document).filter(Document.uri == link).first()
-                if existed:
-                    skipped += 1
-                    continue
-
-                title = item.get("title") or ""
-                snippet = item.get("snippet") or ""
-                content = None
-                try:
-                    html, _ = fetch_html(link, timeout=8.0, retries=1)
-                    text = (_extract_text_from_html(html) or "").strip()
-                    if text:
-                        content = text
-                except Exception:
-                    content = None
-
-                extracted_data = {
-                    "platform": item.get("source") or provider,
-                    "keyword": item.get("keyword"),
-                }
-                ingress_envelope = build_frontdoor_ingress_envelope(
-                    ingress_type="discovery",
-                    entrypoint="ingest.policy_regulation",
-                    source_mode="protocol_search",
-                    project_key=None,
-                    source_ref={"url": link, "locator": link},
-                    collection_payload={
-                        "document_candidate": {
-                            "source_name": "Search API Policy",
-                            "source_kind": "search",
-                            "source_base_url": "search",
-                            "state": None,
-                            "doc_type": normalized_doc_type,
-                            "title": title,
-                            "summary": snippet,
-                            "publish_date": None,
-                            "content": content,
-                            "text_hash": None,
-                            "uri": link,
-                            "status": None,
-                            "extracted_data_base": extracted_data,
-                        },
-                        "terminal_context": {
-                            "platform": item.get("source") or provider or "policy_search",
-                            "ingestion_entrypoint": "ingest.policy_regulation",
-                            "source_mode": "protocol_search",
-                            "quality_score": 0.0,
-                            "degradation_flags": [],
-                            "http_status": None,
-                            "capability_profile": {},
-                            "light_filter": {},
-                        },
-                        "extraction_plan": {
-                            "enabled": bool(enable_extraction),
-                            "include_market": False,
-                            "include_policy": True,
-                            "include_sentiment": False,
-                            "include_company": True,
-                            "include_product": True,
-                            "include_operation": True,
-                        },
-                    },
-                    raw_snapshot={"item": dict(item or {}), "link": link},
-                )
-                frontdoor_result = run_postprocess_frontdoor(
-                    ingress_envelope=ingress_envelope,
-                    run_writer=True,
-                )
-                writer_result = (frontdoor_result.get("data") or {}).get("writer_result") if isinstance(frontdoor_result.get("data"), dict) else {}
-                inserted += int((writer_result or {}).get("inserted") or 0)
-                skipped += int((writer_result or {}).get("skipped") or 0)
-
-            if pending_inserts > 0:
-                session.commit()
+        inserted = collection.inserted
+        skipped = collection.skipped
+        links = list(collection.links)
 
         logger.info(
             "Policy regulation collection fetched=%d inserted=%d skipped=%d",
-            len(results),
+            len(collection.bundle.candidates),
             inserted,
             skipped,
         )
@@ -446,6 +448,7 @@ def collect_policy_and_regulation(
         result["display_meta"] = build_display_meta(
             CollectRequest(
                 channel="search.policy",
+                project_key=effective_project,
                 query_terms=list(keywords or []),
                 limit=limit,
                 provider=provider,

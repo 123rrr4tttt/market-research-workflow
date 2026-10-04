@@ -218,8 +218,10 @@ const useKernelRuntimeSource = readFile(files.useKernelRuntime)
 const shellModulesByLayer = {
   A: extractKnownModuleKeysFromAssignment(workbenchLayerShellSource, 'WORKBENCH_MODULES', knownModuleKeys),
   B: extractKnownModuleKeysFromAssignment(moduleChromeSource, 'VISUALIZATION_SHELL_SECTIONS', knownModuleKeys),
-  C: extractKnownModuleKeysFromAssignment(adminLayerShellSource, 'ADMIN_GROUPS', knownModuleKeys),
+  C: extractKnownModuleKeysFromAssignment(moduleManifestSource, 'ADMIN_NAV_SECTIONS', knownModuleKeys),
 }
+
+assertCondition(adminLayerShellSource.includes('ADMIN_NAV_SECTIONS.map('), 'Layer C must render the manifest admin navigation sections')
 
 for (const layerId of Object.keys(modulesByLayer)) {
   assertNoDuplicates(`Layer ${layerId} shell module list`, shellModulesByLayer[layerId])

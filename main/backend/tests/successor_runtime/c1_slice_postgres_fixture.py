@@ -25,12 +25,12 @@ from sqlalchemy.sql import text
 from app.successor_runtime.capabilities import (
     build_first_specimen_bundle,
 )
-from app.successor_runtime.capabilities import c8_program as c8p
-from app.successor_runtime.capabilities import ingest_c7_common as c7
+from app.successor_runtime.capabilities import knowledge_program as c8p
+from app.successor_runtime.capabilities import material_ingest_common as c7
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.ingest_c7_program import (
-    build_ingest_c7_1_program,
-    compile_ingest_c7_program,
+from app.successor_runtime.capabilities.material_ingest_program import (
+    build_material_stage_candidate_program,
+    compile_material_ingest_program,
 )
 from app.successor_runtime.language.algebra import ValueRef
 from app.successor_runtime.language.normalize import normalize_program
@@ -235,9 +235,9 @@ def _slice_program_plan(
     """Return (program, plan, catalog) for one exact C1 slice."""
 
     if slice_id == "A":
-        bundle = c7.build_ingest_c7_bundle()
-        catalog = c7.build_ingest_c7_catalog(bundle)
-        submission = c7.C7IngestSubmission(
+        bundle = c7.build_material_ingest_bundle()
+        catalog = c7.build_material_ingest_catalog(bundle)
+        submission = c7.MaterialIngestSubmission(
             idempotency_key=f"idem:{project_key}:a",
             project_key=project_key,
             source_locator=f"https://example.invalid/{project_key}/a",
@@ -247,7 +247,7 @@ def _slice_program_plan(
                 "text": "C1 stage-candidate runtime acceptance",
             },
         )
-        program = build_ingest_c7_1_program(
+        program = build_material_stage_candidate_program(
             payload=submission,
             catalog=catalog,
             program_id=f"program:{project_key}:slice-a",
@@ -255,19 +255,19 @@ def _slice_program_plan(
             project_registry_revision=registry_revision,
             project_scope_digest=scope_digest,
         )
-        plan = compile_ingest_c7_program(
+        plan = compile_material_ingest_program(
             program,
             catalog,
-            operation_contracts=c7.build_ingest_c7_registry(bundle),
+            operation_contracts=c7.build_material_ingest_registry(bundle),
         )
         return program, plan, catalog
 
     if slice_id == "B":
-        bundle = c8p.build_c8_bundle()
-        catalog = c8p.build_c8_catalog(bundle)
-        program = c8p.build_c8_program(
-            cell_id="C8.2",
-            payload=c8p.C8WritingComposeInput(
+        bundle = c8p.build_knowledge_bundle()
+        catalog = c8p.build_knowledge_catalog(bundle)
+        program = c8p.build_knowledge_program(
+            cell_id=c8p.KNOWLEDGE_WRITING_CELL_ID,
+            payload=c8p.KnowledgeWritingComposeInput(
                 project_key=project_key,
                 knowledge_item_key="knowledge:c1",
                 selection_hash="selection:c1",
@@ -280,10 +280,10 @@ def _slice_program_plan(
             project_registry_revision=registry_revision,
             project_scope_digest=scope_digest,
         )
-        plan = c8p.compile_c8_program(
+        plan = c8p.compile_knowledge_program(
             program,
             catalog,
-            operation_contracts=c8p.build_c8_registry(bundle),
+            operation_contracts=c8p.build_knowledge_registry(bundle),
         )
         return program, plan, catalog
 
@@ -293,11 +293,11 @@ def _slice_program_plan(
             c8p.DELIVERY_INTERNAL_EXPORT_KIND
         )
         delivery_codec = first_specimen.codec_by_kind(c8p.DELIVERY_INTERNAL_EXPORT_KIND)
-        bundle = c8p.build_c8_delivery_bridge_bundle(
+        bundle = c8p.build_knowledge_delivery_bridge_bundle(
             delivery_operation,
             delivery_codec,
         )
-        catalog = c8p.build_c8_catalog(bundle)
+        catalog = c8p.build_knowledge_catalog(bundle)
         program_id = f"program:{project_key}:slice-c"
 
         def value_ref(
@@ -322,7 +322,7 @@ def _slice_program_plan(
             )
 
         program = normalize_program(
-            c8p.build_c8_delivery_bridge_program(
+            c8p.build_knowledge_delivery_bridge_program(
                 delivery_operation=delivery_operation,
                 delivery_codec=delivery_codec,
                 delivery_payload_ref=value_ref(
@@ -332,15 +332,15 @@ def _slice_program_plan(
                 ),
                 artifact_input_ref=value_ref(
                     "research-artifact",
-                    c8p.C8_RESEARCH_ARTIFACT_TYPE,
+                    c8p.KNOWLEDGE_RESEARCH_ARTIFACT_TYPE,
                     CANONICAL_CODEC_ID,
                 ),
                 intent_input_ref=value_ref(
                     "delivery-intent",
-                    c8p.C8_DELIVERY_INTENT_TYPE,
+                    c8p.KNOWLEDGE_DELIVERY_INTENT_TYPE,
                     CANONICAL_CODEC_ID,
                 ),
-                stage_payload=c8p.C8ReportStageInput(
+                stage_payload=c8p.KnowledgeReportStageInput(
                     project_key=project_key,
                     report_id="report:c1",
                     topic="C1 report delivery acceptance",
@@ -353,10 +353,10 @@ def _slice_program_plan(
                 project_scope_digest=scope_digest,
             )
         )
-        plan = c8p.compile_c8_delivery_bridge_program(
+        plan = c8p.compile_knowledge_delivery_bridge_program(
             program,
             catalog,
-            operation_contracts=c8p.build_c8_registry(bundle),
+            operation_contracts=c8p.build_knowledge_registry(bundle),
         )
         return program, plan, catalog
 
@@ -1019,7 +1019,7 @@ def prepare_runtime(
 
     bundle_for_ops = None
     if slice_id == "A":
-        bundle_for_ops = c7.build_ingest_c7_bundle()
+        bundle_for_ops = c7.build_material_ingest_bundle()
     else:
         first_specimen = build_first_specimen_bundle()
         delivery_operation = first_specimen.operation_by_kind(
@@ -1027,9 +1027,9 @@ def prepare_runtime(
         )
         delivery_codec = first_specimen.codec_by_kind(c8p.DELIVERY_INTERNAL_EXPORT_KIND)
         bundle_for_ops = (
-            c8p.build_c8_bundle()
+            c8p.build_knowledge_bundle()
             if slice_id == "B"
-            else c8p.build_c8_delivery_bridge_bundle(
+            else c8p.build_knowledge_delivery_bridge_bundle(
                 delivery_operation,
                 delivery_codec,
             )

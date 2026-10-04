@@ -5,6 +5,8 @@ import importlib.util
 import json
 import ast
 import shlex
+import subprocess
+import tarfile
 from pathlib import Path
 from typing import Annotated, get_args, get_origin, get_type_hints
 
@@ -17,6 +19,38 @@ SPEC = importlib.util.spec_from_file_location("stage0_i1_generator", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 GENERATOR = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GENERATOR)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def historical_root(tmp_path_factory: pytest.TempPathFactory):
+    """Run B13-B23 contracts against the local HEAD bytes, not live cleanup."""
+    global ROOT
+    live_root = ROOT
+    root = tmp_path_factory.mktemp("stage0-i1-history", numbered=True)
+    archive = root / "head.tar"
+    completed = subprocess.run(
+        (
+            "git",
+            "-C",
+            str(live_root),
+            "-c",
+            "safe.directory=*",
+            "archive",
+            "--format=tar",
+            "HEAD",
+        ),
+        stdout=archive.open("wb"),
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise AssertionError(completed.stderr.decode("utf-8", errors="replace"))
+    with tarfile.open(archive, mode="r:") as bundle:
+        bundle.extractall(root)
+    archive.unlink()
+    ROOT = root
+    yield root
+    ROOT = live_root
 
 
 def _assert_direct_annotated_return(function_name: str, derived_as: str, fact_source: str, witness: str) -> None:

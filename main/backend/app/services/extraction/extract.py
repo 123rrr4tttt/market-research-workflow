@@ -167,7 +167,7 @@ def extract_entities_relations(text: str) -> Optional[Dict[str, Any]]:
         else:
             # 使用默认提示词（向后兼容）
             prompt = (
-                "Extract up to five entities and up to three relations that are directly related to lottery policies or lottery markets from the text below.\n"
+                "Extract up to five entities and up to three relations that are directly relevant to the subject of the text below.\n"
                 "All returned values must be in English.\n"
                 "Each entity requires fields: text (English), type (one of ORG, LOC, PERSON, AGENCY, LAW, GAME), and optional span.\n"
                 "Each relation requires fields: subject (entity text), predicate (one of regulates, affects, announces, changes_rule, reports_sales), object (entity text), evidence (string), confidence (number between 0 and 1), and optional date (ISO).\n"
@@ -235,19 +235,16 @@ def extract_market_info(text: str) -> Optional[Dict[str, Any]]:
             )
         else:
             # 使用默认提示词（向后兼容）
-            prompt = f"""Extract key lottery market data information from the following text:
+            prompt = f"""Extract the key market data information from the following text:
 
 {text_snippet}
 
 Extract the following fields and return in JSON format. All text values must be in English:
-- state: State code (e.g., CA, NY)
-- game: Game type (e.g., Powerball, Mega Millions)
+- state: State or market jurisdiction code, if stated
+- game: Market segment or product category, if stated
 - report_date: Report date (YYYY-MM-DD format, null if unavailable)
 - sales_volume: Sales volume (number, null if unavailable)
 - revenue: Revenue (number, null if unavailable)
-- jackpot: Jackpot amount (number, null if unavailable)
-- ticket_price: Ticket price (number, null if unavailable)
-- draw_number: Draw numbers (string, null if unavailable)
 - yoy_change: Year-over-year change percentage (number, null if unavailable)
 - mom_change: Month-over-month change percentage (number, null if unavailable)
 - key_findings: List of key findings (up to 5 items, all must be in English)
@@ -266,7 +263,7 @@ Extract the following fields and return in JSON format. All text values must be 
                 if "key_findings" in data and isinstance(data["key_findings"], list):
                     data["key_findings"] = [str(item) for item in data["key_findings"]]
                 try:
-                    data, quality = normalize_market_payload(data, scope="lottery.market")
+                    data, quality = normalize_market_payload(data, scope="market")
                     data["numeric_quality"] = quality
                 except Exception as e:
                     logger.warning("extract_market_info: market normalization failed (structured): %s", e)
@@ -293,7 +290,7 @@ Extract the following fields and return in JSON format. All text values must be 
             if "key_findings" in data and isinstance(data["key_findings"], list):
                 data["key_findings"] = [str(item) for item in data["key_findings"]]
             try:
-                data, quality = normalize_market_payload(data, scope="lottery.market")
+                data, quality = normalize_market_payload(data, scope="market")
                 data["numeric_quality"] = quality
             except Exception as e:
                 logger.warning("extract_market_info: market normalization failed (json fallback): %s", e)

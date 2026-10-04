@@ -220,6 +220,26 @@ def _operation_payload(operation: OperationSpec) -> "dict[str, Any]":
     }
 
 
+def program_atoms(node: ProgramNode) -> tuple[Atom, ...]:
+    """Return atoms in static source order, including every Decide branch."""
+
+    if isinstance(node, Atom):
+        return (node,)
+    if isinstance(node, Then):
+        return program_atoms(node.first) + program_atoms(node.second)
+    if isinstance(node, MapOutput):
+        return program_atoms(node.source)
+    if isinstance(node, ZipOrdered):
+        return program_atoms(node.left) + program_atoms(node.right)
+    if isinstance(node, TraverseOrdered):
+        return program_atoms(node.element_program)
+    if isinstance(node, Decide):
+        return tuple(
+            atom for branch in node.branches for atom in program_atoms(branch.program)
+        )
+    return ()
+
+
 @dataclass(frozen=True, slots=True)
 class Then:
     node_kind: str

@@ -79,10 +79,14 @@ def _configure(
 
 def _copy_frozen_evidence(module, tmp_path: Path) -> dict[str, Path]:
     paths = {slice_id: tmp_path / f"C1Slice{slice_id}.v1.json" for slice_id in module.SLICE_ORDER}
+    from .historical_fixture import historical_bytes
+
+    bindings = module._frozen_review_bindings()
     for slice_id, path in paths.items():
-        path.write_bytes(module.SLICE_PATHS[slice_id].read_bytes())
+        relative = module._relpath(module.SLICE_PATHS[slice_id])
+        path.write_bytes(historical_bytes(relative, bindings[f"slice_{slice_id.lower()}_file_sha256"]))
     aggregate = tmp_path / "P5C1SliceAcceptance.v1.json"
-    aggregate.write_bytes(module.AGGREGATE_PATH.read_bytes())
+    aggregate.write_bytes(historical_bytes(module._relpath(module.AGGREGATE_PATH), bindings["aggregate_file_sha256"]))
     return {"aggregate": aggregate, **paths}
 
 
@@ -311,8 +315,11 @@ def test_pg_fail_closed_missing_unbound_node_and_sha_drift(
     assert exc.value.exit_code == module.EXIT_PG_BINDING
 
 
-def test_frozen_review_bindings_are_exact_not_authority() -> None:
+def test_frozen_review_bindings_are_exact_not_authority(tmp_path: Path, monkeypatch) -> None:
     module = _load_generator()
+    paths = _copy_frozen_evidence(module, tmp_path)
+    monkeypatch.setattr(module, "SLICE_PATHS", {key: paths[key] for key in module.SLICE_ORDER})
+    monkeypatch.setattr(module, "AGGREGATE_PATH", paths["aggregate"])
     bindings = module._frozen_review_bindings()
 
     for slice_id in module.SLICE_ORDER:
@@ -499,17 +506,20 @@ def test_cli_fails_closed_on_pg_node_missing_and_sha_drift(tmp_path: Path) -> No
     assert "bound SHA drift" in proc.stderr
 
 
-def test_live_canonical_check_when_pg_bound() -> None:
+def test_historical_canonical_cli_main_when_pg_bound(tmp_path: Path, monkeypatch, capsys) -> None:
+    """Run the original CLI handler against its exact-byte disposable root."""
     module = _load_generator()
-    if not module.PG_TEST_FILE_SHA256 or not module.PG_TEST_PATH.is_file():
-        pytest.skip("PG gate file is not bound yet")
-    before = {path: path.read_bytes() for path in (*module.SLICE_PATHS.values(), module.AGGREGATE_PATH)}
-    proc = _run_cli("--check")
-    assert proc.returncode == 0, proc.stderr
-    assert proc.stdout.strip() == module.FROZEN_CHECK_RESULT
-    assert module.SLICE_PATHS["A"].is_file()
-    assert module.SLICE_PATHS["B"].is_file()
-    assert module.SLICE_PATHS["C"].is_file()
-    assert module.AGGREGATE_PATH.is_file()
-    after = {path: path.read_bytes() for path in (*module.SLICE_PATHS.values(), module.AGGREGATE_PATH)}
-    assert after == before
+    paths = _copy_frozen_evidence(module, tmp_path)
+    canonical_relpaths = {
+        paths[key].resolve(): module._relpath(module.SLICE_PATHS[key])
+        for key in module.SLICE_ORDER
+    }
+    canonical_relpaths[paths["aggregate"].resolve()] = module._relpath(module.AGGREGATE_PATH)
+    original_relpath = module._relpath
+    monkeypatch.setattr(module, "_relpath", lambda path: canonical_relpaths.get(path.resolve(), original_relpath(path)))
+    monkeypatch.setattr(module, "SLICE_PATHS", {key: paths[key] for key in module.SLICE_ORDER})
+    monkeypatch.setattr(module, "AGGREGATE_PATH", paths["aggregate"])
+    before = {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in paths.values()}
+    assert module.main(["--check"]) == 0
+    assert capsys.readouterr().out.strip() == module.FROZEN_CHECK_RESULT
+    assert {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in paths.values()} == before

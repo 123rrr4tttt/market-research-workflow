@@ -84,9 +84,12 @@ def test_persisted_artifacts_are_frozen_predecessors() -> None:
         assert hashlib.sha256(historical).hexdigest() == _FROZEN_SHA256[relative]
 
 
-def test_cli_check_accepts_current_projection_and_is_read_only() -> None:
+def test_cli_check_accepts_canonical_reserialization_and_is_read_only(tmp_path: Path) -> None:
     module = _load_generator()
-    paths = _persisted_paths(module)
+    from .historical_fixture import write_documents
+
+    write_documents(tmp_path, module.build_documents(REPO))
+    paths = [tmp_path / path.relative_to(OUTPUT) for path in _persisted_paths(module)]
     snapshot = {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in paths}
     result = subprocess.run(
         [
@@ -95,7 +98,7 @@ def test_cli_check_accepts_current_projection_and_is_read_only() -> None:
             "--repo-root",
             str(REPO),
             "--output-root",
-            str(OUTPUT),
+            str(tmp_path),
             "--check",
         ],
         cwd=_BACKEND,

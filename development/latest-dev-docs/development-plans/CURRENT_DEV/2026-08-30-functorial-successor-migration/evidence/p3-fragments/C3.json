@@ -115,7 +115,7 @@
       }
     }
   ],
-  "content_digest": "8231483800199f8b314918d1d59d414cdc29c2a28d11e465331480e614e72087",
+  "content_digest": "2f2b72ae21408748ac317e7170c2401b19a461673c8779ee2a5f9bfe9b7d06bc",
   "family": "C3",
   "fragment_id": "p3-c3-family-local-implementation",
   "implementation_bindings": [
@@ -231,11 +231,11 @@
       "sha256": "50e263aba7d5cea085a0e4142cad41c8e9706237e59bbf8c32b424eb6b08155f"
     },
     {
-      "bytes": 37748,
-      "lines": 935,
+      "bytes": 37899,
+      "lines": 939,
       "path": "main/backend/app/services/collect_runtime/runtime.py",
       "role": "legacy_donor_c3",
-      "sha256": "a0bf471e3d1373bdb53209c170b58f8f9d5dd077c81bdac37c173717742ef519"
+      "sha256": "a0a1170d06d48dcb6e3effca899c31877d2ac9465fe20c62f7e41a89ddc56bfe"
     },
     {
       "bytes": 1552,

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from app.services.collect_runtime.adapters.crawler_scrapy import CrawlerScrapyAdapter
 from app.services.collect_runtime.contracts import CollectRequest
-from app.services.crawlers.base import CrawlerDispatchResult
+from app.services.crawlers.base import CrawlerDispatchRequest, CrawlerDispatchResult
 from app.services.crawlers.durable_effect_bridge import InMemoryCrawlerAttemptStore
 from app.services.crawlers.providers.scrapy import ScrapyCrawlerProvider
 
@@ -110,6 +112,8 @@ def test_scrapyd_poll_distinguishes_finished_failure_and_cancellation() -> None:
     provider = object.__new__(ScrapyCrawlerProvider)
 
     class _Client:
+        base_url = "http://127.0.0.1:6801"
+
         def list_jobs(self, *, project):  # noqa: ANN001
             return {
                 "running": [{"id": "run-1"}],
@@ -122,8 +126,96 @@ def test_scrapyd_poll_distinguishes_finished_failure_and_cancellation() -> None:
             }
 
     provider.client = _Client()
-    assert provider.poll(external_job_id="done-1", project="demo")["provider_status"] == "completed"
-    assert provider.poll(external_job_id="fail-1", project="demo")["provider_status"] == "failed"
-    assert provider.poll(external_job_id="cancel-1", project="demo")["provider_status"] == "cancelled"
-    assert provider.poll(external_job_id="pending-1", project="demo")["provider_status"] == "queued"
-    assert provider.poll(external_job_id="missing-1", project="demo")["provider_status"] == "unavailable"
+    with patch(
+        "app.services.crawlers.providers.scrapy.ensure_scrapyd_ready",
+        return_value="http://127.0.0.1:6801",
+    ):
+        assert provider.poll(external_job_id="done-1", project="demo")["provider_status"] == "completed"
+        assert provider.poll(external_job_id="fail-1", project="demo")["provider_status"] == "failed"
+        assert provider.poll(external_job_id="cancel-1", project="demo")["provider_status"] == "cancelled"
+        assert provider.poll(external_job_id="pending-1", project="demo")["provider_status"] == "queued"
+        assert provider.poll(external_job_id="missing-1", project="demo")["provider_status"] == "unavailable"
+
+
+def test_scrapy_provider_construction_has_no_readiness_effect() -> None:
+    with patch("app.services.crawlers.providers.scrapy.ensure_scrapyd_ready") as ensure_ready:
+        provider = ScrapyCrawlerProvider(base_url="http://127.0.0.1:6801/")
+
+    ensure_ready.assert_not_called()
+    assert provider.client.base_url == "http://127.0.0.1:6801"
+
+
+def test_scrapy_dispatch_ensures_ready_before_schedule() -> None:
+    provider = object.__new__(ScrapyCrawlerProvider)
+    events: list[str] = []
+
+    class _Client:
+        base_url = "http://127.0.0.1:6801"
+
+        def schedule_spider(self, **_kwargs):  # noqa: ANN003
+            events.append("schedule")
+            return {"status": "ok", "jobid": "job:dispatch"}
+
+    provider.client = _Client()
+    request = CrawlerDispatchRequest(provider="scrapy", project="demo", spider="news")
+    with patch(
+        "app.services.crawlers.providers.scrapy.ensure_scrapyd_ready",
+    ) as ensure_ready:
+        def _ensure(**_kwargs):  # noqa: ANN003
+            events.append("ensure_ready")
+            return "http://127.0.0.1:6801"
+
+        ensure_ready.side_effect = _ensure
+        result = provider.dispatch(request)
+
+    ensure_ready.assert_called_once_with(base_url="http://127.0.0.1:6801")
+    assert events == ["ensure_ready", "schedule"]
+    assert result.provider_status == "ok"
+    assert result.provider_job_id == "job:dispatch"
+
+
+def test_scrapy_valid_poll_ensures_ready_before_listjobs() -> None:
+    provider = object.__new__(ScrapyCrawlerProvider)
+    events: list[str] = []
+
+    class _Client:
+        base_url = "http://127.0.0.1:6801"
+
+        def list_jobs(self, *, project):  # noqa: ANN001
+            events.append("listjobs")
+            return {"running": [{"id": "job:poll"}], "pending": [], "finished": []}
+
+    provider.client = _Client()
+    with patch(
+        "app.services.crawlers.providers.scrapy.ensure_scrapyd_ready",
+    ) as ensure_ready:
+        def _ensure(**_kwargs):  # noqa: ANN003
+            events.append("ensure_ready")
+            return "http://127.0.0.1:6801"
+
+        ensure_ready.side_effect = _ensure
+        result = provider.poll(external_job_id="job:poll", project="demo")
+
+    ensure_ready.assert_called_once_with(base_url="http://127.0.0.1:6801")
+    assert events == ["ensure_ready", "listjobs"]
+    assert result["provider_status"] == "running"
+
+
+def test_scrapy_invalid_poll_rejects_before_readiness_and_listjobs() -> None:
+    provider = object.__new__(ScrapyCrawlerProvider)
+
+    class _Client:
+        base_url = "http://127.0.0.1:6801"
+
+        def list_jobs(self, *, project):  # noqa: ANN001
+            raise AssertionError("invalid poll must not access listjobs")
+
+    provider.client = _Client()
+    with patch(
+        "app.services.crawlers.providers.scrapy.ensure_scrapyd_ready",
+        return_value="http://127.0.0.1:6801",
+    ) as ensure_ready:
+        with pytest.raises(ValueError, match="poll requires project"):
+            provider.poll(external_job_id="job:invalid", project=" ")
+
+    ensure_ready.assert_not_called()

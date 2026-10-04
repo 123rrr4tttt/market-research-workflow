@@ -43,7 +43,7 @@ def test_latest_service_a_ingest_shell_boundaries_reraise_original_errors(
 ) -> None:
     """Each retained shell boundary is exercised with its original exception ABI."""
     from app.services.ingest import news, policy, raw_import, social, url_pool
-    from app.services.ingest.reports import california, general
+    from app.services.ingest.reports import general
 
     monkeypatch.setattr(news, "start_job", lambda *_args, **_kwargs: 1)
     monkeypatch.setattr(news, "fail_job", lambda *_args, **_kwargs: None)
@@ -145,16 +145,14 @@ def test_latest_service_a_ingest_shell_boundaries_reraise_original_errors(
     with pytest.raises(RuntimeError, match="^shell boundary exploded$"):
         social.collect_user_social_sentiment(["market"])
 
-    with patch("app.services.search.web.search_sources", side_effect=RuntimeError("policy search")):
+    monkeypatch.setattr(social, "SessionLocal", lambda: _PolicySession())
+    with patch(
+        "app.services.search.candidate_search.search_sources",
+        side_effect=RuntimeError("policy search"),
+    ):
         monkeypatch.setattr(social, "start_job", lambda *_args, **_kwargs: 5)
         with pytest.raises(RuntimeError, match="^policy search$"):
             social.collect_policy_and_regulation(["market"], limit=1)
-
-    with patch.object(california, "start_job", return_value=6), patch.object(
-        california, "fail_job"
-    ), patch.object(california, "search_sources", side_effect=RuntimeError("california search")):
-        with pytest.raises(RuntimeError, match="^california search$"):
-            california.collect_california_sales_reports()
 
     with patch.object(general, "start_job", return_value=7), patch.object(
         general, "fail_job"

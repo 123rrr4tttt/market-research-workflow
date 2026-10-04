@@ -4,19 +4,19 @@ from __future__ import annotations
 
 import pytest
 
-from app.successor_runtime.capabilities.c8_report_export_audit_evidence_surface import (
+from app.successor_runtime.capabilities.knowledge_report_export_audit_evidence_surface import (
     ExportAuditObservation,
     consume_export_audit_evidence,
     project_export_audit_dashboard_rows,
 )
-from app.successor_runtime.capabilities.c8_report_export_audit_evidence_surface import (
+from app.successor_runtime.capabilities.knowledge_report_export_audit_evidence_surface import (
     authority_ceiling as audit_authority_ceiling,
 )
-from app.successor_runtime.capabilities.c8_report_quality_trend_evidence_surface import (
+from app.successor_runtime.capabilities.knowledge_report_quality_trend_evidence_surface import (
     ReportQualityTrendObservation,
     consume_report_quality_trend_evidence,
 )
-from app.successor_runtime.capabilities.c8_report_quality_trend_evidence_surface import (
+from app.successor_runtime.capabilities.knowledge_report_quality_trend_evidence_surface import (
     authority_ceiling as trend_authority_ceiling,
 )
 

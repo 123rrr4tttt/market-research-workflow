@@ -576,7 +576,7 @@ def test_admitted_canonical_write_still_requires_installed_writer(
         EndpointEffectContract(
             effect_class=EffectClass.CANONICAL_WRITE,
             admission=EffectAdmission.ADMITTED,
-            canonical_writer_port="runtime_step_authorization.v1",
+            canonical_writer_port="postgres.projection_rebuild.v2",
         ),
     )
 

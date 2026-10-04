@@ -105,6 +105,12 @@ function createProcessViewProps(overrides: Partial<ProcessPageViewProps> = {}): 
     variant: 'process',
     autoRefreshEnabled: true,
     refreshIntervalSec: 8,
+    processStatsLoading: false,
+    processStatsError: false,
+    processListLoading: false,
+    processListError: false,
+    processHistoryLoading: false,
+    processHistoryError: false,
     processStats: {
       total_running: 4,
       active_tasks: 2,

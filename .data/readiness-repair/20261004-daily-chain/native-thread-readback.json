@@ -1,0 +1,53 @@
+{
+  "http_status": 200,
+  "response": {
+    "thread": {
+      "id": "01a1060e-968e-7502-bfbb-cbb615369e3b",
+      "environments": [
+        {
+          "environmentId": "local",
+          "cwd": "/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-daily-chain",
+          "runtimeWorkspaceRoots": [
+            "/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-daily-chain"
+          ]
+        }
+      ],
+      "extra": null,
+      "sessionId": "01a1060e-968e-7502-bfbb-cbb615369e3b",
+      "forkedFromId": null,
+      "parentThreadId": null,
+      "preview": "Return exactly MRW_NATIVE_CHAIN_OK. Do not use tools or modify any files.",
+      "ephemeral": false,
+      "section": null,
+      "sectionEnteredAt": null,
+      "projectId": null,
+      "historyMode": "paginated",
+      "modelProvider": "codex_model_router_v2",
+      "model": "glm-5.3-zhipu-glm-en",
+      "reasoningEffort": "high",
+      "createdAt": 1791102981,
+      "updatedAt": 1791102996,
+      "recencyAt": 1791102987,
+      "status": {
+        "type": "idle"
+      },
+      "path": "/Users/wangyiliang/.codex-mrw-agent/sessions/2026/10/04/rollout-2026-10-04T16-36-23-01a1060e-968e-7502-bfbb-cbb615369e3b.jsonl",
+      "cwd": "/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-daily-chain",
+      "cliVersion": "0.160.0",
+      "originator": "codex_webui",
+      "source": "vscode",
+      "canAcceptDirectInput": true,
+      "threadSource": null,
+      "agentNickname": null,
+      "agentRole": null,
+      "gitInfo": {
+        "sha": "5a742be1ebbacb50390a20c35d7bd8526abcdffd",
+        "branch": "codex/mrw-native-functorial-migration",
+        "originUrl": "https://github.com/123rrr4tttt/market-research-workflow.git"
+      },
+      "name": null,
+      "daybreakEnabled": null,
+      "turns": []
+    }
+  }
+}

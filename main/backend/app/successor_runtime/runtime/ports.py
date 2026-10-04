@@ -355,3 +355,20 @@ class Projector(Protocol):
 
     def apply(self, scope: object, source: object, offset: object) -> object: ...
     def rebuild(self, scope: object, source: object) -> object: ...
+
+# Public projection-authority bridge. Imports are deferred to avoid a runtime
+# import cycle while keeping substrate access behind the port boundary.
+def __getattr__(name: str):
+    if name == "PostgresAgentSessionReadAdapter":
+        from ..substrate.projections.agent_session import PostgresAgentSessionReadAdapter  # kit:boundary
+        return PostgresAgentSessionReadAdapter
+    if name == "PostgresRuntimeRunProjector":
+        from ..substrate.projections.runtime_run import PostgresRuntimeRunProjector  # kit:boundary
+        return PostgresRuntimeRunProjector
+    if name == "project_line_event_readbacks":
+        from ..substrate.projections.legacy_process import project_line_event_readbacks  # kit:boundary
+        return project_line_event_readbacks
+    if name == "projection_offsets":
+        from ..substrate.projections import registry  # kit:boundary
+        return registry
+    raise AttributeError(name)  # kit:boundary owner=successor.runtime.ports class=PROGRAMMER_DEFECT failure_family=none witness=test:test_successor_runtime_dependency_direction_is_fail_closed

@@ -14,7 +14,7 @@ import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import Request
 
@@ -22,7 +22,7 @@ from app.successor_runtime.assembly.base import (
     FamilyAssemblyOptions,
     local_assembly_scope_digest,
 )
-from app.successor_runtime.assembly.c9_assembly import (
+from app.successor_runtime.assembly.projection_assembly import (
     build_deterministic_facade_closure,
     build_deterministic_command_submission_port,
 )
@@ -257,7 +257,12 @@ def build_successor_runtime_app_dependencies(
     *,
     options: FamilyAssemblyOptions | None = None,
     scope_digest: str | None = None,
-) -> SuccessorRuntimeAppDependencies:
+) -> Annotated[
+    SuccessorRuntimeAppDependencies,
+    "kit:prepared-command "
+    "effect_boundary=successor_runtime.app_assembly "
+    "witness=test:test_default_mount_options_keep_assembly_fail_closed",
+]:
     """Build the default LOCAL_ONLY router dependencies.
 
     ``options`` defaults to the closed local-only fixture options; the C9
@@ -289,7 +294,12 @@ def build_successor_registry_app_dependencies(
     engine_factory: Callable[[], Any] | None = None,
     options: FamilyAssemblyOptions | None = None,
     actor_provider: Callable[[Request], str] | None = None,
-) -> SuccessorRuntimeAppDependencies:
+) -> Annotated[
+    SuccessorRuntimeAppDependencies,
+    "kit:prepared-command "
+    "effect_boundary=successor_runtime.app_assembly "
+    "witness=test:test_registry_dependencies_are_closed_and_authenticated",
+]:
     """Build production-registry dependencies (fail-closed, no live grants).
 
     The caller (app startup) supplies an engine or engine factory.  This

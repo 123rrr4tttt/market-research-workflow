@@ -1,0 +1,12 @@
+{
+  "status": "LOCAL_CUTOVER_VERIFIED",
+  "thread_count_before": 21,
+  "source": "/Users/wangyiliang/market-research-workflow/main/ops/codex-webui",
+  "database": "/Users/wangyiliang/market-research-workflow/main/ops/codex-webui/.tmp/codex-webui.sqlite",
+  "database_integrity": "ok",
+  "oauth_shared": true,
+  "host_plist_updated": true,
+  "lifecycle_restart": "webui-lifecycle-live-final-attempt1.exit=0",
+  "browser_readback": "live-browser-readback.json",
+  "new_provider_turns_at_final_readback": 0
+}

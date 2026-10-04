@@ -406,7 +406,10 @@ def test_stage_b12_predecessor_is_history_only_without_current_authority() -> No
     assert after == before
 
 
-def test_stage_b19_current_candidate_binds_live_bytes_read_only() -> None:
+def test_stage_b23_candidate_snapshot_binds_recorded_bytes_read_only(tmp_path: Path) -> None:
+    from .historical_fixture import materialize_candidate
+    isolated_root = tmp_path / "candidate-replay"
+    materialize_candidate(CURRENT_CANDIDATE_REL, isolated_root)
     candidate = json.loads(CURRENT_CANDIDATE_REL.read_text(encoding="utf-8"))
     fragment = json.loads(CURRENT_FRAGMENT_REL.read_text(encoding="utf-8"))
     assert candidate["schema"] == "mrw.family_fragment_rebind.candidate.v2"
@@ -428,7 +431,7 @@ def test_stage_b19_current_candidate_binds_live_bytes_read_only() -> None:
     }
     for path, group in REQUIRED_B23_CANDIDATE_BINDINGS.items():
         assert path in candidate_refs, (group, path)
-        live_payload = (REPO / path).read_bytes()
+        live_payload = (isolated_root / path).read_bytes()
         digest = hashlib.sha256(live_payload).hexdigest()
         assert candidate_refs[path]["file_sha256"] == digest, path
         assert candidate_refs[path]["bytes"] == len(live_payload), path
@@ -439,7 +442,7 @@ def test_stage_b19_current_candidate_binds_live_bytes_read_only() -> None:
         for binding in fragment[group]
     }
     for path, fragment_group in REQUIRED_B23_FRAGMENT_BINDINGS.items():
-        live_payload = (REPO / path).read_bytes()
+        live_payload = (isolated_root / path).read_bytes()
         digest = hashlib.sha256(live_payload).hexdigest()
         assert fragment_bindings[path]["sha256"] == digest, path
         assert fragment_bindings[path]["bytes"] == len(live_payload), path
@@ -470,7 +473,7 @@ def test_stage_b19_current_candidate_binds_live_bytes_read_only() -> None:
             str(REPO / "scripts/stage_family_fragment_rebind.py"),
             "check-candidate",
             "--repo-root",
-            str(REPO),
+            str(isolated_root),
             "--candidate",
             CURRENT_CANDIDATE_REL.relative_to(REPO).as_posix(),
         ],

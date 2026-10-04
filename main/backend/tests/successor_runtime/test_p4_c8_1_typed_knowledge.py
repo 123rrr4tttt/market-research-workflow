@@ -7,12 +7,12 @@ import re
 
 import pytest
 
-from app.successor_runtime.capabilities.c8_typed_knowledge import (
+from app.successor_runtime.capabilities.typed_knowledge import (
     AmbiguousProjection,
-    C8ProjectionError,
+    KnowledgeProjectionError,
     ReadHandleRegistry,
     UnavailableProjection,
-    c8_canonical_digest,
+    knowledge_canonical_digest,
     canonical_identity_for,
     demand_read,
     item_digest,
@@ -78,13 +78,13 @@ def test_demand_read_rejects_missing_requested_field() -> None:
 
 def test_digest_is_stable_and_binds_canonical_content() -> None:
     item = captured_item()
-    first = c8_canonical_digest(
+    first = knowledge_canonical_digest(
         {"key": item.key, "statement": item.canonical_statement}
     )
-    second = c8_canonical_digest(
+    second = knowledge_canonical_digest(
         {"key": item.key, "statement": item.canonical_statement}
     )
-    changed = c8_canonical_digest(
+    changed = knowledge_canonical_digest(
         {"key": item.key, "statement": item.canonical_statement + " changed"}
     )
     assert first == second
@@ -115,7 +115,7 @@ def test_derived_canonical_identity_and_body_digest_are_fail_closed() -> None:
     assert item.canonical_ref.content_digest == item_digest(item)
     assert validate_canonical_ref(item, project_key=PROJECT_KEY) is item.canonical_ref
 
-    with pytest.raises(C8ProjectionError, match="project scope"):
+    with pytest.raises(KnowledgeProjectionError, match="project scope"):
         validate_canonical_ref(item, project_key="other-project")
 
     wrong_body = captured_item(statement="different statement")
@@ -126,7 +126,7 @@ def test_derived_canonical_identity_and_body_digest_are_fail_closed() -> None:
             content_digest=item_digest(item),
         ),
     )
-    with pytest.raises(C8ProjectionError, match="body digest"):
+    with pytest.raises(KnowledgeProjectionError, match="body digest"):
         validate_canonical_ref(wrong_body)
 
 

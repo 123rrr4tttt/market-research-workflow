@@ -18,11 +18,14 @@ CELERY_PREFETCH_MULTIPLIER="${CELERY_PREFETCH_MULTIPLIER:-2}"
 CELERY_MAX_TASKS_PER_CHILD="${CELERY_MAX_TASKS_PER_CHILD:-100}"
 CELERY_MAX_MEMORY_PER_CHILD="${CELERY_MAX_MEMORY_PER_CHILD:-500000}"
 CELERY_QUEUES="${CELERY_QUEUES:-celery}"
+FRONTEND_LAUNCHD_LABEL="com.mrw.frontend-modern"
+WORKER_LAUNCHD_LABEL="com.mrw.local-worker"
 if [[ "$OSTYPE" == darwin* ]]; then
   CELERY_POOL="${CELERY_POOL:-solo}"
 else
   CELERY_POOL="${CELERY_POOL:-prefork}"
 fi
+GUI_DOMAIN="gui/$(id -u)"
 
 usage() {
   cat <<'EOF'
@@ -36,7 +39,38 @@ is_listening() {
   lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1
 }
 
+launchd_plist_path() {
+  printf '%s/Library/LaunchAgents/%s.plist' "$HOME" "$1"
+}
+
+is_launchd_service_loaded() {
+  launchctl print "$GUI_DOMAIN/$1" >/dev/null 2>&1
+}
+
+start_launchd_service() {
+  local label="$1"
+  if ! is_launchd_service_loaded "$label"; then
+    launchctl bootstrap "$GUI_DOMAIN" "$(launchd_plist_path "$label")"
+  fi
+  launchctl kickstart "$GUI_DOMAIN/$label"
+  echo "✅ local $2 managed by launchd ($label)"
+}
+
+stop_launchd_service() {
+  local label="$1"
+  if is_launchd_service_loaded "$label"; then
+    launchctl bootout "$GUI_DOMAIN/$label"
+    echo "✅ local $2 stopped by launchd"
+  else
+    echo "ℹ️ local $2 launchd service is not loaded"
+  fi
+}
+
 stop_frontend() {
+  if [[ "$OSTYPE" == darwin* && -f "$(launchd_plist_path "$FRONTEND_LAUNCHD_LABEL")" ]]; then
+    stop_launchd_service "$FRONTEND_LAUNCHD_LABEL" "frontend"
+    return
+  fi
   if [[ -f "$FRONTEND_PID_FILE" ]]; then
     pid="$(cat "$FRONTEND_PID_FILE" 2>/dev/null || true)"
     if [[ -n "${pid:-}" ]] && kill -0 "$pid" >/dev/null 2>&1; then
@@ -52,6 +86,10 @@ stop_frontend() {
 }
 
 start_frontend() {
+  if [[ "$OSTYPE" == darwin* && -f "$(launchd_plist_path "$FRONTEND_LAUNCHD_LABEL")" ]]; then
+    start_launchd_service "$FRONTEND_LAUNCHD_LABEL" "frontend"
+    return
+  fi
   if is_listening "$FRONTEND_PORT"; then
     echo "✅ local frontend already listening on :$FRONTEND_PORT"
     return 0
@@ -70,6 +108,10 @@ start_frontend() {
 }
 
 stop_worker() {
+  if [[ "$OSTYPE" == darwin* && -f "$(launchd_plist_path "$WORKER_LAUNCHD_LABEL")" ]]; then
+    stop_launchd_service "$WORKER_LAUNCHD_LABEL" "worker"
+    return
+  fi
   if [[ -f "$WORKER_PID_FILE" ]]; then
     pid="$(cat "$WORKER_PID_FILE" 2>/dev/null || true)"
     if [[ -n "${pid:-}" ]] && kill -0 "$pid" >/dev/null 2>&1; then
@@ -83,6 +125,10 @@ stop_worker() {
 }
 
 start_worker() {
+  if [[ "$OSTYPE" == darwin* && -f "$(launchd_plist_path "$WORKER_LAUNCHD_LABEL")" ]]; then
+    start_launchd_service "$WORKER_LAUNCHD_LABEL" "worker"
+    return
+  fi
   cd "$BACKEND_DIR"
   if [[ -f "$WORKER_PID_FILE" ]]; then
     pid="$(cat "$WORKER_PID_FILE" 2>/dev/null || true)"

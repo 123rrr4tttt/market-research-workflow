@@ -1,3 +1,4 @@
+import type { ModuleRendererBinding } from '../../kernel/moduleContributionRule'
 import type { KernelModuleKey, ModuleNavGroupKey } from '../../kernel/types'
 export { MODULE_NAV_GROUP_KEYS } from '../../kernel/types'
 export type { ModuleNavGroupKey } from '../../kernel/types'
@@ -17,4 +18,5 @@ export type ModuleDescriptor = {
   interactionProfile: ModuleInteractionProfile
   visibleInNav: boolean
   enabled: boolean
+  rendererBinding: ModuleRendererBinding
 }

@@ -53,24 +53,22 @@ class _FakeDashboardSession:
         if self._execute_count == 5:
             return _FakeResult(scalar_value=3)  # source_enabled
         if self._execute_count == 6:
-            return _FakeResult(scalar_value=9)  # market_total
-        if self._execute_count == 7:
-            return _FakeResult(scalar_value=6)  # states_count
-        if self._execute_count == 8:
             return _FakeResult(scalar_value=7)  # history_total
-        if self._execute_count == 9:
+        if self._execute_count == 7:
             return _FakeResult(scalar_value=10)  # task_total
-        if self._execute_count == 10:
+        if self._execute_count == 8:
             return _FakeResult(scalar_value=2)  # task_running
-        if self._execute_count == 11:
+        if self._execute_count == 9:
             return _FakeResult(scalar_value=6)  # task_completed
-        if self._execute_count == 12:
+        if self._execute_count == 10:
             return _FakeResult(scalar_value=2)  # task_failed
-        if self._execute_count == 13:
+        if self._execute_count == 11:
             rows = [SimpleNamespace(doc_type="policy", count=7), SimpleNamespace(doc_type="news", count=5)]
             return _FakeResult(all_value=rows)
-        if self._execute_count == 14:
+        if self._execute_count == 12:
             return _FakeResult(scalar_value=6)  # doc_with_extracted
+        if self._execute_count == 13:
+            return _FakeResult(all_value=[])  # frontdoor_tri_state_rows
         return _FakeResult(scalar_value=0)
 
 
@@ -205,21 +203,13 @@ class ApiGroupBCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["error"]["code"], ErrorCode.UPSTREAM_ERROR.value)
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.UPSTREAM_ERROR.value)
 
-    def test_dashboard_market_trends_invalid_start_date_returns_422_invalid_input(self):
+    def test_dashboard_market_trends_is_retired(self):
         resp = self.client.get(
             "/api/v1/dashboard/market-trends",
             headers=self.headers,
-            params={"start_date": "2026/01/01"},
         )
 
-        self.assertEqual(resp.status_code, 422)
-        body = resp.json()
-        self._assert_envelope(body)
-        self.assertEqual(body["status"], "error")
-        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
-        self.assertIn("start_date", body["error"]["message"])
-        self.assertIn("YYYY-MM-DD", body["error"]["message"])
-        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(resp.status_code, 404)
 
     def test_dashboard_document_analysis_invalid_start_date_returns_422_invalid_input(self):
         resp = self.client.get(

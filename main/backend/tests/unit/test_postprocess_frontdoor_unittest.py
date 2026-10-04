@@ -16,10 +16,57 @@ from app.services.ingest.frontdoor_ingress import (
     build_raw_import_ingress_envelope,
     build_source_library_ingress_envelope,
 )
+from app.services.ingest.content_extraction import apply_main_content_extraction
 from app.services.ingest.postprocess_frontdoor import _evaluate_quality_frontdoor, run_postprocess_frontdoor
 
 
 class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
+    def test_pdf_static_filter_requires_extracted_body(self) -> None:
+        content = "Hong Kong water supply report describes reservoir operations and measured demand. " * 10
+        base = {
+            "uri": "https://example.com/water-report.pdf",
+            "title": "Hong Kong water supply report",
+            "summary": content[:150],
+            "content": content,
+            "source_base_url": "https://example.com",
+            "doc_type": "url_fetch",
+        }
+        context = {"http_status": 200, "light_filter": {}}
+        cases = (
+            ({"content_format": "pdf", "text_extraction_status": "succeeded"}, False),
+            ({"content_format": "pdf", "text_extraction_status": "failed"}, True),
+            ({"content_format": "html", "text_extraction_status": "succeeded"}, True),
+        )
+        for record_meta, expect_rejection in cases:
+            with self.subTest(record_meta=record_meta):
+                candidate = {**base, "extracted_data_base": {"record_meta": record_meta}}
+                result = _evaluate_quality_frontdoor(document_candidate=candidate, terminal_context=context)
+                light_filter = result["quality_gates"]["light_filter"]
+                self.assertEqual(light_filter["filter_decision"] == "reject", expect_rejection)
+
+        raw_pdf = {
+            **base,
+            "content": "%PDF-1.7 invalid bytes",
+            "extracted_data_base": {"record_meta": cases[0][0]},
+        }
+        result = _evaluate_quality_frontdoor(document_candidate=raw_pdf, terminal_context=context)
+        self.assertEqual(result["quality_gates"]["light_filter"]["filter_decision"], "reject")
+
+    def test_pdf_extraction_preserves_full_parsed_body(self) -> None:
+        content = "Legal disclaimer.\n" + "Annual water supply and measured demand.\n" * 80
+        candidate = {
+            "uri": "https://example.com/report.pdf",
+            "title": "Water report",
+            "content": content,
+            "extracted_data_base": {
+                "record_meta": {"content_format": "pdf", "text_extraction_status": "succeeded"},
+            },
+        }
+        extracted, profile = apply_main_content_extraction(candidate)
+        self.assertEqual(extracted["content"], content)
+        self.assertEqual(profile["main_text_ratio"], 1.0)
+        self.assertEqual(profile["extractor_name"], "source_library.pdf_text.v1")
+
     def test_frontdoor_quality_gate_reads_runtime_settings(self) -> None:
         document_candidate = {
             "uri": "https://example.com/article",

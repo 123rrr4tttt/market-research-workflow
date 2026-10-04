@@ -11,31 +11,31 @@ from app.successor_migration.legacy_source_library import (
     build_legacy_source_library_c2_1_binding,
     build_successor_source_library_c2_1_binding,
 )
-from app.successor_runtime.capabilities.source_library_c2_1 import (
+from app.successor_runtime.capabilities.source_resolution import (
     AuthenticatedProjectScope,
     RejectedResolution,
     ResolvedResolution,
     SourceResolutionObservation,
     build_channel_catalog_snapshot,
-    build_source_library_c2_1_bundle,
-    build_source_library_c2_1_catalog,
-    build_source_library_c2_1_registry,
+    build_source_resolution_bundle,
+    build_source_resolution_catalog,
+    build_source_resolution_registry,
     deployment_catalog_digest,
     observations_equal,
     payload_from_dicts,
     project_scope_digest,
     source_item_definition_content_digest,
 )
-from app.successor_runtime.capabilities.source_library_c2_1_interpreters import (
+from app.successor_runtime.capabilities.source_resolution_interpreters import (
     InterpreterFailure,
     ResolutionBindingMismatch,
-    SourceLibraryC2_1SuccessorInterpreter,
+    SourceResolutionSuccessorInterpreter,
     require_exact_resolution_binding,
     resolve_source_execution_request,
 )
-from app.successor_runtime.capabilities.source_library_c2_1_program import (
-    build_source_library_c2_1_program,
-    compile_source_library_c2_1_program,
+from app.successor_runtime.capabilities.source_resolution_program import (
+    build_source_resolution_program,
+    compile_source_resolution_program,
 )
 
 PROJECT_KEY = "demo_proj"
@@ -51,15 +51,15 @@ DEPLOYMENT_CATALOG_DIGEST = deployment_catalog_digest()
 
 
 def _bundle():
-    return build_source_library_c2_1_bundle()
+    return build_source_resolution_bundle()
 
 
 def _catalog():
-    return build_source_library_c2_1_catalog(_bundle())
+    return build_source_resolution_catalog(_bundle())
 
 
 def _registry():
-    return build_source_library_c2_1_registry(_bundle())
+    return build_source_resolution_registry(_bundle())
 
 
 def _channels():
@@ -123,7 +123,7 @@ def _payload(**overrides):
 
 
 def _program(payload, program_id="c2-1.parity.program"):
-    return build_source_library_c2_1_program(
+    return build_source_resolution_program(
         payload=payload,
         catalog=_catalog(),
         program_id=program_id,
@@ -134,7 +134,7 @@ def _program(payload, program_id="c2-1.parity.program"):
 
 
 def _plan(program):
-    return compile_source_library_c2_1_program(
+    return compile_source_resolution_program(
         program, _catalog(), operation_contracts=_registry()
     )
 
@@ -163,7 +163,7 @@ def _closure(payload):
 
 
 def _run_successor(payload, program, plan, ref, payload_ref, binding):
-    return SourceLibraryC2_1SuccessorInterpreter().interpret(
+    return SourceResolutionSuccessorInterpreter().interpret(
         program=program,
         plan=plan,
         contract_ref=ref,
@@ -412,7 +412,7 @@ def test_deployment_catalog_digest_swap_is_rejected() -> None:
             deployment_catalog_digest=swapped,
             binding=successor_binding,
         )
-    failure = SourceLibraryC2_1SuccessorInterpreter().interpret(
+    failure = SourceResolutionSuccessorInterpreter().interpret(
         program=program,
         plan=plan,
         contract_ref=ref,

@@ -252,20 +252,15 @@ def test_main_writes_to_tmp_path_without_touching_canonical(
     module = _load_generator()
     canonical = module.FRAGMENT_PATH
     canonical_before = _file_snapshot(canonical)
-    target_root = tmp_path / "repo"
-    target = target_root / "p4-fragments" / "C7.json"
-    fragment = module.build_fragment()
-
-    module.REPOSITORY_ROOT = target_root
+    target = tmp_path / "C7.json"
     module.FRAGMENT_PATH = target
-    module.build_fragment = lambda: fragment
 
-    module.main()
+    assert module.main([]) == 0
 
     output = capsys.readouterr().out
     assert target.is_file()
     assert json.loads(target.read_text())["family"] == "C7"
-    assert "wrote p4-fragments/C7.json" in output
+    assert f"WROTE: {target}" in output
     assert _file_snapshot(canonical) == canonical_before
 
 

@@ -1,350 +1,166 @@
 # 市场研究工作流
 
-> 最后更新：`2026-05-14`
-> 当前状态：持续开发中，默认按 Docker 链路运行
-> 最新预发布：[`pre-release-2026-05-14-rc1`](./RELEASE_NOTES_pre-release-2026-05-14-rc1.md)
+> 最后更新：2026-10-05
+> 当前状态：本机日常链路可用；生产部署历史已停止，发布延后且未建立生产授权
+> 开发阅读唯一入口：[`docs/development/README.md`](./docs/development/README.md)
 
-这是一个面向市场研究 / 情报采集 / 结构化分析的全栈工作流仓库。仓库核心目标不是只提供一个 API 服务，而是把采集、抽取、索引、检索、项目隔离、异步任务、运维入口和现代化操作前端放在一套统一工程里。
+这是一个面向市场研究、来源采集、结构化分析和报告生成的本地工作流仓库。核心能力覆盖项目管理、文档导入、来源库、采集任务、索引与检索、图谱、写作、Agent 运行和任务运维；前后端放在同一工程内，便于把一次研究请求从界面操作追溯到 API、后台任务、索引和持久读回结果。
 
-这个仓库也不只是“应用代码”。其中同时包含开发计划、归档文档、参考资料、验证脚本和运行时来源配置。第一次进入仓库时，建议先看本文档的启动入口、目录地图和文档索引，而不是直接在大目录里盲搜。
+## 先读入口
 
-## 项目定位
+日常使用和开发阅读从 [`docs/development/README.md`](./docs/development/README.md) 进入。它直接分流三类事实：
 
-- 后端：`FastAPI + SQLAlchemy + Alembic + Celery + Redis`
-- 存储与检索：`PostgreSQL + pgvector + Elasticsearch`
-- 前端：`main/frontend-modern`，当前唯一活跃前端
-- 运行方式：Docker-first，本地模式用于开发调试
-- 作用范围：多来源采集、结构化处理、资源池/来源库管理、检索与分析、任务编排与运维
+1. 本机 daily 运行：当前可用的界面、API、任务 worker、搜索依赖和业务操作。
+2. 已停止的生产部署历史：2026-09-13 的本地验收、清理完成、停止执行和发布延后记录。
+3. 开发计划与历史档案：当前计划、已关闭主题、外部阻塞和兼容路径。
 
-## 当前能力概览
+本 README 是使用与运行入口，不承担开发文档索引。历史文件、旧路径和冻结证据保持原位；旧链接仍应可达。
 
-### 已落地的核心模块
+## 本机日常链路
 
-- `ingest`：市场、政策、报告、社交、数据 API 等采集链路
-- `discovery` / `search`：发现、检索、索引访问
-- `resource_pool`：资源池与候选入口管理
-- `source_library`：来源库条目、解析、执行与项目定制
-- `collect_runtime` / `indexer`：采集运行时与索引写入
-- `graph` / `workflow_graph` / `writing` / `agent_runtime` / `typed_knowledge`：图谱、工作流、写作与 agent 相关服务能力
+2026-10-04 的完整日常链路证据在 [`.data/readiness-repair/20261004-daily-chain/daily-chain-state.json`](./.data/readiness-repair/20261004-daily-chain/daily-chain-state.json)，状态为 `LOCAL_DAILY_FULL_CHAIN_VERIFIED`。该证据记录了策略文档导入、解析、索引、词法和 pgvector 检索、HTTP 来源修复、原生 Codex 任务完成，以及队列清空、worker 响应和健康检查通过。
 
-### 技术栈
+| 运行面 | 地址或身份 | 说明 |
+| --- | --- | --- |
+| 业务前端 | <http://127.0.0.1:5173> | 市场研究工作流的日常操作界面 |
+| 后端 API | <http://127.0.0.1:8000/docs> | OpenAPI 文档和业务 API |
+| Codex WebUI | <http://127.0.0.1:8172>，MRW 路由 `/codex/` | 主仓 vendored 入口，启动标签为 `com.mrw.codex-webui`；见 [vendored README](./main/ops/codex-webui/README.md) |
+| Celery worker | `com.mrw.local-worker` | launchd 管理的正式本地后台任务进程 |
+| Elasticsearch | `com.mrw.local-elasticsearch` | launchd 管理的本机搜索依赖 |
+| OAuth 身份 | 宿主 `~/.codex/auth.json` | Codex WebUI 通过宿主共享身份；`~/.codex-mrw-agent` 为其 home，并建立共享 symlink |
 
-- 后端：`Python 3.11+`, `FastAPI`, `SQLAlchemy`, `Alembic`, `Celery`
-- 前端：`React 19`, `Vite`, `TypeScript`, `React Query`, `Storybook`
-- 测试：`pytest`, Playwright
-- 工程门禁：GitHub Actions + 仓库内自定义 verification / smoke 脚本
-
-## 运行拓扑
-
-默认容器编排定义在 [`main/ops/docker-compose.yml`](./main/ops/docker-compose.yml)：
-
-- `db`：PostgreSQL，端口 `5432`
-- `es`：Elasticsearch，端口 `9200`
-- `redis`：Redis，端口 `6379`
-- `backend`：FastAPI，端口 `8000`
-- `celery-worker`：异步任务 worker
-- `frontend-modern`：可选 profile，端口 `5174`
-- `launcher-ui`：Docker 启动器 UI，端口 `5176`
-- `launcher-agent`：启动器控制代理，端口 `8787`
-- `scrapyd`：可选 profile，端口 `6800`
-
-## 快速开始
-
-### 推荐方式：Docker 启动器 UI
-
-首次 clone 后，先确认本机满足这些前置条件：
-
-- 已安装并启动 `Docker Desktop` 或 `Docker Engine`
-- 已安装 `docker compose` 或 `docker-compose`
-- 已安装 `curl`
-- Linux 桌面环境若需要 Docker 启动器自动弹出浏览器，需安装 `xdg-utils`（提供 `xdg-open`）
-- 当前 shell 位于仓库根目录
-
-1. 准备环境文件：
-
-```bash
-cp main/backend/.env.example main/backend/.env
-```
-
-2. 先做部署前检查：
-
-```bash
-./scripts/docker-deploy.sh preflight
-./scripts/docker-deploy.sh preflight --profile modern-ui
-./scripts/docker-deploy.sh preflight --profile scrapyd
-```
-
-3. 优先启动 Docker 启动器 UI：
-
-```bash
-# macOS
-./scripts/platform-macos.sh docker-start
-
-# Linux
-./scripts/platform-linux.sh docker-start
-
-# Windows PowerShell
-.\scripts\platform-windows.ps1 docker-start
-```
-
-`docker-start` 的优先级最高。它不会直接拉起完整应用栈，而是先启动并打开 Docker 控制台：
-
-- 启动 `launcher-agent` 和 `launcher-ui`
-- 打开 [http://127.0.0.1:5176](http://127.0.0.1:5176)
-- 后续由启动器 UI 控制完整应用、可选搜索增强、停止、重启和状态查看
-
-这个路径适合日常团队协作和非命令行用户。它会先确认 Docker daemon 可用；macOS 下如果 Docker 没启动，会尝试打开 Docker Desktop。
-
-4. 如需跳过启动器 UI，直接启动完整 Docker 栈：
-
-```bash
-# macOS / Linux 跨平台封装
-./scripts/platform-macos.sh docker-full-start
-./scripts/platform-linux.sh docker-full-start
-
-# 或直接调用部署脚本
-./scripts/docker-deploy.sh start --profile modern-ui
-```
-
-`docker-full-start` 等价于直接执行 `docker-deploy.sh start --profile modern-ui`。这会按 compose 直接拉起 `db`、`es`、`redis`、`backend`、`celery-worker`、`frontend-modern`，并包含 `modern-ui` profile 下的 `launcher-ui` / `launcher-agent`，但它不是“先进入启动器再启动应用”的交互模式。
-
-5. 低层命令行启动服务：
-
-```bash
-# 核心后端链路
-./scripts/docker-deploy.sh start
-
-# 如需同时启动 modern 前端
-./scripts/docker-deploy.sh start --profile modern-ui
-
-# 如需同时启动 modern 前端和 scrapyd
-./scripts/docker-deploy.sh start --profile modern-ui --profile scrapyd
-```
-
-6. 常用操作：
-
-```bash
-./scripts/docker-deploy.sh status
-./scripts/docker-deploy.sh logs
-./scripts/docker-deploy.sh health
-./scripts/docker-deploy.sh stop
-```
-
-### 常用访问地址
-
-- OpenAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
-- 健康检查: [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
-- 深度健康检查: [http://localhost:8000/api/v1/health/deep](http://localhost:8000/api/v1/health/deep)
-- Docker 启动器 UI: [http://127.0.0.1:5176](http://127.0.0.1:5176)
-- modern 前端（启用对应 profile 时）: [http://localhost:5174](http://localhost:5174)
-
-## 本地开发
-
-当你需要快速迭代后端和前端，而不想整套容器都拉起时，使用本地模式。
-
-本地模式的完整前置依赖和自动安装行为见 [`main/backend/README.local.md`](./main/backend/README.local.md)。至少应提前确认：
-
-- 已安装 `Python 3.11+`
-- 已安装 `Node.js / npm`
-- 若不用 `--with-docker-deps`，本机可启动 `PostgreSQL`、`Redis`、`Elasticsearch`
-
-### 一键本地启动
-
-```bash
-cp main/backend/.env.example main/backend/.env
-./scripts/local-deploy.sh start
-```
-
-这个入口会转发到 [`main/backend/start-local.sh`](./main/backend/start-local.sh)，通常会启动：
-
-- 本地 backend：`8000`
-- modern 前端 dev server：`5173`
-- 本地 Celery worker
-- 本地 PostgreSQL / Redis（按脚本检测与配置决定）
-- 本地 Elasticsearch 或 Docker 托管依赖（取决于参数与环境）
-
-### 本地常用命令
+日常状态与健康检查可用：
 
 ```bash
 ./scripts/local-deploy.sh status
 ./scripts/local-deploy.sh health
-./scripts/local-deploy.sh stop
 ```
 
-### 函子贡献开发入口
-
-仓库根目录的薄入口会固定项目根、`src` / `main/backend` 导入路径、当前 C8 catalog 和现有测试环境：
+需要单独控制本机运行面时，使用既有控制脚本；这些命令按进程或 launchd 表面操作：
 
 ```bash
-# 唯一会安装内容的命令；从 pyproject 的 tool.uv.sources 读取本地 kit，并离线 editable 安装
-python3 scripts/dev.py setup
+./scripts/local-service-control.sh frontend-start
+./scripts/local-service-control.sh frontend-stop
+./scripts/local-service-control.sh worker-start
+./scripts/local-service-control.sh worker-stop
+./scripts/local-service-control.sh backend-start
+./scripts/local-service-control.sh backend-stop
+```
 
-# 贡献投影检查、同步和只读定位
+日常证据中的验证边界也应保留：pgvector 后端已验证；旧 Qdrant 数据迁移未完成；HK 历史材料不可用。2026-10-04 daily-chain 证据生成时，WebUI 仍运行外部工作树源；该源现已归入主仓，当前启动方式见下节。页面显示的 `missing/login` 不能当作已配置，模型、外部检索或网页采集是否可用要按具体操作读回判断。
+
+### Codex WebUI 启动与停止
+
+Codex WebUI 使用 [main/ops/codex-webui](./main/ops/codex-webui) 中的 vendored 源码和 `dist/main.js`，协议依赖固定为 `@openai/codex@0.160.0`。原 SQLite 运行数据已完整迁入主仓忽略目录 `.tmp`；宿主 LaunchAgent 使用主仓路径，`~/.codex-mrw-agent/auth.json` 继续以 symlink 共享宿主 `~/.codex/auth.json`。
+
+启动由已有私密配置向进程提供 `WEBUI_API_KEY`；不要在命令历史、日志或文档中打印这个密钥：
+
+```bash
+./main/ops/codex-webui/start.sh
+```
+
+停止只卸载同一个 LaunchAgent：
+
+```bash
+./main/ops/codex-webui/stop.sh
+```
+
+构建、版本校验、认证 symlink、数据库路径和 LaunchAgent 生成的完整说明见 [main/ops/codex-webui/README.md](./main/ops/codex-webui/README.md)。
+
+## 业务能力
+
+- **项目管理**：创建、切换和注入演示项目；项目边界贯穿文档、任务、检索和报告。
+- **来源库**：登记来源、解析内容、维护项目定制来源，并把可复用来源接到采集和检索。
+- **采集与导入**：支持文件导入和 HTTP 来源获取；异步任务由 Celery 执行，Process 页可读回任务状态和结果。
+- **索引与检索**：文档进入 Elasticsearch、BM25 和 PostgreSQL vector 索引；按项目隔离检索候选和结果。
+- **图谱与知识组织**：维护实体、关系、类型化知识和工作流图，为分析和写作提供结构化上下文。
+- **写作与报告**：把项目材料、检索结果和任务证据汇入写作流程，生成可审查报告。
+- **Agent 与任务运维**：前端展示任务、日志、worker 事件和失败原因；后端暴露健康检查和运维 API。
+
+这些能力的实现集中在 `main/backend/app/services`，界面在 `main/frontend-modern`。目录名只帮助定位源码；使用入口按上面的业务语义理解。
+
+## 项目贡献检查
+
+本地贡献开发入口默认使用 `main/backend/.venv311`，也可用 `MRW_DEV_PYTHON` 指向等价 Python 环境。默认 kit 来源由 [`pyproject.toml`](./pyproject.toml) 的 `[tool.mrw.dev-kit]` 固定为 functorial-kit Git revision `6dbae536a72ab235998b21c9647b8b00d15a71e6` 的 `python` 子目录：
+
+```bash
+python3 scripts/dev.py setup
 python3 scripts/dev.py check
 python3 scripts/dev.py sync
 python3 scripts/dev.py inspect
-python3 scripts/dev.py inspect --id mrw.successor.c8.graph-projection.v1
-
-# 成组修改完成：同步、检查、C8 pilot 测试与完整七项 gate，失败即停止
-python3 scripts/dev.py validate
-
-# 开发中可分别运行已知 C8 pilot 测试与完整 gate
 python3 scripts/dev.py test
 python3 scripts/dev.py gates
+python3 scripts/dev.py validate
 ```
 
-`check`、`inspect`、`test` 和 `gates` 不安装依赖，也不访问网络；`sync` 只执行既有贡献投影同步，`validate` 将这些既有步骤按顺序组合。标准 architecture 测试也会检查 contribution 漂移。`inspect` 返回的是词法导航候选和显式依赖关系，不能作为受影响测试选择器。默认优先使用 `main/backend/.venv311`；可用 `MRW_DEV_PYTHON` 指定等价环境。
+`setup` 是显式安装入口，安装后回验 kit 来源；`check` 只核验当前安装来源和贡献状态，不安装。`sync` 执行既有贡献投影同步；`test` 和 `validate` 需要所选环境已有 SQLAlchemy 等后端测试依赖；`inspect` 返回词法导航候选和显式依赖关系，不能直接当作受影响测试选择器。
 
-### 平台封装脚本
-
-- [`scripts/platform-macos.sh`](./scripts/platform-macos.sh)
-- [`scripts/platform-linux.sh`](./scripts/platform-linux.sh)
-- [`scripts/platform-windows.ps1`](./scripts/platform-windows.ps1)
-
-这些脚本提供一致的跨平台入口：
+同一组子命令可追加 `--local-kit <checkout>/python` 使用显式本地 kit。该路径必须是真实 functorial-kit Git checkout 的 `python` 包目录；先用 `setup --local-kit` 安装为 editable，之后其他子命令只核验安装确实来自同一路径，不隐式安装：
 
 ```bash
-python3 scripts/launch.py
-./scripts/platform-macos.sh start
-./scripts/platform-macos.sh docker-start
-./scripts/platform-macos.sh docker-full-start
-./scripts/platform-macos.sh configure
-./scripts/platform-macos.sh doctor
+python3 scripts/dev.py setup --local-kit /path/to/functorial-kit/python
+python3 scripts/dev.py check --local-kit /path/to/functorial-kit/python
 ```
 
-Windows 可通过 PowerShell 调用：
-
-```powershell
-python scripts\launch.py
-.\scripts\platform-windows.ps1 docker-start
-.\scripts\platform-windows.ps1 docker-full-start
-.\scripts\platform-windows.ps1 configure
-```
-
-外部服务 key 会写入本地 `main/backend/.env`，不会提交到仓库。
-`configure` 会打开图形化设置窗口，不进入命令行配置流程。
-
-### 前端单独开发
+后端常用测试仍按层级选择：
 
 ```bash
-cd main/frontend-modern
-npm install
-VITE_API_PROXY_TARGET=http://localhost:8000 npm run dev
-```
-
-`main/frontend-modern` 常用脚本见 [`main/frontend-modern/package.json`](./main/frontend-modern/package.json)：
-
-- `npm run dev`
-- `npm run build`
-- `npm run lint`
-- `npm run storybook`
-- `npm run test:e2e`
-
-## 仓库地图
-
-```text
-.
-├── main/
-│   ├── backend/            # FastAPI 应用、服务层、迁移、测试、后端脚本
-│   ├── frontend-modern/    # 当前活跃的 React + Vite 前端
-│   ├── ops/                # Docker 编排、启停脚本、运维说明
-│   └── QUICKSTART.md       # 较短的快速启动说明
-├── scripts/                # 仓库级部署、验证、冒烟、自检脚本
-├── development/            # 开发文档与合并索引
-├── docs/                   # 运维、安全、契约、实现类文档
-├── plans/                  # 规划与执行计划
-├── 信息源库/               # 来源库运行时配置
-├── 信息流优化/             # 工作流优化方向与规划
-├── reference-pool/         # 参考资料与 OSS 参考代码
-└── tmp/                    # 临时导入或研究材料
-```
-
-### 后端重点目录
-
-[`main/backend/app/services`](./main/backend/app/services) 下目前可以优先关注这些域：
-
-- `ingest`
-- `discovery`
-- `search`
-- `resource_pool`
-- `source_library`
-- `collect_runtime`
-- `indexer`
-- `graph`
-- `workflow_graph`
-- `writing`
-- `agent_runtime`
-- `typed_knowledge`
-
-### 测试分层
-
-后端测试位于 [`main/backend/tests`](./main/backend/tests)：
-
-- `unit`
-- `integration`
-- `contract`
-- `e2e`
-- `core_business`
-
-## 测试与质量门禁
-
-### 本地测试入口
-
-后端常用执行方式：
-
-```bash
-cp main/backend/.env.example main/backend/.env
 cd main/backend
 pytest -m "unit and not external and not flaky" -q
 pytest -m "integration and not external and not flaky" -q
 pytest -m "contract and not external and not flaky" -q
 ```
 
-统一脚本入口：
+仓库脚本也保留统一入口：
 
 ```bash
-./scripts/pre_release_min_gate.sh
 ./scripts/test-standardize.sh unit
 ./scripts/test-standardize.sh integration
 ./scripts/test-standardize.sh contract
-./scripts/test-standardize.sh coverage
 ./scripts/test-standardize.sh ci-pr
 ```
 
-其他常用检查：
+## 本机日常与容器模式
 
-- [`scripts/run_repo_runtime_smoke.sh`](./scripts/run_repo_runtime_smoke.sh)
-- [`scripts/local-smoke-all-stages.sh`](./scripts/local-smoke-all-stages.sh)
-- [`scripts/pre_release_min_gate.sh`](./scripts/pre_release_min_gate.sh)
-- [`scripts/verify/`](./scripts/verify)
+当前默认叙述是本机 daily：5173 的业务前端、8000 的 API、8172 的 Codex WebUI，加上 launchd 管理的 worker 和搜索依赖。它服务于当前机器上的实际研究和开发。
 
-### 仓库内现有 GitHub Actions
+Compose 隔离模式用于本地用户环境验证或需要容器边界的运行。它的数据归独立 Compose project，不使用宿主 PostgreSQL/Redis。端口和命令以 [`main/ops/README.md`](./main/ops/README.md) 为准；该说明区分宿主日常和 Compose 隔离，不把隔离结果当作生产部署。
 
-- [`backend-tests.yml`](./.github/workflows/backend-tests.yml)
+启动 Docker 控制台的既有命令仍有效，但它只启动控制台：
 
-该工作流覆盖后端分层测试、质量检查、依赖与安全门禁；临时 `rxx` 版本测试矩阵已退役。
+```bash
+./scripts/platform-macos.sh docker-start
+```
 
-## 文档入口
+| 入口/模式 | 负责对象 | 启动命令 | 访问地址 | 停止范围 |
+| --- | --- | --- | --- | --- |
+| 本机 daily | 本机 backend、Vite frontend、launchd worker | `./scripts/local-service-control.sh` 分面控制 | 前端 5173，API 8000 | 指定本机进程/launchd 表面 |
+| Docker 控制台 | launcher-agent 和 launcher-ui 控制面 | `./scripts/platform-macos.sh docker-start` | 控制台 5176 | 控制台容器 |
+| Docker 应用栈 | db、es、redis、backend、worker、frontend | 控制台 Start，或 `./scripts/platform-macos.sh docker-app-start` | 前端 5174，API 8000 | Docker 应用服务 |
+| Compose local-user | 六个隔离服务 | 见 [`main/ops/README.md`](./main/ops/README.md) | 15132/18132 | 指定 Compose project |
 
-如果你要理解当前实现状态、开发背景或历史计划，不要从零散文件开始，优先走下面这些入口：
+`docker-start` 只打开控制台，不代表业务栈已启动。控制台显示 `App 6/6` 后，业务前端才可用。
 
-- 开发文档第一入口：[`development/latest-dev-docs/README.md`](./development/latest-dev-docs/README.md)
-- 开发文档总览：[`development/latest-dev-docs/MERGED_OVERVIEW.md`](./development/latest-dev-docs/MERGED_OVERVIEW.md)
-- 开发计划索引：[`development/latest-dev-docs/development-plans/INDEX.md`](./development/latest-dev-docs/development-plans/INDEX.md)
-- 后端文档索引：[`main/backend/docs/README.md`](./main/backend/docs/README.md)
-- 后端本地开发说明：[`main/backend/README.local.md`](./main/backend/README.local.md)
-- 运维说明：[`main/ops/README.md`](./main/ops/README.md)
-- modern 前端说明：[`main/frontend-modern/README.md`](./main/frontend-modern/README.md)
+## 目录与运行来源
 
-## 使用前需要知道的事实
+| 路径 | 作用 |
+| --- | --- |
+| `main/backend` | FastAPI、服务层、Celery 任务、迁移和后端测试 |
+| `main/frontend-modern` | 当前业务前端 |
+| `main/ops` | 容器编排、启停脚本和运维说明 |
+| `scripts` | 仓库级启动、检查、测试和维护脚本 |
+| `docs/development` | 当前开发阅读根、历史计划与归档 |
+| `.data/readiness-repair/20261004-daily-chain` | 当前 daily 全链路证据 |
 
-- Docker 是团队协作和可复现运行的默认路径。
-- `main/frontend-modern` 是当前唯一活跃前端，旧模板前端不是主开发目标。
-- 仓库里包含大量规划、归档、参考资料目录，其中不少不是运行时路径。
-- 部分采集 / 搜索 / LLM 能力依赖 `main/backend/.env` 中的外部 API Key。
-- 如果你是首次加入项目，建议优先按本 README 的 Docker 路径完成首轮启动，再进入本地开发模式。
+来源库运行配置和历史导入材料可能在中文目录中保存；定位时以实际链接和源码配置为准，不要把参考目录当作运行时。
 
-## 协作约定
+## 生产历史边界
 
-- Git / 分支规范见 [`GIT_WORKFLOW.md`](./GIT_WORKFLOW.md)
-- 开发说明类文档应统一纳入 [`development/latest-dev-docs/`](./development/latest-dev-docs) 索引体系
+生产部署阶段已于 2026-09-13 完成本地验收和验收后清理，随后停止；正式发布延后，未建立生产授权。当前 README 的命令只用于本机日常、贡献检查和容器隔离验证。历史验收、冻结证据和阶段记录不改写、不迁移；需要追溯时从 [`docs/development/README.md`](./docs/development/README.md) 的生产历史入口进入。
+
+## 协作
+
+- 工程规则入口：[`AGENTS.md`](./AGENTS.md)
+- Git 约定：[`GIT_WORKFLOW.md`](./GIT_WORKFLOW.md)
+- 开发阅读：[`docs/development/README.md`](./docs/development/README.md)
+- 运行与隔离模式：[`main/ops/README.md`](./main/ops/README.md)

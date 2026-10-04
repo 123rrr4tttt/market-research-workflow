@@ -21,9 +21,9 @@ from app.successor_migration.legacy_c8_typed_knowledge import (
     LegacyC8TypedKnowledgeAdapter,
 )
 from app.successor_migration.legacy_c8_writing import LegacyC8WritingAdapter
-from app.successor_runtime.capabilities.c8_report import build_report_artifact
-from app.successor_runtime.capabilities.c8_typed_knowledge import demand_read
-from app.successor_runtime.capabilities.c8_writing import (
+from app.successor_runtime.capabilities.knowledge_report import build_report_artifact
+from app.successor_runtime.capabilities.typed_knowledge import demand_read
+from app.successor_runtime.capabilities.knowledge_writing import (
     compose_writing_handoff,
 )
 

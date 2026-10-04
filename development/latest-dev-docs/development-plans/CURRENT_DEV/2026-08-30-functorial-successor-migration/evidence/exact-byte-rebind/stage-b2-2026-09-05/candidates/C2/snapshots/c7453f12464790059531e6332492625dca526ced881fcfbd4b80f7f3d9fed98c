@@ -1,0 +1,49 @@
+from __future__ import annotations
+
+from typing import Any, Protocol
+
+
+class CrawlerProvider(Protocol):
+    provider_type: str
+
+    def dispatch(self, request: Any) -> Any:
+        ...
+
+
+class CrawlerProviderResolver(Protocol):
+    def resolve(
+        self,
+        provider_type: str,
+        *,
+        channel: dict[str, Any],
+        params: dict[str, Any],
+    ) -> CrawlerProvider:
+        ...
+
+
+_CRAWLER_PROVIDER_RESOLVER: CrawlerProviderResolver | None = None
+
+
+def set_crawler_provider_resolver(resolver: CrawlerProviderResolver | None) -> None:
+    global _CRAWLER_PROVIDER_RESOLVER
+    _CRAWLER_PROVIDER_RESOLVER = resolver
+
+
+def resolve_crawler_provider(
+    provider_type: str,
+    *,
+    channel: dict[str, Any],
+    params: dict[str, Any],
+) -> CrawlerProvider:
+    if _CRAWLER_PROVIDER_RESOLVER is None:
+        # kit:boundary — app composition has not registered the concrete crawler runtime.
+        raise RuntimeError("crawler provider resolver is not configured")  # noqa: TRY003
+    return _CRAWLER_PROVIDER_RESOLVER.resolve(provider_type, channel=channel, params=params)
+
+
+__all__ = [
+    "CrawlerProvider",
+    "CrawlerProviderResolver",
+    "resolve_crawler_provider",
+    "set_crawler_provider_resolver",
+]

@@ -719,6 +719,11 @@ class IngestCoreContractTestCase(unittest.TestCase):
         with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
             "app.api.ingest.list_jobs",
             return_value=[legacy_job],
+        ), patch(
+            "app.api.ingest._reserve_ingest_submission_db",
+            side_effect=OperationalError("select", {}, Exception("database down")),
+        ), patch("app.api.ingest._complete_ingest_submission_db"), patch(
+            "app.api.ingest._list_recent_ingest_submissions_db", return_value=[]
         ):
             first_resp = self.client.post("/api/v1/ingest/url/single", json=payload)
             duplicate_resp = self.client.post("/api/v1/ingest/url/single", json=payload)
@@ -743,6 +748,8 @@ class IngestCoreContractTestCase(unittest.TestCase):
         self.assertEqual(readback.get("task_status"), "queued")
         self.assertEqual(readback.get("submission_status"), "queued")
         self.assertEqual(readback.get("feedback_state"), "accepted_pending_worker")
+        self.assertEqual(readback.get("registry_backend"), "memory")
+        self.assertTrue(readback.get("registry_degraded"))
         self.assertEqual(readback.get("trace_id"), first_data.get("trace_id"))
         self.assertEqual(readback.get("trace_chain", {}).get("ids", {}).get("submission_id"), first_data.get("submission_id"))
         self.assertEqual(readback.get("trace_chain", {}).get("ids", {}).get("task_id"), "single-url-task-1")

@@ -1,0 +1,98 @@
+{
+  "status": "LOCAL_DAILY_FULL_CHAIN_VERIFIED",
+  "scope": "local single-user daily runtime",
+  "production_release": "DEFERRED",
+  "authentication": {
+    "authority": "host Codex OAuth ~/.codex/auth.json",
+    "webui_home": "~/.codex-mrw-agent",
+    "shared_symlink": true,
+    "browser_login_required": false,
+    "browser_chain_evidence": ".data/structure-cleanup/20261004/live-browser-readback.json",
+    "remote_sink_only_grants_browser_identity": false
+  },
+  "services": {
+    "backend": 8000,
+    "frontend": 5173,
+    "webui_loopback": 8172,
+    "worker": "com.mrw.local-worker",
+    "elasticsearch": "com.mrw.local-elasticsearch"
+  },
+  "material_chain": {
+    "project": "readiness_daily_20261004",
+    "policy_document": 1,
+    "policy_raw_task": "3279e16e-fa36-4349-ba58-53ea76a80be1",
+    "index": true,
+    "bm25": true,
+    "pgvector": true,
+    "hybrid_backends": [
+      "lexical",
+      "pgvector"
+    ],
+    "hybrid_returned_branch_is_not_vector_hit_proof": true
+  },
+  "http_resource": {
+    "before_content_chars": 69,
+    "after_content_chars": 502906,
+    "document": 2,
+    "task": "d18a9e98-3c74-4b75-a68c-93a5a406de20",
+    "evidence": "http-source-repair-document.json"
+  },
+  "native_codex": {
+    "thread": "01a1060e-968e-7502-bfbb-cbb615369e3b",
+    "turn_completed": true,
+    "marker": "MRW_NATIVE_CHAIN_OK",
+    "evidence": "native-turn-history.json"
+  },
+  "validation": {
+    "auth_consumers": "89 passed / 19 subtests",
+    "frontend_focused": "5 passed",
+    "frontend_daily_business": "7 passed",
+    "frontend_current_inventory": 119,
+    "indexer_es_failure": "13 passed",
+    "material_focused": "35 passed / 2 subtests",
+    "material_postprocess": "13 passed / 3 subtests",
+    "architecture_gates": "280 passed Docker exit0",
+    "contribution_check": "clean=true issues=[] changed_paths=[] Docker exit0",
+    "structure_architecture_final": "280 passed Docker exit0 / .data/structure-cleanup/20261004/integration-gates-final-attempt3.log",
+    "structure_contribution_final": "clean=true/issues=[]/changed_paths=[] Docker exit0 / integration-check-final-attempt3.log"
+  },
+  "limitations": [
+    "host disk about98percent / about12GiB free; no disk threshold changes",
+    "optional Qdrant old point migration blocked; PG vector verified",
+    "HK historical material unavailable",
+    "old 16 queued tasks ended 8 SUCCESS / 8 FAILURE; no domain success inferred",
+    "old full backend exit1 preserved with focused failure closure; no new all-suite PASS asserted"
+  ],
+  "evidence_deviations": [
+    "indexer log copied byte-for-byte from main/backend/.data/... to root evidence",
+    "material first import command omitted src; failed attempts retained",
+    "first live replay immediately after launchd restart returned proxyHTTP500; no task submitted, healthy check before retry",
+    "first Docker dev.py check mount used /opt path, expected absolute source missing; original exit1 preserved, absolute mount attempt2 exit0",
+    "first broker probe omitted src import; corrected probe succeeded; no product failure",
+    "internal provider HTTP retry count unknown; prior effect counts retain their original attribution",
+    "final broker probe first used system Python without celery; corrected project .venv311 probe verified runtime"
+  ],
+  "final_runtime": {
+    "queue_length": 0,
+    "unacked": 0,
+    "worker_ping": {
+      "mrw-daily@MacBook-Air-489.local": {
+        "ok": "pong"
+      }
+    },
+    "worker_observation_registered": true,
+    "old_stage5_observation_registered": false,
+    "health_status": "ok"
+  },
+  "structure_refresh": {
+    "source": "main/ops/codex-webui",
+    "codex_version": "0.160.0",
+    "evidence_root": ".data/structure-cleanup/20261004",
+    "material_chain": "live-user-chain-result.json",
+    "browser_chain": "live-browser-readback.json",
+    "runtime": "host-final-runtime-attempt1.log",
+    "provider_turns_during_final_readback": 0,
+    "prior_retrieval_evidence": "kept with original execution attribution",
+    "status": "completed_local_runtime_verified"
+  }
+}

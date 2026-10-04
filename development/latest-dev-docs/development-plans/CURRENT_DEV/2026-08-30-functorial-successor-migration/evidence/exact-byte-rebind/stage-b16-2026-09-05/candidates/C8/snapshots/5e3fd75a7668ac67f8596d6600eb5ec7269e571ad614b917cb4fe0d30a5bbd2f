@@ -1,0 +1,221 @@
+from __future__ import annotations
+
+import hashlib
+from datetime import datetime, timezone
+from typing import Annotated, Any
+
+from ...contracts.schemas.writing import KeywordCardItem
+from ..typed_knowledge.contracts import (
+    WRITING_KNOWLEDGE_HANDOFF_CONTRACT_VERSION,
+    WritingKnowledgeHandoff,
+    serialize_writing_knowledge_handoff,
+    validate_writing_knowledge_handoff,
+)
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def make_card_id(source_type: str, title: str, url: str | None, normalized_query: str) -> str:
+    payload = f"{source_type}|{title}|{url or ''}|{normalized_query}"
+    return hashlib.sha1(
+        payload.encode("utf-8", errors="ignore"),
+        usedforsecurity=False,
+    ).hexdigest()[:24]
+
+
+def build_keyword_card(
+    *,
+    source_type: str,
+    title: str,
+    snippet: str,
+    url: str | None,
+    score: float,
+    publisher: str | None,
+    published_at: str | None,
+    evidence: str | None,
+    normalized_query: str,
+    extra: dict[str, Any] | None = None,
+) -> Annotated[
+    KeywordCardItem,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=keyword_card_inputs+system_clock "
+    "witness=test:test_w04_authority_metadata",
+]:
+    return KeywordCardItem(
+        card_id=make_card_id(source_type, title, url, normalized_query),
+        source_type=source_type,
+        title=title[:300] or "Untitled",
+        snippet=(snippet or evidence or "")[:2000],
+        url=url,
+        score=max(0.0, float(score or 0.0)),
+        publisher=(publisher or "")[:255] or None,
+        published_at=published_at,
+        retrieved_at=now_iso(),
+        evidence=(evidence or "")[:2000] or None,
+        relevance_tags=[normalized_query] if normalized_query else [],
+        credibility=min(1.0, max(0.0, float(score or 0.0))) if score is not None else None,
+        quick_actions=["insert_quote", "insert_summary", "open_detail"],
+        extra=extra or {},
+    )
+
+
+def build_keyword_card_from_hybrid_row(
+    row: dict[str, Any],
+    *,
+    normalized_query: str,
+) -> Annotated[
+    KeywordCardItem,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=hybrid_search_row "
+    "witness=test:test_w04_authority_metadata",
+]:
+    title = str(row.get("title") or row.get("document_title") or row.get("id") or "Document").strip()
+    snippet = str(row.get("snippet") or row.get("summary") or row.get("content") or "").strip()
+    score = float(row.get("score") or row.get("_score") or 0.6)
+    url = str(row.get("url") or row.get("uri") or "").strip() or None
+    publisher = str(row.get("publisher") or row.get("source") or "document").strip() or None
+    published_at = str(row.get("published_at") or row.get("publish_date") or "").strip() or None
+    return build_keyword_card(
+        source_type="document",
+        title=title,
+        snippet=snippet,
+        url=url,
+        score=score,
+        publisher=publisher,
+        published_at=published_at,
+        evidence=str(row.get("evidence") or "").strip() or None,
+        normalized_query=normalized_query,
+        extra={"backend": row.get("backend"), "document_id": row.get("document_id")},
+    )
+
+
+def build_keyword_card_from_source_row(
+    row: dict[str, Any],
+    *,
+    normalized_query: str,
+) -> Annotated[
+    KeywordCardItem,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=source_row "
+    "witness=test:test_w04_authority_metadata",
+]:
+    publisher = str(row.get("publisher") or "").strip() or None
+    source_type = "graph" if publisher and publisher.startswith("graph:") else "resource"
+    score = 0.72 if source_type == "graph" else 0.65
+    return build_keyword_card(
+        source_type=source_type,
+        title=str(row.get("title") or "Source").strip(),
+        snippet=str(row.get("evidence") or "").strip(),
+        url=str(row.get("url") or "").strip() or None,
+        score=score,
+        publisher=publisher,
+        published_at=str(row.get("published_at") or "").strip() or None,
+        evidence=str(row.get("evidence") or "").strip() or None,
+        normalized_query=normalized_query,
+        extra={"source_id": row.get("id")},
+    )
+
+
+def build_keyword_card_from_material_item(
+    item: dict[str, Any],
+    *,
+    normalized_query: str,
+) -> Annotated[
+    KeywordCardItem,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=material_item "
+    "witness=test:test_w04_authority_metadata",
+]:
+    title = str(item.get("name") or item.get("item_key") or "Material").strip()
+    return build_keyword_card(
+        source_type="resource",
+        title=title,
+        snippet=str(item.get("description") or item.get("item_key") or "").strip(),
+        url=None,
+        score=0.55,
+        publisher="source_library",
+        published_at=None,
+        evidence=str(item.get("item_key") or "").strip() or None,
+        normalized_query=normalized_query,
+        extra={"item_key": item.get("item_key"), "channel_key": item.get("channel_key")},
+    )
+
+
+def build_keyword_card_from_graph_node(
+    node: dict[str, Any],
+    *,
+    normalized_query: str,
+    graph_context: dict[str, Any],
+) -> Annotated[
+    KeywordCardItem,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=graph_node+graph_context "
+    "witness=test:test_w04_authority_metadata",
+]:
+    node_id = str(node.get("node_id") or "").strip()
+    title = str(node.get("title") or node.get("label") or node_id or "Graph Node").strip()
+    evidence = str(node.get("summary") or node.get("evidence") or "").strip()
+    source_uri = str(node.get("source_uri") or node.get("uri") or "").strip() or None
+    publisher = f"graph:{str(node.get('node_type') or 'node').strip() or 'node'}"
+    return build_keyword_card(
+        source_type="graph",
+        title=title,
+        snippet=evidence,
+        url=source_uri,
+        score=0.74,
+        publisher=publisher,
+        published_at=None,
+        evidence=evidence or f"Graph node {node_id or title} selected by curated workflow graph.",
+        normalized_query=normalized_query,
+        extra={
+            "graph_node_id": node_id or None,
+            "context_boundary": "graph_context",
+            "graph_contract_version": graph_context.get("contract_version"),
+            "graph_revision": graph_context.get("revision"),
+        },
+    )
+
+
+def build_keyword_card_from_typed_knowledge_handoff(
+    handoff: WritingKnowledgeHandoff,
+    *,
+    normalized_query: str,
+) -> Annotated[
+    KeywordCardItem,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=validated_writing_knowledge_handoff "
+    "witness=test:test_w04_authority_metadata",
+]:
+    validate_writing_knowledge_handoff(handoff)
+    handoff_payload = serialize_writing_knowledge_handoff(handoff)
+    typed_knowledge_uri = f"typed-knowledge://{handoff.knowledge_item_key}"
+    return build_keyword_card(
+        source_type="resource",
+        title=handoff.canonical_statement,
+        snippet=handoff.canonical_statement,
+        url=typed_knowledge_uri,
+        score=0.78,
+        publisher="typed_knowledge",
+        published_at=None,
+        evidence=handoff.canonical_statement,
+        normalized_query=normalized_query,
+        extra={
+            "handoff_source": "typed_knowledge",
+            "typed_knowledge_contract_version": WRITING_KNOWLEDGE_HANDOFF_CONTRACT_VERSION,
+            "knowledge_item_key": handoff.knowledge_item_key,
+            "primary_type_node_key": handoff.primary_type_node_key,
+            "topic_cluster_keys": list(handoff.topic_cluster_keys),
+            "booklet_keys": list(handoff.booklet_keys),
+            "review_state": handoff.review_state,
+            "quality_grade": handoff.quality_grade,
+            "locale": handoff.locale,
+            "evidence_refs": list(handoff.evidence_refs),
+            "visibility_scope": handoff.visibility_scope,
+            "selection_hash": handoff.selection_hash,
+            "selection_text": handoff.selection_text,
+            "facets": handoff_payload["facets"],
+            "handoff_payload": handoff_payload,
+        },
+    )

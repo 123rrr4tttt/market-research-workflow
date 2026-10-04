@@ -199,14 +199,14 @@ test('frontend runtime visual shell contract covers theme, locale, and A/B/C top
   await page.setViewportSize({ width: 1440, height: 960 })
 
   await page.goto('/#/admin/settings')
-  await expect(page.getByRole('heading', { level: 1, name: '系统设置' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '模型与连接' })).toBeVisible()
   await expect(page.getByText('界面语言', { exact: true })).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('data-app-theme', 'dark')
 
   await page.locator('.settings-page label').filter({ hasText: '界面主题' }).locator('select').selectOption('brand')
   await expect(page.locator('html')).toHaveAttribute('data-app-theme', 'brand')
   await page.locator('.settings-page label').filter({ hasText: '界面语言' }).locator('select').selectOption('en-US')
-  await expect(page.getByRole('heading', { level: 1, name: 'System Settings' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Models and connections' })).toBeVisible()
   await expect(page.getByText('UI Language', { exact: true })).toBeVisible()
 
   const adminProbe = await readLayoutProbe(

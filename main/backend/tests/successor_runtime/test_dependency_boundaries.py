@@ -82,6 +82,21 @@ def test_lint_rejects_runtime_importing_effect_facility_directly(
     assert any(item["code"] == "RUNTIME_ONLY_PORTS" for item in report["violations"])
 
 
+def test_lint_allows_only_runtime_ports_projection_bridge(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "runtime/ports.py",
+        "from app.successor_runtime.substrate.projections.agent_session import Adapter\n",
+    )
+    _write(
+        tmp_path,
+        "runtime/consumer.py",
+        "from app.successor_runtime.runtime.ports import Adapter\n",
+    )
+    report = check(tmp_path)
+    assert report["ok"], report["violations"]
+
+
 def test_lint_rejects_module_import_cycle(tmp_path: Path) -> None:
     _write(
         tmp_path,
@@ -142,6 +157,8 @@ def test_lint_allows_public_capability_shared_modules(tmp_path: Path) -> None:
         "failure",
         "ingest_c7_common",
         "c8_common",
+        "retrieval_common",
+        "workflow_common",
     ):
         _write(tmp_path, f"capabilities/{name}.py", "VALUE = 1\n")
     _write(
@@ -179,11 +196,11 @@ def test_lint_allows_declared_capability_family_modules(tmp_path: Path) -> None:
         "capabilities/first_specimen_program.py",
         "from .first_specimen import FailureCore\n",
     )
-    _write(tmp_path, "capabilities/agent_core_c6_3.py", "class Contract:\n    pass\n")
+    _write(tmp_path, "capabilities/ingest_c7_common.py", "class Contract:\n    pass\n")
     _write(
         tmp_path,
-        "capabilities/agent_core_c6_3_interpreters.py",
-        "from .agent_core_c6_3 import Contract\n",
+        "capabilities/ingest_c7_interpreters.py",
+        "from .ingest_c7_common import Contract\n",
     )
     report = check(tmp_path)
     assert report["ok"], report["violations"]

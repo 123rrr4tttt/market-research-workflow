@@ -4,17 +4,16 @@ import unittest
 
 import pytest
 
-from app.services.agent_core import (
-    AgentCore,
-    AgentCoreRequest,
-    CoreModelStep,
-    CoreToolCall,
-    FakeCoreProvider,
-    build_project_core_tool_registry,
-    select_core_tool_window,
+from app.services.agent_core import AgentCoreRequest, CoreToolCall
+from app.services.agent_core.project_tools import build_project_core_tool_registry
+from app.services.agent_core.query_tools import (
+    query_project_tool_sources,
+    register_query_project_tools,
 )
+from app.services.agent_core.registry import CoreToolRegistry
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.agent_sessions.store import InMemoryAgentSessionStore
+
 
 pytestmark = pytest.mark.unit
 
@@ -31,163 +30,148 @@ class AgentCoreClueChainToolUnitTest(unittest.TestCase):
         )
         return service, str(bundle["session"]["session_id"])
 
+    def test_query_catalog_registers_chain_expand_with_original_review_artifact(self):
+        service, session_id = self._service_and_session()
+        registry = CoreToolRegistry()
+        sources = query_project_tool_sources(service=service)
+        assert [source.tool_spec.name for source in sources] == [
+            "project.graph.search",
+            "project.structured_graph.query",
+            "project.structured_data.quality_audit",
+            "chain.expand",
+            "source.web.search",
+            "source.candidate.review",
+            "skill.search",
+            "source.discovery.plan",
+            "skill.load",
+        ]
+        assert register_query_project_tools(registry=registry, service=service) is None
+
+        result = self._execute(
+            registry,
+            session_id,
+            "chain.expand",
+            {
+                "project_key": "demo_proj",
+                "chain_id": "chain-catalog",
+                "query": "robotics evidence",
+                "mode": "source_library_search",
+                "limit": 1,
+            },
+        )
+
+        assert result.status == "completed"
+        assert result.structured_content["requires_review"] is True
+        assert result.structured_content["promoted_to_graph"] is False
+        artifact = next(
+            item
+            for item in service.list_artifacts(session_id)
+            if item["name"] == "clue_chain_expansions.json"
+        )
+        assert artifact["content_json"]["guardrails"]["silent_promote_allowed"] is False
+
+    def _execute(self, registry, session_id: str, tool_name: str, arguments: dict):
+        spec = registry.get(tool_name)
+        request = AgentCoreRequest(
+            message="expand clue chain",
+            session_id=session_id,
+            project_key="demo_proj",
+        )
+        call = CoreToolCall(
+            tool_name=tool_name,
+            arguments=arguments,
+            call_id=f"call-{tool_name}",
+        )
+        return registry.execute_tool(
+            tool_call=call,
+            tool_spec=spec,
+            request=request,
+            emit=lambda _event: None,
+        )
+
     def test_chain_expand_is_callable_and_requires_review_without_graph_promotion(self):
         service, session_id = self._service_and_session()
-        registry = build_project_core_tool_registry(service=service, source_library_lister=lambda _: [])
+        registry = build_project_core_tool_registry(
+            service=service, source_library_lister=lambda _: []
+        )
         specs = {spec.name: spec for spec in registry.list_specs()}
-        self.assertIn("chain.expand", specs)
-        self.assertEqual(specs["chain.expand"].permission, "allow")
-        self.assertEqual(specs["chain.expand"].risk, "write_shared")
+        assert "chain.expand" in specs
+        assert specs["chain.expand"].permission == "allow"
+        assert specs["chain.expand"].risk == "write_shared"
 
-        provider = FakeCoreProvider(
-            [
-                CoreModelStep.tools(
-                    CoreToolCall(
-                        tool_name="chain.expand",
-                        call_id="call-chain-expand",
-                        arguments={
-                            "project_key": "demo_proj",
-                            "chain_id": "chain-robotics",
-                            "query": "warehouse robotics commercialization evidence",
-                            "frontier_node_ids": ["robot_company", "warehouse_pilot"],
-                            "mode": "source_library_search",
-                            "limit": 2,
-                        },
-                    )
-                ),
-                CoreModelStep.final("已创建线索链扩展候选，等待审核。"),
-            ]
-        )
-        out = AgentCore(provider=provider, tool_registry=registry, tool_specs=registry.list_specs()).run(
-            AgentCoreRequest(
-                message="扩展这条线索链，从 frontier 节点继续找证据",
-                session_id=session_id,
-                project_key="demo_proj",
-            )
+        result = self._execute(
+            registry,
+            session_id,
+            "chain.expand",
+            {
+                "project_key": "demo_proj",
+                "chain_id": "chain-robotics",
+                "query": "warehouse robotics commercialization evidence",
+                "frontier_node_ids": ["robot_company", "warehouse_pilot"],
+                "mode": "source_library_search",
+                "limit": 2,
+            },
         )
 
-        self.assertEqual(out.stop_reason, "final_answer")
-        result = out.tool_results[0]
-        self.assertEqual(result.tool_name, "chain.expand")
-        self.assertEqual(result.status, "completed")
+        assert result.tool_name == "chain.expand"
+        assert result.status == "completed"
         content = result.structured_content
-        self.assertEqual(content["contract_version"], "chain.expand.v1")
-        self.assertEqual(content["chain_id"], "chain-robotics")
-        self.assertEqual(content["mode"], "source_library_search")
-        self.assertTrue(content["requires_review"])
-        self.assertTrue(content["no_silent_promote"])
-        self.assertFalse(content["promoted_to_graph"])
-        self.assertFalse(content["graph_mutation_performed"])
-        self.assertFalse(content["external_network_io"])
-        self.assertEqual(content["candidate_count"], 2)
-        self.assertEqual(
-            {candidate["review_status"] for candidate in content["candidates"]},
-            {"pending_review"},
+        assert content["contract_version"] == "chain.expand.v1"
+        assert content["chain_id"] == "chain-robotics"
+        assert content["mode"] == "source_library_search"
+        assert content["requires_review"] is True
+        assert content["no_silent_promote"] is True
+        assert content["promoted_to_graph"] is False
+        assert content["graph_mutation_performed"] is False
+        assert content["external_network_io"] is False
+        assert content["candidate_count"] == 2
+        assert {candidate["review_status"] for candidate in content["candidates"]} == {
+            "pending_review"
+        }
+        artifact = next(
+            item
+            for item in service.list_artifacts(session_id)
+            if item["name"] == "clue_chain_expansions.json"
         )
-        self.assertTrue(all(candidate["requires_review"] for candidate in content["candidates"]))
-        self.assertTrue(all(not candidate["promoted_to_graph"] for candidate in content["candidates"]))
-        self.assertEqual(content["decision_gate"]["decision_contract"], "ChainDecision")
-        self.assertIn("/api/v1/clue-chains/chain-robotics/candidates/{candidate_id}/decision", content["decision_gate"]["decision_api"])
-
-        artifacts = service.list_artifacts(session_id)
-        artifact = next(item for item in artifacts if item["name"] == "clue_chain_expansions.json")
-        artifact_content = artifact["content_json"]
-        self.assertEqual(artifact_content["counts"]["promoted"], 0)
-        self.assertFalse(artifact_content["guardrails"]["silent_promote_allowed"])
-        self.assertFalse(artifact_content["guardrails"]["graph_mutation_performed"])
+        assert artifact["content_json"]["counts"]["promoted"] == 0
+        assert artifact["content_json"]["guardrails"]["silent_promote_allowed"] is False
 
     def test_chain_expand_requires_chain_id(self):
         service, session_id = self._service_and_session()
-        registry = build_project_core_tool_registry(service=service, source_library_lister=lambda _: [])
-        provider = FakeCoreProvider(
-            [
-                CoreModelStep.tools(
-                    CoreToolCall(
-                        tool_name="chain.expand",
-                        call_id="call-missing-chain",
-                        arguments={"project_key": "demo_proj", "query": "robotics", "mode": "source_library_search"},
-                    )
-                ),
-                CoreModelStep.final("缺少 chain_id。"),
-            ]
+        registry = build_project_core_tool_registry(
+            service=service, source_library_lister=lambda _: []
         )
-        out = AgentCore(provider=provider, tool_registry=registry, tool_specs=registry.list_specs()).run(
-            AgentCoreRequest(
-                message="扩展线索链",
-                session_id=session_id,
-                project_key="demo_proj",
-            )
+        result = self._execute(
+            registry,
+            session_id,
+            "chain.expand",
+            {"project_key": "demo_proj", "query": "robotics", "mode": "source_library_search"},
         )
-
-        result = out.tool_results[0]
-        self.assertEqual(result.status, "failed")
-        self.assertEqual(result.error["code"], "missing_chain_id")
+        assert result.status == "failed"
+        assert result.error["code"] == "missing_chain_id"
 
     def test_external_fixture_mode_is_offline_and_review_only(self):
         service, session_id = self._service_and_session()
-        registry = build_project_core_tool_registry(service=service, source_library_lister=lambda _: [])
-        provider = FakeCoreProvider(
-            [
-                CoreModelStep.tools(
-                    CoreToolCall(
-                        tool_name="chain.expand",
-                        call_id="call-external-fixture",
-                        arguments={
-                            "project_key": "demo_proj",
-                            "chain_id": "chain-fixture",
-                            "query": "robotics policy filing",
-                            "provider": "external_search_fixture",
-                            "limit": 1,
-                        },
-                    )
-                ),
-                CoreModelStep.final("已创建 fixture 候选。"),
-            ]
+        registry = build_project_core_tool_registry(
+            service=service, source_library_lister=lambda _: []
         )
-        out = AgentCore(provider=provider, tool_registry=registry, tool_specs=registry.list_specs()).run(
-            AgentCoreRequest(
-                message="用外部搜索 fixture 扩展这条线索链",
-                session_id=session_id,
-                project_key="demo_proj",
-            )
+        result = self._execute(
+            registry,
+            session_id,
+            "chain.expand",
+            {
+                "project_key": "demo_proj",
+                "chain_id": "chain-fixture",
+                "query": "robotics policy filing",
+                "provider": "external_search_fixture",
+                "limit": 1,
+            },
         )
-
-        content = out.tool_results[0].structured_content
-        self.assertEqual(content["mode"], "external_search_fixture")
-        self.assertTrue(content["fixture_gated"])
-        self.assertFalse(content["external_network_io"])
-        self.assertFalse(content["graph_mutation_performed"])
-        self.assertEqual(content["candidates"][0]["candidate_type"], "external_search_fixture_lead")
-        self.assertEqual(content["candidates"][0]["proposed_graph_nodes"], [])
-        self.assertEqual(content["candidates"][0]["proposed_graph_edges"], [])
-
-    def test_tool_window_exposes_chain_expand_only_for_clue_chain_context(self):
-        service, _session_id = self._service_and_session()
-        registry = build_project_core_tool_registry(service=service, source_library_lister=lambda _: [])
-        specs = registry.list_specs()
-
-        general = select_core_tool_window(message="你好", tool_specs=specs)
-        self.assertEqual(general.profile, "conversation")
-        self.assertNotIn("chain.expand", [spec.name for spec in general.specs])
-
-        project_data = select_core_tool_window(message="项目里有什么数据", tool_specs=specs)
-        self.assertEqual(project_data.profile, "project-context")
-        self.assertNotIn("chain.expand", [spec.name for spec in project_data.specs])
-
-        source_library = select_core_tool_window(message="当前项目有哪些来源库 item？", tool_specs=specs)
-        self.assertEqual(source_library.profile, "source-library-read")
-        self.assertNotIn("chain.expand", [spec.name for spec in source_library.specs])
-
-        clue_chain = select_core_tool_window(
-            message="扩展这条线索链，从 workflow graph frontier 节点继续找证据",
-            tool_specs=specs,
-        )
-        self.assertEqual(clue_chain.profile, "clue-chain-investigation")
-        clue_chain_tools = [spec.name for spec in clue_chain.specs]
-        self.assertIn("chain.expand", clue_chain_tools)
-        self.assertIn("project.structured_graph.query", clue_chain_tools)
-        self.assertIn("source_library.item.search", clue_chain_tools)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        content = result.structured_content
+        assert content["mode"] == "external_search_fixture"
+        assert content["fixture_gated"] is True
+        assert content["external_network_io"] is False
+        assert content["graph_mutation_performed"] is False
+        assert content["candidates"][0]["candidate_type"] == "external_search_fixture_lead"
+        assert content["candidates"][0]["proposed_graph_nodes"] == []
+        assert content["candidates"][0]["proposed_graph_edges"] == []

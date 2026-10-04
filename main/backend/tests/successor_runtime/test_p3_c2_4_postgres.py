@@ -16,19 +16,29 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool
 
-from app.successor_runtime.capabilities.source_library_c2_2 import (
+from app.successor_runtime.capabilities.source_planning import (
     CollectionCompleted,
 )
-from app.successor_runtime.capabilities.source_library_c2_4_projection import (
+from app.successor_runtime.capabilities.source_terminal_projection import (
     SourceCollectionProjectionSource,
+    historical_source_collection_projection_source_from_plain,
 )
+from app.successor_runtime.capabilities.checksum import content_digest
 from app.successor_runtime.substrate.projections.source_library_terminal import (
+    HISTORICAL_PROJECTOR_ID,
+    HISTORICAL_PROJECTOR_VERSION,
+    PostgresHistoricalSourceLibraryTerminalReader,
     PostgresSourceLibraryTerminalProjector,
     ProjectionStaleError,
     build_source_library_terminal_table,
 )
 
-from .test_p3_c2_4_projection import SCOPE_DIGEST, _record, _terminal
+from .test_p3_c2_4_projection import (
+    SCOPE_DIGEST,
+    _historical_source_plain,
+    _record,
+    _terminal,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -171,3 +181,58 @@ def test_postgres_stale_source_fails_closed(disposable_database: Engine) -> None
         )
         with pytest.raises(ProjectionStaleError):
             projector.load(wrong_project)
+
+
+def test_postgres_historical_reader_preserves_old_materialization_identity(
+    disposable_database: Engine,
+) -> None:
+    source = historical_source_collection_projection_source_from_plain(
+        _historical_source_plain()
+    )
+    terminal = {"projection_digest": content_digest({"historical": "terminal"})}
+    compat = {"compat_digest": content_digest({"historical": "compat"})}
+    summary = {"projection_digest": content_digest({"historical": "summary"})}
+    generation = 3
+    materialization_digest = content_digest(
+        {
+            "projector_id": HISTORICAL_PROJECTOR_ID,
+            "projector_version": HISTORICAL_PROJECTOR_VERSION,
+            "source_ref": source.source_ref,
+            "source_digest": source.source_digest,
+            "generation": generation,
+            "terminal_digest": terminal["projection_digest"],
+            "compat_digest": compat["compat_digest"],
+            "summary_digest": summary["projection_digest"],
+        }
+    )
+    with disposable_database.connect() as connection:
+        connection.execute(
+            sa.insert(PROJECTION_TABLE).values(
+                project_key=source.project_key,
+                source_ref=source.source_ref,
+                source_incarnation=source.source_incarnation,
+                source_revision=source.source_revision,
+                source_digest=source.source_digest,
+                generation=generation,
+                terminal_json=terminal,
+                compat_json=compat,
+                summary_json=summary,
+                materialization_digest=materialization_digest,
+                updated_at=source.observed_at,
+            )
+        )
+        reader = PostgresHistoricalSourceLibraryTerminalReader(
+            connection,
+            project_key=source.project_key,
+            table=PROJECTION_TABLE,
+        )
+        loaded = reader.load(source)
+        assert loaded.materialization_digest == materialization_digest
+
+        current = PostgresSourceLibraryTerminalProjector(
+            connection,
+            project_key=source.project_key,
+            table=PROJECTION_TABLE,
+        )
+        with pytest.raises(ProjectionStaleError, match="historical source schema"):
+            current.load(source)  # type: ignore[arg-type]

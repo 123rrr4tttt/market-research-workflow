@@ -36,6 +36,15 @@ class UrlUnwrapUnitTestCase(unittest.TestCase):
         url_unwrap_module._GOOGLE_NEWS_BACKOFF_FAILURES = 0
         url_unwrap_module._GOOGLE_NEWS_CIRCUIT_OPEN_UNTIL = 0.0
 
+    def _patch_public_dns(self):
+        public_addrinfo = [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", 0)),
+        ]
+        return patch(
+            "app.services.ingest.url_unwrap.socket.getaddrinfo",
+            return_value=public_addrinfo,
+        )
+
     def test_list_unwrap_adapters_exposes_pool(self):
         names = list_unwrap_adapters()
         self.assertIn("query_wrapped_url", names)
@@ -86,6 +95,7 @@ class UrlUnwrapUnitTestCase(unittest.TestCase):
             patch("app.services.ingest.url_unwrap.requests.post") as mock_post,
             patch("app.services.ingest.url_unwrap._resolve_http_redirect", return_value=("https://example.com/story", False)),
             patch("app.services.ingest.url_unwrap._google_news_batch_acquire_network_slot", return_value=True),
+            self._patch_public_dns(),
         ):
             mock_get.return_value.status_code = 200
             mock_get.return_value.text = "<div data-n-a-sg='SIG_ABC' data-n-a-ts='1725891265'></div>"
@@ -116,6 +126,7 @@ class UrlUnwrapUnitTestCase(unittest.TestCase):
             patch("app.services.ingest.url_unwrap.requests.post") as mock_post,
             patch("app.services.ingest.url_unwrap._resolve_http_redirect", return_value=("https://example.com/story", False)),
             patch("app.services.ingest.url_unwrap._google_news_batch_acquire_network_slot", return_value=True),
+            self._patch_public_dns(),
         ):
             mock_get.return_value.status_code = 200
             mock_get.return_value.text = "<div data-n-a-sg='SIG_ABC' data-n-a-ts='1725891265'></div>"
@@ -150,7 +161,10 @@ class UrlUnwrapUnitTestCase(unittest.TestCase):
         self.assertEqual(mock_post.call_count, 1)
 
     def test_unwrap_url_network_redirect_accepts_public_target(self):
-        with patch("app.services.ingest.url_unwrap.requests.get") as mock_get:
+        with (
+            patch("app.services.ingest.url_unwrap.requests.get") as mock_get,
+            self._patch_public_dns(),
+        ):
             mock_get.return_value.url = "https://public.example.net/report?id=7"
             result = unwrap_url("https://example.com/start", enable_network_redirect=True)
         self.assertEqual(result.url, "https://public.example.net/report?id=7")

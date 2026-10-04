@@ -29,12 +29,8 @@ from app.successor_runtime.capabilities.first_specimen_interpreters import (
 from app.successor_runtime.language.algebra import ValueRef
 from app.successor_runtime.language.program import (
     Atom,
-    Decide,
-    MapOutput,
     ProgramNode,
-    Then,
-    TraverseOrdered,
-    ZipOrdered,
+    program_atoms,
 )
 from app.successor_runtime.research.codec import canonical_bytes, sha256_hex
 from app.successor_runtime.research.materials import (
@@ -101,28 +97,10 @@ class MaterialReadReplay:
     expected_material_value_ref: ValueRef
 
 
-def _atoms(node: ProgramNode) -> tuple[Atom, ...]:
-    if isinstance(node, Atom):
-        return (node,)
-    if isinstance(node, Then):
-        return _atoms(node.first) + _atoms(node.second)
-    if isinstance(node, MapOutput):
-        return _atoms(node.source)
-    if isinstance(node, ZipOrdered):
-        return _atoms(node.left) + _atoms(node.right)
-    if isinstance(node, TraverseOrdered):
-        return _atoms(node.element_program)
-    if isinstance(node, Decide):
-        return tuple(
-            atom for branch in node.branches for atom in _atoms(branch.program)
-        )
-    return ()
-
-
 def _exact_atom(program: Any, operation_id: str) -> Atom:
     matches = tuple(
         atom
-        for atom in _atoms(program.root)
+        for atom in program_atoms(program.root)
         if atom.operation.operation_id == operation_id
     )
     if len(matches) != 1:
@@ -134,7 +112,7 @@ def _exact_atom(program: Any, operation_id: str) -> Atom:
 
 def _value_ref_by_storage(program: Any, storage_ref: str) -> ValueRef:
     refs: list[ValueRef] = []
-    for atom in _atoms(program.root):
+    for atom in program_atoms(program.root):
         refs.extend(atom.operation.input_refs)
         refs.append(atom.operation.payload_ref)
     matches = tuple(ref for ref in refs if ref.storage_ref == storage_ref)

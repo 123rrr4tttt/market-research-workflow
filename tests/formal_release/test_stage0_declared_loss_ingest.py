@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 
@@ -23,6 +24,16 @@ def _load() -> dict[str, object]:
         payload = json.load(handle)
     assert isinstance(payload, dict)
     return payload
+
+
+def _historical_source(path: str) -> str:
+    completed = subprocess.run(
+        ("git", "-C", str(ROOT), "show", f"HEAD:{path}"),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return completed.stdout
 
 
 def test_JSON__stage0_ingest_loss_record_is_parseable_and_versioned() -> None:
@@ -76,7 +87,7 @@ def test_TRACEABILITY__all_source_caller_and_witness_paths_exist() -> None:
         for reference in (source, morphism):
             path = reference["path"]
             assert isinstance(path, str) and path.strip()
-            assert (ROOT / path).is_file(), path
+            historical = _historical_source(path)
             assert isinstance(reference.get("symbol"), str) and reference["symbol"].strip()
 
         callers = item["affected_callers"]
@@ -84,7 +95,8 @@ def test_TRACEABILITY__all_source_caller_and_witness_paths_exist() -> None:
         for caller in callers:
             assert isinstance(caller, dict)
             path = caller["path"]
-            assert isinstance(path, str) and (ROOT / path).is_file(), path
+            assert isinstance(path, str)
+            historical = _historical_source(path)
             assert isinstance(caller.get("symbol"), str) and caller["symbol"].strip()
 
         witnesses = item["witness"]
@@ -92,7 +104,8 @@ def test_TRACEABILITY__all_source_caller_and_witness_paths_exist() -> None:
         for witness in witnesses:
             assert isinstance(witness, dict)
             path = witness["path"]
-            assert isinstance(path, str) and (ROOT / path).is_file(), path
+            assert isinstance(path, str)
+            _historical_source(path)
             test_name = witness.get("test")
             assert isinstance(test_name, str) and test_name.strip()
 

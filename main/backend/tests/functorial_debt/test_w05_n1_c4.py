@@ -9,8 +9,8 @@ import pytest
 from functorial_kit import Failure
 from functorial_kit.arch.gates import scan_project
 
-from app.successor_runtime.capabilities import agent_batch_c4 as c4
-from app.successor_runtime.capabilities.agent_batch_c4_interpreters import (
+from app.successor_runtime.capabilities import batch_task as c4
+from app.successor_runtime.capabilities.batch_task_interpreters import (
     BatchPlanBindingMismatch,
     RetryBindingMismatch,
 )
@@ -21,9 +21,9 @@ from mrw_functorial_kit.core.w05_capability_semantics import (
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 OWNED_FILES = (
-    "main/backend/app/successor_runtime/capabilities/agent_batch_c4.py",
-    "main/backend/app/successor_runtime/capabilities/agent_batch_c4_interpreters.py",
-    "main/backend/app/successor_runtime/capabilities/agent_batch_c4_program.py",
+    "main/backend/app/successor_runtime/capabilities/batch_task.py",
+    "main/backend/app/successor_runtime/capabilities/batch_task_interpreters.py",
+    "main/backend/app/successor_runtime/capabilities/batch_task_program.py",
 )
 
 
@@ -44,14 +44,14 @@ def test_w05_n1_c4_uses_canonical_kit_failures() -> None:
     assert isinstance(failure, Failure)
     assert failure.family == "successor.capability.contract_failure"
     assert failure.context is not None
-    assert failure.context["capability"] == "agent_batch.c4.v1"
+    assert failure.context["capability"] == "batch.task.v2"
     assert failure.context["public_exception"] == "ValueError"
     assert failure.context["public_message"] == "exact message"
     assert successor_capability_contract_failures.matches(failure)
 
 
 def test_w05_n1_c4_public_compatibility_preserves_type_and_message() -> None:
-    with pytest.raises(ValueError, match="^C4 surface must not carry source_mode$"):
+    with pytest.raises(ValueError, match="^batch task surface must not carry source_mode$"):
         c4.reject_source_mode({"source_mode": "site_search"})
     with pytest.raises(ValueError, match="^unsupported agent-batch channel 'bad'$"):
         c4.AgentBatchTask(task_id="task", channel="bad")
@@ -81,7 +81,7 @@ def test_w05_n1_c4_public_compatibility_preserves_type_and_message() -> None:
         match="^BatchPlanResult.result_digest must be a 64-char lowercase hex digest$",
     ):
         c4.BatchPlanResult(
-            schema_version="mrw.successor.agent-batch.c4-1.result.v1",
+            schema_version=c4.BATCH_PLAN_RESULT_SCHEMA,
             tasks=(),
             supplementation=c4.SupplementationDecision(False),
             branching=c4.BranchingDecision(False),
@@ -106,7 +106,7 @@ def test_w05_n1_c4_public_compatibility_preserves_type_and_message() -> None:
             observations={},
             transition_digest="not-hex",
         )
-    bundle = c4.build_agent_batch_c4_bundle()
+    bundle = c4.build_batch_task_bundle()
     with pytest.raises(KeyError) as missing_codec:
         bundle.codec_by_kind("missing.kind")
     assert missing_codec.value.args == ("no C4 payload codec for kind missing.kind",)
@@ -116,6 +116,28 @@ def test_w05_n1_c4_public_compatibility_preserves_type_and_message() -> None:
         match="^submission codec expected AgentBatchSubmission$",
     ):
         submission_codec.encode(object())
+    with pytest.raises(
+        TypeError,
+        match="^historical submission payload requires a JSON object$",
+    ):
+        c4.decode_historical_submission_payload([])  # type: ignore[arg-type]
+    with pytest.raises(
+        ValueError,
+        match="^unsupported historical submission payload codec$",
+    ):
+        c4.decode_historical_submission_payload(
+            {},
+            codec_id="mrw.batch.task-submission.codec.v999",
+        )
+    with pytest.raises(
+        ValueError,
+        match="^submission receipt bytes are not a JSON object$",
+    ):
+        c4.decode_submission_receipt_readback(
+            codec_id=c4.SUBMISSION_RECEIPT_CODEC_ID,
+            exact_bytes=b"not-json",
+            stored_digest="0" * 64,
+        )
 
 
 def test_w05_n1_c4_binding_compatibility_keeps_exception_subtypes() -> None:
@@ -149,18 +171,18 @@ def test_w05_n1_c4_programmer_defect_lift() -> None:
 
 
 def test_w05_agent_batch_authority_metadata() -> None:
-    from app.successor_runtime.capabilities.agent_batch_c4_program import (
-        build_agent_batch_c4_1_program,
-        build_agent_batch_c4_1_traversal_program,
-        build_agent_batch_c4_2_program,
-        build_agent_batch_c4_3_program,
+    from app.successor_runtime.capabilities.batch_task_program import (
+        build_batch_task_plan_program,
+        build_batch_task_plan_traversal_program,
+        build_batch_task_retry_program,
+        build_batch_task_submission_program,
     )
 
     for function in (
-        build_agent_batch_c4_1_program,
-        build_agent_batch_c4_1_traversal_program,
-        build_agent_batch_c4_2_program,
-        build_agent_batch_c4_3_program,
+        build_batch_task_plan_program,
+        build_batch_task_plan_traversal_program,
+        build_batch_task_retry_program,
+        build_batch_task_submission_program,
     ):
         hint = typing.get_type_hints(function, include_extras=True)["return"]
         metadata = typing.get_args(hint)[1]

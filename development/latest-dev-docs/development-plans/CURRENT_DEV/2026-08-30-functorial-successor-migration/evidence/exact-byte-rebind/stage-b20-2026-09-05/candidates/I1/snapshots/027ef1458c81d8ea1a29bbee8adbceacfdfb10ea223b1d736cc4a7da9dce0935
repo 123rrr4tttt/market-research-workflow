@@ -1,0 +1,271 @@
+#!/usr/bin/env python3
+"""Generate the additive I1 exact-binding rebind inputs.
+
+The 30 capability specifications remain frozen predecessors.  This generator
+records only bindings whose live bytes no longer match those predecessors and
+prepares a manifest for ``stage_family_fragment_rebind.py``.  It never rewrites
+the specifications or their build manifests.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import sys
+import tempfile
+from pathlib import Path
+from typing import Annotated, Any, TypeAlias
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+BACKEND_ROOT = REPO_ROOT / "main/backend"
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+from app.successor_runtime.specification import (  # noqa: E402
+    CapabilityCellSpec,
+    RuntimeKernelABI,
+    build_manifest_bytes,
+    compile_capability_spec,
+)
+
+
+TOPIC_REL = Path(
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "2026-08-30-functorial-successor-migration"
+)
+EVIDENCE_REL = TOPIC_REL / "evidence"
+SPECS_REL = EVIDENCE_REL / "capability-specs"
+BUILDS_REL = EVIDENCE_REL / "capability-spec-builds"
+STAGE_REL = EVIDENCE_REL / "exact-byte-rebind/stage-b10-2026-09-05"
+FRAGMENT_REL = STAGE_REL / "fragments/I1.json"
+MANIFEST_REL = STAGE_REL / "manifests/I1.json"
+
+FRAGMENT_SCHEMA = "mrw.i1.exact_binding_rebind.fragment.v1"
+MANIFEST_SCHEMA = "mrw.family_fragment_rebind.stage_manifest.v2"
+AMENDMENT = "STAGE_B10_I1_DERIVED_MARKER_REBIND_CANDIDATE_NOT_AUTHORITY"
+STATUS = "CANDIDATE_NOT_AUTHORITY"
+AUTHORITY = {
+    "authority_transfer": False,
+    "canonical_write": False,
+    "cutover": False,
+    "external_delivery": False,
+    "live_provider": False,
+    "production_canonical_write": False,
+}
+WITNESS_TESTS = (
+    "main/backend/tests/successor_runtime/test_capability_spec_core.py",
+    "main/backend/tests/successor_runtime/"
+    "test_capability_spec_runtime_kernel_abi_artifact.py",
+    "main/backend/tests/successor_runtime/test_compiler.py",
+)
+GENERATOR_SOURCES = (
+    "scripts/generate_i1_exact_binding_rebind.py",
+    "main/backend/app/successor_runtime/specification/capability_cell_spec.py",
+    "main/backend/app/successor_runtime/specification/runtime_kernel_abi.py",
+    "main/backend/app/successor_runtime/specification/compiler.py",
+)
+I1ExactBindingRebindNonAuthoritativeDocuments: TypeAlias = Annotated[
+    dict[Path, bytes],
+    "NonAuthoritative exact-binding rebind candidate documents",
+]
+
+
+class GenerationError(RuntimeError):
+    """A required frozen or live input cannot be established."""
+
+
+def _sha256(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _canonical_json(value: Any) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def _i1_content_digest(value: dict[str, Any]) -> str:
+    return _sha256(_canonical_json({k: v for k, v in value.items() if k != "content_digest"}))
+
+
+def _load_object(path: Path) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise GenerationError(f"invalid JSON input {path}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise GenerationError(f"JSON input must be an object: {path}")
+    return value
+
+
+def _relative(root: Path, path: Path) -> str:
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError as exc:
+        raise GenerationError(f"path escapes repository root: {path}") from exc
+
+
+def _file_ref(root: Path, relative: str) -> dict[str, str]:
+    path = root / relative
+    if not path.is_file():
+        raise GenerationError(f"required input missing: {relative}")
+    return {"path": relative, "file_sha256": _sha256(path.read_bytes())}
+
+
+def _json_ref(root: Path, relative: str) -> dict[str, str]:
+    value = _load_object(root / relative)
+    return {
+        **_file_ref(root, relative),
+        "content_digest": _i1_content_digest(value),
+    }
+
+
+def _binding_groups(spec: CapabilityCellSpec):
+    return (
+        ("source_bindings", spec.source_bindings),
+        ("test_bindings", spec.test_bindings),
+        ("rollback_bindings", spec.rollback_bindings),
+    )
+
+
+def _documents(root: Path) -> I1ExactBindingRebindNonAuthoritativeDocuments:
+    specs_dir = root / SPECS_REL
+    builds_dir = root / BUILDS_REL
+    abi_path = specs_dir / "RuntimeKernelABI.v1.json"
+    abi = RuntimeKernelABI.from_dict(_load_object(abi_path))
+    spec_paths = sorted(specs_dir.glob("C*.v1.json"))
+    if len(spec_paths) != 30:
+        raise GenerationError(f"expected 30 frozen capability specs, found {len(spec_paths)}")
+
+    bindings: list[dict[str, Any]] = []
+    input_paths: set[str] = set(GENERATOR_SOURCES)
+    input_paths.add(_relative(root, abi_path))
+
+    for spec_path in spec_paths:
+        spec_payload = spec_path.read_bytes()
+        spec = CapabilityCellSpec.from_dict(json.loads(spec_payload))
+        spec_relative = _relative(root, spec_path)
+        build_path = builds_dir / f"{spec.cell_id}.BuildManifest.v1.json"
+        expected_build = build_manifest_bytes(compile_capability_spec(spec, abi))
+        if not build_path.is_file() or build_path.read_bytes() != expected_build:
+            raise GenerationError(f"frozen build manifest drift: {spec.cell_id}")
+        input_paths.update((spec_relative, _relative(root, build_path)))
+
+        for group, values in _binding_groups(spec):
+            for binding in values:
+                live_path = root / binding.path
+                if not live_path.is_file():
+                    raise GenerationError(f"exact binding missing: {binding.path}")
+                live_payload = live_path.read_bytes()
+                live_sha256 = _sha256(live_payload)
+                if live_sha256 == binding.file_sha256:
+                    continue
+                input_paths.add(binding.path)
+                bindings.append(
+                    {
+                        "binding_group": group,
+                        "bytes": len(live_payload),
+                        "cell_id": spec.cell_id,
+                        "path": binding.path,
+                        "predecessor_sha256": binding.file_sha256,
+                        "role": binding.role,
+                        "spec_path": spec_relative,
+                        "spec_sha256": _sha256(spec_payload),
+                        "successor_sha256": live_sha256,
+                    }
+                )
+
+    bindings.sort(
+        key=lambda item: (
+            item["cell_id"],
+            item["binding_group"],
+            item["path"],
+            item["role"],
+        )
+    )
+    if not bindings:
+        raise GenerationError("no I1 exact-binding drift requires an additive candidate")
+
+    fragment: dict[str, Any] = {
+        "amendment": AMENDMENT,
+        "authority": AUTHORITY,
+        "bindings": bindings,
+        "frozen_build_manifest_count": 30,
+        "frozen_spec_count": 30,
+        "schema": FRAGMENT_SCHEMA,
+        "status": STATUS,
+    }
+    fragment["content_digest"] = _i1_content_digest(fragment)
+    fragment_payload = _canonical_json(fragment) + b"\n"
+
+    source_refs = [_file_ref(root, path) for path in sorted(input_paths)]
+    test_refs = [_file_ref(root, path) for path in WITNESS_TESTS]
+    manifest: dict[str, Any] = {
+        "amendment": AMENDMENT,
+        "family": "I1",
+        "fragments": [
+            {
+                "content_digest": fragment["content_digest"],
+                "file_sha256": _sha256(fragment_payload),
+                "path": FRAGMENT_REL.as_posix(),
+            }
+        ],
+        "schema": MANIFEST_SCHEMA,
+        "sources": source_refs,
+        "tests": test_refs,
+    }
+    return {
+        FRAGMENT_REL: fragment_payload,
+        MANIFEST_REL: _canonical_json(manifest) + b"\n",
+    }
+
+
+def _write_atomic(path: Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_file() and path.read_bytes() == payload:
+        return
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo-root", type=Path, default=REPO_ROOT)
+    parser.add_argument("--write", action="store_true")
+    args = parser.parse_args(argv)
+    root = args.repo_root.expanduser().resolve()
+    try:
+        documents = _documents(root)
+    except (GenerationError, TypeError, ValueError, KeyError) as exc:
+        print(f"INVALID: {exc}", file=sys.stderr)
+        return 2
+
+    drift = [relative for relative, payload in documents.items() if not (root / relative).is_file() or (root / relative).read_bytes() != payload]
+    if not args.write:
+        status = "DRIFT" if drift else "CHECK_OK"
+        print(json.dumps({"paths": [path.as_posix() for path in drift], "status": status}, sort_keys=True))
+        return 1 if drift else 0
+    for relative, payload in documents.items():
+        _write_atomic(root / relative, payload)
+    print(json.dumps({"paths": [path.as_posix() for path in documents], "status": "WROTE"}, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

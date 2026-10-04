@@ -8,9 +8,13 @@ import os
 import re
 import subprocess
 import sys
+import stat
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
+from contextlib import contextmanager
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,6 +24,40 @@ assert SPEC is not None and SPEC.loader is not None
 checker = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = checker
 SPEC.loader.exec_module(checker)
+
+
+@contextmanager
+def render_only_docker_shim():
+    """Provide the docker CLI boundary without a daemon or network access."""
+    with tempfile.TemporaryDirectory(prefix="compose-config-shim-") as directory:
+        shim = Path(directory) / "docker"
+        shim.write_text(
+            textwrap.dedent(
+                """
+                #!/usr/bin/env python3
+                import os
+                import sys
+                from pathlib import Path
+
+                args = sys.argv[1:]
+                if args[0] != "compose" or "config" not in args:
+                    print("unsupported docker command", file=sys.stderr)
+                    raise SystemExit(2)
+                compose_path = Path(args[args.index("-f") + 1])
+                if not compose_path.is_file():
+                    print("compose file is unavailable", file=sys.stderr)
+                    raise SystemExit(1)
+                if "PRODUCTION_METRICS_TOKEN" not in os.environ:
+                    print("required production environment value is missing", file=sys.stderr)
+                    raise SystemExit(1)
+                print("{}")
+                """
+            ).lstrip(),
+            encoding="utf-8",
+        )
+        shim.chmod(shim.stat().st_mode | stat.S_IXUSR)
+        with mock.patch.dict(os.environ, {"PATH": f"{shim.parent}:{os.environ['PATH']}"}):
+            yield
 
 
 class ProductionComposeConfigPreflightTestCase(unittest.TestCase):
@@ -45,7 +83,8 @@ class ProductionComposeConfigPreflightTestCase(unittest.TestCase):
         self.assertTrue(all(checker.SYNTHETIC_ENV.values()))
 
     def test_render_only_preflight_passes_with_preflight_envelope(self) -> None:
-        report = checker.evaluate_production_compose_config(repo_root=ROOT)
+        with render_only_docker_shim():
+            report = checker.evaluate_production_compose_config(repo_root=ROOT)
         payload = report.to_dict()
         finding = self.finding(report)
 
@@ -59,10 +98,11 @@ class ProductionComposeConfigPreflightTestCase(unittest.TestCase):
         self.assertIn("temp_env_cleanup=true", finding["evidence"])
 
     def test_missing_key_is_fail_and_evidence_contains_no_missing_key_name(self) -> None:
-        report = checker.evaluate_production_compose_config(
-            repo_root=ROOT,
-            missing_keys=("PRODUCTION_METRICS_TOKEN",),
-        )
+        with render_only_docker_shim():
+            report = checker.evaluate_production_compose_config(
+                repo_root=ROOT,
+                missing_keys=("PRODUCTION_METRICS_TOKEN",),
+            )
         payload = report.to_dict()
         finding = self.finding(report)
         serialized = json.dumps(payload)
@@ -81,7 +121,8 @@ class ProductionComposeConfigPreflightTestCase(unittest.TestCase):
 
     def test_compose_failure_is_fail_without_leaking_temp_path(self) -> None:
         with tempfile.TemporaryDirectory(prefix="compose-config-missing-root-") as directory:
-            report = checker.evaluate_production_compose_config(repo_root=Path(directory))
+            with render_only_docker_shim():
+                report = checker.evaluate_production_compose_config(repo_root=Path(directory))
 
         finding = self.finding(report)
 
@@ -92,17 +133,18 @@ class ProductionComposeConfigPreflightTestCase(unittest.TestCase):
     def test_cli_writes_and_prints_one_preflight_envelope(self) -> None:
         with tempfile.TemporaryDirectory(prefix="compose-config-cli-") as directory:
             output = Path(directory) / "report.json"
-            completed = subprocess.run(
-                (sys.executable, str(SCRIPT_PATH), "--repo-root", str(ROOT), "--output", str(output)),
-                cwd=ROOT,
-                env={
-                    **os.environ,
-                    "PRODUCTION_METRICS_TOKEN": "host_must_not_override_synthetic_input",
-                },
-                text=True,
-                capture_output=True,
-                check=False,
-            )
+            with render_only_docker_shim():
+                completed = subprocess.run(
+                    (sys.executable, str(SCRIPT_PATH), "--repo-root", str(ROOT), "--output", str(output)),
+                    cwd=ROOT,
+                    env={
+                        **os.environ,
+                        "PRODUCTION_METRICS_TOKEN": "host_must_not_override_synthetic_input",
+                    },
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
             stdout_payload = json.loads(completed.stdout)
             output_payload = json.loads(output.read_text(encoding="utf-8"))
 

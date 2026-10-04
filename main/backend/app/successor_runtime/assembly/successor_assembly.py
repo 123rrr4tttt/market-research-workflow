@@ -3,7 +3,7 @@
 This module is the I1 serial integration boundary.  It installs every family
 assembly returned by the family builders into the existing
 ``compose_postgres_first_specimen_runtime`` graph via ``additional_handlers``
-and records a fail-closed 30-cell coverage matrix.  It intentionally does not
+and records a fail-closed 27-cell coverage matrix.  It intentionally does not
 mount an app route, start a node, call a live provider or perform a canonical
 write; those are separate authority milestones.
 """
@@ -15,6 +15,26 @@ from typing import Annotated, Any
 
 from sqlalchemy.engine import Engine
 
+from app.successor_runtime.capabilities.batch_task_native_contribution import (
+    ASSEMBLY_CELL_IDS as BATCH_CELL_IDS,
+)
+
+# Coverage comes from author declarations, independently of assembled results.
+from app.successor_runtime.capabilities.workflow_native_contribution import (
+    ASSEMBLY_CELL_IDS as WORKFLOW_CELL_IDS,
+)
+from app.successor_runtime.capabilities.acquisition_native_contribution import (
+    ASSEMBLY_CELL_IDS as ACQUISITION_CELL_IDS,
+)
+from app.successor_runtime.capabilities.source_native_contribution import (
+    ASSEMBLY_CELL_IDS as SOURCE_CELL_IDS,
+)
+from app.successor_runtime.runtime.task_observation_native_contribution import (
+    ASSEMBLY_CELL_IDS as TASK_CELL_IDS,
+)
+from app.successor_runtime.runtime.projection_native_contribution import (
+    ASSEMBLY_CELL_IDS as PROJECTION_CELL_IDS,
+)
 from app.successor_runtime.runtime.node import (
     Clock,
     DeploymentBinding,
@@ -36,12 +56,11 @@ from app.successor_runtime.substrate.projections.registry import (
 
 from .base import (
     PROJECTOR_REGISTRY_INCARNATION,
-    C3AssemblyOptions,
-    C4AssemblyOptions,
-    C5AssemblyOptions,
-    C6AssemblyOptions,
-    C8AssemblyOptions,
-    C9AssemblyOptions,
+    AcquisitionAssemblyOptions,
+    BatchTaskAssemblyOptions,
+    TaskObservationAssemblyOptions,
+    KnowledgeAssemblyOptions,
+    ProjectionAssemblyOptions,
     CellBinding,
     FamilyAssembly,
     FamilyAssemblyOptions,
@@ -52,23 +71,24 @@ from .base import (
     local_assembly_scope_digest,
     merge_family_assemblies,
 )
-from .c1_assembly import build_c1_assembly
-from .c2_assembly import build_c2_assembly
-from .c3_assembly import build_c3_assembly, build_deterministic_element_payloads
-from .c4_assembly import (
-    build_c4_assembly,
+from .workflow_assembly import build_workflow_assembly
+from .source_assembly import build_source_assembly
+from .acquisition_batch_assembly import build_acquisition_batch_assembly, build_deterministic_element_payloads
+from .batch_task_assembly import (
+    build_batch_task_assembly,
     build_deterministic_plan_payload,
     build_deterministic_retry_payload,
 )
-from .c5_assembly import build_c5_assembly, build_deterministic_reconciliation_binding
-from .c6_assembly import build_c6_assembly, build_deterministic_fixtures
-from .c7_assembly import build_c7_assembly, build_deterministic_c7_rollback_options
-from .c8_assembly import (
-    build_c8_assembly,
-    build_deterministic_c8_delivery_closure,
-    build_deterministic_c8_payloads,
+from .task_observation_assembly import build_task_observation_assembly, build_deterministic_reconciliation_binding
+from .material_ingest_assembly import ASSEMBLY_CELL_IDS as MATERIAL_CELL_IDS
+from .material_ingest_assembly import build_material_ingest_assembly, build_deterministic_material_ingest_rollback_options
+from .knowledge_assembly import ASSEMBLY_CELL_IDS as KNOWLEDGE_CELL_IDS
+from .knowledge_assembly import (
+    build_knowledge_assembly,
+    build_deterministic_knowledge_delivery_closure,
+    build_deterministic_knowledge_payloads,
 )
-from .c9_assembly import build_c9_assembly, build_deterministic_facade_closure
+from .projection_assembly import build_projection_assembly, build_deterministic_facade_closure
 from .s1_horizontal_port_assembly import (
     S1HorizontalPortContract,
     build_s1_horizontal_port_registry,
@@ -79,38 +99,9 @@ from .s2c_ops_domain_surface_assembly import (
 )
 
 ALL_I1_CELLS = frozenset(
-    {
-        "C1.1",
-        "C1.2",
-        "C1.3",
-        "C2.1",
-        "C2.2",
-        "C2.3",
-        "C2.4",
-        "C3.1",
-        "C3.2",
-        "C4.1",
-        "C4.2",
-        "C4.3",
-        "C5.1",
-        "C5.2",
-        "C5.3",
-        "C5.4",
-        "C6.1",
-        "C6.2",
-        "C6.3",
-        "C7.1",
-        "C7.2",
-        "C7.3",
-        "C7.4",
-        "C8.1",
-        "C8.2",
-        "C8.3",
-        "C8.4",
-        "C9.1",
-        "C9.2",
-        "C9.3",
-    }
+    (*WORKFLOW_CELL_IDS, *SOURCE_CELL_IDS, *ACQUISITION_CELL_IDS,
+     *BATCH_CELL_IDS, *TASK_CELL_IDS, *MATERIAL_CELL_IDS,
+     *KNOWLEDGE_CELL_IDS, *PROJECTION_CELL_IDS)
 )
 
 
@@ -193,39 +184,34 @@ def assemble_successor_runtime(
     family_options = options or FamilyAssemblyOptions()
     uow_factory = runtime_uow_factory(engine)
     families = (
-        build_c1_assembly(),
-        build_c2_assembly(
+        build_workflow_assembly(),
+        build_source_assembly(
             uow_factory=uow_factory,
             project_scope_digest=scope_digest,
             projector_source_keys=family_options.projector_source_keys,
         ),
-        build_c3_assembly(
+        build_acquisition_batch_assembly(
             uow_factory=uow_factory,
             project_scope_digest=scope_digest,
             options=family_options.c3,
         ),
-        build_c4_assembly(
+        build_batch_task_assembly(
             uow_factory=uow_factory,
             project_scope_digest=scope_digest,
             options=family_options.c4,
         ),
-        build_c5_assembly(
+        build_task_observation_assembly(
             options=family_options.c5,
             projector_source_keys=family_options.projector_source_keys,
         ),
-        build_c6_assembly(
-            uow_factory=uow_factory,
-            project_scope_digest=scope_digest,
-            options=family_options.c6,
-        ),
-        build_c7_assembly(options=family_options.c7),
-        build_c8_assembly(
+        build_material_ingest_assembly(options=family_options.c7),
+        build_knowledge_assembly(
             engine=engine,
             project_scope_digest=scope_digest,
             options=family_options.c8,
             projector_source_keys=family_options.projector_source_keys,
         ),
-        build_c9_assembly(
+        build_projection_assembly(
             options=family_options.c9,
             projector_source_keys=family_options.projector_source_keys,
         ),
@@ -236,7 +222,7 @@ def assemble_successor_runtime(
     extra = observed - ALL_I1_CELLS
     if missing or extra:
         raise ValueError(
-            "I1 assembly cell coverage must be exactly 30 cells; "
+            "I1 assembly cell coverage must be exactly 27 cells; "
             f"missing={sorted(missing)} extra={sorted(extra)}"
         )
     projector_wiring = tuple(
@@ -303,50 +289,33 @@ def build_local_offline_fixture_options() -> Annotated[
     scope_digest = local_assembly_scope_digest()
     return FamilyAssemblyOptions(
         projector_source_keys={
-            "C2.4": ProjectorSourceKey(
-                source_ref="run:i1-local:C2.4:001",
-                source_incarnation="incarnation:i1-local:C2.4:001",
-            ),
-            "C5.1": ProjectorSourceKey(
-                source_ref="run:i1-local:C5.1:001",
-                source_incarnation="incarnation:i1-local:C5.1:001",
-            ),
-            "C5.3": ProjectorSourceKey(
-                source_ref="run:i1-local:C5.3:001",
-                source_incarnation="incarnation:i1-local:C5.3:001",
-            ),
-            "C5.4": ProjectorSourceKey(
-                source_ref="run:i1-local:C5.4:001",
-                source_incarnation="incarnation:i1-local:C5.4:001",
-            ),
-            "C8.4": ProjectorSourceKey(
-                source_ref="run:i1-local:C8.4:001",
-                source_incarnation="incarnation:i1-local:C8.4:001",
-            ),
-            "C9.3": ProjectorSourceKey(
-                source_ref="run:i1-local:C9.3:001",
-                source_incarnation="incarnation:i1-local:C9.3:001",
-            ),
+            cell_id: ProjectorSourceKey(
+                source_ref=f"run:local-assembly:{cell_id}:001",
+                source_incarnation=f"incarnation:local-assembly:{cell_id}:001",
+            )
+            for cell_id in (
+                SOURCE_CELL_IDS[3], TASK_CELL_IDS[0], TASK_CELL_IDS[2],
+                TASK_CELL_IDS[3], KNOWLEDGE_CELL_IDS[3], PROJECTION_CELL_IDS[2],
+            )
         },
-        c3=C3AssemblyOptions(
+        c3=AcquisitionAssemblyOptions(
             element_payloads=build_deterministic_element_payloads(),
         ),
-        c4=C4AssemblyOptions(
+        c4=BatchTaskAssemblyOptions(
             plan_payload=build_deterministic_plan_payload(scope_digest),
             retry_payload=build_deterministic_retry_payload(scope_digest),
         ),
-        c5=C5AssemblyOptions(
+        c5=TaskObservationAssemblyOptions(
             reconciliation_binding=build_deterministic_reconciliation_binding(
                 scope_digest
             )
         ),
-        c6=C6AssemblyOptions(**build_deterministic_fixtures()),
-        c7=build_deterministic_c7_rollback_options(scope_digest),
-        c8=C8AssemblyOptions(
-            **build_deterministic_c8_payloads(scope_digest),
-            **build_deterministic_c8_delivery_closure(scope_digest),
+        c7=build_deterministic_material_ingest_rollback_options(scope_digest),
+        c8=KnowledgeAssemblyOptions(
+            **build_deterministic_knowledge_payloads(scope_digest),
+            **build_deterministic_knowledge_delivery_closure(scope_digest),
         ),
-        c9=C9AssemblyOptions(facade=build_deterministic_facade_closure()),
+        c9=ProjectionAssemblyOptions(facade=build_deterministic_facade_closure()),
     )
 
 

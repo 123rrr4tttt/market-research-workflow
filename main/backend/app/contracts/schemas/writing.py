@@ -237,6 +237,9 @@ class LlmActionResponse(BaseModel):
     trace_id: str | None = None
     job_id: int | None = None
     status: str = "completed"
+    requested_async: bool = False
+    execution_mode: Literal["inline"] = "inline"
+    async_honored: bool = True
     capability_truth: dict[str, Any] = Field(default_factory=dict)
     observability: dict[str, Any] = Field(default_factory=dict)
     action_boundary: dict[str, Any] = Field(default_factory=dict)
@@ -257,6 +260,7 @@ class LlmActionHistoryItem(BaseModel):
     created_at: str | None = None
     duration_ms: int | None = None
     result_summary: dict[str, Any] = Field(default_factory=dict)
+    content: str | None = None
 
 
 class LlmActionHistoryListData(BaseModel):

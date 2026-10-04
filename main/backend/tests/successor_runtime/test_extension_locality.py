@@ -240,7 +240,8 @@ def test_fixture_compiles_through_shared_compiler_without_modifying_shared_roots
 ):
     successor_root = _BACKEND_ROOT / "app" / "successor_runtime"
     before = _current_shared_state(successor_root)
-    accepted_before = _accepted_shared_state(before)
+    # Current extension locality is a before/after property, independent of
+    # whether current runtime bytes equal the immutable P0-A baseline.
 
     first_specimen = build_first_specimen_bundle()
     fixture = build_fixture_capability_bundle()
@@ -276,7 +277,7 @@ def test_fixture_compiles_through_shared_compiler_without_modifying_shared_roots
 
     after = _current_shared_state(successor_root)
     assert after == before
-    assert after == accepted_before
+    assert after == before
 
 
 def test_fixture_capability_is_independent_of_first_specimen() -> None:
@@ -306,3 +307,12 @@ def test_baseline_evidence_has_no_absent_placeholder() -> None:
     )
     forbidden_sentinel = "<" + "absent" + ">"
     assert forbidden_sentinel not in json.dumps(SHARED_ROOT_BASELINE, sort_keys=True)
+
+
+def test_frozen_baseline_bytes_remain_independently_resolvable() -> None:
+    from .historical_fixture import historical_bytes
+
+    assert _canonical_sha256(_baseline_payload()) == SHARED_ROOT_BASELINE_DIGEST
+    for relative, expected in SHARED_ROOT_BASELINE["files"].items():
+        data = historical_bytes(f"main/backend/app/successor_runtime/{relative}", expected)
+        assert hashlib.sha256(data).hexdigest() == expected

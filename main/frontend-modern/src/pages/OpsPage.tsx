@@ -4,6 +4,7 @@ import { CheckCircle2, Eye, RefreshCw, Trash2, XCircle } from 'lucide-react'
 import GraphNodeCard from '../components/graph-kit/GraphNodeCard'
 import GraphBusinessCardSections from '../components/GraphBusinessCardSections'
 import GraphExtensionsSections from '../components/GraphExtensionsSections'
+import ProjectRetrievalPanel from './ProjectRetrievalPanel'
 import { DEFAULT_APP_LOCALE, translate, useAppLocale, type AppLocale, type MessageKey } from '../app/platform/i18n'
 import { endpoints } from '../lib/api/endpoints'
 import { queryKeys } from '../lib/queryKeys'
@@ -23,7 +24,6 @@ import type {
   BusinessLineScheduledArtifactLaneSummary,
   BusinessLineScheduledArtifactSummaries,
   BusinessLineScheduledMatrixArtifactSummary,
-  BusinessLineScheduledMatrixDiagnostics,
   DocumentItem,
 } from '../lib/types'
 import { buildRuntimeDiagnosticPackage, collectRuntimeMissingDependencies, runtimeHealthTarget } from '../lib/runtimeDiagnostic'
@@ -149,7 +149,7 @@ function formatOpsTemplate(template: string, values: Record<string, string | num
 
 function toGraphBusinessNode(
   doc: DocumentItem | undefined,
-  activeDocId: number | null,
+  activeDocId: number | string | null,
   labels: Pick<OpsGraphExtensionLabels, 'documentType'>,
 ): Record<string, unknown> {
   const extracted = (doc?.extracted_data && typeof doc.extracted_data === 'object' && !Array.isArray(doc.extracted_data))
@@ -208,7 +208,7 @@ function opsElementColorForLabel(label: string) {
 
 function buildOpsGraphExtension(
   doc: DocumentItem | undefined,
-  activeDocId: number | null,
+  activeDocId: number | string | null,
   labels: OpsGraphExtensionLabels,
 ) {
   const node = toGraphBusinessNode(doc, activeDocId, labels)
@@ -432,28 +432,19 @@ function matrixTextList(value: unknown) {
   return []
 }
 
-function matrixBatchStatement(value: BusinessLineEvidenceMatrix | null | undefined) {
-  const orchestration = value?.batch_orchestration
-  if (orchestration && typeof orchestration === 'object') {
-    const statement = (orchestration as Record<string, unknown>).statement
-    if (typeof statement === 'string' && statement.trim()) return statement.trim()
-  }
-  const coveragePolicy = value?.coverage_policy
-  if (coveragePolicy && typeof coveragePolicy === 'object') {
-    const semanticGuard = (coveragePolicy as Record<string, unknown>).semantic_guard
-    if (typeof semanticGuard === 'string' && semanticGuard.trim()) return semanticGuard.trim()
-  }
-  return ''
+function matrixCoverageStatement(value: BusinessLineEvidenceMatrix | null | undefined) {
+  const coverage = value?.coverage
+  if (!coverage || typeof coverage !== 'object' || Array.isArray(coverage)) return ''
+  const record = coverage as Record<string, unknown>
+  const coveredCount = Number(record.covered_line_count)
+  const keys = Array.isArray(record.covered_line_keys) ? record.covered_line_keys : []
+  if (!Number.isFinite(coveredCount) || coveredCount <= 0 || keys.length !== coveredCount) return ''
+  const notAdminOnly = record.not_admin_only === true
+  return `覆盖所有条线（covered_line_count=${coveredCount}）；not_admin_only=${notAdminOnly}`
 }
 
 function matrixLineTestId(line: BusinessLineEvidenceMatrixLine) {
   return ['ops', 'business', 'line', 'evidence', 'matrix', 'line', line.line_key].join('-')
-}
-
-function hasScheduledMatrixDiagnostics(
-  value: BusinessLineScheduledMatrixDiagnostics | null | undefined,
-): value is BusinessLineScheduledMatrixDiagnostics {
-  return Boolean(value && typeof value === 'object')
 }
 
 function matrixClassificationBoundaryList(value: unknown) {
@@ -681,6 +672,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   const queryClient = useQueryClient()
   const locale = useAppLocale()
   const t = (key: MessageKey, fallback?: string) => translate(locale, key, fallback)
+  const isZhLocale = locale.toLowerCase().startsWith('zh')
   const actionName = (key: OpsActionKey) => t(OPS_ACTION_NAME_KEYS[key])
   const [retentionDays, setRetentionDays] = useState(90)
   const [pending, setPending] = useState(false)
@@ -710,6 +702,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   const [scheduledArtifactDrilldownLaneFilter, setScheduledArtifactDrilldownLaneFilter] = useState<ScheduledArtifactDrilldownLaneFilter>('all')
   const [scheduledArtifactDrilldownLaneSort, setScheduledArtifactDrilldownLaneSort] = useState<ScheduledArtifactDrilldownLaneSort>('source_order')
   const [scheduledArtifactDrilldownUiEventLog, setScheduledArtifactDrilldownUiEventLog] = useState<string[]>([])
+  const [showTechnicalDiagnostics, setShowTechnicalDiagnostics] = useState(variant === 'backend')
   const opsGraphExtensionLabels = useMemo(
     () => ({
       documentType: translate(locale, 'opsPage.fallback.documentType'),
@@ -761,13 +754,14 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
         doc_type: docTypeFilter.trim() || null,
         state: docStateFilter.trim() || null,
         search: docSearch.trim() || null,
+        include_topology_materials: true,
       }),
     enabled: Boolean(projectKey),
   })
   const activeDocDetail = useQuery({
     queryKey: queryKeys.admin.documentDetail(projectKey, activeDocCardId),
     queryFn: () => getAdminDocument(Number(activeDocCardId)),
-    enabled: Boolean(projectKey && activeDocCardId),
+    enabled: Boolean(projectKey && typeof activeDocCardId === 'number'),
   })
   const selectedSessionQuery = useQuery({
     queryKey: queryKeys.agentSessions.detail(selectedSessionId || 'none'),
@@ -912,10 +906,24 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   const runtimeMissingDependencies = collectRuntimeMissingDependencies(runtimeStatus.data)
   const runtimeMode = runtimeStatus.data?.runtime_mode || 'unknown'
   const businessLineEvidenceLines = businessLineEvidenceMatrix.data?.lines || []
-  const businessLineEvidenceStatement = matrixBatchStatement(businessLineEvidenceMatrix.data)
+  const businessLineEvidenceStatement = matrixCoverageStatement(businessLineEvidenceMatrix.data)
+  const businessLineCoverage = (
+    businessLineEvidenceMatrix.data?.coverage && typeof businessLineEvidenceMatrix.data.coverage === 'object'
+      ? businessLineEvidenceMatrix.data.coverage as Record<string, unknown>
+      : null
+  )
+  const businessLineScheduledObservation = (
+    businessLineEvidenceMatrix.data?.scheduled_observation && typeof businessLineEvidenceMatrix.data.scheduled_observation === 'object'
+      ? businessLineEvidenceMatrix.data.scheduled_observation as Record<string, unknown>
+      : null
+  )
+  const businessLineWorkerReadback = (
+    businessLineEvidenceMatrix.data?.worker_readback && typeof businessLineEvidenceMatrix.data.worker_readback === 'object'
+      ? businessLineEvidenceMatrix.data.worker_readback as Record<string, unknown>
+      : null
+  )
   const scheduledMatrixDiagnostics = (
     businessLineEvidenceMatrix.data?.matrix_diagnostics_guidance
-    || businessLineEvidenceMatrix.data?.scheduled_matrix_diagnostics
   )
   const scheduledMatrixArtifact = scheduledMatrixArtifactSummary.data
   const scheduledMatrixArtifactDiagnostics = normalizeObject(scheduledMatrixArtifact?.diagnostics)
@@ -1006,7 +1014,9 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   }
 
   const selectCurrentPage = () => {
-    const pageIds = (adminDocuments.data?.items || []).map((item) => item.id)
+    const pageIds = (adminDocuments.data?.items || []).flatMap((item) => (
+      !item.readonly && typeof item.id === 'number' ? [item.id] : []
+    ))
     setSelectedDocIds(pageIds)
   }
 
@@ -1091,6 +1101,15 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
         <div className="panel-header">
           <h2>{variant === 'backend' ? t('opsPage.title.backend') : t('opsPage.title.ops')}</h2>
         </div>
+        <p className="status-line" data-testid="ops-scope-label">
+          {variant === 'backend'
+            ? (isZhLocale
+              ? '系统运行：全局后端服务、worker、队列与健康观测。当前项目仅作为查询上下文。'
+              : 'System runtime: global backend services, workers, queues, and health observations. The current project is query context only.')
+            : (isZhLocale
+              ? '资料与质量：当前项目绑定的资料、质量结果与已授权操作。全局资源会单独标注。'
+              : 'Materials and quality: materials, quality results, and authorized operations bound to this project. Global resources are labeled separately.')}
+        </p>
       </section>
       <section className="kpi-grid">
         <article className="kpi-card"><span>{t('opsPage.kpi.documents')}</span><strong>{adminStats.data?.documents?.total || 0}</strong><small>{formatOpsTemplate(t('opsPage.kpi.todayCount'), { count: adminStats.data?.documents?.recent_today || 0 })}</small></article>
@@ -1099,9 +1118,14 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
         <article className="kpi-card"><span>{t('opsPage.kpi.searchHistory')}</span><strong>{adminStats.data?.search_history?.total || 0}</strong><small>{t('opsPage.kpi.history')}</small></article>
       </section>
 
-      <section className="panel">
+      {variant === 'ops' ? <ProjectRetrievalPanel key={projectKey} projectKey={projectKey} /> : null}
+
+      <section className={`panel ops-runtime-panel ops-runtime-panel--${variant}`}>
         <div className="panel-header">
-          <h2>{t('opsPage.section.runtimeStatus')}</h2>
+          <div>
+            <h2>{t('opsPage.section.runtimeStatus')}</h2>
+            <p className="muted">{isZhLocale ? '全局后端观测 / 当前项目运行上下文' : 'Global backend observation / current project runtime context'}</p>
+          </div>
           <div className="inline-actions">
             <span className={runtimeModeClass(runtimeMode)}>
               {formatOpsTemplate(t('opsPage.status.runtimeMode'), { mode: runtimeMode })}
@@ -1158,10 +1182,19 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
         </div>
       </section>
 
-      <section className="panel" data-testid="ops-business-line-evidence-matrix">
+      <div className="ops-technical-toggle" data-testid="ops-technical-toggle">
+        <button type="button" className="chip" onClick={() => setShowTechnicalDiagnostics((visible) => !visible)}>
+          {showTechnicalDiagnostics
+            ? (isZhLocale ? '收起技术日志与证据矩阵' : 'Collapse technical logs and evidence matrix')
+            : (isZhLocale ? '展开技术日志与证据矩阵' : 'Expand technical logs and evidence matrix')}
+        </button>
+        <span className="muted">{isZhLocale ? '资料质量结论不会由此观测面板推导。' : 'This observation panel does not derive materials or quality conclusions.'}</span>
+      </div>
+      {showTechnicalDiagnostics ? <section className="panel ops-technical-diagnostics" data-testid="ops-business-line-evidence-matrix">
         <div className="panel-header">
           <div>
             <h2>{t('opsPage.section.businessLineEvidenceMatrix')}</h2>
+            <p className="muted">{isZhLocale ? '技术诊断与证据矩阵（按需展开；不改变项目资料质量结论）' : 'Technical diagnostics and evidence matrix (expand on demand; does not change project materials or quality conclusions)'}</p>
             <p className="muted">
               {formatOpsTemplate(t('opsPage.status.businessLineEvidenceContract'), {
                 contract: businessLineEvidenceMatrix.data?.contract_version || '-',
@@ -1180,6 +1213,33 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
               {t('opsPage.action.refresh')}
             </button>
           </div>
+        </div>
+        <div className="grid-3" data-testid="ops-business-line-matrix-contract" style={{ alignItems: 'start', marginBottom: 16 }}>
+          <article className="kpi-card">
+            <span>vocabulary</span>
+            <strong>{scheduledMatrixArtifactLabel(businessLineEvidenceMatrix.data?.vocabulary_version, 'unknown/fallback')}</strong>
+            <small>
+              coverage: {scheduledMatrixArtifactLabel(businessLineCoverage?.covered_line_count, 'unknown')} / {businessLineCoverage ? matrixTextList(businessLineCoverage.covered_line_keys).length : 0} keys
+              {' '}| not_admin_only: {scheduledMatrixArtifactLabel(businessLineCoverage?.not_admin_only, 'unknown')}
+            </small>
+          </article>
+          <article className="kpi-card">
+            <span>scheduled observation</span>
+            <strong>{scheduledMatrixArtifactLabel(businessLineScheduledObservation?.observation_status, 'unknown/fallback')}</strong>
+            <small>
+              scheduled_run_evidence: {scheduledMatrixArtifactLabel(businessLineScheduledObservation?.scheduled_run_evidence, 'unknown')}
+              {' '}| install_status: {scheduledMatrixArtifactLabel(businessLineScheduledObservation?.install_status, 'unknown')}
+              {' '}| completion_claim: {scheduledMatrixArtifactLabel(businessLineScheduledObservation?.completion_claim, 'unknown')}
+            </small>
+          </article>
+          <article className="kpi-card">
+            <span>worker readback</span>
+            <strong>{scheduledMatrixArtifactLabel(businessLineWorkerReadback?.contract_version, 'unknown/fallback')}</strong>
+            <small>
+              completion_claim: {scheduledMatrixArtifactLabel(businessLineWorkerReadback?.completion_claim, 'unknown')}
+              {' '}| covered_line_keys: {matrixTextList(businessLineWorkerReadback?.covered_line_keys).length}
+            </small>
+          </article>
         </div>
         <div
           className="grid-2"
@@ -1650,30 +1710,29 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             </p>
           ) : null}
         </div>
-        {hasScheduledMatrixDiagnostics(scheduledMatrixDiagnostics) ? (
-          <div
+        <div
             className="grid-2"
             data-testid="ops-business-line-matrix-diagnostics-guidance"
             style={{ alignItems: 'start', marginBottom: 16 }}
           >
             <article className="kpi-card">
               <span>source lane</span>
-              <strong>{scheduledMatrixDiagnostics.source_lane || '-'}</strong>
-              <small>source artifact: {scheduledMatrixDiagnostics.source_artifact || '-'}</small>
+              <strong>{scheduledMatrixDiagnostics?.source_lane || 'unknown/fallback'}</strong>
+              <small>source artifact: {scheduledMatrixDiagnostics?.source_artifact || 'unknown/fallback'}</small>
             </article>
             <article className="kpi-card">
               <span>classification boundary</span>
               <ul className="compact-list">
-                {matrixClassificationBoundaryList(scheduledMatrixDiagnostics.classification_boundary).map((item) => (
+                {matrixClassificationBoundaryList(scheduledMatrixDiagnostics?.classification_boundary).map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ul>
-              <small>consumer surface: {scheduledMatrixDiagnostics.consumer_surface || '-'}</small>
+              <small>consumer surface: {scheduledMatrixDiagnostics?.consumer_surface || 'unknown/fallback'}</small>
             </article>
             <div>
               <strong>recommended display order</strong>
               <ul className="compact-list">
-                {matrixTextList(scheduledMatrixDiagnostics.recommended_display_order).map((field) => (
+                {matrixTextList(scheduledMatrixDiagnostics?.recommended_display_order).map((field) => (
                   <li key={field}><code>{field}</code></li>
                 ))}
               </ul>
@@ -1681,7 +1740,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             <div>
               <strong>required fields</strong>
               <ul className="compact-list">
-                {matrixTextList(scheduledMatrixDiagnostics.required_fields).map((field) => (
+                {matrixTextList(scheduledMatrixDiagnostics?.required_fields).map((field) => (
                   <li key={field}><code>{field}</code></li>
                 ))}
               </ul>
@@ -1689,13 +1748,12 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             <div>
               <strong>blocked project fields</strong>
               <ul className="compact-list">
-                {matrixTextList(scheduledMatrixDiagnostics.blocked_project_fields).map((field) => (
+                {matrixTextList(scheduledMatrixDiagnostics?.blocked_project_fields).map((field) => (
                   <li key={field}><code>{field}</code></li>
                 ))}
               </ul>
             </div>
           </div>
-        ) : null}
         <div className="table-wrap">
           <table>
             <thead>
@@ -1741,14 +1799,15 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             </tbody>
           </table>
         </div>
-      </section>
+      </section> : null}
 
-      <section className="panel">
+      <section className="panel ops-agent-session-panel">
         <div className="panel-header">
           <h2>
             <Eye size={15} />
             {t('opsPage.section.agentSessions')}
           </h2>
+          <p className="muted">{isZhLocale ? 'Agent session 是操作记录，不代表项目状态。' : 'Agent sessions are operation records, not project state.'}</p>
           <div className="inline-actions">
             <button
               type="button"
@@ -2494,6 +2553,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                 <th>{t('opsPage.field.selected')}</th>
                 <th>ID</th>
                 <th>{t('opsPage.field.title')}</th>
+                <th>{t('opsPage.field.sourceUrl')}</th>
                 <th>{t('opsPage.field.type')}</th>
                 <th>{t('opsPage.field.state')}</th>
                 <th>{t('opsPage.field.extraction')}</th>
@@ -2505,10 +2565,11 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                 <tr
                   key={row.id}
                   onClick={() => {
-                    let nextId: number | null = row.id
+                    if (row.readonly) return
+                    const candidateId: number | null = typeof row.id === 'number' ? row.id : null
+                    const nextId: number | null = activeDocCardId === candidateId ? null : candidateId
                     setActiveDocCardId((prev) => {
-                      nextId = prev === row.id ? null : row.id
-                      return nextId
+                      return prev === candidateId ? null : candidateId
                     })
                     if (nextId === null) {
                       return
@@ -2520,13 +2581,23 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                   <td>
                     <input
                       type="checkbox"
-                      checked={selectedDocIds.includes(row.id)}
-                      onChange={() => toggleDocSelection(row.id)}
+                      checked={typeof row.id === 'number' && selectedDocIds.includes(row.id)}
+                      onChange={() => { if (typeof row.id === 'number') toggleDocSelection(row.id) }}
+                      disabled={row.readonly || typeof row.id !== 'number'}
                       onClick={(e) => e.stopPropagation()}
                     />
                   </td>
                   <td>{row.id}</td>
                   <td>{row.title || '-'}</td>
+                  <td>
+                    {row.uri ? (
+                      <a href={row.uri} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                        {row.uri}
+                      </a>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
                   <td>{row.doc_type || '-'}</td>
                   <td>{row.state || '-'}</td>
                   <td>{String(row.has_extracted_data ?? false)}</td>
@@ -2535,7 +2606,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
               ))}
               {!adminDocuments.data?.items?.length ? (
                 <tr>
-                  <td colSpan={7} className="empty-cell">{t('opsPage.empty.documents')}</td>
+                  <td colSpan={8} className="empty-cell">{t('opsPage.empty.documents')}</td>
                 </tr>
               ) : null}
             </tbody>

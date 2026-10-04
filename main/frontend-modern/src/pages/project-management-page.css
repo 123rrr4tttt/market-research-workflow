@@ -1,0 +1,80 @@
+.projects-page {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The directory is the daily task; setup and evidence remain available below it. */
+.projects-list-panel { order: 1; }
+.projects-readiness-panel { order: 2; }
+.projects-create-panel { order: 3; }
+
+.projects-readiness-panel > .status-line {
+  display: block;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.projects-readiness-panel [data-testid='projects-readiness-action-card'] > * {
+  margin-right: 6px;
+}
+.projects-readiness-panel [data-testid='projects-readiness-action-card'] .inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.project-name-cell {
+  display: grid;
+  gap: 2px;
+}
+
+.project-key-hint,
+.project-technical-details {
+  color: var(--text-muted, #6b7280);
+  font-size: 12px;
+}
+
+.project-more-actions {
+  position: relative;
+}
+
+.project-more-actions summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.project-more-actions summary::-webkit-details-marker { display: none; }
+
+.project-action-menu {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  top: calc(100% + 4px);
+  min-width: 210px;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--border-subtle, #d1d5db);
+  border-radius: 8px;
+  background: var(--surface-raised, #fff);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+}
+
+.project-technical-details {
+  display: grid;
+  gap: 3px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-subtle, #d1d5db);
+}
+
+.project-technical-details code {
+  font-size: 11px;
+}
+
+.projects-list-state {
+  padding: 24px 12px;
+  text-align: center;
+}
+
+.projects-list-state--error {
+  color: var(--status-danger, #b42318);
+}

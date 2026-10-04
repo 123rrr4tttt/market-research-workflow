@@ -304,7 +304,10 @@ class StrictYamlParser:
             indentation = len(raw) - len(raw.lstrip(" "))
             if raw.startswith(" " * indentation + "\t") or raw.startswith("\t"):
                 raise StrictParseError("tab_indentation_unsupported")
-            self.lines.append(ParseLine(indentation, _strip_comment(raw).strip()))
+            content = _strip_comment(raw).strip()
+            if not content:
+                continue
+            self.lines.append(ParseLine(indentation, content))
 
     def parse(self) -> Any:
         if not self.lines:

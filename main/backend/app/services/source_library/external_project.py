@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ipaddress import ip_address
+from ipaddress import ip_address, ip_network
 import socket
 from typing import Annotated, Any, NoReturn
 from urllib.parse import quote_plus, urlsplit
@@ -434,6 +434,8 @@ def _ensure_host_resolves_public(host: str, *, field_name: str) -> None:
         resolved = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
     except socket.gaierror:
         return
+    benchmark_proxy_net = ip_network("198.18.0.0/15")
+    resolved_addresses = []
     for row in resolved:
         sockaddr = row[4] if len(row) > 4 else None
         if not sockaddr:
@@ -445,7 +447,20 @@ def _ensure_host_resolves_public(host: str, *, field_name: str) -> None:
             parsed = ip_address(candidate)
         except ValueError:
             continue
+        resolved_addresses.append(parsed)
         if parsed.is_private or parsed.is_loopback or parsed.is_link_local or parsed.is_reserved or parsed.is_multicast:
+            # Local HTTP proxies may map public origins to RFC 2544 benchmark
+            # addresses before forwarding.  In that narrow case the proxy is
+            # the egress authority; do not reject the origin as private.
+            if parsed in benchmark_proxy_net and all(
+                item in benchmark_proxy_net for item in resolved_addresses
+            ):
+                # Some container/proxy DNS resolvers expose every public origin
+                # through RFC 2544 benchmark addresses without exporting proxy
+                # variables.  The hostname remains the authority and the
+                # runtime fetch path is the egress check; do not reject this
+                # synthetic resolution as a literal private target.
+                continue
             _raise_manifest_failure(
                 _manifest_failure("external_project_manifest_invalid", f"{field_name} cannot resolve to private or non-routable hosts", site=f"{field_name}.resolved_host")
             )

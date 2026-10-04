@@ -204,12 +204,8 @@ def test_frontend_ingest_flow_contract_smoke(client: TestClient):
 
 
 def test_frontend_ingest_flow_headers_derive_project():
-    with (
-        patch("app.main.require_observability_token"),
-        patch("app.main._build_runtime_status", return_value={}),
-    ):
-        client_obj = TestClient(app)
-        resp = client_obj.get("/api/v1/health", headers={"X-Project-Key": "demo_proj"})
+    client_obj = TestClient(app)
+    resp = client_obj.get("/api/v1/health", headers={"X-Project-Key": "demo_proj"})
 
     assert resp.status_code == 200
     assert resp.headers.get("X-Project-Key-Source") == "header"

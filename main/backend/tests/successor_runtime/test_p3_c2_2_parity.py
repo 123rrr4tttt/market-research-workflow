@@ -7,14 +7,14 @@ from typing import Any
 from app.successor_migration.legacy_source_library_c2_2 import (
     LegacySourceLibraryC2_2Adapter,
 )
-from app.successor_runtime.capabilities import source_library_c2_1 as c21
-from app.successor_runtime.capabilities import source_library_c2_2 as c22
-from app.successor_runtime.capabilities import source_library_c2_2_interpreters as c22i
+from app.successor_runtime.capabilities import source_resolution as c21
+from app.successor_runtime.capabilities import source_planning as c22
+from app.successor_runtime.capabilities import source_planning_interpreters as c22i
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.source_library_c2_1 import (
+from app.successor_runtime.capabilities.source_resolution import (
     source_item_definition_content_digest,
 )
-from app.successor_runtime.capabilities.source_library_c2_1_interpreters import (
+from app.successor_runtime.capabilities.source_resolution_interpreters import (
     resolve_source_execution_request,
 )
 

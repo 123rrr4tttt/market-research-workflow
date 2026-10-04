@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import re
 from typing import Annotated, Any, NoReturn
 
 from functorial_kit import Failure
@@ -29,6 +30,8 @@ _TASK_OPTIONAL_KEYS = [
     "source_mode",
     "override_params",
 ]
+
+_RETRIEVAL_MODE_SOURCE_ONLY = "source_only"
 
 _SEARCH_MARKET_OVERRIDE_ALLOWED_KEYS = [
     "enable_extraction",
@@ -108,7 +111,7 @@ def _raise_legacy_agent_batch_failure(failure: Failure) -> NoReturn:
     if failure.code == "approval_token_required":
         # kit:boundary owner=agent_batch.public_abi class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.batch.failure witness=test:test_w02_legacy_lift_preserves_public_exception_observation
         raise ValueError("approval_token is required")
-    if failure.code in {"channel_unknown", "command_required", "lane_invalid", "planner_no_executable_tasks"}:
+    if failure.code in {"channel_unknown", "lane_invalid"}:
         # kit:boundary owner=agent_batch.public_abi class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.batch.failure witness=test:test_w02_legacy_lift_preserves_public_exception_observation
         raise (KeyError(message) if failure.code == "channel_unknown" else ValueError(message))
     # kit:boundary owner=agent_batch.public_abi class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_abi_lift_rejects_non_agent_batch_failure_as_programmer_defect
@@ -983,6 +986,307 @@ def normalize_agent_batch_task(task: dict[str, Any], *, idx: int, default_langua
         "source_mode": str(task.get("source_mode") or source_mode_default or "").strip() or None,
         "override_params": dict(task.get("override_params") or {}),
     }
+
+
+def _detect_language(command: str) -> str:
+    return "zh" if re.search(r"[\u4e00-\u9fff]", str(command or "")) else "en"
+
+
+def _resolve_source_collect_limit(*, tasks: list[dict[str, Any]], default: int = 20) -> int:
+    limits: list[int] = []
+    for task in tasks:
+        channel = str(task.get("channel") or "").strip().lower()
+        if channel not in {"search.market", "source_library"}:
+            continue
+        try:
+            value = int(task.get("max_items") or 0)
+        except (TypeError, ValueError):
+            value = 0
+        if value > 0:
+            limits.append(value)
+    if not limits:
+        return max(1, min(100, int(default or 20)))
+    return max(1, min(100, max(limits)))
+
+
+def _resolve_source_query_terms(*, tasks: list[dict[str, Any]]) -> list[str]:
+    out: list[str] = []
+    for task in tasks:
+        channel = str(task.get("channel") or "").strip().lower()
+        if channel != "search.market":
+            continue
+        for term in list(task.get("query_terms") or []):
+            text = str(term or "").strip()
+            if text and text not in out:
+                out.append(text)
+    return out
+
+
+def _build_search_brief(
+    *,
+    command: str,
+    intent: str,
+    tasks: list[dict[str, Any]],
+    retrieval_mode: str,
+    autonomy_meta: dict[str, Any],
+) -> dict[str, Any]:
+    source_item_keys = [str(task.get("item_key") or "").strip() for task in tasks if str(task.get("channel") or "").strip().lower() == "source_library"]
+    source_item_keys = [item_key for item_key in source_item_keys if item_key]
+    search_strategies = _build_search_strategy_entries(tasks=tasks)
+    return {
+        "intent": str(intent or "market_research_general").strip() or "market_research_general",
+        "goal": str(command or "").strip(),
+        "coverage_axes": _infer_coverage_axes(command=command, tasks=tasks),
+        "time_strategy": {
+            "mode": _resolve_time_strategy_mode(tasks=tasks, retrieval_mode=retrieval_mode),
+            "days_back": _resolve_search_brief_days_back(tasks=tasks),
+        },
+        "search_strategies": search_strategies,
+        "source_preferences": {
+            "attach_source_library": bool(autonomy_meta.get("enabled")) or bool(source_item_keys),
+            "candidate_items": source_item_keys or list(autonomy_meta.get("item_keys") or []),
+        },
+        "stop_conditions": {
+            "min_entity_count": 8,
+            "min_source_domains": 4,
+            "max_search_rounds": 2,
+        },
+    }
+
+
+def _build_search_strategy_entries(*, tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for _index, task in enumerate(tasks, start=1):
+        channel = str(task.get("channel") or "").strip().lower()
+        query_terms = list(task.get("query_terms") or [])
+        if channel == "search.market" and query_terms:
+            label = "broad" if len(entries) == 0 else "precision" if len(entries) == 1 else f"query_{len(entries) + 1}"
+            entries.append({"label": label, "query_terms": query_terms})
+    if entries:
+        return entries
+
+    source_item_keys = [str(task.get("item_key") or "").strip() for task in tasks if str(task.get("channel") or "").strip().lower() == "source_library"]
+    source_item_keys = [item_key for item_key in source_item_keys if item_key]
+    if source_item_keys:
+        return [{"label": "source_library_only", "query_terms": source_item_keys}]
+    return [{"label": "broad", "query_terms": ["市场研究"]}]
+
+
+def _infer_coverage_axes(*, command: str, tasks: list[dict[str, Any]]) -> list[str]:
+    text = f"{command} {' '.join(' '.join(list(task.get('query_terms') or [])) for task in tasks)}".lower()
+    axes: list[str] = []
+
+    axis_hints = [
+        ("products", ("产品", "product", "sku", "device", "terminal")),
+        ("companies", ("公司", "company", "companies", "vendor", "vendors", "厂商", "enterprise")),
+        ("recent_movement", ("最近", "latest", "news", "动态", "发布", "融资", "trend")),
+        ("policy", ("监管", "政策", "regulation", "policy", "standard")),
+        ("pricing", ("价格", "pricing", "price", "报价")),
+    ]
+    for label, hints in axis_hints:
+        if any(hint in text for hint in hints):
+            axes.append(label)
+
+    if not axes:
+        axes.append("market_overview")
+    return axes
+
+
+def _resolve_search_brief_days_back(*, tasks: list[dict[str, Any]]) -> int | None:
+    for task in tasks:
+        days_back = task.get("days_back")
+        if isinstance(days_back, int) and days_back > 0:
+            return days_back
+    return 30
+
+
+def _resolve_time_strategy_mode(*, tasks: list[dict[str, Any]], retrieval_mode: str) -> str:
+    if retrieval_mode == _RETRIEVAL_MODE_SOURCE_ONLY:
+        return "source_only"
+    if any(isinstance(task.get("days_back"), int) and int(task.get("days_back")) <= 30 for task in tasks):
+        return "recent"
+    if any(isinstance(task.get("days_back"), int) and int(task.get("days_back")) > 30 for task in tasks):
+        return "historical_window"
+    return "recent"
+
+
+def _expand_tasks_with_limited_branching(
+    *,
+    tasks: list[dict[str, Any]],
+    search_brief: dict[str, Any],
+    retrieval_mode: str,
+    enable_limited_branching: bool,
+    command: str,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    branching = {
+        "default_enabled": False,
+        "enabled": False,
+        "branch_count": 1,
+        "reason": "disabled",
+        "strategy_labels": [],
+    }
+    if not enable_limited_branching:
+        return tasks, branching
+    if retrieval_mode == _RETRIEVAL_MODE_SOURCE_ONLY:
+        branching["reason"] = "source_only_mode"
+        return tasks, branching
+    if len(tasks) != 1:
+        branching["reason"] = "multi_task_plan"
+        return tasks, branching
+
+    primary_task = dict(tasks[0])
+    if str(primary_task.get("channel") or "").strip().lower() != "search.market":
+        branching["reason"] = "non_search_market_task"
+        return tasks, branching
+
+    coverage_axes = list(search_brief.get("coverage_axes") or [])
+    if len(coverage_axes) < 2:
+        branching["reason"] = "low_ambiguity_prompt"
+        return tasks, branching
+
+    precision_terms = _build_precision_retry_query_terms(command=command, tasks=tasks, search_brief=search_brief)
+    if not precision_terms:
+        branching["reason"] = "precision_variant_unavailable"
+        return tasks, branching
+    if precision_terms == list(primary_task.get("query_terms") or []):
+        branching["reason"] = "no_distinct_precision_variant"
+        return tasks, branching
+
+    default_language = str(primary_task.get("language") or _detect_language(command)).strip().lower() or _detect_language(command)
+    broad_task = normalize_agent_batch_task(
+        {
+            **primary_task,
+            "task_id": str(primary_task.get("task_id") or "search_1"),
+        },
+        idx=1,
+        default_language=default_language,
+    )
+    precision_task = normalize_agent_batch_task(
+        {
+            **primary_task,
+            "task_id": f"{str(primary_task.get('task_id') or 'search_1')}_branch_precision",
+            "query_terms": precision_terms,
+            "max_items": max(1, int(primary_task.get("max_items") or 20)),
+        },
+        idx=2,
+        default_language=default_language,
+    )
+    if broad_task.get("query_terms") == precision_task.get("query_terms"):
+        branching["reason"] = "precision_variant_collapsed"
+        return tasks, branching
+
+    branching.update(
+        {
+            "enabled": True,
+            "branch_count": 2,
+            "reason": "high_ambiguity_prompt",
+            "strategy_labels": ["broad", "precision"],
+        }
+    )
+    return [broad_task, precision_task], branching
+
+
+def _build_precision_retry_query_terms(*, command: str, tasks: list[dict[str, Any]], search_brief: dict[str, Any]) -> list[str]:
+    primary_task = next(
+        (dict(task) for task in tasks if str(task.get("channel") or "").strip().lower() == "search.market"),
+        dict(tasks[0]) if tasks else {},
+    )
+    base_query = " ".join(list(primary_task.get("query_terms") or [])).strip() or str(command or "").strip()
+    if not base_query:
+        return []
+
+    language = str(primary_task.get("language") or _detect_language(command)).strip().lower()
+    coverage_axes = list(search_brief.get("coverage_axes") or [])
+    if language.startswith("zh"):
+        axis_suffix = {
+            "products": "产品",
+            "companies": "公司 厂商",
+            "recent_movement": "发布 融资 动态",
+            "policy": "政策 监管",
+            "pricing": "价格 报价",
+        }
+    else:
+        axis_suffix = {
+            "products": "products devices",
+            "companies": "companies vendors",
+            "recent_movement": "launches funding news",
+            "policy": "policy regulation",
+            "pricing": "pricing price",
+        }
+
+    suffix_tokens: list[str] = []
+    for axis in coverage_axes:
+        suffix = str(axis_suffix.get(str(axis)) or "").strip()
+        if suffix:
+            suffix_tokens.append(suffix)
+    merged_query = " ".join([base_query] + suffix_tokens).strip()
+    return [re.sub(r"\s+", " ", merged_query).strip()]
+
+
+def _apply_retry_action(
+    *,
+    tasks: list[dict[str, Any]],
+    retry_action: dict[str, Any],
+    command: str,
+) -> list[dict[str, Any]]:
+    action = str(retry_action.get("action") or "").strip().lower()
+    rewrite = dict(retry_action.get("rewrite") or {})
+    channel = str(retry_action.get("channel") or "").strip().lower()
+    default_language = _detect_language(command)
+    if action == "stop":
+        return list(tasks)
+
+    normalized: list[dict[str, Any]] = []
+    if action == "attach_source_library":
+        item_key = str(rewrite.get("item_key") or "").strip()
+        if not item_key:
+            return list(tasks)
+        existing_keys = {str(task.get("item_key") or "").strip() for task in tasks}
+        if item_key in existing_keys:
+            return list(tasks)
+        normalized.extend(
+            [
+                normalize_agent_batch_task(task, idx=idx, default_language=default_language)
+                for idx, task in enumerate(tasks, start=1)
+            ]
+        )
+        requested_max_items = rewrite.get("max_items")
+        if requested_max_items is None:
+            requested_max_items = _resolve_source_collect_limit(tasks=normalized, default=20)
+        requested_query_terms = list(rewrite.get("query_terms") or [])
+        if not requested_query_terms:
+            requested_query_terms = _resolve_source_query_terms(tasks=normalized)
+        normalized.append(
+            normalize_agent_batch_task(
+                {
+                    "channel": "source_library",
+                    "item_key": item_key,
+                    "query_terms": requested_query_terms,
+                    "max_items": requested_max_items,
+                    "provider": rewrite.get("provider") or "auto",
+                    "language": rewrite.get("language"),
+                    "scope": rewrite.get("scope"),
+                    "platforms": list(rewrite.get("platforms") or []),
+                    "source_mode": rewrite.get("source_mode"),
+                    "urls": list(rewrite.get("urls") or []),
+                    "override_params": dict(rewrite.get("override_params") or {}),
+                },
+                idx=len(tasks) + 1,
+                default_language=default_language,
+            )
+        )
+        return normalized
+
+    for idx, task in enumerate(tasks, start=1):
+        normalized_task = normalize_agent_batch_task(task, idx=idx, default_language=default_language)
+        if str(normalized_task.get("channel") or "").strip().lower() != channel:
+            normalized.append(normalized_task)
+            continue
+        updated_task = dict(normalized_task)
+        for field, value in rewrite.items():
+            updated_task[field] = value
+        normalized.append(normalize_agent_batch_task(updated_task, idx=idx, default_language=default_language))
+    return normalized
 
 
 def build_agent_batch_submit_item_data(task: dict[str, Any], *, idx: int, default_language: str) -> Annotated[

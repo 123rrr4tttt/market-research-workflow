@@ -136,7 +136,7 @@ class MigratedEndpointEnvelopeContractTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/csv", response.headers.get("content-type", ""))
-        self.assertIn("attachment; filename=lottery_report.csv", response.headers.get("content-disposition", ""))
+        self.assertIn("attachment; filename=market_report.csv", response.headers.get("content-disposition", ""))
         self.assertEqual(response.text, "col1,col2\n1,2\n")
 
     def test_reports_unsupported_format_returns_structured_invalid_input_error(self):

@@ -64,7 +64,7 @@ class MigratedProductsTopicsEnvelopeContractTestCase(unittest.TestCase):
             SimpleNamespace(
                 id=1,
                 name="Product A",
-                category="lottery",
+                category="hardware",
                 source_name="demo-source",
                 source_uri="https://example.com/a",
                 selector_hint=".price",
@@ -94,11 +94,11 @@ class MigratedProductsTopicsEnvelopeContractTestCase(unittest.TestCase):
         rows = [
             SimpleNamespace(
                 id=7,
-                topic_name="California Lotto",
+                topic_name="AI Terminal Market",
                 domains=["example.com"],
                 languages=["en"],
-                keywords_seed=["lottery"],
-                subreddits=["lottery"],
+                keywords_seed=["ai terminal"],
+                subreddits=["ai_terminal"],
                 enabled=True,
                 description="topic description",
             )
@@ -114,7 +114,7 @@ class MigratedProductsTopicsEnvelopeContractTestCase(unittest.TestCase):
         self.assertEqual(payload["status"], "ok")
         self.assertIsNone(payload["error"])
         self.assertEqual(len(payload["data"]["items"]), 1)
-        self.assertEqual(payload["data"]["items"][0]["topic_name"], "California Lotto")
+        self.assertEqual(payload["data"]["items"][0]["topic_name"], "AI Terminal Market")
 
     def test_products_missing_id_returns_structured_not_found_error(self):
         try:

@@ -23,7 +23,7 @@ def _fixture_graph() -> Graph:
     post = GraphNode(type="Post", id=" 42 ", properties={"title": "Projection Fixture"})
     entity_upper = GraphNode(type="Entity", id=" ACME\u200b Corp ", properties={"name": "ACME Corp"})
     entity_lower = GraphNode(type="Entity", id="acme corp", properties={"name": "acme corp duplicate"})
-    keyword = GraphNode(type="Keyword", id=" Lottery   AI ", properties={"label": "Lottery AI"})
+    keyword = GraphNode(type="Keyword", id=" Climate   AI ", properties={"label": "Climate AI"})
     missing = GraphNode(type="Entity", id="Missing Co", properties={"name": "Missing Co"})
 
     return Graph(
@@ -31,7 +31,7 @@ def _fixture_graph() -> Graph:
             "Post:raw-42": post,
             "Entity:upper": entity_upper,
             "Entity:lower": entity_lower,
-            "Keyword:lottery-ai": keyword,
+            "Keyword:climate-ai": keyword,
         },
         edges=[
             GraphEdge(
@@ -43,7 +43,7 @@ def _fixture_graph() -> Graph:
             GraphEdge(
                 type="MENTIONS_KEYWORD",
                 from_node=post,
-                to_node=GraphNode(type="Keyword", id="Lottery AI"),
+                to_node=GraphNode(type="Keyword", id="Climate AI"),
                 properties={},
             ),
             GraphEdge(type="MENTIONS_ENTITY", from_node=post, to_node=missing, properties={}),
@@ -55,7 +55,7 @@ def _fixture_graph() -> Graph:
 def _validate(report: dict) -> list[str]:
     failures: list[str] = []
     node_keys = {str(node.get("key")) for node in report.get("nodes", [])}
-    expected_nodes = {"Post:42", "Entity:acme corp", "Keyword:lottery ai"}
+    expected_nodes = {"Post:42", "Entity:acme corp", "Keyword:climate ai"}
     if node_keys != expected_nodes:
         failures.append(f"node_keys expected={sorted(expected_nodes)} actual={sorted(node_keys)}")
     if report.get("attempted_node_count") != 4:
@@ -78,7 +78,7 @@ def _validate(report: dict) -> list[str]:
     }
     expected_pairs = {
         ("MENTIONS_ENTITY", "Post:42", "Entity:acme corp"),
-        ("MENTIONS_KEYWORD", "Post:42", "Keyword:lottery ai"),
+        ("MENTIONS_KEYWORD", "Post:42", "Keyword:climate ai"),
     }
     if resolved_pairs != expected_pairs:
         failures.append(f"resolved_pairs expected={sorted(expected_pairs)} actual={sorted(resolved_pairs)}")

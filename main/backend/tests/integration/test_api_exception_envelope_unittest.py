@@ -94,7 +94,7 @@ class ApiExceptionEnvelopeIntegrationTestCase(unittest.TestCase):
 
         self.assertIsNotNone(health_route)
 
-        def _raise_http_exception(*, request) -> None:
+        def _raise_http_exception() -> None:
             raise HTTPException(status_code=503, detail="health unavailable")
 
         with patch.object(health_route.dependant, "call", _raise_http_exception):

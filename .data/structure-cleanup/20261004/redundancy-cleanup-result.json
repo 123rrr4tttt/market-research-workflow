@@ -1,0 +1,1012 @@
+{
+  "started_at": "2026-10-04T12:43:18.890210+00:00",
+  "scope": "MRW redundant Docker containers and superseded test images; all data volumes retained",
+  "before_host_free_bytes": 12343586816,
+  "containers": [
+    {
+      "id": "84089629f22084123f53e364ab823822eb08cbd4555d9bcbd795c5770e0a578e",
+      "name": "mrw-repair-capacity-db-20261004",
+      "project": null,
+      "image_id": "sha256:956744bd14e9cbdf639c61c2a2a7c7c2c48a9c8cdd42f7de4ac034f4e96b90f8",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "mrw-repair-capacity-socket-20261004",
+          "source": "/var/lib/docker/volumes/mrw-repair-capacity-socket-20261004/_data",
+          "destination": "/var/run/postgresql"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "f2293a1f7d8874de2bcc85927b5dee0bc31e6abf20520c453bca9fce4588ee31",
+      "name": "mrw-repair-test-db-20261004",
+      "project": null,
+      "image_id": "sha256:956744bd14e9cbdf639c61c2a2a7c7c2c48a9c8cdd42f7de4ac034f4e96b90f8",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "af6ec06eec87e8beda22b9834c17c8818b15b30d1f33a09b6e15d0a44ed5b6fc",
+          "source": "/var/lib/docker/volumes/af6ec06eec87e8beda22b9834c17c8818b15b30d1f33a09b6e15d0a44ed5b6fc/_data",
+          "destination": "/var/lib/postgresql/data"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "223725aac63fe600f21399af40d043df2a29ea66a45b22de373e0521efd458f6",
+      "name": "mrw-repair-20261004-celery-worker-1",
+      "project": "mrw-repair-20261004",
+      "image_id": "sha256:069c6800b8bdb274144f20f99515606be78c4675136728cf8d494469fd11a491",
+      "restart_count": 75,
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/main/backend",
+          "destination": "/app"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/host_mnt/private/tmp/mrw-repair-20261004/data",
+          "destination": "/app/.data"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/信息源库",
+          "destination": "/app/信息源库"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/Desktop/functorial-kit/python",
+          "destination": "/opt/functorial-kit"
+        },
+        {
+          "type": "volume",
+          "name": "mrw-repair-20261004_codex_auth",
+          "source": "/var/lib/docker/volumes/mrw-repair-20261004_codex_auth/_data",
+          "destination": "/root/.codex"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/host_mnt/Users/wangyiliang/market-research-workflow/src",
+          "destination": "/opt/mrw/src"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/tmp/mrw-repair-20261004/logs",
+          "destination": "/var/log/celery"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "9277297e63da80ba1c94a4302e99c239ed80af97e85e0fd970670659f0351fbe",
+      "name": "mrw-repair-20261004-backend-1",
+      "project": "mrw-repair-20261004",
+      "image_id": "sha256:4b6dd0dc5c9aab1c61654b825db6dc28dd115c3825de7d0e70084d6a1ff8a989",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/host_mnt/Users/wangyiliang/market-research-workflow/main/backend",
+          "destination": "/app"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/host_mnt/Users/wangyiliang/market-research-workflow/main/backend/docker-entrypoint.sh",
+          "destination": "/docker-entrypoint.sh"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/host_mnt/private/tmp/mrw-repair-20261004/data",
+          "destination": "/app/.data"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/host_mnt/Users/wangyiliang/market-research-workflow/信息源库",
+          "destination": "/app/信息源库"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/host_mnt/Users/wangyiliang/Desktop/functorial-kit/python",
+          "destination": "/opt/functorial-kit"
+        },
+        {
+          "type": "volume",
+          "name": "mrw-repair-20261004_codex_auth",
+          "source": "/var/lib/docker/volumes/mrw-repair-20261004_codex_auth/_data",
+          "destination": "/root/.codex"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/host_mnt/Users/wangyiliang/market-research-workflow/src",
+          "destination": "/opt/mrw/src"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/host_mnt/private/tmp/mrw-repair-20261004/logs",
+          "destination": "/var/log/celery"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "f620cff48a0bb153948f05f2ad576a74c40078970295403c11cdcd8aaf3e3353",
+      "name": "mrw-repair-20261004-db-1",
+      "project": "mrw-repair-20261004",
+      "image_id": "sha256:956744bd14e9cbdf639c61c2a2a7c7c2c48a9c8cdd42f7de4ac034f4e96b90f8",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "mrw-repair-20261004_db_data",
+          "source": "/var/lib/docker/volumes/mrw-repair-20261004_db_data/_data",
+          "destination": "/var/lib/postgresql/data"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "455d2cf76531dbd6cfe4fba017789a7b82aa94fb694adac40e62d95782c3d542",
+      "name": "mrw-repair-20261004-redis-1",
+      "project": "mrw-repair-20261004",
+      "image_id": "sha256:71da9275c5f3fcb97d0fa0c8c5b36cc995327265420f17a04bfd544f458059f7",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "69c7857e8da733f867cb16a440326d5d67b655d7a20d790691e272954e008dcb",
+          "source": "/var/lib/docker/volumes/69c7857e8da733f867cb16a440326d5d67b655d7a20d790691e272954e008dcb/_data",
+          "destination": "/data"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "ed0cc3df51e6d270e2c9f03e104ff77fc6edf56391f569c7cd076cea4e696dd7",
+      "name": "mrw-repair-20261004-es-1",
+      "project": "mrw-repair-20261004",
+      "image_id": "sha256:01c1732062b4a846c5ca687b0094b89bad0bfed00c6d71626db32fb8f3131a78",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "mrw-repair-20261004_es_data",
+          "source": "/var/lib/docker/volumes/mrw-repair-20261004_es_data/_data",
+          "destination": "/usr/share/elasticsearch/data"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "06b95436daf612a386334ee0384a6b49c751d991aacdcd383dc7d6ca979f722c",
+      "name": "ops-celery-worker-1",
+      "project": "ops",
+      "image_id": "sha256:069c6800b8bdb274144f20f99515606be78c4675136728cf8d494469fd11a491",
+      "restart_count": 100,
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/main/backend",
+          "destination": "/app"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/信息源库",
+          "destination": "/app/信息源库"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/Desktop/functorial-kit/python",
+          "destination": "/opt/functorial-kit"
+        },
+        {
+          "type": "volume",
+          "name": "ops_codex_auth",
+          "source": "/var/lib/docker/volumes/ops_codex_auth/_data",
+          "destination": "/root/.codex"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/main/logs",
+          "destination": "/var/log/celery"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "83671c3cfb2fc2cad54b35999f44ac52c0988375d61e18d8f5ec094ef9a1e831",
+      "name": "ops-frontend-modern-1",
+      "project": "ops",
+      "image_id": "sha256:87c4483c792453b2e04ff1ad4980570993e047119f89f8041700c4a7b6a85e4b",
+      "restart_count": 0,
+      "mounts": [],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "0587b5322649975dac5386127de848ac4c9595e734f3759c069ac235aa118590",
+      "name": "ops-backend-1",
+      "project": "ops",
+      "image_id": "sha256:4b6dd0dc5c9aab1c61654b825db6dc28dd115c3825de7d0e70084d6a1ff8a989",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/main/backend",
+          "destination": "/app"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/main/backend/docker-entrypoint.sh",
+          "destination": "/docker-entrypoint.sh"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/信息源库",
+          "destination": "/app/信息源库"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/Desktop/functorial-kit/python",
+          "destination": "/opt/functorial-kit"
+        },
+        {
+          "type": "volume",
+          "name": "ops_codex_auth",
+          "source": "/var/lib/docker/volumes/ops_codex_auth/_data",
+          "destination": "/root/.codex"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/main/logs",
+          "destination": "/var/log/celery"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "d65892e75e75c5f5fa355f2411edee04c2dcd31ae5218014a1addf403d86ae66",
+      "name": "ops-db-1",
+      "project": "ops",
+      "image_id": "sha256:956744bd14e9cbdf639c61c2a2a7c7c2c48a9c8cdd42f7de4ac034f4e96b90f8",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "ops_db_data",
+          "source": "/var/lib/docker/volumes/ops_db_data/_data",
+          "destination": "/var/lib/postgresql/data"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "f09a890d6bff3d6068111e6b6e333b4c5ec3c53fcb22f69d15edece6c16ab07c",
+      "name": "ops-redis-1",
+      "project": "ops",
+      "image_id": "sha256:71da9275c5f3fcb97d0fa0c8c5b36cc995327265420f17a04bfd544f458059f7",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "0a5e8e27c6c9425555aac17b586ab02e59c48d236395be2afea151488ec97b1b",
+          "source": "/var/lib/docker/volumes/0a5e8e27c6c9425555aac17b586ab02e59c48d236395be2afea151488ec97b1b/_data",
+          "destination": "/data"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "a399c3c7929269b3108931b22941366b4058c970c46661e453664ed80d1560fe",
+      "name": "ops-es-1",
+      "project": "ops",
+      "image_id": "sha256:01c1732062b4a846c5ca687b0094b89bad0bfed00c6d71626db32fb8f3131a78",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "ops_es_data",
+          "source": "/var/lib/docker/volumes/ops_es_data/_data",
+          "destination": "/usr/share/elasticsearch/data"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "5ce6908f440ac1eb0b72cf8328ea134c9bfa2694dde614b011625d39aced41d8",
+      "name": "ops-launcher-ui-1",
+      "project": "ops",
+      "image_id": "sha256:05a558da40b9b01e8aeeba7896c6b18bf27c8a20a8d0b6b1b7121905cd570f75",
+      "restart_count": 0,
+      "mounts": [],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "88e9831f3ce5de3a3f785045e40e1352cd56fb888bdc5a25179df97b27d25054",
+      "name": "ops-launcher-agent-1",
+      "project": "ops",
+      "image_id": "sha256:0fa157c495de5832e91f0f9a8ddb0051db276097345b78e27f61eac273f6e67e",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow",
+          "destination": "/Users/wangyiliang/market-research-workflow"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/var/run/docker.sock",
+          "destination": "/var/run/docker.sock"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "80e9c261a8632cfe50e16d396372ebcc6a6cc7f442d7e75906f86fa0ec7b9f81",
+      "name": "codex-topology-pg-test",
+      "project": null,
+      "image_id": "sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "6c9d44404f269c55409eaca630274a0a91a277c3fd4d510203f73b5a6034710e",
+          "source": "/var/lib/docker/volumes/6c9d44404f269c55409eaca630274a0a91a277c3fd4d510203f73b5a6034710e/_data",
+          "destination": "/var/lib/postgresql/data"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "98ab6db26e3f8aed9ff4241fc7b415ebe17bc530978aa0c29743295ed87da6ec",
+      "name": "mrw-local-user-celery-worker-1",
+      "project": "mrw-local-user",
+      "image_id": "sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+      "restart_count": 306,
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/host_mnt/Users/wangyiliang/market-research-workflow/main/backend/app",
+          "destination": "/app/app"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/host_mnt/Users/wangyiliang/market-research-workflow/main/backend/llm_prompts",
+          "destination": "/app/llm_prompts"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/Desktop/functorial-kit/python",
+          "destination": "/opt/functorial-kit"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/host_mnt/Users/wangyiliang/market-research-workflow/src",
+          "destination": "/opt/mrw/src"
+        },
+        {
+          "type": "volume",
+          "name": "mrw-local-user_local_user_logs",
+          "source": "/var/lib/docker/volumes/mrw-local-user_local_user_logs/_data",
+          "destination": "/var/log/celery"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "6f7c1235ca1a602914a748d148be5f3f41b0f35ebef02e129110b56183c83304",
+      "name": "mrw-local-user-frontend-modern-1",
+      "project": "mrw-local-user",
+      "image_id": "sha256:f5641ba6d2b50135da1c9c9c3edfd067ed90ecfb37bcb8f0c7580b2e00aaa915",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/main/frontend-modern/dist",
+          "destination": "/usr/share/nginx/html"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "4007cd7526e954d09483d930649baa2082834eda216d2a9296099f43716e8b36",
+      "name": "mrw-local-user-backend-1",
+      "project": "mrw-local-user",
+      "image_id": "sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/main/backend/alembic.ini",
+          "destination": "/app/alembic.ini"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/main/backend/app",
+          "destination": "/app/app"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/main/backend/llm_prompts",
+          "destination": "/app/llm_prompts"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/main/backend/migrations",
+          "destination": "/app/migrations"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/main/backend/seed_data",
+          "destination": "/app/seed_data"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/Desktop/functorial-kit/python",
+          "destination": "/opt/functorial-kit"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow/src",
+          "destination": "/opt/mrw/src"
+        },
+        {
+          "type": "volume",
+          "name": "mrw-local-user_local_user_logs",
+          "source": "/var/lib/docker/volumes/mrw-local-user_local_user_logs/_data",
+          "destination": "/var/log/celery"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "0ab86dc9afef8809b12039db1b49c4b7116c36c626227642961784647209ab12",
+      "name": "mrw-local-user-db-1",
+      "project": "mrw-local-user",
+      "image_id": "sha256:956744bd14e9cbdf639c61c2a2a7c7c2c48a9c8cdd42f7de4ac034f4e96b90f8",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "mrw-local-user_db_data",
+          "source": "/var/lib/docker/volumes/mrw-local-user_db_data/_data",
+          "destination": "/var/lib/postgresql/data"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "0efdeacdcb360aea0d5cf72e323655f7467d4a67f51bac1a5b7b79ce0bf3cc1f",
+      "name": "mrw-local-user-redis-1",
+      "project": "mrw-local-user",
+      "image_id": "sha256:71da9275c5f3fcb97d0fa0c8c5b36cc995327265420f17a04bfd544f458059f7",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "mrw-local-user_local_user_redis",
+          "source": "/var/lib/docker/volumes/mrw-local-user_local_user_redis/_data",
+          "destination": "/data"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "c3c2aaecd5a7263a2e436f9a1deccc914175e73943554b6c226b53b372c95cd6",
+      "name": "mrw-local-user-es-1",
+      "project": "mrw-local-user",
+      "image_id": "sha256:01c1732062b4a846c5ca687b0094b89bad0bfed00c6d71626db32fb8f3131a78",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "mrw-local-user_es_data",
+          "source": "/var/lib/docker/volumes/mrw-local-user_es_data/_data",
+          "destination": "/usr/share/elasticsearch/data"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "66370326f4eaa4564725da4389d33b9fd74b223cdb49b9afd44c236b521c1291",
+      "name": "mrw-launcher-launcher-agent-1",
+      "project": "mrw-launcher",
+      "image_id": "sha256:8e7a68641868936350cf70fe1f00acaba675d972bbfe5d93dc5008116193ca34",
+      "restart_count": 0,
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/wangyiliang/market-research-workflow",
+          "destination": "/Users/wangyiliang/market-research-workflow"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/var/run/docker.sock",
+          "destination": "/var/run/docker.sock"
+        }
+      ],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    },
+    {
+      "id": "4d41b57394bd8e7bae5148f3c24f5bc097dbac8366faffbf41265fca8e04a499",
+      "name": "mrw-launcher-launcher-ui-1",
+      "project": "mrw-launcher",
+      "image_id": "sha256:feec1979215030b930f9b440905b51b5cbcea008d96233fa154ab73275713334",
+      "restart_count": 0,
+      "mounts": [],
+      "reason": "superseded by verified launchd daily stack or completed isolated test"
+    }
+  ],
+  "operations": [
+    {
+      "kind": "container_remove",
+      "name": "mrw-repair-capacity-db-20261004",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "mrw-repair-test-db-20261004",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "mrw-repair-20261004-celery-worker-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "mrw-repair-20261004-backend-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "mrw-repair-20261004-db-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "mrw-repair-20261004-redis-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "mrw-repair-20261004-es-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "ops-celery-worker-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "ops-frontend-modern-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "ops-backend-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "ops-db-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "ops-redis-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "ops-es-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "ops-launcher-ui-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "ops-launcher-agent-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "codex-topology-pg-test",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "mrw-local-user-celery-worker-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "mrw-local-user-frontend-modern-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "mrw-local-user-backend-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "mrw-local-user-db-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "mrw-local-user-redis-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "mrw-local-user-es-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "mrw-launcher-launcher-agent-1",
+      "exit": 0
+    },
+    {
+      "kind": "container_remove",
+      "name": "mrw-launcher-launcher-ui-1",
+      "exit": 0
+    },
+    {
+      "kind": "image_tag_remove",
+      "reference": "mrw-readiness-tests-20261004-backend-test:latest",
+      "id": "sha256:feb1cece16c6bf4015d1de38a30545f4014267adf3e2067112aa9af8465a989a",
+      "logical_size_bytes": 1383650067,
+      "other_current_tags_retained": [],
+      "reason": "superseded by mrw-repair-tests-20261004 or current ops images; no container reference",
+      "exit": 0
+    },
+    {
+      "kind": "image_tag_remove",
+      "reference": "mrw-simp02-20261003-backend-test:latest",
+      "id": "sha256:c798985fc40e57cd06b94262f030f0b47c4b48ee9bcc038808cd8d87caee82be",
+      "logical_size_bytes": 1386259632,
+      "other_current_tags_retained": [],
+      "reason": "superseded by mrw-repair-tests-20261004 or current ops images; no container reference",
+      "exit": 0
+    },
+    {
+      "kind": "image_tag_remove",
+      "reference": "mrw-simp02-20261003-backend:latest",
+      "id": "sha256:1e6b9527067e471b40b6a53e89840c1039ab69fb0758941fda85927ab4118b04",
+      "logical_size_bytes": 1411201507,
+      "other_current_tags_retained": [],
+      "reason": "superseded by mrw-repair-tests-20261004 or current ops images; no container reference",
+      "exit": 0
+    },
+    {
+      "kind": "image_tag_remove",
+      "reference": "mrw-simp11-graph-20261003-backend:latest",
+      "id": "sha256:4b6dd0dc5c9aab1c61654b825db6dc28dd115c3825de7d0e70084d6a1ff8a989",
+      "logical_size_bytes": 1406190639,
+      "other_current_tags_retained": [
+        "ops-backend:latest"
+      ],
+      "reason": "superseded by mrw-repair-tests-20261004 or current ops images; no container reference",
+      "exit": 0
+    },
+    {
+      "kind": "image_tag_remove",
+      "reference": "mrw-frontend-repair:local",
+      "id": "sha256:385500747d33dda0dff4fc6a5edee202cf710c4fad49fc94bcc155e37ee1a2fc",
+      "logical_size_bytes": 123919580,
+      "other_current_tags_retained": [],
+      "reason": "superseded by mrw-repair-tests-20261004 or current ops images; no container reference",
+      "exit": 0
+    },
+    {
+      "kind": "network_remove",
+      "name": "mrw-launcher_default",
+      "id": "c7f3c60ad935bb08e12aa059b0d1903a68d82a1a3726e62420293667e30bae68",
+      "exit": 0
+    },
+    {
+      "kind": "network_remove",
+      "name": "mrw-local-user_default",
+      "id": "f5aef01d2880515f12c512d858821fdfdeb0ad8c70c8e7b20ba19abf5607f52a",
+      "exit": 0
+    },
+    {
+      "kind": "network_remove",
+      "name": "mrw-readiness-tests-20261004_default",
+      "id": "7b629ac2c38b546623829aa128d1c9024ae7a61cffb3c0c1663309e11464806b",
+      "exit": 0
+    },
+    {
+      "kind": "network_remove",
+      "name": "mrw-repair-20261004_default",
+      "id": "d9a83a04d7f8c75b555b4197274784f78bf17798a2495855df4d1b29e0325d18",
+      "exit": 0
+    },
+    {
+      "kind": "network_remove",
+      "name": "mrw-simp09-20261003_default",
+      "id": "285b27fa7366db6de05ef0bc050be824251077e2bf12d1b353a473702ec97343",
+      "exit": 0
+    }
+  ],
+  "retained": [
+    {
+      "name": "ops-scrapyd-1",
+      "reason": "protected crawler data/service"
+    },
+    {
+      "object": "all named and anonymous volumes",
+      "reason": "database/log/auth data and unclassified recovery inputs preserved"
+    },
+    {
+      "object": "shared BuildKit cache",
+      "reason": "mixed tasks, no safe per-task ownership"
+    },
+    {
+      "object": "r13x/stage4 and other frozen release images",
+      "reason": "exact replay and historical recovery bindings"
+    },
+    {
+      "object": "mrw-repair-tests-20261004:latest",
+      "reason": "current validated test environment"
+    },
+    {
+      "object": "browser profile cookies and settings; private rollback plist; current host OAuth and WebUI SQLite",
+      "reason": "authentication state and necessary rollback inputs"
+    }
+  ],
+  "before_docker_system_df_verbose": "Images space usage:\n\nREPOSITORY                                      TAG                                        IMAGE ID       CREATED         SIZE      SHARED SIZE   UNIQUE SIZE   CONTAINERS\nmrw-repair-tests-20261004                       latest                                     e48f7159d5aa   18 hours ago    1.47GB    738.9MB       731.3MB       0\nmrw-readiness-tests-20261004-backend-test       latest                                     feb1cece16c6   19 hours ago    1.38GB    1.305GB       78.91MB       0\nmrw-simp02-20261003-backend-test                latest                                     c798985fc40e   40 hours ago    1.39GB    1.305GB       81.52MB       0\nmrw-simp02-20261003-backend                     latest                                     1e6b9527067e   40 hours ago    1.41GB    1.33GB        81.54MB       0\nops-frontend-modern                             latest                                     87c4483c7924   7 days ago      124MB     100.6MB       23.2MB        1\nops-backend-test                                latest                                     83757acf202b   7 days ago      1.37GB    139.7MB       1.23GB        0\nops-celery-worker                               latest                                     069c6800b8bd   8 days ago      1.41GB    1.406GB       17.27kB       2\nmrw-simp11-graph-20261003-backend               latest                                     4b6dd0dc5c9a   8 days ago      1.41GB    1.406GB       17.26kB       2\nops-launcher-agent                              latest                                     0fa157c495de   10 days ago     168MB     78.86MB       89.49MB       1\nmrw-launcher-launcher-agent                     latest                                     8e7a68641868   13 days ago     168MB     78.86MB       89.49MB       1\n<none>                                          <none>                                     8c221b83ce24   13 days ago     224MB     223.7MB       36.23kB       0\nmrw-launcher-launcher-ui                        latest                                     f9a606e271af   13 days ago     76.1MB    76.06MB       18kB          1\nops-launcher-ui                                 latest                                     05a558da40b9   13 days ago     76.1MB    76.06MB       17.98kB       1\nyacy/yacy_search_server                         latest                                     62f43ca701fb   13 days ago     1.16GB    32B           1.155GB       0\nsearxng/searxng                                 latest                                     76f9ec5b3832   13 days ago     376MB     0B            375.9MB       0\nmrw-local/stage4-business001                    stage4-c9-effect                           f247a1492400   3 weeks ago     691MB     690MB         579.7kB       2\nmrw-r13w-review                                 temp                                       4510eed4c67a   3 weeks ago     689MB     92.7MB        596.4MB       0\n<none>                                          <none>                                     74f3123b4556   3 weeks ago     184MB     198MB         -1.393e+07B   0\nmrw-stage3-r13o-tests                           local                                      061eaef70efb   3 weeks ago     1.33GB    223.7MB       1.102GB       0\nmrw-r13n-migration-exact                        test                                       dcb22203acd3   3 weeks ago     1.32GB    1.287GB       33.46MB       0\nmrw-r13n-backend-exact                          test                                       66807fd419c5   3 weeks ago     1.32GB    1.287GB       33.44MB       0\nmrw-r13n-backend-preview                        test                                       e5736a25fe02   3 weeks ago     1.32GB    1.287GB       33.48MB       0\nmrw-stage3-r13l-backend                         test                                       06356c352508   3 weeks ago     1.33GB    1.274GB       54.45MB       0\npython                                          3.11-slim-trixie                           9534e5a8e315   4 weeks ago     424MB     421.7MB       2.232MB       0\nredis                                           7.4                                        71da9275c5f3   5 weeks ago     192MB     32B           192.3MB       3\npgvector/pgvector                               pg16                                       ccc6e83d6e35   7 weeks ago     640MB     0B            639.8MB       1\npostgres                                        16-alpine                                  cf78e76683b9   7 weeks ago     411MB     13.49MB       397.8MB       0\nmoby/buildkit                                   buildx-stable-1                            28a898719c18   2 months ago    347MB     2B            347.3MB       0\nalpine                                          3.20                                       d9e853e87e55   5 months ago    13.7MB    0B            13.66MB       0\n<none>                                          <none>                                     6573196e5dbe   11 months ago   507MB     0B            507MB         0\naquasec/trivy                                   0.67.2                                     e2b22eac59c0   11 months ago   226MB     0B            225.5MB       0\nnginx                                           1.27-alpine                                65645c7bb6a0   17 months ago   150MB     75.88MB       74.48MB       0\ndocker.elastic.co/elasticsearch/elasticsearch   8.15.3                                     01c1732062b4   24 months ago   1.35GB    0B            1.35GB        3\nankane/pgvector                                 latest                                     956744bd14e9   2 years ago     1.28GB    0B            1.285GB       5\nvimagick/scrapyd                                latest                                     d1f1f7a82419   3 years ago     784MB     0B            783.8MB       1\ngcr.io/distroless/python3-debian12              nonroot                                    7d1042ce588a   56 years ago    80.3MB    80.28MB       17.97kB       0\nmrw-local/r13x-candidate-migration-runner       8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2   3b409669bb82   56 years ago    692MB     690MB         1.864MB       0\npython                                          3.11-alpine3.22                            a4fc589b32e8   56 years ago    84MB      0B            84.02MB       0\nmrw-local/r13w-candidate-migration-runner       6aa7518750f2c29229a443f73248c8133f192e4d   35b37cc4eb89   56 years ago    149MB     212.5MB       -6.325e+07B   0\ncgr.dev/chainguard/wolfi-base                   latest                                     65e1acb87a2b   56 years ago    25.3MB    0B            25.28MB       0\npython                                          3.11-alpine3.23                            6f7ffcbabc08   56 years ago    93.4MB    92.7MB        703.1kB       0\nmrw-local/r13w-candidate-frontend               6aa7518750f2c29229a443f73248c8133f192e4d   bcdb54504942   56 years ago    126MB     124.5MB       965.2kB       1\n<none>                                          <none>                                     59f120f1c0a1   56 years ago    124MB     100.6MB       23.02MB       0\nmrw-frontend-repair                             local                                      385500747d33   56 years ago    124MB     100.6MB       23.33MB       0\nmrw-local/r13x-candidate-frontend               8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2   f5641ba6d2b5   56 years ago    126MB     124.5MB       965.2kB       1\nmrw-local/r13w-candidate-backend                6aa7518750f2c29229a443f73248c8133f192e4d   8ef7235b26d0   56 years ago    149MB     212.5MB       -6.324e+07B   0\npython                                          3.11-slim-bookworm                         528257d48c1d   56 years ago    199MB     0B            198.6MB       0\ngcr.io/distroless/python3-debian12              latest                                     2fdb05402a2c   56 years ago    80.3MB    80.28MB       17.96kB       0\nmrw-local/r13x-candidate-backend                8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2   d72688f24fb8   56 years ago    692MB     690MB         1.872MB       0\n\nContainers space usage:\n\nCONTAINER ID   IMAGE                                                                        COMMAND                  LOCAL VOLUMES   SIZE      CREATED        STATUS                                 NAMES\n84089629f220   ankane/pgvector:latest                                                       \"docker-entrypoint.s…\"   1               4.1kB     5 hours ago    Exited (0) 3 hours ago                 mrw-repair-capacity-db-20261004\nf2293a1f7d88   ankane/pgvector:latest                                                       \"docker-entrypoint.s…\"   1               16.4kB    18 hours ago   Exited (0) 3 hours ago                 mrw-repair-test-db-20261004\n223725aac63f   ops-celery-worker:latest                                                     \"/docker-entrypoint.…\"   1               45.1kB    18 hours ago   Exited (137) 48 minutes ago            mrw-repair-20261004-celery-worker-1\n9277297e63da   ops-backend:latest                                                           \"/docker-entrypoint.…\"   1               1.77MB    18 hours ago   Exited (137) 3 hours ago               mrw-repair-20261004-backend-1\nf620cff48a0b   ankane/pgvector:latest                                                       \"docker-entrypoint.s…\"   1               16.4kB    18 hours ago   Exited (0) 3 hours ago                 mrw-repair-20261004-db-1\n455d2cf76531   redis:7.4                                                                    \"docker-entrypoint.s…\"   1               4.1kB     18 hours ago   Exited (0) 3 hours ago                 mrw-repair-20261004-redis-1\ned0cc3df51e6   docker.elastic.co/elasticsearch/elasticsearch:8.15.3                         \"/bin/tini -- /usr/l…\"   1               467kB     18 hours ago   Exited (137) 3 hours ago               mrw-repair-20261004-es-1\n06b95436daf6   ops-celery-worker                                                            \"/docker-entrypoint.…\"   1               41kB      3 days ago     Up About a minute (health: starting)   ops-celery-worker-1\n83671c3cfb2f   ops-frontend-modern                                                          \"/docker-entrypoint.…\"   0               127kB     3 days ago     Exited (0) 3 days ago                  ops-frontend-modern-1\n0587b5322649   ops-backend                                                                  \"/docker-entrypoint.…\"   1               57.3kB    3 days ago     Exited (0) 3 days ago                  ops-backend-1\nd65892e75e75   ankane/pgvector:latest                                                       \"docker-entrypoint.s…\"   1               20.5kB    3 days ago     Exited (255) 5 hours ago               ops-db-1\nf09a890d6bff   redis:7.4                                                                    \"docker-entrypoint.s…\"   1               4.1kB     3 days ago     Exited (255) 5 hours ago               ops-redis-1\na399c3c79292   docker.elastic.co/elasticsearch/elasticsearch:8.15.3                         \"/bin/tini -- /usr/l…\"   1               291kB     3 days ago     Exited (143) 3 days ago                ops-es-1\n5ce6908f440a   ops-launcher-ui                                                              \"/docker-entrypoint.…\"   0               77.8kB    8 days ago     Exited (0) 5 days ago                  ops-launcher-ui-1\n88e9831f3ce5   ops-launcher-agent                                                           \"python /agent/launc…\"   0               2.46MB    8 days ago     Exited (137) 5 days ago                ops-launcher-agent-1\n80e9c261a863   pgvector/pgvector:pg16                                                       \"docker-entrypoint.s…\"   1               16.4kB    10 days ago    Exited (0) 10 days ago                 codex-topology-pg-test\n98ab6db26e3f   mrw-local/stage4-business001:stage4-c9-effect                                \"/docker-entrypoint.…\"   1               77.8kB    11 days ago    Exited (137) 10 days ago               mrw-local-user-celery-worker-1\n6f7c1235ca1a   mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2   \"/docker-entrypoint.…\"   0               77.8kB    11 days ago    Exited (0) 11 days ago                 mrw-local-user-frontend-modern-1\n4007cd7526e9   mrw-local/stage4-business001:stage4-c9-effect                                \"/docker-entrypoint.…\"   1               86kB      11 days ago    Exited (0) 11 days ago                 mrw-local-user-backend-1\n0ab86dc9afef   ankane/pgvector:latest                                                       \"docker-entrypoint.s…\"   1               16.4kB    11 days ago    Exited (0) 11 days ago                 mrw-local-user-db-1\n0efdeacdcb36   redis:7.4                                                                    \"docker-entrypoint.s…\"   1               4.1kB     11 days ago    Exited (0) 11 days ago                 mrw-local-user-redis-1\nc3c2aaecd5a7   docker.elastic.co/elasticsearch/elasticsearch:8.15.3                         \"/bin/tini -- /usr/l…\"   1               283kB     11 days ago    Exited (143) 11 days ago               mrw-local-user-es-1\n3b36264b392b   vimagick/scrapyd:latest                                                      \"tini -- scrapyd --p…\"   2               20.5kB    13 days ago    Exited (143) 11 days ago               ops-scrapyd-1\n66370326f4ea   mrw-launcher-launcher-agent                                                  \"python /agent/launc…\"   0               2.68MB    13 days ago    Exited (137) 3 days ago                mrw-launcher-launcher-agent-1\n4d41b57394bd   feec19792150                                                                 \"/docker-entrypoint.…\"   0               77.8kB    13 days ago    Exited (0) 3 days ago                  mrw-launcher-launcher-ui-1\n\nLocal Volumes space usage:\n\nVOLUME NAME                                                        LINKS     SIZE\n2b8fe44acc77413a513d7275c5ff70fca34bf842ac88ea5129599836ee439037   0         57.04MB\n8b927dd38fdb0577bbdc241bcb13d5376b21942e93f8603094bc08c799b8d113   0         56.79MB\n95782ad41162aa23e30db020cd9dbd05258b6a62b662c2d3c882c8608e881137   1         0B\naf6ec06eec87e8beda22b9834c17c8818b15b30d1f33a09b6e15d0a44ed5b6fc   1         128.9MB\nmrw-local-user_local_user_logs                                     2         30.08kB\nmrw-repair-20261004_codex_auth                                     2         0B\n1c63155f6434c937d84a53957f0b95dd703bafff87c3bd769887c3c5bca1ca88   0         42.5MB\n384730d316b427656c8ab5f24f2d1450ecdc19cad2e2fbd47bc9a666a5f3781f   0         39.97MB\n6e88c7746f21f2c67742a54abb665bf88e043bc20f011f3012661446b33accac   0         39.97MB\n7ba65afba49d41381a07016e7027574e38291e74e0e26ffbabcbeb3d8197c80c   0         40.01MB\ne0d088c0fc8aad9ffa971506d55439399c615dffc63e28437dcf2999ae737719   0         39.97MB\nfcbb6067eaa03795656806250b01c1a7a69519dacad19aa75031ec4aebf1634e   0         40.2MB\nops_db_data                                                        1         90.36MB\naf14dd355831d8b087e01d838633c75d16e6977ef1791a1c33f56d76598a3f6f   0         56.82MB\nd7be092734aeb32d51bb9f64f36ed96a73f7e2cdb2453d476b6c16afe2b6f82f   1         1.009kB\nops_codex_auth                                                     2         390MB\nops_es_data                                                        1         40.22kB\n07b35ddddd567a73eadf065eac1856b382f5f780b2063f18cd226cdea742e709   0         0B\n1e987aaade6c90a6dd87a840378d944301c0e0ddc69aea50eeeff640ae12af0b   0         89B\n27d6a951f0f141888701626de8a74f78f303e8aa4399692ba188307eec0d87bf   0         4.437kB\n3d3249ad156e501dd303c0e504b37ca2123c2ffc376c3d0a64e19920c5334354   0         0B\n4e2bafae97e15ad6d4d65d47e6ce55320df63baa676cd45947e2d8d0958e6b38   0         57.21MB\n633e6666146babcddcec128fd31c32f25bac2690cca7200b66b40572718ea5e2   0         0B\nmrw-readiness-tests-20261004_es_data                               0         0B\n0554953c9815d47aba4557bfad10e9054e0d5ff062710c01d73fa3e6dc7a8e07   0         39.97MB\n06e11f67dd60e1661f43aa2198bb78ff0d58dab063fb8d753e6113c8793a42be   0         56.82MB\n0a5b135fce70ecade3b6cb2f6a7620bff2eb4c4cd3ad9ee704417e57648c44ab   0         0B\n69c7857e8da733f867cb16a440326d5d67b655d7a20d790691e272954e008dcb   1         77.19kB\nc72fbd038ffe519f143a891733f0ccf2a464c6981edf85f98a04f25cc32d7f4b   0         48.3MB\nd6e22e89accab8484486eda9bb08aa44d1e29667b743248317a75f80e080054a   0         41.5MB\ne73b34ea19586a64649ed1cd6657017d31e1f8faf7b90a99ee64ed4e6a2936f1   0         42.5MB\nmrw-local-user_db_data                                             1         67.5MB\n0a5e8e27c6c9425555aac17b586ab02e59c48d236395be2afea151488ec97b1b   1         16.96kB\n1ec49f3d7e6d33cd70081304286e4800bad35a4e3b1234a2c1996623c65becef   0         42.55MB\n4274868e3e671cf446141999058938e03c110c60a9ff925c1366b56a3728d453   0         613B\n66e4015be00e10453533355795b9fc492f43004705ee9894d2c9c990d4cfc824   0         143B\n6c9d44404f269c55409eaca630274a0a91a277c3fd4d510203f73b5a6034710e   1         40.65MB\nc1cb0c9889e0b47ddfced795e885e70631151d88741a689a3065435265e8946a   0         0B\nfd3dfe30c971a2dc8ef1dcdea78782a883ff0ab9189ef62b267022e606f403ab   0         39.97MB\nmrw-readiness-tests-20261004_db_data                               0         0B\n715f6921689b235d918380f6c4d841d2f6f7b87ed70eaa2bf18d1c0859cb44bd   0         42MB\n7a11750ef2c2a4f80df851100be2f45fa4b5f147a3be31f4e0eb5e7a488563a6   0         56.74MB\nbfe41820f155dad5287cf9798726c70157bd366b3f4d394c1b47cb68a5e3b3ef   0         39.97MB\nmrw-local-user_es_data                                             1         68kB\nmrw-local-user_local_user_redis                                    1         1.997MB\nmrw-repair-20261004_db_data                                        1         64.35MB\nmrw-repair-20261004_es_data                                        1         106.9kB\nmrw-repair-capacity-socket-20261004                                1         0B\n6a8a3b479f17a58d4cb80c452774445d92795f8510637d60d4949d16b79af32b   0         39.97MB\n7a4d52317ebf75cb3b9762d3f1c92a86e4786107045413d563a378e66a888310   0         42.5MB\nb053d4efb4c384de76189aaf56b8ea0774288293f955ba46f1ab5b8a017933d5   0         1.009kB\nb1333f40e65199e426d636cb1a233835e2c35f7999801cb06918c4edd95aca1b   0         52.14MB\n\nBuild cache usage: 19.54GB\n\nCACHE ID       CACHE TYPE     SIZE      CREATED        LAST USED      USAGE     SHARED\n6uu5giggp2km   regular        55.8MB    13 days ago                   0         true\nif8jeuyx6vjr   regular        16.6kB    13 days ago                   0         true\nkf10p2phpqvo   regular        17.7MB    11 days ago                   0         false\nixn8hse3ggjj   regular        140MB     3 weeks ago    3 weeks ago    1         true\n1h2rz9ntw4y6   regular        17.7MB    3 weeks ago    3 weeks ago    1         true\nwk98e3m6wid8   regular        66.4MB    3 weeks ago    3 weeks ago    1         true\n3px1ha5060ya   regular        16.6kB    3 weeks ago    3 weeks ago    1         true\nm3kkfdvfr9il   regular        516MB     3 weeks ago    3 weeks ago    1         true\n9qwozdawm9cn   regular        12.9kB    3 weeks ago    3 weeks ago    1         true\njn2bxnrin3h2   regular        12.5kB    3 weeks ago    3 weeks ago    1         true\n4vzmq4e7loj9   regular        536MB     3 weeks ago    3 weeks ago    1         true\nd0v5gj6z4757   regular        54.2MB    3 weeks ago    3 weeks ago    1         true\nwy0l8ife8ii4   regular        9.68kB    3 weeks ago    3 weeks ago    1         true\n2gii3crrkvdq   regular        267kB     3 weeks ago    3 weeks ago    1         true\njhl6izib83wh   regular        12.3kB    3 weeks ago    3 weeks ago    1         true\nllxcbnzprxn6   regular        33.5MB    3 weeks ago    3 weeks ago    1         true\nsaj3o3t43g7a   regular        9.68kB    3 weeks ago    3 weeks ago    1         true\n69v35ffdazdm   regular        12.3kB    3 weeks ago    3 weeks ago    1         true\nkxv5lolkggzk   regular        8.22kB    3 weeks ago    3 weeks ago    2         true\n5mp1nqwmxo3d   regular        12.9MB    3 weeks ago    3 weeks ago    1         true\nmeqv35np9a5x   regular        12.3kB    3 weeks ago    3 weeks ago    1         true\nngmy3a0u8r2l   regular        9.68kB    3 weeks ago    3 weeks ago    1         true\na326n06y31fd   regular        33.4MB    3 weeks ago    3 weeks ago    1         true\n04awrvaccro7   regular        156kB     3 weeks ago    3 weeks ago    3         true\nruufvqp8q396   regular        33.4MB    3 weeks ago    3 weeks ago    1         true\nwmxk9v1qt9ih   regular        8.29kB    3 weeks ago    3 weeks ago    2         true\nmxwusf802z1r   regular        554MB     3 weeks ago    3 weeks ago    1         true\n9h9no6d4knge   regular        33.5MB    3 weeks ago    3 weeks ago    1         true\nrri7gby25zcj   regular        12.9kB    3 weeks ago    3 weeks ago    1         true\n48ufna5djrp4   regular        516MB     3 weeks ago    3 weeks ago    1         true\n2o7npnex9jpt   regular        156kB     3 weeks ago    3 weeks ago    1         true\nk4ikfkkubuzu   regular        13.5MB    3 weeks ago    3 weeks ago    1         true\nxg2dv3uzevhj   regular        208MB     3 weeks ago    3 weeks ago    1         false\niy4pn40kqx5b   regular        16.4MB    3 weeks ago    3 weeks ago    1         true\n2wg2bdatqmvt   regular        6.75MB    3 weeks ago    3 weeks ago    1         false\nxmb4ggmfo9or   regular        8.82kB    3 weeks ago    3 weeks ago    1         true\n87ctg0ceipfr   regular        13.2kB    3 weeks ago    3 weeks ago    1         true\nq8vhfv08tmhr   regular        12.7kB    3 weeks ago    3 weeks ago    1         true\nqqyvjy8slktm   regular        13.5kB    3 weeks ago    3 weeks ago    1         true\njr8l5200nc2j   regular        17.8kB    3 weeks ago    3 weeks ago    1         true\nihonm0t6a3q9   regular        13.4MB    3 weeks ago    3 weeks ago    1         false\nhwja67li8amw   regular        41.6MB    3 weeks ago    3 weeks ago    1         false\n2h4hjsgbet9z   regular        17.6MB    3 weeks ago    3 weeks ago    1         false\nmc05bm3xsb1o   regular        23MB      3 weeks ago    3 weeks ago    1         true\nk8dvy5tvb6ar   regular        29.4kB    3 weeks ago    3 weeks ago    1         true\nvo5binykdd62   regular        8.19kB    3 weeks ago    3 weeks ago    1         false\nvjq7howwj5ip   regular        164kB     3 weeks ago    3 weeks ago    1         false\nij7g7kgjy27i   regular        12.3kB    3 weeks ago    3 weeks ago    1         false\nhgn6ire6vufg   regular        70.7MB    3 weeks ago    3 weeks ago    2         true\nok70kk899a74   regular        13.4MB    3 weeks ago    3 weeks ago    1         false\nlnwx0q7sgh8n   regular        680MB     3 weeks ago    3 weeks ago    2         false\njuzwad19q4r7   regular        335kB     3 weeks ago    3 weeks ago    1         true\nuzgzbzoomo75   regular        29.4kB    3 weeks ago    3 weeks ago    1         true\nr42pg1jevyhb   regular        17.6MB    3 weeks ago    3 weeks ago    1         false\n8sooa4xjaeuv   regular        680MB     3 weeks ago    3 weeks ago    1         false\njy6f3jczocwv   regular        20.9kB    3 weeks ago    3 weeks ago    2         false\n4b07v6l07noq   regular        8.19kB    3 weeks ago    3 weeks ago    1         false\nnvvvwh8niqhw   regular        41.6MB    3 weeks ago    3 weeks ago    1         false\ny5znwc7dkfhj   regular        164kB     3 weeks ago    3 weeks ago    1         false\ngy76fkomoea8   regular        13.4MB    3 weeks ago    3 weeks ago    1         false\nj2kejweuxo4r   regular        17.6MB    3 weeks ago    3 weeks ago    1         false\nxyzyl4xeoh51   regular        12.3kB    3 weeks ago    3 weeks ago    1         false\nbpzfzwcwd191   regular        23MB      3 weeks ago    3 weeks ago    2         true\nlnr6lifqtmet   regular        29.8MB    3 weeks ago    3 weeks ago    1         true\nismk20irtk0k   regular        4.27MB    3 weeks ago    3 weeks ago    1         true\n8ll24dl4gnt8   regular        14.5MB    3 weeks ago    3 weeks ago    1         true\n2qa9a8jfv2hs   regular        249B      3 weeks ago    3 weeks ago    1         true\ncxyqr6jmp4on   regular        3.96MB    3 weeks ago    3 weeks ago    1         false\n8lv8t9f48u9e   regular        13.8kB    3 weeks ago    3 weeks ago    1         false\nugr4dz7uoyf3   regular        8.22kB    3 weeks ago    3 weeks ago    1         false\nbjsyvom8oaws   regular        12.9MB    3 weeks ago    3 weeks ago    1         false\n0y5kyucu7qx8   regular        12.9kB    3 weeks ago    3 weeks ago    1         false\ntyiett9y3lxy   regular        12.6kB    3 weeks ago    3 weeks ago    1         false\nsdrtn31ecmmx   regular        12.7kB    3 weeks ago    3 weeks ago    1         false\niodb8dbwgn40   regular        536MB     3 weeks ago    3 weeks ago    1         false\nzosz24fa5827   regular        174kB     3 weeks ago    3 weeks ago    1         false\nyn5zrkoaiakm   regular        578MB     3 weeks ago    3 weeks ago    1         false\n57b90cm3g7y1   regular        9.68kB    3 weeks ago    3 weeks ago    1         false\ntjp1ksnjr9dz   regular        74.4MB    3 weeks ago    3 weeks ago    2         false\npoooxmt6jvwq   regular        385kB     3 weeks ago    3 weeks ago    1         true\ne0sasq5f9xst   regular        37.2kB    3 weeks ago    3 weeks ago    1         true\nggiaacppbhky   regular        68.3kB    3 weeks ago    3 weeks ago    1         true\ny4sy3311bp8x   regular        29kB      3 weeks ago    3 weeks ago    1         true\ntx130co3pvrk   regular        552MB     3 weeks ago    3 weeks ago    1         true\nqrwrq32hzsbu   regular        156kB     3 weeks ago    3 weeks ago    1         true\nojz7dumsnw63   regular        33.8MB    3 weeks ago    3 weeks ago    1         true\nrdijvb9gam7a   regular        95.9MB    3 weeks ago    3 weeks ago    1         true\ntjws4j0ialmn   regular        68.3kB    3 weeks ago    3 weeks ago    1         false\nu1xnn2f3kn2e   regular        156kB     3 weeks ago    3 weeks ago    1         false\nlx3z1tqiq6d2   regular        12.6kB    3 weeks ago    3 weeks ago    1         false\not81b4w3aiha   regular        8.29kB    3 weeks ago    3 weeks ago    3         true\nexrpd9yvxrhs   regular        385kB     3 weeks ago    3 weeks ago    1         false\nhyy6xbufh8rc   regular        430kB     3 weeks ago    3 weeks ago    1         false\nuxu6s9cu9wkh   regular        552MB     3 weeks ago    3 weeks ago    1         false\nc5xzdq3vvrf8   regular        33.8MB    3 weeks ago    3 weeks ago    1         false\nr0dki7qtlwci   regular        37.2kB    3 weeks ago    3 weeks ago    1         false\na12p20q6oknu   regular        430kB     3 weeks ago    3 weeks ago    1         false\nlac4c8k6r72y   regular        156kB     3 weeks ago    3 weeks ago    1         false\nx3z7ozsvagl4   regular        33.8MB    3 weeks ago    3 weeks ago    1         false\n6zo5hfr62qqe   regular        37.3kB    3 weeks ago    3 weeks ago    1         false\ngdsvrwxwp0pl   regular        551MB     3 weeks ago    3 weeks ago    1         false\no8timb6c3dmd   regular        385kB     3 weeks ago    3 weeks ago    1         false\ndnjrphed1mkt   regular        95.9MB    3 weeks ago    3 weeks ago    2         false\nll40ohyllod3   regular        68.3kB    3 weeks ago    3 weeks ago    1         false\nbe3j7x1qwp19   regular        3.84MB    3 weeks ago    3 weeks ago    1         true\nr1ggy2iy3632   regular        408kB     3 weeks ago    3 weeks ago    1         true\n4k3ay2ljon2q   regular        18.7MB    3 weeks ago    3 weeks ago    1         true\nemhjgfaihebh   regular        28.7kB    3 weeks ago    3 weeks ago    1         false\nboz9cda7em9t   regular        274kB     3 weeks ago    3 weeks ago    1         false\njacpukjo87u5   regular        12.6kB    3 weeks ago    3 weeks ago    1         false\nbqgp91tln2yr   regular        365kB     3 weeks ago    3 weeks ago    1         false\noqmlsbnhdi23   regular        291kB     3 weeks ago    3 weeks ago    1         false\nqujaqvibwnt0   regular        15.5MB    3 weeks ago    3 weeks ago    2         false\n78pysbdi3s0l   regular        37.3kB    3 weeks ago    3 weeks ago    1         false\nbvq2uejk77rs   regular        561kB     3 weeks ago    3 weeks ago    1         false\njnpgyzn7czfu   regular        430kB     3 weeks ago    3 weeks ago    1         false\nvqg5xvkagcgw   regular        546MB     3 weeks ago    3 weeks ago    1         false\ngave9bjje63k   regular        34MB      3 weeks ago    3 weeks ago    1         false\nskgb0dgu3u7r   regular        156kB     3 weeks ago    3 weeks ago    1         false\nmzu1negcsbx3   regular        561kB     3 weeks ago    3 weeks ago    1         false\nmmbu2ahidjly   regular        37.1kB    3 weeks ago    3 weeks ago    1         false\nzc5p9v6o60w2   regular        156kB     3 weeks ago    3 weeks ago    1         false\nmf2a6yfj0qc9   regular        34MB      3 weeks ago    3 weeks ago    1         false\n1i2t6qyjhicy   regular        430kB     3 weeks ago    3 weeks ago    1         false\nxibygna3h08m   regular        546MB     3 weeks ago    3 weeks ago    1         false\nt1jnp06ult25   regular        385kB     3 weeks ago    3 weeks ago    2         false\np84prxm8yb78   regular        8.19kB    3 weeks ago    3 weeks ago    1         false\nvaw60g2chd6z   regular        546MB     3 weeks ago    3 weeks ago    1         true\ntju7kgy5je7d   regular        34MB      3 weeks ago    3 weeks ago    1         true\no8l3ya41u0dq   regular        15.5MB    3 weeks ago    3 weeks ago    1         true\ngglkc214fp06   regular        12.6kB    3 weeks ago    3 weeks ago    1         true\nczl3qnv659i1   regular        9.68kB    3 weeks ago    3 weeks ago    1         true\nysdy498v9nb7   regular        156kB     3 weeks ago    3 weeks ago    1         true\nime66zun307n   regular        561kB     3 weeks ago    3 weeks ago    1         true\nowkof3gta2yu   regular        385kB     3 weeks ago    3 weeks ago    1         true\n782lyxp1apka   regular        37.2kB    3 weeks ago    3 weeks ago    1         true\npowj4mevv5uq   regular        430kB     3 weeks ago    3 weeks ago    1         true\nxm0s1z54d1uz   regular        10.8MB    3 weeks ago    3 weeks ago    1         false\ny2jjdfve46m1   regular        365kB     3 weeks ago    3 weeks ago    1         false\nv4wgvqriz9j5   regular        143kB     3 weeks ago    3 weeks ago    1         false\nxtfeb41ui68o   regular        29.5MB    3 weeks ago    3 weeks ago    1         false\nir2i4l795gov   regular        28.7kB    3 weeks ago    3 weeks ago    1         false\n2cqu14jno2h9   regular        432MB     3 weeks ago    3 weeks ago    1         false\nvjaqub9iy2fj   regular        12.3kB    3 weeks ago    3 weeks ago    1         false\ngzsurlt814ef   regular        295kB     3 weeks ago    3 weeks ago    1         false\nzyh857yizbzg   regular        8.29kB    3 weeks ago    3 weeks ago    3         true\nwkqjezetpiuv   regular        274kB     3 weeks ago    3 weeks ago    1         false\n20af7sjb7cc1   regular        12.3kB    3 weeks ago    3 weeks ago    2         true\nybrxblwqj86i   regular        152MB     3 weeks ago    3 weeks ago    2         false\nskk6xy8daj7l   regular        247B      3 weeks ago    3 weeks ago    4         true\nwel5m11djk3u   regular        774kB     3 weeks ago    3 weeks ago    2         false\ntl3vlalcb4ry   regular        79B       3 weeks ago    3 weeks ago    1         true\n7ryya4h2xg1e   regular        298B      3 weeks ago    3 weeks ago    1         true\ndkna002cftj0   regular        4.65MB    3 weeks ago    3 weeks ago    1         true\nwakcinkmq8b0   regular        110kB     3 weeks ago    3 weeks ago    1         true\nh68micfmylli   regular        8.54kB    3 weeks ago    3 weeks ago    1         true\nnvxrq8elb2id   regular        761kB     3 weeks ago    3 weeks ago    1         true\ndn05qxsagjgh   regular        65.4kB    3 weeks ago    3 weeks ago    1         true\n14qldiels41q   regular        114MB     3 weeks ago    3 weeks ago    1         true\nwocrg54sxv6g   regular        13kB      3 weeks ago    3 weeks ago    1         true\nozx1xu3epst6   regular        4.54MB    3 weeks ago    3 weeks ago    1         true\nwnvz7ncbmue9   regular        1.47kB    3 weeks ago    3 weeks ago    1         true\njmtydqv4z3e3   regular        32B       3 weeks ago    3 weeks ago    1         true\ni0f417hmqq0y   regular        13.9kB    3 weeks ago    3 weeks ago    1         false\nt76r9hq4edqa   regular        13.9kB    3 weeks ago    3 weeks ago    1         false\n9j70m9zgjipi   regular        54.5kB    3 weeks ago    3 weeks ago    1         false\n1od5707de8sa   regular        34kB      3 weeks ago    3 weeks ago    1         false\ndr4wv3dc45qi   regular        13.9kB    3 weeks ago    3 weeks ago    1         false\n5qy7h5dblvl6   regular        78.9kB    3 weeks ago    3 weeks ago    2         false\nq37vq8twl82z   regular        83.4kB    3 weeks ago    3 weeks ago    1         true\nwzcjl7emsk3j   regular        34kB      3 weeks ago    3 weeks ago    1         true\n2seh2jff4a1r   regular        9.78kB    3 weeks ago    3 weeks ago    3         true\ni09rqmxq6utu   regular        54.6kB    3 weeks ago    3 weeks ago    1         true\nd58gqvi3uv5o   regular        80.7kB    3 weeks ago    3 weeks ago    1         false\no6fvgj3nedcs   regular        13.9kB    3 weeks ago    3 weeks ago    1         false\nkrc5kka21lph   regular        275kB     3 weeks ago    3 weeks ago    2         true\ns2k7kq3xpau6   regular        85.4kB    3 weeks ago    3 weeks ago    1         true\nrkvjelcvo2bv   regular        74.8kB    3 weeks ago    3 weeks ago    1         true\neqyettqhtkdf   regular        13.5MB    13 days ago    13 days ago    1         true\nozcsdgjkvntv   regular        3.36MB    13 days ago    13 days ago    1         true\nirxutebzj2lk   regular        62MB      13 days ago    13 days ago    1         true\nxl5tcuc3dtvt   regular        12.8MB    13 days ago    13 days ago    1         true\n5uszc57l018h   regular        7.22MB    13 days ago    13 days ago    1         true\n0cr1213r6lw2   regular        8.82kB    13 days ago    13 days ago    1         true\npct9l51d9mcs   regular        13.2kB    13 days ago    13 days ago    1         true\nrc9jy4bz7a7b   regular        12.7kB    13 days ago    13 days ago    1         true\nlzt8arllwcix   regular        13.5kB    13 days ago    13 days ago    1         true\nf6l9bknh9b02   regular        17.8kB    13 days ago    13 days ago    1         true\nocb513kcfjwx   regular        29.2kB    13 days ago    13 days ago    1         true\nurnjzaaa5p8h   regular        43.2kB    13 days ago    13 days ago    1         true\n29a4482aod2y   regular        42.7kB    13 days ago    13 days ago    1         true\ng9p80qqemtar   regular        48.3kB    13 days ago    13 days ago    1         true\n1sy7hnhnaxfn   regular        43kB      13 days ago    13 days ago    1         true\njgqsg6zfkkwh   regular        89.5MB    13 days ago    13 days ago    1         true\no9kcerumer2r   regular        28.1kB    13 days ago    13 days ago    3         false\nvu6283roz7sk   regular        34.9MB    13 days ago    13 days ago    1         false\nya71nq75gyqw   regular        23MB      13 days ago    13 days ago    1         false\nrmpvl6fhoqkk   regular        29.4kB    13 days ago    13 days ago    1         true\nhgr7r1rh266t   regular        321kB     13 days ago    13 days ago    1         true\np54mtsrdxs7i   regular        17.6MB    13 days ago    13 days ago    1         false\np9m9z8d5up7r   regular        28.1kB    13 days ago    13 days ago    1         false\nuudba4os4nbs   regular        288kB     13 days ago    13 days ago    1         false\nkczdsb3dcxpc   regular        199kB     13 days ago    13 days ago    1         false\nztdhnggj66l2   regular        13.9kB    3 weeks ago    13 days ago    2         true\nx30mtw2r53fp   regular        28.1kB    13 days ago    13 days ago    1         true\njda2h1cx7q7c   regular        8.29kB    13 days ago    13 days ago    3         true\n1qj8qxdkx7ys   regular        17.7MB    11 days ago    11 days ago    1         false\nkdli3woop9w5   regular        35MB      11 days ago    11 days ago    1         false\nnfq6zmhkt2dr   regular        23.1MB    11 days ago    11 days ago    1         false\nqyt0ici68k8y   regular        35MB      11 days ago    11 days ago    1         false\nyg85bisbel1d   regular        17.7MB    11 days ago    11 days ago    1         false\nraeiyjgay0pj   regular        12.7kB    11 days ago    11 days ago    1         false\n4cchns434k6i   regular        279kB     11 days ago    11 days ago    1         false\nywp68kili263   regular        569MB     11 days ago    11 days ago    1         true\nl1b9ldeliygj   regular        12.9kB    11 days ago    11 days ago    1         false\nqiyepda9f2am   regular        3.96MB    11 days ago    11 days ago    1         false\nyie6we5s1f8i   regular        75.2MB    11 days ago    11 days ago    1         false\nibe6y3z28hj9   regular        539MB     11 days ago    11 days ago    1         false\n8ferpf0hy0fg   regular        12.9MB    11 days ago    11 days ago    1         false\n2mjmlwhvsgg9   regular        9.78kB    11 days ago    11 days ago    1         false\nxi9zs3c7wm2c   regular        8.22kB    11 days ago    11 days ago    1         false\ne11mi7iqwr6w   regular        13.9kB    11 days ago    11 days ago    1         false\n7v1589oihnsd   regular        12.6kB    11 days ago    11 days ago    1         false\nv04a01c153dr   regular        35MB      11 days ago    11 days ago    1         false\ndi19g0fm36co   regular        23.1MB    11 days ago    11 days ago    1         false\npv3vy57xd0t7   regular        35MB      11 days ago    11 days ago    1         false\nz6p2go0ox900   regular        17.7MB    11 days ago    11 days ago    1         false\npyh954em2w97   regular        23.1MB    11 days ago    11 days ago    1         false\nxpby01n9cw5u   regular        29.4kB    11 days ago    11 days ago    1         false\nlkvkofrsu8pa   regular        17.7MB    11 days ago    11 days ago    1         false\nvid4y4xi2mhr   regular        35MB      11 days ago    11 days ago    1         false\nerso6ghbiscd   regular        23.1MB    11 days ago    11 days ago    3         false\nbyw9e3s3vvh6   regular        35MB      11 days ago    11 days ago    1         false\nkbonk5v0yeov   regular        22.8MB    11 days ago    11 days ago    1         false\non842uahz05s   regular        17.5MB    11 days ago    11 days ago    1         false\nn9irefj0pf6h   regular        48.2kB    13 days ago    10 days ago    4         true\nk2o689j2fbvr   regular        8.29kB    10 days ago    10 days ago    1         true\n1aviw2oefmn7   regular        89.5MB    10 days ago    10 days ago    1         true\n4nhsyodaldis   regular        28.1kB    10 days ago    10 days ago    1         true\nlull7qqhhjqi   regular        35.1MB    10 days ago    10 days ago    1         false\no9ks54wju77b   regular        17.5MB    10 days ago    10 days ago    1         false\nw5r25pujowwn   regular        22.8MB    10 days ago    10 days ago    1         false\np4g17dsgy89l   regular        35.1MB    10 days ago    10 days ago    1         false\n1erhrxp46xc0   regular        17.5MB    10 days ago    10 days ago    1         false\nqmump72v4hp5   regular        22.8MB    10 days ago    10 days ago    1         false\niodsewvirf54   regular        140MB     10 days ago    10 days ago    1         true\ne4s1fc8tjz2h   regular        6.27MB    10 days ago    10 days ago    1         true\nb6vjacnxig76   regular        66.5MB    10 days ago    10 days ago    1         true\nkcb6hw078rmn   regular        16.6kB    10 days ago    10 days ago    1         true\npw21a4mm20uu   regular        22.8MB    10 days ago    10 days ago    1         false\nhzxktip8k8ob   regular        35.1MB    10 days ago    10 days ago    1         false\np40gwdll9rll   regular        17.5MB    10 days ago    10 days ago    1         false\nyn50kemmk3di   regular        22.8MB    10 days ago    10 days ago    1         false\nkvft0427snqh   regular        17.5MB    10 days ago    10 days ago    1         false\nn7hy20plfal3   regular        35.2MB    10 days ago    10 days ago    1         false\nldt29wirlve6   regular        35.2MB    9 days ago     9 days ago     1         false\n97flbt1fj3k1   regular        17.5MB    9 days ago     9 days ago     1         false\nal1reslfsfwn   regular        22.8MB    9 days ago     9 days ago     1         false\npsdwsae24x7d   regular        35.2MB    9 days ago     9 days ago     1         false\nku2tkcge4vvq   regular        17.5MB    9 days ago     9 days ago     1         false\nw1150nnwzewf   regular        22.8MB    9 days ago     9 days ago     1         false\n4qgl96exajqy   regular        17.5MB    9 days ago     9 days ago     1         false\nv6ykk3skjbyt   regular        35.2MB    9 days ago     9 days ago     1         false\nxhowgutr0z46   regular        22.8MB    9 days ago     9 days ago     1         false\ntnpcy8wf4w0v   regular        35.2MB    9 days ago     9 days ago     1         false\nutasfhhc2dr8   regular        22.8MB    9 days ago     9 days ago     1         false\nb9w8ou3be9x2   regular        17.5MB    9 days ago     9 days ago     1         false\n2kes00pn28vs   regular        17.5MB    9 days ago     9 days ago     1         false\n7hctzviubrh6   regular        35.2MB    9 days ago     9 days ago     1         false\nbi72jqzhw9ss   regular        22.8MB    9 days ago     9 days ago     1         false\npz56b34xp85e   regular        35.2MB    9 days ago     9 days ago     1         false\nusq2g0ab3f1z   regular        22.8MB    9 days ago     9 days ago     1         false\nwo1i4mrom6j6   regular        17.5MB    9 days ago     9 days ago     1         false\nhmrnukbi9zvj   regular        17.5MB    9 days ago     9 days ago     1         false\n34l2jbfk2xjg   regular        22.8MB    9 days ago     9 days ago     1         false\ni3xsu2hmw0l4   regular        35.2MB    9 days ago     9 days ago     1         false\nvql71ayduw53   regular        17.5MB    9 days ago     9 days ago     1         false\n16u2jwb043he   regular        22.8MB    9 days ago     9 days ago     1         false\nzmvu1prdbfgo   regular        35.2MB    9 days ago     9 days ago     1         false\nrhzqp0y708m0   regular        17.5MB    9 days ago     9 days ago     1         false\nqmn9qbmpib48   regular        22.8MB    9 days ago     9 days ago     1         false\nzehz306rfgf8   regular        35.2MB    9 days ago     9 days ago     1         false\n56wi7v5ux0c0   regular        75.8MB    9 days ago     9 days ago     1         false\nzc04oak4g1az   regular        13.9kB    9 days ago     9 days ago     1         false\nljb2w8c1uhnp   regular        9.78kB    9 days ago     9 days ago     1         false\n81sal1i132qh   regular        35.2MB    9 days ago     9 days ago     1         false\nu6bgf7iopxdq   regular        22.8MB    9 days ago     9 days ago     1         false\nu6aqdkkf3n64   regular        17.5MB    9 days ago     9 days ago     1         false\n1l6gollj7wet   regular        9.78kB    8 days ago     8 days ago     1         false\no436gv74tnpu   regular        75.8MB    8 days ago     8 days ago     1         false\nuk060s39l9wx   regular        13.9kB    8 days ago     8 days ago     1         false\nimxs8599s2uk   regular        9.78kB    8 days ago     8 days ago     1         false\nr96a5ffmh0ls   regular        75.8MB    8 days ago     8 days ago     1         false\ns2kselsbu23b   regular        13.9kB    8 days ago     8 days ago     1         false\ne9wlfvakwz7d   regular        9.78kB    8 days ago     8 days ago     1         false\nou93x7c3481j   regular        13.9kB    8 days ago     8 days ago     1         false\nyx7gp1br3bf3   regular        75.8MB    8 days ago     8 days ago     1         false\nbtmutqqxfbmk   regular        9.78kB    8 days ago     8 days ago     1         false\naz1ocg0qvjwl   regular        13.9kB    8 days ago     8 days ago     1         false\nh2jdksks97q1   regular        75.8MB    8 days ago     8 days ago     1         false\no4mtq1ptkqi9   regular        35.2MB    8 days ago     8 days ago     1         false\nj4vnpreydx4r   regular        17.5MB    8 days ago     8 days ago     1         false\nlttq9dh0gnqh   regular        22.8MB    8 days ago     8 days ago     1         false\nd2db34clu85d   regular        75.8MB    8 days ago     8 days ago     1         false\nk3wgbva4q3yc   regular        9.78kB    8 days ago     8 days ago     1         false\nfo5i48x9qyp6   regular        13.9kB    8 days ago     8 days ago     1         false\nstx14cazc04j   regular        22.8MB    8 days ago     8 days ago     1         false\nnwqnux2e8416   regular        35.2MB    8 days ago     8 days ago     1         false\nqdituw232ym5   regular        17.5MB    8 days ago     8 days ago     1         false\nb12yjm82bpze   regular        75.8MB    8 days ago     8 days ago     1         false\ny6y4b1phsvv2   regular        13.9kB    8 days ago     8 days ago     1         false\n1ndapvk4zrom   regular        9.78kB    8 days ago     8 days ago     1         false\nsy84n36dynyp   regular        35.2MB    8 days ago     8 days ago     1         false\nvbe9edprd2nz   regular        17.5MB    8 days ago     8 days ago     1         false\n3o5rzbfx099e   regular        13.9kB    8 days ago     8 days ago     1         false\ns3g247as2m9y   regular        75.8MB    8 days ago     8 days ago     1         false\nh9la1973gqfn   regular        9.78kB    8 days ago     8 days ago     1         false\n5thygns8z32b   regular        17.5MB    8 days ago     8 days ago     1         false\nyci4er1m30qi   regular        35.2MB    8 days ago     8 days ago     1         false\nf03x9s1fleu5   regular        22.8MB    8 days ago     8 days ago     2         false\nxvo5ry5vhic0   regular        22.8MB    8 days ago     8 days ago     1         false\nwiqpvqvtxhf2   regular        17.5MB    8 days ago     8 days ago     1         false\nejlahfg8lfq1   regular        35.2MB    8 days ago     8 days ago     1         false\nwvwtsyk4tgyg   regular        22.8MB    8 days ago     8 days ago     1         false\ndifa4h6cvid2   regular        35.2MB    8 days ago     8 days ago     1         false\nbw4l3q32vajb   regular        17.5MB    8 days ago     8 days ago     1         false\nli1dwuh4euo5   regular        22.8MB    8 days ago     8 days ago     1         false\ni7zazkmjz82d   regular        35.2MB    8 days ago     8 days ago     1         false\ne0frj7jehcs4   regular        17.5MB    8 days ago     8 days ago     1         false\nqmgobtzi0ds1   regular        17.5MB    8 days ago     8 days ago     1         false\n624gcrf61wwe   regular        35.2MB    8 days ago     8 days ago     1         false\nnjpa53eah9lk   regular        22.8MB    8 days ago     8 days ago     1         false\nj59r4bnd4ql1   regular        22.8MB    8 days ago     8 days ago     1         false\nlid3l27xq1w4   regular        17.5MB    8 days ago     8 days ago     1         false\nj1ldj0iud2cn   regular        35.2MB    8 days ago     8 days ago     1         false\nkrvbv62ts9h0   regular        17.5MB    8 days ago     8 days ago     1         false\nz46ifadf31l5   regular        22.8MB    8 days ago     8 days ago     1         false\nt3939ry3ozkr   regular        35.2MB    8 days ago     8 days ago     1         false\nxx64637mjxfv   regular        17.5MB    8 days ago     8 days ago     1         false\n6ci2uipxcslk   regular        35.2MB    8 days ago     8 days ago     1         false\nreo2eqtf5vpu   regular        22.8MB    8 days ago     8 days ago     1         false\nnxgxpd1gi8zt   regular        17.5MB    8 days ago     8 days ago     1         false\ng6nc23el9951   regular        35.2MB    8 days ago     8 days ago     1         false\nrhhd441xsxag   regular        22.8MB    8 days ago     8 days ago     1         false\newiftsyv064b   regular        35.2MB    8 days ago     8 days ago     1         false\noibzflufgaq9   regular        22.8MB    8 days ago     8 days ago     1         false\npqq9gc9hfds6   regular        17.5MB    8 days ago     8 days ago     1         false\nvfhgzyzfaw3o   regular        22.8MB    8 days ago     8 days ago     1         false\nyxjqd9j1y730   regular        17.5MB    8 days ago     8 days ago     1         false\nz7y696vxq48l   regular        35.2MB    8 days ago     8 days ago     1         false\nzn3ptgfxcq4k   regular        35.2MB    8 days ago     8 days ago     1         false\nm2h6nmv1dm5c   regular        17.5MB    8 days ago     8 days ago     1         false\nipth9o5scwp5   regular        22.8MB    8 days ago     8 days ago     1         false\ncal5jgjy7n99   regular        17.5MB    8 days ago     8 days ago     1         false\nw2z4byisd54p   regular        35.3MB    8 days ago     8 days ago     1         false\nwylz8b054kaw   regular        22.8MB    8 days ago     8 days ago     1         false\nhq8grcce0j0v   regular        76.2MB    8 days ago     8 days ago     1         false\n5k2bagwjitrv   regular        9.78kB    8 days ago     8 days ago     1         false\nkdx4uim2cz14   regular        13.9kB    8 days ago     8 days ago     1         false\n326177zblewj   regular        17.5MB    8 days ago     8 days ago     1         false\ninvskk8sdi04   regular        35.3MB    8 days ago     8 days ago     1         false\nnm0cb89oq1wt   regular        22.9MB    8 days ago     8 days ago     1         false\nl72c95ox7i3s   regular        279kB     8 days ago     8 days ago     1         true\nie34xwwc7tby   regular        76.2MB    8 days ago     8 days ago     1         true\nxummuernahw9   regular        13.9kB    8 days ago     8 days ago     1         true\npph9a8bqs9m9   regular        12.9MB    8 days ago     8 days ago     1         true\ngw9u9g3nlrgf   regular        3.96MB    8 days ago     8 days ago     1         true\nefnn1ejhxuim   regular        9.78kB    8 days ago     8 days ago     1         true\nlbsdahnb1c6i   regular        12.7kB    8 days ago     8 days ago     1         true\ndj4v8y8xd8p0   regular        547MB     8 days ago     8 days ago     1         true\nzz60lpnmy5o9   regular        8.22kB    8 days ago     8 days ago     1         true\nokc0qjgn47zb   regular        12.9kB    8 days ago     8 days ago     1         true\nygzdpp1l6eef   regular        12.6kB    8 days ago     8 days ago     1         true\nrg8ddvafvjoe   regular        8.29kB    10 days ago    8 days ago     3         true\ntunxry6tr9g1   regular        516MB     8 days ago     8 days ago     1         true\nl21cwdvtor86   regular        283kB     7 days ago     7 days ago     1         true\nz67dmch9u4tx   regular        12.9kB    8 days ago     7 days ago     2         true\ncpj9cjk40gv3   regular        77MB      7 days ago     7 days ago     1         true\nc1rbwmjul50f   regular        565MB     7 days ago     7 days ago     1         true\nmfjzac1vaozv   regular        22.9MB    7 days ago     7 days ago     1         true\nzqziqsrw37te   regular        35.3MB    7 days ago     7 days ago     1         false\n3ysn4l75ouyf   regular        17.6MB    7 days ago     7 days ago     1         false\n7hk42cvs9r2g   regular        17.7MB    40 hours ago   40 hours ago   1         true\n398w014bdwn9   regular        66.5MB    40 hours ago   40 hours ago   1         true\niiyxl4xq086w   regular        16.6kB    40 hours ago   40 hours ago   1         true\nfo3wlyxen6f0   regular        288kB     40 hours ago   40 hours ago   1         true\nrcet4yy2mw0d   regular        13.9kB    40 hours ago   40 hours ago   1         true\n7a7yd7s2ajov   regular        81.2MB    40 hours ago   40 hours ago   1         true\nhg0ahevk90qb   regular        9.78kB    40 hours ago   40 hours ago   1         true\nvgjpj79q3uhq   regular        516MB     40 hours ago   40 hours ago   1         true\n5hjd5bkyssdz   regular        12.9kB    40 hours ago   40 hours ago   1         true\nt9qiir6h2hhy   regular        288kB     40 hours ago   40 hours ago   1         true\ng8u3k7g2nrla   regular        81.2MB    40 hours ago   40 hours ago   1         true\n2k7j3vvqu998   regular        8.29kB    40 hours ago   40 hours ago   2         true\n9k22g6qhvk70   regular        566MB     40 hours ago   40 hours ago   1         true\nacd0kq92trv9   regular        12.3kB    39 hours ago   39 hours ago   1         false\njn19s3dvckeu   regular        12.3kB    39 hours ago   39 hours ago   1         false\n7hfxhtiehop9   regular        12.3kB    39 hours ago   39 hours ago   1         false\n4hrk544z5xv3   regular        2.92MB    39 hours ago   29 hours ago   2         false\nxsbr4uhqb6ip   regular        78.6MB    19 hours ago   19 hours ago   1         true\nbkgjue2cs3ta   regular        275kB     19 hours ago   19 hours ago   1         true\n2m6cp861gbd3   source.local   71.1MB    40 hours ago   18 hours ago   6         false\ni5mxpz6n8ayk   regular        652MB     18 hours ago   18 hours ago   1         true\n7lycfzno1x1c   regular        279kB     18 hours ago   18 hours ago   1         true\nrodnxmouek8w   regular        78.7MB    18 hours ago   18 hours ago   1         true\nw4nptkvlz7xm   source.local   8.19kB    40 hours ago   18 hours ago   6         false\n2bfnggc5zo67   source.local   8.19kB    40 hours ago   18 hours ago   6         false\nqjun793ccv9b   regular        17kB      18 hours ago   18 hours ago   1         true\n",
+  "snapshot_deduplication": [
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/93bc0d6ea6dd86ef8d15a21e6902cae409ab207c59a5731a9a9a01c9100e1d9a",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/migration-runner/blobs/sha256/93bc0d6ea6dd86ef8d15a21e6902cae409ab207c59a5731a9a9a01c9100e1d9a",
+      "sha256": "93bc0d6ea6dd86ef8d15a21e6902cae409ab207c59a5731a9a9a01c9100e1d9a",
+      "bytes": 4646967,
+      "previous_allocated_bytes": 4648960,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    },
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/800071c1f95361e733e105ec6a73c2a9f497357df504bc11f6120edd6810ec74",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/migration-runner/blobs/sha256/800071c1f95361e733e105ec6a73c2a9f497357df504bc11f6120edd6810ec74",
+      "sha256": "800071c1f95361e733e105ec6a73c2a9f497357df504bc11f6120edd6810ec74",
+      "bytes": 12988,
+      "previous_allocated_bytes": 16384,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    },
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/5b74c6791e43df49d36c9e0141ad12a39d5b86547a342100d80fda6003c3ce59",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/migration-runner/blobs/sha256/5b74c6791e43df49d36c9e0141ad12a39d5b86547a342100d80fda6003c3ce59",
+      "sha256": "5b74c6791e43df49d36c9e0141ad12a39d5b86547a342100d80fda6003c3ce59",
+      "bytes": 298,
+      "previous_allocated_bytes": 4096,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    },
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/50d5572f445e30e2e670e54afa7566f5fb1792bad3d0100864653516cdf50b40",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/migration-runner/blobs/sha256/50d5572f445e30e2e670e54afa7566f5fb1792bad3d0100864653516cdf50b40",
+      "sha256": "50d5572f445e30e2e670e54afa7566f5fb1792bad3d0100864653516cdf50b40",
+      "bytes": 408098,
+      "previous_allocated_bytes": 409600,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    },
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/a21d8601a7789aed0b946b09f9c078f697269801408d1108dc60daf6d6974b74",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/migration-runner/blobs/sha256/a21d8601a7789aed0b946b09f9c078f697269801408d1108dc60daf6d6974b74",
+      "sha256": "a21d8601a7789aed0b946b09f9c078f697269801408d1108dc60daf6d6974b74",
+      "bytes": 114238163,
+      "previous_allocated_bytes": 114241536,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    },
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/d68a4e1178a0a12491ff39e3711f9e00259f4f6891d135114950124c733c2b0d",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/migration-runner/blobs/sha256/d68a4e1178a0a12491ff39e3711f9e00259f4f6891d135114950124c733c2b0d",
+      "sha256": "d68a4e1178a0a12491ff39e3711f9e00259f4f6891d135114950124c733c2b0d",
+      "bytes": 247,
+      "previous_allocated_bytes": 4096,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    },
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/b67246d5d21a1e5208d87db10a035e60592ce32fc1bd322536cd6248ad3f3ea1",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/migration-runner/blobs/sha256/b67246d5d21a1e5208d87db10a035e60592ce32fc1bd322536cd6248ad3f3ea1",
+      "sha256": "b67246d5d21a1e5208d87db10a035e60592ce32fc1bd322536cd6248ad3f3ea1",
+      "bytes": 79,
+      "previous_allocated_bytes": 4096,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    },
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/767c03aa05648e16339e8e8f161fca697417e72ace63ab5ffd02bc10fb63383c",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/migration-runner/blobs/sha256/767c03aa05648e16339e8e8f161fca697417e72ace63ab5ffd02bc10fb63383c",
+      "sha256": "767c03aa05648e16339e8e8f161fca697417e72ace63ab5ffd02bc10fb63383c",
+      "bytes": 760833,
+      "previous_allocated_bytes": 761856,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    },
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/e6f31ffc071e5560b82a8685fba8214954e5721e3e49269d00958316edbe89fe",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/migration-runner/blobs/sha256/e6f31ffc071e5560b82a8685fba8214954e5721e3e49269d00958316edbe89fe",
+      "sha256": "e6f31ffc071e5560b82a8685fba8214954e5721e3e49269d00958316edbe89fe",
+      "bytes": 3844421,
+      "previous_allocated_bytes": 3846144,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    },
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/migration-runner/blobs/sha256/44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "previous_allocated_bytes": 4096,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    },
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/frontend/blobs/sha256/44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2,
+      "previous_allocated_bytes": 4096,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    },
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/7a08b2ca7ddca2b425969de74cd7e3ea9ece3c082e921121fac7b70dc2cca07f",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/migration-runner/blobs/sha256/7a08b2ca7ddca2b425969de74cd7e3ea9ece3c082e921121fac7b70dc2cca07f",
+      "sha256": "7a08b2ca7ddca2b425969de74cd7e3ea9ece3c082e921121fac7b70dc2cca07f",
+      "bytes": 8536,
+      "previous_allocated_bytes": 12288,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    },
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/8867b54d68126b41738ddc593c1d789dbe94490b0b339ea91b5ed996774bcb70",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/migration-runner/blobs/sha256/8867b54d68126b41738ddc593c1d789dbe94490b0b339ea91b5ed996774bcb70",
+      "sha256": "8867b54d68126b41738ddc593c1d789dbe94490b0b339ea91b5ed996774bcb70",
+      "bytes": 65421,
+      "previous_allocated_bytes": 65536,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    },
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/570a3210ef6713adadc801fb647f9bfb385b28fe2d2133dbe9c67efb1391dc62",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/migration-runner/blobs/sha256/570a3210ef6713adadc801fb647f9bfb385b28fe2d2133dbe9c67efb1391dc62",
+      "sha256": "570a3210ef6713adadc801fb647f9bfb385b28fe2d2133dbe9c67efb1391dc62",
+      "bytes": 110164,
+      "previous_allocated_bytes": 110592,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    },
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/eb8f7b0418f0a9c09a7c53a0fcdd58c9cab9471e729ebe9f672040a8b76590f4",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/migration-runner/blobs/sha256/eb8f7b0418f0a9c09a7c53a0fcdd58c9cab9471e729ebe9f672040a8b76590f4",
+      "sha256": "eb8f7b0418f0a9c09a7c53a0fcdd58c9cab9471e729ebe9f672040a8b76590f4",
+      "bytes": 18708844,
+      "previous_allocated_bytes": 18710528,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    },
+    {
+      "source": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/backend/blobs/sha256/e85486fadf32a4048739a82d18ac2a62b9a5edfa4ad8f39b00ab76360a2d0ab6",
+      "path_retained": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/layouts/migration-runner/blobs/sha256/e85486fadf32a4048739a82d18ac2a62b9a5edfa4ad8f39b00ab76360a2d0ab6",
+      "sha256": "e85486fadf32a4048739a82d18ac2a62b9a5edfa4ad8f39b00ab76360a2d0ab6",
+      "bytes": 4543675,
+      "previous_allocated_bytes": 4546560,
+      "operation": "same-device content-addressed blob hardlink; exact path and bytes retained"
+    }
+  ],
+  "snapshot_deduplication_logical_duplicate_bytes": 147348738,
+  "snapshot_bytes_and_paths_retained": true,
+  "local_removed": [
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/.data/structure-cleanup/20261004/webui-validation-codex-home",
+      "files": 740,
+      "logical_bytes": 35150252,
+      "allocated_bytes_before": 37068800,
+      "reason": "completed isolated WebUI validation fixture or disposable browser cache; live CODEX_HOME and database are elsewhere",
+      "operation": "deleted"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/.data/structure-cleanup/20261004/webui-required-home.E5raPU",
+      "files": 51,
+      "logical_bytes": 759059,
+      "allocated_bytes_before": 864256,
+      "reason": "completed isolated WebUI validation fixture or disposable browser cache; live CODEX_HOME and database are elsewhere",
+      "operation": "deleted"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/.data/structure-cleanup/20261004/webui-required-home.bUTS5x",
+      "files": 41,
+      "logical_bytes": 574917,
+      "allocated_bytes_before": 663552,
+      "reason": "completed isolated WebUI validation fixture or disposable browser cache; live CODEX_HOME and database are elsewhere",
+      "operation": "deleted"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/.data/structure-cleanup/20261004/webui-required-home.Mpuhq6",
+      "files": 41,
+      "logical_bytes": 574917,
+      "allocated_bytes_before": 663552,
+      "reason": "completed isolated WebUI validation fixture or disposable browser cache; live CODEX_HOME and database are elsewhere",
+      "operation": "deleted"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-daily-chain/user-browser-profile/Default/Cache",
+      "files": 145,
+      "logical_bytes": 6047304,
+      "allocated_bytes_before": 6406144,
+      "reason": "completed isolated WebUI validation fixture or disposable browser cache; live CODEX_HOME and database are elsewhere",
+      "operation": "deleted"
+    }
+  ],
+  "local_removed_allocated_bytes": 45666304,
+  "after_host_free_bytes": 13457989632,
+  "host_free_net_delta_bytes": 1114402816,
+  "space_measurement_boundary": "host net change includes concurrent activity; Docker image usage decrease does not prove Docker.raw shrink",
+  "after_docker_system_df": "TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE\nImages          45        1         16.44GB   11.38GB (69%)\nContainers      1         0         20.48kB   20.48kB (100%)\nLocal Volumes   52        2         1.84GB    1.84GB (99%)\nBuild Cache     408       0         19.54GB   11.13GB\n",
+  "after_containers": "ops-scrapyd-1 Exited (143) 11 days ago\n",
+  "health_after_cleanup": [
+    {
+      "port": 8000,
+      "http": 200,
+      "status": "ok"
+    },
+    {
+      "port": 5173,
+      "http": 200,
+      "status": "ok"
+    },
+    {
+      "port": 8172,
+      "http": 200,
+      "status": "reachable"
+    }
+  ],
+  "completed_at": "2026-10-04T12:47:57.596982+00:00",
+  "status": "completed",
+  "worker_after_cleanup": {
+    "evidence": "host-post-cleanup-runtime-attempt1.log",
+    "exit": 0,
+    "queue_length": 0,
+    "unacked": 0,
+    "ping": "pong"
+  }
+}

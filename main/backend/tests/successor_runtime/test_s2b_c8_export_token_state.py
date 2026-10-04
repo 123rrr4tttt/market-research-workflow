@@ -12,11 +12,12 @@ from typing import Any
 
 import pytest
 
-from app.successor_runtime.capabilities.c8_report_export import (
+from app.successor_runtime.capabilities.knowledge_report_export import (
     DEFAULT_LOCAL_TOKEN_SECRET,
     ReportExportSigningInput,
     ReportExportTokenAuthority,
     ReportExportTokenError,
+    LEGACY_REPORT_EXPORT_TOKEN_CONTRACT,
     SignedReportExportToken,
     actor_id_from_secret,
     build_report_export_receipt,
@@ -24,7 +25,7 @@ from app.successor_runtime.capabilities.c8_report_export import (
     sign_report_export_token,
     verify_report_export_token,
 )
-from app.successor_runtime.capabilities.c8_report_export_token_state import (
+from app.successor_runtime.capabilities.knowledge_report_export_token_state import (
     ClaimExportTokenCommand,
     LocalSuccessorReportExportTokenStore,
     PruneExportTokenStatesCommand,
@@ -59,7 +60,7 @@ from app.successor_runtime.runtime.node import (
     RuntimeExecutionContext,
 )
 from app.successor_runtime.substrate.postgres.c8_export_token_state_handler import (
-    C8_3ExportTokenStateRuntimeHandler,
+    KnowledgeReportExportTokenStateRuntimeHandler,
 )
 
 pytestmark = pytest.mark.unit
@@ -70,13 +71,17 @@ EXPIRES_AT = NOW + timedelta(hours=1)
 MARKDOWN_SHA256 = hashlib.sha256(b"report markdown").hexdigest()
 ACTOR_DIGEST = actor_id_from_secret("authenticated", "alice@example.test")
 
-_OP_DIGEST = hashlib.sha256(b"report.export_token_state.v1").hexdigest()
-_PROFILE_DIGEST = hashlib.sha256(b"c8.3-export-token-state-interpreter").hexdigest()
-_DEPLOYMENT_DIGEST = hashlib.sha256(
-    b"c8.3-export-token-state-local-deployment"
+_OP_DIGEST = hashlib.sha256(b"knowledge.report.export-token-state.v2").hexdigest()
+_PROFILE_DIGEST = hashlib.sha256(
+    b"knowledge-report-export-token-state-interpreter"
 ).hexdigest()
-_SCOPE_DIGEST = hashlib.sha256(b"local-s2b-c8-scope").hexdigest()
-_AUTHORITY_DIGEST = hashlib.sha256(b"c8.3-export-token-state-authority").hexdigest()
+_DEPLOYMENT_DIGEST = hashlib.sha256(
+    b"knowledge-report-export-token-state-local-deployment"
+).hexdigest()
+_SCOPE_DIGEST = hashlib.sha256(b"local-knowledge-report-scope").hexdigest()
+_AUTHORITY_DIGEST = hashlib.sha256(
+    b"knowledge-report-export-token-state-authority"
+).hexdigest()
 
 
 def _signing_input(
@@ -184,7 +189,7 @@ def test_s2b_c8_sign_verify_round_trip_and_receipt() -> None:
     assert len(signed.payload_digest) == 64
     assert len(signed.authority.to_plain()) == 9
     assert payload["artifact_id"] == "artifact:c8-export:001"
-    assert payload["contract_version"] == "mrw.successor.c8.report-export-token.v1"
+    assert payload["contract_version"] == "mrw.knowledge.report-export-token.v2"
     assert payload["actor_digest"] == ACTOR_DIGEST
     assert "actor_id" not in payload
 
@@ -211,6 +216,19 @@ def test_s2b_c8_canonical_payload_never_contains_secret_or_token() -> None:
     assert DEFAULT_LOCAL_TOKEN_SECRET not in canonical.decode("utf-8")
     assert signed.artifact_token not in canonical.decode("utf-8")
     assert "alice@example.test" not in plain
+
+
+def test_s2b_c8_verifier_reads_legacy_contract_without_rewriting_exact_payload() -> None:
+    payload = {
+        **_signing_input().payload_plain(),
+        "contract_version": LEGACY_REPORT_EXPORT_TOKEN_CONTRACT,
+    }
+    token = _re_signed(payload)
+
+    observed = _verify(token)
+
+    assert observed == payload
+    assert observed["contract_version"] == LEGACY_REPORT_EXPORT_TOKEN_CONTRACT
 
 
 def test_s2b_c8_verify_typed_reason_codes() -> None:
@@ -582,9 +600,9 @@ def test_s2b_c8_authorities_are_all_false_and_true_raises() -> None:
 
     export_plain = export_authority.to_plain()
     state_plain = state_authority.to_plain()
-    assert export_plain["schema_ref"] == ("mrw.successor.c8.report-export.authority.v1")
+    assert export_plain["schema_ref"] == ("mrw.knowledge.report-export.authority.v2")
     assert state_plain["schema_ref"] == (
-        "mrw.successor.c8.report-export-token-state.authority.v1"
+        "mrw.knowledge.report-export-token-state.authority.v2"
     )
     assert all(
         export_plain[name] is False
@@ -642,6 +660,28 @@ def test_s2b_c8_authorities_are_all_false_and_true_raises() -> None:
             ReportExportTokenStateAuthority(**{field_name: True})
 
 
+def test_s2b_c8_legacy_token_state_record_keeps_exact_authority_digest_input() -> None:
+    legacy_authority = ReportExportTokenStateAuthority(
+        schema_ref="mrw.successor.c8.report-export-token-state.authority.v1"
+    )
+    original = ReportExportTokenStateRecord(
+        artifact_id="artifact:legacy-report-export:001",
+        actor_digest=ACTOR_DIGEST,
+        state=ReportExportTokenStateValue.UNUSED,
+        authority=legacy_authority,
+    )
+
+    restored = ReportExportTokenStateRecord(
+        artifact_id=original.artifact_id,
+        actor_digest=original.actor_digest,
+        state=original.state,
+        authority=legacy_authority,
+    )
+
+    assert restored.authority.schema_ref == legacy_authority.schema_ref
+    assert restored.record_digest == original.record_digest
+
+
 def _binding(
     *,
     operation_digest: str = _OP_DIGEST,
@@ -661,7 +701,7 @@ def _binding(
 
 def _return_binding() -> ReturnContractBinding:
     return ReturnContractBinding.from_contract(
-        "mrw.successor.c8.report-export-token-state.readback.v1",
+        "mrw.knowledge.report-export-token-state.readback.v2",
         ReturnContract(
             success_modes=("SUCCEEDED",),
             failure_modes=("FAILED",),
@@ -676,10 +716,10 @@ def _handler(
     command: Any,
     store: LocalSuccessorReportExportTokenStore,
     binding: InterpreterBinding | None = None,
-) -> C8_3ExportTokenStateRuntimeHandler:
+) -> KnowledgeReportExportTokenStateRuntimeHandler:
     if binding is None:
         binding = _binding()
-    return C8_3ExportTokenStateRuntimeHandler(
+    return KnowledgeReportExportTokenStateRuntimeHandler(
         store=store,
         command=command,
         handler_binding_digest=binding.binding_digest,
@@ -702,10 +742,10 @@ def _assignment(
         run_id="run:s2b-c8-export-token:001",
         step_id="step:c8-3:export-token-state",
         step_role=CompiledStepRole.EFFECT,
-        capability_id="report.export_token_state.v1",
+        capability_id="knowledge.report.export-token-state.v2",
         operation_contract_ref=OperationContractRef(
-            kind="report.export_token_state.v1",
-            contract_version="1.0.0",
+            kind="knowledge.report.export-token-state.v2",
+            contract_version="2.0.0",
             contract_digest=binding.operation_contract_digest,
         ),
         operation_contract_digest=binding.operation_contract_digest,
@@ -729,7 +769,7 @@ def _assignment(
 
 
 def _claim(
-    handler: C8_3ExportTokenStateRuntimeHandler,
+    handler: KnowledgeReportExportTokenStateRuntimeHandler,
     assignment: RuntimeAssignment,
 ) -> ClaimBinding:
     return ClaimBinding.bind(
@@ -771,7 +811,9 @@ def test_s2b_c8_handler_executes_token_state_command_with_exact_binding() -> Non
     assert handler.last_record.claimed is True
     assert len(outcome.result_digest) == 64
     assert outcome.result_digest == handler.last_record.record_digest
-    assert outcome.receipt_ref == f"receipt:report-export-token-state:{artifact_id}"
+    assert outcome.receipt_ref == (
+        f"receipt:knowledge-report-export-token-state:{artifact_id}"
+    )
 
 
 def test_s2b_c8_handler_exact_binding_drift_fails_closed() -> None:
@@ -790,7 +832,7 @@ def test_s2b_c8_handler_exact_binding_drift_fails_closed() -> None:
         handler.execute(assignment, claim, _context())
 
     assert exc.value.failure_code == (
-        "EXACT_C8_3_EXPORT_TOKEN_STATE_HANDLER_BINDING_DRIFT"
+        "EXACT_KNOWLEDGE_REPORT_EXPORT_TOKEN_STATE_HANDLER_BINDING_DRIFT"
     )
     assert handler.execute_calls == 0
     assert handler.last_record is None

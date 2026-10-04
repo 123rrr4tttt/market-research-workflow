@@ -25,6 +25,12 @@ _SHARED_GENERATOR = _BACKEND_ROOT / "scripts/generate_family_fragment_shared.py"
 _FROZEN_CANONICAL_SHA256 = (
     "fdc4b2ab2616431b2d20ec41e207b41e978df833c94a1c92561360708bc89be1"
 )
+_FROZEN_SNAPSHOT_REL = (
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/"
+    "stage-b16-2026-09-05/candidates/I1/snapshots/"
+    + _FROZEN_CANONICAL_SHA256
+)
 
 
 def _load_generator():
@@ -227,8 +233,9 @@ def test_live_generator_drifts_from_frozen_canonical_without_write() -> None:
     module = _load_generator()
     canonical = module.FRAGMENT_PATH
     before = _file_snapshot(canonical)
-    canonical_payload = json.loads(before[0])
-    assert hashlib.sha256(before[0]).hexdigest() == _FROZEN_CANONICAL_SHA256
+    historical = (_REPOSITORY_ROOT / _FROZEN_SNAPSHOT_REL).read_bytes()
+    assert hashlib.sha256(historical).hexdigest() == _FROZEN_CANONICAL_SHA256
+    canonical_payload = json.loads(historical)
     assert canonical_payload["family"] == "C9"
 
     legacy_bytes = _legacy_generator_bytes(module)
@@ -262,17 +269,14 @@ def test_main_writes_to_tmp_path_without_touching_canonical(
     canonical = module.FRAGMENT_PATH
     canonical_before = _file_snapshot(canonical)
     target = tmp_path / "C9.json"
-    fragment = module.build_fragment()
-
     module.FRAGMENT_PATH = target
-    module.build_fragment = lambda: fragment
 
-    module.main()
+    assert module.main([]) == 0
 
     output = capsys.readouterr().out
     assert target.is_file()
     assert json.loads(target.read_text())["family"] == "C9"
-    assert f"wrote {target}" in output
+    assert f"WROTE: {target}" in output
     assert _file_snapshot(canonical) == canonical_before
 
 

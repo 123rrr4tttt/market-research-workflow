@@ -6,8 +6,8 @@ import dataclasses
 
 import pytest
 
-from app.successor_runtime.capabilities import collect_c3 as c3
-from app.successor_runtime.capabilities import collect_c3_interpreters as ci
+from app.successor_runtime.capabilities import acquisition_batch as acquisition
+from app.successor_runtime.capabilities import acquisition_batch_interpreters as ci
 
 from .test_p3_c3_contracts import (
     _catalog,
@@ -30,32 +30,32 @@ pytestmark = pytest.mark.unit
 
 
 def test_rollback_env_mode_routes_to_legacy_only() -> None:
-    assert c3.collect_runtime_mode("off") == "legacy"
-    assert c3.collect_claim_route("legacy") == "legacy"
-    assert c3.collect_claim_route("shadow") == "shadow"
-    assert c3.collect_claim_route("canary") == "successor"
-    assert c3.collect_claim_route("on") == "successor"
-    assert c3.collect_claim_route("off") == "legacy"
+    assert acquisition.collect_runtime_mode("off") == "legacy"
+    assert acquisition.collect_claim_route("legacy") == "legacy"
+    assert acquisition.collect_claim_route("shadow") == "shadow"
+    assert acquisition.collect_claim_route("canary") == "successor"
+    assert acquisition.collect_claim_route("on") == "successor"
+    assert acquisition.collect_claim_route("off") == "legacy"
     # At most one route is ever selected.
-    routes = {c3.collect_claim_route(mode) for mode in ("off", "shadow", "canary")}
+    routes = {acquisition.collect_claim_route(mode) for mode in ("off", "shadow", "canary")}
     assert routes == {"legacy", "shadow", "successor"}
 
 
 def test_rollback_keeps_journal_facts_readable_and_replayable() -> None:
     outcome = _succeeded(0, inserted=3, links=("https://a",))
     sequence = _sequence(outcome)
-    before = c3.fold_ordered_results(
+    before = acquisition.fold_ordered_results(
         sequence,
-        aggregation_policy_ref=c3.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
-        observation_profile_ref=c3.COLLECT_FOLD_OBSERVATION_PROFILE,
+        aggregation_policy_ref=acquisition.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
+        observation_profile_ref=acquisition.COLLECT_FOLD_OBSERVATION_PROFILE,
     )
     # Simulate SUCCESSOR_RUNTIME_COLLECT=off: future dispatch routes to legacy,
     # but already recorded successor facts remain readable with identical replay.
-    assert c3.collect_claim_route(c3.collect_runtime_mode("off")) == "legacy"
-    after = c3.fold_ordered_results(
+    assert acquisition.collect_claim_route(acquisition.collect_runtime_mode("off")) == "legacy"
+    after = acquisition.fold_ordered_results(
         sequence,
-        aggregation_policy_ref=c3.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
-        observation_profile_ref=c3.COLLECT_FOLD_OBSERVATION_PROFILE,
+        aggregation_policy_ref=acquisition.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
+        observation_profile_ref=acquisition.COLLECT_FOLD_OBSERVATION_PROFILE,
     )
     assert after.aggregate_digest == before.aggregate_digest
 
@@ -71,7 +71,7 @@ def test_binding_mismatch_fails_closed_before_runner_effect() -> None:
     forged_plan = dataclasses.replace(compiled, plan_digest="1" * 64)
 
     class MustNotRun:
-        def run(self, element: c3.CollectBatchElement) -> c3.CollectElementOutcome:
+        def run(self, element: acquisition.CollectBatchElement) -> acquisition.CollectElementOutcome:
             raise AssertionError("runner must not execute on binding drift")
 
     result = ci.CollectTraversalSuccessorInterpreter().interpret(
@@ -93,10 +93,10 @@ def test_binding_mismatch_fails_closed_before_runner_effect() -> None:
 def test_fold_contract_failure_returns_unconsumed_outcomes() -> None:
     outcome = _succeeded(0, inserted=1)
     sequence = _sequence(outcome)
-    fold_payload = c3.build_collect_fold_payload(
+    fold_payload = acquisition.build_collect_fold_payload(
         parent_request_ref=_request_ref(),
         ordered_outcomes=sequence,
-        aggregation_policy_ref=c3.COLLECT_AGGREGATION_POLICY_FAIL_FAST_REF,
+        aggregation_policy_ref=acquisition.COLLECT_AGGREGATION_POLICY_FAIL_FAST_REF,
     )
     program, plan, contract_ref, payload_ref = _fold_program_and_plan(fold_payload)
     _legacy, successor_binding = _bindings_c3_2()
@@ -112,7 +112,7 @@ def test_fold_contract_failure_returns_unconsumed_outcomes() -> None:
         binding=successor_binding,
     )
     assert result.disposition == "SUCCEEDED"
-    assert isinstance(result.value, c3.CollectFoldContractFailure)
+    assert isinstance(result.value, acquisition.CollectFoldContractFailure)
     assert result.value.unconsumed_outcomes.sequence_digest == sequence.sequence_digest
 
 
@@ -120,10 +120,10 @@ def test_rollback_never_creates_dual_claim_authority() -> None:
     legacy, successor = _bindings_c3_1()
     assert legacy.interpreter_profile_digest != successor.interpreter_profile_digest
     assert legacy.binding_digest != successor.binding_digest
-    route = c3.collect_claim_route(c3.collect_runtime_mode("off"))
+    route = acquisition.collect_claim_route(acquisition.collect_runtime_mode("off"))
     assert route == "legacy"
     enabled = {"legacy": route == "legacy", "successor": route == "successor"}
     assert enabled == {"legacy": True, "successor": False}
     # A shadow route consumes observations but never enables a successor claim.
-    shadow = c3.collect_claim_route(c3.collect_runtime_mode("shadow"))
+    shadow = acquisition.collect_claim_route(acquisition.collect_runtime_mode("shadow"))
     assert shadow == "shadow"

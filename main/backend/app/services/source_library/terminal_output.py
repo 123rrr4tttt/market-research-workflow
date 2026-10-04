@@ -371,7 +371,7 @@ def _build_outcome_unknown(readback: Dict[str, Any] | None) -> Dict[str, Any] | 
     attempt_ref = str(readback.get("attempt_ref") or "attempt:unknown")
     reason = str(readback.get("reason") or ("readback waiting" if readback.get("kind") == "waiting" else "readback unavailable"))
     try:
-        from ...successor_runtime.capabilities.source_library_c2_shared import OutcomeUnknownProviderEffect
+        from ...successor_runtime.capabilities.source_contracts import OutcomeUnknownProviderEffect
 
         return OutcomeUnknownProviderEffect(attempt_ref=attempt_ref, reason=reason).to_plain()
     except Exception:  # pragma: no cover - optional successor runtime dependency

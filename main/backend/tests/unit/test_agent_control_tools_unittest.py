@@ -7,7 +7,6 @@ import pytest
 
 from app.services.agent_runtime.capability_registry import classify_goal, select_capabilities_for_goal
 from app.services.agent_runtime.control_tools import AgentControlToolRuntime
-from app.services.agent_runtime.interactive_agent import InteractiveAgentRuntime
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.agent_sessions.store import InMemoryAgentSessionStore
 
@@ -75,27 +74,5 @@ class AgentControlToolsUnitTest(unittest.TestCase):
 
         self.assertEqual(call["status"], "completed")
         coordinator.assert_called_once_with(self.session_id)
-
-    def test_interactive_turn_can_dispatch_retry_as_control_tool(self):
-        runtime = InteractiveAgentRuntime(service=self.service)
-        out = runtime.run_turn(
-            message="重试失败任务",
-            project_key="demo_proj",
-            session_id=self.session_id,
-            batch_loop_runner=lambda **kwargs: (_ for _ in ()).throw(AssertionError("agent_batch should not run")),
-            parser_fallback=lambda command: {"command": command},
-            submitter=lambda tasks, project_key, idem: {"job_id": "unused"},
-            executor_snapshot=lambda: {"status": "ok"},
-        )
-
-        self.assertEqual(out["agent_mode"], "control")
-        retry_call = next(item for item in out["capability_calls"] if item["capability_id"] == "task.retry")
-        self.assertEqual(retry_call["status"], "completed")
-        event_types = [item["event_type"] for item in out["events"]]
-        self.assertIn("interactive_agent.tool_call_started", event_types)
-        self.assertIn("interactive_agent.tool_call_result", event_types)
-        self.assertNotIn("agent_batch.nl_command.submit", [item["capability_id"] for item in out["capability_calls"]])
-
-
 if __name__ == "__main__":
     unittest.main()

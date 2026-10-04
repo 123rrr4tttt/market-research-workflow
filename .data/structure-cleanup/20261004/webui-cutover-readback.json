@@ -1,0 +1,24 @@
+{
+  "spa": {
+    "http": 200
+  },
+  "status": {
+    "http": 200,
+    "runtime_status": "ready"
+  },
+  "proxy_spa": {
+    "http": 200
+  },
+  "public_bootstrap": {
+    "http": 401
+  },
+  "threads": {
+    "http": 200,
+    "count": 21
+  },
+  "prior_turn": {
+    "http": 200,
+    "completed_marker_readback": true,
+    "bytes": 742
+  }
+}

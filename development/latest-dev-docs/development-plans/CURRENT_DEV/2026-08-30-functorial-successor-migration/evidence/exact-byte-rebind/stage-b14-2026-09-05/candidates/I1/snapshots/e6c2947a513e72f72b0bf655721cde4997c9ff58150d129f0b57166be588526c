@@ -1,0 +1,595 @@
+[
+  {
+    "cell": "C1.1",
+    "boundary": "graph parse validate compile",
+    "locator_paths": [
+      "main/backend/app/services/workflow_graph/contracts.py",
+      "main/backend/app/services/workflow_graph/compiler.py"
+    ],
+    "locator_status": "FROZEN_LOCATOR_ONLY:ELIGIBILITY_PENDING; eligibility dispositions are not frozen and the locator grants no migration or write authority",
+    "observed_symbols": [
+      "WorkflowNode",
+      "WorkflowEdge",
+      "WorkflowGraphDSL",
+      "CompiledWorkflowGraph",
+      "WorkflowGraphCompileError",
+      "WorkflowGraphIntegrityReport",
+      "build_workflow_graph_integrity_report",
+      "assert_workflow_graph_integrity",
+      "parse_workflow_graph_dsl",
+      "compile_workflow_graph",
+      "WorkflowGraphCompilerService"
+    ],
+    "object_types": [
+      "LegacyWorkflowGraphDSL",
+      "LegacyWorkflowNode",
+      "LegacyWorkflowEdge",
+      "LegacyCompiledWorkflowGraph",
+      "LegacyGraphIntegrityReport",
+      "LegacyCompiledGraphRecord"
+    ],
+    "atom_kind": {
+      "current": "UNDEFINED_IN_FROZEN_C1_CONTRACT",
+      "assessment": "Parsing and compilation are compiler operations rather than one of the three frozen execution Atom kinds; no typed successor compiler operation contract or algebra digest exists."
+    },
+    "payload_schema": {
+      "input": "WorkflowGraphDSL{version:str,options:Mapping[str,Any],nodes:tuple[WorkflowNode{node_id,node_type,config}],edges:tuple[WorkflowEdge{from_node,to_node}]} or an untyped Mapping parsed by schema.py",
+      "output": "CompiledWorkflowGraph{version,options,topo_order,outgoing_edges,incoming_edges,checksum}",
+      "defect": "The compiled output and checksum payload omit node_type and node config/params, so two behaviorally different allowed graphs with identical version/options/topology can share a checksum.",
+      "schema_digest_status": "ABSENT"
+    },
+    "program_combinators": [
+      "implicit ordered topological traversal",
+      "implicit dependency composition through incoming/outgoing adjacency",
+      "no typed Atom/Then/MapOutput/ZipOrdered/TraverseOrdered/Decide AST",
+      "no identity or ordered-composition preservation law fixture"
+    ],
+    "failure_return_union": [
+      "CompiledWorkflowGraph",
+      "WorkflowGraphCompileError for malformed payload, duplicate node IDs, unsupported node types, missing edge endpoints, or cycles",
+      "WorkflowGraphIntegrityReport for the separate integrity-report helper",
+      "WorkflowGraphIntegrityError or caller-selected exception from assert_workflow_graph_integrity",
+      "WorkflowGraphCompilerService may additionally return a dynamic dict or propagate ValueError, KeyError, and compiled-store effects"
+    ],
+    "canonical_owner": {
+      "architectural_owner": "The legacy graph repository remains owner of the graph business artifact until a capability cutover; a successor runtime journal may own only run/step facts.",
+      "current_observed_owner": "WorkflowGraphCompilerService plus InMemoryCompiledGraphStore/SqlCompiledGraphStore owns the compiled-record projection.",
+      "owner_gap": "Compiled records use a public, globally keyed graph_id and no project-scope binding is present in the reviewed compiler/store path."
+    },
+    "effect_profile": {
+      "core": "parse_workflow_graph_dsl and compile_workflow_graph are deterministic in-process CPU/memory computations for a supplied mapping.",
+      "facade": "WorkflowGraphCompilerService resolves mutable templates, updates an RLock-protected process cache, and writes the compiled record to a selected memory or SQL store.",
+      "explicitness": "Core purity is recoverable, but the current facade combines semantic compilation and persistence instead of exposing an explicit compiled-artifact port."
+    },
+    "authority_profile": {
+      "current": "skill_runtime registers workflow_graph.compile with owner workflow_graph.compiler and required permission workflow_graph.compile; the API constructs that permission under actor_role orchestration_runtime.",
+      "missing": "No project-scope authority, canonical graph revision/incarnation, or adoption/cutover authority is carried by the compiler payload.",
+      "migration_authority": "NONE; P1 disposition does not authorize importing the legacy module into the successor core."
+    },
+    "resource_profile": {
+      "core": "Topological compilation is O(V+E) plus canonical JSON encoding and SHA-256 hashing.",
+      "facade": "Process memory cache, RLock, optional PostgreSQL compiled-artifact upsert, and template lookup.",
+      "limits": "No graph-size, payload-size, compile-time, or memory budget is enforced in the reviewed path."
+    },
+    "legacy_interpreter": {
+      "id": "legacy.workflow_graph.compiler_service.v1",
+      "implementation": "compile_workflow_graph interpreted through WorkflowGraphCompilerService.compile",
+      "adapter_status": "The architecture-declared main/backend/app/successor_migration/legacy_workflow_graph.py does not exist in the audited worktree."
+    },
+    "successor_interpreter_candidate": {
+      "status": "P1_INTERFACE_SHAPE_ONLY_NOT_IMPLEMENTED_NOT_SELECTED",
+      "shape": "A pure compiler fold from a typed Program AST and immutable operation-catalog snapshot to a typed ExecutionPlan whose digest covers operation kind, payload/config, object types, ordered dependencies, catalog identity, and policy-relevant options.",
+      "p2_selected": false
+    },
+    "observation_profile": {
+      "observed": [
+        "compiled topology and edge maps",
+        "64-character deterministic checksum for repeated identical input",
+        "duplicate/missing/invalid-type/cycle rejection",
+        "compiled-record save and reload through an in-memory store"
+      ],
+      "missing": [
+        "required node-type change alters plan digest fixture",
+        "required node-config change alters plan digest fixture",
+        "identity and ordered-composition law fixtures",
+        "SQL compiled-store parity/reload fixture",
+        "project-scope and revision/incarnation observation",
+        "same typed Program consumed by legacy and successor interpreters"
+      ]
+    },
+    "fixture_ids": [
+      "test_compile_success_outputs_topology_edge_maps_and_checksum",
+      "test_compile_raises_on_duplicate_node_id",
+      "test_compile_raises_on_missing_node_reference",
+      "test_compile_raises_on_invalid_node_type",
+      "test_compile_raises_on_cycle",
+      "test_compiler_service_persists_and_reloads_compiled_graph",
+      "MISSING_REQUIRED_FIXTURE:node_type_changes_plan_digest",
+      "MISSING_REQUIRED_FIXTURE:node_config_changes_plan_digest",
+      "MISSING_REQUIRED_FIXTURE:compile_identity_and_ordered_composition"
+    ],
+    "rollback_observation": {
+      "architecture_contract": "Feature-flag rollback to the legacy runtime without deleting a successor journal.",
+      "current_observation": "No successor Workflow Graph interpreter, shadow journal, feature flag, or rollback observation exists; compiled-store reload only demonstrates legacy persistence."
+    },
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "The validation and topological-sort core is a useful deterministic behavior donor, but direct adaptation would preserve an insufficient semantic digest: allowed node type and config changes are omitted from the compiled checksum and compiled contract. The facade also mixes compilation, mutable caches, template resolution, and persistence. Extract the pure validation/topology behavior and rewrite it around typed successor objects, a complete canonical digest, explicit artifact ports, and composition-law fixtures.",
+    "prerequisites": [
+      "Define the graph capability's mapping to successor domain objects/operators instead of treating the generic legacy graph as a successor domain module.",
+      "Freeze typed object and payload schemas with digests.",
+      "Define whether compilation is a compiler fold or a capability Atom; do not invent an execution Atom merely to satisfy the envelope.",
+      "Include node operation kind, full canonical config/payload, ordered dependencies, catalog snapshot identity, and relevant options in the plan digest.",
+      "Define identity and ordered-composition laws and counterexample fixtures.",
+      "Implement the missing package-outside legacy adapter without allowing successor_runtime to import legacy services.",
+      "Define project scope, graph revision/incarnation, canonical ownership, and explicit compiled-artifact persistence port.",
+      "Add memory/SQL parity and reload observations."
+    ],
+    "risk": "MEDIUM",
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "lines 2-9, 38-40",
+        "claim": "C1.1 is a frozen locator only, remains ELIGIBILITY_PENDING, grants no migration/write authority, and C1 is not preselected for P2."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 119-155",
+        "claim": "Eligibility requires typed IO, an operation algebra, composition, explicit effect/failure/authority/owner/observation boundaries, and reasoned source evidence; tests alone do not make a donor eligible."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/contracts.py",
+        "symbol_or_lines": "lines 17-60",
+        "claim": "The legacy DSL and compiled artifact use dataclasses, but configs and options remain Mapping[str,Any], and CompiledWorkflowGraph contains no node operation/config payload."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/compiler.py",
+        "symbol_or_lines": "compile_workflow_graph, lines 17-78",
+        "claim": "Compilation validates IDs/types/endpoints/cycles and builds an ordered topology, but the checksum payload at lines 62-70 contains version, options, topo_order, and edge maps only, omitting node types and configs."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/schema.py",
+        "symbol_or_lines": "parse_workflow_graph_dsl, lines 13-77",
+        "claim": "The caller-facing mapping accepts aliases and arbitrary config mappings and produces WorkflowGraphDSL; no frozen schema identity or payload digest is bound."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/__init__.py",
+        "symbol_or_lines": "WorkflowGraphCompilerService.compile, lines 22-112",
+        "claim": "The facade resolves templates, compiles, reconstructs dynamic node records, writes both a process cache and compiled store, and reloads from the store."
+      },
+      {
+        "path": "main/backend/tests/unit/test_workflow_graph_compiler_unittest.py",
+        "symbol_or_lines": "lines 27-81",
+        "claim": "Tests cover deterministic repetition, validation failures, and in-memory reload, but do not test digest sensitivity to allowed node-type or config changes."
+      },
+      {
+        "path": "main/backend/app/services/skill_runtime.py",
+        "symbol_or_lines": "lines 207-212, 249-253",
+        "claim": "Compile/write and compiled-read permissions are registered under workflow_graph.compiler, but this registration does not establish project-scoped canonical authority."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2240-2259, 2298-2308",
+        "claim": "C1 requires atomic typed bindings, the same Program for legacy/successor, digest-change fixtures, legacy replay/shadow observation, and rollback; the declared legacy_workflow_graph.py adapter is absent from the current worktree."
+      }
+    ]
+  },
+  {
+    "cell": "C1.2",
+    "boundary": "graph runtime executor failure",
+    "locator_paths": [
+      "main/backend/app/services/workflow_graph/runtime.py",
+      "main/backend/app/services/workflow_graph/executors"
+    ],
+    "locator_status": "FROZEN_LOCATOR_ONLY:ELIGIBILITY_PENDING; eligibility dispositions are not frozen and the locator grants no migration or write authority",
+    "observed_symbols": [
+      "WorkflowGraphRuntime",
+      "NodeExecutionContext",
+      "BaseNodeExecutor",
+      "VectorSearchExecutor",
+      "LLMCallExecutor",
+      "JoinExecutor",
+      "_resolve_node_inputs",
+      "_evaluate_expression",
+      "_normalize_node_result",
+      "WorkflowGraphRuntimeService"
+    ],
+    "object_types": [
+      "LegacyCompiledWorkflowRecord",
+      "LegacyRunSnapshot",
+      "LegacyNodeExecutionContext",
+      "LegacyNodeResult",
+      "LegacyVectorSearchResult",
+      "LegacyLLMCallResult",
+      "LegacyJoinResult",
+      "LegacyIntegrityReport"
+    ],
+    "atom_kind": {
+      "declared": [
+        "workflow.vector_search.v1",
+        "workflow.llm_call.v1",
+        "workflow.join.v1"
+      ],
+      "current_representation": "Lowercase node_type strings dispatched through a mutable executor registry, not typed Atom values from a shared Program AST."
+    },
+    "payload_schema": {
+      "workflow.vector_search.v1": "Untyped node.params/context inputs {query?,state?,top_k?} -> dict{node_type,query,state,top_k,hits,degraded,degraded_reason?}",
+      "workflow.llm_call.v1": "Untyped node.params/context inputs including prompt/prompt_template,input_vars,provider,model,temperature,max_tokens,top_p,permission_scope and identity fields -> dict{text,routing,trace,agent-boundary,degraded metadata}",
+      "workflow.join.v1": "Untyped upstream result map plus optional params.field -> dict{joined|values,sources,count}",
+      "runtime_envelope": "workflow{workflow_id?,topo_order?,nodes} plus inputs and optional run_id -> snapshot{run,events,results}",
+      "schema_digest_status": "ABSENT"
+    },
+    "program_combinators": [
+      "implicit sequential traversal of topo_order",
+      "implicit Then through depends_on",
+      "MapOutput-like node_output and expression input resolution",
+      "JoinExecutor resembles an untyped ordered/unordered gather but does not define ZipOrdered laws",
+      "no typed Atom/Then/MapOutput/ZipOrdered/TraverseOrdered/Decide AST",
+      "no composition or backend-substitution law fixtures"
+    ],
+    "failure_return_union": [
+      "Successful run snapshot with status=succeeded",
+      "Integrity-failed run snapshot with reason_code=workflow_integrity_failed",
+      "Node-failed run snapshot after a raised executor/input/unsupported-type exception",
+      "Successful run snapshot containing degraded=True synthetic vector-search fallback",
+      "Successful run snapshot containing degraded=True LLM fallback after provider error",
+      "Successful run snapshot containing degraded=True and audit status=blocked after agent permission denial",
+      "Pre-journal normalization errors, store errors, and service lookup/projection errors may still raise"
+    ],
+    "canonical_owner": {
+      "architectural_owner": "The durable runtime journal may own run/step execution facts only; graph business artifacts remain owned by the graph repository.",
+      "current_observed_owner": "WorkflowGraphRuntime mutates run, node-status, event, and result stores; WorkflowGraphRuntimeService additionally projects the run into AgentSession.",
+      "owner_gap": "Runtime snapshot, event fold, stored results, AgentSession projection, and executor audit fields are multiple observations without one demonstrated canonical reducer or exact recovery boundary."
+    },
+    "effect_profile": {
+      "runtime": "Synchronous in-process execution interleaves store writes, result reads, executor effects, status writes, and event appends.",
+      "vector_search": "Calls app.services.search.hybrid.vector_search; any exception is converted to a synthetic mock hit and degraded=True.",
+      "llm_call": "Reads global settings/config, evaluates a permission boundary, routes through skill_runtime to an LLM provider, and converts permission denial or provider failure to fallback text with degraded=True.",
+      "join": "Pure in-process aggregation of upstream result dictionaries.",
+      "explicitness": "Effects are hidden behind executor methods and dynamic imports rather than typed ports/requests/receipts; broad exceptions are collapsed to strings."
+    },
+    "authority_profile": {
+      "api_skill_path": "workflow_graph.run is registered as owner workflow_graph.runtime, required permission workflow_graph.run, concurrency_class write_shared; the API supplies that permission as orchestration_runtime.",
+      "agent_path": "The interactive-agent capability registry labels workflow_graph.run high approval/high risk and builds a confirmation preview; AgentCore later invokes the skill with approval_granted=True.",
+      "executor_path": "LLMCallExecutor performs a separate agent permission evaluation, but denial becomes a degraded successful node rather than an explicit authority failure variant.",
+      "gap": "Authority is path-dependent and not part of the typed operation payload or failure union; reviewed direct API/skill registration does not itself enforce the high-approval policy declared by the interactive-agent registry."
+    },
+    "resource_profile": {
+      "execution": "Single-process synchronous sequential loop; no durable claim, lease, heartbeat, retry policy, cancellation checkpoint, or crash reconciliation.",
+      "external_resources": "Vector-search backend and LLM provider/network/cost; database or memory run store; AgentSession projection.",
+      "limits": "Vector top_k is clamped to 1..50; LLM max_tokens is optional. The runtime has no enforced wall-clock timeout, graph-size bound, concurrency budget, provider budget, or step resource envelope."
+    },
+    "legacy_interpreter": {
+      "id": "legacy.workflow_graph.synchronous_runtime.v1",
+      "implementation": "WorkflowGraphRuntime plus mutable BaseNodeExecutor registry and WorkflowGraphRuntimeService",
+      "adapter_status": "The architecture-declared main/backend/app/successor_migration/legacy_workflow_graph.py does not exist, so legacy and successor do not consume one typed Program."
+    },
+    "successor_interpreter_candidate": {
+      "status": "P1_INTERFACE_SHAPE_ONLY_NOT_IMPLEMENTED_NOT_SELECTED",
+      "shape": "A durable run/step interpreter for typed workflow.vector_search.v1, workflow.llm_call.v1, and workflow.join.v1 requests, with explicit capability ports, authority evidence, resource claims, typed result/failure/degraded variants, receipts, idempotency, and reducer-derived state.",
+      "p2_selected": false
+    },
+    "observation_profile": {
+      "observed": [
+        "run/node status, events, and result snapshot",
+        "topological execution order",
+        "input resolution and io_trace",
+        "integrity report before node execution",
+        "raised node failure leaving later nodes queued",
+        "vector and LLM degraded fallback flags",
+        "LLM routing/audit and agent-boundary metadata",
+        "projection into AgentSession"
+      ],
+      "missing": [
+        "provider receipt/readback",
+        "crash-before/after-effect reconciliation",
+        "retry/idempotency behavior",
+        "durable claim/lease observation",
+        "typed authority-denied failure",
+        "typed degraded versus succeeded policy",
+        "resource timeout/budget observation",
+        "memory/SQL parity",
+        "legacy/successor shadow compatibility over one Program",
+        "feature-flag rollback preserving a successor journal"
+      ]
+    },
+    "fixture_ids": [
+      "test_runtime_runs_nodes_by_topo_order_and_marks_succeeded",
+      "test_runtime_marks_failed_when_node_executor_errors",
+      "test_vector_search_executor_graceful_fallback",
+      "test_llm_call_executor_graceful_fallback",
+      "test_llm_call_executor_uses_service_config_as_route_baseline",
+      "test_llm_call_executor_blocks_denied_agent_permission_scope",
+      "test_runtime_resolves_expression_and_node_output_with_io_trace",
+      "test_runtime_fails_when_prompt_template_missing_required_inputs",
+      "test_runtime_fails_with_explicit_integrity_payload_when_topo_order_drifts",
+      "test_runtime_service_projects_run_into_agent_session",
+      "MISSING_REQUIRED_FIXTURE:effect_succeeded_receipt_write_crash_reconcile",
+      "MISSING_REQUIRED_FIXTURE:authority_denied_is_not_success",
+      "MISSING_REQUIRED_FIXTURE:memory_sql_observation_parity",
+      "MISSING_REQUIRED_FIXTURE:legacy_successor_same_program_shadow"
+    ],
+    "rollback_observation": {
+      "architecture_contract": "Feature-flag rollback to the synchronous legacy runtime without deleting the successor journal.",
+      "current_observation": "Only the synchronous legacy runtime exists. There is no successor interpreter, shadow execution, journal-preserving rollback flag, cutover marker, or rollback readback."
+    },
+    "disposition": "REIMPLEMENT",
+    "rationale": "The runtime is not a stable replaceable interpreter boundary. It combines scheduling, mutable executor registration, input expression evaluation, hidden provider/search effects, status/event/result mutation, and AgentSession projection. Provider errors and even permission denial can become degraded node results that the runtime marks succeeded, while raised failures follow a different path. It lacks durable claims, exact effect receipts, retry/reconciliation, typed failure variants, and uniform authority enforcement. Preserve behavior fixtures and observable payload examples, but reimplement the capability over typed Programs, explicit ports, durable run/step semantics, and reducer-based recovery.",
+    "prerequisites": [
+      "Freeze typed input/output/failure schemas and algebra contracts for the three declared operation kinds.",
+      "Map each operation to actual research-domain objects/operators; do not treat generic LLM and join nodes as domain semantics.",
+      "Represent degraded, blocked, effect-failed, and succeeded as distinct typed outcomes with an explicit admission policy.",
+      "Make vector-search and LLM effects explicit ports with attempt identity, idempotency key, provider receipt/readback, timeout, retry, and cost/resource policy.",
+      "Define one authority contract across API, skill, AgentCore, and direct runtime callers.",
+      "Implement durable run/step claims, leases, heartbeats, cancellation, crash reconciliation, and reducer-derived status.",
+      "Separate runtime journal ownership from graph business-artifact ownership and AgentSession projection.",
+      "Build the missing legacy adapter so legacy and successor interpret the same typed Program/ExecutionPlan.",
+      "Add legacy replay, shadow compatibility, crash fixtures, memory/SQL observations, and feature-flag rollback evidence.",
+      "Do not choose C1 for P2 until owner/readback/reversibility evidence is compared with other eligible cells."
+    ],
+    "risk": "HIGH",
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "lines 2-9, 38-40",
+        "claim": "C1.2 is locator-only, pending, non-authorizing, and not preselected for P2."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/runtime.py",
+        "symbol_or_lines": "WorkflowGraphRuntime.run, lines 30-112",
+        "claim": "The runtime performs sequential store mutations and node effects; integrity and raised node failures are converted to failed snapshots, while each status/result/event write is separate."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/runtime.py",
+        "symbol_or_lines": "WorkflowGraphRuntime._execute_node and input/result helpers, lines 114-162, 224-399",
+        "claim": "Operation dispatch, expression/input resolution, store reads, and dynamic result-envelope normalization are untyped and coupled inside the interpreter."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/executors/vector_search.py",
+        "symbol_or_lines": "VectorSearchExecutor.execute, lines 15-43",
+        "claim": "A vector-search exception is replaced by a synthetic mock hit with degraded=True rather than a typed effect failure."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/executors/llm_call.py",
+        "symbol_or_lines": "LLMCallExecutor.execute, lines 103-239",
+        "claim": "Global routing/config, authority evaluation, provider invocation, fallback, and audit construction are combined; permission denial and provider failure both return degraded dictionaries."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/executors/base.py",
+        "symbol_or_lines": "lines 8-26",
+        "claim": "The executor interface accepts and returns Any/dict values and carries the whole workflow/results context rather than a typed operation request and explicit effect port."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/__init__.py",
+        "symbol_or_lines": "WorkflowGraphRuntimeService, lines 163-284",
+        "claim": "The service loads a compiled record, executes synchronously, projects into AgentSession, merges observations, and implements replay separately from the store/runtime."
+      },
+      {
+        "path": "main/backend/app/services/skill_runtime.py",
+        "symbol_or_lines": "lines 136-178, 213-247, 523-592",
+        "claim": "The skill path checks role/permission and write conflicts, but write_shared does not trigger the approval mechanism reserved for write_external/privileged."
+      },
+      {
+        "path": "main/backend/app/services/agent_runtime/capability_registry.py",
+        "symbol_or_lines": "lines 255-266",
+        "claim": "The agent capability registry separately classifies workflow_graph.run as async, high approval, write_shared, with workflow-side-effect and cost risks."
+      },
+      {
+        "path": "main/backend/app/services/agent_runtime/interactive_agent.py",
+        "symbol_or_lines": "lines 1305-1340, 1388-1410",
+        "claim": "The interactive-agent path creates a high-risk confirmation preview and later directly calls the legacy runtime after approval, demonstrating path-specific authority handling."
+      },
+      {
+        "path": "main/backend/tests/unit/test_workflow_graph_runtime_unittest.py",
+        "symbol_or_lines": "lines 66-273",
+        "claim": "Tests confirm synchronous success/failure, degraded fallbacks, blocked-as-degraded LLM behavior, input tracing, and integrity failure, but not durable effect recovery."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2300-2308, 2469-2475",
+        "claim": "The architecture declares three operation kinds, requires durable successor run/step execution, shadow/replay/rollback evidence, and forbids assuming Workflow Graph is the first P2 migration."
+      }
+    ]
+  },
+  {
+    "cell": "C1.3",
+    "boundary": "graph store replay",
+    "locator_paths": [
+      "main/backend/app/services/workflow_graph/store.py"
+    ],
+    "locator_status": "FROZEN_LOCATOR_ONLY:ELIGIBILITY_PENDING; eligibility dispositions are not frozen and the locator grants no migration or write authority",
+    "observed_symbols": [
+      "InMemoryRunStore",
+      "SqlRunStore",
+      "InMemoryCompiledGraphStore",
+      "SqlCompiledGraphStore",
+      "build_run_store",
+      "build_compiled_graph_store",
+      "WorkflowGraphRun",
+      "WorkflowGraphEvent",
+      "WorkflowGraphRuntimeService.replay_run",
+      "_build_replay_consistency_report"
+    ],
+    "object_types": [
+      "LegacyWorkflowGraphRunSnapshot",
+      "LegacyWorkflowGraphEvent",
+      "LegacyNodeResultMap",
+      "LegacyCompiledGraphRecord",
+      "LegacyReplayConsistencyReport"
+    ],
+    "atom_kind": {
+      "current": "UNDEFINED_AND_NOT_A_DOMAIN_ATOM",
+      "assessment": "Store append/read/snapshot/replay are infrastructure and journal operations. They must not be disguised as research-domain Atoms; their typed port and reducer contracts are absent."
+    },
+    "payload_schema": {
+      "run": "WorkflowGraphRun{run_id,workflow_id,status,node_statuses,metadata,results,created_at,updated_at}",
+      "event": "WorkflowGraphEvent{run_id,seq,event_type,node_id?,payload,ts}",
+      "memory_event": "dict{ts,type,node_id,payload} without seq",
+      "compiled_record": "dict requiring graph_id,version,checksum with arbitrary remaining payload",
+      "snapshot": "dict{run,events,results}",
+      "replay": "events_only derives run/node status; stateful returns the stored snapshot and results rather than rebuilding them",
+      "schema_digest_status": "ABSENT"
+    },
+    "program_combinators": [
+      "append-event sequence",
+      "status fold over event order in WorkflowGraphRuntimeService.replay_run",
+      "snapshot product of run, events, and results",
+      "no typed Program combinator",
+      "no canonical pure reducer covering result payloads or integrity/recovery transitions"
+    ],
+    "failure_return_union": [
+      "Run ID or stored run/event/result/compiled-record dictionaries",
+      "Snapshot dictionary",
+      "events_only replay report",
+      "stateful snapshot echo",
+      "KeyError for missing run or compiled graph",
+      "ValueError for invalid statuses, replay modes, or compiled payloads",
+      "RuntimeError when configured fail-closed SQL-store construction fails",
+      "Configured fail-open fallback to a new in-memory store",
+      "Database/transaction/unique-constraint failures, including a possible concurrent max(seq)+1 collision"
+    ],
+    "canonical_owner": {
+      "architectural_owner": "A successor runtime journal may canonically own run/step execution facts only; graph business artifacts remain with the graph repository.",
+      "current_observed_owner": "WorkflowGraphRun stores snapshot status/node_statuses/results while WorkflowGraphEvent separately stores append-only status events; compiled graph artifacts use a separate store.",
+      "owner_gap": "Snapshot and event history can disagree, results are not reconstructible from events, AgentSession is another projection, and no reducer is the sole write authority."
+    },
+    "effect_profile": {
+      "memory": "Process-local mutable dictionaries protected by RLock; data disappears with process lifetime.",
+      "sql": "Public-schema SQLAlchemy sessions and commits for each individual run/status/result/event mutation; constructors create tables/DDL.",
+      "selection": "Global settings choose SQL or memory. SQL construction can fail closed or silently degrade to a fresh memory store.",
+      "replay": "Read-only service fold detects selected status mismatches but does not repair them or rebuild results."
+    },
+    "authority_profile": {
+      "current": "Store methods have no actor, project, permission, approval, revision, or authority arguments; authority is assumed from the caller.",
+      "scope_gap": "WorkflowGraphRun/Event are in public schema and carry no project_key; compiled artifacts are keyed only by graph_id.",
+      "successor_boundary": "A P1 disposition grants no transfer of graph business authority or runtime-journal cutover."
+    },
+    "resource_profile": {
+      "memory": "Unbounded run/event/result/compiled dictionaries retained for process lifetime.",
+      "sql": "One session/transaction per mutation; event sequence uses SELECT max(seq)+1; compiled payload is JSONB; no retention, compaction, pagination for events, or payload-size budget.",
+      "concurrency": "No row lock or retry surrounds max(seq)+1; the database unique(run_id,seq) constraint detects but does not reconcile collisions.",
+      "recovery": "No atomic transaction spans effect result, result persistence, status mutation, and event append."
+    },
+    "legacy_interpreter": {
+      "id": "legacy.workflow_graph.store_replay.v1",
+      "implementation": "InMemoryRunStore or SqlRunStore plus WorkflowGraphRuntimeService.replay_run/_build_replay_consistency_report",
+      "qualification": "This is not an exact same-Program interpreter: events_only reconstructs statuses only, and stateful returns stored snapshot/results."
+    },
+    "successor_interpreter_candidate": {
+      "status": "P1_INTERFACE_SHAPE_ONLY_NOT_IMPLEMENTED_NOT_SELECTED",
+      "shape": "A project-scoped runtime-journal port with immutable sequenced events, one pure total reducer, reducer-derived snapshots, typed result/value references, optimistic concurrency or locked append, exact replay identity, crash reconciliation, and projection rebuild offsets.",
+      "p2_selected": false
+    },
+    "observation_profile": {
+      "observed": [
+        "in-memory run/status/result/event snapshot",
+        "compiled-record save/reload in memory",
+        "stored-versus-event-derived run/node status consistency report",
+        "events_only and stateful API projection shapes",
+        "configurable SQL versus memory store construction"
+      ],
+      "missing": [
+        "SQL run/event/result parity fixture",
+        "SQL compiled-artifact parity fixture",
+        "concurrent event append fixture",
+        "explicit run_id reuse fixture",
+        "crash between result/status/event writes",
+        "event-derived result reconstruction",
+        "project-scope isolation",
+        "retention/compaction",
+        "restart/reload exact replay",
+        "rollback observation retaining a successor journal"
+      ]
+    },
+    "fixture_ids": [
+      "test_store_keeps_runs_events_results",
+      "test_compiler_service_persists_and_reloads_compiled_graph",
+      "test_runtime_service_reads_compiled_graph_from_durable_store_after_reload",
+      "test_replay_run_reports_explicit_consistency_mismatch",
+      "test_replay_run_success",
+      "test_replay_run_stateful_mode_forwards_query_param",
+      "MISSING_REQUIRED_FIXTURE:sql_memory_run_event_result_parity",
+      "MISSING_REQUIRED_FIXTURE:concurrent_event_append",
+      "MISSING_REQUIRED_FIXTURE:explicit_run_id_reuse_does_not_retain_stale_events",
+      "MISSING_REQUIRED_FIXTURE:crash_between_result_status_event_reconcile",
+      "MISSING_REQUIRED_FIXTURE:event_replay_rebuilds_results",
+      "MISSING_REQUIRED_FIXTURE:project_scope_isolation"
+    ],
+    "rollback_observation": {
+      "architecture_contract": "Feature-flag rollback to the legacy runtime without deleting the successor journal.",
+      "current_observation": "The settings flag only selects legacy SQL versus legacy memory storage. No successor journal exists, and fail-open SQL-to-memory fallback loses durable readback rather than constituting migration rollback."
+    },
+    "disposition": "REIMPLEMENT",
+    "rationale": "The store cannot be adapted as a canonical durable replay boundary. It maintains mutable snapshot status/results and append-only events as separate truths, commits each mutation independently, cannot event-rebuild results, and makes stateful replay a snapshot echo. SQL create_run resets an existing run snapshot without clearing its previous events, unlike the in-memory implementation. Event sequence allocation uses max(seq)+1 without locking/retry, public rows are not project-scoped, constructors perform DDL, and configured fallback can replace durability with fresh process memory. Preserve fixtures and legacy observation shapes only; implement a project-scoped journal and pure reducer with exact crash/replay semantics.",
+    "prerequisites": [
+      "Freeze typed run/step/event/result-reference schemas and reducer algebra with digests.",
+      "Choose and document one canonical write authority; make every snapshot a reducer-derived projection.",
+      "Make result/value material replayable through immutable events or canonical value references.",
+      "Add project scope, runtime identity/incarnation, program/plan digest, attempt identity, and policy/catalog identity.",
+      "Define atomic append/state semantics or transactional outbox behavior across result, status, and event publication.",
+      "Use locked or optimistic sequence allocation with collision/retry semantics.",
+      "Specify explicit run_id idempotency/reuse behavior and prevent stale-event retention.",
+      "Remove constructor DDL from the repository boundary and use migrations.",
+      "Define fail-closed durability behavior; do not silently treat fresh memory as equivalent to SQL.",
+      "Add SQL/memory observation parity, restart/reload, concurrent append, injected-crash, exact replay, projection rebuild, and rollback fixtures.",
+      "Keep graph business-artifact authority outside the runtime journal and do not select P2 before owner/readback/reversibility comparison."
+    ],
+    "risk": "HIGH",
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "lines 2-9, 38-40",
+        "claim": "C1.3 is locator-only, pending, non-authorizing, and C1 is not the fixed first migration."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/store.py",
+        "symbol_or_lines": "InMemoryRunStore, lines 24-128",
+        "claim": "The memory backend stores run snapshots, events, and results in three mutable dictionaries and returns their product as a snapshot."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/store.py",
+        "symbol_or_lines": "SqlRunStore, lines 157-314",
+        "claim": "SQL status, node status, results, and events are committed in separate sessions; event sequencing uses max(seq)+1."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/store.py",
+        "symbol_or_lines": "SqlRunStore.create_run, lines 169-196",
+        "claim": "Reusing an existing run_id resets status, node_statuses, metadata, and results but does not delete or bind off prior events, unlike InMemoryRunStore.create_run."
+      },
+      {
+        "path": "main/backend/app/models/entities.py",
+        "symbol_or_lines": "WorkflowGraphRun and WorkflowGraphEvent, lines 651-686",
+        "claim": "Public-schema snapshot and event tables have separate persisted truths, no project_key, and a unique run_id/seq event constraint."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/store.py",
+        "symbol_or_lines": "SqlCompiledGraphStore, lines 317-408",
+        "claim": "The compiled store performs CREATE TABLE in its constructor and upserts globally keyed graph_id JSONB records."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/store.py",
+        "symbol_or_lines": "build_run_store and build_compiled_graph_store, lines 411-434",
+        "claim": "Configuration may fail closed on SQL unavailability or replace the durable backend with a new in-memory store."
+      },
+      {
+        "path": "main/backend/app/services/workflow_graph/__init__.py",
+        "symbol_or_lines": "WorkflowGraphRuntimeService.replay_run and _build_replay_consistency_report, lines 237-344",
+        "claim": "events_only replay derives only statuses; stateful mode returns stored events/results; consistency checking reports mismatches without rebuilding results or repairing state."
+      },
+      {
+        "path": "main/backend/tests/unit/test_workflow_graph_runtime_unittest.py",
+        "symbol_or_lines": "lines 50-64, 299-339",
+        "claim": "Store and replay tests use in-memory stores and prove snapshot retention/reload and mismatch detection, not SQL parity or exact recovery."
+      },
+      {
+        "path": "main/backend/tests/integration/test_workflow_graph_api_unittest.py",
+        "symbol_or_lines": "lines 113-143",
+        "claim": "API replay tests mock the service result and validate envelope forwarding only; they do not exercise repository replay."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2298-2308, 2469-2475",
+        "claim": "The architecture requires canonical-owner, resource, replay, memory/SQL observation, rollback, and reasoned P1 evidence before any P2 selection."
+      }
+    ]
+  }
+]

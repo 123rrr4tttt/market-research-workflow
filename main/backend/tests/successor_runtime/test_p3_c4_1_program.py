@@ -6,13 +6,11 @@ import dataclasses
 
 import pytest
 
-from app.successor_runtime.capabilities import agent_batch_c4 as c4
-from app.successor_runtime.capabilities.agent_batch_c4 import (
-    build_agent_batch_c4_bundle,
-)
-from app.successor_runtime.capabilities.agent_batch_c4_program import (
-    build_agent_batch_c4_1_program,
-    build_agent_batch_c4_1_traversal_program,
+from app.successor_runtime.capabilities import batch_task as c4
+from app.successor_runtime.capabilities.batch_task import build_batch_task_bundle
+from app.successor_runtime.capabilities.batch_task_program import (
+    build_batch_task_plan_program,
+    build_batch_task_plan_traversal_program,
     traversal_shape_binding,
 )
 from app.successor_runtime.language.algebra import freeze_json_object
@@ -72,7 +70,7 @@ def test_c4_1_static_shape_traversal_program_compiles_with_exact_metadata() -> N
     assert binding["traversal_element_count"] == 1
     assert len(binding["traversal_shape_digest"]) == 64
 
-    program = build_agent_batch_c4_1_traversal_program(
+    program = build_batch_task_plan_traversal_program(
         payloads=[payload],
         catalog=catalog(),
         program_id="program:p3-c4-traverse",
@@ -114,7 +112,7 @@ def test_c4_1_static_shape_traversal_program_compiles_with_exact_metadata() -> N
 
 def test_static_shape_traversal_without_exact_metadata_fails_closed() -> None:
     payload = plan_payload()
-    atom_program = build_agent_batch_c4_1_program(
+    atom_program = build_batch_task_plan_program(
         payload=payload,
         catalog=catalog(),
         program_id="program:p3-c4-traverse-no-binding",
@@ -138,7 +136,7 @@ def test_static_shape_traversal_without_exact_metadata_fails_closed() -> None:
         root=traverse,
         algebra_refs=atom_program.algebra_refs,
         transform_refs=(),
-        observation_profile="mrw.successor.agent-batch.c4-1.observation.v1",
+        observation_profile=c4.BATCH_PLAN_OBSERVATION_PROFILE,
         metadata=freeze_json_object({}),
         program_digest="",
     ).with_digest()
@@ -148,7 +146,7 @@ def test_static_shape_traversal_without_exact_metadata_fails_closed() -> None:
 
 
 def test_bundle_has_three_c4_operations_and_submission_codec() -> None:
-    bundle = build_agent_batch_c4_bundle()
+    bundle = build_batch_task_bundle()
     kinds = tuple(operation.ref.kind for operation in bundle.operations)
     assert kinds == (
         c4.BATCH_PLAN_KIND,

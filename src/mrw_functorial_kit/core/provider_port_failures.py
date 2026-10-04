@@ -6,12 +6,6 @@ from typing import Literal, get_args
 
 from functorial_kit import define_failure_family
 
-
-IngestMarketFailureCode = Literal[
-    "market_adapter_not_configured",
-    "market_provider_iteration_failed",
-    "market_persistence_failed",
-]
 IngestPolicyFailureCode = Literal[
     "policy_adapter_not_configured",
     "policy_provider_iteration_failed",
@@ -41,6 +35,8 @@ CollectRuntimeFailureCode = Literal[
     "compat_projector_contract_invalid",
     "collect_channel_unsupported",
     "auto_batch_execution_failed",
+    "product_mode_unsupported",
+    "successor_effect_gateway_invalid",
 ]
 SourceLibraryCrawlerProviderResolutionFailureCode = Literal[
     "resolver_not_configured",
@@ -117,10 +113,6 @@ IndexerPolicyFailureCode = Literal[
 ]
 JobHistoryFailureCode = Literal["history_read_failed"]
 
-ingest_market_failures = define_failure_family(
-    "ingest.market.failure",
-    get_args(IngestMarketFailureCode),
-)
 ingest_policy_failures = define_failure_family(
     "ingest.policy.failure",
     get_args(IngestPolicyFailureCode),
@@ -185,7 +177,6 @@ __all__ = [
     "crawler_runtime_failures",
     "ingest_google_news_failures",
     "ingest_long_cycle_failures",
-    "ingest_market_failures",
     "ingest_operation_failures",
     "ingest_policy_failures",
     "ingest_reddit_failures",

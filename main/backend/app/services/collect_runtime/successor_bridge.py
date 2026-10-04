@@ -27,7 +27,9 @@ def outcome_unknown_result(request: CollectRequest) -> CollectResult:
         ],
         meta={
             "raw": {
-                "successor_interpreter": "successor.collect_runtime.result_fold.v1",
+                "successor_interpreter": (
+                    "mrw.acquisition.batch.fold_ordered_results.interpreter.v2"
+                ),
                 "outcome": "OutcomeUnknown",
                 "reason": "effect_gateway_unavailable",
             }
@@ -137,7 +139,9 @@ def project_successor_aggregate(
             "raw": raw,
             "c3_aggregate": aggregate,
             "ordered_outcomes": sequence,
-            "successor_interpreter": "successor.collect_runtime.result_fold.v1",
+            "successor_interpreter": (
+                "mrw.acquisition.batch.fold_ordered_results.interpreter.v2"
+            ),
             "batch_parallelism": plan.effective_parallelism,
             "batch_parallelism_requested": plan.requested_parallelism,
             "batch_independence_policy_explicit": plan.effective_parallelism > 1,

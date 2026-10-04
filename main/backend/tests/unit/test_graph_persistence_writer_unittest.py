@@ -106,13 +106,13 @@ class GraphPersistenceWriterUnitTestCase(unittest.TestCase):
         post = GraphNode(type="Post", id=" 42 ", properties={"title": "Projection Fixture"})
         entity_upper = GraphNode(type="Entity", id=" ACME\u200b Corp ", properties={"name": "ACME Corp"})
         entity_lower = GraphNode(type="Entity", id="acme corp", properties={"name": "duplicate"})
-        keyword = GraphNode(type="Keyword", id=" Lottery   AI ", properties={"label": "Lottery AI"})
+        keyword = GraphNode(type="Keyword", id=" Clean   Energy ", properties={"label": "Clean Energy"})
         graph = Graph(
             nodes={
                 "Post:raw-42": post,
                 "Entity:upper": entity_upper,
                 "Entity:lower": entity_lower,
-                "Keyword:lottery-ai": keyword,
+                "Keyword:clean-energy": keyword,
             },
             edges=[
                 GraphEdge(
@@ -124,7 +124,7 @@ class GraphPersistenceWriterUnitTestCase(unittest.TestCase):
                 GraphEdge(
                     type="MENTIONS_KEYWORD",
                     from_node=post,
-                    to_node=GraphNode(type="Keyword", id="Lottery AI"),
+                    to_node=GraphNode(type="Keyword", id="Clean Energy"),
                     properties={},
                 ),
             ],
@@ -137,14 +137,14 @@ class GraphPersistenceWriterUnitTestCase(unittest.TestCase):
         self.assertEqual(report.attempted_node_count, 4)
         self.assertEqual(report.unique_node_count, 3)
         self.assertEqual(report.duplicate_node_attempts, 1)
-        self.assertEqual({node.key for node in report.nodes}, {"Post:42", "Entity:acme corp", "Keyword:lottery ai"})
+        self.assertEqual({node.key for node in report.nodes}, {"Post:42", "Entity:acme corp", "Keyword:clean energy"})
         self.assertEqual(report.writeable_edge_count, 2)
         self.assertEqual(report.unresolved_edge_count, 0)
         self.assertEqual(
             {(edge.edge_type, edge.from_key, edge.to_key) for edge in report.edges},
             {
                 ("MENTIONS_ENTITY", "Post:42", "Entity:acme corp"),
-                ("MENTIONS_KEYWORD", "Post:42", "Keyword:lottery ai"),
+                ("MENTIONS_KEYWORD", "Post:42", "Keyword:clean energy"),
             },
         )
 

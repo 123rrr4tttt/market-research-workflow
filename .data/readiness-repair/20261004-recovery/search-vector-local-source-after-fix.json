@@ -1,0 +1,881 @@
+{
+  "http_status": 200,
+  "response": {
+    "status": "ok",
+    "data": {
+      "query": "MRW persisted readiness policy 98952f281da9",
+      "state": null,
+      "modality": "any",
+      "rank": "vector",
+      "top_k": 10,
+      "results": [
+        {
+          "document_id": 2,
+          "object_type": "policy_chunk",
+          "object_id": 2,
+          "source_id": 1,
+          "vector_version": "v1",
+          "embedding_provider": "openai",
+          "embedding_model": "text-embedding-3-large",
+          "embedding_model_version": "v1",
+          "embedding_dim": 3072,
+          "score": 0.7800766263798806,
+          "chunk_index": null,
+          "title": "MRW persisted readiness policy 98952f281da9",
+          "summary": "",
+          "text": "MRW persisted readiness policy 98952f281da9.\nThis is a local synthetic policy fixture for project-scoped index and readback verification.",
+          "highlight": [],
+          "state": null,
+          "publish_date": null,
+          "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+          "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+          "mode": "vector",
+          "backend": "pgvector",
+          "provider_payload_kind": "pgvector_payload",
+          "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'",
+          "payload_provenance": {
+            "provider": "openai",
+            "backend": "pgvector_fallback",
+            "retrieval_mode": "vector",
+            "provider_payload_kind": "pgvector_payload",
+            "embedding_model": "text-embedding-3-large",
+            "embedding_model_version": "v1",
+            "embedding_dim": 3072,
+            "vector_version": "v1",
+            "source": "document:2",
+            "source_id": "1",
+            "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "score": 0.7800766263798806,
+            "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'"
+          },
+          "provenance": {
+            "provider": "openai",
+            "backend": "pgvector_fallback",
+            "retrieval_mode": "vector",
+            "provider_payload_kind": "pgvector_payload",
+            "embedding_model": "text-embedding-3-large",
+            "embedding_model_version": "v1",
+            "embedding_dim": 3072,
+            "vector_version": "v1",
+            "source": "document:2",
+            "source_id": "1",
+            "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "score": 0.7800766263798806,
+            "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'"
+          },
+          "tags": [
+            "vector",
+            "pgvector",
+            "fallback"
+          ]
+        }
+      ],
+      "document_query_contract_version": "document_queries.v1",
+      "document_query": {
+        "contract_version": "document_queries.v1",
+        "query": "MRW persisted readiness policy 98952f281da9",
+        "normalized_query": "mrw persisted readiness policy 98952f281da9",
+        "project_key": "readiness_repair",
+        "consumer": "api.search",
+        "sources": [
+          "document"
+        ],
+        "filters": [],
+        "sort": [
+          {
+            "field": "relevance",
+            "direction": "desc"
+          }
+        ],
+        "limit": 10,
+        "offset": 0,
+        "query_id": "dfa317ca9b9f10b1"
+      },
+      "document_query_results": [
+        {
+          "document_id": 2,
+          "object_type": "policy_chunk",
+          "object_id": 2,
+          "source_id": 1,
+          "vector_version": "v1",
+          "embedding_provider": "openai",
+          "embedding_model": "text-embedding-3-large",
+          "embedding_model_version": "v1",
+          "embedding_dim": 3072,
+          "score": 0.7800766263798806,
+          "chunk_index": null,
+          "title": "MRW persisted readiness policy 98952f281da9",
+          "summary": "",
+          "text": "MRW persisted readiness policy 98952f281da9.\nThis is a local synthetic policy fixture for project-scoped index and readback verification.",
+          "highlight": [],
+          "state": null,
+          "publish_date": null,
+          "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+          "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+          "mode": "vector",
+          "backend": "pgvector",
+          "provider_payload_kind": "pgvector_payload",
+          "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'",
+          "payload_provenance": {
+            "provider": "openai",
+            "backend": "pgvector_fallback",
+            "retrieval_mode": "vector",
+            "provider_payload_kind": "pgvector_payload",
+            "embedding_model": "text-embedding-3-large",
+            "embedding_model_version": "v1",
+            "embedding_dim": 3072,
+            "vector_version": "v1",
+            "source": "document:2",
+            "source_id": "1",
+            "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "score": 0.7800766263798806,
+            "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'"
+          },
+          "provenance": {
+            "provider": "openai",
+            "backend": "pgvector_fallback",
+            "retrieval_mode": "vector",
+            "provider_payload_kind": "pgvector_payload",
+            "embedding_model": "text-embedding-3-large",
+            "embedding_model_version": "v1",
+            "embedding_dim": 3072,
+            "vector_version": "v1",
+            "source": "document:2",
+            "source_id": "1",
+            "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "score": 0.7800766263798806,
+            "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'"
+          },
+          "tags": [
+            "vector",
+            "pgvector",
+            "fallback"
+          ],
+          "id": 1,
+          "snippet": "",
+          "url": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+          "uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+          "source_type": "document",
+          "publisher": null,
+          "published_at": null,
+          "rank": 1,
+          "raw": {
+            "document_id": 2,
+            "object_type": "policy_chunk",
+            "object_id": 2,
+            "source_id": 1,
+            "vector_version": "v1",
+            "embedding_provider": "openai",
+            "embedding_model": "text-embedding-3-large",
+            "embedding_model_version": "v1",
+            "embedding_dim": 3072,
+            "score": 0.7800766263798806,
+            "chunk_index": null,
+            "title": "MRW persisted readiness policy 98952f281da9",
+            "summary": "",
+            "text": "MRW persisted readiness policy 98952f281da9.\nThis is a local synthetic policy fixture for project-scoped index and readback verification.",
+            "highlight": [],
+            "state": null,
+            "publish_date": null,
+            "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "mode": "vector",
+            "backend": "pgvector",
+            "provider_payload_kind": "pgvector_payload",
+            "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'",
+            "payload_provenance": {
+              "provider": "openai",
+              "backend": "pgvector_fallback",
+              "retrieval_mode": "vector",
+              "provider_payload_kind": "pgvector_payload",
+              "embedding_model": "text-embedding-3-large",
+              "embedding_model_version": "v1",
+              "embedding_dim": 3072,
+              "vector_version": "v1",
+              "source": "document:2",
+              "source_id": "1",
+              "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "score": 0.7800766263798806,
+              "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'"
+            },
+            "provenance": {
+              "provider": "openai",
+              "backend": "pgvector_fallback",
+              "retrieval_mode": "vector",
+              "provider_payload_kind": "pgvector_payload",
+              "embedding_model": "text-embedding-3-large",
+              "embedding_model_version": "v1",
+              "embedding_dim": 3072,
+              "vector_version": "v1",
+              "source": "document:2",
+              "source_id": "1",
+              "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "score": 0.7800766263798806,
+              "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'"
+            },
+            "tags": [
+              "vector",
+              "pgvector",
+              "fallback"
+            ]
+          }
+        }
+      ],
+      "document_query_pagination": {
+        "limit": 10,
+        "offset": 0,
+        "result_count": 1,
+        "total": 1
+      },
+      "document_query_meta": {
+        "contract_version": "document_queries.v1",
+        "query_id": "dfa317ca9b9f10b1",
+        "consumer": "api.search",
+        "source": "api.search.hybrid",
+        "result_count": 1,
+        "endpoint": "/api/v1/search",
+        "rank_mode": "vector",
+        "modality": "any",
+        "top_k": 10,
+        "search_backends_used": [
+          "pgvector_fallback"
+        ]
+      },
+      "global_vector_object_contract_version": "global_vector_object.v1",
+      "evidence_hit_contract_version": "search_evidence_hit.v1",
+      "query_group_id": "qg_f3ee77c70e5cd752",
+      "evidence_hits": [
+        {
+          "contract_version": "search_evidence_hit.v1",
+          "hit_id": "eh_326693b5d1399cb2",
+          "rank": 1,
+          "query_group_id": "qg_f3ee77c70e5cd752",
+          "matrix_branch_id": "branch_adc43e740d920aac",
+          "retrieval_mode": "vector",
+          "retrieval_family": "main_search",
+          "backend": "pgvector_fallback",
+          "evidence_class": "policy_chunk",
+          "verification_state": "fallback",
+          "score": 0.7800766263798806,
+          "rank_features": {
+            "rank": 1,
+            "score": 0.7800766263798806,
+            "fusion_score": 0.0,
+            "lexical_score": 0.0,
+            "vector_score": 0.0,
+            "backend": "pgvector_fallback",
+            "retrieval_mode": "vector",
+            "tags": [
+              "vector",
+              "pgvector",
+              "fallback"
+            ]
+          },
+          "provenance": {
+            "provider": "openai",
+            "backend": "pgvector_fallback",
+            "retrieval_mode": "vector",
+            "provider_payload_kind": "pgvector_payload",
+            "embedding_model": "text-embedding-3-large",
+            "embedding_model_version": "v1",
+            "embedding_dim": 3072,
+            "vector_version": "v1",
+            "source": "document:2",
+            "source_id": "1",
+            "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "score": 0.7800766263798806,
+            "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'",
+            "source_domain": "localhost",
+            "effective_time": null,
+            "language": null,
+            "project_key": "readiness_repair",
+            "document_id": "2",
+            "chunk_id": "2:document",
+            "matrix_branch_id": "branch_adc43e740d920aac"
+          },
+          "global_vector_object": {
+            "contract_version": "global_vector_object.v1",
+            "project_key": "readiness_repair",
+            "object_type": "policy_chunk",
+            "object_id": "2",
+            "chunk_id": "2:document",
+            "source_id": "1",
+            "document_id": "2",
+            "vector_version": "v1",
+            "embedding_model": "text-embedding-3-large",
+            "embedding_dim": 3072,
+            "matrix_branch_id": "branch_adc43e740d920aac",
+            "provenance": {
+              "provider": "openai",
+              "backend": "pgvector_fallback",
+              "retrieval_mode": "vector",
+              "provider_payload_kind": "pgvector_payload",
+              "embedding_model": "text-embedding-3-large",
+              "embedding_model_version": "v1",
+              "embedding_dim": 3072,
+              "vector_version": "v1",
+              "source": "document:2",
+              "source_id": "1",
+              "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "score": 0.7800766263798806,
+              "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'",
+              "source_domain": "localhost",
+              "effective_time": null,
+              "language": null
+            }
+          }
+        }
+      ],
+      "retrieval_run_contract_version": "search_retrieval_run.v1",
+      "retrieval_run_id": "retrieval_run_5aecc11b80aea883",
+      "search_branches": [
+        {
+          "matrix_branch_id": "branch_adc43e740d920aac",
+          "retrieval_mode": "vector",
+          "backend": "pgvector_fallback",
+          "retrieval_family": "main_search",
+          "hit_ids": [
+            "eh_326693b5d1399cb2"
+          ],
+          "hit_count": 1,
+          "top_score": 0.7800766263798806,
+          "global_vector_object_refs": [
+            {
+              "document_id": "2",
+              "chunk_id": "2:document",
+              "source_id": "1",
+              "vector_version": "v1"
+            }
+          ],
+          "verification_states": [
+            "fallback"
+          ],
+          "contract_version": "search_retrieval_branch.v1",
+          "run_id": "retrieval_run_5aecc11b80aea883",
+          "retrieval_run_id": "retrieval_run_5aecc11b80aea883",
+          "query_group_id": "qg_f3ee77c70e5cd752",
+          "query_text": "MRW persisted readiness policy 98952f281da9",
+          "rank_mode": "vector",
+          "provider_or_index": "pgvector_fallback",
+          "status": "completed",
+          "filters": {
+            "state": null,
+            "modality": "any",
+            "top_k": 10
+          }
+        }
+      ],
+      "branch_hit_details": [
+        {
+          "contract_version": "search_retrieval_hit.v1",
+          "run_id": "retrieval_run_5aecc11b80aea883",
+          "retrieval_run_id": "retrieval_run_5aecc11b80aea883",
+          "query_group_id": "qg_f3ee77c70e5cd752",
+          "matrix_branch_id": "branch_adc43e740d920aac",
+          "hit_id": "eh_326693b5d1399cb2",
+          "rank": 1,
+          "score": 0.7800766263798806,
+          "retrieval_mode": "vector",
+          "retrieval_family": "main_search",
+          "backend": "pgvector_fallback",
+          "object_type": "policy_chunk",
+          "object_id": "2",
+          "chunk_id": "2:document",
+          "document_id": "2",
+          "source_id": "1",
+          "evidence_class": "policy_chunk",
+          "verification_state": "fallback",
+          "provenance": {
+            "provider": "openai",
+            "backend": "pgvector_fallback",
+            "retrieval_mode": "vector",
+            "provider_payload_kind": "pgvector_payload",
+            "embedding_model": "text-embedding-3-large",
+            "embedding_model_version": "v1",
+            "embedding_dim": 3072,
+            "vector_version": "v1",
+            "source": "document:2",
+            "source_id": "1",
+            "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+            "score": 0.7800766263798806,
+            "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'",
+            "source_domain": "localhost",
+            "effective_time": null,
+            "language": null,
+            "project_key": "readiness_repair",
+            "document_id": "2",
+            "chunk_id": "2:document",
+            "matrix_branch_id": "branch_adc43e740d920aac"
+          },
+          "global_vector_object": {
+            "contract_version": "global_vector_object.v1",
+            "project_key": "readiness_repair",
+            "object_type": "policy_chunk",
+            "object_id": "2",
+            "chunk_id": "2:document",
+            "source_id": "1",
+            "document_id": "2",
+            "vector_version": "v1",
+            "embedding_model": "text-embedding-3-large",
+            "embedding_dim": 3072,
+            "matrix_branch_id": "branch_adc43e740d920aac",
+            "provenance": {
+              "provider": "openai",
+              "backend": "pgvector_fallback",
+              "retrieval_mode": "vector",
+              "provider_payload_kind": "pgvector_payload",
+              "embedding_model": "text-embedding-3-large",
+              "embedding_model_version": "v1",
+              "embedding_dim": 3072,
+              "vector_version": "v1",
+              "source": "document:2",
+              "source_id": "1",
+              "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "score": 0.7800766263798806,
+              "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'",
+              "source_domain": "localhost",
+              "effective_time": null,
+              "language": null
+            }
+          }
+        }
+      ],
+      "retrieval_run": {
+        "contract_version": "search_retrieval_run.v1",
+        "run_id": "retrieval_run_5aecc11b80aea883",
+        "retrieval_run_id": "retrieval_run_5aecc11b80aea883",
+        "query_group_id": "qg_f3ee77c70e5cd752",
+        "retrieval_family": "main_search",
+        "query": "MRW persisted readiness policy 98952f281da9",
+        "query_text": "MRW persisted readiness policy 98952f281da9",
+        "project_key": "readiness_repair",
+        "rank_mode": "vector",
+        "state": null,
+        "modality": "any",
+        "top_k": 10,
+        "filters": {
+          "state": null,
+          "modality": "any",
+          "top_k": 10
+        },
+        "branch_records": [
+          {
+            "matrix_branch_id": "branch_adc43e740d920aac",
+            "retrieval_mode": "vector",
+            "backend": "pgvector_fallback",
+            "retrieval_family": "main_search",
+            "hit_ids": [
+              "eh_326693b5d1399cb2"
+            ],
+            "hit_count": 1,
+            "top_score": 0.7800766263798806,
+            "global_vector_object_refs": [
+              {
+                "document_id": "2",
+                "chunk_id": "2:document",
+                "source_id": "1",
+                "vector_version": "v1"
+              }
+            ],
+            "verification_states": [
+              "fallback"
+            ]
+          }
+        ],
+        "retrieval_branches": [
+          {
+            "matrix_branch_id": "branch_adc43e740d920aac",
+            "retrieval_mode": "vector",
+            "backend": "pgvector_fallback",
+            "retrieval_family": "main_search",
+            "hit_ids": [
+              "eh_326693b5d1399cb2"
+            ],
+            "hit_count": 1,
+            "top_score": 0.7800766263798806,
+            "global_vector_object_refs": [
+              {
+                "document_id": "2",
+                "chunk_id": "2:document",
+                "source_id": "1",
+                "vector_version": "v1"
+              }
+            ],
+            "verification_states": [
+              "fallback"
+            ],
+            "contract_version": "search_retrieval_branch.v1",
+            "run_id": "retrieval_run_5aecc11b80aea883",
+            "retrieval_run_id": "retrieval_run_5aecc11b80aea883",
+            "query_group_id": "qg_f3ee77c70e5cd752",
+            "query_text": "MRW persisted readiness policy 98952f281da9",
+            "rank_mode": "vector",
+            "provider_or_index": "pgvector_fallback",
+            "status": "completed",
+            "filters": {
+              "state": null,
+              "modality": "any",
+              "top_k": 10
+            }
+          }
+        ],
+        "retrieval_hits": [
+          {
+            "contract_version": "search_retrieval_hit.v1",
+            "run_id": "retrieval_run_5aecc11b80aea883",
+            "retrieval_run_id": "retrieval_run_5aecc11b80aea883",
+            "query_group_id": "qg_f3ee77c70e5cd752",
+            "matrix_branch_id": "branch_adc43e740d920aac",
+            "hit_id": "eh_326693b5d1399cb2",
+            "rank": 1,
+            "score": 0.7800766263798806,
+            "retrieval_mode": "vector",
+            "retrieval_family": "main_search",
+            "backend": "pgvector_fallback",
+            "object_type": "policy_chunk",
+            "object_id": "2",
+            "chunk_id": "2:document",
+            "document_id": "2",
+            "source_id": "1",
+            "evidence_class": "policy_chunk",
+            "verification_state": "fallback",
+            "provenance": {
+              "provider": "openai",
+              "backend": "pgvector_fallback",
+              "retrieval_mode": "vector",
+              "provider_payload_kind": "pgvector_payload",
+              "embedding_model": "text-embedding-3-large",
+              "embedding_model_version": "v1",
+              "embedding_dim": 3072,
+              "vector_version": "v1",
+              "source": "document:2",
+              "source_id": "1",
+              "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "score": 0.7800766263798806,
+              "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'",
+              "source_domain": "localhost",
+              "effective_time": null,
+              "language": null,
+              "project_key": "readiness_repair",
+              "document_id": "2",
+              "chunk_id": "2:document",
+              "matrix_branch_id": "branch_adc43e740d920aac"
+            },
+            "global_vector_object": {
+              "contract_version": "global_vector_object.v1",
+              "project_key": "readiness_repair",
+              "object_type": "policy_chunk",
+              "object_id": "2",
+              "chunk_id": "2:document",
+              "source_id": "1",
+              "document_id": "2",
+              "vector_version": "v1",
+              "embedding_model": "text-embedding-3-large",
+              "embedding_dim": 3072,
+              "matrix_branch_id": "branch_adc43e740d920aac",
+              "provenance": {
+                "provider": "openai",
+                "backend": "pgvector_fallback",
+                "retrieval_mode": "vector",
+                "provider_payload_kind": "pgvector_payload",
+                "embedding_model": "text-embedding-3-large",
+                "embedding_model_version": "v1",
+                "embedding_dim": 3072,
+                "vector_version": "v1",
+                "source": "document:2",
+                "source_id": "1",
+                "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+                "reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+                "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+                "score": 0.7800766263798806,
+                "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'",
+                "source_domain": "localhost",
+                "effective_time": null,
+                "language": null
+              }
+            }
+          }
+        ],
+        "evidence_hits": [
+          {
+            "contract_version": "search_evidence_hit.v1",
+            "hit_id": "eh_326693b5d1399cb2",
+            "rank": 1,
+            "query_group_id": "qg_f3ee77c70e5cd752",
+            "matrix_branch_id": "branch_adc43e740d920aac",
+            "retrieval_mode": "vector",
+            "retrieval_family": "main_search",
+            "backend": "pgvector_fallback",
+            "evidence_class": "policy_chunk",
+            "verification_state": "fallback",
+            "score": 0.7800766263798806,
+            "rank_features": {
+              "rank": 1,
+              "score": 0.7800766263798806,
+              "fusion_score": 0.0,
+              "lexical_score": 0.0,
+              "vector_score": 0.0,
+              "backend": "pgvector_fallback",
+              "retrieval_mode": "vector",
+              "tags": [
+                "vector",
+                "pgvector",
+                "fallback"
+              ]
+            },
+            "provenance": {
+              "provider": "openai",
+              "backend": "pgvector_fallback",
+              "retrieval_mode": "vector",
+              "provider_payload_kind": "pgvector_payload",
+              "embedding_model": "text-embedding-3-large",
+              "embedding_model_version": "v1",
+              "embedding_dim": 3072,
+              "vector_version": "v1",
+              "source": "document:2",
+              "source_id": "1",
+              "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+              "score": 0.7800766263798806,
+              "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'",
+              "source_domain": "localhost",
+              "effective_time": null,
+              "language": null,
+              "project_key": "readiness_repair",
+              "document_id": "2",
+              "chunk_id": "2:document",
+              "matrix_branch_id": "branch_adc43e740d920aac"
+            },
+            "global_vector_object": {
+              "contract_version": "global_vector_object.v1",
+              "project_key": "readiness_repair",
+              "object_type": "policy_chunk",
+              "object_id": "2",
+              "chunk_id": "2:document",
+              "source_id": "1",
+              "document_id": "2",
+              "vector_version": "v1",
+              "embedding_model": "text-embedding-3-large",
+              "embedding_dim": 3072,
+              "matrix_branch_id": "branch_adc43e740d920aac",
+              "provenance": {
+                "provider": "openai",
+                "backend": "pgvector_fallback",
+                "retrieval_mode": "vector",
+                "provider_payload_kind": "pgvector_payload",
+                "embedding_model": "text-embedding-3-large",
+                "embedding_model_version": "v1",
+                "embedding_dim": 3072,
+                "vector_version": "v1",
+                "source": "document:2",
+                "source_id": "1",
+                "source_reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+                "reference": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+                "source_uri": "file://localhost/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery/synthetic-policy-material.txt",
+                "score": 0.7800766263798806,
+                "fallback_reason": "qdrant_unavailable: No module named 'qdrant_client'",
+                "source_domain": "localhost",
+                "effective_time": null,
+                "language": null
+              }
+            }
+          }
+        ],
+        "branch_count": 1,
+        "hit_count": 1,
+        "status": "completed"
+      },
+      "retrieval_run_readback": {
+        "contract_version": "search_retrieval_run_readback.v1",
+        "status": "passed",
+        "write_performed": true,
+        "readback_performed": true,
+        "readback_available": true,
+        "storage_kind": "local_jsonl",
+        "path": "/tmp/market-research-workflow/search_retrieval_runs.jsonl",
+        "run_id": "retrieval_run_5aecc11b80aea883",
+        "retrieval_run_id": "retrieval_run_5aecc11b80aea883",
+        "branch_count": 1,
+        "hit_count": 1,
+        "closed_repo_local_blockers": [
+          "retrieval_runs_branches_hits_persistence_not_implemented"
+        ],
+        "remaining_repo_local_blockers": []
+      },
+      "search_fallback_order": [
+        "opensearch_lexical",
+        "qdrant_vector",
+        "pgvector_fallback"
+      ],
+      "search_backends_used": [
+        "pgvector_fallback"
+      ],
+      "provider_trace": {
+        "contract_version": "search.provider_trace.compat.v1",
+        "status": "completed",
+        "retrieval_run_id": "retrieval_run_5aecc11b80aea883",
+        "query_group_id": "qg_f3ee77c70e5cd752",
+        "providers_used": [
+          "pgvector_fallback"
+        ],
+        "fallback_order": [
+          "opensearch_lexical",
+          "qdrant_vector",
+          "pgvector_fallback"
+        ],
+        "index_backend": "pgvector_fallback",
+        "fallback_used": true,
+        "index_freshness": {
+          "contract_version": "search.index_freshness.v1",
+          "freshness_state": "fallback_available",
+          "readback_available": true,
+          "fallback_used": true
+        },
+        "branches": [
+          {
+            "matrix_branch_id": "branch_adc43e740d920aac",
+            "retrieval_mode": "vector",
+            "backend": "pgvector_fallback",
+            "provider_or_index": "pgvector_fallback",
+            "hit_count": 1,
+            "status": "completed"
+          }
+        ]
+      },
+      "index_backend": "pgvector_fallback",
+      "fallback_used": true,
+      "result_groups": [
+        {
+          "group_key": "pgvector_fallback|policy_chunk|1",
+          "backend": "pgvector_fallback",
+          "source_type": "policy_chunk",
+          "provenance_key": "1",
+          "count": 1,
+          "result_ids": [
+            "eh_326693b5d1399cb2"
+          ]
+        }
+      ],
+      "index_freshness": {
+        "contract_version": "search.index_freshness.v1",
+        "index_backend": "pgvector_fallback",
+        "readback_available": true,
+        "freshness_state": "fallback_available",
+        "fallback_used": true,
+        "retrieval_run_id": "retrieval_run_5aecc11b80aea883",
+        "retrieval_run_status": "completed",
+        "readback_status": "passed",
+        "branch_count": 1,
+        "hit_count": 1,
+        "freshness_basis": "retrieval_run_readback",
+        "known_limitations": [
+          "no_real_index_timestamp"
+        ]
+      },
+      "trace_chain": {
+        "contract_version": "ingest_search.trace_chain.v1",
+        "trace_id": "retrieval_run_5aecc11b80aea883",
+        "project_key": "readiness_repair",
+        "entrypoint": "search.query",
+        "run_order": [
+          {
+            "order": 1,
+            "stage": "search_request",
+            "query": "MRW persisted readiness policy 98952f281da9",
+            "query_group_id": "qg_f3ee77c70e5cd752",
+            "status": "accepted"
+          },
+          {
+            "order": 2,
+            "stage": "provider_trace",
+            "providers_used": [
+              "pgvector_fallback"
+            ],
+            "fallback_order": [
+              "opensearch_lexical",
+              "qdrant_vector",
+              "pgvector_fallback"
+            ],
+            "status": "completed"
+          },
+          {
+            "order": 3,
+            "stage": "retrieval_run",
+            "retrieval_run_id": "retrieval_run_5aecc11b80aea883",
+            "readback_available": true,
+            "status": "completed"
+          },
+          {
+            "order": 4,
+            "stage": "index_freshness",
+            "index_backend": "pgvector_fallback",
+            "freshness_state": "fallback_available",
+            "real_timestamp_available": false,
+            "timestamp_status": "not_available"
+          }
+        ],
+        "ids": {
+          "submission_id": null,
+          "task_id": null,
+          "retrieval_run_id": "retrieval_run_5aecc11b80aea883"
+        },
+        "provider": "pgvector_fallback",
+        "fallback": {
+          "used": true,
+          "fallback_order": [
+            "opensearch_lexical",
+            "qdrant_vector",
+            "pgvector_fallback"
+          ],
+          "reason": "fallback_backend_or_hit_provenance_detected"
+        },
+        "index": {
+          "index_backend": "pgvector_fallback",
+          "freshness_state": "fallback_available",
+          "readback_available": true,
+          "freshness_basis": "retrieval_run_readback",
+          "real_timestamp_available": false,
+          "timestamp_status": "not_available"
+        },
+        "replay": {
+          "retrieval_run_readback_status": "passed",
+          "storage_kind": "local_jsonl",
+          "path": "/tmp/market-research-workflow/search_retrieval_runs.jsonl"
+        },
+        "known_limitations": [
+          "no_real_index_timestamp"
+        ]
+      }
+    },
+    "error": null,
+    "meta": {
+      "trace_id": "b30980b5-a958-4372-8f45-04e67efcd3d5",
+      "pagination": null,
+      "project_key": "readiness_repair",
+      "deprecated": null
+    }
+  }
+}

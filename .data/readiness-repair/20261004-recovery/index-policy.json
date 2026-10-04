@@ -1,0 +1,26 @@
+{
+  "http_status": 400,
+  "response": {
+    "status": "error",
+    "data": null,
+    "error": {
+      "code": "INVALID_INPUT",
+      "message": "vector_contract_missing_fields: source_domain",
+      "details": {}
+    },
+    "meta": {
+      "trace_id": null,
+      "pagination": null,
+      "project_key": null,
+      "deprecated": null
+    },
+    "detail": {
+      "error": {
+        "code": "INVALID_INPUT",
+        "message": "vector_contract_missing_fields: source_domain",
+        "details": {}
+      },
+      "message": "vector_contract_missing_fields: source_domain"
+    }
+  }
+}

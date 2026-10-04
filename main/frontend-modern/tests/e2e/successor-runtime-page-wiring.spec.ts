@@ -16,8 +16,8 @@ import {
 } from '../../src/lib/api/domains/successor-runtime'
 import {
   SUCCESSOR_RUNTIME_OBSERVATION_PROJECTION_ID,
-  SUCCESSOR_RUNTIME_OBSERVATION_SOURCE_KEY,
   buildSuccessorRuntimeObservationQueryOptions,
+  buildSuccessorRuntimeObservationSourceKey,
 } from '../../src/pages/successorRuntimeConfig'
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url))
@@ -56,7 +56,11 @@ function projectionMeta(overrides: Record<string, unknown> = {}) {
     projection_revision: 1,
     source_digest: DIGEST_64,
     cursor: 0,
-    ...SUCCESSOR_RUNTIME_OBSERVATION_SOURCE_KEY,
+    projector_id: 'projection.project-source-identity.v2',
+    projector_version: '2.0.0',
+    source_kind: 'projection_source',
+    source_ref: 'projection:demo:source',
+    source_incarnation: 'inc-1',
     ...overrides,
   }
 }
@@ -151,21 +155,22 @@ function installFetchHarness(respond: (call: FetchCall) => Response | Promise<Re
 
 function projectionEnvelopeFromBody(body: Record<string, unknown>, status: 'ok' | 'waiting'): Record<string, unknown> {
   const params = body.params as Record<string, unknown>
+  const projectKey = String(body.project_locator)
   const meta = {
-    project_key: String(body.project_locator),
+    project_key: projectKey,
     trace_id: String(body.trace_id),
     projection_id: String(params.projection_id),
-    project_scope_ref: scopeRef({ project_key: String(body.project_locator) }),
+    project_scope_ref: scopeRef({ project_key: projectKey }),
     projection_generation: 1,
     offset_revision: 0,
     projection_revision: 1,
     source_digest: DIGEST_64,
     cursor: 0,
-    projector_id: String(params.projector_id),
-    projector_version: String(params.projector_version),
-    source_kind: String(params.source_kind),
-    source_ref: String(params.source_ref),
-    source_incarnation: String(params.source_incarnation),
+    projector_id: 'projection.project-source-identity.v2',
+    projector_version: '2.0.0',
+    source_kind: 'projection_source',
+    source_ref: `projection:${projectKey}:source`,
+    source_incarnation: 'inc-1',
   }
   return {
     status,
@@ -210,11 +215,14 @@ test('successor runtime page builds only read-only projection snapshot queries',
   expect(source).not.toContain(SUCCESSOR_V2_COMMAND_URL)
 
   const options = buildSuccessorRuntimeObservationQueryOptions('demo_proj')
+  const sourceKey = buildSuccessorRuntimeObservationSourceKey('demo_proj')
   expect(options.queryKind).toBe('projection_snapshot')
   expect(options.params.params_kind).toBe('projection_snapshot')
   expect(options.params.projection_id).toBe(SUCCESSOR_RUNTIME_OBSERVATION_PROJECTION_ID)
-  expect(options.params.projector_id).toBe(SUCCESSOR_RUNTIME_OBSERVATION_SOURCE_KEY.projector_id)
-  expect(options.params.source_ref).toBe(SUCCESSOR_RUNTIME_OBSERVATION_SOURCE_KEY.source_ref)
+  expect(options.params.projector_id).toBe(sourceKey.projector_id)
+  expect(options.params.source_ref).toBe(sourceKey.source_ref)
+  expect(options.params.source_kind).toBe('material')
+  expect(options.params.source_ref).not.toContain('cutover-acceptance')
   expect(options).not.toHaveProperty('actorRef')
   expect(options).not.toHaveProperty('expectedBaseToken')
   expect(options).not.toHaveProperty('approvalLocator')
@@ -283,7 +291,7 @@ test('kernel browser page mounts the read-only successor observation panel', asy
   await page.route('**/api/v1/**', async (route) => {
     const url = new URL(route.request().url())
     const requestBody = route.request().method() === 'POST' ? route.request().postDataJSON() : null
-    if (url.pathname.endsWith('/successor-runtime/v2/queries')) {
+    if (url.pathname.endsWith('/material-projections/v2/queries')) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -291,7 +299,7 @@ test('kernel browser page mounts the read-only successor observation panel', asy
       })
       return
     }
-    if (url.pathname.endsWith('/successor-runtime/v2/commands')) {
+    if (url.pathname.endsWith('/material-projections/v2/commands')) {
       await route.fulfill({ status: 403, contentType: 'application/json', body: '{}' })
       return
     }

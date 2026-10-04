@@ -15,12 +15,12 @@ from typing import Annotated, Any
 import sqlalchemy as sa
 
 from app.successor_runtime.capabilities import single_source_guard_port as c23_guard
-from app.successor_runtime.capabilities import source_library_c2_2 as c22
-from app.successor_runtime.capabilities import source_library_c2_2_interpreters as c22i
-from app.successor_runtime.capabilities import source_library_c2_2_program as c22p
-from app.successor_runtime.capabilities import source_library_c2_3 as c23
+from app.successor_runtime.capabilities import source_planning as c22
+from app.successor_runtime.capabilities import source_planning_interpreters as c22i
+from app.successor_runtime.capabilities import source_planning_program as c22p
+from app.successor_runtime.capabilities import source_provider_acquisition as c23
 from app.successor_runtime.capabilities import (
-    source_library_c2_3_test_interpreters as c23_fixtures,
+    source_provider_test_interpreters as c23_fixtures,
 )
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
@@ -28,7 +28,7 @@ from app.successor_runtime.capabilities.checksum import (
     require_hex64,
     sha256_hex,
 )
-from app.successor_runtime.capabilities.source_library_c2_3_guard_runtime import (
+from app.successor_runtime.capabilities.source_provider_guard import (
     SingleSourceGuardedProviderGateway,
 )
 from app.successor_runtime.language.algebra import (
@@ -110,7 +110,7 @@ def build_successor_c2_2_binding(
     "witness=test:test_w08d_binding_metadata_preserves_prepared_command_abi",
 ]:
     interpreter_digest = (
-        c22.build_source_library_c2_2_bundle().profiles["interpreter"].profile_digest
+        c22.build_source_planning_bundle().profiles["interpreter"].profile_digest
     )
     return InterpreterBinding.from_content(
         operation_contract_digest=contract_digest,
@@ -136,7 +136,7 @@ def build_successor_c2_3_binding(
     "witness=test:test_w08d_binding_metadata_preserves_prepared_command_abi",
 ]:
     interpreter_digest = (
-        c23.build_source_library_c2_3_bundle().profiles["interpreter"].profile_digest
+        c23.build_source_provider_acquisition_bundle().profiles["interpreter"].profile_digest
     )
     return InterpreterBinding.from_content(
         operation_contract_digest=contract_digest,
@@ -158,11 +158,11 @@ def build_recovery_c2_3_binding(
     "witness=test:test_w08d_binding_metadata_preserves_prepared_command_abi",
 ]:
     return RecoveryBinding.from_content(
-        recovery_handler_id="recovery.source_library.c2_3.fixture_readback.v1",
+        recovery_handler_id="recovery.source.provider-acquisition.fixture-readback.v2",
         recovery_handler_version="1",
         interpreter_profile_digest=interpreter_profile_digest,
         authoritative_readback_profile_ref=(
-            "mrw.successor.source-library.c2-3.readback.v1"
+            "mrw.source.provider-acquisition.readback.v2"
         ),
     )
 
@@ -180,10 +180,10 @@ def build_c2_3_payload_value_ref(
     exact_text = canonical_json(request.to_plain())
     exact_bytes = exact_text.encode("utf-8")
     content_digest_hex = sha256_hex(exact_bytes)
-    value_id = f"{program_id}:payload:c2-3"
+    value_id = f"{program_id}:payload:source-acquisition"
     provenance_digest = content_digest(
         {
-            "schema": "mrw.successor.source-library.c2-3.payload-provenance.v1",
+            "schema": "mrw.source.provider-acquisition.payload-provenance.v2",
             "program_id": program_id,
             "project_key": project_key,
             "request_digest": request.request_digest,
@@ -193,8 +193,8 @@ def build_c2_3_payload_value_ref(
     return ValueRef(
         value_id=value_id,
         project_key=project_key,
-        object_type=c23.SOURCE_LIBRARY_C2_3_PAYLOAD_TYPE,
-        codec_id=c23.SOURCE_LIBRARY_C2_3_PAYLOAD_CODEC_ID,
+        object_type=c23.SOURCE_PROVIDER_ACQUISITION_PAYLOAD_TYPE,
+        codec_id=c23.SOURCE_PROVIDER_ACQUISITION_PAYLOAD_CODEC_ID,
         content_digest=content_digest_hex,
         storage_kind="project_value_ref",
         store_id="successor_values",
@@ -218,16 +218,16 @@ def build_c2_3_fixture_program(
     "kit:prepared-command effect_boundary=successor_runtime.language.compile_program "
     "witness=test:test_w08d_program_spec_preserves_prepared_command_abi",
 ]:
-    ref = catalog.lookup(c23.SOURCE_LIBRARY_C2_3_KIND)
+    ref = catalog.lookup(c23.SOURCE_PROVIDER_ACQUISITION_KIND)
     if ref is None:
         raise ValueError(
-            f"contract {c23.SOURCE_LIBRARY_C2_3_KIND} missing from catalog"
+            f"contract {c23.SOURCE_PROVIDER_ACQUISITION_KIND} missing from catalog"
         )
     value_ref = build_c2_3_payload_value_ref(
         request, program_id=program_id, project_key=project_key
     )
     operation = OperationSpec(
-        operation_id=c23.SOURCE_LIBRARY_C2_3_OPERATION_ID,
+        operation_id=c23.SOURCE_PROVIDER_ACQUISITION_OPERATION_ID,
         contract_ref=ref,
         input_refs=(value_ref,),
         payload_ref=value_ref,
@@ -235,13 +235,13 @@ def build_c2_3_fixture_program(
     )
     root = atom_node(
         operation,
-        input_type=c23.SOURCE_LIBRARY_C2_3_PAYLOAD_TYPE,
-        output_type=c23.SOURCE_LIBRARY_C2_3_OUTCOME_TYPE,
+        input_type=c23.SOURCE_PROVIDER_ACQUISITION_PAYLOAD_TYPE,
+        output_type=c23.SOURCE_PROVIDER_ACQUISITION_OUTCOME_TYPE,
     )
     metadata = freeze_json_object(
         {
-            "schema": "mrw.successor.source-library.c2-3.program-metadata.v1",
-            "operation_kind": c23.SOURCE_LIBRARY_C2_3_KIND,
+            "schema": "mrw.source.provider-acquisition.program-metadata.v2",
+            "operation_kind": c23.SOURCE_PROVIDER_ACQUISITION_KIND,
             "project_registry_revision": project_registry_revision,
             "resolved_schema": request.project_scope.resolved_schema,
             "project_scope_incarnation": request.project_scope.incarnation,
@@ -254,7 +254,7 @@ def build_c2_3_fixture_program(
             "payload_storage_ref": value_ref.storage_ref,
             "payload_content_digest": value_ref.content_digest,
             "payload_provenance_digest": value_ref.provenance_digest,
-            "canonical_owner": c23.SOURCE_LIBRARY_C2_3_OWNER,
+            "canonical_owner": c23.SOURCE_PROVIDER_ACQUISITION_OWNER,
         }
     )
     return ProgramSpec(
@@ -345,7 +345,7 @@ class C2_2PlannerHandler(_ExactBindingHandler, RuntimeHandler):
         context: RuntimeExecutionContext,
     ) -> InterpreterOutcome:
         self._require_exact(assignment, claim)
-        result = c22i.SourceLibraryC2_2SuccessorInterpreter().interpret(
+        result = c22i.SourcePlanningSuccessorInterpreter().interpret(
             self.payload,
             program=self.program,
             plan=self.plan,
@@ -407,10 +407,13 @@ class C2_3FixtureProviderEffectHandler(_ExactBindingHandler, RuntimeHandler):
         request = self.requests_by_run[assignment.run_id]
         dispatch_gateway = self.guarded_gateway or self.gateway
         try:
-            outcome = dispatch_gateway.execute(request, {"authority": "c2-3-canary"})
+            outcome = dispatch_gateway.execute(
+                request, {"authority": "source-provider-acquisition-canary"}
+            )
         except c23_guard.SourceLibrarySingleSourceGuardError as exc:
             raise DefiniteInterpreterFailure(
-                "C2_3_SINGLE_SOURCE_GUARD_REJECTED:" + str(exc.details.reason_code)
+                "SOURCE_PROVIDER_ACQUISITION_SINGLE_SOURCE_GUARD_REJECTED:"
+                + str(exc.details.reason_code)
             ) from exc
         self.fixture_calls.append(request.request_id)
         if isinstance(
@@ -421,7 +424,7 @@ class C2_3FixtureProviderEffectHandler(_ExactBindingHandler, RuntimeHandler):
                 receipt_ref=f"receipt:sha256:{outcome.outcome_digest}",
             )
         if isinstance(outcome, c23.OutcomeUnknownProviderEffect):
-            raise OutcomeUncertain("C2_3_READBACK_REQUIRED")
+            raise OutcomeUncertain("SOURCE_PROVIDER_ACQUISITION_READBACK_REQUIRED")
         if isinstance(outcome, (c23.RejectedProviderEffect, c23.FailedProviderEffect)):
             raise DefiniteInterpreterFailure(outcome.code)
         raise DefiniteInterpreterFailure("UNSUPPORTED_FIXTURE_OUTCOME")
@@ -470,10 +473,14 @@ class C2_3ReconcileHandler(_ExactBindingHandler, RuntimeHandler):
         readback_result = self.readback.readback(attempt, self.request)
         self.readback_calls.append(target)
         if not isinstance(readback_result, c23.ReadbackTerminal):
-            raise DefiniteInterpreterFailure("C2_3_READBACK_NOT_TERMINAL")
+            raise DefiniteInterpreterFailure(
+                "SOURCE_PROVIDER_ACQUISITION_READBACK_NOT_TERMINAL"
+            )
         readback = readback_result.readback
         if readback.attempt_ref != target:
-            raise DefiniteInterpreterFailure("C2_3_READBACK_ATTEMPT_MISMATCH")
+            raise DefiniteInterpreterFailure(
+                "SOURCE_PROVIDER_ACQUISITION_READBACK_ATTEMPT_MISMATCH"
+            )
         if readback.terminal_status == "COMPLETED":
             authoritative = AuthoritativeEffectReadback(
                 attempt_id=target,
@@ -516,12 +523,14 @@ class C2_3ReconcileHandler(_ExactBindingHandler, RuntimeHandler):
                 output_digest=None,
                 receipt_ref=None,
             )
-        raise DefiniteInterpreterFailure("C2_3_READBACK_NOT_TERMINAL")
+        raise DefiniteInterpreterFailure(
+            "SOURCE_PROVIDER_ACQUISITION_READBACK_NOT_TERMINAL"
+        )
 
 
 PAYLOAD_PUT_REVISION = 0
 PAYLOAD_VALUE_REVISION = 1
-PAYLOAD_VALUE_INCARNATION = "payload-inc:p3-c2-23"
+PAYLOAD_VALUE_INCARNATION = "payload-inc:source-plan-acquisition-v2"
 
 
 def build_legacy_c2_2_binding(
@@ -697,6 +706,8 @@ class _StoreRehydratedBase:
         assignment: RuntimeAssignment,
         *,
         value_id: str,
+        expected_codec_id: str,
+        expected_object_type: str,
     ) -> bytes:
         assert assignment.payload_digest is not None
         row = _one_mapping(
@@ -716,11 +727,23 @@ class _StoreRehydratedBase:
                 f"revision={PAYLOAD_VALUE_REVISION} "
                 f"incarnation={PAYLOAD_VALUE_INCARNATION}"
             )
+        if row["codec_id"] != expected_codec_id:
+            raise DefiniteInterpreterFailure(
+                "SOURCE_PAYLOAD_CODEC_DRIFT:"
+                f"expected={expected_codec_id}:actual={row['codec_id']}"
+            )
+        if row["object_type"] != expected_object_type:
+            raise DefiniteInterpreterFailure(
+                "SOURCE_PAYLOAD_OBJECT_TYPE_DRIFT:"
+                f"expected={expected_object_type}:actual={row['object_type']}"
+            )
         stored = row["content_bytes"]
         if stored is None:
             stored = canonical_json(row["content_json"]).encode("utf-8")
         else:
             stored = bytes(stored)
+        if content_digest(json.loads(stored.decode("utf-8"))) != row["content_digest"]:
+            raise DefiniteInterpreterFailure("SOURCE_PAYLOAD_STORE_DIGEST_DRIFT")
         return stored
 
 
@@ -770,7 +793,7 @@ class C2_2StoreRehydratedHandler(_StoreRehydratedBase, RuntimeHandler):
                     or plan.program_id != program.program_id
                 ):
                     raise DefiniteInterpreterFailure(
-                        "C2_2_PLAN_PROGRAM_BINDING_MISMATCH"
+                        "SOURCE_PLAN_PROGRAM_BINDING_MISMATCH"
                     )
                 payload_bytes = self._load_payload_bytes(
                     connection,
@@ -778,6 +801,10 @@ class C2_2StoreRehydratedHandler(_StoreRehydratedBase, RuntimeHandler):
                     scope,
                     assignment,
                     value_id=dict(program.metadata)["payload_value_id"],
+                    expected_codec_id=c22.SOURCE_PLANNING_CODEC_IDS[
+                        assignment.operation_contract_ref.kind
+                    ],
+                    expected_object_type=c22.SOURCE_MODE_PLANNING_PAYLOAD_TYPE.type_id,
                 )
         except DefiniteInterpreterFailure:
             raise
@@ -786,7 +813,7 @@ class C2_2StoreRehydratedHandler(_StoreRehydratedBase, RuntimeHandler):
                 f"STORE_REHYDRATION_REJECTED:{type(exc).__name__}:{exc}"
             ) from exc
         from app.successor_runtime.capabilities import (
-            source_library_c2_shared as _shared,
+            source_contracts as _shared,
         )
 
         try:
@@ -794,19 +821,21 @@ class C2_2StoreRehydratedHandler(_StoreRehydratedBase, RuntimeHandler):
                 json.loads(payload_bytes.decode("utf-8"))
             )
             if planning.payload_digest != assignment.payload_digest:
-                raise DefiniteInterpreterFailure("C2_2_PAYLOAD_DIGEST_DRIFT")
-            catalog = c22.build_source_library_c2_2_catalog(
-                c22.build_source_library_c2_2_bundle()
+                raise DefiniteInterpreterFailure("SOURCE_PLAN_PAYLOAD_DIGEST_DRIFT")
+            catalog = c22.build_source_planning_catalog(
+                c22.build_source_planning_bundle()
             )
             contract_ref = catalog.lookup(planning.operation_kind)
             if contract_ref is None:
-                raise DefiniteInterpreterFailure("C2_2_OPERATION_CONTRACT_MISSING")
+                raise DefiniteInterpreterFailure(
+                    "SOURCE_PLAN_OPERATION_CONTRACT_MISSING"
+                )
             payload_ref = c22p.planning_payload_value_ref(
                 planning,
                 program_id=program.program_id,
                 project_key=assignment.project_key,
             )
-            result = c22i.SourceLibraryC2_2SuccessorInterpreter().interpret(
+            result = c22i.SourcePlanningSuccessorInterpreter().interpret(
                 planning,
                 program=program,
                 plan=plan,
@@ -824,7 +853,7 @@ class C2_2StoreRehydratedHandler(_StoreRehydratedBase, RuntimeHandler):
             raise
         except Exception as exc:
             raise DefiniteInterpreterFailure(
-                f"C2_2_STORE_INTERPRET_REJECTED:{type(exc).__name__}:{exc}"
+                f"SOURCE_PLAN_STORE_INTERPRET_REJECTED:{type(exc).__name__}:{exc}"
             ) from exc
         return InterpreterOutcome.succeeded(
             result.value.plan_digest,
@@ -892,6 +921,8 @@ class C2_3StoreRehydratedHandler(_StoreRehydratedBase, RuntimeHandler):
                     scope,
                     assignment,
                     value_id=dict(program.metadata)["payload_value_id"],
+                    expected_codec_id=c23.SOURCE_PROVIDER_ACQUISITION_PAYLOAD_CODEC_ID,
+                    expected_object_type=c23.SOURCE_PROVIDER_ACQUISITION_PAYLOAD_TYPE.type_id,
                 )
                 request = c23.provider_effect_request_from_plain(
                     json.loads(payload_bytes.decode("utf-8"))
@@ -903,13 +934,18 @@ class C2_3StoreRehydratedHandler(_StoreRehydratedBase, RuntimeHandler):
                 f"STORE_REHYDRATION_REJECTED:{type(exc).__name__}:{exc}"
             ) from exc
         if request.request_digest != assignment.payload_digest:
-            raise DefiniteInterpreterFailure("C2_3_REQUEST_DIGEST_DRIFT")
+            raise DefiniteInterpreterFailure(
+                "SOURCE_PROVIDER_ACQUISITION_REQUEST_DIGEST_DRIFT"
+            )
         dispatch_gateway = self.guarded_gateway or self.gateway
         try:
-            outcome = dispatch_gateway.execute(request, {"authority": "c2-3-canary"})
+            outcome = dispatch_gateway.execute(
+                request, {"authority": "source-provider-acquisition-canary"}
+            )
         except c23_guard.SourceLibrarySingleSourceGuardError as exc:
             raise DefiniteInterpreterFailure(
-                "C2_3_SINGLE_SOURCE_GUARD_REJECTED:" + str(exc.details.reason_code)
+                "SOURCE_PROVIDER_ACQUISITION_SINGLE_SOURCE_GUARD_REJECTED:"
+                + str(exc.details.reason_code)
             ) from exc
         self.fixture_calls.append(request.request_id)
         if isinstance(
@@ -920,7 +956,7 @@ class C2_3StoreRehydratedHandler(_StoreRehydratedBase, RuntimeHandler):
                 receipt_ref=f"receipt:sha256:{outcome.outcome_digest}",
             )
         if isinstance(outcome, c23.OutcomeUnknownProviderEffect):
-            raise OutcomeUncertain("C2_3_READBACK_REQUIRED")
+            raise OutcomeUncertain("SOURCE_PROVIDER_ACQUISITION_READBACK_REQUIRED")
         if isinstance(outcome, (c23.RejectedProviderEffect, c23.FailedProviderEffect)):
             raise DefiniteInterpreterFailure(outcome.code)
         raise DefiniteInterpreterFailure("UNSUPPORTED_FIXTURE_OUTCOME")

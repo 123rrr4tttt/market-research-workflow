@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
-from app.successor_runtime.capabilities.ingest_c7_common import (
+from app.successor_runtime.capabilities.material_ingest_common import (
     DOCUMENT_CANONICAL_OWNER,
 )
 from app.successor_runtime.runtime.admission import (

@@ -14,6 +14,7 @@ const files = {
   layerSwitch: 'src/app/kernel/LayerSwitch.tsx',
   moduleChrome: 'src/app/kernel/moduleChrome.ts',
   moduleManifest: 'src/app/kernel/moduleManifest.ts',
+  moduleContributionRule: 'src/app/kernel/moduleContributionRule.ts',
   moduleRenderer: 'src/app/kernel/ModuleRenderer.tsx',
   renderKernelModuleContent: 'src/app/kernel/renderKernelModuleContent.tsx',
   visualizationLayerShell: 'src/app/kernel/VisualizationLayerShell.tsx',
@@ -170,11 +171,18 @@ function extractRendererComponentPaths(source) {
   }
 
   const moduleToComponent = new Map()
-  const bindingPattern = /if\s*\(\s*moduleKey\s*===\s*'([^']+)'\s*\)[\s\S]*?return\s*<([A-Z][A-Za-z0-9_]*)/g
+  const bindingPattern = /^  ([A-Za-z][A-Za-z0-9_]*):\s*([\s\S]*?)(?=^  [A-Za-z][A-Za-z0-9_]*:|^})/gm
   let bindingMatch = bindingPattern.exec(source)
   while (bindingMatch) {
-    moduleToComponent.set(bindingMatch[1], bindingMatch[2])
+    const component = /\bh\(([A-Z][A-Za-z0-9_]*)\b/.exec(bindingMatch[2])?.[1]
+    if (component) moduleToComponent.set(bindingMatch[1], component)
     bindingMatch = bindingPattern.exec(source)
+  }
+
+  if (source.includes('...GRAPH_MODULE_RENDERERS') && source.includes('Object.keys(GRAPH_PROJECTIONS)')) {
+    for (const entry of extractModuleManifest(readFile(files.moduleManifest))) {
+      if (entry.moduleKey.startsWith('graph') && entry.moduleKey !== 'graphBuilder') moduleToComponent.set(entry.moduleKey, 'GraphPage')
+    }
   }
 
   const moduleToFile = new Map()
@@ -188,7 +196,7 @@ function extractRendererComponentPaths(source) {
 
 function extractCatalogKeys(source) {
   const keys = new Set()
-  const namespacePattern = /(?:shell|navigation|settings|settingsPage|shared|agentChat|projects|catalogPage|rawDataPage|policyPage|opsPage|dashboardPage|ingestPage|graphPage|processPage|crawlerManagePage|resourcePage|llmDesignerPage|writingWorkbenchPage):\s*\{([\s\S]*?)\n\s*\}/g
+  const namespacePattern = /(?:shell|navigation|settings|settingsPage|shared|codexAgentPage|projects|catalogPage|rawDataPage|policyPage|opsPage|dashboardPage|ingestPage|graphPage|processPage|crawlerManagePage|resourcePage|llmDesignerPage|writingWorkbenchPage):\s*\{([\s\S]*?)\n\s*\}/g
   let namespaceMatch = namespacePattern.exec(source)
   while (namespaceMatch) {
     const namespaceText = namespaceMatch[0]
@@ -329,7 +337,7 @@ function isDefineModuleSurfaceKindLiteral(value, before) {
 }
 
 function isCatalogKey(value) {
-  return /^(shell|navigation|settings|settingsPage|shared|agentChat|projects|catalogPage|rawDataPage|policyPage|opsPage|dashboardPage|ingestPage|graphPage|processPage|crawlerManagePage|resourcePage|llmDesignerPage|writingWorkbenchPage)\.[A-Za-z0-9_.-]+$/.test(value)
+  return /^(shell|navigation|settings|settingsPage|shared|codexAgentPage|projects|catalogPage|rawDataPage|policyPage|opsPage|dashboardPage|ingestPage|graphPage|processPage|crawlerManagePage|resourcePage|llmDesignerPage|writingWorkbenchPage)\.[A-Za-z0-9_.-]+$/.test(value)
 }
 
 function isModuleOrRouteToken(value) {
@@ -508,11 +516,13 @@ function sampleOccurrences(occurrences, limit = 20) {
 
 const moduleManifestSource = readFile(files.moduleManifest)
 const renderKernelModuleContentSource = readFile(files.renderKernelModuleContent)
+const moduleContributionRuleSource = readFile(files.moduleContributionRule)
 const catalogSource = readFile(files.catalog)
 
 const moduleEntries = extractModuleManifest(moduleManifestSource)
 const catalogKeys = extractCatalogKeys(catalogSource)
-const moduleToFile = extractRendererComponentPaths(renderKernelModuleContentSource)
+assertCondition(renderKernelModuleContentSource.includes('moduleRendererBindings[args.moduleKey]'), 'renderKernelModuleContent must dispatch through contributed bindings')
+const moduleToFile = extractRendererComponentPaths(moduleContributionRuleSource)
 const moduleEntryByKey = new Map(moduleEntries.map((entry) => [entry.moduleKey, entry]))
 const moduleKeys = moduleEntries.map((entry) => entry.moduleKey)
 

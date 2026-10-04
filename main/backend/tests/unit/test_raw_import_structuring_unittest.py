@@ -5,6 +5,9 @@ import unittest
 from pathlib import Path
 
 import pytest
+from sqlalchemy import JSON, Integer, MetaData, create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -14,7 +17,6 @@ try:
     from app.services.ingest.raw_import import (
         _derive_publish_date_from_extracted,
         _resolve_extraction_flags,
-        run_raw_import_documents,
     )
     from app.services.ingest.structured_extraction import (
         build_structured_summary as _build_structured_summary,
@@ -92,10 +94,8 @@ class _ScalarResult:
 
 
 class _RawImportSession:
-    def __init__(self, source, existing=None):
-        self._source = source
+    def __init__(self, existing=None):
         self._existing = existing
-        self._execute_count = 0
         self.committed = False
 
     def __enter__(self):
@@ -105,9 +105,6 @@ class _RawImportSession:
         return False
 
     def execute(self, _statement):
-        self._execute_count += 1
-        if self._execute_count == 1:
-            return _ScalarResult(self._source)
         return _ScalarResult(self._existing)
 
     def add(self, *_args, **_kwargs):
@@ -135,11 +132,9 @@ class TestRawImportDocumentBranch:
         *,
         writer_results,
     ):
-        from types import SimpleNamespace
-
         from app.services.ingest import raw_import
 
-        session = _RawImportSession(SimpleNamespace(id=71, name="raw_import"))
+        session = _RawImportSession()
         envelopes = []
         completed = []
         failed = []
@@ -247,6 +242,159 @@ class TestRawImportDocumentBranch:
         assert result["inserted"] == 1
         assert result["error_count"] == 1
         assert completed[0][:2] == (88, "completed")
+
+    def _install_sqlite_runtime(self, monkeypatch):
+        from app.models.entities import Document, Source
+        from app.services.ingest import raw_import, terminal_writer
+
+        engine = create_engine(
+            "sqlite://",
+            future=True,
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        sqlite_metadata = MetaData()
+        source_table = Source.__table__.to_metadata(sqlite_metadata)
+        document_table = Document.__table__.to_metadata(sqlite_metadata)
+        source_table.c.id.type = Integer()
+        document_table.c.id.type = Integer()
+        document_table.c.extracted_data.type = JSON()
+        source_table.create(engine)
+        document_table.create(engine)
+        TestingSessionLocal = sessionmaker(
+            autocommit=False,
+            autoflush=False,
+            bind=engine,
+            future=True,
+            expire_on_commit=False,
+        )
+        monkeypatch.setattr(raw_import, "SessionLocal", TestingSessionLocal)
+        monkeypatch.setattr(terminal_writer, "SessionLocal", TestingSessionLocal)
+        monkeypatch.setattr(raw_import, "start_job", lambda *_args, **_kwargs: 99)
+        monkeypatch.setattr(raw_import, "complete_job", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(raw_import, "fail_job", lambda *_args, **_kwargs: None)
+        return raw_import, TestingSessionLocal
+
+    @staticmethod
+    def _payload(text, **kwargs):
+        return {
+            "source_name": "readiness_repair_recovery",
+            "source_kind": "manual",
+            "items": [{"text": text, "doc_type": "raw_note"}],
+            "infer_from_links": False,
+            "enable_extraction": False,
+            **kwargs,
+        }
+
+    def test_repeated_real_imports_reuse_one_terminal_writer_source(self, monkeypatch):
+        from app.models.entities import Document, Source
+
+        raw_import, testing_session = self._install_sqlite_runtime(monkeypatch)
+
+        first = raw_import.run_raw_import_documents(self._payload("first body"), "local-user")
+        second = raw_import.run_raw_import_documents(self._payload("second body"), "local-user")
+
+        assert first["inserted"] == second["inserted"] == 1
+        assert first["source_name"] == second["source_name"] == "readiness_repair_recovery"
+        with testing_session() as session:
+            sources = session.query(Source).all()
+            documents = session.query(Document).all()
+            assert [(source.name, source.kind) for source in sources] == [
+                ("readiness_repair_recovery", "manual")
+            ]
+            assert {document.content for document in documents} == {"first body", "second body"}
+            assert {document.source_id for document in documents} == {sources[0].id}
+
+    def test_existing_duplicate_sources_do_not_crash_new_import(self, monkeypatch):
+        from app.models.entities import Document, Source
+
+        raw_import, testing_session = self._install_sqlite_runtime(monkeypatch)
+        with testing_session() as session:
+            original = Source(
+                name="readiness_repair_recovery", kind="manual", base_url="original", enabled=True
+            )
+            duplicate = Source(
+                name="readiness_repair_recovery", kind="manual", base_url="duplicate", enabled=True
+            )
+            session.add_all([original, duplicate])
+            session.commit()
+            original_id = original.id
+
+        result = raw_import.run_raw_import_documents(self._payload("new body"), "local-user")
+
+        assert result["inserted"] == 1
+        assert result["error_count"] == 0
+        with testing_session() as session:
+            assert session.query(Source).count() == 2
+            document = session.query(Document).one()
+            assert document.source_id == original_id
+
+    def test_overwrite_reuses_first_matching_source_and_preserves_skip_semantics(
+        self, monkeypatch
+    ):
+        from app.models.entities import Document, Source
+
+        raw_import, testing_session = self._install_sqlite_runtime(monkeypatch)
+        with testing_session() as session:
+            original = Source(
+                name="readiness_repair_recovery", kind="manual", base_url="original", enabled=True
+            )
+            duplicate = Source(
+                name="readiness_repair_recovery", kind="manual", base_url="duplicate", enabled=True
+            )
+            session.add_all([original, duplicate])
+            session.flush()
+            document = Document(
+                source_id=duplicate.id,
+                doc_type="raw_note",
+                content="old body",
+                text_hash="old-hash",
+                uri="https://example.test/readiness",
+            )
+            session.add(document)
+            session.commit()
+            original_id, duplicate_id = original.id, duplicate.id
+
+        overwritten = raw_import.run_raw_import_documents(
+            self._payload(
+                "new body",
+                overwrite_on_uri=True,
+                items=[{
+                    "text": "new body",
+                    "uri": "https://example.test/readiness",
+                    "doc_type": "raw_note",
+                }],
+            ),
+            "local-user",
+        )
+
+        assert overwritten["updated"] == 1
+        assert overwritten["skipped"] == 0
+        with testing_session() as session:
+            assert session.query(Source).count() == 2
+            persisted = session.query(Document).one()
+            assert persisted.content == "new body"
+            assert persisted.source_id == original_id
+
+        skipped = raw_import.run_raw_import_documents(
+            self._payload(
+                "newer body",
+                items=[{
+                    "text": "newer body",
+                    "uri": "https://example.test/readiness",
+                    "doc_type": "raw_note",
+                }],
+            ),
+            "local-user",
+        )
+
+        assert skipped["updated"] == 0
+        assert skipped["skipped"] == 1
+        with testing_session() as session:
+            persisted = session.query(Document).one()
+            assert persisted.content == "new body"
+            assert persisted.source_id == original_id
+            assert duplicate_id != original_id
 
 
 if __name__ == "__main__":

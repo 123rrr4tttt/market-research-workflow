@@ -11,7 +11,7 @@ const backendDir = path.resolve(rootDir, '..', 'backend')
 
 const files = {
   moduleManifest: 'src/app/kernel/moduleManifest.ts',
-  renderKernelModuleContent: 'src/app/kernel/renderKernelModuleContent.tsx',
+  moduleRendererBindings: 'src/app/kernel/moduleContributionRule.ts',
   hash: 'src/app/topology/hash.ts',
   endpoints: 'src/lib/api/endpoints.ts',
   writingDomain: 'src/lib/api/domains/writing.ts',
@@ -110,6 +110,20 @@ function extractObjectLiteralProperties(objectNode) {
     .filter((property) => property.key)
 }
 
+function containsNode(node, predicate) {
+  if (predicate(node)) return true
+  let found = false
+  node.forEachChild((child) => { if (!found) found = containsNode(child, predicate) })
+  return found
+}
+
+function isPropertyAccess(node, objectName, propertyName) {
+  const value = unwrap(node)
+  return ts.isPropertyAccessExpression(value)
+    && ts.isIdentifier(value.expression) && value.expression.text === objectName
+    && value.name.text === propertyName
+}
+
 function extractNestedObjectKeys(sourceFile, variableName, nestedKey) {
   const initializer = findVariableInitializer(sourceFile, variableName)
   const nested = extractObjectLiteralProperties(initializer).find((property) => property.key === nestedKey)
@@ -160,7 +174,7 @@ function assertIncludesAll(label, actual, expected) {
 const moduleManifestFile = parseFile(files.moduleManifest)
 const endpointsFile = parseFile(files.endpoints)
 const writingDomainFile = parseFile(files.writingDomain)
-const renderSource = readFile(files.renderKernelModuleContent)
+const rendererSource = parseFile(files.moduleRendererBindings)
 const hashSource = readFile(files.hash)
 const storySource = readFile(files.story)
 const backendSchemaSource = readFile(files.backendSchema)
@@ -177,8 +191,56 @@ if (writingEntry) {
   assertIncludesAll('flowWriting keepLoops', writingEntry.keepLoops, ['edit', 'preview', 'template', 'llm-assist', 'citation-basket', 'info-card'])
 }
 
-assertCondition(renderSource.includes("moduleKey === 'flowWriting'"), 'kernel renderer must route flowWriting')
-assertCondition(renderSource.includes('<WritingWorkbenchPage'), 'kernel renderer must render WritingWorkbenchPage')
+const moduleRenderers = findVariableInitializer(rendererSource, 'MODULE_RENDERERS')
+const flowWritingRenderer = extractObjectLiteralProperties(moduleRenderers).find((property) => property.key === 'flowWriting')
+assertCondition(Boolean(flowWritingRenderer), 'module renderer bindings must define flowWriting')
+if (flowWritingRenderer) {
+  const rendererBody = unwrap(flowWritingRenderer.value)
+  assertCondition(
+    containsNode(rendererBody, (node) => ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'h'
+      && ts.isIdentifier(node.arguments[0]) && node.arguments[0].text === 'WritingWorkbenchPage'),
+    'flowWriting renderer must render WritingWorkbenchPage',
+  )
+}
+const writingPageLazyBinding = findVariableInitializer(rendererSource, 'WritingWorkbenchPage')
+assertCondition(Boolean(writingPageLazyBinding) && containsNode(writingPageLazyBinding, (node) =>
+  ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword
+  && node.arguments.some((argument) => ts.isStringLiteral(argument) && argument.text === '../../pages/WritingWorkbenchPage')),
+'WritingWorkbenchPage renderer binding must lazy-load the page module')
+const rendererBindings = unwrap(findVariableInitializer(rendererSource, 'moduleRendererBindings'))
+const rendererBindingsMap = ts.isCallExpression(rendererBindings) ? unwrap(rendererBindings.arguments[0]) : null
+const rendererBindingMapper = ts.isCallExpression(rendererBindingsMap)
+  && ts.isPropertyAccessExpression(rendererBindingsMap.expression)
+  && rendererBindingsMap.expression.name.text === 'map'
+  ? unwrap(rendererBindingsMap.arguments[0])
+  : null
+const rendererBindingTuple = ts.isArrowFunction(rendererBindingMapper)
+  ? unwrap(rendererBindingMapper.body)
+  : null
+const rendererBindingValue = rendererBindingTuple && ts.isArrayLiteralExpression(rendererBindingTuple)
+  ? unwrap(rendererBindingTuple.elements[1])
+  : null
+const rendererBindingProperties = extractObjectLiteralProperties(rendererBindingValue)
+const rendererCatalogLookup = rendererBindingProperties.find((property) => property.key === 'renderer')?.value
+assertCondition(
+  ts.isCallExpression(rendererBindings)
+    && isPropertyAccess(rendererBindings.expression, 'Object', 'fromEntries')
+    && ts.isCallExpression(rendererBindingsMap)
+    && ts.isPropertyAccessExpression(rendererBindingsMap.expression)
+    && ts.isIdentifier(rendererBindingsMap.expression.expression)
+    && rendererBindingsMap.expression.expression.text === 'moduleManifest'
+    && ts.isArrowFunction(rendererBindingMapper)
+    && rendererBindingTuple != null
+    && ts.isArrayLiteralExpression(rendererBindingTuple)
+    && rendererBindingTuple.elements.length === 2
+    && isPropertyAccess(rendererBindingTuple.elements[0], 'entry', 'moduleKey')
+    && isPropertyAccess(rendererBindingProperties.find((property) => property.key === 'moduleKey')?.value, 'entry', 'moduleKey')
+    && ts.isElementAccessExpression(unwrap(rendererCatalogLookup))
+    && ts.isIdentifier(unwrap(rendererCatalogLookup).expression)
+    && unwrap(rendererCatalogLookup).expression.text === 'MODULE_RENDERERS'
+    && isPropertyAccess(unwrap(rendererCatalogLookup).argumentExpression, 'entry', 'moduleKey'),
+  'module renderer bindings must derive keyed renderers from moduleManifest',
+)
 assertCondition(hashSource.includes('writing-workbench.html'), 'standalone hash resolver must recognize writing-workbench.html')
 assertCondition(hashSource.includes("mode === 'flowWriting'"), 'standalone hash resolver must map flowWriting')
 assertCondition(storySource.includes('ShellWorkbench'), 'WritingWorkbenchPage stories must include shell workbench fixture')
@@ -217,6 +279,9 @@ assertIncludesAll('WritingLlmActionPayload', extractTypePropertyKeys(writingDoma
   'target_scope',
 ])
 assertIncludesAll('WritingLlmActionResponse', extractTypePropertyKeys(writingDomainFile, 'WritingLlmActionResponse'), [
+  'requested_async',
+  'execution_mode',
+  'async_honored',
   'capability_truth',
   'action_boundary',
   'dependency_gate',
@@ -231,6 +296,9 @@ assertIncludesAll('backend writing schema', backendSchemaSource, [
   'dependency_gate',
   'action_boundary',
   'capability_truth',
+  'requested_async',
+  'execution_mode: Literal["inline"]',
+  'async_honored',
   'target_scope',
 ])
 assertIncludesAll('backend writing api', backendApiSource, [

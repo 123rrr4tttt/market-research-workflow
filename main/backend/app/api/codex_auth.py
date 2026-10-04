@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import platform
 import re
+import secrets
 import shutil
 import shlex
 import subprocess
@@ -12,11 +13,14 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 from urllib.request import urlretrieve
 from urllib.parse import urlencode
 
+import httpx
 from fastapi import APIRouter, Query, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import SecretStr
 
 from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..contracts.responses import ok
@@ -48,7 +52,13 @@ _CODEX_LOGIN_PROCESS: subprocess.Popen[str] | None = None
 _CODEX_LOGIN_STARTED_AT: float | None = None
 
 
-def _error_json(status_code: int, code: ErrorCode, message: str, *, details: dict[str, Any] | None = None) -> JSONResponse:
+def _error_json(
+    status_code: int,
+    code: ErrorCode,
+    message: str,
+    *,
+    details: dict[str, Any] | None = None,
+) -> JSONResponse:
     payload = error_response(code, message, details=details)
     payload["detail"] = {"error": payload["error"], "message": payload["error"]["message"]}
     return JSONResponse(status_code=status_code, content=payload, headers={"X-Error-Code": code.value})
@@ -65,11 +75,14 @@ CodexAuthEnvelope = ApiEnvelope[dict[str, Any]]
     responses={400: {"description": "Codex auth is not configured or CLI auth is required"}},
 )
 def codex_auth_login(
+    request: Request,
     next_url: str | None = Query(default=None, max_length=2048),
     force_oauth: bool = Query(default=False),
 ) -> Any:
-    if has_valid_token_sink() and not force_oauth:
-        return RedirectResponse(url=next_url or codex_oauth_frontend_success_url(), status_code=302)
+    if not force_oauth:
+        session_id = request.cookies.get(codex_cookie_name())
+        if get_session(session_id) is not None:
+            return RedirectResponse(url=next_url or codex_oauth_frontend_success_url(), status_code=302)
 
     if not codex_oauth_enabled():
         return _error_json(
@@ -168,6 +181,122 @@ def codex_auth_bootstrap_routes() -> frozenset[tuple[str, str]]:
         (str(method).upper(), f"/api/v1{route.path}")
         for route in bootstrap_router.routes
         for method in (getattr(route, "methods", None) or ())
+    )
+
+
+def _webui_exchange_error(
+    status_code: int,
+    reason_code: str,
+    message: str,
+) -> JSONResponse:
+    response = _error_json(
+        status_code,
+        ErrorCode.INVALID_INPUT,
+        message,
+        details={"category": "codex_auth", "reason_code": reason_code},
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+def _extract_static_codex_token(request: Request) -> str | None:
+    authorization = (request.headers.get("Authorization") or "").strip()
+    if authorization.lower().startswith("bearer "):
+        token = authorization[7:].strip()
+        if token:
+            return token
+    return (request.headers.get("X-Codex-Auth") or "").strip() or None
+
+
+def _static_codex_token_is_configured(token: str) -> bool:
+    if not bool(getattr(settings, "codex_auth_enabled", False)):
+        return False
+    raw_tokens = str(getattr(settings, "codex_auth_tokens", "") or "")
+    return any(
+        candidate == token and secrets.compare_digest(candidate, token)
+        for candidate in (item.strip() for item in raw_tokens.split(","))
+        if candidate
+    )
+
+
+def _cookie_request_is_same_origin(request: Request) -> bool:
+    origin = (request.headers.get("Origin") or "").strip().rstrip("/")
+    request_origin = f"{request.base_url.scheme}://{request.base_url.netloc}"
+    if not origin or origin != request_origin:
+        return False
+    fetch_site = (request.headers.get("Sec-Fetch-Site") or "").strip().lower()
+    return not fetch_site or fetch_site == "same-origin"
+
+
+def _configured_webui_internal_login_url() -> tuple[str, str] | None:
+    base_url = str(getattr(settings, "codex_webui_internal_url", "") or "").strip().rstrip("/")
+    raw_server_key = getattr(settings, "codex_webui_server_api_key", "")
+    if isinstance(raw_server_key, SecretStr):
+        server_key = raw_server_key.get_secret_value().strip()
+    else:
+        server_key = ""
+    if not base_url or not server_key:
+        return None
+
+    parsed = urlsplit(base_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        return None
+    return f"{base_url}/api/auth/login", server_key
+
+
+@router.post("/webui/bootstrap", response_model=CodexAuthEnvelope)
+async def codex_auth_webui_bootstrap(request: Request) -> JSONResponse:
+    """Exchange an explicitly authenticated MRW actor for a WebUI JWT."""
+
+    downstream: tuple[str, str] | None
+    static_token = _extract_static_codex_token(request)
+    if static_token is not None:
+        if not _static_codex_token_is_configured(static_token):
+            return _webui_exchange_error(401, "invalid_token", "codex auth required")
+        downstream = _configured_webui_internal_login_url()
+    else:
+        session_id = (request.cookies.get(codex_cookie_name()) or "").strip()
+        session = get_session(session_id or None)
+        if session is None:
+            return _webui_exchange_error(401, "missing_oauth_session", "codex auth required")
+        if not _cookie_request_is_same_origin(request):
+            return _webui_exchange_error(403, "origin_mismatch", "same-origin request required")
+        downstream = _configured_webui_internal_login_url()
+
+    if downstream is None:
+        return _webui_exchange_error(
+            503,
+            "webui_exchange_not_configured",
+            "codex webui exchange is not configured",
+        )
+    login_url, server_key = downstream
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
+            response = await client.post(
+                login_url,
+                json={"apiKey": server_key},
+                headers={"Accept": "application/json"},
+                follow_redirects=False,
+            )
+    except httpx.HTTPError:
+        return _webui_exchange_error(502, "webui_exchange_failed", "codex webui exchange failed")
+
+    if response.status_code != 200:
+        return _webui_exchange_error(502, "webui_exchange_failed", "codex webui exchange failed")
+    try:
+        payload = response.json()
+    except ValueError:
+        return _webui_exchange_error(502, "webui_exchange_failed", "codex webui exchange failed")
+
+    access_token = str(payload.get("accessToken") or "").strip()
+    expires_in = payload.get("expiresIn")
+    if not access_token or isinstance(expires_in, bool) or not isinstance(expires_in, int) or expires_in <= 0:
+        return _webui_exchange_error(502, "webui_exchange_failed", "codex webui exchange failed")
+
+    return JSONResponse(
+        ok({"accessToken": access_token, "expiresIn": expires_in}),
+        headers={"Cache-Control": "no-store"},
     )
 
 

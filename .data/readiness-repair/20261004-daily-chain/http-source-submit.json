@@ -1,0 +1,23 @@
+{
+  "http_status": 200,
+  "response": {
+    "status": "ok",
+    "data": {
+      "task_id": "09928988-9cc0-4159-b26d-bb451a277724",
+      "async": true,
+      "status": "queued",
+      "result": null,
+      "params": {
+        "source_name": "readiness_daily_public_http",
+        "items_total": 1
+      }
+    },
+    "error": null,
+    "meta": {
+      "trace_id": "48097b5f-8f9a-462f-9c67-70dba9345e33",
+      "pagination": null,
+      "project_key": "readiness_daily_20261004",
+      "deprecated": null
+    }
+  }
+}

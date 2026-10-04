@@ -35,7 +35,7 @@ def create_report(payload: ReportRequest):
             return Response(
                 content=csv_bytes,
                 media_type="text/csv",
-                headers={"Content-Disposition": "attachment; filename=lottery_report.csv"},
+                headers={"Content-Disposition": "attachment; filename=market_report.csv"},
             )
         raise HTTPException(
             status_code=400,

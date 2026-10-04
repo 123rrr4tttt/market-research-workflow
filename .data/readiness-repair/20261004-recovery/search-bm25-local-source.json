@@ -1,0 +1,238 @@
+{
+  "http_status": 200,
+  "response": {
+    "status": "ok",
+    "data": {
+      "query": "MRW persisted readiness policy 98952f281da9",
+      "state": null,
+      "modality": "any",
+      "rank": "bm25",
+      "top_k": 10,
+      "results": [],
+      "document_query_contract_version": "document_queries.v1",
+      "document_query": {
+        "contract_version": "document_queries.v1",
+        "query": "MRW persisted readiness policy 98952f281da9",
+        "normalized_query": "mrw persisted readiness policy 98952f281da9",
+        "project_key": "readiness_repair",
+        "consumer": "api.search",
+        "sources": [
+          "document"
+        ],
+        "filters": [],
+        "sort": [
+          {
+            "field": "relevance",
+            "direction": "desc"
+          }
+        ],
+        "limit": 10,
+        "offset": 0,
+        "query_id": "dfa317ca9b9f10b1"
+      },
+      "document_query_results": [],
+      "document_query_pagination": {
+        "limit": 10,
+        "offset": 0,
+        "result_count": 0,
+        "total": 0
+      },
+      "document_query_meta": {
+        "contract_version": "document_queries.v1",
+        "query_id": "dfa317ca9b9f10b1",
+        "consumer": "api.search",
+        "source": "api.search.hybrid",
+        "result_count": 0,
+        "endpoint": "/api/v1/search",
+        "rank_mode": "bm25",
+        "modality": "any",
+        "top_k": 10,
+        "search_backends_used": [
+          "opensearch_lexical"
+        ]
+      },
+      "global_vector_object_contract_version": "global_vector_object.v1",
+      "evidence_hit_contract_version": "search_evidence_hit.v1",
+      "query_group_id": "qg_0021ece2aa6c6412",
+      "evidence_hits": [],
+      "retrieval_run_contract_version": "search_retrieval_run.v1",
+      "retrieval_run_id": "retrieval_run_8739b628146ff264",
+      "search_branches": [],
+      "branch_hit_details": [],
+      "retrieval_run": {
+        "contract_version": "search_retrieval_run.v1",
+        "run_id": "retrieval_run_8739b628146ff264",
+        "retrieval_run_id": "retrieval_run_8739b628146ff264",
+        "query_group_id": "qg_0021ece2aa6c6412",
+        "retrieval_family": "main_search",
+        "query": "MRW persisted readiness policy 98952f281da9",
+        "query_text": "MRW persisted readiness policy 98952f281da9",
+        "project_key": "readiness_repair",
+        "rank_mode": "bm25",
+        "state": null,
+        "modality": "any",
+        "top_k": 10,
+        "filters": {
+          "state": null,
+          "modality": "any",
+          "top_k": 10
+        },
+        "branch_records": [],
+        "retrieval_branches": [],
+        "retrieval_hits": [],
+        "evidence_hits": [],
+        "branch_count": 0,
+        "hit_count": 0,
+        "status": "completed"
+      },
+      "retrieval_run_readback": {
+        "contract_version": "search_retrieval_run_readback.v1",
+        "status": "passed",
+        "write_performed": true,
+        "readback_performed": true,
+        "readback_available": true,
+        "storage_kind": "local_jsonl",
+        "path": "/tmp/market-research-workflow/search_retrieval_runs.jsonl",
+        "run_id": "retrieval_run_8739b628146ff264",
+        "retrieval_run_id": "retrieval_run_8739b628146ff264",
+        "branch_count": 0,
+        "hit_count": 0,
+        "closed_repo_local_blockers": [
+          "retrieval_runs_branches_hits_persistence_not_implemented"
+        ],
+        "remaining_repo_local_blockers": []
+      },
+      "search_fallback_order": [
+        "opensearch_lexical",
+        "qdrant_vector",
+        "pgvector_fallback"
+      ],
+      "search_backends_used": [
+        "opensearch_lexical"
+      ],
+      "provider_trace": {
+        "contract_version": "search.provider_trace.compat.v1",
+        "status": "completed",
+        "retrieval_run_id": "retrieval_run_8739b628146ff264",
+        "query_group_id": "qg_0021ece2aa6c6412",
+        "providers_used": [
+          "opensearch_lexical"
+        ],
+        "fallback_order": [
+          "opensearch_lexical",
+          "qdrant_vector",
+          "pgvector_fallback"
+        ],
+        "index_backend": "opensearch_lexical",
+        "fallback_used": false,
+        "index_freshness": {
+          "contract_version": "search.index_freshness.v1",
+          "freshness_state": "available",
+          "readback_available": true,
+          "fallback_used": false
+        },
+        "branches": []
+      },
+      "index_backend": "opensearch_lexical",
+      "fallback_used": false,
+      "result_groups": [],
+      "index_freshness": {
+        "contract_version": "search.index_freshness.v1",
+        "index_backend": "opensearch_lexical",
+        "readback_available": true,
+        "freshness_state": "available",
+        "fallback_used": false,
+        "retrieval_run_id": "retrieval_run_8739b628146ff264",
+        "retrieval_run_status": "completed",
+        "readback_status": "passed",
+        "branch_count": 0,
+        "hit_count": 0,
+        "freshness_basis": "retrieval_run_readback",
+        "known_limitations": [
+          "no_real_index_timestamp"
+        ]
+      },
+      "trace_chain": {
+        "contract_version": "ingest_search.trace_chain.v1",
+        "trace_id": "retrieval_run_8739b628146ff264",
+        "project_key": "readiness_repair",
+        "entrypoint": "search.query",
+        "run_order": [
+          {
+            "order": 1,
+            "stage": "search_request",
+            "query": "MRW persisted readiness policy 98952f281da9",
+            "query_group_id": "qg_0021ece2aa6c6412",
+            "status": "accepted"
+          },
+          {
+            "order": 2,
+            "stage": "provider_trace",
+            "providers_used": [
+              "opensearch_lexical"
+            ],
+            "fallback_order": [
+              "opensearch_lexical",
+              "qdrant_vector",
+              "pgvector_fallback"
+            ],
+            "status": "completed"
+          },
+          {
+            "order": 3,
+            "stage": "retrieval_run",
+            "retrieval_run_id": "retrieval_run_8739b628146ff264",
+            "readback_available": true,
+            "status": "completed"
+          },
+          {
+            "order": 4,
+            "stage": "index_freshness",
+            "index_backend": "opensearch_lexical",
+            "freshness_state": "available",
+            "real_timestamp_available": false,
+            "timestamp_status": "not_available"
+          }
+        ],
+        "ids": {
+          "submission_id": null,
+          "task_id": null,
+          "retrieval_run_id": "retrieval_run_8739b628146ff264"
+        },
+        "provider": "opensearch_lexical",
+        "fallback": {
+          "used": false,
+          "fallback_order": [
+            "opensearch_lexical",
+            "qdrant_vector",
+            "pgvector_fallback"
+          ],
+          "reason": "no_fallback_detected"
+        },
+        "index": {
+          "index_backend": "opensearch_lexical",
+          "freshness_state": "available",
+          "readback_available": true,
+          "freshness_basis": "retrieval_run_readback",
+          "real_timestamp_available": false,
+          "timestamp_status": "not_available"
+        },
+        "replay": {
+          "retrieval_run_readback_status": "passed",
+          "storage_kind": "local_jsonl",
+          "path": "/tmp/market-research-workflow/search_retrieval_runs.jsonl"
+        },
+        "known_limitations": [
+          "no_real_index_timestamp"
+        ]
+      }
+    },
+    "error": null,
+    "meta": {
+      "trace_id": "2ea64a54-e1cd-410f-badd-74d969df6d4f",
+      "pagination": null,
+      "project_key": "readiness_repair",
+      "deprecated": null
+    }
+  }
+}

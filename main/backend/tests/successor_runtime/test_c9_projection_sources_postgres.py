@@ -9,32 +9,31 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy import text
-from sqlalchemy.engine import Engine, make_url
-from sqlalchemy.pool import NullPool
-
 from app.successor_runtime.capabilities.checksum import sha256_hex
 from app.successor_runtime.research.codec import canonical_bytes
 from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
-from app.successor_runtime.substrate.postgres.c9_projection_sources import (
-    C7_SEARCH_SOURCE_OBJECT_TYPE,
-    RESEARCH_GRAPH_SOURCE_OBJECT_TYPE,
-    RUNTIME_SESSION_SOURCE_OBJECT_TYPE,
-    C9SourceClosureDriftError,
-    C9SourceDuplicateComponentError,
-    C9SourceEventGapError,
-    C9SourceMissingRowError,
-    C9SourceProvenanceDriftError,
-    C9SourceStaleClosureError,
-    C9SourceTypeDriftError,
-    C9SourceUnavailableError,
-    C9SourceValueConflictError,
-    build_semantic_source_closure,
-    load_exact_semantic_source_closure,
-    put_semantic_source_rows,
-    read_c7_search_source,
-    read_research_graph_source,
-    read_runtime_session_source,
+from app.successor_runtime.substrate.postgres.projection_sources import (
+    MATERIAL_SOURCE_OBJECT_TYPE,
+    PROJECTION_SOURCE_CODEC_ID,
+    PROJECTION_SOURCE_VALUE_ID_PREFIX,
+    KNOWLEDGE_SOURCE_OBJECT_TYPE,
+    TASK_SOURCE_OBJECT_TYPE,
+    ProjectionSourceClosureDriftError,
+    ProjectionSourceDuplicateComponentError,
+    ProjectionSourceEventGapError,
+    ProjectionSourceMissingRowError,
+    ProjectionSourceProvenanceDriftError,
+    ProjectionSourceStaleClosureError,
+    ProjectionSourceTypeDriftError,
+    ProjectionSourceUnavailableError,
+    ProjectionSourceValueConflictError,
+    build_project_source_closure,
+    load_current_material_projection_source,
+    load_exact_project_source_closure,
+    put_project_source_rows,
+    read_material_source,
+    read_knowledge_source,
+    read_task_source,
 )
 from app.successor_runtime.substrate.postgres.ingest_c7_candidate_values import (
     C7_STRUCTURED_VALUE_CODEC_ID,
@@ -50,7 +49,10 @@ from app.successor_runtime.substrate.postgres.models import (
     project_tables,
 )
 from app.successor_runtime.substrate.postgres.session import compute_scope_digest
-from app.successor_runtime.substrate.projections import c9_sources as c9
+from app.successor_runtime.substrate.projections import projection_sources as c9
+from sqlalchemy import text
+from sqlalchemy.engine import Engine, make_url
+from sqlalchemy.pool import NullPool
 
 pytestmark = pytest.mark.integration
 
@@ -296,8 +298,8 @@ def _seed_runtime_project(
         )
     )
     for seq, event_kind in (
-        (1, c9.SESSION_CREATED),
-        (2, c9.SESSION_PROJECTION_REFRESHED),
+        (1, c9.TASK_CREATED),
+        (2, c9.TASK_PROJECTION_REFRESHED),
     ):
         connection.execute(
             PUBLIC_TABLES["runtime_events"]
@@ -503,16 +505,16 @@ def _seed_base(connection: sa.Connection, project: Any) -> None:
         connection.execute(C7_MOVEMENT_CANONICAL_DOCUMENTS.insert().values(**values))
 
 
-def _assert_exact_closure(closure: c9.C9SemanticSourceClosureV1) -> None:
-    assert isinstance(closure, c9.C9SemanticSourceClosureV1)
-    assert isinstance(closure.runtime_session_source, c9.RuntimeSessionSourceV1)
-    assert isinstance(closure.research_graph_source, c9.ResearchGraphSourceV1)
-    assert isinstance(closure.c7_search_source, c9.C7SearchSourceV1)
+def _assert_exact_closure(closure: c9.ProjectSourceClosure) -> None:
+    assert isinstance(closure, c9.ProjectSourceClosure)
+    assert isinstance(closure.task_source, c9.TaskSource)
+    assert isinstance(closure.knowledge_source, c9.KnowledgeSource)
+    assert isinstance(closure.material_source, c9.MaterialSource)
     assert len(closure.closure_digest) == 64
     for source in (
-        closure.runtime_session_source,
-        closure.research_graph_source,
-        closure.c7_search_source,
+        closure.task_source,
+        closure.knowledge_source,
+        closure.material_source,
     ):
         assert len(source.source_digest) == 64
         assert source.project_scope_ref == closure.project_scope_ref
@@ -524,21 +526,21 @@ def test_build_semantic_source_closure_exact_three_typed_rows(
     disposable_database: Engine,
 ) -> None:
     with disposable_database.connect() as connection:
-        closure = build_semantic_source_closure(connection, _scope())
+        closure = build_project_source_closure(connection, _scope())
     _assert_exact_closure(closure)
-    assert len(closure.runtime_session_source.events) == 2
-    assert closure.runtime_session_source.events[0].event_kind == c9.SESSION_CREATED
+    assert len(closure.task_source.events) == 2
+    assert closure.task_source.events[0].event_kind == c9.TASK_CREATED
     assert (
-        closure.runtime_session_source.events[1].event_kind
-        == c9.SESSION_PROJECTION_REFRESHED
+        closure.task_source.events[1].event_kind
+        == c9.TASK_PROJECTION_REFRESHED
     )
-    assert closure.runtime_session_source.session_ref == f"run:{RUN_ID}"
-    assert {obj.object_id for obj in closure.research_graph_source.objects} == {
+    assert closure.task_source.session_ref == f"task:{RUN_ID}"
+    assert {obj.object_id for obj in closure.knowledge_source.objects} == {
         "object:1",
         "object:2",
     }
-    assert closure.research_graph_source.relations[0].source_object_id == "object:1"
-    assert {segment.segment_id for segment in closure.c7_search_source.segments} == {
+    assert closure.knowledge_source.relations[0].source_object_id == "object:1"
+    assert {segment.segment_id for segment in closure.material_source.segments} == {
         "document:c7-document:1:structured_payload.text",
         "document:c7-document:2:structured_payload.text",
         "document:c7-document:1:structured_payload.title",
@@ -557,17 +559,17 @@ def test_build_semantic_source_closure_exact_three_typed_rows(
     assert any(
         segment.segment_text == "C7 full searchable text 1"
         and segment.field_path == "structured_payload.text"
-        for segment in closure.c7_search_source.segments
+        for segment in closure.material_source.segments
     )
     assert all(
         "snapshot:c7:" not in segment.segment_text
         and "content_digest" not in segment.field_path
-        for segment in closure.c7_search_source.segments
+        for segment in closure.material_source.segments
     )
     assert all(
         segment.provider_status == c9.NOT_EXECUTED
         and segment.vectorization_status == c9.NOT_EXECUTED
-        for segment in closure.c7_search_source.segments
+        for segment in closure.material_source.segments
     )
 
 
@@ -576,12 +578,12 @@ def test_readers_return_pure_types_and_source_digest_changes_on_tamper(
 ) -> None:
     with disposable_database.connect() as connection:
         scope = _scope()
-        runtime_source = read_runtime_session_source(connection, scope)
-        graph_source = read_research_graph_source(connection, scope)
-        c7_source = read_c7_search_source(connection, scope)
-        assert isinstance(runtime_source, c9.RuntimeSessionSourceV1)
-        assert isinstance(graph_source, c9.ResearchGraphSourceV1)
-        assert isinstance(c7_source, c9.C7SearchSourceV1)
+        runtime_source = read_task_source(connection, scope)
+        graph_source = read_knowledge_source(connection, scope)
+        c7_source = read_material_source(connection, scope)
+        assert isinstance(runtime_source, c9.TaskSource)
+        assert isinstance(graph_source, c9.KnowledgeSource)
+        assert isinstance(c7_source, c9.MaterialSource)
         before = runtime_source.source_digest
     with disposable_database.begin() as connection:
         connection.execute(
@@ -592,7 +594,7 @@ def test_readers_return_pure_types_and_source_digest_changes_on_tamper(
             )
             .values(payload_digest=_digest("tampered-event"))
         )
-        after = read_runtime_session_source(connection, scope).source_digest
+        after = read_task_source(connection, scope).source_digest
     assert before != after
 
 
@@ -600,17 +602,17 @@ def test_put_load_roundtrip_and_same_closure_no_change(
     disposable_database: Engine,
 ) -> None:
     with disposable_database.begin() as connection:
-        closure = build_semantic_source_closure(connection, _scope())
-        first = put_semantic_source_rows(connection, _scope(), closure)
+        closure = build_project_source_closure(connection, _scope())
+        first = put_project_source_rows(connection, _scope(), closure)
     assert first.changed is True
     assert len(first.value_ids) == 3
     assert len(set(first.value_ids)) == 3
     with disposable_database.connect() as connection:
-        loaded = load_exact_semantic_source_closure(connection, _scope())
+        loaded = load_exact_project_source_closure(connection, _scope())
     assert loaded == closure
     assert loaded.closure_digest == closure.closure_digest
     with disposable_database.begin() as connection:
-        second = put_semantic_source_rows(connection, _scope(), closure)
+        second = put_project_source_rows(connection, _scope(), closure)
     assert second.changed is False
     assert second.closure_digest == closure.closure_digest
 
@@ -619,11 +621,11 @@ def test_pure_builders_consume_closure_sources_directly(
     disposable_database: Engine,
 ) -> None:
     with disposable_database.connect() as connection:
-        closure = build_semantic_source_closure(connection, _scope())
-    session_payload = c9.build_agent_session_payload(
-        closure.runtime_session_source,
+        closure = build_project_source_closure(connection, _scope())
+    session_payload = c9.build_task_view(
+        closure.task_source,
         declared_losses=(
-            c9.ProjectionFieldLossV1(
+            c9.ProjectionFieldLoss(
                 schema_version=c9.PROJECTION_FIELD_LOSS_SCHEMA,
                 field_path="events.terminal_ref",
                 loss_kind=c9.LOSS_KIND_NOT_EXECUTED,
@@ -631,10 +633,10 @@ def test_pure_builders_consume_closure_sources_directly(
             ),
         ),
     )
-    graph_payload = c9.build_research_graph_payload(
-        closure.research_graph_source,
+    graph_payload = c9.build_knowledge_view(
+        closure.knowledge_source,
         declared_losses=(
-            c9.ProjectionFieldLossV1(
+            c9.ProjectionFieldLoss(
                 schema_version=c9.PROJECTION_FIELD_LOSS_SCHEMA,
                 field_path="objects.label",
                 loss_kind=c9.LOSS_KIND_DECLARED,
@@ -642,10 +644,10 @@ def test_pure_builders_consume_closure_sources_directly(
             ),
         ),
     )
-    search_payload = c9.build_search_payload(
-        closure.c7_search_source,
+    search_payload = c9.build_material_view(
+        closure.material_source,
         declared_losses=(
-            c9.ProjectionFieldLossV1(
+            c9.ProjectionFieldLoss(
                 schema_version=c9.PROJECTION_FIELD_LOSS_SCHEMA,
                 field_path="segments.text",
                 loss_kind=c9.LOSS_KIND_OMITTED_FIELD,
@@ -653,9 +655,9 @@ def test_pure_builders_consume_closure_sources_directly(
             ),
         ),
     )
-    assert session_payload.session_ref == f"run:{RUN_ID}"
-    assert graph_payload.graph_ref == f"project:{PROJECT_KEY}:research-graph"
-    assert search_payload.search_ref == f"project:{PROJECT_KEY}:c7-search"
+    assert session_payload.session_ref == f"task:{RUN_ID}"
+    assert graph_payload.graph_ref == f"knowledge:{PROJECT_KEY}"
+    assert search_payload.search_ref == f"material:{PROJECT_KEY}"
     assert all(
         len(payload.payload_digest) == 64
         for payload in (
@@ -672,8 +674,11 @@ def test_put_writes_three_typed_rows_without_duplicate_canonical_owner(
     project_metadata = sa.MetaData()
     project = project_tables(project_metadata, PROJECT_SCHEMA)
     with disposable_database.begin() as connection:
-        closure = build_semantic_source_closure(connection, _scope())
-        put_semantic_source_rows(connection, _scope(), closure)
+        closure = build_project_source_closure(connection, _scope())
+        put_project_source_rows(connection, _scope(), closure)
+        current_material = load_current_material_projection_source(
+            connection, _scope()
+        )
         rows = (
             connection.execute(
                 sa.select(project.successor_values).where(
@@ -683,18 +688,43 @@ def test_put_writes_three_typed_rows_without_duplicate_canonical_owner(
             .mappings()
             .all()
         )
-    c9_rows = [
+    source_rows = [
         row
         for row in rows
-        if str(row["source_ref"]) == f"c9:semantic-source:{PROJECT_KEY}"
+        if str(row["source_ref"]) == f"{PROJECTION_SOURCE_VALUE_ID_PREFIX}:{PROJECT_KEY}"
     ]
-    assert len(c9_rows) == 3
-    assert {str(row["object_type"]) for row in c9_rows} == {
-        RUNTIME_SESSION_SOURCE_OBJECT_TYPE,
-        RESEARCH_GRAPH_SOURCE_OBJECT_TYPE,
-        C7_SEARCH_SOURCE_OBJECT_TYPE,
+    assert len(source_rows) == 3
+    assert {str(row["object_type"]) for row in source_rows} == {
+        TASK_SOURCE_OBJECT_TYPE,
+        KNOWLEDGE_SOURCE_OBJECT_TYPE,
+        MATERIAL_SOURCE_OBJECT_TYPE,
     }
-    assert len({str(row["value_id"]) for row in c9_rows}) == 3
+    assert {str(row["codec_id"]) for row in source_rows} == {PROJECTION_SOURCE_CODEC_ID}
+    assert len({str(row["value_id"]) for row in source_rows}) == 3
+    assert closure.closure_id == f"projection:{PROJECT_KEY}:source"
+    assert current_material.source_ref == closure.closure_id
+    assert current_material.source_digest == closure.closure_digest
+    assert current_material.material_source == closure.material_source
+    assert current_material.offset_ref.endswith("manifest:rev-0:" + closure.closure_digest[:24])
+    assert current_material.material_value_ref == (
+        f"project-value:{current_material.material_value_id}"
+    )
+    identity_prefix = f"{PROJECTION_SOURCE_VALUE_ID_PREFIX}:{PROJECT_KEY}:"
+    assert all(str(row["value_id"]).startswith(identity_prefix) for row in source_rows)
+    assert not any(
+        "c9" in str(row["value_id"]).removeprefix(identity_prefix).lower()
+        for row in source_rows
+    )
+    content_by_kind = {
+        str(dict(row["provenance_json"])["source_kind"]): dict(row["content_json"])
+        for row in source_rows
+    }
+    assert "task_ref" in content_by_kind["task"]
+    assert "session_ref" not in content_by_kind["task"]
+    assert "knowledge_ref" in content_by_kind["knowledge"]
+    assert "graph_ref" not in content_by_kind["knowledge"]
+    assert "material_ref" in content_by_kind["material"]
+    assert "search_ref" not in content_by_kind["material"]
 
 
 def test_missing_c7_searchable_content_is_unavailable_without_fabrication(
@@ -712,13 +742,13 @@ def test_missing_c7_searchable_content_is_unavailable_without_fabrication(
             run_id=f"run:{MISSING_PROJECT_KEY}",
             scope_digest=MISSING_SCOPE_DIGEST,
         )
-        graph = read_research_graph_source(connection, scope)
+        graph = read_knowledge_source(connection, scope)
         assert graph.objects == ()
         assert graph.relations == ()
-        with pytest.raises(C9SourceUnavailableError):
-            read_c7_search_source(connection, scope)
-        with pytest.raises(C9SourceUnavailableError):
-            build_semantic_source_closure(connection, scope)
+        with pytest.raises(ProjectionSourceUnavailableError):
+            read_material_source(connection, scope)
+        with pytest.raises(ProjectionSourceUnavailableError):
+            build_project_source_closure(connection, scope)
 
 
 def test_event_gap_fails_closed(disposable_database: Engine) -> None:
@@ -730,7 +760,7 @@ def test_event_gap_fails_closed(disposable_database: Engine) -> None:
                 project_key=PROJECT_KEY,
                 run_id=RUN_ID,
                 seq=4,
-                event_type=c9.SESSION_PROJECTION_REFRESHED,
+                event_type=c9.TASK_PROJECTION_REFRESHED,
                 schema_version="mrw.runtime.event.v1",
                 step_id="step:1",
                 attempt_id=None,
@@ -742,8 +772,8 @@ def test_event_gap_fails_closed(disposable_database: Engine) -> None:
                 updated_at=NOW,
             )
         )
-        with pytest.raises(C9SourceEventGapError):
-            read_runtime_session_source(connection, _scope())
+        with pytest.raises(ProjectionSourceEventGapError):
+            read_task_source(connection, _scope())
 
 
 def test_duplicate_component_fails_closed(disposable_database: Engine) -> None:
@@ -766,16 +796,16 @@ def test_duplicate_component_fails_closed(disposable_database: Engine) -> None:
                 updated_at=NOW,
             )
         )
-        with pytest.raises(C9SourceDuplicateComponentError):
-            read_research_graph_source(connection, _scope())
+        with pytest.raises(ProjectionSourceDuplicateComponentError):
+            read_knowledge_source(connection, _scope())
 
 
 def test_wrong_persisted_type_fails_closed(disposable_database: Engine) -> None:
     project_metadata = sa.MetaData()
     project = project_tables(project_metadata, PROJECT_SCHEMA)
     with disposable_database.begin() as connection:
-        closure = build_semantic_source_closure(connection, _scope())
-        persisted = put_semantic_source_rows(connection, _scope(), closure)
+        closure = build_project_source_closure(connection, _scope())
+        persisted = put_project_source_rows(connection, _scope(), closure)
         runtime_session_value_id = persisted.value_ids[0]
         connection.execute(
             sa.update(project.successor_values)
@@ -785,8 +815,8 @@ def test_wrong_persisted_type_fails_closed(disposable_database: Engine) -> None:
             )
             .values(object_type="legacy.wrong.type")
         )
-        with pytest.raises(C9SourceTypeDriftError):
-            load_exact_semantic_source_closure(connection, _scope())
+        with pytest.raises(ProjectionSourceTypeDriftError):
+            load_exact_project_source_closure(connection, _scope())
 
 
 def test_source_tamper_changes_closure_and_load_fails_closed(
@@ -794,8 +824,8 @@ def test_source_tamper_changes_closure_and_load_fails_closed(
 ) -> None:
     with disposable_database.begin() as connection:
         scope = _scope()
-        closure = build_semantic_source_closure(connection, scope)
-        put_semantic_source_rows(connection, scope, closure)
+        closure = build_project_source_closure(connection, scope)
+        put_project_source_rows(connection, scope, closure)
         connection.execute(
             sa.update(PUBLIC_TABLES["runtime_events"])
             .where(
@@ -804,13 +834,13 @@ def test_source_tamper_changes_closure_and_load_fails_closed(
             )
             .values(payload_digest=_digest("tampered-event"))
         )
-        tampered = build_semantic_source_closure(connection, scope)
+        tampered = build_project_source_closure(connection, scope)
     assert tampered.closure_digest != closure.closure_digest
     with disposable_database.connect() as connection:
-        with pytest.raises(C9SourceClosureDriftError):
-            load_exact_semantic_source_closure(connection, _scope())
-        with pytest.raises(C9SourceValueConflictError):
-            put_semantic_source_rows(connection, _scope(), tampered)
+        with pytest.raises(ProjectionSourceClosureDriftError):
+            load_exact_project_source_closure(connection, _scope())
+        with pytest.raises(ProjectionSourceValueConflictError):
+            put_project_source_rows(connection, _scope(), tampered)
 
 
 def test_c7_value_tamper_fails_head_value_binding(
@@ -831,8 +861,8 @@ def test_c7_value_tamper_fails_head_value_binding(
                 }
             )
         )
-        with pytest.raises(C9SourceClosureDriftError):
-            read_c7_search_source(connection, _scope())
+        with pytest.raises(ProjectionSourceClosureDriftError):
+            read_material_source(connection, _scope())
 
 
 def test_c7_missing_value_and_stale_head_fail_closed(
@@ -847,8 +877,8 @@ def test_c7_missing_value_and_stale_head_fail_closed(
                 project.successor_values.c.value_id == "c7:structured:candidate:c7:2",
             )
         )
-        with pytest.raises(C9SourceMissingRowError):
-            read_c7_search_source(connection, _scope())
+        with pytest.raises(ProjectionSourceMissingRowError):
+            read_material_source(connection, _scope())
     with disposable_database.begin() as connection:
         connection.execute(
             sa.update(C7_MOVEMENT_CANONICAL_DOCUMENTS)
@@ -858,16 +888,16 @@ def test_c7_missing_value_and_stale_head_fail_closed(
             )
             .values(value_revision=99)
         )
-        with pytest.raises(C9SourceProvenanceDriftError):
-            read_c7_search_source(connection, _scope())
+        with pytest.raises(ProjectionSourceProvenanceDriftError):
+            read_material_source(connection, _scope())
 
 
 def test_missing_persisted_row_fails_closed(disposable_database: Engine) -> None:
     project_metadata = sa.MetaData()
     project = project_tables(project_metadata, PROJECT_SCHEMA)
     with disposable_database.begin() as connection:
-        closure = build_semantic_source_closure(connection, _scope())
-        persisted = put_semantic_source_rows(connection, _scope(), closure)
+        closure = build_project_source_closure(connection, _scope())
+        persisted = put_project_source_rows(connection, _scope(), closure)
         c7_search_value_id = persisted.value_ids[2]
         connection.execute(
             sa.delete(project.successor_values).where(
@@ -875,31 +905,31 @@ def test_missing_persisted_row_fails_closed(disposable_database: Engine) -> None
                 project.successor_values.c.value_id == c7_search_value_id,
             )
         )
-        with pytest.raises(C9SourceMissingRowError):
-            load_exact_semantic_source_closure(connection, _scope())
+        with pytest.raises(ProjectionSourceMissingRowError):
+            load_exact_project_source_closure(connection, _scope())
 
 
 def test_stored_incarnation_drift_fails_closed(disposable_database: Engine) -> None:
     project_metadata = sa.MetaData()
     project = project_tables(project_metadata, PROJECT_SCHEMA)
     with disposable_database.begin() as connection:
-        closure = build_semantic_source_closure(connection, _scope())
-        put_semantic_source_rows(connection, _scope(), closure)
+        closure = build_project_source_closure(connection, _scope())
+        put_project_source_rows(connection, _scope(), closure)
         connection.execute(
             sa.update(project.successor_values)
             .where(project.successor_values.c.project_key == PROJECT_KEY)
             .values(incarnation="stale-incarnation")
         )
-        with pytest.raises(C9SourceStaleClosureError):
-            load_exact_semantic_source_closure(connection, _scope())
+        with pytest.raises(ProjectionSourceStaleClosureError):
+            load_exact_project_source_closure(connection, _scope())
 
 
 def test_provenance_drift_fails_closed(disposable_database: Engine) -> None:
     project_metadata = sa.MetaData()
     project = project_tables(project_metadata, PROJECT_SCHEMA)
     with disposable_database.begin() as connection:
-        closure = build_semantic_source_closure(connection, _scope())
-        persisted = put_semantic_source_rows(connection, _scope(), closure)
+        closure = build_project_source_closure(connection, _scope())
+        persisted = put_project_source_rows(connection, _scope(), closure)
         runtime_session_value_id = persisted.value_ids[0]
         stored = (
             connection.execute(
@@ -920,12 +950,12 @@ def test_provenance_drift_fails_closed(disposable_database: Engine) -> None:
                     "closure_digest": original["closure_digest"],
                     "source_ref": "drifted",
                     "incarnation": original["incarnation"],
-                    "source_kind": "runtime_session",
+                    "source_kind": "task",
                 }
             )
         )
-        with pytest.raises(C9SourceProvenanceDriftError):
-            load_exact_semantic_source_closure(connection, _scope())
+        with pytest.raises(ProjectionSourceProvenanceDriftError):
+            load_exact_project_source_closure(connection, _scope())
 
 
 def test_legacy_tables_are_never_sources(disposable_database: Engine) -> None:
@@ -947,7 +977,7 @@ def test_legacy_tables_are_never_sources(disposable_database: Engine) -> None:
     )
     with disposable_database.begin() as connection:
         legacy_metadata.create_all(connection, checkfirst=True)
-        baseline = build_semantic_source_closure(connection, _scope())
+        baseline = build_project_source_closure(connection, _scope())
         connection.execute(
             legacy_sources.insert().values(
                 project_key=PROJECT_KEY,
@@ -963,7 +993,7 @@ def test_legacy_tables_are_never_sources(disposable_database: Engine) -> None:
                 content_digest=_digest("legacy-document"),
             )
         )
-        after = build_semantic_source_closure(connection, _scope())
+        after = build_project_source_closure(connection, _scope())
     assert after == baseline
 
 

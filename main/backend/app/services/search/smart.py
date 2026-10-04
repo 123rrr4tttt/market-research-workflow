@@ -5,7 +5,8 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 import logging
 
-from .web import search_sources
+from .candidate_contracts import CandidateBundle, CandidateSearchRequest
+from .candidate_search import discover_candidates
 from .history import get_last_search_time, update_search_time
 
 
@@ -25,6 +26,11 @@ def smart_search(topic: str, days_back: int = 30, max_results: int = 10, languag
     Returns:
         搜索结果列表
     """
+    return smart_search_bundle(topic, days_back, max_results, language, provider).legacy_list()
+
+
+def smart_search_bundle(topic: str, days_back: int = 30, max_results: int = 10, language: str = "en", provider: str = "auto") -> CandidateBundle:
+    """Typed smart-search result; the list API remains a lossy compatibility view."""
     # 1. 检查上次搜索时间
     last_time = get_last_search_time(topic)
     
@@ -41,33 +47,20 @@ def smart_search(topic: str, days_back: int = 30, max_results: int = 10, languag
         if days_since > 0:
             logger.info("smart_search: incremental search topic=%s days_since=%d", topic, days_since)
             # 只搜索上次搜索后的新内容
-            results = search_sources(
-                topic=topic,
-                language=language,
-                max_results=max_results,
-                provider=provider,
-                days_back=min(days_since, days_back),
-                exclude_existing=True,
-            )
+            result = discover_candidates(CandidateSearchRequest(topic=topic, language=language, max_results=max_results, provider=provider, days_back=min(days_since, days_back), exclude_existing=True))
         else:
             # 同一天内搜索，返回空结果避免重复
             logger.info("smart_search: skipped (same day) topic=%s", topic)
-            results = []
+            result = CandidateBundle(
+                CandidateSearchRequest(topic=topic, language=language, max_results=max_results, provider=provider, days_back=days_back),
+                (), (), (), "not_attempted",
+            )
     else:
         # 首次搜索
         logger.info("smart_search: first search topic=%s days_back=%d", topic, days_back)
-        results = search_sources(
-            topic=topic,
-            language=language,
-            max_results=max_results,
-            provider=provider,
-            days_back=days_back,
-            exclude_existing=True,
-        )
+        result = discover_candidates(CandidateSearchRequest(topic=topic, language=language, max_results=max_results, provider=provider, days_back=days_back, exclude_existing=True))
     
     # 3. 更新搜索历史
-    if results:
+    if result.candidates:
         update_search_time(topic)
-    
-    return results
-
+    return result

@@ -22,11 +22,11 @@ from typing import Any, Literal, Protocol, runtime_checkable
 from functorial_kit import Failure
 
 from app.successor_runtime.research.codec import canonical_json
-from app.successor_runtime.runtime.ports import ProjectScopeRef
 from app.successor_runtime.runtime.failure_policy import (
     raise_runtime_failure,
     runtime_failure,
 )
+from app.successor_runtime.runtime.ports import ProjectScopeRef
 
 API_STATUS_KINDS: tuple[str, ...] = (
     "ok",
@@ -75,7 +75,26 @@ ApiStatusKindV2 = Literal[
     "error",
 ]
 C9_LOCAL_SINK_NAMES: tuple[str, ...] = ("agent_session", "graph", "search")
-C9_ROLLBACK_TRANSITION_CONTRACT = "C9RollbackTransitionReceipt.v1"
+PROJECTION_SNAPSHOT_SINK_NAMES: tuple[str, ...] = (
+    "task",
+    "knowledge",
+    "material",
+    *C9_LOCAL_SINK_NAMES,
+)
+PROJECTION_ROLLBACK_TRANSITION_CONTRACT = "projection.rollback_transition.v2"
+PROJECTION_REQUEST_IDENTITY_CONTRACT = "projection.request_identity.v2"
+MATERIAL_PROJECTION_CLOSURE_ID = "projection.material-closure.v2"
+MATERIAL_PROJECTION_PROJECTOR_ID = MATERIAL_PROJECTION_CLOSURE_ID
+MATERIAL_PROJECTION_PROJECTOR_VERSION = "2.0.0"
+MATERIAL_PROJECTION_SOURCE_KIND = "projection_source"
+MATERIAL_PROJECTION_CANDIDATE_SCHEMA = (
+    "mrw.projection.material-closure-candidate.v2"
+)
+MATERIAL_PROJECTION_RECEIPT_SCHEMA = "mrw.projection.material-closure-receipt.v2"
+LEGACY_C9_ROLLBACK_TRANSITION_CONTRACT = "C9RollbackTransitionReceipt.v1"
+LEGACY_C9_REQUEST_IDENTITY_CONTRACT = "C9RequestIdentity.v1"
+# Historical import retained for explicit v1 decode/readback consumers only.
+C9_ROLLBACK_TRANSITION_CONTRACT = LEGACY_C9_ROLLBACK_TRANSITION_CONTRACT
 FacadeExecutionMode = Literal["VALIDATION_ONLY"]
 
 __all__ = [
@@ -83,6 +102,17 @@ __all__ = [
     "API_STATUS_KINDS_V2",
     "C9_LOCAL_SINK_NAMES",
     "C9_ROLLBACK_TRANSITION_CONTRACT",
+    "LEGACY_C9_ROLLBACK_TRANSITION_CONTRACT",
+    "LEGACY_C9_REQUEST_IDENTITY_CONTRACT",
+    "MATERIAL_PROJECTION_CANDIDATE_SCHEMA",
+    "MATERIAL_PROJECTION_CLOSURE_ID",
+    "MATERIAL_PROJECTION_PROJECTOR_ID",
+    "MATERIAL_PROJECTION_PROJECTOR_VERSION",
+    "MATERIAL_PROJECTION_RECEIPT_SCHEMA",
+    "MATERIAL_PROJECTION_SOURCE_KIND",
+    "PROJECTION_REQUEST_IDENTITY_CONTRACT",
+    "PROJECTION_ROLLBACK_TRANSITION_CONTRACT",
+    "PROJECTION_SNAPSHOT_SINK_NAMES",
     "UI_OBSERVATION_STATES",
     "ApiEnvelope",
     "ApiEnvelopeV2",
@@ -106,6 +136,7 @@ __all__ = [
     "FacadeQuery",
     "FacadeQueryV2",
     "ProjectionCandidateValueV2",
+    "ProjectionRollbackTransitionReceiptV2",
     "ProjectionEvent",
     "ProjectionMeta",
     "ProjectionResponseMeta",
@@ -120,6 +151,9 @@ __all__ = [
     "ValidationResult",
     "derive_c9_request_digest",
     "derive_c9_request_digest_result",
+    "derive_projection_request_identity",
+    "derive_projection_request_identity_result",
+    "derive_historical_c9_request_identity",
     "projection_key_digest",
     "rollback_transition_id",
     "rollback_transition_id_result",
@@ -624,7 +658,7 @@ class RollbackPositionV1:
 
 @dataclass(frozen=True)
 class C9RollbackTransitionReceiptV1:
-    """Unified rollback receipt schema aligned with the frontend.
+    """Historical rollback receipt accepted only by explicit v1 readback.
 
     ``digest`` is the canonical SHA-256 of the receipt excluding the ``digest``
     field itself; ``ref``/identity binds the full ``from`` position, the exact
@@ -645,6 +679,41 @@ class C9RollbackTransitionReceiptV1:
     generation_completeness_digest: str
     observed_at: str = ""
     contract: str = C9_ROLLBACK_TRANSITION_CONTRACT
+
+    def to_plain(self) -> Mapping[str, Any]:
+        return {
+            "contract": self.contract,
+            "ref": self.ref,
+            "digest": self.digest,
+            "projection_id": self.projection_id,
+            "projector_id": self.projector_id,
+            "projector_version": self.projector_version,
+            "source_kind": self.source_kind,
+            "source_ref": self.source_ref,
+            "source_incarnation": self.source_incarnation,
+            "from": self.from_position.to_plain(),
+            "to": self.to_position.to_plain(),
+            "generation_completeness_digest": self.generation_completeness_digest,
+        }
+
+
+@dataclass(frozen=True)
+class ProjectionRollbackTransitionReceiptV2:
+    """Current rollback receipt written with the business identity contract."""
+
+    ref: str
+    digest: str
+    projection_id: str
+    projector_id: str
+    projector_version: str
+    source_kind: str
+    source_ref: str
+    source_incarnation: str
+    from_position: RollbackPositionV1
+    to_position: RollbackPositionV1
+    generation_completeness_digest: str
+    observed_at: str = ""
+    contract: str = PROJECTION_ROLLBACK_TRANSITION_CONTRACT
 
     def to_plain(self) -> Mapping[str, Any]:
         return {
@@ -879,7 +948,7 @@ def rollback_transition_ref(transition_id: str) -> str:
     return result
 
 
-def derive_c9_request_digest_result(
+def derive_projection_request_identity_result(
     *,
     scope_digest: str,
     actor_ref: str,
@@ -901,7 +970,7 @@ def derive_c9_request_digest_result(
                 "actor_ref/command_id/command_kind must be non-empty"
             )
         content = {
-            "contract": "C9RequestIdentity.v1",
+            "contract": PROJECTION_REQUEST_IDENTITY_CONTRACT,
             "scope_digest": scope_digest,
             "actor_ref": actor_ref,
             "command_id": command_id,
@@ -915,7 +984,7 @@ def derive_c9_request_digest_result(
         return _facade_contract_failure(str(exc))
 
 
-def derive_c9_request_digest(
+def derive_projection_request_identity(
     *,
     scope_digest: str,
     actor_ref: str,
@@ -925,9 +994,9 @@ def derive_c9_request_digest(
     expected_base_token: str | None = None,
     approval_locator: str | None = None,
 ) -> str:
-    """Legacy exception ABI over :func:`derive_c9_request_digest_result`."""
+    """Derive the current business request identity for command submission."""
 
-    result = derive_c9_request_digest_result(
+    result = derive_projection_request_identity_result(
         scope_digest=scope_digest,
         actor_ref=actor_ref,
         command_id=command_id,
@@ -939,6 +1008,77 @@ def derive_c9_request_digest(
     if isinstance(result, Failure):
         raise_runtime_failure(result, ValueError)
     return result
+
+
+def derive_historical_c9_request_identity(
+    *,
+    scope_digest: str,
+    actor_ref: str,
+    command_id: str,
+    command_kind: str,
+    payload: Mapping[str, Any],
+    expected_base_token: str | None = None,
+    approval_locator: str | None = None,
+) -> str:
+    """Derive the exact historical v1 digest for readback comparison only."""
+
+    content = {
+        "contract": LEGACY_C9_REQUEST_IDENTITY_CONTRACT,
+        "scope_digest": scope_digest,
+        "actor_ref": actor_ref,
+        "command_id": command_id,
+        "command_kind": command_kind,
+        "payload": dict(payload),
+        "expected_base_token": expected_base_token,
+        "approval_locator": approval_locator,
+    }
+    return hashlib.sha256(canonical_json(content).encode("utf-8")).hexdigest()
+
+
+def derive_c9_request_digest_result(
+    *,
+    scope_digest: str,
+    actor_ref: str,
+    command_id: str,
+    command_kind: str,
+    payload: Mapping[str, Any],
+    expected_base_token: str | None = None,
+    approval_locator: str | None = None,
+) -> str | Failure:
+    """Compatibility name for the current business request identity."""
+
+    return derive_projection_request_identity_result(
+        scope_digest=scope_digest,
+        actor_ref=actor_ref,
+        command_id=command_id,
+        command_kind=command_kind,
+        payload=payload,
+        expected_base_token=expected_base_token,
+        approval_locator=approval_locator,
+    )
+
+
+def derive_c9_request_digest(
+    *,
+    scope_digest: str,
+    actor_ref: str,
+    command_id: str,
+    command_kind: str,
+    payload: Mapping[str, Any],
+    expected_base_token: str | None = None,
+    approval_locator: str | None = None,
+) -> str:
+    """Compatibility name for callers not yet migrated to the business API."""
+
+    return derive_projection_request_identity(
+        scope_digest=scope_digest,
+        actor_ref=actor_ref,
+        command_id=command_id,
+        command_kind=command_kind,
+        payload=payload,
+        expected_base_token=expected_base_token,
+        approval_locator=approval_locator,
+    )
 
 
 def validate_facade_meta_v2(meta: FacadeMetaV2) -> ValidationResult:
@@ -1116,7 +1256,7 @@ def validate_projection_snapshot_data_v2(
                     message="value byte_size must be non-negative",
                 )
             )
-        if value.sink not in C9_LOCAL_SINK_NAMES:
+        if value.sink not in PROJECTION_SNAPSHOT_SINK_NAMES:
             violations.append(
                 ContractViolation(
                     code="PROJECTION_SINK_UNREGISTERED",

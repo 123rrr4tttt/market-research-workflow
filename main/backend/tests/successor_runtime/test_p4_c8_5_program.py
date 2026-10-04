@@ -14,11 +14,11 @@ from app.successor_migration.legacy_c8_interpreter import (
     LegacyC8WritingStageDonor,
 )
 from app.successor_runtime.capabilities import build_first_specimen_bundle
-from app.successor_runtime.capabilities import c8_common as c8common
-from app.successor_runtime.capabilities import c8_program as c8p
-from app.successor_runtime.capabilities.c8_report import build_report_artifact
-from app.successor_runtime.capabilities.c8_typed_knowledge import demand_read
-from app.successor_runtime.capabilities.c8_writing import (
+from app.successor_runtime.capabilities import knowledge_common as knowledge_common_module
+from app.successor_runtime.capabilities import knowledge_program as knowledge_program
+from app.successor_runtime.capabilities.knowledge_report import build_report_artifact
+from app.successor_runtime.capabilities.typed_knowledge import demand_read
+from app.successor_runtime.capabilities.knowledge_writing import (
     compose_writing_handoff,
     project_writing_card,
     stage_writing_artifact,
@@ -63,35 +63,35 @@ PROJECT_SCOPE_DIGEST = content_digest(
 
 
 def _bundle() -> tuple:
-    bundle = c8p.build_c8_bundle()
-    catalog = c8p.build_c8_catalog(bundle)
-    registry = c8p.build_c8_registry(bundle)
+    bundle = knowledge_program.build_knowledge_bundle()
+    catalog = knowledge_program.build_knowledge_catalog(bundle)
+    registry = knowledge_program.build_knowledge_registry(bundle)
     return bundle, catalog, registry
 
 
 def _payload(cell_id: str):
-    if cell_id == "C8.1":
-        return c8p.C8DemandReadInput(
+    if cell_id == knowledge_program.KNOWLEDGE_READ_CELL_ID:
+        return knowledge_program.KnowledgeDemandReadInput(
             project_key=PROJECT_KEY,
             item_key="ki:robotics",
             fields=("canonical_statement", "evidence_refs"),
         )
-    if cell_id == "C8.2":
-        return c8p.C8WritingComposeInput(
+    if cell_id == knowledge_program.KNOWLEDGE_WRITING_CELL_ID:
+        return knowledge_program.KnowledgeWritingComposeInput(
             project_key=PROJECT_KEY,
             knowledge_item_key="ki:robotics",
             selection_hash="selection:robotics",
             selection_text="robotics investment",
             demand_fields=("canonical_statement", "evidence_refs"),
         )
-    if cell_id == "C8.3":
-        return c8p.C8ReportStageInput(
+    if cell_id == knowledge_program.KNOWLEDGE_REPORT_CELL_ID:
+        return knowledge_program.KnowledgeReportStageInput(
             project_key=PROJECT_KEY,
             report_id="report-1",
-            topic="C8.knowledge-writing-report-graph",
+            topic="knowledge-writing-report-graph",
             source_keys=("ki:robotics",),
         )
-    return c8p.C8GraphProjectInput(
+    return knowledge_program.KnowledgeGraphProjectInput(
         project_key=PROJECT_KEY,
         graph_id="graph-1",
         node_keys=("ki:a", "ki:b"),
@@ -101,7 +101,7 @@ def _payload(cell_id: str):
 
 def _compile(cell_id: str):
     bundle, catalog, registry = _bundle()
-    program = c8p.build_c8_program(
+    program = knowledge_program.build_knowledge_program(
         cell_id=cell_id,
         payload=_payload(cell_id),
         catalog=catalog,
@@ -110,7 +110,7 @@ def _compile(cell_id: str):
         project_registry_revision=PROJECT_REGISTRY_REVISION,
         project_scope_digest=PROJECT_SCOPE_DIGEST,
     )
-    plan = c8p.compile_c8_program(
+    plan = knowledge_program.compile_knowledge_program(
         program,
         catalog,
         operation_contracts=registry,
@@ -122,34 +122,34 @@ def test_exact_operation_and_return_contracts() -> None:
     bundle, _, _ = _bundle()
     kinds = {operation.ref.kind for operation in bundle.operations}
     assert kinds == {
-        c8p.C8_1_KIND,
-        c8p.C8_2_COMPOSE_KIND,
-        c8p.C8_2_STAGE_KIND,
-        c8p.C8_3_KIND,
-        c8p.C8_4_KIND,
+        knowledge_program.KNOWLEDGE_READ_KIND,
+        knowledge_program.KNOWLEDGE_WRITING_COMPOSE_KIND,
+        knowledge_program.KNOWLEDGE_WRITING_STAGE_KIND,
+        knowledge_program.KNOWLEDGE_REPORT_KIND,
+        knowledge_program.KNOWLEDGE_GRAPH_PROJECTION_KIND,
     }
     by_kind = {operation.ref.kind: operation for operation in bundle.operations}
-    assert by_kind[c8p.C8_1_KIND].return_contract_ref == (
+    assert by_kind[knowledge_program.KNOWLEDGE_READ_KIND].return_contract_ref == (
         READ_CANONICAL_REF_RETURN_CONTRACT_REF
     )
-    assert by_kind[c8p.C8_2_COMPOSE_KIND].return_contract_ref == (
+    assert by_kind[knowledge_program.KNOWLEDGE_WRITING_COMPOSE_KIND].return_contract_ref == (
         SINGLE_TYPED_OUTPUT_RETURN_CONTRACT_REF
     )
-    assert by_kind[c8p.C8_2_STAGE_KIND].return_contract_ref == (
+    assert by_kind[knowledge_program.KNOWLEDGE_WRITING_STAGE_KIND].return_contract_ref == (
         SINGLE_TYPED_OUTPUT_RETURN_CONTRACT_REF
     )
-    assert by_kind[c8p.C8_3_KIND].return_contract_ref == (
+    assert by_kind[knowledge_program.KNOWLEDGE_REPORT_KIND].return_contract_ref == (
         RUNTIME_VALUE_RETURN_CONTRACT_REF
     )
-    assert by_kind[c8p.C8_4_KIND].return_contract_ref == (
+    assert by_kind[knowledge_program.KNOWLEDGE_GRAPH_PROJECTION_KIND].return_contract_ref == (
         READ_CANONICAL_REF_RETURN_CONTRACT_REF
     )
     expected_owner_by_kind = {
-        c8p.C8_1_KIND: c8p.C8_1_OWNER,
-        c8p.C8_2_COMPOSE_KIND: c8p.C8_2_OWNER,
-        c8p.C8_2_STAGE_KIND: c8p.C8_2_OWNER,
-        c8p.C8_3_KIND: c8p.C8_3_OWNER,
-        c8p.C8_4_KIND: c8p.C8_4_OWNER,
+        knowledge_program.KNOWLEDGE_READ_KIND: knowledge_program.KNOWLEDGE_READ_OWNER,
+        knowledge_program.KNOWLEDGE_WRITING_COMPOSE_KIND: knowledge_program.KNOWLEDGE_WRITING_OWNER,
+        knowledge_program.KNOWLEDGE_WRITING_STAGE_KIND: knowledge_program.KNOWLEDGE_WRITING_OWNER,
+        knowledge_program.KNOWLEDGE_REPORT_KIND: knowledge_program.KNOWLEDGE_REPORT_OWNER,
+        knowledge_program.KNOWLEDGE_GRAPH_PROJECTION_KIND: knowledge_program.KNOWLEDGE_GRAPH_PROJECTION_OWNER,
     }
     assert all(
         operation.owner_capability_id == expected_owner_by_kind[operation.ref.kind]
@@ -158,35 +158,41 @@ def test_exact_operation_and_return_contracts() -> None:
 
 
 def test_ordered_shared_program_and_plan_are_deterministic() -> None:
-    _, program, plan = _compile("C8.2")
+    _, program, plan = _compile(knowledge_program.KNOWLEDGE_WRITING_CELL_ID)
     assert program.root.node_kind == "then"
     assert len(plan.ordered_steps) == 2
     assert plan.program_id == PROGRAM_ID
     assert plan.program_digest == program.program_digest
-    _, second_program, second_plan = _compile("C8.2")
+    _, second_program, second_plan = _compile(knowledge_program.KNOWLEDGE_WRITING_CELL_ID)
     assert second_program.canonical_json() == program.canonical_json()
     assert second_plan.plan_digest == plan.plan_digest
 
-    for cell_id in ("C8.1", "C8.3", "C8.4"):
+    for cell_id in (
+        knowledge_program.KNOWLEDGE_READ_CELL_ID,
+        knowledge_program.KNOWLEDGE_REPORT_CELL_ID,
+        knowledge_program.KNOWLEDGE_GRAPH_PROJECTION_CELL_ID,
+    ):
         _, program_1, plan_1 = _compile(cell_id)
         assert program_1.root.node_kind == "atom"
         assert len(plan_1.ordered_steps) == 1
 
 
 def test_exact_handler_binding() -> None:
-    bundle, program, _ = _compile("C8.1")
+    bundle, program, _ = _compile(knowledge_program.KNOWLEDGE_READ_CELL_ID)
     contract = next(
         operation
         for operation in bundle.operations
-        if operation.ref.kind == c8p.C8_1_KIND
+        if operation.ref.kind == knowledge_program.KNOWLEDGE_READ_KIND
     )
     binding = build_c8_interpreter_binding(
-        c8p.handler_binding_payload(
+        knowledge_program.handler_binding_payload(
             operation_contract_digest=contract.ref.contract_digest,
-            interpreter_profile_digest=bundle.profiles["C8.1"][
+            interpreter_profile_digest=bundle.profiles[knowledge_program.KNOWLEDGE_READ_CELL_ID][
                 "interpreter"
             ].profile_digest,
-            deployment_catalog_digest=content_digest({"catalog": "deployment.c8.v1"}),
+            deployment_catalog_digest=content_digest(
+                {"catalog": "mrw.knowledge.deployment-catalog.v2"}
+            ),
             project_scope_digest=PROJECT_SCOPE_DIGEST,
             authority_requirement_digest=content_digest({"authority": False}),
         )
@@ -201,16 +207,18 @@ def test_exact_handler_binding() -> None:
 
 
 def test_legacy_and_successor_share_same_ast() -> None:
-    legacy_bundle, legacy_program, legacy_plan = _compile("C8.1")
-    successor_bundle, successor_program, successor_plan = _compile("C8.1")
+    legacy_bundle, legacy_program, legacy_plan = _compile(knowledge_program.KNOWLEDGE_READ_CELL_ID)
+    successor_bundle, successor_program, successor_plan = _compile(
+        knowledge_program.KNOWLEDGE_READ_CELL_ID
+    )
     assert legacy_program.canonical_json() == successor_program.canonical_json()
     assert legacy_plan.plan_digest == successor_plan.plan_digest
     assert legacy_bundle is not successor_bundle
-    payload = _payload("C8.1")
+    payload = _payload(knowledge_program.KNOWLEDGE_READ_CELL_ID)
     donors = LegacyC8DonorRegistry()
-    legacy_catalog = c8p.build_c8_catalog(legacy_bundle)
+    legacy_catalog = knowledge_program.build_knowledge_catalog(legacy_bundle)
     donors.register(
-        legacy_catalog.lookup(c8p.C8_1_KIND).contract_digest,
+        legacy_catalog.lookup(knowledge_program.KNOWLEDGE_READ_KIND).contract_digest,
         LegacyC8DemandReadDonor(
             items_by_key={"ki:robotics": legacy_item()},
             selection_hash="selection:robotics",
@@ -235,25 +243,25 @@ def test_legacy_and_successor_share_same_ast() -> None:
 
 
 def test_typed_lifecycle_algebra_is_production_contract() -> None:
-    recovery = c8common.recover_unknown_outcome(
-        cell_id="C8.1",
+    recovery = knowledge_common_module.recover_unknown_outcome(
+        cell_id=knowledge_program.KNOWLEDGE_READ_CELL_ID,
         binding_digest="0" * 64,
         attempt_digest="attempt:1",
-        readback_profile_ref="c8.typed_knowledge.readback.v1",
+        readback_profile_ref="knowledge.read.readback.v2",
         outcome_digest="0" * 64,
     )
-    rollback = c8common.rollback_transition(
-        cell_id="C8.2",
+    rollback = knowledge_common_module.rollback_transition(
+        cell_id=knowledge_program.KNOWLEDGE_WRITING_CELL_ID,
         retained_digests=("artifact-1", "report-1"),
     )
-    failure = c8common.C8FailureResult(
-        cell_id="C8.1",
+    failure = knowledge_common_module.KnowledgeFailureResult(
+        cell_id=knowledge_program.KNOWLEDGE_READ_CELL_ID,
         failure_kind="DEMAND_READ_UNAVAILABLE",
         reason="canonical fact unavailable",
     )
-    assert isinstance(recovery, c8common.C8RecoveryResult)
-    assert isinstance(rollback, c8common.C8RollbackResult)
-    assert isinstance(failure, c8common.C8FailureResult)
+    assert isinstance(recovery, knowledge_common_module.KnowledgeRecoveryResult)
+    assert isinstance(rollback, knowledge_common_module.KnowledgeRollbackResult)
+    assert isinstance(failure, knowledge_common_module.KnowledgeFailureResult)
     assert recovery.readback_required is True
     assert recovery.new_attempt_allowed is False
     assert rollback.admission_reverted is False
@@ -264,14 +272,14 @@ def test_typed_lifecycle_algebra_is_production_contract() -> None:
 
 
 def test_payload_digest_is_recomputed_and_stale_digest_rejected() -> None:
-    payload = c8p.C8DemandReadInput(
+    payload = knowledge_program.KnowledgeDemandReadInput(
         project_key=PROJECT_KEY,
         item_key="ki:robotics",
         fields=("canonical_statement",),
     )
-    assert payload.payload_digest == c8p.payload_body_digest(payload)
+    assert payload.payload_digest == knowledge_program.payload_body_digest(payload)
     with pytest.raises(ValueError, match="recomputed"):
-        c8p.C8DemandReadInput(
+        knowledge_program.KnowledgeDemandReadInput(
             project_key=PROJECT_KEY,
             item_key="ki:other",
             fields=("canonical_statement",),
@@ -282,16 +290,16 @@ def test_payload_digest_is_recomputed_and_stale_digest_rejected() -> None:
 def test_per_cell_profiles_are_typed_and_distinct() -> None:
     bundle, _, _ = _bundle()
     expected_owners = {
-        "C8.1": c8p.C8_1_OWNER,
-        "C8.2": c8p.C8_2_OWNER,
-        "C8.3": c8p.C8_3_OWNER,
-        "C8.4": c8p.C8_4_OWNER,
+        knowledge_program.KNOWLEDGE_READ_CELL_ID: knowledge_program.KNOWLEDGE_READ_OWNER,
+        knowledge_program.KNOWLEDGE_WRITING_CELL_ID: knowledge_program.KNOWLEDGE_WRITING_OWNER,
+        knowledge_program.KNOWLEDGE_REPORT_CELL_ID: knowledge_program.KNOWLEDGE_REPORT_OWNER,
+        knowledge_program.KNOWLEDGE_GRAPH_PROJECTION_CELL_ID: knowledge_program.KNOWLEDGE_GRAPH_PROJECTION_OWNER,
     }
     expected_classes = {
-        "C8.1": "EFFECTFUL",
-        "C8.2": "PURE_TRANSFORM",
-        "C8.3": "ADMISSION",
-        "C8.4": "PROJECTION",
+        knowledge_program.KNOWLEDGE_READ_CELL_ID: "EFFECTFUL",
+        knowledge_program.KNOWLEDGE_WRITING_CELL_ID: "PURE_TRANSFORM",
+        knowledge_program.KNOWLEDGE_REPORT_CELL_ID: "ADMISSION",
+        knowledge_program.KNOWLEDGE_GRAPH_PROJECTION_CELL_ID: "PROJECTION",
     }
     for cell_id, owner in expected_owners.items():
         profiles = bundle.profiles[cell_id]
@@ -304,20 +312,22 @@ def test_per_cell_profiles_are_typed_and_distinct() -> None:
 
 
 def test_execution_plan_step_handler_binding_closure() -> None:
-    bundle, _, plan = _compile("C8.2")
-    entries = c8p.handler_binding_closure_payloads(
+    bundle, _, plan = _compile(knowledge_program.KNOWLEDGE_WRITING_CELL_ID)
+    entries = knowledge_program.handler_binding_closure_payloads(
         plan,
-        interpreter_profile_digest=bundle.profiles["C8.2"][
+        interpreter_profile_digest=bundle.profiles[knowledge_program.KNOWLEDGE_WRITING_CELL_ID][
             "interpreter"
         ].profile_digest,
-        deployment_catalog_digest=content_digest({"catalog": "deployment.c8.v1"}),
+        deployment_catalog_digest=content_digest(
+            {"catalog": "mrw.knowledge.deployment-catalog.v2"}
+        ),
         project_scope_digest=PROJECT_SCOPE_DIGEST,
         authority_requirement_digest=content_digest({"authority": False}),
     )
     assert len(entries) == 2
     assert [entry["operation_kind"] for entry in entries] == [
-        c8p.C8_2_COMPOSE_KIND,
-        c8p.C8_2_STAGE_KIND,
+        knowledge_program.KNOWLEDGE_WRITING_COMPOSE_KIND,
+        knowledge_program.KNOWLEDGE_WRITING_STAGE_KIND,
     ]
     bindings = [build_c8_interpreter_binding(entry["payload"]) for entry in entries]
     assert len({binding.binding_digest for binding in bindings}) == 2
@@ -330,14 +340,14 @@ def test_execution_plan_step_handler_binding_closure() -> None:
 def test_unknown_path_recovery_binding_and_production_rollback() -> None:
     bundle, _, _ = _bundle()
     recovery = build_c8_recovery_binding(
-        interpreter_profile_digest=bundle.profiles["C8.3"][
+        interpreter_profile_digest=bundle.profiles[knowledge_program.KNOWLEDGE_REPORT_CELL_ID][
             "interpreter"
         ].profile_digest,
-        authoritative_readback_profile_ref="c8.report.admission.readback.v1",
+        authoritative_readback_profile_ref="knowledge.report.admission.readback.v2",
     )
     assert recovery.binding_kind == HandlerBindingKind.RECOVERY
     assert recovery.authoritative_readback_profile_ref == (
-        "c8.report.admission.readback.v1"
+        "knowledge.report.admission.readback.v2"
     )
 
     item = captured_item()
@@ -360,23 +370,25 @@ def test_unknown_path_recovery_binding_and_production_rollback() -> None:
     report = build_report_artifact(
         report_id="report-1",
         project_key=PROJECT_KEY,
-        topic="C8.knowledge-writing-report-graph",
+        topic="knowledge-writing-report-graph",
         source_reads=(read,),
     )
     recovery_result = C8RecoveryReadbackHandler().handle_unknown(
         recovery,
-        cell_id="C8.3",
+        cell_id=knowledge_program.KNOWLEDGE_REPORT_CELL_ID,
         attempt_digest=report.artifact_digest,
     )
-    rollback = c8common.rollback_transition(
-        cell_id="C8.2",
+    rollback = knowledge_common_module.rollback_transition(
+        cell_id=knowledge_program.KNOWLEDGE_WRITING_CELL_ID,
         retained_digests=(artifact.artifact_id, report.artifact_digest),
     )
     assert rollback.admission_reverted is False
-    assert isinstance(recovery_result, c8common.C8RecoveryResult)
+    assert isinstance(recovery_result, knowledge_common_module.KnowledgeRecoveryResult)
     assert recovery_result.binding_digest == recovery.binding_digest
     assert recovery_result.attempt_digest == report.artifact_digest
-    assert recovery_result.readback_profile_ref == ("c8.report.admission.readback.v1")
+    assert recovery_result.readback_profile_ref == (
+        "knowledge.report.admission.readback.v2"
+    )
     assert recovery_result.outcome_digest
     assert recovery_result.new_attempt_allowed is False
     assert artifact.artifact_id
@@ -386,15 +398,18 @@ def test_unknown_path_recovery_binding_and_production_rollback() -> None:
     with pytest.raises(ValueError, match="override"):
         C8RecoveryReadbackHandler().handle_unknown(
             recovery,
-            cell_id="C8.3",
+            cell_id=knowledge_program.KNOWLEDGE_REPORT_CELL_ID,
             attempt_digest=report.artifact_digest,
             readback_profile_ref="attacker.readback.profile.v1",
         )
-    with pytest.raises(c8common.C8ProjectionError, match="non-empty"):
-        c8common.rollback_transition(cell_id="C8.2", retained_digests=())
-    with pytest.raises(c8common.C8ProjectionError, match="authority"):
-        c8common.rollback_transition(
-            cell_id="C8.2",
+    with pytest.raises(knowledge_common_module.KnowledgeProjectionError, match="non-empty"):
+        knowledge_common_module.rollback_transition(
+            cell_id=knowledge_program.KNOWLEDGE_WRITING_CELL_ID,
+            retained_digests=(),
+        )
+    with pytest.raises(knowledge_common_module.KnowledgeProjectionError, match="authority"):
+        knowledge_common_module.rollback_transition(
+            cell_id=knowledge_program.KNOWLEDGE_WRITING_CELL_ID,
             retained_digests=(artifact.artifact_id,),
             authority_reversed=True,
         )
@@ -402,13 +417,13 @@ def test_unknown_path_recovery_binding_and_production_rollback() -> None:
 
 def test_legacy_interpreter_dispatches_real_donors_by_exact_digest() -> None:
     bundle, catalog, _ = _bundle()
-    payload = c8p.C8DemandReadInput(
+    payload = knowledge_program.KnowledgeDemandReadInput(
         project_key=PROJECT_KEY,
         item_key="ki:robotics",
         fields=("canonical_statement", "evidence_refs"),
     )
-    program = c8p.build_c8_program(
-        cell_id="C8.1",
+    program = knowledge_program.build_knowledge_program(
+        cell_id=knowledge_program.KNOWLEDGE_READ_CELL_ID,
         payload=payload,
         catalog=catalog,
         program_id=PROGRAM_ID,
@@ -416,14 +431,14 @@ def test_legacy_interpreter_dispatches_real_donors_by_exact_digest() -> None:
         project_registry_revision=PROJECT_REGISTRY_REVISION,
         project_scope_digest=PROJECT_SCOPE_DIGEST,
     )
-    plan = c8p.compile_c8_program(
+    plan = knowledge_program.compile_knowledge_program(
         program,
         catalog,
-        operation_contracts=c8p.build_c8_registry(bundle),
+        operation_contracts=knowledge_program.build_knowledge_registry(bundle),
     )
     donors = LegacyC8DonorRegistry()
     donors.register(
-        catalog.lookup(c8p.C8_1_KIND).contract_digest,
+        catalog.lookup(knowledge_program.KNOWLEDGE_READ_KIND).contract_digest,
         LegacyC8DemandReadDonor(
             items_by_key={"ki:robotics": legacy_item()},
             selection_hash="selection:robotics",
@@ -463,13 +478,13 @@ def test_legacy_interpreter_dispatches_real_donors_by_exact_digest() -> None:
 
 def test_interpreter_rejects_mixed_program_and_plan_pair() -> None:
     bundle, catalog, _ = _bundle()
-    payload_a = c8p.C8DemandReadInput(
+    payload_a = knowledge_program.KnowledgeDemandReadInput(
         project_key=PROJECT_KEY,
         item_key="ki:robotics",
         fields=("canonical_statement",),
     )
-    program_a = c8p.build_c8_program(
-        cell_id="C8.1",
+    program_a = knowledge_program.build_knowledge_program(
+        cell_id=knowledge_program.KNOWLEDGE_READ_CELL_ID,
         payload=payload_a,
         catalog=catalog,
         program_id=PROGRAM_ID,
@@ -477,14 +492,14 @@ def test_interpreter_rejects_mixed_program_and_plan_pair() -> None:
         project_registry_revision=PROJECT_REGISTRY_REVISION,
         project_scope_digest=PROJECT_SCOPE_DIGEST,
     )
-    payload_b = c8p.C8GraphProjectInput(
+    payload_b = knowledge_program.KnowledgeGraphProjectInput(
         project_key=PROJECT_KEY,
         graph_id="graph-1",
         node_keys=("ki:a",),
         node_types=("Topic",),
     )
-    program_b = c8p.build_c8_program(
-        cell_id="C8.4",
+    program_b = knowledge_program.build_knowledge_program(
+        cell_id=knowledge_program.KNOWLEDGE_GRAPH_PROJECTION_CELL_ID,
         payload=payload_b,
         catalog=catalog,
         program_id=PROGRAM_ID,
@@ -492,14 +507,14 @@ def test_interpreter_rejects_mixed_program_and_plan_pair() -> None:
         project_registry_revision=PROJECT_REGISTRY_REVISION,
         project_scope_digest=PROJECT_SCOPE_DIGEST,
     )
-    plan_a = c8p.compile_c8_program(
+    plan_a = knowledge_program.compile_knowledge_program(
         program_a,
         catalog,
-        operation_contracts=c8p.build_c8_registry(bundle),
+        operation_contracts=knowledge_program.build_knowledge_registry(bundle),
     )
     donors = LegacyC8DonorRegistry()
     donors.register(
-        catalog.lookup(c8p.C8_1_KIND).contract_digest,
+        catalog.lookup(knowledge_program.KNOWLEDGE_READ_KIND).contract_digest,
         LegacyC8DemandReadDonor(
             items_by_key={"ki:robotics": legacy_item()},
             selection_hash="selection:robotics",
@@ -522,15 +537,15 @@ def test_interpreter_rejects_mixed_program_and_plan_pair() -> None:
 
 def test_c8_2_dataflow_feeds_compose_output_into_stage() -> None:
     bundle, catalog, _ = _bundle()
-    payload = c8p.C8WritingComposeInput(
+    payload = knowledge_program.KnowledgeWritingComposeInput(
         project_key=PROJECT_KEY,
         knowledge_item_key="ki:robotics",
         selection_hash="selection:robotics",
         selection_text="robotics investment",
         demand_fields=("canonical_statement", "evidence_refs"),
     )
-    program = c8p.build_c8_program(
-        cell_id="C8.2",
+    program = knowledge_program.build_knowledge_program(
+        cell_id=knowledge_program.KNOWLEDGE_WRITING_CELL_ID,
         payload=payload,
         catalog=catalog,
         program_id=PROGRAM_ID,
@@ -538,14 +553,14 @@ def test_c8_2_dataflow_feeds_compose_output_into_stage() -> None:
         project_registry_revision=PROJECT_REGISTRY_REVISION,
         project_scope_digest=PROJECT_SCOPE_DIGEST,
     )
-    plan = c8p.compile_c8_program(
+    plan = knowledge_program.compile_knowledge_program(
         program,
         catalog,
-        operation_contracts=c8p.build_c8_registry(bundle),
+        operation_contracts=knowledge_program.build_knowledge_registry(bundle),
     )
     donors = LegacyC8DonorRegistry()
     donors.register(
-        catalog.lookup(c8p.C8_2_COMPOSE_KIND).contract_digest,
+        catalog.lookup(knowledge_program.KNOWLEDGE_WRITING_COMPOSE_KIND).contract_digest,
         LegacyC8WritingComposeDonor(
             items_by_key={"ki:robotics": legacy_item()},
             selection_hash="selection:robotics",
@@ -553,7 +568,7 @@ def test_c8_2_dataflow_feeds_compose_output_into_stage() -> None:
         ).run,
     )
     donors.register(
-        catalog.lookup(c8p.C8_2_STAGE_KIND).contract_digest,
+        catalog.lookup(knowledge_program.KNOWLEDGE_WRITING_STAGE_KIND).contract_digest,
         LegacyC8WritingStageDonor(normalized_query="robotics investment").run,
     )
     trace = LegacyC8ProgramInterpreter().consume(
@@ -591,13 +606,13 @@ def test_c8_2_dataflow_feeds_compose_output_into_stage() -> None:
 
 def test_interpreter_rejects_tampered_program_and_plan() -> None:
     bundle, catalog, _ = _bundle()
-    payload = c8p.C8DemandReadInput(
+    payload = knowledge_program.KnowledgeDemandReadInput(
         project_key=PROJECT_KEY,
         item_key="ki:robotics",
         fields=("canonical_statement",),
     )
-    program = c8p.build_c8_program(
-        cell_id="C8.1",
+    program = knowledge_program.build_knowledge_program(
+        cell_id=knowledge_program.KNOWLEDGE_READ_CELL_ID,
         payload=payload,
         catalog=catalog,
         program_id=PROGRAM_ID,
@@ -605,14 +620,14 @@ def test_interpreter_rejects_tampered_program_and_plan() -> None:
         project_registry_revision=PROJECT_REGISTRY_REVISION,
         project_scope_digest=PROJECT_SCOPE_DIGEST,
     )
-    plan = c8p.compile_c8_program(
+    plan = knowledge_program.compile_knowledge_program(
         program,
         catalog,
-        operation_contracts=c8p.build_c8_registry(bundle),
+        operation_contracts=knowledge_program.build_knowledge_registry(bundle),
     )
     donors = LegacyC8DonorRegistry()
     donors.register(
-        catalog.lookup(c8p.C8_1_KIND).contract_digest,
+        catalog.lookup(knowledge_program.KNOWLEDGE_READ_KIND).contract_digest,
         LegacyC8DemandReadDonor(
             items_by_key={"ki:robotics": legacy_item()},
             selection_hash="selection:robotics",
@@ -643,13 +658,13 @@ def test_interpreter_rejects_tampered_program_and_plan() -> None:
 
 def test_interpreter_recomputes_seed_input_digest_and_rejects_mismatch() -> None:
     bundle, catalog, _ = _bundle()
-    payload = c8p.C8DemandReadInput(
+    payload = knowledge_program.KnowledgeDemandReadInput(
         project_key=PROJECT_KEY,
         item_key="ki:robotics",
         fields=("canonical_statement",),
     )
-    program = c8p.build_c8_program(
-        cell_id="C8.1",
+    program = knowledge_program.build_knowledge_program(
+        cell_id=knowledge_program.KNOWLEDGE_READ_CELL_ID,
         payload=payload,
         catalog=catalog,
         program_id=PROGRAM_ID,
@@ -657,14 +672,14 @@ def test_interpreter_recomputes_seed_input_digest_and_rejects_mismatch() -> None
         project_registry_revision=PROJECT_REGISTRY_REVISION,
         project_scope_digest=PROJECT_SCOPE_DIGEST,
     )
-    plan = c8p.compile_c8_program(
+    plan = knowledge_program.compile_knowledge_program(
         program,
         catalog,
-        operation_contracts=c8p.build_c8_registry(bundle),
+        operation_contracts=knowledge_program.build_knowledge_registry(bundle),
     )
     donors = LegacyC8DonorRegistry()
     donors.register(
-        catalog.lookup(c8p.C8_1_KIND).contract_digest,
+        catalog.lookup(knowledge_program.KNOWLEDGE_READ_KIND).contract_digest,
         LegacyC8DemandReadDonor(
             items_by_key={"ki:robotics": legacy_item()},
             selection_hash="selection:robotics",
@@ -680,8 +695,8 @@ def test_interpreter_recomputes_seed_input_digest_and_rejects_mismatch() -> None
         )
 
 
-def _bridge_candidate() -> c8common.C8ResearchArtifactCandidate:
-    return c8common.C8ResearchArtifactCandidate(
+def _bridge_candidate() -> knowledge_common_module.KnowledgeResearchArtifactCandidate:
+    return knowledge_common_module.KnowledgeResearchArtifactCandidate(
         candidate_id="artifact:001",
         project_key=PROJECT_KEY,
         canonical_metadata_bytes=b"{}",
@@ -700,16 +715,16 @@ def _bridge_candidate() -> c8common.C8ResearchArtifactCandidate:
 
 
 def test_c8_report_bridge_program_orders_stage_verify_admission() -> None:
-    bridge = c8p.build_c8_bridge_bundle()
-    catalog = c8p.build_c8_catalog(bridge)
-    registry = c8p.build_c8_registry(bridge)
-    stage_payload = c8p.C8ReportStageInput(
+    bridge = knowledge_program.build_knowledge_bridge_bundle()
+    catalog = knowledge_program.build_knowledge_catalog(bridge)
+    registry = knowledge_program.build_knowledge_registry(bridge)
+    stage_payload = knowledge_program.KnowledgeReportStageInput(
         project_key=PROJECT_KEY,
         report_id="report-1",
-        topic="C8.knowledge-writing-report-graph",
+        topic="knowledge-writing-report-graph",
         source_keys=("ki:robotics",),
     )
-    program = c8p.build_c8_report_bridge_program(
+    program = knowledge_program.build_knowledge_report_bridge_program(
         stage_payload=stage_payload,
         catalog=catalog,
         program_id="program:p4-c8-bridge",
@@ -717,7 +732,7 @@ def test_c8_report_bridge_program_orders_stage_verify_admission() -> None:
         project_registry_revision=1,
         project_scope_digest=PROJECT_SCOPE_DIGEST,
     )
-    plan = c8p.compile_c8_report_bridge_program(
+    plan = knowledge_program.compile_knowledge_report_bridge_program(
         program,
         catalog,
         operation_contracts=registry,
@@ -725,16 +740,16 @@ def test_c8_report_bridge_program_orders_stage_verify_admission() -> None:
     assert len(plan.ordered_steps) == 4
     kinds = [step.operation_contract_ref.kind for step in plan.ordered_steps]
     assert kinds[:3] == [
-        c8p.C8_3_KIND,
-        c8p.C8_VERIFY_KIND,
-        c8p.C8_ADMISSION_KIND,
+        knowledge_program.KNOWLEDGE_REPORT_KIND,
+        knowledge_program.KNOWLEDGE_VERIFY_KIND,
+        knowledge_program.KNOWLEDGE_ADMISSION_KIND,
     ]
     barrier_steps = [
         step for step in plan.ordered_steps if step.step_kind == "ADMISSION"
     ]
     assert barrier_steps
     assert barrier_steps[0].return_contract.admission_required is True
-    second = c8p.build_c8_report_bridge_program(
+    second = knowledge_program.build_knowledge_report_bridge_program(
         stage_payload=stage_payload,
         catalog=catalog,
         program_id="program:p4-c8-bridge",
@@ -743,11 +758,11 @@ def test_c8_report_bridge_program_orders_stage_verify_admission() -> None:
         project_scope_digest=PROJECT_SCOPE_DIGEST,
     )
     assert second.program_digest == program.program_digest
-    other_program = c8p.build_c8_report_bridge_program(
-        stage_payload=c8p.C8ReportStageInput(
+    other_program = knowledge_program.build_knowledge_report_bridge_program(
+        stage_payload=knowledge_program.KnowledgeReportStageInput(
             project_key=PROJECT_KEY,
             report_id="report-2",
-            topic="C8.knowledge-writing-report-graph",
+            topic="knowledge-writing-report-graph",
             source_keys=("ki:robotics",),
         ),
         catalog=catalog,
@@ -768,7 +783,7 @@ def _delivery_contract_and_codec() -> tuple:
     operation = next(
         operation
         for operation in bundle.operations
-        if operation.ref.kind == c8p.DELIVERY_INTERNAL_EXPORT_KIND
+        if operation.ref.kind == knowledge_program.DELIVERY_INTERNAL_EXPORT_KIND
     )
     codec = bundle.codec_by_kind(operation.ref.kind)
     return operation, codec
@@ -825,11 +840,11 @@ def _delivery_refs(delivery_codec: object) -> tuple[ValueRef, ValueRef, ValueRef
 def test_c8_delivery_bridge_program_orders_and_barrier() -> None:
     delivery_operation, delivery_codec = _delivery_contract_and_codec()
     assert (
-        c8p.validate_delivery_operation_contract(delivery_operation)
+        knowledge_program.validate_delivery_operation_contract(delivery_operation)
         is delivery_operation
     )
     assert (
-        c8p.validate_delivery_payload_codec(delivery_codec, delivery_operation)
+        knowledge_program.validate_delivery_payload_codec(delivery_codec, delivery_operation)
         is delivery_codec
     )
     assert delivery_codec.payload_type_id == "InternalExportInput.v1"
@@ -838,19 +853,19 @@ def test_c8_delivery_bridge_program_orders_and_barrier() -> None:
     )
     assert artifact_input_ref.object_type.type_id == "ResearchArtifact.v1"
     assert intent_input_ref.object_type.type_id == "DeliveryIntent.v1"
-    bridge = c8p.build_c8_delivery_bridge_bundle(
+    bridge = knowledge_program.build_knowledge_delivery_bridge_bundle(
         delivery_operation,
         delivery_codec,
     )
-    catalog = c8p.build_c8_catalog(bridge)
-    registry = c8p.build_c8_registry(bridge)
-    stage_payload = c8p.C8ReportStageInput(
+    catalog = knowledge_program.build_knowledge_catalog(bridge)
+    registry = knowledge_program.build_knowledge_registry(bridge)
+    stage_payload = knowledge_program.KnowledgeReportStageInput(
         project_key=PROJECT_KEY,
         report_id="report-1",
-        topic="C8.knowledge-writing-report-graph",
+        topic="knowledge-writing-report-graph",
         source_keys=("ki:robotics",),
     )
-    program = c8p.build_c8_delivery_bridge_program(
+    program = knowledge_program.build_knowledge_delivery_bridge_program(
         delivery_operation=delivery_operation,
         delivery_codec=delivery_codec,
         delivery_payload_ref=delivery_payload_ref,
@@ -863,29 +878,29 @@ def test_c8_delivery_bridge_program_orders_and_barrier() -> None:
         project_registry_revision=1,
         project_scope_digest=PROJECT_SCOPE_DIGEST,
     )
-    plan = c8p.compile_c8_delivery_bridge_program(
+    plan = knowledge_program.compile_knowledge_delivery_bridge_program(
         program,
         catalog,
         operation_contracts=registry,
     )
     kinds = [step.operation_contract_ref.kind for step in plan.ordered_steps]
     assert kinds[:3] == [
-        c8p.C8_3_KIND,
-        c8p.C8_VERIFY_KIND,
-        c8p.C8_ADMISSION_KIND,
+        knowledge_program.KNOWLEDGE_REPORT_KIND,
+        knowledge_program.KNOWLEDGE_VERIFY_KIND,
+        knowledge_program.KNOWLEDGE_ADMISSION_KIND,
     ]
-    assert kinds.count(c8p.C8_ADMISSION_KIND) == 2
+    assert kinds.count(knowledge_program.KNOWLEDGE_ADMISSION_KIND) == 2
     assert kinds[-3:] == [
-        c8p.C8_DELIVERY_INTENT_PREPARE_KIND,
-        c8p.DELIVERY_INTERNAL_EXPORT_KIND,
-        c8p.DELIVERY_INTERNAL_EXPORT_KIND,
+        knowledge_program.KNOWLEDGE_DELIVERY_INTENT_PREPARE_KIND,
+        knowledge_program.DELIVERY_INTERNAL_EXPORT_KIND,
+        knowledge_program.DELIVERY_INTERNAL_EXPORT_KIND,
     ]
     barrier_steps = [
         step for step in plan.ordered_steps if step.step_kind == "ADMISSION"
     ]
     assert barrier_steps
     assert barrier_steps[0].return_contract.admission_required is True
-    second = c8p.build_c8_delivery_bridge_program(
+    second = knowledge_program.build_knowledge_delivery_bridge_program(
         delivery_operation=delivery_operation,
         delivery_codec=delivery_codec,
         delivery_payload_ref=delivery_payload_ref,
@@ -908,8 +923,8 @@ def test_c8_delivery_bridge_rejects_wrong_contract_and_digest_drift() -> None:
         for operation in bundle.operations
         if operation.ref.kind == "artifact.compose_markdown.v1"
     )
-    with pytest.raises(c8common.C8ProjectionError, match="kind"):
-        c8p.validate_delivery_operation_contract(compose_operation)
+    with pytest.raises(knowledge_common_module.KnowledgeProjectionError, match="kind"):
+        knowledge_program.validate_delivery_operation_contract(compose_operation)
     delivery_operation, delivery_codec = _delivery_contract_and_codec()
     with pytest.raises(ValueError, match="digest"):
         dataclasses.replace(
@@ -925,21 +940,21 @@ def test_c8_delivery_bridge_rejects_wrong_contract_and_digest_drift() -> None:
         codec_id=CANONICAL_CODEC_ID,
         suffix="wrong-codec",
     )
-    with pytest.raises(c8common.C8ProjectionError, match="codec"):
-        c8p.build_c8_delivery_bridge_program(
+    with pytest.raises(knowledge_common_module.KnowledgeProjectionError, match="codec"):
+        knowledge_program.build_knowledge_delivery_bridge_program(
             delivery_operation=delivery_operation,
             delivery_codec=delivery_codec,
             delivery_payload_ref=wrong_codec_ref,
             artifact_input_ref=artifact_ref,
             intent_input_ref=intent_ref,
-            stage_payload=c8p.C8ReportStageInput(
+            stage_payload=knowledge_program.KnowledgeReportStageInput(
                 project_key=PROJECT_KEY,
                 report_id="report-1",
                 topic="t",
                 source_keys=("k",),
             ),
-            catalog=c8p.build_c8_catalog(
-                c8p.build_c8_delivery_bridge_bundle(
+            catalog=knowledge_program.build_knowledge_catalog(
+                knowledge_program.build_knowledge_delivery_bridge_bundle(
                     delivery_operation,
                     delivery_codec,
                 )
@@ -950,21 +965,21 @@ def test_c8_delivery_bridge_rejects_wrong_contract_and_digest_drift() -> None:
             project_scope_digest=PROJECT_SCOPE_DIGEST,
         )
     shared = dataclasses.replace(payload_ref, storage_ref=artifact_ref.storage_ref)
-    with pytest.raises(c8common.C8ProjectionError, match="storage_ref"):
-        c8p.build_c8_delivery_bridge_program(
+    with pytest.raises(knowledge_common_module.KnowledgeProjectionError, match="storage_ref"):
+        knowledge_program.build_knowledge_delivery_bridge_program(
             delivery_operation=delivery_operation,
             delivery_codec=delivery_codec,
             delivery_payload_ref=shared,
             artifact_input_ref=artifact_ref,
             intent_input_ref=intent_ref,
-            stage_payload=c8p.C8ReportStageInput(
+            stage_payload=knowledge_program.KnowledgeReportStageInput(
                 project_key=PROJECT_KEY,
                 report_id="report-1",
                 topic="t",
                 source_keys=("k",),
             ),
-            catalog=c8p.build_c8_catalog(
-                c8p.build_c8_delivery_bridge_bundle(
+            catalog=knowledge_program.build_knowledge_catalog(
+                knowledge_program.build_knowledge_delivery_bridge_bundle(
                     delivery_operation,
                     delivery_codec,
                 )
@@ -977,27 +992,27 @@ def test_c8_delivery_bridge_rejects_wrong_contract_and_digest_drift() -> None:
 
 
 def test_payload_value_ref_exact_full_byte_identity() -> None:
-    payload = c8p.C8DemandReadInput(
+    payload = knowledge_program.KnowledgeDemandReadInput(
         project_key=PROJECT_KEY,
         item_key="ki:robotics",
         fields=("canonical_statement",),
     )
-    ref = c8p.payload_value_ref(
+    ref = knowledge_program.payload_value_ref(
         payload,
         program_id="program:p4-c8-byte",
         project_key=PROJECT_KEY,
-        codec_id=c8p.C8_1_PAYLOAD_CODEC_ID,
-        object_type=c8p.C8_1_INPUT_TYPE,
-        value_suffix="c8-1",
+        codec_id=knowledge_program.KNOWLEDGE_READ_PAYLOAD_CODEC_ID,
+        object_type=knowledge_program.KNOWLEDGE_READ_INPUT_TYPE,
+        value_suffix="knowledge-read",
     )
-    full_bytes = c8p.canonical_json(dataclasses.asdict(payload)).encode("utf-8")
+    full_bytes = knowledge_program.canonical_json(dataclasses.asdict(payload)).encode("utf-8")
     assert ref.byte_size == len(full_bytes)
     assert ref.content_digest == sha256_hex(full_bytes)
     assert ref.content_digest != payload.payload_digest
-    assert payload.payload_digest == c8p.payload_body_digest(payload)
+    assert payload.payload_digest == knowledge_program.payload_body_digest(payload)
     expected_provenance = content_digest(
         {
-            "schema": "mrw.successor.c8.c8-1.payload-provenance.v1",
+            "schema": "mrw.knowledge.read.payload-provenance.v2",
             "program_id": "program:p4-c8-byte",
             "project_key": PROJECT_KEY,
             "semantic_payload_digest": payload.payload_digest,
@@ -1005,18 +1020,18 @@ def test_payload_value_ref_exact_full_byte_identity() -> None:
         }
     )
     assert ref.provenance_digest == expected_provenance
-    mutated = c8p.C8DemandReadInput(
+    mutated = knowledge_program.KnowledgeDemandReadInput(
         project_key=PROJECT_KEY,
         item_key="ki:other",
         fields=("canonical_statement",),
     )
-    mutated_ref = c8p.payload_value_ref(
+    mutated_ref = knowledge_program.payload_value_ref(
         mutated,
         program_id="program:p4-c8-byte",
         project_key=PROJECT_KEY,
-        codec_id=c8p.C8_1_PAYLOAD_CODEC_ID,
-        object_type=c8p.C8_1_INPUT_TYPE,
-        value_suffix="c8-1",
+        codec_id=knowledge_program.KNOWLEDGE_READ_PAYLOAD_CODEC_ID,
+        object_type=knowledge_program.KNOWLEDGE_READ_INPUT_TYPE,
+        value_suffix="knowledge-read",
     )
     assert mutated_ref.content_digest != ref.content_digest
     assert mutated_ref.provenance_digest != ref.provenance_digest

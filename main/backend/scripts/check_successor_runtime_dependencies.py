@@ -20,9 +20,10 @@ CAPABILITY_SHARED_MODULES = frozenset(
         "checksum",
         "codecs",
         "failure",
-        "agent_core_c6_common",
-        "ingest_c7_common",
-        "c8_common",
+        "material_ingest_common",
+        "knowledge_common",
+        "retrieval_common",
+        "workflow_common",
     }
 )
 
@@ -232,9 +233,6 @@ def _is_capability_direct_import(
     # rejected (for example fixture -> first_specimen).
     family_roots = (
         "first_specimen",
-        "agent_core_c6_1",
-        "agent_core_c6_2",
-        "agent_core_c6_3",
     )
     for family_root in family_roots:
         if importer_head == family_root or importer_head.startswith(family_root + "_"):
@@ -298,8 +296,10 @@ def check(root: Path) -> dict[str, object]:
                     )
                 continue
 
-            if source_layer == "runtime" and _matches(
-                normalized, EFFECT_FACILITY_PREFIXES
+            if (
+                source_layer == "runtime"
+                and importer != "runtime.ports"
+                and _matches(normalized, EFFECT_FACILITY_PREFIXES)
             ):
                 violations.append(
                     {
@@ -313,6 +313,13 @@ def check(root: Path) -> dict[str, object]:
                         ),
                     }
                 )
+                continue
+
+            if (
+                source_layer == "runtime"
+                and importer == "runtime.ports"
+                and normalized.startswith("substrate.projections")
+            ):
                 continue
 
             forbidden = SUCCESSOR_FORBIDDEN

@@ -8,7 +8,7 @@ from functorial_kit import Failure
 from functorial_kit.arch.gates import scan_project
 
 from app.services.agent_sessions.service import (
-    SESSION_STATUSES,
+    TASK_STATUSES,
     _normalize_execution_mode,
     _normalize_phase,
     _normalize_status,
@@ -79,7 +79,7 @@ def test_w02_sessions_service_claim_failures_are_typed() -> None:
 
 def test_w02_sessions_normalizers_cover_exact_failure_codes() -> None:
     checks = [
-        (_normalize_status("bad", allowed=SESSION_STATUSES, default="pending"), "status_invalid"),
+        (_normalize_status("bad", allowed=TASK_STATUSES, default="pending"), "status_invalid"),
         (_normalize_phase("bad"), "phase_invalid"),
         (_normalize_execution_mode("bad"), "execution_mode_invalid"),
     ]

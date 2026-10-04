@@ -7,10 +7,10 @@ from app.successor_runtime.substrate.projections.c8_handler_bindings import (
     build_c8_interpreter_binding,
     build_c8_recovery_binding,
 )
-from app.successor_runtime.substrate.projections.c9_sources import (
-    build_agent_session_payload,
-    build_research_graph_payload,
-    build_search_payload,
+from app.successor_runtime.substrate.projections.projection_sources import (
+    build_task_view,
+    build_knowledge_view,
+    build_material_view,
 )
 from app.successor_runtime.substrate.projections.source_library_terminal import (
     build_source_library_terminal_table,
@@ -41,9 +41,9 @@ def test_w08e_projection_authority_metadata_is_exact() -> None:
         build_c8_delivery_activation_catalog: "kit:prepared-command",
         build_c8_interpreter_binding: "kit:prepared-command",
         build_c8_recovery_binding: "kit:prepared-command",
-        build_agent_session_payload: "kit:non-authoritative derived_as=view",
-        build_research_graph_payload: "kit:non-authoritative derived_as=view",
-        build_search_payload: "kit:non-authoritative derived_as=view",
+        build_task_view: "kit:non-authoritative derived_as=view",
+        build_knowledge_view: "kit:non-authoritative derived_as=view",
+        build_material_view: "kit:non-authoritative derived_as=view",
         build_source_library_terminal_table: "kit:prepared-command",
     }
     for function, expected_prefix in metadata.items():

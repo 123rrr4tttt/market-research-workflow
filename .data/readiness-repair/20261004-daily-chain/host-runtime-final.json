@@ -1,0 +1,18 @@
+{
+  "queue_length": 0,
+  "unacked": 0,
+  "worker_ping": [
+    {
+      "mrw-daily@MacBook-Air-489.local": {
+        "ok": "pong"
+      }
+    }
+  ],
+  "previous_queued_tasks_terminal_states": {
+    "SUCCESS": 8,
+    "FAILURE": 8
+  },
+  "oauth_shared_source": "/Users/wangyiliang/.codex/auth.json",
+  "webui_auth_is_same_source": true,
+  "host_oauth_mode": "chatgpt"
+}

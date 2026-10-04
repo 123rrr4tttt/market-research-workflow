@@ -12,8 +12,8 @@ from app.successor_runtime.substrate.postgres.c8_production import (
     C8PostgresDeliveryAssembly,
     build_postgres_c8_delivery_assembly,
 )
-from app.successor_runtime.substrate.postgres.c9_projection_sources import (
-    build_semantic_source_closure,
+from app.successor_runtime.substrate.postgres.projection_sources import (
+    build_project_source_closure,
 )
 from app.successor_runtime.substrate.postgres.composition_root import (
     build_postgres_first_specimen_runtime_node,
@@ -41,7 +41,7 @@ from app.successor_runtime.runtime.node import RuntimeNode
 from app.successor_runtime.substrate.postgres.commit_intents import (
     CommitIntentBinding,
 )
-from app.successor_runtime.substrate.projections import c9_sources
+from app.successor_runtime.substrate.projections import projection_sources
 
 _POSTGRES_PATHS = (
     "main/backend/app/successor_runtime/substrate/postgres/",
@@ -82,8 +82,8 @@ def test_w08c_postgres_builder_metadata_preserves_return_types() -> None:
             C8PostgresDeliveryAssembly,
             prepared_command,
         ),
-        build_semantic_source_closure: (
-            c9_sources.C9SemanticSourceClosureV1,
+        build_project_source_closure: (
+            projection_sources.ProjectSourceClosure,
             canonical_read,
         ),
         build_postgres_first_specimen_runtime_node: (

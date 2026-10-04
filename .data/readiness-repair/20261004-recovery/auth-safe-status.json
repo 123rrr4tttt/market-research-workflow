@@ -1,0 +1,37 @@
+{
+  "8172/api/auth/bootstrap": {
+    "http_status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "booleans": []
+  },
+  "8172/api/auth/status": {
+    "http_status": 200,
+    "content_type": "text/html"
+  },
+  "8000/api/v1/codex-auth/status": {
+    "http_status": 200,
+    "content_type": "application/json",
+    "booleans": [
+      [
+        "root.data.codex_oauth_enabled",
+        true
+      ],
+      [
+        "root.data.codex_cli_installed",
+        true
+      ],
+      [
+        "root.data.authenticated",
+        false
+      ],
+      [
+        "root.data.token_sink_authenticated",
+        true
+      ],
+      [
+        "root.data.device_auth_pending",
+        false
+      ]
+    ]
+  }
+}

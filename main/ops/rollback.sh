@@ -126,7 +126,7 @@ from pathlib import Path
 repository_root = Path(sys.argv[1])
 sys.path.insert(0, str(repository_root))
 
-from main.ops.production_contract.fixture_recovery_tools import (  # noqa: E402
+from production_contract.fixture_recovery_tools import (  # noqa: E402
     DRY_RUN_RESULT,
     RECEIPT_SCHEMA_VERSION,
     TARGET_CLASS,
@@ -266,7 +266,7 @@ from pathlib import Path
 repository_root = Path(sys.argv[1])
 sys.path.insert(0, str(repository_root))
 
-from main.ops.production_contract.fixture_recovery_tools import (  # noqa: E402
+from production_contract.fixture_recovery_tools import (  # noqa: E402
     RECEIPT_SCHEMA_VERSION,
     _ENDPOINT_KEY_PATTERN,
     _SECRET_KEY_PATTERN,

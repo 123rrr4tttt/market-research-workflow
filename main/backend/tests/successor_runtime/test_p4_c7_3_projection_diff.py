@@ -22,7 +22,7 @@ from app.successor_migration.search_projector_c7 import (
     rebuild_search_projection,
     search_named_observation_digest,
 )
-from app.successor_runtime.capabilities.ingest_c7_common import (
+from app.successor_runtime.capabilities.material_ingest_common import (
     ProjectionDiff,
 )
 from tests.successor_runtime.p4_c7_fixture import (

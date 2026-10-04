@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.successor_runtime.capabilities.ingest_c7_common import (
-    C7ReconciliationDecision,
+from app.successor_runtime.capabilities.material_ingest_common import (
+    MaterialReconciliationDecision,
 )
 from app.successor_runtime.runtime.reconciliation import EffectReconciler
 from app.successor_runtime.runtime.recovery import (
@@ -38,13 +38,13 @@ class C7ReconciliationPolicy:
 
     def terminal_decision(
         self, disposition: EffectDisposition
-    ) -> C7ReconciliationDecision:
+    ) -> MaterialReconciliationDecision:
         if disposition not in {
             EffectDisposition.SUCCEEDED,
             EffectDisposition.FAILED,
         }:
             raise C7ReconciliationError("terminal readback requires SUCCEEDED/FAILED")
-        return C7ReconciliationDecision(
+        return MaterialReconciliationDecision(
             new_attempt_allowed=False,
             requirement="terminal_readback_is_final",
             reason="terminal readback resolves the attempt; no new attempt is permitted",
@@ -59,7 +59,7 @@ class C7ReconciliationPolicy:
         expected_authority_digest: str,
         next_epoch: int,
         prior_epoch: int,
-    ) -> C7ReconciliationDecision:
+    ) -> MaterialReconciliationDecision:
         if proof.attempt_id != attempt_id:
             raise C7ReconciliationError("NonStartProof is bound to a different attempt")
         authorize_successor_attempt(prior_attempt_id=attempt_id, proof=proof)
@@ -69,7 +69,7 @@ class C7ReconciliationPolicy:
             )
         if next_epoch <= prior_epoch:
             raise C7ReconciliationError("new execution epoch must advance")
-        return C7ReconciliationDecision(
+        return MaterialReconciliationDecision(
             new_attempt_allowed=True,
             requirement="exact_nonstart_proof_and_current_authority",
             reason="exact NonStartProof plus current authority authorizes one new epoch",

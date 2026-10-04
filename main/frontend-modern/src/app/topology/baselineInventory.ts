@@ -57,7 +57,7 @@ export const BASELINE_PAGE_INVENTORY: readonly BaselinePageRecord[] = [
     defaultSurface: 'workbench',
   },
   { page: 'WritingWorkbenchPage', navModes: ['flowWriting'], defaultSurface: 'workbench' },
-  { page: 'AgentChatPage', navModes: ['flowAgentChat'], defaultSurface: 'workbench' },
+  { page: 'CodexAgentPage', navModes: ['flowAgentChat'], defaultSurface: 'workbench' },
   { page: 'LlmDesignerPage', navModes: ['flowLlmNodeDesign'], defaultSurface: 'workbench' },
   { page: 'ProjectsPage', navModes: ['sysProjects'], defaultSurface: 'management' },
   { page: 'CrawlerManagePage', navModes: ['sysCrawler'], defaultSurface: 'management' },

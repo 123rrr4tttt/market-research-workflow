@@ -25,7 +25,7 @@ from app.successor_migration.legacy_c8_typed_knowledge import (
     LegacyC8TypedKnowledgeAdapter,
 )
 from app.successor_migration.legacy_c8_writing import LegacyC8WritingAdapter
-from app.successor_runtime.capabilities.c8_program import payload_body_digest
+from app.successor_runtime.capabilities.knowledge_program import payload_body_digest
 from app.successor_runtime.capabilities.checksum import content_digest
 from app.successor_runtime.language.plan import with_plan_digest
 from app.successor_runtime.language.program import ProgramSpec

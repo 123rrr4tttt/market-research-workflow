@@ -180,15 +180,15 @@ def test_b19_c7_current_candidate_stages_live_in_temporary_repository() -> None:
 
 
 @pytest.mark.parametrize("family", sorted(_FAMILIES))
-def test_family_candidate_meta_contract_and_read_only_checks(family: str) -> None:
+def test_family_candidate_meta_contract_and_read_only_checks(family: str, tmp_path: Path) -> None:
     spec = _FAMILIES[family]
-    config = _load_config(family)
     self_path = Path(__file__).resolve().relative_to(_REPOSITORY_ROOT).as_posix()
-    assert self_path not in {binding.path for binding in config.test_bindings}
 
     canonical_path = _canonical_path(family)
     canonical_before = _file_snapshot(canonical_path)
-    canonical_bytes = canonical_before[0]
+    from .historical_fixture import historical_bytes, materialize_candidate
+
+    canonical_bytes = historical_bytes(canonical_path.relative_to(_REPOSITORY_ROOT).as_posix(), spec.canonical_sha256)
     assert hashlib.sha256(canonical_bytes).hexdigest() == spec.canonical_sha256
     canonical_payload = json.loads(canonical_bytes)
     assert canonical_payload["family"] == family
@@ -242,6 +242,8 @@ def test_family_candidate_meta_contract_and_read_only_checks(family: str) -> Non
         }
     )
 
+    isolated_root = tmp_path / "candidate-replay"
+    materialize_candidate(candidate_path, isolated_root)
     checks = [(("--history-only",), _HISTORY_STATUS)]
     if spec.live_current:
         checks.insert(0, ((), _LIVE_STATUS))
@@ -252,7 +254,7 @@ def test_family_candidate_meta_contract_and_read_only_checks(family: str) -> Non
                 str(_REBIND_CHECKER),
                 "check-candidate",
                 "--repo-root",
-                str(_REPOSITORY_ROOT),
+                str(isolated_root),
                 "--candidate",
                 candidate_path.relative_to(_REPOSITORY_ROOT).as_posix(),
                 *extra_args,

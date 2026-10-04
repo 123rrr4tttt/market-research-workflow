@@ -5,6 +5,11 @@ export type ProjectionEngine = 'legacy' | 'force3d'
 
 const DEFAULT_ENGINE_SWITCH_GUARD_MS = 140
 
+// Graph projections are separate route modules. Keep render intent at module
+// scope so replacing the route component does not reset an active 3D session.
+let graphWorkspaceRenderMode: RenderMode = '2d'
+let graphWorkspaceProjectionEngine: ProjectionEngine = 'force3d'
+
 type UseGraphModeSwitchOptions = {
   initialRenderMode?: RenderMode
   initialProjectionEngine?: ProjectionEngine
@@ -18,8 +23,8 @@ export function useGraphModeSwitch(options: UseGraphModeSwitchOptions = {}) {
     guardMs = DEFAULT_ENGINE_SWITCH_GUARD_MS,
   } = options
 
-  const [renderMode, setRenderMode] = useState<RenderMode>(initialRenderMode)
-  const [projectionEngine, setProjectionEngine] = useState<ProjectionEngine>(initialProjectionEngine)
+  const [renderMode, setRenderMode] = useState<RenderMode>(() => initialRenderMode === '2d' ? graphWorkspaceRenderMode : initialRenderMode)
+  const [projectionEngine, setProjectionEngine] = useState<ProjectionEngine>(() => initialProjectionEngine === 'force3d' ? graphWorkspaceProjectionEngine : initialProjectionEngine)
 
   const renderModeRef = useRef<RenderMode>(initialRenderMode)
   const projectionEngineRef = useRef<ProjectionEngine>(initialProjectionEngine)
@@ -38,6 +43,7 @@ export function useGraphModeSwitch(options: UseGraphModeSwitchOptions = {}) {
 
   const requestRenderModeChange = useCallback((next: RenderMode) => {
     if (next === renderModeRef.current) return
+    graphWorkspaceRenderMode = next
     const now = Date.now()
     const elapsed = now - lastRenderModeSwitchAtRef.current
     if (elapsed >= guardMs) {
@@ -59,6 +65,7 @@ export function useGraphModeSwitch(options: UseGraphModeSwitchOptions = {}) {
 
   const requestProjectionEngineChange = useCallback((next: ProjectionEngine) => {
     if (next === projectionEngineRef.current) return
+    graphWorkspaceProjectionEngine = next
     const now = Date.now()
     const elapsed = now - lastProjectionEngineSwitchAtRef.current
     if (elapsed >= guardMs) {

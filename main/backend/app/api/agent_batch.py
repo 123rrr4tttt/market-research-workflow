@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import logging
 import re
 import time
+from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
@@ -24,10 +25,8 @@ from ..services.agent_batch.approval_binding import (
     verify_approval_token,
 )
 from ..services.agent_batch.executor_health import inspect_executor_health
-from ..services.agent_batch.agent_loop import run_agent_batch_nl_command_loop
 from ..services.agent_batch.benchmark import build_search_policy_benchmark_pack, evaluate_search_policy_gate
 from ..services.agent_batch.routing import apply_async_or_delay, resolve_queue_for_lane, validate_lane
-from ..services.agent_batch.planner import plan_batch_search_command
 from ..services.agent_batch.task_contract import (
     build_agent_batch_approval_argv,
     build_agent_batch_dispatch_invocation,
@@ -40,6 +39,7 @@ from ..services.agent_batch.task_contract import (
     list_agent_batch_execution_bindings,
     resolve_agent_batch_lane,
 )
+from ..services.collect_runtime.delivery import observe_delivery
 from ..services.agent_sessions import get_agent_session_service
 from ..services.task_readback_metadata import build_runtime_readback_payload
 from ..services.skill_runtime import invoke_skill
@@ -76,6 +76,19 @@ def _raise_not_found(message: str) -> None:
             ErrorCode.NOT_FOUND,
             message,
         ),
+    )
+
+
+def _raise_agent_runtime_retired() -> None:
+    detail = error_response(
+        ErrorCode.INVALID_INPUT,
+        "agent batch natural-language command execution is retired; submit structured jobs",
+        details={"runtime_variant": "legacy_nl_command"},
+    )
+    detail["error"]["code"] = "agent_runtime_retired"
+    raise HTTPException(
+        status_code=410,
+        detail=detail,
     )
 
 
@@ -163,15 +176,9 @@ class RuleSetValidateRequest(BaseModel):
 
 
 class AgentBatchNlCommandRequest(BaseModel):
-    command: str = Field(..., min_length=1, max_length=2000)
-    project_key: str | None = Field(default=None, max_length=128)
-    idempotency_key: str | None = Field(default=None, max_length=128)
-    dry_run: bool = Field(default=False)
-    enable_bounded_retry: bool = Field(default=False)
-    enable_limited_branching: bool = Field(default=False)
-    wait_for_completion: bool = Field(default=False)
-    completion_timeout_seconds: int = Field(default=90, ge=1, le=900)
-    completion_poll_seconds: float = Field(default=2.0, ge=0.2, le=10.0)
+    """Minimal request body retained only to return a stable retirement response."""
+
+    command: str | None = None
 
 
 class AgentBatchApprovalRequest(BaseModel):
@@ -187,32 +194,6 @@ class AgentBatchApprovalRequest(BaseModel):
 
 class AgentBatchApprovalResolveRequest(BaseModel):
     approved: bool = Field(default=True)
-
-
-def _submit_jobs_from_loop_tasks(
-    tasks: list[dict[str, Any]],
-    project_key: str | None,
-    idempotency_key: str | None,
-) -> dict[str, Any]:
-    planned_jobs: list[AgentBatchItemSubmit] = []
-    for task in tasks:
-        planned_jobs.append(_build_agent_batch_submit_item_from_task(task))
-    submit_payload = AgentBatchSubmitRequest(
-        project_key=project_key,
-        idempotency_key=idempotency_key,
-        batch=AgentBatchSubmitBatch(jobs=planned_jobs),
-    )
-    submit_resp = submit_agent_batch_job(submit_payload)
-    return dict(submit_resp.get("data") or {})
-
-
-def _build_agent_batch_submit_item_from_task(task: dict[str, Any]) -> AgentBatchItemSubmit:
-    channel = str(task.get("channel") or "search.market").strip().lower() or "search.market"
-    default_language = str(task.get("language") or "").strip()
-    if not default_language and channel == "search.market":
-        default_language = _detect_language(" ".join(list(task.get("query_terms") or [])))
-    submit_item = build_agent_batch_submit_item_data(task, idx=1, default_language=default_language)
-    return AgentBatchItemSubmit(**submit_item)
 
 
 def _resolve_project_key(project_key: str | None) -> str | None:
@@ -288,105 +269,11 @@ def _extract_days_back(command: str) -> int:
     return 7
 
 
-def _extract_max_items(command: str) -> int:
-    text = str(command or "")
-    m_cn = re.search(r"(\d{1,3})\s*条", text)
-    if m_cn:
-        return max(1, min(100, int(m_cn.group(1))))
-    m_en = re.search(r"(top|first)\s+(\d{1,3})", text, flags=re.IGNORECASE)
-    if m_en:
-        return max(1, min(100, int(m_en.group(2))))
-    return 20
-
-
 def _load_job(job_id: str) -> _BatchJobRecord:
     record = _BATCH_JOB_REGISTRY.get(job_id)
     if record is None:
         _raise_not_found(f"agent batch job not found: {job_id}")
     return record
-
-
-def _attach_loop_metadata(job_id: str, loop_result: dict[str, Any] | None) -> None:
-    if not job_id:
-        return
-    record = _BATCH_JOB_REGISTRY.get(job_id)
-    if record is None:
-        return
-    loop_payload = dict(loop_result or {})
-    plan = dict(loop_payload.get("plan") or {})
-    search_brief = dict(plan.get("search_brief") or {})
-    if not search_brief:
-        return
-    branching = dict(plan.get("branching") or {})
-    search_critic = dict(plan.get("search_critic") or {})
-    search_retry = dict(plan.get("search_retry") or {})
-    branching_stage = next(
-        (dict(stage) for stage in list(loop_payload.get("stages") or []) if str(stage.get("name") or "") == "branching"),
-        {},
-    )
-    search_brief_stage = next(
-        (dict(stage) for stage in list(loop_payload.get("stages") or []) if str(stage.get("name") or "") == "search_brief"),
-        {},
-    )
-    search_critic_stage = next(
-        (dict(stage) for stage in list(loop_payload.get("stages") or []) if str(stage.get("name") or "") == "search_critic"),
-        {},
-    )
-    search_retry_stage = next(
-        (dict(stage) for stage in list(loop_payload.get("stages") or []) if str(stage.get("name") or "") == "search_retry"),
-        {},
-    )
-    record.metadata.update(
-        {
-            "loop_id": str(loop_payload.get("loop_id") or "").strip() or None,
-            "branching": branching,
-            "search_brief": search_brief,
-            "search_critic": search_critic,
-            "search_retry": search_retry,
-            "submit_rounds": list(loop_payload.get("submit_rounds") or []),
-            "stage_artifacts": {
-                "branching": branching_stage,
-                "search_brief": search_brief_stage,
-                "search_critic": search_critic_stage,
-                "search_retry": search_retry_stage,
-            },
-        }
-    )
-
-
-def _project_agent_session_from_loop(
-    *,
-    command: str,
-    request_payload: AgentBatchNlCommandRequest,
-    loop_result: dict[str, Any],
-) -> dict[str, Any] | None:
-    try:
-        service = get_agent_session_service()
-        bundle = service.project_agent_batch_compat(
-            command=command,
-            project_key=request_payload.project_key,
-            request_payload=request_payload.model_dump(),
-            loop_result=loop_result,
-        )
-    except Exception:
-        return None
-
-    session = dict(bundle.get("session") or {})
-    session_id = str(session.get("session_id") or "").strip()
-    compat_job_id = str(session.get("compat_job_id") or "").strip()
-    if compat_job_id:
-        record = _BATCH_JOB_REGISTRY.get(compat_job_id)
-        if record is not None:
-            record.metadata.update(
-                {
-                    "session_id": session_id,
-                    "root_task_id": session.get("root_task_id"),
-                    "current_phase": session.get("current_phase"),
-                    "compat_mode": True,
-                    "compat_projection_version": "claude-agent.v1",
-                }
-            )
-    return session
 
 
 def _project_agent_session_from_job_submission(
@@ -414,8 +301,6 @@ def _project_agent_session_from_job_submission(
         record.metadata.update(
             {
                 "session_id": session_id,
-                "root_task_id": session.get("root_task_id"),
-                "current_phase": session.get("current_phase"),
                 "compat_mode": True,
                 "compat_projection_version": session.get("compat_projection_version") or "agent_batch.jobs.v1",
             }
@@ -459,15 +344,6 @@ def _project_agent_session_from_job_state(
     except Exception:
         return None
     session = dict((bundle or {}).get("session") or {})
-    if session:
-        record.metadata.update(
-            {
-                "session_id": session.get("session_id"),
-                "root_task_id": session.get("root_task_id"),
-                "current_phase": session.get("current_phase"),
-                "compat_projection_version": session.get("compat_projection_version") or "agent_batch.jobs.v1",
-            }
-        )
     return session or None
 
 
@@ -498,13 +374,90 @@ def _job_progress_from_snapshots(snapshots: list[dict[str, Any]]) -> dict[str, i
     total = len(snapshots)
     succeeded = sum(1 for it in snapshots if it.get("status") == "success")
     failed = sum(1 for it in snapshots if it.get("status") == "failure")
+    cancelled = sum(1 for it in snapshots if it.get("status") == "revoked")
     running = sum(1 for it in snapshots if it.get("status") in {"pending", "started", "retry", "running"})
     return {
         "total": total,
         "succeeded": succeeded,
         "failed": failed,
+        "cancelled": cancelled,
         "running": running,
-        "queued": max(0, total - succeeded - failed - running),
+        "queued": max(0, total - succeeded - failed - cancelled - running),
+    }
+
+
+def _delivery_from_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Read recorded worker and provider facts without treating ACK as delivery."""
+    result = snapshot.get("result") if isinstance(snapshot.get("result"), dict) else {}
+    terminal_output = result.get("terminal_output") if isinstance(result.get("terminal_output"), dict) else {}
+    terminal_meta = terminal_output.get("meta") if isinstance(terminal_output.get("meta"), dict) else {}
+    handoff = terminal_meta.get("provider_handoff") if isinstance(terminal_meta.get("provider_handoff"), dict) else {}
+    readback = terminal_meta.get("terminal_readback") or result.get("terminal_readback")
+    worker_state = str(snapshot.get("status") or "").strip().lower()
+    worker_status = {
+        "success": "completed",
+        "failure": "failed",
+        "revoked": "cancelled",
+    }.get(worker_state, worker_state or "unknown")
+    provider_job_id = result.get("provider_job_id") or terminal_meta.get("provider_job_id") or handoff.get("provider_job_id")
+    provider_status = result.get("provider_status") or handoff.get("provider_status") or terminal_output.get("status")
+    observed = observe_delivery(SimpleNamespace(
+        status=worker_status,
+        provider_job_id=provider_job_id,
+        provider_type=result.get("provider_type") or handoff.get("provider_type"),
+        provider_status=provider_status,
+        meta={"terminal_readback": readback},
+    ), expected_delivery="unknown")
+    readback_job_id = observed.readback_job_id
+    return {
+        **asdict(observed),
+        "readback_job_id": readback_job_id,
+        "terminal_identity_match": observed.identity_match is True,
+        # Agent-batch has no declared material/artifact target or canonical
+        # writer readback. A provider terminality observation cannot unlock it.
+        "expected_delivery": "unknown",
+        "ready_for_successor": False,
+    }
+
+
+def _delivery_progress_from_snapshots(snapshots: list[dict[str, Any]]) -> dict[str, int]:
+    states = [_delivery_from_snapshot(snapshot)["state"] for snapshot in snapshots]
+    return {"total": len(states), **{state: states.count(state) for state in (
+        "delivered", "failed", "cancelled", "waiting", "unknown"
+    )}}
+
+
+def _job_observation_summary(snapshots: list[dict[str, Any]]) -> dict[str, Any]:
+    progress = _job_progress_from_snapshots(snapshots)
+    executor_completed = progress["total"] > 0 and (
+        progress["succeeded"] + progress["failed"] + progress["cancelled"] == progress["total"]
+    )
+    delivery_progress = _delivery_progress_from_snapshots(snapshots)
+    unresolved_effect = any(
+        delivery["provider_state"] in {"waiting", "unknown"}
+        and snapshot.get("status") in {"success", "failure", "revoked"}
+        for snapshot, delivery in (
+            (snapshot, _delivery_from_snapshot(snapshot)) for snapshot in snapshots
+        )
+    )
+    # Agent Batch does not declare a target artifact or expose writer readback.
+    delivery_ready = False
+    if not executor_completed:
+        phase = "running"
+    elif unresolved_effect:
+        phase = "awaiting_delivery"
+    elif progress["failed"]:
+        phase = "completed"  # The existing session projector marks verification failed.
+    elif progress["cancelled"]:
+        phase = "cancelled"
+    else:
+        phase = "awaiting_delivery"
+    return {
+        "progress": progress,
+        "delivery_progress": delivery_progress,
+        "executor_completed": executor_completed,
+        "delivery_ready": delivery_ready,
+        "phase": phase,
     }
 
 
@@ -517,11 +470,15 @@ def _await_job_completion(*, job_id: str, timeout_seconds: int, poll_seconds: fl
 
     while True:
         last_snapshots = [_task_snapshot(item.task_id) for item in record.items]
-        progress = _job_progress_from_snapshots(last_snapshots)
-        completed = progress["total"] > 0 and (progress["succeeded"] + progress["failed"]) == progress["total"]
+        summary = _job_observation_summary(last_snapshots)
+        completed = summary["executor_completed"]
         now = time.time()
         timed_out = now >= deadline
         if completed or timed_out:
+            _project_agent_session_from_job_state(
+                record=record, snapshots=last_snapshots,
+                phase=summary["phase"], progress=summary["progress"],
+            )
             items = []
             for item, snap in zip(record.items, last_snapshots):
                 run_id = _resolve_run_id(item, snap)
@@ -530,6 +487,7 @@ def _await_job_completion(*, job_id: str, timeout_seconds: int, poll_seconds: fl
                         "item_id": item.item_id,
                         "task_id": item.task_id,
                         "status": snap.get("status"),
+                        "delivery": _delivery_from_snapshot(snap),
                         "run_id": run_id,
                         "output": snap.get("result") if snap.get("successful") else None,
                         "error": snap.get("result") if snap.get("failed") else None,
@@ -538,9 +496,13 @@ def _await_job_completion(*, job_id: str, timeout_seconds: int, poll_seconds: fl
             return {
                 "job_id": job_id,
                 "completed": bool(completed),
+                "completion_scope": "executor",
+                "executor_completed": bool(completed),
+                "delivery_ready": summary["delivery_ready"],
                 "timed_out": bool(timed_out and not completed),
-                "phase": "completed" if completed else "running",
-                "progress": progress,
+                "phase": summary["phase"],
+                "progress": summary["progress"],
+                "delivery_progress": summary["delivery_progress"],
                 "elapsed_seconds": round(now - started_ts, 3),
                 "items": items,
             }
@@ -1180,7 +1142,6 @@ def submit_agent_batch_job(payload: AgentBatchSubmitRequest) -> dict[str, Any]:
                 "created_at": existing.created_at,
                 "idempotency_reused": True,
                 "session_id": (existing.metadata or {}).get("session_id"),
-                "current_phase": (existing.metadata or {}).get("current_phase"),
             }
         )
 
@@ -1318,32 +1279,29 @@ def get_agent_batch_job(job_id: str) -> dict[str, Any]:
         run_id = _resolve_run_id(item, snapshot)
         if run_id and run_id not in run_ids:
             run_ids.append(run_id)
-    total = len(snapshots)
-    succeeded = sum(1 for it in snapshots if it.get("status") == "success")
-    failed = sum(1 for it in snapshots if it.get("status") == "failure")
-    running = sum(1 for it in snapshots if it.get("status") in {"pending", "started", "retry", "running"})
-    phase = "completed" if total > 0 and (succeeded + failed) == total else "running"
-    progress = {
-        "total": total,
-        "succeeded": succeeded,
-        "failed": failed,
-        "running": running,
-        "queued": max(0, total - succeeded - failed - running),
-    }
-    projected_session = _project_agent_session_from_job_state(record=record, snapshots=snapshots, phase=phase, progress=progress)
+    summary = _job_observation_summary(snapshots)
+    projected_session = _project_agent_session_from_job_state(
+        record=record, snapshots=snapshots, phase=summary["phase"], progress=summary["progress"]
+    )
     session_id = str((record.metadata or {}).get("session_id") or "").strip() or None
-    current_phase = str((record.metadata or {}).get("current_phase") or "").strip() or None
+    # Historical records may carry a stored phase; current responses derive it
+    # from the live session projection above.
+    historical_phase = str((record.metadata or {}).get("current_phase") or "").strip() or None
     return ok(
         {
             "job_id": record.job_id,
-            "status": phase,
-            "phase": phase,
+            "status": "completed" if summary["executor_completed"] else "running",
+            "completion_scope": "executor",
+            "phase": summary["phase"],
+            "executor_completed": summary["executor_completed"],
             "session_id": str((projected_session or {}).get("session_id") or session_id or "").strip() or None,
-            "current_phase": (projected_session or {}).get("current_phase") or current_phase,
-            "progress": progress,
+            "current_phase": (projected_session or {}).get("current_phase") or historical_phase,
+            "progress": summary["progress"],
+            "delivery_progress": summary["delivery_progress"],
+            "delivery_ready": summary["delivery_ready"],
             "started_at": record.created_at,
             "updated_at": _utcnow_iso(),
-            "finished_at": _utcnow_iso() if phase == "completed" else None,
+            "finished_at": _utcnow_iso() if summary["executor_completed"] else None,
             "retry_count": 0,
             "error": None,
             "meta": {"project_key": record.project_key, **dict(record.metadata or {})},
@@ -1356,9 +1314,10 @@ def get_agent_batch_job(job_id: str) -> dict[str, Any]:
 def list_agent_batch_items(job_id: str) -> dict[str, Any]:
     record = _load_job(job_id)
     snapshots = [_task_snapshot(item.task_id) for item in record.items]
-    phase = "completed" if snapshots and all(it.get("status") in {"success", "failure", "revoked"} for it in snapshots) else "running"
-    progress = _job_progress_from_snapshots(snapshots)
-    _project_agent_session_from_job_state(record=record, snapshots=snapshots, phase=phase, progress=progress)
+    summary = _job_observation_summary(snapshots)
+    _project_agent_session_from_job_state(
+        record=record, snapshots=snapshots, phase=summary["phase"], progress=summary["progress"]
+    )
     items = []
     for item, snap in zip(record.items, snapshots):
         run_id = _resolve_run_id(item, snap)
@@ -1369,6 +1328,7 @@ def list_agent_batch_items(job_id: str) -> dict[str, Any]:
                 "lane": item.lane,
                 "run_id": run_id,
                 "status": snap.get("status"),
+                "delivery": _delivery_from_snapshot(snap),
                 "input": {
                     "item_key": item.item_key,
                     "channel": item.channel,
@@ -1396,11 +1356,25 @@ def retry_agent_batch_job(job_id: str, payload: AgentBatchRetryRequest) -> dict[
     record = _load_job(job_id)
     target_ids = set(payload.item_ids or [])
     replayed_task_ids: list[str] = []
+    blocked_items: list[dict[str, Any]] = []
     for item in list(record.items):
         if target_ids and item.item_id not in target_ids:
             continue
         snap = _task_snapshot(item.task_id)
         if snap.get("status") not in {"failure", "revoked"}:
+            continue
+        delivery = _delivery_from_snapshot(snap)
+        if delivery["provider_state"] not in {"failed", "cancelled"} or not delivery["terminal_identity_match"]:
+            blocked_items.append({
+                "item_id": item.item_id,
+                "task_id": item.task_id,
+                "provider_job_id": delivery["provider_job_id"],
+                "provider_state": delivery["provider_state"],
+                "readback_job_id": delivery["readback_job_id"],
+                "blocked_by": (
+                    "PROVIDER_READBACK_REQUIRED" if delivery["provider_job_id"] else "EFFECT_OUTCOME_UNKNOWN"
+                ),
+            })
             continue
         retry_index = len(replayed_task_ids) + 1
         retry_item_id = f"{item.item_id}-retry-{retry_index}"
@@ -1448,9 +1422,10 @@ def retry_agent_batch_job(job_id: str, payload: AgentBatchRetryRequest) -> dict[
         {
             "job_id": job_id,
             "retry_session_id": f"retry-{uuid4().hex[:12]}",
-            "status": "accepted",
+            "status": "accepted" if replayed_task_ids else "blocked" if blocked_items else "accepted",
             "retry_count": len(replayed_task_ids),
             "targets": replayed_task_ids,
+            "blocked_items": blocked_items,
         }
     )
 
@@ -1459,9 +1434,10 @@ def retry_agent_batch_job(job_id: str, payload: AgentBatchRetryRequest) -> dict[
 def get_agent_batch_events(job_id: str) -> dict[str, Any]:
     record = _load_job(job_id)
     snapshots = [_task_snapshot(item.task_id) for item in record.items]
-    phase = "completed" if snapshots and all(it.get("status") in {"success", "failure", "revoked"} for it in snapshots) else "running"
-    progress = _job_progress_from_snapshots(snapshots)
-    _project_agent_session_from_job_state(record=record, snapshots=snapshots, phase=phase, progress=progress)
+    summary = _job_observation_summary(snapshots)
+    _project_agent_session_from_job_state(
+        record=record, snapshots=snapshots, phase=summary["phase"], progress=summary["progress"]
+    )
     events = []
     search_brief = dict((record.metadata or {}).get("search_brief") or {})
     search_critic = dict((record.metadata or {}).get("search_critic") or {})
@@ -1584,26 +1560,6 @@ def get_agent_batch_events(job_id: str) -> dict[str, Any]:
                 },
             }
         )
-    session_id = str((record.metadata or {}).get("session_id") or "").strip()
-    if session_id:
-        try:
-            session_events = get_agent_session_service().list_events(session_id)
-            for event in session_events:
-                events.append(
-                    {
-                        "id": f"session-{session_id}-{event.get('seq')}",
-                        "event_type": f"agent_session.{event.get('event_type')}",
-                        "ts": event.get("ts"),
-                        "item_id": None,
-                        "lane": None,
-                        "run_id": None,
-                        "severity": "info",
-                        "message": str(event.get("event_type") or "agent session event"),
-                        "payload": dict(event.get("payload") or {}),
-                    }
-                )
-        except Exception:
-            pass
     return ok({"events": events, "pagination": {"next_cursor": None, "has_more": False}})
 
 
@@ -1778,53 +1734,14 @@ def validate_agent_batch_rule_set(payload: RuleSetValidateRequest) -> dict[str, 
 
 @router.post("/nl-command")
 def run_agent_batch_nl_command(payload: AgentBatchNlCommandRequest) -> dict[str, Any]:
-    command = str(payload.command or "").strip()
-    if not command:
-        _raise_invalid_input("command is required")
-    project_key = _resolve_project_key(payload.project_key)
-    try:
-        loop_result = run_agent_batch_nl_command_loop(
-            command=command,
-            project_key=project_key,
-            idempotency_key=payload.idempotency_key,
-            dry_run=bool(payload.dry_run),
-            enable_bounded_retry=bool(payload.enable_bounded_retry),
-            enable_limited_branching=bool(payload.enable_limited_branching),
-            parser_fallback=plan_batch_search_command,
-            submitter=_submit_jobs_from_loop_tasks,
-            executor_snapshot=inspect_executor_health,
-        )
-    except Exception as exc:  # noqa: BLE001
-        _raise_invalid_input(f"failed to execute command loop: {exc}")
-    submit = loop_result.get("submit") if isinstance(loop_result, dict) else None
-    job_id = str((submit or {}).get("job_id") or "").strip() if isinstance(submit, dict) else ""
-    if job_id:
-        _attach_loop_metadata(job_id, loop_result)
-    if bool(payload.wait_for_completion) and not bool(payload.dry_run):
-        if job_id:
-            loop_result["completion"] = _await_job_completion(
-                job_id=job_id,
-                timeout_seconds=int(payload.completion_timeout_seconds),
-                poll_seconds=float(payload.completion_poll_seconds),
-            )
-    projected = _project_agent_session_from_loop(
-        command=command,
-        request_payload=payload,
-        loop_result=loop_result,
-    )
-    if isinstance(projected, dict) and projected:
-        loop_result["session_id"] = projected.get("session_id")
-        loop_result["root_task_id"] = projected.get("root_task_id")
-        loop_result["current_phase"] = projected.get("current_phase")
-        loop_result["compat_mode"] = True
-        loop_result["compat_projection_version"] = "claude-agent.v1"
-    return ok(loop_result)
+    _raise_agent_runtime_retired()
+    raise AssertionError("unreachable retired agent runtime")
 
 
 @router.post("/nl-command/direct")
 def run_agent_batch_nl_command_direct(payload: AgentBatchNlCommandRequest) -> dict[str, Any]:
-    direct_payload = payload.model_copy(update={"wait_for_completion": True})
-    return run_agent_batch_nl_command(direct_payload)
+    _raise_agent_runtime_retired()
+    raise AssertionError("unreachable retired agent runtime")
 
 
 @router.get("/executor/health")

@@ -1,0 +1,633 @@
+#!/usr/bin/env python3
+# ruff: noqa: TRY003
+"""Prepare additive Stage-0 family exact-byte rebind documents.
+
+The family configuration and shared generator remain the source of truth for
+fragment construction.  This command only prepares ``fragments`` and
+``manifests`` below a new stage directory; it never edits a
+P3/P4 predecessor, a registry, a baseline, or a progress record.  The default
+mode is a deterministic dry run.  ``--write`` creates the complete stage only
+when the stage directory and every target are absent.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime
+import hashlib
+import importlib
+import json
+import os
+import re
+import sys
+from collections.abc import Iterable
+from pathlib import Path
+from typing import Annotated, Any
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+BACKEND_ROOT = REPOSITORY_ROOT / "main/backend"
+SOURCE_ROOT = REPOSITORY_ROOT / "src"
+for _root in (BACKEND_ROOT, SOURCE_ROOT):
+    if str(_root) not in sys.path:
+        sys.path.insert(0, str(_root))
+
+from app.successor_runtime.specification.shared_family_generator import (  # noqa: E402
+    FamilyFragmentConfig,
+    build_fragment,
+    fragment_bytes,
+)
+
+
+EVIDENCE_REL = Path(
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "2026-08-30-functorial-successor-migration/evidence"
+)
+EXACT_BYTE_REBIND_REL = EVIDENCE_REL / "exact-byte-rebind"
+ALLOWED_FAMILIES = frozenset({"C2", "C3", "C4", "C5", "C6", "C8", "C9"})
+_FAMILY_MODULES = {
+    "C2": "app.successor_runtime.specification.c2_p3",
+    "C3": "app.successor_runtime.specification.c3_p3",
+    "C4": "app.successor_runtime.specification.c4_p3",
+    "C5": "app.successor_runtime.specification.c5_p3",
+    "C6": "app.successor_runtime.specification.c6_p3",
+    "C8": "app.successor_runtime.specification.c8_p4",
+    "C9": "app.successor_runtime.specification.c9_p4",
+}
+DEFAULT_B13_STAGE = "stage-b13-2026-09-05"
+DEFAULT_B15_STAGE = "stage-b15-2026-09-05"
+DEFAULT_B16_STAGE = "stage-b16-2026-09-05"
+DEFAULT_B17_STAGE = "stage-b17-2026-09-05"
+DEFAULT_B18_STAGE = "stage-b18-2026-09-05"
+DEFAULT_B19_STAGE = "stage-b19-2026-09-05"
+DEFAULT_B23_STAGE = "stage-b23-2026-09-05"
+_STAGE_RE = re.compile(r"^stage-b(?:13|15|16|17|18|19|23)-[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+MANIFEST_SCHEMA = "mrw.family_fragment_rebind.stage_manifest.v2"
+B13_AMENDMENT_TEMPLATE = "STAGE_B13_{family}_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+B15_AMENDMENT_TEMPLATE = "STAGE_B15_{family}_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+B16_AMENDMENT_TEMPLATE = "STAGE_B16_{family}_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+B17_AMENDMENT_TEMPLATE = "STAGE_B17_{family}_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+B18_AMENDMENT_TEMPLATE = "STAGE_B18_{family}_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+B19_AMENDMENT_TEMPLATE = "STAGE_B19_{family}_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+B23_AMENDMENT_TEMPLATE = "STAGE_B23_{family}_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+
+B13_PREDECESSOR_HASHES = {
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/fragments/C2.json": "0185f345f7bd6494251845f0bc302fbe913e317d9dcb8cd294107a9d9613626c",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/manifests/C2.json": "e2a22a328f4d1becdd5b60ad7edfceaf04cd3243e3ae55ab531a44fa745143d9",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/candidates/C2/candidate.v2.json": "a5f9f704091d9c8baee4a4f0ce3ccf6da4bedab666d427d4b3d50510c136dcf0",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/fragments/C3.json": "edbf5e3368745c8d96b21141a0dc13e4bfb93a132de65b0b59f38e298c97965a",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/manifests/C3.json": "690c3c01eb9e6e200d2968957d4f1e0f975d5779bc61c2f93c673ca64e38ed09",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/candidates/C3/candidate.v2.json": "086d5553e3ad0af9a2693ebfe51e2361526c79d55fd250092222811bfc84747a",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/fragments/C4.json": "932d2b019cde0dc620f1a58b22306e3efdb3dc2ecbab675eaeb943a06e60a6d3",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/manifests/C4.json": "cbc732402b7a91dd63847f013f524a4e591b14ad991c23fee44cb214b4f7c77a",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/candidates/C4/candidate.v2.json": "b873df24712698d1a7c3d28ee5f1d9cafbfb6b755218412eb2bfc6d80d8e4ab7",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/fragments/C5.json": "6e36ef77bb743df41159ea6dd732ea6383d6e14532c693dfaebf0146196c8ecc",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/manifests/C5.json": "1286a3447e2b0c562cb0b43ca986822ea884366a5815dc00a93d230c1f7e9af5",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/candidates/C5/candidate.v2.json": "b9b61dcc18811d99e50cd523d3632bce75c86e6a7a1d9c6874189213e9335173",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/fragments/C6.json": "b41f5c2dbbdfd268a86886c9ffc27fe78cfa3fb5914db44272b3dfece65e52bc",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/manifests/C6.json": "62ee39752b2057629fba2abdb2e7475053a54164b7eeceedd173874e07c5e117",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/candidates/C6/candidate.v2.json": "cd8de95ce3421e679e5b1ed9f4faa72494e348465cb4c084267aa825669a59cc",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/fragments/C8.json": "3f3e515948c752e5b8ca8482804d3cc66e891fe2477999c208abf157e2330a9b",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/manifests/C8.json": "80e8594920e3373980db162961b615e8a6f5363d4a57ba979e0536dee9b8f285",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/candidates/C8/candidate.v2.json": "7ce6102220771c12c90079162aab5fcfa4e48d853c23b5cd85f085cafa6acd1c",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/fragments/C9.json": "6ca3cd594d6badd2676de56599f39a8f554011a6ddc00a783aa72eb7cb180ee9",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/manifests/C9.json": "6a9ac32e5ac7397708a91b7c915b5d3b916cb3f28a3e61ae642179cf070f5986",
+    EXACT_BYTE_REBIND_REL / "stage-b13-2026-09-05/candidates/C9/candidate.v2.json": "107967f2ba458ff902949c49271d09e4f9e55e4ecec35c8127ccdf90ebdaa9f8",
+}
+B15_PREDECESSOR_HASHES = {
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/fragments/C2.json": "3fa5f21281f7df20000914ae48a8cb0ce489f9b7dd2a78a8620511db6104178a",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/manifests/C2.json": "5d2514ac6cc4ec2aff8d55a05b4941d8ad03395340f384f964bd64224f22cf0a",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/candidates/C2/candidate.v2.json": "de0e01a13efe6aa220a163fb996bb9bddd86800fd1b4579cc5a9fd4a36b87394",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/fragments/C3.json": "edbf5e3368745c8d96b21141a0dc13e4bfb93a132de65b0b59f38e298c97965a",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/manifests/C3.json": "2634d41d1f75c94b6604c52210cb4756a84ebce63ce4ab5c38b67fd95ed35097",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/candidates/C3/candidate.v2.json": "a041ea35f9cb487e18ece3af24b2742784eb9ecb864560b50b26f537de740064",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/fragments/C4.json": "932d2b019cde0dc620f1a58b22306e3efdb3dc2ecbab675eaeb943a06e60a6d3",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/manifests/C4.json": "5a24b0a072874a49a8887cabb110de00611206f50213e991ec5c3e41e653cd2c",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/candidates/C4/candidate.v2.json": "df7df8126b8dbc235f0f75130bae0afc8a34d8f739aa39c63dcbe27c30031f82",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/fragments/C5.json": "6e36ef77bb743df41159ea6dd732ea6383d6e14532c693dfaebf0146196c8ecc",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/manifests/C5.json": "20ad825d2eb130a6400b1c17f116001729b4a5d817c2faa9e840902712eae49f",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/candidates/C5/candidate.v2.json": "2f123b1ca1693643b3b277f79031064089609d3c5bef5ef7570cb580bccaecd2",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/fragments/C6.json": "b41f5c2dbbdfd268a86886c9ffc27fe78cfa3fb5914db44272b3dfece65e52bc",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/manifests/C6.json": "d756cfbe4434b1e7083fb0c7adb3b0642da92b4340ac3b20df2a74618a255d0d",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/candidates/C6/candidate.v2.json": "be186d5824e9125cd8549717c888684a83034b142a8165a1436a5fd1af77b621",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/fragments/C8.json": "3f3e515948c752e5b8ca8482804d3cc66e891fe2477999c208abf157e2330a9b",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/manifests/C8.json": "7afb8fda6f8f95bf85786c36b8d2142d4cc6a3e87d9560d157c87ff4ea2fd30a",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/candidates/C8/candidate.v2.json": "f32b76bdd3a5fe5c59e0e972b2283755129f11df16b72af2579d1a20738acd94",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/fragments/C9.json": "6ca3cd594d6badd2676de56599f39a8f554011a6ddc00a783aa72eb7cb180ee9",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/manifests/C9.json": "86d6dbe2d73e15a0414312dca290d5ffb43cf148d479627cb16d4de8045226fb",
+    EXACT_BYTE_REBIND_REL / "stage-b15-2026-09-05/candidates/C9/candidate.v2.json": "43b11a595d52a62375e1acf9e630965edbe036e3772a3bc038d446b52d850fe2",
+}
+B16_PREDECESSOR_HASHES = {
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/fragments/C2.json": "3fa5f21281f7df20000914ae48a8cb0ce489f9b7dd2a78a8620511db6104178a",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/manifests/C2.json": "e3d72ca2625e7af3a09d044c5e51c108a588f3d8bbe485666b7e7f904186093a",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/candidates/C2/candidate.v2.json": "54e4aa88777795adc2390c0111f50501b1bd7c2fa4e3a3cea433371edcf024b5",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/fragments/C3.json": "edbf5e3368745c8d96b21141a0dc13e4bfb93a132de65b0b59f38e298c97965a",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/manifests/C3.json": "8a937dc717795ee33f46c35aac71a802f6f4f55fc9009ac9f0b786c4635bf26a",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/candidates/C3/candidate.v2.json": "41af57c428ac128e1225f6d8c030324bbc8f270211e9d1ecf04703fd36ed803b",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/fragments/C4.json": "932d2b019cde0dc620f1a58b22306e3efdb3dc2ecbab675eaeb943a06e60a6d3",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/manifests/C4.json": "73a8eeb75915cd54bc30ca92e16b81869adf9ab1f4738051496b3491a22af9df",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/candidates/C4/candidate.v2.json": "0e6158e998d6c9a96d85f9bca41ac888e291dd06275bb9e0796eb4cd1c0d876e",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/fragments/C5.json": "6e36ef77bb743df41159ea6dd732ea6383d6e14532c693dfaebf0146196c8ecc",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/manifests/C5.json": "e4d9a684ea2ad2f1533fd6d57f54a996c9d9370118656bb4921fbb75ad336e72",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/candidates/C5/candidate.v2.json": "99e74532f649ad844d61a8904d00d64b9f32c0fe40b8cf0d85756feb78300c2e",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/fragments/C6.json": "b41f5c2dbbdfd268a86886c9ffc27fe78cfa3fb5914db44272b3dfece65e52bc",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/manifests/C6.json": "d5ae1a89bdcd2b11f93438ca5b6b37de87f35586f88c46c1257d7aa7208ca6fe",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/candidates/C6/candidate.v2.json": "c86b144524cefc52bcdb752ac4a3b4c3e0991a303596346c9074e71011d978a3",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/fragments/C8.json": "3f3e515948c752e5b8ca8482804d3cc66e891fe2477999c208abf157e2330a9b",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/manifests/C8.json": "725238c042c734359baef0cdc7d59acecf0462695afb79487c50034a47f74741",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/candidates/C8/candidate.v2.json": "eb2b3a4d3d91faf2b9d7e9f8506ff7fb2b947fe9822ba104fc5b04a2c24154d2",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/fragments/C9.json": "6ca3cd594d6badd2676de56599f39a8f554011a6ddc00a783aa72eb7cb180ee9",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/manifests/C9.json": "a2761bf1be5d1325889efef89302a202beba9109faeb1aad1111d5cbee3cf0e3",
+    EXACT_BYTE_REBIND_REL / "stage-b16-2026-09-05/candidates/C9/candidate.v2.json": "d015597bd652d2c962a4d6b46646b3dca62db2613a510b484726710330a13cc0",
+}
+B17_PREDECESSOR_HASHES = {
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/fragments/C2.json": "3fa5f21281f7df20000914ae48a8cb0ce489f9b7dd2a78a8620511db6104178a",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/manifests/C2.json": "b953f8acf2e8a45522db99201685006eeed2a1e467a7db4564595d09bc6addc2",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/candidates/C2/candidate.v2.json": "4a74faab9d757a442ad1e3745b664f984d5394df37801800e1e7e787d78b6ceb",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/fragments/C3.json": "edbf5e3368745c8d96b21141a0dc13e4bfb93a132de65b0b59f38e298c97965a",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/manifests/C3.json": "6843b24c2d6bc0310d74fae220f3e6c00fee92bd37d97ac9a551129aa02fa055",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/candidates/C3/candidate.v2.json": "2900a371e5f616bab58c02a7ea1d6af18558aa6fa75affa853cb1a50cda52701",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/fragments/C4.json": "932d2b019cde0dc620f1a58b22306e3efdb3dc2ecbab675eaeb943a06e60a6d3",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/manifests/C4.json": "8cb80a56af243fdff22f2442e17a63fef7f5451fdc61f0689d8101fd2fd70ca0",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/candidates/C4/candidate.v2.json": "26dab0c3bd9a7f0f10bf9e095ad32166dcc6d2f27d70016f6db1bf3be2949907",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/fragments/C5.json": "0b3d83914cf7de356e28a51dbfb5e7836d09266f315b4c26f8eab8bcbf26e30f",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/manifests/C5.json": "a442dd3462cb89bcf86f841ff7dfaa182f2e5d49a43e4b68649454846121265a",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/candidates/C5/candidate.v2.json": "a6d48c054d18b679e71ce6de60c6b4f650136e8a32c4a19d44901446eeb5b26a",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/fragments/C6.json": "b41f5c2dbbdfd268a86886c9ffc27fe78cfa3fb5914db44272b3dfece65e52bc",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/manifests/C6.json": "ce2d918f281479dcd3a8893495abed434bc2273d34bd90e40f99a1948777bc0c",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/candidates/C6/candidate.v2.json": "194141f3ae87a969daffb319774b3a346b3a48f3d299123621b98334d3e3ddd7",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/fragments/C8.json": "dda048235d1f452c898f8b05d4692c2f73c2340d083de563c3ad076f2be43112",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/manifests/C8.json": "f926142ec3d69d4a97eceda31ba1a13715a6a3930c5385a560ce4a19f10375af",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/candidates/C8/candidate.v2.json": "d65f4772af1bbbe77a8b51926762510533ef7e5c9618bb8f3147e7f0ef5bc80b",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/fragments/C9.json": "6ca3cd594d6badd2676de56599f39a8f554011a6ddc00a783aa72eb7cb180ee9",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/manifests/C9.json": "9f25e5dd592501eb65a82b7372e1e8f785c2954c99467c5879032bab1e933ca3",
+    EXACT_BYTE_REBIND_REL / "stage-b17-2026-09-05/candidates/C9/candidate.v2.json": "49bb56b049cd5e23bc85c373c97b83a191ef59103decae2bec10ad0c7ac4acaf",
+}
+B19_PREDECESSOR_HASHES = {
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/fragments/C2.json": "3fa5f21281f7df20000914ae48a8cb0ce489f9b7dd2a78a8620511db6104178a",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/manifests/C2.json": "826c573ff1728e9c51f8ea5a7bfa59e12c01e9723ffbaeba71e5bd838264ebe6",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/candidates/C2/candidate.v2.json": "ee9b22d2f3631a050c24023860f414a86732d45f722bd1cc62177ac753eb45d4",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/fragments/C3.json": "edbf5e3368745c8d96b21141a0dc13e4bfb93a132de65b0b59f38e298c97965a",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/manifests/C3.json": "2be1cbaf4da493594d9e0fbe954964a98f9bd521a837ebd89246dd2fa8e089d2",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/candidates/C3/candidate.v2.json": "f569ad712b8975936e15e38479a9f59ab4b25dd2354b5f1af781ba1ef8a9b6c8",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/fragments/C4.json": "932d2b019cde0dc620f1a58b22306e3efdb3dc2ecbab675eaeb943a06e60a6d3",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/manifests/C4.json": "1f8b12a03ca0d476aad48cf68e21c7730d4f0221a37b661d563bde9effd4e6ba",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/candidates/C4/candidate.v2.json": "e3a13fad560569efd3e27f85a68e6bd0e50c3e8d1c0249183f3c8075b1b7772d",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/fragments/C5.json": "0b3d83914cf7de356e28a51dbfb5e7836d09266f315b4c26f8eab8bcbf26e30f",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/manifests/C5.json": "342074a2c1de1825c47d575fb16c76e4899d118683be2b057177b355de20b1d3",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/candidates/C5/candidate.v2.json": "9d66e773e0881f077d2aa8a3ea259020631f5df38854c3f2443a9fa406718f00",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/fragments/C6.json": "b41f5c2dbbdfd268a86886c9ffc27fe78cfa3fb5914db44272b3dfece65e52bc",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/manifests/C6.json": "5f704085b10989442274bdf71c429f71f1dfd575ab5704e5af9ffb2705be066f",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/candidates/C6/candidate.v2.json": "ce990f4838a6a34f2d3f3a6644a94b9e36588297306540f8aaf483f4fd6cfa35",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/fragments/C8.json": "dda048235d1f452c898f8b05d4692c2f73c2340d083de563c3ad076f2be43112",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/manifests/C8.json": "0301df9784f10da3ecb766f6eedde3ffee932d3ee930d62f6561126d2d775e11",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/candidates/C8/candidate.v2.json": "763b98e3c6878e7c7bb2818174e020d4309aa4511d8cce688428a1d61f3e0ade",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/fragments/C9.json": "6ca3cd594d6badd2676de56599f39a8f554011a6ddc00a783aa72eb7cb180ee9",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/manifests/C9.json": "66d23aefdbb16941428ceaa369ec2f9ebbfccd86128016c78fd85e8710a6af7d",
+    EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05/candidates/C9/candidate.v2.json": "a7356cbecc0c6f9ada133e7aa04ac41868ba8fd84ec205becad3abfaffb9ccc8",
+}
+
+B23_PREDECESSOR_HASHES = {
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/fragments/C2.json": "3fa5f21281f7df20000914ae48a8cb0ce489f9b7dd2a78a8620511db6104178a",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/manifests/C2.json": "389c1a3c422e08c3e5405344dcb3845fea61d6e38f0cc329f6b9994319f47c49",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/candidates/C2/candidate.v2.json": "4ccc431f4eb7caebbdb91acd8146960c5a6e400c498a31a50f80251cfdfa4045",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/fragments/C3.json": "edbf5e3368745c8d96b21141a0dc13e4bfb93a132de65b0b59f38e298c97965a",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/manifests/C3.json": "b87614e4a71d96cecbb45d87c613aeb3d331487876bc99abe14b89518c13a7ce",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/candidates/C3/candidate.v2.json": "71000110b3b6fd412ccf32468cef91ae21223da5255572ebdafa111c7a79206a",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/fragments/C4.json": "932d2b019cde0dc620f1a58b22306e3efdb3dc2ecbab675eaeb943a06e60a6d3",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/manifests/C4.json": "b48223afa39220ac074b39d8bf89e4e80f691f222bdf3315848ce6847ec8ef4f",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/candidates/C4/candidate.v2.json": "3804b62ba1939015d950a491d928da3304d614e7873f1d9013bf45403a7b1176",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/fragments/C5.json": "0b3d83914cf7de356e28a51dbfb5e7836d09266f315b4c26f8eab8bcbf26e30f",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/manifests/C5.json": "f1ae6a1678b83d75337244d200ab5b584f684180ef4c7e97076cd3573124b11f",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/candidates/C5/candidate.v2.json": "a2ddbb2ae28b330a04e52aff2030d1f8edaa1b77b4c6d7a37a48f64a0048aad2",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/fragments/C6.json": "b41f5c2dbbdfd268a86886c9ffc27fe78cfa3fb5914db44272b3dfece65e52bc",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/manifests/C6.json": "6b227be14dbd0e668f710677fe708e41c0ec8e7354997ad653ff694c839f0d97",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/candidates/C6/candidate.v2.json": "22c9fc2332c16c92dedfacd82c4bcd1936e87692f353169cffec8fa95f2de3ce",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/fragments/C8.json": "dda048235d1f452c898f8b05d4692c2f73c2340d083de563c3ad076f2be43112",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/manifests/C8.json": "1eca415a1d766d7dd90095510ad4dfc01574d8b39c428a149209379769adbeaf",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/candidates/C8/candidate.v2.json": "0695e4c176fa24a77b2c0d8b298940e5244849b9118cb082b841930273f37abc",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/fragments/C9.json": "6ca3cd594d6badd2676de56599f39a8f554011a6ddc00a783aa72eb7cb180ee9",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/manifests/C9.json": "d9bda2eb8db546fcb0f3187d703eb32fded943b0066a194c5b928918614f7678",
+    EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05/candidates/C9/candidate.v2.json": "ed835ed34b2afae99290b2198874d2fef7c3cbbf206ca428e044f50d24536823",
+}
+
+# These are mechanical inputs to the shared pipeline, not hand-selected
+# family bindings.  The fragment's three binding groups are expanded below in
+# full, then these common dependencies are included in the manifest as well.
+COMMON_SOURCE_RELS = (
+    "main/backend/app/successor_runtime/specification/shared_family_generator.py",
+    "main/backend/app/successor_runtime/specification/capability_cell_spec.py",
+    "main/backend/app/successor_runtime/specification/runtime_kernel_abi.py",
+    "main/backend/scripts/generate_family_fragment_shared.py",
+    "scripts/stage_family_fragment_rebind.py",
+    "scripts/generate_stage0_family_exact_byte_rebind.py",
+)
+
+
+class GenerationError(RuntimeError):
+    """A requested additive stage cannot be established safely."""
+
+
+def _canonical(value: Any) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def _sha256(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _content_digest(value: dict[str, Any]) -> str:
+    return _sha256(
+        _canonical({key: item for key, item in value.items() if key != "content_digest"})
+    )
+
+
+def _repo_relative(root: Path, raw: str | Path, *, label: str) -> str:
+    candidate = Path(raw)
+    if candidate.is_absolute() or "\\" in str(raw):
+        raise GenerationError(f"{label} must be repository-relative POSIX path: {raw}")
+    if not str(raw) or any(part in {"", ".", ".."} for part in str(raw).split("/")):
+        raise GenerationError(f"{label} must be normalized: {raw}")
+    if (root / candidate).is_symlink():
+        raise GenerationError(f"{label} must not be a symlink: {raw}")
+    try:
+        resolved = (root / candidate).resolve(strict=True)
+        return resolved.relative_to(root.resolve()).as_posix()
+    except (FileNotFoundError, ValueError) as exc:
+        raise GenerationError(f"{label} is missing or escapes repository root: {raw}") from exc
+
+
+def _reject_frozen_path(relative: str, *, label: str) -> None:
+    parts = set(Path(relative).parts)
+    if {"p3-fragments", "p4-fragments"} & parts:
+        raise GenerationError(f"{label} must not target a frozen P3/P4 fragment: {relative}")
+
+
+def validate_stage(stage: str) -> str:
+    """Validate the single stage directory name and reject traversal."""
+
+    if stage == "B13":
+        return DEFAULT_B13_STAGE
+    if stage == "B15":
+        return DEFAULT_B15_STAGE
+    if stage == "B16":
+        return DEFAULT_B16_STAGE
+    if stage == "B17":
+        return DEFAULT_B17_STAGE
+    if stage == "B18":
+        return DEFAULT_B18_STAGE
+    if stage == "B19":
+        return DEFAULT_B19_STAGE
+    if stage == "B23":
+        return DEFAULT_B23_STAGE
+    if not isinstance(stage, str) or not _STAGE_RE.fullmatch(stage):
+        raise GenerationError(
+            "stage must match B13/B15/B16/B17/B18/B19/B23 or stage-b13/stage-b15/stage-b16/stage-b17/stage-b18/stage-b19/stage-b23-YYYY-MM-DD"
+        )
+    try:
+        datetime.date.fromisoformat(re.sub(r"^stage-b(?:13|15|16|17|18|19|23)-", "", stage))
+    except ValueError as exc:
+        raise GenerationError(
+            "stage must match B13/B15/B16/B17/B18/B19/B23 or stage-b13/stage-b15/stage-b16/stage-b17/stage-b18/stage-b19/stage-b23-YYYY-MM-DD"
+        ) from exc
+    return stage
+
+
+def amendment_for(stage: str, family: str) -> str:
+    stage_name = validate_stage(stage)
+    template = (
+        B23_AMENDMENT_TEMPLATE
+        if stage_name.startswith("stage-b23-")
+        else B19_AMENDMENT_TEMPLATE
+        if stage_name.startswith("stage-b19-")
+        else B18_AMENDMENT_TEMPLATE
+        if stage_name.startswith("stage-b18-")
+        else B17_AMENDMENT_TEMPLATE
+        if stage_name.startswith("stage-b17-")
+        else B16_AMENDMENT_TEMPLATE
+        if stage_name.startswith("stage-b16-")
+        else B15_AMENDMENT_TEMPLATE
+        if stage_name.startswith("stage-b15-")
+        else B13_AMENDMENT_TEMPLATE
+    )
+    return template.format(family=family)
+
+
+def _predecessor_rels(stage: str, family: str) -> tuple[Path, ...]:
+    stage_name = validate_stage(stage)
+    if family not in ALLOWED_FAMILIES:
+        return ()
+    if stage_name.startswith("stage-b23-"):
+        predecessor_hashes = B23_PREDECESSOR_HASHES
+    elif stage_name.startswith("stage-b19-"):
+        predecessor_hashes = B19_PREDECESSOR_HASHES
+    elif stage_name.startswith("stage-b18-"):
+        predecessor_hashes = {
+            **B13_PREDECESSOR_HASHES,
+            **B15_PREDECESSOR_HASHES,
+            **B16_PREDECESSOR_HASHES,
+            **B17_PREDECESSOR_HASHES,
+        }
+    elif stage_name.startswith("stage-b17-"):
+        predecessor_hashes = {**B13_PREDECESSOR_HASHES, **B15_PREDECESSOR_HASHES, **B16_PREDECESSOR_HASHES}
+    elif stage_name.startswith("stage-b16-"):
+        predecessor_hashes = B15_PREDECESSOR_HASHES
+    elif stage_name.startswith("stage-b15-"):
+        predecessor_hashes = B13_PREDECESSOR_HASHES
+    else:
+        predecessor_hashes = {}
+    return tuple(
+        relative
+        for relative in predecessor_hashes
+        if f"/{family}.json" in relative.as_posix()
+        or f"/candidates/{family}/candidate.v2.json" in relative.as_posix()
+    )
+
+
+def _guard_predecessors(root: Path, stage: str, family: str) -> None:
+    for relative in _predecessor_rels(stage, family):
+        stage_name = validate_stage(stage)
+        if stage_name.startswith("stage-b23-"):
+            predecessor_hashes = B23_PREDECESSOR_HASHES
+        elif stage_name.startswith("stage-b19-"):
+            predecessor_hashes = B19_PREDECESSOR_HASHES
+        elif stage_name.startswith("stage-b18-"):
+            predecessor_hashes = {
+                **B13_PREDECESSOR_HASHES,
+                **B15_PREDECESSOR_HASHES,
+                **B16_PREDECESSOR_HASHES,
+                **B17_PREDECESSOR_HASHES,
+            }
+        elif stage_name.startswith("stage-b17-"):
+            predecessor_hashes = {**B13_PREDECESSOR_HASHES, **B15_PREDECESSOR_HASHES, **B16_PREDECESSOR_HASHES}
+        elif stage_name.startswith("stage-b16-"):
+            predecessor_hashes = B15_PREDECESSOR_HASHES
+        elif stage_name.startswith("stage-b15-"):
+            predecessor_hashes = B13_PREDECESSOR_HASHES
+        else:
+            predecessor_hashes = {}
+        expected = predecessor_hashes[relative]
+        try:
+            actual = _sha256((root / relative).read_bytes())
+        except OSError as exc:
+            stage_label = "B19" if stage_name.startswith("stage-b23-") else "B18" if stage_name.startswith("stage-b19-") else "B17" if stage_name.startswith("stage-b18-") else "B16" if stage_name.startswith("stage-b17-") else "B15" if stage_name.startswith("stage-b16-") else "B13"
+            raise GenerationError(f"immutable {stage_label} predecessor is missing: {relative}") from exc
+        if actual != expected:
+            stage_label = "B19" if stage_name.startswith("stage-b23-") else "B18" if stage_name.startswith("stage-b19-") else "B17" if stage_name.startswith("stage-b18-") else "B16" if stage_name.startswith("stage-b17-") else "B15" if stage_name.startswith("stage-b16-") else "B13"
+            raise GenerationError(
+                f"immutable {stage_label} predecessor drift: {relative.as_posix()} "
+                f"expected={expected} actual={actual}"
+            )
+
+
+def validate_families(families: Iterable[str]) -> tuple[str, ...]:
+    values: list[str] = []
+    for raw in families:
+        for family in str(raw).split(","):
+            family = family.strip()
+            if not family:
+                continue
+            if family not in ALLOWED_FAMILIES:
+                raise GenerationError(
+                    f"unknown family {family!r}; allowed families: {','.join(sorted(ALLOWED_FAMILIES))}"
+                )
+            values.append(family)
+    if not values:
+        raise GenerationError("at least one family is required")
+    if len(set(values)) != len(values):
+        raise GenerationError("families must be unique")
+    return tuple(sorted(values))
+
+
+def config_for(family: str) -> FamilyFragmentConfig:
+    """Load one of the explicitly allowed thin family configurations."""
+
+    try:
+        module_name = _FAMILY_MODULES[family]
+    except KeyError as exc:
+        raise GenerationError(f"unknown family: {family}") from exc
+    try:
+        return importlib.import_module(module_name).CONFIG
+    except (ImportError, AttributeError) as exc:
+        raise GenerationError(f"cannot load family configuration {family}: {exc}") from exc
+
+
+def _raw_ref(root: Path, relative: str) -> dict[str, str]:
+    normalized = _repo_relative(root, relative, label="manifest source")
+    _reject_frozen_path(normalized, label="manifest source")
+    payload = (root / normalized).read_bytes()
+    return {"path": normalized, "file_sha256": _sha256(payload)}
+
+
+def _binding_paths(fragment: dict[str, Any], group: str) -> list[str]:
+    values = fragment.get(group)
+    if not isinstance(values, list) or not values:
+        raise GenerationError(f"fragment {group} must be a non-empty list")
+    paths: list[str] = []
+    for index, value in enumerate(values):
+        if not isinstance(value, dict) or not isinstance(value.get("path"), str):
+            raise GenerationError(f"fragment {group}[{index}] has no path")
+        paths.append(value["path"])
+    return paths
+
+
+def _config_relative(family: str) -> str:
+    phase = "p4" if family in {"C8", "C9"} else "p3"
+    return f"main/backend/app/successor_runtime/specification/{family.lower()}_{phase}.py"
+
+
+def _build_one(root: Path, stage: str, family: str) -> tuple[Path, bytes, Path, bytes]:
+    _guard_predecessors(root, stage, family)
+    config = config_for(family)
+    fragment = build_fragment(config, root)
+    payload = fragment_bytes(config, fragment)
+    try:
+        parsed = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise GenerationError(f"{family} fragment is not JSON: {exc}") from exc
+    if not isinstance(parsed, dict) or parsed.get("family") != family:
+        raise GenerationError(f"{family} shared generator returned the wrong family")
+    if parsed.get("content_digest") != _content_digest(parsed):
+        raise GenerationError(f"{family} fragment content_digest mismatch")
+    if not isinstance(parsed.get("authority"), dict) or any(parsed["authority"].values()):
+        raise GenerationError(f"{family} fragment exceeds the all-false authority ceiling")
+
+    source_paths: set[str] = set(COMMON_SOURCE_RELS)
+    source_paths.add(_config_relative(family))
+    source_paths.update(_binding_paths(parsed, "source_bindings"))
+    source_paths.update(_binding_paths(parsed, "implementation_bindings"))
+    test_paths = set(_binding_paths(parsed, "test_bindings"))
+    # Keep the manifest closed over the declared config as well as the
+    # serialized fragment.  This catches a family body builder that accidentally
+    # drops a current dependency from its projection.
+    for target in (
+        *getattr(config, "source_bindings", ()),
+        *getattr(config, "implementation_bindings", ()),
+    ):
+        path = getattr(target, "path", None)
+        if isinstance(path, str):
+            source_paths.add(path)
+    for target in getattr(config, "test_bindings", ()):
+        path = getattr(target, "path", None)
+        if isinstance(path, str):
+            test_paths.add(path)
+    if source_paths & test_paths:
+        raise GenerationError(f"{family} source/test binding path overlap")
+
+    sources = [_raw_ref(root, path) for path in sorted(source_paths)]
+    sources.extend(_raw_ref(root, path) for path in _predecessor_rels(stage, family))
+    tests = [_raw_ref(root, path) for path in sorted(test_paths)]
+    fragment_rel = EXACT_BYTE_REBIND_REL / stage / "fragments" / f"{family}.json"
+    manifest_rel = EXACT_BYTE_REBIND_REL / stage / "manifests" / f"{family}.json"
+    fragment_rel_text = fragment_rel.as_posix()
+    manifest = {
+        "schema": MANIFEST_SCHEMA,
+        "family": family,
+        "amendment": amendment_for(stage, family),
+        "fragments": [
+            {
+                "path": fragment_rel_text,
+                "file_sha256": _sha256(payload),
+                "content_digest": parsed["content_digest"],
+            }
+        ],
+        "sources": sources,
+        "tests": tests,
+    }
+    manifest_payload = _canonical(manifest) + b"\n"
+    return fragment_rel, payload, manifest_rel, manifest_payload
+
+
+def build_documents(
+    repo_root: Path,
+    *,
+    stage: str,
+    families: Iterable[str],
+) -> Annotated[
+    dict[Path, bytes],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=family_configs_shared_generator_current_repo_bindings "
+    "witness=test:test_generate_stage0_family_documents_metadata",
+]:
+    """Build all requested documents without touching the repository."""
+
+    root = Path(repo_root).expanduser().resolve(strict=True)
+    stage_name = validate_stage(stage)
+    selected = validate_families(families)
+    documents: dict[Path, bytes] = {}
+    for family in selected:
+        fragment_rel, fragment_payload, manifest_rel, manifest_payload = _build_one(
+            root, stage_name, family
+        )
+        documents[fragment_rel] = fragment_payload
+        documents[manifest_rel] = manifest_payload
+    _validate_targets(root, documents, stage_name)
+    return documents
+
+
+def _validate_targets(root: Path, documents: dict[Path, bytes], stage: str) -> None:
+    stage_root = root / EXACT_BYTE_REBIND_REL / validate_stage(stage)
+    try:
+        stage_root.resolve().relative_to((root / EXACT_BYTE_REBIND_REL).resolve())
+    except ValueError as exc:
+        raise GenerationError("stage output escapes exact-byte-rebind root") from exc
+    _reject_frozen_path(stage_root.relative_to(root).as_posix(), label="stage output")
+    if stage_root.is_symlink() or (stage_root.exists() and not stage_root.is_dir()):
+        raise GenerationError(f"stage output must be a directory: {stage_root.relative_to(root)}")
+    for relative in documents:
+        target = root / relative
+        parent = target.parent
+        while parent != root:
+            if parent.is_symlink():
+                raise GenerationError(f"stage output parent must not be a symlink: {parent}")
+            if parent.exists() and not parent.is_dir():
+                raise GenerationError(f"stage output parent must be a directory: {parent}")
+            parent = parent.parent
+        if target.exists() or target.is_symlink():
+            raise GenerationError(f"create-only target already exists: {relative.as_posix()}")
+
+
+def _write_documents(root: Path, documents: dict[Path, bytes], stage: str) -> None:
+    _validate_targets(root, documents, stage)
+    stage_root = root / EXACT_BYTE_REBIND_REL / validate_stage(stage)
+    stage_was_existing = stage_root.exists()
+    if not stage_was_existing:
+        stage_root.mkdir(parents=True, exist_ok=False)
+    created: list[Path] = []
+    try:
+        for relative, payload in sorted(documents.items(), key=lambda item: item[0].as_posix()):
+            target = root / relative
+            target.parent.mkdir(parents=False, exist_ok=True)
+            descriptor = os.open(
+                target,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                0o644,
+            )
+            try:
+                with os.fdopen(descriptor, "wb") as stream:
+                    stream.write(payload)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                created.append(target)
+            except Exception:
+                try:
+                    target.unlink()
+                except OSError:
+                    pass
+                raise
+    except Exception as exc:
+        for target in reversed(created):
+            try:
+                target.unlink()
+            except OSError:
+                pass
+        if not stage_was_existing:
+            for child in (stage_root / "fragments", stage_root / "manifests"):
+                try:
+                    child.rmdir()
+                except OSError:
+                    pass
+            try:
+                stage_root.rmdir()
+            except OSError:
+                pass
+        raise GenerationError(f"cannot create additive stage: {exc}") from exc
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo-root", type=Path, default=REPOSITORY_ROOT)
+    parser.add_argument("--stage", required=True)
+    parser.add_argument("--families", nargs="+", required=True)
+    parser.add_argument("--write", action="store_true")
+    args = parser.parse_args(argv)
+    try:
+        documents = build_documents(
+            args.repo_root,
+            stage=args.stage,
+            families=args.families,
+        )
+        root = args.repo_root.expanduser().resolve()
+        if args.write:
+            _write_documents(root, documents, args.stage)
+        report = {
+            "families": list(validate_families(args.families)),
+            "paths": [path.as_posix() for path in sorted(documents)],
+            "stage": args.stage,
+            "status": "WROTE" if args.write else "DRY_RUN",
+        }
+    except (GenerationError, OSError, TypeError, ValueError, KeyError) as exc:
+        print(f"INVALID: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps(report, ensure_ascii=True, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

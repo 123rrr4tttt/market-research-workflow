@@ -32,8 +32,8 @@ from app.successor_runtime.substrate.projections.registry import (
 )
 
 if TYPE_CHECKING:
-    from app.successor_runtime.capabilities.c8_program import (
-        C8NativeContribution,
+    from app.successor_runtime.capabilities.knowledge_program import (
+        KnowledgeNativeContribution,
         GraphProjectionNativeContribution,
     )
 
@@ -61,8 +61,9 @@ ASSEMBLY_STATUSES: frozenset[str] = frozenset(
     }
 )
 
-LOCAL_ONLY_SCOPE_IDENTITY = "mrw.successor.assembly.local-only.scope.v1"
-PROJECTOR_REGISTRY_INCARNATION = "mrw.successor.assembly.projector-registry.v1"
+LOCAL_ONLY_SCOPE_IDENTITY = "mrw.runtime.assembly.local-only.scope.v2"
+PROJECTOR_REGISTRY_INCARNATION = "mrw.runtime.assembly.projector-registry.v2"
+PROJECTOR_REGISTRATION_SCHEMA = "mrw.runtime.assembly.projector-registration.v2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -238,7 +239,7 @@ class ProjectorWiring:
         """Deterministic digest for one exact registered projector contract."""
 
         payload = {
-            "schema": "mrw.successor.assembly.projector-registration.v1",
+            "schema": PROJECTOR_REGISTRATION_SCHEMA,
             "contract": dataclasses.asdict(contract),
         }
         return sha256_hex(
@@ -469,7 +470,7 @@ class FamilyAssembly:
 
 
 @dataclass(frozen=True, slots=True)
-class C5AssemblyOptions:
+class TaskObservationAssemblyOptions:
     """Optional run-bound C5.2 reconciliation route closure."""
 
     reconciliation_binding: Any | None = None
@@ -478,7 +479,7 @@ class C5AssemblyOptions:
 
 
 @dataclass(frozen=True, slots=True)
-class C3AssemblyOptions:
+class AcquisitionAssemblyOptions:
     """Optional deterministic element payloads for the C3 composed handler."""
 
     element_payloads: tuple[Any, ...] = ()
@@ -486,7 +487,7 @@ class C3AssemblyOptions:
 
 
 @dataclass(frozen=True, slots=True)
-class C4AssemblyOptions:
+class BatchTaskAssemblyOptions:
     """Optional deterministic payloads for the C4.1/C4.2 canary handlers."""
 
     plan_payload: Any | None = None
@@ -496,20 +497,7 @@ class C4AssemblyOptions:
 
 
 @dataclass(frozen=True, slots=True)
-class C6AssemblyOptions:
-    """Optional run-bound C6 fixture ports; never a production provider."""
-
-    model_step_source: Any | None = None
-    provider_port: Any | None = None
-    raw_observation: Any | None = None
-    tool_specimens: tuple[Any, ...] = ()
-    permission_policy: Any | None = None
-    redactor: Any | None = None
-    note: str = "LOCAL_OFFLINE deterministic fixture closure only"
-
-
-@dataclass(frozen=True, slots=True)
-class C7AssemblyOptions:
+class MaterialIngestAssemblyOptions:
     """Optional deterministic C7 rollback-route closures.
 
     Each field carries one exact pure-route fixture.  A cell is installed only
@@ -527,7 +515,7 @@ class C7AssemblyOptions:
 
 
 @dataclass(frozen=True, slots=True)
-class C8AssemblyOptions:
+class KnowledgeAssemblyOptions:
     """Optional dependencies for the existing C8.3 delivery bridge assembly."""
 
     bundle: Any | None = None
@@ -535,15 +523,15 @@ class C8AssemblyOptions:
     delivery_interpreter: Any | None = None
     c81_payload: Any | None = None
     c82_payload: Any | None = None
-    native_composition: tuple[C8NativeContribution, ...] | None = None
+    native_composition: tuple[KnowledgeNativeContribution, ...] | None = None
     graph_projection_composition: tuple[GraphProjectionNativeContribution, ...] | None = None
     export_token_store: Any | None = None
     export_token_command: Any | None = None
-    note: str = "reuses build_postgres_c8_delivery_assembly unchanged"
+    note: str = "reuses the PostgreSQL knowledge delivery assembly"
 
 
 @dataclass(frozen=True, slots=True)
-class C9AssemblyOptions:
+class ProjectionAssemblyOptions:
     """Optional run-bound C9 facade validation closure."""
 
     facade: Any | None = None
@@ -555,13 +543,12 @@ class C9AssemblyOptions:
 class FamilyAssemblyOptions:
     """Caller-controlled fixture/dependency closures for assembly builders."""
 
-    c5: C5AssemblyOptions = C5AssemblyOptions()
-    c3: C3AssemblyOptions = C3AssemblyOptions()
-    c4: C4AssemblyOptions = C4AssemblyOptions()
-    c6: C6AssemblyOptions = C6AssemblyOptions()
-    c7: C7AssemblyOptions = C7AssemblyOptions()
-    c8: C8AssemblyOptions = C8AssemblyOptions()
-    c9: C9AssemblyOptions = C9AssemblyOptions()
+    c5: TaskObservationAssemblyOptions = TaskObservationAssemblyOptions()
+    c3: AcquisitionAssemblyOptions = AcquisitionAssemblyOptions()
+    c4: BatchTaskAssemblyOptions = BatchTaskAssemblyOptions()
+    c7: MaterialIngestAssemblyOptions = MaterialIngestAssemblyOptions()
+    c8: KnowledgeAssemblyOptions = KnowledgeAssemblyOptions()
+    c9: ProjectionAssemblyOptions = ProjectionAssemblyOptions()
     projector_source_keys: Mapping[str, ProjectorSourceKey] = field(
         default_factory=dict
     )
@@ -624,13 +611,12 @@ __all__ = [
     "LOCAL_ONLY_SCOPE_IDENTITY",
     "PROJECTOR_REGISTRY_INCARNATION",
     "AssemblyStatus",
-    "C3AssemblyOptions",
-    "C4AssemblyOptions",
-    "C5AssemblyOptions",
-    "C6AssemblyOptions",
-    "C7AssemblyOptions",
-    "C8AssemblyOptions",
-    "C9AssemblyOptions",
+    "AcquisitionAssemblyOptions",
+    "BatchTaskAssemblyOptions",
+    "TaskObservationAssemblyOptions",
+    "MaterialIngestAssemblyOptions",
+    "KnowledgeAssemblyOptions",
+    "ProjectionAssemblyOptions",
     "CellBinding",
     "FamilyAssembly",
     "FamilyAssemblyOptions",

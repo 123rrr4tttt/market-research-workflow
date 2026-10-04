@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Annotated, Any
 
-from app.successor_runtime.capabilities.ingest_c7_common import (
+from app.successor_runtime.capabilities.material_ingest_common import (
     ProjectionDiff,
     content_digest,
 )

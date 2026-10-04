@@ -1,0 +1,86 @@
+{
+  "before_index_settings": {
+    "policy_docs_es": {
+      "settings": {
+        "index": {
+          "routing": {
+            "allocation": {
+              "include": {
+                "_tier_preference": "data_content"
+              }
+            }
+          },
+          "number_of_shards": "1",
+          "blocks": {
+            "read_only_allow_delete": "true"
+          },
+          "provided_name": "policy_docs_es",
+          "creation_date": "1772566235320",
+          "number_of_replicas": "1",
+          "uuid": "r52fGlKESBKX9bsXCX4tbw",
+          "version": {
+            "created": "7170499"
+          }
+        }
+      }
+    }
+  },
+  "disk": [
+    {
+      "shards": "4",
+      "disk.indices": "48.4mb",
+      "disk.used": "427.8gb",
+      "disk.avail": "32.5gb",
+      "disk.total": "460.4gb",
+      "disk.percent": "92",
+      "host": "127.0.0.1",
+      "ip": "127.0.0.1",
+      "node": "MacBook-Air-489.local"
+    },
+    {
+      "shards": "1",
+      "disk.indices": null,
+      "disk.used": null,
+      "disk.avail": null,
+      "disk.total": null,
+      "disk.percent": null,
+      "host": null,
+      "ip": null,
+      "node": "UNASSIGNED"
+    }
+  ],
+  "watermarks_unchanged": {
+    "cluster.routing.allocation.disk.watermark.enable_for_single_data_node": "false",
+    "cluster.routing.allocation.disk.watermark.flood_stage": "95%",
+    "cluster.routing.allocation.disk.watermark.flood_stage.frozen": "95%",
+    "cluster.routing.allocation.disk.watermark.flood_stage.frozen.max_headroom": "20GB",
+    "cluster.routing.allocation.disk.watermark.high": "90%",
+    "cluster.routing.allocation.disk.watermark.low": "85%"
+  },
+  "unlock_result": {
+    "acknowledged": true
+  },
+  "after_index_settings": {
+    "policy_docs_es": {
+      "settings": {
+        "index": {
+          "routing": {
+            "allocation": {
+              "include": {
+                "_tier_preference": "data_content"
+              }
+            }
+          },
+          "number_of_shards": "1",
+          "provided_name": "policy_docs_es",
+          "creation_date": "1772566235320",
+          "number_of_replicas": "1",
+          "uuid": "r52fGlKESBKX9bsXCX4tbw",
+          "version": {
+            "created": "7170499"
+          }
+        }
+      }
+    }
+  }
+}

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.successor_runtime.capabilities.c9_evidence_matrix import (
+from app.successor_runtime.capabilities.projection_evidence_matrix import (
     EVIDENCE_MATRIX_READBACK_SCHEMA,
     EVIDENCE_MATRIX_SCHEMA,
     BusinessLineEvidenceMatrix,

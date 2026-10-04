@@ -34,7 +34,7 @@ class IncompleteLegacySessionPayload(LegacyAgentSessionError):
     """A legacy row cannot form a complete typed observation."""
 
 
-SESSION_STATUSES = frozenset(
+TASK_STATUSES = frozenset(
     {"pending", "active", "blocked", "completed", "failed", "canceled", "unknown"}
 )
 TASK_STATUSES = frozenset(
@@ -72,7 +72,7 @@ class LegacyAgentSessionObservation(FrozenContract):
     def validate_observation(self) -> LegacyAgentSessionObservation:
         if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
             raise ValueError("legacy session observed_at must be timezone-aware")
-        if self.status not in SESSION_STATUSES:
+        if self.status not in TASK_STATUSES:
             raise UnsupportedLegacySessionStatus(
                 f"unsupported legacy session status: {self.status!r}"
             )
@@ -217,7 +217,7 @@ def capture_legacy_session(
     session_id = _required(payload, "session_id")
     status = _normalize_status(
         payload.get("status"),
-        allowed=SESSION_STATUSES,
+        allowed=TASK_STATUSES,
     )
     current_phase = payload.get("current_phase")
     if current_phase is not None and not isinstance(current_phase, str):
@@ -336,7 +336,7 @@ def _ordered_unique(value: Any) -> tuple[str, ...]:
 
 
 __all__ = [
-    "SESSION_STATUSES",
+    "TASK_STATUSES",
     "TASK_STATUSES",
     "IncompleteLegacySessionPayload",
     "LegacyAgentSessionError",

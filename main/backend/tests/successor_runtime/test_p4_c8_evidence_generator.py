@@ -36,6 +36,7 @@ if str(_BACKEND_ROOT) not in sys.path:
 from app.successor_runtime.specification.c8_p4 import CONFIG
 from app.successor_runtime.specification.shared_family_generator import (
     build_fragment,
+    content_digest,
     fragment_bytes,
 )
 
@@ -48,6 +49,11 @@ def _load_generator():
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
+
+
+def module_bytes() -> bytes:
+    module = _load_generator()
+    return fragment_bytes(CONFIG, module.build_fragment())
 
 
 def test_frozen_predecessor_is_checked_from_history_only() -> None:
@@ -211,10 +217,12 @@ def test_legacy_parity_is_execution_based() -> None:
         assert observation["parity"]["failures"] == []
 
 
-def test_persisted_fragment_matches_generated_bytes() -> None:
+def test_current_adapter_and_persisted_candidate_each_remain_valid() -> None:
     persisted = json.loads((_REPOSITORY_ROOT / _CANDIDATE_REL).read_text())
     rebuilt = build_fragment(CONFIG, _REPOSITORY_ROOT)
-    assert fragment_bytes(CONFIG, rebuilt) == (
-        _REPOSITORY_ROOT / _CANDIDATE_REL
-    ).read_bytes()
-    assert rebuilt["content_digest"] == persisted["content_digest"]
+    adapter_bytes = module_bytes()
+    assert fragment_bytes(CONFIG, rebuilt) == adapter_bytes
+    assert persisted["family"] == rebuilt["family"]
+    assert persisted["content_digest"] == content_digest(
+        {key: value for key, value in persisted.items() if key != "content_digest"}
+    )

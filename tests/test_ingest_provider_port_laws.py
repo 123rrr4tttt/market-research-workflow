@@ -1,25 +1,8 @@
 from __future__ import annotations
 
-from datetime import date
-
 from functorial_kit import Idempotent, Ordered, PortLawSpec, port_laws
 
-from app.services.ingest.provider_ports import MarketRecord, PolicyDocument
-
-
-class InMemoryMarketAdapterPort:
-    def __init__(self) -> None:
-        self.states: list[str] = []
-
-    def fetch_records(self) -> list[MarketRecord]:
-        self.states.append("CA")
-        return [
-            MarketRecord(
-                state="CA",
-                date=date(2026, 1, 1),
-                revenue=1.0,
-            )
-        ]
+from app.services.ingest.provider_ports import PolicyDocument
 
 
 class InMemoryPolicyAdapterPort:
@@ -68,14 +51,6 @@ class InMemoryGoogleNewsPort:
         self.queries.append(tuple(keywords))
         return [{"keyword": keyword, "limit": limit} for keyword in keywords]
 
-
-TestMarketAdapterPort = port_laws(
-    "MarketAdapterPort",
-    InMemoryMarketAdapterPort,
-    PortLawSpec(
-        idempotent=[Idempotent("market fetch is deterministic", lambda port: port.fetch_records())],
-    ),
-)
 
 TestPolicyAdapterPort = port_laws(
     "PolicyAdapterPort",

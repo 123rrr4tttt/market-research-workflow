@@ -37,7 +37,7 @@ from app.services.source_library.resolver import (
     _protocol_to_dict,
 )
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.source_library_c2_1 import (
+from app.successor_runtime.capabilities.source_resolution import (
     SourceExecutionRequest,
 )
 

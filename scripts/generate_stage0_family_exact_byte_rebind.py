@@ -47,10 +47,9 @@ EXACT_BYTE_REBIND_REL = EVIDENCE_REL / "exact-byte-rebind"
 ALLOWED_FAMILIES = frozenset({"C2", "C3", "C4", "C5", "C6", "C8", "C9"})
 _FAMILY_MODULES = {
     "C2": "app.successor_runtime.specification.c2_p3",
-    "C3": "app.successor_runtime.specification.c3_p3",
+    "C3": "app.successor_runtime.specification.acquisition_batch_p3",
     "C4": "app.successor_runtime.specification.c4_p3",
     "C5": "app.successor_runtime.specification.c5_p3",
-    "C6": "app.successor_runtime.specification.c6_p3",
     "C8": "app.successor_runtime.specification.c8_p4",
     "C9": "app.successor_runtime.specification.c9_p4",
 }
@@ -411,6 +410,8 @@ def config_for(family: str) -> FamilyFragmentConfig:
     try:
         module_name = _FAMILY_MODULES[family]
     except KeyError as exc:
+        if family == "C6":
+            raise GenerationError("C6 is retired; review its preserved historical artifacts") from exc
         raise GenerationError(f"unknown family: {family}") from exc
     try:
         return importlib.import_module(module_name).CONFIG

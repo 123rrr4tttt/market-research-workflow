@@ -10,14 +10,10 @@ from app.successor_migration.legacy_agent_batch import (
     build_successor_agent_batch_c4_plan_binding,
     build_successor_agent_batch_c4_retry_binding,
 )
-from app.successor_runtime.capabilities.agent_batch_c4 import (
-    RetryAction,
-    build_batch_plan,
-    reduce_retry_action,
-)
-from app.successor_runtime.capabilities.agent_batch_c4_interpreters import (
-    AgentBatchC4PlanSuccessorInterpreter,
-    AgentBatchC4RetrySuccessorInterpreter,
+from app.successor_runtime.capabilities.batch_task import RetryAction, build_batch_plan, reduce_retry_action
+from app.successor_runtime.capabilities.batch_task_interpreters import (
+    BatchTaskPlanSuccessorInterpreter,
+    BatchTaskRetrySuccessorInterpreter,
     InterpreterFailure,
     InterpreterSuccess,
 )
@@ -98,7 +94,7 @@ def test_same_program_plan_legacy_and_successor_c4_1_agree() -> None:
         deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
         binding=legacy_binding,
     )
-    successor_outcome = AgentBatchC4PlanSuccessorInterpreter().interpret(
+    successor_outcome = BatchTaskPlanSuccessorInterpreter().interpret(
         program=program,
         plan=plan,
         contract_ref=ref,
@@ -125,7 +121,7 @@ def test_binding_swap_and_mutation_reject_c4_1() -> None:
     program, plan, ref, payload_ref = plan_program_and_plan(payload)
     legacy_binding, successor_binding = _plan_bindings(ref.contract_digest)
 
-    swapped = AgentBatchC4PlanSuccessorInterpreter().interpret(
+    swapped = BatchTaskPlanSuccessorInterpreter().interpret(
         program=program,
         plan=plan,
         contract_ref=ref,
@@ -157,7 +153,7 @@ def test_binding_swap_and_mutation_reject_c4_1() -> None:
     import dataclasses
 
     mutated_plan = dataclasses.replace(plan, plan_digest="0" * 64)
-    mutated = AgentBatchC4PlanSuccessorInterpreter().interpret(
+    mutated = BatchTaskPlanSuccessorInterpreter().interpret(
         program=program,
         plan=mutated_plan,
         contract_ref=ref,
@@ -188,7 +184,7 @@ def test_same_program_plan_legacy_and_successor_c4_2_agree() -> None:
         deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
         binding=legacy_binding,
     )
-    successor_outcome = AgentBatchC4RetrySuccessorInterpreter().interpret(
+    successor_outcome = BatchTaskRetrySuccessorInterpreter().interpret(
         program=program,
         plan=plan,
         contract_ref=ref,
@@ -225,7 +221,7 @@ def test_binding_swap_and_mutation_reject_c4_2() -> None:
     program, plan, ref, payload_ref = retry_program_and_plan(payload)
     legacy_binding, successor_binding = _retry_bindings(ref.contract_digest)
 
-    swapped = AgentBatchC4RetrySuccessorInterpreter().interpret(
+    swapped = BatchTaskRetrySuccessorInterpreter().interpret(
         program=program,
         plan=plan,
         contract_ref=ref,

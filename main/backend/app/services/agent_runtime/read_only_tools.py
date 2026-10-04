@@ -203,7 +203,6 @@ class ReadOnlyAgentToolRuntime:
                                 "enum": [
                                     "documents",
                                     "graph_nodes",
-                                    "market_stats",
                                     "metric_points",
                                     "products",
                                     "price_observations",

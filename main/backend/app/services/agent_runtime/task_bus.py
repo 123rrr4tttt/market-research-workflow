@@ -5,7 +5,7 @@ from typing import Any
 
 from functorial_kit import Failure
 
-from .conversation import runtime_failure
+from .failures import runtime_failure
 
 ACTIVE_TASK_STATUSES = frozenset({"claimed", "in_progress"})
 FINAL_TASK_STATUSES = frozenset({"completed", "failed", "canceled", "expired"})

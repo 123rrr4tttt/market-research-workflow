@@ -1,0 +1,109 @@
+{
+  "state": "LOCAL_REPAIR_COMPLETE_READINESS_CONDITIONAL",
+  "docker_restart": "authorized_and_completed",
+  "previous_tmp_logs": "absent_on_resume_not_reconstructed",
+  "previous_results": "historical_summary_only_where_logs_unavailable",
+  "evidence_root": "/Users/wangyiliang/market-research-workflow/.data/readiness-repair/20261004-recovery",
+  "verification": {
+    "root": {
+      "passed": 1481,
+      "subtests_passed": 91,
+      "exit_code": 0,
+      "log": "root-full-final.log"
+    },
+    "frontend": {
+      "passed": 112,
+      "skipped": 5,
+      "exit_code": 0,
+      "log": "frontend-full-attempt2.log",
+      "skip_scope": {
+        "retired_agent_core_live_contracts": 4,
+        "real_browser_oauth": 1
+      }
+    },
+    "frontend_after_final_changes": {
+      "passed": 7,
+      "exit_code": 0,
+      "log": "frontend-live-final.log"
+    },
+    "backend_full": {
+      "passed": 4258,
+      "failed": 4,
+      "skipped": 2,
+      "subtests_passed": 173,
+      "exit_code": 1,
+      "log": "backend-full-final.log"
+    },
+    "backend_final_inventory": {
+      "collected": 4265,
+      "exit_code": 0,
+      "log": "backend-collect-final.log",
+      "note": "one new vector compile witness after full run"
+    },
+    "backend_failed_nodes_reverification": [
+      {
+        "failed_nodes": 1,
+        "cause": "W03 fixture lacked required document fields",
+        "passed": 12,
+        "log": "w03-preflight-consumers.log"
+      },
+      {
+        "failed_nodes": 3,
+        "cause": "P0D strict capacity schema isolation conflicts with shared topology schema",
+        "passed": 5,
+        "report": "capacity-validation.json",
+        "junit": "capacity-junit.xml",
+        "note": "original standalone runner; no schema allowlist or skipped assertion"
+      }
+    ],
+    "search_consumers": {
+      "passed": 39,
+      "exit_code": 0,
+      "log": "search-final-consumers.log"
+    },
+    "architecture_gates": {
+      "passed": 280,
+      "exit_code": 0,
+      "log": "architecture-gates-final.log"
+    },
+    "contributions": {
+      "clean": true,
+      "exit_code": 0,
+      "report": "dev-entry-check-final.json"
+    },
+    "optional_gates_host": {
+      "passed": 7,
+      "skipped": 1,
+      "exit_code": 0,
+      "log": "optional-gates-final.log",
+      "skip": "live provider parity flag unset; Docker Ruby skip supplemented by host parser test"
+    }
+  },
+  "live_material_chain": {
+    "stack": "dedicated localhost:18004",
+    "material": "local synthetic policy document",
+    "document_id": 2,
+    "raw_import_worker": "SUCCESS",
+    "index": "indexed 1",
+    "bm25": "1 matching hit after natural refresh",
+    "vector": "1 matching result plus scoped evidence hit, pgvector 3072 dimensions",
+    "vector_probe": "original field assertion failed; saved response reverified without provider call",
+    "hybrid_after_fix": "not executed live; fusion covered by existing tests"
+  },
+  "remaining_readiness_conditions": [
+    "user browser OAuth session not verified",
+    "host 8000 has no observed project Celery worker; dedicated stack evidence does not establish host chain",
+    "host 8000 process not restarted for latest source fixes",
+    "optional Qdrant unconfigured; numeric point cross-project migration remains blocked",
+    "retained HK v2 historical source material missing"
+  ],
+  "provider_calls": {
+    "observed_document_embedding_batches": 2,
+    "observed_query_embedding_calls_at_least": 2,
+    "internal_http_retries": "unknown",
+    "note": "first document batch preceded rejected indexing; original failure preserved"
+  },
+  "evidence_deviation": "vector owner overwrote first failing local assertion log; final focused log available; deviation retained",
+  "release": "deferred; no commit, rebind or publication performed",
+  "cost_accounting": "agent call/token costs unavailable; no zero-cost or speedup claim"
+}

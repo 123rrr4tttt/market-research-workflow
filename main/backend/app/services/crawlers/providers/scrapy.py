@@ -9,20 +9,21 @@ from ..scrapyd_bootstrap import (
     is_bootstrap_recoverable_schedule_error,
 )
 from ..scrapyd_client import ScrapydClient
-from ..scrapyd_runtime import ensure_scrapyd_ready
+from ..scrapyd_runtime import ensure_scrapyd_ready, resolve_scrapyd_base_url
 
 
 class ScrapyCrawlerProvider:
     provider_type = "scrapy"
 
     def __init__(self, *, base_url: str | None = None, timeout: float | None = None) -> None:
-        configured_base_url = ensure_scrapyd_ready(base_url=base_url or os.getenv("SCRAPYD_BASE_URL"))
+        configured_base_url = resolve_scrapyd_base_url(base_url or os.getenv("SCRAPYD_BASE_URL"))
         self.client = ScrapydClient(
             base_url=configured_base_url,
             timeout=float(timeout if timeout is not None else os.getenv("SCRAPYD_TIMEOUT", 10.0)),
         )
 
     def dispatch(self, request: CrawlerDispatchRequest) -> CrawlerDispatchResult:
+        ensure_scrapyd_ready(base_url=self.client.base_url)
         first_response = self.client.schedule_spider(
             project=request.project,
             spider=request.spider,
@@ -90,6 +91,7 @@ class ScrapyCrawlerProvider:
                 site="app.services.crawlers.providers.scrapy.ScrapyCrawlerProvider.poll",
             )
             _raise_contract_failure(failure)
+        ensure_scrapyd_ready(base_url=self.client.base_url)
         response = self.client.list_jobs(project=target_project)
         job_id = str(external_job_id or "").strip()
         running = response.get("running") if isinstance(response.get("running"), list) else []

@@ -27,10 +27,10 @@ from sqlalchemy.pool import NullPool
 from app.successor_migration.legacy_agent_batch import (
     build_successor_agent_batch_c4_submission_binding,
 )
-from app.successor_runtime.capabilities import agent_batch_c4 as c4
-from app.successor_runtime.capabilities.agent_batch_c4_program import (
-    build_agent_batch_c4_3_program,
-    compile_agent_batch_c4_program,
+from app.successor_runtime.capabilities import batch_task as c4
+from app.successor_runtime.capabilities.batch_task_program import (
+    build_batch_task_submission_program,
+    compile_batch_task_program,
 )
 from app.successor_runtime.capabilities.checksum import canonical_json, content_digest
 from app.successor_runtime.runtime.assignments import (
@@ -69,8 +69,9 @@ from app.successor_runtime.runtime.qualification import (
     StepAuthorizationBinding,
 )
 from app.successor_runtime.runtime.resources import QueueEligibility, ResourceClass
-from app.successor_runtime.substrate.postgres.agent_batch_c4_3_handler import (
-    C4_3SubmissionStoreRehydratedHandler,
+from app.successor_runtime.substrate.postgres.batch_task_submission_handler import (
+    BatchTaskSubmissionStoreRehydratedHandler,
+    read_batch_task_submission_receipt,
 )
 from app.successor_runtime.substrate.postgres.approvals import (
     ApprovalBinding,
@@ -192,17 +193,17 @@ QUEUE_ELIGIBILITY = QueueEligibility(
     units=1,
     policy_epoch=1,
     policy_digest=RESOURCE_POLICY_DIGEST,
-    concurrency_key="c4-3:concurrency",
-    provider_key="provider:c4-3-local-pure-only",
+    concurrency_key="batch-task-submit:concurrency",
+    provider_key="provider:batch-task-local-pure-only",
 )
 QUEUE_ELIGIBILITY_DIGEST = QUEUE_ELIGIBILITY.eligibility_digest
 
 
 def _submission() -> c4.AgentBatchSubmission:
     return c4.AgentBatchSubmission(
-        schema_version="mrw.successor.agent-batch.c4-3.payload.v1",
-        operation_kind="agent_batch.submit.v1",
-        submission_id="sub:p3-c4-runtime",
+        schema_version=c4.SUBMISSION_PAYLOAD_SCHEMA,
+        operation_kind=c4.SUBMISSION_KIND,
+        submission_id="sub:batch-task-runtime",
         project_key=PROJECT_KEY,
         resolved_schema=PROJECT_SCHEMA,
         registry_revision=REGISTRY_REVISION,
@@ -225,7 +226,7 @@ def _submission() -> c4.AgentBatchSubmission:
 
 
 def _program_and_plan(payload: c4.AgentBatchSubmission):
-    program = build_agent_batch_c4_3_program(
+    program = build_batch_task_submission_program(
         payload=payload,
         catalog=catalog(),
         program_id=PROGRAM_ID,
@@ -233,7 +234,7 @@ def _program_and_plan(payload: c4.AgentBatchSubmission):
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    plan = compile_agent_batch_c4_program(
+    plan = compile_batch_task_program(
         program,
         catalog(),
         operation_contracts=registry(),
@@ -377,7 +378,7 @@ def _seed(connection: sa.Connection, fixture: dict[str, Any]) -> None:
             input_digest=c2["assignment"].input_closure_digest,
             effect_class="PURE_LOCAL_SUBMISSION",
             resource_class="CPU_LIGHT",
-            concurrency_key="c4-3:concurrency",
+            concurrency_key="batch-task-submit:concurrency",
             capability_id=CAPABILITY_ID,
             claim_owner="successor",
             claim_authority_epoch=CANARY_EPOCH,
@@ -518,8 +519,8 @@ def _seed_work_item(connection: sa.Connection, fixture: dict[str, Any]) -> None:
             queue_eligibility_digest=assignment.queue_eligibility_digest,
             resource_class="CPU_LIGHT",
             resource_units=1,
-            concurrency_key="c4-3:concurrency",
-            provider_key="provider:c4-3-local-pure-only",
+            concurrency_key="batch-task-submit:concurrency",
+            provider_key="provider:batch-task-local-pure-only",
             recovery_handler_binding_ref=(
                 f"handler-binding:sha256:{fixture['recovery'].binding_digest}"
             ),
@@ -588,7 +589,7 @@ def _persist_stores_and_qualification(engine: Engine, fixture: dict[str, Any]) -
             capability_id=CAPABILITY_ID,
             approval_refs=("approval:p3-c4-run",),
             canonical_base_revision=0,
-            canonical_incarnation=f"canonical:{RUN_ID}:c4-3:1",
+            canonical_incarnation=f"canonical:{RUN_ID}:batch-task:1",
             now=NOW,
         )
         authorization = StepAuthorizationBinding.from_content(
@@ -742,10 +743,10 @@ def prepared(runtime_database: Engine) -> dict[str, Any]:
         if step.step_kind == "EFFECT" and step.operation_contract_ref is not None
     )
     recovery = RecoveryBinding.from_content(
-        recovery_handler_id="recovery.c4-3.local-pure",
+        recovery_handler_id="recovery.batch-task.local-pure",
         recovery_handler_version="1",
         interpreter_profile_digest=binding.interpreter_profile_digest,
-        authoritative_readback_profile_ref="readback:c4-3-receipt.v1",
+        authoritative_readback_profile_ref="readback:batch-task-receipt.v2",
     )
     identity = {
         "value_id": payload_ref.value_id,
@@ -753,7 +754,7 @@ def prepared(runtime_database: Engine) -> dict[str, Any]:
         "provenance_digest": payload_ref.provenance_digest,
         "incarnation": f"payload-inc:{content_digest(payload_ref.content_digest)}",
         "provenance": {
-            "schema": "mrw.successor.agent-batch.c4.payload-provenance.v1",
+            "schema": "mrw.batch.payload-provenance.v2",
             "program_id": program.program_id,
             "project_key": PROJECT_KEY,
             "payload_digest": payload.payload_digest,
@@ -796,13 +797,15 @@ def prepared(runtime_database: Engine) -> dict[str, Any]:
 
 def _build_node(
     engine: Engine, fixture: dict[str, Any]
-) -> tuple[RuntimeNode, C4_3SubmissionStoreRehydratedHandler]:
-    handler = C4_3SubmissionStoreRehydratedHandler(
+) -> tuple[RuntimeNode, BatchTaskSubmissionStoreRehydratedHandler]:
+    handler = BatchTaskSubmissionStoreRehydratedHandler(
         uow_factory=runtime_uow_factory(engine),
         handler_binding_digest=fixture["binding"].binding_digest,
         interpreter_profile_digest=fixture["binding"].interpreter_profile_digest,
         operation_contract_digest=fixture["ref"].contract_digest,
         deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
+        receipt_codec_id=c4.SUBMISSION_RECEIPT_CODEC_ID,
+        receipt_provenance_schema=c4.SUBMISSION_RECEIPT_PROVENANCE_SCHEMA,
     )
     uow_factory = runtime_uow_factory(engine)
     lifecycle = PostgresRuntimeNodeAdapter(uow_factory)
@@ -930,7 +933,9 @@ def test_runtime_node_claims_c4_3_work_item_and_commits_terminal(
             connection.execute(
                 sa.select(tables.successor_values).where(
                     tables.successor_values.c.project_key == PROJECT_KEY,
-                    tables.successor_values.c.value_id == f"{PROGRAM_ID}:receipt:c4-3",
+                    tables.successor_values.c.value_id == (
+                        f"{PROGRAM_ID}:receipt:task-submission"
+                    ),
                 )
             )
             .mappings()
@@ -941,7 +946,7 @@ def test_runtime_node_claims_c4_3_work_item_and_commits_terminal(
         import json
 
         decoded = json.loads(stored.decode("utf-8"))
-        assert decoded["submission_id"] == "sub:p3-c4-runtime"
+        assert decoded["submission_id"] == "sub:batch-task-runtime"
         assert decoded["state"] in {"ACCEPTED", "PARTIALLY_ACCEPTED"}
 
 
@@ -955,18 +960,21 @@ def _seed_receipt_value(
     with engine.begin() as connection:
         ValueRepository(connection, tables).put_exact(
             SCOPE,
-            value_id=f"{PROGRAM_ID}:receipt:c4-3",
+            value_id=f"{PROGRAM_ID}:receipt:task-submission",
             object_type=c4.SUBMISSION_RECEIPT_TYPE.type_id,
-            codec_id="mrw.successor.agent-batch.c4-3.receipt.codec.v1",
+            codec_id=c4.SUBMISSION_RECEIPT_CODEC_ID,
             content=b"{}",
             expected_digest=receipt_digest,
             provenance_digest=content_digest(
-                {"schema": "receipt-provenance", "program_id": PROGRAM_ID}
+                {
+                    "schema": c4.SUBMISSION_RECEIPT_PROVENANCE_SCHEMA,
+                    "program_id": PROGRAM_ID,
+                }
             ),
             expected_revision=0,
             expected_incarnation=f"receipt-inc:{receipt_digest[:24]}",
-            source_ref=f"project-value:{PROGRAM_ID}:receipt:c4-3",
-            provenance={"schema": "receipt-provenance"},
+            source_ref=f"project-value:{PROGRAM_ID}:receipt:task-submission",
+            provenance={"schema": c4.SUBMISSION_RECEIPT_PROVENANCE_SCHEMA},
         )
 
 
@@ -975,7 +983,7 @@ def test_crash_before_terminal_commit_replays_persisted_receipt(
 ) -> None:
     engine: Engine = prepared["engine"]
     receipt = c4.AgentBatchSubmissionReceipt(
-        submission_id="sub:p3-c4-runtime",
+        submission_id="sub:batch-task-runtime",
         job_id="job:1",
         accepted_items=("job:1",),
         rejected_items=(),
@@ -991,18 +999,21 @@ def test_crash_before_terminal_commit_replays_persisted_receipt(
     with engine.begin() as connection:
         ValueRepository(connection, tables).put_exact(
             SCOPE,
-            value_id=f"{PROGRAM_ID}:receipt:c4-3",
+            value_id=f"{PROGRAM_ID}:receipt:task-submission",
             object_type=c4.SUBMISSION_RECEIPT_TYPE.type_id,
-            codec_id="mrw.successor.agent-batch.c4-3.receipt.codec.v1",
+            codec_id=c4.SUBMISSION_RECEIPT_CODEC_ID,
             content=exact_bytes,
             expected_digest=seeded_digest,
             provenance_digest=content_digest(
-                {"schema": "receipt-provenance", "program_id": PROGRAM_ID}
+                {
+                    "schema": c4.SUBMISSION_RECEIPT_PROVENANCE_SCHEMA,
+                    "program_id": PROGRAM_ID,
+                }
             ),
             expected_revision=0,
             expected_incarnation=f"receipt-inc:{seeded_digest[:24]}",
-            source_ref=f"project-value:{PROGRAM_ID}:receipt:c4-3",
-            provenance={"schema": "receipt-provenance"},
+            source_ref=f"project-value:{PROGRAM_ID}:receipt:task-submission",
+            provenance={"schema": c4.SUBMISSION_RECEIPT_PROVENANCE_SCHEMA},
         )
     node, handler = _build_node(engine, prepared)
     report = node.run_once()
@@ -1031,10 +1042,84 @@ def test_crash_before_terminal_commit_replays_persisted_receipt(
     with engine.connect() as connection:
         rows = connection.execute(
             sa.select(tables.successor_values).where(
-                tables.successor_values.c.value_id == f"{PROGRAM_ID}:receipt:c4-3"
+                tables.successor_values.c.value_id
+                == f"{PROGRAM_ID}:receipt:task-submission"
             )
         ).all()
         assert len(rows) == 1
+
+
+def test_historical_receipt_readback_keeps_codec_digest_and_bytes(
+    prepared: dict[str, Any],
+) -> None:
+    engine: Engine = prepared["engine"]
+    exact_bytes = canonical_json(
+        {
+            "submission_id": "sub:p3-c4-historical",
+            "job_id": "job:historical",
+            "accepted_items": ["job:historical"],
+            "rejected_items": [],
+            "run_ref": "run:p3-c4-historical",
+            "state": "ACCEPTED",
+            "created_at": "2026-08-30T00:00:00+00:00",
+        }
+    ).encode("utf-8")
+    stored_digest = hashlib.sha256(exact_bytes).hexdigest()
+    value_id = f"{PROGRAM_ID}:receipt:c4-3"
+    tables = project_tables(sa.MetaData(), PROJECT_SCHEMA)
+    with engine.begin() as connection:
+        ValueRepository(connection, tables).put_exact(
+            SCOPE,
+            value_id=value_id,
+            object_type=c4.SUBMISSION_RECEIPT_TYPE.type_id,
+            codec_id=c4.HISTORICAL_SUBMISSION_RECEIPT_CODEC_ID,
+            content=exact_bytes,
+            expected_digest=stored_digest,
+            provenance_digest=content_digest(
+                {
+                    "schema": c4.HISTORICAL_SUBMISSION_RECEIPT_PROVENANCE_SCHEMA,
+                    "program_id": PROGRAM_ID,
+                }
+            ),
+            expected_revision=0,
+            expected_incarnation=f"receipt-inc:{stored_digest[:24]}",
+            source_ref=f"project-value:{value_id}",
+            provenance={
+                "schema": c4.HISTORICAL_SUBMISSION_RECEIPT_PROVENANCE_SCHEMA
+            },
+        )
+    with engine.connect() as connection:
+        first = read_batch_task_submission_receipt(
+            connection,
+            tables,
+            SCOPE,
+            program_id=PROGRAM_ID,
+            historical=True,
+        )
+        second = read_batch_task_submission_receipt(
+            connection,
+            tables,
+            SCOPE,
+            program_id=PROGRAM_ID,
+            historical=True,
+        )
+        assert first is not None and second is not None
+        assert first.historical is True
+        assert first.codec_id == c4.HISTORICAL_SUBMISSION_RECEIPT_CODEC_ID
+        assert first.stored_digest == second.stored_digest == stored_digest
+        values = (
+            connection.execute(
+                sa.select(tables.successor_values.c.value_id).where(
+                    tables.successor_values.c.project_key == PROJECT_KEY,
+                    tables.successor_values.c.value_id.in_(
+                        (value_id, f"{PROGRAM_ID}:receipt:task-submission")
+                    ),
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert values == [value_id]
 
 
 class _LegacyRollbackHandler(RuntimeHandler):

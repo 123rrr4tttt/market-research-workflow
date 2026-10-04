@@ -46,7 +46,7 @@ function projectPoint3D(
   }
 }
 
-type QuaternionLike = { x: number; y: number; z: number; w: number }
+export type QuaternionLike = { x: number; y: number; z: number; w: number }
 
 function normalizeQuat(q: QuaternionLike): QuaternionLike {
   const len = Math.sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w) || 1
@@ -72,6 +72,38 @@ function rotatePointByQuaternion(point: Point3D, q: QuaternionLike): Point3D {
     y: py + qw * ty + (qz * tx - qx * tz),
     z: pz + qw * tz + (qx * ty - qy * tx),
   }
+}
+
+export function quatMul(a: QuaternionLike, b: QuaternionLike): QuaternionLike {
+  return normalizeQuat({
+    w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
+    x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+    y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+    z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+  })
+}
+
+export function quatFromAxisAngle(ax: number, ay: number, az: number, angle: number): QuaternionLike {
+  const norm = Math.sqrt(ax * ax + ay * ay + az * az) || 1
+  const half = angle / 2
+  const s = Math.sin(half) / norm
+  return normalizeQuat({
+    x: ax * s,
+    y: ay * s,
+    z: az * s,
+    w: Math.cos(half),
+  })
+}
+
+export function quatFromEulerDeg(xDeg: number, yDeg: number, zDeg: number): QuaternionLike {
+  const qx = quatFromAxisAngle(1, 0, 0, (xDeg * Math.PI) / 180)
+  const qy = quatFromAxisAngle(0, 1, 0, (yDeg * Math.PI) / 180)
+  const qz = quatFromAxisAngle(0, 0, 1, (zDeg * Math.PI) / 180)
+  return quatMul(qz, quatMul(qy, qx))
+}
+
+export function rotateVecByQuat(v: { x: number; y: number; z: number }, q: QuaternionLike) {
+  return rotatePointByQuaternion(v, q)
 }
 
 export type Point3D = { x: number; y: number; z: number }

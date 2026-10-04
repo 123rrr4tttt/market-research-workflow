@@ -9,19 +9,20 @@ not match the facade actor_ref.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
-
-from app.successor_runtime.assembly.base import (
-    C9AssemblyOptions,
-    local_assembly_scope_digest,
-    successor_binding,
-)
-from app.successor_runtime.assembly.c9_assembly import (
-    C9_1_OPERATION_CONTRACT_REFS,
-    C9_AUTHORITY_REQUIREMENT_DIGEST,
-    C9_1FacadeValidationRouteHandler,
-    build_c9_assembly,
+from app.successor_runtime.assembly import projection_assembly
+from app.successor_runtime.assembly.base import ProjectionAssemblyOptions
+from app.successor_runtime.assembly.projection_assembly import (
+    PROJECTION_COMMAND_QUERY_OPERATION_CONTRACT_REFS,
+    PROJECTION_COMMAND_QUERY_ACTOR_BINDING_MISMATCH,
+    PROJECTION_COMMAND_QUERY_DEPLOYMENT_CATALOG_DRIFT,
+    PROJECTION_COMMAND_QUERY_FACADE_BINDING_DRIFT,
+    PROJECTION_COMMAND_QUERY_PAYLOAD_UNSUPPORTED,
+    PROJECTION_COMMAND_QUERY_TRUSTED_ACTOR_REQUIRED,
+    ProjectionCommandQueryValidationRouteHandler,
+    build_projection_assembly,
     build_deterministic_facade_closure,
 )
 from app.successor_runtime.capabilities import request_identity_port
@@ -37,6 +38,9 @@ from app.successor_runtime.runtime.assignments import (
     ReturnContractBinding,
     RuntimeAssignment,
 )
+from app.successor_runtime.runtime.projection_native_contribution import (
+    PROJECTION_COMMAND_QUERY_CELL_ID,
+)
 from app.successor_runtime.runtime.claims import ClaimBinding
 from app.successor_runtime.runtime.node import (
     DefiniteInterpreterFailure,
@@ -47,32 +51,31 @@ from app.successor_runtime.runtime.node import (
 pytestmark = pytest.mark.unit
 
 
-def _handler() -> C9_1FacadeValidationRouteHandler:
-    assembly = build_c9_assembly(
-        options=C9AssemblyOptions(facade=build_deterministic_facade_closure())
+def _handler_and_binding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[ProjectionCommandQueryValidationRouteHandler, InterpreterBinding]:
+    captured: dict[str, InterpreterBinding] = {}
+    original_successor_binding = projection_assembly.successor_binding
+
+    def capture_binding(**kwargs: object) -> InterpreterBinding:
+        binding = original_successor_binding(**kwargs)  # type: ignore[arg-type]
+        captured["binding"] = binding
+        return binding
+
+    monkeypatch.setattr(projection_assembly, "successor_binding", capture_binding)
+    assembly = build_projection_assembly(
+        options=ProjectionAssemblyOptions(facade=build_deterministic_facade_closure())
     )
     assert len(assembly.handlers) == 1
     handler = assembly.handlers[0]
-    assert isinstance(handler, C9_1FacadeValidationRouteHandler)
-    return handler
-
-
-def _binding(handler: C9_1FacadeValidationRouteHandler) -> InterpreterBinding:
-    binding = successor_binding(
-        operation_contract_digest=handler.operation_contract_digest,
-        interpreter_profile_digest=handler.interpreter_profile_digest,
-        deployment_catalog_digest=handler.deployment_catalog_digest,
-        project_scope_digest=local_assembly_scope_digest(),
-        authority_requirement_digest=C9_AUTHORITY_REQUIREMENT_DIGEST,
-        resource_policy_epoch=1,
-        runtime_protocol_version="1",
-    )
+    assert isinstance(handler, ProjectionCommandQueryValidationRouteHandler)
+    binding = captured["binding"]
     assert binding.binding_digest == handler.handler_binding_digest
-    return binding
+    return handler, binding
 
 
 def _assignment(
-    handler: C9_1FacadeValidationRouteHandler,
+    handler: ProjectionCommandQueryValidationRouteHandler,
     binding: InterpreterBinding,
 ) -> RuntimeAssignment:
     return RuntimeAssignment(
@@ -119,7 +122,7 @@ def _assignment(
 
 
 def _claim(
-    handler: C9_1FacadeValidationRouteHandler,
+    handler: ProjectionCommandQueryValidationRouteHandler,
     assignment: RuntimeAssignment,
 ) -> ClaimBinding:
     return ClaimBinding.bind(
@@ -145,9 +148,10 @@ def _context() -> RuntimeExecutionContext:
     )
 
 
-def test_c9_1_route_execute_consumes_request_identity_port() -> None:
-    handler = _handler()
-    binding = _binding(handler)
+def test_c9_1_route_execute_consumes_request_identity_port(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handler, binding = _handler_and_binding(monkeypatch)
     assignment = _assignment(handler, binding)
     claim = _claim(handler, assignment)
 
@@ -161,50 +165,107 @@ def test_c9_1_route_execute_consumes_request_identity_port() -> None:
     assert len(outcome.result_digest) == 64
 
 
-def test_untrusted_request_actor_fails_closed_before_facade() -> None:
-    handler = _handler()
+def test_facade_binding_drift_uses_business_failure_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handler, binding = _handler_and_binding(monkeypatch)
+    assignment = _assignment(handler, binding).model_copy(
+        update={"handler_binding_digest": "f" * 64}
+    )
+    claim = _claim(handler, assignment)
+
+    with pytest.raises(DefiniteInterpreterFailure) as exc:
+        handler.execute(assignment, claim, _context())
+
+    assert exc.value.failure_code == PROJECTION_COMMAND_QUERY_FACADE_BINDING_DRIFT
+
+
+def test_deployment_catalog_drift_uses_business_failure_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handler, binding = _handler_and_binding(monkeypatch)
+    assignment = _assignment(handler, binding).model_copy(
+        update={"deployment_catalog_digest": "f" * 64}
+    )
+    claim = _claim(handler, assignment)
+
+    with pytest.raises(DefiniteInterpreterFailure) as exc:
+        handler.execute(assignment, claim, _context())
+
+    assert exc.value.failure_code == (
+        PROJECTION_COMMAND_QUERY_DEPLOYMENT_CATALOG_DRIFT
+    )
+
+
+def test_untrusted_request_actor_fails_closed_before_facade(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handler, binding = _handler_and_binding(monkeypatch)
     handler.request_identity_observation = (
         request_identity_port.RequestIdentityObservation(
             headers={"x-forwarded-user": "spoofed-user"},
         )
     )
-    binding = _binding(handler)
     assignment = _assignment(handler, binding)
     claim = _claim(handler, assignment)
 
     with pytest.raises(DefiniteInterpreterFailure) as exc:
         handler.execute(assignment, claim, _context())
 
-    assert exc.value.failure_code == "C9_1_TRUSTED_ACTOR_REQUIRED"
+    assert exc.value.failure_code == PROJECTION_COMMAND_QUERY_TRUSTED_ACTOR_REQUIRED
     assert handler.request_identity_calls == 1
     assert handler.last_actor_context is None
 
 
-def test_request_actor_mismatch_fails_closed_before_facade() -> None:
-    handler = _handler()
+def test_request_actor_mismatch_fails_closed_before_facade(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handler, binding = _handler_and_binding(monkeypatch)
     handler.request_identity_observation = (
         request_identity_port.RequestIdentityObservation(
             actor_id="different-actor",
             actor_trusted=True,
         )
     )
-    binding = _binding(handler)
     assignment = _assignment(handler, binding)
     claim = _claim(handler, assignment)
 
     with pytest.raises(DefiniteInterpreterFailure) as exc:
         handler.execute(assignment, claim, _context())
 
-    assert exc.value.failure_code == "C9_1_REQUEST_ACTOR_BINDING_MISMATCH"
+    assert exc.value.failure_code == PROJECTION_COMMAND_QUERY_ACTOR_BINDING_MISMATCH
+    assert handler.request_identity_calls == 1
+
+
+def test_unsupported_projection_payload_uses_business_failure_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handler, binding = _handler_and_binding(monkeypatch)
+    handler.query = SimpleNamespace(  # type: ignore[assignment]
+        actor_ref="local-offline-validation"
+    )
+    assignment = _assignment(handler, binding)
+    claim = _claim(handler, assignment)
+
+    with pytest.raises(DefiniteInterpreterFailure) as exc:
+        handler.execute(assignment, claim, _context())
+
+    assert exc.value.failure_code == PROJECTION_COMMAND_QUERY_PAYLOAD_UNSUPPORTED
     assert handler.request_identity_calls == 1
 
 
 def test_c9_1_assembly_carries_request_identity_route_without_authority() -> None:
-    assembly = build_c9_assembly(
-        options=C9AssemblyOptions(facade=build_deterministic_facade_closure())
+    assembly = build_projection_assembly(
+        options=ProjectionAssemblyOptions(facade=build_deterministic_facade_closure())
     )
-    cell = assembly.cell("C9.1")
+    cell = assembly.cell(PROJECTION_COMMAND_QUERY_CELL_ID)
     assert cell.status == "INSTALLED"
     assert "request-identity port consumed" in cell.note
-    assert len(C9_1_OPERATION_CONTRACT_REFS) == 8
+    assert PROJECTION_COMMAND_QUERY_OPERATION_CONTRACT_REFS == (
+        "projection.command.validation-only.v2",
+        "projection.query.read-only.v2",
+        "projection.api.envelope.status-data-error-meta.v2",
+        "projection.request.server-bound-scope-actor-identity.v2",
+        "projection.response.control-feedback-forbidden.v2",
+    )
     assert request_identity_port.REQUEST_IDENTITY_PORT_REF

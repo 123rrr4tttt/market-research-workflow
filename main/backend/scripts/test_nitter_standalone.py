@@ -346,7 +346,7 @@ def test_search():
     
     adapter = NitterAdapter()
     
-    test_queries = ["lottery", "Powerball"]
+    test_queries = ["renewable energy", "EV charging"]
     
     for query in test_queries:
         print(f"\n搜索查询: {query}")
@@ -396,4 +396,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-

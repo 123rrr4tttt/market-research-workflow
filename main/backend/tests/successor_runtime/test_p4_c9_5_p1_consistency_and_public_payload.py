@@ -36,10 +36,10 @@ def _load_generator():
 def test_p1_aggregate_fragment_and_cell_digests_agree() -> None:
     module = _load_generator()
     artifact = json.loads(
-        (module.EVIDENCE_ROOT / "P1FunctorizationEligibility.v1.json").read_text()
+        (module.REPOSITORY_ROOT / "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence" / "P1FunctorizationEligibility.v1.json").read_text()
     )
     p1_fragment = json.loads(
-        (module.EVIDENCE_ROOT / "p1-fragments/C9.json").read_text()
+        (module.REPOSITORY_ROOT / "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence" / "p1-fragments/C9.json").read_text()
     )
     aggregate = {str(cell["cell"]): cell for cell in artifact["cells"]}
     fragment = {str(cell["cell"]): cell for cell in p1_fragment}

@@ -7,8 +7,8 @@ import time
 
 import pytest
 
-from app.successor_runtime.capabilities import collect_c3 as c3
-from app.successor_runtime.capabilities import collect_c3_interpreters as ci
+from app.successor_runtime.capabilities import acquisition_batch as acquisition
+from app.successor_runtime.capabilities import acquisition_batch_interpreters as ci
 
 from .test_p3_c3_contracts import _plan, _request_ref
 
@@ -22,10 +22,10 @@ def _receipt(
     status: str | None = None,
     attempt_count: int = 1,
     raw: str | None = None,
-) -> c3.CollectAttemptReceipt:
+) -> acquisition.CollectAttemptReceipt:
     authoritative = kind == "AUTHORITATIVE_READBACK"
-    return c3.CollectAttemptReceipt(
-        schema_version=c3.COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
+    return acquisition.CollectAttemptReceipt(
+        schema_version=acquisition.COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
         receipt_kind=kind,
         provider_type="search.market",
         provider_job_id=job_id,
@@ -43,13 +43,13 @@ def _succeeded(
     *,
     inserted: int = 1,
     links: tuple[str, ...] = (),
-    receipt: c3.CollectAttemptReceipt | None = None,
-) -> c3.CollectElementSucceeded:
-    return c3.CollectElementSucceeded(
-        schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+    receipt: acquisition.CollectAttemptReceipt | None = None,
+) -> acquisition.CollectElementSucceeded:
+    return acquisition.CollectElementSucceeded(
+        schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
         element_id=f"e{index}",
         input_index=index,
-        counts=c3.CollectCounts(inserted=inserted),
+        counts=acquisition.CollectCounts(inserted=inserted),
         links=links,
         receipt=receipt,
         legacy_observation_ref="legacy:" + f"{index:064x}",
@@ -62,18 +62,18 @@ def _failed(
     *,
     message: str = "boom",
     terms: tuple[str, ...] = (),
-) -> c3.CollectElementFailed:
-    return c3.CollectElementFailed(
-        schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+) -> acquisition.CollectElementFailed:
+    return acquisition.CollectElementFailed(
+        schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
         element_id=f"e{index}",
         input_index=index,
-        error=c3.CollectElementError(
+        error=acquisition.CollectElementError(
             code="auto_batch_execution_failed",
             message=message,
             query_terms=terms,
             error_digest="",
         ),
-        counts=c3.CollectCounts(),
+        counts=acquisition.CollectCounts(),
         links=(),
         receipt=None,
         legacy_observation_ref="legacy:" + f"{index + 100:064x}",
@@ -82,10 +82,10 @@ def _failed(
 
 
 def _sequence(
-    *outcomes: c3.CollectElementOutcome,
-) -> c3.OrderedCollectElementOutcomeSequence:
-    return c3.OrderedCollectElementOutcomeSequence(
-        schema_version="mrw.successor.collect.c3.outcome-sequence.v1",
+    *outcomes: acquisition.CollectElementOutcome,
+) -> acquisition.OrderedCollectElementOutcomeSequence:
+    return acquisition.OrderedCollectElementOutcomeSequence(
+        schema_version=acquisition.ORDERED_OUTCOME_SEQUENCE_SCHEMA_REF,
         parent_request_ref=_request_ref(),
         outcomes=outcomes,
         sequence_digest="",
@@ -93,19 +93,19 @@ def _sequence(
 
 
 def _aggregate(
-    outcomes: c3.OrderedCollectElementOutcomeSequence,
-) -> c3.CollectAggregateOutcome:
-    return c3.fold_ordered_results(
+    outcomes: acquisition.OrderedCollectElementOutcomeSequence,
+) -> acquisition.CollectAggregateOutcome:
+    return acquisition.fold_ordered_results(
         outcomes,
-        aggregation_policy_ref=c3.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
-        observation_profile_ref=c3.COLLECT_FOLD_OBSERVATION_PROFILE,
+        aggregation_policy_ref=acquisition.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
+        observation_profile_ref=acquisition.COLLECT_FOLD_OBSERVATION_PROFILE,
     )
 
 
 def test_ordered_fold_singleton_identity() -> None:
     outcome = _succeeded(0, inserted=4, links=("https://a",))
     aggregate = _aggregate(_sequence(outcome))
-    assert isinstance(aggregate, c3.CollectAggregateSucceeded)
+    assert isinstance(aggregate, acquisition.CollectAggregateSucceeded)
     assert aggregate.aggregate_counts.to_plain() == {
         "inserted": 4,
         "updated": 0,
@@ -122,7 +122,7 @@ def test_mixed_outcomes_are_partial_and_preserve_successful_siblings() -> None:
     second = _failed(1, message="batch exploded", terms=("t5",))
     third = _succeeded(2, inserted=3, links=("https://b",))
     aggregate = _aggregate(_sequence(first, second, third))
-    assert isinstance(aggregate, c3.CollectAggregatePartial)
+    assert isinstance(aggregate, acquisition.CollectAggregatePartial)
     assert aggregate.aggregate_counts.inserted == 5
     assert len(aggregate.errors) == 1
     assert aggregate.errors[0].message == "batch exploded"
@@ -133,7 +133,7 @@ def test_all_failed_aggregate_preserves_error_order() -> None:
     first = _failed(0, message="first")
     second = _failed(1, message="second")
     aggregate = _aggregate(_sequence(first, second))
-    assert isinstance(aggregate, c3.CollectAggregateFailed)
+    assert isinstance(aggregate, acquisition.CollectAggregateFailed)
     assert [error.message for error in aggregate.errors] == ["first", "second"]
     assert aggregate.aggregate_counts.to_plain() == {
         "inserted": 0,
@@ -163,7 +163,7 @@ def test_error_and_receipt_no_loss_with_stable_first_dedupe() -> None:
         receipt=readback,
     )
     aggregate = _aggregate(_sequence(first, second, third))
-    assert isinstance(aggregate, c3.CollectAggregatePartial)
+    assert isinstance(aggregate, acquisition.CollectAggregatePartial)
     assert aggregate.links == ("https://a", "https://b", "https://c")
     assert [receipt.receipt_kind for receipt in aggregate.receipts] == [
         "DISPATCH_ACKNOWLEDGEMENT",
@@ -184,29 +184,29 @@ def test_queued_ack_never_implies_completion() -> None:
         kind="DISPATCH_ACKNOWLEDGEMENT",
         status="queued",
     )
-    assert c3.receipt_implies_completed(queued) is False
+    assert acquisition.receipt_implies_completed(queued) is False
     readback = _receipt(
         job_id="job-r",
         kind="AUTHORITATIVE_READBACK",
         status="completed",
         raw="2" * 64,
     )
-    assert c3.receipt_implies_completed(readback) is True
+    assert acquisition.receipt_implies_completed(readback) is True
     outcome = _succeeded(0, inserted=1, receipt=queued)
     aggregate = _aggregate(_sequence(outcome))
-    assert isinstance(aggregate, c3.CollectAggregateSucceeded)
+    assert isinstance(aggregate, acquisition.CollectAggregateSucceeded)
     assert aggregate.receipts[0].authoritative_readback is False
-    assert c3.receipt_implies_completed(aggregate.receipts[0]) is False
+    assert acquisition.receipt_implies_completed(aggregate.receipts[0]) is False
 
 
 def test_fold_contract_failure_rejects_non_frozen_policy() -> None:
     outcome = _succeeded(0)
-    aggregate = c3.fold_ordered_results(
+    aggregate = acquisition.fold_ordered_results(
         _sequence(outcome),
         aggregation_policy_ref="mrw.unknown.policy.v1",
-        observation_profile_ref=c3.COLLECT_FOLD_OBSERVATION_PROFILE,
+        observation_profile_ref=acquisition.COLLECT_FOLD_OBSERVATION_PROFILE,
     )
-    assert isinstance(aggregate, c3.CollectFoldContractFailure)
+    assert isinstance(aggregate, acquisition.CollectFoldContractFailure)
     assert (
         aggregate.unconsumed_outcomes.sequence_digest
         == _sequence(outcome).sequence_digest
@@ -224,7 +224,7 @@ def test_fail_fast_partial_outcomes_and_cancellation_observation() -> None:
     plan = _plan(options={"batch_fail_fast": True})
 
     class ExplodingRunner:
-        def run(self, element: c3.CollectBatchElement) -> c3.CollectElementOutcome:
+        def run(self, element: acquisition.CollectBatchElement) -> acquisition.CollectElementOutcome:
             if element.input_index == 1:
                 raise RuntimeError("second batch exploded")
             return _succeeded(
@@ -234,7 +234,7 @@ def test_fail_fast_partial_outcomes_and_cancellation_observation() -> None:
             )
 
     result = ci.run_ordered_traversal(plan, ExplodingRunner())
-    assert isinstance(result, c3.OrderedTraversalAborted)
+    assert isinstance(result, acquisition.OrderedTraversalAborted)
     assert result.cancellation_observed is True
     assert result.cancellation_receipt is not None
     assert result.cancellation_receipt.observed == "SERIAL_EXECUTION"
@@ -248,7 +248,7 @@ def test_parallel_fail_fast_preserves_all_executed_outcomes() -> None:
     plan = _plan(options={"batch_parallelism": 2, "batch_fail_fast": True})
 
     class BarrierRunner:
-        def run(self, element: c3.CollectBatchElement) -> c3.CollectElementOutcome:
+        def run(self, element: acquisition.CollectBatchElement) -> acquisition.CollectElementOutcome:
             if element.input_index == 1:
                 raise RuntimeError("first completed failure")
             time.sleep(0.05)
@@ -258,7 +258,7 @@ def test_parallel_fail_fast_preserves_all_executed_outcomes() -> None:
             )
 
     result = ci.run_ordered_traversal(plan, BarrierRunner())
-    assert isinstance(result, c3.OrderedTraversalAborted)
+    assert isinstance(result, acquisition.OrderedTraversalAborted)
     # Later-index outcome executed and completed before the abort is observed.
     assert [outcome.input_index for outcome in result.partial_outcomes] == [0, 1]
     assert result.partial_outcomes[0].status == "succeeded"
@@ -275,7 +275,7 @@ def test_serial_parallel_ordered_observation_with_noncommuting_trace() -> None:
     lock = threading.Lock()
 
     class SlowRunner:
-        def run(self, element: c3.CollectBatchElement) -> c3.CollectElementOutcome:
+        def run(self, element: acquisition.CollectBatchElement) -> acquisition.CollectElementOutcome:
             if element.input_index == 0:
                 time.sleep(0.05)
             with lock:
@@ -290,8 +290,8 @@ def test_serial_parallel_ordered_observation_with_noncommuting_trace() -> None:
     completion_log.clear()
     parallel = ci.run_ordered_traversal(parallel_plan, SlowRunner())
 
-    assert isinstance(serial, c3.OrderedTraversalCompleted)
-    assert isinstance(parallel, c3.OrderedTraversalCompleted)
+    assert isinstance(serial, acquisition.OrderedTraversalCompleted)
+    assert isinstance(parallel, acquisition.OrderedTraversalCompleted)
     assert serial.observation.ordered_outcomes == parallel.observation.ordered_outcomes
     assert (
         serial.observation.observation_digest != parallel.observation.observation_digest
@@ -306,10 +306,10 @@ def test_serial_parallel_ordered_observation_with_noncommuting_trace() -> None:
 def test_fold_rejects_over_capacity_outcome_count() -> None:
     outcomes = tuple(
         _succeeded(index, inserted=1)
-        for index in range(c3.COLLECT_FOLD_RESOURCE_CEILING.max_outcomes + 1)
+        for index in range(acquisition.COLLECT_FOLD_RESOURCE_CEILING.max_outcomes + 1)
     )
     aggregate = _aggregate(_sequence(*outcomes))
-    assert isinstance(aggregate, c3.CollectFoldContractFailure)
+    assert isinstance(aggregate, acquisition.CollectFoldContractFailure)
     assert "exceed ceiling" in aggregate.reason
 
 
@@ -317,7 +317,7 @@ def test_fold_rejects_over_capacity_payload_bytes() -> None:
     huge_link = "https://example.com/" + ("x" * (300 * 1024))
     outcome = _succeeded(0, inserted=1, links=(huge_link,))
     aggregate = _aggregate(_sequence(outcome))
-    assert isinstance(aggregate, c3.CollectFoldContractFailure)
+    assert isinstance(aggregate, acquisition.CollectFoldContractFailure)
     assert "payload bytes" in aggregate.reason
 
 
@@ -341,7 +341,7 @@ def test_duplicate_receipt_policy_is_explicit_stable_first_or_rejected() -> None
             _succeeded(1, receipt=duplicate),
         )
     )
-    assert isinstance(aggregate, c3.CollectAggregateSucceeded)
+    assert isinstance(aggregate, acquisition.CollectAggregateSucceeded)
     assert len(aggregate.receipts) == 1
 
     divergent = _receipt(
@@ -356,5 +356,5 @@ def test_duplicate_receipt_policy_is_explicit_stable_first_or_rejected() -> None
             _succeeded(1, receipt=divergent),
         )
     )
-    assert isinstance(rejected, c3.CollectFoldContractFailure)
+    assert isinstance(rejected, acquisition.CollectFoldContractFailure)
     assert "duplicate provider_job_id" in rejected.reason

@@ -8,8 +8,8 @@ from dataclasses import replace
 import pytest
 
 from app.successor_migration import legacy_workflow_graph as legacy_graph
-from app.successor_runtime.capabilities.c1_slice_acceptance import (
-    C1StepStatus,
+from app.successor_runtime.capabilities.workflow_slice_acceptance import (
+    WorkflowStepStatus,
 )
 from app.successor_runtime.capabilities.checksum import content_digest
 
@@ -23,7 +23,7 @@ from .test_p5_c1_slice_programs import (
 
 def _compare(
     oracle: legacy_graph.LegacyWorkflowGraphOracle,
-    status: C1StepStatus,
+    status: WorkflowStepStatus,
 ):
     program, plan = _c8_writing_program_plan()
     observations = _observations(plan, status)
@@ -43,15 +43,15 @@ def _compare(
 @pytest.mark.parametrize(
     ("status", "accepted", "finding"),
     (
-        (C1StepStatus.SUCCESS, True, None),
-        (C1StepStatus.DEGRADED, True, None),
-        (C1StepStatus.BLOCKED, False, "OBSERVED_BLOCKED"),
-        (C1StepStatus.FAILURE, False, "OBSERVED_FAILURE"),
-        (C1StepStatus.UNKNOWN, False, "OBSERVED_UNKNOWN"),
+        (WorkflowStepStatus.SUCCESS, True, None),
+        (WorkflowStepStatus.DEGRADED, True, None),
+        (WorkflowStepStatus.BLOCKED, False, "OBSERVED_BLOCKED"),
+        (WorkflowStepStatus.FAILURE, False, "OBSERVED_FAILURE"),
+        (WorkflowStepStatus.UNKNOWN, False, "OBSERVED_UNKNOWN"),
     ),
 )
 def test_oracle_supports_bounded_named_statuses_without_executing_effects(
-    status: C1StepStatus,
+    status: WorkflowStepStatus,
     accepted: bool,
     finding: str | None,
 ) -> None:
@@ -64,7 +64,7 @@ def test_oracle_supports_bounded_named_statuses_without_executing_effects(
         assert any(
             item.startswith(finding) for item in receipt.acceptance.blocking_findings
         )
-    if status == C1StepStatus.DEGRADED:
+    if status == WorkflowStepStatus.DEGRADED:
         assert any(
             item.startswith("MATCHED_DEGRADED_OBSERVATION")
             for item in receipt.acceptance.declared_differences
@@ -83,7 +83,7 @@ def test_named_observation_mismatch_is_declared_and_blocks_compatibility() -> No
     legacy = _observations(plan)
     successor_first = replace(
         legacy[0],
-        status=C1StepStatus.FAILURE,
+        status=WorkflowStepStatus.FAILURE,
         result_digest=content_digest({"successor": "failure"}),
     )
     oracle = legacy_graph.LegacyWorkflowGraphOracle()
@@ -158,7 +158,7 @@ def test_oracle_surface_has_no_legacy_runtime_db_provider_or_graph_json_input() 
 def test_oracle_claim_is_not_naturality_commutativity_or_effect_equivalence() -> None:
     receipt = _compare(
         legacy_graph.LegacyWorkflowGraphOracle(),
-        C1StepStatus.SUCCESS,
+        WorkflowStepStatus.SUCCESS,
     )
     assert receipt.compatibility_claim == "NAMED_OBSERVATIONAL_COMPATIBILITY_ONLY"
     assert receipt.acceptance.compatibility_claim == (

@@ -6,9 +6,10 @@ import logging
 import numpy as np
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
-from sqlalchemy import select
+from sqlalchemy import Float, select
 
 from ...models.base import SessionLocal
+from ..projects import bind_project, current_project_key
 from ...models.entities import Document, Embedding
 from ...settings.config import settings
 from ..llm.provider import get_embeddings
@@ -38,8 +39,28 @@ def _payload_mapping(value: object) -> dict:
     return dict(value) if isinstance(value, Mapping) else {}
 
 
-def bm25_search(es: Elasticsearch, query: str, state: str | None, top_k: int) -> List[dict]:
+def _project_scope(project_key: str | None) -> str:
+    if project_key is not None:
+        normalized = str(project_key).strip()
+        if normalized:
+            return normalized
+        # A blank explicit value has no scope and follows the same existing
+        # binding/enforcement contract as no explicit value.
+    # Existing project-context authority: explicit callers pass a key, otherwise
+    # direct consumers inherit the caller's bound scope. current_project_key keeps
+    # the existing require/warn enforcement contract.
+    return current_project_key()
+
+
+def bm25_search(
+    es: Elasticsearch,
+    query: str,
+    state: str | None,
+    top_k: int,
+    project_key: str | None = None,
+) -> List[dict]:
     must = [{"multi_match": {"query": query, "fields": ["title^3", "summary^2", "text"]}}]
+    must.append({"term": {"project_key": _project_scope(project_key)}})
     if state:
         must.append({"term": {"state": state}})
 
@@ -86,7 +107,12 @@ def bm25_search(es: Elasticsearch, query: str, state: str | None, top_k: int) ->
     return hits
 
 
-def try_qdrant_vector_search(query: str, state: str | None, top_k: int) -> List[dict] | Failure:
+def try_qdrant_vector_search(
+    query: str,
+    state: str | None,
+    top_k: int,
+    project_key: str | None = None,
+) -> List[dict] | Failure:
     """Run the Qdrant port and return its closed provider outcome."""
     import os
 
@@ -111,9 +137,14 @@ def try_qdrant_vector_search(query: str, state: str | None, top_k: int) -> List[
     except Exception as exc:  # noqa: BLE001
         return _qdrant_failure("backend_unavailable", f"qdrant_unavailable: {exc}", exc)
 
-    qfilter = None
+    scope = _project_scope(project_key)
+    conditions = [
+        # Keep this key identical to indexer.policy's Qdrant payload project_key.
+        FieldCondition(key="project_key", match=MatchValue(value=scope))
+    ]
     if state:
-        qfilter = Filter(must=[FieldCondition(key="state", match=MatchValue(value=state))])
+        conditions.append(FieldCondition(key="state", match=MatchValue(value=state)))
+    qfilter = Filter(must=conditions)
 
     try:
         result = client.search(
@@ -214,9 +245,14 @@ def try_qdrant_vector_search(query: str, state: str | None, top_k: int) -> List[
     return hits
 
 
-def qdrant_vector_search(query: str, state: str | None, top_k: int) -> List[dict]:
+def qdrant_vector_search(
+    query: str,
+    state: str | None,
+    top_k: int,
+    project_key: str | None = None,
+) -> List[dict]:
     """Compatibility lift for direct callers that still use RuntimeError."""
-    result = try_qdrant_vector_search(query, state, top_k)
+    result = try_qdrant_vector_search(query, state, top_k, project_key=project_key)
     if isinstance(result, Failure):
         # kit:boundary owner=search.hybrid.qdrant_compatibility_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_w04_search_qdrant_failure_core
         raise RuntimeError(result.message)
@@ -235,12 +271,18 @@ def _qdrant_failure(code: str, message: str, exc: Exception) -> Failure:
     )
 
 
-def vector_search(query: str, state: str | None, top_k: int) -> List[dict]:
+def vector_search(
+    query: str,
+    state: str | None,
+    top_k: int,
+    project_key: str | None = None,
+) -> List[dict]:
     # Try Qdrant first; fallback to pgvector
     used_fallback = False
     fallback_reason: str | None = None
     try:
-        qdrant_attempt: List[dict] | Failure = qdrant_vector_search(query, state, top_k)
+        scope = _project_scope(project_key)
+        qdrant_attempt: List[dict] | Failure = qdrant_vector_search(query, state, top_k, project_key=scope)
     except RuntimeError as exc:
         # Preserve the public Qdrant compatibility seam used by callers and
         # deterministic substitutes, then close its expected failure again
@@ -260,19 +302,24 @@ def vector_search(query: str, state: str | None, top_k: int) -> List[dict]:
         logger.warning(f"无法生成向量嵌入，跳过向量搜索: {e}")
         return []
     
-    with SessionLocal() as session:
-        vector = np.array(embedding)
+    with bind_project(scope):
+        # SQL fallback uses the same tenant binding as the Qdrant filter; an
+        # explicit override must not silently inherit an outer different project.
+        with SessionLocal() as session:
+            vector = np.array(embedding)
 
-        stmt = (
-            select(Embedding, Document)
-            .join(Document, Document.id == Embedding.object_id)
-            .filter(Embedding.object_type == "policy_chunk")
-            .order_by(Embedding.vector.l2_distance(vector))
-        )
-        if state:
-            stmt = stmt.filter(Document.state == state)
+            stmt = (
+                select(Embedding, Document)
+                .join(Document, Document.id == Embedding.object_id)
+                .filter(Embedding.object_type == "policy_chunk")
+                .order_by(
+                    Embedding.vector.op('OPERATOR(public.<->)', return_type=Float)(vector)
+                )
+            )
+            if state:
+                stmt = stmt.filter(Document.state == state)
 
-        results = session.execute(stmt.limit(top_k)).all()
+            results = session.execute(stmt.limit(top_k)).all()
 
         hits = []
         for embedding_row, document in results:
@@ -357,25 +404,32 @@ def reciprocal_rank_fusion(bm25_hits: List[dict], vector_hits: List[dict], k: in
     return combined
 
 
-def hybrid_search(query: str, state: str | None, top_k: int, mode: str) -> List[dict]:
+def hybrid_search(
+    query: str,
+    state: str | None,
+    top_k: int,
+    mode: str,
+    project_key: str | None = None,
+) -> List[dict]:
     es = get_es_client()
+    scope = _project_scope(project_key)
 
     if mode == "bm25":
-        hits = bm25_search(es, query, state, top_k)
+        hits = bm25_search(es, query, state, top_k, project_key=scope)
         _set_last_used_backends(["opensearch"])
         return hits
 
     if mode == "vector":
-        results = vector_search(query, state, top_k)
+        results = vector_search(query, state, top_k, project_key=scope)
         backend = results[0].get("backend") if results else "pgvector"
         _set_last_used_backends([backend])
         # 如果向量搜索失败（无API key等），返回空结果而不是报错
         return results
 
     # hybrid模式：尝试融合BM25和向量搜索
-    bm25_hits = bm25_search(es, query, state, top_k)
+    bm25_hits = bm25_search(es, query, state, top_k, project_key=scope)
     try:
-        vector_hits = vector_search(query, state, top_k)
+        vector_hits = vector_search(query, state, top_k, project_key=scope)
     except Exception as e:  # noqa: BLE001
         # 向量搜索失败，只返回BM25结果
         logger.warning(f"向量搜索失败，仅返回BM25搜索结果: {e}")

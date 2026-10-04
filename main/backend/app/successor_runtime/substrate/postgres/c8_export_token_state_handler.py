@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.successor_runtime.capabilities.c8_report_export_token_state import (
+from app.successor_runtime.capabilities.knowledge_report_export_token_state import (
     ClaimExportTokenCommand,
     PruneExportTokenStatesCommand,
     ReadbackExportTokenCommand,
@@ -39,19 +39,24 @@ from app.successor_runtime.runtime.node import (
     RuntimeHandler,
 )
 
-__all__ = ["C8_3ExportTokenStateRuntimeHandler"]
+__all__ = [
+    "KnowledgeReportExportTokenStateRuntimeHandler",
+    "C8_3ExportTokenStateRuntimeHandler",
+]
 
-_EXACT_HANDLER_BINDING_DRIFT = "EXACT_C8_3_EXPORT_TOKEN_STATE_HANDLER_BINDING_DRIFT"
+_EXACT_HANDLER_BINDING_DRIFT = (
+    "EXACT_KNOWLEDGE_REPORT_EXPORT_TOKEN_STATE_HANDLER_BINDING_DRIFT"
+)
 _CLAIM_ASSIGNMENT_BINDING_DRIFT = "CLAIM_ASSIGNMENT_BINDING_DRIFT"
-_UNSUPPORTED_COMMAND = "C8_3_EXPORT_TOKEN_STATE_COMMAND_UNSUPPORTED"
+_UNSUPPORTED_COMMAND = "KNOWLEDGE_REPORT_EXPORT_TOKEN_STATE_COMMAND_UNSUPPORTED"
 
 _TokenStateRecord = (
     TokenClaimRecord | TokenRevokeRecord | TokenReadbackRecord | TokenPruneRecord
 )
 
 
-class C8_3ExportTokenStateRuntimeHandler(RuntimeHandler):
-    """Dispatch one typed token-state command under an exact binding."""
+class KnowledgeReportExportTokenStateRuntimeHandler(RuntimeHandler):
+    """Dispatch one typed knowledge-report token-state command."""
 
     def __init__(
         self,
@@ -69,23 +74,25 @@ class C8_3ExportTokenStateRuntimeHandler(RuntimeHandler):
         deployment_catalog_digest: str,
     ) -> None:
         if not isinstance(store, ReportExportTokenStateStore):
-            raise TypeError("C8.3 export token state handler requires a typed store")
+            raise TypeError(
+                "knowledge report export token state handler requires a typed store"
+            )
         self._require_supported_command(command)
         require_digest(
             handler_binding_digest,
-            "C8.3 export token state handler binding digest",
+            "knowledge report export token state handler binding digest",
         )
         require_digest(
             interpreter_profile_digest,
-            "C8.3 export token state interpreter profile digest",
+            "knowledge report export token state interpreter profile digest",
         )
         require_digest(
             operation_contract_digest,
-            "C8.3 export token state operation contract digest",
+            "knowledge report export token state operation contract digest",
         )
         require_digest(
             deployment_catalog_digest,
-            "C8.3 export token state deployment catalog digest",
+            "knowledge report export token state deployment catalog digest",
         )
         self.store = store
         self.command = command
@@ -107,7 +114,9 @@ class C8_3ExportTokenStateRuntimeHandler(RuntimeHandler):
                 PruneExportTokenStatesCommand,
             ),
         ):
-            raise TypeError("C8.3 export token state handler requires a typed command")
+            raise TypeError(
+                "knowledge report export token state handler requires a typed command"
+            )
 
     @staticmethod
     def _artifact_id_for_receipt(command: Any, assignment: RuntimeAssignment) -> str:
@@ -137,7 +146,7 @@ class C8_3ExportTokenStateRuntimeHandler(RuntimeHandler):
         artifact_id = self._artifact_id_for_receipt(self.command, assignment)
         return InterpreterOutcome.succeeded(
             record.record_digest,
-            receipt_ref=f"receipt:report-export-token-state:{artifact_id}",
+            receipt_ref=f"receipt:knowledge-report-export-token-state:{artifact_id}",
         )
 
     def _dispatch(
@@ -154,3 +163,7 @@ class C8_3ExportTokenStateRuntimeHandler(RuntimeHandler):
         if isinstance(command, PruneExportTokenStatesCommand):
             return prune_report_export_token_states(store, command)
         raise DefiniteInterpreterFailure(_UNSUPPORTED_COMMAND)
+
+
+# Historical import compatibility. Current assembly uses the business name above.
+C8_3ExportTokenStateRuntimeHandler = KnowledgeReportExportTokenStateRuntimeHandler

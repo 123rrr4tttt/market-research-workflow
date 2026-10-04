@@ -16,5 +16,17 @@ RUNTIME_HEALTH_GAUGE = Gauge(
     ),
 )
 
+ALERT_STATE_METRIC_NAME = "market_api_production_observability_alert_state"
+ALERT_STATE_GAUGE = Gauge(
+    ALERT_STATE_METRIC_NAME,
+    "Current non-authoritative R7 alert state, one-hot by rule and state",
+    ("rule_id", "state"),
+)
 
-__all__ = ["RUNTIME_HEALTH_GAUGE", "RUNTIME_HEALTH_METRIC_NAME"]
+
+__all__ = [
+    "ALERT_STATE_GAUGE",
+    "ALERT_STATE_METRIC_NAME",
+    "RUNTIME_HEALTH_GAUGE",
+    "RUNTIME_HEALTH_METRIC_NAME",
+]

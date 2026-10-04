@@ -222,25 +222,29 @@ def test_cli_check_reports_expected_canonical_drift_without_write() -> None:
     result = _run_cli("--check")
 
     assert result.returncode == 1
-    assert "drift" in result.stderr
+    assert "DRIFT" in result.stderr
     assert fragment_path.read_bytes() == before_bytes
     assert fragment_path.stat().st_mtime_ns == before_mtime_ns
 
 
-def test_cli_check_drift_returns_1_without_write() -> None:
+def test_cli_check_drift_returns_1_without_write(tmp_path: Path, capsys) -> None:
     module = _load_generator()
     fragment_path = module.FRAGMENT_PATH
     original = fragment_path.read_bytes()
     tampered = original.replace(b'"family":"C5"', b'"family":"C5X"')
     assert tampered != original
-    fragment_path.write_bytes(tampered)
-    try:
-        result = _run_cli("--check")
-        assert result.returncode == 1
-        assert "drift" in result.stderr
-        assert fragment_path.read_bytes() == tampered
-    finally:
-        fragment_path.write_bytes(original)
+    target = tmp_path / "C5.json"
+    target.write_bytes(tampered)
+    before_mtime_ns = target.stat().st_mtime_ns
+    module.FRAGMENT_PATH = target
+
+    result = module.main(["--check"])
+
+    assert result == 1
+    assert "DRIFT" in capsys.readouterr().err
+    assert target.read_bytes() == tampered
+    assert target.stat().st_mtime_ns == before_mtime_ns
+    assert fragment_path.read_bytes() == original
 
 
 def test_cli_unknown_argument_returns_2_without_write() -> None:
@@ -268,7 +272,7 @@ def test_cli_default_write_returns_0_without_touching_canonical(
     assert module.main([]) == 0
 
     output = capsys.readouterr().out
-    assert f"wrote {target}" in output
+    assert f"WROTE: {target}" in output
     assert target.is_file()
     assert module.FRAGMENT_PATH == target
     assert canonical_before == _load_generator().FRAGMENT_PATH.read_bytes()

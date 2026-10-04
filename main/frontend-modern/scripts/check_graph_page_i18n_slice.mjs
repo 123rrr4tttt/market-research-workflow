@@ -9,6 +9,11 @@ const rootDir = path.resolve(scriptDir, '..')
 
 const files = {
   page: 'src/pages/GraphPage.tsx',
+  projectionDefinitions: 'src/pages/graph/realizer/definitions.ts',
+  legendClassification: 'src/pages/graph/realizer/legendClassification.ts',
+  edgeStyleLibrary: 'src/pages/graph/realizer/edgeStyleLibrary.ts',
+  workflowTemplateController: 'src/pages/graph/hooks/useWorkflowTemplateController.ts',
+  workflowTemplateRealizer: 'src/pages/graph/realizer/workflowTemplate.ts',
   catalog: 'src/app/platform/i18n/catalog.ts',
 }
 
@@ -27,14 +32,33 @@ const requiredKeys = [
   'graphPage.group.social',
   'graphPage.group.market',
   'graphPage.group.other',
+  'graphPage.group.method',
+  'graphPage.group.field',
+  'graphPage.group.organization',
+  'graphPage.group.entity',
+  'graphPage.group.activity',
+  'graphPage.group.reflection',
+  'graphPage.group.evidence',
+  'graphPage.group.semantic',
+  'graphPage.group.topology',
   'graphPage.edgeTier.class',
+  'graphPage.edgeTier.domain',
   'graphPage.edgeTier.pred',
   'graphPage.edgeTier.type',
   'graphPage.edgeStroke.straight',
   'graphPage.edgeStroke.curved',
   'graphPage.edgeStroke.wavy',
   'graphPage.edgeStroke.double',
+  'graphPage.edgeLine.solid',
+  'graphPage.edgeLine.dashed',
+  'graphPage.edgeLine.dotted',
+  'graphPage.edgeLine.longDash',
+  'graphPage.edgeLine.dashDot',
   'graphPage.relationClass.governance',
+  'graphPage.relationClass.evidence',
+  'graphPage.relationClass.judgment',
+  'graphPage.relationClass.clue',
+  'graphPage.relationClass.incidence',
   'graphPage.relationClass.event',
   'graphPage.relationClass.metric',
   'graphPage.relationClass.impact',
@@ -495,6 +519,16 @@ function catalogNamespaceBlocks(source, namespace) {
 }
 
 const pageSource = readFile(files.page)
+const projectionDefinitionsSource = readFile(files.projectionDefinitions)
+const legendClassificationSource = readFile(files.legendClassification)
+const edgeStyleLibrarySource = readFile(files.edgeStyleLibrary)
+const workflowTemplateControllerSource = readFile(files.workflowTemplateController)
+const workflowTemplateRealizerSource = readFile(files.workflowTemplateRealizer)
+const graphImplementationSource = [
+  pageSource,
+  workflowTemplateControllerSource,
+  workflowTemplateRealizerSource,
+].join('\n')
 const catalogSource = readFile(files.catalog)
 const catalogBlocks = catalogNamespaceBlocks(catalogSource, 'graphPage')
 const failures = []
@@ -504,8 +538,15 @@ if (catalogBlocks.length < 3) {
 }
 
 for (const key of requiredKeys) {
-  if (!pageSource.includes(`'${key}'`)) {
-    failures.push(`GraphPage does not use ${key}`)
+  const source = key.startsWith('graphPage.variant.')
+    ? projectionDefinitionsSource
+    : key.startsWith('graphPage.group.')
+      ? legendClassificationSource
+      : key.startsWith('graphPage.edgeStroke.') || key.startsWith('graphPage.edgeLine.')
+        ? edgeStyleLibrarySource
+      : graphImplementationSource
+  if (!source.includes(`'${key}'`)) {
+    failures.push(`GraphPage projection/realizer does not use ${key}`)
   }
 
   const shortKey = key.replace(/^graphPage\./, '')
@@ -520,8 +561,8 @@ for (const key of requiredKeys) {
 }
 
 for (const snippet of retiredPageSnippets) {
-  if (pageSource.includes(snippet)) {
-    failures.push(`retired GraphPage literal still present: ${snippet}`)
+  if (graphImplementationSource.includes(snippet)) {
+    failures.push(`retired GraphPage implementation literal still present: ${snippet}`)
   }
 }
 
@@ -531,8 +572,8 @@ if (!pageSource.includes('useAppLocale()')) {
 if (!pageSource.includes("import { translate, useAppLocale, type MessageKey } from '../app/platform/i18n'")) {
   failures.push('GraphPage must use the shared i18n entrypoint')
 }
-if (!pageSource.includes('GRAPH_VARIANT_LABEL_KEY')) {
-  failures.push('GraphPage must route variant labels through catalog keys')
+if (!projectionDefinitionsSource.includes('labelKey:') || !pageSource.includes('graphProjection.labelKey')) {
+  failures.push('GraphPage must route projection labels through definition catalog keys')
 }
 if (!pageSource.includes('graphGroupLabel(')) {
   failures.push('GraphPage must route legend group labels through catalog keys')
@@ -551,6 +592,7 @@ const summary = {
   status: failures.length ? 'failed' : 'ok',
   gate_type: 'graph_page_i18n_slice',
   page: files.page,
+  implementation_sources: [files.page, files.workflowTemplateController, files.workflowTemplateRealizer],
   catalog_namespace: 'graphPage',
   required_keys: requiredKeys.length,
   retired_page_snippets: retiredPageSnippets.length,

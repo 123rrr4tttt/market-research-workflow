@@ -307,11 +307,11 @@ def _bindings(
     ]
     implementation_paths = [
         (
-            BACKEND_ROOT / "app/successor_runtime/capabilities/c1_slice_acceptance.py",
+            BACKEND_ROOT / "app/successor_runtime/capabilities/workflow_slice_acceptance.py",
             "c1_slice_acceptance_pure_api",
         ),
         (
-            BACKEND_ROOT / "app/successor_runtime/capabilities/c1_legacy_dsl.py",
+            BACKEND_ROOT / "app/successor_runtime/capabilities/workflow_legacy_dsl.py",
             "c1_legacy_dsl_parser",
         ),
         (
@@ -331,7 +331,7 @@ def _bindings(
         implementation_paths.extend(
             [
                 (
-                    BACKEND_ROOT / "app/successor_runtime/capabilities/ingest_c7_program.py",
+                    BACKEND_ROOT / "app/successor_runtime/capabilities/material_ingest_program.py",
                     "c7_ingest_program",
                 ),
                 (
@@ -344,7 +344,7 @@ def _bindings(
         implementation_paths.extend(
             [
                 (
-                    BACKEND_ROOT / "app/successor_runtime/capabilities/c8_program.py",
+                    BACKEND_ROOT / "app/successor_runtime/capabilities/knowledge_program.py",
                     "c8_program",
                 ),
                 (

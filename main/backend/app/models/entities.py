@@ -63,6 +63,8 @@ class Document(BigIDMixin, Base):
     source = relationship("Source", back_populates="documents")
 
 
+# Keep the persisted table model so project-schema moves preserve historical rows.
+# The product writer and query APIs have been retired; this model is migration-only.
 class MarketStat(BigIDMixin, Base):
     __tablename__ = "market_stats"
     __table_args__ = (UniqueConstraint("state", "game", "date", name="uq_market_state_game_date"),)

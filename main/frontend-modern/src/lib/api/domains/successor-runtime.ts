@@ -15,9 +15,12 @@
  * - decode is fail-closed for malformed status, variant and meta shapes.
  */
 
-export const SUCCESSOR_V2_API_PATH = '/api/v1/successor-runtime/v2'
+export const MATERIAL_PROJECTION_V2_API_PATH = '/api/v1/material-projections/v2'
+export const LEGACY_SUCCESSOR_V2_API_PATH = '/api/v1/successor-runtime/v2'
+export const SUCCESSOR_V2_API_PATH = MATERIAL_PROJECTION_V2_API_PATH
 export const SUCCESSOR_V2_COMMAND_URL = `${SUCCESSOR_V2_API_PATH}/commands`
 export const SUCCESSOR_V2_QUERY_URL = `${SUCCESSOR_V2_API_PATH}/queries`
+export const LEGACY_SUCCESSOR_V2_COMMAND_URL = `${LEGACY_SUCCESSOR_V2_API_PATH}/commands`
 
 export const SUCCESSOR_ENVELOPE_STATUSES = [
   'ok',
@@ -221,8 +224,7 @@ export type SuccessorRollbackTransitionPosition = {
   offset_ref: string
 }
 
-export type SuccessorRollbackTransitionReceipt = {
-  contract: 'C9RollbackTransitionReceipt.v1'
+type SuccessorRollbackTransitionReceiptFields = {
   ref: string
   digest: string
   projection_id: string
@@ -236,7 +238,25 @@ export type SuccessorRollbackTransitionReceipt = {
   generation_completeness_digest: string
 }
 
-export const SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT = 'C9RollbackTransitionReceipt.v1'
+export type SuccessorRollbackTransitionReceiptV2 = SuccessorRollbackTransitionReceiptFields & {
+  contract: 'projection.rollback_transition.v2'
+}
+
+export type SuccessorHistoricalRollbackTransitionReceiptV1 =
+  SuccessorRollbackTransitionReceiptFields & {
+    contract: 'C9RollbackTransitionReceipt.v1'
+  }
+
+export type SuccessorRollbackTransitionReceipt =
+  | SuccessorRollbackTransitionReceiptV2
+  | SuccessorHistoricalRollbackTransitionReceiptV1
+
+export const SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT = 'projection.rollback_transition.v2'
+export const SUCCESSOR_HISTORICAL_ROLLBACK_RECEIPT_CONTRACT = 'C9RollbackTransitionReceipt.v1'
+export const SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT =
+  'projection.client_command_fingerprint.v2'
+export const SUCCESSOR_HISTORICAL_CLIENT_COMMAND_FINGERPRINT_CONTRACT =
+  'C9FrontendCommandIdentity.v1'
 
 export type SuccessorCommandOptions = {
   commandId: string
@@ -270,6 +290,9 @@ export type SuccessorPendingCommand = {
   project_locator: string
   endpoint: string
   payload_digest: string
+  fingerprint_contract:
+    | typeof SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT
+    | typeof SUCCESSOR_HISTORICAL_CLIENT_COMMAND_FINGERPRINT_CONTRACT
 }
 
 export class SuccessorRuntimeError extends Error {
@@ -455,8 +478,22 @@ export function readSuccessorPendingCommands(): Record<string, SuccessorPendingC
   const result: Record<string, SuccessorPendingCommand> = {}
   for (const [key, value] of Object.entries(parsed)) {
     const record = value as Partial<SuccessorPendingCommand>
-    const knownFields = ['command_id', 'command_kind', 'project_locator', 'endpoint', 'payload_digest']
+    const knownFields = [
+      'command_id',
+      'command_kind',
+      'project_locator',
+      'endpoint',
+      'payload_digest',
+      'fingerprint_contract',
+    ]
     const unknownFields = Object.keys(value as object).filter((name) => !knownFields.includes(name))
+    const fingerprintContract =
+      record.fingerprint_contract ?? SUCCESSOR_HISTORICAL_CLIENT_COMMAND_FINGERPRINT_CONTRACT
+    const endpointMatchesContract =
+      (fingerprintContract === SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT &&
+        record.endpoint === SUCCESSOR_V2_COMMAND_URL) ||
+      (fingerprintContract === SUCCESSOR_HISTORICAL_CLIENT_COMMAND_FINGERPRINT_CONTRACT &&
+        record.endpoint === LEGACY_SUCCESSOR_V2_COMMAND_URL)
     if (
       unknownFields.length > 0 ||
       typeof record?.command_id !== 'string' ||
@@ -464,9 +501,12 @@ export function readSuccessorPendingCommands(): Record<string, SuccessorPendingC
       !SUCCESSOR_COMMAND_KINDS.has(record.command_kind) ||
       typeof record.project_locator !== 'string' ||
       typeof record.endpoint !== 'string' ||
-      record.endpoint !== SUCCESSOR_V2_COMMAND_URL ||
+      !endpointMatchesContract ||
       typeof record.payload_digest !== 'string' ||
       !HEX64.test(record.payload_digest) ||
+      (record.fingerprint_contract !== undefined &&
+        record.fingerprint_contract !== SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT &&
+        record.fingerprint_contract !== SUCCESSOR_HISTORICAL_CLIENT_COMMAND_FINGERPRINT_CONTRACT) ||
       key !== pendingCommandKey(record.project_locator, record.command_id)
     ) {
       throw new SuccessorRuntimeError('pending_record_malformed', 'Successor pending command record is malformed')
@@ -477,6 +517,7 @@ export function readSuccessorPendingCommands(): Record<string, SuccessorPendingC
       project_locator: record.project_locator,
       endpoint: record.endpoint,
       payload_digest: record.payload_digest,
+      fingerprint_contract: fingerprintContract,
     }
   }
   return result
@@ -622,7 +663,29 @@ export function computeSuccessorCommandFingerprint(
 ): string {
   return sha256Hex(
     canonicalJson({
-      contract: 'C9FrontendCommandIdentity.v1',
+      contract: SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT,
+      endpoint,
+      project_locator: projectLocator,
+      command_id: commandId,
+      command_kind: commandKind,
+      payload,
+      expected_base_token: binding?.expectedBaseToken ?? null,
+      approval_locator: binding?.approvalLocator ?? null,
+    }),
+  )
+}
+
+function computeHistoricalSuccessorCommandFingerprintV1(
+  endpoint: string,
+  projectLocator: string,
+  commandId: string,
+  commandKind: SuccessorCommandKind,
+  payload: SuccessorCommandPayload,
+  binding?: SuccessorCommandBinding,
+): string {
+  return sha256Hex(
+    canonicalJson({
+      contract: SUCCESSOR_HISTORICAL_CLIENT_COMMAND_FINGERPRINT_CONTRACT,
       endpoint,
       project_locator: projectLocator,
       command_id: commandId,
@@ -1252,21 +1315,10 @@ function decodeRollbackPosition(raw: unknown): SuccessorRollbackTransitionPositi
   }
 }
 
-export function decodeSuccessorRollbackTransitionReceipt(
-  raw: unknown,
-): SuccessorRollbackTransitionReceipt {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new SuccessorDecodeError('rollback transition receipt must be a JSON object')
-  }
-  const record = raw as Record<string, unknown>
-  assertKnownKeys(record, SUCCESSOR_ROLLBACK_RECEIPT_FIELDS, 'rollback receipt')
-  if (record.contract !== SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT) {
-    throw new SuccessorDecodeError(
-      `rollback receipt contract must be ${SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT}`,
-    )
-  }
+function decodeRollbackTransitionReceiptFields(
+  record: Record<string, unknown>,
+): SuccessorRollbackTransitionReceiptFields {
   return {
-    contract: SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT,
     ref: assertDecodedNonEmpty(record.ref, 'rollback receipt.ref'),
     digest: assertHex64(record.digest, 'rollback receipt.digest'),
     projection_id: assertDecodedNonEmpty(record.projection_id, 'rollback receipt.projection_id'),
@@ -1288,6 +1340,62 @@ export function decodeSuccessorRollbackTransitionReceipt(
       'rollback receipt.generation_completeness_digest',
     ),
   }
+}
+
+export function decodeHistoricalSuccessorRollbackTransitionReceiptV1(
+  raw: unknown,
+): SuccessorHistoricalRollbackTransitionReceiptV1 {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new SuccessorDecodeError('rollback transition receipt must be a JSON object')
+  }
+  const record = raw as Record<string, unknown>
+  assertKnownKeys(record, SUCCESSOR_ROLLBACK_RECEIPT_FIELDS, 'rollback receipt')
+  if (record.contract !== SUCCESSOR_HISTORICAL_ROLLBACK_RECEIPT_CONTRACT) {
+    throw new SuccessorDecodeError(
+      `historical rollback receipt contract must be ${SUCCESSOR_HISTORICAL_ROLLBACK_RECEIPT_CONTRACT}`,
+    )
+  }
+  return {
+    contract: SUCCESSOR_HISTORICAL_ROLLBACK_RECEIPT_CONTRACT,
+    ...decodeRollbackTransitionReceiptFields(record),
+  }
+}
+
+export function decodeSuccessorRollbackTransitionReceiptV2(
+  raw: unknown,
+): SuccessorRollbackTransitionReceiptV2 {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new SuccessorDecodeError('rollback transition receipt must be a JSON object')
+  }
+  const record = raw as Record<string, unknown>
+  assertKnownKeys(record, SUCCESSOR_ROLLBACK_RECEIPT_FIELDS, 'rollback receipt')
+  if (record.contract !== SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT) {
+    throw new SuccessorDecodeError(
+      `rollback receipt contract must be ${SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT}`,
+    )
+  }
+  return {
+    contract: SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT,
+    ...decodeRollbackTransitionReceiptFields(record),
+  }
+}
+
+export function decodeSuccessorRollbackTransitionReceipt(
+  raw: unknown,
+): SuccessorRollbackTransitionReceipt {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new SuccessorDecodeError('rollback transition receipt must be a JSON object')
+  }
+  const contract = (raw as Record<string, unknown>).contract
+  if (contract === SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT) {
+    return decodeSuccessorRollbackTransitionReceiptV2(raw)
+  }
+  if (contract === SUCCESSOR_HISTORICAL_ROLLBACK_RECEIPT_CONTRACT) {
+    return decodeHistoricalSuccessorRollbackTransitionReceiptV1(raw)
+  }
+  throw new SuccessorDecodeError(
+    `rollback receipt contract must be ${SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT} or the explicit historical contract ${SUCCESSOR_HISTORICAL_ROLLBACK_RECEIPT_CONTRACT}`,
+  )
 }
 
 export function computeSuccessorRollbackReceiptDigest(
@@ -1738,12 +1846,37 @@ function bindQueryEnvelope(
     'source_ref',
     'source_incarnation',
   ] as const
-  for (const field of sourceKeyFields) {
-    if (meta[field] !== options.params[field]) {
-      throw new SuccessorBindingError(`Query response ${field} does not match the request source key`, {
-        expected: options.params[field],
-        actual: meta[field],
-      })
+  const activeMaterialSelector =
+    options.params.projection_id === 'projection.project-material.v2' &&
+    options.params.projector_id === 'projection.project-material.v2' &&
+    options.params.projector_version === '2.0.0' &&
+    options.params.source_kind === 'material' &&
+    options.params.source_ref === `material:${options.projectLocator}` &&
+    options.params.source_incarnation === `active-project:${options.projectLocator}`
+  if (activeMaterialSelector) {
+    const expectedResolvedSource = {
+      projector_id: 'projection.project-source-identity.v2',
+      projector_version: '2.0.0',
+      source_kind: 'projection_source',
+      source_ref: `projection:${options.projectLocator}:source`,
+      source_incarnation: meta.project_scope_ref.incarnation,
+    }
+    for (const field of sourceKeyFields) {
+      if (meta[field] !== expectedResolvedSource[field]) {
+        throw new SuccessorBindingError(`Query response ${field} does not match the resolved material source`, {
+          expected: expectedResolvedSource[field],
+          actual: meta[field],
+        })
+      }
+    }
+  } else {
+    for (const field of sourceKeyFields) {
+      if (meta[field] !== options.params[field]) {
+        throw new SuccessorBindingError(`Query response ${field} does not match the request source key`, {
+          expected: options.params[field],
+          actual: meta[field],
+        })
+      }
     }
   }
   if (meta.trace_id !== traceId) {
@@ -1772,6 +1905,7 @@ async function dispatchSuccessorCommand(
     project_locator: options.projectLocator,
     endpoint: SUCCESSOR_V2_COMMAND_URL,
     payload_digest: payloadDigest,
+    fingerprint_contract: SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT,
   })
   const raw = await requestJson(resolveUrl(SUCCESSOR_V2_COMMAND_URL), {
     method: 'POST',
@@ -1820,12 +1954,40 @@ export async function submitSuccessorCommand(options: SuccessorCommandOptions): 
   }
 
   const pending = readSuccessorPendingCommands()
-  const prior = pending[pendingCommandKey(options.projectLocator, options.commandId)]
-  if (prior && (prior.command_kind !== options.commandKind || prior.payload_digest !== payloadDigest)) {
+  const pendingKey = pendingCommandKey(options.projectLocator, options.commandId)
+  const prior = pending[pendingKey]
+  const binding = {
+    expectedBaseToken: options.expectedBaseToken,
+    approvalLocator: options.approvalLocator,
+  }
+  const historicalPayloadDigest = computeHistoricalSuccessorCommandFingerprintV1(
+    prior?.endpoint ?? LEGACY_SUCCESSOR_V2_COMMAND_URL,
+    options.projectLocator,
+    options.commandId,
+    options.commandKind,
+    options.payload,
+    binding,
+  )
+  const currentMatch =
+    prior?.fingerprint_contract === SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT &&
+    prior.payload_digest === payloadDigest
+  const historicalMatch =
+    prior?.fingerprint_contract === SUCCESSOR_HISTORICAL_CLIENT_COMMAND_FINGERPRINT_CONTRACT &&
+    prior.payload_digest === historicalPayloadDigest
+  if (prior && (prior.command_kind !== options.commandKind || (!currentMatch && !historicalMatch))) {
     throw new SuccessorConflictError(
       `Command ${options.commandId} already has a different payload; use a new command id`,
       { commandId: options.commandId, projectLocator: options.projectLocator },
     )
+  }
+  if (prior && historicalMatch) {
+    pending[pendingKey] = {
+      ...prior,
+      endpoint: SUCCESSOR_V2_COMMAND_URL,
+      payload_digest: payloadDigest,
+      fingerprint_contract: SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT,
+    }
+    writeSuccessorPendingCommands(pending)
   }
 
   const request = dispatchSuccessorCommand(options, traceId)

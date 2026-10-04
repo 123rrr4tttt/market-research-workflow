@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -98,6 +99,10 @@ class _Query:
                 content="policy content",
                 summary="",
                 state="published",
+                uri="https://example.test/policy/1",
+                publish_date=None,
+                created_at=datetime(2026, 10, 4, tzinfo=timezone.utc),
+                extracted_data={},
             )
         ]
 

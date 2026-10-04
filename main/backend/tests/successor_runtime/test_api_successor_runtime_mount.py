@@ -1,6 +1,6 @@
 """WP-I1-06 successor runtime route-mount tests.
 
-Covers the default LOCAL_ONLY app mount: final ``/api/v1/successor-runtime/v2``
+Covers the default LOCAL_ONLY app mount: current ``/api/v1/material-projections/v2``
 route table, typed command/query envelopes, all six v2 status states, typed
 rejections, no control feedback, closed authority ceiling and preserved legacy
 routes.  No database, provider, network or live registration is touched.
@@ -11,11 +11,6 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from fastapi import FastAPI, Request
-from fastapi.testclient import TestClient
-from pydantic import ValidationError
-from sqlalchemy import create_engine
-
 from app.api import router as api_router
 from app.api import successor_runtime as api_module
 from app.composition.production_runtime import (
@@ -25,6 +20,10 @@ from app.contracts.successor_runtime import (
     SuccessorRuntimeCommandMetaV2DTO,
     SuccessorRuntimeEnvelopeV2DTO,
     SuccessorRuntimeProjectScopeRefDTO,
+)
+from app.services.request_identity import (
+    authenticated_actor_context,
+    set_request_actor_context,
 )
 from app.successor_runtime.assembly import (
     ALL_I1_CELLS,
@@ -36,8 +35,32 @@ from app.successor_runtime.assembly.app_assembly import (
     SuccessorRuntimeAppDependencies,
     build_successor_runtime_app_dependencies,
 )
+from app.successor_runtime.assembly.material_ingest_assembly import (
+    ASSEMBLY_CELL_IDS as MATERIAL_ASSEMBLY_CELL_IDS,
+)
+from app.successor_runtime.assembly.knowledge_assembly import (
+    ASSEMBLY_CELL_IDS as KNOWLEDGE_ASSEMBLY_CELL_IDS,
+)
 from app.successor_runtime.assembly.successor_assembly import (
     assemble_successor_runtime,
+)
+from app.successor_runtime.capabilities.batch_task_native_contribution import (
+    ASSEMBLY_CELL_IDS as BATCH_TASK_ASSEMBLY_CELL_IDS,
+)
+from app.successor_runtime.capabilities.workflow_native_contribution import (
+    ASSEMBLY_CELL_IDS as WORKFLOW_ASSEMBLY_CELL_IDS,
+)
+from app.successor_runtime.capabilities.acquisition_native_contribution import (
+    ASSEMBLY_CELL_IDS as ACQUISITION_ASSEMBLY_CELL_IDS,
+)
+from app.successor_runtime.capabilities.source_native_contribution import (
+    ASSEMBLY_CELL_IDS as SOURCE_ASSEMBLY_CELL_IDS,
+)
+from app.successor_runtime.runtime.task_observation_native_contribution import (
+    ASSEMBLY_CELL_IDS as TASK_OBSERVATION_ASSEMBLY_CELL_IDS,
+)
+from app.successor_runtime.runtime.projection_native_contribution import (
+    ASSEMBLY_CELL_IDS as PROJECTION_ASSEMBLY_CELL_IDS,
 )
 from app.successor_runtime.runtime.facade import SuccessorRuntimeFacade
 from app.successor_runtime.runtime.facade_contracts import (
@@ -52,15 +75,30 @@ from app.successor_runtime.runtime.facade_contracts import (
     QueryReadPort,
     QueryResult,
 )
-from app.successor_runtime.runtime.ports import ProjectScopeRef
-from app.services.request_identity import (
-    authenticated_actor_context,
-    set_request_actor_context,
-)
-from app.successor_runtime.runtime.ports import RuntimeScope
+from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
 from app.successor_runtime.substrate.postgres.session import compute_scope_digest
+from fastapi import FastAPI, Request
+from fastapi.testclient import TestClient
+from pydantic import ValidationError
+from sqlalchemy import create_engine
 
 pytestmark = pytest.mark.unit
+
+EXPECTED_I1_CELLS = frozenset(
+    (
+        *WORKFLOW_ASSEMBLY_CELL_IDS,
+        *SOURCE_ASSEMBLY_CELL_IDS,
+        *ACQUISITION_ASSEMBLY_CELL_IDS,
+        *BATCH_TASK_ASSEMBLY_CELL_IDS,
+        *TASK_OBSERVATION_ASSEMBLY_CELL_IDS,
+        *MATERIAL_ASSEMBLY_CELL_IDS,
+        *KNOWLEDGE_ASSEMBLY_CELL_IDS,
+        *PROJECTION_ASSEMBLY_CELL_IDS,
+    )
+)
+PROJECTION_COMMAND_QUERY_CELL = PROJECTION_ASSEMBLY_CELL_IDS[0]
+PROJECTION_CLIENT_CONTRACT_CELL = PROJECTION_ASSEMBLY_CELL_IDS[1]
+KNOWLEDGE_REPORT_CELL = KNOWLEDGE_ASSEMBLY_CELL_IDS[2]
 
 LOCAL_PROJECT = "local-mount-demo"
 TRACE = "trace:mount:1"
@@ -178,7 +216,10 @@ class _QueryPort(QueryReadPort):
         if self._error is not None:
             raise self._error
         return self._result or QueryResult(
-            data={"projection_generation": 1, "cells": {"C9.1": "INSTALLED"}},
+            data={
+                "projection_generation": 1,
+                "cells": {PROJECTION_COMMAND_QUERY_CELL: "INSTALLED"},
+            },
             meta=ProjectionResponseMetaV2(
                 project_key=SCOPE.project_key,
                 trace_id=TRACE,
@@ -234,13 +275,12 @@ def test_default_mount_options_keep_assembly_fail_closed() -> None:
         options=deps.assembly_options,
     )
     coverage = assembly.coverage()
-    assert coverage["C9.1"] == "INSTALLED"
-    assert coverage["C9.2"] == "INSTALLED"
-    assert coverage["C8.3"] == "INSTALLED"
-    installed = {
-        cell_id for cell_id, status in coverage.items() if status == "INSTALLED"
-    }
-    assert installed == set(ALL_I1_CELLS)
+    assert coverage[PROJECTION_COMMAND_QUERY_CELL] == "INSTALLED"
+    assert coverage[PROJECTION_CLIENT_CONTRACT_CELL] == "INSTALLED"
+    assert coverage[KNOWLEDGE_REPORT_CELL] == "INSTALLED"
+    installed = {cell_id for cell_id, status in coverage.items() if status == "INSTALLED"}
+    assert EXPECTED_I1_CELLS == ALL_I1_CELLS
+    assert installed == EXPECTED_I1_CELLS
     assert len(assembly.projector_registry.projectors) == 6
 
 
@@ -259,7 +299,7 @@ def test_mounted_command_returns_typed_envelope() -> None:
     app = _app_with_router(router=router)
     with TestClient(app) as client:
         response = client.post(
-            "/api/v1/successor-runtime/v2/commands",
+            "/api/v1/material-projections/v2/commands",
             json=_command_body(),
         )
     assert response.status_code == 200
@@ -293,13 +333,13 @@ def test_mounted_query_returns_typed_projection_envelope() -> None:
     app = _app_with_router(router=router)
     with TestClient(app) as client:
         response = client.post(
-            "/api/v1/successor-runtime/v2/queries",
+            "/api/v1/material-projections/v2/queries",
             json=_query_body(),
         )
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
-    assert body["data"]["cells"]["C9.1"] == "INSTALLED"
+    assert body["data"]["cells"][PROJECTION_COMMAND_QUERY_CELL] == "INSTALLED"
     assert body["error"] is None
     assert body["meta"]["projection_id"] == PROJECTION_ID
     assert body["meta"]["projector_id"] == SOURCE_IDENTITY["projector_id"]
@@ -309,6 +349,55 @@ def test_mounted_query_returns_typed_projection_envelope() -> None:
     assert port.last.read_only is True
     for key in CONTROL_TOP_LEVEL_FIELDS:
         assert key not in body
+
+
+def test_legacy_command_route_is_rejected_without_facade_execution() -> None:
+    deps = build_successor_runtime_app_dependencies()
+    port = _CommandPort()
+    facade = SuccessorRuntimeFacade(
+        submission_port=port,
+        query_port=_QueryPort(),
+    )
+    router = api_module.create_successor_runtime_router(
+        resolver=deps.resolver,
+        facade=facade,
+        actor_provider=deps.actor_provider,
+    )
+    app = _app_with_router(router=router)
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/successor-runtime/v2/commands",
+            json=_command_body(),
+        )
+    assert response.status_code == 410
+    assert response.headers["Deprecation"] == "true"
+    assert response.json()["error"]["code"] == "ROUTE_DEPRECATED"
+    assert port.calls == 0
+
+
+def test_legacy_query_route_remains_deprecated_read_compatible() -> None:
+    deps = build_successor_runtime_app_dependencies()
+    port = _QueryPort()
+    facade = SuccessorRuntimeFacade(
+        submission_port=_CommandPort(),
+        query_port=port,
+    )
+    router = api_module.create_successor_runtime_router(
+        resolver=deps.resolver,
+        facade=facade,
+        actor_provider=deps.actor_provider,
+    )
+    app = _app_with_router(router=router)
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/successor-runtime/v2/queries",
+            json=_query_body(),
+        )
+    assert response.status_code == 200
+    assert response.headers["Deprecation"] == "true"
+    assert response.json()["status"] == "ok"
+    assert port.calls == 1
+    assert app.openapi()["paths"]["/api/v1/successor-runtime/v2/queries"]["post"]["deprecated"] is True
 
 
 def test_production_query_mount_returns_exact_registry_scope(
@@ -402,7 +491,7 @@ def test_production_query_mount_returns_exact_registry_scope(
 
     with TestClient(app) as client:
         response = client.post(
-            "/api/v1/successor-runtime/v2/queries",
+            "/api/v1/material-projections/v2/queries",
             json=_query_body(),
         )
 
@@ -417,9 +506,7 @@ def test_production_query_mount_returns_exact_registry_scope(
         "incarnation": registry_scope.incarnation,
         "scope_digest": registry_scope.scope_digest,
     }
-    assert body["meta"]["project_scope_ref"]["incarnation"] != (
-        "incarnation:local-only-app-mount:v1"
-    )
+    assert body["meta"]["project_scope_ref"]["incarnation"] != ("incarnation:local-only-app-mount:v1")
     assert body["control_feedback"] is False
     assert observed["resolver_connection"] is connection
     assert observed["repository_connection"] is connection
@@ -474,7 +561,7 @@ def test_mounted_router_exposes_all_six_v2_status_states(
     app = _app_with_router(router=router)
     with TestClient(app) as client:
         response = client.post(
-            "/api/v1/successor-runtime/v2/commands",
+            "/api/v1/material-projections/v2/commands",
             json=_command_body(command_id="cmd-status"),
         )
     assert response.status_code == 200
@@ -504,7 +591,7 @@ def test_scope_and_actor_rejections_return_typed_envelope() -> None:
     app = _app_with_router(router=router)
     with TestClient(app) as client:
         response = client.post(
-            "/api/v1/successor-runtime/v2/commands",
+            "/api/v1/material-projections/v2/commands",
             json=_command_body(project_locator="unknown-project"),
         )
     assert response.status_code == 200
@@ -526,7 +613,7 @@ def test_scope_and_actor_rejections_return_typed_envelope() -> None:
     app = _app_with_router(router=actor_router)
     with TestClient(app) as client:
         response = client.post(
-            "/api/v1/successor-runtime/v2/queries",
+            "/api/v1/material-projections/v2/queries",
             json=_query_body(),
         )
     assert response.status_code == 200
@@ -551,14 +638,14 @@ def test_unknown_authority_fields_are_rejected_before_facade() -> None:
     app = _app_with_router(router=router)
     with TestClient(app) as client:
         response = client.post(
-            "/api/v1/successor-runtime/v2/commands",
+            "/api/v1/material-projections/v2/commands",
             json=_command_body(execute=True),
         )
     assert response.status_code == 422
     assert port.calls == 0
     with TestClient(app) as client:
         response = client.post(
-            "/api/v1/successor-runtime/v2/commands",
+            "/api/v1/material-projections/v2/commands",
             json=_command_body(authority={"execute": True}),
         )
     assert response.status_code == 422
@@ -604,13 +691,17 @@ def test_envelope_dto_forbids_control_feedback_and_unknown_status() -> None:
     assert envelope.control_feedback is False
 
 
-def test_mount_preserves_legacy_routes_and_adds_only_new_prefix() -> None:
+def test_mount_exposes_current_and_explicit_legacy_routes() -> None:
     paths = {route.path for route in api_router.routes}
+    assert "/material-projections/v2/commands" in paths
+    assert "/material-projections/v2/queries" in paths
     assert "/successor-runtime/v2/commands" in paths
     assert "/successor-runtime/v2/queries" in paths
     assert len(paths) > 200
     app = _app_with_router()
     mounted_paths = {route.path for route in app.routes}
+    assert "/api/v1/material-projections/v2/commands" in mounted_paths
+    assert "/api/v1/material-projections/v2/queries" in mounted_paths
     assert "/api/v1/successor-runtime/v2/commands" in mounted_paths
     assert "/api/v1/successor-runtime/v2/queries" in mounted_paths
     assert len(mounted_paths) > 200

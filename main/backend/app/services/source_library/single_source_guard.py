@@ -4,7 +4,8 @@ from copy import deepcopy
 from typing import Annotated, Any, NoReturn
 
 from functorial_kit import Failure
-from mrw_functorial_kit.core.w06_semantics import source_library_single_source_guard_failures
+
+from mrw_functorial_kit.core.w06_semantics import source_single_source_guard_failures
 
 
 class SourceLibrarySingleSourceGuardError(ValueError):
@@ -24,7 +25,7 @@ def _guard_failure(
 ) -> Failure:
     context = {
         "boundary_class": "PURE_CONTRACT_FAILURE",
-        "failure_family": source_library_single_source_guard_failures.name,
+        "failure_family": source_single_source_guard_failures.name,
         "operation": "source_library.single_source_guard",
         "owner": "source_library.single_source_guard",
         "public_exception": "SourceLibrarySingleSourceGuardError",
@@ -33,23 +34,23 @@ def _guard_failure(
         "witness": _FAILURE_WITNESS,
         "details": details,
     }
-    return source_library_single_source_guard_failures.fail(code, message, context)
+    return source_single_source_guard_failures.fail(code, message, context)
 
 
 def _raise_guard_failure(failure: Failure, *, details: dict[str, Any]) -> NoReturn:
     context = failure.context or {}
     required = {"boundary_class", "failure_family", "operation", "owner", "public_exception", "public_message", "site", "witness"}
     if (
-        not source_library_single_source_guard_failures.matches(failure)
+        not source_single_source_guard_failures.matches(failure)
         or required - set(context)
-        or context.get("failure_family") != source_library_single_source_guard_failures.name
+        or context.get("failure_family") != source_single_source_guard_failures.name
         or context.get("boundary_class") != "PURE_CONTRACT_FAILURE"
         or context.get("public_exception") != "SourceLibrarySingleSourceGuardError"
         or context.get("public_message") != failure.message
     ):
-        # kit:boundary owner=source_library.single_source_guard.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
+        # kit:boundary owner=source.single-source-guard.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
         raise TypeError("single-source guard failure lift context is incomplete or inconsistent")
-    # kit:boundary owner=source_library.single_source_guard.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.single_source_guard.failure witness=test:test_w01_source_export_failures
+    # kit:boundary owner=source.single-source-guard.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source.single-source-guard.failure witness=test:test_w01_source_export_failures
     raise SourceLibrarySingleSourceGuardError(failure.message, details=details)
 
 

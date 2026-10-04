@@ -32,6 +32,19 @@ type WorkflowDryRunRequest = {
   params?: Record<string, unknown>
 }
 
+type WorkflowTemplateRequest = {
+  template_id?: string
+  name?: string
+  dsl?: { nodes?: unknown[]; edges?: unknown[] }
+  version_id?: string
+  stage?: string
+  from_stage?: string
+  to_stage?: string
+  target_stage?: string
+  target_version?: number
+  reason?: string
+}
+
 async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?: boolean; workflowTemplate?: boolean } = {}) {
   let graphConfigHit = 0
   let marketGraphHit = 0
@@ -44,11 +57,77 @@ async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?
   let curatedReportingHandoffHit = 0
   let handoffReplayHit = 0
   let workflowDryRunHit = 0
+  let workflowTemplateCreateHit = 0
+  let workflowTemplateRenameHit = 0
+  let workflowTemplateDeleteHit = 0
+  let workflowTemplateVersionSaveHit = 0
+  let workflowTemplateVersionLoadHit = 0
+  let workflowTemplateVersionActivateHit = 0
+  let workflowTemplateStageSaveHit = 0
+  let workflowTemplateStagePromoteHit = 0
+  let workflowTemplateRollbackPreviewHit = 0
+  let workflowTemplateRollbackApplyHit = 0
+  let workflowTemplateDiffHit = 0
+  let workflowTemplateStageAuditHit = 0
   let lastCuratedDraftBody: CuratedDraftRequest | null = null
   let lastCuratedSubmitBody: CuratedSubmitRequest | null = null
   let lastCuratedRollbackBody: CuratedRollbackRequest | null = null
   let lastCuratedReportingHandoffBody: CuratedReportingHandoffRequest | null = null
   let lastWorkflowDryRunBody: WorkflowDryRunRequest | null = null
+  let lastWorkflowTemplateBody: WorkflowTemplateRequest | null = null
+  const createdTemplateNames: string[] = []
+  let savedTemplateVersion = false
+  let promotedToStaging = false
+  let appliedRollback = false
+
+  const fulfillKernelRuntime = async (route: Route, data: unknown) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok', data }),
+    })
+  }
+
+  await page.route(/\/api\/v1\/health(?=\?|$)/, async (route) => {
+    await fulfillKernelRuntime(route, { status: 'ok', provider: 'mock', env: 'graphpage-e2e' })
+  })
+  await page.route(/\/api\/v1\/config\/env(?=\?|$)/, async (route) => {
+    await fulfillKernelRuntime(route, {
+      DATABASE_URL: 'postgresql://graphpage-e2e.example/mrw',
+      OPENAI_API_KEY: 'configured-for-graphpage-e2e',
+      SERPAPI_KEY: '',
+      NEWS_API_KEY: '',
+    })
+  })
+  await page.route(/\/api\/v1\/projects(?=\?|$)/, async (route) => {
+    await fulfillKernelRuntime(route, {
+      items: [{ project_key: 'default', name: 'Default', enabled: true, is_active: true }],
+      total: 1,
+    })
+  })
+  await page.route(/\/api\/v1\/codex-auth\/status(?=\?|$)/, async (route) => {
+    await fulfillKernelRuntime(route, {
+      authenticated: false,
+      token_sink_authenticated: false,
+      codex_oauth_enabled: true,
+    })
+  })
+  await page.route(/\/api\/v1\/information-topology\/topologies(?=\?|$)/, async (route) => {
+    await fulfillKernelRuntime(route, { items: [], total: 0 })
+  })
+
+  await page.route(/\/api\/v1\/information-topology\/topologies\/read(?=\?|$)/, async (route) => {
+    await route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        detail: {
+          status: 'error',
+          error: { code: 'NOT_FOUND', message: 'topology state was not found' },
+        },
+      }),
+    })
+  })
 
   await page.route('**/api/v1/project-customization/graph-config**', async (route) => {
     graphConfigHit += 1
@@ -116,6 +195,17 @@ async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?
   })
 
   const fulfillWorkflowTemplateList = async (route: Route) => {
+    if (route.request().method() === 'POST') {
+      workflowTemplateCreateHit += 1
+      lastWorkflowTemplateBody = route.request().postDataJSON() as WorkflowTemplateRequest
+      if (lastWorkflowTemplateBody.name) createdTemplateNames.push(lastWorkflowTemplateBody.name)
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'ok', data: { template_id: lastWorkflowTemplateBody.template_id, created: true } }),
+      })
+      return
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -123,9 +213,12 @@ async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?
         status: 'ok',
         data: {
           items: options.workflowTemplate
-            ? [{ template_id: 'gp-workflow-template', name: 'GraphPage Workflow Template', active_version_id: 'v-active' }]
-            : [],
-          total: options.workflowTemplate ? 1 : 0,
+            ? [
+                { template_id: 'gp-workflow-template', name: 'GraphPage Workflow Template', active_version_id: 'v-active' },
+                ...createdTemplateNames.map((name) => ({ template_id: name.replace(/\s+/g, '_'), name })),
+              ]
+            : createdTemplateNames.map((name) => ({ template_id: name.replace(/\s+/g, '_'), name })),
+          total: options.workflowTemplate ? 1 + createdTemplateNames.length : createdTemplateNames.length,
         },
       }),
     })
@@ -134,22 +227,99 @@ async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?
   await page.route('**/api/v1/workflow-graph/templates', fulfillWorkflowTemplateList)
   await page.route('**/api/v1/workflow-graph/templates?**', fulfillWorkflowTemplateList)
 
+  await page.route('**/api/v1/workflow-graph/templates/gp-workflow-template**', async (route) => {
+    const method = route.request().method()
+    if (method === 'PATCH') {
+      workflowTemplateRenameHit += 1
+      lastWorkflowTemplateBody = route.request().postDataJSON() as WorkflowTemplateRequest
+    }
+    if (method === 'DELETE') workflowTemplateDeleteHit += 1
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok', data: { template_id: 'gp-workflow-template', updated: method === 'PATCH', deleted: method === 'DELETE' } }),
+    })
+  })
+
   await page.route('**/api/v1/workflow-graph/templates/gp-workflow-template/versions**', async (route) => {
+    const url = new URL(route.request().url())
+    const method = route.request().method()
+    if (method === 'POST' && url.pathname.endsWith('/versions')) {
+      workflowTemplateVersionSaveHit += 1
+      lastWorkflowTemplateBody = route.request().postDataJSON() as WorkflowTemplateRequest
+      savedTemplateVersion = true
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'ok', data: { template_id: 'gp-workflow-template', version_id: lastWorkflowTemplateBody.version_id, created: true } }),
+      })
+      return
+    }
+    if (method === 'GET' && url.pathname.endsWith('/versions/v-e2e')) {
+      workflowTemplateVersionLoadHit += 1
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'ok',
+          data: {
+            template_id: 'gp-workflow-template',
+            version_id: 'v-e2e',
+            version: {
+              version_id: 'v-e2e',
+              dsl: { nodes: [{ id: 'loaded-node', type: 'product', name: '版本读回节点' }], edges: [] },
+            },
+          },
+        }),
+      })
+      return
+    }
+    if (method === 'POST' && url.pathname.endsWith('/activate')) {
+      workflowTemplateVersionActivateHit += 1
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'ok', data: { template_id: 'gp-workflow-template', version_id: 'v-e2e', activated: true } }),
+      })
+      return
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'ok',
         data: {
-          active_version_id: 'v-active',
-          items: [{ version_id: 'v-active', version_name: 'Active version', activated: true }],
-          total: 1,
+          active_version_id: savedTemplateVersion ? 'v-e2e' : 'v-active',
+          items: [
+            ...(savedTemplateVersion ? [{ version_id: 'v-e2e', version_name: 'E2E version', activated: true }] : []),
+            { version_id: 'v-active', version_name: 'Active version', activated: !savedTemplateVersion },
+          ],
+          total: savedTemplateVersion ? 2 : 1,
         },
       }),
     })
   })
 
   await page.route('**/api/v1/project-customization/workflows/gp-workflow-template/template/versions**', async (route) => {
+    if (route.request().method() === 'POST') {
+      workflowTemplateStageSaveHit += 1
+      lastWorkflowTemplateBody = route.request().postDataJSON() as WorkflowTemplateRequest
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'ok',
+          data: {
+            workflow_name: 'gp-workflow-template',
+            current_version: 42,
+            next_version: 43,
+            version_summary: { stage: 'draft', draft_version: 43, active_version: 42, requires_publish: true },
+          },
+        }),
+      })
+      return
+    }
+    workflowTemplateStageAuditHit += 1
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -158,10 +328,163 @@ async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?
         data: {
           workflow_name: 'gp-workflow-template',
           items: [
-            { stage: 'draft', version: 41, steps: [{ name: 'collect' }], requires_publish: true },
+            { stage: promotedToStaging ? 'staging' : 'draft', version: 43, steps: [{ name: 'collect' }], requires_publish: true },
             { stage: 'active', version: 42, steps: [{ name: 'collect' }, { name: 'publish' }], requires_publish: false },
           ],
-          stage_summary: { active_version: 42, draft_version: 41, requires_publish: true },
+          stage_summary: { active_version: 42, draft_version: 43, requires_publish: true },
+        },
+      }),
+    })
+  })
+
+  await page.route('**/api/v1/workflow-graph/templates/E2E_Created_Template/versions**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok', data: { items: [], total: 0 } }),
+    })
+  })
+
+  await page.route('**/api/v1/project-customization/workflows/E2E_Created_Template/template/versions**', async (route) => {
+    workflowTemplateStageAuditHit += 1
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok', data: { workflow_name: 'E2E_Created_Template', items: [], stage_summary: {} } }),
+    })
+  })
+
+  await page.route('**/api/v1/project-customization/workflows/gp-workflow-template/template/stage**', async (route) => {
+    workflowTemplateStageSaveHit += 1
+    lastWorkflowTemplateBody = route.request().postDataJSON() as WorkflowTemplateRequest
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'ok',
+        data: {
+          workflow_name: 'gp-workflow-template',
+          current_version: 42,
+          next_version: 43,
+          version_summary: { stage: 'draft', draft_version: 43, active_version: 42, requires_publish: true },
+        },
+      }),
+    })
+  })
+
+  await page.route('**/api/v1/project-customization/workflows/gp-workflow-template/template/promote**', async (route) => {
+    workflowTemplateStagePromoteHit += 1
+    lastWorkflowTemplateBody = route.request().postDataJSON() as WorkflowTemplateRequest
+    promotedToStaging = lastWorkflowTemplateBody.to_stage === 'staging'
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'ok',
+        data: {
+          workflow_name: 'gp-workflow-template',
+          promoted: true,
+          current_version: 42,
+          next_version: 43,
+          version_summary: {
+            stage: promotedToStaging ? 'staging' : 'active',
+            staging_version: 43,
+            active_version: promotedToStaging ? 42 : 43,
+            requires_publish: promotedToStaging,
+          },
+        },
+      }),
+    })
+  })
+
+  await page.route('**/api/v1/project-customization/workflows/gp-workflow-template/template/diff**', async (route) => {
+    workflowTemplateDiffHit += 1
+    lastWorkflowTemplateBody = route.request().postDataJSON() as WorkflowTemplateRequest
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'ok',
+        data: {
+          current_version: 42,
+          next_version: 43,
+          version_summary: { stage: 'draft', active_version: 42, draft_version: 43, will_mutate: false, requires_publish: true },
+          diff: {
+            board_layout_changed: true,
+            steps: [{
+              index: 1,
+              change_type: 'changed',
+              before: { handler: 'collect' },
+              after: { handler: 'product', name: '示例商品A', enabled: true },
+            }],
+            step_count_before: 2,
+            step_count_after: 2,
+          },
+          reason_code: 'BOARD_LAYOUT_CHANGED',
+          risk_level: 'medium',
+          affected_areas: ['board_layout'],
+          policy_change: { changed: false, requires_publish: true, stage: 'draft' },
+        },
+      }),
+    })
+  })
+
+  await page.route('**/api/v1/project-customization/workflows/gp-workflow-template/template/rollback/preview**', async (route) => {
+    workflowTemplateRollbackPreviewHit += 1
+    lastWorkflowTemplateBody = route.request().postDataJSON() as WorkflowTemplateRequest
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'ok',
+        data: {
+          workflow_name: 'gp-workflow-template',
+          rollback_preview: true,
+          rollback_plan: {
+            mode: 'preview_only',
+            can_execute: true,
+            will_mutate: false,
+            target_stage: 'draft',
+            target_version: 41,
+            from_stage: 'active',
+            to_stage: 'draft',
+            target_stage_record: { steps: [{ name: 'collect' }] },
+            requires_explicit_apply: true,
+          },
+          audit: { action: 'rollback.preview', actor: 'graph-ui', from_stage: 'active', to_stage: 'draft', trace_id: 'graph-ui-rollback-preview' },
+          history: [{ action: 'rollback.preview' }],
+        },
+      }),
+    })
+  })
+
+  await page.route(/\/api\/v1\/project-customization\/workflows\/gp-workflow-template\/template\/rollback(?:\?.*)?$/, async (route) => {
+    workflowTemplateRollbackApplyHit += 1
+    lastWorkflowTemplateBody = route.request().postDataJSON() as WorkflowTemplateRequest
+    appliedRollback = true
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'ok',
+        data: {
+          workflow_name: 'gp-workflow-template',
+          rolled_back: true,
+          current_version: 44,
+          next_version: 44,
+          rollback_plan: {
+            mode: 'apply',
+            can_execute: true,
+            will_mutate: true,
+            target_stage: 'draft',
+            target_version: 41,
+            from_stage: 'active',
+            to_stage: 'draft',
+            target_stage_record: { steps: [{ name: 'collect' }] },
+          },
+          audit: { action: 'rollback.apply', actor: 'graph-ui', applied_by: 'graph-ui', from_stage: 'active', to_stage: 'draft', trace_id: 'graph-ui-rollback-apply' },
+          version_summary: { stage: 'draft', draft_version: 44, active_version: 42, requires_publish: true },
+          history: [{ action: 'rollback.preview' }, { action: 'rollback.apply' }],
         },
       }),
     })
@@ -421,6 +744,42 @@ async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?
     get workflowDryRunHit() {
       return workflowDryRunHit
     },
+    get workflowTemplateCreateHit() {
+      return workflowTemplateCreateHit
+    },
+    get workflowTemplateRenameHit() {
+      return workflowTemplateRenameHit
+    },
+    get workflowTemplateDeleteHit() {
+      return workflowTemplateDeleteHit
+    },
+    get workflowTemplateVersionSaveHit() {
+      return workflowTemplateVersionSaveHit
+    },
+    get workflowTemplateVersionLoadHit() {
+      return workflowTemplateVersionLoadHit
+    },
+    get workflowTemplateVersionActivateHit() {
+      return workflowTemplateVersionActivateHit
+    },
+    get workflowTemplateStageSaveHit() {
+      return workflowTemplateStageSaveHit
+    },
+    get workflowTemplateStagePromoteHit() {
+      return workflowTemplateStagePromoteHit
+    },
+    get workflowTemplateRollbackPreviewHit() {
+      return workflowTemplateRollbackPreviewHit
+    },
+    get workflowTemplateRollbackApplyHit() {
+      return workflowTemplateRollbackApplyHit
+    },
+    get workflowTemplateDiffHit() {
+      return workflowTemplateDiffHit
+    },
+    get workflowTemplateStageAuditHit() {
+      return workflowTemplateStageAuditHit
+    },
     get lastCuratedDraftBody() {
       return lastCuratedDraftBody
     },
@@ -435,6 +794,12 @@ async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?
     },
     get lastWorkflowDryRunBody() {
       return lastWorkflowDryRunBody
+    },
+    get lastWorkflowTemplateBody() {
+      return lastWorkflowTemplateBody
+    },
+    get appliedRollback() {
+      return appliedRollback
     },
   }
 }
@@ -533,6 +898,47 @@ test('graph page renders force3d canvas backed by graph scene nodes', async ({ p
     expect(outcome.fallbackText).toContain('3D引擎渲染失败')
     expect(outcome.engineValue).toBe('legacy')
   }
+})
+
+test('market subgraph tabs reuse one total graph while rescheduling an isolated 3D display resource', async ({ page }) => {
+  const hits = await setupGraphPageMocks(page)
+  const response = await page.goto('/#graph.html?type=market')
+  expect(response?.ok()).toBeTruthy()
+  await expect(page.getByRole('tablist', { name: '图谱' })).toBeVisible()
+
+  const renderModeToggle = page.locator('button[title="轻量3D模型模式（中心锁定，非相机视角）"]').first()
+  await renderModeToggle.click()
+  const canvasHost = page.getByTestId('graph-force3d-canvas-host')
+  await expect(canvasHost).toBeVisible({ timeout: 20000 })
+  await expect.poll(async () => page.evaluate(() => {
+    const host = document.querySelector('[data-testid="graph-force3d-canvas-host"]') as HTMLElement | null
+    const canvas = host?.querySelector('canvas') as HTMLCanvasElement | null
+    const stats = (window as Window & { __graph3dDebug?: { getVisibilityStats: () => { dataNodes: number; sceneNodeObjects: number } } })
+      .__graph3dDebug?.getVisibilityStats()
+    return Boolean(host && canvas && canvas.width > 0 && canvas.height > 0 && stats && stats.dataNodes > 0 && stats.sceneNodeObjects >= stats.dataNodes)
+  }), { timeout: 20000 }).toBe(true)
+  const sourceReadCount = hits.marketGraphHit
+
+  for (const projectionId of ['graphDeep', 'graphCompany', 'graphProduct', 'graphOperation', 'graphMarket']) {
+    const tab = page.getByTestId(`graph-workspace-tab-${projectionId}`)
+    await tab.click()
+    await expect(tab).toHaveAttribute('aria-selected', 'true')
+    await expect.poll(async () => page.evaluate(() => {
+      const host = document.querySelector('[data-testid="graph-force3d-canvas-host"]') as HTMLElement | null
+      const canvas = host?.querySelector('canvas') as HTMLCanvasElement | null
+      const stats = (window as Window & { __graph3dDebug?: { getVisibilityStats: () => { dataNodes: number; sceneNodeObjects: number } } })
+        .__graph3dDebug?.getVisibilityStats()
+      return Boolean(host && canvas && canvas.width > 0 && canvas.height > 0 && stats && stats.dataNodes > 0 && stats.sceneNodeObjects >= stats.dataNodes)
+    }), { timeout: 20000 }).toBe(true)
+  }
+
+  expect(hits.marketGraphHit).toBe(sourceReadCount)
+
+  const policyTab = page.getByTestId('graph-workspace-tab-graphPolicy')
+  await policyTab.click()
+  await expect(policyTab).toHaveAttribute('aria-selected', 'true')
+  await expect(page).toHaveURL(/#\/visual\/graph\/policy$/)
+  await expect(page.getByRole('heading', { level: 1, name: '政策图谱', exact: true })).toBeVisible()
 })
 
 test('graph page survives rapid 3D engine switch with viewport evidence or fallback', async ({ page }) => {
@@ -742,6 +1148,83 @@ test('graph builder dry-runs workflow template without writes', async ({ page })
     dry_run: true,
     params: {},
   }))
+})
+
+test('graph builder controls complete template lifecycle with staging and rollback evidence', async ({ page }) => {
+  const hits = await setupGraphPageMocks(page, { workflowTemplate: true })
+
+  const response = await page.goto('/#graph-template-new.html')
+  expect(response?.ok()).toBeTruthy()
+
+  await expect(page.getByRole('heading', { level: 1, name: '新建图谱', exact: true })).toBeVisible()
+  await expect(page.getByTestId('graph-template-select')).toHaveValue('gp-workflow-template')
+  await expect(page.getByText(/draft/).first()).toBeVisible()
+
+  await page.getByTestId('graph-template-stage-audit-refresh').click()
+  await expect.poll(() => hits.workflowTemplateStageAuditHit).toBeGreaterThanOrEqual(2)
+
+  await page.getByTestId('graph-template-diff').click()
+  await expect(page.getByTestId('graph-template-diff-result')).toContainText('current=42')
+  await expect(page.getByTestId('graph-template-diff-result')).toContainText('next=43')
+  await expect(page.getByTestId('graph-template-diff-result')).toContainText('changes=1')
+  expect(hits.workflowTemplateDiffHit).toBe(1)
+
+  await page.getByTestId('graph-template-stage-save').click()
+  await expect.poll(() => hits.workflowTemplateStageSaveHit).toBe(1)
+  await expect(page.getByText(/draft/).first()).toBeVisible()
+
+  await page.getByTestId('graph-template-stage-promote').click()
+  await expect.poll(() => hits.workflowTemplateStagePromoteHit).toBe(1)
+  await page.getByTestId('graph-template-stage-apply').click()
+  await expect.poll(() => hits.workflowTemplateStagePromoteHit).toBe(2)
+
+  await page.getByTestId('graph-template-rollback-stage').selectOption('draft')
+  await page.getByTestId('graph-template-rollback-version').fill('41')
+  await page.getByTestId('graph-template-rollback-reason').fill('restore draft for graph e2e')
+  await page.getByTestId('graph-template-rollback-preview').click()
+  await expect(page.getByTestId('graph-template-rollback-preview')).toBeEnabled()
+  await expect(page.getByTestId('graph-template-rollback-result')).toContainText('mode=preview_only')
+  await expect(page.getByTestId('graph-template-rollback-result')).toContainText('will_mutate=false')
+  expect(hits.workflowTemplateRollbackPreviewHit).toBe(1)
+
+  await page.getByTestId('graph-template-rollback-apply').click()
+  await expect(page.getByTestId('graph-template-rollback-result')).toContainText('mode=apply')
+  await expect(page.getByTestId('graph-template-rollback-result')).toContainText('action=rollback.apply')
+  await expect.poll(() => hits.workflowTemplateRollbackApplyHit).toBe(1)
+  expect(hits.appliedRollback).toBe(true)
+
+  await page.getByTestId('graph-template-version-name').fill('v-e2e')
+  await page.getByTestId('graph-template-version-save').click()
+  await expect.poll(() => hits.workflowTemplateVersionSaveHit).toBe(1)
+  expect(hits.lastWorkflowTemplateBody).toEqual(expect.objectContaining({
+    version_id: 'v-e2e',
+    dsl: expect.objectContaining({ nodes: expect.any(Array), edges: expect.any(Array) }),
+  }))
+
+  await page.getByTestId('graph-template-version-select').selectOption('v-e2e')
+  await page.getByTestId('graph-template-version-load').click()
+  await expect.poll(() => hits.workflowTemplateVersionLoadHit).toBe(1)
+  await expect(page.getByText(/Draft: nodes=1 edges=0/)).toBeVisible()
+
+  await page.getByTestId('graph-template-version-activate').click()
+  await expect.poll(() => hits.workflowTemplateVersionActivateHit).toBe(1)
+
+  await page.getByTestId('graph-template-create-name').fill('E2E Created Template')
+  await page.getByTestId('graph-template-create').click()
+  await expect.poll(() => hits.workflowTemplateCreateHit).toBe(1)
+  expect(hits.lastWorkflowTemplateBody).toEqual(expect.objectContaining({
+    template_id: 'E2E_Created_Template',
+    name: 'E2E Created Template',
+  }))
+
+  await page.getByTestId('graph-template-select').selectOption('gp-workflow-template')
+  await page.getByTestId('graph-template-rename-name').fill('Renamed Graph Template')
+  await page.getByTestId('graph-template-rename').click()
+  await expect.poll(() => hits.workflowTemplateRenameHit).toBe(1)
+  expect(hits.lastWorkflowTemplateBody).toEqual(expect.objectContaining({ name: 'Renamed Graph Template' }))
+
+  await page.getByTestId('graph-template-delete').click()
+  await expect.poll(() => hits.workflowTemplateDeleteHit).toBe(1)
 })
 
 test('graph builder surfaces curated submit conflict without retrying destructively', async ({ page }) => {

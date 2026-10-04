@@ -41,7 +41,7 @@ from app.services.source_library.resolver import (
 )
 from app.services.source_library.types import FrontDoorExecutionProtocol
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.source_library_c2_1 import (
+from app.successor_runtime.capabilities.source_resolution import (
     SOURCE_RESOLUTION_OBSERVATION_PROFILE,
     FrontDoorConcurrencyPlan,
     FrontDoorConcurrencyStage,
@@ -57,8 +57,8 @@ from app.successor_runtime.capabilities.source_library_c2_1 import (
     SourceTaxonomy,
     versioned_warning_from_legacy_string,
 )
-from app.successor_runtime.capabilities.source_library_c2_1_interpreters import (
-    SOURCE_LIBRARY_C2_1_LEGACY_INTERPRETER_ID,
+from app.successor_runtime.capabilities.source_resolution_interpreters import (
+    SOURCE_RESOLUTION_LEGACY_INTERPRETER_ID,
     InterpreterFailure,
     InterpreterSuccess,
     ResolutionBindingMismatch,
@@ -295,7 +295,7 @@ class LegacyResolutionTrace:
 class LegacySourceLibraryC2_1Adapter:
     """Legacy sibling interpreter for the C2.1 resolve atom."""
 
-    interpreter_id = SOURCE_LIBRARY_C2_1_LEGACY_INTERPRETER_ID
+    interpreter_id = SOURCE_RESOLUTION_LEGACY_INTERPRETER_ID
 
     def __init__(self) -> None:
         self.resolves = 0

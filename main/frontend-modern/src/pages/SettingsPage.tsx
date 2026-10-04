@@ -15,6 +15,7 @@ import { queryKeys } from '../lib/queryKeys'
 import type { EnvSettings, LlmServiceConfigItem, LlmTemplateUpdatePayload } from '../lib/types'
 import { APP_THEMES, isAppTheme, setAppTheme, useAppTheme, type AppTheme } from '../app/platform/theme'
 import { APP_LOCALES, setAppLocale, translate, useAppLocale, type MessageKey } from '../app/platform/i18n'
+import './settings-management-page.css'
 
 export type SettingsPageProps = {
   projectKey: string
@@ -57,29 +58,16 @@ const GUIDE_SNIPPET_KEYS: Record<StatusIntentGuide, MessageKey> = {
   es: 'settingsPage.snippet.es',
 }
 
-const ENV_KEYS = [
-  'DATABASE_URL',
-  'ES_URL',
-  'REDIS_URL',
-  'LLM_PROVIDER',
-  'OPENAI_API_KEY',
-  'OPENAI_API_BASE',
-  'AZURE_API_KEY',
-  'AZURE_API_BASE',
-  'AZURE_API_VERSION',
-  'AZURE_CHAT_DEPLOYMENT',
-  'AZURE_EMBEDDING_DEPLOYMENT',
-  'OLLAMA_BASE_URL',
-  'LEGISCAN_API_KEY',
-  'NEWS_API_KEY',
-  'SERPAPI_KEY',
-  'SERPSTACK_KEY',
-  'SERPER_API_KEY',
-  'GOOGLE_SEARCH_API_KEY',
-  'GOOGLE_SEARCH_CSE_ID',
-  'AZURE_SEARCH_ENDPOINT',
-  'AZURE_SEARCH_KEY',
+const ENV_GROUPS = [
+  { title: { zh: '模型服务', en: 'Model services' }, keys: ['LLM_PROVIDER', 'OPENAI_API_KEY', 'OPENAI_API_BASE', 'AZURE_API_KEY', 'AZURE_API_BASE', 'AZURE_API_VERSION', 'AZURE_CHAT_DEPLOYMENT', 'AZURE_EMBEDDING_DEPLOYMENT', 'OLLAMA_BASE_URL'] },
+  { title: { zh: '搜索与新闻', en: 'Search and news' }, keys: ['SERPAPI_KEY', 'SERPSTACK_KEY', 'SERPER_API_KEY', 'GOOGLE_SEARCH_API_KEY', 'GOOGLE_SEARCH_CSE_ID', 'NEWS_API_KEY', 'LEGISCAN_API_KEY', 'AZURE_SEARCH_ENDPOINT', 'AZURE_SEARCH_KEY'] },
+  { title: { zh: '存储与运行', en: 'Storage and runtime' }, keys: ['DATABASE_URL', 'ES_URL', 'REDIS_URL'] },
 ] as const
+
+const SETTINGS_COPY = {
+  zh: { globalScope: '作用范围：全局环境连接', projectScope: '作用范围：当前项目', envConnection: '环境连接', configNote: '配置状态与连接观测分开显示；当前页面不会把已配置当作健康。', projectNote: '模型与提示词模板只影响当前项目；连接健康需由运行观测确认。', configured: '已配置 · 未检测', unconfigured: '未配置', advanced: '高级参数与提示词' },
+  en: { globalScope: 'Scope: global environment connections', projectScope: 'Scope: current project', envConnection: 'Environment connection', configNote: 'Configuration and connection observations are shown separately; configured does not imply healthy.', projectNote: 'Models and prompt templates apply to this project; connection health comes from runtime observations.', configured: 'Configured · not tested', unconfigured: 'Not configured', advanced: 'Advanced parameters and prompts' },
+} as const
 
 function formatSettingsTemplate(template: string, values: Record<string, string | number>) {
   return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_, key: string) => String(values[key] ?? ''))
@@ -471,6 +459,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
 }
 
 export function SettingsPageView({
+  projectKey,
   variant,
   locale,
   appTheme,
@@ -515,6 +504,7 @@ export function SettingsPageView({
   const t = (key: MessageKey) => translate(locale, key)
   const formatTemplate = (key: MessageKey, values: Record<string, string | number>) =>
     formatSettingsTemplate(t(key), values)
+  const copy = locale === 'zh-CN' ? SETTINGS_COPY.zh : SETTINGS_COPY.en
   const pageTitle = variant === 'llm' ? t('settingsPage.title.llmView') : t('settingsPage.title.settingsView')
   const guideMessage = guideType ? t(GUIDE_MESSAGE_KEYS[guideType]) : ''
 
@@ -582,12 +572,26 @@ export function SettingsPageView({
           </div>
         ) : null}
 
-        <div className="form-grid cols-2">
-          {ENV_KEYS.map((key) => (
-            <label key={key} data-env-key={key}>
-              <span>{key}</span>
-              <input value={effectiveEnvDraft[key] || ''} onChange={(e) => onEnvDraftChange(key, e.target.value)} placeholder={formatTemplate('settingsPage.placeholder.envKey', { key })} />
-            </label>
+        <div className="settings-scope-summary">
+          <span className="settings-scope-badge">{copy.globalScope}</span>
+          <span className="settings-status-note">{copy.configNote}</span>
+        </div>
+        <div className="settings-service-groups">
+          {ENV_GROUPS.map((group) => (
+            <section className="settings-service-group" key={group.title.en}>
+              <div className="settings-service-group__header"><h3>{locale === 'zh-CN' ? group.title.zh : group.title.en}</h3><span>{copy.envConnection}</span></div>
+              <div className="form-grid cols-2">
+                {group.keys.map((key) => {
+                  const configured = Boolean(effectiveEnvDraft[key])
+                  return (
+                    <label key={key} data-env-key={key}>
+                      <span>{key} <em className={configured ? 'settings-config-status is-configured' : 'settings-config-status'}>{configured ? copy.configured : copy.unconfigured}</em></span>
+                      <input value={effectiveEnvDraft[key] || ''} onChange={(e) => onEnvDraftChange(key, e.target.value)} placeholder={formatTemplate('settingsPage.placeholder.envKey', { key })} />
+                    </label>
+                  )
+                })}
+              </div>
+            </section>
           ))}
         </div>
 
@@ -611,6 +615,11 @@ export function SettingsPageView({
               {llmTemplatesFetching ? t('settingsPage.action.refreshing') : t('settingsPage.action.refresh')}
             </button>
           </div>
+        </div>
+
+        <div className="settings-scope-summary">
+          <span className="settings-scope-badge">{copy.projectScope} · {projectKey}</span>
+          <span className="settings-status-note">{copy.projectNote}</span>
         </div>
 
         <div className="inline-actions" style={{ marginBottom: 12, flexWrap: 'wrap' }}>
@@ -692,7 +701,9 @@ export function SettingsPageView({
                               <span>{t('settingsPage.field.enabled')}</span>
                             </label>
                           </div>
-                          <div className="form-grid" style={{ marginTop: 8 }}>
+                          <details className="settings-advanced-fields">
+                            <summary>{copy.advanced}</summary>
+                            <div className="form-grid" style={{ marginTop: 8 }}>
                             <label>
                               <span>{t('settingsPage.field.systemPrompt')}</span>
                               <textarea value={draft.system_prompt} onChange={(e) => onTemplateDraftChange(row.service_name, { system_prompt: e.target.value })} rows={5} />
@@ -701,7 +712,8 @@ export function SettingsPageView({
                               <span>{t('settingsPage.field.userPromptTemplate')}</span>
                               <textarea value={draft.user_prompt_template} onChange={(e) => onTemplateDraftChange(row.service_name, { user_prompt_template: e.target.value })} rows={5} />
                             </label>
-                          </div>
+                            </div>
+                          </details>
                           <div className="inline-actions" style={{ marginTop: 8 }}>
                             <button disabled={isSaving} onClick={() => onSaveTemplate(row.service_name, draft)}>
                               {isSaving ? t('settingsPage.action.saving') : formatTemplate('settingsPage.action.saveServiceTemplate', { serviceName: row.service_name })}

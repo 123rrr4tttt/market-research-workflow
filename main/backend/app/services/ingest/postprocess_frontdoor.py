@@ -8,7 +8,7 @@ from ..extraction.application import ExtractionApplicationService
 from .canary_handoff import build_single_url_canary_handoff
 from .cleanup_executor import execute_frontdoor_cleanup
 from .content_cleaner import clean_frontdoor_document_candidate
-from .content_extraction import apply_main_content_extraction
+from .content_extraction import apply_main_content_extraction, is_extracted_pdf_body
 from .frontdoor_ingress import CONTRACT_VERSION as INGRESS_CONTRACT_VERSION
 from .gate_reason_codes import normalize_reason_code
 from .guardrail_rollout import resolve_ingest_guardrail_rollout_decision
@@ -545,6 +545,9 @@ def _evaluate_quality_frontdoor(
     if "filter_decision" in existing_light_filter:
         light_filter = dict(existing_light_filter)
     else:
+        light_filter_options = normalize_light_filter_options(existing_light_filter)
+        if is_extracted_pdf_body(candidate):
+            light_filter_options["light_filter_reject_static_assets"] = False
         light_filter = evaluate_light_filter(
             url=uri,
             title=title,
@@ -552,7 +555,7 @@ def _evaluate_quality_frontdoor(
             source_domain=source_base_url,
             http_status=http_status,
             entry_type=entry_type,
-            options=normalize_light_filter_options(existing_light_filter),
+            options=light_filter_options,
         )
 
     light_reason = normalize_reason_code(light_filter.get("filter_reason_code"), default="ok")

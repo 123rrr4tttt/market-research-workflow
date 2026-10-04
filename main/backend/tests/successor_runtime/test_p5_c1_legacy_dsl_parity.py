@@ -14,7 +14,7 @@ import inspect
 
 import pytest
 
-from app.successor_runtime.capabilities import c1_legacy_dsl as c1
+from app.successor_runtime.capabilities import workflow_legacy_dsl as workflow
 
 
 def _node(
@@ -79,8 +79,8 @@ def test_valid_legacy_dsl_parse_and_compile_is_deterministic() -> None:
         ],
         edges=[("retrieve", "combine"), ("draft", "combine")],
     )
-    first = c1.parse_and_validate_legacy_dsl(payload)
-    second = c1.parse_and_validate_legacy_dsl(payload)
+    first = workflow.parse_and_validate_workflow_dsl(payload)
+    second = workflow.parse_and_validate_workflow_dsl(payload)
 
     assert first.ok and second.ok
     assert first.program_digest == second.program_digest
@@ -92,40 +92,40 @@ def test_valid_legacy_dsl_parse_and_compile_is_deterministic() -> None:
 
 def test_duplicate_node_id_is_rejected_with_typed_code() -> None:
     """movement binding: C1-M001 | evidence ref: evidence:c1:m001:legacy-dsl-parity"""
-    receipt = c1.parse_and_validate_legacy_dsl(
+    receipt = workflow.parse_and_validate_workflow_dsl(
         _payload([_node("a"), _node("a", "llm_call")])
     )
 
     assert not receipt.ok
     assert receipt.failure is not None
-    assert receipt.failure.code == c1.C1_DSL_DUPLICATE_NODE_ID
+    assert receipt.failure.code == workflow.WORKFLOW_DSL_DUPLICATE_NODE_ID
 
 
 def test_unsupported_node_type_is_rejected_with_typed_code() -> None:
     """movement binding: C1-M001 | evidence ref: evidence:c1:m001:legacy-dsl-parity"""
-    receipt = c1.parse_and_validate_legacy_dsl(
+    receipt = workflow.parse_and_validate_workflow_dsl(
         _payload([_node("a"), _node("b", "web_search")])
     )
 
     assert not receipt.ok
     assert receipt.failure is not None
-    assert receipt.failure.code == c1.C1_DSL_UNSUPPORTED_NODE_TYPE
+    assert receipt.failure.code == workflow.WORKFLOW_DSL_UNSUPPORTED_NODE_TYPE
 
 
 def test_edge_referencing_missing_node_is_rejected_with_typed_code() -> None:
     """movement binding: C1-M001 | evidence ref: evidence:c1:m001:legacy-dsl-parity"""
-    receipt = c1.parse_and_validate_legacy_dsl(
+    receipt = workflow.parse_and_validate_workflow_dsl(
         _payload([_node("a")], edges=[("a", "missing")])
     )
 
     assert not receipt.ok
     assert receipt.failure is not None
-    assert receipt.failure.code == c1.C1_DSL_MISSING_ENDPOINT
+    assert receipt.failure.code == workflow.WORKFLOW_DSL_MISSING_ENDPOINT
 
 
 def test_cycle_is_rejected_with_typed_code() -> None:
     """movement binding: C1-M001 | evidence ref: evidence:c1:m001:legacy-dsl-parity"""
-    receipt = c1.parse_and_validate_legacy_dsl(
+    receipt = workflow.parse_and_validate_workflow_dsl(
         _payload(
             [_node("a"), _node("b")],
             edges=[("a", "b"), ("b", "a")],
@@ -134,7 +134,7 @@ def test_cycle_is_rejected_with_typed_code() -> None:
 
     assert not receipt.ok
     assert receipt.failure is not None
-    assert receipt.failure.code == c1.C1_DSL_CYCLE
+    assert receipt.failure.code == workflow.WORKFLOW_DSL_CYCLE
 
 
 @pytest.mark.parametrize(
@@ -153,22 +153,22 @@ def test_cycle_is_rejected_with_typed_code() -> None:
 )
 def test_malformed_payload_is_rejected_with_typed_code(payload: dict) -> None:
     """movement binding: C1-M001 | evidence ref: evidence:c1:m001:legacy-dsl-parity"""
-    receipt = c1.parse_and_validate_legacy_dsl(payload)
+    receipt = workflow.parse_and_validate_workflow_dsl(payload)
 
     assert not receipt.ok
     assert receipt.failure is not None
-    assert receipt.failure.code == c1.C1_DSL_MALFORMED_PAYLOAD
+    assert receipt.failure.code == workflow.WORKFLOW_DSL_MALFORMED_PAYLOAD
 
 
 def test_node_kind_change_alters_plan_digest() -> None:
     """movement binding: C1-M002 | evidence ref: evidence:c1:m002:digest-counterexamples"""
-    base = c1.parse_and_validate_legacy_dsl(
+    base = workflow.parse_and_validate_workflow_dsl(
         _payload(
             [_node("a", "vector_search", {"top_k": 3}), _node("b", "llm_call")],
             edges=[("a", "b")],
         )
     )
-    changed = c1.parse_and_validate_legacy_dsl(
+    changed = workflow.parse_and_validate_workflow_dsl(
         _payload(
             [_node("a", "llm_call", {"top_k": 3}), _node("b", "llm_call")],
             edges=[("a", "b")],
@@ -182,10 +182,10 @@ def test_node_kind_change_alters_plan_digest() -> None:
 
 def test_node_config_change_alters_program_and_plan_digests() -> None:
     """movement binding: C1-M002 | evidence ref: evidence:c1:m002:digest-counterexamples"""
-    base = c1.parse_and_validate_legacy_dsl(
+    base = workflow.parse_and_validate_workflow_dsl(
         _payload([_node("a", "vector_search", {"top_k": 3})])
     )
-    changed = c1.parse_and_validate_legacy_dsl(
+    changed = workflow.parse_and_validate_workflow_dsl(
         _payload([_node("a", "vector_search", {"top_k": 9})])
     )
 
@@ -199,10 +199,10 @@ def test_node_config_change_alters_program_and_plan_digests() -> None:
 
 def test_swapped_node_order_alters_plan_digest_ordered_not_commutative() -> None:
     """movement binding: C1-M002 | evidence ref: evidence:c1:m002:digest-counterexamples"""
-    forward = c1.parse_and_validate_legacy_dsl(
+    forward = workflow.parse_and_validate_workflow_dsl(
         _payload([_node("a", "vector_search"), _node("b", "llm_call")])
     )
-    swapped = c1.parse_and_validate_legacy_dsl(
+    swapped = workflow.parse_and_validate_workflow_dsl(
         _payload([_node("b", "llm_call"), _node("a", "vector_search")])
     )
 
@@ -216,12 +216,12 @@ def test_swapped_node_order_alters_plan_digest_ordered_not_commutative() -> None
 def test_missing_catalog_contract_surfaces_typed_compile_failure() -> None:
     """movement binding: C1-M002 | evidence ref: evidence:c1:m002:digest-counterexamples"""
     contracts = (
-        c1.build_c1_contract("workflow.vector_search.v1"),
-        c1.build_c1_contract("workflow.llm_call.v1"),
+        workflow.build_workflow_contract("workflow.vector_search.v1"),
+        workflow.build_workflow_contract("workflow.llm_call.v1"),
     )
-    catalog = c1.build_c1_catalog(contracts)
-    registry = c1.build_c1_registry(contracts)
-    receipt = c1.parse_and_validate_legacy_dsl(
+    catalog = workflow.build_workflow_catalog(contracts)
+    registry = workflow.build_workflow_registry(contracts)
+    receipt = workflow.parse_and_validate_workflow_dsl(
         _payload([_node("a", "join", {"field": "values"})]),
         catalog=catalog,
         operation_contracts=registry,
@@ -229,16 +229,16 @@ def test_missing_catalog_contract_surfaces_typed_compile_failure() -> None:
 
     assert not receipt.ok
     assert receipt.failure is not None
-    assert receipt.failure.code == c1.C1_DSL_COMPILE_FAILURE
+    assert receipt.failure.code == workflow.WORKFLOW_DSL_COMPILE_FAILURE
     assert receipt.failure.nested_code == "UNKNOWN_OPERATION_CONTRACT"
 
 
 def test_receipt_counts_effect_provider_and_store_as_zero() -> None:
     """movement binding: C1-M001 | evidence ref: evidence:c1:m001:legacy-dsl-parity"""
-    ok = c1.parse_and_validate_legacy_dsl(
+    ok = workflow.parse_and_validate_workflow_dsl(
         _payload([_node("a", "vector_search"), _node("b", "llm_call")])
     )
-    rejected = c1.parse_and_validate_legacy_dsl(
+    rejected = workflow.parse_and_validate_workflow_dsl(
         _payload([_node("a"), _node("a", "llm_call")])
     )
 
@@ -250,7 +250,7 @@ def test_receipt_counts_effect_provider_and_store_as_zero() -> None:
 
 def test_allowed_node_types_map_to_exact_ordered_operation_kinds() -> None:
     """movement binding: C1-M001 | evidence ref: evidence:c1:m001:legacy-dsl-parity"""
-    receipt = c1.parse_and_validate_legacy_dsl(
+    receipt = workflow.parse_and_validate_workflow_dsl(
         _payload(
             [
                 _node("retrieve", "vector_search", {"top_k": 5}),
@@ -262,7 +262,7 @@ def test_allowed_node_types_map_to_exact_ordered_operation_kinds() -> None:
     )
 
     assert receipt.ok
-    assert c1.C1_LEGACY_ALLOWED_NODE_TYPES == {"vector_search", "llm_call", "join"}
+    assert workflow.WORKFLOW_ALLOWED_NODE_TYPES == {"vector_search", "llm_call", "join"}
     assert tuple(
         step.operation_contract_ref.kind for step in receipt.plan.ordered_steps
     ) == (
@@ -281,7 +281,7 @@ def test_allowed_node_types_map_to_exact_ordered_operation_kinds() -> None:
 
 def test_facade_source_has_no_legacy_database_or_provider_imports() -> None:
     """movement binding: C1-M001 | evidence ref: evidence:c1:m001:legacy-dsl-parity"""
-    source = inspect.getsource(c1)
+    source = inspect.getsource(workflow)
     forbidden_imports = (
         "app.services.workflow_graph",
         "sqlalchemy",

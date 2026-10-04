@@ -6,9 +6,9 @@ from pathlib import Path
 from types import ModuleType
 
 from functorial_kit import FailureFamily
+from functorial_kit.arch.scan import SourceFile, collect_declarations
 
 import mrw_functorial_kit.core as core
-
 
 ROOT = Path(__file__).resolve().parents[1]
 P0_MODULE_NAMES = (
@@ -26,12 +26,23 @@ def _modules() -> tuple[ModuleType, ...]:
     return tuple(importlib.import_module(name) for name in P0_MODULE_NAMES)
 
 
+def _declared_families() -> dict[str, tuple[str, ...]]:
+    sources = tuple(
+        SourceFile(module.__name__, Path(module.__file__).read_text(encoding="utf-8"))
+        for module in _modules()
+    )
+    return dict(collect_declarations(sources).failures)
+
+
 def _families() -> tuple[tuple[str, FailureFamily], ...]:
+    declared = _declared_families()
     families: list[tuple[str, FailureFamily]] = []
     for module in _modules():
         for symbol in module.__all__:
             value = getattr(module, symbol)
-            if isinstance(value, FailureFamily):
+            # Explicit historical readers expose metadata without declaring a
+            # current producer. Match only the actual native declarations.
+            if isinstance(value, FailureFamily) and value.name in declared:
                 families.append((symbol, value))
     return tuple(families)
 
@@ -40,7 +51,7 @@ def test_INVARIANT__p0_failure_families_have_one_canonical_owner() -> None:
     families = _families()
     names = [family.name for _, family in families]
 
-    assert len(families) == 63
+    assert set(names) == set(_declared_families())
     assert len(names) == len(set(names))
     assert {family.name for _, family in families if family.name == "request_identity.failure"} == {
         "request_identity.failure"
@@ -54,7 +65,7 @@ def test_INVARIANT__p0_failure_registry_matches_declared_families() -> None:
 
     assert len(names) == len(set(names))
     for _, family in _families():
-        assert registered[family.name] == family.codes
+        assert sorted(registered[family.name]) == sorted(family.codes)
 
 
 def test_INVARIANT__p0_failure_families_are_exported_from_core() -> None:

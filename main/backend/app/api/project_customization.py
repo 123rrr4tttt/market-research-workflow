@@ -12,10 +12,12 @@ from ..services.ingest_config import get_config, upsert_config
 from ..project_customization import get_project_customization
 from ..services.graph.doc_types import (
     resolve_graph_doc_types,
+    resolve_graph_edge_style_bindings,
     resolve_graph_edge_types,
     resolve_graph_field_labels,
     resolve_graph_node_labels,
     resolve_graph_node_types,
+    resolve_graph_projections,
     resolve_graph_relation_labels,
     resolve_graph_topic_scope_entities,
     resolve_graph_type_labels,
@@ -1744,6 +1746,8 @@ def get_graph_config(project_key: str | None = Query(default=None)):
             "graph_field_labels": resolve_graph_field_labels(customization.project_key),
             "graph_edge_types": resolve_graph_edge_types(customization.project_key),
             "graph_relation_labels": resolve_graph_relation_labels(customization.project_key),
+            "graph_edge_style_bindings": resolve_graph_edge_style_bindings(customization.project_key),
+            "graph_projections": resolve_graph_projections(customization.project_key),
             "graph_topic_scope_entities": resolve_graph_topic_scope_entities(customization.project_key),
         }
     )

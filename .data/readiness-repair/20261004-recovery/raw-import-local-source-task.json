@@ -1,0 +1,27 @@
+{
+  "status": "error",
+  "data": null,
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Unable to serialize unknown type: <class 'sqlalchemy.exc.MultipleResultsFound'>",
+    "details": {
+      "exception_type": "PydanticSerializationError"
+    }
+  },
+  "meta": {
+    "trace_id": "53440e12-b767-4686-9405-41dae37a9961",
+    "pagination": null,
+    "project_key": "readiness_repair",
+    "deprecated": null
+  },
+  "detail": {
+    "error": {
+      "code": "INTERNAL_ERROR",
+      "message": "Unable to serialize unknown type: <class 'sqlalchemy.exc.MultipleResultsFound'>",
+      "details": {
+        "exception_type": "PydanticSerializationError"
+      }
+    },
+    "message": "Unable to serialize unknown type: <class 'sqlalchemy.exc.MultipleResultsFound'>"
+  }
+}

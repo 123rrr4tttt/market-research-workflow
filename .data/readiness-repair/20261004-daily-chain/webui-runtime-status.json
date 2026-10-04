@@ -1,0 +1,15 @@
+{
+  "http_status": 200,
+  "appServer": {
+    "ok": true,
+    "connected": true,
+    "initialized": true
+  },
+  "runtime": {
+    "status": "ready",
+    "reasons": [],
+    "checkedAt": "2026-10-04T08:36:21.555Z",
+    "cacheTtlMs": 30000
+  },
+  "account_type": null
+}

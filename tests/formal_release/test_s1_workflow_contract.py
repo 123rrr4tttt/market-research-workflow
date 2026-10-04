@@ -98,10 +98,8 @@ class S1WorkflowContractTestCase(unittest.TestCase):
         self.assertIn('pytest -m "unit and not external and not flaky" -q', unit_step["run"])
 
         dockerfile_test = (ROOT / "main/backend/Dockerfile.test").read_text(encoding="utf-8")
-        dockerfile_test_dependencies = set(
-            re.findall(r"\bpytest(?:-asyncio)?==[0-9.]+", dockerfile_test)
-        )
-        self.assertEqual(expected_test_dependencies, dockerfile_test_dependencies)
+        self.assertIn("COPY ./pyproject.toml /opt/mrw/pyproject.toml", dockerfile_test)
+        self.assertIn('["optional-dependencies"]["dev"]', dockerfile_test)
 
     def test_runtime_refreshes_setuptools_vendor_bundle_in_shared_base(self) -> None:
         dockerfile = (ROOT / "main/backend/Dockerfile").read_text(encoding="utf-8")

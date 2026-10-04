@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import ast
 import inspect
 import sys
 from pathlib import Path
@@ -54,6 +55,7 @@ from app.successor_runtime.language.object_contracts import (  # noqa: E402
 )
 from app.successor_runtime.research.object_types import ObjectType  # noqa: E402
 from app.successor_runtime.research.sources import SourceRef  # noqa: E402
+
 from app.successor_runtime.runtime.ports import (  # noqa: E402
     CanonicalDocumentRead,
     DocumentCanonicalReadPort,
@@ -62,6 +64,31 @@ from app.successor_runtime.runtime.ports import (  # noqa: E402
 
 def _payload_digest(values: dict[str, object]) -> str:
     return content_digest(values)
+
+
+def forbidden_imports(path: Path, forbidden: tuple[str, ...]) -> frozenset[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    package_parts = path.relative_to(_BACKEND_ROOT).with_suffix("").parts[:-1]
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level == 0:
+                if node.module:
+                    modules.add(node.module)
+                continue
+            base = list(package_parts)
+            if node.level > 1:
+                del base[-(node.level - 1) :]
+            if node.module:
+                base.extend(node.module.split("."))
+            modules.add(".".join(base))
+    return frozenset(
+        module
+        for module in modules
+        if any(module == prefix or module.startswith(prefix + ".") for prefix in forbidden)
+    )
 
 
 def _document_source(document_id: int) -> SourceRef:
@@ -350,9 +377,8 @@ def test_no_legacy_service_or_framework_imports_in_capabilities():
         "from app.settings",
     )
     for path in sorted(capability_root.rglob("*.py")):
-        source = path.read_text(encoding="utf-8")
-        for fragment in forbidden:
-            assert fragment not in source, f"{path} must not import {fragment}"
+        violations = forbidden_imports(path, forbidden)
+        assert not violations, f"{path} imports forbidden facility modules: {sorted(violations)}"
 
 
 def test_fixture_echo_codec_round_trip(fixture_bundle):

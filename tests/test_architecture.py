@@ -8,7 +8,7 @@ from functorial_kit.contributions_cli import main as contributions_main
 
 
 ROOT = Path(__file__).resolve().parent.parent
-CATALOG = ROOT / "contributions" / "c8_catalog.py"
+CATALOG = ROOT / "contributions" / "project_catalog.py"
 
 TestArchitecture = architecture_gate_tests(ROOT)
 

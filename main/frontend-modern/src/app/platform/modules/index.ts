@@ -6,6 +6,8 @@ export {
   moduleRegistry,
   verifyRegistryHashCompatibility,
 } from './registry'
+export type { ModuleRenderer, ModuleRendererArgs, ModuleRendererBinding } from '../../kernel/moduleContributionRule'
+export { getModuleRendererBinding } from '../../kernel/moduleContributionRule'
 export {
   MODULE_NAV_GROUP_KEYS,
   type ModuleDescriptor,

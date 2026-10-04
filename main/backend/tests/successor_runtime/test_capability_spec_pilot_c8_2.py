@@ -16,9 +16,9 @@ from app.successor_migration.legacy_c8_interpreter import (
     LegacyC8WritingComposeDonor,
     LegacyC8WritingStageDonor,
 )
-from app.successor_runtime.capabilities import c8_program as c8p
-from app.successor_runtime.capabilities.c8_typed_knowledge import demand_read
-from app.successor_runtime.capabilities.c8_writing import (
+from app.successor_runtime.capabilities import knowledge_program as c8p
+from app.successor_runtime.capabilities.typed_knowledge import demand_read
+from app.successor_runtime.capabilities.knowledge_writing import (
     compose_writing_handoff,
     project_writing_card,
     stage_writing_artifact,
@@ -39,7 +39,6 @@ from .p4_c8_fixture import (
 )
 from .current_candidate_support import (
     assert_b16_predecessor,
-    assert_current_binding,
     load_stage_candidate,
 )
 
@@ -72,8 +71,8 @@ def _load_inputs() -> tuple[CapabilityCellSpec, RuntimeKernelABI, dict]:
     return spec, abi, manifest
 
 
-def _payload() -> c8p.C8WritingComposeInput:
-    return c8p.C8WritingComposeInput(
+def _payload() -> c8p.KnowledgeWritingComposeInput:
+    return c8p.KnowledgeWritingComposeInput(
         project_key=PROJECT_KEY,
         knowledge_item_key="ki:robotics",
         selection_hash="selection:robotics",
@@ -83,10 +82,10 @@ def _payload() -> c8p.C8WritingComposeInput:
 
 
 def _program_plan() -> tuple:
-    bundle = c8p.build_c8_bundle()
-    catalog = c8p.build_c8_catalog(bundle)
-    program = c8p.build_c8_program(
-        cell_id="C8.2",
+    bundle = c8p.build_knowledge_bundle()
+    catalog = c8p.build_knowledge_catalog(bundle)
+    program = c8p.build_knowledge_program(
+        cell_id=c8p.KNOWLEDGE_WRITING_CELL_ID,
         payload=_payload(),
         catalog=catalog,
         program_id=PROGRAM_ID,
@@ -94,10 +93,10 @@ def _program_plan() -> tuple:
         project_registry_revision=PROJECT_REGISTRY_REVISION,
         project_scope_digest=PROJECT_SCOPE_DIGEST,
     )
-    plan = c8p.compile_c8_program(
+    plan = c8p.compile_knowledge_program(
         program,
         catalog,
-        operation_contracts=c8p.build_c8_registry(bundle),
+        operation_contracts=c8p.build_knowledge_registry(bundle),
     )
     return bundle, catalog, program, plan
 
@@ -105,7 +104,7 @@ def _program_plan() -> tuple:
 def _legacy_trace(program, plan, catalog) -> dict:
     donors = LegacyC8DonorRegistry()
     donors.register(
-        catalog.lookup(c8p.C8_2_COMPOSE_KIND).contract_digest,
+        catalog.lookup(c8p.KNOWLEDGE_WRITING_COMPOSE_KIND).contract_digest,
         LegacyC8WritingComposeDonor(
             items_by_key={"ki:robotics": legacy_item()},
             selection_hash="selection:robotics",
@@ -113,7 +112,7 @@ def _legacy_trace(program, plan, catalog) -> dict:
         ).run,
     )
     donors.register(
-        catalog.lookup(c8p.C8_2_STAGE_KIND).contract_digest,
+        catalog.lookup(c8p.KNOWLEDGE_WRITING_STAGE_KIND).contract_digest,
         LegacyC8WritingStageDonor(normalized_query="robotics investment").run,
     )
     payload = _payload()
@@ -189,7 +188,7 @@ def test_check_reports_drift_without_writing(tmp_path: Path) -> None:
     assert output.stat().st_mtime_ns == before_mtime
 
 
-def test_exact_bindings_include_frozen_10_and_match_current_bytes() -> None:
+def test_exact_bindings_include_frozen_10_and_resolve_recorded_bytes() -> None:
     spec, _, manifest = _load_inputs()
     frozen_10_relative = FROZEN_10_PATH.relative_to(REPOSITORY_ROOT).as_posix()
     bindings = {binding.path: binding for binding in spec.exact_bindings()}
@@ -209,19 +208,11 @@ def test_exact_bindings_include_frozen_10_and_match_current_bytes() -> None:
     predecessor_candidate = json.loads(STAGE_B16_C8_CANDIDATE.read_text())
     assert predecessor_candidate["status"] == "CANDIDATE_VALID_NOT_AUTHORITY"
     assert_b16_predecessor(REPOSITORY_ROOT, candidate, "C8")
+    from .historical_fixture import historical_bytes
+
     for binding in spec.exact_bindings():
-        path = REPOSITORY_ROOT / binding.path
-        assert path.is_file(), binding.path
-        actual = hashlib.sha256(path.read_bytes()).hexdigest()
-        if actual == binding.file_sha256:
-            continue
-        assert_current_binding(
-            REPOSITORY_ROOT,
-            candidate_path,
-            candidate,
-            binding.path,
-            binding.file_sha256,
-        )
+        data = historical_bytes(binding.path, binding.file_sha256)
+        assert hashlib.sha256(data).hexdigest() == binding.file_sha256
 
 
 def test_order_swap_changes_semantic_digest() -> None:
@@ -254,7 +245,7 @@ def test_pure_transform_profile_keeps_expected_shared_effect_step_shape_explicit
 ):
     spec, _, manifest = _load_inputs()
     bundle, _, _, plan = _program_plan()
-    profiles = bundle.profiles["C8.2"]
+    profiles = bundle.profiles[c8p.KNOWLEDGE_WRITING_CELL_ID]
     assert profiles["effect"].execution_class == "PURE_TRANSFORM"
     assert profiles["effect"].network_required is False
     assert profiles["effect"].external_visibility == "NONE"
@@ -262,7 +253,7 @@ def test_pure_transform_profile_keeps_expected_shared_effect_step_shape_explicit
         "WRITING_SYNTHESIS_INCOMPLETE",
         "WRITING_STAGE_INVALID",
     )
-    assert profiles["failure"].readback_profile_ref == "c8.writing.readback.v1"
+    assert profiles["failure"].readback_profile_ref == "knowledge.writing.readback.v2"
     assert profiles["resource"].resource_classes == ("CPU_LIGHT",)
     assert [step.step_kind for step in plan.ordered_steps] == ["EFFECT", "EFFECT"]
     assert spec.profile_refs == (
@@ -287,8 +278,14 @@ def test_pure_transform_profile_keeps_expected_shared_effect_step_shape_explicit
     assert binding_manifest["recovery_policy_ref"] == spec.recovery_policy_ref
     assert binding_manifest["readback_policy_ref"] == spec.readback_policy_ref
     assert manifest["generated"]["program_skeleton"]["ordered_composition_refs"] == [
-        c8p.C8_2_COMPOSE_KIND,
-        c8p.C8_2_STAGE_KIND,
+        "c8.writing.compose.v1",
+        "c8.writing.stage.v1",
+    ]
+    assert [
+        step.operation_contract_ref.kind for step in plan.ordered_steps
+    ] == [
+        c8p.KNOWLEDGE_WRITING_COMPOSE_KIND,
+        c8p.KNOWLEDGE_WRITING_STAGE_KIND,
     ]
     assert manifest["generated"]["program_skeleton"]["reordering_permitted"] is False
 

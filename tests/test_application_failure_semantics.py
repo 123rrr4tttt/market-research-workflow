@@ -13,7 +13,6 @@ from mrw_functorial_kit.core.application_failure_semantics import (
     ingest_long_cycle_contract_failures,
     keyword_memory_contract_failures,
     llm_report_request_failures,
-    online_lottery_compatibility_failures,
     project_operation_failures,
     prompt_time_density_request_failures,
     report_query_contract_failures,
@@ -188,11 +187,6 @@ EXPECTED_FAMILIES: tuple[tuple[FailureFamily, str, tuple[str, ...]], ...] = (
         task_readback_contract_failures,
         "task.readback.contract_failure",
         ("line_key_required",),
-    ),
-    (
-        online_lottery_compatibility_failures,
-        "online_lottery.compatibility.failure",
-        ("attribute_not_found",),
     ),
 )
 

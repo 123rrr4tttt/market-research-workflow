@@ -1,0 +1,17 @@
+[
+  {
+    "url": "http://127.0.0.1:8172/api/auth/bootstrap",
+    "http_status": 200,
+    "no_store": true
+  },
+  {
+    "url": "http://localhost:5173/codex/api/auth/bootstrap",
+    "http_status": 401,
+    "no_store": true
+  },
+  {
+    "url": "http://localhost:5173/api/v1/codex-auth/webui/bootstrap",
+    "http_status": 401,
+    "no_store": true
+  }
+]

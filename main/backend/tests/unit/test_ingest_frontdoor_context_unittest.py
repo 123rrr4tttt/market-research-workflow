@@ -180,14 +180,21 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
             captured["enable_extraction"] = bool(enable_extraction)
             return {"inserted": 0, "inserted_valid": 0, "skipped": 1, "queued": 0}
 
+        def _fake_search_and_ingest(spec, ports):
+            missing_url = "https://example.com/post/1"
+            routed = ports.route_missing([missing_url])
+            return SimpleNamespace(
+                routed=routed,
+                inserted=0,
+                skipped=0,
+                links=(missing_url,),
+                missing_urls=(missing_url,),
+            )
+
         with patch.object(market_web_module, "start_job", return_value=1), patch.object(
             market_web_module, "complete_job"
         ), patch.object(
-            market_web_module, "search_sources", return_value=[{"link": "https://example.com/post/1", "title": "t", "snippet": "s"}]
-        ), patch.object(
-            market_web_module, "fetch_html", return_value=("<html><body></body></html>", None)
-        ), patch.object(
-            market_web_module, "_extract_text_from_html", return_value=""
+            market_web_module, "run_search_and_ingest", side_effect=_fake_search_and_ingest
         ), patch.object(
             market_web_module, "SessionLocal", return_value=_FakeSession()
         ), patch.object(

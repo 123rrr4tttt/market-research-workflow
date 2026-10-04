@@ -7,14 +7,15 @@ from datetime import UTC, datetime
 import pytest
 
 from app.successor_runtime.assembly.base import (
-    C5AssemblyOptions,
+    TaskObservationAssemblyOptions,
     local_assembly_scope_digest,
     sha256_hex,
     successor_binding,
 )
-from app.successor_runtime.assembly.c5_assembly import (
+from app.successor_runtime.assembly.task_observation_assembly import (
     C5_4LineEventReadbackRouteHandler,
-    build_c5_assembly,
+    PROCESS_OBSERVATION_CELL_ID,
+    build_task_observation_assembly,
 )
 from app.successor_runtime.capabilities.line_event_readback_port import (
     IllegalEventMigrationError,
@@ -116,8 +117,8 @@ def test_projection_requires_at_least_one_typed_record() -> None:
 
 
 def _handler() -> C5_4LineEventReadbackRouteHandler:
-    assembly = build_c5_assembly(
-        options=C5AssemblyOptions(line_event_readback_records=(_terminal_record(),))
+    assembly = build_task_observation_assembly(
+        options=TaskObservationAssemblyOptions(line_event_readback_records=(_terminal_record(),))
     )
     line_handlers = [
         handler
@@ -137,7 +138,7 @@ def _binding(
         deployment_catalog_digest=handler.deployment_catalog_digest,
         project_scope_digest=local_assembly_scope_digest(),
         authority_requirement_digest=sha256_hex(
-            "mrw.successor.c5.line-event-readback.authority.v1"
+            "mrw.process.line-event-readback.authority.v1"
         ),
     )
     assert binding.binding_digest == handler.handler_binding_digest
@@ -150,21 +151,21 @@ def _assignment(
 ) -> RuntimeAssignment:
     return RuntimeAssignment(
         runtime_protocol_version="mrw.runtime.protocol.v1",
-        work_item_id="work:i1-c5-4-s2:001",
+        work_item_id="work:process-observation:line-readback:001",
         assignment_kind=AssignmentKind.INTERPRET,
         project_key="i1-local-c5",
-        run_id="run:i1-c5-4-s2:001",
-        step_id="step:c5-4:line-readback",
+        run_id="run:process-observation:line-readback:001",
+        step_id="step:process-observation:line-readback",
         step_role=CompiledStepRole.EFFECT,
-        capability_id="legacy.line_event_readback.project.v1",
+        capability_id="line_event.readback.project.v1",
         operation_contract_ref=OperationContractRef(
-            kind="legacy.line_event_readback.project.v1",
+            kind="line_event.readback.project.v1",
             contract_version="1.0.0",
             contract_digest=handler.operation_contract_digest,
         ),
         operation_contract_digest=handler.operation_contract_digest,
         return_contract_binding=ReturnContractBinding.from_contract(
-            "mrw.successor.runtime.c5-4.line-event-readback.v1",
+            "mrw.process.line-event-readback.v1",
             ReturnContract(
                 success_modes=("SUCCEEDED",),
                 failure_modes=("FAILED",),
@@ -180,14 +181,14 @@ def _assignment(
         program_digest=binding.binding_digest,
         deployment_catalog_digest=handler.deployment_catalog_digest,
         execution_epoch=1,
-        incarnation="inc:i1-c5-4-s2:001",
+        incarnation="inc:process-observation:line-readback:001",
         input_refs=(),
         queue_eligibility_digest="0" * 64,
         resource_policy_epoch=1,
         claim_authority_epoch=1,
         claim_policy_digest="0" * 64,
         expected_step_revision=0,
-        trace_id="trace:i1-c5-4-s2:001",
+        trace_id="trace:process-observation:line-readback:001",
     )
 
 
@@ -198,9 +199,9 @@ def _claim(
     return ClaimBinding.bind(
         assignment,
         authorization_digest="0" * 64,
-        lease_token="lease:i1-c5-4-s2",
+        lease_token="lease:process-observation:line-readback",
         lease_expires_at=datetime(2026, 9, 2, 2, 0, tzinfo=UTC),
-        node_id="node:i1-c5-4-s2",
+        node_id="node:process-observation:line-readback",
         node_profile_digest="0" * 64,
         authority_digest="0" * 64,
         interpreter_profile_digest=handler.interpreter_profile_digest,
@@ -210,8 +211,8 @@ def _claim(
 def _context() -> RuntimeExecutionContext:
     return RuntimeExecutionContext(
         node=NodeIdentity(
-            node_id="node:i1-c5-4-s2",
-            incarnation="node-inc:i1-c5-4-s2",
+            node_id="node:process-observation:line-readback",
+            incarnation="node-inc:process-observation:line-readback",
             started_at=datetime(2026, 9, 2, 1, 0, tzinfo=UTC),
         ),
         observed_at=datetime(2026, 9, 2, 1, 0, tzinfo=UTC),
@@ -228,8 +229,10 @@ def test_c5_assembly_route_handler_executes_readback_projection() -> None:
 
     assert outcome.result_digest is not None
     assert len(outcome.result_digest) == 64
-    assert outcome.receipt_ref == "receipt:line-event-readback:c5-4"
-    assembly = build_c5_assembly(
-        options=C5AssemblyOptions(line_event_readback_records=handler.records)
+    assert outcome.receipt_ref == "receipt:process-line-event-readback.v1"
+    assembly = build_task_observation_assembly(
+        options=TaskObservationAssemblyOptions(line_event_readback_records=handler.records)
     )
-    assert "S2 line-event readback route handler" in assembly.cell("C5.4").note
+    assert "line-event readback route handler" in assembly.cell(
+        PROCESS_OBSERVATION_CELL_ID
+    ).note

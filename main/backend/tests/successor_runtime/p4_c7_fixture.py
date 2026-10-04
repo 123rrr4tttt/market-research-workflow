@@ -15,11 +15,11 @@ from app.successor_migration.document_repository_c7 import (
     DocumentRef,
     document_ref_from_readback,
 )
-from app.successor_runtime.capabilities import ingest_c7_common as c7
+from app.successor_runtime.capabilities import material_ingest_common as c7
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.ingest_c7_program import (
-    build_ingest_c7_1_program,
-    compile_ingest_c7_program,
+from app.successor_runtime.capabilities.material_ingest_program import (
+    build_material_stage_candidate_program,
+    compile_material_ingest_program,
 )
 from app.successor_runtime.runtime.admission import (
     CommitIntent,
@@ -53,14 +53,14 @@ SCOPE_DIGEST = compute_scope_digest(
 )
 CANDIDATE_ID = "ingest-candidate-p4c7-001"
 DEPLOYMENT_CATALOG_DIGEST = content_digest(
-    {"catalog": "mrw.successor.deployment-catalog.c7.v1"}
+    {"catalog": "mrw.material.deployment-catalog.v2"}
 )
-AUTHORITY_DIGEST = content_digest({"authority": "c7-fixture"})
-PROGRAM_ID = "program:p4-c7-family"
-ATTEMPT_ID = content_digest({"attempt": "p4-c7:001"})
+AUTHORITY_DIGEST = content_digest({"authority": "material-ingest-fixture"})
+PROGRAM_ID = "program:material-ingest-family"
+ATTEMPT_ID = content_digest({"attempt": "material-ingest:001"})
 
 
-def submission(**overrides: Any) -> c7.C7IngestSubmission:
+def submission(**overrides: Any) -> c7.MaterialIngestSubmission:
     values = {
         "idempotency_key": "idem:p4-c7:001",
         "project_key": PROJECT_KEY,
@@ -72,23 +72,23 @@ def submission(**overrides: Any) -> c7.C7IngestSubmission:
         },
     }
     values.update(overrides)
-    return c7.C7IngestSubmission(**values)
+    return c7.MaterialIngestSubmission(**values)
 
 
-def normalized() -> c7.NormalizedIngestDocument:
+def normalized() -> c7.NormalizedMaterialDocument:
     return c7.normalize_ingest_submission(submission())
 
 
-def bundle() -> c7.C7IngestCapabilityBundle:
-    return c7.build_ingest_c7_bundle()
+def bundle() -> c7.MaterialIngestCapabilityBundle:
+    return c7.build_material_ingest_bundle()
 
 
 def catalog() -> Any:
-    return c7.build_ingest_c7_catalog(bundle())
+    return c7.build_material_ingest_catalog(bundle())
 
 
 def registry() -> Any:
-    return c7.build_ingest_c7_registry(bundle())
+    return c7.build_material_ingest_registry(bundle())
 
 
 def contract_ref(kind: str) -> Any:
@@ -99,10 +99,10 @@ def contract_ref(kind: str) -> Any:
 
 
 def program_and_plan(
-    payload: c7.C7IngestSubmission | None = None,
+    payload: c7.MaterialIngestSubmission | None = None,
 ) -> tuple[Any, Any, Any, Any]:
     payload = payload or submission()
-    program = build_ingest_c7_1_program(
+    program = build_material_stage_candidate_program(
         payload=payload,
         catalog=catalog(),
         program_id=PROGRAM_ID,
@@ -110,7 +110,7 @@ def program_and_plan(
         project_registry_revision=REGISTRY_REVISION,
         project_scope_digest=SCOPE_DIGEST,
     )
-    plan = compile_ingest_c7_program(
+    plan = compile_material_ingest_program(
         program,
         catalog(),
         operation_contracts=registry(),
@@ -191,11 +191,11 @@ def runtime_assignment() -> RuntimeAssignment:
         run_id="run-1",
         step_id=effect_step.step_id,
         step_role=CompiledStepRole.EFFECT,
-        capability_id=c7.C7_INGEST_OWNER,
+        capability_id=c7.MATERIAL_INGEST_OWNER,
         operation_contract_ref=effect_step.operation_contract_ref,
         operation_contract_digest=effect_step.operation_contract_ref.contract_digest,
         return_contract_binding=ReturnContractBinding.from_contract(
-            effect_step.return_contract_ref or c7.C7_ADMISSION_RETURN_CONTRACT_REF,
+            effect_step.return_contract_ref or c7.MATERIAL_ADMISSION_RETURN_CONTRACT_REF,
             return_contract,
         ),
         handler_binding_kind=HandlerBindingKind.INTERPRETER,
@@ -234,10 +234,10 @@ def verification_binding() -> VerificationBinding:
         input_closure_digest=payload_ref.content_digest,
         output_content_digest=normalized().content_digest,
         ordered_event_payloads=_ordered_event_payloads(),
-        schema_digest=content_digest({"schema": "ingest.c7.admission.v1"}),
+        schema_digest=content_digest({"schema": "mrw.material.ingest.admission.v2"}),
         compiler_identity=plan.compiler_id,
         interpreter_identity=profile.profile_id,
-        verifier_identity="ingest.validator.c7.v1",
+        verifier_identity="material.ingest.validator.v2",
         actor_id="actor:p4-c7",
         project_key=PROJECT_KEY,
         authority_digest=AUTHORITY_DIGEST,
@@ -285,7 +285,7 @@ def canonical_commit_readback(
     return CanonicalCommitReadback(
         commit_intent_id="commit:p4-c7:001",
         idempotency_key="idem:p4-c7:001",
-        capability_id=c7.C7_INGEST_OWNER,
+        capability_id=c7.MATERIAL_INGEST_OWNER,
         project_key=PROJECT_KEY,
         object_id=CANDIDATE_ID,
         committed_revision=committed_revision,

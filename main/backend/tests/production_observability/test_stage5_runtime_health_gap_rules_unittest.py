@@ -36,12 +36,12 @@ from app.production_observability.metrics import RUNTIME_HEALTH_METRIC_NAME
 
 
 GAP_RULE_IDS = (
-    "stage5-local-queue",
-    "stage5-local-db-connection",
-    "stage5-local-provider-failure",
-    "stage5-local-authority-mismatch",
-    "stage5-local-projection-drift",
-    "stage5-local-request-latency",
+    "local-runtime-queue.v2",
+    "local-runtime-db-connection.v2",
+    "local-runtime-provider-failure.v2",
+    "local-runtime-authority-mismatch.v2",
+    "local-runtime-projection-drift.v2",
+    "local-runtime-request-latency.v2",
 )
 OBSERVED_AT = "2026-09-13T00:00:00+00:00"
 MATCHING_DIGEST = "a" * 64
@@ -294,7 +294,7 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
         alert = next(
             item
             for item in evaluation.decision.alert_evaluations
-            if item.rule_id == "stage5-local-projection-drift"
+            if item.rule_id == "local-runtime-projection-drift.v2"
         )
         self.assertIsNone(alert.latest_value)
         self.assertEqual(alert.state, AlertState.UNKNOWN)
@@ -336,7 +336,7 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
             alert = next(
                 item
                 for item in evaluation.decision.alert_evaluations  # type: ignore[attr-defined]
-                if item.rule_id == "stage5-local-authority-mismatch"
+                if item.rule_id == "local-runtime-authority-mismatch.v2"
             )
             return alert.state, alert.latest_value
 
@@ -375,12 +375,12 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
         mismatch_alert = next(
             item
             for item in mismatch.decision.alert_evaluations
-            if item.rule_id == "stage5-local-authority-mismatch"
+            if item.rule_id == "local-runtime-authority-mismatch.v2"
         )
         unknown_alert = next(
             item
             for item in unknown.decision.alert_evaluations
-            if item.rule_id == "stage5-local-authority-mismatch"
+            if item.rule_id == "local-runtime-authority-mismatch.v2"
         )
         self.assertEqual(mismatch_alert.state, AlertState.TRIGGERED)
         self.assertEqual(unknown_alert.state, AlertState.UNKNOWN)
@@ -422,8 +422,8 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
         fast_states = {
             evaluation.rule_id: evaluation.state for evaluation in fast.decision.alert_evaluations
         }
-        self.assertEqual(slow_states["stage5-local-request-latency"], AlertState.TRIGGERED)
-        self.assertEqual(fast_states["stage5-local-request-latency"], AlertState.RECOVERED)
+        self.assertEqual(slow_states["local-runtime-request-latency.v2"], AlertState.TRIGGERED)
+        self.assertEqual(fast_states["local-runtime-request-latency.v2"], AlertState.RECOVERED)
         self.assertTrue(slow.decision.receipt_valid)
         self.assertTrue(fast.decision.receipt_valid)
 
@@ -451,12 +451,12 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
         drift_alert = next(
             item
             for item in drift.decision.alert_evaluations
-            if item.rule_id == "stage5-local-projection-drift"
+            if item.rule_id == "local-runtime-projection-drift.v2"
         )
         match_alert = next(
             item
             for item in match.decision.alert_evaluations
-            if item.rule_id == "stage5-local-projection-drift"
+            if item.rule_id == "local-runtime-projection-drift.v2"
         )
         self.assertEqual(drift_alert.latest_value, 1.0)
         self.assertEqual(drift_alert.state, AlertState.TRIGGERED)
@@ -485,12 +485,12 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
         drift_alert = next(
             item
             for item in drift.decision.alert_evaluations
-            if item.rule_id == "stage5-local-projection-drift"
+            if item.rule_id == "local-runtime-projection-drift.v2"
         )
         unavailable_alert = next(
             item
             for item in unavailable.decision.alert_evaluations
-            if item.rule_id == "stage5-local-projection-drift"
+            if item.rule_id == "local-runtime-projection-drift.v2"
         )
         self.assertEqual(drift_alert.latest_value, 1.0)
         self.assertEqual(drift_alert.state, AlertState.TRIGGERED)
@@ -513,7 +513,7 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
             "route": config.route,
             "release_version": config.release_version,
             "metric_family": MetricFamily.QUEUE_DEPTH.value,
-            "rule_id": "stage5-local-queue",
+            "rule_id": "local-runtime-queue.v2",
         }
         sample = REGISTRY.get_sample_value(RUNTIME_HEALTH_METRIC_NAME, labels)
         self.assertIsNotNone(sample)

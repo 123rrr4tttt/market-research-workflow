@@ -85,6 +85,7 @@ class SkillSpec:
     owner: str
     execution_profile: str = "default"
     concurrency_class: str = "read_only"
+    input_schema: dict[str, Any] | None = None
     approval_policy: dict[str, Any] | None = None
     artifact_contract: dict[str, Any] | None = None
     agent_batch_task_manifest: dict[str, Any] | None = None
@@ -107,6 +108,7 @@ class SkillRuntime:
                     "owner": item.owner,
                     "execution_profile": item.execution_profile,
                     "concurrency_class": item.concurrency_class,
+                    "input_schema": dict(item.input_schema or {}),
                     "approval_policy": dict(item.approval_policy or {}),
                     "artifact_contract": dict(item.artifact_contract or {}),
                     "agent_batch_task_manifest": dict(item.agent_batch_task_manifest or {}),
@@ -134,6 +136,7 @@ class SkillRuntime:
         owner: str = "unknown",
         execution_profile: str = "default",
         concurrency_class: str = "read_only",
+        input_schema: Mapping[str, Any] | None = None,
         approval_policy: Mapping[str, Any] | None = None,
         artifact_contract: Mapping[str, Any] | None = None,
         agent_batch_task_manifest: Mapping[str, Any] | None = None,
@@ -164,6 +167,7 @@ class SkillRuntime:
             owner=str(owner or "unknown").strip() or "unknown",
             execution_profile=str(execution_profile or "default").strip() or "default",
             concurrency_class=_normalize_concurrency_class(concurrency_class),
+            input_schema=_normalize_contract_dict(input_schema),
             approval_policy=_normalize_contract_dict(approval_policy),
             artifact_contract=_normalize_contract_dict(artifact_contract),
             agent_batch_task_manifest=_normalize_agent_batch_task_manifest(agent_batch_task_manifest),
@@ -512,6 +516,64 @@ class SkillRuntime:
                 approval_policy={"default": "optional"},
                 agent_batch_task_manifest=build_agent_batch_manifest_entry(channel),
             )
+        # Project retrieval skills delegate to the same versioned service as
+        # the HTTP entrypoint. They carry no project vocabulary or search loop.
+        retrieval = import_module("app.services.project_retrieval.skill")
+        for name, handler, permission, concurrency in (
+            ("current", retrieval.current, "project_retrieval.read", "read_only"),
+            ("preview", retrieval.preview, "project_retrieval.preview", "read_only"),
+            ("start", retrieval.start, "project_retrieval.run", "write_shared"),
+            ("read_run", retrieval.read_run, "project_retrieval.read", "read_only"),
+            (
+                "continue_saved_frontier",
+                retrieval.continue_saved_frontier,
+                "project_retrieval.run",
+                "write_shared",
+            ),
+        ):
+            self.register(
+                skill_id=f"project_retrieval.{name}", handler=handler,
+                allowed_actor_roles=("orchestration_runtime", "business_capability_wrapper", "user_facing_assistant"),
+                required_permissions=(permission,), owner="project_retrieval.service",
+                concurrency_class=concurrency,
+                input_schema=(
+                    {
+                        "type": "object",
+                        "required": [
+                            "plan_id",
+                            "proposal_id",
+                            "proposal_version",
+                            "frontier_id",
+                            "remaining_followup_budget",
+                        ],
+                        "properties": {
+                            "plan_id": {"type": "string", "minLength": 1},
+                            "proposal_id": {"type": "string", "minLength": 1},
+                            "proposal_version": {"type": "string", "minLength": 1},
+                            "frontier_id": {"type": "string", "minLength": 1},
+                            "remaining_followup_budget": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 20,
+                            },
+                        },
+                        "additionalProperties": False,
+                    }
+                    if name == "continue_saved_frontier"
+                    else None
+                ),
+            )
+        # This unit only proposes a claim from an already persisted body.
+        # The project retrieval executor validates and owns the topology write.
+        formalization = import_module("app.services.project_retrieval.formalization")
+        self.register(
+            skill_id="project_retrieval.formalize_document",
+            handler=formalization.formalize_document,
+            allowed_actor_roles=("orchestration_runtime",),
+            required_permissions=("project_retrieval.formalize",),
+            owner="project_retrieval.formalization",
+            concurrency_class="read_only",
+        )
 
 
 def _normalize_actor_roles(values: tuple[str, ...] | list[str] | set[str]) -> list[str]:
@@ -822,6 +884,7 @@ def register_skill(
     owner: str = "unknown",
     execution_profile: str = "default",
     concurrency_class: str = "read_only",
+    input_schema: Mapping[str, Any] | None = None,
     approval_policy: Mapping[str, Any] | None = None,
     artifact_contract: Mapping[str, Any] | None = None,
     agent_batch_task_manifest: Mapping[str, Any] | None = None,
@@ -834,6 +897,7 @@ def register_skill(
         owner=owner,
         execution_profile=execution_profile,
         concurrency_class=concurrency_class,
+        input_schema=input_schema,
         approval_policy=approval_policy,
         artifact_contract=artifact_contract,
         agent_batch_task_manifest=agent_batch_task_manifest,

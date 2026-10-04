@@ -1,0 +1,9 @@
+{
+  "postgres_container": "mrw-structure-postgres-20261004",
+  "network": "mrw-structure-20261004",
+  "host_port": 18543,
+  "image": "postgres:16-alpine",
+  "storage": "task-owned tmpfs",
+  "scope": "test only",
+  "shared_pg_test_execution": "serial"
+}

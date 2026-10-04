@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,31 @@ ACCEPTANCE_DISPOSITION = {
     "A11": "P0_D_ONLY_NOT_CLAIMED",
     "A12": "P0_D_ONLY_NOT_CLAIMED",
 }
+
+
+def forbidden_imports(path: Path, forbidden: tuple[str, ...]) -> frozenset[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    package_parts = path.relative_to(BACKEND).with_suffix("").parts[:-1]
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level == 0:
+                if node.module:
+                    modules.add(node.module)
+                continue
+            base = list(package_parts)
+            if node.level > 1:
+                del base[-(node.level - 1) :]
+            if node.module:
+                base.extend(node.module.split("."))
+            modules.add(".".join(base))
+    return frozenset(
+        module
+        for module in modules
+        if any(module == prefix or module.startswith(prefix + ".") for prefix in forbidden)
+    )
 
 
 def test_database_url_guard_rejects_default_and_non_test_databases(
@@ -106,9 +132,8 @@ def test_successor_runtime_has_no_legacy_service_or_migration_import() -> None:
             # production runtime boundary below remains enforced for every
             # other module under app/successor_runtime.
             continue
-        source = path.read_text(encoding="utf-8")
-        for fragment in forbidden:
-            assert fragment not in source, f"{path} imports {fragment}"
+        violations = forbidden_imports(path, forbidden)
+        assert not violations, f"{path} imports forbidden modules: {sorted(violations)}"
 
 
 def test_live_harness_contains_no_network_provider_or_external_delivery_call() -> None:

@@ -10,15 +10,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.successor_runtime.capabilities.ingest_c7_registry import (
-    IngestRegistryCompleteCommand,
-    IngestRegistryForgetCommand,
-    IngestRegistryForgetResult,
-    IngestRegistryReadback,
-    IngestRegistryReserveCommand,
-    complete_submission,
-    forget_submission,
-    reserve_submission,
+from app.successor_runtime.capabilities.material_ingest_registry import (
+    MaterialIngestRegistryCompleteCommand,
+    MaterialIngestRegistryForgetCommand,
+    MaterialIngestRegistryForgetResult,
+    MaterialIngestRegistryReadback,
+    MaterialIngestRegistryReserveCommand,
+    complete_material_submission,
+    forget_material_submission,
+    reserve_material_submission,
 )
 from app.successor_runtime.runtime.assignments import (
     RuntimeAssignment,
@@ -41,9 +41,9 @@ class C7IngestRegistryRuntimeHandler(RuntimeHandler):
         *,
         store: Any,
         command: (
-            IngestRegistryReserveCommand
-            | IngestRegistryCompleteCommand
-            | IngestRegistryForgetCommand
+            MaterialIngestRegistryReserveCommand
+            | MaterialIngestRegistryCompleteCommand
+            | MaterialIngestRegistryForgetCommand
         ),
         handler_binding_digest: str,
         interpreter_profile_digest: str,
@@ -53,9 +53,9 @@ class C7IngestRegistryRuntimeHandler(RuntimeHandler):
         if not isinstance(
             command,
             (
-                IngestRegistryReserveCommand,
-                IngestRegistryCompleteCommand,
-                IngestRegistryForgetCommand,
+                MaterialIngestRegistryReserveCommand,
+                MaterialIngestRegistryCompleteCommand,
+                MaterialIngestRegistryForgetCommand,
             ),
         ):
             raise TypeError("C7 ingest registry handler requires a typed command")
@@ -80,12 +80,12 @@ class C7IngestRegistryRuntimeHandler(RuntimeHandler):
         self.deployment_catalog_digest = deployment_catalog_digest
         self.execute_calls = 0
         self.last_readback: (
-            IngestRegistryReadback | IngestRegistryForgetResult | None
+            MaterialIngestRegistryReadback | MaterialIngestRegistryForgetResult | None
         ) = None
         self.operation_reason: str | None = None
 
     def _registry_key(self) -> str:
-        if isinstance(self.command, IngestRegistryReserveCommand):
+        if isinstance(self.command, MaterialIngestRegistryReserveCommand):
             return self.command.identity.registry_key
         return self.command.registry_key
 
@@ -104,17 +104,17 @@ class C7IngestRegistryRuntimeHandler(RuntimeHandler):
             or assignment.deployment_catalog_digest != self.deployment_catalog_digest
         ):
             raise DefiniteInterpreterFailure(
-                "EXACT_C7_INGEST_REGISTRY_HANDLER_BINDING_DRIFT"
+                "EXACT_MATERIAL_INGEST_REGISTRY_HANDLER_BINDING_DRIFT"
             )
 
-        if isinstance(self.command, IngestRegistryReserveCommand):
-            result = reserve_submission(self.store, self.command)
+        if isinstance(self.command, MaterialIngestRegistryReserveCommand):
+            result = reserve_material_submission(self.store, self.command)
             operation_reason = "INGEST_REGISTRY_RESERVE_READBACK_ONLY"
-        elif isinstance(self.command, IngestRegistryCompleteCommand):
-            result = complete_submission(self.store, self.command)
+        elif isinstance(self.command, MaterialIngestRegistryCompleteCommand):
+            result = complete_material_submission(self.store, self.command)
             operation_reason = "INGEST_REGISTRY_COMPLETE_READBACK_ONLY"
-        elif isinstance(self.command, IngestRegistryForgetCommand):
-            result = forget_submission(self.store, self.command)
+        elif isinstance(self.command, MaterialIngestRegistryForgetCommand):
+            result = forget_material_submission(self.store, self.command)
             operation_reason = "INGEST_REGISTRY_FORGET_READBACK_ONLY"
         else:
             raise TypeError("C7 ingest registry handler command is unsupported")
@@ -124,7 +124,7 @@ class C7IngestRegistryRuntimeHandler(RuntimeHandler):
         self.operation_reason = operation_reason
         if not result.readback_digest:
             raise DefiniteInterpreterFailure(
-                "EXACT_C7_INGEST_REGISTRY_READBACK_DIGEST_MISSING"
+                "EXACT_MATERIAL_INGEST_REGISTRY_READBACK_DIGEST_MISSING"
             )
         registry_key = self._registry_key()
         return InterpreterOutcome.succeeded(

@@ -1,12 +1,31 @@
 {
-  "version": "kit-sketches.v1",
   "entries": [
     {
-      "shape": "capability-interface",
+      "axes": {
+        "closed": "operations",
+        "open": "interpreters"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
+      },
+      "equations": [
+        {
+          "claim": "read twice observes the same value",
+          "class": "testable",
+          "witness": "test:read is idempotent"
+        },
+        {
+          "claim": "increment(a); increment(b) = increment(b); increment(a)",
+          "class": "testable",
+          "witness": "test:increments commute"
+        }
+      ],
+      "failures": [],
       "objects": [
         {
-          "name": "Counter",
           "kind": "record",
+          "name": "Counter",
           "owner": "src/mrw_functorial_kit/core/counter.py"
         }
       ],
@@ -22,76 +41,21 @@
           ]
         }
       ],
-      "equations": [
-        {
-          "claim": "read twice observes the same value",
-          "class": "testable",
-          "witness": "test:read is idempotent"
-        },
-        {
-          "claim": "increment(a); increment(b) = increment(b); increment(a)",
-          "class": "testable",
-          "witness": "test:increments commute"
-        }
-      ],
-      "failures": [],
-      "axes": {
-        "open": "interpreters",
-        "closed": "operations"
-      },
-      "change": {
-        "kind": "extension",
-        "declared_loss": []
-      }
+      "shape": "capability-interface"
     },
     {
-      "shape": "dependent-sequence",
-      "objects": [
-        {
-          "name": "RawSnapshot",
-          "kind": "record",
-          "owner": "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py"
-        },
-        {
-          "name": "NormalizedIngestEnvelope",
-          "kind": "record",
-          "owner": "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py"
-        },
-        {
-          "name": "DigestionDecision",
-          "kind": "record",
-          "owner": "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py"
-        },
-        {
-          "name": "StructuredMaterialCandidate",
-          "kind": "record",
-          "owner": "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py"
-        }
-      ],
-      "operations": [
-        {
-          "name": "capture_raw_snapshot_exact",
-          "order_depends_on": []
-        },
-        {
-          "name": "normalize_ingest_envelope",
-          "order_depends_on": [
-            "capture_raw_snapshot_exact"
-          ]
-        },
-        {
-          "name": "select_exactly_one_digestion_alternative",
-          "order_depends_on": [
-            "normalize_ingest_envelope"
-          ]
-        },
-        {
-          "name": "execute_c7_movement",
-          "order_depends_on": [
-            "select_exactly_one_digestion_alternative"
-          ]
-        }
-      ],
+      "axes": {
+        "closed": "alternatives and movement dispositions",
+        "open": "interpreters"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
+      },
+      "derived": {
+        "authoritative": false,
+        "derived_as": "view"
+      },
       "equations": [
         {
           "claim": "legacy and target four-mode decisions agree",
@@ -122,44 +86,67 @@
       "failures": [
         "c7.movement.terminal_failure"
       ],
+      "objects": [
+        {
+          "kind": "record",
+          "name": "RawSnapshot",
+          "owner": "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py"
+        },
+        {
+          "kind": "record",
+          "name": "NormalizedIngestEnvelope",
+          "owner": "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py"
+        },
+        {
+          "kind": "record",
+          "name": "DigestionDecision",
+          "owner": "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py"
+        },
+        {
+          "kind": "record",
+          "name": "StructuredMaterialCandidate",
+          "owner": "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py"
+        }
+      ],
+      "operations": [
+        {
+          "name": "capture_raw_snapshot_exact",
+          "order_depends_on": []
+        },
+        {
+          "name": "normalize_ingest_envelope",
+          "order_depends_on": [
+            "capture_raw_snapshot_exact"
+          ]
+        },
+        {
+          "name": "select_exactly_one_digestion_alternative",
+          "order_depends_on": [
+            "normalize_ingest_envelope"
+          ]
+        },
+        {
+          "name": "execute_c7_movement",
+          "order_depends_on": [
+            "select_exactly_one_digestion_alternative"
+          ]
+        }
+      ],
+      "shape": "dependent-sequence"
+    },
+    {
       "axes": {
-        "open": "interpreters",
-        "closed": "alternatives and movement dispositions"
+        "closed": "operations",
+        "open": "interpreters"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
       },
       "derived": {
         "authoritative": false,
         "derived_as": "view"
       },
-      "change": {
-        "kind": "extension",
-        "declared_loss": []
-      }
-    },
-    {
-      "shape": "capability-interface",
-      "objects": [
-        {
-          "name": "CollectAdapter",
-          "kind": "record",
-          "owner": "main/backend/app/services/collect_runtime/contracts.py"
-        },
-        {
-          "name": "CollectRequest",
-          "kind": "record",
-          "owner": "main/backend/app/services/collect_runtime/contracts.py"
-        },
-        {
-          "name": "CollectResult",
-          "kind": "record",
-          "owner": "main/backend/app/services/collect_runtime/contracts.py"
-        }
-      ],
-      "operations": [
-        {
-          "name": "run",
-          "order_depends_on": []
-        }
-      ],
       "equations": [
         {
           "claim": "same adapter and request produce the same ordered observation",
@@ -173,34 +160,44 @@
         }
       ],
       "failures": [],
-      "axes": {
-        "open": "interpreters",
-        "closed": "operations"
-      },
-      "derived": {
-        "authoritative": false,
-        "derived_as": "view"
-      },
-      "change": {
-        "kind": "extension",
-        "declared_loss": []
-      }
-    },
-    {
-      "shape": "capability-interface",
       "objects": [
         {
-          "name": "HttpFetchPort",
           "kind": "record",
-          "owner": "main/backend/app/services/resource_pool/http_port.py"
+          "name": "CollectAdapter",
+          "owner": "main/backend/app/services/collect_runtime/contracts.py"
+        },
+        {
+          "kind": "record",
+          "name": "CollectRequest",
+          "owner": "main/backend/app/services/collect_runtime/contracts.py"
+        },
+        {
+          "kind": "record",
+          "name": "CollectResult",
+          "owner": "main/backend/app/services/collect_runtime/contracts.py"
         }
       ],
       "operations": [
         {
-          "name": "fetch_html",
+          "name": "run",
           "order_depends_on": []
         }
       ],
+      "shape": "capability-interface"
+    },
+    {
+      "axes": {
+        "closed": "operations and HTTP failure reasons",
+        "open": "interpreters"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
+      },
+      "derived": {
+        "authoritative": false,
+        "derived_as": "external_claim"
+      },
       "equations": [
         {
           "claim": "the configured local interpreter projects the same response for repeated observation",
@@ -221,34 +218,34 @@
       "failures": [
         "resource_pool.http_fetch.failure"
       ],
-      "axes": {
-        "open": "interpreters",
-        "closed": "operations and HTTP failure reasons"
-      },
-      "derived": {
-        "authoritative": false,
-        "derived_as": "external_claim"
-      },
-      "change": {
-        "kind": "extension",
-        "declared_loss": []
-      }
-    },
-    {
-      "shape": "capability-interface",
       "objects": [
         {
-          "name": "OfficialAccessPort",
           "kind": "record",
+          "name": "HttpFetchPort",
           "owner": "main/backend/app/services/resource_pool/http_port.py"
         }
       ],
       "operations": [
         {
-          "name": "handle",
+          "name": "fetch_html",
           "order_depends_on": []
         }
       ],
+      "shape": "capability-interface"
+    },
+    {
+      "axes": {
+        "closed": "operations and official access configuration failure",
+        "open": "interpreters"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
+      },
+      "derived": {
+        "authoritative": false,
+        "derived_as": "external_claim"
+      },
       "equations": [
         {
           "claim": "the configured local interpreter projects the same official access response for repeated observation",
@@ -269,101 +266,36 @@
       "failures": [
         "resource_pool.official_access.failure"
       ],
-      "axes": {
-        "open": "interpreters",
-        "closed": "operations and official access configuration failure"
-      },
-      "derived": {
-        "authoritative": false,
-        "derived_as": "external_claim"
-      },
-      "change": {
-        "kind": "extension",
-        "declared_loss": []
-      }
-    },
-    {
-      "shape": "capability-interface",
       "objects": [
         {
-          "name": "MarketAdapterPort",
           "kind": "record",
-          "owner": "main/backend/app/services/ingest/provider_ports.py"
-        },
-        {
-          "name": "MarketRecord",
-          "kind": "record",
-          "owner": "main/backend/app/services/ingest/provider_ports.py"
+          "name": "OfficialAccessPort",
+          "owner": "main/backend/app/services/resource_pool/http_port.py"
         }
       ],
       "operations": [
         {
-          "name": "resolve_market_adapters",
+          "name": "handle",
           "order_depends_on": []
-        },
-        {
-          "name": "fetch_records",
-          "order_depends_on": [
-            "resolve_market_adapters"
-          ]
         }
       ],
-      "equations": [
-        {
-          "claim": "an unconfigured market adapter resolver fails closed",
-          "class": "testable",
-          "witness": "test:test_FAILURE_PRESERVED__ingest_provider_adapters_fail_closed_by_boundary"
-        },
-        {
-          "claim": "lazy market iterable iteration failure remains observable before persistence",
-          "class": "testable",
-          "witness": "test:test_FAILURE_PRESERVED__market_iteration_failure_precedes_job_and_persistence"
-        }
-      ],
-      "failures": [
-        "ingest.market.failure"
-      ],
+      "shape": "capability-interface"
+    },
+    {
       "axes": {
-        "open": "market interpreters",
-        "closed": "market adapter configuration and observable lazy iteration failure"
-      },
-      "derived": {
-        "authoritative": false,
-        "derived_as": "external_claim"
+        "closed": "policy adapter configuration and observable lazy iteration failure",
+        "open": "policy interpreters"
       },
       "change": {
-        "kind": "extension",
         "declared_loss": [
           "runtime conversion of provider iteration exceptions"
-        ]
-      }
-    },
-    {
-      "shape": "capability-interface",
-      "objects": [
-        {
-          "name": "PolicyAdapterPort",
-          "kind": "record",
-          "owner": "main/backend/app/services/ingest/provider_ports.py"
-        },
-        {
-          "name": "PolicyDocument",
-          "kind": "record",
-          "owner": "main/backend/app/services/ingest/provider_ports.py"
-        }
-      ],
-      "operations": [
-        {
-          "name": "resolve_policy_adapter",
-          "order_depends_on": []
-        },
-        {
-          "name": "fetch_documents",
-          "order_depends_on": [
-            "resolve_policy_adapter"
-          ]
-        }
-      ],
+        ],
+        "kind": "extension"
+      },
+      "derived": {
+        "authoritative": false,
+        "derived_as": "external_claim"
+      },
       "equations": [
         {
           "claim": "an unconfigured policy adapter resolver fails closed",
@@ -379,27 +311,64 @@
       "failures": [
         "ingest.policy.failure"
       ],
+      "objects": [
+        {
+          "kind": "record",
+          "name": "PolicyAdapterPort",
+          "owner": "main/backend/app/services/ingest/provider_ports.py"
+        },
+        {
+          "kind": "record",
+          "name": "PolicyDocument",
+          "owner": "main/backend/app/services/ingest/provider_ports.py"
+        }
+      ],
+      "operations": [
+        {
+          "name": "resolve_policy_adapter",
+          "order_depends_on": []
+        },
+        {
+          "name": "fetch_documents",
+          "order_depends_on": [
+            "resolve_policy_adapter"
+          ]
+        }
+      ],
+      "shape": "capability-interface"
+    },
+    {
       "axes": {
-        "open": "policy interpreters",
-        "closed": "policy adapter configuration and observable lazy iteration failure"
+        "closed": "Reddit adapter configuration failure only",
+        "open": "Reddit interpreters"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
       },
       "derived": {
         "authoritative": false,
         "derived_as": "external_claim"
       },
-      "change": {
-        "kind": "extension",
-        "declared_loss": [
-          "runtime conversion of provider iteration exceptions"
-        ]
-      }
-    },
-    {
-      "shape": "capability-interface",
+      "equations": [
+        {
+          "claim": "an unconfigured Reddit adapter fails closed",
+          "class": "testable",
+          "witness": "test:test_FAILURE_PRESERVED__ingest_provider_adapters_fail_closed_by_boundary"
+        },
+        {
+          "claim": "Reddit business methods remain best-effort total when external fetch fails",
+          "class": "testable",
+          "witness": "test:test_FAILURE_PRESERVED__reddit_business_methods_are_best_effort_total"
+        }
+      ],
+      "failures": [
+        "ingest.reddit.failure"
+      ],
       "objects": [
         {
-          "name": "RedditPort",
           "kind": "record",
+          "name": "RedditPort",
           "owner": "main/backend/app/services/ingest/provider_ports.py"
         }
       ],
@@ -427,55 +396,21 @@
           ]
         }
       ],
-      "equations": [
-        {
-          "claim": "an unconfigured Reddit adapter fails closed",
-          "class": "testable",
-          "witness": "test:test_FAILURE_PRESERVED__ingest_provider_adapters_fail_closed_by_boundary"
-        },
-        {
-          "claim": "Reddit business methods remain best-effort total when external fetch fails",
-          "class": "testable",
-          "witness": "test:test_FAILURE_PRESERVED__reddit_business_methods_are_best_effort_total"
-        }
-      ],
-      "failures": [
-        "ingest.reddit.failure"
-      ],
+      "shape": "capability-interface"
+    },
+    {
       "axes": {
-        "open": "Reddit interpreters",
-        "closed": "Reddit adapter configuration failure only"
+        "closed": "Google News adapter configuration failure only",
+        "open": "Google News interpreters"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
       },
       "derived": {
         "authoritative": false,
         "derived_as": "external_claim"
       },
-      "change": {
-        "kind": "extension",
-        "declared_loss": []
-      }
-    },
-    {
-      "shape": "capability-interface",
-      "objects": [
-        {
-          "name": "GoogleNewsPort",
-          "kind": "record",
-          "owner": "main/backend/app/services/ingest/provider_ports.py"
-        }
-      ],
-      "operations": [
-        {
-          "name": "resolve_google_news_adapter",
-          "order_depends_on": []
-        },
-        {
-          "name": "search_multiple_keywords",
-          "order_depends_on": [
-            "resolve_google_news_adapter"
-          ]
-        }
-      ],
       "equations": [
         {
           "claim": "an unconfigured Google News adapter fails closed",
@@ -491,25 +426,56 @@
       "failures": [
         "ingest.google_news.failure"
       ],
+      "objects": [
+        {
+          "kind": "record",
+          "name": "GoogleNewsPort",
+          "owner": "main/backend/app/services/ingest/provider_ports.py"
+        }
+      ],
+      "operations": [
+        {
+          "name": "resolve_google_news_adapter",
+          "order_depends_on": []
+        },
+        {
+          "name": "search_multiple_keywords",
+          "order_depends_on": [
+            "resolve_google_news_adapter"
+          ]
+        }
+      ],
+      "shape": "capability-interface"
+    },
+    {
       "axes": {
-        "open": "Google News interpreters",
-        "closed": "Google News adapter configuration failure only"
+        "closed": "collect registration contracts only",
+        "open": "registered adapters and projectors"
+      },
+      "change": {
+        "declared_loss": [
+          "collect execution and routing failure conversion"
+        ],
+        "kind": "extension"
       },
       "derived": {
         "authoritative": false,
-        "derived_as": "external_claim"
+        "derived_as": "view"
       },
-      "change": {
-        "kind": "extension",
-        "declared_loss": []
-      }
-    },
-    {
-      "shape": "capability-interface",
+      "equations": [
+        {
+          "claim": "invalid collect registration contracts fail closed",
+          "class": "testable",
+          "witness": "test:test_FAILURE_PRESERVED__collect_registration_contracts_fail_closed"
+        }
+      ],
+      "failures": [
+        "collect.runtime.failure"
+      ],
       "objects": [
         {
-          "name": "CollectSkillRegistry",
           "kind": "record",
+          "name": "CollectSkillRegistry",
           "owner": "main/backend/app/services/collect_runtime/runtime.py"
         }
       ],
@@ -523,61 +489,21 @@
           "order_depends_on": []
         }
       ],
-      "equations": [
-        {
-          "claim": "invalid collect registration contracts fail closed",
-          "class": "testable",
-          "witness": "test:test_FAILURE_PRESERVED__collect_registration_contracts_fail_closed"
-        }
-      ],
-      "failures": [
-        "collect.runtime.failure"
-      ],
+      "shape": "capability-interface"
+    },
+    {
       "axes": {
-        "open": "registered adapters and projectors",
-        "closed": "collect registration contracts only"
+        "closed": "registered provider names for this composition",
+        "open": "provider interpreters"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
       },
       "derived": {
         "authoritative": false,
-        "derived_as": "view"
+        "derived_as": "external_claim"
       },
-      "change": {
-        "kind": "extension",
-        "declared_loss": [
-          "collect execution and routing failure conversion"
-        ]
-      }
-    },
-    {
-      "shape": "capability-interface",
-      "objects": [
-        {
-          "name": "LLMProviderPort",
-          "kind": "record",
-          "owner": "main/backend/app/services/llm/ports.py"
-        },
-        {
-          "name": "ChatModelOptions",
-          "kind": "record",
-          "owner": "main/backend/app/services/llm/ports.py"
-        }
-      ],
-      "operations": [
-        {
-          "name": "get_chat_model",
-          "order_depends_on": []
-        },
-        {
-          "name": "get_embeddings",
-          "order_depends_on": []
-        },
-        {
-          "name": "resolve_llm_provider",
-          "order_depends_on": [
-            "register_llm_provider"
-          ]
-        }
-      ],
       "equations": [
         {
           "claim": "chat option mapping is deterministic at the declared observation boundary",
@@ -598,40 +524,95 @@
       "failures": [
         "llm.provider_resolution.failure"
       ],
+      "objects": [
+        {
+          "kind": "record",
+          "name": "LLMProviderPort",
+          "owner": "main/backend/app/services/llm/ports.py"
+        },
+        {
+          "kind": "record",
+          "name": "ChatModelOptions",
+          "owner": "main/backend/app/services/llm/ports.py"
+        }
+      ],
+      "operations": [
+        {
+          "name": "get_chat_model",
+          "order_depends_on": []
+        },
+        {
+          "name": "get_embeddings",
+          "order_depends_on": []
+        },
+        {
+          "name": "resolve_llm_provider",
+          "order_depends_on": [
+            "register_llm_provider"
+          ]
+        }
+      ],
+      "shape": "capability-interface"
+    },
+    {
       "axes": {
-        "open": "provider interpreters",
-        "closed": "registered provider names for this composition"
+        "closed": "registered C8 operation kinds",
+        "open": "interpreters"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
       },
       "derived": {
         "authoritative": false,
-        "derived_as": "external_claim"
+        "derived_as": "view"
       },
-      "change": {
-        "kind": "extension",
-        "declared_loss": []
-      }
-    },
-    {
-      "shape": "dependent-sequence",
+      "equations": [
+        {
+          "claim": "demand reads are field bounded and bind a canonical handle",
+          "class": "testable",
+          "witness": "test:test_demand_read_returns_only_requested_fields_with_bound_handle"
+        },
+        {
+          "claim": "ordered writing composition is order sensitive",
+          "class": "testable",
+          "witness": "test:test_ordered_composition_is_order_sensitive"
+        },
+        {
+          "claim": "a second graph projection preserves inherited loss and omitted edges",
+          "class": "testable",
+          "witness": "test:test_second_projection_keeps_inherited_loss_and_omitted_edges"
+        },
+        {
+          "claim": "graph projection rejects a stale canonical reference",
+          "class": "testable",
+          "witness": "test:test_graph_rejects_item_with_stale_canonical_ref"
+        }
+      ],
+      "failures": [
+        "c8.typed_knowledge.failure",
+        "c8.writing.failure",
+        "c8.graph.failure"
+      ],
       "objects": [
         {
+          "kind": "record",
           "name": "KnowledgeItem",
-          "kind": "record",
           "owner": "main/backend/app/successor_runtime/capabilities/c8_common.py"
         },
         {
+          "kind": "record",
           "name": "IssuedKnowledgeRead",
-          "kind": "record",
           "owner": "main/backend/app/successor_runtime/capabilities/c8_common.py"
         },
         {
-          "name": "WritingHandoff",
           "kind": "record",
+          "name": "WritingHandoff",
           "owner": "main/backend/app/successor_runtime/capabilities/c8_writing.py"
         },
         {
-          "name": "GraphContext",
           "kind": "record",
+          "name": "GraphContext",
           "owner": "main/backend/app/successor_runtime/capabilities/c8_graph.py"
         }
       ],
@@ -671,88 +652,23 @@
           ]
         }
       ],
-      "equations": [
-        {
-          "claim": "demand reads are field bounded and bind a canonical handle",
-          "class": "testable",
-          "witness": "test:test_demand_read_returns_only_requested_fields_with_bound_handle"
-        },
-        {
-          "claim": "ordered writing composition is order sensitive",
-          "class": "testable",
-          "witness": "test:test_ordered_composition_is_order_sensitive"
-        },
-        {
-          "claim": "a second graph projection preserves inherited loss and omitted edges",
-          "class": "testable",
-          "witness": "test:test_second_projection_keeps_inherited_loss_and_omitted_edges"
-        },
-        {
-          "claim": "graph projection rejects a stale canonical reference",
-          "class": "testable",
-          "witness": "test:test_graph_rejects_item_with_stale_canonical_ref"
-        }
-      ],
-      "failures": [
-        "c8.typed_knowledge.failure",
-        "c8.writing.failure",
-        "c8.graph.failure"
-      ],
+      "shape": "dependent-sequence"
+    },
+    {
       "axes": {
-        "open": "interpreters",
-        "closed": "registered C8 operation kinds"
+        "closed": "declared report admission and delivery interfaces",
+        "open": "delivery interpreter"
+      },
+      "change": {
+        "declared_loss": [
+          "runtime report delivery closure and live export execution"
+        ],
+        "kind": "extension"
       },
       "derived": {
         "authoritative": false,
         "derived_as": "view"
       },
-      "change": {
-        "kind": "extension",
-        "declared_loss": []
-      }
-    },
-    {
-      "shape": "dependent-sequence",
-      "objects": [
-        {
-          "name": "ReportArtifact",
-          "kind": "record",
-          "owner": "main/backend/app/successor_runtime/capabilities/c8_report.py"
-        },
-        {
-          "name": "ReportVerification",
-          "kind": "record",
-          "owner": "main/backend/app/successor_runtime/capabilities/c8_common.py"
-        },
-        {
-          "name": "ReportAdmissionIntent",
-          "kind": "record",
-          "owner": "main/backend/app/successor_runtime/capabilities/c8_report.py"
-        },
-        {
-          "name": "ReportDeliveryIntent",
-          "kind": "record",
-          "owner": "main/backend/app/successor_runtime/capabilities/c8_report.py"
-        }
-      ],
-      "operations": [
-        {
-          "name": "build_report_artifact",
-          "order_depends_on": []
-        },
-        {
-          "name": "build_report_admission_intent",
-          "order_depends_on": [
-            "build_report_artifact"
-          ]
-        },
-        {
-          "name": "build_report_delivery_intent",
-          "order_depends_on": [
-            "build_report_artifact"
-          ]
-        }
-      ],
       "equations": [
         {
           "claim": "report staging never manufactures missing evidence",
@@ -778,43 +694,108 @@
       "failures": [
         "c8.report_delivery.failure"
       ],
+      "objects": [
+        {
+          "kind": "record",
+          "name": "ReportArtifact",
+          "owner": "main/backend/app/successor_runtime/capabilities/c8_report.py"
+        },
+        {
+          "kind": "record",
+          "name": "ReportVerification",
+          "owner": "main/backend/app/successor_runtime/capabilities/c8_common.py"
+        },
+        {
+          "kind": "record",
+          "name": "ReportAdmissionIntent",
+          "owner": "main/backend/app/successor_runtime/capabilities/c8_report.py"
+        },
+        {
+          "kind": "record",
+          "name": "ReportDeliveryIntent",
+          "owner": "main/backend/app/successor_runtime/capabilities/c8_report.py"
+        }
+      ],
+      "operations": [
+        {
+          "name": "build_report_artifact",
+          "order_depends_on": []
+        },
+        {
+          "name": "build_report_admission_intent",
+          "order_depends_on": [
+            "build_report_artifact"
+          ]
+        },
+        {
+          "name": "build_report_delivery_intent",
+          "order_depends_on": [
+            "build_report_artifact"
+          ]
+        }
+      ],
+      "shape": "dependent-sequence"
+    },
+    {
       "axes": {
-        "open": "delivery interpreter",
-        "closed": "declared report admission and delivery interfaces"
+        "closed": "task events and statuses, material segment kinds, loss kinds, and project source schemas",
+        "open": "projection interpreters"
+      },
+      "change": {
+        "declared_loss": [
+          "external provider realization"
+        ],
+        "kind": "extension"
       },
       "derived": {
         "authoritative": false,
         "derived_as": "view"
       },
-      "change": {
-        "kind": "extension",
-        "declared_loss": [
-          "runtime report delivery closure and live export execution"
-        ]
-      }
-    },
-    {
-      "shape": "views-fold",
+      "equations": [
+        {
+          "claim": "terminal task status derives only from the ordered event chain",
+          "class": "testable",
+          "witness": "test:test_runtime_terminal_status_derives_only_from_event_chain"
+        },
+        {
+          "claim": "knowledge projection keeps objects and relations one-to-one",
+          "class": "testable",
+          "witness": "test:test_graph_payload_keeps_objects_and_relations_one_to_one"
+        },
+        {
+          "claim": "material segments retain field paths and NOT_EXECUTED provider status",
+          "class": "testable",
+          "witness": "test:test_search_segments_carry_field_path_and_not_executed_statuses"
+        },
+        {
+          "claim": "field-level loss records are bound to projection view payloads",
+          "class": "testable",
+          "witness": "test:test_field_level_loss_records_are_bound_to_payloads"
+        }
+      ],
+      "failures": [
+        "projection.processing.failure"
+      ],
       "objects": [
         {
-          "name": "C9SemanticSourceClosureV1",
-          "kind": "record",
-          "owner": "main/backend/app/successor_runtime/substrate/projections/c9_sources.py"
+          "kind": "schema",
+          "name": "mrw.projection.project-source-closure.v2",
+          "owner": "main/backend/app/successor_runtime/substrate/projections/projection_sources.py"
         },
         {
-          "name": "AgentSessionProjectionPayloadV1",
-          "kind": "record",
-          "owner": "main/backend/app/successor_runtime/substrate/projections/c9_sources.py"
+          "kind": "schema",
+          "name": "mrw.projection.task-view.v2",
+          "owner": "main/backend/app/successor_runtime/substrate/projections/projection_sources.py"
         },
         {
-          "name": "ResearchGraphProjectionPayloadV1",
-          "kind": "record",
-          "owner": "main/backend/app/successor_runtime/substrate/projections/c9_sources.py"
+          "kind": "schema",
+          "name": "mrw.projection.knowledge-view.v2",
+          "owner": "main/backend/app/successor_runtime/substrate/projections/projection_sources.py"
         },
         {
-          "name": "SearchProjectionPayloadV1",
-          "kind": "record",
-          "owner": "main/backend/app/successor_runtime/substrate/projections/c9_sources.py"
+          "kind": "schema",
+          "name": "mrw.projection.material-view.v2",
+          "owner": "main/backend/app/successor_runtime/substrate/projections/projection_sources.py"
         }
       ],
       "operations": [
@@ -831,62 +812,67 @@
           "order_depends_on": []
         }
       ],
-      "equations": [
-        {
-          "claim": "terminal session status derives only from the ordered event chain",
-          "class": "testable",
-          "witness": "test:test_runtime_terminal_status_derives_only_from_event_chain"
-        },
-        {
-          "claim": "graph projection keeps objects and relations one-to-one",
-          "class": "testable",
-          "witness": "test:test_graph_payload_keeps_objects_and_relations_one_to_one"
-        },
-        {
-          "claim": "search segments retain field paths and NOT_EXECUTED provider status",
-          "class": "testable",
-          "witness": "test:test_search_segments_carry_field_path_and_not_executed_statuses"
-        },
-        {
-          "claim": "field-level loss records are bound to projection payloads",
-          "class": "testable",
-          "witness": "test:test_field_level_loss_records_are_bound_to_payloads"
-        }
-      ],
-      "failures": [
-        "c9.projector.failure"
-      ],
+      "shape": "views-fold"
+    },
+    {
       "axes": {
-        "open": "projection interpreters",
-        "closed": "runtime events, session statuses, segment kinds, loss kinds, and source schemas"
+        "closed": "project source schemas, source identity projector, offset key, and projection processing failures",
+        "open": "storage interpreters"
+      },
+      "change": {
+        "declared_loss": [
+          "live delivery, cutover, and runtime failure closure"
+        ],
+        "kind": "extension"
       },
       "derived": {
         "authoritative": false,
-        "derived_as": "view"
+        "derived_as": "anchor"
       },
-      "change": {
-        "kind": "extension",
-        "declared_loss": [
-          "external provider realization"
-        ]
-      }
-    },
-    {
-      "shape": "anchor",
+      "equations": [
+        {
+          "claim": "same project source put is idempotent and loads exactly",
+          "class": "testable",
+          "witness": "test:test_same_closure_put_is_idempotent_and_loads_exact"
+        },
+        {
+          "claim": "legitimate project source advance writes new versions and retains old versions",
+          "class": "testable",
+          "witness": "test:test_legitimate_advance_writes_new_versions_retains_old_and_loads_current"
+        },
+        {
+          "claim": "reversion to an old project source closure fails closed",
+          "class": "testable",
+          "witness": "test:test_reversion_to_old_closure_fails_closed"
+        },
+        {
+          "claim": "project source payload tampering fails closed",
+          "class": "testable",
+          "witness": "test:test_payload_tamper_fails_closed"
+        }
+      ],
+      "failures": [
+        "projection.processing.failure"
+      ],
       "objects": [
         {
-          "name": "C9SemanticSourceClosureV1",
-          "kind": "record",
-          "owner": "main/backend/app/successor_runtime/substrate/projections/c9_sources.py"
+          "kind": "schema",
+          "name": "mrw.projection.project-source-closure.v2",
+          "owner": "main/backend/app/successor_runtime/substrate/projections/projection_sources.py"
         },
         {
-          "name": "SemanticSourcePutResult",
-          "kind": "record",
-          "owner": "main/backend/app/successor_runtime/substrate/postgres/c9_projection_sources.py"
+          "kind": "schema",
+          "name": "mrw.projection.project-source-manifest.v2",
+          "owner": "main/backend/app/successor_runtime/substrate/postgres/projection_sources.py"
         },
         {
+          "kind": "projector",
+          "name": "projection.project-source-identity.v2",
+          "owner": "main/backend/app/successor_runtime/substrate/postgres/projection_sources.py"
+        },
+        {
+          "kind": "record",
           "name": "ProjectionOffsetKey",
-          "kind": "record",
           "owner": "main/backend/app/successor_runtime/substrate/postgres/projection_offsets.py"
         }
       ],
@@ -908,61 +894,21 @@
           ]
         }
       ],
-      "equations": [
-        {
-          "claim": "same closure put is idempotent and loads exactly",
-          "class": "testable",
-          "witness": "test:test_same_closure_put_is_idempotent_and_loads_exact"
-        },
-        {
-          "claim": "legitimate source advance writes new versions and retains old versions",
-          "class": "testable",
-          "witness": "test:test_legitimate_advance_writes_new_versions_retains_old_and_loads_current"
-        },
-        {
-          "claim": "reversion to an old closure fails closed",
-          "class": "testable",
-          "witness": "test:test_reversion_to_old_closure_fails_closed"
-        },
-        {
-          "claim": "payload tampering fails closed",
-          "class": "testable",
-          "witness": "test:test_payload_tamper_fails_closed"
-        }
-      ],
-      "failures": [
-        "c9.projector.failure"
-      ],
+      "shape": "anchor"
+    },
+    {
       "axes": {
-        "open": "storage interpreters",
-        "closed": "source schemas and projector failure classification"
+        "closed": "local FirstSpecimen handler failure codes only",
+        "open": "capability interpreter and storage effects"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
       },
       "derived": {
         "authoritative": false,
-        "derived_as": "anchor"
+        "derived_as": "external_claim"
       },
-      "change": {
-        "kind": "extension",
-        "declared_loss": [
-          "live delivery, cutover, and runtime failure closure"
-        ]
-      }
-    },
-    {
-      "shape": "capability-interface",
-      "objects": [
-        {
-          "name": "FirstSpecimenHandlerError",
-          "kind": "record",
-          "owner": "main/backend/app/successor_runtime/substrate/postgres/first_specimen_handlers.py"
-        }
-      ],
-      "operations": [
-        {
-          "name": "execute_exact",
-          "order_depends_on": []
-        }
-      ],
       "equations": [
         {
           "claim": "local handler classes preserve their declared failure codes",
@@ -978,30 +924,63 @@
       "failures": [
         "first_specimen.handler_failure"
       ],
+      "objects": [
+        {
+          "kind": "record",
+          "name": "FirstSpecimenHandlerError",
+          "owner": "main/backend/app/successor_runtime/substrate/postgres/first_specimen_handlers.py"
+        }
+      ],
+      "operations": [
+        {
+          "name": "execute_exact",
+          "order_depends_on": []
+        }
+      ],
+      "shape": "capability-interface"
+    },
+    {
       "axes": {
-        "open": "capability interpreter and storage effects",
-        "closed": "local FirstSpecimen handler failure codes only"
+        "closed": "registered P3 and P4 representative top-level key sets",
+        "open": "family fragment bodies"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
       },
       "derived": {
         "authoritative": false,
-        "derived_as": "external_claim"
+        "derived_as": "view"
       },
-      "change": {
-        "kind": "extension",
-        "declared_loss": []
-      }
-    },
-    {
-      "shape": "codec",
+      "equations": [
+        {
+          "claim": "registered fragment codecs match their on-disk representative key sets",
+          "class": "testable",
+          "witness": "test:INVARIANT__shared_family_fragment_registry_consistency"
+        },
+        {
+          "claim": "shared generator output is byte-stable across repeated runs",
+          "class": "testable",
+          "witness": "test:test_shared_generator_is_deterministic"
+        },
+        {
+          "claim": "mapping projection preserves fragment identity without rewriting persisted bytes",
+          "class": "testable",
+          "witness": "test:INVARIANT__shared_family_identity_wire_projection_is_lossless"
+        }
+      ],
+      "failures": [
+        "shared.family.generator.failure"
+      ],
       "objects": [
         {
-          "name": "P3SharedFamilyFragment",
           "kind": "record",
+          "name": "P3SharedFamilyFragment",
           "owner": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json"
         },
         {
-          "name": "P4SharedFamilyFragment",
           "kind": "record",
+          "name": "P4SharedFamilyFragment",
           "owner": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p4-fragments/C7.json"
         }
       ],
@@ -1015,45 +994,47 @@
           "order_depends_on": []
         }
       ],
-      "equations": [
-        {
-          "claim": "registered fragment codecs match their on-disk representative key sets",
-          "class": "testable",
-          "witness": "test:INVARIANT__shared_family_fragment_registry_consistency"
-        },
+      "shape": "codec"
+    },
     {
-      "claim": "shared generator disk and deterministic output remain identical",
-      "class": "testable",
-      "witness": "test:test_frozen_canonical_and_effective_fragment_bytes"
-        },
-        {
-          "claim": "mapping projection preserves fragment identity without rewriting persisted bytes",
-          "class": "testable",
-          "witness": "test:INVARIANT__shared_family_identity_wire_projection_is_lossless"
-        }
-      ],
-      "failures": [
-        "shared.family.generator.failure"
-      ],
       "axes": {
-        "open": "family fragment bodies",
-        "closed": "registered P3 and P4 representative top-level key sets"
+        "closed": "checker schema, statuses, classifications, warning severities, and schedule source vocabulary",
+        "open": "automation lanes and artifact payloads"
+      },
+      "change": {
+        "declared_loss": [
+          "runtime scheduled execution and artifact generation"
+        ],
+        "kind": "extension"
       },
       "derived": {
         "authoritative": false,
-        "derived_as": "view"
+        "derived_as": "external_claim"
       },
-      "change": {
-        "kind": "extension",
-        "declared_loss": []
-      }
-    },
-    {
-      "shape": "codec",
+      "equations": [
+        {
+          "claim": "checker constants and report keys match the registered closure",
+          "class": "testable",
+          "witness": "test:INVARIANT__scheduled_automation_checker_registration_matches_ast"
+        },
+        {
+          "claim": "report wire projection preserves checker output as an external claim",
+          "class": "testable",
+          "witness": "test:INVARIANT__scheduled_automation_identity_wire_projection_is_lossless"
+        },
+        {
+          "claim": "foreign report schema versions fail closed",
+          "class": "testable",
+          "witness": "test:FAILURE_PRESERVED__scheduled_automation_foreign_discriminant_fails_closed"
+        }
+      ],
+      "failures": [
+        "scheduled.automation.evidence.failure"
+      ],
       "objects": [
         {
-          "name": "ScheduledAutomationArtifactEvidence",
           "kind": "record",
+          "name": "ScheduledAutomationArtifactEvidence",
           "owner": "scripts/check_scheduled_automation_artifacts.py"
         }
       ],
@@ -1075,52 +1056,58 @@
           ]
         }
       ],
-      "equations": [
-        {
-          "claim": "checker constants and report keys match the registered closure",
-          "class": "testable",
-          "witness": "test:INVARIANT__scheduled_automation_checker_registration_matches_ast"
-        },
-        {
-          "claim": "report wire projection preserves checker output as an external claim",
-          "class": "testable",
-          "witness": "test:INVARIANT__scheduled_automation_identity_wire_projection_is_lossless"
-        },
-        {
-          "claim": "foreign report schema versions fail closed",
-          "class": "testable",
-          "witness": "test:FAILURE_PRESERVED__scheduled_automation_foreign_discriminant_fails_closed"
-        }
-      ],
-      "failures": [
-        "scheduled.automation.evidence.failure"
-      ],
+      "shape": "codec"
+    },
+    {
       "axes": {
-        "open": "automation lanes and artifact payloads",
-        "closed": "checker schema, statuses, classifications, warning severities, and schedule source vocabulary"
+        "closed": "provider resolution only",
+        "open": "crawler provider interpreters"
+      },
+      "change": {
+        "declared_loss": [
+          "unregistered crawler resolution codes are rejected at construction",
+          "Scrapyd transport, health, bootstrap, dispatch, and poll failure conversion remains deferred"
+        ],
+        "kind": "refinement"
       },
       "derived": {
         "authoritative": false,
-        "derived_as": "external_claim"
+        "derived_as": "view"
       },
-      "change": {
-        "kind": "extension",
-        "declared_loss": [
-          "runtime scheduled execution and artifact generation"
-        ]
-      }
-    },
-    {
-      "shape": "capability-interface",
+      "equations": [
+        {
+          "claim": "an unconfigured crawler resolver fails with the typed resolution error",
+          "class": "testable",
+          "witness": "test:test_FAILURE_PRESERVED__unconfigured_crawler_resolver_fails_closed"
+        },
+        {
+          "claim": "an unavailable Scrapy provider fails with the typed resolution error",
+          "class": "testable",
+          "witness": "test:test_FAILURE_PRESERVED__unavailable_scrapy_provider_fails_with_resolution_error"
+        },
+        {
+          "claim": "an unsupported crawler provider fails with the typed resolution error",
+          "class": "testable",
+          "witness": "test:test_FAILURE_PRESERVED__unsupported_crawler_provider_fails_with_resolution_error"
+        },
+        {
+          "claim": "unregistered crawler resolution codes fail closed at construction",
+          "class": "testable",
+          "witness": "test:test_FAILURE_PRESERVED__crawler_resolution_error_rejects_unknown_code"
+        }
+      ],
+      "failures": [
+        "source_library.crawler_provider_resolution.failure"
+      ],
       "objects": [
         {
-          "name": "CrawlerProviderResolver",
           "kind": "record",
+          "name": "CrawlerProviderResolver",
           "owner": "main/backend/app/services/source_library/provider_ports.py"
         },
         {
-          "name": "DefaultCrawlerProviderResolver",
           "kind": "record",
+          "name": "DefaultCrawlerProviderResolver",
           "owner": "main/backend/app/composition/source_library.py"
         }
       ],
@@ -1130,63 +1117,50 @@
           "order_depends_on": []
         }
       ],
-      "equations": [
-    {
-      "claim": "an unconfigured crawler resolver fails with the typed resolution error",
-      "class": "testable",
-      "witness": "test:test_FAILURE_PRESERVED__unconfigured_crawler_resolver_fails_closed"
+      "shape": "capability-interface"
     },
     {
-      "claim": "an unavailable Scrapy provider fails with the typed resolution error",
-      "class": "testable",
-      "witness": "test:test_FAILURE_PRESERVED__unavailable_scrapy_provider_fails_with_resolution_error"
-    },
-    {
-      "claim": "an unsupported crawler provider fails with the typed resolution error",
-      "class": "testable",
-      "witness": "test:test_FAILURE_PRESERVED__unsupported_crawler_provider_fails_with_resolution_error"
-    },
-    {
-      "claim": "unregistered crawler resolution codes fail closed at construction",
-      "class": "testable",
-      "witness": "test:test_FAILURE_PRESERVED__crawler_resolution_error_rejects_unknown_code"
-    }
-      ],
-      "failures": [
-        "source_library.crawler_provider_resolution.failure"
-      ],
       "axes": {
-        "open": "crawler provider interpreters",
-        "closed": "provider resolution only"
+        "closed": "policy predicates and operations",
+        "open": "outer effect owners"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
       },
       "derived": {
         "authoritative": false,
-        "derived_as": "view"
+        "derived_as": "preflight"
       },
-      "change": {
-        "kind": "refinement",
-        "declared_loss": [
-          "unregistered crawler resolution codes are rejected at construction",
-          "Scrapyd transport, health, bootstrap, dispatch, and poll failure conversion remains deferred"
-        ]
-      }
-    },
-    {
-      "shape": "capability-interface",
+      "equations": [
+        {
+          "claim": "a policy pass remains a non-authoritative preflight",
+          "class": "testable",
+          "witness": "test:test_valid_fixture_passes_but_does_not_grant_authority"
+        },
+        {
+          "claim": "policy failures are members of one closed family",
+          "class": "testable",
+          "witness": "test:test_failure_family_is_closed_and_decisions_are_immutable"
+        }
+      ],
+      "failures": [
+        "mrw.production-policy.failure.v1"
+      ],
       "objects": [
         {
+          "kind": "record",
           "name": "ProductionPolicyConfig",
-          "kind": "record",
           "owner": "main/backend/app/production_contract/types.py"
         },
         {
+          "kind": "record",
           "name": "ProductionRequest",
-          "kind": "record",
           "owner": "main/backend/app/production_contract/types.py"
         },
         {
-          "name": "PolicyDecision",
           "kind": "record",
+          "name": "PolicyDecision",
           "owner": "main/backend/app/production_contract/types.py"
         }
       ],
@@ -1206,49 +1180,21 @@
           "order_depends_on": []
         }
       ],
-      "equations": [
-        {
-          "claim": "a policy pass remains a non-authoritative preflight",
-          "class": "testable",
-          "witness": "test:test_valid_fixture_passes_but_does_not_grant_authority"
-        },
-        {
-          "claim": "policy failures are members of one closed family",
-          "class": "testable",
-          "witness": "test:test_failure_family_is_closed_and_decisions_are_immutable"
-        }
-      ],
-      "failures": [
-        "mrw.production-policy.failure.v1"
-      ],
+      "shape": "capability-interface"
+    },
+    {
       "axes": {
-        "open": "outer effect owners",
-        "closed": "policy predicates and operations"
+        "closed": "effect classes and admission states",
+        "open": "future effect-port implementations"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
       },
       "derived": {
         "authoritative": false,
-        "derived_as": "preflight"
+        "derived_as": "route preflight"
       },
-      "change": {
-        "kind": "extension",
-        "declared_loss": []
-      }
-    },
-    {
-      "shape": "capability-interface",
-      "objects": [
-        {
-          "name": "EndpointEffectContract",
-          "kind": "record",
-          "owner": "main/backend/app/production_contract/types.py"
-        }
-      ],
-      "operations": [
-        {
-          "name": "require_admitted",
-          "order_depends_on": []
-        }
-      ],
       "equations": [
         {
           "claim": "effect class and admission are independent of HTTP method",
@@ -1264,18 +1210,21 @@
       "failures": [
         "mrw.production.route-effect.failure.v1"
       ],
-      "axes": {
-        "open": "future effect-port implementations",
-        "closed": "effect classes and admission states"
-      },
-      "derived": {
-        "authoritative": false,
-        "derived_as": "route preflight"
-      },
-      "change": {
-        "kind": "extension",
-        "declared_loss": []
-      }
+      "objects": [
+        {
+          "kind": "record",
+          "name": "EndpointEffectContract",
+          "owner": "main/backend/app/production_contract/types.py"
+        }
+      ],
+      "operations": [
+        {
+          "name": "require_admitted",
+          "order_depends_on": []
+        }
+      ],
+      "shape": "capability-interface"
     }
-  ]
+  ],
+  "version": "kit-sketches.v1"
 }

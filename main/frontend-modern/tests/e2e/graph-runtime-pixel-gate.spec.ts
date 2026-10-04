@@ -99,6 +99,19 @@ async function setupGraphRuntimeMocks(page: Page) {
       await fulfillJson(route, { items: [], total: 0 })
       return
     }
+    if (pathname === '/api/v1/information-topology/topologies/read') {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          detail: {
+            status: 'error',
+            error: { code: 'NOT_FOUND', message: 'topology state was not found' },
+          },
+        }),
+      })
+      return
+    }
     await fulfillJson(route, { items: [], total: 0 })
   })
 

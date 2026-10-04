@@ -77,7 +77,7 @@ class LlmReportSourceEnrichmentUnitTest(unittest.TestCase):
             patch.object(enrichment, "_collect_from_graph_nodes", return_value=[]),
             patch.object(enrichment, "_collect_from_web", return_value=[]),
         ):
-            resolved = enrichment.resolve_report_sources("lottery growth", [])
+            resolved = enrichment.resolve_report_sources("renewable energy growth", [])
             self.assertEqual(len(resolved), 1)
             self.assertEqual(resolved[0]["id"], "RAG1")
             self.assertIn("graph relation evidence", resolved[0]["evidence"])
@@ -86,7 +86,7 @@ class LlmReportSourceEnrichmentUnitTest(unittest.TestCase):
         graph_row = SimpleNamespace(
             node_type="MarketData",
             canonical_id="m1",
-            display_name="lottery market",
+            display_name="renewable energy market",
             properties={
                 "source_uri": "https://example.com/graph",
                 "summary": "graph summary",
@@ -97,7 +97,7 @@ class LlmReportSourceEnrichmentUnitTest(unittest.TestCase):
             patch.object(enrichment, "SessionLocal", _FakeSessionLocal([graph_row])),
             patch.object(enrichment, "_collect_from_web", return_value=[]),
         ):
-            resolved = enrichment.resolve_report_sources("lottery market", [], target_count=2)
+            resolved = enrichment.resolve_report_sources("renewable energy market", [], target_count=2)
             self.assertEqual(len(resolved), 1)
             self.assertTrue(resolved[0]["id"].startswith("GRAPH"))
             self.assertEqual(resolved[0]["url"], "https://example.com/graph")
