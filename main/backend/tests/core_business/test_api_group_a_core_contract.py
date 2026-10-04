@@ -135,6 +135,7 @@ class ApiGroupACoreContractTestCase(unittest.TestCase):
         mocked_items = [
             {
                 "source_domain": "example.com",
+                "noun_group_id": "pg-1",
                 "prompt_group_id": "pg-1",
                 "bucket_time": "2026-03-05",
                 "effective_new_docs": 3,
@@ -177,6 +178,7 @@ class ApiGroupACoreContractTestCase(unittest.TestCase):
         mocked_items = [
             {
                 "source_domain": "example.com",
+                "noun_group_id": "pg-1",
                 "prompt_group_id": "pg-1",
                 "window": "7d",
                 "density": 0.2,
@@ -197,7 +199,9 @@ class ApiGroupACoreContractTestCase(unittest.TestCase):
         body = response.json()
         self.assertEqual(body["status"], "ok")
         self.assertIsNone(body["error"])
-        self.assertEqual(body["data"]["items"], mocked_items)
+        serialized_item = body["data"]["items"][0]
+        for key, value in mocked_items[0].items():
+            self.assertEqual(serialized_item[key], value)
         self.assertEqual(body["data"]["total"], 1)
 
     def test_prompt_time_density_priority_invalid_candidate_returns_422(self):

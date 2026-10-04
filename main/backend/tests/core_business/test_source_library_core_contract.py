@@ -18,6 +18,7 @@ try:
     from app.api import source_library as source_library_api
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
+    from app.services.source_library import external_project as external_project_service
     from app.services.source_library import resolver as source_library_resolver
 
     _IMPORT_ERROR = None
@@ -530,6 +531,11 @@ def test_external_project_register_preview_returns_synthesized_item_without_pers
         return _external_registration_item_payload()
 
     monkeypatch.setattr(source_library_api, "synthesize_external_project_item", _fake_synthesize)
+    monkeypatch.setattr(
+        external_project_service.socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [(2, 1, 6, "", ("93.184.216.34", 0))],
+    )
 
     resp = client.post(
         "/api/v1/source_library/external-projects/register",
@@ -573,6 +579,11 @@ def test_external_project_register_persist_upserts_synthesized_item(client, monk
 
     monkeypatch.setattr(source_library_api, "synthesize_external_project_item", _fake_synthesize)
     monkeypatch.setattr(source_library_api, "_upsert_project_item_internal", _fake_upsert)
+    monkeypatch.setattr(
+        external_project_service.socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [(2, 1, 6, "", ("93.184.216.34", 0))],
+    )
 
     resp = client.post(
         "/api/v1/source_library/external-projects/register",
