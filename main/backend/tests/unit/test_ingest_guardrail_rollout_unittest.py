@@ -3,7 +3,6 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -13,7 +12,6 @@ pytestmark = pytest.mark.unit
 
 try:
     from app.services.ingest import url_pool as url_pool_module
-    from app.services.ingest import frontdoor_rollout as rollout_module
     from app.services.ingest import guardrail_rollout as guardrail_rollout_module
 
     _IMPORT_ERROR = None
@@ -21,41 +19,30 @@ except Exception as exc:  # noqa: BLE001
     _IMPORT_ERROR = exc
 
 
-class IngestFrontdoorRolloutUnitTestCase(unittest.TestCase):
+class IngestGuardrailRolloutUnitTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if _IMPORT_ERROR is not None:
-            raise unittest.SkipTest(f"ingest frontdoor rollout tests require backend dependencies: {_IMPORT_ERROR}")
+            raise unittest.SkipTest(f"ingest guardrail rollout tests require backend dependencies: {_IMPORT_ERROR}")
 
-    def test_url_pool_frontdoor_disabled_when_rollout_mode_off(self):
-        with patch.object(rollout_module.settings, "ingest_frontdoor_rollout_mode", "off"):
-            options = url_pool_module._resolve_frontdoor_options(
-                {
-                    "url_routing_frontdoor_enabled": True,
-                    "front_door_owner": "ingest.news",
-                },
-                project_key="demo_proj",
-            )
+    def test_url_pool_always_uses_current_frontdoor_path(self):
+        options = url_pool_module._resolve_frontdoor_options(
+            {
+                "url_routing_frontdoor_enabled": False,
+                "front_door_owner": "ingest.news",
+            }
+        )
 
-        self.assertEqual(options, {"enabled": False})
-
-    def test_url_pool_frontdoor_canary_only_allows_listed_project(self):
-        with patch.object(rollout_module.settings, "ingest_frontdoor_rollout_mode", "canary"), patch.object(
-            rollout_module.settings,
-            "ingest_frontdoor_canary_projects",
-            "demo_proj, alpha_proj",
-        ):
-            enabled_options = url_pool_module._resolve_frontdoor_options(
-                {"url_routing_frontdoor_enabled": True},
-                project_key="demo_proj",
-            )
-            blocked_options = url_pool_module._resolve_frontdoor_options(
-                {"url_routing_frontdoor_enabled": True},
-                project_key="beta_proj",
-            )
-
-        self.assertTrue(enabled_options.get("enabled"))
-        self.assertEqual(blocked_options, {"enabled": False})
+        self.assertEqual(
+            options,
+            {
+                "enabled": True,
+                "front_door_owner": "ingest.news",
+                "route_decision": "front_door_url_routing",
+                "write_mode": "front_door_url_routing",
+                "execution_mode": "url_routing",
+            },
+        )
 
     def test_guardrail_rollout_canary_default_only_enables_listed_project(self):
         enabled = guardrail_rollout_module.resolve_ingest_guardrail_rollout_decision(

@@ -117,8 +117,6 @@ class Settings(BaseSettings):
     graph_node_projection_write_mode: str = Field(default="shadow")  # off | shadow | on
     graph_node_projection_read_mode: str = Field(default="a_only")  # a_only | b_canary | b_primary
     graph_node_projection_canary_projects: str = Field(default="demo_proj")
-    ingest_frontdoor_rollout_mode: str = Field(default="on")  # on | off | canary | passthrough
-    ingest_frontdoor_canary_projects: str = Field(default="demo_proj")
     ingest_enable_strict_gate: bool = Field(default=False)
     ingest_guardrail_rollout_mode: str = Field(default="canary")  # off | canary | on | passthrough
     ingest_guardrail_canary_projects: str = Field(default="demo_proj")

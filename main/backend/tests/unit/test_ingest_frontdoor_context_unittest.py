@@ -82,7 +82,6 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         self.assertEqual(captured["project_key"], "demo_proj")
         self.assertEqual(captured["query_terms"], ["market"])
         self.assertTrue(captured["enable_extraction"])
-        self.assertEqual(captured["extra_params"].get("url_routing_frontdoor_enabled"), True)
         self.assertEqual(captured["extra_params"].get("front_door_owner"), "ingest.news")
         self.assertEqual(captured["extra_params"].get("frontdoor_route_decision"), "front_door_url_routing")
         self.assertEqual(captured["extra_params"].get("frontdoor_write_mode"), "front_door_url_routing")
@@ -216,7 +215,6 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         self.assertEqual(captured["project_key"], "demo_proj")
         self.assertEqual(captured["query_terms"], ["ev"])
         self.assertEqual(captured["enable_extraction"], False)
-        self.assertEqual(captured["extra_params"].get("url_routing_frontdoor_enabled"), True)
         self.assertEqual(captured["extra_params"].get("front_door_owner"), "ingest.market_web")
         self.assertEqual(captured["extra_params"].get("frontdoor_route_decision"), "front_door_url_routing")
         self.assertEqual(captured["extra_params"].get("frontdoor_write_mode"), "front_door_url_routing")
@@ -281,8 +279,6 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         with patch.object(url_pool_module, "list_urls", return_value=(pool_items, len(pool_items))), patch.object(
             url_pool_module, "_resolve_runtime_targets", return_value=(targets, "site_only")
         ), patch.object(url_pool_module, "unwrap_url", side_effect=_fake_unwrap), patch.object(
-            url_pool_module, "is_ingest_frontdoor_enabled", return_value=True
-        ), patch.object(
             url_pool_module, "start_job", return_value=101
         ), patch.object(
             url_pool_module, "complete_job"
@@ -293,7 +289,6 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
                 project_key="demo_proj",
                 query_terms=["robotics"],
                 extra_params={
-                    "url_routing_frontdoor_enabled": True,
                     "url_parallel_workers": 1,
                     "url_parallel_batch_size": 1,
                 },
@@ -343,9 +338,9 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
                 },
             }
 
-        with patch.object(url_pool_module, "is_ingest_frontdoor_enabled", return_value=True), patch.object(
-            url_pool_module, "start_job", return_value=202
-        ), patch.object(url_pool_module, "complete_job"), patch.object(
+        with patch.object(url_pool_module, "start_job", return_value=202), patch.object(
+            url_pool_module, "complete_job"
+        ), patch.object(
             url_pool_module, "_run_source_library_frontdoor_ingress", side_effect=_fake_frontdoor_ingress
         ):
             result = url_pool_module.collect_urls_from_list(
@@ -353,7 +348,6 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
                 project_key="demo_proj",
                 query_terms=["robotics"],
                 extra_params={
-                    "url_routing_frontdoor_enabled": True,
                     "disable_site_seed_expansion": True,
                     "url_parallel_workers": 1,
                     "url_parallel_batch_size": 1,

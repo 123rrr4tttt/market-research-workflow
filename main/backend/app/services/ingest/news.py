@@ -15,7 +15,6 @@ from .provider_ports import get_google_news_adapter, get_reddit_adapter
 from .gate_reason_codes import normalize_reason_code
 from .retry_policy import classify_retry_reason, RETRY_CLASS_TRANSIENT
 from .url_unwrap import decode_google_news_url_for_dispatch
-from ..http.client import default_http_client
 from ...settings.config import settings
 
 
@@ -180,7 +179,6 @@ def _dispatch_links_via_source_library_frontdoor(
     project_key = (current_project_key() or "").strip() or None
     merged_extra_params = {
         "dispatch_mode": "inline",
-        "url_routing_frontdoor_enabled": True,
         "front_door_owner": "ingest.news",
         "frontdoor_route_decision": "front_door_url_routing",
         "frontdoor_write_mode": "front_door_url_routing",

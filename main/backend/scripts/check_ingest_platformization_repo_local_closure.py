@@ -95,7 +95,7 @@ BLOCKER_ANCHORS: dict[str, tuple[Anchor, ...]] = {
             ("strict_gate_source_counts", "live_canary_validated", "closure_claim"),
         ),
         Anchor(
-            Path("main/backend/tests/unit/test_ingest_frontdoor_rollout_unittest.py"),
+            Path("main/backend/tests/unit/test_ingest_guardrail_rollout_unittest.py"),
             ("test_guardrail_rollout_readiness_keeps_live_closure_open", "ready_for_repo_rollout"),
         ),
     ),

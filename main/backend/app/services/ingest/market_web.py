@@ -137,7 +137,6 @@ def collect_market_info(
                 query_terms=list(keywords or []),
                 extra_params={
                     "dispatch_mode": "inline",
-                    "url_routing_frontdoor_enabled": True,
                     "front_door_owner": "ingest.market_web",
                     "frontdoor_route_decision": "front_door_url_routing",
                     "frontdoor_write_mode": "front_door_url_routing",
