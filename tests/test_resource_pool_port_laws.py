@@ -34,48 +34,36 @@ class InMemoryOfficialAccessPort:
         }
 
 
-TestHttpFetchPort = port_laws(
-    "HttpFetchPort",
-    InMemoryHttpFetchPort,
-    PortLawSpec(
-        idempotent=[
-            Idempotent(
-                "fetch same url is deterministic",
-                lambda port: port.fetch_html("https://example.com") [0],
-            )
-        ],
-        ordered=[
-            Ordered(
-                "url request order is preserved",
-                first=lambda port: port.fetch_html("https://first.example"),
-                second=lambda port: port.fetch_html("https://second.example"),
-                observe=lambda port: list(port.urls),
-                commutes=False,
-            )
-        ],
-    ),
+_fetch_idempotent: Idempotent[InMemoryHttpFetchPort] = Idempotent(
+    "fetch same url is deterministic",
+    lambda port: port.fetch_html("https://example.com")[0],
 )
+_fetch_ordered: Ordered[InMemoryHttpFetchPort] = Ordered(
+    "url request order is preserved",
+    first=lambda port: port.fetch_html("https://first.example"),
+    second=lambda port: port.fetch_html("https://second.example"),
+    observe=lambda port: list(port.urls),
+    commutes=False,
+)
+_fetch_spec: PortLawSpec[InMemoryHttpFetchPort] = PortLawSpec(
+    idempotent=[_fetch_idempotent], ordered=[_fetch_ordered]
+)
+TestHttpFetchPort = port_laws("HttpFetchPort", InMemoryHttpFetchPort, _fetch_spec)
 
+_official_idempotent: Idempotent[InMemoryOfficialAccessPort] = Idempotent(
+    "handle official request is deterministic",
+    lambda port: port.handle({"provider_key": "arxiv"}, None)["provider_key"],
+)
+_official_ordered: Ordered[InMemoryOfficialAccessPort] = Ordered(
+    "official request order is preserved",
+    first=lambda port: port.handle({"provider_key": "first"}, None),
+    second=lambda port: port.handle({"provider_key": "second"}, None),
+    observe=lambda port: [row["provider_key"] for row in port.params],
+    commutes=False,
+)
+_official_spec: PortLawSpec[InMemoryOfficialAccessPort] = PortLawSpec(
+    idempotent=[_official_idempotent], ordered=[_official_ordered]
+)
 TestOfficialAccessPort = port_laws(
-    "OfficialAccessPort",
-    InMemoryOfficialAccessPort,
-    PortLawSpec(
-        idempotent=[
-            Idempotent(
-                "handle official request is deterministic",
-                lambda port: port.handle(
-                    {"provider_key": "arxiv"}, None
-                )["provider_key"],
-            )
-        ],
-        ordered=[
-            Ordered(
-                "official request order is preserved",
-                first=lambda port: port.handle({"provider_key": "first"}, None),
-                second=lambda port: port.handle({"provider_key": "second"}, None),
-                observe=lambda port: [row["provider_key"] for row in port.params],
-                commutes=False,
-            )
-        ],
-    ),
+    "OfficialAccessPort", InMemoryOfficialAccessPort, _official_spec
 )

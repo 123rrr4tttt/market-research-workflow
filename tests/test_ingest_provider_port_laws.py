@@ -52,54 +52,46 @@ class InMemoryGoogleNewsPort:
         return [{"keyword": keyword, "limit": limit} for keyword in keywords]
 
 
+_policy_idempotent: Idempotent[InMemoryPolicyAdapterPort] = Idempotent(
+    "policy fetch is deterministic", lambda port: port.fetch_documents()
+)
+_policy_spec: PortLawSpec[InMemoryPolicyAdapterPort] = PortLawSpec(
+    idempotent=[_policy_idempotent]
+)
 TestPolicyAdapterPort = port_laws(
-    "PolicyAdapterPort",
-    InMemoryPolicyAdapterPort,
-    PortLawSpec(
-        idempotent=[Idempotent("policy fetch is deterministic", lambda port: port.fetch_documents())],
-    ),
+    "PolicyAdapterPort", InMemoryPolicyAdapterPort, _policy_spec
 )
 
-TestRedditPort = port_laws(
-    "RedditPort",
-    InMemoryRedditPort,
-    PortLawSpec(
-        idempotent=[
-            Idempotent(
-                "reddit single subreddit fetch is deterministic",
-                lambda port: port.fetch_posts("stocks", ["ai"], 2),
-            )
-        ],
-        ordered=[
-            Ordered(
-                "reddit query order is preserved",
-                first=lambda port: port.fetch_posts("stocks", ["ai"], 2),
-                second=lambda port: port.fetch_posts("economics", ["ai"], 2),
-                observe=lambda port: list(port.queries),
-                commutes=False,
-            )
-        ],
-    ),
+_reddit_idempotent: Idempotent[InMemoryRedditPort] = Idempotent(
+    "reddit single subreddit fetch is deterministic",
+    lambda port: port.fetch_posts("stocks", ["ai"], 2),
 )
+_reddit_ordered: Ordered[InMemoryRedditPort] = Ordered(
+    "reddit query order is preserved",
+    first=lambda port: port.fetch_posts("stocks", ["ai"], 2),
+    second=lambda port: port.fetch_posts("economics", ["ai"], 2),
+    observe=lambda port: list(port.queries),
+    commutes=False,
+)
+_reddit_spec: PortLawSpec[InMemoryRedditPort] = PortLawSpec(
+    idempotent=[_reddit_idempotent], ordered=[_reddit_ordered]
+)
+TestRedditPort = port_laws("RedditPort", InMemoryRedditPort, _reddit_spec)
 
+_google_news_idempotent: Idempotent[InMemoryGoogleNewsPort] = Idempotent(
+    "google news query is deterministic",
+    lambda port: port.search_multiple_keywords(["ai"], 2),
+)
+_google_news_ordered: Ordered[InMemoryGoogleNewsPort] = Ordered(
+    "google news keyword order is preserved",
+    first=lambda port: port.search_multiple_keywords(["ai"], 2),
+    second=lambda port: port.search_multiple_keywords(["policy"], 2),
+    observe=lambda port: list(port.queries),
+    commutes=False,
+)
+_google_news_spec: PortLawSpec[InMemoryGoogleNewsPort] = PortLawSpec(
+    idempotent=[_google_news_idempotent], ordered=[_google_news_ordered]
+)
 TestGoogleNewsPort = port_laws(
-    "GoogleNewsPort",
-    InMemoryGoogleNewsPort,
-    PortLawSpec(
-        idempotent=[
-            Idempotent(
-                "google news query is deterministic",
-                lambda port: port.search_multiple_keywords(["ai"], 2),
-            )
-        ],
-        ordered=[
-            Ordered(
-                "google news keyword order is preserved",
-                first=lambda port: port.search_multiple_keywords(["ai"], 2),
-                second=lambda port: port.search_multiple_keywords(["policy"], 2),
-                observe=lambda port: list(port.queries),
-                commutes=False,
-            )
-        ],
-    ),
+    "GoogleNewsPort", InMemoryGoogleNewsPort, _google_news_spec
 )

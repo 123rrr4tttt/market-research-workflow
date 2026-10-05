@@ -18,6 +18,8 @@ pythonpath = ["src", "main/backend"]
 testpaths = ["tests"]
 
 [tool.pyright]
+# Maintained type boundary for the pinned, untyped functorial-kit dependency.
+stubPath = "typings"
 include = [
     "src",
     "tests",

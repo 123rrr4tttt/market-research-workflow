@@ -19,30 +19,24 @@ class InMemoryCollectAdapter:
         )
 
 
-TestCollectAdapter = port_laws(
-    "CollectAdapter",
-    InMemoryCollectAdapter,
-    PortLawSpec(
-        idempotent=[
-            Idempotent(
-                "run is deterministic",
-                lambda adapter: adapter.run(
-                    CollectRequest(channel="search.market", query_terms=["a"])
-                ).meta,
-            )
-        ],
-        ordered=[
-            Ordered(
-                "request order is preserved",
-                first=lambda adapter: adapter.run(
-                    CollectRequest(channel="search.market", query_terms=["first"])
-                ),
-                second=lambda adapter: adapter.run(
-                    CollectRequest(channel="search.market", query_terms=["second"])
-                ),
-                observe=lambda adapter: [r.query_terms for r in adapter.requests],
-                commutes=False,
-            )
-        ],
-    ),
+_collect_idempotent: Idempotent[InMemoryCollectAdapter] = Idempotent(
+    "run is deterministic",
+    lambda adapter: adapter.run(
+        CollectRequest(channel="search.market", query_terms=["a"])
+    ).meta,
 )
+_collect_ordered: Ordered[InMemoryCollectAdapter] = Ordered(
+    "request order is preserved",
+    first=lambda adapter: adapter.run(
+        CollectRequest(channel="search.market", query_terms=["first"])
+    ),
+    second=lambda adapter: adapter.run(
+        CollectRequest(channel="search.market", query_terms=["second"])
+    ),
+    observe=lambda adapter: [request.query_terms for request in adapter.requests],
+    commutes=False,
+)
+_collect_spec: PortLawSpec[InMemoryCollectAdapter] = PortLawSpec(
+    idempotent=[_collect_idempotent], ordered=[_collect_ordered]
+)
+TestCollectAdapter = port_laws("CollectAdapter", InMemoryCollectAdapter, _collect_spec)
