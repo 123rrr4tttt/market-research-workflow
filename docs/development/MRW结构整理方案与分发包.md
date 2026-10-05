@@ -1,5 +1,7 @@
 # MRW 结构整理方案与分发包
 
+当前入口：[运行时退役与类型收敛框架](#11-运行时退役与类型收敛框架)。2026-10-05 外部审核后的五个只读调研包已完成，§11 为本轮实施设计，状态为 **框架完成，实施未开始**。旧 runtime 整体退役是本轮最高优先交付，独有能力迁入现行体系，不以“不同义”保留旧执行系统。下方各轮完成状态只覆盖各自当时的范围，不代表本轮发现已经修复。
+
 上一轮（2026-10-04）状态：`IMPLEMENTATION_COMPLETE / LOCAL_DAILY_RUNTIME_VERIFIED`，范围与证据见 §8。
 
 本轮（2026-10-05）维护框架与分发方案见 [§10](#10-当前维护收敛框架与串并行分发包)。用户已授权整组实施，状态为 `IMPLEMENTATION_COMPLETE / LOCAL_MAINTENANCE_VERIFIED`；各包的实际派发与验证记录见 §10.11。§1–§7 为上一轮设计，§9 为已执行合同的历史快照；其中旧环境、资源分配和进行中措辞不构成本轮执行指令。
@@ -704,3 +706,452 @@ GLM服务限流导致部分作者中断，保留产物后执行2个专题恢复�
 本轮15包无剩余开发blocker。Graph E2E为mock API，保留原force3d/fallback framing观察边界；远端发布、可选Qdrant及旧香港材料/全后端测试的原范围不变。本轮没有以本地维护测试冒充生产部署、线上provider业务完成或新一轮全链发布验收；此前本机日常链证据继续保留原归属。
 
 收尾清理读回：Docker Images统计从6个/5.429GB降为5个/3.958GB，专属PG容器已移除；剩余其他任务容器、9个volume和共享builder cache均保留。宿主可用空间前后均约58GiB，不把镜像逻辑大小差当作Docker.raw实际收缩。本轮误命令cache目录与`.DS_Store`共18968 bytes精确删除，未知根资料原位保留。
+
+## 11. 运行时退役与类型收敛框架
+
+本轮最高优先目标是尽快整体退役旧 runtime。通用平台需要的能力统一由现行执行体系承接，以严格类型、单一事实来源和一条有效执行路径实现；有独有能力的旧实现先迁入现行能力/interpreter，再删除旧执行实现。是否同义决定迁移方式与保持条件，不决定旧 runtime 是否退役。沿用现有贡献、组合、解释与持久化设施，不新建 runtime、调度平台、类型 DSL 或证据平台。本文集中拥有本轮决定和分发包，不再生成分包文档族。
+
+本节取代前文对相关旧执行路径“继续并存”的默认安排；前文历史结果保留原归属。旧冻结合同中的“legacy 不退役”不阻止本轮用户明确要求的退役，原始冻结字节仍不可改写。当前产品不展示阶段编号或能力开发代号；下文旧路径名只用于开发定位。
+
+### 11.1 核查基线与结论边界
+
+五个只读调研面为运行时、类型、前端、后端边界、流程与卫生；主线复核跨包结论并负责最终设计。起始分支 `main`，HEAD `93eab44b2c74069f5b9ac60eb26c68c1005b890f`，工作区有 242 条状态记录，含其他任务正在修改的代码。计数来自当时文件，不是冻结候选，实施前按相关文件重新核对。没有执行业务测试、性能剖析、迁移或服务切换。
+
+| 对象 | 本轮观察 | 对外部审核的判断 |
+| --- | --- | --- |
+| 后端业务 / 测试 | 790 个 Python 文件、302,095 行 / 621 个、186,061 行 | 规模判断基本成立；行数本身不能证明业务冗余 |
+| services / successor_runtime | 118,243 / 135,978 行 | 两者不是两份完整同义实现；据此识别需要迁入的独有能力，旧执行体系仍整体退役 |
+| 前端源码 | 216 个 TS/TSX、58,981 行；GraphPage 6,041 行 | 页面职责集中问题成立；hook 数不证明运行性能差 |
+| development Markdown | Git 管理及未忽略文件 629 篇、55,089 行；含 ignored 目录 2,848 篇、657,756 行 | 外部数字包含 25 个历史参考仓库克隆中的大量文档；不全是本项目流程正文 |
+| docs Markdown | Git 可见 662 篇、94,755 行 | 含历史、专题与第三方参考，不全部进入当前导航 |
+| check_* 脚本 | 后端 scripts 下 93 个；跨仓 Git 可见共 189 个 | 数量正确但范围不同；没有静态调用命中不能单独证明可删 |
+| 类型与异常 | 后端 `Any` 词法 7,993 次、`dict[str, Any]` 3,999 次；AST 捕获 Exception 838 处，其中整个 handler 只有 pass 的 39 处 | 类型问题成立；词法含注释/边界等，不能逐命中判错；外部 48 处吞异常与此口径不同 |
+| 提交与环境 | HEAD 祖先近 30 日 8 次提交；根 .venv 缺业务依赖，后端 .venv311 有 pytest/SQLAlchemy/Pydantic/kit，但无 Pyright | 提交批次偏大；错误解释器的收集失败不能算代码测试失败 |
+
+统计源码口径为 `git ls-files -c -o --exclude-standard -z` 去重后现存文件；行数含空行、注释。GraphPage 的 88 个 useState、35 个 useEffect 是词法命中，不作为自动删除指标。前端 strict 已开启，有界扫描没有显式 Any 类型证据。
+
+明确问题集中在以下现行代码：
+
+- [Pyright 配置](../../pyproject.toml)仅 `include = ["src", "tests"]`；`main/backend/app` 未纳入严格检查，当前 CI 未调用 Pyright。架构七项 gate 不能替代静态类型检查。
+- [采集运行入口](../../main/backend/app/services/collect_runtime/runtime.py)同时维护 typed batch 与原 dispatcher，effect gateway/projector 用 Any。typed 路径目前只承接两个搜索 channel 的合格批请求；不能通过全局开关把其他 channel 直接切过去。
+- [工作流执行器](../../main/backend/app/services/workflow_graph/runtime.py)仍自行遍历节点并写 run/node 状态；[typed DSL 编译能力](../../main/backend/app/successor_runtime/capabilities/workflow_legacy_dsl.py)已经存在，但当前 `workflow_graph.compile` skill 实际调用 `WorkflowGraphCompilerService`，尚未进入这一平台编译路径。
+- [会话协调器](../../main/backend/app/services/agent_runtime/coordinator.py)会构造 synthesis 结果、写 completed 状态和派发提示词；[控制工具](../../main/backend/app/services/agent_runtime/control_tools.py)与会话 API 仍可调用它。它属于需退出的旧决策路径。
+- [source.history.read](../../main/backend/app/services/agent_core/authoring_tools.py)在 get_session 失败后合成 session、list_artifacts 失败后返回空集合，混淆“确实为空”和“读取失败”。
+- [依赖审计器](../../scripts/formal_release/check_functorial_kit_dependency_audit.py)固定期望旧 kit revision `785ff25e…`，当前 pyproject/requirements 固定 `6dbae536…`。现行依赖审计与历史重放身份须分开；不得改历史 base/patch 去伪造一致。
+
+### 11.2 目标结构：类型固定语义，宿主执行效果
+
+平台对象由项目范围、能力定义、输入输出类型、执行身份与持久结果共同确定。来源、材料、工作流模板、任务、知识产物各有事实 owner；图视图与会话视图通过稳定身份引用它们。Codex 拥有推理与原生会话；平台拥有业务操作的授权、组合、派发和结果；adapter 拥有具体外部交互。三者分别承担实际责任，不互相复制状态或推理循环。
+
+一个操作属于特定项目与权限语境。其输入、输出和失败相关联，不能在注册时保留类型、调用时抹成 Any：
+
+$$
+f:A\longrightarrow\operatorname{Result}(B,E_f),\qquad
+g:B\longrightarrow\operatorname{Result}(C,E_g).
+$$
+
+只有中间对象、scope 与 effect 条件兼容时才允许有序组合。现有 `ProgramSpec`、`ObjectType`、`OperationContract`、`ExecutionPlan` 继续承载这些关系；Python 静态参数关联和运行期 descriptor/codec 校验相互补充。动态加载的插件仍需运行期验证，不能靠给任意字符串套类型注解获得执行资格。
+
+以项目、角色和可见数据形成观察语境，可把各语境下可见定义看作预层式模型；scope 收缩只能减少可见性和权限，不能授予新写权。这里采用其限制映射的设计含义，不声称已经证明完整的 sheaf 粘合性质。同一业务变换在 API、解释器、存储、界面中的表示只需在合同观察下相容；迁移的比较见证是这种二维相容性，不自动等于自然变换定理。
+
+$$
+\operatorname{Obs}(\operatorname{run}_{old}(x))
+=\operatorname{Obs}(\operatorname{run}_{current}(T(x))).
+$$
+
+`Obs` 明确观察身份、结果、顺序、失败、权限及写入次数；排除未承诺保持的日志文本和时间戳。退役不支持的能力时，改为明确的拒绝/损失合同，而非声称上式成立。比较测试仅使用隔离资源或无副作用替身，不把一次真实业务动作向新旧两端各执行一次。
+
+| 事实 / 能力 | 唯一承载与边界 | 收敛方式 |
+| --- | --- | --- |
+| Agent 推理、线程和 turn | Codex core / Codex WebUI、现有 native binding | MRW 不再生成第二套研究阶段计划、模型循环与推理记忆 |
+| 程序定义、编译和有序执行 | 现有 language / capabilities / runtime | 承接旧执行体系仍需的全部能力；保持权限、幂等、失败与恢复；旧执行循环、调度和状态写入全部退出 |
+| 采集与外部服务效果 | 现有 CollectAdapter、crawler/LLM/HTTP 端口 | 类型化参数与结果，由唯一平台入口调用；保留特殊内核 |
+| 文档与知识事实 | 原 Document/知识 writer | 搜索、图谱、会话只读回身份与投影，不新存第二份正文 |
+| 工作流模板与执行事实 | 模板服务管版本；现有平台 run/step owner 管新运行事实 | 老 run 格式保留只读 decoder；不继续双写两份新 run |
+| 声明、装配与注册 | 原生定义、现有 NativeContributionRule 和 project_catalog | registry、schema、装配引用由原定义派生；派生 JSON 不成为新权威 |
+
+### 11.3 退役清单与删除终点
+
+旧 runtime 的退役决定已确定，后续调研只确定如何迁移与删除，不重新审议是否因“不同义”“有独有功能”或“仍有消费者”而长期保留。需要的独有功能形成现行能力的补齐项；失去需求的功能直接退出。消费者未迁走是该包未完成，不是保留结论。
+
+**退役截止点是本轮“旧运行时切换验收”批次结束。** 该批次在广域类型治理、图谱/API 整理、性能优化和文档卫生整组验收之前独立交付。迁移必需的类型、授权、数据与行为验证属于前置；其他整理不成为等待条件。当前即可独立删除的路径先删，各链路验证通过即切换并删除旧分支，不等整组工作全部完成。
+
+退役范围包括旧协调/记忆执行、旧工作流节点循环、旧采集 dispatcher 与模式开关、仍承担旧决策或状态双写的 batch/session/process 回退，以及 successor_migration 的在线执行桥。实施中沿真实入口补齐同类遗漏，由最近的退役包接收；不能把未确认项默认为保留项。
+
+过渡桥只服务具名消费者，由对应退役包拥有，最晚在该包切换验收时删除。需要补齐的能力在本文原结果中记录具体数量、目标承载、owner、验证与 blocked_by；真实缺口阻塞所属包完成，不能改成长期兼容，也不阻断其他链路退役。历史读取只能保留独立 decoder/数据读取，不得依赖或重新启用旧执行器；必须重放的旧源码留在不随当前产品装配/部署的历史输入中。
+
+| 处理 | 当前对象 | 必须达到的终点 |
+| --- | --- | --- |
+| 已退役，不重做 | 原 agent_core run_loop、interactive_agent、planner 等旧模型循环 | 核对仍无装配入口；不把仍在用的 CoreToolSpec、工具贡献误算为旧循环 |
+| 退役 | CoordinatorRuntime、coordinator-pass、task_continue 的旧自动规划分支 | Ops 控件、API、capability 注册、service 调用同步退出；保留由真实任务 owner 实现的取消、重试、租约回收；“继续”不得再合成完成事实 |
+| 收敛后退役 | SessionMemoryRuntime 及反复持久化派生 memory/scratchpad | Codex 推理记忆留在宿主；现有 MRW 业务摘要若仍被使用，按需由任务事实投影；历史 artifact 可读；无消费者后删除该类、阈值和刷新触发器 |
+| 收敛后退役 | WorkflowGraphRuntime 自有节点循环和新运行双写 | 所有当前注册节点族经现有 typed DSL/能力规则进入原平台执行；模板/编译产物服务保留；节点 executor 的特殊效果下沉为原 interpreter 使用的 kernel，随后删除旧循环与重复调度 |
+| 收敛后退役 | run_collect 的两套策略、SUCCESSOR_RUNTIME_COLLECT / INGEST_WORKFLOW_ADAPTER 迁移选项 | 五个现有 channel 全部有明确 typed 入口；批量与单项是数据/结构参数；删除旧分派与产品迁移开关，配置错误明确拒绝；复用原 adapter effect |
+| 同批迁出并退役 | batch/session/process 中旧决策、旧状态双写和旧引擎回退 | 主线归入控制面、采集或工作流包；必要关联改为读取现行事实，删除旧状态推演和回退，不因有消费者而续存 |
+| 同批迁出并退役 | successor_migration 下在线执行桥、parity/oracle 及生产旧 query 别名 | 活跃调用迁出后删除在线桥；独立业务见证转到当前消费者；精确重放使用独立历史输入。旧 HTTP 名称至多保留不依赖旧引擎的明确拒绝边界 |
+| 保留能力，退出旧承载 | ProgramSpec、ExecutionPlan、authority/receipt/recovery、必要领域服务 | 在现行体系中承载通用平台所需语义；若仍由旧 runtime 实现，迁入后删除旧执行模块，不能按“平台能力”整包豁免 |
+| 保留现行效果边界 | Codex 工具 binding、授权前门、会话关联、业务 adapter、Celery | 仅承载现行体系的推理接入、外部效果、队列和事实关联；adapter 若内含旧循环/调度/状态推演，同包抽出必要 kernel 并删除旧运行逻辑 |
+
+采集首批真实覆盖对象为 `search.market`、`search.policy`、`source_library`、`url_pool`、`crawler.scrapy`，权威清单仍在 [composition](../../main/backend/app/composition/collect_runtime.py)。当前 typed 搜索批解释器没有承接全部五类：禁止“开 on 即完成迁移”，也不为强行统一给简单单项请求增加不需要的计划/恢复设施。
+
+`run_successor_effect` 现已调用原 `CollectAdapter.run`，可复用其 HTTP/数据库 kernel 加速迁移。保留的是现行体系调用的效果实现，不是旧 runtime 的豁免；仅改名、套 facade 或通过 adapter 委托完整旧引擎均不算退役。旧数据库表与历史记录可独立只读保留，不因此保留旧执行器；宿主认证和其他任务工作树不属于本轮自动物理删除对象。
+
+### 11.4 类型收敛规则与首例
+
+首先修补已确定的边界，再扩大严格检查范围。把 Any 换成 object、cast、空 Protocol、`dict[str, object]` 或新 suppression 不算完成。JSON 输入可未知，进入内部语义后必须解析；带未知第三方 metadata 的扩展字段可保留 JSON value，其身份、状态、权限与必要结果字段必须封闭。
+
+| 边界 | 现有权威 | 目标 |
+| --- | --- | --- |
+| 内部对象、Program/Plan | frozen dataclass、ObjectType、OperationContract | 参数/返回具体化；组合保留关联输入输出；不新建影子 Program AST |
+| 端口和 handler | CollectAdapter、LLMProviderPort、FacilityBinding、原生贡献规则 | 用真实消费方法确定 Protocol/泛型关联；编译器能拒绝错 handler、错结果；动态注册另做运行期验证 |
+| HTTP、模型工具、队列消息 | 现有 Pydantic/codec/schema | 只在解析/序列化处使用 schema；闭合 status/failure discriminant，原 API envelope 保持 |
+| 已有 dict 形状的内部返回 | 原服务结果合同 | 必要时 TypedDict/有界 union；避免再复制一套值对象与验证器 |
+| registry 和前端 API 投影 | 原生贡献声明、现有 API/schema | 沿已有规则派生；禁止手填派生 registry，也不建全仓万能生成器 |
+
+首例固定为 `CollectRequest → composition.run_successor_effect → CollectAdapter.run → CollectResult`。它真实存在，输入/输出明确，且同时暴露 gateway Any、开放 status 和未知 channel 失败。先把 gateway/projector 的关联签名、实际状态全集、错误类型与能力结果转换打通，再让采集包复用。状态全集从现有所有生产者及消费者确定，尤其保留等待、取消、部分完成与未知结果；不能只写 completed/failed 二选一。
+
+程序组合包另沿 `acquisition_batch_program` 和已有 `compile_program` 消费者完善组合类型。`workflow_graph.compile` 当前返回 `CompiledWorkflowGraph`，不能直接当成 `ExecutionPlan`；其迁移属于工作流包。first-specimen 的 `OBJECT_TYPE_BY_ID` 不是平台所有插件的闭集；tuple/sequence、占位 descriptor 与 codec 关系须由原 OperationContract/运行期 resolver 验证，先补负例确认缺口，不能凭 registry 没命中就封死开放类型。
+
+静态检查先覆盖首例完整调用闭包，然后随每包覆盖所有改变及继续对外暴露的边界。目标是当前保留的公共合同、端口、组合/编译、API-to-service 与 queue-to-handler 接缝都被严格检查；不要求本轮把历史只读测试夹具也消灭到零 Any。新逃逸不得藏进调用方或派生 schema。每个包必须同时证明合法输入被接受、错误关联被类型检查拒绝、运行期未知/恶意输入被正确拒绝。
+
+### 11.5 串并行组织与共用资源
+
+本次只完成调研和框架，以下是可实施的分发合同。包名使用业务语义。实施主线先核对当前在途修改：agent host/授权与会话、材料身份与检索、GraphPage、管理页面、WebUI 均已有其他任务写入；只接收相关文件的稳定交接。等待一个文件不阻断无交集包，不覆盖或重复实现已完成工作。
+
+执行按“必要接口 → 子包并行实现 → 分链切换删除 → 旧runtime单独验收 → 广域整理收口”推进。下面的释放表替代整包一批等一批的安排：只等待真实接口、写面交接与资源，独立实现随产物就绪立即展开。
+
+业务端口作者不同时改 API 文件；采集首例 owner 交出 runtime/contracts 后采集包接手。一个大文件不分给多个写作者，即使修改行不同。`pyproject.toml`、`scripts/dev.py`、`.github/workflows/backend-tests.yml`、全局 composition/startup/API 聚合、`services/tasks.py`、`services/skill_runtime.py`、`functorial-kit.json`、project catalog/派生 registry/sketch、共享前端 API 类型及本文由集成 owner 单写。这里的全局 registry 不含后文明确交给控制工具作者的 `agent_runtime/capability_registry.py`；分派表中的独占文件以其实际持有人为准。
+
+#### 并行人数与计算口径
+
+下表是**按当前分解可直接放行的并行上限**，不是仓库的理论最大值或宿主性能实测。写作者包含正在写代码的包负责人，不再另加一层只负责转发的负责人。全局集成主线另计 1 人；只读复核是共享的 1 个可选席位，轮转查看稳定输入，不给每包常驻一个 reviewer。测试执行人数按后面的资源表单独分配，不叠加到源码写作者上虚报吞吐。
+
+| 工作包 | 接口未定时写作者 | 接口确定后同时写作者上限 | 推荐写作者 | 包内串行段 |
+| --- | --- | --- | --- | --- |
+| 类型首例 | 1 | 2 | 2 | 合同先行 → 接入/见证并行 → 同一个 owner 交出 contracts/runtime |
+| 旧控制面退役 | 1 固定取消/重试/摘要接口 | 3 | 3 | service 接口 → 服务、工具、API/UI 并行 → 旧模块删除 |
+| 采集单路径 | 1 接收首例并固定单项/批量 lowering | 4 | 3–4 | 请求合同 → 总入口与三类 kernel 并行 → 旧桥/开关删除 |
+| 程序组合类型 | 1 固定共同类型与编译/校验签名 | 3 | 2–3 | 公共签名 → AST、计划编译、变换校验并行 → 组合验收 |
+| 业务端口类型 | 各族接口确定者；最多 4 个不相交族 | 5 | 3–4 | 文档接口先解锁检索消费者；工具类型等控制面交接；tasks 单写 |
+| 工作流单执行器 | 1 固定节点 effect/run 引用接口 | 3 | 3 | 节点/运行接口 → kernel、平台绑定、历史读回并行 → 切换并删旧循环 |
+| 图谱职责收敛 | 1 固定页面与现有 hook/renderer 接口 | 4 | 3 | 接口 → 页面模板、草稿、投影、渲染并行 → 页面单写收口 |
+| API 职责收敛 | 原合同不变时可直接 3 人 | 3 | 3 | admin/ingest/dashboard 各自重组；共享 envelope/router 由主线串行接入 |
+| 异常与请求调度 | 1 固定失败与配额接口 | 3 | 2–3 | HTTP/限速首例 → 公共边界、搜索、社交 adapter 并行 → 限速组合验收 |
+| 文档与检查减负 | 2（检查/导航与本地遗留物无交集） | 2 | 2 | 各自引用核查 → 修改或精确清理 → 主线更新当前方案 |
+| 集成收尾 | 1 | 1 | 1 | 共享接线/sync → 稳定输入 → 独立验证通道 → 主题提交 |
+
+例如“采集 4 人”是总入口、搜索批、来源/URL、crawler 各 1 人，绝不是 4 人共同改 runtime.py。包内人数到上限后，新增 agent 只能接另一个已经解锁的包，不能复制 owner 或抢改同一文件。
+
+全局建议为 **1 个集成主线 + 最多 8 个同时写作者 + 1 个轮转只读复核，共最多 10 个活跃 agent**。接口已确定、在途文件已交接且主线能及时接入时，可把写作者窗口升到 10，共最多 12 人；旧控制 3 + 采集 4 + 工作流 3 是这 10 个独立写面的具体组成。它们只有在各自前置已满足时才同时可派。广域整理包的上限不能直接相加，默认复用退役作者释放的席位。provider 持续限流时缩小/切换受影响调用，不重新派整棵树。
+
+#### 释放条件与实际派发顺序
+
+“接口确定”指现有 owner 已给出具体符号、输入输出、失败/权限边界，以及一个可调用的原消费者首例；更新原文件和本包回传即可，不增加批准/冻结步骤。下游可以在签名确定后实现，最终验收必须等真实上游产物，不能把 mock 接口当交付。
+
+| 可达到的执行前沿 | 同时派发的具体子包 | 人数与释放事件 |
+| --- | --- | --- |
+| 起步：必要接口 | 类型/合同接入、控制/会话事实、程序/类型与AST、工作流/节点kernel | 4 写作者 + 主线；四个 owner 分别固定各自接缝，谁先完成就先解锁消费者，不等四包一起完成 |
+| 首批展开 | 保留上述 4 人；追加类型/独立见证、控制/工具、控制/入口、工作流/平台绑定 | 最多 8 写作者；后四个分别等待自己的接口，不是等待上游整包。未就绪席位可由已解锁的程序/计划编译或程序/变换校验替补 |
+| 采集切入 | 类型两作者交出 contracts/runtime 后，启动采集/总入口、采集/搜索、采集/来源URL、采集/crawler | 新增最多 4 人；复用类型与已完成控制面作者席位。未释放足够席位时先总入口+两类 kernel，不能超额挤占集成/测试 |
+| 工作流展开与各链收口 | 工作流/节点kernel、平台绑定、历史读回可并行；控制三子包随时可先收口；采集各族到齐即收口 | 默认最多 8 写作者；如形成控制3+采集4+工作流3完整前沿，可升到10。程序包只需交迁移必需接口，剩余广域类型工作让出关键路径资源 |
+| 分链切换 | 控制/会话事实 owner 删除旧模块；采集/总入口 owner 删除旧模式/桥；工作流/平台绑定 owner 切换后删除旧循环 | 各包收口只需1写作者；三链无共享写面部分可同时收口，共享 settings/skill/composition 由主线逐项接入。不等待图谱/API/文档整理 |
+| 旧运行时切换验收 | 主线合入公共装配；1个纯边界检查、1个专属DB验证、1个隔离前端验证通道按资源条件执行 | 1集成主线，最多3验证执行者；无同一输入面源码写入。旧执行入口/循环/fallback/双写/部署启用点归零后单独交付 |
+| 后续展开 | 业务端口最多5、图谱最多4、API最多3、异常调度最多3、文档最多2，按已解锁前沿填充8个写席位 | 优先填有确定接口且无在途冲突的包。例如业务端口3+图谱3+API1+文档1=8；不是同时开启全部17个作者 |
+| 整组收口 | 每包负责人交回稳定产物；主线完成共享类型/CI/注册同步和实际用户链 | 写作者逐包退出；测试按同一资源表，失败只退回所属原子包，不重开全部包 |
+
+下图的边表示**具体产物依赖**，不是整包必须全部串行结束；详细子包见 §11.6。
+
+```mermaid
+flowchart TD
+  tc[采集合同首例] --> ca[采集总入口及三类kernel并行]
+  pc[程序迁移所需类型接口] --> wb[工作流平台绑定]
+  wc[工作流节点与run接口] --> wk[工作流节点kernel]
+  wc --> wr[历史run只读投影]
+  wc --> wb
+  cc[取消重试与摘要接口] --> cs[会话事实]
+  cc --> ct[控制工具]
+  cc --> ce[会话API与Ops入口]
+  cs --> cx[控制面切换并删除]
+  ct --> cx
+  ce --> cx
+  ca --> cx2[采集切换并删除]
+  wk --> wx[工作流切换并删除]
+  wr --> wx
+  wb --> wx
+  cx --> end[旧运行时切换验收与提交]
+  cx2 --> end
+  wx --> end
+  end --> wider[广域类型及UI/API整理最终收口]
+```
+
+工作流开发不需要等控制面全包完成；只有实际仍读同一会话接口的调用点等待该接口交接。取消/重试、run身份和业务写owner等共同事实由原 owner 确定，不在三个退役包内各写一套。
+
+#### 源码读写、测试与运行资源
+
+| 资源面 | 同时占用上限 / 冲突 | 具体执行规则 |
+| --- | --- | --- |
+| 单个源码或测试文件 | 1 写作者 | 同文件不同函数也不并写；子包测试文件同样独占。审查可读稳定内容，最终测试读取的依赖面不得同时改写 |
+| 公共catalog、schema导出、注册、composition、settings、CI | 1 集成写窗口 | 包作者回传需要的原声明/接口，主线一次接入；不让每个包重写装配或手改派生物 |
+| 纯 pytest | 默认最多2个进程 | 必须确认无DB/provider/共同文件写入；每次独立 basetemp、Hypothesis storage，不写共享coverage.xml。源码观察范围有在途写入则延期该组 |
+| 专属 PostgreSQL/Redis/Celery 测试栈 | 默认1个写场景 | 可在不同专属栈扩大，但须实例、卷、队列、任务名/输出目录均隔离；不能只换测试文件或数据库schema。当前业务栈不供此用途 |
+| 前端 build/typecheck/E2E | 同一checkout最多1个占用窗口 | dist、Vite、tsBuildInfo、test-results、Playwright report和4173一起看；仅换端口不足以隔离。mock E2E可与独立后端DB场景并行；真实后端E2E并入同一DB场景 |
+| kit sync/check/gates | sync单写；check/gates读稳定声明 | sync不与相关registry测试/编译并行；检查完的同一输入不因无关文档变化重复跑 |
+| 包安装、镜像构建、环境配置 | 1环境owner | 测试期间不改依赖。沿既有安装/锁文件和运行入口使用环境；双锁文件存在本身不前置触发包管理器迁移 |
+| 宿主Codex/OAuth、真实provider账户 | 1受控验证窗口 | 仅集成主线安排实际需要的验证，保留账户配额及用户会话；源码作者不用真实turn当单测 |
+| clone/cache/旧产物清理 | 与任何使用该对象的读取/运行互斥 | 卫生作者先取得精确对象归属与无依赖证据；不得趁其他包验证时删公共缓存/环境 |
+
+`test-standardize.sh docker` / `external-smoke` 具有 `compose down -v` 清理行为，实施时必须由环境owner给定专属Compose项目及隔离存储后使用；不得在默认日常项目名下分派这些命令。仅设置新项目名也要核对显式命名卷和bind路径，不能据此假定已经隔离。
+
+后端检查复用 `.venv311`；root `.venv` 不用于业务测试。实测 Pyright 当前只在 root `.venv`，临时可用它检查、以 `--pythonpath main/backend/.venv311/bin/python` 解析业务依赖；实施时由环境 owner 统一把固定开发依赖接入后端环境和 CI，不让各包安装。Docker 是业务集成验证首选；现有在线容器不是专用测试数据库。§10.3 的旧测试镜像已清理，不作为当前可用资源。
+
+纯测试每命令独立进程，不共用可写 fixture/cache。数据库写入、Redis/Celery、provider 额度、OAuth/session、前端 dist/Vite cache/Playwright 端口分别分配资源；共享资源有任一写入即串行。Graph 与管理页的实现可并行，build/E2E 统一窗口执行。真实采集并发的配额必须跨实际 worker 生效，进程内锁不等于全局限速。
+
+以下 `focused` 仅是原 pytest 的文档缩写，禁止业务 DB/Redis/ES 连接，仅用于经确认无外部副作用的 selectors；需要真实服务的测试另用隔离资源，不靠 mock 冒充：
+
+```bash
+cd /Users/wangyiliang/market-research-workflow
+focused() (
+  PYTHONDONTWRITEBYTECODE=1 \
+  PYTHONPATH="$PWD:$PWD/src:$PWD/main/backend" \
+  DATABASE_URL=postgresql+psycopg2://postgres:postgres@127.0.0.1:1/postgres \
+  REDIS_URL=redis://127.0.0.1:1/0 ES_URL=http://127.0.0.1:1 \
+  main/backend/.venv311/bin/python -m pytest -p no:cacheprovider -q -rs "$@"
+)
+```
+
+已确认纯 selectors 的并行调用为每次执行隔离本地测试产物；下面以合同首例的原测试为调用示例，实际运行前仍需确认该测试的当前依赖面稳定。日志和失败产物保留至本包验证结束，不引入执行器：
+
+```bash
+mrw_test_tmp=$(mktemp -d "${TMPDIR:-/tmp}/mrw-focused.XXXXXX")
+HYPOTHESIS_STORAGE_DIRECTORY="$mrw_test_tmp/hypothesis" \
+  focused --basetemp="$mrw_test_tmp/pytest" \
+  main/backend/tests/unit/test_collect_runtime_composition_unittest.py
+```
+
+### 11.6 可直接分发的工作包
+
+各包均以仓库根为 cwd；前端命令切到 `main/frontend-modern`。输出为代码、受影响见证、实际删除/保留项及本节的一段结果，不另交报告。下列命令为已定位的入口，**本轮未执行**；新增负例在所属现有测试附近维护。
+
+旧控制面、采集单路径、工作流单执行器为退役主包；主线负责遗漏旧路径与共享装配，类型首例和程序组合包只以前述迁移必需接口阻塞它们。各退役包交付必须包含“独有能力承接位置、现用消费者切换、旧源码/注册/配置删除、旧引擎不再可执行”的完整结果，不能仅提交新实现后把删除留待后续。
+
+子包表继承其父包的目标、失败/权限边界和整包验收；表中再固定输入依赖、输出、独占源码和独占测试。共32个实现/见证子包，每行默认1写作者，名称就是派发名称，不另起阶段代号。为了阅读紧凑，`app/` 指 `main/backend/app/`，`bt/` 指 `main/backend/tests/`，`ui/` 指 `main/frontend-modern/src/`，`et/` 指 `main/frontend-modern/tests/e2e/`；`tests/` 仍指仓库根 tests。同一行后续只写文件名时沿用前一个文件的目录；花括号是同目录文件枚举。测试列列明文件时，执行命令为 §11.5 的 `focused` 加展开后的真实路径；前端使用父包的 Playwright 命令。源码与测试的独占权一起交接。
+
+所有能力贡献仍沿原生规则输出确定的注册/投影；子作者不手写一份接线让主线再维护另一份。只有子包所需的新模块才能新增，不能为了凑并行人数造空接口、转发文件或拆测试。
+
+**类型首例**
+
+- 目标/输入：使用 CollectRequest、CollectResult、CollectAdapter 与现有 composition，修复 gateway/projector Any 和结果字段关联。
+- 输出/独占写面：`services/collect_runtime/contracts.py`、`runtime.py` 的注入与转换签名及相关测试；composition 修改交主线。主线扩 Pyright 入口与 CI，使用原生类型派生所需声明。
+- 验证：`focused main/backend/tests/unit/test_collect_runtime_composition_unittest.py main/backend/tests/unit/test_collect_runtime_native_binding.py`；类型诊断入口 `./.venv/bin/python -m pyright --pythonpath main/backend/.venv311/bin/python main/backend/app/services/collect_runtime/contracts.py main/backend/app/composition/collect_runtime.py`，最终还须检查改变后的完整调用闭包。
+- 完成条件：错误请求/返回类型在静态负例被拒绝；真实 adapter 原行为保持；未知 channel、错误状态与缺失 gateway 保持明确失败；至少搜索与另一种合法 channel 走相同签名。交出写面后解锁采集包。
+
+| 子包 / 依赖 | 独占写面 | 交付与独立验证 |
+| --- | --- | --- |
+| 类型/合同接入（负责人）；立即 | `app/services/collect_runtime/contracts.py`、`runtime.py` | 先给出 request/result/status/failure 与 gateway/projector 的真实签名，再完成内部接入；保持全部既有状态。严格检查父包指定闭包；不抢写见证文件 |
+| 类型/独立见证；合同签名确定即开始 | `bt/unit/test_collect_runtime_composition_unittest.py`、`test_collect_runtime_native_binding.py` | 验证错误 handler/返回类型被拒绝及正常搜索/非搜索结果，测试独立于具体实现分支。两文件用 focused 执行，静态负例沿实际 Pyright 入口检查 |
+
+主线并行修改 `composition/collect_runtime.py`、Pyright/CI 配置，不计入本包2作者。合同owner在最小首例通过后交出 contracts/runtime 与上述测试，采集包随后接手；其余类型推广不阻挡这一交接。
+
+**旧控制面退役**
+
+- 目标/输入：现有会话 API、CoordinatorRuntime、SessionMemoryRuntime、task_continue、Codex native binding；Codex 为唯一推理 owner。
+- 输出/独占写面：`agent_runtime/coordinator.py`、`memory.py`、`control_tools.py`、`tool_policy.py`、会话 service、`api/agent_sessions.py` 及对应测试；capability_registry 与 Ops 控件按下面子包单写。主线仅接入公共 settings/route binding/前端 endpoint 类型；先与在途作者交接。
+- 验证：`focused main/backend/tests/unit/test_agent_sessions_service_unittest.py main/backend/tests/unit/test_agent_control_tools_unittest.py main/backend/tests/unit/test_codex_native_macro_binding.py`；另验证退役入口不再写任务/产物，真实重试/取消仍由原 owner 完成，旧会话可读。
+- 完成条件：不存在 coordinator 生成新任务决策或伪完成状态的产品路径；旧推理记忆更新器与无消费者 tool_policy 删除。若业务摘要仍有消费者，保留其纯投影且不留旧调度器；工具合同和宿主授权完整。
+
+| 子包 / 依赖 | 独占写面 | 交付与独立验证 |
+| --- | --- | --- |
+| 控制/会话事实（负责人）；先确定取消/重试/摘要接口 | `app/services/agent_sessions/service.py`；`app/services/agent_runtime/{coordinator.py,memory.py,tool_policy.py,__init__.py}`；`bt/unit/test_agent_sessions_service_unittest.py`、`bt/functorial_debt/test_w02_sessions.py` | 会话身份/业务任务保留，摘要只读投影；等工具/入口改好再删旧方法与模块。测试旧历史可读、重复取消/重试、读取失败不伪成功 |
+| 控制/工具；只等前项的必要方法签名 | `app/services/agent_runtime/{control_tools.py,capability_registry.py}`；`app/services/agent_core/functorial/operator.py`；`bt/unit/test_agent_control_tools_unittest.py`、`test_agent_runtime_tool_pool_unittest.py` | 工具指向实际任务owner或明确拒绝，继续操作不调用协调器、不生成完成事实；验证缺scope/权限与已取消任务 |
+| 控制/入口；只等端点处置与响应合同 | `app/api/agent_sessions.py`、`ui/pages/OpsPage.tsx`；`bt/integration/test_agent_sessions_api_unittest.py`、`et/admin-ops-repair.spec.ts` | 旧协调按钮/API退役，合法查询/取消/重试仍可用；mock API focused与隔离Ops E2E分别验证，不启动真Codex turn |
+
+服务实现、工具调用和UI/API可按固定接口并行开发，最终组合测试需三者一起稳定。`settings/config.py` 阈值清理、route bindings、`ui/lib/api/endpoints.ts` 由主线合入。`agent_sessions/store.py` 及存量表默认保持；确需改变时由会话事实owner统一接收，不让入口作者改数据库。
+
+**采集单路径**
+
+- 目标/输入：类型首例产物、五个 channel 原生定义、acquisition_batch 的有序结果与现有 CollectAdapter effects。
+- 输出/独占写面：接手 `services/collect_runtime/`，以及 acquisition_batch 的请求降低/投影中确需的切片；主线维护 composition/catalog。先完成单项与所有 channel 的表达，再统一批量策略。
+- 验证：`focused main/backend/tests/unit/test_collect_runtime_auto_batch_unittest.py main/backend/tests/unit/test_collect_runtime_source_library_adapter_unittest.py main/backend/tests/unit/test_collect_runtime_process_fallback_unittest.py`；隔离集成验证来源与 URL 入库、crawler 等待/完成读回。
+- 完成条件：产品只有一条有效分派与结果解释路径，迁移开关/旧 dispatch 删除；空结果、部分失败、取消、等待、顺序、重复请求与 write_to_pool/auto_ingest/extraction 语义保持；无双重外部调用或重复入库。长期 adapter 与必要单向结果投影保留。
+
+| 子包 / 依赖 | 独占写面 | 交付与独立验证 |
+| --- | --- | --- |
+| 采集/总入口（负责人）；首例交接后先定单项/批量lowering | `app/services/collect_runtime/{contracts.py,runtime.py,delivery.py,display_meta.py,successor_bridge.py,__init__.py}`；`bt/unit/test_collect_runtime_auto_batch_unittest.py`、`test_collect_runtime_process_fallback_unittest.py`，并接收首例两测试 | 五channel统一调用、顺序与结果解释；先给kernel稳定接口，最后删除旧dispatch/开关/桥。测试取消、等待、partial、幂等与不回退 |
+| 采集/搜索；接口确定后与总入口并行 | `app/services/collect_runtime/adapters/{search_market.py,search_policy.py}`；`app/successor_runtime/capabilities/{acquisition_batch.py,acquisition_batch_program.py,acquisition_batch_interpreters.py,acquisition_native_contribution.py}`；`bt/successor_runtime/test_c3_native_catalog.py` | typed批请求降低与已有搜索effects接通，保留资源/顺序约束；native catalog测试加现成父包批处理测试，由测试owner接收跨文件新增用例 |
+| 采集/来源URL；接口确定后并行 | `app/services/collect_runtime/adapters/{source_library.py,url_pool.py}`；`bt/unit/test_collect_runtime_source_library_adapter_unittest.py` | 单项/来源对象走同一入口，原写入与extraction参数保持；用focused替身见证，真实入库另进专属DB通道 |
+| 采集/crawler；接口确定后并行 | `app/services/collect_runtime/adapters/crawler_scrapy.py`；`bt/integration/test_t22_source_library_scrapy_collect_runtime_integration_unittest.py` | 异步provider job接受、等待、终态读回关联保持；mock见证与真实crawler链分开，未终态不能标完成 |
+
+`adapters/base.py` 的公共变化交总入口owner；其余作者只读。`legacy_collect_runtime.py` 与 `specification/acquisition_batch_p3.py` 的在线依赖迁出由总入口owner在尾段单写，独占 `bt/successor_runtime/test_p3_c3_replay_shadow.py`；历史重放从独立冻结输入取值。不能因剩余桥只被测试引用就保留在产品装配中。
+
+**程序组合类型**
+
+- 目标/输入：既有 language/program/algebra/plan/validate、OperationContractResolver、acquisition_batch_program 和原生贡献规则。
+- 输出/独占写面：`successor_runtime/language/` 受影响声明与实现、原 language 测试；不改采集能力文件和项目 catalog，由主线接线。修补关联而不另造 typed facade/AST。
+- 验证：`focused main/backend/tests/successor_runtime/test_program_ast.py main/backend/tests/successor_runtime/test_compiler.py`；增补实际输入输出不匹配、错误 codec/未解析 placeholder 到执行边界的拒绝，及一个合法非 first-specimen 类型的正例；严格检查受影响闭包。
+- 完成条件：合法扩展轴保持；不能把字符串 descriptor 当已验证值；恒等、有序复合、序列化往返与失败保持由现有实际测试见证。构造期占位是否可存在与执行期能否接受分别明确，不把未知开放类型一律拒绝。
+
+| 子包 / 依赖 | 独占写面 | 交付与独立验证 |
+| --- | --- | --- |
+| 程序/类型与AST（负责人）；先行 | `app/successor_runtime/language/{algebra.py,object_contracts.py,program.py,normalize.py,combinators.py,__init__.py}`；`bt/successor_runtime/test_program_ast.py` | 先固定ObjectType/ReturnContract/resolver/节点签名，给工作流和采集所需接口；再补AST关联与往返。combinators已有在途改动须按文件交接 |
+| 程序/计划编译；类型与校验接口确定后 | `app/successor_runtime/language/{plan.py,compile.py}`；`bt/successor_runtime/test_compiler.py` | 编译输入/返回及plan结构具体化；使用已定validate签名，可与其实现并行，最终测试等真实校验器。拒绝错误端点和operation contract |
+| 程序/变换校验；类型与AST接口确定后 | `app/successor_runtime/language/{transforms.py,validate.py}`；`bt/functorial_debt/test_w07_language_c.py` | transform/merge/discriminator端点与动态解析一致；合法扩展正例及错关联负例。对AST主文件的变更需求回给负责人，不各造替代描述符 |
+
+compiler在运行时调用validator，不意味着两位作者必须等对方整包完成才开发。只需先固定其输入/返回和失败语义；三子包的真实组合验证必须串在各自实现之后。共用 laws/catalog 修改由负责人尾段接收；工作流包不写 `test_compiler.py` 或 `test_program_ast.py`。
+
+**业务端口类型**
+
+- 目标/输入：LLMProviderPort、文档查询/材料合同、检索服务、task 回传及现有 FacilityBinding；优先接收正在进行的材料身份与 host 接线改动。
+- 输出/独占写面：`services/llm/ports.py` 及其 adapter、`document_queries/`、`agent_runtime/structured_data_search.py`、`project_retrieval/` 的实际边界与相关测试，分不相交文件子包；`services/tasks.py` 和共享合同由主线单写。authoring_tools 在控制面交接后按工具族接入现有贡献规则。
+- 验证：`focused tests/test_llm_provider_port_laws.py main/backend/tests/unit/test_llm_provider_boundary_unittest.py main/backend/tests/unit/test_document_queries_contracts_unittest.py main/backend/tests/unit/test_structured_data_search_unittest.py`；每个子包严格检查生产者—消费者闭包。
+- 完成条件：端口不暴露无约束 Any；队列与检索返回保留 result/status/failure 关联；错误作用域/缺字段/错结果能被拒绝；数据库材料身份不变；确定的 spec/handler/注册接线由现有规则生成。逐实例 schema 不再重复维护。
+
+| 子包 / 依赖 | 独占写面 | 交付与独立验证 |
+| --- | --- | --- |
+| 端口/LLM；本族接口可独立先行 | `app/services/llm/ports.py`、`app/services/llm/adapters/langchain_provider.py`；`tests/test_llm_provider_port_laws.py`、`bt/unit/test_llm_provider_boundary_unittest.py` | 模型/embedding端口返回所需真实协议；不改Codex宿主、macro binding和认证；端口律及未知provider失败保持 |
+| 端口/文档查询（负责人）；接收当前材料合同 | `app/services/document_queries/`；`bt/unit/test_document_queries_contracts_unittest.py`、`test_structured_data_search_document_query_contract_unittest.py` | 文档owner与查询结果一次定义，先交搜索/检索消费者的参数返回接口；需要共享contracts变更交主线 |
+| 端口/结构化检索；文档查询接口确定后 | `app/services/agent_runtime/{structured_data_search.py,structured_data_quality.py}`；`bt/unit/test_structured_data_search_unittest.py` | 消费前项接口，闭合结果/失败形状；不改同名 `document_queries/structured_data_search.py`，该文件归前项 |
+| 端口/项目检索；材料/查询接口确定后 | `app/services/project_retrieval/`；`bt/unit/test_project_retrieval_execution.py`、`test_project_retrieval_proposals.py`、`test_project_retrieval_mode.py`、`test_project_retrieval_hk_loader.py`、`test_project_retrieval_formalization.py` | 当前资料与写owner保持，任务结果和回传可静态验证；依赖shared contracts改变由主线接入 |
+| 端口/工具；控制面交接且对应业务返回接口确定后 | `app/services/agent_core/{authoring_tools.py,query_tools.py,project_tools.py,tool_support.py}`；`bt/unit/test_project_tool_contribution.py` | 复用FacilityBinding/贡献规则，工具参数、结果和权限引用一致；修复source.history.read的失败伪空。macro_tools/工具基础合同由主线单写，避免与host作者冲突 |
+
+前四个子包在接口和文件交接后可同时写，第五个晚解锁后峰值5；不需为等工具包而停止LLM独立实现。队列接入 `services/tasks.py`、共享材料合同与 `bt/unit/test_task_runtime_readback_ingest_boundary_unittest.py` 由主线单写；它们是上述产物的一个共同消费者，不另外派多个tasks作者。
+
+**工作流单执行器**
+
+- 目标/输入：控制面退役和程序类型接口、WorkflowGraphDSL/CompiledWorkflowGraph、已有 workflow_legacy_dsl、workflow native contribution、ProgramSpec/ExecutionPlan。
+- 输出/独占写面：`services/workflow_graph/runtime.py`、`executors/`、compiler/service 接缝及 workflow 能力降低路径、对应 tests。主线更新 skill 注册和 API 装配。模板保存/版本/审计与历史 run 只读范围继续由原服务拥有。
+- 验证：`focused main/backend/tests/unit/test_workflow_graph_runtime_unittest.py main/backend/tests/integration/test_workflow_graph_api_unittest.py` 仅运行其中隔离/mock 用例；真实 journal/writer 使用专属数据库验证。覆盖所有当前注册节点族，而非只跑一个 happy path。
+- 完成条件：当前 API/skill 真正进入平台解释器；LLM、向量检索、join 等现有节点的输入/失败/拓扑顺序保持；旧路径独有但仍需的节点能力在现有 interpreter/贡献规则补齐，扩展轴保留；run 身份、取消和读回保持；旧节点循环、新 run 双写及其装配全部删除。切换不能只写一个未被 API 使用的 typed compiler，也不能以两套执行器不同义为由保留旧循环。
+
+| 子包 / 依赖 | 独占写面 | 交付与独立验证 |
+| --- | --- | --- |
+| 工作流/节点kernel；先固定NodeExecutionContext与效果返回 | `app/services/workflow_graph/executors/`；`bt/unit/test_workflow_graph_runtime_unittest.py` | 从旧executor提取真正需要的LLM/向量/join效果，结果保留节点身份/输入来源/失败；不拥有遍历或run状态写入。测试调用新kernel和原平台消费者，不保留旧引擎只为通过旧测试 |
+| 工作流/平台绑定（负责人）；只等所需程序类型与节点接口 | `app/successor_runtime/capabilities/{workflow_legacy_dsl.py,workflow_native_contribution.py,workflow_common.py}`；`app/services/workflow_graph/{compiler.py,runtime.py,__init__.py}`；`app/api/workflow_graph.py`；`bt/unit/test_workflow_graph_compiler_unittest.py`、`bt/integration/test_workflow_graph_api_unittest.py`、`bt/successor_runtime/test_c1_native_catalog.py` | DSL→ProgramSpec/ExecutionPlan和现用API接通，尾段删除旧runtime循环；主线在skill_runtime.py完成真实注册切换。不得只通过未被API消费的新compiler测试 |
+| 工作流/历史读回；run身份/状态投影接口确定后 | `app/services/workflow_graph/{store.py,handoff_store.py,observability.py}`；`bt/unit/test_workflow_graph_handoff_store_unittest.py`、`bt/successor_runtime/test_p5_c1_legacy_oracle.py` | 新run从现行事实读取，旧记录按历史codec只读；既有run_id/模板版本/失败关联保持；真实DB回放在专属通道执行 |
+
+`schema.py`、`contracts.py`、模板和curated服务保持原合同，确需改动只由平台绑定owner接收，另两作者不同时修改。历史读回不是先把旧引擎搬到另一个目录；在线不得import/执行历史oracle。先由三个子包并行交付，再由平台绑定owner+主线串行切换装配、验证新run唯一写入并删除旧入口。
+
+**图谱职责收敛**
+
+- 目标/输入：GraphPage、现有 graph/hooks/realizer/renderers、模板/编辑 API；接收在途图谱变更，不重复新建 manager/store。
+- 输出/独占写面：`GraphPage.tsx` 与 `pages/graph/`、图相关 E2E。按草稿编辑、请求/模板、渲染生命周期分配 owner；派生数据从原输入计算；同一大文件只有一个写作者。
+- 验证：前端 `npm run lint`、`npm run build`、`npm run check:graph-force3d-frontend-contract`、`npm run check:graph-page-i18n-slice`；`FRONTEND_E2E_PORT=4173 VITE_API_PROXY_TARGET=http://127.0.0.1:1 VITE_CODEX_PROXY_TARGET=http://127.0.0.1:1 npx playwright test tests/e2e/graphpage.spec.ts tests/e2e/graph-renderer-lifecycle.spec.ts --workers=1 --reporter=line`。
+- 完成条件：页面负责组合，编辑/模板/renderer 各有清楚生命周期；重复变换/派生副本实际删除；项目切换、撤销/未应用草稿、模板回滚、2D/3D 切换和资源释放保持。draft/applied 有真实区别，不为减 state 合并；render 中有 guard 的 setState 不机械改为 effect。性能另用实测说明。
+
+| 子包 / 依赖 | 独占写面 | 交付与独立验证 |
+| --- | --- | --- |
+| 图谱/页面模板（负责人）；先定各hook输入与输出 | `ui/pages/GraphPage.tsx`、`ui/pages/graph/hooks/{useWorkflowTemplateController.ts,useProjectGraphTemplates.ts}`；`et/graphpage.spec.ts` | 页面只组合；模板与请求生命周期单一owner；接收其他子包接口后只此作者改GraphPage。模板/未应用编辑/项目切换场景写入本测试 |
+| 图谱/草稿选择；hook签名确定后 | `ui/pages/graph/hooks/{useGraphDraft.ts,useGraphSelectionState.ts,useGraphVisualState.ts,useGraphModeSwitch.ts}`；`et/graph-view-workbench.spec.ts` | 草稿/选择/视图事件边界收拢，保留draft/applied区别；不写模板hook或GraphPage |
+| 图谱/纯投影；共享graph类型确定后 | `ui/pages/graph/realizer/` 除 `contract.ts`、`definitions.ts`；`ui/pages/graph/domain/topology.ts`；`et/information-topology-graph.spec.ts`、`topology-document-identity.spec.ts` | 身份/拓扑/样式变换从权威输入计算，不建第二份可写图状态；输入输出可被原renderer消费 |
+| 图谱/渲染生命周期；renderer接口确定后 | `ui/pages/graph/renderers/` 除 `types.ts`；`ui/pages/graph/hooks/{useGraphDisplayResourceScheduler.ts,useForceGraph3DLoader.ts,useForceGraphViewport.ts}`；`et/graph-renderer-lifecycle.spec.ts`、`graph-runtime-pixel-gate.spec.ts` | 2D/3D挂载、释放、资源调度单一owner，切换/卸载不留重复实例；没有profile不宣称速度提升 |
+
+`realizer/contract.ts`、`definitions.ts`、`renderers/types.ts` 的局部共享签名归页面模板owner；全局 `ui/lib/types.ts` 与module注册归主线。签名固定后4作者可并行，最终GraphPage接入和build/E2E各保留一个窗口。其他UI组件/CSS确有变化时交给页面owner，不另开无边界“美化”子包。
+
+**API 职责收敛**
+
+- 目标/输入：admin、ingest、dashboard 的既有路由和 response schema，以及业务端口确定的返回接口。
+- 输出/独占写面：三个 API 文件与资源分组模块、相关测试；可按文件分作者，统一聚合由主线完成。Document 写入、graph 投影、任务提交按已有领域 owner 调用，删除重复错误 envelope 和字段归一化，不移动业务权威。
+- 验证：`focused main/backend/tests/unit/test_admin_dashboard_consumer_boundary_unittest.py main/backend/tests/contract/test_admin_dashboard_schema_contract_unittest.py main/backend/tests/contract/test_ingest_response_contract_unittest.py`；前端消费者及 OpenAPI/路由绑定随真实影响验收。
+- 完成条件：URL、envelope、scope、幂等、错误码与事务语义保持；API 不自行重建领域对象或吞业务失败；类型覆盖穿过实际 service，不能拆文件后仍到处返回 dict[str, Any]。
+
+| 子包 / 依赖 | 独占写面 | 交付与独立验证 |
+| --- | --- | --- |
+| API/admin；文档服务接口确定 | `app/api/admin.py` 及确需的文档管理路由模块；`bt/unit/test_admin_reextract_unittest.py`、`test_admin_dashboard_consumer_boundary_unittest.py` | 文档写入、重新提取、图查询回到原owner，路由协议不变；共享consumer测试文件只此作者写 |
+| API/ingest；采集合同确定 | `app/api/ingest.py` 及确需的采集路由模块；`bt/contract/test_ingest_response_contract_unittest.py` | 提交/幂等/派发边界清楚，等待与失败准确；用父包focused命令验证，不同时改collect runtime |
+| API/dashboard；既有查询接口已足够则无需等admin实现 | `app/api/dashboard.py` 及确需的只读dashboard路由模块；`bt/contract/test_admin_dashboard_schema_contract_unittest.py` | 读投影保持schema/错误码/scope；根据同一已定服务接口独立开发，不人为引入admin→dashboard实现依赖 |
+
+拆出的新路由文件由对应原文件作者独占；首次派发消息列明具体名字，不能多人创建同名 `helpers.py`。`api/__init__.py`、`_error_responses.py`、共享schema/envelope由主线接收实际必要改动；无需改公共接口时三个作者可立即并行。
+
+**异常与请求调度**
+
+- 目标/输入：现有 ErrorCode/Failure、retry_policy、provider 观察、search/web.py、社交 adapter 与 url_unwrap 限速实现。
+- 输出/独占写面：`services/search/web.py`、相关 HTTP/社交 adapter、原错误/重试测试；不写 collect runtime。`source.history.read` 的异常由控制面/工具 owner 接入同一失败合同，避免抢写 authoring_tools。
+- 验证：`focused main/backend/tests/unit/test_ingest_retry_policy_unittest.py main/backend/tests/unit/test_task_runtime_readback_ingest_boundary_unittest.py` 加对应搜索/adapter 现有测试；fake clock/client 证明退避、Retry-After、全失败/部分失败和有界并发，不用真实 sleep 做时间断言。
+- 完成条件：读取失败不伪装为空成功；可选字段解析捕获缩到合理异常；adapter 的部分成功明确表达。先测请求等待构成再改并发，依据 provider/account 配额和 worker 模型选共享限速范围；不得把每线程 1 秒等待替换成无限并发或将进程锁冒充跨 worker 配额。无性能数据不宣称提速。
+
+| 子包 / 依赖 | 独占写面 | 交付与独立验证 |
+| --- | --- | --- |
+| 请求/公共边界（负责人）；先行 | `app/services/ingest/adapters/http_utils.py`、`app/services/ingest/{url_unwrap.py,retry_policy.py}`；`bt/unit/test_url_unwrap_unittest.py`、`test_ingest_retry_policy_unittest.py` | 固定失败/重试/配额scope，先用真实HTTP调用族首例验证；接口供下面两个消费者使用，不重建通用调度平台 |
+| 请求/搜索；公共签名确定后 | `app/services/search/web.py`；`bt/unit/test_search_web_provider_adapters_unittest.py` | 串行sleep逐项归因，保留provider fallback的真实失败观察；有界请求与顺序/部分结果保持 |
+| 请求/社交；公共签名确定后 | `app/services/ingest/adapters/{social_reddit.py,social_twitter.py,social_nitter.py}`；必要新增 `bt/unit/test_social_adapter_request_policy.py` | 三个平台复用同一实际适用规则并保留平台差异；fake client/clock验证限速、429、部分失败，不为并发引入各自policy副本 |
+
+新增社交测试是上述行为缺少独立见证时的指定写面，不预建测试设施。该包不写 `tasks.py`、任务readback测试、authoring_tools或collect adapters；对应问题回各自已有owner，避免把异常清理变成全仓抢写。
+
+**文档与检查减负**
+
+- 目标/输入：现有四入口、19 号规则、check_* 调用关系、依赖审计与文档迁移 manifest；不再积累新合同/状态表。
+- 输出/独占写面：docs 当前导航、历史参考 clone/误产物的精确处置、被确认重复的 checker；CI/依赖审计修改由主线统一接入。静态结构检查从原声明派生或并入现有 runner，真实权限/失败/secret/readback 见证继续执行。
+- 验证：`python3 scripts/check_latest_dev_docs_structure.py`、`python3 scripts/check_docs_root_migration_manifest.py`、`python3 scripts/checkers/check_docs_root_content_plan.py`、`python3 scripts/checkers/check_docs_root_navigation_drift.py`；依赖审计相应原测试和 checker 参数按现行入口执行，冻结 base/patch 原样。
+- 完成条件：现行正文、历史恢复、参考克隆分清归属；无消费者且无恢复需要的对象真正删除，不只是换目录。25 个 clone 先核精确目录、refs/独有改动及引用；根 `0`、截图和 RELEASE_NOTES 逐项查用途。`coverage.xml` 是 ignored 生成物；误命名 pytest 对象实际为目录，不能当一个文件删除。原件与其他任务修改保留到依赖解除。
+
+| 子包 / 依赖 | 独占写面 | 交付与独立验证 |
+| --- | --- | --- |
+| 文档/检查导航（负责人）；可独立 | `docs/README.md`、`docs/history/README.md`、`docs/architecture/README.md` 与已确认受影响的文档checker | 从调用/声明事实确定合并或删除，运行父包四个原文档检查；本文、开发环境说明、CI与manifest派生物由主线收口 |
+| 文档/本地遗留物；取得精确引用与恢复信息后 | 25个历史clone中的已核验对象、根误产物及ignored coverage等；不改前项文档/checker | 对每个对象查唯一源码/在途进程/恢复依赖后清理，回传精确路径和实际字节；需要历史入口记录由前项作者合入，二者不同时写README |
+
+两作者不需要等全部runtime退役才能核查；依赖旧runtime验收或正在使用的对象只延期自身删除。无引用的静态搜索结果不足以证明可删，仍要核对动态入口和独有改动。
+
+**集成收尾（主线）**
+
+- 目标/输入：上述所有包的实际产物；公共接缝、当前 catalog、schema/registry 与运行入口。
+- 输出/独占写面：共用配置、装配、CI、共享类型/声明、本文结果。把当前 kit pin 作为现行依赖单一来源，历史工具 fixture 用独立历史身份检查，不修改旧字节迎合新值。
+- 验证：稳定输入上 `python3 scripts/dev.py sync`、`check`、`test`、`gates`；后端严格类型检查、受影响 frontend build/E2E、既有集成合同所需检查。没有可靠影响选择时执行一次对应完整原 runner；纯文档变化不触发业务全套。
+- 完成条件：先完成并提交旧运行时切换验收，再完成下述整组退出条件，按类型收敛、UI/API、检查与文档等语义主题提交；不混入在途任务未交接改动。每批直接验证后提交，不逐小修冻结，不把 git commit 数或新增报告数当产出。
+
+集成主线只保留1个公共源码写者；可委派三个有明确资源的验证子任务：纯边界/静态、专属DB/队列、隔离前端。它们只回传原runner结果，不同时改源码；发现缺陷交回原作者，修复后只重验受影响输入。公共装配按“原声明/局部结果到齐 → 串行接入/sync → 固定实际测试输入 → 可并行验证 → 旧路径删除核对 → 主题提交”执行，不派多个“集成owner”。
+
+### 11.7 整组验收、收益与剩余边界
+
+整组完成需要同时满足：
+
+1. Codex 是唯一推理内核；旧协调器及推理记忆执行器从当前产品源码/装配中退出；业务取消、重试、授权与可观察错误仍正确。
+2. 旧 runtime 的可执行入口、回退、调度循环、重复事实写入及部署启用点均为零；独有且仍需的能力已迁入现行体系，所有现行合法 channel/节点已覆盖。当前产品源码不再包含完整旧引擎，历史重放与在线依赖隔离；保留的 adapter 不得隐含或委托旧引擎。禁用开关、改名或新增 facade 均不能满足此项。
+3. 保留的公共类型边界进入真实严格检查与 CI；错输入/输出的负例会失败；平台组合与动态解析保持类型关联；没有通过 Any/cast/ignore 或删断言改绿。
+4. Document/资源/任务/会话/工作流的身份及历史可读性保持；数据库 lock/savepoint、幂等和 authority 不能因精简被取消。若格式有损，使用显式版本与损失说明。
+5. 代表链覆盖 Codex 工具→授权→任务→材料读回，来源/URL/crawler 采集→持久化→资源/图视图，以及工作流编辑→编译→执行→结果；查询成功、提交成功与业务完成分别判断。需要 live provider 的项明确记录实际执行或具体未验证原因。
+6. Graph/API 拆分后职责与状态 owner 收敛，实测交互保持；前端保留 strict；不以行数下降代替行为验收。
+7. 旧检查与文档重复已删除，当前导航没有新编号术语；冻结与恢复的必要原件仍可定位；其他任务改动和服务不受损。
+
+在本节结果中记录：退役入口/分支与文件、独有能力的原承载→现行承载、尚未删除旧路径的数量/owner/blocked_by、净增删行、已进入严格检查的实际模块、剩余内部 Any 边界及其原因、实际测试 passed/failed/not_run/kept、共同验收耗时与失败原因。过渡桥仅在实施过程中记录消费者与删除包，旧运行时切换验收时残留执行桥必须为零。直接复用日志与 Git diff，不建新账本。没有性能基线时不报告速度提升；没有完整调用/token 数据时记缺失，不记零。
+
+本轮调研的五个有效包均已回传，主线纠正了“services 全是旧 runtime”“把 registry 当类型权威”“两个 compile 同名即同一链”“draft/applied 状态天然重复”等过度结论。首批四个 GLM 请求遭持续 429，改用五个只读 DeepSeek Flash 包，类型包追加一次有界纠错。主线负责框架及跨包设计；未运行实施验收，未统计完整调用/token 成本。
+
+**本轮交付状态：调研与框架完成；已按用户补充把旧 runtime 整体退役提升为最先交付的主线，实施尚未开始。** 退役必需接缝为非搜索 channel 的唯一执行入口、工作流现用 skill→平台解释器绑定、受影响类型/授权闭包、旧会话控制的消费者迁出；其余广域整理不阻塞退役。每项缺口都有对应 owner/包和同批删除终点，不再以不同义、独有能力或尚有消费者得出旧 runtime 长期保留结论。
+
+### 11.8 分发消息、交接与失败恢复
+
+采用主线直接 `spawn_agent` 分发到 §11.6 的具名子包，默认不递归 spawn，不创建新的用户聊天或再包一层调度器。包负责人也是具体写作者，接收本包接口问题并提交本包收口；跨包语义和公共写面仍由主线负责。优先复用完成前序工作的 agent，以 `followup_task` 交接下一个已解锁子包；不能因为 agent 空闲就越过依赖。
+
+每次实际分发携带以下内容，直接填入消息，不另存一份分包文件。共同规则引用本节、19号规则和相关符号即可，不要求每个作者重读完整历史：
+
+```text
+子包：采集/来源URL
+目标：接收已确定的采集合同，将来源与URL效果接到唯一执行入口，保留原写入语义。
+cwd：/Users/wangyiliang/market-research-workflow
+输入：本次交接的CollectRequest/CollectResult及gateway签名；contracts.py当前内容；
+      既有SourceLibraryAdapter、UrlPoolAdapter；本文11.3的退役决定。
+前置：类型首例已交出对应文件；总入口owner已给出单项lowering和失败映射；
+      两个adapter文件没有其他在途写者。其余channel未完成不阻塞本子包开发。
+输出：原adapter接入产物、行为见证、需要总入口owner合入的原声明引用。
+独占写面：main/backend/app/services/collect_runtime/adapters/source_library.py；
+          main/backend/app/services/collect_runtime/adapters/url_pool.py；
+          main/backend/tests/unit/test_collect_runtime_source_library_adapter_unittest.py。
+不得写：runtime.py、contracts.py、composition、catalog、registry、其他channel测试。
+验证：从仓库根使用11.5的focused与独立临时目录运行该测试；
+      真实入库验证交集成主线的专属DB通道，不能连接日常DB。
+完成：来源与URL走当前唯一合同；write_to_pool/auto_ingest/extraction保持；
+      错误/空结果/重复请求可区分；不新增旧引擎回退或第二writer。
+协作：你不是唯一作者，保留他人修改；不再spawn，不自行安装依赖或提交全仓。
+回传：结果 / 改动文件 / 实际命令与退出码 / 删除与保留项 / 风险与真实blocked_by。
+```
+
+实际消息必须给出当前可定位的输入文件/符号；示例中的“已交接”要由主线现场确认后才能用于派发。没有准备好的首例不能当成现成接口。各包模型沿现行AGENTS路由：主线负责未定设计，明确实现按可用实现模型分派；已证实的限流/路由失败使用实际可用回退，回传注明真实路线，不虚报调用模型。
+
+子包的交接次序为：
+
+1. 主线从已完成前置中挑选互不冲突的子包，填入尚有空位的写作者窗口；文件被占时只延后该子包，不暂停无依赖子包。
+2. 作者实现与其独占见证同步前进；接口变化先交原owner处理，通知真实消费者，禁止各写一个兼容wrapper。读到未知旧runtime路径时归入最近退役包，而非保留。
+3. 作者回传实际diff与验证结果后，主线核对共享接线需求和源码/测试资源影响；满足具体依赖即继续派发，不等整批人工重新批准。
+4. 移交独占文件时，前作者停止写入，后作者接收当前diff和验证范围。共享消费者变化会使相关测试需重验，无关测试可按原有效条件记为kept。
+5. 确定性失败修权威来源；短暂provider失败只重试受影响任务。恢复消息只带剩余文件/失败与验证入口，不要求重做已完成子包。用完的席位交下一ready子包，不累积空闲监督agent。
+
+测试准备和执行同样按资源依赖派发。mock测试只证明本地边界，真实DB/provider/前端读回保留各自结果；缺失项记为该链未完成，不能用并发数、提交数或子包PASS数量宣称整组完成。本次细化仍为计划工作，三个续接只读审查提供了写面证据；没有启动上述32个实现子包。
