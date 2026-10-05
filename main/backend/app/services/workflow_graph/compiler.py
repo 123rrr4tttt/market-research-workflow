@@ -3,7 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import deque
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from functorial_kit import Failure
 

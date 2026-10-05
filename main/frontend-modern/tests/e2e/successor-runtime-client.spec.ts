@@ -5,7 +5,6 @@ import {
   SUCCESSOR_HISTORICAL_ROLLBACK_RECEIPT_CONTRACT,
   SUCCESSOR_PENDING_COMMANDS_KEY,
   SUCCESSOR_PROJECT_PREFERENCE_KEY,
-  LEGACY_SUCCESSOR_V2_COMMAND_URL,
   SUCCESSOR_V2_COMMAND_URL,
   SUCCESSOR_V2_QUERY_URL,
   SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT,
@@ -835,14 +834,13 @@ test('command fingerprint binds expected base token and approval locator', async
   ).toBe(boundBase)
 })
 
-test('historical pending fingerprint is explicitly matched then migrated to the business contract', async () => {
+test('retired pending fingerprints are discarded before submitting on the current endpoint', async () => {
   const payload = {
     payload_kind: 'rebuild_projection' as const,
     projection_id: 'proj-1',
     mode: 'FULL' as const,
     ...sourceKey(),
   }
-  const historicalDigest = '8ce94a90c6906303935a003474623c7aae2aaae31634e2848ad4109f9d53fdd8'
   localStorage.setItem(
     SUCCESSOR_PENDING_COMMANDS_KEY,
     JSON.stringify({
@@ -850,8 +848,9 @@ test('historical pending fingerprint is explicitly matched then migrated to the 
         command_id: 'cmd-historical',
         command_kind: 'rebuild_projection',
         project_locator: 'demo',
-        endpoint: LEGACY_SUCCESSOR_V2_COMMAND_URL,
-        payload_digest: historicalDigest,
+        endpoint: '/retired/commands',
+        payload_digest: '8ce94a90c6906303935a003474623c7aae2aaae31634e2848ad4109f9d53fdd8',
+        fingerprint_contract: 'C9FrontendCommandIdentity.v1',
       },
     }),
   )
@@ -862,8 +861,6 @@ test('historical pending fingerprint is explicitly matched then migrated to the 
     'rebuild_projection',
     payload,
   )
-  expect(currentDigest).not.toBe(historicalDigest)
-
   const harness = installFetchHarness(() =>
     jsonResponse(
       envelope('waiting', {
@@ -888,6 +885,41 @@ test('historical pending fingerprint is explicitly matched then migrated to the 
   } finally {
     harness.restore()
   }
+})
+
+test('legacy pending records without a fingerprint are removed only for the retired endpoint', async () => {
+  localStorage.setItem(
+    SUCCESSOR_PENDING_COMMANDS_KEY,
+    JSON.stringify({
+      [pendingKey('demo', 'cmd-unversioned-legacy')]: {
+        command_id: 'cmd-unversioned-legacy',
+        command_kind: 'rebuild_projection',
+        project_locator: 'demo',
+        endpoint: '/api/v1/successor-runtime/v2/commands',
+        payload_digest: '8ce94a90c6906303935a003474623c7aae2aaae31634e2848ad4109f9d53fdd8',
+      },
+    }),
+  )
+
+  expect(readSuccessorPendingCommands()).toEqual({})
+  expect(localStorage.getItem(SUCCESSOR_PENDING_COMMANDS_KEY)).toBe('{}')
+})
+
+test('unversioned pending records on the current endpoint remain fail closed', async () => {
+  localStorage.setItem(
+    SUCCESSOR_PENDING_COMMANDS_KEY,
+    JSON.stringify({
+      [pendingKey('demo', 'cmd-unversioned-current')]: {
+        command_id: 'cmd-unversioned-current',
+        command_kind: 'rebuild_projection',
+        project_locator: 'demo',
+        endpoint: SUCCESSOR_V2_COMMAND_URL,
+        payload_digest: '8ce94a90c6906303935a003474623c7aae2aaae31634e2848ad4109f9d53fdd8',
+      },
+    }),
+  )
+
+  expect(() => readSuccessorPendingCommands()).toThrow(SuccessorRuntimeError)
 })
 
 test('changed base/approval binding with same command id conflicts while pending', async () => {

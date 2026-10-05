@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Mapping, Set
+from typing import Any, NoReturn, Protocol, runtime_checkable
 
 from functorial_kit import Failure
 
@@ -18,6 +19,7 @@ from .contracts import (
     raise_workflow_graph_legacy,
     workflow_graph_failure,
 )
+from .executors.kernel import WorkflowNodeType
 from .executors.kernel import NodeExecutionContext, execute_node, to_workflow_graph_failure
 from .store import InMemoryRunStore, SqlRunStore
 
@@ -166,12 +168,12 @@ class WorkflowGraphPlatformInterpreter:
         inputs: dict[str, Any],
     ) -> dict[str, Any]:
         node_id = str(node.get("id") or "").strip()
-        node_type = str(node.get("node_type") or "").strip().lower()
+        node_type = _node_type(node.get("node_type"))
         if not node_type:
             _raise_contract(f"node_type missing: {node_id or '<unknown>'}")
 
         all_results = self.store.get_results(run_id)
-        upstream_ids = [str(x).strip() for x in (node.get("depends_on") or []) if str(x).strip()]
+        upstream_ids = [str(x).strip() for x in _object_list(node.get("depends_on")) or [] if str(x).strip()]
         upstream_results = {nid: all_results[nid] for nid in upstream_ids if nid in all_results}
         resolved_inputs = _resolve_node_inputs(
             node=node,
@@ -187,7 +189,7 @@ class WorkflowGraphPlatformInterpreter:
         )
         context = NodeExecutionContext(
             node_id=node_id,
-            node_type=node_type,  # type: ignore[arg-type]
+            node_type=node_type,
             params=dict(node.get("params") or {}),
             inputs=resolved_inputs,
             input_trace=io_trace,
@@ -214,14 +216,7 @@ class WorkflowGraphPlatformInterpreter:
     def _fail_node_and_run(self, run_id: str, node_id: str, exc: Exception) -> None:
         self.store.set_node_status(run_id, node_id, "failed")
         self.store.set_run_status(run_id, "failed")
-        failure = getattr(exc, "workflow_failure", None)
-        failure_fields = {}
-        if failure is not None and getattr(failure, "failure", False):
-            failure_fields = {
-                "failure_family": failure.family,
-                "failure_code": failure.code,
-                "failure_context": dict(failure.context or {}),
-            }
+        failure_fields = _exception_failure_fields(exc)
         error_payload = {"error": str(exc), **failure_fields}
         self.store.append_event(
             run_id,
@@ -236,7 +231,7 @@ class WorkflowGraphPlatformInterpreter:
         )
 
 
-def _raise_contract(message: str) -> None:
+def _raise_contract(message: str) -> NoReturn:
     raise_workflow_graph_legacy(workflow_graph_failure(
         "contract_invalid",
         message,
@@ -256,18 +251,76 @@ def _node_id_from_payload_ref(value_id: str) -> str:
     return value_id.split(prefix, 1)[1][: -len(suffix)]
 
 
+@runtime_checkable
+class _StringKeyMapping(Protocol):
+    def keys(self) -> Set[str]: ...
+    def __getitem__(self, key: str) -> Any: ...
+
+
+@runtime_checkable
+class _ObjectSequence(Protocol):
+    def __len__(self) -> int: ...
+    def __getitem__(self, index: int) -> object: ...
+
+
+def _mapping(value: object) -> dict[str, Any] | None:
+    if not isinstance(value, _StringKeyMapping):
+        return None
+    if not all(type(key) is str for key in value.keys()):
+        return None
+    return {key: value[key] for key in value.keys()}
+
+
+def _object_list(value: object) -> list[object] | None:
+    if not isinstance(value, _ObjectSequence):
+        return None
+    return [value[index] for index in range(len(value))]
+
+
+def _object_dict(value: object) -> dict[str, Any] | None:
+    return _mapping(value)
+
+
+def _node_type(value: object) -> WorkflowNodeType:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"vector_search", "llm_call", "join"}:
+        if normalized == "vector_search":
+            return "vector_search"
+        if normalized == "llm_call":
+            return "llm_call"
+        return "join"
+    _raise_contract(f"unsupported workflow node_type: {normalized or '<missing>'}")
+
+
+def _exception_failure_fields(exc: Exception) -> dict[str, Any]:
+    failure = getattr(exc, "workflow_failure", None)
+    if failure is None or not getattr(failure, "failure", False):
+        return {}
+    family = getattr(failure, "family", "")
+    code = getattr(failure, "code", "")
+    raw_context = getattr(failure, "context", None)
+    normalized_context = _mapping(raw_context)
+    return {
+        "failure_family": str(family),
+        "failure_code": str(code),
+        "failure_context": dict(normalized_context or {}),
+    }
+
+
 def _normalize_nodes(nodes: Any) -> dict[str, dict[str, Any]]:
-    if isinstance(nodes, dict):
+    normalized_nodes = _object_dict(nodes)
+    if normalized_nodes is not None:
         out: dict[str, dict[str, Any]] = {}
-        for node_id, node_data in nodes.items():
-            data = dict(node_data or {})
+        for node_id, node_data in normalized_nodes.items():
+            data = _object_dict(node_data) or {}
             data.setdefault("id", str(node_id))
             out[str(node_id)] = data
         return out
-    if isinstance(nodes, list):
+    node_items = _object_list(nodes)
+    if node_items is not None:
         out = {}
-        for node in nodes:
-            data = dict(node or {})
+        for node in node_items:
+            data = _object_dict(node) or {}
             node_id = str(data.get("id") or "").strip()
             if not node_id:
                 _raise_contract("node id is required")
@@ -281,7 +334,8 @@ def _resolve_topo_order(
     workflow: dict[str, Any],
     nodes: dict[str, dict[str, Any]],
 ) -> list[str]:
-    topo = [str(x).strip() for x in (workflow.get("topo_order") or []) if str(x).strip()]
+    topo_items = _object_list(workflow.get("topo_order")) or []
+    topo = [str(item).strip() for item in topo_items if str(item).strip()]
     return topo or list(nodes.keys())
 
 
@@ -293,7 +347,7 @@ def _build_runtime_integrity_report(
 ) -> dict[str, Any]:
     edges: list[tuple[str, str]] = []
     for node_id, node in nodes.items():
-        for upstream in node.get("depends_on") or []:
+        for upstream in _object_list(node.get("depends_on")) or []:
             upstream_id = str(upstream or "").strip()
             if upstream_id:
                 edges.append((upstream_id, node_id))
@@ -321,25 +375,26 @@ def _resolve_node_inputs(
     all_results: dict[str, Any],
     upstream_results: dict[str, Any],
 ) -> dict[str, Any]:
-    params = node.get("params")
-    if not isinstance(params, dict):
+    params = _object_dict(node.get("params"))
+    if params is None:
         return dict(runtime_inputs)
-    input_vars = params.get("input_vars")
-    if not isinstance(input_vars, list):
+    input_vars = _object_list(params.get("input_vars"))
+    if input_vars is None:
         return dict(runtime_inputs)
 
     resolved = dict(runtime_inputs)
     for item in input_vars:
-        if not isinstance(item, dict):
+        input_item = _object_dict(item)
+        if input_item is None:
             continue
-        name = str(item.get("name") or "").strip()
+        name = str(input_item.get("name") or "").strip()
         if not name:
             continue
-        source = str(item.get("source") or "input").strip().lower()
-        default_value = item.get("default_value")
-        required = bool(item.get("required"))
+        source = str(input_item.get("source") or "input").strip().lower()
+        default_value = input_item.get("default_value")
+        required = bool(input_item.get("required"))
         value = _resolve_input_value(
-            item=item,
+            item=input_item,
             source=source,
             runtime_inputs=runtime_inputs,
             all_results=all_results,
@@ -363,7 +418,7 @@ def _resolve_node_inputs(
 
 def _resolve_input_value(
     *,
-    item: dict[str, Any],
+    item: Mapping[str, object],
     source: str,
     runtime_inputs: dict[str, Any],
     all_results: dict[str, Any],
@@ -379,7 +434,8 @@ def _resolve_input_value(
             return None
         if not from_key:
             return node_data
-        return node_data.get(from_key) if isinstance(node_data, dict) else None
+        node_payload = _object_dict(node_data)
+        return node_payload.get(from_key) if node_payload is not None else None
     if source == "expression":
         expr = str(item.get("expr") or item.get("default_value") or "").strip()
         return _evaluate_expression(
@@ -399,34 +455,35 @@ def _build_input_trace(
     all_results: dict[str, Any],
     upstream_results: dict[str, Any],
 ) -> dict[str, Any]:
-    params = node.get("params")
-    if not isinstance(params, dict):
+    params = _object_dict(node.get("params"))
+    if params is None:
         return {}
-    input_vars = params.get("input_vars")
-    if not isinstance(input_vars, list):
+    input_vars = _object_list(params.get("input_vars"))
+    if input_vars is None:
         return {}
     trace: dict[str, Any] = {}
     for item in input_vars:
-        if not isinstance(item, dict):
+        input_item = _object_dict(item)
+        if input_item is None:
             continue
-        name = str(item.get("name") or "").strip()
+        name = str(input_item.get("name") or "").strip()
         if not name:
             continue
-        source = str(item.get("source") or "input").strip().lower()
+        source = str(input_item.get("source") or "input").strip().lower()
         value = _resolve_input_value(
-            item=item,
+            item=input_item,
             source=source,
             runtime_inputs=runtime_inputs,
             all_results=all_results,
             upstream_results=upstream_results,
         )
-        if value is None and item.get("default_value") not in (None, ""):
-            value = item.get("default_value")
+        if value is None and input_item.get("default_value") not in (None, ""):
+            value = input_item.get("default_value")
         trace[name] = {
             "source": source,
-            "from_node": item.get("from_node"),
-            "from_key": item.get("from_key"),
-            "expr": item.get("expr"),
+            "from_node": input_item.get("from_node"),
+            "from_key": input_item.get("from_key"),
+            "expr": input_item.get("expr"),
             "resolved": value,
             "resolved_type": type(value).__name__ if value is not None else "none",
         }
@@ -453,8 +510,9 @@ def _evaluate_expression(
         parts = text.split(".")
         if len(parts) >= 3:
             payload = upstream_results.get(parts[1]) or all_results.get(parts[1])
-            if isinstance(payload, dict):
-                return payload.get(".".join(parts[2:]))
+            node_payload = _object_dict(payload)
+            if node_payload is not None:
+                return node_payload.get(".".join(parts[2:]))
             return None
     return runtime_inputs.get(text)
 
@@ -466,13 +524,12 @@ def _normalize_node_result(
     result: Any,
     io_trace: dict[str, Any],
 ) -> dict[str, Any]:
-    if isinstance(result, dict):
-        out = dict(result)
-        out.setdefault("data", dict(result))
+    node_result = _object_dict(result)
+    if node_result is not None:
+        out = dict(node_result)
+        out.setdefault("data", dict(node_result))
         out.setdefault("error", None)
-        meta = out.get("meta")
-        if not isinstance(meta, dict):
-            meta = {}
+        meta = _object_dict(out.get("meta")) or {}
         meta.setdefault("node_id", node_id)
         meta.setdefault("node_type", node_type)
         out["meta"] = meta

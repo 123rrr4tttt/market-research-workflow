@@ -16,11 +16,9 @@
  */
 
 export const MATERIAL_PROJECTION_V2_API_PATH = '/api/v1/material-projections/v2'
-export const LEGACY_SUCCESSOR_V2_API_PATH = '/api/v1/successor-runtime/v2'
 export const SUCCESSOR_V2_API_PATH = MATERIAL_PROJECTION_V2_API_PATH
 export const SUCCESSOR_V2_COMMAND_URL = `${SUCCESSOR_V2_API_PATH}/commands`
 export const SUCCESSOR_V2_QUERY_URL = `${SUCCESSOR_V2_API_PATH}/queries`
-export const LEGACY_SUCCESSOR_V2_COMMAND_URL = `${LEGACY_SUCCESSOR_V2_API_PATH}/commands`
 
 export const SUCCESSOR_ENVELOPE_STATUSES = [
   'ok',
@@ -255,8 +253,7 @@ export const SUCCESSOR_ROLLBACK_RECEIPT_CONTRACT = 'projection.rollback_transiti
 export const SUCCESSOR_HISTORICAL_ROLLBACK_RECEIPT_CONTRACT = 'C9RollbackTransitionReceipt.v1'
 export const SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT =
   'projection.client_command_fingerprint.v2'
-export const SUCCESSOR_HISTORICAL_CLIENT_COMMAND_FINGERPRINT_CONTRACT =
-  'C9FrontendCommandIdentity.v1'
+const RETIRED_SUCCESSOR_V2_COMMAND_URL = '/api/v1/successor-runtime/v2/commands'
 
 export type SuccessorCommandOptions = {
   commandId: string
@@ -290,9 +287,7 @@ export type SuccessorPendingCommand = {
   project_locator: string
   endpoint: string
   payload_digest: string
-  fingerprint_contract:
-    | typeof SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT
-    | typeof SUCCESSOR_HISTORICAL_CLIENT_COMMAND_FINGERPRINT_CONTRACT
+  fingerprint_contract: typeof SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT
 }
 
 export class SuccessorRuntimeError extends Error {
@@ -476,8 +471,24 @@ export function readSuccessorPendingCommands(): Record<string, SuccessorPendingC
   }
 
   const result: Record<string, SuccessorPendingCommand> = {}
+  let removedRetiredRecords = false
   for (const [key, value] of Object.entries(parsed)) {
-    const record = value as Partial<SuccessorPendingCommand>
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new SuccessorRuntimeError('pending_record_malformed', 'Successor pending command record is malformed')
+    }
+    const record = value as Omit<Partial<SuccessorPendingCommand>, 'fingerprint_contract'> & {
+      fingerprint_contract?: unknown
+    }
+    if (
+      record.fingerprint_contract === 'C9FrontendCommandIdentity.v1' ||
+      (record.fingerprint_contract === undefined && record.endpoint === RETIRED_SUCCESSOR_V2_COMMAND_URL)
+    ) {
+      removedRetiredRecords = true
+      continue
+    }
+    if (record.fingerprint_contract !== SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT) {
+      throw new SuccessorRuntimeError('pending_record_malformed', 'Successor pending command record is malformed')
+    }
     const knownFields = [
       'command_id',
       'command_kind',
@@ -487,26 +498,15 @@ export function readSuccessorPendingCommands(): Record<string, SuccessorPendingC
       'fingerprint_contract',
     ]
     const unknownFields = Object.keys(value as object).filter((name) => !knownFields.includes(name))
-    const fingerprintContract =
-      record.fingerprint_contract ?? SUCCESSOR_HISTORICAL_CLIENT_COMMAND_FINGERPRINT_CONTRACT
-    const endpointMatchesContract =
-      (fingerprintContract === SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT &&
-        record.endpoint === SUCCESSOR_V2_COMMAND_URL) ||
-      (fingerprintContract === SUCCESSOR_HISTORICAL_CLIENT_COMMAND_FINGERPRINT_CONTRACT &&
-        record.endpoint === LEGACY_SUCCESSOR_V2_COMMAND_URL)
     if (
       unknownFields.length > 0 ||
       typeof record?.command_id !== 'string' ||
       typeof record.command_kind !== 'string' ||
       !SUCCESSOR_COMMAND_KINDS.has(record.command_kind) ||
       typeof record.project_locator !== 'string' ||
-      typeof record.endpoint !== 'string' ||
-      !endpointMatchesContract ||
+      record.endpoint !== SUCCESSOR_V2_COMMAND_URL ||
       typeof record.payload_digest !== 'string' ||
       !HEX64.test(record.payload_digest) ||
-      (record.fingerprint_contract !== undefined &&
-        record.fingerprint_contract !== SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT &&
-        record.fingerprint_contract !== SUCCESSOR_HISTORICAL_CLIENT_COMMAND_FINGERPRINT_CONTRACT) ||
       key !== pendingCommandKey(record.project_locator, record.command_id)
     ) {
       throw new SuccessorRuntimeError('pending_record_malformed', 'Successor pending command record is malformed')
@@ -517,9 +517,10 @@ export function readSuccessorPendingCommands(): Record<string, SuccessorPendingC
       project_locator: record.project_locator,
       endpoint: record.endpoint,
       payload_digest: record.payload_digest,
-      fingerprint_contract: fingerprintContract,
+      fingerprint_contract: SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT,
     }
   }
+  if (removedRetiredRecords) writeSuccessorPendingCommands(result)
   return result
 }
 
@@ -664,28 +665,6 @@ export function computeSuccessorCommandFingerprint(
   return sha256Hex(
     canonicalJson({
       contract: SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT,
-      endpoint,
-      project_locator: projectLocator,
-      command_id: commandId,
-      command_kind: commandKind,
-      payload,
-      expected_base_token: binding?.expectedBaseToken ?? null,
-      approval_locator: binding?.approvalLocator ?? null,
-    }),
-  )
-}
-
-function computeHistoricalSuccessorCommandFingerprintV1(
-  endpoint: string,
-  projectLocator: string,
-  commandId: string,
-  commandKind: SuccessorCommandKind,
-  payload: SuccessorCommandPayload,
-  binding?: SuccessorCommandBinding,
-): string {
-  return sha256Hex(
-    canonicalJson({
-      contract: SUCCESSOR_HISTORICAL_CLIENT_COMMAND_FINGERPRINT_CONTRACT,
       endpoint,
       project_locator: projectLocator,
       command_id: commandId,
@@ -1956,38 +1935,14 @@ export async function submitSuccessorCommand(options: SuccessorCommandOptions): 
   const pending = readSuccessorPendingCommands()
   const pendingKey = pendingCommandKey(options.projectLocator, options.commandId)
   const prior = pending[pendingKey]
-  const binding = {
-    expectedBaseToken: options.expectedBaseToken,
-    approvalLocator: options.approvalLocator,
-  }
-  const historicalPayloadDigest = computeHistoricalSuccessorCommandFingerprintV1(
-    prior?.endpoint ?? LEGACY_SUCCESSOR_V2_COMMAND_URL,
-    options.projectLocator,
-    options.commandId,
-    options.commandKind,
-    options.payload,
-    binding,
-  )
   const currentMatch =
     prior?.fingerprint_contract === SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT &&
     prior.payload_digest === payloadDigest
-  const historicalMatch =
-    prior?.fingerprint_contract === SUCCESSOR_HISTORICAL_CLIENT_COMMAND_FINGERPRINT_CONTRACT &&
-    prior.payload_digest === historicalPayloadDigest
-  if (prior && (prior.command_kind !== options.commandKind || (!currentMatch && !historicalMatch))) {
+  if (prior && (prior.command_kind !== options.commandKind || !currentMatch)) {
     throw new SuccessorConflictError(
       `Command ${options.commandId} already has a different payload; use a new command id`,
       { commandId: options.commandId, projectLocator: options.projectLocator },
     )
-  }
-  if (prior && historicalMatch) {
-    pending[pendingKey] = {
-      ...prior,
-      endpoint: SUCCESSOR_V2_COMMAND_URL,
-      payload_digest: payloadDigest,
-      fingerprint_contract: SUCCESSOR_CLIENT_COMMAND_FINGERPRINT_CONTRACT,
-    }
-    writeSuccessorPendingCommands(pending)
   }
 
   const request = dispatchSuccessorCommand(options, traceId)

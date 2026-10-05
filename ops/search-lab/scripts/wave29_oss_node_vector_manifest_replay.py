@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from importlib import import_module
 from pathlib import Path
 import sys
 from typing import Any
@@ -25,6 +26,16 @@ if str(BACKEND_ROOT) not in sys.path:
 from scripts.evidence_source_contract import (  # noqa: E402
     apply_evidence_source_contract,
     evidence_source,
+)
+from app.successor_runtime.capabilities.workflow_legacy_dsl import (  # noqa: E402
+    parse_and_validate_workflow_dsl,
+    workflow_program_metadata,
+)
+from app.services.workflow_graph import WorkflowGraphCompilerService  # noqa: E402
+from app.services.workflow_graph.runtime import WorkflowGraphPlatformInterpreter  # noqa: E402
+from app.services.workflow_graph.store import (  # noqa: E402
+    InMemoryCompiledGraphStore,
+    InMemoryRunStore,
 )
 
 DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/wave29-oss-node-vector-manifest-replay/2026-05-23"
@@ -181,22 +192,15 @@ def _validate_provider_manifest(provider_manifest: dict[str, Any]) -> tuple[dict
 
 
 def _run_node_manifest_replay(provider_manifest: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
-    from app.services.workflow_graph import WorkflowGraphCompilerService
-    from app.services.workflow_graph.executors.base import BaseNodeExecutor, NodeExecutionContext
-    from app.services.workflow_graph.runtime import WorkflowGraphRuntime
-    from app.services.workflow_graph.store import InMemoryCompiledGraphStore, InMemoryRunStore
-
     rows_by_mode = _manifest_rows_by_mode(provider_manifest)
     gap_codes = sorted(
         set(provider_manifest.get("external_provider_boundary", {}).get("gap_codes") or [])
         | set(TARGET_EXTERNAL_CONDITIONS)
     )
 
-    class ManifestReplayVectorExecutor(BaseNodeExecutor):
-        node_type = "vector_search"
-
-        def execute(self, node: dict[str, Any], context: NodeExecutionContext) -> dict[str, Any]:
-            params = dict(node.get("params") or {})
+    class ManifestReplayVectorNode:
+        def execute(self, context) -> dict[str, Any]:
+            params = dict(context.params)
             manifest_row = dict(params.get("provider_manifest") or {})
             mode = str(params.get("mode") or manifest_row.get("mode") or "").strip()
             capabilities = manifest_row.get("capabilities") or {}
@@ -218,7 +222,7 @@ def _run_node_manifest_replay(provider_manifest: dict[str, Any]) -> tuple[dict[s
 
             query = str(context.inputs.get("query") or "").strip()
             return {
-                "node_type": self.node_type,
+                "node_type": "vector_search",
                 "query": query,
                 "retrieval_mode": mode,
                 "provider_id": manifest_row.get("provider_id"),
@@ -300,20 +304,56 @@ def _run_node_manifest_replay(provider_manifest: dict[str, Any]) -> tuple[dict[s
         }
     )
     compiled = compiler.get_compiled(str(compile_response["graph_id"]))
+    receipt = parse_and_validate_workflow_dsl(dsl)
+    if not receipt.ok or receipt.program is None or receipt.plan is None:
+        platform_failure = receipt.failure
+        raise RuntimeError(
+            "wave29 platform lowering failed: "
+            + (
+                platform_failure.message
+                if platform_failure is not None
+                else "unknown lowering failure"
+            )
+        )
+    metadata = workflow_program_metadata(receipt.program)
     workflow = {
         "workflow_id": compiled["graph_id"],
-        "topo_order": list(compiled.get("topo_order") or []),
-        "nodes": dict(compiled.get("nodes") or {}),
+        "program_digest": receipt.program_digest,
+        "plan_digest": receipt.plan_digest,
+        "topo_order": list(metadata.get("topo_order") or []),
+        "nodes": {
+            str(item.get("node_id")): {
+                "id": str(item.get("node_id")),
+                "node_type": item.get("node_type"),
+                "params": dict(item.get("config") or {}),
+            }
+            for item in metadata.get("nodes", [])
+        },
     }
-    runtime = WorkflowGraphRuntime(
-        store=InMemoryRunStore(),
-        executors=[ManifestReplayVectorExecutor()],
-    )
-    snapshot = runtime.run(
-        workflow,
-        inputs={"query": "wave29 node vector manifest replay"},
-        run_id="wave29-oss-node-vector-manifest-replay-run",
-    )
+    runtime = WorkflowGraphPlatformInterpreter(store=InMemoryRunStore())
+    adapter = ManifestReplayVectorNode()
+    workflow_graph_runtime_module = import_module("app.services.workflow_graph.runtime")
+    original_execute_node = workflow_graph_runtime_module.execute_node
+
+    def _execute_manifest_vector_node(context):
+        if context.node_type != "vector_search":
+            return original_execute_node(context)
+        result = adapter.execute(context)
+        from app.services.workflow_graph.executors.kernel import node_success
+
+        return node_success(context, result)
+
+    workflow_graph_runtime_module.execute_node = _execute_manifest_vector_node
+    try:
+        snapshot = runtime.run(
+            program=receipt.program,
+            plan=receipt.plan,
+            workflow=workflow,
+            inputs={"query": "wave29 node vector manifest replay"},
+            run_id="wave29-oss-node-vector-manifest-replay-run",
+        )
+    finally:
+        workflow_graph_runtime_module.execute_node = original_execute_node
     consistency = _event_replay_consistency(snapshot)
 
     failures: list[str] = []

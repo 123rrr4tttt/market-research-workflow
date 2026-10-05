@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from functorial_kit import Failure
@@ -13,10 +14,10 @@ os.environ["WORKFLOW_GRAPH_DB_STORE_ENABLED"] = "false"
 from app.services.workflow_graph.compiler import compile_workflow_graph, try_compile_workflow_graph
 from app.services.workflow_graph.contracts import WorkflowGraphCompileError, raise_workflow_graph_legacy
 from app.services.workflow_graph.contracts import workflow_graph_failure
-from app.services.workflow_graph.executors.base import BaseNodeExecutor
-from app.services.workflow_graph.runtime import WorkflowGraphRuntime
+from app.services.workflow_graph.runtime import WorkflowGraphPlatformInterpreter
 from app.services.workflow_graph.store import InMemoryRunStore
 from app.services.workflow_graph.schema import parse_workflow_graph_dsl, try_parse_workflow_graph_dsl
+from app.successor_runtime.capabilities.workflow_legacy_dsl import parse_and_validate_workflow_dsl
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -194,7 +195,6 @@ def test_workflow_graph_raise_inventory_has_only_shared_lift_and_abstract_bounda
         "__init__.py",
         "curated_service.py",
         "edit_contract.py",
-        "executors/base.py",
         "executors/llm_call.py",
         "governance_contract.py",
         "handoff_store.py",
@@ -206,45 +206,59 @@ def test_workflow_graph_raise_inventory_has_only_shared_lift_and_abstract_bounda
     for name in owned:
         tree = ast.parse((root / name).read_text(encoding="utf-8"))
         raises = [node for node in ast.walk(tree) if isinstance(node, ast.Raise)]
-        if name == "executors/base.py":
-            assert len(raises) == 1
-            source = (root / name).read_text(encoding="utf-8")
-            assert "class=PROGRAMMER_DEFECT" in source
-        else:
-            assert not raises
+        assert not raises
 
 
 def test_runtime_events_preserve_known_failure_provenance() -> None:
-    class FailingExecutor(BaseNodeExecutor):
-        node_type = "join"
+    payload = {
+        "version": "1.0",
+        "options": {},
+        "nodes": [{"node_id": "n", "node_type": "join", "config": {}}],
+        "edges": [],
+    }
+    receipt = parse_and_validate_workflow_dsl(payload)
+    assert receipt.ok
+    assert receipt.program is not None
+    assert receipt.plan is not None
 
-        def execute(self, node, context):
-            failure = workflow_graph_failure(
-                "required_input_missing",
-                "required input missing: x",
-                owner="workflow_graph.test_executor",
-                public_exception=WorkflowGraphCompileError,
-                public_message="required input missing: x",
-                field="input",
-                index=-1,
-            )
-            raise_workflow_graph_legacy(failure)
+    failure = workflow_graph_failure(
+        "required_input_missing",
+        "required input missing: x",
+        owner="workflow_graph.test_executor",
+        public_exception=WorkflowGraphCompileError,
+        public_message="required input missing: x",
+        field="input",
+        index=-1,
+    )
+    kernel_error = WorkflowGraphCompileError("required input missing: x")
+    setattr(kernel_error, "workflow_failure", failure)
 
-    runtime = WorkflowGraphRuntime(store=InMemoryRunStore(), executors=[FailingExecutor()])
-    snapshot = runtime.run({"workflow_id": "g", "nodes": [{"id": "n", "node_type": "join"}]})
+    runtime = WorkflowGraphPlatformInterpreter(store=InMemoryRunStore())
+    with patch(
+        "app.services.workflow_graph.runtime.execute_node",
+        side_effect=kernel_error,
+    ):
+        snapshot = runtime.run(
+            program=receipt.program,
+            plan=receipt.plan,
+            workflow={
+                "workflow_id": "g",
+                "program_digest": receipt.program_digest,
+                "plan_digest": receipt.plan_digest,
+                "topo_order": ["n"],
+                "nodes": {
+                    "n": {
+                        "id": "n",
+                        "node_type": "join",
+                        "params": {},
+                        "depends_on": [],
+                    }
+                },
+            },
+        )
+
     failed = [event for event in snapshot["events"] if event["type"] == "node.failed"][0]
+    assert failed["node_id"] == "n"
     assert failed["payload"]["failure_family"] == "workflow_graph.failure"
     assert failed["payload"]["failure_code"] == "required_input_missing"
     assert failed["payload"]["failure_context"]["owner"] == "workflow_graph.test_executor"
-
-
-def test_base_node_executor_abstract_execute_is_not_implemented() -> None:
-    class BareExecutor(BaseNodeExecutor):
-        node_type = "join"
-
-        def execute(self, node, context):
-            return super().execute(node, context)
-
-    executor = BareExecutor()
-    with pytest.raises(NotImplementedError):
-        executor.execute({}, None)

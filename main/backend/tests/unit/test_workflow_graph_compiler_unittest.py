@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import inspect
 import unittest
+from unittest.mock import MagicMock
 
 from app.services.workflow_graph import WorkflowGraphCompilerService
 from app.services.workflow_graph.compiler import compile_workflow_graph
@@ -101,6 +103,46 @@ class WorkflowGraphCompilerUnitTestCase(unittest.TestCase):
             "catalog_digest": receipt.catalog_digest,
         })
         self.assertEqual(list(receipt.topo_order), compiled["topo_order"])
+
+    def test_save_failure_is_not_masked_by_service_memory(self):
+        store = MagicMock(spec=InMemoryCompiledGraphStore)
+        store.save_compiled.side_effect = RuntimeError("compiled store save failed")
+        store.get_compiled.side_effect = KeyError("compiled graph not found")
+        service = WorkflowGraphCompilerService(store=store)
+
+        with self.assertRaisesRegex(RuntimeError, "compiled store save failed"):
+            service.compile({"dsl": self._build_valid_payload(), "graph_id": "graph-save-failed"})
+
+        store.save_compiled.assert_called_once()
+        store.get_compiled.assert_not_called()
+        with self.assertRaisesRegex(KeyError, "compiled graph not found"):
+            service.get_compiled("graph-save-failed")
+        store.get_compiled.assert_called_once_with("graph-save-failed")
+
+    def test_get_failure_propagates_without_local_copy(self):
+        store = MagicMock(spec=InMemoryCompiledGraphStore)
+        store.get_compiled.side_effect = RuntimeError("compiled store read failed")
+        service = WorkflowGraphCompilerService(store=store)
+
+        with self.assertRaisesRegex(RuntimeError, "compiled store read failed"):
+            service.get_compiled("graph-read-failed")
+
+        store.get_compiled.assert_called_once_with("graph-read-failed")
+
+    def test_list_failure_propagates_without_merged_values(self):
+        store = MagicMock(spec=InMemoryCompiledGraphStore)
+        store.list_compiled.side_effect = RuntimeError("compiled store list failed")
+        service = WorkflowGraphCompilerService(store=store)
+
+        with self.assertRaisesRegex(RuntimeError, "compiled store list failed"):
+            service.list_compiled(limit=7)
+
+        store.list_compiled.assert_called_once_with(limit=7)
+
+    def test_compiler_service_has_no_private_facts_cache(self):
+        source = inspect.getsource(WorkflowGraphCompilerService)
+
+        self.assertNotIn("self._compiled", source)
 
 
 if __name__ == "__main__":

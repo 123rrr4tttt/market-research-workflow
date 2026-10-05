@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import importlib.util
+import importlib
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 import pytest
 
@@ -29,6 +31,67 @@ def _load_wave29_module():
 
 
 class Wave29OssNodeVectorManifestReplayTest(unittest.TestCase):
+    def test_node_manifest_replay_restores_dispatcher_after_interpreter_error(self) -> None:
+        module = _load_wave29_module()
+        provider_manifest = {
+            "contract_version": "wave19-vectorization-provider-manifest.v1",
+            "external_provider_boundary": {"gap_codes": sorted(module.REQUIRED_PROVIDER_GAP_CODES)},
+            "provider_manifest": {
+                "modes": [
+                    {
+                        "mode": mode,
+                        "provider_id": f"local_index.{mode}",
+                        "closure_claim_allowed": False,
+                        "capabilities": {
+                            "live_provider_verified": False,
+                            "semantic_quality_claim_allowed": False,
+                        },
+                        "trace_quality": {"status": "passed"},
+                    }
+                    for mode in module.REQUIRED_MODES
+                ],
+            },
+        }
+        runtime_module = importlib.import_module("app.services.workflow_graph.runtime")
+        original_execute_node = runtime_module.execute_node
+
+        with patch.object(module.WorkflowGraphPlatformInterpreter, "run", side_effect=RuntimeError("run failed")):
+            with self.assertRaisesRegex(RuntimeError, "run failed"):
+                module._run_node_manifest_replay(provider_manifest)
+
+        self.assertIs(runtime_module.execute_node, original_execute_node)
+
+    def test_node_manifest_replay_uses_current_platform_interpreter(self) -> None:
+        module = _load_wave29_module()
+        provider_manifest = {
+            "contract_version": "wave19-vectorization-provider-manifest.v1",
+            "external_provider_boundary": {
+                "gap_codes": sorted(module.REQUIRED_PROVIDER_GAP_CODES),
+            },
+            "provider_manifest": {
+                "modes": [
+                    {
+                        "mode": mode,
+                        "provider_id": f"local_index.{mode}",
+                        "closure_claim_allowed": False,
+                        "capabilities": {
+                            "live_provider_verified": False,
+                            "semantic_quality_claim_allowed": False,
+                        },
+                        "trace_quality": {"status": "passed"},
+                    }
+                    for mode in module.REQUIRED_MODES
+                ],
+            },
+        }
+
+        replay, failures = module._run_node_manifest_replay(provider_manifest)
+
+        self.assertEqual(failures, [])
+        self.assertEqual(replay["status"], "passed")
+        self.assertEqual(replay["run"]["status"], "succeeded")
+        self.assertEqual(replay["run"]["results_count"], len(module.REQUIRED_MODES))
+
     def test_node_manifest_replay_closes_repo_local_oss_node_blockers(self) -> None:
         module = _load_wave29_module()
         contract = module.build_contract()
