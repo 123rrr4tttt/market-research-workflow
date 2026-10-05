@@ -32,7 +32,7 @@ async function shell(page: Page) {
 
 async function loaded(page: Page) {
   await shell(page)
-  await page.route('**/api/v1/agent-chat/cell**', (route) => route.fulfill({ json: { status: 'ok', data: snapshot, error: null } }))
+  await page.route('**/api/v1/agent-cell**', (route) => route.fulfill({ json: { status: 'ok', data: snapshot, error: null } }))
   await page.goto('/#/workbench/cell')
   await expect(page.getByRole('group', { name: '胞腔分层圆环' })).toBeVisible()
 }
@@ -71,7 +71,7 @@ test('layer separation, motion pause and reduced motion are supported', async ({
 test('ambiguous packages require explicit selection and preserve identity', async ({ page }) => {
   await shell(page)
   const requests: string[] = []
-  await page.route('**/api/v1/agent-chat/cell**', (route) => {
+  await page.route('**/api/v1/agent-cell**', (route) => {
     const url = new URL(route.request().url())
     requests.push(url.search)
     if (url.searchParams.get('package_id') === 'cell-two' && url.searchParams.get('package_version') === '2') {
@@ -92,11 +92,11 @@ test('failed refresh hides stale data and can recover; never writes', async ({ p
   await loaded(page)
   const writes: string[] = []
   page.on('request', (request) => { if (request.method() !== 'GET') writes.push(request.url()) })
-  await page.route('**/api/v1/agent-chat/cell**', (route) => route.fulfill({ status: 503, json: { error: { message: 'Registration source unavailable' } } }))
+  await page.route('**/api/v1/agent-cell**', (route) => route.fulfill({ status: 503, json: { error: { message: 'Registration source unavailable' } } }))
   await page.getByRole('button', { name: '刷新胞腔' }).click()
   await expect(page.getByRole('alert')).toContainText('Registration source unavailable')
   await expect(page.locator('.cell-ring')).toHaveCount(0)
-  await page.route('**/api/v1/agent-chat/cell**', (route) => route.fulfill({ json: { status: 'ok', data: snapshot } }))
+  await page.route('**/api/v1/agent-cell**', (route) => route.fulfill({ json: { status: 'ok', data: snapshot } }))
   await page.getByRole('button', { name: '刷新胞腔' }).click()
   await expect(page.locator('.cell-ring')).toBeVisible()
   expect(writes).toEqual([])

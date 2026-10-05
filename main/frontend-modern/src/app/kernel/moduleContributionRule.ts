@@ -66,7 +66,7 @@ const MODULE_RENDERERS: Record<KernelModuleKey, ModuleRenderer> = {
       projectKey,
       standalone: shellMode !== KERNEL_RENDER_SHELL_MODE.workbench,
     }),
-  flowAgentChat: ({ projectKey }) => h(CodexAgentPage, { projectKey }),
+  flowCodex: ({ projectKey }) => h(CodexAgentPage, { projectKey }),
   flowCell: ({ projectKey }) => h(AgentCellPage, { key: projectKey, projectKey }),
   dataPolicy: ({ projectKey }) => h(PolicyPage, { projectKey, variant: 'policy' }),
   dataCatalog: ({ projectKey }) => h(CatalogPage, { projectKey, variant: 'catalog' }),

@@ -55,7 +55,7 @@ const ICON_BY_MODULE: Record<KernelModuleKey, LucideIcon> = {
   flowAnalysis: Activity,
   flowBoard: Activity,
   flowWriting: Activity,
-  flowAgentChat: Bot,
+  flowCodex: Bot,
   flowCell: Activity,
   flowLlmNodeDesign: Activity,
   sysProjects: FolderKanban,

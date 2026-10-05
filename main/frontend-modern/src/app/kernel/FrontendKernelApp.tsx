@@ -51,6 +51,7 @@ function LayerBridge({
 
 export default function FrontendKernelApp() {
   const [hash, setHash] = useState(readHash)
+  const locale = useAppLocale()
   const runtime = useKernelRuntime()
   const route = useMemo(() => resolveKernelRoute(hash), [hash])
   const appTheme = useAppTheme()
@@ -67,6 +68,14 @@ export default function FrontendKernelApp() {
 
   if (route.source === 'unknown') {
     return <AppShell />
+  }
+
+  if (route.source === 'retired') {
+    return (
+      <main className="retired-route" data-testid="retired-route">
+        <p role="status">{translate(locale, 'shared.retiredRoute')}</p>
+      </main>
+    )
   }
 
   if (route.layerId === 'C') {

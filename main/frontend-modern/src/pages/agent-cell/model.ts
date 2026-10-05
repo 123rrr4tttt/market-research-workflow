@@ -1,4 +1,5 @@
 import { apiClient, unwrapEnvelope } from '../../lib/api/client'
+import { endpoints } from '../../lib/api/endpoints'
 
 export type CellRecord = Record<string, unknown>
 export type CellEnvironment = {
@@ -37,7 +38,7 @@ export type CellSection = { id: string; number: string; title: string; en: strin
 
 export async function readCell(projectKey: string, packageIdentity: string, signal: AbortSignal): Promise<CellSnapshot> {
   const [package_id, package_version] = packageIdentity ? JSON.parse(packageIdentity) as [string, string] : []
-  const { data } = await apiClient.get('/api/v1/agent-chat/cell', { params: { package_id, package_version }, signal })
+  const { data } = await apiClient.get(endpoints.agentCell.structure, { params: { package_id, package_version }, signal })
   const snapshot = unwrapEnvelope<CellSnapshot>(data)
   if (snapshot.environment.project_key !== projectKey) throw new Error('项目已切换，请刷新胞腔')
   return snapshot

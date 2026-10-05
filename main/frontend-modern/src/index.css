@@ -1621,20 +1621,19 @@ button, select, input, textarea { font-family: inherit; }
   padding-top: 0;
 }
 
-.kernel-workbench--flowAgentChat .kernel-workbench__main {
+.kernel-workbench--flowCodex .kernel-workbench__main {
   min-height: calc(100dvh - 72px);
   padding: 10px 20px 0;
 }
 
-.kernel-workbench--flowAgentChat .kernel-workbench__grid,
-.kernel-workbench--flowAgentChat .kernel-workbench__stage-column,
-.kernel-workbench--flowAgentChat .kernel-workbench__stage,
-.kernel-workbench--flowAgentChat .agent-chat-page,
-.kernel-workbench--flowAgentChat .agent-chat-layout {
+.kernel-workbench--flowCodex .kernel-workbench__grid,
+.kernel-workbench--flowCodex .kernel-workbench__stage-column,
+.kernel-workbench--flowCodex .kernel-workbench__stage,
+.kernel-workbench--flowCodex .codex-agent-page {
   min-height: 100%;
 }
 
-.kernel-workbench--flowAgentChat .kernel-workbench__stage {
+.kernel-workbench--flowCodex .kernel-workbench__stage {
   border-top: 0;
   display: grid;
   padding-top: 4px;

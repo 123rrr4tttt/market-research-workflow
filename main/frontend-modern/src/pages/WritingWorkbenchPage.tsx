@@ -3,16 +3,11 @@ import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/rea
 import { translate, useAppLocale, type MessageKey } from '../app/platform/i18n'
 import { hashByMode } from '../app/navigation'
 import { isReservedProjectKey } from '../app/kernel/projectKeys'
-import AgentWritingAssistantPanel, {
-  type WritingAgentPanelMessage,
-  type WritingAgentToolAction,
-  type WritingAgentWorkbenchTool,
-} from '../components/writing/AgentWritingAssistantPanel'
 import ReportTopologyPanel from '../components/writing/ReportTopologyPanel'
 import CitationBasket from '../components/writing/CitationBasket'
 import { toDraggedCardPreview, type WritingDraggedCardPayload } from '../components/writing/dragPayload'
 import KeywordInsightSidebar from '../components/writing/KeywordInsightSidebar'
-import MarkdownEditor, { type MarkdownSelectionState } from '../components/writing/MarkdownEditor'
+import MarkdownEditor from '../components/writing/MarkdownEditor'
 import WritingInsightCard from '../components/writing/WritingInsightCard'
 import MarkdownPreview from '../components/writing/MarkdownPreview'
 import TemplateLibraryPanel from '../components/writing/TemplateLibraryPanel'
@@ -33,7 +28,6 @@ import {
   listWritingTemplates,
   previewWritingKeywordCard,
   readTypedKnowledgeWritingContextFromDocument,
-  runAgentChatTurnStreaming,
   updateTypedKnowledgeReviewState,
   updateWritingDocument,
   upsertWritingCitations,
@@ -46,7 +40,6 @@ import {
   type WritingTemplateValidation,
 } from '../lib/api'
 import { queryKeys } from '../lib/queryKeys'
-import type { AgentEventItem, AgentSessionEventStreamStatus } from '../lib/types'
 
 export type WritingWorkbenchPageProps = {
   projectKey: string
@@ -210,41 +203,6 @@ function isPlainRecord(value: unknown): value is UnknownRecord {
 
 function asText(value: unknown) {
   return typeof value === 'string' ? value : ''
-}
-
-function boundedText(value: string, limit: number, labels?: { truncated: string; chars: string }) {
-  const text = String(value || '').trim()
-  if (text.length <= limit) return text
-  const truncatedLabel = labels?.truncated || 'truncated'
-  const charsLabel = labels?.chars || 'chars'
-  const truncatedMeta = [truncatedLabel, String(text.length - limit), charsLabel].join(' ')
-  return [text.slice(0, limit), String.fromCharCode(10), '...[', truncatedMeta, ']'].join('')
-}
-
-function extractWritingAgentChunk(event: AgentEventItem) {
-  const eventType = String(event.event_type || '').toLowerCase()
-  const payload =
-    event.payload && typeof event.payload === 'object'
-      ? (event.payload as UnknownRecord)
-      : {}
-  const firstText = (...keys: string[]) => {
-    for (const key of keys) {
-      const value = payload[key]
-      if (typeof value === 'string' && value.length) return value
-    }
-    return ''
-  }
-  if (eventType.includes('assistant_delta')) return { mode: 'append' as const, text: firstText('delta', 'text', 'content') }
-  if (eventType.includes('assistant_message')) return { mode: 'replace' as const, text: firstText('content', 'text', 'message').trim() }
-  if (eventType.includes('final_answer')) return { mode: 'replace' as const, text: firstText('final_answer', 'answer', 'content', 'text').trim() }
-  return null
-}
-
-function findHeadingBefore(markdown: string, offset: number) {
-  const before = String(markdown || '').slice(0, Math.max(0, offset))
-  const lines = before.split('\n').reverse()
-  const heading = lines.find((line) => /^#{1,6}\s+\S/.test(line.trim()))
-  return heading ? heading.replace(/^#{1,6}\s+/, '').trim() : ''
 }
 
 function asNumberOrNull(value: unknown): number | null {
@@ -602,15 +560,9 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const [isCreatingDraft, setIsCreatingDraft] = useState(false)
   const [draftByKey, setDraftByKey] = useState({} as DraftByKey)
   const [selectionText, setSelectionText] = useState('')
-  const [selectionState, setSelectionState] = useState(null as MarkdownSelectionState | null)
   const [selectedCardId, setSelectedCardId] = useState(null as string | null)
   const [pinnedInsightCards, setPinnedInsightCards] = useState([] as PinnedInsightCard[])
   const [templateValidation, setTemplateValidation] = useState(null as WritingTemplateValidation | null)
-  const [writingAgentDraft, setWritingAgentDraft] = useState('')
-  const [writingAgentMessages, setWritingAgentMessages] = useState([] as WritingAgentPanelMessage[])
-  const [writingAgentSessionId, setWritingAgentSessionId] = useState(null as string | null)
-  const [writingAgentStreamStatus, setWritingAgentStreamStatus] = useState('idle' as AgentSessionEventStreamStatus)
-  const [writingAgentBusy, setWritingAgentBusy] = useState(false)
   const [citationTrayVisible, setCitationTrayVisible] = useState(true)
   const [citationTrayCollapsed, setCitationTrayCollapsed] = useState(false)
   const [citationTrayDragOver, setCitationTrayDragOver] = useState(false)
@@ -753,7 +705,6 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     dismissInsightCard()
     setPinnedInsightCards([])
     setSelectionText('')
-    setSelectionState(null)
     setTemplateValidation(null)
     setAgentUpdatesPanelOpen(false)
     setExpandedAgentUpdateId(null)
@@ -1817,9 +1768,8 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     [activateFloatingWindow, movePinnedCardToFront, pinnedInsightCards],
   )
 
-  const handleSelectionTextChange = (nextSelectionText: string, nextSelectionState?: MarkdownSelectionState) => {
+  const handleSelectionTextChange = (nextSelectionText: string) => {
     setSelectionText(nextSelectionText)
-    setSelectionState(nextSelectionState || null)
     setSelectedCardId(null)
     if (!nextSelectionText.trim()) return
     setInsightsPanelOpen(true)
@@ -1841,138 +1791,6 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       setSaveMessage(error instanceof Error ? error.message : t('writingWorkbenchPage.status.refreshFailed'))
     }
   }, [citationsQuery, documentDetailQuery, documentsQuery, effectiveDocumentId, t])
-
-  const buildWritingAgentCommand = useCallback(
-    (userCommand: string) => {
-      const selection = selectionState
-      const activeHeading = selection ? findHeadingBefore(markdown, selection.start) : ''
-      const boundedLabels = {
-        truncated: t('writingWorkbenchPage.agentPrompt.truncated'),
-        chars: t('writingWorkbenchPage.agentPrompt.chars'),
-      }
-      const documentContext = {
-        project_key: projectKey,
-        doc_id: effectiveDocumentId,
-        title: title || t('writingWorkbenchPage.placeholder.untitledReport'),
-        version: documentDetailQuery.data?.version ?? null,
-        etag: documentDetailQuery.data?.etag ?? null,
-        dirty_in_browser: isDirty,
-        selected_text: boundedText(selectionText, 1400, boundedLabels),
-        selection_start: selection?.start ?? null,
-        selection_end: selection?.end ?? null,
-        cursor_offset: selection?.end ?? null,
-        selection_line: selection?.line ?? null,
-        active_heading: activeHeading,
-        before_selection: boundedText(selection?.before || '', 900, boundedLabels),
-        after_selection: boundedText(selection?.after || '', 900, boundedLabels),
-        visible_markdown_excerpt: effectiveDocumentId == null ? boundedText(markdown, 2200, boundedLabels) : boundedText(markdown.slice(0, 1600), 1600, boundedLabels),
-        citation_count: citationsQuery.data?.length ?? 0,
-        pinned_materials: pinnedInsightCards.slice(-5).map((item) => ({
-          card_id: item.cardId,
-          title: item.preview.title,
-          snippet: boundedText(item.preview.snippet || '', 360, boundedLabels),
-          source_type: item.preview.source_type,
-        })),
-      }
-      const contextJson = JSON.stringify(documentContext, null, 2)
-      return [
-        t('writingWorkbenchPage.agentPrompt.coreRole'),
-        t('writingWorkbenchPage.agentPrompt.readFirst'),
-        t('writingWorkbenchPage.agentPrompt.locatorRules'),
-        t('writingWorkbenchPage.agentPrompt.dirtyDraftRule'),
-        tf('writingWorkbenchPage.agentPrompt.userRequest', { userCommand }),
-        tf('writingWorkbenchPage.agentPrompt.contextJson', { contextJson }),
-      ].join('\n\n')
-    },
-    [
-      citationsQuery.data?.length,
-      documentDetailQuery.data?.etag,
-      documentDetailQuery.data?.version,
-      effectiveDocumentId,
-      isDirty,
-      markdown,
-      pinnedInsightCards,
-      projectKey,
-      selectionState,
-      selectionText,
-      t,
-      tf,
-      title,
-    ],
-  )
-
-  const runWritingAgentCommand = useCallback(
-    async (rawCommand: string) => {
-      const command = rawCommand.trim()
-      if (!command || writingAgentBusy) return
-      if (!canUseWritingProject) {
-        setWritingAgentMessages((prev) => [
-          ...prev,
-          {
-            id: dashedId('writing-agent', 'system', Date.now()),
-            role: 'system',
-            content: t('writingWorkbenchPage.agent.projectPending'),
-          },
-        ])
-        return
-      }
-      const loadingId = dashedId('writing-agent', 'loading', Date.now())
-      setWritingAgentDraft('')
-      setWritingAgentBusy(true)
-      setWritingAgentStreamStatus('connecting')
-      setWritingAgentMessages((prev) => [
-        ...prev,
-        { id: dashedId('writing-agent', 'user', Date.now()), role: 'user', content: command },
-        { id: loadingId, role: 'assistant', content: t('writingWorkbenchPage.agent.processing'), pending: true },
-      ])
-
-      let streamedText = ''
-      const updateLoading = (content: string, pending = true) => {
-        setWritingAgentMessages((prev) =>
-          prev.map((message) =>
-            message.id === loadingId
-              ? {
-                  ...message,
-                  content,
-                  pending,
-                }
-              : message,
-          ),
-        )
-      }
-
-      try {
-        const result = await runAgentChatTurnStreaming(
-          {
-            message: buildWritingAgentCommand(command),
-            project_key: projectKey || null,
-            session_id: writingAgentSessionId || null,
-            runtime_variant: 'agent_macro_native',
-          },
-          {
-            onStatus: setWritingAgentStreamStatus,
-            onEvent: (event) => {
-              const chunk = extractWritingAgentChunk(event)
-              if (!chunk?.text) return
-              streamedText = chunk.mode === 'append' ? streamedText + chunk.text : chunk.text
-              updateLoading(streamedText || t('writingWorkbenchPage.agent.processing'))
-            },
-          },
-        )
-        const nextSessionId = String(result?.session?.session_id || result?.stream?.session_id || '').trim()
-        if (nextSessionId) setWritingAgentSessionId(nextSessionId)
-        updateLoading(String(result?.final_answer || streamedText || t('writingWorkbenchPage.agent.completed')).trim(), false)
-        setWritingAgentStreamStatus('closed')
-        await handleRefreshWritingState()
-      } catch (error) {
-        setWritingAgentStreamStatus('error')
-        updateLoading(tf('writingWorkbenchPage.agent.failed', { message: error instanceof Error ? error.message : String(error) }), false)
-      } finally {
-        setWritingAgentBusy(false)
-      }
-    },
-    [buildWritingAgentCommand, canUseWritingProject, handleRefreshWritingState, projectKey, t, tf, writingAgentBusy, writingAgentSessionId],
-  )
 
   const handleLocateAgentUpdate = (update: WritingAgentUpdate) => {
     const range = findAgentUpdateRange(markdown, update)
@@ -2056,79 +1874,6 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     void persistAgentUpdateReview(update, 'rejected', nextMarkdown)
   }
 
-  const writingAgentToolActions: WritingAgentToolAction[] = [
-    {
-      id: 'rewrite-selection',
-      label: t('writingWorkbenchPage.agentAction.rewriteSelection.label'),
-      description: t('writingWorkbenchPage.agentAction.rewriteSelection.description'),
-      prompt: t('writingWorkbenchPage.agentAction.rewriteSelection.prompt'),
-      disabled: !selectionText,
-    },
-    {
-      id: 'continue-after-selection',
-      label: t('writingWorkbenchPage.agentAction.continueAfterSelection.label'),
-      description: t('writingWorkbenchPage.agentAction.continueAfterSelection.description'),
-      prompt: t('writingWorkbenchPage.agentAction.continueAfterSelection.prompt'),
-      disabled: !selectionText,
-    },
-    {
-      id: 'insert-before-selection',
-      label: t('writingWorkbenchPage.agentAction.insertBeforeSelection.label'),
-      description: t('writingWorkbenchPage.agentAction.insertBeforeSelection.description'),
-      prompt: t('writingWorkbenchPage.agentAction.insertBeforeSelection.prompt'),
-      disabled: !selectionText,
-    },
-    {
-      id: 'expand-section',
-      label: t('writingWorkbenchPage.agentAction.expandSection.label'),
-      description: t('writingWorkbenchPage.agentAction.expandSection.description'),
-      prompt: t('writingWorkbenchPage.agentAction.expandSection.prompt'),
-      disabled: effectiveDocumentId == null,
-    },
-    {
-      id: 'material-search',
-      label: t('writingWorkbenchPage.agentAction.materialSearch.label'),
-      description: t('writingWorkbenchPage.agentAction.materialSearch.description'),
-      prompt: t('writingWorkbenchPage.agentAction.materialSearch.prompt'),
-      disabled: !selectionText,
-    },
-    {
-      id: 'evidence-to-paragraph',
-      label: t('writingWorkbenchPage.agentAction.evidenceToParagraph.label'),
-      description: t('writingWorkbenchPage.agentAction.evidenceToParagraph.description'),
-      prompt: t('writingWorkbenchPage.agentAction.evidenceToParagraph.prompt'),
-    },
-    {
-      id: 'outline',
-      label: t('writingWorkbenchPage.agentAction.outline.label'),
-      description: t('writingWorkbenchPage.agentAction.outline.description'),
-      prompt: t('writingWorkbenchPage.agentAction.outline.prompt'),
-    },
-    {
-      id: 'review-structure',
-      label: t('writingWorkbenchPage.agentAction.reviewStructure.label'),
-      description: t('writingWorkbenchPage.agentAction.reviewStructure.description'),
-      prompt: t('writingWorkbenchPage.agentAction.reviewStructure.prompt'),
-    },
-  ]
-
-  const writingAgentWorkbenchTools: WritingAgentWorkbenchTool[] = [
-    { id: 'documents', label: t('writingWorkbenchPage.panel.documents'), active: documentsPanelOpen, onClick: toggleDocumentsPanel },
-    { id: 'templates', label: t('writingWorkbenchPage.panel.templates'), active: templatesPanelOpen, onClick: toggleTemplatesPanel },
-    { id: 'insights', label: t('writingWorkbenchPage.panel.insights'), active: insightsPanelOpen, onClick: toggleInsightsPanel },
-    {
-      id: 'citations',
-      label: t('writingWorkbenchPage.panel.citations'),
-      active: citationTrayVisible,
-      onClick: () => {
-        activateFloatingWindow('citations')
-        setCitationTrayVisible((prev) => !prev)
-      },
-    },
-    { id: 'updates', label: t('writingWorkbenchPage.panel.agentWrites'), active: agentUpdatesPanelOpen, onClick: () => setAgentUpdatesPanelOpen((prev) => !prev) },
-    { id: 'save', label: t('writingWorkbenchPage.action.save'), disabled: saveDocumentMutation.isPending, onClick: () => saveDocumentMutation.mutate() },
-    { id: 'refresh', label: t('writingWorkbenchPage.action.refresh'), onClick: () => void handleRefreshWritingState() },
-  ]
   const agentReviewStatusLabel = (status: WritingAgentReviewStatus) =>
     t(
       status === 'accepted'
@@ -2399,28 +2144,9 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           </div>
 
           <div className="writing-floating-panel__body">
-            <AgentWritingAssistantPanel
-              messages={writingAgentMessages}
-              draft={writingAgentDraft}
-              busy={writingAgentBusy}
-              streamStatus={writingAgentStreamStatus}
-              sessionId={writingAgentSessionId}
-              documentLabel={
-                effectiveDocumentId == null
-                  ? t('writingWorkbenchPage.status.unsavedDraft')
-                  : tf('writingWorkbenchPage.agent.documentLabel', {
-                      documentId: effectiveDocumentId,
-                      version: documentDetailQuery.data?.version || '-',
-                    })
-              }
-              selectionText={selectionText}
-              selectionLine={selectionState?.line || null}
-              actions={writingAgentToolActions}
-              workbenchTools={writingAgentWorkbenchTools}
-              onDraftChange={setWritingAgentDraft}
-              onSend={(message) => void runWritingAgentCommand(message)}
-              onRunAction={(action) => void runWritingAgentCommand(action.prompt)}
-            />
+            <a className="button-primary" href="#/workbench/agent" data-testid="writing-agent-route-link">
+              {translate(locale, 'shell.title.flowCodex')}
+            </a>
           </div>
           {isDesktopFloating ? (
             <>

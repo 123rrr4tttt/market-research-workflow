@@ -14,7 +14,7 @@ type Props = {
 
 const WORKBENCH_MODULES: KernelModuleKey[] = [
   'flowWriting',
-  'flowAgentChat',
+  'flowCodex',
   'flowCell',
   'flowLlmNodeDesign',
   'flowIngest',

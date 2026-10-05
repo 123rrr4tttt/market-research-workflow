@@ -649,115 +649,12 @@ export type AgentBatchRuleSetValidateResult = {
   unsupported_fields?: string[]
 }
 
-export type AgentChatTurnPayload = {
-  message: string
-  project_key?: string | null
-  session_id?: string | null
-  idempotency_key?: string | null
-  runtime_variant: 'agent_macro_native' | 'agent_macro_rapid_native'
-  model?: string | null
-  reasoning_effort?: string | null
-}
-
 export type CodexModelOption = {
   model: string
   display_name: string
   is_default: boolean
   supported_reasoning_efforts: string[]
 }
-
-
-
-export type AgentChatCapabilityCall = {
-  call_id?: string | null
-  capability_id?: string | null
-  tool_name?: string | null
-  protocol?: string | null
-  stream_state?: string | null
-  status?: string | null
-  summary?: string | null
-  approval_id?: string | null
-  run_id?: string | null
-  job_id?: string | null
-  accepted_count?: number | null
-  rejected_count?: number | null
-  loop_id?: string | null
-  result?: Record<string, unknown> | null
-  error?: Record<string, unknown> | null
-  material_category?: {
-    category?: string | null
-    label?: string | null
-  } | null
-}
-
-export type AgentChatCapabilityItem = {
-  capability_id?: string | null
-  name?: string | null
-  description?: string | null
-  domain?: string | null
-  approval_level?: string | null
-  concurrency_class?: string | null
-  call_pattern?: string | null
-  risk_level?: string | null
-  tool_group?: string | null
-  deferred?: boolean | null
-  implemented?: boolean | null
-  implementation_state?: string | null
-  enabled?: boolean | null
-  disabled_reason?: string | null
-  configured?: boolean | null
-  reachable?: boolean | null
-  auth_ok?: boolean | null
-  server_error?: string | null
-  service_status?: string | null
-  mounted_tool_count?: number | null
-  mounted_tools?: string[] | null
-  risks?: string[] | null
-  required_input?: string[] | null
-}
-
-export type AgentChatToolPool = {
-  tools?: AgentChatCapabilityItem[] | null
-  groups?: Record<string, AgentChatCapabilityItem[] | null | undefined> | null
-  counts?: Record<string, number> | null
-  feature_flags?: Record<string, boolean> | null
-  project_key?: string | null
-  agent_mode?: string | null
-}
-
-export type AgentChatCapabilitiesResult = {
-  items?: AgentChatCapabilityItem[] | null
-  feature_flags?: Record<string, boolean> | null
-  tool_pool?: AgentChatToolPool | null
-}
-
-export type AgentChatTurnResult = {
-  contract_version?: string | null
-  turn?: Record<string, unknown> | null
-  session?: AgentSessionItem | null
-  tasks?: AgentTaskItem[] | null
-  messages?: AgentMessageItem[] | null
-  events?: AgentEventItem[] | null
-  artifacts?: AgentArtifactItem[] | null
-  approvals?: AgentApprovalItem[] | null
-  agent_mode?: string | null
-  plan?: Record<string, unknown> | null
-  capability_calls?: AgentChatCapabilityCall[] | null
-  suggested_next_actions?: string[] | null
-  loop_result?: Record<string, unknown> | null
-  run_loop?: Record<string, unknown> | null
-  approval_requests?: Record<string, unknown>[] | null
-  stream?: {
-    protocol_version?: string | null
-    session_id?: string | null
-    url?: string | null
-    since_seq?: number | null
-    event_format?: string | null
-  } | null
-  final_answer?: string | null
-}
-
-
 
 
 
@@ -936,12 +833,6 @@ export type AgentApprovalRequestPayload = {
   requester_actor?: string | null
   binding_payload?: Record<string, unknown> | null
   metadata?: Record<string, unknown> | null
-}
-
-export type AgentCoordinatorPassResult = {
-  session?: AgentSessionItem | null
-  decisions?: Record<string, unknown>[] | null
-  messages?: AgentMessageItem[] | null
 }
 
 export type SkillInvokeMeta = {

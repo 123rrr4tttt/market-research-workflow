@@ -26,7 +26,6 @@ import type {
   AgentApprovalItem,
   AgentArtifactItem,
   AgentArtifactListResult,
-  AgentCoordinatorPassResult,
   AgentEventItem,
   AgentEventListResult,
   AgentMessageItem,
@@ -38,10 +37,7 @@ import type {
   AgentSessionItem,
   AgentSessionListResult,
   AgentApprovalRequestPayload,
-  AgentChatCapabilitiesResult,
   AgentSessionTaskRetryPayload,
-  AgentChatTurnPayload,
-  AgentChatTurnResult,
   AgentSessionEventStreamStatus,
   AgentTaskItem,
   AgentTaskListResult,
@@ -523,137 +519,6 @@ export async function validateAgentBatchRuleSet(payload: AgentBatchRuleSetValida
   return post<AgentBatchRuleSetValidateResult>(endpoints.agentBatch.ruleSetValidate, payload)
 }
 
-const retiredAgentChatControlOptions = [
-  'dry_run',
-  'enable_bounded_retry',
-  'enable_limited_branching',
-  'enable_model_tool_loop',
-  'require_high_risk_approval',
-] as const
-
-function prepareNativeAgentChatTurnPayload(payload: AgentChatTurnPayload) {
-  const retiredOptions = retiredAgentChatControlOptions.filter(option => option in payload)
-  if (retiredOptions.length) {
-    throw new Error(`unsupported agent chat option(s): ${retiredOptions.join(', ')}`)
-  }
-  return payload
-}
-
-export async function runAgentChatTurn(payload: AgentChatTurnPayload) {
-  return post<AgentChatTurnResult>(endpoints.agentChat.turn, prepareNativeAgentChatTurnPayload(payload))
-}
-
-export async function runAgentChatTurnStream(payload: AgentChatTurnPayload) {
-  const nativePayload = prepareNativeAgentChatTurnPayload(payload)
-  return fetch(resolveApiUrl(endpoints.agentChat.turnStream), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(nativePayload),
-  })
-}
-
-export type AgentChatTurnStreamHandlers = {
-  onEvent?: (event: AgentEventItem) => void
-  onStatus?: (status: AgentSessionEventStreamStatus) => void
-  onFinalAnswer?: (answer: string, result?: AgentChatTurnResult | null) => void
-}
-
-function parseAgentChatTurnSseBlock(block: string) {
-  let eventType = 'message'
-  const dataLines: string[] = []
-  for (const line of block.split(/\r?\n/)) {
-    if (line.startsWith('event:')) {
-      eventType = line.replace(/^event:\s*/, '').trim() || eventType
-    } else if (line.startsWith('data:')) {
-      dataLines.push(line.replace(/^data:\s?/, ''))
-    }
-  }
-  if (!dataLines.length) return null
-  try {
-    return { eventType, data: JSON.parse(dataLines.join('\n')) as Record<string, unknown> }
-  } catch {
-    return null
-  }
-}
-
-function isAgentEventPayload(value: unknown): value is AgentEventItem {
-  if (!value || typeof value !== 'object') return false
-  const item = value as Record<string, unknown>
-  return typeof item.event_type === 'string' || typeof item.event_id === 'string' || typeof item.seq === 'number'
-}
-
-export async function runAgentChatTurnStreaming(
-  payload: AgentChatTurnPayload,
-  handlers: AgentChatTurnStreamHandlers = {},
-): Promise<AgentChatTurnResult> {
-  handlers.onStatus?.('connecting')
-  const response = await runAgentChatTurnStream(payload)
-  if (!response.ok) {
-    handlers.onStatus?.('error')
-    throw new Error(`agent chat stream failed: ${response.status}`)
-  }
-  if (!response.body) {
-    handlers.onStatus?.('error')
-    throw new Error('agent chat stream did not return a readable body')
-  }
-
-  handlers.onStatus?.('open')
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-  let finalResult: AgentChatTurnResult | null = null
-
-  const processBlock = (block: string) => {
-    const parsed = parseAgentChatTurnSseBlock(block)
-    if (!parsed) return
-    const { eventType, data } = parsed
-    if (eventType === 'interactive_agent.error' || eventType === 'agent_core.error') {
-      handlers.onStatus?.('error')
-      throw new Error(String((data.error as Record<string, unknown> | undefined)?.message || 'agent chat stream error'))
-    }
-    if (isAgentEventPayload(data)) {
-      handlers.onEvent?.(data)
-    }
-    if (eventType === 'interactive_agent.final_answer' || eventType === 'agent_core.final_answer') {
-      const dataRecord = data as Record<string, unknown>
-      const result = dataRecord.result
-      if (result && typeof result === 'object') {
-        finalResult = result as AgentChatTurnResult
-        handlers.onFinalAnswer?.(String((finalResult as AgentChatTurnResult).final_answer || ''), finalResult)
-      } else if (typeof dataRecord.final_answer === 'string' || typeof dataRecord.contract_version === 'string') {
-        finalResult = dataRecord as AgentChatTurnResult
-        handlers.onFinalAnswer?.(String(dataRecord.final_answer || ''), finalResult)
-      }
-    }
-  }
-
-  while (true) {
-    const { value, done } = await reader.read()
-    buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
-    const blocks = buffer.split(/\n\n/)
-    buffer = blocks.pop() || ''
-    for (const block of blocks) {
-      processBlock(block)
-    }
-    if (done) break
-  }
-  if (buffer.trim()) {
-    processBlock(buffer)
-  }
-  handlers.onStatus?.('closed')
-  if (!finalResult) {
-    throw new Error('agent chat stream closed before final answer')
-  }
-  return finalResult
-}
-
-export async function listAgentChatCapabilities(projectKey?: string | null) {
-  const query = new URLSearchParams()
-  if (projectKey) query.set('project_key', projectKey)
-  const suffix = query.toString()
-  return get<AgentChatCapabilitiesResult>(suffix ? `${endpoints.agentChat.capabilities}?${suffix}` : endpoints.agentChat.capabilities)
-}
-
 export async function createAgentSession(payload: AgentSessionCreatePayload) {
   return post<AgentSessionDetail>(endpoints.agentSessions.root, payload)
 }
@@ -827,10 +692,6 @@ export async function cancelAgentSession(sessionId: string, payload: AgentSessio
 
 export async function reclaimExpiredAgentSessionTasks(sessionId: string) {
   return post<{ items?: AgentTaskItem[] }>(endpoints.agentSessions.reclaimExpiredBySession(sessionId), {})
-}
-
-export async function runAgentSessionCoordinatorPass(sessionId: string) {
-  return post<AgentCoordinatorPassResult>(endpoints.agentSessions.coordinatorPassBySession(sessionId), {})
 }
 
 export async function requestAgentSessionApproval(sessionId: string, payload: AgentApprovalRequestPayload) {

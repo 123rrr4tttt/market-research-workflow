@@ -52,7 +52,6 @@ import {
   reclaimExpiredAgentSessionTasks,
   reExtractDocuments,
   resolveAgentApproval,
-  runAgentSessionCoordinatorPass,
   retryAgentSessionTask,
   syncAggregator,
   topicExtractDocuments,
@@ -141,8 +140,6 @@ const AGENT_ENFORCEMENT_EVENT_TYPES = new Set([
   'approval.waiting',
   'approval.approved',
   'approval.failed',
-  'coordinator.dispatch_planned',
-  'coordinator.synthesis_completed',
 ])
 
 function formatDate(value?: string | null, locale: AppLocale = DEFAULT_APP_LOCALE) {
@@ -818,7 +815,7 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
       if (sessionId) {
         setSelectedSessionId(sessionId)
         setSelectedTaskId(null)
-        setSelectedArtifactName('memory.md')
+        setSelectedArtifactName(null)
       }
     },
   })
@@ -855,16 +852,6 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
       }
     },
   })
-  const coordinatorPassMutation = useMutation({
-    mutationFn: (sessionId: string) => runAgentSessionCoordinatorPass(sessionId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions.all() })
-      if (selectedSessionId) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions.detail(selectedSessionId) })
-      }
-    },
-  })
-  const selectedArtifactName = explicitSelectedArtifactName ?? 'memory.md'
   const selectedSession = selectedSessionQuery.data
   const selectedSessionTasks = selectedSession?.tasks || []
   const selectedSessionEvents = useMemo(
@@ -875,6 +862,12 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
     () => selectedSession?.artifacts || [],
     [selectedSession?.artifacts],
   )
+  const selectedArtifactName = useMemo(() => {
+    const explicitArtifact = selectedSessionArtifacts.find((artifact) => artifact.name === explicitSelectedArtifactName)
+    if (explicitArtifact?.name) return explicitArtifact.name
+    const firstArtifact = selectedSessionArtifacts[0]
+    return firstArtifact ? (firstArtifact.name || firstArtifact.artifact_id) : null
+  }, [explicitSelectedArtifactName, selectedSessionArtifacts])
   const selectedSessionApprovals = selectedSession?.approvals || []
   const selectedSessionMessages = selectedSession?.messages || []
   const selectedEnforcementEvents = useMemo(
@@ -1861,7 +1854,7 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
       </section> : null}
 
       {variant === 'backend' && activeTab === 'agentSessions' && <section id="ops-view-agentSessions" role="tabpanel" aria-labelledby="ops-tab-agentSessions" className="panel ops-agent-session-panel">
-        {[agentSessionsQuery.error, selectedSessionQuery.error, createSessionMutation.error, cancelSessionMutation.error, retryTaskMutation.error, resolveApprovalMutation.error, reclaimExpiredMutation.error, coordinatorPassMutation.error].filter(Boolean).map((error, index) => (
+        {[agentSessionsQuery.error, selectedSessionQuery.error, createSessionMutation.error, cancelSessionMutation.error, retryTaskMutation.error, resolveApprovalMutation.error, reclaimExpiredMutation.error].filter(Boolean).map((error, index) => (
           <p className="status-line" role="alert" key={index}>{error?.message}</p>
         ))}
         <div className="panel-header">
@@ -1975,7 +1968,7 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
                           onClick={() => {
                             setSelectedSessionId(session.session_id)
                             setSelectedTaskId(null)
-                            setSelectedArtifactName('memory.md')
+                            setSelectedArtifactName(null)
                           }}
                         >
                           {t('opsPage.action.open')}
@@ -2022,17 +2015,6 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
                   >
                     <RefreshCw size={14} />
                     {t('opsPage.action.refreshDetails')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!selectedSessionId) return
-                      coordinatorPassMutation.mutate(selectedSessionId)
-                    }}
-                    disabled={!selectedSessionId || coordinatorPassMutation.isPending}
-                  >
-                    <RefreshCw size={14} />
-                    {t('opsPage.action.coordinatorPass')}
                   </button>
                   <button
                     type="button"
@@ -2091,7 +2073,11 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
                 </div>
                 <div>
                   <strong>{t('opsPage.field.selectedArtifact')}</strong>
-                  <pre style={{ ...detailPreStyle, maxHeight: 220 }}>{getArtifactPreview(selectedArtifact)}</pre>
+                  {selectedArtifact ? (
+                    <pre style={{ ...detailPreStyle, maxHeight: 220 }}>{getArtifactPreview(selectedArtifact)}</pre>
+                  ) : (
+                    <div className="empty-cell">{t('opsPage.empty.selectedArtifact')}</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2315,7 +2301,7 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
 
                 <section className="panel" style={{ margin: 0 }}>
                   <div className="panel-header">
-                    <h4>{t('opsPage.section.coordinatorMessages')}</h4>
+                    <h4>{t('opsPage.section.sessionMessages')}</h4>
                   </div>
                   <div className="table-wrap">
                     <table>

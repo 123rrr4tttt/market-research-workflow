@@ -110,10 +110,8 @@ export const endpoints = {
     eventsByJob: (jobId: string) => `${API_BASE}/agent-batch/jobs/${encodeURIComponent(jobId)}/events`,
     ruleSetValidate: `${API_BASE}/agent-batch/rule-sets/validate`,
   },
-  agentChat: {
-    capabilities: `${API_BASE}/agent-chat/capabilities`,
-    turn: `${API_BASE}/agent-chat/turn`,
-    turnStream: `${API_BASE}/agent-chat/turn/stream`,
+  agentCell: {
+    structure: `${API_BASE}/agent-cell`,
   },
   agentSessions: {
     root: `${API_BASE}/agent-sessions`,
@@ -127,7 +125,6 @@ export const endpoints = {
       `${API_BASE}/agent-sessions/${encodeURIComponent(sessionId)}/actions/retry-task`,
     cancelBySession: (sessionId: string) => `${API_BASE}/agent-sessions/${encodeURIComponent(sessionId)}/actions/cancel`,
     reclaimExpiredBySession: (sessionId: string) => `${API_BASE}/agent-sessions/${encodeURIComponent(sessionId)}/actions/reclaim-expired`,
-    coordinatorPassBySession: (sessionId: string) => `${API_BASE}/agent-sessions/${encodeURIComponent(sessionId)}/actions/coordinator-pass`,
     requestApprovalBySession: (sessionId: string) => `${API_BASE}/agent-sessions/${encodeURIComponent(sessionId)}/actions/request-approval`,
     approvals: `${API_BASE}/agent-approvals`,
     approvalById: (approvalId: string) => `${API_BASE}/agent-approvals/${encodeURIComponent(approvalId)}`,

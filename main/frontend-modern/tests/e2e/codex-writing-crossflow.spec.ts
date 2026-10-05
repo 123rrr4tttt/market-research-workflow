@@ -9,6 +9,7 @@ import {
 } from './helpers/project-fixtures'
 
 const PROJECT_KEY = buildE2eProjectKey('e2e_cross')
+const CODEX_WEBUI_URL = 'http://127.0.0.1:8172/?mrw=macro-host-v1'
 const createdDocumentIds = new Set<number>()
 
 type ApiEnvelope<T> = {
@@ -24,10 +25,17 @@ type WritingDocument = {
 
 async function openCodexAgent(page: Page) {
   await setProjectKeyForPage(page, PROJECT_KEY)
+  await page.route(CODEX_WEBUI_URL, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: '<!doctype html><html><body>Codex WebUI E2E shell</body></html>',
+    }),
+  )
   const response = await page.goto('/#/workbench/agent')
   if (response) expect(response.ok()).toBeTruthy()
   await expect(page.getByTestId('codex-agent-page')).toBeVisible()
-  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', 'http://127.0.0.1:8172/')
+  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', CODEX_WEBUI_URL)
 }
 
 test.describe('Codex agent to writing workbench crossflow', () => {
@@ -51,7 +59,7 @@ test.describe('Codex agent to writing workbench crossflow', () => {
   test.describe('Codex route crossflow with writing workbench', () => {
     test('keeps the Codex surface available while creating and verifying a writing draft', async ({ page, request }) => {
       const title = `Mock Crossflow Draft ${Date.now()}`
-      const markdown = `## 跨页面实测\n\n来自 Agent Chat 的写作任务已经进入工作台。`
+      const markdown = `## 跨页面实测\n\n来自 Codex host 的写作任务已经进入工作台。`
 
       await openCodexAgent(page)
 
@@ -85,7 +93,7 @@ test.describe('Codex agent to writing workbench crossflow', () => {
   })
 
   test.describe('live crossflow with real writing API readback', () => {
-    test('opens a backend-created workbench draft after leaving agent chat', async ({ page, request }) => {
+    test('opens a backend-created workbench draft after leaving the Codex host', async ({ page, request }) => {
       const title = `Live Crossflow Draft ${Date.now()}`
       const marker = `live-crossflow-marker-${Date.now()}`
       const markdown = `## Live Crossflow\n\n${marker}`

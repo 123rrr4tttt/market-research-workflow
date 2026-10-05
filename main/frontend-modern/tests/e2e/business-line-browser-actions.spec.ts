@@ -10,27 +10,6 @@ type ProjectRow = {
 
 const MOCK_PROJECT_KEY = 'mocked_rail_58'
 
-type ResetTelemetryBoundaryContext = {
-  scope: string
-  source: string
-  lines: string[]
-  not_report_proof: boolean
-  not_scheduled_run_evidence_proof: boolean
-  scheduled_evidence_write: string
-  scheduled_completion_proof: string
-}
-
-function expectResetTelemetryBoundaryContext(context: ResetTelemetryBoundaryContext) {
-  expect(context).toMatchObject({
-    scope: 'ui_read_only_evidence_context',
-    source: 'business_lines.evidence_matrix.ui_boundary.reset_telemetry',
-    not_report_proof: true,
-    not_scheduled_run_evidence_proof: true,
-    scheduled_evidence_write: 'none',
-    scheduled_completion_proof: 'unchanged',
-  })
-}
-
 function apiEnvelope(data: unknown) {
   return {
     status: 'ok',
@@ -63,10 +42,6 @@ function agentCoreEvent(eventType: string, seq: number, payload: Record<string, 
     payload,
     ts: '2026-05-24T18:08:00Z',
   }
-}
-
-function agentCoreSse(event: ReturnType<typeof agentCoreEvent>) {
-  return `event: ${event.event_type}\ndata: ${JSON.stringify(event)}\n\n`
 }
 
 function typedKnowledgeWritingContextPayload() {
@@ -319,17 +294,6 @@ function businessLineEvidenceMatrixPayload() {
     },
     lines,
   }
-}
-
-function businessLineEvidenceMatrixWithoutResetTelemetryPayload() {
-  const payload = businessLineEvidenceMatrixPayload()
-  const uiBoundary = payload.ui_boundary as {
-    reset_telemetry?: unknown
-    read_only_context: typeof payload.ui_boundary.read_only_context
-  }
-  delete uiBoundary.reset_telemetry
-  payload.ui_boundary = uiBoundary
-  return payload
 }
 
 function scheduledMatrixArtifactSummaryPayload() {
@@ -787,7 +751,6 @@ async function setupMockedBusinessLineRail(
     writingMarkdownExports: 0,
     typedKnowledgeWritingContext: 0,
     typedKnowledgeReviewState: 0,
-    agentChatTurn: 0,
     agentSessionDetail: 0,
     agentSessionTasks: 0,
     agentSessionEvents: 0,
@@ -798,7 +761,7 @@ async function setupMockedBusinessLineRail(
     }>,
   }
 
-  await page.route('http://127.0.0.1:8172/', (route) =>
+  await page.route('http://127.0.0.1:8172/**', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'text/html',
@@ -1771,78 +1734,6 @@ async function setupMockedBusinessLineRail(
       return
     }
 
-    if (pathname === '/api/v1/agent-chat/capabilities') {
-      await fulfillJson(route, {
-        tool_pool: {
-          groups: {
-            core: [
-              {
-                capability_id: 'agent_session.read',
-                approval_level: 'none',
-                concurrency_class: 'readonly',
-                implemented: true,
-                implementation_state: 'ready',
-                enabled: true,
-              },
-            ],
-            deferred: [],
-            external_boundary: [],
-          },
-        },
-      })
-      return
-    }
-
-    if (pathname === '/api/v1/agent-chat/turn/stream') {
-      hits.agentChatTurn += 1
-      const events = mockedAgentReadbackEvents()
-      const result = {
-        final_answer: 'Agent session/event readback is visible for mocked-session-58.',
-        agent_mode: 'core',
-        contract_version: 'agent_core.turn.v1',
-        runtime_variant: 'agent_core_v3',
-        session: {
-          session_id: 'mocked-session-58',
-          current_phase: 'verification',
-          status: 'completed',
-          root_task_id: 'mocked-root-task-58',
-          compat_mode: false,
-        },
-        tasks: [
-          {
-            task_id: 'mocked-agent-task-58',
-            subject: 'Agent session/event readback',
-            description: 'Read session and events for P1 frontend boundary.',
-            status: 'completed',
-            phase: 'verification',
-            priority: 1,
-            result_summary: 'agent session and events read back',
-            read_set: ['agent_sessions', 'agent_events'],
-            write_set: [],
-          },
-        ],
-        events,
-        capability_calls: [
-          {
-            capability_id: 'agent_session.read',
-            tool_name: 'agent_session.read',
-            status: 'completed',
-            summary: 'session readback returned mocked-session-58',
-          },
-        ],
-        artifacts: [],
-        approvals: [],
-        suggested_next_actions: [],
-        stream: { url: '/api/v1/agent-sessions/mocked-session-58/stream' },
-      }
-      await route.fulfill({
-        status: 200,
-        contentType: 'text/event-stream; charset=utf-8',
-        body: `${events.map(agentCoreSse).join('')}event: agent_core.final_answer\ndata: ${JSON.stringify(result)}\n\n`,
-      })
-      return
-    }
-
     if (pathname === '/api/v1/agent-sessions') {
       await fulfillJson(route, {
         sessions: [
@@ -1948,113 +1839,16 @@ async function bootstrapMockedRail(page: Page) {
   })
 }
 
-test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Ops mocked browser rail (not real-backend proof)', async ({ page }) => {
+test('batch 58 statistics view -> Projects -> Graph -> Ingest/Search -> Resource -> Ops mocked browser rail (not real-backend proof)', async ({ page }) => {
   const hits = await setupMockedBusinessLineRail(page)
   await bootstrapMockedRail(page)
 
   await page.goto('/#/visual/dashboard')
-  await expect(page.getByRole('heading', { name: '数据仪表盘' })).toBeVisible()
-  await expect(page.getByText('Mocked rail action is not real-backend proof')).toBeVisible()
-  const dashboardResetTelemetryBoundary = page.getByTestId('dashboard-scheduled-artifact-reset-telemetry-boundary')
-  await expect(dashboardResetTelemetryBoundary).toBeVisible()
-  await expect(dashboardResetTelemetryBoundary).toContainText('scheduled artifact reset telemetry boundary')
-  await expect(dashboardResetTelemetryBoundary).toContainText('reset_empty_warning_view')
-  await expect(dashboardResetTelemetryBoundary).toContainText('ui_event_log_only')
-  await expect(dashboardResetTelemetryBoundary).toContainText('filter=warning_only->all')
-  await expect(dashboardResetTelemetryBoundary).toContainText('sort=unchanged')
-  await expect(dashboardResetTelemetryBoundary).toContainText('api_payload=unchanged')
-  await expect(dashboardResetTelemetryBoundary).toContainText('scheduled_evidence_write=none')
-  await expect(dashboardResetTelemetryBoundary).toContainText('scheduled_completion_proof=false')
-  await expect(dashboardResetTelemetryBoundary).toContainText('scheduled_evidence_controller=scheduled_run_evidence')
-  await expect(dashboardResetTelemetryBoundary).toContainText('scheduled_completion_proof unchanged')
-  await expect(dashboardResetTelemetryBoundary).toContainText('not scheduled_run_evidence proof')
-  await expect(dashboardResetTelemetryBoundary).not.toContainText('reset telemetry metadata unavailable')
-  await expect(dashboardResetTelemetryBoundary).not.toContainText('fallback boundary:')
-  await expect(page.getByRole('columnheader', { name: '只读上下文 trace 覆盖' })).toBeVisible()
-  const exportAuditReadOnlyContextTrace = page.getByTestId('dashboard-export-audit-read-only-context-trace')
-  await expect(exportAuditReadOnlyContextTrace).toBeVisible()
-  await expect(exportAuditReadOnlyContextTrace).toContainText('ui_read_only_context_included=true')
-  await expect(exportAuditReadOnlyContextTrace).toContainText('scope=ui_read_only_evidence_context')
-  const exportEventsReadOnlyContextIncluded = page.getByTestId('dashboard-export-events-read-only-context-included')
-  await expect(exportEventsReadOnlyContextIncluded).toBeVisible()
-  await expect(exportEventsReadOnlyContextIncluded).toContainText('ui read-only context included 1')
-  await expect(exportEventsReadOnlyContextIncluded).toContainText('trace coverage')
-  await expect(exportEventsReadOnlyContextIncluded).toContainText('非 proof/trusted/success')
-  await page.getByRole('button', { name: 'mocked-dashboard-documents-source' }).first().click()
-  await expect(page.getByRole('cell', { name: 'Mocked rail dashboard sample row' })).toBeVisible()
-  await page.getByRole('button', { name: '打开报告详情' }).first().click()
-  await expect(page.getByText('当前报告详情 trace: trace-mocked-rail-58')).toBeVisible()
-  const dashboardReportDetailResetTelemetryBoundary = page.getByTestId('dashboard-report-detail-reset-telemetry-boundary')
-  await expect(dashboardReportDetailResetTelemetryBoundary).toBeVisible()
-  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('report detail reset telemetry boundary')
-  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('reset_empty_warning_view')
-  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('ui_event_log_only')
-  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('filter=warning_only->all')
-  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('sort=unchanged')
-  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('api_payload=unchanged')
-  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('scheduled_evidence_write=none')
-  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('scheduled_completion_proof=false')
-  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('scheduled_evidence_controller=scheduled_run_evidence')
-  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('scheduled_completion_proof unchanged')
-  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('not scheduled_run_evidence proof')
-  await expect(dashboardReportDetailResetTelemetryBoundary).not.toContainText('reset telemetry metadata unavailable')
-  await expect(dashboardReportDetailResetTelemetryBoundary).not.toContainText('fallback boundary:')
-  const reportDetailExportEventsSummary = page.getByTestId('dashboard-report-detail-export-events-summary')
-  await expect(reportDetailExportEventsSummary).toContainText('"ui_read_only_context_included_count": 1')
-  await expect(reportDetailExportEventsSummary).toContainText('detail observability only')
-  await expect(reportDetailExportEventsSummary).toContainText('not scheduled_run_evidence proof')
-  const reportPayload = JSON.parse(await page.getByTestId('dashboard-report-payload').inputValue()) as {
-    reset_telemetry_boundary_context?: unknown
-    dashboard: {
-      reset_telemetry_boundary_context: ResetTelemetryBoundaryContext
-    }
-    report_options: Record<string, unknown>
-  }
-  const resetTelemetryBoundaryContext = reportPayload.dashboard.reset_telemetry_boundary_context
-  expectResetTelemetryBoundaryContext(resetTelemetryBoundaryContext)
-  expect(resetTelemetryBoundaryContext.lines).toEqual(expect.arrayContaining([
-    'reset_empty_warning_view',
-    'ui_event_log_only',
-    'filter=warning_only->all',
-    'sort=unchanged',
-    'api_payload=unchanged',
-    'scheduled_evidence_write=none',
-    'scheduled_completion_proof=false',
-    'scheduled_evidence_controller=scheduled_run_evidence',
-    'scheduled_completion_proof unchanged',
-    'not scheduled_run_evidence proof',
-  ]))
-  expect(reportPayload.report_options.include_reset_telemetry_boundary_context).toBe(true)
-  expect(reportPayload.reset_telemetry_boundary_context).toBeUndefined()
-  await page.getByRole('button', { name: '复制报告请求' }).click()
-  const copiedReportPayload = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()))
-  expect(copiedReportPayload).toEqual(reportPayload)
-  await page.getByTestId('dashboard-generate-report-draft').click()
-  await expect.poll(() => hits.dashboardReportFromFilterPayloads.length).toBe(1)
-  expect(hits.dashboardReportFromFilterPayloads[0]).toEqual(reportPayload)
-  await page.getByTestId('dashboard-export-pdf').click()
-  await expect.poll(() => hits.llmReportFileExportPayloads.length).toBe(1)
-  await expect(page.getByText('文件已导出: mocked-rail-report-58.pdf')).toBeVisible()
-  await page.getByTestId('dashboard-export-docx').click()
-  await expect.poll(() => hits.llmReportFileExportPayloads.length).toBe(2)
-  await expect(page.getByText('文件已导出: mocked-rail-report-58.docx')).toBeVisible()
-  expect(hits.writingMarkdownExports).toBe(2)
-  const pdfExportPayload = hits.llmReportFileExportPayloads.find((item) => item.format === 'pdf')?.payload
-  const docxExportPayload = hits.llmReportFileExportPayloads.find((item) => item.format === 'docx')?.payload
-  expect(pdfExportPayload).toBeTruthy()
-  expect(docxExportPayload).toBeTruthy()
-  expectResetTelemetryBoundaryContext(
-    pdfExportPayload?.reset_telemetry_boundary_context as ResetTelemetryBoundaryContext,
-  )
-  expectResetTelemetryBoundaryContext(
-    docxExportPayload?.reset_telemetry_boundary_context as ResetTelemetryBoundaryContext,
-  )
-  expect(pdfExportPayload?.reset_telemetry_boundary_context).toEqual(resetTelemetryBoundaryContext)
-  expect(docxExportPayload?.reset_telemetry_boundary_context).toEqual(resetTelemetryBoundaryContext)
-  expect(hits.dashboardReportFromFilterPayloads[0]).toEqual(reportPayload)
-  expect(hits.dashboardStats).toBeGreaterThanOrEqual(1)
-  expect(hits.dashboardReportDetail).toBeGreaterThanOrEqual(1)
-  expect(hits.dashboardReportFromFilter).toBe(1)
+  await expect(page.getByRole('heading', { name: '统计视图', level: 2 })).toBeVisible()
+  await expect(page.getByText('当前统计视图暂无指标。')).toBeVisible()
+  expect(hits.dashboardStats).toBe(0)
+  expect(hits.dashboardReportDetail).toBe(0)
+  expect(hits.dashboardReportFromFilter).toBe(0)
 
   await page.goto('/#/admin/projects')
   await expect(page.getByRole('heading', { name: '项目与模板' })).toBeVisible()
@@ -2085,7 +1879,7 @@ test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Op
   await page.getByRole('button', { name: '刷新' }).last().click()
   await expect.poll(() => hits.marketGraph).toBeGreaterThanOrEqual(2)
   expect(hits.topologyDiscovery).toBeGreaterThanOrEqual(1)
-  expect(hits.topologyRead).toBeGreaterThanOrEqual(1)
+  expect(hits.topologyRead).toBe(0)
   expect(hits.graphConfig).toBeGreaterThanOrEqual(1)
 
   await page.goto('/#writing-workbench.html')
@@ -2102,13 +1896,13 @@ test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Op
   expect(hits.typedKnowledgeWritingContext).toBeGreaterThanOrEqual(1)
   expect(hits.typedKnowledgeReviewState).toBe(1)
 
-  // Agent Chat is now the Codex WebUI surface. Keep this browser rail focused
-  // on the canonical host route and its iframe boundary; chat/session details
-  // are owned by the embedded Codex application rather than MRW DOM selectors.
+  // The Codex host is the canonical agent surface. Keep this browser rail
+  // focused on its route and iframe boundary; task/session details are owned
+  // by the embedded Codex application rather than MRW DOM selectors.
   const agentResponse = await page.goto('/#/workbench/agent')
   if (agentResponse) expect(agentResponse.ok()).toBeTruthy()
   await expect(page.getByTestId('codex-agent-page')).toBeVisible()
-  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', 'http://127.0.0.1:8172/')
+  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', 'http://127.0.0.1:8172/?mrw=macro-host-v1')
 
   await page.goto('/#/workbench/ingest/specialized')
   await expect(page.getByRole('heading', { name: '单 URL 入库' })).toBeVisible()
@@ -2302,7 +2096,7 @@ test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Op
     action_kind: 'delete_documents',
     evidence_preview: { execution_result_available: false },
   })
-  await page.getByRole('button', { name: '删除文档' }).click()
+  await page.getByRole('button', { name: '删除材料', exact: true }).click()
   await expect(page.getByTestId('ops-document-governance-preview')).toContainText('execution evidence')
   await expect(page.getByTestId('ops-document-governance-preview')).toContainText('trace-admin-execution-delete_documents')
   await expect(page.getByTestId('ops-document-governance-preview')).toContainText('recorded_in_response_only')
@@ -2332,67 +2126,17 @@ test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Op
   expect(hits.scheduledArtifactDrilldown).toBeGreaterThanOrEqual(1)
 })
 
-test('batch 114 Dashboard reset telemetry fallback keeps missing metadata as not proof', async ({ page }) => {
-  const hits = await setupMockedBusinessLineRail(page, {
-    businessLineEvidenceMatrixFixture: businessLineEvidenceMatrixWithoutResetTelemetryPayload,
-  })
+test('batch 114 retired dashboard rail keeps the statistics view empty without legacy calls', async ({ page }) => {
+  const hits = await setupMockedBusinessLineRail(page)
   await bootstrapMockedRail(page)
 
   await page.goto('/#/visual/dashboard')
-  await expect(page.getByRole('heading', { name: '数据仪表盘' })).toBeVisible()
-  const dashboardResetTelemetryBoundary = page.getByTestId('dashboard-scheduled-artifact-reset-telemetry-boundary')
-  await expect(dashboardResetTelemetryBoundary).toBeVisible()
-  await expect(dashboardResetTelemetryBoundary).toContainText('reset telemetry metadata unavailable')
-  await expect(dashboardResetTelemetryBoundary).toContainText('fallback boundary: not scheduled_run_evidence proof')
-  await expect(dashboardResetTelemetryBoundary).toContainText('fallback boundary: scheduled_evidence_write=none')
-  await expect(dashboardResetTelemetryBoundary).toContainText('fallback boundary: scheduled_completion_proof unchanged')
-  await expect(dashboardResetTelemetryBoundary).not.toContainText('reset_empty_warning_view')
-  await expect(dashboardResetTelemetryBoundary).not.toContainText('ui_event_log_only')
-  const fallbackReportPayload = JSON.parse(await page.locator('textarea[readonly]').inputValue()) as {
-    dashboard: {
-      reset_telemetry_boundary_context: {
-        scope: string
-        source: string
-        lines: string[]
-        not_report_proof: boolean
-        not_scheduled_run_evidence_proof: boolean
-        scheduled_evidence_write: string
-        scheduled_completion_proof: string
-      }
-    }
-    report_options: Record<string, unknown>
-  }
-  const fallbackResetTelemetryBoundaryContext = fallbackReportPayload.dashboard.reset_telemetry_boundary_context
-  expect(fallbackResetTelemetryBoundaryContext).toMatchObject({
-    scope: 'ui_read_only_evidence_context',
-    source: 'business_lines.evidence_matrix.ui_boundary.reset_telemetry',
-    not_report_proof: true,
-    not_scheduled_run_evidence_proof: true,
-    scheduled_evidence_write: 'none',
-    scheduled_completion_proof: 'unchanged',
-  })
-  expect(fallbackResetTelemetryBoundaryContext.lines).toEqual([
-    'reset telemetry metadata unavailable',
-    'fallback boundary: not scheduled_run_evidence proof',
-    'fallback boundary: scheduled_evidence_write=none',
-    'fallback boundary: scheduled_completion_proof unchanged',
-  ])
-  expect(fallbackResetTelemetryBoundaryContext.lines.join('\n')).not.toContain('reset_empty_warning_view')
-  expect(fallbackResetTelemetryBoundaryContext.lines.join('\n')).not.toContain('ui_event_log_only')
-  expect(fallbackReportPayload.report_options.include_reset_telemetry_boundary_context).toBe(true)
-
-  await page.getByRole('button', { name: '打开报告详情' }).first().click()
-  await expect(page.getByText('当前报告详情 trace: trace-mocked-rail-58')).toBeVisible()
-  const dashboardReportDetailResetTelemetryBoundary = page.getByTestId('dashboard-report-detail-reset-telemetry-boundary')
-  await expect(dashboardReportDetailResetTelemetryBoundary).toBeVisible()
-  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('reset telemetry metadata unavailable')
-  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('fallback boundary: not scheduled_run_evidence proof')
-  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('fallback boundary: scheduled_evidence_write=none')
-  await expect(dashboardReportDetailResetTelemetryBoundary).toContainText('fallback boundary: scheduled_completion_proof unchanged')
-  await expect(dashboardReportDetailResetTelemetryBoundary).not.toContainText('reset_empty_warning_view')
-  await expect(dashboardReportDetailResetTelemetryBoundary).not.toContainText('ui_event_log_only')
-  expect(hits.businessLineEvidenceMatrix).toBeGreaterThanOrEqual(1)
-  expect(hits.dashboardReportDetail).toBeGreaterThanOrEqual(1)
+  await expect(page.getByRole('heading', { name: '统计视图', level: 2 })).toBeVisible()
+  await expect(page.getByText('当前统计视图暂无指标。')).toBeVisible()
+  expect(hits.dashboardStats).toBe(0)
+  expect(hits.dashboardReportDetail).toBe(0)
+  expect(hits.dashboardReportFromFilter).toBe(0)
+  expect(hits.businessLineEvidenceMatrix).toBe(0)
 })
 
 test('batch 108 Ops scheduled artifact drilldown warning-only empty state is not completion proof', async ({ page }) => {

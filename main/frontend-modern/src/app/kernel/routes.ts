@@ -5,6 +5,12 @@ import type { KernelModuleKey, KernelRouteState } from './types'
 
 const routeByPath = new Map<string, (typeof routeManifest)[number]>(routeManifest.map((item) => [item.routePath, item]))
 
+const RETIRED_AGENTCHAT_HASHES = new Set([
+  'agent-chat.html',
+  'agent-chat-compat.html',
+  'agent.html',
+])
+
 function normalizeHashPath(hash: string): string {
   const decoded = decodeURIComponent((hash || '').replace(/^#/, '')).trim()
   if (!decoded) return ''
@@ -16,6 +22,11 @@ function normalizeHashPath(hash: string): string {
 
 export function buildLayerRouteHash(moduleKey: KernelModuleKey): `#/${string}` {
   return `#${getKernelModuleContract(moduleKey).entryRoute}` as `#/${string}`
+}
+
+function isRetiredAgentChatHash(rawHash: string): boolean {
+  const decoded = decodeURIComponent((rawHash || '').replace(/^#/, '')).trim().toLowerCase()
+  return RETIRED_AGENTCHAT_HASHES.has(decoded)
 }
 
 export function resolveKernelRoute(hash: string): KernelRouteState {
@@ -44,6 +55,18 @@ export function resolveKernelRoute(hash: string): KernelRouteState {
       surfaceKind: contract.surfaceKind,
       routePath: contract.entryRoute,
       routeHash: buildLayerRouteHash(legacyMode),
+    }
+  }
+
+  if (isRetiredAgentChatHash(hash)) {
+    const contract = getKernelModuleContract(DEFAULT_KERNEL_MODULE)
+    return {
+      source: 'retired',
+      moduleKey: DEFAULT_KERNEL_MODULE,
+      layerId: contract.layerId,
+      surfaceKind: contract.surfaceKind,
+      routePath: '/retired',
+      routeHash: '#/retired',
     }
   }
 

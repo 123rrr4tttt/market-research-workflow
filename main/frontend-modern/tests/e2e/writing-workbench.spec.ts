@@ -112,6 +112,11 @@ test.describe('writing workbench user interaction', () => {
     await expect(page.getByTestId('writing-title-input')).toHaveValue(title)
     await expect(page.getByText(/文档已创建|正文已保存/)).toBeVisible()
 
+    await page.getByTestId('writing-panel-llm').click()
+    const codexRouteLink = page.getByTestId('writing-agent-route-link')
+    await expect(codexRouteLink).toBeVisible()
+    await expect(codexRouteLink).toHaveAttribute('href', '#/workbench/agent')
+
     await page.getByTestId('writing-mode-split').click()
     await expect(page.getByTestId('writing-editor-pane')).toBeVisible()
     await expect(page.getByTestId('writing-preview-pane')).toBeVisible()
@@ -261,124 +266,6 @@ test.describe('writing workbench user interaction', () => {
         }
       })
     }).toEqual({ start: secondStart, end: secondStart + repeatedText.length, text: repeatedText })
-  })
-
-  test('searches selected material through the writing agent without writing back', async ({ page, request }) => {
-    test.skip(process.env.AGENT_CORE_REAL_BACKEND_E2E !== '1', 'requires a real backend started with AGENT_CORE_E2E_SCRIPTED_PROVIDER_ENABLED=true')
-
-    const selectedText = '机器人产业政策需要补充证据。'
-    const body = `# Material Search\n\n${selectedText}\n\n待补充段落。`
-    const rangeStart = body.indexOf(selectedText)
-    const rangeEnd = rangeStart + selectedText.length
-    const document = await createWritingDocument(request, {
-      title: `E2E Material Search ${Date.now()}`,
-      body_md: body,
-      metadata_json: { source: 'e2e-writing-material-search' },
-    })
-
-    await openWritingWorkbench(page)
-    await selectDocument(page, document.id)
-
-    const editor = page.getByTestId('writing-markdown-editor')
-    await editor.evaluate((node, range) => {
-      const textarea = node as HTMLTextAreaElement
-      textarea.focus()
-      textarea.setSelectionRange(range.start, range.end)
-      textarea.dispatchEvent(new Event('select', { bubbles: true }))
-      textarea.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'ArrowRight' }))
-    }, { start: rangeStart, end: rangeEnd })
-
-    await page.getByTestId('writing-panel-llm').click()
-    await expect(page.getByTestId('writing-agent-context-strip')).toContainText(`选区 ${selectedText.length} 字`)
-
-    const streamResponse = page.waitForResponse((response) => {
-      return response.url().includes('/api/v1/agent-chat/turn/stream') && response.status() === 200
-    })
-    await page.getByRole('button', { name: '按选区找资料' }).click()
-    const streamText = await (await streamResponse).text()
-    expect(streamText).toContain('project.context.bundle')
-    expect(streamText).toContain('writing.document.list')
-    expect(streamText).not.toMatch(/"tool_name"\s*:\s*"writing\.document\.insert_paragraph"/)
-    await expect(editor).toHaveValue(new RegExp(selectedText))
-    await expect(page.getByTestId('writing-agent-panel')).toContainText('写作补资料已优先查看内部项目资料')
-  })
-
-  test('rewrites a selected range through real AgentCore and can roll it back', async ({ page, request }) => {
-    test.skip(process.env.AGENT_CORE_REAL_BACKEND_E2E !== '1', 'requires a real backend started with AGENT_CORE_E2E_SCRIPTED_PROVIDER_ENABLED=true')
-
-    const selectedText = '原始选区内容需要被改写。'
-    const rewrittenText = 'Agent 改写后的选区段落。'
-    const body = `# Selection Rewrite\n\n${selectedText}\n\n尾段。`
-    const rangeStart = body.indexOf(selectedText)
-    const rangeEnd = rangeStart + selectedText.length
-    const document = await createWritingDocument(request, {
-      title: `E2E Agent Selection Rewrite ${Date.now()}`,
-      body_md: body,
-      metadata_json: { source: 'e2e-writing-agentcore-selection' },
-    })
-
-    await openWritingWorkbench(page)
-    await selectDocument(page, document.id)
-
-    const editor = page.getByTestId('writing-markdown-editor')
-    await editor.evaluate((node, range) => {
-      const textarea = node as HTMLTextAreaElement
-      textarea.focus()
-      textarea.setSelectionRange(range.start, range.end)
-      textarea.dispatchEvent(new Event('select', { bubbles: true }))
-      textarea.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'ArrowRight' }))
-    }, { start: rangeStart, end: rangeEnd })
-
-    await page.getByTestId('writing-panel-llm').click()
-    await expect(page.getByTestId('writing-agent-context-strip')).toContainText(`选区 ${selectedText.length} 字`)
-
-    const streamResponse = page.waitForResponse((response) => {
-      return response.url().includes('/api/v1/agent-chat/turn/stream') && response.status() === 200
-    })
-    await page.getByRole('button', { name: '改写选区' }).click()
-    const streamText = await (await streamResponse).text()
-    expect(streamText).toContain('writing.document.read')
-    expect(streamText).toContain('writing.document.insert_paragraph')
-    expect(streamText).toContain('replace_range')
-
-    await expect(editor).toHaveValue(new RegExp(rewrittenText))
-    await expect(editor).not.toHaveValue(new RegExp(selectedText))
-
-    await page.getByTestId('writing-panel-agent-updates').click()
-    const updateCard = page.getByTestId('writing-agent-update-card')
-    await expect(updateCard).toContainText('replace_range')
-    await expect(updateCard).toContainText('待处理')
-
-    await page.getByTestId('writing-agent-update-diff').click()
-    const diffPanel = page.getByTestId('writing-agent-update-diff-panel')
-    await expect(diffPanel).toContainText('原选区')
-    await expect(diffPanel).toContainText(selectedText)
-    await expect(diffPanel).toContainText(rewrittenText)
-    await expect(diffPanel).toContainText('provenance: scenario, selection_snapshot')
-
-    await page.getByTestId('writing-agent-update-locate').click()
-    await expect.poll(async () => {
-      return page.evaluate(() => {
-        const textarea = document.querySelector<HTMLTextAreaElement>('[data-testid="writing-markdown-editor"]')
-        if (!textarea) return ''
-        return textarea.value.slice(textarea.selectionStart, textarea.selectionEnd)
-      })
-    }).toBe(rewrittenText)
-
-    const rollbackResponse = page.waitForResponse((response) => {
-      return response.url().includes(`/api/v1/writing/documents/${document.id}`) && response.request().method() === 'PATCH' && response.status() === 200
-    })
-    await page.getByTestId('writing-agent-update-reject').click()
-    await rollbackResponse
-
-    await expect(editor).toHaveValue(new RegExp(selectedText))
-    await expect(editor).not.toHaveValue(new RegExp(rewrittenText))
-    const refreshed = await getWritingDocument(request, document.id)
-    expect(refreshed.body_md).toContain(selectedText)
-    expect(refreshed.body_md).not.toContain(rewrittenText)
-    const updates = refreshed.metadata_json?.agent_updates as Array<Record<string, unknown>>
-    expect(updates?.[0]?.review_status).toBe('rejected')
-    expect(updates?.[0]?.replaced_text).toBe(selectedText)
   })
 
   test('mobile writing layout keeps the toolbar and canvas inside the viewport', async ({ page }) => {

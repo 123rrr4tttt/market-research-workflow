@@ -56,7 +56,7 @@ export const MODULE_ICON_BY_KEY: Record<KernelModuleKey, LucideIcon> = {
   flowAnalysis: Brain,
   flowBoard: TrendingUp,
   flowWriting: FileInput,
-  flowAgentChat: MessageCircleMore,
+  flowCodex: MessageCircleMore,
   flowCell: Orbit,
   flowLlmNodeDesign: Brain,
   sysProjects: Folders,

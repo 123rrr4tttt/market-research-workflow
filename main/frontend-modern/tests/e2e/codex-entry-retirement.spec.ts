@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
+import { parseLegacyHashToMode } from '../../src/app/kernel/legacyHashAdapter'
+import { resolveKernelRoute } from '../../src/app/kernel/routes'
 
 async function mockShellApis(page: Page, codexStatusOk = true) {
   await page.route('**/api/v1/health**', (route) =>
@@ -64,14 +66,26 @@ async function expectCodexPage(page: Page) {
   await expect(page.getByTestId('agent-chat-compat-link')).toHaveCount(0)
 }
 
-test('canonical local agent route mounts the host Codex WebUI', async ({ page }) => {
+test('canonical Codex routes mount the host Codex WebUI', async ({ page }) => {
   await mockShellApis(page)
-  await page.goto('/#/workbench/agent')
-
-  await expectCodexPage(page)
+  for (const path of ['/#/workbench/agent', '/#codex-workbench.html']) {
+    await page.goto(path)
+    await expectCodexPage(page)
+  }
 })
 
-test('legacy agent hashes navigate to Codex without opening old chat APIs', async ({ page }) => {
+test('retired agentchat hashes no longer resolve to Codex', () => {
+  for (const hash of ['#agent-chat.html', '#agent-chat-compat.html', '#agent.html']) {
+    expect(parseLegacyHashToMode(hash)).toBeNull()
+    expect(resolveKernelRoute(hash).source).toBe('retired')
+  }
+  expect(parseLegacyHashToMode('#codex-workbench.html')).toBe('flowCodex')
+  expect(resolveKernelRoute('#codex-workbench.html').moduleKey).toBe('flowCodex')
+  expect(resolveKernelRoute('#not-a-page.html').source).toBe('unknown')
+  expect(resolveKernelRoute('').source).toBe('default')
+})
+
+test('retired agentchat hashes do not request old chat APIs', async ({ page }) => {
   await mockShellApis(page)
   const retiredApiCalls: string[] = []
   page.on('request', (request) => {
@@ -83,7 +97,14 @@ test('legacy agent hashes navigate to Codex without opening old chat APIs', asyn
 
   for (const hash of ['#agent-chat.html', '#agent-chat-compat.html', '#agent.html']) {
     await page.goto(`/${hash}`)
-    await expectCodexPage(page)
+    await expect(page.getByTestId('retired-route')).toBeVisible()
+    await expect(page.getByTestId('retired-route')).toContainText('旧入口已退役')
+    await expect(page.getByTestId('codex-agent-page')).toHaveCount(0)
+    await expect(page.locator('.app-status-bar')).toHaveCount(0)
+    await expect(page.locator('.figma-side-nav')).toHaveCount(0)
+    await expect(page.locator('.kernel-workbench')).toHaveCount(0)
+    await expect(page.locator('.kernel-admin')).toHaveCount(0)
+    await expect(page.locator('.kernel-visual')).toHaveCount(0)
   }
 
   expect(retiredApiCalls).toEqual([])

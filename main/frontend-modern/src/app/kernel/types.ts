@@ -52,7 +52,7 @@ export type KernelModuleKey =
   | 'flowAnalysis'
   | 'flowBoard'
   | 'flowWriting'
-  | 'flowAgentChat'
+  | 'flowCodex'
   | 'flowCell'
   | 'flowLlmNodeDesign'
   | 'sysProjects'
@@ -119,7 +119,7 @@ export type ModuleManifestEntry = {
   designSourceRefs: readonly string[]
 }
 
-export type RouteSource = 'default' | 'layered' | 'legacy' | 'unknown'
+export type RouteSource = 'default' | 'layered' | 'legacy' | 'retired' | 'unknown'
 
 export type KernelRouteState = {
   source: RouteSource

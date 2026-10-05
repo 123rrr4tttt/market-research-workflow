@@ -2,6 +2,8 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 
 const PROJECT_KEY = 'ops_repair_mock'
 const TASK_ID = 'ops-repair-celery-task'
+const AGENT_SESSION_ID = 'ops-repair-agent-session'
+const AGENT_TASK_ID = 'ops-repair-agent-task'
 const LONG_TITLE = `Project evidence ${'with a long document title '.repeat(9)}`
 const LONG_WORKER_HEALTH_URL = `https://mocked-worker.example.test/health/${'long-worker-health-path-'.repeat(20)}`
 
@@ -14,7 +16,19 @@ async function fulfill(route: Route, data: unknown) {
 }
 
 async function mockOps(page: Page, options: { documentError?: boolean; synchronous?: boolean; taskError?: boolean } = {}) {
-  const state = { completed: false, documentReads: 0, previews: 0, writes: 0, sessionReads: 0, diagnosticReads: 0 }
+  const state = {
+    completed: false,
+    documentReads: 0,
+    previews: 0,
+    writes: 0,
+    sessionReads: 0,
+    diagnosticReads: 0,
+    sessionDetailReads: 0,
+    sessionCancels: 0,
+    taskRetries: 0,
+    coordinatorPasses: 0,
+    lastRetryTaskId: null as string | null,
+  }
   await page.addInitScript((projectKey) => {
     localStorage.setItem('market_project_key', projectKey)
     localStorage.setItem('app_locale_v1', 'en-US')
@@ -62,9 +76,82 @@ async function mockOps(page: Page, options: { documentError?: boolean; synchrono
       state.diagnosticReads += 1
       return fulfill(route, { lines: [], lanes: [], summary: [], completion_boundary: [], diagnostics: {}, contract_version: 'mocked-observation-only' })
     }
+    if (path === `/api/v1/agent-sessions/${AGENT_SESSION_ID}/actions/coordinator-pass`) {
+      state.coordinatorPasses += 1
+      return route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'error', error: { code: 'NOT_FOUND', message: 'coordinator-pass endpoint is retired' } }),
+      })
+    }
+    if (path === `/api/v1/agent-sessions/${AGENT_SESSION_ID}/actions/retry-task`) {
+      state.taskRetries += 1
+      const payload = route.request().postDataJSON() as { task_id?: string }
+      state.lastRetryTaskId = payload.task_id || null
+      return fulfill(route, {
+        session_id: AGENT_SESSION_ID,
+        status: state.sessionCancels ? 'canceled' : 'active',
+        tasks: [{
+          task_id: AGENT_TASK_ID,
+          subject: 'Evidence repair',
+          task_type: 'repair',
+          phase: 'research',
+          status: state.taskRetries ? 'pending' : 'failed',
+          owner: 'codex',
+        }],
+      })
+    }
+    if (path === `/api/v1/agent-sessions/${AGENT_SESSION_ID}/actions/cancel`) {
+      state.sessionCancels += 1
+      return fulfill(route, {
+        session_id: AGENT_SESSION_ID,
+        status: 'canceled',
+        tasks: [{
+          task_id: AGENT_TASK_ID,
+          subject: 'Evidence repair',
+          task_type: 'repair',
+          phase: 'research',
+          status: 'canceled',
+          owner: 'codex',
+        }],
+      })
+    }
+    if (path === `/api/v1/agent-sessions/${AGENT_SESSION_ID}`) {
+      state.sessionDetailReads += 1
+      return fulfill(route, {
+        session_id: AGENT_SESSION_ID,
+        status: state.sessionCancels ? 'canceled' : 'active',
+        current_phase: 'research',
+        tasks: [{
+          task_id: AGENT_TASK_ID,
+          subject: 'Evidence repair',
+          task_type: 'repair',
+          phase: 'research',
+          status: state.taskRetries ? 'pending' : 'failed',
+          owner: 'codex',
+        }],
+        messages: [{
+          session_id: AGENT_SESSION_ID,
+          actor: 'codex',
+          role: 'assistant',
+          content: 'Session fact retained',
+        }],
+        events: [],
+        artifacts: [],
+        approvals: [],
+      })
+    }
     if (path === '/api/v1/agent-sessions' && method === 'GET') {
       state.sessionReads += 1
-      return fulfill(route, { sessions: [] })
+      return fulfill(route, {
+        sessions: [{
+          session_id: AGENT_SESSION_ID,
+          project_key: PROJECT_KEY,
+          status: state.sessionCancels ? 'canceled' : 'active',
+          current_phase: 'research',
+          task_count: 1,
+        }],
+      })
     }
     if (path === '/api/v1/admin/search-history') return fulfill(route, [])
     return fulfill(route, { items: [], total: 0 })
@@ -156,6 +243,40 @@ test('task readback unavailable retains receipt and documents query failures sta
   await expect(notice).toContainText(TASK_ID)
   await expect(notice).toContainText('Status unavailable; submission receipt retained', { timeout: 15000 })
   await expect(notice).not.toContainText('Completed')
+})
+
+test('agent session cancel and task retry retain owner state without coordinator pass (mocked)', async ({ page }) => {
+  const state = await mockOps(page)
+  await page.goto('/#/admin/backend')
+  await page.getByRole('tab', { name: 'Agent sessions', exact: true }).click()
+  const ops = page.locator('.ops-agent-session-panel')
+  await expect(ops).toBeVisible()
+  const taskRow = ops.getByRole('row', { name: /Evidence repair/ })
+  await expect(taskRow).toContainText('failed')
+  await expect(taskRow).toContainText('codex')
+  await expect(ops.getByRole('button', { name: 'Coordinator Pass', exact: true })).toHaveCount(0)
+  await expect(ops.getByText('No artifact selected')).toBeVisible()
+  await expect(ops.getByText('memory.md')).toHaveCount(0)
+  await expect(ops.getByRole('heading', { name: 'Session Messages' })).toBeVisible()
+  await expect(ops.getByText('Session fact retained')).toBeVisible()
+
+  await taskRow.getByRole('button', { name: 'Retry', exact: true }).click()
+  await expect.poll(() => state.taskRetries).toBe(1)
+  expect(state.lastRetryTaskId).toBe(AGENT_TASK_ID)
+  await expect(taskRow).toContainText('pending')
+  await expect(taskRow).toContainText('codex')
+
+  await taskRow.getByRole('button', { name: 'Open', exact: true }).click()
+  const selectedTaskDetail = ops.getByText('Selected task detail').locator('xpath=following-sibling::pre[1]')
+  await expect(selectedTaskDetail).toContainText('"owner": "codex"')
+
+  await ops.getByRole('button', { name: 'Cancel Session', exact: true }).click()
+  await expect.poll(() => state.sessionCancels).toBe(1)
+  await expect(ops.locator('.kpi-card').filter({ hasText: 'Status' })).toContainText('canceled')
+  await expect(taskRow).toContainText('codex')
+  await expect(ops.getByText('No artifact selected')).toBeVisible()
+  await expect(ops.getByText('memory.md')).toHaveCount(0)
+  await expect.poll(() => state.coordinatorPasses).toBe(0)
 })
 
 for (const viewport of [{ width: 1440, height: 1000 }, { width: 768, height: 1024 }, { width: 390, height: 844 }]) {
