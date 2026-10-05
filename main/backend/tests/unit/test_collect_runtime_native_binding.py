@@ -67,7 +67,7 @@ def test_runtime_consumes_default_c3_native_definition(monkeypatch: pytest.Monke
     gateway_contract: CollectEffectGateway = gateway
     monkeypatch.setattr(
         runtime,
-        "_SUCCESSOR_EFFECT_GATEWAY",
+        "_successor_effect_gateway",
         gateway_contract,
     )
     result = runtime._run_successor_collect(_request())

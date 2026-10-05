@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from collections.abc import Mapping
 from typing import Any
 
+import requests
+
 from app.services.ingest.adapters import http_utils
+from app.services.ingest.retry_policy import RateGate
+from app.services.ingest.retry_policy import RequestScope
+from app.services.search import web
 from app.services.resource_pool.http_port import (
-    HttpFetchPort,
     HttpFetchResponse,
-    OfficialAccessPort,
     set_http_fetch_port,
     set_official_access_port,
 )
@@ -55,6 +59,46 @@ class SourceLibraryOfficialAccessPort:
         return official_access.handle_official_access_api(params, project_key)
 
 
+class RequestHtmlSearchRequestPort:
+    def __init__(
+        self,
+        *,
+        rate_gate: RateGate,
+        client_factory: Callable[[], requests.Session] | None = None,
+    ) -> None:
+        self._rate_gate = rate_gate
+        self._client_factory = client_factory
+
+    def request_json(
+        self,
+        url: str,
+        *,
+        scope: RequestScope,
+        headers: dict[str, str] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> Any:
+        outcome = http_utils.request_html(
+            url,
+            scope=scope,
+            headers=headers,
+            params=params,
+            timeout=20.0,
+            retries=3,
+            retry_gate=self._rate_gate,
+            client_factory=self._client_factory,
+        )
+        if outcome.ok and outcome.response is not None:
+            return outcome.response.json()
+        if outcome.response is not None:
+            outcome.response.raise_for_status()
+        if outcome.last_exception is not None:
+            raise outcome.last_exception
+        raise RuntimeError(outcome.failures[-1].message)
+
+
 def configure_resource_pool_ports() -> None:
     set_http_fetch_port(RequestsHttpFetchPort())
     set_official_access_port(SourceLibraryOfficialAccessPort())
+    web.set_search_request_port(
+        RequestHtmlSearchRequestPort(rate_gate=web.SEARCH_RATE_GATE)
+    )

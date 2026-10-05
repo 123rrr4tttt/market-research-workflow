@@ -119,6 +119,15 @@ logging.getLogger().addFilter(
 app = FastAPI(title="Market Intel API", version=_SERVICE_VERSION)
 
 @app.on_event("startup")
+def _configure_shell_ports() -> None:
+    """Install explicit network ports before API request handlers can run."""
+
+    from .composition.resource_pool import configure_resource_pool_ports
+
+    configure_resource_pool_ports()
+
+
+@app.on_event("startup")
 def _validate_production_composition() -> None:
     """Install the existing production authority ports before serving requests."""
     from .composition.production import validate_production_startup

@@ -4,12 +4,14 @@ import pytest
 from unittest.mock import patch
 
 from app.composition.resource_pool import (
+    RequestHtmlSearchRequestPort,
     RequestsHttpFetchPort,
     SourceLibraryOfficialAccessPort,
     configure_resource_pool_ports,
 )
 from app.services.ingest.adapters import http_utils
 from app.services.resource_pool import http_port
+from app.services.search import web
 
 
 def test_FAILURE_PRESERVED__unconfigured_http_port_fails_closed() -> None:
@@ -38,6 +40,7 @@ def test_INVARIANT__composition_registers_resource_pool_ports() -> None:
     configure_resource_pool_ports()
     assert isinstance(http_port._HTTP_FETCH_PORT, RequestsHttpFetchPort)
     assert isinstance(http_port._OFFICIAL_ACCESS_PORT, SourceLibraryOfficialAccessPort)
+    assert isinstance(web._SEARCH_REQUEST_PORT, RequestHtmlSearchRequestPort)
 
 
 def test_INVARIANT__requests_port_projects_provider_response() -> None:

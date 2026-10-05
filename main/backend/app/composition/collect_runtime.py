@@ -29,7 +29,7 @@ from app.services.collect_runtime.runtime import (
     run_source_library_item_compat,
 )
 
-_CONFIGURED = False
+_configured = False
 
 
 def default_collect_adapters() -> dict[str, CollectAdapter]:
@@ -43,8 +43,8 @@ def default_collect_adapters() -> dict[str, CollectAdapter]:
 
 
 def configure_default_collect_adapters(*, force: bool = False) -> None:
-    global _CONFIGURED
-    if _CONFIGURED and not force:
+    global _configured
+    if _configured and not force:
         return
     adapters = default_collect_adapters()
     register_collect_adapters(adapters)
@@ -71,7 +71,7 @@ def configure_default_collect_adapters(*, force: bool = False) -> None:
         return adapter.run(request)
 
     register_successor_collect_effect_gateway(run_successor_effect)
-    _CONFIGURED = True
+    _configured = True
 
 
 def run_default_collect(request: CollectRequest) -> CollectResult:

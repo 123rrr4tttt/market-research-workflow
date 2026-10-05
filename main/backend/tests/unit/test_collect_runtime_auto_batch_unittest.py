@@ -359,6 +359,52 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
         finally:
             runtime.reset_successor_collect_effect_gateway()
 
+    def test_waiting_delivery_observation_survives_c3_count_rejection(self):
+        def gateway(request: CollectRequest) -> CollectResult:
+            return CollectResult(
+                channel=request.channel,
+                status="accepted",
+                inserted=-1,
+                provider_job_id=f"job-{request.query_terms[0]}",
+                provider_status="waiting",
+                meta={"terminal_readback": {"kind": "waiting"}},
+            )
+
+        runtime.register_successor_collect_effect_gateway(gateway)
+        try:
+            result = runtime.run_collect(self._successor_request())
+        finally:
+            runtime.reset_successor_collect_effect_gateway()
+
+        self.assertEqual(result.status, "unknown")
+        self.assertEqual(result.inserted, -2)
+        rows = result.meta["raw"]["delivery_observations"]
+        self.assertEqual([row["counts"]["inserted"] for row in rows], [-1, -1])
+        self.assertEqual([row["observation"]["state"] for row in rows], ["waiting", "waiting"])
+        self.assertEqual([row["execution_state"] for row in rows], ["attempted", "attempted"])
+        self.assertEqual(
+            [outcome["status"] for outcome in result.meta["raw"]["typed_batch_results"]],
+            ["failed", "failed"],
+        )
+
+    def test_non_iterable_links_remain_an_element_execution_failure(self):
+        def gateway(request: CollectRequest) -> CollectResult:
+            return CollectResult(channel=request.channel, meta={"raw": {"links": 1}})
+
+        runtime.register_successor_collect_effect_gateway(gateway)
+        try:
+            result = runtime.run_collect(self._successor_request())
+        finally:
+            runtime.reset_successor_collect_effect_gateway()
+
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(len(result.errors), 2)
+        self.assertEqual([error["exception_type"] for error in result.errors], ["TypeError", "TypeError"])
+        self.assertEqual(
+            [error["message"] for error in result.errors],
+            ["'int' object is not iterable", "'int' object is not iterable"],
+        )
+
     def test_successor_cancelled_provider_is_not_folded_as_failed(self):
         class _Gateway:
             def run(self, request):

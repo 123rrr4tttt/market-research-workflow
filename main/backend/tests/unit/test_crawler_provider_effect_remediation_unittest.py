@@ -36,10 +36,10 @@ class _Provider:
         }
 
 
-def _request(key: str, *, durable_store=None) -> CollectRequest:
+def _request(key: str, *, attempt_id: str | None = None) -> CollectRequest:
     options = {"spider": "news", "idempotency_key": key}
-    if durable_store is not None:
-        options["durable_store"] = durable_store
+    if attempt_id is not None:
+        options["attempt_id"] = attempt_id
     return CollectRequest(
         project_key="demo",
         options=options,
@@ -69,12 +69,9 @@ def test_repeated_attempt_reuses_dispatch_and_reconciles_via_readback() -> None:
     provider = _Provider(["running", "completed"])
     store = InMemoryCrawlerAttemptStore()
     with patch("app.services.crawlers.get_provider", return_value=provider):
-        first = CrawlerScrapyAdapter().run(
-            _request("idem:reconcile", durable_store=store)
-        )
-        second = CrawlerScrapyAdapter().run(
-            _request("idem:reconcile", durable_store=store)
-        )
+        adapter = CrawlerScrapyAdapter(attempt_store=store)
+        first = adapter.run(_request("idem:reconcile"))
+        second = adapter.run(_request("idem:reconcile"))
     assert first.status == "accepted"
     assert second.status == "completed"
     assert provider.dispatch_calls == 1
@@ -106,6 +103,25 @@ def test_without_durable_store_metadata_does_not_claim_idempotent_replay() -> No
     reconciliation = result.meta["crawler"]["reconciliation"]
     assert reconciliation["durability"] == "not_configured"
     assert reconciliation["derived_as"] == "none"
+
+
+@pytest.mark.parametrize("durable", [False, True])
+def test_dispatch_exception_keeps_a_json_safe_failure_context(durable: bool) -> None:
+    class FailingProvider:
+        provider_type = "scrapy"
+
+        def dispatch(self, request):  # noqa: ANN001
+            raise RuntimeError("connection lost")
+
+    attempt_id = "attempt:dispatch-failure" if durable else None
+    attempt_store = InMemoryCrawlerAttemptStore() if durable else None
+    with patch("app.services.crawlers.get_provider", return_value=FailingProvider()):
+        result = CrawlerScrapyAdapter(attempt_store=attempt_store).run(
+            _request("idem:dispatch-failure", attempt_id=attempt_id)
+        )
+
+    assert result.status == "failed"
+    assert result.errors[0]["context"]["cause"] == "connection lost"
 
 
 def test_scrapyd_poll_distinguishes_finished_failure_and_cancellation() -> None:

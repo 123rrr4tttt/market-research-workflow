@@ -18,6 +18,7 @@ BACKEND_ROOT = REPO_ROOT / "main" / "backend"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
+from app.composition.resource_pool import RequestHtmlSearchRequestPort  # noqa: E402
 from app.services.search import web  # noqa: E402
 from app.services.ingest.retry_policy import RateGate  # noqa: E402
 
@@ -151,8 +152,15 @@ def build_contract(
     offline_gate = _offline_rate_gate()
 
     with patch("app.services.search.web.generate_keywords", return_value=["robotics policy"]):
-        with patch.object(web, "_SEARCH_RATE_GATE", offline_gate):
-            with patch.object(web, "_SEARCH_CLIENT_FACTORY", client_factory):
+        with patch.object(web, "SEARCH_RATE_GATE", offline_gate):
+            with patch.object(
+                web,
+                "_SEARCH_REQUEST_PORT",
+                RequestHtmlSearchRequestPort(
+                    rate_gate=offline_gate,
+                    client_factory=client_factory,
+                ),
+            ):
                 searxng_results = web.search_sources(
                     "robotics policy",
                     language="en",
@@ -163,8 +171,15 @@ def build_contract(
 
     with patch.dict(os.environ, {"YACY_RESOURCE_MODE": "local"}, clear=False):
         with patch("app.services.search.web.generate_keywords", return_value=["robotics"]):
-            with patch.object(web, "_SEARCH_RATE_GATE", offline_gate):
-                with patch.object(web, "_SEARCH_CLIENT_FACTORY", client_factory):
+            with patch.object(web, "SEARCH_RATE_GATE", offline_gate):
+                with patch.object(
+                    web,
+                    "_SEARCH_REQUEST_PORT",
+                    RequestHtmlSearchRequestPort(
+                        rate_gate=offline_gate,
+                        client_factory=client_factory,
+                    ),
+                ):
                     yacy_results = web.search_sources(
                         "robotics",
                         language="en",

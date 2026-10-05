@@ -39,7 +39,7 @@ def test_INVARIANT__composition_registers_adapters_and_compat_projector() -> Non
     assert "search.market" in runtime.list_collect_skills()
     assert "collect.source_library" in runtime.list_collect_skills()
     assert "crawler.scrapy" in runtime.list_collect_skills()
-    assert callable(runtime._SUCCESSOR_EFFECT_GATEWAY)
+    assert callable(runtime._successor_effect_gateway)
 
 
 def test_FAILURE_PRESERVED__successor_composition_does_not_fallback_for_unknown_channel() -> None:
@@ -48,7 +48,7 @@ def test_FAILURE_PRESERVED__successor_composition_does_not_fallback_for_unknown_
     from app.services.collect_runtime import runtime
 
     composition.configure_default_collect_adapters(force=True)
-    result = runtime._SUCCESSOR_EFFECT_GATEWAY(CollectRequest(channel="not.registered"))
+    result = runtime._successor_effect_gateway(CollectRequest(channel="not.registered"))
     assert result.status == "failed"
     assert result.errors[0].get("code") == "collect_effect_not_registered"
 
@@ -64,9 +64,9 @@ def test_TYPED_GATEWAY__search_and_url_pool_share_one_signature() -> None:
 
     gateway_contract: CollectEffectGateway = gateway
     runtime.register_successor_collect_effect_gateway(gateway_contract)
-    assert runtime._SUCCESSOR_EFFECT_GATEWAY is not None
+    assert runtime._successor_effect_gateway is not None
     for channel in ("search.market", "url_pool"):
-        result = runtime._SUCCESSOR_EFFECT_GATEWAY(CollectRequest(channel=channel))
+        result = runtime._successor_effect_gateway(CollectRequest(channel=channel))
         assert result.status == "completed"
     assert calls == ["search.market", "url_pool"]
 
@@ -80,6 +80,14 @@ def test_TYPED_PROJECTOR__adapter_dict_is_validated_at_composition_seam() -> Non
 
     with pytest.raises(TypeError, match="JSON object"):
         source_library_compat_response([])
+
+
+def test_compat_response_rejects_non_json_and_non_object_payloads() -> None:
+    with pytest.raises(TypeError, match="must be JSON"):
+        source_library_compat_response({"bad": {1, 2}})
+
+    with pytest.raises(TypeError, match="must be a JSON object"):
+        source_library_compat_response([("display_meta", 1)])
 
 
 @pytest.mark.skipif(
@@ -115,15 +123,15 @@ def test_FAILURE_PRESERVED__compat_projector_missing_fails_closed() -> None:
     from app.services.collect_runtime.contracts import CollectResult
 
     configure_default_collect_adapters(force=True)
-    original = runtime._SOURCE_LIBRARY_COMPAT_PROJECTOR
+    original = runtime._source_library_compat_projector
     original_runner = runtime._run_collect_no_batch
-    runtime._SOURCE_LIBRARY_COMPAT_PROJECTOR = None
+    runtime._source_library_compat_projector = None
     try:
         runtime._run_collect_no_batch = lambda _request: CollectResult(channel="source_library")
         with pytest.raises(RuntimeError, match="compatibility projector is not configured"):
             runtime.run_source_library_item_compat(item_key="item")
     finally:
-        runtime._SOURCE_LIBRARY_COMPAT_PROJECTOR = original
+        runtime._source_library_compat_projector = original
         runtime._run_collect_no_batch = original_runner
 
         configure_default_collect_adapters(force=True)

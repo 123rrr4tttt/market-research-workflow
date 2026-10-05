@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+import math
 import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Generic, TypeVar
-
-from typing import Annotated, Any
+from typing import Annotated, Generic, Literal, TypeGuard, TypedDict, TypeVar
 
 from app.contracts.errors import ErrorCode, map_status_to_error_code
 from functorial_kit import Failure
@@ -16,8 +16,9 @@ from .gate_reason_codes import normalize_reason_code
 
 RETRY_CLASS_TRANSIENT = "transient"
 RETRY_CLASS_PERMANENT = "permanent"
+RetryClass = Literal["transient", "permanent"]
 
-_REASON_CLASS_MAP: dict[str, str] = {
+_REASON_CLASS_MAP: dict[str, RetryClass] = {
     "ok": RETRY_CLASS_PERMANENT,
     "invalid_url": RETRY_CLASS_PERMANENT,
     "domain_blocked": RETRY_CLASS_PERMANENT,
@@ -58,7 +59,7 @@ _TRANSIENT_MARKERS = (
 )
 
 
-def classify_retry_reason(reason: Any) -> tuple[str, str]:
+def classify_retry_reason(reason: object) -> tuple[str, RetryClass]:
     normalized = normalize_reason_code(reason, default="unknown_retry_reason")
     mapped = _REASON_CLASS_MAP.get(normalized)
     if mapped:
@@ -68,58 +69,79 @@ def classify_retry_reason(reason: Any) -> tuple[str, str]:
     return normalized, RETRY_CLASS_PERMANENT
 
 
-def build_retry_observability(payload: dict[str, Any] | None) -> Annotated[
-    dict[str, Any],
+class RetryObservability(TypedDict):
+    retry_count_by_reason: dict[str, int]
+    retry_count_by_class: dict[RetryClass, int]
+    retryable: bool
+    reason_code_class: RetryClass
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _retry_count(value: object) -> int:
+    if not isinstance(value, (str, int, float)):
+        return 0
+    try:
+        return int(value)
+    except (ValueError, OverflowError):
+        return 0
+
+
+def build_retry_observability(payload: Mapping[str, object] | None) -> Annotated[
+    RetryObservability,
     "kit:non-authoritative derived_as=view fact_source=retry_payload+retry_reason_contract witness=test:test_w03_ingest_ports_authority_metadata",
 ]:
     data = dict(payload or {})
     reason_counts: dict[str, int] = {}
 
-    def _add(reason: Any, count: Any = 1) -> None:
+    def _add(reason: object, count: object = 1) -> None:
         normalized, _ = classify_retry_reason(reason)
         if normalized in {"", "ok", "unknown_retry_reason"}:
             return
-        try:
-            parsed = int(count)
-        except Exception:  # noqa: BLE001
-            parsed = 0
+        parsed = _retry_count(count)
         if parsed <= 0:
             return
         reason_counts[normalized] = int(reason_counts.get(normalized, 0)) + parsed
 
     existing_reason_counts = data.get("retry_count_by_reason")
-    if isinstance(existing_reason_counts, dict) and existing_reason_counts:
+    if _is_object_mapping(existing_reason_counts) and existing_reason_counts:
         for reason, count in existing_reason_counts.items():
             _add(reason, count)
     else:
         retry_reasons = data.get("retry_reasons")
-        if isinstance(retry_reasons, dict):
+        if _is_object_mapping(retry_reasons):
             for reason, count in retry_reasons.items():
                 _add(reason, count)
-        elif isinstance(retry_reasons, list):
+        elif _is_object_list(retry_reasons):
             for reason in retry_reasons:
                 _add(reason, 1)
 
         retry_events = data.get("retry_events")
-        if isinstance(retry_events, list):
+        if _is_object_list(retry_events):
             for event in retry_events:
-                if isinstance(event, dict):
+                if _is_object_mapping(event):
                     _add(event.get("reason"), event.get("count", 1))
 
         rejection_breakdown = data.get("rejection_breakdown")
-        if isinstance(rejection_breakdown, dict):
+        if _is_object_mapping(rejection_breakdown):
             for reason, count in rejection_breakdown.items():
                 normalized, klass = classify_retry_reason(reason)
                 if klass == RETRY_CLASS_TRANSIENT:
                     _add(normalized, count)
 
         crawler_dispatch = data.get("crawler_dispatch")
-        if isinstance(crawler_dispatch, dict):
-            attempts = int(crawler_dispatch.get("attempt_count") or 0)
+        if _is_object_mapping(crawler_dispatch):
+            attempts = _retry_count(crawler_dispatch.get("attempt_count"))
             if attempts > 1:
                 _add(crawler_dispatch.get("retry_reason") or "crawler_dispatch_retry", attempts - 1)
 
-    class_counts = {
+    class_counts: dict[RetryClass, int] = {
         RETRY_CLASS_TRANSIENT: 0,
         RETRY_CLASS_PERMANENT: 0,
     }
@@ -153,6 +175,21 @@ _MAX_RETRY_BACKOFF_SECONDS = 60.0
 _T = TypeVar("_T")
 
 
+def _validate_scope_field(name: str, value: object, *, required: bool = False) -> None:
+    if required and (not isinstance(value, str) or not value.strip()):
+        # kit:boundary owner=ingest.retry_policy.request_scope class=PROGRAMMER_DEFECT failure_family=none witness=test:test_request_scope_rejects_blank_provider
+        raise ValueError(f"{name} is required")
+    if value is not None and not isinstance(value, str):
+        # kit:boundary owner=ingest.retry_policy.request_scope class=PROGRAMMER_DEFECT failure_family=none witness=test:test_request_scope_rejects_non_string_identity_fields
+        raise ValueError(f"{name} must be a string")
+
+
+def _validate_delay(name: str, value: object) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+        # kit:boundary owner=ingest.retry_policy.request_decision class=PROGRAMMER_DEFECT failure_family=none witness=test:test_request_retry_decision_rejects_unassociated_values
+        raise ValueError(f"{name} must be finite and nonnegative")
+
+
 @dataclass(frozen=True, slots=True)
 class RequestScope:
     """Identity used to attribute request policy; a gate is process-local only."""
@@ -162,14 +199,15 @@ class RequestScope:
     worker: str | None = None
 
     def __post_init__(self) -> None:
-        if not str(self.provider or "").strip():
-            raise ValueError("provider is required")
+        _validate_scope_field("provider", self.provider, required=True)
+        _validate_scope_field("account", self.account)
+        _validate_scope_field("worker", self.worker)
 
     @property
     def key(self) -> tuple[str, str | None, str | None]:
-        return str(self.provider), self.account, self.worker
+        return self.provider, self.account, self.worker
 
-    def context(self) -> dict[str, Any]:
+    def context(self) -> dict[str, str | None]:
         return {
             "provider": self.provider,
             "account": self.account,
@@ -183,7 +221,7 @@ class RequestBatchResult(Generic[_T]):
     failures: tuple[Failure, ...]
 
     @property
-    def status(self) -> str:
+    def status(self) -> Literal["partial", "failed", "ok"]:
         if self.failures and self.values:
             return "partial"
         if self.failures:
@@ -197,12 +235,13 @@ def combine_request_outcomes(
 ) -> RequestBatchResult[_T]:
     result = RequestBatchResult(tuple(values), tuple(failures))
     if not result.values and not result.failures:
+        # kit:boundary owner=ingest.retry_policy.request_batch class=PROGRAMMER_DEFECT failure_family=none witness=test:test_combine_request_outcomes_rejects_empty_outcome
         raise ValueError("at least one value or failure is required")
     return result
 
 
 def parse_retry_after_seconds(
-    value: Any,
+    value: object,
     *,
     now: Callable[[], datetime] | None = None,
 ) -> float | None:
@@ -222,7 +261,7 @@ def parse_retry_after_seconds(
         if retry_at.tzinfo is None:
             retry_at = retry_at.replace(tzinfo=timezone.utc)
         return max(0.0, (retry_at - current).total_seconds())
-    return max(0.0, seconds)
+    return max(0.0, seconds) if math.isfinite(seconds) else None
 
 
 def _utcnow() -> datetime:
@@ -279,7 +318,7 @@ def make_request_failure(
         transport_error=transport_error,
         retryable=retryable_value,
     )
-    context: dict[str, Any] = {
+    context: dict[str, str | bool | int | float | None] = {
         "reason_code": normalized,
         "error_code": error_code.value,
         "retryable": retryable_value,
@@ -305,12 +344,31 @@ def make_request_failure(
 class RequestRetryDecision:
     failure: Failure
     retryable: bool
-    retry_class: str
+    retry_class: RetryClass
     delay_seconds: float
     retry_after_seconds: float | None
     error_code: ErrorCode
     scope: RequestScope
     reason_code: str
+
+    def __post_init__(self) -> None:
+        _validate_delay("delay_seconds", self.delay_seconds)
+        if self.retry_after_seconds is not None:
+            _validate_delay("retry_after_seconds", self.retry_after_seconds)
+        expected_class = RETRY_CLASS_TRANSIENT if self.retryable else RETRY_CLASS_PERMANENT
+        if self.retry_class != expected_class or (not self.retryable and self.delay_seconds != 0):
+            # kit:boundary owner=ingest.retry_policy.request_decision class=PROGRAMMER_DEFECT failure_family=none witness=test:test_request_retry_decision_rejects_unassociated_values
+            raise ValueError("retry class and delay must match retryable")
+        context: Mapping[str, object] = self.failure.context or {}
+        if (
+            self.failure.family != REQUEST_FAILURE_FAMILY
+            or context.get("reason_code") != self.reason_code
+            or context.get("retryable") != self.retryable
+            or context.get("retry_after_seconds") != self.retry_after_seconds
+            or any(context.get(key) != value for key, value in self.scope.context().items())
+        ):
+            # kit:boundary owner=ingest.retry_policy.request_decision class=PROGRAMMER_DEFECT failure_family=none witness=test:test_request_retry_decision_rejects_unassociated_values
+            raise ValueError("failure context must match retry decision and scope")
 
 
 def decide_request_retry(
@@ -394,7 +452,18 @@ class RateGateDecision:
     scope: RequestScope
     waited_seconds: float
     retry_after_seconds: float | None
-    guarantee: str = "process"
+    guarantee: Literal["process"] = "process"
+
+    def __post_init__(self) -> None:
+        _validate_delay("waited_seconds", self.waited_seconds)
+        if self.retry_after_seconds is not None:
+            _validate_delay("retry_after_seconds", self.retry_after_seconds)
+        if self.acquired == (self.retry_after_seconds is not None):
+            # kit:boundary owner=ingest.retry_policy.rate_gate class=PROGRAMMER_DEFECT failure_family=none witness=test:test_rate_gate_decision_rejects_inconsistent_acquisition
+            raise ValueError("retry_after_seconds must describe a denied acquisition")
+        if not self.acquired and self.waited_seconds != 0:
+            # kit:boundary owner=ingest.retry_policy.rate_gate class=PROGRAMMER_DEFECT failure_family=none witness=test:test_rate_gate_decision_rejects_inconsistent_acquisition
+            raise ValueError("denied acquisition cannot have waited_seconds")
 
 
 class RateGate:
@@ -408,13 +477,16 @@ class RateGate:
         backoff_max_seconds: float,
         clock: Callable[[], float] = time.monotonic,
         sleeper: Callable[[float], None] = time.sleep,
-        lock_factory: Callable[[], threading.Lock] = threading.Lock,
+        lock_factory: Callable[[], AbstractContextManager[object]] = threading.Lock,
     ) -> None:
-        if rate_limit_interval_seconds <= 0:
+        if not math.isfinite(rate_limit_interval_seconds) or rate_limit_interval_seconds <= 0:
+            # kit:boundary owner=ingest.retry_policy.rate_gate class=PROGRAMMER_DEFECT failure_family=none witness=test:test_rate_gate_rejects_invalid_numeric_intervals
             raise ValueError("rate_limit_interval_seconds must be positive")
-        if backoff_base_seconds <= 0:
+        if not math.isfinite(backoff_base_seconds) or backoff_base_seconds <= 0:
+            # kit:boundary owner=ingest.retry_policy.rate_gate class=PROGRAMMER_DEFECT failure_family=none witness=test:test_rate_gate_rejects_invalid_numeric_intervals
             raise ValueError("backoff_base_seconds must be positive")
-        if backoff_max_seconds < backoff_base_seconds:
+        if not math.isfinite(backoff_max_seconds) or backoff_max_seconds < backoff_base_seconds:
+            # kit:boundary owner=ingest.retry_policy.rate_gate class=PROGRAMMER_DEFECT failure_family=none witness=test:test_rate_gate_rejects_invalid_numeric_intervals
             raise ValueError("backoff_max_seconds must be at least backoff_base_seconds")
         self._interval = float(rate_limit_interval_seconds)
         self._backoff_base = float(backoff_base_seconds)
@@ -471,7 +543,7 @@ class RateGate:
             self._states.setdefault(scope.key, _RateGateState()).failures = 0
 
     @property
-    def guarantee(self) -> str:
+    def guarantee(self) -> Literal["process"]:
         return "process"
 
 

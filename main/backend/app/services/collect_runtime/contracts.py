@@ -68,7 +68,12 @@ class CollectFailure(TypedDict, total=False):
     code: (
         CollectRuntimeFailureCode
         | CrawlerRuntimeFailureCode
-        | Literal["collect_effect_not_registered", "element_rejected", "runner_unavailable"]
+        | Literal[
+            "collect_effect_not_registered",
+            "element_rejected",
+            "runner_unavailable",
+            "successor_effect_gateway_unavailable",
+        ]
     )
     family: CollectFailureFamily
     message: str
@@ -116,8 +121,10 @@ def source_library_compat_response(value: object) -> SourceLibraryCompatResponse
     try:
         encoded = json.dumps(value, allow_nan=False, ensure_ascii=False)
     except (TypeError, ValueError) as exc:
+        # kit:boundary owner=collect_runtime.contracts.compat_projector class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=collect.runtime.failure witness=test:test_compat_response_rejects_non_json_and_non_object_payloads
         raise TypeError("source-library compatibility response must be JSON") from exc
     decoded: CollectJsonValue = json.loads(encoded)
     if not isinstance(decoded, dict):
+        # kit:boundary owner=collect_runtime.contracts.compat_projector class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=collect.runtime.failure witness=test:test_compat_response_rejects_non_json_and_non_object_payloads
         raise TypeError("source-library compatibility response must be a JSON object")
     return decoded

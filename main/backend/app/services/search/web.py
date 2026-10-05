@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Callable, List, Dict, Set, Optional
-from datetime import datetime, timedelta
+from typing import Any, Callable, List, Dict, Optional, Protocol, Set
+from datetime import datetime
 import os
 import logging
 import re
 import math
-import requests
 
 from duckduckgo_search import DDGS
 from duckduckgo_search.exceptions import RatelimitException
@@ -14,7 +13,6 @@ from ..http.client import default_http_client
 from urllib.parse import urljoin, urlparse, parse_qsl, urlencode, urlunparse
 from sqlalchemy import select
 
-from ..ingest.adapters.http_utils import request_html
 from ..ingest.retry_policy import RateGate, RequestScope
 from ..llm.provider import get_chat_model
 from ..llm.config_loader import get_llm_config, format_prompt_template
@@ -78,12 +76,29 @@ _TRUSTED_DOMAINS = {
 
 _BILINGUAL_LANG_MODES = {"bi", "bilingual", "zh-en", "zh_en", "both", "multi", "multilingual"}
 
-_SEARCH_CLIENT_FACTORY: Callable[[], requests.Session] | None = None
-_SEARCH_RATE_GATE = RateGate(
+class SearchRequestPort(Protocol):
+    def request_json(
+        self,
+        url: str,
+        *,
+        scope: RequestScope,
+        headers: dict[str, str] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> Any:
+        ...
+
+
+_SEARCH_REQUEST_PORT: SearchRequestPort | None = None
+SEARCH_RATE_GATE = RateGate(
     rate_limit_interval_seconds=1.0,
     backoff_base_seconds=2.0,
     backoff_max_seconds=8.0,
 )
+
+
+def set_search_request_port(port: SearchRequestPort) -> None:
+    global _SEARCH_REQUEST_PORT
+    _SEARCH_REQUEST_PORT = port
 
 
 def _search_scope(provider: str, *, account: str | None = None) -> RequestScope:
@@ -97,27 +112,16 @@ def _request_search_json(
     headers: dict[str, str] | None = None,
     params: dict[str, Any] | None = None,
 ) -> Any:
-    outcome = request_html(
+    return _SEARCH_REQUEST_PORT.request_json(
         url,
         scope=scope,
         headers=headers,
         params=params,
-        timeout=20.0,
-        retries=3,
-        retry_gate=_SEARCH_RATE_GATE,
-        client_factory=_SEARCH_CLIENT_FACTORY,
     )
-    if outcome.ok and outcome.response is not None:
-        return outcome.response.json()
-    if outcome.response is not None:
-        outcome.response.raise_for_status()
-    if outcome.last_exception is not None:
-        raise outcome.last_exception
-    raise RuntimeError(outcome.failures[-1].message)
 
 
 def _acquire_sdk_search_gate(provider: str) -> bool:
-    return _SEARCH_RATE_GATE.acquire(_search_scope(provider)).acquired
+    return SEARCH_RATE_GATE.acquire(_search_scope(provider)).acquired
 
 
 def _base_language(language: str) -> str:

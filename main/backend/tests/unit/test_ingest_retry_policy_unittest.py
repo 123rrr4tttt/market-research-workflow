@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -14,9 +15,11 @@ try:
     from app.services.ingest.adapters.http_utils import request_html
     from app.services.ingest.retry_policy import (
         RateGate,
+        RateGateDecision,
         RequestScope,
         combine_request_outcomes,
         decide_request_retry,
+        parse_retry_after_seconds,
     )
     from app.services.ingest.retry_policy import (
         RETRY_CLASS_PERMANENT,
@@ -124,6 +127,89 @@ class IngestRetryPolicyUnitTestCase(unittest.TestCase):
         self.assertEqual(partial.failures, (failure,))
         self.assertEqual(failed.status, "failed")
         self.assertEqual(ok.status, "ok")
+
+    def test_request_retry_decision_rejects_unassociated_values(self):
+        decision = decide_request_retry(reason_code="rate_limited", scope=RequestScope(provider="search"))
+        for changes in (
+            {"retry_class": RETRY_CLASS_PERMANENT},
+            {"delay_seconds": float("nan")},
+            {"reason_code": "fetch_failed"},
+            {"scope": RequestScope(provider="other")},
+            {"retry_after_seconds": 3.0},
+        ):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                replace(decision, **changes)
+
+    def test_rate_gate_decision_rejects_inconsistent_acquisition(self):
+        scope = RequestScope(provider="search")
+        for acquired, waited, retry_after in (
+            (True, 0.0, 1.0),
+            (False, 0.0, None),
+            (False, 1.0, 2.0),
+            (True, float("inf"), None),
+            (False, 0.0, -1.0),
+        ):
+            with self.subTest(acquired=acquired, waited=waited, retry_after=retry_after), self.assertRaises(ValueError):
+                RateGateDecision(acquired, scope, waited, retry_after)
+
+    def test_request_scope_rejects_blank_provider(self):
+        with self.assertRaisesRegex(ValueError, "provider is required"):
+            RequestScope(provider="   ")
+
+    def test_request_scope_rejects_non_string_identity_fields(self):
+        scope = RequestScope(provider="search")
+        for name in ("provider", "account", "worker"):
+            with self.subTest(field=name), self.assertRaises(ValueError):
+                replace(scope, **{name: 1})
+
+    def test_combine_request_outcomes_rejects_empty_outcome(self):
+        with self.assertRaisesRegex(ValueError, "at least one value or failure"):
+            combine_request_outcomes([], [])
+
+    def test_rate_gate_rejects_invalid_numeric_intervals(self):
+        with self.assertRaisesRegex(ValueError, "rate_limit_interval_seconds"):
+            RateGate(
+                rate_limit_interval_seconds=0.0,
+                backoff_base_seconds=1.0,
+                backoff_max_seconds=2.0,
+            )
+        with self.assertRaisesRegex(ValueError, "backoff_base_seconds"):
+            RateGate(
+                rate_limit_interval_seconds=1.0,
+                backoff_base_seconds=0.0,
+                backoff_max_seconds=2.0,
+            )
+        with self.assertRaisesRegex(ValueError, "backoff_max_seconds"):
+            RateGate(
+                rate_limit_interval_seconds=1.0,
+                backoff_base_seconds=2.0,
+                backoff_max_seconds=1.0,
+            )
+
+    def test_rate_gate_rejects_non_finite_intervals(self):
+        for field in ("rate_limit_interval_seconds", "backoff_base_seconds", "backoff_max_seconds"):
+            for value in (float("nan"), float("inf"), -float("inf")):
+                parameters = {
+                    "rate_limit_interval_seconds": 1.0,
+                    "backoff_base_seconds": 1.0,
+                    "backoff_max_seconds": 2.0,
+                }
+                parameters[field] = value
+                with self.subTest(field=field, value=value), self.assertRaisesRegex(ValueError, field):
+                    RateGate(**parameters)
+
+    def test_retry_after_rejects_non_finite_seconds(self):
+        for value in ("nan", "inf", "-inf"):
+            with self.subTest(value=value):
+                self.assertIsNone(parse_retry_after_seconds(value))
+
+    def test_retry_observability_ignores_malformed_counts(self):
+        observed = build_retry_observability({
+            "retry_events": [{"reason": "rate_limited", "count": float("inf")}],
+            "crawler_dispatch": {"attempt_count": "invalid"},
+        })
+        self.assertEqual(observed["retry_count_by_reason"], {})
+        self.assertFalse(observed["retryable"])
 
     def test_rate_gate_has_process_guarantee_and_separates_declared_workers(self):
         now = [10.0]

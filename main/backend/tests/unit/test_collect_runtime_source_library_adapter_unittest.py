@@ -13,12 +13,29 @@ pytestmark = pytest.mark.unit
 
 from app.services.collect_runtime.adapters.source_library import to_source_library_response
 from app.services.collect_runtime.adapters.source_library import SourceLibraryAdapter
+from app.services.collect_runtime.adapters.source_library import _derive_source_library_status
 from app.services.collect_runtime.adapters import source_library as source_library_adapter_module
 from app.services.collect_runtime.contracts import CollectRequest, CollectResult
 from app.services.collect_runtime.runtime import collect_request_from_source_library_api
 
 
 class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
+    def test_terminal_readback_status_precedes_raw_provider_acknowledgement(self) -> None:
+        self.assertEqual(
+            _derive_source_library_status(
+                raw={"status": "accepted"},
+                terminal_output={"status": "failed"},
+            ),
+            "failed",
+        )
+        self.assertEqual(
+            _derive_source_library_status(
+                raw={"status": "failed"},
+                terminal_output={"status": "cancelled"},
+            ),
+            "cancelled",
+        )
+
     def test_source_library_adapter_keeps_crawler_ack_open_until_terminal_readback(self) -> None:
         request = CollectRequest(
             channel="source_library",

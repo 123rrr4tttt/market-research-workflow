@@ -35,7 +35,7 @@ def collect_user_social_sentiment(
     enable_extraction: bool = True,
     enable_subreddit_discovery: bool = True,
     base_subreddits: Optional[List[str]] = None,
-) -> dict:
+) -> dict[str, object]:
     """
     收集用户社交媒体情感数据
     
@@ -156,9 +156,7 @@ def collect_user_social_sentiment(
                     search_keywords = library_keywords
                 else:
                     search_keywords = clean_social_keywords(keywords or [])
-                source = _get_or_create_source(session, "Reddit Social Sentiment", "social", "reddit.com")
-                source_id = source.id
-
+                _get_or_create_source(session, "Reddit Social Sentiment", "social", "reddit.com")
                 for post in adapter.search_multiple_subreddits(subreddits, search_keywords, limit):
                     fetched_posts += 1
                     link = post.link.strip()
@@ -300,7 +298,7 @@ def collect_policy_and_regulation(
     days_back: int | None = None,
     language: str = "en",
     project_key: str | None = None,
-) -> dict:
+) -> dict[str, object]:
     """
     收集政策法规相关新闻，通过搜索 API（默认 Google Custom Search）。
 
@@ -405,7 +403,6 @@ def collect_policy_and_regulation(
                 query_terms=list(keywords or []),
                 extra_params={
                     "dispatch_mode": "inline",
-                    "url_routing_frontdoor_enabled": True,
                     "front_door_owner": "ingest.policy_regulation",
                     "frontdoor_route_decision": "front_door_url_routing",
                     "frontdoor_write_mode": "front_door_url_routing",

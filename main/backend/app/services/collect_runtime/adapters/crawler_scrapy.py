@@ -1,25 +1,101 @@
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Mapping, Sequence
+import math
+from typing import TypeGuard
 
+from app.successor_runtime.capabilities.source_contracts import ProviderReadbackResult
 from functorial_kit import Failure
-from mrw_functorial_kit.core.provider_port_failures import crawler_runtime_failures
+from mrw_functorial_kit.core.provider_port_failures import (
+    CrawlerRuntimeFailureCode,
+    crawler_runtime_failures,
+)
 
 from ...crawlers.base import (
+    CrawlerProvider,
     CrawlerDispatchResult,
     is_crawler_dispatch_acknowledged,
     typed_crawler_readback,
 )
-from ...crawlers.durable_effect_bridge import DurableCrawlerEffectBridge
-from ..contracts import CollectRequest, CollectResult
+from ...crawlers.durable_effect_bridge import (
+    CrawlerAttemptStore,
+    DurableCrawlerEffectBridge,
+)
+from ..contracts import (
+    CollectFailure,
+    CollectJsonObject,
+    CollectRequest,
+    CollectResult,
+    CollectStatus,
+    CollectJsonValue,
+)
 from ..display_meta import build_display_meta
 
 
 _CRAWLER_FAILURE_WITNESS = "test:test_w03_crawler_failure_lifts"
 
 
-def _crawler_failure(code: str, message: str, *, provider_type: str, **details: Any) -> Failure:
-    context: dict[str, Any] = {
+def _is_dispatch_result(value: object) -> TypeGuard[CrawlerDispatchResult]:
+    return isinstance(value, CrawlerDispatchResult)
+
+
+def _crawler_failure_code(value: str) -> CrawlerRuntimeFailureCode | None:
+    match value:
+        case "provider_not_registered":
+            return "provider_not_registered"
+        case "provider_poll_unsupported":
+            return "provider_poll_unsupported"
+        case "poll_project_required":
+            return "poll_project_required"
+        case "scrapyd_base_url_required":
+            return "scrapyd_base_url_required"
+        case "scrapyd_compose_file_missing":
+            return "scrapyd_compose_file_missing"
+        case "scrapyd_compose_unavailable":
+            return "scrapyd_compose_unavailable"
+        case "scrapyd_module_unavailable":
+            return "scrapyd_module_unavailable"
+        case "scrapyd_unavailable":
+            return "scrapyd_unavailable"
+        case "scrapyd_lazy_start_failed":
+            return "scrapyd_lazy_start_failed"
+        case "scrapyd_readiness_timeout":
+            return "scrapyd_readiness_timeout"
+        case "scrapyd_transport":
+            return "scrapyd_transport"
+        case "scrapyd_http_status":
+            return "scrapyd_http_status"
+        case "scrapyd_response_invalid":
+            return "scrapyd_response_invalid"
+        case "bootstrap_project_name_invalid":
+            return "bootstrap_project_name_invalid"
+        case "bootstrap_build_failed":
+            return "bootstrap_build_failed"
+        case "bootstrap_artifact_missing":
+            return "bootstrap_artifact_missing"
+        case "bootstrap_project_required":
+            return "bootstrap_project_required"
+        case "bootstrap_deploy_failed":
+            return "bootstrap_deploy_failed"
+        case _:
+            return None
+
+
+def _durable_bridge(
+    provider: CrawlerProvider,
+    store: CrawlerAttemptStore,
+) -> DurableCrawlerEffectBridge:
+    return DurableCrawlerEffectBridge(provider=provider, store=store)
+
+
+def _crawler_failure(
+    code: CrawlerRuntimeFailureCode,
+    message: str,
+    *,
+    provider_type: str,
+    **details: object,
+) -> Failure:
+    context: dict[str, object] = {
         "boundary_class": "PURE_CONTRACT_FAILURE",
         "failure_family": crawler_runtime_failures.name,
         "operation": "collect_runtime.crawler_scrapy",
@@ -34,8 +110,13 @@ def _crawler_failure(code: str, message: str, *, provider_type: str, **details: 
     return crawler_runtime_failures.fail(code, message, context)
 
 
-def _crawler_failure_error(failure: Failure) -> dict[str, Any]:
-    if not crawler_runtime_failures.matches(failure):
+def _crawler_failure_error(failure: Failure) -> CollectFailure:
+    code = (
+        _crawler_failure_code(failure.code)
+        if failure.family == "crawler.runtime.failure"
+        else None
+    )
+    if code is None:
         failure = _crawler_failure(
             "scrapyd_transport",
             f"crawler provider returned an out-of-family failure: {failure.message}",
@@ -43,32 +124,81 @@ def _crawler_failure_error(failure: Failure) -> dict[str, Any]:
             observed_family=failure.family,
             observed_code=failure.code,
         )
-    return {
-        "code": failure.code,
-        "family": failure.family,
+        code = "scrapyd_transport"
+    error: CollectFailure = {
+        "code": code,
+        "family": "crawler.runtime.failure",
         "message": failure.message,
-        "context": dict(failure.context or {}),
+        "context": _json_object(failure.context or {}),
     }
+    return error
 
 
-def _normalize_dict(value: object) -> dict[str, object]:
-    return dict(value) if isinstance(value, dict) else {}
+def _normalize_mapping(value: Mapping[str, object]) -> dict[str, object]:
+    normalized: dict[str, object] = {}
+    for key, item in value.items():
+        normalized[str(key)] = item
+    return normalized
 
 
 def _as_int(value: object) -> int | None:
     if value is None:
         return None
-    try:
+    if isinstance(value, bool | int):
         return int(value)
-    except Exception:
-        return None
+    if isinstance(value, float | str):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _is_json_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_json_sequence(value: object) -> TypeGuard[Sequence[object]]:
+    return isinstance(value, list | tuple)
+
+
+def _json_value(value: object) -> CollectJsonValue:
+    if value is None or isinstance(value, bool | int | str):
+        return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else str(value)
+    if isinstance(value, BaseException):
+        return str(value)
+    if _is_json_mapping(value):
+        return _json_object(value)
+    if _is_json_sequence(value):
+        return [_json_value(item) for item in value]
+    return str(value)
+
+
+def _json_object(value: object) -> CollectJsonObject:
+    if not _is_json_mapping(value):
+        return {}
+    normalized: CollectJsonObject = {}
+    for raw_key, raw_value in value.items():
+        key: object = raw_key
+        item: object = raw_value
+        normalized[str(key)] = _json_value(item)
+    return normalized
+
+
+def _json_dict(value: CollectJsonValue) -> CollectJsonObject:
+    return value if isinstance(value, dict) else {}
 
 
 class CrawlerScrapyAdapter:
+    def __init__(self, *, attempt_store: CrawlerAttemptStore | None = None) -> None:
+        self._attempt_store = attempt_store
+
     def run(self, request: CollectRequest) -> CollectResult:
         from ...crawlers import CrawlerDispatchRequest, get_provider
 
-        options = _normalize_dict(request.options)
+        options = request.options
         provider = get_provider("scrapy")
         if provider is None:
             raise ValueError("crawler provider 'scrapy' is not available; set SCRAPYD_BASE_URL")
@@ -82,7 +212,7 @@ class CrawlerScrapyAdapter:
 
         arguments = {
             str(k): v
-            for k, v in _normalize_dict(options.get("arguments")).items()
+            for k, v in _normalize_mapping(_json_dict(options.get("arguments", {}))).items()
             if str(k).strip()
         }
         if request.query_terms and "query_terms" not in arguments:
@@ -99,7 +229,7 @@ class CrawlerScrapyAdapter:
             arguments=arguments,
             settings={
                 str(k): v
-                for k, v in _normalize_dict(options.get("settings")).items()
+                for k, v in _normalize_mapping(_json_dict(options.get("settings", {}))).items()
                 if str(k).strip()
             },
             version=(str(options.get("version")).strip() or None) if options.get("version") is not None else None,
@@ -112,40 +242,39 @@ class CrawlerScrapyAdapter:
             if options.get("attempt_id") is not None
             else None,
         )
-        durable_store = options.get("durable_store")
         durable_bridge = (
-            DurableCrawlerEffectBridge(provider=provider, store=durable_store)
-            if durable_store is not None
+            _durable_bridge(provider, self._attempt_store)
+            if self._attempt_store is not None
             else None
         )
         try:
-            dispatch = (
+            dispatch_value: object = (
                 durable_bridge.dispatch(dispatch_request)
                 if durable_bridge is not None
                 else provider.dispatch(dispatch_request)
             )
         except Exception as exc:  # noqa: BLE001 - crawler provider effect boundary
-            dispatch = _crawler_failure(
+            dispatch_value = _crawler_failure(
                 "scrapyd_transport",
                 f"crawler provider dispatch failed: {exc}",
                 provider_type="scrapy",
-                cause=exc,
+                cause=str(exc),
             )
 
-        if isinstance(dispatch, Failure):
+        if isinstance(dispatch_value, Failure):
             dispatch_result: CrawlerDispatchResult | None = None
-            status = "failed"
-            errors = [_crawler_failure_error(dispatch)]
-        elif isinstance(dispatch, CrawlerDispatchResult):
-            dispatch_result = dispatch
-            status = "accepted" if is_crawler_dispatch_acknowledged(dispatch.provider_status) else "failed"
+            status: CollectStatus = "failed"
+            errors = [_crawler_failure_error(dispatch_value)]
+        elif _is_dispatch_result(dispatch_value):
+            dispatch_result = dispatch_value
+            status = "accepted" if is_crawler_dispatch_acknowledged(dispatch_value.provider_status) else "failed"
             errors = [] if status == "accepted" else [
                 _crawler_failure_error(
                     _crawler_failure(
                         "scrapyd_response_invalid",
-                        f"crawler provider status was not acknowledged: {dispatch.provider_status}",
+                        f"crawler provider status was not acknowledged: {dispatch_value.provider_status}",
                         provider_type="scrapy",
-                        provider_status=dispatch.provider_status,
+                        provider_status=dispatch_value.provider_status,
                     )
                 )
             ]
@@ -155,16 +284,18 @@ class CrawlerScrapyAdapter:
                 "scrapyd_response_invalid",
                 "crawler provider dispatch returned a non-canonical result",
                 provider_type="scrapy",
-                result_type=type(dispatch).__name__,
+                result_type=type(dispatch_value).__name__,
             )
             status = "failed"
             errors = [_crawler_failure_error(failure)]
 
-        terminal_readback = dispatch_result.terminal_readback if dispatch_result is not None else None
+        terminal_readback: ProviderReadbackResult | None = (
+            dispatch_result.terminal_readback if dispatch_result is not None else None
+        )
         poll_fn = getattr(provider, "poll", None)
         if terminal_readback is None and dispatch_result is not None and dispatch_result.provider_job_id and callable(poll_fn):
             try:
-                poll_payload = poll_fn(
+                poll_payload: object = poll_fn(
                     external_job_id=dispatch_result.provider_job_id,
                     project=project,
                     spider=spider,
@@ -177,9 +308,15 @@ class CrawlerScrapyAdapter:
                 )
             except Exception:
                 terminal_readback = None
-        readback_plain = terminal_readback.to_plain() if hasattr(terminal_readback, "to_plain") else terminal_readback
-        if isinstance(readback_plain, dict) and readback_plain.get("kind") == "terminal":
-            terminal_status = str((readback_plain.get("readback") or {}).get("terminal_status") or "").lower()
+        readback_plain: object = terminal_readback.to_plain() if terminal_readback is not None else terminal_readback
+        readback_json = _json_value(readback_plain)
+        if isinstance(readback_plain, dict):
+            plain = _json_object(readback_plain)
+        else:
+            plain = {}
+        if plain.get("kind") == "terminal":
+            nested = plain.get("readback")
+            terminal_status = str((_json_dict(nested)).get("terminal_status") or "").lower()
             status = "completed" if terminal_status == "completed" else "failed"
             if terminal_status == "completed":
                 errors = []
@@ -196,13 +333,13 @@ class CrawlerScrapyAdapter:
                 ]
 
         if dispatch_result is None:
-            raw: dict[str, Any] = {}
+            raw: CollectJsonObject = {}
             provider_type = "scrapy"
             provider_status = "failed"
             provider_job_id = None
             attempt_count = None
         else:
-            raw = dispatch_result.raw
+            raw = _json_object(dispatch_result.raw)
             provider_type = dispatch_result.provider_type
             provider_status = dispatch_result.provider_status
             provider_job_id = dispatch_result.provider_job_id
@@ -228,8 +365,8 @@ class CrawlerScrapyAdapter:
                     ),
                     "idempotency_key": dispatch_request.idempotency_key,
                     "attempt_id": dispatch_request.attempt_id,
-                    "terminal_readback": readback_plain,
-                    "readback": readback_plain,
+                    "terminal_readback": readback_json,
+                    "readback": readback_json,
                     "acknowledgement": {
                         "provider_status": provider_status,
                         "acknowledged": bool(
@@ -243,11 +380,11 @@ class CrawlerScrapyAdapter:
                         "durability": "injected_repository" if durable_bridge is not None else "not_configured",
                         "state": (
                             "terminal_readback"
-                            if isinstance(readback_plain, dict) and readback_plain.get("kind") == "terminal"
+                            if plain.get("kind") == "terminal"
                             else "waiting"
-                            if isinstance(readback_plain, dict) and readback_plain.get("kind") == "waiting"
+                            if plain.get("kind") == "waiting"
                             else "unavailable"
-                            if isinstance(readback_plain, dict) and readback_plain.get("kind") == "unavailable"
+                            if plain.get("kind") == "unavailable"
                             else "unknown"
                             if dispatch_result is not None
                             and not is_crawler_dispatch_acknowledged(dispatch_result.provider_status)

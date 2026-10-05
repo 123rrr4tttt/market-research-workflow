@@ -6,8 +6,9 @@ successful return is not a provider terminal readback.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal, Protocol
 
 DeliveryState = Literal["delivered", "failed", "cancelled", "waiting", "unknown"]
 Compatibility = Literal["compatible", "conflict", "unknown"]
@@ -28,32 +29,62 @@ class DeliveryObservation:
     identity_match: bool | None
 
 
-def observe_delivery(result: Any | None, *, expected_delivery: str = "provider_terminal") -> DeliveryObservation:
+class DeliveryObservable(Protocol):
+    status: str | None
+    provider_job_id: str | None
+    provider_type: str | None
+    provider_status: str | None
+    meta: dict[str, object] | None
+
+
+class ConcurrencyObservable(Protocol):
+    provider_concurrency_key: str | None
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        return {}
+    decoded: dict[str, object] = json.loads(
+        json.dumps(value, allow_nan=False, ensure_ascii=False)
+    )
+    return decoded
+
+
+def _observable_attr(value: object, name: str) -> object:
+    try:
+        attribute: object = getattr(value, name)
+    except AttributeError:
+        return None
+    return attribute
+
+
+def observe_delivery(
+    result: DeliveryObservable | None,
+    *,
+    expected_delivery: str = "provider_terminal",
+) -> DeliveryObservation:
     """Summarize provider facts and a separately declared delivery target."""
     if result is None:
         return DeliveryObservation("unknown", None, None, None, None, None, None, "unknown", expected_delivery, None, None)
 
-    worker_status = _normalized(getattr(result, "status", None))
-    provider_status = _normalized(getattr(result, "provider_status", None))
-    provider_job_id = _string_or_none(getattr(result, "provider_job_id", None))
-    meta = getattr(result, "meta", None)
-    meta = meta if isinstance(meta, dict) else {}
-    readback = meta.get("terminal_readback")
-    if not isinstance(readback, dict):
-        raw = meta.get("raw")
-        readback = raw.get("terminal_readback") if isinstance(raw, dict) else None
-    if not isinstance(readback, dict):
-        readback = {}
+    worker_status = _normalized(_observable_attr(result, "status"))
+    provider_status = _normalized(_observable_attr(result, "provider_status"))
+    provider_job_id = _string_or_none(_observable_attr(result, "provider_job_id"))
+    meta = _object_dict(_observable_attr(result, "meta"))
+    readback = _object_dict(meta.get("terminal_readback"))
+    if not readback:
+        readback = _object_dict(_object_dict(meta.get("raw")).get("terminal_readback"))
+    readback = _object_dict(readback)
     kind = _normalized(readback.get("kind"))
     readback_status = _normalized(readback.get("status"))
     # Source Library typed readback nests the terminal status in `readback`.
-    nested = readback.get("readback")
-    if readback_status is None and isinstance(nested, dict):
+    nested = _object_dict(readback.get("readback"))
+    if readback_status is None:
         readback_status = _normalized(nested.get("terminal_status"))
     readback_job_id = _string_or_none(
         readback.get("provider_job_id")
         or readback.get("readback_job_id")
-        or (nested.get("provider_job_id") if isinstance(nested, dict) else None)
+        or nested.get("provider_job_id")
     )
     identity_match = (
         provider_job_id == readback_job_id
@@ -87,7 +118,7 @@ def observe_delivery(result: Any | None, *, expected_delivery: str = "provider_t
         state=state,
         worker_status=worker_status,
         provider_job_id=provider_job_id,
-        provider_type=_string_or_none(getattr(result, "provider_type", None)),
+        provider_type=_string_or_none(_observable_attr(result, "provider_type")),
         provider_status=provider_status,
         readback_kind=kind,
         readback_status=readback_status,
@@ -98,7 +129,7 @@ def observe_delivery(result: Any | None, *, expected_delivery: str = "provider_t
     )
 
 
-def resource_compatibility(left: Any | None, right: Any | None) -> Compatibility:
+def resource_compatibility(left: ConcurrencyObservable | None, right: ConcurrencyObservable | None) -> Compatibility:
     """Compare declared C3 provider-concurrency keys.
 
     A repeated key is a declared conflict. Different keys do not establish
@@ -112,14 +143,14 @@ def resource_compatibility(left: Any | None, right: Any | None) -> Compatibility
     return "conflict" if left_key == right_key else "unknown"
 
 
-def _normalized(value: Any) -> str | None:
+def _normalized(value: object) -> str | None:
     if value is None:
         return None
     text = str(value).strip().lower()
     return text or None
 
 
-def _string_or_none(value: Any) -> str | None:
+def _string_or_none(value: object) -> str | None:
     if value is None:
         return None
     text = str(value).strip()

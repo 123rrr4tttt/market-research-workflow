@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
-from typing import Annotated, Any
+from typing import Annotated
 
 from ..contracts import (
     CollectRequest,
     CollectResult,
+    CollectJsonObject,
+    CollectStatus,
+    CollectJsonValue,
     SourceLibraryCompatResponse,
     source_library_compat_response,
 )
@@ -21,18 +24,35 @@ try:
 except Exception:  # pragma: no cover - optional compatibility import
     def build_source_library_terminal_output(
         *,
-        result_payload: dict[str, Any] | None,
+        result_payload: CollectJsonObject | None,
         collect_result: CollectResult,
-    ) -> dict[str, Any]:
+    ) -> CollectJsonObject:
         payload = result_payload if isinstance(result_payload, dict) else {}
-        nested = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+        nested = _json_object(payload.get("result"))
         errors = nested.get("errors")
         if not isinstance(errors, list):
-            errors = [e.get("message") for e in (collect_result.errors or []) if isinstance(e, dict)]
+            errors = _json_list([_failure_message(error) for error in collect_result.errors])
 
         fetched = int(collect_result.inserted or 0) + int(collect_result.updated or 0) + int(collect_result.skipped or 0)
 
-        return {
+        limits: CollectJsonObject = {
+            "limit": None,
+            "max_items": None,
+            "per_keyword_limit": None,
+            "max_candidates": None,
+            "ingest_limit": None,
+        }
+        raw_result_keys: list[CollectJsonValue] = _json_list(sorted(nested.keys()))
+        meta: CollectJsonObject = {
+            "reason_code": "fetch_errors" if errors else "empty",
+            "retryable": False,
+            "provider": None,
+            "provider_job_id": None,
+            "trace_id": None,
+            "warnings": [],
+            "raw_result_keys": raw_result_keys,
+        }
+        response: CollectJsonObject = {
             "contract_version": "source_library.terminal_output.v1",
             "status": "partial" if errors else "ok",
             "source_mode": "protocol_search",
@@ -46,49 +66,78 @@ except Exception:  # pragma: no cover - optional compatibility import
                 "query_terms": [],
                 "time_window": {"days_back": None, "start_time": None, "end_time": None},
                 "paging": {"page": None, "start_offset": None, "cursor": None},
-                "limits": {
-                    "limit": None,
-                    "max_items": None,
-                    "per_keyword_limit": None,
-                    "max_candidates": None,
-                    "ingest_limit": None,
-                },
+                "limits": limits,
             },
             "results": {
                 "records": [],
                 "stats": {"fetched": fetched, "normalized": 0, "dropped": fetched, "errors": len(errors)},
             },
             "errors": errors,
-            "meta": {
-                "reason_code": "fetch_errors" if errors else "empty",
-                "retryable": False,
-                "provider": None,
-                "provider_job_id": None,
-                "trace_id": None,
-                "warnings": [],
-                "raw_result_keys": sorted(nested.keys()),
-            },
+            "meta": meta,
             "raw_snapshot": dict(payload),
         }
+        return response
 
 
 AUTHORITY_OUTPUT_CONTRACT_VERSION = "source_library.authority_output.v1"
 COMPAT_PROJECTION_CONTRACT_VERSION = "source_library.compat_projection.v1"
 
 
+def _json_object(value: object) -> CollectJsonObject:
+    validated = source_library_compat_response({"value": value}).get("value")
+    return validated if isinstance(validated, dict) else {}
+
+
+def _json_object_list(value: object) -> list[CollectJsonObject]:
+    validated = source_library_compat_response({"value": value}).get("value")
+    if not isinstance(validated, list):
+        return []
+    return [_json_object(item) for item in validated]
+
+
+def _optional_json_object(value: object) -> CollectJsonObject | None:
+    validated = source_library_compat_response({"value": value}).get("value")
+    return validated if isinstance(validated, dict) else None
+
+
+def _json_list(value: object) -> list[CollectJsonValue]:
+    validated = source_library_compat_response({"value": value}).get("value")
+    return validated if isinstance(validated, list) else []
+
+
+def _json_int(value: object) -> int:
+    if value is None or value is False:
+        return 0
+    if isinstance(value, (int, float, str)):
+        return int(value)
+    raise TypeError("value is not integer-compatible")
+
+
+def _failure_message(value: object) -> CollectJsonValue:
+    return _json_object(value).get("message")
+
+
 def _derive_source_library_status(
     *,
-    raw: dict[str, Any],
-    terminal_output: dict[str, Any],
-) -> str:
+    raw: CollectJsonObject,
+    terminal_output: CollectJsonObject,
+) -> CollectStatus:
     """Keep provider ACK/readback states visible at the collect boundary."""
 
     terminal_status = str(terminal_output.get("status") or "").strip().lower()
-    if terminal_status in {"accepted", "failed", "cancelled"}:
-        return terminal_status
     raw_status = str(raw.get("status") or "").strip().lower()
-    if raw_status in {"accepted", "failed", "cancelled"}:
-        return raw_status
+    if terminal_status == "accepted":
+        return "accepted"
+    if terminal_status == "failed":
+        return "failed"
+    if terminal_status == "cancelled":
+        return "cancelled"
+    if raw_status == "accepted":
+        return "accepted"
+    if raw_status == "failed":
+        return "failed"
+    if raw_status == "cancelled":
+        return "cancelled"
     return "completed"
 
 
@@ -101,11 +150,13 @@ class SourceLibraryAdapter:
         )
 
         job_id = None
-        runtime_readback = extract_runtime_readback_payload(
+        runtime_options: object = request.options
+        override_params = _json_object(_json_object(runtime_options).get("override_params"))
+        runtime_readback = _json_object(extract_runtime_readback_payload(
             request.source_context,
             request.options,
-            (request.options or {}).get("override_params") if isinstance(request.options, dict) else None,
-        )
+            _optional_json_object(override_params),
+        ))
         try:
             with (bind_project(request.project_key) if request.project_key else nullcontext()):
                 job_id = start_job(
@@ -117,41 +168,48 @@ class SourceLibraryAdapter:
                         "display_meta": build_display_meta(request, None, summary=f"执行来源项 {request.item_key or '-'}"),
                     },
                 )
-                override_params = dict(request.options.get("override_params") or {})
+                override_params = _json_object(request.options.get("override_params"))
                 item_key = str(request.item_key or "").strip()
-                channels = list_effective_channels(scope="effective", project_key=request.project_key)
-                items = list_effective_items(scope="effective", project_key=request.project_key)
+                channels = _json_object_list(list_effective_channels(scope="effective", project_key=request.project_key))
+                items = _json_object_list(list_effective_items(scope="effective", project_key=request.project_key))
                 item_map = {str(x.get("item_key") or ""): x for x in items}
                 item = item_map.get(item_key)
                 if item is None:
                     raise ValueError(f"source item not found: {item_key}")
-                raw = run_item_payload(
+                raw_response: object = run_item_payload(
                     item=item,
                     channels=channels,
                     project_key=request.project_key,
                     override_params=override_params,
                 )
-            nested = raw.get("result") if isinstance(raw, dict) else {}
+            raw = _json_object(raw_response)
+            nested = _json_object(raw.get("result"))
             terminal_output = build_source_library_terminal_output(
-                result_payload=raw if isinstance(raw, dict) else None,
+                result_payload=raw,
                 collect_result=CollectResult(channel=request.channel or "source_library"),
             )
+            terminal_output = _json_object(terminal_output)
             collection_status = _derive_source_library_status(
-                raw=raw if isinstance(raw, dict) else {},
+                raw=raw,
                 terminal_output=terminal_output,
             )
-            stats = (terminal_output.get("results") or {}).get("stats") if isinstance(terminal_output, dict) else {}
-            records = (terminal_output.get("results") or {}).get("records") if isinstance(terminal_output, dict) else []
+            terminal_results = _json_object(terminal_output.get("results"))
+            stats = _json_object(terminal_results.get("stats"))
+            records = terminal_results.get("records")
             has_clean_signal = bool(records) or any(
-                int((stats or {}).get(key) or 0) > 0 for key in ("fetched", "normalized", "dropped", "errors")
+                _json_int(stats.get(key)) > 0 for key in ("fetched", "normalized", "dropped", "errors")
             )
             cr = CollectResult(
                 channel=request.channel or "source_library",
                 status=collection_status,
-                inserted=0 if has_clean_signal else int((nested or {}).get("inserted") or 0),
-                updated=0 if has_clean_signal else int((nested or {}).get("updated") or 0),
-                skipped=0 if has_clean_signal else int((nested or {}).get("skipped") or 0),
-                errors=[{"message": e} for e in ((nested or {}).get("errors") or []) if isinstance(e, str)],
+                inserted=0 if has_clean_signal else _json_int(nested.get("inserted")),
+                updated=0 if has_clean_signal else _json_int(nested.get("updated")),
+                skipped=0 if has_clean_signal else _json_int(nested.get("skipped")),
+                errors=[
+                    {"message": e}
+                    for e in _json_list(nested.get("errors"))
+                    if isinstance(e, str)
+                ],
                 meta={
                     "raw": raw,
                     "terminal_output": terminal_output,
@@ -167,7 +225,7 @@ class SourceLibraryAdapter:
                 }
                 if runtime_readback:
                     complete_result["runtime_readback"] = merge_runtime_readback_payload(
-                        dict(runtime_readback),
+                        runtime_readback,
                         runtime_readback,
                         status=cr.status,
                         event=cr.status if cr.status in {"completed", "failed", "cancelled"} else None,
@@ -180,9 +238,9 @@ class SourceLibraryAdapter:
                     pass
                 elif cr.status == "failed":
                     error_text = "; ".join(
-                        str(item.get("message") or "")
-                        for item in cr.errors
-                        if isinstance(item, dict) and str(item.get("message") or "").strip()
+                        message
+                        for message in (_failure_message(item) for item in cr.errors)
+                        if isinstance(message, str) and message.strip()
                     ) or "source-library provider failed"
                     fail_job(job_id, error_text)
                 else:
@@ -197,9 +255,9 @@ class SourceLibraryAdapter:
 
 def to_source_library_response(raw_collect_result: CollectResult) -> SourceLibraryCompatResponse:
     raw = (raw_collect_result.meta or {}).get("raw")
-    legacy_result: dict[str, Any]
+    legacy_result: CollectJsonObject
     if isinstance(raw, dict):
-        legacy_result = dict(raw)
+        legacy_result = _json_object(raw)
     else:
         legacy_result = {
             "item_key": None,
@@ -209,26 +267,29 @@ def to_source_library_response(raw_collect_result: CollectResult) -> SourceLibra
                 "inserted": raw_collect_result.inserted,
                 "updated": raw_collect_result.updated,
                 "skipped": raw_collect_result.skipped,
-                "errors": [e.get("message") for e in raw_collect_result.errors if isinstance(e, dict)],
+                "errors": [_failure_message(error) for error in raw_collect_result.errors],
             },
             "display_meta": raw_collect_result.display_meta,
         }
 
-    response = dict(legacy_result)
+    response: CollectJsonObject = dict(legacy_result)
     terminal_output = (raw_collect_result.meta or {}).get("terminal_output")
     if not isinstance(terminal_output, dict):
         terminal_output = build_source_library_terminal_output(
-            result_payload=legacy_result if isinstance(legacy_result, dict) else None,
+            result_payload=legacy_result,
             collect_result=raw_collect_result,
         )
+    terminal_output = _json_object(terminal_output)
     frontdoor_ingress = build_source_library_ingress_envelope(
         terminal_output=terminal_output,
-        legacy_result=legacy_result if isinstance(legacy_result, dict) else None,
+        legacy_result=legacy_result,
     )
+    frontdoor_ingress = _json_object(frontdoor_ingress)
     postprocess_frontdoor = run_postprocess_frontdoor(
         ingress_envelope=frontdoor_ingress,
         run_writer=False,
     )
+    postprocess_frontdoor = _json_object(postprocess_frontdoor)
     authority_output = build_source_library_authority_output(
         terminal_output=terminal_output,
         frontdoor_ingress=frontdoor_ingress,
@@ -251,47 +312,33 @@ def to_source_library_response(raw_collect_result: CollectResult) -> SourceLibra
 
 def build_source_library_authority_output(
     *,
-    terminal_output: dict[str, Any],
-    frontdoor_ingress: dict[str, Any],
-    postprocess_frontdoor: dict[str, Any],
-    legacy_result: dict[str, Any],
+    terminal_output: CollectJsonObject,
+    frontdoor_ingress: CollectJsonObject,
+    postprocess_frontdoor: CollectJsonObject,
+    legacy_result: CollectJsonObject,
 ) -> Annotated[
-    dict[str, Any],
+    CollectJsonObject,
     "kit:non-authoritative derived_as=view fact_source=terminal_output+frontdoor_ingress+postprocess_frontdoor+legacy_result witness=test:test_w03_ingest_ports_authority_metadata",
 ]:
-    terminal_results = terminal_output.get("results") if isinstance(terminal_output.get("results"), dict) else {}
-    terminal_meta = terminal_output.get("meta") if isinstance(terminal_output.get("meta"), dict) else {}
-    provider_handoff = (
-        terminal_meta.get("provider_handoff")
-        if isinstance(terminal_meta.get("provider_handoff"), dict)
-        else {}
-    )
-    route_profile = (
-        terminal_meta.get("frontdoor_route_profile")
-        if isinstance(terminal_meta.get("frontdoor_route_profile"), dict)
-        else {}
-    )
-    router_contract = (
-        terminal_meta.get("frontdoor_router_contract")
-        if isinstance(terminal_meta.get("frontdoor_router_contract"), dict)
-        else {}
-    )
-    if not router_contract and isinstance(route_profile.get("router_contract"), dict):
-        router_contract = dict(route_profile.get("router_contract") or {})
-    if not router_contract and isinstance(provider_handoff.get("router_contract"), dict):
-        router_contract = dict(provider_handoff.get("router_contract") or {})
-    record_stats = terminal_results.get("stats") if isinstance(terminal_results.get("stats"), dict) else {}
-    postprocess_data = (
-        postprocess_frontdoor.get("data") if isinstance(postprocess_frontdoor.get("data"), dict) else {}
-    )
-    dispatch_plan = postprocess_data.get("dispatch_plan") if isinstance(postprocess_data.get("dispatch_plan"), dict) else {}
-    legacy_nested = legacy_result.get("result") if isinstance(legacy_result.get("result"), dict) else {}
-    write_effects_errors = legacy_nested.get("errors") if isinstance(legacy_nested.get("errors"), list) else []
+    terminal_results = _json_object(terminal_output.get("results"))
+    terminal_meta = _json_object(terminal_output.get("meta"))
+    provider_handoff = _json_object(terminal_meta.get("provider_handoff"))
+    route_profile = _json_object(terminal_meta.get("frontdoor_route_profile"))
+    router_contract = _json_object(terminal_meta.get("frontdoor_router_contract"))
+    if not router_contract:
+        router_contract = _json_object(route_profile.get("router_contract"))
+    if not router_contract:
+        router_contract = _json_object(provider_handoff.get("router_contract"))
+    record_stats = _json_object(terminal_results.get("stats"))
+    postprocess_data = _json_object(postprocess_frontdoor.get("data"))
+    dispatch_plan = _json_object(postprocess_data.get("dispatch_plan"))
+    legacy_nested = _json_object(legacy_result.get("result"))
+    write_effects_errors = _json_list(legacy_nested.get("errors"))
 
-    normalized_records = int(record_stats.get("normalized") or 0)
-    write_inserted = int(legacy_nested.get("inserted") or 0)
-    write_updated = int(legacy_nested.get("updated") or 0)
-    write_skipped = int(legacy_nested.get("skipped") or 0)
+    normalized_records = _json_int(record_stats.get("normalized"))
+    write_inserted = _json_int(legacy_nested.get("inserted"))
+    write_updated = _json_int(legacy_nested.get("updated"))
+    write_skipped = _json_int(legacy_nested.get("skipped"))
     write_error_count = sum(1 for item in write_effects_errors if str(item or "").strip())
     bootstrap_required = normalized_records + write_inserted + write_updated == 0 and write_error_count == 0
 
@@ -313,10 +360,10 @@ def build_source_library_authority_output(
             "status": str(terminal_output.get("status") or "ok"),
             "source_mode": str(terminal_output.get("source_mode") or "protocol_search"),
             "record_stats": {
-                "fetched": int(record_stats.get("fetched") or 0),
+                "fetched": _json_int(record_stats.get("fetched")),
                 "normalized": normalized_records,
-                "dropped": int(record_stats.get("dropped") or 0),
-                "errors": int(record_stats.get("errors") or 0),
+                "dropped": _json_int(record_stats.get("dropped")),
+                "errors": _json_int(record_stats.get("errors")),
                 "source": "terminal_output.results.stats",
             },
             "handoff": {
@@ -340,9 +387,7 @@ def build_source_library_authority_output(
                 "render_required": bool(route_profile.get("render_required") or provider_handoff.get("render_required")),
                 "router_state": router_contract.get("router_state"),
                 "router_reason_code": router_contract.get("reason_code"),
-                "fallback_boundary": dict(router_contract.get("fallback_boundary") or {})
-                if isinstance(router_contract.get("fallback_boundary"), dict)
-                else {},
+                "fallback_boundary": _json_object(router_contract.get("fallback_boundary")),
                 "source": "terminal_output.meta.provider_handoff",
             },
             "write_effects": {
@@ -359,16 +404,16 @@ def build_source_library_authority_output(
 
 def build_source_library_compat_projection(
     *,
-    legacy_result: dict[str, Any],
-    authority_output: dict[str, Any],
+    legacy_result: CollectJsonObject,
+    authority_output: CollectJsonObject,
 ) -> Annotated[
-    dict[str, Any],
+    CollectJsonObject,
     "kit:non-authoritative derived_as=view fact_source=authority_output witness=test:test_w03_ingest_ports_authority_metadata",
 ]:
     return {
         "contract_version": COMPAT_PROJECTION_CONTRACT_VERSION,
         "status": "retained_compat",
-        "observed_status": str((authority_output.get("summary") or {}).get("status") or "unknown"),
+        "observed_status": str(_json_object(authority_output.get("summary")).get("status") or "unknown"),
         "deprecated": True,
         "authority_reference": {
             "authority_output": "authority_output",
@@ -384,5 +429,5 @@ def build_source_library_compat_projection(
         ],
         "legacy_result": dict(legacy_result),
         "legacy_result_is_deprecated": True,
-        "authority_summary": dict(authority_output.get("summary") or {}),
+        "authority_summary": _json_object(authority_output.get("summary")),
     }

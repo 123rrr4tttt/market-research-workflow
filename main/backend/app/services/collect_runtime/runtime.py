@@ -3,10 +3,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
-from types import SimpleNamespace
-from typing import Any, NoReturn
+from typing import TYPE_CHECKING, Literal, NoReturn, SupportsIndex, SupportsInt, TypeGuard
 
-from functorial_kit import Failure
+from functorial_kit.core.failure import Failure
 
 from mrw_functorial_kit.core.provider_port_failures import collect_runtime_failures
 
@@ -16,6 +15,9 @@ from .contracts import (
     FLOW_SOURCE_COLLECT,
     CollectAdapter,
     CollectEffectGateway,
+    CollectFailure,
+    CollectJsonObject,
+    CollectJsonValue,
     CollectRequest,
     CollectResult,
     SourceLibraryCompatResponse,
@@ -24,9 +26,12 @@ from .contracts import (
 from .delivery import DeliveryObservation, observe_delivery, resource_compatibility
 from .successor_bridge import outcome_unknown_result
 
+if TYPE_CHECKING:
+    from app.successor_runtime.capabilities import acquisition_batch as acquisition
+
 _SKILL_REGISTRY: dict[str, CollectAdapter] = {}
-_SOURCE_LIBRARY_COMPAT_PROJECTOR: SourceLibraryCompatProjector | None = None
-_SUCCESSOR_EFFECT_GATEWAY: CollectEffectGateway | None = None
+_source_library_compat_projector: SourceLibraryCompatProjector | None = None
+_successor_effect_gateway: CollectEffectGateway | None = None
 
 
 def _collect_contract_failure(code: str, message: str, *, site: str) -> Failure:
@@ -82,7 +87,7 @@ def reset_collect_adapters() -> None:
 def register_source_library_compat_projector(projector: SourceLibraryCompatProjector) -> None:
     """Inject the legacy source-library response projection at composition time."""
 
-    global _SOURCE_LIBRARY_COMPAT_PROJECTOR
+    global _source_library_compat_projector
     if not callable(projector):
         _raise_collect_contract(
             _collect_contract_failure(
@@ -92,13 +97,13 @@ def register_source_library_compat_projector(projector: SourceLibraryCompatProje
             ),
             TypeError,
         )
-    _SOURCE_LIBRARY_COMPAT_PROJECTOR = projector
+    _source_library_compat_projector = projector
 
 
 def register_successor_collect_effect_gateway(gateway: CollectEffectGateway) -> None:
     """Inject the effectful successor gateway; it is separate from legacy adapters."""
 
-    global _SUCCESSOR_EFFECT_GATEWAY
+    global _successor_effect_gateway
     if not callable(gateway):
         _raise_collect_contract(
             _collect_contract_failure(
@@ -108,13 +113,13 @@ def register_successor_collect_effect_gateway(gateway: CollectEffectGateway) -> 
             ),
             TypeError,
         )
-    _SUCCESSOR_EFFECT_GATEWAY = gateway
+    _successor_effect_gateway = gateway
 
 
 def reset_successor_collect_effect_gateway() -> None:
-    global _SUCCESSOR_EFFECT_GATEWAY
+    global _successor_effect_gateway
 
-    _SUCCESSOR_EFFECT_GATEWAY = None
+    _successor_effect_gateway = None
 
 
 
@@ -132,6 +137,55 @@ class _CollectProjectScope:
     project_key: str
     registry_revision: int
     scope_digest: str
+
+
+@dataclass(slots=True)
+class _CollectConcurrencyView:
+    provider_concurrency_key: str | None
+
+
+@dataclass(slots=True)
+class _CollectDeliveryView:
+    status: str | None
+    provider_job_id: str | None
+    provider_type: str | None
+    provider_status: str | None
+    meta: dict[str, object] | None
+
+
+@dataclass(slots=True)
+class _CollectDeliveryCounts:
+    inserted: int
+    updated: int
+    skipped: int
+
+
+@dataclass(slots=True)
+class _CollectDeliveryRow:
+    element_id: str
+    input_index: int
+    query_terms: tuple[str, ...]
+    observation: DeliveryObservation
+    counts: _CollectDeliveryCounts | None = None
+    links: tuple[str, ...] = ()
+    execution_state: Literal["attempted", "attempted_unknown", "not_attempted"] = "not_attempted"
+
+    def to_plain(self) -> CollectJsonObject:
+        value: CollectJsonObject = {
+            "element_id": self.element_id,
+            "input_index": self.input_index,
+            "query_terms": list(self.query_terms),
+            "observation": asdict(self.observation),
+            "execution_state": self.execution_state,
+        }
+        if self.counts is not None:
+            value["counts"] = {
+                "inserted": self.counts.inserted,
+                "updated": self.counts.updated,
+                "skipped": self.counts.skipped,
+            }
+            value["links"] = list(self.links)
+        return value
 
 
 def _successor_request_id(request: CollectRequest) -> str:
@@ -155,19 +209,22 @@ def _successor_request_id(request: CollectRequest) -> str:
     )
 
 
-def _successor_resource_policy(request: CollectRequest, acquisition: Any) -> Any:
+def _successor_resource_policy(request: CollectRequest) -> acquisition.CollectResourcePolicy:
+    from app.successor_runtime.capabilities import acquisition_batch as acquisition
+
     # C3 has a provider key but no write scopes or capacity ledger. A caller's
     # independence hint cannot establish that two effects are compatible.
     provider_key = f"{request.channel}:{request.provider or 'default'}"
-    siblings = SimpleNamespace(provider_concurrency_key=provider_key)
+    siblings = _CollectConcurrencyView(provider_concurrency_key=provider_key)
     compatibility = resource_compatibility(siblings, siblings)
     requested = acquisition.resolve_auto_batch_parallelism(request) if compatibility == "compatible" else 1
-    options = request.options if isinstance(request.options, dict) else {}
-    raw_deadline = options.get("deadline_seconds")
-    try:
-        deadline = None if raw_deadline is None else max(1, int(raw_deadline))
-    except (TypeError, ValueError):
-        deadline = None
+    raw_deadline = request.options.get("deadline_seconds")
+    deadline = None
+    if isinstance(raw_deadline, (bool, int, float, str)):
+        try:
+            deadline = max(1, int(raw_deadline))
+        except (TypeError, ValueError):
+            deadline = None
     return acquisition.CollectResourcePolicy(
         schema_ref=acquisition.COLLECT_RESOURCE_POLICY_SCHEMA_REF,
         max_parallelism=max(1, requested),
@@ -182,22 +239,22 @@ def _successor_resource_policy(request: CollectRequest, acquisition: Any) -> Any
 def _collect_delivery_observation(
     result: CollectResult, *, expected_delivery: str = "unknown"
 ) -> DeliveryObservation:
-    meta = result.meta if isinstance(result.meta, dict) else {}
-    raw = meta.get("raw") if isinstance(meta.get("raw"), dict) else {}
-    raw_result = raw.get("result") if isinstance(raw.get("result"), dict) else {}
-    terminal_output = meta.get("terminal_output") if isinstance(meta.get("terminal_output"), dict) else {}
-    terminal_meta = terminal_output.get("meta") if isinstance(terminal_output.get("meta"), dict) else {}
-    handoff = terminal_meta.get("provider_handoff") if isinstance(terminal_meta.get("provider_handoff"), dict) else {}
+    meta = result.meta
+    raw = _json_object(meta.get("raw"))
+    raw_result = _json_object(raw.get("result"))
+    terminal_output = _json_object(meta.get("terminal_output"))
+    terminal_meta = _json_object(terminal_output.get("meta"))
+    handoff = _json_object(terminal_meta.get("provider_handoff"))
     readback = (
         meta.get("terminal_readback") or raw.get("terminal_readback")
         or raw_result.get("terminal_readback") or terminal_meta.get("terminal_readback")
     )
     provider_job_id = result.provider_job_id or raw.get("provider_job_id") or raw_result.get("provider_job_id") or terminal_meta.get("provider_job_id") or handoff.get("provider_job_id")
-    return observe_delivery(SimpleNamespace(
+    return observe_delivery(_CollectDeliveryView(
         status=result.status,
-        provider_job_id=provider_job_id,
-        provider_type=result.provider_type or raw.get("provider_type") or raw_result.get("provider_type") or handoff.get("provider_type"),
-        provider_status=result.provider_status or raw.get("provider_status") or raw_result.get("provider_status") or handoff.get("provider_status") or terminal_output.get("status"),
+        provider_job_id=_optional_text(provider_job_id),
+        provider_type=_optional_text(result.provider_type or raw.get("provider_type") or raw_result.get("provider_type") or handoff.get("provider_type")),
+        provider_status=_optional_text(result.provider_status or raw.get("provider_status") or raw_result.get("provider_status") or handoff.get("provider_status") or terminal_output.get("status")),
         meta={"terminal_readback": readback},
     ), expected_delivery=expected_delivery)
 
@@ -212,11 +269,38 @@ def _attach_delivery_observation(result: CollectResult) -> CollectResult:
     return result
 
 
-def _collect_result_to_c3_outcome(result: CollectResult, element: Any, acquisition: Any) -> Any:
+def _json_object(value: CollectJsonValue) -> CollectJsonObject:
+    return value if isinstance(value, dict) else {}
+
+
+def _json_link_values(value: CollectJsonValue) -> list[CollectJsonValue] | dict[str, CollectJsonValue] | str | tuple[()]:
+    # JSON arrays and strings are the iterable legacy link shapes.
+    if not value:
+        return ()
+    if isinstance(value, (list, dict, str)):
+        return value
+    _raise_collect_contract(
+        _collect_contract_failure(
+            "auto_batch_execution_failed",
+            f"'{type(value).__name__}' object is not iterable",
+            site="collect_result_to_c3_outcome.links",
+        ),
+        TypeError,
+    )
+
+
+def _json_links(value: CollectJsonValue) -> tuple[str, ...]:
+    return tuple(str(link).strip() for link in _json_link_values(value) if str(link).strip())
+
+
+def _collect_result_to_c3_outcome(
+    result: CollectResult, element: acquisition.CollectBatchElement
+) -> acquisition.CollectElementOutcome:
+    from app.successor_runtime.capabilities import acquisition_batch as acquisition
     from app.successor_runtime.capabilities.checksum import content_digest
 
-    raw = dict((result.meta or {}).get("raw") or {})
-    links = tuple(str(link).strip() for link in (raw.get("links") or []) if str(link).strip())
+    raw = dict(_json_object(result.meta.get("raw")))
+    links = _json_links(raw.get("links"))
     delivery = _collect_delivery_observation(result)
     target_delivery_ok = delivery.state == "delivered"
     receipt = None
@@ -252,7 +336,7 @@ def _collect_result_to_c3_outcome(result: CollectResult, element: Any, acquisiti
             legacy_observation_ref=legacy_ref,
             outcome_digest="",
         )
-    first_error = (result.errors or [{}])[0]
+    first_error: CollectFailure = (result.errors or [{}])[0]
     if not target_delivery_ok and not first_error.get("message"):
         first_error = {
             "code": "runner_unavailable",
@@ -287,7 +371,8 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
         or not acquisition.should_auto_batch(request)
     ):
         return None
-    if _SUCCESSOR_EFFECT_GATEWAY is None:
+    gateway = _successor_effect_gateway
+    if gateway is None:
         return outcome_unknown_result(request)
     from app.successor_runtime.capabilities import acquisition_batch_interpreters as ci
     from app.successor_runtime.capabilities import acquisition_batch_program as cp
@@ -295,13 +380,16 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
         default_acquisition_native_definition,
     )
     from app.successor_runtime.runtime.assignments import InterpreterBinding
-    from functorial_kit.core.failure import Failure
+    from app.successor_runtime.language.catalog import OperationContractCatalogSnapshot, OperationContractRegistry
+    from app.successor_runtime.language.program import Atom
 
     native_definition = default_acquisition_native_definition()
     if isinstance(native_definition, Failure):
         return None
     catalog = native_definition.catalog
     registry = native_definition.registry
+    assert isinstance(catalog, OperationContractCatalogSnapshot)
+    assert isinstance(registry, OperationContractRegistry)
     request_ref = acquisition.build_collect_request_ref(
         request_id=_successor_request_id(request),
         project_key=str(request.project_key),
@@ -319,7 +407,7 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
         source_context=acquisition.freeze_json_object(dict(request.source_context or {})),
         snapshot_digest="",
     )
-    policy = _successor_resource_policy(request, acquisition)
+    policy = _successor_resource_policy(request)
     plan = acquisition.build_collect_batch_plan(
         request_ref=request_ref,
         snapshot=snapshot,
@@ -332,9 +420,9 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
         registry_revision=1,
         scope_digest=acquisition.content_digest({"project_key": request.project_key, "revision": 1}),
     )
-    delivery_by_index: dict[int, dict[str, Any]] = {}
+    delivery_by_index: dict[int, _CollectDeliveryRow] = {}
 
-    def _run_bound_effect(element: Any) -> Any:
+    def _run_bound_effect(element: acquisition.CollectBatchElement) -> acquisition.CollectElementOutcome:
         effect_request = replace(
             request,
             query_terms=list(element.query_terms),
@@ -344,25 +432,28 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
                 "auto_batched_child": True,
             },
         )
-        effect_result = _SUCCESSOR_EFFECT_GATEWAY(effect_request)
-        effect_raw = (effect_result.meta or {}).get("raw")
-        effect_raw = effect_raw if isinstance(effect_raw, dict) else {}
-        delivery_by_index[element.input_index] = {
-            "element_id": element.element_id,
-            "input_index": element.input_index,
-            "query_terms": list(element.query_terms),
-            "observation": asdict(_collect_delivery_observation(effect_result)),
-            "counts": {
-                "inserted": int(effect_result.inserted or 0),
-                "updated": int(effect_result.updated or 0),
-                "skipped": int(effect_result.skipped or 0),
-            },
-            "links": [str(link) for link in (effect_raw.get("links") or []) if str(link).strip()],
-        }
-        return _collect_result_to_c3_outcome(effect_result, element, acquisition)
+        effect_result = gateway(effect_request)
+        effect_raw = _json_object(effect_result.meta.get("raw"))
+        delivery_by_index[element.input_index] = _CollectDeliveryRow(
+            element_id=element.element_id,
+            input_index=element.input_index,
+            query_terms=element.query_terms,
+            observation=_collect_delivery_observation(effect_result),
+            counts=_CollectDeliveryCounts(
+                inserted=int(effect_result.inserted or 0),
+                updated=int(effect_result.updated or 0),
+                skipped=int(effect_result.skipped or 0),
+            ),
+            links=tuple(str(link) for link in _json_link_values(effect_raw.get("links")) if str(link).strip()),
+        )
+        return _collect_result_to_c3_outcome(effect_result, element)
+
+    class _AdapterRunner:
+        def run(self, element: acquisition.CollectBatchElement) -> acquisition.CollectElementOutcome:
+            return _run_bound_effect(element)
 
     class _BoundRunner:
-        def run(self, element: Any) -> Any:
+        def run(self, element: acquisition.CollectBatchElement) -> acquisition.CollectElementOutcome:
             payload = acquisition.CollectBatchElementPayload(
                 schema_version=acquisition.ACQUISITION_BATCH_ELEMENT_PAYLOAD_SCHEMA,
                 operation_kind=acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND,
@@ -385,6 +476,7 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
                 project_scope_digest=scope.scope_digest,
             )
             bound_plan = cp.compile_collect_program(program, catalog, operation_contracts=registry)
+            assert isinstance(program.root, Atom)
             outcome = ci.CollectTraversalSuccessorInterpreter().interpret(
                 program=program,
                 plan=bound_plan,
@@ -405,13 +497,7 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
                         acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND
                     ),
                 ),
-                runner=type(
-                    "AdapterRunner",
-                    (),
-                    {
-                        "run": lambda _self, e: _run_bound_effect(e)
-                    },
-                )(),
+                runner=_AdapterRunner(),
             )
             if isinstance(outcome, ci.InterpreterSuccess):
                 return outcome.value
@@ -438,34 +524,33 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
         cancelled = True
         cancellation = traversal.cancellation_receipt
     else:
-        observation = getattr(traversal, "observation", None)
+        observation = None if isinstance(traversal, acquisition.CollectTraversalBypassed) else traversal.observation
         if observation is None:
             return CollectResult(channel=request.channel, status="failed", errors=[{"code": "auto_batch_execution_failed", "message": "successor traversal produced no observation"}])
         ordered_outcomes = observation.ordered_outcomes
         cancelled = False
         cancellation = None
     outcome_indexes = {item.input_index for item in ordered_outcomes}
-    delivery_rows = []
+    delivery_rows: list[_CollectDeliveryRow] = []
     for element in plan.elements:
         row = delivery_by_index.get(element.input_index)
         if row is None:
-            row = {
-                "element_id": element.element_id,
-                "input_index": element.input_index,
-                "query_terms": list(element.query_terms),
-                "observation": asdict(observe_delivery(None)),
-            }
-        delivery_rows.append({
-            **row,
-            "execution_state": (
+            row = _CollectDeliveryRow(
+                element_id=element.element_id,
+                input_index=element.input_index,
+                query_terms=element.query_terms,
+                observation=observe_delivery(None),
+            )
+        delivery_rows.append(replace(row,
+            execution_state=(
                 "attempted" if element.input_index in delivery_by_index
                 else "attempted_unknown" if element.input_index in outcome_indexes
                 else "not_attempted"
             ),
-        })
+        ))
     delivery_states = [
-        row["observation"]["state"]
-        for row in delivery_rows if row["execution_state"] == "attempted"
+        row.observation.state
+        for row in delivery_rows if row.execution_state == "attempted"
     ]
     pending_delivery = any(state in {"waiting", "unknown"} for state in delivery_states)
     delivery_cancelled = any(state == "cancelled" for state in delivery_states)
@@ -474,24 +559,38 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
         # uncertain or cancelled owner observations before its fold would
         # mislabel them as failures, and do not unlock the next collect step.
         counts = {
-            key: sum(int((row.get("counts") or {}).get(key) or 0) for row in delivery_rows)
-            for key in ("inserted", "updated", "skipped")
+            "inserted": sum(row.counts.inserted for row in delivery_rows if row.counts is not None),
+            "updated": sum(row.counts.updated for row in delivery_rows if row.counts is not None),
+            "skipped": sum(row.counts.skipped for row in delivery_rows if row.counts is not None),
         }
         links = list(dict.fromkeys(
-            link for row in delivery_rows for link in (row.get("links") or [])
+            link for row in delivery_rows for link in row.links
         ))
-        state = "unknown" if pending_delivery else "cancelled"
+        state: Literal["unknown", "cancelled"] = "unknown" if pending_delivery else "cancelled"
         requested_parallelism = acquisition.resolve_auto_batch_parallelism(request)
         fail_fast = acquisition.resolve_auto_batch_fail_fast(request)
         reason = (
             "target_delivery_readback_required"
             if any(
-                row["observation"]["state"] == "unknown"
-                and row["observation"]["provider_state"] == "delivered"
-                for row in delivery_rows if row["execution_state"] == "attempted"
+                row.observation.state == "unknown"
+                and row.observation.provider_state == "delivered"
+                for row in delivery_rows if row.execution_state == "attempted"
             )
             else "provider_readback_pending" if pending_delivery else "provider_cancelled"
         )
+        raw_meta: CollectJsonObject = {
+            "links": list(links),
+            "outcome": "OutcomeUnknown" if pending_delivery else "Cancelled",
+            "reason": reason,
+            "batch_parallelism": policy.max_parallelism,
+            "batch_parallelism_requested": requested_parallelism,
+            "batch_fail_fast": fail_fast,
+            "delivery_observations": [row.to_plain() for row in delivery_rows],
+            "typed_batch_results": [item.to_plain() for item in ordered_outcomes],
+        }
+        raw_meta.update(counts)
+        if cancellation is not None:
+            raw_meta["cancellation_receipt"] = cancellation.to_plain()
         return CollectResult(
             flow=request.flow,
             channel=request.channel,
@@ -503,18 +602,7 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
                 "batch_parallelism": policy.max_parallelism,
                 "batch_parallelism_requested": requested_parallelism,
                 "batch_fail_fast": fail_fast,
-                "raw": {
-                    **counts,
-                    "links": links,
-                    "outcome": "OutcomeUnknown" if pending_delivery else "Cancelled",
-                    "reason": reason,
-                    "batch_parallelism": policy.max_parallelism,
-                    "batch_parallelism_requested": requested_parallelism,
-                    "batch_fail_fast": fail_fast,
-                    "delivery_observations": delivery_rows,
-                    "typed_batch_results": [item.to_plain() for item in ordered_outcomes],
-                    **({"cancellation_receipt": cancellation.to_plain()} if cancellation is not None else {}),
-                },
+                "raw": raw_meta,
             },
         )
     sequence = acquisition.OrderedCollectElementOutcomeSequence(
@@ -533,6 +621,7 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
         project_scope_digest=scope.scope_digest,
     )
     fold_plan = cp.compile_collect_program(fold_program, catalog, operation_contracts=registry)
+    assert isinstance(fold_program.root, Atom)
     fold_result = ci.CollectFoldSuccessorInterpreter().interpret(
         program=fold_program,
         plan=fold_plan,
@@ -567,31 +656,39 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
         acquisition,
         cancellation=(cancellation if cancelled else None),
     )
-    result.meta["delivery_observations"] = delivery_rows
-    result.meta["raw"]["delivery_observations"] = delivery_rows
+    delivery_plain: list[CollectJsonValue] = [row.to_plain() for row in delivery_rows]
+    result.meta["delivery_observations"] = delivery_plain
+    result_raw = result.meta["raw"]
+    assert isinstance(result_raw, dict)
+    result_raw["delivery_observations"] = delivery_plain
     from .display_meta import build_display_meta
 
-    result.display_meta = build_display_meta(request, result, summary=(request.source_context or {}).get("summary"))
+    summary = request.source_context.get("summary")
+    result.display_meta = build_display_meta(request, result, summary=(summary if isinstance(summary, str) else None))
     return result
 
 
 def _run_collect_no_batch(request: CollectRequest) -> CollectResult:
-    if _SUCCESSOR_EFFECT_GATEWAY is None:
+    if _successor_effect_gateway is None:
         return _attach_delivery_observation(outcome_unknown_result(request))
-    return _attach_delivery_observation(_SUCCESSOR_EFFECT_GATEWAY(request))
+    return _attach_delivery_observation(_successor_effect_gateway(request))
 
 
-def normalize_query_terms(value: Any) -> list[str]:
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def normalize_query_terms(value: object) -> list[str]:
     if value is None:
         return []
-    if isinstance(value, list):
+    if _is_object_list(value):
         return [str(x).strip() for x in value if str(x).strip()]
     s = str(value).strip()
     return [s] if s else []
 
 
-def normalize_urls(value: Any) -> list[str]:
-    if not isinstance(value, list):
+def normalize_urls(value: object) -> list[str]:
+    if not _is_object_list(value):
         return []
     out: list[str] = []
     for x in value:
@@ -601,8 +698,12 @@ def normalize_urls(value: Any) -> list[str]:
     return out
 
 
-def normalize_limit(value: Any, default: int | None = None) -> int | None:
+def normalize_limit(value: object, default: int | None = None) -> int | None:
     if value is None:
+        return default
+    if isinstance(value, memoryview):
+        value = value.tobytes()
+    if not isinstance(value, (str, bytes, bytearray, SupportsInt, SupportsIndex)):
         return default
     try:
         return max(1, int(value))
@@ -610,14 +711,18 @@ def normalize_limit(value: Any, default: int | None = None) -> int | None:
         return default
 
 
-def normalize_language(value: Any) -> str | None:
+def normalize_language(value: object) -> str | None:
     s = str(value or "").strip().lower()
     return s or None
 
 
-def normalize_provider(value: Any) -> str | None:
+def normalize_provider(value: object) -> str | None:
     s = str(value or "").strip().lower()
     return s or None
+
+
+def _optional_text(value: CollectJsonValue) -> str | None:
+    return None if value is None else str(value)
 
 
 def collect_request_from_market_api(*, query_terms: list[str], max_items: int, project_key: str | None, provider: str | None = None, language: str | None = None, start_offset: int | None = None, days_back: int | None = None, enable_extraction: bool = True) -> CollectRequest:
@@ -652,20 +757,21 @@ def collect_request_from_source_library_api(
     project_key: str | None,
     override_params: CollectJsonObject | None = None,
 ) -> CollectRequest:
-    parsed = parse_source_library_runtime_params(override_params)
+    parsed: CollectJsonObject = parse_source_library_runtime_params(override_params)
+    platforms = parsed.get("platforms")
     return CollectRequest(
         flow=FLOW_SOURCE_COLLECT,
         channel="source_library",
         project_key=project_key,
         item_key=str(item_key or "").strip() or None,
-        query_terms=list(parsed.get("query_terms") or []),
-        urls=list(parsed.get("urls") or []),
-        limit=parsed.get("limit"),
-        provider=parsed.get("provider"),
-        language=parsed.get("language"),
-        scope=parsed.get("scope"),
-        platforms=parsed.get("platforms"),
-        options={"override_params": dict(parsed.get("override_params") or {})},
+        query_terms=normalize_query_terms(parsed.get("query_terms")),
+        urls=normalize_urls(parsed.get("urls")),
+        limit=normalize_limit(parsed.get("limit")),
+        provider=normalize_provider(parsed.get("provider")),
+        language=normalize_language(parsed.get("language")),
+        scope=_optional_text(parsed.get("scope")),
+        platforms=(normalize_query_terms(platforms) if platforms is not None else None),
+        options={"override_params": dict(_json_object(parsed.get("override_params")))},
         source_context={"summary": f"执行来源项 {item_key}"},
     )
 
@@ -679,7 +785,7 @@ def collect_request_from_url_pool(
     source_filter: str | None = None,
     domain: str | None = None,
     query_terms: list[str] | None = None,
-    options: dict[str, Any] | None = None,
+    options: CollectJsonObject | None = None,
 ) -> CollectRequest:
     extra_options = dict(options or {})
     if source_filter is not None:
@@ -710,9 +816,9 @@ def run_source_library_item_compat(
         override_params=override_params,
     )
     result = run_collect(request)
-    if _SOURCE_LIBRARY_COMPAT_PROJECTOR is None:
+    if _source_library_compat_projector is None:
         # kit:boundary owner=collect.runtime.compat_projector class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w03_collect_programmer_defect_boundary
         raise RuntimeError("source-library compatibility projector is not configured")
-    response = _SOURCE_LIBRARY_COMPAT_PROJECTOR(result)
+    response = _source_library_compat_projector(result)
     response.setdefault("display_meta", result.display_meta)
     return response

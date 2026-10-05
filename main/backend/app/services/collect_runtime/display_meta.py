@@ -1,12 +1,20 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
+from collections.abc import Sequence
+from typing import Annotated, Any, TypeGuard
 
-from .contracts import ALLOWED_COLLECT_FLOWS, CollectRequest, CollectResult, FLOW_COLLECT, FLOW_SOURCE_COLLECT
+from .contracts import (
+    ALLOWED_COLLECT_FLOWS,
+    CollectJsonObject,
+    CollectRequest,
+    CollectResult,
+    FLOW_COLLECT,
+    FLOW_SOURCE_COLLECT,
+)
 
 
-def _dedup_text_list(values: list[str] | None) -> list[str] | None:
-    if not values:
+def _dedup_text_list(values: Sequence[object] | None) -> list[str] | None:
+    if not isinstance(values, Sequence) or isinstance(values, str):
         return None
     out: list[str] = []
     for v in values:
@@ -14,6 +22,40 @@ def _dedup_text_list(values: list[str] | None) -> list[str] | None:
         if s and s not in out:
             out.append(s)
     return out or None
+
+
+def _text_argument(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _int_argument(value: object) -> int | None:
+    return value if isinstance(value, int) else None
+
+
+def _string_list_argument(value: object) -> list[str]:
+    if not _is_object_list(value):
+        return []
+    return [_text_argument(item) or "" for item in value]
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _json_object_argument(value: object) -> CollectJsonObject:
+    from .contracts import source_library_compat_response
+
+    return source_library_compat_response(value)
+
+
+def _tag_list(value: object) -> list[str] | None:
+    if not _is_object_list(value):
+        return None
+    return _dedup_text_list([_text_argument(item) or "" for item in value])
+
+
+def _is_json_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
 
 
 def build_display_meta(request: CollectRequest, result: CollectResult | None = None, *, summary: str | None = None) -> Annotated[
@@ -38,7 +80,7 @@ def build_display_meta(request: CollectRequest, result: CollectResult | None = N
         "query_terms_count": len(request.query_terms or []),
         "url_count": len(request.urls or []),
         "limit": request.limit,
-        "tags": _dedup_text_list(request.source_context.get("tags") if isinstance(request.source_context, dict) else None),
+        "tags": _tag_list(request.source_context.get("tags")),
     }
     if result is not None:
         meta.update(
@@ -57,30 +99,32 @@ def build_display_meta(request: CollectRequest, result: CollectResult | None = N
     return {k: v for k, v in meta.items() if v is not None}
 
 
-def infer_display_meta_from_celery_task(name: str, args: list[Any], kwargs: dict[str, Any] | None) -> dict[str, Any] | None:
+def infer_display_meta_from_celery_task(
+    name: str, args: Sequence[object], kwargs: dict[str, object] | None
+) -> dict[str, object] | None:
     k = kwargs or {}
     n = str(name or "")
     if "task_ingest_market" in n:
-        query_terms = k.get("query_terms") or (args[0] if len(args) > 0 and isinstance(args[0], list) else [])
+        query_terms = _string_list_argument(k.get("query_terms") or (args[0] if len(args) > 0 else []))
         req = CollectRequest(
             channel="search.market",
-            project_key=k.get("project_key") or (args[3] if len(args) > 3 else None),
-            query_terms=list(query_terms or []),
-            limit=k.get("max_items") or (args[1] if len(args) > 1 else None),
-            provider=k.get("provider") or (args[7] if len(args) > 7 else None),
-            language=k.get("language") or (args[6] if len(args) > 6 else None),
+            project_key=_text_argument(k.get("project_key") or (args[3] if len(args) > 3 else None)),
+            query_terms=query_terms,
+            limit=_int_argument(k.get("max_items") or (args[1] if len(args) > 1 else None)),
+            provider=_text_argument(k.get("provider") or (args[7] if len(args) > 7 else None)),
+            language=_text_argument(k.get("language") or (args[6] if len(args) > 6 else None)),
             source_context={"summary": "市场信息采集"},
         )
         return build_display_meta(req)
     if "task_collect_policy_regulation" in n:
-        keywords = k.get("keywords") or (args[0] if len(args) > 0 and isinstance(args[0], list) else [])
+        keywords = _string_list_argument(k.get("keywords") or (args[0] if len(args) > 0 else []))
         req = CollectRequest(
             channel="search.policy",
-            project_key=k.get("project_key") or (args[3] if len(args) > 3 else None),
-            query_terms=list(keywords or []),
-            limit=k.get("limit") or (args[1] if len(args) > 1 else None),
-            provider=k.get("provider") or (args[7] if len(args) > 7 else None),
-            language=k.get("language") or (args[6] if len(args) > 6 else None),
+            project_key=_text_argument(k.get("project_key") or (args[3] if len(args) > 3 else None)),
+            query_terms=keywords,
+            limit=_int_argument(k.get("limit") or (args[1] if len(args) > 1 else None)),
+            provider=_text_argument(k.get("provider") or (args[7] if len(args) > 7 else None)),
+            language=_text_argument(k.get("language") or (args[6] if len(args) > 6 else None)),
             source_context={"summary": "法规来源"},
         )
         return build_display_meta(req)
@@ -89,15 +133,17 @@ def infer_display_meta_from_celery_task(name: str, args: list[Any], kwargs: dict
         req = CollectRequest(
             flow=FLOW_SOURCE_COLLECT,
             channel="source_library",
-            project_key=k.get("project_key") or (args[1] if len(args) > 1 else None),
-            item_key=item_key,
+            project_key=_text_argument(k.get("project_key") or (args[1] if len(args) > 1 else None)),
+            item_key=_text_argument(item_key),
             source_context={"summary": f"执行来源项 {item_key or '-'}"},
         )
         return build_display_meta(req)
     return None
 
 
-def extract_display_meta_from_params(params: dict[str, Any] | None) -> dict[str, Any] | None:
+def extract_display_meta_from_params(params: dict[str, object] | None) -> CollectJsonObject | None:
     p = params or {}
     dm = p.get("display_meta")
-    return dm if isinstance(dm, dict) else None
+    if not _is_json_object(dm):
+        return None
+    return _json_object_argument(dm)

@@ -17,7 +17,6 @@ from ..collect_runtime.display_meta import build_display_meta
 from ..collect_runtime.contracts import CollectRequest, CollectResult
 from ..resource_pool import list_urls
 from ..task_readback_metadata import extract_runtime_readback_payload
-from .frontdoor_rollout import is_ingest_frontdoor_enabled
 from .postprocess_frontdoor import run_frontdoor_extraction
 from .metrics_payload import (
     attach_metrics_payload,
@@ -349,8 +348,7 @@ def _collect_urls_from_list_with_runtime_targets(
     skipped_fetch_error = 0
     details: List[Dict[str, Any]] = []
     errors: List[Dict[str, Any]] = []
-    seen_runtime_urls: set[str] = set()
-    workflow_name = "front_door_url_routing" if bool(frontdoor_options.get("enabled")) else "url_routing"
+    workflow_name = "front_door_url_routing"
 
     parallel_workers = _resolve_parallel_workers(extra_params=extra_params, target_count=len(runtime_targets))
     parallel_batch_size = _resolve_parallel_batch_size(extra_params=extra_params, parallel_workers=parallel_workers)
@@ -359,8 +357,6 @@ def _collect_urls_from_list_with_runtime_targets(
     frontdoor_status_summary = _new_frontdoor_status_summary()
     frontdoor_slo_summary = new_frontdoor_slo_summary()
     queued = 0
-    queued_tasks: List[Dict[str, Any]] = []
-
     def _run_single_target(target_url: str, target: Dict[str, Any]) -> Dict[str, Any]:
         try:
             search_options = _search_options_for_target(
@@ -1447,29 +1443,16 @@ def _resolve_url_strict_mode(extra_params: Optional[Dict[str, Any]]) -> bool:
 
 def _resolve_frontdoor_options(
     extra_params: Optional[Dict[str, Any]],
-    *,
-    project_key: str | None,
 ) -> Dict[str, Any]:
-    if not isinstance(extra_params, dict):
-        return {"enabled": False}
-    requested_enabled = _as_bool(
-        extra_params.get(
-            "url_routing_frontdoor_enabled",
-            extra_params.get("frontdoor_enabled", extra_params.get("use_frontdoor", False)),
-        ),
-        False,
-    )
-    enabled = is_ingest_frontdoor_enabled(requested_enabled=requested_enabled, project_key=project_key)
-    if not enabled:
-        return {"enabled": False}
+    params = extra_params if isinstance(extra_params, dict) else {}
     return {
         "enabled": True,
-        "front_door_owner": str(extra_params.get("front_door_owner") or "url_pool").strip() or "url_pool",
-        "route_decision": str(extra_params.get("frontdoor_route_decision") or "front_door_url_routing").strip()
+        "front_door_owner": str(params.get("front_door_owner") or "url_pool").strip() or "url_pool",
+        "route_decision": str(params.get("frontdoor_route_decision") or "front_door_url_routing").strip()
         or "front_door_url_routing",
-        "write_mode": str(extra_params.get("frontdoor_write_mode") or "front_door_url_routing").strip()
+        "write_mode": str(params.get("frontdoor_write_mode") or "front_door_url_routing").strip()
         or "front_door_url_routing",
-        "execution_mode": str(extra_params.get("frontdoor_execution_mode") or "url_routing").strip() or "url_routing",
+        "execution_mode": str(params.get("frontdoor_execution_mode") or "url_routing").strip() or "url_routing",
     }
 
 
@@ -1608,7 +1591,7 @@ def collect_urls_from_list(
     job_id = start_job("url_pool_fetch", job_params)
     targets, target_mode = _resolve_runtime_targets(urls, extra_params=extra_params)
     strict_mode = _resolve_url_strict_mode(extra_params)
-    frontdoor_options = _resolve_frontdoor_options(extra_params, project_key=project_key)
+    frontdoor_options = _resolve_frontdoor_options(extra_params)
     runtime_targets: List[Tuple[str, Dict[str, Any]]] = []
     seen_runtime_urls: set[str] = set()
     for target in targets:
@@ -1648,8 +1631,6 @@ def collect_urls_from_pool(
     Returns { inserted, skipped, urls }.
     Ensures schema isolation when project_key is set.
     """
-    from ..projects import bind_project
-
     normalized_terms = _normalize_terms(query_terms)
     job_params: Dict[str, Any] = {"scope": scope, "domain": domain, "source": source_filter, "limit": limit}
     if normalized_terms:
@@ -1705,10 +1686,8 @@ def collect_urls_from_pool(
         seen_runtime_urls: set[str] = set()
         dispatch_mode = _resolve_dispatch_mode(extra_params)
         strict_mode = _resolve_url_strict_mode(extra_params)
-        frontdoor_options = _resolve_frontdoor_options(extra_params, project_key=project_key)
-        workflow_name = "front_door_url_routing" if bool(frontdoor_options.get("enabled")) else (
-            "url_routing_async" if dispatch_mode == "celery_async" else "url_routing"
-        )
+        frontdoor_options = _resolve_frontdoor_options(extra_params)
+        workflow_name = "front_door_url_routing"
         runtime_targets: List[Tuple[str, Dict[str, Any], Dict[str, Any]]] = []
         for target in targets:
             target_url = _resolve_target_url(target, normalized_terms, extra_params=extra_params)

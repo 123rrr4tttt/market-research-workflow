@@ -10,6 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from app.services.ingest.retry_policy import RateGate, RequestScope
+from app.composition.resource_pool import RequestHtmlSearchRequestPort
 from app.services.search import web
 
 pytestmark = pytest.mark.unit
@@ -17,11 +18,7 @@ pytestmark = pytest.mark.unit
 
 def _load_trace_contract_module():
     module_path = (
-        Path(__file__).resolve().parents[4]
-        / "ops"
-        / "search-lab"
-        / "scripts"
-        / "search_provider_trace_contract.py"
+        Path(__file__).resolve().parents[4] / "ops" / "search-lab" / "scripts" / "search_provider_trace_contract.py"
     )
     spec = importlib.util.spec_from_file_location("search_provider_trace_contract", module_path)
     if spec is None or spec.loader is None:
@@ -91,9 +88,14 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
         }
         session = _FakeJsonSession([_FakeResponse(payload)])
         sleeps: list[float] = []
+        gate = _deterministic_gate(sleeps)
         with patch("app.services.search.web.generate_keywords", return_value=["robotics policy"]):
-            with patch.object(web, "_SEARCH_RATE_GATE", _deterministic_gate(sleeps)):
-                with patch.object(web, "_SEARCH_CLIENT_FACTORY", lambda: session):
+            with patch.object(web, "SEARCH_RATE_GATE", gate):
+                port = RequestHtmlSearchRequestPort(
+                    rate_gate=gate,
+                    client_factory=lambda: session,
+                )
+                with patch.object(web, "_SEARCH_REQUEST_PORT", port):
                     results = web.search_sources(
                         "robotics policy",
                         language="en",
@@ -147,8 +149,13 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
             with patch("app.services.search.web.generate_keywords", return_value=["robotics"]):
                 session = _FakeJsonSession([_FakeResponse(payload)])
                 sleeps: list[float] = []
-                with patch.object(web, "_SEARCH_RATE_GATE", _deterministic_gate(sleeps)):
-                    with patch.object(web, "_SEARCH_CLIENT_FACTORY", lambda: session):
+                gate = _deterministic_gate(sleeps)
+                with patch.object(web, "SEARCH_RATE_GATE", gate):
+                    port = RequestHtmlSearchRequestPort(
+                        rate_gate=gate,
+                        client_factory=lambda: session,
+                    )
+                    with patch.object(web, "_SEARCH_REQUEST_PORT", port):
                         results = web.search_sources(
                             "robotics",
                             language="en",
@@ -186,7 +193,12 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
     def test_auto_provider_does_not_call_experimental_local_providers(self) -> None:
         with patch.dict(os.environ, {"SERPER_API_KEY": "test-serper"}, clear=False):
             with patch("app.services.search.web.generate_keywords", return_value=["robotics"]):
-                with patch("app.services.search.web._serper_search", return_value=[{"title": "Serper", "link": "https://serper.example", "snippet": "ok", "source": "serper"}]):
+                with patch(
+                    "app.services.search.web._serper_search",
+                    return_value=[
+                        {"title": "Serper", "link": "https://serper.example", "snippet": "ok", "source": "serper"}
+                    ],
+                ):
                     with patch("app.services.search.web._searxng_search") as searxng:
                         with patch("app.services.search.web._yacy_search") as yacy:
                             results = web.search_sources(
@@ -209,17 +221,18 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
                 for idx in range(1, 11)
             ]
         }
-        second_page = {
-            "results": [
-                {"title": "Result 11", "url": "https://example.com/11", "content": "Second page"}
-            ]
-        }
+        second_page = {"results": [{"title": "Result 11", "url": "https://example.com/11", "content": "Second page"}]}
         session = _FakeJsonSession([_FakeResponse(first_page), _FakeResponse(second_page)])
         sleeps: list[float] = []
+        gate = _deterministic_gate(sleeps)
         with patch.dict(os.environ, {"SEARXNG_MAX_PAGES": "2"}, clear=False):
             with patch("app.services.search.web.generate_keywords", return_value=["robotics"]):
-                with patch.object(web, "_SEARCH_RATE_GATE", _deterministic_gate(sleeps)):
-                    with patch.object(web, "_SEARCH_CLIENT_FACTORY", lambda: session):
+                with patch.object(web, "SEARCH_RATE_GATE", gate):
+                    port = RequestHtmlSearchRequestPort(
+                        rate_gate=gate,
+                        client_factory=lambda: session,
+                    )
+                    with patch.object(web, "_SEARCH_REQUEST_PORT", port):
                         results = web.search_sources(
                             "robotics",
                             language="en",
@@ -240,16 +253,20 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
     def test_google_repeated_gets_use_frozen_rate_gate_without_sleep_call(self) -> None:
         first_page = {
             "items": [
-                {"title": f"Result {idx}", "link": f"https://example.com/{idx}", "snippet": "ok"}
-                for idx in range(10)
+                {"title": f"Result {idx}", "link": f"https://example.com/{idx}", "snippet": "ok"} for idx in range(10)
             ]
         }
         second_page = {"items": [{"title": "Result 11", "link": "https://example.com/11", "snippet": "ok"}]}
         session = _FakeJsonSession([_FakeResponse(first_page), _FakeResponse(second_page)])
         sleeps: list[float] = []
+        gate = _deterministic_gate(sleeps)
 
-        with patch.object(web, "_SEARCH_RATE_GATE", _deterministic_gate(sleeps)):
-            with patch.object(web, "_SEARCH_CLIENT_FACTORY", lambda: session):
+        with patch.object(web, "SEARCH_RATE_GATE", gate):
+            port = RequestHtmlSearchRequestPort(
+                rate_gate=gate,
+                client_factory=lambda: session,
+            )
+            with patch.object(web, "_SEARCH_REQUEST_PORT", port):
                 results = web._google_search("robotics", "cse-id", 11, api_key="test-key")
 
         self.assertEqual(len(results), 11)
@@ -262,7 +279,7 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
         gate = _deterministic_gate(sleeps)
         gate.record_throttle(RequestScope(provider="search:serper"), retry_after_seconds=2.0)
 
-        with patch.object(web, "_SEARCH_RATE_GATE", gate):
+        with patch.object(web, "SEARCH_RATE_GATE", gate):
             with patch(
                 "app.services.search.web.default_http_client.post_json",
                 side_effect=AssertionError("denial must not reach provider HTTP"),
@@ -273,15 +290,19 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
         self.assertEqual(sleeps, [])
 
     def test_provider_429_failure_is_classified_and_never_returns_partial_data(self) -> None:
-        session = _FakeJsonSession([
-            _FakeResponse({"organic_results": [{"title": "partial"}]}, status_code=429)
-            for _ in range(3)
-        ])
+        session = _FakeJsonSession(
+            [_FakeResponse({"organic_results": [{"title": "partial"}]}, status_code=429) for _ in range(3)]
+        )
         sleeps: list[float] = []
+        gate = _deterministic_gate(sleeps)
 
         with patch("time.sleep", sleeps.append):
-            with patch.object(web, "_SEARCH_RATE_GATE", _deterministic_gate(sleeps)):
-                with patch.object(web, "_SEARCH_CLIENT_FACTORY", lambda: session):
+            with patch.object(web, "SEARCH_RATE_GATE", gate):
+                port = RequestHtmlSearchRequestPort(
+                    rate_gate=gate,
+                    client_factory=lambda: session,
+                )
+                with patch.object(web, "_SEARCH_REQUEST_PORT", port):
                     with self.assertRaises(Exception) as raised:
                         web._serpapi_search("robotics", "test-key", 5)
 
