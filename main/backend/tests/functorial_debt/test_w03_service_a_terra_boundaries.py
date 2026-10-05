@@ -46,7 +46,7 @@ def test_w03_collect_programmer_defect_boundary(monkeypatch: pytest.MonkeyPatch)
         "run_collect",
         lambda request: CollectResult(channel=request.channel),
     )
-    monkeypatch.setattr(collect_runtime, "_SOURCE_LIBRARY_COMPAT_PROJECTOR", None)
+    monkeypatch.setattr(collect_runtime, "_source_library_compat_projector", None)
 
     with pytest.raises(RuntimeError, match="^source-library compatibility projector is not configured$"):
         collect_runtime.run_source_library_item_compat(item_key="item-1")

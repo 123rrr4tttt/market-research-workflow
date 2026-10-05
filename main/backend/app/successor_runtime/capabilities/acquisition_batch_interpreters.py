@@ -25,6 +25,7 @@ from app.successor_runtime.language.catalog import OperationContractCatalogSnaps
 from app.successor_runtime.language.compile import TRAVERSAL_MATERIALIZER_TRANSFORM, TRAVERSAL_MATERIALIZER_VERSION
 from app.successor_runtime.language.object_contracts import OperationContractRef
 from app.successor_runtime.language.plan import with_plan_digest
+from app.successor_runtime.language.program import ProgramSpec
 from app.successor_runtime.research.codec import is_sha256_hex
 
 __all__ = [
@@ -86,46 +87,87 @@ ExactBindingResult: TypeAlias = "Any | Failure"
 
 @runtime_checkable
 class ProjectScopeView(Protocol):
-    project_key: str
-    registry_revision: int
-    scope_digest: str
+    @property
+    def project_key(self) -> str: ...
+
+    @property
+    def registry_revision(self) -> int: ...
+
+    @property
+    def scope_digest(self) -> str: ...
 
 
 @runtime_checkable
 class RequestRefView(Protocol):
-    request_id: str
-    project_key: str
-    channel: str
-    request_digest: str
+    @property
+    def request_id(self) -> str: ...
+
+    @property
+    def project_key(self) -> str: ...
+
+    @property
+    def channel(self) -> str: ...
+
+    @property
+    def request_digest(self) -> str: ...
 
 
 @runtime_checkable
 class ElementPayloadView(Protocol):
-    schema_version: str
-    operation_kind: str
-    parent_request_ref: RequestRefView
-    request_snapshot: Any
-    element: Any
-    resource_policy: Any
-    authority_scope_ref: str
-    payload_digest: str
+    @property
+    def schema_version(self) -> str: ...
+
+    @property
+    def operation_kind(self) -> str: ...
+
+    @property
+    def parent_request_ref(self) -> RequestRefView: ...
+
+    @property
+    def request_snapshot(self) -> acquisition.CollectLegacyRequestSnapshot: ...
+
+    @property
+    def element(self) -> acquisition.CollectBatchElement: ...
+
+    @property
+    def resource_policy(self) -> acquisition.CollectResourcePolicy: ...
+
+    @property
+    def authority_scope_ref(self) -> str: ...
+
+    @property
+    def payload_digest(self) -> str: ...
 
 
 @runtime_checkable
 class FoldPayloadView(Protocol):
-    schema_version: str
-    operation_kind: str
-    parent_request_ref: RequestRefView
-    ordered_outcomes: Any
-    aggregation_policy_ref: str
-    observation_profile_ref: str
-    payload_digest: str
+    @property
+    def schema_version(self) -> str: ...
+
+    @property
+    def operation_kind(self) -> str: ...
+
+    @property
+    def parent_request_ref(self) -> RequestRefView: ...
+
+    @property
+    def ordered_outcomes(self) -> acquisition.OrderedCollectElementOutcomeSequence: ...
+
+    @property
+    def aggregation_policy_ref(self) -> str: ...
+
+    @property
+    def observation_profile_ref(self) -> str: ...
+
+    @property
+    def payload_digest(self) -> str: ...
 
 
 @runtime_checkable
 class ElementRunner(Protocol):
     def run(self, element: acquisition.CollectBatchElement) -> acquisition.CollectElementOutcome:
         """Run one bounded element and return its typed outcome."""
+        ...
 
 
 class CollectBindingMismatch(ValueError):
@@ -369,6 +411,7 @@ def try_exact_traversal_binding(
             message="C3 traversal binding drift: " + ", ".join(sorted(set(failures))),
             site="try_exact_traversal_binding",
         )
+    assert transform_steps[0].transform_ref is not None
     return {
         "program_digest": program.program_digest,
         "plan_digest": plan.plan_digest,
@@ -410,7 +453,10 @@ def _failed_outcome(element: acquisition.CollectBatchElement, exc: Exception) ->
 
 
 def _cancellation_receipt(
-    cause: acquisition.CollectElementError, *, trigger_input_index: int, observed: str
+    cause: acquisition.CollectElementError,
+    *,
+    trigger_input_index: int,
+    observed: Literal["SERIAL_EXECUTION", "PARALLEL_COMPLETION"],
 ) -> acquisition.CollectCancellationReceipt:
     return acquisition.CollectCancellationReceipt(
         schema_version=acquisition.COLLECT_CANCELLATION_RECEIPT_SCHEMA_REF,
@@ -446,6 +492,7 @@ def run_ordered_traversal(
                 isinstance(outcome, acquisition.CollectElementFailed)
                 and plan.failure_policy == "FAIL_FAST_WITH_PARTIAL_OBSERVATION"
             ):
+                assert outcome.error is not None
                 executed = sorted(indexed + [(outcome.input_index, outcome)], key=lambda item: item[0])
                 return acquisition.OrderedTraversalAborted(
                     schema_version=acquisition.COLLECT_TRAVERSAL_RESULT_SCHEMA_REF,
@@ -472,6 +519,7 @@ def run_ordered_traversal(
                 (outcome for outcome in ordered if isinstance(outcome, acquisition.CollectElementFailed)), None
             )
             if failed is not None:
+                assert failed.error is not None
                 return acquisition.OrderedTraversalAborted(
                     schema_version=acquisition.COLLECT_TRAVERSAL_RESULT_SCHEMA_REF,
                     partial_outcomes=tuple(ordered),
@@ -515,7 +563,7 @@ def _find_control_node(node: Any, step_id: str) -> Any | None:
 
 
 def try_exact_composed_binding(
-    *, program: Any, plan: Any, catalog: OperationContractCatalogSnapshot, assignment: Any | None = None
+    *, program: ProgramSpec, plan: Any, catalog: OperationContractCatalogSnapshot, assignment: Any | None = None
 ) -> ExactBindingResult:
     """Return the exact composed closure or one canonical failure."""
     failures: list[str] = []

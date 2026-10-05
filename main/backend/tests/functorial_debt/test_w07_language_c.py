@@ -10,7 +10,9 @@ from functorial_kit import Failure
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from app.successor_runtime.language.algebra import ValueRef
 from app.successor_runtime.language.program import (
+    ProgramSpec,
     ProgramTypeError,
     decode_ast,
     identity_node,
@@ -20,7 +22,6 @@ from app.successor_runtime.language.program import (
     try_then_node,
 )
 from app.successor_runtime.language.transforms import (
-    MergeRef,
     RegistryError,
     TransformRef,
     TransformRegistry,
@@ -51,7 +52,50 @@ def test_program_try_failures_and_legacy_lift() -> None:
     with pytest.raises(ValueError, match=r"unknown node_kind"):
         decode_ast({"node_kind": "unknown"})
 
-    materialization = try_successor_materialization()
+    successor_program = ProgramSpec(
+        program_id="w07.materialization",
+        contract_version="1",
+        project_key="w07",
+        project_registry_revision=1,
+        project_scope_digest="0" * 64,
+        semantic_identity="w07.materialization",
+        input_type=LEFT,
+        output_type=LEFT,
+        root=identity_node(LEFT),
+        algebra_refs=(),
+        transform_refs=(),
+        observation_profile="w07.materialization",
+        metadata=(),
+        program_digest="",
+    ).with_digest()
+    source_value_ref = ValueRef(
+        value_id="source",
+        project_key="w07",
+        object_type=LEFT,
+        codec_id=LEFT.codec_id,
+        content_digest="0" * 64,
+        storage_kind="project_value_ref",
+        store_id="test",
+        store_version="1",
+        storage_ref="source",
+        byte_size=0,
+        provenance_digest="0" * 64,
+    )
+    materialization = try_successor_materialization(
+        materialization_id="",
+        predecessor_run_id="run",
+        predecessor_step_id="step",
+        predecessor_plan_digest="0" * 64,
+        source_value_ref=source_value_ref,
+        materializer_id="materializer",
+        materializer_version="1",
+        authority_digest="0" * 64,
+        idempotency_key="idempotency",
+        successor_program=successor_program,
+        successor_program_digest=successor_program.digest(),
+        state="PREPARED",
+        reason="",
+    )
     assert isinstance(materialization, Failure)
     assert materialization.code == "PROGRAM_MATERIALIZATION_INVALID"
 

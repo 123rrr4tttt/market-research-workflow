@@ -9,8 +9,9 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from dataclasses import dataclass, fields
-from typing import Annotated, Any, Literal, Union
+from dataclasses import dataclass
+from typing import Annotated, Any, Literal, NoReturn, Protocol, TypeAlias, TypeGuard, runtime_checkable
+from collections.abc import Mapping, Sequence
 
 from functorial_kit import Failure
 
@@ -21,13 +22,39 @@ from .object_contracts import (
     OperationContract,
     OperationContractRef,
     ReturnContract,
-    _failure as language_failure,
-    _raise_failure as raise_language_failure,
+    language_failure,
+    raise_language_failure,
 )
 
-FrozenJsonAtom = Union[None, bool, int, float, str]
-FrozenJsonValue = Union[FrozenJsonAtom, "tuple[FrozenJsonValue, ...]", "frozenset[str]"]
-FrozenJsonObject = "tuple[tuple[str, FrozenJsonValue], ...]"
+FrozenJsonAtom: TypeAlias = None | bool | int | float | str
+FrozenJsonValue: TypeAlias = (
+    "FrozenJsonAtom | tuple[FrozenJsonValue, ...] | frozenset[str]"
+)
+FrozenJsonObject: TypeAlias = "tuple[tuple[str, FrozenJsonValue], ...]"
+
+
+def _is_sequence(value: object) -> TypeGuard[Sequence[object]]:
+    return isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
+
+
+def _is_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_set(value: object) -> TypeGuard[frozenset[object] | set[object]]:
+    return isinstance(value, (frozenset, set))
+
+
+def _mapping_items(value: Mapping[object, object]) -> "list[tuple[object, object]]":
+    return [(key, item) for key, item in value.items()]
+
+
+class _TaggedDataclass(Protocol):
+    __dataclass_fields__: Mapping[str, object]
+
+
+def _is_tagged_dataclass(value: object) -> TypeGuard[_TaggedDataclass]:
+    return hasattr(value, "__dataclass_fields__")
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,9 +110,7 @@ class ValueRef:
         return {
             "value_id": self.value_id,
             "project_key": self.project_key,
-            "object_type": self.object_type.to_plain()
-            if hasattr(self.object_type, "to_plain")
-            else {
+            "object_type": {
                 "type_id": self.object_type.type_id,
                 "schema_version": self.object_type.schema_version,
                 "codec_id": self.object_type.codec_id,
@@ -123,41 +148,37 @@ _TAG_MAP: "dict[type[Any], str]" = {
 }
 
 
-class _FrozenJsonObjectMarker(tuple):
+class _FrozenJsonObjectMarker(tuple[tuple[str, FrozenJsonValue], ...]):
     pass
 
 
-def _freeze_json_value(value: Any) -> FrozenJsonValue:
+def _freeze_json_value(value: object) -> FrozenJsonValue:
     if value is None or isinstance(value, (bool, int, float, str)):
         if isinstance(value, float) and not math.isfinite(value):
             # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
             raise ValueError("non-finite float is not a frozen JSON value")
         return value
-    if isinstance(value, dict):
-        return tuple(
-            (str(key), _freeze_json_value(item)) for key, item in sorted(value.items())
-        )
-    if isinstance(value, (list, tuple)):
+    if _is_mapping(value):
+        pairs: list[tuple[str, FrozenJsonValue]] = []
+        for key_object, item_object in sorted(_mapping_items(value), key=lambda pair: str(pair[0])):
+            pairs.append((str(key_object), _freeze_json_value(item_object)))
+        return tuple(pairs)
+    if _is_sequence(value):
         return tuple(_freeze_json_value(item) for item in value)
-    if isinstance(value, frozenset):
-        if not all(isinstance(item, str) for item in value):
+    if _is_set(value):
+        items = [item for item in value]
+        if not all(isinstance(item, str) for item in items):
             # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
             raise ValueError("frozenset members must be strings")
-        return value
-    if isinstance(value, set):
-        if not all(isinstance(item, str) for item in value):
-            # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
-            raise ValueError("set members must be strings")
-        return frozenset(value)
+        return frozenset(item for item in items if isinstance(item, str))
     # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
     raise TypeError(f"unsupported JSON value type: {type(value)!r}")
-
 
 def _failure_argument(error: Exception) -> object:
     return error.args[0] if len(error.args) == 1 else str(error)
 
 
-def _lift_algebra_failure(failure: Failure) -> None:
+def _lift_algebra_failure(failure: Failure) -> NoReturn:
     exception_name = str((failure.context or {}).get("public_exception") or "")
     exception_type = {"ValueError": ValueError, "TypeError": TypeError}.get(
         exception_name
@@ -194,8 +215,8 @@ def freeze_json_object(value: "dict[str, Any]") -> FrozenJsonObject:
     return outcome
 
 
-def try_freeze_json_object(value: "dict[str, Any]") -> FrozenJsonObject | Failure:
-    if not isinstance(value, dict):
+def try_freeze_json_object(value: object) -> FrozenJsonObject | Failure:
+    if not _is_mapping(value) or not isinstance(value, dict):
         return language_failure(
             "CANONICAL_VALUE_INVALID",
             "expected a JSON object value",
@@ -203,9 +224,12 @@ def try_freeze_json_object(value: "dict[str, Any]") -> FrozenJsonObject | Failur
             site="language.algebra.freeze_json_object.input",
         )
     try:
-        return _FrozenJsonObjectMarker(
-            (str(key), _freeze_json_value(item)) for key, item in sorted(value.items())
-        )  # type: ignore[return-value]
+        pairs = [
+            (str(key), _freeze_json_value(item))
+            for key, item in sorted(_mapping_items(value), key=lambda pair: str(pair[0]))
+        ]
+        result: FrozenJsonObject = _FrozenJsonObjectMarker(pairs)
+        return result
     except (TypeError, ValueError) as error:
         return language_failure(
             "CANONICAL_VALUE_INVALID",
@@ -214,54 +238,58 @@ def try_freeze_json_object(value: "dict[str, Any]") -> FrozenJsonObject | Failur
             site="language.algebra.freeze_json_object.value",
         )
 
+@runtime_checkable
+class _PlainEncodable(Protocol):
+    def to_plain(self) -> object: ...
 
-def _encode_value(value: Any, tag_map: "dict[type[Any], str]") -> Any:
+
+def _encode_value(value: object, tag_map: "dict[type[object], str]") -> object:
     if value is None or isinstance(value, (bool, int, float, str)):
         if isinstance(value, float) and not math.isfinite(value):
             # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
             raise ValueError("non-finite float cannot be canonically encoded")
         return value
-    if isinstance(value, frozenset):
-        return sorted(_encode_value(item, tag_map) for item in value)
+    if _is_set(value):
+        encoded_items = [_encode_value(item, tag_map) for item in value]
+        return sorted(str(item) for item in encoded_items)
     if isinstance(value, _FrozenJsonObjectMarker):
         return _encode_frozen_object(value, tag_map)
-    if isinstance(value, tuple):
+    if _is_sequence(value):
         return ["$array", [_encode_value(item, tag_map) for item in value]]
-    if isinstance(value, dict):
-        return {
-            str(key): _encode_value(item, tag_map) for key, item in sorted(value.items())
-        }
-    if isinstance(value, list):
-        return ["$array", [_encode_value(item, tag_map) for item in value]]
-    if hasattr(value, "to_plain"):
+    if _is_mapping(value):
+        encoded: "dict[str, object]" = {}
+        for key_object, item in _mapping_items(value):
+            encoded[str(key_object)] = _encode_value(item, tag_map)
+        return encoded
+    if isinstance(value, _PlainEncodable):
         return _encode_value(value.to_plain(), tag_map)
     if isinstance(value, ObjectType):
         return _encode_dataclass_fields(value, tag_map)
     tag = tag_map.get(type(value))
     if tag is not None:
         return {tag: _encode_dataclass_fields(value, tag_map)}
-    if isinstance(value, tuple) and value and all(
-        isinstance(item, tuple) and len(item) == 2 and isinstance(item[0], str)
-        for item in value
-    ):
-        return _encode_frozen_object(value, tag_map)
     # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
     raise TypeError(f"cannot canonically encode value of type {type(value)!r}")
 
 
-def _encode_frozen_object(value: Any, tag_map: "dict[type[Any], str]") -> Any:
-    return {
-        str(key): _encode_value(item, tag_map)
-        for key, item in sorted(value, key=lambda pair: pair[0])
-    }
+def _encode_frozen_object(
+    value: "tuple[tuple[str, FrozenJsonValue], ...]",
+    tag_map: "dict[type[object], str]",
+) -> object:
+    encoded: "dict[str, object]" = {}
+    for key, item in sorted(value, key=lambda pair: pair[0]):
+        encoded[key] = _encode_value(item, tag_map)
+    return encoded
 
 
-def _encode_dataclass_fields(value: Any, tag_map: "dict[type[Any], str]") -> Any:
-    return {
-        field.name: _encode_value(getattr(value, field.name), tag_map)
-        for field in fields(value)
-    }
-
+def _encode_dataclass_fields(value: object, tag_map: "dict[type[object], str]") -> object:
+    if not _is_tagged_dataclass(value):
+        # kit:boundary owner=successor.language.algebra.codec class=PROGRAMMER_DEFECT failure_family=none witness=test:test_canonical_encoding_rejects_invalid_tag_registration
+        raise TypeError("expected tagged dataclass")
+    encoded: "dict[str, object]" = {}
+    for field_name in value.__dataclass_fields__:
+        encoded[field_name] = _encode_value(getattr(value, field_name), tag_map)
+    return encoded
 
 def canonical_json_bytes(value: Any) -> bytes:
     outcome = try_canonical_json_bytes(value)

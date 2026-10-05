@@ -114,6 +114,7 @@ __all__ = [
     "SearchStrategyEntry",
     "SourcePreferences",
     "SupplementationDecision",
+    "agent_batch_contract_failure",
     "build_batch_task_bundle",
     "build_batch_task_catalog",
     "build_batch_task_registry",
@@ -122,6 +123,7 @@ __all__ = [
     "decode_submission_receipt_readback",
     "normalize_batch_tasks",
     "reject_source_mode",
+    "raise_agent_batch_contract_failure",
 ]
 
 
@@ -203,6 +205,10 @@ def _raise_contract_failure(
         raise TypeError("contract lift context is incomplete or inconsistent")
     # kit:boundary owner=batch.task.v2 class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.capability.contract_failure witness=test:test_w05_n1_c4_public_compatibility_preserves_type_and_message
     raise exception_type(str(context["public_message"]))
+
+
+agent_batch_contract_failure = _failure
+raise_agent_batch_contract_failure = _raise_contract_failure
 
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")

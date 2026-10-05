@@ -116,8 +116,10 @@ def _check_execution_boundaries(spec: ProgramSpec) -> None:
     _require_runtime_type(spec.root.input_type, "root.input_type")
     _require_runtime_type(spec.root.output_type, "root.output_type")
     if spec.input_type != spec.root.input_type:
+        # kit:boundary owner=successor.language.normalize class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_normalize_rejects_spec_type_mismatch
         raise ValueError("Program input_type does not match its root input_type")
     if spec.output_type != spec.root.output_type:
+        # kit:boundary owner=successor.language.normalize class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_normalize_rejects_spec_type_mismatch
         raise ValueError("Program output_type does not match its root output_type")
     _check_execution_node(spec.root)
 
@@ -127,6 +129,7 @@ def _check_execution_node(node: ProgramNode, path: str = "root") -> None:
     _require_runtime_type(node.output_type, f"{path}.output_type")
     if isinstance(node, Atom):
         if not node.operation.input_refs:
+            # kit:boundary owner=successor.language.normalize class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_normalize_rejects_atom_without_input_refs
             raise ValueError(f"{path} requires at least one input ValueRef")
         for index, value_ref in enumerate(node.operation.input_refs):
             _require_runtime_type(
@@ -135,29 +138,38 @@ def _check_execution_node(node: ProgramNode, path: str = "root") -> None:
         _require_runtime_type(
             node.operation.payload_ref.object_type, f"{path}.payload_ref.object_type"
         )
-    elif hasattr(node, "first"):
+        return
+    if isinstance(node, Then):
         _check_execution_node(node.first, f"{path}.first")
         _check_execution_node(node.second, f"{path}.second")
-    elif hasattr(node, "source"):
+        return
+    if isinstance(node, MapOutput):
         _check_execution_node(node.source, f"{path}.source")
-    elif hasattr(node, "left"):
+        return
+    if isinstance(node, ZipOrdered):
         _check_execution_node(node.left, f"{path}.left")
         _check_execution_node(node.right, f"{path}.right")
-    elif hasattr(node, "element_program"):
+        return
+    if isinstance(node, TraverseOrdered):
         _check_execution_node(node.element_program, f"{path}.element_program")
-    elif hasattr(node, "branches"):
+        return
+    if isinstance(node, Decide):
         for branch in node.branches:
-            _check_execution_node(branch.program, f"{path}.branches[{branch.branch_id}]")
-
+            _check_execution_node(
+                branch.program, f"{path}.branches[{branch.branch_id}]"
+            )
 
 def _require_runtime_type(object_type: object, path: str) -> None:
     if is_placeholder_object_type(object_type):
+        # kit:boundary owner=successor.language.normalize class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_normalize_rejects_unbound_placeholder_endpoint
         raise ValueError(f"unresolved construction placeholder at {path}")
     type_id = getattr(object_type, "type_id", None)
     codec_id = getattr(object_type, "codec_id", None)
     if not isinstance(type_id, str) or not type_id:
+        # kit:boundary owner=successor.language.normalize class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_normalize_rejects_incomplete_object_type_identity
         raise ValueError(f"incomplete ObjectType identity at {path}")
     if not isinstance(codec_id, str) or not codec_id:
+        # kit:boundary owner=successor.language.normalize class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_normalize_rejects_incomplete_object_type_codec
         raise ValueError(f"incomplete ObjectType codec at {path}")
 
 

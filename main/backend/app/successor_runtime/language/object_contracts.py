@@ -3,19 +3,54 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any, Protocol
+from typing import TYPE_CHECKING, Annotated, Any, NoReturn, Protocol, runtime_checkable
 
 from functorial_kit import Failure
 
-from mrw_functorial_kit.core.w07_semantics import language_failures
 
 from app.successor_runtime.research.codec import dataclass_to_json, sha256_hex
 from app.successor_runtime.research.object_types import ObjectType
 
+if TYPE_CHECKING:
+    from app.successor_runtime.language.profiles import ContractProfileRef
+
+@runtime_checkable
+class _FailureFamilyLike(Protocol):
+    def fail(
+        self,
+        code: str,
+        message: str,
+        context: "dict[str, object] | None" = None,
+    ) -> Failure: ...
+
+    def matches(self, value: object) -> bool: ...
+
+
+@runtime_checkable
+class _FailureFamilyFactory(Protocol):
+    def __call__(self, name: str, codes: "tuple[str, ...]") -> _FailureFamilyLike: ...
+
+
+def _load_language_failures() -> _FailureFamilyLike:
+    import importlib
+
+    module = importlib.import_module("mrw_functorial_kit.core.w07_semantics")
+    factory: object = getattr(module, "define_failure_family", None)
+    if not isinstance(factory, _FailureFamilyFactory):
+        # kit:boundary owner=successor.language.failure_family class=PROGRAMMER_DEFECT failure_family=none witness=test:test_language_failure_family_loader_rejects_missing_factory
+        raise TypeError("language failure family factory is unavailable")
+    family: object = getattr(module, "language_failures", None)
+    if not isinstance(family, _FailureFamilyLike):
+        # kit:boundary owner=successor.language.failure_family class=PROGRAMMER_DEFECT failure_family=none witness=test:test_language_failure_family_loader_rejects_missing_family
+        raise TypeError("language failure family is unavailable")
+    return family
+
+
+_LANGUAGE_FAILURES = _load_language_failures()
 _LANGUAGE_FAILURE_WITNESS = "test:test_w07_language_research_failure_boundary"
 
 
-def _failure(
+def language_failure(
     code: str,
     message: object,
     exception_type: type[Exception],
@@ -25,7 +60,7 @@ def _failure(
     """Create a closed language failure before lifting at the public ABI."""
 
     public_message = str(exception_type(message))
-    return language_failures.fail(
+    return _LANGUAGE_FAILURES.fail(
         code,
         public_message,
         {
@@ -38,17 +73,17 @@ def _failure(
     )
 
 
-def _raise_failure(
+def raise_language_failure(
     failure: Failure,
     exception_type: type[Exception],
     *,
     cause: BaseException | None = None,
-) -> None:
+) -> NoReturn:
     """Lift a complete typed failure while retaining the existing exception ABI."""
 
     context = failure.context or {}
     if (
-        not language_failures.matches(failure)
+        not _LANGUAGE_FAILURES.matches(failure)
         or context.get("public_exception") != exception_type.__name__
         or not context.get("public_message")
     ):
@@ -60,6 +95,29 @@ def _raise_failure(
         raise exception_type(context.get("public_argument", context["public_message"]))
     # kit:boundary owner=successor.language.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_w07_language_research_failure_boundary
     raise exception_type(context.get("public_argument", context["public_message"])) from cause
+
+def _failure(
+    code: str,
+    message: object,
+    exception_type: type[Exception],
+    *,
+    site: str,
+) -> Failure:
+    return language_failure(code, message, exception_type, site=site)
+
+
+def _raise_failure(
+    failure: Failure,
+    exception_type: type[Exception],
+    *,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    raise_language_failure(failure, exception_type, cause=cause)
+
+
+_PRIVATE_FAILURE_FOR_COMPAT = _failure
+_PRIVATE_RAISE_FAILURE_FOR_COMPAT = _raise_failure
+
 
 __all__ = [
     "CAPTURE_DOCUMENT_SNAPSHOT_RETURN_CONTRACT_REF",
@@ -76,6 +134,8 @@ __all__ = [
     "OperationContractResolver",
     "ReturnContract",
     "ReturnContractRegistry",
+    "language_failure",
+    "raise_language_failure",
     "build_c7_document_admission_return_contract_extension",
     "build_first_specimen_return_contract_registry",
     "build_frozen_base_return_contract_registry",
@@ -146,8 +206,8 @@ class ReturnContractRegistry:
     def __post_init__(self) -> None:
         refs = tuple(ref for ref, _contract in self.entries)
         if any(not ref for ref in refs):
-            _raise_failure(
-                _failure(
+            raise_language_failure(
+                language_failure(
                     "CONTRACT_REGISTRY_INVALID",
                     "return contract ref must be non-empty",
                     ValueError,
@@ -156,8 +216,8 @@ class ReturnContractRegistry:
                 ValueError,
             )
         if len(refs) != len(set(refs)):
-            _raise_failure(
-                _failure(
+            raise_language_failure(
+                language_failure(
                     "CONTRACT_REGISTRY_INVALID",
                     "duplicate return contract ref",
                     ValueError,
@@ -175,8 +235,8 @@ class ReturnContractRegistry:
     def resolve_required(self, ref: str) -> ReturnContract:
         contract = self.resolve(ref)
         if contract is None:
-            _raise_failure(
-                _failure(
+            raise_language_failure(
+                language_failure(
                     "UNKNOWN_RETURN_CONTRACT",
                     f"unresolved return contract: {ref}",
                     KeyError,
@@ -266,13 +326,13 @@ class OperationContract:
     input_type: ObjectType
     output_type: ObjectType
     return_contract_ref: str
-    semantic_profile_ref: str
-    effect_profile_ref: str
-    resource_profile_ref: str
-    failure_profile_ref: str
-    authority_profile_ref: str
-    interpreter_compatibility_ref: str
-    observation_profile_ref: str
+    semantic_profile_ref: "ContractProfileRef"
+    effect_profile_ref: "ContractProfileRef"
+    resource_profile_ref: "ContractProfileRef"
+    failure_profile_ref: "ContractProfileRef"
+    authority_profile_ref: "ContractProfileRef"
+    interpreter_compatibility_ref: "ContractProfileRef"
+    observation_profile_ref: "ContractProfileRef"
     allowed_override_schema_ref: str
     owner_capability_id: str
 
@@ -290,8 +350,8 @@ class OperationContract:
     def __post_init__(self) -> None:
         expected = self.contract_digest()
         if self.ref.contract_digest != expected:
-            _raise_failure(
-                _failure(
+            raise_language_failure(
+                language_failure(
                     "CONTRACT_BINDING_MISSING",
                     "OperationContract ref digest mismatch",
                     ValueError,
@@ -308,18 +368,19 @@ def make_operation_contract(
     input_type: ObjectType,
     output_type: ObjectType,
     return_contract_ref: str,
-    semantic_profile_ref: str,
-    effect_profile_ref: str,
-    resource_profile_ref: str,
-    failure_profile_ref: str,
-    authority_profile_ref: str,
-    interpreter_compatibility_ref: str,
-    observation_profile_ref: str,
+    semantic_profile_ref: "ContractProfileRef",
+    effect_profile_ref: "ContractProfileRef",
+    resource_profile_ref: "ContractProfileRef",
+    failure_profile_ref: "ContractProfileRef",
+    authority_profile_ref: "ContractProfileRef",
+    interpreter_compatibility_ref: "ContractProfileRef",
+    observation_profile_ref: "ContractProfileRef",
     allowed_override_schema_ref: str,
     owner_capability_id: str,
 ) -> OperationContract:
     """Build an operation contract whose ref digest matches its content."""
-    body = {
+    payload: "dict[str, object]" = {
+        "ref": {"kind": kind, "contract_version": contract_version},
         "input_type": input_type,
         "output_type": output_type,
         "return_contract_ref": return_contract_ref,
@@ -333,16 +394,26 @@ def make_operation_contract(
         "allowed_override_schema_ref": allowed_override_schema_ref,
         "owner_capability_id": owner_capability_id,
     }
-    payload = {
-        "ref": {"kind": kind, "contract_version": contract_version},
-        **body,
-    }
     ref = OperationContractRef(
         kind=kind,
         contract_version=contract_version,
         contract_digest=sha256_hex(payload),
     )
-    return OperationContract(ref=ref, **body)
+    return OperationContract(
+        ref=ref,
+        input_type=input_type,
+        output_type=output_type,
+        return_contract_ref=return_contract_ref,
+        semantic_profile_ref=semantic_profile_ref,
+        effect_profile_ref=effect_profile_ref,
+        resource_profile_ref=resource_profile_ref,
+        failure_profile_ref=failure_profile_ref,
+        authority_profile_ref=authority_profile_ref,
+        interpreter_compatibility_ref=interpreter_compatibility_ref,
+        observation_profile_ref=observation_profile_ref,
+        allowed_override_schema_ref=allowed_override_schema_ref,
+        owner_capability_id=owner_capability_id,
+    )
 
 
 class OperationContractResolver(Protocol):
@@ -353,3 +424,5 @@ class OperationContractResolver(Protocol):
 
     def resolve_required(self, ref: OperationContractRef) -> OperationContract:
         """Return the exact contract or fail when the ref is not resolvable."""
+        # kit:boundary owner=successor.language.operation_contract_resolver class=PROGRAMMER_DEFECT failure_family=none witness=test:test_operation_contract_resolver_requires_required_resolution
+        raise NotImplementedError

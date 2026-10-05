@@ -21,7 +21,7 @@ import json
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Annotated, Any, Literal, NoReturn, Protocol, TypeAlias, runtime_checkable
+from typing import Annotated, Any, Literal, NoReturn, Protocol, TypeAlias, TypeGuard, get_args, runtime_checkable
 
 from functorial_kit import Failure
 
@@ -35,7 +35,7 @@ from app.successor_runtime.capabilities.contracts import OperationContract
 from app.successor_runtime.capabilities.profiles import ContractProfileRef
 from app.successor_runtime.language.algebra import (
     FrozenJsonObject,
-    FrozenJsonValue,  # noqa: F401 - required by get_type_hints on mirrored DTOs
+    FrozenJsonValue as FrozenJsonValue,  # required by get_type_hints on mirrored DTOs
     freeze_json_object,
 )
 from app.successor_runtime.language.catalog import (
@@ -233,8 +233,6 @@ SOURCE_WARNING_TYPE = ObjectType("SourceWarning.v1")
 SOURCE_REJECTION_TYPE = ObjectType("SourceRejection.v1")
 SOURCE_RESOLUTION_PAYLOAD_TYPE = ObjectType("SourceResolutionPayload.v1")
 SOURCE_RESOLUTION_RESULT_TYPE = ObjectType("SourceResolutionResult.v1")
-SOURCE_RESOLUTION_PAYLOAD_TYPE = SOURCE_RESOLUTION_PAYLOAD_TYPE
-SOURCE_RESOLUTION_RESULT_TYPE = SOURCE_RESOLUTION_RESULT_TYPE
 
 SourceModeLiteral = Literal["protocol_search", "provider_harvest", "site_search", "url_execution"]
 SourceWarningCode: TypeAlias = Literal[
@@ -259,8 +257,8 @@ SourceRejectionCode: TypeAlias = Literal[
     "FORBIDDEN_INTERNAL_ADAPTER",
     "RESOURCE_CEILING_EXCEEDED",
 ]
-SOURCE_WARNING_CODES: frozenset[str] = frozenset(SourceWarningCode.__args__)
-SOURCE_REJECTION_CODES: frozenset[str] = frozenset(SourceRejectionCode.__args__)
+SOURCE_WARNING_CODES: frozenset[str] = frozenset(get_args(SourceWarningCode))
+SOURCE_REJECTION_CODES: frozenset[str] = frozenset(get_args(SourceRejectionCode))
 
 
 def _derive_digest(value: Any) -> str:
@@ -268,8 +266,25 @@ def _derive_digest(value: Any) -> str:
 
 
 def _require_closed_code(value: Any, allowed: frozenset[str], field: str) -> None:
-    if not isinstance(value, str) or value not in allowed:
+    if not _is_string(value) or value not in allowed:
         _reject_source_contract(f"unsupported {field} {value!r}", exception_type=ValueError)
+
+
+def _is_string(value: object) -> TypeGuard[str]:
+    """Retain constructor validation for values supplied by untyped callers."""
+    return isinstance(value, str)
+
+
+def _is_integer(value: object) -> TypeGuard[int]:
+    return isinstance(value, int)
+
+
+def _is_boolean(value: object) -> TypeGuard[bool]:
+    return isinstance(value, bool)
+
+
+def _is_credential_ref(value: object) -> TypeGuard[CredentialRef]:
+    return isinstance(value, CredentialRef)
 
 
 def _freeze(value: FrozenJsonObject | dict[str, Any]) -> FrozenJsonObject:
@@ -280,7 +295,7 @@ def _freeze(value: FrozenJsonObject | dict[str, Any]) -> FrozenJsonObject:
 
 def _validate_resolved_schema(resolved_schema: str) -> str:
     if (
-        not isinstance(resolved_schema, str)
+        not _is_string(resolved_schema)
         or len(resolved_schema.encode("utf-8")) > 63
         or _RESOLVED_SCHEMA_PATTERN.fullmatch(resolved_schema) is None
         or resolved_schema in _FORBIDDEN_RESOLVED_SCHEMAS
@@ -299,17 +314,17 @@ def project_scope_digest(
 ) -> str:
     """Canonical scope digest matching ``compute_scope_digest`` byte-for-byte."""
 
-    if not isinstance(project_key, str) or not project_key.strip():
+    if not _is_string(project_key) or not project_key.strip():
         _reject_source_contract("project_key is required", exception_type=ValueError)
     _validate_resolved_schema(resolved_schema)
     if (
-        not isinstance(project_registry_revision, int)
+        not _is_integer(project_registry_revision)
         or isinstance(project_registry_revision, bool)
         or project_registry_revision < 0
     ):
         _reject_source_contract("project registry revision must be a non-negative integer", exception_type=ValueError)
     if (
-        not isinstance(incarnation, str)
+        not _is_string(incarnation)
         or not incarnation
         or incarnation != incarnation.strip()
         or len(incarnation) > 128
@@ -339,7 +354,7 @@ class VersionedSchema:
     schema_digest: str = ""
 
     def __post_init__(self) -> None:
-        if not isinstance(self.schema_ref, str) or not self.schema_ref:
+        if not _is_string(self.schema_ref) or not self.schema_ref:
             _reject_source_contract("VersionedSchema.schema_ref is required", exception_type=ValueError)
         object.__setattr__(
             self,
@@ -478,10 +493,10 @@ class AuthenticatedProjectScope:
     scope_digest: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.project_key, str) or not self.project_key.strip():
+        if not _is_string(self.project_key) or not self.project_key.strip():
             _reject_source_contract("AuthenticatedProjectScope.project_key is required", exception_type=ValueError)
         if (
-            not isinstance(self.registry_revision, int)
+            not _is_integer(self.registry_revision)
             or isinstance(self.registry_revision, bool)
             or self.registry_revision < 0
         ):
@@ -489,7 +504,7 @@ class AuthenticatedProjectScope:
                 "AuthenticatedProjectScope.registry_revision must be non-negative int", exception_type=ValueError
             )
         _validate_resolved_schema(self.resolved_schema)
-        if not isinstance(self.incarnation, str) or not self.incarnation.strip():
+        if not _is_string(self.incarnation) or not self.incarnation.strip():
             _reject_source_contract("AuthenticatedProjectScope.incarnation is required", exception_type=ValueError)
         expected = project_scope_digest(
             self.project_key,
@@ -528,7 +543,7 @@ class ChannelCatalogEntry:
     extra: FrozenJsonObject = field(default_factory=lambda: freeze_json_object({}))
 
     def __post_init__(self) -> None:
-        if not isinstance(self.channel_key, str) or not self.channel_key.strip():
+        if not _is_string(self.channel_key) or not self.channel_key.strip():
             _reject_source_contract("ChannelCatalogEntry.channel_key is required", exception_type=ValueError)
         object.__setattr__(self, "provider", self.provider.strip().lower())
         object.__setattr__(self, "provider_type", self.provider_type.strip().lower())
@@ -592,11 +607,11 @@ class ChannelCatalogSnapshot:
                 "ChannelCatalogSnapshot.schema_version is not supported",
                 exception_type=ValueError,
             )
-        if not isinstance(self.revision, int) or isinstance(self.revision, bool) or self.revision < 0:
+        if not _is_integer(self.revision) or isinstance(self.revision, bool) or self.revision < 0:
             _reject_source_contract(
                 "ChannelCatalogSnapshot.revision must be non-negative int", exception_type=ValueError
             )
-        if not isinstance(self.incarnation, str) or not self.incarnation.strip():
+        if not _is_string(self.incarnation) or not self.incarnation.strip():
             _reject_source_contract("ChannelCatalogSnapshot.incarnation is required", exception_type=ValueError)
         keys = tuple(entry.channel_key for entry in self.entries)
         if len(keys) != len(set(keys)):
@@ -640,8 +655,8 @@ def build_channel_catalog_snapshot(
 ) -> Annotated[
     ChannelCatalogSnapshot,
     "kit:non-authoritative derived_as=view "
-    "fact_source=source_library.channel_catalog_entry.v1 "
-    "witness=test:test_catalog_drift_rejects",
+    "fact_source=ChannelCatalogEntry+revision+incarnation "
+    "witness=test:test_scope_digest_and_catalog_digest_are_exact_bound",
 ]:
     return ChannelCatalogSnapshot(
         schema_version=CHANNEL_CATALOG_SCHEMA_REF,
@@ -681,15 +696,15 @@ class SourceItemDefinition:
                 _reject_source_contract(f"SourceItemDefinition.{name} must be a string", exception_type=TypeError)
         for name in ("item_type", "managed_by"):
             value = getattr(self, name)
-            if value is not None and not isinstance(value, str):
+            if value is not None and not _is_string(value):
                 _reject_source_contract(
                     f"SourceItemDefinition.{name} must be a string or None", exception_type=ValueError
                 )
         object.__setattr__(self, "params", _freeze(self.params))
         object.__setattr__(self, "extra", _freeze(self.extra))
-        if not isinstance(self.revision, int) or isinstance(self.revision, bool) or self.revision < 0:
+        if not _is_integer(self.revision) or isinstance(self.revision, bool) or self.revision < 0:
             _reject_source_contract("SourceItemDefinition.revision must be non-negative int", exception_type=ValueError)
-        if not isinstance(self.incarnation, str) or not self.incarnation.strip():
+        if not _is_string(self.incarnation) or not self.incarnation.strip():
             _reject_source_contract("SourceItemDefinition.incarnation is required", exception_type=ValueError)
         expected = source_item_definition_content_digest(
             {
@@ -785,7 +800,7 @@ class SourceMode:
             _reject_source_contract("SourceMode.schema_version is not the frozen schema", exception_type=ValueError)
         if self.mode not in SOURCE_MODES:
             _reject_source_contract(f"unsupported SourceMode {self.mode!r}", exception_type=ValueError)
-        if not isinstance(self.version, str) or not self.version.strip():
+        if not _is_string(self.version) or not self.version.strip():
             _reject_source_contract("SourceMode.version is required", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
@@ -814,7 +829,7 @@ class SourceTaxonomy:
             SOURCE_TAXONOMY_HISTORICAL_SCHEMA_REF,
         }:
             _reject_source_contract("SourceTaxonomy.schema_version is not the frozen schema", exception_type=ValueError)
-        if not isinstance(self.channel_family, str) or not self.channel_family.strip():
+        if not _is_string(self.channel_family) or not self.channel_family.strip():
             _reject_source_contract("SourceTaxonomy.channel_family is required", exception_type=ValueError)
         if self.item_type not in {"user_defined", "service_aggregated"}:
             _reject_source_contract(f"unsupported item_type {self.item_type!r}", exception_type=ValueError)
@@ -852,10 +867,10 @@ class VersionedWarning:
             )
         if self.code not in SOURCE_WARNING_CODES:
             _reject_source_contract(f"unregistered warning code {self.code!r}", exception_type=ValueError)
-        if not isinstance(self.version, str) or not self.version.strip():
+        if not _is_string(self.version) or not self.version.strip():
             _reject_source_contract("VersionedWarning.version is required", exception_type=ValueError)
         object.__setattr__(self, "ordered_payload", tuple(self.ordered_payload))
-        if not all(isinstance(item, str) for item in self.ordered_payload):
+        if not all(_is_string(item) for item in self.ordered_payload):
             _reject_source_contract("VersionedWarning.ordered_payload must contain strings", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
@@ -867,7 +882,7 @@ class VersionedWarning:
         }
 
 
-_LEGACY_WARNING_PATTERNS: tuple[tuple[str, str, tuple[int, ...]], ...] = (
+_LEGACY_WARNING_PATTERNS: tuple[tuple[str, SourceWarningCode, tuple[int, ...]], ...] = (
     ("invalid_source_mode_ignored", "SOURCE_MODE_INVALID_IGNORED", (0,)),
     ("source_mode_overridden_by_urls", "SOURCE_MODE_OVERRIDDEN_BY_URLS", (0, 1)),
     (
@@ -923,9 +938,9 @@ class SourceRejection:
             )
         if self.code not in SOURCE_REJECTION_CODES:
             _reject_source_contract(f"unregistered rejection code {self.code!r}", exception_type=ValueError)
-        if not isinstance(self.version, str) or not self.version.strip():
+        if not _is_string(self.version) or not self.version.strip():
             _reject_source_contract("SourceRejection.version is required", exception_type=ValueError)
-        if not isinstance(self.message, str):
+        if not _is_string(self.message):
             _reject_source_contract("SourceRejection.message must be a string", exception_type=TypeError)
 
     def to_plain(self) -> dict[str, Any]:
@@ -961,9 +976,9 @@ def _as_optional_ymd(value: Any) -> str | None:
     return raw
 
 
-def _normalize_terms(value: Any) -> tuple[str, ...]:
+def _normalize_terms(value: object) -> tuple[str, ...]:
     out: list[str] = []
-    if isinstance(value, (list, tuple)):
+    if _is_object_sequence(value):
         for item in value:
             text = str(item or "").strip()
             if text and text not in out:
@@ -975,10 +990,10 @@ def _normalize_terms(value: Any) -> tuple[str, ...]:
     return tuple(out)
 
 
-def _normalize_site_entries(value: Any) -> tuple[str, ...]:
-    if isinstance(value, str):
-        raw_entries: Any = [value]
-    elif isinstance(value, (list, tuple)):
+def _normalize_site_entries(value: object) -> tuple[str, ...]:
+    if _is_string(value):
+        raw_entries: list[object] | tuple[object, ...] = [value]
+    elif _is_object_sequence(value):
         raw_entries = value
     else:
         return ()
@@ -1099,7 +1114,7 @@ class NormalizedParamsSnapshot:
             "start_offset",
         ):
             value = getattr(self, name)
-            if value is not None and (not isinstance(value, int) or isinstance(value, bool)):
+            if value is not None and (not _is_integer(value) or isinstance(value, bool)):
                 _reject_source_contract(
                     f"NormalizedParamsSnapshot.{name} must be int or None", exception_type=ValueError
                 )
@@ -1302,7 +1317,7 @@ class SourceExecutionRequest:
             _reject_source_contract(
                 "SourceExecutionRequest.schema_version is not the frozen schema", exception_type=ValueError
             )
-        if not isinstance(self.item_revision, int) or isinstance(self.item_revision, bool) or self.item_revision < 0:
+        if not _is_integer(self.item_revision) or isinstance(self.item_revision, bool) or self.item_revision < 0:
             _reject_source_contract(
                 "SourceExecutionRequest.item_revision must be non-negative int", exception_type=ValueError
             )
@@ -1310,7 +1325,7 @@ class SourceExecutionRequest:
             ("item_incarnation", self.item_incarnation),
             ("catalog_incarnation", self.catalog_incarnation),
         ):
-            if not isinstance(value, str) or not value.strip():
+            if not _is_string(value) or not value.strip():
                 _reject_source_contract(f"SourceExecutionRequest.{name} is required", exception_type=ValueError)
         require_hex64(
             self.item_content_digest,
@@ -1362,7 +1377,7 @@ class ResourceCeiling:
             "max_scalar_length",
         ):
             value = getattr(self, name)
-            if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            if not _is_integer(value) or isinstance(value, bool) or value <= 0:
                 _reject_source_contract(f"ResourceCeiling.{name} must be a positive int", exception_type=ValueError)
         expected = content_digest(
             {
@@ -1497,16 +1512,10 @@ AggregateProviderFailureCode: TypeAlias = Literal[
 ]
 ProviderEffectOperationKind: TypeAlias = Literal["source_library.execute_provider_effect.v1"]
 
-SOURCE_PROVIDER_ACQUISITION_FAILURE_CODES: frozenset[str] = frozenset(AggregateProviderFailureCode.__args__)
-PROVIDER_REJECTION_CODES: frozenset[str] = frozenset(ProviderRejectionCode.__args__)
-PROVIDER_EXECUTION_FAILURE_CODES: frozenset[str] = frozenset(ProviderExecutionFailureCode.__args__)
-CREDENTIAL_REJECTION_CODES: frozenset[str] = frozenset(CredentialRejectionCode.__args__)
-
-
-def _freeze(value: FrozenJsonObject | dict[str, Any]) -> FrozenJsonObject:
-    if isinstance(value, dict):
-        return freeze_json_object(value)
-    return freeze_json_object(dict(value))
+SOURCE_PROVIDER_ACQUISITION_FAILURE_CODES: frozenset[str] = frozenset(get_args(AggregateProviderFailureCode))
+PROVIDER_REJECTION_CODES: frozenset[str] = frozenset(get_args(ProviderRejectionCode))
+PROVIDER_EXECUTION_FAILURE_CODES: frozenset[str] = frozenset(get_args(ProviderExecutionFailureCode))
+CREDENTIAL_REJECTION_CODES: frozenset[str] = frozenset(get_args(CredentialRejectionCode))
 
 
 def _digest_payload(value: Any) -> str:
@@ -1559,7 +1568,7 @@ class CredentialRef:
     schema_version: str = CREDENTIAL_REF_SCHEMA
 
     def __post_init__(self) -> None:
-        if not isinstance(self.ref, str) or self.ref != self.ref.strip():
+        if not _is_string(self.ref) or self.ref != self.ref.strip():
             _reject_source_contract(
                 "CredentialRef.ref must be a non-whitespace opaque locator", exception_type=ValueError
             )
@@ -1616,11 +1625,11 @@ class ProviderResourcePolicy:
             ("rate_limit_budget", self.rate_limit_budget),
             ("reservation_lease_seconds", self.reservation_lease_seconds),
         ):
-            if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            if not _is_integer(value) or isinstance(value, bool) or value <= 0:
                 _reject_source_contract(
                     f"ProviderResourcePolicy.{name} must be positive int", exception_type=ValueError
                 )
-        if not isinstance(self.retry_budget, int) or isinstance(self.retry_budget, bool) or self.retry_budget < 0:
+        if not _is_integer(self.retry_budget) or isinstance(self.retry_budget, bool) or self.retry_budget < 0:
             _reject_source_contract(
                 "ProviderResourcePolicy.retry_budget must be non-negative int", exception_type=ValueError
             )
@@ -1704,7 +1713,7 @@ class ProviderEffectRequest:
         object.__setattr__(
             self,
             "credential_refs",
-            tuple(ref for ref in self.credential_refs if isinstance(ref, CredentialRef)),
+            tuple(ref for ref in self.credential_refs if _is_credential_ref(ref)),
         )
         expected = _digest_payload(self._digest_payload())
         if self.request_digest == "":
@@ -1763,7 +1772,7 @@ class ProviderAttemptRef:
         if not self.attempt_id.strip():
             _reject_source_contract("ProviderAttemptRef.attempt_id is required", exception_type=ValueError)
         require_hex64(self.request_digest, "ProviderAttemptRef.request_digest")
-        if not isinstance(self.epoch, int) or isinstance(self.epoch, bool) or self.epoch < 1:
+        if not _is_integer(self.epoch) or isinstance(self.epoch, bool) or self.epoch < 1:
             _reject_source_contract("ProviderAttemptRef.epoch must be a positive integer", exception_type=ValueError)
         if self.schema_version not in {
             PROVIDER_ATTEMPT_REF_SCHEMA,
@@ -1882,7 +1891,7 @@ class StagedArtifactRef:
         if not self.artifact_id.strip() or not self.content_ref.strip():
             _reject_source_contract("StagedArtifactRef identities are required", exception_type=ValueError)
         require_hex64(self.content_digest, "StagedArtifactRef.content_digest")
-        if not isinstance(self.byte_size, int) or isinstance(self.byte_size, bool) or self.byte_size < 0:
+        if not _is_integer(self.byte_size) or isinstance(self.byte_size, bool) or self.byte_size < 0:
             _reject_source_contract("StagedArtifactRef.byte_size must be a non-negative int", exception_type=ValueError)
         if self.staging_state != "STAGED":
             _reject_source_contract("StagedArtifactRef.staging_state must be STAGED", exception_type=ValueError)
@@ -2087,14 +2096,14 @@ class OrderedProviderFailure:
     source: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.order_index, int) or isinstance(self.order_index, bool) or self.order_index < 0:
+        if not _is_integer(self.order_index) or isinstance(self.order_index, bool) or self.order_index < 0:
             _reject_source_contract(
                 "OrderedProviderFailure.order_index must be a non-negative int", exception_type=ValueError
             )
         _require_closed_code(self.code, SOURCE_PROVIDER_ACQUISITION_FAILURE_CODES, "ordered provider failure code")
-        if not isinstance(self.message, str):
+        if not _is_string(self.message):
             _reject_source_contract("OrderedProviderFailure.message must be a string", exception_type=ValueError)
-        if not isinstance(self.source, str) or not self.source.strip():
+        if not _is_string(self.source) or not self.source.strip():
             _reject_source_contract("OrderedProviderFailure.source is required", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
@@ -2528,19 +2537,13 @@ PlanningRejectionCode: TypeAlias = Literal[
     "RESOURCE_CEILING_EXCEEDED",
     "CATALOG_STALE",
 ]
-SOURCE_PLANNING_FAILURE_CODES: frozenset[str] = frozenset(PlanningRejectionCode.__args__)
+SOURCE_PLANNING_FAILURE_CODES: frozenset[str] = frozenset(get_args(PlanningRejectionCode))
 
 SOURCE_MODE_PLANNING_PAYLOAD_TYPE = ObjectType("SourceModePlanningPayload.v1")
 SOURCE_MODE_PLAN_TYPE = ObjectType("SourceModePlan.v1")
 SOURCE_MODE_PLANNING_RESULT_TYPE = ObjectType("SourceModePlanningResult.v1")
 SOURCE_COLLECTION_TERMINAL_TYPE = ObjectType("SourceCollectionTerminal.v1")
 SOURCE_COLLECTION_OUTCOME_TYPE = ObjectType("SourceCollectionOutcome.v1")
-
-
-def _freeze(value: FrozenJsonObject | dict[str, Any]) -> FrozenJsonObject:
-    if isinstance(value, dict):
-        return freeze_json_object(value)
-    return freeze_json_object(dict(value))
 
 
 def _plain_digest(value: Any) -> str:
@@ -2694,7 +2697,7 @@ class OrderedFoldPolicy:
         }:
             _reject_source_contract(f"unsupported fold failure mode {self.failure_mode!r}", exception_type=ValueError)
         if (
-            not isinstance(self.max_partial_failures, int)
+            not _is_integer(self.max_partial_failures)
             or isinstance(self.max_partial_failures, bool)
             or self.max_partial_failures < 1
             or self.max_partial_failures > SOURCE_PLANNING_MAX_TASKS
@@ -2727,7 +2730,7 @@ class SourceModeTask:
             _reject_source_contract("SourceModeTask identities are required", exception_type=ValueError)
         if self.mode not in SOURCE_MODES:
             _reject_source_contract(f"unsupported source mode task {self.mode!r}", exception_type=ValueError)
-        if not isinstance(self.order_index, int) or isinstance(self.order_index, bool) or self.order_index < 0:
+        if not _is_integer(self.order_index) or isinstance(self.order_index, bool) or self.order_index < 0:
             _reject_source_contract("SourceModeTask.order_index must be a non-negative int", exception_type=ValueError)
         expected = _plain_digest(
             {
@@ -2931,12 +2934,12 @@ class OrderedFailure:
     source: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.order_index, int) or isinstance(self.order_index, bool) or self.order_index < 0:
+        if not _is_integer(self.order_index) or isinstance(self.order_index, bool) or self.order_index < 0:
             _reject_source_contract("OrderedFailure.order_index must be a non-negative int", exception_type=ValueError)
         _require_closed_code(self.code, SOURCE_PROVIDER_ACQUISITION_FAILURE_CODES, "ordered collection failure code")
-        if not isinstance(self.message, str):
+        if not _is_string(self.message):
             _reject_source_contract("OrderedFailure.message must be a string", exception_type=ValueError)
-        if not isinstance(self.source, str) or not self.source.strip():
+        if not _is_string(self.source) or not self.source.strip():
             _reject_source_contract("OrderedFailure.source is required", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
@@ -3020,7 +3023,7 @@ class SourceCollectionTerminal:
             _reject_source_contract(
                 f"unsupported collection terminal status {self.status!r}", exception_type=ValueError
             )
-        if not isinstance(self.records_count, int) or isinstance(self.records_count, bool) or self.records_count < 0:
+        if not _is_integer(self.records_count) or isinstance(self.records_count, bool) or self.records_count < 0:
             _reject_source_contract(
                 "SourceCollectionTerminal.records_count must be non-negative", exception_type=ValueError
             )
@@ -3162,7 +3165,7 @@ class CollectionRejected:
 
     def __post_init__(self) -> None:
         _require_closed_code(self.code, SOURCE_PLANNING_FAILURE_CODES, "collection rejection code")
-        if not isinstance(self.message, str):
+        if not _is_string(self.message):
             _reject_source_contract("CollectionRejected.message must be a string", exception_type=ValueError)
         expected = _plain_digest(
             {
@@ -3204,9 +3207,9 @@ class CollectionFailed:
             PROVIDER_EXECUTION_FAILURE_CODES,
             "collection failure code",
         )
-        if not isinstance(self.message, str):
+        if not _is_string(self.message):
             _reject_source_contract("CollectionFailed.message must be a string", exception_type=ValueError)
-        if not isinstance(self.retryable, bool):
+        if not _is_boolean(self.retryable):
             _reject_source_contract("CollectionFailed.retryable must be a bool", exception_type=ValueError)
         expected = _plain_digest(
             {
@@ -3355,7 +3358,7 @@ def _placeholder_effect_request() -> ProviderEffectRequest:
         provider_config_ref="catalog:placeholder",
         effect_payload_codec_ref="codec:placeholder",
         effect_payload_digest=content_digest({"payload": "placeholder"}),
-        effect_payload={"placeholder": True},
+        effect_payload=freeze_json_object({"placeholder": True}),
         credential_refs=(),
         policy=SOURCE_PROVIDER_ACQUISITION_DEFAULT_RESOURCE_POLICY,
         catalog_revision=0,
@@ -3378,13 +3381,13 @@ def source_collection_outcomes_equal(left: SourceCollectionOutcome, right: Sourc
 
 
 # --- mode mapping ---
-MODE_BY_KIND: dict[str, str] = {
+MODE_BY_KIND: dict[SourcePlanningOperationKind, SourceModeLiteral] = {
     "source_library.protocol_search.v1": "protocol_search",
     "source_library.provider_harvest.v1": "provider_harvest",
     "source_library.site_search.v1": "site_search",
     "source_library.url_execution.v1": "url_execution",
 }
-KIND_BY_MODE: dict[str, str] = {mode: kind for kind, mode in MODE_BY_KIND.items()}
+KIND_BY_MODE: dict[SourceModeLiteral, SourcePlanningOperationKind] = {mode: kind for kind, mode in MODE_BY_KIND.items()}
 
 
 def mode_for_kind(kind: SourcePlanningOperationKind) -> SourceModeLiteral:
@@ -3396,7 +3399,7 @@ def mode_for_kind(kind: SourcePlanningOperationKind) -> SourceModeLiteral:
 
 def try_mode_for_kind(kind: str) -> SourceModeLiteral | Failure:
     try:
-        return mode_for_kind(kind)  # type: ignore[arg-type]
+        return mode_for_kind(_planning_kind(kind, "operation kind"))
     except (KeyError, TypeError, ValueError) as exc:
         return source_contract_failure(
             "schema_contract_invalid",
@@ -3416,7 +3419,7 @@ def kind_for_mode(mode: SourceModeLiteral) -> SourcePlanningOperationKind:
 
 def try_kind_for_mode(mode: str) -> SourcePlanningOperationKind | Failure:
     try:
-        return kind_for_mode(mode)  # type: ignore[arg-type]
+        return kind_for_mode(_source_mode(mode, "source mode"))
     except (KeyError, TypeError, ValueError) as exc:
         return source_contract_failure(
             "schema_contract_invalid",
@@ -3457,9 +3460,9 @@ class RedactedCredentialRejection:
 
     def __post_init__(self) -> None:
         _require_closed_code(self.code, CREDENTIAL_REJECTION_CODES, "credential rejection code")
-        if not isinstance(self.credential_ref, str) or not self.credential_ref.strip():
+        if not _is_string(self.credential_ref) or not self.credential_ref.strip():
             _reject_source_contract("RedactedCredentialRejection.credential_ref is required", exception_type=ValueError)
-        if not isinstance(self.message, str):
+        if not _is_string(self.message):
             _reject_source_contract("RedactedCredentialRejection.message must be a string", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
@@ -3481,6 +3484,7 @@ class CredentialResolverPort(Protocol):
         authorization: Any,
     ) -> EphemeralCredentialLease | RedactedCredentialRejection:
         """Resolve one opaque credential ref or return a redacted rejection."""
+        ...
 
 
 @runtime_checkable
@@ -3491,6 +3495,7 @@ class ProviderEffectPort(Protocol):
         ephemeral_credentials: tuple[EphemeralCredentialLease, ...],
     ) -> ProviderEffectOutcome:
         """Execute one provider effect through an authorized interpreter."""
+        ...
 
     def cancel(
         self,
@@ -3498,6 +3503,7 @@ class ProviderEffectPort(Protocol):
         request: ProviderEffectRequest,
     ) -> CancelReceipt:
         """Request cancellation; never fabricates terminal state."""
+        ...
 
 
 @runtime_checkable
@@ -3508,6 +3514,7 @@ class ProviderReadbackPort(Protocol):
         request: ProviderEffectRequest,
     ) -> ProviderReadbackResult:
         """Return authoritative, waiting or unavailable readback state."""
+        ...
 
     def prove_not_started(
         self,
@@ -3515,6 +3522,7 @@ class ProviderReadbackPort(Protocol):
         request: ProviderEffectRequest,
     ) -> NonStartProof | NonStartUnprovable:
         """Prove the attempt never started, or honestly return unprovable."""
+        ...
 
 
 @runtime_checkable
@@ -3529,6 +3537,7 @@ class ProviderEffectGateway(Protocol):
         authorization: Any,
     ) -> ProviderEffectOutcome:
         """Resolve credentials then execute one provider effect."""
+        ...
 
 
 class ProviderCallTracer(Protocol):
@@ -3537,176 +3546,396 @@ class ProviderCallTracer(Protocol):
     provider_calls: list[str]
 
 
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _plain_object(value: object, field_name: str) -> dict[str, object]:
+    if not _is_object_mapping(value):
+        _reject_source_contract(f"{field_name} must be an object", site=field_name)
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            _reject_source_contract(f"{field_name} keys must be strings", site=field_name)
+        result[key] = item
+    return result
+
+
+def _required_plain_field(value: Mapping[str, object], field_name: str) -> object:
+    if field_name not in value:
+        _reject_source_contract(f"{field_name} is required", site=field_name)
+    return value[field_name]
+
+
+def _plain_sequence(value: object, field_name: str) -> tuple[object, ...]:
+    if not _is_object_sequence(value):
+        _reject_source_contract(f"{field_name} must be an array", site=field_name)
+    return tuple(value)
+
+
+def _plain_strings(value: object, field_name: str) -> tuple[str, ...]:
+    values = _plain_sequence(value, field_name)
+    return tuple(_plain_string(item, field_name) for item in values)
+
+
+def _plain_string(value: object, field_name: str) -> str:
+    if not isinstance(value, str):
+        _reject_source_contract(f"{field_name} must be a string", site=field_name)
+    return value
+
+
+def _plain_optional_string(value: object, field_name: str) -> str | None:
+    return None if value is None else _plain_string(value, field_name)
+
+
+def _plain_int(value: object, field_name: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        _reject_source_contract(f"{field_name} must be an integer", site=field_name)
+    return value
+
+
+def _plain_optional_int(value: object, field_name: str) -> int | None:
+    return None if value is None else _plain_int(value, field_name)
+
+
+def _plain_default_int(value: object, default: int, field_name: str) -> int:
+    return default if value is None else _plain_int(value, field_name)
+
+
+def _plain_bool(value: object, field_name: str) -> bool:
+    if not isinstance(value, bool):
+        _reject_source_contract(f"{field_name} must be a boolean", site=field_name)
+    return value
+
+
+def _plain_optional_float(value: object, field_name: str) -> float | None:
+    if value is None:
+        return None
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        _reject_source_contract(f"{field_name} must be numeric or null", site=field_name)
+    return float(value)
+
+
+def _source_mode(value: object, field_name: str) -> SourceModeLiteral:
+    _plain_string(value, field_name)
+    for mode in SOURCE_MODES:
+        if value == mode:
+            return mode
+    _reject_source_contract(f"unsupported {field_name} {value!r}", site=field_name)
+
+
+def _planning_kind(value: object, field_name: str) -> SourcePlanningOperationKind:
+    _plain_string(value, field_name)
+    for kind in SOURCE_PLANNING_KINDS:
+        if value == kind:
+            return kind
+    _reject_source_contract(f"unsupported {field_name} {value!r}", site=field_name)
+
+
+def _catalog_schema(
+    value: object,
+) -> Literal["mrw.source.channel-catalog.v2", "mrw.successor.source-library.channel-catalog.v1"]:
+    _plain_string(value, "catalog/schema_version")
+    if value == CHANNEL_CATALOG_SCHEMA_REF:
+        return CHANNEL_CATALOG_SCHEMA_REF
+    if value == CHANNEL_CATALOG_HISTORICAL_SCHEMA_REF:
+        return CHANNEL_CATALOG_HISTORICAL_SCHEMA_REF
+    _reject_source_contract(f"unsupported catalog schema {value!r}", site="catalog/schema_version")
+
+
+def _planning_schema(
+    value: object,
+) -> Literal["mrw.source.plan-source-mode.payload.v2", "mrw.successor.source-library.c2-2.planning-payload.v1"]:
+    _plain_string(value, "payload/schema_version")
+    if value == SOURCE_MODE_PLANNING_PAYLOAD_SCHEMA:
+        return SOURCE_MODE_PLANNING_PAYLOAD_SCHEMA
+    if value == SOURCE_MODE_PLANNING_HISTORICAL_PAYLOAD_SCHEMA:
+        return SOURCE_MODE_PLANNING_HISTORICAL_PAYLOAD_SCHEMA
+    _reject_source_contract(f"unsupported planning schema {value!r}", site="payload/schema_version")
+
+
+def _warning_code(value: object) -> SourceWarningCode:
+    _plain_string(value, "warning/code")
+    for _, code, _ in _LEGACY_WARNING_PATTERNS:
+        if value == code:
+            return code
+    _reject_source_contract(f"unsupported warning code {value!r}", site="warning/code")
+
+
+def _taxonomy_item_type(value: object) -> Literal["user_defined", "service_aggregated"]:
+    _plain_string(value, "taxonomy/item_type")
+    if value == "user_defined":
+        return "user_defined"
+    if value == "service_aggregated":
+        return "service_aggregated"
+    _reject_source_contract(f"unsupported item_type {value!r}", site="taxonomy/item_type")
+
+
+def _taxonomy_manager(value: object) -> Literal["user", "system"]:
+    _plain_string(value, "taxonomy/managed_by")
+    if value == "user":
+        return "user"
+    if value == "system":
+        return "system"
+    _reject_source_contract(f"unsupported managed_by {value!r}", site="taxonomy/managed_by")
+
+
+def _plain_pairs(value: object, field_name: str) -> tuple[tuple[str, str], ...]:
+    result: list[tuple[str, str]] = []
+    for pair in _plain_sequence(value, field_name):
+        parts = _plain_sequence(pair, field_name)
+        if len(parts) != 2:
+            _reject_source_contract(f"{field_name} entries must have two items", site=field_name)
+        result.append((_plain_string(parts[0], field_name), _plain_string(parts[1], field_name)))
+    return tuple(result)
+
+
+def _plain_extra(value: object) -> dict[str, object]:
+    if _is_object_mapping(value):
+        return _plain_object(value, "catalog/extra")
+    result: dict[str, object] = {}
+    for pair in _plain_sequence(value, "catalog/extra"):
+        parts = _plain_sequence(pair, "catalog/extra")
+        if len(parts) != 2:
+            _reject_source_contract("catalog/extra entries must have two items", site="catalog/extra")
+        result[_plain_string(parts[0], "catalog/extra/key")] = parts[1]
+    return result
+
+
+def _concurrency_stage_from_plain(value: object) -> FrontDoorConcurrencyStage:
+    plain = _plain_object(value, "concurrency stage")
+    fields = {
+        "stage",
+        "tasks_total",
+        "requested_parallelism",
+        "parallelism",
+        "budget",
+        "fail_fast",
+        "timeout_seconds",
+    }
+    if set(plain) - fields:
+        _reject_source_contract("concurrency stage contains unsupported fields", site="concurrency stage")
+    return FrontDoorConcurrencyStage(
+        stage=_plain_string(_required_plain_field(plain, "stage"), "stage"),
+        tasks_total=_plain_int(_required_plain_field(plain, "tasks_total"), "tasks_total"),
+        requested_parallelism=_plain_int(
+            _required_plain_field(plain, "requested_parallelism"), "requested_parallelism"
+        ),
+        parallelism=_plain_int(_required_plain_field(plain, "parallelism"), "parallelism"),
+        budget=_plain_int(_required_plain_field(plain, "budget"), "budget"),
+        fail_fast=_plain_bool(_required_plain_field(plain, "fail_fast"), "fail_fast"),
+        timeout_seconds=_plain_optional_float(_required_plain_field(plain, "timeout_seconds"), "timeout_seconds"),
+    )
+
+
 def _source_mode_planning_payload_from_plain(
-    value: dict[str, Any],
+    value: Mapping[str, object],
     *,
     default_schema: str,
 ) -> SourceModePlanningPayload:
     """Rebuild the exact C2.2 planning payload from its canonical plain form."""
 
-    scope_plain = dict(value["project_scope"])
+    scope_plain = _plain_object(_required_plain_field(value, "project_scope"), "project_scope")
     scope = AuthenticatedProjectScope(
-        project_key=scope_plain["project_key"],
-        registry_revision=int(scope_plain["registry_revision"]),
-        resolved_schema=scope_plain["resolved_schema"],
-        incarnation=scope_plain["incarnation"],
-        scope_digest=scope_plain["scope_digest"],
+        project_key=_plain_string(_required_plain_field(scope_plain, "project_key"), "project_key"),
+        registry_revision=_plain_int(_required_plain_field(scope_plain, "registry_revision"), "registry_revision"),
+        resolved_schema=_plain_string(_required_plain_field(scope_plain, "resolved_schema"), "resolved_schema"),
+        incarnation=_plain_string(_required_plain_field(scope_plain, "incarnation"), "incarnation"),
+        scope_digest=_plain_string(_required_plain_field(scope_plain, "scope_digest"), "scope_digest"),
     )
-    request_plain = dict(value["execution_request"])
-    params_plain = dict(request_plain["params"])
+    request_plain = _plain_object(_required_plain_field(value, "execution_request"), "execution_request")
+    params_plain = _plain_object(_required_plain_field(request_plain, "params"), "params")
     params = NormalizedParamsSnapshot(
-        query_terms=tuple(params_plain.get("query_terms") or ()),
-        max_items=params_plain.get("max_items"),
-        limit=params_plain.get("limit"),
-        per_keyword_limit=params_plain.get("per_keyword_limit"),
-        max_candidates=params_plain.get("max_candidates"),
-        ingest_limit=params_plain.get("ingest_limit"),
-        page=params_plain.get("page"),
-        page_size=params_plain.get("page_size"),
-        max_pages=params_plain.get("max_pages"),
-        days_back=params_plain.get("days_back"),
-        start_offset=params_plain.get("start_offset"),
-        start_time=params_plain.get("start_time"),
-        end_time=params_plain.get("end_time"),
-        date_from=params_plain.get("date_from"),
-        date_to=params_plain.get("date_to"),
-        source_mode=params_plain.get("source_mode"),
-        expected_entry_type=params_plain.get("expected_entry_type"),
-        urls=tuple(params_plain.get("urls") or ()),
-        site_entries=tuple(params_plain.get("site_entries") or ()),
-        site_entry_urls=tuple(params_plain.get("site_entry_urls") or ()),
-        official_access_site_entries=tuple(params_plain.get("official_access_site_entries") or ()),
-        legacy_url_list_frozen=bool(params_plain.get("legacy_url_list_frozen", False)),
-        allow_internal_generic_web=bool(
+        query_terms=_plain_strings(params_plain.get("query_terms", ()), "query_terms"),
+        max_items=_plain_optional_int(params_plain.get("max_items"), "max_items"),
+        limit=_plain_optional_int(params_plain.get("limit"), "limit"),
+        per_keyword_limit=_plain_optional_int(params_plain.get("per_keyword_limit"), "per_keyword_limit"),
+        max_candidates=_plain_optional_int(params_plain.get("max_candidates"), "max_candidates"),
+        ingest_limit=_plain_optional_int(params_plain.get("ingest_limit"), "ingest_limit"),
+        page=_plain_optional_int(params_plain.get("page"), "page"),
+        page_size=_plain_optional_int(params_plain.get("page_size"), "page_size"),
+        max_pages=_plain_optional_int(params_plain.get("max_pages"), "max_pages"),
+        days_back=_plain_optional_int(params_plain.get("days_back"), "days_back"),
+        start_offset=_plain_optional_int(params_plain.get("start_offset"), "start_offset"),
+        start_time=_plain_optional_string(params_plain.get("start_time"), "start_time"),
+        end_time=_plain_optional_string(params_plain.get("end_time"), "end_time"),
+        date_from=_plain_optional_string(params_plain.get("date_from"), "date_from"),
+        date_to=_plain_optional_string(params_plain.get("date_to"), "date_to"),
+        source_mode=None
+        if params_plain.get("source_mode") is None
+        else _source_mode(_required_plain_field(params_plain, "source_mode"), "source_mode"),
+        expected_entry_type=_plain_optional_string(params_plain.get("expected_entry_type"), "expected_entry_type"),
+        urls=_plain_strings(params_plain.get("urls", ()), "urls"),
+        site_entries=_plain_strings(params_plain.get("site_entries", ()), "site_entries"),
+        site_entry_urls=_plain_strings(params_plain.get("site_entry_urls", ()), "site_entry_urls"),
+        official_access_site_entries=_plain_strings(
+            params_plain.get("official_access_site_entries", ()), "official_access_site_entries"
+        ),
+        legacy_url_list_frozen=_plain_bool(params_plain.get("legacy_url_list_frozen", False), "legacy_url_list_frozen"),
+        allow_internal_generic_web=_plain_bool(
             params_plain.get(
                 "_allow_internal_generic_web",
                 params_plain.get("allow_internal_generic_web", False),
-            )
+            ),
+            "allow_internal_generic_web",
         ),
-        extra=tuple((str(key), str(item)) for key, item in params_plain.get("extra") or []),
+        extra=_plain_pairs(params_plain.get("extra", []), "params/extra"),
     )
-    mode_plain = dict(request_plain["source_mode"])
+    mode_plain = _plain_object(_required_plain_field(request_plain, "source_mode"), "source_mode")
     mode = SourceMode(
-        mode=mode_plain["mode"],
-        version=mode_plain["version"],
-        schema_version=mode_plain.get("schema_version", SOURCE_MODE_SCHEMA_REF),
+        mode=_source_mode(_required_plain_field(mode_plain, "mode"), "mode"),
+        version=_plain_string(_required_plain_field(mode_plain, "version"), "version"),
+        schema_version=_plain_string(mode_plain.get("schema_version", SOURCE_MODE_SCHEMA_REF), "schema_version"),
     )
-    taxonomy_plain = dict(request_plain["taxonomy"])
+    taxonomy_plain = _plain_object(_required_plain_field(request_plain, "taxonomy"), "taxonomy")
     taxonomy = SourceTaxonomy(
-        channel_family=taxonomy_plain["channel_family"],
-        item_type=taxonomy_plain["item_type"],
-        managed_by=taxonomy_plain["managed_by"],
-        expected_entry_type=taxonomy_plain.get("expected_entry_type"),
-        internal_adapter_only=bool(taxonomy_plain["internal_adapter_only"]),
-        site_search_authoritative=bool(taxonomy_plain["site_search_authoritative"]),
-        schema_version=taxonomy_plain.get("schema_version", SOURCE_TAXONOMY_SCHEMA_REF),
+        channel_family=_plain_string(_required_plain_field(taxonomy_plain, "channel_family"), "channel_family"),
+        item_type=_taxonomy_item_type(_required_plain_field(taxonomy_plain, "item_type")),
+        managed_by=_taxonomy_manager(_required_plain_field(taxonomy_plain, "managed_by")),
+        expected_entry_type=_plain_optional_string(taxonomy_plain.get("expected_entry_type"), "expected_entry_type"),
+        internal_adapter_only=_plain_bool(
+            _required_plain_field(taxonomy_plain, "internal_adapter_only"), "internal_adapter_only"
+        ),
+        site_search_authoritative=_plain_bool(
+            _required_plain_field(taxonomy_plain, "site_search_authoritative"), "site_search_authoritative"
+        ),
+        schema_version=_plain_string(
+            taxonomy_plain.get("schema_version", SOURCE_TAXONOMY_SCHEMA_REF), "schema_version"
+        ),
+    )
+    warning_values = tuple(
+        _plain_object(item, "warning") for item in _plain_sequence(request_plain.get("warnings", []), "warnings")
     )
     warnings = tuple(
         VersionedWarning(
-            code=item["code"],
-            version=item["version"],
-            ordered_payload=tuple(item["ordered_payload"]),
-            schema_version=item.get("schema_version", SOURCE_WARNING_SCHEMA_REF),
+            code=_warning_code(_required_plain_field(item, "code")),
+            version=_plain_string(_required_plain_field(item, "version"), "warning/version"),
+            ordered_payload=_plain_strings(_required_plain_field(item, "ordered_payload"), "ordered_payload"),
+            schema_version=_plain_string(
+                item.get("schema_version", SOURCE_WARNING_SCHEMA_REF), "warning/schema_version"
+            ),
         )
-        for item in request_plain.get("warnings") or []
+        for item in warning_values
     )
-    protocol_plain = dict(request_plain["protocol"])
-    concurrency_plain = dict(protocol_plain["concurrency_plan"])
-    search = FrontDoorConcurrencyStage(**dict(concurrency_plain["search"]))
-    url = FrontDoorConcurrencyStage(**dict(concurrency_plain["url"]))
+    protocol_plain = _plain_object(_required_plain_field(request_plain, "protocol"), "protocol")
+    concurrency_plain = _plain_object(_required_plain_field(protocol_plain, "concurrency_plan"), "concurrency_plan")
+    search = _concurrency_stage_from_plain(_required_plain_field(concurrency_plain, "search"))
+    url = _concurrency_stage_from_plain(_required_plain_field(concurrency_plain, "url"))
     concurrency = FrontDoorConcurrencyPlan(
-        batch_size=int(concurrency_plain["batch_size"]),
-        shared_budget=int(concurrency_plain["shared_budget"]),
+        batch_size=_plain_int(_required_plain_field(concurrency_plain, "batch_size"), "batch_size"),
+        shared_budget=_plain_int(_required_plain_field(concurrency_plain, "shared_budget"), "shared_budget"),
         search=search,
         url=url,
     )
     protocol = FrontDoorProtocol(
-        item_key=protocol_plain["item_key"],
-        item_channel_key=protocol_plain["item_channel_key"],
-        project_key=protocol_plain.get("project_key"),
-        front_door_owner=protocol_plain["front_door_owner"],
-        execution_mode=protocol_plain["execution_mode"],
-        write_mode=protocol_plain["write_mode"],
-        route_decision=protocol_plain["route_decision"],
-        query_terms=tuple(protocol_plain.get("query_terms") or ()),
-        site_entries=tuple(protocol_plain.get("site_entries") or ()),
-        candidate_urls=tuple(protocol_plain.get("candidate_urls") or ()),
-        expected_entry_type=protocol_plain.get("expected_entry_type"),
-        write_to_pool=bool(protocol_plain.get("write_to_pool", False)),
-        auto_ingest=bool(protocol_plain.get("auto_ingest", False)),
-        ingest_limit=int(protocol_plain.get("ingest_limit") or 0),
-        force_url_routing_flow=bool(protocol_plain.get("force_url_routing_flow", False)),
-        prefer_crawler_first=bool(protocol_plain.get("prefer_crawler_first", False)),
-        search_parallelism=int(protocol_plain.get("search_parallelism") or 1),
-        routing_parallelism=int(protocol_plain.get("routing_parallelism") or 1),
+        item_key=_plain_string(_required_plain_field(protocol_plain, "item_key"), "item_key"),
+        item_channel_key=_plain_string(_required_plain_field(protocol_plain, "item_channel_key"), "item_channel_key"),
+        project_key=_plain_optional_string(protocol_plain.get("project_key"), "project_key"),
+        front_door_owner=_plain_string(_required_plain_field(protocol_plain, "front_door_owner"), "front_door_owner"),
+        execution_mode=_plain_string(_required_plain_field(protocol_plain, "execution_mode"), "execution_mode"),
+        write_mode=_plain_string(_required_plain_field(protocol_plain, "write_mode"), "write_mode"),
+        route_decision=_plain_string(_required_plain_field(protocol_plain, "route_decision"), "route_decision"),
+        query_terms=_plain_strings(protocol_plain.get("query_terms", ()), "query_terms"),
+        site_entries=_plain_strings(protocol_plain.get("site_entries", ()), "site_entries"),
+        candidate_urls=_plain_strings(protocol_plain.get("candidate_urls", ()), "candidate_urls"),
+        expected_entry_type=_plain_optional_string(protocol_plain.get("expected_entry_type"), "expected_entry_type"),
+        write_to_pool=_plain_bool(protocol_plain.get("write_to_pool", False), "write_to_pool"),
+        auto_ingest=_plain_bool(protocol_plain.get("auto_ingest", False), "auto_ingest"),
+        ingest_limit=_plain_default_int(protocol_plain.get("ingest_limit"), 0, "ingest_limit"),
+        force_url_routing_flow=_plain_bool(
+            protocol_plain.get("force_url_routing_flow", False), "force_url_routing_flow"
+        ),
+        prefer_crawler_first=_plain_bool(protocol_plain.get("prefer_crawler_first", False), "prefer_crawler_first"),
+        search_parallelism=_plain_default_int(protocol_plain.get("search_parallelism"), 1, "search_parallelism"),
+        routing_parallelism=_plain_default_int(protocol_plain.get("routing_parallelism"), 1, "routing_parallelism"),
         concurrency_plan=concurrency,
-        source_tier=protocol_plain.get("source_tier") or "",
-        onboarding_priority=protocol_plain.get("onboarding_priority") or "",
+        source_tier=_plain_string(protocol_plain.get("source_tier") or "", "source_tier"),
+        onboarding_priority=_plain_string(protocol_plain.get("onboarding_priority") or "", "onboarding_priority"),
     )
     request = SourceExecutionRequest(
         source_mode=mode,
-        item_key=request_plain["item_key"],
-        item_channel_key=request_plain["item_channel_key"],
-        project_key=request_plain.get("project_key"),
+        item_key=_plain_string(_required_plain_field(request_plain, "item_key"), "item_key"),
+        item_channel_key=_plain_string(_required_plain_field(request_plain, "item_channel_key"), "item_channel_key"),
+        project_key=_plain_optional_string(request_plain.get("project_key"), "project_key"),
         project_scope=scope,
-        item_revision=int(request_plain["item_revision"]),
-        item_incarnation=request_plain["item_incarnation"],
-        item_content_digest=request_plain["item_content_digest"],
-        catalog_revision=int(request_plain["catalog_revision"]),
-        catalog_incarnation=request_plain["catalog_incarnation"],
-        catalog_digest=request_plain["catalog_digest"],
+        item_revision=_plain_int(_required_plain_field(request_plain, "item_revision"), "item_revision"),
+        item_incarnation=_plain_string(_required_plain_field(request_plain, "item_incarnation"), "item_incarnation"),
+        item_content_digest=_plain_string(
+            _required_plain_field(request_plain, "item_content_digest"), "item_content_digest"
+        ),
+        catalog_revision=_plain_int(_required_plain_field(request_plain, "catalog_revision"), "catalog_revision"),
+        catalog_incarnation=_plain_string(
+            _required_plain_field(request_plain, "catalog_incarnation"), "catalog_incarnation"
+        ),
+        catalog_digest=_plain_string(_required_plain_field(request_plain, "catalog_digest"), "catalog_digest"),
         params=params,
         protocol=protocol,
         warnings=warnings,
         taxonomy=taxonomy,
-        schema_version=request_plain.get("schema_version", SOURCE_EXECUTION_REQUEST_SCHEMA_REF),
-    )
-    catalog_plain = dict(value["catalog"])
-    catalog = ChannelCatalogSnapshot(
-        schema_version=catalog_plain.get(
-            "schema_version",
-            CHANNEL_CATALOG_HISTORICAL_SCHEMA_REF
-            if default_schema == SOURCE_MODE_PLANNING_HISTORICAL_PAYLOAD_SCHEMA
-            else CHANNEL_CATALOG_SCHEMA_REF,
+        schema_version=_plain_string(
+            request_plain.get("schema_version", SOURCE_EXECUTION_REQUEST_SCHEMA_REF), "schema_version"
         ),
-        revision=int(catalog_plain["revision"]),
-        incarnation=catalog_plain["incarnation"],
-        digest=catalog_plain["digest"],
+    )
+    catalog_plain = _plain_object(_required_plain_field(value, "catalog"), "catalog")
+    catalog_entries = tuple(
+        _plain_object(item, "catalog entry") for item in _plain_sequence(catalog_plain.get("entries", []), "entries")
+    )
+    catalog = ChannelCatalogSnapshot(
+        schema_version=_catalog_schema(
+            catalog_plain.get(
+                "schema_version",
+                CHANNEL_CATALOG_HISTORICAL_SCHEMA_REF
+                if default_schema == SOURCE_MODE_PLANNING_HISTORICAL_PAYLOAD_SCHEMA
+                else CHANNEL_CATALOG_SCHEMA_REF,
+            )
+        ),
+        revision=_plain_int(_required_plain_field(catalog_plain, "revision"), "revision"),
+        incarnation=_plain_string(_required_plain_field(catalog_plain, "incarnation"), "incarnation"),
+        digest=_plain_string(_required_plain_field(catalog_plain, "digest"), "digest"),
         entries=tuple(
             ChannelCatalogEntry(
-                channel_key=entry["channel_key"],
-                provider=entry.get("provider") or "",
-                provider_type=entry.get("provider_type") or "",
-                enabled=bool(entry.get("enabled", True)),
-                extra=freeze_json_object(
-                    dict(entry["extra"]) if isinstance(entry.get("extra"), (tuple, list)) else entry.get("extra") or {}
-                ),
+                channel_key=_plain_string(_required_plain_field(entry, "channel_key"), "channel_key"),
+                provider=_plain_string(entry.get("provider") or "", "provider"),
+                provider_type=_plain_string(entry.get("provider_type") or "", "provider_type"),
+                enabled=_plain_bool(entry.get("enabled", True), "enabled"),
+                extra=freeze_json_object(_plain_extra(entry.get("extra") or {})),
             )
-            for entry in catalog_plain.get("entries") or []
+            for entry in catalog_entries
         ),
     )
     return SourceModePlanningPayload(
-        schema_version=value.get("schema_version", default_schema),
-        operation_kind=value["operation_kind"],
+        schema_version=_planning_schema(value.get("schema_version", default_schema)),
+        operation_kind=_planning_kind(_required_plain_field(value, "operation_kind"), "operation_kind"),
         project_scope=scope,
         execution_request=request,
-        execution_request_digest=value["execution_request_digest"],
+        execution_request_digest=_plain_string(
+            _required_plain_field(value, "execution_request_digest"), "execution_request_digest"
+        ),
         catalog=catalog,
-        item_revision=int(value["item_revision"]),
-        item_incarnation=value["item_incarnation"],
-        item_content_digest=value["item_content_digest"],
-        orchestration_policy_ref=value["orchestration_policy_ref"],
-        resource_ceiling_digest=value["resource_ceiling_digest"],
-        payload_digest=value.get("payload_digest", ""),
+        item_revision=_plain_int(_required_plain_field(value, "item_revision"), "item_revision"),
+        item_incarnation=_plain_string(_required_plain_field(value, "item_incarnation"), "item_incarnation"),
+        item_content_digest=_plain_string(_required_plain_field(value, "item_content_digest"), "item_content_digest"),
+        orchestration_policy_ref=_plain_string(
+            _required_plain_field(value, "orchestration_policy_ref"), "orchestration_policy_ref"
+        ),
+        resource_ceiling_digest=_plain_string(
+            _required_plain_field(value, "resource_ceiling_digest"), "resource_ceiling_digest"
+        ),
+        payload_digest=_plain_string(value.get("payload_digest", ""), "payload_digest"),
     )
 
 
 def source_mode_planning_payload_from_plain(
-    value: dict[str, Any],
+    value: object,
 ) -> SourceModePlanningPayload:
     """Decode the current source planning payload only."""
 
-    schema_version = value.get("schema_version", SOURCE_MODE_PLANNING_PAYLOAD_SCHEMA)
+    plain = _plain_object(value, "source planning payload")
+    schema_version = plain.get("schema_version", SOURCE_MODE_PLANNING_PAYLOAD_SCHEMA)
     if schema_version != SOURCE_MODE_PLANNING_PAYLOAD_SCHEMA:
         _reject_source_contract(
             "historical source planning payload requires the historical decoder",
@@ -3714,17 +3943,18 @@ def source_mode_planning_payload_from_plain(
             site="source_mode_planning_payload_from_plain/schema_version",
         )
     return _source_mode_planning_payload_from_plain(
-        value,
+        plain,
         default_schema=SOURCE_MODE_PLANNING_PAYLOAD_SCHEMA,
     )
 
 
 def source_mode_planning_payload_from_historical_plain(
-    value: dict[str, Any],
+    value: object,
 ) -> SourceModePlanningPayload:
     """Read an exact historical C2 planning payload without rehashing bytes."""
 
-    schema_version = value.get("schema_version")
+    plain = _plain_object(value, "historical source planning payload")
+    schema_version = plain.get("schema_version")
     if schema_version != SOURCE_MODE_PLANNING_HISTORICAL_PAYLOAD_SCHEMA:
         _reject_source_contract(
             "historical decoder requires the exact C2 planning schema",
@@ -3732,7 +3962,7 @@ def source_mode_planning_payload_from_historical_plain(
             site="source_mode_planning_payload_from_historical_plain/schema_version",
         )
     return _source_mode_planning_payload_from_plain(
-        value,
+        plain,
         default_schema=SOURCE_MODE_PLANNING_HISTORICAL_PAYLOAD_SCHEMA,
     )
 

@@ -58,9 +58,9 @@
       },
       "equations": [
         {
-          "claim": "legacy and target four-mode decisions agree",
+          "claim": "the four-mode decision selects one current alternative",
           "class": "testable",
-          "witness": "test:test_four_mode_legacy_and_target_decision_parity"
+          "witness": "test:test_four_mode_decision_selects_one_current_alternative"
         },
         {
           "claim": "exactly one selected alternative executes per trace",
@@ -73,14 +73,14 @@
           "witness": "test:test_candidate_digests_bind_snapshot_decision_and_branch"
         },
         {
-          "claim": "C7 design has twenty unique rows and zero blockers",
+          "claim": "the frozen C7 matrix preserves its twenty rows, topology, and authority ceiling",
           "class": "testable",
-          "witness": "test:test_design_has_twenty_unique_rows_and_zero_blockers"
+          "witness": "test:test_frozen_matrix_schema_rows_topology_and_authority_ceiling"
         },
         {
-          "claim": "matrix topology and authority ceiling remain explicit",
+          "claim": "the current movement matrix keeps exact movement and blocker accounting",
           "class": "testable",
-          "witness": "test:test_matrix_contract_topology_and_authority_ceiling"
+          "witness": "test:test_matrix_has_sixty_unique_movements_and_exact_blockers"
         }
       ],
       "failures": [
@@ -681,14 +681,14 @@
           "witness": "test:test_admission_and_delivery_are_interface_contracts_only"
         },
         {
-          "claim": "the report bridge orders stage, verification, and admission",
+          "claim": "report staging, verification, and admission remain explicit interface contracts",
           "class": "testable",
-          "witness": "test:test_c8_report_bridge_program_orders_stage_verify_admission"
+          "witness": "test:test_report_semantics_witnesses_readonly_stage_and_admission_intent"
         },
         {
-          "claim": "the delivery bridge orders the report path and delivery barrier",
+          "claim": "the C8.3 assembly installs the delivery bridge",
           "class": "testable",
-          "witness": "test:test_c8_delivery_bridge_program_orders_and_barrier"
+          "witness": "test:test_i1_c8_3_closed_assembly_installs_delivery_bridge"
         }
       ],
       "failures": [
@@ -959,9 +959,9 @@
           "witness": "test:INVARIANT__shared_family_fragment_registry_consistency"
         },
         {
-          "claim": "shared generator output is byte-stable across repeated runs",
+          "claim": "shared family fragments remain deterministic and non-authoritative",
           "class": "testable",
-          "witness": "test:test_shared_generator_is_deterministic"
+          "witness": "test:test_shared_fragment_is_deterministic_and_authority_false"
         },
         {
           "claim": "mapping projection preserves fragment identity without rewriting persisted bytes",

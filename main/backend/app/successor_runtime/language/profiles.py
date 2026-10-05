@@ -9,8 +9,8 @@ from functorial_kit import Failure
 
 from app.successor_runtime.language.object_contracts import (
     OperationContractRef,
-    _failure as _language_failure,
-    _raise_failure as _lift_language_failure,
+    language_failure as _language_failure,
+    raise_language_failure as _lift_language_failure,
 )
 from app.successor_runtime.research.codec import (
     dataclass_to_json,

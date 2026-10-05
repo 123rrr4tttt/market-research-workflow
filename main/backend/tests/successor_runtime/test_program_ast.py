@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from functorial_kit import Failure
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -46,7 +47,6 @@ from app.successor_runtime.language.object_contracts import (
 from app.successor_runtime.language.program import (
     DecisionBranch,
     Decide,
-    Identity,
     MapOutput,
     ProgramSpec,
     ProgramCodecError,
@@ -54,6 +54,7 @@ from app.successor_runtime.language.program import (
     Pure,
     Then,
     ZipOrdered,
+    try_atom_node,
     atom_node,
     bind_program_contracts,
     decide_node,
@@ -289,7 +290,6 @@ def test_first_specimen_binds_real_document_sources_and_literal_digests() -> Non
 
 
 def test_normalization_identity_and_associativity_laws() -> None:
-    node = identity_node(INTENT)
     atom = atom_node(
         _op(
             "read.a",
@@ -351,6 +351,22 @@ def test_type_mismatch_is_rejected_at_composition() -> None:
         then_node(atom, identity_node(INTENT))
 
 
+def test_program_digest_encodes_dataclass_types_and_value_refs() -> None:
+    registry = specimen_registry()
+    operation = _op(
+        "canonical.read",
+        "material.read_canonical_ref.v1",
+        INTENT,
+        MATERIAL_REF,
+        registry.catalog,
+    )
+    atom = atom_node(operation, input_type=INTENT, output_type=MATERIAL_REF)
+    spec = _program_for_root(atom)
+
+    assert spec.program_digest
+    assert spec.with_digest().program_digest == spec.program_digest
+
+
 def test_placeholder_is_constructable_but_requires_contract_binding_to_execute() -> None:
     registry = specimen_registry()
     placeholder_input = placeholder_object_type("atom.input")
@@ -384,6 +400,24 @@ def test_placeholder_is_constructable_but_requires_contract_binding_to_execute()
         == CAPTURED_MATERIAL_SNAPSHOT_TYPE
     )
     assert normalize_program(bound_spec).program_digest == bound_spec.program_digest
+
+
+def test_atom_node_lifts_declared_program_type_exception() -> None:
+    registry = specimen_registry()
+    operation = _op(
+        "malformed.type",
+        "material.read_canonical_ref.v1",
+        INTENT,
+        MATERIAL_REF,
+        registry.catalog,
+    )
+    typed = try_atom_node(operation, input_type=object(), output_type=MATERIAL_REF)
+    assert isinstance(typed, Failure)
+    assert typed.code == "PROGRAM_TYPE_INVALID"
+    assert "must be a complete ObjectType" in typed.message
+
+    with pytest.raises(ProgramTypeError, match="must be a complete ObjectType"):
+        atom_node(operation, input_type=object(), output_type=MATERIAL_REF)
 
 
 def test_contract_binding_rejects_wrong_endpoint_and_return_witness() -> None:
