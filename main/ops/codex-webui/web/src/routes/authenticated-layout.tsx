@@ -13,6 +13,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { ChatHeader } from '@/components/chat/chat-header';
+import { MrwActionConfirmation } from '@/components/chat/mrw-action-confirmation';
 import { ThreadSidebar } from '@/components/chat/thread-sidebar';
 import { SnackbarContainer } from '@/components/snackbar/snackbar-container';
 import { CodexStatusBanner } from '@/components/codex-status-banner';
@@ -23,7 +24,8 @@ import { useLayoutStore } from '@/stores/layout-store';
 import { useTimelineStore } from '@/stores/timeline-store';
 import { useThemeStore } from '@/stores/theme-store';
 import { cn } from '@/lib/utils';
-import { clearApiToken } from '@/auth-token';
+import { attachMrwProjectContext } from '@/lib/mrw-project-context';
+import { clearApiToken, getApiToken } from '@/auth-token';
 import { getSocket, resetSocket } from '@/socket';
 import { filesGetRoots, filesAddRoot } from '@/generated/api';
 import {
@@ -67,6 +69,7 @@ function readMaxIdleSubscriptions(
 }
 
 export function AuthenticatedLayout() {
+  useEffect(() => attachMrwProjectContext(), []);
   const navigate = useNavigate();
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -214,13 +217,32 @@ export function AuthenticatedLayout() {
 
   // Handle auth expiry → re-run the route guard and bootstrap a fresh session.
   useEffect(() => {
+    let recovering = false;
+
     const handleAuthExpired = () => {
-      clearApiToken();
-      resetSocket();
-      void router.invalidate();
+      if (recovering) return;
+      recovering = true;
+
+      void (async () => {
+        try {
+          clearApiToken();
+          getSocket().disconnect();
+          await router.invalidate();
+          if (getApiToken()) {
+            resetSocket();
+          }
+        } catch {
+          // Bootstrap already rendered its route error; stay disconnected.
+        } finally {
+          recovering = false;
+        }
+      })();
     };
+
     window.addEventListener('codex-webui:auth-expired', handleAuthExpired);
-    return () => window.removeEventListener('codex-webui:auth-expired', handleAuthExpired);
+    return () => {
+      window.removeEventListener('codex-webui:auth-expired', handleAuthExpired);
+    };
   }, [router]);
 
   // Sync file tree root based on current route context
@@ -295,6 +317,7 @@ export function AuthenticatedLayout() {
             onToggleDiagnostics={handleToggleDiagnostics}
           />
           <CodexStatusBanner />
+          <MrwActionConfirmation />
           <Outlet />
         </div>
       </div>

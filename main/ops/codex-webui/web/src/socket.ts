@@ -21,10 +21,10 @@ export function getSocket(): Socket {
   return socket;
 }
 
-/** Disconnects and recreates the socket (e.g. after login with new token). */
+/** Reconnects the same Socket.IO instance (e.g. after login with new token). */
 export function resetSocket(): void {
   if (socket) {
     socket.disconnect();
-    socket = null;
+    socket.connect();
   }
 }

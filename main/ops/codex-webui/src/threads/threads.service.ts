@@ -41,6 +41,8 @@ import {
   ThreadsOverviewService,
   type ThreadOverviewParams,
 } from './threads-overview.service';
+import { MrwService } from '../mrw/mrw.service';
+import type { MrwPreparedEnvironment } from '../mrw/mrw.types';
 import {
   projectThreadReadForClient,
   type ClientThreadReadResponse,
@@ -51,12 +53,26 @@ const MAX_FORK_CHAIN_WALK = 32;
 
 type ExperimentalThreadStartParams = v2.ThreadStartParams & {
   historyMode: typeof REQUIRED_HISTORY_MODE;
+  dynamicTools?: v2.DynamicToolSpec[];
 };
 
 type ThreadForkParamsWithGoalCarry = v2.ThreadForkParams & {
   deferGoalContinuation?: boolean;
   excludeTurns: true;
 };
+
+type ThreadStartParamsWithMrw = v2.ThreadStartParams & {
+  mrwProjectKey?: string;
+};
+
+/** Returns only the literal user text; skill refs are mount inputs, not user words. */
+function extractUserText(input: v2.UserInput[]): string {
+  return input
+    .filter((item) => item.type === 'text')
+    .map((item) => (item.type === 'text' ? item.text : ''))
+    .join('\n')
+    .trim();
+}
 
 @Injectable()
 export class ThreadsService {
@@ -71,6 +87,7 @@ export class ThreadsService {
     private readonly deletionRegistry: ThreadDeletionRegistryService,
     private readonly history: ThreadHistoryService,
     private readonly overview: ThreadsOverviewService,
+    private readonly mrw: MrwService,
   ) {}
 
   /**
@@ -80,12 +97,23 @@ export class ThreadsService {
    * @returns The created thread with resolved settings
    */
   async startThread(
-    params: v2.ThreadStartParams,
+    params: ThreadStartParamsWithMrw,
   ): Promise<v2.ThreadStartResponse> {
+    const { mrwProjectKey, ...threadStartParams } = params;
+    let prepared: MrwPreparedEnvironment | null = null;
+    if (mrwProjectKey) {
+      prepared = await this.mrw.prepareThread(mrwProjectKey);
+    }
+
     const requestParams: ExperimentalThreadStartParams = {
-      ...params,
+      ...threadStartParams,
       historyMode: REQUIRED_HISTORY_MODE,
     };
+    if (prepared) {
+      requestParams.dynamicTools = prepared.dynamicTools as v2.DynamicToolSpec[];
+      await this.mrw.mountSkillEnvironment(prepared);
+    }
+
     const response = await this.codex.request<v2.ThreadStartResponse>(
       'thread/start',
       requestParams,
@@ -102,9 +130,40 @@ export class ThreadsService {
         { threadId: response.thread.id },
       );
     }
+    if (prepared) {
+      await this.bindMrwProjectThread(prepared, response.thread.id);
+    }
     this.resumeRegistry.markResumed(response.thread.id);
     this.resumeRegistry.cacheResponse(response.thread.id, response);
     return response;
+  }
+
+  /**
+   * Binds a freshly created native thread to the selected MRW project. A bind
+   * failure deletes only this untracked thread id; other clients are untouched.
+   */
+  private async bindMrwProjectThread(
+    prepared: MrwPreparedEnvironment,
+    threadId: string,
+  ): Promise<void> {
+    try {
+      await this.mrw.bindThread(prepared.bindingId, threadId);
+    } catch (error) {
+      const cleanupError = await this.deleteUntrackedThread(threadId);
+      const message = error instanceof Error ? error.message : String(error);
+      const detail = cleanupError
+        ? `${message}; cleanup of ${threadId} also failed: ${cleanupError.message}`
+        : message;
+      this.logger.warn(
+        `MRW macro host bind failed for thread ${threadId}: ${detail}`,
+      );
+      throw new BusinessException(
+        ErrorCode.mrw.backendUnavailable,
+        HttpStatus.BAD_GATEWAY,
+        detail,
+        { threadId },
+      );
+    }
   }
 
   /**
@@ -241,15 +300,64 @@ export class ThreadsService {
    */
   async startTurn(params: v2.TurnStartParams): Promise<v2.TurnStartResponse> {
     this.deletionRegistry.assertMutable(params.threadId);
-    const response = await this.codex.request<v2.TurnStartResponse>(
-      'turn/start',
-      params,
-    );
+    const bound = this.mrw.isBound(params.threadId);
+    if (bound) {
+      await this.mrw.checkEnvironmentFresh(params.threadId);
+    } else {
+      const probe = await this.mrw.probeEnvironment(params.threadId);
+      if (probe === 'rebind_required') {
+        throw new BusinessException(
+          ErrorCode.mrw.backendUnavailable,
+          HttpStatus.CONFLICT,
+          'MRW thread requires rebind',
+          { threadId: params.threadId },
+        );
+      }
+    }
+    if (bound) {
+      this.mrw.beginTurnInput(params.threadId);
+    }
+    const skillInputs = this.mrw.turnSkillInputs(params.threadId);
+    const requestParams = skillInputs.length
+      ? { ...params, input: [...params.input, ...skillInputs] }
+      : params;
+    let response: v2.TurnStartResponse;
+    try {
+      response = await this.codex.request<v2.TurnStartResponse>(
+        'turn/start',
+        requestParams,
+      );
+    } catch (error) {
+      if (bound) {
+        this.mrw.releaseTurnInput(params.threadId);
+      }
+      throw error;
+    }
     this.branches.attachPendingVersionTurn(
       params.threadId,
       response.turn.id,
       previewFromUserInput(params.input),
     );
+    const originalText = extractUserText(params.input);
+    if (bound) {
+      try {
+        if (originalText) {
+          await this.mrw.recordInput(
+            params.threadId,
+            response.turn.id,
+            originalText,
+          );
+        } else {
+          this.mrw.releaseTurnInput(params.threadId);
+        }
+      } catch (error) {
+        await this.codex.request('turn/interrupt', {
+          threadId: params.threadId,
+          turnId: response.turn.id,
+        });
+        throw error;
+      }
+    }
     return response;
   }
 
@@ -261,7 +369,19 @@ export class ThreadsService {
    */
   async steerTurn(params: v2.TurnSteerParams): Promise<v2.TurnSteerResponse> {
     this.deletionRegistry.assertMutable(params.threadId);
-    return this.codex.request<v2.TurnSteerResponse>('turn/steer', params);
+    const response = await this.codex.request<v2.TurnSteerResponse>(
+      'turn/steer',
+      params,
+    );
+    const appendedText = extractUserText(params.input);
+    if (appendedText && this.mrw.isBound(params.threadId)) {
+      await this.mrw.recordInput(
+        params.threadId,
+        params.expectedTurnId,
+        appendedText,
+      );
+    }
+    return response;
   }
 
   /**
@@ -272,6 +392,10 @@ export class ThreadsService {
    */
   async interruptTurn(threadId: string, turnId: string): Promise<void> {
     this.deletionRegistry.assertMutable(threadId);
+    if (this.mrw.isBound(threadId)) {
+      await this.mrw.endTurn(threadId, turnId);
+      this.mrw.cancelForTurn(threadId, turnId);
+    }
     await this.codex.request('turn/interrupt', { threadId, turnId });
   }
 

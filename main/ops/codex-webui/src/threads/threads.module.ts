@@ -5,6 +5,7 @@ import { CodexModule } from '../codex/codex.module';
 import { ConversationBranchesModule } from '../conversation-branches/conversation-branches.module';
 import { DatabaseModule } from '../database/database.module';
 import { FilesModule } from '../files/files.module';
+import { MrwModule } from '../mrw/mrw.module';
 import { PendingApprovalsModule } from '../pending-approvals/pending-approvals.module';
 import { ThreadDeletionModule } from '../thread-deletion/thread-deletion.module';
 import { ActiveThreadRegistryService } from './active-thread-registry.service';
@@ -31,6 +32,7 @@ import { ThreadsService } from './threads.service';
     ConversationBranchesModule,
     DatabaseModule,
     FilesModule,
+    MrwModule,
     PendingApprovalsModule,
     ThreadDeletionModule,
   ],

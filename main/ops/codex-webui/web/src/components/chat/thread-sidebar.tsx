@@ -26,6 +26,7 @@ import { useTimelineStore } from '@/stores/timeline-store';
 import { useLayoutStore } from '@/stores/layout-store';
 import { cn } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { getMrwProjectKey } from '@/lib/mrw-project-context';
 import {
   invalidateBranchTreeMembersSoon,
   invalidateBranchTreesSoon,
@@ -263,6 +264,12 @@ export function ThreadSidebar() {
   // ── Mutations ───────────────────────────────────────────────────────
   const createThread = useMutation({
     ...threadsStartThreadMutation(),
+    onMutate: (variables) => {
+      const selectedProject = getMrwProjectKey();
+      if (selectedProject) {
+        variables.body = { ...variables.body, mrwProjectKey: selectedProject };
+      }
+    },
     onSuccess: (res) => {
       setActiveThread(res.thread.id, res.cwd, threadLabel(res.thread));
       invalidateThreads();

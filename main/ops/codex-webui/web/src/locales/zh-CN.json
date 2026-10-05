@@ -718,5 +718,10 @@
   "Opaque background": "不透明背景",
   "Unsupported activity": "暂不支持的活动",
   "Turn failed": "轮次失败",
-  "Request alignment explanation": "请求对齐说明"
+  "Request alignment explanation": "请求对齐说明",
+  "Confirm action": "确认操作",
+  "Allow once": "同意本次操作",
+  "Reject": "拒绝",
+  "Parameters": "操作参数",
+  "Action confirmation failed": "操作确认失败"
 }

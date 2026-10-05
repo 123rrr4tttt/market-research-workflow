@@ -10,6 +10,27 @@ symlink 读取宿主身份。当前全链路证据见
 [`.data/readiness-repair/20261004-daily-chain/daily-chain-state.json`](../../.data/readiness-repair/20261004-daily-chain/daily-chain-state.json)。结构整理后的服务重载、正式worker材料链和WebUI浏览器读回见
 [结构整理实施结果](../../docs/development/MRW结构整理方案与分发包.md#8-实际实施进度)。
 
+本机 HTTP loopback 的 Agent 对话页固定嵌入 `http://127.0.0.1:8172/`，由 WebUI
+处理入口认证；MRW auth 状态查询只更新提示，不因会话到期、后端重启或查询失败重载
+对话 iframe。非本机入口仍要求 MRW 浏览器会话，并使用原 `/codex/` 认证代理。
+
+胞腔宿主通过 `MRW_BACKEND_URL` 调用同一业务环境的 `/api/v1/agent-macro-host`，
+`MRW_BACKEND_API_KEY` 须与该后端的 `CODEX_WEBUI_SERVER_API_KEY` 一致；两者仅在
+服务端使用，不传浏览器或模型。`start.sh` 复用原私密 LaunchAgent 配置，默认使用
+宿主 API。当前 Docker 页面 `http://127.0.0.1:5174` 与宿主 `127.0.0.1:8000`
+可能连接不同数据库；该页面的 WebUI 接线应显式设置
+`MRW_BACKEND_URL=http://127.0.0.1:5174`，不凭相同 project key 混用资料。
+
+前端向 iframe 传递用户选定项目；WebUI 创建新线程前 prepare 工具环境，线程创建后
+绑定独立 MRW session。切换项目只影响新线程。权限确认留在同一聊天窗口，精确绑定
+待执行工具、参数、项目和包摘要；未确认时不执行 handler。stdio 兼容目录可读，
+但无可信宿主绑定的项目调用会明确拒绝，不再选择最近会话。
+
+`MRW_SKILL_SOURCE_ROOT` 指向宿主实际可读的后端 skills 根（默认主仓
+`main/backend/skills`）。容器返回的技能相对路径在该根解析并核对正文摘要；
+容器绝对路径不直接作为宿主挂载路径。注册、项目激活、宿主挂载及业务执行分别读回，
+历史未核验包不自动变成可信安装。
+
 ### Codex WebUI 生命周期
 
 当前服务来自 [vendored README](./codex-webui/README.md) 所描述的主仓副本，运行主程序为
@@ -490,6 +511,29 @@ docker-compose up
 # 代码修改后会自动重载（需要重启容器）
 docker-compose restart backend
 ```
+
+## 本机概念工作台 Agent 模块
+
+采集器页面的“Agent 接线”目录投影配置状态；真实工具和方法挂载到既有
+Agent 宏胞腔，不创建 Scrapy 工程或伪造激活包。工作台 SDK 和方法正文由原
+仓库只读提供，函子依赖沿用 `MRW_FUNCTORIAL_KIT_PATH`。
+
+```bash
+cd main/ops
+export MRW_CONCEPT_WORKBENCH_SOURCE='/Users/wangyiliang/Desktop/科学/项目/05-案例、原型与验证/concept-architecture-workbench'
+export MRW_WORKBENCH_TARGETS='{"mrw":{"root":"/workspace/mrw","project_key":"hk_water_investigation","label":"MRW 本机项目"}}'
+RUN_MIGRATIONS_BACKEND=false docker compose -f docker-compose.yml -f docker-compose.workbench.yml up -d --no-deps --no-build backend
+```
+
+后续重建此 backend 时保留 overlay 和上述配置。宿主 Python 模式使用
+`MRW_CONCEPT_WORKBENCH_ROOT` 指定 SDK 绝对根，`MRW_WORKBENCH_TARGETS` 的
+`root` 改为宿主绝对路径；每个目标精确绑定 MRW `project_key`。普通模块调用
+沿可信宿主策略自动执行，catalog/custom scanner/witness 是受信代码，
+`init/sync` 写目标项目，`verify` 执行真实见证；这不是代码沙箱。
+
+目录读回：`GET /api/v1/crawler/agent-modules`，必须传项目作用域。
+原工具返回 `exit_code/stdout/stderr/report`，非零退出保持失败。注册和只读扫描
+不表示已运行真实模型、完成目标工程接线或爬虫部署。
 
 ## 生产部署建议
 

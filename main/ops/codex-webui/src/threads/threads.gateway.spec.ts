@@ -5,15 +5,24 @@ import { AuthService } from '../auth/auth.service';
 import { ActiveThreadRegistryService } from './active-thread-registry.service';
 import { PendingApprovalsService } from '../pending-approvals/pending-approvals.service';
 import { ThreadDeletionRegistryService } from '../thread-deletion/thread-deletion-registry.service';
+import { MrwEventBus } from '../mrw/mrw-event-bus';
+import { MrwService } from '../mrw/mrw.service';
 
 describe('ThreadsGateway', () => {
   let gateway: ThreadsGateway;
   const listeners: Record<string, (...args: unknown[]) => void> = {};
+  let lifecycleListener: ((event: { type: string; generation: number }) => void) | null =
+    null;
 
   const mockManager = {
     addListener: vi.fn(
       (event: string, handler: (...args: unknown[]) => void) => {
         listeners[event] = handler;
+      },
+    ),
+    addLifecycleListener: vi.fn(
+      (handler: (event: { type: string; generation: number }) => void) => {
+        lifecycleListener = handler;
       },
     ),
     getClient: vi.fn(),
@@ -34,6 +43,20 @@ describe('ThreadsGateway', () => {
     markResolved: vi.fn(),
     respondToRequest: vi.fn(),
     listPending: vi.fn().mockReturnValue([]),
+  };
+
+  const mockMrw = {
+    handleDynamicToolCall: vi.fn().mockResolvedValue(undefined),
+    cancelForThread: vi.fn(),
+    cancelForTurn: vi.fn(),
+    endTurn: vi.fn().mockResolvedValue(undefined),
+    isBound: vi.fn().mockReturnValue(false),
+    expireAll: vi.fn(),
+  };
+
+  const mockMrwEvents = {
+    onActionRequired: vi.fn(),
+    onActionResolved: vi.fn(),
   };
 
   /** Captures the gateway's release listener so tests can fire it directly. */
@@ -60,6 +83,8 @@ describe('ThreadsGateway', () => {
         { provide: AuthService, useValue: mockAuthService },
         { provide: ActiveThreadRegistryService, useValue: mockActiveThreads },
         { provide: PendingApprovalsService, useValue: mockPendingApprovals },
+        { provide: MrwService, useValue: mockMrw },
+        { provide: MrwEventBus, useValue: mockMrwEvents },
         {
           provide: ThreadDeletionRegistryService,
           useValue: mockDeletionRegistry,
@@ -74,6 +99,14 @@ describe('ThreadsGateway', () => {
     vi.clearAllMocks();
     mockServer.to.mockReturnThis();
     mockDeletionRegistry.isDeleting.mockReturnValue(false);
+    mockMrw.handleDynamicToolCall.mockReset();
+    mockMrw.cancelForThread.mockReset();
+    mockMrw.cancelForTurn.mockReset();
+    mockMrw.endTurn.mockReset();
+    mockMrw.endTurn.mockResolvedValue(undefined);
+    mockMrw.isBound.mockReset();
+    mockMrw.isBound.mockReturnValue(false);
+    mockMrw.expireAll.mockReset();
   });
 
   it('should join room on subscribe', () => {
@@ -176,6 +209,35 @@ describe('ThreadsGateway', () => {
 
     expect(mockPendingApprovals.recordServerRequest).toHaveBeenCalled();
     expect(mockServer.emit).not.toHaveBeenCalled();
+  });
+
+  it('forwards item/tool/call to the MRW service without recording an approval', () => {
+    const params = {
+      threadId: 't1',
+      turnId: 'turn1',
+      callId: 'call1',
+      namespace: 'demo',
+      tool: 'write',
+      arguments: { target: 'a' },
+    };
+
+    listeners['serverRequest']({ id: 9, method: 'item/tool/call', params });
+
+    expect(mockMrw.handleDynamicToolCall).toHaveBeenCalledWith(9, params);
+    expect(mockPendingApprovals.recordServerRequest).not.toHaveBeenCalled();
+  });
+
+  it('cancels MRW pending actions when a thread delete releases', () => {
+    releaseListener?.(['t1', 't2']);
+
+    expect(mockMrw.cancelForThread).toHaveBeenCalledWith('t1');
+    expect(mockMrw.cancelForThread).toHaveBeenCalledWith('t2');
+  });
+
+  it('expires MRW pending actions on app-server restart', () => {
+    lifecycleListener?.({ type: 'appServerRestarting', generation: 2 });
+
+    expect(mockMrw.expireAll).toHaveBeenCalled();
   });
 
   it('replays a withheld request when the delete releases without destroying it', () => {

@@ -9,6 +9,7 @@ import { ThreadsBranchingService } from './threads-branching.service';
 import { ThreadDeletionRegistryService } from '../thread-deletion/thread-deletion-registry.service';
 import { ThreadHistoryService } from './thread-history.service';
 import { ThreadsOverviewService } from './threads-overview.service';
+import { MrwService } from '../mrw/mrw.service';
 
 /** Branch state as the local-only service reports it for an untracked thread. */
 function localBranchState(threadId: string) {
@@ -58,6 +59,20 @@ describe('ThreadsService', () => {
   const mockOverview = {
     listOverview: vi.fn(),
   };
+  const mockMrw = {
+    prepareThread: vi.fn(),
+    bindThread: vi.fn(),
+    mountSkillEnvironment: vi.fn(),
+    turnSkillInputs: vi.fn().mockReturnValue([]),
+    isBound: vi.fn().mockReturnValue(false),
+    recordInput: vi.fn().mockResolvedValue(undefined),
+    endTurn: vi.fn().mockResolvedValue(undefined),
+    cancelForTurn: vi.fn(),
+    beginTurnInput: vi.fn(),
+    releaseTurnInput: vi.fn(),
+    probeEnvironment: vi.fn().mockResolvedValue('ordinary'),
+    checkEnvironmentFresh: vi.fn().mockResolvedValue(undefined),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -77,6 +92,7 @@ describe('ThreadsService', () => {
         },
         { provide: ThreadHistoryService, useValue: mockHistory },
         { provide: ThreadsOverviewService, useValue: mockOverview },
+        { provide: MrwService, useValue: mockMrw },
       ],
     }).compile();
 
@@ -89,6 +105,25 @@ describe('ThreadsService', () => {
     mockDeletionRegistry.assertMutable.mockReset();
     Object.values(mockHistory).forEach((mock) => mock.mockReset());
     mockOverview.listOverview.mockReset();
+    mockMrw.prepareThread.mockReset();
+    mockMrw.bindThread.mockReset();
+    mockMrw.mountSkillEnvironment.mockReset();
+    mockMrw.mountSkillEnvironment.mockResolvedValue(undefined);
+    mockMrw.turnSkillInputs.mockReset();
+    mockMrw.turnSkillInputs.mockReturnValue([]);
+    mockMrw.isBound.mockReset();
+    mockMrw.isBound.mockReturnValue(false);
+    mockMrw.recordInput.mockReset();
+    mockMrw.recordInput.mockResolvedValue(undefined);
+    mockMrw.endTurn.mockReset();
+    mockMrw.endTurn.mockResolvedValue(undefined);
+    mockMrw.cancelForTurn.mockReset();
+    mockMrw.beginTurnInput.mockReset();
+    mockMrw.releaseTurnInput.mockReset();
+    mockMrw.probeEnvironment.mockReset();
+    mockMrw.probeEnvironment.mockResolvedValue('ordinary');
+    mockMrw.checkEnvironmentFresh.mockReset();
+    mockMrw.checkEnvironmentFresh.mockResolvedValue(undefined);
     mockBranches.hasKnownDescendants.mockReturnValue(false);
     mockBranches.hasForkEdge.mockReturnValue(false);
     mockBranches.listKnownTreeThreadIds.mockImplementation(
@@ -128,6 +163,53 @@ describe('ThreadsService', () => {
       threadId: 't1',
     });
     expect(mockResumeRegistry.markResumed).not.toHaveBeenCalled();
+  });
+
+  it('prepares and binds the MRW project for a selected project key', async () => {
+    const response = { thread: { id: 't1', historyMode: 'paginated' } };
+    mockCodex.request.mockResolvedValue(response);
+    mockMrw.prepareThread.mockResolvedValue({
+      bindingId: 'b1',
+      dynamicTools: [
+        { type: 'function', name: 'read', description: 'd', inputSchema: {} },
+      ],
+      skills: [],
+    });
+    mockMrw.bindThread.mockResolvedValue({ threadId: 't1' });
+
+    await service.startThread({ mrwProjectKey: 'hk_water_investigation' });
+
+    expect(mockCodex.request).toHaveBeenCalledWith('thread/start', {
+      historyMode: 'paginated',
+      dynamicTools: [
+        { type: 'function', name: 'read', description: 'd', inputSchema: {} },
+      ],
+    });
+    expect(mockMrw.prepareThread).toHaveBeenCalledWith(
+      'hk_water_investigation',
+    );
+    expect(mockMrw.mountSkillEnvironment).toHaveBeenCalled();
+    expect(mockMrw.bindThread).toHaveBeenCalledWith('b1', 't1');
+  });
+
+  it('deletes the untracked thread when MRW bind fails', async () => {
+    mockCodex.request
+      .mockResolvedValueOnce({ thread: { id: 't1', historyMode: 'paginated' } })
+      .mockResolvedValueOnce({});
+    mockMrw.prepareThread.mockResolvedValue({
+      bindingId: 'b1',
+      dynamicTools: [],
+      skills: [],
+    });
+    mockMrw.bindThread.mockRejectedValue(new Error('stale'));
+
+    await expect(
+      service.startThread({ mrwProjectKey: 'hk_water_investigation' }),
+    ).rejects.toMatchObject({ errorCode: ErrorCode.mrw.backendUnavailable });
+
+    expect(mockCodex.request).toHaveBeenNthCalledWith(2, 'thread/delete', {
+      threadId: 't1',
+    });
   });
 
   it('should call thread/list with params', async () => {
@@ -283,6 +365,87 @@ describe('ThreadsService', () => {
     );
   });
 
+  it('appends bound skills to turn input and records only original user text', async () => {
+    mockCodex.request.mockResolvedValue({ turn: { id: 'turn1' } });
+    mockMrw.turnSkillInputs.mockReturnValue([
+      { type: 'skill', name: 'demo', path: '/root/skills/demo/SKILL.md' },
+    ]);
+    mockMrw.isBound.mockReturnValue(true);
+
+    await service.startTurn({
+      threadId: 't1',
+      input: [{ type: 'text', text: 'hello' }] as never,
+    });
+
+    expect(mockCodex.request).toHaveBeenCalledWith('turn/start', {
+      threadId: 't1',
+      input: [
+        { type: 'text', text: 'hello' },
+        { type: 'skill', name: 'demo', path: '/root/skills/demo/SKILL.md' },
+      ],
+    });
+    expect(mockBranches.attachPendingVersionTurn).toHaveBeenCalledWith(
+      't1',
+      'turn1',
+      'hello',
+    );
+    expect(mockMrw.recordInput).toHaveBeenCalledWith('t1', 'turn1', 'hello');
+  });
+
+  it('keeps an unbound turn input unchanged and skips record input', async () => {
+    mockCodex.request.mockResolvedValue({ turn: { id: 'turn1' } });
+
+    await service.startTurn({
+      threadId: 't1',
+      input: [{ type: 'text', text: 'hello' }] as never,
+    });
+
+    expect(mockCodex.request).toHaveBeenCalledWith('turn/start', {
+      threadId: 't1',
+      input: [{ type: 'text', text: 'hello' }],
+    });
+    expect(mockMrw.recordInput).not.toHaveBeenCalled();
+  });
+
+  it('rejects a turn when the environment probe reports a lost binding', async () => {
+    mockMrw.probeEnvironment.mockResolvedValue('rebind_required');
+
+    await expect(
+      service.startTurn({
+        threadId: 't1',
+        input: [{ type: 'text', text: 'hello' }] as never,
+      }),
+    ).rejects.toMatchObject({ errorCode: ErrorCode.mrw.backendUnavailable });
+  });
+
+  it('rejects a bound turn on a stale environment before any codex RPC', async () => {
+    mockMrw.isBound.mockReturnValue(true);
+    mockMrw.checkEnvironmentFresh.mockRejectedValue(new Error('stale'));
+
+    await expect(
+      service.startTurn({
+        threadId: 't1',
+        input: [{ type: 'text', text: 'hello' }] as never,
+      }),
+    ).rejects.toThrow('stale');
+
+    expect(mockCodex.request).not.toHaveBeenCalled();
+  });
+
+  it('releases the input gate when turn/start rejects', async () => {
+    mockMrw.isBound.mockReturnValue(true);
+    mockCodex.request.mockRejectedValue(new Error('rpc down'));
+
+    await expect(
+      service.startTurn({
+        threadId: 't1',
+        input: [{ type: 'text', text: 'hello' }] as never,
+      }),
+    ).rejects.toThrow('rpc down');
+
+    expect(mockMrw.releaseTurnInput).toHaveBeenCalledWith('t1');
+  });
+
   it('should call turn/steer', async () => {
     mockCodex.request.mockResolvedValue({ turnId: 'turn1' });
 
@@ -299,11 +462,42 @@ describe('ThreadsService', () => {
     });
   });
 
+  it('records appended steer text for a bound thread', async () => {
+    mockCodex.request.mockResolvedValue({ turnId: 'turn1' });
+    mockMrw.isBound.mockReturnValue(true);
+
+    await service.steerTurn({
+      threadId: 't1',
+      expectedTurnId: 'turn1',
+      input: [{ type: 'text', text: 'keep going' }] as never,
+    });
+
+    expect(mockMrw.recordInput).toHaveBeenCalledWith(
+      't1',
+      'turn1',
+      'keep going',
+    );
+  });
+
   it('should call turn/interrupt', async () => {
     mockCodex.request.mockResolvedValue({});
 
     await service.interruptTurn('t1', 'turn1');
 
+    expect(mockCodex.request).toHaveBeenCalledWith('turn/interrupt', {
+      threadId: 't1',
+      turnId: 'turn1',
+    });
+  });
+
+  it('invalidates and cancels a bound turn before interrupting', async () => {
+    mockCodex.request.mockResolvedValue({});
+    mockMrw.isBound.mockReturnValue(true);
+
+    await service.interruptTurn('t1', 'turn1');
+
+    expect(mockMrw.endTurn).toHaveBeenCalledWith('t1', 'turn1');
+    expect(mockMrw.cancelForTurn).toHaveBeenCalledWith('t1', 'turn1');
     expect(mockCodex.request).toHaveBeenCalledWith('turn/interrupt', {
       threadId: 't1',
       turnId: 'turn1',

@@ -60,6 +60,9 @@ MRW_WEBUI_ROOT="$ROOT" \
 MRW_WEBUI_NODE_BIN="$NODE_BIN" \
 MRW_WEBUI_PORT="$PORT" \
 MRW_WEBUI_API_KEY="${WEBUI_API_KEY:-}" \
+MRW_WEBUI_BACKEND_URL="${MRW_BACKEND_URL:-}" \
+MRW_WEBUI_BACKEND_API_KEY="${MRW_BACKEND_API_KEY:-}" \
+MRW_WEBUI_SKILL_SOURCE_ROOT="${MRW_SKILL_SOURCE_ROOT:-}" \
 MRW_WEBUI_DB_PATH="$WEBUI_DB_PATH" \
 MRW_WEBUI_CODEX_BIN="$CODEX_BIN" \
 MRW_WEBUI_CODEX_HOME="$CODEX_HOME" \
@@ -74,19 +77,16 @@ runtime_path = Path(os.environ["MRW_WEBUI_RUNTIME_PLIST"])
 host_plist_path = Path(os.environ["MRW_WEBUI_HOST_PLIST"])
 root = os.environ["MRW_WEBUI_ROOT"]
 
+host_environment = {}
+try:
+    with host_plist_path.open("rb") as host_file:
+        host_environment = plistlib.load(host_file).get("EnvironmentVariables", {})
+except (OSError, plistlib.InvalidFileException):
+    pass
+
 api_key = os.environ.get("MRW_WEBUI_API_KEY", "")
 if not api_key:
-    try:
-        with host_plist_path.open("rb") as host_file:
-            host_plist = plistlib.load(host_file)
-        api_key = host_plist.get("EnvironmentVariables", {}).get(
-            "WEBUI_API_KEY", ""
-        )
-    except (OSError, plistlib.InvalidFileException) as error:
-        raise SystemExit(
-            "[codex-webui] WEBUI_API_KEY is required: set it or provide "
-            f"the host LaunchAgent key ({error.__class__.__name__})"
-        ) from None
+    api_key = host_environment.get("WEBUI_API_KEY", "")
 
 if not isinstance(api_key, str) or not api_key:
     raise SystemExit(
@@ -109,6 +109,15 @@ plist["EnvironmentVariables"].update(
         "PORT": os.environ["MRW_WEBUI_PORT"],
         "WEBUI_API_KEY": api_key,
         "WEBUI_DB_PATH": os.environ["MRW_WEBUI_DB_PATH"],
+        "MRW_BACKEND_URL": os.environ.get("MRW_WEBUI_BACKEND_URL")
+        or host_environment.get("MRW_BACKEND_URL")
+        or "http://127.0.0.1:8000",
+        "MRW_BACKEND_API_KEY": os.environ.get("MRW_WEBUI_BACKEND_API_KEY")
+        or host_environment.get("MRW_BACKEND_API_KEY")
+        or api_key,
+        "MRW_SKILL_SOURCE_ROOT": os.environ.get("MRW_WEBUI_SKILL_SOURCE_ROOT")
+        or host_environment.get("MRW_SKILL_SOURCE_ROOT")
+        or str(Path(root).parents[1] / "backend" / "skills"),
     }
 )
 

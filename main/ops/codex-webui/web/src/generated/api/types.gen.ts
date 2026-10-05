@@ -1224,6 +1224,10 @@ export type CreateThreadDto = {
     model?: string;
     cwd?: string;
     approvalPolicy?: 'on-request' | 'never' | GranularApprovalPolicyDto | null;
+    /**
+     * MRW project key selected by the hosting page. Only affects this new thread.
+     */
+    mrwProjectKey?: string;
 };
 
 export type ThreadOverviewRowDto = {
@@ -1543,6 +1547,14 @@ export type StartReviewDto = {
     target: ReviewUncommittedChangesTargetDto | ReviewBaseBranchTargetDto | ReviewCommitTargetDto | ReviewCustomTargetDto;
 };
 
+export type MrwConfirmRequestDto = {
+    threadId: string;
+    turnId: string;
+    actionId: string;
+    approved: boolean;
+    userText?: string;
+};
+
 export type PendingServerRequestsResponseDto = {
     requests: Array<PendingServerRequestDto>;
 };
@@ -1822,6 +1834,19 @@ export type AuthLogoutResponses = {
 };
 
 export type AuthLogoutResponse = AuthLogoutResponses[keyof AuthLogoutResponses];
+
+export type AuthBootstrapData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/auth/bootstrap';
+};
+
+export type AuthBootstrapResponses = {
+    200: LoginResponseDto;
+};
+
+export type AuthBootstrapResponse = AuthBootstrapResponses[keyof AuthBootstrapResponses];
 
 export type ArchiveListArchiveData = {
     body?: never;
@@ -3352,6 +3377,30 @@ export type ThreadCommandsStartReviewResponses = {
 };
 
 export type ThreadCommandsStartReviewResponse = ThreadCommandsStartReviewResponses[keyof ThreadCommandsStartReviewResponses];
+
+export type MrwConfirmData = {
+    body: MrwConfirmRequestDto;
+    path?: never;
+    query?: never;
+    url: '/api/mrw/confirm';
+};
+
+export type MrwConfirmResponses = {
+    201: unknown;
+};
+
+export type MrwPendingData = {
+    body?: never;
+    path?: never;
+    query: {
+        threadId: string;
+    };
+    url: '/api/mrw/pending';
+};
+
+export type MrwPendingResponses = {
+    200: unknown;
+};
 
 export type PendingApprovalsListPendingData = {
     body?: never;

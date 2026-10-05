@@ -277,6 +277,15 @@ export const ErrorCode = {
     /** Params: { field } */
     fieldRequired: 'plugins.field_required',
   },
+
+  // ── MRW macro host ─────────────────────────────────────────────────
+  mrw: {
+    backendUnconfigured: 'mrw.backend_unconfigured',
+    backendUnavailable: 'mrw.backend_unavailable',
+    actionNotFound: 'mrw.action_not_found',
+    actionMismatch: 'mrw.action_mismatch',
+    threadIdRequired: 'mrw.thread_id_required',
+  },
 } as const;
 
 /** Recursive type utility that extracts all leaf string values from the ErrorCode tree. */

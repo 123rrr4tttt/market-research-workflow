@@ -101,6 +101,12 @@ export class CreateThreadDto {
 
   @ApiPropertyOptional(approvalPolicySchema(true))
   approvalPolicy?: unknown;
+
+  @ApiPropertyOptional({
+    description:
+      'MRW project key selected by the hosting page. Only affects this new thread.',
+  })
+  mrwProjectKey?: string;
 }
 
 /** Request body for starting a new turn. */

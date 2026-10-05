@@ -42,6 +42,8 @@ export function useCodexSocket(enabled = true) {
 
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
+    if (socket.connected) handleConnect();
+    else socket.connect();
 
     const ctx: NotificationContext = {
       threadId: null,

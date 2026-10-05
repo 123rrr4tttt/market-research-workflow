@@ -22,6 +22,9 @@ import type { ServerNotification, ServerRequest } from '../codex/codex-schema';
 import { PendingApprovalsService } from '../pending-approvals/pending-approvals.service';
 import { ThreadDeletionRegistryService } from '../thread-deletion/thread-deletion-registry.service';
 import { projectNotificationForClient } from '../turn-errors/turn-error-projection';
+import { MrwEventBus } from '../mrw/mrw-event-bus';
+import { MrwService } from '../mrw/mrw.service';
+import type { MrwDynamicToolCallParams } from '../mrw/mrw.types';
 import { ActiveThreadRegistryService } from './active-thread-registry.service';
 
 /** A server request held back while its thread was inside a delete. */
@@ -63,6 +66,8 @@ export class ThreadsGateway
     private readonly activeThreads: ActiveThreadRegistryService,
     private readonly pendingApprovals: PendingApprovalsService,
     private readonly deletionRegistry: ThreadDeletionRegistryService,
+    private readonly mrw: MrwService,
+    private readonly mrwEvents: MrwEventBus,
   ) {}
 
   afterInit(): void {
@@ -79,6 +84,28 @@ export class ThreadsGateway
 
     this.deletionRegistry.onRelease((threadIds) => {
       this.replaySuppressedRequests(threadIds);
+      for (const threadId of threadIds) {
+        this.mrw.cancelForThread(threadId);
+      }
+    });
+
+    this.codexManager.addLifecycleListener((event) => {
+      if (
+        event.type === 'appServerRestarting' ||
+        event.type === 'appServerUnavailable'
+      ) {
+        this.mrw.expireAll();
+      }
+    });
+
+    this.mrwEvents.onActionRequired((action) => {
+      this.server.to(`thread:${action.threadId}`).emit('mrw.actionRequired', action);
+    });
+
+    this.mrwEvents.onActionResolved(({ actionId, threadId }) => {
+      this.server
+        .to(`thread:${threadId}`)
+        .emit('mrw.actionResolved', { actionId, threadId });
     });
 
     this.logger.log('ThreadsGateway initialized');
@@ -141,6 +168,14 @@ export class ThreadsGateway
     if (notification.method === 'serverRequest/resolved') {
       this.pendingApprovals.markResolved(notification);
     }
+    if (notification.method === 'turn/completed') {
+      const completed = notification.params as
+        | { threadId: string; turn: { id: string } }
+        | undefined;
+      if (completed?.threadId && completed.turn?.id) {
+        void this.handleMrwTurnTerminal(completed.threadId, completed.turn.id);
+      }
+    }
 
     const params = notification.params as Record<string, unknown> | undefined;
     const threadId = params?.['threadId'] as string | undefined;
@@ -195,6 +230,11 @@ export class ThreadsGateway
    * The first client to respond wins; response is forwarded back to app-server.
    */
   private handleCodexServerRequest(request: ServerRequest): void {
+    if (request.method === 'item/tool/call') {
+      void this.handleMrwDynamicToolCall(request);
+      return;
+    }
+
     const params = request.params as Record<string, unknown> | undefined;
     const threadId = params?.['threadId'] as string | undefined;
     const requestId = (request as unknown as { id: number | string }).id;
@@ -225,6 +265,30 @@ export class ThreadsGateway
       method: request.method,
       params: request.params,
     });
+  }
+
+  /**
+   * Forwards a native dynamic tool call to the MRW backend. The first call that
+   * needs approval is held back (no RPC response) and surfaced as a card.
+   */
+  private async handleMrwDynamicToolCall(request: ServerRequest): Promise<void> {
+    const requestId = (request as unknown as { id: string | number }).id;
+    const params = (request as unknown as { params: MrwDynamicToolCallParams })
+      .params;
+    await this.mrw.handleDynamicToolCall(requestId, params);
+  }
+
+  private async handleMrwTurnTerminal(
+    threadId: string,
+    turnId: string,
+  ): Promise<void> {
+    if (!this.mrw.isBound(threadId)) return;
+    try {
+      await this.mrw.endTurn(threadId, turnId);
+    } catch {
+      // The binding may already be gone; the local pending cleanup still runs.
+    }
+    this.mrw.cancelForTurn(threadId, turnId);
   }
 
   /**

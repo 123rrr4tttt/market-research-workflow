@@ -1,0 +1,10 @@
+# Optional local Agent module. The SDK and kit remain owned by their repositories.
+services:
+  backend:
+    environment:
+      MRW_CONCEPT_WORKBENCH_ROOT: /opt/concept-workbench
+      MRW_WORKBENCH_TARGETS: ${MRW_WORKBENCH_TARGETS:?explicit project-bound workbench targets required}
+      PYTHONPATH: /app:/opt/functorial-kit:/workspace/mrw/src
+    volumes:
+      - ${MRW_CONCEPT_WORKBENCH_SOURCE:?local Concept Workbench source required}:/opt/concept-workbench:ro
+      - ../../:/workspace/mrw

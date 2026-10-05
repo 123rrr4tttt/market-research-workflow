@@ -77,6 +77,7 @@ async function bootstrap() {
 
         if (payload instanceof Readable) payload.destroy();
         reply.removeHeader('content-length');
+        reply.header('Cache-Control', 'no-store');
         const basePath = normalizeForwardedPrefix(
           request.headers['x-forwarded-prefix'],
         );
