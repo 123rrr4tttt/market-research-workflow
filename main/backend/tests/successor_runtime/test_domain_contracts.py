@@ -596,6 +596,9 @@ def test_profiles_have_unified_refs_and_content_digests() -> None:
         profile_digest=content_digest(changed_values),
     )
     assert changed.profile_digest != semantic.profile_digest
+    mixed_keys = {"omitted": "drop", 1: "retain"}
+    with pytest.raises(ValueError, match="non-string JSON object key"):
+        language_profiles.content_digest(mixed_keys, omit_fields=("omitted",))
 
 
 def test_object_contracts_cover_frozen_owner_matrix() -> None:

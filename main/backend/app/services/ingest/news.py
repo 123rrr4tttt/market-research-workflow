@@ -4,7 +4,8 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime, date, timezone
-from typing import Iterable, List, Optional
+from collections.abc import Iterable
+from typing import List, Optional, Protocol, TypeAlias, TypeGuard
 from urllib.parse import urlparse
 
 from ..job_logger import start_job, complete_job, fail_job
@@ -22,12 +23,56 @@ logger = logging.getLogger(__name__)
 BATCH_COMMIT_SIZE = 100
 DEFAULT_REDDIT_SUBREDDIT = settings.default_reddit_subreddit
 
+ResultRecord: TypeAlias = dict[str, object]
+JsonRecord: TypeAlias = dict[str, object]
+
 @dataclass(slots=True)
 class NewsItem:
     title: str
     link: str
     summary: str | None = None
     published_at: datetime | None = None
+
+
+class RedditRecord(Protocol):
+    link: str
+    subreddit: str | None
+
+
+class GoogleNewsRecord(Protocol):
+    link: str
+    title: str
+    keyword: str | None
+    source_url: str | None
+
+
+class ResourcePoolAppendPort(Protocol):
+    def append_url(
+        self,
+        url: str,
+        source: str,
+        source_ref: dict[str, object],
+        *,
+        project_key: str,
+        job_type: str,
+    ) -> None: ...
+
+
+def _append_resource_pool_url(
+    append_adapter: ResourcePoolAppendPort,
+    *,
+    link: str,
+    project_key: str,
+    job_type: str,
+    source_ref: dict[str, object],
+) -> None:
+    append_adapter.append_url(
+        link,
+        source="ingest",
+        source_ref=source_ref,
+        project_key=project_key,
+        job_type=job_type,
+    )
 
 
 def collect_official_news_updates(
@@ -40,7 +85,7 @@ def collect_official_news_updates(
     job_type: str = "official_news",
     title_fallback: str = "Official Update",
     limit: int = 10,
-) -> dict:
+) -> ResultRecord:
     job_id = start_job(job_type, {"limit": limit, "source_name": source_name})
     try:
         html, _ = fetch_html(url)
@@ -67,7 +112,7 @@ def collect_reddit_discussions(
     limit: int = 20,
     keywords: Optional[List[str]] = None,
     subreddits: Optional[List[str]] = None,
-) -> dict:
+) -> ResultRecord:
     """
     收集Reddit讨论帖
     
@@ -115,16 +160,19 @@ def collect_reddit_discussions(
         raise
 
 
-def _maybe_append_to_resource_pool(link: str, job_type: str, source_ref: dict) -> None:
+def _maybe_append_to_resource_pool(link: str, job_type: str, source_ref: JsonRecord) -> None:
     """Append URL to resource pool if capture enabled for project + job_type."""
     project_key = (current_project_key() or "").strip()
     if not project_key:
         return
     try:
         from ..resource_pool import DefaultResourcePoolAppendAdapter
-        DefaultResourcePoolAppendAdapter().append_url(
-            link, source="ingest", source_ref=source_ref,
-            project_key=project_key, job_type=job_type,
+        _append_resource_pool_url(
+            DefaultResourcePoolAppendAdapter(),
+            link=link,
+            project_key=project_key,
+            job_type=job_type,
+            source_ref=source_ref,
         )
     except Exception:  # noqa: BLE001
         pass
@@ -139,7 +187,7 @@ def _persist_news_items(
     default_state: str | None,
     kind: str = "news",
     job_type: str | None = None,
-) -> dict:
+) -> ResultRecord:
     normalized_doc_type = normalize_doc_type(doc_type)
     links: List[str] = []
     for item in items:
@@ -155,10 +203,10 @@ def _persist_news_items(
     )
 
     return {
-        "inserted": int(ingest_result.get("inserted") or 0),
-        "inserted_valid": int(ingest_result.get("inserted_valid") or 0),
-        "skipped": int(ingest_result.get("skipped") or 0),
-        "queued": int(ingest_result.get("queued") or 0),
+        "inserted": _result_int(ingest_result.get("inserted")),
+        "inserted_valid": _result_int(ingest_result.get("inserted_valid")),
+        "skipped": _result_int(ingest_result.get("skipped")),
+        "queued": _result_int(ingest_result.get("queued")),
         "links": links,
         "doc_type": normalized_doc_type,
         "single_write_workflow": "source_library_frontdoor",
@@ -170,14 +218,14 @@ def _dispatch_links_via_source_library_frontdoor(
     *,
     links: List[str],
     query_terms: List[str],
-    extra_params: dict | None = None,
-) -> dict:
+    extra_params: JsonRecord | None = None,
+) -> ResultRecord:
     if not links:
         return {"inserted": 0, "inserted_valid": 0, "skipped": 0, "queued": 0}
     from .url_pool import collect_urls_from_list
 
     project_key = (current_project_key() or "").strip() or None
-    merged_extra_params = {
+    merged_extra_params: JsonRecord = {
         "dispatch_mode": "inline",
         "front_door_owner": "ingest.news",
         "frontdoor_route_decision": "front_door_url_routing",
@@ -199,8 +247,8 @@ def _dispatch_links_to_single_url(
     *,
     links: List[str],
     query_terms: List[str],
-    extra_params: dict | None = None,
-) -> dict:
+    extra_params: JsonRecord | None = None,
+) -> ResultRecord:
     return _dispatch_links_via_source_library_frontdoor(
         links=links,
         query_terms=query_terms,
@@ -248,11 +296,11 @@ def _extract_official_news_items(
         "div.news-card",
         "li.news-list__item",
     ]
-    seen = set()
+    seen: set[str] = set()
     for selector in selectors:
         for node in parser.css(selector):
             link_node = node.css_first("a")
-            if link_node is None:
+            if not hasattr(link_node, "attributes"):
                 continue
             href = link_node.attributes.get("href") or ""
             if not href or href in seen:
@@ -337,14 +385,14 @@ def _normalize_url(href: str, *, base_url: str) -> str:
 
 def _persist_reddit_items(
     *,
-    posts: Iterable[object],
+    posts: Iterable[RedditRecord],
     doc_type: str,
     source_name: str,
     base_url: str,
     default_state: str | None,
     job_type: str | None = None,
     query_terms_override: list[str] | None = None,
-) -> dict:
+) -> ResultRecord:
     """Store reddit links via single_url body-fetch pipeline (no URL-only docs)."""
     normalized_doc_type = normalize_doc_type(doc_type)
     links: List[str] = []
@@ -367,10 +415,10 @@ def _persist_reddit_items(
     )
 
     return {
-        "inserted": int(ingest_result.get("inserted") or 0),
-        "inserted_valid": int(ingest_result.get("inserted_valid") or 0),
-        "skipped": int(ingest_result.get("skipped") or 0),
-        "queued": int(ingest_result.get("queued") or 0),
+        "inserted": _result_int(ingest_result.get("inserted")),
+        "inserted_valid": _result_int(ingest_result.get("inserted_valid")),
+        "skipped": _result_int(ingest_result.get("skipped")),
+        "queued": _result_int(ingest_result.get("queued")),
         "links": links,
         "doc_type": normalized_doc_type,
         "single_write_workflow": "source_library_frontdoor",
@@ -378,22 +426,52 @@ def _persist_reddit_items(
     }
 
 
+def _is_object_map(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _json_object(value: object) -> JsonRecord | None:
+    if not _is_object_map(value):
+        return None
+    return {key: item for key, item in value.items() if isinstance(key, str)}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _json_list(value: object) -> list[object] | None:
+    if not _is_object_list(value):
+        return None
+    return value
+
+
+def _result_int(value: object) -> int:
+    if not value:
+        return 0
+    if isinstance(value, (int, float, str)):
+        return int(value)
+    return 0
+
+
 def _parse_reddit_payload(payload: object) -> List[NewsItem]:
     """旧版解析函数，保留用于向后兼容"""
     items: List[NewsItem] = []
-    if not isinstance(payload, dict):
+    payload_object = _json_object(payload)
+    if payload_object is None:
         return items
-    data = payload.get("data")
-    if not isinstance(data, dict):
+    data = _json_object(payload_object.get("data"))
+    if data is None:
         return items
-    children = data.get("children")
-    if not isinstance(children, list):
+    children = _json_list(data.get("children"))
+    if children is None:
         return items
     for child in children:
-        if not isinstance(child, dict):
+        child_object = _json_object(child)
+        if child_object is None:
             continue
-        cdata = child.get("data")
-        if not isinstance(cdata, dict):
+        cdata = _json_object(child_object.get("data"))
+        if cdata is None:
             continue
         permalink = cdata.get("permalink")
         if not isinstance(permalink, str):
@@ -403,7 +481,7 @@ def _parse_reddit_payload(payload: object) -> List[NewsItem]:
         created_utc = cdata.get("created_utc")
         published = None
         if isinstance(created_utc, (int, float)):
-            published = datetime.utcfromtimestamp(created_utc)
+            published = datetime.fromtimestamp(created_utc, tz=timezone.utc).replace(tzinfo=None)
         items.append(
             NewsItem(
                 title=str(title),
@@ -415,7 +493,7 @@ def _parse_reddit_payload(payload: object) -> List[NewsItem]:
     return items
 
 
-def collect_google_news(keywords: List[str], limit: int = 20) -> dict:
+def collect_google_news(keywords: List[str], limit: int = 20) -> ResultRecord:
     """
     收集Google News新闻
     
@@ -447,13 +525,13 @@ def collect_google_news(keywords: List[str], limit: int = 20) -> dict:
 
 def _persist_google_news_items(
     *,
-    items: Iterable[object],
+    items: Iterable[GoogleNewsRecord],
     doc_type: str,
     source_name: str,
     base_url: str,
     default_state: str | None,
     job_type: str | None = None,
-) -> dict:
+) -> ResultRecord:
     """Store Google News links via single_url body-fetch pipeline (no URL-only docs)."""
     normalized_doc_type = normalize_doc_type(doc_type)
     links: List[str] = []
@@ -513,7 +591,7 @@ def _persist_google_news_items(
             continue
 
         _add_breakdown(normalized_reason)
-        failed_item = {
+        failed_item: JsonRecord = {
             "url": link,
             "reason": normalized_reason,
             "retryable": retryable,
@@ -541,21 +619,21 @@ def _persist_google_news_items(
     )
 
     ingest_result = {
-        "inserted": int(dispatch_result.get("inserted") or 0) + int(publisher_seed_result.get("inserted") or 0),
-        "inserted_valid": int(dispatch_result.get("inserted_valid") or 0)
-        + int(publisher_seed_result.get("inserted_valid") or 0),
-        "skipped": int(dispatch_result.get("skipped") or 0) + int(publisher_seed_result.get("skipped") or 0),
-        "queued": int(dispatch_result.get("queued") or 0) + int(publisher_seed_result.get("queued") or 0),
+        "inserted": _result_int(dispatch_result.get("inserted")) + _result_int(publisher_seed_result.get("inserted")),
+        "inserted_valid": _result_int(dispatch_result.get("inserted_valid"))
+        + _result_int(publisher_seed_result.get("inserted_valid")),
+        "skipped": _result_int(dispatch_result.get("skipped")) + _result_int(publisher_seed_result.get("skipped")),
+        "queued": _result_int(dispatch_result.get("queued")) + _result_int(publisher_seed_result.get("queued")),
     }
 
     delayed_queue_count = len(delayed_retry_queue)
-    dispatch_queued_count = int(ingest_result.get("queued") or 0)
+    dispatch_queued_count = _result_int(ingest_result.get("queued"))
     total_queued_count = dispatch_queued_count + delayed_queue_count
-    total_skipped = int(ingest_result.get("skipped") or 0) + max(0, len(decode_failed_links) - delayed_queue_count)
+    total_skipped = _result_int(ingest_result.get("skipped")) + max(0, len(decode_failed_links) - delayed_queue_count)
 
     return {
-        "inserted": int(ingest_result.get("inserted") or 0),
-        "inserted_valid": int(ingest_result.get("inserted_valid") or 0),
+        "inserted": _result_int(ingest_result.get("inserted")),
+        "inserted_valid": _result_int(ingest_result.get("inserted_valid")),
         "skipped": total_skipped,
         "queued": total_queued_count,
         "retryable": bool(delayed_queue_count > 0),
@@ -572,3 +650,10 @@ def _persist_google_news_items(
         "single_write_workflow": "source_library_frontdoor",
         "enforced_body_only": True,
     }
+
+
+_COMPATIBILITY_FUNCTIONS = (
+    _dispatch_links_to_single_url,
+    _parse_reddit_payload,
+    _publish_date,
+)

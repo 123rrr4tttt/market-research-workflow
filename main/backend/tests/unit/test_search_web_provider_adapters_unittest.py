@@ -74,6 +74,23 @@ def _deterministic_gate(sleeps: list[float]) -> RateGate:
 
 
 class SearchWebProviderAdaptersTest(unittest.TestCase):
+    def test_search_web_dynamic_boundaries_preserve_failure_paths(self) -> None:
+        with patch.object(web, "_SEARCH_REQUEST_PORT", None):
+            with self.assertRaisesRegex(RuntimeError, "request port is not configured"):
+                web._request_search_json("https://example.test", scope=web._search_scope("test"))
+        self.assertIsNone(web._json_dict({1: "value"}))
+        with self.assertRaisesRegex(TypeError, "field 'title' must be text"):
+            web._result_text({"title": 42}, "title")
+        self.assertEqual(web._result_text({"title": 0}, "title"), "")
+        with self.assertRaisesRegex(TypeError, "must be a JSON object"):
+            web._json_object({1: "value"})
+        with self.assertRaisesRegex(TypeError, "must be a JSON array"):
+            web._json_rows({"row": "value"})
+        with self.assertRaisesRegex(TypeError, "row must be a JSON object"):
+            web._required_json_dict([])
+        with self.assertRaisesRegex(TypeError, "content must be text"):
+            web._required_llm_text(42)
+
     def test_searxng_adapter_normalizes_results_and_keeps_provider_source(self) -> None:
         payload = {
             "results": [

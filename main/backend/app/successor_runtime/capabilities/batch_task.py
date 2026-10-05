@@ -18,7 +18,17 @@ from __future__ import annotations
 import dataclasses
 import re
 from dataclasses import dataclass, field
-from typing import Annotated, Any, Literal, Mapping, NoReturn, Protocol, runtime_checkable
+from typing import (
+    Annotated,
+    Literal,
+    SupportsIndex,
+    SupportsInt,
+    Mapping,
+    NoReturn,
+    Protocol,
+    TypeGuard,
+    runtime_checkable,
+)
 
 from functorial_kit import Failure, define_failure_family
 
@@ -42,6 +52,8 @@ from app.successor_runtime.language.catalog import (
 )
 from app.successor_runtime.language.object_contracts import (
     RUNTIME_VALUE_RETURN_CONTRACT_REF,
+    OperationContractRef,
+    OperationContract,
     make_operation_contract,
 )
 from app.successor_runtime.language.profiles import (
@@ -214,8 +226,47 @@ raise_agent_batch_contract_failure = _raise_contract_failure
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
+class _ProfileIdentity(Protocol):
+    @property
+    def profile_id(self) -> str: ...
+
+    @property
+    def profile_version(self) -> str: ...
+
+    @property
+    def profile_digest(self) -> str: ...
+
+
+def _is_object_mapping(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_string_key_mapping(value: object) -> TypeGuard[dict[str, object]]:
+    if not _is_object_mapping(value):
+        return False
+    return all(isinstance(key, str) for key in value)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _is_int_convertible(
+    value: object,
+) -> TypeGuard[str | bytes | bytearray | SupportsInt | SupportsIndex]:
+    return isinstance(value, (str, bytes, bytearray, SupportsInt, SupportsIndex))
+
+
+def _is_dataclass_type(value: object) -> TypeGuard[type]:
+    return isinstance(value, type) and dataclasses.is_dataclass(value)
+
+
+def _new_object_mapping() -> dict[str, object]:
+    return {}
+
+
 def _hex64_failure(value: str, field_name: str) -> Failure | None:
-    if not isinstance(value, str) or _HEX64.fullmatch(value) is None:
+    if _HEX64.fullmatch(value) is None:
         return _failure(
             "digest_contract_invalid",
             f"{field_name} must be a 64-char lowercase hex digest",
@@ -224,8 +275,8 @@ def _hex64_failure(value: str, field_name: str) -> Failure | None:
     return None
 
 
-def _source_mode_failure(value: Any, *, path: str = "payload") -> Failure | None:
-    if isinstance(value, dict):
+def _source_mode_failure(value: object, *, path: str = "payload") -> Failure | None:
+    if _is_string_key_mapping(value):
         if "source_mode" in value:
             return _failure(
                 "schema_contract_invalid",
@@ -235,11 +286,17 @@ def _source_mode_failure(value: Any, *, path: str = "payload") -> Failure | None
             failure = _source_mode_failure(item, path=f"{path}.{key}")
             if failure is not None:
                 return failure
-    elif isinstance(value, (list, tuple)):
+    elif _is_object_sequence(value):
         for index, item in enumerate(value):
             failure = _source_mode_failure(item, path=f"{path}[{index}]")
             if failure is not None:
                 return failure
+    elif isinstance(value, dict):
+        return _failure(
+            "schema_contract_invalid",
+            "batch task surface mapping keys must be strings",
+            site=f"{path}.keys",
+        )
     elif dataclasses.is_dataclass(value):
         for field_def in dataclasses.fields(value):
             failure = _source_mode_failure(
@@ -385,41 +442,41 @@ _EN_AXIS_SUFFIX = {
 }
 
 
-def _normalize_terms(value: Any) -> tuple[str, ...]:
+def _normalize_terms(value: object) -> tuple[str, ...]:
     out: list[str] = []
     raw = value
     if isinstance(raw, str):
         raw = [raw]
-    if isinstance(raw, (list, tuple)):
+    if _is_object_sequence(raw):
         for item in raw:
-            text = str(item or "").strip()
+            text = str("" if not item else item).strip()
             if text and text not in out:
                 out.append(text)
     return tuple(out)
 
 
-def _normalize_string_list(value: Any) -> tuple[str, ...]:
-    if not isinstance(value, (list, tuple)):
+def _normalize_string_list(value: object) -> tuple[str, ...]:
+    if not _is_object_sequence(value):
         return ()
     out: list[str] = []
     for item in value:
-        text = str(item or "").strip()
+        text = str("" if not item else item).strip()
         if text and text not in out:
             out.append(text)
     return tuple(out)
 
 
-def _normalize_int(value: Any, default: int, *, min_value: int, max_value: int) -> int:
+def _normalize_int(value: object, default: int, *, min_value: int, max_value: int) -> int:
     try:
-        parsed = int(value)
+        parsed = int(value) if _is_int_convertible(value) else int(default)
     except (TypeError, ValueError):
         parsed = int(default)
     return max(min_value, min(max_value, parsed))
 
 
-def _normalize_days_back(value: Any) -> int | None:
+def _normalize_days_back(value: object) -> int | None:
     try:
-        parsed = int(value)
+        parsed = int(value) if _is_int_convertible(value) else 0
     except (TypeError, ValueError):
         return None
     if parsed < 1:
@@ -427,14 +484,10 @@ def _normalize_days_back(value: Any) -> int | None:
     return min(parsed, 365)
 
 
-def _normalize_override_params(value: Any) -> dict[str, Any]:
-    if isinstance(value, dict):
+def _normalize_override_params(value: object) -> dict[str, object]:
+    if _is_object_mapping(value):
         return {str(key): item for key, item in value.items()}
     return {}
-
-
-def _freeze_object(value: dict[str, Any]) -> tuple[tuple[str, Any], ...]:
-    return tuple(sorted((str(key), item) for key, item in value.items()))
 
 
 def _batch_plan_payload_identity_failure(payload: BatchPlanPayload) -> Failure | None:
@@ -570,8 +623,7 @@ def _retry_attempt_intent_failure(intent: RetryAttemptIntent) -> Failure | None:
             "RetryAttemptIntent requires attempt/prior/idempotency identity",
         )
     if (
-        not isinstance(intent.round_index, int)
-        or isinstance(intent.round_index, bool)
+        type(intent.round_index) is bool
         or intent.round_index < 1
     ):
         return _failure(
@@ -733,7 +785,7 @@ class AgentBatchTask:
     item_key: str | None = None
     scope: str | None = None
     platforms: tuple[str, ...] = ()
-    override_params: dict[str, Any] = field(default_factory=dict)
+    override_params: Mapping[str, object] = field(default_factory=_new_object_mapping)
 
     def __post_init__(self) -> None:
         failure = _agent_batch_task_failure(self)
@@ -765,7 +817,7 @@ class AgentBatchTask:
             self, "override_params", _normalize_override_params(self.override_params)
         )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> dict[str, object]:
         return dataclasses.asdict(self)
 
 
@@ -786,7 +838,7 @@ class SourceCandidateView(Protocol):
     def source_items(self) -> tuple[source_contracts.SourceItemDefinition, ...]: ...
 
 
-def reject_source_mode(value: Any) -> None:
+def reject_source_mode(value: object) -> None:
     """Recursively reject ``source_mode`` anywhere in batch-task data."""
 
     failure = _source_mode_failure(value)
@@ -795,7 +847,7 @@ def reject_source_mode(value: Any) -> None:
 
 
 def normalize_batch_task_from_plain(
-    task: dict[str, Any],
+    task: dict[str, object],
     *,
     idx: int,
     default_language: str,
@@ -840,19 +892,28 @@ def normalize_batch_task_from_plain(
 
 
 def normalize_batch_tasks(
-    tasks: Any,
+    tasks: object,
     *,
     default_language: str = "zh",
 ) -> tuple[AgentBatchTask, ...]:
     """Deterministic ordered task normalization; malformed entries are dropped."""
 
     out: list[AgentBatchTask] = []
-    if isinstance(tasks, tuple):
-        plain_tasks = [dataclasses.asdict(item) for item in tasks]
-    elif isinstance(tasks, list):
-        plain_tasks = [dict(item) for item in tasks]
-    else:
-        plain_tasks = []
+    plain_tasks: list[dict[str, object]] = []
+    if _is_object_sequence(tasks):
+        for item in tasks:
+            if dataclasses.is_dataclass(item) and not isinstance(item, type):
+                plain_tasks.append(dataclasses.asdict(item))
+            elif _is_string_key_mapping(item):
+                plain_tasks.append(dict(item))
+            else:
+                _raise_contract_failure(
+                    _failure(
+                        "task_input_invalid",
+                        "batch task must be a dataclass or mapping",
+                    ),
+                    TypeError,
+                )
     for idx, task in enumerate(plain_tasks, start=1):
         try:
             normalized = normalize_batch_task_from_plain(
@@ -913,7 +974,7 @@ class BatchPlanPayload:
         if failure is not None:
             _raise_contract_failure(failure)
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> dict[str, object]:
         return dataclasses.asdict(self)
 
 
@@ -939,7 +1000,7 @@ class SearchBrief:
     search_strategies: tuple[SearchStrategyEntry, ...]
     source_preferences: SourcePreferences
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> dict[str, object]:
         return dataclasses.asdict(self)
 
 
@@ -1327,7 +1388,7 @@ class CriticDecision:
     score: float
     next_action: str
     reason_codes: tuple[str, ...] = ()
-    rewrite: dict[str, Any] = field(default_factory=dict)
+    rewrite: Mapping[str, object] = field(default_factory=_new_object_mapping)
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -1341,7 +1402,7 @@ class RetryAction:
     action: str
     reason: str
     channel: str | None = None
-    rewrite: dict[str, Any] = field(default_factory=dict)
+    rewrite: Mapping[str, object] = field(default_factory=_new_object_mapping)
     target_items: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -1411,7 +1472,7 @@ class RetryReducerInput:
 
 def validate_retry_action(
     action: RetryAction,
-) -> tuple[RetryAction, str | None, dict[str, Any]]:
+) -> tuple[RetryAction, str | None, dict[str, object]]:
     """Fail-closed typed retry-action validation for the C4 successor reducer.
 
     The rewrite surface is C4-owned and deliberately rejects ``source_mode``;
@@ -1434,7 +1495,7 @@ def validate_retry_action(
                 "allowed_fields": sorted(allowed),
             },
         )
-    normalized: dict[str, Any] = {}
+    normalized: dict[str, object] = {}
     for field_name in sorted(allowed):
         if field_name not in action.rewrite:
             continue
@@ -1464,7 +1525,7 @@ def validate_retry_action(
     )
 
 
-def _normalize_retry_rewrite_value(field_name: str, value: Any) -> Any:
+def _normalize_retry_rewrite_value(field_name: str, value: object) -> object:
     if field_name == "query_terms":
         terms = _normalize_terms(value)
         return list(terms)
@@ -1526,7 +1587,7 @@ def _apply_retry_rewrite(
         if task.channel != action.channel:
             out.append(task)
             continue
-        values: dict[str, Any] = {}
+        values: dict[str, object] = {}
         for key, value in action.rewrite.items():
             if key == "query_terms":
                 values[key] = tuple(_normalize_terms(value))
@@ -1572,7 +1633,7 @@ class RetryAttemptIntent:
 class RetryTransition:
     kind: Literal["RETRY_SCHEDULED", "RETRY_SKIPPED", "RETRY_REJECTED"]
     tasks: tuple[AgentBatchTask, ...]
-    observations: dict[str, Any]
+    observations: dict[str, object]
     attempt_intent: RetryAttemptIntent | None = None
     transition_digest: str = ""
 
@@ -1596,7 +1657,7 @@ def reduce_retry_action(payload: RetryReducerInput) -> RetryTransition:
 
     reject_source_mode(payload)
     budget = payload.budget
-    observations: dict[str, Any] = {
+    observations: dict[str, object] = {
         "retry_enabled": bool(payload.retry_enabled),
         "dry_run": bool(payload.dry_run),
         "budget_remaining": budget.remaining,
@@ -1701,7 +1762,7 @@ class AgentBatchSubmissionItem:
     item_key: str | None = None
     scope: str | None = None
     platforms: tuple[str, ...] = ()
-    override_params: dict[str, Any] = field(default_factory=dict)
+    override_params: Mapping[str, object] = field(default_factory=_new_object_mapping)
     lane: str = "main"
     workflow_run_id: str | None = None
     trace_id: str | None = None
@@ -1822,7 +1883,7 @@ class AgentBatchSubmissionReceipt:
 
 
 def build_agent_batch_submission_digest(
-    submission: Any,
+    submission: object,
 ) -> Annotated[  # NonAuthoritative
     str,
     "kit:non-authoritative derived_as=view "
@@ -1831,16 +1892,23 @@ def build_agent_batch_submission_digest(
 ]:
     """Canonical request digest over batch, rules and authority inputs."""
 
-    plain = (
-        dataclasses.asdict(submission)
-        if dataclasses.is_dataclass(submission)
-        else dict(submission)
-    )
+    if dataclasses.is_dataclass(submission) and not isinstance(submission, type):
+        plain = dataclasses.asdict(submission)
+    elif _is_string_key_mapping(submission):
+        plain = dict(submission)
+    else:
+        _raise_contract_failure(
+            _failure(
+                "digest_input_invalid",
+                "submission digest requires a dataclass or mapping",
+            ),
+            TypeError,
+        )
     plain.pop("submission_digest", None)
     return sha256_hex(canonical_json(plain).encode("utf-8"))
 
 
-def _profile_ref(profile: Any) -> ContractProfileRef:
+def _profile_ref(profile: _ProfileIdentity) -> ContractProfileRef:
     return ContractProfileRef(
         profile.profile_id,
         profile.profile_version,
@@ -1868,7 +1936,26 @@ def _semantic_profile() -> SemanticProfile:
         "declared_loss": ("legacy_dict_shapes",),
         "observation_profile_ref": BATCH_PLAN_OBSERVATION_PROFILE,
     }
-    return SemanticProfile(**values, profile_digest=content_digest(values))
+    return SemanticProfile(
+        semantic_profile_id="batch.task.semantic",
+        semantic_profile_version="1.0.0",
+        reads=(
+            "AgentBatchTask.v1",
+            "ChannelCatalogSnapshot.v1",
+            "SourceItemDefinition.v1",
+            "RetryAction.v1",
+            "AgentBatchSubmission.v1",
+        ),
+        creates=(
+            "BatchPlanResult.v1",
+            "RetryTransition.v1",
+            "AgentBatchSubmissionReceipt.v1",
+        ),
+        creates_relations=(),
+        declared_loss=("legacy_dict_shapes",),
+        observation_profile_ref=BATCH_PLAN_OBSERVATION_PROFILE,
+        profile_digest=content_digest(values),
+    )
 
 
 def _effect_profile() -> EffectProfile:
@@ -1885,7 +1972,20 @@ def _effect_profile() -> EffectProfile:
         "external_acquisition": False,
         "idempotency_profile_ref": BATCH_TASK_IDEMPOTENCY_PROFILE,
     }
-    return EffectProfile(**values, profile_digest=content_digest(values))
+    return EffectProfile(
+        effect_profile_id="batch.task.effect",
+        effect_profile_version="1.0.0",
+        execution_class="PURE_TRANSFORM",
+        external_visibility="NONE",
+        network_required=False,
+        irreversible=False,
+        cancellation_points=(),
+        internal_export_only=False,
+        human_approval_required=False,
+        external_acquisition=False,
+        idempotency_profile_ref=BATCH_TASK_IDEMPOTENCY_PROFILE,
+        profile_digest=content_digest(values),
+    )
 
 
 def _resource_profile() -> ResourceProfile:
@@ -1903,7 +2003,21 @@ def _resource_profile() -> ResourceProfile:
         "node_profile_requirements": ("any",),
         "units": 1,
     }
-    return ResourceProfile(**values, profile_digest=content_digest(values))
+    return ResourceProfile(
+        resource_profile_id="batch.task.resource",
+        resource_profile_version="1.0.0",
+        resource_classes=("CPU_LIGHT",),
+        concurrency_key="batch.task",
+        budget_units="units",
+        default_soft_limit_seconds=5,
+        default_hard_limit_seconds=30,
+        node_profile_selector="any",
+        budget_ref=BATCH_TASK_BUDGET_PROFILE,
+        deadline_policy_ref=BATCH_TASK_DEADLINE_POLICY,
+        node_profile_requirements=("any",),
+        units=1,
+        profile_digest=content_digest(values),
+    )
 
 
 def _failure_profile() -> FailureProfile:
@@ -1928,7 +2042,28 @@ def _failure_profile() -> FailureProfile:
         "readback_profile_ref": None,
         "compensation_profile_ref": None,
     }
-    return FailureProfile(**values, profile_digest=content_digest(values))
+    return FailureProfile(
+        failure_profile_id="batch.task.failure",
+        failure_profile_version="1.0.0",
+        typed_failures=(
+            "INVALID_PLAN",
+            "SOURCE_CANDIDATE_READ_FAILED",
+            "SOURCE_MODE_WRITE_FORBIDDEN",
+            "RETRY_ACTION_INVALID",
+            "RETRY_BUDGET_EXHAUSTED",
+            "IDEMPOTENCY_CONFLICT",
+            "ASSIGNMENT_BINDING_MISMATCH",
+        ),
+        retryable=False,
+        degraded_acceptable=False,
+        unknown_outcome_supported=False,
+        readback_or_compensation="replay",
+        failure_union_ref=BATCH_TASK_FAILURE_UNION,
+        retryable_failure_kinds=(),
+        readback_profile_ref=None,
+        compensation_profile_ref=None,
+        profile_digest=content_digest(values),
+    )
 
 
 def _authority_profile() -> AuthorityProfile:
@@ -1943,7 +2078,18 @@ def _authority_profile() -> AuthorityProfile:
         "revalidation_points": ("claim_time",),
         "authority_epoch": 1,
     }
-    return AuthorityProfile(**values, profile_digest=content_digest(values))
+    return AuthorityProfile(
+        authority_profile_id="batch.task.authority",
+        authority_profile_version="1.0.0",
+        grant_scopes=("project",),
+        approval_required=False,
+        approval_kinds=(),
+        credential_refs=(),
+        canonical_owner=BATCH_TASK_OWNER,
+        revalidation_points=("claim_time",),
+        authority_epoch=1,
+        profile_digest=content_digest(values),
+    )
 
 
 def _interpreter_profile() -> InterpreterProfile:
@@ -1970,7 +2116,27 @@ def _interpreter_profile() -> InterpreterProfile:
         "authoritative_readback_profile_ref": None,
         "receipt_codec_ref": BATCH_PLAN_OBSERVATION_PROFILE,
     }
-    return InterpreterProfile(**values, profile_digest=content_digest(values))
+    return InterpreterProfile(
+        interpreter_profile_id="batch.task.pure.v2",
+        interpreter_profile_version="1.0.0",
+        supported_contract_kinds=(BATCH_PLAN_KIND, RETRY_REDUCE_KIND),
+        supported_contract_refs=(),
+        dependency_digest=content_digest(
+            {
+                "interpreter": "batch.task.native",
+                "version": "1.0.0",
+                "boundary": "pure ordered plan/reducer; no legacy service import",
+            }
+        ),
+        security_profile_ref=BATCH_TASK_SECURITY_PROFILE,
+        resource_profile_ref="batch.task.resource@1.0.0",
+        credential_requirements_ref=None,
+        cancellation_profile_ref="step_boundary",
+        idempotency_profile_ref="logical_request_id",
+        authoritative_readback_profile_ref=None,
+        receipt_codec_ref=BATCH_PLAN_OBSERVATION_PROFILE,
+        profile_digest=content_digest(values),
+    )
 
 
 def _observation_profile() -> ObservationProfile:
@@ -1990,7 +2156,23 @@ def _observation_profile() -> ObservationProfile:
         "compatible_with_legacy": True,
         "observation_schema_ref": BATCH_PLAN_OBSERVATION_PROFILE,
     }
-    return ObservationProfile(**values, profile_digest=content_digest(values))
+    return ObservationProfile(
+        observation_profile_id=BATCH_PLAN_OBSERVATION_PROFILE,
+        observation_profile_version="1.0.0",
+        dimensions=(
+            "ordered_tasks",
+            "supplementation",
+            "branching",
+            "search_brief",
+            "retry_transition",
+            "attempt_intent",
+            "submission_receipt",
+            "source_mode_absent",
+        ),
+        compatible_with_legacy=True,
+        observation_schema_ref=BATCH_PLAN_OBSERVATION_PROFILE,
+        profile_digest=content_digest(values),
+    )
 
 
 def _make_contract(
@@ -2006,20 +2188,20 @@ def _make_contract(
     interpreter: InterpreterProfile,
     observation: ObservationProfile,
     owner: str,
-) -> Any:
+) -> OperationContract:
     return make_operation_contract(
         kind=kind,
         contract_version="1.0.0",
         input_type=input_type,
         output_type=output_type,
         return_contract_ref=RUNTIME_VALUE_RETURN_CONTRACT_REF,
-        semantic_profile_ref=_profile_ref(semantic).to_ref_string(),
-        effect_profile_ref=_profile_ref(effect).to_ref_string(),
-        resource_profile_ref=_profile_ref(resource).to_ref_string(),
-        failure_profile_ref=_profile_ref(failure).to_ref_string(),
-        authority_profile_ref=_profile_ref(authority).to_ref_string(),
-        interpreter_compatibility_ref=_profile_ref(interpreter).to_ref_string(),
-        observation_profile_ref=_profile_ref(observation).to_ref_string(),
+        semantic_profile_ref=_profile_ref(semantic),
+        effect_profile_ref=_profile_ref(effect),
+        resource_profile_ref=_profile_ref(resource),
+        failure_profile_ref=_profile_ref(failure),
+        authority_profile_ref=_profile_ref(authority),
+        interpreter_compatibility_ref=_profile_ref(interpreter),
+        observation_profile_ref=_profile_ref(observation),
         allowed_override_schema_ref="mrw.functorial-successor.override.none.v1",
         owner_capability_id=owner,
     )
@@ -2028,7 +2210,7 @@ def _make_contract(
 @dataclass(frozen=True, slots=True)
 class BatchTaskCapabilityBundle:
     bundle_id: str
-    operations: tuple[Any, ...]
+    operations: tuple[OperationContract, ...]
     codecs: tuple[PayloadCodec, ...]
     profiles: dict[str, object]
 
@@ -2077,22 +2259,22 @@ class SubmissionReceiptReadback:
 
     codec_id: str
     stored_digest: str
-    content: Mapping[str, Any]
+    content: Mapping[str, object]
     historical: bool
 
 
 def _decode_historical_submission_payload(
-    value: Any,
+    value: object,
     *,
     codec_id: str,
-) -> dict[str, Any] | Failure:
+) -> dict[str, object] | Failure:
     if codec_id != HISTORICAL_SUBMISSION_PAYLOAD_CODEC_ID:
         return _failure(
             "codec_contract_invalid",
             "unsupported historical submission payload codec",
             site="historical-submission/payload-codec",
         )
-    if not isinstance(value, dict):
+    if not _is_string_key_mapping(value):
         return _failure(
             "schema_contract_invalid",
             "historical submission payload requires a JSON object",
@@ -2122,10 +2304,10 @@ def _decode_historical_submission_payload(
 
 
 def decode_historical_submission_payload(
-    value: dict[str, Any],
+    value: dict[str, object],
     *,
     codec_id: str = HISTORICAL_SUBMISSION_PAYLOAD_CODEC_ID,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Read exact historical submission JSON without minting v2 identity."""
 
     result = _decode_historical_submission_payload(value, codec_id=codec_id)
@@ -2169,7 +2351,7 @@ def _decode_submission_receipt_readback(
             "submission receipt bytes are not a JSON object",
             site="submission-receipt/exact-bytes",
         )
-    if not isinstance(decoded, dict):
+    if not _is_string_key_mapping(decoded):
         return _failure(
             "schema_contract_invalid",
             "submission receipt bytes are not a JSON object",
@@ -2218,15 +2400,24 @@ def decode_submission_receipt_readback(
 
 def _decode_nested(
     dto_cls: type,
-    value: dict[str, Any],
+    value: dict[str, object],
     *,
     _seen: set[type] | None = None,
-) -> Any:
+) -> object:
     """Decode a dataclass payload while restoring nested dataclass fields."""
     import typing
 
-    seen = _seen if _seen is not None else set()
-    restored: dict[str, Any] = {}
+    def decode_sequence_item(item_cls: type | None, item: object) -> object:
+        if (
+            item_cls is not None
+            and _is_dataclass_type(item_cls)
+            and _is_string_key_mapping(item)
+        ):
+            return _decode_nested(item_cls, dict(item), _seen=seen)
+        return item
+
+    seen: set[type] = _seen if _seen is not None else set()
+    restored: dict[str, object] = {}
     hints = typing.get_type_hints(dto_cls)
     for field_def in dataclasses.fields(dto_cls):
         if field_def.name not in value:
@@ -2236,31 +2427,35 @@ def _decode_nested(
         args = typing.get_args(field_type)
         raw = value[field_def.name]
         if origin in (tuple, list):
-            item_cls = args[0] if args else None
-            items = tuple(raw) if isinstance(raw, (list, tuple)) else raw
+            item_cls: type | None = args[0] if args else None
+            if not _is_object_sequence(raw):
+                _raise_contract_failure(
+                    _failure(
+                        "codec_input_invalid",
+                        "dataclass sequence field requires a sequence",
+                    ),
+                    TypeError,
+                )
+            items = tuple(raw)
             restored[field_def.name] = (
                 tuple(
-                    _decode_nested(item_cls, dict(item), _seen=seen)
-                    if dataclasses.is_dataclass(item_cls) and isinstance(item, dict)
-                    else item
+                    decode_sequence_item(item_cls, item)
                     for item in items
                 )
                 if origin is tuple
                 else [
-                    _decode_nested(item_cls, dict(item), _seen=seen)
-                    if dataclasses.is_dataclass(item_cls) and isinstance(item, dict)
-                    else item
+                    decode_sequence_item(item_cls, item)
                     for item in items
                 ]
             )
-        elif isinstance(raw, dict) and dataclasses.is_dataclass(field_type):
+        elif _is_string_key_mapping(raw) and _is_dataclass_type(field_type):
             restored[field_def.name] = _decode_nested(field_type, raw, _seen=seen)
         else:
             restored[field_def.name] = raw
     return dto_cls(**restored)
 
 
-def _payload_codec(contract_ref: Any, dto_cls: type) -> PayloadCodec:
+def _payload_codec(contract_ref: OperationContractRef, dto_cls: type) -> PayloadCodec:
     kind = contract_ref.kind
     if kind in {BATCH_PLAN_KIND, RETRY_REDUCE_KIND}:
         codec_id = (
@@ -2288,8 +2483,8 @@ def _payload_codec(contract_ref: Any, dto_cls: type) -> PayloadCodec:
             codec_digest,
         )
 
-        def encode(value: Any) -> dict[str, Any]:
-            if not isinstance(value, dto_cls):
+        def encode(value: object) -> dict[str, object]:
+            if not isinstance(value, AgentBatchSubmission):
                 _raise_contract_failure(
                     _failure(
                         "codec_contract_invalid",
@@ -2301,7 +2496,7 @@ def _payload_codec(contract_ref: Any, dto_cls: type) -> PayloadCodec:
                 )
             return dataclasses.asdict(value)
 
-        def decode(value: dict[str, Any]) -> Any:
+        def decode(value: dict[str, object]) -> object:
             return _decode_nested(dto_cls, value)
 
         return PayloadCodec(

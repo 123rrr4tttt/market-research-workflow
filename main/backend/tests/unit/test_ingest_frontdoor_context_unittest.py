@@ -15,6 +15,7 @@ pytestmark = pytest.mark.unit
 try:
     from app.services.ingest import market_web as market_web_module
     from app.services.ingest import news as news_module
+    from app.services.ingest import social as social_module
     from app.services.ingest import url_pool as url_pool_module
 
     _IMPORT_ERROR = None
@@ -303,6 +304,45 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         self.assertEqual(captured[1]["search_options"]["source_search_contract"]["param_key"], "query")
         self.assertEqual(captured[1]["search_options"]["target_candidates"], 5)
         self.assertEqual(captured[1]["frontdoor_options"]["route_hint"], "search_shell")
+
+    def test_social_frontdoor_writer_shape_guards_preserve_invalid_payload_failures(self):
+        with self.assertRaisesRegex(TypeError, "requires mapping"):
+            social_module._as_str_object_dict([])
+        with self.assertRaisesRegex(TypeError, "requires string keys"):
+            social_module._as_str_object_dict({1: "value"})
+        with self.assertRaisesRegex(TypeError, "requires string name"):
+            social_module._required_str({"name": None}, "name")
+        with self.assertRaisesRegex(TypeError, "requires optional string label"):
+            social_module._optional_str({"label": 1}, "label")
+        with self.assertRaisesRegex(TypeError, "requires mapping details"):
+            social_module._required_str_object_dict({"details": None}, "details")
+        with self.assertRaisesRegex(TypeError, "not convertible to integer"):
+            social_module._as_count(object())
+
+    def test_url_pool_dynamic_port_guards_reject_incompatible_bindings(self):
+        with patch.object(
+            url_pool_module,
+            "import_module",
+            return_value=SimpleNamespace(SessionLocal=object()),
+        ):
+            with self.assertRaisesRegex(TypeError, "SessionLocal has an incompatible"):
+                url_pool_module._open_session()
+        with patch.object(
+            url_pool_module,
+            "import_module",
+            return_value=SimpleNamespace(make_html_parser=object()),
+        ):
+            with self.assertRaisesRegex(TypeError, "make_html_parser has an incompatible"):
+                url_pool_module._make_html_parser("<html></html>")
+        with patch.object(
+            url_pool_module,
+            "import_module",
+            return_value=SimpleNamespace(list_urls=object()),
+        ):
+            with self.assertRaisesRegex(TypeError, "list_urls has an incompatible"):
+                url_pool_module.list_urls()
+        with self.assertRaisesRegex(TypeError, "does not support delayed dispatch"):
+            url_pool_module._delay_task(SimpleNamespace(delay=object()))
 
     def test_high_js_frontdoor_route_prefers_browser_render_and_projects_dashboard_status(self):
         captured: dict = {}

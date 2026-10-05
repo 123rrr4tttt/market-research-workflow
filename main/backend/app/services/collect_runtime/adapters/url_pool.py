@@ -29,7 +29,7 @@ class _UrlPoolListCollector(Protocol):
         *,
         project_key: str | None = None,
         query_terms: list[str] | None = None,
-        extra_params: dict[str, CollectJsonValue] | None = None,
+        extra_params: dict[str, object] | None = None,
         enable_extraction: bool = True,
     ) -> object:
         ...
@@ -45,7 +45,7 @@ class _UrlPoolCollector(Protocol):
         source_filter: str | None = None,
         limit: int = 50,
         query_terms: list[str] | None = None,
-        extra_params: dict[str, CollectJsonValue] | None = None,
+        extra_params: dict[str, object] | None = None,
         enable_extraction: bool = True,
     ) -> object:
         ...
@@ -56,7 +56,7 @@ class UrlPoolAdapter:
         from ...ingest.url_pool import collect_urls_from_list, collect_urls_from_pool
 
         query_terms = list(request.query_terms or [])
-        extra_params = dict(request.options or {})
+        extra_params: dict[str, object] = dict(request.options or {})
         if request.urls:
             collect_list: _UrlPoolListCollector = collect_urls_from_list
             raw_result = collect_list(

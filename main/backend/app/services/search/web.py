@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Callable, List, Dict, Optional, Protocol, Set
+from collections.abc import Callable
+from collections.abc import Mapping
+from importlib import import_module
+from typing import List, Optional, Protocol, Set, TypeGuard
 from datetime import datetime
 import os
 import logging
@@ -15,7 +18,7 @@ from sqlalchemy import select
 
 from ..ingest.retry_policy import RateGate, RequestScope
 from ..llm.provider import get_chat_model
-from ..llm.config_loader import get_llm_config, format_prompt_template
+from ..llm.config_loader import get_llm_config
 from ...settings.config import settings
 from ...models.base import SessionLocal
 from ...models.entities import Document
@@ -24,6 +27,10 @@ from .candidate_contracts import FailureKind, ProviderObservation, ProviderStatu
 # Azure AI Search removed - it's for searching your own data, not web search
 
 logger = logging.getLogger(__name__)
+
+SearchResult = dict[str, object]
+ObservationRecord = dict[str, str | int | bool | None]
+ProviderCall = Callable[[], list[SearchResult]]
 
 _TRACKING_QUERY_PARAMS = {
     "utm_source",
@@ -83,8 +90,8 @@ class SearchRequestPort(Protocol):
         *,
         scope: RequestScope,
         headers: dict[str, str] | None = None,
-        params: dict[str, Any] | None = None,
-    ) -> Any:
+    params: Mapping[str, str | int] | None = None,
+    ) -> object:
         ...
 
 
@@ -97,8 +104,7 @@ SEARCH_RATE_GATE = RateGate(
 
 
 def set_search_request_port(port: SearchRequestPort) -> None:
-    global _SEARCH_REQUEST_PORT
-    _SEARCH_REQUEST_PORT = port
+    globals()["_SEARCH_REQUEST_PORT"] = port
 
 
 def _search_scope(provider: str, *, account: str | None = None) -> RequestScope:
@@ -110,9 +116,13 @@ def _request_search_json(
     *,
     scope: RequestScope,
     headers: dict[str, str] | None = None,
-    params: dict[str, Any] | None = None,
-) -> Any:
-    return _SEARCH_REQUEST_PORT.request_json(
+        params: Mapping[str, str | int] | None = None,
+) -> object:
+    port = _SEARCH_REQUEST_PORT
+    if port is None:
+        # kit:boundary owner=search.request_port class=PROGRAMMER_DEFECT failure_family=none witness=test:test_search_web_dynamic_boundaries_preserve_failure_paths
+        raise RuntimeError("search request port is not configured")
+    return port.request_json(
         url,
         scope=scope,
         headers=headers,
@@ -179,11 +189,72 @@ def _contains_numeric_intent(text: str) -> bool:
     return any(token in lowered for token in _NUMERIC_INTENT_KEYWORDS)
 
 
-def _score_search_result(item: Dict[str, Any], *, topic: str, keywords: List[str]) -> float:
-    title = (item.get("title") or "").lower()
-    snippet = (item.get("snippet") or "").lower()
-    link = (item.get("canonical_link") or item.get("link") or "").lower()
-    source = (item.get("source") or "").lower()
+def _result_text(item: SearchResult, key: str) -> str:
+    value = item.get(key)
+    if not value:
+        return ""
+    if isinstance(value, str):
+        return value
+    # kit:boundary owner=search.provider_payload class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_search_web_dynamic_boundaries_preserve_failure_paths
+    raise TypeError(f"search result field {key!r} must be text")
+
+
+def _relevance_score(item: SearchResult) -> float:
+    value = item.get("relevance_score")
+    return value if isinstance(value, (int, float)) and not isinstance(value, bool) else 0.0
+
+
+def _json_object(value: object) -> dict[str, object]:
+    normalized = _json_dict(value)
+    if normalized is not None:
+        return normalized
+    # kit:boundary owner=search.provider_payload class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_search_web_dynamic_boundaries_preserve_failure_paths
+    raise TypeError("search provider response must be a JSON object")
+
+
+def _is_json_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_json_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _json_dict(value: object) -> dict[str, object] | None:
+    if not _is_json_dict(value):
+        return None
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            return None
+        result[key] = item
+    return result
+
+
+def _json_list(value: object) -> list[object] | None:
+    return value if _is_json_list(value) else None
+
+
+def _json_rows(value: object) -> list[object]:
+    if _is_json_list(value):
+        return value
+    # kit:boundary owner=search.provider_payload class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_search_web_dynamic_boundaries_preserve_failure_paths
+    raise TypeError("search provider response rows must be a JSON array")
+
+
+def _required_json_dict(value: object) -> dict[str, object]:
+    normalized = _json_dict(value)
+    if normalized is None:
+        # kit:boundary owner=search.provider_payload class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_search_web_dynamic_boundaries_preserve_failure_paths
+        raise TypeError("search provider row must be a JSON object")
+    return normalized
+
+
+def _score_search_result(item: SearchResult, *, topic: str, keywords: List[str]) -> float:
+    title = _result_text(item, "title").lower()
+    snippet = _result_text(item, "snippet").lower()
+    link = (_result_text(item, "canonical_link") or _result_text(item, "link")).lower()
+    source = _result_text(item, "source").lower()
     candidate = " ".join([title, snippet, link])
 
     score = 0.0
@@ -194,7 +265,7 @@ def _score_search_result(item: Dict[str, Any], *, topic: str, keywords: List[str
     if _contains_numeric_intent(candidate):
         score += 1.6
 
-    domain = _extract_domain(item.get("canonical_link") or item.get("link"))
+    domain = _extract_domain(_result_text(item, "canonical_link") or _result_text(item, "link"))
     if domain and domain.lower() in _TRUSTED_DOMAINS:
         score += 2.0
 
@@ -206,6 +277,29 @@ def _score_search_result(item: Dict[str, Any], *, topic: str, keywords: List[str
     if not snippet:
         score -= 0.3
     return round(score, 3)
+
+
+def _llm_content(response: object) -> object:
+    sentinel: object = object()
+    content = getattr(response, "content", sentinel)
+    return str(response) if content is sentinel else content
+
+
+def _required_llm_text(content: object) -> str:
+    if isinstance(content, str):
+        return content
+    # kit:boundary owner=search.provider_payload class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_search_web_dynamic_boundaries_preserve_failure_paths
+    raise TypeError("LLM response content must be text")
+
+
+def _format_keyword_prompt(template: str, *, language: str, topic: str) -> str:
+    config_loader: object = import_module("app.services.llm.config_loader")
+    formatter: Callable[..., str] = getattr(config_loader, "format_prompt_template")
+    return formatter(template, language=language, topic=topic)
+
+
+def _object_list(value: object) -> list[object]:
+    return _json_list(value) or []
 
 
 def _extract_domain(url: str) -> str:
@@ -228,8 +322,10 @@ def generate_keywords(topic: str, language: str = "zh") -> List[str]:
             )
             model = get_chat_model()
             response = model.invoke(prompt)
-            text = response.content if hasattr(response, "content") else str(response)
-            keywords = _dedup_keywords([line.strip("- ") for line in text.splitlines() if line.strip("- ").strip()])
+            text = _required_llm_text(_llm_content(response))
+            keywords = _dedup_keywords(
+                [line.strip("- ") for line in text.splitlines() if line.strip("- ").strip()]
+            )
             if keywords:
                 logger.info("generate_keywords: llm bilingual keywords=%s", keywords)
                 return keywords
@@ -256,23 +352,28 @@ def generate_keywords(topic: str, language: str = "zh") -> List[str]:
         ]
     try:
         # 尝试从数据库读取配置
-        config = get_llm_config("keyword_generation")
-        
-        if config and config.get("user_prompt_template"):
+        config: dict[str, object] | None = get_llm_config("keyword_generation")
+
+        template_value = config.get("user_prompt_template") if config else None
+        prompt: str
+        if config is not None and isinstance(template_value, str):
             # 使用配置的提示词
             language_str = "英文" if language.lower().startswith("en") else "中文"
-            prompt = format_prompt_template(
-                config["user_prompt_template"],
-                language=language_str,
-                topic=topic
-            )
+            config_values = config
+            prompt = _format_keyword_prompt(template_value, language=language_str, topic=topic)
+            model_name = config_values.get("model")
+            temperature = config_values.get("temperature")
+            max_tokens = config_values.get("max_tokens")
+            top_p = config_values.get("top_p")
+            presence_penalty = config_values.get("presence_penalty")
+            frequency_penalty = config_values.get("frequency_penalty")
             model = get_chat_model(
-                model=config.get("model"),
-                temperature=config.get("temperature"),
-                max_tokens=config.get("max_tokens"),
-                top_p=config.get("top_p"),
-                presence_penalty=config.get("presence_penalty"),
-                frequency_penalty=config.get("frequency_penalty"),
+                model=model_name if isinstance(model_name, str) else None,
+                temperature=temperature if isinstance(temperature, float) else None,
+                max_tokens=max_tokens if isinstance(max_tokens, int) else None,
+                top_p=top_p if isinstance(top_p, float) else None,
+                presence_penalty=presence_penalty if isinstance(presence_penalty, float) else None,
+                frequency_penalty=frequency_penalty if isinstance(frequency_penalty, float) else None,
             )
         else:
             # 使用默认提示词（向后兼容）
@@ -284,7 +385,7 @@ def generate_keywords(topic: str, language: str = "zh") -> List[str]:
             model = get_chat_model()
         
         response = model.invoke(prompt)
-        text = response.content if hasattr(response, "content") else str(response)
+        text = _required_llm_text(_llm_content(response))
         keywords: List[str] = []
         for line in text.splitlines():
             line = line.strip("- ")
@@ -321,7 +422,7 @@ def generate_topic_keywords(
     topic_focus: str,
     language: str = "zh",
     base_keywords: Optional[List[str]] = None,
-) -> Dict[str, Any]:
+) -> dict[str, list[str]]:
     """Generate topic-focused search keywords (company/product/operation) for collection.
 
     This is collection-layer keyword expansion, separate from structured extraction prompts.
@@ -359,16 +460,17 @@ def generate_topic_keywords(
         )
         model = get_chat_model()
         response = model.invoke(prompt)
-        content = response.content if hasattr(response, "content") else str(response)
+        content = _required_llm_text(_llm_content(response))
         data = None
         try:
             from ..extraction.json_utils import extract_json_payload as _extract_json
             data = _extract_json(content)
         except Exception:
             data = None
-        if isinstance(data, dict):
-            search_kw = _dedup_keywords([str(x).strip() for x in (data.get("search_keywords") or []) if str(x).strip()])
-            topic_hints = _dedup_keywords([str(x).strip() for x in (data.get("topic_hints") or []) if str(x).strip()])
+        parsed: dict[str, object] | None = data if isinstance(data, dict) else None
+        if parsed is not None:
+            search_kw = _dedup_keywords([str(x).strip() for x in _object_list(parsed.get("search_keywords")) if str(x).strip()])
+            topic_hints = _dedup_keywords([str(x).strip() for x in _object_list(parsed.get("topic_hints")) if str(x).strip()])
             if search_kw:
                 return {"search_keywords": search_kw[:12], "topic_hints": topic_hints[:12]}
     except Exception:
@@ -376,12 +478,12 @@ def generate_topic_keywords(
     return {"search_keywords": fallback[:12], "topic_hints": hints[:8]}
 
 
-def filter_existing(results: List[dict]) -> List[dict]:
+def filter_existing(results: List[SearchResult]) -> List[SearchResult]:
     """过滤已入库的文档"""
     urls = [
-        r.get("canonical_link") or r.get("link")
+        _result_text(r, "canonical_link") or _result_text(r, "link")
         for r in results
-        if r.get("canonical_link") or r.get("link")
+        if _result_text(r, "canonical_link") or _result_text(r, "link")
     ]
     if not urls:
         return results
@@ -395,7 +497,7 @@ def filter_existing(results: List[dict]) -> List[dict]:
     
     filtered = [
         r for r in results
-        if (r.get("canonical_link") or r.get("link")) not in existing_urls
+        if (_result_text(r, "canonical_link") or _result_text(r, "link")) not in existing_urls
     ]
     logger.info("filter_existing: input=%d existing=%d filtered=%d", len(results), len(existing_urls), len(filtered))
     return filtered
@@ -410,9 +512,9 @@ def search_sources(
     exclude_existing: bool = True,
     start_offset: Optional[int] = None,
     keywords_override: Optional[List[str]] = None,
-    observation_sink: Optional[List[dict]] = None,
-    occurrence_sink: Optional[List[dict]] = None,
-) -> List[dict]:
+    observation_sink: Optional[List[ObservationRecord]] = None,
+    occurrence_sink: Optional[List[ObservationRecord]] = None,
+) -> List[SearchResult]:
     """搜索外部资源
     
     Args:
@@ -446,7 +548,7 @@ def search_sources(
         keywords = [topic]
         logger.warning("search_sources: keyword generation failed, using topic as keyword: %s", topic)
     logger.info("search_sources: start topic=%s lang=%s keywords=%s max=%d provider=%s", topic, language, keywords, max_results, provider)
-    results: List[dict] = []
+    results: List[SearchResult] = []
     seen_links: Set[str] = set()
 
     def _observe(name: str, keyword: str | None, status: ProviderStatus, count: int = 0, error: Exception | None = None) -> ProviderObservation:
@@ -461,10 +563,20 @@ def search_sources(
             route = "fallback:ddg"
         observed = ProviderObservation(provider=name, route=route, keyword=keyword, status=status, returned_count=count, failure_kind=kind, error_type=type(error).__name__ if error else None, error_message=str(error) if error else None)
         if observation_sink is not None:
-            observation_sink.append({"provider": observed.provider, "route": observed.route, "keyword": observed.keyword, "status": observed.status, "returned_count": observed.returned_count, "failure_kind": observed.failure_kind, "error_type": observed.error_type, "error_message": observed.error_message})
+            record: ObservationRecord = {
+                "provider": observed.provider,
+                "route": observed.route,
+                "keyword": observed.keyword,
+                "status": observed.status,
+                "returned_count": observed.returned_count,
+                "failure_kind": observed.failure_kind,
+                "error_type": observed.error_type,
+                "error_message": observed.error_message,
+            }
+            observation_sink.append(record)
         return observed
 
-    def _observed_call(name: str, keyword: str, call):
+    def _observed_call(name: str, keyword: str, call: ProviderCall):
         start = len(observation_sink) if observation_sink is not None else 0
         try:
             items = call()
@@ -478,12 +590,26 @@ def search_sources(
             _observe(name, keyword, "completed", len(items))
         return items
 
-    def _call_google(keyword: str, cse_id: str, limit: int, auth_kw: dict):
+    def _call_google(keyword: str, cse_id: str, limit: int, auth_kw: dict[str, str]):
         if observation_sink is None:
-            return _google_search(keyword, cse_id, limit, start_offset, **auth_kw)
+            return _google_search(
+                keyword,
+                cse_id,
+                limit,
+                start_offset,
+                api_key=auth_kw.get("api_key"),
+                oauth_token=auth_kw.get("oauth_token"),
+            )
+        def notify_google_error(exc: Exception) -> None:
+            _observe("google", keyword, "failed", error=exc)
         return _google_search(
-            keyword, cse_id, limit, start_offset, **auth_kw,
-            on_error=lambda exc: _observe("google", keyword, "failed", error=exc),
+            keyword,
+            cse_id,
+            limit,
+            start_offset,
+            api_key=auth_kw.get("api_key"),
+            oauth_token=auth_kw.get("oauth_token"),
+            on_error=notify_google_error,
         )
 
     
@@ -503,7 +629,7 @@ def search_sources(
                                 _observe("ddg", keyword, "failed")
                                 continue
                             for result in ddgs.text(keyword, safesearch="off", max_results=per_kw):
-                                item = {
+                                item: SearchResult = {
                                     "keyword": keyword,
                                     "title": result.get("title"),
                                     "link": result.get("href"),
@@ -562,7 +688,7 @@ def search_sources(
             per_kw = max(1, max_results // max(1, len(keywords)))
             for keyword in keywords:
                 try:
-                    items = _observed_call("serpstack", keyword, lambda: _serpstack_search(keyword, serpstack_key, per_kw))
+                    items = _observed_call("serpstack", keyword, lambda: _serpstack_search(keyword, str(serpstack_key), per_kw))
                     if isinstance(items, ProviderObservation):
                         continue
                     for it in items:
@@ -575,8 +701,8 @@ def search_sources(
         
         elif provider == "google":
             from ...settings.config import settings as _settings
-            google_api_key = os.getenv("GOOGLE_SEARCH_API_KEY") or _settings.google_search_api_key
-            google_cse_id = os.getenv("GOOGLE_SEARCH_CSE_ID") or _settings.google_search_cse_id
+            google_api_key = os.getenv("GOOGLE_SEARCH_API_KEY") or _settings.google_search_api_key or ""
+            google_cse_id = os.getenv("GOOGLE_SEARCH_CSE_ID") or _settings.google_search_cse_id or ""
             google_oauth_token = _get_google_oauth_token()
             google_configured = google_cse_id and (google_api_key or google_oauth_token)
             if not google_configured:
@@ -589,7 +715,7 @@ def search_sources(
                         for keyword in keywords:
                             try:
                                 for result in ddgs.text(keyword, safesearch="off", max_results=per_kw):
-                                    item = {
+                                    item: SearchResult = {
                                         "keyword": keyword,
                                         "title": result.get("title"),
                                         "link": result.get("href"),
@@ -608,7 +734,7 @@ def search_sources(
                     _observe("ddg", None, "failed", error=e)
             else:
                 # Google API: OAuth 优先于 API Key；batch requests with delay
-                auth_kw = {"oauth_token": google_oauth_token} if google_oauth_token else {"api_key": google_api_key}
+                auth_kw: dict[str, str] = {"oauth_token": google_oauth_token} if google_oauth_token else {"api_key": google_api_key}
                 if google_oauth_token:
                     logger.info("search_sources: using Google OAuth (GOOGLE_APPLICATION_CREDENTIALS)")
                 for keyword in keywords:
@@ -636,7 +762,7 @@ def search_sources(
             per_kw = max(1, max_results // max(1, len(keywords)))
             for keyword in keywords:
                 try:
-                    items = _observed_call("serpapi", keyword, lambda: _serpapi_search(keyword, serp_key, per_kw))
+                    items = _observed_call("serpapi", keyword, lambda: _serpapi_search(keyword, str(serp_key), per_kw))
                     if isinstance(items, ProviderObservation):
                         continue
                     for it in items:
@@ -707,11 +833,11 @@ def search_sources(
                 continue
 
     # 2. 尝试 Google Custom Search（若可用，支持分页）
-    google_api_key = os.getenv("GOOGLE_SEARCH_API_KEY") or _settings.google_search_api_key
-    google_cse_id = os.getenv("GOOGLE_SEARCH_CSE_ID") or _settings.google_search_cse_id
+    google_api_key = os.getenv("GOOGLE_SEARCH_API_KEY") or _settings.google_search_api_key or ""
+    google_cse_id = os.getenv("GOOGLE_SEARCH_CSE_ID") or _settings.google_search_cse_id or ""
     google_oauth_token = _get_google_oauth_token()
     if len(results) == 0 and google_cse_id and (google_api_key or google_oauth_token):
-        auth_kw = {"oauth_token": google_oauth_token} if google_oauth_token else {"api_key": google_api_key}
+        auth_kw: dict[str, str] = {"oauth_token": google_oauth_token} if google_oauth_token else {"api_key": google_api_key}
         logger.info("search_sources: auto mode - using google custom search (OAuth=%s)", bool(google_oauth_token))
         for keyword in keywords:
             if len(results) >= max_results:
@@ -739,7 +865,7 @@ def search_sources(
             per_kw = max(1, max_results // max(1, len(keywords)))
             for keyword in keywords:
                 try:
-                    items = _observed_call("serpstack", keyword, lambda: _serpstack_search(keyword, serpstack_key, per_kw))
+                    items = _observed_call("serpstack", keyword, lambda: _serpstack_search(keyword, str(serpstack_key), per_kw))
                     if isinstance(items, ProviderObservation):
                         continue
                     for it in items:
@@ -760,7 +886,7 @@ def search_sources(
                 per_kw = max(1, max_results // max(1, len(keywords)))
                 for keyword in keywords:
                     try:
-                        items = _observed_call("serpapi", keyword, lambda: _serpapi_search(keyword, serp_key, per_kw))
+                        items = _observed_call("serpapi", keyword, lambda: _serpapi_search(keyword, str(serp_key), per_kw))
                         if isinstance(items, ProviderObservation):
                             continue
                         for it in items:
@@ -780,7 +906,7 @@ def search_sources(
             per_kw = max(1, max_results // max(1, len(keywords)))
             for keyword in keywords[:3]:  # 控制请求量
                 try:
-                    items = _observed_call("serpapi_news", keyword, lambda: _serpapi_search_news(keyword, serp_key, per_kw))
+                    items = _observed_call("serpapi_news", keyword, lambda: _serpapi_search_news(keyword, str(serp_key), per_kw))
                     if isinstance(items, ProviderObservation):
                         continue
                     for it in items:
@@ -807,7 +933,7 @@ def search_sources(
                             _observe("ddg", keyword, "failed")
                             continue
                         for result in ddgs.text(keyword, safesearch="off", max_results=2):
-                            item = {
+                            item: SearchResult = {
                                 "keyword": keyword,
                                 "title": result.get("title"),
                                 "link": result.get("href"),
@@ -841,7 +967,7 @@ def search_sources(
         except Exception as e:
             logger.warning("search_sources: scoring failed for %s: %s", item.get("link"), e)
             item.setdefault("relevance_score", 0.0)
-    results.sort(key=lambda item: item.get("relevance_score", 0.0), reverse=True)
+    results.sort(key=_relevance_score, reverse=True)
     if len(results) > max_results:
         results = results[:max_results]
 
@@ -849,33 +975,34 @@ def search_sources(
     return results
 
 
-def _serpapi_search(keyword: str, api_key: str, limit: int) -> List[dict]:
+def _serpapi_search(keyword: str, api_key: str, limit: int) -> List[SearchResult]:
     params = {
         "q": keyword,
         "engine": "google",
         "api_key": api_key,
         "num": str(max(1, limit)),
     }
-    data = _request_search_json(
+    response = _request_search_json(
         "https://serpapi.com/search.json",
         scope=_search_scope("serpapi"),
         headers={"Accept": "application/json"},
         params=params,
     )
-    items: List[dict] = []
-    for r in data.get("organic_results", [])[:limit]:
-        items.append(
-            {
-                "title": r.get("title"),
-                "link": r.get("link"),
-                "snippet": r.get("snippet"),
-                "source": "serpapi",
-            }
-        )
+    data = _json_object(response)
+    items: List[SearchResult] = []
+    for row in _json_rows(data.get("organic_results", []))[:limit]:
+        row = _required_json_dict(row)
+        item: SearchResult = {
+            "title": row.get("title"),
+            "link": row.get("link"),
+            "snippet": row.get("snippet"),
+            "source": "serpapi",
+        }
+        items.append(item)
     return items
 
 
-def _serpapi_search_news(keyword: str, api_key: str, limit: int) -> List[dict]:
+def _serpapi_search_news(keyword: str, api_key: str, limit: int) -> List[SearchResult]:
     params = {
         "q": keyword,
         "engine": "google",
@@ -883,26 +1010,28 @@ def _serpapi_search_news(keyword: str, api_key: str, limit: int) -> List[dict]:
         "tbm": "nws",
         "num": str(max(1, limit)),
     }
-    data = _request_search_json(
+    response = _request_search_json(
         "https://serpapi.com/search.json",
         scope=_search_scope("serpapi", account="news"),
         headers={"Accept": "application/json"},
         params=params,
     )
-    items: List[dict] = []
-    for r in data.get("news_results", [])[:limit]:
-        items.append(
-            {
-                "title": r.get("title"),
-                "link": r.get("link"),
-                "snippet": r.get("snippet") or r.get("source"),
-                "source": "serpapi_news",
-            }
-        )
+    data = _json_object(response)
+    items: List[SearchResult] = []
+    for row in _json_rows(data.get("news_results", []))[:limit]:
+        row = _required_json_dict(row)
+        snippet = row.get("snippet") or row.get("source")
+        item: SearchResult = {
+            "title": row.get("title"),
+            "link": row.get("link"),
+            "snippet": snippet,
+            "source": "serpapi_news",
+        }
+        items.append(item)
     return items
 
 
-def _serpstack_search(keyword: str, api_key: str, limit: int) -> List[dict]:
+def _serpstack_search(keyword: str, api_key: str, limit: int) -> List[SearchResult]:
     """Serpstack API: 每月100次免费请求
     注册地址: https://serpstack.com/
     """
@@ -911,26 +1040,27 @@ def _serpstack_search(keyword: str, api_key: str, limit: int) -> List[dict]:
         "access_key": api_key,
         "num": str(max(1, limit)),
     }
-    data = _request_search_json(
+    response = _request_search_json(
         "http://api.serpstack.com/search",
         scope=_search_scope("serpstack"),
         headers={"Accept": "application/json"},
         params=params,
     )
-    items: List[dict] = []
-    for r in data.get("organic_results", [])[:limit]:
-        items.append(
-            {
-                "title": r.get("title"),
-                "link": r.get("url"),
-                "snippet": r.get("snippet"),
-                "source": "serpstack",
-            }
-        )
+    data = _json_object(response)
+    items: List[SearchResult] = []
+    for row in _json_rows(data.get("organic_results", []))[:limit]:
+        row = _required_json_dict(row)
+        item: SearchResult = {
+            "title": row.get("title"),
+            "link": row.get("url"),
+            "snippet": row.get("snippet"),
+            "source": "serpstack",
+        }
+        items.append(item)
     return items
 
 
-def _serper_search(keyword: str, api_key: str, limit: int, *, language: str = "en") -> List[dict]:
+def _serper_search(keyword: str, api_key: str, limit: int, *, language: str = "en") -> List[SearchResult]:
     """Serper.dev Google Search API (POST JSON).
 
     Docs: https://serper.dev/
@@ -948,7 +1078,7 @@ def _serper_search(keyword: str, api_key: str, limit: int, *, language: str = "e
     if not _acquire_sdk_search_gate("serper"):
         logger.warning("_serper_search: request gate denied provider=serper keyword=%s", keyword)
         return []
-    data = default_http_client.post_json(
+    response: object = default_http_client.post_json(
         "https://google.serper.dev/search",
         json=payload,
         headers={
@@ -958,27 +1088,29 @@ def _serper_search(keyword: str, api_key: str, limit: int, *, language: str = "e
         },
     )
 
-    items: List[dict] = []
-    for r in (data.get("organic") or [])[:limit]:
-        items.append(
-            {
-                "title": r.get("title"),
-                "link": r.get("link"),
-                "snippet": r.get("snippet") or r.get("description"),
-                "source": "serper",
-            }
-        )
+    data = _json_object(response)
+    items: List[SearchResult] = []
+    for row in _json_rows(data.get("organic", []))[:limit]:
+        row = _required_json_dict(row)
+        snippet = row.get("snippet") or row.get("description")
+        item: SearchResult = {
+            "title": row.get("title"),
+            "link": row.get("link"),
+            "snippet": snippet,
+            "source": "serper",
+        }
+        items.append(item)
     return items
 
 
-def _searxng_search(keyword: str, base_url: str, limit: int, *, language: str = "en") -> List[dict]:
+def _searxng_search(keyword: str, base_url: str, limit: int, *, language: str = "en") -> List[SearchResult]:
     url = urljoin(base_url.rstrip("/") + "/", "search")
     try:
         max_pages = max(1, min(10, int(os.getenv("SEARXNG_MAX_PAGES", "5"))))
     except ValueError:
         max_pages = 5
     desired_pages = max(1, min(max_pages, math.ceil(max(1, limit) / 10)))
-    items: List[dict] = []
+    items: List[SearchResult] = []
     for page_no in range(1, desired_pages + 1):
         params = {
             "q": keyword,
@@ -986,45 +1118,47 @@ def _searxng_search(keyword: str, base_url: str, limit: int, *, language: str = 
             "pageno": page_no,
             "language": _base_language(language),
         }
-        data = _request_search_json(
+        response = _request_search_json(
             url,
             scope=_search_scope("searxng"),
             headers={"Accept": "application/json"},
             params=params,
         )
-        rows = list(data.get("results") or [])
+        data = _json_object(response)
+        rows = _json_rows(data.get("results", []))
         if not rows:
             break
         for row in rows:
+            row = _required_json_dict(row)
             link = str(row.get("url") or row.get("link") or row.get("parsed_url") or "").strip()
             if not link:
                 continue
-            items.append(
-                {
-                    "title": row.get("title"),
-                    "link": link,
-                    "snippet": row.get("content") or row.get("snippet") or row.get("description"),
-                    "source": "searxng",
+            snippet = row.get("content") or row.get("snippet") or row.get("description")
+            item: SearchResult = {
+                "title": row.get("title"),
+                "link": link,
+                "snippet": snippet,
+                "source": "searxng",
+                "provider_route": "explicit:searxng",
+                "provider_family": "local_open_search",
+                "provider_auto_included": False,
+                "rank": len(items) + 1,
+                "backend_trace": {
+                    "provider": "searxng",
                     "provider_route": "explicit:searxng",
                     "provider_family": "local_open_search",
-                    "provider_auto_included": False,
-                    "rank": len(items) + 1,
-                    "backend_trace": {
-                        "provider": "searxng",
-                        "provider_route": "explicit:searxng",
-                        "provider_family": "local_open_search",
-                        "auto_included": False,
-                        "pageno": page_no,
-                    },
-                    "raw": {
-                        "engine": row.get("engine"),
-                        "engines": row.get("engines"),
-                        "category": row.get("category"),
-                        "publishedDate": row.get("publishedDate"),
-                        "pageno": page_no,
-                    },
-                }
-            )
+                    "auto_included": False,
+                    "pageno": page_no,
+                },
+                "raw": {
+                    "engine": row.get("engine"),
+                    "engines": row.get("engines"),
+                    "category": row.get("category"),
+                    "publishedDate": row.get("publishedDate"),
+                    "pageno": page_no,
+                },
+            }
+            items.append(item)
             if len(items) >= limit:
                 break
         if len(items) >= limit:
@@ -1032,7 +1166,7 @@ def _searxng_search(keyword: str, base_url: str, limit: int, *, language: str = 
     return items
 
 
-def _yacy_search(keyword: str, base_url: str, limit: int, *, resource_mode: str = "local") -> List[dict]:
+def _yacy_search(keyword: str, base_url: str, limit: int, *, resource_mode: str = "local") -> List[SearchResult]:
     url = urljoin(base_url.rstrip("/") + "/", "yacysearch.json")
     resource = resource_mode if resource_mode in {"local", "global"} else "local"
     params = {
@@ -1040,53 +1174,55 @@ def _yacy_search(keyword: str, base_url: str, limit: int, *, resource_mode: str 
         "resource": resource,
         "maximumRecords": max(1, limit),
     }
-    data = _request_search_json(
+    response = _request_search_json(
         url,
         scope=_search_scope("yacy"),
         headers={"Accept": "application/json"},
         params=params,
     )
-    rows: list[Any] = []
-    channels = data.get("channels")
-    if isinstance(channels, list) and channels:
-        first = channels[0]
-        if isinstance(first, dict):
-            rows = list(first.get("items") or first.get("results") or [])
+    data = _json_object(response)
+    rows: list[object] = []
+    channel_rows = _json_list(data.get("channels"))
+    if channel_rows:
+        first = _json_dict(channel_rows[0])
+        if first is not None:
+            rows = _json_rows(first.get("items") or first.get("results") or [])
     if not rows:
-        rows = list(data.get("items") or data.get("results") or [])
+        rows = _json_rows(data.get("items") or data.get("results") or [])
 
-    items: List[dict] = []
+    items: List[SearchResult] = []
     for rank, row in enumerate(rows[:limit], start=1):
-        if not isinstance(row, dict):
+        row = _json_dict(row)
+        if row is None:
             continue
         link = str(row.get("link") or row.get("url") or row.get("sku") or "").strip()
         if not link:
             continue
-        items.append(
-            {
-                "title": row.get("title"),
-                "link": link,
-                "snippet": row.get("description") or row.get("snippet") or row.get("text"),
-                "source": "yacy",
+        snippet = row.get("description") or row.get("snippet") or row.get("text")
+        item: SearchResult = {
+            "title": row.get("title"),
+            "link": link,
+            "snippet": snippet,
+            "source": "yacy",
+            "provider_route": "explicit:yacy",
+            "provider_family": "local_open_search",
+            "provider_auto_included": False,
+            "rank": rank,
+            "backend_trace": {
+                "provider": "yacy",
                 "provider_route": "explicit:yacy",
                 "provider_family": "local_open_search",
-                "provider_auto_included": False,
-                "rank": rank,
-                "backend_trace": {
-                    "provider": "yacy",
-                    "provider_route": "explicit:yacy",
-                    "provider_family": "local_open_search",
-                    "auto_included": False,
-                    "resource": resource,
-                },
-                "raw": {
-                    "resource": resource,
-                    "origin": row.get("publisher") or row.get("host") or row.get("domain"),
-                    "pubDate": row.get("pubDate"),
-                    "size": row.get("size"),
-                },
-            }
-        )
+                "auto_included": False,
+                "resource": resource,
+            },
+            "raw": {
+                "resource": resource,
+                "origin": row.get("publisher") or row.get("host") or row.get("domain"),
+                "pubDate": row.get("pubDate"),
+                "size": row.get("size"),
+            },
+        }
+        items.append(item)
     return items
 
 
@@ -1101,11 +1237,15 @@ def _get_google_oauth_token() -> Optional[str]:
     try:
         import google.auth.transport.requests
         from google.oauth2 import service_account
-        credentials = service_account.Credentials.from_service_account_file(
+        credentials_loader = getattr(service_account, "Credentials").from_service_account_file
+        credentials: object = credentials_loader(
             creds_path, scopes=[_CSE_OAUTH_SCOPE]
         )
-        credentials.refresh(google.auth.transport.requests.Request())
-        return credentials.token
+        refresh = getattr(credentials, "refresh", None)
+        if callable(refresh):
+            refresh(google.auth.transport.requests.Request())
+        token = getattr(credentials, "token", None)
+        return token if isinstance(token, str) else None
     except Exception as e:
         logger.warning("_get_google_oauth_token failed: %s", e, exc_info=True)
         return None
@@ -1120,7 +1260,7 @@ def _google_search(
     api_key: Optional[str] = None,
     oauth_token: Optional[str] = None,
     on_error: Callable[[Exception], None] | None = None,
-) -> List[dict]:
+) -> List[SearchResult]:
     """Google Custom Search API: 每天100次免费请求
     支持 API Key 或 OAuth 2.0（Service Account）认证。
     支持分页获取多页结果（通过start参数）
@@ -1130,7 +1270,7 @@ def _google_search(
     1. API Key: GOOGLE_SEARCH_API_KEY
     2. OAuth: GOOGLE_APPLICATION_CREDENTIALS 指向 Service Account JSON 路径
     """
-    items: List[dict] = []
+    items: List[SearchResult] = []
     max_results_per_page = 10  # Google API 每页最多返回 10 个结果
 
     # 如果指定了start_offset，从该位置开始；否则从1开始
@@ -1152,7 +1292,7 @@ def _google_search(
             "start": start_index,
             "alt": "json",
         }
-        headers: Dict[str, str] = {"Accept": "application/json"}
+        headers: dict[str, str] = {"Accept": "application/json"}
 
         if oauth_token:
             headers["Authorization"] = f"Bearer {oauth_token}"
@@ -1163,7 +1303,7 @@ def _google_search(
             return []
 
         try:
-            data = _request_search_json(
+            response = _request_search_json(
                 "https://www.googleapis.com/customsearch/v1",
                 scope=_search_scope(
                     "google",
@@ -1172,21 +1312,22 @@ def _google_search(
                 headers=headers,
                 params=params,
             )
-            page_items = data.get("items", [])
+            data = _json_object(response)
+            page_items = _json_rows(data.get("items", []))
 
             if not page_items:
                 logger.info("google_search: no more results at page %d (start=%d)", page + 1, start_index)
                 break
 
-            for r in page_items:
-                items.append(
-                    {
-                        "title": r.get("title", ""),
-                        "link": r.get("link", ""),
-                        "snippet": r.get("snippet", ""),
-                        "source": "google",
-                    }
-                )
+            for row in page_items:
+                row = _required_json_dict(row)
+                item: SearchResult = {
+                    "title": row.get("title", ""),
+                    "link": row.get("link", ""),
+                    "snippet": row.get("snippet", ""),
+                    "source": "google",
+                }
+                items.append(item)
             logger.info("google_search: page %d (start=%d) got %d results (total=%d)",
                        page + 1, start_index, len(page_items), len(items))
             if len(page_items) < num_results:
@@ -1205,14 +1346,14 @@ def _google_search(
     return items[:limit]  # 确保不超过请求的限制
 
 
-def _add_result_dedup(results: List[dict], seen_links: Set[str], item: Dict[str, str], *, occurrence_sink: Optional[List[dict]] = None, request_provider: str = "auto", branch_provider: str | None = None) -> bool:
-    link = (item.get("link") or "").strip()
+def _add_result_dedup(results: List[SearchResult], seen_links: Set[str], item: SearchResult, *, occurrence_sink: Optional[List[ObservationRecord]] = None, request_provider: str = "auto", branch_provider: str | None = None) -> bool:
+    link = _result_text(item, "link")
     if not link:
         return False
 
     canonical_link = _canonicalize_url(link)
     if occurrence_sink is not None:
-        source = str(branch_provider or item.get("source") or request_provider)
+        source = branch_provider or _result_text(item, "source") or request_provider
         route = str(item.get("provider_route") or (("auto:" if request_provider == "auto" else "explicit:") + source))
         if request_provider == "google" and source == "ddg":
             route = "fallback:ddg"
@@ -1221,7 +1362,16 @@ def _add_result_dedup(results: List[dict], seen_links: Set[str], item: Dict[str,
             1 for row in occurrence_sink
             if row["provider"] == source and row["keyword"] == item.get("keyword") and row["route"] == route
         )
-        occurrence_sink.append({"resource_uri": canonical_link, "keyword": item.get("keyword"), "provider": source, "route": route, "original_rank": original_rank, "retained": canonical_link not in seen_links})
+        keyword = item.get("keyword")
+        occurrence_record: ObservationRecord = {
+            "resource_uri": canonical_link,
+            "keyword": keyword if isinstance(keyword, str) else None,
+            "provider": source,
+            "route": route,
+            "original_rank": original_rank,
+            "retained": canonical_link not in seen_links,
+        }
+        occurrence_sink.append(occurrence_record)
     if canonical_link in seen_links:
         return False
     seen_links.add(canonical_link)

@@ -54,7 +54,7 @@ def _tag_list(value: object) -> list[str] | None:
     return _dedup_text_list([_text_argument(item) or "" for item in value])
 
 
-def _is_json_object(value: object) -> TypeGuard[dict[str, object]]:
+def _is_json_object(value: object) -> TypeGuard[dict[object, object]]:
     return isinstance(value, dict)
 
 

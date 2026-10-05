@@ -2,19 +2,21 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Protocol, TypeGuard, runtime_checkable
 
 from sqlalchemy.orm import Session
+from selectolax.parser import HTMLParser
 
 from ..job_logger import start_job, complete_job, fail_job
 from ..collect_runtime.display_meta import build_display_meta
 from ..collect_runtime.contracts import CollectRequest, CollectResult
+from ..search.candidate_contracts import Candidate
 from ...models.base import SessionLocal
-from ...models.entities import Document
+from ...models.entities import Document, Source
 from .provider_ports import get_reddit_adapter
-from ..resource_pool.http_port import fetch_html
-from .url_pool import _extract_text_from_html
+from ..resource_pool.http_port import fetch_html, make_html_parser
 from ..keyword_generation import generate_social_keywords
+from .content_cleaner import normalize_content_for_ingest
 from .frontdoor_ingress import build_frontdoor_ingress_envelope
 from .doc_type_mapper import normalize_doc_type
 from .postprocess_frontdoor import run_postprocess_frontdoor
@@ -26,6 +28,123 @@ from .keyword_library import (
 
 logger = logging.getLogger(__name__)
 BATCH_COMMIT_SIZE = 100
+
+
+@runtime_checkable
+class _SupportsIntValue(Protocol):
+    def __int__(self) -> int: ...
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _as_str_object_dict(value: object) -> dict[str, object]:
+    if not _is_object_dict(value):
+        # kit:boundary owner=ingest.social_frontdoor.writer_contract class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_social_frontdoor_writer_shape_guards_preserve_invalid_payload_failures
+        raise TypeError("frontdoor writer data requires mapping")
+    items: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            # kit:boundary owner=ingest.social_frontdoor.writer_contract class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_social_frontdoor_writer_shape_guards_preserve_invalid_payload_failures
+            raise TypeError("frontdoor writer data requires string keys")
+        items[key] = item
+    return items
+
+
+class _PolicyHtmlNode(Protocol):
+    def text(self, *, separator: str, strip: bool) -> str: ...
+
+
+def _find_policy_html_node(parser: HTMLParser, selector: str) -> _PolicyHtmlNode | None:
+    return parser.css_first(selector)
+
+
+def _policy_html_body(parser: HTMLParser) -> _PolicyHtmlNode | None:
+    return parser.body
+
+
+class _ResourcePoolAppendPort(Protocol):
+    def append_url(
+        self,
+        url: str,
+        source: str,
+        source_ref: dict[str, object],
+        *,
+        project_key: str,
+        job_type: str,
+    ) -> None: ...
+
+
+def _append_resource_pool_url(
+    port: _ResourcePoolAppendPort,
+    *,
+    url: str,
+    keyword: str | None,
+    project_key: str,
+) -> None:
+    port.append_url(
+        url,
+        source="ingest",
+        source_ref={"keyword": keyword} if keyword is not None else {},
+        project_key=project_key,
+        job_type="policy_regulation",
+    )
+
+
+def _required_str(data: dict[str, object], key: str) -> str:
+    value = data.get(key)
+    if not isinstance(value, str):
+        # kit:boundary owner=ingest.social_frontdoor.writer_contract class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_social_frontdoor_writer_shape_guards_preserve_invalid_payload_failures
+        raise TypeError(f"frontdoor writer data requires string {key}")
+    return value
+
+
+def _optional_str(data: dict[str, object], key: str) -> str | None:
+    value = data.get(key)
+    if value is None or isinstance(value, str):
+        return value
+    # kit:boundary owner=ingest.social_frontdoor.writer_contract class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_social_frontdoor_writer_shape_guards_preserve_invalid_payload_failures
+    raise TypeError(f"frontdoor writer data requires optional string {key}")
+
+
+def _required_str_object_dict(data: dict[str, object], key: str) -> dict[str, object]:
+    value = data.get(key)
+    if value is None:
+        # kit:boundary owner=ingest.social_frontdoor.writer_contract class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_social_frontdoor_writer_shape_guards_preserve_invalid_payload_failures
+        raise TypeError(f"frontdoor writer data requires mapping {key}")
+    return _as_str_object_dict(value)
+
+
+def _as_count(value: object) -> int:
+    if not value:
+        return 0
+    if isinstance(value, str):
+        return int(value)
+    if isinstance(value, _SupportsIntValue):
+        return int(value)
+    # kit:boundary owner=ingest.social_frontdoor.writer_contract class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_social_frontdoor_writer_shape_guards_preserve_invalid_payload_failures
+    raise TypeError("frontdoor writer count is not convertible to integer")
+
+
+def _extract_policy_body_text(html: str) -> str:
+    try:
+        parser = make_html_parser(html)
+        for selector in ("article", "main article", "[role='main'] article", "main"):
+            node = _find_policy_html_node(parser, selector)
+            if node is None:
+                continue
+            text = str(node.text(separator="\n", strip=True) or "").strip()
+            if len(text) >= 120:
+                return normalize_content_for_ingest(text)
+        body = _policy_html_body(parser)
+        if body is None:
+            return ""
+        text = str(body.text(separator="\n", strip=True) or "").strip()
+        return normalize_content_for_ingest(text)
+        return ""
+    except Exception:
+        return ""
 
 
 def collect_user_social_sentiment(
@@ -238,18 +357,21 @@ def collect_user_social_sentiment(
                         ingress_envelope=ingress_envelope,
                         run_writer=True,
                     )
-                    writer_result = (frontdoor_result.get("data") or {}).get("writer_result") if isinstance(frontdoor_result.get("data"), dict) else {}
-                    normalized_payload = (frontdoor_result.get("data") or {}).get("normalized_payload") if isinstance(frontdoor_result.get("data"), dict) else {}
-                    extracted = (normalized_payload or {}).get("extracted_data") if isinstance(normalized_payload, dict) else {}
-                    structured_status = str((extracted or {}).get("structured_extraction_status") or "skipped").strip().lower()
+                    result_data = frontdoor_result.get("data")
+                    writer_result: object = result_data.get("writer_result") if _is_object_dict(result_data) else None
+                    normalized_result: object = result_data.get("normalized_payload") if _is_object_dict(result_data) else None
+                    extracted: object = normalized_result.get("extracted_data") if _is_object_dict(normalized_result) else None
+                    structured_status_value = extracted.get("structured_extraction_status") if _is_object_dict(extracted) else None
+                    structured_status = str(structured_status_value or "skipped").strip().lower()
                     if structured_status == "ok":
                         extraction_ok += 1
                     elif structured_status == "failed":
                         extraction_empty += 1
                     else:
                         extraction_fallback += 1
-                    inserted += int((writer_result or {}).get("inserted") or 0)
-                    skipped += int((writer_result or {}).get("skipped") or 0)
+                    if _is_object_dict(writer_result):
+                        inserted += _as_count(writer_result.get("inserted"))
+                        skipped += _as_count(writer_result.get("skipped"))
 
                 logger.info(
                     "Found %d Reddit posts for keywords: %s (searched with: %s)",
@@ -266,7 +388,7 @@ def collect_user_social_sentiment(
             if pending_inserts > 0:
                 session.commit()
         
-        result = {
+        result: dict[str, object] = {
             "inserted": inserted,
             "skipped": skipped,
             "links": links,
@@ -370,34 +492,42 @@ def collect_policy_and_regulation(
 
         def fetch_body(link: str) -> str | None:
             html, _ = fetch_html(link, timeout=8.0, retries=1)
-            return (_extract_text_from_html(html) or "").strip()
+            return _extract_policy_body_text(html).strip()
 
-        def retain_candidate(candidate) -> None:
+        def retain_candidate(candidate: Candidate) -> None:
             if effective_project:
                 from ..resource_pool import DefaultResourcePoolAppendAdapter
 
-                DefaultResourcePoolAppendAdapter().append_url(
-                    candidate.resource_uri,
-                    source="ingest",
-                    source_ref={"keyword": candidate.keyword},
+                _append_resource_pool_url(
+                    DefaultResourcePoolAppendAdapter(),
+                    url=candidate.resource_uri,
+                    keyword=candidate.keyword,
                     project_key=effective_project,
-                    job_type="policy_regulation",
                 )
 
-        def write_frontdoor(data: dict) -> dict:
+        def write_frontdoor(data: dict[str, object]) -> dict[str, object]:
             ingress_envelope = build_frontdoor_ingress_envelope(
                 ingress_type="discovery",
-                **data,
+                entrypoint=_required_str(data, "entrypoint"),
+                source_mode=_required_str(data, "source_mode"),
+                project_key=_optional_str(data, "project_key"),
+                source_ref=_required_str_object_dict(data, "source_ref"),
+                collection_payload=_required_str_object_dict(data, "collection_payload"),
+                raw_snapshot=_required_str_object_dict(data, "raw_snapshot"),
             )
             frontdoor_result = run_postprocess_frontdoor(
                 ingress_envelope=ingress_envelope,
                 run_writer=True,
             )
             body = frontdoor_result.get("data")
-            return dict((body or {}).get("writer_result") or {}) if isinstance(body, dict) else {}
+            if _is_object_dict(body):
+                writer_result = body.get("writer_result")
+                if _is_object_dict(writer_result):
+                    return _as_str_object_dict(writer_result)
+            return {}
 
-        def route_missing(urls: list[str]) -> dict:
-            return collect_urls_from_list(
+        def route_missing(urls: list[str]) -> dict[str, object]:
+            routed: object = collect_urls_from_list(
                 urls,
                 project_key=effective_project,
                 query_terms=list(keywords or []),
@@ -410,6 +540,9 @@ def collect_policy_and_regulation(
                 },
                 enable_extraction=enable_extraction,
             )
+            if _is_object_dict(routed):
+                return _as_str_object_dict(routed)
+            return {}
 
         with SessionLocal() as session:
             _get_or_create_source(session, "Search API Policy", "search", "search")
@@ -436,7 +569,7 @@ def collect_policy_and_regulation(
             skipped,
         )
 
-        result = {
+        result: dict[str, object] = {
             "inserted": inserted,
             "skipped": skipped,
             "links": links,
@@ -471,10 +604,9 @@ def collect_policy_and_regulation(
         raise
 
 
-def _get_or_create_source(session: Session, name: str, kind: str, base_url: str):
+def _get_or_create_source(session: Session, name: str, kind: str, base_url: str) -> Source:
     """获取或创建Source"""
-    from ...models.entities import Source
-    
+
     # 使用first()而不是one_or_none()，避免重复记录导致的错误
     source = (
         session.query(Source)
@@ -484,7 +616,7 @@ def _get_or_create_source(session: Session, name: str, kind: str, base_url: str)
     if source:
         return source
     
-    source = Source(name=name, kind=kind, base_url=base_url)
+    source = Source(**{"name": name, "kind": kind, "base_url": base_url})
     session.add(source)
     session.flush()
     return source

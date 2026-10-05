@@ -75,8 +75,8 @@ class RequestHtmlSearchRequestPort:
         *,
         scope: RequestScope,
         headers: dict[str, str] | None = None,
-        params: dict[str, Any] | None = None,
-    ) -> Any:
+        params: Mapping[str, str | int] | None = None,
+    ) -> object:
         outcome = http_utils.request_html(
             url,
             scope=scope,
@@ -88,7 +88,8 @@ class RequestHtmlSearchRequestPort:
             client_factory=self._client_factory,
         )
         if outcome.ok and outcome.response is not None:
-            return outcome.response.json()
+            response_json: object = outcome.response.json()
+            return response_json
         if outcome.response is not None:
             outcome.response.raise_for_status()
         if outcome.last_exception is not None:

@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, List
+from collections.abc import Mapping
+from typing import Any, List, TypeAlias, TypeGuard
 
 from sqlalchemy.orm import Session
+
 
 from ..job_logger import start_job, complete_job, fail_job
 from ..collect_runtime.display_meta import build_display_meta
@@ -18,8 +20,8 @@ from .doc_type_mapper import normalize_doc_type
 from .frontdoor_ingress import build_frontdoor_ingress_envelope
 from .postprocess_frontdoor import run_postprocess_frontdoor
 from ..resource_pool.http_port import fetch_html
+from . import url_pool as url_pool_module
 from .url_pool import collect_urls_from_list
-from .url_pool import _extract_text_from_html
 from ..task_readback_metadata import merge_runtime_readback_payload
 from .search_and_ingest import (
     SearchAndIngestSpec,
@@ -31,6 +33,38 @@ from .search_and_ingest import (
 
 logger = logging.getLogger(__name__)
 BATCH_COMMIT_SIZE = 100
+ResultRecord: TypeAlias = dict[str, object]
+
+
+def _is_object_map(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _json_object(value: object) -> dict[str, object] | None:
+    if not _is_object_map(value):
+        return None
+    return {key: item for key, item in value.items() if isinstance(key, str)}
+
+
+def _extract_text_from_html(html: str) -> str:
+    legacy_extractor = getattr(url_pool_module, "_extract_text_from_html")
+    return str(legacy_extractor(html))
+
+
+def _result_int(value: object) -> int:
+    if not value:
+        return 0
+    if isinstance(value, (int, float, str)):
+        return int(value)
+    return 0
+
+
+def _writer_result(frontdoor_result: Mapping[str, object]) -> ResultRecord:
+    data = _json_object(frontdoor_result.get("data"))
+    if data is None:
+        return {}
+    writer_result = _json_object(data.get("writer_result"))
+    return writer_result or {}
 
 
 def _get_or_create_source(session: Session, name: str, kind: str, base_url: str) -> Source:
@@ -41,7 +75,10 @@ def _get_or_create_source(session: Session, name: str, kind: str, base_url: str)
     )
     if source:
         return source
-    source = Source(name=name, kind=kind, base_url=base_url)
+    source = Source()
+    setattr(source, "name", name)
+    setattr(source, "kind", kind)
+    setattr(source, "base_url", base_url)
     session.add(source)
     session.flush()
     return source
@@ -57,7 +94,7 @@ def collect_market_info(
     language: str = "en",
     runtime_readback: dict[str, Any] | None = None,
     project_key: str | None = None,
-) -> dict:
+) -> ResultRecord:
     """
     Collect market-related info via search API.
     Default: auto (Serper -> Google -> Serpstack -> SerpAPI -> DDG).
@@ -118,7 +155,7 @@ def collect_market_info(
             html, _ = fetch_html(link, timeout=8.0, retries=1)
             return (_extract_text_from_html(html) or "").strip()
 
-        def write_frontdoor(data: dict[str, Any]) -> dict[str, Any]:
+        def write_frontdoor(data: dict[str, Any]) -> ResultRecord:
             ingress_envelope = build_frontdoor_ingress_envelope(
                 ingress_type="discovery",
                 **data,
@@ -127,10 +164,9 @@ def collect_market_info(
                 ingress_envelope=ingress_envelope,
                 run_writer=True,
             )
-            body = frontdoor_result.get("data")
-            return dict((body or {}).get("writer_result") or {}) if isinstance(body, dict) else {}
+            return _writer_result(frontdoor_result)
 
-        def route_missing(urls: list[str]) -> dict[str, Any]:
+        def route_missing(urls: list[str]) -> ResultRecord:
             return collect_urls_from_list(
                 urls,
                 project_key=effective_project,
@@ -161,15 +197,15 @@ def collect_market_info(
         inserted = collection.inserted
         skipped = collection.skipped
 
-        result = {
+        result: ResultRecord = {
             "inserted": inserted,
             "inserted_valid": inserted,
             "skipped": skipped,
             "links": list(collection.links),
             "doc_type": normalized_doc_type,
             "body_fetch_routed_urls": len(collection.missing_urls),
-            "body_fetch_inserted": int(routed_result.get("inserted") or 0),
-            "body_fetch_skipped": int(routed_result.get("skipped") or 0),
+            "body_fetch_inserted": _result_int(routed_result.get("inserted")),
+            "body_fetch_skipped": _result_int(routed_result.get("skipped")),
         }
         if runtime_readback:
             result["runtime_readback"] = merge_runtime_readback_payload(

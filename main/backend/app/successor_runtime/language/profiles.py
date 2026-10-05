@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal, NoReturn, TypeVar
+from typing import Annotated, Literal, NoReturn, Protocol, TypeGuard, TypeVar, runtime_checkable
 
 from functorial_kit import Failure
 
@@ -29,7 +29,7 @@ def raise_profile_failure(failure: Failure, exception_type: type[Exception] = Va
     _lift_language_failure(failure, exception_type)
 
 
-def try_build_profile(profile_type: type[TProfile], /, **values: Any) -> TProfile | Failure:
+def try_build_profile(profile_type: type[TProfile], /, **values: object) -> TProfile | Failure:
     """Construct any immutable language profile without leaking validation throws."""
 
     try:
@@ -43,7 +43,7 @@ def try_build_profile(profile_type: type[TProfile], /, **values: Any) -> TProfil
 
 
 def build_profile(
-    profile_type: type[TProfile], /, **values: Any
+    profile_type: type[TProfile], /, **values: object
 ) -> Annotated[
     TProfile,
     "kit:non-authoritative derived_as=view fact_source=profile_type+values witness=test:test_profiles_have_unified_refs_and_content_digests",
@@ -56,7 +56,7 @@ def build_profile(
     return result
 
 
-def try_profile(profile_type: type[TProfile], /, **values: Any) -> TProfile | Failure:
+def try_profile(profile_type: type[TProfile], /, **values: object) -> TProfile | Failure:
     return try_build_profile(profile_type, **values)
 
 
@@ -68,7 +68,7 @@ def require_hex64(value: str, field_name: str) -> str:
 
 
 def try_require_hex64(value: str, field_name: str) -> str | Failure:
-    if not isinstance(value, str) or not is_sha256_hex(value):
+    if not is_sha256_hex(value):
         return _profile_failure(
             f"{field_name} must be a 64-char lowercase hex digest",
             site=f"{field_name}.digest",
@@ -77,10 +77,14 @@ def try_require_hex64(value: str, field_name: str) -> str | Failure:
     return value
 
 
-def content_digest(value, *, omit_fields: tuple[str, ...] = ()) -> str:
+def _is_object_mapping(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def content_digest(value: object, *, omit_fields: tuple[str, ...] = ()) -> str:
     if hasattr(value, "__dataclass_fields__"):
         return sha256_hex(dataclass_to_json(value, omit_fields))
-    if isinstance(value, dict) and omit_fields:
+    if _is_object_mapping(value) and omit_fields:
         value = {key: item for key, item in value.items() if key not in omit_fields}
     return sha256_hex(value)
 
@@ -107,9 +111,25 @@ class ContractProfileRef:
         return f"{self.profile_id}@{self.profile_version}"
 
 
+@runtime_checkable
+class _ProfileIdentity(Protocol):
+    profile_id: str
+    profile_version: str
+    profile_digest: str
+
+
 class _ProfileRefMixin:
     @property
     def ref(self) -> ContractProfileRef:
+        if not isinstance(self, _ProfileIdentity):
+            raise_profile_failure(
+                _profile_failure(
+                    "profile mixin requires profile identity fields",
+                    site="profile.ref.identity",
+                    exception_type=TypeError,
+                ),
+                TypeError,
+            )
         return ContractProfileRef(
             profile_id=self.profile_id,
             profile_version=self.profile_version,

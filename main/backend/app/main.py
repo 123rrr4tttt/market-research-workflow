@@ -3,19 +3,22 @@ import os
 import time
 import uuid
 import json
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import TypeGuard
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy import text
-from prometheus_client import Counter, Histogram, REGISTRY, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 from .contracts.errors import ErrorCode, map_exception_to_error, map_status_to_error_code
 from .contracts.responses import ApiMetaModel, fail, ok
 from .composition.production import is_production_environment, production_metrics_label
 from .settings.config import get_effective_project_key_enforcement_mode, settings
-from .models.base import engine, get_db_pool_status
+from .models import base as models_base
+from .models.base import engine
 from .release_identity import RELEASE_VERSION
 from .production_observability import (
     install_production_observability,
@@ -51,6 +54,7 @@ from .web_ui_routes import register_ui_routes
 _SERVICE_NAME = os.getenv("SERVICE_NAME", "market-intel-api")
 _SERVICE_VERSION = os.getenv("SERVICE_VERSION", RELEASE_VERSION)
 _DEPLOY_COLOR = os.getenv("DEPLOY_COLOR", os.getenv("COLOR", "blue"))
+get_db_pool_status: Callable[[], object] = getattr(models_base, "get_db_pool_status")
 
 class _StaticContextFilter(logging.Filter):
     """Inject stable fields into all log records.
@@ -77,10 +81,10 @@ class _StaticContextFilter(logging.Filter):
         return True
 
 # Ensure every log record has the static fields, including third-party loggers.
-_BASE_RECORD_FACTORY = logging.getLogRecordFactory()
+_BASE_RECORD_FACTORY: Callable[..., logging.LogRecord] = logging.getLogRecordFactory()
 
 
-def _record_factory(*args, **kwargs):
+def _record_factory(*args: object, **kwargs: object) -> logging.LogRecord:
     record = _BASE_RECORD_FACTORY(*args, **kwargs)
     if not hasattr(record, "service"):
         record.service = _SERVICE_NAME
@@ -118,7 +122,6 @@ logging.getLogger().addFilter(
 # Create FastAPI app
 app = FastAPI(title="Market Intel API", version=_SERVICE_VERSION)
 
-@app.on_event("startup")
 def _configure_shell_ports() -> None:
     """Install explicit network ports before API request handlers can run."""
 
@@ -127,7 +130,6 @@ def _configure_shell_ports() -> None:
     configure_resource_pool_ports()
 
 
-@app.on_event("startup")
 def _validate_production_composition() -> None:
     """Install the existing production authority ports before serving requests."""
     from .composition.production import validate_production_startup
@@ -149,10 +151,13 @@ def _validate_production_composition() -> None:
     app.state.production_runtime_bindings = runtime
     install_production_observability(app, observability_config)
 
+app.router.on_startup.append(_configure_shell_ports)
+app.router.on_startup.append(_validate_production_composition)
+
 
 # Cache active project for fallback routing
-_ACTIVE_PROJECT_CACHE_KEY: str | None = None
-_ACTIVE_PROJECT_CACHE_TS: float = 0.0
+_active_project_cache_key: str | None = None
+_active_project_cache_ts: float = 0.0
 _REQUEST_LOGGER = logging.getLogger("app.request")
 _ERROR_LOGGER = logging.getLogger("app.error")
 _API_PREFIX = "/api/v1/"
@@ -204,8 +209,8 @@ def _build_error_payload(
     code: ErrorCode,
     message: str,
     *,
-    details: dict | None = None,
-) -> dict:
+    details: dict[str, object] | None = None,
+) -> dict[str, object]:
     project_key = (
         (request.headers.get("X-Project-Key") or "").strip()
         or (request.query_params.get("project_key") or "").strip()
@@ -217,69 +222,109 @@ def _build_error_payload(
     return fail(code, message, details=details, meta=meta)
 
 
-def _with_legacy_detail_alias(payload: dict) -> dict:
+def _with_legacy_detail_alias(payload: dict[str, object]) -> dict[str, object]:
     """Transitional compatibility for callers still reading body.detail.error."""
     if "detail" in payload:
         return payload
-    error_obj = payload.get("error")
-    if not isinstance(error_obj, dict):
+    error_value = payload.get("error")
+    error_obj = _json_object(error_value)
+    if error_obj is None:
         return payload
+    error_message: object = error_obj.get("message")
     cloned = dict(payload)
-    cloned["detail"] = {"error": error_obj, "message": error_obj.get("message")}
+    cloned["detail"] = {"error": error_obj, "message": error_message}
     return cloned
 
 
-def _extract_http_exception_content(request: Request, exc: HTTPException) -> tuple[dict, ErrorCode]:
+def _is_object_map(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_string_keyed_object_map(value: object) -> TypeGuard[dict[str, object]]:
+    if not _is_object_map(value):
+        return False
+    if not all(isinstance(key, str) for key in value):
+        return False
+    return True
+
+
+def _json_object(value: object) -> dict[str, object] | None:
+    if not _is_string_keyed_object_map(value):
+        return None
+    return value
+
+
+def _extract_http_exception_content(
+    request: Request,
+    exc: HTTPException,
+) -> tuple[dict[str, object], ErrorCode]:
     detail = exc.detail
-    if isinstance(detail, dict):
-        if {"status", "data", "error", "meta"}.issubset(detail.keys()):
-            error_obj = detail.get("error")
-            if isinstance(error_obj, dict):
-                code_text = str(error_obj.get("code") or "")
-                for candidate in ErrorCode:
-                    if candidate.value == code_text:
-                        return _with_legacy_detail_alias(detail), candidate
-            code = map_status_to_error_code(exc.status_code)
-            return _with_legacy_detail_alias(detail), code
-        message = str(detail.get("message") or detail.get("detail") or "Request failed")
+    detail_payload = _json_object(detail)
+    if detail_payload is None:
         code = map_status_to_error_code(exc.status_code)
-        payload = _build_error_payload(request, code, message, details=detail)
+        message = str(detail) if detail else "Request failed"
+        payload = _build_error_payload(request, code, message)
         return _with_legacy_detail_alias(payload), code
+
+    envelope_keys = {"status", "data", "error", "meta"}
+    if all(key in detail_payload for key in envelope_keys):
+        error_obj_value = detail_payload.get("error")
+        error_obj = _json_object(error_obj_value)
+        if error_obj is None:
+            raise ValueError("HTTP exception error detail must be a JSON object")
+        code_value: object = error_obj.get("code")
+        code_text = str(code_value or "")
+        for candidate in ErrorCode:
+            if candidate.value == code_text:
+                return _with_legacy_detail_alias(detail_payload), candidate
+        code = map_status_to_error_code(exc.status_code)
+        return _with_legacy_detail_alias(detail_payload), code
+
+    message_value: object = detail_payload.get("message") or detail_payload.get("detail")
+    message = str(message_value or "Request failed")
     code = map_status_to_error_code(exc.status_code)
-    message = str(detail) if detail else "Request failed"
-    payload = _build_error_payload(request, code, message)
+    payload = _build_error_payload(request, code, message, details=detail_payload)
     return _with_legacy_detail_alias(payload), code
 
 
-def _is_already_envelope(payload: object) -> bool:
-    return (
-        isinstance(payload, dict)
-        and {"status", "data", "error", "meta"}.issubset(payload.keys())
-    )
+def _is_already_envelope(payload: dict[str, object]) -> bool:
+    required = {"status", "data", "error", "meta"}
+    return all(key in payload for key in required)
 
 
 def _enrich_existing_envelope_meta(
-    payload: dict,
+    payload: dict[str, object],
     *,
     trace_id: str,
     project_key: str,
-) -> dict:
-    meta = payload.get("meta")
-    if not isinstance(meta, dict):
+) -> dict[str, object]:
+    meta_value = payload.get("meta")
+    updated_meta = _json_object(meta_value)
+    if updated_meta is None:
         return payload
-
-    updated_meta = dict(meta)
-    if updated_meta.get("trace_id") is None and trace_id:
+    trace_value: object = updated_meta.get("trace_id")
+    project_value: object = updated_meta.get("project_key")
+    if trace_value is None and trace_id:
         updated_meta["trace_id"] = trace_id
-    if updated_meta.get("project_key") is None and project_key:
+    if project_value is None and project_key:
         updated_meta["project_key"] = project_key
     return {**payload, "meta": updated_meta}
 
 
-def _response_chunk_bytes(chunk) -> bytes:
+def _response_chunk_bytes(chunk: str | bytes | bytearray | memoryview) -> bytes:
     if isinstance(chunk, str):
         return chunk.encode("utf-8")
     return bytes(chunk)
+
+
+def _database_pool_status() -> dict[str, object]:
+    return _json_object(get_db_pool_status()) or {}
+
+
+def _pool_int(value: object) -> int:
+    if isinstance(value, str | int | float | bool):
+        return int(value)
+    raise TypeError(f"pool status value is not convertible to int: {type(value).__name__}")
 
 
 def _preserve_response_metadata(source: Response, target: Response) -> None:
@@ -310,7 +355,7 @@ async def _materialize_success_json_response(
     if body_iterator is None:
         return response
 
-    chunks = []
+    chunks: list[bytes] = []
     async for chunk in body_iterator:
         chunks.append(_response_chunk_bytes(chunk))
     materialized = Response(
@@ -343,7 +388,10 @@ def _maybe_wrap_success_json_response(
         return response
 
     try:
-        payload = json.loads(body.decode("utf-8"))
+        decoded: object = json.loads(body.decode("utf-8"))
+        payload = _json_object(decoded)
+        if payload is None:
+            return response
     except Exception:
         return response
 
@@ -369,10 +417,10 @@ def _maybe_wrap_success_json_response(
     return wrapped_response
 
 def _get_active_project_key_fallback() -> str | None:
-    global _ACTIVE_PROJECT_CACHE_KEY, _ACTIVE_PROJECT_CACHE_TS
+    global _active_project_cache_key, _active_project_cache_ts
     now = time.time()
-    if _ACTIVE_PROJECT_CACHE_KEY and (now - _ACTIVE_PROJECT_CACHE_TS) < 5:
-        return _ACTIVE_PROJECT_CACHE_KEY
+    if _active_project_cache_key and (now - _active_project_cache_ts) < 5:
+        return _active_project_cache_key
     try:
         with engine.connect() as conn:
             conn.execute(text('SET search_path TO "public"'))
@@ -380,9 +428,9 @@ def _get_active_project_key_fallback() -> str | None:
                 text("SELECT project_key FROM public.projects WHERE is_active = true LIMIT 1")
             ).scalar()
             if key:
-                _ACTIVE_PROJECT_CACHE_KEY = str(key)
-                _ACTIVE_PROJECT_CACHE_TS = now
-                return _ACTIVE_PROJECT_CACHE_KEY
+                _active_project_cache_key = str(key)
+                _active_project_cache_ts = now
+                return _active_project_cache_key
     except Exception:
         return None
     return None
@@ -447,7 +495,7 @@ def _has_valid_codex_oauth_session(request: Request) -> bool:
 
 
 def _actor_from_verified_claims(
-    claims: dict | None,
+    claims: dict[str, object] | None,
     *,
     request: Request,
     actor_source: str,
@@ -474,7 +522,7 @@ def _actor_from_verified_claims(
 
 
 def _token_sink_actor_metadata(claims_context: TokenSinkClaimsContext) -> dict[str, object]:
-    metadata = claims_context.profile_metadata()
+    metadata: dict[str, object] = claims_context.profile_metadata()
     allowed_fields = ("profile_name", "profile_name_hash", "expires_at", "fallback_used")
     return {field: metadata[field] for field in allowed_fields if field in metadata}
 
@@ -558,30 +606,8 @@ APP_ROOT = Path(__file__).resolve().parent
 USA_MAP_PATH = APP_ROOT / "assets" / "maps" / "USA.json"
 register_startup_hooks(app)
 
-def _get_or_create_counter(name: str, documentation: str, labelnames: list[str]) -> Counter:
-    existing = REGISTRY._names_to_collectors.get(name)
-    if existing is not None:
-        return existing  # type: ignore[return-value]
-    return Counter(name, documentation, labelnames)
-
-
-def _get_or_create_histogram(name: str, documentation: str, labelnames: list[str]) -> Histogram:
-    existing = REGISTRY._names_to_collectors.get(name)
-    if existing is not None:
-        return existing  # type: ignore[return-value]
-    return Histogram(name, documentation, labelnames)
-
-
-REQUEST_COUNT = _get_or_create_counter(
-    "market_api_requests_total",
-    "API request count",
-    ["method", "endpoint", "status"],
-)
-REQUEST_LATENCY = _get_or_create_histogram(
-    "market_api_request_latency_seconds",
-    "API request latency",
-    ["endpoint"],
-)
+REQUEST_COUNT: Counter = production_http.REQUEST_COUNT
+REQUEST_LATENCY: Histogram = production_http.REQUEST_LATENCY
 
 _LEGACY_ROUTE_REWRITES: dict[str, str] = {
     "/api/v1/ingest/social/sentiment": "/api/v1/ingest/data-api",
@@ -589,7 +615,10 @@ _LEGACY_ROUTE_REWRITES: dict[str, str] = {
 
 
 @app.middleware("http")
-async def legacy_route_rewrite_middleware(request: Request, call_next):
+async def legacy_route_rewrite_middleware(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
     legacy_path = request.scope.get("path") or ""
     target_path = _LEGACY_ROUTE_REWRITES.get(str(legacy_path))
     rewritten = False
@@ -604,7 +633,10 @@ async def legacy_route_rewrite_middleware(request: Request, call_next):
 
 
 @app.middleware("http")
-async def metrics_middleware(request: Request, call_next):
+async def metrics_middleware(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
     controller = getattr(app.state, "production_observability_r7", None)
     production_runtime = is_production_environment()
     observe_http = production_runtime or controller is not None
@@ -710,7 +742,11 @@ async def metrics_middleware(request: Request, call_next):
         duration_ms,
         error_code,
     )
-    if observe_http and production_http.is_sse_response(response):
+    if (
+        observe_http
+        and isinstance(response, StreamingResponse)
+        and production_http.is_sse_response(response)
+    ):
         production_http.wrap_stream_response(
             request,
             response,
@@ -741,7 +777,7 @@ async def metrics_middleware(request: Request, call_next):
 
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     if not _is_contract_api_path(request.url.path):
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
     payload, code = _extract_http_exception_content(request, exc)
@@ -753,7 +789,10 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 
 @app.exception_handler(RequestValidationError)
-async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+async def request_validation_exception_handler(
+    request: Request,
+    exc: RequestValidationError,
+) -> JSONResponse:
     if not _is_contract_api_path(request.url.path):
         return JSONResponse(status_code=422, content={"detail": exc.errors()})
     payload = _with_legacy_detail_alias(
@@ -772,7 +811,7 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
 
 
 @app.exception_handler(Exception)
-async def unhandled_exception_handler(request: Request, exc: Exception):
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     _ERROR_LOGGER.exception("unhandled_exception path=%s", request.url.path)
     if not _is_contract_api_path(request.url.path):
         return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
@@ -786,7 +825,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 
 @app.get("/api/v1/health")
-def health_check() -> dict:
+def health_check() -> dict[str, object]:
     """Lightweight health check; deep checks added later."""
     return {
         "status": "ok",
@@ -796,7 +835,7 @@ def health_check() -> dict:
 
 
 @app.get("/api/v1/health/deep")
-def deep_health_check(request: Request) -> dict:
+def deep_health_check(request: Request) -> dict[str, object]:
     """Deep health check: DB + pool + Elasticsearch connectivity and simple latency probes."""
     checks: dict[str, str] = {}
     details: dict[str, object] = {}
@@ -814,11 +853,11 @@ def deep_health_check(request: Request) -> dict:
 
     # DB pool status
     try:
-        pool_status = get_db_pool_status()
+        pool_status = _database_pool_status()
         details["database_pool"] = pool_status
         checks["database_pool"] = "ok"
-        size = int(pool_status.get("size", 0))
-        checkedout = int(pool_status.get("checkedout", 0))
+        size = _pool_int(pool_status.get("size", 0))
+        checkedout = _pool_int(pool_status.get("checkedout", 0))
         max_overflow = max(0, int(settings.db_pool_max_overflow))
         pool_limit = size + max_overflow
         gate_enabled = bool(settings.deep_health_pool_gate_enabled)
@@ -893,13 +932,13 @@ def deep_health_check(request: Request) -> dict:
 
 
 @app.get("/metrics")
-def metrics():
+def metrics() -> Response:
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 register_ui_routes(app, usa_map_path=USA_MAP_PATH)
 
 
 # Mount API routers.
-from .api import router as api_router  # type: ignore
+from .api import router as api_router
 
 app.include_router(api_router, prefix="/api/v1")
 
@@ -928,8 +967,9 @@ if str(getattr(settings, "successor_mount_mode", "local_only")).strip().lower() 
             "no authenticated actor identity found on successor request"
         )
 
-    @app.on_event("startup")
     def _initialize_successor_registry_mount() -> None:
         initialize_successor_registry_mount(
             app, actor_provider=_successor_production_actor_provider
         )
+
+    app.router.on_startup.append(_initialize_successor_registry_mount)

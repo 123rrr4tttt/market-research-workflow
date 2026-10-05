@@ -7,17 +7,19 @@ from contextvars import copy_context
 import logging
 import os
 from contextlib import nullcontext
-from typing import Any, Dict, List, Optional, Tuple
+from importlib import import_module
+from collections.abc import Callable
+from typing import Protocol, TypeGuard, TypeVar
+
+T = TypeVar("T")
+from typing import Dict, List, Optional, Tuple
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from ...models.base import SessionLocal
 from ...models.entities import Document
 from ..job_logger import complete_job, fail_job, start_job
 from ..collect_runtime.display_meta import build_display_meta
-from ..collect_runtime.contracts import CollectRequest, CollectResult
-from ..resource_pool import list_urls
+from ..collect_runtime.contracts import CollectFailure, CollectRequest, CollectResult
 from ..task_readback_metadata import extract_runtime_readback_payload
-from .postprocess_frontdoor import run_frontdoor_extraction
 from .metrics_payload import (
     attach_metrics_payload,
     build_metrics_payload_from_summary,
@@ -31,12 +33,127 @@ from .frontdoor_slo import (
 )
 from .gate_reason_codes import normalize_reason_code
 from .frontdoor_router_contract import build_frontdoor_fetch_router_contract, router_contract_from_profile
-from .content_extraction import _locate_main_text_from_html
 from .content_cleaner import normalize_content_for_ingest
 from .source_search_contract import build_query_url_from_contract, normalize_source_search_contract
 from .url_unwrap import unwrap_url
 
 logger = logging.getLogger(__name__)
+
+__all__ = ["_extract_text_from_html"]
+
+JsonObject = dict[str, object]
+
+
+class _HtmlNode(Protocol):
+    def text(self, *, separator: str, strip: bool) -> str: ...
+
+
+class _HtmlParser(Protocol):
+    def css_first(self, selector: str) -> _HtmlNode | None: ...
+
+    @property
+    def body(self) -> _HtmlNode | None: ...
+
+
+class _DatabaseRow(Protocol):
+    @property
+    def extracted_data(self) -> object: ...
+    @extracted_data.setter
+    def extracted_data(self, value: object) -> None: ...
+
+
+class _DatabaseQuery(Protocol):
+    def filter(self, criterion: object) -> "_DatabaseQuery": ...
+    def all(self) -> list[_DatabaseRow]: ...
+
+
+class _DatabaseSession(Protocol):
+    def query(self, entity: type[Document]) -> _DatabaseQuery: ...
+    def commit(self) -> None: ...
+
+
+class _DatabaseSessionContext(Protocol):
+    def __enter__(self) -> _DatabaseSession: ...
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> object: ...
+
+
+def _is_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_dict(value: object) -> TypeGuard[JsonObject]:
+    return _is_dict(value) and all(isinstance(key, str) for key in value)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_session_factory(value: object) -> TypeGuard[Callable[[], _DatabaseSessionContext]]:
+    return callable(value)
+
+
+def _is_html_parser_factory(value: object) -> TypeGuard[Callable[[str], _HtmlParser]]:
+    return callable(value)
+
+
+def _is_list_urls(value: object) -> TypeGuard[Callable[..., tuple[list[JsonObject], int]]]:
+    return callable(value)
+
+
+def _is_delay_callable(value: object) -> TypeGuard[Callable[..., object]]:
+    return callable(value)
+
+
+def _as_object_dict(value: object) -> JsonObject:
+    if not _is_dict(value):
+        return {}
+    return {str(key): item for key, item in value.items()}
+
+
+def _as_text(value: object, default: str = "") -> str:
+    if value is None:
+        return default
+    return str(value)
+
+
+def _as_object_list(value: object) -> list[object]:
+    if not _is_object_list(value):
+        return []
+    return list(value)
+
+
+def _as_text_list(value: object) -> list[str]:
+    if not _is_object_list(value):
+        return []
+    return [_as_text(item).strip() for item in value]
+
+
+def _as_bool_value(value: object, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return bool(value)
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"1", "true", "yes", "on"}:
+            return True
+        if lowered in {"0", "false", "no", "off"}:
+            return False
+    return default
+
+
+def _as_float_value(value: object, default: float | None = None) -> float | None:
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.strip())
+        except ValueError:
+            return default
+    return default
 
 _SOURCE_NAME = "url_pool"
 _SOURCE_KIND = "url_fetch"
@@ -96,7 +213,58 @@ def _safe_exc(exc: Exception) -> str:
     return f"{exc.__class__.__name__}: {msg}"
 
 
-def _runtime_readback_for_url_pool(extra_params: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def _open_session() -> _DatabaseSessionContext:
+    module = import_module("app.models.base")
+    factory = getattr(module, "SessionLocal")
+    if not _is_session_factory(factory):
+        # kit:boundary owner=ingest.url_pool.dynamic_ports class=PROGRAMMER_DEFECT failure_family=none witness=test:test_url_pool_dynamic_port_guards_reject_incompatible_bindings
+        raise TypeError("SessionLocal has an incompatible callable contract")
+    return factory()
+
+
+def _make_html_parser(html: str) -> _HtmlParser:
+    module = import_module("app.services.resource_pool.http_port")
+    parser_factory = getattr(module, "make_html_parser")
+    if not _is_html_parser_factory(parser_factory):
+        # kit:boundary owner=ingest.url_pool.dynamic_ports class=PROGRAMMER_DEFECT failure_family=none witness=test:test_url_pool_dynamic_port_guards_reject_incompatible_bindings
+        raise TypeError("make_html_parser has an incompatible callable contract")
+    return parser_factory(html)
+
+
+def list_urls(
+    *,
+    scope: str = "effective",
+    project_key: str | None = None,
+    source: str | None = None,
+    domain: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> tuple[list[JsonObject], int]:
+    module = import_module("app.services.resource_pool.resolver")
+    list_urls = getattr(module, "list_urls")
+    if not _is_list_urls(list_urls):
+        # kit:boundary owner=ingest.url_pool.dynamic_ports class=PROGRAMMER_DEFECT failure_family=none witness=test:test_url_pool_dynamic_port_guards_reject_incompatible_bindings
+        raise TypeError("list_urls has an incompatible callable contract")
+    result: tuple[list[JsonObject], int] = list_urls(
+        scope=scope,
+        project_key=project_key,
+        source=source,
+        domain=domain,
+        page=page,
+        page_size=page_size,
+    )
+    return result
+
+
+def _delay_task(task: object, *args: object) -> object:
+    delay = getattr(task, "delay")
+    if not _is_delay_callable(delay):
+        # kit:boundary owner=ingest.url_pool.dynamic_ports class=PROGRAMMER_DEFECT failure_family=none witness=test:test_url_pool_dynamic_port_guards_reject_incompatible_bindings
+        raise TypeError("url pool ingest task does not support delayed dispatch")
+    return delay(*args)
+
+
+def _runtime_readback_for_url_pool(extra_params: Optional[JsonObject]) -> JsonObject:
     runtime_readback = extract_runtime_readback_payload(extra_params or {})
     if not runtime_readback:
         return {}
@@ -107,10 +275,10 @@ def _runtime_readback_for_url_pool(extra_params: Optional[Dict[str, Any]]) -> Di
 
 
 def _attach_url_pool_runtime_readback(
-    search_options: Optional[Dict[str, Any]],
+    search_options: Optional[JsonObject],
     *,
-    extra_params: Optional[Dict[str, Any]],
-) -> Dict[str, Any] | None:
+    extra_params: Optional[JsonObject],
+) -> JsonObject | None:
     runtime_readback = _runtime_readback_for_url_pool(extra_params)
     if not runtime_readback:
         return search_options
@@ -120,66 +288,32 @@ def _attach_url_pool_runtime_readback(
     }
 
 
-def _detail(url: str, **extra: Any) -> Dict[str, Any]:
-    out: Dict[str, Any] = {"url": url}
+def _collect_failures(errors: list[JsonObject]) -> list[CollectFailure]:
+    failures: list[CollectFailure] = []
+    for error in errors:
+        failures.append({
+            "message": _as_text(error.get("error")),
+            "context": {"url": _as_text(error.get("url"))},
+        })
+    return failures
+
+
+def _detail(url: str, **extra: object) -> JsonObject:
+    out: JsonObject = {"url": url}
     for k, v in extra.items():
         if v is not None:
             out[k] = v
     return out
 
 
-def _apply_structured_extraction(
-    extracted_data: Dict[str, Any],
-    *,
-    domain_str: str,
-    content: str,
-    url: str,
-) -> None:
-    """Compatibility shim for legacy tests and call sites; mainline extraction is frontdoor-owned."""
-    try:
-        outcome = run_frontdoor_extraction(
-            title=domain_str,
-            content=content or "",
-            extraction_plan={
-                "enabled": True,
-                "mode": "url_pool_compat",
-                "include_market": True,
-                "include_policy": True,
-                "include_sentiment": True,
-                "include_company": True,
-                "include_product": True,
-                "include_operation": True,
-            },
-        )
-    except Exception as ex:  # noqa: BLE001
-        logger.warning("url_pool extraction failed for %s: %s", url[:80], ex)
-        extracted_data["extraction_status"] = "failed"
-        extracted_data["extraction_reason"] = "extractor_exception"
-        extracted_data["extraction_error"] = _safe_exc(ex)
-        return
-
-    domains = outcome.get("domains") if isinstance(outcome, dict) else None
-    if isinstance(domains, dict) and domains:
-        extracted_data.update(domains)
-        extracted_data["extraction_status"] = "ok"
-        return
-
-    extracted_data["extraction_status"] = "failed"
-    extracted_data["extraction_reason"] = str((outcome or {}).get("reason") or "empty_structured_output")
-    if (outcome or {}).get("error"):
-        extracted_data["extraction_error"] = str((outcome or {}).get("error"))
-
-
-def _normalize_url_list(urls: Any) -> List[str]:
+def _normalize_url_list(urls: object) -> List[str]:
     """Extract and normalize URL list from channel/params."""
-    if isinstance(urls, list):
-        return [str(u).strip() for u in urls if u and str(u).strip().startswith(("http://", "https://"))]
+    return [u for u in _as_text_list(urls) if u.startswith(("http://", "https://"))]
     return []
 
 
-def _normalize_terms(value: Any) -> List[str]:
-    if isinstance(value, list):
-        return [str(x).strip() for x in value if str(x or "").strip()]
+def _normalize_terms(value: object) -> List[str]:
+    return [x for x in _as_text_list(value) if x]
     if isinstance(value, str):
         s = value.strip()
         return [s] if s else []
@@ -189,28 +323,28 @@ def _normalize_terms(value: Any) -> List[str]:
 def _resolve_source_search_contract_for_target(
     *,
     target_url: str,
-    target: Dict[str, Any] | None,
-    extra_params: Dict[str, Any] | None,
-) -> Dict[str, Any] | None:
-    if isinstance(target, dict) and isinstance(target.get("source_search_contract"), dict):
-        return dict(target.get("source_search_contract") or {})
-    if not isinstance(extra_params, dict):
+    target: JsonObject | None,
+    extra_params: JsonObject | None,
+) -> JsonObject | None:
+    if isinstance(target, dict) and _is_object_dict(target.get("source_search_contract")):
+        return _as_object_dict(target.get("source_search_contract"))
+    if not _is_object_dict(extra_params):
         return None
 
     direct = extra_params.get("source_search_contract")
-    if isinstance(direct, dict):
-        return dict(direct)
+    if _is_object_dict(direct):
+        return _as_object_dict(direct)
 
     mapped = extra_params.get("source_search_contracts")
-    if isinstance(mapped, dict):
+    if _is_object_dict(mapped):
         key_exact = str(target_url or "").strip()
         key_norm = _normalize_url_no_fragment(key_exact)
         domain_key = _domain_key(key_exact)
         for key in (key_exact, key_norm, domain_key):
-            if key and isinstance(mapped.get(key), dict):
-                return dict(mapped.get(key) or {})
+            if key and _is_object_dict(mapped.get(key)):
+                return _as_object_dict(mapped.get(key))
 
-    top_level: Dict[str, Any] = {}
+    top_level: JsonObject = {}
     for field in _SOURCE_SEARCH_CONTRACT_FIELDS:
         if field in extra_params:
             top_level[field] = extra_params.get(field)
@@ -221,9 +355,9 @@ def _search_options_for_target(
     target_url: str,
     query_terms: List[str],
     *,
-    target: Dict[str, Any] | None = None,
-    extra_params: Dict[str, Any] | None = None,
-) -> Dict[str, Any] | None:
+    target: JsonObject | None = None,
+    extra_params: JsonObject | None = None,
+) -> JsonObject | None:
     parsed = urlparse(str(target_url or ""))
     path = str(parsed.path or "").lower()
     query_pairs = parse_qsl(parsed.query or "", keep_blank_values=True)
@@ -238,8 +372,8 @@ def _search_options_for_target(
     if not is_search_like and contract is None:
         return None
     limit = 1 if query_terms else 0
-    max_candidates = int((contract or {}).get("max_candidates") or 6)
-    min_results_required = int((contract or {}).get("min_results_required") or 6)
+    max_candidates = _as_int((contract or {}).get("max_candidates"), 6)
+    min_results_required = _as_int((contract or {}).get("min_results_required"), 6)
     return {
         "search_expand": bool(limit > 0),
         "search_expand_limit": max(1, limit) if limit > 0 else 1,
@@ -261,7 +395,7 @@ def _domain_matches(domain: str, suffix: str) -> bool:
     return bool(domain and suffix and (domain == suffix or domain.endswith(f".{suffix}")))
 
 
-def _frontdoor_route_profile_for_url(url: str) -> Dict[str, Any]:
+def _frontdoor_route_profile_for_url(url: str) -> JsonObject:
     parsed = urlparse(str(url or ""))
     domain = str(parsed.netloc or "").strip().lower()
     if domain.startswith("www."):
@@ -297,17 +431,13 @@ def _frontdoor_route_profile_for_url(url: str) -> Dict[str, Any]:
     }
 
 
-def _frontdoor_route_hint_for_url(url: str) -> str:
-    return str(_frontdoor_route_profile_for_url(url).get("route_hint") or "static_detail")
-
-
 def _apply_frontdoor_target_hint(
     *,
-    search_options: Dict[str, Any] | None,
-    frontdoor_options: Dict[str, Any],
+    search_options: JsonObject | None,
+    frontdoor_options: JsonObject,
     target_url: str,
-) -> Dict[str, Any] | None:
-    out: Dict[str, Any] = dict(search_options or {})
+) -> JsonObject | None:
+    out: JsonObject = dict(search_options or {})
     if not bool((frontdoor_options or {}).get("enabled")):
         return out or search_options
     route_profile = _frontdoor_route_profile_for_url(target_url)
@@ -319,7 +449,7 @@ def _apply_frontdoor_target_hint(
     out["frontdoor_prefers_search_shell"] = bool(route_profile.get("prefer_search_shell"))
     out["frontdoor_route_profile"] = route_profile
     if isinstance(route_profile.get("router_contract"), dict):
-        out["frontdoor_router_contract"] = dict(route_profile.get("router_contract") or {})
+        out["frontdoor_router_contract"] = _as_object_dict(route_profile.get("router_contract"))
     return out
 
 
@@ -330,15 +460,15 @@ def _collect_urls_from_list_with_runtime_targets(
     normalized_count: int,
     normalized_terms: List[str],
     project_key: Optional[str],
-    extra_params: Optional[Dict[str, Any]],
+    extra_params: Optional[JsonObject],
     enable_extraction: bool,
     job_id: int,
-    targets: List[Dict[str, Any]],
+    targets: list[JsonObject],
     target_mode: str,
-    runtime_targets: List[Tuple[str, Dict[str, Any]]],
+    runtime_targets: list[tuple[str, JsonObject]],
     strict_mode: bool,
-    frontdoor_options: Dict[str, Any],
-) -> Dict[str, Any]:
+    frontdoor_options: JsonObject,
+) -> JsonObject:
     inserted = 0
     inserted_valid = 0
     skipped = 0
@@ -346,18 +476,18 @@ def _collect_urls_from_list_with_runtime_targets(
     rejection_breakdown: Dict[str, int] = {}
     skipped_exists = 0
     skipped_fetch_error = 0
-    details: List[Dict[str, Any]] = []
-    errors: List[Dict[str, Any]] = []
+    details: list[JsonObject] = []
+    errors: list[JsonObject] = []
     workflow_name = "front_door_url_routing"
 
     parallel_workers = _resolve_parallel_workers(extra_params=extra_params, target_count=len(runtime_targets))
     parallel_batch_size = _resolve_parallel_batch_size(extra_params=extra_params, parallel_workers=parallel_workers)
-    metrics_summary = new_metrics_summary()
+    metrics_summary: JsonObject = new_metrics_summary()
     source_template_health_summary = _new_source_template_health_summary()
     frontdoor_status_summary = _new_frontdoor_status_summary()
-    frontdoor_slo_summary = new_frontdoor_slo_summary()
+    frontdoor_slo_summary: JsonObject = new_frontdoor_slo_summary()
     queued = 0
-    def _run_single_target(target_url: str, target: Dict[str, Any]) -> Dict[str, Any]:
+    def _run_single_target(target_url: str, target: JsonObject) -> JsonObject:
         try:
             search_options = _search_options_for_target(
                 target_url,
@@ -371,16 +501,16 @@ def _collect_urls_from_list_with_runtime_targets(
                 frontdoor_options=frontdoor_options,
                 target_url=target_url,
             )
-            search_options = dict(search_options or {})
-            target_frontdoor_options = dict(frontdoor_options or {})
+            search_options = _as_object_dict(search_options)
+            target_frontdoor_options = _as_object_dict(frontdoor_options)
             target_frontdoor_options["enabled"] = True
             target_frontdoor_options["route_hint"] = str(search_options.get("frontdoor_route_hint") or "")
             target_frontdoor_options["fetch_strategy"] = str(search_options.get("frontdoor_fetch_strategy") or "")
             target_frontdoor_options["render_required"] = bool(search_options.get("frontdoor_render_required"))
             if isinstance(search_options.get("frontdoor_route_profile"), dict):
-                target_frontdoor_options["route_profile"] = dict(search_options.get("frontdoor_route_profile") or {})
+                target_frontdoor_options["route_profile"] = _as_object_dict(search_options.get("frontdoor_route_profile"))
             if isinstance(search_options.get("frontdoor_router_contract"), dict):
-                target_frontdoor_options["router_contract"] = dict(search_options.get("frontdoor_router_contract") or {})
+                target_frontdoor_options["router_contract"] = _as_object_dict(search_options.get("frontdoor_router_contract"))
             target_frontdoor_options["prefer_crawler"] = bool(search_options.get("frontdoor_prefers_crawler"))
             target_frontdoor_options["prefer_search_shell"] = bool(
                 search_options.get("frontdoor_prefers_search_shell")
@@ -400,13 +530,13 @@ def _collect_urls_from_list_with_runtime_targets(
             logger.warning("url_pool url_routing dispatch failed for %s: %s", target_url[:80], exc)
             return {"status": "failed", "inserted": 0, "skipped": 1, "error": _safe_exc(exc)}
 
-    def _collect_item_result(target_url: str, target: Dict[str, Any], item_result: Dict[str, Any]) -> None:
+    def _collect_item_result(target_url: str, target: JsonObject, item_result: JsonObject) -> None:
         nonlocal inserted, inserted_valid, skipped, rejected_count, skipped_exists, skipped_fetch_error
-        inserted += int(item_result.get("inserted") or 0)
-        inserted_valid += int(item_result.get("inserted_valid") or 0)
-        item_skipped = int(item_result.get("skipped") or 0)
+        inserted += _as_int(item_result.get("inserted"))
+        inserted_valid += _as_int(item_result.get("inserted_valid"))
+        item_skipped = _as_int(item_result.get("skipped"))
         skipped += item_skipped
-        rejected_count += int(item_result.get("rejected_count") or 0)
+        rejected_count += _as_int(item_result.get("rejected_count"))
         _merge_rejection_breakdown(rejection_breakdown, item_result.get("rejection_breakdown"))
         record_metrics_observation(metrics_summary, item_result, fallback_adapter=workflow_name)
         _record_source_template_health_observation(
@@ -414,7 +544,7 @@ def _collect_urls_from_list_with_runtime_targets(
             target=target,
             item_result=item_result,
         )
-        degradation_flags = list(item_result.get("degradation_flags") or [])
+        degradation_flags = _as_object_list(item_result.get("degradation_flags"))
         if "document_already_exists" in degradation_flags:
             skipped_exists += 1
         if "fetch_failed" in degradation_flags:
@@ -442,19 +572,15 @@ def _collect_urls_from_list_with_runtime_targets(
             details.append(
                 _detail(
                     target_url,
-                    action="inserted" if int(item_result.get("inserted") or 0) > 0 else "processed",
+                    action="inserted" if _as_int(item_result.get("inserted")) > 0 else "processed",
                     status=item_result.get("status"),
                     document_id=item_result.get("document_id"),
                     quality_score=item_result.get("quality_score"),
                     degradation_flags=degradation_flags,
                     entry_type=target.get("entry_type"),
                     site_seed=bool(target.get("is_site_seed")),
-                    handler=item_result.get("handler_allocation", {}).get("handler_used")
-                    if isinstance(item_result.get("handler_allocation"), dict)
-                    else None,
-                    matched_channel_key=item_result.get("handler_allocation", {}).get("matched_channel_key")
-                    if isinstance(item_result.get("handler_allocation"), dict)
-                    else None,
+                    handler=_as_object_dict(item_result.get("handler_allocation")).get("handler_used"),
+                    matched_channel_key=_as_object_dict(item_result.get("handler_allocation")).get("matched_channel_key"),
                     frontdoor_route=item_result.get("frontdoor_route")
                     if isinstance(item_result.get("frontdoor_route"), dict)
                     else None,
@@ -478,7 +604,7 @@ def _collect_urls_from_list_with_runtime_targets(
                 item_result = future.result()
                 _collect_item_result(tu, t, item_result)
 
-    result: Dict[str, Any] = {
+    result: JsonObject = {
         "inserted": inserted,
         "inserted_valid": inserted_valid,
         "skipped": skipped,
@@ -523,7 +649,7 @@ def _collect_urls_from_list_with_runtime_targets(
             skipped=skipped,
             updated=0,
             status="completed",
-            errors=errors,
+            errors=_collect_failures(errors),
         ),
         summary="URL 池抓取并写入文档",
     )
@@ -542,16 +668,24 @@ def _collect_urls_from_list_with_runtime_targets(
 def _extract_text_from_html(html: str) -> str:
     """Extract main text from HTML for storage."""
     try:
-        return _locate_main_text_from_html(
-            html,
-            selectors=("article", "main article", "[role='main'] article", "main"),
-            transform=lambda text: normalize_content_for_ingest(text, max_chars=50000),
-        )
+        parser: _HtmlParser = _make_html_parser(html)
+        for selector in ("article", "main article", "[role='main'] article", "main"):
+            node = parser.css_first(selector)
+            if node is None:
+                continue
+            text = str(node.text(separator="\n", strip=True) or "").strip()
+            if len(text) >= 120:
+                return normalize_content_for_ingest(text, max_chars=50000)
+        body = parser.body
+        if body is not None:
+            text = str(body.text(separator="\n", strip=True) or "").strip()
+            return normalize_content_for_ingest(text, max_chars=50000)
+        return ""
     except Exception:  # noqa: BLE001
         return ""
 
 
-def _build_document_candidate_from_record(record: Dict[str, Any]) -> Dict[str, Any]:
+def _build_document_candidate_from_record(record: JsonObject) -> JsonObject:
     url = str(record.get("url") or "").strip()
     parsed = urlparse(url)
     source_base_url = None
@@ -561,8 +695,8 @@ def _build_document_candidate_from_record(record: Dict[str, Any]) -> Dict[str, A
     summary = str(record.get("summary") or "").strip() or None
     if not summary and content_text:
         summary = content_text[:800]
-    record_meta = dict(record.get("record_meta") or {}) if isinstance(record.get("record_meta"), dict) else {}
-    extracted_data_base: Dict[str, Any] = {
+    record_meta = _as_object_dict(record.get("record_meta"))
+    extracted_data_base: JsonObject = {
         "source_label": record.get("source_label"),
         "record_meta": record_meta,
     }
@@ -594,27 +728,27 @@ def _run_source_library_frontdoor_ingress(
     url: str,
     project_key: Optional[str] = None,
     query_terms: Optional[List[str]] = None,
-    search_options: Optional[Dict[str, Any]] = None,
+    search_options: Optional[JsonObject] = None,
     strict_mode: bool = False,
-    frontdoor_options: Optional[Dict[str, Any]] = None,
+    frontdoor_options: Optional[JsonObject] = None,
     entrypoint: str = "ingest.url_pool",
     source_name: str = "url_pool",
     enable_extraction: bool = True,
-) -> Dict[str, Any]:
+) -> JsonObject:
     from ..projects import bind_project
     from ..source_library.resolver import list_effective_channels, run_item_with_url_routing
     from .frontdoor_ingress import build_frontdoor_ingress_envelope
     from .postprocess_frontdoor import run_postprocess_frontdoor
 
     normalized_url = str(url or "").strip()
-    params: Dict[str, Any] = {
+    params: JsonObject = {
         "urls": [normalized_url],
         "query_terms": list(query_terms or []),
         "strict_mode": bool(strict_mode),
     }
-    if isinstance(search_options, dict) and search_options:
-        params.update(dict(search_options))
-    if isinstance(frontdoor_options, dict):
+    if _is_object_dict(search_options) and search_options:
+        params.update(_as_object_dict(search_options))
+    if _is_object_dict(frontdoor_options):
         if frontdoor_options.get("prefer_crawler"):
             params["prefer_crawler_first"] = True
             params["force_url_routing_flow"] = False
@@ -625,15 +759,15 @@ def _run_source_library_frontdoor_ingress(
         if "render_required" in frontdoor_options:
             params["frontdoor_render_required"] = bool(frontdoor_options.get("render_required"))
         if isinstance(frontdoor_options.get("route_profile"), dict):
-            params["frontdoor_route_profile"] = dict(frontdoor_options.get("route_profile") or {})
+            params["frontdoor_route_profile"] = _as_object_dict(frontdoor_options.get("route_profile"))
         if isinstance(frontdoor_options.get("router_contract"), dict):
-            params["frontdoor_router_contract"] = dict(frontdoor_options.get("router_contract") or {})
+            params["frontdoor_router_contract"] = _as_object_dict(frontdoor_options.get("router_contract"))
 
-    channels = list_effective_channels(scope="effective", project_key=project_key)
+    channels: list[JsonObject] = list_effective_channels(scope="effective", project_key=project_key)
     channel_map = {
-        str(channel.get("channel_key") or "").strip(): dict(channel)
+        _as_text(channel.get("channel_key")).strip(): _as_object_dict(channel)
         for channel in channels
-        if isinstance(channel, dict) and str(channel.get("channel_key") or "").strip()
+        if channel.get("channel_key")
     }
     synthetic_item = {
         "item_key": f"{source_name}.single_url_compat",
@@ -647,7 +781,7 @@ def _run_source_library_frontdoor_ingress(
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        routed = run_item_with_url_routing(
+        routed: JsonObject = run_item_with_url_routing(
             item=synthetic_item,
             params=params,
             project_key=project_key,
@@ -655,9 +789,9 @@ def _run_source_library_frontdoor_ingress(
             execution_layer="terminal_output_only",
         )
 
-    records = list(routed.get("records") or []) if isinstance(routed.get("records"), list) else []
-    errors = [str(x) for x in (routed.get("errors") or []) if str(x or "").strip()]
-    by_url = list(routed.get("by_url") or []) if isinstance(routed.get("by_url"), list) else []
+    records = _as_object_list(routed.get("records"))
+    errors = [_as_text(x) for x in _as_object_list(routed.get("errors")) if _as_text(x).strip()]
+    by_url = _as_object_list(routed.get("by_url"))
     frontdoor_route = _frontdoor_route_summary_from_params(params)
     if not records:
         reason = errors[0] if errors else "source_library_fetch_empty"
@@ -681,7 +815,7 @@ def _run_source_library_frontdoor_ingress(
             "source_library_collect_only": True,
         }
 
-    record = dict(records[0] or {})
+    record = _as_object_dict(records[0])
     document_candidate = _build_document_candidate_from_record(record)
     ingress_envelope = build_frontdoor_ingress_envelope(
         ingress_type="source_library",
@@ -694,12 +828,8 @@ def _run_source_library_frontdoor_ingress(
             "frontdoor_route_hint": frontdoor_route.get("route_hint"),
             "fetch_strategy": frontdoor_route.get("fetch_strategy"),
             "render_required": True if bool(frontdoor_route.get("render_required")) else None,
-            "router_state": (frontdoor_route.get("router_contract") or {}).get("router_state")
-            if isinstance(frontdoor_route.get("router_contract"), dict)
-            else None,
-            "router_reason_code": (frontdoor_route.get("router_contract") or {}).get("reason_code")
-            if isinstance(frontdoor_route.get("router_contract"), dict)
-            else None,
+            "router_state": _as_object_dict(frontdoor_route.get("router_contract")).get("router_state"),
+            "router_reason_code": _as_object_dict(frontdoor_route.get("router_contract")).get("reason_code"),
         },
         collection_payload={
             "document_candidate": document_candidate,
@@ -711,9 +841,7 @@ def _run_source_library_frontdoor_ingress(
                 "strict_mode": bool(strict_mode),
                 "quality_score": 0.0,
                 "degradation_flags": [],
-                "http_status": (record.get("record_meta") or {}).get("http_status")
-                if isinstance(record.get("record_meta"), dict)
-                else None,
+                "http_status": _as_object_dict(record.get("record_meta")).get("http_status"),
                 "capability_profile": {"source_library_collect_only": True},
                 "light_filter": {},
             },
@@ -729,20 +857,20 @@ def _run_source_library_frontdoor_ingress(
         },
         raw_snapshot={"record": record, "routed": {"by_url": by_url, "errors": errors}},
     )
-    frontdoor_result = run_postprocess_frontdoor(
+    frontdoor_result: JsonObject = run_postprocess_frontdoor(
         ingress_envelope=ingress_envelope,
         run_writer=True,
     )
-    data = frontdoor_result.get("data") if isinstance(frontdoor_result.get("data"), dict) else {}
-    writer_result = data.get("writer_result") if isinstance(data.get("writer_result"), dict) else {}
-    meta = frontdoor_result.get("meta") if isinstance(frontdoor_result.get("meta"), dict) else {}
-    quality_gates = data.get("quality_gates") if isinstance(data.get("quality_gates"), dict) else {}
-    gate_config = quality_gates.get("gate_config") if isinstance(quality_gates.get("gate_config"), dict) else {}
-    guardrail_rollout = gate_config.get("guardrail_rollout") if isinstance(gate_config.get("guardrail_rollout"), dict) else {}
-    canary_handoff = data.get("canary_handoff") if isinstance(data.get("canary_handoff"), dict) else {}
-    admission = str(data.get("admission") or "").strip().lower()
-    inserted = int(writer_result.get("inserted") or 0)
-    skipped = int(writer_result.get("skipped") or (0 if inserted > 0 else 1))
+    data = _as_object_dict(frontdoor_result.get("data"))
+    writer_result = _as_object_dict(data.get("writer_result"))
+    meta = _as_object_dict(frontdoor_result.get("meta"))
+    quality_gates = _as_object_dict(data.get("quality_gates"))
+    gate_config = _as_object_dict(quality_gates.get("gate_config"))
+    guardrail_rollout = _as_object_dict(gate_config.get("guardrail_rollout"))
+    canary_handoff = _as_object_dict(data.get("canary_handoff"))
+    admission = _as_text(data.get("admission")).strip().lower()
+    inserted = _as_int(writer_result.get("inserted"))
+    skipped = _as_int(writer_result.get("skipped"), 0 if inserted > 0 else 1)
     rejected_count = 0 if admission in {"", "accept"} else 1
     reason_code = str(meta.get("reason_code") or "").strip().lower()
     degradation_flags = [reason_code] if reason_code and reason_code != "ok" else []
@@ -776,13 +904,13 @@ def ingest_url_via_source_library_frontdoor(
     url: str,
     project_key: Optional[str] = None,
     query_terms: Optional[List[str]] = None,
-    search_options: Optional[Dict[str, Any]] = None,
+    search_options: Optional[JsonObject] = None,
     strict_mode: bool = False,
-    frontdoor_options: Optional[Dict[str, Any]] = None,
+    frontdoor_options: Optional[JsonObject] = None,
     entrypoint: str = "ingest.url_pool",
     source_name: str = "url_pool",
     enable_extraction: bool = True,
-) -> Dict[str, Any]:
+) -> JsonObject:
     return _run_source_library_frontdoor_ingress(
         url=url,
         project_key=project_key,
@@ -848,8 +976,8 @@ def _build_search_template_seed(url: str) -> str | None:
     return urlunparse((p.scheme, p.netloc, p.path or "/search", p.params, query, ""))
 
 
-def _build_site_first_targets(urls: List[str]) -> List[Dict[str, Any]]:
-    seeds: List[Dict[str, Any]] = []
+def _build_site_first_targets(urls: List[str]) -> list[JsonObject]:
+    seeds: list[JsonObject] = []
     seen_seed: set[str] = set()
     seen_domain_root: set[str] = set()
     for raw in urls:
@@ -882,7 +1010,7 @@ def _build_site_first_targets(urls: List[str]) -> List[Dict[str, Any]]:
                 seen_seed.add(template)
                 seeds.append({"url": template, "entry_type": "search_template", "domain": domain, "from_url": url})
 
-    targets: List[Dict[str, Any]] = []
+    targets: list[JsonObject] = []
     seen_target: set[str] = set()
     for seed in seeds:
         u = str(seed.get("url") or "")
@@ -898,8 +1026,8 @@ def _build_site_first_targets(urls: List[str]) -> List[Dict[str, Any]]:
     return targets
 
 
-def _build_detail_only_targets(urls: List[str]) -> List[Dict[str, Any]]:
-    targets: List[Dict[str, Any]] = []
+def _build_detail_only_targets(urls: List[str]) -> list[JsonObject]:
+    targets: list[JsonObject] = []
     seen: set[str] = set()
     for raw in urls:
         u = _normalize_url_no_fragment(raw)
@@ -910,7 +1038,7 @@ def _build_detail_only_targets(urls: List[str]) -> List[Dict[str, Any]]:
     return targets
 
 
-def _build_site_only_targets(urls: List[str]) -> List[Dict[str, Any]]:
+def _build_site_only_targets(urls: List[str]) -> list[JsonObject]:
     return [x for x in _build_site_first_targets(urls) if bool(x.get("is_site_seed"))]
 
 
@@ -918,7 +1046,7 @@ def _build_site_then_detail_targets(
     urls: List[str],
     *,
     per_domain_limit: int,
-) -> List[Dict[str, Any]]:
+) -> list[JsonObject]:
     seeds = _build_site_only_targets(urls)
     details = _build_detail_only_targets(urls)
     if not details:
@@ -931,7 +1059,7 @@ def _build_site_then_detail_targets(
         domain = str(detail.get("domain") or "").strip().lower()
         if not domain:
             continue
-        used = int(domain_counts.get(domain) or 0)
+        used = _as_int(domain_counts.get(domain))
         if used >= per_domain_limit:
             continue
         domain_counts[domain] = used + 1
@@ -939,11 +1067,11 @@ def _build_site_then_detail_targets(
     return out
 
 
-def _resolve_target_mode(extra_params: Optional[Dict[str, Any]]) -> str:
+def _resolve_target_mode(extra_params: Optional[JsonObject]) -> str:
     default_mode = str(os.getenv("URL_POOL_DEFAULT_TARGET_MODE", "site_then_detail") or "site_then_detail").strip().lower()
     if default_mode not in {"site_only", "detail_only", "site_first", "site_then_detail"}:
         default_mode = "site_then_detail"
-    if not isinstance(extra_params, dict):
+    if not _is_object_dict(extra_params):
         return default_mode
     raw = str(
         extra_params.get(
@@ -961,8 +1089,8 @@ def _resolve_target_mode(extra_params: Optional[Dict[str, Any]]) -> str:
     return "site_first"
 
 
-def _resolve_disable_site_seed_expansion(extra_params: Optional[Dict[str, Any]]) -> bool:
-    if not isinstance(extra_params, dict):
+def _resolve_disable_site_seed_expansion(extra_params: Optional[JsonObject]) -> bool:
+    if not _is_object_dict(extra_params):
         return False
     return _as_bool(
         extra_params.get(
@@ -973,7 +1101,7 @@ def _resolve_disable_site_seed_expansion(extra_params: Optional[Dict[str, Any]])
     )
 
 
-def _resolve_runtime_targets(urls: List[str], *, extra_params: Optional[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], str]:
+def _resolve_runtime_targets(urls: List[str], *, extra_params: Optional[JsonObject]) -> Tuple[list[JsonObject], str]:
     if _resolve_disable_site_seed_expansion(extra_params):
         return _build_detail_only_targets(urls), "detail_only"
     target_mode = _resolve_target_mode(extra_params)
@@ -990,10 +1118,10 @@ def _resolve_runtime_targets(urls: List[str], *, extra_params: Optional[Dict[str
 
 
 def _resolve_target_url(
-    target: Dict[str, Any],
+    target: JsonObject,
     query_terms: List[str],
     *,
-    extra_params: Dict[str, Any] | None = None,
+    extra_params: JsonObject | None = None,
 ) -> str:
     raw = str(target.get("url") or "").strip()
     if not raw:
@@ -1010,19 +1138,19 @@ def _resolve_target_url(
     return str(unwrapped.url or resolved)
 
 
-def _extract_doc_ids_from_ingest_result(result: Dict[str, Any]) -> List[int]:
+def _extract_doc_ids_from_ingest_result(result: JsonObject) -> List[int]:
     doc_ids: List[int] = []
     try:
-        direct_id = int(result.get("document_id"))
+        direct_id = _as_int(result.get("document_id"))
         if direct_id > 0:
             doc_ids.append(direct_id)
     except Exception:
         pass
     crawler_dispatch = result.get("crawler_dispatch")
-    if isinstance(crawler_dispatch, dict):
-        for raw in crawler_dispatch.get("valid_output_doc_ids") or []:
+    if _is_object_dict(crawler_dispatch):
+        for raw in _as_object_list(crawler_dispatch.get("valid_output_doc_ids")):
             try:
-                doc_id = int(raw)
+                doc_id = _as_int(raw)
             except Exception:
                 continue
             if doc_id > 0 and doc_id not in doc_ids:
@@ -1032,24 +1160,21 @@ def _extract_doc_ids_from_ingest_result(result: Dict[str, Any]) -> List[int]:
 
 def _merge_rejection_breakdown(
     merged: Dict[str, int],
-    incoming: Any,
+    incoming: object,
 ) -> None:
-    if not isinstance(incoming, dict):
+    if not _is_object_dict(incoming):
         return
     for key, value in incoming.items():
         reason = str(key or "").strip()
         if not reason:
             continue
-        try:
-            count = int(value or 0)
-        except Exception:
-            count = 0
+        count = _as_int(value)
         if count <= 0:
             continue
-        merged[reason] = int(merged.get(reason) or 0) + count
+        merged[reason] = _as_int(merged.get(reason)) + count
 
 
-def _new_source_template_health_summary() -> Dict[str, Any]:
+def _new_source_template_health_summary() -> JsonObject:
     return {"groups": {}}
 
 
@@ -1067,7 +1192,7 @@ def _normalize_url_rollup_key(url: str) -> str:
     return urlunparse((scheme, netloc, path, "", "", ""))
 
 
-def _source_template_rollup_key(target: Dict[str, Any]) -> str:
+def _source_template_rollup_key(target: JsonObject) -> str:
     template_key = str(target.get("template_key") or "").strip()
     if template_key:
         return f"template_key:{template_key}"
@@ -1080,15 +1205,15 @@ def _source_template_rollup_key(target: Dict[str, Any]) -> str:
     return ""
 
 
-def _source_template_reason_code(item_result: Dict[str, Any]) -> str:
+def _source_template_reason_code(item_result: JsonObject) -> str:
     reason = normalize_reason_code(item_result.get("reason_code"), default="ok")
     if reason and reason != "ok":
         return reason
     breakdown = item_result.get("rejection_breakdown")
-    if isinstance(breakdown, dict) and breakdown:
+    if _is_object_dict(breakdown) and breakdown:
         top_reason = sorted(
             (
-                (normalize_reason_code(key, default="unknown_rejection_reason"), _as_int(value, 0))
+                (normalize_reason_code(key, default="unknown_rejection_reason"), _as_int(value))
                 for key, value in breakdown.items()
             ),
             key=lambda pair: pair[1],
@@ -1098,22 +1223,22 @@ def _source_template_reason_code(item_result: Dict[str, Any]) -> str:
     return "ok"
 
 
-def _is_source_template_target(target: Dict[str, Any], item_result: Dict[str, Any]) -> bool:
+def _is_source_template_target(target: JsonObject, item_result: JsonObject) -> bool:
     if str(target.get("entry_type") or "").strip().lower() == "search_template":
         return True
     capability_profile = item_result.get("capability_profile")
-    if isinstance(capability_profile, dict):
+    if _is_object_dict(capability_profile):
         return str(capability_profile.get("entry_type") or "").strip().lower() == "search_template"
     return False
 
 
 def _record_source_template_health_observation(
-    summary: Dict[str, Any],
+    summary: JsonObject,
     *,
-    target: Dict[str, Any],
-    item_result: Dict[str, Any],
+    target: JsonObject,
+    item_result: JsonObject,
 ) -> None:
-    if not isinstance(summary, dict) or not isinstance(target, dict) or not isinstance(item_result, dict):
+    if not _is_object_dict(summary) or not _is_object_dict(target) or not _is_object_dict(item_result):
         return
     if not _is_source_template_target(target, item_result):
         return
@@ -1121,12 +1246,10 @@ def _record_source_template_health_observation(
     if not group_key:
         return
 
-    groups = summary.get("groups")
-    if not isinstance(groups, dict):
-        groups = {}
-        summary["groups"] = groups
-    bucket = groups.get(group_key)
-    if not isinstance(bucket, dict):
+    groups: JsonObject = _as_object_dict(summary.get("groups"))
+    summary["groups"] = groups
+    bucket: JsonObject = _as_object_dict(groups.get(group_key))
+    if not bucket:
         bucket = {"success": False, "body_inserted": False, "empty_body": False, "reason_counts": {}}
         groups[group_key] = bucket
 
@@ -1141,10 +1264,8 @@ def _record_source_template_health_observation(
         bucket["body_inserted"] = True
 
     reason_code = _source_template_reason_code(item_result)
-    reason_counts = bucket.get("reason_counts")
-    if not isinstance(reason_counts, dict):
-        reason_counts = {}
-        bucket["reason_counts"] = reason_counts
+    reason_counts: JsonObject = _as_object_dict(bucket.get("reason_counts"))
+    bucket["reason_counts"] = reason_counts
     if reason_code and reason_code != "ok":
         # Per-template health should not over-count repeated same reason inside one template bucket.
         reason_counts[reason_code] = 1
@@ -1153,13 +1274,11 @@ def _record_source_template_health_observation(
 
 
 def _build_source_template_health_payload(
-    summary: Dict[str, Any] | None,
+    summary: JsonObject | None,
     *,
     top_n: int = _TEMPLATE_HEALTH_TOP_N,
-) -> Dict[str, Any]:
-    groups = {}
-    if isinstance(summary, dict) and isinstance(summary.get("groups"), dict):
-        groups = dict(summary.get("groups") or {})
+) -> JsonObject:
+    groups = _as_object_dict(summary.get("groups") if _is_object_dict(summary) else None)
     total = max(0, len(groups))
     denominator = float(total) if total > 0 else 1.0
     top_limit = max(1, _as_int(top_n, _TEMPLATE_HEALTH_TOP_N))
@@ -1169,7 +1288,7 @@ def _build_source_template_health_payload(
     empty_body_count = 0
     rejection_counts: Dict[str, int] = {}
     for bucket in groups.values():
-        if not isinstance(bucket, dict):
+        if not _is_object_dict(bucket):
             continue
         if bool(bucket.get("success")):
             success_count += 1
@@ -1177,8 +1296,8 @@ def _build_source_template_health_payload(
             body_inserted_count += 1
         if bool(bucket.get("empty_body")):
             empty_body_count += 1
-        reason_counts = bucket.get("reason_counts")
-        if isinstance(reason_counts, dict):
+        reason_counts = _as_object_dict(bucket.get("reason_counts"))
+        if reason_counts:
             for reason, count in reason_counts.items():
                 normalized = normalize_reason_code(reason, default="unknown_rejection_reason")
                 rejection_counts[normalized] = _as_int(rejection_counts.get(normalized), 0) + _as_int(count, 0)
@@ -1201,43 +1320,36 @@ def _build_source_template_health_payload(
 
 
 def _attach_source_template_health(
-    result: Dict[str, Any],
-    payload: Dict[str, Any],
+    result: JsonObject,
+    payload: JsonObject,
 ) -> None:
-    meta = result.get("meta")
-    if not isinstance(meta, dict):
-        meta = {}
-        result["meta"] = meta
+    meta = _as_object_dict(result.get("meta"))
+    result["meta"] = meta
     meta["source_template_health"] = payload
 
-    debug = result.get("debug")
-    if not isinstance(debug, dict):
-        debug = {}
-        result["debug"] = debug
+    debug = _as_object_dict(result.get("debug"))
+    result["debug"] = debug
     debug["source_template_health"] = payload
 
 
-def _frontdoor_route_summary_from_params(params: Dict[str, Any]) -> Dict[str, Any]:
-    profile = params.get("frontdoor_route_profile") if isinstance(params, dict) else None
-    router_contract = None
-    if isinstance(params, dict) and isinstance(params.get("frontdoor_router_contract"), dict):
-        router_contract = dict(params.get("frontdoor_router_contract") or {})
-    if router_contract is None:
-        router_contract = router_contract_from_profile(profile)
+def _frontdoor_route_summary_from_params(params: JsonObject) -> JsonObject:
+    profile = _as_object_dict(params.get("frontdoor_route_profile"))
+    direct_router_contract = _as_object_dict(params.get("frontdoor_router_contract"))
+    router_contract = direct_router_contract or router_contract_from_profile(profile)
     return {
         "contract_version": _FRONTDOOR_ROUTE_PROFILE_CONTRACT_VERSION,
-        "route_hint": str((profile or {}).get("route_hint") or params.get("frontdoor_route_hint") or "").strip()
+        "route_hint": str(profile.get("route_hint") or params.get("frontdoor_route_hint") or "").strip()
         or None,
-        "fetch_strategy": str((profile or {}).get("fetch_strategy") or params.get("frontdoor_fetch_strategy") or "").strip()
+        "fetch_strategy": str(profile.get("fetch_strategy") or params.get("frontdoor_fetch_strategy") or "").strip()
         or None,
-        "render_required": bool((profile or {}).get("render_required") or params.get("frontdoor_render_required")),
+        "render_required": bool(profile.get("render_required") or params.get("frontdoor_render_required")),
         "prefer_crawler_first": bool(params.get("prefer_crawler_first")),
         "force_url_routing_flow": bool(params.get("force_url_routing_flow", False)),
         "router_contract": router_contract,
     }
 
 
-def _new_frontdoor_status_summary() -> Dict[str, Any]:
+def _new_frontdoor_status_summary() -> JsonObject:
     return {
         "sample_size": 0,
         "dashboard_status_counts": {},
@@ -1246,21 +1358,22 @@ def _new_frontdoor_status_summary() -> Dict[str, Any]:
     }
 
 
-def _build_frontdoor_status_projection(item_result: Dict[str, Any]) -> Dict[str, Any]:
-    postprocess = item_result.get("postprocess_frontdoor") if isinstance(item_result.get("postprocess_frontdoor"), dict) else {}
-    data = postprocess.get("data") if isinstance(postprocess.get("data"), dict) else {}
-    meta = postprocess.get("meta") if isinstance(postprocess.get("meta"), dict) else {}
-    frontdoor_route = item_result.get("frontdoor_route") if isinstance(item_result.get("frontdoor_route"), dict) else {}
+def _build_frontdoor_status_projection(item_result: JsonObject) -> JsonObject:
+    postprocess = _as_object_dict(item_result.get("postprocess_frontdoor"))
+    data = _as_object_dict(postprocess.get("data"))
+    meta = _as_object_dict(postprocess.get("meta"))
+    frontdoor_route = _as_object_dict(item_result.get("frontdoor_route"))
+    frontdoor_router_contract = item_result.get("frontdoor_router_contract")
     router_contract = (
-        frontdoor_route.get("router_contract")
-        if isinstance(frontdoor_route.get("router_contract"), dict)
-        else item_result.get("frontdoor_router_contract")
-        if isinstance(item_result.get("frontdoor_router_contract"), dict)
+        _as_object_dict(frontdoor_route.get("router_contract"))
+        if _is_object_dict(frontdoor_route.get("router_contract"))
+        else _as_object_dict(frontdoor_router_contract)
+        if _is_object_dict(frontdoor_router_contract)
         else None
     )
-    outer_status = str(item_result.get("status") or "").strip().lower()
-    inserted_valid = _as_int(item_result.get("inserted_valid"), 0)
-    admission = str(data.get("admission") or "").strip().lower()
+    outer_status = _as_text(item_result.get("status")).strip().lower()
+    inserted_valid = _as_int(item_result.get("inserted_valid"))
+    admission = _as_text(data.get("admission")).strip().lower()
     if not admission:
         if outer_status == "failed":
             admission = "reject"
@@ -1269,25 +1382,17 @@ def _build_frontdoor_status_projection(item_result: Dict[str, Any]) -> Dict[str,
         else:
             admission = "defer"
 
-    reason_code = (
-        str(meta.get("reason_code") or "").strip()
-        or str(item_result.get("reason_code") or "").strip()
-        or str((router_contract or {}).get("reason_code") or "").strip()
-        or _source_template_reason_code(item_result)
-    )
-    reason_code = normalize_reason_code(reason_code, default="ok")
-    retryable = bool(meta.get("retryable") or item_result.get("retryable"))
     retry_observability = (
-        meta.get("retry_observability")
-        if isinstance(meta.get("retry_observability"), dict)
-        else item_result.get("retry_observability")
-        if isinstance(item_result.get("retry_observability"), dict)
+        _as_object_dict(meta.get("retry_observability"))
+        if _is_object_dict(meta.get("retry_observability"))
+        else _as_object_dict(item_result.get("retry_observability"))
+        if _is_object_dict(item_result.get("retry_observability"))
         else None
     )
     latency_ms = _first_non_negative_float(
         item_result.get("latency_ms"),
         item_result.get("elapsed_ms"),
-        (item_result.get("observability") or {}).get("latency_ms") if isinstance(item_result.get("observability"), dict) else None,
+        _as_object_dict(item_result.get("observability")).get("latency_ms"),
     )
 
     if outer_status == "failed" or admission == "reject":
@@ -1297,35 +1402,40 @@ def _build_frontdoor_status_projection(item_result: Dict[str, Any]) -> Dict[str,
     else:
         dashboard_status = "degraded_success"
 
-    source = "postprocess_frontdoor" if postprocess else "url_pool_result"
-    projection = {
+    projection: JsonObject = {
         "contract_version": _FRONTDOOR_STATUS_PROJECTION_CONTRACT_VERSION,
         "dashboard_status": dashboard_status,
         "frontdoor_admission": admission,
         "outer_status": outer_status or None,
-        "reason_code": reason_code,
-        "retryable": retryable,
+        "reason_code": (
+            _as_text(meta.get("reason_code")).strip()
+            or _as_text(item_result.get("reason_code")).strip()
+            or _as_text((router_contract or {}).get("reason_code")).strip()
+            or _source_template_reason_code(item_result)
+        ),
+        "retryable": bool(meta.get("retryable") or item_result.get("retryable")),
         "inserted_valid": inserted_valid,
-        "source": source,
+        "source": "postprocess_frontdoor" if postprocess else "url_pool_result",
     }
     if latency_ms is not None:
         projection["latency_ms"] = latency_ms
-    if isinstance(retry_observability, dict):
-        projection["retry_observability"] = dict(retry_observability)
-    if isinstance(router_contract, dict):
-        projection["router_contract"] = dict(router_contract)
+    if retry_observability:
+        projection["retry_observability"] = retry_observability
+    if router_contract:
+        projection["router_contract"] = router_contract
         projection["router_state"] = router_contract.get("router_state")
         projection["router_reason_code"] = router_contract.get("reason_code")
-        if isinstance(router_contract.get("fallback_boundary"), dict):
-            projection["fallback_boundary"] = dict(router_contract.get("fallback_boundary") or {})
+        fallback_boundary = router_contract.get("fallback_boundary")
+        if _is_object_dict(fallback_boundary):
+            projection["fallback_boundary"] = _as_object_dict(fallback_boundary)
     return projection
 
 
 def _record_frontdoor_status_observation(
-    summary: Dict[str, Any],
-    projection: Dict[str, Any],
+    summary: JsonObject,
+    projection: JsonObject,
 ) -> None:
-    if not isinstance(summary, dict) or not isinstance(projection, dict):
+    if not _is_object_dict(summary) or not _is_object_dict(projection):
         return
     summary["sample_size"] = _as_int(summary.get("sample_size"), 0) + 1
     for source_key, bucket_key in (
@@ -1336,90 +1446,77 @@ def _record_frontdoor_status_observation(
         value = str(projection.get(source_key) or "").strip()
         if not value:
             continue
-        bucket = summary.get(bucket_key)
-        if not isinstance(bucket, dict):
-            bucket = {}
-            summary[bucket_key] = bucket
-        bucket[value] = _as_int(bucket.get(value), 0) + 1
+        bucket: JsonObject = _as_object_dict(summary.get(bucket_key))
+        summary[bucket_key] = bucket
+        bucket[value] = _as_int(bucket.get(value)) + 1
 
 
-def _build_frontdoor_status_summary_payload(summary: Dict[str, Any] | None) -> Dict[str, Any]:
-    raw = summary if isinstance(summary, dict) else {}
+def _build_frontdoor_status_summary_payload(summary: JsonObject | None) -> JsonObject:
+    raw = summary if _is_object_dict(summary) else {}
     return {
         "contract_version": _FRONTDOOR_STATUS_PROJECTION_CONTRACT_VERSION,
         "sample_size": _as_int(raw.get("sample_size"), 0),
-        "dashboard_status_counts": dict(raw.get("dashboard_status_counts") or {}),
-        "admission_counts": dict(raw.get("admission_counts") or {}),
-        "reason_counts": dict(raw.get("reason_counts") or {}),
+        "dashboard_status_counts": _as_object_dict(raw.get("dashboard_status_counts")),
+        "admission_counts": _as_object_dict(raw.get("admission_counts")),
+        "reason_counts": _as_object_dict(raw.get("reason_counts")),
     }
 
 
 def _attach_frontdoor_status_summary(
-    result: Dict[str, Any],
-    payload: Dict[str, Any],
+    result: JsonObject,
+    payload: JsonObject,
 ) -> None:
-    meta = result.get("meta")
-    if not isinstance(meta, dict):
-        meta = {}
-        result["meta"] = meta
+    meta = _as_object_dict(result.get("meta"))
+    result["meta"] = meta
     meta["frontdoor_status_summary"] = payload
 
-    debug = result.get("debug")
-    if not isinstance(debug, dict):
-        debug = {}
-        result["debug"] = debug
+    debug = _as_object_dict(result.get("debug"))
+    result["debug"] = debug
     debug["frontdoor_status_summary"] = payload
 
 
 def _attach_frontdoor_slo(
-    result: Dict[str, Any],
-    payload: Dict[str, Any],
+    result: JsonObject,
+    payload: JsonObject,
 ) -> None:
-    meta = result.get("meta")
-    if not isinstance(meta, dict):
-        meta = {}
-        result["meta"] = meta
+    meta = _as_object_dict(result.get("meta"))
+    result["meta"] = meta
     meta["frontdoor_slo"] = payload
 
-    debug = result.get("debug")
-    if not isinstance(debug, dict):
-        debug = {}
-        result["debug"] = debug
+    debug = _as_object_dict(result.get("debug"))
+    result["debug"] = debug
     debug["frontdoor_slo"] = payload
 
 
-def _as_int(value: Any, default: int) -> int:
-    try:
-        return int(value)
-    except Exception:
-        return int(default)
-
-
-def _as_bool(value: Any, default: bool = False) -> bool:
+def _as_int(value: object, default: int = 0) -> int:
     if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
         return value
+    if isinstance(value, float):
+        return int(value)
     if isinstance(value, str):
-        lowered = value.strip().lower()
-        if lowered in {"1", "true", "yes", "on"}:
-            return True
-        if lowered in {"0", "false", "no", "off"}:
-            return False
-    return bool(default)
-
-
-def _first_non_negative_float(*values: Any) -> float | None:
-    for value in values:
         try:
-            parsed = float(value)
-        except Exception:  # noqa: BLE001
-            continue
-        if parsed >= 0:
+            return int(value.strip())
+        except ValueError:
+            return int(default)
+    return int(default)
+
+
+def _as_bool(value: object, default: bool = False) -> bool:
+    return _as_bool_value(value, default)
+
+
+def _first_non_negative_float(*values: object) -> float | None:
+    for value in values:
+        parsed = _as_float_value(value)
+        if parsed is not None and parsed >= 0:
             return parsed
     return None
 
 
-def _resolve_dispatch_mode(extra_params: Optional[Dict[str, Any]]) -> str:
-    if not isinstance(extra_params, dict):
+def _resolve_dispatch_mode(extra_params: Optional[JsonObject]) -> str:
+    if not _is_object_dict(extra_params):
         return "sync"
     if bool(extra_params.get("url_async")):
         return "celery_async"
@@ -1431,8 +1528,8 @@ def _resolve_dispatch_mode(extra_params: Optional[Dict[str, Any]]) -> str:
     return "sync"
 
 
-def _resolve_url_strict_mode(extra_params: Optional[Dict[str, Any]]) -> bool:
-    if not isinstance(extra_params, dict):
+def _resolve_url_strict_mode(extra_params: Optional[JsonObject]) -> bool:
+    if not _is_object_dict(extra_params):
         return False
     if "url_strict_mode" in extra_params:
         return _as_bool(extra_params.get("url_strict_mode"), False)
@@ -1442,8 +1539,8 @@ def _resolve_url_strict_mode(extra_params: Optional[Dict[str, Any]]) -> bool:
 
 
 def _resolve_frontdoor_options(
-    extra_params: Optional[Dict[str, Any]],
-) -> Dict[str, Any]:
+    extra_params: Optional[JsonObject],
+) -> JsonObject:
     params = extra_params if isinstance(extra_params, dict) else {}
     return {
         "enabled": True,
@@ -1457,12 +1554,12 @@ def _resolve_frontdoor_options(
 
 
 def _apply_frontdoor_to_search_options(
-    search_options: Dict[str, Any] | None,
-    frontdoor_options: Dict[str, Any],
-) -> Dict[str, Any] | None:
+    search_options: JsonObject | None,
+    frontdoor_options: JsonObject,
+) -> JsonObject | None:
     if not bool((frontdoor_options or {}).get("enabled")):
         return search_options
-    out: Dict[str, Any] = dict(search_options or {})
+    out: JsonObject = dict(search_options or {})
     out["frontdoor_enabled"] = True
     out["front_door_owner"] = frontdoor_options.get("front_door_owner")
     out["frontdoor_route_decision"] = frontdoor_options.get("route_decision")
@@ -1473,11 +1570,11 @@ def _apply_frontdoor_to_search_options(
 
 def _resolve_parallel_workers(
     *,
-    extra_params: Optional[Dict[str, Any]],
+    extra_params: Optional[JsonObject],
     target_count: int,
 ) -> int:
     default_workers = _DEFAULT_PARALLEL_WORKERS
-    if not isinstance(extra_params, dict):
+    if not _is_object_dict(extra_params):
         return min(default_workers, target_count) if target_count > 0 else default_workers
     raw = extra_params.get(
         "url_parallel_workers",
@@ -1492,17 +1589,17 @@ def _resolve_parallel_workers(
 
 def _resolve_parallel_batch_size(
     *,
-    extra_params: Optional[Dict[str, Any]],
+    extra_params: Optional[JsonObject],
     parallel_workers: int,
 ) -> int:
     default_size = max(16, parallel_workers * 4)
-    if not isinstance(extra_params, dict):
+    if not _is_object_dict(extra_params):
         return default_size
     raw = extra_params.get("url_parallel_batch_size", default_size)
     return max(1, _as_int(raw, default_size))
 
 
-def _batch_slice(items: List[Any], size: int) -> List[List[Any]]:
+def _batch_slice(items: list[T], size: int) -> list[list[T]]:
     if size <= 0:
         return [items]
     return [items[i : i + size] for i in range(0, len(items), size)]
@@ -1511,20 +1608,20 @@ def _batch_slice(items: List[Any], size: int) -> List[List[Any]]:
 def _annotate_url_pool_context(
     *,
     doc_ids: List[int],
-    context: Dict[str, Any],
+    context: JsonObject,
 ) -> None:
     if not doc_ids:
         return
     valid_context = {k: v for k, v in context.items() if v is not None}
     if not valid_context:
         return
-    with SessionLocal() as session:
-        rows = session.query(Document).filter(Document.id.in_(doc_ids)).all()
+    with _open_session() as session:
+        id_column = getattr(Document, "id")
+        in_operator = getattr(id_column, "in_")
+        rows = session.query(Document).filter(in_operator(doc_ids)).all()
         for row in rows:
-            extracted_data = row.extracted_data if isinstance(row.extracted_data, dict) else {}
-            pool_ctx = extracted_data.get("url_pool_context")
-            if not isinstance(pool_ctx, dict):
-                pool_ctx = {}
+            extracted_data = _as_object_dict(row.extracted_data)
+            pool_ctx = _as_object_dict(extracted_data.get("url_pool_context"))
             pool_ctx.update(valid_context)
             extracted_data["url_pool_context"] = pool_ctx
             row.extracted_data = extracted_data
@@ -1536,14 +1633,14 @@ def collect_urls_from_list(
     *,
     project_key: Optional[str] = None,
     query_terms: Optional[List[str]] = None,
-    extra_params: Optional[Dict[str, Any]] = None,
+    extra_params: Optional[JsonObject] = None,
     enable_extraction: bool = True,
-) -> Dict[str, Any]:
+) -> JsonObject:
     """
     Fetch a given list of URLs and store as Document.
     Returns { inserted, skipped, urls }.
     """
-    raw_count = len(urls) if isinstance(urls, list) else 0
+    raw_count = len(urls)
     urls = _normalize_url_list(urls)
     normalized_count = len(urls)
     if not urls:
@@ -1572,7 +1669,7 @@ def collect_urls_from_list(
         }
 
     normalized_terms = _normalize_terms(query_terms)
-    job_params: Dict[str, Any] = {
+    job_params: JsonObject = {
         "mode": "list",
         "url_count": len(urls),
         "raw_url_count": raw_count,
@@ -1592,7 +1689,7 @@ def collect_urls_from_list(
     targets, target_mode = _resolve_runtime_targets(urls, extra_params=extra_params)
     strict_mode = _resolve_url_strict_mode(extra_params)
     frontdoor_options = _resolve_frontdoor_options(extra_params)
-    runtime_targets: List[Tuple[str, Dict[str, Any]]] = []
+    runtime_targets: list[tuple[str, JsonObject]] = []
     seen_runtime_urls: set[str] = set()
     for target in targets:
         target_url = _resolve_target_url(target, normalized_terms, extra_params=extra_params)
@@ -1623,16 +1720,16 @@ def collect_urls_from_pool(
     source_filter: Optional[str] = None,
     limit: int = _DEFAULT_LIMIT,
     query_terms: Optional[List[str]] = None,
-    extra_params: Optional[Dict[str, Any]] = None,
+    extra_params: Optional[JsonObject] = None,
     enable_extraction: bool = True,
-) -> Dict[str, Any]:
+) -> JsonObject:
     """
     Fetch URLs from resource pool, fetch each, store as Document.
     Returns { inserted, skipped, urls }.
     Ensures schema isolation when project_key is set.
     """
     normalized_terms = _normalize_terms(query_terms)
-    job_params: Dict[str, Any] = {"scope": scope, "domain": domain, "source": source_filter, "limit": limit}
+    job_params: JsonObject = {"scope": scope, "domain": domain, "source": source_filter, "limit": limit}
     if normalized_terms:
         job_params["query_terms"] = normalized_terms
     if isinstance(extra_params, dict) and extra_params:
@@ -1644,7 +1741,9 @@ def collect_urls_from_pool(
         job_params["runtime_readback"] = runtime_readback
     job_id = start_job("url_pool_fetch", job_params)
     try:
-        from ..tasks import task_ingest_url_via_source_library  # kit:boundary owner=ingest.url_pool.dispatch class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_collect_urls_from_pool_preserves_target_specific_search_contracts
+        # kit:boundary owner=ingest.url_pool.dispatch class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_collect_urls_from_pool_preserves_target_specific_search_contracts
+        tasks_module = import_module("app.services.tasks")
+        task: object = getattr(tasks_module, "task_ingest_url_via_source_library")
 
         items, total = list_urls(
             scope=scope,
@@ -1654,8 +1753,8 @@ def collect_urls_from_pool(
             page=1,
             page_size=min(limit, 100),
         )
-        item_by_url = {x.get("url"): x for x in items if isinstance(x, dict) and x.get("url")}
-        urls = [x.get("url") for x in items if x.get("url")]
+        item_by_url = {_as_text(x.get("url")): _as_object_dict(x) for x in items if x.get("url")}
+        urls = [_as_text(x.get("url")) for x in items if x.get("url")]
         inserted = 0
         inserted_valid = 0
         skipped = 0
@@ -1664,10 +1763,10 @@ def collect_urls_from_pool(
         skipped_invalid_url = 0
         skipped_exists = 0
         skipped_fetch_error = 0
-        details: List[Dict[str, Any]] = []
-        errors: List[Dict[str, Any]] = []
+        details: list[JsonObject] = []
+        errors: list[JsonObject] = []
         normalized_urls: List[str] = []
-        pool_item_by_target: Dict[str, Dict[str, Any]] = {}
+        pool_item_by_target: Dict[str, JsonObject] = {}
         for url in urls:
             nu = _normalize_url_no_fragment(str(url or ""))
             if not nu:
@@ -1688,7 +1787,7 @@ def collect_urls_from_pool(
         strict_mode = _resolve_url_strict_mode(extra_params)
         frontdoor_options = _resolve_frontdoor_options(extra_params)
         workflow_name = "front_door_url_routing"
-        runtime_targets: List[Tuple[str, Dict[str, Any], Dict[str, Any]]] = []
+        runtime_targets: list[tuple[str, JsonObject, JsonObject]] = []
         for target in targets:
             target_url = _resolve_target_url(target, normalized_terms, extra_params=extra_params)
             if target_url in seen_runtime_urls:
@@ -1716,14 +1815,14 @@ def collect_urls_from_pool(
 
         parallel_workers = _resolve_parallel_workers(extra_params=extra_params, target_count=len(runtime_targets))
         parallel_batch_size = _resolve_parallel_batch_size(extra_params=extra_params, parallel_workers=parallel_workers)
-        metrics_summary = new_metrics_summary()
+        metrics_summary: JsonObject = new_metrics_summary()
         source_template_health_summary = _new_source_template_health_summary()
         frontdoor_status_summary = _new_frontdoor_status_summary()
-        frontdoor_slo_summary = new_frontdoor_slo_summary()
+        frontdoor_slo_summary: JsonObject = new_frontdoor_slo_summary()
         queued = 0
-        queued_tasks: List[Dict[str, Any]] = []
+        queued_tasks: list[JsonObject] = []
 
-        def _run_single_target(target_url: str, target: Dict[str, Any]) -> Dict[str, Any]:
+        def _run_single_target(target_url: str, target: JsonObject) -> JsonObject:
             try:
                 search_options = _search_options_for_target(
                     target_url,
@@ -1737,16 +1836,16 @@ def collect_urls_from_pool(
                     frontdoor_options=frontdoor_options,
                     target_url=target_url,
                 )
-                search_options = dict(search_options or {})
-                target_frontdoor_options = dict(frontdoor_options or {})
+                search_options = _as_object_dict(search_options)
+                target_frontdoor_options = _as_object_dict(frontdoor_options)
                 target_frontdoor_options["enabled"] = True
                 target_frontdoor_options["route_hint"] = str(search_options.get("frontdoor_route_hint") or "")
                 target_frontdoor_options["fetch_strategy"] = str(search_options.get("frontdoor_fetch_strategy") or "")
                 target_frontdoor_options["render_required"] = bool(search_options.get("frontdoor_render_required"))
                 if isinstance(search_options.get("frontdoor_route_profile"), dict):
-                    target_frontdoor_options["route_profile"] = dict(search_options.get("frontdoor_route_profile") or {})
+                    target_frontdoor_options["route_profile"] = _as_object_dict(search_options.get("frontdoor_route_profile"))
                 if isinstance(search_options.get("frontdoor_router_contract"), dict):
-                    target_frontdoor_options["router_contract"] = dict(search_options.get("frontdoor_router_contract") or {})
+                    target_frontdoor_options["router_contract"] = _as_object_dict(search_options.get("frontdoor_router_contract"))
                 target_frontdoor_options["prefer_crawler"] = bool(search_options.get("frontdoor_prefers_crawler"))
                 target_frontdoor_options["prefer_search_shell"] = bool(
                     search_options.get("frontdoor_prefers_search_shell")
@@ -1766,13 +1865,13 @@ def collect_urls_from_pool(
                 logger.warning("url_pool url_routing dispatch failed for %s: %s", str(target_url)[:80], exc)
                 return {"status": "failed", "inserted": 0, "skipped": 1, "error": _safe_exc(exc)}
 
-        def _collect_item_result(target_url: str, target: Dict[str, Any], pool_item: Dict[str, Any], item_result: Dict[str, Any]) -> None:
+        def _collect_item_result(target_url: str, target: JsonObject, pool_item: JsonObject, item_result: JsonObject) -> None:
             nonlocal inserted, inserted_valid, skipped, rejected_count, skipped_exists, skipped_fetch_error
-            inserted += int(item_result.get("inserted") or 0)
-            inserted_valid += int(item_result.get("inserted_valid") or 0)
-            item_skipped = int(item_result.get("skipped") or 0)
+            inserted += _as_int(item_result.get("inserted"))
+            inserted_valid += _as_int(item_result.get("inserted_valid"))
+            item_skipped = _as_int(item_result.get("skipped"))
             skipped += item_skipped
-            rejected_count += int(item_result.get("rejected_count") or 0)
+            rejected_count += _as_int(item_result.get("rejected_count"))
             _merge_rejection_breakdown(rejection_breakdown, item_result.get("rejection_breakdown"))
             record_metrics_observation(metrics_summary, item_result, fallback_adapter=workflow_name)
             _record_source_template_health_observation(
@@ -1780,7 +1879,7 @@ def collect_urls_from_pool(
                 target=target,
                 item_result=item_result,
             )
-            degradation_flags = list(item_result.get("degradation_flags") or [])
+            degradation_flags = _as_object_list(item_result.get("degradation_flags"))
             if "document_already_exists" in degradation_flags:
                 skipped_exists += 1
             if "fetch_failed" in degradation_flags:
@@ -1810,19 +1909,15 @@ def collect_urls_from_pool(
                 details.append(
                     _detail(
                         target_url,
-                        action="inserted" if int(item_result.get("inserted") or 0) > 0 else "processed",
+                        action="inserted" if _as_int(item_result.get("inserted")) > 0 else "processed",
                         status=item_result.get("status"),
                         document_id=item_result.get("document_id"),
                         quality_score=item_result.get("quality_score"),
                         degradation_flags=degradation_flags,
                         entry_type=target.get("entry_type"),
                         site_seed=bool(target.get("is_site_seed")),
-                        handler=item_result.get("handler_allocation", {}).get("handler_used")
-                        if isinstance(item_result.get("handler_allocation"), dict)
-                        else None,
-                        matched_channel_key=item_result.get("handler_allocation", {}).get("matched_channel_key")
-                        if isinstance(item_result.get("handler_allocation"), dict)
-                        else None,
+                        handler=_as_object_dict(item_result.get("handler_allocation")).get("handler_used"),
+                        matched_channel_key=_as_object_dict(item_result.get("handler_allocation")).get("matched_channel_key"),
                         pool_scope=pool_item.get("scope"),
                         pool_source=pool_item.get("source"),
                         pool_domain=pool_item.get("domain"),
@@ -1852,7 +1947,8 @@ def collect_urls_from_pool(
                     search_options,
                     extra_params=extra_params,
                 )
-                async_result = task_ingest_url_via_source_library.delay(
+                async_result = _delay_task(
+                    task,
                     target_url,
                     normalized_terms,
                     strict_mode,
@@ -1865,9 +1961,7 @@ def collect_urls_from_pool(
                         "status": "degraded_success",
                         "reason_code": "queued_async",
                         "inserted_valid": 0,
-                        "frontdoor_router_contract": search_options.get("frontdoor_router_contract")
-                        if isinstance(search_options, dict)
-                        else None,
+                        "frontdoor_router_contract": _as_object_dict(search_options).get("frontdoor_router_contract"),
                     }
                 )
                 _record_frontdoor_status_observation(frontdoor_status_summary, frontdoor_status)
@@ -1913,7 +2007,7 @@ def collect_urls_from_pool(
                         item_result = future.result()
                         _collect_item_result(tu, t, p, item_result)
 
-        result: Dict[str, Any] = {
+        result: JsonObject = {
             "inserted": inserted,
             "inserted_valid": inserted_valid,
             "skipped": skipped,
@@ -1973,7 +2067,7 @@ def collect_urls_from_pool(
                 skipped=skipped,
                 updated=0,
                 status="completed",
-                errors=errors,
+                errors=_collect_failures(errors),
             ),
             summary="URL 池抓取并写入文档",
         )
