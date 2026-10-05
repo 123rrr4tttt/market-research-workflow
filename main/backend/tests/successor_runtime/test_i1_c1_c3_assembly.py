@@ -5,9 +5,6 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, datetime
 
-from app.successor_migration.legacy_source_library import (
-    build_successor_source_library_c2_1_binding,
-)
 from app.successor_runtime.assembly.base import (
     AcquisitionAssemblyOptions,
     ProjectorSourceKey,
@@ -25,6 +22,10 @@ from app.successor_runtime.capabilities import acquisition_batch as acquisition
 from app.successor_runtime.capabilities import source_resolution as c21
 from app.successor_runtime.capabilities import source_planning as c22
 from app.successor_runtime.capabilities import source_provider_acquisition as c23
+from app.successor_runtime.capabilities.source_resolution_interpreters import (
+    authority_requirement_digest as c21_authority_requirement_digest,
+    successor_interpreter_profile_digest,
+)
 from app.successor_runtime.capabilities.workflow_native_contribution import (
     ASSEMBLY_CELL_IDS as WORKFLOW_ASSEMBLY_CELL_IDS,
 )
@@ -325,11 +326,14 @@ def test_c2_installed_digests_match_existing_binding_builders() -> None:
         c21.SOURCE_RESOLUTION_KIND
     )
     assert c2_1_ref is not None
-    c2_1_binding = build_successor_source_library_c2_1_binding(
-        contract_digest=c2_1_ref.contract_digest,
+    c2_1_binding = InterpreterBinding.from_content(
+        operation_contract_digest=c2_1_ref.contract_digest,
+        interpreter_profile_digest=successor_interpreter_profile_digest(),
         deployment_catalog_digest=deployment_catalog_digest,
         project_scope_digest=project_scope_digest,
         runtime_protocol_version="1",
+        resource_policy_epoch=1,
+        authority_requirement_digest=c21_authority_requirement_digest(),
     )
     assert c2_1_binding.binding_digest in by_cell
 

@@ -1,24 +1,19 @@
-"""P3 C3 deterministic replay and legacy/successor shadow parity."""
+"""P3 C3 deterministic replay and retired historical observation contracts."""
 
 from __future__ import annotations
 
 import dataclasses
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
 
-from app.successor_migration import legacy_collect_runtime as lc
 from app.successor_runtime.capabilities import acquisition_batch as acquisition
 from app.successor_runtime.capabilities import acquisition_batch_interpreters as ci
 from app.successor_runtime.capabilities import acquisition_batch_program as cp
 from app.successor_runtime.language.algebra import freeze_json_object
-
-from . import test_p3_c3_micro as acquisition_micro
-
-# The shared micro fixture module is being migrated by the integration owner.
-# Its helpers remain semantic; temporarily bind its legacy module alias before use.
-acquisition_micro.c3 = acquisition
-lc.c3 = acquisition
+from app.successor_runtime.runtime.assignments import InterpreterBinding
 
 from .test_p3_c3_contracts import (
     PROJECT_KEY,
@@ -39,38 +34,83 @@ from .test_p3_c3_micro import _failed, _receipt, _sequence, _succeeded
 pytestmark = pytest.mark.unit
 
 DEPLOYMENT_DIGEST = acquisition.deployment_catalog_digest()
+_FRAGMENT_PATH = (
+    Path(__file__).resolve().parents[4]
+    / "development/latest-dev-docs/development-plans/CURRENT_DEV"
+    / "2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json"
+)
+_C3_1_TRACE_DIGEST = (
+    "44ae32544f010fcf6ba0335ea6dd17cd14d90389c0dc1c9f11b088b9653ac9e6"
+)
+_C3_1_SHADOW_DIGEST = (
+    "3b96bc4e3d538f156e8184f8338a231edd6f902855e2711ff2135e73bcfbad3a"
+)
+_C3_2_AGGREGATE_DIGEST = (
+    "1f7360b77bacd26819a762984dbb656eadff05c4cc2be9b6dc736095b5ea5856"
+)
 
 
-def _bindings_c3_1() -> tuple[Any, Any]:
+def _binding(
+    *,
+    contract_digest: str,
+    interpreter_profile_digest: str,
+) -> InterpreterBinding:
+    return InterpreterBinding.from_content(
+        operation_contract_digest=contract_digest,
+        interpreter_profile_digest=interpreter_profile_digest,
+        deployment_catalog_digest=DEPLOYMENT_DIGEST,
+        runtime_protocol_version="mrw.runtime.protocol.v1",
+        project_scope_digest=SCOPE_DIGEST,
+        resource_policy_epoch=1,
+        authority_requirement_digest=ci.authority_requirement_digest(),
+    )
+
+
+def _bindings_c3_1() -> tuple[InterpreterBinding, InterpreterBinding]:
     bundle = acquisition.build_acquisition_batch_bundle()
     contract_digest = bundle.execute_element_operation.ref.contract_digest
-    legacy = lc.build_legacy_collect_c3_1_binding(
-        contract_digest=contract_digest,
-        deployment_catalog_digest=DEPLOYMENT_DIGEST,
-        project_scope_digest=SCOPE_DIGEST,
+    return (
+        _binding(
+            contract_digest=contract_digest,
+            interpreter_profile_digest=(
+                ci.legacy_execute_element_interpreter_profile_digest()
+            ),
+        ),
+        _binding(
+            contract_digest=contract_digest,
+            interpreter_profile_digest=(
+                ci.successor_execute_element_interpreter_profile_digest()
+            ),
+        ),
     )
-    successor = lc.build_successor_collect_c3_1_binding(
-        contract_digest=contract_digest,
-        deployment_catalog_digest=DEPLOYMENT_DIGEST,
-        project_scope_digest=SCOPE_DIGEST,
-    )
-    return legacy, successor
 
 
-def _bindings_c3_2() -> tuple[Any, Any]:
+def _bindings_c3_2() -> tuple[InterpreterBinding, InterpreterBinding]:
     bundle = acquisition.build_acquisition_batch_bundle()
     contract_digest = bundle.fold_ordered_results_operation.ref.contract_digest
-    legacy = lc.build_legacy_collect_c3_2_binding(
-        contract_digest=contract_digest,
-        deployment_catalog_digest=DEPLOYMENT_DIGEST,
-        project_scope_digest=SCOPE_DIGEST,
+    return (
+        _binding(
+            contract_digest=contract_digest,
+            interpreter_profile_digest=(
+                ci.legacy_fold_ordered_results_interpreter_profile_digest()
+            ),
+        ),
+        _binding(
+            contract_digest=contract_digest,
+            interpreter_profile_digest=(
+                ci.successor_fold_ordered_results_interpreter_profile_digest()
+            ),
+        ),
     )
-    successor = lc.build_successor_collect_c3_2_binding(
-        contract_digest=contract_digest,
-        deployment_catalog_digest=DEPLOYMENT_DIGEST,
-        project_scope_digest=SCOPE_DIGEST,
+
+
+def _bindings_are_distinct(
+    legacy: InterpreterBinding, successor: InterpreterBinding
+) -> bool:
+    return (
+        legacy.interpreter_profile_digest != successor.interpreter_profile_digest
+        and legacy.binding_digest != successor.binding_digest
     )
-    return legacy, successor
 
 
 def _fold_program_and_plan(
@@ -98,43 +138,46 @@ def _fold_program_and_plan(
 
 
 class _SuccessorFixtureRunner:
-    def run(self, element: acquisition.CollectBatchElement) -> acquisition.CollectElementOutcome:
+    def run(
+        self, element: acquisition.CollectBatchElement
+    ) -> acquisition.CollectElementOutcome:
         return _succeeded(
             element.input_index,
             inserted=len(element.query_terms),
-            links=tuple(f"https://example.com/{term}" for term in element.query_terms),
+            links=tuple(
+                f"https://example.com/{term}" for term in element.query_terms
+            ),
         )
 
 
-class _LegacyShadowRunner:
-    def run(self, request: Any) -> Any:
-        from app.services.collect_runtime.contracts import CollectResult
-
-        terms = list(request.query_terms or [])
-        return CollectResult(
-            flow="collect",
-            channel=request.channel,
-            status="completed",
-            inserted=len(terms),
-            meta={"raw": {"links": [f"https://example.com/{term}" for term in terms]}},
-        )
+def _retired_fragment() -> dict[str, Any]:
+    return json.loads(_FRAGMENT_PATH.read_text(encoding="utf-8"))
 
 
-def _semantic_outcome(outcome: acquisition.CollectElementOutcome) -> tuple[Any, ...]:
-    return (
-        outcome.input_index,
-        outcome.status,
-        outcome.counts.to_plain(),
-        outcome.links,
+def _receipt_for(index: int) -> acquisition.CollectAttemptReceipt:
+    return acquisition.CollectAttemptReceipt(
+        schema_version=acquisition.COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
+        receipt_kind="AUTHORITATIVE_READBACK",
+        provider_type="search.market",
+        provider_job_id=f"shadow-job-{index}",
+        provider_status="completed",
+        attempt_count=1,
+        observed_at="2026-09-01T00:00:00Z",
+        raw_digest=f"{index + 6:064x}",
+        authoritative_readback=True,
+        receipt_digest="",
     )
 
 
 def test_replay_program_plan_and_fold_are_deterministic() -> None:
     plan = _plan()
-    first = _element_payload(plan)
-    second = _element_payload(plan)
-    assert _program_c3_1(first).program_digest == _program_c3_1(second).program_digest
-    assert _compiled_c3_1(first).plan_digest == _compiled_c3_1(second).plan_digest
+    payload = _element_payload(plan)
+    assert _program_c3_1(payload).program_digest == (
+        _program_c3_1(_element_payload(plan)).program_digest
+    )
+    assert _compiled_c3_1(payload).plan_digest == (
+        _compiled_c3_1(_element_payload(plan)).plan_digest
+    )
 
     outcome = _succeeded(0, inserted=2, links=("https://a",))
     sequence = _sequence(outcome)
@@ -158,26 +201,24 @@ def test_replay_program_plan_and_fold_are_deterministic() -> None:
     )
 
 
-def test_legacy_trace_matches_successor_pure_plan() -> None:
-    plan = _plan(options={"batch_parallelism": 2, "batch_fail_fast": True})
-    payload = _element_payload(
-        plan,
-        snapshot=_snapshot(options={"batch_parallelism": 2, "batch_fail_fast": True}),
-    )
-    adapter = lc.LegacyCollectBatchTraverseAdapter()
-    trace = adapter._trace(payload, trace_id="c3-1.trace.parity")
-    assert trace.disposition == plan.disposition
-    assert trace.term_batches == [list(element.query_terms) for element in plan.elements]
-    assert trace.per_batch_limit == plan.per_batch_limit
-    assert trace.requested_parallelism == plan.requested_parallelism
-    assert trace.effective_parallelism == plan.effective_parallelism
-    assert trace.fail_fast is (plan.failure_policy == "FAIL_FAST_WITH_PARTIAL_OBSERVATION")
-    assert adapter.resolves == 0
-    replay = adapter._trace(payload, trace_id="c3-1.trace.parity")
-    assert replay.trace_digest == trace.trace_digest
+def test_retired_legacy_observations_are_fixed_evidence_not_executable() -> None:
+    cells = {
+        cell["cell_id"]: cell for cell in _retired_fragment()["cells"]
+    }
+    assert cells["C3.1"]["legacy_observation"] == {
+        "interpreter_id": "legacy.collect_runtime.batch_traverse.v1",
+        "trace_digest": _C3_1_TRACE_DIGEST,
+        "composed_shadow_digest": _C3_1_SHADOW_DIGEST,
+        "provider_calls": 0,
+    }
+    assert cells["C3.2"]["legacy_observation"] == {
+        "interpreter_id": "legacy.collect_runtime.result_fold.v1",
+        "aggregate_digest": _C3_2_AGGREGATE_DIGEST,
+        "provider_calls": 0,
+    }
 
 
-def test_successor_legacy_element_shadow_parity() -> None:
+def test_successor_element_interpreter_preserves_plan_semantics() -> None:
     plan = _plan(options={"batch_parallelism": 2})
     payload = _element_payload(
         plan,
@@ -186,15 +227,12 @@ def test_successor_legacy_element_shadow_parity() -> None:
     )
     program = _program_c3_1(payload)
     compiled = _compiled_c3_1(payload)
-    contract_ref = program.root.operation.contract_ref
-    payload_ref = program.root.operation.payload_ref
-    legacy_binding, successor_binding = _bindings_c3_1()
-
-    successor_outcome = ci.CollectTraversalSuccessorInterpreter().interpret(
+    _legacy_binding, successor_binding = _bindings_c3_1()
+    result = ci.CollectTraversalSuccessorInterpreter().interpret(
         program=program,
         plan=compiled,
-        contract_ref=contract_ref,
-        payload_ref=payload_ref,
+        contract_ref=program.root.operation.contract_ref,
+        payload_ref=program.root.operation.payload_ref,
         payload=payload,
         project_scope=_scope(),
         catalog=_catalog(),
@@ -202,61 +240,37 @@ def test_successor_legacy_element_shadow_parity() -> None:
         binding=successor_binding,
         runner=_SuccessorFixtureRunner(),
     )
-    assert successor_outcome.disposition == "SUCCEEDED"
-
-    adapter = lc.LegacyCollectBatchTraverseAdapter()
-    legacy_result = adapter.resolve(
-        payload=payload,
-        program=program,
-        plan=compiled,
-        contract_ref=contract_ref,
-        payload_ref=payload_ref,
-        project_scope=_scope(),
-        catalog=_catalog(),
-        deployment_catalog_digest=DEPLOYMENT_DIGEST,
-        binding=legacy_binding,
-        runner=_LegacyShadowRunner(),
-    )
-    assert legacy_result.disposition == "SUCCEEDED"
-    legacy_observation = legacy_result.value.observation
-    successor_family = ci.run_ordered_traversal(plan, _SuccessorFixtureRunner())
-    assert isinstance(successor_family, acquisition.OrderedTraversalCompleted)
-    assert [_semantic_outcome(outcome) for outcome in legacy_observation.ordered_outcomes] == [
-        _semantic_outcome(outcome) for outcome in successor_family.observation.ordered_outcomes
-    ]
-    assert legacy_observation.effective_parallelism == successor_family.observation.effective_parallelism
-    assert adapter.resolves == 1
+    assert result.disposition == "SUCCEEDED"
+    family = ci.run_ordered_traversal(plan, _SuccessorFixtureRunner())
+    assert isinstance(family, acquisition.OrderedTraversalCompleted)
+    assert result.value == family.observation.ordered_outcomes[0]
 
 
-def test_successor_legacy_fold_shadow_parity() -> None:
-    queued = _receipt(
-        job_id="job-1",
-        kind="DISPATCH_ACKNOWLEDGEMENT",
-        status="queued",
-    )
+def test_successor_fold_preserves_partial_receipt_facts() -> None:
+    queued = _receipt(job_id="job-1", kind="DISPATCH_ACKNOWLEDGEMENT", status="queued")
     readback = _receipt(
         job_id="job-2",
         kind="AUTHORITATIVE_READBACK",
         status="completed",
         raw="3" * 64,
     )
-    first = _succeeded(0, inserted=2, links=("https://a", "https://b"), receipt=queued)
-    second = _failed(1, message="batch exploded", terms=("t5",))
-    third = _succeeded(
-        2,
-        inserted=3,
-        links=("https://b", "https://c"),
-        receipt=readback,
+    sequence = _sequence(
+        _succeeded(0, inserted=2, links=("https://a", "https://b"), receipt=queued),
+        _failed(1, message="batch exploded", terms=("t5",)),
+        _succeeded(
+            2,
+            inserted=3,
+            links=("https://b", "https://c"),
+            receipt=readback,
+        ),
     )
-    sequence = _sequence(first, second, third)
     fold_payload = acquisition.build_collect_fold_payload(
         parent_request_ref=_request_ref(),
         ordered_outcomes=sequence,
     )
     program, plan, contract_ref, payload_ref = _fold_program_and_plan(fold_payload)
-    legacy_binding, successor_binding = _bindings_c3_2()
-
-    successor_aggregate = ci.CollectFoldSuccessorInterpreter().interpret(
+    _legacy_binding, successor_binding = _bindings_c3_2()
+    result = ci.CollectFoldSuccessorInterpreter().interpret(
         program=program,
         plan=plan,
         contract_ref=contract_ref,
@@ -267,37 +281,18 @@ def test_successor_legacy_fold_shadow_parity() -> None:
         deployment_catalog_digest=DEPLOYMENT_DIGEST,
         binding=successor_binding,
     )
-    adapter = lc.LegacyCollectResultFoldAdapter()
-    legacy_aggregate = adapter.fold(
-        fold_payload,
-        program=program,
-        plan=plan,
-        contract_ref=contract_ref,
-        payload_ref=payload_ref,
-        project_scope=_scope(),
-        catalog=_catalog(),
-        deployment_catalog_digest=DEPLOYMENT_DIGEST,
-        binding=legacy_binding,
-    )
-    assert successor_aggregate.disposition == "SUCCEEDED"
-    assert legacy_aggregate.disposition == "SUCCEEDED"
-    assert isinstance(successor_aggregate.value, acquisition.CollectAggregatePartial)
-    assert isinstance(legacy_aggregate.value, acquisition.CollectAggregatePartial)
-    assert successor_aggregate.value.aggregate_counts == legacy_aggregate.value.aggregate_counts
-    assert successor_aggregate.value.links == legacy_aggregate.value.links
-    assert [error.message for error in successor_aggregate.value.errors] == [
-        error.message for error in legacy_aggregate.value.errors
-    ]
-    assert adapter.folds == 1
+    assert result.disposition == "SUCCEEDED"
+    assert isinstance(result.value, acquisition.CollectAggregatePartial)
+    assert [error.message for error in result.value.errors] == ["batch exploded"]
 
 
-def test_legacy_and_successor_bindings_are_distinct_and_exact() -> None:
+def test_historical_and_successor_bindings_are_distinct_and_exact() -> None:
     legacy, successor = _bindings_c3_1()
-    assert lc.bindings_are_distinct(legacy, successor)
+    assert _bindings_are_distinct(legacy, successor)
     assert legacy.binding_digest == legacy.binding_digest
     assert successor.binding_digest == successor.binding_digest
     legacy2, successor2 = _bindings_c3_2()
-    assert lc.bindings_are_distinct(legacy2, successor2)
+    assert _bindings_are_distinct(legacy2, successor2)
 
 
 def _composed_shadow_fixture() -> dict[str, Any]:
@@ -363,136 +358,54 @@ def _composed_shadow_fixture() -> dict[str, Any]:
         operation_contracts=registry,
         transform_registry=cp.build_acquisition_batch_transform_registry(),
     )
-    fold_ref = bundle.fold_ordered_results_operation.ref
-    legacy_binding = lc.build_legacy_collect_c3_2_binding(
-        contract_digest=fold_ref.contract_digest,
-        deployment_catalog_digest=DEPLOYMENT_DIGEST,
-        project_scope_digest=SCOPE_DIGEST,
-    )
-    successor_binding = lc.build_successor_collect_c3_2_binding(
-        contract_digest=fold_ref.contract_digest,
-        deployment_catalog_digest=DEPLOYMENT_DIGEST,
-        project_scope_digest=SCOPE_DIGEST,
-    )
+    _legacy_binding, successor_binding = _bindings_c3_2()
     return {
         "program": program,
         "plan": plan,
         "catalog": catalog,
-        "legacy_binding": legacy_binding,
+        "legacy_binding": _legacy_binding,
         "successor_binding": successor_binding,
         "element_payloads": element_payloads,
     }
 
 
-def _receipt_for(index: int) -> acquisition.CollectAttemptReceipt:
-    return acquisition.CollectAttemptReceipt(
-        schema_version=acquisition.COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
-        receipt_kind="AUTHORITATIVE_READBACK",
-        provider_type="search.market",
-        provider_job_id=f"shadow-job-{index}",
-        provider_status="completed",
-        attempt_count=1,
-        observed_at="2026-09-01T00:00:00Z",
-        raw_digest=f"{index + 6:064x}",
-        authoritative_readback=True,
-        receipt_digest="",
-    )
-
-
-def test_composed_same_program_legacy_successor_shadow_parity() -> None:
+def test_composed_successor_replay_is_deterministic() -> None:
     fixture = _composed_shadow_fixture()
-    receipts = (_receipt_for(0), _receipt_for(1))
-    legacy_outcome = lc.LegacyComposedCollectInterpreter().interpret(
-        program=fixture["program"],
-        plan=fixture["plan"],
-        catalog=fixture["catalog"],
-        binding=fixture["legacy_binding"],
-        element_payloads=fixture["element_payloads"],
-        receipts=receipts,
-    )
-    successor_outcome = ci.ComposedCollectSuccessorInterpreter().interpret(
-        program=fixture["program"],
-        plan=fixture["plan"],
-        catalog=fixture["catalog"],
-        binding=fixture["successor_binding"],
-        element_payloads=fixture["element_payloads"],
-        receipts=receipts,
-    )
-    assert legacy_outcome.disposition == "SUCCEEDED"
-    assert successor_outcome.disposition == "SUCCEEDED"
-    # The legacy reader retains the historical sequence identity while the
-    # current interpreter emits acquisition v2.  Both paths already compare
-    # counts and links inside the legacy observation, but their versioned
-    # aggregate digests must remain distinct.
-    assert legacy_outcome.value.aggregate_digest != successor_outcome.value.aggregate_digest
-    assert legacy_outcome.value.program_digest == fixture["program"].program_digest
-    assert legacy_outcome.value.plan_digest == fixture["plan"].plan_digest
-    assert legacy_outcome.value.element_count == 2
-    assert legacy_outcome.value.provider_calls == 0
-    assert lc.bindings_are_distinct(fixture["legacy_binding"], fixture["successor_binding"])
-
-
-def test_composed_binding_swap_fails_closed() -> None:
-    fixture = _composed_shadow_fixture()
-    swapped_legacy = ci.ComposedCollectSuccessorInterpreter().interpret(
-        program=fixture["program"],
-        plan=fixture["plan"],
-        catalog=fixture["catalog"],
-        binding=fixture["legacy_binding"],
-        element_payloads=fixture["element_payloads"],
-    )
-    swapped_successor = lc.LegacyComposedCollectInterpreter().interpret(
+    outcome = ci.ComposedCollectSuccessorInterpreter().interpret(
         program=fixture["program"],
         plan=fixture["plan"],
         catalog=fixture["catalog"],
         binding=fixture["successor_binding"],
         element_payloads=fixture["element_payloads"],
     )
-    assert swapped_legacy.disposition == "FAILED"
-    assert swapped_legacy.code == "ASSIGNMENT_BINDING_MISMATCH"
-    assert swapped_successor.disposition == "FAILED"
-    assert swapped_successor.code == "ASSIGNMENT_BINDING_MISMATCH"
-
-
-def test_composed_fixture_and_program_mutation_parity_or_rejection() -> None:
-    fixture = _composed_shadow_fixture()
-    original = fixture["element_payloads"]
-    mutated_element = acquisition.CollectBatchElement(
-        schema_version=acquisition.COLLECT_BATCH_ELEMENT_SCHEMA_REF,
-        element_id=original[1].element.element_id,
-        input_index=original[1].element.input_index,
-        query_terms=("mutated-term",),
-        per_batch_limit=original[1].element.per_batch_limit,
-        traversal_policy=original[1].element.traversal_policy,
-        failure_policy=original[1].element.failure_policy,
-        element_digest="",
-    )
-    mutated_payload = acquisition.collect_batch_element_payload_from_dicts(
-        request_ref=original[1].parent_request_ref.to_plain(),
-        request_snapshot=original[1].request_snapshot.to_plain(),
-        element=mutated_element.to_plain(),
-        resource_policy=original[1].resource_policy.to_plain(),
-        authority_scope_ref=original[1].authority_scope_ref,
-    )
-    mutated_payloads = (original[0], mutated_payload)
-    legacy_mutated = lc.LegacyComposedCollectInterpreter().interpret(
-        program=fixture["program"],
-        plan=fixture["plan"],
-        catalog=fixture["catalog"],
-        binding=fixture["legacy_binding"],
-        element_payloads=mutated_payloads,
-    )
-    successor_mutated = ci.ComposedCollectSuccessorInterpreter().interpret(
+    replay = ci.ComposedCollectSuccessorInterpreter().interpret(
         program=fixture["program"],
         plan=fixture["plan"],
         catalog=fixture["catalog"],
         binding=fixture["successor_binding"],
-        element_payloads=mutated_payloads,
+        element_payloads=fixture["element_payloads"],
     )
-    assert legacy_mutated.disposition == "SUCCEEDED"
-    assert successor_mutated.disposition == "SUCCEEDED"
-    assert legacy_mutated.value.aggregate_digest != successor_mutated.value.aggregate_digest
+    assert outcome.disposition == "SUCCEEDED"
+    assert replay.disposition == "SUCCEEDED"
+    assert outcome.value.aggregate_digest == replay.value.aggregate_digest
+    assert outcome.value.aggregate_counts.inserted == 8
 
+
+def test_composed_historical_binding_swap_fails_closed() -> None:
+    fixture = _composed_shadow_fixture()
+    result = ci.ComposedCollectSuccessorInterpreter().interpret(
+        program=fixture["program"],
+        plan=fixture["plan"],
+        catalog=fixture["catalog"],
+        binding=fixture["legacy_binding"],
+        element_payloads=fixture["element_payloads"],
+    )
+    assert result.disposition == "FAILED"
+    assert result.code == "ASSIGNMENT_BINDING_MISMATCH"
+
+
+def test_composed_malformed_program_binding_is_rejected() -> None:
+    fixture = _composed_shadow_fixture()
     program_metadata = dict(fixture["program"].metadata)
     program_metadata.pop("payload_content_digest", None)
     malformed_program = dataclasses.replace(
@@ -500,21 +413,12 @@ def test_composed_fixture_and_program_mutation_parity_or_rejection() -> None:
         metadata=freeze_json_object(program_metadata),
         program_digest="",
     ).with_digest()
-    legacy_rejected = lc.LegacyComposedCollectInterpreter().interpret(
-        program=malformed_program,
-        plan=fixture["plan"],
-        catalog=fixture["catalog"],
-        binding=fixture["legacy_binding"],
-        element_payloads=original,
-    )
-    successor_rejected = ci.ComposedCollectSuccessorInterpreter().interpret(
+    result = ci.ComposedCollectSuccessorInterpreter().interpret(
         program=malformed_program,
         plan=fixture["plan"],
         catalog=fixture["catalog"],
         binding=fixture["successor_binding"],
-        element_payloads=original,
+        element_payloads=fixture["element_payloads"],
     )
-    assert legacy_rejected.disposition == "FAILED"
-    assert successor_rejected.disposition == "FAILED"
-    assert legacy_rejected.code == "ASSIGNMENT_BINDING_MISMATCH"
-    assert successor_rejected.code == "ASSIGNMENT_BINDING_MISMATCH"
+    assert result.disposition == "FAILED"
+    assert result.code == "ASSIGNMENT_BINDING_MISMATCH"

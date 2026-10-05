@@ -1,10 +1,10 @@
 # Agent 宏观架构：宏胞腔、双向中介与原生 Core
 
-状态：架构设计与当前实现边界说明；2026-10-05 按 `agent_chat.py`、Codex native binding 和主仓 WebUI README 核对。本文将通用 Agent 宏定义为胞腔结构，接续[信息检索架构](INFORMATION_RETRIEVAL_FRAMEWORK_DESIGN.md) §4.3–4.5、§9、§10 P2/P3，保留既有执行与数据权威。本文中的拟议类型和完整胞腔注册不表示已实现。
+状态：架构设计与当前实现边界说明；2026-10-06 按 Codex WebUI 宿主、现有 AgentCore/session API、`agent_cell.py` 与 Codex native binding 核对。本文将通用 Agent 宏定义为胞腔结构，接续[信息检索架构](INFORMATION_RETRIEVAL_FRAMEWORK_DESIGN.md) §4.3–4.5、§9、§10 P2/P3，保留既有执行与数据权威。本文中的拟议类型和完整胞腔注册不表示已实现。
 
-2026-10-02 目标修订：按用户决定，Agent 执行仅保留当前 Codex Core，界面仅保留对应 Codex WebUI；旧 MRW AgentCore、旧 runtime 和兼容聊天页进入退役范围。实施范围见 [清简方案 Q2/Q4](../../../docs/development/MRW实现清简方案.md)，原分发计划继续维护 owner 和实际结果。当前 `/api/v1/agent-chat` 要求显式选择 `agent_macro_native` 或 `agent_macro_rapid_native`；旧 runtime 变体返回 410，五个旧控制字段返回 400。
+当前产品入口是 [Codex WebUI 宿主页](../../frontend-modern/src/pages/CodexAgentPage.tsx)，iframe 通过 `?mrw=macro-host-v1` 接入原宿主；会话、项目工具和系统操作沿现有 AgentCore/session API 承载。胞腔结构由只读 `GET /api/v1/agent-cell` 投影。旧 `agent_chat.py` 及 `/api/v1/agent-chat` 命名空间已从当前工作树删除。实施范围与实测进度统一见[结构整理方案 §11.9](../../../docs/development/MRW结构整理方案与分发包.md#119-本轮实施记录进行中)；旧 [清简方案 Q2/Q4](../../../docs/development/MRW实现清简方案.md) 保留为历史设计依据。
 
-开发入口：[细节开发框架 §13](INFORMATION_RETRIEVAL_FRAMEWORK_DESIGN.md#13-agent-宏胞腔开发框架)说明跨包接口、原生挂载、数据读写和迁移顺序；[M 系列分发计划](INFORMATION_RETRIEVAL_IMPLEMENTATION_DISPATCH_PLAN.md)维护各包的文件归属、串并行依赖、验证入口和当前状态。
+历史设计参考：[细节开发框架 §13](INFORMATION_RETRIEVAL_FRAMEWORK_DESIGN.md#13-agent-宏胞腔开发框架)与 [M 系列分发计划](INFORMATION_RETRIEVAL_IMPLEMENTATION_DISPATCH_PLAN.md)保留原接口设想、文件归属和阶段记录。其中依赖旧聊天 API 的入口与状态已由上述 §11.9 覆盖；本文其余拟议结构仍按各自实现边界理解。
 
 ## 1. 设计主张
 
@@ -22,9 +22,9 @@
 
 一般输出保持开放；用户在自由表达中提出的要求、实际适用的 skill 和真实下游消费者，都能为本次工作增加局部内容要求；具体工具和系统交接承载精确合同。系统规格可以规定开放消息怎样承载、操作怎样授权、结果怎样交接，而不先规定自由表达的全部业务语义。胞腔的中介调控依托已有 Core、工具执行器和设施 owner，模型如何推理、组织工作项和调整行动仍由原生 Agent 框架承载。
 
-当前执行核心是 `CodexAppServerCore.invoke_native`。`agent_chat.py` 提供两个显式业务入口：`agent_macro_native` 挂载只读检索读回 skill/tool，`agent_macro_rapid_native` 挂载 Rapid skill 和普通项目工具面；工具 handler、项目权限和持久读回仍由原 owner 执行。旧 MRW `AgentCore.run` 不再是执行路径；其合同类型只在历史消费者或工具投影需要处保留，不重新实现第二套决策循环。
+当前交互由 Codex WebUI 与其原生宿主承担；MRW 的 `CodexAppServerCore.invoke_native` 和 `NativeAgentBinding` 保留为后端原生绑定能力，具体消费者由实际装配确定。原 `agent_macro_native` 与 `agent_macro_rapid_native` 聊天入口已退役；既有检索／Rapid skill、项目工具 handler、项目权限和持久读回仍由各自 owner 承载。旧 MRW `AgentCore.run` 不再是执行路径；其合同类型只在历史消费者或工具投影需要处保留，不重新实现第二套决策循环。
 
-这里保留准确的宿主边界：`CodexAppServerCore` 的 model-only provider 调用与 `invoke_native` 是两种调用合同。当前 native binding 已支持精确 skill roots、动态工具、同进程续接和 turn interrupt；跨进程 thread 恢复与原生审批请求不支持，离线装配也不证明某个具体业务成果已完成。Codex WebUI 通过自己的代理宿主接入，其 thread/store 不自动等于 MRW 原生绑定的 session；2026-10-05 修复批次已加入包装页项目交接和精确 thread/session 关联，以及 MRW 工具独立宿主确认。实际服务加载与执行结果由分发计划 §15 记录。
+这里保留准确的宿主边界：`CodexAppServerCore` 的 model-only provider 调用与 `invoke_native` 是两种调用合同。当前 native binding 已支持精确 skill roots、动态工具、同进程续接和 turn interrupt；跨进程 thread 恢复与原生审批请求不支持，离线装配也不证明某个具体业务成果已完成。Codex WebUI 通过自己的代理宿主接入，其 thread/store 不自动等于 MRW 原生绑定的 session；2026-10-05 修复批次已加入包装页项目交接和精确 thread/session 关联，以及 MRW 工具独立宿主确认。该批次记录保留在历史分发计划 §15；当前实施状态与验证范围见结构整理方案 §11.9。
 
 胞腔中注册并可供 Core 使用的 skills/tools 及其组合环境具有两个同时成立的地位。对调用而言，它们是广义输入和结构参数，包括 skill 的内容、方法、适用情境、成果要求，以及 tool 的 schema、版本、权限和可访问设施。对胞腔内部而言，它们提供把自由表达转化为回答与行动的中介通路。撰写或修改一个 skill，能够在特定输入范围和情境中进一步规定工作内容及输出，因而部分改变或创建胞腔的局部 I/O 关系；这不限于选择已有 handler 或修改注册元数据。
 
@@ -262,7 +262,7 @@ $$
 
 MRW 的 `FlowOperation` 已能记录 `operation_id`、`version`、typed inputs/outputs，以及 effects、failures、authority、stop 和 entrypoint 引用，`control_kind="macro"` 用于标识这个边界。通用宏可以用表达开放输入／输出外壳的类型承载；typed port 不意味着用户必须提交类型化业务表单。某项 skill 的局部成果进入结构化方法时，再绑定对应消费者的具体类型。需新增的 skill 内容／适用关系、设施合同及版本关联应由现有原生声明／贡献规则承载，不分别在 skill、catalog 和图投影手写同一份词表。
 
-注册使定义和能力可定位；装配确认 skill 正文／handler 实际挂载、原生直用关系及必要接口的接线；运行按这些规定沿用 Core 决策和原 owner 效应。当前接入核心是 `CodexAppServerCore`，两个 `agent_chat` 业务入口都以显式 `NativeAgentBinding` 挂载所需环境。尚未接入的能力仍不能以“虚边”代替实现；旧 `AgentCore` 只保留历史读取或确定后的合同投影，不作为兼容执行路径。
+注册使定义和能力可定位；装配确认 skill 正文／handler 实际挂载、原生直用关系及必要接口的接线；运行按这些规定沿用 Core 决策和原 owner 效应。当前交互入口是 Codex WebUI；后端原生绑定由 `CodexAppServerCore` 与显式 `NativeAgentBinding` 承载，`agent-cell` 仅提供已有环境描述的只读投影。尚未接入的能力仍不能以“虚边”代替实现；旧 `AgentCore` 只保留历史读取或确定后的合同投影，不作为兼容执行路径。
 
 操作定义和出现位置继续分开：一个宏定义可在受支持的有序组合中被引用多次，但每次 occurrence 有独立身份。开放对话允许直接续接；若前一产物要交给 typed consumer，则在那条交接边显式满足语义类型与消费条件。identity 保留外部接口，ordered composition 保留顺序与失败边界；只有在这些观察下有实际见证，才能声称换一种组装或投影保持了原合同。类型名相同、图形相似或能编译都不构成行为等价证据。
 
@@ -280,9 +280,10 @@ MRW 的 `FlowOperation` 已能记录 `operation_id`、`version`、typed inputs/o
 | --- | --- |
 | 完整概念规定层 | 关联 §2 六项职责的原权威声明，作用于整个胞腔；自身不成为新的数据 writer、统一注册中心或必经调用入口 |
 | 信息拓扑规格 | 提供相关对象、身份、组成关系及投影规定，是概念层的一环；不取代 skill 方法、权限、效果或生命周期的原 owner |
-| Codex Core 进程、thread 与模型调用 | [CodexAppServerCore](../app/services/llm/codex_app_server.py) 经 Codex app-server 挂载；`agent_chat.py` 用 `invoke_native` 调用两个显式项目 binding |
+| Codex Core 进程、thread 与模型调用 | [CodexAppServerCore](../app/services/llm/codex_app_server.py) 承载后端 Codex app-server 绑定；WebUI 通过自己的宿主维护原生会话，MRW session 关联沿既有 API 读写 |
 | Codex 原生工具观察与续接 | `NativeAgentBinding` 支持 skill roots、动态工具、同进程续接和 turn interrupt；跨进程 thread 恢复与审批请求不支持 |
-| 旧 MRW AgentCore 的回合与工具结果 | 旧 runtime 变体在 `agent_chat.py` 返回 410；仅历史读取或已确定的合同投影可继续引用其类型 |
+| 旧 MRW AgentCore 的回合与工具结果 | 旧聊天 API 已删除；历史读取及已确定的合同投影保留其原义，当前会话操作由现有 session API 承载 |
+| 胞腔环境描述 | [agent-cell API](../app/api/agent_cell.py) 读取项目绑定与原环境 descriptor；无独立执行循环或事实写权限 |
 | 项目检索计划、run 和 attempt | `ProjectRetrievalService` 与 `execute_retrieval_run` 等原执行 owner；Agent skill 调用正式入口 |
 | Rapid digest、frontier、分类／关系提案 | 输出合同限定为提案；由项目检索 owner 经既有拓扑写面落地，不取得正式证据资格 |
 | 材料、正式关系和规范数据 | 原有资格判断及 canonical writer；Agent 成果按类型进入交接，C7 路径保留真实 closure 要求 |
@@ -305,7 +306,7 @@ Rapid skill 的 `claim_ceiling=expansion_proposal` 是局部交付限制，不�
 | [环境解析与原生装配](../app/services/agent_core/macro_environment.py) | 同一 resolver 核验项目 artifact、真实 skill 字节及路径、registry 和设施引用，派生 API native binding 与 WebUI descriptor；0 包为 base，1 包默认选择，显式单包精确选择 | 多包不自动择优；历史包不能仅凭 activated 标签获得装配资格。实际 Core 挂载及调用须验证 |
 | [WebUI 宿主](../app/services/agent_core/macro_host.py) 与 `agent_macro_host.py` | 项目–thread–session 精确绑定；宿主输入、工具调用、需要确认的原工具 pending action 与确认关联；终态调用读回和停止边界；环境过期与重启前置拒绝；共享真实作用域门禁 | §15 记录本地回归及 HK base 一次真实只读 native 调用与 SQL 同身份读回；普通胞腔包创建与激活无需逐包真人确认，live 包 skill 采用仍以实际调用观察为准 |
 | [AgentCore contracts](../app/services/agent_core/contracts.py) | 历史请求、工具调用和结果合同类型；Rapid native binding 在客户端工具投影处复用它调用普通项目工具 handler | 不再提供旧 runtime 执行入口；进一步生命周期映射只在真实消费者需要时补齐，不把该包整体恢复为当前核心 |
-| [CodexAppServerCore](../app/services/llm/codex_app_server.py) 与 [native binding](../app/services/llm/codex_macro_binding.py) | 持久管理 Codex app-server 进程和 thread；精确挂载 skill roots、动态工具、sandbox 与项目指令，`agent_chat.py` 两个业务入口均调用 `invoke_native` | 完整宏胞腔声明、更多业务 skill 的权威内容、跨进程恢复与具体成果验收仍需逐项补齐；不能用离线装配或工具目录存在冒充实测 |
+| [CodexAppServerCore](../app/services/llm/codex_app_server.py) 与 [native binding](../app/services/llm/codex_macro_binding.py) | 持久管理 Codex app-server 进程和 thread；提供 skill roots、动态工具、sandbox 与项目指令的原生绑定能力；旧聊天消费者已删除，WebUI 宿主与后端绑定分别保持其会话边界 | 完整宏胞腔声明、更多业务 skill 的权威内容、跨进程恢复与具体成果验收仍需逐项补齐；不能用离线装配或工具目录存在冒充实测 |
 | [retrieval_flow_native.py](../app/successor_runtime/capabilities/retrieval_flow_native.py) | `FlowIdentity`、`FlowOccurrence`、`FlowThen`；显式 typed wiring；macro 要求非空 `entrypoint_ref`；按合同装配 bindings | `RetrievalFlowBinding.run` 只顺序解释已装配的单输入／单输出线性流，没有分支、任意反馈或 Agent loop 编译能力；macro 标记本身不解析入口、不建立 Agent binding |
 | [retrieval_native_catalog.py](../app/successor_runtime/capabilities/retrieval_native_catalog.py) | 注册 candidate、flow、semantics 三个原生贡献；默认 flow 为一次 `retrieval.candidate.discover.v1` | 尚无通用 Agent macro entry，也无 Rapid macro catalog entry；导入／编译目录不执行业务 |
 | [project_retrieval/skill.py](../app/services/project_retrieval/skill.py) 与 [execution.py](../app/services/project_retrieval/execution.py) | skill 调用同一项目服务；`execute_retrieval_run` 执行有界计划，经 registry 调用真实 `source.web.search`，记录调用产物并形成后续交接 | 固定计划执行不是 Agent 自主 loop；创建 Agent session 或使用 `AgentCoreRequest` 不证明调用了 `AgentCore.run`，也不证明 Rapid 两轮消化已经闭合 |

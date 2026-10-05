@@ -9,7 +9,12 @@ from app.services.agent_sessions import get_agent_session_service
 
 from .compiler import compile_workflow_graph
 from .curated_service import WorkflowGraphCuratedService
-from .runtime import WorkflowGraphRuntime
+from app.successor_runtime.capabilities.workflow_legacy_dsl import (
+    parse_and_validate_workflow_dsl,
+    workflow_program_metadata,
+    WorkflowLegacyDSLReceipt,
+)
+from .runtime import WorkflowGraphPlatformInterpreter
 from .store import (
     InMemoryCompiledGraphStore,
     SqlCompiledGraphStore,
@@ -62,6 +67,13 @@ class WorkflowGraphCompilerService:
             _raise_facade_failure("contract_invalid", "dsl payload must be a mapping")
 
         compiled = compile_workflow_graph(dsl_payload)
+        platform_receipt = parse_and_validate_workflow_dsl(dsl_payload)
+        if not platform_receipt.ok or platform_receipt.program is None or platform_receipt.plan is None:
+            failure = platform_receipt.failure
+            _raise_facade_failure(
+                "integrity_invalid",
+                failure.message if failure is not None else "workflow platform lowering failed",
+            )
         raw_graph_id = payload.get("graph_id")
         graph_id = str(raw_graph_id).strip() if raw_graph_id is not None else ""
         if not graph_id or graph_id.lower() == "none":
@@ -98,6 +110,11 @@ class WorkflowGraphCompilerService:
             "nodes": normalized_nodes,
             "dsl": dict(dsl_payload),
             "compiled": asdict(compiled),
+            "platform": {
+                "program_digest": platform_receipt.program_digest,
+                "plan_digest": platform_receipt.plan_digest,
+                "catalog_digest": platform_receipt.catalog_digest,
+            },
         }
         store = self._resolved_store()
         with self._lock:
@@ -113,6 +130,11 @@ class WorkflowGraphCompilerService:
         if template_id:
             response["template_id"] = template_id
             response["version_id"] = resolved_version_id
+        response.update({
+            "program_digest": platform_receipt.program_digest,
+            "plan_digest": platform_receipt.plan_digest,
+            "catalog_digest": platform_receipt.catalog_digest,
+        })
         return response
 
     def get_compiled(self, graph_id: str) -> dict[str, Any]:
@@ -174,16 +196,16 @@ class WorkflowGraphCompilerService:
 
 
 class WorkflowGraphRuntimeService:
-    """Runtime facade that executes compiled workflow graphs."""
+    """Runtime facade backed by the workflow platform interpreter."""
 
     def __init__(self) -> None:
-        self._engine: WorkflowGraphRuntime | None = None
+        self._engine: WorkflowGraphPlatformInterpreter | None = None
         self._lock = RLock()
 
-    def _resolved_engine(self) -> WorkflowGraphRuntime:
+    def _resolved_engine(self) -> WorkflowGraphPlatformInterpreter:
         with self._lock:
             if self._engine is None:
-                self._engine = WorkflowGraphRuntime(store=build_run_store())
+                self._engine = WorkflowGraphPlatformInterpreter(store=build_run_store())
             return self._engine
 
     def run(self, payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -198,11 +220,30 @@ class WorkflowGraphRuntimeService:
         project_key = str(payload.get("project_key") or "").strip()
         trace_id = str(payload.get("trace_id") or "").strip() or None
 
+        receipt = parse_and_validate_workflow_dsl(dict(compiled.get("dsl") or {}))
+        if (
+            not receipt.ok
+            or receipt.program is None
+            or receipt.plan is None
+            or not self._platform_binding_matches(compiled, receipt)
+        ):
+            _raise_facade_failure("integrity_invalid", "compiled workflow platform binding is stale")
+        metadata = workflow_program_metadata(receipt.program)
         workflow = {
             "workflow_id": graph_id,
             "project_key": project_key or None,
-            "topo_order": list(compiled.get("topo_order") or []),
-            "nodes": dict(compiled.get("nodes") or {}),
+            "program_digest": receipt.program_digest,
+            "plan_digest": receipt.plan_digest,
+            "topo_order": list(metadata.get("topo_order") or []),
+            "nodes": {
+                str(item.get("node_id") or ""): {
+                    "id": str(item.get("node_id") or ""),
+                    "node_type": item.get("node_type"),
+                    "params": dict(item.get("config") or {}),
+                }
+                for item in metadata.get("nodes", [])
+                if isinstance(item, dict) and str(item.get("node_id") or "").strip()
+            },
         }
         resolved_run_input = dict(run_input)
         if project_key:
@@ -211,7 +252,9 @@ class WorkflowGraphRuntimeService:
             resolved_run_input.setdefault("trace_id", trace_id)
         run_id = str(payload.get("run_id") or "").strip() or None
         snapshot = self._resolved_engine().run(
-            workflow,
+            plan=receipt.plan,
+            program=receipt.program,
+            workflow=workflow,
             inputs=resolved_run_input,
             run_id=run_id,
             project_key=project_key or None,
@@ -245,6 +288,18 @@ class WorkflowGraphRuntimeService:
             out["current_phase"] = session.get("current_phase")
             out["root_task_id"] = session.get("root_task_id")
         return out
+
+    @staticmethod
+    def _platform_binding_matches(
+        compiled: Mapping[str, Any],
+        receipt: WorkflowLegacyDSLReceipt,
+    ) -> bool:
+        expected = dict(compiled.get("platform") or {})
+        return all([
+            expected.get("program_digest") == receipt.program_digest,
+            expected.get("plan_digest") == receipt.plan_digest,
+            expected.get("catalog_digest") == receipt.catalog_digest,
+        ])
 
     def get_run_events(self, run_id: str) -> dict[str, Any]:
         items = list(self._resolved_engine().store.get_events(str(run_id)))

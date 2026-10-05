@@ -15,12 +15,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from app.successor_migration import legacy_collect_runtime as lc
 from app.successor_runtime.capabilities import acquisition_batch as c3
 from app.successor_runtime.capabilities import acquisition_batch_interpreters as ci
 from app.successor_runtime.capabilities import acquisition_batch_program as cp
 from app.successor_runtime.capabilities.checksum import content_digest
 from app.successor_runtime.language.compile import compile_program
+from app.successor_runtime.runtime.assignments import InterpreterBinding
 from app.successor_runtime.specification.shared_family_generator import (
     BindingsByKind,
     BindingTarget,
@@ -72,10 +72,6 @@ IMPLEMENTATION_FILES = (
         "c3_interpreters",
     ),
     (
-        "main/backend/app/successor_migration/legacy_collect_runtime.py",
-        "c3_legacy_adapter",
-    ),
-    (
         "main/backend/app/successor_runtime/substrate/postgres/acquisition_batch_canary.py",
         "c3_postgres_canary",
     ),
@@ -83,6 +79,16 @@ IMPLEMENTATION_FILES = (
         "main/backend/scripts/generate_successor_p3_c3_fragment.py",
         "fragment_generator",
     ),
+)
+
+_C3_1_LEGACY_TRACE_DIGEST = (
+    "44ae32544f010fcf6ba0335ea6dd17cd14d90389c0dc1c9f11b088b9653ac9e6"
+)
+_C3_1_LEGACY_COMPOSED_SHADOW_DIGEST = (
+    "3b96bc4e3d538f156e8184f8338a231edd6f902855e2711ff2135e73bcfbad3a"
+)
+_C3_2_LEGACY_AGGREGATE_DIGEST = (
+    "1f7360b77bacd26819a762984dbb656eadff05c4cc2be9b6dc736095b5ea5856"
 )
 
 TEST_FILES = (
@@ -310,26 +316,8 @@ def _c3_1_fixtures() -> dict[str, Any]:
     observation = getattr(traversal_result, "observation", None)
     observation_digest = "" if observation is None else observation.observation_digest
 
-    adapter = lc.LegacyCollectBatchTraverseAdapter()
-    trace = adapter._trace(payload, trace_id="c3.1.fragment.trace")
     fold_ref = bundle.fold_ordered_results_operation.ref
-    legacy_binding = lc.build_legacy_collect_c3_2_binding(
-        contract_digest=fold_ref.contract_digest,
-        deployment_catalog_digest=c3.deployment_catalog_digest(),
-        project_scope_digest=_project_scope_digest(),
-    )
-    successor_binding = lc.build_successor_collect_c3_2_binding(
-        contract_digest=fold_ref.contract_digest,
-        deployment_catalog_digest=c3.deployment_catalog_digest(),
-        project_scope_digest=_project_scope_digest(),
-    )
-    legacy_shadow = lc.LegacyComposedCollectInterpreter().interpret(
-        program=composed_program,
-        plan=composed_plan,
-        catalog=catalog,
-        binding=legacy_binding,
-        element_payloads=element_payloads,
-    )
+    successor_binding = _successor_fold_binding(bundle)
     successor_composed = ci.ComposedCollectSuccessorInterpreter().interpret(
         program=composed_program,
         plan=composed_plan,
@@ -337,13 +325,6 @@ def _c3_1_fixtures() -> dict[str, Any]:
         binding=successor_binding,
         element_payloads=element_payloads,
     )
-    if (
-        legacy_shadow.disposition != "SUCCEEDED"
-        or successor_composed.disposition != "SUCCEEDED"
-        or legacy_shadow.value.aggregate_digest
-        != successor_composed.value.aggregate_digest
-    ):
-        raise RuntimeError("composed legacy/successor shadow parity drift")
     return {
         "bundle": bundle,
         "catalog": catalog,
@@ -353,11 +334,11 @@ def _c3_1_fixtures() -> dict[str, Any]:
         "composed_program": composed_program,
         "composed_plan": composed_plan,
         "observation_digest": observation_digest,
-        "legacy_composed_shadow_digest": legacy_shadow.value.shadow_digest,
         "successor_composed_aggregate_digest": (
             successor_composed.value.aggregate_digest
         ),
-        "legacy_trace_digest": trace.trace_digest,
+        "legacy_composed_shadow_digest": _C3_1_LEGACY_COMPOSED_SHADOW_DIGEST,
+        "legacy_trace_digest": _C3_1_LEGACY_TRACE_DIGEST,
         "provider_calls": 0,
     }
 
@@ -454,24 +435,6 @@ def _c3_2_fixtures() -> dict[str, Any]:
     )
     aggregate_digest = getattr(aggregate.value, "aggregate_digest", "")
 
-    legacy_binding = lc.build_legacy_collect_c3_2_binding(
-        contract_digest=bundle.fold_ordered_results_operation.ref.contract_digest,
-        deployment_catalog_digest=c3.deployment_catalog_digest(),
-        project_scope_digest=_project_scope_digest(),
-    )
-    adapter = lc.LegacyCollectResultFoldAdapter()
-    legacy_result = adapter.fold(
-        payload,
-        program=program,
-        plan=plan,
-        contract_ref=program.root.operation.contract_ref,
-        payload_ref=program.root.operation.payload_ref,
-        project_scope=_ProjectScope(),
-        catalog=catalog,
-        deployment_catalog_digest=c3.deployment_catalog_digest(),
-        binding=legacy_binding,
-    )
-    legacy_digest = getattr(legacy_result.value, "aggregate_digest", "")
     return {
         "bundle": bundle,
         "catalog": catalog,
@@ -482,7 +445,7 @@ def _c3_2_fixtures() -> dict[str, Any]:
         "pure_program": pure_program,
         "pure_plan": pure_plan,
         "successor_aggregate_digest": aggregate_digest,
-        "legacy_aggregate_digest": legacy_digest,
+        "legacy_aggregate_digest": _C3_2_LEGACY_AGGREGATE_DIGEST,
         "provider_calls": 0,
     }
 
@@ -494,10 +457,18 @@ class _ProjectScope:
 
 
 def _successor_fold_binding(bundle: Any) -> Any:
-    return lc.build_successor_collect_c3_2_binding(
-        contract_digest=bundle.fold_ordered_results_operation.ref.contract_digest,
+    return InterpreterBinding.from_content(
+        operation_contract_digest=(
+            bundle.fold_ordered_results_operation.ref.contract_digest
+        ),
+        interpreter_profile_digest=(
+            ci.successor_fold_ordered_results_interpreter_profile_digest()
+        ),
         deployment_catalog_digest=_deployment_digest(),
         project_scope_digest=_project_scope_digest(),
+        resource_policy_epoch=1,
+        runtime_protocol_version="mrw.runtime.protocol.v1",
+        authority_requirement_digest=ci.authority_requirement_digest(),
     )
 
 

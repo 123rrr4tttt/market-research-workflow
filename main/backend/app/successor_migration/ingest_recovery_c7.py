@@ -9,12 +9,9 @@ readback validation; this adapter owns only the C7 new-epoch decision.
 
 from __future__ import annotations
 
-from typing import Any
-
 from app.successor_runtime.capabilities.material_ingest_common import (
     MaterialReconciliationDecision,
 )
-from app.successor_runtime.runtime.reconciliation import EffectReconciler
 from app.successor_runtime.runtime.recovery import (
     NonStartProof,
     authorize_successor_attempt,
@@ -24,8 +21,6 @@ from app.successor_runtime.runtime.transitions import EffectDisposition
 __all__ = [
     "C7ReconciliationError",
     "C7ReconciliationPolicy",
-    "prove_non_start_with_shared_reconciler",
-    "reconcile_with_shared_reconciler",
 ]
 
 
@@ -74,33 +69,3 @@ class C7ReconciliationPolicy:
             requirement="exact_nonstart_proof_and_current_authority",
             reason="exact NonStartProof plus current authority authorizes one new epoch",
         )
-
-
-def reconcile_with_shared_reconciler(
-    *,
-    assignment: Any,
-    attempt: Any,
-    interpreter: Any,
-) -> Any:
-    """Delegate terminal readback to the shared EffectReconciler."""
-
-    return EffectReconciler().reconcile(
-        assignment=assignment,
-        attempt=attempt,
-        interpreter=interpreter,
-    )
-
-
-def prove_non_start_with_shared_reconciler(
-    *,
-    assignment: Any,
-    attempt: Any,
-    interpreter: Any,
-) -> Any:
-    """Delegate non-start proof validation to the shared EffectReconciler."""
-
-    return EffectReconciler().prove_non_start(
-        assignment=assignment,
-        attempt=attempt,
-        interpreter=interpreter,
-    )

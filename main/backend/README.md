@@ -35,7 +35,7 @@ LLM：`OPENAI_API_KEY`、`AZURE_*`、`OLLAMA_BASE_URL`（提取与发现依赖�
 
 - **来源与采集**：来源库、文件导入、HTTP 来源获取和异步采集任务继续由原服务与 Celery worker 执行；任务状态和业务结果从 Process/文档接口读回。
 - **发现与检索**：网页搜索、智能/深度发现入口和 BM25、向量、混合检索并存；2026-10-04 日常链路证据覆盖 pgvector 后端的实际读回。
-- **Agent 对话**：`/api/v1/agent-chat` 只接受显式 `agent_macro_native` 或 `agent_macro_rapid_native`。两者通过 `CodexAppServerCore.invoke_native` 和项目绑定执行；旧 Agent runtime 请求返回 410，旧控制字段返回 400。
+- **Agent 工作台**：当前对话入口为 Codex WebUI，项目能力通过现有 AgentCore 宿主绑定提供；胞腔结构从 `GET /api/v1/agent-cell` 只读查询，显式选择的 package identity 随请求传递。旧 `/api/v1/agent-chat/*` 入口已撤下。
 - **WebUI 边界**：Codex WebUI 的源码、协议版本、OAuth 和 LaunchAgent 说明见 [`../ops/codex-webui/README.md`](../ops/codex-webui/README.md)，其线程存储不自动等同于后端 native binding 的会话。
 
 ## 贡献开发入口

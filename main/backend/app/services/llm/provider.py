@@ -1,24 +1,31 @@
-from typing import Any, Optional, Dict
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Self
 from types import SimpleNamespace
 
-from . import cache  # noqa: F401  # ensure cache setup on import
-from .ports import ChatModelOptions, resolve_llm_provider
+from . import cache  # ensure cache setup on import
+from .ports import ChatModelOptions, LLMProviderPort, resolve_llm_provider
 from ...settings.config import settings
 
+_cache = cache
 
-def _provider() -> Any:
+if TYPE_CHECKING:
+    from .ports import ChatModel, EmbeddingModel
+
+
+def _provider() -> LLMProviderPort:
     return resolve_llm_provider(settings.llm_provider or "")
 
 
 def get_chat_model(
-    model: Optional[str] = None,
-    temperature: Optional[float] = None,
-    max_tokens: Optional[int] = None,
-    top_p: Optional[float] = None,
-    presence_penalty: Optional[float] = None,
-    frequency_penalty: Optional[float] = None,
-    **kwargs: Any,
-):
+    model: str | None = None,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    top_p: float | None = None,
+    presence_penalty: float | None = None,
+    frequency_penalty: float | None = None,
+    **kwargs: object,
+) -> ChatModel:
     """按 composition 注册的 provider port 解析聊天模型。"""
     options = ChatModelOptions(
         model=model,
@@ -32,15 +39,15 @@ def get_chat_model(
     return _provider().get_chat_model(options)
 
 
-def get_embeddings(model: Optional[str] = None):
+def get_embeddings(model: str | None = None) -> EmbeddingModel:
     return _provider().get_embeddings(model=model)
 
 
 def get_local_fallback_chat(
-    model: Optional[str] = None,
+    model: str | None = None,
     temperature: float = 0.0,
-    **kwargs: Any,
-):
+    **kwargs: object,
+) -> _LightChat:
     """返回轻量本地兜底 Chat 对象。
 
     - 具备 `.invoke(prompt) -> SimpleNamespace(content=...)`
@@ -55,21 +62,17 @@ def get_local_fallback_chat(
         )
     )
 
-    class _LightChat:
-        def __init__(self, chat: Any):
-            self._chat = chat
-
-        def with_retry(self):
-            return self
-
-        def invoke(self, prompt: Any):
-            resp = self._chat.invoke(prompt)
-            content = getattr(resp, "content", None)
-            if content is None:
-                if isinstance(resp, dict) and "content" in resp:
-                    content = resp["content"]
-                else:
-                    content = str(resp)
-            return SimpleNamespace(content=content)
-
     return _LightChat(inner)
+
+
+class _LightChat:
+    def __init__(self, chat: ChatModel):
+        self._chat = chat
+
+    def with_retry(self) -> Self:
+        return self
+
+    def invoke(self, prompt: str) -> SimpleNamespace:
+        resp = self._chat.invoke(prompt)
+        content: object = resp.content
+        return SimpleNamespace(content=content)

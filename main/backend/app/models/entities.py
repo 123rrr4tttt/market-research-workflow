@@ -783,7 +783,7 @@ class AgentMessage(BigIDMixin, Base):
 
 
 class AgentArtifact(BigIDMixin, Base):
-    """Session artifacts including memory.md and scratchpad.md."""
+    """Session artifacts owned by their originating business workflow."""
 
     __tablename__ = "agent_artifacts"
     __table_args__ = (

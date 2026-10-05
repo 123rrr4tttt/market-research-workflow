@@ -163,8 +163,7 @@ def test_rollback_and_exact_cell_texts_are_preserved() -> None:
     assert rollback.cell_id == "knowledge.writing.v2"
     assert rollback.status == "PRESENT"
     assert rollback.binding_refs == (
-        "main/backend/app/successor_migration/legacy_c8_writing.py",
-        "main/backend/app/successor_runtime/assembly/c8_assembly.py",
+        "main/backend/app/successor_runtime/assembly/knowledge_assembly.py",
     )
 
     unwired = binding.declared_cell()

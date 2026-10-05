@@ -42,7 +42,6 @@ from app.successor_runtime.capabilities.knowledge_program import (
     validate_knowledge_graph_projection_contributions,
 )
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.specification import c8_p4
 from app.successor_runtime.research.object_types import ObjectType
 from functorial_kit.contribution_compiler import compile_native_contribution
 from functorial_kit.contributions import compose_contributions
@@ -235,10 +234,6 @@ def test_catalog_composition_is_pure_and_extra_entry_reaches_native_registries()
     )
     assert program.root.operation.operation_id == "knowledge.graph.project.test"
     assert dict(program.metadata)["canonical_owner"] == EXTRA_OWNER
-    assert [entry["operation_kind"] for entry in c8_p4._operation_bindings(natives)["c8_4"]] == [
-        "knowledge.graph.project.v2",
-        EXTRA_KIND,
-    ]
 
 
 def test_definition_consistency_and_duplicate_cell_ids_fail_closed() -> None:

@@ -119,7 +119,6 @@ class Settings(BaseSettings):
     graph_node_projection_canary_projects: str = Field(default="demo_proj")
     ingest_frontdoor_rollout_mode: str = Field(default="on")  # on | off | canary | passthrough
     ingest_frontdoor_canary_projects: str = Field(default="demo_proj")
-    url_batch_path_default_mode: str = Field(default="batch_runtime_targets")  # legacy_per_url | batch_runtime_targets
     ingest_enable_strict_gate: bool = Field(default=False)
     ingest_guardrail_rollout_mode: str = Field(default="canary")  # off | canary | on | passthrough
     ingest_guardrail_canary_projects: str = Field(default="demo_proj")
@@ -142,16 +141,13 @@ class Settings(BaseSettings):
     agent_session_db_store_enabled: bool = Field(default=True)
     agent_stream_enabled: bool = Field(default=True)
     agent_batch_as_tool_enabled: bool = Field(default=True)
-    agent_session_memory_token_threshold: int = Field(default=4000)
-    agent_session_memory_tool_threshold: int = Field(default=12)
-    agent_session_memory_event_threshold: int = Field(default=16)
     codex_auth_enabled: bool = Field(default=False)
     codex_auth_tokens: str = Field(default="")
     codex_webui_internal_url: str = Field(default="http://127.0.0.1:8172")
     codex_webui_server_api_key: SecretStr = Field(default=SecretStr(""))
     codex_auth_protected_prefixes: str = Field(
         default=(
-            "/api/v1/agent-chat,/api/v1/agent-batch,/api/v1/agent-sessions,"
+            "/api/v1/agent-cell,/api/v1/agent-batch,/api/v1/agent-sessions,"
             "/api/v1/agent-approvals,/api/v1/workflow-graph,/api/v1/skills,"
             "/api/v1/codex-auth/webui/bootstrap,"
             + _SUCCESSOR_MOUNT_DEFAULT_PREFIX

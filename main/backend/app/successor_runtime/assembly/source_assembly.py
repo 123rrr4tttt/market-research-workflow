@@ -71,20 +71,24 @@ SOURCE_PROVIDER_ACQUISITION_CELL_ID = ASSEMBLY_CELL_IDS[2]
 SOURCE_TERMINAL_PROJECTION_CELL_ID = ASSEMBLY_CELL_IDS[3]
 
 SOURCE_ROLLBACK_PATHS = {
-    SOURCE_RESOLUTION_CELL_ID: ("main/backend/app/successor_migration/legacy_source_library.py",),
+    SOURCE_RESOLUTION_CELL_ID: (
+        (
+            "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+            "2026-08-30-functorial-successor-migration/evidence/"
+            "P2C21CapabilityPacket.v5.json"
+        ),
+    ),
     SOURCE_PLANNING_CELL_ID: (
         (
             "development/latest-dev-docs/development-plans/CURRENT_DEV/"
             "2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json"
         ),
-        "main/backend/app/successor_migration/legacy_source_library_c2_2.py",
     ),
     SOURCE_PROVIDER_ACQUISITION_CELL_ID: (
         (
             "development/latest-dev-docs/development-plans/CURRENT_DEV/"
             "2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json"
         ),
-        "main/backend/app/successor_migration/legacy_source_library_c2_3.py",
     ),
     SOURCE_TERMINAL_PROJECTION_CELL_ID: (
         (
@@ -92,7 +96,6 @@ SOURCE_ROLLBACK_PATHS = {
             "2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json"
         ),
         ("main/backend/app/successor_runtime/substrate/projections/source_library_terminal.py"),
-        "main/backend/app/successor_migration/legacy_source_library_c2_4.py",
     ),
 }
 

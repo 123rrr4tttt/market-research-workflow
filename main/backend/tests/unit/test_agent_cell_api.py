@@ -79,7 +79,7 @@ class AgentCellApiTests(unittest.TestCase):
         with patch.object(main.settings, "codex_auth_enabled", True), \
                 patch.object(main, "_parse_codex_auth_tokens", return_value={"test-cell-token"}), \
                 patch.object(main, "_resolve_codex_oauth_actor_context", return_value=None):
-            response = TestClient(main.app).get("/api/v1/agent-chat/cell", headers={"X-Project-Key": "cell_test"})
+            response = TestClient(main.app).get("/api/v1/agent-cell", headers={"X-Project-Key": "cell_test"})
         self.assertEqual(response.status_code, 401)
         self.resolve.assert_not_called()
 

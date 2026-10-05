@@ -2,13 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-
-from app.successor_migration.document_repository_c7 import (
+from app.successor_runtime.substrate.postgres.c7_document_readback import (
     CanonicalCommitReadback,
-    CommitHardDisabledError,
-    CommitReadback,
-    TestDocumentRepositoryC7,
     document_ref_from_readback,
 )
 from app.successor_runtime.capabilities import material_ingest_common as c7
@@ -32,35 +27,6 @@ def test_commit_intent_reuses_canonical_binding_identity() -> None:
         binding.ordered_event_payload_closure_digest
     )
     assert intent.project_key == PROJECT_KEY
-
-
-def test_test_repository_prepares_typed_readback_with_zero_writes() -> None:
-    repo = TestDocumentRepositoryC7()
-    binding = verification_binding()
-    readback = repo.prepare(
-        commit_intent(binding=binding),
-        verification_binding=binding,
-    )
-    assert isinstance(readback, CommitReadback)
-    assert readback.state == "PREPARED"
-    assert readback.verification_binding_digest == binding.binding_digest
-    assert repo.readback(readback.commit_intent_id) is readback
-    assert repo.write_calls == 0
-    assert repo.prepare_calls == 1
-
-
-def test_fake_commit_is_hard_disabled() -> None:
-    repo = TestDocumentRepositoryC7()
-    with pytest.raises(CommitHardDisabledError):
-        repo.commit({"document": "write"})
-    assert repo.write_calls == 1
-    assert repo.readback("commit:p4-c7:001") is None
-
-
-def test_missing_commit_reads_back_as_uncommitted_not_fake_success() -> None:
-    repo = TestDocumentRepositoryC7()
-    assert repo.readback("ingest:missing") is None
-    assert repo.write_calls == 0
 
 
 def test_readback_interpreter_projects_typed_readback_without_writer() -> None:

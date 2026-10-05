@@ -44,13 +44,9 @@ EVIDENCE_REL = Path(
     "2026-08-30-functorial-successor-migration/evidence"
 )
 EXACT_BYTE_REBIND_REL = EVIDENCE_REL / "exact-byte-rebind"
-ALLOWED_FAMILIES = frozenset({"C2", "C3", "C4", "C5", "C6", "C8", "C9"})
+ALLOWED_FAMILIES = frozenset({"C3", "C9"})
 _FAMILY_MODULES = {
-    "C2": "app.successor_runtime.specification.c2_p3",
     "C3": "app.successor_runtime.specification.acquisition_batch_p3",
-    "C4": "app.successor_runtime.specification.c4_p3",
-    "C5": "app.successor_runtime.specification.c5_p3",
-    "C8": "app.successor_runtime.specification.c8_p4",
     "C9": "app.successor_runtime.specification.c9_p4",
 }
 DEFAULT_B13_STAGE = "stage-b13-2026-09-05"
@@ -410,8 +406,6 @@ def config_for(family: str) -> FamilyFragmentConfig:
     try:
         module_name = _FAMILY_MODULES[family]
     except KeyError as exc:
-        if family == "C6":
-            raise GenerationError("C6 is retired; review its preserved historical artifacts") from exc
         raise GenerationError(f"unknown family: {family}") from exc
     try:
         return importlib.import_module(module_name).CONFIG
@@ -439,8 +433,11 @@ def _binding_paths(fragment: dict[str, Any], group: str) -> list[str]:
 
 
 def _config_relative(family: str) -> str:
-    phase = "p4" if family in {"C8", "C9"} else "p3"
-    return f"main/backend/app/successor_runtime/specification/{family.lower()}_{phase}.py"
+    try:
+        module_name = _FAMILY_MODULES[family]
+    except KeyError as exc:
+        raise GenerationError(f"unknown family: {family}") from exc
+    return f"main/backend/{module_name.replace('.', '/')}.py"
 
 
 def _build_one(root: Path, stage: str, family: str) -> tuple[Path, bytes, Path, bytes]:

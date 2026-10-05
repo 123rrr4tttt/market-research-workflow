@@ -193,7 +193,7 @@ def test_acceptance_status_stays_in_typed_receipt_not_db_enum() -> None:
 
 
 def test_submission_payload_codec_restores_nested_typed_jobs() -> None:
-    from app.successor_migration.legacy_agent_batch import (
+    from app.successor_runtime.capabilities.batch_task_interpreters import (
         build_successor_agent_batch_c4_submission_binding,
     )
     from app.successor_runtime.capabilities import batch_task as c4

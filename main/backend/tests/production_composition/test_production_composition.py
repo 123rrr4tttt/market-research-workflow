@@ -225,9 +225,10 @@ def test_checked_in_route_registry_exactly_covers_installed_routes() -> None:
     validate_production_route_coverage(bindings, production_app.routes, exemptions=exemptions)
 
     assert bindings
+    assert not any(binding.route_template.startswith("/api/v1/agent-chat/") for binding in bindings)
     assert all(binding.methods and binding.operation and binding.domain for binding in bindings)
-    agent_chat = next(
-        binding for binding in bindings if binding.operation == "agent-chat.run_agent_chat_turn"
+    agent_host = next(
+        binding for binding in bindings if binding.operation == "agent-macro-host.dispatch_macro_tool"
     )
     canonical_writer_bindings = [
         binding
@@ -238,8 +239,8 @@ def test_checked_in_route_registry_exactly_covers_installed_routes() -> None:
     assert canonical_writer_bindings[0].effect_contract.canonical_writer_port == (
         "postgres.projection_rebuild.v2"
     )
-    assert not agent_chat.effect_contract.requires_canonical_writer
-    agent_contract = agent_chat.effect_contract
+    assert not agent_host.effect_contract.requires_canonical_writer
+    agent_contract = agent_host.effect_contract
     assert agent_contract.effect_class is EffectClass.CONDITIONAL
     assert agent_contract.admission is EffectAdmission.BLOCKED_UNTIL_EFFECT_BINDING
     assert agent_contract.provider_class is ProviderClass.NULL

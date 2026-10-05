@@ -125,7 +125,7 @@ FRONTEND_FULL_E2E_NEGATIVE_STATUS = (
 # voice.  Keep the exact current pair per test so either side cannot drift into
 # an unreviewed claim while retaining the frozen v1 evidence bytes.
 NEGATIVE_REASON_BINDINGS = {
-    "tests/e2e/agent-chat-writing-crossflow.spec.ts:52": (
+    "tests/e2e/codex-writing-crossflow.spec.ts:52": (
         "The scenario requires the live Codex WebSocket and backend surface rather than the Stage 0 client or mocked interpreter boundary.",
         "Requires the live Codex WebSocket and backend surface rather than the Stage 0 client or mocked interpreter boundary.",
     ),

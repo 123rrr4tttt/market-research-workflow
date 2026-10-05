@@ -1065,7 +1065,7 @@ def _ingest_url_pool_status_handler(
             writing_guidance = "The URL-pool ingest task failed; keep writing language pending and inspect the task error before retrying."
         elif latest_task_event_status in {"canceled", "cancelled"}:
             next_gate = "url_pool_ingest_canceled_resume_or_retry"
-            writing_guidance = "The URL-pool ingest task was canceled; do not treat it as collected evidence. Use task.continue or retry collection if the user wants to resume."
+            writing_guidance = "The URL-pool ingest task was canceled; do not treat it as collected evidence. Read task.summary first; use task.retry only when the user wants collection to run again."
         elif latest_task_event_status == "completed":
             next_gate = "ingest_completed_without_verified_project_record"
             writing_guidance = "The URL-pool task completed, but no stored project document/source matched the URL yet; keep writing evidence pending and inspect ingest output."

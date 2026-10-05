@@ -156,7 +156,7 @@ def _abort_requested_result(
         ui_summary=f"{tool_call.tool_name} stopped after session cancellation.",
         structured_content=content,
         error={"code": "session_canceled", "message": "session is canceled"},
-        retry_hint="Use task.continue or task.retry after confirming the session should resume.",
+        retry_hint="Read task.summary first; use task.retry only when the user wants the task to run again.",
     )
 
 

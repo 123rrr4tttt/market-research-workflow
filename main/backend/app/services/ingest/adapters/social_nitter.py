@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterable, List, Optional
 from urllib.parse import quote
 
-from .http_utils import fetch_html
+from ..retry_policy import RateGate, RequestScope
+from .http_utils import HttpFetchError, HttpFetchFailureReason, RequestOutcome, request_html
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,13 @@ class NitterAdapter:
         "https://nitter.pussthecat.org",
         "https://nitter.privacydev.net",
     ]
+    _REQUEST_SCOPE = RequestScope(provider="nitter")
+    _RATE_GATE = RateGate(
+        rate_limit_interval_seconds=2.0,
+        backoff_base_seconds=1.5,
+        backoff_max_seconds=60.0,
+        sleeper=time.sleep,
+    )
     
     def __init__(self, instance_url: Optional[str] = None):
         """
@@ -48,6 +57,32 @@ class NitterAdapter:
         self.instance_url = instance_url or self.DEFAULT_INSTANCES[0]
         self._tested_instances: List[str] = []
     
+    def _request_html(self, url: str, headers: dict[str, str], *, timeout: float, retries: int = 3) -> RequestOutcome:
+        return request_html(
+            url,
+            scope=self._REQUEST_SCOPE,
+            headers=headers,
+            timeout=timeout,
+            retries=retries,
+            retry_gate=self._RATE_GATE,
+        )
+
+    @staticmethod
+    def _raise_request_failure(url: str, outcome: RequestOutcome) -> None:
+        decision = outcome.decisions[-1]
+        status_code = decision.failure.context.get("status_code")
+        raise HttpFetchError(
+            decision.failure.message,
+            reason=(
+                HttpFetchFailureReason.HTTP_STATUS
+                if status_code is not None
+                else HttpFetchFailureReason.TRANSPORT
+            ),
+            url=url,
+            status_code=int(status_code) if status_code is not None else None,
+            retryable=bool(decision.retryable),
+        )
+
     def _get_available_instance(self) -> str:
         """
         获取可用的Nitter实例
@@ -72,9 +107,9 @@ class NitterAdapter:
                     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
                     "Accept": "text/html,application/xhtml+xml",
                 }
-                response_text, response = fetch_html(test_url, headers=headers, timeout=10.0, retries=1)
-                
-                if response.status_code == 200:
+                outcome = self._request_html(test_url, headers=headers, timeout=10.0, retries=1)
+                response = outcome.response
+                if outcome.ok and response is not None and response.status_code == 200:
                     logger.info(f"Nitter instance available: {instance}")
                     self.instance_url = instance
                     self._tested_instances.append(instance)
@@ -121,8 +156,15 @@ class NitterAdapter:
             
             # 先尝试JSON格式
             try:
-                response_text, response = fetch_html(json_url, headers=headers, timeout=15.0)
-                if response.status_code == 200 and response_text:
+                outcome = self._request_html(json_url, headers=headers, timeout=15.0)
+                response_text = outcome.text
+                response = outcome.response
+                if (
+                    outcome.ok
+                    and response is not None
+                    and response.status_code == 200
+                    and response_text
+                ):
                     try:
                         import json
                         data = json.loads(response_text)
@@ -142,7 +184,11 @@ class NitterAdapter:
             if not use_json:
                 try:
                     headers["Accept"] = "application/rss+xml,application/xml,text/xml,*/*"
-                    response_text, response = fetch_html(rss_url, headers=headers, timeout=15.0)
+                    outcome = self._request_html(rss_url, headers=headers, timeout=15.0)
+                    response_text = outcome.text
+                    response = outcome.response
+                    if not outcome.ok:
+                        self._raise_request_failure(rss_url, outcome)
                 except Exception as e:
                     logger.error(f"Both JSON and RSS requests failed for @{username}: {e}")
                     raise
@@ -372,7 +418,11 @@ class NitterAdapter:
             }
             
             try:
-                response_text, response = fetch_html(search_url, headers=headers, timeout=15.0)
+                outcome = self._request_html(search_url, headers=headers, timeout=15.0)
+                response_text = outcome.text
+                response = outcome.response
+                if not outcome.ok:
+                    self._raise_request_failure(search_url, outcome)
             except Exception as e:
                 logger.error(f"HTTP request failed for search '{query}': {e}")
                 raise
@@ -483,13 +533,6 @@ class NitterAdapter:
         
         for idx, query in enumerate(queries):
             try:
-                # 在请求之间添加延迟，避免被限制
-                if idx > 0:
-                    import time
-                    delay = 2.0  # 2秒延迟
-                    logger.debug(f"Waiting {delay}s before next request...")
-                    time.sleep(delay)
-                
                 posts = list(self.search_tweets(query, keywords, limit_per_query))
                 logger.info(f"Query '{query}': fetched {len(posts)} tweets")
                 all_posts.extend(posts)
@@ -499,4 +542,3 @@ class NitterAdapter:
         
         logger.info(f"Total tweets collected from all queries: {len(all_posts)}")
         return all_posts
-

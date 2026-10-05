@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import dataclasses
+from collections.abc import Mapping
 from collections.abc import Iterator
 
 import pytest
@@ -11,18 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool
 
-from app.successor_migration.document_repository_c7 import (
-    CanonicalCommitReadback,
-    CanonicalDocumentState,
-    document_ref_from_readback,
-)
 from app.successor_migration.ingest_recovery_c7 import C7ReconciliationPolicy
-from app.successor_migration.search_projector_c7 import (
-    SEARCH_PROJECTOR_ID,
-    SEARCH_PROJECTOR_VERSION,
-    SEARCH_SOURCE_KIND,
-    rebuild_search_projection,
-)
 from app.successor_runtime.capabilities import material_ingest_common as c7
 from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
 from app.successor_runtime.runtime.transitions import EffectDisposition
@@ -35,6 +26,14 @@ from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
 from app.successor_runtime.substrate.postgres.projection_offsets import (
     ProjectionOffsetKey,
     ProjectionOffsetRepository,
+)
+from app.successor_runtime.substrate.postgres.c7_document_readback import (
+    CanonicalCommitReadback,
+    document_ref_from_readback,
+)
+from app.successor_runtime.substrate.postgres.c7_projector_driver import (
+    projection_offset_key,
+    rebuild_c7_search_projection,
 )
 from app.successor_runtime.substrate.postgres.runtime_journal import (
     StaleRevisionError,
@@ -228,7 +227,7 @@ def _seed_canonical_document(connection: sa.Connection) -> None:
 def _read_canonical_document(
     connection: sa.Connection,
     object_id: str,
-) -> CanonicalDocumentState | None:
+) -> Mapping[str, object] | None:
     row = (
         connection.execute(
             sa.select(CANONICAL_DOCUMENT_TABLE).where(
@@ -239,16 +238,7 @@ def _read_canonical_document(
         .mappings()
         .first()
     )
-    if row is None:
-        return None
-    return CanonicalDocumentState(
-        project_key=row["project_key"],
-        object_id=row["object_id"],
-        revision=row["revision"],
-        incarnation=row["incarnation"],
-        content_digest=row["content_digest"],
-        canonical_commit_ref=row["canonical_commit_ref"],
-    )
+    return row
 
 
 def _commit_binding() -> CommitIntentBinding:
@@ -339,13 +329,8 @@ def test_c7_3_projection_offset_exact_cas_and_rebuild(
         assert ref.revision == document.revision
         assert ref.incarnation == document.incarnation
         assert ref.content_digest == document.content_digest
-        key = ProjectionOffsetKey(
-            projector_id=SEARCH_PROJECTOR_ID,
-            projector_version=SEARCH_PROJECTOR_VERSION,
-            source_kind=SEARCH_SOURCE_KIND,
-            source_ref=f"document:{ref.object_id}",
-            source_incarnation=ref.incarnation,
-        )
+        key = projection_offset_key("search", ref)
+        assert isinstance(key, ProjectionOffsetKey)
         offsets = ProjectionOffsetRepository(connection, _scope())
         created = offsets.create(
             projection_offset_id="offset:p4-c7-postgres",
@@ -375,7 +360,7 @@ def test_c7_3_projection_offset_exact_cas_and_rebuild(
         assert loaded["source_revision"] == document.revision
         assert loaded["source_digest"] == document.content_digest
         assert loaded["source_incarnation"] == document.incarnation
-        rebuilt = rebuild_search_projection(ref)
+        rebuilt = rebuild_c7_search_projection(ref)
         assert rebuilt.projection_digest
 
 
@@ -408,11 +393,8 @@ def test_c7_4_outcome_unknown_readback_recovery_never_starts_new_attempt(
         assert decision.new_attempt_allowed is False
 
 
-def test_c7_3_projector_offset_source_matches_shared_key_shape(
-    disposable_database: Engine,
-) -> None:
-    projection = rebuild_search_projection(document_ref())
-    fields = projection.source.to_offset_key()
+def test_c7_3_projector_offset_source_matches_shared_key_shape() -> None:
+    fields = dataclasses.asdict(projection_offset_key("search", document_ref()))
     assert set(fields) == {
         "projector_id",
         "projector_version",

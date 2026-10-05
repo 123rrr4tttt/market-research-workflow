@@ -156,9 +156,9 @@ DEFAULT_WORKFLOW_NATIVE_SOURCE = WorkflowNativeSource(
         ],
     },
     rollback_refs=(
-        "main/backend/app/successor_migration/legacy_workflow_graph.py",
-        "main/backend/app/successor_runtime/capabilities/c1_legacy_dsl.py",
-        "main/backend/app/successor_runtime/capabilities/c1_slice_acceptance.py",
+        "main/backend/app/successor_runtime/capabilities/workflow_legacy_dsl.py",
+        "main/backend/app/successor_runtime/capabilities/workflow_slice_acceptance.py",
+        "main/backend/app/services/workflow_graph/runtime.py",
     ),
     interpreter_profile_id="workflow.definition.compile.interpreter.v2",
     deployment_catalog_preimage="mrw.workflow.deployment-catalog.v2",

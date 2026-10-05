@@ -6,10 +6,6 @@ from typing import Annotated, get_args, get_origin, get_type_hints
 from functorial_kit.arch.gates import scan_project
 from functorial_kit.arch.scan import ratchet, violation_key
 
-from app.successor_runtime.specification.c7_p4 import (
-    build_observations,
-    build_rollback_observation,
-)
 from app.successor_runtime.specification.compiler import build_manifest_bytes
 from app.successor_runtime.specification.shared_family_generator import (
     build_fragment,
@@ -18,10 +14,6 @@ from app.successor_runtime.specification.shared_family_generator import (
 
 
 W08B_EXACT_KEYS = {
-    "derived-marked|main/backend/app/successor_runtime/specification/c7_p4.py|"
-    "build_observations returns an unmarked derived value",
-    "derived-marked|main/backend/app/successor_runtime/specification/c7_p4.py|"
-    "build_rollback_observation returns an unmarked derived value",
     "derived-marked|main/backend/app/successor_runtime/specification/compiler.py|"
     "build_manifest_bytes returns an unmarked derived value",
     "derived-marked|main/backend/app/successor_runtime/specification/shared_family_generator.py|"
@@ -46,19 +38,9 @@ def _return_metadata(function: object) -> str:
 
 
 def test_w08b_specification_authority_metadata_preserves_abi() -> None:
-    assert len(W08B_EXACT_KEYS) == 5
+    assert len(W08B_EXACT_KEYS) == 3
 
-    observations = build_observations("C7.1")
-    assert len(observations) == 2
-    assert all(isinstance(item, dict) for item in observations)
-    rollback = build_rollback_observation("C7.1", observations[0], observations[1])
-    assert rollback["rollback_digest"]
-
-    generated = (
-        build_observations,
-        build_rollback_observation,
-        build_fragment,
-    )
+    generated = (build_fragment,)
     for function in generated:
         metadata = _return_metadata(function)
         assert metadata.startswith("kit:non-authoritative")
@@ -85,7 +67,6 @@ def test_w08b_exact_keys_are_removed_from_live_scan() -> None:
         for violation in result.new_violations
         if violation.file
         in {
-            "main/backend/app/successor_runtime/specification/c7_p4.py",
             "main/backend/app/successor_runtime/specification/compiler.py",
             "main/backend/app/successor_runtime/specification/shared_family_generator.py",
         }

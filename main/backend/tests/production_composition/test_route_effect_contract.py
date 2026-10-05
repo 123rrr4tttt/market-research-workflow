@@ -201,7 +201,15 @@ def test_v3_registry_shape_and_route_effect_invariants() -> None:
     conditional = [contract for contract in contracts if contract.effect_class is EffectClass.CONDITIONAL]
     provider_calls = [contract for contract in contracts if contract.effect_class is EffectClass.PROVIDER_CALL]
 
-    assert len(bindings) == 310
+    # Completeness against the installed router is checked independently by
+    # test_checked_in_route_registry_exactly_covers_installed_routes.  Preserve
+    # identity and effect consistency when an endpoint gains a URL alias.
+    route_methods = [(binding.route_template, method) for binding in bindings for method in binding.methods]
+    assert bindings and len(route_methods) == len(set(route_methods))
+    by_operation: dict[str, EndpointEffectContract] = {}
+    for binding in bindings:
+        previous = by_operation.setdefault(binding.operation, binding.effect_contract)
+        assert previous == binding.effect_contract
     canonical_writes = [
         contract for contract in contracts if contract.effect_class is EffectClass.CANONICAL_WRITE
     ]
@@ -210,7 +218,7 @@ def test_v3_registry_shape_and_route_effect_invariants() -> None:
     assert len(canonical_writes) == 1
     assert canonical_writes[0].admission is EffectAdmission.ADMITTED
     assert canonical_writes[0].canonical_writer_port == "postgres.projection_rebuild.v2"
-    assert len(conditional) == 76
+    assert conditional
     assert len(provider_calls) == 2
     assert all(
         contract.admission is EffectAdmission.BLOCKED_UNTIL_EFFECT_BINDING
@@ -220,6 +228,7 @@ def test_v3_registry_shape_and_route_effect_invariants() -> None:
     assert not {
         "agent-batch.run_agent_batch_nl_command",
         "agent-batch.run_agent_batch_nl_command_direct",
+        "agent-sessions.run_agent_session_coordinator_pass",
     } & operations
     for operation in (
         "agent-batch.reject_agent_batch_nl_command",
@@ -229,6 +238,15 @@ def test_v3_registry_shape_and_route_effect_invariants() -> None:
         assert contract.effect_class is EffectClass.PURE_COMPUTE
         assert contract.admission is EffectAdmission.ADMITTED
     new_routes = {
+        "agent-cell.read_agent_cell": EffectClass.READ,
+        "agent-macro-host.read_macro_environment": EffectClass.READ,
+        "agent-macro-host.prepare_macro_host": EffectClass.LEGACY_WRITE,
+        "agent-macro-host.bind_macro_host": EffectClass.LEGACY_WRITE,
+        "agent-macro-host.record_macro_input": EffectClass.LEGACY_WRITE,
+        "agent-macro-host.confirm_macro_action": EffectClass.LEGACY_WRITE,
+        "agent-macro-host.dispatch_macro_tool": EffectClass.CONDITIONAL,
+        "agent-macro-host.end_macro_turn": EffectClass.LEGACY_WRITE,
+        "crawler.list_crawler_agent_modules_api": EffectClass.READ,
         "information-topology.describe_profiles": EffectClass.READ,
         "information-topology.list_topologies": EffectClass.READ,
         "information-topology.resolve_refs": EffectClass.READ,

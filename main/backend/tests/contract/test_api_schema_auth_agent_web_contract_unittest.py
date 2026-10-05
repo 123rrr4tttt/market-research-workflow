@@ -11,16 +11,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.contract
 
 _TARGET_MODULE_COUNTS = {
-    "agent_chat.py": 4,
-    "agent_sessions.py": 17,
+    "agent_sessions.py": 16,
     "codex_auth.py": 7,
     "app.web_ui_routes": 1,
 }
 
 _JSON_ENVELOPE_PATHS = {
-    ("GET", "/api/v1/agent-chat/capabilities"),
-    ("POST", "/api/v1/agent-chat/turn"),
-    ("POST", "/api/v1/agent-chat/approvals/{approval_id}/continue"),
     ("GET", "/api/v1/agent-sessions"),
     ("POST", "/api/v1/agent-sessions"),
     ("GET", "/api/v1/agent-sessions/{session_id}"),
@@ -34,7 +30,6 @@ _JSON_ENVELOPE_PATHS = {
     ("POST", "/api/v1/agent-sessions/{session_id}/actions/retry-task"),
     ("POST", "/api/v1/agent-sessions/{session_id}/actions/cancel"),
     ("POST", "/api/v1/agent-sessions/{session_id}/actions/reclaim-expired"),
-    ("POST", "/api/v1/agent-sessions/{session_id}/actions/coordinator-pass"),
     ("POST", "/api/v1/agent-sessions/{session_id}/actions/request-approval"),
     ("POST", "/api/v1/agent-approvals/{approval_id}/resolve"),
     ("GET", "/api/v1/codex-auth/status"),
@@ -45,7 +40,6 @@ _JSON_ENVELOPE_PATHS = {
 }
 
 _NON_JSON_OR_REDIRECT_PATHS = {
-    ("POST", "/api/v1/agent-chat/turn/stream"),
     ("GET", "/api/v1/agent-sessions/{session_id}/stream"),
     ("GET", "/api/v1/codex-auth/login"),
     ("GET", "/api/v1/codex-auth/callback"),

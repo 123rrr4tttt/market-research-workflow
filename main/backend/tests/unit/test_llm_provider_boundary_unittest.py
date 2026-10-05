@@ -6,9 +6,19 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from pydantic import SecretStr
+from langchain_core.embeddings import Embeddings
+from langchain_core.language_models import BaseChatModel
+from langchain_openai import (
+    AzureChatOpenAI,
+    AzureOpenAIEmbeddings,
+    ChatOpenAI,
+    OpenAIEmbeddings,
+)
 
 from app.composition.llm import LiteLLMProviderAdapter, configure_llm_providers
 from app.services.llm import ports, provider
+from app.services.llm.adapters.langchain_provider import LangChainProviderAdapter
 from app.services.llm.ports import ChatModelOptions
 
 
@@ -128,7 +138,7 @@ def test_litellm_adapter_constructs_openai_compatible_models(
     assert created["chat"] == {
         "model": "proxy-model",
         "base_url": "http://litellm.test",
-        "api_key": "fixture-key",
+        "api_key": SecretStr("fixture-key"),
         "temperature": 0.3,
         "max_tokens": 64,
         "seed": 7,
@@ -137,8 +147,62 @@ def test_litellm_adapter_constructs_openai_compatible_models(
     assert created["embeddings"] == {
         "model": "custom-embedding",
         "base_url": "http://litellm.test",
-        "api_key": "fixture-key",
+        "api_key": SecretStr("fixture-key"),
     }
+
+
+def test_langchain_adapter_returns_platform_model_types(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(provider.settings, "llm_provider", "openai")
+    monkeypatch.setattr(provider.settings, "openai_api_key", "fixture-key")
+    monkeypatch.setattr(provider.settings, "embedding_model", "fixture-embedding")
+    monkeypatch.setattr(provider.settings, "codex_cli_llm_preferred", False)
+
+    adapter = LangChainProviderAdapter()
+    chat = adapter.get_chat_model(ChatModelOptions(model="gpt-test"))
+    embeddings = adapter.get_embeddings()
+
+    assert isinstance(chat, BaseChatModel)
+    assert isinstance(chat, ChatOpenAI)
+    assert chat.model_name == "gpt-test"
+    assert isinstance(embeddings, Embeddings)
+    assert isinstance(embeddings, OpenAIEmbeddings)
+    assert embeddings.model == "fixture-embedding"
+
+
+def test_langchain_adapter_preserves_unknown_provider_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(provider.settings, "llm_provider", "local")
+    adapter = LangChainProviderAdapter()
+
+    with pytest.raises(ValueError, match="未知的 llm_provider: local"):
+        adapter.get_chat_model(ChatModelOptions())
+    with pytest.raises(ValueError, match="未知的 llm_provider: local"):
+        adapter.get_embeddings("fixture-embedding")
+
+
+def test_langchain_adapter_constructs_azure_models_with_current_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(provider.settings, "llm_provider", "azure")
+    monkeypatch.setattr(provider.settings, "azure_api_base", "http://azure.test")
+    monkeypatch.setattr(provider.settings, "azure_api_key", "fixture-key")
+    monkeypatch.setattr(provider.settings, "azure_api_version", "fixture-version")
+    monkeypatch.setattr(provider.settings, "azure_chat_deployment", "chat")
+    monkeypatch.setattr(provider.settings, "azure_embedding_deployment", "embedding")
+
+    adapter = LangChainProviderAdapter()
+    chat = adapter.get_chat_model(
+        ChatModelOptions(model="fixture-model", max_tokens=64)
+    )
+    embeddings = adapter.get_embeddings("fixture-embedding")
+
+    assert isinstance(chat, AzureChatOpenAI)
+    assert chat.deployment_name == "chat"
+    assert isinstance(embeddings, AzureOpenAIEmbeddings)
+    assert embeddings.deployment == "embedding"
 
 
 def test_local_fallback_wraps_registered_chat(

@@ -1,11 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextvars import copy_context
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
-from math import ceil
 from types import SimpleNamespace
 from typing import Any, NoReturn
 
@@ -14,15 +11,22 @@ from functorial_kit import Failure
 from mrw_functorial_kit.core.provider_port_failures import collect_runtime_failures
 
 from ..agent_batch.task_contract import parse_source_library_runtime_params
-from .contracts import FLOW_SOURCE_COLLECT, CollectAdapter, CollectRequest, CollectResult
-from .delivery import DeliveryObservation, observe_delivery, resource_compatibility
 
-_AUTO_BATCH_CHANNELS = {"search.market", "search.policy"}
-_DEFAULT_AUTO_BATCH_PARALLELISM = 1
+from .contracts import (
+    FLOW_SOURCE_COLLECT,
+    CollectAdapter,
+    CollectEffectGateway,
+    CollectRequest,
+    CollectResult,
+    SourceLibraryCompatResponse,
+    SourceLibraryCompatProjector,
+)
+from .delivery import DeliveryObservation, observe_delivery, resource_compatibility
+from .successor_bridge import outcome_unknown_result
 
 _SKILL_REGISTRY: dict[str, CollectAdapter] = {}
-_SOURCE_LIBRARY_COMPAT_PROJECTOR: Any | None = None
-_SUCCESSOR_EFFECT_GATEWAY: Any | None = None
+_SOURCE_LIBRARY_COMPAT_PROJECTOR: SourceLibraryCompatProjector | None = None
+_SUCCESSOR_EFFECT_GATEWAY: CollectEffectGateway | None = None
 
 
 def _collect_contract_failure(code: str, message: str, *, site: str) -> Failure:
@@ -75,7 +79,7 @@ def reset_collect_adapters() -> None:
     _SKILL_REGISTRY.clear()
 
 
-def register_source_library_compat_projector(projector: Any) -> None:
+def register_source_library_compat_projector(projector: SourceLibraryCompatProjector) -> None:
     """Inject the legacy source-library response projection at composition time."""
 
     global _SOURCE_LIBRARY_COMPAT_PROJECTOR
@@ -91,7 +95,7 @@ def register_source_library_compat_projector(projector: Any) -> None:
     _SOURCE_LIBRARY_COMPAT_PROJECTOR = projector
 
 
-def register_successor_collect_effect_gateway(gateway: Any) -> None:
+def register_successor_collect_effect_gateway(gateway: CollectEffectGateway) -> None:
     """Inject the effectful successor gateway; it is separate from legacy adapters."""
 
     global _SUCCESSOR_EFFECT_GATEWAY
@@ -113,91 +117,14 @@ def reset_successor_collect_effect_gateway() -> None:
     _SUCCESSOR_EFFECT_GATEWAY = None
 
 
-def _resolve_collect_adapter(channel: str) -> CollectAdapter | None:
-    candidates = [
-        str(channel or "").strip(),
-        f"collect.{str(channel or '').strip()}",
-        f"skill.collect.{str(channel or '').strip()}",
-    ]
-    for key in candidates:
-        if key and key in _SKILL_REGISTRY:
-            return _SKILL_REGISTRY[key]
-    return None
-
-# Compatibility input from the former workflow-boundary rollout. Both accepted
-# values now use the same original dispatcher; the parser remains for callers
-# and tests that still express their deployment configuration this way.
-def _resolve_workflow_mode() -> str:
-    # Local import for unit-safety and to avoid global side effects.
-    import os  # unit-safe import
-
-    raw = str(os.environ.get("INGEST_WORKFLOW_ADAPTER", "off") or "off").strip().lower()
-    if raw in {"on", "workflow", "canary"}:
-        return "workflow"
-    # Treat anything else as legacy for safe rollback.
-    return "legacy"
-
 
 def run_collect(request: CollectRequest) -> CollectResult:
-    """Runtime entry.
+    """Dispatch every collect through the one typed adapter-effect gateway."""
 
-    Routes explicit typed collection modes first, then uses the original
-    adapter dispatcher for legacy-compatible execution. The former
-    INGEST_WORKFLOW_ADAPTER boundary is accepted as compatibility input but no
-    longer creates a second dispatch path.
-    """
-    successor_mode = _resolve_successor_collect_mode()
-    if successor_mode in {"on", "canary"}:
-        successor_result = _run_successor_collect(request)
-        if successor_result is not None:
-            return _attach_delivery_observation(successor_result)
-        # Explicit successor mode never silently falls back to the legacy
-        # registry for an ineligible/non-C3 request.
-        from .successor_bridge import outcome_unknown_result
-
-        return _attach_delivery_observation(outcome_unknown_result(request))
-    if successor_mode == "shadow":
-        _raise_collect_contract(
-            _collect_contract_failure(
-                "product_mode_unsupported",
-                "Collect shadow mode is not implemented for product collection requests",
-                site="run_collect.product_mode",
-            )
-        )
-    if _successor_switch_configured():
-        # An explicit off/legacy value is the rollback authority and must not
-        # be shadowed by the older workflow switch.
-        batched = _maybe_run_auto_batched(request)
-        if batched is not None:
-            return _attach_delivery_observation(batched)
-        return _run_collect_no_batch(request)
-
-    batched = _maybe_run_auto_batched(request)
+    batched = _run_successor_collect(request)
     if batched is not None:
         return _attach_delivery_observation(batched)
     return _run_collect_no_batch(request)
-
-
-def _resolve_successor_collect_mode() -> str:
-    """Resolve the explicit successor switch; unknown values fail closed."""
-
-    import os
-
-    raw = os.environ.get("SUCCESSOR_RUNTIME_COLLECT")
-    if raw is None:
-        return "legacy"
-    try:
-        from app.successor_runtime.capabilities.acquisition_batch import collect_runtime_mode
-
-        return collect_runtime_mode(raw)
-    except Exception:
-        return "legacy"
-
-
-def _successor_switch_configured() -> bool:
-    import os
-
-    return "SUCCESSOR_RUNTIME_COLLECT" in os.environ
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,7 +161,7 @@ def _successor_resource_policy(request: CollectRequest, acquisition: Any) -> Any
     provider_key = f"{request.channel}:{request.provider or 'default'}"
     siblings = SimpleNamespace(provider_concurrency_key=provider_key)
     compatibility = resource_compatibility(siblings, siblings)
-    requested = _resolve_auto_batch_parallelism(request) if compatibility == "compatible" else 1
+    requested = acquisition.resolve_auto_batch_parallelism(request) if compatibility == "compatible" else 1
     options = request.options if isinstance(request.options, dict) else {}
     raw_deadline = options.get("deadline_seconds")
     try:
@@ -245,7 +172,7 @@ def _successor_resource_policy(request: CollectRequest, acquisition: Any) -> Any
         schema_ref=acquisition.COLLECT_RESOURCE_POLICY_SCHEMA_REF,
         max_parallelism=max(1, requested),
         deadline_seconds=deadline,
-        cancellation=("COORDINATED" if _resolve_auto_batch_fail_fast(request) else "NONE"),
+        cancellation=("COORDINATED" if acquisition.resolve_auto_batch_fail_fast(request) else "NONE"),
         backpressure=True,
         provider_concurrency_key=provider_key,
         policy_digest="",
@@ -353,13 +280,15 @@ def _collect_result_to_c3_outcome(result: CollectResult, element: Any, acquisiti
 def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
     """Execute eligible search batches through the real typed C3 interpreters."""
 
-    if request.channel not in _AUTO_BATCH_CHANNELS or not request.project_key or not _should_auto_batch(request):
+    from app.successor_runtime.capabilities import acquisition_batch as acquisition
+    if (
+        request.channel not in acquisition.COLLECT_AUTO_BATCH_CHANNELS
+        or not request.project_key
+        or not acquisition.should_auto_batch(request)
+    ):
         return None
     if _SUCCESSOR_EFFECT_GATEWAY is None:
-        from .successor_bridge import outcome_unknown_result
-
         return outcome_unknown_result(request)
-    from app.successor_runtime.capabilities import acquisition_batch as acquisition
     from app.successor_runtime.capabilities import acquisition_batch_interpreters as ci
     from app.successor_runtime.capabilities import acquisition_batch_program as cp
     from app.successor_runtime.capabilities.acquisition_native_contribution import (
@@ -552,8 +481,8 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
             link for row in delivery_rows for link in (row.get("links") or [])
         ))
         state = "unknown" if pending_delivery else "cancelled"
-        requested_parallelism = _resolve_auto_batch_parallelism(request)
-        fail_fast = _resolve_auto_batch_fail_fast(request)
+        requested_parallelism = acquisition.resolve_auto_batch_parallelism(request)
+        fail_fast = acquisition.resolve_auto_batch_fail_fast(request)
         reason = (
             "target_delivery_readback_required"
             if any(
@@ -646,249 +575,10 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
     return result
 
 
-def _should_auto_batch(request: CollectRequest) -> bool:
-    if request.channel not in _AUTO_BATCH_CHANNELS:
-        return False
-    qn = len([x for x in (request.query_terms or []) if str(x).strip()])
-    lim = int(request.limit or 0)
-    return qn >= 6 or lim >= 60
-
-
-def _split_query_terms(terms: list[str]) -> list[list[str]]:
-    clean = [str(x).strip() for x in (terms or []) if str(x).strip()]
-    if not clean:
-        return [[]]
-    chunk_size = 4 if len(clean) >= 8 else 5
-    return [clean[i : i + chunk_size] for i in range(0, len(clean), chunk_size)]
-
-
-def _merge_collect_results(parent_request: CollectRequest, batch_results: list[tuple[list[str], CollectResult]]) -> CollectResult:
-    out = CollectResult(channel=parent_request.channel, status="completed")
-    links_seen: set[str] = set()
-    merged_links: list[str] = []
-    raw_batches: list[dict[str, Any]] = []
-    delivery_observations: list[dict[str, Any]] = []
-    provider_types: set[str] = set()
-    provider_statuses: list[str] = []
-    provider_job_ids: list[str] = []
-    provider_jobs_seen: set[str] = set()
-    attempts_total = 0
-    has_attempt_count = False
-    batches_failed = 0
-    for terms, cr in batch_results:
-        delivery = asdict(_collect_delivery_observation(cr))
-        delivery_observations.append(delivery)
-        out.inserted += int(cr.inserted or 0)
-        out.updated += int(cr.updated or 0)
-        out.skipped += int(cr.skipped or 0)
-        out.errors.extend(cr.errors or [])
-        if str(cr.status or "").lower() == "failed":
-            batches_failed += 1
-        raw = dict((cr.meta or {}).get("raw") or {})
-        batch_meta: dict[str, Any] = {"query_terms": terms, "result": raw, "delivery_observation": delivery}
-        if cr.provider_job_id:
-            batch_meta["provider_job_id"] = cr.provider_job_id
-        if cr.provider_type:
-            batch_meta["provider_type"] = cr.provider_type
-            provider_types.add(cr.provider_type)
-        if cr.provider_status:
-            batch_meta["provider_status"] = cr.provider_status
-            provider_statuses.append(cr.provider_status)
-        if cr.attempt_count is not None:
-            batch_meta["attempt_count"] = int(cr.attempt_count)
-            attempts_total += int(cr.attempt_count)
-            has_attempt_count = True
-        if cr.provider_job_id and cr.provider_job_id not in provider_jobs_seen:
-            provider_jobs_seen.add(cr.provider_job_id)
-            provider_job_ids.append(cr.provider_job_id)
-        raw_batches.append(batch_meta)
-        for link in (raw.get("links") or []):
-            s = str(link or "").strip()
-            if s and s not in links_seen:
-                links_seen.add(s)
-                merged_links.append(s)
-    raw_merged = {
-        "inserted": out.inserted,
-        "updated": out.updated,
-        "skipped": out.skipped,
-        "errors": out.errors,
-        "auto_batched": True,
-        "batches_total": len(batch_results),
-        "batches_completed": len(batch_results),
-        "batches_failed": batches_failed,
-        "batches_succeeded": max(0, len(batch_results) - batches_failed),
-        "batch_results": raw_batches,
-        "delivery_observations": delivery_observations,
-    }
-    if merged_links:
-        raw_merged["links"] = merged_links
-    if provider_job_ids:
-        raw_merged["provider_job_ids"] = provider_job_ids
-    if provider_types:
-        raw_merged["provider_types"] = sorted(provider_types)
-    if provider_statuses:
-        raw_merged["provider_statuses"] = provider_statuses
-    if has_attempt_count:
-        raw_merged["attempt_count_total"] = attempts_total
-    out.meta = {
-        "raw": raw_merged,
-        "auto_batched": True,
-        "batches_total": len(batch_results),
-        "batches_failed": batches_failed,
-        "batches_succeeded": max(0, len(batch_results) - batches_failed),
-        "query_term_batches": [terms for terms, _ in batch_results],
-        "delivery_observations": delivery_observations,
-    }
-    # Adapter-specific summary stays same; display_meta builder will fill standard stats.
-    from .display_meta import build_display_meta
-    summary = (parent_request.source_context or {}).get("summary")
-    if len(provider_job_ids) == 1:
-        out.provider_job_id = provider_job_ids[0]
-    if len(provider_types) == 1:
-        out.provider_type = next(iter(provider_types))
-    if provider_statuses:
-        unique_statuses = set(provider_statuses)
-        out.provider_status = provider_statuses[0] if len(unique_statuses) == 1 else "mixed"
-    if has_attempt_count:
-        out.attempt_count = attempts_total
-    out.display_meta = build_display_meta(parent_request, out, summary=summary)
-    return out
-
-
 def _run_collect_no_batch(request: CollectRequest) -> CollectResult:
-    adapter = _resolve_collect_adapter(request.channel)
-    if adapter is None:
-        _raise_collect_contract(
-            _collect_contract_failure(
-                "collect_channel_unsupported",
-                f"unsupported collect channel: {request.channel}",
-                site="run_collect.channel",
-            )
-        )
-    return _attach_delivery_observation(adapter.run(request))
-
-
-def _maybe_run_auto_batched(request: CollectRequest) -> CollectResult | None:
-    return _run_auto_batch(request, _run_collect_no_batch)
-
-
-def _run_auto_batch(
-    request: CollectRequest,
-    runner: Any,
-) -> CollectResult | None:
-    if not _should_auto_batch(request):
-        return None
-    term_batches = _split_query_terms(request.query_terms)
-    if len(term_batches) <= 1:
-        return None
-    per_batch_limit = max(10, int(ceil(max(1, int(request.limit or 20)) / len(term_batches))))
-    fail_fast = _resolve_auto_batch_fail_fast(request)
-    # Legacy batches have the same missing write scopes and capacity evidence
-    # as C3. Options are intent, not proof of independent provider effects.
-    max_workers = 1
-    batch_results = _execute_auto_batch(request, term_batches, per_batch_limit, runner, max_workers=max_workers, fail_fast=fail_fast)
-    merged = _merge_collect_results(request, batch_results)
-    merged.meta = {
-        **(merged.meta or {}),
-        "batch_parallelism": max_workers,
-        "batch_parallelism_requested": _resolve_auto_batch_parallelism(request),
-        "batch_fail_fast": fail_fast,
-    }
-    raw_meta = dict((merged.meta or {}).get("raw") or {})
-    raw_meta.update(
-        {
-            "batch_parallelism": max_workers,
-            "batch_parallelism_requested": _resolve_auto_batch_parallelism(request),
-            "batch_fail_fast": fail_fast,
-        }
-    )
-    merged.meta["raw"] = raw_meta
-    return merged
-
-
-def _execute_auto_batch(
-    request: CollectRequest,
-    term_batches: list[list[str]],
-    per_batch_limit: int,
-    runner: Any,
-    *,
-    max_workers: int,
-    fail_fast: bool,
-) -> list[tuple[list[str], CollectResult]]:
-    indexed_results: list[tuple[int, list[str], CollectResult]] = []
-    if max_workers <= 1:
-        for idx, terms in enumerate(term_batches):
-            indexed_results.append((idx, terms, _run_single_auto_batch(request, terms, per_batch_limit, runner, fail_fast=fail_fast)))
-        return [(terms, result) for idx, terms, result in sorted(indexed_results, key=lambda item: item[0])]
-
-    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="collect-auto-batch") as executor:
-        future_map = {
-            executor.submit(copy_context().run, _run_single_auto_batch, request, terms, per_batch_limit, runner, fail_fast): (idx, terms)
-            for idx, terms in enumerate(term_batches)
-        }
-        for future in as_completed(future_map):
-            idx, terms = future_map[future]
-            indexed_results.append((idx, terms, future.result()))
-    return [(terms, result) for idx, terms, result in sorted(indexed_results, key=lambda item: item[0])]
-
-
-def _run_single_auto_batch(
-    request: CollectRequest,
-    terms: list[str],
-    per_batch_limit: int,
-    runner: Any,
-    fail_fast: bool = False,
-) -> CollectResult:
-    sub = replace(
-        request,
-        query_terms=terms,
-        limit=per_batch_limit,
-        source_context={**(request.source_context or {}), "auto_batched_child": True},
-    )
-    try:
-        return runner(sub)
-    except Exception as exc:
-        if fail_fast:
-            # kit:boundary owner=collect.runtime.auto_batch class=SHELL_BOUNDARY_EXCEPTION failure_family=collect.runtime.failure witness=test:test_w03_effect_boundaries
-            raise
-        return CollectResult(
-            channel=request.channel,
-            status="failed",
-            errors=[
-                {
-                    "code": "auto_batch_execution_failed",
-                    "message": str(exc) or exc.__class__.__name__,
-                    "query_terms": list(terms),
-                }
-            ],
-            meta={
-                "raw": {
-                    "auto_batched": True,
-                    "query_terms": list(terms),
-                    "exception_type": exc.__class__.__name__,
-                    "failed": True,
-                }
-            },
-        )
-
-
-def _resolve_auto_batch_parallelism(request: CollectRequest) -> int:
-    options = request.options if isinstance(request.options, dict) else {}
-    source_context = request.source_context if isinstance(request.source_context, dict) else {}
-    raw = options.get("batch_parallelism", source_context.get("batch_parallelism", _DEFAULT_AUTO_BATCH_PARALLELISM))
-    try:
-        return max(1, int(raw))
-    except Exception:
-        return _DEFAULT_AUTO_BATCH_PARALLELISM
-
-
-def _resolve_auto_batch_fail_fast(request: CollectRequest) -> bool:
-    options = request.options if isinstance(request.options, dict) else {}
-    source_context = request.source_context if isinstance(request.source_context, dict) else {}
-    raw = options.get("batch_fail_fast", source_context.get("batch_fail_fast", False))
-    if isinstance(raw, bool):
-        return raw
-    return str(raw or "").strip().lower() in {"1", "true", "yes", "on"}
+    if _SUCCESSOR_EFFECT_GATEWAY is None:
+        return _attach_delivery_observation(outcome_unknown_result(request))
+    return _attach_delivery_observation(_SUCCESSOR_EFFECT_GATEWAY(request))
 
 
 def normalize_query_terms(value: Any) -> list[str]:
@@ -956,7 +646,12 @@ def collect_request_from_policy_api(*, query_terms: list[str], max_items: int, p
     )
 
 
-def collect_request_from_source_library_api(*, item_key: str, project_key: str | None, override_params: dict | None = None) -> CollectRequest:
+def collect_request_from_source_library_api(
+    *,
+    item_key: str,
+    project_key: str | None,
+    override_params: CollectJsonObject | None = None,
+) -> CollectRequest:
     parsed = parse_source_library_runtime_params(override_params)
     return CollectRequest(
         flow=FLOW_SOURCE_COLLECT,
@@ -1007,8 +702,8 @@ def run_source_library_item_compat(
     *,
     item_key: str,
     project_key: str | None = None,
-    override_params: dict | None = None,
-) -> dict:
+    override_params: CollectJsonObject | None = None,
+) -> SourceLibraryCompatResponse:
     request = collect_request_from_source_library_api(
         item_key=item_key,
         project_key=project_key,
@@ -1019,6 +714,5 @@ def run_source_library_item_compat(
         # kit:boundary owner=collect.runtime.compat_projector class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w03_collect_programmer_defect_boundary
         raise RuntimeError("source-library compatibility projector is not configured")
     response = _SOURCE_LIBRARY_COMPAT_PROJECTOR(result)
-    if isinstance(response, dict):
-        response.setdefault("display_meta", result.display_meta)
+    response.setdefault("display_meta", result.display_meta)
     return response

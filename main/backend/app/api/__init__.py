@@ -9,7 +9,6 @@ from app.successor_runtime.assembly.app_assembly import (
 
 from .admin import router as admin_router
 from .agent_batch import router as agent_batch_router
-from .agent_chat import router as agent_chat_router
 from .agent_macro_host import router as agent_macro_host_router
 from .agent_cell import router as agent_cell_router
 from .agent_sessions import router as agent_sessions_router
@@ -81,7 +80,6 @@ router.include_router(stats_router)
 router.include_router(writing_router)
 router.include_router(typed_knowledge_router)
 router.include_router(agent_batch_router)
-router.include_router(agent_chat_router)
 router.include_router(agent_macro_host_router)
 router.include_router(agent_cell_router)
 router.include_router(agent_sessions_router)

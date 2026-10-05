@@ -48,17 +48,18 @@ from app.successor_runtime.runtime.node import (
     RuntimeHandler,
 )
 
-WORKFLOW_COMPILE_ROLLBACK_PATH = "main/backend/app/successor_migration/legacy_workflow_graph.py"
-WORKFLOW_COMPILE_INTERPRETER_MODULE = (
-    "main/backend/app/successor_runtime/capabilities/c1_legacy_dsl.py"
+WORKFLOW_COMPILE_BOUNDARY_MODULE = (
+    "main/backend/app/successor_runtime/capabilities/workflow_legacy_dsl.py"
 )
-WORKFLOW_COMPILE_ACCEPTANCE_MODULE = (
-    "main/backend/app/successor_runtime/capabilities/c1_slice_acceptance.py"
+WORKFLOW_RUNTIME_BOUNDARY_MODULE = (
+    "main/backend/app/services/workflow_graph/runtime.py"
+)
+WORKFLOW_ACCEPTANCE_BOUNDARY_MODULE = (
+    "main/backend/app/successor_runtime/capabilities/workflow_slice_acceptance.py"
 )
 WORKFLOW_COMPILE_ROLLBACK_PATHS = (
-    WORKFLOW_COMPILE_ROLLBACK_PATH,
-    WORKFLOW_COMPILE_INTERPRETER_MODULE,
-    WORKFLOW_COMPILE_ACCEPTANCE_MODULE,
+    WORKFLOW_COMPILE_BOUNDARY_MODULE,
+    WORKFLOW_ACCEPTANCE_BOUNDARY_MODULE,
 )
 
 WORKFLOW_COMPILE_INTERPRETER_PROFILE_ID = DEFAULT_WORKFLOW_NATIVE_SOURCE.interpreter_profile_id
@@ -82,13 +83,13 @@ WORKFLOW_RUNTIME_OBSERVATION_ROLLBACK_PATHS = (
         "development/latest-dev-docs/development-plans/CURRENT_DEV/"
         "2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceC.v1.json"
     ),
-    WORKFLOW_COMPILE_ROLLBACK_PATH,
+    WORKFLOW_RUNTIME_BOUNDARY_MODULE,
 )
 
 WORKFLOW_COMPILE_REQUIRED_WIRING = (
-    "workflow definition compiler bound to the pure RuntimeHandler",
-    "named-observation compatibility gate remains effect-free",
-    "historical rollback binding remains byte-addressed",
+    "workflow lowering binds exact ProgramSpec/ExecutionPlan",
+    "workflow acceptance remains effect-free",
+    "current platform boundary and historical evidence remain addressable",
 )
 
 WORKFLOW_RUNTIME_OBSERVATION_REQUIRED_WIRING = (
@@ -426,10 +427,9 @@ def build_workflow_assembly(
             note=(
                 "workflow definition pure compile/validate route handler "
                 "installed from native "
-                f"{native_definition.contribution_id}; binds c1_legacy_dsl.py / "
-                "c1_slice_acceptance.py / legacy_workflow_graph.py (real "
-                "interpreter/movement files); no effect/DB/provider/canonical "
-                "write"
+                f"{native_definition.contribution_id}; binds "
+                "workflow_legacy_dsl.py / workflow_slice_acceptance.py; "
+                "no effect/DB/provider/canonical write"
             ),
         ),
         CellBinding(
@@ -474,8 +474,8 @@ def build_workflow_assembly(
             status="PRESENT",
             binding_refs=native_definition.source.rollback_refs,
             note=(
-                "workflow compile rollback binding retains the historical route and "
-                "real successor compiler and slice-acceptance implementation files"
+                "workflow rollback retains the current lowering/acceptance "
+                "boundary; retired runtime modules are not executable rollback"
             ),
         ),
         RollbackBindingDeclaration(
@@ -484,7 +484,7 @@ def build_workflow_assembly(
             binding_refs=WORKFLOW_RUNTIME_OBSERVATION_ROLLBACK_PATHS,
             note=(
                 "runtime observation rollback retains historical slice evidence "
-                "and legacy_workflow_graph.py bytes"
+                "and the current platform interpreter boundary"
             ),
         ),
         RollbackBindingDeclaration(
@@ -493,7 +493,7 @@ def build_workflow_assembly(
             binding_refs=WORKFLOW_RUNTIME_OBSERVATION_ROLLBACK_PATHS,
             note=(
                 "state restore rollback retains historical slice evidence and "
-                "legacy_workflow_graph.py bytes"
+                "the current platform interpreter boundary"
             ),
         ),
     )
@@ -507,11 +507,12 @@ def build_workflow_assembly(
 
 
 __all__ = [
-    "WORKFLOW_COMPILE_ACCEPTANCE_MODULE",
-    "WORKFLOW_COMPILE_INTERPRETER_MODULE",
+    "WORKFLOW_ACCEPTANCE_BOUNDARY_MODULE",
+    "WORKFLOW_RUNTIME_BOUNDARY_MODULE",
     "WORKFLOW_COMPILE_REQUIRED_WIRING",
-    "WORKFLOW_COMPILE_ROLLBACK_PATH",
+    "WORKFLOW_COMPILE_BOUNDARY_MODULE",
     "WORKFLOW_COMPILE_ROLLBACK_PATHS",
+    "WORKFLOW_ACCEPTANCE_BOUNDARY_MODULE",
     "WORKFLOW_RUNTIME_OBSERVATION_KERNEL_WIRING",
     "WORKFLOW_RUNTIME_OBSERVATION_REQUIRED_WIRING",
     "WORKFLOW_RUNTIME_OBSERVATION_ROLLBACK_PATHS",

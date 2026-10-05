@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NoReturn, TypeVar
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -15,9 +15,10 @@ from ..services.agent_sessions import get_agent_session_service
 
 router = APIRouter(tags=["agent_sessions"])
 AgentSessionEnvelope = ApiEnvelope[dict[str, Any]]
+_SessionValue = TypeVar("_SessionValue")
 
 
-def _raise_invalid_input(message: str) -> None:
+def _raise_invalid_input(message: str) -> NoReturn:
     raise HTTPException(
         status_code=400,
         detail=error_response(
@@ -27,7 +28,7 @@ def _raise_invalid_input(message: str) -> None:
     )
 
 
-def _raise_not_found(message: str) -> None:
+def _raise_not_found(message: str) -> NoReturn:
     raise HTTPException(
         status_code=404,
         detail=error_response(
@@ -37,7 +38,7 @@ def _raise_not_found(message: str) -> None:
     )
 
 
-def _unwrap_agent_session_failure(value: Any, *, not_found_message: str) -> Any:
+def _unwrap_agent_session_failure(value: _SessionValue | Failure, *, not_found_message: str) -> _SessionValue:
     if not isinstance(value, Failure):
         return value
     if value.family != "agent.session.failure":
@@ -63,7 +64,7 @@ def _unwrap_agent_session_failure(value: Any, *, not_found_message: str) -> Any:
     )
 
 
-def _raise_mapped_error(exc: Exception) -> None:
+def _raise_mapped_error(exc: Exception) -> NoReturn:
     if isinstance(exc, ValueError):
         _raise_invalid_input(str(exc) or "invalid agent session request")
     code, message, details = map_exception_to_error(exc)
@@ -292,7 +293,7 @@ def retry_agent_session_task(session_id: str, payload: AgentTaskRetryRequest) ->
         _raise_not_found("session or task not found")
     except Exception as exc:  # noqa: BLE001
         _raise_mapped_error(exc)
-    return ok(out)
+    return ok(_unwrap_agent_session_failure(out, not_found_message="session or task not found"))
 
 
 @router.post("/agent-sessions/{session_id}/actions/cancel", response_model=AgentSessionEnvelope)
@@ -313,16 +314,6 @@ def reclaim_agent_session_expired_tasks(session_id: str) -> dict[str, Any]:
     except KeyError:
         _raise_not_found("session not found")
     return ok({"items": out})
-
-
-@router.post("/agent-sessions/{session_id}/actions/coordinator-pass", response_model=AgentSessionEnvelope)
-def run_agent_session_coordinator_pass(session_id: str) -> dict[str, Any]:
-    service = get_agent_session_service()
-    try:
-        out = service.run_coordinator_pass(session_id)
-    except KeyError:
-        _raise_not_found("session not found")
-    return ok(out)
 
 
 @router.post("/agent-sessions/{session_id}/actions/request-approval", response_model=AgentSessionEnvelope)

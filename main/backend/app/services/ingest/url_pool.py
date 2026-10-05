@@ -324,32 +324,6 @@ def _apply_frontdoor_target_hint(
     return out
 
 
-def _resolve_repo_url_batch_path_default_mode() -> str:
-    try:
-        from ...settings.config import settings as _settings
-    except Exception:  # noqa: BLE001
-        return "batch_runtime_targets"
-
-    raw = str(getattr(_settings, "url_batch_path_default_mode", "batch_runtime_targets") or "").strip().lower()
-    if raw in {"legacy_per_url", "batch_runtime_targets"}:
-        return raw
-    return "batch_runtime_targets"
-
-
-def _resolve_url_batch_path_mode(extra_params: Optional[Dict[str, Any]], *, dispatch_mode: str) -> str:
-    if dispatch_mode == "celery_async":
-        return "legacy_per_url"
-    if not isinstance(extra_params, dict):
-        return _resolve_repo_url_batch_path_default_mode()
-
-    raw = str(extra_params.get("url_batch_path_mode") or "").strip().lower()
-    if raw in {"legacy_per_url", "batch_runtime_targets"}:
-        return raw
-    if raw == "inherit":
-        return _resolve_repo_url_batch_path_default_mode()
-    return _resolve_repo_url_batch_path_default_mode()
-
-
 def _collect_urls_from_list_with_runtime_targets(
     *,
     urls: List[str],
@@ -363,13 +337,9 @@ def _collect_urls_from_list_with_runtime_targets(
     targets: List[Dict[str, Any]],
     target_mode: str,
     runtime_targets: List[Tuple[str, Dict[str, Any]]],
-    dispatch_mode: str,
     strict_mode: bool,
     frontdoor_options: Dict[str, Any],
-    url_batch_path_mode: str,
 ) -> Dict[str, Any]:
-    from ..tasks import task_ingest_url_via_source_library  # kit:boundary owner=ingest.url_pool.dispatch class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_url_pool_async_dispatch_forces_legacy_batch_path
-
     inserted = 0
     inserted_valid = 0
     skipped = 0
@@ -380,9 +350,7 @@ def _collect_urls_from_list_with_runtime_targets(
     details: List[Dict[str, Any]] = []
     errors: List[Dict[str, Any]] = []
     seen_runtime_urls: set[str] = set()
-    workflow_name = "front_door_url_routing" if bool(frontdoor_options.get("enabled")) else (
-        "url_routing_async" if dispatch_mode == "celery_async" else "url_routing"
-    )
+    workflow_name = "front_door_url_routing" if bool(frontdoor_options.get("enabled")) else "url_routing"
 
     parallel_workers = _resolve_parallel_workers(extra_params=extra_params, target_count=len(runtime_targets))
     parallel_batch_size = _resolve_parallel_batch_size(extra_params=extra_params, parallel_workers=parallel_workers)
@@ -498,80 +466,21 @@ def _collect_urls_from_list_with_runtime_targets(
                 )
             )
 
-    if dispatch_mode == "celery_async":
-        for target_url, target in runtime_targets:
-            search_options = _search_options_for_target(
-                target_url,
-                normalized_terms,
-                target=target,
-                extra_params=extra_params,
-            )
-            search_options = _apply_frontdoor_to_search_options(search_options, frontdoor_options)
-            search_options = _apply_frontdoor_target_hint(
-                search_options=search_options,
-                frontdoor_options=frontdoor_options,
-                target_url=target_url,
-            )
-            search_options = _attach_url_pool_runtime_readback(
-                search_options,
-                extra_params=extra_params,
-            )
-            async_result = task_ingest_url_via_source_library.delay(
-                target_url,
-                normalized_terms,
-                strict_mode,
-                project_key,
-                search_options,
-            )
-            queued += 1
-            frontdoor_status = _build_frontdoor_status_projection(
-                {
-                    "status": "degraded_success",
-                    "reason_code": "queued_async",
-                    "inserted_valid": 0,
-                    "frontdoor_router_contract": search_options.get("frontdoor_router_contract")
-                    if isinstance(search_options, dict)
-                    else None,
-                }
-            )
-            _record_frontdoor_status_observation(frontdoor_status_summary, frontdoor_status)
-            record_frontdoor_slo_observation(frontdoor_slo_summary, frontdoor_status)
-            record_metrics_observation(
-                metrics_summary,
-                {
-                    "inserted_valid": 0,
-                    "single_write_workflow": workflow_name,
-                    "reason_code": "queued_async",
-                },
-                fallback_adapter=workflow_name,
-            )
-            if len(queued_tasks) < _DEBUG_MAX_URLS:
-                queued_tasks.append(
-                    _detail(
-                        target_url,
-                        action="queued",
-                        task_id=getattr(async_result, "id", None),
-                        entry_type=target.get("entry_type"),
-                        site_seed=bool(target.get("is_site_seed")),
-                        frontdoor_status=frontdoor_status,
-                    )
-                )
-    else:
-        for batch in _batch_slice(runtime_targets, parallel_batch_size):
-            if parallel_workers <= 1 or len(batch) <= 1:
-                for target_url, target in batch:
-                    item_result = _run_single_target(target_url, target)
-                    _collect_item_result(target_url, target, item_result)
-                continue
-            with ThreadPoolExecutor(max_workers=min(parallel_workers, len(batch))) as executor:
-                future_to_target = {
-                    executor.submit(copy_context().run, _run_single_target, tu, t): (tu, t)
-                    for tu, t in batch
-                }
-                for future in as_completed(future_to_target):
-                    tu, t = future_to_target[future]
-                    item_result = future.result()
-                    _collect_item_result(tu, t, item_result)
+    for batch in _batch_slice(runtime_targets, parallel_batch_size):
+        if parallel_workers <= 1 or len(batch) <= 1:
+            for target_url, target in batch:
+                item_result = _run_single_target(target_url, target)
+                _collect_item_result(target_url, target, item_result)
+            continue
+        with ThreadPoolExecutor(max_workers=min(parallel_workers, len(batch))) as executor:
+            future_to_target = {
+                executor.submit(copy_context().run, _run_single_target, tu, t): (tu, t)
+                for tu, t in batch
+            }
+            for future in as_completed(future_to_target):
+                tu, t = future_to_target[future]
+                item_result = future.result()
+                _collect_item_result(tu, t, item_result)
 
     result: Dict[str, Any] = {
         "inserted": inserted,
@@ -586,8 +495,6 @@ def _collect_urls_from_list_with_runtime_targets(
         "single_write_workflow": workflow_name,
         "debug": {
             "mode": "list",
-            "dispatch_mode": dispatch_mode,
-            "url_batch_path_mode": url_batch_path_mode,
             "strict_mode": bool(strict_mode),
             "frontdoor_enabled": bool(frontdoor_options.get("enabled")),
             "disable_site_seed_expansion": bool(target_mode == "detail_only"),
@@ -600,8 +507,8 @@ def _collect_urls_from_list_with_runtime_targets(
             "site_seed_count": len([x for x in targets if bool(x.get("is_site_seed"))]),
             "target_count": len(targets),
             "target_deduped_count": len(runtime_targets),
-            "url_details": queued_tasks if dispatch_mode == "celery_async" else details,
-            "url_details_truncated": len(runtime_targets) > len(queued_tasks if dispatch_mode == "celery_async" else details),
+            "url_details": details,
+            "url_details_truncated": len(runtime_targets) > len(details),
             "errors": errors,
         },
     }
@@ -1695,15 +1602,11 @@ def collect_urls_from_list(
         for key in ("keywords", "search_keywords", "base_keywords", "topic_keywords", "provider", "language", "scope", "source", "source_filter", "domain"):
             if key in extra_params and key not in job_params:
                 job_params[key] = extra_params.get(key)
-        if "url_batch_path_mode" in extra_params:
-            job_params["url_batch_path_mode"] = extra_params.get("url_batch_path_mode")
     runtime_readback = _runtime_readback_for_url_pool(extra_params)
     if runtime_readback:
         job_params["runtime_readback"] = runtime_readback
     job_id = start_job("url_pool_fetch", job_params)
     targets, target_mode = _resolve_runtime_targets(urls, extra_params=extra_params)
-    dispatch_mode = _resolve_dispatch_mode(extra_params)
-    url_batch_path_mode = _resolve_url_batch_path_mode(extra_params, dispatch_mode=dispatch_mode)
     strict_mode = _resolve_url_strict_mode(extra_params)
     frontdoor_options = _resolve_frontdoor_options(extra_params, project_key=project_key)
     runtime_targets: List[Tuple[str, Dict[str, Any]]] = []
@@ -1726,10 +1629,8 @@ def collect_urls_from_list(
         targets=targets,
         target_mode=target_mode,
         runtime_targets=runtime_targets,
-        dispatch_mode=dispatch_mode,
         strict_mode=strict_mode,
         frontdoor_options=frontdoor_options,
-        url_batch_path_mode=url_batch_path_mode,
     )
 def collect_urls_from_pool(
     *,

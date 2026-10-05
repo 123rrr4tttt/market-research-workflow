@@ -163,7 +163,7 @@ def test_bindings_are_exact_and_cover_pure_and_pg_refs(
     test_roles = {entry["role"] for entry in artifact["test_bindings"]}
     assert {
         "pure_slice_programs_test",
-        "pure_legacy_oracle_test",
+        "current_workflow_boundary_test",
         "c1_evidence_generator_test",
         "c1_postgres_gate",
         "c1_postgres_fixture",
@@ -171,7 +171,7 @@ def test_bindings_are_exact_and_cover_pure_and_pg_refs(
     source_roles = {entry["role"] for entry in artifact["source_bindings"]}
     assert "vertical_slices_route_decision" in source_roles
     assert "p1_fragment_C1" in source_roles
-    assert "legacy_workflow_graph_oracle" in source_roles
+    assert "current_workflow_lowering" in source_roles
 
 
 def test_write_is_deterministic_atomic_and_digest_self_tested(

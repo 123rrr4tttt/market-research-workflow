@@ -6,7 +6,7 @@ are never a substitute for the full tree.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Literal, NoReturn, Protocol, TypeAlias, runtime_checkable
 
 from functorial_kit import Failure
@@ -27,9 +27,11 @@ from .algebra import (
     sha256_digest_bytes,
 )
 from .object_contracts import _failure, _raise_failure
+from .object_contracts import build_first_specimen_return_contract_registry
 
 if TYPE_CHECKING:
     from .algebra import AlgebraRef
+    from .object_contracts import OperationContractResolver
     from .transforms import DiscriminatorRef, MergeRef, TransformRef
 
 ALLOWED_NODE_KINDS = (
@@ -43,6 +45,8 @@ ALLOWED_NODE_KINDS = (
     "decide",
 )
 PROGRAM_AST_CODEC_ID = "mrw.functorial-successor.program-ast.codec.v1"
+OBJECT_TYPE_PLACEHOLDER_CODEC_ID = "mrw.invalid.unresolved"
+OBJECT_TYPE_PLACEHOLDER_VERSION = "0"
 
 ProgramResult: TypeAlias = "ProgramNode | Failure"
 ProgramSpecResult: TypeAlias = "ProgramSpec | Failure"
@@ -86,6 +90,32 @@ class ProgramTypeError(ValueError):
 
 class ProgramCodecError(ValueError):
     """Raised when an AST payload cannot be decoded."""
+
+
+def placeholder_object_type(endpoint: str) -> ObjectType:
+    """Build the explicit construction-time placeholder for one endpoint.
+
+    A placeholder is a valid AST object, but it is not a resolved runtime type.
+    ``normalize_program`` rejects placeholders before planning or compilation.
+    """
+
+    return ObjectType(
+        type_id=f"placeholder:{endpoint}",
+        schema_version=OBJECT_TYPE_PLACEHOLDER_VERSION,
+        codec_id=OBJECT_TYPE_PLACEHOLDER_CODEC_ID,
+        canonical_codec_version=OBJECT_TYPE_PLACEHOLDER_VERSION,
+    )
+
+
+def is_placeholder_object_type(object_type: object) -> bool:
+    return (
+        getattr(object_type, "schema_version", None)
+        == OBJECT_TYPE_PLACEHOLDER_VERSION
+        and getattr(object_type, "codec_id", None)
+        == OBJECT_TYPE_PLACEHOLDER_CODEC_ID
+        and getattr(object_type, "canonical_codec_version", None)
+        == OBJECT_TYPE_PLACEHOLDER_VERSION
+    )
 
 
 @runtime_checkable
@@ -466,6 +496,38 @@ def _check_then_types(first: "ProgramNode", second: "ProgramNode") -> None:
         )
 
 
+def _check_runtime_object_type(object_type: object, endpoint: str) -> None:
+    type_id = getattr(object_type, "type_id", None)
+    schema_version = getattr(object_type, "schema_version", None)
+    codec_id = getattr(object_type, "codec_id", None)
+    canonical_codec_version = getattr(object_type, "canonical_codec_version", None)
+    if (
+        not isinstance(type_id, str)
+        or not type_id
+        or not isinstance(schema_version, str)
+        or not schema_version
+        or not isinstance(codec_id, str)
+        or not codec_id
+        or not isinstance(canonical_codec_version, str)
+        or not canonical_codec_version
+    ):
+        raise ProgramTypeError(f"{endpoint} must be a complete ObjectType")
+    if is_placeholder_object_type(object_type):
+        if type_id not in {
+            "placeholder:atom.input",
+            "placeholder:atom.output",
+        }:
+            raise ProgramTypeError(f"malformed placeholder ObjectType at {endpoint}")
+        if object_type.schema_version != OBJECT_TYPE_PLACEHOLDER_VERSION:
+            raise ProgramTypeError(f"malformed placeholder version at {endpoint}")
+    try:
+        digest = canonical_digest(object_type)
+    except (TypeError, ValueError) as error:
+        raise ProgramTypeError(f"{endpoint} is not canonically encodable") from error
+    if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+        raise ProgramTypeError(f"{endpoint} does not produce a sha256 identity")
+
+
 def _check_zip_types(left: "ProgramNode", right: "ProgramNode") -> None:
     if left is None or right is None:
         # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
@@ -481,6 +543,7 @@ def _check_decide_branches(branches: "tuple[DecisionBranch, ...]") -> None:
         raise ProgramTypeError("Decide requires at least one branch")
     input_digest = canonical_digest(branches[0].program.input_type)
     output_digest = canonical_digest(branches[0].program.output_type)
+    return_digest = canonical_digest(branches[0].program.return_contract)
     branch_ids: "set[str]" = set()
     for branch in branches:
         if not branch.branch_id:
@@ -496,6 +559,8 @@ def _check_decide_branches(branches: "tuple[DecisionBranch, ...]") -> None:
         if canonical_digest(branch.program.output_type) != output_digest:
             # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
             raise ProgramTypeError("Decide branch output types must agree")
+        if canonical_digest(branch.program.return_contract) != return_digest:
+            raise ProgramTypeError("Decide branch return contracts must agree")
 
 
 def _tuple_object_type(types: "tuple[ObjectType, ...]") -> ObjectType:
@@ -579,13 +644,24 @@ def try_atom_node(
     output_type: "ObjectType | None" = None,
     return_contract: "ReturnContract | None" = None,
 ) -> Atom | Failure:
-    return Atom(
-        node_kind="atom",
-        operation=operation,
-        input_type=input_type or _placeholder_type("atom.input"),
-        output_type=output_type or _placeholder_type("atom.output"),
-        return_contract=return_contract or default_return_contract(),
-    )
+    try:
+        resolved_input = input_type or _placeholder_type("atom.input")
+        resolved_output = output_type or _placeholder_type("atom.output")
+        _check_runtime_object_type(resolved_input, "atom.input")
+        _check_runtime_object_type(resolved_output, "atom.output")
+        resolved_return = return_contract or default_return_contract()
+        _check_return_contract(resolved_return)
+        return Atom(
+            node_kind="atom",
+            operation=operation,
+            input_type=resolved_input,
+            output_type=resolved_output,
+            return_contract=resolved_return,
+        )
+    except (AttributeError, TypeError, ValueError) as exc:
+        return _program_failure(
+            "PROGRAM_TYPE_INVALID", str(exc), type(exc), site="atom_node"
+        )
 
 
 def atom_node(
@@ -622,12 +698,20 @@ def try_map_output_node(
     transform_ref: "TransformRef",
     target_type: ObjectType,
 ) -> MapOutput | Failure:
-    return MapOutput(
-        node_kind="map_output",
-        source=source,
-        transform_ref=transform_ref,
-        target_type=target_type,
-    )
+    try:
+        _check_runtime_object_type(target_type, "map_output.target_type")
+        if is_placeholder_object_type(target_type):
+            raise ProgramTypeError("MapOutput target_type cannot be unresolved")
+        return MapOutput(
+            node_kind="map_output",
+            source=source,
+            transform_ref=transform_ref,
+            target_type=target_type,
+        )
+    except (AttributeError, TypeError, ValueError) as exc:
+        return _program_failure(
+            "PROGRAM_TYPE_INVALID", str(exc), type(exc), site="map_output_node"
+        )
 
 
 def map_output_node(
@@ -651,6 +735,9 @@ def try_zip_ordered_node(
         _check_zip_types(left, right)
         if output_type is None:
             output_type = _tuple_object_type((left.output_type, right.output_type))
+        _check_runtime_object_type(output_type, "zip_ordered.output_type")
+        if is_placeholder_object_type(output_type):
+            raise ProgramTypeError("ZipOrdered output_type cannot be unresolved")
         return ZipOrdered(
             node_kind="zip_ordered",
             left=left,
@@ -680,11 +767,19 @@ def try_traverse_ordered_node(
     element_program: "ProgramNode",
     traversal_policy: str,
 ) -> TraverseOrdered | Failure:
-    return TraverseOrdered(
-        node_kind="traverse_ordered",
-        element_program=element_program,
-        traversal_policy=traversal_policy,
-    )
+    try:
+        node = TraverseOrdered(
+            node_kind="traverse_ordered",
+            element_program=element_program,
+            traversal_policy=traversal_policy,
+        )
+        _check_runtime_object_type(node.input_type, "traverse_ordered.input_type")
+        _check_runtime_object_type(node.output_type, "traverse_ordered.output_type")
+        return node
+    except (AttributeError, TypeError, ValueError) as exc:
+        return _program_failure(
+            "PROGRAM_TYPE_INVALID", str(exc), type(exc), site="traverse_ordered_node"
+        )
 
 
 def traverse_ordered_node(
@@ -725,12 +820,22 @@ def decide_node(
 
 
 def _placeholder_type(type_id: str) -> ObjectType:
-    return ObjectType(
-        type_id=type_id,
-        schema_version="0",
-        codec_id="mrw.invalid.unresolved",
-        canonical_codec_version="0",
-    )
+    return placeholder_object_type(type_id.removeprefix("placeholder:"))
+
+
+def _check_return_contract(return_contract: ReturnContract) -> None:
+    for field_name in ("success_modes", "failure_modes", "wait_modes", "cancel_modes"):
+        modes = getattr(return_contract, field_name)
+        if not isinstance(modes, tuple) or not all(
+            isinstance(mode, str) for mode in modes
+        ):
+            raise ProgramTypeError(
+                f"ReturnContract.{field_name} must be a string tuple"
+            )
+    if not return_contract.success_modes or not return_contract.failure_modes:
+        raise ProgramTypeError("ReturnContract requires success and failure modes")
+    if not isinstance(return_contract.admission_required, bool):
+        raise ProgramTypeError("ReturnContract.admission_required must be boolean")
 
 
 @dataclass(frozen=True, slots=True)
@@ -795,6 +900,209 @@ class ProgramSpec:
             metadata=self.metadata,
             program_digest=self.digest(),
         )
+
+
+def try_bind_program_contracts(
+    program: ProgramSpec,
+    operation_contract_resolver: "OperationContractResolver",
+) -> ProgramSpecResult:
+    """Bind construction-time Atom placeholders to exact operation contracts.
+
+    Explicit endpoint and ReturnContract witnesses are checked, never silently
+    overwritten. Placeholders are replaced only on the endpoint to which they
+    were issued, after the exact contract ref resolves.
+    """
+
+    try:
+        _check_binding_endpoint(
+            program.input_type, program.root.input_type, "program.input_type"
+        )
+        _check_binding_endpoint(
+            program.output_type, program.root.output_type, "program.output_type"
+        )
+        root = _bind_node_contracts(program.root, operation_contract_resolver, "root")
+        return replace(program, input_type=root.input_type,
+                       output_type=root.output_type, root=root,
+                       program_digest="").with_digest()
+    except (AttributeError, TypeError, ValueError, KeyError) as exc:
+        return _program_failure(
+            "PROGRAM_TYPE_INVALID",
+            str(exc),
+            type(exc),
+            site="bind_program_contracts",
+        )
+
+
+def bind_program_contracts(
+    program: ProgramSpec,
+    operation_contract_resolver: "OperationContractResolver",
+) -> ProgramSpec:
+    result = try_bind_program_contracts(program, operation_contract_resolver)
+    if isinstance(result, Failure):
+        _lift_program_failure(result, _exception_type_from_failure(result))
+    return result
+
+
+_RETURN_CONTRACT_REGISTRY = build_first_specimen_return_contract_registry()
+
+
+def _bind_node_contracts(
+    node: ProgramNode,
+    resolver: "OperationContractResolver",
+    path: str,
+) -> ProgramNode:
+    if isinstance(node, Atom):
+        return _bind_atom_contracts(node, resolver, path)
+    if isinstance(node, Then):
+        return Then(
+            node_kind=node.node_kind,
+            first=_bind_node_contracts(node.first, resolver, f"{path}.first"),
+            second=_bind_node_contracts(node.second, resolver, f"{path}.second"),
+        )
+    if isinstance(node, MapOutput):
+        if is_placeholder_object_type(node.target_type):
+            raise ProgramTypeError(f"unresolved target placeholder at {path}")
+        return MapOutput(
+            node_kind=node.node_kind,
+            source=_bind_node_contracts(node.source, resolver, f"{path}.source"),
+            transform_ref=node.transform_ref,
+            target_type=node.target_type,
+        )
+    if isinstance(node, ZipOrdered):
+        if is_placeholder_object_type(node.output_type):
+            raise ProgramTypeError(f"unresolved output placeholder at {path}")
+        return ZipOrdered(
+            node_kind=node.node_kind,
+            left=_bind_node_contracts(node.left, resolver, f"{path}.left"),
+            right=_bind_node_contracts(node.right, resolver, f"{path}.right"),
+            merge_ref=node.merge_ref,
+            output_type=node.output_type,
+        )
+    if isinstance(node, TraverseOrdered):
+        return traverse_ordered_node(
+            _bind_node_contracts(
+                node.element_program, resolver, f"{path}.element_program"
+            ),
+            node.traversal_policy,
+        )
+    if isinstance(node, Decide):
+        return decide_node(
+            node.discriminator_ref,
+            tuple(
+                DecisionBranch(
+                    branch_id=branch.branch_id,
+                    guard=branch.guard,
+                    program=_bind_node_contracts(
+                        branch.program,
+                        resolver,
+                        f"{path}.branches[{branch.branch_id}]",
+                    ),
+                )
+                for branch in node.branches
+            ),
+        )
+    if is_placeholder_object_type(node.input_type) or is_placeholder_object_type(
+        node.output_type
+    ):
+        raise ProgramTypeError(f"unresolved placeholder at {path}")
+    return node
+
+
+def _bind_atom_contracts(
+    node: Atom,
+    resolver: "OperationContractResolver",
+    path: str,
+) -> Atom:
+    contract = resolver.resolve(node.operation.contract_ref)
+    if contract is None:
+        raise KeyError(
+            f"unresolved operation contract at {path}: "
+            f"{node.operation.contract_ref.kind}"
+        )
+    input_type = _bind_endpoint(
+        node.input_type, contract.input_type, "placeholder:atom.input", f"{path}.input_type"
+    )
+    output_type = _bind_endpoint(
+        node.output_type,
+        contract.output_type,
+        "placeholder:atom.output",
+        f"{path}.output_type",
+    )
+    expected_return = _RETURN_CONTRACT_REGISTRY.resolve(contract.return_contract_ref)
+    if expected_return is None:
+        raise KeyError(
+            f"unresolved return contract at {path}: {contract.return_contract_ref}"
+        )
+    if (
+        node.return_contract.success_modes != expected_return.success_modes
+        or node.return_contract.failure_modes != expected_return.failure_modes
+        or node.return_contract.wait_modes != expected_return.wait_modes
+        or node.return_contract.cancel_modes != expected_return.cancel_modes
+    ):
+        raise ProgramTypeError(f"ReturnContract mismatch at {path}")
+    bound_inputs: "list[ValueRef]" = []
+    for index, value_ref in enumerate(node.operation.input_refs):
+        object_type = value_ref.object_type
+        if is_placeholder_object_type(object_type):
+            _check_placeholder_endpoint(
+                object_type, "placeholder:atom.input", f"{path}.input_refs[{index}]"
+            )
+            object_type = contract.input_type
+        bound_inputs.append(replace(value_ref, object_type=object_type))
+    payload_object_type = node.operation.payload_ref.object_type
+    if is_placeholder_object_type(payload_object_type):
+        _check_placeholder_endpoint(
+            payload_object_type,
+            "placeholder:atom.input",
+            f"{path}.payload_ref",
+        )
+        payload_object_type = contract.input_type
+    payload_ref = replace(
+        node.operation.payload_ref,
+        object_type=payload_object_type,
+    )
+    operation = replace(
+        node.operation, input_refs=tuple(bound_inputs), payload_ref=payload_ref
+    )
+    return Atom(
+        node_kind=node.node_kind,
+        operation=operation,
+        input_type=input_type,
+        output_type=output_type,
+        return_contract=expected_return,
+    )
+
+
+def _bind_endpoint(
+    current: ObjectType,
+    authoritative: ObjectType,
+    placeholder_type_id: str,
+    path: str,
+) -> ObjectType:
+    if is_placeholder_object_type(current):
+        if current.type_id != placeholder_type_id:
+            raise ProgramTypeError(f"placeholder issued for another endpoint at {path}")
+        return authoritative
+    if current != authoritative:
+        raise ProgramTypeError(f"ObjectType does not match OperationContract at {path}")
+    return current
+
+
+def _check_placeholder_endpoint(
+    object_type: ObjectType, expected_type_id: str, path: str
+) -> None:
+    if object_type.type_id != expected_type_id:
+        raise ProgramTypeError(f"placeholder issued for another endpoint at {path}")
+
+
+def _check_binding_endpoint(
+    declared: ObjectType, root: ObjectType, path: str
+) -> None:
+    if declared == root:
+        return
+    if is_placeholder_object_type(declared) and is_placeholder_object_type(root):
+        return
+    raise ProgramTypeError(f"{path} does not match the root endpoint")
 
 
 @dataclass(frozen=True, slots=True)
@@ -878,6 +1186,7 @@ def _decode_program_spec_impl(payload: "dict[str, Any]") -> ProgramSpec:
     from .transforms import TransformRef
 
     try:
+        declared_digest = payload["program_digest"]
         program = payload["program"]
         codec = program["codec"]
         if codec != PROGRAM_AST_CODEC_ID:
@@ -925,7 +1234,12 @@ def _decode_program_spec_impl(payload: "dict[str, Any]") -> ProgramSpec:
             metadata=metadata,
             program_digest="",
         )
-        return spec.with_digest()
+        decoded = spec.with_digest()
+        if declared_digest != decoded.program_digest:
+            raise ProgramCodecError(
+                "program_digest does not bind canonical ProgramSpec bytes"
+            )
+        return decoded
     except KeyError as exc:
         # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
         raise ProgramCodecError(f"malformed program spec payload: {exc}") from exc
@@ -935,9 +1249,15 @@ def try_decode_program_spec(payload: "dict[str, Any]") -> ProgramSpec | Failure:
     try:
         return _decode_program_spec_impl(payload)
     except ProgramCodecError as exc:
-        code = "UNKNOWN_NODE_KIND" if "node_kind" in str(exc) else "PROGRAM_CODEC_INVALID"
+        message = str(exc)
+        if "node_kind" in message:
+            code = "UNKNOWN_NODE_KIND"
+        elif "program_digest does not bind" in message:
+            code = "PROGRAM_DIGEST_MISMATCH"
+        else:
+            code = "PROGRAM_CODEC_INVALID"
         return _program_failure(
-            code, str(exc), ProgramCodecError, site="decode_program_spec"
+            code, message, ProgramCodecError, site="decode_program_spec"
         )
     except (TypeError, ValueError, KeyError) as exc:
         return _program_failure(

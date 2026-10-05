@@ -169,7 +169,7 @@ class IngestMetricsPayloadUnitTestCase(unittest.TestCase):
         self.assertEqual(frontdoor_slo, ((result.get("debug") or {}).get("frontdoor_slo") or {}))
         self.assertGreaterEqual(int(metrics_payload.get("sample_size") or 0), 1)
 
-    def test_url_pool_batch_path_defaults_to_batch_runtime_targets(self):
+    def test_url_pool_batch_path_uses_single_gateway_without_mode_projection(self):
         bridge = Mock(
             return_value={
                 "status": "success",
@@ -191,9 +191,11 @@ class IngestMetricsPayloadUnitTestCase(unittest.TestCase):
                 query_terms=["metrics"],
             )
 
-        self.assertEqual((result.get("debug") or {}).get("url_batch_path_mode"), "batch_runtime_targets")
+        debug = result.get("debug") or {}
+        self.assertNotIn("url_batch_path_mode", debug)
+        self.assertGreaterEqual(bridge.call_count, 1)
 
-    def test_url_pool_batch_path_can_be_explicitly_rolled_back_to_legacy_per_url(self):
+    def test_url_pool_async_request_uses_gateway_without_legacy_task_dispatch(self):
         bridge = Mock(
             return_value={
                 "status": "success",
@@ -207,82 +209,22 @@ class IngestMetricsPayloadUnitTestCase(unittest.TestCase):
             }
         )
 
+        task_delay = Mock(side_effect=AssertionError("legacy task dispatch must not run"))
         with patch.object(url_pool_module, "_run_source_library_frontdoor_ingress", bridge), patch.object(
             url_pool_module, "_annotate_url_pool_context"
+        ), patch(
+            "app.services.tasks.task_ingest_url_via_source_library.delay",
+            task_delay,
         ):
             result = url_pool_module.collect_urls_from_list(
                 ["https://a.example.com/path/1"],
                 query_terms=["metrics"],
-                extra_params={"url_batch_path_mode": "legacy_per_url"},
+                extra_params={"url_async": True},
             )
 
-        self.assertEqual((result.get("debug") or {}).get("url_batch_path_mode"), "legacy_per_url")
-
-    def test_url_pool_batch_path_can_roll_back_via_repo_level_default(self):
-        bridge = Mock(
-            return_value={
-                "status": "success",
-                "inserted": 1,
-                "inserted_valid": 1,
-                "skipped": 0,
-                "rejected_count": 0,
-                "rejection_breakdown": {},
-                "degradation_flags": [],
-                "handler_allocation": {"handler_used": "url_routing"},
-            }
-        )
-
-        with patch("app.settings.config.settings.url_batch_path_default_mode", "legacy_per_url"), patch.object(
-            url_pool_module, "_run_source_library_frontdoor_ingress", bridge
-        ), patch.object(url_pool_module, "_annotate_url_pool_context"):
-            result = url_pool_module.collect_urls_from_list(
-                ["https://a.example.com/path/1"],
-                query_terms=["metrics"],
-            )
-
-        self.assertEqual((result.get("debug") or {}).get("url_batch_path_mode"), "legacy_per_url")
-
-    def test_url_pool_batch_path_can_be_explicitly_enabled(self):
-        bridge = Mock(
-            return_value={
-                "status": "success",
-                "inserted": 1,
-                "inserted_valid": 1,
-                "skipped": 0,
-                "rejected_count": 0,
-                "rejection_breakdown": {},
-                "degradation_flags": [],
-                "handler_allocation": {"handler_used": "url_routing"},
-            }
-        )
-
-        with patch.object(url_pool_module, "_run_source_library_frontdoor_ingress", bridge), patch.object(
-            url_pool_module, "_annotate_url_pool_context"
-        ):
-            result = url_pool_module.collect_urls_from_list(
-                ["https://a.example.com/path/1"],
-                query_terms=["metrics"],
-                extra_params={"url_batch_path_mode": "batch_runtime_targets"},
-            )
-
-        self.assertEqual((result.get("debug") or {}).get("url_batch_path_mode"), "batch_runtime_targets")
-
-    def test_url_pool_async_dispatch_forces_legacy_batch_path(self):
-        task_delay = Mock(return_value=Mock(id="task-1"))
-
-        with patch.object(url_pool_module, "_run_source_library_frontdoor_ingress") as bridge, patch.object(
-            url_pool_module, "_annotate_url_pool_context"
-        ), patch("app.services.tasks.task_ingest_url_via_source_library.delay", task_delay):
-            result = url_pool_module.collect_urls_from_list(
-                ["https://a.example.com/path/1"],
-                query_terms=["metrics"],
-                extra_params={"url_async": True, "url_batch_path_mode": "batch_runtime_targets"},
-            )
-
-        bridge.assert_not_called()
-        self.assertGreaterEqual(task_delay.call_count, 1)
-        self.assertEqual((result.get("debug") or {}).get("url_batch_path_mode"), "legacy_per_url")
-        self.assertEqual(result.get("queued"), task_delay.call_count)
+        self.assertGreaterEqual(bridge.call_count, 1)
+        task_delay.assert_not_called()
+        self.assertEqual(result.get("queued"), 0)
 
     def test_url_pool_result_contains_source_template_health_defaults(self):
         bridge = Mock(

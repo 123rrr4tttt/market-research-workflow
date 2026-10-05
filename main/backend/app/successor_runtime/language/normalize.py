@@ -14,6 +14,7 @@ from .program import (
     Decide,
     DecisionBranch,
     Identity,
+    Atom,
     MapOutput,
     ProgramNode,
     ProgramSpec,
@@ -21,6 +22,7 @@ from .program import (
     TraverseOrdered,
     ZipOrdered,
     then_node,
+    is_placeholder_object_type,
 )
 
 
@@ -88,6 +90,7 @@ def _flatten_then(node: Then, out: "list[ProgramNode]") -> None:
 
 
 def normalize_program(spec: ProgramSpec) -> ProgramSpec:
+    _check_execution_boundaries(spec)
     root = normalize_node(spec.root)
     return ProgramSpec(
         program_id=spec.program_id,
@@ -105,6 +108,57 @@ def normalize_program(spec: ProgramSpec) -> ProgramSpec:
         metadata=spec.metadata,
         program_digest="",
     ).with_digest()
+
+
+def _check_execution_boundaries(spec: ProgramSpec) -> None:
+    _require_runtime_type(spec.input_type, "program.input_type")
+    _require_runtime_type(spec.output_type, "program.output_type")
+    _require_runtime_type(spec.root.input_type, "root.input_type")
+    _require_runtime_type(spec.root.output_type, "root.output_type")
+    if spec.input_type != spec.root.input_type:
+        raise ValueError("Program input_type does not match its root input_type")
+    if spec.output_type != spec.root.output_type:
+        raise ValueError("Program output_type does not match its root output_type")
+    _check_execution_node(spec.root)
+
+
+def _check_execution_node(node: ProgramNode, path: str = "root") -> None:
+    _require_runtime_type(node.input_type, f"{path}.input_type")
+    _require_runtime_type(node.output_type, f"{path}.output_type")
+    if isinstance(node, Atom):
+        if not node.operation.input_refs:
+            raise ValueError(f"{path} requires at least one input ValueRef")
+        for index, value_ref in enumerate(node.operation.input_refs):
+            _require_runtime_type(
+                value_ref.object_type, f"{path}.input_refs[{index}].object_type"
+            )
+        _require_runtime_type(
+            node.operation.payload_ref.object_type, f"{path}.payload_ref.object_type"
+        )
+    elif hasattr(node, "first"):
+        _check_execution_node(node.first, f"{path}.first")
+        _check_execution_node(node.second, f"{path}.second")
+    elif hasattr(node, "source"):
+        _check_execution_node(node.source, f"{path}.source")
+    elif hasattr(node, "left"):
+        _check_execution_node(node.left, f"{path}.left")
+        _check_execution_node(node.right, f"{path}.right")
+    elif hasattr(node, "element_program"):
+        _check_execution_node(node.element_program, f"{path}.element_program")
+    elif hasattr(node, "branches"):
+        for branch in node.branches:
+            _check_execution_node(branch.program, f"{path}.branches[{branch.branch_id}]")
+
+
+def _require_runtime_type(object_type: object, path: str) -> None:
+    if is_placeholder_object_type(object_type):
+        raise ValueError(f"unresolved construction placeholder at {path}")
+    type_id = getattr(object_type, "type_id", None)
+    codec_id = getattr(object_type, "codec_id", None)
+    if not isinstance(type_id, str) or not type_id:
+        raise ValueError(f"incomplete ObjectType identity at {path}")
+    if not isinstance(codec_id, str) or not codec_id:
+        raise ValueError(f"incomplete ObjectType codec at {path}")
 
 
 def normalized_structure(node: ProgramNode) -> Any:

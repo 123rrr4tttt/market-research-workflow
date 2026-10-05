@@ -107,7 +107,9 @@ KNOWLEDGE_GRAPH_PROJECTION_INPUT_TYPE = ObjectType("KnowledgeGraphProjectInput.v
 KNOWLEDGE_GRAPH_PROJECTION_RESULT_TYPE = ObjectType("KnowledgeGraphContext.v2")
 KNOWLEDGE_GRAPH_PROJECTION_RETURN_CONTRACT_REF = READ_CANONICAL_REF_RETURN_CONTRACT_REF
 KNOWLEDGE_GRAPH_PROJECTION_FAILURE_CODES = knowledge_graph_failures.codes
-KNOWLEDGE_GRAPH_PROJECTION_ROLLBACK_REF = "main/backend/app/successor_migration/legacy_c8_graph.py"
+KNOWLEDGE_GRAPH_PROJECTION_ROLLBACK_REF = (
+    "main/backend/app/successor_runtime/assembly/knowledge_assembly.py"
+)
 
 # The PostgreSQL projector, FamilyAssembly and catalog projection all import
 # these four projector identities from this one native declaration module.

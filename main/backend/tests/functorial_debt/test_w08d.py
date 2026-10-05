@@ -25,8 +25,6 @@ from app.successor_runtime.runtime.assignments import (
 from app.successor_runtime.substrate.postgres.source_library_c2_23_canary import (
     build_c2_3_fixture_program,
     build_c2_3_payload_value_ref,
-    build_legacy_c2_2_binding,
-    build_legacy_c2_3_binding,
     build_recovery_c2_3_binding,
     build_successor_c2_2_binding,
     build_successor_c2_3_binding,
@@ -41,8 +39,6 @@ _CANARY_PATH = (
 _EXACT_BASELINE_KEYS = {
     f"derived-marked|{_CANARY_PATH}|build_c2_3_fixture_program returns an unmarked derived value",
     f"derived-marked|{_CANARY_PATH}|build_c2_3_payload_value_ref returns an unmarked derived value",
-    f"derived-marked|{_CANARY_PATH}|build_legacy_c2_2_binding returns an unmarked derived value",
-    f"derived-marked|{_CANARY_PATH}|build_legacy_c2_3_binding returns an unmarked derived value",
     f"derived-marked|{_CANARY_PATH}|build_recovery_c2_3_binding returns an unmarked derived value",
     f"derived-marked|{_CANARY_PATH}|build_successor_c2_2_binding returns an unmarked derived value",
     f"derived-marked|{_CANARY_PATH}|build_successor_c2_3_binding returns an unmarked derived value",
@@ -78,17 +74,6 @@ def test_w08d_binding_metadata_preserves_prepared_command_abi() -> None:
     recovery = build_recovery_c2_3_binding(
         interpreter_profile_digest=_INTERPRETER_DIGEST
     )
-    legacy_c2_2 = build_legacy_c2_2_binding(
-        contract_digest=_CONTRACT_DIGEST,
-        deployment_catalog_digest=_DEPLOYMENT_DIGEST,
-        project_scope_digest=_SCOPE_DIGEST,
-    )
-    legacy_c2_3 = build_legacy_c2_3_binding(
-        contract_digest=_CONTRACT_DIGEST,
-        deployment_catalog_digest=_DEPLOYMENT_DIGEST,
-        project_scope_digest=_SCOPE_DIGEST,
-    )
-
     assert isinstance(successor_c2_2, InterpreterBinding)
     assert successor_c2_2 == successor_c2_2_repeat
     assert successor_c2_2.binding_digest == successor_c2_2_repeat.binding_digest
@@ -98,28 +83,20 @@ def test_w08d_binding_metadata_preserves_prepared_command_abi() -> None:
             successor_c2_2,
             successor_c2_3,
             recovery,
-            legacy_c2_2,
-            legacy_c2_3,
         )
     )
-    assert successor_c2_2.binding_digest != legacy_c2_2.binding_digest
-    assert successor_c2_3.binding_digest != legacy_c2_3.binding_digest
     assert len(
         {
             successor_c2_2.binding_digest,
             successor_c2_3.binding_digest,
             recovery.binding_digest,
-            legacy_c2_2.binding_digest,
-            legacy_c2_3.binding_digest,
         }
-    ) == 5
+    ) == 3
 
     metadata_by_name = {
         "build_successor_c2_2_binding": "kit:prepared-command",
         "build_successor_c2_3_binding": "kit:prepared-command",
         "build_recovery_c2_3_binding": "kit:prepared-command",
-        "build_legacy_c2_2_binding": "kit:prepared-command",
-        "build_legacy_c2_3_binding": "kit:prepared-command",
     }
     for name, marker in metadata_by_name.items():
         metadata = _prepared_metadata(globals()[name])

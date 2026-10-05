@@ -5,8 +5,6 @@
 admin.py|from ..models.base import SessionLocal
 admin.py|from ..models.base import engine
 admin.py|from ..models.entities import Document, MarketStat, SearchHistory, Source
-agent_chat.py|from ..models.base import SessionLocal
-agent_chat.py|from ..models.entities import Project
 dashboard.py|from ..models.base import SessionLocal
 dashboard.py|from ..models.base import engine
 dashboard.py|from ..models.entities import Document, EtlJobRun, MarketMetricPoint, MarketStat, PriceObservation, Product, SearchHistory, Source

@@ -9,20 +9,6 @@ from typing import Annotated, get_args, get_origin, get_type_hints
 
 import pytest
 
-from app.services.typed_knowledge.contracts import (
-    build_downstream_contract_draft,
-    build_writing_knowledge_handoff,
-)
-
-
-def _return_metadata(function):
-    return_hint = get_type_hints(function, include_extras=True)["return"]
-    assert get_origin(return_hint) is Annotated  # type: ignore[comparison-overlap]
-    metadata = get_args(return_hint)[1]
-    assert isinstance(metadata, str)
-    assert function.__name__ in inspect.getsource(function)
-    return metadata
-from app.successor_migration.legacy_c8_writing import LegacyC8WritingAdapter
 from app.successor_runtime.capabilities import knowledge_common as knowledge
 from app.successor_runtime.capabilities import knowledge_consumer
 from app.successor_runtime.capabilities.knowledge_consumer import (
@@ -60,7 +46,17 @@ from app.successor_runtime.capabilities.knowledge_writing import (
 )
 from app.successor_runtime.research.artifacts import artifact_exact_ref
 
-from .p4_c8_fixture import PROJECT_KEY, legacy_item
+from .p4_c8_fixture import PROJECT_KEY
+
+
+def _return_metadata(function):
+    return_hint = get_type_hints(function, include_extras=True)["return"]
+    assert get_origin(return_hint) is Annotated  # type: ignore[comparison-overlap]
+    metadata = get_args(return_hint)[1]
+    assert isinstance(metadata, str)
+    assert function.__name__ in inspect.getsource(function)
+    return metadata
+
 
 FORMATION_PROFILE = knowledge.FormationProfile(
     profile_id="mrw.c8.formation.structured-material.v1",
@@ -820,25 +816,6 @@ def test_self_signed_material_verifier_and_loss_rejected_by_production() -> None
             loss_witness=witness,
             provenance_digest="0" * 64,
         )
-
-
-def test_legacy_card_metadata_loss_named_observation() -> None:
-    item = legacy_item()
-    contract = build_downstream_contract_draft(item)
-    handoff = build_writing_knowledge_handoff(
-        contract,
-        selection_hash="selection:robotics",
-        selection_text="robotics investment",
-    )
-    observation = LegacyC8WritingAdapter().build_card_observation(
-        handoff,
-        normalized_query="robotics investment",
-    )
-    assert observation["retrieved_at"] == "non_deterministic_excluded"
-    assert all(
-        name in LEGACY_CARD_METADATA_LOSS
-        for name in ("legacy_score", "legacy_wall_clock_retrieved_at")
-    )
 
 
 def test_research_artifact_candidate_adapter_is_deterministic_and_closed() -> None:

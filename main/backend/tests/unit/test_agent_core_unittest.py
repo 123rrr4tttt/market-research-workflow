@@ -184,6 +184,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
                 )
             request = AgentCoreRequest(
                 message="update writing", session_id=session_id, project_key="demo_proj",
+                turn_id=host_context.turn_id,
             )
             pending = registry.execute_tool(
                 tool_call=call,
@@ -204,7 +205,10 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
             result = registry.execute_tool(
                 tool_call=call,
                 tool_spec=spec,
-                request=request,
+                request=AgentCoreRequest(
+                    message="update writing", session_id=session_id, project_key="demo_proj",
+                    turn_id=confirmation.turn_id,
+                ),
                 trusted_context=confirmation,
                 authorization_service=service,
                 emit=lambda _event: None,
@@ -261,7 +265,44 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
 
         assert result.status == "canceled"
         assert result.error["code"] == "session_canceled"
+        assert "task.continue" not in result.retry_hint
+        assert "task.summary" in result.retry_hint
+        assert "task.retry" in result.retry_hint
         assert events[0].payload["skipped_items"] == ["https://example.gov/report"]
+
+    def test_canceled_url_pool_status_recommends_summary_then_retry(self):
+        from app.services.agent_core.authoring_tools import (
+            AuthoringToolContext,
+            authoring_ingest_writing_batch_sources,
+        )
+        from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        session_id = service.create_session(
+            source="user", entrypoint_type="agent_core", goal="Read canceled ingest",
+            project_key="demo_proj",
+        )["session"]["session_id"]
+        service.store.upsert_artifact({
+            "session_id": session_id, "artifact_type": "json",
+            "name": "ingest.url_pool_task_events.json",
+            "content_json": {"events": [{"task_id": "canceled-ingest", "status": "canceled"}]},
+        })
+        context = AuthoringToolContext(
+            service=service, structured_data_searcher=lambda **_kwargs: {"items": []},
+        )
+        source = next(item for item in authoring_ingest_writing_batch_sources(context)
+                      if item.tool_spec.name == "ingest.url_pool.status")
+        with patch("app.services.job_logger.list_jobs", return_value=[]):
+            result = source.handler(
+                CoreToolCall(tool_name="ingest.url_pool.status", call_id="read-cancel",
+                             arguments={"task_id": "canceled-ingest"}),
+                source.tool_spec,
+                AgentCoreRequest(message="status", session_id=session_id, project_key="demo_proj"),
+                lambda _event: None,
+            )
+        guidance = result.structured_content["writing_guidance"]
+        assert "task.continue" not in guidance
+        assert guidance.index("task.summary") < guidance.index("task.retry")
 
     def test_url_pool_background_task_stops_when_agent_session_is_canceled(self):
         from app.services.tasks import task_ingest_url_via_source_library

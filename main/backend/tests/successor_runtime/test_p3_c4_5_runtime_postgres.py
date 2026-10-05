@@ -24,7 +24,7 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool
 
-from app.successor_migration.legacy_agent_batch import (
+from app.successor_runtime.capabilities.batch_task_interpreters import (
     build_successor_agent_batch_c4_submission_binding,
 )
 from app.successor_runtime.capabilities import batch_task as c4

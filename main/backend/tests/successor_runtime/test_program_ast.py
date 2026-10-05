@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 import sys
 from datetime import datetime, timezone
@@ -37,23 +38,32 @@ from app.successor_runtime.language.normalize import (
     normalize_program,
     normalized_equivalent,
 )
+from app.successor_runtime.language.object_contracts import (
+    RUNTIME_VALUE_RETURN_CONTRACT_REF,
+    ReturnContract,
+    make_operation_contract,
+)
 from app.successor_runtime.language.program import (
     DecisionBranch,
     Decide,
     Identity,
     MapOutput,
     ProgramSpec,
+    ProgramCodecError,
     ProgramTypeError,
     Pure,
     Then,
     ZipOrdered,
     atom_node,
+    bind_program_contracts,
     decide_node,
     decode_ast,
     decode_program_spec,
     encode_program_spec,
     identity_node,
+    is_placeholder_object_type,
     map_output_node,
+    placeholder_object_type,
     program_atoms,
     pure_node,
     then_node,
@@ -66,7 +76,11 @@ from app.successor_runtime.language.transforms import (
     TransformRegistry,
 )
 from app.successor_runtime.language.validate import validate_program
-from app.successor_runtime.research.object_types import GAP_TYPE
+from app.successor_runtime.research.object_types import (
+    CAPTURED_MATERIAL_SNAPSHOT_TYPE,
+    GAP_TYPE,
+    MATERIAL_REF_TYPE,
+)
 from app.successor_runtime.research.claims import Gap
 from app.successor_runtime.research.sources import SourceRef
 
@@ -184,6 +198,30 @@ def _specimen_program_with_registries() -> "tuple[ProgramSpec, Registries]":
         source_refs=DOCUMENT_SOURCES,
     )
     return spec, registries
+
+
+def _program_for_root(
+    root,
+    *,
+    input_type: "ObjectType | None" = None,
+    output_type: "ObjectType | None" = None,
+) -> ProgramSpec:
+    return ProgramSpec(
+        program_id="program.ast.boundary",
+        contract_version="mrw.functorial-successor.program-spec.v1",
+        project_key="p0",
+        project_registry_revision=1,
+        project_scope_digest="0" * 64,
+        semantic_identity="program.ast.boundary",
+        input_type=input_type or root.input_type,
+        output_type=output_type or root.output_type,
+        root=root,
+        algebra_refs=(),
+        transform_refs=(),
+        observation_profile="mrw.successor.program.test.v1",
+        metadata=freeze_json_object({}),
+        program_digest="",
+    ).with_digest()
 
 
 def test_full_ast_round_trip_keeps_complete_child_programs() -> None:
@@ -311,6 +349,197 @@ def test_type_mismatch_is_rejected_at_composition() -> None:
     )
     with pytest.raises(ProgramTypeError):
         then_node(atom, identity_node(INTENT))
+
+
+def test_placeholder_is_constructable_but_requires_contract_binding_to_execute() -> None:
+    registry = specimen_registry()
+    placeholder_input = placeholder_object_type("atom.input")
+    placeholder_output = placeholder_object_type("atom.output")
+    operation = _op(
+        "placeholder.read",
+        "material.read_canonical_ref.v1",
+        placeholder_input,
+        placeholder_output,
+        registry.catalog,
+    )
+    atom = atom_node(operation)
+
+    assert is_placeholder_object_type(atom.input_type)
+    assert is_placeholder_object_type(atom.output_type)
+    assert decode_ast(atom.encode_ast()).ast_digest() == atom.ast_digest()
+    with pytest.raises(ValueError, match="unresolved construction placeholder"):
+        normalize_program(_program_for_root(atom))
+
+    bound_spec = bind_program_contracts(_program_for_root(atom), registry)
+    assert bound_spec.input_type == CAPTURED_MATERIAL_SNAPSHOT_TYPE
+    assert bound_spec.output_type == MATERIAL_REF_TYPE
+    assert bound_spec.root.input_type == CAPTURED_MATERIAL_SNAPSHOT_TYPE
+    assert bound_spec.root.output_type == MATERIAL_REF_TYPE
+    assert all(
+        value_ref.object_type == CAPTURED_MATERIAL_SNAPSHOT_TYPE
+        for value_ref in bound_spec.root.operation.input_refs
+    )
+    assert (
+        bound_spec.root.operation.payload_ref.object_type
+        == CAPTURED_MATERIAL_SNAPSHOT_TYPE
+    )
+    assert normalize_program(bound_spec).program_digest == bound_spec.program_digest
+
+
+def test_contract_binding_rejects_wrong_endpoint_and_return_witness() -> None:
+    registry = specimen_registry()
+    wrong_input = _type("WrongInput.v1")
+    wrong_output = _type("WrongOutput.v1")
+    wrong_endpoint = atom_node(
+        _op(
+            "wrong.endpoint",
+            "material.read_canonical_ref.v1",
+            wrong_input,
+            wrong_output,
+            registry.catalog,
+        ),
+        input_type=wrong_input,
+        output_type=wrong_output,
+    )
+    with pytest.raises(ProgramTypeError, match="ObjectType does not match"):
+        bind_program_contracts(_program_for_root(wrong_endpoint), registry)
+
+    wrong_return = atom_node(
+        _op(
+            "wrong.return",
+            "material.read_canonical_ref.v1",
+            CAPTURED_MATERIAL_SNAPSHOT_TYPE,
+            MATERIAL_REF_TYPE,
+            registry.catalog,
+        ),
+        input_type=CAPTURED_MATERIAL_SNAPSHOT_TYPE,
+        output_type=MATERIAL_REF_TYPE,
+        return_contract=ReturnContract(
+            success_modes=("WRONG_SUCCESS",),
+            failure_modes=("FAILED",),
+            admission_required=False,
+        ),
+    )
+    with pytest.raises(ProgramTypeError, match="ReturnContract mismatch"):
+        bind_program_contracts(_program_for_root(wrong_return), registry)
+
+
+def test_execution_boundary_keeps_static_refs_distinct_from_carrier_endpoints() -> None:
+    catalog = specimen_catalog()
+    unresolved_value = dataclasses.replace(
+        _value_ref("unresolved.ref", OUTCOME),
+        object_type=placeholder_object_type("atom.output"),
+        value_id="unresolved.ref",
+        storage_ref="unresolved.ref",
+    )
+    operation = dataclasses.replace(
+        _op(
+            "unresolved.ref.operation",
+            "material.read_canonical_ref.v1",
+            INTENT,
+            MATERIAL_REF,
+            catalog,
+        ),
+        input_refs=(unresolved_value,),
+    )
+    atom = atom_node(operation, input_type=INTENT, output_type=MATERIAL_REF)
+    with pytest.raises(ValueError, match="unresolved construction placeholder"):
+        normalize_program(_program_for_root(atom))
+
+    auxiliary = dataclasses.replace(
+        _op(
+            "multi.input.operation",
+            "material.read_canonical_ref.v1",
+            INTENT,
+            MATERIAL_REF,
+            catalog,
+        ),
+        input_refs=(
+            _value_ref("multi.auxiliary", OUTCOME),
+            _value_ref("multi.input", INTENT),
+        ),
+        payload_ref=_value_ref("multi.payload", PROGRAM_OUTPUT),
+    )
+    multi_input = atom_node(
+        auxiliary, input_type=INTENT, output_type=MATERIAL_REF
+    )
+    assert normalize_program(_program_for_root(multi_input)).program_digest
+
+    correct = atom_node(
+        _op(
+            "correct.ref",
+            "material.read_canonical_ref.v1",
+            INTENT,
+            MATERIAL_REF,
+            catalog,
+        ),
+        input_type=INTENT,
+        output_type=MATERIAL_REF,
+    )
+    with pytest.raises(ValueError, match="output_type does not match its root"):
+        normalize_program(
+            _program_for_root(correct, input_type=INTENT, output_type=OUTCOME)
+        )
+
+
+def test_unknown_open_object_type_remains_legal_when_contract_resolves() -> None:
+    open_input = _type(
+        "Workflow.OpenInput.v1",
+        codec_id="mrw.workflow.open-input.codec.v1",
+    )
+    open_output = _type(
+        "Workflow.OpenOutput.v1",
+        codec_id="mrw.workflow.open-output.codec.v1",
+    )
+    contract = make_operation_contract(
+        kind="workflow.open_extension.v1",
+        contract_version="1.0.0",
+        input_type=open_input,
+        output_type=open_output,
+        return_contract_ref=RUNTIME_VALUE_RETURN_CONTRACT_REF,
+        semantic_profile_ref="semantic@1",
+        effect_profile_ref="effect@1",
+        resource_profile_ref="resource@1",
+        failure_profile_ref="failure@1",
+        authority_profile_ref="authority@1",
+        interpreter_compatibility_ref="interpreter@1",
+        observation_profile_ref="observation@1",
+        allowed_override_schema_ref="overrides@1",
+        owner_capability_id="workflow-extension",
+    )
+    catalog = build_catalog_snapshot(
+        catalog_id="workflow-extension",
+        catalog_version="1",
+        contracts=(contract,),
+    )
+    registry = OperationContractRegistry(catalog=catalog, contracts=(contract,))
+    spec = _program_for_root(
+        atom_node(
+            _op(
+                "workflow.open",
+                contract.ref.kind,
+                open_input,
+                open_output,
+                catalog,
+            ),
+            input_type=open_input,
+            output_type=open_output,
+        )
+    )
+
+    result = validate_program(spec, catalog, operation_contract_resolver=registry)
+    assert result.valid, result.failures
+    decoded = decode_program_spec(encode_program_spec(spec))
+    assert decoded.input_type == open_input
+    assert decoded.output_type == open_output
+    assert normalize_program(decoded).program_digest == decoded.program_digest
+
+
+def test_decode_rejects_tampered_canonical_program_bytes() -> None:
+    encoded = encode_program_spec(_specimen_program())
+    encoded["program"]["program_id"] += ":tampered"
+    with pytest.raises(ProgramCodecError, match="program_digest does not bind"):
+        decode_program_spec(encoded)
 
 
 def test_validation_catalog_membership_and_registry_refs() -> None:

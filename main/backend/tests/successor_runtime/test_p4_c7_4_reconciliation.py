@@ -9,12 +9,11 @@ import pytest
 from app.successor_migration.ingest_recovery_c7 import (
     C7ReconciliationError,
     C7ReconciliationPolicy,
-    prove_non_start_with_shared_reconciler,
-    reconcile_with_shared_reconciler,
 )
 from app.successor_runtime.runtime.assignments import canonical_digest
 from app.successor_runtime.runtime.reconciliation import (
     AuthoritativeEffectReadback,
+    EffectReconciler,
     ReconciliationState,
 )
 from app.successor_runtime.runtime.recovery import NonStartProof
@@ -112,7 +111,7 @@ def test_terminal_readback_never_starts_new_attempt() -> None:
     _recovery, _original, reconcile, attempt, interpreter = _recovery_context(
         disposition=EffectDisposition.SUCCEEDED
     )
-    result = reconcile_with_shared_reconciler(
+    result = EffectReconciler().reconcile(
         assignment=reconcile,
         attempt=attempt,
         interpreter=interpreter,
@@ -126,7 +125,7 @@ def test_terminal_readback_never_starts_new_attempt() -> None:
 
 def test_exact_nonstart_proof_with_current_authority_allows_new_epoch() -> None:
     _recovery, _original, reconcile, attempt, interpreter = _recovery_context()
-    result = prove_non_start_with_shared_reconciler(
+    result = EffectReconciler().prove_non_start(
         assignment=reconcile,
         attempt=attempt,
         interpreter=interpreter,
@@ -146,7 +145,7 @@ def test_exact_nonstart_proof_with_current_authority_allows_new_epoch() -> None:
 
 def test_authority_mismatch_fails_closed() -> None:
     _recovery, _original, reconcile, attempt, interpreter = _recovery_context()
-    result = prove_non_start_with_shared_reconciler(
+    result = EffectReconciler().prove_non_start(
         assignment=reconcile,
         attempt=attempt,
         interpreter=interpreter,
@@ -164,7 +163,7 @@ def test_authority_mismatch_fails_closed() -> None:
 
 def test_non_advancing_epoch_and_attempt_mismatch_fail_closed() -> None:
     _recovery, _original, reconcile, attempt, interpreter = _recovery_context()
-    result = prove_non_start_with_shared_reconciler(
+    result = EffectReconciler().prove_non_start(
         assignment=reconcile,
         attempt=attempt,
         interpreter=interpreter,
@@ -194,7 +193,7 @@ def test_failed_terminal_readback_is_final_not_retryable() -> None:
     _recovery, _original, reconcile, attempt, interpreter = _recovery_context(
         disposition=EffectDisposition.FAILED
     )
-    result = reconcile_with_shared_reconciler(
+    result = EffectReconciler().reconcile(
         assignment=reconcile,
         attempt=attempt,
         interpreter=interpreter,

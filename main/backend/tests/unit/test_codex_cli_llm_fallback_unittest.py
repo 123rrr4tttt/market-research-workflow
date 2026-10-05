@@ -27,10 +27,52 @@ from app.services.llm.codex_cli import (
     _extract_codex_answer,
     invoke_codex_cli,
 )
+from app.services.llm.codex_user_config import CodexUserModelConfig, list_codex_models
 from app.services.llm.ports import ChatModelOptions
 
 
 class CodexCliLlmFallbackUnitTest(unittest.TestCase):
+    def test_codex_model_catalog_preserves_choices_under_host_schema(self):
+        config = CodexUserModelConfig(
+            model="visible-model",
+            model_provider="test-router",
+            model_reasoning_effort="high",
+            provider_config={
+                "models": [
+                    {
+                        "model": "visible-model",
+                        "displayName": "Visible model",
+                        "isDefault": True,
+                        "supportedReasoningEfforts": ["low", {"effort": "high"}, "high"],
+                    },
+                    {"model": "hidden-model", "hidden": True},
+                ]
+            },
+        )
+        with patch(
+            "app.services.llm.codex_user_config.load_user_codex_model_config",
+            return_value=config,
+        ):
+            catalog = list_codex_models()
+
+        self.assertEqual(
+            catalog,
+            {
+                "schema": "mrw.codex-models.v1",
+                "provider": "test-router",
+                "current_model": "visible-model",
+                "current_reasoning_effort": "high",
+                "items": [
+                    {
+                        "model": "visible-model",
+                        "display_name": "Visible model",
+                        "is_default": True,
+                        "supported_reasoning_efforts": ["low", "high"],
+                    }
+                ],
+            },
+        )
+
     def _auth_events_from_status(self, status):
         for key in (
             "isolated_codex_home_auth_events",

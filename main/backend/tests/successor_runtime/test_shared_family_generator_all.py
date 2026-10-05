@@ -1,4 +1,4 @@
-"""Shared family generator parity for every migrated family."""
+"""Current family generator parity and retired family evidence history."""
 
 from __future__ import annotations
 
@@ -65,49 +65,12 @@ class FamilySpec:
 
 
 _FAMILIES = {
-    "C2": FamilySpec(
-        "c2_p3",
-        "generate_successor_p3_c2_fragment.py",
-        "p3-fragments/C2.json",
-        f"{_EXACT_BYTE_REBIND}/{_PREDECESSOR_CANDIDATE_STAGE}/fragments/C2.json",
-        "31d32ce3d29eb2ed82063ba8c67d881ed3589cfdf23a616be520acabab1c9922",
-    ),
     "C3": FamilySpec(
-        "c3_p3",
+        "acquisition_batch_p3",
         "generate_successor_p3_c3_fragment.py",
         "p3-fragments/C3.json",
         f"{_EXACT_BYTE_REBIND}/{_PREDECESSOR_CANDIDATE_STAGE}/fragments/C3.json",
         "73b63ea7d9b687a2679e1503bb67deec89daf6ec20142922ce693944296e5d17",
-    ),
-    "C4": FamilySpec(
-        "c4_p3",
-        "generate_successor_p3_c4_fragment.py",
-        "p3-fragments/C4.json",
-        f"{_EXACT_BYTE_REBIND}/{_PREDECESSOR_CANDIDATE_STAGE}/fragments/C4.json",
-        "058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188",
-    ),
-    "C5": FamilySpec(
-        "c5_p3",
-        "generate_successor_p3_c5_fragment.py",
-        "p3-fragments/C5.json",
-        f"{_EXACT_BYTE_REBIND}/{_PREDECESSOR_CANDIDATE_STAGE}/fragments/C5.json",
-        canonical_sha256=(
-            "0e1da888f13adf637774612be90ae367633f565774585b6ad18ace045cdf5231"
-        ),
-    ),
-    "C7": FamilySpec(
-        "c7_p4",
-        "generate_successor_p4_c7_fragment.py",
-        "p4-fragments/C7.json",
-        f"{_EXACT_BYTE_REBIND}/stage-b12-2026-09-05/fragments/C7.json",
-        "d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
-    ),
-    "C8": FamilySpec(
-        "c8_p4",
-        "generate_successor_p4_c8_fragment.py",
-        "p4-fragments/C8.json",
-        f"{_EXACT_BYTE_REBIND}/{_PREDECESSOR_CANDIDATE_STAGE}/fragments/C8.json",
-        "206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6",
     ),
     "C9": FamilySpec(
         "c9_p4",
@@ -115,6 +78,19 @@ _FAMILIES = {
         "p4-fragments/C9.json",
         f"{_EXACT_BYTE_REBIND}/{_PREDECESSOR_CANDIDATE_STAGE}/fragments/C9.json",
         "fdc4b2ab2616431b2d20ec41e207b41e978df833c94a1c92561360708bc89be1",
+    ),
+}
+
+_RETIRED_HISTORY_FRAGMENTS = {
+    "C4": (
+        "p3-fragments/C4.json",
+        "058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188",
+        3,
+    ),
+    "C5": (
+        "p3-fragments/C5.json",
+        "0e1da888f13adf637774612be90ae367633f565774585b6ad18ace045cdf5231",
+        4,
     ),
 }
 
@@ -307,13 +283,32 @@ def test_family_fragment_json_is_valid_and_shares_schema() -> None:
         assert len(payload["content_digest"]) == 64
 
 
+@pytest.mark.parametrize(("family", "history"), sorted(_RETIRED_HISTORY_FRAGMENTS.items()))
+def test_retired_c4_c5_fragments_are_digest_only_history(
+    family: str,
+    history: tuple[str, str, int],
+) -> None:
+    relative_path, expected_sha256, cell_count = history
+    raw = (_EVIDENCE / relative_path).read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == expected_sha256
+    fragment = json.loads(raw)
+    assert fragment["family"] == family
+    assert fragment["phase"] == "P3"
+    assert len(fragment["cells"]) == cell_count
+    assert all(value is False for value in fragment["authority"].values())
+    assert fragment["content_digest"] == content_digest(
+        {key: value for key, value in fragment.items() if key != "content_digest"}
+    )
+
+
 @pytest.mark.parametrize(
-    "family", [family for family, spec in _FAMILIES.items() if spec.candidate_rel]
+    "family", sorted(set(_FAMILIES) | set(_RETIRED_HISTORY_FRAGMENTS))
 )
 def test_candidate_is_not_authority_and_check_is_read_only(family: str) -> None:
-    spec = _FAMILIES[family]
-    assert spec.candidate_rel is not None
-    fragment_path = _EVIDENCE / spec.candidate_rel
+    fragment_path = (
+        _EVIDENCE / _EXACT_BYTE_REBIND / _PREDECESSOR_CANDIDATE_STAGE
+        / "fragments" / f"{family}.json"
+    )
     fragment = json.loads(fragment_path.read_text(encoding="utf-8"))
     assert fragment["family"] == family
     assert all(value is False for value in fragment["authority"].values())
@@ -391,3 +386,13 @@ def test_b19_current_candidate_stages_live_in_temporary_repository(
         "family": family,
         "status": "CANDIDATE_VALID_NOT_AUTHORITY",
     }
+
+
+@pytest.mark.parametrize("family", sorted(_RETIRED_HISTORY_FRAGMENTS))
+def test_b19_rejects_retired_history_families(family: str) -> None:
+    with pytest.raises(_FAMILY_REBIND_TOOL.GenerationError, match="unknown family"):
+        _FAMILY_REBIND_TOOL.build_documents(
+            _REPOSITORY_ROOT,
+            stage=_B19_STAGE,
+            families=[family],
+        )

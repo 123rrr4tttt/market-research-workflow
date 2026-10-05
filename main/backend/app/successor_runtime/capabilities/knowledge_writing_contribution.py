@@ -75,8 +75,7 @@ KNOWLEDGE_WRITING_OBSERVATION_DIMENSIONS = (
     "provenance_chain",
 )
 KNOWLEDGE_WRITING_ROLLBACK_REFS = (
-    "main/backend/app/successor_migration/legacy_c8_writing.py",
-    "main/backend/app/successor_runtime/assembly/c8_assembly.py",
+    "main/backend/app/successor_runtime/assembly/knowledge_assembly.py",
 )
 
 

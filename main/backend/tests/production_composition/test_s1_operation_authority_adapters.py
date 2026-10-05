@@ -108,8 +108,8 @@ def _approval_row() -> dict[str, Any]:
         "actor_id": "actor-1",
         "decision": APPROVED_DECISION,
         "expires_at": OBSERVED_AT + timedelta(minutes=5),
-        "operation_kind": "agent-chat.run_agent_chat_turn",
-        "capability_id": "agent-chat.run_agent_chat_turn",
+        "operation_kind": "agent-macro-host.dispatch_macro_tool",
+        "capability_id": "agent-macro-host.dispatch_macro_tool",
         "payload_digest": PAYLOAD_DIGEST,
         "claim_authority_epoch": 7,
     }
@@ -123,7 +123,7 @@ def test_exact_operation_authorization_is_returned_only_for_exact_sql_join() -> 
     connection = FakeConnection(
         expected_literals=(
             "approval-1",
-            "agent-chat.run_agent_chat_turn",
+            "agent-macro-host.dispatch_macro_tool",
             PAYLOAD_DIGEST,
             "actor-1",
             "demo",
@@ -133,8 +133,8 @@ def test_exact_operation_authorization_is_returned_only_for_exact_sql_join() -> 
     )
     grants = _approval_adapter(connection).approvals(
         ACTOR,
-        "agent-chat.run_agent_chat_turn",
-        "agent-chat.run_agent_chat_turn",
+        "agent-macro-host.dispatch_macro_tool",
+        "agent-macro-host.dispatch_macro_tool",
         SCOPE,
         OBSERVED_AT,
         "approval-1",
@@ -148,8 +148,8 @@ def test_exact_operation_authorization_is_returned_only_for_exact_sql_join() -> 
             decision=APPROVED_DECISION,
             expires_at=OBSERVED_AT + timedelta(minutes=5),
             project_key="demo",
-            operation="agent-chat.run_agent_chat_turn",
-            capability_id="agent-chat.run_agent_chat_turn",
+            operation="agent-macro-host.dispatch_macro_tool",
+            capability_id="agent-macro-host.dispatch_macro_tool",
             payload_digest=PAYLOAD_DIGEST,
             claim_authority_epoch=7,
         ),
@@ -167,10 +167,10 @@ def test_exact_operation_authorization_is_returned_only_for_exact_sql_join() -> 
 @pytest.mark.parametrize(
     ("operation", "capability", "approval_ref", "digest"),
     [
-        ("other.operation", "agent-chat.run_agent_chat_turn", "approval-1", PAYLOAD_DIGEST),
-        ("agent-chat.run_agent_chat_turn", "other.capability", "approval-1", PAYLOAD_DIGEST),
-        ("agent-chat.run_agent_chat_turn", "agent-chat.run_agent_chat_turn", "", PAYLOAD_DIGEST),
-        ("agent-chat.run_agent_chat_turn", "agent-chat.run_agent_chat_turn", "approval-1", "b" * 64),
+        ("other.operation", "agent-macro-host.dispatch_macro_tool", "approval-1", PAYLOAD_DIGEST),
+        ("agent-macro-host.dispatch_macro_tool", "other.capability", "approval-1", PAYLOAD_DIGEST),
+        ("agent-macro-host.dispatch_macro_tool", "agent-macro-host.dispatch_macro_tool", "", PAYLOAD_DIGEST),
+        ("agent-macro-host.dispatch_macro_tool", "agent-macro-host.dispatch_macro_tool", "approval-1", "b" * 64),
     ],
 )
 def test_operation_authority_drift_denies(
@@ -210,8 +210,8 @@ def test_ambiguous_operation_authority_fails_closed() -> None:
     with pytest.raises(ProductionRuntimeAuthorityUnavailable, match="ambiguous"):
         _approval_adapter(connection).approvals(
             ACTOR,
-            "agent-chat.run_agent_chat_turn",
-            "agent-chat.run_agent_chat_turn",
+            "agent-macro-host.dispatch_macro_tool",
+            "agent-macro-host.dispatch_macro_tool",
             SCOPE,
             OBSERVED_AT,
             "approval-1",
@@ -221,26 +221,26 @@ def test_ambiguous_operation_authority_fails_closed() -> None:
 
 def test_actor_scope_requires_exact_operation_kind() -> None:
     scope = AuthorityOperationScope.from_content(
-        operation_kinds=("agent-chat.run_agent_chat_turn",),
+        operation_kinds=("agent-macro-host.dispatch_macro_tool",),
         project_scope_digest=SCOPE.scope_digest,
     )
     row = {"operation_scope_json": scope.model_dump(mode="python")}
     connection = FakeConnection(
-        expected_literals=("agent-chat.run_agent_chat_turn",),
+        expected_literals=("agent-macro-host.dispatch_macro_tool",),
         rows=[row],
     )
 
     adapter = PostgresProductionActorScopes(FakeEngine(connection))
     assert adapter.scopes(
         ACTOR,
-        "agent-chat.run_agent_chat_turn",
-        "agent-chat.run_agent_chat_turn",
+        "agent-macro-host.dispatch_macro_tool",
+        "agent-macro-host.dispatch_macro_tool",
         SCOPE,
     ) == ("api:invoke",)
     assert (
         adapter.scopes(
             ACTOR,
-            "agent-chat.run_agent_chat_turn",
+            "agent-macro-host.dispatch_macro_tool",
             "other.capability",
             SCOPE,
         )
@@ -449,7 +449,7 @@ def test_checked_in_effect_contracts_match_public_route_design() -> None:
         assert contract.effect_class is EffectClass.EXTERNAL_AUTH
         assert contract.admission is EffectAdmission.BLOCKED_UNTIL_EFFECT_BINDING
 
-    for operation in ("discovery.discovery_search", "agent-chat.run_agent_chat_turn"):
+    for operation in ("discovery.discovery_search", "agent-macro-host.dispatch_macro_tool"):
         contract = bindings[operation]
         assert contract.effect_class is EffectClass.CONDITIONAL
         assert contract.admission is EffectAdmission.BLOCKED_UNTIL_EFFECT_BINDING

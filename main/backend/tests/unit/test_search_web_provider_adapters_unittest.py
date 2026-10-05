@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
+from app.services.ingest.retry_policy import RateGate, RequestScope
 from app.services.search import web
 
 pytestmark = pytest.mark.unit
@@ -30,6 +31,51 @@ def _load_trace_contract_module():
     return module
 
 
+class _FakeResponse:
+    def __init__(self, payload: dict[str, object], *, status_code: int = 200):
+        self.payload = payload
+        self.status_code = status_code
+        self.text = json.dumps(payload)
+        self.headers = {"Retry-After": "1"} if status_code == 429 else {}
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise AssertionError
+
+    def json(self) -> dict[str, object]:
+        return self.payload
+
+
+class _FakeJsonSession:
+    def __init__(self, responses: list[_FakeResponse]) -> None:
+        self.responses = list(responses)
+        self.headers: dict[str, str] = {}
+        self.calls: list[tuple[str, dict[str, object]]] = []
+
+    def get(self, url: str, **kwargs: object) -> _FakeResponse:
+        self.calls.append((url, dict(kwargs)))
+        return self.responses.pop(0)
+
+    def close(self) -> None:
+        return None
+
+
+def _deterministic_gate(sleeps: list[float]) -> RateGate:
+    now = [0.0]
+
+    def advance_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        now[0] += seconds
+
+    return RateGate(
+        rate_limit_interval_seconds=1.0,
+        backoff_base_seconds=2.0,
+        backoff_max_seconds=8.0,
+        clock=lambda: now[0],
+        sleeper=advance_sleep,
+    )
+
+
 class SearchWebProviderAdaptersTest(unittest.TestCase):
     def test_searxng_adapter_normalizes_results_and_keeps_provider_source(self) -> None:
         payload = {
@@ -43,15 +89,18 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
                 }
             ]
         }
+        session = _FakeJsonSession([_FakeResponse(payload)])
+        sleeps: list[float] = []
         with patch("app.services.search.web.generate_keywords", return_value=["robotics policy"]):
-            with patch("app.services.search.web.default_http_client.get_json", return_value=payload) as get_json:
-                results = web.search_sources(
-                    "robotics policy",
-                    language="en",
-                    max_results=5,
-                    provider="searxng",
-                    exclude_existing=False,
-                )
+            with patch.object(web, "_SEARCH_RATE_GATE", _deterministic_gate(sleeps)):
+                with patch.object(web, "_SEARCH_CLIENT_FACTORY", lambda: session):
+                    results = web.search_sources(
+                        "robotics policy",
+                        language="en",
+                        max_results=5,
+                        provider="searxng",
+                        exclude_existing=False,
+                    )
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["source"], "searxng")
@@ -72,9 +121,12 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
             },
         )
         self.assertEqual(results[0]["raw"]["engine"], "bing")
-        get_json.assert_called_once()
-        self.assertTrue(get_json.call_args.args[0].endswith("/search"))
-        self.assertEqual(get_json.call_args.kwargs["params"]["format"], "json")
+        self.assertEqual(len(session.calls), 1)
+        url, get_kwargs = session.calls[0]
+        self.assertTrue(url.endswith("/search"))
+        self.assertEqual(get_kwargs["params"]["format"], "json")
+        self.assertEqual(session.headers["Accept"], "application/json")
+        self.assertEqual(sleeps, [])
 
     def test_yacy_adapter_normalizes_channel_items_and_resource_mode(self) -> None:
         payload = {
@@ -93,14 +145,17 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
         }
         with patch.dict(os.environ, {"YACY_RESOURCE_MODE": "local"}, clear=False):
             with patch("app.services.search.web.generate_keywords", return_value=["robotics"]):
-                with patch("app.services.search.web.default_http_client.get_json", return_value=payload) as get_json:
-                    results = web.search_sources(
-                        "robotics",
-                        language="en",
-                        max_results=5,
-                        provider="yacy",
-                        exclude_existing=False,
-                    )
+                session = _FakeJsonSession([_FakeResponse(payload)])
+                sleeps: list[float] = []
+                with patch.object(web, "_SEARCH_RATE_GATE", _deterministic_gate(sleeps)):
+                    with patch.object(web, "_SEARCH_CLIENT_FACTORY", lambda: session):
+                        results = web.search_sources(
+                            "robotics",
+                            language="en",
+                            max_results=5,
+                            provider="yacy",
+                            exclude_existing=False,
+                        )
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["source"], "yacy")
@@ -121,9 +176,12 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
             },
         )
         self.assertEqual(results[0]["raw"]["resource"], "local")
-        get_json.assert_called_once()
-        self.assertTrue(get_json.call_args.args[0].endswith("/yacysearch.json"))
-        self.assertEqual(get_json.call_args.kwargs["params"]["resource"], "local")
+        self.assertEqual(len(session.calls), 1)
+        url, get_kwargs = session.calls[0]
+        self.assertTrue(url.endswith("/yacysearch.json"))
+        self.assertEqual(get_kwargs["params"]["resource"], "local")
+        self.assertEqual(session.headers["Accept"], "application/json")
+        self.assertEqual(sleeps, [])
 
     def test_auto_provider_does_not_call_experimental_local_providers(self) -> None:
         with patch.dict(os.environ, {"SERPER_API_KEY": "test-serper"}, clear=False):
@@ -156,28 +214,90 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
                 {"title": "Result 11", "url": "https://example.com/11", "content": "Second page"}
             ]
         }
+        session = _FakeJsonSession([_FakeResponse(first_page), _FakeResponse(second_page)])
+        sleeps: list[float] = []
         with patch.dict(os.environ, {"SEARXNG_MAX_PAGES": "2"}, clear=False):
             with patch("app.services.search.web.generate_keywords", return_value=["robotics"]):
-                with patch("app.services.search.web.default_http_client.get_json", side_effect=[first_page, second_page]) as get_json:
-                    results = web.search_sources(
-                        "robotics",
-                        language="en",
-                        max_results=11,
-                        provider="searxng",
-                        exclude_existing=False,
-                    )
+                with patch.object(web, "_SEARCH_RATE_GATE", _deterministic_gate(sleeps)):
+                    with patch.object(web, "_SEARCH_CLIENT_FACTORY", lambda: session):
+                        results = web.search_sources(
+                            "robotics",
+                            language="en",
+                            max_results=11,
+                            provider="searxng",
+                            exclude_existing=False,
+                        )
 
         self.assertEqual(len(results), 11)
-        self.assertEqual(get_json.call_count, 2)
-        self.assertEqual(get_json.call_args_list[0].kwargs["params"]["pageno"], 1)
-        self.assertEqual(get_json.call_args_list[1].kwargs["params"]["pageno"], 2)
+        self.assertEqual(len(session.calls), 2)
+        self.assertEqual(session.calls[0][1]["params"]["pageno"], 1)
+        self.assertEqual(session.calls[1][1]["params"]["pageno"], 2)
+        self.assertEqual(sleeps, [1.0])
         self.assertEqual(results[-1]["raw"]["pageno"], 2)
         self.assertEqual(results[-1]["backend_trace"]["pageno"], 2)
         self.assertEqual(results[-1]["provider_route"], "explicit:searxng")
 
+    def test_google_repeated_gets_use_frozen_rate_gate_without_sleep_call(self) -> None:
+        first_page = {
+            "items": [
+                {"title": f"Result {idx}", "link": f"https://example.com/{idx}", "snippet": "ok"}
+                for idx in range(10)
+            ]
+        }
+        second_page = {"items": [{"title": "Result 11", "link": "https://example.com/11", "snippet": "ok"}]}
+        session = _FakeJsonSession([_FakeResponse(first_page), _FakeResponse(second_page)])
+        sleeps: list[float] = []
+
+        with patch.object(web, "_SEARCH_RATE_GATE", _deterministic_gate(sleeps)):
+            with patch.object(web, "_SEARCH_CLIENT_FACTORY", lambda: session):
+                results = web._google_search("robotics", "cse-id", 11, api_key="test-key")
+
+        self.assertEqual(len(results), 11)
+        self.assertEqual(len(session.calls), 2)
+        self.assertEqual(sleeps, [1.0])
+        self.assertEqual(session.headers["Accept"], "application/json")
+
+    def test_serper_post_policy_boundary_is_not_faked_as_request_html(self) -> None:
+        sleeps: list[float] = []
+        gate = _deterministic_gate(sleeps)
+        gate.record_throttle(RequestScope(provider="search:serper"), retry_after_seconds=2.0)
+
+        with patch.object(web, "_SEARCH_RATE_GATE", gate):
+            with patch(
+                "app.services.search.web.default_http_client.post_json",
+                side_effect=AssertionError("denial must not reach provider HTTP"),
+            ):
+                results = web._serper_search("robotics", "test-key", 5)
+
+        self.assertEqual(results, [])
+        self.assertEqual(sleeps, [])
+
+    def test_provider_429_failure_is_classified_and_never_returns_partial_data(self) -> None:
+        session = _FakeJsonSession([
+            _FakeResponse({"organic_results": [{"title": "partial"}]}, status_code=429)
+            for _ in range(3)
+        ])
+        sleeps: list[float] = []
+
+        with patch("time.sleep", sleeps.append):
+            with patch.object(web, "_SEARCH_RATE_GATE", _deterministic_gate(sleeps)):
+                with patch.object(web, "_SEARCH_CLIENT_FACTORY", lambda: session):
+                    with self.assertRaises(Exception) as raised:
+                        web._serpapi_search("robotics", "test-key", 5)
+
+        self.assertIn("rate_limited", str(raised.exception))
+        self.assertEqual(len(session.calls), 1)
+        self.assertEqual(sleeps, [1.0])
+        self.assertNotIn("partial", str(raised.exception))
+
     def test_offline_provider_trace_artifact_contract_matches_adapters(self) -> None:
         module = _load_trace_contract_module()
-        artifact = module.build_contract()
+        with patch.object(
+            web.default_http_client,
+            "get_json",
+            side_effect=AssertionError,
+        ):
+            artifact = module.build_contract()
 
         self.assertEqual(artifact["contract_version"], "search-provider-trace-artifacts.v1")
         self.assertEqual(artifact["scope"], "offline_unit_contract_no_containers")

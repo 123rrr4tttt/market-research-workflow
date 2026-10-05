@@ -1,7 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol, TypeAlias
+
+if TYPE_CHECKING:
+    from langchain_core.language_models import BaseChatModel
+    from langchain_core.embeddings import Embeddings
+
+    from app.services.llm.codex_cli import CodexCliChatModel
+
+    ChatModel: TypeAlias = BaseChatModel | CodexCliChatModel
+    EmbeddingModel: TypeAlias = Embeddings
 
 
 @dataclass
@@ -16,12 +25,12 @@ class ChatModelOptions:
 
 
 class ChatPort(Protocol):
-    def get_chat_model(self, options: ChatModelOptions) -> Any:
+    def get_chat_model(self, options: ChatModelOptions) -> "ChatModel":
         ...
 
 
 class EmbeddingPort(Protocol):
-    def get_embeddings(self, model: Optional[str] = None) -> Any:
+    def get_embeddings(self, model: Optional[str] = None) -> "EmbeddingModel":
         ...
 
 
@@ -33,10 +42,10 @@ class PromptConfigPort(Protocol):
 class LLMProviderPort(Protocol):
     """Runtime provider boundary shared by chat and embedding requests."""
 
-    def get_chat_model(self, options: ChatModelOptions) -> Any:
+    def get_chat_model(self, options: ChatModelOptions) -> "ChatModel":
         ...
 
-    def get_embeddings(self, model: Optional[str] = None) -> Any:
+    def get_embeddings(self, model: Optional[str] = None) -> "EmbeddingModel":
         ...
 
 

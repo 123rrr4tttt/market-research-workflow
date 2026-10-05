@@ -28,7 +28,6 @@ _EXACT_KEYS = (
     "derived-marked|main/backend/scripts/check_source_library_three_lane_live_closure.py|build_contract returns an unmarked derived value",
     "derived-marked|main/backend/scripts/check_structured_consumer_query_extraction.py|build_check returns an unmarked derived value",
     "derived-marked|main/backend/scripts/check_structured_sql_helper_migration.py|build_check returns an unmarked derived value",
-    "derived-marked|main/backend/scripts/check_successor_c7_semantic_movements.py|build_documents returns an unmarked derived value",
     "derived-marked|main/backend/scripts/check_time_density_current_state.py|build_current_state returns an unmarked derived value",
     "derived-marked|main/backend/scripts/check_time_density_decision_log_contract.py|build_contract returns an unmarked derived value",
     "derived-marked|main/backend/scripts/check_time_density_runtime_support.py|build_policy_decision_trace returns an unmarked derived value",
@@ -68,7 +67,7 @@ def _metadata_for(key: str) -> str:
 
 
 def test_c13_cli_graph_workflow_metadata_preserves_abi() -> None:
-    assert len(_EXACT_KEYS) == len(set(_EXACT_KEYS)) == 34
+    assert len(_EXACT_KEYS) == len(set(_EXACT_KEYS)) == 33
 
     for key in _EXACT_KEYS:
         metadata = _metadata_for(key)

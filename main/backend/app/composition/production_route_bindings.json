@@ -270,6 +270,199 @@
       }
     },
     {
+      "route_template": "/api/v1/admin/materials/bulk/extracted-data",
+      "domain": "admin",
+      "operation": "admin.bulk_update_document_extracted_data",
+      "metrics_label": "admin:/api/v1/admin/materials/bulk/extracted-data",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/admin/materials/delete",
+      "domain": "admin",
+      "operation": "admin.delete_documents",
+      "metrics_label": "admin:/api/v1/admin/materials/delete",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/admin/materials/list",
+      "domain": "admin",
+      "operation": "admin.list_documents",
+      "metrics_label": "admin:/api/v1/admin/materials/list",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "read",
+        "admission": "admitted",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/admin/materials/raw-import",
+      "domain": "admin",
+      "operation": "admin.raw_import_documents",
+      "metrics_label": "admin:/api/v1/admin/materials/raw-import",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "conditional",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": "handler_effect_path.v1",
+        "conditional_branches": [
+          "no_effect_or_read",
+          "external_or_legacy_effect"
+        ]
+      }
+    },
+    {
+      "route_template": "/api/v1/admin/materials/re-extract",
+      "domain": "admin",
+      "operation": "admin.re_extract_documents",
+      "metrics_label": "admin:/api/v1/admin/materials/re-extract",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "conditional",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": "handler_effect_path.v1",
+        "conditional_branches": [
+          "no_effect_or_read",
+          "external_or_legacy_effect"
+        ]
+      }
+    },
+    {
+      "route_template": "/api/v1/admin/materials/topic-extract",
+      "domain": "admin",
+      "operation": "admin.topic_extract_documents",
+      "metrics_label": "admin:/api/v1/admin/materials/topic-extract",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "conditional",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": "handler_effect_path.v1",
+        "conditional_branches": [
+          "no_effect_or_read",
+          "external_or_legacy_effect"
+        ]
+      }
+    },
+    {
+      "route_template": "/api/v1/admin/materials/{doc_id}",
+      "domain": "admin",
+      "operation": "admin.get_document",
+      "metrics_label": "admin:/api/v1/admin/materials/{doc_id}",
+      "methods": [
+        "GET"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "read",
+        "admission": "admitted",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/admin/materials/{doc_id}/extracted-data",
+      "domain": "admin",
+      "operation": "admin.update_document_extracted_data",
+      "metrics_label": "admin:/api/v1/admin/materials/{doc_id}/extracted-data",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
       "route_template": "/api/v1/admin/policy-graph",
       "domain": "admin",
       "operation": "admin.get_policy_graph",
@@ -820,36 +1013,10 @@
       }
     },
     {
-      "route_template": "/api/v1/agent-chat/approvals/{approval_id}/continue",
-      "domain": "agent-chat",
-      "operation": "agent-chat.continue_agent_chat_approval",
-      "metrics_label": "agent-chat:/api/v1/agent-chat/approvals/{approval_id}/continue",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": "handler_effect_path.v1",
-        "conditional_branches": [
-          "no_effect_or_read",
-          "external_or_legacy_effect"
-        ]
-      }
-    },
-    {
-      "route_template": "/api/v1/agent-chat/capabilities",
-      "domain": "agent-chat",
-      "operation": "agent-chat.list_agent_chat_capabilities",
-      "metrics_label": "agent-chat:/api/v1/agent-chat/capabilities",
+      "route_template": "/api/v1/agent-cell",
+      "domain": "agent-cell",
+      "operation": "agent-cell.read_agent_cell",
+      "metrics_label": "agent-cell:/api/v1/agent-cell",
       "methods": [
         "GET"
       ],
@@ -869,10 +1036,56 @@
       }
     },
     {
-      "route_template": "/api/v1/agent-chat/turn",
-      "domain": "agent-chat",
-      "operation": "agent-chat.run_agent_chat_turn",
-      "metrics_label": "agent-chat:/api/v1/agent-chat/turn",
+      "route_template": "/api/v1/agent-macro-host/bind",
+      "domain": "agent-macro-host",
+      "operation": "agent-macro-host.bind_macro_host",
+      "metrics_label": "agent-macro-host:/api/v1/agent-macro-host/bind",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/agent-macro-host/confirm",
+      "domain": "agent-macro-host",
+      "operation": "agent-macro-host.confirm_macro_action",
+      "metrics_label": "agent-macro-host:/api/v1/agent-macro-host/confirm",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/agent-macro-host/dispatch",
+      "domain": "agent-macro-host",
+      "operation": "agent-macro-host.dispatch_macro_tool",
+      "metrics_label": "agent-macro-host:/api/v1/agent-macro-host/dispatch",
       "methods": [
         "POST"
       ],
@@ -895,10 +1108,10 @@
       }
     },
     {
-      "route_template": "/api/v1/agent-chat/turn/stream",
-      "domain": "agent-chat",
-      "operation": "agent-chat.stream_agent_chat_turn",
-      "metrics_label": "agent-chat:/api/v1/agent-chat/turn/stream",
+      "route_template": "/api/v1/agent-macro-host/end-turn",
+      "domain": "agent-macro-host",
+      "operation": "agent-macro-host.end_macro_turn",
+      "metrics_label": "agent-macro-host:/api/v1/agent-macro-host/end-turn",
       "methods": [
         "POST"
       ],
@@ -906,18 +1119,84 @@
       "required_approval_ids": [],
       "capability_id": null,
       "effect_contract": {
-        "effect_class": "conditional",
+        "effect_class": "legacy_write",
         "admission": "blocked_until_effect_binding",
         "provider_port": null,
         "provider_class": "null",
         "canonical_writer_port": null,
         "external_auth_port": null,
         "filesystem_port": null,
-        "conditional_discriminator": "handler_effect_path.v1",
-        "conditional_branches": [
-          "no_effect_or_read",
-          "external_or_legacy_effect"
-        ]
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/agent-macro-host/environment",
+      "domain": "agent-macro-host",
+      "operation": "agent-macro-host.read_macro_environment",
+      "metrics_label": "agent-macro-host:/api/v1/agent-macro-host/environment",
+      "methods": [
+        "GET"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "read",
+        "admission": "admitted",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/agent-macro-host/prepare",
+      "domain": "agent-macro-host",
+      "operation": "agent-macro-host.prepare_macro_host",
+      "metrics_label": "agent-macro-host:/api/v1/agent-macro-host/prepare",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/agent-macro-host/record-input",
+      "domain": "agent-macro-host",
+      "operation": "agent-macro-host.record_macro_input",
+      "metrics_label": "agent-macro-host:/api/v1/agent-macro-host/record-input",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
       }
     },
     {
@@ -1010,32 +1289,6 @@
         "filesystem_port": null,
         "conditional_discriminator": null,
         "conditional_branches": []
-      }
-    },
-    {
-      "route_template": "/api/v1/agent-sessions/{session_id}/actions/coordinator-pass",
-      "domain": "agent-sessions",
-      "operation": "agent-sessions.run_agent_session_coordinator_pass",
-      "metrics_label": "agent-sessions:/api/v1/agent-sessions/{session_id}/actions/coordinator-pass",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": "handler_effect_path.v1",
-        "conditional_branches": [
-          "no_effect_or_read",
-          "external_or_legacy_effect"
-        ]
       }
     },
     {
@@ -1745,6 +1998,29 @@
       "effect_contract": {
         "effect_class": "filesystem_subprocess",
         "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": null,
+        "conditional_branches": []
+      }
+    },
+    {
+      "route_template": "/api/v1/crawler/agent-modules",
+      "domain": "crawler",
+      "operation": "crawler.list_crawler_agent_modules_api",
+      "metrics_label": "crawler:/api/v1/crawler/agent-modules",
+      "methods": [
+        "GET"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "read",
+        "admission": "admitted",
         "provider_port": null,
         "provider_class": "null",
         "canonical_writer_port": null,
@@ -5179,6 +5455,32 @@
       }
     },
     {
+      "route_template": "/api/v1/resource_pool/extract/from-materials",
+      "domain": "resource_pool",
+      "operation": "resource_pool.extract_from_documents_api",
+      "metrics_label": "resource_pool:/api/v1/resource_pool/extract/from-materials",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "conditional",
+        "admission": "blocked_until_effect_binding",
+        "provider_port": null,
+        "provider_class": "null",
+        "canonical_writer_port": null,
+        "external_auth_port": null,
+        "filesystem_port": null,
+        "conditional_discriminator": "handler_effect_path.v1",
+        "conditional_branches": [
+          "no_effect_or_read",
+          "external_or_legacy_effect"
+        ]
+      }
+    },
+    {
       "route_template": "/api/v1/resource_pool/import/open-source-presets",
       "domain": "resource_pool",
       "operation": "resource_pool.import_open_source_presets_api",
@@ -6060,52 +6362,6 @@
           "no_effect_or_read",
           "external_or_legacy_effect"
         ]
-      }
-    },
-    {
-      "route_template": "/api/v1/successor-runtime/v2/commands",
-      "domain": "successor-runtime",
-      "operation": "material-projections.reject_retired_command_route",
-      "metrics_label": "successor-runtime:/api/v1/successor-runtime/v2/commands",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": null,
-        "conditional_branches": []
-      }
-    },
-    {
-      "route_template": "/api/v1/successor-runtime/v2/queries",
-      "domain": "successor-runtime",
-      "operation": "successor-runtime.run_query",
-      "metrics_label": "successor-runtime:/api/v1/successor-runtime/v2/queries",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": null,
-        "conditional_branches": []
       }
     },
     {

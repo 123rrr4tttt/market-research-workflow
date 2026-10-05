@@ -10,12 +10,11 @@ constructs an exact ``ProgramSpec``/``ExecutionPlan`` with the shared successor
 Program AST.  It never imports the legacy workflow-graph service, a provider,
 or a store, and it records zero provider/store/effect counters.
 
-The DAG is projected onto a Program tree using ordered composition only:
-single upstream edges become ``then_node`` and multiple upstream edges become
-``zip_ordered_node`` in topological order.  No commutativity is claimed.  Node
-config is bound into Program metadata and into each atom's deterministic
-``ValueRef``, so node-kind/config changes alter the exact program and plan
-digests.
+The DAG is normalized to one deterministic topological ``then_node`` chain.
+Each DSL node has exactly one Atom occurrence; no shared predecessor AST is
+embedded twice and no parallel/merge semantics are claimed.  Canonical node
+configs, edges and topo order remain in Program metadata.  Node-kind/config
+changes alter the exact program and plan digests.
 """
 
 from __future__ import annotations
@@ -71,9 +70,7 @@ from app.successor_runtime.language.program import (
     atom_node,
     identity_node,
     then_node,
-    zip_ordered_node,
 )
-from app.successor_runtime.language.transforms import MergeRef
 from app.successor_runtime.language.validate import validate_program
 from app.successor_runtime.research.object_types import ObjectType
 
@@ -96,7 +93,6 @@ __all__ = [
     "WORKFLOW_OBSERVATION_PROFILE",
     "WORKFLOW_OPERATION_CATALOG_ID",
     "WORKFLOW_OPERATION_OWNER",
-    "WORKFLOW_ORDERED_MERGE_NAME",
     "WORKFLOW_PROJECT_KEY",
     "WORKFLOW_SEMANTIC_IDENTITY",
     "WorkflowCompileSchemaIdentity",
@@ -105,7 +101,7 @@ __all__ = [
     "WORKFLOW_OPERATION_CATALOG_VERSION",
     "WORKFLOW_PROGRAM_CONTRACT_VERSION",
     "WORKFLOW_PROJECT_KEY",
-    "WORKFLOW_ORDERED_MERGE_VERSION",
+    "WORKFLOW_ORDERED_COMPOSITION",
     "WORKFLOW_CONTEXT_TYPE",
     "WorkflowLegacyDSLFailure",
     "WorkflowLegacyDSLResult",
@@ -147,8 +143,7 @@ WORKFLOW_PROGRAM_CONTRACT_VERSION = "mrw.workflow.program-spec.v2"
 WORKFLOW_PROJECT_KEY = "workflow.definition.compile.v2"
 WORKFLOW_SEMANTIC_IDENTITY = "workflow.definition.parse-validate-compile.v2"
 WORKFLOW_OBSERVATION_PROFILE = "mrw.workflow.definition.compile.observation.v2"
-WORKFLOW_ORDERED_MERGE_NAME = "mrw.workflow.ordered-merge.v2"
-WORKFLOW_ORDERED_MERGE_VERSION = "2"
+WORKFLOW_ORDERED_COMPOSITION = "THEN_TOPOLOGY_ONCE"
 WORKFLOW_FAILURE_OWNER = "workflow.definition.compile.v2"
 WORKFLOW_FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
 WORKFLOW_CONTEXT_TYPE = ObjectType(
@@ -722,28 +717,6 @@ def _atom_for_node(
     )
 
 
-def _merge_ref(
-    left_source_ids: tuple[str, ...],
-    right_source_ids: tuple[str, ...],
-) -> MergeRef:
-    left_ids = _ordered_unique(left_source_ids)
-    right_ids = _ordered_unique(right_source_ids)
-    binding = {
-        "name": WORKFLOW_ORDERED_MERGE_NAME,
-        "version": WORKFLOW_ORDERED_MERGE_VERSION,
-        "left_sources": left_ids,
-        "right_sources": right_ids,
-        "order": "left,right",
-        "commutativity": "NOT_CLAIMED",
-    }
-    return MergeRef(
-        name=WORKFLOW_ORDERED_MERGE_NAME,
-        version=WORKFLOW_ORDERED_MERGE_VERSION,
-        digest=content_digest(binding),
-        transform_kind="merge",
-    )
-
-
 def _program_root(
     graph: _ParsedGraph,
     *,
@@ -754,58 +727,16 @@ def _program_root(
     if not graph.topo_order:
         return identity_node(WORKFLOW_CONTEXT_TYPE), ()
     nodes_by_id = {node.node_id: node for node in graph.nodes}
-    incoming: dict[str, list[str]] = {node_id: [] for node_id in graph.topo_order}
-    outgoing: dict[str, list[str]] = {node_id: [] for node_id in graph.topo_order}
-    for from_node, to_node in graph.edges:
-        incoming[to_node].append(from_node)
-        outgoing[from_node].append(to_node)
-
-    memo: dict[str, tuple[ProgramNode, tuple[str, ...]]] = {}
-
-    def build(node_id: str) -> tuple[ProgramNode, tuple[str, ...]]:
-        cached = memo.get(node_id)
-        if cached is not None:
-            return cached
-        node = nodes_by_id[node_id]
+    root: ProgramNode | None = None
+    for node_id in graph.topo_order:
         atom = _atom_for_node(
-            node,
+            nodes_by_id[node_id],
             program_id=program_id,
             project_key=project_key,
             catalog=catalog,
         )
-        predecessors = tuple(incoming[node_id])
-        if not predecessors:
-            result = (atom, (node_id,))
-        elif len(predecessors) == 1:
-            pred_program, pred_ids = build(predecessors[0])
-            result = (then_node(pred_program, atom), pred_ids + (node_id,))
-        else:
-            merged_program, merged_ids = build(predecessors[0])
-            for pred in predecessors[1:]:
-                pred_program, pred_ids = build(pred)
-                merged_program = zip_ordered_node(
-                    merged_program,
-                    pred_program,
-                    _merge_ref(merged_ids, pred_ids),
-                    output_type=WORKFLOW_CONTEXT_TYPE,
-                )
-                merged_ids = merged_ids + pred_ids
-            result = (then_node(merged_program, atom), merged_ids + (node_id,))
-        memo[node_id] = result
-        return result
-
-    sinks = [node_id for node_id in graph.topo_order if not outgoing[node_id]]
-    root_program, root_ids = build(sinks[0])
-    for sink in sinks[1:]:
-        sink_program, sink_ids = build(sink)
-        root_program = zip_ordered_node(
-            root_program,
-            sink_program,
-            _merge_ref(root_ids, sink_ids),
-            output_type=WORKFLOW_CONTEXT_TYPE,
-        )
-        root_ids = root_ids + sink_ids
-    return root_program, _ordered_unique(root_ids)
+        root = atom if root is None else then_node(root, atom)
+    return root, graph.topo_order
 
 
 def _program_identities(graph: _ParsedGraph) -> tuple[str, str]:
@@ -872,7 +803,7 @@ def _build_program(
             "edges": [{"from": frm, "to": to} for frm, to in graph.edges],
             "topo_order": list(graph.topo_order),
             "ordered_source_ids": list(ordered_source_ids),
-            "ordered_composition": "THEN_AND_ZIP_ORDERED_NONCOMMUTATIVE",
+            "ordered_composition": WORKFLOW_ORDERED_COMPOSITION,
             "program_id": program_id,
             "project_key": project_key,
             "project_registry_revision": 1,
@@ -989,3 +920,30 @@ def parse_and_validate_workflow_dsl(
         edge_count=len(graph.edges),
         topo_order=graph.topo_order,
     )
+
+
+def workflow_program_metadata(program: ProgramSpec) -> dict[str, Any]:
+    """Read one exact program's canonical workflow scheduling metadata."""
+
+    from app.successor_runtime.language.program import _metadata_plain
+
+    def plain(value: Any) -> Any:
+        if isinstance(value, tuple) and value and all(
+            isinstance(item, tuple)
+            and len(item) == 2
+            and isinstance(item[0], str)
+            for item in value
+        ):
+            return {key: plain(item) for key, item in value}
+        if isinstance(value, tuple):
+            return [plain(item) for item in value]
+        if isinstance(value, list):
+            return [plain(item) for item in value]
+        if isinstance(value, dict):
+            return {key: plain(item) for key, item in value.items()}
+        return value
+
+    return {
+        key: plain(item)
+        for key, item in _metadata_plain(program.metadata).items()
+    }

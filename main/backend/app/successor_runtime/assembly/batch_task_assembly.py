@@ -79,7 +79,6 @@ _BATCH_TASK_FRAGMENT = (
     "development/latest-dev-docs/development-plans/CURRENT_DEV/"
     "2026-08-30-functorial-successor-migration/evidence/p3-fragments/C4.json"
 )
-_LEGACY_BATCH = "main/backend/app/successor_migration/legacy_agent_batch.py"
 _BATCH_TASK_SUBMISSION_HANDLER_PATH = (
     "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_3_handler.py"
 )
@@ -296,17 +295,17 @@ def _rollback_bindings(
         RollbackBindingDeclaration(
             cell_id=plan_cell_id,
             status="PRESENT",
-            binding_refs=(_BATCH_TASK_FRAGMENT, _LEGACY_BATCH),
+            binding_refs=(_BATCH_TASK_FRAGMENT,),
         ),
         RollbackBindingDeclaration(
             cell_id=retry_cell_id,
             status="PRESENT",
-            binding_refs=(_BATCH_TASK_FRAGMENT, _LEGACY_BATCH),
+            binding_refs=(_BATCH_TASK_FRAGMENT,),
         ),
         RollbackBindingDeclaration(
             cell_id=submit_cell_id,
             status="PRESENT",
-            binding_refs=(_BATCH_TASK_FRAGMENT, _LEGACY_BATCH, _BATCH_TASK_SUBMISSION_HANDLER_PATH),
+            binding_refs=(_BATCH_TASK_FRAGMENT, _BATCH_TASK_SUBMISSION_HANDLER_PATH),
         ),
     )
 

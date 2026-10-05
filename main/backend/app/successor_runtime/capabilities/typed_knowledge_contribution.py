@@ -58,8 +58,7 @@ KNOWLEDGE_READ_RECOVERY_BINDING_REF = (
     "read-handle-retained;no-dual-write"
 )
 KNOWLEDGE_READ_ROLLBACK_REFS = (
-    "main/backend/app/successor_migration/legacy_c8_typed_knowledge.py",
-    "main/backend/app/successor_runtime/assembly/c8_assembly.py",
+    "main/backend/app/successor_runtime/assembly/knowledge_assembly.py",
 )
 
 

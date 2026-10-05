@@ -39,7 +39,9 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if __package__ in (None, ""):
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.successor_migration import legacy_workflow_graph as legacy_graph
+from app.successor_runtime.capabilities.workflow_slice_acceptance import (
+    accept_workflow_slice,
+)
 from tests.successor_runtime.p4_c7_fixture import (
     program_and_plan as c7_program_and_plan,
 )
@@ -268,19 +270,50 @@ def _slice_fixture(slice_id: str) -> tuple[Any, Any]:
     raise EvidenceBuildError(f"unsupported C1 slice: {slice_id!r}")
 
 
+class _WorkflowBoundaryReceipt:
+    def __init__(
+        self,
+        *,
+        oracle_id,
+        acceptance,
+        consumed_program_digest,
+        consumed_plan_digest,
+        receipt_digest,
+    ):
+        self.oracle_id = oracle_id
+        self.acceptance = acceptance
+        self.consumed_program_digest = consumed_program_digest
+        self.consumed_plan_digest = consumed_plan_digest
+        self.receipt_digest = receipt_digest
+        self.provider_calls = 0
+        self.store_writes = 0
+        self.canonical_effect_calls = 0
+        self.duplicated_effect_calls = 0
+        self.graph_json_reads = 0
+
+
 def _oracle_receipt(slice_id: str, program: Any, plan: Any) -> Any:
     observations = _observations(plan)
-    oracle = legacy_graph.LegacyWorkflowGraphOracle()
-    return oracle.compare(
+    acceptance = accept_workflow_slice(
         in_slice_id=slice_id,
-        in_legacy_program=program,
-        in_legacy_plan=plan,
-        in_successor_program=program,
-        in_successor_plan=plan,
+        in_program=program,
+        in_plan=plan,
         in_legacy_step_observations=observations,
         in_successor_step_observations=observations,
         in_runtime_evidence=_runtime_evidence(),
         in_rollback_before_after=_rollback(),
+    )
+    return _WorkflowBoundaryReceipt(
+        oracle_id="workflow.current.boundary.v1",
+        acceptance=acceptance,
+        consumed_program_digest=program.program_digest,
+        consumed_plan_digest=plan.plan_digest,
+        receipt_digest=content_digest({
+            "oracle_id": "workflow.current.boundary.v1",
+            "program_digest": program.program_digest,
+            "plan_digest": plan.plan_digest,
+            "acceptance_digest": acceptance.acceptance_digest,
+        }),
     )
 
 
@@ -301,8 +334,8 @@ def _bindings(
             "c1_c9_locator_inventory",
         ),
         (
-            BACKEND_ROOT / "app/successor_migration/legacy_workflow_graph.py",
-            "legacy_workflow_graph_oracle",
+            BACKEND_ROOT / "app/successor_runtime/capabilities/workflow_legacy_dsl.py",
+            "current_workflow_lowering",
         ),
     ]
     implementation_paths = [
@@ -365,7 +398,7 @@ def _bindings(
         ),
         (
             BACKEND_ROOT / "tests/successor_runtime/test_p5_c1_legacy_oracle.py",
-            "pure_legacy_oracle_test",
+            "current_workflow_boundary_test",
         ),
         (
             BACKEND_ROOT / "tests/successor_runtime/test_p5_c1_legacy_dsl_parity.py",
@@ -720,7 +753,7 @@ def _pure_refs_from_slices(
 ) -> list[dict[str, object]]:
     roles = (
         "pure_slice_programs_test",
-        "pure_legacy_oracle_test",
+        "current_workflow_boundary_test",
         "pure_legacy_dsl_parity_test",
     )
     result: list[dict[str, object]] = []

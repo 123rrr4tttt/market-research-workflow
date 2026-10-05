@@ -559,9 +559,6 @@ def compile_task_observation_native_contribution(source: TaskObservationNativeSo
 _DEFAULT_ROLLBACK_REFS = (
     "development/latest-dev-docs/development-plans/CURRENT_DEV/"
     "2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
-    "main/backend/app/successor_migration/legacy_agent_sessions.py",
-    "main/backend/app/successor_migration/legacy_effect_attempts.py",
-    "main/backend/app/successor_migration/legacy_process_observations.py",
 )
 
 _DEFAULT_CELLS = (

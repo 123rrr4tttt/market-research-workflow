@@ -1,4 +1,4 @@
-"""C7 four-mode legacy/target decision parity tests."""
+"""C7 four-mode movement selection and execution tests."""
 
 from __future__ import annotations
 
@@ -7,9 +7,6 @@ from typing import Any
 
 import pytest
 
-from app.successor_migration.legacy_c7_decision_oracle import (
-    legacy_c7_decision_oracle,
-)
 from app.successor_runtime.capabilities.checksum import content_digest
 from app.successor_runtime.capabilities.material_ingest_movements import (
     MATERIAL_INGEST_ALTERNATIVES,
@@ -84,7 +81,6 @@ def _run_mode(
 ) -> tuple[
     RawSnapshot,
     Any,
-    dict[str, Any],
     Any,
     Any,
     tuple[Any, Any, Any, Any],
@@ -105,12 +101,6 @@ def _run_mode(
         input_kind=str(spec["input_kind"]),
         content_format=str(spec["content_format"]),
     )
-    oracle = legacy_c7_decision_oracle()
-    legacy = oracle.decide(
-        input_kind=str(spec["input_kind"]),
-        content_format=str(spec["content_format"]),
-        content_length=len(raw_text),
-    )
     decision = select_exactly_one_digestion_alternative(envelope)
     extract, chunk, summarize, pass_through = _ports()
     trace = execute_material_movement(
@@ -125,34 +115,23 @@ def _run_mode(
     return (
         snapshot,
         envelope,
-        legacy,
         decision,
         trace,
         (extract, chunk, summarize, pass_through),
     )
 
 
-def test_four_mode_legacy_and_target_decision_parity() -> None:
-    expected_stages = {
-        "EXTRACT": "extract_first",
-        "CHUNK": "chunk_first",
-        "SUMMARIZE": "summarize_first",
-        "PASS_THROUGH": "pass_through",
-    }
+def test_four_mode_decision_selects_one_current_alternative() -> None:
     for name in _cases():
-        snapshot, envelope, legacy, decision, trace, _ = _run_mode(name)
-        assert legacy["stage"] == expected_stages[decision.alternative]
+        snapshot, envelope, decision, trace, _ = _run_mode(name)
         assert decision.alternative == _cases()[name]["expected_alternative"]
-        assert legacy["content_length"] == len(str(_cases()[name]["raw_text"]))
         assert decision.source_character_length == envelope.source_character_length
         assert decision.source_character_length == len(str(_cases()[name]["raw_text"]))
         assert decision.raw_byte_length == len(snapshot.raw_bytes)
         assert envelope.raw_byte_length == len(snapshot.raw_bytes)
         assert decision.envelope_digest == envelope.envelope_digest
         assert trace.outcome.alternative == decision.alternative
-        assert legacy["provider_calls"] == 0
         assert trace.provider_calls == 0
-        assert legacy["authority"] is False
         assert trace.authority is False
         assert trace.canonical_write is False
         assert trace.external_delivery is False
@@ -168,7 +147,7 @@ def test_exactly_one_target_branch_executes_per_trace() -> None:
         "PASS_THROUGH": 3,
     }
     for name in _cases():
-        snapshot, envelope, _legacy, decision, trace, ports = _run_mode(name)
+        snapshot, envelope, decision, trace, ports = _run_mode(name)
         assert decision.alternative in MATERIAL_INGEST_ALTERNATIVES
         assert not hasattr(decision, "extract_required")
         assert not hasattr(decision, "chunking_required")
@@ -194,10 +173,9 @@ def test_exactly_one_target_branch_executes_per_trace() -> None:
         assert candidate.authority is StagingAuthority.STAGING_ONLY_NO_DOCUMENT_WRITE
 
 
-def test_legacy_dual_flag_conflicts_are_not_silently_normalized() -> None:
+def test_dual_flag_conflicts_are_not_silently_normalized() -> None:
     for name in ("long_report", "derived_report"):
-        _snapshot, _envelope, legacy, decision, trace, _ = _run_mode(name)
-        assert legacy["dual_flag_conflict"] is True
+        _snapshot, _envelope, decision, trace, _ = _run_mode(name)
         assert decision.alternative in {"CHUNK", "SUMMARIZE"}
         assert decision.branch_internal_structuring == ("extract_required",)
         assert not hasattr(decision, "extract_required")
@@ -221,7 +199,7 @@ def test_legacy_dual_flag_conflicts_are_not_silently_normalized() -> None:
 
 def test_candidate_digests_bind_snapshot_decision_and_branch() -> None:
     for name in ("structured_json", "long_report", "derived_report"):
-        snapshot, envelope, _legacy, decision, trace, _ = _run_mode(name)
+        snapshot, envelope, decision, trace, _ = _run_mode(name)
         candidate = trace.outcome
         assert isinstance(candidate, StructuredMaterialCandidate)
         assert candidate.decision_digest == decision.decision_digest
@@ -261,7 +239,7 @@ def test_four_alternatives_one_of_common_prefix_only() -> None:
         "PASS_THROUGH",
     )
     for name in _cases():
-        _snapshot, _envelope, _legacy, decision, _trace, ports = _run_mode(name)
+        _snapshot, _envelope, decision, _trace, ports = _run_mode(name)
         selected = [port.calls for port in ports if port.receipts and port.calls == 1]
         assert len(selected) == 1
         assert decision.alternative in MATERIAL_INGEST_ALTERNATIVES
@@ -304,7 +282,7 @@ def test_snapshot_identity_binds_project_source_and_provenance() -> None:
         )
 
 
-def test_raw_byte_length_boundary_matches_legacy_selector() -> None:
+def test_raw_byte_length_boundary_matches_current_selector() -> None:
     for length in (MATERIAL_LONG_REPORT_MIN_LENGTH - 1, MATERIAL_LONG_REPORT_MIN_LENGTH):
         raw_text = "a" * length
         snapshot = capture_raw_snapshot_exact(
@@ -321,24 +299,15 @@ def test_raw_byte_length_boundary_matches_legacy_selector() -> None:
             input_kind="url_driven_external",
             content_format="markdown",
         )
-        legacy = legacy_c7_decision_oracle().decide(
-            input_kind="url_driven_external",
-            content_format="markdown",
-            content_length=length,
-        )
         decision = select_exactly_one_digestion_alternative(envelope)
         expected = "PASS_THROUGH" if length < MATERIAL_LONG_REPORT_MIN_LENGTH else "CHUNK"
         assert decision.alternative == expected
-        assert legacy["stage"] == (
-            "pass_through" if expected == "PASS_THROUGH" else "chunk_first"
-        )
         assert decision.source_character_length == length
         assert decision.raw_byte_length == length == len(snapshot.raw_bytes)
         assert envelope.source_character_length == length
-        assert legacy["content_length"] == length
 
 
-def test_non_ascii_character_versus_byte_length_parity() -> None:
+def test_non_ascii_character_versus_byte_length_selection() -> None:
     short_text = "市" * 3000
     snapshot = capture_raw_snapshot_exact(
         project_key="demo_proj",
@@ -354,18 +323,12 @@ def test_non_ascii_character_versus_byte_length_parity() -> None:
         input_kind="url_driven_external",
         content_format="markdown",
     )
-    legacy = legacy_c7_decision_oracle().decide(
-        input_kind="url_driven_external",
-        content_format="markdown",
-        content_length=len(short_text),
-    )
     decision = select_exactly_one_digestion_alternative(envelope)
     assert envelope.source_character_length == 3000
     assert envelope.raw_byte_length == 9000
     assert decision.source_character_length == 3000
     assert decision.raw_byte_length == 9000
     assert decision.alternative == "PASS_THROUGH"
-    assert legacy["stage"] == "pass_through"
 
     boundary_text = "市" * 6000
     boundary_snapshot = capture_raw_snapshot_exact(
@@ -383,15 +346,9 @@ def test_non_ascii_character_versus_byte_length_parity() -> None:
         content_format="markdown",
     )
     boundary_decision = select_exactly_one_digestion_alternative(boundary_envelope)
-    boundary_legacy = legacy_c7_decision_oracle().decide(
-        input_kind="url_driven_external",
-        content_format="markdown",
-        content_length=len(boundary_text),
-    )
     assert boundary_envelope.source_character_length == 6000
     assert boundary_envelope.raw_byte_length == 18000
     assert boundary_decision.alternative == "CHUNK"
-    assert boundary_legacy["stage"] == "chunk_first"
 
 
 def test_decision_digest_changes_with_envelope_identity() -> None:
@@ -425,7 +382,7 @@ def test_decision_digest_changes_with_envelope_identity() -> None:
 
 
 def test_same_branch_decision_metadata_mutation_fails_exact_selector_check() -> None:
-    snapshot, envelope, _legacy, decision, trace, _ = _run_mode("pass_through")
+    snapshot, envelope, decision, trace, _ = _run_mode("pass_through")
     candidate = trace.outcome
     assert isinstance(candidate, StructuredMaterialCandidate)
     forged = dataclasses.replace(
@@ -455,7 +412,7 @@ def test_same_branch_decision_metadata_mutation_fails_exact_selector_check() -> 
 
 
 def test_forged_envelope_order_provenance_candidate_rejected_after_recompute() -> None:
-    snapshot, envelope, _legacy, decision, trace, _ = _run_mode("structured_json")
+    snapshot, envelope, decision, trace, _ = _run_mode("structured_json")
     candidate = trace.outcome
     assert isinstance(candidate, StructuredMaterialCandidate)
 
@@ -735,7 +692,7 @@ def test_direct_envelope_construction_cannot_drift() -> None:
 
 
 def test_instance_execute_substitution_rejected() -> None:
-    snapshot, envelope, _legacy, decision, _trace, _ = _run_mode("pass_through")
+    snapshot, envelope, decision, _trace, _ = _run_mode("pass_through")
     port = DeterministicPassThroughPort()
     port.execute = lambda *args, **kwargs: None  # type: ignore[method-assign]
     with pytest.raises(TypeError, match="exact built-in class implementation"):
@@ -751,7 +708,7 @@ def test_instance_execute_substitution_rejected() -> None:
 
 
 def test_instance_finish_substitution_and_state_override_rejected() -> None:
-    snapshot, envelope, _legacy, decision, _trace, _ = _run_mode("pass_through")
+    snapshot, envelope, decision, _trace, _ = _run_mode("pass_through")
     finish_port = DeterministicPassThroughPort()
     finish_port._finish = lambda *args, **kwargs: None  # type: ignore[method-assign]
     with pytest.raises(TypeError, match="exact built-in base implementation"):
@@ -812,7 +769,7 @@ def test_exact_builtin_port_class_rejects_subclass() -> None:
     class SubclassPassThroughPort(DeterministicPassThroughPort):
         pass
 
-    snapshot, envelope, _legacy, decision, _trace, _ports = _run_mode("pass_through")
+    snapshot, envelope, decision, _trace, _ports = _run_mode("pass_through")
     with pytest.raises(TypeError, match="exact built-in C7 port class"):
         execute_material_movement(
             snapshot=snapshot,

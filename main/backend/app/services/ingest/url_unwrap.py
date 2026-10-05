@@ -13,6 +13,12 @@ from urllib.parse import ParseResult, parse_qsl, urlencode, urlparse, urlunparse
 
 import requests
 
+from app.services.ingest.retry_policy import (
+    RateGate,
+    RequestScope,
+    parse_retry_after_seconds,
+)
+
 
 _TRACKING_QUERY_KEYS = {
     "utm_source",
@@ -65,10 +71,8 @@ _GOOGLE_NEWS_RATE_LIMIT_RPS = 1.5
 _GOOGLE_NEWS_RATE_LIMIT_INTERVAL_SECONDS = 1.0 / _GOOGLE_NEWS_RATE_LIMIT_RPS
 _GOOGLE_NEWS_BACKOFF_BASE_SECONDS = 2.0
 _GOOGLE_NEWS_BACKOFF_MAX_SECONDS = 120.0
-_GOOGLE_NEWS_NETWORK_NEXT_AT = 0.0
-_GOOGLE_NEWS_BACKOFF_FAILURES = 0
-_GOOGLE_NEWS_CIRCUIT_OPEN_UNTIL = 0.0
 _GOOGLE_NEWS_BATCH_GUARD_LOCK = threading.Lock()
+_GOOGLE_NEWS_SCOPE = RequestScope(provider="google_news")
 
 
 @dataclass(slots=True)
@@ -209,7 +213,7 @@ def _decode_google_news_batch_execute(url: str) -> tuple[str, bool]:
         )
         status_code = int(getattr(response, "status_code", 0) or 0)
         if status_code in {403, 429}:
-            _google_news_batch_record_throttle()
+            _google_news_batch_record_throttle(response)
             _google_news_batch_cache_put_negative(gn_art_id)
             return url, False
         if status_code >= 400:
@@ -257,7 +261,7 @@ def _decode_google_news_batch_execute(url: str) -> tuple[str, bool]:
         )
         status_code = int(getattr(batch_response, "status_code", 0) or 0)
         if status_code in {403, 429}:
-            _google_news_batch_record_throttle()
+            _google_news_batch_record_throttle(batch_response)
             _google_news_batch_cache_put_negative(gn_art_id)
             return url, False
         if status_code >= 400:
@@ -324,7 +328,7 @@ def _decode_google_news_batch_execute_diagnostic(url: str) -> GoogleNewsDecodeRe
         )
         status_code = int(getattr(response, "status_code", 0) or 0)
         if status_code in {403, 429}:
-            _google_news_batch_record_throttle()
+            _google_news_batch_record_throttle(response)
             _google_news_batch_cache_put_negative(gn_art_id)
             return GoogleNewsDecodeResult(url=url, changed=False, reason="rate_limited", retryable=True)
         if status_code >= 500:
@@ -374,7 +378,7 @@ def _decode_google_news_batch_execute_diagnostic(url: str) -> GoogleNewsDecodeRe
         )
         status_code = int(getattr(batch_response, "status_code", 0) or 0)
         if status_code in {403, 429}:
-            _google_news_batch_record_throttle()
+            _google_news_batch_record_throttle(batch_response)
             _google_news_batch_cache_put_negative(gn_art_id)
             return GoogleNewsDecodeResult(url=url, changed=False, reason="rate_limited", retryable=True)
         if status_code >= 500:
@@ -453,36 +457,42 @@ def _google_news_batch_cache_put_negative(gn_art_id: str) -> None:
         _GOOGLE_NEWS_BATCH_NEGATIVE_CACHE_EXPIRES_AT[gn_art_id] = now + _GOOGLE_NEWS_BATCH_NEGATIVE_CACHE_TTL_SECONDS
 
 
+def _google_news_batch_sleep(seconds: float) -> None:
+    time.sleep(seconds)
+
+
+def _response_retry_after(response: object) -> float | None:
+    headers = getattr(response, "headers", None) or {}
+    raw = None
+    for key, value in headers.items():
+        if str(key).lower() == "retry-after":
+            raw = value
+            break
+    return parse_retry_after_seconds(raw)
+
+
+_GOOGLE_NEWS_RATE_GATE = RateGate(
+    rate_limit_interval_seconds=_GOOGLE_NEWS_RATE_LIMIT_INTERVAL_SECONDS,
+    backoff_base_seconds=_GOOGLE_NEWS_BACKOFF_BASE_SECONDS,
+    backoff_max_seconds=_GOOGLE_NEWS_BACKOFF_MAX_SECONDS,
+    sleeper=_google_news_batch_sleep,
+)
+
+
 def _google_news_batch_acquire_network_slot() -> bool:
-    global _GOOGLE_NEWS_NETWORK_NEXT_AT
-    now = time.monotonic()
-    with _GOOGLE_NEWS_BATCH_GUARD_LOCK:
-        if now < _GOOGLE_NEWS_CIRCUIT_OPEN_UNTIL:
-            return False
-        scheduled = max(now, _GOOGLE_NEWS_NETWORK_NEXT_AT)
-        _GOOGLE_NEWS_NETWORK_NEXT_AT = scheduled + _GOOGLE_NEWS_RATE_LIMIT_INTERVAL_SECONDS
-    wait_seconds = max(0.0, scheduled - now)
-    if wait_seconds > 0:
-        time.sleep(wait_seconds)
-    return True
+    return bool(_GOOGLE_NEWS_RATE_GATE.acquire(_GOOGLE_NEWS_SCOPE).acquired)
 
 
-def _google_news_batch_record_throttle() -> None:
-    global _GOOGLE_NEWS_BACKOFF_FAILURES, _GOOGLE_NEWS_CIRCUIT_OPEN_UNTIL
-    now = time.monotonic()
-    with _GOOGLE_NEWS_BATCH_GUARD_LOCK:
-        _GOOGLE_NEWS_BACKOFF_FAILURES += 1
-        delay = min(
-            _GOOGLE_NEWS_BACKOFF_MAX_SECONDS,
-            _GOOGLE_NEWS_BACKOFF_BASE_SECONDS * (2 ** (_GOOGLE_NEWS_BACKOFF_FAILURES - 1)),
-        )
-        _GOOGLE_NEWS_CIRCUIT_OPEN_UNTIL = max(_GOOGLE_NEWS_CIRCUIT_OPEN_UNTIL, now + delay)
+def _google_news_batch_record_throttle(response: object | None = None) -> None:
+    retry_after = _response_retry_after(response) if response is not None else None
+    _GOOGLE_NEWS_RATE_GATE.record_throttle(
+        _GOOGLE_NEWS_SCOPE,
+        retry_after_seconds=retry_after,
+    )
 
 
 def _google_news_batch_record_success() -> None:
-    global _GOOGLE_NEWS_BACKOFF_FAILURES
-    with _GOOGLE_NEWS_BATCH_GUARD_LOCK:
-        _GOOGLE_NEWS_BACKOFF_FAILURES = 0
+    _GOOGLE_NEWS_RATE_GATE.record_success(_GOOGLE_NEWS_SCOPE)
 
 
 def _apply_query_wrapper(url: str, _parsed: ParseResult) -> tuple[str, bool]:

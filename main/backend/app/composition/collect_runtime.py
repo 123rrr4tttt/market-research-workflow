@@ -14,7 +14,13 @@ from app.services.collect_runtime.adapters.source_library import (
     to_source_library_response,
 )
 from app.services.collect_runtime.adapters.url_pool import UrlPoolAdapter
-from app.services.collect_runtime.contracts import CollectAdapter, CollectRequest, CollectResult
+from app.services.collect_runtime.contracts import (
+    CollectAdapter,
+    CollectRequest,
+    CollectResult,
+    SourceLibraryCompatResponse,
+    source_library_compat_response,
+)
 from app.services.collect_runtime.runtime import (
     register_collect_adapters,
     register_successor_collect_effect_gateway,
@@ -42,7 +48,10 @@ def configure_default_collect_adapters(*, force: bool = False) -> None:
         return
     adapters = default_collect_adapters()
     register_collect_adapters(adapters)
-    register_source_library_compat_projector(to_source_library_response)
+    def project_source_library(result: CollectResult) -> SourceLibraryCompatResponse:
+        return source_library_compat_response(to_source_library_response(result))
+
+    register_source_library_compat_projector(project_source_library)
 
     def run_successor_effect(request: CollectRequest) -> CollectResult:
         # C3 owns ordering and outcome interpretation; the existing channel

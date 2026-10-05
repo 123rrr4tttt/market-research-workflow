@@ -24,7 +24,6 @@ ACQUISITION_BATCH_FAMILY_ID = "acquisition.batch"
 LOCAL_ONLY_REGISTRY_REVISION = 0
 ACQUISITION_BATCH_ROLLBACK_PATHS = (
     "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json",
-    "main/backend/app/successor_migration/legacy_collect_runtime.py",
 )
 _DEFAULT_ACQUISITION_NATIVE: NativeContribution | None = None
 

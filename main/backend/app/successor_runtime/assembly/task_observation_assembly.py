@@ -112,14 +112,6 @@ _HISTORICAL_TASK_FRAGMENT = (
     "development/latest-dev-docs/development-plans/CURRENT_DEV/"
     "2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json"
 )
-_LEGACY_AGENT_SESSIONS = "main/backend/app/successor_migration/legacy_agent_sessions.py"
-_LEGACY_EFFECT_ATTEMPTS = (
-    "main/backend/app/successor_migration/legacy_effect_attempts.py"
-)
-_LEGACY_PROCESS_OBSERVATIONS = (
-    "main/backend/app/successor_migration/legacy_process_observations.py"
-)
-
 _PROCESS_OBSERVATION_SOURCE_KIND = "process_observations"
 
 _SESSION_PROJECTION_ID = "mrw.task.session-observation.projection.v1"
@@ -273,22 +265,22 @@ def _rollback_bindings() -> tuple[RollbackBindingDeclaration, ...]:
         RollbackBindingDeclaration(
             cell_id=SESSION_OBSERVATION_CELL_ID,
             status="PRESENT",
-            binding_refs=(_HISTORICAL_TASK_FRAGMENT, _LEGACY_AGENT_SESSIONS),
+            binding_refs=(_HISTORICAL_TASK_FRAGMENT,),
         ),
         RollbackBindingDeclaration(
             cell_id=TASK_EFFECT_RECONCILE_CELL_ID,
             status="PRESENT",
-            binding_refs=(_HISTORICAL_TASK_FRAGMENT, _LEGACY_EFFECT_ATTEMPTS),
+            binding_refs=(_HISTORICAL_TASK_FRAGMENT,),
         ),
         RollbackBindingDeclaration(
             cell_id=RUN_OBSERVATION_CELL_ID,
             status="PRESENT",
-            binding_refs=(_HISTORICAL_TASK_FRAGMENT, _LEGACY_AGENT_SESSIONS),
+            binding_refs=(_HISTORICAL_TASK_FRAGMENT,),
         ),
         RollbackBindingDeclaration(
             cell_id=PROCESS_OBSERVATION_CELL_ID,
             status="PRESENT",
-            binding_refs=(_HISTORICAL_TASK_FRAGMENT, _LEGACY_PROCESS_OBSERVATIONS),
+            binding_refs=(_HISTORICAL_TASK_FRAGMENT,),
         ),
     )
 
@@ -788,4 +780,3 @@ def build_task_observation_assembly(
         projector_registry=projector_registry,
         rollback_bindings=_rollback_bindings(),
     )
-

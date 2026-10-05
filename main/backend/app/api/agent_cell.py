@@ -11,7 +11,7 @@ from app.services.agent_core.project_tools import build_project_core_tool_regist
 from app.services.agent_sessions.service import get_agent_session_service
 from app.services.projects.context import current_project_key
 
-router = APIRouter(prefix="/agent-chat", tags=["agent-cell"])
+router = APIRouter(prefix="/agent-cell", tags=["agent-cell"])
 
 
 def _fail(status: int, code: str, message: str, details: dict[str, Any] | None = None) -> None:
@@ -32,7 +32,7 @@ def _check(result: Any) -> Any:
     return result
 
 
-@router.get("/cell", response_model=ApiEnvelope[dict[str, Any]])
+@router.get("", response_model=ApiEnvelope[dict[str, Any]])
 def read_agent_cell(package_id: str | None = None, package_version: str | None = None) -> dict[str, Any]:
     project = str(current_project_key() or "").strip()
     if not project:

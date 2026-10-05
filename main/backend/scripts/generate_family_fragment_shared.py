@@ -7,7 +7,7 @@ JSON/digest, path confinement, authority, determinism and atomic writes.
 ``--check`` is strictly read-only: exact bytes exit 0, drift or a missing
 output exits 1, and no output is written.  Run from ``main/backend``:
 
-    python3.11 scripts/generate_family_fragment_shared.py [--family C7] [--check]
+    python3.11 scripts/generate_family_fragment_shared.py [--family C3] [--check]
 """
 
 from __future__ import annotations
@@ -25,12 +25,9 @@ from app.successor_runtime.specification.shared_family_generator import run_gene
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
 _FAMILY_MODULES = {
-    "C2": "app.successor_runtime.specification.c2_p3",
     "C3": "app.successor_runtime.specification.acquisition_batch_p3",
     "C4": "app.successor_runtime.specification.c4_p3",
     "C5": "app.successor_runtime.specification.c5_p3",
-    "C7": "app.successor_runtime.specification.c7_p4",
-    "C8": "app.successor_runtime.specification.c8_p4",
     "C9": "app.successor_runtime.specification.c9_p4",
 }
 
@@ -50,8 +47,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--family",
         choices=sorted(_FAMILY_MODULES),
-        default="C7",
-        help="family fragment to generate (default: C7)",
+        default="C3",
+        help="family fragment to generate (default: C3)",
     )
     parser.add_argument(
         "--repo-root",

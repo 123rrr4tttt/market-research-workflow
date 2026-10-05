@@ -245,7 +245,7 @@ def list_codex_models() -> dict[str, Any]:
         )
 
     return {
-        "schema": "mrw.agent-chat.codex-models.v1",
+        "schema": "mrw.codex-models.v1",
         "provider": user_config.model_provider or None,
         "current_model": resolve_codex_model(user_config=user_config) or None,
         "current_reasoning_effort": resolve_codex_reasoning_effort(user_config=user_config) or None,

@@ -6,6 +6,9 @@ from app.services.workflow_graph import WorkflowGraphCompilerService
 from app.services.workflow_graph.compiler import compile_workflow_graph
 from app.services.workflow_graph.contracts import WorkflowGraphCompileError
 from app.services.workflow_graph.store import InMemoryCompiledGraphStore
+from app.successor_runtime.capabilities.workflow_legacy_dsl import (
+    parse_and_validate_workflow_dsl,
+)
 
 
 class WorkflowGraphCompilerUnitTestCase(unittest.TestCase):
@@ -79,6 +82,25 @@ class WorkflowGraphCompilerUnitTestCase(unittest.TestCase):
         self.assertEqual(compiled["graph_id"], "graph-durable")
         self.assertEqual(compiled["topo_order"], ["n1", "n2", "n3"])
         self.assertEqual(compiled["checksum"], response["checksum"])
+
+    def test_compiler_service_lowers_and_binds_exact_platform_plan(self):
+        payload = self._build_valid_payload()
+        receipt = parse_and_validate_workflow_dsl(payload)
+        self.assertTrue(receipt.ok)
+
+        service = WorkflowGraphCompilerService(store=InMemoryCompiledGraphStore())
+        response = service.compile({"dsl": payload, "graph_id": "graph-platform"})
+        compiled = service.get_compiled("graph-platform")
+
+        self.assertEqual(response["program_digest"], receipt.program_digest)
+        self.assertEqual(response["plan_digest"], receipt.plan_digest)
+        self.assertEqual(response["catalog_digest"], receipt.catalog_digest)
+        self.assertEqual(compiled["platform"], {
+            "program_digest": receipt.program_digest,
+            "plan_digest": receipt.plan_digest,
+            "catalog_digest": receipt.catalog_digest,
+        })
+        self.assertEqual(list(receipt.topo_order), compiled["topo_order"])
 
 
 if __name__ == "__main__":

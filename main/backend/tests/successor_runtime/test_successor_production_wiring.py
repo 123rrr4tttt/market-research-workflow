@@ -233,7 +233,7 @@ class TestProductionStateRouter:
         )
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/successor-runtime/v2/commands",
+                "/api/v1/material-projections/v2/commands",
                 json=self._command_body(),
             )
         assert response.status_code == 503
@@ -251,7 +251,7 @@ class TestProductionStateRouter:
         )
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/successor-runtime/v2/commands",
+                "/api/v1/material-projections/v2/commands",
                 json=self._command_body(),
             )
         assert response.status_code == 200

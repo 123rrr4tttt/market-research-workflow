@@ -16,7 +16,7 @@ from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.pool import NullPool
 
-from app.successor_migration.document_repository_c7 import (
+from app.successor_runtime.substrate.postgres.c7_document_readback import (
     CanonicalCommitReadback,
     DocumentRef,
 )

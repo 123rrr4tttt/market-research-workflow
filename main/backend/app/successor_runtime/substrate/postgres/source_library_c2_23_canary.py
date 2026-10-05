@@ -89,8 +89,6 @@ __all__ = [
     "C2_3StoreRehydratedHandler",
     "build_c2_3_fixture_program",
     "build_c2_3_payload_value_ref",
-    "build_legacy_c2_2_binding",
-    "build_legacy_c2_3_binding",
     "build_recovery_c2_3_binding",
     "build_successor_c2_2_binding",
     "build_successor_c2_3_binding",
@@ -531,66 +529,6 @@ class C2_3ReconcileHandler(_ExactBindingHandler, RuntimeHandler):
 PAYLOAD_PUT_REVISION = 0
 PAYLOAD_VALUE_REVISION = 1
 PAYLOAD_VALUE_INCARNATION = "payload-inc:source-plan-acquisition-v2"
-
-
-def build_legacy_c2_2_binding(
-    *,
-    contract_digest: str,
-    deployment_catalog_digest: str,
-    project_scope_digest: str,
-    resource_policy_epoch: int = 1,
-    runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> Annotated[
-    InterpreterBinding,
-    "kit:prepared-command effect_boundary=legacy_source_library.sibling_fixture_replay "
-    "witness=test:test_w08d_binding_metadata_preserves_prepared_command_abi",
-]:
-    interpreter_digest = content_digest(
-        {
-            "interpreter_id": "legacy.source_library.c2_2.four_modes.v1",
-            "version": "1.0.0",
-            "boundary": "sibling fixture replay only",
-        }
-    )
-    return InterpreterBinding.from_content(
-        operation_contract_digest=contract_digest,
-        interpreter_profile_digest=interpreter_digest,
-        deployment_catalog_digest=deployment_catalog_digest,
-        runtime_protocol_version=runtime_protocol_version,
-        project_scope_digest=project_scope_digest,
-        resource_policy_epoch=resource_policy_epoch,
-        authority_requirement_digest=interpreter_digest,
-    )
-
-
-def build_legacy_c2_3_binding(
-    *,
-    contract_digest: str,
-    deployment_catalog_digest: str,
-    project_scope_digest: str,
-    resource_policy_epoch: int = 1,
-    runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> Annotated[
-    InterpreterBinding,
-    "kit:prepared-command effect_boundary=legacy_source_library.donor_fixture_readback "
-    "witness=test:test_w08d_binding_metadata_preserves_prepared_command_abi",
-]:
-    interpreter_digest = content_digest(
-        {
-            "interpreter_id": "legacy.source_library.c2_3.provider_effect.v1",
-            "version": "1.0.0",
-            "boundary": "donor fixture readback only",
-        }
-    )
-    return InterpreterBinding.from_content(
-        operation_contract_digest=contract_digest,
-        interpreter_profile_digest=interpreter_digest,
-        deployment_catalog_digest=deployment_catalog_digest,
-        runtime_protocol_version=runtime_protocol_version,
-        project_scope_digest=project_scope_digest,
-        resource_policy_epoch=resource_policy_epoch,
-        authority_requirement_digest=interpreter_digest,
-    )
 
 
 class _StoreRehydratedBase:

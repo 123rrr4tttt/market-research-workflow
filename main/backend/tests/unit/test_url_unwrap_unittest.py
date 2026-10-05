@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from app.services.ingest.retry_policy import RateGate
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -32,9 +33,29 @@ class UrlUnwrapUnitTestCase(unittest.TestCase):
         url_unwrap_module._GOOGLE_NEWS_BATCH_CACHE.clear()
         url_unwrap_module._GOOGLE_NEWS_BATCH_CACHE_EXPIRES_AT.clear()
         url_unwrap_module._GOOGLE_NEWS_BATCH_NEGATIVE_CACHE_EXPIRES_AT.clear()
-        url_unwrap_module._GOOGLE_NEWS_NETWORK_NEXT_AT = 0.0
-        url_unwrap_module._GOOGLE_NEWS_BACKOFF_FAILURES = 0
-        url_unwrap_module._GOOGLE_NEWS_CIRCUIT_OPEN_UNTIL = 0.0
+        self.clock = [0.0]
+        self.sleeps: list[float] = []
+        self.original_rate_gate = url_unwrap_module._GOOGLE_NEWS_RATE_GATE
+
+        def fake_clock() -> float:
+            return self.clock[0]
+
+        def fake_sleep(seconds: float) -> None:
+            self.sleeps.append(float(seconds))
+            self.clock[0] += float(seconds)
+
+        url_unwrap_module._GOOGLE_NEWS_RATE_GATE = RateGate(
+            rate_limit_interval_seconds=(
+                url_unwrap_module._GOOGLE_NEWS_RATE_LIMIT_INTERVAL_SECONDS
+            ),
+            backoff_base_seconds=url_unwrap_module._GOOGLE_NEWS_BACKOFF_BASE_SECONDS,
+            backoff_max_seconds=url_unwrap_module._GOOGLE_NEWS_BACKOFF_MAX_SECONDS,
+            clock=fake_clock,
+            sleeper=fake_sleep,
+        )
+
+    def tearDown(self):
+        url_unwrap_module._GOOGLE_NEWS_RATE_GATE = self.original_rate_gate
 
     def _patch_public_dns(self):
         public_addrinfo = [
@@ -159,6 +180,53 @@ class UrlUnwrapUnitTestCase(unittest.TestCase):
         self.assertNotIn("google_news_batch_execute", result.steps)
         self.assertEqual(mock_get.call_count, 1)
         self.assertEqual(mock_post.call_count, 1)
+
+    def test_google_news_process_gate_spaces_requests_and_preserves_scope(self):
+        first = url_unwrap_module._google_news_batch_acquire_network_slot()
+        second = url_unwrap_module._google_news_batch_acquire_network_slot()
+
+        self.assertTrue(first)
+        self.assertTrue(second)
+        self.assertEqual(self.sleeps, [2.0 / 3.0])
+        self.assertAlmostEqual(self.clock[0], 2.0 / 3.0)
+        decision = url_unwrap_module._GOOGLE_NEWS_RATE_GATE.acquire(
+            url_unwrap_module._GOOGLE_NEWS_SCOPE,
+        )
+        self.assertTrue(decision.acquired)
+        self.assertEqual(decision.guarantee, "process")
+        self.assertEqual(
+            decision.scope.context(),
+            {"provider": "google_news", "account": None, "worker": None},
+        )
+
+    def test_google_news_429_uses_retry_after_for_process_gate(self):
+        source = "https://news.google.com/rss/articles/CBMiT0FVX3lxTE5mQXJ0aWNsZV90b2tlbg?oc=5"
+        with (
+            patch("app.services.ingest.url_unwrap.requests.get") as mock_get,
+            patch("app.services.ingest.url_unwrap.requests.post") as mock_post,
+            patch(
+                "app.services.ingest.url_unwrap._resolve_http_redirect",
+                return_value=(source, False),
+            ),
+            patch(
+                "app.services.ingest.url_unwrap._google_news_batch_acquire_network_slot",
+                return_value=True,
+            ),
+        ):
+            mock_get.return_value.status_code = 429
+            mock_get.return_value.headers = {"Retry-After": "7"}
+            result = url_unwrap_module._decode_google_news_batch_execute_diagnostic(source)
+
+        self.assertEqual(result.reason, "rate_limited")
+        self.assertTrue(result.retryable)
+        self.assertEqual(mock_get.call_count, 1)
+        self.assertEqual(mock_post.call_count, 0)
+        self.assertEqual(self.sleeps, [])
+        denied = url_unwrap_module._GOOGLE_NEWS_RATE_GATE.acquire(
+            url_unwrap_module._GOOGLE_NEWS_SCOPE,
+        )
+        self.assertFalse(denied.acquired)
+        self.assertEqual(denied.retry_after_seconds, 7.0)
 
     def test_unwrap_url_network_redirect_accepts_public_target(self):
         with (

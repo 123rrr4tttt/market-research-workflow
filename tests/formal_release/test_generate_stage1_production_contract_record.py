@@ -183,7 +183,6 @@ def test_build_validate_create_only_and_exact_rebuild(tmp_path: Path) -> None:
         "sketches.json",
         "registries/failures.json",
         "main/backend/app/api/__init__.py",
-        "main/backend/app/api/agent_chat.py",
         "main/backend/app/api/codex_auth.py",
         "main/backend/app/composition/production.py",
         "main/backend/app/composition/production_runtime.py",

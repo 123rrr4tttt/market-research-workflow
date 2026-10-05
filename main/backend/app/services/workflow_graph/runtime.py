@@ -4,44 +4,40 @@ from typing import Any
 
 from functorial_kit import Failure
 
+from app.successor_runtime.language.plan import ExecutionPlan
+from app.successor_runtime.language.program import ProgramSpec
+from app.successor_runtime.language.transforms import TransformRegistry
+from app.successor_runtime.runtime.activation import (
+    BoundStepValue,
+    activate_plan_result,
+)
+
 from .contracts import (
     WorkflowGraphCompileError,
     build_workflow_graph_integrity_report,
     raise_workflow_graph_legacy,
     workflow_graph_failure,
 )
-from .executors.base import BaseNodeExecutor, NodeExecutionContext
-from .executors.join import JoinExecutor
-from .executors.vector_search import VectorSearchExecutor
+from .executors.kernel import NodeExecutionContext, execute_node, to_workflow_graph_failure
 from .store import InMemoryRunStore, SqlRunStore
 
 
-class WorkflowGraphRuntime:
+class WorkflowGraphPlatformInterpreter:
+    """Run one bound Program/Plan through the shared activation interpreter."""
+
     def __init__(
         self,
         *,
         store: InMemoryRunStore | SqlRunStore | None = None,
-        executors: list[BaseNodeExecutor] | None = None,
     ) -> None:
         self.store = store or InMemoryRunStore()
-        self._executors: dict[str, BaseNodeExecutor] = {}
-        resolved_executors = executors
-        if resolved_executors is None:
-            from .executors.llm_call import LLMCallExecutor
-
-            resolved_executors = [VectorSearchExecutor(), LLMCallExecutor(), JoinExecutor()]
-        for executor in resolved_executors:
-            self.register_executor(executor)
-
-    def register_executor(self, executor: BaseNodeExecutor) -> None:
-        if not executor.node_type:
-            raise_workflow_graph_legacy(workflow_graph_failure("executor_not_registered", "executor.node_type must not be empty", owner="workflow_graph.runtime", public_exception=WorkflowGraphCompileError, public_message="executor.node_type must not be empty", field="executor.node_type", index=-1))
-        self._executors[executor.node_type] = executor
 
     def run(
         self,
-        workflow: dict[str, Any],
         *,
+        program: ProgramSpec,
+        plan: ExecutionPlan,
+        workflow: dict[str, Any],
         inputs: dict[str, Any] | None = None,
         run_id: str | None = None,
         project_key: str | None = None,
@@ -50,8 +46,11 @@ class WorkflowGraphRuntime:
     ) -> dict[str, Any]:
         nodes = _normalize_nodes(workflow.get("nodes") or {})
         topo_order = _resolve_topo_order(workflow=workflow, nodes=nodes)
-        integrity = _build_runtime_integrity_report(workflow=workflow, nodes=nodes, topo_order=topo_order)
-
+        integrity = _build_runtime_integrity_report(
+            workflow=workflow,
+            nodes=nodes,
+            topo_order=topo_order,
+        )
         resolved_run_id = self.store.create_run(
             run_id=run_id,
             topo_order=topo_order,
@@ -60,107 +59,120 @@ class WorkflowGraphRuntime:
                 "project_key": str(project_key or "").strip() or None,
                 "trace_id": str(trace_id or "").strip() or None,
                 "session_id": str(session_id or "").strip() or None,
+                "program_digest": workflow.get("program_digest"),
+                "plan_digest": workflow.get("plan_digest"),
             },
         )
-        self.store.append_event(
-            resolved_run_id,
-            event_type="run.queued",
-            payload={"topo_order": topo_order},
-        )
+        self.store.append_event(resolved_run_id, event_type="run.queued", payload={
+            "topo_order": topo_order,
+            "program_digest": workflow.get("program_digest"),
+            "plan_digest": workflow.get("plan_digest"),
+        })
         self.store.set_run_status(resolved_run_id, "running")
         self.store.append_event(resolved_run_id, event_type="run.running")
 
         if not integrity["valid"]:
-            self.store.set_run_status(resolved_run_id, "failed")
-            self.store.append_event(
+            return self._fail_run(
                 resolved_run_id,
-                event_type="run.failed",
                 payload={
                     "reason_code": "workflow_integrity_failed",
                     "reason": "workflow graph integrity check failed",
                     "integrity": integrity,
                 },
             )
-            return self.store.snapshot(resolved_run_id)
 
+        completed: tuple[BoundStepValue, ...] = ()
         run_inputs = dict(inputs or {})
+        registries = (
+            TransformRegistry(registry_id="workflow.transforms"),
+            TransformRegistry(registry_id="workflow.merges"),
+            TransformRegistry(registry_id="workflow.discriminators"),
+        )
+        while True:
+            activation_result = activate_plan_result(
+                run_id=resolved_run_id,
+                program=program,
+                plan=plan,
+                completed_outputs=completed,
+                transform_registry=registries[0],
+                merge_registry=registries[1],
+                discriminator_registry=registries[2],
+            )
+            if isinstance(activation_result, Failure):
+                return self._fail_run(
+                    resolved_run_id,
+                    payload={
+                        "reason_code": "workflow_activation_failed",
+                        "reason": str(activation_result.message),
+                    },
+                )
+            if not activation_result.activations:
+                break
 
-        for node_id in topo_order:
-            node = nodes.get(node_id)
-            if node is None:
-                self.store.set_run_status(resolved_run_id, "failed")
+            for activation in activation_result.activations:
+                node_id = _node_id_from_payload_ref(activation.payload_ref.value_id)
+                node = nodes.get(node_id)
+                if activation.step_kind != "EFFECT" or node is None:
+                    return self._fail_run(resolved_run_id, payload={
+                        "reason_code": "workflow_activation_binding_invalid",
+                        "reason": f"activation is not a known workflow node: {node_id}",
+                        "step_id": activation.step_id,
+                    })
+
+                self.store.ensure_node(resolved_run_id, node_id)
+                self.store.set_node_status(resolved_run_id, node_id, "running")
                 self.store.append_event(
                     resolved_run_id,
-                    event_type="run.failed",
-                    payload={"reason": f"node_missing_in_graph:{node_id}"},
+                    event_type="node.running",
+                    node_id=node_id,
+                    payload={"activation_digest": activation.activation_digest},
                 )
-                return self.store.snapshot(resolved_run_id)
+                try:
+                    result = self._execute_activation(
+                        activation=activation,
+                        node=node,
+                        run_id=resolved_run_id,
+                        inputs=run_inputs,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    self._fail_node_and_run(resolved_run_id, node_id, exc)
+                    return self.store.snapshot(resolved_run_id)
 
-            self.store.ensure_node(resolved_run_id, node_id)
-            self.store.set_node_status(resolved_run_id, node_id, "running")
-            self.store.append_event(resolved_run_id, event_type="node.running", node_id=node_id)
-
-            try:
-                result = self._execute_node(
-                    node=node,
-                    run_id=resolved_run_id,
-                    workflow=workflow,
-                    inputs=run_inputs,
-                )
-                if isinstance(result, Failure):
-                    raise_workflow_graph_legacy(result, exception_type=WorkflowGraphCompileError)
                 self.store.set_node_result(resolved_run_id, node_id, result)
                 self.store.set_node_status(resolved_run_id, node_id, "succeeded")
-                self.store.append_event(resolved_run_id, event_type="node.succeeded", node_id=node_id)
-            except Exception as exc:  # noqa: BLE001
-                self.store.set_node_status(resolved_run_id, node_id, "failed")
-                self.store.set_run_status(resolved_run_id, "failed")
-                failure = getattr(exc, "workflow_failure", None)
-                failure_fields = {}
-                if failure is not None and getattr(failure, "failure", False):
-                    failure_fields = {
-                        "failure_family": failure.family,
-                        "failure_code": failure.code,
-                        "failure_context": dict(failure.context or {}),
-                    }
-                error_payload = {"error": str(exc), **failure_fields}
                 self.store.append_event(
                     resolved_run_id,
-                    event_type="node.failed",
+                    event_type="node.succeeded",
                     node_id=node_id,
-                    payload=error_payload,
                 )
-                self.store.append_event(
-                    resolved_run_id,
-                    event_type="run.failed",
-                    payload={"node_id": node_id, **error_payload},
+                completed = completed + (
+                    BoundStepValue(
+                        activation.step_id,
+                        activation.payload_ref,
+                        result,
+                    ),
                 )
-                return self.store.snapshot(resolved_run_id)
 
         self.store.set_run_status(resolved_run_id, "succeeded")
         self.store.append_event(resolved_run_id, event_type="run.succeeded")
         return self.store.snapshot(resolved_run_id)
 
-    def _execute_node(
+    def _execute_activation(
         self,
         *,
+        activation: object,
         node: dict[str, Any],
         run_id: str,
-        workflow: dict[str, Any],
         inputs: dict[str, Any],
-    ) -> Any:
+    ) -> dict[str, Any]:
         node_id = str(node.get("id") or "").strip()
         node_type = str(node.get("node_type") or "").strip().lower()
         if not node_type:
-            raise_workflow_graph_legacy(workflow_graph_failure("contract_invalid", f"node_type missing: {node_id or '<unknown>'}", owner="workflow_graph.runtime", public_exception=WorkflowGraphCompileError, public_message=f"node_type missing: {node_id or '<unknown>'}", field="node_type", index=-1))
-
-        executor = self._executors.get(node_type)
-        if executor is None:
-            raise_workflow_graph_legacy(workflow_graph_failure("executor_not_registered", f"unsupported node_type: {node_type}", owner="workflow_graph.runtime", public_exception=WorkflowGraphCompileError, public_message=f"unsupported node_type: {node_type}", field="node_type", index=-1))
+            _raise_contract(f"node_type missing: {node_id or '<unknown>'}")
 
         all_results = self.store.get_results(run_id)
-        upstream_node_ids = [str(x).strip() for x in (node.get("depends_on") or []) if str(x).strip()]
-        upstream_results = {nid: all_results[nid] for nid in upstream_node_ids if nid in all_results}
+        upstream_ids = [str(x).strip() for x in (node.get("depends_on") or []) if str(x).strip()]
+        upstream_results = {nid: all_results[nid] for nid in upstream_ids if nid in all_results}
         resolved_inputs = _resolve_node_inputs(
             node=node,
             runtime_inputs=inputs,
@@ -173,23 +185,75 @@ class WorkflowGraphRuntime:
             all_results=all_results,
             upstream_results=upstream_results,
         )
-
-        ctx = NodeExecutionContext(
-            run_id=run_id,
+        context = NodeExecutionContext(
             node_id=node_id,
-            workflow=workflow,
+            node_type=node_type,  # type: ignore[arg-type]
+            params=dict(node.get("params") or {}),
             inputs=resolved_inputs,
             input_trace=io_trace,
-            results=all_results,
             upstream_results=upstream_results,
+            correlation_id=run_id,
         )
-        result = executor.execute(node, ctx)
+        effect = execute_node(context)
+        if effect.status == "FAILED" and effect.failure is not None:
+            failure = to_workflow_graph_failure(effect)
+            if failure is not None:
+                raise_workflow_graph_legacy(failure, exception_type=WorkflowGraphCompileError)
         return _normalize_node_result(
             node_id=node_id,
             node_type=node_type,
-            result=result,
+            result=effect.legacy_payload,
             io_trace=io_trace,
         )
+
+    def _fail_run(self, run_id: str, *, payload: dict[str, Any]) -> dict[str, Any]:
+        self.store.set_run_status(run_id, "failed")
+        self.store.append_event(run_id, event_type="run.failed", payload=payload)
+        return self.store.snapshot(run_id)
+
+    def _fail_node_and_run(self, run_id: str, node_id: str, exc: Exception) -> None:
+        self.store.set_node_status(run_id, node_id, "failed")
+        self.store.set_run_status(run_id, "failed")
+        failure = getattr(exc, "workflow_failure", None)
+        failure_fields = {}
+        if failure is not None and getattr(failure, "failure", False):
+            failure_fields = {
+                "failure_family": failure.family,
+                "failure_code": failure.code,
+                "failure_context": dict(failure.context or {}),
+            }
+        error_payload = {"error": str(exc), **failure_fields}
+        self.store.append_event(
+            run_id,
+            event_type="node.failed",
+            node_id=node_id,
+            payload=error_payload,
+        )
+        self.store.append_event(
+            run_id,
+            event_type="run.failed",
+            payload={"node_id": node_id, **error_payload},
+        )
+
+
+def _raise_contract(message: str) -> None:
+    raise_workflow_graph_legacy(workflow_graph_failure(
+        "contract_invalid",
+        message,
+        owner="workflow_graph.platform_interpreter",
+        public_exception=WorkflowGraphCompileError,
+        public_message=message,
+        field="workflow",
+        index=-1,
+    ))
+
+
+def _node_id_from_payload_ref(value_id: str) -> str:
+    prefix = ":node:"
+    suffix = ":payload"
+    if prefix not in value_id or not value_id.endswith(suffix):
+        return ""
+    return value_id.split(prefix, 1)[1][: -len(suffix)]
 
 
 def _normalize_nodes(nodes: Any) -> dict[str, dict[str, Any]]:
@@ -200,25 +264,25 @@ def _normalize_nodes(nodes: Any) -> dict[str, dict[str, Any]]:
             data.setdefault("id", str(node_id))
             out[str(node_id)] = data
         return out
-
     if isinstance(nodes, list):
         out = {}
         for node in nodes:
             data = dict(node or {})
             node_id = str(data.get("id") or "").strip()
             if not node_id:
-                raise_workflow_graph_legacy(workflow_graph_failure("contract_invalid", "node id is required", owner="workflow_graph.runtime", public_exception=WorkflowGraphCompileError, public_message="node id is required", field="node_id", index=-1))
+                _raise_contract("node id is required")
             out[node_id] = data
         return out
+    _raise_contract("workflow.nodes must be dict or list")
 
-    raise_workflow_graph_legacy(workflow_graph_failure("contract_invalid", "workflow.nodes must be dict or list", owner="workflow_graph.runtime", public_exception=WorkflowGraphCompileError, public_message="workflow.nodes must be dict or list", field="nodes", index=-1))
 
-
-def _resolve_topo_order(*, workflow: dict[str, Any], nodes: dict[str, dict[str, Any]]) -> list[str]:
+def _resolve_topo_order(
+    *,
+    workflow: dict[str, Any],
+    nodes: dict[str, dict[str, Any]],
+) -> list[str]:
     topo = [str(x).strip() for x in (workflow.get("topo_order") or []) if str(x).strip()]
-    if topo:
-        return topo
-    return list(nodes.keys())
+    return topo or list(nodes.keys())
 
 
 def _build_runtime_integrity_report(
@@ -229,8 +293,7 @@ def _build_runtime_integrity_report(
 ) -> dict[str, Any]:
     edges: list[tuple[str, str]] = []
     for node_id, node in nodes.items():
-        depends_on = node.get("depends_on") or []
-        for upstream in depends_on:
+        for upstream in node.get("depends_on") or []:
             upstream_id = str(upstream or "").strip()
             if upstream_id:
                 edges.append((upstream_id, node_id))
@@ -261,7 +324,6 @@ def _resolve_node_inputs(
     params = node.get("params")
     if not isinstance(params, dict):
         return dict(runtime_inputs)
-
     input_vars = params.get("input_vars")
     if not isinstance(input_vars, list):
         return dict(runtime_inputs)
@@ -286,7 +348,14 @@ def _resolve_node_inputs(
         if value is None and default_value is not None and str(default_value).strip():
             value = default_value
         if value is None and required:
-            raise_workflow_graph_legacy(workflow_graph_failure("required_input_missing", f"required input missing: {name}", owner="workflow_graph.runtime", public_exception=WorkflowGraphCompileError, public_message=f"required input missing: {name}", field="input", index=-1, name=name))
+            message = f"required input missing: {name}"
+            raise_workflow_graph_legacy(workflow_graph_failure(
+                "required_input_missing", message,
+                owner="workflow_graph.platform_interpreter",
+                public_exception=WorkflowGraphCompileError,
+                public_message=message,
+                field="input", index=-1, name=name,
+            ))
         if value is not None:
             resolved[name] = value
     return resolved
@@ -302,7 +371,6 @@ def _resolve_input_value(
 ) -> Any:
     if source == "constant":
         return item.get("default_value")
-
     if source == "node_output":
         from_node = str(item.get("from_node") or "").strip()
         from_key = str(item.get("from_key") or "").strip()
@@ -311,9 +379,7 @@ def _resolve_input_value(
             return None
         if not from_key:
             return node_data
-        if isinstance(node_data, dict):
-            return node_data.get(from_key)
-        return None
+        return node_data.get(from_key) if isinstance(node_data, dict) else None
     if source == "expression":
         expr = str(item.get("expr") or item.get("default_value") or "").strip()
         return _evaluate_expression(
@@ -322,12 +388,8 @@ def _resolve_input_value(
             all_results=all_results,
             upstream_results=upstream_results,
         )
-
-    # input/context both read from runtime scope first; this keeps legacy behavior
     name = str(item.get("name") or "").strip()
-    if name:
-        return runtime_inputs.get(name)
-    return None
+    return runtime_inputs.get(name) if name else None
 
 
 def _build_input_trace(
@@ -390,11 +452,9 @@ def _evaluate_expression(
     if text.startswith("$node."):
         parts = text.split(".")
         if len(parts) >= 3:
-            node_id = parts[1]
-            key = ".".join(parts[2:])
-            payload = upstream_results.get(node_id) or all_results.get(node_id)
+            payload = upstream_results.get(parts[1]) or all_results.get(parts[1])
             if isinstance(payload, dict):
-                return payload.get(key)
+                return payload.get(".".join(parts[2:]))
             return None
     return runtime_inputs.get(text)
 
@@ -408,8 +468,7 @@ def _normalize_node_result(
 ) -> dict[str, Any]:
     if isinstance(result, dict):
         out = dict(result)
-        if "data" not in out:
-            out["data"] = dict(result)
+        out.setdefault("data", dict(result))
         out.setdefault("error", None)
         meta = out.get("meta")
         if not isinstance(meta, dict):
@@ -419,10 +478,9 @@ def _normalize_node_result(
         out["meta"] = meta
         out.setdefault("io_trace", io_trace)
         return out
-
     return {
-        "value": result,
-        "data": {"value": result},
+        "node_type": node_type,
+        "data": result,
         "error": None,
         "meta": {"node_id": node_id, "node_type": node_type},
         "io_trace": io_trace,

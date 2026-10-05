@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from datetime import UTC, datetime, timedelta
 
-from app.successor_migration.legacy_agent_batch import (
+from app.successor_runtime.capabilities.batch_task_interpreters import (
     build_successor_agent_batch_c4_plan_binding,
     build_successor_agent_batch_c4_retry_binding,
 )

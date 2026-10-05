@@ -705,11 +705,5 @@ def test_shared_root_hashes_unchanged() -> None:
 def test_import_boundaries_and_dependency_lint() -> None:
     from scripts.check_successor_runtime_dependencies import check
 
-    adapter_source = inspect.getsource(__import__("app.successor_migration.legacy_source_library", fromlist=["*"]))
-    assert "from app.services.source_library.item_resolver import" in adapter_source
-    assert "from app.services.source_library.resolver import" in adapter_source
-    assert "run_item_payload(" not in adapter_source
-    assert "import run_item_payload" not in adapter_source
-    assert "def _run_source_mode" not in adapter_source
     report = check(_BACKEND_ROOT / "app" / "successor_runtime")
     assert report["ok"], report["violations"]

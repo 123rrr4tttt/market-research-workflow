@@ -70,7 +70,6 @@ SOURCE_RELS = (
     Path("main/backend/app/settings/config.py"),
     Path("main/backend/app/settings/graph.py"),
     Path("main/backend/app/api/__init__.py"),
-    Path("main/backend/app/api/agent_chat.py"),
     Path("main/backend/app/api/codex_auth.py"),
     Path("main/backend/app/composition/__init__.py"),
     Path("main/backend/app/composition/production.py"),

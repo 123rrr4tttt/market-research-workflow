@@ -58,9 +58,22 @@ def test_w02_sessions_domain_failures_use_closed_kit_family() -> None:
 
 def test_w02_sessions_service_claim_failures_are_typed() -> None:
     service = AgentSessionService(store=InMemoryAgentSessionStore())
-    bundle = service.create_session(source="user", entrypoint_type="chat", goal="typed failure")
+    bundle = service.create_session(
+        source="user",
+        entrypoint_type="chat",
+        goal="typed failure",
+        task_blueprints=[
+            {
+                "task_id": "typed-failure-task",
+                "subject": "Typed failure task",
+                "task_type": "implementation",
+                "phase": "implementation",
+                "execution_mode": "worker",
+            }
+        ],
+    )
     session_id = bundle["session"]["session_id"]
-    task_id = bundle["tasks"][0]["task_id"]
+    task_id = "typed-failure-task"
 
     service.release_task(session_id, task_id, status="completed")
     not_claimable = service.claim_task(session_id, task_id, owner="worker")

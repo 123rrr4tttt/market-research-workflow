@@ -330,14 +330,6 @@ class TwitterAdapter:
         
         for idx, query in enumerate(queries):
             try:
-                # Twitter API会自动处理速率限制（wait_on_rate_limit=True）
-                # 但为了安全，仍然添加小延迟
-                if idx > 0:
-                    import time
-                    delay = 1.0  # 1秒延迟
-                    logger.debug(f"Waiting {delay}s before next request...")
-                    time.sleep(delay)
-                
                 posts = list(self.search_tweets(query, keywords, limit_per_query))
                 logger.info(f"Query '{query}': fetched {len(posts)} tweets")
                 all_posts.extend(posts)

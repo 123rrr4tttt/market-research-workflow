@@ -1,11 +1,8 @@
 """Successor-native pure interpreter for the C2.1 resolve atom.
 
-The interpreter is a deterministic rewrite of the legacy
-``item_resolver.ItemResolver.resolve``, ``resolver._normalize_search_params``
-and ``resolver._build_frontdoor_protocol`` precedence rules.  It performs no
-network, database, provider or credential work, and it never imports
-legacy service packages.  The legacy path is exercised only by the sibling
-``successor_migration.legacy_source_library`` adapter.
+The interpreter owns the deterministic source resolution precedence rules.  It
+performs no network, database, provider or credential work, and it never
+imports legacy service packages.
 
 All typed outputs are constructed directly from the single canonical DTO
 vocabulary in ``source_library_c2_1.py``; this module keeps no parallel

@@ -5,9 +5,12 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
+
+import requests
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -16,6 +19,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.services.search import web  # noqa: E402
+from app.services.ingest.retry_policy import RateGate  # noqa: E402
 
 
 DEFAULT_OUT = (
@@ -76,7 +80,46 @@ def _assert_explicit_trace(provider: str, result: dict[str, Any]) -> None:
             raise AssertionError(f"{provider} backend_trace.{key}={trace.get(key)!r}, expected {value!r}")
 
 
-def build_contract() -> dict[str, Any]:
+def _offline_response(payload: dict[str, Any]) -> requests.Response:
+    response = requests.Response()
+    response.status_code = 200
+    response.headers["Content-Type"] = "application/json"
+    response._content = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    return response
+
+
+def _offline_client_factory(
+    searxng_payload: dict[str, Any],
+    yacy_payload: dict[str, Any],
+) -> Callable[[], requests.Session]:
+    session = requests.Session()
+
+    def get_json(url: str, **_kwargs: object) -> requests.Response:
+        payload = searxng_payload if url.endswith("/search") else yacy_payload
+        return _offline_response(payload)
+
+    session.get = get_json  # type: ignore[method-assign]
+    return lambda: session
+
+
+def _offline_rate_gate() -> RateGate:
+    now = [0.0]
+
+    def advance_sleep(seconds: float) -> None:
+        now[0] += seconds
+
+    return RateGate(
+        rate_limit_interval_seconds=1.0,
+        backoff_base_seconds=2.0,
+        backoff_max_seconds=8.0,
+        clock=lambda: now[0],
+        sleeper=advance_sleep,
+    )
+
+
+def build_contract(
+    client_factory: Callable[[], requests.Session] | None = None,
+) -> dict[str, Any]:
     searxng_payload = {
         "results": [
             {
@@ -103,26 +146,32 @@ def build_contract() -> dict[str, Any]:
         ]
     }
 
+    if client_factory is None:
+        client_factory = _offline_client_factory(searxng_payload, yacy_payload)
+    offline_gate = _offline_rate_gate()
+
     with patch("app.services.search.web.generate_keywords", return_value=["robotics policy"]):
-        with patch("app.services.search.web.default_http_client.get_json", return_value=searxng_payload):
-            searxng_results = web.search_sources(
-                "robotics policy",
-                language="en",
-                max_results=5,
-                provider="searxng",
-                exclude_existing=False,
-            )
+        with patch.object(web, "_SEARCH_RATE_GATE", offline_gate):
+            with patch.object(web, "_SEARCH_CLIENT_FACTORY", client_factory):
+                searxng_results = web.search_sources(
+                    "robotics policy",
+                    language="en",
+                    max_results=5,
+                    provider="searxng",
+                    exclude_existing=False,
+                )
 
     with patch.dict(os.environ, {"YACY_RESOURCE_MODE": "local"}, clear=False):
         with patch("app.services.search.web.generate_keywords", return_value=["robotics"]):
-            with patch("app.services.search.web.default_http_client.get_json", return_value=yacy_payload):
-                yacy_results = web.search_sources(
-                    "robotics",
-                    language="en",
-                    max_results=5,
-                    provider="yacy",
-                    exclude_existing=False,
-                )
+            with patch.object(web, "_SEARCH_RATE_GATE", offline_gate):
+                with patch.object(web, "_SEARCH_CLIENT_FACTORY", client_factory):
+                    yacy_results = web.search_sources(
+                        "robotics",
+                        language="en",
+                        max_results=5,
+                        provider="yacy",
+                        exclude_existing=False,
+                    )
 
     if not searxng_results:
         raise AssertionError("searxng fixture produced no result")

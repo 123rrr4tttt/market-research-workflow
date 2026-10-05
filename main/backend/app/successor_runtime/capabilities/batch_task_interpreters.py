@@ -1,11 +1,9 @@
 """Successor-native pure interpreters for the C4 agent-batch atoms.
 
-The interpreters are deterministic rewrites of the legacy agent-batch plan and
-retry helpers.  They perform no network, database, provider, submit or
-credential work and never import legacy service packages.  The legacy path is
-exercised only by the sibling ``successor_migration.legacy_agent_batch``
-adapter.  All typed outputs come from the single canonical DTO vocabulary in
-``agent_batch_c4.py``.
+The interpreters are deterministic implementations of the current batch plan
+and retry contracts.  They perform no network, database, provider, submit or
+credential work and never import legacy service packages.  All typed outputs
+come from the single canonical DTO vocabulary in ``agent_batch_c4.py``.
 
 The C4.3 submit atom is not interpreted here: durable submission remains
 contract/repository scaffold only and is explicitly blocked by the shared
@@ -38,10 +36,9 @@ from app.successor_runtime.language.catalog import OperationContractCatalogSnaps
 from app.successor_runtime.language.object_contracts import OperationContractRef
 from app.successor_runtime.language.plan import with_plan_digest
 from app.successor_runtime.research.codec import is_sha256_hex
+from app.successor_runtime.runtime.assignments import InterpreterBinding
 
 __all__ = [
-    "BATCH_TASK_LEGACY_PLAN_INTERPRETER_ID",
-    "BATCH_TASK_LEGACY_RETRY_INTERPRETER_ID",
     "BATCH_TASK_SUCCESSOR_PLAN_INTERPRETER_ID",
     "BATCH_TASK_SUCCESSOR_RETRY_INTERPRETER_ID",
     "BatchTaskPlanSuccessorInterpreter",
@@ -55,8 +52,9 @@ __all__ = [
     "ProjectScopeView",
     "RetryBindingMismatch",
     "authority_requirement_digest",
-    "legacy_plan_interpreter_profile_digest",
-    "legacy_retry_interpreter_profile_digest",
+    "build_successor_agent_batch_c4_plan_binding",
+    "build_successor_agent_batch_c4_retry_binding",
+    "build_successor_agent_batch_c4_submission_binding",
     "require_exact_batch_plan_binding",
     "require_exact_retry_binding",
     "successor_plan_interpreter_profile_digest",
@@ -70,14 +68,12 @@ __all__ = [
 BATCH_TASK_SUCCESSOR_PLAN_INTERPRETER_ID = (
     "batch.task.build_plan.native.v2"
 )
-BATCH_TASK_LEGACY_PLAN_INTERPRETER_ID = "legacy.agent_batch.nl_command.plan.v1"
 BATCH_TASK_SUCCESSOR_RETRY_INTERPRETER_ID = (
     "batch.task.reduce_retry.native.v2"
 )
 BATCH_TASK_SUCCESSOR_SUBMISSION_INTERPRETER_ID = (
     "batch.task.submit.native.v2"
 )
-BATCH_TASK_LEGACY_RETRY_INTERPRETER_ID = "legacy.agent_batch.retry_loop.v1"
 
 T = TypeVar("T")
 
@@ -413,19 +409,6 @@ def successor_plan_interpreter_profile_digest() -> str:
     )
 
 
-def legacy_plan_interpreter_profile_digest() -> str:
-    return content_digest(
-        {
-            "interpreter_id": BATCH_TASK_LEGACY_PLAN_INTERPRETER_ID,
-            "version": "1.0.0",
-            "donor": (
-                "app.services.agent_batch.task_contract."
-                "_build_search_brief+_expand_tasks_with_limited_branching"
-            ),
-        }
-    )
-
-
 def successor_retry_interpreter_profile_digest() -> str:
     return content_digest(
         {
@@ -436,13 +419,60 @@ def successor_retry_interpreter_profile_digest() -> str:
     )
 
 
-def legacy_retry_interpreter_profile_digest() -> str:
-    return content_digest(
-        {
-            "interpreter_id": BATCH_TASK_LEGACY_RETRY_INTERPRETER_ID,
-            "version": "1.0.0",
-            "donor": "app.services.agent_batch.task_contract._apply_retry_action",
-        }
+def build_successor_agent_batch_c4_plan_binding(
+    *,
+    contract_digest: str,
+    deployment_catalog_digest: str,
+    project_scope_digest: str,
+    resource_policy_epoch: int = 1,
+    runtime_protocol_version: str = "mrw.runtime.protocol.v1",
+) -> InterpreterBinding:
+    return InterpreterBinding.from_content(
+        operation_contract_digest=contract_digest,
+        interpreter_profile_digest=successor_plan_interpreter_profile_digest(),
+        deployment_catalog_digest=deployment_catalog_digest,
+        runtime_protocol_version=runtime_protocol_version,
+        project_scope_digest=project_scope_digest,
+        resource_policy_epoch=resource_policy_epoch,
+        authority_requirement_digest=authority_requirement_digest(),
+    )
+
+
+def build_successor_agent_batch_c4_retry_binding(
+    *,
+    contract_digest: str,
+    deployment_catalog_digest: str,
+    project_scope_digest: str,
+    resource_policy_epoch: int = 1,
+    runtime_protocol_version: str = "mrw.runtime.protocol.v1",
+) -> InterpreterBinding:
+    return InterpreterBinding.from_content(
+        operation_contract_digest=contract_digest,
+        interpreter_profile_digest=successor_retry_interpreter_profile_digest(),
+        deployment_catalog_digest=deployment_catalog_digest,
+        runtime_protocol_version=runtime_protocol_version,
+        project_scope_digest=project_scope_digest,
+        resource_policy_epoch=resource_policy_epoch,
+        authority_requirement_digest=authority_requirement_digest(),
+    )
+
+
+def build_successor_agent_batch_c4_submission_binding(
+    *,
+    contract_digest: str,
+    deployment_catalog_digest: str,
+    project_scope_digest: str,
+    resource_policy_epoch: int = 1,
+    runtime_protocol_version: str = "mrw.runtime.protocol.v1",
+) -> InterpreterBinding:
+    return InterpreterBinding.from_content(
+        operation_contract_digest=contract_digest,
+        interpreter_profile_digest=successor_submission_interpreter_profile_digest(),
+        deployment_catalog_digest=deployment_catalog_digest,
+        runtime_protocol_version=runtime_protocol_version,
+        project_scope_digest=project_scope_digest,
+        resource_policy_epoch=resource_policy_epoch,
+        authority_requirement_digest=authority_requirement_digest(),
     )
 
 

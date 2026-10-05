@@ -4,9 +4,9 @@ from typing import Any, Callable, List, Dict, Set, Optional
 from datetime import datetime, timedelta
 import os
 import logging
-import time
 import re
 import math
+import requests
 
 from duckduckgo_search import DDGS
 from duckduckgo_search.exceptions import RatelimitException
@@ -14,6 +14,8 @@ from ..http.client import default_http_client
 from urllib.parse import urljoin, urlparse, parse_qsl, urlencode, urlunparse
 from sqlalchemy import select
 
+from ..ingest.adapters.http_utils import request_html
+from ..ingest.retry_policy import RateGate, RequestScope
 from ..llm.provider import get_chat_model
 from ..llm.config_loader import get_llm_config, format_prompt_template
 from ...settings.config import settings
@@ -75,6 +77,47 @@ _TRUSTED_DOMAINS = {
 
 
 _BILINGUAL_LANG_MODES = {"bi", "bilingual", "zh-en", "zh_en", "both", "multi", "multilingual"}
+
+_SEARCH_CLIENT_FACTORY: Callable[[], requests.Session] | None = None
+_SEARCH_RATE_GATE = RateGate(
+    rate_limit_interval_seconds=1.0,
+    backoff_base_seconds=2.0,
+    backoff_max_seconds=8.0,
+)
+
+
+def _search_scope(provider: str, *, account: str | None = None) -> RequestScope:
+    return RequestScope(provider=f"search:{provider}", account=account)
+
+
+def _request_search_json(
+    url: str,
+    *,
+    scope: RequestScope,
+    headers: dict[str, str] | None = None,
+    params: dict[str, Any] | None = None,
+) -> Any:
+    outcome = request_html(
+        url,
+        scope=scope,
+        headers=headers,
+        params=params,
+        timeout=20.0,
+        retries=3,
+        retry_gate=_SEARCH_RATE_GATE,
+        client_factory=_SEARCH_CLIENT_FACTORY,
+    )
+    if outcome.ok and outcome.response is not None:
+        return outcome.response.json()
+    if outcome.response is not None:
+        outcome.response.raise_for_status()
+    if outcome.last_exception is not None:
+        raise outcome.last_exception
+    raise RuntimeError(outcome.failures[-1].message)
+
+
+def _acquire_sdk_search_gate(provider: str) -> bool:
+    return _SEARCH_RATE_GATE.acquire(_search_scope(provider)).acquired
 
 
 def _base_language(language: str) -> str:
@@ -451,6 +494,10 @@ def search_sources(
                     for keyword in keywords:
                         try:
                             count = 0
+                            if not _acquire_sdk_search_gate("ddg"):
+                                logger.warning("search_sources: ddg keyword=%s denied by request gate", keyword)
+                                _observe("ddg", keyword, "failed")
+                                continue
                             for result in ddgs.text(keyword, safesearch="off", max_results=per_kw):
                                 item = {
                                     "keyword": keyword,
@@ -560,11 +607,9 @@ def search_sources(
                 auth_kw = {"oauth_token": google_oauth_token} if google_oauth_token else {"api_key": google_api_key}
                 if google_oauth_token:
                     logger.info("search_sources: using Google OAuth (GOOGLE_APPLICATION_CREDENTIALS)")
-                for i, keyword in enumerate(keywords):
+                for keyword in keywords:
                     if len(results) >= max_results:
                         break
-                    if i > 0:
-                        time.sleep(1.0)  # delay between keywords
                     try:
                         remaining = max_results - len(results)
                         items = _observed_call("google", keyword, lambda: _call_google(keyword, google_cse_id, remaining, auth_kw))
@@ -664,11 +709,9 @@ def search_sources(
     if len(results) == 0 and google_cse_id and (google_api_key or google_oauth_token):
         auth_kw = {"oauth_token": google_oauth_token} if google_oauth_token else {"api_key": google_api_key}
         logger.info("search_sources: auto mode - using google custom search (OAuth=%s)", bool(google_oauth_token))
-        for i, keyword in enumerate(keywords):
+        for keyword in keywords:
             if len(results) >= max_results:
                 break
-            if i > 0:
-                time.sleep(1.0)  # delay between keywords
             try:
                 remaining = max_results - len(results)
                 items = _observed_call("google", keyword, lambda: _call_google(keyword, google_cse_id, remaining, auth_kw))
@@ -755,6 +798,10 @@ def search_sources(
             with DDGS() as ddgs:
                 for keyword in site_kw:
                     try:
+                        if not _acquire_sdk_search_gate("ddg"):
+                            logger.warning("search_sources: ddg site keyword=%s denied by request gate", keyword)
+                            _observe("ddg", keyword, "failed")
+                            continue
                         for result in ddgs.text(keyword, safesearch="off", max_results=2):
                             item = {
                                 "keyword": keyword,
@@ -805,7 +852,12 @@ def _serpapi_search(keyword: str, api_key: str, limit: int) -> List[dict]:
         "api_key": api_key,
         "num": str(max(1, limit)),
     }
-    data = default_http_client.get_json("https://serpapi.com/search.json", params=params)
+    data = _request_search_json(
+        "https://serpapi.com/search.json",
+        scope=_search_scope("serpapi"),
+        headers={"Accept": "application/json"},
+        params=params,
+    )
     items: List[dict] = []
     for r in data.get("organic_results", [])[:limit]:
         items.append(
@@ -827,7 +879,12 @@ def _serpapi_search_news(keyword: str, api_key: str, limit: int) -> List[dict]:
         "tbm": "nws",
         "num": str(max(1, limit)),
     }
-    data = default_http_client.get_json("https://serpapi.com/search.json", params=params)
+    data = _request_search_json(
+        "https://serpapi.com/search.json",
+        scope=_search_scope("serpapi", account="news"),
+        headers={"Accept": "application/json"},
+        params=params,
+    )
     items: List[dict] = []
     for r in data.get("news_results", [])[:limit]:
         items.append(
@@ -850,7 +907,12 @@ def _serpstack_search(keyword: str, api_key: str, limit: int) -> List[dict]:
         "access_key": api_key,
         "num": str(max(1, limit)),
     }
-    data = default_http_client.get_json("http://api.serpstack.com/search", params=params)
+    data = _request_search_json(
+        "http://api.serpstack.com/search",
+        scope=_search_scope("serpstack"),
+        headers={"Accept": "application/json"},
+        params=params,
+    )
     items: List[dict] = []
     for r in data.get("organic_results", [])[:limit]:
         items.append(
@@ -879,6 +941,9 @@ def _serper_search(keyword: str, api_key: str, limit: int, *, language: str = "e
         "num": int(max(1, limit)),
         "hl": hl,
     }
+    if not _acquire_sdk_search_gate("serper"):
+        logger.warning("_serper_search: request gate denied provider=serper keyword=%s", keyword)
+        return []
     data = default_http_client.post_json(
         "https://google.serper.dev/search",
         json=payload,
@@ -917,7 +982,12 @@ def _searxng_search(keyword: str, base_url: str, limit: int, *, language: str = 
             "pageno": page_no,
             "language": _base_language(language),
         }
-        data = default_http_client.get_json(url, params=params)
+        data = _request_search_json(
+            url,
+            scope=_search_scope("searxng"),
+            headers={"Accept": "application/json"},
+            params=params,
+        )
         rows = list(data.get("results") or [])
         if not rows:
             break
@@ -966,7 +1036,12 @@ def _yacy_search(keyword: str, base_url: str, limit: int, *, resource_mode: str 
         "resource": resource,
         "maximumRecords": max(1, limit),
     }
-    data = default_http_client.get_json(url, params=params)
+    data = _request_search_json(
+        url,
+        scope=_search_scope("yacy"),
+        headers={"Accept": "application/json"},
+        params=params,
+    )
     rows: list[Any] = []
     channels = data.get("channels")
     if isinstance(channels, list) and channels:
@@ -1084,10 +1159,14 @@ def _google_search(
             return []
 
         try:
-            data = default_http_client.get_json(
+            data = _request_search_json(
                 "https://www.googleapis.com/customsearch/v1",
-                params=params,
+                scope=_search_scope(
+                    "google",
+                    account="oauth" if oauth_token else "api-key",
+                ),
                 headers=headers,
+                params=params,
             )
             page_items = data.get("items", [])
 

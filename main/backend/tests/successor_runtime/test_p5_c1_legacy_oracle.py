@@ -1,188 +1,190 @@
-"""Legacy WorkflowGraph as a no-effect named-observation oracle only."""
+"""Current workflow migration contract over exact Program/Plan/interpreter."""
 
 from __future__ import annotations
 
-import inspect
-from dataclasses import replace
+import json
+from pathlib import Path
+from typing import Any
+from unittest.mock import patch
 
+from functorial_kit import Failure
 import pytest
 
-from app.successor_migration import legacy_workflow_graph as legacy_graph
-from app.successor_runtime.capabilities.workflow_slice_acceptance import (
-    WorkflowStepStatus,
+from app.services.workflow_graph.runtime import WorkflowGraphPlatformInterpreter
+from app.successor_runtime.capabilities.workflow_legacy_dsl import (
+    workflow_program_metadata,
 )
-from app.successor_runtime.capabilities.checksum import content_digest
+from app.successor_runtime.capabilities.workflow_legacy_dsl import (
+    parse_and_validate_workflow_dsl,
+)
+from app.successor_runtime.language.plan import ExecutionPlan
+from app.successor_runtime.language.program import ProgramSpec
+from app.successor_runtime.runtime.activation import activate_plan_result
+from app.successor_runtime.language.transforms import TransformRegistry
 
-from .test_p5_c1_slice_programs import (
-    _c8_writing_program_plan,
-    _observations,
-    _rollback,
-    _runtime_evidence,
+
+pytestmark = pytest.mark.unit
+
+_EVIDENCE_ROOT = (
+    Path(__file__).resolve().parents[4]
+    / "development/latest-dev-docs/development-plans/CURRENT_DEV"
+    / "2026-08-30-functorial-successor-migration/evidence/p5-c1-slices"
 )
 
 
-def _compare(
-    oracle: legacy_graph.LegacyWorkflowGraphOracle,
-    status: WorkflowStepStatus,
-):
-    program, plan = _c8_writing_program_plan()
-    observations = _observations(plan, status)
-    return oracle.compare(
-        in_slice_id="B",
-        in_legacy_program=program,
-        in_legacy_plan=plan,
-        in_successor_program=program,
-        in_successor_plan=plan,
-        in_legacy_step_observations=observations,
-        in_successor_step_observations=observations,
-        in_runtime_evidence=_runtime_evidence(),
-        in_rollback_before_after=_rollback(),
+def _workflow_dsl() -> dict[str, Any]:
+    return {
+        "version": "1.0",
+        "options": {},
+        "nodes": [
+            {"node_id": "retrieve", "node_type": "vector_search", "config": {"top_k": 5}},
+            {"node_id": "draft", "node_type": "llm_call", "config": {"model": "mrw-local"}},
+            {"node_id": "combine", "node_type": "join", "config": {"field": "values"}},
+        ],
+        "edges": [
+            {"from": "retrieve", "to": "combine"},
+            {"from": "draft", "to": "combine"},
+            {"from": "retrieve", "to": "draft"},
+        ],
+    }
+
+
+def _current_program_plan() -> tuple[ProgramSpec, ExecutionPlan, dict[str, Any]]:
+    receipt = parse_and_validate_workflow_dsl(_workflow_dsl())
+    assert receipt.ok
+    assert receipt.program is not None and receipt.plan is not None
+    metadata = workflow_program_metadata(receipt.program)
+    return receipt.program, receipt.plan, metadata
+
+
+def test_workflow_low_once_into_exact_program_and_plan() -> None:
+    program, plan, metadata = _current_program_plan()
+    effects = [step for step in plan.ordered_steps if step.step_kind == "EFFECT"]
+    payload_refs = [step.operation_id for step in effects]
+
+    assert metadata["ordered_composition"] == "THEN_TOPOLOGY_ONCE"
+    assert metadata["topo_order"] == ["retrieve", "draft", "combine"]
+    assert len(effects) == 3
+    assert payload_refs == [
+        "workflow.vector_search.v1",
+        "workflow.llm_call.v1",
+        "workflow.join.v1",
+    ]
+    assert len({step.operation_id for step in effects}) == 3
+    assert program.program_digest == program.digest()
+    assert plan.plan_digest
+    assert all(
+        step.operation_contract_ref is not None
+        for step in effects
     )
 
 
-@pytest.mark.parametrize(
-    ("status", "accepted", "finding"),
-    (
-        (WorkflowStepStatus.SUCCESS, True, None),
-        (WorkflowStepStatus.DEGRADED, True, None),
-        (WorkflowStepStatus.BLOCKED, False, "OBSERVED_BLOCKED"),
-        (WorkflowStepStatus.FAILURE, False, "OBSERVED_FAILURE"),
-        (WorkflowStepStatus.UNKNOWN, False, "OBSERVED_UNKNOWN"),
-    ),
-)
-def test_oracle_supports_bounded_named_statuses_without_executing_effects(
-    status: WorkflowStepStatus,
-    accepted: bool,
-    finding: str | None,
-) -> None:
-    oracle = legacy_graph.LegacyWorkflowGraphOracle()
-    receipt = _compare(oracle, status)
+def test_shared_predecessor_executes_once_through_platform_interpreter() -> None:
+    program, plan, metadata = _current_program_plan()
+    nodes = {
+        str(item["node_id"]): {
+            "id": str(item["node_id"]),
+            "node_type": item["node_type"],
+            "params": dict(item["config"]),
+        }
+        for item in metadata["nodes"]
+    }
+    for node in nodes.values():
+        node["depends_on"] = [
+            edge["from"]
+            for edge in metadata["edges"]
+            if edge["to"] == node["id"]
+        ]
+    workflow = {
+        "workflow_id": "current-workflow-boundary",
+        "program_digest": program.program_digest,
+        "plan_digest": plan.plan_digest,
+        "topo_order": list(metadata["topo_order"]),
+        "nodes": nodes,
+    }
+    calls: list[str] = []
 
-    assert receipt.acceptance.observational_compatibility is True
-    assert receipt.acceptance.accepted is accepted
-    if finding is not None:
-        assert any(
-            item.startswith(finding) for item in receipt.acceptance.blocking_findings
-        )
-    if status == WorkflowStepStatus.DEGRADED:
-        assert any(
-            item.startswith("MATCHED_DEGRADED_OBSERVATION")
-            for item in receipt.acceptance.declared_differences
-        )
-    assert receipt.compatibility_claim == "NAMED_OBSERVATIONAL_COMPATIBILITY_ONLY"
-    assert receipt.provider_calls == 0
-    assert receipt.store_writes == 0
-    assert receipt.canonical_effect_calls == 0
-    assert receipt.duplicated_effect_calls == 0
-    assert receipt.graph_json_reads == 0
-    assert oracle.comparison_calls == 1
+    def execute(context):
+        from app.services.workflow_graph.executors.kernel import node_success
 
+        calls.append(context.node_id)
+        values = {
+            "retrieve": {"text": "retrieved"},
+            "draft": {"text": "drafted"},
+            "combine": {"values": ["retrieved", "drafted"]},
+        }
+        return node_success(context, values[context.node_id])
 
-def test_named_observation_mismatch_is_declared_and_blocks_compatibility() -> None:
-    program, plan = _c8_writing_program_plan()
-    legacy = _observations(plan)
-    successor_first = replace(
-        legacy[0],
-        status=WorkflowStepStatus.FAILURE,
-        result_digest=content_digest({"successor": "failure"}),
-    )
-    oracle = legacy_graph.LegacyWorkflowGraphOracle()
-    receipt = oracle.compare(
-        in_slice_id="B",
-        in_legacy_program=program,
-        in_legacy_plan=plan,
-        in_successor_program=program,
-        in_successor_plan=plan,
-        in_legacy_step_observations=legacy,
-        in_successor_step_observations=(successor_first,) + legacy[1:],
-        in_runtime_evidence=_runtime_evidence(),
-        in_rollback_before_after=_rollback(),
-    )
-
-    assert receipt.acceptance.observational_compatibility is False
-    assert receipt.acceptance.accepted is False
-    assert receipt.acceptance.blocking_findings == (
-        f"OBSERVATION_MISMATCH:{legacy[0].name}",
-    )
-    assert any(
-        legacy[0].name in item for item in receipt.acceptance.declared_differences
-    )
-
-
-def test_oracle_rejects_any_second_program_or_plan_before_observation() -> None:
-    program, plan = _c8_writing_program_plan()
-    observations = _observations(plan)
-    drifted_plan = replace(plan, plan_id="plan:second-graph-is-forbidden")
-    oracle = legacy_graph.LegacyWorkflowGraphOracle()
-
-    with pytest.raises(
-        legacy_graph.LegacyWorkflowGraphOracleError,
-        match="same exact ExecutionPlan",
-    ):
-        oracle.compare(
-            in_slice_id="B",
-            in_legacy_program=program,
-            in_legacy_plan=plan,
-            in_successor_program=program,
-            in_successor_plan=drifted_plan,
-            in_legacy_step_observations=observations,
-            in_successor_step_observations=observations,
-            in_runtime_evidence=_runtime_evidence(),
-            in_rollback_before_after=_rollback(),
+    with patch(
+        "app.services.workflow_graph.runtime.execute_node",
+        side_effect=execute,
+    ) as kernel:
+        snapshot = WorkflowGraphPlatformInterpreter().run(
+            program=program,
+            plan=plan,
+            workflow=workflow,
+            run_id="current-workflow-run",
         )
 
-    assert oracle.comparison_calls == 0
-    assert oracle.provider_calls == 0
-    assert oracle.store_writes == 0
-    assert oracle.canonical_effect_calls == 0
-    assert oracle.duplicated_effect_calls == 0
-    assert oracle.graph_json_reads == 0
+    assert calls == ["retrieve", "draft", "combine"]
+    assert kernel.call_count == 3
+    assert snapshot["run"]["status"] == "succeeded"
+    assert snapshot["results"]["combine"]["values"] == ["retrieved", "drafted"]
+    assert snapshot["run"]["metadata"]["program_digest"] == program.program_digest
+    assert snapshot["run"]["metadata"]["plan_digest"] == plan.plan_digest
 
 
-def test_oracle_surface_has_no_legacy_runtime_db_provider_or_graph_json_input() -> None:
-    source = inspect.getsource(legacy_graph)
-    forbidden_imports = (
-        "app.services.workflow_graph",
-        "sqlalchemy",
-        "openai",
-        "app.models",
-        "app.successor_runtime.substrate",
+def test_activation_has_one_ready_effect_per_fixed_point_round() -> None:
+    program, plan, _ = _current_program_plan()
+    completed: tuple[Any, ...] = ()
+    observed: list[str] = []
+    registries = (
+        TransformRegistry(registry_id="workflow.transforms"),
+        TransformRegistry(registry_id="workflow.merges"),
+        TransformRegistry(registry_id="workflow.discriminators"),
     )
-    assert all(item not in source for item in forbidden_imports)
-    signature = inspect.signature(legacy_graph.LegacyWorkflowGraphOracle.compare)
-    assert "graph_json" not in signature.parameters
-    assert "provider" not in signature.parameters
-    assert "database" not in signature.parameters
-
-
-def test_oracle_claim_is_not_naturality_commutativity_or_effect_equivalence() -> None:
-    receipt = _compare(
-        legacy_graph.LegacyWorkflowGraphOracle(),
-        WorkflowStepStatus.SUCCESS,
-    )
-    assert receipt.compatibility_claim == "NAMED_OBSERVATIONAL_COMPATIBILITY_ONLY"
-    assert receipt.acceptance.compatibility_claim == (
-        "NAMED_OBSERVATIONAL_COMPATIBILITY_ONLY"
-    )
-    assert "naturality" not in receipt.compatibility_claim.lower()
-    assert "commut" not in receipt.compatibility_claim.lower()
-    assert "effect" not in receipt.compatibility_claim.lower()
-
-
-def test_named_observation_requires_exact_step_order() -> None:
-    program, plan = _c8_writing_program_plan()
-    observations = _observations(plan)
-    swapped = tuple(reversed(observations))
-    oracle = legacy_graph.LegacyWorkflowGraphOracle()
-    with pytest.raises(ValueError, match="exact ordered ExecutionPlan steps"):
-        oracle.compare(
-            in_slice_id="B",
-            in_legacy_program=program,
-            in_legacy_plan=plan,
-            in_successor_program=program,
-            in_successor_plan=plan,
-            in_legacy_step_observations=swapped,
-            in_successor_step_observations=swapped,
-            in_runtime_evidence=_runtime_evidence(),
-            in_rollback_before_after=_rollback(),
+    for _ in range(4):
+        result = activate_plan_result(
+            run_id="activation-readback",
+            program=program,
+            plan=plan,
+            completed_outputs=completed,
+            transform_registry=registries[0],
+            merge_registry=registries[1],
+            discriminator_registry=registries[2],
         )
+        assert not isinstance(result, Failure)
+        if not result.activations:
+            break
+        assert len(result.activations) == 1
+        activation = result.activations[0]
+        node_id = activation.payload_ref.value_id.split(":node:", 1)[1]
+        node_id = node_id.removesuffix(":payload")
+        observed.append(node_id)
+        from app.successor_runtime.runtime.activation import BoundStepValue
+
+        completed += (
+            BoundStepValue(
+                activation.step_id,
+                activation.payload_ref,
+                {"completed": activation.step_id},
+            ),
+        )
+    assert observed == ["retrieve", "draft", "combine"]
+
+
+def test_frozen_c1_slice_summaries_remain_byte_readable_history() -> None:
+    rows = []
+    for slice_id in ("A", "B", "C"):
+        path = _EVIDENCE_ROOT / f"C1Slice{slice_id}.v1.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload["schema"] == "mrw.functorial-successor.c1-slice-evidence.v1"
+        assert payload["slice_id"] == slice_id
+        assert len(payload["content_digest"]) == 64
+        rows.append((slice_id, payload["content_digest"]))
+    assert [row[0] for row in rows] == ["A", "B", "C"]
+
+
+def _current_replay_digest() -> str:
+    program, plan, _ = _current_program_plan()
+    return program.program_digest + plan.plan_digest

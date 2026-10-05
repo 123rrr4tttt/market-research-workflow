@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from app.successor_migration.document_repository_c7 import (
+from app.successor_runtime.substrate.postgres.c7_document_readback import (
     CanonicalCommitReadback,
     DocumentRef,
     document_ref_from_readback,

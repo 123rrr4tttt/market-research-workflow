@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.util
 import json
 import subprocess
 import sys
@@ -13,10 +12,6 @@ from pathlib import Path
 import pytest
 
 from app.successor_runtime.capabilities.checksum import content_digest
-from .current_candidate_support import (
-    TEMPORARY_B19_STAGE,
-    stage_candidate_in_temporary_repository,
-)
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _REPOSITORY_ROOT = _BACKEND_ROOT.parents[1]
@@ -59,14 +54,6 @@ _FAMILIES = {
         "STAGE_B23_C6_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY",
         True,
     ),
-    "C7": FamilySpec(
-        "c7_p4",
-        "p4-fragments/C7.json",
-        f"{_EXACT_BYTE_REBIND}/stage-b23-2026-09-07/fragments/C7.json",
-        "d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
-        "STAGE_B23_C7_CURRENT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY",
-        True,
-    ),
     "C9": FamilySpec(
         "c9_p4",
         "p4-fragments/C9.json",
@@ -81,15 +68,6 @@ _LIVE_STATUS = "CANDIDATE_VALID_NOT_AUTHORITY"
 _HISTORY_STATUS = "HISTORY_SNAPSHOT_VALID_NOT_AUTHORITY"
 _CANDIDATE_SCHEMA = "mrw.family_fragment_rebind.candidate.v2"
 
-
-_C7_REBIND_TOOL = importlib.util.module_from_spec(
-    importlib.util.spec_from_file_location(
-        "generate_c7_exact_byte_rebind_test_module",
-        _REPOSITORY_ROOT / "scripts/generate_c7_exact_byte_rebind.py",
-    )
-)
-assert _C7_REBIND_TOOL.__spec__ and _C7_REBIND_TOOL.__spec__.loader
-_C7_REBIND_TOOL.__spec__.loader.exec_module(_C7_REBIND_TOOL)
 
 
 def _load_config(family: str):
@@ -156,26 +134,6 @@ def test_c7_predecessors_are_history_only(stage: str) -> None:
         "candidate_id": candidate["candidate_id"],
         "family": "C7",
         "status": _HISTORY_STATUS,
-    }
-
-
-def test_b19_c7_current_candidate_stages_live_in_temporary_repository() -> None:
-    documents = _C7_REBIND_TOOL._build_documents(
-        _REPOSITORY_ROOT,
-        stage=TEMPORARY_B19_STAGE,
-    )
-    fragment_path = next(
-        path for path in documents if path.parent.name == "fragments"
-    )
-    fragment = json.loads(documents[fragment_path])
-    assert fragment["family"] == "C7"
-    assert all(not value for value in fragment["authority"].values())
-    result = stage_candidate_in_temporary_repository(documents, "C7")
-    assert len(result["candidate_id"]) == 64
-    assert result == {
-        "candidate_id": result["candidate_id"],
-        "family": "C7",
-        "status": _LIVE_STATUS,
     }
 
 

@@ -289,16 +289,17 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         "risks": ["session_state_mutation"],
     },
     {
-        "capability_id": "task.continue",
-        "name": "Task continue",
-        "description": "Continue a waiting or partially completed session through a coordinator pass.",
+        "capability_id": "task.summary",
+        "name": "Session summary",
+        "description": "Read the current task/session summary owned by AgentSessionService without dispatching work.",
         "domain": "agent_sessions",
         "call_pattern": "sync",
-        "approval_level": "explicit_user_request",
-        "concurrency_class": "write_shared",
-        "entrypoints": [{"type": "internal_service", "id": "agent_runtime.control_tools.task_continue"}],
+        "approval_level": "none",
+        "concurrency_class": "read_only",
+        "entrypoints": [{"type": "internal_service", "id": "agent_runtime.control_tools.task_summary"}],
         "required_input": ["session_id"],
-        "risks": ["session_state_mutation"],
+        "risks": [],
+        "implemented": True,
     },
     {
         "capability_id": "agent_session.stream",
@@ -356,6 +357,23 @@ _SESSION_STATUS_TOKENS = (
     "第二项",
     "失败原因",
     "为什么失败",
+    "会话摘要",
+    "会话总结",
+    "任务摘要",
+    "任务总结",
+    "session summary",
+    "task summary",
+)
+
+_SESSION_SUMMARY_TOKENS = (
+    "会话摘要",
+    "会话总结",
+    "任务摘要",
+    "任务总结",
+    "session summary",
+    "task summary",
+    "summarize session",
+    "summarize the session",
 )
 
 _SOURCE_LIBRARY_QUERY_TOKENS = (
@@ -826,10 +844,12 @@ def select_capabilities_for_goal(goal: str) -> list[dict[str, Any]]:
         if _contains_any(text, _TASK_RETRY_TOKENS):
             add("task.retry", reason="user explicitly asked to retry a failed task")
         if _contains_any(text, _TASK_CONTINUE_TOKENS):
-            add("task.continue", reason="user explicitly asked to continue the current session")
+            add("task.summary", reason="coordinator continuation is retired; read the current session state before choosing a real owner action")
         add("agent_session.stream", reason="interactive progress and final-answer delivery")
     elif goal_class == "read_only":
         add("agent_session.context.read", reason="read current agent session before answering without dispatching work")
+        if _contains_any(text, _SESSION_SUMMARY_TOKENS):
+            add("task.summary", reason="request asks for the session-owner summary")
         if _contains_any(text, _CAPABILITY_QUERY_TOKENS):
             add("agent_runtime.tool_pool.list", reason="request asks for available tools or capability boundaries")
         if _contains_any(text, _TOOL_SEARCH_QUERY_TOKENS):

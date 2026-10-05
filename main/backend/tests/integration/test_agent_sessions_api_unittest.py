@@ -31,6 +31,15 @@ class AgentSessionsApiIntegrationTestCase(unittest.TestCase):
             raise unittest.SkipTest(f"agent sessions integration tests require backend dependencies: {_IMPORT_ERROR}")
         cls.client = TestClient(backend_app)
 
+    def _task_blueprint(self, task_id: str) -> dict:
+        return {
+            "task_id": task_id,
+            "subject": "API task",
+            "task_type": "implementation",
+            "phase": "implementation",
+            "execution_mode": "worker",
+        }
+
     def test_agent_approvals_list_route(self):
         service = AgentSessionService(store=InMemoryAgentSessionStore())
         service.create_session(source="user", entrypoint_type="chat", goal="Approval list", project_key="demo_proj")
@@ -70,31 +79,72 @@ class AgentSessionsApiIntegrationTestCase(unittest.TestCase):
         self.assertIn("text/event-stream", response.headers.get("content-type", ""))
         self.assertIn("event: session.created", response.text)
 
-    def test_agent_session_messages_and_coordinator_routes(self):
+    def test_agent_session_messages_remain_available_after_coordinator_retirement(self):
         service = AgentSessionService(store=InMemoryAgentSessionStore())
-        bundle = service.create_session(source="user", entrypoint_type="chat", goal="Coordinator API")
+        bundle = service.create_session(source="user", entrypoint_type="chat", goal="Session messages API")
         session_id = bundle["session"]["session_id"]
-        research_task = bundle["tasks"][0]["task_id"]
-        service.release_task(session_id, research_task, status="completed", result_summary="Research done")
 
         with patch("app.api.agent_sessions.get_agent_session_service", return_value=service):
             message_response = self.client.post(
                 f"/api/v1/agent-sessions/{session_id}/messages",
                 json={"role": "assistant", "actor": "tester", "content": "hello"},
             )
+            events_before = service.list_events(session_id)
+            tasks_before = service.list_tasks(session_id)
+            artifacts_before = service.list_artifacts(session_id)
             coordinator_response = self.client.post(f"/api/v1/agent-sessions/{session_id}/actions/coordinator-pass")
 
         self.assertEqual(message_response.status_code, 200)
-        self.assertEqual(coordinator_response.status_code, 200)
-        coordinator_body = coordinator_response.json()
-        self.assertEqual(coordinator_body["status"], "ok")
-        self.assertTrue(coordinator_body["data"]["messages"])
+        self.assertEqual(coordinator_response.status_code, 404)
+        self.assertEqual(service.list_events(session_id), events_before)
+        self.assertEqual(service.list_tasks(session_id), tasks_before)
+        self.assertEqual(service.list_artifacts(session_id), artifacts_before)
+
+    def test_retry_missing_task_failure_is_not_a_success_envelope(self):
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        bundle = service.create_session(source="user", entrypoint_type="chat", goal="Retry API")
+        session_id = bundle["session"]["session_id"]
+        with patch("app.api.agent_sessions.get_agent_session_service", return_value=service):
+            response = self.client.post(
+                f"/api/v1/agent-sessions/{session_id}/actions/retry-task",
+                json={"task_id": "missing-task"},
+            )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["detail"]["error"]["code"], ErrorCode.NOT_FOUND.value)
+
+    def test_create_route_without_blueprints_creates_empty_task_session(self):
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        with patch("app.api.agent_sessions.get_agent_session_service", return_value=service):
+            response = self.client.post(
+                "/api/v1/agent-sessions",
+                json={
+                    "source": "user",
+                    "entrypoint_type": "chat",
+                    "goal": "Empty API session",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        session_id = body["data"]["session"]["session_id"]
+        self.assertEqual(body["data"]["session"]["status"], "pending")
+        self.assertEqual(body["data"]["session"]["current_phase"], "conversation")
+        self.assertIsNone(body["data"]["session"]["root_task_id"])
+        self.assertEqual(body["data"]["tasks"], [])
+        self.assertEqual(body["data"]["artifacts"], [])
+        self.assertEqual(service.get_session_summary(session_id)["task_counts"], {})
 
     def test_agent_session_request_approval_route(self):
         service = AgentSessionService(store=InMemoryAgentSessionStore())
-        bundle = service.create_session(source="user", entrypoint_type="chat", goal="Approval API")
+        bundle = service.create_session(
+            source="user",
+            entrypoint_type="chat",
+            goal="Approval API",
+            task_blueprints=[self._task_blueprint("task-api-approval")],
+        )
         session_id = bundle["session"]["session_id"]
-        task_id = bundle["tasks"][2]["task_id"]
+        task_id = "task-api-approval"
 
         with patch("app.api.agent_sessions.get_agent_session_service", return_value=service):
             response = self.client.post(
@@ -128,9 +178,14 @@ class AgentSessionsApiIntegrationTestCase(unittest.TestCase):
 
     def test_retry_agent_session_task_invalid_input_returns_structured_error(self):
         service = AgentSessionService(store=InMemoryAgentSessionStore())
-        bundle = service.create_session(source="user", entrypoint_type="chat", goal="Retry API")
+        bundle = service.create_session(
+            source="user",
+            entrypoint_type="chat",
+            goal="Retry API",
+            task_blueprints=[self._task_blueprint("task-api-retry")],
+        )
         session_id = bundle["session"]["session_id"]
-        task_id = bundle["tasks"][0]["task_id"]
+        task_id = "task-api-retry"
 
         with patch("app.api.agent_sessions.get_agent_session_service", return_value=service):
             with patch.object(service, "retry_task", side_effect=ValueError("task cannot be retried")):
@@ -146,9 +201,14 @@ class AgentSessionsApiIntegrationTestCase(unittest.TestCase):
 
     def test_retry_agent_session_task_repeated_call_returns_already_pending(self):
         service = AgentSessionService(store=InMemoryAgentSessionStore())
-        bundle = service.create_session(source="user", entrypoint_type="chat", goal="Retry API idempotency")
+        bundle = service.create_session(
+            source="user",
+            entrypoint_type="chat",
+            goal="Retry API idempotency",
+            task_blueprints=[self._task_blueprint("task-api-retry-idem")],
+        )
         session_id = bundle["session"]["session_id"]
-        task_id = bundle["tasks"][0]["task_id"]
+        task_id = "task-api-retry-idem"
         service.release_task(session_id, task_id, status="completed", result_summary="ok")
 
         with patch("app.api.agent_sessions.get_agent_session_service", return_value=service):
@@ -211,9 +271,14 @@ class AgentSessionsApiIntegrationTestCase(unittest.TestCase):
 
     def test_export_agent_session_failure_package_non_failed_returns_empty_package(self):
         service = AgentSessionService(store=InMemoryAgentSessionStore())
-        bundle = service.create_session(source="user", entrypoint_type="chat", goal="Failure package empty")
+        bundle = service.create_session(
+            source="user",
+            entrypoint_type="chat",
+            goal="Failure package empty",
+            task_blueprints=[self._task_blueprint("task-api-not-failed")],
+        )
         session_id = bundle["session"]["session_id"]
-        task_id = bundle["tasks"][0]["task_id"]
+        task_id = "task-api-not-failed"
 
         with patch("app.api.agent_sessions.get_agent_session_service", return_value=service):
             response = self.client.get(f"/api/v1/agent-sessions/{session_id}/failure-package?task_id={task_id}")
@@ -255,9 +320,14 @@ class AgentSessionsApiIntegrationTestCase(unittest.TestCase):
 
     def test_retry_agent_session_task_runtime_error_returns_internal_error(self):
         service = AgentSessionService(store=InMemoryAgentSessionStore())
-        bundle = service.create_session(source="user", entrypoint_type="chat", goal="Retry API")
+        bundle = service.create_session(
+            source="user",
+            entrypoint_type="chat",
+            goal="Retry API",
+            task_blueprints=[self._task_blueprint("task-api-runtime")],
+        )
         session_id = bundle["session"]["session_id"]
-        task_id = bundle["tasks"][0]["task_id"]
+        task_id = "task-api-runtime"
 
         with patch("app.api.agent_sessions.get_agent_session_service", return_value=service):
             with patch.object(service, "retry_task", side_effect=RuntimeError("database timeout")):
@@ -296,9 +366,14 @@ class AgentSessionsApiIntegrationTestCase(unittest.TestCase):
 
     def test_resolve_approval_repeated_approve_returns_already_final(self):
         service = AgentSessionService(store=InMemoryAgentSessionStore())
-        bundle = service.create_session(source="user", entrypoint_type="chat", goal="Approval API idempotency")
+        bundle = service.create_session(
+            source="user",
+            entrypoint_type="chat",
+            goal="Approval API idempotency",
+            task_blueprints=[self._task_blueprint("task-api-idem")],
+        )
         session_id = bundle["session"]["session_id"]
-        task_id = bundle["tasks"][0]["task_id"]
+        task_id = "task-api-idem"
         service.create_or_update_approval(
             approval_id="approval-api-idem",
             binding_payload={"argv": ["cmd"], "cwd": "/workspace", "env": {}},
@@ -330,9 +405,14 @@ class AgentSessionsApiIntegrationTestCase(unittest.TestCase):
 
     def test_resolve_approval_conflicting_final_decision_returns_conflict(self):
         service = AgentSessionService(store=InMemoryAgentSessionStore())
-        bundle = service.create_session(source="user", entrypoint_type="chat", goal="Approval API conflict")
+        bundle = service.create_session(
+            source="user",
+            entrypoint_type="chat",
+            goal="Approval API conflict",
+            task_blueprints=[self._task_blueprint("task-api-conflict")],
+        )
         session_id = bundle["session"]["session_id"]
-        task_id = bundle["tasks"][0]["task_id"]
+        task_id = "task-api-conflict"
         service.create_or_update_approval(
             approval_id="approval-api-conflict",
             binding_payload={"argv": ["cmd"], "cwd": "/workspace", "env": {}},

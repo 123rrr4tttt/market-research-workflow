@@ -11,14 +11,11 @@ from functorial_kit import Failure
 from mrw_functorial_kit.core.agent_service_semantics import agent_session_failures
 
 from app.services.agent_runtime import (
-    CoordinatorRuntime,
-    SessionMemoryRuntime,
     assert_no_write_conflict,
     build_summary_label,
     build_task_progress_summary,
     collect_expired_task_ids,
     find_unresolved_dependencies,
-    requires_approval_for_task,
     resolve_session_status,
 )
 from .store import build_agent_session_store
@@ -26,7 +23,7 @@ from .store import build_agent_session_store
 TASK_STATUSES = frozenset({"pending", "active", "blocked", "completed", "failed", "canceled"})
 TASK_STATUSES = frozenset({"pending", "claimed", "in_progress", "blocked", "completed", "failed", "canceled", "expired"})
 TASK_PHASES = frozenset({"conversation", "research", "synthesis", "implementation", "verification", "maintenance"})
-EXECUTION_MODES = frozenset({"coordinator", "worker", "system"})
+EXECUTION_MODES = frozenset({"worker", "system"})
 FINAL_TASK_STATUSES = frozenset({"completed", "failed", "canceled", "expired"})
 FAILURE_PACKAGE_SCHEMA_VERSION = "agent_failure_package.v1"
 _HOST_CONFIRMATION_ID_RE = r"approval:(?P<approval_id>[A-Za-z0-9._:-]+)"
@@ -134,8 +131,6 @@ def _hash_binding(binding: dict[str, Any]) -> str:
 class AgentSessionService:
     def __init__(self, *, store: Any | None = None) -> None:
         self.store = store or build_agent_session_store()
-        self.coordinator_runtime = CoordinatorRuntime()
-        self.memory_runtime = SessionMemoryRuntime()
 
     def list_sessions(self, *, limit: int = 50) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
@@ -181,6 +176,60 @@ class AgentSessionService:
 
     def list_approvals(self, *, session_id: str | None = None) -> list[dict[str, Any]]:
         return list(self.store.list_approvals(session_id=session_id))
+
+    def get_session_summary(self, session_id: str) -> dict[str, Any] | Failure:
+        session = self.get_session(session_id)
+        if isinstance(session, Failure):
+            return session
+        tasks = self.list_tasks(session_id)
+        if isinstance(tasks, Failure):
+            return tasks
+        messages = self.list_messages(session_id)
+        events = self.list_events(session_id)
+        artifacts = self.list_artifacts(session_id)
+        approvals = self.list_approvals(session_id=session_id)
+
+        task_counts: dict[str, int] = {}
+        completed_results: list[dict[str, Any]] = []
+        for task in tasks:
+            status = str(task.get("status") or "unknown")
+            task_counts[status] = task_counts.get(status, 0) + 1
+            if status == "completed":
+                completed_results.append(
+                    {
+                        "task_id": task.get("task_id"),
+                        "phase": task.get("phase"),
+                        "summary": task.get("result_summary") or task.get("summary_label"),
+                    }
+                )
+
+        approval_counts: dict[str, int] = {}
+        for approval in approvals:
+            status = str(approval.get("status") or "unknown")
+            approval_counts[status] = approval_counts.get(status, 0) + 1
+
+        latest = messages[-1] if messages else None
+        latest_message = None
+        if latest is not None:
+            latest_message = {
+                "message_id": latest.get("message_id"),
+                "role": latest.get("role"),
+                "actor": latest.get("actor"),
+                "created_at": latest.get("created_at"),
+                "content": latest.get("content"),
+            }
+        return {
+            "session_id": session.get("session_id"),
+            "goal": session.get("goal"),
+            "status": session.get("status"),
+            "current_phase": session.get("current_phase"),
+            "progress": session.get("progress"),
+            "task_counts": task_counts,
+            "artifact_count": len(artifacts),
+            "approval_counts": approval_counts,
+            "latest_message": latest_message,
+            "completed_results": completed_results,
+        }
 
     def export_failure_package(
         self,
@@ -340,11 +389,11 @@ class AgentSessionService:
         session_metadata = dict(metadata or {})
         if initial_context:
             session_metadata.setdefault("initial_context", dict(initial_context))
-        blueprints = list(task_blueprints or self._build_default_task_blueprints(goal))
+        blueprints = list(task_blueprints or [])
         normalized_blueprints = self._materialize_blueprints(goal=goal, blueprints=blueprints)
         if isinstance(normalized_blueprints, Failure):
             return normalized_blueprints
-        root_task_id = str(normalized_blueprints[0]["task_id"] or "")
+        root_task_id = str(normalized_blueprints[0]["task_id"] or "") if normalized_blueprints else None
         session = self.store.create_session(
             {
                 "session_id": session_id,
@@ -353,7 +402,7 @@ class AgentSessionService:
                 "entrypoint_type": str(entrypoint_type or "chat").strip() or "chat",
                 "goal": str(goal or "").strip(),
                 "status": "pending",
-                "current_phase": normalized_blueprints[0]["phase"],
+                "current_phase": normalized_blueprints[0]["phase"] if normalized_blueprints else "conversation",
                 "compat_mode": bool(compat_mode),
                 "compat_job_id": (compat_job_id or "").strip() or None,
                 "logical_task_list_key": (logical_task_list_key or session_id).strip() or session_id,
@@ -379,7 +428,6 @@ class AgentSessionService:
         )
         if isinstance(message, Failure):
             return message
-        self._bootstrap_memory_artifacts(session)
         created_event = self.store.append_event(
             session_id,
             event_type="session.created",
@@ -406,7 +454,6 @@ class AgentSessionService:
             )
             if isinstance(created_event, Failure):
                 return created_event
-        self._refresh_memory_artifacts(session_id, force=True)
         return self.get_session_bundle(session_id)
 
     def get_session_bundle(self, session_id: str) -> dict[str, Any] | Failure:
@@ -453,7 +500,6 @@ class AgentSessionService:
             task_id=task_id,
             payload={"role": row.get("role"), "actor": row.get("actor")},
         )
-        self._maybe_refresh_memory(session_id)
         return row
 
     def create_host_user_message(
@@ -628,10 +674,18 @@ class AgentSessionService:
             )
             created.append(self._decorate_task(task))
         self._sync_session_state(session_id)
-        self._refresh_memory_artifacts(session_id, force=True)
         return created
 
     def claim_task(self, session_id: str, task_id: str, *, owner: str, lease_seconds: int = 300) -> dict[str, Any] | Failure:
+        task_owner = str(owner or "").strip()
+        if not task_owner:
+            return _failure(
+                "task_not_claimable",
+                "task owner is required",
+                session_id=session_id,
+                task_id=task_id,
+                status="pending",
+            )
         reclaimed = self.reclaim_expired_tasks(session_id)
         if isinstance(reclaimed, Failure):
             return reclaimed
@@ -667,7 +721,7 @@ class AgentSessionService:
             task_id,
             {
                 "status": "claimed",
-                "owner": str(owner or "").strip() or "coordinator",
+                "owner": task_owner,
                 "lease_until": now + timedelta(seconds=max(30, int(lease_seconds or 300))),
                 "claimed_at": now,
                 "started_at": task.get("started_at") or now,
@@ -735,7 +789,6 @@ class AgentSessionService:
                 "token_usage": updated.get("token_usage"),
             },
         )
-        self._maybe_refresh_memory(session_id)
         return self._decorate_task(updated)
 
     def release_task(
@@ -791,7 +844,6 @@ class AgentSessionService:
                 "progress": build_task_progress_summary(updated),
             },
         )
-        self._maybe_refresh_memory(session_id)
         return self._decorate_task(updated)
 
     def retry_task(self, session_id: str, task_id: str) -> dict[str, Any] | Failure:
@@ -872,10 +924,12 @@ class AgentSessionService:
             reclaimed.append(self._decorate_task(updated))
         if reclaimed:
             self._sync_session_state(session_id)
-            self._maybe_refresh_memory(session_id)
         return reclaimed
 
     def cancel_session(self, session_id: str) -> dict[str, Any]:
+        current = self.store.get_session(session_id)
+        if str(current.get("status") or "") == "canceled":
+            return self._decorate_session(current)
         for task in self.store.list_tasks(session_id):
             if str(task.get("status") or "") not in FINAL_TASK_STATUSES:
                 self.store.update_task(
@@ -890,7 +944,6 @@ class AgentSessionService:
                 )
         session = self.store.update_session(session_id, {"status": "canceled"})
         self.store.append_event(session_id, event_type="session.canceled", payload={"session_id": session_id})
-        self._refresh_memory_artifacts(session_id, force=True)
         return self._decorate_session(session)
 
     def create_or_update_approval(
@@ -957,7 +1010,7 @@ class AgentSessionService:
         if isinstance(task, Failure):
             return task
         approval_id = str((metadata or {}).get("approval_id") or _new_id("approval")).strip()
-        if not requires_approval_for_task(task):
+        if not self._requires_approval_for_task(task):
             task_metadata = dict(task.get("metadata") or {})
             if dict(metadata or {}).get("force_approval"):
                 task_metadata["concurrency_class"] = "write_external"
@@ -1040,9 +1093,6 @@ class AgentSessionService:
         row["resolution_status"] = "resolved"
         return row
 
-    def run_coordinator_pass(self, session_id: str) -> dict[str, Any]:
-        return self.coordinator_runtime.run_pass(self, session_id)
-
     def project_agent_batch_job_submission(
         self,
         *,
@@ -1109,7 +1159,6 @@ class AgentSessionService:
             },
         )
         self._sync_session_state(session_id)
-        self._refresh_memory_artifacts(session_id, force=True)
         return self.get_session_bundle(session_id)
 
     def project_agent_batch_job_state(
@@ -1260,7 +1309,6 @@ class AgentSessionService:
             changed_any = True
         if changed_any:
             self._sync_session_state(session_id)
-            self._refresh_memory_artifacts(session_id, force=True)
         return self.get_session_bundle(session_id)
 
     def create_workflow_graph_session(
@@ -1369,7 +1417,6 @@ class AgentSessionService:
             event_type="workflow_graph.run_projected",
             payload={"graph_id": graph_id, "run_id": run_id, "status": run.get("status")},
         )
-        self._refresh_memory_artifacts(session_id, force=True)
         return self.get_session_bundle(session_id)
 
     @staticmethod
@@ -1640,7 +1687,7 @@ class AgentSessionService:
                     "write_set": [],
                     "completion_criteria": ["Approval is resolved explicitly."],
                     "verification_steps": ["Confirm approval outcome is reflected in the gated task state."],
-                    "artifact_targets": ["memory.md", "scratchpad.md"],
+                    "artifact_targets": [],
                 },
                 "metadata": {
                     "approval_id": approval_id,
@@ -1717,93 +1764,6 @@ class AgentSessionService:
                 )
             self.store.update_task(session_id, requester_task_id, {"summary_label": build_summary_label(updated)})
         self._sync_session_state(session_id)
-
-    def _build_default_task_blueprints(self, goal: str) -> list[dict[str, Any]]:
-        return [
-            {
-                "subject": "Research",
-                "description": "Collect the facts, context, and candidate approaches for the user goal.",
-                "task_type": "research",
-                "phase": "research",
-                "execution_mode": "worker",
-                "priority": 1,
-                "write_set": [],
-                "read_set": [],
-                "task_spec": {
-                    "task_type": "research",
-                    "goal": goal,
-                    "context": {},
-                    "target_scope": "session",
-                    "write_set": [],
-                    "completion_criteria": ["Collect enough facts to decide the implementation path."],
-                    "verification_steps": ["Cross-check inputs against source-of-truth context."],
-                    "artifact_targets": ["scratchpad.md"],
-                },
-            },
-            {
-                "subject": "Synthesis",
-                "description": "Coordinator consolidates research and produces the execution spec.",
-                "task_type": "synthesis",
-                "phase": "synthesis",
-                "execution_mode": "coordinator",
-                "priority": 2,
-                "write_set": [],
-                "read_set": [],
-                "blocked_by_refs": ["prev"],
-                "task_spec": {
-                    "task_type": "synthesis",
-                    "goal": goal,
-                    "context": {},
-                    "target_scope": "session",
-                    "write_set": [],
-                    "completion_criteria": ["Produce an explicit implementation spec."],
-                    "verification_steps": ["Ensure synthesis is grounded in completed research."],
-                    "artifact_targets": ["scratchpad.md", "memory.md"],
-                },
-            },
-            {
-                "subject": "Implementation",
-                "description": "Execute the approved plan against the target scope.",
-                "task_type": "implementation",
-                "phase": "implementation",
-                "execution_mode": "worker",
-                "priority": 3,
-                "write_set": ["session:default"],
-                "read_set": [],
-                "blocked_by_refs": ["prev"],
-                "task_spec": {
-                    "task_type": "implementation",
-                    "goal": goal,
-                    "context": {},
-                    "target_scope": "session",
-                    "write_set": ["session:default"],
-                    "completion_criteria": ["Apply the agreed changes and produce concrete outputs."],
-                    "verification_steps": ["List the exact checks needed after the change."],
-                    "artifact_targets": ["final_report.md"],
-                },
-            },
-            {
-                "subject": "Verification",
-                "description": "Verify the implemented result independently.",
-                "task_type": "verification",
-                "phase": "verification",
-                "execution_mode": "worker",
-                "priority": 4,
-                "write_set": [],
-                "read_set": ["session:default"],
-                "blocked_by_refs": ["prev"],
-                "task_spec": {
-                    "task_type": "verification",
-                    "goal": goal,
-                    "context": {},
-                    "target_scope": "session",
-                    "write_set": [],
-                    "completion_criteria": ["Produce verification evidence and call out residual risks."],
-                    "verification_steps": ["Run the minimal checks and summarize the result."],
-                    "artifact_targets": ["final_report.md"],
-                },
-            },
-        ]
 
     def _materialize_blueprints(self, *, goal: str, blueprints: list[dict[str, Any]]) -> list[dict[str, Any]] | Failure:
         materialized: list[dict[str, Any]] = []
@@ -1912,7 +1872,7 @@ class AgentSessionService:
                     "write_set": [],
                     "completion_criteria": ["Reflect aggregate batch job completion state in the session ledger."],
                     "verification_steps": ["Observe projected item task states and aggregate progress."],
-                    "artifact_targets": ["compat.job.submit.json", "memory.md", "scratchpad.md"],
+                    "artifact_targets": ["compat.job.submit.json"],
                 },
             }
         )
@@ -1958,7 +1918,7 @@ class AgentSessionService:
                 "write_set": [f"agent_batch.job:{compat_job_id}:item:{item_id}"],
                 "completion_criteria": ["Reflect task dispatch state from celery/runtime into the agent session ledger."],
                 "verification_steps": ["Observe task snapshot and workflow run mapping."],
-                "artifact_targets": ["compat.job.submit.json", "scratchpad.md"],
+                "artifact_targets": ["compat.job.submit.json"],
             },
         }
 
@@ -1999,7 +1959,7 @@ class AgentSessionService:
                         "write_set": [f"workflow_graph.node:{node_id}"],
                         "completion_criteria": [f"Node {node_id} reaches a terminal status in the workflow runtime."],
                         "verification_steps": [f"Confirm node {node_id} status is reflected in the workflow snapshot."],
-                        "artifact_targets": ["workflow_graph.snapshot.json", "scratchpad.md"],
+                        "artifact_targets": ["workflow_graph.snapshot.json"],
                     },
                 }
             )
@@ -2025,72 +1985,11 @@ class AgentSessionService:
                     "write_set": [],
                     "completion_criteria": [f"Reflect final workflow run state for {run_id}."],
                     "verification_steps": [f"Inspect run status and node statuses for {run_id}."],
-                    "artifact_targets": ["workflow_graph.snapshot.json", "memory.md"],
+                    "artifact_targets": ["workflow_graph.snapshot.json"],
                 },
             }
         )
         return blueprints
-
-    def _bootstrap_memory_artifacts(self, session: dict[str, Any]) -> None:
-        session_id = session["session_id"]
-        self.store.upsert_artifact(
-            {
-                "session_id": session_id,
-                "artifact_type": "session_memory_markdown",
-                "name": "memory.md",
-                "mime_type": "text/markdown",
-                "content_text": self.memory_runtime.render_memory(session, [], []),
-                "metadata": {"managed_by": "agent_sessions.service"},
-            }
-        )
-        self.store.upsert_artifact(
-            {
-                "session_id": session_id,
-                "artifact_type": "session_scratchpad_markdown",
-                "name": "scratchpad.md",
-                "mime_type": "text/markdown",
-                "content_text": self.memory_runtime.render_scratchpad(session, [], []),
-                "metadata": {"managed_by": "agent_sessions.service"},
-            }
-        )
-
-    def _refresh_memory_artifacts(self, session_id: str, *, force: bool = False) -> None:
-        session = self.store.get_session(session_id)
-        tasks = self.store.list_tasks(session_id)
-        messages = self.store.list_messages(session_id)
-        self.store.upsert_artifact(
-            {
-                "session_id": session_id,
-                "artifact_type": "session_memory_markdown",
-                "name": "memory.md",
-                "mime_type": "text/markdown",
-                "content_text": self.memory_runtime.render_memory(session, tasks, messages),
-                "metadata": {"managed_by": "agent_sessions.service", "force": bool(force)},
-            }
-        )
-        self.store.upsert_artifact(
-            {
-                "session_id": session_id,
-                "artifact_type": "session_scratchpad_markdown",
-                "name": "scratchpad.md",
-                "mime_type": "text/markdown",
-                "content_text": self.memory_runtime.render_scratchpad(session, tasks, messages),
-                "metadata": {"managed_by": "agent_sessions.service", "force": bool(force)},
-            }
-        )
-        if force:
-            self.store.append_event(
-                session_id,
-                event_type="memory.updated",
-                payload={"reason": "forced_refresh", "task_count": len(tasks)},
-            )
-
-    def _maybe_refresh_memory(self, session_id: str) -> None:
-        tasks = self.store.list_tasks(session_id)
-        events = self.store.list_events(session_id)
-        thresholds_met, _ = self.memory_runtime.should_refresh(tasks=tasks, events=events)
-        if thresholds_met:
-            self._refresh_memory_artifacts(session_id, force=True)
 
     @staticmethod
     def _workflow_graph_node_task_id(*, run_id: str, node_id: str) -> str:
@@ -2187,6 +2086,16 @@ class AgentSessionService:
             if task["task_id"] == task_id:
                 return str(task.get("status") or "")
         return None
+
+    @staticmethod
+    def _requires_approval_for_task(task: dict[str, Any]) -> bool:
+        metadata = dict(task.get("metadata") or {})
+        candidate = str(
+            metadata.get("concurrency_class")
+            or dict(task.get("task_spec") or {}).get("concurrency_class")
+            or ("write_shared" if list(task.get("write_set") or []) else "read_only")
+        ).strip().lower()
+        return candidate in {"write_external", "privileged"}
 
     @staticmethod
     def _decorate_session(

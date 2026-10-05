@@ -72,7 +72,9 @@ KNOWLEDGE_REPORT_RESULT_TYPE = ObjectType("StagedKnowledgeReport.v2")
 KNOWLEDGE_REPORT_RETURN_CONTRACT_REF = RUNTIME_VALUE_RETURN_CONTRACT_REF
 KNOWLEDGE_REPORT_FAILURE_CODES = knowledge_report_delivery_failures.codes
 KNOWLEDGE_REPORT_DECLARED_LOSS = ("graph_node_filter", "report_export_body")
-KNOWLEDGE_REPORT_ROLLBACK_REF = "main/backend/app/successor_migration/legacy_c8_report.py"
+KNOWLEDGE_REPORT_ROLLBACK_REF = (
+    "main/backend/app/successor_runtime/assembly/knowledge_assembly.py"
+)
 
 
 def _payload_body_digest(payload: KnowledgeReportStageInput) -> str:

@@ -2,9 +2,8 @@
 
 The rule lowers one acquisition source into the existing operation contracts, payload
 codecs, failure profiles, ordered Program atoms, interpreter identities and
-assembly context.  It owns no domain kernel: :mod:`collect_c3` remains the
-authority for traversal/fold semantics, and the legacy/successor binding
-adapters remain the authority for compatibility bindings.
+assembly context.  It owns no domain kernel: ``acquisition_batch`` remains the
+authority for traversal/fold semantics.
 """
 
 from __future__ import annotations
@@ -82,7 +81,6 @@ class AcquisitionOperationSource:
     failure_profile_id: str
     observation_profile_id: str
     interpreter_id: str
-    legacy_interpreter_id: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,8 +95,6 @@ class AcquisitionNativeSource:
     failure_codes_1: tuple[str, ...]
     failure_codes_2: tuple[str, ...]
     rollback_refs: tuple[str, ...]
-    legacy_binding_refs: tuple[str, ...]
-    successor_binding_refs: tuple[str, ...]
 
     @property
     def operation_by_id(self) -> MappingProxyType[str, AcquisitionOperationSource]:
@@ -119,7 +115,6 @@ DEFAULT_ACQUISITION_NATIVE_SOURCE = AcquisitionNativeSource(
             failure_profile_id="collect.execute_batch_element.v1.failure",
             observation_profile_id=acquisition.COLLECT_TRAVERSAL_OBSERVATION_PROFILE,
             interpreter_id="mrw.acquisition.batch.execute_element.interpreter.v2",
-            legacy_interpreter_id="legacy.collect_runtime.batch_traverse.v1",
         ),
         AcquisitionOperationSource(
             operation_id="acquisition.batch.fold_ordered_results.v2",
@@ -130,7 +125,6 @@ DEFAULT_ACQUISITION_NATIVE_SOURCE = AcquisitionNativeSource(
             failure_profile_id="collect.fold_ordered_results.v1.failure",
             observation_profile_id=acquisition.COLLECT_FOLD_OBSERVATION_PROFILE,
             interpreter_id="mrw.acquisition.batch.fold_ordered_results.interpreter.v2",
-            legacy_interpreter_id="legacy.collect_runtime.result_fold.v1",
         ),
     ),
     program=(
@@ -158,15 +152,6 @@ DEFAULT_ACQUISITION_NATIVE_SOURCE = AcquisitionNativeSource(
     ),
     rollback_refs=(
         "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json",
-        "main/backend/app/successor_migration/legacy_collect_runtime.py",
-    ),
-    legacy_binding_refs=(
-        "legacy_collect_runtime.build_legacy_collect_c3_1_binding",
-        "legacy_collect_runtime.build_legacy_collect_c3_2_binding",
-    ),
-    successor_binding_refs=(
-        "legacy_collect_runtime.build_successor_collect_c3_1_binding",
-        "legacy_collect_runtime.build_successor_collect_c3_2_binding",
     ),
 )
 ASSEMBLY_CELL_IDS = tuple((operation.cell_id for operation in DEFAULT_ACQUISITION_NATIVE_SOURCE.operations))
@@ -174,24 +159,6 @@ ASSEMBLY_CELL_IDS = tuple((operation.cell_id for operation in DEFAULT_ACQUISITIO
 
 def _issue_tuple(checks: tuple[tuple[bool, str, str], ...]) -> tuple[NativeBindingIssue, ...]:
     return tuple((NativeBindingIssue(path, message) for valid, path, message in checks if not valid))
-
-
-def _binding_reference_issues(source: AcquisitionNativeSource) -> tuple[NativeBindingIssue, ...]:
-    """Keep compatibility identity/order inert; code liveness belongs to migration."""
-    return _issue_tuple(
-        (
-            (
-                source.legacy_binding_refs == DEFAULT_ACQUISITION_NATIVE_SOURCE.legacy_binding_refs,
-                "$.source.legacy_binding_refs",
-                "legacy compatibility binding identity/order drift",
-            ),
-            (
-                source.successor_binding_refs == DEFAULT_ACQUISITION_NATIVE_SOURCE.successor_binding_refs,
-                "$.source.successor_binding_refs",
-                "successor compatibility binding identity/order drift",
-            ),
-        )
-    )
 
 
 def _definition_issues(
@@ -270,7 +237,6 @@ def _definition_issues(
                 ),
             )
         )
-    issues += _binding_reference_issues(source)
     return issues
 
 

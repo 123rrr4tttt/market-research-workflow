@@ -967,6 +967,23 @@ HYPOTHESIS_STORAGE_DIRECTORY="$mrw_test_tmp/hypothesis" \
 
 服务实现、工具调用和UI/API可按固定接口并行开发，最终组合测试需三者一起稳定。`settings/config.py` 阈值清理、route bindings、`ui/lib/api/endpoints.ts` 由主线合入。`agent_sessions/store.py` 及存量表默认保持；确需改变时由会话事实owner统一接收，不让入口作者改数据库。
 
+**旧 agentchat 全量退役（2026-10-06 用户补充）**
+
+- 目标/权威：现行“胞腔 + agentcore + Codex WebUI 宿主”承接全部 Agent 需求。删除旧 `agent_chat.py` 的 turn、stream、capabilities 与 approval-continue 执行入口及唯一仍用它的写作工作台 mini-chat 消费者；不创建替代聊天 runtime，不以尚有消费者或原功能不同为保留理由。
+- 保留与迁移：`CodexAgentPage` 是现行 `macro-host-v1` WebUI 宿主，保留其能力；活动导航身份统一为 `flowCodex`。胞腔是现行只读结构投影，唯一 URL 为 `GET /api/v1/agent-cell`，消费 `endpoints.agentCell.structure`；不保留 `/agent-chat/cell` 别名。AgentCore、macro host 和业务任务/会话事实继续由原 owner 拥有。
+
+| 子包 / 实际 owner | 独占写面与输入 | 输出 / 可直接执行的验证 |
+| --- | --- | --- |
+| 后端旧 API 与合同 / `agentchat_backend_retire` | `app/api/agent_chat.py`、`app/api/business_lines.py`；`bt/integration/test_agent_chat_api_unittest.py`、`bt/contract/test_api_schema_auth_agent_web_contract_unittest.py` 及其已确认直接消费者见证；等写作消费者退出 | 删除旧 API 模块及能力查询/turn/SSE/approval 执行；原 API 测试改为全部旧 URL 不存在且不产生业务效果，保留现行 host 的成功/授权失败见证。稳定输入上 `focused main/backend/tests/integration/test_agent_chat_api_unittest.py main/backend/tests/contract/test_api_schema_auth_agent_web_contract_unittest.py main/backend/tests/integration/test_agent_macro_host.py` |
+| 写作工作台消费者 / `writing_agentchat_retire` | `ui/pages/WritingWorkbenchPage.tsx` 与该作者接收的写作专属 E2E；原 `runAgentChatTurnStreaming` 调用处为唯一旧产品消费者 | 沿现行 Codex host/胞腔完成写作交接，移除 mini-chat 的旧请求、状态和 SSE 消费；不得实现第二个聊天执行器。交回共享 helpers/types 的零调用证据。统一前端窗口执行 `pnpm exec playwright test tests/e2e/writing-workbench.spec.ts tests/e2e/agent-chat-writing-crossflow.spec.ts --workers=1`；退役测试路径若由该包删除，同步其实际替代见证及 runner 清单 |
+| Codex 宿主身份 / `codex_module_identity` | 活动 `ui/app/kernel/` 的 module identity、navigation/chrome/legacy hash，以及相关 topology、i18n、`ui/index.css` 与 `et/codex-entry-retirement.spec.ts`；不改 CodexAgentPage 的宿主效果 | 单次将 `flowAgentChat` 的现行 Codex 宿主身份迁为 `flowCodex`，所有活动消费者一致；旧聊天页测试退役，现行宿主测试保持。统一前端窗口执行 `pnpm exec playwright test tests/e2e/codex-entry-retirement.spec.ts --workers=1` |
+| 胞腔前端 / `agent_cell_frontend` | `ui/pages/agent-cell/model.ts`、`et/agent-cell.spec.ts`；输入为主线 `endpoints.agentCell.structure` | 仅消费新 `/agent-cell`，刷新、失败与取消行为保持；统一前端窗口执行 `pnpm exec playwright test tests/e2e/agent-cell.spec.ts --workers=1` |
+| 公共接线与组合 / 集成主线 | `app/main.py`、`app/api/__init__.py`、`app/api/agent_cell.py`、settings 与公开 env 样例、production route binding、`ui/lib/api/endpoints.ts`、`ui/lib/api.ts`、`ui/lib/types.ts` 旧聊天族；`bt/unit/test_agent_cell_api.py`、production composition 两项原测试；本文、catalog/派生 registry | 先交出新 cell endpoint；写作消费者退出后删除旧 API helper/类型/endpoint、router 及上下文特殊分支，与后端作者同步删除旧模块。运行 `focused main/backend/tests/unit/test_agent_cell_api.py main/backend/tests/production_composition/test_production_composition.py main/backend/tests/production_composition/test_route_effect_contract.py`；真实宿主授权入口保留，生产路由效果声明和全部安装路由精确匹配 |
+
+依赖顺序为“写作消费者脱离旧请求 → 主线撤旧 helpers/types/router/endpoint 与后端作者删除模块 → 稳定输入验证无旧入口、无旧请求、无隐含执行”。胞腔 URL 与 Codex 身份迁移可在自己的写面独立推进，最终随同一前端构建验证。至多4个包写作者加1个主线，仍占 §11.5 的全局写席位，不额外扩容。`lib/api.ts`、`lib/types.ts` 等共享文件由主线单写；各作者只返回实际需要删除或接入的引用。
+
+后端纯测试遵守 §11.5 至多2进程且各自 basetemp/Hypothesis 独立；含 `app.main` 的验证读取完整 API/平台装配闭包，必须等该闭包作者交回稳定输入。前端 tsc/build/E2E 共用1个 checkout 窗口：`pnpm exec tsc -b`、`pnpm build` 后，上述 Playwright selectors 单进程 `--workers=1` 执行，mock API 保持配置中的 `127.0.0.1:1`，不得占用业务后端；完整 live host/provider 结果单列。以上是分发与验收合同，未执行项不写 PASS。
+
 **采集单路径**
 
 - 目标/输入：类型首例产物、五个 channel 原生定义、acquisition_batch 的有序结果与现有 CollectAdapter effects。
@@ -1115,7 +1132,7 @@ compiler在运行时调用validator，不意味着两位作者必须等对方整
 
 本轮调研的五个有效包均已回传，主线纠正了“services 全是旧 runtime”“把 registry 当类型权威”“两个 compile 同名即同一链”“draft/applied 状态天然重复”等过度结论。首批四个 GLM 请求遭持续 429，改用五个只读 DeepSeek Flash 包，类型包追加一次有界纠错。主线负责框架及跨包设计；未运行实施验收，未统计完整调用/token 成本。
 
-**本轮交付状态：调研与框架完成；已按用户补充把旧 runtime 整体退役提升为最先交付的主线，实施尚未开始。** 退役必需接缝为非搜索 channel 的唯一执行入口、工作流现用 skill→平台解释器绑定、受影响类型/授权闭包、旧会话控制的消费者迁出；其余广域整理不阻塞退役。每项缺口都有对应 owner/包和同批删除终点，不再以不同义、独有能力或尚有消费者得出旧 runtime 长期保留结论。
+**本轮交付状态：实施进行中，旧 runtime 整体退役仍为最先交付的主线，尚未通过三链组合验收。** 退役必需接缝为非搜索 channel 的唯一执行入口、工作流现用 skill→平台解释器绑定、受影响类型/授权闭包、旧会话控制的消费者迁出；其余广域整理不阻塞退役。每项缺口都有对应 owner/包和同批删除终点，不再以不同义、独有能力或尚有消费者得出旧 runtime 长期保留结论。
 
 ### 11.8 分发消息、交接与失败恢复
 
@@ -1154,4 +1171,42 @@ cwd：/Users/wangyiliang/market-research-workflow
 4. 移交独占文件时，前作者停止写入，后作者接收当前diff和验证范围。共享消费者变化会使相关测试需重验，无关测试可按原有效条件记为kept。
 5. 确定性失败修权威来源；短暂provider失败只重试受影响任务。恢复消息只带剩余文件/失败与验证入口，不要求重做已完成子包。用完的席位交下一ready子包，不累积空闲监督agent。
 
-测试准备和执行同样按资源依赖派发。mock测试只证明本地边界，真实DB/provider/前端读回保留各自结果；缺失项记为该链未完成，不能用并发数、提交数或子包PASS数量宣称整组完成。本次细化仍为计划工作，三个续接只读审查提供了写面证据；没有启动上述32个实现子包。
+测试准备和执行同样按资源依赖派发。mock测试只证明本地边界，真实DB/provider/前端读回保留各自结果；缺失项记为该链未完成，不能用并发数、提交数或子包PASS数量宣称整组完成。三个续接只读审查提供了写面证据。实施已从必要接口前沿启动，实际派发与完成以当前作者交接和原 runner 结果为准；32项是计划分解数，不是已启动或通过数量。
+
+### 11.9 本轮实施记录（进行中）
+
+本轮退役收尾状态（2026-10-06）：下述旧 AgentChat、默认 coordinator 决策、C7 投影 scaffold、workflow legacy oracle、legacy_collect_runtime 与 Ops 固定 memory/coordinator 展示均已迁出或删除，现行替代保持。API layer 扫描缺口、编译结果缓存的错误语义差异及未执行项仍明确保留；以下过程记录中的“待修复”“等待环境”按末尾各包实际回传收敛，不作为新的全组完成声明。
+
+2026-10-05：先按用户要求完成现有工作区的四个本地主题提交，实施基线为 `cc5afff1`；没有推送。共享装配由一个主线作者维护，业务包沿 §11.6 独占写面实施。
+
+- 公共类型入口：`scripts/dev.py typecheck [paths ...]` 复用 `pyproject.toml` 的 strict 规则，并用选定后端解释器解析依赖；`MRW_TYPECHECK_PYTHON` 可指定已安装 Pyright 的独立解释器。开发依赖固定 Pyright 1.1.411。无路径参数时保留全 include 检查，有路径参数时检查明确闭包；原 runner 退出码直接返回。CI 新增采集完整目录与 composition 的类型诊断通道，闭包通过前不加入 required convergence。
+- 原严格配置的首次观察为 2,838 条诊断；补齐后端 import 搜索路径后，同一 `src/tests` 范围为 2,289 条。后者主要来自既有测试动态类型与未标注数据，不能记作本轮已清零。类型入口的原有测试更新后 18 passed；未使用新 suppression。
+- 控制公共接线：移除 coordinator-pass API、生产路由声明、前端 endpoint 和三项 memory 刷新阈值；retry API 沿已有失败投影返回 HTTP 错误。旧入口不写事实和 retry Failure 映射的 API 见证已执行通过。同次三文件组合为 41 passed / 9 failed；8项失败共因是已提交现行路由未进入生产声明，另1项为固定数量断言。已补18条实际路由声明，并把固定数量替换为路由方法唯一性、同操作别名效果一致性及具体效果断言；保留原安装路由精确覆盖验证，修复后待稳定输入重验。
+- 当前未验证：三链组合、真实 DB/队列与 provider、前端 build/E2E、kit 同步与整组门禁。采集和工作流接口仍在交接，旧 runtime 整体不可执行尚未建立。没有净删行收益或性能提升声明；整组调用与 token 成本尚未汇总。
+
+- 2026-10-06 用户新增旧 agentchat 全量退役范围。旧 turn/capabilities/stream/approval API 与写作工作台 SSE 消费者必须迁出后删除；当前 Codex WebUI 宿主页面和胞腔投影继续由原 agentcore 体系承载。胞腔独立入口确定为 `GET /api/v1/agent-cell`，前端声明为 `endpoints.agentCell.structure`，原 `/agent-chat/cell` 不保留别名；默认认证前缀及公开配置样例同步迁移。新增包沿后端旧API、前端写作消费者、现行胞腔/宿主入口和见证分别单写，公共 router/route 声明仍由主线统一接入。
+- 组合验证曾两次在 language normalize 的新引用类型检查处无法导入应用；原作者已按实际静态参数引用与动态载体类型修复，最小 `import app.main` 探针随后通过。其后不得把语法检查当作真实装配兼容证明；应用级API测试等待其实际全导入闭包稳定后集中运行。
+- Codex 模型目录 schema 迁为 `mrw.codex-models.v1`，原模型选择、隐藏项过滤和 reasoning 投影保持；配置 fallback 单文件复验为 33 passed、退出码0（`/tmp/mrw-mainline-codex.hEg4xV/pytest.log`）。LLM composition 的 LiteLLM 返回值收紧为实际 `ChatOpenAI` / `OpenAIEmbeddings`，凭据采用现行 SDK 的 `SecretStr` 输入；LLM boundary 与 port laws 为12 passed、1条既有 unknown unit mark warning、退出码0（`/tmp/mrw-mainline-llm.T1OiOg/pytest.log`）。ports、LangChain adapter、LLM composition 三个产品文件的定向 strict Pyright 为0 errors / 0 warnings；不代表测试存量或全仓类型清零。
+- 前端集中窗口首次 `pnpm exec tsc -b --pretty false` 退出码2，定位写作页的已删 `setSelectionState` 调用和本地 `MessageKey` 不接受平台 `title.flowCodex`；原作者修正后，tsc与 `pnpm build` 均退出码0。六个受影响spec同一Playwright进程以 `--workers=1` 完成：25 passed / 5 failed / 4 did not run，退出码1（`/tmp/mrw-mainline-frontend.CSykoS/playwright.log`）。胞腔6项、管理操作11项及现行Codex宿主等通过；writing-workbench和crossflow各1项在真实API fixture处因隔离代理 `127.0.0.1:1` 拒连失败，并使4项串行测试未运行；business-line两项仍依赖旧Dashboard功能假设；retirement一项对零尺寸空main使用 `toBeVisible` 失败。缺口按原owner修复或等待专属真实后端，不以mock替换真实测试后宣称通过。退役API见证的旧胞腔GET方法、完整OpenAPI命名空间及no-effect断言已由原作者补齐，最终应用闭包验收待执行。
+- app.main 三selector组合有一次在等待输入闭包稳定的协调指令到达后立即中断（退出码130，日志目录 `/tmp/mrw-mainline-routes.iZ61Hw/`）；不计通过或已完成验收。后续组合等待采集、搜索与社交写入稳定后由主线统一执行。
+- 后续整退役范围继续交原owner：采集删除产品内遗留executable oracle及 `url_pool.legacy_per_url` 分支，主线待消费者交回后删除共享配置；workflow作者完成真实平台解释器绑定与旧循环退出，主线独占skill注册/装配；LLM facade由原端口作者收口。最终app.main、路由和同步检查等待这些实际依赖稳定。前端第二批修复后的首次tsc退出码2，错误为 `FrontendKernelApp.tsx:75 Cannot find name 'locale'`，已回交Codex入口作者；build及四组mock场景等待修复，两个真实写作API spec单列隔离PostgreSQL/backend lane。
+- 投影旧URL已完全撤下：direct/state两个router不再挂载 `/successor-runtime/v2/{commands,queries}`，旧前缀、410拒绝helper和Deprecation读取alias删除，生产声明移除精确两个旧模板，规范 `/material-projections/v2` 保持。mount API、production state正例及route-effect合同共42 passed、4条既有弃用warning、退出码0（`/tmp/mrw-route-retirement.oX3P30/pytest.log`）；覆盖三类挂载状态下404、无port调用、OpenAPI及mounted paths无旧路由。实际app.main精确覆盖仍待稳定闭包。后端现行README已改为Codex WebUI和独立agent-cell入口。
+- locale修正后tsc和build均退出码0；四组mock-safe前端复验为26 passed / 2 failed、退出码1（`/tmp/mrw-mainline-frontend-fixed.dsEPMc/playwright.log`）。剩余两项均为business-line spec的“统计视图”heading同时匹配h1/h2造成strict mode violation，已交原作者限定内容区/heading level；胞腔、管理操作、Codex退役与宿主测试通过。只复验受修复影响的business-line spec；真实写作API环境缺口保持单列。
+- business-line spec收口：heading改定位h2，空拓扑发现结果下旧read请求计数按现行source adapter改为0，Codex iframe断言与mock覆盖现行query参数，材料删除按钮对齐当前label；业务效果及执行证据断言保持。三用例复验先有2 passed / 1 failed（`/tmp/mrw-browser-rail-fixed.470ueY/`），后续仅重跑长rail，最终1 passed、退出码0（`/tmp/mrw-browser-rail-materials-fixed.ZII67x/playwright.log`）。四组mock-safe共28项覆盖由本次1项与此前不受影响的27项组成，不记为单次28 passed。真实writing-workbench、codex-writing-crossflow仍等待专属后端；前端测试窗口已释放。
+- 采集消费者交回后，主线删除 `settings.url_batch_path_default_mode`；显式配置样例不存在对应变量，未新增无效改动。现有metrics见证验证不再返回旧mode。历史 `development/` 及stage证据目录本轮无diff，冻结输入/旧hash保持原义；产品旧模块删除与历史观测保留分别报告，数据/知识oracle剩余包仍在途，不宣称全runtime已经完成。
+
+- 文档与 B19 历史校验收尾（2026-10-06）：`AGENT_MACRO_ARCHITECTURE.md` 的当前入口对齐 Codex WebUI `?mrw=macro-host-v1`、既有 AgentCore/session API 和只读 `GET /api/v1/agent-cell`；原细节框架与 M 系列分发计划标为历史参考，当前实施状态由本节维护。两份 API allowlist 删除已退役 `agent_chat.py` 的3条 HTTPException 与2条 model import 记录。
+- `test_shared_family_generator_all.py` 为 C4/C5 增加正式 `check-candidate --history-only` 校验，读取 stage-b18 frozen candidate、manifest 与 snapshots，并比较检查前后的字节和 mtime；B19 `build_documents` 必须拒绝 C4/C5。C3/C9 当前生成与临时仓库 live-source candidate 验证保留。该 selector 在当前工作树为19 passed（2.06s）、退出码0；`test_api_layer_standards_guard_unittest.py` 与 `tests/formal_release/test_generate_stage0_family_exact_byte_rebind.py` 组合为30 passed（0.14s）、退出码0。执行复用本文 `.venv311` focused 环境；既有 `mrw-repair-tests-20261004:latest` 镜像不存在，未构建新镜像。C4/C5 原 fragment SHA、分母及 content digest 继续受验证，冻结 `development/` 本轮无diff，历史 legacy role 名称保持原冻结输入含义。
+- API layer 实际扫描 `main/backend/.venv311/bin/python main/backend/scripts/check_api_layer_imports.py` 退出码1：扫描39个API文件，6条 unexpected model imports（admin、agent_macro_host 两条、dashboard、projects 两条）与8条 unexpected HTTPException（agent_batch、agent_cell、agent_macro_host、agent_sessions 三条、project_retrieval 两条）。该结果是现行扫描缺口；本包没有扩大 allowlist 或修改相关业务模块。`git diff --check` 首次退出码0；在后续并行写入后全树复查退出码2，唯一报告为 `app/successor_migration/ingest_recovery_c7.py:72` 的 EOF 空行，已交协调方处理；本包五文件限定检查退出码0。本包未执行数据库 canary；后续 C7 PostgreSQL canary 已由协调方实际执行为66 passed（详见下条），其他未执行的数据库路径仍为 `NOT_RUN`。协调方另报真实写作 E2E 为6 passed，保留原执行归属，不计作本包新执行或全 runtime 完成。
+- 退役包实际回传已收敛：旧 AgentChat API、turn/stream/approval 消费路径已删除，交互转由 Codex WebUI 宿主和既有 session/tool 接口承载；`control_session_facts` 已移除 agent_sessions 默认 coordinator 蓝图与 fallback，现行 session/task 事实接口保留；`retire_data_knowledge_oracles` 已删除 C7 的 `document_repository_c7.py`、`projection_common_c7.py`、`graph_projector_c7.py` 与 `search_projector_c7.py` scaffold，现行 native substrate/投影路径保留。workflow 已删除 `legacy_workflow_graph.py` oracle，现行 lowering、平台解释器与节点 kernel 接续；`legacy_collect_runtime.py` 已删除，采集 composition 保留现行原生绑定；Ops 已移除固定 memory/coordinator 展示，继续读回真实 session/task 状态。各包结果沿原 owner 归属记录，历史 frozen legacy 名称保持。
+- C7 PostgreSQL canary：协调方已实际取得66 passed；专属临时容器清理已由协调方完成（精确对象与空间边界见本节末尾）。本包未重跑该 canary，未将该结果外推为其他数据库、真实队列或 provider 通过。`document_canonical_read.py` 保留 scope 校验和单语句 exact bytes 读取：现行边界尚无被证实的一对一替代，本轮未修改。
+- workflow 编译缓存核实：`WorkflowGraphCompilerService._compiled` 当前不是可证明等价删除的纯派生缓存。`compile` 在 `save_compiled` 前写入字典；`get_compiled` 命中后绕过 store 并返回共享对象，而 store 读取返回副本；`list_compiled` 吞掉 store 异常后合并本地字典。隔离内存探针实测保存失败后服务仍可读取未持久化结果，列表读取异常仍返回缓存，退出码0。直接删除会改变这些错误、读写及持久化观察，本轮按等价保持条件保留该字典与双写；这不将其认定为合理降级设计，收敛为单一 store 需要明确改变现有失败语义并补相应见证。
+- 本轮定向验证使用本文 focused 环境：`main/backend/.venv311/bin/python -m pytest -p no:cacheprovider -q -rs main/backend/tests/unit/test_workflow_graph_compiler_unittest.py main/backend/tests/unit/test_workflow_graph_runtime_unittest.py main/backend/tests/unit/test_workflow_graph_import_boundary_unittest.py` 为20 passed（2.07s）、原始退出码0。覆盖当前编译、store 重载、平台解释器和惰性初始化边界，未改服务或测试源码。真实 queue/provider、三链整体、kit 同步及整组门禁未由本包新增执行，保留原 owner 的未执行范围；API layer 6条模型导入与8条HTTPException的退出码1继续有效。
+
+- 并行 owner 回传的验证结果（保留原执行归属，不作为本包新运行）：AgentChat API 为1 passed、5 subtests passed；Ops E2E 为11 passed；Codex writing crossflow 真实E2E为6 passed；session facts focused 为47 passed；C7 pure 为64 passed、assembly 为12 passed、协调方专属PostgreSQL canary 为66 passed；workflow oracle focused 为27 passed。以上是各自 selector 的局部结果，不合计为同次整组通过。
+- 其余原 owner 回传：collect path 为55 passed、9 subtests passed、3 warnings；含I1的组合 selector另有2个外部 C4.1 digest drift失败，单列保留，未归入采集包通过范围。HTTP policy 为20 passed、8 subtests，port projection 为6 passed；social adapters 为4 passed；search trace 为8 passed；LLM types 为12 passed；program AST 为20 passed。这些原结果没有在本包重复运行。
+- 未通过与未运行项：API layer scanner 的6条模型导入、8条HTTPException缺口保持退出码1；I1组合的2个 C4.1 digest drift失败仍开放。control-tools 原11 passed 属于 session facts 进入共享树前的旧运行，当时最终 real-session summary 仅完成静态检查；后续已在本节末尾四selector组合中实际重验，原 `NOT_RUN` 缺口由该新执行结果解除。全量测试为 `NOT_RUN`；本包文档定向 `git diff --check -- docs/development/MRW结构整理方案与分发包.md` 退出码0。当前记录未建立整组门禁或全 runtime 完成。
+
+- 最终 coordinator/control 残留收口：`tool_pool.py` 的 `IMPLEMENTED_TOOL_IDS` 删除 `task.continue`；`agent_core/tool_support.py` 的取消重试提示与 `authoring_tools.py` 的取消采集提示统一先读 `task.summary`，确需重跑时使用 `task.retry`。工具池与真实取消返回见证覆盖旧能力不再泄漏。新 blueprint 的执行模式仅接受 `worker/system`（默认worker）；新建/追加 coordinator blueprint 均返回原 `execution_mode_invalid` Failure，整批校验先于写入。已存 coordinator task 与 AgentMessage 的读回见证通过，未迁移历史值。
+- 这次实际命令沿本文 focused 环境：`main/backend/.venv311/bin/python -m pytest -p no:cacheprovider -q -rs main/backend/tests/unit/test_agent_runtime_tool_pool_unittest.py main/backend/tests/unit/test_agent_core_unittest.py main/backend/tests/unit/test_agent_sessions_service_unittest.py main/backend/tests/unit/test_agent_control_tools_unittest.py`。首次为43 passed / 1 failed、2 warnings、退出码1；唯一失败为既有 writing conflict 测试夹具的请求随机turn_id与宿主turn_id不一致（`host_execution_scope_mismatch`）。仅将首次及确认调用的请求turn_id对齐各自宿主上下文，未改授权实现或放宽冲突断言；单项复验1 passed、退出码0，随后原四selector整组为44 passed、2条既有Pydantic弃用warning（1.63s）、原始退出码0。包含最终control-tools真实summary的本次执行，不再借用旧11项结果。本包源码/测试/文档限定 `git diff --check` 退出码0；API scanner退出码1、I1的2个C4.1 digest drift及全量测试 `NOT_RUN` 保持。
+- C7 canary资源清理（协调方回传）：按准确容器ID `856b40740ee18438f9d3547fd89a6ebf0ae5251cb3c0a0de2e65a66279a0e26f` 删除专属 `mrw-c7-retirement-test-20261006`，随容器删除唯一引用的匿名测试卷 `3c58b19123183a446c10ddccd79844e1cb9d21e3db7f8c71fc5d093e90de697d`。删除前 `docker system df -v` 记该卷57.21 MB、容器writable layer 20.5 kB；删除后精确名称/volume查询均无结果。只确认Docker内部记账空间，宿主 `Docker.raw` 是否缩小未测；Postgres镜像仍被其他现有容器引用，予以保留。

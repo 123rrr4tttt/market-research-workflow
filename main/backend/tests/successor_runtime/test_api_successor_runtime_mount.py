@@ -2,12 +2,13 @@
 
 Covers the default LOCAL_ONLY app mount: current ``/api/v1/material-projections/v2``
 route table, typed command/query envelopes, all six v2 status states, typed
-rejections, no control feedback, closed authority ceiling and preserved legacy
+rejections, no control feedback, closed authority ceiling and retired legacy
 routes.  No database, provider, network or live registration is touched.
 """
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -31,6 +32,7 @@ from app.successor_runtime.assembly import (
 )
 from app.successor_runtime.assembly.app_assembly import (
     AUTHORITY_CEILING_CLOSED,
+    SUCCESSOR_DEPENDENCIES_STATE_ATTR,
     LOCAL_ONLY_MOUNT_ACTOR,
     SuccessorRuntimeAppDependencies,
     build_successor_runtime_app_dependencies,
@@ -351,53 +353,31 @@ def test_mounted_query_returns_typed_projection_envelope() -> None:
         assert key not in body
 
 
-def test_legacy_command_route_is_rejected_without_facade_execution() -> None:
+@pytest.mark.parametrize("mount", ("direct", "state", "uninitialized_state"))
+def test_retired_routes_are_absent_without_facade_execution(mount: str) -> None:
     deps = build_successor_runtime_app_dependencies()
-    port = _CommandPort()
-    facade = SuccessorRuntimeFacade(
-        submission_port=port,
-        query_port=_QueryPort(),
-    )
-    router = api_module.create_successor_runtime_router(
-        resolver=deps.resolver,
-        facade=facade,
-        actor_provider=deps.actor_provider,
+    command_port = _CommandPort()
+    query_port = _QueryPort()
+    facade = SuccessorRuntimeFacade(submission_port=command_port, query_port=query_port)
+    dependencies = replace(deps, facade=facade)
+    router = (
+        api_module.create_successor_runtime_router(
+            resolver=deps.resolver, facade=facade, actor_provider=deps.actor_provider,
+        )
+        if mount == "direct"
+        else api_module.create_successor_runtime_state_router()
     )
     app = _app_with_router(router=router)
+    if mount == "state":
+        setattr(app.state, SUCCESSOR_DEPENDENCIES_STATE_ATTR, dependencies)
     with TestClient(app) as client:
-        response = client.post(
-            "/api/v1/successor-runtime/v2/commands",
-            json=_command_body(),
-        )
-    assert response.status_code == 410
-    assert response.headers["Deprecation"] == "true"
-    assert response.json()["error"]["code"] == "ROUTE_DEPRECATED"
-    assert port.calls == 0
-
-
-def test_legacy_query_route_remains_deprecated_read_compatible() -> None:
-    deps = build_successor_runtime_app_dependencies()
-    port = _QueryPort()
-    facade = SuccessorRuntimeFacade(
-        submission_port=_CommandPort(),
-        query_port=port,
-    )
-    router = api_module.create_successor_runtime_router(
-        resolver=deps.resolver,
-        facade=facade,
-        actor_provider=deps.actor_provider,
-    )
-    app = _app_with_router(router=router)
-    with TestClient(app) as client:
-        response = client.post(
-            "/api/v1/successor-runtime/v2/queries",
-            json=_query_body(),
-        )
-    assert response.status_code == 200
-    assert response.headers["Deprecation"] == "true"
-    assert response.json()["status"] == "ok"
-    assert port.calls == 1
-    assert app.openapi()["paths"]["/api/v1/successor-runtime/v2/queries"]["post"]["deprecated"] is True
+        for suffix, body in (("commands", _command_body()), ("queries", _query_body())):
+            response = client.post(f"/api/v1/successor-runtime/v2/{suffix}", json=body)
+            assert response.status_code == 404
+    assert command_port.calls == 0
+    assert query_port.calls == 0
+    assert not any("/successor-runtime/v2/" in path for path in app.openapi()["paths"])
+    assert not any("/successor-runtime/v2/" in route.path for route in app.routes)
 
 
 def test_production_query_mount_returns_exact_registry_scope(
@@ -691,19 +671,19 @@ def test_envelope_dto_forbids_control_feedback_and_unknown_status() -> None:
     assert envelope.control_feedback is False
 
 
-def test_mount_exposes_current_and_explicit_legacy_routes() -> None:
+def test_mount_exposes_only_current_projection_routes() -> None:
     paths = {route.path for route in api_router.routes}
     assert "/material-projections/v2/commands" in paths
     assert "/material-projections/v2/queries" in paths
-    assert "/successor-runtime/v2/commands" in paths
-    assert "/successor-runtime/v2/queries" in paths
+    assert "/successor-runtime/v2/commands" not in paths
+    assert "/successor-runtime/v2/queries" not in paths
     assert len(paths) > 200
     app = _app_with_router()
     mounted_paths = {route.path for route in app.routes}
     assert "/api/v1/material-projections/v2/commands" in mounted_paths
     assert "/api/v1/material-projections/v2/queries" in mounted_paths
-    assert "/api/v1/successor-runtime/v2/commands" in mounted_paths
-    assert "/api/v1/successor-runtime/v2/queries" in mounted_paths
+    assert "/api/v1/successor-runtime/v2/commands" not in mounted_paths
+    assert "/api/v1/successor-runtime/v2/queries" not in mounted_paths
     assert len(mounted_paths) > 200
 
 

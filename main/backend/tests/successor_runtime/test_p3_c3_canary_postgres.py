@@ -25,9 +25,6 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool
 
-from app.successor_migration.legacy_collect_runtime import (
-    build_legacy_collect_c3_1_binding,
-)
 from app.successor_runtime.assembly.base import (
     successor_binding as build_successor_binding,
 )
@@ -352,13 +349,6 @@ def _c3() -> _C3Fixture:
         authority_requirement_digest=ci.authority_requirement_digest(
             fold_contract_ref.kind
         ),
-        resource_policy_epoch=RESOURCE_POLICY_EPOCH,
-        runtime_protocol_version="1",
-    )
-    legacy_binding = build_legacy_collect_c3_1_binding(
-        contract_digest=contract_ref.contract_digest,
-        deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
-        project_scope_digest=SCOPE_DIGEST,
         resource_policy_epoch=RESOURCE_POLICY_EPOCH,
         runtime_protocol_version="1",
     )

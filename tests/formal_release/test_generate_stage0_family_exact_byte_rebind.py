@@ -70,11 +70,11 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fragment = {
         "schema": "fixture.v1",
         "phase": "P3",
-        "family": "C2",
-        "fragment_id": "fixture-c2",
+        "family": "C3",
+        "fragment_id": "fixture-c3",
         "status": "CANDIDATE_NOT_AUTHORITY",
         "authority": {"cutover": False},
-        "cells": [{"cell_id": "C2.1"}],
+        "cells": [{"cell_id": "C3.1"}],
         "source_bindings": [{"path": "source.py"}],
         "implementation_bindings": [{"path": "shared.py"}],
         "test_bindings": [{"path": "test.py"}],
@@ -149,12 +149,12 @@ def test_b13_predecessor_hashes_are_fixed_to_current_repo_bytes() -> None:
     } == EXPECTED_B13_PREDECESSOR_HASHES
 
 
-def _install_b13_c2_predecessors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[Path, str]:
+def _install_b13_c3_predecessors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[Path, str]:
     predecessors: dict[Path, str] = {}
     payloads = {
-        "fragments/C2.json": b"predecessor-fragment",
-        "manifests/C2.json": b"predecessor-manifest",
-        "candidates/C2/candidate.v2.json": b"predecessor-candidate",
+        "fragments/C3.json": b"predecessor-fragment",
+        "manifests/C3.json": b"predecessor-manifest",
+        "candidates/C3/candidate.v2.json": b"predecessor-candidate",
     }
     for suffix, payload in payloads.items():
         relative = tool.EXACT_BYTE_REBIND_REL / "stage-b13-2099-01-01" / suffix
@@ -166,12 +166,12 @@ def _install_b13_c2_predecessors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     return predecessors
 
 
-def _install_b15_c2_predecessors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[Path, str]:
+def _install_b15_c3_predecessors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[Path, str]:
     predecessors: dict[Path, str] = {}
     payloads = {
-        "fragments/C2.json": b"b15-fragment",
-        "manifests/C2.json": b"b15-manifest",
-        "candidates/C2/candidate.v2.json": b"b15-candidate",
+        "fragments/C3.json": b"b15-fragment",
+        "manifests/C3.json": b"b15-manifest",
+        "candidates/C3/candidate.v2.json": b"b15-candidate",
     }
     for suffix, payload in payloads.items():
         relative = tool.EXACT_BYTE_REBIND_REL / "stage-b15-2099-01-01" / suffix
@@ -183,12 +183,12 @@ def _install_b15_c2_predecessors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     return predecessors
 
 
-def _install_b16_c2_predecessors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[Path, str]:
+def _install_b16_c3_predecessors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[Path, str]:
     predecessors: dict[Path, str] = {}
     payloads = {
-        "fragments/C2.json": b"b16-fragment",
-        "manifests/C2.json": b"b16-manifest",
-        "candidates/C2/candidate.v2.json": b"b16-candidate",
+        "fragments/C3.json": b"b16-fragment",
+        "manifests/C3.json": b"b16-manifest",
+        "candidates/C3/candidate.v2.json": b"b16-candidate",
     }
     for suffix, payload in payloads.items():
         relative = tool.EXACT_BYTE_REBIND_REL / "stage-b16-2099-01-01" / suffix
@@ -200,12 +200,12 @@ def _install_b16_c2_predecessors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     return predecessors
 
 
-def _install_b17_c2_predecessors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[Path, str]:
+def _install_b17_c3_predecessors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[Path, str]:
     predecessors: dict[Path, str] = {}
     payloads = {
-        "fragments/C2.json": b"b17-fragment",
-        "manifests/C2.json": b"b17-manifest",
-        "candidates/C2/candidate.v2.json": b"b17-candidate",
+        "fragments/C3.json": b"b17-fragment",
+        "manifests/C3.json": b"b17-manifest",
+        "candidates/C3/candidate.v2.json": b"b17-candidate",
     }
     for suffix, payload in payloads.items():
         relative = tool.EXACT_BYTE_REBIND_REL / "stage-b17-2099-01-01" / suffix
@@ -222,18 +222,18 @@ def test_b15_uses_new_amendment_and_immutable_b13_predecessor_refs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _fixture(tmp_path, monkeypatch)
-    predecessors = _install_b13_c2_predecessors(tmp_path, monkeypatch)
+    predecessors = _install_b13_c3_predecessors(tmp_path, monkeypatch)
     stage = "stage-b15-2099-01-01"
-    other = tmp_path / tool.EXACT_BYTE_REBIND_REL / stage / "fragments/C3.json"
+    other = tmp_path / tool.EXACT_BYTE_REBIND_REL / stage / "fragments/C9.json"
     other.parent.mkdir(parents=True)
     other.write_bytes(b"other-family")
 
-    first = tool.build_documents(tmp_path, stage=stage, families=["C2"])
-    second = tool.build_documents(tmp_path, stage=stage, families=["C2"])
+    first = tool.build_documents(tmp_path, stage=stage, families=["C3"])
+    second = tool.build_documents(tmp_path, stage=stage, families=["C3"])
     assert first == second
     manifest_path = next(path for path in first if "manifests" in path.parts)
     manifest = json.loads(first[manifest_path])
-    assert manifest["amendment"] == "STAGE_B15_C2_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+    assert manifest["amendment"] == "STAGE_B15_C3_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
     references = {item["path"]: item["file_sha256"] for item in manifest["sources"]}
     for relative, expected in predecessors.items():
         assert references[relative.as_posix()] == expected
@@ -241,7 +241,7 @@ def test_b15_uses_new_amendment_and_immutable_b13_predecessor_refs(
     tool._write_documents(tmp_path, first, stage)
     assert other.read_bytes() == b"other-family"
     with pytest.raises(tool.GenerationError, match="create-only target already exists"):
-        tool.build_documents(tmp_path, stage=stage, families=["C2"])
+        tool.build_documents(tmp_path, stage=stage, families=["C3"])
 
 
 def test_b15_predecessor_drift_is_rejected(
@@ -249,11 +249,11 @@ def test_b15_predecessor_drift_is_rejected(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _fixture(tmp_path, monkeypatch)
-    predecessors = _install_b13_c2_predecessors(tmp_path, monkeypatch)
+    predecessors = _install_b13_c3_predecessors(tmp_path, monkeypatch)
     drifted = next(iter(predecessors))
     monkeypatch.setitem(tool.B13_PREDECESSOR_HASHES, drifted, "0" * 64)
     with pytest.raises(tool.GenerationError, match="immutable B13 predecessor drift"):
-        tool.build_documents(tmp_path, stage="stage-b15-2099-01-01", families=["C2"])
+        tool.build_documents(tmp_path, stage="stage-b15-2099-01-01", families=["C3"])
 
 
 def test_b15_predecessor_hashes_are_fixed_to_current_repo_bytes() -> None:
@@ -272,14 +272,14 @@ def test_b16_uses_new_amendment_and_immutable_b15_predecessor_refs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _fixture(tmp_path, monkeypatch)
-    predecessors = _install_b15_c2_predecessors(tmp_path, monkeypatch)
+    predecessors = _install_b15_c3_predecessors(tmp_path, monkeypatch)
     stage = "stage-b16-2099-01-01"
-    first = tool.build_documents(tmp_path, stage=stage, families=["C2"])
-    second = tool.build_documents(tmp_path, stage=stage, families=["C2"])
+    first = tool.build_documents(tmp_path, stage=stage, families=["C3"])
+    second = tool.build_documents(tmp_path, stage=stage, families=["C3"])
     assert first == second
     manifest_path = next(path for path in first if "manifests" in path.parts)
     manifest = json.loads(first[manifest_path])
-    assert manifest["amendment"] == "STAGE_B16_C2_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+    assert manifest["amendment"] == "STAGE_B16_C3_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
     references = {item["path"]: item["file_sha256"] for item in manifest["sources"]}
     for relative, expected in predecessors.items():
         assert references[relative.as_posix()] == expected
@@ -290,11 +290,11 @@ def test_b16_predecessor_drift_is_rejected(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _fixture(tmp_path, monkeypatch)
-    predecessors = _install_b15_c2_predecessors(tmp_path, monkeypatch)
+    predecessors = _install_b15_c3_predecessors(tmp_path, monkeypatch)
     drifted = next(iter(predecessors))
     monkeypatch.setitem(tool.B15_PREDECESSOR_HASHES, drifted, "0" * 64)
     with pytest.raises(tool.GenerationError, match="immutable B15 predecessor drift"):
-        tool.build_documents(tmp_path, stage="stage-b16-2099-01-01", families=["C2"])
+        tool.build_documents(tmp_path, stage="stage-b16-2099-01-01", families=["C3"])
 
 
 def test_b17_uses_new_amendment_and_all_prior_stage_predecessors(
@@ -302,17 +302,17 @@ def test_b17_uses_new_amendment_and_all_prior_stage_predecessors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _fixture(tmp_path, monkeypatch)
-    b13 = _install_b13_c2_predecessors(tmp_path, monkeypatch)
-    b15 = _install_b15_c2_predecessors(tmp_path, monkeypatch)
-    b16 = _install_b16_c2_predecessors(tmp_path, monkeypatch)
+    b13 = _install_b13_c3_predecessors(tmp_path, monkeypatch)
+    b15 = _install_b15_c3_predecessors(tmp_path, monkeypatch)
+    b16 = _install_b16_c3_predecessors(tmp_path, monkeypatch)
     stage = "stage-b17-2099-01-01"
 
-    first = tool.build_documents(tmp_path, stage=stage, families=["C2"])
-    second = tool.build_documents(tmp_path, stage=stage, families=["C2"])
+    first = tool.build_documents(tmp_path, stage=stage, families=["C3"])
+    second = tool.build_documents(tmp_path, stage=stage, families=["C3"])
     assert first == second
     manifest_path = next(path for path in first if "manifests" in path.parts)
     manifest = json.loads(first[manifest_path])
-    assert manifest["amendment"] == "STAGE_B17_C2_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+    assert manifest["amendment"] == "STAGE_B17_C3_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
     references = {item["path"]: item["file_sha256"] for item in manifest["sources"]}
     for predecessors in (b13, b15, b16):
         for relative, expected in predecessors.items():
@@ -324,12 +324,12 @@ def test_b17_predecessor_drift_is_rejected(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _fixture(tmp_path, monkeypatch)
-    _install_b13_c2_predecessors(tmp_path, monkeypatch)
-    _install_b15_c2_predecessors(tmp_path, monkeypatch)
-    b16 = _install_b16_c2_predecessors(tmp_path, monkeypatch)
+    _install_b13_c3_predecessors(tmp_path, monkeypatch)
+    _install_b15_c3_predecessors(tmp_path, monkeypatch)
+    b16 = _install_b16_c3_predecessors(tmp_path, monkeypatch)
     monkeypatch.setitem(tool.B16_PREDECESSOR_HASHES, next(iter(b16)), "0" * 64)
     with pytest.raises(tool.GenerationError, match="immutable B16 predecessor drift"):
-        tool.build_documents(tmp_path, stage="stage-b17-2099-01-01", families=["C2"])
+        tool.build_documents(tmp_path, stage="stage-b17-2099-01-01", families=["C3"])
 
 
 def test_b18_uses_new_amendment_and_b17_chain_predecessors(
@@ -337,18 +337,18 @@ def test_b18_uses_new_amendment_and_b17_chain_predecessors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _fixture(tmp_path, monkeypatch)
-    b13 = _install_b13_c2_predecessors(tmp_path, monkeypatch)
-    b15 = _install_b15_c2_predecessors(tmp_path, monkeypatch)
-    b16 = _install_b16_c2_predecessors(tmp_path, monkeypatch)
-    b17 = _install_b17_c2_predecessors(tmp_path, monkeypatch)
+    b13 = _install_b13_c3_predecessors(tmp_path, monkeypatch)
+    b15 = _install_b15_c3_predecessors(tmp_path, monkeypatch)
+    b16 = _install_b16_c3_predecessors(tmp_path, monkeypatch)
+    b17 = _install_b17_c3_predecessors(tmp_path, monkeypatch)
     stage = "stage-b18-2099-01-01"
 
-    first = tool.build_documents(tmp_path, stage=stage, families=["C2"])
-    second = tool.build_documents(tmp_path, stage=stage, families=["C2"])
+    first = tool.build_documents(tmp_path, stage=stage, families=["C3"])
+    second = tool.build_documents(tmp_path, stage=stage, families=["C3"])
     assert first == second
     manifest_path = next(path for path in first if "manifests" in path.parts)
     manifest = json.loads(first[manifest_path])
-    assert manifest["amendment"] == "STAGE_B18_C2_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+    assert manifest["amendment"] == "STAGE_B18_C3_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
     references = {item["path"]: item["file_sha256"] for item in manifest["sources"]}
     for predecessors in (b13, b15, b16, b17):
         for relative, expected in predecessors.items():
@@ -360,20 +360,20 @@ def test_b18_predecessor_drift_is_rejected(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _fixture(tmp_path, monkeypatch)
-    _install_b13_c2_predecessors(tmp_path, monkeypatch)
-    _install_b15_c2_predecessors(tmp_path, monkeypatch)
-    _install_b16_c2_predecessors(tmp_path, monkeypatch)
-    b17 = _install_b17_c2_predecessors(tmp_path, monkeypatch)
+    _install_b13_c3_predecessors(tmp_path, monkeypatch)
+    _install_b15_c3_predecessors(tmp_path, monkeypatch)
+    _install_b16_c3_predecessors(tmp_path, monkeypatch)
+    b17 = _install_b17_c3_predecessors(tmp_path, monkeypatch)
     monkeypatch.setitem(tool.B17_PREDECESSOR_HASHES, next(iter(b17)), "0" * 64)
     with pytest.raises(tool.GenerationError, match="immutable B17 predecessor drift"):
-        tool.build_documents(tmp_path, stage="stage-b18-2099-01-01", families=["C2"])
+        tool.build_documents(tmp_path, stage="stage-b18-2099-01-01", families=["C3"])
 
 
 def test_create_only_and_manifest_source_hashes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _fixture(tmp_path, monkeypatch)
-    docs = tool.build_documents(tmp_path, stage="stage-b13-2099-01-01", families=["C2"])
+    docs = tool.build_documents(tmp_path, stage="stage-b13-2099-01-01", families=["C3"])
     assert len(docs) == 2
-    manifest_path = next(path for path in docs if path.name == "C2.json" and "manifests" in path.parts)
+    manifest_path = next(path for path in docs if path.name == "C3.json" and "manifests" in path.parts)
     manifest = json.loads(docs[manifest_path])
     for reference in manifest["sources"] + manifest["tests"]:
         assert reference["file_sha256"] == hashlib.sha256(
@@ -381,23 +381,23 @@ def test_create_only_and_manifest_source_hashes(tmp_path: Path, monkeypatch: pyt
         ).hexdigest()
     tool._write_documents(tmp_path, docs, "stage-b13-2099-01-01")
     with pytest.raises(tool.GenerationError, match="already exists"):
-        tool.build_documents(tmp_path, stage="stage-b13-2099-01-01", families=["C2"])
+        tool.build_documents(tmp_path, stage="stage-b13-2099-01-01", families=["C3"])
 
 
 def test_frozen_predecessor_refusal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _fixture(tmp_path, monkeypatch)
-    frozen = tmp_path / "p3-fragments/C2.json"
+    frozen = tmp_path / "p3-fragments/C3.json"
     frozen.parent.mkdir(parents=True)
     frozen.write_text("frozen", encoding="utf-8")
     frozen_fragment = {
         "schema": "fixture.v1",
         "phase": "P3",
-        "family": "C2",
+        "family": "C3",
         "fragment_id": "fixture-c2",
         "status": "CANDIDATE_NOT_AUTHORITY",
         "authority": {"cutover": False},
-        "cells": [{"cell_id": "C2.1"}],
-        "source_bindings": [{"path": "p3-fragments/C2.json"}],
+        "cells": [{"cell_id": "C3.1"}],
+        "source_bindings": [{"path": "p3-fragments/C3.json"}],
         "implementation_bindings": [{"path": "shared.py"}],
         "test_bindings": [{"path": "test.py"}],
         "open_findings": [{"id": "OPEN"}],
@@ -405,7 +405,7 @@ def test_frozen_predecessor_refusal(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     frozen_fragment["content_digest"] = _digest(frozen_fragment)
     monkeypatch.setattr(tool, "build_fragment", lambda config, root: frozen_fragment)
     with pytest.raises(tool.GenerationError, match="frozen P3/P4"):
-        tool.build_documents(tmp_path, stage="stage-b13-2099-01-01", families=["C2"])
+        tool.build_documents(tmp_path, stage="stage-b13-2099-01-01", families=["C3"])
 
 
 def test_unknown_family_stage_and_traversal_are_rejected(tmp_path: Path) -> None:
@@ -436,40 +436,39 @@ def test_b19_uses_b18_as_direct_immutable_predecessor(tmp_path: Path, monkeypatc
     predecessor_root = tool.EXACT_BYTE_REBIND_REL / "stage-b18-2026-09-05"
     predecessor_hashes: dict[Path, str] = {}
     for relative in (
-        predecessor_root / "fragments/C2.json",
-        predecessor_root / "manifests/C2.json",
-        predecessor_root / "candidates/C2/candidate.v2.json",
+        predecessor_root / "fragments/C3.json",
+        predecessor_root / "manifests/C3.json",
+        predecessor_root / "candidates/C3/candidate.v2.json",
     ):
         target = tmp_path / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(relative.name.encode())
         predecessor_hashes[relative] = hashlib.sha256(target.read_bytes()).hexdigest()
     monkeypatch.setattr(tool, "B19_PREDECESSOR_HASHES", predecessor_hashes)
-    first = tool.build_documents(tmp_path, stage="B19", families=["C2"])
-    second = tool.build_documents(tmp_path, stage="B19", families=["C2"])
+    first = tool.build_documents(tmp_path, stage="B19", families=["C3"])
+    second = tool.build_documents(tmp_path, stage="B19", families=["C3"])
     assert first == second
     manifest = json.loads(next(payload for path, payload in first.items() if path.parent.name == "manifests"))
-    assert manifest["amendment"] == "STAGE_B19_C2_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+    assert manifest["amendment"] == "STAGE_B19_C3_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
     assert {item["path"] for item in manifest["sources"]} >= {
         path.as_posix() for path in predecessor_hashes
     }
 
 
 def test_b23_predecessor_hashes_are_fixed_to_current_b19_artifacts() -> None:
-    expected_rels = [
-        tool.EXACT_BYTE_REBIND_REL / "stage-b19-2026-09-05" / suffix.format(family=family)
-        for family in sorted(tool.ALLOWED_FAMILIES)
-        for suffix in (
-            "fragments/{family}.json",
-            "manifests/{family}.json",
-            "candidates/{family}/candidate.v2.json",
-        )
-    ]
-    assert set(tool.B23_PREDECESSOR_HASHES) == set(expected_rels)
+    # The generator only accepts current C3/C9 sources. Other hashes below are
+    # frozen predecessor history, not live family inputs.
+    assert tool.ALLOWED_FAMILIES == {"C3", "C9"}
     for relative, expected in tool.B23_PREDECESSOR_HASHES.items():
         path = ROOT / relative
         assert path.is_file()
         assert hashlib.sha256(path.read_bytes()).hexdigest() == expected
+
+
+@pytest.mark.parametrize("family", ["C2", "C4", "C5", "C6", "C7", "C8"])
+def test_retired_families_are_not_rebindable(family: str) -> None:
+    with pytest.raises(tool.GenerationError, match="unknown family"):
+        tool.validate_families([family])
 
 
 def test_b23_alias_is_valid_and_uses_b19_as_direct_immutable_predecessor(
@@ -493,15 +492,15 @@ def test_b23_alias_is_valid_and_uses_b19_as_direct_immutable_predecessor(
             predecessor_hashes[relative] = hashlib.sha256(target.read_bytes()).hexdigest()
     monkeypatch.setattr(tool, "B23_PREDECESSOR_HASHES", predecessor_hashes)
 
-    first = tool.build_documents(tmp_path, stage="stage-b23-2099-01-01", families=["C2"])
-    second = tool.build_documents(tmp_path, stage="stage-b23-2099-01-01", families=["C2"])
+    first = tool.build_documents(tmp_path, stage="stage-b23-2099-01-01", families=["C3"])
+    second = tool.build_documents(tmp_path, stage="stage-b23-2099-01-01", families=["C3"])
     assert first == second
     manifest_path = next(path for path in first if path.parent.name == "manifests")
     manifest = json.loads(first[manifest_path])
-    assert manifest["amendment"] == "STAGE_B23_C2_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+    assert manifest["amendment"] == "STAGE_B23_C3_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
     references = {item["path"]: item["file_sha256"] for item in manifest["sources"]}
     for relative, expected in predecessor_hashes.items():
-        if "C2" in relative.as_posix():
+        if "C3" in relative.as_posix():
             assert references[relative.as_posix()] == expected
 
     with pytest.raises(tool.GenerationError, match="immutable B19 predecessor drift"):
@@ -510,11 +509,11 @@ def test_b23_alias_is_valid_and_uses_b19_as_direct_immutable_predecessor(
             next(iter(tool.B23_PREDECESSOR_HASHES)),
             "0" * 64,
         )
-        tool.build_documents(tmp_path, stage="B23", families=["C2"])
+        tool.build_documents(tmp_path, stage="B23", families=["C3"])
 
 
 def test_repeated_dry_run_is_byte_deterministic(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _fixture(tmp_path, monkeypatch)
-    first = tool.build_documents(tmp_path, stage="stage-b13-2099-01-02", families=["C2"])
-    second = tool.build_documents(tmp_path, stage="stage-b13-2099-01-02", families=["C2"])
+    first = tool.build_documents(tmp_path, stage="stage-b13-2099-01-02", families=["C3"])
+    second = tool.build_documents(tmp_path, stage="stage-b13-2099-01-02", families=["C3"])
     assert first == second

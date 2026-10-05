@@ -7,6 +7,9 @@ from typing import Any, Mapping
 
 from functorial_kit import Failure
 
+from app.successor_runtime.capabilities.workflow_legacy_dsl import (
+    parse_and_validate_workflow_dsl,
+)
 from app.services.workflow_graph.contracts import (
     ALLOWED_NODE_TYPES,
     CompiledWorkflowGraph,
@@ -107,6 +110,55 @@ def try_compile_workflow_graph(payload: Mapping[str, Any] | WorkflowGraphDSL) ->
             "workflow graph contains a cycle",
             field="edges",
             index=-1,
+        )
+
+    platform_receipt = parse_and_validate_workflow_dsl(
+        {
+            "version": dsl.version,
+            "options": dict(dsl.options),
+            "nodes": [
+                {
+                    "node_id": node.node_id,
+                    "node_type": node.node_type,
+                    "config": dict(node.config),
+                }
+                for node in dsl.nodes
+            ],
+            "edges": [
+                {"from": edge.from_node, "to": edge.to_node}
+                for edge in dsl.edges
+            ],
+        }
+    )
+    if not platform_receipt.ok or platform_receipt.program is None or platform_receipt.plan is None:
+        failure = platform_receipt.failure
+        message = failure.message if failure is not None else "workflow platform lowering failed"
+        raise_workflow_graph_legacy(
+            workflow_graph_failure(
+                "integrity_invalid",
+                message,
+                owner="workflow_graph.compiler.platform_lowering",
+                public_exception=WorkflowGraphCompileError,
+                public_message=message,
+                field="edges",
+                index=-1,
+                platform_failure_code=failure.code if failure is not None else "unknown",
+            ),
+            exception_type=WorkflowGraphCompileError,
+        )
+    if platform_receipt.topo_order != tuple(topo_order):
+        message = "workflow platform topo order differs from graph projection"
+        raise_workflow_graph_legacy(
+            workflow_graph_failure(
+                "integrity_invalid",
+                message,
+                owner="workflow_graph.compiler.platform_lowering",
+                public_exception=WorkflowGraphCompileError,
+                public_message=message,
+                field="topo_order",
+                index=-1,
+            ),
+            exception_type=WorkflowGraphCompileError,
         )
 
     outgoing_tuple = {node_id: tuple(targets) for node_id, targets in outgoing.items()}

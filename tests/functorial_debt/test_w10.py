@@ -111,14 +111,6 @@ CASES: list[tuple[str, str, object, str]] = [
         _metadata("migration_ledger+P1_selection+P2_packet+P3_fragments"),
     ),
     (
-        "generate_successor_p3_c2_fragment",
-        "build_fragment",
-        dict,
-        _metadata(
-            "C2.1_resolution+C2.2_program+C2.3_fixture_receipt+C2.4_projection"
-        ),
-    ),
-    (
         "generate_successor_p3_c3_fragment",
         "build_fragment",
         dict,
@@ -135,18 +127,6 @@ CASES: list[tuple[str, str, object, str]] = [
         "build_fragment",
         dict,
         _metadata("C5.1-C5.4_observations+repo_bindings"),
-    ),
-    (
-        "generate_successor_p4_c7_fragment",
-        "build_fragment",
-        dict,
-        _metadata("C7.1-C7.4_observations+repo_bindings"),
-    ),
-    (
-        "generate_successor_p4_c8_fragment",
-        "build_fragment",
-        dict,
-        _metadata("C8.1-C8.4_observations+repo_bindings"),
     ),
     (
         "generate_successor_p4_c9_fragment",

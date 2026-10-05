@@ -30,10 +30,10 @@ from functorial_kit.core.failure import Failure
 from mrw_functorial_kit.contributions import workflow as c1_catalog_module
 
 EXPECTED_WORKFLOW_PROGRAM_DIGEST = (
-    "eb68907a62699bc08fcbf55e5469327ee4477fcfbae477e9c3219c555be74e47"
+    "e83a03929607a5cad0bf20ae2c38879d225926ae5d854ee0b51e62ff55c379a7"
 )
 EXPECTED_WORKFLOW_PLAN_DIGEST = (
-    "17e4cdc35e4bbb070940113af78a27017eb4aa4440fb5188a9d92256541c38f5"
+    "0984a32f4645ff04acb76791ae4dcea67107d3eeac0df2b1d55f7809a3fb8b41"
 )
 EXPECTED_WORKFLOW_CATALOG_DIGEST = (
     "465e6eb403c6e017fd50b03d1eedeff6bdca35a8ee5f4e9140197043ad0db2b9"
@@ -128,14 +128,14 @@ def test_non_default_source_updates_projection_without_duplicating_authority() -
          "2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceB.v1.json",
          "development/latest-dev-docs/development-plans/CURRENT_DEV/"
          "2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceC.v1.json",
-         "main/backend/app/successor_migration/legacy_workflow_graph.py"),
+         "main/backend/app/services/workflow_graph/runtime.py"),
         ("development/latest-dev-docs/development-plans/CURRENT_DEV/"
          "2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceA.v1.json",
          "development/latest-dev-docs/development-plans/CURRENT_DEV/"
          "2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceB.v1.json",
          "development/latest-dev-docs/development-plans/CURRENT_DEV/"
          "2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceC.v1.json",
-         "main/backend/app/successor_migration/legacy_workflow_graph.py"),
+         "main/backend/app/services/workflow_graph/runtime.py"),
     )
 
 

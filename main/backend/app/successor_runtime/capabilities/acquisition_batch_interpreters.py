@@ -3,8 +3,7 @@
 The interpreters are deterministic rewrites of the legacy
 ``collect_runtime`` pure plan rules and ordered result fold.  They perform no
 network, database, provider or credential work, and they never import legacy
-service packages.  The legacy path is exercised only by the sibling
-``successor_migration.legacy_collect_runtime`` adapter.
+service packages.  Legacy donor text in profile digests is immutable history.
 
 Ordered traversal is realized in-process from the frozen batch plan until the
 shared compiler supports ``TraverseOrdered``; every binding check refuses to

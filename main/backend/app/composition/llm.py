@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from pydantic import SecretStr
 
 from app.services.llm.adapters import LangChainProviderAdapter
 from app.services.llm.ports import (
@@ -16,7 +17,7 @@ from app.settings.config import settings
 
 
 class LiteLLMProviderAdapter(LLMProviderPort):
-    def get_chat_model(self, options: ChatModelOptions) -> Any:
+    def get_chat_model(self, options: ChatModelOptions) -> ChatOpenAI:
         extra = {
             key: value
             for key, value in (options.extra or {}).items()
@@ -45,15 +46,15 @@ class LiteLLMProviderAdapter(LLMProviderPort):
         return ChatOpenAI(
             model=options.model or "gpt-4o-mini",
             base_url=getattr(settings, "litellm_api_base", None) or None,
-            api_key=getattr(settings, "litellm_api_key", "") or "",
+            api_key=SecretStr(getattr(settings, "litellm_api_key", "") or ""),
             **model_params,
         )
 
-    def get_embeddings(self, model: str | None = None) -> Any:
+    def get_embeddings(self, model: str | None = None) -> OpenAIEmbeddings:
         return OpenAIEmbeddings(
             model=model or settings.embedding_model,
             base_url=getattr(settings, "litellm_api_base", None) or None,
-            api_key=getattr(settings, "litellm_api_key", "") or "",
+            api_key=SecretStr(getattr(settings, "litellm_api_key", "") or ""),
         )
 
 

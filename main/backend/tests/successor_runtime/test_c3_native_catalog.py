@@ -75,7 +75,7 @@ def test_non_default_source_updates_all_determined_projections_from_one_declarat
     changed = dataclasses.replace(
         DEFAULT_ACQUISITION_NATIVE_SOURCE,
         contribution_id="test.mrw.c3.native.alt.v1",
-        rollback_refs=("test/rollback/c3-alt.json", "main/backend/app/successor_migration/legacy_collect_runtime.py"),
+        rollback_refs=("test/rollback/c3-alt.json",),
     )
     native = _compile(changed)
     assert native.projection.id == changed.contribution_id
@@ -221,26 +221,12 @@ def test_invalid_explicit_native_source_returns_failure_not_exception() -> None:
     assert "invalid C3 native source" in str(excinfo.value)
 
 
-@pytest.mark.parametrize("field", ("legacy_binding_refs", "successor_binding_refs"))
-def test_compatibility_reference_identity_is_rejected_at_native_lowering(field: str) -> None:
-    source = dataclasses.replace(
-        DEFAULT_ACQUISITION_NATIVE_SOURCE,
-        **{field: ("legacy_collect_runtime.missing_binding",)},
+def test_retired_legacy_runtime_has_no_native_source_reference() -> None:
+    source = DEFAULT_ACQUISITION_NATIVE_SOURCE
+    assert all("legacy_collect_runtime" not in ref for ref in source.rollback_refs)
+    assert not hasattr(source, "legacy_binding_refs")
+    assert not hasattr(source, "successor_binding_refs")
+    assert all(
+        "legacy.collect_runtime" not in (operation.interpreter_id, operation.owner)
+        for operation in source.operations
     )
-    assert isinstance(compile_acquisition_native_contribution(source), Failure)
-
-
-def test_compatibility_code_liveness_is_checked_by_migration_owner(monkeypatch) -> None:
-    from app.successor_migration import legacy_collect_runtime as migration
-
-    migration.require_c3_binding_authority()
-    monkeypatch.setattr(migration, "build_successor_collect_c3_2_binding", None)
-    with pytest.raises(ValueError, match="unresolved C3 compatibility binding ref"):
-        migration.build_legacy_collect_c3_1_binding(
-            contract_digest="0" * 64,
-            deployment_catalog_digest="1" * 64,
-            project_scope_digest="2" * 64,
-        )
-    # Pure native definitions remain valid when an unused compatibility adapter
-    # is unavailable; compatibility execution itself remains fail closed above.
-    assert not isinstance(compile_acquisition_native_contribution(DEFAULT_ACQUISITION_NATIVE_SOURCE), Failure)

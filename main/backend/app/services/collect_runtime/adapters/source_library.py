@@ -3,7 +3,12 @@ from __future__ import annotations
 from contextlib import nullcontext
 from typing import Annotated, Any
 
-from ..contracts import CollectRequest, CollectResult
+from ..contracts import (
+    CollectRequest,
+    CollectResult,
+    SourceLibraryCompatResponse,
+    source_library_compat_response,
+)
 from ..display_meta import build_display_meta
 from ...job_logger import complete_job, fail_job, start_job
 from ...projects import bind_project
@@ -190,7 +195,7 @@ class SourceLibraryAdapter:
             raise
 
 
-def to_source_library_response(raw_collect_result: CollectResult) -> dict:
+def to_source_library_response(raw_collect_result: CollectResult) -> SourceLibraryCompatResponse:
     raw = (raw_collect_result.meta or {}).get("raw")
     legacy_result: dict[str, Any]
     if isinstance(raw, dict):
@@ -241,7 +246,7 @@ def to_source_library_response(raw_collect_result: CollectResult) -> dict:
     response["compat_projection"] = compat_projection
     response["legacy_result"] = legacy_result
     response["legacy_result_is_deprecated"] = True
-    return response
+    return source_library_compat_response(response)
 
 
 def build_source_library_authority_output(

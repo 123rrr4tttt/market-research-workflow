@@ -381,8 +381,6 @@ def _get_active_project_key_fallback() -> str | None:
 
 _ENDPOINT_OWNED_PROJECT_CONTEXT_PATHS = frozenset(
     {
-        "/api/v1/agent-chat/turn",
-        "/api/v1/agent-chat/turn/stream",
         "/api/v1/agent-batch/nl-command",
         "/api/v1/agent-batch/nl-command/direct",
     }
@@ -390,12 +388,7 @@ _ENDPOINT_OWNED_PROJECT_CONTEXT_PATHS = frozenset(
 
 
 def _uses_endpoint_owned_project_context(path: str) -> bool:
-    if path in _ENDPOINT_OWNED_PROJECT_CONTEXT_PATHS:
-        return True
-    return (
-        path.startswith("/api/v1/agent-chat/approvals/")
-        and path.endswith("/continue")
-    )
+    return path in _ENDPOINT_OWNED_PROJECT_CONTEXT_PATHS
 
 
 def _resolve_request_project_context(request: Request) -> tuple[str, str, bool]:

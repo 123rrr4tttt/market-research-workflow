@@ -13,7 +13,15 @@ from ...llm.platformization import (
     resolve_routing_decision,
 )
 from ....settings.config import settings
-from .base import BaseNodeExecutor, NodeExecutionContext
+from .kernel import (
+    NodeExecutionContext,
+    NodeEffectFailure,
+    NodeEffectResult,
+    WorkflowJsonObject,
+    node_degraded,
+    node_failed,
+    node_success,
+)
 from ..contracts import WorkflowGraphCompileError, raise_workflow_graph_legacy, workflow_graph_failure
 
 
@@ -101,118 +109,123 @@ def _invoke_llm_via_skill(
     return str(result)
 
 
-class LLMCallExecutor(BaseNodeExecutor):
-    node_type = "llm_call"
-
-    def execute(self, node: dict[str, Any], context: NodeExecutionContext) -> dict[str, Any]:
-        params = dict(node.get("params") or {})
-        _assert_prompt_template_inputs(params=params, context=context)
-        prompt = _build_prompt(params=params, context=context)
-        normalized = _normalize_provider_params(params)
-        prompt_class = _as_str_or_none(params.get("prompt_class"))
-        service_name = _as_str_or_none(params.get("service_name")) or prompt_class or "workflow_llm_call"
-        identity = resolve_request_identity(
-            consumer="workflow_graph.llm_call",
-            trace_id=_as_str_or_none(context.inputs.get("trace_id")),
-            request_id=_as_str_or_none(context.inputs.get("request_id")),
-            project_key=_as_str_or_none(context.inputs.get("project_key")),
-            actor_id=_as_str_or_none(context.inputs.get("actor_id")),
-            trace_fallback_seed=f"{context.run_id}:{context.node_id}",
-        )
-        boundary = resolve_consumer_adapter_boundary(identity.consumer)
-        requested_permissions = _collect_requested_permissions(params=params, context=context)
-        agent_boundary = evaluate_agent_permission_boundary(
+def run_llm_call_kernel(context: NodeExecutionContext) -> NodeEffectResult:
+    validation = _assert_prompt_template_inputs(params=dict(context.params), context=context)
+    if validation is not None:
+        return validation
+    params = dict(context.params)
+    prompt = _build_prompt(params=params, context=context)
+    normalized = _normalize_provider_params(params)
+    prompt_class = _as_str_or_none(params.get("prompt_class"))
+    service_name = _as_str_or_none(params.get("service_name")) or prompt_class or "workflow_llm_call"
+    identity = resolve_request_identity(
+        consumer="workflow_graph.llm_call",
+        trace_id=_as_str_or_none(context.inputs.get("trace_id")),
+        request_id=_as_str_or_none(context.inputs.get("request_id")),
+        project_key=_as_str_or_none(context.inputs.get("project_key")),
+        actor_id=_as_str_or_none(context.inputs.get("actor_id")),
+        trace_fallback_seed=f"{context.correlation_id}:{context.node_id}",
+    )
+    boundary = resolve_consumer_adapter_boundary(identity.consumer)
+    requested_permissions = _collect_requested_permissions(params=params, context=context)
+    agent_boundary = evaluate_agent_permission_boundary(
+        consumer=identity.consumer,
+        agent_role=normalize_agent_role(
+            _as_str_or_none(params.get("agent_role")) or _as_str_or_none(context.inputs.get("agent_role")),
             consumer=identity.consumer,
-            agent_role=normalize_agent_role(
-                _as_str_or_none(params.get("agent_role")) or _as_str_or_none(context.inputs.get("agent_role")),
-                consumer=identity.consumer,
-            ),
-            requested_permissions=requested_permissions,
+        ),
+        requested_permissions=requested_permissions,
+    )
+    routing = resolve_routing_decision(
+        service_name=service_name,
+        capability="workflow_llm_call",
+        request_overrides={
+            "provider": _as_str_or_none(normalized.get("provider")),
+            "model": _as_str_or_none(normalized.get("model")),
+            "temperature": normalized.get("temperature"),
+            "max_tokens": normalized.get("max_tokens"),
+            "top_p": normalized.get("top_p"),
+        },
+        service_config=get_llm_config(service_name),
+        default_provider=settings.llm_provider,
+        default_model=None,
+    )
+    invoke_opts = routing.invoke_options()
+    model = _as_str_or_none(invoke_opts.get("model"))
+    temperature = _to_float(invoke_opts.get("temperature"), default=0.0)
+    max_tokens = _to_int_or_none(invoke_opts.get("max_tokens"))
+    top_p = _to_float_or_none(invoke_opts.get("top_p"))
+    provider = routing.provider
+    failure_code: str
+    cause_type: str | None = None
+    cause_message: str | None = None
+    if not agent_boundary.allowed:
+        failure_code = "AGENT_PERMISSION_DENIED"
+        degraded = True
+        reason = f"agent_permission_denied:{','.join(agent_boundary.denied_reasons)}"
+        text = _fallback_text(prompt, context)
+        audit = build_trace_audit_record(
+            identity=identity,
+            routing=routing,
+            status="blocked",
+            degraded=True,
+            error_code="AGENT_PERMISSION_DENIED",
+            error_detail=reason,
         )
-        routing = resolve_routing_decision(
-            service_name=service_name,
-            capability="workflow_llm_call",
-            request_overrides={
-                "provider": _as_str_or_none(normalized.get("provider")),
-                "model": _as_str_or_none(normalized.get("model")),
-                "temperature": normalized.get("temperature"),
-                "max_tokens": normalized.get("max_tokens"),
-                "top_p": normalized.get("top_p"),
-            },
-            service_config=get_llm_config(service_name),
-            default_provider=settings.llm_provider,
-            default_model=None,
-        )
-        invoke_opts = routing.invoke_options()
-        model = _as_str_or_none(invoke_opts.get("model"))
-        temperature = _to_float(invoke_opts.get("temperature"), default=0.0)
-        max_tokens = _to_int_or_none(invoke_opts.get("max_tokens"))
-        top_p = _to_float_or_none(invoke_opts.get("top_p"))
-        provider = routing.provider
-
-        if not agent_boundary.allowed:
+    else:
+        try:
+            extra_payload = {
+                key: value
+                for key, value in normalized.items()
+                if key
+                not in {
+                    "provider",
+                    "model",
+                    "temperature",
+                    "top_p",
+                    "max_tokens",
+                    "prompt_class",
+                    "prompt_template",
+                    "prompt",
+                    "input_vars",
+                    "output_vars",
+                }
+            }
+            text = _invoke_llm_via_skill(
+                prompt,
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                top_p=top_p,
+                extra=extra_payload,
+                trace_id=identity.trace_id,
+            )
+            degraded = False
+            reason = None
+            audit = build_trace_audit_record(
+                identity=identity,
+                routing=routing,
+                status="succeeded",
+                degraded=False,
+            )
+        except Exception as exc:  # noqa: BLE001
+            failure_code = "LLM_CALL_DEGRADED"
             degraded = True
-            reason = f"agent_permission_denied:{','.join(agent_boundary.denied_reasons)}"
+            reason = str(exc)
+            cause_type = type(exc).__name__
+            cause_message = str(exc)
             text = _fallback_text(prompt, context)
             audit = build_trace_audit_record(
                 identity=identity,
                 routing=routing,
-                status="blocked",
+                status="degraded",
                 degraded=True,
-                error_code="AGENT_PERMISSION_DENIED",
+                error_code="LLM_CALL_DEGRADED",
                 error_detail=reason,
             )
-        else:
-            try:
-                extra_payload = {
-                    key: value
-                    for key, value in normalized.items()
-                    if key
-                    not in {
-                        "provider",
-                        "model",
-                        "temperature",
-                        "top_p",
-                        "max_tokens",
-                        "prompt_class",
-                        "prompt_template",
-                        "prompt",
-                        "input_vars",
-                        "output_vars",
-                    }
-                }
-                text = _invoke_llm_via_skill(
-                    prompt,
-                    model=model,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    top_p=top_p,
-                    extra=extra_payload,
-                    trace_id=identity.trace_id,
-                )
-                degraded = False
-                reason = None
-                audit = build_trace_audit_record(
-                    identity=identity,
-                    routing=routing,
-                    status="succeeded",
-                    degraded=False,
-                )
-            except Exception as exc:  # noqa: BLE001
-                degraded = True
-                reason = str(exc)
-                text = _fallback_text(prompt, context)
-                audit = build_trace_audit_record(
-                    identity=identity,
-                    routing=routing,
-                    status="degraded",
-                    degraded=True,
-                    error_code="LLM_CALL_DEGRADED",
-                    error_detail=reason,
-                )
 
-        return {
-            "node_type": self.node_type,
+    payload: WorkflowJsonObject = {
+            "node_type": "llm_call",
             "prompt": prompt,
             "provider": provider,
             "model": model,
@@ -237,7 +250,21 @@ class LLMCallExecutor(BaseNodeExecutor):
                 "consumer_boundary": boundary.to_observability(),
                 "agent_boundary": agent_boundary.to_observability(),
             },
-        }
+    }
+    if degraded:
+        return node_degraded(
+            context,
+            payload,
+            NodeEffectFailure(
+                code=failure_code,
+                message=str(reason),
+                owner="workflow_graph.kernel.llm_call",
+                details={},
+                cause_type=cause_type,
+                cause_message=cause_message,
+            ),
+        )
+    return node_success(context, payload)
 
 
 def _build_prompt(*, params: dict[str, Any], context: NodeExecutionContext) -> str:
@@ -261,7 +288,11 @@ def _build_prompt(*, params: dict[str, Any], context: NodeExecutionContext) -> s
     return "Generate a concise response."
 
 
-def _assert_prompt_template_inputs(*, params: dict[str, Any], context: NodeExecutionContext) -> None:
+def _assert_prompt_template_inputs(
+    *,
+    params: dict[str, Any],
+    context: NodeExecutionContext,
+) -> NodeEffectResult | None:
     template = str(params.get("prompt_template") or "").strip()
     if not template:
         return
@@ -269,7 +300,18 @@ def _assert_prompt_template_inputs(*, params: dict[str, Any], context: NodeExecu
     missing = [name for name in required if name not in context.inputs]
     if missing:
         message = f"prompt_template_missing_inputs:{','.join(sorted(missing))}"
-        raise_workflow_graph_legacy(workflow_graph_failure("required_input_missing", message, owner="workflow_graph.executors.llm_call", public_exception=WorkflowGraphCompileError, public_message=message, field="prompt_template", index=-1, missing=sorted(missing)))
+        return node_failed(
+            context,
+            "required_input_missing",
+            message,
+            owner="workflow_graph.kernel.llm_call",
+            details={
+                "field": "prompt_template",
+                "index": -1,
+                "missing": sorted(missing),
+            },
+        )
+    return None
 
 
 def _extract_template_variables(template: str) -> set[str]:
@@ -291,7 +333,7 @@ def _build_prompt_scope(*, context: NodeExecutionContext, params: dict[str, Any]
     scope: dict[str, Any] = {}
     scope.update(context.inputs)
     scope["node_id"] = context.node_id
-    scope["run_id"] = context.run_id
+    scope["run_id"] = context.correlation_id
     scope["prompt_class"] = params.get("prompt_class")
     scope["upstream"] = context.upstream_results
     for node_id, value in context.upstream_results.items():
@@ -347,6 +389,7 @@ def _to_float_or_none(value: Any) -> float | None:
         return float(value)
     except Exception:  # noqa: BLE001
         return None
+
 
 
 def _to_int_or_none(value: Any) -> int | None:

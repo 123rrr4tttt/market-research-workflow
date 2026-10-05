@@ -66,7 +66,6 @@ IMPLEMENTED_TOOL_IDS = CORE_TOOL_IDS | {
     "report.generate",
     "task.cancel",
     "task.retry",
-    "task.continue",
 }
 
 

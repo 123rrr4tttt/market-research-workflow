@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from langchain_core.embeddings import Embeddings
+from langchain_core.language_models import BaseChatModel
 from langchain_openai import (
     AzureChatOpenAI,
     AzureOpenAIEmbeddings,
     ChatOpenAI,
     OpenAIEmbeddings,
 )
+from pydantic import SecretStr
 
 from ....settings.config import settings
 from ..codex_cli import CodexCliChatModel, codex_cli_llm_available
@@ -20,8 +23,12 @@ def _ensure(value: Optional[str], name: str) -> str:
     return value
 
 
+def _ensure_secret(value: str | None, name: str) -> SecretStr:
+    return SecretStr(_ensure(value, name))
+
+
 class LangChainProviderAdapter(ChatPort, EmbeddingPort):
-    def get_chat_model(self, options: ChatModelOptions) -> Any:
+    def get_chat_model(self, options: ChatModelOptions) -> BaseChatModel | CodexCliChatModel:
         provider = settings.llm_provider.lower()
         default_temperature = (
             options.temperature if options.temperature is not None else 0.2
@@ -56,16 +63,16 @@ class LangChainProviderAdapter(ChatPort, EmbeddingPort):
                 )
             return ChatOpenAI(
                 model=options.model or "gpt-4o-mini",
-                api_key=_ensure(settings.openai_api_key, "OPENAI_API_KEY"),
+                api_key=_ensure_secret(settings.openai_api_key, "OPENAI_API_KEY"),
                 base_url=settings.openai_api_base or None,
                 **model_params,
             )
         if provider == "azure":
             return AzureChatOpenAI(
                 azure_endpoint=_ensure(settings.azure_api_base, "AZURE_API_BASE"),
-                api_key=_ensure(settings.azure_api_key, "AZURE_API_KEY"),
+                api_key=_ensure_secret(settings.azure_api_key, "AZURE_API_KEY"),
                 api_version=_ensure(settings.azure_api_version, "AZURE_API_VERSION"),
-                deployment_name=_ensure(
+                azure_deployment=_ensure(
                     settings.azure_chat_deployment, "AZURE_CHAT_DEPLOYMENT"
                 ),
                 **model_params,
@@ -81,20 +88,20 @@ class LangChainProviderAdapter(ChatPort, EmbeddingPort):
             )
         raise ValueError(f"未知的 llm_provider: {settings.llm_provider}")
 
-    def get_embeddings(self, model: Optional[str] = None) -> Any:
+    def get_embeddings(self, model: Optional[str] = None) -> Embeddings:
         provider = settings.llm_provider.lower()
         if provider == "openai":
             return OpenAIEmbeddings(
                 model=model or settings.embedding_model,
-                api_key=_ensure(settings.openai_api_key, "OPENAI_API_KEY"),
+                api_key=_ensure_secret(settings.openai_api_key, "OPENAI_API_KEY"),
                 base_url=settings.openai_api_base or None,
             )
         if provider == "azure":
             return AzureOpenAIEmbeddings(
                 azure_endpoint=_ensure(settings.azure_api_base, "AZURE_API_BASE"),
-                api_key=_ensure(settings.azure_api_key, "AZURE_API_KEY"),
+                api_key=_ensure_secret(settings.azure_api_key, "AZURE_API_KEY"),
                 api_version=_ensure(settings.azure_api_version, "AZURE_API_VERSION"),
-                deployment=_ensure(
+                azure_deployment=_ensure(
                     settings.azure_embedding_deployment, "AZURE_EMBEDDING_DEPLOYMENT"
                 ),
             )

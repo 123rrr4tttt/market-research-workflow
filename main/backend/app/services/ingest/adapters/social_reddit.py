@@ -3,16 +3,18 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterable, List, Optional
 from urllib.parse import quote
 
-from .http_utils import fetch_html
 from ..keyword_library import (
     clean_keywords,
     get_keywords as get_library_keywords,
 )
+from ..retry_policy import RateGate, RequestScope
+from .http_utils import RequestOutcome, request_html
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +31,24 @@ class RedditPost:
     likes: int = 0
     comments: int = 0
     text: Optional[str] = None
+
+
+_REQUEST_SCOPE = RequestScope(provider="reddit")
+_RATE_GATE = RateGate(
+    rate_limit_interval_seconds=2.0,
+    backoff_base_seconds=1.5,
+    backoff_max_seconds=60.0,
+    sleeper=time.sleep,
+)
+
+
+def _request_html(url: str, headers: dict[str, str]) -> RequestOutcome:
+    return request_html(
+        url,
+        scope=_REQUEST_SCOPE,
+        headers=headers,
+        retry_gate=_RATE_GATE,
+    )
 
 
 class RedditAdapter:
@@ -83,7 +103,7 @@ class RedditAdapter:
             }
             logger.debug(f"Requesting Reddit API with headers: User-Agent={headers['User-Agent'][:50]}...")
             try:
-                response_text, response = fetch_html(url, headers=headers)
+                outcome = _request_html(url, headers=headers)
             except Exception as e:
                 logger.error(f"HTTP request failed for r/{subreddit}: {e}")
                 # 如果请求失败，记录响应状态码（如果有）
@@ -91,6 +111,16 @@ class RedditAdapter:
                     logger.error(f"Response status: {e.response.status_code}")
                     logger.error(f"Response headers: {dict(e.response.headers)}")
                 raise
+            response = outcome.response
+            if response is not None and hasattr(response, "status_code"):
+                logger.debug("Reddit response status: %s", response.status_code)
+            if not outcome.ok or not outcome.text:
+                if outcome.failures:
+                    logger.warning("Reddit request failed for r/%s: %s", subreddit, outcome.failures[-1].message)
+                    return []
+                response_text = ""
+            else:
+                response_text = outcome.text
             
             if not response_text:
                 logger.warning(f"Empty response from Reddit API for r/{subreddit}")
@@ -250,13 +280,6 @@ class RedditAdapter:
         
         for idx, subreddit in enumerate(subreddits):
             try:
-                # 在请求之间添加延迟，避免被 Reddit 限制
-                if idx > 0:
-                    import time
-                    delay = 2.0  # 2秒延迟
-                    logger.debug(f"Waiting {delay}s before next request...")
-                    time.sleep(delay)
-                
                 fetched_count = 0
                 for post in self.fetch_posts(subreddit, keywords, limit_per_subreddit):
                     fetched_count += 1
@@ -302,9 +325,6 @@ class RedditAdapter:
             # 策略1: 使用Reddit搜索API搜索帖子，从结果中提取子论坛
             for keyword in keywords[:3]:  # 限制关键词数量，避免过多请求
                 try:
-                    import time
-                    time.sleep(1.0)  # 请求间延迟
-                    
                     # 使用Reddit搜索API
                     search_url = f"{self.base_url}/search.json?q={quote(keyword)}&limit=25&sort=relevance"
                     logger.info(f"Searching Reddit for subreddits with keyword: {keyword}")
@@ -326,9 +346,9 @@ class RedditAdapter:
                         "Sec-Fetch-Site": "same-origin",
                     }
                     
-                    response_text, response = fetch_html(search_url, headers=headers)
-                    
-                    if response_text:
+                    outcome = _request_html(search_url, headers=headers)
+                    response_text = outcome.text
+                    if outcome.ok and response_text:
                         import json
                         data = json.loads(response_text)
                         
