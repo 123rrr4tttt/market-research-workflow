@@ -265,6 +265,32 @@ jobs:
         run: |
           pytest -m "unit and not external and not flaky" -q
 
+  backend-typecheck-check:
+    name: backend-typecheck-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            main/backend/requirements.txt
+            pyproject.toml
+
+      - name: Install backend and declared development dependencies
+        run: |
+          python -m pip install -r main/backend/requirements.txt -e '.[dev]'
+
+      - name: Check strict backend boundaries
+        run: |
+          python scripts/dev.py typecheck main/backend/app/services/collect_runtime main/backend/app/composition/collect_runtime.py
+
   llm-report-must-check:
     name: llm-report-must-check
     needs: standards-check

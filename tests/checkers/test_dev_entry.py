@@ -112,10 +112,11 @@ def test_python_override_preserves_virtualenv_symlink(monkeypatch, tmp_path) -> 
     assert DEV._python_executable() != venv_python.resolve()
 
 
-def test_validate_runs_sync_check_focused_tests_and_gates_fail_fast(monkeypatch) -> None:
+def test_validate_runs_sync_check_types_focused_tests_and_gates_fail_fast(monkeypatch) -> None:
     python = Path("/test/python")
     commands = []
     completions = [
+        type("Completed", (), {"returncode": 0})(),
         type("Completed", (), {"returncode": 0})(),
         type("Completed", (), {"returncode": 0})(),
         type("Completed", (), {"returncode": 0})(),
@@ -134,8 +135,28 @@ def test_validate_runs_sync_check_focused_tests_and_gates_fail_fast(monkeypatch)
     assert DEV.main(["validate"]) == 0
     assert commands == [DEV._command_for(command, python) for command in DEV.VALIDATE_COMMANDS]
     assert [command[command.index("contributions") + 1] for command in commands[:2]] == ["sync", "check"]
-    assert commands[2][-len(DEV.PILOT_TESTS):] == list(DEV.PILOT_TESTS)
-    assert commands[3][-1] == DEV.ARCHITECTURE_TEST
+    assert commands[2][1:3] == ["-m", "pyright"]
+    assert commands[3][-len(DEV.PILOT_TESTS):] == list(DEV.PILOT_TESTS)
+    assert commands[4][-1] == DEV.ARCHITECTURE_TEST
+
+
+def test_typecheck_preserves_failure_and_backend_environment(monkeypatch) -> None:
+    backend_python = Path("/backend/python")
+    monkeypatch.setenv("MRW_TYPECHECK_PYTHON", "/checker/python")
+    monkeypatch.setattr(DEV, "_python_executable", lambda: backend_python)
+    monkeypatch.setattr(DEV, "_require_kit_source", lambda *_args: True)
+    commands = []
+
+    def run(command, **_kwargs):
+        commands.append(command)
+        return type("Completed", (), {"returncode": 1})()
+
+    monkeypatch.setattr(DEV.subprocess, "run", run)
+    assert DEV.main(["typecheck"]) == 1
+    command = commands[0]
+    assert command[0] == "/checker/python"
+    assert command[command.index("--pythonpath") + 1] == str(backend_python)
+    assert command[command.index("--project") + 1] == str(DEV.PYPROJECT)
 
 
 def test_validate_stops_before_later_stages_when_a_stage_fails(monkeypatch) -> None:

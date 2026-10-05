@@ -22,7 +22,6 @@ CATALOG = ROOT / "contributions" / "project_catalog.py"
 PILOT_TESTS = (
     "main/backend/tests/unit/test_project_tool_contribution.py",
     "main/backend/tests/successor_runtime/test_i1_c7_c9_assembly.py",
-    "main/backend/tests/successor_runtime/test_p4_c8_5_program.py",
     "main/backend/tests/successor_runtime/test_p4_c8_4_graph.py",
     "main/backend/tests/successor_runtime/test_c8_graph_projection_contribution.py",
     "main/backend/tests/successor_runtime/test_c8_typed_knowledge_contribution.py",
@@ -40,7 +39,7 @@ PILOT_TESTS = (
     "tests/test_c8_semantic_registration.py",
 )
 ARCHITECTURE_TEST = "tests/test_architecture.py"
-VALIDATE_COMMANDS = ("sync", "check", "test", "gates")
+VALIDATE_COMMANDS = ("sync", "check", "typecheck", "test", "gates")
 _KIT_PACKAGE = "functorial-kit"
 _MISSING_KIT_SOURCE = (
     "pyproject.toml must declare valid [tool.mrw.dev-kit] repository, revision, and subdirectory fields"
@@ -161,9 +160,18 @@ def _setup_command(python: Path, kit_path: Path | None = None) -> list[str]:
     return command
 
 
-def _command_for(command: str, python: Path, *, contribution_id: str | None = None) -> list[str]:
+def _command_for(
+    command: str,
+    python: Path,
+    *,
+    contribution_id: str | None = None,
+    typecheck_paths: Sequence[str] = (),
+) -> list[str]:
     if command == "setup":
         return _setup_command(python)
+    if command == "typecheck":
+        checker_python = os.environ.get("MRW_TYPECHECK_PYTHON", str(python))
+        return [checker_python, "-m", "pyright", "--pythonpath", str(python), "--project", str(PYPROJECT), *typecheck_paths]
     if command in {"check", "sync", "inspect"}:
         argv = [
             str(python),
@@ -391,7 +399,7 @@ def _run_validate(python: Path, *, runner=None) -> int:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
-    for command in ("setup", "check", "sync", "test", "gates", "validate", "inspect"):
+    for command in ("setup", "check", "sync", "typecheck", "test", "gates", "validate", "inspect"):
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument(
             "--local-kit",
@@ -401,6 +409,11 @@ def _parser() -> argparse.ArgumentParser:
         )
     inspect_parser = subparsers.choices["inspect"]
     inspect_parser.add_argument("--id", dest="contribution_id")
+    subparsers.choices["typecheck"].add_argument(
+        "paths",
+        nargs="*",
+        help="check the specified dependency closure; omit to check all pyproject include paths",
+    )
     return parser
 
 
@@ -440,7 +453,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             return completed.returncode
         return 0 if _require_kit_source(python, kit_path) else 1
 
-    command = _command_for(args.command, python, contribution_id=getattr(args, "contribution_id", None))
+    command = _command_for(
+        args.command,
+        python,
+        contribution_id=getattr(args, "contribution_id", None),
+        typecheck_paths=getattr(args, "paths", ()),
+    )
     completed = subprocess.run(command, cwd=ROOT, env=_command_environment(), check=False)
     return completed.returncode
 
