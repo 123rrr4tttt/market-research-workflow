@@ -26,6 +26,10 @@ DOCUMENT_QUERY_STATEMENT_BUILDER_VERSION = "document_query_statement_builder.v1"
 _TEXT_SEARCH_FIELDS = ("title", "summary", "content", "uri")
 _DOCUMENT_SOURCE_ALIASES = frozenset(
     {
+        "material",
+        "materials",
+        "project.material",
+        "project.materials",
         "document",
         "documents",
         "project.document",
@@ -36,6 +40,7 @@ _DOCUMENT_SOURCE_ALIASES = frozenset(
 _FIELD_MAP = {
     "id": Document.id,
     "document_id": Document.id,
+    "material_id": Document.id,
     "source_id": Document.source_id,
     "state": Document.state,
     "doc_type": Document.doc_type,

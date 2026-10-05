@@ -49,7 +49,7 @@ from app.successor_runtime.research.object_types import (
     SOURCE_REF_TYPE,
     ObjectType,
 )
-from app.successor_runtime.research.sources import SourceRef
+from app.successor_runtime.research.sources import SourceRef, material_locator_identity
 
 from .first_specimen import _capability_failure, _raise_capability_failure
 
@@ -110,10 +110,10 @@ class SubmissionCommand:
             for value in self.document_ids
         ):
             _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "first specimen requires two distinct positive Document IDs"))
-        if len({source.locator for source in self.source_refs}) != 2:
+        if len({material_locator_identity(source.locator) for source in self.source_refs}) != 2:
             _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "first specimen requires two distinct SourceRef locators"))
         for source, document_id in zip(self.source_refs, self.document_ids, strict=True):
-            if source.locator != f"document://{project_key}/{document_id}":
+            if material_locator_identity(source.locator) != (project_key, str(document_id)):
                 _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "SourceRef locator does not bind the exact Document ID"))
             if source.access_profile_ref != "DocumentCanonicalReadPort":
                 _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "SourceRef must use DocumentCanonicalReadPort"))

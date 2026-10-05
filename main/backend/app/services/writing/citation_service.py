@@ -39,7 +39,7 @@ def upsert_citations(*, doc_id: int, project_key: str, citations: list[dict[str,
             row = WritingDocumentCitation(
                 doc_id=int(doc_id),
                 project_key=project_key,
-                source_doc_id=item.get("source_doc_id"),
+                source_doc_id=item.get("source_material_id", item.get("source_doc_id")),
                 source_uri=str(item.get("source_uri") or "").strip() or None,
                 source_title=str(item.get("source_title") or "").strip() or None,
                 quote_text=str(item.get("quote_text") or "").strip() or None,

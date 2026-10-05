@@ -184,7 +184,7 @@ class ReadOnlyAgentToolRuntime:
                 name="project.structured_data.search",
                 capability_id="project.structured_data.search",
                 description=(
-                    "Search or inventory already-stored structured project data across documents/extracted JSON, graph nodes, "
+                    "Search or inventory already-stored structured project data across materials/extracted JSON, graph nodes, "
                     "market metrics, products, prices, resource-pool entries, keyword memory, search history, and sources. "
                     "This is read-only and never starts collection."
                 ),
@@ -201,7 +201,8 @@ class ReadOnlyAgentToolRuntime:
                             "items": {
                                 "type": "string",
                                 "enum": [
-                                    "documents",
+                                    "materials",
+                                    "documents",  # Legacy input normalized by structured_data_search.
                                     "graph_nodes",
                                     "metric_points",
                                     "products",

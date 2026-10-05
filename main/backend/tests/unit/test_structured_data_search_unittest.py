@@ -8,7 +8,7 @@ import pytest
 
 from app.models.entities import Document
 from app.services.agent_runtime.structured_data_quality import detect_structured_record_noise
-from app.services.agent_runtime.structured_data_search import _normalize_query, _query_model, _record
+from app.services.agent_runtime.structured_data_search import _normalize_datasets, _normalize_query, _parse_structured_data_read_ref, _query_model, _record
 
 pytestmark = pytest.mark.unit
 
@@ -33,6 +33,19 @@ class _FakeRows:
 
 
 class StructuredDataSearchUnitTest(unittest.TestCase):
+    def test_legacy_document_dataset_and_read_handles_normalize_to_materials(self):
+        self.assertEqual(_normalize_datasets(["documents", "materials"]), ["materials"])
+        for ref in (
+            {"dataset": "documents", "record_id": "42"},
+            {"item_id": "structured:documents:42"},
+            {"resource_uri": "project://structured/demo/documents/42"},
+        ):
+            parsed = _parse_structured_data_read_ref(
+                project_key="demo", **{"dataset": None, "record_id": None, "item_id": None, "resource_uri": None, **ref}
+            )
+            self.assertEqual(parsed["dataset"], "materials")
+            self.assertEqual(parsed["record_id"], "42")
+
     def test_targeted_search_skips_dataset_count_query(self):
         session = Mock()
         row = SimpleNamespace(title="Robot market note")

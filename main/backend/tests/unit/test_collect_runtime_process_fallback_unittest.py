@@ -41,6 +41,7 @@ def _fake_db_job(*, job_id: int | None = 7, payload_task_id: object = _MISSING) 
         job_type="source_library_run",
         params=params,
         started_at=datetime(2026, 3, 1, 0, 0, 0, tzinfo=timezone.utc),
+        finished_at=None,
         error=None,
         external_provider="scrapyd",
         external_job_id="spider-job-77",
@@ -157,6 +158,24 @@ class CollectRuntimeProcessFallbackUnitTestCase(unittest.TestCase):
         )
         self.assertIsNotNone(none_id_explicit_projection)
         self.assertEqual(none_id_explicit_projection["task_id"], "provider-task-9")
+
+    def test_process_db_job_external_provider_id_is_not_celery_task_id(self):
+        external_job = _fake_db_job()
+        self.assertEqual(process_api._db_job_public_task_id(external_job), "db-job-7")
+
+        celery_job = _fake_db_job()
+        celery_job.external_provider = None
+        self.assertEqual(process_api._db_job_public_task_id(celery_job), "spider-job-77")
+
+        runtime_job = _fake_db_job(payload_task_id="celery-runtime-7")
+        runtime_job.params["runtime_readback"] = {
+            "worker_name": "worker@external-runtime",
+            "queue": "resource.q",
+        }
+        runtime_job.external_provider = None
+        self.assertEqual(process_api._db_job_public_task_id(runtime_job), "celery-runtime-7")
+        info = process_api._db_job_to_task_info("celery-runtime-7", runtime_job)
+        self.assertEqual(info["worker"], "worker@external-runtime")
 
     def test_process_db_job_info_and_logs_share_fallback_for_null_and_empty_payload_ids(self):
         for payload_task_id in (_MISSING, None, ""):

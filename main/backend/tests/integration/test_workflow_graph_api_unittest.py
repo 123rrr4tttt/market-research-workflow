@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -16,6 +17,8 @@ try:
 
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
+    from app.services.skill_runtime import _RUNTIME as skill_runtime
+    from app.services.workflow_graph import WorkflowGraphCompilerService, compiler
     from app.services.workflow_graph.curated_service import WorkflowGraphObjectMissingError, WorkflowGraphSyncConflictError
 
     _IMPORT_ERROR = None
@@ -245,6 +248,226 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(create_resp.status_code, 200)
         self.assertEqual(create_resp.json()["data"]["template"]["template_id"], "tpl-2")
 
+    def test_template_list_invokes_bound_noarg_handler(self):
+        skill_runtime.list_skills()
+        skill_id = "workflow_graph.template.list"
+        original_spec = skill_runtime._registry[skill_id]
+        expected = {"items": [{"template_id": "tpl-1"}], "base_version": 3}
+
+        with patch.object(
+            WorkflowGraphCompilerService,
+            "list_templates",
+            return_value=expected,
+        ) as list_mock, patch.dict(
+            skill_runtime._registry,
+            {skill_id: replace(original_spec, handler=compiler.list_templates)},
+        ):
+            response = self.client.get("/api/v1/workflow-graph/templates", headers=self.headers)
+
+        list_mock.assert_called_once_with()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"], expected)
+
+    def test_project_view_template_roundtrip_and_project_isolation(self):
+        skill_runtime.list_skills()
+        runtime_skills = (
+            "workflow_graph.template.create",
+            "workflow_graph.template.get",
+            "workflow_graph.template.version.create",
+            "workflow_graph.template.version.get",
+            "workflow_graph.template.version.activate",
+        )
+        registry_replacements = {
+            skill_id: replace(
+                skill_runtime._registry[skill_id],
+                handler=getattr(compiler, {
+                    "workflow_graph.template.create": "create_template",
+                    "workflow_graph.template.get": "get_template",
+                    "workflow_graph.template.version.create": "create_template_version",
+                    "workflow_graph.template.version.get": "get_template_version",
+                    "workflow_graph.template.version.activate": "activate_template_version",
+                }[skill_id]),
+            )
+            for skill_id in runtime_skills
+        }
+        config_store = {}
+
+        def fake_get_config(project_key, config_key):
+            return {"payload": config_store.get((project_key, config_key))}
+
+        def fake_upsert_config(project_key, config_key, config_type, *, payload):
+            config_store[(project_key, config_key)] = payload
+            return {"payload": payload}
+
+        project_view = {
+            "schema": "project-graph-view/v1",
+            "declaredNodeTypes": ["watchpoint"],
+            "declaredRelationTypes": [
+                {"sourceType": "watchpoint", "targetType": "CompanyEntity", "relation": "supervises"},
+            ],
+            "mode": "selection",
+            "nodeKeys": ["doc:one"],
+            "hiddenNodeTypes": ["noise"],
+            "hiddenEdgeKinds": ["domain:noise"],
+            "additionalNodes": [
+                {"id": "extra-1", "type": "document", "name": "Additional node"},
+            ],
+            "additionalEdges": [],
+        }
+        project_view_dsl = {
+            "project_view": project_view,
+            "nodes": [{"node_id": "doc:one", "node_type": "document"}],
+            "edges": [],
+        }
+        legacy_dsl = {
+            "nodes": [{"node_id": "legacy-1", "node_type": "document"}],
+            "edges": [],
+        }
+        beta_project_view = {
+            **project_view,
+            "mode": "all",
+            "nodeKeys": [],
+        }
+        beta_project_view_dsl = {
+            **project_view_dsl,
+            "project_view": beta_project_view,
+        }
+        alpha_headers = self.headers
+        beta_headers = {
+            **self.headers,
+            "X-Project-Key": "isolated_proj",
+            "X-Request-Id": "workflow-graph-project-isolation",
+        }
+
+        with patch.dict(
+            skill_runtime._registry,
+            registry_replacements,
+        ), patch(
+            "app.services.workflow_graph.templates.get_ingest_config",
+            side_effect=fake_get_config,
+        ), patch(
+            "app.services.workflow_graph.templates.upsert_ingest_config",
+            side_effect=fake_upsert_config,
+        ):
+            create_resp = self.client.post(
+                "/api/v1/workflow-graph/templates",
+                json={
+                    "project_key": "demo_proj",
+                    "template_id": "shared-view-template",
+                    "name": "project view",
+                },
+                headers=alpha_headers,
+            )
+            self.assertEqual(create_resp.status_code, 200)
+
+            create_view_resp = self.client.post(
+                "/api/v1/workflow-graph/templates/shared-view-template/versions",
+                json={
+                    "project_key": "demo_proj",
+                    "version_id": "view-v1",
+                    "graph_object_kind": "template_graph",
+                    "dsl": project_view_dsl,
+                },
+                headers=alpha_headers,
+            )
+            self.assertEqual(create_view_resp.status_code, 200)
+            self.assertEqual(create_view_resp.json()["data"]["version"]["dsl"], project_view_dsl)
+
+            create_legacy_resp = self.client.post(
+                "/api/v1/workflow-graph/templates/shared-view-template/versions",
+                json={
+                    "project_key": "demo_proj",
+                    "version_id": "legacy-v1",
+                    "graph_object_kind": "template_graph",
+                    "dsl": legacy_dsl,
+                },
+                headers=alpha_headers,
+            )
+            self.assertEqual(create_legacy_resp.status_code, 200)
+            self.assertEqual(create_legacy_resp.json()["data"]["version"]["dsl"], legacy_dsl)
+            alpha_base_version = create_legacy_resp.json()["data"]["base_version"]
+
+            activate_resp = self.client.post(
+                "/api/v1/workflow-graph/templates/shared-view-template/versions/view-v1/activate",
+                json={"project_key": "demo_proj", "base_version": alpha_base_version},
+                headers=alpha_headers,
+            )
+            self.assertEqual(activate_resp.status_code, 200)
+            self.assertEqual(activate_resp.json()["data"]["active_version_id"], "view-v1")
+
+            get_template_resp = self.client.get(
+                "/api/v1/workflow-graph/templates/shared-view-template",
+                headers=alpha_headers,
+            )
+            self.assertEqual(get_template_resp.status_code, 200)
+            template_data = get_template_resp.json()["data"]
+            self.assertEqual(template_data["template"]["active_version_id"], "view-v1")
+
+            get_view_resp = self.client.get(
+                "/api/v1/workflow-graph/templates/shared-view-template/versions/view-v1",
+                headers=alpha_headers,
+            )
+            self.assertEqual(get_view_resp.status_code, 200)
+            self.assertEqual(get_view_resp.json()["data"]["version"]["dsl"], project_view_dsl)
+
+            get_legacy_resp = self.client.get(
+                "/api/v1/workflow-graph/templates/shared-view-template/versions/legacy-v1",
+                headers=alpha_headers,
+            )
+            self.assertEqual(get_legacy_resp.status_code, 200)
+            self.assertEqual(get_legacy_resp.json()["data"]["version"]["dsl"], legacy_dsl)
+
+            create_beta_template_resp = self.client.post(
+                "/api/v1/workflow-graph/templates",
+                json={
+                    "project_key": "isolated_proj",
+                    "template_id": "shared-view-template",
+                    "name": "beta project view",
+                },
+                headers=beta_headers,
+            )
+            self.assertEqual(create_beta_template_resp.status_code, 200)
+
+            create_beta_view_resp = self.client.post(
+                "/api/v1/workflow-graph/templates/shared-view-template/versions",
+                json={
+                    "project_key": "isolated_proj",
+                    "version_id": "view-v1",
+                    "graph_object_kind": "template_graph",
+                    "dsl": beta_project_view_dsl,
+                },
+                headers=beta_headers,
+            )
+            self.assertEqual(create_beta_view_resp.status_code, 200)
+            self.assertEqual(
+                create_beta_view_resp.json()["data"]["version"]["dsl"],
+                beta_project_view_dsl,
+            )
+
+            get_beta_view_resp = self.client.get(
+                "/api/v1/workflow-graph/templates/shared-view-template/versions/view-v1",
+                headers=beta_headers,
+            )
+            self.assertEqual(get_beta_view_resp.status_code, 200)
+            beta_data = get_beta_view_resp.json()["data"]
+            self.assertEqual(beta_data["version"]["dsl"], beta_project_view_dsl)
+            self.assertNotEqual(beta_data["version"]["dsl"], project_view_dsl)
+
+            get_alpha_view_again_resp = self.client.get(
+                "/api/v1/workflow-graph/templates/shared-view-template/versions/view-v1",
+                headers=alpha_headers,
+            )
+            self.assertEqual(get_alpha_view_again_resp.status_code, 200)
+            self.assertEqual(
+                get_alpha_view_again_resp.json()["data"]["version"]["dsl"],
+                project_view_dsl,
+            )
+
+        self.assertEqual(len(config_store), 2)
+        self.assertIn(("demo_proj", "workflow_graph_templates_v1"), config_store)
+        self.assertIn(("isolated_proj", "workflow_graph_templates_v1"), config_store)
+
+    def test_template_crud_get_patch_delete_success(self):
         with patch(
             "app.api.workflow_graph._invoke_get_template",
             return_value={"template": {"template_id": "tpl-2", "name": "n"}, "base_version": 4},

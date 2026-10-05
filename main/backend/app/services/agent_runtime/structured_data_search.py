@@ -9,6 +9,7 @@ from typing import Annotated, Any, Callable
 from sqlalchemy import Text, cast, func, or_, select
 
 from app.models.base import SessionLocal
+from app.contracts.materials import normalize_material_dataset
 from app.models.entities import (
     Document,
     GraphNodeRecord,
@@ -32,7 +33,7 @@ DatasetItemMapper = Callable[[Any], dict[str, Any]]
 
 
 DATASET_ORDER: tuple[str, ...] = (
-    "documents",
+    "materials",
     "graph_nodes",
     "metric_points",
     "products",
@@ -46,7 +47,7 @@ DATASET_ORDER: tuple[str, ...] = (
 )
 
 DATASET_LABELS: dict[str, str] = {
-    "documents": "Documents and extracted JSON",
+    "materials": "Materials and extracted JSON",
     "graph_nodes": "Projected graph nodes",
     "metric_points": "Metric time-series points",
     "products": "Products",
@@ -56,7 +57,7 @@ DATASET_LABELS: dict[str, str] = {
     "keyword_history": "Keyword history",
     "keyword_priors": "Keyword priors",
     "search_history": "Search history",
-    "sources": "Document sources",
+    "sources": "Material sources",
 }
 
 _GENERIC_DATA_QUESTIONS = (
@@ -88,7 +89,7 @@ def query_project_structured_data(
     resolved_project_key = str(project_key or "").strip()
     if not resolved_project_key:
         return {
-            "contract_version": "project.structured_data.search.v1",
+            "contract_version": "project.structured_data.search.v2",
             "project_key": project_key,
             "query": str(query or "").strip(),
             "items": [],
@@ -197,7 +198,7 @@ def query_project_structured_data(
     )
     document_query_data = document_query_envelope["data"]
     return {
-        "contract_version": "project.structured_data.search.v1",
+        "contract_version": "project.structured_data.search.v2",
         "project_key": resolved_project_key,
         "query": query_text,
         "query_mode": "inventory" if not query_text else "search",
@@ -245,7 +246,7 @@ def build_structured_data_model_evidence_manifest(
     for item in list(items or [])[: max(1, int(limit or 12))]:
         if not isinstance(item, dict):
             continue
-        dataset = str(item.get("dataset") or "").strip()
+        dataset = normalize_material_dataset(item.get("dataset"))
         record_id = str(item.get("record_id") or item.get("id") or "").strip()
         if not dataset or not record_id:
             continue
@@ -316,7 +317,7 @@ def read_project_structured_data_item(
                 item = mapper(row)
     manifest = build_structured_data_model_evidence_manifest(project_key=resolved_project_key, query=None, items=[item], limit=1)
     return {
-        "contract_version": "project.structured_data.item.read.v1",
+        "contract_version": "project.structured_data.item.read.v2",
         "project_key": resolved_project_key,
         "dataset": dataset_name,
         "record_id": str(parsed["record_id"]),
@@ -356,7 +357,7 @@ def read_project_structured_data_items(
     for result in results:
         manifest.extend([item for item in list(result.get("model_evidence_manifest") or []) if isinstance(item, dict)])
     return {
-        "contract_version": "project.structured_data.items.read.v1",
+        "contract_version": "project.structured_data.items.read.v2",
         "project_key": str(project_key or "").strip(),
         "items": results,
         "model_evidence_manifest": manifest,
@@ -424,7 +425,7 @@ def _normalize_datasets(value: list[str] | tuple[str, ...] | None) -> list[str]:
         return list(DATASET_ORDER)
     out: list[str] = []
     for item in value:
-        key = str(item or "").strip()
+        key = normalize_material_dataset(item)
         if key and key not in out:
             out.append(key)
     return out or list(DATASET_ORDER)
@@ -539,7 +540,7 @@ def _query_documents(session: Any, query: str, limit: int) -> tuple[list[dict[st
     return _query_model(
         session,
         Document,
-        dataset="documents",
+        dataset="materials",
         query=query,
         limit=limit,
         mapper=_document_item,
@@ -735,12 +736,13 @@ def _query_search_history(session: Any, query: str, limit: int) -> tuple[list[di
 
 def _document_item(row: Document) -> dict[str, Any]:
     return _record(
-        "documents",
+        "materials",
         row.id,
-        row.title or row.uri or f"document:{row.id}",
+        row.title or row.uri or f"material:{row.id}",
         row.summary or row.content,
         {
             "doc_type": row.doc_type,
+            "material_id": row.id,
             "status": row.status,
             "state": row.state,
             "publish_date": _serialize_value(row.publish_date),
@@ -964,6 +966,7 @@ def _record(
     date_value: Any | None = None,
 ) -> dict[str, Any]:
     fields = dict(fields or {})
+    dataset = normalize_material_dataset(dataset)
     summary_text, summary_flags = _clean_display_summary(summary, limit=420)
     if summary_flags:
         quality_flags = dict(fields.get("quality_flags") or {})
@@ -1008,7 +1011,7 @@ def _parse_structured_data_read_ref(
         if len(parts) == 3:
             dataset_text = dataset_text or parts[1]
             record_text = record_text or parts[2]
-    return {"project_key": project_key, "dataset": dataset_text, "record_id": record_text}
+    return {"project_key": project_key, "dataset": normalize_material_dataset(dataset_text), "record_id": record_text}
 
 
 def _structured_item_read_error(
@@ -1020,7 +1023,7 @@ def _structured_item_read_error(
     message: str,
 ) -> StructuredSearchResult:
     return {
-        "contract_version": "project.structured_data.item.read.v1",
+        "contract_version": "project.structured_data.item.read.v2",
         "project_key": str(project_key or "").strip(),
         "dataset": str(dataset or "").strip(),
         "record_id": str(record_id or "").strip(),
@@ -1107,7 +1110,7 @@ def _compact_json_value(value: Any, *, max_items: int, max_depth: int, max_strin
 
 
 _DATASET_HANDLERS: dict[str, DatasetHandler] = {
-    "documents": _query_documents,
+    "materials": _query_documents,
     "graph_nodes": _query_graph_nodes,
     "metric_points": _query_metric_points,
     "products": _query_products,
@@ -1121,7 +1124,7 @@ _DATASET_HANDLERS: dict[str, DatasetHandler] = {
 }
 
 _DATASET_MODELS: dict[str, Any] = {
-    "documents": Document,
+    "materials": Document,
     "graph_nodes": GraphNodeRecord,
     "metric_points": MarketMetricPoint,
     "products": Product,
@@ -1135,7 +1138,7 @@ _DATASET_MODELS: dict[str, Any] = {
 }
 
 _DATASET_ITEM_MAPPERS: dict[str, DatasetItemMapper] = {
-    "documents": _document_item,
+    "materials": _document_item,
     "graph_nodes": _graph_node_item,
     "metric_points": _metric_point_item,
     "products": _product_item,

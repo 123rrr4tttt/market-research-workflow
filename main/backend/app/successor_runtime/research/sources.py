@@ -4,10 +4,33 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from urllib.parse import urlsplit
 
 from .codec import _failure, _raise_failure, finalize_digest
 
-__all__ = ["SourceRef"]
+__all__ = ["SourceRef", "material_locator_identity"]
+
+
+def material_locator_identity(locator: str) -> tuple[str, str] | None:
+    """Compare material locators without rewriting content-addressed sources."""
+
+    try:
+        parsed = urlsplit(locator)
+    except ValueError:
+        return None
+    if (
+        parsed.scheme not in {"material", "document"}
+        or not parsed.netloc
+        or any(char in parsed.netloc for char in "@:")
+        or not parsed.path.startswith("/")
+        or parsed.query
+        or parsed.fragment
+    ):
+        return None
+    object_id = parsed.path[1:]
+    if not object_id or object_id.startswith("/"):
+        return None
+    return parsed.netloc, object_id
 
 
 @dataclass(frozen=True, slots=True)

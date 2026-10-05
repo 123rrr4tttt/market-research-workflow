@@ -192,6 +192,7 @@ def _invoke_get_compiled(graph_id: str) -> Any:
 def _invoke_list_templates() -> Any:
     return invoke_skill(
         skill_id="workflow_graph.template.list",
+        args=(),
         context=_skill_context(operation="workflow_graph.template"),
     ).get("result")
 

@@ -1115,7 +1115,7 @@ def build_persisted_card_request_response_readback(
         "query": query,
         "selection_hash": handoff.selection_hash,
         "limit": 10,
-        "sources": ["document", "resource", "graph"],
+        "sources": ["material", "resource", "graph"],
         "context": {
             "contract_version": "writing.context_boundary.e3.v1",
             "typed_knowledge_context": typed_context,
@@ -1157,7 +1157,7 @@ def build_persisted_card_request_response_readback(
         "selection_hash": _selection_hash(normalized_project_key, query),
         "suggested_queries": [normalized_query],
         "search_backends_used": [],
-        "source_count": {"document": 0, "resource": 1, "graph": 0},
+        "source_count": {"material": 0, "resource": 1, "graph": 0},
         "dedupe_count": 0,
         "context_boundary": {
             "contract_version": "writing.context_boundary.e3.v1",

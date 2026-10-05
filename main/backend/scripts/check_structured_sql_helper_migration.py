@@ -17,7 +17,7 @@ except ImportError:  # direct script execution
 
 CONTRACT_VERSION = "structured-sql-helper-migration.wave15.v1"
 TOPIC_ID = "2026-03-12-data-structured-service-modularization"
-DOCUMENT_QUERY_CONTRACT_VERSION = "document_queries.v1"
+DOCUMENT_QUERY_CONTRACT_VERSION = "document_queries.v2"
 
 
 @dataclass(frozen=True)

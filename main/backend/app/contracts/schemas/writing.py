@@ -1,13 +1,17 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from functorial_kit import Failure
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
+from ..materials import normalize_material_source_type
 from mrw_functorial_kit.core.application_failure_semantics import writing_request_contract_failures
 
 
 _WRITING_FAILURE_WITNESS = "test:test_w01_contract_failures"
+MaterialCardSource = Annotated[
+    Literal["material", "resource", "graph"], BeforeValidator(normalize_material_source_type)
+]
 
 
 def _normalize_writing_query(value: object, *, operation: str) -> str | Failure:
@@ -61,7 +65,7 @@ class KeywordCardRequest(WritingRequestContext):
     query: str = Field(..., min_length=1, max_length=200)
     selection_hash: str | None = Field(default=None, max_length=64)
     limit: int = Field(default=10, ge=1, le=50)
-    sources: list[Literal["document", "resource", "graph"]] = Field(default_factory=list)
+    sources: list[MaterialCardSource] = Field(default_factory=list)
     timeout_ms: int | None = Field(default=None, ge=50, le=30000)
     context: "WritingContextEnvelope | None" = None
     graph_context: dict[str, Any] | None = None
@@ -76,7 +80,7 @@ class KeywordCardRequest(WritingRequestContext):
 
 class KeywordCardItem(BaseModel):
     card_id: str = Field(..., min_length=1, max_length=128)
-    source_type: Literal["document", "resource", "graph"]
+    source_type: MaterialCardSource
     title: str = Field(..., min_length=1, max_length=300)
     snippet: str = Field(default="", max_length=2000)
     url: str | None = Field(default=None, max_length=2048)
@@ -119,7 +123,7 @@ class KeywordCardPreviewResponse(BaseModel):
     publisher: str | None = None
     snippet: str = ""
     score: float = 0.0
-    source_type: Literal["document", "resource", "graph"]
+    source_type: MaterialCardSource
     quick_actions: list[str] = Field(default_factory=list)
 
 
@@ -142,7 +146,7 @@ class KeywordCardDetailResponse(BaseModel):
     dedupe_trace: list[dict[str, Any]] = Field(default_factory=list)
     provenance: dict[str, Any] = Field(default_factory=dict)
     selection_matches: dict[str, Any] = Field(default_factory=dict)
-    source_type: Literal["document", "resource", "graph"]
+    source_type: MaterialCardSource
 
 
 class SuggestRequest(WritingRequestContext):
@@ -318,6 +322,7 @@ class WritingCitationData(BaseModel):
     doc_id: int | None = None
     project_key: str | None = None
     source_doc_id: int | None = None
+    source_material_id: int | None = None
     source_uri: str | None = None
     source_title: str | None = None
     quote_text: str | None = None

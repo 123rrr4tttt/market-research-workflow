@@ -27,6 +27,7 @@ from app.services.project_retrieval.proposals import (
     rapid_proposal_from_mapping,
 )
 from .macro_registration import activate_registration_package, read_registration_package, save_registration_package
+from .host_authorization import current_verified_host_authorization, validate_verified_host_authorization
 
 
 FacilityHandler = Callable[
@@ -93,7 +94,10 @@ class FacilityBinding:
             and self.tool_spec.concurrency == "serial"
         )
         governed_dispatch = (
-            self.input_policy == "project_tool_contract"
+            (
+                self.input_policy == "project_tool_contract"
+                or (self.input_policy == "trusted_request" and self.governed_dispatch_ref == "agent_core.host_authorization")
+            )
             and isinstance(self.governed_dispatch_ref, str)
             and bool(self.governed_dispatch_ref.strip())
             and self.tool_spec.metadata.get("uses_existing_frontdoor") == self.governed_dispatch_ref
@@ -539,9 +543,9 @@ def macro_registration_package_create_facility(service: Any) -> FacilityBinding:
         ),
         input_schema={"type": "object", "required": ["package"], "properties": {"package": _registration_package_schema()}, "additionalProperties": False},
         output_schema={"type": "object", "additionalProperties": True}, source="project", risk="write_shared",
-        permission="ask", concurrency="serial", timeout_seconds=30,
+        permission="allow", concurrency="serial", timeout_seconds=30,
         project_service_id="agent_macro.registration_package.create",
-        metadata={"contract_version": "agent_macro.registration_package.create.v1", "implemented": True, "activation": "separate_agentcore_consent"},
+        metadata={"contract_version": "agent_macro.registration_package.create.v1", "implemented": True, "activation": "host_policy", "uses_existing_frontdoor": "agent_core.host_authorization"},
     )
 
     def handler(call: CoreToolCall, _spec: CoreToolSpec, request: AgentCoreRequest, _emit: Callable[[CoreEvent], None]) -> CoreToolResult:
@@ -550,6 +554,22 @@ def macro_registration_package_create_facility(service: Any) -> FacilityBinding:
             return _missing_project(call)
         if not request.session_id:
             return _failed(call, ValueError("session_id is required"), summary="Registration package needs a session identity.")
+        authorization = current_verified_host_authorization()
+        if authorization is None:
+            return _failed(call, ValueError("verified host authorization is required"), summary="Registration package creation is not host-authorized.")
+        host_context = authorization.context
+        if (
+            host_context.project_key != project_key
+            or host_context.session_id != request.session_id
+            or host_context.turn_id != request.turn_id
+        ):
+            return _failed(call, ValueError("host authorization context does not match the trusted request"), summary="Registration package creation context is invalid.")
+        checked = validate_verified_host_authorization(
+            authorization, host_context, _spec, dict(call.arguments),
+            package_digest=authorization.package_digest,
+        )
+        if isinstance(checked, Failure):
+            return _failed(call, checked, summary="Registration package host authorization is invalid.")
         result = save_registration_package(service, session_id=request.session_id, project_key=project_key, payload=call.arguments.get("package") or {})
         if isinstance(result, Failure):
             return _failed(call, result, summary="Macro registration package was rejected.")
@@ -563,8 +583,9 @@ def macro_registration_package_create_facility(service: Any) -> FacilityBinding:
     return FacilityBinding(
         binding_id="facility.agent_macro.registration_package.create", version="1", tool_spec=spec, handler=handler,
         executor_ref="agent_macro.registration_package.create", scope_source="AgentCoreRequest.project_key/session_id",
-        permission_source="Candidate creation only; activation requires separate AgentCore user consent", failure_family="agent_runtime",
+        permission_source="Trusted host policy for ordinary module creation", failure_family="agent_runtime",
         readback_semantics="candidate package artifact with canonical content digest",
+        governed_dispatch_ref="agent_core.host_authorization",
     )
 
 
@@ -602,22 +623,21 @@ def macro_registration_package_activate_facility(service: Any) -> FacilityBindin
         name="agent_macro.registration_package.activate",
         title="Activate Agent Macro Registration Package",
         description_for_model=(
-            "Activate a candidate package after the user has explicitly agreed in this AgentCore conversation. "
-            "This records consent and activates only the current session/project scope."
+            "Activate a candidate package automatically under the trusted host policy. "
+            "This records host authorization and activates only the current project scope."
         ),
         input_schema={
             "type": "object",
-            "required": ["package_id", "consent_statement"],
+            "required": ["package_id", "package_version"],
             "properties": {
                 "package_id": {"type": "string", "minLength": 1},
                 "package_version": {"type": "string", "minLength": 1},
-                "consent_statement": {"type": "string", "minLength": 1},
             },
             "additionalProperties": False,
         },
-        output_schema={"type": "object", "additionalProperties": True}, source="project", risk="write_shared", permission="ask", concurrency="serial", timeout_seconds=30,
+        output_schema={"type": "object", "additionalProperties": True}, source="project", risk="write_shared", permission="allow", concurrency="serial", timeout_seconds=30,
         project_service_id="agent_macro.registration_package.activate",
-        metadata={"contract_version": "agent_macro.registration_package.activate.v1", "implemented": True, "activation": "agentcore_user_consent"},
+        metadata={"contract_version": "agent_macro.registration_package.activate.v1", "implemented": True, "activation": "host_policy", "uses_existing_frontdoor": "agent_core.host_authorization"},
     )
 
     def handler(call: CoreToolCall, _spec: CoreToolSpec, request: AgentCoreRequest, _emit: Callable[[CoreEvent], None]) -> CoreToolResult:
@@ -626,13 +646,40 @@ def macro_registration_package_activate_facility(service: Any) -> FacilityBindin
             return _missing_project(call)
         if not request.session_id:
             return _failed(call, ValueError("session_id is required"), summary="Registration package activation needs a session identity.")
+        authorization = current_verified_host_authorization()
+        if authorization is None:
+            return _failed(
+                call,
+                ValueError("verified host authorization is required"),
+                summary="Registration package activation is not host-authorized.",
+            )
+        host_context = authorization.context
+        if (
+            str(host_context.project_key) != project_key
+            or str(host_context.session_id) != request.session_id
+            or str(host_context.turn_id) != request.turn_id
+        ):
+            return _failed(
+                call,
+                ValueError("host authorization context does not match the trusted request"),
+                summary="Registration package activation context is invalid.",
+            )
+        checked = validate_verified_host_authorization(
+            authorization,
+            host_context,
+            _spec,
+            dict(call.arguments),
+            package_digest=authorization.package_digest,
+        )
+        if isinstance(checked, Failure):
+            return _failed(call, checked, summary="Registration package host authorization is invalid.")
         result = activate_registration_package(
             service,
             session_id=request.session_id,
             project_key=project_key,
             package_id=str(call.arguments.get("package_id") or "").strip(),
-            package_version=str(call.arguments.get("package_version") or "").strip() or None,
-            consent_statement=str(call.arguments.get("consent_statement") or "").strip(),
+            package_version=str(call.arguments.get("package_version") or "").strip(),
+            host_authorization=authorization,
         )
         if isinstance(result, Failure):
             return _failed(call, result, summary="Registration package activation failed.")
@@ -646,8 +693,9 @@ def macro_registration_package_activate_facility(service: Any) -> FacilityBindin
     return FacilityBinding(
         binding_id="facility.agent_macro.registration_package.activate", version="1", tool_spec=spec, handler=handler,
         executor_ref="agent_macro.registration_package.activate", scope_source="AgentCoreRequest.project_key/session_id",
-        permission_source="Explicit user agreement in AgentCore conversation", failure_family="agent_runtime",
-        readback_semantics="activated package with recorded user consent and unchanged content digest",
+        permission_source="Trusted host policy for ordinary module activation", failure_family="agent_runtime",
+        readback_semantics="activated package with recorded host authorization and unchanged content digest",
+        governed_dispatch_ref="agent_core.host_authorization",
     )
 
 

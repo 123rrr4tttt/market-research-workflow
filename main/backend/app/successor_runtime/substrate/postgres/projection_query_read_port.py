@@ -34,6 +34,7 @@ from typing import Any
 from sqlalchemy.engine import Connection, Engine
 
 from app.successor_runtime.research.codec import canonical_bytes
+from app.successor_runtime.research.sources import material_locator_identity
 from app.successor_runtime.runtime.facade_contracts import (
     C9CommandBlocked,
     C9Unavailable,
@@ -83,13 +84,15 @@ __all__ = [
     "EngineBackedProjectionQueryReadPort",
     "MATERIAL_DIRECT_PROJECTION_SCHEMA",
     "MATERIAL_DOCUMENT_SOURCE_PREFIX",
+    "MATERIAL_SOURCE_PREFIX",
     "PostgresProjectionQueryReadPort",
 ]
 
-MATERIAL_DOCUMENT_SOURCE_PREFIX = "document:"
+MATERIAL_SOURCE_PREFIX = "material:"
+MATERIAL_DOCUMENT_SOURCE_PREFIX = MATERIAL_SOURCE_PREFIX
 MATERIAL_DIRECT_PROJECTION_SCHEMA = "mrw.material.document-projection.v2"
 # Import compatibility only; current response bytes use the material identity.
-C7_DOCUMENT_SOURCE_PREFIX = MATERIAL_DOCUMENT_SOURCE_PREFIX
+C7_DOCUMENT_SOURCE_PREFIX = "document:"
 C7_DIRECT_PROJECTION_SCHEMA = MATERIAL_DIRECT_PROJECTION_SCHEMA
 ACTIVE_PROJECT_MATERIAL_PROJECTOR_ID = "projection.project-material.v2"
 ACTIVE_PROJECT_MATERIAL_PROJECTOR_VERSION = "2.0.0"
@@ -115,19 +118,27 @@ _MATERIAL_PROJECTOR_ROUTES: dict[
 }
 
 
-def _object_id_from_source_ref(source_ref: str) -> str:
-    """Extract the canonical document object id from the wire source ref."""
+def _object_id_from_source_ref(source_ref: str, *, project_key: str | None = None) -> str:
+    """Read current and legacy public refs, preserving stored projector keys."""
 
     value = str(source_ref or "").strip()
     if not value:
         raise C9Unavailable(
             "material projection snapshot query requires a non-empty source_ref"
         )
-    if value.startswith(MATERIAL_DOCUMENT_SOURCE_PREFIX):
-        value = value[len(MATERIAL_DOCUMENT_SOURCE_PREFIX) :].strip()
+    if value.startswith(("material://", "document://")):
+        identity = material_locator_identity(value)
+        if identity is None or (project_key is not None and identity[0] != project_key):
+            raise C9Unavailable("material locator does not match the query project")
+        value = identity[1]
+    else:
+        for prefix in (MATERIAL_SOURCE_PREFIX, C7_DOCUMENT_SOURCE_PREFIX):
+            if value.startswith(prefix):
+                value = value[len(prefix) :].strip()
+                break
     if not value:
         raise C9Unavailable(
-            "material projection snapshot source_ref does not name a document"
+            "material projection snapshot source_ref does not name a material"
         )
     return value
 
@@ -298,7 +309,9 @@ class PostgresProjectionQueryReadPort:
                 "material projection_id does not match the registered projector"
             )
         source_ref = str(params.get("source_ref") or "")
-        object_id = _object_id_from_source_ref(source_ref)
+        object_id = _object_id_from_source_ref(
+            source_ref, project_key=self.scope.project_scope.project_key
+        )
         driver = C7ProjectorDriver(self.connection, self.scope)
         try:
             document_ref = driver.read_document(object_id)
@@ -354,6 +367,7 @@ class PostgresProjectionQueryReadPort:
             "read_only": True,
             "no_postgres_write": True,
         }
+        payload["material_ref"] = dict(payload["document_ref"])
         payload_bytes = canonical_bytes(payload)
         payload_digest = hashlib.sha256(payload_bytes).hexdigest()
         value_id = (

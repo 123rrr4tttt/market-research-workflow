@@ -223,17 +223,17 @@ class InformationTopologyService:
                     total += 1
         return total
 
-    def merge_material_documents(self, project_key: str) -> dict[str, Any] | Failure:
-        """Explicit atomic V1 migration; historical revisions remain unchanged."""
+    def merge_materials(self, project_key: str) -> dict[str, Any] | Failure:
+        """Atomic V1/V2 material address migration; history remains unchanged."""
         binder = self.dependencies.material_binder
         if binder is None:
-            return topology_failures.fail("INVALID_STRUCTURE", "Document material binding is not configured")
+            return topology_failures.fail("INVALID_STRUCTURE", "material binding is not configured")
         with self.dependencies.session_factory() as session:
             with session.begin():
                 rows = self.repository.list_current_states(session, project_key)
                 writes = []
                 for row in rows:
-                    if not row["profile_id"].startswith("retrieval.domain.") or row["profile_version"].startswith("2+"):
+                    if not row["profile_id"].startswith("retrieval.domain.") or row["profile_version"].startswith("3+"):
                         continue
                     key = (project_key, row["module_id"], row["namespace"], row["state_id"])
                     current = self.repository.read_state(session, key)
@@ -260,6 +260,8 @@ class InformationTopologyService:
                     session.rollback()
                     return result
         return {"project_key": project_key, "migrated_states": len(writes)}
+
+    merge_material_documents = merge_materials
 
     def resolve(self, project_key: str, refs: Sequence[Mapping[str, Any]]) -> dict[str, Any] | Failure:
         resolved: list[dict[str, Any]] = []
@@ -513,8 +515,14 @@ class InformationTopologyService:
                             element = _element(raw["element"]) if raw.get("element") is not None else None
                             if element is not None and ref.ref.type_id == "material":
                                 prior = next((e for e in original.elements if e.ref == ref), None)
-                                if prior is not None and prior.attributes.get("document_ref") != element.attributes.get("document_ref"):
-                                    return topology_failures.fail("INVALID_PATCH", "material Document identity cannot be rebound by a structural patch")
+                                if prior is not None:
+                                    from app.services.document_queries.identity import canonical_material_identity
+
+                                    prior_ref = prior.attributes.get("material_ref", prior.attributes.get("document_ref"))
+                                    next_ref = element.attributes.get("material_ref", element.attributes.get("document_ref"))
+                                    identity = lambda value: canonical_material_identity(project_key, value) if isinstance(value, Mapping) else value
+                                    if identity(prior_ref) != identity(next_ref):
+                                        return topology_failures.fail("INVALID_PATCH", "material identity cannot be rebound by a structural patch")
                             if ref.ref.project_key != project_key or (element and any(
                                 candidate.ref.project_key != project_key
                                 for candidate in (element.ref, *(ep.target for ep in element.endpoints))

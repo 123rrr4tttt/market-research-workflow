@@ -85,6 +85,7 @@ def build_social_data_item(
     keywords = extracted.get("keywords")
     item = {
         "id": getattr(doc, "id", None),
+        "material_id": getattr(doc, "id", None),
         "title": getattr(doc, "title", None),
         "platform": get_social_platform_label(doc, default=None),
         "username": _string_or_none(extracted.get("username")),

@@ -4,6 +4,7 @@ from typing import Any, Mapping
 from fastapi import APIRouter, HTTPException, Query, Request
 from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..contracts.responses import ok
+from ..contracts.materials import normalize_material_source_type
 from ..services.document_queries import (
     DOCUMENT_QUERY_CONTRACT_VERSION,
     build_search_endpoint_document_query_envelope,
@@ -127,6 +128,8 @@ def _search_result_identifier(hit: Mapping[str, Any], *, index: int) -> str:
     for value in (
         hit.get("hit_id"),
         hit.get("id"),
+        hit.get("material_id"),
+        vector_object.get("material_id"),
         hit.get("document_id"),
         vector_object.get("document_id"),
         vector_object.get("object_id"),
@@ -156,7 +159,7 @@ def _search_group_source_type(hit: Mapping[str, Any]) -> str:
     provenance = _search_mapping(hit.get("provenance"))
     vector_object = _search_mapping(hit.get("global_vector_object"))
     vector_provenance = _search_mapping(vector_object.get("provenance"))
-    return (
+    return normalize_material_source_type(
         _search_clean_text(hit.get("source_type"))
         or _search_clean_text(hit.get("evidence_class"))
         or _search_clean_text(vector_object.get("object_type"))
@@ -393,6 +396,7 @@ def _build_search_source_refs(retrieval_run: Mapping[str, Any]) -> list[dict[str
                 "query_group_id": query_group_id,
                 "hit_id": hit_id,
                 "backend": _search_group_backend(hit),
+                "material_id": _search_clean_text(hit.get("material_id")) or _search_clean_text(vector_object.get("material_id")) or _search_clean_text(hit.get("document_id")) or _search_clean_text(vector_object.get("document_id")) or None,
                 "document_id": _search_clean_text(hit.get("document_id")) or _search_clean_text(vector_object.get("document_id")) or None,
                 "chunk_id": _search_clean_text(hit.get("chunk_id")) or _search_clean_text(vector_object.get("chunk_id")) or None,
                 "source_id": source_id,
@@ -627,6 +631,12 @@ def search(
             rank,
             project_key=getattr(request.state, "project_key_resolved", None),
         )
+        results = [
+            {**row,
+             "material_id": row.get("material_id") or row.get("document_id") or row.get("doc_id") or row.get("id"),
+             "source_type": normalize_material_source_type(row.get("source_type")) or "material"}
+            for row in results
+        ]
         # Diagnostics about fallback/backends (contract-safe: added under data)
         fallback_order = [
             "opensearch_lexical",

@@ -22,6 +22,19 @@ from ..services.crawlers_mgmt import (
 router = APIRouter(prefix="/crawler", tags=["crawler"])
 
 
+@router.get("/agent-modules")
+def list_crawler_agent_modules_api(request: Request):
+    from ..services.crawlers_mgmt.workbench import workbench_module
+
+    project_key = _resolve_registration_project_key(request)
+    if not project_key:
+        return _error_json(400, ErrorCode.INVALID_INPUT, "An explicit MRW project is required.")
+    try:
+        return JSONResponse(content=ok({"items": [workbench_module(project_key)]}))
+    except (ValueError, OSError) as exc:
+        return _json_from_exception(exc)
+
+
 def _error_json(
     status_code: int,
     code: ErrorCode,

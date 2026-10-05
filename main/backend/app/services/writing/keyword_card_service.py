@@ -168,10 +168,11 @@ def dedupe_and_score(
     graph_context_attached: bool = False,
     accepted_citation_count: int = 0,
     typed_knowledge_context_count: int = 0,
+    source_filter: tuple[str, ...] = (),
 ) -> KeywordCardListResponse:
     normalized_query = normalize_and_rewrite_query(query)
     selection_hash = _selection_hash(project_key, query)
-    cache_key = f"{selection_hash}:{int(graph_context_attached)}:{int(accepted_citation_count)}:{typed_knowledge_context_count}"
+    cache_key = f"{selection_hash}:{int(graph_context_attached)}:{int(accepted_citation_count)}:{typed_knowledge_context_count}:{','.join(source_filter)}"
     if cache_key in _SELECTION_CACHE:
         cached = _SELECTION_CACHE[cache_key]
         cached.cache_hit = True
@@ -195,7 +196,7 @@ def dedupe_and_score(
         suggested_queries=[normalized_query] if normalized_query else [],
         search_backends_used=[str(item) for item in get_last_used_backends()],
         source_count={
-            "document": sum(1 for item in deduped if item.source_type == "document"),
+            "material": sum(1 for item in deduped if item.source_type == "material"),
             "resource": sum(1 for item in deduped if item.source_type == "resource"),
             "graph": sum(1 for item in deduped if item.source_type == "graph"),
         },
@@ -260,7 +261,7 @@ def aggregate_cards(payload: KeywordCardRequest) -> KeywordCardListResponse:
     if not requested_sources or "resource" in requested_sources:
         typed_knowledge_cards = _cards_from_typed_knowledge_context(payload, payload.limit)
         cards.extend(typed_knowledge_cards)
-    if not requested_sources or "document" in requested_sources:
+    if not requested_sources or "material" in requested_sources:
         cards.extend(_cards_from_hybrid(query, payload.limit))
     if not requested_sources or bool({"resource", "graph"} & requested_sources):
         cards.extend(_cards_from_sources(query, payload.limit))
@@ -275,6 +276,7 @@ def aggregate_cards(payload: KeywordCardRequest) -> KeywordCardListResponse:
         graph_context_attached=graph_context_attached,
         accepted_citation_count=accepted_citation_count,
         typed_knowledge_context_count=len(typed_knowledge_cards),
+        source_filter=tuple(sorted(requested_sources)),
     )
 
 

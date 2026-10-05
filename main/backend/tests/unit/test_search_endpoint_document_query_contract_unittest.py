@@ -49,7 +49,7 @@ class SearchEndpointDocumentQueryContractUnitTestCase(unittest.TestCase):
         self.assertEqual(envelope["meta"]["rank_mode"], "hybrid")
         self.assertEqual(envelope["meta"]["modality"], "text")
         self.assertEqual(envelope["meta"]["search_backends_used"], ["opensearch_lexical", "qdrant_vector"])
-        self.assertEqual(data["results"][0]["source_type"], "document")
+        self.assertEqual(data["results"][0]["source_type"], "material")
         self.assertEqual(data["results"][0]["rank"], 1)
         self.assertEqual(data["results"][0]["raw"]["backend"], "opensearch_lexical")
 

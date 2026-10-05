@@ -112,6 +112,35 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
 
         self.assertEqual([item.source_type for item in response.cards], ["graph"])
 
+    def test_material_filter_accepts_legacy_document_source_and_counts_materials(self):
+        card = KeywordCardItem(card_id="m1", source_type="document", title="Material")
+        for source in ("material", "document"):
+            with (
+                self.subTest(source=source),
+                patch("app.services.writing.keyword_card_service._cards_from_hybrid", return_value=[(card, {})]) as hybrid,
+                patch("app.services.writing.keyword_card_service._cards_from_sources") as sources,
+                patch("app.services.writing.keyword_card_service._cards_from_source_library") as library,
+            ):
+                response = aggregate_cards(KeywordCardRequest(project_key="demo", query="robotics", sources=[source]))
+                hybrid.assert_called_once()
+                sources.assert_not_called()
+                library.assert_not_called()
+                self.assertEqual([item.source_type for item in response.cards], ["material"])
+                self.assertEqual(response.source_count, {"material": 1, "resource": 0, "graph": 0})
+
+    def test_source_filter_does_not_reuse_other_source_cached_cards(self):
+        material = KeywordCardItem(card_id="m1", source_type="material", title="Material")
+        resource = KeywordCardItem(card_id="r1", source_type="resource", title="Resource")
+        with (
+            patch("app.services.writing.keyword_card_service._cards_from_hybrid", return_value=[(material, {})]),
+            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=[(resource, {})]),
+            patch("app.services.writing.keyword_card_service._cards_from_source_library", return_value=[]),
+        ):
+            material_response = aggregate_cards(KeywordCardRequest(project_key="demo", query="robotics", sources=["material"]))
+            resource_response = aggregate_cards(KeywordCardRequest(project_key="demo", query="robotics", sources=["resource"]))
+        self.assertEqual([item.source_type for item in material_response.cards], ["material"])
+        self.assertEqual([item.source_type for item in resource_response.cards], ["resource"])
+
     def test_source_library_query_layer_is_used_for_resource_cards(self):
         payload = KeywordCardRequest(
             project_key="demo_proj",

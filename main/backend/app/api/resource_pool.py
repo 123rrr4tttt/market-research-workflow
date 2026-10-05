@@ -653,6 +653,7 @@ class ExtractFromDocumentsPayload(BaseModel):
     async_mode: bool = Field(default=False, description="Run via Celery")
 
 
+@router.post("/extract/from-materials", response_model=ResourcePoolAnyEnvelope)
 @router.post("/extract/from-documents", response_model=ResourcePoolAnyEnvelope)
 def extract_from_documents_api(payload: ExtractFromDocumentsPayload, request: Request):
     project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
@@ -661,7 +662,7 @@ def extract_from_documents_api(payload: ExtractFromDocumentsPayload, request: Re
     filters = payload.filters or {}
     doc_type = filters.get("doc_type")
     state = filters.get("state")
-    document_ids = filters.get("document_ids")
+    document_ids = filters.get("material_ids", filters.get("document_ids"))
     limit = filters.get("limit", 500)
     limit = min(max(1, int(limit)), 5000)
 

@@ -5,7 +5,7 @@ from hashlib import sha256
 from types import SimpleNamespace
 
 from app.services.information_topology.modules.retrieval import validate_evidence_v2
-from app.services.project_retrieval.formalization import formalize_document
+from app.services.project_retrieval.formalization import formalize_document, formalize_material
 
 
 BODY = "水务机构的年度记录指出，供水收费收入用于维护输配水设施。该记录只覆盖本报告年度。"
@@ -93,6 +93,20 @@ def test_formalize_document_returns_profile_validated_proposal_with_source_prove
     }
     assert validate_evidence_v2(proposal["evidence"]) is None
     assert result["gaps"] == ["该记录未说明分配比例"]
+
+
+def test_formalize_material_accepts_canonical_identity_and_emits_material_provenance():
+    source = payload()
+    source["material_id"] = source.pop("document_id")
+    source["material_updated_at"] = source.pop("document_updated_at")
+    result = formalize_material(source, model_invoke=lambda _: response())
+    assert result["status"] == "proposed"
+    assert result["proposal"]["provenance"]["material_id"] == "19"
+    source["document_id"] = 20
+    called = []
+    rejected = formalize_material(source, model_invoke=lambda prompt: called.append(prompt))
+    assert rejected["status"] == "failed"
+    assert called == []
 
 
 def test_formalize_document_returns_no_claim_without_synthesizing_a_proposal():

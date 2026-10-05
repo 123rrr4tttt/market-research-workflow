@@ -25,7 +25,7 @@ class StructuredSqlHelperMigrationCheckUnitTestCase(unittest.TestCase):
 
         self.assertEqual(result["contract_version"], CONTRACT_VERSION)
         self.assertEqual(result["topic_id"], "2026-03-12-data-structured-service-modularization")
-        self.assertEqual(result["document_query_contract_version"], "document_queries.v1")
+        self.assertEqual(result["document_query_contract_version"], "document_queries.v2")
         self.assertEqual(result["status"], "passed")
         self.assertTrue(result["validation"]["passed"], result["validation"])
         self.assertEqual(result["validation"]["covered_surface_gap_count"], 0)

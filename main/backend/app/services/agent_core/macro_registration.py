@@ -35,6 +35,63 @@ def _failure(code: str, message: str, *, path: str = "$") -> Failure:
     return agent_runtime_failures.fail(mapped, message, {"path": path, "contract_version": CONTRACT_VERSION, "registration_code": code})
 
 
+def _project_versions(service: Any, *, session_id: str, project_key: str, package_id: str) -> list[str]:
+    """List exact project-artifact versions without selecting one by time."""
+
+    prefix = f"macro-registration/{package_id}@"
+    list_project = getattr(service.store, "list_project_artifacts", None)
+    if callable(list_project):
+        rows = list_project(project_key=project_key)
+        if isinstance(rows, Failure):
+            return []
+        return sorted({
+            str(row.get("name", ""))[len(prefix):-len(".json")]
+            for row in rows
+            if str(row.get("artifact_type") or "") == "agent_macro.registration_package"
+            and str(row.get("name") or "").startswith(prefix)
+            and str(row.get("name") or "").endswith(".json")
+        })
+
+    # The production store has no project-artifact listing method yet. Exact
+    # version readback remains authoritative; this bounded session view only
+    # helps a caller choose an explicit version and never selects one.
+    rows = service.store.list_artifacts(session_id)
+    if isinstance(rows, Failure):
+        return []
+    return sorted({
+        str(row.get("name", ""))[len(prefix):-len(".json")]
+        for row in rows
+        if str(row.get("artifact_type") or "") == "agent_macro.registration_package"
+        and str(row.get("name") or "").startswith(prefix)
+        and str(row.get("name") or "").endswith(".json")
+    })
+
+
+def _read_exact_artifact(
+    service: Any, *, session_id: str, project_key: str, package_id: str, package_version: str,
+) -> dict[str, Any] | None | Failure:
+    name = registration_artifact_name({
+        "package_id": package_id,
+        "package_version": package_version,
+    })
+    row = service.store.get_project_artifact(project_key=project_key, name=name)
+    if row is None or isinstance(row, Failure):
+        # Pre-project-authority v1 artifacts remain readable from their
+        # originating session when an exact version is requested.
+        rows = service.store.list_artifacts(session_id)
+        if isinstance(rows, Failure):
+            return row if isinstance(row, Failure) else rows
+        matches = [item for item in rows if item.get("name") == name]
+        if not matches:
+            return None
+        row = sorted(matches, key=lambda item: str(item.get("updated_at") or ""))[-1]
+    if row is None:
+        return None
+    if str(row.get("artifact_type") or "") != "agent_macro.registration_package":
+        return None
+    return row
+
+
 def _text(value: Any, path: str) -> str | Failure:
     result = str(value or "").strip()
     return result if result else _failure("macro_registration_invalid", "non-empty value required", path=path)
@@ -167,6 +224,28 @@ def save_registration_package(service: Any, *, session_id: str, project_key: str
     package = build_registration_package(payload, project_key=project_key)
     if isinstance(package, Failure):
         return package
+    existing = _read_exact_artifact(
+        service,
+        project_key=project_key,
+        session_id=session_id,
+        package_id=package["package_id"],
+        package_version=package["package_version"],
+    )
+    if isinstance(existing, Failure):
+        return existing
+    if existing is not None:
+        old_digest = str((existing.get("content_json") or {}).get("content_digest") or "")
+        old_activation = dict((existing.get("content_json") or {}).get("activation") or {})
+        if old_activation.get("status") == "activated":
+            if old_digest != package["content_digest"]:
+                return _failure(
+                    "macro_registration_activation_conflict",
+                    "activated package identity cannot be replaced with different content",
+                    path="$.content_digest",
+                )
+            # Re-saving identical content is idempotent and must not demote an
+            # activated package back to candidate.
+            package["activation"] = old_activation
     artifact_payload = {
         "session_id": session_id,
         "name": registration_artifact_name(package),
@@ -190,22 +269,37 @@ def save_registration_package(service: Any, *, session_id: str, project_key: str
 
 
 def read_registration_package(service: Any, *, session_id: str, project_key: str, package_id: str, package_version: str | None = None) -> dict[str, Any] | Failure:
-    prefix = f"macro-registration/{package_id}@"
-    name = f"{prefix}{package_version}.json" if package_version else None
-    row = service.store.get_project_artifact(project_key=str(project_key or ""), name=name) if name else None
-    if row is None or isinstance(row, Failure):
-        artifacts = service.store.list_artifacts(session_id)
-        if isinstance(artifacts, Failure):
-            return artifacts
-        matches = [item for item in artifacts if str(item.get("name") or "").startswith(prefix)]
-        if package_version:
-            matches = [item for item in matches if str(item.get("name") or "").endswith(f"@{package_version}.json")]
-        if not matches:
-            return _failure("macro_registration_not_found", "registration package was not found", path="$.package_id")
-        row = sorted(matches, key=lambda item: str(item.get("updated_at") or ""))[-1]
+    if not str(package_version or "").strip():
+        versions = _project_versions(service, session_id=session_id, project_key=project_key, package_id=package_id)
+        version_failure = _failure(
+            "macro_registration_version_required",
+            "registration package version is required",
+            path="$.package_version",
+        )
+        version_failure.context["available_versions"] = versions
+        return version_failure
+    row = _read_exact_artifact(
+        service,
+        project_key=project_key,
+        package_id=package_id,
+        package_version=str(package_version).strip(),
+        session_id=session_id,
+    )
+    if isinstance(row, Failure):
+        return row
+    if row is None:
+        return _failure("macro_registration_not_found", "registration package was not found", path="$.package_id")
     package = dict(row.get("content_json") or {})
     persisted_activation = dict(package.get("activation") or {})
     digest = package.pop("content_digest", None)
+    if digest is None:
+        return {
+            "package": {**package, "content_digest": None},
+            "artifact": row,
+            "activation": persisted_activation,
+            "legacy": True,
+            "runnable": False,
+        }
     checked = build_registration_package(package, project_key=str(package.get("project_key") or ""))
     if isinstance(checked, Failure):
         return checked
@@ -223,54 +317,58 @@ def activate_registration_package(
     session_id: str,
     project_key: str,
     package_id: str,
-    package_version: str | None,
-    consent_statement: str,
+    package_version: str,
+    host_authorization: Any,
 ) -> dict[str, Any] | Failure:
-    """Activate a candidate after explicit agreement in the AgentCore chat.
+    """Activate a candidate using verified trusted-host authorization.
 
-    The consent statement is an auditable transcript-level acknowledgement,
-    not a second policy engine.  The package digest is revalidated before the
-    artifact is updated, and the resulting activation is still session and
-    project scoped.
+    Model-authored consent is not an authority. The registry obtains and checks
+    ``VerifiedHostAuthorization`` through the A-owned host channel; this function
+    only verifies that the verified object binds this activation tool, project,
+    session and package digest, then records activation in the project artifact.
     """
-    consent = str(consent_statement or "").strip()
-    if not consent:
-        return _failure("macro_registration_consent_required", "explicit user agreement is required", path="$.consent_statement")
+    from .host_authorization import VerifiedHostAuthorization
+
+    if not isinstance(host_authorization, VerifiedHostAuthorization):
+        return _failure("macro_registration_host_authorization_required", "trusted host authorization is required", path="$.host_authorization")
     result = read_registration_package(service, session_id=session_id, project_key=project_key, package_id=package_id, package_version=package_version)
     if isinstance(result, Failure):
         return result
+    if result.get("legacy") or result.get("runnable") is False:
+        return _failure("macro_registration_legacy_unverified", "legacy package has no verifiable digest", path="$.content_digest")
     package = dict(result["package"])
     if str(package.get("project_key") or "") != project_key:
         return _failure("macro_registration_scope", "package project does not match the trusted request project", path="$.project_key")
+    context = host_authorization.context
+    package_digest = str(package["content_digest"])
+    automatic = host_authorization.permission == "allow" and host_authorization.approval_id is None
+    confirmed = host_authorization.permission == "ask" and bool(str(host_authorization.approval_id or "").strip())
+    if (
+        str(context.project_key) != project_key
+        or str(context.session_id) != session_id
+        or str(host_authorization.tool_name) != "agent_macro.registration_package.activate"
+        or str(host_authorization.package_digest) != package_digest
+        or not (automatic or confirmed)
+    ):
+        return _failure("macro_registration_host_authorization_mismatch", "trusted host authorization does not bind this activation", path="$.host_authorization")
     activation = dict(package.get("activation") or {})
     status = str(activation.get("status") or "candidate")
     if status == "activated":
-        if activation.get("scope") != {"project_key": project_key, "scope_type": "project"}:
-            activation = {
-                **activation,
-                "scope": {"project_key": project_key, "scope_type": "project"},
-                "consent_source_session_id": str((activation.get("scope") or {}).get("session_id") or session_id),
-            }
-            package["activation"] = activation
-            service.store.upsert_project_artifact({
-                "session_id": session_id,
-                "project_key": project_key,
-                "name": registration_artifact_name(package),
-                "artifact_type": "agent_macro.registration_package",
-                "mime_type": "application/json",
-                "content_text": json.dumps(package, ensure_ascii=False, sort_keys=True),
-                "content_json": package,
-                "metadata": {"project_key": project_key, "content_digest": package["content_digest"], "activation_status": "activated", "activation_authority": "agentcore_user_consent", "project_scope": True},
-            })
+        if str(activation.get("content_digest") or "") != package_digest:
+            return _failure("macro_registration_activation_conflict", "activated package content digest changed", path="$.content_digest")
         return {"package": package, "artifact": result["artifact"], "activation": activation, "already_activated": True}
     if status != "candidate":
         return _failure("macro_registration_activation_state", "only candidate packages can be activated", path="$.activation.status")
     activation = {
         "status": "activated",
-        "authority": "agentcore_user_consent",
+        "authority": "host_authorization",
+        "authorization_source": "host_policy" if automatic else "human_confirmation",
         "scope": {"project_key": project_key, "scope_type": "project"},
-        "consent_source_session_id": session_id,
-        "consent_statement": consent,
+        "host_thread_id": str(context.host_thread_id),
+        "turn_id": str(context.turn_id),
+        "user_message_id": str(context.user_message_id),
+        "approval_id": host_authorization.approval_id,
+        "content_digest": package_digest,
     }
     package["activation"] = activation
     artifact_payload = {
@@ -284,7 +382,9 @@ def activate_registration_package(
             "project_key": project_key,
             "content_digest": result["package"]["content_digest"],
             "activation_status": "activated",
-            "activation_authority": "agentcore_user_consent",
+            "activation_authority": "host_authorization",
+            "activation_authorization_source": activation["authorization_source"],
+            "activation_approval_id": activation["approval_id"],
         },
     }
     artifact = service.store.upsert_project_artifact({

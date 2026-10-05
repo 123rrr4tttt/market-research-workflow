@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
+import pytest
+
 from app.services.agent_core.macro_registration import (
     CONTRACT_VERSION,
     activate_registration_package,
     build_registration_package,
+    read_registration_package,
     save_registration_package,
 )
+from app.services.agent_sessions.store import InMemoryAgentSessionStore
+from app.services.agent_core.host_authorization import TrustedHostContext, VerifiedHostAuthorization, canonical_arguments_sha256
+from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+from app.services.agent_core.macro_tools import macro_registration_package_create_facility
+from app.services.agent_core.registry import CoreToolRegistry
 from functorial_kit import Failure
 
 
@@ -80,6 +90,23 @@ def test_candidate_package_is_canonical_and_not_active() -> None:
     assert len(result["content_digest"]) == 64
 
 
+def test_first_save_with_real_store_and_exact_legacy_session_readback() -> None:
+    service = _Service()
+    service.store = InMemoryAgentSessionStore()
+    service.store.create_session({"session_id": "session-1", "project_key": "demo_project"})
+    saved = save_registration_package(service, session_id="session-1", project_key="demo_project", payload=_package())
+    assert not isinstance(saved, Failure)
+    assert saved["package"]["activation"]["status"] == "candidate"
+    legacy = _Service()
+    legacy.store.items = dict(service.store._artifacts["session-1"])
+    readback = read_registration_package(
+        legacy, session_id="session-1", project_key="demo_project",
+        package_id="demo.macro", package_version="1",
+    )
+    assert not isinstance(readback, Failure)
+    assert readback["package"]["content_digest"] == saved["package"]["content_digest"]
+
+
 def test_package_rejects_scope_mismatch_and_undeclared_skill_tool() -> None:
     mismatch = build_registration_package({**_package(), "project_key": "other"}, project_key="demo_project")
     assert isinstance(mismatch, Failure)
@@ -89,21 +116,80 @@ def test_package_rejects_scope_mismatch_and_undeclared_skill_tool() -> None:
     assert isinstance(rejected, Failure)
 
 
-def test_agentcore_consent_activates_only_current_scope() -> None:
+@pytest.mark.parametrize("permission,approval_id,source", [
+    ("allow", None, "host_policy"),
+    ("ask", "approval-1", "human_confirmation"),
+])
+def test_host_authorization_activates_only_current_scope(permission, approval_id, source) -> None:
     service = _Service()
     saved = save_registration_package(service, session_id="session-1", project_key="demo_project", payload=_package())
     assert not isinstance(saved, Failure)
+    arguments = {"package_id": "demo.macro", "package_version": "1"}
+    digest = canonical_arguments_sha256(arguments)
+    assert not isinstance(digest, Failure)
+    context = TrustedHostContext("demo_project", "session-1", "host-1", "turn-1", "message-1")
+    authorization = VerifiedHostAuthorization(
+        context, "agent_macro.registration_package.activate", digest,
+        saved["package"]["content_digest"], permission, approval_id, "origin-call-1", "turn-1", "message-1",
+    )
     activated = activate_registration_package(
         service,
         session_id="session-1",
         project_key="demo_project",
         package_id="demo.macro",
         package_version="1",
-        consent_statement="用户已在 AgentCore 对话中同意激活这个胞腔注册包。",
+        host_authorization=authorization,
     )
     assert not isinstance(activated, Failure)
     assert activated["activation"]["status"] == "activated"
-    assert activated["activation"]["authority"] == "agentcore_user_consent"
+    assert activated["activation"]["authority"] == "host_authorization"
     assert activated["activation"]["scope"] == {"project_key": "demo_project", "scope_type": "project"}
-    assert activated["activation"]["consent_source_session_id"] == "session-1"
+    assert activated["activation"]["approval_id"] == approval_id
+    assert activated["activation"]["authorization_source"] == source
     assert activated["package"]["content_digest"] == saved["package"]["content_digest"]
+    assert activated["artifact"]["metadata"]["activation_authorization_source"] == source
+    replay = activate_registration_package(
+        service, session_id="session-1", project_key="demo_project",
+        package_id="demo.macro", package_version="1", host_authorization=authorization,
+    )
+    assert replay["already_activated"] is True
+    invalid_replay = activate_registration_package(
+        service, session_id="session-1", project_key="demo_project",
+        package_id="demo.macro", package_version="1",
+        host_authorization=replace(authorization, package_digest="0" * 64),
+    )
+    assert isinstance(invalid_replay, Failure)
+
+
+@pytest.mark.parametrize("permission,approval_id", [("ask", None), ("allow", "fake"), ("deny", "fake")])
+def test_activation_rejects_invalid_authorization_without_writing(permission, approval_id) -> None:
+    service = _Service()
+    saved = save_registration_package(service, session_id="session-1", project_key="demo_project", payload=_package())
+    digest = canonical_arguments_sha256({"package_id": "demo.macro", "package_version": "1"})
+    authorization = VerifiedHostAuthorization(
+        TrustedHostContext("demo_project", "session-1", "host-1", "turn-1", "message-1"),
+        "agent_macro.registration_package.activate", digest, saved["package"]["content_digest"],
+        permission, approval_id, "call-1", "turn-1", "message-1",
+    )
+    result = activate_registration_package(
+        service, session_id="session-1", project_key="demo_project",
+        package_id="demo.macro", package_version="1", host_authorization=authorization,
+    )
+    assert isinstance(result, Failure)
+    assert next(iter(service.store.project_items.values()))["content_json"]["activation"]["status"] == "candidate"
+
+
+def test_automatic_create_rejects_untrusted_registry_call_without_writing() -> None:
+    service = _Service()
+    binding = macro_registration_package_create_facility(service)
+    assert binding.tool_spec.permission == "allow"
+    registry = CoreToolRegistry()
+    registry.register(binding.tool_spec, binding.handler)
+    result = registry.execute_tool(
+        tool_call=CoreToolCall(call_id="call-1", tool_name=binding.tool_spec.name, arguments={"package": _package()}),
+        request=AgentCoreRequest(project_key="demo_project", session_id="session-1", turn_id="turn-1", message="add module"),
+        emit=lambda _event: None,
+    )
+    assert result.status == "failed"
+    assert not service.store.items
+    assert not service.store.project_items

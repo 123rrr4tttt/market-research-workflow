@@ -63,6 +63,16 @@ class _FakeSessionLocal:
 
 
 class AdminReextractUnitTest(unittest.TestCase):
+    def test_material_routes_reuse_existing_handlers_and_accept_material_ids(self):
+        routes = {route.path: route.endpoint for route in admin_module.router.routes}
+        legacy = {path: endpoint for path, endpoint in routes.items() if "/documents/" in path}
+        self.assertEqual(len(legacy), 8)
+        for path, endpoint in legacy.items():
+            self.assertIs(routes[path.replace("/documents/", "/materials/")], endpoint)
+        self.assertEqual(admin_module.ReExtractRequest(material_ids=[101]).doc_ids, [101])
+        self.assertEqual(admin_module.BulkUpdateExtractedDataRequest(material_ids=[101]).doc_ids, [101])
+        self.assertEqual(admin_module.DeleteDocumentsRequest(material_ids=[101]).ids, [101])
+
     @classmethod
     def setUpClass(cls):
         if _IMPORT_ERROR is not None:

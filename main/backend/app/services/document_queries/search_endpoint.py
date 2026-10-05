@@ -48,7 +48,7 @@ def build_search_endpoint_document_query(
         query,
         project_key=_clean_optional_text(project_key),
         consumer=SEARCH_ENDPOINT_CONSUMER,
-        sources=("document",),
+        sources=("material",),
         filters=filters,
         sort=({"field": "relevance", "direction": "desc"},),
         limit=limit,
@@ -80,7 +80,7 @@ def build_search_endpoint_document_query_envelope(
         query_object,
         _mapping_rows(results),
         source=SEARCH_ENDPOINT_SOURCE,
-        result_source_type="document",
+        result_source_type="material",
         meta={
             "contract_version": DOCUMENT_QUERY_CONTRACT_VERSION,
             "endpoint": "/api/v1/search",

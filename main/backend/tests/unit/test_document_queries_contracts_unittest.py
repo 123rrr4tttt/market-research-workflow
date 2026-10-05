@@ -34,6 +34,20 @@ from app.services.document_views import build_keyword_card_from_hybrid_row, buil
 
 
 class DocumentQueriesContractUnitTestCase(unittest.TestCase):
+    def test_material_and_legacy_sources_share_query_and_sql_identity(self) -> None:
+        legacy = build_document_query("robotics", sources=("document",))
+        material = build_document_query("robotics", sources=("material",))
+        self.assertEqual(legacy.query_id, material.query_id)
+        self.assertEqual(compile_document_query_statement(legacy), compile_document_query_statement(material))
+        envelope = build_document_query_result_envelope(material, [{"material_id": 42}], source="test")
+        self.assertEqual(envelope["data"]["results"][0]["document_id"], 42)
+        envelope["data"]["contract_version"] = "document_queries.v1"
+        envelope["data"]["query"]["contract_version"] = "document_queries.v1"
+        envelope["data"]["results"][0].pop("material_id")
+        envelope["data"]["results"][0]["source_type"] = "document"
+        self.assertEqual(rows_for_document_views(envelope)[0]["material_id"], 42)
+        self.assertEqual(rows_for_document_views(envelope)[0]["source_type"], "material")
+
     def test_query_object_normalizes_filter_sort_and_bounds(self) -> None:
         query = build_document_query(
             "  Robotics   Policy  ",
@@ -59,7 +73,7 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
         self.assertEqual(payload["normalized_query"], "robotics policy")
         self.assertEqual(payload["project_key"], "demo_proj")
         self.assertEqual(payload["consumer"], "writing.search")
-        self.assertEqual(payload["sources"], ["document", "resource"])
+        self.assertEqual(payload["sources"], ["material", "resource"])
         self.assertEqual(payload["filters"][0], {"field": "state", "op": "eq", "value": "CA"})
         self.assertEqual(payload["sort"][0], {"field": "published_at", "direction": "desc"})
         self.assertEqual(payload["limit"], 100)
@@ -97,9 +111,10 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
         self.assertEqual(envelope["status"], "ok")
         self.assertEqual(envelope["data"]["query"]["consumer"], "writing.keyword_cards")
         self.assertEqual(envelope["meta"]["source"], "search.hybrid")
-        self.assertEqual(rows[0]["source_type"], "document")
+        self.assertEqual(rows[0]["source_type"], "material")
+        self.assertEqual(rows[0]["material_id"], rows[0]["document_id"])
         self.assertEqual(rows[0]["document_id"], 42)
-        self.assertEqual(card.source_type, "document")
+        self.assertEqual(card.source_type, "material")
         self.assertEqual(card.extra["backend"], "hybrid")
         self.assertEqual(card.extra["document_id"], 42)
 
@@ -121,7 +136,7 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
             rows = query_hybrid_document_rows("robot", limit=3)
 
         hybrid_search.assert_called_with("robot", state=None, top_k=3, mode="hybrid")
-        self.assertEqual(envelope["data"]["query"]["sources"], ["document"])
+        self.assertEqual(envelope["data"]["query"]["sources"], ["material"])
         self.assertEqual(envelope["data"]["pagination"]["limit"], 3)
         self.assertEqual(envelope["data"]["results"][0]["backend"], "pgvector")
         self.assertEqual(rows[0]["title"], "Robot market note")

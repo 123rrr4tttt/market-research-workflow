@@ -164,6 +164,8 @@ def test_project_tool_contract_retains_existing_authority_boundaries() -> None:
 
 
 def test_source_plan_and_skill_load_reach_native_codex_consumer() -> None:
+    from app.services.agent_core.host_authorization import TrustedHostContext
+
     service = AgentSessionService(store=InMemoryAgentSessionStore())
     bundle = service.create_session(
         source="user",
@@ -172,6 +174,16 @@ def test_source_plan_and_skill_load_reach_native_codex_consumer() -> None:
         project_key="demo_proj",
         task_blueprints=[],
     )
+    session_id = bundle["session"]["session_id"]
+    host_context = TrustedHostContext(
+        project_key="demo_proj",
+        session_id=session_id,
+        host_thread_id="session-1",
+        turn_id="turn-1",
+        user_message_id="host-message-1",
+    )
+    host_message = service.create_host_user_message(host_context, content="native project tools")
+    assert not isinstance(host_message, Failure)
     registered_skill = {
         "skill_id": "example.read",
         "owner": "tests",
@@ -205,7 +217,9 @@ def test_source_plan_and_skill_load_reach_native_codex_consumer() -> None:
             project_key="demo_proj",
             scope_id="session-1",
             service=service,
-            session_id=bundle["session"]["session_id"],
+            session_id=session_id,
+            turn_id="turn-1",
+            user_message_id="host-message-1",
         )
         tools = {tool.logical_name: tool for tool in binding.tools}
         source_tool = tools["source_discovery.plan"]

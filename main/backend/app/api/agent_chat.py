@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
+from functorial_kit import Failure
 
 from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..contracts.errors import map_exception_to_error
@@ -163,6 +165,17 @@ def _raise_mapped_error(exc: Exception) -> None:
     ) from exc
 
 
+def _raise_macro_environment_failure(failure: Any) -> None:
+    code = str(getattr(failure, "code", "") or "macro_environment_unavailable")
+    message = str(getattr(failure, "message", "") or "macro environment unavailable")
+    detail = error_response(
+        ErrorCode.INVALID_INPUT,
+        f"{code}: {message}",
+    )
+    detail["error"]["code"] = "macro_environment_unavailable"
+    raise HTTPException(status_code=400, detail=detail)
+
+
 def _agent_runtime_feature_flags() -> dict[str, bool]:
     return {
         "agent_stream_enabled": bool(getattr(settings, "agent_stream_enabled", True)),
@@ -214,7 +227,7 @@ def _prepare_agent_core_session(
     command: str,
     project_key: str | None,
     runtime_variant: str,
-) -> tuple[Any, dict[str, Any], str, str | None]:
+) -> tuple[Any, dict[str, Any], str, str | None, Any]:
     service = get_agent_session_service()
     if payload.session_id:
         session = service.get_session(payload.session_id)
@@ -222,13 +235,6 @@ def _prepare_agent_core_session(
             session=session, project_key=project_key
         )
         session_id = str(session["session_id"])
-        service.create_message(
-            session_id,
-            role="user",
-            actor="agent_core_user",
-            content=command,
-            metadata={"project_key": project_key, "runtime_variant": runtime_variant},
-        )
     else:
         source = "user"
         bundle = service.create_session(
@@ -274,7 +280,26 @@ def _prepare_agent_core_session(
         )
         session = dict(bundle["session"])
         session_id = str(session["session_id"])
-    return service, session, session_id, project_key
+
+    from ..services.agent_core.host_authorization import TrustedHostContext
+
+    # The direct chat API has no pre-existing native host thread. Keep a stable
+    # logical host scope per MRW session and associate the physical thread only
+    # after invoke_native observes it; this is not a claim that the native
+    # thread is already bound.
+    context = TrustedHostContext(
+        project_key=str(project_key or "").strip(),
+        session_id=session_id,
+        host_thread_id=f"agent-chat:{session_id}",
+        turn_id=f"turn-{uuid4().hex}",
+        user_message_id=f"host-message-{uuid4().hex}",
+    )
+    message = service.create_host_user_message(context, content=command)
+    if isinstance(message, Failure):
+        raise ValueError(
+            f"trusted host input was not recorded: {message.code}: {message.message}"
+        )
+    return service, session, session_id, project_key, context
 
 
 def _native_macro_observation(invocation: Any, *, binding: Any) -> dict[str, Any]:
@@ -334,17 +359,22 @@ def _run_agent_macro_native_turn(
         _resolve_codex_bin,
         _resolve_codex_workdir,
     )
-    from ..services.llm.codex_macro_binding import build_agent_macro_pilot_binding
+    from ..services.llm.codex_macro_binding import assemble_agent_macro_binding
 
-    service, session, session_id, project_key = _prepare_agent_core_session(
+    service, session, session_id, project_key, trusted_host_context = _prepare_agent_core_session(
         payload,
         command=command,
         project_key=project_key,
         runtime_variant="agent_macro_native",
     )
-    binding = build_agent_macro_pilot_binding(
-        project_key=project_key, scope_id=session_id
+    assembly = assemble_agent_macro_binding(
+        project_key=project_key,
+        service=service,
+        trusted_host_context=trusted_host_context,
     )
+    if isinstance(assembly, Failure):
+        _raise_macro_environment_failure(assembly)
+    binding = assembly.binding
     core = get_persistent_codex_core(
         codex_bin_resolver=lambda: _resolve_codex_bin(
             str(getattr(settings, "codex_cli_llm_command", "codex") or "codex")
@@ -353,7 +383,25 @@ def _run_agent_macro_native_turn(
         disabled_features_resolver=_disabled_features,
     )
     invocation = core.invoke_native(command, binding=binding)
-    observation = _native_macro_observation(invocation, binding=binding)
+    observation = {
+        **_native_macro_observation(invocation, binding=binding),
+        "declaration_valid": True,
+        "activation_verified": assembly.package_id is not None,
+        "environment_mounted": True,
+        "native_turn_observed": True,
+        "host_scope": {
+            "logical_host_thread_id": trusted_host_context.host_thread_id,
+            "physical_thread_id": invocation.thread_id,
+            "physical_turn_id": invocation.turn_id,
+        },
+        "macro_increment": {
+            "status": "configured" if assembly.package_id else "unconfigured",
+            "package_id": assembly.package_id,
+            "package_version": assembly.package_version,
+            "declared_tool_names": list(assembly.declared_tool_names),
+            "skill_names": list(assembly.skill_names),
+        },
+    }
     root_task_id = str(session.get("root_task_id") or "").strip() or None
     service.create_message(
         session_id,
@@ -392,8 +440,11 @@ def _run_agent_macro_native_turn(
             "capability_status": dict(invocation.capability_status),
         },
         "macro_cell": {
-            "declaration_status": "blocked",
-            "blocked_by": "MacroCellDefinition production instance is not authored",
+            "declaration_valid": observation["declaration_valid"],
+            "activation_verified": observation["activation_verified"],
+            "environment_mounted": observation["environment_mounted"],
+            "native_turn_observed": observation["native_turn_observed"],
+            "macro_increment": observation["macro_increment"],
         },
         "observation": observation,
         "session": bundle["session"],
@@ -422,17 +473,22 @@ def _run_agent_macro_rapid_native_turn(
         _resolve_codex_bin,
         _resolve_codex_workdir,
     )
-    from ..services.llm.codex_macro_binding import build_agent_macro_rapid_binding
+    from ..services.llm.codex_macro_binding import assemble_agent_macro_binding
 
-    service, session, session_id, project_key = _prepare_agent_core_session(
+    service, session, session_id, project_key, trusted_host_context = _prepare_agent_core_session(
         payload,
         command=command,
         project_key=project_key,
         runtime_variant="agent_macro_rapid_native",
     )
-    binding = build_agent_macro_rapid_binding(
-        project_key=project_key, scope_id=session_id, service=service, session_id=session_id
+    assembly = assemble_agent_macro_binding(
+        project_key=project_key,
+        service=service,
+        trusted_host_context=trusted_host_context,
     )
+    if isinstance(assembly, Failure):
+        _raise_macro_environment_failure(assembly)
+    binding = assembly.binding
     core = get_persistent_codex_core(
         codex_bin_resolver=lambda: _resolve_codex_bin(
             str(getattr(settings, "codex_cli_llm_command", "codex") or "codex")
@@ -444,6 +500,22 @@ def _run_agent_macro_rapid_native_turn(
     observation = {
         **_native_macro_observation(invocation, binding=binding),
         "rapid_effects": [tool.logical_name for tool in binding.tools],
+        "declaration_valid": True,
+        "activation_verified": assembly.package_id is not None,
+        "environment_mounted": True,
+        "native_turn_observed": True,
+        "host_scope": {
+            "logical_host_thread_id": trusted_host_context.host_thread_id,
+            "physical_thread_id": invocation.thread_id,
+            "physical_turn_id": invocation.turn_id,
+        },
+        "macro_increment": {
+            "status": "configured" if assembly.package_id else "unconfigured",
+            "package_id": assembly.package_id,
+            "package_version": assembly.package_version,
+            "declared_tool_names": list(assembly.declared_tool_names),
+            "skill_names": list(assembly.skill_names),
+        },
     }
     root_task_id = str(session.get("root_task_id") or "").strip() or None
     service.create_message(

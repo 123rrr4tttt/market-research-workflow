@@ -3,19 +3,29 @@ from __future__ import annotations
 import asyncio
 from dataclasses import replace
 import json
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from functorial_kit import Failure
 
 from app.services.llm.codex_app_server import CodexAppServerCore, _CodexFailureSignal
 from app.services.llm.codex_macro_binding import (
+    NativeAgentBinding,
     NativeSkillBinding,
     NativeToolBinding,
+    assemble_agent_macro_binding,
     build_agent_macro_pilot_binding,
     build_agent_macro_rapid_binding,
+    resolve_agent_macro_environment,
 )
-from app.services.agent_core.contracts import CoreToolResult, CoreToolSpec
+from app.services.llm.native_tool_context import current_native_tool_call_context
+from app.services.agent_core.contracts import CoreToolSpec
 from app.services.agent_core.project_tools import build_project_core_tool_registry
+
+
+PILOT_SKILL = Path(__file__).resolve().parents[2] / "skills" / "agent-macro-pilot" / "SKILL.md"
 
 
 class _FakeConnect:
@@ -41,6 +51,33 @@ class _FakeWebSocket:
         return self.messages.pop(0)
 
 
+class _Store:
+    def __init__(self, artifacts=()):
+        self.artifacts = list(artifacts)
+
+    def list_project_artifacts(self, *, project_key):
+        return [dict(item) for item in self.artifacts if item.get("project_key") == project_key]
+
+    def list_artifacts(self, session_id):
+        return [dict(item) for item in self.artifacts]
+
+
+class _Service:
+    def __init__(self, artifacts=()):
+        self.store = _Store(artifacts)
+
+
+class _FakeRegistry:
+    def __init__(self, specs):
+        self.specs = list(specs)
+
+    def list_specs(self):
+        return list(self.specs)
+
+    def get(self, name):
+        return next((spec for spec in self.specs if spec.name == name), None)
+
+
 def _core() -> CodexAppServerCore:
     return CodexAppServerCore(
         codex_bin_resolver=lambda: "/tmp/codex",
@@ -51,9 +88,29 @@ def _core() -> CodexAppServerCore:
     )
 
 
+def _binding(**overrides) -> NativeAgentBinding:
+    values = {
+        "binding_id": "test.v1",
+        "project_key": "alpha",
+        "scope_id": "session-1",
+        "skills": (),
+        "tools": (),
+        "base_instructions": "base instructions",
+        "developer_instructions": "developer instructions",
+        "sandbox": "workspace-write",
+    }
+    values.update(overrides)
+    return NativeAgentBinding(**values)
+
+
+def _pilot_skill_binding(**overrides) -> NativeAgentBinding:
+    skill = NativeSkillBinding.from_path(name="agent-macro-pilot", path=PILOT_SKILL)
+    return _binding(skills=(skill,), **overrides)
+
+
 def test_native_binding_rejects_invalid_authoring(tmp_path) -> None:
-    binding = build_agent_macro_pilot_binding(project_key="alpha", scope_id="session-1")
-    skill = binding.skills[0]
+    skill = NativeSkillBinding.from_path(name="agent-macro-pilot", path=PILOT_SKILL)
+    binding = _pilot_skill_binding()
     with pytest.raises(ValueError, match="existing SKILL.md"):
         NativeSkillBinding.from_path(name="valid", path=tmp_path / "SKILL.md")
     other_file = tmp_path / "other.md"
@@ -101,7 +158,7 @@ def test_native_api_rejects_invalid_authoring_before_process_start() -> None:
 
 @pytest.mark.parametrize("failure_site", ["skill", "turn_id", "rpc"])
 def test_native_rpc_failure_lift_preserves_failure_and_public_abi(failure_site) -> None:
-    binding = build_agent_macro_pilot_binding(project_key="alpha", scope_id="session-1")
+    binding = _pilot_skill_binding()
     skill = binding.skills[0]
     messages = [
         {"id": 1, "result": {}},
@@ -137,16 +194,13 @@ def test_native_rpc_failure_lift_preserves_failure_and_public_abi(failure_site) 
     assert str(public.value) == failure.context["public_message"]
 
 
-def test_native_binding_digest_and_thread_key_include_project_scope_and_skill() -> None:
-    first = build_agent_macro_pilot_binding(project_key="alpha", scope_id="session-1")
-    second = build_agent_macro_pilot_binding(project_key="alpha", scope_id="session-2")
+def test_native_binding_digest_and_thread_key_include_project_scope() -> None:
+    first = _binding(scope_id="session-1")
+    second = _binding(scope_id="session-2")
     assert first.environment_digest != second.environment_digest
     assert first.environment_digest != replace(
         first, developer_instructions="changed native instructions"
     ).environment_digest
-    assert first.skill_roots == (
-        str(first.skills[0].root),
-    )
     assert first.capability_status() == {
         "dynamic_tools": "supported",
         "skills_extra_roots": "supported",
@@ -185,191 +239,11 @@ def test_native_binding_digest_and_thread_key_include_project_scope_and_skill() 
     assert len(calls) == 2
     assert calls[0]["dynamicTools"] == first.dynamic_tool_specs()
     assert calls[0]["approvalPolicy"] == "never"
-    assert calls[0]["sandbox"] == "read-only"
-
-
-def test_rapid_binding_projects_registered_effects_as_dynamic_tools() -> None:
-    class FakeRegistry:
-        def __init__(self):
-            self.specs = {
-                "source.web.search": CoreToolSpec(
-                    name="source.web.search",
-                    description_for_model="search",
-                    input_schema={"type": "object", "properties": {}},
-                ),
-                "ingest.url_pool.submit": CoreToolSpec(
-                    name="ingest.url_pool.submit",
-                    description_for_model="ingest",
-                    input_schema={"type": "object", "properties": {}},
-                ),
-            }
-
-        def get(self, name):
-            return self.specs.get(name)
-
-        def list_specs(self):
-            return list(self.specs.values())
-
-        def execute_tool(self, *, tool_call, tool_spec, request, emit):
-            return CoreToolResult(
-                call_id=tool_call.call_id,
-                tool_name=tool_call.tool_name,
-                status="completed",
-                model_summary="ok",
-                structured_content={"project_key": request.project_key},
-            )
-
-    with patch(
-        "app.services.agent_core.project_tools.build_project_core_tool_registry",
-        return_value=FakeRegistry(),
-    ), patch("app.services.projects.context.bind_project", return_value=_FakeContext()):
-        binding = build_agent_macro_rapid_binding(
-            project_key="hk_water_investigation",
-            scope_id="session-1",
-            service=object(),
-            session_id="session-1",
-        )
-
-    assert binding.binding_id == "agent-macro-rapid.v1"
-    assert {tool.logical_name for tool in binding.tools} == {
-        "source_web.search",
-        "ingest_url_pool.submit",
-    }
-    result = binding.tools[0].handler({})
-    assert result["status"] == "completed"
-
-
-class _FakeContext:
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, traceback):
-        return False
-
-
-def test_project_registry_keeps_structured_batch_and_drops_legacy_nl_tool() -> None:
-    with patch(
-        "app.services.agent_core.project_tools._register_agent_macro_facilities"
-    ):
-        registry = build_project_core_tool_registry(service=Mock())
-
-    names = {spec.name for spec in registry.list_specs()}
-    assert "agent_batch.submit" in names
-    assert "agent_batch.nl_command.submit" not in names
-    structured_spec = registry.get("agent_batch.submit")
-    assert "command" not in dict(structured_spec.input_schema["properties"])
-
-
-def test_native_turn_mounts_skill_and_dispatches_existing_read_only_handler() -> None:
-    observed: list[dict] = []
-
-    def fake_read_run(payload):
-        observed.append(dict(payload))
-        return {"run_id": payload["run_id"], "status": "completed", "receipt": {}}
-
-    with patch("app.services.project_retrieval.skill.read_run", side_effect=fake_read_run):
-        binding = build_agent_macro_pilot_binding(
-            project_key="alpha", scope_id="session-1"
-        )
-    skill = binding.skills[0]
-    websocket = _FakeWebSocket(
-        [
-            {"id": 1, "result": {}},
-            {"id": 2, "result": {}},
-            {
-                "id": 3,
-                "result": {
-                    "data": [
-                        {
-                            "cwd": "/tmp/mrw-native-project",
-                            "skills": [
-                                {
-                                    "name": skill.name,
-                                    "path": skill.path,
-                                    "enabled": True,
-                                }
-                            ],
-                        }
-                    ]
-                },
-            },
-            {"id": 4, "result": {"thread": {"id": "thread-1"}}},
-            {
-                "jsonrpc": "2.0",
-                "id": 5,
-                "method": "item/tool/call",
-                "params": {
-                    "threadId": "thread-1",
-                    "turnId": "turn-1",
-                    "callId": "call-1",
-                    "namespace": "project_retrieval",
-                    "tool": "read_run",
-                    "arguments": {"run_id": "run-7"},
-                },
-            },
-            {"id": 5, "result": {"turn": {"id": "turn-1"}}},
-            {
-                "method": "item/agentMessage/delta",
-                "params": {"threadId": "thread-1", "turnId": "turn-1", "delta": "done"},
-            },
-            {
-                "method": "turn/completed",
-                "params": {
-                    "threadId": "thread-1",
-                    "turn": {"id": "turn-1", "status": "completed"},
-                },
-            },
-        ]
-    )
-    core = _core()
-    with patch(
-        "app.services.llm.codex_app_server.websockets.connect",
-        return_value=_FakeConnect(websocket),
-    ):
-        result = asyncio.run(
-            core._invoke_native_async_raw(
-                endpoint="ws://127.0.0.1:1",
-                prompt="read run-7",
-                binding=binding,
-                model="gpt-test",
-                timeout_seconds=5,
-                reasoning_effort="medium",
-            )
-        )
-
-    assert result.content == "done"
-    assert result.thread_id == "thread-1"
-    assert result.turn_id == "turn-1"
-    assert result.tool_call_count == 1
-    assert result.tool_calls == (
-        {
-            "call_id": "call-1",
-            "namespace": "project_retrieval",
-            "tool": "read_run",
-            "success": True,
-        },
-    )
-    assert observed == [{"run_id": "run-7"}]
-    requests = {
-        item.get("id"): item
-        for item in websocket.sent
-        if "id" in item and "method" in item
-    }
-    assert requests[2]["method"] == "skills/extraRoots/set"
-    assert requests[2]["params"] == {"extraRoots": list(binding.skill_roots)}
-    assert requests[4]["params"]["dynamicTools"] == binding.dynamic_tool_specs()
-    assert requests[5]["params"]["input"][1] == skill.turn_input()
-    tool_response = next(
-        item["result"]
-        for item in websocket.sent
-        if item.get("id") == 5 and "result" in item
-    )
-    assert tool_response["success"] is True
-    assert '"run_id": "run-7"' in tool_response["contentItems"][0]["text"]
+    assert calls[0]["sandbox"] == "workspace-write"
 
 
 def test_native_failed_turn_does_not_return_agent_text() -> None:
-    binding = build_agent_macro_pilot_binding(project_key="alpha", scope_id="session-1")
+    binding = _binding()
     websocket = _FakeWebSocket(
         [
             {"method": "item/agentMessage/delta", "params": {"turnId": "turn-1", "delta": "partial"}},
@@ -398,14 +272,290 @@ def test_native_failed_turn_does_not_return_agent_text() -> None:
     assert rejected.value.failure.context["turn_status"] == "failed"
 
 
-def test_duplicate_native_tool_call_id_reuses_response_without_reexecution() -> None:
-    binding = build_agent_macro_pilot_binding(project_key="alpha", scope_id="session-1")
-    observed: list[dict] = []
-    tool = replace(
-        binding.tools[0],
-        handler=lambda arguments: observed.append(dict(arguments)) or {"ok": True},
+def test_active_macro_identity_uses_canonical_project_artifacts_across_sessions() -> None:
+    from app.services.agent_sessions.service import AgentSessionService
+    from app.services.agent_sessions.store import InMemoryAgentSessionStore
+    from app.services.agent_core.macro_environment import select_active_macro_identity
+
+    service = AgentSessionService(store=InMemoryAgentSessionStore())
+    bundle_a = service.create_session(
+        source="user",
+        entrypoint_type="agent_core",
+        goal="activate",
+        project_key="alpha",
+        task_blueprints=[],
     )
-    binding = replace(binding, tools=(tool,))
+    session_a = bundle_a["session"]["session_id"]
+
+    project_artifact = service.store.upsert_project_artifact({
+        "project_key": "alpha",
+        "name": "macro-registration/agent.macro.pilot@1.json",
+        "artifact_type": "agent_macro.registration_package",
+        "content_json": {
+            "package_id": "agent.macro.pilot",
+            "package_version": "1",
+            "activation": {"status": "activated"},
+        },
+        "metadata": {"project_key": "alpha", "project_scope": True, "activation_status": "activated"},
+    })
+    assert not isinstance(project_artifact, Failure)
+
+    bundle_b = service.create_session(
+        source="user",
+        entrypoint_type="agent_core",
+        goal="read",
+        project_key="alpha",
+        task_blueprints=[],
+    )
+    session_b = bundle_b["session"]["session_id"]
+    assert session_b != session_a
+
+    # Canonical project artifact discovery is cross-session.
+    assert select_active_macro_identity(service, "alpha") == (("agent.macro.pilot",), ("1",))
+
+    # Cross-project isolation.
+    assert select_active_macro_identity(service, "beta") == ((), ())
+
+    # A session-only artifact is not promoted to canonical project discovery.
+    session_only = service.store.upsert_artifact({
+        "session_id": session_b,
+        "name": "macro-registration/agent.macro.pilot@2.json",
+        "artifact_type": "agent_macro.registration_package",
+        "content_json": {
+            "package_id": "agent.macro.pilot",
+            "package_version": "2",
+            "activation": {"status": "activated"},
+        },
+        "metadata": {"project_key": "alpha"},
+    })
+    assert not isinstance(session_only, Failure)
+    assert select_active_macro_identity(service, "alpha") == (("agent.macro.pilot",), ("1",))
+
+    # A project with no canonical artifact must not fall back to a session-only one.
+    bundle_c = service.create_session(
+        source="user",
+        entrypoint_type="agent_core",
+        goal="read",
+        project_key="gamma",
+        task_blueprints=[],
+    )
+    session_c = bundle_c["session"]["session_id"]
+    session_only_c = service.store.upsert_artifact({
+        "session_id": session_c,
+        "name": "macro-registration/agent.macro.pilot@3.json",
+        "artifact_type": "agent_macro.registration_package",
+        "content_json": {
+            "package_id": "agent.macro.pilot",
+            "package_version": "3",
+            "activation": {"status": "activated"},
+        },
+        "metadata": {"project_key": "gamma"},
+    })
+    assert not isinstance(session_only_c, Failure)
+    assert select_active_macro_identity(service, "gamma") == ((), ())
+
+
+def test_resolve_agent_macro_environment_delegates_to_active_selector() -> None:
+    registry = _FakeRegistry([CoreToolSpec(name="source.web.search", description_for_model="search")])
+    service = object()
+    with patch(
+        "app.services.agent_core.project_tools.build_project_core_tool_registry",
+        return_value=registry,
+    ), patch(
+        "app.services.agent_core.macro_environment.select_active_macro_identity",
+        return_value=(("agent.macro.pilot",), ("1",)),
+    ) as select, patch(
+        "app.services.agent_core.macro_environment.resolve_macro_environment",
+        return_value="resolved",
+    ) as resolve:
+        result = resolve_agent_macro_environment(project_key="alpha", service=service)
+    assert result == "resolved"
+    assert select.call_args.args == (service, "alpha", None, None)
+    assert resolve.call_args.args[2] == ("agent.macro.pilot",)
+    assert resolve.call_args.args[3] == ("1",)
+
+
+def test_assemble_agent_macro_binding_builds_declaration_observation() -> None:
+    resolved = SimpleNamespace(
+        package=None,
+        declared_tools=(),
+        skills=(),
+        environment_digest="d" * 64,
+    )
+    context = SimpleNamespace(session_id="s")
+    with patch(
+        "app.services.llm.codex_macro_binding.resolve_agent_macro_environment",
+        return_value=resolved,
+    ), patch(
+        "app.services.agent_core.macro_environment.assemble_native_macro_binding",
+        return_value=_binding(binding_id="agent.macro.base"),
+    ):
+        assembly = assemble_agent_macro_binding(
+            project_key="alpha",
+            service=object(),
+            trusted_host_context=context,
+        )
+    assert not isinstance(assembly, Failure)
+    assert assembly.binding.binding_id == "agent.macro.base"
+    assert assembly.package_id is None
+    assert assembly.package_version is None
+    assert assembly.declared_tool_names == ()
+    assert assembly.skill_names == ()
+    assert assembly.environment_digest == "d" * 64
+
+
+def test_pilot_builder_surfaces_failure_without_fallback() -> None:
+    failure = Failure("capability_input_missing", "macro_environment_invalid", "bad package")
+    with patch(
+        "app.services.llm.codex_macro_binding.assemble_agent_macro_binding",
+        return_value=failure,
+    ):
+        result = build_agent_macro_pilot_binding(
+            project_key="alpha", scope_id="s", service=object(), session_id="s"
+        )
+    assert isinstance(result, Failure)
+    assert result.code == "macro_environment_invalid"
+
+
+def test_rapid_builder_keeps_ordinary_core_without_global_capability_ban() -> None:
+    registry = _FakeRegistry([
+        CoreToolSpec(name="source.web.search", description_for_model="search"),
+        CoreToolSpec(name="agent_batch.submit", description_for_model="submit"),
+    ])
+    with patch(
+        "app.services.agent_core.project_tools.build_project_core_tool_registry",
+        return_value=registry,
+    ), patch(
+        "app.services.agent_core.macro_environment.get_agent_macro_facility_catalog",
+        return_value=(),
+    ):
+        binding = build_agent_macro_rapid_binding(
+            project_key="alpha", scope_id="codex-webui-base", service=_Service(), session_id="s"
+        )
+    assert not isinstance(binding, Failure)
+    assert binding.binding_id == "agent.macro.base"
+    assert {tool.logical_name for tool in binding.tools} == {
+        "source_web.search", "agent_batch.submit",
+    }
+    instructions = f"{binding.base_instructions} {binding.developer_instructions}".lower()
+    assert "shell" not in instructions
+    assert "browser" not in instructions
+    assert "mcp" not in instructions
+
+
+def test_native_dispatch_passes_occurrence_identity_to_handler() -> None:
+    observed: list[tuple[str, str, str]] = []
+
+    def handler(arguments):
+        context = current_native_tool_call_context()
+        if context is not None:
+            observed.append((context.call_id, context.thread_id, context.turn_id))
+        return {"ok": True}
+
+    tool = NativeToolBinding("read", "Read", {"type": "object", "properties": {}}, handler)
+    binding = _binding(tools=(tool,))
+    websocket = _FakeWebSocket([])
+    asyncio.run(
+        _core()._dispatch_server_request(
+            websocket,
+            data={
+                "id": 90,
+                "method": "item/tool/call",
+                "params": {
+                    "threadId": "thread-1",
+                    "turnId": "turn-1",
+                    "callId": "call-1",
+                    "tool": "read",
+                    "arguments": {"run_id": "run-7"},
+                },
+            },
+            binding=binding,
+            thread_id="thread-1",
+            turn_id="turn-1",
+        )
+    )
+    assert observed == [("call-1", "thread-1", "turn-1")]
+    assert current_native_tool_call_context() is None
+
+
+def test_same_arguments_distinct_calls_have_distinct_identity() -> None:
+    observed: list[str] = []
+
+    def handler(arguments):
+        context = current_native_tool_call_context()
+        observed.append(context.call_id if context is not None else "")
+        return {"ok": True}
+
+    tool = NativeToolBinding("read", "Read", {"type": "object", "properties": {}}, handler)
+    binding = _binding(tools=(tool,))
+    websocket = _FakeWebSocket([])
+
+    def dispatch(call_id):
+        asyncio.run(
+            _core()._dispatch_server_request(
+                websocket,
+                data={
+                    "id": 90,
+                    "method": "item/tool/call",
+                    "params": {
+                        "threadId": "thread-1",
+                        "turnId": "turn-1",
+                        "callId": call_id,
+                        "tool": "read",
+                        "arguments": {"run_id": "run-7"},
+                    },
+                },
+                binding=binding,
+                thread_id="thread-1",
+                turn_id="turn-1",
+            )
+        )
+
+    dispatch("call-1")
+    dispatch("call-2")
+    assert observed == ["call-1", "call-2"]
+
+
+def test_native_tool_context_resets_after_handler_exception() -> None:
+    def handler(arguments):
+        raise RuntimeError("boom")
+
+    tool = NativeToolBinding("read", "Read", {"type": "object", "properties": {}}, handler)
+    binding = _binding(tools=(tool,))
+    websocket = _FakeWebSocket([])
+    handled = asyncio.run(
+        _core()._dispatch_server_request(
+            websocket,
+            data={
+                "id": 90,
+                "method": "item/tool/call",
+                "params": {
+                    "threadId": "thread-1",
+                    "turnId": "turn-1",
+                    "callId": "call-1",
+                    "tool": "read",
+                    "arguments": {"run_id": "run-7"},
+                },
+            },
+            binding=binding,
+            thread_id="thread-1",
+            turn_id="turn-1",
+        )
+    )
+    assert handled is True
+    assert websocket.sent[-1]["result"]["success"] is False
+    assert current_native_tool_call_context() is None
+
+
+def test_duplicate_native_tool_call_id_reuses_response_without_reexecution() -> None:
+    observed: list[dict] = []
+    tool = NativeToolBinding(
+        "read",
+        "Read",
+        {"type": "object", "properties": {}},
+        lambda arguments: observed.append(dict(arguments)) or {"ok": True},
+    )
+    binding = _binding(tools=(tool,))
     websocket = _FakeWebSocket([])
     call = {
         "method": "item/tool/call",
@@ -413,8 +563,7 @@ def test_duplicate_native_tool_call_id_reuses_response_without_reexecution() -> 
             "threadId": "thread-1",
             "turnId": "turn-1",
             "callId": "call-1",
-            "namespace": "project_retrieval",
-            "tool": "read_run",
+            "tool": "read",
             "arguments": {"run_id": "run-7"},
         },
     }
@@ -454,9 +603,7 @@ def test_approval_request_is_explicitly_not_supported() -> None:
                 "method": "item/commandExecution/requestApproval",
                 "params": {},
             },
-            binding=build_agent_macro_pilot_binding(
-                project_key="alpha", scope_id="session-1"
-            ),
+            binding=_binding(),
             thread_id="thread-1",
             turn_id="turn-1",
         )
@@ -510,3 +657,16 @@ def test_interrupt_uses_protocol_method() -> None:
         "turn/interrupt",
         {"threadId": "thread-1", "turnId": "turn-1"},
     )
+
+
+def test_project_registry_keeps_structured_batch_and_drops_legacy_nl_tool() -> None:
+    with patch(
+        "app.services.agent_core.project_tools._register_agent_macro_facilities"
+    ):
+        registry = build_project_core_tool_registry(service=Mock())
+
+    names = {spec.name for spec in registry.list_specs()}
+    assert "agent_batch.submit" in names
+    assert "agent_batch.nl_command.submit" not in names
+    structured_spec = registry.get("agent_batch.submit")
+    assert "command" not in dict(structured_spec.input_schema["properties"])

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
+import re
 from typing import Any
 from uuid import uuid4
 
@@ -28,6 +29,7 @@ TASK_PHASES = frozenset({"conversation", "research", "synthesis", "implementatio
 EXECUTION_MODES = frozenset({"coordinator", "worker", "system"})
 FINAL_TASK_STATUSES = frozenset({"completed", "failed", "canceled", "expired"})
 FAILURE_PACKAGE_SCHEMA_VERSION = "agent_failure_package.v1"
+_HOST_CONFIRMATION_ID_RE = r"approval:(?P<approval_id>[A-Za-z0-9._:-]+)"
 
 
 def _utcnow() -> datetime:
@@ -40,6 +42,46 @@ def _new_id(prefix: str) -> str:
 
 def _failure(code: str, message: str, **context: Any) -> Failure:
     return agent_session_failures.fail(code, message, context or None)
+
+
+def _host_failure(code: str, **context: Any) -> Failure:
+    family_code = "session_not_found" if code.endswith("session_mismatch") else "status_invalid"
+    return _failure(family_code, code.replace("_", " "), host_code=code, **context)
+
+
+def _confirmation_failure(failure: Failure) -> Failure:
+    context = dict(failure.context or {})
+    host_code = str(context.get("host_code") or "")
+    approval_id = context.get("approval_id")
+    if failure.code == "approval_not_found":
+        return _failure("approval_not_found", failure.message, approval_id=approval_id)
+    if host_code == "host_confirmation_scope_mismatch":
+        return _host_failure("host_confirmation_scope_mismatch", approval_id=approval_id)
+    return _host_failure("host_confirmation_not_pending", approval_id=approval_id, status=context.get("status"))
+
+
+def _reconcile_confirmation(
+    approval: dict[str, Any],
+    requested_decision: str,
+    approval_id: str,
+) -> dict[str, Any] | Failure:
+    metadata = dict(approval.get("metadata") or {})
+    previous_decision = str(dict(metadata.get("host_confirmation") or {}).get("decision") or "").strip()
+    if not previous_decision:
+        return _host_failure("host_confirmation_not_pending", approval_id=approval_id, status=approval.get("status"))
+    if previous_decision != requested_decision:
+        return _host_failure(
+            "host_confirmation_decision_conflict",
+            approval_id=approval_id,
+            previous_decision=previous_decision,
+            requested_decision=requested_decision,
+        )
+    out = dict(approval)
+    out["requested_status"] = "approved" if requested_decision == "approved" else "failed"
+    out["final_status"] = str(approval.get("status") or "")
+    out["action_status"] = "already_final"
+    out["resolution_status"] = "already_final"
+    return out
 
 
 def _normalize_status(value: str, *, allowed: frozenset[str], default: str) -> str | Failure:
@@ -412,6 +454,144 @@ class AgentSessionService:
             payload={"role": row.get("role"), "actor": row.get("actor")},
         )
         self._maybe_refresh_memory(session_id)
+        return row
+
+    def create_host_user_message(
+        self,
+        context: Any,
+        *,
+        content: str,
+        approval_id: str | None = None,
+    ) -> dict[str, Any] | Failure:
+        """Record a user message at the trusted host input boundary only."""
+
+        from app.services.agent_core.host_authorization import (
+            HOST_AUTHORIZATION_CONTRACT_VERSION,
+            _validate_context,
+        )
+
+        context_failure = _validate_context(context)
+        if isinstance(context_failure, Failure):
+            return context_failure
+        metadata: dict[str, Any] = {
+            "contract_version": HOST_AUTHORIZATION_CONTRACT_VERSION,
+            "host_message": {
+                "project_key": context.project_key,
+                "session_id": context.session_id,
+                "host_thread_id": context.host_thread_id,
+                "turn_id": context.turn_id,
+                "user_message_id": context.user_message_id,
+            },
+        }
+        if approval_id is not None:
+            metadata["host_confirmation"] = {"approval_id": str(approval_id).strip()}
+        return self.create_message(
+            context.session_id,
+            role="user",
+            content=str(content or "").strip(),
+            actor=f"trusted_host:{context.host_thread_id}",
+            metadata=metadata,
+        )
+
+    def record_host_tool_confirmation(
+        self,
+        context: Any,
+        *,
+        approval_id: str,
+        content: str,
+        approved: bool = True,
+    ) -> dict[str, Any] | Failure:
+        """Resolve one host approval from an explicitly associated user message."""
+
+        from app.services.agent_core.host_authorization import (
+            HOST_AUTHORIZATION_CONTRACT_VERSION,
+            _validate_context,
+        )
+
+        normalized_approval_id = str(approval_id or "").strip()
+        if not normalized_approval_id:
+            return _failure("approval_id_required", "approval_id is required")
+        context_failure = _validate_context(context)
+        if isinstance(context_failure, Failure):
+            return context_failure
+        approval = self.store.get_approval(normalized_approval_id)
+        if isinstance(approval, Failure):
+            return approval
+        if str(approval.get("requester_session_id") or "") != context.session_id:
+            return _host_failure("host_confirmation_session_mismatch", approval_id=normalized_approval_id)
+        binding = dict(approval.get("binding_payload") or {})
+        if (
+            binding.get("project_key") != context.project_key
+            or binding.get("session_id") != context.session_id
+            or binding.get("host_thread_id") != context.host_thread_id
+            or approval.get("requester_actor") != f"trusted_host:{context.host_thread_id}"
+        ):
+            return _host_failure("host_confirmation_scope_mismatch", approval_id=normalized_approval_id)
+        text = str(content or "").strip()
+        match = re.search(_HOST_CONFIRMATION_ID_RE, text)
+        if match is None or match.group("approval_id") != normalized_approval_id:
+            return _host_failure("host_confirmation_action_invalid", approval_id=normalized_approval_id)
+        if not approved and not re.search(r"\b(?:reject|deny|拒绝)\b", text, flags=re.IGNORECASE):
+            return _host_failure("host_rejection_decision_invalid", approval_id=normalized_approval_id)
+        requested_decision = "approved" if approved else "rejected"
+
+        if str(approval.get("status") or "") != "pending":
+            return _reconcile_confirmation(approval, requested_decision, normalized_approval_id)
+
+        message = self.create_host_user_message(context, content=text, approval_id=normalized_approval_id)
+        if isinstance(message, Failure):
+            return message
+        approved_by = f"trusted_host:{context.host_thread_id}"
+        confirmed = self.store.confirm_host_approval(
+            approval_id=normalized_approval_id,
+            expected_binding_payload=binding,
+            expected_requester_actor=approved_by,
+            approved=approved,
+            approved_by=approved_by,
+            approved_at=_utcnow(),
+            confirmation_metadata={
+                "contract_version": HOST_AUTHORIZATION_CONTRACT_VERSION,
+                "host_confirmation": {
+                    "approval_id": normalized_approval_id,
+                    "user_message_id": context.user_message_id,
+                    "host_thread_id": context.host_thread_id,
+                    "turn_id": context.turn_id,
+                    "decision": requested_decision,
+                },
+            },
+            audit_log=[
+                {
+                    "at": _utcnow().isoformat(),
+                    "action": "approved" if approved else "rejected",
+                    "actor": approved_by,
+                }
+            ],
+        )
+        if isinstance(confirmed, Failure):
+            fresh = self.store.get_approval(normalized_approval_id)
+            if not isinstance(fresh, Failure) and str(fresh.get("status") or "") != "pending":
+                return _reconcile_confirmation(fresh, requested_decision, normalized_approval_id)
+            return _confirmation_failure(confirmed)
+        requester_session_id = str(confirmed.get("requester_session_id") or "").strip() or None
+        if requester_session_id:
+            requester_task_id = str(confirmed.get("requester_task_id") or "").strip() or None
+            self._apply_approval_resolution(
+                session_id=requester_session_id,
+                requester_task_id=requester_task_id,
+                approval=confirmed,
+                approved=approved,
+            )
+            self.store.append_event(
+                requester_session_id,
+                event_type=f"approval.{confirmed['status']}",
+                task_id=confirmed.get("requester_task_id"),
+                payload={"approval_id": normalized_approval_id, "approved_by": confirmed.get("approved_by")},
+            )
+        row = dict(confirmed)
+        row["requested_status"] = "approved" if approved else "failed"
+        row["final_status"] = str(row.get("status") or "")
+        row["action_status"] = "resolved"
+        row["resolution_status"] = "resolved"
         return row
 
     def append_task_blueprints(

@@ -176,6 +176,7 @@ def make_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec:
             "snapshot_path": AttributeRule("array"), "candidate_key": AttributeRule("string"),
             "candidate_id": AttributeRule("string"),
             "document_ref": AttributeRule("object"),
+            "material_ref": AttributeRule("object"),
         }),
         "evidence": TypeRule(attributes={
             "name": AttributeRule("string"),
@@ -385,6 +386,37 @@ def make_document_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec
                    types=types, constraints=(*legacy.constraints, validate_documents))
 
 
+def make_material_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec:
+    """V3 placements refer to the sole material body owner."""
+    legacy = make_retrieval_profile(vocabulary)
+    types = dict(legacy.types)
+    attributes = dict(types["material"].attributes)
+    for key in ("title", "url", "content_name", "content_summary", "source_uri", "source_status", "document_ref"):
+        attributes.pop(key, None)
+    attributes["material_ref"] = AttributeRule("object")
+    types["material"] = replace(types["material"], attributes=attributes)
+
+    def validate_materials(state: TopologyState) -> Failure | None:
+        from app.services.document_queries.identity import canonical_material_identity
+
+        for element in state.elements:
+            if element.ref.ref.type_id != "material":
+                continue
+            ref = element.attributes.get("material_ref")
+            if element.attributes.get("reference_status") == "unresolved_reference":
+                if ref is not None:
+                    return topology_failures.fail("INVALID_STRUCTURE", "unresolved material cannot claim a body owner")
+                continue
+            if (not isinstance(ref, Mapping)
+                or canonical_material_identity(element.ref.ref.project_key, ref) != dict(ref)
+                or ref.get("module_id") != "materials"):
+                return topology_failures.fail("INVALID_STRUCTURE", "material requires a canonical project material reference")
+        return None
+
+    return replace(legacy, version="3+" + legacy.version.removeprefix("1+"),
+                   types=types, constraints=(*legacy.constraints, validate_materials))
+
+
 def domain_vocabulary_element(vocabulary: DomainVocabulary) -> Element:
     """Construct the one immutable snapshot element required by this profile."""
     profile = make_retrieval_profile(vocabulary)
@@ -454,7 +486,8 @@ def profile_from_state_payload(
         profile = (
             make_rapid_proposal_profile(vocabulary)
             if profile_id.startswith(RAPID_PROPOSAL_PROFILE_ID_PREFIX)
-            else (make_document_retrieval_profile(vocabulary)
+            else (make_material_retrieval_profile(vocabulary)
+                  if profile_version.startswith("3+") else make_document_retrieval_profile(vocabulary)
                   if profile_version.startswith("2+") else make_retrieval_profile(vocabulary))
         )
     except (TypeError, ValueError) as exc:

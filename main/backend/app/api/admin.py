@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Query, Request
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 from typing import Optional, List, Any, Literal
 from sqlalchemy import select, func, or_, and_, nullslast, nullsfirst
 from sqlalchemy.orm import selectinload
@@ -259,7 +259,7 @@ class SocialDataListRequest(BaseModel):
 
 
 class DeleteDocumentsRequest(BaseModel):
-    ids: List[int]
+    ids: List[int] = Field(validation_alias=AliasChoices("material_ids", "ids"))
     preview: bool = Field(default=False, description="仅预览影响范围，不执行删除")
 
 
@@ -289,6 +289,7 @@ def _build_document_delete_preview(docs: list[Document], requested_ids: list[int
         samples.append(
             {
                 "id": doc.id,
+                "material_id": doc.id,
                 "title": doc.title,
                 "doc_type": doc.doc_type,
                 "state": doc.state,
@@ -323,7 +324,7 @@ def _build_document_delete_preview(docs: list[Document], requested_ids: list[int
 
 
 class ReExtractRequest(BaseModel):
-    doc_ids: Optional[List[int]] = None  # 如果为空，则提取所有政策文档
+    doc_ids: Optional[List[int]] = Field(default=None, validation_alias=AliasChoices("material_ids", "doc_ids"))
     preview: bool = Field(default=False, description="仅预览影响范围，不执行重抽取")
     force: bool = Field(default=False, description="是否强制重新提取已有数据的文档")
     fetch_missing_content: bool = Field(default=False, description="content为空时，尝试抓取正文后再提取")
@@ -339,6 +340,7 @@ def _build_document_preview_samples(docs: list[Document]) -> list[dict[str, Any]
         samples.append(
             {
                 "id": getattr(doc, "id", None),
+                "material_id": getattr(doc, "id", None),
                 "title": getattr(doc, "title", None),
                 "doc_type": getattr(doc, "doc_type", None),
                 "state": getattr(doc, "state", None),
@@ -358,6 +360,7 @@ def _admin_preview_doc_ref(doc: Document, *, action: str) -> dict[str, Any]:
         "kind": "document_record",
         "table": "documents",
         "document_id": doc_id,
+        "material_id": doc_id,
         "title": getattr(doc, "title", None),
         "doc_type": getattr(doc, "doc_type", None),
         "state": getattr(doc, "state", None),
@@ -456,6 +459,7 @@ def _admin_after_action_doc_ref(doc: Any, *, action: str) -> dict[str, Any]:
         "kind": "document_record",
         "table": "documents",
         "document_id": doc_id,
+        "material_id": doc_id,
         "title": _admin_doc_value(doc, "title"),
         "doc_type": _admin_doc_value(doc, "doc_type"),
         "state": _admin_doc_value(doc, "state"),
@@ -732,7 +736,7 @@ def _build_reextract_plan(doc_type: str) -> dict[str, Any]:
 
 class TopicExtractRequest(BaseModel):
     topics: List[Literal["company", "product", "operation"]] = Field(default_factory=lambda: ["company", "product", "operation"], min_length=1)
-    doc_ids: Optional[List[int]] = None
+    doc_ids: Optional[List[int]] = Field(default=None, validation_alias=AliasChoices("material_ids", "doc_ids"))
     doc_types: Optional[List[str]] = None
     force: bool = Field(default=False)
     fetch_missing_content: bool = Field(default=False)
@@ -1320,6 +1324,7 @@ def get_stats(request: Request):
             })
 
 
+@router.post("/materials/raw-import", response_model=ApiEnvelope[dict[str, Any]])
 @router.post("/documents/raw-import", response_model=ApiEnvelope[dict[str, Any]])
 def raw_import_documents(request: Request, payload: RawImportRequest):
     """Raw data direct ingest: skip fetch stage and reuse project-consistent ingest flow."""
@@ -1338,6 +1343,7 @@ def raw_import_documents(request: Request, payload: RawImportRequest):
         return success_response(run_raw_import_documents(payload_dict, project_key))
 
 
+@router.post("/materials/list", response_model=ApiEnvelope[dict[str, Any]])
 @router.post("/documents/list", response_model=ApiEnvelope[dict[str, Any]])
 def list_documents(request: Request, payload: DocumentListRequest):
     """列出文档"""
@@ -1472,12 +1478,13 @@ def list_documents(request: Request, payload: DocumentListRequest):
             for doc in documents:
                 items.append({
                     "id": doc.id,
+                    "material_id": doc.id,
                     "title": doc.title,
                     "doc_type": doc.doc_type,
                     "state": doc.state,
                     "source_id": doc.source_id,
                     "uri": doc.uri,
-                    "source_kind": "document",
+                    "source_kind": "material",
                     "readonly": False,
                     "created_at": doc.created_at.isoformat() if doc.created_at else None,
                     "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
@@ -1493,6 +1500,7 @@ def list_documents(request: Request, payload: DocumentListRequest):
             })
 
 
+@router.get("/materials/{doc_id}", response_model=ApiEnvelope[dict[str, Any]])
 @router.get("/documents/{doc_id}", response_model=ApiEnvelope[dict[str, Any]])
 def get_document(doc_id: int):
     """获取文档详情"""
@@ -1506,6 +1514,7 @@ def get_document(doc_id: int):
         
         return success_response({
             "id": doc.id,
+            "material_id": doc.id,
             "title": doc.title,
             "doc_type": doc.doc_type,
             "state": doc.state,
@@ -1527,12 +1536,13 @@ class UpdateExtractedDataRequest(BaseModel):
 
 
 class BulkUpdateExtractedDataRequest(BaseModel):
-    doc_ids: List[int] = Field(..., description="要更新的文档ID列表")
+    doc_ids: List[int] = Field(..., validation_alias=AliasChoices("material_ids", "doc_ids"), description="要更新的材料ID列表")
     preview: bool = Field(default=False, description="仅预览影响范围，不执行写入")
     mode: Literal["replace", "merge"] = Field(default="replace", description="replace: 全量替换；merge: 递归合并(对象)")
     extracted_data: Any = Field(default=None, description="要写入的 JSON 值；null 表示清空 extracted_data")
 
 
+@router.post("/materials/{doc_id}/extracted-data", response_model=ApiEnvelope[dict[str, Any]])
 @router.post("/documents/{doc_id}/extracted-data", response_model=ApiEnvelope[dict[str, Any]])
 def update_document_extracted_data(doc_id: int, payload: UpdateExtractedDataRequest):
     """手动写入/合并文档 extracted_data（在库结构化结果）。"""
@@ -1556,9 +1566,10 @@ def update_document_extracted_data(doc_id: int, payload: UpdateExtractedDataRequ
                 doc.extracted_data = payload.extracted_data
 
         session.commit()
-        return success_response({"id": doc.id, "extracted_data": doc.extracted_data})
+        return success_response({"id": doc.id, "material_id": doc.id, "extracted_data": doc.extracted_data})
 
 
+@router.post("/materials/bulk/extracted-data", response_model=ApiEnvelope[dict[str, Any]])
 @router.post("/documents/bulk/extracted-data", response_model=ApiEnvelope[dict[str, Any]])
 def bulk_update_document_extracted_data(payload: BulkUpdateExtractedDataRequest):
     """批量写入/合并文档 extracted_data。"""
@@ -1641,6 +1652,7 @@ def bulk_update_document_extracted_data(payload: BulkUpdateExtractedDataRequest)
         }
     )
 
+@router.post("/materials/delete", response_model=ApiEnvelope[dict[str, Any]])
 @router.post("/documents/delete", response_model=ApiEnvelope[dict[str, Any]])
 def delete_documents(payload: DeleteDocumentsRequest):
     """删除文档"""
@@ -1686,6 +1698,7 @@ def delete_documents(payload: DeleteDocumentsRequest):
     return success_response({"deleted": deleted, "missing": missing, **evidence})
 
 
+@router.post("/materials/re-extract", response_model=ApiEnvelope[dict[str, Any]])
 @router.post("/documents/re-extract", response_model=ApiEnvelope[dict[str, Any]])
 def re_extract_documents(payload: ReExtractRequest):
     """重新提取文档的结构化数据"""
@@ -1842,6 +1855,7 @@ def re_extract_documents(payload: ReExtractRequest):
         })
 
 
+@router.post("/materials/topic-extract", response_model=ApiEnvelope[dict[str, Any]])
 @router.post("/documents/topic-extract", response_model=ApiEnvelope[dict[str, Any]])
 def topic_extract_documents(request: Request, payload: TopicExtractRequest):
     """专题析取（规则筛 + LLM确认），回填 company/product/operation 专题结构化字段。"""

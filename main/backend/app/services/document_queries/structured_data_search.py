@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Any, Iterable, Mapping
+from ...contracts.materials import normalize_material_dataset
 
 from .contracts import (
     DOCUMENT_QUERY_CONTRACT_VERSION,
@@ -27,7 +28,7 @@ def _clean_optional_text(value: Any) -> str | None:
 def _clean_sequence(values: Iterable[Any] | None) -> tuple[str, ...]:
     out: list[str] = []
     for value in values or ():
-        cleaned = _clean_text(value)
+        cleaned = normalize_material_dataset(value)
         if cleaned and cleaned not in out:
             out.append(cleaned)
     return tuple(out)
@@ -111,7 +112,7 @@ def build_structured_data_search_document_query_envelope(
 def _structured_item_to_document_query_row(item: Mapping[str, Any]) -> dict[str, Any]:
     raw = dict(item)
     fields = _as_mapping(raw.get("fields"))
-    dataset = _clean_text(raw.get("dataset")) or "structured_data"
+    dataset = normalize_material_dataset(raw.get("dataset")) or "structured_data"
     record_id = _clean_text(raw.get("record_id") or raw.get("id"))
     row_id = f"{dataset}:{record_id}" if record_id else dataset
     source_uri = _clean_optional_text(
@@ -123,8 +124,10 @@ def _structured_item_to_document_query_row(item: Mapping[str, Any]) -> dict[str,
     )
     return {
         **raw,
+        "dataset": dataset,
         "id": row_id,
-        "document_id": record_id if dataset == "documents" and record_id else None,
+        "document_id": record_id if dataset == "materials" and record_id else None,
+        "material_id": record_id if dataset == "materials" and record_id else None,
         "title": _clean_text(raw.get("title") or record_id or dataset) or "Structured record",
         "summary": _clean_text(raw.get("summary") or fields.get("summary") or fields.get("description")),
         "url": source_uri,

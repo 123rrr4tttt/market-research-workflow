@@ -1172,18 +1172,23 @@ class CodexAppServerCore:
         success = bool(tool and call_matches)
         if success and tool is not None:
             try:
+                from .native_tool_context import NativeToolCallContext, native_tool_call_context
+
                 # Dynamic Core handlers are ordinary synchronous project
                 # services in the existing runtime.  Run them off the
                 # app-server event loop so a mounted tool may legitimately
                 # invoke another synchronous/async-capable Core service (for
                 # example material extraction calling the persistent model)
                 # without nesting ``asyncio.run`` inside the websocket loop.
-                if inspect.iscoroutinefunction(tool.handler):
-                    result = await tool.handler(params["arguments"])
-                else:
-                    result = await asyncio.to_thread(tool.handler, params["arguments"])
-                    if inspect.isawaitable(result):
-                        result = await result
+                with native_tool_call_context(NativeToolCallContext(call_id, thread_id, turn_id)):
+                    if inspect.iscoroutinefunction(tool.handler):
+                        result = await tool.handler(params["arguments"])
+                    else:
+                        result = await asyncio.to_thread(tool.handler, params["arguments"])
+                        if inspect.isawaitable(result):
+                            result = await result
+                if isinstance(result, dict) and "tool_name" in result and "call_id" in result:
+                    success = result.get("status") not in {"failed", "canceled", "needs_approval"}
                 output = result if isinstance(result, str) else json.dumps(
                     result, ensure_ascii=False, sort_keys=True, default=str
                 )

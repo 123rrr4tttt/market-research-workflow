@@ -16,7 +16,7 @@ def query_hybrid_document_envelope(query: str, *, limit: int) -> dict[str, Any]:
     query_object = build_document_query(
         query,
         consumer="writing.keyword_cards",
-        sources=("document",),
+        sources=("material",),
         sort=({"field": "relevance", "direction": "desc"},),
         limit=limit,
     )
@@ -25,7 +25,7 @@ def query_hybrid_document_envelope(query: str, *, limit: int) -> dict[str, Any]:
         query_object,
         [dict(row) for row in rows if isinstance(row, dict)],
         source="search.hybrid",
-        result_source_type="document",
+        result_source_type="material",
     )
 
 

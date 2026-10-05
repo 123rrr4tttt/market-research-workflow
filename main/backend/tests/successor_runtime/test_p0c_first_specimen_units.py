@@ -422,10 +422,16 @@ def _walk(node: ProgramNode):
             yield from _walk(branch.program)
 
 
-def test_submission_captures_two_documents_and_creates_atomic_runtime_packet() -> None:
+@pytest.mark.parametrize("scheme", ["document", "material"])
+def test_submission_captures_two_documents_and_creates_atomic_runtime_packet(scheme: str) -> None:
     state = _State()
     documents = _DocumentPort(_rows())
-    submitted = _service(state, documents).submit(_command())
+    command = _command()
+    command = replace(command, source_refs=tuple(
+        replace(source, locator=f"{scheme}://{PROJECT_KEY}/{identifier}", content_digest=None)
+        for source, identifier in zip(command.source_refs, command.document_ids, strict=True)
+    ))
+    submitted = _service(state, documents).submit(command)
 
     assert documents.reads == [101, 102]
     assert state.commits == 1 and state.rollbacks == 0

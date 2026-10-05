@@ -61,6 +61,7 @@ def build_policy_summary(
     created_at = getattr(doc, "created_at", None)
     return {
         "id": getattr(doc, "id"),
+        "material_id": getattr(doc, "id"),
         "title": getattr(doc, "title", None),
         "state": get_policy_state(doc),
         "status": getattr(doc, "status", None),

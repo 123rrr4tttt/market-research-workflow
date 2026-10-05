@@ -24,7 +24,7 @@
 
 当前执行核心是 `CodexAppServerCore.invoke_native`。`agent_chat.py` 提供两个显式业务入口：`agent_macro_native` 挂载只读检索读回 skill/tool，`agent_macro_rapid_native` 挂载 Rapid skill 和普通项目工具面；工具 handler、项目权限和持久读回仍由原 owner 执行。旧 MRW `AgentCore.run` 不再是执行路径；其合同类型只在历史消费者或工具投影需要处保留，不重新实现第二套决策循环。
 
-这里保留准确的宿主边界：`CodexAppServerCore` 的 model-only provider 调用与 `invoke_native` 是两种调用合同。当前 native binding 已支持精确 skill roots、动态工具、同进程续接和 turn interrupt；跨进程 thread 恢复与审批请求不支持，离线装配也不证明某个具体业务成果已完成。Codex WebUI 通过自己的代理宿主接入，其 thread/store 不自动等于 MRW 原生绑定的 session；当前包装页没有建立两者的统一会话或项目绑定。
+这里保留准确的宿主边界：`CodexAppServerCore` 的 model-only provider 调用与 `invoke_native` 是两种调用合同。当前 native binding 已支持精确 skill roots、动态工具、同进程续接和 turn interrupt；跨进程 thread 恢复与原生审批请求不支持，离线装配也不证明某个具体业务成果已完成。Codex WebUI 通过自己的代理宿主接入，其 thread/store 不自动等于 MRW 原生绑定的 session；2026-10-05 修复批次已加入包装页项目交接和精确 thread/session 关联，以及 MRW 工具独立宿主确认。实际服务加载与执行结果由分发计划 §15 记录。
 
 胞腔中注册并可供 Core 使用的 skills/tools 及其组合环境具有两个同时成立的地位。对调用而言，它们是广义输入和结构参数，包括 skill 的内容、方法、适用情境、成果要求，以及 tool 的 schema、版本、权限和可访问设施。对胞腔内部而言，它们提供把自由表达转化为回答与行动的中介通路。撰写或修改一个 skill，能够在特定输入范围和情境中进一步规定工作内容及输出，因而部分改变或创建胞腔的局部 I/O 关系；这不限于选择已有 handler 或修改注册元数据。
 
@@ -301,7 +301,9 @@ Rapid skill 的 `claim_ceiling=expansion_proposal` 是局部交付限制，不�
 | [CapabilityCellSpec](../app/successor_runtime/specification/capability_cell_spec.py) 与 [CellBinding](../app/successor_runtime/assembly/base.py) | 前者声明胞腔相关合同／解释器／效果／资源／读回／权威引用；后者记录装配状态与接线事实 | 尚未提供本文完整 Agent 宏胞腔定义及其内外接口绑定；`CellBinding` 只是装配表示，不等于胞腔本身，旧迁移证据字段不成为本轮新流程 |
 | [SkillRuntime / SkillSpec](../app/services/skill_runtime.py) | skill 注册、handler 及角色／权限、owner、并发、审批和产物元数据；已有 `project_retrieval.current`、`preview`、`start`、`read_run`、`formalize_document` | 当前无 skill 正文或方法指令字段；可调用 handler 不证明可撰写 skill 的内容已进入 Core，需要权威内容、适用情境和设施引用的实际接入 |
 | [CoreToolRegistry 组装](../app/services/agent_core/project_tools.py) | 将原项目能力、`skill.<skill_id>` 及 MCP-compatible 入口装入工具目录；`skill.search`／`skill.load` 发现和读取元数据 | `skill.load` 返回 metadata 和调用提示，不加载任意自然语言 skill 正文；既有工具桥接也不是 registered macro 的通用 binding，MCP 目录与实际挂载须分开 |
-| [宏胞腔注册包](../app/services/agent_core/macro_registration.py) 与 `macro_tools.py` | Agent 可生成、校验、持久化并读回候选 `agent_macro.registration_package.v1`；注册包包含 cell、skill content、tool/facility/readback 引用及虚／实边 | 当前只创建候选包 artifact；`activation.status=candidate`，实际安装、授权和激活仍由宿主执行 |
+| [宏胞腔注册包](../app/services/agent_core/macro_registration.py) 与 `macro_tools.py` | Agent 可生成、校验、持久化并读回候选 `agent_macro.registration_package.v1`；创建与激活由可信宿主策略自动授权，绑定精确项目、工具参数及目标包摘要后由原 handler 执行 | 新建包保持 candidate，Agent 可直接继续激活；记录 `host_policy`，不产生人工审批。实际激活、装配与业务完成分别读回；底层 Core、sandbox、权限策略与 authority owner 的修改仍由原 owner 确认 |
+| [环境解析与原生装配](../app/services/agent_core/macro_environment.py) | 同一 resolver 核验项目 artifact、真实 skill 字节及路径、registry 和设施引用，派生 API native binding 与 WebUI descriptor；0 包为 base，1 包默认选择，显式单包精确选择 | 多包不自动择优；历史包不能仅凭 activated 标签获得装配资格。实际 Core 挂载及调用须验证 |
+| [WebUI 宿主](../app/services/agent_core/macro_host.py) 与 `agent_macro_host.py` | 项目–thread–session 精确绑定；宿主输入、工具调用、需要确认的原工具 pending action 与确认关联；终态调用读回和停止边界；环境过期与重启前置拒绝；共享真实作用域门禁 | §15 记录本地回归及 HK base 一次真实只读 native 调用与 SQL 同身份读回；普通胞腔包创建与激活无需逐包真人确认，live 包 skill 采用仍以实际调用观察为准 |
 | [AgentCore contracts](../app/services/agent_core/contracts.py) | 历史请求、工具调用和结果合同类型；Rapid native binding 在客户端工具投影处复用它调用普通项目工具 handler | 不再提供旧 runtime 执行入口；进一步生命周期映射只在真实消费者需要时补齐，不把该包整体恢复为当前核心 |
 | [CodexAppServerCore](../app/services/llm/codex_app_server.py) 与 [native binding](../app/services/llm/codex_macro_binding.py) | 持久管理 Codex app-server 进程和 thread；精确挂载 skill roots、动态工具、sandbox 与项目指令，`agent_chat.py` 两个业务入口均调用 `invoke_native` | 完整宏胞腔声明、更多业务 skill 的权威内容、跨进程恢复与具体成果验收仍需逐项补齐；不能用离线装配或工具目录存在冒充实测 |
 | [retrieval_flow_native.py](../app/successor_runtime/capabilities/retrieval_flow_native.py) | `FlowIdentity`、`FlowOccurrence`、`FlowThen`；显式 typed wiring；macro 要求非空 `entrypoint_ref`；按合同装配 bindings | `RetrievalFlowBinding.run` 只顺序解释已装配的单输入／单输出线性流，没有分支、任意反馈或 Agent loop 编译能力；macro 标记本身不解析入口、不建立 Agent binding |
@@ -448,4 +450,4 @@ MCP 的 server 概览区分 prompts、resources 和 tools：分别提供模板�
 
 对实际涉及保存或启动的局部调用，继续核对原 writer/readback 或 workflow start/read/continue，保持其结果与权限。Rapid 结构化采集应从原生工作连续到读写 tool 或最后一步入库实边，核对来源闭合的成果、保存确认、必要读回与下一轮输入；最终写入失败时保留本项交付未完成。直接工具调用的 schema 必须精确，原始用户表达保持开放，两者应在同一条真实用户操作链中得到观察。上述六种状态用于区分事实，不新增审批阶段；无保存需求的纯回答无需经过持久化状态。
 
-本文交付范围为宏胞腔架构文档及既有代码接点的语义对齐，只做文档路径、围栏和空白静态检查；未运行 Agent、provider、业务测试或持久化链。当前 `agent_chat.py` 的两个显式 native binding 和 WebUI 宿主可定位；完整概念规定的关联、完整胞腔声明与注册、更多业务 skill 正文、跨进程生命周期、Rapid macro catalog 及行为保持见证仍待实现。虚边／实边的说明不使这些 pending 接线自动完成。
+原架构文档交付只完成代码接点语义对齐和文档静态检查。2026-10-05 修复批次已实现 §7 中的项目包解析、可信授权、两种 native 消费者与 WebUI 宿主，实际测试、服务加载及一次 HK base 原生只读调用的 SQL 同身份读回见[分发记录 §15](INFORMATION_RETRIEVAL_IMPLEMENTATION_DISPATCH_PLAN.md#15-2026-10-05-胞腔修复批次)。完整概念规定的进一步关联、更多业务 skill 正文、跨进程绑定恢复、Rapid macro catalog 及其行为保持仍按真实依赖逐项验收；精确包 live 激活与包 skill 实际采用本轮未执行。虚边／实边的说明不使剩余接线自动完成。

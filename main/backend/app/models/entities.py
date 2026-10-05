@@ -36,10 +36,11 @@ class Source(BigIDMixin, Base):
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
-    documents = relationship("Document", back_populates="source")
+    documents = relationship("Material", back_populates="source")
 
 
-class Document(BigIDMixin, Base):
+class Material(BigIDMixin, Base):
+    """Canonical source material; the existing table preserves all addresses."""
     __tablename__ = "documents"
 
     source_id = Column(BigInteger, ForeignKey("sources.id", ondelete="SET NULL"))
@@ -61,6 +62,10 @@ class Document(BigIDMixin, Base):
     )
 
     source = relationship("Source", back_populates="documents")
+
+
+# Compatibility import for existing integrations, not a second mapped entity.
+Document = Material
 
 
 # Keep the persisted table model so project-schema moves preserve historical rows.

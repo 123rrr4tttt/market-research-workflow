@@ -53,7 +53,7 @@ method_profile = ProfileSpec(
         "assumptions": AttributeRule("array"),
         "composition_compatibility": AttributeRule("array"),
     }, endpoints={
-        "implementation_reference": EndpointRule(frozenset({"implementation", "document", "artifact"}), allow_external=True),
+        "implementation_reference": EndpointRule(frozenset({"implementation", "material", "document", "artifact"}), allow_external=True),
         "composes_after": EndpointRule(frozenset({METHOD_TYPE}), allow_external=True),
     })}), frozenset({METHOD_TYPE}), (_method_constraint,),
 )

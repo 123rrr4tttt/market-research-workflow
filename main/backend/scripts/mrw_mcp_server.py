@@ -1,26 +1,43 @@
 #!/usr/bin/env python3
-"""MRW AgentCore retrieval functor -> MCP bridge (stdio).
+"""MRW AgentCore tool registry -> MCP bridge (stdio).
 
-Functorial design: the AgentCore tool registry is the single truth source. This
-bridge projects only the *retrieval* morphisms (read-only, project-parameterised)
-that compose to answer "what is happening in my project". It deliberately does
-NOT dump the full 83-tool pool; write/control/agent-batch tools stay out of the
-assistant surface. Same interface serves any project (project_key parameterised).
+The AgentCore tool registry is the single truth source. This bridge projects the
+registered tool surface for MCP clients, deriving each tool's read/write
+annotation from ``CoreToolSpec.risk``. ``permission`` is never used as the
+read-only signal because ``allow`` also covers write/privileged tools such as
+``writing.document.create``.
+
+Without an authenticated host binding this stdio surface is fail-closed.
+``initialize`` and ``tools/list`` still answer so a client can recover the
+protocol, but any scoped or write call is rejected with an explicit
+``scope_required`` / ``authorization_required`` code and has zero side effect.
+Only the public no-scope read tools (``skill.search`` and ``skill.load``) execute
+directly. Functorial composition is not exposed by this bridge and is never
+scheduled here.
 
 Env:
-  MRW_BACKEND                        : backend package root (default ../backend)
-  MRW_BUSINESS_CHAIN_PROJECT_KEY     : default project_key for calls
-  MRW_ACTIVE_PROJECT_KEY             : optional fallback after MRW_BUSINESS_CHAIN_PROJECT_KEY
+  MRW_BACKEND : backend package root (default ../backend)
 """
 
 from __future__ import annotations
 
 import json
-import logging
 import os
 import sys
-import uuid
 from pathlib import Path
+
+
+def _repo_src_root() -> Path:
+    return Path(__file__).resolve().parents[3] / "src"
+
+
+REPO_SRC = _repo_src_root()
+if not REPO_SRC.is_dir():
+    print(
+        f"MRW MCP server bootstrap: repository source directory not found: {REPO_SRC}",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
 
 
 def _backend_root() -> Path:
@@ -31,6 +48,7 @@ def _backend_root() -> Path:
 
 
 ROOT = _backend_root()
+sys.path.insert(0, str(REPO_SRC))
 sys.path.insert(0, str(ROOT))
 
 from app.services.agent_core.contracts import (
@@ -45,284 +63,117 @@ from app.services.agent_sessions.service import AgentSessionService
 _SERVICE = AgentSessionService()
 _REGISTRY = build_project_core_tool_registry(service=_SERVICE)
 
-from app.services.agent_core.functorial.motif import compose_motif
-from app.services.agent_core.functorial.registry import (
-    catalog as _fcatalog,
-)
-from app.services.agent_core.functorial.workflow import (
-    build_workflow_program,
-)
 
-
-def _ftool(name, description, schema):
-    return {
-        "name": name,
-        "description": description,
-        "inputSchema": schema,
-        "outputSchema": {"type": "object", "additionalProperties": True},
-        "annotations": {"readOnlyHint": False, "openWorldHint": False},
-    }
-
-
-FUNCTORIAL_TOOLS = [
-    _ftool(
-        "create_motif",
-        "Compose existing operators into a named reusable motif (basic ordered composition).",
-        {
-            "type": "object",
-            "properties": {
-                "motif_id": {"type": "string"},
-                "name": {"type": "string"},
-                "composition": {"type": "array", "items": {"type": "string"}},
-                "input_schema": {"type": "object", "additionalProperties": True},
-                "output_schema": {"type": "object", "additionalProperties": True},
-            },
-            "required": ["motif_id", "name", "composition"],
-        },
-    ),
-    _ftool(
-        "create_workflow",
-        "Compose operators/motifs into a fixed long workflow (linear DAG) and register it by name.",
-        {
-            "type": "object",
-            "properties": {
-                "workflow_id": {"type": "string"},
-                "name": {"type": "string"},
-                "steps": {"type": "array", "items": {"type": "string"}},
-                "laws": {"type": "array", "items": {"type": "string"}},
-            },
-            "required": ["workflow_id", "name", "steps"],
-        },
-    ),
-    _ftool(
-        "run_workflow",
-        "Run a registered workflow by name: execute its operators in order and return results.",
-        {
-            "type": "object",
-            "properties": {
-                "workflow_id": {"type": "string"},
-                "inputs": {"type": "object", "additionalProperties": True},
-                "project_key": {"type": "string"},
-            },
-            "required": ["workflow_id"],
-        },
-    ),
-]
-
-
-def _configured_project_key() -> str:
-    """Resolve a default project without embedding a checkout-specific key."""
-
-    for name in ("MRW_BUSINESS_CHAIN_PROJECT_KEY", "MRW_ACTIVE_PROJECT_KEY"):
-        value = os.environ.get(name, "").strip()
-        if value:
-            return value
-    try:
-        from app.settings.config import settings
-
-        return str(getattr(settings, "active_project_key", "") or "").strip()
-    except Exception as exc:  # noqa: BLE001
-        _logger.debug("failed to resolve active project key: %s", exc)
-        return ""
-
-
-DEFAULT_PROJECT_KEY = _configured_project_key()
-_logger = logging.getLogger(__name__)
-
-# Read-only retrieval morphisms the assistant composes to answer project questions.
-CURATED = {
-    # writing workbench: read + write (assistant composes retrieval AND native report write)
-    "writing.document.create",
-    "writing.document.insert_paragraph",
-    "writing.document.citations.upsert",
-    "writing.document.list",
-    "writing.document.read",
-    "writing.document.section.read",
-    "project.context.bundle",
-    "project.summary.read",
-    "project.structured_data.search",
-    "project.structured_data.item.read",
-    "project.structured_data.items.read",
-    "project.graph.search",
-    "project.structured_graph.query",
-    "agent_artifact.search",
-    "agent_artifact.read",
-    "agent_investigation.trace.read",
-    "source_library.item.search",
-    "source_library.item.list",
-    "ingest.status.read",
-    "agent_runtime.tool_pool.list",
-    "agent_runtime.tool.search",
+HOST_AUTHORIZATION_STATUS = {
+    "status": "unbound",
+    "reason": "trusted_host_binding_unavailable",
 }
 
 
-def _resolve_session_id(project_key: str) -> str:
-    """Pick a real agent-session id for the project (tools reject unknown ids)."""
-    try:
-        sessions = _SERVICE.store.list_sessions(limit=200) or []
-        ok = lambda s: str(s.get("project_key") or "") == project_key
-        actives = [
-            s
-            for s in sessions
-            if ok(s) and str(s.get("status") or "") in ("active", "pending")
-        ]
-        if actives:
-            return str(actives[0].get("session_id") or "")
-        for s in sessions:
-            if ok(s):
-                return str(s.get("session_id") or "")
-    except Exception as exc:  # noqa: BLE001
-        _logger.debug("failed to list sessions for project %s: %s", project_key, exc)
-    try:
-        created = _SERVICE.store.create_session(
-            {
-                "session_id": None,
-                "project_key": project_key,
-                "status": "active",
-                "title": "MRW assistant retrieval context",
-            }
-        )
-        return str((created or {}).get("session_id") or "")
-    except Exception as exc:  # noqa: BLE001
-        _logger.debug(
-            "failed to create retrieval session for project %s: %s", project_key, exc
-        )
-        return f"mcp-{uuid.uuid4().hex[:16]}"
+PUBLIC_NO_SCOPE_TOOLS = {"skill.load", "skill.search"}
+
+
+_FUNCTORIAL_TOOL_NAMES = {"create_motif", "create_workflow", "run_workflow"}
 
 
 def _mcp_tool(spec) -> dict:
     schema = dict(spec.input_schema or {"type": "object", "properties": {}})
-    props = dict(schema.get("properties") or {})
-    if not DEFAULT_PROJECT_KEY:
-        props.setdefault("project_key", {"type": "string"})
-        required = list(schema.get("required") or [])
-        if "project_key" not in required:
-            required.append("project_key")
-        schema["required"] = required
-    # symmetric: every tool accepts an optional project_key (default env)
-    props.setdefault(
-        "project_key",
-        {
-            "type": "string",
-            "description": f"MRW project_key (default {DEFAULT_PROJECT_KEY})",
-        },
-    )
-    schema = {**schema, "properties": props}
     return {
         "name": spec.name,
         "description": spec.description_for_model or "",
         "inputSchema": schema,
         "outputSchema": spec.output_schema
         or {"type": "object", "additionalProperties": True},
-        "annotations": {"readOnlyHint": True, "openWorldHint": False},
+        "annotations": {
+            "readOnlyHint": spec.risk == "read_only",
+            "openWorldHint": False,
+        },
     }
 
 
 def _handle_tools_list() -> dict:
-    # Full exposure: project every registered AgentCore operator (retrieval,
-    # writing/commit, ingest, runtime, control) plus the functorial tools.
-    # The previous CURATED whitelist hid ~60 tools from the built-in agent and
-    # made discovery tools report writes as "deferred/approval-required",
-    # which the agent then echoed back as "I am read-only".
-    tools = [_mcp_tool(s) for s in _REGISTRY.list_specs()]
-    tools += [dict(t) for t in FUNCTORIAL_TOOLS]
-    return {"tools": tools}
+    return {"tools": [_mcp_tool(s) for s in _REGISTRY.list_specs()]}
 
 
-def _exec_operator(tool_name: str, arguments: dict, project_key: str) -> dict:
-    spec = _REGISTRY.get(tool_name)
-    if spec is None:
-        return {"ok": False, "tool": tool_name, "error": "not registered"}
-    call = CoreToolCall(
-        call_id=f"mcp-{uuid.uuid4().hex[:16]}",
-        tool_name=tool_name,
-        arguments=arguments,
-        reason="workflow-run",
+def _is_public_no_scope_tool(spec) -> bool:
+    properties = dict((spec.input_schema or {}).get("properties") or {})
+    has_scope_parameter = bool({"project_key", "session_id"} & properties.keys())
+    return (
+        spec.name in PUBLIC_NO_SCOPE_TOOLS
+        and spec.risk == "read_only"
+        and spec.permission == "allow"
+        and not has_scope_parameter
     )
-    request = AgentCoreRequest(
-        message="",
-        session_id=_resolve_session_id(project_key),
-        project_key=project_key,
-        turn_id=f"turn-{uuid.uuid4().hex[:16]}",
-    )
-    result = _REGISTRY.execute_tool(
-        tool_call=call, tool_spec=spec, request=request, emit=lambda _e: None
-    )
+
+
+def _requires_host_authorization(spec) -> bool:
+    return spec.risk != "read_only" or spec.permission != "allow"
+
+
+def _unbound_result(*, code: str, message: str) -> dict:
     return {
-        "ok": result.status not in ("failed", "canceled"),
-        "tool": tool_name,
-        "summary": result.model_summary or "",
-        "data": (result.structured_content or {})
-        if isinstance(result.structured_content, dict)
-        else {},
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": {
+            "code": code,
+            "message": message,
+            "host_authorization": HOST_AUTHORIZATION_STATUS,
+            "approval_required": True,
+        },
+        "isError": True,
     }
 
 
-def _resolve_step_operators(step: str) -> list[str]:
-    """Resolve a workflow step (operator:<id> or motif:<id>) to operator ids."""
-    if not step.startswith("motif:"):
-        return [step.split(":", 1)[1] if ":" in step else step]
-    motif = _fcatalog.get("motifs", step.split(":", 1)[1]) or {}
-    return [
-        c.split(":", 1)[1] if ":" in c else c for c in (motif.get("composition") or [])
-    ]
+def _unsupported_result(message: str) -> dict:
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": {"code": "unsupported", "message": message},
+        "isError": True,
+    }
 
 
-def _handle_functorial_tool(name: str, arguments: dict) -> dict | None:
-    if name == "create_motif":
-        m = compose_motif(
-            arguments["motif_id"],
-            arguments.get("name") or arguments["motif_id"],
-            arguments.get("composition") or [],
-        )
+def _execute_public_read(name: str, arguments: dict, spec) -> dict:
+    call = CoreToolCall(
+        tool_name=name,
+        arguments=arguments,
+        reason="stdio-public-registry-read",
+    )
+    request = AgentCoreRequest(
+        message="",
+        session_id="",
+        project_key=None,
+        turn_id="stdio-unbound",
+    )
+    result = _REGISTRY.execute_tool(
+        tool_call=call,
+        tool_spec=spec,
+        request=request,
+        emit=lambda _e: None,
+    )
+    if result.status == "needs_approval":
         return {
-            "content": [
-                {
-                    "type": "text",
-                    "text": f"motif created: {getattr(m, 'motif_id', None)}",
-                }
-            ],
-            "isError": False,
+            "content": [{"type": "text", "text": result.model_summary}],
+            "structuredContent": {
+                **dict(result.structured_content or {}),
+                "code": "approval_required",
+                "host_authorization": HOST_AUTHORIZATION_STATUS,
+                "approval_required": True,
+            },
+            "isError": True,
         }
-    if name == "create_workflow":
-        w = build_workflow_program(
-            arguments["workflow_id"],
-            arguments.get("name") or arguments["workflow_id"],
-            arguments.get("steps") or [],
-            arguments.get("laws"),
-        )
+    if result.status != "completed":
         return {
-            "content": [
-                {
-                    "type": "text",
-                    "text": f"workflow created: {getattr(w, 'workflow_id', None)}",
-                }
-            ],
-            "isError": False,
+            "content": [{"type": "text", "text": result.model_summary}],
+            "structuredContent": dict(result.structured_content or {}),
+            "isError": True,
         }
-    if name == "run_workflow":
-        wf = _fcatalog.get("workflows", arguments.get("workflow_id") or "")
-        if not wf:
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"unknown workflow: {arguments.get('workflow_id')}",
-                    }
-                ],
-                "isError": True,
-            }
-        project_key = str(arguments.get("project_key") or DEFAULT_PROJECT_KEY).strip()
-        inputs = (
-            arguments.get("inputs") if isinstance(arguments.get("inputs"), dict) else {}
-        )
-        results = []
-        for step in wf.get("steps") or []:
-            for op in _resolve_step_operators(str(step)):
-                results.append(_exec_operator(op, inputs, project_key))
-        text = json.dumps(results, ensure_ascii=False)[:4000]
-        return {"content": [{"type": "text", "text": text}], "isError": False}
-    return None
+    text = result.model_summary or json.dumps(
+        result.structured_content or {}, ensure_ascii=False
+    )[:4000]
+    return {
+        "content": [{"type": "text", "text": text}],
+        "structuredContent": dict(result.structured_content or {}),
+        "isError": False,
+    }
 
 
 def _handle_tools_call(params: dict) -> dict:
@@ -332,42 +183,44 @@ def _handle_tools_call(params: dict) -> dict:
         if isinstance((params or {}).get("arguments"), dict)
         else {}
     )
-    functor = _handle_functorial_tool(name, arguments)
-    if functor is not None:
-        return functor
+    if name in _FUNCTORIAL_TOOL_NAMES:
+        return _unsupported_result(
+            f"{name} is not exposed through the stdio MCP surface; "
+            "functorial composition requires the unified host authorization boundary"
+        )
     spec = _REGISTRY.get(name)
     if spec is None:
         return {
             "content": [{"type": "text", "text": f"unknown tool: {name}"}],
             "isError": True,
         }
-    project_key = str(arguments.pop("project_key", "") or DEFAULT_PROJECT_KEY).strip()
-    call = CoreToolCall(
-        call_id=f"mcp-{uuid.uuid4().hex[:16]}",
-        tool_name=name,
-        arguments=arguments,
-        reason="mcp-bridge",
+    supplied_scope = sorted(
+        key
+        for key in ("project_key", "session_id")
+        if arguments.get(key) is not None
     )
-    request = AgentCoreRequest(
-        message="",
-        session_id=_resolve_session_id(project_key),
-        project_key=project_key,
-        turn_id=f"turn-{uuid.uuid4().hex[:16]}",
+    if supplied_scope:
+        return _unbound_result(
+            code="scope_required",
+            message=(
+                f"{', '.join(supplied_scope)} must be bound by a trusted host; "
+                "model-supplied scope is not accepted"
+            ),
+        )
+    if _is_public_no_scope_tool(spec):
+        return _execute_public_read(name, arguments, spec)
+    if _requires_host_authorization(spec):
+        return _unbound_result(
+            code="authorization_required",
+            message=(
+                f"{name} requires a trusted host authorization binding "
+                "before it can run"
+            ),
+        )
+    return _unbound_result(
+        code="scope_required",
+        message=f"{name} requires a trusted host project/session binding",
     )
-    result = _REGISTRY.execute_tool(
-        tool_call=call, tool_spec=spec, request=request, emit=lambda _e: None
-    )
-    text = (
-        result.model_summary
-        or json.dumps(result.structured_content or {}, ensure_ascii=False)[:4000]
-    )
-    return {
-        "content": [{"type": "text", "text": text}],
-        "structuredContent": (result.structured_content or {})
-        if isinstance(result.structured_content, dict)
-        else {},
-        "isError": result.status in ("failed", "canceled"),
-    }
 
 
 def _send(msg: dict) -> None:
@@ -396,7 +249,8 @@ def main() -> None:
                         "protocolVersion": params.get("protocolVersion")
                         or "2024-11-05",
                         "capabilities": {"tools": {}},
-                        "serverInfo": {"name": "mrw-retrieval", "version": "0.1.0"},
+                        "serverInfo": {"name": "mrw-agent-core", "version": "0.1.0"},
+                        "hostAuthorization": HOST_AUTHORIZATION_STATUS,
                     },
                 }
             )

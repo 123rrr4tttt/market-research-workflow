@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import contextlib
 import sys
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -13,6 +15,11 @@ try:
     from fastapi.testclient import TestClient
 
     from app.api import resource_pool as resource_pool_api
+    from app.services.tasks import (
+        task_discover_site_entries_batched,
+        task_extract_resource_pool_from_documents,
+        task_extract_resource_pool_from_tasks,
+    )
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -1017,6 +1024,122 @@ def test_extract_from_documents_async_returns_queued_task_envelope(
     assert body["data"]["async"] is True
     assert body["data"]["status"] == "queued"
     assert body["data"]["task_id"] == "task-docs-1"
+
+
+def test_resource_pool_document_worker_persists_celery_identity_and_actual_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    actual_result = {
+        "documents_scanned": 3,
+        "urls_extracted": 5,
+        "urls_new": 4,
+        "urls_duplicate": 1,
+        "scope": "project",
+    }
+    task_extract_resource_pool_from_documents.push_request(
+        id="celery-docs-persisted",
+        hostname="worker@resource",
+        delivery_info={"routing_key": "celery"},
+    )
+    try:
+        with (
+            patch("app.services.tasks.bind_project", return_value=contextlib.nullcontext()),
+            patch("app.services.tasks.start_job", return_value=901) as start_job,
+            patch("app.services.tasks.complete_job") as complete_job,
+            patch("app.services.tasks.fail_job") as fail_job,
+            patch(
+                "app.services.resource_pool.extract_from_documents",
+                return_value=actual_result,
+            ) as extract,
+        ):
+            result = task_extract_resource_pool_from_documents.run(
+                "project_alpha",
+                scope="project",
+                document_ids=[1, 2, 3],
+                limit=3,
+            )
+    finally:
+        task_extract_resource_pool_from_documents.pop_request()
+
+    assert result == actual_result
+    extract.assert_called_once_with(
+        project_key="project_alpha",
+        scope="project",
+        doc_type=None,
+        state=None,
+        document_ids=[1, 2, 3],
+        limit=3,
+    )
+    assert start_job.call_args.kwargs["external_job_id"] == "celery-docs-persisted"
+    start_params = start_job.call_args.args[1]
+    assert start_params["project_key"] == "project_alpha"
+    assert start_params["runtime_readback"]["task_id"] == "celery-docs-persisted"
+    assert start_params["runtime_readback"]["project_key"] == "project_alpha"
+    assert complete_job.call_args.kwargs["result"] == actual_result
+    assert complete_job.call_args.kwargs["external_job_id"] == "celery-docs-persisted"
+    fail_job.assert_not_called()
+
+
+def test_resource_pool_capture_worker_persists_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    task_extract_resource_pool_from_tasks.push_request(id="celery-capture-failed")
+    try:
+        with (
+            patch("app.services.tasks.bind_project", return_value=contextlib.nullcontext()),
+            patch("app.services.tasks.start_job", return_value=902),
+            patch("app.services.tasks.complete_job") as complete_job,
+            patch("app.services.tasks.fail_job") as fail_job,
+            patch(
+                "app.services.resource_pool.extract_from_tasks",
+                side_effect=RuntimeError("capture failed"),
+            ),
+        ):
+            with pytest.raises(RuntimeError, match="capture failed"):
+                task_extract_resource_pool_from_tasks.run("project_alpha", limit=2)
+    finally:
+        task_extract_resource_pool_from_tasks.pop_request()
+
+    assert fail_job.call_args.args[1:] == ("capture failed",)
+    assert fail_job.call_args.kwargs["external_job_id"] == "celery-capture-failed"
+    complete_job.assert_not_called()
+
+
+def test_resource_pool_discovery_worker_persists_actual_totals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    task_discover_site_entries_batched.push_request(id="celery-discovery-done")
+    try:
+        with (
+            patch("app.services.tasks.bind_project", return_value=contextlib.nullcontext()),
+            patch("app.services.tasks.start_job", return_value=903) as start_job,
+            patch("app.services.tasks.complete_job") as complete_job,
+            patch("app.services.tasks.fail_job") as fail_job,
+            patch("app.services.resource_pool.list_discovery_domains", return_value=[]),
+            patch.object(task_discover_site_entries_batched, "update_state"),
+        ):
+            result = task_discover_site_entries_batched.run(
+                "project_alpha",
+                limit_domains=0,
+                write=False,
+            )
+    finally:
+        task_discover_site_entries_batched.pop_request()
+
+    assert result == {
+        "domains_scanned": 0,
+        "candidates_count": 0,
+        "probe_stats": {},
+        "errors": [],
+        "write_result": {"upserted": 0, "skipped": 0, "errors": []},
+        "batches_total": 0,
+        "batches_completed": 0,
+        "pre_simplify": None,
+    }
+    assert start_job.call_args.args[0] == "resource_pool_discover"
+    assert complete_job.call_args.kwargs["result"] == result
+    assert complete_job.call_args.kwargs["external_job_id"] == "celery-discovery-done"
+    fail_job.assert_not_called()
 
 
 def test_capture_enable_returns_standard_ok_envelope(

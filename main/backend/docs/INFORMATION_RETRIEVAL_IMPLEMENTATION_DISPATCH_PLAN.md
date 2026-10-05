@@ -14,7 +14,7 @@
 
 日期：2026-09-26。框架规划模型：Astra。历史状态：`LOCAL_IMPLEMENTATION_AND_GATES_PASS / END_TO_END_DELIVERY_UNVERIFIED`。
 
-Agent 宏胞腔接入状态（2026-09-27）：架构已修订，内外双向绑定与运行尚未实现；上方批次状态仅对应文末已有迁移证据。
+Agent 宏胞腔接入状态（2026-10-05）：注册、可信授权、原生装配与 WebUI 宿主接线已进入本文 §15 修复批次；局部测试、服务加载与真实执行分开记录。上方历史批次状态不代替本次验收。
 
 本文把[采集架构原稿](</Users/wangyiliang/Documents/Codex/2026-09-20/zhen/outputs/MRW信息采集架构_上下文与高阶表示_改写稿_2026-09-24.md>)第 1–10 节落实为开发包，细化[现有实现设计](INFORMATION_RETRIEVAL_FRAMEWORK_DESIGN.md)的代码接缝。它是本轮唯一分发入口；执行者把实际状态追加到本文末尾，不另建逐包合同或冻结链。流程规则仍以项目 19 号文档为准。06 当前入口是本地 Stage 4–6 已验收并停止，本轮不重启这些阶段。
 
@@ -588,3 +588,67 @@ main/backend/.venv311/bin/python main/backend/scripts/check_agent_macro_native.p
 本轮首次共同验收耗时、失败次数及调用/token总量未形成可比日志，记 unknown/unavailable，不记零；没有新实现验收。
 
 后续每包追加实际模型、写面、执行状态、命令/退出码、资源和缺口；历史§8保持原义。局部包完成不自动升级整组完成，旧test PASS不回填M系列。登记成本用现成日志，缺失值为unavailable；不增加作者填表、审批或benchmark平台。
+
+## 15. 2026-10-05 胞腔修复批次
+
+用户指定 Astra 规划、主线分发执行。本批次修复 MRW 页面 → Codex WebUI → 原生 Core → 原工具 owner → 持久读回，不恢复退役 runtime，不启动已停止的生产发布阶段，不提交推送。保留当前工作树的后台、图谱、WebUI socket 和文档改动。
+
+### 15.1 共享决定
+
+- 胞腔保持加法规定层；原生文件、命令、网络能力继续由既有宿主权限控制。`MacroCellDefinition` 和编译保持 inert，不执行 Core 或业务 effect。
+- 注册声明、项目 activation 授权、宿主装配观察、业务完成读回分别记录；注册或离线编译不能冒充运行成功。
+- 项目 artifact 是包和 activation 的权威来源。已激活同身份同版本禁止不同 digest 覆盖；同 digest 保存不得降回 candidate。历史未核验授权或来源的包保留读回，明确不能装配的原因。
+- 唯一 `ResolvedMacroEnvironment` 解析真实 skill 字节、原 registry 工具与设施 binding，并派生 Python binding 和 WebUI descriptor。`get_agent_macro_facility_catalog` 同时驱动原注册和解析，不复制设施词表。
+- `macro_environment.py` 是项目 artifact、文件系统 skill 与原效果 registry 的装配适配边界；`macro_host.py` 是认证宿主 HTTP/原生 RPC 的效果边界。二者按现有 `functorial-kit.json.shell_paths` 精确登记；公共解析失败仍返回原 `Failure`，HTTP 失败由宿主适配到现有 envelope。胞腔声明、编译和授权规则不移出 core 门禁。
+- `TrustedHostContext` 仅由认证宿主输入构造。统一授权绑定 project/session/thread、工具、参数摘要和适用的包 digest；模型 consent、actor、project 参数不能产生信任。真实用户确认通过同一聊天关联精确 pending action，后续仍由原生 turn 继续。
+- 用户后续明确：普通功能模块的注册与激活默认自行确认。当前包 v1 仅装配既有功能，其 `create/activate` 使用原可信宿主 `allow` 路径，不产生审批或伪造确认消息；activation 记录 `authorization_source=host_policy`、`approval_id=null`。旧人工授权保持可读。真实 Core、sandbox、权限策略或 authority owner 的底层变更仍由这些设置的原 owner 确认，不以声明性字段名制造新审批分类；其他工具原权限不变。
+- WebUI 用现有 `dynamicTools` 和 `item/tool/call` 接入，host API 只承载 bind、environment、record-input/confirm、dispatch。未配置 server-to-server 信任时明确失败，不因 loopback 信任任意请求，不传播 OAuth。
+- wrapper 只向准确 iframe origin/window 传用户所选项目；后端核验后绑定线程。项目切换只影响新线程，既有线程不隐式重绑。未验证工具热更新时明确环境 stale，不自动创建替代线程。
+
+### 15.2 分派与写面
+
+| 包 / owner / 模型 | 独占写面与输出 | 依赖 / 完成条件 / 当前状态 |
+| --- | --- | --- |
+| S/M / `cell_mcp_permissions_recover` / DeepSeek V4 Pro | 正式 stdio bootstrap、权限投影及两份测试 | `5 passed`；真实子进程清 PYTHONPATH、任意 cwd 握手成功；无可信宿主时作用域调用 fail-closed |
+| A / `cell_host_authorization_recover` / DeepSeek V4 Pro | 可信宿主授权、registry、session service/store 的确认与消费 CAS、专属测试 | 最终 `23 passed`；并发确认不能复活 consumed；共同执行 scope 精确核验 request 三字段及实际项目 selector，跨项目/缺失 scope 零 effect，不消费 grant；业务 metadata 保留 |
+| B / `cell_macro_environment_recover` / DeepSeek V4 Pro | 注册、唯一解析/原生工具投影、目标激活摘要及唯一项目激活包选择 | 四文件 `32 passed`；0/1 包支持，多包明确歧义；真实 skill 字节、symlink containment、设施与 registry 引用核验 |
+| C / `cell_webui_host_recover` / DeepSeek V4 Pro | 后端 host API/service/tests；WebUI `src/mrw/*`、threads 消费者 | 最终后端 `19 passed`、WebUI `88 passed`；base 候选真实 handler 激活链及 digest 改变拒旧授权、启动前与输入登记 fresh、停止/同调用重放/慢工具隔离、public 项目查询及统一 envelope 解包均已补齐 |
+| D / `cell_native_api_consumer` / DeepSeek V4 Pro | 两个原生 API 入口与 pilot/Rapid 薄装配、native/entry/原消费者测试 | 与 B 共同 selector `52 passed`；另相关消费者 selector `77 passed`；恢复失败 turn 不返回文本见证；不恢复旧 runtime |
+| 集成 / root | 设施 catalog、路由、原生 call identity、项目交接/确认 UI、精确项目 artifact 与 native thread 查找、配置、文档和 live | 首次真实 store 保存与旧会话精确读回 `9 passed`；共同后端 `118 passed`，后续受影响 A/B/C/D selector `86 passed`；最终 architecture `281 passed`；服务已加载，真实只读 native 链完成，live activation 未执行 |
+
+后端统一 cwd `main/backend`，命令前缀 `PYTHONPATH=/Users/wangyiliang/market-research-workflow/src .venv311/bin/python -m pytest -q`。各包不安装依赖、不重启服务、不跑 live DB 或真实模型、不再 spawn。
+
+规划与复核实际使用 `gpt-6-astra/high`。S/M 最初为 GLM Flash、A/B/C 最初为 GLM 5.3；provider 持续 `429` 后保留已写产物，仅将剩余实现恢复给上表 owner。恢复不是整包重做，也不把 DeepSeek 的实现或验证记作 GLM 执行。
+
+| 包 | 最小 selector |
+| --- | --- |
+| S/M | `tests/unit/test_mrw_mcp_bootstrap.py tests/unit/test_mrw_mcp_permissions.py` |
+| A | `tests/unit/test_agent_macro_host_authorization.py` |
+| B | `tests/unit/test_macro_registration.py tests/unit/test_macro_environment.py tests/unit/test_agent_macro_native.py tests/unit/test_agent_macro_facilities.py` |
+| C | `tests/integration/test_agent_macro_host.py`；WebUI cwd `main/ops/codex-webui`，`pnpm exec vitest run src/mrw src/threads/threads.service.spec.ts src/threads/threads.gateway.spec.ts src/threads/threads.controller.spec.ts` |
+| D | `tests/unit/test_codex_native_macro_binding.py tests/unit/test_rapid_native_macro.py tests/integration/test_agent_macro_entry.py tests/unit/test_collect_runtime_native_binding.py` |
+
+### 15.3 验收与资源
+
+纯内存和独立 tmp 测试可并行。共享 DB、Redis、SQLite fixture、dist/build 输出由主线协调；`8000`、`8172`、`5173` 和宿主 WebUI home 仅主线串行操作。安全收口完成前不恢复 live MCP。
+
+验收依次确认：stdio 协议与标注；正式 WebUI MCP 挂载；项目–native thread–MRW session 显式关联；技能字节/digest 与同包 descriptor 一致；一次真实只读 native 调用经原 handler 与持久 reader 读回同一对象；模型伪 consent/跨项目零 effect。普通候选包激活可由 Agent 在可信宿主策略下直接执行，不再要求逐包人工同意。live 尚未执行的项目仍记 `not_run`，不把授权策略生效记作包能力已运行。
+
+修复前审计基线 `44 passed` 不是新实现证据。各包局部 PASS 不代表整组完成；mock、装配、真实模型调用和业务完成分开报告。第一次共同验收耗时、失败次数和调用/token 成本尚未聚合，记 unavailable，不记零。
+
+### 15.4 本地集成与真实读回（2026-10-05）
+
+- 最终来源稳定后，共同后端 14 文件 selector `118 passed`；A 精确空值 scope 和 C public 查询补修后，7 文件受影响 selector `86 passed`。两次结果不相加、不冒充同一轮全仓覆盖。最终 `tests/test_architecture.py` `281 passed`，相关 Ruff F/E9 和 diff 检查通过；既有 service.py 未用变量不纳入全仓 lint 通过声明。
+- WebUI 专属 `88 passed` 为 C 实测；root 确认 UI 测试 `1 passed`；隔离 `4197` 的 agent-chat iframe 合同 `7 passed`，含新版入口与状态失败不重载。正式 `pnpm generate:api` 读取重载后的 8172 OpenAPI，生成 5 文件；WebUI 前后端和主前端构建通过。包体及既有 PDF worker 构建警告保留，不属于本次胞腔链关闭项。
+- 正式 `start.sh` 使用 `MRW_BACKEND_URL=http://127.0.0.1:5174` 和宿主 skill root；沿原 plist 保留密钥和 OAuth symlink，未回显凭据。Docker backend 精确重载，主前端 dist 更新到 `ops-frontend-modern-1`。真实 prepare 为 HK base，51 个 namespace/function descriptor、0 个包 skill；不把 base 成功记作已激活包 skill 的 live 挂载验收。
+- 初次 live prepare 暴露 tenant schema 查询全局 projects、client 未解包统一响应两项接线缺陷；交回 C 修复后 HTTP 200 且 thread/session 绑定实际读回。静态 HTML 入口加 `Cache-Control: no-store`，iframe 新版入口携带版本参数，绕过已有旧缓存；项目变化仍不重载既有 iframe。
+- 真实诊断 thread `01a10c49-93a8-7641-b386-9115080e4f9a`，session `as-6ad1eac996a947fb`，turn `01a10c49-9770-7572-9136-f07974834cba`，物理 call `exec-7cb8c814-b55a-4b21-b83f-56b8e42ca42a`。一次默认 GLM native turn 调 `project_summary.read`，原逻辑工具 `project.summary.read` 完成；native `dynamicToolCall` 和 SQL `macro_host.tool.dispatched` 的四项身份及项目全部相同，最终回复确认 HK 工具成功。无注册/激活/业务写入。
+- WebUI 随 HTML 缓存修复重载后，该诊断旧线程再次启动返回 HTTP 409 `MRW thread requires rebind`，在模型调用前阻断；不伪造跨重启恢复。该轮真实精确包 activation 和已激活包 skill live 验收为 `not_run`；后续用户已取消普通功能模块逐包人工确认要求，此项不再以缺少真人同意为阻塞原因。
+- Astra 规划和最后有界复核完成；5 个实现 owner（S/M 合包、A、B、C、D）均回收。最初 GLM 的 provider 429、主线首次 store 保存补修、共同静态检查失败及两项 live 接线失败均保留归属，修复后不记作零成本。首次共同验收 wall time、完整调用数/token 仍 unavailable；未宣称提速，未提交/推送或开展生产发布。
+
+### 15.5 普通模块自主注册与激活（用户后续授权）
+
+- Astra 有界复核、主线修复与分派；复用 B 的来源消费与 A/C 的宿主测试 owner。仅注册包创建、激活改为 `allow`；两 handler 保留 verified-host、项目/session/turn、参数摘要及目标包 digest 验证。设施声明沿原 `governed_dispatch_ref` 接入精确 `agent_core.host_authorization` frontdoor，不泛化放开其他写操作。已激活包的幂等返回也须先核验当前授权与摘要。
+- 首次 `create → activate` 经真实宿主/registry/原 handler 的内存链完成，无 pending action、approval 或伪造 host confirmation。自动 activation 的 `approval_id` 为 JSON null，来源为 `host_policy`；旧人工记录和无来源但有真实 approval ID 的历史记录兼容；未知或交叉字段不一致的来源拒绝。重复物理 call 命中缓存、新 call 同包幂等，授权签发后 candidate 改变拒绝旧 digest；其他 ask 工具原确认行为保留。
+- 本轮最小 selector：注册/设施/声明/项目工具 4 文件 `33 passed`；B 环境 `20 passed`；A/C 宿主 2 文件 `45 passed`；原生消费者 3 文件 `25 passed`。架构 `281 passed`，相关 Ruff F/E9 与 scoped diff 检查通过。首次回归暴露设施声明仍强制人工边界及一处测试字段名错误，修正后重验通过。Docker backend 无 pytest，测试使用既有 `.venv311`，没有安装依赖。
+- `ops-backend-1` 已精确重载；8000 health 与 5174 前端代理 health 均为 `status=ok`。Docker 原设施 catalog 读回创建/激活均为 `allow`，来源消费接受 `host_policy/null`。未启动真实模型或在项目 DB 激活任意测试包，不把内存链与服务加载记成具体包 skill 的 live 采用。重载后旧内存 thread binding 仍按原边界要求重新绑定；本轮没有提交、推送或生产发布。

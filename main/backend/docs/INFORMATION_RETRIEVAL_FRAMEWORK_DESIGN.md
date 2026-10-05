@@ -14,11 +14,11 @@
 
 ## 来源文档统一（2026-10-05）
 
-来源内容的当前权威统一为项目内的 `Document`。检索拓扑的 `material` 是材料在分析结构中的出现位置：它持有 `document_ref`、分类、来源见证和关系端点，同一文档可以出现在多个位置；标题、URL、摘要和正文由普通文档读写接口拥有。拓扑读取按该引用投影文档的当前显示字段，图谱按 Document 身份合并节点，同时保留各出现位置的端点关系。管理页直接列出 Document，不再拼接拓扑伪文档或重复计数。
+来源内容的当前权威统一为项目内的 `Material`。材料拥有标题、URL、摘要、正文和基本元数据；检索拓扑记录同一材料在分析结构中的出现位置，持有 `material_ref`、分类、来源见证和关系端点。材料正文身份是项目加 `materials/materials/material/<id>`，出现位置保留原身份，图谱按正文身份合并节点并保留位置关系。管理、检索、写作来源和图谱使用同一个 `material` 类型。原 `documents` 表及 `Document` 导入名是该 owner 的存储兼容地址，不形成第二类对象。
 
-检索 profile V2 保留原 material 身份与关系，仅将内容字段迁入 Document。显式文档引用、历史 `body_read` 的 `document:<id>` 定位以及唯一匹配的 URI 可复用已有文档；身份冲突返回失败。只有定位信息的来源以 `reference_only` 状态保存，正文保持空值，后续获取正文在同一 Document 上完成。未解析的占位材料保留缺口。历史 V1 修订和导入快照仍用于溯源与原样导出，不承担当前内容写入权威。迁移与导入在同一数据库事务中完成，失败回滚文档与拓扑写入。
+检索 profile V3 将 V1/V2 当前位置引用运输到 `material_ref`，原 ID、端点、来源见证和历史修订保留。`document_ref`、`document:<id>` 与旧 `/admin/documents` 是兼容读取入口，新请求使用 `/admin/materials`，新检索来源类型为 `material`。显式引用和唯一 URI 匹配复用已有材料；身份冲突返回失败。只有定位信息的材料以 `reference_only` 状态保存，后续获取正文更新同一行；未解析占位保留缺口。历史快照与 successor 摘要绑定的旧键保持原字节，公开投影输出材料身份。迁移和导入在同一数据库事务中完成，失败回滚材料与拓扑写入。
 
-香港项目 `hk_water_investigation` 已迁移 70 个当前拓扑：323 个材料位置引用 289 个不同的 Document，另有 4 个未解析占位；文档总量由 44 增至 327，其中新增 283 条定位文档。当前 V2 材料存储不再复制标题或 URL；重复执行迁移返回 `migrated_states: 0`。迁移入口为 `main/backend/scripts/merge_topology_material_documents.py`，迁移前数据备份位于 `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-24-information-topology/results/hk-before-document-merge-20261005.sql.backup`。
+2026-10-05 的前次正文归并将香港项目 323 个材料位置绑定到 289 个正文记录，另有 4 个未解析占位，材料总量为 327。该次 V2 迁移的备份保留在 `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-24-information-topology/results/hk-before-document-merge-20261005.sql.backup`。当前材料语义迁移入口仍为 `main/backend/scripts/merge_topology_material_documents.py`：`--all-projects --dry-run` 只统计待迁移状态，`--all-projects` 逐项目原子迁移，重复执行已完成项目返回 `migrated_states: 0`。历史数量记录不是当前状态的读回证明。
 
 本轮验证包括独立 PostgreSQL schema 中的事务回滚、旧资料迁移、引用解析与正文原位补全，以及图谱身份与端点投影测试。该统一改变来源数据的身份和消费者接线，不改变检索轮次的证据资格与完成状态。
 

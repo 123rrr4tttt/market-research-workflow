@@ -5,6 +5,7 @@ import logging
 from contextlib import nullcontext
 from typing import List, Optional, Dict, Any, Iterable
 from datetime import datetime
+from inspect import signature as inspect_signature
 import json
 from fastapi import APIRouter, HTTPException, Query
 import os
@@ -121,10 +122,6 @@ def _runtime_readback_path(
         params.append(f"project_key={project_key}")
     suffix = f"?{'&'.join(params)}" if params else ""
     return f"/api/v1/process/{endpoint}{suffix}"
-
-
-def _db_job_readback_path(job_id: Any, *, project_key: str | None = None) -> str:
-    return _runtime_readback_path(f"{_DB_JOB_PREFIX}{job_id}", project_key=project_key)
 
 
 def _iter_dict_values(value: Any) -> Iterable[dict[str, Any]]:
@@ -318,6 +315,84 @@ def _celery_request_payload(task: dict[str, Any], *, scheduled: bool = False) ->
     return request_payload if isinstance(request_payload, dict) else task
 
 
+def _task_project_key_from_payload(*payloads: Any) -> str | None:
+    for payload in payloads:
+        if not isinstance(payload, dict):
+            continue
+        for key in ("project_key", "project"):
+            if key in payload:
+                return str(payload.get(key) or "").strip()
+        for key in ("runtime_readback", "task_readback"):
+            metadata = payload.get(key)
+            if isinstance(metadata, dict) and "project_key" in metadata:
+                return str(metadata.get("project_key") or "").strip()
+    return None
+
+
+def _celery_task_project_key(
+    *,
+    task_name: str | None,
+    args: Any,
+    kwargs: dict[str, Any],
+    headers: dict[str, Any],
+) -> str | None:
+    explicit_project = _task_project_key_from_payload(kwargs, headers)
+    if explicit_project is not None:
+        return explicit_project
+
+    task = celery_app.tasks.get(task_name or "")
+    if task is None:
+        return None
+    positional_args = args if isinstance(args, list) else []
+    try:
+        parameters = list(inspect_signature(task.run).parameters.values())
+    except (TypeError, ValueError):
+        return None
+    for index, parameter in enumerate(parameters):
+        if parameter.name in {"project_key", "project"} and index < len(positional_args):
+            return str(positional_args[index] or "").strip()
+    return None
+
+
+def _celery_task_matches_project(
+    *,
+    project_key: str | None,
+    task_name: str | None,
+    args: Any,
+    kwargs: dict[str, Any],
+    headers: dict[str, Any],
+) -> bool:
+    if not project_key:
+        return True
+    task_project = _celery_task_project_key(
+        task_name=task_name,
+        args=args,
+        kwargs=kwargs,
+        headers=headers,
+    )
+    return bool(task_project) and task_project == str(project_key).strip()
+
+
+def _db_job_public_task_id(job: EtlJobRun) -> str:
+    params = dict(job.params or {})
+    runtime_task_id = _as_non_empty_str(params.get("task_id"))
+    if runtime_task_id:
+        return runtime_task_id
+    if not _as_non_empty_str(job.external_provider) and _as_non_empty_str(job.external_job_id):
+        return _as_non_empty_str(job.external_job_id) or ""
+    if job.id is None:
+        return ""
+    return f"{_DB_JOB_PREFIX}{job.id}"
+
+
+def _db_job_duration_seconds(job: EtlJobRun) -> float | None:
+    if job.started_at and job.finished_at:
+        return (job.finished_at - job.started_at).total_seconds()
+    if job.started_at:
+        return (datetime.now(job.started_at.tzinfo) - job.started_at).total_seconds()
+    return None
+
+
 def _celery_task_projection(
     *,
     task: dict[str, Any],
@@ -404,6 +479,11 @@ def _db_job_projection(
         _runtime_task_id_from_payload(params, result_payload, progress_payload),
         f"{_DB_JOB_PREFIX}{job.id}" if job.id is not None else None,
     )
+    readback_task_id = task_id
+    readback_path = _runtime_readback_path(
+        readback_task_id,
+        project_key=project_key,
+    )
     run_id = _first_runtime_value(
         _runtime_run_id_from_payload(params, result_payload, progress_payload),
         str(job.id) if job.id is not None else None,
@@ -417,7 +497,6 @@ def _db_job_projection(
             source="etl_job_runs",
             timestamp=job.started_at.isoformat(),
         )
-    readback_path = _db_job_readback_path(job.id, project_key=project_key)
     return {
         "line_key": line_key,
         "task_id": task_id,
@@ -614,10 +693,26 @@ def list_tasks(
         total_tasks = 0
         active_count = 0
         pending_count = 0
+        seen_task_ids: set[str] = set()
 
         # 处理活跃任务
         for worker_name, worker_tasks in active_tasks.items():
             for task in worker_tasks:
+                task_id = str(task.get('id', 'unknown'))
+                task_name = str(task.get('name', 'unknown'))
+                task_args = task.get('args', [])
+                task_kwargs = task.get('kwargs', {}) if isinstance(task.get('kwargs', {}), dict) else {}
+                if not _celery_task_matches_project(
+                    project_key=project_key,
+                    task_name=task_name,
+                    args=task_args,
+                    kwargs=task_kwargs,
+                    headers=task.get('headers', {}) if isinstance(task.get('headers', {}), dict) else {},
+                ):
+                    continue
+                if task_id in seen_task_ids:
+                    continue
+                seen_task_ids.add(task_id)
                 total_tasks += 1
                 active_count += 1
 
@@ -625,20 +720,36 @@ def list_tasks(
                     continue
 
                 task_info = TaskInfo(
-                    task_id=task.get('id', 'unknown'),
-                    name=task.get('name', 'unknown'),
+                    task_id=task_id,
+                    name=task_name,
                     status='active',
-                    args=task.get('args', []),
-                    kwargs=task.get('kwargs', {}),
+                    args=task_args,
+                    kwargs=task_kwargs,
                     worker=worker_name,
                     started_at=datetime.fromtimestamp(task.get('time_start', 0)).isoformat() if task.get('time_start') else None,
-                    display_meta=infer_display_meta_from_celery_task(task.get('name', 'unknown'), task.get('args', []), task.get('kwargs', {})),
+                    display_meta=infer_display_meta_from_celery_task(task_name, task_args, task_kwargs),
                 )
                 tasks.append(task_info)
 
         # 处理已调度任务
         for worker_name, worker_tasks in scheduled_tasks.items():
             for task in worker_tasks:
+                request = task.get('request', {}) if isinstance(task.get('request', {}), dict) else {}
+                task_id = str(request.get('id', 'unknown'))
+                task_name = str(request.get('task', 'unknown'))
+                task_args = request.get('args', [])
+                task_kwargs = request.get('kwargs', {}) if isinstance(request.get('kwargs', {}), dict) else {}
+                if not _celery_task_matches_project(
+                    project_key=project_key,
+                    task_name=task_name,
+                    args=task_args,
+                    kwargs=task_kwargs,
+                    headers=request.get('headers', {}) if isinstance(request.get('headers', {}), dict) else {},
+                ):
+                    continue
+                if task_id in seen_task_ids:
+                    continue
+                seen_task_ids.add(task_id)
                 total_tasks += 1
                 pending_count += 1
 
@@ -646,23 +757,34 @@ def list_tasks(
                     continue
 
                 task_info = TaskInfo(
-                    task_id=task.get('request', {}).get('id', 'unknown'),
-                    name=task.get('request', {}).get('task', 'unknown'),
+                    task_id=task_id,
+                    name=task_name,
                     status='pending',
-                    args=task.get('request', {}).get('args', []),
-                    kwargs=task.get('request', {}).get('kwargs', {}),
+                    args=task_args,
+                    kwargs=task_kwargs,
                     worker=worker_name,
-                    display_meta=infer_display_meta_from_celery_task(
-                        task.get('request', {}).get('task', 'unknown'),
-                        task.get('request', {}).get('args', []),
-                        task.get('request', {}).get('kwargs', {}),
-                    ),
+                    display_meta=infer_display_meta_from_celery_task(task_name, task_args, task_kwargs),
                 )
                 tasks.append(task_info)
 
         # 处理保留任务
         for worker_name, worker_tasks in reserved_tasks.items():
             for task in worker_tasks:
+                task_id = str(task.get('id', 'unknown'))
+                task_name = str(task.get('name', 'unknown'))
+                task_args = task.get('args', [])
+                task_kwargs = task.get('kwargs', {}) if isinstance(task.get('kwargs', {}), dict) else {}
+                if not _celery_task_matches_project(
+                    project_key=project_key,
+                    task_name=task_name,
+                    args=task_args,
+                    kwargs=task_kwargs,
+                    headers=task.get('headers', {}) if isinstance(task.get('headers', {}), dict) else {},
+                ):
+                    continue
+                if task_id in seen_task_ids:
+                    continue
+                seen_task_ids.add(task_id)
                 total_tasks += 1
                 pending_count += 1
 
@@ -670,13 +792,13 @@ def list_tasks(
                     continue
 
                 task_info = TaskInfo(
-                    task_id=task.get('id', 'unknown'),
-                    name=task.get('name', 'unknown'),
+                    task_id=task_id,
+                    name=task_name,
                     status='reserved',
-                    args=task.get('args', []),
-                    kwargs=task.get('kwargs', {}),
+                    args=task_args,
+                    kwargs=task_kwargs,
                     worker=worker_name,
-                    display_meta=infer_display_meta_from_celery_task(task.get('name', 'unknown'), task.get('args', []), task.get('kwargs', {})),
+                    display_meta=infer_display_meta_from_celery_task(task_name, task_args, task_kwargs),
                 )
                 tasks.append(task_info)
 
@@ -703,10 +825,14 @@ def list_tasks(
             # endregion
             existing_ids = {str(t.task_id) for t in tasks}
             for job in running_jobs:
-                pseudo_id = f"db-job-{job.id}"
-                if pseudo_id in existing_ids:
-                    continue
                 params = dict(job.params or {})
+                job_project = _task_project_key_from_payload(params)
+                if project_key and job_project is not None and job_project != str(project_key).strip():
+                    continue
+                task_id = _db_job_public_task_id(job)
+                if task_id in existing_ids:
+                    continue
+                existing_ids.add(task_id)
                 display_meta = extract_display_meta_from_params(params)
                 task_name = (
                     str(params.get("job_type_full") or "").strip()
@@ -714,12 +840,12 @@ def list_tasks(
                     or "db_running_job"
                 )
                 task_info = TaskInfo(
-                    task_id=pseudo_id,
+                    task_id=task_id,
                     name=task_name,
                     status="active",
                     args=[],
                     kwargs=params,
-                    worker="db-running",
+                    worker=_runtime_worker_from_payload(params),
                     started_at=job.started_at.isoformat() if job.started_at else None,
                     display_meta=display_meta,
                 )
@@ -739,8 +865,10 @@ def list_tasks(
             'total_tasks': total_tasks,
             'active_tasks': active_count,
             'pending_tasks': pending_count,
+            'task_count_scope': 'project' if project_key else 'global',
             'registered_task_types': len(registered_task_names),
             'workers': len(set(list(active_tasks.keys()) + list(registered_tasks.keys()))),
+            'workers_scope': 'global',
         }
 
         return ok(
@@ -768,7 +896,7 @@ def list_tasks(
 
 
 @router.get("/stats")
-def get_task_stats() -> dict[str, Any]:
+def get_task_stats(project_key: Optional[str] = Query(None)) -> dict[str, Any]:
     """获取任务统计信息"""
     try:
         inspect = celery_app.control.inspect()
@@ -782,9 +910,43 @@ def get_task_stats() -> dict[str, Any]:
         # 获取保留任务
         reserved_tasks = inspect.reserved() or {}
 
-        active_count = sum(len(tasks) for tasks in active_tasks.values())
-        scheduled_count = sum(len(tasks) for tasks in scheduled_tasks.values())
-        reserved_count = sum(len(tasks) for tasks in reserved_tasks.values())
+        seen_task_ids: set[str] = set()
+
+        def _project_task_count(worker_tasks_by_name: dict, *, scheduled: bool = False) -> int:
+            count = 0
+            for worker_tasks in worker_tasks_by_name.values():
+                if not isinstance(worker_tasks, list):
+                    continue
+                for task in worker_tasks:
+                    if not isinstance(task, dict):
+                        continue
+                    request_payload = _celery_request_payload(task, scheduled=scheduled)
+                    task_name = _first_runtime_value(
+                        request_payload.get("task"),
+                        request_payload.get("name"),
+                        task.get("name"),
+                    )
+                    if not _celery_task_matches_project(
+                        project_key=project_key,
+                        task_name=task_name,
+                        args=request_payload.get("args", []),
+                        kwargs=request_payload.get("kwargs", {}) if isinstance(request_payload.get("kwargs", {}), dict) else {},
+                        headers=request_payload.get("headers", {}) if isinstance(request_payload.get("headers", {}), dict) else {},
+                    ):
+                        continue
+                    task_id = _as_non_empty_str(
+                        request_payload.get("id") or task.get("id")
+                    )
+                    if task_id:
+                        if task_id in seen_task_ids:
+                            continue
+                        seen_task_ids.add(task_id)
+                    count += 1
+            return count
+
+        active_count = _project_task_count(active_tasks)
+        scheduled_count = _project_task_count(scheduled_tasks, scheduled=True)
+        reserved_count = _project_task_count(reserved_tasks)
 
         # 获取已注册的任务类型
         registered_task_names = set()
@@ -800,8 +962,10 @@ def get_task_stats() -> dict[str, Any]:
                 'scheduled_tasks': scheduled_count,
                 'reserved_tasks': reserved_count,
                 'total_running': active_count + scheduled_count + reserved_count,
+                'task_count_scope': 'project' if project_key else 'global',
                 'registered_task_types': len(registered_task_names),
                 'workers': len(workers),
+                'workers_scope': 'global',
                 'worker_names': workers,
             }
         )
@@ -843,12 +1007,14 @@ def get_task_history(
             # 转换为字典格式
                 history = []
                 for job in jobs:
-                    duration = None
-                    if job.started_at and job.finished_at:
-                        duration = (job.finished_at - job.started_at).total_seconds()
-                    elif job.started_at:
-                        duration = (datetime.now(job.started_at.tzinfo) - job.started_at).total_seconds()
+                    duration = _db_job_duration_seconds(job)
                     params = dict(job.params or {})
+                    task_id = _db_job_public_task_id(job) or None
+                    task_name = (
+                        str(params.get("job_type_full") or "").strip()
+                        or str(job.job_type or "").strip()
+                        or "db_job"
+                    )
                     quality_fields = _extract_quality_fields(
                         params,
                         params.get("result"),
@@ -866,6 +1032,9 @@ def get_task_history(
 
                     history.append({
                         "id": job.id,
+                        "task_id": task_id,
+                        "task_name": task_name,
+                        "source": "db",
                         "job_type": job.job_type,
                         "status": job.status,
                         "params": params,
@@ -926,6 +1095,7 @@ def _load_celery_runtime_readback_items(
     endpoint: str,
     line_key: str | None,
     limit: int,
+    project_key: str | None = None,
 ) -> list[dict[str, Any]]:
     try:
         inspect = celery_app.control.inspect()
@@ -950,6 +1120,23 @@ def _load_celery_runtime_readback_items(
                 continue
             for task in worker_tasks:
                 if not isinstance(task, dict):
+                    continue
+                request_payload = _celery_request_payload(task, scheduled=scheduled)
+                task_name = _first_runtime_value(
+                    request_payload.get("task"),
+                    request_payload.get("name"),
+                    task.get("name"),
+                )
+                task_args = request_payload.get("args", [])
+                task_kwargs = request_payload.get("kwargs", {}) if isinstance(request_payload.get("kwargs", {}), dict) else {}
+                task_headers = request_payload.get("headers", {}) if isinstance(request_payload.get("headers", {}), dict) else {}
+                if not _celery_task_matches_project(
+                    project_key=project_key,
+                    task_name=task_name,
+                    args=task_args,
+                    kwargs=task_kwargs,
+                    headers=task_headers,
+                ):
                     continue
                 item = _celery_task_projection(
                     task=task,
@@ -1020,6 +1207,7 @@ def _runtime_readback_items(
             endpoint=endpoint,
             line_key=normalized_line_key,
             limit=normalized_limit,
+            project_key=project_key,
         ),
         *_load_db_runtime_readback_items(
             endpoint=endpoint,
@@ -1032,7 +1220,12 @@ def _runtime_readback_items(
     deduped: list[dict[str, Any]] = []
     seen: set[tuple[str | None, str | None, str | None]] = set()
     for item in items:
-        identity = (item.get("line_key"), item.get("task_id"), item.get("run_id"))
+        task_id = _as_non_empty_str(item.get("task_id"))
+        identity = (
+            ("task_id", task_id, None)
+            if task_id
+            else (item.get("line_key"), None, item.get("run_id"))
+        )
         if identity in seen:
             continue
         seen.add(identity)
@@ -1129,10 +1322,19 @@ def _parse_db_job_id(task_id: str) -> int | None:
 
 def _resolve_db_job(task_id: str) -> EtlJobRun | None:
     job_id = _parse_db_job_id(task_id)
-    if job_id is None:
-        return None
     with SessionLocal() as session:
-        return session.get(EtlJobRun, job_id)
+        if job_id is not None:
+            return session.get(EtlJobRun, job_id)
+        query = (
+            select(EtlJobRun)
+            .where(
+                EtlJobRun.external_job_id == str(task_id or "").strip(),
+                EtlJobRun.external_provider.is_(None),
+            )
+            .order_by(EtlJobRun.started_at.desc().nullslast(), EtlJobRun.id.desc())
+            .limit(1)
+        )
+        return session.execute(query).scalars().first()
 
 
 def _extract_source_library_retry_payload(job: EtlJobRun) -> tuple[str, str | None, dict[str, Any]]:
@@ -1186,8 +1388,10 @@ def _db_job_to_task_info(task_id: str, job: EtlJobRun) -> dict[str, Any]:
         "result": result_payload,
         "progress": progress_payload,
         "traceback": job.error if status_raw == "failed" else None,
-        "worker": "external-provider" if is_external else "db-running",
+        "worker": "external-provider" if is_external else _runtime_worker_from_payload(params_payload),
         "started_at": job.started_at.isoformat() if job.started_at else None,
+        "ended_at": job.finished_at.isoformat() if job.finished_at else None,
+        "elapsed_seconds": _db_job_duration_seconds(job),
         "external_provider": job.external_provider,
         "external_job_id": job.external_job_id,
         "retry_count": job.retry_count,

@@ -20,6 +20,7 @@ from app.services.skill_runtime import invoke_skill, list_registered_skills
 
 from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, CoreToolResult, CoreToolSpec
 from .macro_tools import (
+    FacilityBinding,
     facility_tool_projection,
     information_topology_read_facility,
     macro_registration_package_activate_facility,
@@ -265,17 +266,18 @@ def build_project_core_tool_registry(
     return registry
 
 
-def _register_agent_macro_facilities(registry: CoreToolRegistry, session_service: AgentSessionService) -> None:
-    """Project the authored M4 facilities into the one shared Core registry."""
+def get_agent_macro_facility_catalog(session_service: AgentSessionService) -> tuple[FacilityBinding, ...]:
+    """Return the authored facilities used by registration and macro resolution."""
 
     from app.services.project_retrieval.proposals import RapidProposalTopologyAdapter
     from app.services.project_retrieval.service import ProjectRetrievalService
     from app.services.project_retrieval.topology import build_topology_service
+    from .workbench_tools import workbench_facilities
 
     retrieval_service = ProjectRetrievalService()
     topology_service = build_topology_service()
     proposal_adapter = RapidProposalTopologyAdapter(topology_service)
-    bindings = (
+    return (
         project_retrieval_current_facility(retrieval_service),
         information_topology_read_facility(topology_service),
         rapid_proposal_save_facility(
@@ -285,8 +287,14 @@ def _register_agent_macro_facilities(registry: CoreToolRegistry, session_service
         macro_registration_package_create_facility(session_service),
         macro_registration_package_readback_facility(session_service),
         macro_registration_package_activate_facility(session_service),
+        *workbench_facilities(),
     )
-    for binding in bindings:
+
+
+def _register_agent_macro_facilities(registry: CoreToolRegistry, session_service: AgentSessionService) -> None:
+    """Project the authored M4 facilities into the one shared Core registry."""
+
+    for binding in get_agent_macro_facility_catalog(session_service):
         spec, handler = facility_tool_projection(binding)
         registry.register(spec, handler)
 

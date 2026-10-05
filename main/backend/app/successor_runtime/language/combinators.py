@@ -23,7 +23,7 @@ from app.successor_runtime.research.object_types import (
     RESEARCH_PLAN_TYPE,
     SOURCE_REF_TYPE,
 )
-from app.successor_runtime.research.sources import SourceRef
+from app.successor_runtime.research.sources import SourceRef, material_locator_identity
 
 from .algebra import (
     AlgebraRef,
@@ -521,15 +521,13 @@ def _build_first_specimen_program(
         raise ValueError(
             "first specimen requires exactly two existing SourceRef inputs"
         )
-    if source_refs[0].locator == source_refs[1].locator:
+    locator_identities = tuple(material_locator_identity(source.locator) for source in source_refs)
+    if None in locator_identities:
         # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
-        raise ValueError("first specimen requires two distinct Document locators")
-    for source_ref in source_refs:
-        if not source_ref.locator.startswith("document://"):
-            # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
-            raise ValueError(
-                "first specimen SourceRef must bind an existing Document locator"
-            )
+        raise ValueError("first specimen SourceRef must bind an existing material locator")
+    if locator_identities[0] == locator_identities[1]:
+        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+        raise ValueError("first specimen requires two distinct material locators")
 
     qualification_pair_merge_ref = registries.merges.register_merge(
         name="mrw.first_specimen.qualification_pair_merge",

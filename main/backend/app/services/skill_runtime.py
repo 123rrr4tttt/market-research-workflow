@@ -566,14 +566,15 @@ class SkillRuntime:
         # This unit only proposes a claim from an already persisted body.
         # The project retrieval executor validates and owns the topology write.
         formalization = import_module("app.services.project_retrieval.formalization")
-        self.register(
-            skill_id="project_retrieval.formalize_document",
-            handler=formalization.formalize_document,
-            allowed_actor_roles=("orchestration_runtime",),
-            required_permissions=("project_retrieval.formalize",),
-            owner="project_retrieval.formalization",
-            concurrency_class="read_only",
-        )
+        for name in ("formalize_material", "formalize_document"):
+            self.register(
+                skill_id=f"project_retrieval.{name}",
+                handler=getattr(formalization, name),
+                allowed_actor_roles=("orchestration_runtime",),
+                required_permissions=("project_retrieval.formalize",),
+                owner="project_retrieval.formalization",
+                concurrency_class="read_only",
+            )
 
 
 def _normalize_actor_roles(values: tuple[str, ...] | list[str] | set[str]) -> list[str]:

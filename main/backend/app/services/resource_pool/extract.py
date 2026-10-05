@@ -90,7 +90,7 @@ def extract_from_documents(
     doc_count = 0
 
     def _collect(doc: Document) -> None:
-        ref = {"document_id": doc.id}
+        ref = {"material_id": doc.id, "document_id": doc.id}
         if doc.uri:
             norm = normalize_url(doc.uri)
             if norm and norm not in urls_seen:
@@ -127,16 +127,17 @@ def extract_from_documents(
     if scope == "shared":
         with bind_schema("public"):
             with SessionLocal() as session:
-                new, dup = _append_urls_batch(session, url_refs, "document", "shared", None)
+                new, dup = _append_urls_batch(session, url_refs, "material", "shared", None)
                 session.commit()
     else:
         with bind_project(project_key):
             with SessionLocal() as session:
-                new, dup = _append_urls_batch(session, url_refs, "document", "project", project_key)
+                new, dup = _append_urls_batch(session, url_refs, "material", "project", project_key)
                 session.commit()
 
     return {
         "documents_scanned": doc_count,
+        "materials_scanned": doc_count,
         "urls_extracted": len(url_refs),
         "urls_new": new,
         "urls_duplicate": dup,

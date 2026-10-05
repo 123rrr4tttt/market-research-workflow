@@ -178,6 +178,56 @@ def _attach_completed_runtime_readback(
     return payload
 
 
+def _start_resource_pool_job(
+    *,
+    job_type: str,
+    task_request: Any,
+    params: dict[str, Any],
+) -> int:
+    runtime_readback = _build_task_runtime_readback(
+        line_key="resource_source_library",
+        task_request=task_request,
+        source_payload=params,
+        fallback_worker_name="celery",
+        fallback_queue="celery",
+    )
+    runtime_readback["project_key"] = str(params["project_key"])
+    return start_job(
+        job_type,
+        {
+            **params,
+            "runtime_readback": runtime_readback,
+        },
+        external_job_id=str(getattr(task_request, "id", None) or "").strip() or None,
+    )
+
+
+def _finish_resource_pool_job(
+    *,
+    job_id: int,
+    task_request: Any,
+    result: dict[str, Any],
+) -> None:
+    complete_job(
+        job_id,
+        result=result,
+        external_job_id=str(getattr(task_request, "id", None) or "").strip() or None,
+    )
+
+
+def _fail_resource_pool_job(
+    *,
+    job_id: int,
+    task_request: Any,
+    error: Exception,
+) -> None:
+    fail_job(
+        job_id,
+        str(error),
+        external_job_id=str(getattr(task_request, "id", None) or "").strip() or None,
+    )
+
+
 def _compact_agent_task_value(value: Any, *, max_items: int = 20, max_depth: int = 4) -> Any:
     if max_depth <= 0:
         return "..."
@@ -607,8 +657,9 @@ def task_collect_news_resource(
         return handler(limit=limit)
 
 
-@celery_app.task
+@celery_app.task(bind=True)
 def task_extract_resource_pool_from_documents(
+    self,
     project_key: str,
     scope: str = "project",
     doc_type: list[str] | None = None,
@@ -621,18 +672,46 @@ def task_extract_resource_pool_from_documents(
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        return extract_from_documents(
-            project_key=project_key,
-            scope=scope,
-            doc_type=doc_type,
-            state=state,
-            document_ids=document_ids,
-            limit=limit,
+        params = {
+            "project_key": project_key,
+            "scope": scope,
+            "doc_type": doc_type,
+            "state": state,
+            "document_ids": document_ids,
+            "limit": limit,
+        }
+        job_id = _start_resource_pool_job(
+            job_type="resource_pool_extract",
+            task_request=getattr(self, "request", None),
+            params=params,
         )
+        try:
+            result = extract_from_documents(
+                project_key=project_key,
+                scope=scope,
+                doc_type=doc_type,
+                state=state,
+                document_ids=document_ids,
+                limit=limit,
+            )
+        except Exception as exc:
+            _fail_resource_pool_job(
+                job_id=job_id,
+                task_request=getattr(self, "request", None),
+                error=exc,
+            )
+            raise
+        _finish_resource_pool_job(
+            job_id=job_id,
+            task_request=getattr(self, "request", None),
+            result=result,
+        )
+        return result
 
 
-@celery_app.task
+@celery_app.task(bind=True)
 def task_extract_resource_pool_from_tasks(
+    self,
     project_key: str,
     scope: str = "project",
     task_ids: list[int] | None = None,
@@ -645,14 +724,41 @@ def task_extract_resource_pool_from_tasks(
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        return extract_from_tasks(
-            project_key=project_key,
-            scope=scope,
-            task_ids=task_ids,
-            job_type=job_type,
-            since=since,
-            limit=limit,
+        params = {
+            "project_key": project_key,
+            "scope": scope,
+            "task_ids": task_ids,
+            "job_type": job_type,
+            "since": since,
+            "limit": limit,
+        }
+        job_id = _start_resource_pool_job(
+            job_type="resource_pool_capture",
+            task_request=getattr(self, "request", None),
+            params=params,
         )
+        try:
+            result = extract_from_tasks(
+                project_key=project_key,
+                scope=scope,
+                task_ids=task_ids,
+                job_type=job_type,
+                since=since,
+                limit=limit,
+            )
+        except Exception as exc:
+            _fail_resource_pool_job(
+                job_id=job_id,
+                task_request=getattr(self, "request", None),
+                error=exc,
+            )
+            raise
+        _finish_resource_pool_job(
+            job_id=job_id,
+            task_request=getattr(self, "request", None),
+            result=result,
+        )
+        return result
 
 
 @celery_app.task(bind=True)
@@ -684,89 +790,125 @@ def task_discover_site_entries_batched(
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        domains = list_discovery_domains(
-            project_key=project_key,
-            url_scope=url_scope,
-            domain=domain,
-            limit_domains=limit_domains,
-            allow_domains=allow_domains,
-            deny_domains=deny_domains,
-        )
-        batch_size = max(1, min(100, int(batch_size or 20)))
-        totals = {
-            "domains_scanned": 0,
-            "candidates_count": 0,
-            "probe_stats": {},
-            "errors": [],
-            "write_result": {"upserted": 0, "skipped": 0, "errors": []},
-            "batches_total": ceil(len(domains) / batch_size) if domains else 0,
-            "batches_completed": 0,
-            "pre_simplify": None,
+        params = {
+            "project_key": project_key,
+            "url_scope": url_scope,
+            "target_scope": target_scope,
+            "domain": domain,
+            "limit_domains": limit_domains,
+            "probe_timeout": probe_timeout,
+            "include_link_alternate": include_link_alternate,
+            "sitemap_paths": sitemap_paths,
+            "rss_paths": rss_paths,
+            "allow_domains": allow_domains,
+            "deny_domains": deny_domains,
+            "run_auto_classify": run_auto_classify,
+            "use_llm": use_llm,
+            "write": write,
+            "batch_size": batch_size,
+            "simplify_pool_first": simplify_pool_first,
         }
-        if simplify_pool_first and write and target_scope in {"project", "shared"}:
-            try:
-                totals["pre_simplify"] = simplify_site_entries(
-                    scope=target_scope,
-                    project_key=project_key if target_scope == "project" else None,
-                    dry_run=False,
-                )
-            except Exception as exc:
-                totals["pre_simplify"] = {"error": str(exc)}
-        self.update_state(
-            state="STARTED",
-            meta={
-                "phase": "prepared",
-                "batches_total": totals["batches_total"],
-                "batches_completed": totals["batches_completed"],
-                "pre_simplify": totals["pre_simplify"],
-            },
+        job_id = _start_resource_pool_job(
+            job_type="resource_pool_discover",
+            task_request=getattr(self, "request", None),
+            params=params,
         )
-        for i in range(0, len(domains), batch_size):
-            batch_domains = domains[i : i + batch_size]
-            result = discover_site_entries_from_urls(
+        try:
+            domains = list_discovery_domains(
                 project_key=project_key,
                 url_scope=url_scope,
-                target_scope=target_scope,
-                domain=None,
-                limit_domains=max(len(batch_domains), 1),
-                probe_timeout=probe_timeout,
-                include_link_alternate=include_link_alternate,
-                sitemap_paths=sitemap_paths,
-                rss_paths=rss_paths,
-                allow_domains=batch_domains,
+                domain=domain,
+                limit_domains=limit_domains,
+                allow_domains=allow_domains,
                 deny_domains=deny_domains,
-                run_auto_classify=run_auto_classify,
-                use_llm=use_llm,
             )
-            totals["domains_scanned"] += int(result.domains_scanned or 0)
-            totals["candidates_count"] += len(result.candidates or [])
-            totals["errors"].extend(result.errors or [])
-            for k, v in (result.probe_stats or {}).items():
-                totals["probe_stats"][k] = int(totals["probe_stats"].get(k, 0)) + int(v or 0)
-            if write:
-                wr = write_discovered_site_entries(
-                    project_key=project_key,
-                    candidates=result.candidates,
-                    target_scope=target_scope,
-                    dry_run=False,
-                )
-                totals["write_result"]["upserted"] += int(wr.upserted or 0)
-                totals["write_result"]["skipped"] += int(wr.skipped or 0)
-                totals["write_result"]["errors"].extend(wr.errors or [])
-            totals["batches_completed"] += 1
+            batch_size = max(1, min(100, int(batch_size or 20)))
+            totals = {
+                "domains_scanned": 0,
+                "candidates_count": 0,
+                "probe_stats": {},
+                "errors": [],
+                "write_result": {"upserted": 0, "skipped": 0, "errors": []},
+                "batches_total": ceil(len(domains) / batch_size) if domains else 0,
+                "batches_completed": 0,
+                "pre_simplify": None,
+            }
+            if simplify_pool_first and write and target_scope in {"project", "shared"}:
+                try:
+                    totals["pre_simplify"] = simplify_site_entries(
+                        scope=target_scope,
+                        project_key=project_key if target_scope == "project" else None,
+                        dry_run=False,
+                    )
+                except Exception as exc:
+                    totals["pre_simplify"] = {"error": str(exc)}
             self.update_state(
                 state="STARTED",
                 meta={
-                    "phase": "discovering",
+                    "phase": "prepared",
                     "batches_total": totals["batches_total"],
                     "batches_completed": totals["batches_completed"],
-                    "domains_scanned": totals["domains_scanned"],
-                    "candidates_count": totals["candidates_count"],
-                    "probe_stats": totals["probe_stats"],
-                    "write_result": totals["write_result"],
                     "pre_simplify": totals["pre_simplify"],
                 },
             )
+            for i in range(0, len(domains), batch_size):
+                batch_domains = domains[i : i + batch_size]
+                result = discover_site_entries_from_urls(
+                    project_key=project_key,
+                    url_scope=url_scope,
+                    target_scope=target_scope,
+                    domain=None,
+                    limit_domains=max(len(batch_domains), 1),
+                    probe_timeout=probe_timeout,
+                    include_link_alternate=include_link_alternate,
+                    sitemap_paths=sitemap_paths,
+                    rss_paths=rss_paths,
+                    allow_domains=batch_domains,
+                    deny_domains=deny_domains,
+                    run_auto_classify=run_auto_classify,
+                    use_llm=use_llm,
+                )
+                totals["domains_scanned"] += int(result.domains_scanned or 0)
+                totals["candidates_count"] += len(result.candidates or [])
+                totals["errors"].extend(result.errors or [])
+                for k, v in (result.probe_stats or {}).items():
+                    totals["probe_stats"][k] = int(totals["probe_stats"].get(k, 0)) + int(v or 0)
+                if write:
+                    wr = write_discovered_site_entries(
+                        project_key=project_key,
+                        candidates=result.candidates,
+                        target_scope=target_scope,
+                        dry_run=False,
+                    )
+                    totals["write_result"]["upserted"] += int(wr.upserted or 0)
+                    totals["write_result"]["skipped"] += int(wr.skipped or 0)
+                    totals["write_result"]["errors"].extend(wr.errors or [])
+                totals["batches_completed"] += 1
+                self.update_state(
+                    state="STARTED",
+                    meta={
+                        "phase": "discovering",
+                        "batches_total": totals["batches_total"],
+                        "batches_completed": totals["batches_completed"],
+                        "domains_scanned": totals["domains_scanned"],
+                        "candidates_count": totals["candidates_count"],
+                        "probe_stats": totals["probe_stats"],
+                        "write_result": totals["write_result"],
+                        "pre_simplify": totals["pre_simplify"],
+                    },
+                )
+        except Exception as exc:
+            _fail_resource_pool_job(
+                job_id=job_id,
+                task_request=getattr(self, "request", None),
+                error=exc,
+            )
+            raise
+        _finish_resource_pool_job(
+            job_id=job_id,
+            task_request=getattr(self, "request", None),
+            result=totals,
+        )
         return totals
 
 

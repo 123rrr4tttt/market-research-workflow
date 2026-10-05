@@ -7,12 +7,17 @@ import json
 from pathlib import Path
 import re
 from typing import Annotated, Any
+from uuid import uuid4
+
+from functorial_kit import Failure
 
 
 _TOOL_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 _NAMESPACE_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 NativeToolHandler = Callable[[Mapping[str, Any]], Any]
+
+_SKILL_ROOTS = (Path(__file__).resolve().parents[3] / "skills",)
 
 
 @dataclass(frozen=True, slots=True)
@@ -200,166 +205,154 @@ class NativeAgentBinding:
         }
 
 
-def build_agent_macro_pilot_binding(
-    *, project_key: str, scope_id: str
-) -> Annotated[
-    NativeAgentBinding,
-    "kit:prepared-command effect_boundary=codex_native_agent_read_only_binding "
-    "witness=test:test_native_turn_mounts_skill_and_dispatches_existing_read_only_handler",
-]:
-    """Bind the M2a skill to the existing project-retrieval read-only handler."""
+@dataclass(frozen=True, slots=True)
+class NativeMacroAssembly:
+    """A resolved and assembled macro environment plus its declaration observation."""
 
-    from app.services.project_retrieval.skill import read_run
-    from app.services.projects.context import bind_project
+    binding: NativeAgentBinding
+    package_id: str | None
+    package_version: str | None
+    declared_tool_names: tuple[str, ...]
+    skill_names: tuple[str, ...]
+    environment_digest: str
 
-    skill_path = (
-        Path(__file__).resolve().parents[3]
-        / "skills"
-        / "agent-macro-pilot"
-        / "SKILL.md"
+
+def _trusted_host_context(
+    *,
+    project_key: str,
+    session_id: str,
+    host_thread_id: str,
+    turn_id: str | None = None,
+    user_message_id: str | None = None,
+) -> Any:
+    from app.services.agent_core.host_authorization import TrustedHostContext
+
+    return TrustedHostContext(
+        project_key=str(project_key).strip(),
+        session_id=str(session_id).strip(),
+        host_thread_id=str(host_thread_id).strip(),
+        turn_id=str(turn_id or "").strip() or f"turn-{uuid4().hex}",
+        user_message_id=str(user_message_id or "").strip()
+        or f"host-message-{uuid4().hex}",
     )
 
-    def project_read_run(arguments: Mapping[str, Any]) -> Any:
-        with bind_project(project_key):
-            return read_run(arguments)
 
-    return NativeAgentBinding(
-        binding_id="agent-macro-pilot.v1",
+def resolve_agent_macro_environment(
+    *,
+    project_key: str,
+    service: Any,
+    package_id: str | None = None,
+    package_version: str | None = None,
+) -> Any | Failure:
+    """Resolve the unique active package (or base), or one explicit identity."""
+
+    from app.services.agent_core.macro_environment import (
+        resolve_macro_environment,
+        select_active_macro_identity,
+    )
+    from app.services.agent_core.project_tools import build_project_core_tool_registry
+
+    registry = build_project_core_tool_registry(service=service)
+    identity = select_active_macro_identity(
+        service, project_key, package_id, package_version
+    )
+    if isinstance(identity, Failure):
+        return identity
+    ids, versions = identity
+    return resolve_macro_environment(
+        service, project_key, ids, versions, _SKILL_ROOTS, registry
+    )
+
+
+def assemble_agent_macro_binding(
+    *,
+    project_key: str,
+    service: Any,
+    trusted_host_context: Any,
+    package_id: str | None = None,
+    package_version: str | None = None,
+) -> NativeMacroAssembly | Failure:
+    """Resolve and assemble one macro environment without starting a native turn."""
+
+    from app.services.agent_core.macro_environment import assemble_native_macro_binding
+
+    resolved = resolve_agent_macro_environment(
         project_key=project_key,
-        scope_id=scope_id,
-        skills=(
-            NativeSkillBinding.from_path(name="agent-macro-pilot", path=skill_path),
-        ),
-        tools=(
-            NativeToolBinding(
-                namespace="project_retrieval",
-                name="read_run",
-                description="Read one persisted retrieval run in the trusted active project.",
-                input_schema={
-                    "type": "object",
-                    "properties": {"run_id": {"type": "string", "minLength": 1}},
-                    "required": ["run_id"],
-                    "additionalProperties": False,
-                },
-                handler=project_read_run,
-            ),
-        ),
-        base_instructions=(
-            "You are an MRW native Agent bound to one trusted project and capability scope. "
-            "Use only the mounted read-only skill and tools. Never infer another project identity."
-        ),
-        developer_instructions=(
-            "Apply agent-macro-pilot only to retrieval-run readback. Preserve missing, queued, "
-            "failed, and completed states exactly as returned by the mounted handler."
-        ),
-        sandbox="read-only",
+        service=service,
+        package_id=package_id,
+        package_version=package_version,
     )
+    if isinstance(resolved, Failure):
+        return resolved
+    binding = assemble_native_macro_binding(resolved, trusted_host_context, service)
+    if isinstance(binding, Failure):
+        return binding
+    package = resolved.package
+    return NativeMacroAssembly(
+        binding=binding,
+        package_id=package.package_id if package is not None else None,
+        package_version=package.package_version if package is not None else None,
+        declared_tool_names=tuple(spec.name for spec in resolved.declared_tools),
+        skill_names=tuple(skill.native.name for skill in resolved.skills),
+        environment_digest=resolved.environment_digest,
+    )
+
+
+def build_agent_macro_pilot_binding(
+    *,
+    project_key: str,
+    scope_id: str,
+    service: Any,
+    session_id: str,
+    turn_id: str | None = None,
+    user_message_id: str | None = None,
+) -> Annotated[
+    NativeAgentBinding | Failure,
+    "kit:prepared-command effect_boundary=codex_native_agent_macro_binding "
+    "witness=test:test_pilot_builder_surfaces_failure_without_fallback",
+]:
+    """Bind the project's unique active macro package, or the native base."""
+
+    context = _trusted_host_context(
+        project_key=project_key,
+        session_id=session_id,
+        host_thread_id=scope_id,
+        turn_id=turn_id,
+        user_message_id=user_message_id,
+    )
+    assembly = assemble_agent_macro_binding(
+        project_key=project_key,
+        service=service,
+        trusted_host_context=context,
+    )
+    return assembly if isinstance(assembly, Failure) else assembly.binding
 
 
 def build_agent_macro_rapid_binding(
-    *, project_key: str, scope_id: str, service: Any, session_id: str
+    *,
+    project_key: str,
+    scope_id: str,
+    service: Any,
+    session_id: str,
+    turn_id: str | None = None,
+    user_message_id: str | None = None,
 ) -> Annotated[
-    NativeAgentBinding,
-    "kit:prepared-command effect_boundary=codex_native_agent_rapid_binding "
-    "witness=test:test_rapid_binding_projects_registered_effects_as_dynamic_tools",
+    NativeAgentBinding | Failure,
+    "kit:prepared-command effect_boundary=codex_native_agent_macro_binding "
+    "witness=test:test_rapid_builder_keeps_ordinary_core_without_global_capability_ban",
 ]:
-    """Mount the Rapid collection edges into the native Core.
+    """Bind the project's unique active macro package, or the native base."""
 
-    The binding projects the ordinary Core registry into the native agent.  The
-    model calls these as standard native tools; their handlers retain the
-    existing authority, persistence and readback semantics.
-    """
-
-    from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
-    from app.services.agent_core.project_tools import build_project_core_tool_registry
-    from app.services.projects.context import bind_project
-
-    skill_path = (
-        Path(__file__).resolve().parents[3]
-        / "skills"
-        / "agent-macro-rapid"
-        / "SKILL.md"
-    )
-    registry = build_project_core_tool_registry(service=service)
-    # Rapid is a skill/context over the general Core surface.  Do not create a
-    # second Rapid-only registry: project tools, writing tools, ingest tools,
-    # topology tools and session tools all remain the ordinary Core surface.
-    requested = tuple(spec.name for spec in registry.list_specs())
-    tools: list[NativeToolBinding] = []
-    for logical_name in requested:
-        spec = registry.get(logical_name)
-        if spec is None:
-            continue
-        segments = logical_name.split(".")
-        if len(segments) >= 3:
-            # The app-server namespace grammar is one level deep. Preserve the
-            # full project identity in the namespace while keeping the callable
-            # name schema-safe (e.g. source_web.search).
-            namespace, name = ("_".join(segments[:-1]), segments[-1])
-        elif len(segments) == 2:
-            namespace, name = segments
-        else:
-            namespace, name = None, logical_name
-        if not _TOOL_NAME_RE.fullmatch(name):
-            continue
-
-        def handler(
-            arguments: Mapping[str, Any],
-            *,
-            logical_name: str = logical_name,
-            spec: Any = spec,
-        ) -> Any:
-            request = AgentCoreRequest(
-                message="native Rapid tool call",
-                session_id=session_id,
-                project_key=project_key,
-                context={"runtime_variant": "agent_macro_rapid_native"},
-            )
-            call = CoreToolCall(
-                tool_name=logical_name,
-                arguments=dict(arguments),
-                call_id=f"native-{hashlib.sha256(json.dumps(dict(arguments), sort_keys=True, default=str).encode()).hexdigest()[:20]}",
-                reason="codex_native_rapid",
-            )
-            with bind_project(project_key):
-                result = registry.execute_tool(
-                    tool_call=call,
-                    tool_spec=spec,
-                    request=request,
-                    emit=lambda _event: None,
-                )
-            return result.to_dict()
-
-        tools.append(
-            NativeToolBinding(
-                namespace=namespace,
-                name=name,
-                description=spec.description_for_model,
-                input_schema=spec.input_schema,
-                handler=handler,
-            )
-        )
-
-    return NativeAgentBinding(
-        binding_id="agent-macro-rapid.v1",
+    context = _trusted_host_context(
         project_key=project_key,
-        scope_id=scope_id,
-        skills=(NativeSkillBinding.from_path(name="agent-macro-rapid", path=skill_path),),
-        tools=tuple(tools),
-        base_instructions=(
-            "You are the native Rapid collection agent for one trusted MRW project. "
-            "Use the mounted discovery/search/review/ingest/readback tools. Preserve "
-            "candidate, snapshot, material, failure and readback identities. "
-            "The mounted dynamic Core tools are the ordinary tool surface; the "
-            "runtime host mechanism is not a reason to refuse them. Never invoke "
-            "shell, Python, browser, MCP discovery, or undeclared capabilities."
-        ),
-        developer_instructions=(
-            "Use the ordinary Core tool surface. For Rapid collection, preserve "
-            "candidate, snapshot, material, failure and readback identities, and "
-            "continue through the registered ingest/readback tools when needed. "
-            "Treat every mounted dynamic tool as directly callable."
-        ),
-        sandbox="workspace-write",
-        approval_policy="never",
+        session_id=session_id,
+        host_thread_id=scope_id,
+        turn_id=turn_id,
+        user_message_id=user_message_id,
     )
+    assembly = assemble_agent_macro_binding(
+        project_key=project_key,
+        service=service,
+        trusted_host_context=context,
+    )
+    return assembly if isinstance(assembly, Failure) else assembly.binding

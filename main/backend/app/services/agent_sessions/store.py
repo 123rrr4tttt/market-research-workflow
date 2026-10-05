@@ -49,6 +49,43 @@ def _failure(code: str, message: str, **context: Any) -> Failure:
     return agent_session_failures.fail(code, message, context or None)
 
 
+def _consume_status_failure(approval_id: str, status: str) -> Failure:
+    status = str(status or "")
+    if status == "consumed":
+        return _failure(
+            "status_invalid",
+            "approval grant was already consumed",
+            approval_id=approval_id,
+            status=status,
+            host_code="host_approval_grant_consumed",
+        )
+    if status == "failed":
+        return _failure(
+            "status_invalid",
+            "approval was rejected",
+            approval_id=approval_id,
+            status=status,
+            host_code="host_approval_rejected",
+        )
+    return _failure(
+        "status_invalid",
+        "approval is not approved",
+        approval_id=approval_id,
+        status=status,
+        host_code="host_approval_pending",
+    )
+
+
+def _confirmation_status_failure(approval_id: str, status: str) -> Failure:
+    return _failure(
+        "status_invalid",
+        "approval is not pending",
+        approval_id=approval_id,
+        status=str(status or ""),
+        host_code="host_confirmation_not_pending",
+    )
+
+
 class InMemoryAgentSessionStore:
     """Thread-safe fallback store for agent sessions."""
 
@@ -114,6 +151,21 @@ class InMemoryAgentSessionStore:
                 if str(item.get("compat_job_id") or "").strip() == target:
                     return _clone(item)
             return None
+
+    def find_session_by_native_thread_id(self, thread_id: str) -> dict[str, Any] | None | Failure:
+        target = str(thread_id or "").strip()
+        if not target:
+            return None
+        with self._lock:
+            matches = [
+                item for item in self._sessions.values()
+                if item.get("source") == "codex_webui_host"
+                and item.get("entrypoint_type") == "codex_native_thread"
+                and dict(item.get("metadata") or {}).get("native_thread_id") == target
+            ]
+            if len(matches) > 1:
+                return _failure("session_already_exists", "native thread has multiple MRW session bindings", thread_id=target)
+            return _clone(matches[0]) if matches else None
 
     def find_session_by_logical_task_list_key(self, logical_task_list_key: str) -> dict[str, Any] | None:
         target = str(logical_task_list_key or "").strip()
@@ -226,7 +278,7 @@ class InMemoryAgentSessionStore:
         project_key = str(payload.get("project_key") or "").strip()
         name = str(payload.get("name") or "").strip()
         if not project_key or not name:
-            return _failure("project_artifact_identity_required", "project_key and name are required")
+            return _failure("artifact_identity_required", "project_key and name are required")
         with self._lock:
             bucket = self._project_artifacts.setdefault(project_key, {})
             existing = bucket.get(name)
@@ -239,12 +291,22 @@ class InMemoryAgentSessionStore:
             bucket[name] = item
             return _clone(item)
 
-    def get_project_artifact(self, *, project_key: str, name: str) -> dict[str, Any] | Failure:
+    def get_project_artifact(self, *, project_key: str, name: str) -> dict[str, Any] | None:
         with self._lock:
             item = self._project_artifacts.get(str(project_key or ""), {}).get(str(name or ""))
             if item is None:
-                return _failure("artifact_not_found", "project artifact was not found", project_key=project_key, name=name)
+                return None
             return _clone(item)
+
+    def list_project_artifacts(self, *, project_key: str) -> list[dict[str, Any]] | Failure:
+        project = str(project_key or "").strip()
+        if not project:
+            return _failure("artifact_identity_required", "project_key is required")
+        with self._lock:
+            return [
+                _clone(item)
+                for item in sorted(self._project_artifacts.get(project, {}).values(), key=_artifact_sort_key)
+            ]
 
     def append_event(
         self,
@@ -309,6 +371,99 @@ class InMemoryAgentSessionStore:
                     continue
                 out.append(_clone(item))
             return sorted(out, key=lambda item: str(item.get("updated_at") or ""), reverse=True)
+
+    def consume_host_approval(
+        self,
+        approval_id: str,
+        *,
+        expected_binding_payload: dict[str, Any] | None = None,
+        consumed_metadata: dict[str, Any] | None = None,
+        consumed_audit_log: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | Failure:
+        approval_id = str(approval_id or "").strip()
+        if not approval_id:
+            return _failure("approval_id_required", "approval_id is required")
+        with self._lock:
+            existing = self._approvals.get(approval_id)
+            if existing is None:
+                return _failure("approval_not_found", f"approval not found: {approval_id}", approval_id=approval_id)
+            if expected_binding_payload is not None and dict(existing.get("binding_payload") or {}) != dict(
+                expected_binding_payload or {}
+            ):
+                return _failure(
+                    "status_invalid",
+                    "approval binding does not match the expected action",
+                    approval_id=approval_id,
+                    host_code="host_approval_binding_mismatch",
+                )
+            status = str(existing.get("status") or "")
+            if status != "approved":
+                return _consume_status_failure(approval_id, status)
+            item = _clone(existing)
+            item["status"] = "consumed"
+            metadata = dict(item.get("metadata") or {})
+            if consumed_metadata is not None:
+                metadata.update(_clone(consumed_metadata))
+            item["metadata"] = metadata
+            if consumed_audit_log is not None:
+                item["audit_log"] = [*list(item.get("audit_log") or []), *_clone(consumed_audit_log)]
+            item["updated_at"] = _as_iso(_utcnow())
+            self._approvals[approval_id] = item
+            return _clone(item)
+
+    def confirm_host_approval(
+        self,
+        approval_id: str,
+        *,
+        expected_binding_payload: dict[str, Any] | None = None,
+        expected_requester_actor: str | None = None,
+        approved: bool = True,
+        approved_by: str = "",
+        approved_at: datetime | None = None,
+        confirmation_metadata: dict[str, Any] | None = None,
+        audit_log: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | Failure:
+        approval_id = str(approval_id or "").strip()
+        if not approval_id:
+            return _failure("approval_id_required", "approval_id is required")
+        with self._lock:
+            existing = self._approvals.get(approval_id)
+            if existing is None:
+                return _failure("approval_not_found", f"approval not found: {approval_id}", approval_id=approval_id)
+            if expected_binding_payload is not None and dict(existing.get("binding_payload") or {}) != dict(
+                expected_binding_payload or {}
+            ):
+                return _failure(
+                    "status_invalid",
+                    "approval binding does not match the expected confirmation",
+                    approval_id=approval_id,
+                    host_code="host_confirmation_scope_mismatch",
+                )
+            if expected_requester_actor is not None and str(existing.get("requester_actor") or "") != str(
+                expected_requester_actor
+            ):
+                return _failure(
+                    "status_invalid",
+                    "approval requester does not match the expected confirmation",
+                    approval_id=approval_id,
+                    host_code="host_confirmation_scope_mismatch",
+                )
+            if str(existing.get("status") or "") != "pending":
+                return _confirmation_status_failure(approval_id, str(existing.get("status") or ""))
+            item = _clone(existing)
+            item["status"] = "approved" if approved else "failed"
+            item["approved_by"] = str(approved_by or "").strip() or item.get("approved_by")
+            if approved_at is not None:
+                item["approved_at"] = approved_at
+            metadata = dict(item.get("metadata") or {})
+            if confirmation_metadata is not None:
+                metadata.update(_clone(confirmation_metadata))
+            item["metadata"] = metadata
+            if audit_log is not None:
+                item["audit_log"] = [*list(item.get("audit_log") or []), *_clone(audit_log)]
+            item["updated_at"] = _as_iso(_utcnow())
+            self._approvals[approval_id] = item
+            return _clone(item)
 
     def _must_get_session_ref(self, session_id: str) -> dict[str, Any] | Failure:
         item = self._sessions.get(session_id)
@@ -430,6 +585,25 @@ class SqlAgentSessionStore:
         with SessionLocal() as session:
             row = session.query(AgentSession).filter(AgentSession.compat_job_id == target).one_or_none()
             return None if row is None else _session_row_to_dict(row)
+
+    def find_session_by_native_thread_id(self, thread_id: str) -> dict[str, Any] | None | Failure:
+        target = str(thread_id or "").strip()
+        if not target:
+            return None
+        with SessionLocal() as session:
+            rows = (
+                session.query(AgentSession)
+                .filter(
+                    AgentSession.source == "codex_webui_host",
+                    AgentSession.entrypoint_type == "codex_native_thread",
+                    AgentSession.metadata_json["native_thread_id"].as_string() == target,
+                )
+                .limit(2)
+                .all()
+            )
+            if len(rows) > 1:
+                return _failure("session_already_exists", "native thread has multiple MRW session bindings", thread_id=target)
+            return _session_row_to_dict(rows[0]) if rows else None
 
     def find_session_by_logical_task_list_key(self, logical_task_list_key: str) -> dict[str, Any] | None:
         target = str(logical_task_list_key or "").strip()
@@ -652,7 +826,7 @@ class SqlAgentSessionStore:
         name = str(payload.get("name") or "").strip()
         session_id = str(payload.get("session_id") or "").strip()
         if not project_key or not name or not session_id:
-            return _failure("project_artifact_identity_required", "project_key, name and session_id are required")
+            return _failure("artifact_identity_required", "project_key, name and session_id are required")
         with SessionLocal() as session:
             row = None
             for candidate in session.query(AgentArtifact).filter(AgentArtifact.artifact_type == "agent_macro.registration_package").all():
@@ -681,13 +855,30 @@ class SqlAgentSessionStore:
             session.refresh(row)
             return _artifact_row_to_dict(row)
 
-    def get_project_artifact(self, *, project_key: str, name: str) -> dict[str, Any] | Failure:
+    def get_project_artifact(self, *, project_key: str, name: str) -> dict[str, Any] | None:
         with SessionLocal() as session:
             for row in session.query(AgentArtifact).filter(AgentArtifact.artifact_type == "agent_macro.registration_package").all():
                 metadata = dict(row.metadata_json or {})
                 if metadata.get("project_key") == str(project_key or "") and row.name == str(name or ""):
                     return _artifact_row_to_dict(row)
-        return _failure("artifact_not_found", "project artifact was not found", project_key=project_key, name=name)
+        return None
+
+    def list_project_artifacts(self, *, project_key: str) -> list[dict[str, Any]] | Failure:
+        project = str(project_key or "").strip()
+        if not project:
+            return _failure("artifact_identity_required", "project_key is required")
+        with SessionLocal() as session:
+            rows = (
+                session.query(AgentArtifact)
+                .filter(
+                    AgentArtifact.artifact_type == "agent_macro.registration_package",
+                    AgentArtifact.metadata_json["project_key"].as_string() == project,
+                    AgentArtifact.metadata_json["project_scope"].as_boolean().is_(True),
+                )
+                .order_by(AgentArtifact.name.asc(), AgentArtifact.updated_at.asc())
+                .all()
+            )
+            return [_artifact_row_to_dict(row) for row in rows]
 
     def append_event(
         self,
@@ -784,6 +975,127 @@ class SqlAgentSessionStore:
                 query = query.filter(AgentApproval.requester_session_id == session_id)
             rows = query.order_by(AgentApproval.updated_at.desc(), AgentApproval.created_at.desc()).all()
             return [_approval_row_to_dict(row) for row in rows]
+
+    def consume_host_approval(
+        self,
+        approval_id: str,
+        *,
+        expected_binding_payload: dict[str, Any] | None = None,
+        consumed_metadata: dict[str, Any] | None = None,
+        consumed_audit_log: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | Failure:
+        approval_id = str(approval_id or "").strip()
+        if not approval_id:
+            return _failure("approval_id_required", "approval_id is required")
+        with SessionLocal() as session:
+            row = session.query(AgentApproval).filter(AgentApproval.approval_id == approval_id).one_or_none()
+            if row is None:
+                return _failure("approval_not_found", f"approval not found: {approval_id}", approval_id=approval_id)
+            if expected_binding_payload is not None and dict(row.binding_payload or {}) != dict(
+                expected_binding_payload or {}
+            ):
+                return _failure(
+                    "status_invalid",
+                    "approval binding does not match the expected action",
+                    approval_id=approval_id,
+                    host_code="host_approval_binding_mismatch",
+                )
+            if str(row.status or "") != "approved":
+                return _consume_status_failure(approval_id, str(row.status or ""))
+            metadata = dict(row.metadata_json or {})
+            if consumed_metadata is not None:
+                metadata.update(_clone(consumed_metadata))
+            audit_log = [*list(row.audit_log or []), *list(consumed_audit_log or [])]
+            updated = (
+                session.query(AgentApproval)
+                .filter(AgentApproval.approval_id == approval_id, AgentApproval.status == "approved")
+                .update(
+                    {
+                        "status": "consumed",
+                        "metadata_json": metadata,
+                        "audit_log": audit_log,
+                        "updated_at": _utcnow(),
+                    },
+                    synchronize_session=False,
+                )
+            )
+            if updated == 0:
+                session.rollback()
+                fresh = session.query(AgentApproval).filter(AgentApproval.approval_id == approval_id).one_or_none()
+                if fresh is None:
+                    return _failure("approval_not_found", f"approval not found: {approval_id}", approval_id=approval_id)
+                return _consume_status_failure(approval_id, str(fresh.status or ""))
+            session.commit()
+            fresh = session.query(AgentApproval).filter(AgentApproval.approval_id == approval_id).one()
+            return _approval_row_to_dict(fresh)
+
+    def confirm_host_approval(
+        self,
+        approval_id: str,
+        *,
+        expected_binding_payload: dict[str, Any] | None = None,
+        expected_requester_actor: str | None = None,
+        approved: bool = True,
+        approved_by: str = "",
+        approved_at: datetime | None = None,
+        confirmation_metadata: dict[str, Any] | None = None,
+        audit_log: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | Failure:
+        approval_id = str(approval_id or "").strip()
+        if not approval_id:
+            return _failure("approval_id_required", "approval_id is required")
+        with SessionLocal() as session:
+            row = session.query(AgentApproval).filter(AgentApproval.approval_id == approval_id).one_or_none()
+            if row is None:
+                return _failure("approval_not_found", f"approval not found: {approval_id}", approval_id=approval_id)
+            if expected_binding_payload is not None and dict(row.binding_payload or {}) != dict(
+                expected_binding_payload or {}
+            ):
+                return _failure(
+                    "status_invalid",
+                    "approval binding does not match the expected confirmation",
+                    approval_id=approval_id,
+                    host_code="host_confirmation_scope_mismatch",
+                )
+            if expected_requester_actor is not None and str(row.requester_actor or "") != str(
+                expected_requester_actor
+            ):
+                return _failure(
+                    "status_invalid",
+                    "approval requester does not match the expected confirmation",
+                    approval_id=approval_id,
+                    host_code="host_confirmation_scope_mismatch",
+                )
+            if str(row.status or "") != "pending":
+                return _confirmation_status_failure(approval_id, str(row.status or ""))
+            metadata = dict(row.metadata_json or {})
+            if confirmation_metadata is not None:
+                metadata.update(_clone(confirmation_metadata))
+            audit = [*list(row.audit_log or []), *list(audit_log or [])]
+            updated = (
+                session.query(AgentApproval)
+                .filter(AgentApproval.approval_id == approval_id, AgentApproval.status == "pending")
+                .update(
+                    {
+                        "status": "approved" if approved else "failed",
+                        "approved_by": str(approved_by or "").strip() or "unknown",
+                        "approved_at": approved_at if approved_at is not None else _utcnow(),
+                        "metadata_json": metadata,
+                        "audit_log": audit,
+                        "updated_at": _utcnow(),
+                    },
+                    synchronize_session=False,
+                )
+            )
+            if updated == 0:
+                session.rollback()
+                fresh = session.query(AgentApproval).filter(AgentApproval.approval_id == approval_id).one_or_none()
+                if fresh is None:
+                    return _failure("approval_not_found", f"approval not found: {approval_id}", approval_id=approval_id)
+                return _confirmation_status_failure(approval_id, str(fresh.status or ""))
+            session.commit()
+            fresh = session.query(AgentApproval).filter(AgentApproval.approval_id == approval_id).one()
+            return _approval_row_to_dict(fresh)
 
     @staticmethod
     def _must_get_session_row(session: Any, session_id: str) -> AgentSession | Failure:

@@ -7,9 +7,11 @@ from typing import Annotated, Any, Iterable, Mapping, NoReturn
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.w04_service_semantics import document_query_failures
+from ...contracts.materials import normalize_material_source_type
 
 
-DOCUMENT_QUERY_CONTRACT_VERSION = "document_queries.v1"
+DOCUMENT_QUERY_CONTRACT_VERSION = "document_queries.v2"
+SUPPORTED_DOCUMENT_QUERY_CONTRACT_VERSIONS = {"document_queries.v1", DOCUMENT_QUERY_CONTRACT_VERSION}
 
 FILTER_OPERATORS = frozenset({"eq", "in", "contains", "gte", "lte", "exists"})
 SORT_DIRECTIONS = frozenset({"asc", "desc"})
@@ -157,7 +159,7 @@ class DocumentQuery:
         object.__setattr__(self, "query", _clean_text(self.query))
         object.__setattr__(self, "project_key", _clean_optional_text(self.project_key))
         object.__setattr__(self, "consumer", _clean_optional_text(self.consumer))
-        object.__setattr__(self, "sources", tuple(_clean_text(item) for item in self.sources if _clean_text(item)))
+        object.__setattr__(self, "sources", tuple(dict.fromkeys(normalize_material_source_type(item) for item in self.sources if _clean_text(item))))
         object.__setattr__(self, "filters", tuple(coerce_document_query_filter(item) for item in self.filters))
         sort = tuple(coerce_document_query_sort(item) for item in self.sort)
         object.__setattr__(self, "sort", sort or (DocumentQuerySort(),))
@@ -305,19 +307,20 @@ def build_document_query_result_item(
     url = _clean_optional_text(_lookup(row, "url", "uri", "source_uri"))
     publisher = _clean_optional_text(_lookup(row, "publisher", "source", "channel_key"))
     published_at = _clean_optional_text(_lookup(row, "published_at", "publish_date", "date"))
-    document_id = _lookup(row, "document_id", "doc_id", "id")
+    document_id = _lookup(row, "material_id", "document_id", "doc_id", "id")
     backend = _clean_optional_text(_lookup(row, "backend", "provider", "source_type"))
     return {
         **raw,
         "id": _lookup(row, "id", "item_key", "source_id"),
         "document_id": document_id,
+        "material_id": document_id if normalize_material_source_type(source_type) == "material" else _lookup(row, "material_id", "document_id", "doc_id"),
         "title": title,
         "snippet": snippet,
         "summary": snippet,
         "url": url,
         "uri": url,
         "score": _coerce_float(_lookup(row, "score", "_score", "rank_score"), default=0.0),
-        "source_type": _clean_text(source_type) or "document",
+        "source_type": normalize_material_source_type(source_type) or "material",
         "publisher": publisher,
         "published_at": published_at,
         "backend": backend,
@@ -331,7 +334,7 @@ def build_document_query_result_envelope(
     rows: Iterable[Any],
     *,
     source: str,
-    result_source_type: str = "document",
+    result_source_type: str = "material",
     total: int | None = None,
     meta: Mapping[str, Any] | None = None,
 ) -> Annotated[
@@ -378,10 +381,10 @@ def try_validate_document_query_result_envelope(envelope: Mapping[str, Any]) -> 
     data = envelope.get("data")
     if not isinstance(data, Mapping):
         return document_query_failure("result_envelope_invalid", "document query result envelope data must be an object", owner="document_queries.contracts.result_envelope")
-    if data.get("contract_version") != DOCUMENT_QUERY_CONTRACT_VERSION:
+    if data.get("contract_version") not in SUPPORTED_DOCUMENT_QUERY_CONTRACT_VERSIONS:
         return document_query_failure("result_envelope_invalid", "unsupported document query result envelope contract_version", owner="document_queries.contracts.result_envelope")
     query = data.get("query")
-    if not isinstance(query, Mapping) or query.get("contract_version") != DOCUMENT_QUERY_CONTRACT_VERSION:
+    if not isinstance(query, Mapping) or query.get("contract_version") not in SUPPORTED_DOCUMENT_QUERY_CONTRACT_VERSIONS:
         return document_query_failure("result_envelope_invalid", "document query result envelope query contract is missing", owner="document_queries.contracts.result_envelope")
     results = data.get("results")
     if not isinstance(results, list):
@@ -403,4 +406,8 @@ def validate_document_query_result_envelope(envelope: Mapping[str, Any]) -> None
 def rows_for_document_views(envelope: Mapping[str, Any]) -> list[dict[str, Any]]:
     validate_document_query_result_envelope(envelope)
     data = envelope["data"]
-    return [dict(item) for item in data["results"]]
+    return [
+        {**item, "source_type": normalize_material_source_type(item.get("source_type")),
+         "material_id": _lookup(item, "material_id", "document_id", "doc_id")}
+        for item in data["results"]
+    ]

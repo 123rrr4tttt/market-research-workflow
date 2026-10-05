@@ -15,6 +15,13 @@ from app.services.agent_runtime.material_ontology import (
 pytestmark = pytest.mark.unit
 
 
+@pytest.mark.parametrize("noun", ["material", "materials", "document", "documents"])
+def test_english_material_and_document_aliases_share_internal_category(noun: str) -> None:
+    intent = classify_material_intent(f"Show the {noun}")
+    assert intent.category == INTERNAL_EXISTING
+    assert intent.work_context == "project_read"
+
+
 def test_material_ontology_distinguishes_existing_project_materials_from_source_catalog() -> None:
     existing = classify_material_intent("项目库里已有资料有哪些")
     assert existing.category == INTERNAL_EXISTING

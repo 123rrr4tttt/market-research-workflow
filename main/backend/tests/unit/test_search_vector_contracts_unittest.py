@@ -23,6 +23,26 @@ pytestmark = pytest.mark.unit
 
 
 class SearchVectorContractsUnitTestCase(unittest.TestCase):
+    def test_material_evidence_normalizes_legacy_sources_and_reads_v1(self) -> None:
+        _, hits = build_search_evidence_hits(
+            [{"material_id": 42, "source_type": "document", "object_type": "document", "backend": "opensearch"}],
+            query="robotics", rank_mode="bm25",
+        )
+        hit = hits[0]
+        self.assertEqual(hit["source_type"], "material")
+        self.assertEqual(hit["evidence_class"], "material")
+        self.assertEqual(hit["material_id"], "42")
+        self.assertEqual(hit["global_vector_object"]["object_type"], "material")
+        self.assertEqual(hit["global_vector_object"]["document_id"], "42")
+        hit["global_vector_object"]["material_id"] = "different-body"
+        with self.assertRaises(ValueError, msg="v2 identity aliases cannot disagree"):
+            validate_search_evidence_hit(hit)
+        hit["global_vector_object"]["material_id"] = "42"
+        hit["contract_version"] = "search_evidence_hit.v1"
+        hit["global_vector_object"]["contract_version"] = "global_vector_object.v1"
+        hit["global_vector_object"].pop("material_id")
+        validate_search_evidence_hit(hit)
+
     def test_builder_aligns_bm25_qdrant_and_pgvector_rows_to_evidence_hit_schema(self) -> None:
         query_group_id, hits = build_search_evidence_hits(
             [

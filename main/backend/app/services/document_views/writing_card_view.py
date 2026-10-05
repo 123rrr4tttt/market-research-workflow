@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Annotated, Any
 
 from ...contracts.schemas.writing import KeywordCardItem
+from ...contracts.materials import normalize_material_source_type
 from ..typed_knowledge.contracts import (
     WRITING_KNOWLEDGE_HANDOFF_CONTRACT_VERSION,
     WritingKnowledgeHandoff,
@@ -43,6 +44,7 @@ def build_keyword_card(
     "fact_source=keyword_card_inputs+system_clock "
     "witness=test:test_w04_authority_metadata",
 ]:
+    source_type = normalize_material_source_type(source_type)
     return KeywordCardItem(
         card_id=make_card_id(source_type, title, url, normalized_query),
         source_type=source_type,
@@ -78,7 +80,7 @@ def build_keyword_card_from_hybrid_row(
     publisher = str(row.get("publisher") or row.get("source") or "document").strip() or None
     published_at = str(row.get("published_at") or row.get("publish_date") or "").strip() or None
     return build_keyword_card(
-        source_type="document",
+        source_type="material",
         title=title,
         snippet=snippet,
         url=url,
@@ -87,7 +89,9 @@ def build_keyword_card_from_hybrid_row(
         published_at=published_at,
         evidence=str(row.get("evidence") or "").strip() or None,
         normalized_query=normalized_query,
-        extra={"backend": row.get("backend"), "document_id": row.get("document_id")},
+        extra={"backend": row.get("backend"),
+               "material_id": row.get("material_id") or row.get("document_id") or row.get("doc_id") or row.get("id"),
+               "document_id": row.get("material_id") or row.get("document_id") or row.get("doc_id") or row.get("id")},
     )
 
 

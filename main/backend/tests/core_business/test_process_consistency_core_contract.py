@@ -26,9 +26,12 @@ class _FakeResult:
 
 
 class _FakeListSession:
+    def __init__(self, jobs: list[SimpleNamespace] | None = None):
+        self._jobs = jobs or []
+
     def execute(self, _query):
         # /process/list only queries running EtlJobRun rows for DB fallback.
-        return _FakeResult(scalars_value=[])
+        return _FakeResult(scalars_value=self._jobs)
 
 
 class _FakeHistorySession:
@@ -77,6 +80,8 @@ def test_process_list_stats_history_consistency_semantics(
             started_at=now - timedelta(minutes=10),
             finished_at=None,
             error=None,
+            external_provider=None,
+            external_job_id=None,
         ),
         SimpleNamespace(
             id=102,
@@ -92,15 +97,19 @@ def test_process_list_stats_history_consistency_semantics(
             started_at=now - timedelta(minutes=5),
             finished_at=None,
             error=None,
+            external_provider=None,
+            external_job_id=None,
         ),
         SimpleNamespace(
             id=103,
-            job_type="policy_ingest",
+            job_type="resource_pool",
             status="completed",
-            params={"state": "NY"},
+            params={"state": "NY", "urls_extracted": 317},
             started_at=now - timedelta(hours=2),
             finished_at=now - timedelta(hours=1, minutes=30),
             error=None,
+            external_provider=None,
+            external_job_id=None,
         ),
         SimpleNamespace(
             id=104,
@@ -110,6 +119,8 @@ def test_process_list_stats_history_consistency_semantics(
             started_at=now - timedelta(hours=1),
             finished_at=now - timedelta(minutes=50),
             error="upstream timeout",
+            external_provider=None,
+            external_job_id=None,
         ),
     ]
     history_status_rows = [
@@ -214,6 +225,126 @@ def test_process_list_stats_history_consistency_semantics(
     running_row = next(item for item in history_data["history"] if item["id"] == 102)
     assert running_row["handler_used"] == "crawler_pool"
     assert running_row["skip_reason"] == "url_policy_low_value_endpoint"
+    completed_resource_row = next(item for item in history_data["history"] if item["id"] == 103)
+    assert completed_resource_row["params"]["urls_extracted"] == 317
+
+
+def test_process_list_filters_projects_and_deduplicates_celery_db_identity(
+    core_business_client,
+    contract_headers: dict[str, str],
+) -> None:
+    now = datetime(2026, 10, 5, 12, 0, 0)
+    resource_task_name = "app.services.tasks.task_extract_resource_pool_from_documents"
+    inspect = SimpleNamespace(
+        active=lambda: {
+            "worker-a": [
+                {
+                    "id": "celery-alpha-1",
+                    "name": resource_task_name,
+                    "args": ["project_alpha"],
+                    "kwargs": {},
+                },
+                {
+                    "id": "celery-beta-1",
+                    "name": "task.generic",
+                    "args": [],
+                    "kwargs": {"project_key": "project_beta"},
+                },
+                {
+                    "id": "celery-unknown-1",
+                    "name": "task.unknown",
+                    "args": [],
+                    "kwargs": {},
+                },
+            ]
+        },
+        scheduled=lambda: {},
+        reserved=lambda: {
+            "worker-a": [
+                {
+                    "id": "celery-alpha-1",
+                    "name": resource_task_name,
+                    "args": ["project_alpha"],
+                    "kwargs": {},
+                }
+            ]
+        },
+        registered=lambda: {"worker-a": [resource_task_name]},
+    )
+    running_jobs = [
+        SimpleNamespace(
+            id=910,
+            job_type="resource_pool",
+            status="running",
+            params={
+                "project_key": "project_alpha",
+                "job_type_full": "resource_pool_extract",
+                "task_id": "celery-alpha-1",
+                    "worker_name": "worker-a",
+            },
+            started_at=now,
+            finished_at=None,
+            error=None,
+            external_provider=None,
+            external_job_id="celery-alpha-1",
+            retry_count=0,
+        ),
+        SimpleNamespace(
+            id=911,
+            job_type="resource_pool",
+            status="running",
+            params={"project_key": "project_beta", "task_id": "celery-beta-1"},
+            started_at=now,
+            finished_at=None,
+            error=None,
+            external_provider=None,
+            external_job_id="celery-beta-1",
+            retry_count=0,
+        ),
+    ]
+    history_status_rows = [SimpleNamespace(status="running", count=2)]
+
+    with (
+        patch("app.api.process.celery_app.control.inspect", return_value=inspect),
+        patch(
+            "app.api.process.SessionLocal",
+            side_effect=[
+                _FakeSessionLocal(_FakeListSession(running_jobs)),
+                _FakeSessionLocal(_FakeHistorySession(running_jobs, history_status_rows)),
+            ],
+        ),
+    ):
+        list_resp = core_business_client.get(
+            "/api/v1/process/list?project_key=project_alpha&limit=20",
+            headers=contract_headers,
+        )
+        history_resp = core_business_client.get(
+            "/api/v1/process/history?project_key=project_alpha&limit=20",
+            headers=contract_headers,
+        )
+        stats_resp = core_business_client.get(
+            "/api/v1/process/stats?project_key=project_alpha",
+            headers=contract_headers,
+        )
+
+    assert list_resp.status_code == 200, list_resp.text
+    assert history_resp.status_code == 200, history_resp.text
+    assert stats_resp.status_code == 200, stats_resp.text
+    tasks = list_resp.json()["data"]["tasks"]
+    assert [item["task_id"] for item in tasks] == ["celery-alpha-1"]
+    assert tasks[0]["worker"] == "worker-a"
+    assert list_resp.json()["data"]["stats"]["total_tasks"] == 1
+
+    history = history_resp.json()["data"]["history"]
+    alpha_history = next(item for item in history if item["id"] == 910)
+    assert alpha_history["task_id"] == "celery-alpha-1"
+    assert alpha_history["task_name"] == "resource_pool_extract"
+    assert alpha_history["source"] == "db"
+    stats_data = stats_resp.json()["data"]
+    assert stats_data["active_tasks"] == 1
+    assert stats_data["total_running"] == 1
+    assert stats_data["task_count_scope"] == "project"
+    assert stats_data["workers_scope"] == "global"
 
 
 def test_prompt_time_density_priority_contract_fields(core_business_client, contract_headers: dict[str, str]) -> None:

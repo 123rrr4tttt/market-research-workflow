@@ -58,6 +58,9 @@ def test_native_adapters_bind_identity_and_report_source_version_capability():
     document = adapt_document({"id": 12, "title": "Paper", "doc_type": "report", "updated_at": None}, project_key="p")
     assert document.revision_capability == "schema_only"
     assert document.state.elements[0].ref.ref.local_id == "12"
+    assert document.state.elements[0].ref.ref.type_id == "material"
+    assert document.state.elements[0].ref.ref.module_id == "materials"
+    assert document.state.profile_id == "native.material"
 
     writing = adapt_writing_document({"id": 8, "head_version": 3, "etag": "abc", "title": "Draft"}, project_key="p")
     assert writing.revision_capability == "versioned"

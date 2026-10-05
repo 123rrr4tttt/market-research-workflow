@@ -123,12 +123,20 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
             authoring_ingest_writing_batch_sources,
         )
         from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+        from app.services.agent_core.host_authorization import TrustedHostContext
         from app.services.agent_core.tool_contribution import (
             register_project_tool_contributions,
         )
         from app.services.writing import WritingVersionConflictError
 
         service = AgentSessionService(store=InMemoryAgentSessionStore())
+        session = service.create_session(
+            source="trusted_host", entrypoint_type="agent_macro", project_key="demo_proj",
+            goal="update writing",
+        )["session"]
+        session_id = session["session_id"]
+        host_context = TrustedHostContext("demo_proj", session_id, "thread-writing", "turn-1", "input-writing")
+        service.create_host_user_message(host_context, content="update writing")
         context = AuthoringToolContext(
             service=service,
             structured_data_searcher=lambda **_kwargs: {},
@@ -164,8 +172,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
                 side_effect=conflict,
             ) as mocked_save,
         ):
-            result = registry.execute_tool(
-                tool_call=CoreToolCall(
+            call = CoreToolCall(
                     tool_name="writing.document.insert_paragraph",
                     call_id="call-writing-conflict",
                     arguments={
@@ -174,13 +181,32 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
                         "operation": "append",
                         "base_version": 3,
                     },
-                ),
+                )
+            request = AgentCoreRequest(
+                message="update writing", session_id=session_id, project_key="demo_proj",
+            )
+            pending = registry.execute_tool(
+                tool_call=call,
                 tool_spec=spec,
-                request=AgentCoreRequest(
-                    message="update writing",
-                    session_id="session-writing",
-                    project_key="demo_proj",
-                ),
+                request=request,
+                trusted_context=host_context,
+                authorization_service=service,
+                emit=lambda _event: None,
+            )
+            assert pending.status == "needs_approval"
+            mocked_save.assert_not_called()
+            approval_id = pending.structured_content["approval_id"]
+            confirmation = TrustedHostContext("demo_proj", session_id, "thread-writing", "turn-2", "confirm-writing")
+            service.record_host_tool_confirmation(
+                confirmation, approval_id=approval_id,
+                content=f"Allow once approval:{approval_id}",
+            )
+            result = registry.execute_tool(
+                tool_call=call,
+                tool_spec=spec,
+                request=request,
+                trusted_context=confirmation,
+                authorization_service=service,
                 emit=lambda _event: None,
             )
 

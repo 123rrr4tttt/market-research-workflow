@@ -182,6 +182,8 @@ _MATERIAL_TOKENS = (
     "artifact",
     "artifacts",
     "graph",
+    "material",
+    "document",
     "documents",
     "source",
     "sources",

@@ -6,6 +6,7 @@ import hashlib
 import ast
 import inspect
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -392,7 +393,8 @@ def test_fixture_echo_codec_round_trip(fixture_bundle):
     assert fixture_bundle.codec.decode_payload(encoded) == payload
 
 
-def test_real_first_specimen_program_compiles_complete_frozen_path(first_specimen_bundle):
+@pytest.mark.parametrize("scheme", ["document", "material"])
+def test_real_first_specimen_program_compiles_complete_frozen_path(first_specimen_bundle, scheme):
     catalog = build_first_specimen_catalog(first_specimen_bundle.operations)
     registry = OperationContractRegistry(catalog, first_specimen_bundle.operations)
     registries = default_registries()
@@ -402,7 +404,10 @@ def test_real_first_specimen_program_compiles_complete_frozen_path(first_specime
         project_key="p0",
         project_scope_digest="0" * 64,
         registries=registries,
-        source_refs=(_document_source(101), _document_source(102)),
+        source_refs=tuple(
+            replace(_document_source(identifier), locator=f"{scheme}://p0/{identifier}", content_digest=None)
+            for identifier in (101, 102)
+        ),
     )
     seed_sql = (
         Path(_BACKEND_ROOT) / "seed_data/project_demo_proj_v0.9-rc2.0.sql"

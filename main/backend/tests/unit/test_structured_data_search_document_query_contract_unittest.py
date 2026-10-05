@@ -60,13 +60,14 @@ class StructuredDataSearchDocumentQueryContractUnitTestCase(unittest.TestCase):
         self.assertEqual(query["consumer"], "project.structured_data.search")
         self.assertEqual(query["project_key"], "demo_proj")
         self.assertEqual(query["sources"], ["project.structured_data"])
-        self.assertEqual(query["filters"], [{"field": "dataset", "op": "in", "value": ["documents"]}])
+        self.assertEqual(query["filters"], [{"field": "dataset", "op": "in", "value": ["materials"]}])
         self.assertEqual(query["limit"], 100)
         self.assertEqual(data["pagination"]["total"], 4)
         self.assertEqual(envelope["meta"]["total_stored_rows"], 11)
         self.assertEqual(data["results"][0]["source_type"], "structured_record")
         self.assertEqual(data["results"][0]["document_id"], "doc-7")
-        self.assertEqual(data["results"][0]["backend"], "documents")
+        self.assertEqual(data["results"][0]["backend"], "materials")
+        self.assertEqual(data["results"][0]["material_id"], "doc-7")
         self.assertEqual(data["results"][0]["raw"]["record_id"], "doc-7")
 
     def test_project_structured_data_search_returns_document_query_projection(self) -> None:
@@ -76,7 +77,7 @@ class StructuredDataSearchDocumentQueryContractUnitTestCase(unittest.TestCase):
             return (
                 [
                     {
-                        "dataset": "documents",
+                        "dataset": "materials",
                         "record_id": "doc-1",
                         "title": "Robot market note",
                         "summary": "stored robot row",
@@ -88,7 +89,7 @@ class StructuredDataSearchDocumentQueryContractUnitTestCase(unittest.TestCase):
 
         with patch.object(search_module, "bind_project", _project_context):
             with patch.object(search_module, "SessionLocal", _SessionContext):
-                with patch.dict(search_module._DATASET_HANDLERS, {"documents": documents_handler}):
+                with patch.dict(search_module._DATASET_HANDLERS, {"materials": documents_handler}):
                     result = query_project_structured_data(
                         project_key="demo_proj",
                         query="robot",
@@ -96,11 +97,13 @@ class StructuredDataSearchDocumentQueryContractUnitTestCase(unittest.TestCase):
                         datasets=["documents"],
                     )
 
-        self.assertEqual(result["contract_version"], "project.structured_data.search.v1")
+        self.assertEqual(result["contract_version"], "project.structured_data.search.v2")
+        self.assertEqual(result["datasets_requested"], ["materials"])
+        self.assertEqual(result["dataset_counts"], {"materials": 1})
         self.assertEqual(result["document_query_contract_version"], DOCUMENT_QUERY_CONTRACT_VERSION)
         self.assertEqual(result["document_query"]["consumer"], "project.structured_data.search")
         self.assertEqual(result["document_query"]["project_key"], "demo_proj")
-        self.assertEqual(result["document_query"]["filters"], [{"field": "dataset", "op": "in", "value": ["documents"]}])
+        self.assertEqual(result["document_query"]["filters"], [{"field": "dataset", "op": "in", "value": ["materials"]}])
         self.assertEqual(result["document_query_results"][0]["title"], "Robot market note")
         self.assertEqual(result["document_query_results"][0]["source_type"], "structured_record")
         self.assertEqual(result["document_query_pagination"]["result_count"], 1)

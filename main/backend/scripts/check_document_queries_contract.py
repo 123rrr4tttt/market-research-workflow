@@ -58,7 +58,7 @@ def main() -> int:
     passed = (
         checks["contract_version"] == DOCUMENT_QUERY_CONTRACT_VERSION
         and checks["result_count"] == 1
-        and checks["view_card_source_type"] == "document"
+        and checks["view_card_source_type"] == "material"
         and checks["view_card_backend"] == "deterministic_fixture"
     )
     print(json.dumps({"status": "pass" if passed else "fail", "checks": checks}, ensure_ascii=False, indent=2))

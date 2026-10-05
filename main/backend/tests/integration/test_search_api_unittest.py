@@ -42,7 +42,7 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
         body = response.json()
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["query"], "market")
-        self.assertEqual(body["data"]["results"], [{"id": "doc-1"}])
+        self.assertEqual(body["data"]["results"], [{"id": "doc-1", "material_id": "doc-1", "source_type": "material"}])
         self.assertEqual(body["data"]["search_backends_used"], ["opensearch_lexical"])
         self.assertEqual(body["data"]["index_backend"], "opensearch_lexical")
         self.assertFalse(body["data"]["fallback_used"])
@@ -179,7 +179,7 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["data"]["index_freshness"]["freshness_state"], "fallback_unknown")
         self.assertTrue(body["data"]["index_freshness"]["fallback_used"])
         self.assertEqual(body["data"]["result_groups"][0]["backend"], "pgvector_fallback")
-        self.assertEqual(body["data"]["result_groups"][0]["source_type"], "document")
+        self.assertEqual(body["data"]["result_groups"][0]["source_type"], "material")
         self.assertEqual(
             body["data"]["provider_trace"]["index_freshness"]["readback_available"],
             body["data"]["index_freshness"]["readback_available"],

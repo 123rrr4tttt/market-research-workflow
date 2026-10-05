@@ -11,7 +11,8 @@ from functorial_kit import Failure
 from sqlalchemy import create_engine, event, func, select, text
 from sqlalchemy.orm import sessionmaker
 
-from app.models.entities import Document, Source
+from app.models.entities import Document, Material, Source
+from app.services.document_queries.identity import document_identity, material_identity, canonical_material_identity
 from app.models.information_topology_entities import InformationTopologyLink, InformationTopologyState
 from app.services.information_topology.contracts import topology_failures
 from app.services.information_topology.document_materials import (
@@ -99,9 +100,11 @@ def test_import_uses_document_owner_and_ordinary_document_apis(unified, monkeypa
         assert document.content is None and document.status == "reference_only"
         row = repository.read_state(session, ("it-retrieval", "retrieval", "retrieval", "clue:test:1"))
         material = next(e for e in row["state"].elements if e.ref.ref.type_id == "material")
-        assert row["profile_version"].startswith("2+")
+        assert Material is Document
+        assert row["profile_version"].startswith("3+")
         assert "title" not in material.attributes and "url" not in material.attributes
-        assert material.attributes["document_ref"]["local_id"] == str(doc_id)
+        assert material.attributes["material_ref"] == material_identity("it-retrieval", doc_id)
+        assert "document_ref" not in material.attributes
         forged = replace(material, attributes={**material.attributes, "title": "second owner"})
         profile = profile_from_state_payload("it-retrieval", row["profile_id"], row["profile_version"], row["payload"])
         assert isinstance(
@@ -112,9 +115,11 @@ def test_import_uses_document_owner_and_ordinary_document_apis(unified, monkeypa
             Failure,
         )
     projected = current_material(service)
-    assert projected["attributes"]["document_id"] == doc_id
+    assert projected["attributes"]["material_id"] == doc_id
     assert projected["attributes"]["title"] == source["materials"][0]["标题"]
-    assert service.resolve("it-retrieval", [projected["attributes"]["document_ref"]])["total"] == 1
+    assert service.resolve("it-retrieval", [projected["attributes"]["material_ref"]])["total"] == 1
+    assert service.resolve("it-retrieval", [document_identity("it-retrieval", doc_id)])["total"] == 1
+    assert isinstance(service.resolve("it-retrieval", [material_identity("other", doc_id)]), Failure)
     from app.api import admin
 
     monkeypatch.setattr(admin, "SessionLocal", sessions)
@@ -174,7 +179,7 @@ def test_migration_reuses_existing_document_preserves_history_and_provenance(uni
         assert current["provenance"] == preview.provenance
         assert historical["state"] == preview.state
         assert current["revision"] == 2
-    assert current_material(service)["attributes"]["document_id"] == doc_id
+    assert current_material(service)["attributes"]["material_id"] == doc_id
     assert current_material(service)["attributes"]["title"] == "Owner title"
 
 
@@ -188,6 +193,59 @@ def test_unresolved_material_does_not_create_a_document(unified):
     material = current_material(service)
     assert material["attributes"]["reference_status"] == "unresolved_reference"
     assert "document_ref" not in material["attributes"]
+    assert "material_ref" not in material["attributes"]
+
+
+def test_v2_document_address_transports_once_without_changing_endpoints_or_history(unified):
+    sessions, repository, io, service = unified
+    preview = build_import_preview(
+        project_key="it-retrieval", module_id="retrieval", namespace="retrieval", source=bundle(), vocabulary=vocabulary()
+    )
+    with sessions.begin() as session:
+        current = bind_material_documents(session, preview.state)
+        assert not isinstance(current, Failure)
+        elements = []
+        for element in current.elements:
+            attrs = dict(element.attributes)
+            ref = attrs.pop("material_ref", None)
+            if ref:
+                attrs["document_ref"] = document_identity("it-retrieval", int(ref["local_id"]))
+                attrs["snapshot_path"] = ["document:" + ref["local_id"]]
+            elements.append(replace(element, attributes=attrs))
+        historical = replace(current, profile_version="2+" + current.profile_version.split("+", 1)[1], elements=tuple(elements))
+        assert not isinstance(repository.apply_batch(
+            session, states=(StateWrite(preview.state_key, historical, None, preview.provenance),)
+        ), Failure)
+    assert service.merge_materials("it-retrieval")["migrated_states"] == 1
+    assert service.merge_materials("it-retrieval")["migrated_states"] == 0
+    with sessions() as session:
+        migrated = repository.read_state(session, preview.state_key)
+        old = repository.read_state(session, preview.state_key, revision=1)
+        assert old["state"] == historical
+        assert migrated["profile_version"].startswith("3+")
+        assert [e.ref for e in migrated["state"].elements] == [e.ref for e in historical.elements]
+        assert [e.endpoints for e in migrated["state"].elements] == [e.endpoints for e in historical.elements]
+        assert session.execute(select(func.count(Material.id))).scalar_one() == 1
+        material = next(e for e in migrated["state"].elements if e.ref.ref.type_id == "material")
+        assert "document_ref" not in material.attributes
+        assert material.attributes["snapshot_path"] == ["material:" + material.attributes["material_ref"]["local_id"]]
+        assert canonical_material_identity("other", material.attributes["material_ref"]) is None
+
+
+def test_conflicting_body_aliases_fail_without_rebinding_material(unified):
+    sessions, repository, io, service = unified
+    assert io.import_structure(project_key="it-retrieval", module_id="retrieval", source=bundle())["accepted"]
+    with sessions.begin() as session:
+        row = repository.list_current_states(session, "it-retrieval")[0]
+        state = repository.read_state(session, ("it-retrieval", row["module_id"], row["namespace"], row["state_id"]))["state"]
+        material = next(e for e in state.elements if e.ref.ref.type_id == "material")
+        conflict = replace(material, attributes={**material.attributes,
+            "document_ref": document_identity("it-retrieval", int(material.attributes["material_ref"]["local_id"]) + 1)})
+        legacy = replace(state, profile_version="1+" + state.profile_version.split("+", 1)[1],
+                         elements=tuple(conflict if e == material else e for e in state.elements))
+        result = bind_material_documents(session, legacy)
+        assert isinstance(result, Failure) and result.code == "IDENTITY_CONFLICT"
+        assert session.execute(select(func.count(Material.id))).scalar_one() == 1
 
 
 def test_document_writes_rollback_when_topology_write_fails(unified):

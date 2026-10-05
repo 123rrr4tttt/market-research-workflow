@@ -51,7 +51,7 @@ def _channel_readiness() -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     """Inspect registered execution ports without invoking a search or URL fetch."""
     required = (
         "source.discovery.plan", "source.web.search", "source.candidate.review",
-        "ingest.url_pool.submit", "project_retrieval.formalize_document",
+        "ingest.url_pool.submit", "project_retrieval.formalize_material",
     )
     try:
         from app.services.agent_sessions import get_agent_session_service
@@ -59,7 +59,7 @@ def _channel_readiness() -> tuple[list[dict[str, str]], list[dict[str, str]]]:
 
         registry = build_project_core_tool_registry(service=get_agent_session_service())
         channels = [{"capability": name, "registration": "registered" if registry.get(
-                         f"skill.{name}" if name == "project_retrieval.formalize_document" else name) else "missing",
+                         f"skill.{name}" if name == "project_retrieval.formalize_material" else name) else "missing",
                      "connectivity": "not_probed"} for name in required]
     except Exception as exc:
         return [], [{"code": "CHANNEL_INSPECTION_FAILED", "severity": "blocking", "message": str(exc)}]

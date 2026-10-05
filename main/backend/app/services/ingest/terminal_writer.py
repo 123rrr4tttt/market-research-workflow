@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from ...models.base import SessionLocal
-from ...models.entities import Document, Source
+from ...models.entities import Material as Document, Source
 from .doc_type_mapper import normalize_doc_type
 
 
@@ -15,7 +15,7 @@ def persist_terminal_document(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def persist_terminal_document_in_session(session: Any, payload: dict[str, Any]) -> dict[str, Any]:
-    """Use the same document writer inside a caller-owned atomic transaction."""
+    """Persist the sole material body inside a caller-owned transaction."""
     normalized = dict(payload or {})
     normalized_doc_type = normalize_doc_type(str(normalized.get("doc_type") or "unknown"))
     uri = str(normalized.get("uri") or "").strip() or None
@@ -29,6 +29,7 @@ def persist_terminal_document_in_session(session: Any, payload: dict[str, Any]) 
         existing.status == "reference_only" and not existing.content and normalized.get("content")
     ):
         return {
+            "material_id": int(existing.id),
             "doc_id": int(existing.id),
             "inserted": 0,
             "skipped": 1,
@@ -53,6 +54,7 @@ def persist_terminal_document_in_session(session: Any, payload: dict[str, Any]) 
         existing.extracted_data = {**(existing.extracted_data or {}), **(normalized.get("extracted_data") or {})}
         session.flush()
         return {
+            "material_id": int(existing.id),
             "doc_id": int(existing.id),
             "inserted": 0,
             "updated": 1,
@@ -76,6 +78,7 @@ def persist_terminal_document_in_session(session: Any, payload: dict[str, Any]) 
     session.add(document)
     session.flush()
     return {
+        "material_id": int(document.id),
         "doc_id": int(document.id),
         "inserted": 1,
         "skipped": 0,
@@ -94,4 +97,7 @@ def _get_or_create_source(session: Any, *, name: str, kind: str, base_url: str |
     return row
 
 
-__all__ = ["persist_terminal_document", "persist_terminal_document_in_session"]
+persist_terminal_material = persist_terminal_document
+persist_terminal_material_in_session = persist_terminal_document_in_session
+
+__all__ = ["persist_terminal_material", "persist_terminal_material_in_session", "persist_terminal_document", "persist_terminal_document_in_session"]

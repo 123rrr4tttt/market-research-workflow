@@ -149,19 +149,28 @@ def _input(payload: Mapping[str, Any]) -> dict[str, Any] | Failure:
             return member
         identity["session_id"] = member
 
-    nested_document = payload.get("document")
+    nested_document = payload.get("material", payload.get("document"))
+    if payload.get("material") is not None and payload.get("document") is not None:
+        if payload["material"] != payload["document"]:
+            return _invalid("FORMALIZATION_INPUT_INVALID", "conflicting material body aliases", "material")
     if nested_document is None:
         document: Mapping[str, Any] = {
-            "document_id": payload.get("document_id"), "title": payload.get("title"),
+            "document_id": payload.get("material_id", payload.get("document_id")), "title": payload.get("title"),
             "url": payload.get("url"), "body": payload.get("body"),
-            "updated_at": payload.get("document_updated_at"), "body_digest": payload.get("body_digest"),
+            "updated_at": payload.get("material_updated_at", payload.get("document_updated_at")), "body_digest": payload.get("body_digest"),
         }
     else:
         document = _object(nested_document, "document", code="FORMALIZATION_INPUT_INVALID")
         if isinstance(document, Failure):
             return document
     normalized_document: dict[str, str] = {}
-    document_id = _identity(document.get("document_id"), "document.document_id",
+    if document.get("material_id") is not None and document.get("document_id") is not None:
+        if str(document["material_id"]) != str(document["document_id"]):
+            return _invalid("FORMALIZATION_INPUT_INVALID", "conflicting material identity aliases", "material.material_id")
+    if payload.get("material_id") is not None and payload.get("document_id") is not None:
+        if str(payload["material_id"]) != str(payload["document_id"]):
+            return _invalid("FORMALIZATION_INPUT_INVALID", "conflicting material identity aliases", "material_id")
+    document_id = _identity(document.get("material_id", document.get("document_id")), "document.document_id",
                             code="FORMALIZATION_INPUT_INVALID")
     if isinstance(document_id, Failure):
         return document_id
@@ -536,3 +545,19 @@ def formalize_document(
     if isinstance(corrected_result, Failure):
         return _failure_result(corrected_result)
     return corrected_result
+
+
+def formalize_material(
+    payload: Mapping[str, Any], *, model_invoke: ModelInvoke | None = None,
+) -> Mapping[str, Any]:
+    """Canonical material capability; legacy provenance keys remain read aliases."""
+    result = dict(formalize_document(payload, model_invoke=model_invoke))
+    if isinstance(result.get("proposal"), Mapping):
+        proposal = dict(result["proposal"])
+        provenance = dict(proposal.get("provenance") or {})
+        for key in ("id", "url", "updated_at"):
+            if "document_" + key in provenance:
+                provenance["material_" + key] = provenance["document_" + key]
+        proposal["provenance"] = provenance
+        result["proposal"] = proposal
+    return result

@@ -15,7 +15,13 @@ class _FakeResult:
         self._scalars_value = scalars_value or []
 
     def scalars(self):
-        return SimpleNamespace(all=lambda: self._scalars_value)
+        return SimpleNamespace(
+            all=lambda: self._scalars_value,
+            first=lambda: next(iter(self._scalars_value), None),
+        )
+
+    def first(self):
+        return next(iter(self._scalars_value), None)
 
 
 class _RuntimeReadbackSession:
@@ -172,6 +178,114 @@ def test_process_tasks_projects_celery_inspect_worker_readback_fields(
     assert any(event["event"] == "celery_inspect_active" for event in item["events"])
 
 
+def test_process_runtime_readback_filters_unknown_and_other_project_tasks(
+    core_business_client,
+    contract_headers: dict[str, str],
+) -> None:
+    resource_task_name = "app.services.tasks.task_extract_resource_pool_from_documents"
+    inspect = SimpleNamespace(
+        active=lambda: {
+            "worker-resource": [
+                {
+                    "id": "celery-runtime-alpha",
+                    "name": resource_task_name,
+                    "args": ["project_alpha"],
+                    "kwargs": {},
+                    "delivery_info": {"routing_key": "celery"},
+                },
+                {
+                    "id": "celery-runtime-beta",
+                    "name": "task.generic",
+                    "args": [],
+                    "kwargs": {"project_key": "project_beta"},
+                },
+                {
+                    "id": "celery-runtime-unknown",
+                    "name": "task.unknown",
+                    "args": [],
+                    "kwargs": {},
+                },
+            ]
+        },
+        scheduled=lambda: {},
+        reserved=lambda: {},
+    )
+
+    with (
+        patch("app.api.process.celery_app.control.inspect", return_value=inspect),
+        patch("app.api.process.SessionLocal", new=_RuntimeReadbackSessionLocal([])),
+        patch("app.api.process.celery_app.AsyncResult", return_value=_AsyncResultSnapshot()),
+    ):
+        resp = core_business_client.get(
+            "/api/v1/process/tasks?project_key=project_alpha&limit=10",
+            headers=contract_headers,
+        )
+
+    assert resp.status_code == 200, resp.text
+    items = resp.json()["data"]["items"]
+    assert [item["task_id"] for item in items] == ["celery-runtime-alpha"]
+
+
+def test_process_completed_celery_id_reads_history_detail_and_flattened_result(
+    core_business_client,
+    contract_headers: dict[str, str],
+) -> None:
+    now = datetime(2026, 10, 5, 12, 0, 0)
+    jobs = [
+        SimpleNamespace(
+            id=920,
+            job_type="resource_pool",
+            status="completed",
+            params={
+                "project_key": "project_alpha",
+                "job_type_full": "resource_pool_extract",
+                "line_key": "resource_source_library",
+                "task_id": "celery-completed-alpha",
+                "worker_name": "worker@resource",
+                "queue": "celery",
+                "documents_scanned": 3,
+                "urls_extracted": 5,
+                "urls_new": 4,
+                "urls_duplicate": 1,
+            },
+            started_at=now - timedelta(minutes=1),
+            finished_at=now,
+            error=None,
+            external_provider=None,
+            external_job_id="celery-completed-alpha",
+            retry_count=0,
+        )
+    ]
+    session_local = _RuntimeReadbackSessionLocal(jobs)
+
+    with (
+        patch("app.api.process.celery_app.control.inspect", return_value=_empty_inspect()),
+        patch("app.api.process.SessionLocal", new=session_local),
+    ):
+        tasks_resp = core_business_client.get(
+            "/api/v1/process/tasks?project_key=project_alpha&limit=10",
+            headers=contract_headers,
+        )
+        detail_resp = core_business_client.get(
+            "/api/v1/process/celery-completed-alpha?project_key=project_alpha",
+            headers=contract_headers,
+        )
+
+    assert tasks_resp.status_code == 200, tasks_resp.text
+    assert detail_resp.status_code == 200, detail_resp.text
+    tasks_item = tasks_resp.json()["data"]["items"][0]
+    detail = detail_resp.json()["data"]
+    assert tasks_item["task_id"] == detail["task_id"] == "celery-completed-alpha"
+    assert tasks_item["readback_path"] == "/api/v1/process/celery-completed-alpha?project_key=project_alpha"
+    assert detail["status"] == "completed"
+    assert detail["worker"] == "worker@resource"
+    assert detail["ended_at"] == now.isoformat()
+    assert detail["elapsed_seconds"] == 60.0
+    assert detail["result"]["documents_scanned"] == 3
+    assert detail["result"]["urls_new"] == 4
+    assert detail["result"]["urls_duplicate"] == 1
+
+
 def test_process_logs_projects_etl_job_run_completion_without_forging_other_lines(
     core_business_client,
     contract_headers: dict[str, str],
@@ -229,8 +343,8 @@ def test_process_logs_projects_etl_job_run_completion_without_forging_other_line
     assert item["status"] == "completed"
     assert item["mocked"] is False
     assert item["skipped"] is False
-    assert item["readback_path"] == "/api/v1/process/db-job-501"
-    assert item["readback_endpoint"] == "/api/v1/process/db-job-501"
+    assert item["readback_path"] == "/api/v1/process/source-task-1"
+    assert item["readback_endpoint"] == "/api/v1/process/source-task-1"
     assert any(event["event"] == "completed" for event in item["events"])
 
     ingest_body = ingest_resp.json()
@@ -340,6 +454,8 @@ def test_process_failed_celery_task_result_is_json_compatible(
     }
     assert data["traceback"] == "Traceback (most recent call last): ..."
     assert data["error_code"] == "TASK_FAILED"
+    assert "ended_at" not in data
+    assert "elapsed_seconds" not in data
 
 
 def test_process_async_result_snapshot_projects_failed_result_without_dumping_success_shape():
@@ -415,8 +531,8 @@ def test_process_db_job_exact_endpoint_exposes_runtime_readback_fields_at_data_r
     assert data["trace_id"] == "trace-resource-504"
     assert data["status"] == "completed"
     assert data["readback_source"] == "etl_job_runs"
-    assert data["readback_endpoint"] == "/api/v1/process/db-job-504"
-    assert data["readback_path"] == "/api/v1/process/db-job-504"
+    assert data["readback_endpoint"] == "/api/v1/process/source-task-504"
+    assert data["readback_path"] == "/api/v1/process/source-task-504"
     assert any(event["event"] == "completed" for event in data["events"])
 
 
@@ -463,5 +579,5 @@ def test_process_db_job_exact_endpoint_binds_project_key_for_runtime_readback(
     bind_project.assert_called_once_with("demo_proj")
     data = resp.json()["data"]
     assert data["line_key"] == "writing_knowledge_graph_agent"
-    assert data["readback_endpoint"] == "/api/v1/process/db-job-505?project_key=demo_proj"
-    assert data["readback_path"] == "/api/v1/process/db-job-505?project_key=demo_proj"
+    assert data["readback_endpoint"] == "/api/v1/process/writing-task-505?project_key=demo_proj"
+    assert data["readback_path"] == "/api/v1/process/writing-task-505?project_key=demo_proj"

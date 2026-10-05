@@ -181,7 +181,7 @@ class DocumentViewsUnitTestCase(unittest.TestCase):
             graph_context={"contract_version": "graph.v1", "revision": 2},
         )
 
-        self.assertEqual(hybrid.source_type, "document")
+        self.assertEqual(hybrid.source_type, "material")
         self.assertEqual(hybrid.extra["backend"], "hybrid")
         self.assertEqual(graph.source_type, "graph")
         self.assertEqual(graph.extra["graph_contract_version"], "graph.v1")

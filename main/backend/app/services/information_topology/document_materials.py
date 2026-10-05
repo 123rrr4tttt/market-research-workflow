@@ -1,4 +1,4 @@
-"""Bind retrieval material placements to the existing canonical Document owner."""
+"""Bind retrieval placements to the canonical material owner, transporting V1/V2."""
 
 from __future__ import annotations
 
@@ -11,9 +11,11 @@ from typing import Any
 from functorial_kit import Failure
 from sqlalchemy import func, select
 
-from app.models.entities import Document
-from app.services.ingest.terminal_writer import persist_terminal_document_in_session
-from app.services.document_queries.identity import document_identity, document_revision
+from app.models.entities import Material as Document
+from app.services.ingest.terminal_writer import persist_terminal_material_in_session
+from app.services.document_queries.identity import (
+    canonical_material_identity, document_identity, material_identity, material_revision as document_revision,
+)
 
 from .contracts import BoundRef, Element, ElementRef, TopologyState, topology_failures, topology_state_codec
 from .modules.retrieval import PROFILE_ID_PREFIX, profile_from_state_payload
@@ -24,19 +26,21 @@ def read_document(session: Any, project_key: str, ref: Mapping[str, Any]) -> Doc
     local_id = ref.get("local_id")
     if not isinstance(local_id, str) or not local_id.isdigit() or int(local_id) <= 0:
         return None
-    if ref != document_identity(project_key, int(local_id)):
+    if canonical_material_identity(project_key, ref) is None:
         return None
     return session.execute(select(Document).where(Document.id == int(ref["local_id"]))).scalar_one_or_none()
 
 
 def resolve_document(session: Any, project_key: str, ref: ElementRef):
-    if (ref.module_id, ref.namespace, ref.type_id) != ("documents", "documents", "document"):
+    if (ref.module_id, ref.namespace, ref.type_id) not in (
+        ("materials", "materials", "material"), ("documents", "documents", "document"),
+    ) or ref.project_key != project_key:
         return None
     if not ref.local_id.isdigit() or int(ref.local_id) <= 0:
         return None
     document = read_document(session, project_key, document_identity(ref.project_key, int(ref.local_id)))
     return (
-        BoundRef(ElementRef(**document_identity(project_key, document.id)), document_revision(document))
+        BoundRef(ref, document_revision(document))
         if document
         else None
     )
@@ -51,13 +55,13 @@ def bind_material_documents(session: Any, state: TopologyState) -> TopologyState
     """
     if not state.profile_id.startswith(PROFILE_ID_PREFIX):
         return state
-    if state.profile_version.startswith("2+"):
+    if state.profile_version.startswith("3+"):
         for element in state.elements:
-            ref = element.attributes.get("document_ref")
+            ref = element.attributes.get("material_ref")
             if element.ref.ref.type_id == "material" and isinstance(ref, Mapping):
                 if read_document(session, element.ref.ref.project_key, ref) is None:
                     return topology_failures.fail(
-                        "UNRESOLVABLE_REFERENCE", "material Document does not exist in this project"
+                        "UNRESOLVABLE_REFERENCE", "material does not exist in this project"
                     )
         return state
     elements: list[Element] = []
@@ -80,19 +84,25 @@ def bind_material_documents(session: Any, state: TopologyState) -> TopologyState
                     sort_keys=True,
                 ).encode()
             ).hexdigest()
-            explicit = attrs.get("document_ref")
+            explicit = attrs.get("material_ref", attrs.get("document_ref"))
+            if attrs.get("material_ref") is not None and attrs.get("document_ref") is not None:
+                legacy_ref = attrs["document_ref"]
+                current_identity = canonical_material_identity(project_key, explicit) if isinstance(explicit, Mapping) else None
+                legacy_identity = canonical_material_identity(project_key, legacy_ref) if isinstance(legacy_ref, Mapping) else None
+                if current_identity is None or current_identity != legacy_identity:
+                    return topology_failures.fail("IDENTITY_CONFLICT", "material reference aliases disagree")
             if explicit is None and attrs.get("reference_status") == "body_read":
                 ids = {
-                    path.removeprefix("document:")
+                    path.split(":", 1)[1]
                     for path in attrs.get("snapshot_path", [])
-                    if isinstance(path, str) and path.startswith("document:")
+                    if isinstance(path, str) and path.startswith(("document:", "material:"))
                 }
                 if len(ids) > 1 or any(not value.isdigit() or int(value) <= 0 for value in ids):
                     return topology_failures.fail(
                         "IDENTITY_CONFLICT", "material has conflicting native Document locators"
                     )
                 if ids:
-                    explicit = document_identity(project_key, int(next(iter(ids))))
+                    explicit = material_identity(project_key, int(next(iter(ids))))
             if isinstance(explicit, Mapping):
                 existing = read_document(session, project_key, explicit)
                 if existing is None:
@@ -116,7 +126,7 @@ def bind_material_documents(session: Any, state: TopologyState) -> TopologyState
                     )
                 existing = matches[0] if matches else None
             if existing is None:
-                result = persist_terminal_document_in_session(
+                result = persist_terminal_material_in_session(
                     session,
                     {
                         "source_name": "retrieval_materials",
@@ -130,15 +140,22 @@ def bind_material_documents(session: Any, state: TopologyState) -> TopologyState
                         "extracted_data": {"project_key": project_key, "topology_origin_key": origin},
                     },
                 )
-                document_id = result["doc_id"]
+                document_id = result["material_id"]
             else:
                 document_id = existing.id
-            attrs["document_ref"] = document_identity(project_key, document_id)
+            attrs["material_ref"] = material_identity(project_key, document_id)
+        attrs.pop("document_ref", None)
+        if isinstance(attrs.get("snapshot_path"), (list, tuple)):
+            attrs["snapshot_path"] = [
+                "material:" + path.removeprefix("document:")
+                if isinstance(path, str) and path.startswith("document:") else path
+                for path in attrs["snapshot_path"]
+            ]
         for key in ("title", "url", "content_name", "content_summary", "source_uri", "source_status"):
             attrs.pop(key, None)
         elements.append(replace(element, attributes=attrs))
     candidate = replace(
-        state, profile_version="2+" + state.profile_version.removeprefix("1+"), elements=tuple(elements)
+        state, profile_version="3+" + state.profile_version.split("+", 1)[-1], elements=tuple(elements)
     )
     profile = profile_from_state_payload(
         elements[0].ref.ref.project_key,
@@ -156,7 +173,7 @@ def project_document_materials(session: Any, project_key: str, wire: dict[str, A
     """Hydrate a read model only; source data is never written to topology state."""
     for element in wire["elements"]:
         attrs = element["attributes"]
-        ref = attrs.get("document_ref")
+        ref = attrs.get("material_ref", attrs.get("document_ref"))
         if element["ref"]["ref"]["type_id"] != "material" or not isinstance(ref, Mapping):
             continue
         document = read_document(session, project_key, ref)
@@ -165,14 +182,20 @@ def project_document_materials(session: Any, project_key: str, wire: dict[str, A
             continue
         attrs.update(
             {
+                "material_ref": material_identity(project_key, document.id),
                 "title": document.title or "",
                 "url": document.uri or "",
                 "content_name": document.title or "",
                 "source_uri": document.uri or "",
                 "content_summary": document.summary or "",
                 "source_status": document.status or "",
-                "document_id": document.id,
-                "document_revision": document_revision(document),
+                "material_id": document.id,
+                "material_revision": document_revision(document),
             }
         )
     return wire
+
+
+bind_materials = bind_material_documents
+project_materials = project_document_materials
+resolve_material = resolve_document

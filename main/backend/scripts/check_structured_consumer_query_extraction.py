@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 
-DOCUMENT_QUERY_CONTRACT_VERSION = "document_queries.v1"
+DOCUMENT_QUERY_CONTRACT_VERSION = "document_queries.v2"
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = REPO_ROOT / "main" / "backend"
 PROMPT_TIME_DENSITY_PATH = BACKEND_ROOT / "app" / "services" / "stats" / "prompt_time_density.py"

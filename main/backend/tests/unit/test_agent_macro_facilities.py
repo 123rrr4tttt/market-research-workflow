@@ -3,12 +3,13 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pytest
-from functorial_kit import Failure
 
 from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
 from app.services.agent_core.macro_tools import (
     facility_tool_projection,
     information_topology_read_facility,
+    macro_registration_package_create_facility,
+    macro_registration_package_activate_facility,
     project_retrieval_current_facility,
     rapid_proposal_readback_facility,
     rapid_proposal_save_facility,
@@ -144,6 +145,23 @@ def test_current_and_topology_facilities_take_scope_from_request() -> None:
     })
     assert result.status == "completed"
     assert topology.seen[0] == "trusted_project"
+
+
+@pytest.mark.parametrize("factory", [macro_registration_package_create_facility, macro_registration_package_activate_facility])
+def test_ordinary_registration_facilities_use_existing_host_policy_boundary(factory) -> None:
+    binding = factory(object())
+    assert binding.input_policy == "trusted_request"
+    assert binding.tool_spec.permission == "allow"
+    assert binding.governed_dispatch_ref == "agent_core.host_authorization"
+    assert binding.tool_spec.metadata["uses_existing_frontdoor"] == binding.governed_dispatch_ref
+    assert binding.tool_spec.concurrency == "serial"
+    with pytest.raises(ValueError, match="declared serial frontdoor"):
+        replace(binding, governed_dispatch_ref="other.authority")
+    for metadata in ({}, {"uses_existing_frontdoor": "other.authority"}):
+        with pytest.raises(ValueError, match="declared serial frontdoor"):
+            replace(binding, tool_spec=replace(binding.tool_spec, metadata=metadata))
+    with pytest.raises(ValueError, match="declared serial frontdoor"):
+        replace(binding, tool_spec=replace(binding.tool_spec, concurrency="parallel"))
 
 
 def test_facility_rejects_missing_trusted_project_scope() -> None:

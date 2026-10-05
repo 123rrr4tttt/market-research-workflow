@@ -267,7 +267,7 @@ def _formal_group(
         return {"code": "ROUTE_SCOPE_MISMATCH", "message": "judgment pool differs from the selected route"}
 
     material_attrs = {
-        "title": str(receipt.get("title") or receipt.get("uri") or "document"),
+        "title": str(receipt.get("title") or receipt.get("uri") or "material"),
         "url": str(receipt.get("uri") or package.get("url") or ""),
         "grade": str(evidence.get("grade") or ""),
         "outline_section": outline_section,
@@ -277,11 +277,14 @@ def _formal_group(
         "relation_classes": list(judgment["relation_classes"]),
         "candidate_id": candidate_id,
         "candidate_key": candidate_id,
-        "snapshot_path": [f"document:{document_id}"],
+        "snapshot_path": [f"material:{document_id}"],
     }
-    from app.services.document_queries.identity import document_identity
-    material_attrs["document_ref"] = document_identity(project_key, int(document_id))
+    from app.services.document_queries.identity import document_identity, material_identity
     if profile.version.startswith("2+"):
+        material_attrs["document_ref"] = document_identity(project_key, int(document_id))
+    else:
+        material_attrs["material_ref"] = material_identity(project_key, int(document_id))
+    if profile.version.startswith(("2+", "3+")):
         material_attrs.pop("title")
         material_attrs.pop("url")
     material_ref = bound("material", f"material-{prefix}", material_attrs)
@@ -906,7 +909,7 @@ def execute_retrieval_run(
             }
             try:
                 invoked = invoke_skill(
-                    skill_id="project_retrieval.formalize_document",
+                    skill_id="project_retrieval.formalize_material",
                     payload=payload,
                     context={
                         "actor_role": "orchestration_runtime",
