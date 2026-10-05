@@ -47,7 +47,7 @@ assertIncludesAll('writing API typed-context helper', writingDomain, [
   'withTypedKnowledgeWritingContext',
   'buildPersistedTypedKnowledgeKeywordCardRequest',
   'typed_knowledge_context: context',
-  "sources = ['document', 'resource', 'graph']",
+  "sources = ['material', 'resource', 'graph']",
 ])
 
 assertIncludesAll('writing API barrel exports', apiBarrel, [
@@ -96,7 +96,7 @@ const deterministicRequest = {
   project_key: 'demo_proj',
   query: 'robotics investment',
   selection_hash: 'sel_wave16',
-  sources: ['document', 'resource', 'graph'],
+  sources: ['material', 'resource', 'graph'],
   context: {
     contract_version: 'writing.context_boundary.e3.v1',
     typed_knowledge_context: {

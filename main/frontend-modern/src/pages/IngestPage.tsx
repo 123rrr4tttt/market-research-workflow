@@ -25,7 +25,8 @@ import {
 } from '../lib/api'
 import { DEFAULT_APP_LOCALE, translate, useAppLocale, type AppLocale, type MessageKey } from '../app/platform/i18n'
 import type { IngestSingleUrlPayload } from '../lib/api'
-import { useIngestActions, type IngestActionStatusState } from '../hooks/useIngestActions'
+import { useIngestActions, type IngestActionStatusState, type TaskSubmissionState } from '../hooks/useIngestActions'
+import { TaskSubmissionNotice } from '../components/TaskSubmissionNotice'
 import { queryKeys } from '../lib/queryKeys'
 import type {
   AgentBatchEventRow,
@@ -514,6 +515,7 @@ export type IngestPageViewProps = {
   actionPending: boolean
   actionMessage: string
   actionStatus: IngestActionStatusState
+  submission: TaskSubmissionState
   retrievalRunReadback: SearchRetrievalRunReadback | null
   retrievalRunReadbackPending: boolean
   retrievalRunReadbackError: string
@@ -574,6 +576,7 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
     listAgentBatchItems,
     getAgentBatchEvents,
     retryAgentBatchJob,
+    submission,
   } = useIngestActions(projectKey)
 
   const sourceItems = useQuery({ queryKey: queryKeys.sourceLibrary.items(projectKey), queryFn: listSourceItems })
@@ -813,6 +816,7 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
       actionPending={actionPending}
       actionMessage={actionMessage}
       actionStatus={actionStatus}
+      submission={submission}
       retrievalRunReadback={retrievalRunReadback}
       retrievalRunReadbackPending={retrievalRunReadbackPending}
       retrievalRunReadbackError={retrievalRunReadbackError}
@@ -894,6 +898,7 @@ export function IngestPageView({
   actionPending,
   actionMessage,
   actionStatus,
+  submission,
   retrievalRunReadback,
   retrievalRunReadbackPending,
   retrievalRunReadbackError,
@@ -1230,6 +1235,7 @@ export function IngestPageView({
                   </button>
                 </div>
 
+                <TaskSubmissionNotice submission={submission} />
                 <IngestActionStatus status={visibleActionStatus} pending={actionPending} />
 
                 {currentRetrievalRunId ? (
@@ -1292,6 +1298,7 @@ export function IngestPageView({
                   <button disabled={actionPending} onClick={onIngestEcom}><Database size={16} />{t('ingestPage.action.ingestEcom')}</button>
                 </div>
 
+                <TaskSubmissionNotice submission={submission} />
                 <IngestActionStatus status={visibleActionStatus} pending={actionPending} />
               </section>
 

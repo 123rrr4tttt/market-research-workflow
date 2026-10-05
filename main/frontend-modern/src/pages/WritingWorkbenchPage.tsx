@@ -873,7 +873,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
         publisher: null,
         snippet: citation.quote_text || '',
         score: 0,
-        source_type: citation.source_uri ? 'resource' : 'document',
+        source_type: citation.source_uri ? 'resource' : 'material',
         quick_actions: [],
       })
     }

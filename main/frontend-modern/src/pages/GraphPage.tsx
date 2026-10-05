@@ -1,14 +1,27 @@
 import { Component, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { EChartsType } from 'echarts/core'
-import { Activity, Boxes, Building2, ChartPie, GitBranchPlus, LoaderCircle, Network, Package, Workflow } from 'lucide-react'
+import {
+  Activity,
+  Boxes,
+  Building2,
+  ChartPie,
+  Crosshair,
+  GitBranchPlus,
+  LoaderCircle,
+  Maximize,
+  Minimize,
+  MousePointer2,
+  Network,
+  Package,
+  RefreshCw,
+  Square,
+  Workflow,
+} from 'lucide-react'
 import * as THREE from 'three'
 import {
   getGraphConfig,
-  getAdminDocument,
-  getMarketGraph,
-  getPolicyGraph,
-  getSocialGraph,
+  getAdminMaterial,
   listSourceItems,
   buildWorkflowGraphReportingHandoff,
   listWorkflowGraphCuratedAudits,
@@ -20,6 +33,7 @@ import {
   syncWorkflowGraphCuratedState,
 } from '../lib/api'
 import type { WorkflowGraphAuditRecord, WorkflowGraphCuratedStateResponse } from '../lib/api'
+import { materialReaderId } from './graph/realizer/materialGraph'
 import type {
   GraphEdgeItem,
   GraphNodeItem,
@@ -31,37 +45,33 @@ import type {
 } from '../lib/types'
 import { queryKeys } from '../lib/queryKeys'
 import { GRAPH_COLOR_THEMES, assignLegendColors, type PaletteKey } from '../lib/graph-colors'
-import { applyRenderer2D, RENDERER_2D_CAPABILITIES } from './graph/renderers/renderer2dEcharts'
+import { applyRenderer2D } from './graph/renderers/renderer2dEcharts'
 import { graphCanvasPixelRatio } from './graph/renderers/canvasPixelRatio'
-import {
-  applyRendererProjection3D,
-  RENDERER_PROJECTION_3D_CAPABILITIES,
-  quatFromAxisAngle,
-  quatFromEulerDeg,
-  quatMul,
-  rotateVecByQuat,
-  type QuaternionLike,
-  type Projection3DPhysicsState,
-} from './graph/renderers/renderer3dProjection'
-import { getOrCreateForceNodeObject, linkEnds, pruneForceNodeObjectCache } from './graph/renderers/force3dObjects'
+import { createForceNodeObject, linkEnds } from './graph/renderers/force3dObjects'
 import { collectFocusNodeKeys, computeCoreNumber, computePageRank, computeVisibleSubgraph } from './graph/domain/topology'
 import { useForceGraph3DLoader } from './graph/hooks/useForceGraph3DLoader'
 import { useForceGraphViewport } from './graph/hooks/useForceGraphViewport'
 import { useGraphDisplayResourceScheduler } from './graph/hooks/useGraphDisplayResourceScheduler'
 import { useGraphVisualState } from './graph/hooks/useGraphVisualState'
 import { useGraphSelectionState } from './graph/hooks/useGraphSelectionState'
-import { useGraphModeSwitch, type ProjectionEngine } from './graph/hooks/useGraphModeSwitch'
+import { useGraphModeSwitch } from './graph/hooks/useGraphModeSwitch'
 import { useGraphDraft } from './graph/hooks/useGraphDraft'
 import { useWorkflowTemplateController } from './graph/hooks/useWorkflowTemplateController'
 import type { RenderNode } from './graph/renderers/types'
 import { ClueChainInspector } from './graph/ClueChainInspector'
-import { GraphTopologyPanel } from './graph/GraphTopologyPanel'
 import GraphBusinessCardSections from '../components/GraphBusinessCardSections'
-import { getGraphProjection, GRAPH_PROJECTIONS_BY_KIND, type GraphProjectionId } from './graph/realizer/definitions'
+import { GraphPanelResizeHandle } from './graph/GraphPanelResizeHandle'
+import { ProjectGraphViewToolbar } from './graph/ProjectGraphViewToolbar'
+import { ProjectGraphTypeView } from './graph/ProjectGraphTypeView'
+import { loadGraphEchartsCore } from './graph/renderers/loadGraphEchartsCore'
+import './graph/graph-workspace.css'
+import { getGraphProjection, GRAPH_PROJECTIONS, GRAPH_PROJECTIONS_BY_KIND, type GraphProjectionId } from './graph/realizer/definitions'
+import { applyProjectGraphView, projectGraphEdgeKey, type ProjectGraphViewSpec, type ProjectGraphRelationType } from './graph/realizer/projectGraphView'
 import type { GraphProjectionDefinition } from './graph/realizer/contract'
 import { readGraphProjection } from './graph/realizer/sourceAdapter'
 import {
   applyWorkspaceTabBindings,
+  buildGraphTemplateRoute,
   coerceGraphProjectionBindings,
   GRAPH_WORKSPACE_TABS,
   type GraphWorkspaceTab,
@@ -77,6 +87,7 @@ import {
   defaultRelationTokenBinding,
   EDGE_STYLE_CATALOG,
   edgeLegendKey,
+  edgeLegendRaw,
   edgeLegendLabel,
   edgeLegendTier,
   edgeLinePattern,
@@ -94,8 +105,6 @@ import { EdgeLegendBadge } from './graph/realizer/EdgeLegendBadge'
 import { NodeLegendShape } from './graph/renderers/NodeLegendShape'
 import {
   clampControlPanelWidth,
-  clampFloatingPanelHeight,
-  clampFloatingPanelWidth,
   computeNodeVisualSize,
   normalizeMapValues,
   percentile,
@@ -154,7 +163,6 @@ type GraphMessageParams = Record<string, number | string>
 type ForceLinkStyle = {
   color: string
   width: number
-  opacity: number
   curvature: number
   curveRotation: number
   arrowLength: number
@@ -165,8 +173,6 @@ type ForceGraphApi = {
   scene?: () => THREE.Scene | undefined
   resumeAnimation?: () => void
   pauseAnimation?: () => void
-  width?: (value: number) => void
-  height?: (value: number) => void
   d3Force?: (name: string, force?: unknown) => unknown
   d3ReheatSimulation?: () => void
 }
@@ -230,22 +236,6 @@ declare global {
       selectNode: (nodeId: string) => boolean
     }
   }
-}
-
-let echartsCorePromise: Promise<typeof import('echarts/core')> | null = null
-
-async function loadGraphEchartsCore() {
-  if (!echartsCorePromise) {
-    echartsCorePromise = (async () => {
-      const echarts = await import('echarts/core')
-      const { GraphChart } = await import('echarts/charts')
-      const { TooltipComponent } = await import('echarts/components')
-      const { CanvasRenderer } = await import('echarts/renderers')
-      echarts.use([GraphChart, TooltipComponent, CanvasRenderer])
-      return echarts
-    })()
-  }
-  return echartsCorePromise
 }
 
 const FORCE_3D_GLOBAL_SIZE_GAIN = 1.32
@@ -364,6 +354,8 @@ type FilterState = {
   game: string
   limit: number
 }
+
+type ProjectViewMode = ProjectGraphViewSpec['mode']
 
 type NodeRankStrategy = 'doc_body' | 'node_connectivity' | 'doc_id'
 
@@ -530,30 +522,6 @@ function buildDefaultCuratedGraphId(projectKey: string, graphKind: GraphKind) {
   return raw.replace(/[^a-zA-Z0-9_.:-]+/g, '-').replace(/^-+|-+$/g, '') || 'graphpage-market'
 }
 
-function mergeGraphPayloads(payloads: Array<{ nodes?: GraphNodeItem[]; edges?: GraphEdgeItem[] }>) {
-  const nodeMap = new Map<string, GraphNodeItem>()
-  const edgeMap = new Map<string, GraphEdgeItem>()
-  payloads.forEach((payload) => {
-    ;(payload.nodes || []).forEach((node) => {
-      const key = `${String(node.type || '').trim()}:${String(node.id || '').trim()}`
-      if (!key || key === ':') return
-      if (!nodeMap.has(key)) nodeMap.set(key, node)
-    })
-    ;(payload.edges || []).forEach((edge) => {
-      const fk = `${String(edge.from?.type || '').trim()}:${String(edge.from?.id || '').trim()}`
-      const tk = `${String(edge.to?.type || '').trim()}:${String(edge.to?.id || '').trim()}`
-      if (!fk || !tk || fk === ':' || tk === ':') return
-      const rel = String(edge.type || edge.predicate || '').trim()
-      const ek = `${fk}>${tk}|${rel}`
-      if (!edgeMap.has(ek)) edgeMap.set(ek, edge)
-    })
-  })
-  return {
-    nodes: Array.from(nodeMap.values()),
-    edges: Array.from(edgeMap.values()),
-  }
-}
-
 function rankVisibleNodeKeysByPriority(params: {
   nodes: GraphNodeItem[]
   edges: GraphEdgeItem[]
@@ -675,10 +643,10 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     [declaredProjections],
   )
   const activeWorkspaceTab = useMemo(
-    () => workspaceTabs.find((tab) => (
+    () => GRAPH_WORKSPACE_TABS.find((tab) => (
       templateBuilder ? tab.isBuilder : tab.projectionId === activeProjectionId
-    )) || workspaceTabs[0],
-    [workspaceTabs, activeProjectionId, templateBuilder],
+    )) || GRAPH_WORKSPACE_TABS[0],
+    [activeProjectionId, templateBuilder],
   )
   // Bindings are addressed by graph entry point (module key), which is the same
   // identity the tab strip navigates by.
@@ -712,20 +680,19 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const previousCuratedGraphIdDefaultRef = useRef(defaultCuratedGraphId)
   const previousCuratedHandoffTopicDefaultRef = useRef(defaultCuratedHandoffTopic)
   const previousGraphKindRef = useRef(graphKind)
+  const previousProjectViewResetEpochRef = useRef(0)
   const previousTemplateBuilderRef = useRef(templateBuilder)
-  const previousProjectionResetKeyRef = useRef<string | null>(null)
+  const previousProjectSelectionKeyRef = useRef(projectKey)
+  const projectSourceSyncGuardRef = useRef(false)
+  const awaitingProjectSourceRef = useRef(templateBuilder)
+  const currentProjectKeyRef = useRef(projectKey)
+  const reconciledProjectSourceRef = useRef<{ nodes: GraphNodeItem[]; edges: GraphEdgeItem[] } | null>(null)
+  const hydratedPendingSpecRef = useRef<ProjectGraphViewSpec | null>(null)
   const chartRef = useRef<HTMLDivElement | null>(null)
   const forceChartRef = useRef<HTMLDivElement | null>(null)
   const fullscreenWrapRef = useRef<HTMLDivElement | null>(null)
   const controlPanelRef = useRef<HTMLDivElement | null>(null)
-  const projectionPanelRef = useRef<HTMLDivElement | null>(null)
   const legendPanelRef = useRef<HTMLDivElement | null>(null)
-  const controlResizeRightRef = useRef<number | null>(null)
-  const controlResizeBottomRef = useRef<number | null>(null)
-  const projectionResizeRightRef = useRef<number | null>(null)
-  const projectionResizeBottomRef = useRef<number | null>(null)
-  const legendResizeRightRef = useRef<number | null>(null)
-  const legendResizeBottomRef = useRef<number | null>(null)
   const chartInstRef = useRef<EChartsType | null>(null)
   const echartsLibRef = useRef<typeof import('echarts/core') | null>(null)
   const nodeLookupRef = useRef<Record<string, GraphNodeItem>>({})
@@ -739,9 +706,27 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const [platform, setPlatform] = useState('')
   const [topic, setTopic] = useState('')
   const [game, setGame] = useState('')
-  const [limit, setLimit] = useState(templateBuilder ? 50 : GRAPH_LIMIT_DEFAULT)
+  const [limit, setLimit] = useState(templateBuilder ? GRAPH_LIMIT_MAX : GRAPH_LIMIT_DEFAULT)
   const { visualDraft, visualApplied, updateVisual, startVisualInteraction, endVisualInteraction } = useGraphVisualState()
   const [hiddenTypes, setHiddenTypes] = useState<Record<string, boolean>>({})
+  const [projectViewMode, setProjectViewMode] = useState<ProjectViewMode>('all')
+  const [projectViewResetEpoch, setProjectViewResetEpoch] = useState(0)
+  const [projectViewKeys, setProjectViewKeys] = useState<string[]>([])
+  const [projectViewName, setProjectViewName] = useState('')
+  const [projectViewSaveBusy, setProjectViewSaveBusy] = useState(false)
+  const [projectViewSaveStatus, setProjectViewSaveStatus] = useState('')
+  const [pendingProjectViewSpec, setPendingProjectViewSpec] = useState<ProjectGraphViewSpec | null>(null)
+  const [activeProjectViewSpec, setActiveProjectViewSpec] = useState<ProjectGraphViewSpec | null>(null)
+  const [projectAdditionalNodes, setProjectAdditionalNodes] = useState<GraphNodeItem[]>([])
+  const [projectAdditionalEdges, setProjectAdditionalEdges] = useState<GraphEdgeItem[]>([])
+  const [declaredNodeTypes, setDeclaredNodeTypes] = useState<string[]>([])
+  const [declaredRelationTypes, setDeclaredRelationTypes] = useState<ProjectGraphRelationType[]>([])
+  const [relationTypeDraft, setRelationTypeDraft] = useState<ProjectGraphRelationType>({ sourceType: '', targetType: '', relation: '' })
+  const [typeEditStatus, setTypeEditStatus] = useState('')
+  const [legacySnapshotMode, setLegacySnapshotMode] = useState(false)
+  const [projectViewNameTouched, setProjectViewNameTouched] = useState(false)
+  const [builderAdvancedOpen, setBuilderAdvancedOpen] = useState(false)
+  const [builderLegendOpen, setBuilderLegendOpen] = useState(true)
   const [appliedFilters, setAppliedFilters] = useState<FilterState>({
     startDate: '',
     endDate: '',
@@ -750,21 +735,22 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     platform: '',
     topic: '',
     game: '',
-    limit: templateBuilder ? 50 : GRAPH_LIMIT_DEFAULT,
+    limit: templateBuilder ? GRAPH_LIMIT_MAX : GRAPH_LIMIT_DEFAULT,
   })
   const [selectedNode, setSelectedNode] = useState<GraphNodeItem | null>(null)
-  const selectedDocumentId = typeof selectedNode?.document_id === 'number' ? selectedNode.document_id : null
-  const selectedDocument = useQuery({
-    queryKey: queryKeys.admin.documentDetail(projectKey, selectedDocumentId),
-    queryFn: () => getAdminDocument(Number(selectedDocumentId)),
-    enabled: Boolean(projectKey && selectedDocumentId),
+  const selectedMaterialId = materialReaderId(selectedNode)
+  const selectedMaterial = useQuery({
+    queryKey: queryKeys.admin.materialDetail(projectKey, selectedMaterialId),
+    queryFn: () => getAdminMaterial(Number(selectedMaterialId)),
+    enabled: Boolean(projectKey && selectedMaterialId),
   })
   const [nodeCardAnchor, setNodeCardAnchor] = useState<NodeCardAnchor | null>(null)
   const [chartReadyRaw, setChartReady] = useState(false)
+  const [chartMountEpoch, setChartMountEpoch] = useState(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isCompactViewport, setIsCompactViewport] = useState(false)
-  const [showOverlay, setShowOverlay] = useState(true)
-  const [showSymbolDebug, setShowSymbolDebug] = useState(true)
+  const [showOverlay, setShowOverlay] = useState(!templateBuilder)
+  const [showSymbolDebug, setShowSymbolDebug] = useState(false)
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
   const [expandedEdgeGroup, setExpandedEdgeGroup] = useState<EdgeLegendTier | null>(null)
   const [paletteKey, setPaletteKey] = useState<PaletteKey>('bcp_unified')
@@ -772,22 +758,13 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const [absoluteContrast, setAbsoluteContrast] = useState(62)
   const {
     renderMode,
-    projectionEngine,
     renderModeRef,
     requestRenderModeChange,
-    requestProjectionEngineChange,
   } = useGraphModeSwitch()
-  const [projectionRotateX] = useState(12)
-  const [projectionRotateY] = useState(18)
-  const [projectionRotateZ] = useState(0)
-  const [physicsFrame, setPhysicsFrame] = useState(0)
-  const [projectionFrameEpoch, setProjectionFrameEpoch] = useState(0)
   const [controlPanelWidth, setControlPanelWidth] = useState(430)
   const [controlPanelHeight, setControlPanelHeight] = useState(620)
-  const [projectionPanelWidth, setProjectionPanelWidth] = useState(430)
-  const [projectionPanelHeight, setProjectionPanelHeight] = useState(360)
   const [legendPanelWidth, setLegendPanelWidth] = useState(360)
-  const [legendPanelHeight, setLegendPanelHeight] = useState(620)
+  const [legendPanelHeight, setLegendPanelHeight] = useState(260)
   const [controlSectionOpen, setControlSectionOpen] = useState<Record<'view' | 'projection' | 'color' | 'filter' | 'edit', boolean>>({
     view: true,
     projection: true,
@@ -806,7 +783,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const [curatedRollbackReason, setCuratedRollbackReason] = useState('')
   const [curatedAuditItems, setCuratedAuditItems] = useState<WorkflowGraphAuditRecord[]>([])
   const [curatedHandoffReplay, setCuratedHandoffReplay] = useState({ runId: '', handoffId: '' })
-  const [newNodeType, setNewNodeType] = useState('Entity')
+  const [newNodeType, setNewNodeType] = useState(templateBuilder ? '' : 'Entity')
   const [newNodeName, setNewNodeName] = useState('')
   const [edgeDraft, setEdgeDraft] = useState({ sourceKey: '', targetKey: '', relation: '' })
   const [nodeEditDraft, setNodeEditDraft] = useState({
@@ -854,7 +831,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     sourceItemKeys: [] as string[],
   })
   const [sourceItemKeyword, setSourceItemKeyword] = useState('')
-  const [forceGraphFallbackNotice, setForceGraphFallbackNotice] = useState<string | null>(null)
+  const [forceGraphRenderFailure, setForceGraphRenderFailure] = useState<{ key: string; message: string } | null>(null)
+  const [forceGraphRetry, setForceGraphRetry] = useState(0)
+  const [forceGraphMountEpoch, setForceGraphMountEpoch] = useState(0)
   const [rankingWeightCentral, setRankingWeightCentral] = useState(RANK_WEIGHT_DEFAULT)
   const [rankingWeightNeighbor, setRankingWeightNeighbor] = useState(RANK_WEIGHT_DEFAULT)
   const [appliedRankingWeights, setAppliedRankingWeights] = useState(() => ({
@@ -876,9 +855,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const nodeDragUnlockedRef = useRef(false)
   const lastForceNodeClickAtRef = useRef(0)
   const selectedNodeOpenRef = useRef(false)
-  const projectionPhysicsRef = useRef<Projection3DPhysicsState>({ positions: {}, velocities: {} })
   const forceGraphRef = useRef<ForceGraphApi | null>(null)
-  const forceNodeObjectCacheRef = useRef<Map<string, THREE.Object3D>>(new Map())
+  const initializedForceGraphRef = useRef<ForceGraphApi | null>(null)
   const forceNodePhysicsRef = useRef<Map<string, ForceNodePhysics>>(new Map())
   const [forceNodeSeedPhysics, setForceNodeSeedPhysics] = useState<Map<string, ForceNodePhysics>>(() => new Map())
   const forceGlobalGravityStrengthRef = useRef(0)
@@ -891,10 +869,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   }))
   const forceHoverRafRef = useRef<number | null>(null)
   const forceHoverPendingKeyRef = useRef<string | null>(null)
-  const forceGraphFallbackAppliedRef = useRef(false)
-  const projectionInteractionQuatRef = useRef<QuaternionLike>({ x: 0, y: 0, z: 0, w: 1 })
-  const projectionAngularVelRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
-  const projectionDragStateRef = useRef<{ active: boolean; x: number; y: number }>({ active: false, x: 0, y: 0 })
   const fullscreenWantedRef = useRef(false)
   const visualSliderInteractionHandlers = useMemo(
     () => ({
@@ -924,7 +898,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const effectiveLimit = clampGraphLimit(appliedFilters.limit)
 
   const effectiveQueryLimit = templateBuilder ? GRAPH_LIMIT_MAX : effectiveLimit
-  const graphDataQueryKind = templateBuilder ? `${graphKind}:template_builder` : graphProjection.dataSourceKind
+  const graphDataQueryKind = templateBuilder ? `${graphKind}:project_total` : graphProjection.dataSourceKind
   // The data cache follows the actual read scope, not the presenting tab. Tabs
   // without a filter share the total graph; equivalent topology filters share
   // one narrowed read. Token order is not part of contains-any semantics.
@@ -948,34 +922,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       graphDataViewKey,
     ],
     queryFn: async () => {
-      if (templateBuilder) {
-        const [policy, social, marketDeep] = await Promise.all([
-          getPolicyGraph({
-            start_date: appliedFilters.startDate,
-            end_date: appliedFilters.endDate,
-            state: appliedFilters.state,
-            policy_type: appliedFilters.policyType,
-            limit: effectiveQueryLimit,
-          }),
-          getSocialGraph({
-            start_date: appliedFilters.startDate,
-            end_date: appliedFilters.endDate,
-            platform: appliedFilters.platform,
-            topic: appliedFilters.topic,
-            limit: effectiveQueryLimit,
-          }),
-          getMarketGraph({
-            start_date: appliedFilters.startDate,
-            end_date: appliedFilters.endDate,
-            state: appliedFilters.state,
-            game: appliedFilters.game,
-            view: 'market_deep_entities',
-            limit: effectiveQueryLimit,
-          }),
-        ])
-        return mergeGraphPayloads([policy, social, marketDeep])
-      }
-      return readGraphProjection(sourceProjection, {
+      return readGraphProjection(templateBuilder ? GRAPH_PROJECTIONS.graphDeep : sourceProjection, {
         startDate: appliedFilters.startDate,
         endDate: appliedFilters.endDate,
         state: appliedFilters.state,
@@ -984,10 +931,11 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         topic: appliedFilters.topic,
         game: appliedFilters.game,
         limit: effectiveQueryLimit,
-      }, activeTopologyFilter)
+      }, templateBuilder ? undefined : activeTopologyFilter ?? undefined)
     },
     enabled: Boolean(projectKey),
   })
+  const refetchGraphData = graphData.refetch
   const realizedGraphLabel = graphData.data?.source_label || graphVariantLabel
   const topologyEdgeStyleBinding = useMemo(
     () => coerceGraphEdgeStyleBinding(graphData.data?.edge_style_bindings),
@@ -1016,6 +964,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
 
   const sourceGraphNodes = useMemo(() => graphData.data?.nodes || [], [graphData.data?.nodes])
   const sourceGraphEdges = useMemo(() => graphData.data?.edges || [], [graphData.data?.edges])
+  const supportsBusinessFilters = graphData.data?.source_kind !== 'project_topology'
   const {
     draftNodes,
     draftEdges,
@@ -1033,7 +982,181 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     sourceNodes: sourceGraphNodes,
     sourceEdges: sourceGraphEdges,
     getNodeKey: nodeKey,
+    autoSyncSource: !templateBuilder,
   })
+  const previousProjectKeyRef = useRef(projectKey)
+  const resetProjectView = useCallback(() => {
+    setProjectViewMode('all')
+    setProjectViewKeys([])
+    setProjectViewName('')
+    setProjectViewNameTouched(false)
+    setProjectViewSaveBusy(false)
+    setProjectViewSaveStatus('')
+    setPendingProjectViewSpec(null)
+    setActiveProjectViewSpec(null)
+    setLegacySnapshotMode(false)
+    setProjectAdditionalNodes([])
+    setProjectAdditionalEdges([])
+    setDeclaredNodeTypes([])
+    setDeclaredRelationTypes([])
+    setRelationTypeDraft({ sourceType: '', targetType: '', relation: '' })
+    setTypeEditStatus('')
+    setBuilderAdvancedOpen(false)
+    setBuilderLegendOpen(true)
+    setHiddenTypes({})
+    setHiddenEdgeKinds({})
+    setProjectViewResetEpoch((epoch) => epoch + 1)
+    setSelectedNode(null)
+    setNodeCardAnchor(null)
+    projectSourceSyncGuardRef.current = false
+    awaitingProjectSourceRef.current = graphData.isFetching || !graphData.data
+    reconciledProjectSourceRef.current = null
+    hydratedPendingSpecRef.current = null
+    replaceDraft(sourceGraphNodes, sourceGraphEdges, { markAsDirty: false })
+  }, [
+    graphData.data, graphData.isFetching, replaceDraft, sourceGraphNodes, sourceGraphEdges,
+    setProjectViewMode, setProjectViewKeys, setProjectViewName, setProjectViewNameTouched,
+    setProjectViewSaveBusy, setProjectViewSaveStatus, setPendingProjectViewSpec, setActiveProjectViewSpec,
+    setLegacySnapshotMode, setProjectAdditionalNodes, setProjectAdditionalEdges, setDeclaredNodeTypes,
+    setDeclaredRelationTypes, setRelationTypeDraft, setTypeEditStatus, setBuilderAdvancedOpen,
+    setBuilderLegendOpen, setHiddenTypes, setHiddenEdgeKinds,
+    setProjectViewResetEpoch, setSelectedNode, setNodeCardAnchor,
+  ])
+
+  useEffect(() => {
+    if (previousProjectKeyRef.current === projectKey) return
+    previousProjectKeyRef.current = projectKey
+    resetProjectView()
+    forceNodePhysicsRef.current.clear()
+    nodePositionRef.current = {}
+    awaitingProjectSourceRef.current = true
+    replaceDraft([], [], { markAsDirty: false })
+  }, [projectKey, replaceDraft, resetProjectView])
+
+  useEffect(() => {
+    currentProjectKeyRef.current = projectKey
+  }, [projectKey])
+
+  useEffect(() => {
+    if (!awaitingProjectSourceRef.current || graphData.isFetching || !graphData.data) return
+    if (!projectSourceSyncGuardRef.current) {
+      replaceDraft(sourceGraphNodes, sourceGraphEdges, { markAsDirty: false })
+    }
+    awaitingProjectSourceRef.current = false
+  }, [graphData.data, graphData.isFetching, replaceDraft, sourceGraphEdges, sourceGraphNodes])
+
+  const sourceProjectNodeKeySet = useMemo(() => new Set(sourceGraphNodes.map(nodeKey)), [sourceGraphNodes])
+  const sourceProjectEdgeKeySet = useMemo(
+    () => new Set(sourceGraphEdges.map(projectGraphEdgeKey)),
+    [sourceGraphEdges],
+  )
+  const effectiveAdditionalNodes = useMemo(() => {
+    if (!legacySnapshotMode) {
+      const draftByKey = new Map(draftNodes.map((node) => [nodeKey(node), node]))
+      return projectAdditionalNodes
+        .map((node) => draftByKey.get(nodeKey(node)))
+        .filter((node): node is GraphNodeItem => Boolean(node))
+    }
+    return draftNodes.filter((node) => !sourceProjectNodeKeySet.has(nodeKey(node)))
+  }, [draftNodes, legacySnapshotMode, projectAdditionalNodes, sourceProjectNodeKeySet])
+  const effectiveAdditionalEdges = useMemo(() => {
+    if (!legacySnapshotMode) {
+      const draftByKey = new Map(draftEdges.map((edge) => [projectGraphEdgeKey(edge), edge]))
+      return projectAdditionalEdges
+        .map((edge) => draftByKey.get(projectGraphEdgeKey(edge)))
+        .filter((edge): edge is GraphEdgeItem => Boolean(edge))
+    }
+    return draftEdges.filter((edge) => !sourceProjectEdgeKeySet.has(projectGraphEdgeKey(edge)))
+  }, [draftEdges, legacySnapshotMode, projectAdditionalEdges, sourceProjectEdgeKeySet])
+  const currentProjectViewSpec = useMemo<ProjectGraphViewSpec>(() => ({
+    schema: 'project-graph-view/v1',
+    mode: projectViewMode,
+    display: { renderMode },
+    nodeKeys: projectViewMode === 'selection' ? projectViewKeys : [],
+    hiddenNodeTypes: Object.entries(hiddenTypes)
+      .filter(([, hidden]) => hidden)
+      .map(([type]) => normalizeNodeType(type))
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, 'zh-CN')),
+    hiddenEdgeKinds: Object.entries(hiddenEdgeKinds)
+      .filter(([, hidden]) => hidden)
+      .map(([key]) => key)
+      .sort((a, b) => a.localeCompare(b, 'zh-CN')),
+    additionalNodes: effectiveAdditionalNodes,
+    additionalEdges: effectiveAdditionalEdges,
+    declaredNodeTypes,
+    declaredRelationTypes,
+  }), [
+    hiddenEdgeKinds,
+    hiddenTypes,
+    effectiveAdditionalEdges,
+    effectiveAdditionalNodes,
+    declaredNodeTypes,
+    declaredRelationTypes,
+    projectViewKeys,
+    projectViewMode,
+    renderMode,
+  ])
+  const projectViewGraphData = useMemo(
+    () => applyProjectGraphView(sourceGraphNodes, sourceGraphEdges, currentProjectViewSpec),
+    [currentProjectViewSpec, sourceGraphEdges, sourceGraphNodes],
+  )
+
+  const handleLoadProjectViewSpec = useCallback((spec: ProjectGraphViewSpec | null) => {
+    if (!templateBuilder) return
+    projectSourceSyncGuardRef.current = true
+    setProjectViewName('')
+    setProjectViewNameTouched(false)
+    setProjectViewSaveStatus('')
+    setDeclaredNodeTypes(spec?.declaredNodeTypes || [])
+    setDeclaredRelationTypes(spec?.declaredRelationTypes || [])
+    setRelationTypeDraft({ sourceType: '', targetType: '', relation: '' })
+    setTypeEditStatus('')
+    if (!spec) {
+      setProjectViewMode('all')
+      setProjectViewKeys([])
+      setHiddenTypes({})
+      setHiddenEdgeKinds({})
+      setPendingProjectViewSpec(null)
+      setActiveProjectViewSpec(null)
+      setLegacySnapshotMode(true)
+      setProjectAdditionalNodes([])
+      setProjectAdditionalEdges([])
+      hydratedPendingSpecRef.current = null
+      return
+    }
+    setProjectViewMode(spec.mode)
+    setProjectViewKeys(spec.nodeKeys)
+    setHiddenTypes(Object.fromEntries(spec.hiddenNodeTypes.map((type) => [type, true])))
+    setHiddenEdgeKinds(Object.fromEntries(spec.hiddenEdgeKinds.map((kind) => [kind, true])))
+    setPendingProjectViewSpec(spec)
+    setActiveProjectViewSpec(spec)
+    setLegacySnapshotMode(false)
+    setProjectAdditionalNodes(spec.additionalNodes)
+    setProjectAdditionalEdges(spec.additionalEdges)
+    hydratedPendingSpecRef.current = null
+    void refetchGraphData()
+  }, [
+    refetchGraphData,
+    setActiveProjectViewSpec,
+    setDeclaredNodeTypes,
+    setDeclaredRelationTypes,
+    setRelationTypeDraft,
+    setTypeEditStatus,
+    setProjectAdditionalEdges,
+    setProjectAdditionalNodes,
+    setHiddenEdgeKinds,
+    setHiddenTypes,
+    setPendingProjectViewSpec,
+    setLegacySnapshotMode,
+    setProjectViewKeys,
+    setProjectViewMode,
+    setProjectViewName,
+    setProjectViewNameTouched,
+    setProjectViewSaveStatus,
+    templateBuilder,
+  ])
+
   const {
     templateItems,
     versionItems,
@@ -1082,8 +1205,10 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     handleSaveVersion,
     handleLoadVersion,
     handleActivateVersion,
+    handleSaveProjectView,
   } = useWorkflowTemplateController({
     enabled: editMode,
+    autoSelectFirstTemplate: false,
     projectKey,
     graphKind,
     draftNodes,
@@ -1091,15 +1216,82 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     markDraftSaved,
     replaceDraft,
     setGraphEditStatus,
+    viewSpec: currentProjectViewSpec,
+    onLoadViewSpec: handleLoadProjectViewSpec,
+    onResetProjectView: resetProjectView,
     translate: t,
     formatMessage: tf,
   })
+
+  useEffect(() => {
+    if (!templateBuilder || !pendingProjectViewSpec || graphData.isFetching || !graphData.data) return
+    if (hydratedPendingSpecRef.current === pendingProjectViewSpec) return
+    const hydrated = applyProjectGraphView(sourceGraphNodes, sourceGraphEdges, {
+      ...pendingProjectViewSpec,
+      mode: 'all',
+      nodeKeys: [],
+      hiddenNodeTypes: [],
+      hiddenEdgeKinds: [],
+    })
+    replaceDraft(hydrated.nodes, hydrated.edges, { markAsDirty: false })
+    reconciledProjectSourceRef.current = { nodes: sourceGraphNodes, edges: sourceGraphEdges }
+    hydratedPendingSpecRef.current = pendingProjectViewSpec
+    if (pendingProjectViewSpec.display?.renderMode) {
+      requestRenderModeChange(pendingProjectViewSpec.display.renderMode)
+    }
+  }, [
+    graphData.data,
+    graphData.isFetching,
+    pendingProjectViewSpec,
+    replaceDraft,
+    requestRenderModeChange,
+    sourceGraphEdges,
+    sourceGraphNodes,
+    templateBuilder,
+  ])
+
+  useEffect(() => {
+    if (!templateBuilder || legacySnapshotMode || graphData.isFetching || !graphData.data) return
+    const previous = reconciledProjectSourceRef.current
+    if (!previous) {
+      reconciledProjectSourceRef.current = { nodes: sourceGraphNodes, edges: sourceGraphEdges }
+      return
+    }
+    if (previous.nodes === sourceGraphNodes && previous.edges === sourceGraphEdges) return
+    const reconciled = applyProjectGraphView(sourceGraphNodes, sourceGraphEdges, {
+      ...currentProjectViewSpec,
+      mode: 'all',
+      nodeKeys: [],
+      hiddenNodeTypes: [],
+      hiddenEdgeKinds: [],
+    })
+    replaceDraft(reconciled.nodes, reconciled.edges, { markAsDirty: isDraftDirty })
+    reconciledProjectSourceRef.current = { nodes: sourceGraphNodes, edges: sourceGraphEdges }
+  }, [
+    currentProjectViewSpec,
+    graphData.data,
+    graphData.isFetching,
+    isDraftDirty,
+    legacySnapshotMode,
+    pendingProjectViewSpec,
+    replaceDraft,
+    sourceGraphEdges,
+    sourceGraphNodes,
+    templateBuilder,
+  ])
+
+  const loadedProjectViewName = useMemo(() => {
+    if (!activeProjectViewSpec || !activeTemplateKey) return ''
+    return templateItems.find((item) => item.key === activeTemplateKey)?.name || ''
+  }, [activeProjectViewSpec, activeTemplateKey, templateItems])
+  const effectiveProjectViewName = projectViewNameTouched ? projectViewName : loadedProjectViewName
+
   const effectiveGraphData = useMemo(
     () => ({
-      nodes: editMode ? draftNodes : sourceGraphNodes,
-      edges: editMode ? draftEdges : sourceGraphEdges,
+      nodes: editMode && templateBuilder && !legacySnapshotMode ? projectViewGraphData.nodes : editMode ? draftNodes : sourceGraphNodes,
+      edges: editMode && templateBuilder && !legacySnapshotMode ? projectViewGraphData.edges : editMode ? draftEdges : sourceGraphEdges,
     }),
-    [editMode, draftNodes, draftEdges, sourceGraphNodes, sourceGraphEdges],
+    [draftEdges, draftNodes, editMode, legacySnapshotMode, projectViewGraphData.edges, projectViewGraphData.nodes, sourceGraphEdges, sourceGraphNodes, templateBuilder],
   )
 
   const colorDistribution = useMemo(() => {
@@ -1117,6 +1309,16 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
 
   const nodeTypes = useMemo(() => {
     const nodes = effectiveGraphData.nodes || []
+    if (templateBuilder) {
+      const set = new Set<string>([
+        ...declaredNodeTypes,
+        ...declaredRelationTypes.flatMap((relation) => [relation.sourceType, relation.targetType]),
+        ...sourceGraphNodes.map((node) => normalizeNodeType(node.type)).filter(Boolean),
+        ...nodes.map((node) => normalizeNodeType(node.type)).filter(Boolean),
+        ...Object.keys(hiddenTypes).map((type) => normalizeNodeType(type)).filter(Boolean),
+      ])
+      return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'))
+    }
     if (nodes.some((node) => 'topology_ref' in node)) {
       return Array.from(new Set(nodes.map((node) => normalizeNodeType(node.type)).filter(Boolean)))
         .sort((a, b) => a.localeCompare(b, 'zh-CN'))
@@ -1128,7 +1330,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     fromCfg.forEach((t) => set.add(normalizeNodeType(t)))
     nodes.forEach((n) => set.add(normalizeNodeType(n.type)))
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'))
-  }, [effectiveGraphData.nodes, graphConfig.data?.graph_node_types, graphKind, graphProjection])
+  }, [declaredNodeTypes, declaredRelationTypes, effectiveGraphData.nodes, graphConfig.data?.graph_node_types, graphKind, graphProjection, hiddenTypes, sourceGraphNodes, templateBuilder])
 
   const nodeTypeColor = useMemo(() => {
     return assignLegendColors(nodeTypes, paletteKey, 'node', colorDistribution)
@@ -1153,6 +1355,12 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   }, [nodeTypes])
 
   const defaultNodeTypesForCompute = useMemo(() => {
+    if (templateBuilder) {
+      return {
+        ...DEFAULT_NODE_TYPES_BY_KIND,
+        [graphKind]: nodeTypes,
+      }
+    }
     const cfg = graphConfig.data?.graph_node_types || {}
     const cfgKey = graphProjection.configKey
     const configuredTypes = Array.isArray(cfg[cfgKey])
@@ -1172,7 +1380,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       ...DEFAULT_NODE_TYPES_BY_KIND,
       [graphKind]: allTypes,
     }
-  }, [templateBuilder, effectiveGraphData.nodes, graphConfig.data?.graph_node_types, graphKind, graphProjection])
+  }, [templateBuilder, effectiveGraphData.nodes, graphConfig.data?.graph_node_types, graphKind, graphProjection, nodeTypes])
 
   const docNodeTypeSetForBuilder = useMemo(() => {
     if (!templateBuilder) return new Set<string>()
@@ -1370,7 +1578,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
 
   // Derived-state repair happens during render, before topology consumers read
   // a stale mask or selected node.  The setters make the next render idempotent.
-  if (topology.connectedNodes.length > 0 && topology.visibleNodes.length === 0) {
+  if (!templateBuilder && topology.connectedNodes.length > 0 && topology.visibleNodes.length === 0) {
     if (Object.values(hiddenTypes).some(Boolean)) setHiddenTypes({})
   }
   if (selectedNode && !topology.connectedNodeKeys.has(nodeKey(selectedNode))) {
@@ -1454,6 +1662,59 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       .filter(([, items]) => items.length > 0)
   }, [edgeLegendItems])
 
+  const projectViewNodeToggleOptions = useMemo(() => nodeTypes.map((type) => ({
+    key: type,
+    label: nodeTypeLabel(type, graphConfig.data?.graph_node_labels),
+    hidden: Boolean(hiddenTypes[type]),
+  })), [graphConfig.data?.graph_node_labels, hiddenTypes, nodeTypes])
+
+  const relationTypeFilterKey = useCallback((relation: string) => {
+    const token = relation.trim().toLowerCase()
+    const edge = sourceGraphEdges.concat(draftEdges).find((item) => edgeLegendRaw(item).toLowerCase() === token)
+    return edge ? edgeLegendKey(edge) : `domain:${token}`
+  }, [draftEdges, sourceGraphEdges])
+
+  const visibleTypeDeclarations = useMemo(() => ({
+    nodeTypes: declaredNodeTypes.filter((type) => !hiddenTypes[type]),
+    relationTypes: declaredRelationTypes.filter((relation) => !hiddenTypes[relation.sourceType]
+      && !hiddenTypes[relation.targetType]
+      && !hiddenEdgeKinds[relationTypeFilterKey(relation.relation)]),
+  }), [declaredNodeTypes, declaredRelationTypes, hiddenEdgeKinds, hiddenTypes, relationTypeFilterKey])
+  const projectTypeLabel = useCallback((type: string) => nodeTypeLabel(type, graphConfig.data?.graph_node_labels), [graphConfig.data?.graph_node_labels])
+
+  const projectViewEdgeToggleOptions = useMemo(() => {
+    const itemByKey = new Map(edgeLegendItems.map((item) => [item.key, item]))
+    const keys = new Set([
+      ...edgeLegendItems.map((item) => item.key),
+      ...declaredRelationTypes.map((item) => relationTypeFilterKey(item.relation)),
+      ...Object.keys(hiddenEdgeKinds).filter((key) => hiddenEdgeKinds[key]),
+    ])
+    return Array.from(keys).sort((a, b) => a.localeCompare(b, 'zh-CN')).map((key) => ({
+      key,
+      label: itemByKey.get(key)?.label || declaredRelationTypes.find((item) => relationTypeFilterKey(item.relation) === key)?.relation || key,
+      hidden: Boolean(hiddenEdgeKinds[key]),
+    }))
+  }, [declaredRelationTypes, edgeLegendItems, hiddenEdgeKinds, relationTypeFilterKey])
+
+  const projectViewNodeTypeOptions = useMemo(() => nodeTypes.map((type) => ({
+    value: type,
+    label: nodeTypeLabel(type, graphConfig.data?.graph_node_labels),
+  })), [graphConfig.data?.graph_node_labels, nodeTypes])
+
+  const projectViewRelationOptions = useMemo(() => {
+    const set = new Set<string>([...(graphData.data?.relation_vocabulary || []), ...declaredRelationTypes.map((item) => item.relation)])
+    sourceGraphEdges.concat(draftEdges).forEach((edge) => {
+      const token = String(edge.predicate || edge.predicate_raw || edge.type || '').trim()
+      if (token) set.add(token)
+    })
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN')).map((token) => ({
+      value: token,
+      label: relationClassLabel(token) === token
+        ? token
+        : `${token} · ${relationClassLabel(token)}`,
+    }))
+  }, [declaredRelationTypes, draftEdges, graphData.data?.relation_vocabulary, relationClassLabel, sourceGraphEdges])
+
   const visibleEdges = useMemo(() => {
     return topology.visibleEdges.filter((edge) => !hiddenEdgeKinds[edgeLegendKey(edge)])
   }, [topology.visibleEdges, hiddenEdgeKinds])
@@ -1462,42 +1723,21 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     return Math.max(0.6, Math.min(1.8, visualApplied.edgeWidth / 100))
   }, [visualApplied.edgeWidth])
 
-  const useForceGraph3D = renderMode === 'projection3d' && projectionEngine === 'force3d'
-  const useLegacyProjection3D = renderMode === 'projection3d' && projectionEngine === 'legacy'
+  const useForceGraph3D = renderMode === 'projection3d'
   const { component: ForceGraph3DComp, error: forceGraphLoadError, retry: retryForceGraph3D } = useForceGraph3DLoader(useForceGraph3D)
-  const displayResourceKey = `${projectKey}:${activeProjectionId}:${graphDataQueryKind}`
+  const displayResourceKey = `${projectKey}:${activeProjectionId}:${graphDataQueryKind}:${activeTemplateKey || ''}`
   const displayResource = useGraphDisplayResourceScheduler(displayResourceKey, useForceGraph3D, fullscreenWrapRef, forceGraphRef)
-  const forceViewport = useForceGraphViewport(useForceGraph3D && displayResource.ready, fullscreenWrapRef)
-  const synced3DRepulsionPercent = Math.max(0, Math.min(400, visualApplied.repulsion / 1.8))
+  const forceViewport = useForceGraphViewport(useForceGraph3D && displayResource.ready && Boolean(ForceGraph3DComp), forceChartRef, forceGraphMountEpoch)
+  const synced3DRepulsionPercent = Math.max(0, Math.min(800, visualApplied.repulsion / 1.8))
   const synced3DGravity = Math.max(0, Math.min(0.6, 0.1 * (visualApplied.gravityPercent / 100)))
   const chartReady = chartReadyRaw && !useForceGraph3D
   const showForceGraphCanvas = useForceGraph3D && displayResource.ready && Boolean(ForceGraph3DComp) && !forceGraphLoadError
 
-  const projectionResetKey = useLegacyProjection3D ? graphKind : null
-  useEffect(() => {
-    if (projectionResetKey === previousProjectionResetKeyRef.current) return
-    previousProjectionResetKeyRef.current = projectionResetKey
-    setProjectionFrameEpoch((epoch) => epoch + 1)
-  }, [projectionResetKey])
-
-  useEffect(() => {
-    if (projectionEngine !== 'force3d') {
-      forceGraphFallbackAppliedRef.current = false
-      return
-    }
-    if (!useForceGraph3D || !forceGraphLoadError) return
-    if (forceGraphFallbackAppliedRef.current) return
-    forceGraphFallbackAppliedRef.current = true
-    setForceGraphFallbackNotice(t('graphPage.error.force3dLoadFallback'))
-    requestProjectionEngineChange('legacy')
-  }, [projectionEngine, useForceGraph3D, forceGraphLoadError, requestProjectionEngineChange, t])
-
-  const activeRendererCapabilities = useMemo(
-    () => (renderMode === 'projection3d'
-      ? RENDERER_PROJECTION_3D_CAPABILITIES
-      : RENDERER_2D_CAPABILITIES),
-    [renderMode],
-  )
+  const attachForceGraph = useCallback((api: ForceGraphApi | null) => {
+    forceGraphRef.current = api
+    initializedForceGraphRef.current = null
+    if (api) setForceGraphMountEpoch((epoch) => epoch + 1)
+  }, [setForceGraphMountEpoch])
 
   const connectedNodeMap = useMemo(() => {
     return new Map(topology.connectedNodes.map((node) => [nodeKey(node), node]))
@@ -1543,6 +1783,24 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   } = useGraphSelectionState(adjacencyConnectedMap)
 
   useEffect(() => {
+    if (previousProjectSelectionKeyRef.current === projectKey) return
+    previousProjectSelectionKeyRef.current = projectKey
+    setManualSelectedNodeKeys(new Set())
+    setManualDeselectedNodeKeys(new Set())
+    setRadiationSelectionByCenter({})
+    setSelectionPinned(false)
+    setHoverNodeKey(null)
+    setSelectedNode(null)
+  }, [
+    projectKey,
+    setHoverNodeKey,
+    setManualDeselectedNodeKeys,
+    setManualSelectedNodeKeys,
+    setRadiationSelectionByCenter,
+    setSelectionPinned,
+  ])
+
+  useEffect(() => {
     if (!import.meta.env.DEV) return
     window.__graphPageE2E = {
       selectNode: (nodeId: string) => {
@@ -1562,8 +1820,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   }, [connectedNodeMap, setManualSelectedNodeKeys, setManualDeselectedNodeKeys, setSelectionEnabled])
 
   useEffect(() => {
-    if (previousGraphKindRef.current === graphKind) return
+    if (previousGraphKindRef.current === graphKind && previousProjectViewResetEpochRef.current === projectViewResetEpoch) return
     previousGraphKindRef.current = graphKind
+    previousProjectViewResetEpochRef.current = projectViewResetEpoch
     setHiddenTypes({})
     setHiddenEdgeKinds({})
     setExpandedGroup(null)
@@ -1575,20 +1834,12 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     setHoverNodeKey(null)
   }, [
     graphKind,
+    projectViewResetEpoch,
     setHoverNodeKey,
     setManualDeselectedNodeKeys,
     setManualSelectedNodeKeys,
     setRadiationSelectionByCenter,
     setSelectionPinned,
-  ])
-
-  useEffect(() => {
-    projectionPhysicsRef.current = { positions: {}, velocities: {} }
-    projectionInteractionQuatRef.current = { x: 0, y: 0, z: 0, w: 1 }
-    projectionAngularVelRef.current = { x: 0, y: 0 }
-    projectionDragStateRef.current = { active: false, x: 0, y: 0 }
-  }, [
-    graphKind,
   ])
 
   useEffect(() => {
@@ -2293,14 +2544,14 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
 
   useEffect(() => {
     setForceNodeSeedPhysics(new Map(forceNodePhysicsRef.current))
-  }, [activeProjectionId])
+  }, [displayResourceKey, useForceGraph3D])
 
   const forceGraphData = useMemo(() => {
     if (renderMode !== 'projection3d') return { nodes: [] as Array<{ id: string; key: string; name: string; rawNode: GraphNodeItem; score: number; x?: number; y?: number; z?: number; vx?: number; vy?: number; vz?: number }>, links: [] as Array<{ source: string; target: string }> }
     const nodes = topology.connectedNodes.map((node) => {
       const key = nodeKey(node)
       const score = topology.scoreMap.get(key) || 0
-      const prev = forceNodeSeedPhysics.get(`${activeProjectionId}\u0000${key}`) || {}
+      const prev = forceNodeSeedPhysics.get(`${displayResourceKey}\u0000${key}`) || {}
       return {
         id: key,
         key,
@@ -2326,7 +2577,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       })
       .filter((item): item is { source: string; target: string } => Boolean(item))
     return { nodes, links }
-  }, [renderMode, activeProjectionId, forceNodeSeedPhysics, topology.connectedNodes, topology.connectedEdges, topology.scoreMap, topology.edgeResolvedKeyMap])
+  }, [renderMode, displayResourceKey, forceNodeSeedPhysics, topology.connectedNodes, topology.connectedEdges, topology.scoreMap, topology.edgeResolvedKeyMap])
 
   const forceVisibleNodeKeySet = useMemo(() => new Set(topology.visibleNodes.map((node) => nodeKey(node))), [topology.visibleNodes])
   const forceVisibleLinkKeySet = useMemo(() => {
@@ -2389,17 +2640,18 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   ])
 
   const forceAutoFocusSet = useMemo(() => {
+    if (selectionPinned && selectedNodeKeys.size > 0) return selectedNodeKeys
     const set = new Set<string>()
     const focusCenterKey = autoFocusEnabled ? hoverNodeKey : null
     if (!focusCenterKey || !topology.visibleNodeKeys.has(focusCenterKey)) return set
     collectFocusNodeKeys(focusCenterKey, adjacencyConnectedMap).forEach((item) => set.add(item))
     return set
-  }, [autoFocusEnabled, hoverNodeKey, topology.visibleNodeKeys, adjacencyConnectedMap])
+  }, [selectionPinned, selectedNodeKeys, autoFocusEnabled, hoverNodeKey, topology.visibleNodeKeys, adjacencyConnectedMap])
 
   const forceLinkStyleByKey = useMemo(() => {
     if (renderMode !== 'projection3d') return new Map<string, ForceLinkStyle>()
     const map = new Map<string, ForceLinkStyle>()
-    const enableAutoFocusDim = autoFocusEnabled && forceAutoFocusSet.size > 0
+    const enableAutoFocusDim = (autoFocusEnabled || selectionPinned) && forceAutoFocusSet.size > 0
     const edgeAlphaT = Math.max(0, Math.min(1, visualApplied.edgeAlpha / 100))
     topology.connectedEdges.forEach((edge) => {
       const resolved = topology.edgeResolvedKeyMap.get(edge)
@@ -2420,7 +2672,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
           width: dimByAutoFocus
             ? 0.7
             : Math.max(0.5, profile.width * (visualApplied.edgeWidth / 100)),
-          opacity: dimByAutoFocus ? 0.08 : Math.max(0.08, edgeAlphaT),
           curvature: Math.abs(profile.curveness),
           curveRotation: profile.curveness < 0 ? Math.PI : 0,
           arrowLength: profile.symbol[1] === 'none' || dimByAutoFocus
@@ -2430,7 +2681,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       )
     })
     return map
-  }, [renderMode, topology.connectedEdges, topology.edgeResolvedKeyMap, edgeLegendItemByKey, edgeStyleBinding, visualApplied.edgeWidth, visualApplied.edgeAlpha, autoFocusEnabled, forceAutoFocusSet])
+  }, [renderMode, topology.connectedEdges, topology.edgeResolvedKeyMap, edgeLegendItemByKey, edgeStyleBinding, visualApplied.edgeWidth, visualApplied.edgeAlpha, autoFocusEnabled, selectionPinned, forceAutoFocusSet])
 
   const applyForceObjectVisualState = useCallback((object: THREE.Object3D, selected: boolean, dimmed: boolean) => {
     if (!object || typeof object !== 'object') return
@@ -2500,7 +2751,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       const scene = api?.scene?.()
       if (!scene?.traverse) return
       const selected = selectedNodeKeysRef.current
-      const enableAutoFocusDim = autoFocusEnabled && forceAutoFocusSet.size > 0
+      const enableAutoFocusDim = (autoFocusEnabled || selectionPinned) && forceAutoFocusSet.size > 0
       // Avoid touching 3D material states when neither selection nor effective autofocus is active.
       // This prevents "toggle-on flicker/disappear" on unstable node materials before any focus center exists.
       if (!enableAutoFocusDim && selected.size === 0) return
@@ -2513,18 +2764,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       })
     })
     return () => window.cancelAnimationFrame(raf)
-  }, [useForceGraph3D, displayResource.ready, selectedNodeKeys, selectedNodeKeysRef, forceGraphData.nodes, autoFocusEnabled, forceAutoFocusSet, applyForceObjectVisualState])
-
-  useEffect(() => {
-    if (renderMode === 'projection3d') return
-    forceNodeObjectCacheRef.current.clear()
-  }, [renderMode])
-
-  useEffect(() => {
-    if (!useForceGraph3D) return
-    const activeNodeIds = new Set(forceGraphData.nodes.map((node) => String(node.id || '')))
-    pruneForceNodeObjectCache(forceNodeObjectCacheRef.current, activeNodeIds)
-  }, [useForceGraph3D, forceGraphData.nodes])
+  }, [useForceGraph3D, displayResource.ready, forceGraphMountEpoch, selectedNodeKeys, selectedNodeKeysRef, forceGraphData.nodes, autoFocusEnabled, selectionPinned, forceAutoFocusSet, applyForceObjectVisualState])
 
   useEffect(() => {
     if (!autoFocusEnabled) {
@@ -2544,30 +2784,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       setHoverNodeKey(null)
     }
   }, [autoFocusEnabled, hoverNodeKey, topology.visibleNodeKeys, selectedNodeKeysRef, setHoverNodeKey, hoverNodeKeyRef])
-
-  useEffect(() => {
-    try {
-      if (useForceGraph3D && displayResource.ready) {
-        forceGraphRef.current?.resumeAnimation?.()
-      } else {
-        forceGraphRef.current?.pauseAnimation?.()
-      }
-    } catch {
-      // noop
-    }
-  }, [useForceGraph3D, displayResource.ready])
-
-  useEffect(() => {
-    if (!useForceGraph3D) return
-    const api = forceGraphRef.current
-    if (!api) return
-    try {
-      api.width?.(forceViewport.width)
-      api.height?.(forceViewport.height)
-    } catch {
-      // noop
-    }
-  }, [useForceGraph3D, forceViewport.width, forceViewport.height])
 
   useEffect(() => {
     if (!useForceGraph3D) return
@@ -2603,108 +2819,19 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
           nodes = Array.isArray(items) ? items : []
         }
         forceGlobalGravityForceRef.current = globalGravityForce
-        api.d3Force('global-gravity', globalGravityForce as unknown as object)
       }
+      api.d3Force('global-gravity', forceGlobalGravityForceRef.current as unknown as object)
       chargeForce?.strength?.(-repulsion)
       // Keep link force as topology constraint; gravity slider now controls global center pull.
       linkForce?.strength?.(0.08)
       linkForce?.distance?.(70)
       linkForce?.iterations?.(2)
-      if (typeof api.d3ReheatSimulation === 'function') api.d3ReheatSimulation()
+      // Reheating before the first layout tick starts an uninitialized engine.
+      if (initializedForceGraphRef.current === api) api.d3ReheatSimulation?.()
     } catch {
       // Keep 3D graph alive even if force-engine tuning fails.
     }
-  }, [useForceGraph3D, synced3DRepulsionPercent, synced3DGravity])
-
-  useEffect(() => {
-    if (!useLegacyProjection3D || !chartReady) return
-    let rafId = 0
-    const tick = () => {
-      const av = projectionAngularVelRef.current
-      if (Math.abs(av.x) > 1e-5 || Math.abs(av.y) > 1e-5) {
-        const curr = projectionInteractionQuatRef.current
-        const right = rotateVecByQuat({ x: 1, y: 0, z: 0 }, curr)
-        const qYaw = quatFromAxisAngle(0, 1, 0, av.y)
-        const qPitch = quatFromAxisAngle(right.x, right.y, right.z, av.x)
-        projectionInteractionQuatRef.current = quatMul(qPitch, quatMul(qYaw, curr))
-        av.x *= 0.92
-        av.y *= 0.92
-      }
-      setPhysicsFrame((prev) => (prev >= 1000000 ? 0 : prev + 1))
-      rafId = window.requestAnimationFrame(tick)
-    }
-    rafId = window.requestAnimationFrame(tick)
-    return () => window.cancelAnimationFrame(rafId)
-  }, [useLegacyProjection3D, chartReady])
-
-  useEffect(() => {
-    if (!chartReady || !useLegacyProjection3D) return
-    const chart = chartInstRef.current
-    if (!chart) return
-    const zr = chart.getZr()
-    const onMouseDown = (evt: unknown) => {
-      const e = evt as { offsetX?: number; offsetY?: number; event?: MouseEvent }
-      if ((e.event?.button ?? 0) !== 0) return
-      projectionDragStateRef.current = {
-        active: true,
-        x: e.offsetX ?? 0,
-        y: e.offsetY ?? 0,
-      }
-    }
-    const onMouseMove = (evt: unknown) => {
-      const drag = projectionDragStateRef.current
-      if (!drag.active) return
-      const e = evt as { offsetX?: number; offsetY?: number }
-      const x = e.offsetX ?? drag.x
-      const y = e.offsetY ?? drag.y
-      const dx = x - drag.x
-      const dy = y - drag.y
-      drag.x = x
-      drag.y = y
-      const yaw = dx * 0.0045
-      const pitch = -dy * 0.0045
-      const curr = projectionInteractionQuatRef.current
-      const right = rotateVecByQuat({ x: 1, y: 0, z: 0 }, curr)
-      const qYaw = quatFromAxisAngle(0, 1, 0, yaw)
-      const qPitch = quatFromAxisAngle(right.x, right.y, right.z, pitch)
-      projectionInteractionQuatRef.current = quatMul(qPitch, quatMul(qYaw, curr))
-      projectionAngularVelRef.current.x = projectionAngularVelRef.current.x * 0.35 + pitch * 0.65
-      projectionAngularVelRef.current.y = projectionAngularVelRef.current.y * 0.35 + yaw * 0.65
-      setPhysicsFrame((prev) => (prev >= 1000000 ? 0 : prev + 1))
-    }
-    const onMouseUp = () => {
-      projectionDragStateRef.current.active = false
-    }
-    zr.on('mousedown', onMouseDown)
-    zr.on('mousemove', onMouseMove)
-    zr.on('mouseup', onMouseUp)
-    zr.on('globalout', onMouseUp)
-    return () => {
-      zr.off('mousedown', onMouseDown)
-      zr.off('mousemove', onMouseMove)
-      zr.off('mouseup', onMouseUp)
-      zr.off('globalout', onMouseUp)
-      projectionDragStateRef.current.active = false
-    }
-  }, [chartReady, useLegacyProjection3D])
-
-  useEffect(() => {
-    // Reset accumulated roam transform when switching render modes,
-    // otherwise projection mode may look off-center from previous pan/zoom state.
-    chartInstRef.current?.clear()
-    projectionDragStateRef.current.active = false
-    if (!useLegacyProjection3D) {
-      projectionAngularVelRef.current = { x: 0, y: 0 }
-    }
-  }, [useLegacyProjection3D])
-
-  useEffect(() => {
-    if (!useLegacyProjection3D) return
-    const basisQuat = quatFromAxisAngle(1, 0, 0, -Math.PI / 2)
-    const sliderQuat = quatFromEulerDeg(projectionRotateX, projectionRotateY, projectionRotateZ)
-    projectionInteractionQuatRef.current = quatMul(sliderQuat, basisQuat)
-    projectionAngularVelRef.current = { x: 0, y: 0 }
-  }, [useLegacyProjection3D, graphKind, projectionRotateX, projectionRotateY, projectionRotateZ])
+  }, [useForceGraph3D, forceGraphMountEpoch, synced3DRepulsionPercent, synced3DGravity])
 
   const nodeAllElements = useMemo(() => buildNodeElements(selectedNode), [selectedNode])
   const nodeElementGroups = useMemo(() => {
@@ -2780,7 +2907,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       hoverNodeKeyRef.current = null
       setHoverNodeKey(null)
     }
-    projectionDragStateRef.current = { active: false, x: 0, y: 0 }
     nodeCardDragRef.current = { active: false, offsetX: 0, offsetY: 0 }
     nodeCardHoldActiveRef.current = false
     nodeCardHoldTriggeredRef.current = false
@@ -2910,7 +3036,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
 
   useEffect(() => {
     clearTransientInteractionState()
-  }, [renderMode, projectionEngine, clearTransientInteractionState])
+  }, [renderMode, clearTransientInteractionState])
 
   useEffect(() => {
     const wrap = fullscreenWrapRef.current
@@ -3279,6 +3405,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       }
       if (canceled) return
       setChartReady(true)
+      setChartMountEpoch((epoch) => epoch + 1)
     }
     void ensureChart()
     return () => {
@@ -3331,13 +3458,11 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         if (!id) return
         prevPos2D[id] = { x: item.x, y: item.y }
       })
-      if (renderMode !== 'projection3d') {
-        if (Array.isArray(currentSeries?.center) && currentSeries.center.length === 2) {
-          currentCenter = [currentSeries.center[0], currentSeries.center[1]]
-        }
-        if (typeof currentSeries?.zoom === 'number' && Number.isFinite(currentSeries.zoom)) {
-          currentZoom = currentSeries.zoom
-        }
+      if (Array.isArray(currentSeries?.center) && currentSeries.center.length === 2) {
+        currentCenter = [currentSeries.center[0], currentSeries.center[1]]
+      }
+      if (typeof currentSeries?.zoom === 'number' && Number.isFinite(currentSeries.zoom)) {
+        currentZoom = currentSeries.zoom
       }
     } catch {
       // keep previous cached positions
@@ -3489,31 +3614,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       ]
     })
 
-    const rendererResult = useLegacyProjection3D
-      ? (() => {
-        const projectionEdges = visibleEdges
-          .map((edge) => {
-            const resolved = topology.edgeResolvedKeyMap.get(edge)
-            if (!resolved) return null
-            return { from: resolved.fromKey, to: resolved.toKey }
-          })
-          .filter((item): item is { from: string; to: string } => Boolean(item))
-        const applied = applyRendererProjection3D(
-          seriesNodes as RenderNode[],
-          projectionEdges,
-          projectionPhysicsRef.current,
-          {
-            rotateXDeg: projectionRotateX,
-            rotateYDeg: projectionRotateY,
-            rotateZDeg: projectionRotateZ,
-            repulsionPercent: synced3DRepulsionPercent,
-            interactionQuat: projectionInteractionQuatRef.current,
-          },
-        )
-        projectionPhysicsRef.current = applied.physics
-        return applied.render
-      })()
-      : applyRenderer2D(seriesNodes as RenderNode[])
+    const rendererResult = applyRenderer2D(seriesNodes as RenderNode[])
 
     const seriesOption = {
       id: 'graph-main',
@@ -3596,163 +3697,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       })
       nodePositionRef.current = mergedPositions
     }
-  }, [topology, visibleEdges, edgeLegendItemByKey, edgeStyleBinding, visualApplied, nodeTypeColor, graphKind, chartReady, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey, autoFocusEnabled, selectedNode, selectedNodeKey, renderMode, selectionEnabled, projectionRotateX, projectionRotateY, projectionRotateZ, synced3DRepulsionPercent, physicsFrame, projectionFrameEpoch, useLegacyProjection3D, useForceGraph3D, t, relationClassLabel, edgeStrokeLabel, edgeLineTypeLabel])
-
-  const onControlResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (isCompactViewport) return
-    event.preventDefault()
-    const panel = controlPanelRef.current
-    if (!panel) return
-    const rect = panel.getBoundingClientRect()
-    const startX = event.clientX
-    const startWidth = rect.width
-    const onMove = (moveEvent: MouseEvent) => {
-      const deltaX = moveEvent.clientX - startX
-      const next = startWidth - deltaX
-      setControlPanelWidth(clampControlPanelWidth(next, window.innerWidth))
-    }
-    const onEnd = () => {
-      controlResizeRightRef.current = null
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onEnd)
-      document.body.style.userSelect = ''
-      document.body.style.cursor = ''
-    }
-    document.body.style.userSelect = 'none'
-    document.body.style.cursor = 'col-resize'
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onEnd)
-  }
-
-  const onControlResizeBottomStart = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (isCompactViewport) return
-    event.preventDefault()
-    const panel = controlPanelRef.current
-    if (!panel) return
-    const rect = panel.getBoundingClientRect()
-    const startY = event.clientY
-    const startHeight = rect.height
-    const onMove = (moveEvent: MouseEvent) => {
-      const deltaY = moveEvent.clientY - startY
-      const next = startHeight + deltaY
-      setControlPanelHeight(clampFloatingPanelHeight(next, window.innerHeight))
-    }
-    const onEnd = () => {
-      controlResizeBottomRef.current = null
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onEnd)
-      document.body.style.userSelect = ''
-      document.body.style.cursor = ''
-    }
-    document.body.style.userSelect = 'none'
-    document.body.style.cursor = 'row-resize'
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onEnd)
-  }
-
-  const onProjectionResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (isCompactViewport) return
-    event.preventDefault()
-    const panel = projectionPanelRef.current
-    if (!panel) return
-    const rect = panel.getBoundingClientRect()
-    const startX = event.clientX
-    const startWidth = rect.width
-    const onMove = (moveEvent: MouseEvent) => {
-      const deltaX = moveEvent.clientX - startX
-      const next = startWidth + deltaX
-      setProjectionPanelWidth(clampFloatingPanelWidth(next, window.innerWidth))
-    }
-    const onEnd = () => {
-      projectionResizeRightRef.current = null
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onEnd)
-      document.body.style.userSelect = ''
-      document.body.style.cursor = ''
-    }
-    document.body.style.userSelect = 'none'
-    document.body.style.cursor = 'col-resize'
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onEnd)
-  }
-
-  const onProjectionResizeBottomStart = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (isCompactViewport) return
-    event.preventDefault()
-    const panel = projectionPanelRef.current
-    if (!panel) return
-    const rect = panel.getBoundingClientRect()
-    const startY = event.clientY
-    const startHeight = rect.height
-    const onMove = (moveEvent: MouseEvent) => {
-      const deltaY = moveEvent.clientY - startY
-      const next = startHeight + deltaY
-      setProjectionPanelHeight(clampFloatingPanelHeight(next, window.innerHeight))
-    }
-    const onEnd = () => {
-      projectionResizeBottomRef.current = null
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onEnd)
-      document.body.style.userSelect = ''
-      document.body.style.cursor = ''
-    }
-    document.body.style.userSelect = 'none'
-    document.body.style.cursor = 'row-resize'
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onEnd)
-  }
-
-  const onLegendResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (isCompactViewport) return
-    event.preventDefault()
-    const panel = legendPanelRef.current
-    if (!panel) return
-    const rect = panel.getBoundingClientRect()
-    const startX = event.clientX
-    const startWidth = rect.width
-    const onMove = (moveEvent: MouseEvent) => {
-      const deltaX = moveEvent.clientX - startX
-      const next = startWidth + deltaX
-      setLegendPanelWidth(clampFloatingPanelWidth(next, window.innerWidth))
-    }
-    const onEnd = () => {
-      legendResizeRightRef.current = null
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onEnd)
-      document.body.style.userSelect = ''
-      document.body.style.cursor = ''
-    }
-    document.body.style.userSelect = 'none'
-    document.body.style.cursor = 'col-resize'
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onEnd)
-  }
-
-  const onLegendResizeBottomStart = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (isCompactViewport) return
-    event.preventDefault()
-    const panel = legendPanelRef.current
-    if (!panel) return
-    const rect = panel.getBoundingClientRect()
-    const startY = event.clientY
-    const startHeight = rect.height
-    const onMove = (moveEvent: MouseEvent) => {
-      const deltaY = moveEvent.clientY - startY
-      const next = startHeight + deltaY
-      setLegendPanelHeight(clampFloatingPanelHeight(next, window.innerHeight))
-    }
-    const onEnd = () => {
-      legendResizeBottomRef.current = null
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onEnd)
-      document.body.style.userSelect = ''
-      document.body.style.cursor = ''
-    }
-    document.body.style.userSelect = 'none'
-    document.body.style.cursor = 'row-resize'
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onEnd)
-  }
+  }, [topology, visibleEdges, edgeLegendItemByKey, edgeStyleBinding, visualApplied, nodeTypeColor, graphKind, chartReady, chartMountEpoch, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey, autoFocusEnabled, selectedNode, selectedNodeKey, renderMode, selectionEnabled, t, relationClassLabel, edgeStrokeLabel, edgeLineTypeLabel])
 
   const onNodeCardDragStart = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
@@ -3980,9 +3925,11 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     setSelectionPinned,
   ])
 
+  const effectiveNewNodeType = newNodeType.trim() || nodeTypes[0] || 'Entity'
+
   const handleCreateDraftNode = useCallback(() => {
     const node = createDraftNode({
-      type: newNodeType.trim() || 'Entity',
+      type: effectiveNewNodeType,
       name: newNodeName.trim() || undefined,
       title: newNodeName.trim() || undefined,
     })
@@ -3997,9 +3944,10 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       y: String(node.y ?? ''),
       z: String(node.z ?? ''),
     })
+    setProjectAdditionalNodes((prev) => [...prev, node])
     setNewNodeName('')
     setGraphEditStatus(tf('graphPage.status.nodeCreated', { key }))
-  }, [createDraftNode, newNodeType, newNodeName, setGraphEditStatus, setNewNodeName, setNodeEditDraft, tf])
+  }, [createDraftNode, effectiveNewNodeType, newNodeName, setGraphEditStatus, setNewNodeName, setNodeEditDraft, setProjectAdditionalNodes, tf])
 
   const handleDeleteSelectedDraftNodes = useCallback(() => {
     const result = removeDraftNodesByKeys(selectedNodeKeyList)
@@ -4020,17 +3968,88 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       window.alert(t('graphPage.error.selectSourceAndTarget'))
       return
     }
+    const relation = edgeDraft.relation.trim() || projectViewRelationOptions[0]?.value || 'REL'
     const created = createDraftEdgeByNodeKeys(sourceKey, targetKey, {
-      type: edgeDraft.relation.trim() || 'REL',
-      predicate: edgeDraft.relation.trim() || undefined,
+      type: relation,
+      predicate: relation,
     })
     if (!created.ok) {
       if (created.reason === 'already_exists') window.alert(t('graphPage.error.edgeAlreadyExists'))
       else window.alert(t('graphPage.error.edgeCreateMissingNode'))
       return
     }
+    setProjectAdditionalEdges((prev) => [...prev, created.edge])
     setGraphEditStatus(tf('graphPage.status.edgeCreated', { source: sourceKey, target: targetKey }))
-  }, [edgeDraft, createDraftEdgeByNodeKeys, setGraphEditStatus, t, tf])
+  }, [createDraftEdgeByNodeKeys, edgeDraft, projectViewRelationOptions, setGraphEditStatus, setProjectAdditionalEdges, t, tf])
+
+  const handleAddNodeType = useCallback(() => {
+    const type = normalizeNodeType(newNodeType)
+    if (!type) return
+    if (nodeTypes.includes(type)) {
+      setTypeEditStatus(t('graphPage.view.typeAlreadyExists'))
+      return
+    }
+    setDeclaredNodeTypes((prev) => [...prev, type])
+    replaceDraft(draftNodes, draftEdges, { markAsDirty: true })
+    setNewNodeType('')
+    setTypeEditStatus(t('graphPage.view.typeAdded'))
+    setProjectViewSaveStatus('')
+  }, [draftEdges, draftNodes, newNodeType, nodeTypes, replaceDraft, setDeclaredNodeTypes, setNewNodeType, setTypeEditStatus, setProjectViewSaveStatus, t])
+
+  const handleAddRelationType = useCallback(() => {
+    const definition = {
+      sourceType: normalizeNodeType(relationTypeDraft.sourceType),
+      targetType: normalizeNodeType(relationTypeDraft.targetType),
+      relation: relationTypeDraft.relation.trim().toLowerCase(),
+    }
+    if (!definition.relation || !nodeTypes.includes(definition.sourceType) || !nodeTypes.includes(definition.targetType)) return
+    const exists = declaredRelationTypes.some((item) => item.sourceType === definition.sourceType && item.targetType === definition.targetType && item.relation === definition.relation)
+    if (exists) {
+      setTypeEditStatus(t('graphPage.view.typeAlreadyExists'))
+      return
+    }
+    setDeclaredRelationTypes((prev) => [...prev, definition])
+    replaceDraft(draftNodes, draftEdges, { markAsDirty: true })
+    setRelationTypeDraft((prev) => ({ ...prev, relation: '' }))
+    setTypeEditStatus(t('graphPage.view.typeAdded'))
+    setProjectViewSaveStatus('')
+  }, [declaredRelationTypes, draftEdges, draftNodes, nodeTypes, relationTypeDraft, replaceDraft, setDeclaredRelationTypes, setRelationTypeDraft, setTypeEditStatus, setProjectViewSaveStatus, t])
+
+  const handleSaveCurrentProjectView = useCallback(async () => {
+    const name = effectiveProjectViewName.trim()
+    const requestProjectKey = projectKey
+    if (!name) {
+      setProjectViewSaveStatus(t('graphPage.view.nameRequired'))
+      return
+    }
+    setLegacySnapshotMode(false)
+    setProjectViewSaveBusy(true)
+    setProjectViewSaveStatus('')
+    try {
+      const result = await handleSaveProjectView(name)
+      if (currentProjectKeyRef.current !== requestProjectKey) return
+      if (result) {
+        setActiveProjectViewSpec(currentProjectViewSpec)
+        window.location.hash = buildGraphTemplateRoute(result.templateKey)
+      }
+      setProjectViewSaveStatus(result ? t('graphPage.view.saved') : t('graphPage.view.saveFailed'))
+    } catch {
+      if (currentProjectKeyRef.current !== requestProjectKey) return
+      setProjectViewSaveStatus(t('graphPage.view.saveFailed'))
+    } finally {
+      if (currentProjectKeyRef.current === requestProjectKey) setProjectViewSaveBusy(false)
+    }
+  }, [
+    effectiveProjectViewName,
+    currentProjectViewSpec,
+    handleSaveProjectView,
+    projectKey,
+    setActiveProjectViewSpec,
+    setLegacySnapshotMode,
+    setProjectViewSaveBusy,
+    setProjectViewSaveStatus,
+    t,
+  ])
 
   const handleApplyNodeEditDraft = useCallback(() => {
     if (!nodeEditDraft.key) return
@@ -4057,12 +4076,17 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     setGraphEditStatus(tf('graphPage.status.nodeUpdated', { key: nodeEditDraft.key }))
   }, [nodeEditDraft, updateDraftNodeByKey, setGraphEditStatus, t, tf])
 
+  const forceGraphRenderBoundaryKey = `${displayResourceKey}:${displayResource.epoch}:${forceGraphRetry}`
+  const forceGraphRenderError = forceGraphRenderFailure?.key === forceGraphRenderBoundaryKey
+    ? forceGraphRenderFailure.message
+    : null
   const handleForceGraphRenderError = useCallback((message: string) => {
-    setForceGraphFallbackNotice(tf('graphPage.error.force3dRenderFallback', { message: message ? ` (${message})` : '' }))
-    requestProjectionEngineChange('legacy')
-  }, [requestProjectionEngineChange, setForceGraphFallbackNotice, tf])
-
-  const forceGraphRenderBoundaryKey = `${displayResourceKey}:${displayResource.epoch}:${renderMode}:${projectionEngine}:${forceGraphData.nodes.length}:${forceGraphData.links.length}`
+    setForceGraphRenderFailure({ key: forceGraphRenderBoundaryKey, message })
+  }, [forceGraphRenderBoundaryKey, setForceGraphRenderFailure])
+  const retryForceGraph = useCallback(() => {
+    retryForceGraph3D()
+    setForceGraphRetry((value) => value + 1)
+  }, [retryForceGraph3D, setForceGraphRetry])
 
   const forceGraphCanvasNode = useMemo(() => {
     if (!(renderMode === 'projection3d' && showForceGraphCanvas && ForceGraph3DComp && displayResource.ready)) return null
@@ -4079,8 +4103,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
           onError={handleForceGraphRenderError}
         >
           <ForceGraph3DComp
-            key={`${displayResourceKey}:${displayResource.epoch}`}
-            ref={forceGraphRef}
+            key={forceGraphRenderBoundaryKey}
+            ref={attachForceGraph}
             width={forceViewport.width || displayResource.width}
             height={forceViewport.height || displayResource.height}
             graphData={forceGraphData}
@@ -4113,12 +4137,15 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
               const size = Math.max(1.8, Number(style?.val || 1))
               const color = String(style?.color || '#7dd3fc')
               const opacity = Math.max(0.16, Math.min(1, Number(style?.opacity || 0.8)))
-              return getOrCreateForceNodeObject({
-                cache: forceNodeObjectCacheRef.current,
+              return createForceNodeObject({
                 id,
                 style: { size, color, opacity, rawSymbol, graphSymbol },
                 isSelected: selectedNodeKeysRef.current.has(id),
-                applyVisualState: applyForceObjectVisualState,
+                applyVisualState: (object, selected) => applyForceObjectVisualState(
+                  object,
+                  selected,
+                  (autoFocusEnabled || selectionPinned) && forceAutoFocusSet.size > 0 && !forceAutoFocusSet.has(id),
+                ),
               })
             }}
             linkColor={(link: unknown) => {
@@ -4137,10 +4164,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
               const { source, target } = linkEnds(link)
               return Number(forceLinkStyleByKey.get(`${source}>${target}`)?.curveRotation || 0)
             }}
-            linkOpacity={(link: unknown) => {
-              const { source, target } = linkEnds(link)
-              return Number(forceLinkStyleByKey.get(`${source}>${target}`)?.opacity || Math.max(0.06, Math.min(1, visualApplied.edgeAlpha / 100)))
-            }}
+            linkOpacity={1}
             linkDirectionalArrowLength={(link: unknown) => {
               const { source, target } = linkEnds(link)
               return Number(forceLinkStyleByKey.get(`${source}>${target}`)?.arrowLength || 0)
@@ -4154,11 +4178,12 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
             onNodeRightClick={handleForceNodeRightClick}
             onBackgroundClick={handleForceBackgroundClick}
             onEngineTick={() => {
-              const next = new Map(forceNodePhysicsRef.current)
+              initializedForceGraphRef.current = forceGraphRef.current
+              const next = forceNodePhysicsRef.current
               forceGraphData.nodes.forEach((node) => {
                 const id = String(node.id || '')
                 if (!id) return
-                next.set(`${activeProjectionId}\u0000${id}`, {
+                next.set(`${displayResourceKey}\u0000${id}`, {
                   x: node.x,
                   y: node.y,
                   z: node.z,
@@ -4178,21 +4203,22 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     showForceGraphCanvas,
     displayResource.ready,
     displayResourceKey,
-    displayResource.epoch,
     displayResource.width,
     displayResource.height,
     ForceGraph3DComp,
     forceGraphRenderBoundaryKey,
+    attachForceGraph,
     forceViewport.width,
     forceViewport.height,
     forceGraphData,
-    activeProjectionId,
     forceVisibleNodeKeySet,
     forceVisibleLinkKeySet,
     visualApplied.nodeAlpha,
-    visualApplied.edgeAlpha,
     forceNodeStyleById,
     forceLinkStyleByKey,
+    autoFocusEnabled,
+    selectionPinned,
+    forceAutoFocusSet,
     handleForceNodeHover,
     handleForceNodeClick,
     handleForceNodeRightClick,
@@ -4203,19 +4229,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     t,
   ])
 
-  const detachProjectionControls = renderMode === 'projection3d' && activeRendererCapabilities.supportsProjectionControls
-  const projectionControlSection = activeRendererCapabilities.supportsProjectionControls ? (
-    <label className="gv2-control-chip">
-      {t('graphPage.control.force3dEngine')}
-      <select
-        value={projectionEngine}
-        onChange={(e) => requestProjectionEngineChange(e.target.value as ProjectionEngine)}
-      >
-        <option value="legacy">legacy-projection</option>
-        <option value="force3d">react-force-graph-3d</option>
-      </select>
-    </label>
-  ) : null
   const templateDiffSummary = templateDiffPreview?.version_summary || {}
   const templateDiff = templateDiffPreview?.diff || {}
   const templateDiffSteps = templateDiff.steps || []
@@ -4227,10 +4240,11 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     : templateDiffImpact.affected_areas
   const templateDiffReasonCode = String(templateDiffContract.reason_code || templateDiffImpact.reason_code || '-')
   const templateDiffRiskLevel = String(templateDiffContract.risk_level || templateDiffImpact.risk_level || '-')
+  const shouldShowControlPanel = templateBuilder ? builderAdvancedOpen : showOverlay
+  const shouldShowLegendPanel = templateBuilder ? builderLegendOpen : showOverlay
 
   return (
     <div className="content-stack gv2-root">
-      <section className="panel gv2-main">
         {workspaceTabs.length > 1 ? (
           <div
             role="tablist"
@@ -4253,38 +4267,36 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
               })
             }}
           >
-            <div className="gv2-projection-tab-track">
-              {workspaceTabs.map((tab) => {
-                const Icon = GRAPH_WORKSPACE_TAB_ICONS[tab.moduleKey]
-                const active = tab.moduleKey === activeWorkspaceTab.moduleKey
-                return (
-                  <button
-                    key={tab.moduleKey}
-                    id={`graph-workspace-tab-${tab.moduleKey}`}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    aria-controls="graph-projection-panel"
-                    tabIndex={active ? 0 : -1}
-                    data-testid={`graph-workspace-tab-${tab.moduleKey}`}
-                    className={`gv2-projection-tab ${tab.isBuilder ? 'is-builder' : ''} ${active ? 'is-active' : ''}`.trim()}
-                    onClick={() => selectWorkspaceTab(tab.moduleKey)}
-                  >
-                    <Icon aria-hidden="true" className="gv2-projection-tab-icon" />
-                    <span className="gv2-projection-tab-label">{tab.label || t(tab.labelKey)}</span>
-                  </button>
-                )
-              })}
-            </div>
+            {workspaceTabs.map((tab) => {
+              const Icon = GRAPH_WORKSPACE_TAB_ICONS[tab.moduleKey]
+              const active = tab.moduleKey === activeWorkspaceTab.moduleKey
+              return (
+                <button
+                  key={tab.moduleKey}
+                  id={`graph-workspace-tab-${tab.moduleKey}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  aria-controls="graph-projection-panel"
+                  tabIndex={active ? 0 : -1}
+                  data-testid={`graph-workspace-tab-${tab.moduleKey}`}
+                  className={`gv2-projection-tab ${tab.isBuilder ? 'is-builder' : ''} ${active ? 'is-active' : ''}`.trim()}
+                  onClick={() => selectWorkspaceTab(tab.moduleKey)}
+                >
+                  <Icon aria-hidden="true" className="gv2-projection-tab-icon" />
+                  <span className="gv2-projection-tab-label">{tab.label || t(tab.labelKey)}</span>
+                </button>
+              )
+            })}
           </div>
         ) : null}
-        <div className="gv2-layout">
           <div
             className={`gv2-chart-wrap gv2-chart-wrap--fullscreen-ready ${isFullscreen ? 'is-fullscreen' : ''}`}
             ref={fullscreenWrapRef}
             id="graph-projection-panel"
             role="tabpanel"
             aria-labelledby={`graph-workspace-tab-${activeWorkspaceTab.moduleKey}`}
+            aria-description={renderMode === 'projection3d' ? t('graphPage.hint.force3dControls') : undefined}
           >
             {graphData.isFetching ? <div className="gv2-loading">{t('graphPage.loading.fetching')}</div> : null}
             {graphData.error ? (
@@ -4296,35 +4308,28 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
               ref={chartRef}
               className="gv2-chart"
               data-testid="graph-chart-2d"
-              style={showForceGraphCanvas ? { display: 'none' } : undefined}
+              style={useForceGraph3D ? { display: 'none' } : undefined}
             />
             {forceGraphCanvasNode}
-            {useForceGraph3D && !ForceGraph3DComp ? (
+            {useForceGraph3D && !ForceGraph3DComp && !forceGraphLoadError ? (
               <div className="gv2-loading">{t('graphPage.loading.force3d')}</div>
             ) : null}
-            {useForceGraph3D && forceGraphLoadError ? (
-              <div className="gv2-loading gv2-loading-error">{t('graphPage.error.force3dLoadFailed')}{forceGraphLoadError}</div>
-            ) : null}
-            {renderMode === 'projection3d' && projectionEngine === 'legacy' && forceGraphFallbackNotice ? (
-              <div className="gv2-loading">
-                {forceGraphFallbackNotice}
+            {useForceGraph3D && (forceGraphLoadError || forceGraphRenderError) ? (
+              <div className="gv2-loading gv2-loading-error" role="alert">
+                {forceGraphLoadError ? t('graphPage.error.force3dLoadFailed') : t('graphPage.error.renderFailed')}
+                {forceGraphLoadError || forceGraphRenderError}
                 <button
                   type="button"
                   className="gv2-select-mode-btn"
                   style={{ marginLeft: 8 }}
-                  onClick={() => {
-                    setForceGraphFallbackNotice(null)
-                    retryForceGraph3D()
-                    requestProjectionEngineChange('force3d')
-                  }}
+                  onClick={retryForceGraph}
                 >
                   {t('graphPage.action.retryForce3d')}
                 </button>
               </div>
             ) : null}
-            <div className="gv2-floating-toolbar-layer">
               <div
-                className="gv2-overlay-top"
+                className={`gv2-overlay-top ${templateBuilder ? 'gv2-overlay-top--builder' : ''}`.trim()}
                 onMouseDown={(e) => {
                   const targetEl = e.target as HTMLElement | null
                   const hitButton = targetEl?.closest('button') as HTMLButtonElement | null
@@ -4338,14 +4343,61 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                   if (hitButton) e.stopPropagation()
                 }}
               >
+              {templateBuilder ? (
+                <ProjectGraphViewToolbar
+                  translate={t}
+                  formatMessage={tf}
+                  mode={projectViewMode}
+                  selectedCount={selectedNodeKeys.size}
+                  onModeChange={setProjectViewMode}
+                  onCaptureSelection={() => {
+                    setProjectViewKeys(selectedNodeKeyList)
+                    setProjectViewMode('selection')
+                  }}
+                  nodeTypes={projectViewNodeToggleOptions}
+                  relations={projectViewEdgeToggleOptions}
+                  onToggleNodeType={(type, hidden) => setHiddenTypes((prev) => ({ ...prev, [type]: hidden }))}
+                  onToggleRelation={(relation, hidden) => setHiddenEdgeKinds((prev) => ({ ...prev, [relation]: hidden }))}
+                  viewName={effectiveProjectViewName}
+                  onViewNameChange={(name) => {
+                    setProjectViewName(name)
+                    setProjectViewNameTouched(true)
+                    if (projectViewSaveStatus) setProjectViewSaveStatus('')
+                  }}
+                  saveBusy={projectViewSaveBusy || templateBusy}
+                  saveStatus={projectViewSaveStatus === t('graphPage.view.saveFailed')
+                    ? graphEditStatus || projectViewSaveStatus
+                    : projectViewSaveStatus || (
+                      activeProjectViewSpec && !legacySnapshotMode && !effectiveGraphData.nodes.length && !effectiveGraphData.edges.length
+                        ? t('graphPage.view.projectionEmpty')
+                        : ''
+                    )}
+                  onSave={() => void handleSaveCurrentProjectView()}
+                  newNodeType={newNodeType}
+                  onNewNodeTypeChange={(type) => { setNewNodeType(type); setTypeEditStatus('') }}
+                  onAddNode={handleAddNodeType}
+                  nodeTypeOptions={projectViewNodeTypeOptions}
+                  edgeDraft={relationTypeDraft}
+                  onEdgeDraftChange={(definition) => { setRelationTypeDraft(definition); setTypeEditStatus('') }}
+                  onAddEdge={handleAddRelationType}
+                  relationOptions={projectViewRelationOptions}
+                  typeStatus={typeEditStatus}
+                  advancedOpen={builderAdvancedOpen}
+                  onAdvancedToggle={() => setBuilderAdvancedOpen((prev) => !prev)}
+                  legendOpen={builderLegendOpen}
+                  onLegendToggle={() => setBuilderLegendOpen((prev) => !prev)}
+                />
+              ) : null}
               <button
                 type="button"
                 className={`gv2-select-mode-btn ${selectionEnabled ? '' : 'is-off'}`.trim()}
                 onClick={handleToggleSelectionMode}
+                title={templateBuilder ? t('graphPage.action.selectionMode') : undefined}
+                aria-label={templateBuilder ? t('graphPage.action.selectionMode') : undefined}
               >
-                {t('graphPage.action.selectionMode')}
+                {templateBuilder ? <MousePointer2 aria-hidden="true" size={14} /> : t('graphPage.action.selectionMode')}
               </button>
-              {templateBuilder ? (
+              {templateBuilder && builderAdvancedOpen ? (
               <button
                 type="button"
                 className={`gv2-select-mode-btn ${editMode ? '' : 'is-off'}`.trim()}
@@ -4366,17 +4418,22 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                   })
                 }}
                 title={t('graphPage.tooltip.autoFocusHide')}
+                aria-label={templateBuilder ? t('graphPage.action.autoFocusHide') : undefined}
               >
-                {t('graphPage.action.autoFocusHide')}
+                {templateBuilder ? <Crosshair aria-hidden="true" size={14} /> : t('graphPage.action.autoFocusHide')}
               </button>
               <button
                 type="button"
                 className={`gv2-select-mode-btn ${renderMode === 'projection3d' ? '' : 'is-off'}`.trim()}
                 onClick={() => requestRenderModeChange(renderMode === '2d' ? 'projection3d' : '2d')}
                 title={t('graphPage.tooltip.projectionMode')}
+                aria-label={templateBuilder ? (renderMode === 'projection3d' ? t('graphPage.action.mode2d') : t('graphPage.action.mode3d')) : undefined}
               >
-                {renderMode === 'projection3d' ? t('graphPage.action.mode2d') : t('graphPage.action.mode3d')}
+                {templateBuilder
+                  ? (renderMode === 'projection3d' ? <Square aria-hidden="true" size={14} /> : <Boxes aria-hidden="true" size={14} />)
+                  : (renderMode === 'projection3d' ? t('graphPage.action.mode2d') : t('graphPage.action.mode3d'))}
               </button>
+              {!templateBuilder || builderAdvancedOpen ? (
               <button
                 type="button"
                 className={`gv2-select-mode-btn ${showSymbolDebug ? '' : 'is-off'}`.trim()}
@@ -4385,6 +4442,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
               >
                 {t('graphPage.action.symbolDebug')}
               </button>
+              ) : null}
+              {!templateBuilder || builderAdvancedOpen ? (
               <button
                 type="button"
                 className={`gv2-select-mode-btn ${selectionPinned ? '' : 'is-off'}`.trim()}
@@ -4393,6 +4452,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
               >
                 {t('graphPage.action.pinSelection')}
               </button>
+              ) : null}
+              {!templateBuilder || builderAdvancedOpen ? (
               <button
                 type="button"
                 onClick={() => setTaskModalOpen(true)}
@@ -4400,6 +4461,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
               >
                 {t('graphPage.action.structuredTasks')}（{selectedNodeKeys.size}）
               </button>
+              ) : null}
+              {!templateBuilder || builderAdvancedOpen ? (
               <button
                 type="button"
                 className="gv2-select-mode-btn"
@@ -4411,7 +4474,15 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                 {clueChainBusy ? <LoaderCircle size={14} className="spinning" /> : <GitBranchPlus size={14} />}
                 {tf('graphPage.action.clueChainWithCount', { count: selectedNodeKeys.size || clueChainSeedNodes.length })}
               </button>
-              <button onClick={async () => { await graphData.refetch() }} disabled={graphData.isFetching}>{t('graphPage.action.refresh')}</button>
+              ) : null}
+              <button
+                onClick={async () => { await graphData.refetch() }}
+                disabled={graphData.isFetching}
+                title={templateBuilder ? t('graphPage.action.refresh') : undefined}
+                aria-label={templateBuilder ? t('graphPage.action.refresh') : undefined}
+              >
+                {templateBuilder ? <RefreshCw aria-hidden="true" size={14} className={graphData.isFetching ? 'spinning' : undefined} /> : t('graphPage.action.refresh')}
+              </button>
               <button
                 onClick={async () => {
                   if (!fullscreenWrapRef.current) return
@@ -4433,27 +4504,25 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                     console.warn('fullscreen_toggle_failed', error)
                   }
                 }}
+                title={templateBuilder ? (isFullscreen ? t('graphPage.action.exitFullscreen') : t('graphPage.action.fullscreen')) : undefined}
+                aria-label={templateBuilder ? (isFullscreen ? t('graphPage.action.exitFullscreen') : t('graphPage.action.fullscreen')) : undefined}
               >
-                {isFullscreen ? t('graphPage.action.exitFullscreen') : t('graphPage.action.fullscreen')}
+                {templateBuilder
+                  ? (isFullscreen ? <Minimize aria-hidden="true" size={14} /> : <Maximize aria-hidden="true" size={14} />)
+                  : (isFullscreen ? t('graphPage.action.exitFullscreen') : t('graphPage.action.fullscreen'))}
               </button>
-              <button onClick={() => setShowOverlay((v) => !v)}>{showOverlay ? t('graphPage.action.collapsePanel') : t('graphPage.action.expandPanel')}</button>
+              {!templateBuilder ? (
+                <button onClick={() => setShowOverlay((v) => !v)}>{showOverlay ? t('graphPage.action.collapsePanel') : t('graphPage.action.expandPanel')}</button>
+              ) : null}
               {nodeDragCapturedFx ? <span className="gv2-drag-captured">{t('graphPage.status.dragCaptured')}</span> : null}
               </div>
-            </div>
-            {renderMode === 'projection3d' && !isFullscreen ? (
-              <div className="gv2-graph-controls-hint">
-                {t('graphPage.hint.force3dControls')}
-              </div>
-            ) : null}
             <div
               ref={controlPanelRef}
-              className={`gv2-floating-controls ${showOverlay ? '' : 'is-collapsed'}`}
-              style={isCompactViewport ? undefined : { width: `${controlPanelWidth}px`, maxHeight: `${controlPanelHeight}px` }}
+              className={`gv2-floating-controls ${shouldShowControlPanel ? '' : 'is-collapsed'}`}
+              style={isCompactViewport ? undefined : { width: `${controlPanelWidth}px`, height: `${controlPanelHeight}px` }}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="gv2-floating-resizer gv2-floating-resizer--left" onMouseDown={onControlResizeStart} />
-              <div className="gv2-floating-resizer gv2-floating-resizer--bottom" onMouseDown={onControlResizeBottomStart} />
               <section className={`gv2-control-section ${controlSectionOpen.view ? '' : 'is-collapsed'}`}>
                 <button
                   type="button"
@@ -4593,7 +4662,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       />
                       <span>{visualDraft.edgeAlpha}%</span>
                     </label>
-                    <label className="gv2-control-chip gv2-checkbox">
+                    {renderMode === '2d' ? <label className="gv2-control-chip gv2-checkbox">
                       <input
                         type="checkbox"
                         checked={visualDraft.showLabel}
@@ -4603,7 +4672,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         }}
                       />
                       {t('graphPage.control.showLabels')}
-                    </label>
+                    </label> : null}
                     <div className="gv2-control-chip">
                       <span>{t('graphPage.status.selected')} {selectedNodeKeys.size}</span>
                       <button
@@ -4623,7 +4692,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                 ) : null}
               </section>
 
-              {!detachProjectionControls ? projectionControlSection : null}
 
               {templateBuilder ? (
               <section className={`gv2-control-section ${controlSectionOpen.edit ? '' : 'is-collapsed'}`}>
@@ -4654,6 +4722,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         className="secondary"
                         onClick={() => {
                           resetDraft()
+                          setDeclaredNodeTypes(activeProjectViewSpec?.declaredNodeTypes || [])
+                          setDeclaredRelationTypes(activeProjectViewSpec?.declaredRelationTypes || [])
+                          setTypeEditStatus('')
                           setGraphEditStatus(t('graphPage.status.resetRemoteSnapshot'))
                         }}
                         disabled={!isDraftDirty}
@@ -4876,7 +4947,17 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       <input value={templateNameDraft} data-testid="graph-template-create-name" onChange={(e) => setTemplateNameDraft(e.target.value)} placeholder={t('graphPage.placeholder.templateName')} disabled={!editMode || templateBusy} />
                     </label>
                     <div className="gv2-control-chip">
-                      <button type="button" data-testid="graph-template-create" onClick={() => void handleCreateTemplate()} disabled={!editMode || templateBusy || !templateNameDraft.trim()}>{t('graphPage.action.createTemplate')}</button>
+                      <button
+                        type="button"
+                        data-testid="graph-template-create"
+                        onClick={() => {
+                          setLegacySnapshotMode(true)
+                          void handleCreateTemplate()
+                        }}
+                        disabled={!editMode || templateBusy || !templateNameDraft.trim()}
+                      >
+                        {t('graphPage.action.createTemplate')}
+                      </button>
                       <button type="button" className="secondary" onClick={() => void loadTemplateList()} disabled={!editMode || templateBusy}>{t('graphPage.action.refreshTemplateList')}</button>
                     </div>
                     <label className="gv2-control-chip">
@@ -5228,6 +5309,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                 </button>
                 {controlSectionOpen.filter ? (
                   <div className="gv2-control-section-body">
+                    {supportsBusinessFilters ? <>
                     <label className="gv2-control-chip">
                       {t('graphPage.field.startDate')}
                       <input
@@ -5280,6 +5362,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         <input value={game} placeholder={t('graphPage.placeholder.game')} onChange={(e) => setGame(e.target.value)} />
                       </label>
                     ) : null}
+                    </> : null}
                     <label className="gv2-control-chip">
                       {t('graphPage.field.limit')}
                       <input
@@ -5377,7 +5460,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                           setPlatform('')
                           setTopic('')
                           setGame('')
-                          const resetLimit = templateBuilder ? 50 : GRAPH_LIMIT_DEFAULT
+                          const resetLimit = templateBuilder ? GRAPH_LIMIT_MAX : GRAPH_LIMIT_DEFAULT
                           setLimit(resetLimit)
                           setAppliedFilters({
                             startDate: '',
@@ -5404,29 +5487,26 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                   </div>
                 ) : null}
               </section>
+              {!isCompactViewport ? (
+                <GraphPanelResizeHandle
+                  panelRef={controlPanelRef}
+                  onResize={(width, height) => {
+                    setControlPanelWidth(clampControlPanelWidth(width, window.innerWidth))
+                    setControlPanelHeight(height)
+                  }}
+                  anchor="right"
+                  label={tf('graphPage.view.resizeWindow', { window: t('graphPage.section.view') })}
+                  testId="graph-controls-resize"
+                />
+              ) : null}
             </div>
-            {detachProjectionControls ? (
-              <div
-                ref={projectionPanelRef}
-                className={`gv2-floating-projection-left ${showOverlay ? '' : 'is-collapsed'}`}
-                style={isCompactViewport ? undefined : { width: `${projectionPanelWidth}px`, maxHeight: `${projectionPanelHeight}px` }}
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="gv2-floating-resizer gv2-floating-resizer--right" onMouseDown={onProjectionResizeStart} />
-                <div className="gv2-floating-resizer gv2-floating-resizer--bottom" onMouseDown={onProjectionResizeBottomStart} />
-                {projectionControlSection}
-              </div>
-            ) : null}
             <div
               ref={legendPanelRef}
-              className={`gv2-legend-float ${showOverlay ? '' : 'is-collapsed'}`}
-              style={isCompactViewport ? undefined : { width: `${legendPanelWidth}px`, maxHeight: `${legendPanelHeight}px` }}
+              className={`gv2-legend-float ${shouldShowLegendPanel ? '' : 'is-collapsed'}`}
+              style={isCompactViewport ? undefined : { width: `${legendPanelWidth}px`, height: `${legendPanelHeight}px` }}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="gv2-floating-resizer gv2-floating-resizer--right" onMouseDown={onLegendResizeStart} />
-              <div className="gv2-floating-resizer gv2-floating-resizer--bottom" onMouseDown={onLegendResizeBottomStart} />
               <div className="gv2-legend-groups">
                 {legendGroups.map(([group, types]) => {
                   const groupColor = nodeTypeColor[types[0]] || '#7dd3fc'
@@ -5551,6 +5631,18 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                     ))}
                   </div>
                 </div>
+              ) : null}
+              {!isCompactViewport ? (
+                <GraphPanelResizeHandle
+                  panelRef={legendPanelRef}
+                  onResize={(width, height) => {
+                    setLegendPanelWidth(width)
+                    setLegendPanelHeight(height)
+                  }}
+                  anchor="left"
+                  label={tf('graphPage.view.resizeWindow', { window: t('graphPage.legend.edge') })}
+                  testId="graph-legend-resize"
+                />
               ) : null}
             </div>
 
@@ -5714,9 +5806,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                 </button>
               </div>
               <div className="gv2-node-card-body">
-                  {selectedDocumentId && selectedDocument.isLoading ? <LoaderCircle size={18} aria-label={t('graphPage.action.refresh')} /> : null}
-                  {selectedDocument.error ? <p role="alert">{selectedDocument.error.message}</p> : null}
-                  {selectedDocument.data ? <GraphBusinessCardSections node={selectedDocument.data as unknown as Record<string, unknown>} /> : null}
+                  {selectedMaterialId && selectedMaterial.isLoading ? <LoaderCircle size={18} aria-label={t('graphPage.action.refresh')} /> : null}
+                  {selectedMaterial.error ? <p role="alert">{selectedMaterial.error.message}</p> : null}
+                  {selectedMaterial.data ? <GraphBusinessCardSections node={selectedMaterial.data as unknown as Record<string, unknown>} /> : null}
                   <div className="gv2-node-grid">
                     {cardFields(selectedNode, cardFieldLabel).map(([k, v]) => (
                       <div key={`${k}-${v}`} className="gv2-node-grid-item">
@@ -5916,11 +6008,22 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
             <div className="gv2-macro-stat"><span>{t('graphPage.macro.selectedNodes')}</span><strong>{selectedNodeKeys.size}</strong></div>
             <div className="gv2-macro-stat"><span>{t('graphPage.macro.visibleNow')}</span><strong>{topology.visibleNodes.length} / {topology.visibleEdges.length}</strong></div>
           </div>
-          <GraphTopologyPanel
-            graphIdentity={graphKind}
-          />
-        </div>
-      </section>
+          {templateBuilder ? (
+            <ProjectGraphTypeView
+              nodes={effectiveGraphData.nodes}
+              edges={effectiveGraphData.edges}
+              declaredNodeTypes={visibleTypeDeclarations.nodeTypes}
+              declaredRelationTypes={visibleTypeDeclarations.relationTypes}
+              nodeTypeColor={nodeTypeColor}
+              typeLabel={projectTypeLabel}
+              title={t('graphPage.view.typeGraph')}
+              emptyLabel={t('graphPage.view.typeGraphEmpty')}
+              fitLabel={t('graphPage.view.fitTypeGraph')}
+              relationsLabel={t('graphPage.view.edgeTypes')}
+              allRelationsLabel={t('graphPage.view.allRelationTypes')}
+              errorLabel={t('graphPage.error.renderFailed')}
+            />
+          ) : null}
     </div>
   )
 }

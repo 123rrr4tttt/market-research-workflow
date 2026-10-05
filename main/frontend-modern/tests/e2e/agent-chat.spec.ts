@@ -48,16 +48,23 @@ async function mockShellApis(page: Page, codexStatusOk = true) {
       body: '<!doctype html><html><body><main id="codex-webui">Codex WebUI</main></body></html>',
     }),
   )
+  await page.route('http://127.0.0.1:8172/?mrw=macro-host-v1', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: '<!doctype html><html><body><main id="codex-webui">Codex WebUI</main></body></html>',
+    }),
+  )
 }
 
 async function expectCodexPage(page: Page) {
   await expect(page.getByTestId('codex-agent-page')).toBeVisible()
-  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', '/codex/')
+  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', 'http://127.0.0.1:8172/?mrw=macro-host-v1')
   await expect(page.locator('.agent-chat-page')).toHaveCount(0)
   await expect(page.getByTestId('agent-chat-compat-link')).toHaveCount(0)
 }
 
-test('canonical agent route mounts the embedded Codex WebUI', async ({ page }) => {
+test('canonical local agent route mounts the host Codex WebUI', async ({ page }) => {
   await mockShellApis(page)
   await page.goto('/#/workbench/agent')
 
@@ -124,7 +131,7 @@ test('local token-sink-only host identity mounts the direct loopback WebUI', asy
     proxiedFrameRequested = true
     return route.fulfill({ status: 200, contentType: 'text/html', body: '' })
   })
-  await page.route('http://127.0.0.1:8172/', (route) =>
+  await page.route('http://127.0.0.1:8172/?mrw=macro-host-v1', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'text/html',
@@ -137,29 +144,36 @@ test('local token-sink-only host identity mounts the direct loopback WebUI', asy
   await expect(page.getByTestId('codex-agent-page')).toBeVisible()
   await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute(
     'src',
-    'http://127.0.0.1:8172/',
+    'http://127.0.0.1:8172/?mrw=macro-host-v1',
   )
   await expect(page.getByTestId('codex-agent-host-auth')).toHaveText('宿主 CLI 已授权')
   await expect(page.getByTestId('codex-agent-auth-panel')).toHaveCount(0)
   expect(proxiedFrameRequested).toBe(false)
 })
 
-test('remote token-sink-only host identity remains on the connection panel', async ({ page }) => {
-  await page.route('http://remote.mrw.test:14173/**', async (route) => {
+async function mockRemoteOrigin(page: Page) {
+  const baseURL = test.info().project.use.baseURL!
+  const remoteOrigin = `http://remote.mrw.test:${new URL(baseURL).port}`
+  await page.route(`${remoteOrigin}/**`, async (route) => {
     const requestUrl = new URL(route.request().url())
-    const localUrl = `http://127.0.0.1:14173${requestUrl.pathname}${requestUrl.search}`
+    const localUrl = `${baseURL}${requestUrl.pathname}${requestUrl.search}`
     return route.fulfill({ response: await page.request.get(localUrl) })
   })
+  return remoteOrigin
+}
+
+test('remote token-sink-only host identity remains on the connection panel', async ({ page }) => {
+  const remoteOrigin = await mockRemoteOrigin(page)
   await mockCommonShellApis(page, {
     authenticated: false,
     token_sink_authenticated: true,
     codex_oauth_enabled: true,
   })
-  await page.route('http://127.0.0.1:8172/', (route) =>
+  await page.route('http://127.0.0.1:8172/?mrw=macro-host-v1', (route) =>
     route.fulfill({ status: 200, contentType: 'text/html', body: '' }),
   )
 
-  await page.goto('http://remote.mrw.test:14173/#/workbench/agent')
+  await page.goto(`${remoteOrigin}/#/workbench/agent`)
 
   await expect(page.getByTestId('codex-agent-page')).toBeVisible()
   await expect(page.getByTestId('codex-agent-auth-panel')).toContainText(
@@ -169,7 +183,8 @@ test('remote token-sink-only host identity remains on the connection panel', asy
   await expect(page.getByTestId('codex-agent-frame')).toHaveCount(0)
 })
 
-test('failed browser-auth status stays retryable before mounting WebUI', async ({ page }) => {
+test('remote browser-auth status stays retryable before mounting WebUI', async ({ page }) => {
+  const remoteOrigin = await mockRemoteOrigin(page)
   let allowAuthenticatedStatus = false
   await page.route('**/api/v1/health**', (route) =>
     route.fulfill({
@@ -217,7 +232,7 @@ test('failed browser-auth status stays retryable before mounting WebUI', async (
     }),
   )
 
-  await page.goto('/#/workbench/agent')
+  await page.goto(`${remoteOrigin}/#/workbench/agent`)
   await expect(page.getByTestId('codex-agent-page')).toBeVisible()
   await expect(page.getByTestId('codex-agent-frame')).toHaveCount(0)
   await expect(page.getByTestId('codex-agent-auth-panel')).toContainText('浏览器认证状态读取失败')
@@ -226,5 +241,53 @@ test('failed browser-auth status stays retryable before mounting WebUI', async (
 
   allowAuthenticatedStatus = true
   await page.getByTestId('codex-agent-auth-retry').click()
-  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', '/codex/')
+  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', '/codex/?mrw=macro-host-v1')
+})
+
+test('local iframe survives auth expiry and status failures without reloading', async ({ page }) => {
+  await mockShellApis(page)
+  let status: object | null = { authenticated: true, token_sink_authenticated: true }
+  await page.route('**/api/v1/codex-auth/status**', (route) =>
+    route.fulfill({
+      status: status ? 200 : 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: status ? 'ok' : 'unavailable', data: status }),
+    }),
+  )
+  let frameLoads = 0
+  await page.route('http://127.0.0.1:8172/?mrw=macro-host-v1', (route) => {
+    frameLoads += 1
+    return route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: '<!doctype html><html><body><input aria-label="Draft" /></body></html>',
+    })
+  })
+  await page.goto('/#/workbench/agent')
+  const draft = page.frameLocator('[data-testid="codex-agent-frame"]').getByLabel('Draft')
+  await draft.fill('Keep this conversation open')
+
+  for (const nextStatus of [
+    { authenticated: false, token_sink_authenticated: true },
+    { authenticated: false, token_sink_authenticated: false },
+    null,
+    { authenticated: true, token_sink_authenticated: true },
+  ]) {
+    status = nextStatus
+    const response = page.waitForResponse('**/api/v1/codex-auth/status**')
+    await page.getByRole('button', { name: '刷新连接状态', exact: true }).click()
+    await response
+    await expect(page.getByRole('button', { name: '刷新连接状态', exact: true })).toBeEnabled()
+    await expectCodexPage(page)
+    await expect(draft).toHaveValue('Keep this conversation open')
+  }
+  expect(frameLoads).toBe(1)
+})
+
+test('local WebUI mounts even when the initial status request fails', async ({ page }) => {
+  await mockShellApis(page, false)
+  await page.goto('/#/workbench/agent')
+  await expectCodexPage(page)
+  await expect(page.getByTestId('codex-agent-auth-panel')).toHaveCount(0)
+  await expect(page.getByTestId('codex-agent-host-auth')).toHaveText('宿主 CLI 状态未知')
 })

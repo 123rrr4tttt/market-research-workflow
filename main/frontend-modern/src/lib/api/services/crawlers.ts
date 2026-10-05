@@ -8,6 +8,24 @@ import type {
   CrawlerProjectRollbackPayload,
 } from '../../types'
 
+export type CrawlerAgentModule = {
+  id: string
+  title: string
+  status: 'registered' | 'unavailable'
+  available: boolean
+  reason?: string | null
+  cell_ref: string
+  targets: Array<{ id: string; label: string }>
+  methods: Array<{ id: string; title: string }>
+  operations: Array<{ id: string; title: string; effect: string }>
+}
+
+export async function fetchCrawlerAgentModules(projectKey: string) {
+  const query = new URLSearchParams({ project_key: projectKey })
+  const data = await httpGet<{ items?: CrawlerAgentModule[] }>(`${endpoints.crawler.agentModules}?${query}`)
+  return asList<CrawlerAgentModule>(data)
+}
+
 export async function fetchCrawlerProjects() {
   const data = await httpGet<CrawlerProjectItem[] | { items?: CrawlerProjectItem[] }>(endpoints.crawler.projects)
   return asList<CrawlerProjectItem>(data)
@@ -31,30 +49,30 @@ export async function importCrawlerProject(payload: CrawlerProjectImportPayload)
 
 export async function deployCrawlerProject(crawlerProjectKey: string, payload: CrawlerProjectDeployPayload = {}) {
   const data = await httpPost<
-    CrawlerDeployRunItem & { task_id?: string; run?: CrawlerDeployRunItem } & Record<string, unknown>
+    CrawlerDeployRunItem & { task_id?: string; async?: boolean; trace_id?: string; run?: CrawlerDeployRunItem }
   >(endpoints.crawler.deploy(crawlerProjectKey), {
     requested_version: payload.requested_version ?? null,
     planner_mode: payload.planner_mode ?? 'heuristic',
     async_mode: payload.async_mode ?? true,
   })
   if (data && typeof data === 'object' && 'run' in data && data.run && typeof data.run === 'object') {
-    return { ...(data.run as CrawlerDeployRunItem), task_id: (data as { task_id?: string }).task_id }
+    return { ...data.run, task_id: data.task_id, async: data.async, trace_id: data.trace_id }
   }
-  return data as CrawlerDeployRunItem & { task_id?: string }
+  return data
 }
 
 export async function rollbackCrawlerProject(crawlerProjectKey: string, payload: CrawlerProjectRollbackPayload = {}) {
   const data = await httpPost<
-    CrawlerDeployRunItem & { task_id?: string; run?: CrawlerDeployRunItem } & Record<string, unknown>
+    CrawlerDeployRunItem & { task_id?: string; async?: boolean; trace_id?: string; run?: CrawlerDeployRunItem }
   >(endpoints.crawler.rollback(crawlerProjectKey), {
     to_version: payload.to_version ?? null,
     planner_mode: payload.planner_mode ?? 'heuristic',
     async_mode: payload.async_mode ?? true,
   })
   if (data && typeof data === 'object' && 'run' in data && data.run && typeof data.run === 'object') {
-    return { ...(data.run as CrawlerDeployRunItem), task_id: (data as { task_id?: string }).task_id }
+    return { ...data.run, task_id: data.task_id, async: data.async, trace_id: data.trace_id }
   }
-  return data as CrawlerDeployRunItem & { task_id?: string }
+  return data
 }
 
 export async function fetchCrawlerDeployRuns(params?: { crawlerProjectKey?: string; limit?: number }) {

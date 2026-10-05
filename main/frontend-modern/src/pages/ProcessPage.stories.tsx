@@ -28,7 +28,7 @@ function applyProcessMocks(mode: 'ready' | 'empty' | 'loading' | 'log-error') {
           started_at: '2026-04-02T18:00:00Z',
           updated_at: '2026-04-02T18:05:00Z',
           kwargs: { topic: '储能' },
-          progress: { stage: 'crawl', percent: 62 },
+          progress: { stage: 'crawl', completed: 12, total: 20 },
           display_meta: { inserted: 12, rejected_count: 1 },
         },
       ],
@@ -58,7 +58,7 @@ function applyProcessMocks(mode: 'ready' | 'empty' | 'loading' | 'log-error') {
       worker: 'worker.ingest',
       started_at: '2026-04-02T18:00:00Z',
       kwargs: { topic: '储能' },
-      progress: { stage: 'crawl', percent: 62 },
+      progress: { stage: 'crawl', completed: 12, total: 20 },
       result: { inserted: 12 },
       display_meta: { inserted: 12, rejected_count: 1 },
     } as never)
@@ -128,7 +128,7 @@ function createProcessViewProps(overrides: Partial<ProcessPageViewProps> = {}): 
           worker: 'worker.ingest',
           started_at: '2026-04-02T18:00:00Z',
           kwargs: { topic: '储能' },
-          progress: { stage: 'crawl', percent: 62 },
+          progress: { stage: 'crawl', completed: 12, total: 20 },
           display_meta: { inserted: 12, rejected_count: 1 },
         },
       ],
@@ -159,11 +159,14 @@ function createProcessViewProps(overrides: Partial<ProcessPageViewProps> = {}): 
       worker: 'worker.ingest',
       started_at: '2026-04-02T18:00:00Z',
       kwargs: { topic: '储能' },
-      progress: { stage: 'crawl', percent: 62 },
+      progress: { stage: 'crawl', completed: 12, total: 20 },
       result: { inserted: 12 },
       display_meta: { inserted: 12, rejected_count: 1 },
     },
+    taskDetailLoading: false,
+    taskDetailError: false,
     taskLogsText: 'worker.ingest: fetch queue -> parse queue -> persist',
+    taskLogsLoading: false,
     taskLogsError: false,
     cancelPending: false,
     isRefreshing: false,
@@ -239,7 +242,8 @@ export const ContainerDefault: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getByText('任务调度视图')).toBeInTheDocument()
     await userEvent.click(canvas.getByRole('button', { name: '详情' }))
-    await expect(canvas.getByText(/任务详情 job-123/)).toBeInTheDocument()
+    await expect(canvas.getByRole('dialog', { name: 'market_ingest' })).toBeInTheDocument()
+    await expect(canvas.getByRole('progressbar', { name: /进度/ })).toHaveAttribute('aria-valuenow', '12')
   },
 }
 
@@ -281,6 +285,9 @@ export const ContainerLogErrorState: Story = {
   },
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: '详情' }))
+    await expect(canvas.getByRole('dialog', { name: 'market_ingest' })).toBeInTheDocument()
+    await expect(canvas.getByText('日志加载失败')).not.toBeVisible()
+    await userEvent.click(canvas.getByText('技术诊断'))
     await expect(canvas.getByText('日志加载失败')).toBeInTheDocument()
   },
 }
@@ -292,6 +299,7 @@ export const ContainerProcessingFocus: Story = {
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText('数据处理任务视图')).toBeInTheDocument()
+    await expect(canvas.getByRole('tab', { name: '进行中' })).toHaveAttribute('aria-selected', 'true')
   },
 }
 

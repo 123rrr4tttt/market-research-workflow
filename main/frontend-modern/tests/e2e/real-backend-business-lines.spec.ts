@@ -438,7 +438,7 @@ test('real-backend business line smoke [line_key=runtime_ops] classifies endpoin
   await probeEndpoint(request, `${lineKey} admin stats`, '/api/v1/admin/stats', {
     requireData: (data) => requireObject(data, 'Ops admin stats'),
   })
-  await probeEndpoint(request, `${lineKey} documents`, '/api/v1/admin/documents/list', {
+  await probeEndpoint(request, `${lineKey} documents`, '/api/v1/admin/materials/list', {
     method: 'POST',
     body: { page: 1, page_size: 20 },
     requireData: (data) => requireObject(data, 'Ops documents list'),

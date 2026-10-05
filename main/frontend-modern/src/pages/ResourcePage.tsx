@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Database, LoaderCircle, Play, Radar, RefreshCw, Save, Search } from 'lucide-react'
+import { CheckCheck, ChevronDown, ChevronRight, Database, LoaderCircle, Play, Radar, RefreshCw, Save, Search, Settings2 } from 'lucide-react'
 import {
   bindSiteEntry,
   discoverSiteEntriesAdvanced,
@@ -11,6 +11,7 @@ import {
   listSourceLibraryItemsWithScope,
   listSiteEntriesWithFilters,
   registerExternalProject,
+  getProjectKey,
   refreshSourceLibraryItem,
   recommendSiteEntriesBatch,
   recommendSiteEntry,
@@ -21,6 +22,8 @@ import {
   upsertSiteEntry,
 } from '../lib/api'
 import { patchSiteEntryLifecycle } from '../lib/api/domains/resource-source'
+import { TaskSubmissionNotice } from '../components/TaskSubmissionNotice'
+import { useTaskSubmission } from '../hooks/useTaskSubmission'
 import { translate, useAppLocale, type MessageKey } from '../app/platform/i18n'
 import { queryKeys } from '../lib/queryKeys'
 import type {
@@ -32,6 +35,8 @@ import type {
   SourceLibraryScope,
 } from '../lib/types'
 
+import './resource-page-management.css'
+
 type ResourcePageProps = {
   projectKey: string
   variant?: 'resource' | 'extract'
@@ -39,6 +44,20 @@ type ResourcePageProps = {
 
 type ResourceMessageKey = MessageKey
 type ResourceFactFormatter = (key: ResourceMessageKey, values: Record<string, string | number | boolean>) => string
+type ResourceActiveView = 'source' | 'sites' | 'urls'
+
+type ReviewResult = {
+  state: 'success' | 'error'
+  message?: string
+}
+
+type ReviewBatchState = {
+  total: number
+  success: number
+  failed: number
+  cancelled?: boolean
+  failures: SiteEntryItem[]
+}
 
 const DEFAULT_EXTERNAL_HINTS_JSON = JSON.stringify({ query_terms: [] }, null, 2)
 
@@ -498,6 +517,10 @@ function getResultTraceId(payload: Record<string, unknown>) {
   return compactValue(payload.trace_id || meta.trace_id || traceChain.trace_id)
 }
 
+function getSiteEntryReviewKey(item: SiteEntryItem) {
+  return `${item.scope || 'project'}:${item.site_url || item.id || ''}`
+}
+
 export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageProps) {
   const locale = useAppLocale()
   const queryClient = useQueryClient()
@@ -508,6 +531,19 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
     [locale],
   )
   const errorMessage = (error: unknown) => (error instanceof Error ? error.message : t('resourcePage.error.unknown'))
+  const taskInvalidationKeys = useMemo(
+    () => [
+      queryKeys.resource.urlsBase(projectKey),
+      queryKeys.resource.siteEntriesBase(projectKey),
+      queryKeys.sourceLibrary.itemsBase(projectKey),
+      queryKeys.sourceLibrary.itemsGroupedBase(projectKey),
+    ],
+    [projectKey],
+  )
+  const taskSubmission = useTaskSubmission({
+    projectKey,
+    invalidateOnSettled: taskInvalidationKeys,
+  })
 
   const [sourceScope, setSourceScope] = useState<SourceLibraryScope>('effective')
   const [handlerSearch, setHandlerSearch] = useState('')
@@ -540,6 +576,20 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
 
   const [resourceUrlPage, setResourceUrlPage] = useState(1)
   const [resourceSitePage, setResourceSitePage] = useState(1)
+  const [activeView, setActiveView] = useState<ResourceActiveView>(variant === 'extract' ? 'urls' : 'source')
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [discoveryOptionsOpen, setDiscoveryOptionsOpen] = useState(false)
+  const [expandedSiteEntryKey, setExpandedSiteEntryKey] = useState('')
+  const [reviewBusy, setReviewBusy] = useState(false)
+  const [reviewResults, setReviewResults] = useState<Record<string, ReviewResult>>({})
+  const [reviewBatch, setReviewBatch] = useState<ReviewBatchState | null>(null)
+
+  useEffect(() => {
+    setReviewBatch(null)
+    setReviewResults({})
+    setExpandedSiteEntryKey('')
+    setReviewBusy(false)
+  }, [projectKey])
 
   const [newSiteUrl, setNewSiteUrl] = useState('')
   const [newSiteEntryType, setNewSiteEntryType] = useState('domain_root')
@@ -644,6 +694,8 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
     try {
       const result = await fn()
       const payload = result && typeof result === 'object' ? (result as Record<string, unknown>) : {}
+      const nestedResult = asRecord(payload.result)
+      const taskPayload = nestedResult.task_id !== undefined ? nestedResult : payload
       const details = [
         'task_id',
         'trace_id',
@@ -666,17 +718,20 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
         'copied',
         'errors',
       ]
-        .filter((key) => payload[key] !== undefined && payload[key] !== null && payload[key] !== '')
-        .map((key) => `${key}=${String(payload[key])}`)
+        .filter((key) => taskPayload[key] !== undefined && taskPayload[key] !== null && taskPayload[key] !== '')
+        .map((key) => `${key}=${String(taskPayload[key])}`)
         .join(' | ')
+      const tracked = taskSubmission.track(taskPayload, name)
 
       setActionMessage(
-        payload.task_id && payload.async !== false
+        tracked
           ? tf('resourcePage.status.submittedWithDetails', { action: name, details })
           : details
           ? tf('resourcePage.status.completedWithDetails', { action: name, details })
           : tf('resourcePage.status.completed', { action: name }),
       )
+
+      if (tracked) return
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.resource.urlsBase(projectKey) }),
@@ -922,6 +977,66 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
     }
   }
 
+  const submitSiteEntryReviews = async (items: SiteEntryItem[], lifecycleState: ResourcePoolSiteEntryLifecycleState) => {
+    const candidates = items.filter((item) => Boolean(item.site_url))
+    if (!candidates.length) {
+      setActionMessage(t('resourcePage.review.noEligibleCurrentPage'))
+      return
+    }
+
+    setReviewBusy(true)
+    setActionError('')
+    setReviewBatch(null)
+    setReviewResults({})
+    setActionMessage(t('resourcePage.status.ready'))
+
+    const failures: SiteEntryItem[] = []
+    let success = 0
+    let cancelled = false
+    const cancelWithCurrentCounts = () => {
+      cancelled = true
+      const processed = success + failures.length
+      const remaining = Math.max(0, candidates.length - processed)
+      setReviewBatch(getProjectKey() === projectKey
+        ? { total: candidates.length, success, failed: failures.length, cancelled: true, failures }
+        : null)
+      setActionMessage(tf('resourcePage.review.batchCancelled', { success, processed, remaining }))
+    }
+
+    for (const item of candidates) {
+      if (getProjectKey() !== projectKey) {
+        cancelWithCurrentCounts()
+        break
+      }
+      const key = getSiteEntryReviewKey(item)
+      try {
+        await reviewSiteEntryLifecycle(item, lifecycleState)
+        if (getProjectKey() !== projectKey) {
+          cancelWithCurrentCounts()
+          break
+        }
+        success += 1
+        setReviewResults((previous) => ({ ...previous, [key]: { state: 'success' } }))
+      } catch (error) {
+        failures.push(item)
+        setReviewResults((previous) => ({
+          ...previous,
+          [key]: { state: 'error', message: errorMessage(error) },
+        }))
+      }
+    }
+
+    if (!cancelled) {
+      const failed = failures.length
+      setReviewBatch({ total: candidates.length, success, failed, failures })
+      setActionMessage(tf('resourcePage.review.batchSummary', { success, total: candidates.length, failed }))
+    }
+    if (success && !cancelled) {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.resource.siteEntriesBase(projectKey) })
+    }
+    setReviewBusy(false)
+  }
+
   const runAcceptedSiteEntryCollect = async (item: SiteEntryItem) => {
     if (!item.site_url) throw new Error(t('resourcePage.error.missingSiteUrl'))
     const action = getSiteEntryCollectAction(item)
@@ -949,13 +1064,15 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
       },
     })
     const resultPayload = result && typeof result === 'object' ? (result as Record<string, unknown>) : {}
-    const resultGuard = asRecord(resultPayload.single_source_guard || resultPayload.strict_source || singleSourceGuard)
-    const resultExecutionFact = asRecord(resultPayload.execution_fact)
+    const terminalPayload = asRecord(resultPayload.result)
+    const effectiveResult = Object.keys(terminalPayload).length ? { ...terminalPayload, ...resultPayload } : resultPayload
+    const resultGuard = asRecord(effectiveResult.single_source_guard || effectiveResult.strict_source || singleSourceGuard)
+    const resultExecutionFact = asRecord(effectiveResult.execution_fact)
     return {
-      ...resultPayload,
+      ...effectiveResult,
       handler_key: handlerKey,
       site_url: item.site_url,
-      trace_id: getResultTraceId(resultPayload),
+      trace_id: getResultTraceId(effectiveResult),
       report_source_ref: reportSourceRef || compactValue(resultExecutionFact.report_source_ref),
       guard_status: compactValue(resultGuard.status || resultExecutionFact.guard_status),
       allowed_count: compactValue(resultGuard.allowed_count),
@@ -985,46 +1102,70 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
       report_source_ref: reportSourceRef || '-',
     }
   }
+  const showUrlFilters = variant === 'extract' || activeView === 'urls'
+  const showSiteFilters = variant === 'resource' && activeView === 'sites'
 
   return (
     <div className={`content-stack resource-page resource-page--${variant}`}>
       <section className="panel">
         <div className="panel-header">
-          <h2>{t(variant === 'extract' ? 'resourcePage.title.extract' : 'resourcePage.title.resource')}</h2>
-          <span className="chip">{variant === 'extract' ? 'extract' : 'resource'}</span>
-        </div>
-      </section>
-      <section className="panel">
-        <div className="panel-header">
-          <h2>{t('resourcePage.title.resource')}</h2>
-          <span className="chip">{tf('resourcePage.meta.project', { projectKey })}</span>
+          <div>
+            <h2>{t(variant === 'extract' ? 'resourcePage.title.extract' : 'resourcePage.title.resource')}</h2>
+            <span className="chip">{tf('resourcePage.meta.project', { projectKey })}</span>
+          </div>
+          {variant === 'resource' ? (
+            <div className="resource-page__tabs" role="tablist" aria-label={t('resourcePage.section.currentResources')}>
+              {([
+                ['source', 'resourcePage.view.sourceItems'],
+                ['sites', 'resourcePage.view.siteEntries'],
+                ['urls', 'resourcePage.view.urls'],
+              ] as const).map(([view, key]) => (
+                <button
+                  key={view}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeView === view}
+                  className={activeView === view ? 'is-active' : undefined}
+                  onClick={() => setActiveView(view)}
+                >
+                  {t(key)}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
 
-        <div className="form-grid cols-4">
-          <label>
-            <span>{t('resourcePage.field.domain')}</span>
-            <input
-              value={domainFilter}
-              onChange={(e) => handleDomainFilterChange(e.target.value)}
-              placeholder={t('resourcePage.placeholder.domain')}
-            />
-          </label>
-          <label>
-            <span>{t('resourcePage.field.source')}</span>
-            <input
-              value={sourceFilter}
-              onChange={(e) => handleSourceFilterChange(e.target.value)}
-              placeholder={t('resourcePage.placeholder.source')}
-            />
-          </label>
-          <label>
-            <span>{t('resourcePage.field.entryType')}</span>
-            <input
-              value={entryTypeFilter}
-              onChange={(e) => handleEntryTypeFilterChange(e.target.value)}
-              placeholder={t('resourcePage.placeholder.entryType')}
-            />
-          </label>
+        <div className={`form-grid resource-page__filters${showUrlFilters || showSiteFilters ? ' cols-3' : ' cols-1'}`}>
+          {showUrlFilters || showSiteFilters ? (
+            <label>
+              <span>{t('resourcePage.field.domain')}</span>
+              <input
+                value={domainFilter}
+                onChange={(e) => handleDomainFilterChange(e.target.value)}
+                placeholder={t('resourcePage.placeholder.domainFilter')}
+              />
+            </label>
+          ) : null}
+          {showUrlFilters ? (
+            <label>
+              <span>{t('resourcePage.field.source')}</span>
+              <input
+                value={sourceFilter}
+                onChange={(e) => handleSourceFilterChange(e.target.value)}
+                placeholder={t('resourcePage.placeholder.sourceFilter')}
+              />
+            </label>
+          ) : null}
+          {showSiteFilters ? (
+            <label>
+              <span>{t('resourcePage.field.entryType')}</span>
+              <input
+                value={entryTypeFilter}
+                onChange={(e) => handleEntryTypeFilterChange(e.target.value)}
+                placeholder={t('resourcePage.placeholder.entryTypeFilter')}
+              />
+            </label>
+          ) : null}
           <div className="inline-actions">
             <button
               onClick={() => {
@@ -1064,28 +1205,39 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
           </button>
         </div>
 
-        <div className="form-grid cols-4" style={{ marginTop: 12 }}>
-          <label>
-            <span>{t('resourcePage.field.limitDomains')}</span>
-            <input
-              value={discoverLimitDomains}
-              onChange={(e) => setDiscoverLimitDomains(e.target.value)}
-              placeholder={t('resourcePage.placeholder.limit')}
-            />
-          </label>
-          <label>
-            <span>{t('resourcePage.field.dryRun')}</span>
-            <select value={discoverDryRun ? 'true' : 'false'} onChange={(e) => setDiscoverDryRun(e.target.value === 'true')}>
-              <option value="false">false</option>
-              <option value="true">true</option>
-            </select>
-          </label>
-        </div>
+        <details
+          className="resource-page__discovery-options"
+          open={discoveryOptionsOpen}
+          onToggle={(event) => setDiscoveryOptionsOpen(event.currentTarget.open)}
+        >
+          <summary>{t('resourcePage.section.discoveryOptions')}</summary>
+          <div className="form-grid cols-2">
+            <label>
+              <span>{t('resourcePage.field.discoveryLimit')}</span>
+              <input
+                type="number"
+                min={1}
+                value={discoverLimitDomains}
+                onChange={(e) => setDiscoverLimitDomains(e.target.value)}
+              />
+            </label>
+            <label className="resource-page__checkbox">
+              <input
+                type="checkbox"
+                checked={discoverDryRun}
+                onChange={(e) => setDiscoverDryRun(e.target.checked)}
+              />
+              <span>{t('resourcePage.field.previewOnly')}</span>
+            </label>
+          </div>
+        </details>
 
         <p className="status-line">{actionPending ? <LoaderCircle size={14} className="spinning" /> : <Play size={14} />}{actionMessage}</p>
         {actionError ? <p className="status-line">{tf('resourcePage.status.failureDetail', { message: actionError })}</p> : null}
+        <TaskSubmissionNotice submission={taskSubmission} />
       </section>
 
+      {variant === 'resource' && activeView === 'source' ? (
       <section className="panel">
         <div className="panel-header">
           <h2>{t('resourcePage.section.sourceItems')}</h2>
@@ -1138,7 +1290,21 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                   </td>
                 </tr>
               ))}
-              {!sourceItems.data?.length ? (
+              {sourceItems.isPending ? (
+                <tr>
+                  <td colSpan={8} className="empty-cell">
+                    {t('resourcePage.status.loading')}
+                  </td>
+                </tr>
+              ) : null}
+              {sourceItems.isError ? (
+                <tr>
+                  <td colSpan={8} className="empty-cell">
+                    {tf('resourcePage.status.loadFailed', { message: errorMessage(sourceItems.error) })}
+                  </td>
+                </tr>
+              ) : null}
+              {!sourceItems.isPending && !sourceItems.isError && !sourceItems.data?.length ? (
                 <tr>
                   <td colSpan={8} className="empty-cell">
                     {t('resourcePage.empty.items')}
@@ -1149,6 +1315,19 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
           </table>
         </div>
       </section>
+      ) : null}
+
+      {variant === 'resource' ? (
+      <details
+        className="resource-page__advanced"
+        open={advancedOpen}
+        onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
+      >
+        <summary>
+          <Settings2 size={16} aria-hidden="true" />
+          {t('resourcePage.section.advancedSetup')}
+          <span>{advancedOpen ? t('resourcePage.action.hideAdvancedSetup') : t('resourcePage.action.showAdvancedSetup')}</span>
+        </summary>
 
       <section className="panel">
         <div className="panel-header">
@@ -1522,11 +1701,11 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
               <Play size={14} />{t('resourcePage.action.singleRecommendation')}
             </button>
             <button
-              disabled={actionPending || !(siteEntries.data || []).length}
+              disabled={actionPending || !(siteEntries.data?.items || []).length}
               onClick={() =>
                 runAction(t('resourcePage.actionName.batchRecommendation'), async () => {
                   const response = await recommendSiteEntriesBatch({
-                    entries: (siteEntries.data || [])
+                    entries: (siteEntries.data?.items || [])
                       .filter((item) => Boolean(item.site_url))
                       .map((item) => ({
                         site_url: String(item.site_url),
@@ -1651,21 +1830,39 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
           </div>
         </div>
       </section>
+      </details>
+      ) : null}
 
-      <section className="panel two-col">
-        <div>
+      {variant === 'extract' || activeView === 'urls' ? (
+        <section className="panel resource-page__table-panel">
           <div className="panel-header">
-            <h2>{t('resourcePage.section.urlPool')}</h2>
+            <h2>{variant === 'extract' ? t('resourcePage.section.extractWork') : t('resourcePage.section.urlPool')}</h2>
             <div className="inline-actions">
               <button disabled={resourceUrlPage <= 1} onClick={() => setResourceUrlPage((p) => Math.max(1, p - 1))}>
                 {t('resourcePage.action.previousPage')}
               </button>
-              <span className="chip">{tf('resourcePage.pagination.page', { page: resourceUrlPage })}</span>
-              <button onClick={() => setResourceUrlPage((p) => p + 1)}>{t('resourcePage.action.nextPage')}</button>
+              <span className="chip">
+                {resourceUrls.data?.pagination.totalPages
+                  ? tf('resourcePage.pagination.summary', {
+                      page: resourceUrls.data.pagination.page || resourceUrlPage,
+                      totalPages: resourceUrls.data.pagination.totalPages,
+                      total: resourceUrls.data.pagination.total ?? 0,
+                    })
+                  : tf('resourcePage.pagination.page', { page: resourceUrlPage })}
+              </span>
+              <button
+                disabled={Boolean(
+                  resourceUrls.data?.pagination.totalPages &&
+                    resourceUrlPage >= resourceUrls.data.pagination.totalPages,
+                )}
+                onClick={() => setResourceUrlPage((p) => p + 1)}
+              >
+                {t('resourcePage.action.nextPage')}
+              </button>
             </div>
           </div>
 
-          <div className="table-wrap">
+          <div className="table-wrap resource-page__table-wrap">
             <table>
               <thead>
                 <tr>
@@ -1676,7 +1873,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                 </tr>
               </thead>
               <tbody>
-                {(resourceUrls.data || []).map((item, idx) => (
+                {(resourceUrls.data?.items || []).map((item, idx) => (
                   <tr key={`${item.id || item.url || idx}`}>
                     <td>{renderUrlFold(item.url)}</td>
                     <td>{item.domain || '-'}</td>
@@ -1684,134 +1881,228 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                     <td>{formatDate(item.created_at, locale)}</td>
                   </tr>
                 ))}
-                {!resourceUrls.data?.length ? (
+                {resourceUrls.isPending ? (
+                  <tr>
+                    <td colSpan={4} className="empty-cell">{t('resourcePage.status.loading')}</td>
+                  </tr>
+                ) : null}
+                {resourceUrls.isError ? (
                   <tr>
                     <td colSpan={4} className="empty-cell">
-                      {t('resourcePage.empty.urls')}
+                      {tf('resourcePage.status.loadFailed', { message: errorMessage(resourceUrls.error) })}
                     </td>
+                  </tr>
+                ) : null}
+                {!resourceUrls.isPending && !resourceUrls.isError && !resourceUrls.data?.items.length ? (
+                  <tr>
+                    <td colSpan={4} className="empty-cell">{t('resourcePage.empty.urls')}</td>
                   </tr>
                 ) : null}
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
+      ) : null}
 
-        <div>
+      {variant === 'resource' && activeView === 'sites' ? (
+        <section className="panel resource-page__table-panel">
           <div className="panel-header">
             <h2>{t('resourcePage.section.siteEntries')}</h2>
             <div className="inline-actions">
+              <button
+                className="resource-page__primary-action"
+                disabled={reviewBusy || actionPending || !(siteEntries.data?.items || []).some((item) => item.site_url && item.lifecycle_state !== 'accepted')}
+                onClick={() => void submitSiteEntryReviews(
+                  (siteEntries.data?.items || []).filter((item) => item.site_url && item.lifecycle_state !== 'accepted'),
+                  'accepted',
+                )}
+              >
+                <CheckCheck size={15} aria-hidden="true" />{t('resourcePage.action.acceptCurrentPage')}
+              </button>
               <button disabled={resourceSitePage <= 1} onClick={() => setResourceSitePage((p) => Math.max(1, p - 1))}>
                 {t('resourcePage.action.previousPage')}
               </button>
-              <span className="chip">{tf('resourcePage.pagination.page', { page: resourceSitePage })}</span>
-              <button onClick={() => setResourceSitePage((p) => p + 1)}>{t('resourcePage.action.nextPage')}</button>
+              <span className="chip">
+                {siteEntries.data?.pagination.totalPages
+                  ? tf('resourcePage.pagination.summary', {
+                      page: siteEntries.data.pagination.page || resourceSitePage,
+                      totalPages: siteEntries.data.pagination.totalPages,
+                      total: siteEntries.data.pagination.total ?? 0,
+                    })
+                  : tf('resourcePage.pagination.page', { page: resourceSitePage })}
+              </span>
+              <button
+                disabled={Boolean(
+                  siteEntries.data?.pagination.totalPages &&
+                    resourceSitePage >= siteEntries.data.pagination.totalPages,
+                )}
+                onClick={() => setResourceSitePage((p) => p + 1)}
+              >
+                {t('resourcePage.action.nextPage')}
+              </button>
             </div>
           </div>
 
-          <div className="table-wrap">
+          {reviewBatch ? (
+            <div className="resource-page__batch-result">
+              <span className="status-line">{tf('resourcePage.review.batchSummary', {
+                success: reviewBatch.success,
+                total: reviewBatch.total,
+                failed: reviewBatch.failed,
+              })}</span>
+              {reviewBatch.failures.length ? (
+                <button
+                  type="button"
+                  disabled={reviewBusy}
+                  onClick={() => void submitSiteEntryReviews(reviewBatch.failures, 'accepted')}
+                >
+                  <RefreshCw size={14} aria-hidden="true" />{t('resourcePage.action.retryFailedReviews')}
+                </button>
+              ) : null}
+              <ul>
+                {reviewBatch.failures.map((item) => (
+                  <li key={`failure-${getSiteEntryReviewKey(item)}`}>
+                    {tf('resourcePage.review.itemFailed', {
+                      siteUrl: item.site_url || '-',
+                      message: reviewResults[getSiteEntryReviewKey(item)]?.message || '-',
+                    })}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <div className="table-wrap resource-page__table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>{t('resourcePage.field.siteUrl')}</th>
-                  <th>{t('resourcePage.field.domain')}</th>
                   <th>{t('resourcePage.field.entryType')}</th>
                   <th>{t('resourcePage.field.source')}</th>
                   <th>{t('resourcePage.field.lifecycle')}</th>
-                  <th>{t('resourcePage.field.executionPlanPreview')}</th>
-                  <th>{t('resourcePage.field.nextActions')}</th>
                   <th>{t('resourcePage.field.enabled')}</th>
                   <th>{t('resourcePage.field.actions')}</th>
                 </tr>
               </thead>
               <tbody>
-                {(siteEntries.data || []).map((item, idx) => (
-                  <tr key={`${item.id || item.site_url || idx}`}>
-                    <td>{renderUrlFold(item.site_url)}</td>
-                    <td>{item.domain || '-'}</td>
-                    <td>{item.entry_type || '-'}</td>
-                    <td>{item.source || '-'}</td>
-                    <td>{renderSiteEntryLifecycle(item, tf)}</td>
-                    <td>{renderSiteEntryPlanPreview(item, tf)}</td>
-                    <td>{renderSiteEntryNextActions(item, tf)}</td>
-                    <td>{String(item.enabled ?? true)}</td>
-                    <td>
-                      <div className="inline-actions">
-                        <button
-                          disabled={actionPending || !item.site_url}
-                          onClick={() =>
-                            void runAction(t('resourcePage.actionName.acceptSiteEntry'), () =>
-                              reviewSiteEntryLifecycle(item, 'accepted'),
-                            )
-                          }
-                        >
-                          {t('resourcePage.action.acceptSiteEntry')}
-                        </button>
-                        <button
-                          disabled={actionPending || !item.site_url}
-                          onClick={() =>
-                            void runAction(t('resourcePage.actionName.rejectSiteEntry'), () =>
-                              reviewSiteEntryLifecycle(item, 'rejected'),
-                            )
-                          }
-                        >
-                          {t('resourcePage.action.rejectSiteEntry')}
-                        </button>
-                        <button
-                          disabled={actionPending || !item.site_url}
-                          onClick={() =>
-                            void runAction(t('resourcePage.actionName.needsReviewSiteEntry'), () =>
-                              reviewSiteEntryLifecycle(item, 'needs_review'),
-                            )
-                          }
-                        >
-                          {t('resourcePage.action.needsReviewSiteEntry')}
-                        </button>
-                        <button
-                          disabled={actionPending || !item.site_url}
-                          onClick={() =>
-                            void runAction(t('resourcePage.actionName.disableSiteEntry'), () =>
-                              reviewSiteEntryLifecycle(item, 'disabled'),
-                            )
-                          }
-                        >
-                          {t('resourcePage.action.disableSiteEntry')}
-                        </button>
-                        <button
-                          disabled={actionPending || !siteEntryAcceptedCollectEnabled(item)}
-                          onClick={() =>
-                            void runAction(t('resourcePage.actionName.runAcceptedSiteEntryCollect'), () =>
-                              runAcceptedSiteEntryCollect(item),
-                            )
-                          }
-                        >
-                          {t('resourcePage.action.runAcceptedSiteEntryCollect')}
-                        </button>
-                        <button
-                          disabled={actionPending}
-                          onClick={() =>
-                            void runAction(t('resourcePage.actionName.copySiteEntrySourceRef'), () =>
-                              copySiteEntrySourceRef(item),
-                            )
-                          }
-                        >
-                          {t('resourcePage.action.copySiteEntrySourceRef')}
-                        </button>
-                      </div>
+                {(siteEntries.data?.items || []).map((item, idx) => {
+                  const reviewKey = getSiteEntryReviewKey(item)
+                  const expanded = expandedSiteEntryKey === reviewKey
+                  const reviewResult = reviewResults[reviewKey]
+                  return (
+                    <Fragment key={reviewKey}>
+                      <tr key={`${item.id || item.site_url || idx}`}>
+                        <td>{renderUrlFold(item.site_url)}</td>
+                        <td>{item.entry_type || '-'}</td>
+                        <td>{item.source || '-'}</td>
+                        <td>
+                          <div className="resource-page__state-chips">
+                            <span className="chip">{String(item.lifecycle_state || '-')}</span>
+                            {getSiteEntryReviewState(item) ? <span className="chip">{getSiteEntryReviewState(item)}</span> : null}
+                            {reviewResult?.state === 'success' ? <span className="chip">OK</span> : null}
+                            {reviewResult?.state === 'error' ? <span className="chip" title={reviewResult.message}>error</span> : null}
+                          </div>
+                        </td>
+                        <td>{String(item.enabled ?? true)}</td>
+                        <td>
+                          <div className="inline-actions resource-page__row-actions">
+                            <button
+                              className="resource-page__primary-action"
+                              disabled={reviewBusy || actionPending || !item.site_url}
+                              onClick={() => void submitSiteEntryReviews([item], 'accepted')}
+                            >
+                              {reviewBusy ? <LoaderCircle size={14} className="spinning" aria-hidden="true" /> : null}
+                              {t('resourcePage.action.acceptSiteEntry')}
+                            </button>
+                            <button
+                              disabled={reviewBusy || actionPending || !item.site_url}
+                              onClick={() => void submitSiteEntryReviews([item], 'rejected')}
+                            >
+                              {t('resourcePage.action.rejectSiteEntry')}
+                            </button>
+                            <button
+                              disabled={reviewBusy || actionPending || !item.site_url}
+                              onClick={() => void submitSiteEntryReviews([item], 'needs_review')}
+                            >
+                              {t('resourcePage.action.needsReviewSiteEntry')}
+                            </button>
+                            <button
+                              disabled={reviewBusy || actionPending || !item.site_url}
+                              onClick={() => void submitSiteEntryReviews([item], 'disabled')}
+                            >
+                              {t('resourcePage.action.disableSiteEntry')}
+                            </button>
+                            <button
+                              disabled={reviewBusy || actionPending || !siteEntryAcceptedCollectEnabled(item)}
+                              onClick={() =>
+                                void runAction(t('resourcePage.actionName.runAcceptedSiteEntryCollect'), () =>
+                                  runAcceptedSiteEntryCollect(item),
+                                )
+                              }
+                            >
+                              {t('resourcePage.action.runAcceptedSiteEntryCollect')}
+                            </button>
+                            <button
+                              disabled={reviewBusy || actionPending}
+                              onClick={() =>
+                                void runAction(t('resourcePage.actionName.copySiteEntrySourceRef'), () =>
+                                  copySiteEntrySourceRef(item),
+                                )
+                              }
+                            >
+                              {t('resourcePage.action.copySiteEntrySourceRef')}
+                            </button>
+                            <button
+                              className="resource-page__icon-action"
+                              aria-expanded={expanded}
+                              aria-label={expanded ? t('resourcePage.action.hideDetails') : t('resourcePage.action.showDetails')}
+                              onClick={() => setExpandedSiteEntryKey(expanded ? '' : reviewKey)}
+                            >
+                              {expanded ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronRight size={15} aria-hidden="true" />}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {expanded ? (
+                        <tr className="resource-page__detail-row">
+                          <td colSpan={6}>
+                            <div className="resource-page__detail-grid">
+                              {renderSiteEntryLifecycle(item, tf)}
+                              {renderSiteEntryPlanPreview(item, tf)}
+                              {renderSiteEntryNextActions(item, tf)}
+                            </div>
+                            <details className="resource-page__raw-details">
+                              <summary>{t('resourcePage.detail.registrationContext')}</summary>
+                              <pre>{JSON.stringify(item, null, 2)}</pre>
+                            </details>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  )
+                })}
+                {siteEntries.isPending ? (
+                  <tr>
+                    <td colSpan={6} className="empty-cell">{t('resourcePage.status.loading')}</td>
+                  </tr>
+                ) : null}
+                {siteEntries.isError ? (
+                  <tr>
+                    <td colSpan={6} className="empty-cell">
+                      {tf('resourcePage.status.loadFailed', { message: errorMessage(siteEntries.error) })}
                     </td>
                   </tr>
-                ))}
-                {!siteEntries.data?.length ? (
+                ) : null}
+                {!siteEntries.isPending && !siteEntries.isError && !siteEntries.data?.items.length ? (
                   <tr>
-                    <td colSpan={9} className="empty-cell">
-                      {t('resourcePage.empty.siteEntries')}
-                    </td>
+                    <td colSpan={6} className="empty-cell">{t('resourcePage.empty.siteEntries')}</td>
                   </tr>
                 ) : null}
               </tbody>
             </table>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
     </div>
   )
 }

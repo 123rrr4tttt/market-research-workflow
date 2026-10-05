@@ -19,6 +19,13 @@ export const supportedLegacyHashMatrix = moduleManifest.map((entry) => ({
   legacyHashes: entry.legacyHashes,
 }))
 
+const declaredLegacyModes = new Map(
+  supportedLegacyHashMatrix.flatMap((entry) => entry.legacyHashes.map((hash) => [
+    decodeURIComponent(hash.replace(/^#/, '')).trim().toLowerCase(),
+    entry.moduleKey,
+  ] as const)),
+)
+
 export function parseLegacyHashToMode(rawHash: string): KernelModuleKey | null {
   const decoded = decodeURIComponent((rawHash || '').replace(/^#/, '')).trim().toLowerCase()
   if (!decoded) return null
@@ -48,7 +55,7 @@ export function parseLegacyHashToMode(rawHash: string): KernelModuleKey | null {
     return 'overviewTasks'
   }
 
-  if (path.includes('dashboard.html')) {
+  if (path.split('/').at(-1) === 'dashboard.html') {
     if (fragment.includes('analysis')) return 'flowAnalysis'
     if (fragment.includes('board')) return 'flowBoard'
     if (fragment.includes('market')) return 'dataMarket'
@@ -100,5 +107,5 @@ export function parseLegacyHashToMode(rawHash: string): KernelModuleKey | null {
     return 'flowIngest'
   }
 
-  return null
+  return declaredLegacyModes.get(decoded) ?? null
 }

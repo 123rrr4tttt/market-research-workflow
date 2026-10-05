@@ -73,7 +73,7 @@ export default function GraphExtensionsSections({
               <strong>{graphInfo.neighborTypeCount}</strong>
             </div>
             <div className="gv2-node-grid-item">
-              <label>关联文档数</label>
+              <label>关联材料数</label>
               <strong>{graphInfo.marketDocCount}</strong>
             </div>
           </div>

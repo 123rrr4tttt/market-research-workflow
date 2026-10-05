@@ -146,7 +146,7 @@ test.describe('agent chat real backend long-task flow', () => {
 
     await page.reload()
     await expect(page.getByTestId('codex-agent-page')).toBeVisible()
-    await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', '/codex/')
+    await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', 'http://127.0.0.1:8172/')
     const reloadedLongTask = await readPersistedAgentSession(request, sessionId)
     expect(reloadedLongTask.text).toContain('source_intake')
     expect(reloadedLongTask.text).toContain('draft_output')
@@ -202,7 +202,7 @@ async function openCodexAgent(page: Page) {
   const response = await page.goto('/#/workbench/agent')
   if (response) expect(response.ok()).toBeTruthy()
   await expect(page.getByTestId('codex-agent-page')).toBeVisible()
-  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', '/codex/')
+  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', 'http://127.0.0.1:8172/')
   await expect(page.locator('.codex-agent-page__project')).toHaveText(PROJECT_KEY)
 }
 

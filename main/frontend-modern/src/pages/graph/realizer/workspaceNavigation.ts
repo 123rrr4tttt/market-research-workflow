@@ -47,6 +47,29 @@ export function getGraphWorkspaceRoute(moduleKey: KernelModuleKey): string {
   return moduleManifest.find((entry) => entry.moduleKey === moduleKey)?.entryRoute || '/visual/graph/market'
 }
 
+export function buildGraphTemplateRoute(templateKey: string, versionKey = ''): string {
+  const route = getGraphWorkspaceRoute('graphBuilder')
+  if (!templateKey) return route
+  const query = new URLSearchParams({ template: templateKey })
+  if (versionKey) query.set('version', versionKey)
+  return `${route}?${query}`
+}
+
+export function getGraphTemplateRouteFromHash(hash: string): { templateKey: string; versionKey: string } {
+  const raw = hash.replace(/^#/, '')
+  const queryStart = raw.indexOf('?')
+  if (queryStart === -1 || raw.slice(0, queryStart) !== getGraphWorkspaceRoute('graphBuilder')) {
+    return { templateKey: '', versionKey: '' }
+  }
+  const query = new URLSearchParams(raw.slice(queryStart + 1).split('#')[0])
+  const templateKey = query.get('template') || ''
+  return { templateKey, versionKey: templateKey ? query.get('version') || '' : '' }
+}
+
+export function getGraphTemplateKeyFromHash(hash: string): string {
+  return getGraphTemplateRouteFromHash(hash).templateKey
+}
+
 /** Coerce the project-declared projection bindings from the graph config payload. */
 export function coerceGraphProjectionBindings(value: unknown): GraphProjectionBinding[] {
   if (!Array.isArray(value)) return []

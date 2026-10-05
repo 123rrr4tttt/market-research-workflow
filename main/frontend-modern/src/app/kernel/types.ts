@@ -53,6 +53,7 @@ export type KernelModuleKey =
   | 'flowBoard'
   | 'flowWriting'
   | 'flowAgentChat'
+  | 'flowCell'
   | 'flowLlmNodeDesign'
   | 'sysProjects'
   | 'sysCrawler'
@@ -61,6 +62,7 @@ export type KernelModuleKey =
   | 'sysSettings'
   | 'sysLlm'
   | 'sysSuccessorRuntime'
+  | 'sysBusinessGuide'
 
 export type NavMode = KernelModuleKey
 

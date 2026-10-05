@@ -250,7 +250,7 @@ test('frontend runtime visual shell contract covers theme, locale, and A/B/C top
   await page.getByRole('button', { name: /B\s+Visual/i }).click()
   await expect(page).toHaveURL(/#\/visual\/dashboard$/)
   await expect(page.locator('.kernel-visual')).toBeVisible()
-  await expect(page.getByRole('heading', { level: 1, name: 'Data Dashboard' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Statistics' })).toBeVisible()
   const visualProbe = await readLayoutProbe(
     page,
     {

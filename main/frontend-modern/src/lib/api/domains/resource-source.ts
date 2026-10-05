@@ -1,6 +1,7 @@
 import { endpoints } from '../endpoints'
-import { asList, getProjectKey, httpGet as get, httpPatch as patch, httpPost as post } from '../client'
+import { apiClient, asList, getProjectKey, httpGet as get, httpPatch as patch, httpPost as post, unwrapEnvelope } from '../client'
 import type {
+  ApiEnvelope,
   ResourcePoolBatchRecommendationPayload,
   ResourcePoolBatchRecommendationResponse,
   ExternalProjectRegistrationPayload,
@@ -27,6 +28,39 @@ import type {
 
 function asRecord(value: unknown) {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+}
+
+export type ResourcePagePagination = {
+  page?: number
+  pageSize?: number
+  total?: number
+  totalPages?: number
+}
+
+export type ResourcePagedResult<Item> = {
+  items: Item[]
+  pagination: ResourcePagePagination
+}
+
+function readPagination(value: unknown): ResourcePagePagination {
+  const pagination = asRecord(value)
+  const numberValue = (raw: unknown) => (typeof raw === 'number' && Number.isFinite(raw) ? raw : undefined)
+  return {
+    page: numberValue(pagination.page),
+    pageSize: numberValue(pagination.page_size),
+    total: numberValue(pagination.total),
+    totalPages: numberValue(pagination.total_pages),
+  }
+}
+
+async function getPaged<Item>(url: string) {
+  const response = await apiClient.get<
+    ApiEnvelope<Item[] | { items?: Item[] }> | Item[] | { items?: Item[] }
+  >(url)
+  const envelope = asRecord(response.data)
+  const data = unwrapEnvelope<Item[] | { items?: Item[] }>(response.data)
+  const items = asList<Item>(data)
+  return { items, pagination: readPagination(asRecord(envelope.meta).pagination) }
 }
 
 function firstDefined<T>(...values: Array<T | null | undefined>) {
@@ -168,10 +202,7 @@ export async function listResourcePoolUrls(page = 1, pageSize = 20) {
     page: String(page),
     page_size: String(pageSize),
   })
-  const data = await get<ResourcePoolUrlItem[] | { items?: ResourcePoolUrlItem[] }>(
-    endpoints.resourcePool.urlsQuery(query),
-  )
-  return asList<ResourcePoolUrlItem>(data)
+  return getPaged<ResourcePoolUrlItem>(endpoints.resourcePool.urlsQuery(query))
 }
 
 export async function listResourcePoolUrlsWithFilters(params?: {
@@ -191,10 +222,7 @@ export async function listResourcePoolUrlsWithFilters(params?: {
   if (params?.domain?.trim()) query.set('domain', params.domain.trim())
   if (params?.source?.trim()) query.set('source', params.source.trim())
 
-  const data = await get<ResourcePoolUrlItem[] | { items?: ResourcePoolUrlItem[] }>(
-    endpoints.resourcePool.urlsQuery(query),
-  )
-  return asList<ResourcePoolUrlItem>(data)
+  return getPaged<ResourcePoolUrlItem>(endpoints.resourcePool.urlsQuery(query))
 }
 
 export async function listSiteEntries(page = 1, pageSize = 20) {
@@ -203,10 +231,8 @@ export async function listSiteEntries(page = 1, pageSize = 20) {
     page: String(page),
     page_size: String(pageSize),
   })
-  const data = await get<SiteEntryItem[] | { items?: SiteEntryItem[] }>(
-    endpoints.resourcePool.siteEntriesQuery(query),
-  )
-  return normalizeSiteEntries(asList<SiteEntryItem>(data))
+  const result = await getPaged<SiteEntryItem>(endpoints.resourcePool.siteEntriesQuery(query))
+  return { ...result, items: normalizeSiteEntries(result.items) }
 }
 
 export async function listSiteEntriesWithFilters(params?: {
@@ -222,10 +248,8 @@ export async function listSiteEntriesWithFilters(params?: {
   })
   if (params?.domain?.trim()) query.set('domain', params.domain.trim())
   if (params?.entryType?.trim()) query.set('entry_type', params.entryType.trim())
-  const data = await get<SiteEntryItem[] | { items?: SiteEntryItem[] }>(
-    endpoints.resourcePool.siteEntriesQuery(query),
-  )
-  return normalizeSiteEntries(asList<SiteEntryItem>(data))
+  const result = await getPaged<SiteEntryItem>(endpoints.resourcePool.siteEntriesQuery(query))
+  return { ...result, items: normalizeSiteEntries(result.items) }
 }
 
 export async function upsertSiteEntry(payload: {

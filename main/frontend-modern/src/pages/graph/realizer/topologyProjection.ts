@@ -1,13 +1,15 @@
-import type { CurrentTopologyItem, BoundRef, ElementRef } from '../../../features/information-topology/types'
+import type { CurrentTopologyItem, BoundRef } from '../../../features/information-topology/types'
+import { isCanonicalMaterialRef, normalizeMaterialRef } from '../../../features/information-topology/materialIdentity'
 import type { GraphEdgeItem, GraphNodeItem, GraphResponse } from '../../../lib/types'
 import { topologyDisplayName } from './displaySchema'
+import { materialReaderId } from './materialGraph'
 
 /** Relation realization depth guard: a relation axis resolves through at most this many hops. */
 const RELATION_AXIS_MAX_DEPTH = 4
 
 /** Identity follows the complete observed reference so revisions never merge silently. */
 export function topologyBoundIdentity(bound: BoundRef): string {
-  const ref = bound.ref
+  const ref = normalizeMaterialRef(bound.ref)
   return JSON.stringify([
     ref.project_key, ref.module_id, ref.namespace, ref.type_id, ref.local_id,
     bound.observed_revision, bound.content_digest ?? null,
@@ -75,10 +77,12 @@ export function projectInformationTopologies(
   const elementsByIdentity = new Map<string, ProjectedElement>()
   const edgeIds = new Set<string>()
   const ensureNode = (bound: BoundRef, attributes: Record<string, unknown> = {}): string => {
-    const document = attributes.document_ref as ElementRef | undefined
-    const canonical = document?.module_id === 'documents' && attributes.document_revision
-      ? { ref: document, observed_revision: String(attributes.document_revision), content_digest: null }
-      : bound
+    const material = attributes.material_ref ?? attributes.document_ref
+    const revision = attributes.material_revision ?? attributes.document_revision
+    const linked = isCanonicalMaterialRef(material) && revision != null
+    const canonical = linked
+      ? { ref: normalizeMaterialRef(material), observed_revision: String(revision), content_digest: null }
+      : { ...bound, ref: normalizeMaterialRef(bound.ref) }
     const id = topologyBoundIdentity(canonical)
     if (!nodesByIdentity.has(id)) {
       const ref = canonical.ref
@@ -92,12 +96,15 @@ export function projectInformationTopologies(
         title: displayName,
         canonical_name: displayName,
         topology_ref: ref,
-        material_ref: document ? bound.ref : undefined,
-        document_id: attributes.document_id,
+        material_ref: isCanonicalMaterialRef(ref) ? ref : undefined,
+        placement_ref: linked ? bound.ref : undefined,
+        material_id: materialReaderId({ id, type, topology_ref: ref, material_id: attributes.material_id, document_id: attributes.document_id }) ?? undefined,
         observed_revision: canonical.observed_revision,
         content_digest: canonical.content_digest,
         topology_attributes: attributes,
       })
+    } else if (linked && !nodesByIdentity.get(id)!.placement_ref) {
+      nodesByIdentity.get(id)!.placement_ref = bound.ref
     }
     return id
   }
@@ -115,7 +122,8 @@ export function projectInformationTopologies(
     const element = elementsByIdentity.get(identity)
     if (!element) {
       if (keptIdentities) return undefined
-      return { id: ensureNode(bound), type: bound.ref.type_id }
+      const id = ensureNode(bound)
+      return { id, type: nodesByIdentity.get(id)!.type }
     }
     if (keptIdentities && !keptIdentities.has(identity)) return undefined
     if (isAnnotatedElement(element)) return undefined
@@ -262,7 +270,7 @@ export function projectInformationTopologies(
           topology_relation_ref: element.ref.ref,
           topology_relation_revision: element.ref.observed_revision,
           endpoint_position: endpoint.position,
-          from: { id: sourceId, type: element.ref.ref.type_id },
+          from: { id: sourceId, type: nodesByIdentity.get(sourceId)!.type },
           to: { id: targetNode.id, type: targetNode.type },
         })
       }
@@ -271,6 +279,7 @@ export function projectInformationTopologies(
   return {
     nodes: Array.from(nodesByIdentity.values()),
     edges,
+    source_kind: 'project_topology',
     source_label: sourceLabel,
     edge_style_bindings: edgeStyleBindings,
     relation_vocabulary: relationVocabulary.length ? relationVocabulary : undefined,

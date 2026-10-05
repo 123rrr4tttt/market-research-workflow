@@ -2,19 +2,59 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
 
-.crawler-management-page > .crawler-projects-panel { order: 1; }
-.crawler-management-page > .crawler-detail-panel { order: 2; }
-.crawler-management-page > .crawler-import-panel { order: 3; }
+.kernel-admin .crawler-management-page > .panel {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  background: transparent;
+  border-bottom: 1px solid var(--border-subtle, #e2e8f0);
+  padding: 14px 0;
+  min-width: 0;
+}
+
+.crawler-management-page .crawler-import-panel > summary { cursor: pointer; }
+.crawler-management-page .crawler-import-panel > summary h2 { margin: 0; }
+.crawler-management-page .panel-header, .crawler-management-page .inline-actions { flex-wrap: wrap; gap: 10px; }
+.crawler-management-page .form-grid, .crawler-management-page label { min-width: 0; }
+.crawler-management-page .form-grid input, .crawler-management-page .form-grid select { width: 100%; min-width: 0; }
+.crawler-management-page .status-line, .crawler-management-page td { overflow-wrap: anywhere; }
+.crawler-management-page .table-wrap { max-width: 100%; overflow-x: auto; }
+.crawler-management-page .crawler-project-details { margin-top: 12px; }
+.crawler-management-page .crawler-project-details > summary { cursor: pointer; font-size: 13px; font-weight: 600; }
 
 .crawler-management-page .empty-cell {
   min-height: 48px;
   color: var(--text-muted, #687386);
 }
 
+.crawler-entry-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-subtle, #e2e8f0); }
+.crawler-entry-tabs button { display: inline-flex; align-items: center; gap: 7px; border-radius: 4px 4px 0 0; border: 0; padding: 10px 14px; background: transparent; }
+.crawler-entry-tabs button[aria-selected="true"] { color: var(--app-accent-primary, #5e8eff); box-shadow: inset 0 -2px currentColor; }
+.crawler-agent-module { min-width: 0; padding: 6px 0 18px; }
+.crawler-agent-module h2 { font-size: 18px; margin: 0; }
+.crawler-agent-module h3 { font-size: 13px; margin: 20px 0 8px; }
+.crawler-agent-content { min-width: 0; overflow-wrap: anywhere; }
+.crawler-module-status { display: inline-block; margin-top: 12px; font-size: 13px; color: var(--text-muted, #64748b); }
+.crawler-module-status.is-ready { color: var(--app-status-success, #22b573); }
+.crawler-module-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; }
+.crawler-module-list li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--border-subtle, #e2e8f0); padding: 9px 0; font-size: 13px; }
+.crawler-module-list code { overflow-wrap: anywhere; }
+.crawler-agent-links { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
+.crawler-agent-link { display: inline-flex; align-items: center; gap: 6px; color: var(--app-accent-primary, #5e8eff); text-decoration: none; }
+.crawler-agent-link:hover { text-decoration: underline; }
+.crawler-module-details { margin-top: 22px; }
+.crawler-module-details summary { cursor: pointer; font-size: 13px; }
+.crawler-management-page [hidden] { display: none; }
+.crawler-management-page #crawler-collectors { min-width: 0; }
+.kernel-admin .crawler-management-page #crawler-collectors > .panel { border: 0; border-radius: 0; box-shadow: none; background: transparent; border-bottom: 1px solid var(--border-subtle, #e2e8f0); padding: 14px 0; min-width: 0; }
+
 @media (max-width: 768px) {
   .crawler-management-page { gap: 12px; }
   .crawler-management-page .table-wrap { overflow-x: auto; }
   .crawler-management-page table { min-width: 640px; }
+  .kernel-admin .crawler-management-page .form-grid.cols-3 { grid-template-columns: minmax(0, 1fr); }
 }

@@ -9,11 +9,13 @@ const rootDir = path.resolve(scriptDir, '..')
 
 const files = {
   adminLayerShell: 'src/app/kernel/AdminLayerShell.tsx',
+  i18nCatalog: 'src/app/platform/i18n/catalog.ts',
   frontendKernelApp: 'src/app/kernel/FrontendKernelApp.tsx',
   kernelTypes: 'src/app/kernel/types.ts',
   moduleChrome: 'src/app/kernel/moduleChrome.ts',
   moduleManifest: 'src/app/kernel/moduleManifest.ts',
   moduleRenderer: 'src/app/kernel/ModuleRenderer.tsx',
+  projectGraphTemplatesHook: 'src/pages/graph/hooks/useProjectGraphTemplates.ts',
   renderKernelModuleContent: 'src/app/kernel/renderKernelModuleContent.tsx',
   useKernelRuntime: 'src/app/kernel/useKernelRuntime.ts',
   visualizationLayerShell: 'src/app/kernel/VisualizationLayerShell.tsx',
@@ -214,18 +216,130 @@ const kernelTypesSource = readFile(files.kernelTypes)
 const moduleRendererSource = readFile(files.moduleRenderer)
 const renderKernelModuleContentSource = readFile(files.renderKernelModuleContent)
 const useKernelRuntimeSource = readFile(files.useKernelRuntime)
+const projectGraphTemplatesHookSource = readFile(files.projectGraphTemplatesHook)
 
 const shellModulesByLayer = {
   A: extractKnownModuleKeysFromAssignment(workbenchLayerShellSource, 'WORKBENCH_MODULES', knownModuleKeys),
-  B: extractKnownModuleKeysFromAssignment(moduleChromeSource, 'VISUALIZATION_SHELL_SECTIONS', knownModuleKeys),
+  B: modulesByLayer.B.filter((moduleKey) => moduleKey === 'dataDashboard' || moduleKey.startsWith('graph')),
   C: extractKnownModuleKeysFromAssignment(moduleManifestSource, 'ADMIN_NAV_SECTIONS', knownModuleKeys),
 }
 
-assertCondition(adminLayerShellSource.includes('ADMIN_NAV_SECTIONS.map('), 'Layer C must render the manifest admin navigation sections')
+const visualizationNavKeys = shellModulesByLayer.B
+const declaredVisualizationNavKeys = extractKnownModuleKeysFromAssignment(
+  moduleChromeSource,
+  'VISUALIZATION_SHELL_SECTIONS',
+  knownModuleKeys,
+)
+const retiredVisualizationNavKeys = modulesByLayer.B.filter((moduleKey) => (
+  moduleKey.startsWith('data') && moduleKey !== 'dataDashboard'
+) || moduleKey.startsWith('flow'))
 
-for (const layerId of Object.keys(modulesByLayer)) {
-  assertNoDuplicates(`Layer ${layerId} shell module list`, shellModulesByLayer[layerId])
-  compareSets(`Layer ${layerId} shell module coverage`, modulesByLayer[layerId], shellModulesByLayer[layerId])
+assertCondition(adminLayerShellSource.includes('ADMIN_NAV_SECTIONS.map('), 'Layer C must render the manifest admin navigation sections')
+assertCondition(adminLayerShellSource.includes('group.items.map('), 'Layer C must expose every item in each responsibility group')
+assertCondition(!adminLayerShellSource.includes('kernel-admin__secondary-nav'), 'Layer C must not hide modules under a secondary navigation menu')
+assertCondition(!adminLayerShellSource.includes('<BusinessChainGuide'), 'Layer C must render the business guide only through its own module')
+assertCondition(moduleEntries.some((entry) => entry.moduleKey === 'sysBusinessGuide' && entry.entryRoute === '/admin/guide'), 'Business guide must have an independent manifest route')
+
+assertNoDuplicates('Layer A shell module list', shellModulesByLayer.A)
+assertNoDuplicates('Layer B visible navigation list', visualizationNavKeys)
+assertNoDuplicates('Layer C shell module list', shellModulesByLayer.C)
+compareSets('Layer A shell module coverage', modulesByLayer.A, shellModulesByLayer.A)
+compareSets('Layer C shell module coverage', modulesByLayer.C, shellModulesByLayer.C)
+assertCondition(
+  declaredVisualizationNavKeys.includes('dataDashboard') && declaredVisualizationNavKeys.length === 1,
+  'Visualization static section declaration must contain exactly the dataDashboard statistics entry',
+)
+assertCondition(
+  moduleChromeSource.includes(".filter((entry) => entry.navGroupKey === 'navigation.group.graph')"),
+  'Visualization graph navigation must derive its module keys from the manifest graph entry points',
+)
+assertCondition(
+  modulesByLayer.B.length > unique(visualizationNavKeys).length,
+  'Layer B must keep more routable catalog entries than the intentionally reduced visible navigation',
+)
+assertCondition(
+  retiredVisualizationNavKeys.every((moduleKey) => !visualizationNavKeys.includes(moduleKey)),
+  `Layer B retired nav routes must remain routable but hidden: ${retiredVisualizationNavKeys.join(', ')}`,
+)
+assertCondition(
+  moduleChromeSource.includes('.filter((entry) => entry.layerId === \'B\')'),
+  'Visualization coverage must retain the complete Layer B routable catalog',
+)
+assertCondition(
+  moduleChromeSource.includes('getVisualizationShellSections(graphItems, [])'),
+  'Visualization coverage must validate visible module navigation separately from template navigation',
+)
+assertCondition(
+  moduleChromeSource.includes('invalidVisibleNav') && moduleChromeSource.includes('invalidTemplateKeys'),
+  'Visualization coverage must report invalid visible and template identities separately',
+)
+
+const visualizationAuthorityChecks = [
+  'queryKey: queryKeys.graph.config(projectKey)',
+  'queryFn: getGraphConfig',
+  'enabled: Boolean(projectKey)',
+  'coerceGraphProjectionBindings(graphConfig.data?.graph_projections)',
+  'applyWorkspaceTabBindings(GRAPH_WORKSPACE_TABS, declaredProjections)',
+  'useProjectGraphTemplates(projectKey, Boolean(projectKey))',
+  'buildGraphTemplateRoute(item.templateKey)',
+  'getGraphTemplateKeyFromHash(routeHash)',
+]
+for (const check of visualizationAuthorityChecks) {
+  assertCondition(
+    visualizationLayerShellSource.includes(check),
+    `Visualization shell must use the authoritative graph navigation chain: ${check}`,
+  )
+}
+assertCondition(
+  projectGraphTemplatesHookSource.includes('queryKey: queryKeys.graph.templates(projectKey)'),
+  'Project graph template navigation must use the shared graph templates query key',
+)
+assertCondition(
+  visualizationLayerShellSource.includes('graphTemplates.isSuccess ? graphTemplates.data || [] : []'),
+  'Visualization template navigation may read the list only after the shared query succeeds',
+)
+assertCondition(
+  visualizationLayerShellSource.includes('<header className="kernel-visual__masthead kernel-visual__topbar">'),
+  'Visualization masthead must expose the compressed topbar class while retaining the masthead class',
+)
+assertCondition(
+  !visualizationLayerShellSource.includes('kernel-visual__eyebrow')
+    && !visualizationLayerShellSource.includes('observation surface')
+    && !visualizationLayerShellSource.includes('activeContract.entryRoute'),
+  'Visualization topbar must not render route-observation decoration',
+)
+assertCondition(
+  visualizationLayerShellSource.includes('<main className="kernel-visual__main kernel-visual__stage">'),
+  'Visualization main must directly carry the stage compatibility class',
+)
+assertCondition(
+  !visualizationLayerShellSource.includes('<section className="kernel-visual__stage">'),
+  'Visualization main must not nest a separate stage section',
+)
+assertCondition(
+  visualizationLayerShellSource.includes('shell.visualization.statsTitle') && visualizationLayerShellSource.includes('shell.visualization.statsEmpty'),
+  'Visualization non-graph routes must render the lightweight statistics empty state',
+)
+assertCondition(
+  !visualizationLayerShellSource.includes('<ModuleRenderer\n') || visualizationLayerShellSource.includes('activeIsGraphModule ? ('),
+  'Visualization ModuleRenderer must be limited to graph modules',
+)
+assertCondition(
+  visualizationLayerShellSource.includes('<span className={statusChipClass(runtime.status.api)}>')
+    && !visualizationLayerShellSource.includes('onClick={() => runtime.navigateToModule(\'overviewData\')}'),
+  'Visualization health chips must be non-interactive spans',
+)
+
+const i18nCatalogSource = readFile(files.i18nCatalog)
+for (const key of [
+  'visualization.statsTitle',
+  'visualization.statsEmpty',
+  'visualizationSection.stats',
+  'visualizationSection.projectGraph',
+  'visualizationSection.graphTemplates',
+]) {
+  const occurrences = i18nCatalogSource.split(`'${key}'`).length - 1
+  assertCondition(occurrences === 3, `Visualization i18n key must exist in shape, zh-CN, and en-US catalogs: ${key}`)
 }
 
 assertCondition(frontendKernelAppSource.includes("route.layerId === 'A'"), 'FrontendKernelApp must branch on Layer A')
@@ -271,6 +385,8 @@ const summary = {
     B: modulesByLayer.B.length,
     C: modulesByLayer.C.length,
   },
+  visualization_route_catalog: unique(modulesByLayer.B),
+  visualization_current_nav: unique(visualizationNavKeys),
   shell_coverage_counts: {
     A: unique(shellModulesByLayer.A).length,
     B: unique(shellModulesByLayer.B).length,

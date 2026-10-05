@@ -27,7 +27,7 @@ async function openCodexAgent(page: Page) {
   const response = await page.goto('/#/workbench/agent')
   if (response) expect(response.ok()).toBeTruthy()
   await expect(page.getByTestId('codex-agent-page')).toBeVisible()
-  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', '/codex/')
+  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', 'http://127.0.0.1:8172/')
 }
 
 test.describe('Codex agent to writing workbench crossflow', () => {

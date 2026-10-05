@@ -85,8 +85,8 @@ export async function getSearchHistory(page = 1, pageSize = 50) {
   return asList<SearchHistoryItem>(data)
 }
 
-export async function listAdminDocuments(payload: AdminDocumentListPayload = {}) {
-  return post<AdminDocumentListResponse>(endpoints.admin.documentList, {
+export async function listAdminMaterials(payload: AdminDocumentListPayload = {}) {
+  return post<AdminDocumentListResponse>(endpoints.admin.materialList, {
     page: payload.page ?? 1,
     page_size: payload.page_size ?? 20,
     state: payload.state ?? null,
@@ -98,9 +98,12 @@ export async function listAdminDocuments(payload: AdminDocumentListPayload = {})
   })
 }
 
-export async function getAdminDocument(docId: number) {
-  return get<DocumentItem>(endpoints.admin.documentById(docId))
+export async function getAdminMaterial(materialId: number) {
+  return get<DocumentItem>(endpoints.admin.materialById(materialId))
 }
+
+export const listAdminDocuments = listAdminMaterials
+export const getAdminDocument = getAdminMaterial
 
 export async function updateDocumentExtractedData(docId: number, payload: DocumentExtractedPayload) {
   return post<{ id?: number; extracted_data?: unknown }>(endpoints.admin.documentExtractedData(docId), payload)
@@ -132,6 +135,8 @@ export async function topicExtractDocuments(payload: AdminTopicExtractPayload = 
   return post<AdminTopicExtractResponse>(endpoints.admin.documentsTopicExtract, payload)
 }
 
-export async function rawImportDocuments(payload: RawImportPayload) {
+export async function rawImportMaterials(payload: RawImportPayload) {
   return post<RawImportResult>(endpoints.admin.documentsRawImport, payload)
 }
+
+export const rawImportDocuments = rawImportMaterials

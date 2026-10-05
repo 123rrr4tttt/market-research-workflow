@@ -19,3 +19,10 @@ export const Default: Story = {
     variant: 'ops',
   },
 }
+
+export const BackendRuntime: Story = {
+  args: {
+    projectKey: '',
+    variant: 'backend',
+  },
+}

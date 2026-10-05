@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { GraphEdgeItem, GraphNodeItem } from '../../../lib/types'
+import { normalizeMaterialGraphEdge, normalizeMaterialGraphNode } from '../realizer/materialGraph'
 
 type GraphNodeKeyGetter = (node: GraphNodeItem) => string
 
@@ -7,18 +8,19 @@ type UseGraphDraftParams = {
   sourceNodes: GraphNodeItem[]
   sourceEdges: GraphEdgeItem[]
   getNodeKey: GraphNodeKeyGetter
+  autoSyncSource?: boolean
 }
 
 function cloneNode(node: GraphNodeItem): GraphNodeItem {
-  return { ...node }
+  return normalizeMaterialGraphNode(node)
 }
 
 function cloneEdge(edge: GraphEdgeItem): GraphEdgeItem {
-  return {
+  return normalizeMaterialGraphEdge({
     ...edge,
     from: { ...(edge.from || {}) },
     to: { ...(edge.to || {}) },
-  }
+  })
 }
 
 function cloneSnapshot(nodes: GraphNodeItem[], edges: GraphEdgeItem[]) {
@@ -37,15 +39,18 @@ function buildEdgeKey(edge: GraphEdgeItem) {
   return `${fromType}:${fromId}>${toType}:${toId}|${rel}`
 }
 
-export function useGraphDraft({ sourceNodes, sourceEdges, getNodeKey }: UseGraphDraftParams) {
+export function useGraphDraft({ sourceNodes, sourceEdges, getNodeKey, autoSyncSource = true }: UseGraphDraftParams) {
   const [draftNodes, setDraftNodes] = useState<GraphNodeItem[]>(() => sourceNodes.map(cloneNode))
   const [draftEdges, setDraftEdges] = useState<GraphEdgeItem[]>(() => sourceEdges.map(cloneEdge))
   const [dirty, setDirty] = useState(false)
   const baseRef = useRef(cloneSnapshot(sourceNodes, sourceEdges))
+  const syncedSourceRef = useRef({ nodes: sourceNodes, edges: sourceEdges })
   const nextNodeSeqRef = useRef(1)
 
   useEffect(() => {
-    if (dirty) return
+    if (!autoSyncSource || dirty) return
+    if (syncedSourceRef.current.nodes === sourceNodes && syncedSourceRef.current.edges === sourceEdges) return
+    syncedSourceRef.current = { nodes: sourceNodes, edges: sourceEdges }
     const snap = cloneSnapshot(sourceNodes, sourceEdges)
     baseRef.current = snap
     const timerId = window.setTimeout(() => {
@@ -55,7 +60,7 @@ export function useGraphDraft({ sourceNodes, sourceEdges, getNodeKey }: UseGraph
     return () => {
       window.clearTimeout(timerId)
     }
-  }, [sourceNodes, sourceEdges, dirty])
+  }, [sourceNodes, sourceEdges, dirty, autoSyncSource])
 
   const nodeByKey = useMemo(() => {
     return new Map(draftNodes.map((node) => [getNodeKey(node), node]))
@@ -71,15 +76,18 @@ export function useGraphDraft({ sourceNodes, sourceEdges, getNodeKey }: UseGraph
   const markSaved = useCallback(() => {
     const snap = cloneSnapshot(draftNodes, draftEdges)
     baseRef.current = snap
+    syncedSourceRef.current = { nodes: sourceNodes, edges: sourceEdges }
     setDirty(false)
-  }, [draftNodes, draftEdges])
+  }, [draftNodes, draftEdges, sourceNodes, sourceEdges])
 
   const replaceDraft = useCallback((nodes: GraphNodeItem[], edges: GraphEdgeItem[], options?: { markAsDirty?: boolean }) => {
     const snap = cloneSnapshot(nodes, edges)
+    if (options?.markAsDirty === false) baseRef.current = snap
     setDraftNodes(snap.nodes)
     setDraftEdges(snap.edges)
+    syncedSourceRef.current = { nodes: sourceNodes, edges: sourceEdges }
     setDirty(options?.markAsDirty ?? true)
-  }, [])
+  }, [sourceNodes, sourceEdges])
 
   const createNode = useCallback((seed?: Partial<GraphNodeItem>) => {
     const idSeed = `${Date.now()}-${nextNodeSeqRef.current}`
@@ -129,7 +137,7 @@ export function useGraphDraft({ sourceNodes, sourceEdges, getNodeKey }: UseGraph
   const createEdgeByNodeKeys = useCallback((sourceKey: string, targetKey: string, patch?: Partial<GraphEdgeItem>) => {
     const source = nodeByKey.get(sourceKey)
     const target = nodeByKey.get(targetKey)
-    if (!source || !target) return { ok: false, reason: 'source_or_target_not_found' as const }
+    if (!source || !target) return { ok: false as const, reason: 'source_or_target_not_found' as const }
     const candidate: GraphEdgeItem = {
       type: String(patch?.type || 'REL'),
       predicate: String(patch?.predicate || ''),
@@ -139,10 +147,10 @@ export function useGraphDraft({ sourceNodes, sourceEdges, getNodeKey }: UseGraph
     }
     const edgeKey = buildEdgeKey(candidate)
     const exists = draftEdges.some((edge) => buildEdgeKey(edge) === edgeKey)
-    if (exists) return { ok: false, reason: 'already_exists' as const }
+    if (exists) return { ok: false as const, reason: 'already_exists' as const }
     setDraftEdges((prev) => [...prev, cloneEdge(candidate)])
     setDirty(true)
-    return { ok: true as const }
+    return { ok: true as const, edge: cloneEdge(candidate) }
   }, [nodeByKey, draftEdges])
 
   const removeEdgeAt = useCallback((index: number) => {

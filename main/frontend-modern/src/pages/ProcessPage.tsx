@@ -1,5 +1,5 @@
 import { Database, RefreshCw, XCircle } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { translate, useAppLocale, type AppLocale } from '../app/platform/i18n'
 import { useProcessData } from '../hooks/useProcessData'
 import type { ProcessHistoryResponse, ProcessTaskDetail, ProcessTaskItem, ProcessTaskList, ProcessTaskStats } from '../lib/types'
@@ -33,12 +33,12 @@ type ProcessDeepLinkParams = {
   source: string
 }
 
-const detailPreStyle = {
-  marginTop: 8,
-  maxHeight: 280,
-  overflow: 'auto' as const,
-  whiteSpace: 'pre-wrap' as const,
-  overflowWrap: 'anywhere' as const,
+type ProcessProgressView = {
+  completed: number | null
+  total: number | null
+  percent: number | null
+  stage: string
+  running: boolean
 }
 
 export type ProcessPageViewProps = {
@@ -55,7 +55,10 @@ export type ProcessPageViewProps = {
   processHistoryLoading: boolean
   processHistoryError: boolean
   taskDetail: ProcessTaskDetail | undefined
+  taskDetailLoading: boolean
+  taskDetailError: boolean
   taskLogsText: string | undefined
+  taskLogsLoading: boolean
   taskLogsError: boolean
   cancelPending: boolean
   isRefreshing: boolean
@@ -148,6 +151,10 @@ function stringifyBlock(value: unknown) {
   }
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
 function firstDefined<T>(...values: T[]): T | null {
   for (const value of values) {
     if (value !== null && value !== undefined && value !== '') return value
@@ -178,6 +185,137 @@ function toFiniteNumber(value: unknown) {
   return Number.isFinite(n) ? n : null
 }
 
+function toProgressCount(value: unknown) {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null
+}
+
+function isRunningStatus(status?: string | null) {
+  return ['active', 'started', 'running'].includes(String(status || '').toLowerCase())
+}
+
+function isTerminalStatus(status?: string | null) {
+  const value = String(status || '').toLowerCase()
+  return [
+    'success',
+    'succeeded',
+    'completed',
+    'complete',
+    'failed',
+    'failure',
+    'error',
+    'revoked',
+    'cancelled',
+    'canceled',
+  ].some((part) => value.includes(part))
+}
+
+const processProgressPairs = [
+  ['completed', 'total'],
+  ['processed_count', 'total_count'],
+  ['batches_completed', 'batches_total'],
+  ['processed', 'total_items'],
+] as const
+
+function buildProgressView(input: {
+  status?: string | null
+  display_meta?: Record<string, unknown> | null
+  progress?: Record<string, unknown> | null
+  result?: unknown
+}): ProcessProgressView {
+  const result = asRecord(input.result)
+  const records = [asRecord(input.progress), asRecord(input.display_meta), result, asRecord(result.progress), asRecord(result.summary)]
+  let completed: number | null = null
+  let total: number | null = null
+
+  for (const record of records) {
+    for (const [numeratorKey, denominatorKey] of processProgressPairs) {
+      const numerator = toProgressCount(record[numeratorKey])
+      const denominator = toProgressCount(record[denominatorKey])
+      if (numerator == null || denominator == null || denominator === 0 || numerator > denominator) continue
+      completed = numerator
+      total = denominator
+      break
+    }
+    if (completed != null && total != null) break
+  }
+
+  const percent = completed != null && total != null ? Math.floor((completed / total) * 100) : null
+  const stageRecords = [asRecord(input.progress), asRecord(input.display_meta)]
+  const stage = String(
+    firstDefined(
+      ...stageRecords.flatMap((record) => [record.stage, record.current_stage, record.current_phase, record.phase, record.state]),
+    ) || '-',
+  )
+  return { completed, total, percent, stage, running: isRunningStatus(input.status) }
+}
+
+function formatElapsedSeconds(seconds: number | null | undefined) {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '-'
+  if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 1 : 0)}s`
+  const minutes = Math.floor(seconds / 60)
+  const remainder = Math.round(seconds % 60)
+  if (minutes < 60) return `${minutes}m ${remainder}s`
+  const hours = Math.floor(minutes / 60)
+  return `${hours}h ${minutes % 60}m`
+}
+
+function currentElapsedSeconds(startedAt: string | null | undefined, updatedAt: string | null | undefined, finishedAt?: string | null) {
+  const start = startedAt ? new Date(startedAt).getTime() : NaN
+  const end = finishedAt ? new Date(finishedAt).getTime() : updatedAt ? new Date(updatedAt).getTime() : Date.now()
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null
+  return (end - start) / 1000
+}
+
+function currentElapsedView(input: {
+  status?: string | null
+  startedAt?: string | null
+  updatedAt?: string | null
+  detail?: unknown
+}) {
+  const detail = asRecord(input.detail)
+  const measuredSeconds = toFiniteNumber(firstDefined(detail.duration_seconds, detail.elapsed_seconds))
+  if (measuredSeconds != null && measuredSeconds >= 0) {
+    return { seconds: measuredSeconds, observed: true }
+  }
+
+  const endedAt = typeof detail.ended_at === 'string' ? detail.ended_at : null
+  const endedSeconds = endedAt ? currentElapsedSeconds(input.startedAt, null, endedAt) : null
+  if (endedSeconds != null) {
+    return { seconds: endedSeconds, observed: true }
+  }
+
+  if (isTerminalStatus(input.status)) {
+    return { seconds: null, observed: false }
+  }
+
+  const runningSeconds = currentElapsedSeconds(input.startedAt, input.updatedAt)
+  return { seconds: runningSeconds, observed: runningSeconds != null }
+}
+
+function compactFailureMessage(value: unknown) {
+  const record = asRecord(value)
+  const rawMessage = firstDefined(record.error, record.error_message, record.reason, record.message)
+  if (rawMessage != null) return String(rawMessage)
+  if (typeof value === 'string' && value.trim()) return value
+  return null
+}
+
+function buildFailureSummary(input: {
+  status?: string | null
+  result?: unknown
+  traceback?: string | null
+  historyError?: string | null
+}) {
+  const status = String(input.status || '').toLowerCase()
+  const failed = status.includes('fail') || status.includes('error')
+  const message = (failed ? compactFailureMessage(input.result) : null) || input.historyError || null
+  const tracebackMessage = input.traceback?.trim()
+    ? input.traceback.trim().split('\n').filter(Boolean).at(-1)
+    : null
+  if (!failed && !message && !tracebackMessage) return null
+  return message || tracebackMessage || '-'
+}
+
 function buildResultSummary(input: {
   display_meta?: Record<string, unknown> | null
   params?: Record<string, unknown> | null
@@ -193,7 +331,7 @@ function buildResultSummary(input: {
   const updated = toFiniteNumber(firstDefined(dm.updated, params.updated, result.updated, progress.updated))
   const skipped = toFiniteNumber(firstDefined(dm.skipped, params.skipped, result.skipped, progress.skipped))
   const errors = toFiniteNumber(firstDefined(dm.errors_count, params.errors_count, result.errors_count, progress.errors_count))
-  const urls = toFiniteNumber(firstDefined(dm.url_count, params.url_count, params.urls, result.url_count, result.urls, result.urls_extracted))
+  const urls = toFiniteNumber(firstDefined(dm.url_count, params.url_count, params.urls, params.urls_extracted, result.url_count, result.urls, result.urls_extracted))
 
   const parts: string[] = []
   if (inserted != null) parts.push([labels.inserted, inserted].join(' '))
@@ -414,6 +552,10 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
     await cancelTasks(cancellableSelectedTaskIds)
     clearSelectedTasks()
   }
+  const closeDetail = useCallback(() => {
+    setSelectedTaskId(null)
+    setSelectedHistoryId(null)
+  }, [])
 
   return (
     <ProcessPageView
@@ -430,7 +572,10 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
       processHistoryLoading={processHistory.isLoading}
       processHistoryError={processHistory.isError}
       taskDetail={taskDetail.data}
+      taskDetailLoading={taskDetail.isLoading}
+      taskDetailError={taskDetail.isError}
       taskLogsText={taskLogs.data?.text}
+      taskLogsLoading={taskLogs.isLoading}
       taskLogsError={taskLogs.isError}
       cancelPending={cancelMutation.isPending}
       isRefreshing={isRefreshing}
@@ -467,10 +612,7 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
         setSelectedHistoryId((prev) => (prev === historyId ? null : historyId))
       }}
       onCancelTask={(taskId) => cancelMutation.mutate(taskId)}
-      onCloseDetail={() => {
-        setSelectedTaskId(null)
-        setSelectedHistoryId(null)
-      }}
+      onCloseDetail={closeDetail}
       onRefreshSelectedTask={() => {
         void refreshSelectedTask(selectedTaskId)
       }}
@@ -495,7 +637,10 @@ export function ProcessPageView({
   processHistoryLoading,
   processHistoryError,
   taskDetail,
+  taskDetailLoading,
+  taskDetailError,
   taskLogsText,
+  taskLogsLoading,
   taskLogsError,
   cancelPending,
   isRefreshing,
@@ -527,9 +672,14 @@ export function ProcessPageView({
   onRefreshHistory,
 }: ProcessPageViewProps) {
   const locale = useAppLocale()
-  const [statusFilter, setStatusFilter] = useState<'all' | 'running' | 'failed' | 'completed'>('all')
+  const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'running' | 'failed' | 'completed' | null>(null)
   const [query, setQuery] = useState('')
+  const detailHeadingId = useId()
+  const detailRef = useRef<HTMLElement | null>(null)
+  const closeRef = useRef<HTMLButtonElement | null>(null)
+  const detailTriggerRef = useRef<HTMLElement | null>(null)
   const summaryLabels = useMemo(() => getProcessSummaryLabels(locale), [locale])
+  const statusFilter = userStatusFilter ?? (variant === 'processing' ? 'running' : 'all')
   const t = (key: ProcessMessageKey, fallback?: string) => translate(locale, key, fallback)
   const formatTemplate = (key: ProcessMessageKey, values: Record<string, string | number>) =>
     formatProcessTemplate(t(key), values)
@@ -557,6 +707,88 @@ export function ProcessPageView({
     ['failed', locale === 'zh-CN' ? '失败' : 'Failed'],
     ['completed', locale === 'zh-CN' ? '已完成' : 'Completed'],
   ] as const
+  const selectedDetailOpen = Boolean(selectedTaskId || selectedHistoryId)
+  const selectedStatus = selectedCurrent
+    ? taskDetail?.status || selectedTask?.status
+    : selectedHistoryTask?.status
+  const selectedTitle = selectedCurrent
+    ? taskDetail?.name || selectedTask?.name || selectedTaskId || t('processPage.section.taskDetail')
+    : selectedHistoryTask?.task_name || selectedHistoryTask?.job_type || formatTemplate('processPage.detail.historyId', { id: selectedHistoryId ?? '-' })
+  const selectedTaskIdValue = selectedCurrent
+    ? taskDetail?.task_id || selectedTask?.task_id || selectedTaskId
+    : selectedHistoryTask?.task_id || null
+  const selectedStartedAt = selectedCurrent
+    ? taskDetail?.started_at || selectedTask?.started_at
+    : selectedHistoryTask?.started_at
+  const selectedFinishedAt = selectedCurrent ? null : selectedHistoryTask?.finished_at
+  const selectedElapsed = selectedCurrent
+    ? currentElapsedView({
+      status: selectedStatus,
+      startedAt: selectedStartedAt,
+      updatedAt: selectedTask?.updated_at,
+      detail: taskDetail,
+    })
+    : (() => {
+      const measuredSeconds = selectedHistoryTask?.duration_seconds
+      const inferredSeconds = currentElapsedSeconds(selectedStartedAt, selectedFinishedAt)
+      return measuredSeconds != null
+        ? { seconds: measuredSeconds, observed: true }
+        : { seconds: inferredSeconds, observed: inferredSeconds != null }
+    })()
+  const selectedProgress = buildProgressView({
+    status: selectedStatus,
+    display_meta: (selectedCurrent
+      ? taskDetail?.display_meta || selectedTask?.display_meta
+      : selectedHistoryTask?.display_meta) as Record<string, unknown> | null,
+    progress: (selectedCurrent ? taskDetail?.progress || selectedTask?.progress : null) as Record<string, unknown> | null,
+    result: selectedCurrent ? taskDetail?.result : null,
+  })
+  const selectedFailureSummary = selectedCurrent
+    ? buildFailureSummary({ status: selectedStatus, result: taskDetail?.result, traceback: taskDetail?.traceback || selectedTask?.traceback })
+    : buildFailureSummary({ status: selectedStatus, result: selectedHistoryTask?.params, historyError: selectedHistoryTask?.error })
+  const selectedReadbackUnknown = selectedCurrent
+    ? !taskDetailLoading && !taskDetailError && !selectedTask && !taskDetail
+    : !processHistoryLoading && !processHistoryError && !selectedHistoryTask
+
+  useEffect(() => {
+    if (!selectedDetailOpen) return
+    const detail = detailRef.current
+    if (!detail) return
+    closeRef.current?.focus()
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onCloseDetail()
+        return
+      }
+      if (event.key !== 'Tab') return
+      const focusable = Array.from(
+        detail.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])'),
+      ).filter((element) => !element.hasAttribute('disabled') && element.offsetParent !== null)
+      if (!focusable.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      }
+    }
+
+    detail.addEventListener('keydown', handleKeyDown)
+    return () => detail.removeEventListener('keydown', handleKeyDown)
+  }, [selectedDetailOpen, onCloseDetail])
+
+  useEffect(() => {
+    if (!selectedDetailOpen && detailTriggerRef.current) {
+      const trigger = detailTriggerRef.current
+      detailTriggerRef.current = null
+      trigger.focus()
+    }
+  }, [selectedDetailOpen])
 
   return (
     <div className={`content-stack process-page process-page--${variant}`}>
@@ -576,7 +808,7 @@ export function ProcessPageView({
       <section className="process-list-toolbar" aria-label={t('processPage.section.currentQueue')}>
         <div className="process-filter-tabs" role="tablist">
           {filterLabels.map(([value, label]) => (
-            <button key={value} type="button" className={statusFilter === value ? 'is-active' : ''} onClick={() => setStatusFilter(value)} role="tab" aria-selected={statusFilter === value}>{label}</button>
+            <button key={value} type="button" className={statusFilter === value ? 'is-active' : ''} onClick={() => setUserStatusFilter(value)} role="tab" aria-selected={statusFilter === value}>{label}</button>
           ))}
         </div>
         <input className="process-filter-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('processPage.field.name')} aria-label={t('processPage.field.name')} />
@@ -681,7 +913,10 @@ export function ProcessPageView({
                     <input type="checkbox" checked={selectedTaskIds.includes(task.task_id)} onChange={() => onToggleTaskSelect(task.task_id)} disabled={!canCancelTask(task)} />
                   </td>
                   <td>
-                    <button onClick={() => onToggleCurrentTaskDetail(task.task_id)}>
+                    <button onClick={(event) => {
+                      detailTriggerRef.current = event.currentTarget
+                      onToggleCurrentTaskDetail(task.task_id)
+                    }}>
                       {selectedTaskId === task.task_id ? t('processPage.action.collapse') : t('processPage.action.details')}
                     </button>
                     <button disabled={!canCancelTask(task) || cancelPending} onClick={() => onCancelTask(task.task_id)}>
@@ -704,69 +939,201 @@ export function ProcessPageView({
       </section>
 
       {selectedTaskId || selectedHistoryId ? (
-        <div className="process-detail-backdrop" onClick={onCloseDetail}>
-          <section className="panel process-detail-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="panel-header">
-              <h2>
-                {t('processPage.section.taskDetail')}{' '}
-                {selectedCurrent ? selectedTaskId : formatTemplate('processPage.detail.historyId', { id: selectedHistoryId ?? '-' })}
-              </h2>
-              <div className="inline-actions">
-                <button onClick={onRefreshSelectedTask} disabled={!selectedCurrent || isRefreshing}>
-                  <RefreshCw size={14} />
-                  {selectedCurrent && isRefreshing ? t('processPage.action.refreshing') : t('processPage.action.refresh')}
-                </button>
-                <button onClick={onCloseDetail}>{t('processPage.action.close')}</button>
-              </div>
-            </div>
-            <div className="content-stack">
+        <div className="process-detail-backdrop" onMouseDown={onCloseDetail}>
+          <aside
+            className="process-detail-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={detailHeadingId}
+            tabIndex={-1}
+            ref={detailRef}
+            data-testid="process-detail-drawer"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="process-detail-drawer__header">
               <div>
-                <strong>{t('processPage.field.status')}：</strong>
-                <span className={statusClass(selectedCurrent ? (taskDetail?.status || selectedTask?.status) : selectedHistoryTask?.status)}>
-                  {selectedCurrent ? (taskDetail?.status || selectedTask?.status || '-') : (selectedHistoryTask?.status || '-')}
-                </span>
+                <p className="process-detail-drawer__eyebrow">{t('processPage.section.taskDetail')}</p>
+                <h2 id={detailHeadingId}>{selectedTitle}</h2>
+                <p className="process-detail-drawer__identity">
+                  <span>{selectedCurrent ? t('processPage.detail.taskIdentity') : t('processPage.detail.historyIdentity')}</span>
+                  {selectedCurrent ? (
+                    <code>{selectedTaskIdValue || t('processPage.detail.noTaskId')}</code>
+                  ) : (
+                    <>
+                      <code>{formatTemplate('processPage.detail.historyId', { id: selectedHistoryId ?? '-' })}</code>
+                      {selectedTaskIdValue ? <code>{selectedTaskIdValue}</code> : <code>{t('processPage.detail.noTaskId')}</code>}
+                    </>
+                  )}
+                </p>
               </div>
-              <div>
-                <strong>{t('processPage.field.source')}：</strong>
-                {selectedSourceKind}
-                {selectedMetaSegments.length ? ' | ' : ''}
-                {selectedMetaSegments.join(' | ')}
-              </div>
-              <div><strong>{t('processPage.field.resultSummary')}：</strong>{selectedResultSummary}</div>
-              <div><strong>{t('processPage.field.insertedValid')}：</strong>{selectedRejectionView.insertedValid ?? '-'} {' | '}<strong>{t('processPage.field.rejected')}：</strong>{selectedRejectionView.rejectedCount ?? '-'}</div>
-              <div><strong>{t('processPage.field.topRejectionReason')}：</strong>{selectedRejectionView.topReason}</div>
-              <div><strong>{t('processPage.field.lightFilter')}：</strong>{selectedLightFilterView.decision} {' | '}<strong>{t('processPage.field.reason')}：</strong>{selectedLightFilterView.reason} {' | '}<strong>{t('processPage.field.score')}：</strong>{selectedLightFilterView.score ?? '-'} {' | '}<strong>{t('processPage.field.keepForVectorization')}：</strong>{selectedLightFilterView.keep}</div>
-              <div>
-                <strong>{t('processPage.section.rejectionBreakdown')}</strong>
-                <pre style={detailPreStyle}>{Object.keys(selectedRejectionView.rejectionBreakdown).length ? stringifyBlock(selectedRejectionView.rejectionBreakdown) : '-'}</pre>
-              </div>
-              <div><strong>{t('processPage.field.worker')}：</strong>{selectedCurrent ? (taskDetail?.worker || selectedTask?.worker || '-') : (selectedHistoryTask?.worker || '-')}</div>
-              <div><strong>{t('processPage.field.started')}：</strong>{formatDate(selectedCurrent ? (taskDetail?.started_at || selectedTask?.started_at) : selectedHistoryTask?.started_at, locale)}</div>
-              {!selectedCurrent ? (
-                <>
-                  <div><strong>{t('processPage.field.finished')}：</strong>{formatDate(selectedHistoryTask?.finished_at, locale)}</div>
-                  <div><strong>{t('processPage.field.durationSeconds')}：</strong>{selectedHistoryTask?.duration_seconds != null ? selectedHistoryTask.duration_seconds.toFixed(1) : '-'}</div>
-                  <div><strong>{t('processPage.field.jobType')}：</strong>{selectedHistoryTask?.job_type || '-'}</div>
-                </>
+              <button ref={closeRef} type="button" onClick={onCloseDetail}>
+                {t('processPage.action.close')}
+              </button>
+            </header>
+
+            <div className="process-detail-drawer__body">
+              {taskDetailError || (!selectedCurrent && processHistoryError) || selectedReadbackUnknown ? (
+                <div className="process-detail-readback" role="alert">
+                  <strong>{t('processPage.detail.readbackFailed')}</strong>
+                  <button type="button" onClick={selectedCurrent ? onRefreshSelectedTask : onRefreshHistory} disabled={isRefreshing}>
+                    <RefreshCw size={14} />
+                    {t('processPage.detail.readbackRetry')}
+                  </button>
+                </div>
               ) : null}
-              <div><strong>{t('processPage.field.displayMeta')}</strong><pre style={detailPreStyle}>{stringifyBlock(selectedMeta)}</pre></div>
+              {selectedCurrent && taskDetailLoading && !taskDetail ? (
+                <p className="status-line">{locale === 'zh-CN' ? '读取中…' : 'Loading…'}</p>
+              ) : null}
+
+              <div className="process-detail-summary" aria-label={t('processPage.section.taskDetail')}>
+                <div>
+                  <span>{t('processPage.field.status')}</span>
+                  <strong className={statusClass(selectedStatus)}>{selectedStatus || '-'}</strong>
+                </div>
+                <div>
+                  <span>{t('processPage.detail.currentPhase')}</span>
+                  <strong>{selectedProgress.stage}</strong>
+                </div>
+                <div>
+                  <span>{t('processPage.field.started')}</span>
+                  <strong>{formatDate(selectedStartedAt, locale)}</strong>
+                </div>
+                <div>
+                  <span>{t('processPage.detail.elapsed')}</span>
+                  <strong>{selectedElapsed.observed ? formatElapsedSeconds(selectedElapsed.seconds) : t('processPage.detail.elapsedUnobserved')}</strong>
+                </div>
+                {!selectedCurrent ? (
+                  <>
+                    <div>
+                      <span>{t('processPage.field.finished')}</span>
+                      <strong>{formatDate(selectedFinishedAt, locale)}</strong>
+                    </div>
+                  </>
+                ) : null}
+                <div className="process-detail-summary__wide">
+                  <span>{t('processPage.field.resultSummary')}</span>
+                  <strong>{selectedResultSummary}</strong>
+                </div>
+                {selectedFailureSummary ? (
+                  <div className="process-detail-summary__wide process-detail-summary__failure">
+                    <span>{t('processPage.field.error')}</span>
+                    <strong>{selectedFailureSummary}</strong>
+                  </div>
+                ) : null}
+              </div>
+
               {selectedCurrent ? (
-                <>
-                  <div><strong>{t('processPage.field.args')}</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.args || selectedTask?.args)}</pre></div>
-                  <div><strong>{t('processPage.field.kwargs')}</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.kwargs || selectedTask?.kwargs)}</pre></div>
-                  <div><strong>{t('processPage.field.progress')}</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.progress || selectedTask?.progress)}</pre></div>
-                  <div><strong>{t('processPage.field.resultRaw')}</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.result)}</pre></div>
-                  <div><strong>{t('processPage.field.traceback')}</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.traceback || selectedTask?.traceback)}</pre></div>
-                  <div><strong>{t('processPage.field.logsTail')}</strong><pre style={detailPreStyle}>{taskLogsError ? t('processPage.error.logsFailed') : stringifyBlock(taskLogsText)}</pre></div>
-                </>
-              ) : (
-                <>
-                  <div><strong>{t('processPage.field.params')}</strong><pre style={detailPreStyle}>{stringifyBlock(selectedHistoryTask?.params)}</pre></div>
-                  <div><strong>{t('processPage.field.error')}</strong><pre style={detailPreStyle}>{stringifyBlock(selectedHistoryTask?.error)}</pre></div>
-                </>
-              )}
+                <section className="process-progress" aria-label={t('processPage.detail.progress')}>
+                  {selectedProgress.completed != null && selectedProgress.total != null && selectedProgress.percent != null ? (
+                    <>
+                      <div
+                        className="process-progress__track"
+                        role="progressbar"
+                        aria-valuemin={0}
+                        aria-valuemax={selectedProgress.total}
+                        aria-valuenow={selectedProgress.completed}
+                        aria-label={`${t('processPage.detail.progress')} ${selectedProgress.completed}/${selectedProgress.total}`}
+                      >
+                        <div className="process-progress__bar" style={{ width: `${selectedProgress.percent}%` }} />
+                      </div>
+                      <span>{selectedProgress.completed} / {selectedProgress.total} ({selectedProgress.percent}%)</span>
+                    </>
+                  ) : selectedProgress.running ? (
+                    <p className="process-progress__activity" role="status">
+                      <span className="process-progress__spinner" aria-hidden="true" />
+                      {t('processPage.detail.running')}
+                    </p>
+                  ) : null}
+                </section>
+              ) : null}
+
+              <details className="process-technical-details">
+                <summary>{t('processPage.detail.technicalDiagnostics')}</summary>
+                <div className="process-technical-details__content">
+                  <div className="process-detail-fact-list">
+                    <span>{t('processPage.field.source')}: {selectedSourceKind}</span>
+                    {selectedMetaSegments.map((segment) => <span key={segment}>{segment}</span>)}
+                    <span>{t('processPage.field.worker')}: {selectedCurrent ? taskDetail?.worker || selectedTask?.worker || '-' : selectedHistoryTask?.worker || '-'}</span>
+                    {!selectedCurrent && selectedHistoryTask?.job_type ? <span>{t('processPage.field.jobType')}: {selectedHistoryTask.job_type}</span> : null}
+                    <span>{t('processPage.field.insertedValid')}: {selectedRejectionView.insertedValid ?? '-'}</span>
+                    <span>{t('processPage.field.rejected')}: {selectedRejectionView.rejectedCount ?? '-'}</span>
+                    <span>{t('processPage.field.topRejectionReason')}: {selectedRejectionView.topReason}</span>
+                    <span>{t('processPage.field.lightFilter')}: {selectedLightFilterView.decision}</span>
+                    <span>{t('processPage.field.reason')}: {selectedLightFilterView.reason}</span>
+                    <span>{t('processPage.field.score')}: {selectedLightFilterView.score ?? '-'}</span>
+                    <span>{t('processPage.field.keepForVectorization')}: {selectedLightFilterView.keep}</span>
+                  </div>
+                  <div>
+                    <h3>{t('processPage.field.displayMeta')}</h3>
+                    <pre>{stringifyBlock(selectedMeta)}</pre>
+                  </div>
+                  <div>
+                    <h3>{t('processPage.section.rejectionBreakdown')}</h3>
+                    <pre>{stringifyBlock(selectedRejectionView.rejectionBreakdown)}</pre>
+                  </div>
+                  {selectedCurrent ? (
+                    <>
+                      <div>
+                        <h3>{t('processPage.field.args')}</h3>
+                        <pre>{stringifyBlock(taskDetail?.args || selectedTask?.args)}</pre>
+                      </div>
+                      <div>
+                        <h3>{t('processPage.field.kwargs')}</h3>
+                        <pre>{stringifyBlock(taskDetail?.kwargs || selectedTask?.kwargs)}</pre>
+                      </div>
+                      <div>
+                        <h3>{t('processPage.field.progress')}</h3>
+                        <pre>{stringifyBlock(taskDetail?.progress || selectedTask?.progress)}</pre>
+                      </div>
+                      <div>
+                        <h3>{t('processPage.field.resultRaw')}</h3>
+                        <pre>{stringifyBlock(taskDetail?.result)}</pre>
+                      </div>
+                      <div>
+                        <h3>{t('processPage.field.traceback')}</h3>
+                        <pre>{stringifyBlock(taskDetail?.traceback || selectedTask?.traceback)}</pre>
+                      </div>
+                      <div>
+                        <h3>{t('processPage.field.logsTail')}</h3>
+                        <pre>{taskLogsError ? t('processPage.error.logsFailed') : taskLogsLoading && !taskLogsText ? (locale === 'zh-CN' ? '读取中…' : 'Loading…') : stringifyBlock(taskLogsText)}</pre>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <h3>{t('processPage.field.params')}</h3>
+                        <pre>{stringifyBlock(selectedHistoryTask?.params)}</pre>
+                      </div>
+                      <div>
+                        <h3>{t('processPage.field.error')}</h3>
+                        <pre>{stringifyBlock(selectedHistoryTask?.error)}</pre>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </details>
             </div>
-          </section>
+
+            <footer className="process-detail-drawer__footer">
+              {selectedCurrent ? (
+                <button type="button" onClick={onRefreshSelectedTask} disabled={isRefreshing}>
+                  <RefreshCw size={14} />
+                  {isRefreshing ? t('processPage.action.refreshing') : t('processPage.action.refresh')}
+                </button>
+              ) : (
+                <button type="button" onClick={onRefreshHistory} disabled={isRefreshing}>
+                  <RefreshCw size={14} />
+                  {isRefreshing ? t('processPage.action.refreshing') : t('processPage.action.refresh')}
+                </button>
+              )}
+              {selectedCurrent && selectedTask && canCancelTask(selectedTask) ? (
+                <button type="button" onClick={() => onCancelTask(selectedTask.task_id)} disabled={cancelPending}>
+                  <XCircle size={14} />
+                  {t('processPage.action.cancel')}
+                </button>
+              ) : null}
+            </footer>
+          </aside>
         </div>
       ) : null}
 
@@ -807,7 +1174,7 @@ export function ProcessPageView({
                 return (
                   <tr key={row.id}>
                     <td>{row.id}</td>
-                    <td>{row.job_type || '-'}</td>
+                    <td>{row.task_name || row.job_type || '-'}</td>
                     <td><span className={statusClass(row.status)}>{row.status || '-'}</span></td>
                     <td>{formatDate(row.started_at, locale)}</td>
                     <td>{formatDate(row.finished_at, locale)}</td>
@@ -817,7 +1184,10 @@ export function ProcessPageView({
                     <td>{rowRejectionView.rejectedCount ?? '-'}</td>
                     <td>{rowRejectionView.topReason}</td>
                     <td>
-                      <button onClick={() => onToggleHistoryDetail(Number(row.id))}>
+                      <button onClick={(event) => {
+                        detailTriggerRef.current = event.currentTarget
+                        onToggleHistoryDetail(Number(row.id))
+                      }}>
                         {selectedHistoryId === Number(row.id) ? t('processPage.action.collapse') : t('processPage.action.details')}
                       </button>
                     </td>

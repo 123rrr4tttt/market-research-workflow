@@ -1,0 +1,51 @@
+.kernel-visual__topbar-navigation {
+  grid-area: switch;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.kernel-visual__topbar-navigation .kernel-layer-switch {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.kernel-visual__nav-toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--visual-control-border);
+  border-radius: 6px;
+  background: var(--visual-control-bg);
+  color: #dff1ff;
+  cursor: pointer;
+}
+
+.kernel-visual__nav-toggle:hover {
+  border-color: rgba(125, 211, 252, 0.48);
+  background: var(--visual-control-bg-hover);
+}
+
+.kernel-visual__nav-toggle:focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.62);
+  outline-offset: 2px;
+}
+
+.kernel-visual__shell--nav-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.kernel-visual__shell--nav-collapsed > .kernel-visual__sidebar {
+  display: none !important;
+}
+
+.kernel-visual__shell--nav-collapsed > .kernel-visual__main {
+  width: 100%;
+  max-width: 100%;
+}

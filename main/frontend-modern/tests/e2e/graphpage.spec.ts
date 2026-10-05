@@ -45,6 +45,14 @@ type WorkflowTemplateRequest = {
   reason?: string
 }
 
+async function openLegacyBuilderControls(page: Page) {
+  const advanced = page.getByTestId('graph-view-advanced-toggle')
+  if (await advanced.isVisible().catch(() => false)) {
+    await advanced.click()
+    await expect(advanced).toHaveAttribute('aria-pressed', 'true')
+  }
+}
+
 async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?: boolean; workflowTemplate?: boolean } = {}) {
   let graphConfigHit = 0
   let marketGraphHit = 0
@@ -826,10 +834,12 @@ test('graph page can switch 2D/3D mode and interact with key slider', async ({ p
 
   await expect(page.getByRole('heading', { level: 1, name: '市场图谱', exact: true })).toBeVisible()
 
-  const renderModeToggle = page.locator('button[title="轻量3D模型模式（中心锁定，非相机视角）"]').first()
+  const renderModeToggle = page.locator('button[title="切换2D / 3D视图"]').first()
+  await expect(page.getByRole('checkbox', { name: '显示标签', exact: true })).toBeVisible()
   await expect(renderModeToggle).toHaveText('3D模式')
   await renderModeToggle.click()
   await expect(renderModeToggle).toHaveText('回到2D')
+  await expect(page.getByRole('checkbox', { name: '显示标签', exact: true })).toHaveCount(0)
 
   const repulsionSlider = page.getByRole('slider', { name: /^斥力/ }).first()
   await expect(repulsionSlider).toBeVisible()
@@ -839,6 +849,8 @@ test('graph page can switch 2D/3D mode and interact with key slider', async ({ p
   await repulsionSlider.press('ArrowRight')
   const updated = Number(await repulsionSlider.inputValue())
   expect(updated).not.toBe(initial)
+  await renderModeToggle.click()
+  await expect(page.getByRole('checkbox', { name: '显示标签', exact: true })).toBeVisible()
 })
 
 test('graph page renders force3d canvas backed by graph scene nodes', async ({ page }) => {
@@ -849,13 +861,12 @@ test('graph page renders force3d canvas backed by graph scene nodes', async ({ p
 
   await expect(page.getByRole('heading', { level: 1, name: '市场图谱', exact: true })).toBeVisible()
 
-  const renderModeToggle = page.locator('button[title="轻量3D模型模式（中心锁定，非相机视角）"]').first()
+  const renderModeToggle = page.locator('button[title="切换2D / 3D视图"]').first()
   await expect(renderModeToggle).toHaveText('3D模式')
   await renderModeToggle.click()
   await expect(renderModeToggle).toHaveText('回到2D')
 
-  const engineSelect = page.locator('label.gv2-control-chip', { hasText: '3D引擎' }).locator('select')
-  await expect(engineSelect).toBeVisible()
+  await expect(page.locator('label.gv2-control-chip', { hasText: '3D引擎' })).toHaveCount(0)
 
   const outcomeHandle = await page.waitForFunction(() => {
     type Graph3DStats = {
@@ -872,32 +883,75 @@ test('graph page renders force3d canvas backed by graph scene nodes', async ({ p
     if (canvas && canvas.width > 0 && canvas.height > 0 && stats && stats.dataNodes === 2 && stats.sceneNodeObjects >= 2) {
       return { mode: 'force3d', stats }
     }
-    const fallbackText = Array.from(document.querySelectorAll('.gv2-loading'))
-      .map((node) => node.textContent || '')
-      .join('\n')
-    const engineValue = Array.from(document.querySelectorAll('label.gv2-control-chip'))
-      .find((node) => (node.textContent || '').includes('3D引擎'))
-      ?.querySelector<HTMLSelectElement>('select')
-      ?.value || ''
-    if (fallbackText.includes('已自动降级到 legacy-projection') && engineValue === 'legacy') {
-      return { mode: 'fallback', fallbackText, engineValue }
-    }
     return false
   }, null, { timeout: 20000 })
 
-  const outcome = await outcomeHandle.jsonValue() as
-    | { mode: 'force3d'; stats: { dataNodes: number; sceneNodeObjects: number } }
-    | { mode: 'fallback'; fallbackText: string; engineValue: string }
+  const outcome = await outcomeHandle.jsonValue() as { mode: 'force3d'; stats: { dataNodes: number; sceneNodeObjects: number } }
+  await expect(page.getByTestId('graph-force3d-canvas-host')).toBeVisible()
+  expect(outcome.stats.dataNodes).toBe(2)
+  expect(outcome.stats.sceneNodeObjects).toBeGreaterThanOrEqual(2)
+})
 
-  await expect(page.getByRole('heading', { level: 1, name: '市场图谱', exact: true })).toBeVisible()
-  if (outcome.mode === 'force3d') {
-    await expect(page.getByTestId('graph-force3d-canvas-host')).toBeVisible()
-    expect(outcome.stats.dataNodes).toBe(2)
-    expect(outcome.stats.sceneNodeObjects).toBeGreaterThanOrEqual(2)
-  } else {
-    expect(outcome.fallbackText).toContain('3D引擎渲染失败')
-    expect(outcome.engineValue).toBe('legacy')
+test('pinning a 3D selection dims only unselected scene meshes and restores them on release', async ({ page }) => {
+  await page.addInitScript(() => {
+    const observer = new EventTarget()
+    const scenes: import('three').Scene[] = []
+    // Three's existing devtools observation port exposes actual scene objects.
+    Object.assign(window, { __THREE_DEVTOOLS__: observer, __graphTestScenes: scenes })
+    observer.addEventListener('observe', (event) => {
+      const object = (event as CustomEvent).detail as import('three').Scene
+      if (object.isScene) scenes.push(object)
+    })
+  })
+  await setupGraphPageMocks(page)
+  await page.goto('/#graph.html?type=market')
+  await page.getByRole('button', { name: '3D模式', exact: true }).click()
+  await expect(page.getByTestId('graph-force3d-canvas-host')).toBeVisible({ timeout: 20000 })
+
+  const materialStates = () => page.evaluate(() => {
+    const scenes = (window as Window & { __graphTestScenes: import('three').Scene[] }).__graphTestScenes
+    for (const scene of [...scenes].reverse()) {
+      const nodes: Array<{ id: string; selected: boolean; dimmed: boolean; opacities: number[] }> = []
+      scene.traverse((object) => {
+        if (!object.userData.__graphNodeObject) return
+        const opacities: number[] = []
+        object.traverse((child) => {
+          const mesh = child as import('three').Mesh
+          if (!mesh.isMesh) return
+          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+          opacities.push(...materials.map((material) => material.opacity))
+        })
+        nodes.push({
+          id: String(object.userData.__graphNodeId),
+          selected: Boolean(object.userData.__graphNodeSelected),
+          dimmed: Boolean(object.userData.__graphNodeDimmed),
+          opacities,
+        })
+      })
+      if (nodes.length) return nodes.sort((a, b) => a.id.localeCompare(b.id))
+    }
+    return []
+  })
+  await expect.poll(async () => (await materialStates()).length).toBe(2)
+  await page.waitForFunction(() => (window as Window & {
+    __graphPageE2E?: { selectNode: (id: string) => boolean }
+  }).__graphPageE2E?.selectNode('n1') === true)
+  await expect.poll(async () => (await materialStates()).filter((node) => node.selected).length).toBe(1)
+  const baseline = await materialStates()
+  const pin = page.getByRole('button', { name: '固化选中', exact: true })
+  await expect(pin).toBeEnabled()
+  await pin.click()
+  await expect.poll(async () => (await materialStates()).filter((node) => node.dimmed).length).toBe(1)
+  const pinned = await materialStates()
+  for (const node of pinned) {
+    const original = baseline.find((item) => item.id === node.id)!
+    expect(node.opacities.length).toBeGreaterThan(0)
+    expect(node.dimmed).toBe(!node.selected)
+    if (node.selected) expect(node.opacities).toEqual(original.opacities)
+    else node.opacities.forEach((opacity, index) => expect(opacity).toBeLessThan(original.opacities[index]))
   }
+  await pin.click()
+  await expect.poll(materialStates).toEqual(baseline)
 })
 
 test('market subgraph tabs reuse one total graph while rescheduling an isolated 3D display resource', async ({ page }) => {
@@ -906,7 +960,7 @@ test('market subgraph tabs reuse one total graph while rescheduling an isolated 
   expect(response?.ok()).toBeTruthy()
   await expect(page.getByRole('tablist', { name: '图谱' })).toBeVisible()
 
-  const renderModeToggle = page.locator('button[title="轻量3D模型模式（中心锁定，非相机视角）"]').first()
+  const renderModeToggle = page.locator('button[title="切换2D / 3D视图"]').first()
   await renderModeToggle.click()
   const canvasHost = page.getByTestId('graph-force3d-canvas-host')
   await expect(canvasHost).toBeVisible({ timeout: 20000 })
@@ -941,118 +995,31 @@ test('market subgraph tabs reuse one total graph while rescheduling an isolated 
   await expect(page.getByRole('heading', { level: 1, name: '政策图谱', exact: true })).toBeVisible()
 })
 
-test('graph page survives rapid 3D engine switch with viewport evidence or fallback', async ({ page }) => {
+test('graph page preserves the final rapid 2D/3D selection and restores its viewport', async ({ page }) => {
   await setupGraphPageMocks(page)
+  await page.goto('/#graph.html?type=market')
+  const toggle = page.locator('button[title="切换2D / 3D视图"]').first()
+  await expect(toggle).toHaveText('3D模式')
+  await toggle.click()
+  await expect(page.getByTestId('graph-force3d-canvas-host')).toBeVisible({ timeout: 20000 })
 
-  const response = await page.goto('/#graph.html?type=market')
-  expect(response?.ok()).toBeTruthy()
-
-  await expect(page.getByRole('heading', { level: 1, name: '市场图谱', exact: true })).toBeVisible()
-
-  const renderModeToggle = page.locator('button[title="轻量3D模型模式（中心锁定，非相机视角）"]').first()
-  await expect(renderModeToggle).toHaveText('3D模式')
-  await renderModeToggle.click()
-  await expect(renderModeToggle).toHaveText('回到2D')
-
-  const engineSelect = page.locator('label.gv2-control-chip', { hasText: '3D引擎' }).locator('select')
-  await expect(engineSelect).toBeVisible()
-
-  await engineSelect.selectOption('legacy')
-  await page.waitForTimeout(40)
-  await engineSelect.selectOption('force3d')
-  await page.waitForTimeout(40)
-  await engineSelect.selectOption('legacy')
-  await page.waitForTimeout(40)
-  await engineSelect.selectOption('force3d')
-
-  const outcomeHandle = await page.waitForFunction(() => {
-    type Graph3DStats = {
-      dataNodes: number
-      sceneNodeObjects: number
-    }
-    const debugWindow = window as Window & {
-      __graph3dDebug?: {
-        getVisibilityStats: () => Graph3DStats
-      }
-    }
-    const host = document.querySelector('[data-testid="graph-force3d-canvas-host"]') as HTMLElement | null
-    const canvas = host?.querySelector('canvas') as HTMLCanvasElement | null
-    const hostRect = host?.getBoundingClientRect()
-    const stats = debugWindow.__graph3dDebug?.getVisibilityStats()
-    if (
-      canvas &&
-      hostRect &&
-      hostRect.width >= 300 &&
-      hostRect.height >= 300 &&
-      canvas.width >= 300 &&
-      canvas.height >= 300 &&
-      stats &&
-      stats.dataNodes === 2 &&
-      stats.sceneNodeObjects >= 2
-    ) {
-      return {
-        mode: 'force3d',
-        stats,
-        canvasWidth: canvas.width,
-        canvasHeight: canvas.height,
-        hostWidth: Math.round(hostRect.width),
-        hostHeight: Math.round(hostRect.height),
-      }
-    }
-    const fallbackText = Array.from(document.querySelectorAll('.gv2-loading'))
-      .map((node) => node.textContent || '')
-      .join('\n')
-    const engineValue = Array.from(document.querySelectorAll('label.gv2-control-chip'))
-      .find((node) => (node.textContent || '').includes('3D引擎'))
-      ?.querySelector<HTMLSelectElement>('select')
-      ?.value || ''
-    const legacyChart = document.querySelector('.gv2-chart:not(.gv2-chart--force3d)') as HTMLElement | null
-    const legacyChartRect = legacyChart?.getBoundingClientRect()
-    if (engineValue === 'legacy' && legacyChartRect && legacyChartRect.width >= 300 && legacyChartRect.height >= 300) {
-      return {
-        mode: fallbackText.includes('已自动降级到 legacy-projection') ? 'fallback' : 'legacy',
-        fallbackText,
-        engineValue,
-        chartWidth: Math.round(legacyChartRect.width),
-        chartHeight: Math.round(legacyChartRect.height),
-      }
-    }
-    return false
-  }, null, { timeout: 20000 })
-
-  const outcome = await outcomeHandle.jsonValue() as
-    | {
-      mode: 'force3d'
-      stats: { dataNodes: number; sceneNodeObjects: number }
-      canvasWidth: number
-      canvasHeight: number
-      hostWidth: number
-      hostHeight: number
-    }
-    | {
-      mode: 'fallback' | 'legacy'
-      fallbackText: string
-      engineValue: string
-      chartWidth: number
-      chartHeight: number
-    }
-
-  await expect(page.getByRole('heading', { level: 1, name: '市场图谱', exact: true })).toBeVisible()
-  await expect(engineSelect).toBeVisible()
-  if (outcome.mode === 'force3d') {
-    await expect(page.getByTestId('graph-force3d-canvas-host')).toBeVisible()
-    expect(outcome.stats.dataNodes).toBe(2)
-    expect(outcome.stats.sceneNodeObjects).toBeGreaterThanOrEqual(2)
-    expect(Math.abs(outcome.canvasWidth - outcome.hostWidth)).toBeLessThanOrEqual(4)
-    expect(Math.abs(outcome.canvasHeight - outcome.hostHeight)).toBeLessThanOrEqual(4)
-  } else {
-    if (outcome.mode === 'fallback') {
-      expect(outcome.fallbackText).toContain('3D引擎渲染失败')
-    }
-    expect(outcome.engineValue).toBe('legacy')
-    expect(outcome.chartWidth).toBeGreaterThanOrEqual(300)
-    expect(outcome.chartHeight).toBeGreaterThanOrEqual(300)
-  }
+  await toggle.click()
+  await toggle.click()
+  await toggle.click()
+  await expect(toggle).toHaveText('3D模式')
+  await expect(page.getByTestId('graph-force3d-canvas-host')).toHaveCount(0)
+  await expect(page.getByTestId('graph-chart-2d').locator('canvas')).toBeVisible()
+  await toggle.click()
+  await expect(toggle).toHaveText('回到2D')
+  await expect.poll(() => page.evaluate(() => {
+    const host = document.querySelector('[data-testid="graph-force3d-canvas-host"]')
+    const canvas = host?.querySelector('canvas')
+    const rect = host?.getBoundingClientRect()
+    const stats = (window as Window & { __graph3dDebug?: { getVisibilityStats: () => { dataNodes: number; sceneNodeObjects: number } } }).__graph3dDebug?.getVisibilityStats()
+    return Boolean(canvas && rect && rect.width >= 300 && rect.height >= 300
+      && Math.abs(canvas.width - rect.width) <= 4 && Math.abs(canvas.height - rect.height) <= 4
+      && stats?.dataNodes === 2 && stats.sceneNodeObjects >= 2)
+  }), { timeout: 20000 }).toBe(true)
 })
 
 test('graph builder submits local draft to curated workflow graph API', async ({ page }) => {
@@ -1062,8 +1029,8 @@ test('graph builder submits local draft to curated workflow graph API', async ({
   expect(response?.ok()).toBeTruthy()
 
   await expect(page.getByRole('heading', { level: 1, name: '新建图谱', exact: true })).toBeVisible()
+  await openLegacyBuilderControls(page)
   await expect(page.getByTestId('graph-curated-panel')).toBeVisible()
-
   await page.getByTestId('graph-curated-graph-id').fill('cg-graphpage-e2e')
   await expect(page.getByText(/Draft: nodes=2 edges=1/)).toBeVisible()
 
@@ -1086,8 +1053,8 @@ test('graph builder submits local draft to curated workflow graph API', async ({
   await page.getByTestId('graph-curated-handoff-replay').click()
   await expect(page.getByTestId('graph-curated-status')).toContainText('handoff_replay_ready events=2')
 
-  expect(hits.policyGraphHit).toBeGreaterThan(0)
-  expect(hits.contentGraphHit).toBeGreaterThan(0)
+  expect(hits.policyGraphHit).toBe(0)
+  expect(hits.contentGraphHit).toBe(0)
   expect(hits.marketGraphHit).toBeGreaterThan(0)
   expect(hits.curatedDraftHit).toBe(1)
   expect(hits.curatedSubmitHit).toBe(1)
@@ -1098,7 +1065,7 @@ test('graph builder submits local draft to curated workflow graph API', async ({
 
   expect(hits.lastCuratedDraftBody?.actor_id).toBe('graphpage.curated-consumer')
   expect(hits.lastCuratedDraftBody?.dsl?.nodes).toEqual([
-    expect.objectContaining({ id: 'n1', type: 'product', node_id: 'n1', node_type: 'product', title: '示例商品A' }),
+    expect.objectContaining({ id: 'n1', type: 'ProductEntity', node_id: 'n1', node_type: 'ProductEntity', title: '示例商品A' }),
     expect.objectContaining({ id: 'n2', type: 'company', node_id: 'n2', node_type: 'company', title: '示例公司B' }),
   ])
   expect(hits.lastCuratedDraftBody?.dsl?.edges).toEqual([
@@ -1106,7 +1073,7 @@ test('graph builder submits local draft to curated workflow graph API', async ({
       from_node_id: 'n1',
       to_node_id: 'n2',
       edge_type: 'related_to',
-      from: { id: 'n1', type: 'product' },
+      from: { id: 'n1', type: 'ProductEntity' },
       to: { id: 'n2', type: 'company' },
     }),
   ])
@@ -1133,6 +1100,10 @@ test('graph builder dry-runs workflow template without writes', async ({ page })
   expect(response?.ok()).toBeTruthy()
 
   await expect(page.getByRole('heading', { level: 1, name: '新建图谱', exact: true })).toBeVisible()
+  const dryRunAdvanced = page.getByTestId('graph-view-advanced-toggle')
+  await dryRunAdvanced.click()
+  await expect(dryRunAdvanced).toHaveAttribute('aria-pressed', 'true')
+  await page.getByTestId('graph-template-select').selectOption('gp-workflow-template')
   await expect(page.getByTestId('graph-template-dry-run')).toBeEnabled()
 
   await page.getByTestId('graph-template-dry-run').click()
@@ -1157,9 +1128,11 @@ test('graph builder controls complete template lifecycle with staging and rollba
   expect(response?.ok()).toBeTruthy()
 
   await expect(page.getByRole('heading', { level: 1, name: '新建图谱', exact: true })).toBeVisible()
+  await openLegacyBuilderControls(page)
+  await expect(page.getByText(/draft/).first()).toBeVisible()
+  await page.getByTestId('graph-template-select').selectOption('gp-workflow-template')
   await expect(page.getByTestId('graph-template-select')).toHaveValue('gp-workflow-template')
   await expect(page.getByText(/draft/).first()).toBeVisible()
-
   await page.getByTestId('graph-template-stage-audit-refresh').click()
   await expect.poll(() => hits.workflowTemplateStageAuditHit).toBeGreaterThanOrEqual(2)
 
@@ -1237,8 +1210,8 @@ test('graph builder surfaces curated submit conflict without retrying destructiv
   expect(response?.ok()).toBeTruthy()
 
   await expect(page.getByRole('heading', { level: 1, name: '新建图谱', exact: true })).toBeVisible()
+  await openLegacyBuilderControls(page)
   await expect(page.getByTestId('graph-curated-panel')).toBeVisible()
-
   await page.getByTestId('graph-curated-graph-id').fill('cg-graphpage-e2e')
   await page.getByTestId('graph-curated-submit').click()
   await expect(page.getByTestId('graph-curated-status')).toContainText('submit_conflict: version_conflict')

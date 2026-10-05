@@ -1,0 +1,205 @@
+.kernel-admin--organized .kernel-admin__sidebar {
+  min-width: 0;
+  padding: 16px 12px;
+  gap: 20px;
+}
+
+.kernel-admin--organized .kernel-admin__brand {
+  padding: 0 10px;
+  gap: 3px;
+}
+
+.kernel-admin--organized .kernel-admin__brand strong {
+  letter-spacing: 0;
+}
+
+.kernel-admin--organized .kernel-admin__nav {
+  gap: 16px;
+}
+
+.kernel-admin--organized .kernel-admin__section {
+  gap: 2px;
+}
+
+.kernel-admin--organized .kernel-admin__section-title {
+  padding: 6px 10px;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.kernel-admin--organized .kernel-admin__nav-item {
+  min-height: 38px;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.kernel-admin--organized .kernel-admin__nav-item svg {
+  flex: 0 0 16px;
+  transform: none;
+}
+
+.kernel-admin--organized .kernel-admin__nav-item span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.kernel-admin--organized .kernel-admin__nav-item:focus-visible {
+  outline: 2px solid var(--admin-accent, #2563eb);
+  outline-offset: 2px;
+}
+
+.kernel-admin--organized .kernel-admin__panels,
+.kernel-admin--organized .kernel-admin__stage {
+  min-width: 0;
+}
+
+.kernel-admin--organized .business-chain-guide--page {
+  margin: 0;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  color: var(--app-text-primary);
+}
+
+.business-chain-guide--page .business-chain-guide__header {
+  padding: 0 0 20px;
+}
+
+.business-chain-guide--page .business-chain-guide__heading h2 {
+  font-size: 18px;
+  color: var(--app-text-primary);
+}
+
+.business-chain-guide--page .business-chain-guide__heading p {
+  color: var(--app-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.business-chain-guide--page .business-chain-guide__entries {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 32px;
+}
+
+.business-chain-guide__entry {
+  min-width: 0;
+  padding: 20px 0;
+  border-top: 1px solid var(--app-border-default);
+}
+
+.business-chain-guide__entry h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.business-chain-guide__entry h3 svg {
+  flex: 0 0 16px;
+  color: var(--app-text-secondary);
+}
+
+.business-chain-guide__entry p {
+  margin: 8px 0 14px;
+  color: var(--app-text-secondary);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.business-chain-guide__entry dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.business-chain-guide__entry dl > div {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.business-chain-guide__entry dt {
+  color: var(--app-text-secondary);
+}
+
+.business-chain-guide__entry dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.business-chain-guide__entry dd svg {
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+.business-chain-guide__technical {
+  margin-top: 14px;
+}
+
+.business-chain-guide__technical summary,
+.business-chain-guide__map summary {
+  padding: 6px 0;
+  font-size: 12px;
+  color: var(--app-text-secondary);
+  cursor: pointer;
+}
+
+.business-chain-guide__technical[open] summary {
+  margin-bottom: 8px;
+}
+
+.business-chain-guide__map {
+  min-width: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--app-border-default);
+}
+
+.business-chain-guide--page .business-chain-guide__graph-wrap {
+  max-width: 100%;
+  padding: 16px 0;
+  overflow-x: auto;
+}
+
+.business-chain-guide--page .business-chain-guide__legend {
+  padding: 8px 0;
+}
+
+@media (max-width: 800px) {
+  .business-chain-guide--page .business-chain-guide__entries {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kernel-admin--organized .kernel-admin__project-bar .kernel-admin__control-field {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .kernel-admin--organized .kernel-admin__project-bar select {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .business-chain-guide__entry dl > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kernel-admin--organized .kernel-admin__nav-item,
+  .kernel-admin--organized .kernel-admin__nav-item svg {
+    transition: none;
+  }
+}

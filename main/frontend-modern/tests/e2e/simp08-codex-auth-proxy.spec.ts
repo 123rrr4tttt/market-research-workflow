@@ -6,7 +6,7 @@ const enabled =
 
 test.skip(!enabled, 'SIMP08 real proxy evidence requires an isolated browser session')
 
-test('authenticated browser enters embedded Codex through the MRW exchange', async ({
+test('authenticated browser enters proxied Codex through the MRW exchange', async ({
   page,
   request,
 }) => {
@@ -44,19 +44,16 @@ test('authenticated browser enters embedded Codex through the MRW exchange', asy
     { timeout: 20_000 },
   )
 
-  await page.goto('/#/workbench/agent')
-  await expect(page.getByTestId('codex-agent-page')).toBeVisible()
-  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', '/codex/')
+  // Exercise the authenticated proxy independently of the local host-page route.
+  await page.goto('/codex/')
 
   await expect((await exchangeResponse).headers()['cache-control'] ?? '').toContain(
     'no-store',
   )
   await webuiStatusResponse
 
-  const frame = page.frame({ url: (url) => url.pathname.startsWith('/codex/') })
-  expect(frame).toBeDefined()
-  await expect(frame!.locator('#root')).toBeAttached()
-  const hasWebUiToken = await frame!.evaluate(() =>
+  await expect(page.locator('#root')).toBeAttached()
+  const hasWebUiToken = await page.evaluate(() =>
     Boolean(window.localStorage.getItem('codex.webui.jwt')),
   )
   expect(hasWebUiToken).toBe(true)

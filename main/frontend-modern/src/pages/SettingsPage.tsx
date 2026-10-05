@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, Settings2 } from 'lucide-react'
 import {
@@ -59,9 +59,9 @@ const GUIDE_SNIPPET_KEYS: Record<StatusIntentGuide, MessageKey> = {
 }
 
 const ENV_GROUPS = [
-  { title: { zh: '模型服务', en: 'Model services' }, keys: ['LLM_PROVIDER', 'OPENAI_API_KEY', 'OPENAI_API_BASE', 'AZURE_API_KEY', 'AZURE_API_BASE', 'AZURE_API_VERSION', 'AZURE_CHAT_DEPLOYMENT', 'AZURE_EMBEDDING_DEPLOYMENT', 'OLLAMA_BASE_URL'] },
-  { title: { zh: '搜索与新闻', en: 'Search and news' }, keys: ['SERPAPI_KEY', 'SERPSTACK_KEY', 'SERPER_API_KEY', 'GOOGLE_SEARCH_API_KEY', 'GOOGLE_SEARCH_CSE_ID', 'NEWS_API_KEY', 'LEGISCAN_API_KEY', 'AZURE_SEARCH_ENDPOINT', 'AZURE_SEARCH_KEY'] },
-  { title: { zh: '存储与运行', en: 'Storage and runtime' }, keys: ['DATABASE_URL', 'ES_URL', 'REDIS_URL'] },
+  { id: 'model', title: 'settingsPage.group.model', keys: ['LLM_PROVIDER', 'OPENAI_API_KEY', 'OPENAI_API_BASE', 'AZURE_API_KEY', 'AZURE_API_BASE', 'AZURE_API_VERSION', 'AZURE_CHAT_DEPLOYMENT', 'AZURE_EMBEDDING_DEPLOYMENT', 'OLLAMA_BASE_URL'] },
+  { id: 'search', title: 'settingsPage.group.search', keys: ['SERPAPI_KEY', 'SERPSTACK_KEY', 'SERPER_API_KEY', 'GOOGLE_SEARCH_API_KEY', 'GOOGLE_SEARCH_CSE_ID', 'NEWS_API_KEY', 'LEGISCAN_API_KEY', 'AZURE_SEARCH_ENDPOINT', 'AZURE_SEARCH_KEY'] },
+  { id: 'runtime', title: 'settingsPage.group.runtime', keys: ['DATABASE_URL', 'ES_URL', 'REDIS_URL'] },
 ] as const
 
 const SETTINGS_COPY = {
@@ -228,7 +228,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
   const llmTemplates = useQuery({
     queryKey: queryKeys.settings.projectLlmTemplates(projectKey),
     queryFn: () => listProjectLlmTemplates(projectKey),
-    enabled: Boolean(projectKey),
+    enabled: Boolean(projectKey) && variant === 'llm',
   })
 
   const templateItems = useMemo(
@@ -359,6 +359,8 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
           .find((node) => node.dataset.envKey === nextField)
         const target = fieldContainer?.querySelector<HTMLElement>('input')
         if (!target) return
+        const disclosure = fieldContainer?.closest('details')
+        if (disclosure) disclosure.open = true
         target.scrollIntoView({ behavior: 'smooth', block: 'center' })
         target.focus()
       }, 80)
@@ -507,14 +509,18 @@ export function SettingsPageView({
   const copy = locale === 'zh-CN' ? SETTINGS_COPY.zh : SETTINGS_COPY.en
   const pageTitle = variant === 'llm' ? t('settingsPage.title.llmView') : t('settingsPage.title.settingsView')
   const guideMessage = guideType ? t(GUIDE_MESSAGE_KEYS[guideType]) : ''
+  const envGroups = ENV_GROUPS.filter((group) => variant === 'llm' ? group.id === 'model' : group.id !== 'model')
 
   return (
     <div className={`content-stack settings-page settings-page--${variant}`}>
-      <section className="panel">
+      <section className="panel settings-page-heading">
         <div className="panel-header">
           <h2>{pageTitle}</h2>
+          <a href={variant === 'llm' ? hashByMode.sysSettings : hashByMode.sysLlm}>
+            {t(variant === 'llm' ? 'settingsPage.action.connectionSettings' : 'settingsPage.action.modelSettings')}
+          </a>
         </div>
-        <div className="inline-actions" style={{ marginTop: 10, flexWrap: 'wrap' }}>
+        {variant === 'settings' ? <div className="inline-actions settings-preferences" aria-label={t('settingsPage.section.preferences')}>
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             <span>{t('settings.locale.label')}</span>
             <select value={locale} onChange={(event) => onLocaleChange(event.target.value as (typeof APP_LOCALES)[number])}>
@@ -542,13 +548,13 @@ export function SettingsPageView({
               ))}
             </select>
           </label>
-        </div>
+        </div> : null}
       </section>
-      <section className="panel">
+      <section className="panel" aria-label={t('settingsPage.section.envConfig')}>
         <div className="panel-header">
           <h2>
             <Settings2 size={15} />
-            {t('settingsPage.section.envConfig')}
+            {t(variant === 'llm' ? 'settingsPage.section.models' : 'settingsPage.section.connections')}
           </h2>
           <div className="inline-actions">
             <button onClick={onRefreshEnv} disabled={envSettingsFetching}>
@@ -574,12 +580,11 @@ export function SettingsPageView({
 
         <div className="settings-scope-summary">
           <span className="settings-scope-badge">{copy.globalScope}</span>
-          <span className="settings-status-note">{copy.configNote}</span>
         </div>
         <div className="settings-service-groups">
-          {ENV_GROUPS.map((group) => (
-            <section className="settings-service-group" key={group.title.en}>
-              <div className="settings-service-group__header"><h3>{locale === 'zh-CN' ? group.title.zh : group.title.en}</h3><span>{copy.envConnection}</span></div>
+          {envGroups.map((group, index) => (
+            <details className="settings-service-group" key={group.id} open={index === 0 || group.keys.some((key) => key === focusField)}>
+              <summary className="settings-service-group__header"><span>{t(group.title)}</span><span>{group.keys.filter((key) => effectiveEnvDraft[key]).length}/{group.keys.length} · {copy.envConnection}</span></summary>
               <div className="form-grid cols-2">
                 {group.keys.map((key) => {
                   const configured = Boolean(effectiveEnvDraft[key])
@@ -591,7 +596,7 @@ export function SettingsPageView({
                   )
                 })}
               </div>
-            </section>
+            </details>
           ))}
         </div>
 
@@ -606,7 +611,7 @@ export function SettingsPageView({
         {envSettingsError ? <p className="status-line">{t('settingsPage.error.envLoadFailed')}</p> : null}
       </section>
 
-      <section className="panel">
+      {variant === 'llm' ? <section className="panel settings-templates-section">
         <div className="panel-header">
           <h2>{t('settingsPage.section.projectLlmTemplates')}</h2>
           <div className="inline-actions">
@@ -619,11 +624,10 @@ export function SettingsPageView({
 
         <div className="settings-scope-summary">
           <span className="settings-scope-badge">{copy.projectScope} · {projectKey}</span>
-          <span className="settings-status-note">{copy.projectNote}</span>
         </div>
 
         <div className="inline-actions" style={{ marginBottom: 12, flexWrap: 'wrap' }}>
-          <input value={copySourceProjectKey} onChange={(e) => onCopySourceProjectKeyChange(e.target.value)} placeholder={t('settingsPage.placeholder.sourceProjectKey')} style={{ minWidth: 220 }} />
+          <input value={copySourceProjectKey} onChange={(e) => onCopySourceProjectKeyChange(e.target.value)} aria-label={t('settingsPage.placeholder.sourceProjectKey')} placeholder={t('settingsPage.placeholder.sourceProjectKey')} />
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <input type="checkbox" checked={copyOverwrite} onChange={(e) => onCopyOverwriteChange(e.target.checked)} />
             <span>{t('settingsPage.field.copyOverwrite')}</span>
@@ -639,9 +643,6 @@ export function SettingsPageView({
               <tr>
                 <th>{t('settingsPage.field.service')}</th>
                 <th>{t('settingsPage.field.model')}</th>
-                <th>{t('settingsPage.field.temperature')}</th>
-                <th>{t('settingsPage.field.topP')}</th>
-                <th>{t('settingsPage.field.maxTokens')}</th>
                 <th>{t('settingsPage.field.enabled')}</th>
                 <th>{t('settingsPage.field.updated')}</th>
                 <th>{t('settingsPage.field.actions')}</th>
@@ -653,24 +654,21 @@ export function SettingsPageView({
                 const isExpanded = expandedService === row.service_name
                 const isSaving = savingService === row.service_name
                 return (
-                  <>
+                  <Fragment key={row.id}>
                     <tr key={row.id}>
                       <td>{row.service_name}</td>
                       <td>{draft.model || '-'}</td>
-                      <td>{draft.temperature || '-'}</td>
-                      <td>{draft.top_p || '-'}</td>
-                      <td>{draft.max_tokens || '-'}</td>
                       <td>{draft.enabled ? t('settingsPage.value.enabledTrue') : t('settingsPage.value.enabledFalse')}</td>
                       <td>{formatDate(row.updated_at, locale)}</td>
                       <td>
-                        <button onClick={() => onExpandedServiceChange(isExpanded ? null : row.service_name)}>
+                        <button aria-expanded={isExpanded} onClick={() => onExpandedServiceChange(isExpanded ? null : row.service_name)}>
                           {isExpanded ? t('settingsPage.action.collapse') : t('settingsPage.action.edit')}
                         </button>
                       </td>
                     </tr>
                     {isExpanded ? (
                       <tr key={`${row.id}-editor`}>
-                        <td colSpan={8}>
+                        <td colSpan={5}>
                           <div className="form-grid cols-2" style={{ marginTop: 8 }}>
                             <label>
                               <span>{t('settingsPage.field.model')}</span>
@@ -678,31 +676,33 @@ export function SettingsPageView({
                             </label>
                             <label>
                               <span>{t('settingsPage.field.temperature')}</span>
-                              <input value={draft.temperature} onChange={(e) => onTemplateDraftChange(row.service_name, { temperature: e.target.value })} />
-                            </label>
-                            <label>
-                              <span>{t('settingsPage.field.topP')}</span>
-                              <input value={draft.top_p} onChange={(e) => onTemplateDraftChange(row.service_name, { top_p: e.target.value })} />
-                            </label>
-                            <label>
-                              <span>{t('settingsPage.field.presencePenalty')}</span>
-                              <input value={draft.presence_penalty} onChange={(e) => onTemplateDraftChange(row.service_name, { presence_penalty: e.target.value })} />
-                            </label>
-                            <label>
-                              <span>{t('settingsPage.field.frequencyPenalty')}</span>
-                              <input value={draft.frequency_penalty} onChange={(e) => onTemplateDraftChange(row.service_name, { frequency_penalty: e.target.value })} />
+                              <input type="number" step="any" value={draft.temperature} onChange={(e) => onTemplateDraftChange(row.service_name, { temperature: e.target.value })} />
                             </label>
                             <label>
                               <span>{t('settingsPage.field.maxTokens')}</span>
-                              <input value={draft.max_tokens} onChange={(e) => onTemplateDraftChange(row.service_name, { max_tokens: e.target.value })} />
+                              <input type="number" step="1" value={draft.max_tokens} onChange={(e) => onTemplateDraftChange(row.service_name, { max_tokens: e.target.value })} />
                             </label>
-                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <label className="settings-enabled-field">
                               <input type="checkbox" checked={draft.enabled} onChange={(e) => onTemplateDraftChange(row.service_name, { enabled: e.target.checked })} />
                               <span>{t('settingsPage.field.enabled')}</span>
                             </label>
                           </div>
                           <details className="settings-advanced-fields">
                             <summary>{copy.advanced}</summary>
+                            <div className="form-grid cols-2">
+                            <label>
+                              <span>{t('settingsPage.field.topP')}</span>
+                              <input type="number" step="any" value={draft.top_p} onChange={(e) => onTemplateDraftChange(row.service_name, { top_p: e.target.value })} />
+                            </label>
+                            <label>
+                              <span>{t('settingsPage.field.presencePenalty')}</span>
+                              <input type="number" step="any" value={draft.presence_penalty} onChange={(e) => onTemplateDraftChange(row.service_name, { presence_penalty: e.target.value })} />
+                            </label>
+                            <label>
+                              <span>{t('settingsPage.field.frequencyPenalty')}</span>
+                              <input type="number" step="any" value={draft.frequency_penalty} onChange={(e) => onTemplateDraftChange(row.service_name, { frequency_penalty: e.target.value })} />
+                            </label>
+                          </div>
                             <div className="form-grid" style={{ marginTop: 8 }}>
                             <label>
                               <span>{t('settingsPage.field.systemPrompt')}</span>
@@ -722,12 +722,12 @@ export function SettingsPageView({
                         </td>
                       </tr>
                     ) : null}
-                  </>
+                  </Fragment>
                 )
               })}
               {!templateItems.length ? (
                 <tr>
-                  <td colSpan={8} className="empty-cell">
+                  <td colSpan={5} className="empty-cell">
                     {t('settingsPage.empty.projectLlmTemplates')}
                   </td>
                 </tr>
@@ -739,7 +739,7 @@ export function SettingsPageView({
         {templateMessage ? <p className="status-line">{templateMessage}</p> : null}
         {copyMessage ? <p className="status-line">{copyMessage}</p> : null}
         {llmTemplatesError ? <p className="status-line">{t('settingsPage.error.templatesLoadFailed')}</p> : null}
-      </section>
+      </section> : null}
     </div>
   )
 }

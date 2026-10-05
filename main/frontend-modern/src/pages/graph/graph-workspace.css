@@ -1,0 +1,542 @@
+.kernel-visual .gv2-root {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.kernel-visual .gv2-root > .gv2-projection-tabs {
+  display: flex;
+  align-items: end;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border: 0;
+  background: transparent;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(125, 211, 252, 0.32) transparent;
+}
+
+.kernel-visual .gv2-root > .gv2-projection-tabs .gv2-projection-tab {
+  --projection-tab-height: 34px;
+  flex: 0 0 auto;
+  min-width: 108px;
+  max-width: 184px;
+  height: var(--projection-tab-height);
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0 !important;
+  background: transparent;
+}
+
+.kernel-visual .gv2-root > .gv2-projection-tabs .gv2-projection-tab:hover {
+  background: rgba(30, 110, 220, 0.14);
+  color: #dff1ff;
+}
+
+.kernel-visual .gv2-root > .gv2-projection-tabs .gv2-projection-tab.is-active {
+  border-bottom-color: var(--gv2-accent);
+  background: rgba(30, 110, 220, 0.18);
+  color: #f2faff;
+}
+
+.kernel-visual .gv2-root > .gv2-chart-wrap {
+  position: relative;
+  min-width: 0;
+  min-height: 68vh;
+  border: 1px solid #17202e;
+  background: #02050b;
+  background-image: none;
+  box-shadow: none;
+}
+
+.kernel-visual .gv2-root > .gv2-chart-wrap:fullscreen,
+.kernel-visual .gv2-root > .gv2-chart-wrap:-webkit-full-screen,
+.kernel-visual .gv2-root > .gv2-chart-wrap.is-fullscreen {
+  border: 0;
+}
+
+.kernel-visual .gv2-root > .gv2-macro-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0 2px;
+}
+
+.kernel-visual .gv2-root > .gv2-macro-stats .gv2-macro-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.kernel-visual .gv2-root > .gv2-macro-stats .gv2-macro-stat span,
+.kernel-visual .gv2-root > .gv2-macro-stats .gv2-macro-stat strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kernel-visual .gv2-root > .gv2-macro-stats .gv2-macro-stat span {
+  font-size: 11px;
+}
+
+.kernel-visual .gv2-root > .gv2-macro-stats .gv2-macro-stat strong {
+  font-size: 12px;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-floating-controls,
+.kernel-visual .gv2-chart-wrap .gv2-legend-float {
+  border: 1px solid rgba(44, 63, 89, 0.9);
+  background: rgba(4, 9, 18, 0.92);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.32);
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-legend-float {
+  align-content: start;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-floating-controls,
+.kernel-visual .gv2-chart-wrap .gv2-legend-float {
+  max-height: calc(100% - 56px);
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-control-section {
+  border: 0;
+  border-top: 1px solid rgba(44, 63, 89, 0.72);
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-control-section:first-child {
+  border-top: 0;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-control-section.is-collapsed {
+  border-left: 0;
+  background: transparent;
+  opacity: 1;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-control-section-head {
+  border-bottom: 0;
+  background: transparent;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-control-section-body {
+  border-top: 1px solid rgba(44, 63, 89, 0.48);
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-control-chip {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-control-chip input:not([type='checkbox']):not([type='range']),
+.kernel-visual .gv2-chart-wrap .gv2-control-chip select {
+  width: 100%;
+  min-width: 0;
+  min-height: 28px;
+  padding: 4px 7px;
+  border: 1px solid rgba(125, 211, 252, 0.22);
+  background: #0b1420;
+  color: #eaf3ff;
+  font-size: 12px;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-control-chip input:not([type='checkbox']):not([type='range']):focus-visible,
+.kernel-visual .gv2-chart-wrap .gv2-control-chip select:focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.58);
+  outline-offset: 1px;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-control-chip button {
+  min-height: 28px;
+  padding: 4px 8px;
+  border-color: rgba(125, 211, 252, 0.24);
+  background: rgba(30, 110, 220, 0.22);
+  color: rgba(223, 241, 255, 0.88);
+  font-size: 12px;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-control-chip button:hover:not(:disabled) {
+  border-color: rgba(125, 211, 252, 0.42);
+  background: rgba(45, 132, 235, 0.3);
+  color: #f2faff;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-control-chip button:focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.58);
+  outline-offset: 2px;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-control-chip button:disabled {
+  border-color: rgba(143, 186, 255, 0.1);
+  background: rgba(8, 14, 20, 0.44);
+  color: rgba(186, 202, 220, 0.42);
+  opacity: 1;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-legend-node,
+.kernel-visual .gv2-chart-wrap .gv2-type {
+  min-height: 28px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-legend-node {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-legend-node.is-active,
+.kernel-visual .gv2-chart-wrap .gv2-type:hover {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.kernel-visual .gv2-chart-wrap .gv2-legend-node.is-active .gv2-legend-node-label {
+  color: #f2faff;
+}
+
+.kernel-visual .gv2-builder-toolbar {
+  position: relative;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.kernel-visual .gv2-builder-toolbar > button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+  border-color: rgba(125, 211, 252, 0.24);
+  background: rgba(30, 110, 220, 0.22);
+  color: rgba(223, 241, 255, 0.88);
+}
+
+.kernel-visual .gv2-builder-toolbar > button:hover {
+  border-color: rgba(125, 211, 252, 0.42);
+  background: rgba(45, 132, 235, 0.3);
+  color: #f2faff;
+}
+
+.kernel-visual .gv2-builder-toolbar > button:focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.58);
+  outline-offset: 2px;
+}
+
+.kernel-visual .gv2-builder-toolbar > button.is-active {
+  border-color: rgba(125, 211, 252, 0.46);
+  background: rgba(45, 132, 235, 0.34);
+  color: #f8ffff;
+}
+
+.kernel-visual .gv2-builder-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 9;
+  min-width: 240px;
+  min-height: 160px;
+  max-width: min(420px, calc(100vw - 32px));
+  max-height: min(60vh, 480px);
+  resize: both;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 8px;
+  border: 1px solid rgba(44, 63, 89, 0.9);
+  background: rgba(4, 9, 18, 0.96);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.32);
+}
+
+.kernel-visual .gv2-overlay-top--builder > button:has(> svg:only-child) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+.kernel-visual .gv2-builder-popover[hidden] {
+  display: none;
+}
+
+.kernel-visual .gv2-builder-popover,
+.kernel-visual .gv2-builder-popover label,
+.kernel-visual .gv2-builder-popover fieldset,
+.kernel-visual .gv2-builder-popover input,
+.kernel-visual .gv2-builder-popover select,
+.kernel-visual .gv2-builder-popover button {
+  font-size: 12px;
+}
+
+.kernel-visual .gv2-builder-popover {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.kernel-visual .gv2-builder-popover > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(44, 63, 89, 0.72);
+}
+
+.kernel-visual .gv2-builder-popover > div:first-child strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #eaf3ff;
+  font-size: 12px;
+}
+
+.kernel-visual .gv2-builder-popover > div:first-child button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  margin-left: auto;
+  padding: 0;
+  border-color: rgba(125, 211, 252, 0.2);
+  background: rgba(30, 110, 220, 0.16);
+  color: rgba(214, 236, 255, 0.78);
+}
+
+.kernel-visual .gv2-builder-popover > div:first-child button:hover,
+.kernel-visual .gv2-builder-popover > div:first-child button:focus-visible {
+  border-color: rgba(125, 211, 252, 0.42);
+  background: rgba(45, 132, 235, 0.28);
+  color: #f2faff;
+}
+
+.kernel-visual .gv2-builder-popover > div:first-child button:focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.58);
+  outline-offset: 2px;
+}
+
+.kernel-visual .gv2-builder-popover label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--gv2-text-soft);
+}
+
+.kernel-visual .gv2-builder-popover label > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kernel-visual .gv2-builder-popover fieldset {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.kernel-visual .gv2-builder-popover legend {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: 0;
+  color: #eaf3ff;
+  font-size: 12px;
+}
+
+.kernel-visual .gv2-builder-popover fieldset label {
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 28px;
+}
+
+.kernel-visual .gv2-builder-popover input,
+.kernel-visual .gv2-builder-popover select {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid rgba(125, 211, 252, 0.22);
+  background: #0b1420;
+  color: #eaf3ff;
+}
+
+.kernel-visual .gv2-builder-popover select {
+  color-scheme: dark;
+}
+
+.kernel-visual .gv2-builder-popover input:focus-visible,
+.kernel-visual .gv2-builder-popover select:focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.58);
+  outline-offset: 1px;
+}
+
+.kernel-visual .gv2-builder-popover input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  min-height: 14px;
+  padding: 0;
+  accent-color: var(--gv2-accent);
+}
+
+.kernel-visual .gv2-builder-popover button {
+  min-height: 30px;
+  padding: 5px 9px;
+  border-color: rgba(125, 211, 252, 0.24);
+  background: rgba(30, 110, 220, 0.22);
+  color: rgba(223, 241, 255, 0.88);
+}
+
+.kernel-visual .gv2-builder-popover button:hover:not(:disabled) {
+  border-color: rgba(125, 211, 252, 0.42);
+  background: rgba(45, 132, 235, 0.3);
+  color: #f2faff;
+}
+
+.kernel-visual .gv2-builder-popover button:focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.58);
+  outline-offset: 2px;
+}
+
+.kernel-visual .gv2-builder-popover button:disabled {
+  border-color: rgba(143, 186, 255, 0.1);
+  background: rgba(8, 14, 20, 0.44);
+  color: rgba(186, 202, 220, 0.42);
+  opacity: 1;
+}
+
+.kernel-visual .gv2-builder-popover > div[role='group'] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.kernel-visual .gv2-builder-popover > div[role='group'] button {
+  width: 100%;
+  justify-content: center;
+}
+
+.kernel-visual .gv2-builder-popover > button {
+  justify-self: start;
+}
+
+.kernel-visual .gv2-builder-popover span[role='status'] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--gv2-text-soft);
+}
+
+.kernel-visual .gv2-root .graph-panel-resize-handle {
+  /* Sticky keeps the grip in the visible scrollport when panel content scrolls. */
+  position: sticky;
+  bottom: 0;
+  grid-column: 1 / -1;
+  z-index: 14;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  justify-self: end;
+  margin-top: 8px;
+  padding: 0;
+  border: 1px solid rgba(125, 211, 252, 0.3);
+  background: rgba(4, 9, 18, 0.9);
+  color: rgba(214, 236, 255, 0.76);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.kernel-visual .gv2-root .graph-panel-resize-handle:hover {
+  border-color: rgba(125, 211, 252, 0.52);
+  background: rgba(30, 110, 220, 0.28);
+  color: #f2faff;
+}
+
+.kernel-visual .gv2-root .graph-panel-resize-handle:focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.64);
+  outline-offset: 2px;
+}
+
+@media (max-width: 980px) {
+  .kernel-visual .gv2-root {
+    display: grid;
+  }
+
+  .kernel-visual .gv2-root > .gv2-chart-wrap .gv2-floating-controls,
+  .kernel-visual .gv2-root > .gv2-chart-wrap .gv2-legend-float {
+    position: static;
+    inset: auto;
+    z-index: auto;
+    width: 100%;
+    max-height: none;
+    margin-top: 8px;
+    overflow: visible;
+  }
+
+  .kernel-visual .gv2-root > .gv2-chart-wrap .graph-panel-resize-handle {
+    display: none;
+  }
+
+  .kernel-visual .gv2-root > .gv2-chart-wrap .gv2-chart {
+    height: 54dvh;
+    min-height: 380px;
+  }
+
+  .kernel-visual .gv2-root > .gv2-chart-wrap .gv2-chart--force3d {
+    position: relative;
+    inset: auto;
+  }
+
+  .kernel-visual .gv2-root > .gv2-chart-wrap .gv2-builder-popover {
+    min-width: min(240px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    resize: none;
+  }
+}

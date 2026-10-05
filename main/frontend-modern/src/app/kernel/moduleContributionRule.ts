@@ -17,8 +17,10 @@ const RawDataPage = lazy(() => import('../../pages/RawDataPage'))
 const SettingsPage = lazy(() => import('../../pages/SettingsPage'))
 const WritingWorkbenchPage = lazy(() => import('../../pages/WritingWorkbenchPage'))
 const CodexAgentPage = lazy(() => import('../../pages/CodexAgentPage'))
+const AgentCellPage = lazy(() => import('../../pages/AgentCellPage'))
 const WorkflowManagerPage = lazy(() => import('../../pages/WorkflowManagerPage'))
 const SuccessorRuntimePage = lazy(() => import('../../pages/SuccessorRuntimePage'))
+const BusinessGuidePage = lazy(() => import('../../pages/BusinessGuidePage'))
 
 export type ModuleRendererArgs = {
   moduleKey: KernelModuleKey
@@ -65,6 +67,7 @@ const MODULE_RENDERERS: Record<KernelModuleKey, ModuleRenderer> = {
       standalone: shellMode !== KERNEL_RENDER_SHELL_MODE.workbench,
     }),
   flowAgentChat: ({ projectKey }) => h(CodexAgentPage, { projectKey }),
+  flowCell: ({ projectKey }) => h(AgentCellPage, { key: projectKey, projectKey }),
   dataPolicy: ({ projectKey }) => h(PolicyPage, { projectKey, variant: 'policy' }),
   dataCatalog: ({ projectKey }) => h(CatalogPage, { projectKey, variant: 'catalog' }),
   flowLlmNodeDesign: ({ projectKey, shellMode }) =>
@@ -84,6 +87,7 @@ const MODULE_RENDERERS: Record<KernelModuleKey, ModuleRenderer> = {
     shellMode === KERNEL_RENDER_SHELL_MODE.admin
       ? h(SuccessorRuntimePage, { projectKey })
       : null,
+  sysBusinessGuide: () => h(BusinessGuidePage),
 }
 
 export const moduleRendererBindings: Record<KernelModuleKey, ModuleRendererBinding> = Object.fromEntries(

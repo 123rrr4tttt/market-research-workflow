@@ -3,11 +3,21 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, mocked, userEvent } from 'storybook/test'
 import * as api from '../lib/api'
 import type { IngestFormState } from '../lib/types'
+import type { TaskSubmissionState } from '../hooks/useIngestActions'
 import IngestPage, { IngestPageView, type IngestPageViewProps } from './IngestPage'
 import { StorybookKernelShell } from './storybookKernelUtils'
 import { pageDecorators, pageParameters } from './storybookPageUtils'
 
 const pendingIngestResult = new Promise<never>(() => undefined)
+
+const emptyTaskSubmission: TaskSubmissionState = {
+  receipt: null,
+  taskDetail: undefined,
+  readbackError: '',
+  isReading: false,
+  track: () => false,
+  refresh: async () => undefined,
+}
 
 function createIngestViewProps(overrides: Partial<IngestPageViewProps> = {}): IngestPageViewProps {
   const form: IngestFormState = {
@@ -59,6 +69,7 @@ function createIngestViewProps(overrides: Partial<IngestPageViewProps> = {}): In
       message: '准备执行采集任务',
       degradationFlags: [],
     },
+    submission: emptyTaskSubmission,
     retrievalRunReadback: null,
     retrievalRunReadbackPending: false,
     retrievalRunReadbackError: '',

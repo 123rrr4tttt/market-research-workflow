@@ -72,9 +72,10 @@ function defineModule(
 export const DEFAULT_KERNEL_MODULE: KernelModuleKey = 'overviewTasks'
 
 // Presentation grouping only. Routes, labels and module identities still come from the manifest.
-export const ADMIN_NAV_SECTIONS: readonly { labelKey: 'shell.admin.group.projectWork' | 'shell.admin.group.platform'; primary: readonly KernelModuleKey[]; secondary: readonly KernelModuleKey[] }[] = [
-  { labelKey: 'shell.admin.group.projectWork', primary: ['overviewTasks', 'overviewData', 'sysCrawler'], secondary: ['flowProcessing', 'sysResource', 'flowExtract'] },
-  { labelKey: 'shell.admin.group.platform', primary: ['sysProjects', 'sysSettings', 'sysBackend'], secondary: ['sysLlm', 'sysSuccessorRuntime'] },
+export const ADMIN_NAV_SECTIONS: readonly { labelKey: 'shell.admin.group.projectData' | 'shell.admin.group.runtime' | 'shell.admin.group.configuration'; items: readonly KernelModuleKey[] }[] = [
+  { labelKey: 'shell.admin.group.projectData', items: ['overviewData', 'sysResource', 'flowExtract', 'sysCrawler'] },
+  { labelKey: 'shell.admin.group.runtime', items: ['overviewTasks', 'flowProcessing', 'sysBackend', 'sysSuccessorRuntime'] },
+  { labelKey: 'shell.admin.group.configuration', items: ['sysProjects', 'sysSettings', 'sysLlm', 'sysBusinessGuide'] },
 ]
 
 export const moduleManifest: readonly ModuleManifestEntry[] = [
@@ -113,6 +114,7 @@ export const moduleManifest: readonly ModuleManifestEntry[] = [
     ['#agent-chat-compat.html'],
   ),
   defineModule('flowLlmNodeDesign', 'A', 'workbench', '/workbench/designer/llm', '#llm-designer.html', 'navigation.group.flow', WORKFLOW_LOOPS, true),
+  defineModule('flowCell', 'A', 'workbench', '/workbench/cell', '#agent-cell.html', 'navigation.group.flow', ['project-scope', 'layer-selection', 'registration-readback'], false),
   defineModule('sysProjects', 'C', 'management', '/admin/projects', '#project-management.html', 'navigation.group.system', GOVERNANCE_LOOPS, false),
   defineModule('sysCrawler', 'C', 'management', '/admin/crawlers', '#crawler-management.html', 'navigation.group.system', GOVERNANCE_LOOPS, false),
   defineModule('sysResource', 'C', 'management', '/admin/resources', '#resource-pool-management.html', 'navigation.group.system', RESOURCE_LOOPS, false),
@@ -120,6 +122,7 @@ export const moduleManifest: readonly ModuleManifestEntry[] = [
   defineModule('sysSettings', 'C', 'management', '/admin/settings', '#settings.html', 'navigation.group.system', ['settings-edit', 'template-config'], false),
   defineModule('sysLlm', 'C', 'management', '/admin/settings/llm', '#settings.html#llm-config', 'navigation.group.system', ['llm-template-edit', 'settings-edit'], false),
   defineModule('sysSuccessorRuntime', 'C', 'management', '/admin/successor-runtime', '#successor-runtime.html', 'navigation.group.system', ['status-review'], false),
+  defineModule('sysBusinessGuide', 'C', 'management', '/admin/guide', '#business-guide.html', 'navigation.group.system', ['chain-overview', 'detail-inspect'], false),
 ] as const
 
 export const moduleManifestByKey = Object.fromEntries(

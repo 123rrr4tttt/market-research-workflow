@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   Workflow,
   Menu,
-  HelpCircle,
+  BookOpen,
   type LucideIcon,
 } from 'lucide-react'
 import { bootstrapCodexCliLogin } from '../../lib/api'
@@ -19,8 +19,8 @@ import { translate, useAppLocale, type MessageKey } from '../platform/i18n'
 import { getKernelModuleContract } from './contracts'
 import LayerSwitch from './LayerSwitch'
 import ModuleRenderer from './ModuleRenderer'
-import BusinessChainGuide from './BusinessChainGuide'
 import { ADMIN_NAV_SECTIONS } from './moduleManifest'
+import './admin-shell-management.css'
 import type { KernelModuleKey } from './types'
 import type { useKernelRuntime } from './useKernelRuntime'
 
@@ -56,6 +56,7 @@ const ICON_BY_MODULE: Record<KernelModuleKey, LucideIcon> = {
   flowBoard: Activity,
   flowWriting: Activity,
   flowAgentChat: Bot,
+  flowCell: Activity,
   flowLlmNodeDesign: Activity,
   sysProjects: FolderKanban,
   sysCrawler: Radar,
@@ -64,6 +65,7 @@ const ICON_BY_MODULE: Record<KernelModuleKey, LucideIcon> = {
   sysSettings: Settings2,
   sysLlm: Bot,
   sysSuccessorRuntime: Gauge,
+  sysBusinessGuide: BookOpen,
 }
 
 function statusChipClass(value: string | boolean) {
@@ -146,7 +148,7 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
   }
 
   return (
-    <div className="kernel-admin">
+    <div className="kernel-admin kernel-admin--organized">
       <header className="kernel-admin__topbar">
         <div className="kernel-admin__topbar-heading">
           <p>{t('shell.admin.header.management')}</p>
@@ -241,11 +243,11 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
             <span>{t('shell.admin.brand.layerC')}</span>
             <strong>MRW</strong>
           </div>
-          <div className="kernel-admin__nav">
+          <nav className="kernel-admin__nav" aria-label={t('shell.admin.action.menu')}>
             {ADMIN_NAV_SECTIONS.map((group) => (
               <section key={group.labelKey} className="kernel-admin__section">
                 <p className="kernel-admin__section-title">{t(group.labelKey)}</p>
-                {group.primary.map((moduleKey) => {
+                {group.items.map((moduleKey) => {
                   const Icon = ICON_BY_MODULE[moduleKey]
                   const contract = getKernelModuleContract(moduleKey)
                   const active = moduleKey === activeModule
@@ -257,24 +259,14 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
                       onClick={() => { runtime.navigateToModule(moduleKey); setNavOpen(false) }}
                       aria-current={active ? 'page' : undefined}
                     >
-                      <Icon size={15} />
+                      <Icon size={16} aria-hidden="true" />
                       <span>{translate(locale, contract.navLabelKey, moduleKey)}</span>
                     </button>
                   )
                 })}
-                <details className="kernel-admin__secondary-nav" open={group.secondary.includes(activeModule) ? true : undefined}>
-                  <summary>{t('shell.admin.action.moreSections')}</summary>
-                  {group.secondary.map((moduleKey) => {
-                    const Icon = ICON_BY_MODULE[moduleKey]
-                    const contract = getKernelModuleContract(moduleKey)
-                    const active = moduleKey === activeModule
-                    return <button key={moduleKey} type="button" className={`kernel-admin__nav-item is-secondary ${active ? 'is-active' : ''}`} onClick={() => { runtime.navigateToModule(moduleKey); setNavOpen(false) }} aria-current={active ? 'page' : undefined}><Icon size={15} /><span>{translate(locale, contract.navLabelKey, moduleKey)}</span></button>
-                  })}
-                </details>
               </section>
             ))}
-            <button type="button" className="kernel-admin__nav-item kernel-admin__help-link" onClick={() => document.getElementById('admin-business-guide')?.scrollIntoView({ behavior: 'smooth' })}><HelpCircle size={15} /><span>{t('shell.admin.action.businessGuide')}</span></button>
-          </div>
+          </nav>
         </aside>
 
         <section className="kernel-admin__main">
@@ -287,7 +279,6 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
                 shellMode="admin"
               />
             </section>
-            <div id="admin-business-guide"><BusinessChainGuide /></div>
           </section>
         </section>
       </section>

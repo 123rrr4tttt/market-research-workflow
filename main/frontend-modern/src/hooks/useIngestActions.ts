@@ -17,6 +17,7 @@ import {
   validateAgentBatchRuleSet,
 } from '../lib/api'
 import { isApiClientError } from '../lib/api/client'
+import { useTaskSubmission, type TaskSubmissionState } from './useTaskSubmission'
 import { queryKeys } from '../lib/queryKeys'
 
 type SourceLibraryRunPayload = {
@@ -26,6 +27,8 @@ type SourceLibraryRunPayload = {
   async_mode: boolean
   override_params: Record<string, unknown>
 }
+
+export type { TaskSubmissionState }
 
 type AgentBatchSubmitPayload = Parameters<typeof submitAgentBatchJob>[0]
 type AgentBatchRetryPayload = Parameters<typeof retryAgentBatchJob>[1]
@@ -137,6 +140,14 @@ function formatActionError(error: unknown) {
 
 export function useIngestActions(projectKey: string) {
   const queryClient = useQueryClient()
+  const submission = useTaskSubmission({
+    projectKey,
+    invalidateOnSettled: [
+      queryKeys.sourceLibrary.items(projectKey),
+      queryKeys.sourceLibrary.siteEntryGrouped(projectKey),
+      queryKeys.ingest.historyByProject(projectKey, 12),
+    ],
+  })
   const [actionPending, setActionPending] = useState(false)
   const [actionMessage, setActionMessage] = useState('等待操作')
   const [actionStatus, setActionStatus] = useState<IngestActionStatusState>(defaultActionStatus)
@@ -153,6 +164,7 @@ export function useIngestActions(projectKey: string) {
     })
     try {
       const result = await fn()
+      submission.track(result, name)
       const resultStatus = getStringField(result, 'status')
       const errorCode = getStringField(result, 'error_code')
       const reason = getStringField(result, 'reason')
@@ -228,10 +240,11 @@ export function useIngestActions(projectKey: string) {
     actionPending,
     actionMessage,
     actionStatus,
+    submission,
     runAction,
     syncSourceLibrary: () => runAction('同步来源库', syncSourceLibrary),
     runSourceLibrary: (payload: SourceLibraryRunPayload) => runAction('运行来源库', () => runSourceLibrary(payload)),
-    ingestPolicyRegulation: (payload: Record<string, unknown>) => runAction('法规类型文档导入', () => ingestPolicyRegulation(payload)),
+    ingestPolicyRegulation: (payload: Record<string, unknown>) => runAction('法规类型材料导入', () => ingestPolicyRegulation(payload)),
     ingestMarket: (payload: Record<string, unknown>) => runAction('市场采集', () => ingestMarket(payload)),
     ingestSingleUrl: (payload: Parameters<typeof ingestSingleUrl>[0]) => runAction('单 URL 采集', () => ingestSingleUrl(payload)),
     ingestDataApi: (payload: Record<string, unknown>) => runAction('数据API采集', () => ingestDataApi(payload)),

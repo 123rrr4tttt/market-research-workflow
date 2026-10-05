@@ -1,10 +1,5 @@
 import type { RenderApplyResult, RenderNode } from './types'
 
-export const RENDERER_2D_CAPABILITIES = {
-  supportsForceControl: true,
-  supportsProjectionControls: false,
-} as const
-
 export function applyRenderer2D(nodes: RenderNode[]): RenderApplyResult {
   return {
     nodes,
@@ -15,6 +10,5 @@ export function applyRenderer2D(nodes: RenderNode[]): RenderApplyResult {
       animationEasingUpdate: 'linear',
     },
     cacheNodePositions: true,
-    capabilities: RENDERER_2D_CAPABILITIES,
   }
 }

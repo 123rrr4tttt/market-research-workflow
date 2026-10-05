@@ -46,7 +46,7 @@ assertIncludesAll('persisted typed-card request helper', writingDomain, [
   'buildPersistedTypedKnowledgeKeywordCardRequest',
   "document: Pick<WritingDocument, 'metadata_json'> | null | undefined",
   'const resolvedTypedContext = typedContext || readTypedKnowledgeWritingContextFromDocument(document)',
-  "sources = ['document', 'resource', 'graph']",
+  "sources = ['material', 'resource', 'graph']",
   'withTypedKnowledgeWritingContext',
 ])
 

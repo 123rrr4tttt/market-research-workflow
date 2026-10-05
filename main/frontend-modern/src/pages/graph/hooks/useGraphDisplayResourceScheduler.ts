@@ -34,7 +34,6 @@ export function useGraphDisplayResourceScheduler(
 
   useEffect(() => {
     if (!enabled) return
-    if (lease?.key === resourceKey) return
 
     engineRef.current?.pauseAnimation?.()
     const scheduledEngine = engineRef.current
@@ -68,8 +67,9 @@ export function useGraphDisplayResourceScheduler(
       canceled = true
       if (frame) window.cancelAnimationFrame(frame)
       scheduledEngine?.pauseAnimation?.()
+      setLease(null)
     }
-  }, [enabled, engineRef, hostRef, lease?.key, resourceKey])
+  }, [enabled, engineRef, hostRef, resourceKey])
 
   return {
     ready,

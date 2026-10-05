@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, mocked } from 'storybook/test'
+import { expect, mocked, userEvent } from 'storybook/test'
 import * as api from '../lib/api'
+import * as resourceSource from '../lib/api/domains/resource-source'
 import ResourcePage from './ResourcePage'
 import { pageDecorators, pageParameters } from './storybookPageUtils'
 
@@ -83,17 +84,21 @@ function applyResourceMocks() {
     { channel_key: 'handler.cluster', name: 'Handler Cluster', enabled: true },
     { channel_key: 'generic_web.rss', name: 'RSS', enabled: true },
   ] as never)
-  mocked(api.listResourcePoolUrlsWithFilters).mockResolvedValue([
-    {
-      id: 1,
-      url: 'https://example.com/news/1',
-      domain: 'example.com',
-      source: 'source_library',
-      created_at: '2026-05-24T12:00:00Z',
-    },
-  ] as never)
-  mocked(api.listSiteEntriesWithFilters).mockResolvedValue([
-    {
+  mocked(api.listResourcePoolUrlsWithFilters).mockResolvedValue({
+    items: [
+      {
+        id: 1,
+        url: 'https://example.com/news/1',
+        domain: 'example.com',
+        source: 'source_library',
+        created_at: '2026-05-24T12:00:00Z',
+      },
+    ],
+    pagination: { page: 1, pageSize: 24, total: 1, totalPages: 1 },
+  } as never)
+  mocked(api.listSiteEntriesWithFilters).mockResolvedValue({
+    items: [
+      {
       id: 1,
       site_url: 'https://example.com/search?q={query}',
       domain: 'example.com',
@@ -131,8 +136,10 @@ function applyResourceMocks() {
           },
         ],
       },
-    },
-  ] as never)
+      },
+    ],
+    pagination: { page: 1, pageSize: 24, total: 1, totalPages: 1 },
+  } as never)
   mocked(api.extractResourcePoolFromDocuments).mockResolvedValue({ task_id: 'extract-1' } as never)
   mocked(api.discoverSiteEntriesAdvanced).mockResolvedValue({ task_id: 'discover-1' } as never)
   mocked(api.simplifySiteEntries).mockResolvedValue({ updated: 1 } as never)
@@ -144,6 +151,12 @@ function applyResourceMocks() {
   mocked(api.upsertSourceLibraryItem).mockResolvedValue({ ok: true } as never)
   mocked(api.upsertSiteEntry).mockResolvedValue({ ok: true } as never)
   mocked(api.refreshSourceLibraryItem).mockResolvedValue({ ok: true } as never)
+  mocked(resourceSource.patchSiteEntryLifecycle).mockResolvedValue({
+    site_url: 'https://example.com/search?q={query}',
+    lifecycle_state: 'accepted',
+    enabled: true,
+  } as never)
+  mocked(api.getProcessTaskDetail).mockResolvedValue({ task_id: 'extract-1', status: 'PENDING' } as never)
 }
 
 const meta = {
@@ -166,18 +179,33 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
   play: async ({ canvas }) => {
-    await expect(canvas.getAllByText(/managed_by:system/)[0]).toBeInTheDocument()
-    await expect(canvas.getAllByText(/item_type:service_aggregated/)[0]).toBeInTheDocument()
-    await expect(canvas.getAllByText(/capability:source_library.collect/)[0]).toBeInTheDocument()
-    await expect(canvas.getAllByText('contract_version')[0]).toBeInTheDocument()
-    await expect(canvas.getAllByText('execution_mode')[0]).toBeInTheDocument()
-    await expect(canvas.getAllByText('runner')[0]).toBeInTheDocument()
+    await expect(canvas.getByRole('tab', { name: 'Source items' })).toBeInTheDocument()
+    await expect(canvas.getByText('market.news.system')).toBeInTheDocument()
+    await expect(canvas.queryByText('Source Item Editor')).not.toBeInTheDocument()
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Extract URLs' }))
+    await expect(canvas.getByTestId('task-submission-notice')).toBeInTheDocument()
+    await expect(canvas.getByRole('link', { name: /Open task/i })).toBeInTheDocument()
+
+    await userEvent.click(canvas.getByRole('tab', { name: 'Site entries' }))
+    await expect(canvas.getByText('needs_review')).toBeInTheDocument()
+    await userEvent.click(canvas.getByRole('button', { name: 'Accept' }))
+    await expect(resourceSource.patchSiteEntryLifecycle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        project_key: 'demo-proj',
+        scope: 'project',
+        site_url: 'https://example.com/search?q={query}',
+        lifecycle_state: 'accepted',
+      }),
+    )
+    await expect(canvas.getByText('Accepted 1/1; failed 0')).toBeInTheDocument()
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Details' }))
+    await expect(canvas.getAllByText(/lifecycle:needs_review/)[0]).toBeInTheDocument()
     await expect(canvas.getByText('expected_entry_type')).toBeInTheDocument()
     await expect(canvas.getByText('route_bucket')).toBeInTheDocument()
-    await expect(canvas.getByText(/total:1/)).toBeInTheDocument()
-    await expect(canvas.getByText('lifecycle:needs_review')).toBeInTheDocument()
+    await expect(canvas.getAllByText(/total:1/)).toBeInTheDocument()
     await expect(canvas.getByText(/expected:search_template/)).toBeInTheDocument()
-    await expect(canvas.getByRole('button', { name: 'Accept' })).toBeInTheDocument()
     await expect(canvas.getByRole('button', { name: 'Reject' })).toBeInTheDocument()
     await expect(canvas.getByRole('button', { name: 'Needs Review' })).toBeInTheDocument()
     await expect(canvas.getByRole('button', { name: 'Disable' })).toBeInTheDocument()

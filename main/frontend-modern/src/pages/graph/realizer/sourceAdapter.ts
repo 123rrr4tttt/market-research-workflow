@@ -2,6 +2,7 @@ import { getMarketGraph, getPolicyGraph, getSocialGraph } from '../../../lib/api
 import type { GraphResponse } from '../../../lib/types'
 import type { GraphProjectionDefinition } from './contract'
 import { informationTopologyClient } from '../../../features/information-topology'
+import { normalizeMaterialGraph } from './materialGraph'
 import {
   hasProjectRetrievalSemantics,
   projectInformationTopologies,
@@ -38,16 +39,16 @@ export async function readGraphProjection(
     limit: filters.limit,
   }
   if (definition.graphKind === 'policy') {
-    return getPolicyGraph({ ...common, state: filters.state, policy_type: filters.policyType })
+    return normalizeMaterialGraph(await getPolicyGraph({ ...common, state: filters.state, policy_type: filters.policyType }))
   }
   if (definition.graphKind === 'social') {
-    return getSocialGraph({ ...common, platform: filters.platform, topic: filters.topic })
+    return normalizeMaterialGraph(await getSocialGraph({ ...common, platform: filters.platform, topic: filters.topic }))
   }
-  return getMarketGraph({
+  return normalizeMaterialGraph(await getMarketGraph({
     ...common,
     state: filters.state,
     game: filters.game,
     view: definition.marketView,
     topic_scope: definition.topicScope,
-  })
+  }))
 }

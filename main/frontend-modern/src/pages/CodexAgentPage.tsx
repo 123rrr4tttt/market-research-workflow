@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useCallback, useEffect, useRef } from 'react'
 import { Bot, Radio, RefreshCw, ShieldCheck } from 'lucide-react'
 import { getCodexAuthStatus } from '../lib/api/domains/codex-auth'
 import { translate, useAppLocale, type AppLocale } from '../app/platform/i18n'
@@ -9,7 +10,8 @@ type CodexAgentPageProps = {
 }
 
 const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
-const HOST_WEBUI_URL = 'http://127.0.0.1:8172/'
+const WEBUI_ENTRY_QUERY = '?mrw=macro-host-v1'
+const HOST_WEBUI_URL = `http://127.0.0.1:8172/${WEBUI_ENTRY_QUERY}`
 
 function isExplicitLocalHttpOrigin() {
   return window.location.protocol === 'http:' && LOCAL_HOSTNAMES.has(window.location.hostname)
@@ -45,12 +47,31 @@ export default function CodexAgentPage({ projectKey }: CodexAgentPageProps) {
   })
   const browserAuthenticated = Boolean(codexAuthQuery.data?.authenticated)
   const hostConnected = Boolean(codexAuthQuery.data?.token_sink_authenticated)
-  const hostDirectAllowed = hostConnected && isExplicitLocalHttpOrigin()
-  const codexUiUrl = browserAuthenticated
-    ? '/codex/'
-    : hostDirectAllowed
-      ? HOST_WEBUI_URL
+  // Local WebUI owns authentication; status snapshots must not reload its iframe.
+  const codexUiUrl = isExplicitLocalHttpOrigin()
+    ? HOST_WEBUI_URL
+    : browserAuthenticated
+      ? `/codex/${WEBUI_ENTRY_QUERY}`
       : null
+  const frameRef = useRef<HTMLIFrameElement>(null)
+  const sendProjectContext = useCallback(() => {
+    if (!codexUiUrl) return
+    const origin = new URL(codexUiUrl, window.location.href).origin
+    frameRef.current?.contentWindow?.postMessage(
+      { type: 'mrw.project-context', projectKey },
+      origin,
+    )
+  }, [codexUiUrl, projectKey])
+  useEffect(() => {
+    sendProjectContext()
+    const onFrameReady = (event: MessageEvent) => {
+      if (!codexUiUrl || event.source !== frameRef.current?.contentWindow) return
+      if (event.origin !== new URL(codexUiUrl, window.location.href).origin) return
+      if (event.data?.type === 'mrw.project-context-ready') sendProjectContext()
+    }
+    window.addEventListener('message', onFrameReady)
+    return () => window.removeEventListener('message', onFrameReady)
+  }, [codexUiUrl, sendProjectContext])
   const status = statusCopy(locale, codexUiUrl !== null, codexAuthQuery.isError)
   const connectionDetail = hostConnected
     ? translate(locale, 'codexAgentPage.auth.remoteHostDetail')
@@ -112,10 +133,12 @@ export default function CodexAgentPage({ projectKey }: CodexAgentPageProps) {
       >
         {codexUiUrl ? (
           <iframe
+            ref={frameRef}
             className="codex-agent-page__frame"
             data-testid="codex-agent-frame"
             title="Codex Agent"
             src={codexUiUrl}
+            onLoad={sendProjectContext}
             allow="clipboard-write"
           />
         ) : (

@@ -147,9 +147,10 @@ export const queryKeys = {
     stats: (projectKey: string) => ['admin-stats', projectKey] as const,
     searchHistory: (projectKey: string) => ['search-history', projectKey] as const,
     documents: (projectKey: string, page: number, docType: string, docState: string, search: string) =>
-      ['admin-documents', projectKey, page, docType, docState, search] as const,
-    documentsBase: (projectKey: string) => ['admin-documents', projectKey] as const,
-    documentDetail: (projectKey: string, docId: number | null) => ['admin-document-detail', projectKey, docId] as const,
+      ['admin-materials', projectKey, page, docType, docState, search] as const,
+    documentsBase: (projectKey: string) => ['admin-materials', projectKey] as const,
+    materialDetail: (projectKey: string, materialId: number | null) => ['admin-material-detail', projectKey, materialId] as const,
+    documentDetail: (projectKey: string, docId: number | null) => ['admin-material-detail', projectKey, docId] as const,
   },
   crawler: {
     projects: (projectKey: string) => ['crawler-manage', 'projects', projectKey] as const,

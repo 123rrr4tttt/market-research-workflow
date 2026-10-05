@@ -798,6 +798,13 @@ async function setupMockedBusinessLineRail(
     }>,
   }
 
+  await page.route('http://127.0.0.1:8172/', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: '<!doctype html><html><body>Mock Codex WebUI</body></html>',
+    }),
+  )
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request()
     const url = new URL(request.url())
@@ -1712,7 +1719,7 @@ async function setupMockedBusinessLineRail(
       return
     }
 
-    if (pathname === '/api/v1/admin/documents/list') {
+    if (pathname === '/api/v1/admin/materials/list') {
       await fulfillJson(route, {
         items: [
           {
@@ -1732,7 +1739,7 @@ async function setupMockedBusinessLineRail(
       return
     }
 
-    if (pathname === '/api/v1/admin/documents/bulk/extracted-data') {
+    if (pathname === '/api/v1/admin/materials/bulk/extracted-data') {
       const payload = request.postDataJSON() as Record<string, unknown>
       if (payload.preview === true) {
         hits.adminBulkWritePreview += 1
@@ -1744,7 +1751,7 @@ async function setupMockedBusinessLineRail(
       return
     }
 
-    if (pathname === '/api/v1/admin/documents/delete') {
+    if (pathname === '/api/v1/admin/materials/delete') {
       const payload = request.postDataJSON() as Record<string, unknown>
       if (payload.preview === true) {
         hits.adminDeletePreview += 1
@@ -2101,7 +2108,7 @@ test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Op
   const agentResponse = await page.goto('/#/workbench/agent')
   if (agentResponse) expect(agentResponse.ok()).toBeTruthy()
   await expect(page.getByTestId('codex-agent-page')).toBeVisible()
-  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', '/codex/')
+  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', 'http://127.0.0.1:8172/')
 
   await page.goto('/#/workbench/ingest/specialized')
   await expect(page.getByRole('heading', { name: '单 URL 入库' })).toBeVisible()
@@ -2123,13 +2130,17 @@ test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Op
 
   await page.goto('/#/admin/resources')
   await expect(page.getByRole('heading', { name: '信息资源库管理' }).first()).toBeVisible()
+  await page.getByRole('tab', { name: 'URL 池', exact: true }).click()
   await expect(page.getByText('https://mocked.example.com/report')).toBeVisible()
+  await page.getByRole('tab', { name: '站点入口', exact: true }).click()
   await expect(page.getByText('https://mocked.example.com').first()).toBeVisible()
+  await page.getByRole('button', { name: '详情', exact: true }).first().click()
   await expect(page.getByText('transition:accepted').first()).toBeVisible()
   await expect(page.getByText('review_closure:ready_to_collect').first()).toBeVisible()
   await expect(page.getByText('source_ref:resource_pool.site_entry:project:5802').first()).toBeVisible()
   await expect(page.getByText('guard_status:passed').first()).toBeVisible()
   await expect(page.getByText('allowed_count:1').first()).toBeVisible()
+  await page.getByRole('button', { name: '详情', exact: true }).last().click()
   await expect(page.getByText('review_rejected').first()).toBeVisible()
   await expect(page.getByRole('button', { name: '采纳后采集' }).first()).toBeEnabled()
   await expect(page.getByRole('button', { name: '采纳后采集' }).nth(1)).toBeDisabled()
@@ -2137,15 +2148,16 @@ test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Op
   await expect(page.getByText('trace_id=trace-source-library-run-58').first()).toBeVisible()
   await expect(page.getByText('guard_status=passed').first()).toBeVisible()
   expect(hits.sourceLibraryRun).toBe(1)
-  await page.getByRole('textbox', { name: 'domain', exact: true }).fill('mocked.example.com')
+  await page.getByRole('textbox', { name: '域名', exact: true }).fill('mocked.example.com')
   await page.getByRole('button', { name: '刷新列表' }).click()
   await expect.poll(() => hits.siteEntries).toBeGreaterThanOrEqual(2)
 
-  await page.goto('/#/admin/ops')
+  await page.goto('/#/admin/backend')
   await expect(page.getByRole('heading', { name: '运行态状态' })).toBeVisible()
   await expect(page.getByText('mode mocked')).toBeVisible()
-  await page.getByTestId('ops-technical-toggle').getByRole('button').click()
   await expect(page.getByRole('cell', { name: 'api', exact: true })).toBeVisible()
+  await page.getByRole('tab', { name: '技术诊断', exact: true }).click()
+  await page.getByTestId('ops-technical-toggle').getByRole('button').click()
   const evidenceMatrix = page.getByTestId('ops-business-line-evidence-matrix')
   await expect(evidenceMatrix).toBeVisible()
   await expect(evidenceMatrix).toContainText('business_line.evidence_matrix.v2')
@@ -2275,8 +2287,10 @@ test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Op
   await expect(page.getByTestId('ops-business-line-evidence-matrix-line-dashboard_admin_governance')).toBeVisible()
   await expect(page.getByTestId('ops-business-line-evidence-matrix-line-writing_knowledge_graph_agent')).toBeVisible()
   await expect(page.getByTestId('ops-business-line-evidence-matrix-line-runtime_ops')).toBeVisible()
+  await page.goto('/#/admin/ops')
   await expect(page.getByText('Mocked Rail Ops Document')).toBeVisible()
   await page.getByRole('button', { name: '选择当前页' }).click()
+  await page.locator('.ops-page').getByRole('button', { name: '展开高级详情', exact: true }).click()
   await page.getByRole('button', { name: '预览删除' }).click()
   await expect(page.getByTestId('ops-document-governance-preview')).toContainText('preview evidence')
   await expect(page.getByTestId('ops-document-governance-preview')).toContainText('delete_documents')
@@ -2301,6 +2315,7 @@ test('batch 58 Dashboard -> Projects -> Graph -> Ingest/Search -> Resource -> Op
     execution_result: { execution_result_available: true, affected_count: 1 },
     audit_event: { status: 'recorded_in_response_only' },
   })
+  await page.goto('/#/admin/backend')
   await page.getByRole('button', { name: '复制诊断包' }).click()
   await expect(page.getByText('运行态诊断包已复制')).toBeVisible()
   const clipboard = await page.evaluate(() => navigator.clipboard.readText())
@@ -2385,7 +2400,8 @@ test('batch 108 Ops scheduled artifact drilldown warning-only empty state is not
     scheduledArtifactDrilldownFixture: scheduledArtifactDrilldownNoWarningPayload,
   })
 
-  await page.goto('/#/admin/ops')
+  await page.goto('/#/admin/backend')
+  await page.getByRole('tab', { name: '技术诊断', exact: true }).click()
   await page.getByTestId('ops-technical-toggle').getByRole('button').click()
   const scheduledArtifactDrilldown = page.getByTestId('ops-business-line-scheduled-artifact-drilldown')
   await expect(scheduledArtifactDrilldown).toBeVisible()

@@ -82,6 +82,7 @@ export function normalizeNodeType(rawType: unknown) {
   if (!raw) return raw
   const compact = raw.toLowerCase().replace(/[\s_-]+/g, '')
   const aliasMap: Record<string, string> = {
+    document: 'material',
     productsenario: 'ProductScenario',
     prodctscenario: 'ProductScenario',
     prodctsenario: 'ProductScenario',

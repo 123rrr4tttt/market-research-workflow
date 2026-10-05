@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { UploadCloud } from 'lucide-react'
 import { translate, useAppLocale } from '../app/platform/i18n'
-import { rawImportDocuments } from '../lib/api'
+import { rawImportMaterials } from '../lib/api'
+import { useTaskSubmission } from '../hooks/useTaskSubmission'
+import { TaskSubmissionNotice } from '../components/TaskSubmissionNotice'
 import type { RawImportPayload, RawImportResult } from '../lib/types'
 
 type RawDataPageProps = {
@@ -47,12 +49,14 @@ export default function RawDataPage({ projectKey }: RawDataPageProps) {
   const [chunkOverlap, setChunkOverlap] = useState(200)
   const [maxChunks, setMaxChunks] = useState(8)
   const [result, setResult] = useState<RawImportResult | null>(null)
+  const submission = useTaskSubmission({ projectKey, invalidateOnSettled: [] })
 
   const canSubmit = useMemo(() => draft.text.trim().length > 0, [draft.text])
 
   const importMutation = useMutation({
-    mutationFn: (payload: RawImportPayload) => rawImportDocuments(payload),
+    mutationFn: (payload: RawImportPayload) => rawImportMaterials(payload),
     onSuccess: (data) => {
+      submission.track(data, t('rawDataPage.action.submitImport'))
       setResult(data)
       setDraft((prev) => ({ ...prev, text: '' }))
     },
@@ -192,6 +196,7 @@ export default function RawDataPage({ projectKey }: RawDataPageProps) {
         <div className="panel-header">
           <h2>{t('rawDataPage.section.importResult')}</h2>
         </div>
+        <TaskSubmissionNotice submission={submission} />
         {importMutation.isError ? (
           <p className="status-line">
             {formatRawDataTemplate(t('rawDataPage.error.importFailed'), { message: importErrorMessage })}

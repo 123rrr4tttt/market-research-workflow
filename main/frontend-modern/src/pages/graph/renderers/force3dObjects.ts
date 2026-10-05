@@ -11,7 +11,6 @@ export type ForceNodeObjectStyle = {
 type ForceVisualApplier = (object: THREE.Object3D, selected: boolean, dimmed: boolean) => void
 
 type ForceNodeObjectFactoryParams = {
-  cache: Map<string, THREE.Object3D>
   id: string
   style: ForceNodeObjectStyle
   isSelected: boolean
@@ -164,14 +163,10 @@ function buildForceNodeObject(style: ForceNodeObjectStyle): THREE.Object3D {
   return object
 }
 
-export function getOrCreateForceNodeObject(params: ForceNodeObjectFactoryParams) {
-  const { cache, id, style, isSelected, applyVisualState } = params
-  void cache
+export function createForceNodeObject(params: ForceNodeObjectFactoryParams) {
+  const { id, style, isSelected, applyVisualState } = params
   const stableSizeBucket = Math.round(style.size * 2) / 2
-  // Permanent stability path:
-  // build node object every render call and do not reuse object references.
-  // force-graph's internal lifecycle can detach/reparent objects unpredictably
-  // when external caches hand back stale instances.
+  // Each scene owns its objects; never reparent objects from a retired renderer.
   const object = buildForceNodeObject({ ...style, size: stableSizeBucket })
   refreshObjectScale(object, stableSizeBucket)
   refreshObjectMaterial(object, style)
@@ -183,12 +178,6 @@ export function getOrCreateForceNodeObject(params: ForceNodeObjectFactoryParams)
   }
   applyVisualState(object, isSelected, false)
   return object
-}
-
-export function pruneForceNodeObjectCache(cache: Map<string, THREE.Object3D>, activeNodeIds: Set<string>) {
-  // Cache pruning is intentionally a no-op after removing object reuse path.
-  void cache
-  void activeNodeIds
 }
 
 export function linkEnds(link: unknown) {

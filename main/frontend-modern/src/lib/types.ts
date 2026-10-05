@@ -2048,6 +2048,7 @@ export type AdminDocumentListPayload = {
 
 export type AdminDocumentItem = {
   id: number | string
+  material_id?: number
   title?: string | null
   doc_type?: string | null
   state?: string | null
@@ -2057,7 +2058,7 @@ export type AdminDocumentItem = {
   publish_date?: string | null
   has_extracted_data?: boolean
   uri?: string | null
-  source_kind?: 'document' | 'information_topology_material' | string
+  source_kind?: 'material' | string
   source_ref?: Record<string, unknown>
   readonly?: boolean
 }
@@ -2071,6 +2072,7 @@ export type AdminDocumentListResponse = {
 
 export type DocumentItem = {
   id: number
+  material_id?: number
   title?: string | null
   doc_type?: string | null
   state?: string | null
@@ -2084,6 +2086,11 @@ export type DocumentItem = {
   updated_at?: string | null
   extracted_data?: Record<string, unknown> | null
 }
+
+export type MaterialItem = DocumentItem
+export type AdminMaterialItem = AdminDocumentItem
+export type AdminMaterialListPayload = AdminDocumentListPayload
+export type AdminMaterialListResponse = AdminDocumentListResponse
 
 export type DocumentExtractedPayload = {
   mode: 'replace' | 'merge'
@@ -2464,6 +2471,7 @@ export type GraphEdgeItem = {
 export type GraphResponse = {
   nodes: GraphNodeItem[]
   edges: GraphEdgeItem[]
+  source_kind?: 'project_topology'
   /** Optional label supplied by a project-bound semantic projection. */
   source_label?: string
   /** Optional project binding into the frontend edge-style catalog. */

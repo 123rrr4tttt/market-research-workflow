@@ -3,6 +3,7 @@ import { useEffect, useState, type RefObject } from 'react'
 export function useForceGraphViewport(
   enabled: boolean,
   containerRef: RefObject<HTMLDivElement | null>,
+  mountEpoch = 0,
 ) {
   const [viewport, setViewport] = useState({ width: 1280, height: 720 })
 
@@ -28,7 +29,7 @@ export function useForceGraphViewport(
       observer.disconnect()
       window.removeEventListener('resize', updateViewport)
     }
-  }, [enabled, containerRef])
+  }, [enabled, containerRef, mountEpoch])
 
   return viewport
 }

@@ -2,20 +2,13 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 import { inflateSync } from 'node:zlib'
 
 type GraphRuntimeEvidence = {
-  mode: 'force3d' | 'fallback'
-  dataNodes?: number
-  sceneNodeObjects?: number
-  canvasWidth?: number
-  canvasHeight?: number
-  hostWidth?: number
-  hostHeight?: number
-  fallbackText?: string
-  engineValue?: string
-  chartWidth?: number
-  chartHeight?: number
-  metricNodes?: string
-  metricEdges?: string
-  legendLabels?: string[]
+  mode: 'force3d'
+  dataNodes: number
+  sceneNodeObjects: number
+  canvasWidth: number
+  canvasHeight: number
+  hostWidth: number
+  hostHeight: number
 }
 
 type PixelEvidence = {
@@ -231,7 +224,7 @@ function inspectPixelDiversity(buffer: Buffer): PixelEvidence {
   }
 }
 
-test('graph runtime pixel gate proves force3d pixels or shape framing without tenant DB', async ({ page }, testInfo) => {
+test('graph runtime pixel gate proves force3d pixels without tenant DB', async ({ page }, testInfo) => {
   const hits = await setupGraphRuntimeMocks(page)
   await page.setViewportSize({ width: 1280, height: 860 })
 
@@ -239,7 +232,7 @@ test('graph runtime pixel gate proves force3d pixels or shape framing without te
   expect(response?.ok()).toBeTruthy()
   await expect(page.getByRole('heading', { level: 1, name: '市场图谱', exact: true })).toBeVisible()
 
-  const renderModeToggle = page.locator('button[title="轻量3D模型模式（中心锁定，非相机视角）"]').first()
+  const renderModeToggle = page.locator('button[title="切换2D / 3D视图"]').first()
   await expect(renderModeToggle).toHaveText('3D模式')
   await renderModeToggle.click()
   await expect(renderModeToggle).toHaveText('回到2D')
@@ -284,45 +277,6 @@ test('graph runtime pixel gate proves force3d pixels or shape framing without te
           hostHeight: Math.round(hostRect.height),
         }
       }
-      const fallbackText = Array.from(document.querySelectorAll('.gv2-loading'))
-        .map((node) => node.textContent || '')
-        .join('\n')
-      const engineValue = Array.from(document.querySelectorAll('label.gv2-control-chip'))
-        .find((node) => (node.textContent || '').includes('3D引擎'))
-        ?.querySelector<HTMLSelectElement>('select')
-        ?.value || ''
-      const legacyChart = document.querySelector('.gv2-chart:not(.gv2-chart--force3d)') as HTMLElement | null
-      const legacyChartRect = legacyChart?.getBoundingClientRect()
-      const metrics = Array.from(document.querySelectorAll('.gv2-macro-stat')).reduce<Record<string, string>>((acc, node) => {
-        const label = node.querySelector('span')?.textContent?.trim() || ''
-        const value = node.querySelector('strong')?.textContent?.trim() || ''
-        if (label) acc[label] = value
-        return acc
-      }, {})
-      const legendLabels = Array.from(document.querySelectorAll('.gv2-legend-node-label'))
-        .map((node) => node.textContent?.trim() || '')
-        .filter(Boolean)
-      if (
-        fallbackText.includes('已自动降级到 legacy-projection') &&
-        engineValue === 'legacy' &&
-        legacyChartRect &&
-        legacyChartRect.width >= 320 &&
-        legacyChartRect.height >= 320 &&
-        metrics['节点总数'] === String(expectedNodes) &&
-        metrics['边总数'] === '2' &&
-        ['商品', '市场', '政策'].every((label) => legendLabels.some((item) => item.includes(label)))
-      ) {
-        return {
-          mode: 'fallback',
-          fallbackText,
-          engineValue,
-          chartWidth: Math.round(legacyChartRect.width),
-          chartHeight: Math.round(legacyChartRect.height),
-          metricNodes: metrics['节点总数'],
-          metricEdges: metrics['边总数'],
-          legendLabels,
-        }
-      }
       return false
     },
     hits.expectedNodes,
@@ -332,28 +286,16 @@ test('graph runtime pixel gate proves force3d pixels or shape framing without te
   const runtimeEvidence = await runtimeHandle.jsonValue() as GraphRuntimeEvidence
   expect(hits.marketGraphHit).toBeGreaterThan(0)
 
-  let pixelEvidence: PixelEvidence | null = null
-  if (runtimeEvidence.mode === 'force3d') {
-    const host = page.getByTestId('graph-force3d-canvas-host')
-    await expect(host).toBeVisible()
-    expect(runtimeEvidence.dataNodes).toBe(hits.expectedNodes)
-    expect(runtimeEvidence.sceneNodeObjects).toBeGreaterThanOrEqual(hits.expectedNodes)
-    expect(Math.abs((runtimeEvidence.canvasWidth || 0) - (runtimeEvidence.hostWidth || 0))).toBeLessThanOrEqual(4)
-    expect(Math.abs((runtimeEvidence.canvasHeight || 0) - (runtimeEvidence.hostHeight || 0))).toBeLessThanOrEqual(4)
-    pixelEvidence = inspectPixelDiversity(await host.screenshot())
-  } else {
-    expect(runtimeEvidence.fallbackText).toContain('3D引擎渲染失败')
-    expect(runtimeEvidence.engineValue).toBe('legacy')
-    expect(runtimeEvidence.chartWidth).toBeGreaterThanOrEqual(320)
-    expect(runtimeEvidence.chartHeight).toBeGreaterThanOrEqual(320)
-    expect(runtimeEvidence.metricNodes).toBe(String(hits.expectedNodes))
-    expect(runtimeEvidence.metricEdges).toBe(String(hits.expectedEdges))
-    expect(runtimeEvidence.legendLabels?.join('\n')).toContain('商品')
-    expect(runtimeEvidence.legendLabels?.join('\n')).toContain('政策')
-  }
-
-  const proof = pixelEvidence?.nonblank ? 'nonblank-pixels' : runtimeEvidence.mode === 'force3d' ? 'shape-framing' : 'fallback-data-framing'
-  expect(['nonblank-pixels', 'shape-framing', 'fallback-data-framing']).toContain(proof)
+  const host = page.getByTestId('graph-force3d-canvas-host')
+  await expect(host).toBeVisible()
+  expect(runtimeEvidence.dataNodes).toBe(hits.expectedNodes)
+  expect(runtimeEvidence.sceneNodeObjects).toBeGreaterThanOrEqual(hits.expectedNodes)
+  expect(Math.abs(runtimeEvidence.canvasWidth - runtimeEvidence.hostWidth)).toBeLessThanOrEqual(4)
+  expect(Math.abs(runtimeEvidence.canvasHeight - runtimeEvidence.hostHeight)).toBeLessThanOrEqual(4)
+  await expect.poll(async () => inspectPixelDiversity(await host.screenshot()).nonblank, { timeout: 15000 }).toBe(true)
+  const pixelEvidence = inspectPixelDiversity(await host.screenshot())
+  expect(pixelEvidence.nonblank).toBe(true)
+  const proof = 'nonblank-pixels'
   await testInfo.attach('wave17-graph-runtime-pixel-gate.json', {
     contentType: 'application/json',
     body: Buffer.from(JSON.stringify({
@@ -366,4 +308,71 @@ test('graph runtime pixel gate proves force3d pixels or shape framing without te
       externalGpuRequired: false,
     }, null, 2)),
   })
+})
+
+test('mobile force3d canvas is nonblank and stays above floating panel content', async ({ page }, testInfo) => {
+  const runtimeErrors: string[] = []
+  page.on('pageerror', (error) => runtimeErrors.push(error.stack || error.message))
+  await page.addInitScript(() => {
+    const scope = window as Window & { __THREE_DEVTOOLS__?: EventTarget; pixelRender?: { frames: number; aspect?: number } }
+    scope.__THREE_DEVTOOLS__ = new EventTarget()
+    scope.__THREE_DEVTOOLS__.addEventListener('observe', (event) => {
+      const object = (event as CustomEvent).detail
+      if (object?.render && object?.domElement) {
+        const original = object.render
+        let frames = 0
+        object.render = function (scene: unknown, camera: { aspect?: number }) {
+          frames += 1
+          scope.pixelRender = { frames, aspect: camera.aspect }
+          return original.call(this, scene, camera)
+        }
+      }
+    })
+  })
+  await setupGraphRuntimeMocks(page)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/#graph.html?type=market')
+  await page.getByRole('button', { name: '3D模式', exact: true }).click()
+  const host = page.getByTestId('graph-force3d-canvas-host')
+  await expect(host).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (
+    window as Window & { pixelRender?: { frames: number } }
+  ).pixelRender?.frames || 0)).toBeGreaterThan(2)
+  const initialFrames = await page.evaluate(() => (
+    window as Window & { pixelRender?: { frames: number } }
+  ).pixelRender!.frames)
+  await expect.poll(() => page.evaluate(() => (
+    window as Window & { pixelRender?: { frames: number } }
+  ).pixelRender?.frames || 0)).toBeGreaterThan(initialFrames + 2)
+  await expect.poll(async () => host.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    const canvas = element.querySelector('canvas')
+    return Boolean(canvas && Math.abs(canvas.clientWidth - rect.width) <= 4 && Math.abs(canvas.clientHeight - rect.height) <= 4)
+  })).toBe(true)
+  const box = await host.boundingBox()
+  expect(box).not.toBeNull()
+  expect(box!.width).toBeGreaterThan(320)
+  expect(box!.height).toBeGreaterThan(380)
+  for (const selector of ['.gv2-floating-controls', '.gv2-legend-float']) {
+    const panel = await page.locator(selector).boundingBox()
+    expect(panel!.y).toBeGreaterThanOrEqual(box!.y + box!.height - 1)
+  }
+  try {
+    await expect.poll(async () => inspectPixelDiversity(await page.screenshot({
+      clip: { x: box!.x, y: box!.y + 48, width: box!.width, height: box!.height - 48 },
+    })).nonblank, { timeout: 15000 }).toBe(true)
+    expect(runtimeErrors).toEqual([])
+  } finally {
+    await page.screenshot({ path: testInfo.outputPath('graph-mobile-force3d.png'), fullPage: true })
+    await testInfo.attach('mobile-framing', {
+      body: JSON.stringify({
+        box,
+        viewport: page.viewportSize(),
+        pixels: inspectPixelDiversity(await host.screenshot()),
+        render: await page.evaluate(() => (window as Window & { pixelRender?: unknown }).pixelRender),
+        runtimeErrors,
+      }),
+      contentType: 'application/json',
+    })
+  }
 })

@@ -157,7 +157,8 @@ export const ContainerDefault: Story = {
   decorators: pageDecorators,
   play: async ({ canvas }) => {
     await expect(canvas.getByText('系统设置视图')).toBeInTheDocument()
-    await expect(canvas.getByText('项目级 LLM 模板')).toBeInTheDocument()
+    await expect(canvas.queryByText('项目级 LLM 模板')).not.toBeInTheDocument()
+    await expect(canvas.queryByText('OPENAI_API_KEY')).not.toBeInTheDocument()
   },
 }
 
@@ -166,7 +167,7 @@ export const ViewDefault: Story = {
   render: () => <SettingsPageView {...createSettingsViewProps()} />,
   play: async ({ canvas }) => {
     await expect(canvas.getByText('系统设置视图')).toBeInTheDocument()
-    await expect(canvas.getByText('项目级 LLM 模板')).toBeInTheDocument()
+    await expect(canvas.queryByText('项目级 LLM 模板')).not.toBeInTheDocument()
   },
 }
 
@@ -183,6 +184,7 @@ export const ContainerLoadingState: Story = {
 
 export const ContainerEmptyState: Story = {
   decorators: pageDecorators,
+  args: { variant: 'llm' },
   beforeEach: async () => {
     applySettingsMocks('empty')
   },
@@ -198,7 +200,7 @@ export const ContainerErrorState: Story = {
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText('环境配置加载失败，请稍后重试')).toBeInTheDocument()
-    await expect(canvas.getByText('项目级 LLM 模板加载失败，请稍后重试')).toBeInTheDocument()
+    await expect(canvas.queryByText('项目级 LLM 模板加载失败，请稍后重试')).not.toBeInTheDocument()
   },
 }
 
@@ -209,6 +211,27 @@ export const ContainerLlmFocus: Story = {
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText('LLM 配置视图')).toBeInTheDocument()
+    await expect(canvas.getByText('项目级 LLM 模板')).toBeInTheDocument()
+    await expect(canvas.queryByText('DATABASE_URL')).not.toBeInTheDocument()
+  },
+}
+
+export const ViewTemplateAdvanced: Story = {
+  decorators: pageDecorators,
+  render: () => <SettingsPageView {...createSettingsViewProps({ variant: 'llm', expandedService: 'market_outline' })} />,
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.queryByRole('textbox', { name: 'system_prompt' })).not.toBeVisible()
+    await userEvent.click(canvas.getByText('高级参数与提示词'))
+    await expect(canvas.getByRole('textbox', { name: 'system_prompt' })).toBeVisible()
+  },
+}
+
+export const ContainerLlmError: Story = {
+  decorators: pageDecorators,
+  args: { variant: 'llm' },
+  beforeEach: async () => applySettingsMocks('error'),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText('项目级 LLM 模板加载失败，请稍后重试')).toBeInTheDocument()
   },
 }
 

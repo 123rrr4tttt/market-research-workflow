@@ -3,6 +3,7 @@ import { sb } from 'storybook/test'
 import '../src/index.css'
 
 sb.mock(import('../src/lib/api.ts'), { spy: true })
+sb.mock(import('../src/lib/api/domains/resource-source.ts'), { spy: true })
 sb.mock(import('../src/components/writing/useSelectionLookup.ts'), { spy: true })
 
 export default definePreview({

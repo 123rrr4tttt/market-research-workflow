@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Eye, RefreshCw, Trash2, XCircle } from 'lucide-react'
+import { ArrowUpRight, CheckCircle2, ChevronDown, ChevronUp, Eye, RefreshCw, Trash2, XCircle } from 'lucide-react'
 import GraphNodeCard from '../components/graph-kit/GraphNodeCard'
 import GraphBusinessCardSections from '../components/GraphBusinessCardSections'
 import GraphExtensionsSections from '../components/GraphExtensionsSections'
 import ProjectRetrievalPanel from './ProjectRetrievalPanel'
+import { TaskSubmissionNotice } from '../components/TaskSubmissionNotice'
+import { useTaskSubmission } from '../hooks/useTaskSubmission'
+import './ops-page-management.css'
 import { DEFAULT_APP_LOCALE, translate, useAppLocale, type AppLocale, type MessageKey } from '../app/platform/i18n'
 import { endpoints } from '../lib/api/endpoints'
 import { queryKeys } from '../lib/queryKeys'
@@ -61,6 +64,15 @@ type OpsPageProps = {
 }
 
 type OpsCardTab = 'business' | 'graph_ext'
+type OpsManagementTab = 'documents' | 'governance' | 'insights' | 'runtime' | 'agentSessions' | 'diagnostics'
+const OPS_MANAGEMENT_TAB_KEYS: Record<OpsManagementTab, MessageKey> = {
+  documents: 'opsPage.tab.documents',
+  governance: 'opsPage.tab.governance',
+  insights: 'opsPage.tab.insights',
+  runtime: 'opsPage.tab.runtime',
+  agentSessions: 'opsPage.tab.agentSessions',
+  diagnostics: 'opsPage.tab.diagnostics',
+}
 type ScheduledArtifactDrilldownLaneFilter = 'all' | 'warning_only'
 type ScheduledArtifactDrilldownLaneSort = 'source_order' | 'warning_priority' | 'warning_count' | 'artifact_count'
 
@@ -398,7 +410,7 @@ function getExecutionResultAvailable(value: AdminActionResponse | null | undefin
   if (execution && typeof execution === 'object') {
     const available = execution.execution_result_available
     if (typeof available === 'boolean') return available
-    return true
+    return Object.keys(execution).length > 0
   }
   return Boolean(value.evidence_preview?.execution_result_available)
 }
@@ -669,6 +681,10 @@ function runtimeModeClass(mode?: string | null) {
 }
 
 export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
+  return <OpsPageView key={`${projectKey}/${variant}`} projectKey={projectKey} variant={variant} />
+}
+
+function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
   const queryClient = useQueryClient()
   const locale = useAppLocale()
   const t = (key: MessageKey, fallback?: string) => translate(locale, key, fallback)
@@ -702,7 +718,22 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   const [scheduledArtifactDrilldownLaneFilter, setScheduledArtifactDrilldownLaneFilter] = useState<ScheduledArtifactDrilldownLaneFilter>('all')
   const [scheduledArtifactDrilldownLaneSort, setScheduledArtifactDrilldownLaneSort] = useState<ScheduledArtifactDrilldownLaneSort>('source_order')
   const [scheduledArtifactDrilldownUiEventLog, setScheduledArtifactDrilldownUiEventLog] = useState<string[]>([])
-  const [showTechnicalDiagnostics, setShowTechnicalDiagnostics] = useState(variant === 'backend')
+  const [requestedTab, setRequestedTab] = useState<OpsManagementTab>(variant === 'backend' ? 'runtime' : 'documents')
+  const [showDocumentTools, setShowDocumentTools] = useState(false)
+  const [showTechnicalDiagnostics, setShowTechnicalDiagnostics] = useState(false)
+  const managementTabs: OpsManagementTab[] = variant === 'backend'
+    ? ['runtime', 'agentSessions', 'diagnostics']
+    : ['documents', 'governance', 'insights']
+  const activeTab = managementTabs.includes(requestedTab) ? requestedTab : managementTabs[0]
+  const taskSubmission = useTaskSubmission({
+    projectKey,
+    invalidateOnSettled: [
+      queryKeys.admin.stats(projectKey),
+      queryKeys.admin.documentsBase(projectKey),
+      queryKeys.admin.searchHistory(projectKey),
+      queryKeys.health.all,
+    ],
+  })
   const opsGraphExtensionLabels = useMemo(
     () => ({
       documentType: translate(locale, 'opsPage.fallback.documentType'),
@@ -713,32 +744,33 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
     [locale],
   )
 
-  const adminStats = useQuery({ queryKey: queryKeys.admin.stats(projectKey), queryFn: getAdminStats, enabled: Boolean(projectKey) })
-  const runtimeStatus = useQuery({ queryKey: queryKeys.health.all, queryFn: getHealth })
+  const adminStats = useQuery({ queryKey: queryKeys.admin.stats(projectKey), queryFn: getAdminStats, enabled: Boolean(projectKey) && variant === 'ops' })
+  const runtimeStatus = useQuery({ queryKey: queryKeys.health.all, queryFn: getHealth, enabled: variant === 'backend' })
   const businessLineEvidenceMatrix = useQuery({
     queryKey: ['business-line-evidence-matrix', projectKey],
     queryFn: getBusinessLineEvidenceMatrix,
-    enabled: Boolean(projectKey),
+    enabled: Boolean(projectKey) && variant === 'backend' && activeTab === 'diagnostics' && showTechnicalDiagnostics,
   })
   const scheduledMatrixArtifactSummary = useQuery({
     queryKey: ['business-line-scheduled-matrix-artifact-summary', projectKey],
     queryFn: getBusinessLineScheduledMatrixArtifactSummary,
-    enabled: Boolean(projectKey),
+    enabled: Boolean(projectKey) && variant === 'backend' && activeTab === 'diagnostics' && showTechnicalDiagnostics,
   })
   const scheduledArtifactSummaries = useQuery({
     queryKey: ['business-line-scheduled-artifact-summaries', projectKey],
     queryFn: getBusinessLineScheduledArtifactSummaries,
-    enabled: Boolean(projectKey),
+    enabled: Boolean(projectKey) && variant === 'backend' && activeTab === 'diagnostics' && showTechnicalDiagnostics,
   })
   const scheduledArtifactDrilldown = useQuery({
     queryKey: ['business-line-scheduled-artifact-drilldown', projectKey],
     queryFn: getBusinessLineScheduledArtifactDrilldown,
-    enabled: Boolean(projectKey),
+    enabled: Boolean(projectKey) && variant === 'backend' && activeTab === 'diagnostics' && showTechnicalDiagnostics,
   })
-  const searchHistory = useQuery({ queryKey: queryKeys.admin.searchHistory(projectKey), queryFn: () => getSearchHistory(1, 30), enabled: Boolean(projectKey) })
+  const searchHistory = useQuery({ queryKey: queryKeys.admin.searchHistory(projectKey), queryFn: () => getSearchHistory(1, 30), enabled: Boolean(projectKey) && variant === 'ops' && activeTab === 'insights' })
   const agentSessionsQuery = useQuery({
     queryKey: queryKeys.agentSessions.list(),
     queryFn: listAgentSessions,
+    enabled: variant === 'backend' && activeTab === 'agentSessions',
   })
   const normalizedSessions = useMemo(
     () => normalizeSessionList(agentSessionsQuery.data || undefined),
@@ -755,17 +787,17 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
         state: docStateFilter.trim() || null,
         search: docSearch.trim() || null,
       }),
-    enabled: Boolean(projectKey),
+    enabled: Boolean(projectKey) && variant === 'ops',
   })
   const activeDocDetail = useQuery({
     queryKey: queryKeys.admin.documentDetail(projectKey, activeDocCardId),
     queryFn: () => getAdminDocument(Number(activeDocCardId)),
-    enabled: Boolean(projectKey && typeof activeDocCardId === 'number'),
+    enabled: Boolean(projectKey && typeof activeDocCardId === 'number') && variant === 'ops',
   })
   const selectedSessionQuery = useQuery({
     queryKey: queryKeys.agentSessions.detail(selectedSessionId || 'none'),
     queryFn: () => getAgentSession(selectedSessionId || ''),
-    enabled: Boolean(selectedSessionId),
+    enabled: Boolean(selectedSessionId) && variant === 'backend' && activeTab === 'agentSessions',
   })
   const createSessionMutation = useMutation({
     mutationFn: async () =>
@@ -864,7 +896,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   const selectedAgentTask = selectedSessionTasks.find((task) => task.task_id === selectedTaskId) || selectedSessionTasks[0]
 
   useEffect(() => {
-    if (!selectedSessionId || typeof window === 'undefined' || typeof EventSource === 'undefined') return undefined
+    if (variant !== 'backend' || activeTab !== 'agentSessions' || !selectedSessionId || typeof window === 'undefined' || typeof EventSource === 'undefined') return undefined
     const streamUrl = `${endpoints.agentSessions.streamBySession(selectedSessionId)}?since_seq=0&poll_seconds=1&max_seconds=60`
     const source = new EventSource(streamUrl, { withCredentials: false })
     let refreshTimer: number | null = null
@@ -885,7 +917,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
       if (refreshTimer != null) window.clearTimeout(refreshTimer)
       source.close()
     }
-  }, [queryClient, selectedSessionId])
+  }, [queryClient, selectedSessionId, variant, activeTab])
 
   const selectedCount = selectedDocIds.length
   const selectedCsv = useMemo(() => selectedDocIds.join(','), [selectedDocIds])
@@ -1033,15 +1065,20 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
     setStatusText(formatOpsTemplate(t('opsPage.status.running'), { action: name }))
     try {
       const result = await fn()
-      const taskId = typeof (result as { task_id?: unknown })?.task_id === 'string' ? String((result as { task_id?: string }).task_id) : ''
+      const previewOnly = Boolean(result && typeof result === 'object' && (result as { preview?: unknown }).preview === true)
+      const submitted = !previewOnly && taskSubmission.track(result, name)
       if (hasAdminGovernanceEvidence(result)) {
         setAdminPreview(result)
         setAdminPreviewAction(actionKey)
       }
       setStatusText(
-        taskId
-          ? formatOpsTemplate(t('opsPage.status.submittedWithTask'), { action: name, taskId })
-          : formatOpsTemplate(t('opsPage.status.completed'), { action: name }),
+        previewOnly
+          ? t('opsPage.status.previewModeNoExecution')
+          : submitted
+            ? formatOpsTemplate(t('opsPage.status.submittedWithTask'), { action: name, taskId: String((result as { task_id: string }).task_id) })
+            : hasAdminGovernanceEvidence(result)
+              ? t(getExecutionResultAvailable(result) ? 'opsPage.status.executionResultReadback' : 'opsPage.status.executionNotObserved')
+              : formatOpsTemplate(t('opsPage.status.completed'), { action: name }),
       )
       if (options?.refreshStats !== false) {
         await queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats(projectKey) })
@@ -1096,9 +1133,13 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
 
   return (
     <div className={`content-stack gv2-root ops-page ops-page--${variant}`}>
-      <section className="panel">
+      <header className="ops-management-header">
         <div className="panel-header">
           <h2>{variant === 'backend' ? t('opsPage.title.backend') : t('opsPage.title.ops')}</h2>
+          <a className="ops-management-link" href={variant === 'backend' ? '#/admin/ops' : '#/admin/backend'}>
+            {t(variant === 'backend' ? 'opsPage.status.opsLink' : 'opsPage.status.backendLink')}
+            <ArrowUpRight size={15} aria-hidden="true" />
+          </a>
         </div>
         <p className="status-line" data-testid="ops-scope-label">
           {variant === 'backend'
@@ -1109,17 +1150,36 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
               ? '资料与质量：当前项目绑定的资料、质量结果与已授权操作。全局资源会单独标注。'
               : 'Materials and quality: materials, quality results, and authorized operations bound to this project. Global resources are labeled separately.')}
         </p>
-      </section>
-      <section className="kpi-grid">
-        <article className="kpi-card"><span>{t('opsPage.kpi.documents')}</span><strong>{adminStats.data?.documents?.total || 0}</strong><small>{formatOpsTemplate(t('opsPage.kpi.todayCount'), { count: adminStats.data?.documents?.recent_today || 0 })}</small></article>
-        <article className="kpi-card"><span>{t('opsPage.kpi.socialDocuments')}</span><strong>{adminStats.data?.social_data?.total || 0}</strong><small>{formatOpsTemplate(t('opsPage.kpi.todayCount'), { count: adminStats.data?.social_data?.recent_today || 0 })}</small></article>
-        <article className="kpi-card"><span>{t('opsPage.kpi.sources')}</span><strong>{adminStats.data?.sources?.total || 0}</strong><small>{t('opsPage.kpi.resourcePool')}</small></article>
-        <article className="kpi-card"><span>{t('opsPage.kpi.searchHistory')}</span><strong>{adminStats.data?.search_history?.total || 0}</strong><small>{t('opsPage.kpi.history')}</small></article>
-      </section>
+      </header>
+      <nav className="ops-management-tabs" role="tablist" aria-label={variant === 'backend' ? t('opsPage.title.backend') : t('opsPage.title.ops')}>
+        {managementTabs.map((tab) => (
+          <button key={tab} id={`ops-tab-${tab}`} type="button" role="tab" tabIndex={activeTab === tab ? 0 : -1} aria-selected={activeTab === tab} aria-controls={`ops-view-${tab}`} onClick={() => setRequestedTab(tab)} onKeyDown={(event) => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+            event.preventDefault()
+            const index = managementTabs.indexOf(tab)
+            const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? managementTabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + managementTabs.length) % managementTabs.length
+            const nextTab = managementTabs[nextIndex]
+            setRequestedTab(nextTab)
+            document.getElementById(`ops-tab-${nextTab}`)?.focus()
+          }}>
+            {t(OPS_MANAGEMENT_TAB_KEYS[tab])}
+          </button>
+        ))}
+      </nav>
+      <TaskSubmissionNotice submission={taskSubmission} />
+      {statusText !== t('opsPage.status.ready') && <p className="status-line ops-action-status" role="status">{statusText}</p>}
+      {!!errorText && <p className="status-line ops-action-status" role="alert">{errorText}</p>}
+      {variant === 'ops' && <section className="kpi-grid ops-management-metrics">
+        <article className="kpi-card"><span>{t('opsPage.kpi.documents')}</span><strong>{adminStats.data?.documents?.total ?? '-'}</strong><small>{formatOpsTemplate(t('opsPage.kpi.todayCount'), { count: adminStats.data?.documents?.recent_today ?? '-' })}</small></article>
+        <article className="kpi-card"><span>{t('opsPage.kpi.socialDocuments')}</span><strong>{adminStats.data?.social_data?.total ?? '-'}</strong><small>{formatOpsTemplate(t('opsPage.kpi.todayCount'), { count: adminStats.data?.social_data?.recent_today ?? '-' })}</small></article>
+        <article className="kpi-card"><span>{t('opsPage.kpi.sources')}</span><strong>{adminStats.data?.sources?.total ?? '-'}</strong><small>{t('opsPage.kpi.resourcePool')}</small></article>
+        <article className="kpi-card"><span>{t('opsPage.kpi.searchHistory')}</span><strong>{adminStats.data?.search_history?.total ?? '-'}</strong><small>{t('opsPage.kpi.history')}</small></article>
+      </section>}
+      {variant === 'ops' && adminStats.isError && <p className="status-line" role="alert">{adminStats.error.message}</p>}
 
-      {variant === 'ops' ? <ProjectRetrievalPanel key={projectKey} projectKey={projectKey} /> : null}
+      {variant === 'ops' && activeTab === 'insights' ? <ProjectRetrievalPanel key={projectKey} projectKey={projectKey} /> : null}
 
-      <section className={`panel ops-runtime-panel ops-runtime-panel--${variant}`}>
+      {variant === 'backend' && activeTab === 'runtime' && <section id="ops-view-runtime" role="tabpanel" aria-labelledby="ops-tab-runtime" className={`panel ops-runtime-panel ops-runtime-panel--${variant}`}>
         <div className="panel-header">
           <div>
             <h2>{t('opsPage.section.runtimeStatus')}</h2>
@@ -1148,6 +1208,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             {formatOpsTemplate(t('opsPage.status.missingDependencies'), { dependencies: runtimeMissingDependencies.join(', ') })}
           </p>
         ) : null}
+        {runtimeStatus.isError && <p className="status-line" role="alert">{runtimeStatus.error.message}</p>}
         <div className="table-wrap">
           <table>
             <thead>
@@ -1179,17 +1240,16 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             </tbody>
           </table>
         </div>
-      </section>
+      </section>}
 
-      <div className="ops-technical-toggle" data-testid="ops-technical-toggle">
-        <button type="button" className="chip" onClick={() => setShowTechnicalDiagnostics((visible) => !visible)}>
-          {showTechnicalDiagnostics
-            ? (isZhLocale ? '收起技术日志与证据矩阵' : 'Collapse technical logs and evidence matrix')
-            : (isZhLocale ? '展开技术日志与证据矩阵' : 'Expand technical logs and evidence matrix')}
+      {variant === 'backend' && activeTab === 'diagnostics' && <div id="ops-view-diagnostics" role="tabpanel" aria-labelledby="ops-tab-diagnostics" className="ops-technical-toggle" data-testid="ops-technical-toggle">
+        <button type="button" aria-expanded={showTechnicalDiagnostics} aria-controls="ops-technical-details" onClick={() => setShowTechnicalDiagnostics((visible) => !visible)}>
+          {showTechnicalDiagnostics ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          {t(showTechnicalDiagnostics ? 'opsPage.action.hideAdvancedDetails' : 'opsPage.action.showAdvancedDetails')}
         </button>
         <span className="muted">{isZhLocale ? '资料质量结论不会由此观测面板推导。' : 'This observation panel does not derive materials or quality conclusions.'}</span>
-      </div>
-      {showTechnicalDiagnostics ? <section className="panel ops-technical-diagnostics" data-testid="ops-business-line-evidence-matrix">
+      </div>}
+      {variant === 'backend' && activeTab === 'diagnostics' && showTechnicalDiagnostics ? <section id="ops-technical-details" className="panel ops-technical-diagnostics" data-testid="ops-business-line-evidence-matrix">
         <div className="panel-header">
           <div>
             <h2>{t('opsPage.section.businessLineEvidenceMatrix')}</h2>
@@ -1800,7 +1860,10 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
         </div>
       </section> : null}
 
-      <section className="panel ops-agent-session-panel">
+      {variant === 'backend' && activeTab === 'agentSessions' && <section id="ops-view-agentSessions" role="tabpanel" aria-labelledby="ops-tab-agentSessions" className="panel ops-agent-session-panel">
+        {[agentSessionsQuery.error, selectedSessionQuery.error, createSessionMutation.error, cancelSessionMutation.error, retryTaskMutation.error, resolveApprovalMutation.error, reclaimExpiredMutation.error, coordinatorPassMutation.error].filter(Boolean).map((error, index) => (
+          <p className="status-line" role="alert" key={index}>{error?.message}</p>
+        ))}
         <div className="panel-header">
           <h2>
             <Eye size={15} />
@@ -1823,7 +1886,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             <button
               type="button"
               onClick={() => {
-                void createSessionMutation.mutateAsync()
+                createSessionMutation.mutate()
               }}
               disabled={!sessionGoal.trim() || createSessionMutation.isPending}
             >
@@ -1867,7 +1930,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                 <button
                   type="button"
                   onClick={() => {
-                    void createSessionMutation.mutateAsync()
+                    createSessionMutation.mutate()
                   }}
                   disabled={!sessionGoal.trim() || createSessionMutation.isPending}
                 >
@@ -1943,7 +2006,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                     type="button"
                     onClick={() => {
                       if (!selectedSessionId) return
-                      void cancelSessionMutation.mutateAsync(selectedSessionId)
+                      cancelSessionMutation.mutate(selectedSessionId)
                     }}
                     disabled={!selectedSessionId || cancelSessionMutation.isPending}
                   >
@@ -1964,7 +2027,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                     type="button"
                     onClick={() => {
                       if (!selectedSessionId) return
-                      void coordinatorPassMutation.mutateAsync(selectedSessionId)
+                      coordinatorPassMutation.mutate(selectedSessionId)
                     }}
                     disabled={!selectedSessionId || coordinatorPassMutation.isPending}
                   >
@@ -1975,7 +2038,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                     type="button"
                     onClick={() => {
                       if (!selectedSessionId) return
-                      void reclaimExpiredMutation.mutateAsync(selectedSessionId)
+                      reclaimExpiredMutation.mutate(selectedSessionId)
                     }}
                     disabled={!selectedSessionId || reclaimExpiredMutation.isPending}
                   >
@@ -2071,7 +2134,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                                     type="button"
                                     onClick={() => {
                                       if (!selectedSessionId) return
-                                      void retryTaskMutation.mutateAsync({ sessionId: selectedSessionId, taskId: task.task_id })
+                                      retryTaskMutation.mutate({ sessionId: selectedSessionId, taskId: task.task_id })
                                     }}
                                   disabled={!selectedSessionId || retryTaskMutation.isPending}
                                 >
@@ -2131,7 +2194,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    void resolveApprovalMutation.mutateAsync({ approvalId: approval.approval_id, approved: true })
+                                    resolveApprovalMutation.mutate({ approvalId: approval.approval_id, approved: true })
                                   }}
                                   disabled={resolveApprovalMutation.isPending}
                                 >
@@ -2141,7 +2204,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    void resolveApprovalMutation.mutateAsync({ approvalId: approval.approval_id, approved: false })
+                                    resolveApprovalMutation.mutate({ approvalId: approval.approval_id, approved: false })
                                   }}
                                   disabled={resolveApprovalMutation.isPending}
                                 >
@@ -2286,9 +2349,9 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             </div>
           </div>
         ) : null}
-      </section>
+      </section>}
 
-      <section className="panel">
+      {variant === 'ops' && activeTab === 'governance' && <section id="ops-view-governance" role="tabpanel" aria-labelledby="ops-tab-governance" className="panel ops-governance-panel">
         <div className="panel-header"><h2>{t('opsPage.section.governanceActions')}</h2></div>
         <div className="inline-actions">
           <label><span>retention_days</span><input type="number" min={1} max={3650} value={retentionDays} onChange={(e) => setRetentionDays(Number.parseInt(e.target.value || '90', 10) || 90)} /></label>
@@ -2362,11 +2425,9 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
           <button disabled={pending} onClick={() => runAction('syncAggregator', () => syncAggregator(true))}><RefreshCw size={14} />{activeAction === 'syncAggregator' ? t('opsPage.action.running') : t('opsPage.action.syncAggregator')}</button>
           <button onClick={() => { queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats(projectKey) }); queryClient.invalidateQueries({ queryKey: queryKeys.admin.searchHistory(projectKey) }); }}><RefreshCw size={14} />{t('opsPage.action.refresh')}</button>
         </div>
-        <p className="status-line">{statusText}</p>
-        {!!errorText && <p className="status-line">{errorText}</p>}
-      </section>
+      </section>}
 
-      <section className="panel">
+      {variant === 'ops' && activeTab === 'documents' && <section id="ops-view-documents" role="tabpanel" aria-labelledby="ops-tab-documents" className="panel ops-documents-panel">
         <div className="panel-header">
           <h2>{t('opsPage.section.documentGovernance')}</h2>
           <div className="inline-actions">
@@ -2376,6 +2437,10 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             </button>
             <button onClick={selectCurrentPage} disabled={!(adminDocuments.data?.items || []).length}>{t('opsPage.action.selectCurrentPage')}</button>
             <button onClick={() => setSelectedDocIds([])} disabled={!selectedCount}>{t('opsPage.action.clearSelection')}</button>
+            <button type="button" aria-expanded={showDocumentTools} aria-controls="ops-document-tools" onClick={() => setShowDocumentTools((visible) => !visible)}>
+              {showDocumentTools ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+              {t(showDocumentTools ? 'opsPage.action.hideAdvancedDetails' : 'opsPage.action.showAdvancedDetails')}
+            </button>
           </div>
         </div>
         <div className="form-grid cols-4">
@@ -2391,15 +2456,15 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             <span>search</span>
             <input value={docSearch} onChange={(e) => { setDocSearch(e.target.value); setDocPage(1) }} placeholder={t('opsPage.placeholder.titleKeyword')} />
           </label>
-          <label>
+          {showDocumentTools && <label>
             <span>extract_mode</span>
             <select value={extractMode} onChange={(e) => setExtractMode(e.target.value as 'replace' | 'merge')}>
               <option value="merge">merge</option>
               <option value="replace">replace</option>
             </select>
-          </label>
+          </label>}
         </div>
-        <div className="form-grid cols-2">
+        {showDocumentTools && <div id="ops-document-tools" className="form-grid cols-2 ops-document-tools">
           <label>
             <span>extracted_data(JSON)</span>
             <textarea rows={6} value={extractJsonText} onChange={(e) => setExtractJsonText(e.target.value)} />
@@ -2457,9 +2522,9 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
               {t('opsPage.action.deleteDocuments')}
             </button>
           </div>
-        </div>
+        </div>}
         {adminPreview ? (
-          <section className="panel" data-testid="ops-document-governance-preview" style={{ marginTop: 16 }}>
+          <section className="ops-governance-evidence" data-testid="ops-document-governance-preview" style={{ marginTop: 16 }}>
             <div className="panel-header">
               <h3>{t('opsPage.section.adminGovernanceEvidence')}</h3>
               <div className="inline-actions">
@@ -2495,7 +2560,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
               <article className="kpi-card">
                 <span>{t('opsPage.field.executionResultAvailable')}</span>
                 <strong>{String(getExecutionResultAvailable(adminPreview))}</strong>
-                <small>{adminPreview.preview ? t('opsPage.status.previewModeNoExecution') : t('opsPage.status.executionResultReadback')}</small>
+                <small>{adminPreview.preview ? t('opsPage.status.previewModeNoExecution') : t(getExecutionResultAvailable(adminPreview) ? 'opsPage.status.executionResultReadback' : 'opsPage.status.executionNotObserved')}</small>
               </article>
             </div>
             <div className="grid-2" style={{ alignItems: 'start' }}>
@@ -2545,6 +2610,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
           </section>
         ) : null}
         <p className="status-line">{formatOpsTemplate(t('opsPage.metric.selectedDocuments'), { count: selectedCount })}</p>
+        {adminDocuments.isError && <p className="status-line" role="alert">{adminDocuments.error.message}</p>}
         <div className="table-wrap">
           <table>
             <thead>
@@ -2580,6 +2646,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                   <td>
                     <input
                       type="checkbox"
+                      aria-label={`${t('opsPage.field.selected')} ${row.id}`}
                       checked={typeof row.id === 'number' && selectedDocIds.includes(row.id)}
                       onChange={() => { if (typeof row.id === 'number') toggleDocSelection(row.id) }}
                       disabled={row.readonly || typeof row.id !== 'number'}
@@ -2605,7 +2672,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
               ))}
               {!adminDocuments.data?.items?.length ? (
                 <tr>
-                  <td colSpan={8} className="empty-cell">{t('opsPage.empty.documents')}</td>
+                  <td colSpan={8} className="empty-cell">{adminDocuments.isLoading ? t('opsPage.status.loading') : adminDocuments.isError ? t('opsPage.error.unknown') : t('opsPage.empty.documents')}</td>
                 </tr>
               ) : null}
             </tbody>
@@ -2616,9 +2683,9 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
           <span className="chip">{formatOpsTemplate(t('opsPage.metric.pageOf'), { page: docPage, total: docTotalPages })}</span>
           <button disabled={docPage >= docTotalPages} onClick={() => setDocPage((p) => Math.min(docTotalPages, p + 1))}>{t('opsPage.action.nextPage')}</button>
         </div>
-      </section>
+      </section>}
 
-      <section className="panel">
+      {variant === 'ops' && activeTab === 'insights' && <section id="ops-view-insights" role="tabpanel" aria-labelledby="ops-tab-insights" className="panel ops-search-history-panel">
         <div className="panel-header"><h2>{t('opsPage.section.searchHistory')}</h2></div>
         <div className="table-wrap">
           <table>
@@ -2627,13 +2694,14 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
               {(searchHistory.data || []).map((row) => (
                 <tr key={row.id}><td>{row.id}</td><td>{row.topic || '-'}</td><td>{formatDate(row.last_search_time, locale)}</td></tr>
               ))}
-              {!searchHistory.data?.length && <tr><td colSpan={3} className="empty-cell">{t('opsPage.empty.searchHistory')}</td></tr>}
+              {!searchHistory.data?.length && <tr><td colSpan={3} className="empty-cell">{searchHistory.isLoading ? t('opsPage.status.loading') : t('opsPage.empty.searchHistory')}</td></tr>}
             </tbody>
           </table>
         </div>
-      </section>
+        {searchHistory.isError && <p className="status-line" role="alert">{searchHistory.error.message}</p>}
+      </section>}
 
-      {activeDocCardId ? (
+      {variant === 'ops' && activeTab === 'documents' && activeDocCardId ? (
         <GraphNodeCard
           title={activeDocDetail.data?.title || formatOpsTemplate(t('opsPage.fallback.documentTitle'), { docId: activeDocCardId })}
           subtitle={activeDocDetail.data?.doc_type || '-'}
@@ -2680,7 +2748,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                 }}
                 title={t('opsPage.action.refresh')}
               >
-                ↻
+                <RefreshCw size={14} aria-hidden="true" />
               </button>
             </div>
           }

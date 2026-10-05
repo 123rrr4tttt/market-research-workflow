@@ -1,6 +1,7 @@
 import {
   AreaChart,
   Brain,
+  BookOpen,
   Building2,
   Database,
   DatabaseZap,
@@ -15,6 +16,7 @@ import {
   MessageCircleMore,
   MessageSquare,
   Network,
+  Orbit,
   Package,
   Puzzle,
   Radar,
@@ -27,7 +29,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import type { MessageKey } from '../platform/i18n'
-import { moduleManifest } from './moduleManifest'
+import { moduleManifest, moduleManifestByKey } from './moduleManifest'
 import type { KernelModuleKey } from './types'
 
 export const MODULE_ICON_BY_KEY: Record<KernelModuleKey, LucideIcon> = {
@@ -55,6 +57,7 @@ export const MODULE_ICON_BY_KEY: Record<KernelModuleKey, LucideIcon> = {
   flowBoard: TrendingUp,
   flowWriting: FileInput,
   flowAgentChat: MessageCircleMore,
+  flowCell: Orbit,
   flowLlmNodeDesign: Brain,
   sysProjects: Folders,
   sysCrawler: Radar,
@@ -63,49 +66,119 @@ export const MODULE_ICON_BY_KEY: Record<KernelModuleKey, LucideIcon> = {
   sysSettings: Settings2,
   sysLlm: Wrench,
   sysSuccessorRuntime: Gauge,
+  sysBusinessGuide: BookOpen,
 }
 
 export type VisualizationShellSection = {
   labelKey: MessageKey
-  moduleKeys: readonly KernelModuleKey[]
+  items: readonly VisualizationShellNavItem[]
+}
+
+export type VisualizationShellNavItem = {
+  moduleKey: KernelModuleKey
+  labelKey: MessageKey
+  /** Project-authored label for a graph entry point. */
+  label?: string
+  /** Identity of a project graph template rendered by the builder entry point. */
+  templateKey?: string
 }
 
 export const VISUALIZATION_SHELL_SECTIONS: readonly VisualizationShellSection[] = [
-  { labelKey: 'shell.visualizationSection.signals', moduleKeys: ['dataDashboard', 'dataMarket', 'dataSocial', 'dataPolicy', 'dataCatalog'] },
-  { labelKey: 'shell.visualizationSection.graphs', moduleKeys: ['graphMarket', 'graphPolicy', 'graphSocial', 'graphCompany', 'graphProduct', 'graphOperation', 'graphDeep', 'graphBuilder'] },
-  { labelKey: 'shell.visualizationSection.review', moduleKeys: ['flowAnalysis', 'flowBoard'] },
+  {
+    labelKey: 'shell.visualizationSection.stats',
+    items: [{ moduleKey: 'dataDashboard', labelKey: 'shell.visualization.statsTitle' }],
+  },
+  {
+    labelKey: 'shell.visualizationSection.projectGraph',
+    items: moduleManifest
+      .filter((entry) => entry.navGroupKey === 'navigation.group.graph')
+      .map((entry) => ({ moduleKey: entry.moduleKey, labelKey: entry.navLabelKey })),
+  },
 ] as const
 
 export type VisualizationShellCoverage = {
-  expected: readonly KernelModuleKey[]
-  covered: readonly KernelModuleKey[]
-  missing: readonly KernelModuleKey[]
-  extra: readonly KernelModuleKey[]
+  /** Every Layer B module remains routable even when it is not visible in this shell. */
+  routableCatalog: readonly KernelModuleKey[]
+  visibleNav: readonly KernelModuleKey[]
+  invalidVisibleNav: readonly KernelModuleKey[]
+  templateKeys: readonly string[]
+  invalidTemplateKeys: readonly string[]
+  duplicatedTemplateKeys: readonly string[]
   duplicated: readonly KernelModuleKey[]
   isComplete: boolean
 }
 
-export function getVisualizationShellCoverage(): VisualizationShellCoverage {
-  const expected = moduleManifest
-    .filter((entry) => entry.layerId === 'B' && entry.visibleInNav && entry.enabled)
+type GraphNavItemSource = {
+  moduleKey: KernelModuleKey
+  labelKey: MessageKey
+  label?: string
+}
+
+type GraphTemplateItemSource = {
+  key: string
+  name: string
+}
+
+export function getVisualizationShellSections(
+  graphItems: readonly GraphNavItemSource[],
+  templateItems: readonly GraphTemplateItemSource[] = [],
+): readonly VisualizationShellSection[] {
+  return [
+    VISUALIZATION_SHELL_SECTIONS[0],
+    {
+      labelKey: 'shell.visualizationSection.projectGraph',
+      items: graphItems.map((item) => ({
+        moduleKey: item.moduleKey,
+        labelKey: item.labelKey,
+        label: item.label,
+      })),
+    },
+    {
+      labelKey: 'shell.visualizationSection.graphTemplates',
+      items: templateItems.map((item) => ({
+        moduleKey: 'graphBuilder',
+        labelKey: moduleManifestByKey.graphBuilder.navLabelKey,
+        label: item.name,
+        templateKey: item.key,
+      })),
+    },
+  ]
+}
+
+export function getVisualizationShellCoverage(
+  graphItems: readonly GraphNavItemSource[],
+  templateItems: readonly GraphTemplateItemSource[] = [],
+): VisualizationShellCoverage {
+  const routableCatalog = moduleManifest
+    .filter((entry) => entry.layerId === 'B')
     .map((entry) => entry.moduleKey)
-  const covered = VISUALIZATION_SHELL_SECTIONS.flatMap((section) => section.moduleKeys)
-  const expectedSet = new Set(expected)
-  const coveredSet = new Set(covered)
-  const missing = expected.filter((moduleKey) => !coveredSet.has(moduleKey))
-  const extra = covered.filter((moduleKey) => !expectedSet.has(moduleKey))
-  const counts = covered.reduce<Record<KernelModuleKey, number>>(
+  const sections = getVisualizationShellSections(graphItems, [])
+  const visibleNav = sections.flatMap((section) => section.items.map((item) => item.moduleKey))
+  const routableSet = new Set(routableCatalog)
+  const invalidVisibleNav = visibleNav.filter((moduleKey) => !routableSet.has(moduleKey))
+  const counts = visibleNav.reduce<Record<KernelModuleKey, number>>(
     (acc, moduleKey) => ({ ...acc, [moduleKey]: (acc[moduleKey] || 0) + 1 }),
     {} as Record<KernelModuleKey, number>,
   )
   const duplicated = Object.keys(counts).filter((moduleKey) => counts[moduleKey as KernelModuleKey] > 1) as KernelModuleKey[]
+  const statsEntryCount = visibleNav.filter((moduleKey) => moduleKey === 'dataDashboard').length
+  const templateKeys = templateItems.map((item) => item.key)
+  const templateKeySet = new Set(templateKeys)
+  const invalidTemplateKeys = templateKeys.filter((key) => !key)
+  const duplicatedTemplateKeys = templateKeys.filter((key, index) => templateKeys.indexOf(key) !== index)
 
   return {
-    expected,
-    covered,
-    missing,
-    extra,
+    routableCatalog,
+    visibleNav,
+    invalidVisibleNav,
+    templateKeys: Array.from(templateKeySet),
+    invalidTemplateKeys,
+    duplicatedTemplateKeys,
     duplicated,
-    isComplete: missing.length === 0 && extra.length === 0 && duplicated.length === 0,
+    isComplete: invalidVisibleNav.length === 0
+      && duplicated.length === 0
+      && statsEntryCount === 1
+      && invalidTemplateKeys.length === 0
+      && duplicatedTemplateKeys.length === 0,
   }
 }
