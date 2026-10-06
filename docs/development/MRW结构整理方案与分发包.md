@@ -1,6 +1,6 @@
 # MRW 结构整理方案与分发包
 
-当前入口：[运行时退役与类型收敛框架](#11-运行时退役与类型收敛框架)。2026-10-05 外部审核后的五个只读调研包已完成，§11 为本轮运行时退役与类型收敛主入口，状态为 **本地实施与整组复核已完成，真实业务链 NOT_RUN 及边界见 §11.9**。旧 runtime 整体退役是本轮最高优先交付，独有能力迁入现行体系，不以“不同义”保留旧执行系统。下方各轮完成状态只覆盖各自当时的范围，不代表本轮发现已经修复。
+当前入口：[运行时退役与类型收敛框架](#11-运行时退役与类型收敛框架)。2026-10-05 外部审核后的五个只读调研包已完成，§11 为本轮运行时退役与类型收敛主入口，状态为 **三条真实业务链、公共严格类型、根测试与后端完整回归已通过；本轮实施与本地验收完成，验证范围及保留边界见 §11.9 末尾的 2026-10-06 续接记录**。旧 runtime 整体退役是本轮最高优先交付，独有能力迁入现行体系，不以“不同义”保留旧执行系统。下方各轮完成状态只覆盖各自当时的范围，不代表本轮发现已经修复。
 
 上一轮（2026-10-04）状态：`IMPLEMENTATION_COMPLETE / LOCAL_DAILY_RUNTIME_VERIFIED`，范围与证据见 §8。
 
@@ -1132,7 +1132,7 @@ compiler在运行时调用validator，不意味着两位作者必须等对方整
 
 本轮调研的五个有效包均已回传，主线纠正了“services 全是旧 runtime”“把 registry 当类型权威”“两个 compile 同名即同一链”“draft/applied 状态天然重复”等过度结论。首批四个 GLM 请求遭持续 429，改用五个只读 DeepSeek Flash 包，类型包追加一次有界纠错。主线负责框架及跨包设计；未运行实施验收，未统计完整调用/token 成本。
 
-**本轮交付状态：实施进行中，旧 runtime 整体退役仍为最先交付的主线，尚未通过三链组合验收。** 退役必需接缝为非搜索 channel 的唯一执行入口、工作流现用 skill→平台解释器绑定、受影响类型/授权闭包、旧会话控制的消费者迁出；其余广域整理不阻塞退役。每项缺口都有对应 owner/包和同批删除终点，不再以不同义、独有能力或尚有消费者得出旧 runtime 长期保留结论。
+**本轮交付状态（2026-10-06 更新）：实施与本地验收完成。** 原非搜索 channel、工作流解释器、类型与授权边界、旧会话控制消费者迁移已由原 owner 完成；三条真实链与最后完整回归见 §11.9。未执行的可选生产代理、跨 provider parity 及既有内部静态债分别保留边界，生产发布继续沿原合同延后。
 
 ### 11.8 分发消息、交接与失败恢复
 
@@ -1173,7 +1173,7 @@ cwd：/Users/wangyiliang/market-research-workflow
 
 测试准备和执行同样按资源依赖派发。mock测试只证明本地边界，真实DB/provider/前端读回保留各自结果；缺失项记为该链未完成，不能用并发数、提交数或子包PASS数量宣称整组完成。三个续接只读审查提供了写面证据。实施已从必要接口前沿启动，实际派发与完成以当前作者交接和原 runner 结果为准；32项是计划分解数，不是已启动或通过数量。
 
-### 11.9 本轮实施记录与最终复核（本地工作包完成，真实业务链未完成验证）
+### 11.9 本轮实施记录与复核（按执行日期保留证据边界）
 
 本轮退役收尾状态（2026-10-06）：下述旧 AgentChat、默认 coordinator 决策、C7 投影 scaffold、workflow legacy oracle、legacy_collect_runtime 与 Ops 固定 memory/coordinator 展示均已迁出或删除，现行替代保持。API layer 扫描已复验通过、编译结果缓存已按新授权收敛为store单一authority；真实writing两项spec已在专属隔离栈取得6 passed；集中集成检查与未执行项按本节末尾状态维护；以下过程记录中的“待修复”“等待环境”按末尾各包实际回传收敛，不作为新的全组完成声明。
 
@@ -1237,3 +1237,50 @@ cwd：/Users/wangyiliang/market-research-workflow
 - 2026-10-06 严格类型补修：初始聚合扫描的863项 Pyright 诊断集中在8个应用文件；补齐明确结构类型、修正不 sound 的映射/文本边界并保留原错误语义后，将本轮基线 `f3a7ea73` 至当前工作树改动涉及的34个后端应用文件统一 strict 检查，结果为 `0 errors / 0 warnings / 0 informations`。受影响 selector 为35 passed、1 skipped、2 subtests；函子 gates 在异常边界分类及逐分支见证补齐后为283 passed。`scripts/dev.py check`、`sync`、API layer scanner、Ruff F、Python 编译、`import app.main` 和 `git diff --check` 均通过。此结果只覆盖34个改动文件；仓库其他文件及本批若干既有动态接口仍有 `Any`，不代表全仓 Any 清零或所有业务边界已完全静态化。
 - 当前本机 API `/api/v1/health` 返回 `status=ok, provider=openai, env=dev`；Codex auth status 返回 `codex_oauth_enabled=true`、`codex_cli_installed=true`、`token_sink_authenticated=true`、`authenticated=false`。其中 `authenticated=false` 表示 MRW 浏览器 cookie session 未建立，不代表宿主 Codex OAuth 不可用；`CodexAgentPage` 在本地 HTTP origin 挂载宿主 WebUI 不依赖该 cookie。后端 `CodexAppServerCore` 首次模型调用时才创建，调用前 `mounted=false` 是惰性生命周期状态。`_prepare_isolated_codex_home()` 会把宿主 `auth.json` 与 OAuth token sink 复制到隔离 CODEX_HOME；当前 CLI 与 token sink 凭据来源可用，但本轮没有执行真实模型调用，因此模型请求的认证和挂载仍未验证。Chrome 的 `ERR_BLOCKED_BY_CLIENT` 只记录为此前登录页观察，不再作为本地 WebUI 或宿主 OAuth 的失败证据。
 - §11.7三条真实业务链的结论保持：Host授权→任务→材料持久读回、crawler→持久化→资源/图视图、workflow编辑→执行→持久结果读回仍为 `NOT_RUN`；既有隔离 writing 6 passed、C7 PostgreSQL canary 66 passed及 mock/selector 结果只覆盖各自合同。真实 crawler/provider 与端到端用户输入需在专属隔离环境中验证；MRW 浏览器 cookie 未登录本身不构成宿主 OAuth 阻塞。Docker复核只看到既有 `ops-celery-worker-1`，本轮未重启、停止或清理它。
+
+
+#### 2026-10-06 续接记录：真实链路与整组回归
+
+本段更新本节此前的 `NOT_RUN` 状态；此前记录仍是其执行时点的证据，不能用后续成功改写旧失败。当前隔离根为 `.data/structure-cleanup/20261006-completion`，源码基线为 `main@06edde58`。Docker Desktop 未运行，沿用户授权使用独立本机 PostgreSQL 55436、Redis 56386、Elasticsearch 19286、backend 18086、Scrapyd 16886、frontend 14186 和 Codex WebUI 18172。日常 `ops-celery-worker-1` 与 WebUI 8172 未停止、重启或清理。该隔离根含私有凭据和运行产物，不进入 Git。
+
+三条正式业务链已产生实际效果并独立读回：
+
+| 链路 | 实际结果 | 读回与范围 |
+|---|---|---|
+| 宿主授权与写作 | attempt4，真实 `gpt-6-luna` turn completed；session `as-ff316fbd94314efa`，approval consumed，writing create 一次 | `WritingDocument.doc_id=1`；宿主 items、公共 session/message/event/approval、writing API 和租户 DB 一致。该对象属于写作域；canonical `Document` 的采集事实见下一行 |
+| 爬虫与材料 | attempt9，正式 deploy run 8 → Scrapyd job completed → 原结果 importer 自动写入 | canonical `Document.id=4`，body SHA256 前缀 `226c5347`；native topology `materials/material/4`、GraphPage 身份与正文引用一致；正式 GraphPage spec 1 passed |
+| 工作流编辑与运行 | attempt7，原 Playwright spec 2 passed，20.5s | success `run_muwjo33b_success` 的 retrieve/draft/combine 全部 succeeded，真实 PG vector 与 OpenAI 均无 degraded，9 条有序事件；failure `run_muwjo33b_failure` 保留 required_input_missing、未启动下游 queued、空 results。两次 run 与编译产物的 program/plan digest 一致，reconnect/sync/API/stateful replay 一致 |
+
+工作流执行暴露并修复了两个正式接口问题：回放须从 canonical `run.queued.topo_order` 初始化 queued 节点；新租户 DDL 须在 `tenant, public` 搜索路径下显式判断目标 schema，避免 public 同名表导致漏建，同时保持 public.vector 类型可见。正式 POST 新项目后，独立检查 `TENANT_TABLES` 全集、vector 类型和 topology API 均通过，随后执行 attempt7。原始证据分别在隔离根 `logs/live_host_material_chain_attempt4.log`、`logs/live-crawler-chain-evidence-b3722a4a59.json`、`logs/formal-fresh-tenant-ddl-readback.json` 与 `run/live-workflow-result-chain/attempt7-persistent-summary.json`。
+
+本次公共边界包括 API、领域 DTO、typed contribution/compiler、原执行端口与其实际 producer/consumer。`tool.pyright.include` 保留默认 `tests`；`scripts/dev.py typecheck --public-boundaries` 从同一声明选择 `src + backend` 的129个声明根，结果为 `0 errors / 0 warnings`。CI 的 `backend-typecheck-check`、required convergence、branch check source/category 声明已同步。C2 的 `Result[tuple[object, ...]] → RowMapping` 和 interpreter 参数关联由正式 handler 及持久化正负 probe 校验；错误 object 输入产生9项预期 `reportArgumentType`。Celery 的 task 参数与结果、贡献 factory 的上下文/绑定类型亦保留正负例。
+
+实际故障修复与验收：
+
+- session 的6类公共命令及批任务派生写入通过现有类型化 `commit_session_command` 一次提交事实和事件；Memory 回滚快照，SQL 同一事务按 session、排序 task、approval 锁序执行。专属 PostgreSQL 见证覆盖 claim/CAS、40条唯一序号、DataError 全事实回滚及释放。`session_create` 的 JSON 也在写入前校验。
+- ingest 同幂等键不同 payload 返回409；数据库故障返回503，生产路径不再回退 memory。system-managed source item 的用户 POST/PUT 在校验 handler 或任何写入前拒绝，内部 system sync 仍有效。
+- Admin 保留原 `{doc_id}` 路由身份，静态 bulk 路由先注册；显式项目归属和变更前 selection snapshot 均有原消费者见证。API OpenAPI 为323 operations，其中320 router、3 app-level、155 request bodies，未类型化200响应为0；inventory 由原生成器更新。
+- 新项目初始化的唯一 `TENANT_TABLES` 已加入 canonical `IngestSubmissionRegistry.__table__`。正式 POST 新项目返回200，实际调用生产 `reserve_submission_db` 成功，独立 SQL 读回同 project/key/submission 与 `status=submitted`，随后清理自身 schema/项目。此专属空测试库27张声明表实际26张，唯一缺项为既有可选 `embeddings`（库内无 vector 类型）；此前真实工作流使用的另一隔离库已验证 public.vector 与当时完整租户清单。证据为 `logs/fresh-registry-production-reserve-final.log`。
+- 历史候选和当前装配分开验证：冻结30个 capability records 保留原字节/SHA，当前27个 cell 从现行装配读取；C9 已迁移 facade 的旧快照通过既有历史 reader 验证。冻结记录、hash 和 golden 未重写；当前 C4 handler 声明指向实际执行文件。
+
+最后验证结果如下，原失败日志保留：
+
+| 范围 | 最后结果 | 日志与说明 |
+|---|---|---|
+| 根测试，完整原 runner | 1564 passed，103 subtests passed，0 failed；178.53s | `logs/root-full-suite-final2.log`；前一轮4项失败由类型检查解释器配置、CI声明同步与3处真实 no-throw 边界修复 |
+| 后端，完整原 runner | 4490 passed，5 skipped，229 subtests passed，0 failed / 0 errors；270.23s | `logs/backend-full-suite-final2.log`；4495项实际收集，无 `-m` 省略；专属 backend/successor/startup/session DB，Document/拓扑6项隔离 schema 测试实际执行 |
+| 前端原227项清单 | 200 kept、26 passed、1 skipped | 首次完整运行204 passed / 22 failed / 1 skipped；五个修复 spec 和 real-business spec 的集中复验共26 passed，覆盖全部22个原失败及4个原通过。未声称再次完整执行227项 |
+| 前端静态与构建 | lint、TypeScript + Vite build 通过 | `logs/frontend-lint-final2.log`、`logs/frontend-build-final.log`；当前 collection 227项 |
+| 架构与注册 | 297 passed；sync/check clean；依赖242 files / 79 local imports / 0 violations | `logs/architecture-final2.log`、`logs/contribution-{sync,check}-final.log`、`logs/dependency-direction-final.log` |
+| API 与文档检查 | API layer scanner、4个原文档检查通过 | inventory、route identity、真正 DTO schema 与现行 owner 对齐；旧 checker 的 live/WebGL closure 仍只按其独立证据判断 |
+| 源码卫生 | 公共 strict0、283个变动 Python 文件 Ruff F通过、diff-check通过 | `logs/public-boundaries-final3.log`、`logs/shared-ruff-f-final3.log`；历史 fixture 字节不作自动格式化 |
+
+后端5项 skipped 分别为：crawler、host 两个显式 opt-in 测试（各自真实链结果已在上表独立记录），`test_i1_live_provider_parity` 的跨 provider 调用（未执行），以及两个由 Pyright 负例负责的错误签名测试。前端唯一 skipped 是 `simp08-codex-auth-proxy.spec.ts`，需要独立生产 exchange browser session；§11.7 第5项要求的三条代表链已经各自验证，该可选生产代理见证没有计为通过。真实 provider、原生宿主与生产代理是各自的观察范围。
+
+最后全后端运行前的完整记录为165 failed / 4272 passed / 11 skipped / 14 errors（`logs/backend-full-suite.log`）；下一次为12 failed / 4470 passed / 11 skipped（`logs/backend-full-suite-final.log`）。后一轮修正了同进程测试环境、schema分类、旧 metadata/历史绑定及新 session 事务消费者，并发现并修复真正的新项目 registry 漏表。当前完整通过来自最后 runner，旧结果不改写为成功。
+
+当前实现 owner 均已回传，本轮范围内无在途源码包或未解除 blocker。保留的范围外静态债：`source_resolution_interpreters.py` 独立根50项、`runtime_journal.py` 独立根28项，C9 maintenance script 既有66项、旧 checker roots 既有159项；这些并非互斥集合。默认 tests 的早期2211项快照未作为本轮当前总数或通过声明；W03 AST helper 等既有测试静态债仍在默认清单中。Qdrant SDK 未安装，其可选适配边界只完成 fake-client 见证。旧历史生成器要求已退役源文件时仍报告具名历史输入缺口，不恢复在线旧执行器。
+
+首次失败、owner返工、主线补修与环境等待均属于本轮成本。完整派发/调用/token成本和可比性能基线缺失，不记零、不报告提速；当前没有在途 owner。私有隔离 `.data/structure-cleanup/20261006-completion` 的环境、OAuth、数据库与原始日志不进入 Git；日常 Docker worker 和 WebUI8172保持原状态。本地主题提交不构成 push 或生产发布。
+
+本地主题提交：`2ff4585e` 完成公共类型、事务/权限/幂等、当前声明及后端见证；`6d576c2f` 完成图视图读回和现行浏览器验收。两次提交相对本轮基线合计333个路径、38628行新增、13120行删除，包含类型定义、回归见证和独立历史 fixture；本状态记录另行提交。未 push。
