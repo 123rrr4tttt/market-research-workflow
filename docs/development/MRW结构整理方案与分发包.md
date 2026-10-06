@@ -1,6 +1,6 @@
 # MRW 结构整理方案与分发包
 
-当前入口：[运行时退役与类型收敛框架](#11-运行时退役与类型收敛框架)。2026-10-05 外部审核后的五个只读调研包已完成，§11 为本轮运行时退役与类型收敛主入口，状态为 **三条真实业务链、公共严格类型、根测试与后端完整回归已通过；本轮实施与本地验收完成，验证范围及保留边界见 §11.9 末尾的 2026-10-06 续接记录**。旧 runtime 整体退役是本轮最高优先交付，独有能力迁入现行体系，不以“不同义”保留旧执行系统。下方各轮完成状态只覆盖各自当时的范围，不代表本轮发现已经修复。
+当前入口：[运行时退役与类型收敛框架](#11-运行时退役与类型收敛框架)。2026-10-05 外部审核后的五个只读调研包已完成，§11 为本轮运行时退役与类型收敛主入口。2026-10-06 复核后的当前状态为 **公共严格类型、功能套件及三条真实业务链的既有验证继续有效；统一执行结构与平台 run/step 事实 owner 的原收敛目标未完成，已确认 workflow 与 retrieval 两处 service 自管执行及运行状态写入缺口**。原“本轮实施与本地验收完成”结论撤回其整体迁移含义，证据及原退出条件见 §11.9 末尾复核记录。旧 runtime 整体退役仍是本轮最高优先交付，独有能力迁入现行体系，不以“不同义”保留旧执行系统。下方旧完成记录保留为当时结论，不覆盖此次确认的未完成状态。
 
 上一轮（2026-10-04）状态：`IMPLEMENTATION_COMPLETE / LOCAL_DAILY_RUNTIME_VERIFIED`，范围与证据见 §8。
 
@@ -1284,3 +1284,16 @@ cwd：/Users/wangyiliang/market-research-workflow
 首次失败、owner返工、主线补修与环境等待均属于本轮成本。完整派发/调用/token成本和可比性能基线缺失，不记零、不报告提速；当前没有在途 owner。私有隔离 `.data/structure-cleanup/20261006-completion` 的环境、OAuth、数据库与原始日志不进入 Git；日常 Docker worker 和 WebUI8172保持原状态。本地主题提交不构成 push 或生产发布。
 
 本地主题提交：`2ff4585e` 完成公共类型、事务/权限/幂等、当前声明及后端见证；`6d576c2f` 完成图视图读回和现行浏览器验收。两次提交相对本轮基线合计333个路径、38628行新增、13120行删除，包含类型定义、回归见证和独立历史 fixture；本状态记录另行提交。未 push。
+
+#### 2026-10-06 只读复核：整体迁移完成结论纠正
+
+复核源码为 `main@5eb37268`。上述公共类型、功能套件和三条真实链的 PASS 继续在各自观察范围内有效；它们没有验证 service 执行主体已迁走。主线此前以已分发包及功能验收代替整体结构验收，原“全部完成”对 §11 的完整迁移目标不成立。旧记录保留为当时结论，当前两处已确认缺口属于本轮原范围，不能归入范围外债务：
+
+| 已确认缺口 | 当前正式调用链及事实写面 | 原退出条件 |
+|---|---|---|
+| workflow 仍自管节点执行与新 run | `POST /workflow-graph/run` → [API `_invoke_run`](../../main/backend/app/api/workflow_graph.py) → `workflow_graph.run` skill → [WorkflowGraphRuntimeService.run](../../main/backend/app/services/workflow_graph/__init__.py) → [WorkflowGraphPlatformInterpreter.run](../../main/backend/app/services/workflow_graph/runtime.py)。后者仍以 `while True` / `for activation` 调用节点 kernel，自行维护 completed，并调用 [SqlRunStore.create_run / set_run_status / set_node_status / set_node_result](../../main/backend/app/services/workflow_graph/store.py) 写入 `public.workflow_graph_runs` 与事件，随后向 session 投影 | §11.2 要求现有平台 run/step owner 管新运行事实；§11.6 要求节点 kernel 经原平台执行，删除旧节点循环、新 run 双写及重复装配。当前只完成 typed DSL、Program/Plan 和 activation 接入；改名及引用 `activate_plan_result` 不满足执行与事实 owner 迁移 |
+| retrieval 仍自管查询、补检与运行状态 | `POST /project-retrieval/runs` → [ProjectRetrievalService.start](../../main/backend/app/services/project_retrieval/service.py) → [task_project_retrieval_run](../../main/backend/app/services/tasks.py) → [execute_retrieval_run](../../main/backend/app/services/project_retrieval/execution.py)。executor 自行循环 query 与 followup，通过 `_tool` 直接调用 registry；service 的 `claim_run / update_run` 自行写入 `ProjectRetrievalRun`，worker 判定终态 | §11.2 要求旧执行循环、调度和状态写入退出，能力进入现有 language/capabilities/runtime；§11.6 要求消费者切换后删除旧源码、注册和配置中的执行承载。必要检索能力须迁入原平台，不能因业务不同义而保留这套执行 service |
+
+按 Git 跟踪的生产 Python 物理行数统计（含空行、注释），最后实施批次 `06edde58 → 5eb37268` 的 `app/services` 从119665增至130302，净增10637；`app` 从294581增至307501，净增12920。增长包括类型定义、转换与事务代码、API 实现下移和新增 writer；这些数字不表示新增行全部冗余，也不能证明实现主体已收敛。入口接入、公开类型闭合与机械绑定/实现主体删除须分别验收。
+
+可保留的是领域特殊 kernel、外部 adapter、原 Document/知识/模板等事实 writer 及必要单向投影；自管有序执行、下一步决策和通用运行状态的 service 部分仍受原退役条件约束。“不同义”不构成保留执行 service 的理由。当前撤回统一核心执行结构、service 执行层退役及整体实现/机械层收敛已完成的结论。本次仅纠正已有文档，未修改源码、未重跑套件、未建立新分发体系；代码整改范围由后续主线确定。
