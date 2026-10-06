@@ -13,12 +13,33 @@ from __future__ import annotations
 
 import dataclasses
 import typing
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, fields
-from typing import Annotated, Any, Literal, NoReturn, TypeAlias, get_args, get_origin
+from typing import (
+    Annotated,
+    Any,
+    Literal,
+    NoReturn,
+    TYPE_CHECKING,
+    TypeAlias,
+    TypeGuard,
+    TypeVar,
+    get_args,
+    get_origin,
+)
 
 from functorial_kit import Failure
 
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
+else:
+    DataclassInstance = object
+
+
+TDecoded = TypeVar("TDecoded", bound=DataclassInstance)
+
 from app.successor_runtime.capabilities.checksum import (
+    CanonicalJsonObject,
     content_digest,
     require_hex64,
 )
@@ -34,6 +55,7 @@ from app.successor_runtime.capabilities.profiles import (
     SemanticProfile,
 )
 from app.successor_runtime.language.algebra import (
+    FrozenJsonAtom as FrozenJsonAtom,  # required to resolve recursive FrozenJsonValue aliases
     FrozenJsonObject,
     FrozenJsonValue,
     freeze_json_object,
@@ -104,6 +126,7 @@ __all__ = [
     "try_payload_from_dicts",
     "project_scope_digest",
     "resource_ceiling_digest",
+    "source_resolution_payload_wire_from_value",
     "source_item_definition_content_digest",
     "source_item_definition_from_dict",
     "versioned_warning_from_legacy_string",
@@ -138,7 +161,6 @@ SOURCE_MODE_TYPE = contracts.SOURCE_MODE_TYPE
 SOURCE_REJECTION_SCHEMA = contracts.SOURCE_REJECTION_SCHEMA
 SOURCE_REJECTION_TYPE = contracts.SOURCE_REJECTION_TYPE
 SOURCE_RESOLUTION_OBSERVATION_SCHEMA = contracts.SOURCE_RESOLUTION_OBSERVATION_SCHEMA
-SOURCE_RESOLUTION_RESULT_TYPE = contracts.SOURCE_RESOLUTION_RESULT_TYPE
 SOURCE_TAXONOMY_SCHEMA = contracts.SOURCE_TAXONOMY_SCHEMA
 SOURCE_TAXONOMY_TYPE = contracts.SOURCE_TAXONOMY_TYPE
 SOURCE_WARNING_SCHEMA = contracts.SOURCE_WARNING_SCHEMA
@@ -177,7 +199,6 @@ SOURCE_MODES = contracts.SOURCE_MODES
 SOURCE_WARNING_CODES = contracts.SOURCE_WARNING_CODES
 SOURCE_REJECTION_CODES = contracts.SOURCE_REJECTION_CODES
 channel_catalog_digest = contracts.channel_catalog_digest
-SOURCE_RESOLUTION_PAYLOAD_TYPE = contracts.SOURCE_RESOLUTION_PAYLOAD_TYPE
 
 
 def _raise_programmer_defect(message: str, exception_type: type[Exception] = ValueError) -> NoReturn:
@@ -444,17 +465,49 @@ def deployment_catalog_digest() -> str:
     )
 
 
-def _plain(value: Any) -> Any:
+def _is_plain_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_plain_sequence(value: object) -> TypeGuard[Sequence[object]]:
+    return isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
+
+
+def _plain(value: object) -> contracts.SourcePlainValue:
     if dataclasses.is_dataclass(value):
         return {item.name: _plain(getattr(value, item.name)) for item in dataclasses.fields(value)}
-    if isinstance(value, dict):
+    if _is_plain_mapping(value):
         return {str(key): _plain(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
+    if _is_plain_sequence(value):
         return [_plain(item) for item in value]
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    _raise_legacy_compatibility(f"payload codec cannot encode value {type(value).__name__}", TypeError)
+
+
+def _is_plain_object(value: object) -> TypeGuard[contracts.SourcePlainObject]:
+    return isinstance(value, dict)
+
+
+def _plain_object(value: object) -> contracts.SourcePlainObject:
+    if not _is_plain_object(value):
+        _raise_legacy_compatibility("payload codec produced a non-object encoding", TypeError)
     return value
 
 
+def source_resolution_payload_wire_from_value(
+    value: object,
+) -> CanonicalJsonObject:
+    """Normalize one decoded JSON object onto the canonical payload wire."""
+
+    return contracts.source_plain_object_to_canonical(
+        _plain_object(_plain(value))
+    )
+
+
 def _rebuild_value(value: Any, hint: Any) -> Any:
+    """Rebuild typed collections; Any is confined to runtime typing metadata."""
+
     if value is None or hint is Any:
         return value
     origin = get_origin(hint)
@@ -465,14 +518,14 @@ def _rebuild_value(value: Any, hint: Any) -> Any:
         return tuple(_rebuild_value(item, args[index]) for index, item in enumerate(value))
     if origin is list:
         return [_rebuild_value(item, get_args(hint)[0]) for item in value]
-    if dataclasses.is_dataclass(hint):
+    if isinstance(hint, type) and dataclasses.is_dataclass(hint):
         return _decode_plain(hint, value)
     return value
 
 
-def _decode_plain(cls: type[Any], value: dict[str, Any]) -> Any:
+def _decode_plain(cls: type[TDecoded], value: contracts.SourcePlainObject) -> TDecoded:
     expected = {item.name for item in fields(cls)}
-    if not isinstance(value, dict) or set(value) != expected:
+    if set(value) != expected:
         missing = sorted(expected - set(value))
         extra = sorted(set(value) - expected)
         _raise_legacy_compatibility(f"{cls.__name__} codec rejected payload fields: missing={missing} extra={extra}")
@@ -481,41 +534,26 @@ def _decode_plain(cls: type[Any], value: dict[str, Any]) -> Any:
     return cls(**kwargs)
 
 
-def _encode_payload(value: Any) -> dict[str, Any]:
-    codec_id = SOURCE_RESOLUTION_PAYLOAD_CODEC_ID
-    if not isinstance(value, SourceResolutionPayload):
-        _raise_legacy_compatibility(
-            f"{codec_id} codec expected SourceResolutionPayload, got {type(value).__name__}",
-            TypeError,
-        )
-    result = _plain(value)
-    if not isinstance(result, dict):
-        _raise_legacy_compatibility("payload codec produced a non-object encoding", TypeError)
-    return result
+def _encode_payload(value: SourceResolutionPayload) -> CanonicalJsonObject:
+    return source_resolution_payload_wire_from_value(value)
 
 
-def _decode_payload(value: dict[str, Any]) -> SourceResolutionPayload:
-    if not isinstance(value, dict):
-        _raise_legacy_compatibility("payload codec requires a JSON object", TypeError)
-    schema_version = value.get("schema_version", SOURCE_RESOLUTION_PAYLOAD_SCHEMA)
+def _decode_payload(value: CanonicalJsonObject) -> SourceResolutionPayload:
+    plain = contracts.canonical_object_to_source_plain(value)
+    schema_version = plain.get("schema_version", SOURCE_RESOLUTION_PAYLOAD_SCHEMA)
     if schema_version == SOURCE_RESOLUTION_HISTORICAL_PAYLOAD_SCHEMA:
         _raise_legacy_compatibility(
             "historical resolution payload requires the historical decoder",
             ValueError,
         )
-    return _decode_plain(SourceResolutionPayload, value)
+    return _decode_plain(SourceResolutionPayload, plain)
 
 
 def decode_historical_source_resolution_payload(
-    value: dict[str, Any],
+    value: contracts.SourcePlainObject,
 ) -> SourceResolutionPayload:
     """Read exact historical resolution bytes without rehashing the record."""
 
-    if not isinstance(value, dict):
-        _raise_legacy_compatibility(
-            "historical resolution payload codec requires a JSON object",
-            TypeError,
-        )
     if value.get("schema_version") != SOURCE_RESOLUTION_HISTORICAL_PAYLOAD_SCHEMA:
         _raise_legacy_compatibility(
             "historical resolution decoder requires the exact C2 payload schema",
@@ -525,8 +563,8 @@ def decode_historical_source_resolution_payload(
 
 
 def _contract_declaration(
-    profiles: dict[str, object],
-) -> contracts.SourceSingleOperationContractDeclaration:
+    profiles: contracts.SourceOperationProfiles,
+) -> contracts.SourceSingleOperationContractDeclaration[SourceResolutionPayload]:
     return contracts.SourceSingleOperationContractDeclaration(
         kind=SOURCE_RESOLUTION_KIND,
         owner_capability_id=SOURCE_RESOLUTION_OWNER,
@@ -557,7 +595,20 @@ def _semantic_profile() -> SemanticProfile:
         "declared_loss": (),
         "observation_profile_ref": SOURCE_RESOLUTION_OBSERVATION_PROFILE,
     }
-    return SemanticProfile(**values, profile_digest=content_digest(values))
+    return SemanticProfile(
+        semantic_profile_id="mrw.source.resolve-execution-request.semantic.v2",
+        semantic_profile_version="1.0.0",
+        reads=(
+            "AuthenticatedProjectScope.v1",
+            "ChannelCatalogSnapshot.v1",
+            "SourceItemDefinition.v1",
+        ),
+        creates=("SourceExecutionRequest.v1", "SourceResolutionResult.v1"),
+        creates_relations=(),
+        declared_loss=(),
+        observation_profile_ref=SOURCE_RESOLUTION_OBSERVATION_PROFILE,
+        profile_digest=content_digest(values),
+    )
 
 
 def _effect_profile() -> EffectProfile:
@@ -574,7 +625,20 @@ def _effect_profile() -> EffectProfile:
         "external_acquisition": False,
         "idempotency_profile_ref": "logical_request_id",
     }
-    return EffectProfile(**values, profile_digest=content_digest(values))
+    return EffectProfile(
+        effect_profile_id="mrw.source.resolve-execution-request.effect.v2",
+        effect_profile_version="1.0.0",
+        execution_class="PURE_TRANSFORM",
+        external_visibility="NONE",
+        network_required=False,
+        irreversible=False,
+        cancellation_points=("step_boundary",),
+        internal_export_only=False,
+        human_approval_required=False,
+        external_acquisition=False,
+        idempotency_profile_ref="logical_request_id",
+        profile_digest=content_digest(values),
+    )
 
 
 def _resource_profile() -> ResourceProfile:
@@ -592,7 +656,21 @@ def _resource_profile() -> ResourceProfile:
         "node_profile_requirements": ("any",),
         "units": 1,
     }
-    return ResourceProfile(**values, profile_digest=content_digest(values))
+    return ResourceProfile(
+        resource_profile_id="mrw.source.resolve-execution-request.resource.v2",
+        resource_profile_version="1.0.0",
+        resource_classes=("cpu",),
+        concurrency_key="project",
+        budget_units="operation",
+        default_soft_limit_seconds=30,
+        default_hard_limit_seconds=60,
+        node_profile_selector="any",
+        budget_ref="mrw.source.resolve-execution-request.budget.v2:" + RESOURCE_CEILING.ceiling_digest,
+        deadline_policy_ref="mrw.source.resolve-execution-request.deadline.v2",
+        node_profile_requirements=("any",),
+        units=1,
+        profile_digest=content_digest(values),
+    )
 
 
 def _failure_profile() -> FailureProfile:
@@ -618,7 +696,29 @@ def _failure_profile() -> FailureProfile:
         "readback_profile_ref": None,
         "compensation_profile_ref": None,
     }
-    return FailureProfile(**values, profile_digest=content_digest(values))
+    return FailureProfile(
+        failure_profile_id="mrw.source.resolve-execution-request.failure.v2",
+        failure_profile_version="1.0.0",
+        typed_failures=(
+            "INVALID_INPUT",
+            "INVALID_ITEM",
+            "DISABLED_ITEM",
+            "INVALID_MODE",
+            "FORBIDDEN_INTERNAL_ADAPTER",
+            "ASSIGNMENT_BINDING_MISMATCH",
+            "INTERPRETER_UNAVAILABLE",
+            "RESOURCE_CEILING_EXCEEDED",
+        ),
+        retryable=False,
+        degraded_acceptable=False,
+        unknown_outcome_supported=False,
+        readback_or_compensation="none",
+        failure_union_ref="mrw.source.resolve-execution-request.failures.v2",
+        retryable_failure_kinds=(),
+        readback_profile_ref=None,
+        compensation_profile_ref=None,
+        profile_digest=content_digest(values),
+    )
 
 
 def _authority_profile() -> AuthorityProfile:
@@ -633,7 +733,18 @@ def _authority_profile() -> AuthorityProfile:
         "revalidation_points": ("claim_time",),
         "authority_epoch": 1,
     }
-    return AuthorityProfile(**values, profile_digest=content_digest(values))
+    return AuthorityProfile(
+        authority_profile_id="mrw.source.resolve-execution-request.authority.v2",
+        authority_profile_version="1.0.0",
+        grant_scopes=("project",),
+        approval_required=False,
+        approval_kinds=(),
+        credential_refs=(),
+        canonical_owner=SOURCE_RESOLUTION_OWNER,
+        revalidation_points=("claim_time",),
+        authority_epoch=1,
+        profile_digest=content_digest(values),
+    )
 
 
 def _interpreter_profile() -> InterpreterProfile:
@@ -657,7 +768,27 @@ def _interpreter_profile() -> InterpreterProfile:
         "authoritative_readback_profile_ref": None,
         "receipt_codec_ref": SOURCE_RESOLUTION_OBSERVATION_PROFILE,
     }
-    return InterpreterProfile(**values, profile_digest=content_digest(values))
+    return InterpreterProfile(
+        interpreter_profile_id="mrw.source.resolve-execution-request.native.v2",
+        interpreter_profile_version="1.0.0",
+        supported_contract_kinds=(SOURCE_RESOLUTION_KIND,),
+        supported_contract_refs=(),
+        dependency_digest=content_digest(
+            {
+                "interpreter": "mrw.source.resolve-execution-request.native",
+                "version": "2.0.0",
+                "donor": "item_resolver.resolve+resolver._normalize_search_params",
+            }
+        ),
+        security_profile_ref="mrw.functorial-successor.security.pure.v1",
+        resource_profile_ref="mrw.source.resolve-execution-request.resource.v2",
+        credential_requirements_ref=None,
+        cancellation_profile_ref="step_boundary",
+        idempotency_profile_ref="logical_request_id",
+        authoritative_readback_profile_ref=None,
+        receipt_codec_ref=SOURCE_RESOLUTION_OBSERVATION_PROFILE,
+        profile_digest=content_digest(values),
+    )
 
 
 def _observation_profile() -> ObservationProfile:
@@ -684,17 +815,40 @@ def _observation_profile() -> ObservationProfile:
         "compatible_with_legacy": True,
         "observation_schema_ref": SOURCE_RESOLUTION_OBSERVATION_SCHEMA_REF,
     }
-    return ObservationProfile(**values, profile_digest=content_digest(values))
+    return ObservationProfile(
+        observation_profile_id=SOURCE_RESOLUTION_OBSERVATION_PROFILE,
+        observation_profile_version="1.0.0",
+        dimensions=(
+            "schema_version",
+            "observation_profile",
+            "project_scope",
+            "item_revision",
+            "item_incarnation",
+            "item_content_digest",
+            "catalog_revision",
+            "catalog_incarnation",
+            "catalog_digest",
+            "normalized_params",
+            "selected_source_mode",
+            "taxonomy",
+            "ordered_warning_codes_and_payload",
+            "front_door_protocol",
+            "observation_digest",
+        ),
+        compatible_with_legacy=True,
+        observation_schema_ref=SOURCE_RESOLUTION_OBSERVATION_SCHEMA_REF,
+        profile_digest=content_digest(values),
+    )
 
 
 @dataclass(frozen=True, slots=True)
 class SourceResolutionCapabilityBundle:
     bundle_id: str
     operation: OperationContract
-    codecs: tuple[PayloadCodec, ...]
-    profiles: dict[str, object]
+    codecs: tuple[PayloadCodec[SourceResolutionPayload], ...]
+    profiles: contracts.SourceOperationProfiles
 
-    def payload_codec(self) -> PayloadCodec:
+    def payload_codec(self) -> PayloadCodec[SourceResolutionPayload]:
         return self.codecs[0]
 
 
@@ -704,15 +858,15 @@ def build_source_resolution_bundle() -> Annotated[
         "kit:non-authoritative derived_as=view fact_source=C2.1_contract_constants witness=test:test_w06_successor_authority_metadata"
     ],
 ]:
-    profiles = {
-        "semantic": _semantic_profile(),
-        "effect": _effect_profile(),
-        "resource": _resource_profile(),
-        "failure": _failure_profile(),
-        "authority": _authority_profile(),
-        "interpreter": _interpreter_profile(),
-        "observation": _observation_profile(),
-    }
+    profiles = contracts.SourceOperationProfiles(
+        semantic=_semantic_profile(),
+        effect=_effect_profile(),
+        resource=_resource_profile(),
+        failure=_failure_profile(),
+        authority=_authority_profile(),
+        interpreter=_interpreter_profile(),
+        observation=_observation_profile(),
+    )
     parts = contracts.build_source_operation_parts(_contract_declaration(profiles))
     return SourceResolutionCapabilityBundle(
         bundle_id="mrw.source.resolve-execution-request.bundle.v2",

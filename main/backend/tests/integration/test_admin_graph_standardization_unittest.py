@@ -187,8 +187,8 @@ class AdminGraphStandardizationIntegrationTestCase(unittest.TestCase):
     def _patch_common(self):
         docs = [_ok_doc(1)]
         return [
-            patch("app.api.admin.SessionLocal", return_value=_FakeSession(docs)),
-            patch("app.api.admin.bind_project", return_value=_FakeBindProject()),
+            patch("app.services.document_admin.SessionLocal", return_value=_FakeSession(docs)),
+            patch("app.services.document_admin.bind_project", return_value=_FakeBindProject()),
             patch("app.services.graph.adapters.normalize_document", side_effect=lambda doc: SimpleNamespace(doc_id=doc.id)),
             patch("app.services.graph.builder.build_graph", side_effect=lambda posts: _social_graph()),
             patch("app.services.graph.builder.build_topic_subgraph", side_effect=lambda g, _topic: g),

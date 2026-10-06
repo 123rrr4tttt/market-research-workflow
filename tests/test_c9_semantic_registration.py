@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCES = ROOT / "main/backend/app/successor_runtime/substrate/projections/projection_sources.py"
 EFFECT_SOURCES = (
     ROOT / "main/backend/app/successor_runtime/substrate/postgres/projection_sources.py",
-    ROOT / "main/backend/app/successor_runtime/substrate/projections/registry.py",
+    ROOT / "main/backend/app/successor_runtime/runtime/projection_contracts.py",
     ROOT / "main/backend/scripts/c9_projection_rebuild.py",
 )
 

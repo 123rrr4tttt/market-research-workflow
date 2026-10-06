@@ -4,6 +4,7 @@ from .context import (
     current_project_key,
     current_project_schema,
     project_schema_name,
+    normalize_project_key,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "current_project_key",
     "current_project_schema",
     "project_schema_name",
+    "normalize_project_key",
 ]

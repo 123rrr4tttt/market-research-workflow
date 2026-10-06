@@ -65,6 +65,7 @@ CrawlerRuntimeFailureCode = Literal[
     "bootstrap_deploy_failed",
 ]
 IngestOperationFailureCode = Literal[
+    "social_collect_result_invalid",
     "canary_readback_not_object",
     "commodity_collection_failed",
     "ecom_collection_failed",
@@ -92,6 +93,7 @@ IngestLongCycleFailureCode = Literal[
     "repository_type_invalid",
 ]
 ResourcePoolContractFailureCode = Literal[
+    "record_field_type_invalid",
     "preset_pack_unknown",
     "query_terms_required",
     "search_template_invalid",

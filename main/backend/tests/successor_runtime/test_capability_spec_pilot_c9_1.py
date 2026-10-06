@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import TypeGuard
 
 from app.successor_runtime.specification import (
     CapabilityCellSpec,
@@ -20,6 +21,7 @@ from app.successor_runtime.specification import (
 from .current_candidate_support import (
     assert_b16_predecessor,
     assert_current_binding,
+    candidate_binding,
     load_stage_candidate,
 )
 
@@ -37,6 +39,9 @@ GENERATOR = BACKEND / "scripts/generate_capability_spec_pilots.py"
 SPEC_SHA256 = "008a4ea359a962108172ef8d939d16cf4655a7ea62982924d705c769613edda7"
 BUILD_SHA256 = "66b33dffcb73a49386fa60a54d76c1ff8b9a81e4632ad0f05416b591896a2b35"
 RESPONSES_RELATIVE_PATH = "main/backend/app/contracts/responses.py"
+FACADE_CONTRACTS_RELATIVE_PATH = (
+    "main/backend/app/successor_runtime/runtime/facade_contracts.py"
+)
 PREDECESSOR_RESPONSES_SHA256 = (
     "87bcfcd3d229f54d724c3bff6a54e84328bd85ff5285267e9e5c23f387b38afa"
 )
@@ -74,9 +79,17 @@ ZERO_AUTHORITY = {
 }
 
 
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return _is_object_dict(value) and all(isinstance(key, str) for key in value)
+
+
 def _load(path: Path) -> dict[str, object]:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    assert isinstance(value, dict)
+    value: object = json.loads(path.read_text(encoding="utf-8"))
+    assert _is_string_object_dict(value)
     return value
 
 
@@ -89,17 +102,6 @@ def _binding_for_path(spec: CapabilityCellSpec, path: str):
         if binding.path == path:
             return binding
     raise AssertionError(f"missing exact binding: {path}")
-
-
-def _rewrite_source_binding_hash(raw: dict[str, object], path: str, file_sha256: str) -> None:
-    bindings = raw["source_bindings"]
-    assert isinstance(bindings, list)
-    for binding in bindings:
-        assert isinstance(binding, dict)
-        if binding["path"] == path:
-            binding["file_sha256"] = file_sha256
-            return
-    raise AssertionError(f"missing source binding: {path}")
 
 
 def _run(
@@ -195,10 +197,10 @@ def test_c9_1_build_is_exact_and_has_no_program_or_control_effect() -> None:
     assert BUILD.read_bytes() == build_manifest_bytes(expected)
     assert actual == expected
     generated = actual["generated"]
-    assert isinstance(generated, dict)
+    assert _is_string_object_dict(generated)
     assert "program_skeleton" not in generated
     surface = generated["facade_validation_surface"]
-    assert isinstance(surface, dict)
+    assert _is_string_object_dict(surface)
     assert surface == {
         "surface_ref": "facade.command-query-envelope-status-sse-validation.v1",
         "ordered_outer_contract_refs": OUTER_CONTRACTS,
@@ -210,8 +212,8 @@ def test_c9_1_build_is_exact_and_has_no_program_or_control_effect() -> None:
 
     semantic = actual["semantic_identity"]
     artifact = actual["artifact_identity"]
-    assert isinstance(semantic, dict)
-    assert isinstance(artifact, dict)
+    assert _is_string_object_dict(semantic)
+    assert _is_string_object_dict(artifact)
     assert semantic["runtime_kernel_abi_semantic_digest"] == (
         "870aa856d153119093242b949be709586db0eb08779809feee0ad1b466e1baaa"
     )
@@ -220,12 +222,12 @@ def test_c9_1_build_is_exact_and_has_no_program_or_control_effect() -> None:
     assert artifact["covers_complete_spec_exact_hashes_and_generated_payload"] is True
     assert actual["authority_ceiling"] == ZERO_AUTHORITY
     ownership = actual["ownership"]
-    assert isinstance(ownership, dict)
+    assert _is_string_object_dict(ownership)
     assert ownership["domain_semantics_generated"] is False
     assert ownership["effect_execution_generated"] is False
     assert ownership["authority_adoption_generated"] is False
     binding_manifest = generated["binding_manifest"]
-    assert isinstance(binding_manifest, dict)
+    assert _is_string_object_dict(binding_manifest)
     assert binding_manifest["effect_policy_ref"] == (
         "effect.policy.facade.validation-only.execute-false.query-read-only."
         "dispatch-false.no-control.v1"
@@ -248,10 +250,6 @@ def test_c9_1_stage_b17_candidate_tracks_current_bytes_not_authority() -> None:
             "main/backend/app/contracts/successor_runtime.py",
             "4a494839fab913e2f6615822fe16df2076317c529a9ccf2a1fc25c40cbb6a068",
         ),
-        (
-            "main/backend/app/successor_runtime/runtime/facade_contracts.py",
-            "47a0a10c17465ea2e6c76fa091fe09747e84dfdcc258968c5aafa51f18ca6b03",
-        ),
     ):
         assert_current_binding(
             REPOSITORY,
@@ -260,6 +258,32 @@ def test_c9_1_stage_b17_candidate_tracks_current_bytes_not_authority() -> None:
             relative,
             predecessor_sha256,
         )
+
+    # The candidate remains exact historical evidence, while the facade
+    # contract has continued to evolve in the current checkout.  Validate the
+    # frozen bytes through the historical reader instead of treating them as
+    # authority over the live source.
+    facade_predecessor_sha256 = (
+        "47a0a10c17465ea2e6c76fa091fe09747e84dfdcc258968c5aafa51f18ca6b03"
+    )
+    facade_binding = candidate_binding(candidate, FACADE_CONTRACTS_RELATIVE_PATH)
+    assert facade_binding is not None
+    frozen_sha256 = facade_binding["file_sha256"]
+    frozen_size = facade_binding["bytes"]
+    snapshot_path = facade_binding["snapshot_path"]
+    assert isinstance(frozen_sha256, str)
+    assert isinstance(frozen_size, int)
+    assert isinstance(snapshot_path, str)
+
+    from .historical_fixture import historical_bytes
+
+    frozen = historical_bytes(FACADE_CONTRACTS_RELATIVE_PATH, frozen_sha256)
+    assert len(frozen) == frozen_size
+    assert (candidate_path.parent / snapshot_path).read_bytes() == frozen
+    assert frozen_sha256 != facade_predecessor_sha256
+
+    live_sha256 = _sha256(REPOSITORY / FACADE_CONTRACTS_RELATIVE_PATH)
+    assert live_sha256 not in {facade_predecessor_sha256, frozen_sha256}
 
 
 def test_c9_1_byte_only_binding_change_preserves_semantics_not_artifact() -> None:

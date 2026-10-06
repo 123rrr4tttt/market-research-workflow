@@ -79,7 +79,7 @@ def host_action_binding(
     package_digest: str | None,
     originating_call_id: str | None = None,
 ) -> dict[str, Any] | Failure:
-    context_failure = _validate_context(context)
+    context_failure = validate_context(context)
     if isinstance(context_failure, Failure):
         return context_failure
     normalized_package_digest = _normalize_package_digest(package_digest)
@@ -439,7 +439,7 @@ def _consume_failure(failure: Failure) -> Failure:
     return _failure("host_approval_pending", failure.message, approval_id=approval_id)
 
 
-def _validate_context(context: TrustedHostContext) -> None | Failure:
+def validate_context(context: TrustedHostContext) -> None | Failure:
     for field in ("project_key", "session_id", "host_thread_id", "turn_id", "user_message_id"):
         if not str(getattr(context, field) or "").strip():
             return _failure("host_context_invalid", f"trusted host context field is required: {field}", field=field)

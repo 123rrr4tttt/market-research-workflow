@@ -83,7 +83,7 @@ def _raise_project_failure(
     raise exception_type(message) from cause
 
 
-def _normalize_project_key(project_key: str) -> str:
+def normalize_project_key(project_key: str) -> str:
     key = project_key.strip().lower()
     key = re.sub(r"[^a-z0-9_]+", "_", key)
     key = re.sub(r"_+", "_", key).strip("_")
@@ -91,20 +91,6 @@ def _normalize_project_key(project_key: str) -> str:
 
 
 _PG_IDENT_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$")
-
-
-def _sanitize_identifier(raw: str, *, fallback: str) -> str:
-    s = (raw or "").strip()
-    if not s:
-        return fallback
-    # Normalize to lower-case for consistency with _normalize_project_key output
-    s = re.sub(r"[^a-z0-9_]+", "_", s.lower())
-    s = re.sub(r"_+", "_", s).strip("_")
-    # Ensure first char is alpha/underscore per PG rules by prefixing underscore if needed
-    if not s or not re.match(r"^[a-z_].*", s):
-        s = f"_{s}" if s else fallback
-    # Truncate to 63 chars (PG identifier limit)
-    return s[:63]
 
 
 def _sanitize_schema_prefix(raw: str | None, *, fallback: str = "project_") -> str:
@@ -126,12 +112,12 @@ def _is_allowed_schema(schema_name: str) -> bool:
     if not schema.startswith(prefix):
         return False
     suffix = schema[len(prefix) :]
-    normalized_suffix = _normalize_project_key(suffix)
+    normalized_suffix = normalize_project_key(suffix)
     return bool(suffix) and schema == f"{prefix}{normalized_suffix}"
 
 
 def project_schema_name(project_key: str) -> str:
-    normalized = _normalize_project_key(project_key)
+    normalized = normalize_project_key(project_key)
     # Reserve "public" as a meta-layer key (not a tenant schema).
     # Aggregation should be handled explicitly via aggregator schema/endpoints.
     if normalized == "public":
@@ -183,7 +169,7 @@ def current_project_schema() -> str:
 @contextmanager
 def bind_project(project_key: str):
     raw = str(project_key or "").strip()
-    normalized = _normalize_project_key(raw)
+    normalized = normalize_project_key(raw)
     if normalized == "public":
         mode = get_effective_project_key_enforcement_mode()
         msg = "attempt to bind_project to reserved key public is not allowed"
@@ -232,7 +218,7 @@ def bind_schema(schema_name: str):
             # try to extract suffix and rebuild
             prefix = _sanitize_schema_prefix(settings.project_schema_prefix or "project_")
             suffix = schema_name[len(prefix) :] if schema_name.startswith(prefix) else schema_name
-            schema_name = f"{prefix}{_normalize_project_key(suffix)}"
+            schema_name = f"{prefix}{normalize_project_key(suffix)}"
     token_schema = _SCHEMA_VAR.set(schema_name)
     try:
         yield

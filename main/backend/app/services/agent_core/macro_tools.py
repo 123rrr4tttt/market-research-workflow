@@ -10,17 +10,25 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal
 
 from functorial_kit import Failure
 
 from app.services.agent_core.contracts import (
     AgentCoreRequest,
+    compact_json_value,
     CoreEvent,
     CoreToolCall,
     CoreToolResult,
     CoreToolSpec,
+    JSONObject,
+    JSONValue,
+    json_object,
+    ToolStatus,
 )
+from app.services.agent_sessions.service import AgentSessionService
+from app.services.information_topology.service import InformationTopologyService
+from app.services.project_retrieval.service import ProjectRetrievalService
 from app.services.project_retrieval.proposals import (
     RapidProposalTopologyAdapter,
     VocabularyResolver,
@@ -69,7 +77,7 @@ class FacilityBinding:
             self.failure_family,
             self.readback_semantics,
         )
-        if any(not isinstance(value, str) or not value.strip() for value in required):
+        if any(not value.strip() for value in required):
             # kit:boundary owner=FacilityBinding class=PROGRAMMER_DEFECT failure_family=none witness=test:test_facility_binding_rejects_invalid_authoring
             raise ValueError("facility binding identity and semantic references are required")
         if not callable(self.handler):
@@ -110,7 +118,7 @@ class FacilityBinding:
             # kit:boundary owner=FacilityBinding class=PROGRAMMER_DEFECT failure_family=none witness=test:test_facility_binding_rejects_invalid_authoring
             raise ValueError("effectful facility tools require an explicit permission boundary")
 
-    def to_projection(self) -> dict[str, Any]:
+    def to_projection(self) -> JSONObject:
         return {
             "binding_id": self.binding_id,
             "version": self.version,
@@ -133,13 +141,13 @@ def _project_key(request: AgentCoreRequest) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
 
 
-def _failure_wire(value: Failure | BaseException, *, fallback_code: str = "facility_failed") -> dict[str, Any]:
+def _failure_wire(value: Failure | BaseException, *, fallback_code: str = "facility_failed") -> JSONObject:
     if isinstance(value, Failure):
         return {
             "family": value.family,
             "code": value.code,
             "message": value.message,
-            "context": dict(value.context or {}),
+            "context": compact_json_value(value.context),
         }
     code = str(getattr(value, "code", "") or fallback_code)
     return {"family": type(value).__name__, "code": code, "message": str(value), "context": {}}
@@ -170,7 +178,7 @@ def _missing_project(call: CoreToolCall) -> CoreToolResult:
     )
 
 
-def project_retrieval_current_facility(service: Any) -> FacilityBinding:
+def project_retrieval_current_facility(service: ProjectRetrievalService) -> FacilityBinding:
     spec = CoreToolSpec(
         name="project_retrieval.current",
         title="Read Current Project Retrieval Binding",
@@ -219,7 +227,7 @@ def project_retrieval_current_facility(service: Any) -> FacilityBinding:
     )
 
 
-def information_topology_read_facility(service: Any) -> FacilityBinding:
+def information_topology_read_facility(service: InformationTopologyService) -> FacilityBinding:
     spec = CoreToolSpec(
         name="information_topology.read",
         title="Read Project Information Topology",
@@ -299,12 +307,12 @@ def information_topology_read_facility(service: Any) -> FacilityBinding:
     )
 
 
-def _string_array() -> dict[str, Any]:
+def _string_array() -> JSONObject:
     return {"type": "array", "items": {"type": "string", "minLength": 1}}
 
 
-def _proposal_schema() -> dict[str, Any]:
-    def rows(required: list[str], properties: Mapping[str, Any]) -> dict[str, Any]:
+def _proposal_schema() -> JSONObject:
+    def rows(required: list[str], properties: Mapping[str, JSONValue]) -> JSONObject:
         return {
             "type": "array",
             "items": {
@@ -407,14 +415,15 @@ def rapid_proposal_save_facility(
         if isinstance(vocabulary, Failure):
             return _failed(tool_call, vocabulary, summary="Project retrieval vocabulary could not be resolved.")
         observation = adapter.save(project_key, proposal, vocabulary)
-        status = {
+        status_by_observation: dict[str, ToolStatus] = {
             "persisted": "completed",
             "already_persisted": "completed",
             "conflict": "failed",
             "failed": "failed",
             "unknown": "deferred",
-        }[observation.status]
-        error = dict(observation.failure) if observation.failure is not None else None
+        }
+        status = status_by_observation[observation.status]
+        error = json_object(observation.failure) if observation.failure is not None else None
         return CoreToolResult(
             call_id=tool_call.call_id,
             tool_name=tool_call.tool_name,
@@ -423,7 +432,7 @@ def rapid_proposal_save_facility(
                 f"Rapid proposal {proposal.identity} persistence status: {observation.status}; "
                 f"readback: {observation.readback_status}."
             ),
-            structured_content={"save_observation": observation.to_mapping()},
+            structured_content={"save_observation": compact_json_value(observation.to_mapping())},
             error=error,
             retry_hint="Read back the same proposal identity before any retry." if observation.status == "unknown" else None,
         )
@@ -505,7 +514,7 @@ def rapid_proposal_readback_facility(adapter: RapidProposalTopologyAdapter) -> F
     )
 
 
-def _registration_package_schema() -> dict[str, Any]:
+def _registration_package_schema() -> JSONObject:
     text = {"type": "string", "minLength": 1}
     refs = {"type": "array", "items": text, "minItems": 0, "uniqueItems": True}
     return {
@@ -533,7 +542,7 @@ def _registration_package_schema() -> dict[str, Any]:
     }
 
 
-def macro_registration_package_create_facility(service: Any) -> FacilityBinding:
+def macro_registration_package_create_facility(service: AgentSessionService) -> FacilityBinding:
     spec = CoreToolSpec(
         name="agent_macro.registration_package.create",
         title="Create Agent Macro Registration Package",
@@ -570,7 +579,12 @@ def macro_registration_package_create_facility(service: Any) -> FacilityBinding:
         )
         if isinstance(checked, Failure):
             return _failed(call, checked, summary="Registration package host authorization is invalid.")
-        result = save_registration_package(service, session_id=request.session_id, project_key=project_key, payload=call.arguments.get("package") or {})
+        result = save_registration_package(
+            service,
+            session_id=request.session_id,
+            project_key=project_key,
+            payload=json_object(call.arguments.get("package")),
+        )
         if isinstance(result, Failure):
             return _failed(call, result, summary="Macro registration package was rejected.")
         package = result["package"]
@@ -589,7 +603,7 @@ def macro_registration_package_create_facility(service: Any) -> FacilityBinding:
     )
 
 
-def macro_registration_package_readback_facility(service: Any) -> FacilityBinding:
+def macro_registration_package_readback_facility(service: AgentSessionService) -> FacilityBinding:
     spec = CoreToolSpec(
         name="agent_macro.registration_package.readback", title="Read Back Agent Macro Registration Package",
         description_for_model="Read and verify a candidate macro registration package from the current session.",
@@ -618,7 +632,7 @@ def macro_registration_package_readback_facility(service: Any) -> FacilityBindin
     )
 
 
-def macro_registration_package_activate_facility(service: Any) -> FacilityBinding:
+def macro_registration_package_activate_facility(service: AgentSessionService) -> FacilityBinding:
     spec = CoreToolSpec(
         name="agent_macro.registration_package.activate",
         title="Activate Agent Macro Registration Package",

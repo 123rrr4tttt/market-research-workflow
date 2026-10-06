@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Protocol
+from datetime import UTC, datetime
+from typing import Protocol, TypedDict, TypeGuard
 
 from sqlalchemy import delete, insert, select, update
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from app.successor_runtime.language.checksum import sha256_hex
 from app.successor_runtime.runtime.ports import RuntimeScope
@@ -31,12 +32,8 @@ from app.successor_runtime.substrate.postgres.runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
     StaleRevisionError,
-    _mapping_rows,
-    _one_mapping,
-    _scope_key,
-    _table,
-    _utcnow,
 )
+from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
 
 
 class RuntimeProjectionError(ExactBindingConflict):
@@ -47,6 +44,40 @@ RUN_OBSERVATION_PROJECTOR_ID = "mrw.task.run-observation.projector.v1"
 RUN_OBSERVATION_PROJECTOR_VERSION = "1.0.0"
 HISTORICAL_RUNTIME_RUN_PROJECTOR_ID = "successor-runtime-run-projector"
 HISTORICAL_RUNTIME_RUN_PROJECTOR_VERSION = "1.1.0"
+
+
+class RuntimeProjectionRow(TypedDict):
+    project_key: str
+    projector_id: str
+    projector_version: str
+    source_ref: str
+    source_incarnation: str
+    run_id: str
+    projection_generation: int
+    source_revision: int
+    source_digest: str
+    state_json: Mapping[str, object]
+    projection_digest: str
+    revision: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProjectionOffsetRow(TypedDict):
+    project_key: str
+    projection_offset_id: str
+    projector_id: str
+    projector_version: str
+    source_kind: str
+    source_ref: str
+    source_incarnation: str
+    projection_generation: int
+    source_revision: int
+    source_digest: str
+    offset_ref: str
+    revision: int
+    created_at: datetime
+    updated_at: datetime
 
 
 class ProjectionFailpoint(Protocol):
@@ -87,12 +118,14 @@ class PostgresRuntimeRunProjector:
         self._offsets = ProjectionOffsetRepository(connection, scope)
         self._failpoint = failpoint or _no_failpoint
 
-    def apply(self, source: RuntimeJournalSource) -> Mapping[str, object]:
+    def apply(self, source: RuntimeJournalSource) -> RuntimeProjectionRow:
         """Project every committed event after the exact durable offset."""
 
         key = self._key(source)
         self._require_source_identity(source)
-        offset = self._offsets.load_source(key, for_update=True)
+        offset = _projection_offset_row(
+            self._offsets.load_source(key, for_update=True)
+        )
         current_row = self._load_projection(source, for_update=True)
         current = self._decode_current(source, offset, current_row)
         if current is not None:
@@ -122,7 +155,7 @@ class PostgresRuntimeRunProjector:
             raise RuntimeProjectionError(
                 "runtime journal replay failed closed"
             ) from exc
-        generation = 0 if offset is None else int(offset["projection_generation"])
+        generation = 0 if offset is None else offset["projection_generation"]
         written = self._write_projection(
             source,
             projected,
@@ -133,22 +166,24 @@ class PostgresRuntimeRunProjector:
         self._write_offset(source, key, projected, offset, generation=generation)
         return written
 
-    def rebuild(self, source: RuntimeJournalSource) -> Mapping[str, object]:
+    def rebuild(self, source: RuntimeJournalSource) -> RuntimeProjectionRow:
         """Delete and replay the read model inside the caller's one UoW."""
 
         key = self._key(source)
         self._require_source_identity(source)
-        offset = self._offsets.load_source(key, for_update=True)
+        offset = _projection_offset_row(
+            self._offsets.load_source(key, for_update=True)
+        )
         current_row = self._load_projection(source, for_update=True)
         self._decode_current(source, offset, current_row)
-        generation = 0 if offset is None else int(offset["projection_generation"]) + 1
+        generation = 0 if offset is None else offset["projection_generation"] + 1
         if current_row is not None:
             self._delete_projection_row(source, current_row)
         if offset is not None:
             self._offsets.delete_source(
                 key,
-                expected_revision=int(offset["revision"]),
-                expected_generation=int(offset["projection_generation"]),
+                expected_revision=offset["revision"],
+                expected_generation=offset["projection_generation"],
             )
         events = self._load_events(source, after_seq=0)
         try:
@@ -167,11 +202,11 @@ class PostgresRuntimeRunProjector:
         self._write_offset(source, key, projected, None, generation=generation)
         return written
 
-    def load(self, source: RuntimeJournalSource) -> Mapping[str, object]:
+    def load(self, source: RuntimeJournalSource) -> RuntimeProjectionRow:
         row = self._load_projection(source, for_update=False)
         if row is None:
             raise RecordNotFound(f"runtime projection not found: {source.source_ref}")
-        offset = self._offsets.load_source(self._key(source))
+        offset = _projection_offset_row(self._offsets.load_source(self._key(source)))
         self._decode_bound(
             source,
             offset,
@@ -187,7 +222,7 @@ class PostgresRuntimeRunProjector:
         *,
         projector_id: str = HISTORICAL_RUNTIME_RUN_PROJECTOR_ID,
         projector_version: str = HISTORICAL_RUNTIME_RUN_PROJECTOR_VERSION,
-    ) -> Mapping[str, object]:
+    ) -> RuntimeProjectionRow:
         """Read one explicit historical projection/offset pair without writes."""
 
         if (
@@ -215,7 +250,7 @@ class PostgresRuntimeRunProjector:
             raise RecordNotFound(
                 f"historical runtime projection not found: {source.source_ref}"
             )
-        offset = self._offsets.load_source(key)
+        offset = _projection_offset_row(self._offsets.load_source(key))
         self._decode_bound(
             source,
             offset,
@@ -237,18 +272,20 @@ class PostgresRuntimeRunProjector:
         )
 
     def _require_source_identity(self, source: RuntimeJournalSource) -> None:
-        runs = _table("runtime_runs")
-        row = _one_mapping(
+        runs = PUBLIC_TABLES["runtime_runs"]
+        row = (
             self.connection.execute(
                 select(
                     runs.c.project_key,
                     runs.c.run_id,
                     runs.c.incarnation,
                 ).where(
-                    runs.c.project_key == _scope_key(self.scope),
+                    runs.c.project_key == self.scope.project_scope.project_key,
                     runs.c.run_id == source.run_id,
                 )
             )
+            .mappings()
+            .one_or_none()
         )
         if row is None:
             raise RecordNotFound(
@@ -266,15 +303,15 @@ class PostgresRuntimeRunProjector:
         after_seq: int,
         through_seq: int | None = None,
     ) -> tuple[ReplayEvent, ...]:
-        table = _table("runtime_events")
+        table = PUBLIC_TABLES["runtime_events"]
         statement = select(table).where(
-            table.c.project_key == _scope_key(self.scope),
+            table.c.project_key == self.scope.project_scope.project_key,
             table.c.run_id == source.run_id,
             table.c.seq > after_seq,
         )
         if through_seq is not None:
             statement = statement.where(table.c.seq <= through_seq)
-        rows = _mapping_rows(self.connection.execute(statement.order_by(table.c.seq)))
+        rows = self.connection.execute(statement.order_by(table.c.seq)).mappings().all()
         return tuple(
             ReplayEvent.from_content(
                 project_key=str(row["project_key"]),
@@ -303,7 +340,7 @@ class PostgresRuntimeRunProjector:
 
     def _load_projection(
         self, source: RuntimeJournalSource, *, for_update: bool
-    ) -> Mapping[str, object] | None:
+    ) -> RuntimeProjectionRow | None:
         return self._load_bound_projection(
             source,
             projector_id=self.projector_id,
@@ -318,10 +355,10 @@ class PostgresRuntimeRunProjector:
         projector_id: str,
         projector_version: str,
         for_update: bool,
-    ) -> Mapping[str, object] | None:
-        table = _table("runtime_run_projections")
+    ) -> RuntimeProjectionRow | None:
+        table = PUBLIC_TABLES["runtime_run_projections"]
         statement = select(table).where(
-            table.c.project_key == _scope_key(self.scope),
+            table.c.project_key == self.scope.project_scope.project_key,
             table.c.projector_id == projector_id,
             table.c.projector_version == projector_version,
             table.c.source_ref == source.source_ref,
@@ -330,13 +367,14 @@ class PostgresRuntimeRunProjector:
         )
         if for_update:
             statement = statement.with_for_update()
-        return _one_mapping(self.connection.execute(statement))
+        row = self.connection.execute(statement).mappings().one_or_none()
+        return None if row is None else _runtime_projection_row(row)
 
     def _decode_current(
         self,
         source: RuntimeJournalSource,
-        offset: Mapping[str, object] | None,
-        row: Mapping[str, object] | None,
+        offset: ProjectionOffsetRow | None,
+        row: RuntimeProjectionRow | None,
         *,
         projector_id: str | None = None,
         projector_version: str | None = None,
@@ -352,8 +390,8 @@ class PostgresRuntimeRunProjector:
     def _decode_bound(
         self,
         source: RuntimeJournalSource,
-        offset: Mapping[str, object] | None,
-        row: Mapping[str, object] | None,
+        offset: ProjectionOffsetRow | None,
+        row: RuntimeProjectionRow | None,
         *,
         projector_id: str,
         projector_version: str,
@@ -365,7 +403,7 @@ class PostgresRuntimeRunProjector:
         if row is None or offset is None:
             return None
         for name, expected in (
-            ("project_key", _scope_key(self.scope)),
+            ("project_key", self.scope.project_scope.project_key),
             ("projector_id", projector_id),
             ("projector_version", projector_version),
             ("source_ref", source.source_ref),
@@ -380,20 +418,17 @@ class PostgresRuntimeRunProjector:
             or row["source_digest"] != offset["source_digest"]
         ):
             raise RuntimeProjectionError("projection and offset closure drift")
-        state = row["state_json"]
-        if not isinstance(state, Mapping):
-            raise RuntimeProjectionError("projection state_json is not an object")
         try:
-            decoded = RuntimeReplayProjection.from_json(state)
+            decoded = RuntimeReplayProjection.from_json(row["state_json"])
         except (KeyError, TypeError, ValueError) as exc:
             raise RuntimeProjectionError("projection state_json is invalid") from exc
         digest = projection_digest(decoded)
         if row["projection_digest"] != digest:
             raise RuntimeProjectionError("projection state digest mismatch")
         if (
-            decoded.last_seq != int(row["source_revision"])
+            decoded.last_seq != row["source_revision"]
             or decoded.event_chain_digest != row["source_digest"]
-            or decoded.project_key != _scope_key(self.scope)
+            or decoded.project_key != self.scope.project_scope.project_key
             or decoded.run_id != source.run_id
             or decoded.run_incarnation != source.run_incarnation
         ):
@@ -405,11 +440,11 @@ class PostgresRuntimeRunProjector:
         source: RuntimeJournalSource,
         projection: RuntimeReplayProjection,
         *,
-        current_row: Mapping[str, object] | None,
+        current_row: RuntimeProjectionRow | None,
         generation: int,
-    ) -> Mapping[str, object]:
-        table = _table("runtime_run_projections")
-        now = _utcnow()
+    ) -> RuntimeProjectionRow:
+        table = PUBLIC_TABLES["runtime_run_projections"]
+        now = datetime.now(UTC)
         values = {
             "projection_generation": generation,
             "source_revision": projection.last_seq,
@@ -421,7 +456,7 @@ class PostgresRuntimeRunProjector:
         if current_row is None:
             self.connection.execute(
                 insert(table).values(
-                    project_key=_scope_key(self.scope),
+                    project_key=self.scope.project_scope.project_key,
                     projector_id=self.projector_id,
                     projector_version=self.projector_version,
                     source_ref=source.source_ref,
@@ -436,7 +471,7 @@ class PostgresRuntimeRunProjector:
             result = self.connection.execute(
                 update(table)
                 .where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == self.scope.project_scope.project_key,
                     table.c.projector_id == self.projector_id,
                     table.c.projector_version == self.projector_version,
                     table.c.source_ref == source.source_ref,
@@ -447,9 +482,9 @@ class PostgresRuntimeRunProjector:
                     table.c.source_digest == current_row["source_digest"],
                     table.c.revision == current_row["revision"],
                 )
-                .values(revision=int(current_row["revision"]) + 1, **values)
+                .values(revision=current_row["revision"] + 1, **values)
             )
-            if getattr(result, "rowcount", None) != 1:
+            if result.rowcount != 1:
                 raise StaleRevisionError("runtime projection exact CAS failed")
         row = self._load_projection(source, for_update=False)
         assert row is not None
@@ -460,7 +495,7 @@ class PostgresRuntimeRunProjector:
         source: RuntimeJournalSource,
         key: ProjectionOffsetKey,
         projection: RuntimeReplayProjection,
-        offset: Mapping[str, object] | None,
+        offset: ProjectionOffsetRow | None,
         *,
         generation: int,
     ) -> None:
@@ -469,7 +504,7 @@ class PostgresRuntimeRunProjector:
             identity_digest = sha256_hex(
                 {
                     "schema": "mrw.runtime.projection-offset-identity.v1",
-                    "project_key": _scope_key(self.scope),
+                    "project_key": self.scope.project_scope.project_key,
                     "projector_id": self.projector_id,
                     "projector_version": self.projector_version,
                     "source_ref": source.source_ref,
@@ -486,24 +521,24 @@ class PostgresRuntimeRunProjector:
             )
             return
         self._offsets.advance(
-            str(offset["projection_offset_id"]),
+            offset["projection_offset_id"],
             key=key,
-            expected_revision=int(offset["revision"]),
+            expected_revision=offset["revision"],
             expected_generation=generation,
-            expected_source_revision=int(offset["source_revision"]),
-            expected_source_digest=str(offset["source_digest"]),
+            expected_source_revision=offset["source_revision"],
+            expected_source_digest=offset["source_digest"],
             source_revision=projection.last_seq,
             source_digest=projection.event_chain_digest,
             offset_ref=offset_ref,
         )
 
     def _delete_projection_row(
-        self, source: RuntimeJournalSource, row: Mapping[str, object]
+        self, source: RuntimeJournalSource, row: RuntimeProjectionRow
     ) -> None:
-        table = _table("runtime_run_projections")
+        table = PUBLIC_TABLES["runtime_run_projections"]
         result = self.connection.execute(
             delete(table).where(
-                table.c.project_key == _scope_key(self.scope),
+                table.c.project_key == self.scope.project_scope.project_key,
                 table.c.projector_id == self.projector_id,
                 table.c.projector_version == self.projector_version,
                 table.c.source_ref == source.source_ref,
@@ -513,12 +548,116 @@ class PostgresRuntimeRunProjector:
                 table.c.revision == row["revision"],
             )
         )
-        if getattr(result, "rowcount", None) != 1:
+        if result.rowcount != 1:
             raise StaleRevisionError("runtime projection delete CAS failed")
 
 
 def _no_failpoint(_point: str) -> None:
     return None
+
+
+def _runtime_projection_row(row: RowMapping) -> RuntimeProjectionRow:
+    """Validate one materialized projection row at the SQL boundary."""
+
+    return RuntimeProjectionRow(
+        project_key=_row_str(row["project_key"], "project_key"),
+        projector_id=_row_str(row["projector_id"], "projector_id"),
+        projector_version=_row_str(row["projector_version"], "projector_version"),
+        source_ref=_row_str(row["source_ref"], "source_ref"),
+        source_incarnation=_row_str(
+            row["source_incarnation"], "source_incarnation"
+        ),
+        run_id=_row_str(row["run_id"], "run_id"),
+        projection_generation=_row_int(
+            row["projection_generation"], "projection_generation"
+        ),
+        source_revision=_row_int(row["source_revision"], "source_revision"),
+        source_digest=_row_str(row["source_digest"], "source_digest"),
+        state_json=_row_object_mapping(row["state_json"], "state_json"),
+        projection_digest=_row_str(
+            row["projection_digest"], "projection_digest"
+        ),
+        revision=_row_int(row["revision"], "revision"),
+        created_at=_row_datetime(row["created_at"], "created_at"),
+        updated_at=_row_datetime(row["updated_at"], "updated_at"),
+    )
+
+
+def _projection_offset_row(
+    row: Mapping[str, object] | None,
+) -> ProjectionOffsetRow | None:
+    """Validate one durable offset row returned by its repository."""
+
+    if row is None:
+        return None
+    return ProjectionOffsetRow(
+        project_key=_row_str(row.get("project_key"), "project_key"),
+        projection_offset_id=_row_str(
+            row.get("projection_offset_id"), "projection_offset_id"
+        ),
+        projector_id=_row_str(row.get("projector_id"), "projector_id"),
+        projector_version=_row_str(
+            row.get("projector_version"), "projector_version"
+        ),
+        source_kind=_row_str(row.get("source_kind"), "source_kind"),
+        source_ref=_row_str(row.get("source_ref"), "source_ref"),
+        source_incarnation=_row_str(
+            row.get("source_incarnation"), "source_incarnation"
+        ),
+        projection_generation=_row_int(
+            row.get("projection_generation"), "projection_generation"
+        ),
+        source_revision=_row_int(
+            row.get("source_revision"), "source_revision"
+        ),
+        source_digest=_row_str(row.get("source_digest"), "source_digest"),
+        offset_ref=_row_str(row.get("offset_ref"), "offset_ref"),
+        revision=_row_int(row.get("revision"), "revision"),
+        created_at=_row_datetime(row.get("created_at"), "created_at"),
+        updated_at=_row_datetime(row.get("updated_at"), "updated_at"),
+    )
+
+
+def _row_str(value: object, field: str) -> str:
+    if not isinstance(value, str):
+        raise RuntimeProjectionError(f"projection row {field} is not a string")
+    return value
+
+
+def _row_int(value: object, field: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise RuntimeProjectionError(f"projection row {field} is not an integer")
+    return value
+
+
+def _row_datetime(value: object, field: str) -> datetime:
+    if not isinstance(value, datetime):
+        raise RuntimeProjectionError(f"projection row {field} is not a datetime")
+    return value
+
+
+def _row_object_mapping(value: object, field: str) -> Mapping[str, object]:
+    if not _is_string_object_mapping(value):
+        raise RuntimeProjectionError(
+            f"projection row {field} is not a string-keyed mapping"
+        )
+    return value
+
+
+def _is_string_object_mapping(
+    value: object,
+) -> TypeGuard[Mapping[str, object]]:
+    if not _is_object_mapping(value):
+        return False
+    return all(map(_is_string_key, value))
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_string_key(value: object) -> bool:
+    return isinstance(value, str)
 
 
 __all__ = [

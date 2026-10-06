@@ -11,7 +11,9 @@ from app.successor_runtime.capabilities.batch_task_native_contribution import (
     BatchTaskAssemblyContext,
     compile_batch_task_native_contribution,
 )
+from app.successor_runtime.substrate.postgres.unit_of_work import RuntimeUnitOfWork
 from functorial_kit.contribution_verification import (
+    VerificationChanges,
     VerificationPlan,
     VerificationRegistration,
     VerificationSource,
@@ -28,7 +30,7 @@ from functorial_kit.law_witness import (
 
 
 def batch_verification_plan_for(
-    changes: object | None = None,
+    changes: VerificationChanges | None = None,
 ) -> VerificationPlan:
     """Derive an inert verification plan from the same native C4 catalog."""
 
@@ -52,7 +54,7 @@ def _run_batch_native_catalog_law() -> None:
         raise AssertionError(native.message)
     binding = native.assemble(
         BatchTaskAssemblyContext(
-            uow_factory=lambda: None,
+            uow_factory=_unreachable_uow_factory,
             project_scope_digest="0" * 64,
             definition=native.definition,
             options=BatchTaskAssemblyOptions(),
@@ -61,6 +63,12 @@ def _run_batch_native_catalog_law() -> None:
     if isinstance(binding, Failure):
         raise AssertionError(binding.message)
     assert tuple(cell.cell_id for cell in binding.family_assembly.cells) == ASSEMBLY_CELL_IDS
+
+
+def _unreachable_uow_factory() -> RuntimeUnitOfWork:
+    """The catalog law assembles handlers but never executes their effects."""
+
+    raise AssertionError("the inert C4 catalog law must not open a unit of work")
 
 
 _catalog_law = define_law_witness(

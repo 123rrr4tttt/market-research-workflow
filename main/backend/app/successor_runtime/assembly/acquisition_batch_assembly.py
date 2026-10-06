@@ -9,12 +9,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Annotated
 from functorial_kit.core.failure import Failure
-from functorial_kit.native_contribution import NativeContribution
 from app.successor_runtime.assembly.base import AcquisitionAssemblyOptions, FamilyAssembly
+from app.successor_runtime.capabilities import acquisition_batch as acquisition
 from app.successor_runtime.capabilities.acquisition_native_contribution import (
     ASSEMBLY_CELL_IDS,
     AcquisitionAssemblyContext,
     AcquisitionNativeBinding,
+    AcquisitionNativeContribution,
     AcquisitionNativeSource,
     DEFAULT_ACQUISITION_NATIVE_SOURCE,
     compile_acquisition_native_contribution,
@@ -25,29 +26,27 @@ LOCAL_ONLY_REGISTRY_REVISION = 0
 ACQUISITION_BATCH_ROLLBACK_PATHS = (
     "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json",
 )
-_DEFAULT_ACQUISITION_NATIVE: NativeContribution | None = None
+_default_acquisition_native: AcquisitionNativeContribution | None = None
 
 
-def default_acquisition_native_contribution() -> NativeContribution:
+def default_acquisition_native_contribution() -> AcquisitionNativeContribution:
     """Compile the default authored acquisition source once for assembly."""
-    global _DEFAULT_ACQUISITION_NATIVE
-    if _DEFAULT_ACQUISITION_NATIVE is None:
+    global _default_acquisition_native
+    if _default_acquisition_native is None:
         native = compile_acquisition_native_contribution(DEFAULT_ACQUISITION_NATIVE_SOURCE)
         if isinstance(native, Failure):
             raise RuntimeError(f"invalid default C3 native contribution: {native.message}")
-        _DEFAULT_ACQUISITION_NATIVE = native
-    return _DEFAULT_ACQUISITION_NATIVE
+        _default_acquisition_native = native
+    return _default_acquisition_native
 
 
 def build_deterministic_element_payloads(
     project_key: str = "project:c3-i1-local",
 ) -> Annotated[
-    tuple[object, ...],
+    tuple[acquisition.CollectBatchElementPayload, ...],
     "kit:prepared-command effect_boundary=successor_runtime.acquisition_batch_assembly witness=test:test_c3_assembly_installs_with_production_fixture_builder",
 ]:
     """Build deterministic acquisition element payloads from the collect API."""
-    from app.successor_runtime.capabilities import acquisition_batch as acquisition
-
     request_ref = acquisition.build_collect_request_ref(
         request_id="request:c3-i1-local", project_key=project_key, channel="search.market"
     )
@@ -98,7 +97,7 @@ def build_acquisition_batch_assembly(
     uow_factory: Callable[[], object],
     project_scope_digest: str,
     options: AcquisitionAssemblyOptions | None = None,
-    native: NativeContribution | None = None,
+    native: AcquisitionNativeContribution | None = None,
     source: AcquisitionNativeSource | None = None,
 ) -> Annotated[
     FamilyAssembly,

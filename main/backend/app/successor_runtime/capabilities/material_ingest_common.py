@@ -15,15 +15,12 @@ reviewed adoption milestone.
 
 from __future__ import annotations
 
-import dataclasses
 import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Annotated, Any, Literal, NoReturn
+from typing import Annotated, Literal, NoReturn, Protocol, TypeGuard, overload
 
 from functorial_kit import Failure
-from mrw_functorial_kit.core.material_semantics import MATERIAL_INGEST_STAGE_FAILURE_CODES
-from mrw_functorial_kit.core.w06_semantics import material_ingest_contract_failures
 
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
@@ -48,8 +45,11 @@ from app.successor_runtime.language.profiles import (
     ObservationProfile,
     ResourceProfile,
     SemanticProfile,
+    build_profile,
 )
 from app.successor_runtime.research.object_types import ObjectType
+from mrw_functorial_kit.core.material_semantics import MATERIAL_INGEST_STAGE_FAILURE_CODES
+from mrw_functorial_kit.core.w06_semantics import material_ingest_contract_failures
 
 __all__ = [
     "MATERIAL_ADMISSION_READBACK_CONTRACT_ID",
@@ -128,6 +128,10 @@ STAGED_MATERIAL_CANDIDATE_RESULT_TYPE = ObjectType("StagedMaterialCandidate.v2")
 _MATERIAL_FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
 
 
+def _empty_object_mapping() -> dict[str, object]:
+    return {}
+
+
 def material_ingest_contract_failure(
     code: str,
     message: str,
@@ -136,7 +140,7 @@ def material_ingest_contract_failure(
     public_exception: str | None = None,
     operation: str = "material.ingest.contract",
     site: str = "ingest_c7_common",
-    **details: Any,
+    **details: object,
 ) -> Failure:
     """Construct one closed C7 contract failure before the ABI lift."""
 
@@ -159,13 +163,17 @@ def material_ingest_contract_failure(
     )
 
 
+def _is_material_failure(value: object) -> TypeGuard[Failure]:
+    return isinstance(value, Failure)
+
+
 def raise_material_ingest_contract_failure(
     failure: Failure,
     exception_type: type[Exception] = ValueError,
 ) -> NoReturn:
     """Lift one complete C7 failure at the retained public ABI boundary."""
 
-    if not isinstance(failure, Failure):
+    if not _is_material_failure(failure):
         # kit:boundary owner=ingest_c7_common.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
         raise TypeError("C7 contract lift requires a Failure")
     context = failure.context or {}
@@ -207,20 +215,11 @@ _contract_failure = material_ingest_contract_failure
 _raise_contract_failure = raise_material_ingest_contract_failure
 
 
-def _reject_contract(
-    message: str,
-    exception_type: type[Exception] = ValueError,
-    *,
-    code: str = "input_contract_invalid",
-    operation: str = "material.ingest.contract",
-    site: str = "ingest_c7_common",
-) -> NoReturn:
-    _reject_material_contract(
-        message,
-        code=code,
-        exception_type=exception_type,
-        operation=operation,
-        site=site,
+def _is_lowercase_hex_digest(value: object) -> TypeGuard[str]:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
     )
 
 
@@ -232,7 +231,7 @@ class MaterialIngestSubmission:
     project_key: str
     source_locator: str
     request_key: str = ""
-    raw_payload: Mapping[str, Any] = field(default_factory=dict)
+    raw_payload: Mapping[str, object] = field(default_factory=_empty_object_mapping)
     payload_digest: str = ""
 
     def __post_init__(self) -> None:
@@ -252,10 +251,12 @@ class MaterialIngestSubmission:
                 site="input/C7IngestSubmission.source_locator",
             )
         if self.payload_digest == "":
-            plain = {
-                field_def.name: getattr(self, field_def.name)
-                for field_def in dataclasses.fields(self)
-                if field_def.name != "payload_digest"
+            plain: dict[str, object] = {
+                "idempotency_key": self.idempotency_key,
+                "project_key": self.project_key,
+                "source_locator": self.source_locator,
+                "request_key": self.request_key,
+                "raw_payload": self.raw_payload,
             }
             try:
                 digest = content_digest(plain)
@@ -267,11 +268,7 @@ class MaterialIngestSubmission:
                 )
             object.__setattr__(self, "payload_digest", digest)
         else:
-            if (
-                not isinstance(self.payload_digest, str)
-                or len(self.payload_digest) != 64
-                or any(character not in "0123456789abcdef" for character in self.payload_digest)
-            ):
+            if not _is_lowercase_hex_digest(self.payload_digest):
                 _reject_material_contract(
                     "C7IngestSubmission.payload_digest must be a 64-char lowercase hex digest",
                     site="digest/C7IngestSubmission.payload_digest",
@@ -333,7 +330,7 @@ class EffectOutcome:
     disposition: Literal[
         "NOT_STARTED", "IN_FLIGHT", "SUCCEEDED", "FAILED", "OUTCOME_UNKNOWN"
     ]
-    receipt: Mapping[str, Any] = field(default_factory=dict)
+    receipt: Mapping[str, object] = field(default_factory=_empty_object_mapping)
 
 
 @dataclass(frozen=True, slots=True)
@@ -356,10 +353,23 @@ class MaterialReconciliationDecision:
 class MaterialIngestCapabilityBundle:
     bundle_id: str
     operations: tuple[OperationContract, ...]
-    codecs: tuple[PayloadCodec, ...]
+    codecs: tuple[PayloadCodec[MaterialIngestSubmission]]
     profiles: dict[str, object]
 
-    def codec_by_kind(self, kind: str) -> PayloadCodec:
+    @overload
+    def codec_by_kind(
+        self,
+        kind: Literal["ingest_index.stage_candidate.v1"],
+    ) -> PayloadCodec[MaterialIngestSubmission]: ...
+
+    @overload
+    def codec_by_kind(
+        self, kind: str
+    ) -> PayloadCodec[MaterialIngestSubmission]: ...
+
+    def codec_by_kind(
+        self, kind: str
+    ) -> PayloadCodec[MaterialIngestSubmission]:
         for codec in self.codecs:
             if codec.contract_ref.kind == kind:
                 return codec
@@ -372,7 +382,18 @@ class MaterialIngestCapabilityBundle:
         )
 
 
-def _profile_ref(profile: Any) -> ContractProfileRef:
+class _ProfileRefSource(Protocol):
+    @property
+    def profile_id(self) -> str: ...
+
+    @property
+    def profile_version(self) -> str: ...
+
+    @property
+    def profile_digest(self) -> str: ...
+
+
+def _profile_ref(profile: _ProfileRefSource) -> ContractProfileRef:
     return ContractProfileRef(
         profile.profile_id,
         profile.profile_version,
@@ -381,7 +402,7 @@ def _profile_ref(profile: Any) -> ContractProfileRef:
 
 
 def _semantic_profile() -> SemanticProfile:
-    values = {
+    values: dict[str, object] = {
         "semantic_profile_id": "material.ingest.stage.semantic.v2",
         "semantic_profile_version": "2.0.0",
         "reads": ("MaterialIngestSubmission.v2",),
@@ -390,11 +411,15 @@ def _semantic_profile() -> SemanticProfile:
         "declared_loss": (),
         "observation_profile_ref": MATERIAL_OBSERVATION_PROFILE,
     }
-    return SemanticProfile(**values, profile_digest=content_digest(values))
+    return build_profile(
+        SemanticProfile,
+        **values,
+        profile_digest=content_digest(values),
+    )
 
 
 def _effect_profile() -> EffectProfile:
-    values = {
+    values: dict[str, object] = {
         "effect_profile_id": "material.ingest.stage.effect.v2",
         "effect_profile_version": "2.0.0",
         "execution_class": "EFFECTFUL",
@@ -407,11 +432,15 @@ def _effect_profile() -> EffectProfile:
         "external_acquisition": False,
         "idempotency_profile_ref": "mrw.material.ingest.idempotency.v2",
     }
-    return EffectProfile(**values, profile_digest=content_digest(values))
+    return build_profile(
+        EffectProfile,
+        **values,
+        profile_digest=content_digest(values),
+    )
 
 
 def _resource_profile() -> ResourceProfile:
-    values = {
+    values: dict[str, object] = {
         "resource_profile_id": "material.ingest.stage.resource.v2",
         "resource_profile_version": "2.0.0",
         "resource_classes": ("CPU_LIGHT",),
@@ -425,11 +454,15 @@ def _resource_profile() -> ResourceProfile:
         "node_profile_requirements": ("any",),
         "units": 1,
     }
-    return ResourceProfile(**values, profile_digest=content_digest(values))
+    return build_profile(
+        ResourceProfile,
+        **values,
+        profile_digest=content_digest(values),
+    )
 
 
 def _failure_profile() -> FailureProfile:
-    values = {
+    values: dict[str, object] = {
         "failure_profile_id": "material.ingest.stage.failure.v2",
         "failure_profile_version": "2.0.0",
         "typed_failures": MATERIAL_INGEST_STAGE_FAILURE_CODES,
@@ -442,11 +475,15 @@ def _failure_profile() -> FailureProfile:
         "readback_profile_ref": MATERIAL_READBACK_RECONCILIATION_CONTRACT_ID,
         "compensation_profile_ref": None,
     }
-    return FailureProfile(**values, profile_digest=content_digest(values))
+    return build_profile(
+        FailureProfile,
+        **values,
+        profile_digest=content_digest(values),
+    )
 
 
 def _authority_profile() -> AuthorityProfile:
-    values = {
+    values: dict[str, object] = {
         "authority_profile_id": "material.ingest.stage.authority.v2",
         "authority_profile_version": "2.0.0",
         "grant_scopes": ("project",),
@@ -457,22 +494,27 @@ def _authority_profile() -> AuthorityProfile:
         "revalidation_points": ("claim_time",),
         "authority_epoch": 1,
     }
-    return AuthorityProfile(**values, profile_digest=content_digest(values))
+    return build_profile(
+        AuthorityProfile,
+        **values,
+        profile_digest=content_digest(values),
+    )
 
 
 def _interpreter_profile() -> InterpreterProfile:
-    values = {
+    dependency_digest = content_digest(
+        {
+            "interpreter": "material-native.ingest",
+            "version": "2.0.0",
+            "boundary": "pure staged candidate; no legacy writer import",
+        }
+    )
+    values: dict[str, object] = {
         "interpreter_profile_id": "material.ingest.pure.v2",
         "interpreter_profile_version": "2.0.0",
         "supported_contract_kinds": (MATERIAL_STAGE_CANDIDATE_KIND,),
         "supported_contract_refs": (),
-        "dependency_digest": content_digest(
-            {
-                "interpreter": "material-native.ingest",
-                "version": "2.0.0",
-                "boundary": "pure staged candidate; no legacy writer import",
-            }
-        ),
+        "dependency_digest": dependency_digest,
         "security_profile_ref": "mrw.material.ingest.security.pure.v2",
         "resource_profile_ref": "material.ingest.stage.resource.v2@2.0.0",
         "credential_requirements_ref": None,
@@ -481,11 +523,15 @@ def _interpreter_profile() -> InterpreterProfile:
         "authoritative_readback_profile_ref": None,
         "receipt_codec_ref": MATERIAL_OBSERVATION_PROFILE,
     }
-    return InterpreterProfile(**values, profile_digest=content_digest(values))
+    return build_profile(
+        InterpreterProfile,
+        **values,
+        profile_digest=content_digest(values),
+    )
 
 
 def _observation_profile() -> ObservationProfile:
-    values = {
+    values: dict[str, object] = {
         "observation_profile_id": MATERIAL_OBSERVATION_PROFILE,
         "observation_profile_version": "2.0.0",
         "dimensions": (
@@ -498,7 +544,11 @@ def _observation_profile() -> ObservationProfile:
         "compatible_with_legacy": True,
         "observation_schema_ref": MATERIAL_OBSERVATION_PROFILE,
     }
-    return ObservationProfile(**values, profile_digest=content_digest(values))
+    return build_profile(
+        ObservationProfile,
+        **values,
+        profile_digest=content_digest(values),
+    )
 
 
 def _make_contract(
@@ -521,13 +571,13 @@ def _make_contract(
         input_type=input_type,
         output_type=output_type,
         return_contract_ref=MATERIAL_ADMISSION_RETURN_CONTRACT_REF,
-        semantic_profile_ref=_profile_ref(semantic).to_ref_string(),
-        effect_profile_ref=_profile_ref(effect).to_ref_string(),
-        resource_profile_ref=_profile_ref(resource).to_ref_string(),
-        failure_profile_ref=_profile_ref(failure).to_ref_string(),
-        authority_profile_ref=_profile_ref(authority).to_ref_string(),
-        interpreter_compatibility_ref=_profile_ref(interpreter).to_ref_string(),
-        observation_profile_ref=_profile_ref(observation).to_ref_string(),
+        semantic_profile_ref=_profile_ref(semantic),
+        effect_profile_ref=_profile_ref(effect),
+        resource_profile_ref=_profile_ref(resource),
+        failure_profile_ref=_profile_ref(failure),
+        authority_profile_ref=_profile_ref(authority),
+        interpreter_compatibility_ref=_profile_ref(interpreter),
+        observation_profile_ref=_profile_ref(observation),
         allowed_override_schema_ref="mrw.material.ingest.override.none.v2",
         owner_capability_id=owner,
     )

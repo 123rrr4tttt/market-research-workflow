@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Literal, Sequence
 
 from sqlalchemy import Date, and_, case, cast, func, or_
+from sqlalchemy.sql.elements import Cast, ColumnElement
 
 from ...models.entities import Document
 from .policy_filters import policy_has_data_condition
@@ -11,48 +13,48 @@ from .policy_filters import policy_has_data_condition
 TopicScope = Literal["company", "product", "operation"]
 
 
-def document_has_extracted_data_condition():
+def document_has_extracted_data_condition() -> ColumnElement[bool]:
     return Document.extracted_data.isnot(None)
 
 
-def document_missing_extracted_data_condition():
+def document_missing_extracted_data_condition() -> ColumnElement[bool]:
     return Document.extracted_data.is_(None)
 
 
-def document_extracted_data_present_case():
+def document_extracted_data_present_case() -> ColumnElement[int | None]:
     return case((document_has_extracted_data_condition(), 1), else_=0)
 
 
-def document_publish_or_created_on_or_after_condition(value):
+def document_publish_or_created_on_or_after_condition(value: date) -> ColumnElement[bool]:
     return or_(
         Document.publish_date >= value,
         and_(Document.publish_date.is_(None), func.date(Document.created_at) >= value),
     )
 
 
-def document_publish_or_created_on_or_before_condition(value):
+def document_publish_or_created_on_or_before_condition(value: date) -> ColumnElement[bool]:
     return or_(
         Document.publish_date <= value,
         and_(Document.publish_date.is_(None), func.date(Document.created_at) <= value),
     )
 
 
-def social_document_base_conditions(doc_types: Sequence[str]):
+def social_document_base_conditions(doc_types: Sequence[str]) -> tuple[ColumnElement[bool], ColumnElement[bool]]:
     return (
         Document.doc_type.in_(tuple(doc_types)),
         document_has_extracted_data_condition(),
     )
 
 
-def social_platform_condition(platform: str):
+def social_platform_condition(platform: str) -> ColumnElement[bool]:
     return Document.extracted_data["platform"].astext == platform
 
 
-def social_sentiment_orientation_condition(sentiment_orientation: str):
+def social_sentiment_orientation_condition(sentiment_orientation: str) -> ColumnElement[bool]:
     return Document.extracted_data["sentiment"]["sentiment_orientation"].astext == sentiment_orientation
 
 
-def content_graph_structured_condition():
+def content_graph_structured_condition() -> ColumnElement[bool]:
     return and_(
         document_has_extracted_data_condition(),
         or_(
@@ -66,7 +68,7 @@ def market_graph_structured_condition(
     *,
     deep_view: bool,
     topic_scope: TopicScope | None = None,
-):
+) -> ColumnElement[bool]:
     if not deep_view:
         structured_condition = Document.extracted_data["market"].isnot(None)
     elif topic_scope == "company":
@@ -86,7 +88,7 @@ def market_graph_structured_condition(
     return and_(document_has_extracted_data_condition(), structured_condition)
 
 
-def market_state_condition(state: str):
+def market_state_condition(state: str) -> ColumnElement[bool]:
     state_upper = state.upper()
     return or_(
         Document.state == state_upper,
@@ -94,33 +96,33 @@ def market_state_condition(state: str):
     )
 
 
-def market_game_condition(game: str):
+def market_game_condition(game: str) -> ColumnElement[bool]:
     return Document.extracted_data["market"]["game"].astext.ilike(f"%{game}%")
 
 
-def market_report_date_expr():
+def market_report_date_expr() -> Cast[date]:
     return cast(Document.extracted_data["market"]["report_date"].astext, Date)
 
 
-def market_publish_created_or_report_on_or_after_condition(value):
+def market_publish_created_or_report_on_or_after_condition(value: date) -> ColumnElement[bool]:
     return or_(
         document_publish_or_created_on_or_after_condition(value),
         market_report_date_expr() >= value,
     )
 
 
-def market_publish_created_or_report_on_or_before_condition(value):
+def market_publish_created_or_report_on_or_before_condition(value: date) -> ColumnElement[bool]:
     return or_(
         document_publish_or_created_on_or_before_condition(value),
         market_report_date_expr() <= value,
     )
 
 
-def policy_graph_has_data_condition():
+def policy_graph_has_data_condition() -> ColumnElement[bool]:
     return policy_has_data_condition()
 
 
-def policy_graph_state_condition(state: str):
+def policy_graph_state_condition(state: str) -> ColumnElement[bool]:
     state_upper = state.upper()
     return or_(
         Document.state == state_upper,
@@ -128,5 +130,5 @@ def policy_graph_state_condition(state: str):
     )
 
 
-def policy_graph_type_ilike_condition(policy_type: str):
+def policy_graph_type_ilike_condition(policy_type: str) -> ColumnElement[bool]:
     return Document.extracted_data["policy"]["policy_type"].astext.ilike(f"%{policy_type}%")

@@ -1,0 +1,21 @@
+{
+  "entries": [
+    {
+      "bytes": 70333,
+      "fixture": "stage1__api__agent_chat.py.source",
+      "git_path": "main/backend/app/api/agent_chat.py",
+      "git_revision": "203611915bd2659adff4aadfbb67485daed8964a",
+      "relative_path": "main/backend/app/api/agent_chat.py",
+      "sha256": "0b1639a2701e05ff56676ffa769e72ad9518b8581340f07cce5eb02227d5f781"
+    },
+    {
+      "bytes": 6122,
+      "fixture": "stage1__api__market.py.source",
+      "git_path": "main/backend/app/api/market.py",
+      "git_revision": "98e96fca2db751659eab59c05e575e3453e6aa2b",
+      "relative_path": "main/backend/app/api/market.py",
+      "sha256": "784692991c403d56c93fddfc823545327ebaae3e404081b335b5a21c550ec862"
+    }
+  ],
+  "schema": "mrw.test.stage1-current-binding-history.v1"
+}

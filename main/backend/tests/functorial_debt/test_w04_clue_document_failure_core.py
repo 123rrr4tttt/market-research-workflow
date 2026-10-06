@@ -82,11 +82,17 @@ def test_document_query_typed_validation_and_legacy_abi() -> None:
     with pytest.raises(ValueError, match="document query result envelope status must be ok"):
         validate_document_query_result_envelope({"status": "bad"})
 
-    statement = try_build_document_query_statement({"query": "", "filters": [{"field": "raw_sql", "op": "eq"}]})
+    invalid_field_query = {
+        "query": "",
+        "filters": [{"field": "raw_sql", "op": "eq"}],
+        "limit": 20,
+        "offset": 0,
+    }
+    statement = try_build_document_query_statement(invalid_field_query)
     assert isinstance(statement, Failure)
     assert statement.code == "statement_invalid"
     with pytest.raises(ValueError, match="unsupported document query field"):
-        build_document_query_statement({"query": "", "filters": [{"field": "raw_sql", "op": "eq"}]})
+        build_document_query_statement(invalid_field_query)
 
 
 def test_graph_failure_lift_covers_programmer_defect_and_cause() -> None:

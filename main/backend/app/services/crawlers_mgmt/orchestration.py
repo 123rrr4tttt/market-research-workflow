@@ -9,9 +9,9 @@ from typing import Any
 import httpx
 from sqlalchemy import select
 
-from ..crawlers.scrapyd_runtime import ensure_scrapyd_ready
 from ...models.base import SessionLocal
 from ...models.entities import IngestChannel, SourceLibraryItem
+from ..crawlers.scrapyd_runtime import ensure_scrapyd_ready
 from ..projects import bind_project
 
 
@@ -249,6 +249,14 @@ def register_or_update_source_library_scrapy_binding(
                 "spider": spider_value,
                 "arguments": _as_dict(arguments),
                 "settings": _as_dict(settings),
+                "output_ingest": {
+                    "enabled": True,
+                    "doc_type": "news",
+                    "enable_extraction": False,
+                    "wait_timeout_seconds": 120.0,
+                    "poll_interval_seconds": 0.5,
+                    "max_items": 100,
+                },
                 **_as_dict(item_params_patch),
             }
             item_row.tags = _merge_unique_strings(

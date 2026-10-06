@@ -1,13 +1,17 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Iterable, Mapping
+from typing import Annotated, Iterable, Mapping, TypeGuard
 from ...contracts.materials import normalize_material_dataset
 
 from .contracts import (
     DOCUMENT_QUERY_CONTRACT_VERSION,
     DocumentQuery,
+    DocumentQueryFilterInput,
+    DocumentQueryResultEnvelope,
+    DocumentQueryRow,
     build_document_query,
     build_document_query_result_envelope,
+    coerce_document_query_result_row,
     validate_document_query_result_envelope,
 )
 
@@ -16,16 +20,16 @@ STRUCTURED_DATA_SEARCH_CONSUMER = "project.structured_data.search"
 STRUCTURED_DATA_SEARCH_SOURCE = "agent_runtime.structured_data_search"
 
 
-def _clean_text(value: Any) -> str:
+def _clean_text(value: object) -> str:
     return " ".join(str(value or "").strip().split())
 
 
-def _clean_optional_text(value: Any) -> str | None:
+def _clean_optional_text(value: object) -> str | None:
     cleaned = _clean_text(value)
     return cleaned or None
 
 
-def _clean_sequence(values: Iterable[Any] | None) -> tuple[str, ...]:
+def _clean_sequence(values: Iterable[object] | None) -> tuple[str, ...]:
     out: list[str] = []
     for value in values or ():
         cleaned = normalize_material_dataset(value)
@@ -34,8 +38,8 @@ def _clean_sequence(values: Iterable[Any] | None) -> tuple[str, ...]:
     return tuple(out)
 
 
-def _as_mapping(value: Any) -> Mapping[str, Any]:
-    return value if isinstance(value, Mapping) else {}
+def _as_str_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    return isinstance(value, Mapping)
 
 
 def build_structured_data_search_document_query(
@@ -50,7 +54,7 @@ def build_structured_data_search_document_query(
     "witness=test:test_project_structured_data_search_returns_document_query_projection",
 ]:
     datasets = _clean_sequence(datasets_requested)
-    filters: list[dict[str, Any]] = []
+    filters: list[DocumentQueryFilterInput] = []
     if datasets:
         filters.append({"field": "dataset", "op": "in", "value": list(datasets)})
 
@@ -71,13 +75,13 @@ def build_structured_data_search_document_query_envelope(
     query: str | None,
     datasets_requested: Iterable[str] = (),
     limit: int,
-    items: Iterable[Mapping[str, Any]] = (),
+    items: Iterable[Mapping[str, object]] = (),
     query_mode: str = "search",
     total_matches: int | None = None,
     total_stored_rows: int | None = None,
     fallback_used: bool = False,
 ) -> Annotated[
-    dict[str, Any],
+    DocumentQueryResultEnvelope,
     "kit:non-authoritative derived_as=view fact_source=agent_runtime.structured_data_search "
     "witness=test:test_helper_builds_document_query_projection_for_structured_search",
 ]:
@@ -87,7 +91,7 @@ def build_structured_data_search_document_query_envelope(
         datasets_requested=datasets_requested,
         limit=limit,
     )
-    rows = [_structured_item_to_document_query_row(item) for item in items if isinstance(item, Mapping)]
+    rows = [_structured_item_to_document_query_row(item) for item in items]
     envelope_total = len(rows) if fallback_used or total_matches is None else max(0, int(total_matches or 0))
     envelope = build_document_query_result_envelope(
         query_object,
@@ -109,9 +113,10 @@ def build_structured_data_search_document_query_envelope(
     return envelope
 
 
-def _structured_item_to_document_query_row(item: Mapping[str, Any]) -> dict[str, Any]:
-    raw = dict(item)
-    fields = _as_mapping(raw.get("fields"))
+def _structured_item_to_document_query_row(item: Mapping[str, object]) -> DocumentQueryRow:
+    raw = coerce_document_query_result_row(item)
+    fields_value = raw.get("fields")
+    fields = coerce_document_query_result_row(fields_value) if _as_str_object_mapping(fields_value) else {}
     dataset = normalize_material_dataset(raw.get("dataset")) or "structured_data"
     record_id = _clean_text(raw.get("record_id") or raw.get("id"))
     row_id = f"{dataset}:{record_id}" if record_id else dataset

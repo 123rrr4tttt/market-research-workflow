@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from functorial_kit.contribution_verification import (
+    VerificationChanges,
     VerificationPlan,
     VerificationRegistration,
     VerificationSource,
@@ -27,7 +28,7 @@ from app.successor_runtime.capabilities.workflow_native_contribution import (
 
 
 def workflow_verification_plan_for(
-    changes: object | None = None,
+    changes: VerificationChanges | None = None,
 ) -> VerificationPlan:
     """Derive an inert verification plan from the workflow-definition catalog."""
 
@@ -51,10 +52,10 @@ def _run_workflow_native_catalog_law() -> None:
     native = compile_workflow_native_contribution(DEFAULT_WORKFLOW_NATIVE_SOURCE)
     if isinstance(native, Failure):
         raise AssertionError(native.message)  # noqa: TRY004, TRY301, B904
-    expected_projection_ids = tuple(
-        compile_workflow_native_contribution(source).projection.id  # type: ignore[union-attr]
-        for source in (DEFAULT_WORKFLOW_NATIVE_SOURCE,)
-    )
+    expected_native = compile_workflow_native_contribution(DEFAULT_WORKFLOW_NATIVE_SOURCE)
+    if isinstance(expected_native, Failure):
+        raise AssertionError(expected_native.message)  # noqa: TRY004, TRY301, B904
+    expected_projection_ids = (expected_native.projection.id,)
     if (native.projection.id,) != expected_projection_ids:
         raise AssertionError(  # noqa: TRY003
             "workflow native catalog order drifted from definition order"

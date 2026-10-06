@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from app.successor_runtime.capabilities.material_native_contribution import (
+    DEFAULT_MATERIAL_NATIVE_SOURCE,
+    compile_material_native_contribution,
+)
 from functorial_kit.contribution_verification import (
+    VerificationChanges,
     VerificationPlan,
     VerificationRegistration,
     VerificationSource,
@@ -18,13 +23,11 @@ from functorial_kit.law_witness import (
     define_law_witness,
     law_witness_reference,
 )
-from app.successor_runtime.capabilities.material_native_contribution import (
-    DEFAULT_MATERIAL_NATIVE_SOURCE,
-    compile_material_native_contribution,
-)
 
 
-def material_verification_plan_for(changes: object | None = None) -> VerificationPlan:
+def material_verification_plan_for(
+    changes: VerificationChanges | None = None,
+) -> VerificationPlan:
     """Derive an inert verification plan from the same native C7 catalog."""
 
     plan = plan_contribution_verification(
@@ -45,7 +48,7 @@ def _run_material_native_catalog_law() -> None:
     compiled = compile_material_native_contribution(DEFAULT_MATERIAL_NATIVE_SOURCE)
     if isinstance(compiled, Failure):
         raise AssertionError("invalid default C7 native contribution")
-    if compiled.projection.id != DEFAULT_MATERIAL_NATIVE_SOURCE.contribution_id:  # type: ignore[union-attr]
+    if compiled.projection.id != DEFAULT_MATERIAL_NATIVE_SOURCE.contribution_id:
         raise AssertionError("C7 native catalog order drifted from source order")
 
 

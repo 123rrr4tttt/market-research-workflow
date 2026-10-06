@@ -1,6 +1,17 @@
 from pathlib import Path
 
-from scripts.check_successor_runtime_dependencies import check
+from scripts.check_successor_runtime_dependencies import _find_cycles, check
+
+
+def test_cycle_scan_visits_sibling_branches_after_a_completed_cycle() -> None:
+    edges = {
+        "a": frozenset({"a"}),
+        "b": frozenset({"c", "d"}),
+        "c": frozenset({"a"}),
+        "d": frozenset({"b"}),
+    }
+    assert _find_cycles(edges) == [("a", "a"), ("b", "d", "b")]
+    assert _find_cycles(dict(reversed(tuple(edges.items())))) == _find_cycles(edges)
 
 
 def _write(root: Path, relative: str, source: str) -> Path:
@@ -155,8 +166,8 @@ def test_lint_allows_public_capability_shared_modules(tmp_path: Path) -> None:
         "checksum",
         "codecs",
         "failure",
-        "ingest_c7_common",
-        "c8_common",
+        "material_ingest_common",
+        "knowledge_common",
         "retrieval_common",
         "workflow_common",
     ):
@@ -174,16 +185,16 @@ def test_lint_allows_public_capability_shared_modules(tmp_path: Path) -> None:
     assert report["ok"], report["violations"]
 
 
-def test_lint_allows_family_common_c8_module(tmp_path: Path) -> None:
+def test_lint_allows_knowledge_common_module(tmp_path: Path) -> None:
     _write(
         tmp_path,
-        "capabilities/c8_common.py",
+        "capabilities/knowledge_common.py",
         "class ReadHandle:\n    pass\n",
     )
     _write(
         tmp_path,
-        "capabilities/c8_writing.py",
-        "from .c8_common import ReadHandle\n",
+        "capabilities/knowledge_writing.py",
+        "from .knowledge_common import ReadHandle\n",
     )
     report = check(tmp_path)
     assert report["ok"], report["violations"]
@@ -196,26 +207,30 @@ def test_lint_allows_declared_capability_family_modules(tmp_path: Path) -> None:
         "capabilities/first_specimen_program.py",
         "from .first_specimen import FailureCore\n",
     )
-    _write(tmp_path, "capabilities/ingest_c7_common.py", "class Contract:\n    pass\n")
     _write(
         tmp_path,
-        "capabilities/ingest_c7_interpreters.py",
-        "from .ingest_c7_common import Contract\n",
+        "capabilities/material_ingest_common.py",
+        "class Contract:\n    pass\n",
+    )
+    _write(
+        tmp_path,
+        "capabilities/material_ingest_interpreters.py",
+        "from .material_ingest_common import Contract\n",
     )
     report = check(tmp_path)
     assert report["ok"], report["violations"]
 
 
-def test_lint_allows_family_common_c7_contract_module(tmp_path: Path) -> None:
+def test_lint_allows_material_ingest_common_contract_module(tmp_path: Path) -> None:
     _write(
         tmp_path,
-        "capabilities/ingest_c7_common.py",
+        "capabilities/material_ingest_common.py",
         "class CommitIntent:\n    pass\n",
     )
     _write(
         tmp_path,
-        "capabilities/ingest_c7_program.py",
-        "from .ingest_c7_common import CommitIntent\nclass Program:\n    pass\n",
+        "capabilities/material_ingest_program.py",
+        "from .material_ingest_common import CommitIntent\nclass Program:\n    pass\n",
     )
     report = check(tmp_path)
     assert report["ok"], report["violations"]

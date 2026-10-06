@@ -1,12 +1,192 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Annotated, Any, Iterable, Mapping, NoReturn
+from typing import (
+    Annotated,
+    Iterable,
+    Literal,
+    Mapping,
+    NoReturn,
+    NotRequired,
+    Required,
+    TypeAlias,
+    TypedDict,
+)
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.w04_service_semantics import workflow_graph_failures
+from app.successor_runtime.capabilities.workflow_common import (
+    WorkflowJsonAtom as WorkflowJsonAtom,
+    WorkflowJsonObject,
+    WorkflowJsonValue,
+)
 
 ALLOWED_NODE_TYPES = frozenset({"vector_search", "llm_call", "join"})
+
+WorkflowNodeStatus: TypeAlias = Literal["queued", "running", "succeeded", "failed"]
+WorkflowRunStatus: TypeAlias = Literal["queued", "running", "succeeded", "failed"]
+
+
+class WorkflowRuntimeNode(TypedDict):
+    id: str
+    node_type: str
+    params: WorkflowJsonObject
+    depends_on: list[str]
+
+
+class WorkflowRuntimeGraph(TypedDict):
+    workflow_id: str
+    program_digest: str
+    plan_digest: str
+    topo_order: list[str]
+    nodes: dict[str, WorkflowRuntimeNode]
+    project_key: NotRequired[str | None]
+
+
+class WorkflowPlatformBinding(TypedDict):
+    program_digest: str
+    plan_digest: str
+    catalog_digest: str
+
+
+class CompiledWorkflowGraphValue(TypedDict):
+    version: str
+    options: WorkflowJsonObject
+    topo_order: list[str]
+    outgoing_edges: dict[str, list[str]]
+    incoming_edges: dict[str, list[str]]
+    checksum: str
+
+
+class CompiledWorkflowGraphRecord(TypedDict):
+    graph_id: str
+    version: str
+    options: WorkflowJsonObject
+    checksum: str
+    topo_order: list[str]
+    outgoing_edges: dict[str, list[str]]
+    incoming_edges: dict[str, list[str]]
+    nodes: dict[str, WorkflowRuntimeNode]
+    dsl: WorkflowJsonObject
+    compiled: CompiledWorkflowGraphValue
+    platform: WorkflowPlatformBinding
+
+
+class WorkflowCompilerResponse(TypedDict):
+    graph_id: str
+    version: str
+    checksum: str
+    topo_order: list[str]
+    warnings: list[str]
+    program_digest: str
+    plan_digest: str
+    catalog_digest: str
+    template_id: NotRequired[str]
+    version_id: NotRequired[str | None]
+
+
+class WorkflowRunRecord(TypedDict):
+    run_id: str
+    status: WorkflowRunStatus
+    created_at: str
+    updated_at: str
+    node_statuses: dict[str, WorkflowNodeStatus]
+    metadata: WorkflowJsonObject
+
+
+class WorkflowGraphEvent(TypedDict):
+    event_id: str
+    event_type: str
+    project_key: str | None
+    session_id: str | None
+    run_id: str
+    trace_id: str
+    created_at: str
+    ts: str
+    seq: int
+    type: str
+    node_id: str | None
+    payload: WorkflowJsonObject
+
+
+WorkflowNodeResult: TypeAlias = WorkflowJsonObject
+WorkflowNodeResults: TypeAlias = dict[str, WorkflowNodeResult]
+
+
+class WorkflowRunSnapshot(TypedDict):
+    run: WorkflowRunRecord
+    events: list[WorkflowGraphEvent]
+    results: WorkflowNodeResults
+
+
+class WorkflowRunResponse(TypedDict):
+    run_id: str
+    status: WorkflowRunStatus
+    node_statuses: dict[str, WorkflowNodeStatus]
+    session_id: str | None
+    current_phase: str | None
+    root_task_id: str | None
+    compat_mode: Literal[False]
+
+
+class WorkflowRunDetail(WorkflowRunRecord, total=False):
+    session_id: str | None
+    current_phase: str | None
+    root_task_id: str | None
+
+
+class WorkflowEventView(TypedDict, total=False):
+    ts: Required[str]
+    type: Required[str]
+    node_id: Required[str | None]
+    payload: Required[WorkflowJsonObject]
+    event_id: str
+    event_type: str
+    project_key: str | None
+    session_id: str | None
+    run_id: str
+    trace_id: str
+    created_at: str
+    seq: int
+
+
+class WorkflowRunEventsResponse(TypedDict):
+    items: list[WorkflowEventView]
+    session_id: str | None
+
+
+class WorkflowIntegrityIssueValue(TypedDict):
+    code: str
+    message: str
+    details: WorkflowJsonObject
+
+
+class WorkflowIntegrityReportValue(TypedDict):
+    contract_version: str
+    valid: bool
+    issue_count: int
+    issues: list[WorkflowIntegrityIssueValue]
+    workflow_id: str | None
+
+
+class WorkflowReplayConsistencyReport(TypedDict):
+    contract_version: str
+    consistent: bool
+    issue_count: int
+    issues: list[WorkflowIntegrityIssueValue]
+    stored_status: WorkflowRunStatus
+    replayed_status: WorkflowRunStatus
+
+
+class WorkflowReplayResponse(TypedDict, total=False):
+    run_id: Required[str]
+    status: Required[WorkflowRunStatus]
+    node_statuses: Required[dict[str, WorkflowNodeStatus]]
+    events_count: Required[int]
+    replay_mode: Required[Literal["events_only", "stateful"]]
+    replay_consistency: Required[WorkflowReplayConsistencyReport]
+    events: list[WorkflowGraphEvent]
+    results: WorkflowNodeResults
 
 
 class WorkflowGraphCompileError(ValueError):
@@ -20,6 +200,10 @@ class WorkflowGraphIntegrityError(ValueError):
 _FAILURE_CONTEXT_KEYS = frozenset({"owner", "public_exception", "public_message"})
 
 
+def _empty_json_object() -> WorkflowJsonObject:
+    return {}
+
+
 def workflow_graph_failure(
     code: str,
     message: str,
@@ -27,7 +211,7 @@ def workflow_graph_failure(
     owner: str,
     public_exception: type[Exception] | str,
     public_message: str | None = None,
-    **details: Any,
+    **details: WorkflowJsonValue,
 ) -> Failure:
     """Create one closed workflow-graph failure with its compatibility ABI."""
     context = {
@@ -46,7 +230,7 @@ def raise_workflow_graph_legacy(
     exception_type: type[Exception] = WorkflowGraphCompileError,
     *,
     cause: BaseException | None = None,
-    exception_kwargs: Mapping[str, Any] | None = None,
+    exception_kwargs: Mapping[str, WorkflowJsonValue] | None = None,
 ) -> NoReturn:
     """Lift a closed failure once into the established public exception ABI."""
     context = failure.context or {}
@@ -76,7 +260,7 @@ def raise_workflow_graph_legacy(
 class WorkflowNode:
     node_id: str
     node_type: str
-    config: Mapping[str, Any] = field(default_factory=dict)
+    config: Mapping[str, WorkflowJsonValue] = field(default_factory=_empty_json_object)
 
 
 @dataclass(frozen=True)
@@ -88,7 +272,7 @@ class WorkflowEdge:
 @dataclass(frozen=True)
 class WorkflowGraphDSL:
     version: str
-    options: Mapping[str, Any]
+    options: Mapping[str, WorkflowJsonValue]
     nodes: tuple[WorkflowNode, ...]
     edges: tuple[WorkflowEdge, ...]
 
@@ -96,7 +280,7 @@ class WorkflowGraphDSL:
 @dataclass(frozen=True)
 class CompiledWorkflowGraph:
     version: str
-    options: Mapping[str, Any]
+    options: Mapping[str, WorkflowJsonValue]
     topo_order: tuple[str, ...]
     outgoing_edges: Mapping[str, tuple[str, ...]]
     incoming_edges: Mapping[str, tuple[str, ...]]
@@ -107,7 +291,7 @@ class CompiledWorkflowGraph:
 class WorkflowGraphIntegrityIssue:
     code: str
     message: str
-    details: Mapping[str, Any] = field(default_factory=dict)
+    details: Mapping[str, WorkflowJsonValue] = field(default_factory=_empty_json_object)
 
 
 @dataclass(frozen=True)
@@ -227,11 +411,12 @@ def build_workflow_graph_integrity_report(
                 ready.append(child)
     if visited != len(node_id_set):
         cycle_nodes = sorted(node_id for node_id, degree in reduced_indegree.items() if degree > 0)
+        cycle_values: list[WorkflowJsonValue] = list(cycle_nodes)
         issues.append(
             WorkflowGraphIntegrityIssue(
                 code="workflow_cycle",
                 message="workflow graph contains a cycle",
-                details={"cycle_nodes": cycle_nodes},
+                details={"cycle_nodes": cycle_values},
             )
         )
 

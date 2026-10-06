@@ -84,6 +84,7 @@ W02_FAMILIES: tuple[tuple[FailureFamily, str, tuple[str, ...]], ...] = (
             "artifact_identity_required",
             "backend_unavailable",
             "execution_mode_invalid",
+            "json_value_invalid",
             "phase_invalid",
             "session_already_exists",
             "session_id_required",
@@ -93,6 +94,7 @@ W02_FAMILIES: tuple[tuple[FailureFamily, str, tuple[str, ...]], ...] = (
             "task_identity_required",
             "task_not_claimable",
             "task_not_found",
+            "task_transition_conflict",
         ),
     ),
     (

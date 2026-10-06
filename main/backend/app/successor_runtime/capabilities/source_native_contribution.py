@@ -31,6 +31,7 @@ from functorial_kit.contributions import (
 from functorial_kit.core.failure import Failure
 from functorial_kit.law_witness import define_law_witness
 from functorial_kit.native_contribution import (
+    NativeContribution,
     BindingAccepted,
     BindingRejected,
     NativeBindingIssue,
@@ -49,6 +50,13 @@ from app.successor_runtime.capabilities import (
 from app.successor_runtime.capabilities import (
     source_terminal_projection as terminal_projection,
 )
+from app.successor_runtime.substrate.postgres.source_library_c2_1_handler import (
+    SourceLibraryC2_1StoreRehydratedHandler,
+)
+from app.successor_runtime.substrate.postgres.source_library_c2_23_canary import (
+    C2_2StoreRehydratedHandler,
+    C2_3StoreRehydratedHandler,
+)
 from mrw_functorial_kit.core.source_semantics import source_contract_failures
 from mrw_functorial_kit.core.w06_semantics import (
     source_provider_acquisition_failures,
@@ -57,7 +65,7 @@ from mrw_functorial_kit.core.w06_semantics import (
 )
 
 if TYPE_CHECKING:
-    from app.successor_runtime.assembly.base import ProjectorSourceKey
+    from app.successor_runtime.assembly.base import FamilyAssembly, ProjectorSourceKey
 
 __all__ = [
     "SOURCE_NATIVE_RULE_ID",
@@ -353,7 +361,7 @@ class SourceAssemblyContext:
 @dataclass(frozen=True, slots=True)
 class SourceNativeBinding:
     definition: SourceNativeDefinition
-    family_assembly: object
+    family_assembly: FamilyAssembly
 
 
 def assemble_source_native_definition(
@@ -382,12 +390,24 @@ def validate_source_native_binding(
     if not isinstance(candidate, SourceNativeBinding):
         return BindingRejected((NativeBindingIssue("$.binding", "expected C2NativeBinding"),))
     expected_cells = tuple(stage.cell_id for stage in definition.source.stages)
-    actual_cells = tuple(cell.cell_id for cell in candidate.family_assembly.cells)  # type: ignore[attr-defined]
+    actual_cells = tuple(cell.cell_id for cell in candidate.family_assembly.cells)
     actual_refs = tuple(tuple(cell.operation_contract_refs) for cell in candidate.family_assembly.cells)
     actual_handler_digests = tuple(handler.handler_binding_digest for handler in candidate.family_assembly.handlers)
     cell_handler_digests = tuple(cell.handler_binding_digest for cell in candidate.family_assembly.cells[:3])
+    source_handlers = tuple(
+        handler
+        for handler in candidate.family_assembly.handlers
+        if isinstance(
+            handler,
+            (
+                SourceLibraryC2_1StoreRehydratedHandler,
+                C2_2StoreRehydratedHandler,
+                C2_3StoreRehydratedHandler,
+            ),
+        )
+    )
     actual_handler_contract_digests = tuple(
-        handler.operation_contract_digest for handler in candidate.family_assembly.handlers
+        handler.operation_contract_digest for handler in source_handlers
     )
     b21 = resolution.build_source_resolution_bundle()
     b22 = planning.build_source_planning_bundle()
@@ -403,6 +423,7 @@ def validate_source_native_binding(
     refs_match = actual_refs == tuple(stage.kinds for stage in definition.source.stages)
     handlers_match = (
         actual_handler_contract_digests == expected_handler_contract_digests
+        and len(source_handlers) == len(candidate.family_assembly.handlers)
         and len(actual_handler_digests) == len(expected_handler_contract_digests)
         and cell_handler_digests
         == (
@@ -426,7 +447,7 @@ def validate_source_native_binding(
         (
             (candidate.definition == definition, "$.binding.definition", "definition drift"),
             (
-                candidate.family_assembly.family_id == SOURCE_FAMILY_ID,  # type: ignore[attr-defined]
+                candidate.family_assembly.family_id == SOURCE_FAMILY_ID,
                 "$.binding.family_assembly.family_id",
                 "family id drift",
             ),
@@ -463,7 +484,11 @@ def validate_source_native_binding(
 
 def verify_source_native_definition(
     definition: SourceNativeDefinition,
-    native: object,
+    native: NativeContribution[
+        SourceNativeDefinition,
+        SourceAssemblyContext,
+        SourceNativeBinding,
+    ],
 ) -> ContributionVerification | Failure:
     del native
 
@@ -506,5 +531,5 @@ SOURCE_NATIVE_CONTRIBUTION_RULE = NativeContributionRule[
 
 def compile_source_native_contribution(
     source: SourceNativeSource,
-) -> object:
+) -> NativeContribution[SourceNativeDefinition, SourceAssemblyContext, SourceNativeBinding] | Failure:
     return compile_native_contribution(source, SOURCE_NATIVE_CONTRIBUTION_RULE)

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from hashlib import sha256
+import json
 
 import pytest
 
@@ -11,7 +13,7 @@ from app.services.agent_core.macro_registration import (
     read_registration_package,
     save_registration_package,
 )
-from app.services.agent_sessions.store import InMemoryAgentSessionStore
+from app.services.agent_sessions.store import InMemoryAgentSessionStore, validate_json_object
 from app.services.agent_core.host_authorization import TrustedHostContext, VerifiedHostAuthorization, canonical_arguments_sha256
 from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
 from app.services.agent_core.macro_tools import macro_registration_package_create_facility
@@ -88,6 +90,18 @@ def test_candidate_package_is_canonical_and_not_active() -> None:
     assert result["activation"]["status"] == "candidate"
     assert result["activation"]["authority"] == "host_activation_required"
     assert len(result["content_digest"]) == 64
+    assert validate_json_object(result, field="registration_package") == result
+    digest_payload = dict(result)
+    digest = str(digest_payload.pop("content_digest"))
+    assert digest == sha256(
+        json.dumps(
+            digest_payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode()
+    ).hexdigest()
 
 
 def test_first_save_with_real_store_and_exact_legacy_session_readback() -> None:

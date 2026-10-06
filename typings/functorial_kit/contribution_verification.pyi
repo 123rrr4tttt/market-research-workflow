@@ -1,6 +1,6 @@
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal, Never
 from .contributions import Contribution
 from .core.failure import Failure
 from .law_witness import LawWitness
@@ -36,7 +36,7 @@ class ContributionVerification:
 
 @dataclass(frozen=True, slots=True)
 class VerificationSource:
-    projection: Contribution[Any, Any]
+    projection: Contribution[Never, object]
     verification: ContributionVerification | None = ...
 
 
@@ -76,7 +76,7 @@ class VerificationSelection:
 @dataclass(frozen=True, slots=True)
 class VerificationPlan:
     kind: str
-    projections: tuple[Contribution[Any, Any], ...]
+    projections: tuple[Contribution[Never, object], ...]
     prerequisites: tuple[VerificationPlanPrerequisite, ...]
     checks: tuple[VerificationPlanCheck, ...]
     selection: VerificationSelection
@@ -152,7 +152,7 @@ class _ParsedVerification:
 
 @dataclass(frozen=True, slots=True)
 class _ParsedSource:
-    projection: Contribution[Any, Any]
+    projection: Contribution[Never, object]
     verification: ContributionVerification | None
     ...
 

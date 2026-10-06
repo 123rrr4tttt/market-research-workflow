@@ -1,29 +1,20 @@
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
-from sqlalchemy.exc import OperationalError, DatabaseError, ProgrammingError
-from typing import Any, Literal, Optional
-import logging
 import hashlib
 import json
+import logging
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from datetime import datetime, timezone
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache, partial
+from importlib import import_module
 from threading import Lock
+from typing import Literal, NoReturn, Protocol, TypeAlias, TypedDict, TypeGuard, runtime_checkable
 
-from ..project_customization import get_project_customization
-from ..services.ingest_config import get_config as get_ingest_config, upsert_config as upsert_ingest_config
-from ..services.ingest.adapters import submission_registry as ingest_submission_registry
-from ..services.job_logger import list_jobs
-from ..services.projects import bind_project, current_project_key
-from ..services.skill_runtime import invoke_skill
-from ..services.agent_batch.routing import apply_async_or_delay, validate_lane
-from ..services.agent_batch.task_contract import build_source_library_override_params
-from ..services.source_library.single_source_guard import (
-    SourceLibrarySingleSourceGuardError,
-    validate_single_source_guard,
-)
-from ..settings.config import get_effective_project_key_enforcement_mode, settings
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, JsonValue, TypeAdapter, ValidationError
+from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError, SQLAlchemyError
+
 from ..contracts import (
     ApiEnvelope,
     ErrorCode,
@@ -33,23 +24,260 @@ from ..contracts import (
     task_result_response,
 )
 from ..contracts.responses import ok
+from ..project_customization import get_project_customization
+from ..services.agent_batch.routing import apply_async_or_delay, validate_lane
+from ..services.agent_batch.task_contract import build_source_library_override_params
+from ..services.collect_runtime.contracts import CollectJsonObject, source_library_compat_response
+from ..services.ingest.adapters import submission_registry as ingest_submission_registry
+from ..services.job_logger import list_jobs
+from ..services.projects import bind_project, current_project_key
+from ..services.skill_runtime import invoke_skill
+from ..services.source_library.single_source_guard import (
+    SourceLibrarySingleSourceGuardError,
+    validate_single_source_guard,
+)
+from ..settings.config import get_effective_project_key_enforcement_mode, settings
+from ..successor_runtime.capabilities.material_ingest_registry import (
+    MaterialIngestRegistryBackendUnavailableError,
+    MaterialIngestRegistryConflictError,
+)
+from ._error_responses import error_json_response
 
 logger = logging.getLogger(__name__)
-from fastapi.responses import JSONResponse
+
+IngestJsonObject: TypeAlias = dict[str, object]
+IngestJsonValue: TypeAlias = object
+_INGEST_JSON_VALUE_ADAPTER: TypeAdapter[JsonValue] = TypeAdapter(JsonValue)
+
+
+@runtime_checkable
+class _AsyncTaskResult(Protocol):
+    id: str
+
+
+@runtime_checkable
+class _AsyncTask(Protocol):
+    def delay(self, *args: object, **kwargs: object) -> object:
+        ...
+
+    def apply_async(
+        self,
+        *,
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+        queue: str,
+        routing_key: str,
+    ) -> object:
+        ...
+
+
+@runtime_checkable
+class _TasksModule(Protocol):
+    task_ingest_market: _AsyncTask
+    task_ingest_url_via_source_library: _AsyncTask
+    task_collect_news_resource: _AsyncTask
+    task_collect_reddit: _AsyncTask
+    task_collect_weekly_reports: _AsyncTask
+    task_collect_monthly_reports: _AsyncTask
+    task_collect_data_api: _AsyncTask
+    task_collect_policy_regulation: _AsyncTask
+    task_ingest_commodity_metrics: _AsyncTask
+    task_collect_ecom_prices: _AsyncTask
+    task_run_source_library_item: _AsyncTask
+
+
+@runtime_checkable
+class _IngestConfigService(Protocol):
+    def get_config(self, project_key: str, config_key: str) -> object:
+        ...
+
+    def upsert_config(
+        self,
+        *,
+        project_key: str,
+        config_key: str,
+        config_type: str,
+        payload: IngestJsonObject | None,
+    ) -> object:
+        ...
+
+
+@runtime_checkable
+class _SocialIngestApplication(Protocol):
+    def collect_data_api(
+        self,
+        *,
+        keywords: list[str],
+        platforms: list[str] | None,
+        limit: int,
+        enable_extraction: bool,
+        enable_subreddit_discovery: bool,
+        base_subreddits: list[str] | None,
+    ) -> object:
+        ...
+
+
+@runtime_checkable
+class _ReportIngestModule(Protocol):
+    def collect_weekly_market_reports(self, *, limit: int = 10) -> object:
+        ...
+
+    def collect_monthly_financial_reports(self, *, limit: int = 8) -> object:
+        ...
+
+
+@runtime_checkable
+class _CommodityIngestModule(Protocol):
+    def ingest_commodity_metrics(
+        self,
+        symbols: dict[str, str] | None = None,
+        limit: int = 30,
+    ) -> object:
+        ...
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _json_value(value: object, *, path: str) -> JsonValue:
+    """Validate an untyped service boundary before publishing JSON."""
+    if value is None or isinstance(value, (bool, int, float, str)):
+        normalized: JsonValue = value
+    elif _is_object_list(value):
+        normalized = [
+            _json_value(item, path=f"{path}[{index}]")
+            for index, item in enumerate(value)
+        ]
+    elif _is_object_dict(value):
+        result: dict[str, JsonValue] = {}
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise TypeError(f"{path} must use string JSON object keys")
+            result[key] = _json_value(item, path=f"{path}.{key}")
+        normalized = result
+    else:
+        raise TypeError(f"{path} contains non-JSON value {type(value).__name__}")
+    try:
+        return _INGEST_JSON_VALUE_ADAPTER.validate_python(normalized)
+    except ValidationError as exc:
+        raise TypeError(f"{path} contains an invalid JSON value") from exc
+
+
+def _json_object(value: object, *, path: str) -> IngestJsonObject:
+    parsed = _json_value(value, path=path)
+    if not _is_object_dict(parsed):
+        raise TypeError(f"{path} must be a JSON object")
+    result: IngestJsonObject = {}
+    for key, item in parsed.items():
+        if not isinstance(key, str):
+            raise TypeError(f"{path} must use string JSON object keys")
+        result[key] = _json_value(item, path=f"{path}.{key}")
+    return result
+
+
+def _optional_json_object(value: object, *, path: str) -> IngestJsonObject | None:
+    if value is None:
+        return None
+    return _json_object(value, path=path)
+
+
+def _json_string_list(value: object, *, path: str) -> list[str]:
+    if not _is_object_list(value) or not all(isinstance(item, str) for item in value):
+        raise TypeError(f"{path} must be an array of strings")
+    return [item for item in value if isinstance(item, str)]
+
+
+def _json_int(value: object, *, path: str, default: int = 0) -> int:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError as exc:
+            raise TypeError(f"{path} must be an integer") from exc
+    raise TypeError(f"{path} must be an integer")
+
+
+def _task_result_id(value: object, *, task_name: str) -> str:
+    if not isinstance(value, _AsyncTaskResult):
+        raise TypeError(f"{task_name} did not return an async task result")
+    task_id = str(value.id).strip()
+    if not task_id:
+        raise RuntimeError(f"{task_name} returned an empty task id")
+    return task_id
 
 _INGEST_SUBMISSION_LOCK = Lock()
-_INGEST_SUBMISSIONS: dict[str, dict[str, Any]] = {}
+_INGEST_SUBMISSIONS: dict[str, IngestJsonObject] = {}
 
 @lru_cache(maxsize=1)
-def _tasks_module():
-    from ..services import tasks as tasks_module
-    return tasks_module
+def _tasks_module() -> _TasksModule:
+    module = import_module("app.services.tasks")
+    if not isinstance(module, _TasksModule):
+        raise RuntimeError("app.services.tasks does not expose the ingest task contract")
+    return module
 
 
 @lru_cache(maxsize=1)
-def _social_ingest_app():
+def _ingest_config_service() -> _IngestConfigService:
+    module = import_module("app.services.ingest_config")
+    if not isinstance(module, _IngestConfigService):
+        raise RuntimeError("app.services.ingest_config does not expose its public service contract")
+    return module
+
+
+def get_ingest_config(project_key: str, config_key: str) -> object:
+    """Compatibility seam for the established API tests and direct callers."""
+    return _ingest_config_service().get_config(project_key, config_key)
+
+
+def upsert_ingest_config(
+    *,
+    project_key: str,
+    config_key: str,
+    config_type: str,
+    payload: IngestJsonObject | None,
+) -> object:
+    """Compatibility seam that retains the former module-level service alias."""
+    return _ingest_config_service().upsert_config(
+        project_key=project_key,
+        config_key=config_key,
+        config_type=config_type,
+        payload=payload,
+    )
+
+
+@lru_cache(maxsize=1)
+def _social_ingest_app() -> _SocialIngestApplication:
     from ..services.ingest.social_application import SocialIngestApplicationService
+
     return SocialIngestApplicationService()
+
+
+@lru_cache(maxsize=1)
+def _report_ingest_module() -> _ReportIngestModule:
+    module = import_module("app.services.ingest.reports.general")
+    if not isinstance(module, _ReportIngestModule):
+        raise RuntimeError("report ingest service does not expose its public producer contract")
+    return module
+
+
+@lru_cache(maxsize=1)
+def _commodity_ingest_module() -> _CommodityIngestModule:
+    module = import_module("app.services.ingest.commodity")
+    if not isinstance(module, _CommodityIngestModule):
+        raise RuntimeError("commodity ingest service does not expose its public producer contract")
+    return module
 
 
 def _status_code_for_error_code(code: ErrorCode) -> int:
@@ -64,56 +292,57 @@ def _status_code_for_error_code(code: ErrorCode) -> int:
     return 500
 
 
-def _error_json(
-    code: ErrorCode,
-    message: str,
-    *,
-    details: dict[str, Any] | None = None,
-) -> JSONResponse:
-    payload = error_response(code, message, details=details)
-    payload["detail"] = {"error": payload["error"], "message": payload["error"]["message"]}
-    return JSONResponse(
-        status_code=_status_code_for_error_code(code),
-        content=payload,
-        headers={"X-Error-Code": code.value},
-    )
-
-
 def _error_500(exc: Exception) -> JSONResponse:
     code, message, details = map_exception_to_error(exc)
-    status_code = _status_code_for_error_code(code)
-    payload = error_response(code, message, details=details)
-    payload["detail"] = {"error": payload["error"], "message": payload["error"]["message"]}
-    return JSONResponse(
-        status_code=status_code,
-        content=payload,
-        headers={"X-Error-Code": code.value},
+    return error_json_response(
+        _status_code_for_error_code(code),
+        code,
+        message,
+        details=details,
     )
 
 
-def _raise_invalid_input(message: str, *, details: dict[str, Any] | None = None) -> None:
-    raise HTTPException(
-        status_code=400,
+def _raise_invalid_input(
+    message: str,
+    *,
+    details: IngestJsonObject | None = None,
+    status_code: int = 400,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    error = HTTPException(
+        status_code=status_code,
         detail=error_response(ErrorCode.INVALID_INPUT, message, details=details),
     )
+    if cause is not None:
+        raise error from cause
+    raise error
 
 
-def _raise_not_found(message: str, *, details: dict[str, Any] | None = None) -> None:
+def _raise_not_found(message: str, *, details: IngestJsonObject | None = None) -> NoReturn:
     raise HTTPException(
         status_code=404,
         detail=error_response(ErrorCode.NOT_FOUND, message, details=details),
     )
 
 
-def _raise_upstream_error(message: str, *, details: dict[str, Any] | None = None) -> None:
-    raise HTTPException(
+def _raise_upstream_error(
+    message: str,
+    *,
+    details: IngestJsonObject | None = None,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    error = HTTPException(
         status_code=503,
         detail=error_response(ErrorCode.UPSTREAM_ERROR, message, details=details),
     )
+    if cause is not None:
+        raise error from cause
+    raise error
 
 
-def _canonical_json(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+def _canonical_json(value: IngestJsonValue) -> str:
+    normalized = _json_value(value, path="ingest.idempotency_payload")
+    return json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def _derive_ingest_idempotency(
@@ -121,7 +350,7 @@ def _derive_ingest_idempotency(
     trigger_type: str,
     project_key: str,
     explicit_key: str | None,
-    basis: dict[str, Any],
+    basis: IngestJsonObject,
 ) -> tuple[str, str]:
     public_key = str(explicit_key or "").strip()
     if not public_key:
@@ -134,11 +363,44 @@ def _submission_id_for_key(registry_key: str) -> str:
     return ingest_submission_registry.submission_id_for_key(registry_key)
 
 
-def _request_hash_for_payload(payload: dict[str, Any]) -> str:
+def _request_hash_for_payload(payload: IngestJsonObject) -> str:
     return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
 
 
-def _registry_meta(*, backend: str, degraded: bool) -> dict[str, Any]:
+def _raise_ingest_registry_conflict(
+    exc: MaterialIngestRegistryConflictError,
+    *,
+    idempotency_key: str,
+) -> NoReturn:
+    _raise_invalid_input(
+        "idempotency_key was already used with a different request payload",
+        status_code=409,
+        details={
+            "reason": "idempotency_key_payload_conflict",
+            "idempotency_key": idempotency_key,
+            "registry_key": exc.registry_key,
+            "request_hash": exc.request_hash,
+        },
+        cause=exc,
+    )
+
+
+def _raise_ingest_registry_unavailable(
+    exc: MaterialIngestRegistryBackendUnavailableError,
+) -> NoReturn:
+    _raise_upstream_error(
+        "ingest submission registry is unavailable",
+        details={
+            "reason": "ingest_submission_registry_unavailable",
+            "registry_key": exc.registry_key,
+            "request_hash": exc.request_hash,
+            "exception_type": exc.__class__.__name__,
+        },
+        cause=exc,
+    )
+
+
+def _registry_meta(*, backend: str, degraded: bool) -> IngestJsonObject:
     return {"registry_backend": backend, "registry_degraded": bool(degraded)}
 
 
@@ -148,11 +410,11 @@ def _reserve_ingest_submission_db(
     project_key: str,
     idempotency_key: str,
     trigger_type: str,
-    subject: dict[str, Any],
-    request_payload: dict[str, Any],
+    subject: IngestJsonObject,
+    request_payload: IngestJsonObject,
     request_hash: str,
-) -> tuple[dict[str, Any], bool]:
-    return ingest_submission_registry.reserve_submission_db(
+) -> tuple[IngestJsonObject, bool]:
+    raw_submission, duplicate = ingest_submission_registry.reserve_submission_db(
         registry_key=registry_key,
         project_key=project_key,
         idempotency_key=idempotency_key,
@@ -161,9 +423,10 @@ def _reserve_ingest_submission_db(
         request_payload=request_payload,
         request_hash=request_hash,
     )
+    return _json_object(raw_submission, path="ingest_submission_registry.reserve"), bool(duplicate)
 
 
-def _complete_ingest_submission_db(*, registry_key: str, response_payload: dict[str, Any]) -> None:
+def _complete_ingest_submission_db(*, registry_key: str, response_payload: IngestJsonObject) -> None:
     ingest_submission_registry.complete_submission_db(
         registry_key=registry_key,
         response_payload=response_payload,
@@ -174,23 +437,30 @@ def _forget_ingest_submission_db(*, registry_key: str) -> None:
     ingest_submission_registry.forget_submission_db(registry_key=registry_key)
 
 
-def _reserve_ingest_submission_memory(
+def reserve_ingest_submission_memory_for_test(
     *,
     registry_key: str,
     project_key: str,
     idempotency_key: str,
     trigger_type: str,
-    subject: dict[str, Any],
+    subject: IngestJsonObject,
     request_hash: str,
     degraded: bool,
-) -> tuple[dict[str, Any], bool]:
+) -> tuple[IngestJsonObject, bool]:
     with _INGEST_SUBMISSION_LOCK:
         existing = _INGEST_SUBMISSIONS.get(registry_key)
         if existing is not None:
+            stored_hash = existing.get("request_hash")
+            if stored_hash != request_hash:
+                raise MaterialIngestRegistryConflictError(
+                    "registry_key already exists with a different request_hash",
+                    registry_key=registry_key,
+                    request_hash=request_hash,
+                )
             return deepcopy(existing), True
 
         now = datetime.now(timezone.utc).isoformat()
-        submission = {
+        submission: IngestJsonObject = {
             "submission_id": _submission_id_for_key(registry_key),
             "idempotency_key": idempotency_key,
             "trigger_type": trigger_type,
@@ -214,9 +484,9 @@ def _reserve_ingest_submission(
     project_key: str,
     idempotency_key: str,
     trigger_type: str,
-    subject: dict[str, Any],
-    request_payload: dict[str, Any],
-) -> tuple[dict[str, Any], bool]:
+    subject: IngestJsonObject,
+    request_payload: IngestJsonObject,
+) -> tuple[IngestJsonObject, bool]:
     request_hash = _request_hash_for_payload(request_payload)
     try:
         submission, duplicate = _reserve_ingest_submission_db(
@@ -228,28 +498,42 @@ def _reserve_ingest_submission(
             request_payload=request_payload,
             request_hash=request_hash,
         )
+        stored_hash = submission.get("request_hash")
+        if not isinstance(stored_hash, str):
+            _raise_ingest_registry_unavailable(
+                MaterialIngestRegistryBackendUnavailableError(
+                    "ingest submission registry returned no request_hash",
+                    registry_key=registry_key,
+                    request_hash=request_hash,
+                )
+            )
+        if stored_hash != request_hash:
+            _raise_ingest_registry_conflict(
+                MaterialIngestRegistryConflictError(
+                    "registry_key already exists with a different request_hash",
+                    registry_key=registry_key,
+                    request_hash=request_hash,
+                ),
+                idempotency_key=idempotency_key,
+            )
         with _INGEST_SUBMISSION_LOCK:
             _INGEST_SUBMISSIONS[registry_key] = deepcopy(submission)
         return submission, duplicate
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "ingest submission registry degraded to memory trigger_type=%s project_key=%s err=%s",
-            trigger_type,
-            project_key,
-            exc,
-        )
-        return _reserve_ingest_submission_memory(
-            registry_key=registry_key,
-            project_key=project_key,
-            idempotency_key=idempotency_key,
-            trigger_type=trigger_type,
-            subject=subject,
-            request_hash=request_hash,
-            degraded=True,
+    except MaterialIngestRegistryConflictError as exc:
+        _raise_ingest_registry_conflict(exc, idempotency_key=idempotency_key)
+    except MaterialIngestRegistryBackendUnavailableError as exc:
+        _raise_ingest_registry_unavailable(exc)
+    except SQLAlchemyError as exc:
+        _raise_ingest_registry_unavailable(
+            MaterialIngestRegistryBackendUnavailableError(
+                str(exc) or exc.__class__.__name__,
+                registry_key=registry_key,
+                request_hash=request_hash,
+            )
         )
 
 
-def _complete_ingest_submission(*, registry_key: str, response_payload: dict[str, Any]) -> None:
+def _complete_ingest_submission(*, registry_key: str, response_payload: IngestJsonObject) -> None:
     try:
         _complete_ingest_submission_db(registry_key=registry_key, response_payload=response_payload)
     except Exception as exc:  # noqa: BLE001
@@ -277,11 +561,11 @@ def _forget_ingest_submission(*, registry_key: str) -> None:
 
 
 def _apply_submission_fields(
-    response_payload: dict[str, Any],
+    response_payload: IngestJsonObject,
     *,
-    submission: dict[str, Any],
+    submission: IngestJsonObject,
     duplicate: bool = False,
-) -> dict[str, Any]:
+) -> IngestJsonObject:
     payload = dict(response_payload)
     payload["submission_id"] = submission["submission_id"]
     payload["idempotency_key"] = submission["idempotency_key"]
@@ -309,7 +593,8 @@ def _apply_submission_fields(
             provider=None,
         ),
     )
-    payload["trace_id"] = (payload.get("trace_chain") or {}).get("trace_id")
+    trace_chain = _optional_json_object(payload.get("trace_chain"), path="submission.trace_chain") or {}
+    payload["trace_id"] = trace_chain.get("trace_id")
     payload["feedback_state"] = _feedback_state_for_submission_payload(
         status=payload.get("status"),
         submission_status=payload.get("submission_status"),
@@ -318,27 +603,36 @@ def _apply_submission_fields(
     return payload
 
 
-def _duplicate_submission_response(submission: dict[str, Any]) -> dict[str, Any]:
+def _duplicate_submission_response(submission: IngestJsonObject) -> IngestJsonObject:
     response_payload = submission.get("response")
-    if isinstance(response_payload, dict):
-        return _apply_submission_fields(response_payload, submission=submission, duplicate=True)
+    parsed_response = _optional_json_object(response_payload, path="submission.response")
+    if parsed_response is not None:
+        return _apply_submission_fields(parsed_response, submission=submission, duplicate=True)
     return _apply_submission_fields(
         {
             "task_id": submission.get("task_id"),
             "status": submission.get("status") or "submitted",
             "async": True,
-            "params": dict(submission.get("subject") or {}),
+            "params": _optional_json_object(submission.get("subject"), path="submission.subject") or {},
         },
         submission=submission,
         duplicate=True,
     )
 
 
-def _validate_source_library_single_source_guard(override_params: dict[str, Any]) -> dict[str, Any] | None:
+def _validate_source_library_single_source_guard(
+    override_params: IngestJsonObject,
+) -> IngestJsonObject | None:
     try:
-        return validate_single_source_guard(override_params)
+        return _optional_json_object(
+            validate_single_source_guard(override_params),
+            path="source_library.single_source_guard",
+        )
     except SourceLibrarySingleSourceGuardError as exc:
-        _raise_invalid_input(str(exc), details=dict(exc.details))
+        _raise_invalid_input(
+            str(exc),
+            details=_json_object(exc.details, path="source_library.single_source_guard.error_details"),
+        )
 
 
 def _build_ingest_trace_chain(
@@ -349,10 +643,10 @@ def _build_ingest_trace_chain(
     task_id: str | None = None,
     status: str | None = None,
     provider: str | None = None,
-    fallback: dict[str, Any] | None = None,
+    fallback: IngestJsonObject | None = None,
     retrieval_run_id: str | None = None,
     known_limitations: list[str] | None = None,
-) -> dict[str, Any]:
+) -> IngestJsonObject:
     normalized_submission_id = str(submission_id or "").strip() or None
     normalized_task_id = str(task_id or "").strip() or None
     normalized_retrieval_run_id = str(retrieval_run_id or "").strip() or None
@@ -368,7 +662,7 @@ def _build_ingest_trace_chain(
             ]
         )
     )
-    fallback_payload = {
+    fallback_payload: IngestJsonObject = {
         "used": "unknown",
         "reason": "provider_execution_not_observed_at_ingest_response",
     }
@@ -424,8 +718,8 @@ def _build_worker_runtime_readback(
     trace_id: str | None,
     run_id: str | None = None,
     queue: str | None = None,
-) -> dict[str, Any]:
-    payload: dict[str, Any] = {
+) -> IngestJsonObject:
+    payload: IngestJsonObject = {
         "line_key": line_key,
         "trace_id": str(trace_id or "").strip(),
     }
@@ -438,9 +732,9 @@ def _build_worker_runtime_readback(
 
 def _feedback_state_for_submission_payload(
     *,
-    status: Any,
-    submission_status: Any,
-    error: Any = None,
+    status: object,
+    submission_status: object,
+    error: object = None,
 ) -> str:
     if error:
         return "failed"
@@ -458,11 +752,11 @@ def _feedback_state_for_submission_payload(
     return "unknown"
 
 
-def _submission_history_entry(submission: dict[str, Any]) -> dict[str, Any]:
-    response_payload = submission.get("response") if isinstance(submission.get("response"), dict) else {}
+def _submission_history_entry(submission: IngestJsonObject) -> IngestJsonObject:
+    response_payload = _optional_json_object(submission.get("response"), path="submission.response") or {}
     task_id = response_payload.get("task_id") or submission.get("task_id")
     status = response_payload.get("status") or submission.get("status") or submission.get("submission_status")
-    trace_chain = response_payload.get("trace_chain") if isinstance(response_payload.get("trace_chain"), dict) else None
+    trace_chain = _optional_json_object(response_payload.get("trace_chain"), path="submission.response.trace_chain")
     if trace_chain is None:
         trace_chain = _build_ingest_trace_chain(
             entrypoint=str(submission.get("trigger_type") or "ingest"),
@@ -474,7 +768,7 @@ def _submission_history_entry(submission: dict[str, Any]) -> dict[str, Any]:
         )
     trace_id = str(response_payload.get("trace_id") or trace_chain.get("trace_id") or "").strip() or None
     submission_status = str(submission.get("submission_status") or status or "submitted")
-    entry = {
+    entry: IngestJsonObject = {
         "id": submission.get("submission_id"),
         "job_type": "ingest_submission",
         "status": status,
@@ -495,7 +789,7 @@ def _submission_history_entry(submission: dict[str, Any]) -> dict[str, Any]:
         "registry_backend": submission.get("registry_backend") or "memory",
         "registry_degraded": bool(submission.get("registry_degraded")),
         "params": {
-            "subject": dict(submission.get("subject") or {}),
+            "subject": _optional_json_object(submission.get("subject"), path="submission.subject") or {},
             "response": deepcopy(response_payload),
         },
         "started_at": submission.get("created_at"),
@@ -508,13 +802,19 @@ def _submission_history_entry(submission: dict[str, Any]) -> dict[str, Any]:
     return entry
 
 
-def _list_recent_ingest_submissions_db(limit: int) -> list[dict[str, Any]]:
-    return ingest_submission_registry.list_recent_submissions_db(limit)
+def _list_recent_ingest_submissions_db(limit: int) -> list[IngestJsonObject]:
+    raw_rows = _json_value(
+        ingest_submission_registry.list_recent_submissions_db(limit),
+        path="ingest_submission_registry.history",
+    )
+    if not _is_object_list(raw_rows):
+        raise TypeError("ingest submission registry history must be an array")
+    return [_json_object(row, path=f"ingest_submission_registry.history[{index}]") for index, row in enumerate(raw_rows)]
 
 
-def _list_recent_ingest_submission_history(limit: int) -> list[dict[str, Any]]:
+def _list_recent_ingest_submission_history(limit: int) -> list[IngestJsonObject]:
     limit = max(1, min(int(limit or 20), 100))
-    submissions: list[dict[str, Any]] = []
+    submissions: list[IngestJsonObject] = []
     try:
         submissions.extend(_list_recent_ingest_submissions_db(limit))
     except ProgrammingError as exc:
@@ -531,7 +831,7 @@ def _list_recent_ingest_submission_history(limit: int) -> list[dict[str, Any]]:
         memory_submissions = [deepcopy(item) for item in _INGEST_SUBMISSIONS.values()]
 
     seen: set[str] = set()
-    merged: list[dict[str, Any]] = []
+    merged: list[IngestJsonObject] = []
     for submission in [*submissions, *memory_submissions]:
         key = str(submission.get("registry_key") or submission.get("submission_id") or "")
         if not key or key in seen:
@@ -543,12 +843,12 @@ def _list_recent_ingest_submission_history(limit: int) -> list[dict[str, Any]]:
 
 
 def _merge_runtime_readback_override(
-    payload: dict[str, Any] | None,
-    runtime_readback: dict[str, Any],
-) -> dict[str, Any]:
+    payload: IngestJsonObject | None,
+    runtime_readback: IngestJsonObject,
+) -> IngestJsonObject:
     merged = dict(payload or {})
     existing = merged.get("runtime_readback")
-    existing_payload = dict(existing) if isinstance(existing, dict) else {}
+    existing_payload = _optional_json_object(existing, path="override_params.runtime_readback") or {}
     merged["runtime_readback"] = {**runtime_readback, **existing_payload}
     return merged
 
@@ -559,15 +859,14 @@ def _dispatch_market_collect_async(
     max_items: int,
     project_key: str,
     enable_extraction: bool,
-    start_offset: int,
+    start_offset: int | None,
     days_back: int | None,
     language: str | None,
     provider: str | None,
     consumer: str,
 ) -> str:
     # Keep parity with historical async semantics while routing through skill runtime.
-    normalized_start_offset = start_offset if isinstance(start_offset, int) else None
-    invoked = invoke_skill(
+    invoked = _json_object(invoke_skill(
         skill_id="ingest.dispatch.market_collect",
         payload={
             "query_terms": list(query_terms or []),
@@ -579,7 +878,7 @@ def _dispatch_market_collect_async(
             "lane": "main",
             "override_params": {
                 "enable_extraction": bool(enable_extraction),
-                "start_offset": normalized_start_offset,
+                "start_offset": start_offset,
             },
         },
         context={
@@ -588,9 +887,9 @@ def _dispatch_market_collect_async(
             "consumer": consumer,
             "trace_id": f"{consumer}.market",
         },
-    )
-    result = invoked.get("result")
-    task_id = str((result or {}).get("task_id") or "").strip() if isinstance(result, dict) else ""
+    ), path="skill.ingest.dispatch.market_collect")
+    result = _optional_json_object(invoked.get("result"), path="skill.ingest.dispatch.market_collect.result")
+    task_id = str((result or {}).get("task_id") or "").strip()
     if not task_id:
         raise RuntimeError("market async dispatch skill returned empty task_id")
     return task_id
@@ -600,12 +899,12 @@ def _dispatch_source_library_item_async(
     *,
     item_key: str,
     project_key: str,
-    override_params: dict[str, Any],
+    override_params: IngestJsonObject,
     consumer: str,
     trace_id: str | None = None,
     workflow_run_id: str | None = None,
 ) -> str:
-    invoked = invoke_skill(
+    invoked = _json_object(invoke_skill(
         skill_id="ingest.dispatch.source_library_item",
         payload={
             "item_key": item_key,
@@ -621,27 +920,35 @@ def _dispatch_source_library_item_async(
             "consumer": consumer,
             "trace_id": str(trace_id or "").strip() or f"{consumer}.source_library",
         },
-    )
-    result = invoked.get("result")
-    task_id = str((result or {}).get("task_id") or "").strip() if isinstance(result, dict) else ""
+    ), path="skill.ingest.dispatch.source_library_item")
+    result = _optional_json_object(invoked.get("result"), path="skill.ingest.dispatch.source_library_item.result")
+    task_id = str((result or {}).get("task_id") or "").strip()
     if not task_id:
         raise RuntimeError("source library async dispatch skill returned empty task_id")
     return task_id
 
 
-def _skill_dispatch_ingest_market_collect(payload: dict[str, Any]) -> dict[str, Any]:
-    query_terms = _normalize_query_terms((payload or {}).get("query_terms") or [], None)
-    max_items = _normalize_max_items((payload or {}).get("max_items"), None)
-    project_key = _require_project_key((payload or {}).get("project_key"))
-    lane = validate_lane((payload or {}).get("lane"))
-    override_params = dict((payload or {}).get("override_params") or {})
+def _skill_dispatch_ingest_market_collect(payload: IngestJsonObject) -> IngestJsonObject:
+    query_terms = _normalize_query_terms(
+        _json_string_list(payload.get("query_terms"), path="skill.market.query_terms"),
+        None,
+    )
+    raw_max_items = payload.get("max_items")
+    max_items = _normalize_max_items(raw_max_items if isinstance(raw_max_items, int) else None, None)
+    project_key = _require_project_key(str(payload.get("project_key") or "").strip() or None)
+    lane = validate_lane(str(payload.get("lane") or "").strip() or None)
+    override_params = _optional_json_object(payload.get("override_params"), path="skill.market.override_params") or {}
     enable_extraction = bool(override_params.get("enable_extraction", True))
     start_offset = override_params.get("start_offset")
     if not isinstance(start_offset, int):
         start_offset = None
-    trace_id = str((payload or {}).get("trace_id") or "").strip() or None
-    workflow_run_id = str((payload or {}).get("workflow_run_id") or "").strip() or None
-    task = apply_async_or_delay(
+    trace_id = str(payload.get("trace_id") or "").strip() or None
+    workflow_run_id = str(payload.get("workflow_run_id") or "").strip() or None
+    raw_days_back = payload.get("days_back")
+    days_back = raw_days_back if isinstance(raw_days_back, int) else None
+    language = str(payload.get("language") or "").strip() or None
+    provider = str(payload.get("provider") or "").strip() or None
+    task: object = apply_async_or_delay(
         _tasks_module().task_ingest_market,
         (
             query_terms,
@@ -649,32 +956,38 @@ def _skill_dispatch_ingest_market_collect(payload: dict[str, Any]) -> dict[str, 
             enable_extraction,
             project_key,
             start_offset,
-            (payload or {}).get("days_back"),
-            (payload or {}).get("language"),
-            (payload or {}).get("provider"),
+            days_back,
+            language,
+            provider,
         ),
         {"workflow_run_id": workflow_run_id, "trace_id": trace_id},
         lane,
     )
-    return {"task_id": str(task.id)}
+    return {"task_id": _task_result_id(task, task_name="task_ingest_market")}
 
 
-def _skill_dispatch_ingest_source_library_item(payload: dict[str, Any]) -> dict[str, Any]:
-    item_key = str((payload or {}).get("item_key") or "").strip()
+def _skill_dispatch_ingest_source_library_item(payload: IngestJsonObject) -> IngestJsonObject:
+    item_key = str(payload.get("item_key") or "").strip()
     if not item_key:
         raise ValueError("item_key is required")
-    project_key = _require_project_key((payload or {}).get("project_key"))
-    lane = validate_lane((payload or {}).get("lane"))
-    override_params = dict((payload or {}).get("override_params") or {})
-    trace_id = str((payload or {}).get("trace_id") or "").strip() or None
-    workflow_run_id = str((payload or {}).get("workflow_run_id") or "").strip() or None
-    task = apply_async_or_delay(
+    project_key = _require_project_key(str(payload.get("project_key") or "").strip() or None)
+    lane = validate_lane(str(payload.get("lane") or "").strip() or None)
+    override_params = _optional_json_object(payload.get("override_params"), path="skill.source_library.override_params") or {}
+    trace_id = str(payload.get("trace_id") or "").strip() or None
+    workflow_run_id = str(payload.get("workflow_run_id") or "").strip() or None
+    task: object = apply_async_or_delay(
         _tasks_module().task_run_source_library_item,
         (item_key, project_key, override_params),
         {"workflow_run_id": workflow_run_id, "trace_id": trace_id},
         lane,
     )
-    return {"task_id": str(task.id)}
+    return {"task_id": _task_result_id(task, task_name="task_run_source_library_item")}
+
+
+# Accessed dynamically by the skill runtime bootstrap; public aliases keep that
+# contribution edge visible to static analysis without duplicating registration.
+skill_dispatch_ingest_market_collect = _skill_dispatch_ingest_market_collect
+skill_dispatch_ingest_source_library_item = _skill_dispatch_ingest_source_library_item
 
 
 def _require_project_key(project_key: str | None) -> str:
@@ -744,20 +1057,21 @@ def _expand_query_terms_with_topic_focus(
     *,
     topic_focus: str | None,
     language: str | None,
-) -> tuple[list[str], dict]:
+) -> tuple[list[str], IngestJsonObject]:
     focus = str(topic_focus or "").strip().lower()
     if focus not in {"company", "product", "operation"}:
         return query_terms, {}
     try:
         from ..services.search.web import generate_topic_keywords
         topic = " ".join(query_terms[:4]).strip() or (query_terms[0] if query_terms else "")
-        kw = generate_topic_keywords(
+        kw = _json_object(generate_topic_keywords(
             topic,
             topic_focus=focus,
             language=language or "zh",
             base_keywords=query_terms,
-        )
-        extra = [str(x).strip() for x in (kw.get("search_keywords") or []) if str(x).strip()]
+        ), path="search.generate_topic_keywords")
+        raw_extra = kw.get("search_keywords")
+        extra = _json_string_list(raw_extra, path="search.generate_topic_keywords.search_keywords") if raw_extra else []
         merged = list(dict.fromkeys([*query_terms, *extra]))
         return merged, {"topic_focus": focus, "topic_hints": kw.get("topic_hints") or [], "topic_search_keywords": extra}
     except Exception as exc:  # noqa: BLE001
@@ -766,40 +1080,41 @@ def _expand_query_terms_with_topic_focus(
 
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
-IngestAnyEnvelope = ApiEnvelope[Any]
+IngestJsonEnvelope = ApiEnvelope[JsonValue]
 
 
 class IngestConfigUpsertPayload(BaseModel):
     project_key: str | None = Field(default=None, description="Project key (optional, fallback to context)")
     config_key: str = Field(..., min_length=1, description="Config key, e.g. social_forum")
     config_type: str = Field(..., min_length=1, description="Config type")
-    payload: dict | None = Field(default=None, description="Config payload (JSON)")
+    payload: IngestJsonObject | None = Field(default=None, description="Config payload (JSON)")
 
 
-@router.get("/config", response_model=IngestAnyEnvelope)
+@router.get("/config", response_model=IngestJsonEnvelope)
 def get_ingest_config_endpoint(
     project_key: str | None = Query(default=None),
     config_key: str = Query(..., description="Config key, e.g. social_forum"),
-):
+) -> IngestJsonObject | JSONResponse:
     """Get ingest config by project_key and config_key."""
     pk = _require_project_key(project_key)
-    data = get_ingest_config(pk, config_key)
-    if data is None:
-        return _error_json(ErrorCode.NOT_FOUND, f"Config not found: {config_key}")
+    raw_data = get_ingest_config(pk, config_key)
+    if raw_data is None:
+        return error_json_response(404, ErrorCode.NOT_FOUND, f"Config not found: {config_key}")
+    data = _json_object(raw_data, path="ingest.config.read")
     return ok(data)
 
 
-@router.post("/config", response_model=IngestAnyEnvelope)
-def post_ingest_config_endpoint(body: IngestConfigUpsertPayload):
+@router.post("/config", response_model=IngestJsonEnvelope)
+def post_ingest_config_endpoint(body: IngestConfigUpsertPayload) -> IngestJsonObject:
     """Upsert ingest config."""
     pk = _require_project_key(body.project_key)
     try:
-        data = upsert_ingest_config(
+        data = _json_object(upsert_ingest_config(
             project_key=pk,
             config_key=body.config_key,
             config_type=body.config_type,
             payload=body.payload,
-        )
+        ), path="ingest.config.upsert")
         return ok(data)
     except ValueError as exc:
         _raise_invalid_input(
@@ -883,8 +1198,8 @@ class EcomPriceRequest(BaseModel):
     project_key: str | None = Field(default=None, description="项目标识")
 
 
-@router.post("/market", response_model=IngestAnyEnvelope)
-def ingest_market(payload: MarketIngestRequest):
+@router.post("/market", response_model=IngestJsonEnvelope)
+def ingest_market(payload: MarketIngestRequest) -> IngestJsonObject | JSONResponse:
     """Generic market info (web search). Project-specific fixed sources use source library."""
     project_key = _require_project_key(payload.project_key)
     query_terms = _normalize_query_terms(payload.query_terms, payload.keywords, field_name="query_terms")
@@ -925,7 +1240,12 @@ def ingest_market(payload: MarketIngestRequest):
                 provider=payload.provider or "auto",
             )
             cr = run_collect(req)
-            raw = dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped, "display_meta": cr.display_meta})
+            raw = _optional_json_object(cr.meta.get("raw"), path="collect.market.meta.raw") or {
+                "inserted": cr.inserted,
+                "updated": cr.updated,
+                "skipped": cr.skipped,
+                "display_meta": cr.display_meta,
+            }
             if topic_meta:
                 raw["topic_focus"] = topic_meta.get("topic_focus")
                 raw["topic_hints"] = topic_meta.get("topic_hints") or []
@@ -935,8 +1255,8 @@ def ingest_market(payload: MarketIngestRequest):
         return _error_500(exc)
 
 
-@router.post("/url/single", response_model=IngestAnyEnvelope)
-def ingest_url_single(payload: SingleUrlIngestRequest):
+@router.post("/url/single", response_model=IngestJsonEnvelope)
+def ingest_url_single(payload: SingleUrlIngestRequest) -> IngestJsonObject | JSONResponse:
     project_key = _require_project_key(payload.project_key)
     normalized_url = str(payload.url or "").strip()
     if not normalized_url:
@@ -945,7 +1265,7 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
             detail=error_response(ErrorCode.INVALID_INPUT, "url is required and cannot be empty."),
         )
 
-    effective_payload: dict[str, Any] = {
+    effective_payload: IngestJsonObject = {
         "url": normalized_url,
         "query_terms": payload.query_terms,
         "idempotency_key": str(payload.idempotency_key or "").strip() or None,
@@ -967,7 +1287,7 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
         "async_mode": bool(payload.async_mode),
     }
 
-    search_options: dict[str, Any] | None = None
+    search_options: IngestJsonObject | None = None
     if (
         not bool(payload.search_expand)
         or int(payload.search_expand_limit) != 3
@@ -991,6 +1311,7 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
         search_options.pop("strict_mode", None)
         search_options.pop("async_mode", None)
 
+    registry_key: str | None = None
     if payload.async_mode:
         idempotency_key, registry_key = _derive_ingest_idempotency(
             trigger_type="ingest.url.single",
@@ -1029,13 +1350,13 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
                 _build_worker_runtime_readback(
                     line_key="ingest",
                     trace_id=dispatch_trace_id,
-                    run_id=submission.get("submission_id") or idempotency_key,
+                    run_id=str(submission.get("submission_id") or idempotency_key),
                     queue="local.ingest",
                 ),
             )
         try:
             if isinstance(dispatch_search_options, dict):
-                task = _tasks_module().task_ingest_url_via_source_library.delay(
+                task: object = _tasks_module().task_ingest_url_via_source_library.delay(
                     normalized_url,
                     payload.query_terms,
                     payload.strict_mode,
@@ -1052,8 +1373,8 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
         except Exception:
             _forget_ingest_submission(registry_key=registry_key)
             raise
-        task_payload = task_result_response(
-            task_id=task.id,
+        task_payload = _json_object(task_result_response(
+            task_id=_task_result_id(task, task_name="task_ingest_url_via_source_library"),
             async_mode=True,
             params={
                 "url": normalized_url,
@@ -1061,15 +1382,15 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
                 "strict_mode": payload.strict_mode,
                 **({"search_options": search_options} if isinstance(search_options, dict) else {}),
             },
-        )
+        ), path="ingest.url.single.async_response")
         task_payload["effective_payload"] = effective_payload
         task_payload = _apply_submission_fields(task_payload, submission=submission)
         task_payload["trace_chain"] = _build_ingest_trace_chain(
             entrypoint="ingest.url.single",
             project_key=project_key,
-            submission_id=task_payload.get("submission_id"),
-            task_id=task_payload.get("task_id"),
-            status=task_payload.get("status"),
+            submission_id=str(task_payload.get("submission_id") or "") or None,
+            task_id=str(task_payload.get("task_id") or "") or None,
+            status=str(task_payload.get("status") or "") or None,
             provider=payload.search_provider or "auto",
             fallback={
                 "enabled": bool(payload.fallback_on_insufficient),
@@ -1114,7 +1435,7 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
         with bind_project(project_key):
             from ..services.ingest.url_pool import ingest_url_via_source_library_frontdoor
 
-            result = ingest_url_via_source_library_frontdoor(
+            result = _json_object(ingest_url_via_source_library_frontdoor(
                 url=normalized_url,
                 project_key=project_key,
                 query_terms=payload.query_terms,
@@ -1124,42 +1445,45 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
                 entrypoint="ingest.url.single",
                 source_name="ingest_url_single",
                 enable_extraction=True,
+            ), path="ingest.url.single.result")
+            result.setdefault("effective_payload", effective_payload)
+            result = _apply_submission_fields(result, submission=submission)
+            result["trace_chain"] = _build_ingest_trace_chain(
+                entrypoint="ingest.url.single",
+                project_key=project_key,
+                submission_id=str(result.get("submission_id") or "") or None,
+                task_id=str(result.get("task_id") or "") or None,
+                status=str(result.get("status") or "") or None,
+                provider=payload.search_provider or "auto",
+                fallback={
+                    "enabled": bool(payload.fallback_on_insufficient),
+                    "provider": payload.search_fallback_provider,
+                    "used": bool(str(result.get("status") or "").lower().startswith("degraded")),
+                    "reason": (
+                        "sync_url_ingest_returned_degraded_status"
+                        if str(result.get("status") or "").lower().startswith("degraded")
+                        else "no_fallback_observed_in_ingest_response"
+                    ),
+                },
             )
-            if isinstance(result, dict):
-                result.setdefault("effective_payload", effective_payload)
-                result = _apply_submission_fields(result, submission=submission)
-                result["trace_chain"] = _build_ingest_trace_chain(
-                    entrypoint="ingest.url.single",
-                    project_key=project_key,
-                    submission_id=result.get("submission_id"),
-                    task_id=result.get("task_id"),
-                    status=result.get("status"),
-                    provider=payload.search_provider or "auto",
-                    fallback={
-                        "enabled": bool(payload.fallback_on_insufficient),
-                        "provider": payload.search_fallback_provider,
-                        "used": bool(str(result.get("status") or "").lower().startswith("degraded")),
-                        "reason": (
-                            "sync_url_ingest_returned_degraded_status"
-                            if str(result.get("status") or "").lower().startswith("degraded")
-                            else "no_fallback_observed_in_ingest_response"
-                        ),
-                    },
-                )
-                _complete_ingest_submission(registry_key=registry_key, response_payload=result)
+            _complete_ingest_submission(registry_key=registry_key, response_payload=result)
             return ok(result)
     except Exception as exc:  # noqa: BLE001
-        _forget_ingest_submission(registry_key=registry_key)
+        if registry_key:
+            _forget_ingest_submission(registry_key=registry_key)
         return _error_500(exc)
 
 
-@router.get("/history", response_model=IngestAnyEnvelope)
-def ingest_history(limit: int = 20):
+@router.get("/history", response_model=IngestJsonEnvelope)
+def ingest_history(limit: int = 20) -> IngestJsonObject:
     try:
         normalized_limit = max(1, min(int(limit or 20), 100))
         submissions = _list_recent_ingest_submission_history(normalized_limit)
-        jobs = list_jobs(limit=normalized_limit)
-        return success_response([*submissions, *jobs])
+        raw_jobs = _json_value(list_jobs(limit=normalized_limit), path="ingest.history.jobs")
+        if not _is_object_list(raw_jobs):
+            raise TypeError("ingest history jobs readback must be an array")
+        jobs = [_json_object(job, path=f"ingest.history.jobs[{index}]") for index, job in enumerate(raw_jobs)]
+        return _json_object(success_response([*submissions, *jobs]), path="ingest.history.response")
     except (OperationalError, DatabaseError) as e:
         logger.exception("数据库连接失败")
         _raise_upstream_error(
@@ -1184,7 +1508,7 @@ def ingest_history(limit: int = 20):
         )
 
 
-def _dispatch_news_resource(resource_id: str, payload: NewsRequest):
+def _dispatch_news_resource(resource_id: str, payload: NewsRequest) -> IngestJsonObject | JSONResponse:
     """Dispatch to news resource handler. Effective = shared (总库) + project (子项目库), project overrides."""
     project_key = _require_project_key(payload.project_key)
     customization = get_project_customization(project_key)
@@ -1198,17 +1522,20 @@ def _dispatch_news_resource(resource_id: str, payload: NewsRequest):
             details={"project_key": project_key, "resource_id": resource_id},
         )
     if payload.async_mode:
-        task = _tasks_module().task_collect_news_resource.delay(resource_id, payload.limit, project_key)
-        return success_response(
+        task: object = _tasks_module().task_collect_news_resource.delay(resource_id, payload.limit, project_key)
+        return _json_object(success_response(
             task_result_response(
-                task_id=task.id,
+                task_id=_task_result_id(task, task_name="task_collect_news_resource"),
                 async_mode=True,
                 params={"resource_id": resource_id, "limit": payload.limit},
             )
-        )
+        ), path="ingest.news_resource.async_response")
     try:
         with bind_project(project_key):
-            return success_response(handler(limit=payload.limit))
+            return _json_object(
+                success_response(_json_object(handler(payload.limit), path="ingest.news_resource.result")),
+                path="ingest.news_resource.response",
+            )
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
@@ -1220,6 +1547,24 @@ _NEWS_RESOURCE_DISPLAY_NAMES: dict[str, str] = {
 
 def _resource_display_name(resource_id: str) -> str:
     return _NEWS_RESOURCE_DISPLAY_NAMES.get(resource_id) or resource_id.replace("_", " ").title()
+
+
+class SourceLibraryRunItem(BaseModel):
+    item_key: str | None = Field(default=None, min_length=1)
+    handler_key: str | None = Field(default=None, min_length=1)
+    idempotency_key: str | None = None
+    source_mode: Literal["protocol_search", "provider_harvest", "site_search", "url_execution"] | None = None
+    query_terms: list[str] = Field(default_factory=list)
+    urls: list[str] = Field(default_factory=list)
+    max_items: int | None = Field(default=None, ge=1, le=100)
+    provider: str | None = None
+    language: str | None = None
+    scope: str | None = None
+    platforms: list[str] = Field(default_factory=list)
+    async_mode: bool = False
+    override_params: IngestJsonObject = Field(default_factory=dict)
+
+    model_config = {"extra": "forbid"}
 
 
 class SourceLibraryRunPayload(BaseModel):
@@ -1236,8 +1581,8 @@ class SourceLibraryRunPayload(BaseModel):
     platforms: list[str] = Field(default_factory=list)
     project_key: str | None = Field(default=None)
     async_mode: bool = Field(default=False)
-    override_params: dict = Field(default_factory=dict)
-    items: list[Any] | None = Field(
+    override_params: IngestJsonObject = Field(default_factory=dict)
+    items: list[object] | None = Field(
         default=None,
         description="统一批量 item 入口；每个元素使用 item_key/handler_key 结构。",
     )
@@ -1248,8 +1593,10 @@ class SourceLibrarySyncPayload(BaseModel):
 
 
 def _ensure_handler_cluster_item(*, project_key: str, handler_key: str) -> tuple[str, int]:
-    from .source_library import SourceLibraryItemUpsertPayload, _upsert_project_item_internal
     from ..services.resource_pool import list_site_entries
+    from ..services.source_library.item_writer import (
+        sync_handler_cluster_items,
+    )
 
     hk = str(handler_key or "").strip().lower()
     if not hk:
@@ -1286,26 +1633,38 @@ def _ensure_handler_cluster_item(*, project_key: str, handler_key: str) -> tuple
             details={"handler_key": hk},
         )
 
-    item_key = f"handler.cluster.{hk}"
-    payload = SourceLibraryItemUpsertPayload(
-        item_key=item_key,
-        name=f"Handler Cluster {hk}",
-        channel_key="handler.cluster",
-        description=f"Stable handler-cluster item generated from resource_pool.site_entries entry_type={hk}",
-        params={
-            "site_entries": site_entries,
-            "expected_entry_type": hk,
-        },
-        tags=["handler_cluster", hk],
-        enabled=True,
-        extra={
-            "creation_handler": "handler.entry_type",
-            "expected_entry_type": hk,
-            "stable_handler_cluster": True,
-        },
+    sync_response = _json_object(
+        sync_handler_cluster_items(
+            project_key=project_key,
+            handlers=[hk],
+            incremental=False,
+            max_site_entries=len(site_entries),
+        ),
+        path="source_library.handler_cluster.sync",
     )
-    _upsert_project_item_internal(payload=payload, project_key=project_key)
-    return item_key, len(site_entries)
+    sync_data = _json_object(
+        sync_response.get("data"),
+        path="source_library.handler_cluster.sync.data",
+    )
+    raw_results = sync_data.get("results")
+    if not _is_object_list(raw_results):
+        raise TypeError("source_library.handler_cluster.sync.data.results must be an array")
+    item_key = f"handler.cluster.{hk}"
+    for index, raw_result in enumerate(raw_results):
+        result = _json_object(
+            raw_result,
+            path=f"source_library.handler_cluster.sync.data.results[{index}]",
+        )
+        if result.get("handler_key") != hk or result.get("item_key") != item_key:
+            continue
+        site_entries_after = _json_int(
+            result.get("site_entries_after"),
+            path=f"source_library.handler_cluster.sync.data.results[{index}].site_entries_after",
+        )
+        if site_entries_after <= 0:
+            raise TypeError("source_library handler cluster sync returned an empty cluster")
+        return item_key, site_entries_after
+    raise TypeError("source_library handler cluster sync omitted the requested handler")
 
 
 def _run_single_source_library_entry(
@@ -1323,16 +1682,22 @@ def _run_single_source_library_entry(
     scope: str | None,
     platforms: list[str] | None,
     async_mode: bool,
-    override_params: dict | None,
-) -> dict[str, Any]:
-    def _external_terminal_payload(result: dict[str, Any]) -> dict[str, Any]:
-        terminal_output = result.get("terminal_output") if isinstance(result, dict) else None
+    override_params: IngestJsonObject | None,
+) -> IngestJsonObject:
+    def _external_terminal_payload(raw_result: object) -> IngestJsonObject:
+        result: CollectJsonObject = source_library_compat_response(raw_result)
+        terminal_output = result.get("terminal_output")
         if isinstance(terminal_output, dict):
-            authority_output = result.get("authority_output") if isinstance(result.get("authority_output"), dict) else None
-            compat_projection = result.get("compat_projection") if isinstance(result.get("compat_projection"), dict) else None
-            frontdoor_ingress = result.get("frontdoor_ingress") if isinstance(result.get("frontdoor_ingress"), dict) else None
-            postprocess_frontdoor = result.get("postprocess_frontdoor") if isinstance(result.get("postprocess_frontdoor"), dict) else None
-            legacy_result = result.get("legacy_result") if isinstance(result.get("legacy_result"), dict) else None
+            raw_authority_output = result.get("authority_output")
+            authority_output = raw_authority_output if isinstance(raw_authority_output, dict) else None
+            raw_compat_projection = result.get("compat_projection")
+            compat_projection = raw_compat_projection if isinstance(raw_compat_projection, dict) else None
+            raw_frontdoor_ingress = result.get("frontdoor_ingress")
+            frontdoor_ingress = raw_frontdoor_ingress if isinstance(raw_frontdoor_ingress, dict) else None
+            raw_postprocess_frontdoor = result.get("postprocess_frontdoor")
+            postprocess_frontdoor = raw_postprocess_frontdoor if isinstance(raw_postprocess_frontdoor, dict) else None
+            raw_legacy_result = result.get("legacy_result")
+            legacy_result = raw_legacy_result if isinstance(raw_legacy_result, dict) else None
             if authority_output is None and frontdoor_ingress and postprocess_frontdoor and legacy_result is not None:
                 from ..services.collect_runtime.adapters.source_library import (
                     build_source_library_authority_output,
@@ -1349,7 +1714,7 @@ def _run_single_source_library_entry(
                     legacy_result=legacy_result,
                     authority_output=authority_output,
                 )
-            response_payload = dict(terminal_output)
+            response_payload: CollectJsonObject = dict(terminal_output)
             response_payload.setdefault("terminal_output", terminal_output)
             if isinstance(authority_output, dict):
                 response_payload["authority_output"] = dict(authority_output)
@@ -1364,12 +1729,13 @@ def _run_single_source_library_entry(
                 response_payload["legacy_result_is_deprecated"] = bool(result.get("legacy_result_is_deprecated", True))
             if result.get("display_meta") is not None and "display_meta" not in response_payload:
                 response_payload["display_meta"] = result.get("display_meta")
-            return response_payload
-        if isinstance(result, dict):
-            from ..services.source_library.terminal_output import build_source_library_terminal_output
+            return _json_object(response_payload, path="source_library.terminal_output")
+        from ..services.source_library.terminal_output import build_source_library_terminal_output
 
-            return build_source_library_terminal_output(result_payload=result, collect_result=None)
-        return result
+        return _json_object(
+            build_source_library_terminal_output(result_payload=result, collect_result=None),
+            path="source_library.compat_terminal_output",
+        )
 
     resolved_item_key = str(item_key or "").strip()
     resolved_handler_key = str(handler_key or "").strip()
@@ -1385,7 +1751,7 @@ def _run_single_source_library_entry(
             details={"fields": ["item_key", "handler_key"]},
         )
 
-    final_override_params = build_source_library_override_params(
+    final_override_params = _json_object(build_source_library_override_params(
         {
             "override_params": dict(override_params or {}),
             "query_terms": list(query_terms or []),
@@ -1398,7 +1764,7 @@ def _run_single_source_library_entry(
             "source_mode": str(source_mode or "").strip().lower() or None,
         },
         workflow_run_id=str((override_params or {}).get("workflow_run_id") or "").strip() or None,
-    )
+    ), path="source_library.override_params")
     if resolved_handler_key:
         resolved_item_key, site_entry_count = _ensure_handler_cluster_item(
             project_key=project_key,
@@ -1408,7 +1774,7 @@ def _run_single_source_library_entry(
         final_override_params.setdefault("_handler_site_entry_count", site_entry_count)
     single_source_guard = _validate_source_library_single_source_guard(final_override_params)
 
-    submission: dict[str, Any] | None = None
+    submission: IngestJsonObject | None = None
     registry_key: str | None = None
     public_idempotency_key = str(idempotency_key or "").strip()
     if public_idempotency_key:
@@ -1463,11 +1829,11 @@ def _run_single_source_library_entry(
             if registry_key:
                 _forget_ingest_submission(registry_key=registry_key)
             raise
-        result_payload = task_result_response(
+        result_payload = _json_object(task_result_response(
             task_id=task_id,
             async_mode=True,
             params={"item_key": resolved_item_key},
-        )
+        ), path="source_library.async_result")
         if single_source_guard is not None:
             result_payload["single_source_guard"] = single_source_guard
             result_payload["strict_source"] = single_source_guard
@@ -1476,12 +1842,10 @@ def _run_single_source_library_entry(
         result_payload["trace_chain"] = _build_ingest_trace_chain(
             entrypoint="ingest.source_library.run",
             project_key=project_key,
-            submission_id=result_payload.get("submission_id"),
-            task_id=result_payload.get("task_id"),
-            status=result_payload.get("status"),
-            provider=final_override_params.get("provider")
-            or final_override_params.get("source_mode")
-            or "source_library",
+            submission_id=str(result_payload.get("submission_id") or "") or None,
+            task_id=str(result_payload.get("task_id") or "") or None,
+            status=str(result_payload.get("status") or "") or None,
+            provider=str(final_override_params.get("provider") or final_override_params.get("source_mode") or "source_library"),
             fallback={
                 "enabled": "unknown",
                 "used": "unknown",
@@ -1496,45 +1860,42 @@ def _run_single_source_library_entry(
     from ..services.collect_runtime import run_source_library_item_compat
 
     try:
-        result = run_source_library_item_compat(
+        result: object = run_source_library_item_compat(
             item_key=resolved_item_key,
             project_key=project_key,
-            override_params=final_override_params,
+            override_params=source_library_compat_response(final_override_params),
         )
     except Exception:
         if registry_key:
             _forget_ingest_submission(registry_key=registry_key)
         raise
     result_payload = _external_terminal_payload(result)
-    if single_source_guard is not None and isinstance(result_payload, dict):
+    if single_source_guard is not None:
         result_payload["single_source_guard"] = single_source_guard
         result_payload["strict_source"] = single_source_guard
-    if submission and registry_key and isinstance(result_payload, dict):
+    if submission and registry_key:
         result_payload = _apply_submission_fields(result_payload, submission=submission)
-    if isinstance(result_payload, dict):
-        result_payload["trace_chain"] = _build_ingest_trace_chain(
-            entrypoint="ingest.source_library.run",
-            project_key=project_key,
-            submission_id=result_payload.get("submission_id"),
-            task_id=result_payload.get("task_id"),
-            status=result_payload.get("status"),
-            provider=final_override_params.get("provider")
-            or final_override_params.get("source_mode")
-            or "source_library",
-            fallback={
-                "enabled": "unknown",
-                "used": "unknown",
-                "reason": "source_library_terminal_output_does_not_report_fallback_usage",
-            },
-            known_limitations=["source_library_terminal_output_has_no_search_index_timestamp"],
-        )
-    if submission and registry_key and isinstance(result_payload, dict):
+    result_payload["trace_chain"] = _build_ingest_trace_chain(
+        entrypoint="ingest.source_library.run",
+        project_key=project_key,
+        submission_id=str(result_payload.get("submission_id") or "") or None,
+        task_id=str(result_payload.get("task_id") or "") or None,
+        status=str(result_payload.get("status") or "") or None,
+        provider=str(final_override_params.get("provider") or final_override_params.get("source_mode") or "source_library"),
+        fallback={
+            "enabled": "unknown",
+            "used": "unknown",
+            "reason": "source_library_terminal_output_does_not_report_fallback_usage",
+        },
+        known_limitations=["source_library_terminal_output_has_no_search_index_timestamp"],
+    )
+    if submission and registry_key:
         _complete_ingest_submission(registry_key=registry_key, response_payload=result_payload)
     return {"mode": "source_library_item", "result": result_payload}
 
 
-@router.post("/source-library/run", response_model=IngestAnyEnvelope)
-def ingest_source_library_run(payload: SourceLibraryRunPayload):
+@router.post("/source-library/run", response_model=IngestJsonEnvelope)
+def ingest_source_library_run(payload: SourceLibraryRunPayload) -> IngestJsonObject | JSONResponse:
     """Run source-library item(s) with unified item-style batch support."""
     project_key = _require_project_key(payload.project_key)
     if payload.items:
@@ -1543,53 +1904,105 @@ def ingest_source_library_run(payload: SourceLibraryRunPayload):
                 "When items is provided, top-level item_key/handler_key must be empty.",
                 details={"field": "items"},
             )
-        entries = []
-        for item in payload.items:
-            if not isinstance(item, dict):
+        entries: list[SourceLibraryRunItem] = []
+        for index, raw_entry in enumerate(payload.items):
+            if not _is_object_dict(raw_entry):
                 _raise_invalid_input(
                     "items must be an array of objects.",
-                    details={"field": "items"},
+                    details={"field": "items", "index": index},
                 )
-            entries.append(item)
+            try:
+                entries.append(SourceLibraryRunItem.model_validate(raw_entry))
+            except ValidationError as exc:
+                _raise_invalid_input(
+                    "items contains an invalid entry.",
+                    details={"field": "items", "index": index, "reason": str(exc)},
+                )
     else:
         entries = [
-            {
-                "item_key": payload.item_key,
-                "handler_key": payload.handler_key,
-                "idempotency_key": payload.idempotency_key,
-                "async_mode": payload.async_mode,
-                "source_mode": payload.source_mode,
-                "query_terms": payload.query_terms,
-                "urls": payload.urls,
-                "max_items": payload.max_items,
-                "provider": payload.provider,
-                "language": payload.language,
-                "scope": payload.scope,
-                "platforms": payload.platforms,
-                "override_params": payload.override_params,
-            }
+            SourceLibraryRunItem(
+                item_key=payload.item_key,
+                handler_key=payload.handler_key,
+                idempotency_key=payload.idempotency_key,
+                async_mode=payload.async_mode,
+                source_mode=payload.source_mode,
+                query_terms=payload.query_terms,
+                urls=payload.urls,
+                max_items=payload.max_items,
+                provider=payload.provider,
+                language=payload.language,
+                scope=payload.scope,
+                platforms=payload.platforms,
+                override_params=payload.override_params,
+            )
         ]
 
     try:
-        results: list[dict[str, Any]] = []
+        results: list[IngestJsonObject] = []
         for idx, entry in enumerate(entries):
+            present_fields = entry.model_fields_set
+            entry_idempotency_key = (
+                entry.idempotency_key
+                if "idempotency_key" in present_fields
+                else payload.idempotency_key
+            )
+            entry_source_mode = (
+                entry.source_mode
+                if "source_mode" in present_fields
+                else payload.source_mode
+            )
+            entry_query_terms = (
+                entry.query_terms
+                if "query_terms" in present_fields
+                else payload.query_terms
+            )
+            entry_urls = entry.urls if "urls" in present_fields else payload.urls
+            entry_max_items = (
+                entry.max_items
+                if "max_items" in present_fields
+                else payload.max_items
+            )
+            entry_provider = (
+                entry.provider
+                if "provider" in present_fields
+                else payload.provider
+            )
+            entry_language = (
+                entry.language
+                if "language" in present_fields
+                else payload.language
+            )
+            entry_scope = entry.scope if "scope" in present_fields else payload.scope
+            entry_platforms = (
+                entry.platforms
+                if "platforms" in present_fields
+                else payload.platforms
+            )
+            entry_async_mode = (
+                entry.async_mode
+                if "async_mode" in present_fields
+                else payload.async_mode
+            )
+            entry_override_params = (
+                entry.override_params
+                if "override_params" in present_fields
+                else payload.override_params
+            )
             item_result = _run_single_source_library_entry(
                 project_key=project_key,
-                item_key=str(entry.get("item_key") or "").strip(),
-                handler_key=str(entry.get("handler_key") or "").strip(),
-                idempotency_key=str(entry.get("idempotency_key") or payload.idempotency_key or "").strip() or None,
-                source_mode=str(entry.get("source_mode") or payload.source_mode or "").strip(),
-                query_terms=entry.get("query_terms") if isinstance(entry.get("query_terms"), list) else payload.query_terms,
-                urls=entry.get("urls") if isinstance(entry.get("urls"), list) else payload.urls,
-                max_items=entry.get("max_items") if entry.get("max_items") is not None else payload.max_items,
-                provider=str(entry.get("provider") or payload.provider or "").strip() or None,
-                language=str(entry.get("language") or payload.language or "").strip() or None,
-                scope=str(entry.get("scope") or payload.scope or "").strip() or None,
-                platforms=entry.get("platforms") if isinstance(entry.get("platforms"), list) else payload.platforms,
-                async_mode=bool(entry.get("async_mode", payload.async_mode)),
-                override_params=entry.get("override_params")
-                if isinstance(entry.get("override_params"), dict)
-                else payload.override_params,
+                item_key=str(entry.item_key or "").strip(),
+                handler_key=str(entry.handler_key or "").strip(),
+                idempotency_key=str(entry_idempotency_key or "").strip() or None,
+                source_mode=str(entry_source_mode or "").strip(),
+                query_terms=entry_query_terms,
+                urls=entry_urls,
+                max_items=entry_max_items,
+                provider=str(entry_provider or "").strip() or None,
+                language=str(entry_language or "").strip() or None,
+                scope=str(entry_scope or "").strip() or None,
+                platforms=entry_platforms,
+                async_mode=entry_async_mode,
+                override_params=entry_override_params,
             )
             results.append({"index": idx, **item_result})
 
@@ -1598,11 +2011,12 @@ def ingest_source_library_run(payload: SourceLibraryRunPayload):
 
         queued = 0
         for item in results:
-            result_payload = item.get("result") if isinstance(item, dict) else None
-            if isinstance(result_payload, dict) and result_payload.get("task_id"):
+            result_payload = _optional_json_object(item.get("result"), path="source_library.batch.result")
+            if result_payload and result_payload.get("task_id"):
                 queued += 1
-            if isinstance(result_payload, dict) and isinstance(result_payload.get("tasks"), list):
-                queued += len(result_payload.get("tasks") or [])
+            raw_tasks = result_payload.get("tasks") if result_payload else None
+            if _is_object_list(raw_tasks):
+                queued += len(raw_tasks)
         return success_response(
             {
                 "batch": True,
@@ -1617,22 +2031,22 @@ def ingest_source_library_run(payload: SourceLibraryRunPayload):
         return _error_500(exc)
 
 
-@router.post("/source-library/sync", response_model=IngestAnyEnvelope)
-def ingest_source_library_sync(payload: SourceLibrarySyncPayload):
+@router.post("/source-library/sync", response_model=IngestJsonEnvelope)
+def ingest_source_library_sync(payload: SourceLibrarySyncPayload) -> IngestJsonObject | JSONResponse:
     """Sync shared source library from files to DB. Entry point for ingest flow."""
     try:
         from ..services.source_library import sync_shared_library_from_files
-        result = sync_shared_library_from_files()
-        return success_response({"ok": True, **result})
+        result = _json_object(sync_shared_library_from_files(), path="source_library.sync")
+        return _json_object(success_response({"ok": True, **result}), path="source_library.sync_response")
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
 
-@router.get("/news-resources", response_model=IngestAnyEnvelope)
+@router.get("/news-resources", response_model=IngestJsonEnvelope)
 def list_news_resources(
     project_key: str | None = Query(default=None),
     scope: str = Query(default="effective", description="shared | project | effective"),
-):
+) -> IngestJsonObject:
     """List available news ingest resources for the project. Effective = shared + project merged."""
     pk = _require_project_key(project_key)
     if scope not in ("shared", "project", "effective"):
@@ -1640,7 +2054,7 @@ def list_news_resources(
     customization = get_project_customization(pk)
     shared = customization.get_shared_news_resource_handlers()
     project_handlers = customization.get_news_resource_handlers()
-    items: list[dict] = []
+    items: list[IngestJsonObject] = []
     if scope == "shared":
         for rid in shared:
             items.append({"resource_id": rid, "name": _resource_display_name(rid), "scope": "shared"})
@@ -1648,7 +2062,7 @@ def list_news_resources(
         for rid in project_handlers:
             items.append({"resource_id": rid, "name": _resource_display_name(rid), "scope": "project"})
     else:
-        merged: dict[str, dict] = {}
+        merged: dict[str, IngestJsonObject] = {}
         for rid in shared:
             merged[rid] = {"resource_id": rid, "name": _resource_display_name(rid), "scope": "shared"}
         for rid in project_handlers:
@@ -1657,14 +2071,18 @@ def list_news_resources(
     return success_response({"items": items, "scope": scope})
 
 
-@router.post("/news/resource/{resource_id}", response_model=IngestAnyEnvelope)
-def ingest_news_resource(resource_id: str, payload: NewsRequest):
+@router.post("/news/resource/{resource_id}", response_model=IngestJsonEnvelope)
+def ingest_news_resource(resource_id: str, payload: NewsRequest) -> IngestJsonObject | JSONResponse:
     """Generic project news resource entrypoint."""
     return _dispatch_news_resource(resource_id, payload)
 
 
-@router.post("/subprojects/{subproject_key}/news/{resource_id}", response_model=IngestAnyEnvelope)
-def ingest_subproject_news_resource(subproject_key: str, resource_id: str, payload: NewsRequest):
+@router.post("/subprojects/{subproject_key}/news/{resource_id}", response_model=IngestJsonEnvelope)
+def ingest_subproject_news_resource(
+    subproject_key: str,
+    resource_id: str,
+    payload: NewsRequest,
+) -> IngestJsonObject | JSONResponse:
     """Subproject-scoped news resource entrypoint."""
     route_project_key = (subproject_key or "").strip()
     if not route_project_key:
@@ -1682,14 +2100,14 @@ def ingest_subproject_news_resource(subproject_key: str, resource_id: str, paylo
     return _dispatch_news_resource(resource_id, scoped_payload)
 
 
-@router.post("/social/reddit", response_model=IngestAnyEnvelope)
-def ingest_reddit(payload: RedditRequest):
+@router.post("/social/reddit", response_model=IngestJsonEnvelope)
+def ingest_reddit(payload: RedditRequest) -> IngestJsonObject | JSONResponse:
     project_key = _require_project_key(payload.project_key)
     if payload.async_mode:
-        task = _tasks_module().task_collect_reddit.delay(payload.subreddit, payload.limit, project_key)
+        task: object = _tasks_module().task_collect_reddit.delay(payload.subreddit, payload.limit, project_key)
         return success_response(
             task_result_response(
-                task_id=task.id,
+                task_id=_task_result_id(task, task_name="task_collect_reddit"),
                 async_mode=True,
                 params={"subreddit": payload.subreddit, "limit": payload.limit},
             )
@@ -1697,47 +2115,63 @@ def ingest_reddit(payload: RedditRequest):
     try:
         with bind_project(project_key):
             from ..services.ingest.news import collect_reddit_discussions
-            return success_response(collect_reddit_discussions(subreddit=payload.subreddit, limit=payload.limit))
+            return _json_object(
+                success_response(_json_object(
+                    collect_reddit_discussions(subreddit=payload.subreddit, limit=payload.limit),
+                    path="ingest.reddit.result",
+                )),
+                path="ingest.reddit.response",
+            )
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
 
-@router.post("/reports/weekly", response_model=IngestAnyEnvelope)
-def ingest_weekly_reports(payload: NewsRequest):
+@router.post("/reports/weekly", response_model=IngestJsonEnvelope)
+def ingest_weekly_reports(payload: NewsRequest) -> IngestJsonObject | JSONResponse:
     project_key = _require_project_key(payload.project_key)
     if payload.async_mode:
-        task = _tasks_module().task_collect_weekly_reports.delay(payload.limit, project_key)
+        task: object = _tasks_module().task_collect_weekly_reports.delay(payload.limit, project_key)
         return success_response(
             task_result_response(
-                task_id=task.id,
+                task_id=_task_result_id(task, task_name="task_collect_weekly_reports"),
                 async_mode=True,
                 params={"limit": payload.limit},
             )
         )
     try:
         with bind_project(project_key):
-            from ..services.ingest.reports.general import collect_weekly_market_reports
-            return success_response(collect_weekly_market_reports(limit=payload.limit))
+            return _json_object(
+                success_response(_json_object(
+                    _report_ingest_module().collect_weekly_market_reports(limit=payload.limit),
+                    path="ingest.reports.weekly.result",
+                )),
+                path="ingest.reports.weekly.response",
+            )
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
 
-@router.post("/reports/monthly", response_model=IngestAnyEnvelope)
-def ingest_monthly_reports(payload: NewsRequest):
+@router.post("/reports/monthly", response_model=IngestJsonEnvelope)
+def ingest_monthly_reports(payload: NewsRequest) -> IngestJsonObject | JSONResponse:
     project_key = _require_project_key(payload.project_key)
     if payload.async_mode:
-        task = _tasks_module().task_collect_monthly_reports.delay(payload.limit, project_key)
+        task: object = _tasks_module().task_collect_monthly_reports.delay(payload.limit, project_key)
         return success_response(
             task_result_response(
-                task_id=task.id,
+                task_id=_task_result_id(task, task_name="task_collect_monthly_reports"),
                 async_mode=True,
                 params={"limit": payload.limit},
             )
         )
     try:
         with bind_project(project_key):
-            from ..services.ingest.reports.general import collect_monthly_financial_reports
-            return success_response(collect_monthly_financial_reports(limit=payload.limit))
+            return _json_object(
+                success_response(_json_object(
+                    _report_ingest_module().collect_monthly_financial_reports(limit=payload.limit),
+                    path="ingest.reports.monthly.result",
+                )),
+                path="ingest.reports.monthly.response",
+            )
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
@@ -1750,7 +2184,7 @@ class DataApiRequest(BaseModel):
     limit: int | None = Field(default=None, ge=1, le=100, description="兼容字段：每个关键词的结果数量限制")
     enable_extraction: bool = Field(default=True, description="是否启用LLM结构化提取")
     enable_subreddit_discovery: bool = Field(default=True, description="是否启用子论坛发现功能（自动发现相关子论坛）")
-    base_subreddits: Optional[list[str]] = Field(default=None, description="基础子论坛列表（如果为None，使用默认列表）")
+    base_subreddits: list[str] | None = Field(default=None, description="基础子论坛列表（如果为None，使用默认列表）")
     async_mode: bool = Field(default=False, description="是否异步执行")
     project_key: str | None = Field(default=None, description="项目标识")
     topic_focus: str | None = Field(default=None, description="专题焦点 company/product/operation（可选）")
@@ -1796,7 +2230,7 @@ class GraphStructuredDashboardParams(BaseModel):
     async_mode: bool = Field(default=False, description="是否异步执行")
     platforms: list[str] = Field(default=["reddit"], description="数据源平台列表")
     enable_subreddit_discovery: bool = Field(default=True, description="是否启用子论坛发现")
-    base_subreddits: Optional[list[str]] = Field(default=None, description="基础子论坛列表")
+    base_subreddits: list[str] | None = Field(default=None, description="基础子论坛列表")
     source_item_keys: list[str] = Field(default_factory=list, description="来源库 item_key 列表（可选）")
     project_key: str | None = Field(default=None, description="项目标识")
 
@@ -1808,6 +2242,14 @@ class GraphStructuredSearchRequest(BaseModel):
     llm_assist: bool = Field(default=False, description="是否使用 LLM 扩展关键词")
     flow_type: str = Field(default="collect", description="执行流类型")
     intent_mode: Literal["keyword", "keyword_llm"] | None = Field(default=None, description="意图模式（未传时兼容 llm_assist）")
+
+
+class _GroupedIntent(TypedDict):
+    entry_id: str
+    intent: str
+    batch_type: str
+    topic_focus: str | None
+    terms: list[str]
 
 
 _SOCIAL_NODE_TYPES = {"post", "keyword", "topic", "sentimenttag", "user", "subreddit", "social"}
@@ -1909,9 +2351,9 @@ def _run_policy_batch(
     dashboard: GraphStructuredDashboardParams,
     llm_assist: bool,
     batch_id: str = "policy",
-) -> dict[str, Any]:
+) -> IngestJsonObject:
     terms = _unique_terms(query_terms)
-    topic_meta: dict[str, Any] = {}
+    topic_meta: IngestJsonObject = {}
     if llm_assist:
         terms, topic_meta = _expand_query_terms_with_topic_focus(
             terms,
@@ -1920,7 +2362,7 @@ def _run_policy_batch(
         )
     max_items = _normalize_max_items(dashboard.max_items, None)
     if dashboard.async_mode:
-        task = _tasks_module().task_collect_policy_regulation.delay(
+        task: object = _tasks_module().task_collect_policy_regulation.delay(
             terms,
             max_items,
             dashboard.enable_extraction,
@@ -1935,7 +2377,7 @@ def _run_policy_batch(
             "batch_name": batch_id,
             "type": "policy",
             "query_terms": terms,
-            "task_id": task.id,
+            "task_id": _task_result_id(task, task_name="task_collect_policy_regulation"),
             "async_mode": True,
             **({"topic_meta": topic_meta} if topic_meta else {}),
         }
@@ -1954,7 +2396,12 @@ def _run_policy_batch(
             provider=dashboard.provider or "auto",
         )
         cr = run_collect(req)
-        raw = dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped, "display_meta": cr.display_meta})
+        raw = _optional_json_object(cr.meta.get("raw"), path="collect.policy.meta.raw") or {
+            "inserted": cr.inserted,
+            "updated": cr.updated,
+            "skipped": cr.skipped,
+            "display_meta": cr.display_meta,
+        }
         if topic_meta:
             raw["topic_meta"] = topic_meta
         return {
@@ -1974,9 +2421,9 @@ def _run_data_api_batch(
     dashboard: GraphStructuredDashboardParams,
     llm_assist: bool,
     batch_id: str = "data_api",
-) -> dict[str, Any]:
+) -> IngestJsonObject:
     terms = _unique_terms(query_terms)
-    topic_meta: dict[str, Any] = {}
+    topic_meta: IngestJsonObject = {}
     if llm_assist:
         terms, topic_meta = _expand_query_terms_with_topic_focus(
             terms,
@@ -1985,7 +2432,7 @@ def _run_data_api_batch(
         )
     max_items = _normalize_max_items(dashboard.max_items, None)
     if dashboard.async_mode:
-        task = _tasks_module().task_collect_data_api.delay(
+        task: object = _tasks_module().task_collect_data_api.delay(
             terms,
             dashboard.platforms,
             max_items,
@@ -2000,21 +2447,21 @@ def _run_data_api_batch(
             "type": "data_api",
             "query_terms": terms,
             "platforms": dashboard.platforms,
-            "task_id": task.id,
+            "task_id": _task_result_id(task, task_name="task_collect_data_api"),
             "async_mode": True,
             **({"topic_meta": topic_meta} if topic_meta else {}),
         }
 
     with bind_project(project_key):
-        result = _social_ingest_app().collect_data_api(
+        result = _json_object(_social_ingest_app().collect_data_api(
             keywords=terms,
             platforms=dashboard.platforms,
             limit=max_items,
             enable_extraction=dashboard.enable_extraction,
             enable_subreddit_discovery=dashboard.enable_subreddit_discovery,
             base_subreddits=dashboard.base_subreddits,
-        )
-        if isinstance(result, dict) and topic_meta:
+        ), path="ingest.data_api.batch.result")
+        if topic_meta:
             result.setdefault("topic_meta", topic_meta)
         return {
             "batch_id": batch_id,
@@ -2035,9 +2482,9 @@ def _run_market_batch(
     dashboard: GraphStructuredDashboardParams,
     llm_assist: bool,
     batch_id: str | None = None,
-) -> dict[str, Any]:
+) -> IngestJsonObject:
     terms = _unique_terms(query_terms)
-    topic_meta: dict[str, Any] = {}
+    topic_meta: IngestJsonObject = {}
     if llm_assist:
         terms, topic_meta = _expand_query_terms_with_topic_focus(
             terms,
@@ -2083,7 +2530,12 @@ def _run_market_batch(
             provider=dashboard.provider or "auto",
         )
         cr = run_collect(req)
-        raw = dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped, "display_meta": cr.display_meta})
+        raw = _optional_json_object(cr.meta.get("raw"), path="collect.market_batch.meta.raw") or {
+            "inserted": cr.inserted,
+            "updated": cr.updated,
+            "skipped": cr.skipped,
+            "display_meta": cr.display_meta,
+        }
         if topic_meta:
             raw["topic_meta"] = topic_meta
         return {
@@ -2107,9 +2559,9 @@ def _run_source_collect_batch(
     llm_assist: bool,
     batch_id: str,
     source_item_key: str | None = None,
-) -> dict[str, Any]:
+) -> IngestJsonObject:
     terms = _unique_terms(query_terms)
-    topic_meta: dict[str, Any] = {}
+    topic_meta: IngestJsonObject = {}
     if llm_assist:
         terms, topic_meta = _expand_query_terms_with_topic_focus(
             terms,
@@ -2133,22 +2585,29 @@ def _run_source_collect_batch(
                 usedforsecurity=False,
             ).hexdigest()[:8]
             item_key = f"graph::{normalized_entry_id}::{normalized_intent}::{fingerprint}"
-            from .source_library import SourceLibraryItemUpsertPayload, _upsert_project_item_internal
             from ..services.source_library import list_effective_items
+            from ..services.source_library.item_writer import (
+                SourceLibraryItemUpsertPayload,
+                upsert_project_item,
+            )
             existing = list_effective_items(scope="effective", project_key=project_key)
-            existed_before = any(str(item.get("item_key") or "").strip() == item_key for item in existing if isinstance(item, dict))
-            _upsert_project_item_internal(
+            existed_before = any(
+                str(item.get("item_key") or "").strip() == item_key
+                for item in existing
+            )
+            generated_params: dict[str, JsonValue] = {
+                "query_terms": [term for term in terms],
+                "keywords": [term for term in terms],
+                "limit": max_items,
+                "scope": "effective",
+            }
+            upsert_project_item(
                 payload=SourceLibraryItemUpsertPayload(
                     item_key=item_key,
                     name=f"Graph Source {normalized_entry_id} {normalized_intent}",
                     channel_key="url_pool",
                     description="Graph structured-search generated source_collect item.",
-                    params={
-                        "query_terms": terms,
-                        "keywords": terms,
-                        "limit": max_items,
-                        "scope": "effective",
-                    },
+                    params=generated_params,
                     tags=["graph_structured", normalized_entry_id, normalized_intent],
                     enabled=True,
                     extra={
@@ -2161,7 +2620,7 @@ def _run_source_collect_batch(
                 project_key=project_key,
             )
             auto_generated_item = True
-        override_params = {
+        override_params: IngestJsonObject = {
             "query_terms": terms,
             "keywords": terms,
             "limit": max_items,
@@ -2203,16 +2662,27 @@ def _run_source_collect_batch(
         run_result = run_source_library_item_compat(
             item_key=item_key,
             project_key=project_key,
-            override_params=override_params,
+            override_params=source_library_compat_response(override_params),
         )
 
-    authority_output = run_result.get("authority_output") if isinstance(run_result, dict) else {}
-    authority_summary = authority_output.get("summary") if isinstance(authority_output, dict) else {}
-    write_effects = authority_summary.get("write_effects") if isinstance(authority_summary.get("write_effects"), dict) else {}
-    errors = write_effects.get("errors") if isinstance(write_effects.get("errors"), list) else []
-    sources_inserted = int(write_effects.get("inserted") or 0)
-    sources_updated = int(write_effects.get("updated") or 0)
-    skipped = int(write_effects.get("skipped") or 0)
+    parsed_run_result = _json_object(run_result, path="source_library.graph_collect.result")
+    authority_output = _optional_json_object(
+        parsed_run_result.get("authority_output"),
+        path="source_library.graph_collect.authority_output",
+    ) or {}
+    authority_summary = _optional_json_object(
+        authority_output.get("summary"),
+        path="source_library.graph_collect.authority_summary",
+    ) or {}
+    write_effects = _optional_json_object(
+        authority_summary.get("write_effects"),
+        path="source_library.graph_collect.write_effects",
+    ) or {}
+    raw_errors = write_effects.get("errors")
+    errors = raw_errors if _is_object_list(raw_errors) else []
+    sources_inserted = _json_int(write_effects.get("inserted"), path="source_library.write_effects.inserted")
+    sources_updated = _json_int(write_effects.get("updated"), path="source_library.write_effects.updated")
+    skipped = _json_int(write_effects.get("skipped"), path="source_library.write_effects.skipped")
     has_errors = any(str(e or "").strip() for e in errors)
     bootstrap_required = bool(authority_summary.get("bootstrap_required")) if authority_summary else (sources_inserted + sources_updated == 0 and not has_errors)
     warnings: list[str] = []
@@ -2231,7 +2701,7 @@ def _run_source_collect_batch(
             "sources_inserted": sources_inserted,
             "sources_updated": sources_updated,
             "skipped": skipped,
-            "errors": errors if isinstance(errors, list) else [str(errors)],
+            "errors": [str(error or "") for error in errors],
             "item_inserted": 0 if (existed_before or not auto_generated_item) else 1,
             "item_updated": 1 if (existed_before and auto_generated_item) else 0,
             "bootstrap_required": bootstrap_required,
@@ -2241,8 +2711,8 @@ def _run_source_collect_batch(
     }
 
 
-@router.post("/data-api", response_model=IngestAnyEnvelope)
-def ingest_data_api(payload: DataApiRequest):
+@router.post("/data-api", response_model=IngestJsonEnvelope)
+def ingest_data_api(payload: DataApiRequest) -> IngestJsonObject | JSONResponse:
     """Run data API collection by keywords."""
     project_key = _require_project_key(payload.project_key)
     query_terms = _normalize_query_terms(payload.query_terms, payload.keywords)
@@ -2251,7 +2721,7 @@ def ingest_data_api(payload: DataApiRequest):
     )
     max_items = _normalize_max_items(payload.max_items, payload.limit)
     if payload.async_mode:
-        task = _tasks_module().task_collect_data_api.delay(
+        task: object = _tasks_module().task_collect_data_api.delay(
             query_terms,
             payload.platforms,
             max_items,
@@ -2260,34 +2730,34 @@ def ingest_data_api(payload: DataApiRequest):
             payload.base_subreddits,
             project_key,
         )
-        return success_response(
+        return _json_object(success_response(
             task_result_response(
-                task_id=task.id,
+                task_id=_task_result_id(task, task_name="task_collect_data_api"),
                 async_mode=True,
                 params={"query_terms": query_terms, "max_items": max_items, "platforms": payload.platforms, **({"topic_focus": payload.topic_focus} if payload.topic_focus else {})},
             )
-        )
+        ), path="ingest.data_api.async_response")
     try:
         with bind_project(project_key):
-            result = _social_ingest_app().collect_data_api(
+            result = _json_object(_social_ingest_app().collect_data_api(
                 keywords=query_terms,
                 platforms=payload.platforms,
                 limit=max_items,
                 enable_extraction=payload.enable_extraction,
                 enable_subreddit_discovery=payload.enable_subreddit_discovery,
                 base_subreddits=payload.base_subreddits,
-            )
-            if isinstance(result, dict) and topic_meta:
+            ), path="ingest.data_api.result")
+            if topic_meta:
                 result.setdefault("topic_focus", topic_meta.get("topic_focus"))
                 result.setdefault("topic_hints", topic_meta.get("topic_hints") or [])
                 result.setdefault("topic_search_keywords", topic_meta.get("topic_search_keywords") or [])
-            return success_response(result)
+            return _json_object(success_response(result), path="ingest.data_api.response")
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
 
-@router.post("/graph/structured-search", response_model=IngestAnyEnvelope)
-def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
+@router.post("/graph/structured-search", response_model=IngestJsonEnvelope)
+def ingest_graph_structured_search(payload: GraphStructuredSearchRequest) -> IngestJsonObject | JSONResponse:
     project_key = _require_project_key(payload.dashboard.project_key)
     if not payload.selected_nodes:
         _raise_invalid_input(
@@ -2313,7 +2783,7 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
         selected_edge_count,
     )
 
-    grouped_intents: dict[tuple[str, str, str], dict[str, Any]] = {}
+    grouped_intents: dict[tuple[str, str, str], _GroupedIntent] = {}
     for node in payload.selected_nodes:
         entry_id = _entry_id_of(node)
         if not entry_id:
@@ -2333,7 +2803,7 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
                     "terms": [label],
                 }
             else:
-                current["terms"] = _unique_terms([*(current.get("terms") or []), label])
+                current["terms"] = _unique_terms([*current["terms"], label])
 
     if not grouped_intents:
         _raise_invalid_input(
@@ -2341,16 +2811,19 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
             details={"field": "selected_nodes"},
         )
 
-    batches: list[dict[str, Any]] = []
-    async_dispatchers: list[Any] = []
+    batches: list[IngestJsonObject] = []
+    async_dispatchers: list[Callable[[], IngestJsonObject]] = []
     batch_seq: dict[tuple[str, str, str], int] = {}
     try:
-        ordered_specs = sorted(grouped_intents.values(), key=lambda x: (str(x.get("entry_id")), str(x.get("intent")), str(x.get("batch_type"))))
+        ordered_specs = sorted(
+            grouped_intents.values(),
+            key=lambda spec: (spec["entry_id"], spec["intent"], spec["batch_type"]),
+        )
         for spec in ordered_specs:
-            entry_id = str(spec.get("entry_id") or "").strip()
-            intent = str(spec.get("intent") or "").strip() or "general"
-            batch_type = str(spec.get("batch_type") or "").strip()
-            terms = _unique_terms(spec.get("terms") or [])
+            entry_id = spec["entry_id"].strip()
+            intent = spec["intent"].strip() or "general"
+            batch_type = spec["batch_type"].strip()
+            terms = _unique_terms(spec["terms"])
             if not entry_id or not terms:
                 continue
             key = (flow_type, entry_id, intent)
@@ -2441,14 +2914,14 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
                         len(async_dispatchers),
                     ),
                 )
-                ordered_results: list[dict[str, Any] | None] = [None] * len(async_dispatchers)
+                ordered_results: list[IngestJsonObject | None] = [None] * len(async_dispatchers)
                 with ThreadPoolExecutor(max_workers=worker_count) as executor:
                     future_to_index = {
                         executor.submit(dispatcher): idx for idx, dispatcher in enumerate(async_dispatchers)
                     }
                     for future in as_completed(future_to_index):
                         ordered_results[future_to_index[future]] = future.result()
-                batches.extend([result for result in ordered_results if isinstance(result, dict)])
+                batches.extend([result for result in ordered_results if result is not None])
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
@@ -2458,7 +2931,7 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
         if bt in type_counts:
             type_counts[bt] += 1
 
-    summary: dict[str, Any] = {
+    summary: IngestJsonObject = {
         "selected_node_count": len(payload.selected_nodes),
         "selected_edge_count": selected_edge_count,
         "batch_count": len(batches),
@@ -2479,11 +2952,12 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
     queued = sum(1 for b in batches if b.get("task_id"))
     failed = 0
     for batch in batches:
-        result = batch.get("result") if isinstance(batch, dict) else None
-        if isinstance(result, dict):
-            errs = result.get("errors")
-            if isinstance(errs, list) and any(str(e or "").strip() for e in errs):
-                failed += 1
+        result = _optional_json_object(batch.get("result"), path="ingest.graph.batch.result")
+        if result is None:
+            continue
+        raw_errors = result.get("errors")
+        if _is_object_list(raw_errors) and any(str(error or "").strip() for error in raw_errors):
+            failed += 1
     summary["accepted"] = accepted
     summary["queued"] = queued
     summary["failed"] = failed
@@ -2500,7 +2974,7 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
         for edge in (payload.selected_edges or [])
     ]
 
-    return success_response(
+    return _json_object(success_response(
         {
             "flow_type": flow_type,
             "intent_mode": intent_mode,
@@ -2512,11 +2986,11 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
                 "source_item_keys": source_item_keys,
             },
         }
-    )
+    ), path="ingest.graph.response")
 
 
-@router.post("/policy/regulation", response_model=IngestAnyEnvelope)
-def ingest_policy_regulation(payload: PolicyRegulationRequest):
+@router.post("/policy/regulation", response_model=IngestJsonEnvelope)
+def ingest_policy_regulation(payload: PolicyRegulationRequest) -> IngestJsonObject | JSONResponse:
     """收集政策法规相关新闻"""
     project_key = _require_project_key(payload.project_key)
     query_terms = _normalize_query_terms(payload.query_terms, payload.keywords)
@@ -2525,7 +2999,7 @@ def ingest_policy_regulation(payload: PolicyRegulationRequest):
     )
     max_items = _normalize_max_items(payload.max_items, payload.limit)
     if payload.async_mode:
-        task = _tasks_module().task_collect_policy_regulation.delay(
+        task: object = _tasks_module().task_collect_policy_regulation.delay(
             query_terms,
             max_items,
             payload.enable_extraction,
@@ -2535,13 +3009,13 @@ def ingest_policy_regulation(payload: PolicyRegulationRequest):
             payload.language,
             payload.provider,
         )
-        return success_response(
+        return _json_object(success_response(
             task_result_response(
-                task_id=task.id,
+                task_id=_task_result_id(task, task_name="task_collect_policy_regulation"),
                 async_mode=True,
                 params={"query_terms": query_terms, "max_items": max_items, **({"topic_focus": payload.topic_focus} if payload.topic_focus else {})},
             )
-        )
+        ), path="ingest.policy.async_response")
     try:
         with bind_project(project_key):
             from ..services.collect_runtime import collect_request_from_policy_api, run_collect
@@ -2556,51 +3030,67 @@ def ingest_policy_regulation(payload: PolicyRegulationRequest):
                 provider=payload.provider or "auto",
             )
             cr = run_collect(req)
-            raw = dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped, "display_meta": cr.display_meta})
+            raw = _optional_json_object(cr.meta.get("raw"), path="collect.policy.meta.raw") or {
+                "inserted": cr.inserted,
+                "updated": cr.updated,
+                "skipped": cr.skipped,
+                "display_meta": cr.display_meta,
+            }
             if topic_meta:
                 raw["topic_focus"] = topic_meta.get("topic_focus")
                 raw["topic_hints"] = topic_meta.get("topic_hints") or []
                 raw["topic_search_keywords"] = topic_meta.get("topic_search_keywords") or []
-            return success_response(raw)
+            return _json_object(success_response(raw), path="ingest.policy.response")
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
 
-@router.post("/commodity/metrics", response_model=IngestAnyEnvelope)
-def ingest_commodity(payload: CommodityRequest):
+@router.post("/commodity/metrics", response_model=IngestJsonEnvelope)
+def ingest_commodity(payload: CommodityRequest) -> IngestJsonObject | JSONResponse:
     project_key = _require_project_key(payload.project_key)
     if payload.async_mode:
-        task = _tasks_module().task_ingest_commodity_metrics.delay(payload.limit, project_key)
-        return success_response(
+        task: object = _tasks_module().task_ingest_commodity_metrics.delay(payload.limit, project_key)
+        return _json_object(success_response(
             task_result_response(
-                task_id=task.id,
+                task_id=_task_result_id(task, task_name="task_ingest_commodity_metrics"),
                 async_mode=True,
                 params={"limit": payload.limit},
             )
-        )
+        ), path="ingest.commodity.async_response")
     try:
         with bind_project(project_key):
-            from ..services.ingest.commodity import ingest_commodity_metrics
-            return success_response(ingest_commodity_metrics(limit=payload.limit))
+            return _json_object(
+                success_response(_json_object(
+                    _commodity_ingest_module().ingest_commodity_metrics(limit=payload.limit),
+                    path="ingest.commodity.result",
+                )),
+                path="ingest.commodity.response",
+            )
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
 
-@router.post("/ecom/prices", response_model=IngestAnyEnvelope)
-def ingest_ecom_prices(payload: EcomPriceRequest):
+@router.post("/ecom/prices", response_model=IngestJsonEnvelope)
+def ingest_ecom_prices(payload: EcomPriceRequest) -> IngestJsonObject | JSONResponse:
     project_key = _require_project_key(payload.project_key)
     if payload.async_mode:
-        task = _tasks_module().task_collect_ecom_prices.delay(payload.limit, project_key)
-        return success_response(
+        task: object = _tasks_module().task_collect_ecom_prices.delay(payload.limit, project_key)
+        return _json_object(success_response(
             task_result_response(
-                task_id=task.id,
+                task_id=_task_result_id(task, task_name="task_collect_ecom_prices"),
                 async_mode=True,
                 params={"limit": payload.limit},
             )
-        )
+        ), path="ingest.ecom.async_response")
     try:
         with bind_project(project_key):
             from ..services.ingest.ecom import collect_ecom_price_observations
-            return success_response(collect_ecom_price_observations(limit=payload.limit))
+            return _json_object(
+                success_response(_json_object(
+                    collect_ecom_price_observations(limit=payload.limit),
+                    path="ingest.ecom.result",
+                )),
+                path="ingest.ecom.response",
+            )
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)

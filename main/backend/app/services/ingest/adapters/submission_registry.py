@@ -6,17 +6,109 @@ database sessions, row projection, and transaction boundaries.
 
 from __future__ import annotations
 
+import hashlib
 from contextlib import nullcontext
 from copy import deepcopy
-import hashlib
-from typing import Any
+from datetime import datetime
+from typing import NoReturn, Protocol, TypeAlias, TypeGuard, runtime_checkable
 
 from sqlalchemy import delete, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from ....models.base import SessionLocal
 from ....models.ingest_registry import IngestSubmissionRegistry
+from ....successor_runtime.capabilities.material_ingest_registry import (
+    MaterialIngestRegistryBackendUnavailableError,
+    MaterialIngestRegistryConflictError,
+)
 from ...projects import bind_project
+
+SubmissionJsonObject: TypeAlias = dict[str, object]
+
+
+@runtime_checkable
+class _IngestSubmissionRow(Protocol):
+    submission_id: str
+    idempotency_key: str
+    trigger_type: str
+    project_key: str
+    registry_key: str
+    request_hash: str
+    request_payload: object
+    subject_payload: object
+    response_payload: object
+    status: str | None
+    task_id: str | None
+    created_at: datetime | None
+    updated_at: datetime | None
+
+
+def _row(row: object) -> _IngestSubmissionRow:
+    if not isinstance(row, _IngestSubmissionRow):
+        raise TypeError("ingest submission registry returned an invalid row")
+    required_text: tuple[object, ...] = tuple(
+        getattr(row, field_name, None)
+        for field_name in (
+            "submission_id",
+            "idempotency_key",
+            "trigger_type",
+            "project_key",
+            "registry_key",
+            "request_hash",
+        )
+    )
+    if not all(isinstance(value, str) and value for value in required_text):
+        raise TypeError("ingest submission registry row identity is invalid")
+    status: object = getattr(row, "status", None)
+    task_id: object = getattr(row, "task_id", None)
+    created_at: object = getattr(row, "created_at", None)
+    updated_at: object = getattr(row, "updated_at", None)
+    if status is not None and not isinstance(status, str):
+        raise TypeError("ingest submission registry row status is invalid")
+    if task_id is not None and not isinstance(task_id, str):
+        raise TypeError("ingest submission registry row task_id is invalid")
+    if created_at is not None and not isinstance(created_at, datetime):
+        raise TypeError("ingest submission registry row created_at is invalid")
+    if updated_at is not None and not isinstance(updated_at, datetime):
+        raise TypeError("ingest submission registry row updated_at is invalid")
+    return row
+
+
+def _new_row() -> _IngestSubmissionRow:
+    row: object = IngestSubmissionRegistry()
+    if not isinstance(row, _IngestSubmissionRow):
+        raise TypeError("ingest submission registry model is missing required fields")
+    return row
+
+
+def _raise_hash_conflict(*, registry_key: str, request_hash: str) -> NoReturn:
+    raise MaterialIngestRegistryConflictError(
+        "registry_key already exists with a different request_hash",
+        registry_key=registry_key,
+        request_hash=request_hash,
+    )
+
+
+def _raise_backend_unavailable(
+    *, registry_key: str, request_hash: str, cause: SQLAlchemyError
+) -> NoReturn:
+    raise MaterialIngestRegistryBackendUnavailableError(
+        str(cause) or cause.__class__.__name__,
+        registry_key=registry_key,
+        request_hash=request_hash,
+    ) from cause
+
+
+def _existing_submission(
+    raw_row: object,
+    *,
+    registry_key: str,
+    request_hash: str,
+) -> tuple[SubmissionJsonObject, bool]:
+    existing = _row(raw_row)
+    if existing.request_hash != request_hash:
+        _raise_hash_conflict(registry_key=registry_key, request_hash=request_hash)
+    return row_to_submission(existing), True
 
 
 def submission_id_for_key(registry_key: str) -> str:
@@ -30,16 +122,18 @@ def project_key_from_registry_key(registry_key: str) -> str | None:
     return None
 
 
-def row_to_submission(row: IngestSubmissionRegistry) -> dict[str, Any]:
-    response_payload = row.response_payload if isinstance(row.response_payload, dict) else None
-    submission: dict[str, Any] = {
+def row_to_submission(raw_row: object) -> SubmissionJsonObject:
+    row = _row(raw_row)
+    response_payload = _string_key_object_dict(row.response_payload)
+    subject_payload = _string_key_object_dict(row.subject_payload) or {}
+    submission: SubmissionJsonObject = {
         "submission_id": row.submission_id,
         "idempotency_key": row.idempotency_key,
         "trigger_type": row.trigger_type,
         "project_key": row.project_key,
         "registry_key": row.registry_key,
         "request_hash": row.request_hash,
-        "subject": dict(row.subject_payload or {}),
+        "subject": dict(subject_payload),
         "submission_status": row.status or "submitted",
         "status": row.status or "submitted",
         "task_id": row.task_id,
@@ -53,68 +147,100 @@ def row_to_submission(row: IngestSubmissionRegistry) -> dict[str, Any]:
     return submission
 
 
+def _string_key_object_dict(value: object) -> SubmissionJsonObject | None:
+    if not _is_object_dict(value):
+        return None
+    result: SubmissionJsonObject = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            raise TypeError("ingest submission registry JSON objects must use string keys")
+        result[key] = item
+    return result
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
 def reserve_submission_db(
     *,
     registry_key: str,
     project_key: str,
     idempotency_key: str,
     trigger_type: str,
-    subject: dict[str, Any],
-    request_payload: dict[str, Any],
+    subject: SubmissionJsonObject,
+    request_payload: SubmissionJsonObject,
     request_hash: str,
-) -> tuple[dict[str, Any], bool]:
-    with bind_project(project_key):
-        with SessionLocal() as session:
-            existing = session.execute(
-                select(IngestSubmissionRegistry).where(
-                    IngestSubmissionRegistry.project_key == project_key,
-                    IngestSubmissionRegistry.trigger_type == trigger_type,
-                    IngestSubmissionRegistry.idempotency_key == idempotency_key,
-                )
-            ).scalar_one_or_none()
-            if existing is not None:
-                return row_to_submission(existing), True
-
-            row = IngestSubmissionRegistry(
-                project_key=project_key,
-                trigger_type=trigger_type,
-                registry_key=registry_key,
-                idempotency_key=idempotency_key,
-                submission_id=submission_id_for_key(registry_key),
-                status="submitted",
-                request_hash=request_hash,
-                request_payload=deepcopy(request_payload),
-                subject_payload=deepcopy(subject),
-            )
-            session.add(row)
-            try:
-                session.commit()
-            except IntegrityError:
-                session.rollback()
+) -> tuple[SubmissionJsonObject, bool]:
+    try:
+        with bind_project(project_key):
+            with SessionLocal() as session:
                 existing = session.execute(
                     select(IngestSubmissionRegistry).where(
                         IngestSubmissionRegistry.project_key == project_key,
                         IngestSubmissionRegistry.trigger_type == trigger_type,
                         IngestSubmissionRegistry.idempotency_key == idempotency_key,
                     )
-                ).scalar_one()
-                return row_to_submission(existing), True
-            session.refresh(row)
-            return row_to_submission(row), False
+                ).scalar_one_or_none()
+                if existing is not None:
+                    return _existing_submission(
+                        existing,
+                        registry_key=registry_key,
+                        request_hash=request_hash,
+                    )
+
+                row = _new_row()
+                row.project_key = project_key
+                row.trigger_type = trigger_type
+                row.registry_key = registry_key
+                row.idempotency_key = idempotency_key
+                row.submission_id = submission_id_for_key(registry_key)
+                row.status = "submitted"
+                row.request_hash = request_hash
+                row.request_payload = deepcopy(request_payload)
+                row.subject_payload = deepcopy(subject)
+                session.add(row)
+                try:
+                    session.commit()
+                except IntegrityError:
+                    session.rollback()
+                    existing = session.execute(
+                        select(IngestSubmissionRegistry).where(
+                            IngestSubmissionRegistry.project_key == project_key,
+                            IngestSubmissionRegistry.trigger_type == trigger_type,
+                            IngestSubmissionRegistry.idempotency_key == idempotency_key,
+                        )
+                    ).scalar_one()
+                    return _existing_submission(
+                        existing,
+                        registry_key=registry_key,
+                        request_hash=request_hash,
+                    )
+                session.refresh(row)
+                return row_to_submission(row), False
+    except MaterialIngestRegistryConflictError:
+        raise
+    except SQLAlchemyError as exc:
+        _raise_backend_unavailable(
+            registry_key=registry_key,
+            request_hash=request_hash,
+            cause=exc,
+        )
 
 
-def complete_submission_db(*, registry_key: str, response_payload: dict[str, Any]) -> None:
+def complete_submission_db(*, registry_key: str, response_payload: SubmissionJsonObject) -> None:
     project_key = project_key_from_registry_key(registry_key)
     context = bind_project(project_key) if project_key else nullcontext()
     with context:
         with SessionLocal() as session:
-            row = session.execute(
+            raw_row = session.execute(
                 select(IngestSubmissionRegistry).where(
                     IngestSubmissionRegistry.registry_key == registry_key
                 )
             ).scalar_one_or_none()
-            if row is None:
+            if raw_row is None:
                 return
+            row = _row(raw_row)
             row.response_payload = deepcopy(response_payload)
             if response_payload.get("task_id") is not None:
                 row.task_id = str(response_payload.get("task_id"))
@@ -136,7 +262,7 @@ def forget_submission_db(*, registry_key: str) -> None:
             session.commit()
 
 
-def list_recent_submissions_db(limit: int) -> list[dict[str, Any]]:
+def list_recent_submissions_db(limit: int) -> list[SubmissionJsonObject]:
     with SessionLocal() as session:
         rows = (
             session.execute(

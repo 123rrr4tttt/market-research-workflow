@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import base64
+from html.parser import HTMLParser
 import re
-from typing import Any, NoReturn
+from typing import Any, NoReturn, TypeGuard
 from urllib.parse import urljoin, urlsplit
-
-from bs4 import BeautifulSoup
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.application_failure_semantics import source_library_contract_failures
@@ -39,6 +38,57 @@ _DEFAULT_RSS_PATHS = (
 )
 _URL_PATTERN = re.compile(r"https?://[^\s<>'\"`]+", re.IGNORECASE)
 _FAILURE_WITNESS = "test:test_w01_source_export_failures"
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    return dict(value) if _is_object_dict(value) else {}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_list(value: object) -> list[object]:
+    return list(value) if _is_object_list(value) else []
+
+
+class _VisibleTextParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._suppressed_depth = 0
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() in {"script", "style", "noscript"}:
+            self._suppressed_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() in {"script", "style", "noscript"} and self._suppressed_depth:
+            self._suppressed_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        text = data.strip()
+        if not self._suppressed_depth and text:
+            self.parts.append(text)
+
+
+class _LinkParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.hrefs: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() not in {"a", "link"}:
+            return
+        for name, value in attrs:
+            href = str(value or "").strip()
+            if name.lower() == "href" and href:
+                self.hrefs.append(href)
+                return
 
 
 def _registration_failure(code: str, message: str, *, site: str) -> Failure:
@@ -170,10 +220,11 @@ def synthesize_external_project_manifest(
             "consumer": "source_library.external_project.registration",
         },
     )
-    result = invoked.get("result") if isinstance(invoked, dict) else None
+    result = invoked["result"]
     text = ""
-    if isinstance(result, dict):
-        text = str(result.get("text") or "").strip()
+    result_object = _object_dict(result)
+    if result_object:
+        text = str(result_object.get("text") or "").strip()
     else:
         text = str(result or "").strip()
     payload = extract_json_payload(text)
@@ -205,15 +256,15 @@ def _build_manifest_from_context(
     project_context: dict[str, Any],
     hints: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
-    candidates = project_context.get("endpoint_candidates")
-    if not isinstance(candidates, list):
+    candidates = _object_list(project_context.get("endpoint_candidates"))
+    if not candidates:
         return None
 
-    high_confidence = [
-        dict(candidate)
-        for candidate in candidates
-        if isinstance(candidate, dict) and str(candidate.get("confidence") or "").strip().lower() == "high"
-    ]
+    high_confidence: list[dict[str, object]] = []
+    for candidate in candidates:
+        candidate_object = _object_dict(candidate)
+        if str(candidate_object.get("confidence") or "").strip().lower() == "high":
+            high_confidence.append(candidate_object)
     if not high_confidence:
         return None
 
@@ -425,7 +476,7 @@ def _build_manifest_prompt(
 ) -> str:
     allowed_execution_modes = ["rss_feed", "sitemap", "http_api", "article_extractor", "python_library", "cli_or_container"]
     provider_registry = list_external_project_provider_bindings()
-    contract_example = {
+    contract_example: dict[str, object] = {
         "contract_version": EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION,
         "item_key": item_key,
         "display_name": display_name,
@@ -511,7 +562,9 @@ def _safe_get_json(url: str) -> dict[str, Any] | None:
         payload = default_http_client.get_json(url, headers={"Accept": "application/vnd.github+json"}, timeout=15.0)
     except Exception:
         return None
-    return dict(payload) if isinstance(payload, dict) else None
+    if not _is_object_dict(payload):
+        return None
+    return dict(payload)
 
 
 def _safe_get_text(url: str) -> str:
@@ -540,10 +593,10 @@ def _summarize_html_or_text(value: str) -> str:
         return ""
     lowered = raw.lower()
     if "<html" in lowered or "<body" in lowered:
-        soup = BeautifulSoup(raw, "html.parser")
-        for tag in soup(["script", "style", "noscript"]):
-            tag.decompose()
-        text = soup.get_text("\n", strip=True)
+        parser = _VisibleTextParser()
+        parser.feed(raw)
+        parser.close()
+        text = "\n".join(parser.parts)
     else:
         text = raw
     return _truncate_text("\n".join(line.strip() for line in text.splitlines() if line.strip()))
@@ -557,12 +610,13 @@ def _extract_urls_from_html(base_url: str, raw_html: str) -> list[str]:
     urls: list[str] = []
     if "<html" not in lowered and "<body" not in lowered:
         return urls
+    parser = _LinkParser()
     try:
-        soup = BeautifulSoup(text, "html.parser")
+        parser.feed(text)
+        parser.close()
     except Exception:
         return urls
-    for tag in soup.find_all(["a", "link"]):
-        href = str(tag.get("href") or "").strip()
+    for href in parser.hrefs:
         if not href:
             continue
         candidate = _normalize_discovered_url(href, base_url=base_url)
@@ -596,13 +650,11 @@ def _resolve_display_name(*, display_name: str | None, project_link: str) -> str
 
 
 def _has_meaningful_evidence(project_context: dict[str, Any] | None) -> bool:
-    evidence = project_context.get("evidence") if isinstance(project_context, dict) else None
-    if not isinstance(evidence, list) or not evidence:
+    evidence = _object_list(project_context.get("evidence")) if project_context is not None else []
+    if not evidence:
         return False
     for item in evidence:
-        if not isinstance(item, dict):
-            continue
-        for key, value in item.items():
+        for key, value in _object_dict(item).items():
             if key == "kind":
                 continue
             if isinstance(value, str) and value.strip():
@@ -623,8 +675,6 @@ def _collect_endpoint_candidates(
     explicit_urls: list[tuple[str, str]] = []
 
     for item in evidence or []:
-        if not isinstance(item, dict):
-            continue
         source_kind = str(item.get("kind") or "evidence").strip() or "evidence"
         for raw_url in _extract_urls_from_evidence(item):
             explicit_urls.append((raw_url, source_kind))
@@ -666,7 +716,7 @@ def _collect_endpoint_candidates(
     return candidates[:12]
 
 
-def _extract_urls_from_evidence(item: dict[str, Any]) -> list[str]:
+def _extract_urls_from_evidence(item: dict[str, object]) -> list[str]:
     urls: list[str] = []
     for key, value in item.items():
         if key == "kind":
@@ -676,7 +726,7 @@ def _extract_urls_from_evidence(item: dict[str, Any]) -> list[str]:
                 normalized = _normalize_discovered_url(candidate)
                 if normalized and normalized not in urls:
                     urls.append(normalized)
-        elif isinstance(value, list):
+        elif _is_object_list(value):
             for entry in value:
                 if not isinstance(entry, str):
                     continue

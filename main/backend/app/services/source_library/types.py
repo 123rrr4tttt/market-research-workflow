@@ -1,8 +1,97 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
-from typing import Annotated, Any, Dict
+from typing import Annotated, Any, Dict, Literal
+
+ItemType = Literal["user_defined", "service_aggregated"]
+ManagedBy = Literal["user", "system"]
+
+
+def _taxonomy_marker_text(value: object) -> str:
+    return str(value or "").strip().lower()
+
+
+def _item_type_marker(value: object) -> ItemType | None:
+    normalized = _taxonomy_marker_text(value)
+    if normalized == "user_defined":
+        return "user_defined"
+    if normalized == "service_aggregated":
+        return "service_aggregated"
+    return None
+
+
+def _managed_by_marker(value: object) -> ManagedBy | None:
+    normalized = _taxonomy_marker_text(value)
+    if normalized == "user":
+        return "user"
+    if normalized == "system":
+        return "system"
+    return None
+
+
+def resolve_source_library_item_markers(
+    *,
+    item_type: object = None,
+    managed_by: object = None,
+    item_key: object = None,
+    channel_key: object = None,
+    extra: Mapping[str, object] | None = None,
+) -> tuple[ItemType, ManagedBy]:
+    """Resolve the canonical owner markers, including legacy system identities."""
+    marker_extra: Mapping[str, object] = extra or {}
+    resolved_item_type = _item_type_marker(item_type)
+    if resolved_item_type is None:
+        resolved_item_type = _item_type_marker(marker_extra.get("item_type"))
+    if resolved_item_type is None:
+        normalized_channel_key = _taxonomy_marker_text(channel_key)
+        normalized_item_key = _taxonomy_marker_text(item_key)
+        if (
+            normalized_channel_key == "handler.cluster"
+            or normalized_channel_key.startswith("crawler.")
+            or normalized_item_key.startswith("handler.cluster.")
+            or normalized_item_key == "url_pool.default"
+            or bool(marker_extra.get("stable_handler_cluster"))
+            or _taxonomy_marker_text(marker_extra.get("creation_handler")).startswith(
+                "handler."
+            )
+            or bool(_taxonomy_marker_text(marker_extra.get("crawler_provider")))
+        ):
+            resolved_item_type = "service_aggregated"
+        else:
+            resolved_item_type = "user_defined"
+
+    resolved_managed_by = _managed_by_marker(managed_by)
+    if resolved_managed_by is None:
+        resolved_managed_by = _managed_by_marker(marker_extra.get("managed_by"))
+    if resolved_managed_by is None:
+        resolved_managed_by = (
+            "system" if resolved_item_type == "service_aggregated" else "user"
+        )
+
+    return resolved_item_type, resolved_managed_by
+
+
+def is_system_managed_source_library_item(
+    *,
+    item_type: object = None,
+    managed_by: object = None,
+    item_key: object = None,
+    channel_key: object = None,
+    extra: Mapping[str, object] | None = None,
+) -> bool:
+    resolved_item_type, resolved_managed_by = resolve_source_library_item_markers(
+        item_type=item_type,
+        managed_by=managed_by,
+        item_key=item_key,
+        channel_key=channel_key,
+        extra=extra,
+    )
+    return (
+        resolved_item_type == "service_aggregated"
+        or resolved_managed_by == "system"
+    )
 
 
 class SourceTier(str, Enum):

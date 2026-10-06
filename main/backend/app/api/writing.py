@@ -31,7 +31,7 @@ from ..contracts.schemas.writing import (
     WritingTemplateListData,
 )
 from ..services.projects import bind_project, current_project_key
-from ..services.projects.context import _normalize_project_key
+from ..services.projects.context import normalize_project_key
 from ..services.writing import (
     WritingVersionConflictError,
     aggregate_cards,
@@ -117,7 +117,7 @@ def _resolve_project_key(explicit_project_key: str | None = None, *, request: Re
             status_code=400,
             detail=error_response(ErrorCode.PROJECT_KEY_REQUIRED, "project_key is required"),
         )
-    return _normalize_project_key(candidate)
+    return normalize_project_key(candidate)
 
 
 def _resolve_request_id(request: Request) -> str | None:

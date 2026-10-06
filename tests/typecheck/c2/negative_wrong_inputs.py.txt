@@ -1,0 +1,15 @@
+from app.successor_runtime.capabilities.source_resolution_interpreters import SourceResolutionSuccessorInterpreter
+from app.successor_runtime.substrate.postgres.runtime_journal import one_mapping
+
+one_mapping(object())
+SourceResolutionSuccessorInterpreter().interpret(
+    program=object(),
+    plan=object(),
+    contract_ref=object(),
+    payload_ref=object(),
+    payload=object(),
+    project_scope=object(),
+    catalog=object(),
+    deployment_catalog_digest="x",
+    binding=object(),
+)

@@ -30,16 +30,16 @@ from functorial_kit.core.failure import Failure
 from mrw_functorial_kit.contributions import workflow as c1_catalog_module
 
 EXPECTED_WORKFLOW_PROGRAM_DIGEST = (
-    "e83a03929607a5cad0bf20ae2c38879d225926ae5d854ee0b51e62ff55c379a7"
+    "129b11a7ba7c9cc106120c92a3e103a8654d5f4481ec9323909eaa17c3164d3a"
 )
 EXPECTED_WORKFLOW_PLAN_DIGEST = (
-    "0984a32f4645ff04acb76791ae4dcea67107d3eeac0df2b1d55f7809a3fb8b41"
+    "d431e12489ababe36519481baaef6fbd9ec1bf432a70aac63f4a055d4fdc3823"
 )
 EXPECTED_WORKFLOW_CATALOG_DIGEST = (
-    "465e6eb403c6e017fd50b03d1eedeff6bdca35a8ee5f4e9140197043ad0db2b9"
+    "355c3dc24b7857b3f5ee5c1d03870c47ea3d3c1cfc2e7452c958713d995b91b1"
 )
 EXPECTED_WORKFLOW_CELL_BINDING_DIGESTS = (
-    "47ff68f8c27a60826496c09b3e6c0a2484e1863dc809bd25a2b5165ea0b399a3",
+    "e82cd08ee2a9a31e000fe0d3b07e5abe925a764a1116dc62048c40df7cdb0967",
     "1439af714e90de1f79e89ee5ed4c61ede5ff5ffede57381dca2aceb4d70b1ec0",
     "f15a42c0ce59a5c9b1ac47b431194e06dc39de43b41ae4071455159fa0b27a42",
 )
@@ -300,3 +300,45 @@ def test_compile_replay_rejects_tampered_bytes() -> None:
     tampered = replace(original, raw_bytes=b'{"historical":false}')
     with __import__("pytest").raises(ValueError, match="hash mismatch"):
         replay_workflow_compile_artifact(tampered)
+
+
+def test_v2_compile_read_preserves_bytes_after_typed_profile_upgrade() -> None:
+    from app.successor_runtime.capabilities.workflow_legacy_dsl import (
+        HISTORICAL_WORKFLOW_V2_RECEIPT_SCHEMA,
+    )
+    raw = b'{"schema":"mrw.workflow.definition.compile.receipt.v2", "original": true}'
+    read = read_workflow_compile_artifact(
+        schema=HISTORICAL_WORKFLOW_V2_RECEIPT_SCHEMA, raw_bytes=raw,
+    )
+    assert read.identity.era == "historical_v2"
+    assert read.identity.program_schema.endswith(".v2")
+    assert read.raw_bytes is raw
+    assert replay_workflow_compile_artifact(read) == raw
+    assert read.sha256 == __import__("hashlib").sha256(raw).hexdigest()
+
+
+def test_current_profile_references_identify_versioned_opaque_descriptors() -> None:
+    from app.successor_runtime.capabilities.workflow_legacy_dsl import build_workflow_operation_contracts
+    from app.successor_runtime.capabilities.checksum import content_digest
+
+    assert WORKFLOW_DSL_RECEIPT_SCHEMA.endswith(".v3")
+    for contract in build_workflow_operation_contracts():
+        assert contract.ref.contract_version == "2"
+        for field in (
+            "semantic_profile_ref", "effect_profile_ref", "resource_profile_ref",
+            "failure_profile_ref", "authority_profile_ref",
+            "interpreter_compatibility_ref", "observation_profile_ref",
+        ):
+            ref = getattr(contract, field)
+            assert ref.profile_id.endswith(".reference-descriptor")
+            assert ref.profile_version == "1"
+            original = ref.profile_id.removesuffix(".reference-descriptor") + ".v1"
+            assert ref.profile_digest == content_digest({
+                "schema": "mrw.workflow.profile-reference-descriptor.v1",
+                "referenced_profile": original,
+            })
+
+
+def test_compile_artifact_reader_rejects_non_bytes_at_runtime() -> None:
+    with __import__("pytest").raises(TypeError, match="raw_bytes must be bytes"):
+        read_workflow_compile_artifact(schema=WORKFLOW_DSL_RECEIPT_SCHEMA, raw_bytes="{}")

@@ -14,6 +14,9 @@ from mrw_functorial_kit.core.provider_port_failures import (
 from ...crawlers.base import (
     CrawlerProvider,
     CrawlerDispatchResult,
+    CrawlerJsonObject,
+    CrawlerJsonValue,
+    CrawlerPollOutcome,
     is_crawler_dispatch_acknowledged,
     typed_crawler_readback,
 )
@@ -134,13 +137,6 @@ def _crawler_failure_error(failure: Failure) -> CollectFailure:
     return error
 
 
-def _normalize_mapping(value: Mapping[str, object]) -> dict[str, object]:
-    normalized: dict[str, object] = {}
-    for key, item in value.items():
-        normalized[str(key)] = item
-    return normalized
-
-
 def _as_int(value: object) -> int | None:
     if value is None:
         return None
@@ -191,6 +187,30 @@ def _json_dict(value: CollectJsonValue) -> CollectJsonObject:
     return value if isinstance(value, dict) else {}
 
 
+def _crawler_json_value(value: CollectJsonValue) -> CrawlerJsonValue:
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    if isinstance(value, list):
+        return [_crawler_json_value(item) for item in value]
+    return {str(key): _crawler_json_value(item) for key, item in value.items()}
+
+
+def _crawler_poll_outcome(value: object) -> CrawlerPollOutcome:
+    if isinstance(value, Failure):
+        return value
+    if _is_json_mapping(value):
+        return {
+            str(key): _crawler_json_value(_json_value(item))
+            for key, item in value.items()
+        }
+    return _crawler_failure(
+        "scrapyd_response_invalid",
+        "crawler provider poll returned a non-object result",
+        provider_type="scrapy",
+        result_type=type(value).__name__,
+    )
+
+
 class CrawlerScrapyAdapter:
     def __init__(self, *, attempt_store: CrawlerAttemptStore | None = None) -> None:
         self._attempt_store = attempt_store
@@ -210,9 +230,9 @@ class CrawlerScrapyAdapter:
         if not spider:
             raise ValueError("crawler.scrapy requires options.spider")
 
-        arguments = {
-            str(k): v
-            for k, v in _normalize_mapping(_json_dict(options.get("arguments", {}))).items()
+        arguments: CrawlerJsonObject = {
+            str(k): _crawler_json_value(v)
+            for k, v in _json_dict(options.get("arguments", {})).items()
             if str(k).strip()
         }
         if request.query_terms and "query_terms" not in arguments:
@@ -228,8 +248,8 @@ class CrawlerScrapyAdapter:
             spider=spider,
             arguments=arguments,
             settings={
-                str(k): v
-                for k, v in _normalize_mapping(_json_dict(options.get("settings", {}))).items()
+                str(k): _crawler_json_value(v)
+                for k, v in _json_dict(options.get("settings", {})).items()
                 if str(k).strip()
             },
             version=(str(options.get("version")).strip() or None) if options.get("version") is not None else None,
@@ -293,13 +313,23 @@ class CrawlerScrapyAdapter:
             dispatch_result.terminal_readback if dispatch_result is not None else None
         )
         poll_fn = getattr(provider, "poll", None)
-        if terminal_readback is None and dispatch_result is not None and dispatch_result.provider_job_id and callable(poll_fn):
+        if (
+            terminal_readback is None
+            and dispatch_result is not None
+            and dispatch_result.provider_job_id
+            and callable(poll_fn)
+        ):
             try:
-                poll_payload: object = poll_fn(
-                    external_job_id=dispatch_result.provider_job_id,
-                    project=project,
-                    spider=spider,
-                    options={"idempotency_key": dispatch_request.idempotency_key, "attempt_id": dispatch_request.attempt_id},
+                poll_payload = _crawler_poll_outcome(
+                    poll_fn(
+                        external_job_id=dispatch_result.provider_job_id,
+                        project=project,
+                        spider=spider,
+                        options={
+                            "idempotency_key": dispatch_request.idempotency_key,
+                            "attempt_id": dispatch_request.attempt_id,
+                        },
+                    )
                 )
                 terminal_readback = typed_crawler_readback(
                     attempt_id=dispatch_request.attempt_id or dispatch_request.request_digest or "unknown",

@@ -10,7 +10,16 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Final, Literal, TypeVar
+from typing import (
+    Final,
+    Literal,
+    NoReturn,
+    Required,
+    TypedDict,
+    TypeGuard,
+    TypeVar,
+    Unpack,
+)
 
 from functorial_kit import Failure
 from pydantic import Field, TypeAdapter, model_validator
@@ -90,7 +99,7 @@ def _try_process_observation(
 def _raise_process_observation_failure(
     failure: Failure,
     exception_type: type[Exception],
-) -> None:
+) -> NoReturn:
     """Retain an established exception ABI over a typed pure result."""
 
     # kit:boundary owner=successor.runtime.process_observation.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_process_observation_public_exception_abi_lifts_typed_failures  # noqa: E501
@@ -161,7 +170,7 @@ def normalize_observed_status(value: str | None) -> str:
 
 
 class ProcessTaskProjection(FrozenContract):
-    schema_version: Literal[PROCESS_OBSERVATION_TASK_SCHEMA_V1] = (
+    schema_version: Literal["mrw.process-observation.task.v1"] = (
         PROCESS_OBSERVATION_TASK_SCHEMA_V1
     )
     task_id: str = Field(min_length=1)
@@ -223,7 +232,7 @@ class ProcessTaskProjection(FrozenContract):
 
 
 class ProcessObservationProjection(FrozenContract):
-    schema_version: Literal[PROCESS_OBSERVATION_PROJECTION_SCHEMA_V1] = (
+    schema_version: Literal["mrw.process-observation.v1"] = (
         PROCESS_OBSERVATION_PROJECTION_SCHEMA_V1
     )
     captured_at: datetime
@@ -263,7 +272,37 @@ class ProcessObservationProjection(FrozenContract):
         return self
 
 
-def try_process_task_projection(**content: Any) -> ProcessTaskProjection | Failure:
+class _ProcessTaskProjectionContent(TypedDict, total=False):
+    schema_version: Literal["mrw.process-observation.task.v1"]
+    task_id: Required[str]
+    observation_class: Required[ObservationClass]
+    status: Required[str]
+    source_identities: tuple[str, ...]
+    linked_run_id: str | None
+    linked_step_id: str | None
+    linked_attempt_id: Digest | None
+    terminal_authority_claim: None
+    reason: str | None
+
+
+class _ProcessObservationProjectionContent(TypedDict, total=False):
+    schema_version: Literal["mrw.process-observation.v1"]
+    captured_at: Required[datetime]
+    tasks: tuple[ProcessTaskProjection, ...]
+    view_digest: Required[Digest]
+
+
+class _ProcessTaskCommon(TypedDict):
+    task_id: str
+    source_identities: tuple[str, ...]
+    linked_run_id: str | None
+    linked_step_id: str | None
+    linked_attempt_id: Digest | None
+
+
+def try_process_task_projection(
+    **content: Unpack[_ProcessTaskProjectionContent],
+) -> ProcessTaskProjection | Failure:
     """Build one task projection without throwing domain validation failures."""
 
     return _try_process_observation(
@@ -273,7 +312,7 @@ def try_process_task_projection(**content: Any) -> ProcessTaskProjection | Failu
 
 
 def try_process_observation_projection(
-    **content: Any,
+    **content: Unpack[_ProcessObservationProjectionContent],
 ) -> ProcessObservationProjection | Failure:
     """Build one process projection without throwing domain validation failures."""
 
@@ -318,7 +357,7 @@ def _join_process_observations(
 
     grouped: dict[str, tuple[LegacySourceObservation, ...]] = {}
     for observation in observations:
-        if not isinstance(observation, LegacySourceObservation):
+        if not _is_legacy_source_observation(observation):
             return _process_observation_failure(
                 "join requires typed legacy observations",
                 site="successor_runtime.runtime.process_observation.join.input",
@@ -344,10 +383,9 @@ def _join_process_observations(
         tasks=tasks,
         view_digest="0" * 64,
     )
-    values = provisional.model_dump(mode="python")
-    values.pop("view_digest")
     return try_process_observation_projection(
-        **values,
+        captured_at=provisional.captured_at,
+        tasks=provisional.tasks,
         view_digest=canonical_digest(
             provisional,
             exclude_fields={"view_digest"},
@@ -389,7 +427,7 @@ def _join_task(
     if isinstance(linked_attempt_ids, Failure):
         return linked_attempt_ids
     source_identities = tuple(sorted({item.source_locator for item in observations}))
-    common = {
+    common: _ProcessTaskCommon = {
         "task_id": task_id,
         "source_identities": source_identities,
         "linked_run_id": linked_run_ids[0] if linked_run_ids else None,
@@ -463,11 +501,41 @@ def _distinct_linked(
     return distinct
 
 
+def _is_legacy_source_observation(
+    value: object,
+) -> TypeGuard[LegacySourceObservation]:
+    """Retain the dynamic compatibility guard at the typed join boundary."""
+
+    return isinstance(value, LegacySourceObservation)
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_historical_task(value: object) -> TypeGuard[Mapping[str, object]]:
+    """Recognize one historical object without rewriting its stored mapping."""
+
+    return _is_object_mapping(value) and all(isinstance(key, str) for key in value)
+
+
+def _is_historical_task_list(
+    value: object,
+) -> TypeGuard[list[Mapping[str, object]]]:
+    return _is_object_list(value) and all(
+        _is_historical_task(task) for task in value
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class HistoricalProcessObservationProjectionRead:
     """Explicit historical v1 process-projection decode; no rehashing."""
 
-    schema_version: Literal[HISTORICAL_PROCESS_OBSERVATION_PROJECTION_SCHEMA_V1]
+    schema_version: Literal["mrw.runtime.legacy-process-projection.v1"]
     captured_at: datetime
     tasks: tuple[Mapping[str, object], ...]
     view_digest: str
@@ -503,9 +571,7 @@ def try_read_historical_process_observation_projection(
             site="successor_runtime.runtime.process_observation.history.captured_at",
         )
     raw_tasks = payload.get("tasks", ())
-    if not isinstance(raw_tasks, list) or any(
-        not isinstance(task, Mapping) for task in raw_tasks
-    ):
+    if not _is_historical_task_list(raw_tasks):
         return _historical_process_observation_failure(
             "historical process projection tasks are invalid",
             site="successor_runtime.runtime.process_observation.history.tasks",

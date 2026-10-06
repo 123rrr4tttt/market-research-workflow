@@ -1,0 +1,10 @@
+from collections.abc import Mapping
+from celery import Celery, Task
+
+app = Celery("negative-bound")
+
+@app.task(bind=True)
+def bound(self: Task[[str], Mapping[str, object]], value: str) -> Mapping[str, object]:
+    return {"value": value, "task_id": self.request.id}
+
+bound.delay(123)

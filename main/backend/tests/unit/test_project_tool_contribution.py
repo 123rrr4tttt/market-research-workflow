@@ -151,15 +151,22 @@ def test_project_tool_contract_retains_existing_authority_boundaries() -> None:
         forbidden = replace(spec, input_schema={"type": "object", "properties": {field: {"type": "string"}}})
         assert isinstance(compile_project_tool_native(replace(source, tool_spec=forbidden)), Failure)
     assert isinstance(compile_project_tool_native(replace(source, tool_spec=replace(spec, metadata={}))), Failure)
-    assert isinstance(compile_project_tool_native(replace(source, tool_spec=replace(spec, concurrency="parallel"))), Failure)
+    assert isinstance(
+        compile_project_tool_native(replace(source, tool_spec=replace(spec, concurrency="parallel"))), Failure
+    )
 
     # The original macro-facility boundary remains request-only by default.
     with pytest.raises(ValueError, match="cannot grant scope or permission"):
         FacilityBinding(
-            binding_id=source.binding_id, version=source.version, tool_spec=spec,
-            handler=source.handler, executor_ref=source.executor_ref,
-            scope_source=source.scope_source, permission_source=source.permission_source,
-            failure_family=source.failure_family, readback_semantics=source.readback_semantics,
+            binding_id=source.binding_id,
+            version=source.version,
+            tool_spec=spec,
+            handler=source.handler,
+            executor_ref=source.executor_ref,
+            scope_source=source.scope_source,
+            permission_source=source.permission_source,
+            failure_family=source.failure_family,
+            readback_semantics=source.readback_semantics,
         )
 
 
@@ -191,27 +198,30 @@ def test_source_plan_and_skill_load_reach_native_codex_consumer() -> None:
         "concurrency_class": "read_only",
         "required_permissions": [],
     }
-    public_dns = [
-        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))
-    ]
+    public_dns = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))]
     observed_sources: list[ProjectToolAuthorSource] = []
 
     def capture_sources(registry, sources):
         observed_sources.extend(sources)
         return register_project_tool_contributions(registry, sources)
 
-    with patch(
-        "app.services.agent_core.project_tools.list_registered_skills",
-        return_value=[registered_skill],
-    ), patch(
-        "app.services.agent_core.query_tools.list_registered_skills",
-        return_value=[registered_skill],
-    ), patch(
-        "app.services.agent_core.project_tools.register_project_tool_contributions",
-        side_effect=capture_sources,
-    ), patch(
-        "app.services.source_library.external_project.socket.getaddrinfo",
-        return_value=public_dns,
+    with (
+        patch(
+            "app.services.agent_core.project_tools.list_registered_skills",
+            return_value=[registered_skill],
+        ),
+        patch(
+            "app.services.agent_core.query_tools.list_registered_skills",
+            return_value=[registered_skill],
+        ),
+        patch(
+            "app.services.agent_core.project_tools.register_project_tool_contributions",
+            side_effect=capture_sources,
+        ),
+        patch(
+            "app.services.source_library.external_project.socket.getaddrinfo",
+            return_value=public_dns,
+        ),
     ):
         binding = build_agent_macro_rapid_binding(
             project_key="demo_proj",
@@ -227,22 +237,41 @@ def test_source_plan_and_skill_load_reach_native_codex_consumer() -> None:
 
         sources = {source.tool_spec.name: source for source in observed_sources}
         assert [source.tool_spec.name for source in observed_sources] == [
-            "agent_task.plan.append", "agent_long_task.stage.update", "agent_long_task.stage.read",
-            "agent_session.resume_bundle", "project.graph.search", "project.structured_graph.query",
-            "project.structured_data.quality_audit", "chain.expand", "source.web.search",
-            "source.candidate.review", "ingest.url_pool.submit", "ingest.url_pool.status",
-            "source.history.read", "agent_investigation.leads.append", "agent_investigation.trace.read",
-            "writing.document.list", "writing.document.read", "writing.document.section.read",
-            "writing.document.create", "writing.document.insert_paragraph", "writing.document.citations.upsert",
-            "agent_batch.submit", "skill.search", "source.discovery.plan", "skill.load",
-            "workflow_graph.run", "report.generate",
+            "agent_task.plan.append",
+            "agent_long_task.stage.update",
+            "agent_long_task.stage.read",
+            "agent_session.resume_bundle",
+            "project.graph.search",
+            "project.structured_graph.query",
+            "project.structured_data.quality_audit",
+            "chain.expand",
+            "source.web.search",
+            "source.candidate.review",
+            "ingest.url_pool.submit",
+            "ingest.url_pool.status",
+            "source.history.read",
+            "agent_investigation.leads.append",
+            "agent_investigation.trace.read",
+            "writing.document.list",
+            "writing.document.read",
+            "writing.document.section.read",
+            "writing.document.create",
+            "writing.document.insert_paragraph",
+            "writing.document.citations.upsert",
+            "agent_batch.submit",
+            "skill.search",
+            "source.discovery.plan",
+            "skill.load",
+            "workflow_graph.run",
+            "report.generate",
         ]
-        assert sources["source.discovery.plan"].scope_source == "AgentCoreRequest.project_key plus source-discovery planning arguments and source catalog read"
+        assert (
+            sources["source.discovery.plan"].scope_source
+            == "AgentCoreRequest.project_key plus source-discovery planning arguments and source catalog read"
+        )
         assert sources["source.discovery.plan"].tool_spec.risk == "read_only"
         assert sources["source.discovery.plan"].tool_spec.permission == "allow"
-        assert sources["skill.load"].failure_family.endswith(
-            "original skill metadata handler"
-        )
+        assert sources["skill.load"].failure_family.endswith("original skill metadata handler")
         assert source_tool.input_schema["properties"]["candidate_urls"]["type"] == "array"
         assert skill_tool.input_schema["required"] == ["skill_id"]
         source_result = source_tool.handler(
@@ -255,9 +284,7 @@ def test_source_plan_and_skill_load_reach_native_codex_consumer() -> None:
         skill_result = skill_tool.handler({"skill_id": "example.read"})
 
     assert source_result["status"] == "completed"
-    assert source_result["structured_content"]["quality_gates"][
-        "network_fetch_performed"
-    ] is False
+    assert source_result["structured_content"]["quality_gates"]["network_fetch_performed"] is False
     assert skill_result["status"] == "completed"
     assert skill_result["structured_content"]["skill"]["skill_id"] == "example.read"
 
@@ -265,14 +292,141 @@ def test_source_plan_and_skill_load_reach_native_codex_consumer() -> None:
 def test_governed_dispatch_keeps_original_frontdoor_contract() -> None:
     source = _source("example.dispatch", lambda *_: None)
     frontdoor = "existing.governed.frontdoor"
-    spec = replace(source.tool_spec, risk="write_external", permission="allow",
-                   concurrency="serial", metadata={"uses_existing_frontdoor": frontdoor})
+    spec = replace(
+        source.tool_spec,
+        risk="write_external",
+        permission="allow",
+        concurrency="serial",
+        metadata={"uses_existing_frontdoor": frontdoor},
+    )
     source = replace(source, tool_spec=spec, governed_dispatch_ref=frontdoor)
     native = compile_project_tool_native(source)
     assert not isinstance(native, Failure)
     assert native.definition.tool_spec is spec
     assert isinstance(compile_project_tool_native(replace(source, governed_dispatch_ref=None)), Failure)
     assert isinstance(compile_project_tool_native(replace(source, governed_dispatch_ref="other.frontdoor")), Failure)
-    assert isinstance(compile_project_tool_native(replace(source, tool_spec=replace(spec, concurrency="parallel"))), Failure)
-    assert isinstance(compile_project_tool_native(replace(source, tool_spec=replace(spec, input_schema={
-        "type": "object", "properties": {"permission": {"type": "string"}}}))), Failure)
+    assert isinstance(
+        compile_project_tool_native(replace(source, tool_spec=replace(spec, concurrency="parallel"))), Failure
+    )
+    assert isinstance(
+        compile_project_tool_native(
+            replace(
+                source,
+                tool_spec=replace(
+                    spec, input_schema={"type": "object", "properties": {"permission": {"type": "string"}}}
+                ),
+            )
+        ),
+        Failure,
+    )
+
+
+def test_source_history_read_failure_is_not_projected_as_empty_success() -> None:
+    from app.services.agent_core.authoring_tools import (
+        AuthoringToolContext,
+        authoring_ingest_writing_batch_sources,
+    )
+
+    def execute(service: AgentSessionService, session_id: str) -> CoreToolResult:
+        registry = CoreToolRegistry()
+        assert (
+            register_project_tool_contributions(
+                registry,
+                authoring_ingest_writing_batch_sources(
+                    AuthoringToolContext(service=service, structured_data_searcher=lambda **_kwargs: {})
+                ),
+            )
+            is None
+        )
+        spec = registry.get("source.history.read")
+        assert spec is not None
+        return registry.execute_tool(
+            tool_call=CoreToolCall(
+                tool_name="source.history.read",
+                arguments={"project_key": "demo_proj"},
+                call_id="call-source-history",
+            ),
+            tool_spec=spec,
+            request=AgentCoreRequest(
+                message="read source history",
+                session_id=session_id,
+                project_key="demo_proj",
+            ),
+            emit=lambda _event: None,
+        )
+
+    missing_session = execute(AgentSessionService(store=InMemoryAgentSessionStore()), "missing-session")
+    assert missing_session.status == "failed"
+    assert missing_session.error is not None
+    assert missing_session.error["code"] == "session_not_found"
+    assert missing_session.retry_hint is None
+
+    healthy_service = AgentSessionService(store=InMemoryAgentSessionStore())
+    bundle = healthy_service.create_session(
+        source="user",
+        entrypoint_type="agent_core",
+        goal="source history",
+        project_key="demo_proj",
+        task_blueprints=[],
+    )
+    assert not isinstance(bundle, Failure)
+
+    class ArtifactFailureService(AgentSessionService):
+        def list_artifacts(self, session_id: str):
+            return super().list_artifacts("missing-artifact-session")
+
+    failure_service = ArtifactFailureService(store=healthy_service.store)
+    propagated_failure = execute(failure_service, bundle["session"]["session_id"])
+    assert propagated_failure.status == "failed"
+    assert propagated_failure.error is not None
+    assert propagated_failure.error["code"] == "session_not_found"
+    assert propagated_failure.error["failure_family"] == "agent.session.failure"
+    assert propagated_failure.retry_hint is None
+
+    class ArtifactReadExceptionService(AgentSessionService):
+        def list_artifacts(self, session_id: str):
+            raise RuntimeError("artifact store unavailable")
+
+    service = ArtifactReadExceptionService(store=healthy_service.store)
+    artifact_failure = execute(service, bundle["session"]["session_id"])
+    assert artifact_failure.status == "failed"
+    assert artifact_failure.error is not None
+    assert artifact_failure.error["code"] == "source_history_read_failed"
+    assert artifact_failure.error["phase"] == "artifact_read"
+    assert artifact_failure.structured_content == {}
+
+
+def test_project_tool_schema_projection_preserves_nested_schema_sequences() -> None:
+    from app.services.agent_core.macro_environment import native_tool_specs
+    from app.services.agent_core.project_tools import build_project_core_tool_registry
+
+    registry = build_project_core_tool_registry(
+        service=AgentSessionService(store=InMemoryAgentSessionStore())
+    )
+    spec = registry.get("project.structured_data.search")
+    assert spec is not None
+    dataset_enum = spec.input_schema["properties"]["datasets"]["items"]["enum"]
+    assert isinstance(dataset_enum, list)
+    assert dataset_enum == [
+        "materials",
+        "documents",
+        "graph_nodes",
+        "metric_points",
+        "products",
+        "price_observations",
+        "resource_pool_urls",
+        "resource_pool_sites",
+        "keyword_history",
+        "keyword_priors",
+        "search_history",
+        "sources",
+    ]
+
+    projected = next(
+        tool
+        for namespace in native_tool_specs(registry.list_specs())
+        if namespace.get("name") == "project_structured_data"
+        for tool in namespace["tools"]
+        if tool.get("name") == "search"
+    )
+    assert projected["inputSchema"]["properties"]["datasets"]["items"]["enum"] == dataset_enum

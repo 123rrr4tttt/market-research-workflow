@@ -26,6 +26,7 @@ from functorial_kit.contributions import (
 from functorial_kit.core.failure import Failure
 from functorial_kit.law_witness import define_law_witness
 from functorial_kit.native_contribution import (
+    NativeContribution,
     BindingAccepted,
     BindingRejected,
     NativeBindingIssue,
@@ -34,6 +35,13 @@ from functorial_kit.native_contribution import (
 
 from app.successor_runtime.runtime import facade_contracts as facade
 from app.successor_runtime.runtime.ports import ProjectScopeRef
+from app.successor_runtime.runtime.projection_contracts import (
+    OffsetExpectation,
+    ProjectionOffset,
+    ProjectorKey,
+    ValidationResult as OffsetValidationResult,
+    validate_offset_advance,
+)
 from mrw_functorial_kit.core.projection_semantics import (
     projection_projection_loss_kinds,
     projection_projection_source_schemas,
@@ -46,8 +54,6 @@ from mrw_functorial_kit.core.projection_semantics import (
 from mrw_functorial_kit.core.w06_semantics import (
     projection_evidence_surface_failures,
 )
-
-from .ports import projection_offsets as offsets
 
 __all__ = [
     "PROJECTION_READ_MODEL_SLOT_ID",
@@ -192,9 +198,9 @@ class ProjectionNativeDefinition:
     facade_query: facade.FacadeQueryV2
     facade_validation: facade.ValidationResult
     frontend_projection: tuple[tuple[str, str, str], ...]
-    current_offset: offsets.ProjectionOffset
-    next_offset: offsets.ProjectionOffset
-    cas_expectation: offsets.OffsetExpectation
+    current_offset: ProjectionOffset
+    next_offset: ProjectionOffset
+    cas_expectation: OffsetExpectation
 
     @property
     def contribution_id(self) -> str:
@@ -205,8 +211,8 @@ class ProjectionNativeDefinition:
         return self.source.cell_ids
 
     @property
-    def projector_key(self) -> offsets.ProjectorKey:
-        return offsets.ProjectorKey(
+    def projector_key(self) -> ProjectorKey:
+        return ProjectorKey(
             projector_id=self.source.anchor.projector_id,
             projector_version=self.source.anchor.projector_version,
             source_kind=self.source.anchor.source_kind,
@@ -258,7 +264,7 @@ _SCOPE_FIELDS = (
 
 def _definition_issues(source: ProjectionNativeSource, definition: ProjectionNativeDefinition) -> tuple[NativeBindingIssue, ...]:
     anchor = source.anchor
-    key_identity = offsets.ProjectorKey(
+    key_identity = ProjectorKey(
         projector_id=anchor.projector_id,
         projector_version=anchor.projector_version,
         source_kind=anchor.source_kind,
@@ -362,14 +368,14 @@ def lower_projection_native_source(source: ProjectionNativeSource) -> Projection
         ),
     )
     validation = facade.validate_command_v2(command)
-    key = offsets.ProjectorKey(
+    key = ProjectorKey(
         projector_id=source.anchor.projector_id,
         projector_version=source.anchor.projector_version,
         source_kind=source.anchor.source_kind,
         source_ref=source.anchor.source_ref,
         source_incarnation=source.anchor.source_incarnation,
     )
-    current = offsets.ProjectionOffset(
+    current = ProjectionOffset(
         projection_offset_id=source.anchor.projection_offset_id,
         key=key,
         projection_generation=source.anchor.projection_generation,
@@ -378,7 +384,7 @@ def lower_projection_native_source(source: ProjectionNativeSource) -> Projection
         offset_ref=source.anchor.offset_ref,
         revision=source.anchor.offset_revision,
     )
-    next_offset = offsets.ProjectionOffset(
+    next_offset = ProjectionOffset(
         projection_offset_id=current.projection_offset_id,
         key=key,
         projection_generation=current.projection_generation,
@@ -387,7 +393,7 @@ def lower_projection_native_source(source: ProjectionNativeSource) -> Projection
         offset_ref=current.offset_ref,
         revision=current.revision + 1,
     )
-    expectation = offsets.OffsetExpectation(
+    expectation = OffsetExpectation(
         expected_revision=current.revision,
         expected_generation=current.projection_generation,
         expected_source_revision=current.source_revision,
@@ -472,12 +478,12 @@ class ProjectionNativeBinding:
 
     def validate_anchor_transition(
         self,
-        next_offset: offsets.ProjectionOffset,
-        expectation: offsets.OffsetExpectation,
+        next_offset: ProjectionOffset,
+        expectation: OffsetExpectation,
         *,
-        stored_offset: offsets.ProjectionOffset | None = None,
-    ) -> offsets.ValidationResult:
-        return offsets.validate_offset_advance(
+        stored_offset: ProjectionOffset | None = None,
+    ) -> OffsetValidationResult:
+        return validate_offset_advance(
             stored_offset or self.definition.current_offset, expectation, next_offset
         )
 
@@ -573,7 +579,7 @@ PROJECTION_NATIVE_CONTRIBUTION_RULE = NativeContributionRule[
 )
 
 
-def compile_projection_native_contribution(source: ProjectionNativeSource) -> object:
+def compile_projection_native_contribution(source: ProjectionNativeSource) -> NativeContribution[ProjectionNativeDefinition, object, ProjectionNativeBinding] | Failure:
     return compile_native_contribution(source, PROJECTION_NATIVE_CONTRIBUTION_RULE)
 
 

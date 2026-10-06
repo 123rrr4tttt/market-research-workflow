@@ -25,6 +25,7 @@ from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool
 
 from app.successor_runtime.capabilities.batch_task_interpreters import (
+    BatchTaskInterpreterBindingSpec,
     build_successor_agent_batch_c4_submission_binding,
 )
 from app.successor_runtime.capabilities import batch_task as c4
@@ -240,6 +241,19 @@ def _program_and_plan(payload: c4.AgentBatchSubmission):
         operation_contracts=registry(),
     )
     return program, plan
+
+
+def _runtime_binding(spec: BatchTaskInterpreterBindingSpec) -> InterpreterBinding:
+    return InterpreterBinding.from_content(
+        binding_kind=spec.binding_kind,
+        operation_contract_digest=spec.operation_contract_digest,
+        interpreter_profile_digest=spec.interpreter_profile_digest,
+        deployment_catalog_digest=spec.deployment_catalog_digest,
+        runtime_protocol_version=spec.runtime_protocol_version,
+        project_scope_digest=spec.project_scope_digest,
+        resource_policy_epoch=spec.resource_policy_epoch,
+        authority_requirement_digest=spec.authority_requirement_digest,
+    )
 
 
 def _assignment(
@@ -731,10 +745,12 @@ def prepared(runtime_database: Engine) -> dict[str, Any]:
     catalog_obj = catalog()
     ref = program.root.operation.contract_ref
     payload_ref = program.root.operation.payload_ref
-    binding = build_successor_agent_batch_c4_submission_binding(
-        contract_digest=ref.contract_digest,
-        deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
-        project_scope_digest=SCOPE_DIGEST,
+    binding = _runtime_binding(
+        build_successor_agent_batch_c4_submission_binding(
+            contract_digest=ref.contract_digest,
+            deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
+            project_scope_digest=SCOPE_DIGEST,
+        )
     )
     assignment = _assignment(program, plan, payload, payload_ref, binding)
     step = next(
@@ -1065,7 +1081,7 @@ def test_historical_receipt_readback_keeps_codec_digest_and_bytes(
         }
     ).encode("utf-8")
     stored_digest = hashlib.sha256(exact_bytes).hexdigest()
-    value_id = f"{PROGRAM_ID}:receipt:c4-3"
+    value_id = f"{PROGRAM_ID}:receipt:batch_task-3"
     tables = project_tables(sa.MetaData(), PROJECT_SCHEMA)
     with engine.begin() as connection:
         ValueRepository(connection, tables).put_exact(

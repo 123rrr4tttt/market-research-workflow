@@ -1218,7 +1218,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.UPSTREAM_ERROR.value)
 
     def test_admin_get_document_not_found_returns_error_envelope(self):
-        with patch("app.api.admin.SessionLocal", return_value=_FakeAdminSessionLocal()):
+        with patch("app.services.document_admin.SessionLocal", return_value=_FakeAdminSessionLocal()):
             resp = self.client.get("/api/v1/admin/documents/999", headers=self.headers)
 
         self.assertEqual(resp.status_code, 404)
@@ -1230,7 +1230,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
 
     def test_admin_update_document_invalid_merge_returns_error_envelope(self):
         doc = SimpleNamespace(id=1, extracted_data="raw")
-        with patch("app.api.admin.SessionLocal", return_value=_FakeAdminSessionLocal(doc)):
+        with patch("app.services.document_admin.SessionLocal", return_value=_FakeAdminSessionLocal(doc)):
             resp = self.client.post(
                 "/api/v1/admin/documents/1/extracted-data",
                 headers=self.headers,
@@ -1285,7 +1285,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         ]
         fake_session = _FakePreviewDeleteSession(docs)
 
-        with patch("app.api.admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)):
+        with patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)):
             resp = bulk_update_document_extracted_data(
                 BulkUpdateExtractedDataRequest(
                     doc_ids=[1, 2, 99],
@@ -1349,7 +1349,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         ]
         fake_session = _FakePreviewDeleteSession(docs)
 
-        with patch("app.api.admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)):
+        with patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)):
             resp = delete_documents(DeleteDocumentsRequest(ids=[1, 2, 99], preview=True))
 
         self.assertFalse(fake_session.deleted)
@@ -1402,7 +1402,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         ]
         fake_session = _FakePreviewDeleteSession(docs)
 
-        with patch("app.api.admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)):
+        with patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)):
             resp = delete_documents(DeleteDocumentsRequest(ids=[1, 2, 99], preview=False))
 
         self.assertEqual(fake_session.deleted, docs)
@@ -1459,7 +1459,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         ]
         fake_session = _FakePreviewDeleteSession(docs)
 
-        with patch("app.api.admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)):
+        with patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)):
             resp = bulk_update_document_extracted_data(
                 BulkUpdateExtractedDataRequest(
                     doc_ids=[1, 2, 99],
@@ -1520,7 +1520,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         fake_session = _FakePreviewDeleteSession(docs)
 
         with (
-            patch("app.api.admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)),
+            patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)),
             patch("app.api.admin.run_frontdoor_extraction") as mocked_extract,
             patch("app.api.admin.fetch_html") as mocked_fetch,
         ):
@@ -1592,7 +1592,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         fake_session = _FakePreviewDeleteSession(docs)
 
         with (
-            patch("app.api.admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)),
+            patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)),
             patch(
                 "app.api.admin.run_frontdoor_extraction",
                 return_value={

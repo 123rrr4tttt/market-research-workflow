@@ -13,7 +13,7 @@ consumer.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Final, Literal
+from typing import TYPE_CHECKING, Final, Literal
 
 from functorial_kit.contribution_compiler import (
     NativeContributionRule,
@@ -29,6 +29,7 @@ from functorial_kit.law_witness import define_law_witness
 from functorial_kit.native_contribution import (
     BindingAccepted,
     BindingRejected,
+    NativeContribution,
     NativeBindingIssue,
     ProjectedContributionSpec,
 )
@@ -36,6 +37,7 @@ from functorial_kit.native_contribution import (
 from app.successor_runtime.capabilities import workflow_legacy_dsl as workflow_dsl
 from app.successor_runtime.capabilities.workflow_common import (
     WORKFLOW_DEFINITION_FAILURES,
+    WorkflowJsonObject,
 )
 
 if TYPE_CHECKING:
@@ -54,6 +56,7 @@ __all__ = [
     "WORKFLOW_STATE_RESTORE_CELL_ID",
     "WorkflowAssemblyContext",
     "WorkflowNativeBinding",
+    "WorkflowNativeContribution",
     "WorkflowNativeDefinition",
     "WorkflowNativeSource",
     "WorkflowCellSource",
@@ -102,7 +105,7 @@ class WorkflowNativeSource:
     owner: str
     family_id: str
     cells: tuple[WorkflowCellSource, ...]
-    dsl_payload: Any
+    dsl_payload: WorkflowJsonObject
     rollback_refs: tuple[str, ...]
     interpreter_profile_id: str
     deployment_catalog_preimage: str
@@ -463,8 +466,14 @@ WORKFLOW_NATIVE_CONTRIBUTION_RULE = NativeContributionRule[
     verification=verify_workflow_native_definition,
 )
 
+WorkflowNativeContribution = NativeContribution[
+    WorkflowNativeDefinition,
+    WorkflowAssemblyContext,
+    WorkflowNativeBinding,
+]
+
 
 def compile_workflow_native_contribution(
     source: WorkflowNativeSource,
-) -> object:
+) -> WorkflowNativeContribution | Failure:
     return compile_native_contribution(source, WORKFLOW_NATIVE_CONTRIBUTION_RULE)

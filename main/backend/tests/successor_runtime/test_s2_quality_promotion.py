@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
-
 from app.successor_runtime.assembly.base import (
     BatchTaskAssemblyOptions,
     local_assembly_scope_digest,
@@ -18,6 +17,7 @@ from app.successor_runtime.assembly.batch_task_assembly import (
     _BATCH_TASK_QUALITY_PROMOTION_OPERATION_DIGEST,
     build_batch_task_assembly,
 )
+from app.successor_runtime.capabilities import batch_task as c4
 from app.successor_runtime.capabilities.quality_promotion_port import (
     BoundedRetryReadback,
     CriticScoreReadback,
@@ -340,10 +340,10 @@ def test_c4_assembly_installs_quality_promotion_handler_with_evidence() -> None:
     ]
     assert len(quality_handlers) == 1
     assert "QUALITY_PROMOTION_HANDLER_INSTALLED_READBACK_ONLY" in (
-        assembly.cell("C4.3").note
+        assembly.cell(c4.SUBMISSION_KIND).note
     )
     assert assembly.coverage() == {
-        "C4.1": "FIXTURE_CLOSURE_REQUIRED",
-        "C4.2": "FIXTURE_CLOSURE_REQUIRED",
-        "C4.3": "INSTALLED",
+        c4.BATCH_PLAN_KIND: "FIXTURE_CLOSURE_REQUIRED",
+        c4.RETRY_REDUCE_KIND: "FIXTURE_CLOSURE_REQUIRED",
+        c4.SUBMISSION_KIND: "INSTALLED",
     }

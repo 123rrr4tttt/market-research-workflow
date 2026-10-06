@@ -107,7 +107,7 @@ def _save_cursor(project_key: str, object_name: str, value: int) -> None:
         )
 
 
-def sync_project_data_to_aggregator() -> dict:
+def sync_project_data_to_aggregator() -> dict[str, int]:
     job_id = start_job("aggregator_sync", {})
     _ensure_aggregator_tables()
     totals = {"documents": 0, "market_metric_points": 0, "price_observations": 0}

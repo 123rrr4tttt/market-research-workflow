@@ -11,14 +11,18 @@ from copy import deepcopy
 from hashlib import sha256
 import json
 from uuid import uuid4
-from typing import Any, NoReturn
+from typing import Any, Callable, NoReturn, cast
 
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from app.models.base import SessionLocal
 from app.models.project_retrieval import ProjectRetrievalMode, ProjectRetrievalPlan, ProjectRetrievalRun
+from app.services.information_topology.modules.retrieval import DomainVocabulary
+from functorial_kit import Failure
 
+from .contracts import RetrievalJsonObject, RetrievalJsonValue
 from .failures import ProjectRetrievalFailureCode, retrieval_failure
 
 
@@ -42,7 +46,7 @@ def _raise_retrieval_failure(
     raise RetrievalError(failure.code, failure.message, status) from cause
 
 
-def _canonical_digest(value: Mapping[str, Any]) -> str:
+def _canonical_digest(value: Mapping[str, RetrievalJsonValue]) -> str:
     raw = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
     return sha256(raw.encode("utf-8")).hexdigest()
 
@@ -68,11 +72,17 @@ def _channel_readiness() -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     return channels, diagnostics
 
 
+def _mapping_list(value: object) -> list[Mapping[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [cast(Mapping[str, Any], item) for item in cast(list[object], value) if isinstance(item, Mapping)]
+
+
 class ProjectRetrievalService:
-    def __init__(self, session_factory=SessionLocal):
+    def __init__(self, session_factory: Callable[[], Session] = SessionLocal):
         self.session_factory = session_factory
 
-    def _current(self, session, project_key: str) -> ProjectRetrievalMode:
+    def _current(self, session: Session, project_key: str) -> ProjectRetrievalMode:
         row = session.scalar(select(ProjectRetrievalMode).where(
             ProjectRetrievalMode.project_key == project_key,
             ProjectRetrievalMode.is_current.is_(True),
@@ -106,12 +116,12 @@ class ProjectRetrievalService:
                 raise
         return row
 
-    def current(self, project_key: str) -> dict[str, Any]:
+    def current(self, project_key: str) -> RetrievalJsonObject:
         from .mode import current_mode
         with self.session_factory() as session:
             return current_mode(self._current(session, project_key).snapshot)
 
-    def domain_vocabulary(self, project_key: str) -> Any:
+    def domain_vocabulary(self, project_key: str) -> DomainVocabulary | Failure:
         """Resolve the current mode's authored vocabulary for topology writers."""
 
         from app.services.information_topology.io.retrieval import (
@@ -122,7 +132,7 @@ class ProjectRetrievalService:
             snapshot = deepcopy(self._current(session, project_key).snapshot)
         return resolve_domain_vocabulary(project_key, snapshot)
 
-    def refresh(self, project_key: str) -> dict[str, Any]:
+    def refresh(self, project_key: str) -> RetrievalJsonObject:
         """Explicitly adopt a newly packaged project observation.
 
         Existing plan rows keep their old snapshot. Replacing the bytes under
@@ -153,8 +163,8 @@ class ProjectRetrievalService:
                 current.is_current = False
             if historical is None:
                 historical = ProjectRetrievalMode(
-                    project_key=project_key, mode_id=snapshot["mode_id"],
-                    version=snapshot["version"], source_revision=snapshot["source_revision"],
+                    project_key=project_key, mode_id=str(snapshot["mode_id"]),
+                    version=str(snapshot["version"]), source_revision=str(snapshot["source_revision"]),
                     snapshot=deepcopy(snapshot), is_current=True,
                 )
                 session.add(historical)
@@ -165,7 +175,7 @@ class ProjectRetrievalService:
 
     def preview(self, project_key: str, *, route_id: str,
                 query_ids: list[str] | None = None,
-                limits: Mapping[str, Any] | None = None) -> dict[str, Any]:
+                limits: Mapping[str, int] | None = None) -> RetrievalJsonObject:
         from .mode import compile_preview
         with self.session_factory() as session:
             mode = self._current(session, project_key)
@@ -180,8 +190,12 @@ class ProjectRetrievalService:
             plan["mode_version"] = mode.version
             plan["source_revision"] = mode.source_revision
             plan["binding_snapshot"] = deepcopy(mode.snapshot)
-            plan["channels"], channel_diagnostics = _channel_readiness()
-            plan["diagnostics"] = list(plan.get("diagnostics") or []) + channel_diagnostics
+            channels, channel_diagnostics = _channel_readiness()
+            plan["channels"] = cast(RetrievalJsonValue, channels)
+            plan["diagnostics"] = cast(
+                RetrievalJsonValue,
+                _mapping_list(plan.get("diagnostics")) + channel_diagnostics,
+            )
             # The plan identity must cover every executable input, including
             # the frozen project method; presentation diagnostics are excluded.
             identity = {key: value for key, value in plan.items() if key not in {"plan_id", "diagnostics"}}
@@ -201,7 +215,7 @@ class ProjectRetrievalService:
                     session.rollback()
             return {key: value for key, value in plan.items() if key != "binding_snapshot"}
 
-    def start(self, project_key: str, *, plan_id: str, idempotency_key: str) -> dict[str, Any]:
+    def start(self, project_key: str, *, plan_id: str, idempotency_key: str) -> RetrievalJsonObject:
         if not idempotency_key.strip() or len(idempotency_key) > 255:
             _raise_retrieval_failure(
                 "INVALID_IDEMPOTENCY_KEY", "idempotency_key must be nonempty and at most 255 characters", 422,
@@ -221,8 +235,7 @@ class ProjectRetrievalService:
             ))
             if plan is None:
                 _raise_retrieval_failure("PLAN_NOT_FOUND", "preview plan does not exist", 404)
-            if any(isinstance(item, Mapping) and item.get("severity") == "blocking"
-                   for item in (plan.payload.get("diagnostics") or [])):
+            if any(item.get("severity") == "blocking" for item in _mapping_list(plan.payload.get("diagnostics"))):
                 _raise_retrieval_failure("PLAN_BLOCKED", "preview has unavailable execution channels", 409)
             run_id = f"pr_{uuid4().hex}"
             session.add(ProjectRetrievalRun(
@@ -253,7 +266,7 @@ class ProjectRetrievalService:
             _raise_retrieval_failure("DISPATCH_FAILED", "retrieval worker dispatch failed", 503, cause=exc)
         return {"run_id": run_id, "status": "queued"}
 
-    def read_run(self, project_key: str, run_id: str) -> dict[str, Any]:
+    def read_run(self, project_key: str, run_id: str) -> RetrievalJsonObject:
         with self.session_factory() as session:
             row = session.scalar(select(ProjectRetrievalRun).where(
                 ProjectRetrievalRun.project_key == project_key,
@@ -261,12 +274,12 @@ class ProjectRetrievalService:
             ))
             if row is None:
                 _raise_retrieval_failure("RUN_NOT_FOUND", "retrieval run does not exist", 404)
-            return {"run_id": row.run_id, "plan_id": row.plan_id, "status": row.status,
+            return cast(RetrievalJsonObject, {"run_id": row.run_id, "plan_id": row.plan_id, "status": row.status,
                     "phase": row.phase, "counts": row.counts, "errors": row.errors,
                     "receipt": row.receipt, "created_at": row.created_at.isoformat() if row.created_at else None,
-                    "updated_at": row.updated_at.isoformat() if row.updated_at else None}
+                    "updated_at": row.updated_at.isoformat() if row.updated_at else None})
 
-    def read_plan(self, project_key: str, plan_id: str) -> dict[str, Any]:
+    def read_plan(self, project_key: str, plan_id: str) -> RetrievalJsonObject:
         with self.session_factory() as session:
             row = session.scalar(select(ProjectRetrievalPlan).where(
                 ProjectRetrievalPlan.project_key == project_key,
@@ -285,7 +298,7 @@ class ProjectRetrievalService:
         proposal_version: str,
         frontier_id: str,
         remaining_followup_budget: int,
-    ) -> dict[str, Any]:
+    ) -> RetrievalJsonObject:
         """Execute one persisted Rapid frontier against its frozen base plan.
 
         This is a compatibility entry to the fixed project retrieval executor.
@@ -336,7 +349,7 @@ class ProjectRetrievalService:
             session_factory=get_agent_session_service,
         )
         if isinstance(result, Failure):
-            return {
+            return cast(RetrievalJsonObject, {
                 "status": "rejected",
                 "error": {
                     "family": result.family,
@@ -344,7 +357,7 @@ class ProjectRetrievalService:
                     "message": result.message,
                     "context": dict(result.context or {}),
                 },
-            }
+            })
         return {"status": "completed", **result}
 
     def claim_run(self, project_key: str, run_id: str) -> bool:
@@ -359,9 +372,9 @@ class ProjectRetrievalService:
             return result.rowcount == 1
 
     def update_run(self, project_key: str, run_id: str, *, status: str, phase: str,
-                   counts: Mapping[str, Any] | None = None,
-                   errors: list[Mapping[str, Any]] | None = None,
-                   receipt: Mapping[str, Any] | None = None) -> None:
+                   counts: Mapping[str, RetrievalJsonValue] | None = None,
+                   errors: list[Mapping[str, RetrievalJsonValue]] | None = None,
+                   receipt: Mapping[str, RetrievalJsonValue] | None = None) -> None:
         values: dict[str, Any] = {"status": status, "phase": phase}
         if counts is not None:
             values["counts"] = dict(counts)

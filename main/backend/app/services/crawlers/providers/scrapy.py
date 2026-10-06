@@ -2,14 +2,38 @@ from __future__ import annotations
 
 import os
 
-from ..base import CrawlerDispatchRequest, CrawlerDispatchResult
-from ..registry import _failure, _raise_contract_failure
+from ..base import (
+    CrawlerDispatchRequest,
+    CrawlerDispatchResult,
+    CrawlerJsonObject,
+    CrawlerJsonValue,
+)
+from ..registry import crawler_failure, raise_crawler_contract_failure
 from ..scrapyd_bootstrap import (
     ensure_bootstrap_project_deployed,
     is_bootstrap_recoverable_schedule_error,
 )
 from ..scrapyd_client import ScrapydClient
 from ..scrapyd_runtime import ensure_scrapyd_ready, resolve_scrapyd_base_url
+
+
+def _json_value(value: CrawlerJsonValue) -> CrawlerJsonValue:
+    if isinstance(value, dict):
+        return {str(key): _json_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_value(item) for item in value]
+    return value
+
+
+def _json_object(value: CrawlerJsonValue) -> CrawlerJsonObject:
+    normalized = _json_value(value)
+    return normalized if isinstance(normalized, dict) else {}
+
+
+def _job_rows(value: CrawlerJsonValue) -> list[CrawlerJsonObject]:
+    if not isinstance(value, list):
+        return []
+    return [_json_object(item) for item in value if isinstance(item, dict)]
 
 
 class ScrapyCrawlerProvider:
@@ -24,18 +48,20 @@ class ScrapyCrawlerProvider:
 
     def dispatch(self, request: CrawlerDispatchRequest) -> CrawlerDispatchResult:
         ensure_scrapyd_ready(base_url=self.client.base_url)
-        first_response = self.client.schedule_spider(
-            project=request.project,
-            spider=request.spider,
-            arguments=dict(request.arguments or {}),
-            settings=dict(request.settings or {}),
-            version=request.version,
-            priority=request.priority,
-            job_id=request.job_id,
+        first_response = _json_object(
+            self.client.schedule_spider(
+                project=request.project,
+                spider=request.spider,
+                arguments=dict(request.arguments or {}),
+                settings=dict(request.settings or {}),
+                version=request.version,
+                priority=request.priority,
+                job_id=request.job_id,
+            )
         )
         response = first_response
         attempt_count = 1
-        raw: dict[str, object] = {"schedule": first_response}
+        raw: CrawlerJsonObject = {"schedule": first_response}
         if is_bootstrap_recoverable_schedule_error(
             first_response,
             project=request.project,
@@ -49,15 +75,17 @@ class ScrapyCrawlerProvider:
                     project=request.project,
                     spider=request.spider,
                 )
-                raw["bootstrap"] = bootstrap
-                response = self.client.schedule_spider(
-                    project=request.project,
-                    spider=request.spider,
-                    arguments=dict(request.arguments or {}),
-                    settings=dict(request.settings or {}),
-                    version=request.version,
-                    priority=request.priority,
-                    job_id=request.job_id,
+                raw["bootstrap"] = _json_object(bootstrap)
+                response = _json_object(
+                    self.client.schedule_spider(
+                        project=request.project,
+                        spider=request.spider,
+                        arguments=dict(request.arguments or {}),
+                        settings=dict(request.settings or {}),
+                        version=request.version,
+                        priority=request.priority,
+                        job_id=request.job_id,
+                    )
                 )
                 raw["schedule_retry"] = response
                 attempt_count = 2
@@ -80,25 +108,25 @@ class ScrapyCrawlerProvider:
         external_job_id: str,
         project: str | None = None,
         spider: str | None = None,
-        options: dict | None = None,
-    ) -> dict:
+        options: CrawlerJsonObject | None = None,
+    ) -> CrawlerJsonObject:
         target_project = str(project or "").strip()
         if not target_project:
-            failure = _failure(
+            failure = crawler_failure(
                 "poll_project_required",
                 "poll requires project for scrapy provider",
                 operation="scrapy.poll",
                 site="app.services.crawlers.providers.scrapy.ScrapyCrawlerProvider.poll",
             )
-            _raise_contract_failure(failure)
+            raise_crawler_contract_failure(failure)
         ensure_scrapyd_ready(base_url=self.client.base_url)
-        response = self.client.list_jobs(project=target_project)
+        response = _json_object(self.client.list_jobs(project=target_project))
         job_id = str(external_job_id or "").strip()
-        running = response.get("running") if isinstance(response.get("running"), list) else []
-        pending = response.get("pending") if isinstance(response.get("pending"), list) else []
-        finished = response.get("finished") if isinstance(response.get("finished"), list) else []
+        running = _job_rows(response.get("running"))
+        pending = _job_rows(response.get("pending"))
+        finished = _job_rows(response.get("finished"))
         all_jobs = running + pending + finished
-        matched = next((x for x in all_jobs if str((x or {}).get("id") or "").strip() == job_id), None)
+        matched = next((row for row in all_jobs if str(row.get("id") or "").strip() == job_id), None)
         status = "unavailable"
         if matched is not None:
             if matched in running:
@@ -106,7 +134,7 @@ class ScrapyCrawlerProvider:
             elif matched in pending:
                 status = "queued"
             else:
-                status = _finished_job_status(matched)
+                status = finished_job_status(matched)
         return {
             "external_provider": self.provider_type,
             "external_job_id": job_id,
@@ -118,12 +146,11 @@ class ScrapyCrawlerProvider:
         }
 
 
-def _finished_job_status(job: object) -> str:
+def finished_job_status(job: CrawlerJsonObject) -> str:
     """Map Scrapyd's finished row to the closed crawler terminal vocabulary."""
 
-    row = job if isinstance(job, dict) else {}
     observed = " ".join(
-        str(row.get(key) or "").strip().lower()
+        str(job.get(key) or "").strip().lower()
         for key in ("status", "state", "close_reason", "finish_reason", "reason", "error")
     )
     if any(token in observed for token in ("cancel", "canceled", "killed", "stopped", "shutdown")):
@@ -133,4 +160,4 @@ def _finished_job_status(job: object) -> str:
     return "completed"
 
 
-__all__ = ["ScrapyCrawlerProvider"]
+__all__ = ["ScrapyCrawlerProvider", "finished_job_status"]

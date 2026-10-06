@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 import json
-from typing import Annotated, Any
+from typing import Annotated
 
 from functorial_kit import Failure
 
@@ -18,7 +18,7 @@ from app.services.agent_runtime.read_only_tools import ReadOnlyAgentToolRuntime
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.skill_runtime import invoke_skill, list_registered_skills
 
-from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, CoreToolResult, CoreToolSpec
+from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, CoreToolResult, CoreToolSpec, ToolSource, ToolStatus
 from .macro_tools import (
     FacilityBinding,
     facility_tool_projection,
@@ -40,22 +40,31 @@ from .query_tools import query_project_tool_sources
 from .registry import CoreToolRegistry
 from .tool_contribution import register_project_tool_contributions
 from .tool_support import (
-    _abort_requested_result,
-    _compact_json_value,
-    _compact_session,
-    _concurrency_from_class,
-    _permission_from_approval,
-    _risk_from_metadata,
-    _session_abort_requested,
-    _utcnow_iso,
+    JSONValue,
+    JSONObject,
+    agent_artifact_store,
+    abort_requested_result,
+    compact_json_value,
+    compact_session,
+    concurrency_from_class,
+    json_list,
+    json_object,
+    normalize_string_list,
+    permission_from_approval,
+    resolve_project_key,
+    risk_from_metadata,
+    runtime_failure_result,
+    safe_int,
+    session_abort_requested,
+    utcnow_iso,
 )
 
 
-SourceLibraryLister = Callable[[str | None], list[dict[str, Any]]]
-StructuredDataSearcher = Callable[..., dict[str, Any]]
-MountedMcpToolHandler = Callable[[dict[str, Any], AgentCoreRequest], dict[str, Any]]
+SourceLibraryLister = Callable[[str | None], list[JSONObject]]
+StructuredDataSearcher = Callable[..., JSONObject]
+MountedMcpToolHandler = Callable[[JSONObject, AgentCoreRequest], JSONObject]
 
-_MOUNTED_MCP_TOOLS: dict[str, tuple[dict[str, Any], MountedMcpToolHandler]] = {}
+_MOUNTED_MCP_TOOLS: dict[str, tuple[JSONObject, MountedMcpToolHandler]] = {}
 
 
 def register_agent_core_mcp_tool(
@@ -63,7 +72,7 @@ def register_agent_core_mcp_tool(
     service_id: str,
     tool_name: str,
     description: str,
-    input_schema: dict[str, Any] | None = None,
+    input_schema: JSONObject | None = None,
     handler: MountedMcpToolHandler,
 ) -> None:
     """Register a mounted MCP-compatible tool for AgentCore.
@@ -83,12 +92,15 @@ def register_agent_core_mcp_tool(
             "tool_name": normalized_tool_name,
             "status": "available",
             "description": str(description or "").strip(),
-            "input_schema": dict(input_schema or {"type": "object", "properties": {}, "additionalProperties": True}),
+            "input_schema": input_schema or {"type": "object", "properties": {}, "additionalProperties": True},
             "mounted": True,
         },
         handler,
     )
-    mark_mcp_tool_mounted(service_id=str(service_id or "project-internal-catalog").strip() or "project-internal-catalog", tool_name=normalized_tool_name)
+    mark_mcp_tool_mounted(
+        service_id=str(service_id or "project-internal-catalog").strip() or "project-internal-catalog",
+        tool_name=normalized_tool_name,
+    )
 
 
 def clear_agent_core_mcp_tools() -> None:
@@ -104,7 +116,7 @@ def build_project_core_tool_registry(
 ) -> Annotated[
     CoreToolRegistry,
     "kit:non-authoritative derived_as=view fact_source=project_core_tool_specs "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_w02_agent_authority_metadata",
 ]:
     """Project tool projection for the model-owned core.
 
@@ -178,9 +190,7 @@ def build_project_core_tool_registry(
             continue
         authored_sources = authoring_capability_sources(service, (capability,))
         if authored_sources:
-            contribution_failure = register_project_tool_contributions(
-                registry, authored_sources
-            )
+            contribution_failure = register_project_tool_contributions(registry, authored_sources)
             if isinstance(contribution_failure, Failure):
                 # kit:boundary owner=project_tools.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_authoring_capability_sources_preserve_original_loop_semantics
                 raise ValueError(
@@ -212,10 +222,10 @@ def build_project_core_tool_registry(
             tool_spec: CoreToolSpec,
             request: AgentCoreRequest,
             emit: Callable[[CoreEvent], None],
-            skill_meta: dict[str, Any] = dict(skill),
+            skill_meta: JSONObject = json_object(skill),
         ) -> CoreToolResult:
-            if _session_abort_requested(service=service, session_id=request.session_id):
-                return _abort_requested_result(
+            if session_abort_requested(service=service, session_id=request.session_id):
+                return abort_requested_result(
                     service=service,
                     request=request,
                     tool_call=tool_call,
@@ -223,13 +233,17 @@ def build_project_core_tool_registry(
                     skipped_items=[str(skill_meta.get("skill_id") or tool_call.tool_name)],
                     dispatched_count=0,
                 )
-            payload = tool_call.arguments.get("payload") if isinstance(tool_call.arguments.get("payload"), dict) else dict(tool_call.arguments or {})
+            payload = (
+                tool_call.arguments.get("payload")
+                if isinstance(tool_call.arguments.get("payload"), dict)
+                else dict(tool_call.arguments or {})
+            )
             invoked = invoke_skill(
                 skill_id=str(skill_meta.get("skill_id") or ""),
                 payload=payload,
                 context={
                     "actor_role": "orchestration_runtime",
-                    "permissions": list(skill_meta.get("required_permissions") or []),
+                    "permissions": normalize_string_list(skill_meta.get("required_permissions")),
                     "agent_session_id": request.session_id,
                     "agent_task_id": str((request.context or {}).get("root_task_id") or "").strip() or None,
                     "approval_granted": True,
@@ -245,13 +259,13 @@ def build_project_core_tool_registry(
                 ui_summary=f"invoked skill {skill_meta.get('skill_id')}",
                 structured_content={
                     "skill_id": skill_meta.get("skill_id"),
-                    "result": _compact_json_value(invoked.get("result"), max_items=30, max_depth=5),
-                    "skill_meta": {
+                    "result": compact_json_value(invoked.get("result"), max_items=30, max_depth=5),
+                    "skill_meta": compact_json_value({
                         "owner": invoked.get("owner"),
                         "execution_profile": invoked.get("execution_profile"),
                         "concurrency_class": invoked.get("concurrency_class"),
                         "approval_policy": invoked.get("approval_policy") or {},
-                    },
+                    }, max_items=10, max_depth=4),
                 },
             )
 
@@ -280,9 +294,7 @@ def get_agent_macro_facility_catalog(session_service: AgentSessionService) -> tu
     return (
         project_retrieval_current_facility(retrieval_service),
         information_topology_read_facility(topology_service),
-        rapid_proposal_save_facility(
-            proposal_adapter, retrieval_service.domain_vocabulary
-        ),
+        rapid_proposal_save_facility(proposal_adapter, retrieval_service.domain_vocabulary),
         rapid_proposal_readback_facility(proposal_adapter),
         macro_registration_package_create_facility(session_service),
         macro_registration_package_readback_facility(session_service),
@@ -332,7 +344,8 @@ def _register_deepening_tools(
         )
 
 
-def _spec_from_tool_definition(tool: dict[str, Any], *, source: str) -> CoreToolSpec:
+def _spec_from_tool_definition(tool_value: Mapping[str, object], *, source: ToolSource) -> CoreToolSpec:
+    tool = json_object(tool_value)
     approval_level = str(tool.get("approval_level") or "none").strip()
     concurrency_class = str(tool.get("concurrency_class") or "read_only").strip()
     name = str(tool.get("name") or tool.get("tool_name") or tool.get("capability_id") or "").strip()
@@ -340,27 +353,32 @@ def _spec_from_tool_definition(tool: dict[str, Any], *, source: str) -> CoreTool
         name=name,
         title=str(tool.get("title") or tool.get("name") or name),
         description_for_model=str(tool.get("description") or name),
-        input_schema=dict(tool.get("input_schema") or {"type": "object", "properties": {}}),
-        output_schema=dict(tool.get("output_schema") or {"type": "object", "additionalProperties": True}),
-        source=source,  # type: ignore[arg-type]
-        risk=_risk_from_metadata(approval_level=approval_level, concurrency_class=concurrency_class, risks=list(tool.get("risks") or [])),
-        permission=_permission_from_approval(approval_level),
-        concurrency=_concurrency_from_class(concurrency_class),
-        timeout_seconds=int(tool.get("timeout_seconds") or 10),
-        result_budget=int(tool.get("result_budget") or 4000),
+        input_schema=json_object(tool.get("input_schema") or {"type": "object", "properties": {}}),
+        output_schema=json_object(tool.get("output_schema") or {"type": "object", "additionalProperties": True}),
+        source=source,
+        risk=risk_from_metadata(
+            approval_level=approval_level,
+            concurrency_class=concurrency_class,
+            risks=normalize_string_list(tool.get("risks")),
+        ),
+        permission=permission_from_approval(approval_level),
+        concurrency=concurrency_from_class(concurrency_class),
+        timeout_seconds=safe_int(tool.get("timeout_seconds")) or 10,
+        result_budget=safe_int(tool.get("result_budget")) or 4000,
         project_service_id=str(tool.get("capability_id") or name),
         metadata={"legacy_tool_definition": dict(tool)},
     )
 
 
-def _spec_from_capability(capability: dict[str, Any]) -> CoreToolSpec:
+def _spec_from_capability(capability_value: Mapping[str, object]) -> CoreToolSpec:
+    capability = json_object(capability_value)
     capability_id = str(capability.get("capability_id") or "").strip()
     approval_level = str(capability.get("approval_level") or "none").strip()
     concurrency_class = str(capability.get("concurrency_class") or "read_only").strip()
-    risks = list(capability.get("risks") or [])
-    required = list(capability.get("required_input") or [])
+    risks = normalize_string_list(capability.get("risks"))
+    required = normalize_string_list(capability.get("required_input"))
     if capability_id == "ingest.source_library.run":
-        input_schema = {
+        input_schema: JSONObject = {
             "type": "object",
             "required": ["items", "project_key"],
             "properties": {
@@ -402,13 +420,13 @@ def _spec_from_capability(capability: dict[str, Any]) -> CoreToolSpec:
         description_for_model=str(capability.get("description") or capability_id),
         input_schema=input_schema,
         source="legacy_adapter",
-        risk=_risk_from_metadata(
+        risk=risk_from_metadata(
             approval_level=approval_level,
             concurrency_class=concurrency_class,
             risks=risks,
         ),
-        permission=_permission_from_approval(approval_level),
-        concurrency=_concurrency_from_class(concurrency_class),
+        permission=permission_from_approval(approval_level),
+        concurrency=concurrency_from_class(concurrency_class),
         project_service_id=capability_id,
         metadata={"legacy_capability": dict(capability)},
     )
@@ -428,7 +446,7 @@ def _handler_for_capability(
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = str(tool_call.arguments.get("project_key") or request.project_key or "").strip()
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
             return CoreToolResult(
                 call_id=tool_call.call_id,
@@ -438,7 +456,7 @@ def _handler_for_capability(
                 error={"code": "missing_project_key", "message": "project_key is required"},
             )
 
-        override_params = dict(tool_call.arguments.get("override_params") or {})
+        override_params = json_object(tool_call.arguments.get("override_params"))
         if tool_call.arguments.get("max_items") is not None:
             override_params.setdefault("max_items", tool_call.arguments.get("max_items"))
 
@@ -453,10 +471,10 @@ def _handler_for_capability(
                 error={"code": "missing_item_key", "message": "item_key is required"},
             )
 
-        dispatches: list[dict[str, Any]] = []
+        dispatches: list[JSONObject] = []
         skipped_due_to_abort: list[str] = []
         for item_key in item_keys:
-            if _session_abort_requested(service=service, session_id=request.session_id):
+            if session_abort_requested(service=service, session_id=request.session_id):
                 skipped_due_to_abort.extend(item_keys[len(dispatches) :])
                 emit(
                     CoreEvent(
@@ -492,15 +510,15 @@ def _handler_for_capability(
                     "trace_id": f"{tool_call.call_id}:{item_key}",
                 },
             )
-            result = invoked.get("result") if isinstance(invoked, dict) else {}
+            result = json_object(invoked.get("result"))
             dispatches.append(
                 {
                     "item_key": item_key,
-                    "task_id": str((result or {}).get("task_id") or "").strip() if isinstance(result, dict) else "",
+                    "task_id": str(result.get("task_id") or "").strip(),
                     "skill_id": "ingest.dispatch.source_library_item",
                 }
             )
-            if _session_abort_requested(service=service, session_id=request.session_id):
+            if session_abort_requested(service=service, session_id=request.session_id):
                 remaining = item_keys[len(dispatches) :]
                 skipped_due_to_abort.extend(remaining)
                 emit(
@@ -520,7 +538,7 @@ def _handler_for_capability(
                 )
                 break
 
-        task_ids = [item["task_id"] for item in dispatches if item.get("task_id")]
+        task_ids = [str(item.get("task_id") or "") for item in dispatches if item.get("task_id")]
         item_summary = ", ".join(item_keys)
         task_summary = ", ".join(task_ids) if task_ids else "none returned yet"
         dispatch_artifact = _record_source_library_dispatch_state(
@@ -533,6 +551,8 @@ def _handler_for_capability(
             override_params=override_params,
             skipped_items=skipped_due_to_abort,
         )
+        if isinstance(dispatch_artifact, Failure):
+            return runtime_failure_result(tool_call, dispatch_artifact)
         if skipped_due_to_abort:
             return CoreToolResult(
                 call_id=tool_call.call_id,
@@ -581,22 +601,28 @@ def _record_source_library_dispatch_state(
     request: AgentCoreRequest,
     tool_call: CoreToolCall,
     project_key: str,
-    dispatches: list[dict[str, Any]],
+    dispatches: list[JSONObject],
     task_ids: list[str],
-    override_params: dict[str, Any],
+    override_params: JSONObject,
     skipped_items: list[str],
-) -> dict[str, Any]:
+) -> JSONObject | Failure:
     artifact_name = "ingest.source_library_dispatches.json"
-    existing = next((item for item in service.list_artifacts(request.session_id) if item.get("name") == artifact_name), None)
-    content = dict((existing or {}).get("content_json") or {})
-    records = [dict(item) for item in list(content.get("dispatches") or []) if isinstance(item, dict)]
-    record = {
+    artifacts = service.list_artifacts(request.session_id)
+    if isinstance(artifacts, Failure):
+        return artifacts
+    existing = next(
+        (json_object(item) for item in artifacts if item.get("name") == artifact_name),
+        None,
+    )
+    content = json_object((existing or {}).get("content_json"))
+    records = [item for item in json_list(content.get("dispatches")) if isinstance(item, dict)]
+    record: JSONObject = {
         "call_id": tool_call.call_id,
         "turn_id": request.turn_id,
         "session_id": request.session_id,
         "project_key": project_key,
-        "recorded_at": _utcnow_iso(),
-        "items": list(dispatches),
+        "recorded_at": utcnow_iso(),
+        "items": list[JSONValue](dispatches),
         "task_ids": list(task_ids),
         "override_params": dict(override_params),
         "skipped_items": list(skipped_items),
@@ -604,14 +630,17 @@ def _record_source_library_dispatch_state(
     }
     records = [item for item in records if item.get("call_id") != tool_call.call_id]
     records.append(record)
-    updated = {
+    updated: JSONObject = {
         "contract_version": "ingest.source_library.dispatch_state.v1",
         "session_id": request.session_id,
         "project_key": project_key,
-        "dispatches": records[-50:],
+        "dispatches": list[JSONValue](records[-50:]),
         "latest": record,
     }
-    artifact = service.store.upsert_artifact(
+    store = agent_artifact_store(service.store)
+    if store is None:
+        raise TypeError("AgentSessionService.store does not provide the artifact store contract")
+    artifact_value = store.upsert_artifact(
         {
             "session_id": request.session_id,
             "name": artifact_name,
@@ -626,7 +655,10 @@ def _record_source_library_dispatch_state(
             },
         }
     )
-    service.store.append_event(
+    if isinstance(artifact_value, Failure):
+        return artifact_value
+    artifact = json_object(artifact_value)
+    event_value = store.append_event(
         request.session_id,
         event_type="ingest.source_library.dispatch_recorded",
         payload={
@@ -638,18 +670,22 @@ def _record_source_library_dispatch_state(
             "status": record["status"],
         },
     )
-    return dict(artifact or {})
+    if isinstance(event_value, Failure):
+        return event_value
+    return artifact
 
 
-def _normalize_source_library_items(arguments: dict[str, Any]) -> list[str]:
-    raw_items = arguments.get("items")
-    candidates: list[Any]
-    if isinstance(raw_items, list):
-        candidates = list(raw_items)
-    elif raw_items:
-        candidates = [raw_items]
+def _normalize_source_library_items(arguments: Mapping[str, object]) -> list[str]:
+    normalized_arguments = json_object(arguments)
+    raw_items_value = normalized_arguments.get("items")
+    candidates: list[JSONValue]
+    if isinstance(raw_items_value, list):
+        candidates = raw_items_value
+    elif raw_items_value:
+        candidates = [raw_items_value]
     else:
-        candidates = [arguments.get("item_key")]
+        fallback = normalized_arguments.get("item_key")
+        candidates = [fallback]
 
     out: list[str] = []
     for item in candidates:
@@ -664,11 +700,13 @@ def _normalize_source_library_items(arguments: dict[str, Any]) -> list[str]:
     return out
 
 
-def _spec_from_skill(skill: dict[str, Any]) -> CoreToolSpec:
+def _spec_from_skill(skill_value: Mapping[str, object]) -> CoreToolSpec:
+    skill = json_object(skill_value)
     skill_id = str(skill.get("skill_id") or "").strip()
     concurrency_class = str(skill.get("concurrency_class") or "read_only").strip()
-    permissions = list(skill.get("required_permissions") or [])
-    manifest = dict(skill.get("agent_batch_task_manifest") or {})
+    permissions_value = json_list(skill.get("required_permissions"))
+    permissions = [str(item) for item in permissions_value]
+    manifest = json_object(skill.get("agent_batch_task_manifest"))
     manifest_description = str(manifest.get("description") or "").strip()
     description = (
         f"Invoke backend skill {skill_id}. "
@@ -679,9 +717,9 @@ def _spec_from_skill(skill: dict[str, Any]) -> CoreToolSpec:
     if manifest_description:
         description = f"{description} {manifest_description}"
     declared_input_schema = skill.get("input_schema")
-    input_schema = (
-        dict(declared_input_schema)
-        if isinstance(declared_input_schema, Mapping) and declared_input_schema
+    input_schema: JSONObject = (
+        json_object(declared_input_schema)
+        if isinstance(declared_input_schema, dict) and declared_input_schema
         else {
             "type": "object",
             "properties": {
@@ -700,20 +738,29 @@ def _spec_from_skill(skill: dict[str, Any]) -> CoreToolSpec:
         description_for_model=description,
         input_schema=input_schema,
         source="skill",
-        risk=_risk_from_metadata(
+        risk=risk_from_metadata(
             approval_level="explicit_user_request" if concurrency_class != "read_only" else "none",
             concurrency_class=concurrency_class,
             risks=[],
         ),
         permission="allow" if concurrency_class == "read_only" else "ask",
-        concurrency=_concurrency_from_class(concurrency_class),
+        concurrency=concurrency_from_class(concurrency_class),
         skill_id=skill_id,
         project_service_id=skill_id,
-        metadata={"required_permissions": permissions, "owner": skill.get("owner"), "execution_profile": skill.get("execution_profile")},
+        metadata={
+            "required_permissions": permissions,
+            "owner": skill.get("owner"),
+            "execution_profile": skill.get("execution_profile"),
+        },
     )
 
 
-def _mcp_catalog_tool_specs() -> list[tuple[CoreToolSpec, Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]]]:
+def _mcp_catalog_tool_specs() -> list[
+    tuple[
+        CoreToolSpec,
+        Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult],
+    ]
+]:
     catalog_spec = CoreToolSpec(
         name="mcp.service.catalog",
         title="MCP Service Catalog",
@@ -824,9 +871,12 @@ def _mcp_catalog_tool_specs() -> list[tuple[CoreToolSpec, Callable[[CoreToolCall
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        service_id = str(tool_call.arguments.get("service_id") or "project-internal-catalog").strip() or "project-internal-catalog"
+        service_id = (
+            str(tool_call.arguments.get("service_id") or "project-internal-catalog").strip()
+            or "project-internal-catalog"
+        )
         target_name = str(tool_call.arguments.get("tool_name") or "").strip()
-        target_arguments = dict(tool_call.arguments.get("arguments") or {})
+        target_arguments = json_object(tool_call.arguments.get("arguments"))
         if target_name == "mcp.service.catalog":
             catalog = catalog_handler(
                 CoreToolCall(tool_name="mcp.service.catalog", arguments=target_arguments, call_id=tool_call.call_id),
@@ -882,7 +932,7 @@ def _mcp_catalog_tool_specs() -> list[tuple[CoreToolSpec, Callable[[CoreToolCall
                         "service_id": service_id,
                         "called_tool": target_name,
                         "available_tools": _mcp_tool_catalog_entries(),
-                        "service_status": get_external_service_status(service_id),
+                        "service_status": compact_json_value(get_external_service_status(service_id)),
                     },
                     error={
                         "code": "mcp_tool_service_mismatch",
@@ -890,7 +940,7 @@ def _mcp_catalog_tool_specs() -> list[tuple[CoreToolSpec, Callable[[CoreToolCall
                     },
                 )
             try:
-                result = mounted_handler(dict(target_arguments or {}), request)
+                result = mounted_handler(target_arguments, request)
             except Exception as exc:  # noqa: BLE001
                 return CoreToolResult(
                     call_id=tool_call.call_id,
@@ -901,8 +951,10 @@ def _mcp_catalog_tool_specs() -> list[tuple[CoreToolSpec, Callable[[CoreToolCall
                         "contract_version": "mcp.tool.call.v1",
                         "service_id": expected_service_id or service_id,
                         "called_tool": target_name,
-                        "arguments": _compact_json_value(target_arguments, max_items=20, max_depth=4),
-                        "service_status": get_external_service_status(expected_service_id or service_id),
+                        "arguments": compact_json_value(target_arguments, max_items=20, max_depth=4),
+                        "service_status": compact_json_value(
+                            get_external_service_status(expected_service_id or service_id)
+                        ),
                     },
                     error={"code": "mcp_tool_failed", "message": str(exc), "tool_name": target_name},
                 )
@@ -916,7 +968,7 @@ def _mcp_catalog_tool_specs() -> list[tuple[CoreToolSpec, Callable[[CoreToolCall
                     "service_id": expected_service_id or service_id,
                     "called_tool": target_name,
                     "success": True,
-                    "result": _compact_json_value(result, max_items=50, max_depth=6),
+                    "result": compact_json_value(result, max_items=50, max_depth=6),
                 },
             )
         return CoreToolResult(
@@ -929,44 +981,60 @@ def _mcp_catalog_tool_specs() -> list[tuple[CoreToolSpec, Callable[[CoreToolCall
                 "service_id": service_id,
                 "called_tool": target_name,
                 "available_tools": _mcp_tool_catalog_entries(),
-                "service_status": get_external_service_status(service_id),
+                "service_status": compact_json_value(get_external_service_status(service_id)),
             },
-            error={"code": "mcp_tool_not_configured", "message": f"MCP tool is not configured: {target_name or '(empty)'}"},
+            error={
+                "code": "mcp_tool_not_configured",
+                "message": f"MCP tool is not configured: {target_name or '(empty)'}",
+            },
         )
 
     return [(catalog_spec, catalog_handler), (list_spec, list_handler), (call_spec, call_handler)]
 
 
-def _mcp_catalog_services() -> list[dict[str, Any]]:
-    return list_external_service_statuses()
+def _mcp_catalog_services() -> list[JSONObject]:
+    return [json_object(item) for item in list_external_service_statuses()]
 
 
-def _mcp_tool_catalog_entries() -> list[dict[str, Any]]:
-    return [
-        {
-            "service_id": "project-internal-catalog",
-            "tool_name": "mcp.service.catalog",
-            "status": "available",
-            "description": "List MCP-suitable project service surfaces.",
-            "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
-        },
-        {
-            "service_id": "project-internal-catalog",
-            "tool_name": "mcp.tools.list",
-            "status": "available",
-            "description": "List currently mounted MCP-compatible tools.",
-            "input_schema": {
-                "type": "object",
-                "properties": {"service_id": {"type": "string"}},
-                "additionalProperties": False,
-            },
-        },
-    ] + _mcp_unmounted_tool_entries() + [dict(item[0]) for item in sorted(_MOUNTED_MCP_TOOLS.values(), key=lambda entry: str(entry[0].get("tool_name") or ""))]
+def _mcp_tool_catalog_entries() -> list[JSONObject]:
+    base_entries = [
+        json_object(
+            {
+                "service_id": "project-internal-catalog",
+                "tool_name": "mcp.service.catalog",
+                "status": "available",
+                "description": "List MCP-suitable project service surfaces.",
+                "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
+            }
+        ),
+        json_object(
+            {
+                "service_id": "project-internal-catalog",
+                "tool_name": "mcp.tools.list",
+                "status": "available",
+                "description": "List currently mounted MCP-compatible tools.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {"service_id": {"type": "string"}},
+                    "additionalProperties": False,
+                },
+            }
+        ),
+    ]
+    return (
+        base_entries
+        + _mcp_unmounted_tool_entries()
+        + [
+            dict(item[0])
+            for item in sorted(_MOUNTED_MCP_TOOLS.values(), key=lambda entry: str(entry[0].get("tool_name") or ""))
+        ]
+    )
 
 
-def _mcp_unmounted_tool_entries() -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for service in list_external_service_statuses():
+def _mcp_unmounted_tool_entries() -> list[JSONObject]:
+    entries: list[JSONObject] = []
+    for service_value in list_external_service_statuses():
+        service = json_object(service_value)
         if str(service.get("fit") or "") != "external_mcp":
             continue
         if service.get("enabled"):
@@ -990,49 +1058,52 @@ def _mcp_unmounted_tool_entries() -> list[dict[str, Any]]:
     return entries
 
 
-def _core_result_from_capability_call(tool_call: CoreToolCall, old_call: dict[str, Any]) -> CoreToolResult:
-    status = _core_status(str(old_call.get("status") or old_call.get("stream_state") or "completed"))
-    summary = str(old_call.get("summary") or old_call.get("status") or status)
-    error = old_call.get("error") if isinstance(old_call.get("error"), dict) else None
-    legacy_result = old_call.get("result") if isinstance(old_call.get("result"), dict) else {}
+def _core_result_from_capability_call(tool_call: CoreToolCall, old_call: object) -> CoreToolResult:
+    call = json_object(old_call)
+    status = _core_status(str(call.get("status") or call.get("stream_state") or "completed"))
+    summary = str(call.get("summary") or call.get("status") or status)
+    error = json_object(call.get("error")) or None
+    legacy_result = json_object(call.get("result"))
     return CoreToolResult(
         call_id=tool_call.call_id,
         tool_name=tool_call.tool_name,
         status=status,
         model_summary=summary,
         ui_summary=summary,
-        structured_content={"result": _compact_result_for_core(tool_call.tool_name, dict(legacy_result or {}))},
+        structured_content={"result": _compact_result_for_core(tool_call.tool_name, legacy_result)},
         error=error,
     )
 
 
-def _compact_result_for_core(tool_name: str, result: dict[str, Any]) -> dict[str, Any]:
+def _compact_result_for_core(tool_name: str, result: JSONObject) -> JSONObject:
     """Keep tool results useful for the model/UI without replaying legacy envelopes."""
 
     name = str(tool_name or "").strip()
-    payload = dict(result or {})
+    payload = result
     if name == "project.summary.read":
-        session = dict(payload.get("session") or {})
+        session = json_object(payload.get("session"))
         return {
             "project_key": payload.get("project_key"),
-            "session": _compact_session(session),
-            "session_counts": dict(payload.get("session_counts") or {}),
-            "source_library": _compact_json_value(payload.get("source_library"), max_items=10, max_depth=4),
+            "session": compact_session(session),
+            "session_counts": json_object(payload.get("session_counts")),
+            "source_library": compact_json_value(payload.get("source_library"), max_items=10, max_depth=4),
         }
     if name == "project.structured_data.search":
         return {
             "project_key": payload.get("project_key"),
             "query": payload.get("query"),
             "query_mode": payload.get("query_mode"),
-            "model_evidence_manifest": _compact_json_value(payload.get("model_evidence_manifest"), max_items=16, max_depth=4),
-            "items": _compact_json_value(payload.get("items"), max_items=12, max_depth=4),
-            "inventory": _compact_json_value(payload.get("inventory"), max_items=20, max_depth=3),
-            "dataset_counts": dict(payload.get("dataset_counts") or {}),
-            "dataset_total_rows": dict(payload.get("dataset_total_rows") or {}),
+            "model_evidence_manifest": compact_json_value(
+                payload.get("model_evidence_manifest"), max_items=16, max_depth=4
+            ),
+            "items": compact_json_value(payload.get("items"), max_items=12, max_depth=4),
+            "inventory": compact_json_value(payload.get("inventory"), max_items=20, max_depth=3),
+            "dataset_counts": json_object(payload.get("dataset_counts")),
+            "dataset_total_rows": json_object(payload.get("dataset_total_rows")),
             "total_stored_rows": payload.get("total_stored_rows"),
             "total_matches": payload.get("total_matches"),
             "fallback_used": payload.get("fallback_used"),
-            "errors": _compact_json_value(payload.get("errors"), max_items=8, max_depth=3),
+            "errors": compact_json_value(payload.get("errors"), max_items=8, max_depth=3),
         }
     if name in {"project.structured_data.item.read", "project.context.resource.read"}:
         return {
@@ -1040,54 +1111,76 @@ def _compact_result_for_core(tool_name: str, result: dict[str, Any]) -> dict[str
             "dataset": payload.get("dataset"),
             "record_id": payload.get("record_id"),
             "resource_uri": payload.get("resource_uri"),
-            "item": _compact_json_value(payload.get("item"), max_items=18, max_depth=5),
-            "model_evidence_manifest": _compact_json_value(payload.get("model_evidence_manifest"), max_items=12, max_depth=4),
-            "cleaned_text": _compact_json_value(payload.get("cleaned_text"), max_items=6, max_depth=2),
+            "item": compact_json_value(payload.get("item"), max_items=18, max_depth=5),
+            "model_evidence_manifest": compact_json_value(
+                payload.get("model_evidence_manifest"), max_items=12, max_depth=4
+            ),
+            "cleaned_text": compact_json_value(payload.get("cleaned_text"), max_items=6, max_depth=2),
             "source_ref": payload.get("source_ref"),
-            "quality_flags": _compact_json_value(payload.get("quality_flags"), max_items=8, max_depth=3),
-            "errors": _compact_json_value(payload.get("errors"), max_items=8, max_depth=3),
+            "quality_flags": compact_json_value(payload.get("quality_flags"), max_items=8, max_depth=3),
+            "errors": compact_json_value(payload.get("errors"), max_items=8, max_depth=3),
         }
     if name == "project.structured_data.items.read":
         return {
             "project_key": payload.get("project_key"),
-            "items": _compact_json_value(payload.get("items"), max_items=8, max_depth=5),
-            "model_evidence_manifest": _compact_json_value(payload.get("model_evidence_manifest"), max_items=12, max_depth=4),
+            "items": compact_json_value(payload.get("items"), max_items=8, max_depth=5),
+            "model_evidence_manifest": compact_json_value(
+                payload.get("model_evidence_manifest"), max_items=12, max_depth=4
+            ),
             "total_returned": payload.get("total_returned"),
-            "errors": _compact_json_value(payload.get("errors"), max_items=8, max_depth=3),
+            "errors": compact_json_value(payload.get("errors"), max_items=8, max_depth=3),
         }
     if name == "project.context.bundle":
         return {
             "project_key": payload.get("project_key"),
             "query": payload.get("query"),
-            "material_intent": _compact_json_value(payload.get("material_intent"), max_items=8, max_depth=4),
-            "material_categories": _compact_json_value(payload.get("material_categories"), max_items=8, max_depth=4),
-            "model_evidence_manifest": _compact_json_value(payload.get("model_evidence_manifest"), max_items=18, max_depth=4),
-            "evidence": _compact_json_value(payload.get("evidence"), max_items=18, max_depth=4),
-            "missing_evidence": _compact_json_value(payload.get("missing_evidence"), max_items=8, max_depth=3),
+            "material_intent": compact_json_value(payload.get("material_intent"), max_items=8, max_depth=4),
+            "material_categories": compact_json_value(payload.get("material_categories"), max_items=8, max_depth=4),
+            "model_evidence_manifest": compact_json_value(
+                payload.get("model_evidence_manifest"), max_items=18, max_depth=4
+            ),
+            "evidence": compact_json_value(payload.get("evidence"), max_items=18, max_depth=4),
+            "missing_evidence": compact_json_value(payload.get("missing_evidence"), max_items=8, max_depth=3),
             "source_catalog_note": payload.get("source_catalog_note"),
             "components": {
-                "structured_data": _compact_json_value(dict(dict(payload.get("components") or {}).get("structured_data") or {}), max_items=12, max_depth=4),
-                "writing_documents": _compact_json_value(dict(dict(payload.get("components") or {}).get("writing_documents") or {}), max_items=8, max_depth=4),
-                "artifacts": _compact_json_value(dict(dict(payload.get("components") or {}).get("artifacts") or {}), max_items=8, max_depth=4),
-                "source_catalog": _compact_json_value(dict(dict(payload.get("components") or {}).get("source_catalog") or {}), max_items=8, max_depth=4),
+                "structured_data": compact_json_value(
+                    json_object(json_object(payload.get("components")).get("structured_data")),
+                    max_items=12,
+                    max_depth=4,
+                ),
+                "writing_documents": compact_json_value(
+                    json_object(json_object(payload.get("components")).get("writing_documents")),
+                    max_items=8,
+                    max_depth=4,
+                ),
+                "artifacts": compact_json_value(
+                    json_object(json_object(payload.get("components")).get("artifacts")),
+                    max_items=8,
+                    max_depth=4,
+                ),
+                "source_catalog": compact_json_value(
+                    json_object(json_object(payload.get("components")).get("source_catalog")),
+                    max_items=8,
+                    max_depth=4,
+                ),
             },
         }
     if name == "writing.document.section.read":
         return {
             "project_key": payload.get("project_key"),
-            "document": _compact_json_value(payload.get("document"), max_items=12, max_depth=4),
-            "section": _compact_json_value(payload.get("section"), max_items=12, max_depth=4),
+            "document": compact_json_value(payload.get("document"), max_items=12, max_depth=4),
+            "section": compact_json_value(payload.get("section"), max_items=12, max_depth=4),
         }
     if name == "agent_session.context.read":
         return {
-            "session": _compact_session(dict(payload.get("session") or {})),
+            "session": compact_session(json_object(payload.get("session"))),
             "task_count": payload.get("task_count"),
             "event_count": payload.get("event_count"),
             "artifact_count": payload.get("artifact_count"),
             "approval_count": payload.get("approval_count"),
-            "recent_tasks": _compact_json_value(payload.get("recent_tasks"), max_items=8, max_depth=4),
-            "recent_messages": _compact_json_value(payload.get("recent_messages"), max_items=6, max_depth=4),
-            "recent_tool_results": _compact_json_value(payload.get("recent_tool_results"), max_items=8, max_depth=4),
+            "recent_tasks": compact_json_value(payload.get("recent_tasks"), max_items=8, max_depth=4),
+            "recent_messages": compact_json_value(payload.get("recent_messages"), max_items=6, max_depth=4),
+            "recent_tool_results": compact_json_value(payload.get("recent_tool_results"), max_items=8, max_depth=4),
         }
     if name in {"source_library.item.list", "source_library.item.search"}:
         return {
@@ -1095,21 +1188,21 @@ def _compact_result_for_core(tool_name: str, result: dict[str, Any]) -> dict[str
             "query": payload.get("query"),
             "total": payload.get("total"),
             "source_total": payload.get("source_total"),
-            "items": _compact_json_value(payload.get("items"), max_items=12, max_depth=3),
+            "items": compact_json_value(payload.get("items"), max_items=12, max_depth=3),
         }
     if name == "ingest.status.read":
         return {
             "session_id": payload.get("session_id"),
-            "job_status_counts": dict(payload.get("job_status_counts") or {}),
-            "recent_jobs": [_compact_job(dict(item or {})) for item in list(payload.get("recent_jobs") or [])[:8]],
-            "recent_session_tasks": _compact_json_value(payload.get("recent_session_tasks"), max_items=5, max_depth=3),
+            "job_status_counts": json_object(payload.get("job_status_counts")),
+            "recent_jobs": [_compact_job(json_object(item)) for item in json_list(payload.get("recent_jobs"))[:8]],
+            "recent_session_tasks": compact_json_value(payload.get("recent_session_tasks"), max_items=5, max_depth=3),
         }
-    return _compact_json_value(payload, max_items=20, max_depth=4)
+    return json_object(compact_json_value(payload, max_items=20, max_depth=4))
 
 
-def _compact_job(job: dict[str, Any]) -> dict[str, Any]:
-    params = dict(job.get("params") or {})
-    display_meta = dict(params.get("display_meta") or {})
+def _compact_job(job: JSONObject) -> JSONObject:
+    params = json_object(job.get("params"))
+    display_meta = json_object(params.get("display_meta"))
     return {
         "id": job.get("id"),
         "job_type": job.get("job_type"),
@@ -1123,7 +1216,7 @@ def _compact_job(job: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _core_status(status: str) -> str:
+def _core_status(status: str) -> ToolStatus:
     normalized = str(status or "").strip().lower()
     if normalized in {"completed", "success", "ok", "delegated"}:
         return "completed"

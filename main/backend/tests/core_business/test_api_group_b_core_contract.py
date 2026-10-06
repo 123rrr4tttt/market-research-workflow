@@ -172,8 +172,18 @@ class ApiGroupBCoreContractTestCase(unittest.TestCase):
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.RATE_LIMITED.value)
 
     def test_dashboard_stats_success_contract(self):
-        with patch("app.api.dashboard.SessionLocal", return_value=_FakeSessionLocalOk()):
+        topology_count = Mock(return_value=0)
+        with (
+            patch("app.api.dashboard.SessionLocal", return_value=_FakeSessionLocalOk()),
+            patch.object(
+                backend_app.state,
+                "information_topology_service",
+                SimpleNamespace(count_current_elements=topology_count),
+                create=True,
+            ),
+        ):
             resp = self.client.get("/api/v1/dashboard/stats", headers=self.headers)
+        topology_count.assert_called_once_with(self.headers["X-Project-Key"], "material")
 
         self.assertEqual(resp.status_code, 200)
         body = resp.json()

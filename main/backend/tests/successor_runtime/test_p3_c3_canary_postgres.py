@@ -42,6 +42,7 @@ from app.successor_runtime.runtime.assignments import (
     AssignmentKind,
     CompiledStepRole,
     HandlerBindingKind,
+    InterpreterBinding,
     RecoveryBinding,
     ReturnContractBinding,
     RuntimeAssignment,
@@ -351,6 +352,17 @@ def _c3() -> _C3Fixture:
         ),
         resource_policy_epoch=RESOURCE_POLICY_EPOCH,
         runtime_protocol_version="1",
+    )
+    legacy_binding = InterpreterBinding.from_content(
+        operation_contract_digest=contract_ref.contract_digest,
+        interpreter_profile_digest=(
+            ci.legacy_execute_element_interpreter_profile_digest()
+        ),
+        deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
+        runtime_protocol_version="1",
+        project_scope_digest=SCOPE_DIGEST,
+        resource_policy_epoch=RESOURCE_POLICY_EPOCH,
+        authority_requirement_digest=ci.authority_requirement_digest(),
     )
     recovery_binding = RecoveryBinding.from_content(
         recovery_handler_id="recovery.c3-2.local-pure",

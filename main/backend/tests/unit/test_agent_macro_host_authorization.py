@@ -19,6 +19,7 @@ from app.services.agent_core.host_authorization import (
 from app.services.agent_core.registry import CoreToolRegistry
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.agent_sessions.store import InMemoryAgentSessionStore
+from mrw_functorial_kit.core.agent_service_semantics import agent_session_failures
 
 
 pytestmark = pytest.mark.unit
@@ -201,6 +202,45 @@ def test_host_confirmation_authorizes_exactly_once_and_persists_association() ->
     assert isinstance(replay, Failure)
     assert replay.code == "writing_operation_unsupported"
     assert len(calls) == 1
+
+
+def test_host_confirmation_command_rolls_back_message_approval_tasks_and_events() -> None:
+    service, _, spec, _ = _setup("ask")
+    session_id = _session_id(service)
+    context = _context(session_id)
+    pending = authorize_tool_call(
+        service,
+        context,
+        spec,
+        {"target": "a"},
+        originating_call_id="call-1",
+    )
+    assert not isinstance(pending, Failure)
+    approval_id = pending.approval["approval_id"]
+    before_bundle = service.get_session_bundle(session_id)
+    before_approval = service.store.get_approval(approval_id)
+    failure = agent_session_failures.fail(
+        "backend_unavailable",
+        "forced host confirmation event failure",
+        {"operation": "append_event"},
+    )
+    continuation = _context(
+        session_id,
+        user_message_id="confirmation-message",
+        turn_id="turn-2",
+    )
+
+    with mock.patch.object(service.store, "append_event", return_value=failure):
+        result = service.record_host_tool_confirmation(
+            continuation,
+            approval_id=approval_id,
+            content=f"approved approval:{approval_id}",
+            approved=True,
+        )
+
+    assert isinstance(result, Failure)
+    assert service.get_session_bundle(session_id) == before_bundle
+    assert service.store.get_approval(approval_id) == before_approval
 
 
 def test_model_consent_wrong_scope_changed_args_and_expiry_do_not_execute() -> None:

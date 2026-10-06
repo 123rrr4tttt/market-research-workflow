@@ -13,11 +13,12 @@ from hashlib import sha256
 import json
 from pathlib import Path, PurePosixPath
 import re
-from typing import Any
+from typing import Any, cast
 
 from functorial_kit import Failure
 
 from .failures import retrieval_failure
+from .contracts import RetrievalJsonObject, RetrievalJsonValue
 
 
 _PROJECTS = Path(__file__).resolve().parents[2] / "project_customization" / "projects"
@@ -37,12 +38,15 @@ def _require_unique_ids(rows: object, key: str) -> dict[str, Mapping[str, Any]] 
     if not isinstance(rows, list):
         return _mode_rejected(f"{key} collection must be a list", site=f"mode.{key}")
     result: dict[str, Mapping[str, Any]] = {}
-    for row in rows:
-        if not isinstance(row, dict) or not isinstance(row.get(key), str) or not row[key]:
+    for row in cast(list[object], rows):
+        if not isinstance(row, dict):
             return _mode_rejected(f"entry lacks {key}", site=f"mode.{key}")
-        if row[key] in result:
-            return _mode_rejected(f"duplicate {key}: {row[key]}", site=f"mode.{key}")
-        result[row[key]] = row
+        row_map = cast(dict[str, Any], row)
+        if not isinstance(row_map.get(key), str) or not row_map[key]:
+            return _mode_rejected(f"entry lacks {key}", site=f"mode.{key}")
+        if row_map[key] in result:
+            return _mode_rejected(f"duplicate {key}: {row_map[key]}", site=f"mode.{key}")
+        result[row_map[key]] = row_map
     return result
 
 
@@ -55,7 +59,10 @@ def _validate(snapshot: Mapping[str, Any], project_key: str) -> Failure | None:
         if not isinstance(snapshot.get(field), str) or not snapshot[field]:
             return _mode_rejected(f"retrieval mode needs {field}", site=f"mode.{field}")
     limits = snapshot.get("limits")
-    if not isinstance(limits, dict) or set(limits) != set(_LIMIT_KEYS):
+    if not isinstance(limits, dict):
+        return _mode_rejected("retrieval mode has invalid limits", site="mode.limits")
+    limits = cast(dict[str, Any], limits)
+    if set(limits) != set(_LIMIT_KEYS):
         return _mode_rejected("retrieval mode has invalid limits", site="mode.limits")
     for field in _LIMIT_KEYS:
         if type(limits[field]) is not int or limits[field] < (0 if field == "max_followups" else 1):
@@ -76,8 +83,8 @@ def _validate(snapshot: Mapping[str, Any], project_key: str) -> Failure | None:
     for source in source_registry.values():
         route_ids = source.get("route_ids")
         if (not isinstance(route_ids, list) or not route_ids
-                or any(not isinstance(item, str) or item not in routes for item in route_ids)
-                or len(route_ids) != len(set(route_ids))):
+                or any(not isinstance(item, str) or item not in routes for item in cast(list[Any], route_ids))
+                or len(cast(list[Any], route_ids)) != len(set(cast(list[Any], route_ids)))):
             return _mode_rejected(f"source {source['source_id']} has invalid route_ids", site="mode.source_registry.route_ids")
         if not isinstance(source.get("url"), str) or not source["url"].startswith(("https://", "http://")):
             return _mode_rejected(f"source {source['source_id']} has invalid URL", site="mode.source_registry.url")
@@ -89,10 +96,11 @@ def _validate(snapshot: Mapping[str, Any], project_key: str) -> Failure | None:
         if not isinstance(route.get("label"), str) or not route["label"]:
             return _mode_rejected("route needs label", site="mode.routes.label")
         ids = route.get("query_ids")
-        if (not isinstance(ids, list) or any(not isinstance(item, str) for item in ids)
-                or len(ids) != len(set(ids))):
+        if (not isinstance(ids, list)
+                or any(not isinstance(item, str) for item in cast(list[Any], ids))
+                or len(cast(list[Any], ids)) != len(set(cast(list[Any], ids)))):
             return _mode_rejected(f"route {route['route_id']} has invalid query_ids", site="mode.routes.query_ids")
-        for query_id in ids:
+        for query_id in cast(list[Any], ids):
             if query_id not in queries or queries[query_id].get("route_id") != route["route_id"]:
                 return _mode_rejected(f"route {route['route_id']} refers to an unrelated query", site="mode.routes.query_ids")
     for query in queries.values():
@@ -105,34 +113,36 @@ def _validate(snapshot: Mapping[str, Any], project_key: str) -> Failure | None:
     return None
 
 
-def _load_mode_result(project_key: str, *, version: str | None = None) -> dict[str, Any] | Failure:
+def _load_mode_result(project_key: str, *, version: str | None = None) -> RetrievalJsonObject | Failure:
     if not _PROJECT_KEY.fullmatch(project_key):
         return _mode_rejected("invalid project key", site="load_mode.project_key")
     if version is not None and (not version or not re.fullmatch(r"[A-Za-z0-9_.-]+", version)):
         return _mode_rejected("invalid retrieval mode version", site="load_mode.version")
     directory = _PROJECTS / project_key
     current_path = directory / "retrieval_mode.json"
-    current = json.loads(current_path.read_text(encoding="utf-8"))
-    if not isinstance(current, dict):
+    current_value: object = json.loads(current_path.read_text(encoding="utf-8"))
+    if not isinstance(current_value, dict):
         return _mode_rejected("retrieval mode root must be an object", site="load_mode.root")
+    current = cast(dict[str, Any], current_value)
     invalid = _validate(current, project_key)
     if invalid is not None:
         return invalid
     if version is None or version == current["version"]:
-        return current
+        return cast(RetrievalJsonObject, current)
     path = directory / f"retrieval_mode.v{version}.json"
-    snapshot = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(snapshot, dict):
+    snapshot_value: object = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(snapshot_value, dict):
         return _mode_rejected("retrieval mode root must be an object", site="load_mode.historical_root")
+    snapshot = cast(dict[str, Any], snapshot_value)
     invalid = _validate(snapshot, project_key)
     if invalid is not None:
         return invalid
     if snapshot["version"] != version:
         return _mode_rejected("requested retrieval mode version does not match snapshot", site="load_mode.historical_version")
-    return snapshot
+    return cast(RetrievalJsonObject, snapshot)
 
 
-def load_mode(project_key: str, *, version: str | None = None) -> dict[str, Any]:
+def load_mode(project_key: str, *, version: str | None = None) -> RetrievalJsonObject:
     """Read a checked-in snapshot, retaining the public ValueError contract."""
     result = _load_mode_result(project_key, version=version)
     if isinstance(result, Failure):
@@ -141,22 +151,23 @@ def load_mode(project_key: str, *, version: str | None = None) -> dict[str, Any]
     return result
 
 
-def current_mode(snapshot: Mapping[str, Any]) -> dict[str, Any]:
+def current_mode(snapshot: Mapping[str, RetrievalJsonValue]) -> RetrievalJsonObject:
     """The small project mode view used by the frontend selector."""
-    return {
-        "project_key": snapshot["project_key"], "mode_id": snapshot["mode_id"],
-        "version": snapshot["version"], "source_revision": snapshot["source_revision"],
+    raw = cast(Mapping[str, Any], snapshot)
+    return cast(RetrievalJsonObject, {
+        "project_key": raw["project_key"], "mode_id": raw["mode_id"],
+        "version": raw["version"], "source_revision": raw["source_revision"],
         "routes": [{"route_id": route["route_id"], "label": route["label"],
                     "query_ids": list(route["query_ids"])}
-                   for route in snapshot["routes"] if route.get("status") == "active"],
+                   for route in raw["routes"] if route.get("status") == "active"],
         "queries": [{"query_id": query["query_id"], "route_id": query["route_id"],
-                     "expression": query["expression"]} for query in snapshot["queries"]],
-        "outline_summary": dict(snapshot.get("outline_summary") or {}),
-        "domain_vocabulary": dict(snapshot["domain_vocabulary"]),
+                     "expression": query["expression"]} for query in raw["queries"]],
+        "outline_summary": dict(raw.get("outline_summary") or {}),
+        "domain_vocabulary": dict(raw["domain_vocabulary"]),
         "evidence_contract": "retrieval.evidence.v2",
-        "source_registry_count": len(snapshot.get("source_registry") or []),
-        "limits": dict(snapshot["limits"]),
-    }
+        "source_registry_count": len(raw.get("source_registry") or []),
+        "limits": dict(raw["limits"]),
+    })
 
 
 def _compile_preview_result(
@@ -175,7 +186,7 @@ def _compile_preview_result(
     if limits is None:
         selected_limits = dict(ceilings)
     else:
-        if not isinstance(limits, Mapping) or not set(limits).issubset(_LIMIT_KEYS):
+        if not set(limits).issubset(_LIMIT_KEYS):
             return retrieval_failure("PLAN_INVALID", "invalid retrieval limits", site="compile_preview.limits")
         selected_limits = {key: limits.get(key, ceilings[key]) for key in _LIMIT_KEYS}
     for key, maximum in ceilings.items():
@@ -235,12 +246,17 @@ def _compile_preview_result(
 
 
 def compile_preview(
-    snapshot: Mapping[str, Any], *, route_id: str,
+    snapshot: Mapping[str, RetrievalJsonValue], *, route_id: str,
     query_ids: Sequence[str] | None = None, limits: Mapping[str, int] | None = None,
-) -> dict[str, Any]:
+) -> RetrievalJsonObject:
     """Preserve the public ValueError contract for an invalid preview intent."""
-    result = _compile_preview_result(snapshot, route_id=route_id, query_ids=query_ids, limits=limits)
+    result = _compile_preview_result(
+        cast(Mapping[str, Any], snapshot),
+        route_id=route_id,
+        query_ids=query_ids,
+        limits=limits,
+    )
     if isinstance(result, Failure):
         # kit:boundary owner=project_retrieval.mode.preview_entry class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=project_retrieval.failure witness=test:test_preview_rejects_cross_route_queries_and_budget_increase
         raise ValueError(result.message)
-    return result
+    return cast(RetrievalJsonObject, result)

@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-import importlib
-import sys
-import types
 import unittest
 from datetime import date
 from decimal import Decimal
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from app.models.entities import MarketMetricPoint, Product
+from app.services.extraction import numeric_general
+from app.services.ingest import commodity, ecom
 
 pytestmark = pytest.mark.unit
 
@@ -69,77 +67,6 @@ class _DummyQuery:
 
 
 class CommodityEcomNormalizationTestCase(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        extraction_path = Path(__file__).resolve().parents[2] / "app" / "services" / "extraction"
-        cls._orig_modules = {
-            "app.models.base": sys.modules.get("app.models.base"),
-            "app.models.entities": sys.modules.get("app.models.entities"),
-            "app.services.extraction": sys.modules.get("app.services.extraction"),
-            "app.services.ingest.adapters": sys.modules.get("app.services.ingest.adapters"),
-            "app.services.ingest.adapters.http_utils": sys.modules.get("app.services.ingest.adapters.http_utils"),
-        }
-
-        base_stub = types.ModuleType("app.models.base")
-        base_stub.SessionLocal = lambda: None
-
-        entities_stub = types.ModuleType("app.models.entities")
-
-        class _Field:
-            def __eq__(self, _other):
-                return self
-
-            def asc(self):
-                return self
-
-        class _Entity:
-            def __init__(self, **kwargs):
-                for key, value in kwargs.items():
-                    setattr(self, key, value)
-
-        class _MarketMetricPoint(_Entity):
-            metric_key = _Field()
-            date = _Field()
-            source_uri = _Field()
-
-        class _Product(_Entity):
-            enabled = _Field()
-            id = _Field()
-
-        class _PriceObservation(_Entity):
-            pass
-
-        entities_stub.MarketMetricPoint = _MarketMetricPoint
-        entities_stub.Product = _Product
-        entities_stub.PriceObservation = _PriceObservation
-        entities_stub.EtlJobRun = _Entity
-
-        extraction_stub = types.ModuleType("app.services.extraction")
-        extraction_stub.__path__ = [str(extraction_path)]
-        adapters_stub = types.ModuleType("app.services.ingest.adapters")
-        adapters_stub.__path__ = []
-        http_utils_stub = types.ModuleType("app.services.ingest.adapters.http_utils")
-        http_utils_stub.fetch_html = lambda _url: ("", "utf-8")
-
-        sys.modules["app.models.base"] = base_stub
-        sys.modules["app.models.entities"] = entities_stub
-        sys.modules["app.services.extraction"] = extraction_stub
-        sys.modules["app.services.ingest.adapters"] = adapters_stub
-        sys.modules["app.services.ingest.adapters.http_utils"] = http_utils_stub
-
-        cls._commodity_module = importlib.import_module("app.services.ingest.commodity")
-        cls._ecom_module = importlib.import_module("app.services.ingest.ecom")
-        cls._numeric_general_module = importlib.import_module("app.services.extraction.numeric_general")
-        cls._entities_stub = entities_stub
-
-    @classmethod
-    def tearDownClass(cls):
-        for module_name, module_obj in cls._orig_modules.items():
-            if module_obj is None:
-                sys.modules.pop(module_name, None)
-            else:
-                sys.modules[module_name] = module_obj
-
     def test_commodity_ingest_sets_unit_and_currency(self):
         fake_session = _FakeSession(_ScalarOneResult(None))
         rows = [{"Date": "2026-02-01", "Close": "123.45"}]
@@ -152,7 +79,7 @@ class CommodityEcomNormalizationTestCase(unittest.TestCase):
             patch("app.services.ingest.commodity.SessionLocal", return_value=fake_session),
             patch("app.services.ingest.commodity.select", return_value=_DummyQuery()),
         ):
-            result = self._commodity_module.ingest_commodity_metrics(
+            result = commodity.ingest_commodity_metrics(
                 symbols={"commodity.test": "foo"},
                 limit=1,
             )
@@ -172,7 +99,7 @@ class CommodityEcomNormalizationTestCase(unittest.TestCase):
         fake_session = _FakeSession(
             _ScalarsResult(
                 [
-                    self._entities_stub.Product(
+                    Product(
                         id=101,
                         name="demo",
                         source_uri="https://example.test/p/1",
@@ -195,7 +122,7 @@ class CommodityEcomNormalizationTestCase(unittest.TestCase):
                 return_value=(Decimal("19.90"), "USD", "InStock"),
             ),
         ):
-            result = self._ecom_module.collect_ecom_price_observations(limit=1)
+            result = ecom.collect_ecom_price_observations(limit=1)
 
         self.assertEqual(result["inserted"], 1)
         self.assertEqual(result["skipped"], 0)
@@ -211,7 +138,7 @@ class CommodityEcomNormalizationTestCase(unittest.TestCase):
         fake_session = _FakeSession(
             _ScalarsResult(
                 [
-                    self._entities_stub.Product(
+                    Product(
                         id=202,
                         name="demo2",
                         source_uri="https://example.test/p/2",
@@ -234,7 +161,7 @@ class CommodityEcomNormalizationTestCase(unittest.TestCase):
                 return_value=(Decimal("88.00"), None, None),
             ),
         ):
-            result = self._ecom_module.collect_ecom_price_observations(limit=1)
+            result = ecom.collect_ecom_price_observations(limit=1)
 
         self.assertEqual(result["inserted"], 1)
         obs = fake_session.added[0]
@@ -246,27 +173,27 @@ class CommodityEcomNormalizationTestCase(unittest.TestCase):
         {"@type":"Product","offers":{"price":"39.5","priceCurrency":"USD","availability":"InStock"}}
         </script>
         """
-        price, currency, availability = self._ecom_module._extract_price_from_html(html)
+        price, currency, availability = ecom._extract_price_from_html(html)
         self.assertEqual(price, Decimal("39.5"))
         self.assertEqual(currency, "USD")
         self.assertEqual(availability, "InStock")
 
     def test_numeric_general_outputs_unit_currency_and_quality(self):
-        result = self._numeric_general_module.extract_numeric_general("约 ¥1.2万", default_currency="USD")
+        result = numeric_general.extract_numeric_general("约 ¥1.2万", default_currency="USD")
         self.assertTrue(result["parsed"])
         self.assertEqual(result["normalized_unit"], "value")
         self.assertEqual(result["currency"], "CNY")
         self.assertEqual(result["value"], 12000.0)
         self.assertEqual(result["quality_score"], 95.0)
-        self.assertEqual(result["error_code"], self._numeric_general_module.GENERAL_NUMERIC_OK)
+        self.assertEqual(result["error_code"], numeric_general.GENERAL_NUMERIC_OK)
 
     def test_numeric_general_percent_ratio_quality(self):
-        result = self._numeric_general_module.extract_numeric_general("0.25", expect_percent=True)
+        result = numeric_general.extract_numeric_general("0.25", expect_percent=True)
         self.assertTrue(result["parsed"])
         self.assertEqual(result["normalized_unit"], "percent")
         self.assertEqual(result["value"], 25.0)
         self.assertEqual(result["quality_score"], 90.0)
-        self.assertEqual(result["error_code"], self._numeric_general_module.GENERAL_NUMERIC_OK)
+        self.assertEqual(result["error_code"], numeric_general.GENERAL_NUMERIC_OK)
 
     def test_commodity_low_quality_is_skipped(self):
         fake_session = _FakeSession(_ScalarOneResult(None))
@@ -290,7 +217,7 @@ class CommodityEcomNormalizationTestCase(unittest.TestCase):
                 },
             ),
         ):
-            result = self._commodity_module.ingest_commodity_metrics(
+            result = commodity.ingest_commodity_metrics(
                 symbols={"commodity.test": "foo"},
                 limit=1,
             )
@@ -299,7 +226,7 @@ class CommodityEcomNormalizationTestCase(unittest.TestCase):
         self.assertEqual(result["skipped"], 1)
 
     def test_commodity_update_merges_existing_numeric_quality(self):
-        existing = self._entities_stub.MarketMetricPoint(
+        existing = MarketMetricPoint(
             metric_key="commodity.test",
             date=date.fromisoformat("2026-02-01"),
             source_uri="https://stooq.com/q/d/l/?s=foo&i=d",
@@ -317,7 +244,7 @@ class CommodityEcomNormalizationTestCase(unittest.TestCase):
             patch("app.services.ingest.commodity.SessionLocal", return_value=fake_session),
             patch("app.services.ingest.commodity.select", return_value=_DummyQuery()),
         ):
-            result = self._commodity_module.ingest_commodity_metrics(
+            result = commodity.ingest_commodity_metrics(
                 symbols={"commodity.test": "foo"},
                 limit=1,
             )
@@ -334,7 +261,7 @@ class CommodityEcomNormalizationTestCase(unittest.TestCase):
         fake_session = _FakeSession(
             _ScalarsResult(
                 [
-                    self._entities_stub.Product(
+                    Product(
                         id=303,
                         name="demo3",
                         source_uri="https://example.test/p/3",
@@ -367,7 +294,7 @@ class CommodityEcomNormalizationTestCase(unittest.TestCase):
                 },
             ),
         ):
-            result = self._ecom_module.collect_ecom_price_observations(limit=1)
+            result = ecom.collect_ecom_price_observations(limit=1)
 
         self.assertEqual(result["inserted"], 0)
         self.assertEqual(result["skipped"], 1)

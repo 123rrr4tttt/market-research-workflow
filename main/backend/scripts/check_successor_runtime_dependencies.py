@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-from collections import deque
 from pathlib import Path
 
 LAYERS = ("research", "language", "capabilities", "runtime")
@@ -170,44 +169,29 @@ def _owner_claims(path: Path) -> list[tuple[str, str, int]]:
 def _find_cycles(
     edges: dict[str, frozenset[str]],
 ) -> list[tuple[str, ...]]:
-    indegree = {node: 0 for node in edges}
-    for targets in edges.values():
-        for target in targets:
-            if target in indegree:
-                indegree[target] += 1
-    queue = deque(node for node, count in indegree.items() if count == 0)
-    removed: set[str] = set()
-    while queue:
-        node = queue.popleft()
-        removed.add(node)
-        for target in edges[node]:
-            if target in removed:
-                continue
-            indegree[target] -= 1
-            if indegree[target] == 0:
-                queue.append(target)
-
-    remaining = [node for node in edges if node not in removed]
-    cycles: list[tuple[str, ...]] = []
+    """Visit every outgoing edge, including branches after a completed cycle."""
     visited: set[str] = set()
-    for start in remaining:
-        if start in visited:
-            continue
-        path: list[str] = []
-        current = start
-        while True:
-            if current in path:
-                cycle = tuple(path[path.index(current) :] + [current])
-                cycles.append(cycle)
-                visited.update(cycle)
-                break
-            path.append(current)
-            candidates = [
-                n for n in edges[current] if n in remaining and n not in visited
-            ]
-            if not candidates:
-                break
-            current = candidates[0]
+    active: dict[str, int] = {}
+    path: list[str] = []
+    cycles: list[tuple[str, ...]] = []
+
+    def visit(node: str) -> None:
+        visited.add(node)
+        active[node] = len(path)
+        path.append(node)
+        for target in sorted(edges[node]):
+            if target not in edges:
+                continue
+            if target in active:
+                cycles.append(tuple(path[active[target]:] + [target]))
+            elif target not in visited:
+                visit(target)
+        path.pop()
+        del active[node]
+
+    for node in sorted(edges):
+        if node not in visited:
+            visit(node)
     return cycles
 
 

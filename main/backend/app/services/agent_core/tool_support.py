@@ -6,24 +6,80 @@ register tools nor create a second session or permission state.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
 import hashlib
 import json
-from typing import Any
+from typing import Protocol, TypeGuard, runtime_checkable
 
 from functorial_kit import Failure
 from app.services.agent_sessions.service import AgentSessionService
-from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, CoreToolResult
+from .contracts import (
+    AgentCoreRequest,
+    compact_json_value,
+    CoreEvent,
+    CoreToolCall,
+    CoreToolResult,
+    JSONObject,
+    JSONValue,
+    json_list,
+    json_object,
+    json_strings,
+    ToolConcurrency,
+    ToolPermission,
+    ToolRisk,
+    ToolStatus,
+)
 
 
-
-def _resolve_project_key(tool_call: CoreToolCall, request: AgentCoreRequest) -> str:
-    return str(tool_call.arguments.get("project_key") or request.project_key or "").strip()
+SourceLibraryLister = Callable[[str | None], Sequence[Mapping[str, object]]]
 
 
+class StructuredDataSearcher(Protocol):
+    def __call__(
+        self,
+        *,
+        project_key: str | None,
+        query: str | None = None,
+        limit: int = 12,
+        datasets: list[str] | tuple[str, ...] | None = None,
+    ) -> Mapping[str, JSONValue]: ...
 
-def _missing_project_result(tool_call: CoreToolCall) -> CoreToolResult:
+
+@runtime_checkable
+class AgentArtifactStore(Protocol):
+    def upsert_artifact(self, payload: Mapping[str, object]) -> object: ...
+
+    def append_event(
+        self,
+        session_id: str,
+        *,
+        event_type: str,
+        task_id: str | None = None,
+        payload: Mapping[str, object] | None = None,
+    ) -> object: ...
+
+
+def agent_artifact_store(value: object) -> AgentArtifactStore | None:
+    """Narrow the dynamic session-store boundary once for tool handlers."""
+
+    return value if isinstance(value, AgentArtifactStore) else None
+
+
+def _text(value: object) -> str:
+    return str(value or "").strip()
+
+
+def _is_json_sequence(value: object) -> TypeGuard[Sequence[object]]:
+    return isinstance(value, (list, tuple))
+
+
+def resolve_project_key(tool_call: CoreToolCall, request: AgentCoreRequest) -> str:
+    project_key: object = tool_call.arguments.get("project_key")
+    return _text(project_key if project_key is not None else request.project_key)
+
+
+def missing_project_result(tool_call: CoreToolCall) -> CoreToolResult:
     return CoreToolResult(
         call_id=tool_call.call_id,
         tool_name=tool_call.tool_name,
@@ -33,16 +89,15 @@ def _missing_project_result(tool_call: CoreToolCall) -> CoreToolResult:
     )
 
 
-
-def _runtime_failure_result(tool_call: CoreToolCall, failure: Failure) -> CoreToolResult:
+def runtime_failure_result(tool_call: CoreToolCall, failure: Failure) -> CoreToolResult:
     """Project-tool error projection for the closed agent runtime family."""
 
     legacy_code = "invalid_writing_operation" if failure.code.startswith("writing_") else failure.code
-    failure_payload = {
+    failure_payload: JSONObject = {
         "family": failure.family,
         "code": failure.code,
         "message": failure.message,
-        "context": dict(failure.context or {}),
+        "context": compact_json_value(failure.context),
     }
     return CoreToolResult(
         call_id=tool_call.call_id,
@@ -59,15 +114,13 @@ def _runtime_failure_result(tool_call: CoreToolCall, failure: Failure) -> CoreTo
     )
 
 
-
-def _stable_hash(value: Any) -> str:
+def stable_hash(value: object) -> str:
     payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
 
 
-
-def _safe_int(value: Any) -> int | None:
-    if value is None or value == "":
+def safe_int(value: object) -> int | None:
+    if not isinstance(value, (str, int, float)) or value == "":
         return None
     try:
         parsed = int(value)
@@ -76,9 +129,8 @@ def _safe_int(value: Any) -> int | None:
     return parsed if parsed > 0 else None
 
 
-
-def _safe_nonnegative_int(value: Any) -> int | None:
-    if value is None or value == "":
+def safe_nonnegative_int(value: object) -> int | None:
+    if not isinstance(value, (str, int, float)) or value == "":
         return None
     try:
         parsed = int(value)
@@ -87,45 +139,49 @@ def _safe_nonnegative_int(value: Any) -> int | None:
     return parsed if parsed >= 0 else None
 
 
-
-def _normalize_string_list(values: Any) -> list[str]:
+def normalize_string_list(values: object) -> list[str]:
     if isinstance(values, str):
         values = [values]
     out: list[str] = []
-    for value in values or []:
-        item = str(value or "").strip()
+    candidates: Sequence[object]
+    if _is_json_sequence(values):
+        candidates = values
+    else:
+        candidates = ()
+    for value in candidates:
+        item = _text(value)
         if item and item not in out:
             out.append(item)
     return out
 
 
-
-def _utcnow_iso() -> str:
+def utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-
-def _session_abort_requested(*, service: AgentSessionService, session_id: str) -> bool:
+def session_abort_requested(*, service: AgentSessionService, session_id: str) -> bool:
     try:
         session = service.get_session(session_id)
     except Exception:  # noqa: BLE001
         return False
-    return str(session.get("status") or "").strip().lower() == "canceled"
+    if isinstance(session, Failure):
+        return False
+    status: object = session.get("status")
+    return _text(status).lower() == "canceled"
 
 
-
-def _abort_requested_result(
+def abort_requested_result(
     *,
     service: AgentSessionService,
     request: AgentCoreRequest,
     tool_call: CoreToolCall,
     emit: Callable[[CoreEvent], None],
-    skipped_items: list[str] | tuple[str, ...] = (),
+    skipped_items: Sequence[str] = (),
     dispatched_count: int = 0,
-    structured_content: dict[str, Any] | None = None,
+    structured_content: JSONObject | None = None,
 ) -> CoreToolResult:
-    skipped = [str(item) for item in skipped_items if str(item).strip()]
-    payload = {
+    skipped: list[JSONValue] = [_text(item) for item in skipped_items if _text(item)]
+    payload: JSONObject = {
         "contract_version": "agent_core.cooperative_abort.v1",
         "tool_name": tool_call.tool_name,
         "status": "abort_requested",
@@ -141,10 +197,12 @@ def _abort_requested_result(
             payload=payload,
         )
     )
-    content = {
+    session = service.get_session(request.session_id)
+    session_status = "" if isinstance(session, Failure) else _text(session.get("status"))
+    content: JSONObject = {
         **(structured_content or {}),
         "abort_requested": True,
-        "session_status": str((service.get_session(request.session_id) or {}).get("status") or ""),
+        "session_status": session_status,
         "skipped_items": skipped,
         "dispatched_count": int(dispatched_count),
     }
@@ -160,61 +218,35 @@ def _abort_requested_result(
     )
 
 
-
-def _compact_session(session: dict[str, Any]) -> dict[str, Any]:
+def compact_session(session: Mapping[str, object]) -> JSONObject:
     return {
-        "session_id": session.get("session_id"),
-        "project_key": session.get("project_key"),
-        "entrypoint_type": session.get("entrypoint_type"),
-        "goal": session.get("goal"),
-        "status": session.get("status"),
-        "current_phase": session.get("current_phase"),
-        "root_task_id": session.get("root_task_id"),
-        "task_count": session.get("task_count"),
+        "session_id": compact_json_value(session.get("session_id")),
+        "project_key": compact_json_value(session.get("project_key")),
+        "entrypoint_type": compact_json_value(session.get("entrypoint_type")),
+        "goal": compact_json_value(session.get("goal")),
+        "status": compact_json_value(session.get("status")),
+        "current_phase": compact_json_value(session.get("current_phase")),
+        "root_task_id": compact_json_value(session.get("root_task_id")),
+        "task_count": compact_json_value(session.get("task_count")),
     }
 
 
-
-def _compact_skill_meta(skill: dict[str, Any]) -> dict[str, Any]:
-    manifest = dict(skill.get("agent_batch_task_manifest") or {})
+def compact_skill_meta(skill: Mapping[str, object]) -> JSONObject:
+    manifest_value = compact_json_value(skill.get("agent_batch_task_manifest"), max_items=20, max_depth=4)
+    manifest = manifest_value if isinstance(manifest_value, dict) else {}
     return {
-        "skill_id": str(skill.get("skill_id") or "").strip(),
-        "owner": skill.get("owner"),
-        "execution_profile": skill.get("execution_profile") or "default",
-        "concurrency_class": skill.get("concurrency_class") or "read_only",
-        "required_permissions": list(skill.get("required_permissions") or []),
-        "allowed_actor_roles": list(skill.get("allowed_actor_roles") or []),
-        "approval_policy": dict(skill.get("approval_policy") or {}),
-        "agent_batch_task_manifest": _compact_json_value(manifest, max_items=20, max_depth=4) if manifest else {},
+        "skill_id": _text(skill.get("skill_id")),
+        "owner": compact_json_value(skill.get("owner")),
+        "execution_profile": compact_json_value(skill.get("execution_profile")) or "default",
+        "concurrency_class": compact_json_value(skill.get("concurrency_class")) or "read_only",
+        "required_permissions": compact_json_value(skill.get("required_permissions"), max_items=50),
+        "allowed_actor_roles": compact_json_value(skill.get("allowed_actor_roles"), max_items=50),
+        "approval_policy": compact_json_value(skill.get("approval_policy"), max_items=20, max_depth=4),
+        "agent_batch_task_manifest": manifest,
     }
 
 
-def _compact_json_value(value: Any, *, max_items: int = 30, max_depth: int = 5, max_string: int = 500) -> Any:
-    if max_depth <= 0:
-        if isinstance(value, (dict, list, tuple)):
-            return "[truncated]"
-        return value
-    if isinstance(value, dict):
-        out: dict[str, Any] = {}
-        for index, (key, item) in enumerate(value.items()):
-            if index >= max_items:
-                out["_truncated"] = True
-                out["_omitted_count"] = max(0, len(value) - max_items)
-                break
-            out[str(key)] = _compact_json_value(item, max_items=max_items, max_depth=max_depth - 1, max_string=max_string)
-        return out
-    if isinstance(value, (list, tuple)):
-        items = list(value)
-        out = [_compact_json_value(item, max_items=max_items, max_depth=max_depth - 1, max_string=max_string) for item in items[:max_items]]
-        if len(items) > max_items:
-            out.append({"_truncated": True, "_omitted_count": len(items) - max_items})
-        return out
-    if isinstance(value, str) and len(value) > max_string:
-        return f"{value[:max_string]}..."
-    return value
-
-
-def _permission_from_approval(approval_level: str) -> str:
+def permission_from_approval(approval_level: str) -> ToolPermission:
     value = str(approval_level or "none").strip().lower()
     if value == "none":
         return "allow"
@@ -223,12 +255,12 @@ def _permission_from_approval(approval_level: str) -> str:
     return "ask"
 
 
-def _risk_from_metadata(
+def risk_from_metadata(
     *,
     approval_level: str,
     concurrency_class: str,
-    risks: list[Any],
-) -> str:
+    risks: Sequence[object],
+) -> ToolRisk:
     approval = str(approval_level or "none").strip().lower()
     concurrency = str(concurrency_class or "read_only").strip().lower()
     risk_text = " ".join(str(item or "").lower() for item in risks)
@@ -241,10 +273,68 @@ def _risk_from_metadata(
     return "write_shared"
 
 
-def _concurrency_from_class(concurrency_class: str) -> str:
+def concurrency_from_class(concurrency_class: str) -> ToolConcurrency:
     value = str(concurrency_class or "read_only").strip().lower()
     if value == "read_only":
         return "parallel"
     if value == "write_shared":
         return "serial"
     return "exclusive"
+
+
+def core_status(status: object) -> ToolStatus:
+    normalized = str(status or "").strip().lower()
+    if normalized in {"completed", "success", "ok", "delegated"}:
+        return "completed"
+    if normalized in {"canceled", "cancelled"}:
+        return "canceled"
+    if normalized in {"needs_approval", "approval_waiting"}:
+        return "needs_approval"
+    if normalized in {"skipped", "deferred"}:
+        return "deferred"
+    return "failed"
+
+
+# Compatibility aliases for already-loaded backend workers. New code imports the public names.
+_abort_requested_result = abort_requested_result
+_compact_json_value = compact_json_value
+_compact_session = compact_session
+_compact_skill_meta = compact_skill_meta
+_concurrency_from_class = concurrency_from_class
+_missing_project_result = missing_project_result
+_normalize_string_list = normalize_string_list
+_permission_from_approval = permission_from_approval
+_resolve_project_key = resolve_project_key
+_risk_from_metadata = risk_from_metadata
+_runtime_failure_result = runtime_failure_result
+_safe_int = safe_int
+_safe_nonnegative_int = safe_nonnegative_int
+_session_abort_requested = session_abort_requested
+_stable_hash = stable_hash
+_utcnow_iso = utcnow_iso
+
+
+__all__ = [
+    "AgentArtifactStore",
+    "JSONValue",
+    "JSONObject",
+    "abort_requested_result",
+    "compact_json_value",
+    "compact_session",
+    "compact_skill_meta",
+    "concurrency_from_class",
+    "json_list",
+    "json_object",
+    "json_strings",
+    "missing_project_result",
+    "normalize_string_list",
+    "permission_from_approval",
+    "resolve_project_key",
+    "risk_from_metadata",
+    "runtime_failure_result",
+    "safe_int",
+    "safe_nonnegative_int",
+    "session_abort_requested",
+    "stable_hash",
+    "utcnow_iso",
+]

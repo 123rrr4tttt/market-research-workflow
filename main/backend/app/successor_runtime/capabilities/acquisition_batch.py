@@ -18,10 +18,27 @@ import math
 import re
 import types
 import typing
+from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
-from typing import Annotated, Any, Literal, NoReturn, TypeAlias, get_args, get_origin
+from typing import (
+    Annotated,
+    Any,
+    Literal,
+    NoReturn,
+    TypeAlias,
+    TypeVar,
+    get_args,
+    get_origin,
+)
+from typing import TypeGuard, TypedDict
 from functorial_kit import Failure, define_failure_family
-from app.successor_runtime.capabilities.checksum import canonical_json, content_digest, require_hex64
+from app.successor_runtime.capabilities.checksum import (
+    CanonicalJsonObject,
+    CanonicalJsonValue,
+    canonical_json,
+    content_digest,
+    require_hex64,
+)
 from app.successor_runtime.capabilities.codecs import PayloadCodec, codec_digest
 from app.successor_runtime.capabilities.contracts import OperationContract
 from app.successor_runtime.capabilities.profiles import (
@@ -34,9 +51,19 @@ from app.successor_runtime.capabilities.profiles import (
     ResourceProfile,
     SemanticProfile,
 )
-from app.successor_runtime.language.algebra import FrozenJsonObject, FrozenJsonValue, freeze_json_object
+from app.successor_runtime.language.algebra import (
+    FrozenJsonAtom as FrozenJsonAtom,  # required by get_type_hints on recursive aliases
+    FrozenJsonObject,
+    FrozenJsonValue as FrozenJsonValue,  # required by get_type_hints on mirrored DTOs
+    freeze_json_object,
+)
 from app.successor_runtime.language.catalog import OperationContractCatalogSnapshot, OperationContractRegistry
-from app.successor_runtime.language.object_contracts import RUNTIME_VALUE_RETURN_CONTRACT_REF, make_operation_contract
+from app.successor_runtime.language.object_contracts import (
+    RUNTIME_VALUE_RETURN_CONTRACT_REF,
+    OperationContractRef,
+    make_operation_contract,
+)
+from app.successor_runtime.language.profiles import build_profile
 from app.successor_runtime.research.object_types import ObjectType
 
 __all__ = [
@@ -139,7 +166,17 @@ __all__ = [
     "try_decode_historical_acquisition_payload",
 ]
 CollectPlanBuildResult: TypeAlias = "CollectBatchPlan | Failure"
-PayloadDecodeResult: TypeAlias = "Any | Failure"
+PayloadDecodeResult: TypeAlias = (
+    "CollectBatchElementPayload | CollectFoldPayload | dict[str, object] | Failure"
+)
+AcquisitionPayloadCodec: TypeAlias = (
+    "PayloadCodec[CollectBatchElementPayload] | PayloadCodec[CollectFoldPayload]"
+)
+AcquisitionPayloadModel = TypeVar(
+    "AcquisitionPayloadModel",
+    "CollectBatchElementPayload",
+    "CollectFoldPayload",
+)
 COLLECT_EXECUTE_BATCH_ELEMENT_KIND = "collect.execute_batch_element.v1"
 COLLECT_FOLD_ORDERED_RESULTS_KIND = "collect.fold_ordered_results.v1"
 ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER = "acquisition.batch.execute_element.v2"
@@ -208,7 +245,6 @@ COLLECT_AGGREGATE_OUTCOME_TYPE = ObjectType("CollectAggregateOutcome.v1")
 COLLECT_TRAVERSAL_RESULT_TYPE = ObjectType("CollectTraversalResult.v1")
 COLLECT_BATCH_ELEMENT_PAYLOAD_TYPE = ObjectType("CollectBatchElementPayload.v1")
 COLLECT_FOLD_PAYLOAD_TYPE = ObjectType("CollectFoldPayload.v1")
-COLLECT_ELEMENT_OUTCOME_TYPE = COLLECT_ELEMENT_OUTCOME_TYPE
 COLLECT_FOLD_RESULT_TYPE = COLLECT_AGGREGATE_OUTCOME_TYPE
 TraversalPolicy = Literal["STATIC_SHAPE", "MATERIALIZED_SHAPE"]
 FailurePolicy = Literal["ACCUMULATE", "FAIL_FAST_WITH_PARTIAL_OBSERVATION"]
@@ -320,6 +356,51 @@ def _reject_collect_contract(message: str, exception_type: type[Exception], *, s
         ),
         exception_type,
     )
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_tuple(value: object) -> TypeGuard[tuple[object, ...]]:
+    return isinstance(value, tuple)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_dataclass_type(value: object) -> TypeGuard[type[object]]:
+    return isinstance(value, type) and dataclasses.is_dataclass(value)
+
+
+def _string_object_dict(value: object, field_name: str) -> dict[str, object]:
+    if not _is_object_mapping(value):
+        _reject_collect_contract(
+            f"{field_name} must be an object",
+            TypeError,
+            site="_string_object_dict",
+        )
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            _reject_collect_contract(
+                f"{field_name} keys must be strings",
+                TypeError,
+                site="_string_object_dict",
+            )
+        result[key] = item
+    return result
+
+
+def _require_optional_string(value: object, field_name: str, *, site: str) -> str | None:
+    if value is not None and not isinstance(value, str):
+        _reject_collect_contract(
+            f"{field_name} must be a string or None",
+            ValueError,
+            site=site,
+        )
+    return value
 
 
 def _require_non_empty_string(value: Any, field_name: str) -> str:
@@ -977,32 +1058,41 @@ def per_batch_limit_for(limit: Any, batch_count: int) -> int:
     return max(10, math.ceil(requested / max(1, batch_count)))
 
 
-def _option_value(request: Any, name: str, default: Any) -> Any:
+def _option_value(request: object, name: str, default: object) -> object:
 
-    def as_mapping(value: Any) -> dict[str, Any]:
+    def as_mapping(value: object) -> dict[str, object]:
         if value is None:
             return {}
-        if isinstance(value, dict):
+        if _is_object_mapping(value):
             return {str(key): item for key, item in value.items()}
-        if isinstance(value, tuple) and all(
-            (isinstance(pair, tuple) and len(pair) == 2 and isinstance(pair[0], str) for pair in value)
-        ):
-            return {str(key): item for key, item in value}
+        if _is_object_tuple(value):
+            result: dict[str, object] = {}
+            for pair in value:
+                if not _is_object_tuple(pair) or len(pair) != 2:
+                    return {}
+                key, item = pair
+                if not isinstance(key, str):
+                    return {}
+                result[key] = item
+            return result
         return {}
 
     options = as_mapping(getattr(request, "options", None))
     source_context = as_mapping(getattr(request, "source_context", None))
-    if isinstance(options, dict) and name in options:
+    if name in options:
         return options[name]
-    if isinstance(source_context, dict) and name in source_context:
+    if name in source_context:
         return source_context[name]
     return default
 
 
 def resolve_auto_batch_parallelism(request: Any) -> int:
     """Deterministic rewrite of legacy ``runtime._resolve_auto_batch_parallelism``."""
+    raw = _option_value(request, "batch_parallelism", 1)
+    if not isinstance(raw, (str, int, float)):
+        return 1
     try:
-        return max(1, int(_option_value(request, "batch_parallelism", 1)))
+        return max(1, int(raw))
     except (TypeError, ValueError):
         return 1
 
@@ -1201,12 +1291,11 @@ class CollectElementError:
             )
         _require_non_empty_string(self.message, "CollectElementError.message")
         object.__setattr__(self, "query_terms", _require_string_tuple(self.query_terms, "query_terms"))
-        if self.exception_type is not None and (not isinstance(self.exception_type, str)):
-            _reject_collect_contract(
-                "CollectElementError.exception_type must be a string or None",
-                ValueError,
-                site="CollectElementError.__post_init__",
-            )
+        _require_optional_string(
+            self.exception_type,
+            "CollectElementError.exception_type",
+            site="CollectElementError.__post_init__",
+        )
         expected = content_digest(
             {
                 "schema": "mrw.acquisition.element-error.v2",
@@ -1329,6 +1418,20 @@ def receipt_implies_completed(receipt: CollectAttemptReceipt | None) -> bool:
     return receipt is not None and receipt.receipt_kind == "AUTHORITATIVE_READBACK"
 
 
+def _require_optional_collect_attempt_receipt(
+    value: object,
+    *,
+    site: str,
+) -> CollectAttemptReceipt | None:
+    if value is not None and not isinstance(value, CollectAttemptReceipt):
+        _reject_collect_contract(
+            "element receipt must be CollectAttemptReceipt or None",
+            ValueError,
+            site=site,
+        )
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class CollectCancellationReceipt:
     """Typed cancellation receipt emitted by fail-fast traversal aborts."""
@@ -1437,12 +1540,10 @@ class CollectElementSucceeded:
         _require_non_negative_int(self.input_index, "input_index")
         object.__setattr__(self, "links", _require_string_tuple(self.links, "links"))
         _require_legacy_observation_ref(self.legacy_observation_ref)
-        if self.receipt is not None and (not isinstance(self.receipt, CollectAttemptReceipt)):
-            _reject_collect_contract(
-                "element receipt must be CollectAttemptReceipt or None",
-                ValueError,
-                site="CollectElementSucceeded._validate_common",
-            )
+        _require_optional_collect_attempt_receipt(
+            self.receipt,
+            site="CollectElementSucceeded._validate_common",
+        )
 
     def _digest_payload(self) -> dict[str, Any]:
         return {
@@ -1506,12 +1607,10 @@ class CollectElementFailed:
         _require_non_negative_int(self.input_index, "input_index")
         object.__setattr__(self, "links", _require_string_tuple(self.links, "links"))
         _require_legacy_observation_ref(self.legacy_observation_ref)
-        if self.receipt is not None and (not isinstance(self.receipt, CollectAttemptReceipt)):
-            _reject_collect_contract(
-                "element receipt must be CollectAttemptReceipt or None",
-                ValueError,
-                site="CollectElementFailed._validate_common",
-            )
+        _require_optional_collect_attempt_receipt(
+            self.receipt,
+            site="CollectElementFailed._validate_common",
+        )
 
     def _digest_payload(self) -> dict[str, Any]:
         return {
@@ -2330,130 +2429,226 @@ def collect_fold_payload_from_dicts(
     )
 
 
-def _outcome_from_dict(value: dict[str, Any]) -> CollectElementOutcome:
+def _outcome_from_dict(value: Mapping[str, object]) -> CollectElementOutcome:
     status = value.get("status")
+    counts_raw = _string_object_dict(value.get("counts", {}), "outcome.counts")
     counts = CollectCounts(
-        inserted=value.get("counts", {}).get("inserted", 0),
-        updated=value.get("counts", {}).get("updated", 0),
-        skipped=value.get("counts", {}).get("skipped", 0),
+        inserted=_require_non_negative_int(counts_raw.get("inserted", 0), "counts.inserted"),
+        updated=_require_non_negative_int(counts_raw.get("updated", 0), "counts.updated"),
+        skipped=_require_non_negative_int(counts_raw.get("skipped", 0), "counts.skipped"),
     )
     receipt_raw = value.get("receipt")
-    receipt = (
-        None
-        if receipt_raw is None
-        else CollectAttemptReceipt(
+    if receipt_raw is None:
+        receipt = None
+    else:
+        receipt_values = _string_object_dict(receipt_raw, "outcome.receipt")
+        receipt_kind = receipt_values.get("receipt_kind")
+        if receipt_kind == "DISPATCH_ACKNOWLEDGEMENT":
+            typed_receipt_kind: Literal[
+                "DISPATCH_ACKNOWLEDGEMENT", "AUTHORITATIVE_READBACK"
+            ] = "DISPATCH_ACKNOWLEDGEMENT"
+        elif receipt_kind == "AUTHORITATIVE_READBACK":
+            typed_receipt_kind = "AUTHORITATIVE_READBACK"
+        else:
+            _reject_collect_contract(
+                "outcome receipt_kind is invalid",
+                ValueError,
+                site="_outcome_from_dict",
+            )
+        provider_status = receipt_values.get("provider_status")
+        if provider_status is not None and not isinstance(provider_status, str):
+            _reject_collect_contract(
+                "outcome provider_status must be a string or None",
+                ValueError,
+                site="_outcome_from_dict",
+            )
+        authoritative_readback = receipt_values.get("authoritative_readback")
+        if not isinstance(authoritative_readback, bool):
+            _reject_collect_contract(
+                "outcome authoritative_readback must be a bool",
+                ValueError,
+                site="_outcome_from_dict",
+            )
+        receipt = CollectAttemptReceipt(
             schema_version=COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
-            receipt_kind=receipt_raw["receipt_kind"],
-            provider_type=receipt_raw["provider_type"],
-            provider_job_id=receipt_raw["provider_job_id"],
-            provider_status=receipt_raw.get("provider_status"),
-            attempt_count=receipt_raw["attempt_count"],
-            observed_at=receipt_raw["observed_at"],
-            raw_digest=receipt_raw["raw_digest"],
-            authoritative_readback=bool(receipt_raw["authoritative_readback"]),
+            receipt_kind=typed_receipt_kind,
+            provider_type=_require_non_empty_string(receipt_values.get("provider_type"), "provider_type"),
+            provider_job_id=_require_non_empty_string(
+                receipt_values.get("provider_job_id"), "provider_job_id"
+            ),
+            provider_status=provider_status,
+            attempt_count=_require_non_negative_int(
+                receipt_values.get("attempt_count"), "attempt_count"
+            ),
+            observed_at=_require_non_empty_string(receipt_values.get("observed_at"), "observed_at"),
+            raw_digest=_require_non_empty_string(receipt_values.get("raw_digest"), "raw_digest"),
+            authoritative_readback=authoritative_readback,
             receipt_digest="",
         )
+    element_id = _require_non_empty_string(value.get("element_id"), "element_id")
+    input_index = _require_non_negative_int(value.get("input_index"), "input_index")
+    links = _require_string_tuple(value.get("links"), "links")
+    legacy_observation_ref = _require_non_empty_string(
+        value.get("legacy_observation_ref"), "legacy_observation_ref"
     )
-    common = {
-        "element_id": value["element_id"],
-        "input_index": value["input_index"],
-        "counts": counts,
-        "links": tuple(value.get("links") or ()),
-        "receipt": receipt,
-        "legacy_observation_ref": value["legacy_observation_ref"],
-    }
     if status == "succeeded":
-        return CollectElementSucceeded(schema_version=COLLECT_ELEMENT_OUTCOME_SCHEMA_REF, **common, outcome_digest="")
+        return CollectElementSucceeded(
+            schema_version=COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+            element_id=element_id,
+            input_index=input_index,
+            counts=counts,
+            links=links,
+            receipt=receipt,
+            legacy_observation_ref=legacy_observation_ref,
+            outcome_digest="",
+        )
     if status == "failed":
-        error_raw = value.get("error") or {}
+        error_raw = _string_object_dict(value.get("error"), "outcome.error")
+        exception_type = error_raw.get("exception_type")
+        if exception_type is not None and not isinstance(exception_type, str):
+            _reject_collect_contract(
+                "outcome error exception_type must be a string or None",
+                ValueError,
+                site="_outcome_from_dict",
+            )
         error = CollectElementError(
-            code=error_raw["code"],
-            message=error_raw["message"],
-            query_terms=tuple(error_raw.get("query_terms") or ()),
-            exception_type=error_raw.get("exception_type"),
+            code=_require_non_empty_string(error_raw.get("code"), "error.code"),
+            message=_require_non_empty_string(error_raw.get("message"), "error.message"),
+            query_terms=_require_string_tuple(error_raw.get("query_terms"), "error.query_terms"),
+            exception_type=exception_type,
             error_digest="",
         )
         return CollectElementFailed(
-            schema_version=COLLECT_ELEMENT_OUTCOME_SCHEMA_REF, **common, error=error, outcome_digest=""
+            schema_version=COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+            element_id=element_id,
+            input_index=input_index,
+            error=error,
+            counts=counts,
+            links=links,
+            receipt=receipt,
+            legacy_observation_ref=legacy_observation_ref,
+            outcome_digest="",
         )
     _reject_collect_contract(f"unsupported element outcome status {status!r}", ValueError, site="_outcome_from_dict")
 
 
-def _plain(value: Any) -> Any:
-    if dataclasses.is_dataclass(value):
+def _plain(value: object) -> CanonicalJsonValue:
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
         return {item.name: _plain(getattr(value, item.name)) for item in dataclasses.fields(value)}
-    if isinstance(value, dict):
+    if _is_object_mapping(value):
         return {str(key): _plain(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
+    if _is_object_list(value) or _is_object_tuple(value):
         return [_plain(item) for item in value]
-    return value
+    if isinstance(value, bytes):
+        return value.hex()
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    _reject_collect_contract(
+        f"payload codec cannot encode {type(value).__name__}",
+        TypeError,
+        site="_plain",
+    )
 
 
-def _rebuild_value(value: Any, hint: Any) -> Any:
+def _rebuild_value(value: object, hint: object) -> object:
     if value is None or hint is Any:
         return value
     origin = get_origin(hint)
     if origin in (typing.Union, types.UnionType):
         if value is None:
             return None
-        if not isinstance(value, dict):
+        if not _is_object_mapping(value):
             return value
-        if isinstance(value, dict):
-            candidates = tuple((candidate for candidate in get_args(hint) if dataclasses.is_dataclass(candidate)))
-            status = value.get("status")
-            kind = value.get("kind")
-            if status is not None:
-                for candidate in candidates:
-                    if getattr(candidate, "status", None) == status:
-                        return _decode_plain(candidate, value)
-            if kind is not None:
-                for candidate in candidates:
-                    if getattr(candidate, "kind", None) == kind:
-                        try:
-                            return _decode_plain(candidate, value)
-                        except (TypeError, ValueError):
-                            continue
+        plain = _string_object_dict(value, "union value")
+        args: tuple[object, ...] = get_args(hint)
+        candidates = tuple(candidate for candidate in args if _is_dataclass_type(candidate))
+        status = plain.get("status")
+        kind = plain.get("kind")
+        if status is not None:
             for candidate in candidates:
-                try:
-                    return _decode_plain(candidate, value)
-                except (TypeError, ValueError):
-                    continue
+                if getattr(candidate, "status", None) == status:
+                    return _decode_plain(candidate, plain)
+        if kind is not None:
+            for candidate in candidates:
+                if getattr(candidate, "kind", None) == kind:
+                    try:
+                        return _decode_plain(candidate, plain)
+                    except (TypeError, ValueError):
+                        continue
+        for candidate in candidates:
+            try:
+                return _decode_plain(candidate, plain)
+            except (TypeError, ValueError):
+                continue
         _reject_collect_contract(
             f"cannot rebuild union value {hint} from {type(value).__name__}", ValueError, site="_rebuild_value"
         )
     if origin is tuple:
-        args = get_args(hint)
+        if not (_is_object_list(value) or _is_object_tuple(value)):
+            _reject_collect_contract("tuple field must be an array", TypeError, site="_rebuild_value")
+        args: tuple[object, ...] = get_args(hint)
         if len(args) == 2 and args[1] is Ellipsis:
             return tuple((_rebuild_value(item, args[0]) for item in value))
         return tuple((_rebuild_value(item, args[index]) for index, item in enumerate(value)))
     if origin is list:
-        return [_rebuild_value(item, get_args(hint)[0]) for item in value]
-    if dataclasses.is_dataclass(hint):
-        return _decode_plain(hint, value)
+        if not (_is_object_list(value) or _is_object_tuple(value)):
+            _reject_collect_contract("list field must be an array", TypeError, site="_rebuild_value")
+        args: tuple[object, ...] = get_args(hint)
+        item_hint = args[0] if args else object
+        return [_rebuild_value(item, item_hint) for item in value]
+    if _is_dataclass_type(hint):
+        return _decode_plain(hint, _string_object_dict(value, hint.__name__))
     return value
 
 
-def _decode_plain(cls: type[Any], value: dict[str, Any]) -> Any:
+def _rebuild_field_value(
+    cls: object,
+    field_name: str,
+    value: object,
+    hint: object,
+) -> object:
+    if (
+        cls is CollectLegacyRequestSnapshot
+        and field_name in {"options", "source_context"}
+        and _is_object_mapping(value)
+    ):
+        return _freeze(_string_object_dict(value, field_name))
+    return _rebuild_value(value, hint)
+
+
+def _decode_plain(cls: type[Any], value: Mapping[str, object]) -> Any:
+    plain = _string_object_dict(value, cls.__name__)
     expected = {item.name for item in fields(cls)}
-    if not isinstance(value, dict) or set(value) != expected:
-        missing = sorted(expected - set(value))
-        extra = sorted(set(value) - expected)
+    if set(plain) != expected:
+        missing = sorted(expected - set(plain))
+        extra = sorted(set(plain) - expected)
         _reject_collect_contract(
             f"{cls.__name__} codec rejected payload fields: missing={missing} extra={extra}",
             ValueError,
             site="_decode_plain",
         )
     hints = typing.get_type_hints(cls)
-    kwargs = {item.name: _rebuild_value(value[item.name], hints.get(item.name, item.type)) for item in fields(cls)}
+    kwargs: dict[str, object] = {
+        item.name: _rebuild_field_value(
+            cls,
+            item.name,
+            plain[item.name], hints.get(item.name, item.type)
+        )
+        for item in fields(cls)
+    }
     return cls(**kwargs)
 
 
 def _payload_codec(
-    contract_ref: Any, *, codec_id: str, payload_cls: type[Any], payload_type: ObjectType
-) -> PayloadCodec:
+    contract_ref: OperationContractRef,
+    *,
+    codec_id: str,
+    payload_cls: type[AcquisitionPayloadModel],
+    payload_type: ObjectType,
+) -> PayloadCodec[AcquisitionPayloadModel]:
     codec_version = "2"
 
-    def encode(value: Any) -> dict[str, Any]:
+    def encode(value: object) -> CanonicalJsonObject:
         if not isinstance(value, payload_cls):
             _reject_collect_contract(
                 f"{codec_id} codec expected {payload_cls.__name__}, got {type(value).__name__}",
@@ -2467,8 +2662,8 @@ def _payload_codec(
             )
         return result
 
-    def decode(value: dict[str, Any]) -> Any:
-        if not isinstance(value, dict):
+    def decode(value: CanonicalJsonObject) -> AcquisitionPayloadModel:
+        if not _is_object_mapping(value):
             failure = collect_contract_failure(
                 code="FOLD_CONTRACT_FAILURE"
                 if contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
@@ -2487,7 +2682,17 @@ def _payload_codec(
             )
             raise_collect_contract_failure(failure, TypeError)
         try:
-            return _decode_plain(payload_cls, value)
+            decoded: object = _decode_plain(
+                payload_cls,
+                _string_object_dict(value, "payload"),
+            )
+            if not isinstance(decoded, payload_cls):
+                _reject_collect_contract(
+                    "payload codec returned an invalid payload type",
+                    TypeError,
+                    site="_payload_codec.decode",
+                )
+            return decoded
         except (TypeError, ValueError) as exc:
             failure = collect_contract_failure(
                 code="FOLD_CONTRACT_FAILURE"
@@ -2523,10 +2728,42 @@ def _payload_codec(
     )
 
 
-def try_decode_acquisition_payload(codec: PayloadCodec, value: Any) -> PayloadDecodeResult:
+def try_decode_acquisition_payload(
+    codec: AcquisitionPayloadCodec,
+    value: object,
+) -> PayloadDecodeResult:
     """Total family-local codec parse without changing public codec errors."""
+    if not _is_object_mapping(value):
+        return collect_contract_failure(
+            code="FOLD_CONTRACT_FAILURE"
+            if codec.contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
+            else "INVALID_INPUT",
+            reason_code="codec_contract_invalid",
+            message="payload codec requires a JSON object",
+            operation="collect.decode_payload",
+            site="try_decode_c3_payload.value",
+            domain_outcome="FOLD_CONTRACT_FAILURE"
+            if codec.contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
+            else "INVALID_INPUT",
+            public_exception="TypeError",
+        )
     try:
-        return codec.decode_payload(value)
+        canonical_value = _plain(value)
+        if not isinstance(canonical_value, dict):
+            return collect_contract_failure(
+                code="FOLD_CONTRACT_FAILURE"
+                if codec.contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
+                else "INVALID_INPUT",
+                reason_code="codec_contract_invalid",
+                message="payload codec requires a JSON object",
+                operation="collect.decode_payload",
+                site="try_decode_c3_payload.value",
+                domain_outcome="FOLD_CONTRACT_FAILURE"
+                if codec.contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
+                else "INVALID_INPUT",
+                public_exception="TypeError",
+            )
+        return codec.decode_payload(canonical_value)
     except (TypeError, ValueError) as exc:
         return collect_contract_failure(
             code="FOLD_CONTRACT_FAILURE"
@@ -2546,7 +2783,9 @@ def try_decode_acquisition_payload(codec: PayloadCodec, value: Any) -> PayloadDe
         )
 
 
-def try_decode_historical_acquisition_payload(codec: PayloadCodec | str, value: Any) -> PayloadDecodeResult:
+def try_decode_historical_acquisition_payload(
+    codec: AcquisitionPayloadCodec | str, value: object
+) -> PayloadDecodeResult:
     """Read exact legacy acquisition payload bytes without rehashing them."""
     codec_id = codec.codec_id if isinstance(codec, PayloadCodec) else codec
     historical_schemas = {
@@ -2567,7 +2806,7 @@ def try_decode_historical_acquisition_payload(codec: PayloadCodec | str, value: 
             public_exception="TypeError",
             owner=HISTORICAL_ACQUISITION_BATCH_ELEMENT_OWNER,
         )
-    if not isinstance(value, dict):
+    if not _is_object_mapping(value):
         return collect_contract_failure(
             code="INVALID_INPUT",
             reason_code="codec_contract_invalid",
@@ -2578,7 +2817,8 @@ def try_decode_historical_acquisition_payload(codec: PayloadCodec | str, value: 
             public_exception="TypeError",
             owner=HISTORICAL_ACQUISITION_BATCH_ELEMENT_OWNER,
         )
-    if value.get("schema_version") != expected_schema:
+    plain = _string_object_dict(value, "historical payload")
+    if plain.get("schema_version") != expected_schema:
         return collect_contract_failure(
             code="INVALID_INPUT",
             reason_code="codec_contract_invalid",
@@ -2589,7 +2829,7 @@ def try_decode_historical_acquisition_payload(codec: PayloadCodec | str, value: 
             public_exception="ValueError",
             owner=HISTORICAL_ACQUISITION_BATCH_ELEMENT_OWNER,
         )
-    supplied_digest = value.get("payload_digest")
+    supplied_digest = plain.get("payload_digest")
     if not isinstance(supplied_digest, str):
         return collect_contract_failure(
             code="INVALID_INPUT",
@@ -2614,7 +2854,7 @@ def try_decode_historical_acquisition_payload(codec: PayloadCodec | str, value: 
             public_exception="ValueError",
             owner=HISTORICAL_ACQUISITION_BATCH_ELEMENT_OWNER,
         )
-    if content_digest(value, omit_fields=("payload_digest",)) != supplied_digest:
+    if content_digest(plain, omit_fields=("payload_digest",)) != supplied_digest:
         return collect_contract_failure(
             code="INVALID_INPUT",
             reason_code="codec_contract_invalid",
@@ -2625,7 +2865,7 @@ def try_decode_historical_acquisition_payload(codec: PayloadCodec | str, value: 
             public_exception="ValueError",
             owner=HISTORICAL_ACQUISITION_BATCH_ELEMENT_OWNER,
         )
-    return dict(value)
+    return plain
 
 
 def _profile_ref(profile_id: str, profile_version: str, digest: str) -> ContractProfileRef:
@@ -2635,7 +2875,7 @@ def _profile_ref(profile_id: str, profile_version: str, digest: str) -> Contract
 def _semantic_profile(
     *, operation_kind: str, owner: str, reads: tuple[str, ...], creates: tuple[str, ...], observation: str
 ) -> SemanticProfile:
-    values = {
+    values: dict[str, object] = {
         "semantic_profile_id": f"{operation_kind}.semantic",
         "semantic_profile_version": "1.0.0",
         "reads": reads,
@@ -2644,19 +2884,19 @@ def _semantic_profile(
         "declared_loss": (),
         "observation_profile_ref": observation,
     }
-    return SemanticProfile(**values, profile_digest=content_digest(values))
+    return build_profile(SemanticProfile, **values, profile_digest=content_digest(values))
 
 
 def _effect_profile(
     *,
     operation_kind: str,
-    execution_class: str,
+    execution_class: Literal["PURE_TRANSFORM", "EFFECTFUL", "ADMISSION", "PROJECTION"],
     network_required: bool,
     irreversible: bool,
-    external_visibility: str,
+    external_visibility: Literal["NONE", "INTERNAL_ONLY", "EXTERNAL"],
     internal_export_only: bool,
 ) -> EffectProfile:
-    values = {
+    values: dict[str, object] = {
         "effect_profile_id": f"{operation_kind}.effect",
         "effect_profile_version": "1.0.0",
         "execution_class": execution_class,
@@ -2669,11 +2909,11 @@ def _effect_profile(
         "external_acquisition": False,
         "idempotency_profile_ref": "logical_request_id",
     }
-    return EffectProfile(**values, profile_digest=content_digest(values))
+    return build_profile(EffectProfile, **values, profile_digest=content_digest(values))
 
 
 def _resource_profile(*, operation_kind: str, concurrency_key: str, units: int) -> ResourceProfile:
-    values = {
+    values: dict[str, object] = {
         "resource_profile_id": f"{operation_kind}.resource",
         "resource_profile_version": "1.0.0",
         "resource_classes": ("cpu", "network"),
@@ -2687,11 +2927,11 @@ def _resource_profile(*, operation_kind: str, concurrency_key: str, units: int) 
         "node_profile_requirements": ("any",),
         "units": units,
     }
-    return ResourceProfile(**values, profile_digest=content_digest(values))
+    return build_profile(ResourceProfile, **values, profile_digest=content_digest(values))
 
 
 def _failure_profile(*, operation_kind: str, typed_failures: tuple[str, ...], retryable: bool) -> FailureProfile:
-    values = {
+    values: dict[str, object] = {
         "failure_profile_id": f"{operation_kind}.failure",
         "failure_profile_version": "1.0.0",
         "typed_failures": typed_failures,
@@ -2704,11 +2944,11 @@ def _failure_profile(*, operation_kind: str, typed_failures: tuple[str, ...], re
         "readback_profile_ref": None,
         "compensation_profile_ref": None,
     }
-    return FailureProfile(**values, profile_digest=content_digest(values))
+    return build_profile(FailureProfile, **values, profile_digest=content_digest(values))
 
 
 def _authority_profile(*, operation_kind: str, owner: str) -> AuthorityProfile:
-    values = {
+    values: dict[str, object] = {
         "authority_profile_id": f"{operation_kind}.authority",
         "authority_profile_version": "1.0.0",
         "grant_scopes": ("project",),
@@ -2719,16 +2959,19 @@ def _authority_profile(*, operation_kind: str, owner: str) -> AuthorityProfile:
         "revalidation_points": ("claim_time",),
         "authority_epoch": 1,
     }
-    return AuthorityProfile(**values, profile_digest=content_digest(values))
+    return build_profile(AuthorityProfile, **values, profile_digest=content_digest(values))
 
 
 def _interpreter_profile(*, interpreter_id: str, supported_kind: str, donor: str) -> InterpreterProfile:
-    values = {
+    dependency_digest = content_digest(
+        {"interpreter": interpreter_id, "version": "1.0.0", "donor": donor}
+    )
+    values: dict[str, object] = {
         "interpreter_profile_id": interpreter_id,
         "interpreter_profile_version": "1.0.0",
         "supported_contract_kinds": (supported_kind,),
         "supported_contract_refs": (),
-        "dependency_digest": content_digest({"interpreter": interpreter_id, "version": "1.0.0", "donor": donor}),
+        "dependency_digest": dependency_digest,
         "security_profile_ref": "mrw.functorial-successor.security.pure.v1",
         "resource_profile_ref": f"{supported_kind}.resource",
         "credential_requirements_ref": None,
@@ -2737,18 +2980,39 @@ def _interpreter_profile(*, interpreter_id: str, supported_kind: str, donor: str
         "authoritative_readback_profile_ref": None,
         "receipt_codec_ref": COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
     }
-    return InterpreterProfile(**values, profile_digest=content_digest(values))
+    return build_profile(InterpreterProfile, **values, profile_digest=content_digest(values))
 
 
 def _observation_profile(*, profile_id: str, dimensions: tuple[str, ...], schema_ref: str) -> ObservationProfile:
-    values = {
+    values: dict[str, object] = {
         "observation_profile_id": profile_id,
         "observation_profile_version": "1.0.0",
         "dimensions": dimensions,
         "compatible_with_legacy": True,
         "observation_schema_ref": schema_ref,
     }
-    return ObservationProfile(**values, profile_digest=content_digest(values))
+    return build_profile(ObservationProfile, **values, profile_digest=content_digest(values))
+
+
+AcquisitionBatchProfiles = TypedDict(
+    "AcquisitionBatchProfiles",
+    {
+        "semantic.c3_1": SemanticProfile,
+        "effect.c3_1": EffectProfile,
+        "resource.c3_1": ResourceProfile,
+        "failure.c3_1": FailureProfile,
+        "authority.c3_1": AuthorityProfile,
+        "interpreter.c3_1": InterpreterProfile,
+        "observation.c3_1": ObservationProfile,
+        "semantic.c3_2": SemanticProfile,
+        "effect.c3_2": EffectProfile,
+        "resource.c3_2": ResourceProfile,
+        "failure.c3_2": FailureProfile,
+        "authority.c3_2": AuthorityProfile,
+        "interpreter.c3_2": InterpreterProfile,
+        "observation.c3_2": ObservationProfile,
+    },
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -2756,13 +3020,16 @@ class AcquisitionBatchCapabilityBundle:
     bundle_id: str
     execute_element_operation: OperationContract
     fold_ordered_results_operation: OperationContract
-    codecs: tuple[PayloadCodec, PayloadCodec]
-    profiles: dict[str, object]
+    codecs: tuple[
+        PayloadCodec[CollectBatchElementPayload],
+        PayloadCodec[CollectFoldPayload],
+    ]
+    profiles: AcquisitionBatchProfiles
 
-    def batch_element_payload_codec(self) -> PayloadCodec:
+    def batch_element_payload_codec(self) -> PayloadCodec[CollectBatchElementPayload]:
         return self.codecs[0]
 
-    def ordered_result_fold_payload_codec(self) -> PayloadCodec:
+    def ordered_result_fold_payload_codec(self) -> PayloadCodec[CollectFoldPayload]:
         return self.codecs[1]
 
 

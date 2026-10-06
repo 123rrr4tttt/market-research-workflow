@@ -12,7 +12,7 @@ pytestmark = pytest.mark.contract
 
 _TARGET_MODULE_COUNTS = {
     "config.py": 4,
-    "crawler.py": 8,
+    "crawler.py": 9,
     "keywords.py": 5,
     "llm_config.py": 14,
     "stats.py": 4,
@@ -48,7 +48,7 @@ class ApiSchemaLaneEResponseModelsContractTestCase(unittest.TestCase):
             counts[operation["source_module"]] += 1
 
         self.assertEqual(counts, _TARGET_MODULE_COUNTS)
-        self.assertEqual(sum(counts.values()), 35)
+        self.assertEqual(sum(counts.values()), 36)
 
     def test_lane_e_target_operations_have_typed_200_response_schemas(self):
         untyped = [

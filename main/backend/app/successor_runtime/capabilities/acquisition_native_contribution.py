@@ -22,10 +22,16 @@ from functorial_kit.native_contribution import (
     BindingAccepted,
     BindingRejected,
     NativeBindingIssue,
+    NativeContribution,
     ProjectedContributionSpec,
 )
 from app.successor_runtime.capabilities import acquisition_batch as acquisition
 from app.successor_runtime.capabilities import acquisition_batch_program as acquisition_program
+from app.successor_runtime.language.catalog import (
+    OperationContractCatalogSnapshot,
+    OperationContractRegistry,
+)
+from app.successor_runtime.language.transforms import TransformRegistry
 from app.successor_runtime.substrate.postgres.acquisition_batch_canary import (
     AcquisitionBatchComposedRuntimeHandler as AcquisitionBatchComposedRuntimeHandler,
 )
@@ -204,9 +210,23 @@ def _definition_issues(
         )
     )
     for index, operation in enumerate(source.operations):
-        suffix = "c3_1" if index == 0 else "c3_2"
         contract = bundle.execute_element_operation if index == 0 else bundle.fold_ordered_results_operation
         codec = bundle.codecs[index]
+        failure_profile = (
+            bundle.profiles["failure.c3_1"]
+            if index == 0
+            else bundle.profiles["failure.c3_2"]
+        )
+        observation_profile = (
+            bundle.profiles["observation.c3_1"]
+            if index == 0
+            else bundle.profiles["observation.c3_2"]
+        )
+        interpreter_profile = (
+            bundle.profiles["interpreter.c3_1"]
+            if index == 0
+            else bundle.profiles["interpreter.c3_2"]
+        )
         issues += _issue_tuple(
             (
                 (contract.ref.kind == operation.kind, f"$.source.operations[{index}].kind", "operation kind drift"),
@@ -221,17 +241,17 @@ def _definition_issues(
                     "payload codec drift",
                 ),
                 (
-                    bundle.profiles[f"failure.{suffix}"].failure_profile_id == operation.failure_profile_id,
+                    failure_profile.failure_profile_id == operation.failure_profile_id,
                     f"$.source.operations[{index}].failure_profile_id",
                     "failure profile drift",
                 ),
                 (
-                    bundle.profiles[f"observation.{suffix}"].observation_profile_id == operation.observation_profile_id,
+                    observation_profile.observation_profile_id == operation.observation_profile_id,
                     f"$.source.operations[{index}].observation_profile_id",
                     "observation profile drift",
                 ),
                 (
-                    bundle.profiles[f"interpreter.{suffix}"].interpreter_profile_id == operation.interpreter_id,
+                    interpreter_profile.interpreter_profile_id == operation.interpreter_id,
                     f"$.source.operations[{index}].interpreter_id",
                     "successor interpreter drift",
                 ),
@@ -244,8 +264,8 @@ def _definition_issues(
 class AcquisitionNativeDefinition:
     source: AcquisitionNativeSource
     bundle: acquisition.AcquisitionBatchCapabilityBundle
-    catalog: object
-    registry: object
+    catalog: OperationContractCatalogSnapshot
+    registry: OperationContractRegistry
     program_wiring: tuple[AcquisitionProgramStep, AcquisitionProgramStep]
 
     @property
@@ -324,8 +344,8 @@ class AcquisitionAssemblyContext:
 class AcquisitionNativeBinding:
     definition: AcquisitionNativeDefinition
     family_assembly: "FamilyAssembly"
-    catalog: object
-    registry: object
+    catalog: OperationContractCatalogSnapshot
+    registry: OperationContractRegistry
 
     @property
     def rollback_binding_refs_by_cell(self) -> tuple[tuple[str, ...], ...]:
@@ -335,7 +355,7 @@ class AcquisitionNativeBinding:
     def composed_program_id(self, project_key: str) -> str:
         return f"program:acquisition-batch:{project_key}"
 
-    def transform_registry(self) -> object:
+    def transform_registry(self) -> TransformRegistry:
         return acquisition_program.build_acquisition_batch_transform_registry()
 
 
@@ -344,7 +364,7 @@ def _build_composed_handler(
     definition: AcquisitionNativeDefinition,
     uow_factory: Callable[[], object],
     project_scope_digest: str,
-    element_payloads: tuple[object, ...],
+    element_payloads: tuple[acquisition.CollectBatchElementPayload, ...],
 ) -> AcquisitionBatchComposedRuntimeHandler | None:
     from app.successor_runtime.assembly.base import successor_binding
 
@@ -396,8 +416,17 @@ def assemble_acquisition_native_definition(
 ) -> AcquisitionNativeBinding | Failure:
     from app.successor_runtime.assembly.base import CellBinding, FamilyAssembly, RollbackBindingDeclaration
 
-    opts = context.options or AcquisitionAssemblyOptions()
-    payloads = tuple(opts.element_payloads)
+    opts = context.options
+    payloads = tuple(
+        payload
+        for payload in opts.element_payloads
+        if isinstance(payload, acquisition.CollectBatchElementPayload)
+    )
+    if len(payloads) != len(opts.element_payloads):
+        return contribution_failures.fail(
+            "CONTRIBUTION_INVALID",
+            "C3 assembly element_payloads must all be CollectBatchElementPayload values",
+        )
     if payloads:
         handler = _build_composed_handler(
             definition=definition,
@@ -499,7 +528,12 @@ def validate_acquisition_native_binding(
 
 
 def verify_acquisition_native_definition(
-    definition: AcquisitionNativeDefinition, native: object
+    definition: AcquisitionNativeDefinition,
+    native: NativeContribution[
+        AcquisitionNativeDefinition,
+        AcquisitionAssemblyContext,
+        AcquisitionNativeBinding,
+    ],
 ) -> ContributionVerification | Failure:
     del native
 
@@ -533,6 +567,12 @@ ACQUISITION_NATIVE_CONTRIBUTION_RULE = NativeContributionRule[
 )
 _default_definition: AcquisitionNativeDefinition | Failure | None = None
 
+AcquisitionNativeContribution = NativeContribution[
+    AcquisitionNativeDefinition,
+    AcquisitionAssemblyContext,
+    AcquisitionNativeBinding,
+]
+
 
 def default_acquisition_native_definition() -> AcquisitionNativeDefinition | Failure:
     """Lower the default source once for read-only runtime/catalog consumers."""
@@ -545,5 +585,7 @@ def default_acquisition_native_definition() -> AcquisitionNativeDefinition | Fai
     return _default_definition
 
 
-def compile_acquisition_native_contribution(source: AcquisitionNativeSource) -> object:
+def compile_acquisition_native_contribution(
+    source: AcquisitionNativeSource,
+) -> AcquisitionNativeContribution | Failure:
     return compile_native_contribution(source, ACQUISITION_NATIVE_CONTRIBUTION_RULE)

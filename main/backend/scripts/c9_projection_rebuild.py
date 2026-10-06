@@ -263,15 +263,15 @@ def _payload_for_sink(
     losses = _projection_declared_losses(sink)
     if sink == "task":
         return build_task_view(
-            closure.runtime_session_source, declared_losses=losses
+            closure.task_source, declared_losses=losses
         ).to_plain()
     if sink == "knowledge":
         return build_knowledge_view(
-            closure.research_graph_source, declared_losses=losses
+            closure.knowledge_source, declared_losses=losses
         ).to_plain()
     if sink == "material":
         return build_material_view(
-            closure.c7_search_source, declared_losses=losses
+            closure.material_source, declared_losses=losses
         ).to_plain()
     raise ValueError(f"unregistered material projection sink: {sink}")
 

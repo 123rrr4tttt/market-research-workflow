@@ -3,14 +3,17 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from typing import Any, List, TypeAlias, TypeGuard
+from typing import List, TypeAlias, TypeGuard
 
 from sqlalchemy.orm import Session
 
 
 from ..job_logger import start_job, complete_job, fail_job
 from ..collect_runtime.display_meta import build_display_meta
-from ..collect_runtime.contracts import CollectRequest, CollectResult
+from ..collect_runtime.contracts import (
+    CollectRequest,
+    CollectResult,
+)
 from ..projects import current_project_key
 from ..search.candidate_contracts import CandidateSearchRequest
 from ..search.facets import MARKET_FACET
@@ -25,6 +28,7 @@ from .url_pool import collect_urls_from_list
 from ..task_readback_metadata import merge_runtime_readback_payload
 from .search_and_ingest import (
     SearchAndIngestSpec,
+    SearchMaterialWritePayload,
     SearchIngestPorts,
     SearchIngestSource,
     SearchIngestTarget,
@@ -92,7 +96,7 @@ def collect_market_info(
     start_offset: int | None = None,
     days_back: int | None = None,
     language: str = "en",
-    runtime_readback: dict[str, Any] | None = None,
+    runtime_readback: Mapping[str, object] | None = None,
     project_key: str | None = None,
 ) -> ResultRecord:
     """
@@ -155,7 +159,7 @@ def collect_market_info(
             html, _ = fetch_html(link, timeout=8.0, retries=1)
             return (_extract_text_from_html(html) or "").strip()
 
-        def write_frontdoor(data: dict[str, Any]) -> ResultRecord:
+        def write_frontdoor(data: SearchMaterialWritePayload) -> ResultRecord:
             ingress_envelope = build_frontdoor_ingress_envelope(
                 ingress_type="discovery",
                 **data,

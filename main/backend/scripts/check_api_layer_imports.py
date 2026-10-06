@@ -62,6 +62,23 @@ def _collect_model_imports() -> set[str]:
     return findings
 
 
+def _model_import_atoms(entry: str) -> set[tuple[str, int, str, str, str | None]]:
+    """Compare imported names, independently of grouping within a statement."""
+    filename, separator, source = entry.partition("|")
+    if not separator:
+        raise ValueError(f"Malformed model-import allowance: {entry}")
+    parsed = ast.parse(source).body
+    if len(parsed) != 1 or not isinstance(parsed[0], ast.ImportFrom):
+        raise ValueError(f"Model-import allowance is not an import: {entry}")
+    node = parsed[0]
+    return {(filename, node.level, node.module or "", alias.name, alias.asname) for alias in node.names}
+
+
+def _unexpected_model_imports(detected: set[str], allowed: set[str]) -> list[str]:
+    allowed_atoms = {atom for entry in allowed for atom in _model_import_atoms(entry)}
+    return sorted(entry for entry in detected if not _model_import_atoms(entry) <= allowed_atoms)
+
+
 def _is_http_exception_func(func: ast.expr) -> bool:
     if isinstance(func, ast.Name):
         return func.id == "HTTPException"
@@ -190,7 +207,7 @@ def main() -> int:
         HTTP_EXCEPTION_ALLOWLIST_PATH
     )
 
-    model_unexpected = sorted(model_detected - model_allowed)
+    model_unexpected = _unexpected_model_imports(model_detected, model_allowed)
     model_stale = sorted(model_allowed - model_detected)
     http_unexpected = sorted(_multiset_difference(http_detected, http_allowed))
     http_stale = sorted(_multiset_difference(http_allowed, http_detected))

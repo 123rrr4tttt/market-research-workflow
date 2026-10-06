@@ -2,33 +2,43 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, TypeVar
+from typing import Generic, TypeGuard, TypeVar
 
-from .checksum import content_digest, decode_dataclass, require_hex64
+from .checksum import (
+    CanonicalJsonArray,
+    CanonicalJsonObject,
+    CanonicalJsonValue,
+    DecodedCanonicalValue,
+    content_digest,
+    decode_dataclass,
+    primitive_failure,
+    raise_primitive_failure,
+    require_hex64,
+)
 from .contracts import OperationContractRef
-from .checksum import _primitive_failure, _raise_primitive_failure
 
 T = TypeVar("T")
 
 
 @dataclass(frozen=True, slots=True)
-class PayloadCodec:
+class PayloadCodec(Generic[T]):
     codec_id: str
     codec_version: str
     contract_ref: OperationContractRef
     payload_type_id: str
-    encode: Callable[[Any], dict[str, Any]]
-    decode: Callable[[dict[str, Any]], Any]
+    encode: Callable[[T], CanonicalJsonObject]
+    decode: Callable[[CanonicalJsonObject], T]
     codec_digest: str
 
     def __post_init__(self) -> None:
         require_hex64(self.codec_digest, "PayloadCodec.codec_digest")
 
-    def encode_payload(self, value: T) -> dict[str, Any]:
+    def encode_payload(self, value: T) -> CanonicalJsonObject:
         return self.encode(value)
 
-    def decode_payload(self, value: dict[str, Any]) -> T:
+    def decode_payload(self, value: CanonicalJsonObject) -> T:
         return self.decode(value)
 
 
@@ -54,23 +64,44 @@ def dataclass_codec(
     codec_version: str,
     contract_ref: OperationContractRef,
     payload_type_id: str,
-    dto_cls: type,
-) -> PayloadCodec:
+    dto_cls: type[T],
+) -> PayloadCodec[T]:
     digest = codec_digest(codec_id, codec_version, contract_ref, payload_type_id)
 
-    def encode(value: Any) -> dict[str, Any]:
+    def encode(value: T) -> CanonicalJsonObject:
         if not isinstance(value, dto_cls):
-            failure = _primitive_failure(
+            failure = primitive_failure(
                 "codec_input_type_invalid",
                 f"{codec_id} codec expected {dto_cls.__name__}",
                 exception_type=TypeError,
                 field_name=f"codec/{codec_id}",
             )
-            _raise_primitive_failure(failure, TypeError)
-        return _canonical_dict(value)
+            raise_primitive_failure(failure, TypeError)
+        encoded = _canonical_value(value)
+        if not isinstance(encoded, dict):
+            failure = primitive_failure(
+                "codec_input_type_invalid",
+                f"{codec_id} codec root must encode as an object",
+                exception_type=TypeError,
+                field_name=f"codec/{codec_id}",
+            )
+            raise_primitive_failure(failure, TypeError)
+        return encoded
 
-    def decode(value: dict[str, Any]) -> Any:
-        return decode_dataclass(dto_cls, _restore_tuple_fields(dto_cls, value))
+    def decode(value: CanonicalJsonObject) -> T:
+        decoded: object = decode_dataclass(
+            dto_cls,
+            _restore_tuple_fields(dto_cls, value),
+        )
+        if not isinstance(decoded, dto_cls):
+            failure = primitive_failure(
+                "codec_input_type_invalid",
+                f"{codec_id} decoder returned an invalid payload type",
+                exception_type=TypeError,
+                field_name=f"codec/{codec_id}",
+            )
+            raise_primitive_failure(failure, TypeError)
+        return decoded
 
     return PayloadCodec(
         codec_id=codec_id,
@@ -83,28 +114,56 @@ def dataclass_codec(
     )
 
 
-def _canonical_dict(value: Any) -> dict[str, Any]:
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(
+    value: object,
+) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _canonical_value(value: object) -> CanonicalJsonValue:
     import dataclasses
 
-    if dataclasses.is_dataclass(value):
-        return {k: _canonical_dict(v) for k, v in dataclasses.asdict(value).items()}
-    if isinstance(value, dict):
-        return {str(k): _canonical_dict(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_canonical_dict(v) for v in value]
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        dataclass_value: object = dataclasses.asdict(value)
+        return _canonical_value(dataclass_value)
+    if _is_object_mapping(value):
+        return {
+            str(key): _canonical_value(item)
+            for key, item in value.items()
+        }
+    if _is_object_sequence(value):
+        return [_canonical_value(item) for item in value]
     if isinstance(value, bytes):
         return value.hex()
-    return value
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    failure = primitive_failure(
+        "codec_input_type_invalid",
+        f"canonical codec cannot encode {type(value).__name__}",
+        exception_type=TypeError,
+        field_name="codec/value",
+    )
+    raise_primitive_failure(failure, TypeError)
 
 
-def _restore_tuple_fields(dto_cls: type, value: dict[str, Any]) -> dict[str, Any]:
-    import dataclasses
+def _restore_tuple_fields(
+    dto_cls: type[T],
+    value: CanonicalJsonObject,
+) -> dict[str, DecodedCanonicalValue]:
     import typing
 
-    restored = dict(value)
-    hints = typing.get_type_hints(dto_cls)
-    for field_def in dataclasses.fields(dto_cls):
-        field_type = hints.get(field_def.name, field_def.type)
-        if typing.get_origin(field_type) is tuple and field_def.name in restored:
-            restored[field_def.name] = tuple(restored[field_def.name])
+    restored: dict[str, DecodedCanonicalValue] = dict(value)
+    hints: dict[str, object] = typing.get_type_hints(dto_cls)
+    for field_name, field_type in hints.items():
+        field_value = restored.get(field_name)
+        if typing.get_origin(field_type) is tuple and _is_json_array(field_value):
+            restored[field_name] = tuple(field_value)
     return restored
+
+
+def _is_json_array(value: object) -> TypeGuard[CanonicalJsonArray]:
+    return isinstance(value, list)

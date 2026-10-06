@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib
 import pkgutil
-from typing import Type
+from collections.abc import Callable
 
 from ..services.projects.context import current_project_key
 from .interfaces import ProjectCustomization
@@ -12,12 +12,13 @@ from .registry import (
     register_project_customization_prefix,
 )
 
-_BOOTSTRAPPED = False
+_bootstrapped = False
+_INVALID_CUSTOMIZATION_CLASS = "project customization class does not implement ProjectCustomization"
 
 
 def _ensure_builtin_customizations() -> None:
-    global _BOOTSTRAPPED
-    if _BOOTSTRAPPED:
+    global _bootstrapped
+    if _bootstrapped:
         return
 
     package = importlib.import_module(".projects", __package__)
@@ -32,7 +33,7 @@ def _ensure_builtin_customizations() -> None:
         raw_project_key = getattr(module, "PROJECT_KEY", None)
         if not raw_project_key:
             try:
-                raw_project_key = getattr(customization_cls(), "project_key", "")
+                raw_project_key = _factory_for(customization_cls)().project_key
             except Exception:
                 raw_project_key = ""
         project_key = (str(raw_project_key or "") or module_info.name).strip().lower()
@@ -44,12 +45,16 @@ def _ensure_builtin_customizations() -> None:
             normalized = (prefix or "").strip().lower()
             if normalized:
                 register_project_customization_prefix(normalized, _factory_for(customization_cls))
-    _BOOTSTRAPPED = True
+    _bootstrapped = True
 
 
-def _factory_for(customization_cls: Type[ProjectCustomization]):
+def _factory_for(customization_cls: type[object]) -> Callable[[], ProjectCustomization]:
     def _build() -> ProjectCustomization:
-        return customization_cls()
+        customization = customization_cls()
+        if not isinstance(customization, ProjectCustomization):
+            # kit:boundary owner=project_customization.service.factory class=PROGRAMMER_DEFECT failure_family=none witness=test:test_project_customization_factory_rejects_invalid_plugin
+            raise TypeError(_INVALID_CUSTOMIZATION_CLASS)
+        return customization
 
     return _build
 
@@ -59,6 +64,6 @@ def get_project_customization(project_key: str | None = None) -> ProjectCustomiz
     key = project_key or current_project_key()
     factory = get_project_customization_factory(key)
     customization = factory()
-    if not getattr(customization, "project_key", ""):
-        customization.project_key = (key or "").strip().lower()  # type: ignore[attr-defined]
+    if not customization.project_key:
+        customization.project_key = (key or "").strip().lower()
     return customization

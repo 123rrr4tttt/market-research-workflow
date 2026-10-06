@@ -3,8 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import deque
-from collections.abc import Mapping
-from typing import Any
 
 from functorial_kit import Failure
 
@@ -16,6 +14,8 @@ from app.services.workflow_graph.contracts import (
     CompiledWorkflowGraph,
     WorkflowGraphCompileError,
     WorkflowGraphDSL,
+    WorkflowJsonObject,
+    WorkflowJsonValue,
     raise_workflow_graph_legacy,
     workflow_graph_failure,
 )
@@ -28,7 +28,7 @@ def _compile_failure(
     *,
     field: str,
     index: int = -1,
-    **details: Any,
+    **details: WorkflowJsonValue,
 ) -> Failure:
     return workflow_graph_failure(
         code,
@@ -42,7 +42,7 @@ def _compile_failure(
     )
 
 
-def try_compile_workflow_graph(payload: Mapping[str, Any] | WorkflowGraphDSL) -> CompiledWorkflowGraph | Failure:
+def try_compile_workflow_graph(payload: object | WorkflowGraphDSL) -> CompiledWorkflowGraph | Failure:
     if isinstance(payload, WorkflowGraphDSL):
         dsl = payload
     else:
@@ -165,12 +165,19 @@ def try_compile_workflow_graph(payload: Mapping[str, Any] | WorkflowGraphDSL) ->
     outgoing_tuple = {node_id: tuple(targets) for node_id, targets in outgoing.items()}
     incoming_tuple = {node_id: tuple(sources) for node_id, sources in incoming.items()}
 
-    checksum_payload = {
+    checksum_topo: list[WorkflowJsonValue] = list(topo_order)
+    checksum_outgoing: dict[str, WorkflowJsonValue] = {
+        node_id: list(targets) for node_id, targets in outgoing_tuple.items()
+    }
+    checksum_incoming: dict[str, WorkflowJsonValue] = {
+        node_id: list(sources) for node_id, sources in incoming_tuple.items()
+    }
+    checksum_payload: WorkflowJsonObject = {
         "version": dsl.version,
-        "options": dsl.options,
-        "topo_order": topo_order,
-        "outgoing_edges": outgoing_tuple,
-        "incoming_edges": incoming_tuple,
+        "options": dict(dsl.options),
+        "topo_order": checksum_topo,
+        "outgoing_edges": checksum_outgoing,
+        "incoming_edges": checksum_incoming,
     }
     encoded = json.dumps(checksum_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     checksum = hashlib.sha256(encoded).hexdigest()
@@ -185,7 +192,7 @@ def try_compile_workflow_graph(payload: Mapping[str, Any] | WorkflowGraphDSL) ->
     )
 
 
-def compile_workflow_graph(payload: Mapping[str, Any] | WorkflowGraphDSL) -> CompiledWorkflowGraph:
+def compile_workflow_graph(payload: object | WorkflowGraphDSL) -> CompiledWorkflowGraph:
     result = try_compile_workflow_graph(payload)
     if isinstance(result, Failure):
         raise_workflow_graph_legacy(result, exception_type=WorkflowGraphCompileError)

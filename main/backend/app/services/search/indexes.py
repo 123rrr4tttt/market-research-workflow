@@ -1,10 +1,19 @@
+from typing import Literal, TypedDict
+
 from elasticsearch import Elasticsearch
 
 
-def ensure_indices(es: Elasticsearch) -> dict:
-    """Create indices with minimal mappings if they do not exist."""
-    results: dict[str, str] = {}
+SearchIndexEnsureStatus = Literal["created", "exists"]
 
+
+class SearchIndexEnsureResult(TypedDict):
+    policy_docs_es: SearchIndexEnsureStatus
+    market_metric_points_es: SearchIndexEnsureStatus
+    price_observations_es: SearchIndexEnsureStatus
+
+
+def ensure_indices(es: Elasticsearch) -> SearchIndexEnsureResult:
+    """Create indices with minimal mappings if they do not exist."""
     policy_index = "policy_docs_es"
     metric_index = "market_metric_points_es"
     ecom_index = "price_observations_es"
@@ -27,9 +36,9 @@ def ensure_indices(es: Elasticsearch) -> dict:
                 }
             },
         )
-        results[policy_index] = "created"
+        policy_status: SearchIndexEnsureStatus = "created"
     else:
-        results[policy_index] = "exists"
+        policy_status = "exists"
 
     if not es.indices.exists(index=metric_index):
         es.indices.create(
@@ -46,9 +55,9 @@ def ensure_indices(es: Elasticsearch) -> dict:
                 }
             },
         )
-        results[metric_index] = "created"
+        metric_status: SearchIndexEnsureStatus = "created"
     else:
-        results[metric_index] = "exists"
+        metric_status = "exists"
 
     if not es.indices.exists(index=ecom_index):
         es.indices.create(
@@ -65,10 +74,13 @@ def ensure_indices(es: Elasticsearch) -> dict:
                 }
             },
         )
-        results[ecom_index] = "created"
+        ecom_status: SearchIndexEnsureStatus = "created"
     else:
-        results[ecom_index] = "exists"
+        ecom_status = "exists"
 
-    return results
-
+    return {
+        "policy_docs_es": policy_status,
+        "market_metric_points_es": metric_status,
+        "price_observations_es": ecom_status,
+    }
 

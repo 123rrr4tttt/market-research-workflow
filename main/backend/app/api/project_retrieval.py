@@ -1,17 +1,20 @@
 """Manual project retrieval controls; preview is free of network effects."""
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, JsonValue
 
-from app.contracts.responses import ApiEnvelope, ApiErrorModel, ApiMetaModel, ok
+from app.contracts.errors import ErrorCode
+from app.contracts.responses import ApiEnvelope, ApiErrorModel, ApiMetaModel
+from app.services.project_retrieval.contracts import RetrievalJsonObject
 from app.services.project_retrieval.service import ProjectRetrievalService, RetrievalError
 from app.services.projects.context import current_project_key
 
 router = APIRouter(prefix="/project-retrieval", tags=["project-retrieval"])
-RetrievalEnvelope = ApiEnvelope[dict[str, Any]]
+RetrievalEnvelope = ApiEnvelope[dict[str, JsonValue]]
 
 
 class PreviewRequest(BaseModel):
@@ -35,56 +38,83 @@ class RapidContinuationRequest(BaseModel):
 def _project() -> str:
     key = str(current_project_key() or "").strip()
     if not key:
-        raise HTTPException(status_code=400, detail="active project context is required")
+        raise RetrievalError(
+            ErrorCode.PROJECT_KEY_REQUIRED.value,
+            "active project context is required",
+            400,
+        )
     return key
 
 
-def _call(fn, project_key: str) -> dict[str, Any]:
+def _call(
+    fn: Callable[[str], RetrievalJsonObject],
+) -> RetrievalEnvelope | JSONResponse:
+    project_key: str | None = None
     try:
-        return ok(fn())
+        project_key = _project()
+        return RetrievalEnvelope(
+            status="ok",
+            data=fn(project_key),
+            error=None,
+            meta=ApiMetaModel(project_key=project_key),
+        )
     except RetrievalError as exc:
-        raise HTTPException(
+        envelope = RetrievalEnvelope(
+            status="error",
+            data=None,
+            error=ApiErrorModel(code=exc.code, message=str(exc), details={}),
+            meta=ApiMetaModel(project_key=project_key),
+        )
+        payload = envelope.model_dump()
+        payload["detail"] = {
+            "error": payload["error"],
+            "message": str(exc),
+        }
+        return JSONResponse(
             status_code=exc.status,
-            detail=ApiEnvelope[Any](
-                status="error", data=None,
-                error=ApiErrorModel(code=exc.code, message=str(exc), details={}),
-                meta=ApiMetaModel(project_key=project_key),
-            ).model_dump(),
-        ) from exc
+            content=payload,
+            headers={"X-Error-Code": exc.code},
+        )
 
 
 @router.get("/modes/current", response_model=RetrievalEnvelope)
-def current_mode() -> dict[str, Any]:
-    project_key = _project()
-    return _call(lambda: ProjectRetrievalService().current(project_key), project_key)
+def current_mode() -> RetrievalEnvelope | JSONResponse:
+    return _call(lambda project_key: ProjectRetrievalService().current(project_key))
 
 
 @router.post("/modes/refresh", response_model=RetrievalEnvelope)
-def refresh_mode() -> dict[str, Any]:
-    project_key = _project()
-    return _call(lambda: ProjectRetrievalService().refresh(project_key), project_key)
+def refresh_mode() -> RetrievalEnvelope | JSONResponse:
+    return _call(lambda project_key: ProjectRetrievalService().refresh(project_key))
 
 
 @router.post("/plans/preview", response_model=RetrievalEnvelope)
-def preview(payload: PreviewRequest) -> dict[str, Any]:
-    project_key = _project()
-    return _call(lambda: ProjectRetrievalService().preview(
-        project_key, route_id=payload.route_id, query_ids=payload.query_ids, limits=payload.limits,
-    ), project_key)
+def preview(payload: PreviewRequest) -> RetrievalEnvelope | JSONResponse:
+    return _call(
+        lambda project_key: ProjectRetrievalService().preview(
+            project_key,
+            route_id=payload.route_id,
+            query_ids=payload.query_ids,
+            limits=payload.limits,
+        )
+    )
 
 
 @router.post("/runs", response_model=RetrievalEnvelope)
-def start(payload: StartRequest) -> dict[str, Any]:
-    project_key = _project()
-    return _call(lambda: ProjectRetrievalService().start(
-        project_key, plan_id=payload.plan_id, idempotency_key=payload.idempotency_key,
-    ), project_key)
+def start(payload: StartRequest) -> RetrievalEnvelope | JSONResponse:
+    return _call(
+        lambda project_key: ProjectRetrievalService().start(
+            project_key,
+            plan_id=payload.plan_id,
+            idempotency_key=payload.idempotency_key,
+        )
+    )
 
 
 @router.get("/runs/{run_id}", response_model=RetrievalEnvelope)
-def read_run(run_id: str) -> dict[str, Any]:
-    project_key = _project()
-    return _call(lambda: ProjectRetrievalService().read_run(project_key, run_id), project_key)
+def read_run(run_id: str) -> RetrievalEnvelope | JSONResponse:
+    return _call(
+        lambda project_key: ProjectRetrievalService().read_run(project_key, run_id)
+    )
 
 
 @router.post(
@@ -93,16 +123,14 @@ def read_run(run_id: str) -> dict[str, Any]:
 )
 def continue_saved_frontier(
     proposal_id: str, payload: RapidContinuationRequest
-) -> dict[str, Any]:
-    project_key = _project()
+) -> RetrievalEnvelope | JSONResponse:
     return _call(
-        lambda: ProjectRetrievalService().continue_saved_frontier(
+        lambda project_key: ProjectRetrievalService().continue_saved_frontier(
             project_key,
             plan_id=payload.plan_id,
             proposal_id=proposal_id,
             proposal_version=payload.proposal_version,
             frontier_id=payload.frontier_id,
             remaining_followup_budget=payload.remaining_followup_budget,
-        ),
-        project_key,
+        )
     )

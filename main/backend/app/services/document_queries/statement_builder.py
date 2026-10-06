@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
-from typing import Any
+from collections.abc import Mapping, Sequence
+from datetime import date, datetime
+from typing import Annotated, TypeGuard
 
 from functorial_kit import Failure
 
@@ -13,8 +14,11 @@ from ...models.entities import Document
 from .contracts import (
     DocumentQuery,
     DocumentQueryFilter,
+    DocumentQueryFilterInput,
+    DocumentQueryInput,
+    DocumentQueryJsonValue,
     DocumentQuerySort,
-    build_document_query,
+    DocumentQuerySortInput,
     document_query_failure,
     raise_document_query_legacy,
     try_build_document_query,
@@ -60,45 +64,113 @@ _SORT_MAP = {
     "relevance": Document.publish_date,
 }
 
+FieldExpression = ColumnElement[int] | ColumnElement[str] | ColumnElement[date] | ColumnElement[datetime]
 
-def _clean_text(value: Any) -> str:
+
+def _is_str_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[Sequence[object]]:
+    return isinstance(value, Sequence)
+
+
+def _as_mapping(value: object) -> Mapping[str, object]:
+    return value if _is_str_object_mapping(value) else {}
+
+
+def _clean_text(value: object) -> str:
     return " ".join(str(value or "").strip().split())
 
 
-def _coerce_sequence(value: Any, *, allow_string: bool = False) -> tuple[Any, ...]:
-    if value is None:
-        return ()
-    if isinstance(value, str):
-        return (value,) if allow_string else ()
-    if isinstance(value, Mapping):
-        return (value,)
-    if isinstance(value, Iterable):
-        return tuple(value)
-    return ()
-
-
-def _coerce_query(value: DocumentQuery | Mapping[str, Any]) -> DocumentQuery | Failure:
+def _coerce_query(value: DocumentQueryInput) -> DocumentQuery | Failure:
     if isinstance(value, DocumentQuery):
         return value
-    payload = value if isinstance(value, Mapping) else {}
+    payload = _as_mapping(value)
+    limit_value = payload.get("limit")
+    offset_value = payload.get("offset")
+    project_key = payload.get("project_key")
+    consumer = payload.get("consumer")
+    sources = _coerce_source_sequence(payload.get("sources"))
+    filters = _coerce_filter_sequence(payload.get("filters"))
+    sort = _coerce_sort_sequence(payload.get("sort"))
+    if isinstance(sources, Failure):
+        return sources
+    if isinstance(filters, Failure):
+        return filters
+    if isinstance(sort, Failure):
+        return sort
+    if not isinstance(limit_value, (str, int)) or not isinstance(offset_value, (str, int)):
+        return document_query_failure("statement_invalid", "document query pagination must be integers", owner="document_queries.statement_builder.query")
     try:
-        limit = int(payload.get("limit") or 20)
-        offset = int(payload.get("offset") or 0)
+        limit = int(limit_value)
+        offset = int(offset_value)
     except (TypeError, ValueError):
         return document_query_failure("statement_invalid", "document query pagination must be integers", owner="document_queries.statement_builder.query")
+    if project_key is not None and not isinstance(project_key, str):
+        return document_query_failure("statement_invalid", "document query project_key must be a string", owner="document_queries.statement_builder.query")
+    if consumer is not None and not isinstance(consumer, str):
+        return document_query_failure("statement_invalid", "document query consumer must be a string", owner="document_queries.statement_builder.query")
     return try_build_document_query(
         str(payload.get("query") or ""),
-        project_key=payload.get("project_key"),
-        consumer=payload.get("consumer"),
-        sources=_coerce_sequence(payload.get("sources"), allow_string=True),
-        filters=_coerce_sequence(payload.get("filters")),
-        sort=_coerce_sequence(payload.get("sort")),
+        project_key=project_key,
+        consumer=consumer,
+        sources=sources,
+        filters=filters,
+        sort=sort,
         limit=limit,
         offset=offset,
     )
 
 
-def _field_expression(field: str) -> ColumnElement[Any] | Failure:
+def _coerce_source_sequence(value: object) -> tuple[str, ...] | Failure:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        return (value,)
+    if not _is_object_sequence(value):
+        return document_query_failure("statement_invalid", "document query sources must be a sequence", owner="document_queries.statement_builder.query.sources")
+    output: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            return document_query_failure("statement_invalid", "document query source must be a string", owner="document_queries.statement_builder.query.sources")
+        output.append(item)
+    return tuple(output)
+
+
+def _coerce_filter_sequence(value: object) -> tuple[DocumentQueryFilterInput, ...] | Failure:
+    if value is None:
+        return ()
+    if _is_str_object_mapping(value):
+        return (value,)
+    if not _is_object_sequence(value):
+        return document_query_failure("statement_invalid", "document query filters must be a sequence", owner="document_queries.statement_builder.query.filters")
+    output: list[DocumentQueryFilterInput] = []
+    for item in value:
+        if isinstance(item, DocumentQueryFilter) or _is_str_object_mapping(item):
+            output.append(item)
+        else:
+            return document_query_failure("statement_invalid", "document query filter must be an object", owner="document_queries.statement_builder.query.filters")
+    return tuple(output)
+
+
+def _coerce_sort_sequence(value: object) -> tuple[DocumentQuerySortInput, ...] | Failure:
+    if value is None:
+        return ()
+    if _is_str_object_mapping(value):
+        return (value,)
+    if not _is_object_sequence(value):
+        return document_query_failure("statement_invalid", "document query sort must be a sequence", owner="document_queries.statement_builder.query.sort")
+    output: list[DocumentQuerySortInput] = []
+    for item in value:
+        if isinstance(item, DocumentQuerySort) or _is_str_object_mapping(item):
+            output.append(item)
+        else:
+            return document_query_failure("statement_invalid", "document query sort must be an object", owner="document_queries.statement_builder.query.sort")
+    return tuple(output)
+
+
+def _field_expression(field: str) -> FieldExpression | Failure:
     cleaned = _clean_text(field)
     if cleaned in _FIELD_MAP:
         return _FIELD_MAP[cleaned]
@@ -106,14 +178,14 @@ def _field_expression(field: str) -> ColumnElement[Any] | Failure:
         path = [part for part in cleaned.split(".")[1:] if part]
         if not path:
             return document_query_failure("statement_invalid", "extracted_data filter path is required", owner="document_queries.statement_builder.field")
-        expr: Any = Document.extracted_data
+        expr: ColumnElement[object] | ColumnElement[str] = Document.extracted_data
         for part in path:
             expr = expr[part]
         return expr.astext
     return document_query_failure("statement_invalid", f"unsupported document query field for SQL statement builder: {cleaned}", owner="document_queries.statement_builder.field")
 
 
-def _sort_expression(sort: DocumentQuerySort) -> ColumnElement[Any] | Failure:
+def _sort_expression(sort: DocumentQuerySort) -> FieldExpression | Failure:
     field = _clean_text(sort.field)
     if field in _SORT_MAP:
         return _SORT_MAP[field]
@@ -122,8 +194,8 @@ def _sort_expression(sort: DocumentQuerySort) -> ColumnElement[Any] | Failure:
     return document_query_failure("sort_invalid", f"unsupported document query sort field for SQL statement builder: {field}", owner="document_queries.statement_builder.sort")
 
 
-def _value_sequence(value: Any) -> tuple[Any, ...]:
-    if isinstance(value, str) or not isinstance(value, Iterable):
+def _value_sequence(value: DocumentQueryJsonValue) -> tuple[DocumentQueryJsonValue, ...]:
+    if isinstance(value, str) or not isinstance(value, list):
         return (value,)
     return tuple(value)
 
@@ -172,7 +244,7 @@ def _source_condition(query: DocumentQuery) -> ColumnElement[bool] | None:
 
 
 def apply_document_query_to_statement(
-    query: DocumentQuery | Mapping[str, Any],
+    query: DocumentQueryInput,
     statement: Select[tuple[Document]] | None = None,
 ) -> Select[tuple[Document]]:
     result = try_apply_document_query_to_statement(query, statement)
@@ -182,7 +254,7 @@ def apply_document_query_to_statement(
 
 
 def try_apply_document_query_to_statement(
-    query: DocumentQuery | Mapping[str, Any],
+    query: DocumentQueryInput,
     statement: Select[tuple[Document]] | None = None,
 ) -> Select[tuple[Document]] | Failure:
     query_object = _coerce_query(query)
@@ -215,7 +287,7 @@ def try_apply_document_query_to_statement(
 
 
 def build_document_query_statement(
-    query: DocumentQuery | Mapping[str, Any],
+    query: DocumentQueryInput,
 ) -> Annotated[
     Select[tuple[Document]],
     "kit:prepared-command effect_boundary=document_query_statement "
@@ -224,15 +296,15 @@ def build_document_query_statement(
     return apply_document_query_to_statement(query)
 
 
-def try_build_document_query_statement(query: DocumentQuery | Mapping[str, Any]) -> Select[tuple[Document]] | Failure:
+def try_build_document_query_statement(query: DocumentQueryInput) -> Select[tuple[Document]] | Failure:
     return try_apply_document_query_to_statement(query)
 
 
-def document_query_to_statement(query: DocumentQuery | Mapping[str, Any]) -> Select[tuple[Document]]:
+def document_query_to_statement(query: DocumentQueryInput) -> Select[tuple[Document]]:
     return build_document_query_statement(query)
 
 
-def compile_document_query_statement(query: DocumentQuery | Mapping[str, Any] | Select[Any]) -> str:
+def compile_document_query_statement(query: DocumentQueryInput | Select[tuple[Document]]) -> str:
     statement = query if isinstance(query, Select) else build_document_query_statement(query)
     return str(
         statement.compile(

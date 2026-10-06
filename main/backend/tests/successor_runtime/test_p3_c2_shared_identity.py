@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import inspect
+import typing
+import types
+from collections.abc import Mapping
+
 from app.successor_runtime.capabilities import source_resolution as resolution
 from app.successor_runtime.capabilities import source_contracts as contracts
+from app.successor_runtime.capabilities import source_provider_acquisition as provider_acquisition
 
 _CANONICAL_NAMES = (
     "AuthenticatedProjectScope",
@@ -40,3 +46,59 @@ def test_c2_1_payload_and_observation_types_remain_exact() -> None:
     assert resolution.SourceResolutionObservation.__name__ == "SourceResolutionObservation"
     assert resolution.ResolvedResolution.__name__ == "ResolvedResolution"
     assert resolution.RejectedResolution.__name__ == "RejectedResolution"
+
+
+def test_public_type_bindings_have_no_erased_boundaries() -> None:
+    generic_codec = contracts.SourcePayloadCodecDeclaration[resolution.SourceResolutionPayload]
+    assert typing.get_args(generic_codec) == (resolution.SourceResolutionPayload,)
+    codec_hints = typing.get_type_hints(
+        contracts.SourcePayloadCodecDeclaration,
+        localns={"SourcePayloadModel": resolution.SourceResolutionPayload},
+    )
+    encode_args, encode_result = typing.get_args(codec_hints["encode"])
+    decode_args, decode_result = typing.get_args(codec_hints["decode"])
+    assert encode_args == [resolution.SourceResolutionPayload]
+    assert decode_result is resolution.SourceResolutionPayload
+    assert typing.get_origin(encode_result) is dict
+    assert typing.get_args(encode_result)[0] is str
+    assert typing.get_origin(decode_args[0]) is dict
+    assert typing.get_args(decode_args[0])[0] is str
+
+    resolver_hints = typing.get_type_hints(contracts.CredentialResolverPort.resolve)
+    gateway_hints = typing.get_type_hints(contracts.ProviderEffectGateway.execute)
+    for authorization in (resolver_hints["authorization"], gateway_hints["authorization"]):
+        assert typing.get_origin(authorization) in (typing.Union, types.UnionType)
+        union_args = typing.get_args(authorization)
+        assert type(None) in union_args
+        mapping = next(item for item in union_args if typing.get_origin(item) is Mapping)
+        assert typing.get_args(mapping)[0] is str
+
+    profile_hints = typing.get_type_hints(contracts.SourceOperationProfiles)
+    assert tuple(profile_hints) == (
+        "semantic",
+        "effect",
+        "resource",
+        "failure",
+        "authority",
+        "interpreter",
+        "observation",
+    )
+    assert "getattr" not in inspect.getsource(contracts.build_source_operation_parts)
+
+
+def test_public_operation_identities_are_unchanged() -> None:
+    resolution_bundle = resolution.build_source_resolution_bundle()
+    provider_bundle = provider_acquisition.build_source_provider_acquisition_bundle()
+
+    assert resolution_bundle.operation.ref.contract_digest == (
+        "6ced6266314f92d80b4590532c2fa491c407a64a7923cd587499c05ebbfc66d4"
+    )
+    assert resolution_bundle.payload_codec().codec_digest == (
+        "add3182f99ddba400b2c69c8d2b82470786ba4a28d0a88b73a744a4fe24b6e9e"
+    )
+    assert provider_bundle.operation.ref.contract_digest == (
+        "627bdba3636568d4497ca291b919ea8388bf8ec6313e6e370f51eced9d5db794"
+    )
+    assert provider_bundle.payload_codec().codec_digest == (
+        "8790558cabebc855dd55ac207895065a2d5a1e82d9728b663b8ca2999355eea9"
+    )

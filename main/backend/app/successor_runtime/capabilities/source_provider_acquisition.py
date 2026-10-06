@@ -10,10 +10,14 @@ is performed here.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal, NoReturn
+from collections.abc import Mapping
+from typing import Annotated, Any, Literal, NoReturn, TypeAlias, TypeGuard
 
 from app.successor_runtime.capabilities import source_contracts as contracts
-from app.successor_runtime.capabilities.checksum import content_digest
+from app.successor_runtime.capabilities.checksum import (
+    CanonicalJsonObject,
+    content_digest,
+)
 from app.successor_runtime.capabilities.codecs import PayloadCodec
 from app.successor_runtime.capabilities.contracts import OperationContract
 from app.successor_runtime.capabilities.profiles import (
@@ -200,6 +204,10 @@ RESOURCE_POLICY_SCHEMA = contracts.RESOURCE_POLICY_SCHEMA
 CANCEL_RECEIPT_SCHEMA = contracts.CANCEL_RECEIPT_SCHEMA
 SOURCE_PROVIDER_ACQUISITION_PAYLOAD_TYPE = ObjectType("ProviderEffectRequest.v1")
 SOURCE_PROVIDER_ACQUISITION_OUTCOME_TYPE = ObjectType("ProviderEffectOutcome.v1")
+ProviderEffectRequestSchema: TypeAlias = Literal[
+    "mrw.source.provider-acquisition.payload.v2",
+    "mrw.successor.source-library.c2-3.provider-effect-request.v1",
+]
 
 
 def _semantic_profile() -> SemanticProfile:
@@ -225,7 +233,28 @@ def _semantic_profile() -> SemanticProfile:
         "observation_profile_ref": SOURCE_PROVIDER_EFFECT_OBSERVATION_PROFILE,
     }
     digest = content_digest(payload)
-    return SemanticProfile(**payload, profile_digest=digest)
+    return SemanticProfile(
+        semantic_profile_id="mrw.source.provider-acquisition.semantic.v2",
+        semantic_profile_version="1.0.0",
+        reads=(
+            SOURCE_EXECUTION_REQUEST_SCHEMA_REF,
+            CREDENTIAL_REF_SCHEMA,
+            PROVIDER_EFFECT_REQUEST_SCHEMA,
+            PROVIDER_RECEIPT_SCHEMA,
+            AUTHORITATIVE_READBACK_SCHEMA,
+        ),
+        creates=(
+            PROVIDER_RECEIPT_SCHEMA,
+            CAPTURED_SOURCE_RECORD_REF_SCHEMA,
+            STAGED_ARTIFACT_REF_SCHEMA,
+            AUTHORITATIVE_READBACK_SCHEMA,
+            NON_START_PROOF_SCHEMA,
+        ),
+        creates_relations=(),
+        declared_loss=(),
+        observation_profile_ref=SOURCE_PROVIDER_EFFECT_OBSERVATION_PROFILE,
+        profile_digest=digest,
+    )
 
 
 def _effect_profile() -> EffectProfile:
@@ -243,7 +272,20 @@ def _effect_profile() -> EffectProfile:
         "idempotency_profile_ref": "mrw.source.provider-acquisition.idempotency.v2",
     }
     digest = content_digest(payload)
-    return EffectProfile(**payload, profile_digest=digest)
+    return EffectProfile(
+        effect_profile_id="mrw.source.provider-acquisition.effect.v2",
+        effect_profile_version="1.0.0",
+        execution_class="EFFECTFUL",
+        external_visibility="INTERNAL_ONLY",
+        network_required=False,
+        irreversible=False,
+        cancellation_points=("after_attempt_created", "before_terminal_readback"),
+        internal_export_only=True,
+        human_approval_required=False,
+        external_acquisition=False,
+        idempotency_profile_ref="mrw.source.provider-acquisition.idempotency.v2",
+        profile_digest=digest,
+    )
 
 
 def _resource_profile() -> ResourceProfile:
@@ -262,7 +304,21 @@ def _resource_profile() -> ResourceProfile:
         "units": 1,
     }
     digest = content_digest(payload)
-    return ResourceProfile(**payload, profile_digest=digest)
+    return ResourceProfile(
+        resource_profile_id="mrw.source.provider-acquisition.resource.v2",
+        resource_profile_version="1.0.0",
+        resource_classes=("fixture", "receipt_only"),
+        concurrency_key="source.provider-acquisition",
+        budget_units="provider-effect-attempt",
+        default_soft_limit_seconds=60,
+        default_hard_limit_seconds=SOURCE_PROVIDER_ACQUISITION_TIMEOUT_SECONDS,
+        node_profile_selector="fixture-or-receipt-only",
+        budget_ref=SOURCE_PROVIDER_ACQUISITION_RESOURCE_POLICY_REF,
+        deadline_policy_ref="mrw.source.provider-acquisition.deadline.v2",
+        node_profile_requirements=("no_live_provider", "no_credential_bytes"),
+        units=1,
+        profile_digest=digest,
+    )
 
 
 def _failure_profile() -> FailureProfile:
@@ -280,7 +336,20 @@ def _failure_profile() -> FailureProfile:
         "compensation_profile_ref": "mrw.source.provider-acquisition.reconcile.v2",
     }
     digest = content_digest(payload)
-    return FailureProfile(**payload, profile_digest=digest)
+    return FailureProfile(
+        failure_profile_id="mrw.source.provider-acquisition.failure.v2",
+        failure_profile_version="1.0.0",
+        typed_failures=tuple(sorted(SOURCE_PROVIDER_ACQUISITION_FAILURE_CODES)),
+        retryable=False,
+        degraded_acceptable=True,
+        unknown_outcome_supported=True,
+        readback_or_compensation="authoritative_readback_or_reconcile",
+        failure_union_ref="mrw.source.provider-acquisition.failures.v2",
+        retryable_failure_kinds=(),
+        readback_profile_ref="mrw.source.provider-acquisition.readback.v2",
+        compensation_profile_ref="mrw.source.provider-acquisition.reconcile.v2",
+        profile_digest=digest,
+    )
 
 
 def _authority_profile() -> AuthorityProfile:
@@ -296,7 +365,18 @@ def _authority_profile() -> AuthorityProfile:
         "authority_epoch": 1,
     }
     digest = content_digest(payload)
-    return AuthorityProfile(**payload, profile_digest=digest)
+    return AuthorityProfile(
+        authority_profile_id="mrw.source.provider-acquisition.authority.v2",
+        authority_profile_version="1.0.0",
+        grant_scopes=("project",),
+        approval_required=False,
+        approval_kinds=(),
+        credential_refs=(),
+        canonical_owner=SOURCE_PROVIDER_ACQUISITION_OWNER,
+        revalidation_points=("claim_time", "readback_time"),
+        authority_epoch=1,
+        profile_digest=digest,
+    )
 
 
 def _interpreter_profile() -> InterpreterProfile:
@@ -321,7 +401,27 @@ def _interpreter_profile() -> InterpreterProfile:
         "receipt_codec_ref": PROVIDER_RECEIPT_SCHEMA,
     }
     digest = content_digest(payload)
-    return InterpreterProfile(**payload, profile_digest=digest)
+    return InterpreterProfile(
+        interpreter_profile_id="mrw.source.provider-acquisition.native.v2",
+        interpreter_profile_version="1.0.0",
+        supported_contract_kinds=(SOURCE_PROVIDER_ACQUISITION_KIND,),
+        supported_contract_refs=(),
+        dependency_digest=content_digest(
+            {
+                "interpreter": "mrw.source.provider-acquisition.native",
+                "version": "2.0.0",
+                "stage": "fixture-or-receipt-only",
+            }
+        ),
+        security_profile_ref="mrw.functorial-successor.security.redacted-fixture.v1",
+        resource_profile_ref="mrw.source.provider-acquisition.resource.v2",
+        credential_requirements_ref=contracts.CREDENTIAL_REF_SCHEMA,
+        cancellation_profile_ref="attempt_cancel",
+        idempotency_profile_ref="request_digest",
+        authoritative_readback_profile_ref="mrw.source.provider-acquisition.readback.v2",
+        receipt_codec_ref=PROVIDER_RECEIPT_SCHEMA,
+        profile_digest=digest,
+    )
 
 
 def _observation_profile() -> ObservationProfile:
@@ -351,7 +451,32 @@ def _observation_profile() -> ObservationProfile:
         "observation_schema_ref": contracts.SOURCE_PROVIDER_EFFECT_OBSERVATION_PROFILE,
     }
     digest = content_digest(payload)
-    return ObservationProfile(**payload, profile_digest=digest)
+    return ObservationProfile(
+        observation_profile_id=SOURCE_PROVIDER_EFFECT_OBSERVATION_PROFILE,
+        observation_profile_version="1.0.0",
+        dimensions=(
+            "project_scope",
+            "item_revision",
+            "item_incarnation",
+            "item_content_digest",
+            "catalog_revision",
+            "catalog_incarnation",
+            "catalog_digest",
+            "request_digest",
+            "receipt_digest",
+            "provider",
+            "provider_status",
+            "provider_job_id",
+            "credential_decision",
+            "records",
+            "staged_artifacts",
+            "readback_provenance",
+            "outcome_digest",
+        ),
+        compatible_with_legacy=False,
+        observation_schema_ref=contracts.SOURCE_PROVIDER_EFFECT_OBSERVATION_PROFILE,
+        profile_digest=digest,
+    )
 
 
 def _reject_provider_codec(message: str, *, site: str) -> NoReturn:
@@ -370,78 +495,137 @@ def _reject_provider_codec(message: str, *, site: str) -> NoReturn:
     )
 
 
+PlainSequence: TypeAlias = list[object] | tuple[object, ...]
+
+
+def _is_plain_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_plain_sequence(value: object) -> TypeGuard[PlainSequence]:
+    return isinstance(value, (list, tuple))
+
+
+def _plain_object(value: object) -> dict[str, object]:
+    if not _is_plain_mapping(value):
+        _reject_provider_codec("provider acquisition plain value must be an object", site="plain_object")
+    return {str(key): item for key, item in value.items()}
+
+
+def _plain_string(value: object) -> str:
+    if not isinstance(value, str):
+        _reject_provider_codec("provider acquisition plain value must be a string", site="plain_string")
+    return value
+
+
+def _payload_schema(value: object) -> ProviderEffectRequestSchema:
+    text = _plain_string(value)
+    if text == SOURCE_PROVIDER_ACQUISITION_PAYLOAD_SCHEMA:
+        return SOURCE_PROVIDER_ACQUISITION_PAYLOAD_SCHEMA
+    if text == SOURCE_PROVIDER_ACQUISITION_HISTORICAL_PAYLOAD_SCHEMA:
+        return SOURCE_PROVIDER_ACQUISITION_HISTORICAL_PAYLOAD_SCHEMA
+    _reject_provider_codec("unsupported provider acquisition payload schema", site="payload_schema")
+
+
+def _operation_kind(value: object) -> contracts.ProviderEffectOperationKind:
+    text = _plain_string(value)
+    if text == SOURCE_PROVIDER_ACQUISITION_KIND:
+        return SOURCE_PROVIDER_ACQUISITION_KIND
+    _reject_provider_codec("unsupported provider acquisition operation kind", site="operation_kind")
+
+
+def _plain_boolean(value: object) -> bool:
+    if not isinstance(value, bool):
+        _reject_provider_codec("provider acquisition plain value must be a boolean", site="plain_boolean")
+    return value
+
+
+def _plain_integer(value: object) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        _reject_provider_codec("provider acquisition plain value must be an integer", site="plain_integer")
+    return value
+
+
+def _plain_sequence(value: object) -> tuple[object, ...]:
+    if not _is_plain_sequence(value):
+        _reject_provider_codec("provider acquisition plain value must be a sequence", site="plain_sequence")
+    return tuple(value)
+
+
 def provider_effect_request_from_plain(
-    value: dict[str, Any],
+    value: contracts.SourcePlainObject,
     *,
     _default_schema: str = SOURCE_PROVIDER_ACQUISITION_PAYLOAD_SCHEMA,
     _allow_historical: bool = False,
 ) -> ProviderEffectRequest:
     """Rebuild the exact request from its canonical plain projection."""
 
-    schema_version = value.get("schema_version", _default_schema)
+    schema_version = _payload_schema(value.get("schema_version", _default_schema))
     if schema_version == SOURCE_PROVIDER_ACQUISITION_HISTORICAL_PAYLOAD_SCHEMA and not _allow_historical:
         _reject_provider_codec(
             "historical provider acquisition payload requires the historical decoder",
             site="provider_effect_request_from_plain",
         )
 
-    scope_plain = dict(value["project_scope"])
+    scope_plain = _plain_object(value["project_scope"])
     scope = AuthenticatedProjectScope(
-        project_key=scope_plain["project_key"],
-        registry_revision=int(scope_plain["registry_revision"]),
-        resolved_schema=scope_plain["resolved_schema"],
-        incarnation=scope_plain["incarnation"],
-        scope_digest=scope_plain["scope_digest"],
+        project_key=_plain_string(scope_plain["project_key"]),
+        registry_revision=_plain_integer(scope_plain["registry_revision"]),
+        resolved_schema=_plain_string(scope_plain["resolved_schema"]),
+        incarnation=_plain_string(scope_plain["incarnation"]),
+        scope_digest=_plain_string(scope_plain["scope_digest"]),
     )
+    raw_credential_refs: object = value.get("credential_refs") or ()
     refs = tuple(
         CredentialRef(
-            ref=ref["ref"],
-            provider=ref["provider"],
-            grant_scope=ref["grant_scope"],
-            required=bool(ref["required"]),
-            schema_version=ref.get("schema_version", CREDENTIAL_REF_SCHEMA),
+            ref=_plain_string(ref["ref"]),
+            provider=_plain_string(ref["provider"]),
+            grant_scope=_plain_string(ref["grant_scope"]),
+            required=_plain_boolean(ref["required"]),
+            schema_version=_plain_string(ref.get("schema_version", CREDENTIAL_REF_SCHEMA)),
         )
-        for ref in value.get("credential_refs") or []
+        for raw_ref in _plain_sequence(raw_credential_refs)
+        for ref in (_plain_object(raw_ref),)
     )
-    policy_plain = dict(value["policy"])
+    policy_plain = _plain_object(value["policy"])
     policy = ProviderResourcePolicy(
-        resource_class=policy_plain["resource_class"],
-        concurrency_key=policy_plain["concurrency_key"],
-        timeout_seconds=int(policy_plain["timeout_seconds"]),
-        retry_budget=int(policy_plain["retry_budget"]),
-        artifact_byte_ceiling=int(policy_plain["artifact_byte_ceiling"]),
-        rate_limit_budget=int(policy_plain["rate_limit_budget"]),
-        reservation_lease_seconds=int(policy_plain["reservation_lease_seconds"]),
-        schema_version=policy_plain.get("schema_version", RESOURCE_POLICY_SCHEMA),
+        resource_class=_plain_string(policy_plain["resource_class"]),
+        concurrency_key=_plain_string(policy_plain["concurrency_key"]),
+        timeout_seconds=_plain_integer(policy_plain["timeout_seconds"]),
+        retry_budget=_plain_integer(policy_plain["retry_budget"]),
+        artifact_byte_ceiling=_plain_integer(policy_plain["artifact_byte_ceiling"]),
+        rate_limit_budget=_plain_integer(policy_plain["rate_limit_budget"]),
+        reservation_lease_seconds=_plain_integer(policy_plain["reservation_lease_seconds"]),
+        schema_version=_plain_string(policy_plain.get("schema_version", RESOURCE_POLICY_SCHEMA)),
     )
     return ProviderEffectRequest(
         schema_version=schema_version,
-        operation_kind=value.get("operation_kind", SOURCE_PROVIDER_ACQUISITION_KIND),
-        request_id=value["request_id"],
-        idempotency_key=value["idempotency_key"],
+        operation_kind=_operation_kind(value.get("operation_kind", SOURCE_PROVIDER_ACQUISITION_KIND)),
+        request_id=_plain_string(value["request_id"]),
+        idempotency_key=_plain_string(value["idempotency_key"]),
         project_scope=scope,
-        item_key=value["item_key"],
-        item_revision=int(value["item_revision"]),
-        item_incarnation=value["item_incarnation"],
-        item_content_digest=value["item_content_digest"],
-        channel_key=value["channel_key"],
-        provider=value["provider"],
-        provider_config_ref=value["provider_config_ref"],
-        effect_payload_codec_ref=value["effect_payload_codec_ref"],
-        effect_payload_digest=value["effect_payload_digest"],
-        effect_payload=freeze_json_object(value["effect_payload"]),
+        item_key=_plain_string(value["item_key"]),
+        item_revision=_plain_integer(value["item_revision"]),
+        item_incarnation=_plain_string(value["item_incarnation"]),
+        item_content_digest=_plain_string(value["item_content_digest"]),
+        channel_key=_plain_string(value["channel_key"]),
+        provider=_plain_string(value["provider"]),
+        provider_config_ref=_plain_string(value["provider_config_ref"]),
+        effect_payload_codec_ref=_plain_string(value["effect_payload_codec_ref"]),
+        effect_payload_digest=_plain_string(value["effect_payload_digest"]),
+        effect_payload=freeze_json_object(_plain_object(value["effect_payload"])),
         credential_refs=refs,
         policy=policy,
-        catalog_revision=int(value["catalog_revision"]),
-        catalog_incarnation=value["catalog_incarnation"],
-        catalog_digest=value["catalog_digest"],
-        terminal_output_only=bool(value.get("terminal_output_only", True)),
-        request_digest=value.get("request_digest", ""),
+        catalog_revision=_plain_integer(value["catalog_revision"]),
+        catalog_incarnation=_plain_string(value["catalog_incarnation"]),
+        catalog_digest=_plain_string(value["catalog_digest"]),
+        terminal_output_only=_plain_boolean(value.get("terminal_output_only", True)),
+        request_digest=_plain_string(value.get("request_digest", "")),
     )
 
 
 def provider_effect_request_from_historical_plain(
-    value: dict[str, Any],
+    value: contracts.SourcePlainObject,
 ) -> ProviderEffectRequest:
     """Read exact historical provider-effect bytes without rehashing."""
 
@@ -454,6 +638,20 @@ def provider_effect_request_from_historical_plain(
         value,
         _default_schema=SOURCE_PROVIDER_ACQUISITION_HISTORICAL_PAYLOAD_SCHEMA,
         _allow_historical=True,
+    )
+
+
+def _encode_provider_effect_request(
+    value: ProviderEffectRequest,
+) -> CanonicalJsonObject:
+    return contracts.source_plain_object_to_canonical(value.to_plain())
+
+
+def _decode_provider_effect_request(
+    value: CanonicalJsonObject,
+) -> ProviderEffectRequest:
+    return provider_effect_request_from_plain(
+        contracts.canonical_object_to_source_plain(value)
     )
 
 
@@ -503,8 +701,8 @@ def provider_receipt_from_historical_plain(
 
 
 def _contract_declaration(
-    profiles: dict[str, object],
-) -> contracts.SourceSingleOperationContractDeclaration:
+    profiles: contracts.SourceOperationProfiles,
+) -> contracts.SourceSingleOperationContractDeclaration[ProviderEffectRequest]:
     return contracts.SourceSingleOperationContractDeclaration(
         kind=SOURCE_PROVIDER_ACQUISITION_KIND,
         owner_capability_id=SOURCE_PROVIDER_ACQUISITION_OWNER,
@@ -514,8 +712,8 @@ def _contract_declaration(
             codec_id=SOURCE_PROVIDER_ACQUISITION_PAYLOAD_CODEC_ID,
             codec_version="1.0.0",
             payload_type_id=SOURCE_PROVIDER_ACQUISITION_PAYLOAD_TYPE.type_id,
-            encode=lambda value: value.to_plain(),
-            decode=provider_effect_request_from_plain,
+            encode=_encode_provider_effect_request,
+            decode=_decode_provider_effect_request,
         ),
         profiles=profiles,
     )
@@ -525,10 +723,10 @@ def _contract_declaration(
 class SourceProviderAcquisitionCapabilityBundle:
     bundle_id: str
     operation: OperationContract
-    codecs: tuple[PayloadCodec, ...]
-    profiles: dict[str, object]
+    codecs: tuple[PayloadCodec[ProviderEffectRequest], ...]
+    profiles: contracts.SourceOperationProfiles
 
-    def payload_codec(self) -> PayloadCodec:
+    def payload_codec(self) -> PayloadCodec[ProviderEffectRequest]:
         return self.codecs[0]
 
 
@@ -538,15 +736,15 @@ def build_source_provider_acquisition_bundle() -> Annotated[
         "kit:non-authoritative derived_as=view fact_source=C2.3_contract_constants witness=test:test_w06_successor_authority_metadata"
     ],
 ]:
-    profiles = {
-        "semantic": _semantic_profile(),
-        "effect": _effect_profile(),
-        "resource": _resource_profile(),
-        "failure": _failure_profile(),
-        "authority": _authority_profile(),
-        "interpreter": _interpreter_profile(),
-        "observation": _observation_profile(),
-    }
+    profiles = contracts.SourceOperationProfiles(
+        semantic=_semantic_profile(),
+        effect=_effect_profile(),
+        resource=_resource_profile(),
+        failure=_failure_profile(),
+        authority=_authority_profile(),
+        interpreter=_interpreter_profile(),
+        observation=_observation_profile(),
+    )
     parts = contracts.build_source_operation_parts(_contract_declaration(profiles))
     return SourceProviderAcquisitionCapabilityBundle(
         bundle_id="mrw.source.provider-acquisition.bundle.v2",

@@ -77,6 +77,7 @@ from app.successor_runtime.substrate.projections.projection_sources import (
     KNOWLEDGE_SOURCE_SCHEMA,
     TASK_EVENT_SCHEMA,
     TASK_SOURCE_SCHEMA,
+    TASK_CREATED,
     MaterialSegment,
     MaterialSource,
     ProjectSourceClosure,
@@ -1219,7 +1220,7 @@ def _canonical_closure() -> ProjectSourceClosure:
             TaskSourceEvent(
                 schema_version=TASK_EVENT_SCHEMA,
                 sequence=0,
-                event_kind="SESSION_CREATED",
+                event_kind=TASK_CREATED,
                 event_ref="event:closure:001:created",
             ),
         ),
@@ -1263,9 +1264,9 @@ def _canonical_closure() -> ProjectSourceClosure:
         closure_id=f"projection:{SCOPE.project_key}:source",
         revision="1",
         incarnation=SCOPE.incarnation,
-        runtime_session_source=session,
-        research_graph_source=graph,
-        c7_search_source=search,
+        task_source=session,
+        knowledge_source=graph,
+        material_source=search,
     )
 
 
@@ -1284,7 +1285,7 @@ def test_rebuild_script_pure_surface_is_deterministic_and_loss_explicit() -> Non
     )
     first = module._payload_for_sink("knowledge", closure)
     expected = build_knowledge_view(
-        closure.research_graph_source,
+        closure.knowledge_source,
         declared_losses=module._projection_declared_losses("knowledge"),
     ).to_plain()
     assert first == expected

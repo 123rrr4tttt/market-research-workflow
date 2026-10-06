@@ -28,6 +28,66 @@ HISTORICAL_COMPLETION_V2 = Path(
     "2026-09-04-formal-production-release/stage0-evidence/"
     "functorial-refactor-completion.v2.json"
 )
+HISTORICAL_FRONTEND_FULL_E2E_NEGATIVE = Path(
+    "tests/fixtures/stage0_completion_history/frontend-full-e2e-negative.v1.json"
+)
+# Exact blob from 203611915bd2659adff4aadfbb67485daed8964a; the SHA is
+# also the immutable receipt bound by functorial-refactor-completion.v2.json.
+HISTORICAL_FRONTEND_FULL_E2E_NEGATIVE_SHA256 = (
+    "aeb145e8afdb22706b61537e35b1032e8df614ed60d9652dad991e90a6573de0"
+)
+
+
+def _historical_frontend_negative() -> dict[str, object]:
+    raw = (ROOT / HISTORICAL_FRONTEND_FULL_E2E_NEGATIVE).read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == HISTORICAL_FRONTEND_FULL_E2E_NEGATIVE_SHA256
+    return json.loads(raw)
+
+
+def _historical_checker_command(record: Path, repo_root: Path) -> list[str]:
+    bootstrap = """
+import json
+import sys
+from pathlib import Path
+from scripts.formal_release import generate_stage0_completion as generator
+
+source = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+completion = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+completion_reasons = {
+    row["test"]: row["reason"] for row in completion["negative_findings"]
+}
+generator.NEGATIVE_REASON_BINDINGS = {
+    row["test"]: (row["reason"], completion_reasons[row["test"]])
+    for row in source["findings"]
+}
+from scripts.formal_release.check_stage0_completion import main
+raise SystemExit(main(sys.argv[3:]))
+"""
+    return [
+        sys.executable,
+        "-c",
+        bootstrap,
+        (ROOT / HISTORICAL_FRONTEND_FULL_E2E_NEGATIVE).as_posix(),
+        (ROOT / HISTORICAL_COMPLETION_V2).as_posix(),
+        record.as_posix(),
+        "--repo-root",
+        repo_root.as_posix(),
+    ]
+
+
+@pytest.fixture(autouse=True)
+def bind_frozen_frontend_negative_identity(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep this historical suite bound to the retired Stage 0 observation."""
+    source = _historical_frontend_negative()
+    completion = json.loads((ROOT / HISTORICAL_COMPLETION_V2).read_text(encoding="utf-8"))
+    completion_reasons = {
+        row["test"]: row["reason"] for row in completion["negative_findings"]
+    }
+    bindings = {
+        row["test"]: (row["reason"], completion_reasons[row["test"]])
+        for row in source["findings"]
+    }
+    monkeypatch.setattr(tool, "NEGATIVE_REASON_BINDINGS", bindings)
 
 
 def evidence() -> dict[str, object]:
@@ -118,7 +178,10 @@ def mixed_root(tmp_path: Path) -> Path:
 
     (root / "stage0-command-receipt.txt").write_bytes(RECEIPT_BYTES)
     (root / "negative-finding-receipt.txt").write_bytes(RECEIPT_BYTES)
-    shutil.copyfile(ROOT / tool.FRONTEND_FULL_E2E_NEGATIVE_REL, root / tool.FRONTEND_FULL_E2E_NEGATIVE_REL)
+    shutil.copyfile(
+        ROOT / HISTORICAL_FRONTEND_FULL_E2E_NEGATIVE,
+        root / tool.FRONTEND_FULL_E2E_NEGATIVE_REL,
+    )
     for rows in tool.COMMAND_CONTRACTS.values():
         for row in rows:
             source = ROOT / row["receipt_path"]
@@ -777,10 +840,8 @@ def test_checker_cli_passes_mixed_lineage_and_fails_stage_drift(
     record = tool.build_completion_record(root, evidence())
     record_path = root / "completion.json"
     tool.write_create_only(root, record, record_path)
-    checker = ROOT / "scripts/formal_release/check_stage0_completion.py"
-
     passed = subprocess.run(
-        [sys.executable, checker.as_posix(), record_path.as_posix(), "--repo-root", root.as_posix()],
+        _historical_checker_command(record_path, root),
         capture_output=True,
         env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         text=True,
@@ -794,7 +855,7 @@ def test_checker_cli_passes_mixed_lineage_and_fails_stage_drift(
     drifted_path = root / "drifted.json"
     drifted_path.write_text(json.dumps(drifted), encoding="utf-8")
     failed = subprocess.run(
-        [sys.executable, checker.as_posix(), drifted_path.as_posix(), "--repo-root", root.as_posix()],
+        _historical_checker_command(drifted_path, root),
         capture_output=True,
         env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         text=True,

@@ -1,5 +1,21 @@
 """Capability-owned operation contracts for the MRW functorial successor."""
 
+from .acquisition_batch_interpreters import (
+    COLLECT_EXECUTE_BATCH_ELEMENT_LEGACY_INTERPRETER_ID,
+    COLLECT_FOLD_ORDERED_RESULTS_LEGACY_INTERPRETER_ID,
+    CollectBindingMismatch,
+    InterpreterFailure,
+    InterpreterSuccess,
+    authority_requirement_digest,
+    deterministic_composed_element_runner,
+    legacy_execute_element_interpreter_profile_digest,
+    legacy_fold_ordered_results_interpreter_profile_digest,
+    require_exact_collect_binding,
+    require_exact_composed_binding,
+    run_ordered_traversal,
+    successor_execute_element_interpreter_profile_digest,
+    successor_fold_ordered_results_interpreter_profile_digest,
+)
 from .catalog import CapabilityCatalogSnapshot, build_first_specimen_catalog
 from .contracts import (
     ObjectType,
@@ -25,6 +41,9 @@ from .first_specimen_payloads import (
     persist_first_specimen_payloads,
     persist_internal_export_payload,
 )
+
+# isort: split
+
 from .first_specimen_delivery_gate import (
     DeliveryApprovalSnapshot,
     DeliveryAssignmentParameters,
@@ -54,84 +73,137 @@ from .first_specimen_submission import (
     SubmittedRuntimePacket,
 )
 from .fixture import FIXTURE_OPERATION_KIND, build_fixture_capability_bundle
-
-from .acquisition_batch_interpreters import (
-    COLLECT_EXECUTE_BATCH_ELEMENT_LEGACY_INTERPRETER_ID,
-    COLLECT_FOLD_ORDERED_RESULTS_LEGACY_INTERPRETER_ID,
-    CollectBindingMismatch,
-    InterpreterFailure,
-    InterpreterSuccess,
-    authority_requirement_digest,
-    deterministic_composed_element_runner,
-    legacy_execute_element_interpreter_profile_digest,
-    legacy_fold_ordered_results_interpreter_profile_digest,
-    require_exact_collect_binding,
-    require_exact_composed_binding,
-    run_ordered_traversal,
-    successor_execute_element_interpreter_profile_digest,
-    successor_fold_ordered_results_interpreter_profile_digest,
-)
 from .knowledge_graph_projection_contribution import (
     KNOWLEDGE_GRAPH_PROJECTION_DECLARED_LOSS as KNOWLEDGE_GRAPH_PROJECTION_DECLARED_LOSS,
+)
+from .knowledge_graph_projection_contribution import (
     KNOWLEDGE_GRAPH_PROJECTION_INPUT_TYPE as KNOWLEDGE_GRAPH_PROJECTION_INPUT_TYPE,
+)
+from .knowledge_graph_projection_contribution import (
     KNOWLEDGE_GRAPH_PROJECTION_KIND as KNOWLEDGE_GRAPH_PROJECTION_KIND,
+)
+from .knowledge_graph_projection_contribution import (
     KNOWLEDGE_GRAPH_PROJECTION_OPERATION_ID as KNOWLEDGE_GRAPH_PROJECTION_OPERATION_ID,
+)
+from .knowledge_graph_projection_contribution import (
     KNOWLEDGE_GRAPH_PROJECTION_OWNER as KNOWLEDGE_GRAPH_PROJECTION_OWNER,
+)
+from .knowledge_graph_projection_contribution import (
     KNOWLEDGE_GRAPH_PROJECTION_PAYLOAD_CODEC_ID as KNOWLEDGE_GRAPH_PROJECTION_PAYLOAD_CODEC_ID,
+)
+from .knowledge_graph_projection_contribution import (
     KNOWLEDGE_GRAPH_PROJECTION_RESULT_TYPE as KNOWLEDGE_GRAPH_PROJECTION_RESULT_TYPE,
+)
+from .knowledge_graph_projection_contribution import (
     KNOWLEDGE_GRAPH_PROJECTION_RETURN_CONTRACT_REF as KNOWLEDGE_GRAPH_PROJECTION_RETURN_CONTRACT_REF,
+)
+from .knowledge_graph_projection_contribution import (
     KNOWLEDGE_GRAPH_PROJECTION_ROLLBACK_REF as KNOWLEDGE_GRAPH_PROJECTION_ROLLBACK_REF,
+)
+from .knowledge_graph_projection_contribution import (
     KnowledgeCellDefinition as KnowledgeCellDefinition,
+)
+from .knowledge_graph_projection_contribution import (
     KnowledgeGraphProjectInput as KnowledgeGraphProjectInput,
+)
+from .knowledge_graph_projection_contribution import (
     KnowledgeGraphProjectionAssemblyContext as KnowledgeGraphProjectionAssemblyContext,
+)
+from .knowledge_graph_projection_contribution import (
     KnowledgeGraphProjectionRuntimeBinding as KnowledgeGraphProjectionRuntimeBinding,
+)
+from .knowledge_graph_projection_contribution import (
     knowledge_graph_projection_definition_issues as knowledge_graph_projection_definition_issues,
 )
 from .knowledge_native_contribution import (
-    KnowledgeNativeAssemblyContext as KnowledgeNativeAssemblyContext,
-    KnowledgeNativeAssemblyDeclaration as KnowledgeNativeAssemblyDeclaration,
-    KnowledgeNativeAuthorSource as KnowledgeNativeAuthorSource,
-    KnowledgeNativeDefinition as KnowledgeNativeDefinition,
-    KnowledgeNativeOperationSource as KnowledgeNativeOperationSource,
-    KnowledgeNativeRuntimeBinding as KnowledgeNativeRuntimeBinding,
     KNOWLEDGE_NATIVE_CONTRIBUTION_RULE as KNOWLEDGE_NATIVE_CONTRIBUTION_RULE,
 )
-from .typed_knowledge_contribution import (
-    KNOWLEDGE_READ_INPUT_TYPE as KNOWLEDGE_READ_INPUT_TYPE,
-    KNOWLEDGE_READ_KIND as KNOWLEDGE_READ_KIND,
-    KNOWLEDGE_READ_OPERATION_ID as KNOWLEDGE_READ_OPERATION_ID,
-    KNOWLEDGE_READ_OWNER as KNOWLEDGE_READ_OWNER,
-    KNOWLEDGE_READ_PAYLOAD_CODEC_ID as KNOWLEDGE_READ_PAYLOAD_CODEC_ID,
-    KNOWLEDGE_READ_RESULT_TYPE as KNOWLEDGE_READ_RESULT_TYPE,
-    KNOWLEDGE_READ_ROLLBACK_REFS as KNOWLEDGE_READ_ROLLBACK_REFS,
-    KnowledgeDemandReadInput as KnowledgeDemandReadInput,
-    KNOWLEDGE_TYPED_KNOWLEDGE_NATIVE as KNOWLEDGE_TYPED_KNOWLEDGE_NATIVE,
+from .knowledge_native_contribution import (
+    KnowledgeNativeAssemblyContext as KnowledgeNativeAssemblyContext,
 )
-from .knowledge_writing_contribution import (
-    KNOWLEDGE_WRITING_COMPOSE_INPUT_TYPE as KNOWLEDGE_WRITING_COMPOSE_INPUT_TYPE,
-    KNOWLEDGE_WRITING_COMPOSE_KIND as KNOWLEDGE_WRITING_COMPOSE_KIND,
-    KNOWLEDGE_WRITING_COMPOSE_OPERATION_ID as KNOWLEDGE_WRITING_COMPOSE_OPERATION_ID,
-    KNOWLEDGE_WRITING_COMPOSE_PAYLOAD_CODEC_ID as KNOWLEDGE_WRITING_COMPOSE_PAYLOAD_CODEC_ID,
-    KNOWLEDGE_WRITING_COMPOSE_RESULT_TYPE as KNOWLEDGE_WRITING_COMPOSE_RESULT_TYPE,
-    KNOWLEDGE_WRITING_OWNER as KNOWLEDGE_WRITING_OWNER,
-    KNOWLEDGE_WRITING_ROLLBACK_REFS as KNOWLEDGE_WRITING_ROLLBACK_REFS,
-    KNOWLEDGE_WRITING_STAGE_INPUT_TYPE as KNOWLEDGE_WRITING_STAGE_INPUT_TYPE,
-    KNOWLEDGE_WRITING_STAGE_KIND as KNOWLEDGE_WRITING_STAGE_KIND,
-    KNOWLEDGE_WRITING_STAGE_OPERATION_ID as KNOWLEDGE_WRITING_STAGE_OPERATION_ID,
-    KNOWLEDGE_WRITING_STAGE_RESULT_TYPE as KNOWLEDGE_WRITING_STAGE_RESULT_TYPE,
-    KnowledgeWritingComposeInput as KnowledgeWritingComposeInput,
-    knowledge_writing_native_contribution as knowledge_writing_native_contribution,
+from .knowledge_native_contribution import (
+    KnowledgeNativeAssemblyDeclaration as KnowledgeNativeAssemblyDeclaration,
+)
+from .knowledge_native_contribution import (
+    KnowledgeNativeAuthorSource as KnowledgeNativeAuthorSource,
+)
+from .knowledge_native_contribution import (
+    KnowledgeNativeDefinition as KnowledgeNativeDefinition,
+)
+from .knowledge_native_contribution import (
+    KnowledgeNativeOperationSource as KnowledgeNativeOperationSource,
+)
+from .knowledge_native_contribution import (
+    KnowledgeNativeRuntimeBinding as KnowledgeNativeRuntimeBinding,
+)
+from .knowledge_native_contribution import (
+    compile_knowledge_native_author_source as compile_knowledge_native_author_source,
 )
 from .knowledge_report_contribution import (
     KNOWLEDGE_REPORT_INPUT_TYPE as KNOWLEDGE_REPORT_INPUT_TYPE,
+)
+from .knowledge_report_contribution import (
     KNOWLEDGE_REPORT_KIND as KNOWLEDGE_REPORT_KIND,
+)
+from .knowledge_report_contribution import (
     KNOWLEDGE_REPORT_OPERATION_ID as KNOWLEDGE_REPORT_OPERATION_ID,
+)
+from .knowledge_report_contribution import (
     KNOWLEDGE_REPORT_OWNER as KNOWLEDGE_REPORT_OWNER,
+)
+from .knowledge_report_contribution import (
     KNOWLEDGE_REPORT_PAYLOAD_CODEC_ID as KNOWLEDGE_REPORT_PAYLOAD_CODEC_ID,
+)
+from .knowledge_report_contribution import (
     KNOWLEDGE_REPORT_RESULT_TYPE as KNOWLEDGE_REPORT_RESULT_TYPE,
+)
+from .knowledge_report_contribution import (
     KNOWLEDGE_REPORT_ROLLBACK_REF as KNOWLEDGE_REPORT_ROLLBACK_REF,
+)
+from .knowledge_report_contribution import (
     KnowledgeReportStageInput as KnowledgeReportStageInput,
+)
+from .knowledge_report_contribution import (
     knowledge_report_native_contribution as knowledge_report_native_contribution,
+)
+from .knowledge_writing_contribution import (
+    KNOWLEDGE_WRITING_COMPOSE_INPUT_TYPE as KNOWLEDGE_WRITING_COMPOSE_INPUT_TYPE,
+)
+from .knowledge_writing_contribution import (
+    KNOWLEDGE_WRITING_COMPOSE_KIND as KNOWLEDGE_WRITING_COMPOSE_KIND,
+)
+from .knowledge_writing_contribution import (
+    KNOWLEDGE_WRITING_COMPOSE_OPERATION_ID as KNOWLEDGE_WRITING_COMPOSE_OPERATION_ID,
+)
+from .knowledge_writing_contribution import (
+    KNOWLEDGE_WRITING_COMPOSE_PAYLOAD_CODEC_ID as KNOWLEDGE_WRITING_COMPOSE_PAYLOAD_CODEC_ID,
+)
+from .knowledge_writing_contribution import (
+    KNOWLEDGE_WRITING_COMPOSE_RESULT_TYPE as KNOWLEDGE_WRITING_COMPOSE_RESULT_TYPE,
+)
+from .knowledge_writing_contribution import (
+    KNOWLEDGE_WRITING_OWNER as KNOWLEDGE_WRITING_OWNER,
+)
+from .knowledge_writing_contribution import (
+    KNOWLEDGE_WRITING_ROLLBACK_REFS as KNOWLEDGE_WRITING_ROLLBACK_REFS,
+)
+from .knowledge_writing_contribution import (
+    KNOWLEDGE_WRITING_STAGE_INPUT_TYPE as KNOWLEDGE_WRITING_STAGE_INPUT_TYPE,
+)
+from .knowledge_writing_contribution import (
+    KNOWLEDGE_WRITING_STAGE_KIND as KNOWLEDGE_WRITING_STAGE_KIND,
+)
+from .knowledge_writing_contribution import (
+    KNOWLEDGE_WRITING_STAGE_OPERATION_ID as KNOWLEDGE_WRITING_STAGE_OPERATION_ID,
+)
+from .knowledge_writing_contribution import (
+    KNOWLEDGE_WRITING_STAGE_RESULT_TYPE as KNOWLEDGE_WRITING_STAGE_RESULT_TYPE,
+)
+from .knowledge_writing_contribution import (
+    KnowledgeWritingComposeInput as KnowledgeWritingComposeInput,
+)
+from .knowledge_writing_contribution import (
+    knowledge_writing_native_contribution as knowledge_writing_native_contribution,
 )
 from .retrieval_candidate_native import (
     DEFAULT_CANDIDATE_NATIVE_SOURCE,
@@ -145,7 +217,33 @@ from .retrieval_semantics_native import (
     DEFAULT_RETRIEVAL_SEMANTICS_SOURCE,
     compile_retrieval_semantics_native,
 )
-
+from .typed_knowledge_contribution import (
+    KNOWLEDGE_READ_INPUT_TYPE as KNOWLEDGE_READ_INPUT_TYPE,
+)
+from .typed_knowledge_contribution import (
+    KNOWLEDGE_READ_KIND as KNOWLEDGE_READ_KIND,
+)
+from .typed_knowledge_contribution import (
+    KNOWLEDGE_READ_OPERATION_ID as KNOWLEDGE_READ_OPERATION_ID,
+)
+from .typed_knowledge_contribution import (
+    KNOWLEDGE_READ_OWNER as KNOWLEDGE_READ_OWNER,
+)
+from .typed_knowledge_contribution import (
+    KNOWLEDGE_READ_PAYLOAD_CODEC_ID as KNOWLEDGE_READ_PAYLOAD_CODEC_ID,
+)
+from .typed_knowledge_contribution import (
+    KNOWLEDGE_READ_RESULT_TYPE as KNOWLEDGE_READ_RESULT_TYPE,
+)
+from .typed_knowledge_contribution import (
+    KNOWLEDGE_READ_ROLLBACK_REFS as KNOWLEDGE_READ_ROLLBACK_REFS,
+)
+from .typed_knowledge_contribution import (
+    KNOWLEDGE_TYPED_KNOWLEDGE_NATIVE as KNOWLEDGE_TYPED_KNOWLEDGE_NATIVE,
+)
+from .typed_knowledge_contribution import (
+    KnowledgeDemandReadInput as KnowledgeDemandReadInput,
+)
 
 __all__ = [
     "COLLECT_EXECUTE_BATCH_ELEMENT_LEGACY_INTERPRETER_ID",
@@ -182,6 +280,7 @@ __all__ = [
     "KnowledgeNativeDefinition",
     "KnowledgeNativeOperationSource",
     "KnowledgeNativeRuntimeBinding",
+    "compile_knowledge_native_author_source",
     "KNOWLEDGE_READ_INPUT_TYPE",
     "KNOWLEDGE_READ_KIND",
     "KNOWLEDGE_READ_OPERATION_ID",

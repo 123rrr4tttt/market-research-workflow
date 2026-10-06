@@ -7,9 +7,6 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 import requests
-from functorial_kit import Failure
-from requests import Response
-
 from app.services.ingest.retry_policy import (
     RateGate,
     RateGateDecision,
@@ -23,6 +20,8 @@ from app.services.resource_pool.http_port import (
     HttpFetchFailureReason,
     make_html_parser,
 )
+from functorial_kit import Failure
+from requests import Response
 
 
 DEFAULT_HEADERS: Mapping[str, str] = {
@@ -168,6 +167,13 @@ def request_html(
                 )
                 failures.append(decision.failure)
                 decisions.append(decision)
+                if not decision.retryable or attempt == attempt_count - 1:
+                    return RequestOutcome(
+                        failures=tuple(failures),
+                        decisions=tuple(decisions),
+                        attempts=attempt + 1,
+                        last_exception=last_exc,
+                    )
             else:
                 status_code = int(response.status_code)
                 if status_code == 429:
@@ -233,7 +239,7 @@ def request_html(
                 jitter = random.uniform(0, max(0.0, float(jitter_seconds)))
                 sleeper(max(0.0, decisions[-1].delay_seconds + jitter))
 
-        raise AssertionError("retry loop must return or exhaust")
+        raise AssertionError
     finally:
         close = getattr(session, "close", None)
         if callable(close):
@@ -267,17 +273,23 @@ def fetch_html(
         return outcome.text, outcome.response
 
     decision = outcome.decisions[-1]
-    raw_status = decision.failure.context.get("status_code")
+    failure_context = decision.failure.context or {}
+    raw_status = failure_context.get("status_code")
+    status_code = (
+        raw_status
+        if isinstance(raw_status, int) and not isinstance(raw_status, bool)
+        else None
+    )
     reason = (
         HttpFetchFailureReason.HTTP_STATUS
-        if raw_status is not None
+        if status_code is not None
         else HttpFetchFailureReason.TRANSPORT
     )
     raise HttpFetchError(
         decision.failure.message,
         reason=reason,
         url=url,
-        status_code=int(raw_status) if raw_status is not None else None,
+        status_code=status_code,
         retryable=bool(decision.retryable),
     ) from outcome.last_exception
 

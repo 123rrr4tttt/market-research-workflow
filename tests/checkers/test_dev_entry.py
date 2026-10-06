@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
+import subprocess
+import tempfile
 import sys
 
 
@@ -157,6 +160,68 @@ def test_typecheck_preserves_failure_and_backend_environment(monkeypatch) -> Non
     assert command[0] == "/checker/python"
     assert command[command.index("--pythonpath") + 1] == str(backend_python)
     assert command[command.index("--project") + 1] == str(DEV.PYPROJECT)
+
+
+def test_backend_typecheck_uses_declared_boundaries_and_preserves_failure(monkeypatch, tmp_path) -> None:
+    project = tmp_path / "pyproject.toml"
+    project.write_text(
+        '[tool.pyright]\ninclude = ["src", "tests", "main/backend/app/example.py"]\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(DEV, "PYPROJECT", project)
+    monkeypatch.setattr(DEV, "_kit_source", lambda: None)
+    monkeypatch.setattr(DEV, "_require_kit_source", lambda *_args: True)
+    monkeypatch.setattr(DEV, "_python_executable", lambda: Path("/backend/python"))
+    commands = []
+
+    def run(command, **_kwargs):
+        commands.append(command)
+        return type("Completed", (), {"returncode": 7})()
+
+    monkeypatch.setattr(DEV.subprocess, "run", run)
+    assert DEV.main(["typecheck", "--backend-boundaries"]) == 7
+    assert commands[0][-1:] == ["main/backend/app/example.py"]
+    assert "src" not in commands[0] and "tests" not in commands[0]
+
+
+def test_contribution_composition_preserves_factory_types_and_catalog_cannot_assemble() -> None:
+    valid = """from typing import assert_type
+from functorial_kit import Failure
+from functorial_kit.contributions import ContributionCatalog, ContributionSpec, compose_contributions, define_contribution
+
+def transform(value: str) -> int:
+    return len(value)
+
+contribution = define_contribution(ContributionSpec("example", "example", factory=transform))
+composed = compose_contributions((contribution,))
+if not isinstance(composed, Failure):
+    assert_type(composed.assemble("hello"), tuple[int, ...])
+catalog = ContributionCatalog((contribution,))
+"""
+    invalid = """if not isinstance(composed, Failure):
+    composed.assemble(123)
+factory = catalog.contributions[0].factory
+if factory is not None:
+    factory("hello")
+"""
+    with tempfile.TemporaryDirectory(prefix="mrw-type-probe-") as probe_root:
+        probe = Path(probe_root) / "contribution_boundary.py"
+        checker = os.environ.get("MRW_TYPECHECK_PYTHON", sys.executable)
+        command = [
+            checker, "-m", "pyright", "--outputjson", "--pythonpath", str(DEV._python_executable()),
+            "--project", str(DEV.PYPROJECT), str(probe),
+        ]
+        probe.write_text(valid, encoding="utf-8")
+        accepted = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
+        assert accepted.returncode == 0, accepted.stdout + accepted.stderr
+        assert json.loads(accepted.stdout)["summary"]["filesAnalyzed"] > 0
+        probe.write_text(valid + invalid, encoding="utf-8")
+        rejected = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
+        assert rejected.returncode == 1, rejected.stdout + rejected.stderr
+        diagnostics = json.loads(rejected.stdout)["generalDiagnostics"]
+        errors = [item for item in diagnostics if item["severity"] == "error"]
+        assert len(errors) == 2, diagnostics
+        assert all(item["rule"] == "reportArgumentType" for item in errors), diagnostics
 
 
 def test_validate_stops_before_later_stages_when_a_stage_fails(monkeypatch) -> None:
@@ -327,3 +392,50 @@ def test_setup_preserves_installer_failure_and_verifies_a_successful_install(mon
 
     assert DEV.main(["setup", "--local-kit", str(local_kit)]) == 4
     assert calls[-1] != "verified"
+
+
+def test_celery_stubs_preserve_task_inputs_and_outputs(tmp_path) -> None:
+    with tempfile.TemporaryDirectory(prefix="mrw-type-probe-") as probe_root:
+        fixtures = ROOT / "tests/typecheck/celery"
+        cases = (
+            ("positive.py", []),
+            ("negative_wrong_task_input.py.txt", ["reportArgumentType", "reportArgumentType"]),
+            ("negative_bound_task_input.py.txt", ["reportArgumentType"]),
+            ("negative_task_output.py.txt", ["reportAssignmentType"]),
+        )
+        checker = os.environ.get("MRW_TYPECHECK_PYTHON", sys.executable)
+        for fixture, expected_rules in cases:
+            probe = Path(probe_root) / "celery_boundary.py"
+            probe.write_text((fixtures / fixture).read_text(encoding="utf-8"), encoding="utf-8")
+            result = subprocess.run(
+                [checker, "-m", "pyright", "--outputjson", "--pythonpath", str(DEV._python_executable()),
+                 "--project", str(DEV.PYPROJECT), str(probe)],
+                cwd=ROOT, capture_output=True, text=True, check=False,
+            )
+            assert result.returncode == (1 if expected_rules else 0), result.stdout + result.stderr
+            report = json.loads(result.stdout)
+            assert report["summary"]["filesAnalyzed"] > 0, report
+            diagnostics = report["generalDiagnostics"]
+            errors = [item for item in diagnostics if item["severity"] == "error"]
+            assert [item["rule"] for item in errors] == expected_rules, diagnostics
+
+
+def test_public_typecheck_includes_src_and_backend_from_one_declaration(monkeypatch, tmp_path) -> None:
+    project = tmp_path / "pyproject.toml"
+    project.write_text(
+        '[tool.pyright]\ninclude = ["src", "tests", "main/backend/app/example.py"]\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(DEV, "PYPROJECT", project)
+    monkeypatch.setattr(DEV, "_kit_source", lambda: None)
+    monkeypatch.setattr(DEV, "_require_kit_source", lambda *_args: True)
+    monkeypatch.setattr(DEV, "_python_executable", lambda: Path("/backend/python"))
+    commands = []
+
+    def run(command, **_kwargs):
+        commands.append(command)
+        return type("Completed", (), {"returncode": 7})()
+
+    monkeypatch.setattr(DEV.subprocess, "run", run)
+    assert DEV.main(["typecheck", "--public-boundaries"]) == 7
+    assert commands[0][-2:] == ["src", "main/backend/app/example.py"]

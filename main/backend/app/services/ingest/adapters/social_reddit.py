@@ -5,9 +5,11 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Iterable, List, Optional
+from datetime import UTC, datetime
+from typing import Iterable, List, Optional, TypeGuard
 from urllib.parse import quote
+
+from functorial_kit import Failure
 
 from ..keyword_library import (
     clean_keywords,
@@ -17,6 +19,75 @@ from ..retry_policy import RateGate, RequestScope
 from .http_utils import RequestOutcome, request_html
 
 logger = logging.getLogger(__name__)
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_dict(value: object) -> dict[str, object] | None:
+    if not _is_object_dict(value):
+        return None
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if isinstance(key, str):
+            result[key] = item
+    return result
+
+
+def _string(data: dict[str, object], key: str) -> str:
+    value = data.get(key)
+    return value if isinstance(value, str) else ""
+
+
+def _integer(data: dict[str, object], key: str) -> int:
+    value = data.get(key)
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(float(value))
+        except ValueError:
+            return 0
+    return 0
+
+
+def _timestamp(value: object) -> datetime | None:
+    try:
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return datetime.fromtimestamp(float(value), UTC).replace(tzinfo=None)
+        if isinstance(value, str) and value.strip():
+            return datetime.fromtimestamp(float(value), UTC).replace(tzinfo=None)
+    except (ValueError, OSError, OverflowError):
+        return None
+    return None
+
+
+def _reddit_children(payload: object) -> list[dict[str, object]]:
+    outer = _object_dict(payload)
+    if outer is None:
+        return []
+    data = _object_dict(outer.get("data"))
+    if data is None:
+        return []
+    raw_children = data.get("children")
+    if not _is_object_list(raw_children):
+        return []
+    children: list[dict[str, object]] = []
+    for raw_child in raw_children:
+        child = _object_dict(raw_child)
+        post = _object_dict(child.get("data")) if child is not None else None
+        if post is not None:
+            children.append(post)
+    return children
 
 
 @dataclass(slots=True)
@@ -56,6 +127,7 @@ class RedditAdapter:
     
     def __init__(self):
         self.base_url = "https://www.reddit.com"
+        self.last_failures: tuple[Failure, ...] = ()
     
     def fetch_posts(
         self,
@@ -102,49 +174,42 @@ class RedditAdapter:
                 "Referer": "https://www.reddit.com/",
             }
             logger.debug(f"Requesting Reddit API with headers: User-Agent={headers['User-Agent'][:50]}...")
-            try:
-                outcome = _request_html(url, headers=headers)
-            except Exception as e:
-                logger.error(f"HTTP request failed for r/{subreddit}: {e}")
-                # 如果请求失败，记录响应状态码（如果有）
-                if hasattr(e, 'response') and e.response is not None:
-                    logger.error(f"Response status: {e.response.status_code}")
-                    logger.error(f"Response headers: {dict(e.response.headers)}")
-                raise
+            outcome = _request_html(url, headers=headers)
+            self.last_failures = outcome.failures
             response = outcome.response
             if response is not None and hasattr(response, "status_code"):
                 logger.debug("Reddit response status: %s", response.status_code)
             if not outcome.ok or not outcome.text:
                 if outcome.failures:
                     logger.warning("Reddit request failed for r/%s: %s", subreddit, outcome.failures[-1].message)
-                    return []
+                    return
                 response_text = ""
             else:
                 response_text = outcome.text
             
             if not response_text:
                 logger.warning(f"Empty response from Reddit API for r/{subreddit}")
-                return []
+                return
             
             import json
             try:
-                data = json.loads(response_text)
+                raw_data: object = json.loads(response_text)
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse JSON from Reddit API for r/{subreddit}: {e}, response preview: {response_text[:200]}")
-                return []
+                return
             
             total_posts_before_filter = 0
             filtered_by_keywords = 0
             emitted_posts = 0
             
-            if "data" in data and "children" in data["data"]:
-                children = data["data"]["children"]
+            children = _reddit_children(raw_data)
+            if children:
                 logger.info(f"Reddit API returned {len(children)} posts from r/{subreddit}")
 
                 cleaned_input_keywords = clean_keywords(keywords or [])
                 library_keywords = get_library_keywords("reddit")
-                deduped_keywords = []
-                seen_keywords = set()
+                deduped_keywords: list[str] = []
+                seen_keywords: set[str] = set()
                 for kw in cleaned_input_keywords + library_keywords:
                     if kw and kw not in seen_keywords:
                         seen_keywords.add(kw)
@@ -158,19 +223,18 @@ class RedditAdapter:
                 else:
                     logger.debug("Effective keywords for subreddit %s: %s", subreddit, effective_keywords)
                 
-                for child in children[:limit]:
-                    post_data = child.get("data", {})
+                for post_data in children[:limit]:
                     total_posts_before_filter += 1
                     
                     # 提取帖子信息
-                    title = post_data.get("title", "")
-                    permalink = post_data.get("permalink", "")
+                    title = _string(post_data, "title")
+                    permalink = _string(post_data, "permalink")
                     # 确保 permalink 存在且不为空
                     if permalink:
                         link = f"{self.base_url}{permalink}"
                     else:
                         # 如果没有 permalink，尝试使用 id 构建链接
-                        post_id = post_data.get("id", "")
+                        post_id = _string(post_data, "id")
                         if post_id:
                             link = f"{self.base_url}/r/{subreddit}/comments/{post_id}/"
                         else:
@@ -181,7 +245,7 @@ class RedditAdapter:
                     # If keywords are available, apply filtering; otherwise keep all posts.
                     if effective_keywords:
                         title_lower = title.lower()
-                        text_lower = (post_data.get("selftext", "") or "").lower()
+                        text_lower = _string(post_data, "selftext").lower()
                         full_text = f"{title_lower} {text_lower}"
                         normalized_full_text = re.sub(r"\s+", " ", re.sub(r"[^a-z0-9\s]", " ", full_text))
                         
@@ -213,26 +277,18 @@ class RedditAdapter:
                             logger.debug(f"Post matched keywords: {title[:50]}")
                     
                     # 提取其他信息
-                    selftext = post_data.get("selftext", "")
+                    selftext = _string(post_data, "selftext")
                     summary = selftext[:500] if selftext else None
                     
                     created_utc = post_data.get("created_utc")
-                    timestamp = None
-                    if created_utc:
-                        try:
-                            # Reddit的created_utc是Unix时间戳（秒）
-                            if isinstance(created_utc, (int, float)):
-                                timestamp = datetime.utcfromtimestamp(created_utc)
-                            elif isinstance(created_utc, str):
-                                # 如果是字符串，尝试转换
-                                timestamp = datetime.utcfromtimestamp(float(created_utc))
-                        except (ValueError, TypeError, OSError) as e:
-                            logger.warning(f"Failed to parse Reddit timestamp {created_utc}: {e}")
-                            pass
+                    timestamp = _timestamp(created_utc)
+                    if created_utc and timestamp is None:
+                        logger.warning("Failed to parse Reddit timestamp %s", created_utc)
                     
-                    username = post_data.get("author")
-                    likes = post_data.get("ups", 0) or 0
-                    comments = post_data.get("num_comments", 0) or 0
+                    username_value = post_data.get("author")
+                    username = username_value if isinstance(username_value, str) else None
+                    likes = _integer(post_data, "ups")
+                    comments = _integer(post_data, "num_comments")
                     
                     post = RedditPost(
                         title=title,
@@ -278,19 +334,22 @@ class RedditAdapter:
         logger.info(f"Searching {len(subreddits)} subreddits: {subreddits}, keywords: {keywords}")
         total_posts = 0
         
-        for idx, subreddit in enumerate(subreddits):
+        collected_failures: list[Failure] = []
+        for subreddit in subreddits:
             try:
                 fetched_count = 0
                 for post in self.fetch_posts(subreddit, keywords, limit_per_subreddit):
                     fetched_count += 1
                     total_posts += 1
                     yield post
+                collected_failures.extend(self.last_failures)
                 logger.info(f"r/{subreddit}: fetched {fetched_count} posts")
             except Exception as exc:
                 logger.error(f"Failed to fetch from r/{subreddit}: {exc}", exc_info=True)
                 continue
         
         logger.info(f"Total posts collected from all subreddits: {total_posts}")
+        self.last_failures = tuple(collected_failures)
         return
     
     def discover_subreddits(
@@ -316,6 +375,7 @@ class RedditAdapter:
             发现的子论坛名称列表（去重后）
         """
         discovered_subreddits: set[str] = set()
+        request_failures: list[Failure] = []
         
         if not keywords or len(keywords) == 0:
             logger.warning("No keywords provided for subreddit discovery")
@@ -347,16 +407,14 @@ class RedditAdapter:
                     }
                     
                     outcome = _request_html(search_url, headers=headers)
+                    request_failures.extend(outcome.failures)
                     response_text = outcome.text
                     if outcome.ok and response_text:
                         import json
-                        data = json.loads(response_text)
-                        
-                        if "data" in data and "children" in data["data"]:
-                            for child in data["data"]["children"]:
-                                post_data = child.get("data", {})
-                                subreddit = post_data.get("subreddit", "")
-                                subscribers = post_data.get("subreddit_subscribers", 0)
+                        raw_data: object = json.loads(response_text)
+                        for post_data in _reddit_children(raw_data):
+                                subreddit = _string(post_data, "subreddit")
+                                subscribers = _integer(post_data, "subreddit_subscribers")
                                 
                                 if subreddit and subscribers >= min_subscribers:
                                     # 清理子论坛名称（去除r/前缀）
@@ -396,14 +454,16 @@ class RedditAdapter:
             
             # 转换为列表并限制数量
             result = list(discovered_subreddits)[:max_results]
+            self.last_failures = tuple(request_failures)
             logger.info(f"Discovered {len(result)} subreddits: {result[:10]}...")  # 只显示前10个
             
             return result
             
         except Exception as exc:
             logger.error(f"Subreddit discovery failed: {exc}", exc_info=True)
+            self.last_failures = tuple(request_failures)
             # 即使失败，也返回从关键词生成的子论坛
-            fallback = []
+            fallback: list[str] = []
             for keyword in keywords:
                 keyword_clean = keyword.strip().lower()
                 if keyword_clean:

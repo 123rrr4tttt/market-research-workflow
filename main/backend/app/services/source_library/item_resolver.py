@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Literal
+from typing import Any, Callable, Dict, Literal, TypeGuard
 
-from .types import FrontDoorExecutionProtocol
+from .types import (
+    FrontDoorExecutionProtocol,
+    resolve_source_library_item_markers,
+)
 
 SourceMode = Literal["protocol_search", "provider_harvest", "site_search", "url_execution"]
-ItemType = Literal["user_defined", "service_aggregated"]
-ManagedBy = Literal["user", "system"]
 
 
 @dataclass(frozen=True)
@@ -18,8 +19,8 @@ class ExecutionRequest:
     project_key: str | None
     params: Dict[str, Any]
     protocol: FrontDoorExecutionProtocol
-    warnings: list[str] = field(default_factory=list)
-    taxonomy: Dict[str, Any] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list[str])
+    taxonomy: Dict[str, Any] = field(default_factory=dict[str, Any])
 
 
 def execution_request_to_dict(request: ExecutionRequest) -> Dict[str, Any]:
@@ -37,8 +38,13 @@ def execution_request_to_dict(request: ExecutionRequest) -> Dict[str, Any]:
 def normalize_item_taxonomy(payload: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(payload or {})
     extra = _as_dict(out.get("extra"))
-    item_type = _resolve_item_type({**out, "extra": extra})
-    managed_by = _resolve_managed_by({**out, "extra": extra}, item_type)
+    item_type, managed_by = resolve_source_library_item_markers(
+        item_type=out.get("item_type"),
+        managed_by=out.get("managed_by"),
+        item_key=out.get("item_key"),
+        channel_key=out.get("channel_key"),
+        extra=extra,
+    )
     out["item_type"] = item_type
     out["managed_by"] = managed_by
     extra.setdefault("item_type", item_type)
@@ -177,45 +183,11 @@ def _is_site_search_authoritative(
     return False
 
 
-def _resolve_item_type(payload: Dict[str, Any]) -> ItemType:
-    explicit = str(payload.get("item_type") or "").strip().lower()
-    if explicit in {"user_defined", "service_aggregated"}:
-        return explicit  # type: ignore[return-value]
-
-    extra = _as_dict(payload.get("extra"))
-    from_extra = str(extra.get("item_type") or "").strip().lower()
-    if from_extra in {"user_defined", "service_aggregated"}:
-        return from_extra  # type: ignore[return-value]
-
-    channel_key = str(payload.get("channel_key") or "").strip().lower()
-    item_key = str(payload.get("item_key") or "").strip().lower()
-    if (
-        channel_key == "handler.cluster"
-        or channel_key.startswith("crawler.")
-        or item_key.startswith("handler.cluster.")
-        or item_key == "url_pool.default"
-        or bool(extra.get("stable_handler_cluster"))
-        or str(extra.get("creation_handler") or "").strip().lower().startswith("handler.")
-        or str(extra.get("crawler_provider") or "").strip()
-    ):
-        return "service_aggregated"
-    return "user_defined"
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
 
 
-def _resolve_managed_by(payload: Dict[str, Any], item_type: ItemType) -> ManagedBy:
-    explicit = str(payload.get("managed_by") or "").strip().lower()
-    if explicit in {"user", "system"}:
-        return explicit  # type: ignore[return-value]
-
-    extra = _as_dict(payload.get("extra"))
-    from_extra = str(extra.get("managed_by") or "").strip().lower()
-    if from_extra in {"user", "system"}:
-        return from_extra  # type: ignore[return-value]
-
-    return "system" if item_type == "service_aggregated" else "user"
-
-
-def _as_dict(value: Any) -> Dict[str, Any]:
-    if isinstance(value, dict):
-        return dict(value)
+def _as_dict(value: object) -> Dict[str, Any]:
+    if _is_object_dict(value):
+        return {str(key): item for key, item in value.items()}
     return {}

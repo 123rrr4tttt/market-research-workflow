@@ -1,29 +1,53 @@
-"""Twitter/X官方API数据适配器"""
+"""Twitter/X official API adapter with explicit request-policy attribution."""
 from __future__ import annotations
 
+import importlib
 import logging
 import re
+import time
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable, List, Optional
+from typing import List, Optional, Protocol, TypeGuard, runtime_checkable
 from urllib.parse import unquote
+
+from functorial_kit import Failure
+
+from ..retry_policy import RateGate, RequestScope, make_request_failure, parse_retry_after_seconds
 
 logger = logging.getLogger(__name__)
 
+
+@runtime_checkable
+class _TweepyModule(Protocol):
+    def Client(
+        self,
+        *,
+        bearer_token: str | None = None,
+        consumer_key: str | None = None,
+        consumer_secret: str | None = None,
+        access_token: str | None = None,
+        access_token_secret: str | None = None,
+        wait_on_rate_limit: bool,
+    ) -> object: ...
+
+
 try:
-    import tweepy
-    TWEEPY_AVAILABLE = True
+    _raw_tweepy: object = importlib.import_module("tweepy")
 except ImportError:
-    TWEEPY_AVAILABLE = False
+    _tweepy = None
     logger.warning("tweepy library not installed. Install it with: pip install tweepy")
+else:
+    _tweepy = _raw_tweepy if isinstance(_raw_tweepy, _TweepyModule) else None
+
+TWEEPY_AVAILABLE = _tweepy is not None
 
 
-@dataclass
+@dataclass(slots=True)
 class TwitterPost:
-    """Twitter帖子数据结构"""
-    title: str  # 推文内容（作为标题）
-    link: str  # 推文链接
-    summary: Optional[str] = None  # 推文内容（完整）
+    title: str
+    link: str
+    summary: Optional[str] = None
     timestamp: Optional[datetime] = None
     username: Optional[str] = None
     likes: int = 0
@@ -32,9 +56,280 @@ class TwitterPost:
     text: Optional[str] = None
 
 
+@dataclass(frozen=True, slots=True)
+class _NativeTweet:
+    id: str
+    text: str
+    created_at: datetime | None
+    author_id: str | None
+    likes: int
+    retweets: int
+    replies: int
+
+
+@dataclass(frozen=True, slots=True)
+class _NativeUser:
+    id: str
+    username: str
+
+
+@runtime_checkable
+class _TwitterClient(Protocol):
+    def search_recent_tweets(
+        self,
+        *,
+        query: str,
+        max_results: int,
+        tweet_fields: Sequence[str],
+        expansions: Sequence[str],
+        user_fields: Sequence[str],
+    ) -> object: ...
+
+    def get_user(self, *, username: str) -> object: ...
+
+    def get_users_tweets(
+        self,
+        *,
+        id: str,
+        max_results: int,
+        tweet_fields: Sequence[str],
+    ) -> object: ...
+
+
+@runtime_checkable
+class _ResponseShape(Protocol):
+    data: object
+
+
+@runtime_checkable
+class _SearchResponseShape(Protocol):
+    data: object
+    includes: object
+
+
+@runtime_checkable
+class _TweetShape(Protocol):
+    id: object
+    text: object
+
+
+@runtime_checkable
+class _TweetCreatedShape(Protocol):
+    created_at: object
+
+
+@runtime_checkable
+class _TweetAuthorShape(Protocol):
+    author_id: object
+
+
+@runtime_checkable
+class _TweetMetricsShape(Protocol):
+    public_metrics: object
+
+
+@runtime_checkable
+class _UserShape(Protocol):
+    id: object
+    username: object
+
+
+@runtime_checkable
+class _ExceptionResponseShape(Protocol):
+    response: object
+
+
+@runtime_checkable
+class _HttpResponseShape(Protocol):
+    status_code: object
+    headers: object
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _object_mapping(value: object) -> dict[str, object]:
+    if not _is_object_dict(value):
+        return {}
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if isinstance(key, str):
+            result[key] = item
+    return result
+
+
+def _string(value: object) -> str | None:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return str(value)
+    return None
+
+
+def _count(value: object) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(float(value))
+        except ValueError:
+            return 0
+    return 0
+
+
+def _native_tweet(value: object) -> _NativeTweet | None:
+    if not isinstance(value, _TweetShape):
+        return None
+    tweet_id = _string(value.id)
+    text = _string(value.text)
+    if tweet_id is None or text is None:
+        return None
+    metrics = _object_mapping(value.public_metrics) if isinstance(value, _TweetMetricsShape) else {}
+    return _NativeTweet(
+        id=tweet_id,
+        text=text,
+        created_at=(
+            value.created_at
+            if isinstance(value, _TweetCreatedShape) and isinstance(value.created_at, datetime)
+            else None
+        ),
+        author_id=_string(value.author_id) if isinstance(value, _TweetAuthorShape) else None,
+        likes=_count(metrics.get("like_count")),
+        retweets=_count(metrics.get("retweet_count")),
+        replies=_count(metrics.get("reply_count")),
+    )
+
+
+def _native_user(value: object) -> _NativeUser | None:
+    if not isinstance(value, _UserShape):
+        return None
+    user_id = _string(value.id)
+    username = _string(value.username)
+    if user_id is None or username is None:
+        return None
+    return _NativeUser(id=user_id, username=username)
+
+
+def _tweet_data(response: object) -> list[_NativeTweet]:
+    if not isinstance(response, _ResponseShape) or not _is_object_list(response.data):
+        return []
+    tweets: list[_NativeTweet] = []
+    for item in response.data:
+        tweet = _native_tweet(item)
+        if tweet is not None:
+            tweets.append(tweet)
+    return tweets
+
+
+def _included_users(response: object) -> dict[str, _NativeUser]:
+    if not isinstance(response, _SearchResponseShape):
+        return {}
+    values = _object_mapping(response.includes).get("users")
+    if not _is_object_list(values):
+        return {}
+    users: dict[str, _NativeUser] = {}
+    for value in values:
+        user = _native_user(value)
+        if user is not None:
+            users[user.id] = user
+    return users
+
+
+def _lookup_user(response: object) -> _NativeUser | None:
+    return _native_user(response.data) if isinstance(response, _ResponseShape) else None
+
+
+def _clean_keywords(keywords: list[str] | None) -> list[str]:
+    return [value for keyword in (keywords or []) if (value := keyword.lower().strip())]
+
+
+def _matches_keywords(text: str, keywords: list[str]) -> bool:
+    if not keywords:
+        return True
+    normalized = re.sub(r"\s+", " ", re.sub(r"[^a-z0-9\s]", " ", text.lower()))
+    return any(keyword in normalized for keyword in keywords)
+
+
+def _exception_status_and_headers(exc: Exception) -> tuple[int | None, dict[str, str]]:
+    status_code: int | None = None
+    headers: dict[str, str] = {}
+    if isinstance(exc, _ExceptionResponseShape) and isinstance(exc.response, _HttpResponseShape):
+        raw_status = exc.response.status_code
+        if isinstance(raw_status, int) and not isinstance(raw_status, bool):
+            status_code = raw_status
+        raw_headers = exc.response.headers
+        if _is_object_mapping(raw_headers):
+            for key, value in raw_headers.items():
+                headers[str(key).lower()] = str(value)
+    if status_code is None:
+        status_code = {
+            "TooManyRequests": 429,
+            "Unauthorized": 401,
+            "Forbidden": 403,
+            "NotFound": 404,
+        }.get(type(exc).__name__)
+    return status_code, headers
+
+
+def _require_client(value: object) -> _TwitterClient:
+    if not isinstance(value, _TwitterClient):
+        raise TypeError("Twitter client does not implement the required read API")
+    return value
+
+
+def _new_tweepy_client(
+    *,
+    api_key: str | None,
+    api_secret: str | None,
+    bearer_token: str | None,
+    access_token: str | None,
+    access_token_secret: str | None,
+) -> _TwitterClient:
+    if _tweepy is None:
+        raise ImportError("tweepy library is required. Install it with: pip install tweepy")
+    raw_client: object
+    if api_key and api_secret and access_token and access_token_secret:
+        raw_client = _tweepy.Client(
+            consumer_key=api_key,
+            consumer_secret=api_secret,
+            access_token=access_token,
+            access_token_secret=access_token_secret,
+            wait_on_rate_limit=False,
+        )
+    elif bearer_token:
+        raw_client = _tweepy.Client(
+            bearer_token=unquote(bearer_token),
+            wait_on_rate_limit=False,
+        )
+    else:
+        raise ValueError("Insufficient Twitter API credentials provided")
+    return _require_client(raw_client)
+
+
 class TwitterAdapter:
-    """Twitter/X官方API数据适配器"""
-    
+    """Twitter/X official read adapter."""
+
+    _REQUEST_SCOPE = RequestScope(provider="twitter")
+    _RATE_GATE = RateGate(
+        rate_limit_interval_seconds=1.0,
+        backoff_base_seconds=1.5,
+        backoff_max_seconds=60.0,
+        sleeper=time.sleep,
+    )
+
     def __init__(
         self,
         api_key: Optional[str] = None,
@@ -42,301 +337,171 @@ class TwitterAdapter:
         bearer_token: Optional[str] = None,
         access_token: Optional[str] = None,
         access_token_secret: Optional[str] = None,
-    ):
-        """
-        初始化Twitter适配器
-        
-        Args:
-            api_key: Twitter API Key (Consumer Key)
-            api_secret: Twitter API Secret (Consumer Secret)
-            bearer_token: Twitter Bearer Token (用于只读操作)
-            access_token: Twitter Access Token
-            access_token_secret: Twitter Access Token Secret
-        """
-        if not TWEEPY_AVAILABLE:
-            raise ImportError("tweepy library is required. Install it with: pip install tweepy")
-        
-        # 从配置中获取凭证（如果未提供）
-        if not any([api_key, bearer_token]):
-            from ....settings.config import settings
-            api_key = api_key or settings.twitter_api_key
-            api_secret = api_secret or settings.twitter_api_secret
-            bearer_token = bearer_token or settings.twitter_bearer_token
-            access_token = access_token or settings.twitter_access_token
-            access_token_secret = access_token_secret or settings.twitter_access_token_secret
-        
-        if not bearer_token and not (api_key and api_secret and access_token and access_token_secret):
-            raise ValueError("Twitter API credentials are required. Provide either bearer_token or (api_key, api_secret, access_token, access_token_secret)")
-        
-        # 创建API客户端
-        # 优先使用OAuth 1.0a认证（更可靠，支持更多操作）
-        if api_key and api_secret and access_token and access_token_secret:
-            self.client = tweepy.Client(
-                consumer_key=api_key,
-                consumer_secret=api_secret,
+        *,
+        client: _TwitterClient | None = None,
+    ) -> None:
+        if client is not None:
+            self.client = client
+        else:
+            if not any((api_key, bearer_token)):
+                from ....settings.config import settings
+
+                api_key = api_key or settings.twitter_api_key
+                api_secret = api_secret or settings.twitter_api_secret
+                bearer_token = bearer_token or settings.twitter_bearer_token
+                access_token = access_token or settings.twitter_access_token
+                access_token_secret = access_token_secret or settings.twitter_access_token_secret
+            if not bearer_token and not (
+                api_key and api_secret and access_token and access_token_secret
+            ):
+                raise ValueError(
+                    "Twitter API credentials are required. Provide either bearer_token "
+                    "or (api_key, api_secret, access_token, access_token_secret)"
+                )
+            self.client = _new_tweepy_client(
+                api_key=api_key,
+                api_secret=api_secret,
+                bearer_token=bearer_token,
                 access_token=access_token,
                 access_token_secret=access_token_secret,
-                wait_on_rate_limit=True,
             )
-            logger.info("Using OAuth 1.0a authentication")
-        elif bearer_token:
-            # 备用：使用Bearer Token（如果OAuth凭证不可用）
-            bearer_token = unquote(bearer_token)
-            self.client = tweepy.Client(
-                bearer_token=bearer_token,
-                wait_on_rate_limit=True,
+        self.last_failures: tuple[Failure, ...] = ()
+
+    def _request(self, operation: Callable[[], object]) -> object | None:
+        gate_decision = self._RATE_GATE.acquire(self._REQUEST_SCOPE)
+        if not gate_decision.acquired:
+            failure = make_request_failure(
+                reason_code="rate_limited",
+                scope=self._REQUEST_SCOPE,
+                retryable=True,
+                retry_after_seconds=gate_decision.retry_after_seconds,
             )
-            logger.info("Using Bearer Token authentication")
-        else:
-            raise ValueError("Insufficient Twitter API credentials provided")
-        
-        logger.info("Twitter API client initialized successfully")
-    
+            self.last_failures = (failure,)
+            return None
+        try:
+            result = operation()
+        except Exception as exc:
+            status_code, headers = _exception_status_and_headers(exc)
+            retry_after = parse_retry_after_seconds(headers.get("retry-after"))
+            rate_limited = status_code == 429
+            failure = make_request_failure(
+                reason_code="rate_limited" if rate_limited else "fetch_failed",
+                status_code=status_code,
+                scope=self._REQUEST_SCOPE,
+                retryable=rate_limited or status_code is None or status_code >= 500,
+                retry_after_seconds=retry_after,
+                transport_error=status_code is None,
+                message=str(exc) or type(exc).__name__,
+            )
+            if rate_limited:
+                self._RATE_GATE.record_throttle(
+                    self._REQUEST_SCOPE,
+                    retry_after_seconds=retry_after,
+                )
+            self.last_failures = (failure,)
+            logger.error("Twitter API request failed: %s", failure.message)
+            return None
+        self._RATE_GATE.record_success(self._REQUEST_SCOPE)
+        self.last_failures = ()
+        return result
+
+    @staticmethod
+    def _post(tweet: _NativeTweet, *, username: str | None) -> TwitterPost:
+        link = (
+            f"https://twitter.com/{username}/status/{tweet.id}"
+            if username
+            else f"https://twitter.com/i/web/status/{tweet.id}"
+        )
+        return TwitterPost(
+            title=tweet.text[:200],
+            link=link,
+            summary=tweet.text,
+            timestamp=tweet.created_at,
+            username=username,
+            likes=tweet.likes,
+            retweets=tweet.retweets,
+            replies=tweet.replies,
+            text=tweet.text,
+        )
+
     def search_tweets(
         self,
         query: str,
         keywords: Optional[List[str]] = None,
         limit: int = 20,
         max_results: int = 100,
-    ) -> Iterable[TwitterPost]:
-        """
-        搜索推文
-        
-        Args:
-            query: 搜索查询词
-            keywords: 可选的关键词列表，用于进一步过滤
-            limit: 返回结果数量限制
-            max_results: 每次API调用返回的最大结果数（10-100）
-        """
-        try:
-            if not query or not query.strip():
-                logger.warning("Empty search query provided")
-                return []
-            
-            logger.info(f"Searching tweets via Twitter API, query: {query}, keywords: {keywords}")
-            
-            # Twitter API v2搜索
-            tweets = self.client.search_recent_tweets(
+    ) -> list[TwitterPost]:
+        if not query or not query.strip():
+            self.last_failures = ()
+            return []
+        response = self._request(
+            lambda: self.client.search_recent_tweets(
                 query=query,
-                max_results=min(max_results, 100),  # Twitter API限制最多100条
-                tweet_fields=['created_at', 'author_id', 'public_metrics', 'text'],
-                expansions=['author_id'],
-                user_fields=['username', 'name'],
+                max_results=min(max_results, 100),
+                tweet_fields=("created_at", "author_id", "public_metrics", "text"),
+                expansions=("author_id",),
+                user_fields=("username", "name"),
             )
-            
-            if not tweets.data:
-                logger.info(f"No tweets found for query: {query}")
-                return []
-            
-            # 获取用户信息映射
-            users = {}
-            if tweets.includes and 'users' in tweets.includes:
-                for user in tweets.includes['users']:
-                    users[user.id] = user
-            
-            posts = []
-            effective_keywords = []
-            if keywords:
-                effective_keywords = [kw.lower().strip() for kw in keywords if kw and kw.strip()]
-            
-            for tweet in tweets.data:
-                # 提取推文信息
-                text = tweet.text or ""
-                
-                # 关键词过滤
-                if effective_keywords:
-                    text_lower = text.lower()
-                    normalized_text = re.sub(r"\s+", " ", re.sub(r"[^a-z0-9\s]", " ", text_lower))
-                    
-                    matched = False
-                    for kw in effective_keywords:
-                        if kw in normalized_text:
-                            matched = True
-                            break
-                    
-                    if not matched:
-                        continue
-                
-                # 获取用户信息
-                username = None
-                if tweet.author_id and tweet.author_id in users:
-                    user = users[tweet.author_id]
-                    username = user.username
-                
-                # 提取互动数据
-                metrics = tweet.public_metrics or {}
-                likes = metrics.get('like_count', 0) or 0
-                retweets = metrics.get('retweet_count', 0) or 0
-                replies = metrics.get('reply_count', 0) or 0
-                
-                # 构建推文链接
-                tweet_id = tweet.id
-                if username:
-                    link = f"https://twitter.com/{username}/status/{tweet_id}"
-                else:
-                    link = f"https://twitter.com/i/web/status/{tweet_id}"
-                
-                post = TwitterPost(
-                    title=text[:200] if text else "",  # 使用推文前200字符作为标题
-                    link=link,
-                    summary=text,
-                    timestamp=tweet.created_at,
-                    username=username,
-                    likes=likes,
-                    retweets=retweets,
-                    replies=replies,
-                    text=text,
-                )
-                posts.append(post)
-                
-                if len(posts) >= limit:
-                    break
-            
-            logger.info(f"Search '{query}': found {len(posts)} tweets (from {len(tweets.data)} total)")
-            return posts
-            
-        except tweepy.TooManyRequests:
-            logger.error("Twitter API rate limit exceeded")
+        )
+        if response is None:
             return []
-        except tweepy.Unauthorized:
-            logger.error("Twitter API authentication failed or insufficient permissions. Search may require paid API tier.")
-            logger.error("Check your API credentials and subscription level.")
-            return []
-        except tweepy.Forbidden:
-            logger.error("Twitter API access forbidden. Search functionality may require paid API tier.")
-            return []
-        except Exception as exc:
-            logger.error(f"Twitter search failed for '{query}': {exc}", exc_info=True)
-            return []
-    
+        tweets = _tweet_data(response)
+        users = _included_users(response)
+        effective_keywords = _clean_keywords(keywords)
+        posts: list[TwitterPost] = []
+        for tweet in tweets:
+            if not _matches_keywords(tweet.text, effective_keywords):
+                continue
+            user = users.get(tweet.author_id) if tweet.author_id is not None else None
+            posts.append(self._post(tweet, username=user.username if user is not None else None))
+            if len(posts) >= limit:
+                break
+        logger.info("Search %r: found %d tweets (from %d total)", query, len(posts), len(tweets))
+        return posts
+
     def get_user_tweets(
         self,
         username: str,
         keywords: Optional[List[str]] = None,
         limit: int = 20,
         max_results: int = 100,
-    ) -> Iterable[TwitterPost]:
-        """
-        获取指定用户的推文
-        
-        Args:
-            username: Twitter用户名（不含@）
-            keywords: 可选的关键词列表，用于过滤
-            limit: 返回结果数量限制
-            max_results: 每次API调用返回的最大结果数（5-100）
-        """
-        try:
-            # 先获取用户ID
-            user = self.client.get_user(username=username)
-            if not user.data:
-                logger.warning(f"User @{username} not found")
-                return []
-            
-            user_id = user.data.id
-            
-            logger.info(f"Fetching tweets from @{username} (ID: {user_id}) via Twitter API, keywords: {keywords}")
-            
-            # 获取用户推文
-            tweets = self.client.get_users_tweets(
-                id=user_id,
+    ) -> list[TwitterPost]:
+        user_response = self._request(lambda: self.client.get_user(username=username))
+        if user_response is None:
+            return []
+        user = _lookup_user(user_response)
+        if user is None:
+            return []
+        tweet_response = self._request(
+            lambda: self.client.get_users_tweets(
+                id=user.id,
                 max_results=min(max_results, 100),
-                tweet_fields=['created_at', 'public_metrics', 'text'],
+                tweet_fields=("created_at", "public_metrics", "text"),
             )
-            
-            if not tweets.data:
-                logger.info(f"No tweets found for user @{username}")
-                return []
-            
-            posts = []
-            effective_keywords = []
-            if keywords:
-                effective_keywords = [kw.lower().strip() for kw in keywords if kw and kw.strip()]
-            
-            for tweet in tweets.data:
-                text = tweet.text or ""
-                
-                # 关键词过滤
-                if effective_keywords:
-                    text_lower = text.lower()
-                    normalized_text = re.sub(r"\s+", " ", re.sub(r"[^a-z0-9\s]", " ", text_lower))
-                    
-                    matched = False
-                    for kw in effective_keywords:
-                        if kw in normalized_text:
-                            matched = True
-                            break
-                    
-                    if not matched:
-                        continue
-                
-                # 提取互动数据
-                metrics = tweet.public_metrics or {}
-                likes = metrics.get('like_count', 0) or 0
-                retweets = metrics.get('retweet_count', 0) or 0
-                replies = metrics.get('reply_count', 0) or 0
-                
-                # 构建推文链接
-                tweet_id = tweet.id
-                link = f"https://twitter.com/{username}/status/{tweet_id}"
-                
-                post = TwitterPost(
-                    title=text[:200] if text else "",
-                    link=link,
-                    summary=text,
-                    timestamp=tweet.created_at,
-                    username=username,
-                    likes=likes,
-                    retweets=retweets,
-                    replies=replies,
-                    text=text,
-                )
-                posts.append(post)
-                
-                if len(posts) >= limit:
-                    break
-            
-            logger.info(f"@{username}: found {len(posts)} tweets (from {len(tweets.data)} total)")
-            return posts
-            
-        except tweepy.TooManyRequests:
-            logger.error("Twitter API rate limit exceeded")
+        )
+        if tweet_response is None:
             return []
-        except tweepy.Unauthorized:
-            logger.error("Twitter API authentication failed. Check your credentials.")
-            return []
-        except tweepy.NotFound:
-            logger.warning(f"User @{username} not found")
-            return []
-        except Exception as exc:
-            logger.error(f"Twitter fetch failed for @{username}: {exc}", exc_info=True)
-            return []
-    
+        tweets = _tweet_data(tweet_response)
+        effective_keywords = _clean_keywords(keywords)
+        posts = [
+            self._post(tweet, username=user.username)
+            for tweet in tweets
+            if _matches_keywords(tweet.text, effective_keywords)
+        ][:limit]
+        logger.info("@%s: found %d tweets (from %d total)", username, len(posts), len(tweets))
+        return posts
+
     def search_multiple_queries(
         self,
         queries: List[str],
         keywords: Optional[List[str]] = None,
         limit_per_query: int = 20,
-    ) -> Iterable[TwitterPost]:
-        """
-        搜索多个查询词
-        
-        Args:
-            queries: 查询词列表
-            keywords: 可选的关键词列表，用于进一步过滤
-            limit_per_query: 每个查询的结果数量限制
-        """
-        all_posts: List[TwitterPost] = []
-        logger.info(f"Searching {len(queries)} queries: {queries}, keywords: {keywords}")
-        
-        for idx, query in enumerate(queries):
-            try:
-                posts = list(self.search_tweets(query, keywords, limit_per_query))
-                logger.info(f"Query '{query}': fetched {len(posts)} tweets")
-                all_posts.extend(posts)
-            except Exception as exc:
-                logger.error(f"Failed to search for '{query}': {exc}", exc_info=True)
-                continue
-        
-        logger.info(f"Total tweets collected from all queries: {len(all_posts)}")
+    ) -> list[TwitterPost]:
+        all_posts: list[TwitterPost] = []
+        failures: list[Failure] = []
+        for query in queries:
+            posts = self.search_tweets(query, keywords, limit_per_query)
+            all_posts.extend(posts)
+            failures.extend(self.last_failures)
+        self.last_failures = tuple(failures)
         return all_posts
-

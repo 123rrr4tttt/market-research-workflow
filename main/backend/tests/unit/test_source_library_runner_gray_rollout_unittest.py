@@ -13,9 +13,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.unit
 
 try:
-    from app.services.source_library.runner import run_channel
     from app.services.crawlers.base import CrawlerDispatchResult
     from app.services.source_library import provider_ports
+    from app.services.source_library.runner import run_channel
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -103,6 +103,75 @@ class SourceLibraryRunnerGrayRolloutUnitTestCase(unittest.TestCase):
             self.assertEqual(provider.request.spider, "news_spider")
         finally:
             provider_ports.set_crawler_provider_resolver(original_resolver)
+
+    def test_registered_scrapy_output_ingest_is_the_terminal_material_writer(self):
+        from app.services.source_library.provider_ports import CrawlerOutputIngestResult
+        from app.services.source_library.runner import _run_via_crawler_provider_registry
+
+        channel = {
+            "channel_key": "crawler.demo_proj",
+            "provider_type": "scrapy",
+            "provider_config": {},
+            "execution_policy": {},
+        }
+        params = {
+            "scrapy_project": "crawler_runtime",
+            "spider": "news_spider",
+            "output_ingest": {"enabled": True, "enable_extraction": False},
+        }
+
+        class _Provider:
+            client = SimpleNamespace(base_url="http://scrapyd.test")
+
+            def dispatch(self, request):  # noqa: ANN001
+                return CrawlerDispatchResult(
+                    provider_type="scrapy",
+                    provider_status="queued",
+                    provider_job_id="job-output-1",
+                    attempt_count=1,
+                )
+
+            def poll(self, **_kwargs):  # noqa: ANN003
+                return {
+                    "external_provider": "scrapy",
+                    "external_job_id": "job-output-1",
+                    "provider_status": "completed",
+                }
+
+        with (
+            patch("app.services.source_library.runner.resolve_crawler_provider", return_value=_Provider()),
+            patch(
+                "app.services.source_library.runner.ingest_crawler_output",
+                return_value=CrawlerOutputIngestResult(
+                    status="ingested",
+                    payload={"import_result": {"inserted": 1, "updated": 2, "skipped": 3}},
+                ),
+            ) as ingest,
+        ):
+            result = _run_via_crawler_provider_registry(
+                channel=channel,
+                params=params,
+                project_key="demo_proj",
+                provider_type="scrapy",
+            )
+
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual((result["inserted"], result["updated"], result["skipped"]), (1, 2, 3))
+        self.assertEqual(result["output_ingest"]["status"], "ingested")
+        self.assertEqual(result["terminal_readback"]["kind"], "terminal")
+        ingest.assert_called_once()
+        request = ingest.call_args.args[0]
+        self.assertEqual(request.provider_type, "scrapy")
+        self.assertEqual(request.project_key, "demo_proj")
+        self.assertEqual(request.provider_project, "crawler_runtime")
+        self.assertEqual(request.provider_job_id, "job-output-1")
+        self.assertEqual(request.base_url, "http://scrapyd.test")
+        self.assertEqual(request.wait_timeout_seconds, 120.0)
+        self.assertEqual(request.poll_interval_seconds, 0.5)
+        self.assertEqual(request.source_name, "crawler.demo_proj")
+        self.assertEqual(request.doc_type, "news")
+        self.assertFalse(request.enable_extraction)
+        self.assertEqual(request.max_items, 100)
 
     def test_crawler_provider_routes_via_registry_when_whitelisted(self):
         channel = {

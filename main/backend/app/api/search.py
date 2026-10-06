@@ -1,13 +1,20 @@
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Mapping
+from typing import NoReturn, TypeGuard, TypedDict
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import JsonValue
 from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..contracts.responses import ok
 from ..contracts.materials import normalize_material_source_type
 from ..services.document_queries import (
     DOCUMENT_QUERY_CONTRACT_VERSION,
+    DocumentQueryJsonObject,
+    DocumentQueryJsonValue,
     build_search_endpoint_document_query_envelope,
+    coerce_document_query_result_row,
 )
 from ..services.search.es_client import get_es_client
 from ..services.search.indexes import ensure_indices
@@ -34,7 +41,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/search", tags=["search"])
 
 
-def _raise_upstream_error(message: str, *, details: dict | None = None) -> None:
+class SearchRunIdValidationError(TypedDict):
+    message: str
+    details: DocumentQueryJsonObject
+
+
+def _raise_upstream_error(message: str, *, details: DocumentQueryJsonObject | None = None) -> NoReturn:
     raise HTTPException(
         status_code=503,
         detail=error_response(
@@ -45,7 +57,7 @@ def _raise_upstream_error(message: str, *, details: dict | None = None) -> None:
     )
 
 
-def _raise_internal_error(message: str, *, details: dict | None = None) -> None:
+def _raise_internal_error(message: str, *, details: DocumentQueryJsonObject | None = None) -> NoReturn:
     raise HTTPException(
         status_code=500,
         detail=error_response(
@@ -56,18 +68,49 @@ def _raise_internal_error(message: str, *, details: dict | None = None) -> None:
     )
 
 
-SearchEnvelope = ApiEnvelope[dict[str, Any]]
+SearchEnvelope = ApiEnvelope[dict[str, JsonValue]]
 
 
-def _search_clean_text(value: Any) -> str:
+def _search_clean_text(value: object) -> str:
     return " ".join(str(value or "").strip().split())
 
 
-def _search_mapping(value: Any) -> Mapping[str, Any]:
-    return value if isinstance(value, Mapping) else {}
+def _search_optional_text(value: object) -> str | None:
+    cleaned = _search_clean_text(value)
+    return cleaned or None
 
 
-def _search_clean_run_id(value: Any) -> tuple[str | None, dict[str, Any] | None]:
+def _is_search_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    return isinstance(value, Mapping)
+
+
+def _search_mapping(value: object) -> Mapping[str, object]:
+    return value if _is_search_mapping(value) else {}
+
+
+def _search_json_object(value: object) -> DocumentQueryJsonObject:
+    return coerce_document_query_result_row(value)
+
+
+def _search_json_value(value: object) -> DocumentQueryJsonValue:
+    return _search_json_object({"value": value})["value"]
+
+
+def _search_object_list(value: object) -> list[DocumentQueryJsonObject]:
+    converted = _search_json_value(value)
+    if not isinstance(converted, list):
+        return []
+    return [_search_json_object(item) for item in converted if _is_search_mapping(item)]
+
+
+def _search_text_list(value: object) -> list[str]:
+    converted = _search_json_value(value)
+    if not isinstance(converted, list):
+        return []
+    return [cleaned for item in converted if (cleaned := _search_clean_text(item))]
+
+
+def _search_clean_run_id(value: object) -> tuple[str | None, SearchRunIdValidationError | None]:
     cleaned = _search_clean_text(value)
     if not cleaned:
         return None, {
@@ -87,43 +130,40 @@ def _search_clean_run_id(value: Any) -> tuple[str | None, dict[str, Any] | None]
     return cleaned, None
 
 
-def _search_fallback_used(*, used_backends: list[str], retrieval_run: Mapping[str, Any]) -> bool:
+def _search_fallback_used(*, used_backends: Sequence[str], retrieval_run: Mapping[str, object]) -> bool:
     if any(backend == "pgvector_fallback" for backend in used_backends):
         return True
-    for hit in retrieval_run.get("retrieval_hits") or []:
-        if not isinstance(hit, Mapping):
-            continue
+    for hit in _search_object_list(retrieval_run.get("retrieval_hits")):
         provenance = hit.get("provenance")
-        if isinstance(provenance, Mapping) and provenance.get("fallback_reason"):
+        if _is_search_mapping(provenance) and provenance.get("fallback_reason"):
             return True
-    for hit in retrieval_run.get("evidence_hits") or []:
-        if not isinstance(hit, Mapping):
-            continue
+    for hit in _search_object_list(retrieval_run.get("evidence_hits")):
         provenance = hit.get("provenance")
-        if isinstance(provenance, Mapping) and provenance.get("fallback_reason"):
+        if _is_search_mapping(provenance) and provenance.get("fallback_reason"):
             return True
         if hit.get("fallback_reason"):
             return True
     return False
 
 
-def _search_index_backend(*, used_backends: list[str], fallback_order: list[str]) -> str:
+def _search_index_backend(*, used_backends: Sequence[str], fallback_order: Sequence[str]) -> str:
     for backend in used_backends:
         if backend:
             return backend
     return fallback_order[0] if fallback_order else "unknown"
 
 
-def _search_hit_count(value: Any) -> int:
-    if isinstance(value, list):
-        return len(value)
+def _search_hit_count(value: object) -> int:
+    converted = _search_json_value(value)
+    if isinstance(converted, list):
+        return len(converted)
     try:
-        return int(value)
+        return int(converted) if isinstance(converted, (str, int, float)) else 0
     except (TypeError, ValueError):
         return 0
 
 
-def _search_result_identifier(hit: Mapping[str, Any], *, index: int) -> str:
+def _search_result_identifier(hit: Mapping[str, object], *, index: int) -> str:
     vector_object = _search_mapping(hit.get("global_vector_object"))
     for value in (
         hit.get("hit_id"),
@@ -141,7 +181,7 @@ def _search_result_identifier(hit: Mapping[str, Any], *, index: int) -> str:
     return f"result-{index}"
 
 
-def _search_group_backend(hit: Mapping[str, Any]) -> str:
+def _search_group_backend(hit: Mapping[str, object]) -> str:
     provenance = _search_mapping(hit.get("provenance"))
     rank_features = _search_mapping(hit.get("rank_features"))
     vector_object = _search_mapping(hit.get("global_vector_object"))
@@ -155,7 +195,7 @@ def _search_group_backend(hit: Mapping[str, Any]) -> str:
     )
 
 
-def _search_group_source_type(hit: Mapping[str, Any]) -> str:
+def _search_group_source_type(hit: Mapping[str, object]) -> str:
     provenance = _search_mapping(hit.get("provenance"))
     vector_object = _search_mapping(hit.get("global_vector_object"))
     vector_provenance = _search_mapping(vector_object.get("provenance"))
@@ -169,7 +209,7 @@ def _search_group_source_type(hit: Mapping[str, Any]) -> str:
     )
 
 
-def _search_group_provenance_key(hit: Mapping[str, Any]) -> str:
+def _search_group_provenance_key(hit: Mapping[str, object]) -> str:
     provenance = _search_mapping(hit.get("provenance"))
     vector_object = _search_mapping(hit.get("global_vector_object"))
     vector_provenance = _search_mapping(vector_object.get("provenance"))
@@ -192,46 +232,53 @@ def _search_group_provenance_key(hit: Mapping[str, Any]) -> str:
 
 def _build_search_result_groups(
     *,
-    results: list[Mapping[str, Any]],
-    evidence_hits: list[Mapping[str, Any]],
+    results: Sequence[Mapping[str, object]],
+    evidence_hits: Sequence[Mapping[str, object]],
     default_backend: str,
-) -> list[dict[str, Any]]:
+) -> list[DocumentQueryJsonObject]:
     source_hits = evidence_hits or results
-    groups: dict[str, dict[str, Any]] = {}
+    group_fields: dict[str, tuple[str, str, str]] = {}
+    group_result_ids: dict[str, list[str]] = {}
     for index, hit in enumerate(source_hits, start=1):
-        if not isinstance(hit, Mapping):
-            continue
         backend = _search_group_backend(hit)
         if backend == "unknown" and default_backend:
             backend = default_backend
         source_type = _search_group_source_type(hit)
         provenance_key = _search_group_provenance_key(hit)
         group_key = f"{backend}|{source_type}|{provenance_key}"
-        group = groups.setdefault(
-            group_key,
-            {
-                "group_key": group_key,
-                "backend": backend,
-                "source_type": source_type,
-                "provenance_key": provenance_key,
-                "count": 0,
-                "result_ids": [],
-            },
-        )
+        group_fields[group_key] = (backend, source_type, provenance_key)
+        result_ids = group_result_ids.setdefault(group_key, [])
         result_id = _search_result_identifier(hit, index=index)
-        if result_id not in group["result_ids"]:
-            group["result_ids"].append(result_id)
-        group["count"] = len(group["result_ids"])
-    return sorted(groups.values(), key=lambda item: (item["backend"], item["source_type"], item["provenance_key"]))
+        if result_id not in result_ids:
+            result_ids.append(result_id)
+    groups: list[DocumentQueryJsonObject] = [
+        _search_json_object({
+            "group_key": group_key,
+            "backend": fields[0],
+            "source_type": fields[1],
+            "provenance_key": fields[2],
+            "count": len(group_result_ids[group_key]),
+            "result_ids": group_result_ids[group_key],
+        })
+        for group_key, fields in group_fields.items()
+    ]
+    return sorted(
+        groups,
+        key=lambda item: (
+            _search_clean_text(item.get("backend")),
+            _search_clean_text(item.get("source_type")),
+            _search_clean_text(item.get("provenance_key")),
+        ),
+    )
 
 
 def _build_search_index_freshness(
     *,
     index_backend: str,
     fallback_used: bool,
-    retrieval_run: Mapping[str, Any],
-    retrieval_run_readback: Mapping[str, Any] | None,
-) -> dict[str, Any]:
+    retrieval_run: Mapping[str, object],
+    retrieval_run_readback: Mapping[str, object] | None,
+) -> DocumentQueryJsonObject:
     readback = _search_mapping(retrieval_run_readback)
     readback_available = bool(readback.get("readback_available"))
     if readback_available and fallback_used:
@@ -252,7 +299,7 @@ def _build_search_index_freshness(
     if not hit_count:
         hit_count = _search_hit_count(retrieval_run.get("retrieval_hits"))
 
-    return {
+    return _search_json_object({
         "contract_version": "search.index_freshness.v1",
         "index_backend": index_backend,
         "readback_available": readback_available,
@@ -265,22 +312,20 @@ def _build_search_index_freshness(
         "hit_count": hit_count,
         "freshness_basis": "retrieval_run_readback" if readback_available else "retrieval_run",
         "known_limitations": ["no_real_index_timestamp"],
-    }
+    })
 
 
 def _build_search_provider_trace(
     *,
-    used_backends: list[str],
-    fallback_order: list[str],
-    retrieval_run: Mapping[str, Any],
+    used_backends: Sequence[str],
+    fallback_order: Sequence[str],
+    retrieval_run: Mapping[str, object],
     index_backend: str,
     fallback_used: bool,
-    index_freshness: Mapping[str, Any],
-) -> dict[str, Any]:
-    branches = []
-    for branch in retrieval_run.get("retrieval_branches") or []:
-        if not isinstance(branch, Mapping):
-            continue
+    index_freshness: Mapping[str, object],
+) -> DocumentQueryJsonObject:
+    branches: list[DocumentQueryJsonObject] = []
+    for branch in _search_object_list(retrieval_run.get("retrieval_branches")):
         branches.append(
             {
                 "matrix_branch_id": branch.get("matrix_branch_id"),
@@ -291,7 +336,7 @@ def _build_search_provider_trace(
                 "status": branch.get("status"),
             }
         )
-    return {
+    return _search_json_object({
         "contract_version": "search.provider_trace.compat.v1",
         "status": retrieval_run.get("status") or "completed",
         "retrieval_run_id": retrieval_run.get("retrieval_run_id") or retrieval_run.get("run_id"),
@@ -307,28 +352,24 @@ def _build_search_provider_trace(
             "fallback_used": index_freshness.get("fallback_used"),
         },
         "branches": branches,
-    }
+    })
 
 
-def _search_backends_from_retrieval_run(retrieval_run: Mapping[str, Any]) -> list[str]:
+def _search_backends_from_retrieval_run(retrieval_run: Mapping[str, object]) -> list[str]:
     backends: list[str] = []
-    for branch in retrieval_run.get("retrieval_branches") or []:
-        if not isinstance(branch, Mapping):
-            continue
+    for branch in _search_object_list(retrieval_run.get("retrieval_branches")):
         backend = _search_clean_text(branch.get("provider_or_index")) or _search_clean_text(branch.get("backend"))
         if backend and backend not in backends:
             backends.append(backend)
-    for hit in retrieval_run.get("retrieval_hits") or []:
-        if not isinstance(hit, Mapping):
-            continue
+    for hit in _search_object_list(retrieval_run.get("retrieval_hits")):
         backend = _search_group_backend(hit)
         if backend and backend != "unknown" and backend not in backends:
             backends.append(backend)
     return backends
 
 
-def _build_search_source_query(retrieval_run: Mapping[str, Any]) -> dict[str, Any]:
-    return {
+def _build_search_source_query(retrieval_run: Mapping[str, object]) -> DocumentQueryJsonObject:
+    return _search_json_object({
         "contract_version": "search.source_query.v1",
         "scope": "search.retrieval_run",
         "entrypoint": "search.runs.readback",
@@ -344,26 +385,26 @@ def _build_search_source_query(retrieval_run: Mapping[str, Any]) -> dict[str, An
         "state": retrieval_run.get("state"),
         "modality": retrieval_run.get("modality"),
         "top_k": retrieval_run.get("top_k"),
-    }
+    })
 
 
-def _build_search_source_refs(retrieval_run: Mapping[str, Any]) -> list[dict[str, Any]]:
+def _build_search_source_refs(retrieval_run: Mapping[str, object]) -> list[DocumentQueryJsonObject]:
     retrieval_run_id = retrieval_run.get("retrieval_run_id") or retrieval_run.get("run_id")
     query_group_id = retrieval_run.get("query_group_id")
-    refs: list[dict[str, Any]] = [
-        {
-            "id": f"search.retrieval_run:{retrieval_run_id}",
+    run_ref_id = f"search.retrieval_run:{retrieval_run_id}"
+    refs: list[DocumentQueryJsonObject] = [
+        _search_json_object({
+            "id": run_ref_id,
             "type": "search_retrieval_run",
             "table": "search_retrieval_runs",
             "retrieval_run_id": retrieval_run_id,
             "run_id": retrieval_run.get("run_id"),
             "query_group_id": query_group_id,
-        }
+        })
     ]
-    seen = {refs[0]["id"]}
-    for index, hit in enumerate(retrieval_run.get("retrieval_hits") or retrieval_run.get("evidence_hits") or [], start=1):
-        if not isinstance(hit, Mapping):
-            continue
+    seen = {run_ref_id}
+    raw_hits = retrieval_run.get("retrieval_hits") or retrieval_run.get("evidence_hits")
+    for index, hit in enumerate(_search_object_list(raw_hits), start=1):
         provenance = _search_mapping(hit.get("provenance"))
         vector_object = _search_mapping(hit.get("global_vector_object"))
         vector_provenance = _search_mapping(vector_object.get("provenance"))
@@ -387,7 +428,7 @@ def _build_search_source_refs(retrieval_run: Mapping[str, Any]) -> list[dict[str
             continue
         seen.add(ref_id)
         refs.append(
-            {
+            _search_json_object({
                 "id": ref_id,
                 "type": "search_evidence_hit",
                 "table": "search_retrieval_hits",
@@ -401,16 +442,16 @@ def _build_search_source_refs(retrieval_run: Mapping[str, Any]) -> list[dict[str
                 "chunk_id": _search_clean_text(hit.get("chunk_id")) or _search_clean_text(vector_object.get("chunk_id")) or None,
                 "source_id": source_id,
                 "source_reference": source_reference,
-            }
+            })
         )
     return refs
 
 
 def _build_search_retrieval_run_readback_payload(
     *,
-    retrieval_run: Mapping[str, Any],
+    retrieval_run: Mapping[str, object],
     store_path: Path,
-) -> dict[str, Any]:
+) -> DocumentQueryJsonObject:
     retrieval_run_id = retrieval_run.get("retrieval_run_id") or retrieval_run.get("run_id")
     readback = {
         "contract_version": SEARCH_RETRIEVAL_RUN_READBACK_CONTRACT_VERSION,
@@ -421,8 +462,8 @@ def _build_search_retrieval_run_readback_payload(
         "path": str(store_path),
         "run_id": retrieval_run.get("run_id"),
         "retrieval_run_id": retrieval_run_id,
-        "branch_count": len(list(retrieval_run.get("retrieval_branches") or [])),
-        "hit_count": len(list(retrieval_run.get("retrieval_hits") or [])),
+        "branch_count": len(_search_object_list(retrieval_run.get("retrieval_branches"))),
+        "hit_count": len(_search_object_list(retrieval_run.get("retrieval_hits"))),
     }
     used_backends = _search_backends_from_retrieval_run(retrieval_run)
     fallback_order = [
@@ -446,11 +487,11 @@ def _build_search_retrieval_run_readback_payload(
         fallback_used=fallback_used,
         index_freshness=index_freshness,
     )
-    return {
+    return _search_json_object({
         "retrieval_run_id": retrieval_run_id,
         "run_id": retrieval_run.get("run_id"),
         "query_group_id": retrieval_run.get("query_group_id"),
-        "retrieval_run": dict(retrieval_run),
+        "retrieval_run": _search_json_object(retrieval_run),
         "source_query": _build_search_source_query(retrieval_run),
         "source_refs": _build_search_source_refs(retrieval_run),
         "provider_trace": provider_trace,
@@ -459,7 +500,7 @@ def _build_search_retrieval_run_readback_payload(
         "index_freshness": index_freshness,
         "retrieval_run_readback": readback,
         "readback": readback,
-    }
+    })
 
 
 def _build_search_trace_chain(
@@ -467,15 +508,15 @@ def _build_search_trace_chain(
     request: Request,
     query: str,
     project_key: str | None,
-    used_backends: list[str],
-    fallback_order: list[str],
-    retrieval_run: Mapping[str, Any],
-    retrieval_run_readback: Mapping[str, Any] | None,
-    provider_trace: Mapping[str, Any],
+    used_backends: Sequence[str],
+    fallback_order: Sequence[str],
+    retrieval_run: Mapping[str, object],
+    retrieval_run_readback: Mapping[str, object] | None,
+    provider_trace: Mapping[str, object],
     index_backend: str,
     fallback_used: bool,
-    index_freshness: Mapping[str, Any],
-) -> dict[str, Any]:
+    index_freshness: Mapping[str, object],
+) -> DocumentQueryJsonObject:
     readback = _search_mapping(retrieval_run_readback)
     retrieval_run_id = (
         _search_clean_text(retrieval_run.get("retrieval_run_id"))
@@ -494,12 +535,12 @@ def _build_search_trace_chain(
     limitations = list(
         dict.fromkeys(
             [
-                *list(index_freshness.get("known_limitations") or []),
+                *_search_text_list(index_freshness.get("known_limitations")),
                 "no_real_index_timestamp",
             ]
         )
     )
-    return {
+    return _search_json_object({
         "contract_version": "ingest_search.trace_chain.v1",
         "trace_id": trace_id,
         "project_key": project_key,
@@ -560,7 +601,7 @@ def _build_search_trace_chain(
             "path": readback.get("path"),
         },
         "known_limitations": limitations,
-    }
+    })
 
 
 @router.get("/runs/{retrieval_run_id}", response_model=SearchEnvelope)
@@ -577,7 +618,7 @@ def get_search_retrieval_run(retrieval_run_id: str):
     assert cleaned_run_id is not None
     store_path = default_search_retrieval_runs_path()
     try:
-        retrieval_run = read_search_retrieval_run_record(store_path, cleaned_run_id)
+        retrieval_run = _search_json_object(read_search_retrieval_run_record(store_path, cleaned_run_id))
     except FileNotFoundError:
         return _error_json(
             404,
@@ -624,18 +665,23 @@ def search(
 ):
     """Placeholder: 混合检索统一接口（MVP 后续接 ES/pgvector）。"""
     try:
-        results = hybrid_search(
+        project_key = _search_optional_text(getattr(request.state, "project_key_resolved", None))
+        hybrid_results = hybrid_search(
             q,
             state,
             top_k,
             rank,
-            project_key=getattr(request.state, "project_key_resolved", None),
+            project_key=project_key,
         )
         results = [
-            {**row,
-             "material_id": row.get("material_id") or row.get("document_id") or row.get("doc_id") or row.get("id"),
-             "source_type": normalize_material_source_type(row.get("source_type")) or "material"}
-            for row in results
+            _search_json_object(
+                {
+                    **row,
+                    "material_id": row.get("material_id") or row.get("document_id") or row.get("doc_id") or row.get("id"),
+                    "source_type": normalize_material_source_type(row.get("source_type")) or "material",
+                }
+            )
+            for row in hybrid_results
         ]
         # Diagnostics about fallback/backends (contract-safe: added under data)
         fallback_order = [
@@ -643,7 +689,7 @@ def search(
             "qdrant_vector",
             "pgvector_fallback",
         ]
-        used_backends = []
+        used_backends: list[str] = []
         for b in get_last_used_backends():
             if b == "opensearch":
                 used_backends.append("opensearch_lexical")
@@ -654,8 +700,7 @@ def search(
             else:
                 used_backends.append(b)
 
-        project_key = getattr(request.state, "project_key_resolved", None)
-        query_group_id, evidence_hits = build_search_evidence_hits(
+        query_group_id, raw_evidence_hits = build_search_evidence_hits(
             results,
             query=q,
             project_key=project_key,
@@ -664,7 +709,8 @@ def search(
             modality=modality,
             top_k=top_k,
         )
-        retrieval_run = build_retrieval_run_record(
+        evidence_hits = [_search_json_object(hit) for hit in raw_evidence_hits]
+        retrieval_run = _search_json_object(build_retrieval_run_record(
             query=q,
             query_group_id=query_group_id,
             evidence_hits=evidence_hits,
@@ -674,8 +720,8 @@ def search(
             modality=modality,
             top_k=top_k,
             retrieval_family="main_search",
-        )
-        retrieval_run_readback = persist_search_retrieval_run_record(retrieval_run)
+        ))
+        retrieval_run_readback = _search_json_object(persist_search_retrieval_run_record(retrieval_run))
         index_backend = _search_index_backend(used_backends=used_backends, fallback_order=fallback_order)
         fallback_used = _search_fallback_used(used_backends=used_backends, retrieval_run=retrieval_run)
         result_groups = _build_search_result_groups(
@@ -722,39 +768,38 @@ def search(
         )
         document_query_data = document_query_envelope["data"]
 
-        return ok(
-            {
-                "query": q,
-                "state": state,
-                "modality": modality,
-                "rank": rank,
-                "top_k": top_k,
-                "results": results,
-                "document_query_contract_version": DOCUMENT_QUERY_CONTRACT_VERSION,
-                "document_query": document_query_data["query"],
-                "document_query_results": document_query_data["results"],
-                "document_query_pagination": document_query_data["pagination"],
-                "document_query_meta": document_query_envelope["meta"],
-                "global_vector_object_contract_version": GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION,
-                "evidence_hit_contract_version": SEARCH_EVIDENCE_HIT_CONTRACT_VERSION,
-                "query_group_id": query_group_id,
-                "evidence_hits": evidence_hits,
-                "retrieval_run_contract_version": SEARCH_RETRIEVAL_RUN_CONTRACT_VERSION,
-                "retrieval_run_id": retrieval_run["run_id"],
-                "search_branches": retrieval_run["retrieval_branches"],
-                "branch_hit_details": retrieval_run["retrieval_hits"],
-                "retrieval_run": retrieval_run,
-                "retrieval_run_readback": retrieval_run_readback,
-                "search_fallback_order": fallback_order,
-                "search_backends_used": used_backends,
-                "provider_trace": provider_trace,
-                "index_backend": index_backend,
-                "fallback_used": fallback_used,
-                "result_groups": result_groups,
-                "index_freshness": index_freshness,
-                "trace_chain": trace_chain,
-            }
-        )
+        response_data = _search_json_object({
+            "query": q,
+            "state": state,
+            "modality": modality,
+            "rank": rank,
+            "top_k": top_k,
+            "results": results,
+            "document_query_contract_version": DOCUMENT_QUERY_CONTRACT_VERSION,
+            "document_query": document_query_data["query"],
+            "document_query_results": document_query_data["results"],
+            "document_query_pagination": document_query_data["pagination"],
+            "document_query_meta": document_query_envelope["meta"],
+            "global_vector_object_contract_version": GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION,
+            "evidence_hit_contract_version": SEARCH_EVIDENCE_HIT_CONTRACT_VERSION,
+            "query_group_id": query_group_id,
+            "evidence_hits": evidence_hits,
+            "retrieval_run_contract_version": SEARCH_RETRIEVAL_RUN_CONTRACT_VERSION,
+            "retrieval_run_id": retrieval_run["run_id"],
+            "search_branches": retrieval_run["retrieval_branches"],
+            "branch_hit_details": retrieval_run["retrieval_hits"],
+            "retrieval_run": retrieval_run,
+            "retrieval_run_readback": retrieval_run_readback,
+            "search_fallback_order": fallback_order,
+            "search_backends_used": used_backends,
+            "provider_trace": provider_trace,
+            "index_backend": index_backend,
+            "fallback_used": fallback_used,
+            "result_groups": result_groups,
+            "index_freshness": index_freshness,
+            "trace_chain": trace_chain,
+        })
+        return ok(response_data)
     except Exception as e:
         logger.exception("搜索失败")
         error_msg = str(e)
@@ -773,4 +818,4 @@ def search(
 def init_search_indices():
     """Create ES indices if not present (idempotent)."""
     es = get_es_client()
-    return ok(ensure_indices(es))
+    return ok(_search_json_object(ensure_indices(es)))

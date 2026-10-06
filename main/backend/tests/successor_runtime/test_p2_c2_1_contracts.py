@@ -49,6 +49,15 @@ from app.successor_runtime.language.algebra import freeze_json_object
 from app.successor_runtime.language.program import Atom, decode_program_spec
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
+_REPOSITORY_ROOT = _BACKEND_ROOT.parents[1]
+_EXACT_BYTE_HISTORY = (
+    _REPOSITORY_ROOT
+    / "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind"
+)
+_SHARED_ROOT_HISTORY_FIXTURES = (
+    _BACKEND_ROOT / "tests/fixtures/successor_shared_roots_history"
+)
 
 PROJECT_KEY = "demo_proj"
 REGISTRY_REVISION = 5
@@ -83,9 +92,9 @@ _SHARED_ROOT_BASELINE = {
     "runtime/work_items.py": ("5acf8ecdfc4c85aec16af6798f7ea24053b7b77a3ab49187a6a3387a4c5d75f2"),
 }
 
-# Additive candidate witness for the current worktree. The historical
-# baseline remains authoritative for the original packet; this candidate is
-# accepted only with its explicit non-authoritative witness and exact bytes.
+# Historical additive candidate witness captured for the 2026-10-03 state.
+# It remains non-authoritative evidence and is never an allowlist for the
+# running worktree.
 _SHARED_ROOT_CANDIDATE = {
     "language/program.py": "d6cafde456556d97a0432064accdaaad6f8a8d7030bb7b27bcd31c0d69a93639",
     "language/compile.py": "7ded4fd0a05765cccac5aee262ce0d94267c7d9e71ff0d08869e03374c7aae2c",
@@ -193,33 +202,80 @@ def _plan(program):
     return compile_source_resolution_program(program, _catalog(), operation_contracts=_registry())
 
 
-def _shared_state(root: Path) -> dict[str, object]:
+def _shared_state(root: Path) -> dict[str, str]:
     return {relative: hashlib.sha256((root / relative).read_bytes()).hexdigest() for relative in _SHARED_ROOT_RELATIVES}
 
 
-def _accepted_shared_state(current: dict[str, str]) -> dict[str, str]:
-    if current == _SHARED_ROOT_BASELINE:
-        return _SHARED_ROOT_BASELINE
-    witness_digest = hashlib.sha256(
-        json.dumps(
-            _SHARED_ROOT_CANDIDATE_WITNESS,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=True,
-        ).encode("utf-8")
-    ).hexdigest()
-    assert witness_digest == _SHARED_ROOT_CANDIDATE_WITNESS_DIGEST
-    candidate_digest = hashlib.sha256(
-        json.dumps(
-            _SHARED_ROOT_CANDIDATE,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=True,
-        ).encode("utf-8")
-    ).hexdigest()
-    assert candidate_digest == _SHARED_ROOT_CANDIDATE_WITNESS["candidate_state_digest"]
-    assert current == _SHARED_ROOT_CANDIDATE, current
-    return _SHARED_ROOT_CANDIDATE
+def _managed_historical_shared_state(
+    history: str,
+    expected: dict[str, str],
+) -> tuple[dict[str, str], dict[str, str], tuple[str, ...]]:
+    prefix = "main/backend/app/successor_runtime"
+    candidates = []
+    for candidate_path in sorted(_EXACT_BYTE_HISTORY.glob("*/candidates/*/candidate.v2.json")):
+        candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+        entries = {
+            entry["path"]: entry
+            for group in ("sources", "tests", "fragments")
+            for entry in candidate.get(group, ())
+            if isinstance(entry, dict) and isinstance(entry.get("path"), str)
+        }
+        candidates.append((candidate_path, candidate, entries))
+
+    fixture_manifest_path = _SHARED_ROOT_HISTORY_FIXTURES / "manifest.json"
+    fixture_manifest = json.loads(fixture_manifest_path.read_text(encoding="utf-8"))
+    assert fixture_manifest.get("schema") == (
+        "mrw.successor_runtime.shared_root_history_fixture.v1"
+    )
+    fixture_rows = fixture_manifest.get("files")
+    assert isinstance(fixture_rows, list)
+    fixtures = {
+        (entry["history"], entry["relative_path"], entry["sha256"]): entry
+        for entry in fixture_rows
+        if isinstance(entry, dict)
+    }
+    assert len(fixtures) == len(fixture_rows)
+
+    state: dict[str, str] = {}
+    provenance: dict[str, str] = {}
+    missing: list[str] = []
+    for relative, digest in expected.items():
+        path = f"{prefix}/{relative}"
+        for candidate_path, candidate, entries in candidates:
+            entry = entries.get(path)
+            if entry is None or entry.get("file_sha256") != digest:
+                continue
+            assert candidate.get("status") == "CANDIDATE_VALID_NOT_AUTHORITY", candidate_path
+            snapshot_path = candidate_path.parent / entry["snapshot_path"]
+            assert snapshot_path.is_file(), snapshot_path
+            actual = hashlib.sha256(snapshot_path.read_bytes()).hexdigest()
+            assert actual == digest, (snapshot_path, actual, digest)
+            state[relative] = actual
+            provenance[relative] = (
+                f"{candidate_path.relative_to(_REPOSITORY_ROOT)}:{entry['snapshot_path']}"
+            )
+            break
+        else:
+            fixture = fixtures.get((history, relative, digest))
+            if fixture is None:
+                missing.append(f"{relative}:{digest}")
+                continue
+            assert fixture["git_path"] == f"{prefix}/{relative}"
+            revision = fixture["git_revision"]
+            assert isinstance(revision, str) and len(revision) == 40
+            assert all(character in "0123456789abcdef" for character in revision)
+            fixture_path = _SHARED_ROOT_HISTORY_FIXTURES / fixture["fixture"]
+            assert fixture_path.name.endswith(".py.source"), fixture_path
+            raw = fixture_path.read_bytes()
+            assert len(raw) == fixture["bytes"], fixture_path
+            actual = hashlib.sha256(raw).hexdigest()
+            assert actual == digest, (fixture_path, actual, digest)
+            state[relative] = actual
+            provenance[relative] = (
+                f"{fixture_path.relative_to(_REPOSITORY_ROOT)}"
+                f":{fixture['git_revision']}:{fixture['git_path']}"
+            )
+    return state, provenance, tuple(missing)
 
 
 def test_operation_kind_owner_and_catalog_are_exact() -> None:
@@ -689,9 +745,46 @@ def test_no_provider_or_credential_work() -> None:
 
 
 def test_shared_root_hashes_unchanged() -> None:
+    witness_digest = hashlib.sha256(
+        json.dumps(
+            _SHARED_ROOT_CANDIDATE_WITNESS,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    assert witness_digest == _SHARED_ROOT_CANDIDATE_WITNESS_DIGEST
+    candidate_digest = hashlib.sha256(
+        json.dumps(
+            _SHARED_ROOT_CANDIDATE,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    assert candidate_digest == _SHARED_ROOT_CANDIDATE_WITNESS["candidate_state_digest"]
+
+    missing: list[str] = []
+    for label, expected in (
+        ("original-packet-baseline", _SHARED_ROOT_BASELINE),
+        (_SHARED_ROOT_CANDIDATE_WITNESS["candidate_id"], _SHARED_ROOT_CANDIDATE),
+    ):
+        historical, provenance, absent = _managed_historical_shared_state(
+            label, expected
+        )
+        assert set(provenance) == set(historical)
+        if not absent:
+            assert historical == expected
+        missing.extend(f"{label}:{item}" for item in absent)
+    assert not missing, (
+        "managed history-only exact-byte input missing for shared-root path/hash(es): "
+        + ", ".join(missing)
+    )
+
+
+def test_c2_semantics_do_not_mutate_current_shared_roots() -> None:
     root = _BACKEND_ROOT / "app" / "successor_runtime"
     before = _shared_state(root)
-    accepted_before = _accepted_shared_state(before)
     bundle = _bundle()
     payload = _payload()
     program = _program(payload)
@@ -699,7 +792,7 @@ def test_shared_root_hashes_unchanged() -> None:
     resolve_source_execution_request(payload)
     assert bundle.operation.ref.contract_digest
     after = _shared_state(root)
-    assert after == accepted_before
+    assert after == before
 
 
 def test_import_boundaries_and_dependency_lint() -> None:

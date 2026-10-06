@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timezone
-from typing import Annotated, Any
+from typing import Annotated
 
 from ...contracts.schemas.writing import KeywordCardItem
 from ...contracts.materials import normalize_material_source_type
+from ..document_queries import (
+    DocumentQueryJsonObject,
+    DocumentQueryJsonValue,
+    DocumentQueryRow,
+    coerce_document_query_result_row,
+)
 from ..typed_knowledge.contracts import (
     WRITING_KNOWLEDGE_HANDOFF_CONTRACT_VERSION,
     WritingKnowledgeHandoff,
@@ -37,34 +43,43 @@ def build_keyword_card(
     published_at: str | None,
     evidence: str | None,
     normalized_query: str,
-    extra: dict[str, Any] | None = None,
+    extra: DocumentQueryJsonObject | None = None,
 ) -> Annotated[
     KeywordCardItem,
     "kit:non-authoritative derived_as=view "
     "fact_source=keyword_card_inputs+system_clock "
     "witness=test:test_w04_authority_metadata",
 ]:
-    source_type = normalize_material_source_type(source_type)
-    return KeywordCardItem(
-        card_id=make_card_id(source_type, title, url, normalized_query),
-        source_type=source_type,
-        title=title[:300] or "Untitled",
-        snippet=(snippet or evidence or "")[:2000],
-        url=url,
-        score=max(0.0, float(score or 0.0)),
-        publisher=(publisher or "")[:255] or None,
-        published_at=published_at,
-        retrieved_at=now_iso(),
-        evidence=(evidence or "")[:2000] or None,
-        relevance_tags=[normalized_query] if normalized_query else [],
-        credibility=min(1.0, max(0.0, float(score or 0.0))) if score is not None else None,
-        quick_actions=["insert_quote", "insert_summary", "open_detail"],
-        extra=extra or {},
+    normalized_source_type = normalize_material_source_type(source_type)
+    normalized_score = max(0.0, float(score or 0.0))
+    return KeywordCardItem.model_validate(
+        {
+            "card_id": make_card_id(normalized_source_type, title, url, normalized_query),
+            "source_type": normalized_source_type,
+            "title": title[:300] or "Untitled",
+            "snippet": (snippet or evidence or "")[:2000],
+            "url": url,
+            "score": normalized_score,
+            "publisher": (publisher or "")[:255] or None,
+            "published_at": published_at,
+            "retrieved_at": now_iso(),
+            "evidence": (evidence or "")[:2000] or None,
+            "relevance_tags": [normalized_query] if normalized_query else [],
+            "credibility": min(1.0, normalized_score),
+            "quick_actions": ["insert_quote", "insert_summary", "open_detail"],
+            "extra": extra or {},
+        }
     )
 
 
+def _score_value(value: DocumentQueryJsonValue, *, fallback: float) -> float:
+    if isinstance(value, (str, int, float, bool)):
+        return float(value)
+    return fallback
+
+
 def build_keyword_card_from_hybrid_row(
-    row: dict[str, Any],
+    row: DocumentQueryRow,
     *,
     normalized_query: str,
 ) -> Annotated[
@@ -75,7 +90,7 @@ def build_keyword_card_from_hybrid_row(
 ]:
     title = str(row.get("title") or row.get("document_title") or row.get("id") or "Document").strip()
     snippet = str(row.get("snippet") or row.get("summary") or row.get("content") or "").strip()
-    score = float(row.get("score") or row.get("_score") or 0.6)
+    score = _score_value(row.get("score") or row.get("_score"), fallback=0.6)
     url = str(row.get("url") or row.get("uri") or "").strip() or None
     publisher = str(row.get("publisher") or row.get("source") or "document").strip() or None
     published_at = str(row.get("published_at") or row.get("publish_date") or "").strip() or None
@@ -96,7 +111,7 @@ def build_keyword_card_from_hybrid_row(
 
 
 def build_keyword_card_from_source_row(
-    row: dict[str, Any],
+    row: DocumentQueryRow,
     *,
     normalized_query: str,
 ) -> Annotated[
@@ -123,7 +138,7 @@ def build_keyword_card_from_source_row(
 
 
 def build_keyword_card_from_material_item(
-    item: dict[str, Any],
+    item: DocumentQueryRow,
     *,
     normalized_query: str,
 ) -> Annotated[
@@ -148,10 +163,10 @@ def build_keyword_card_from_material_item(
 
 
 def build_keyword_card_from_graph_node(
-    node: dict[str, Any],
+    node: DocumentQueryRow,
     *,
     normalized_query: str,
-    graph_context: dict[str, Any],
+    graph_context: DocumentQueryJsonObject,
 ) -> Annotated[
     KeywordCardItem,
     "kit:non-authoritative derived_as=view "
@@ -193,7 +208,7 @@ def build_keyword_card_from_typed_knowledge_handoff(
     "witness=test:test_w04_authority_metadata",
 ]:
     validate_writing_knowledge_handoff(handoff)
-    handoff_payload = serialize_writing_knowledge_handoff(handoff)
+    handoff_payload = coerce_document_query_result_row(serialize_writing_knowledge_handoff(handoff))
     typed_knowledge_uri = f"typed-knowledge://{handoff.knowledge_item_key}"
     return build_keyword_card(
         source_type="resource",

@@ -25,6 +25,7 @@ from functorial_kit.contributions import ContributionObject, contribution_failur
 from functorial_kit.core.failure import Failure
 from functorial_kit.law_witness import define_law_witness
 from functorial_kit.native_contribution import (
+    NativeContribution,
     BindingAccepted,
     BindingRejected,
     NativeBindingIssue,
@@ -479,5 +480,5 @@ MATERIAL_NATIVE_CONTRIBUTION_RULE = NativeContributionRule[
 )
 
 
-def compile_material_native_contribution(source: MaterialNativeSource) -> object:
+def compile_material_native_contribution(source: MaterialNativeSource) -> NativeContribution[MaterialNativeDefinition, MaterialAssemblyContext, MaterialNativeBinding] | Failure:
     return compile_native_contribution(source, MATERIAL_NATIVE_CONTRIBUTION_RULE)

@@ -32,9 +32,11 @@ from app.successor_runtime.capabilities.checksum import (
     content_digest,
     sha256_hex,
 )
+from app.successor_runtime.language.algebra import ValueRef
 from app.successor_runtime.language.catalog import OperationContractCatalogSnapshot
 from app.successor_runtime.language.object_contracts import OperationContractRef
-from app.successor_runtime.language.plan import with_plan_digest
+from app.successor_runtime.language.plan import ExecutionPlan, with_plan_digest
+from app.successor_runtime.language.program import ProgramSpec
 from app.successor_runtime.research.codec import is_sha256_hex
 
 __all__ = [
@@ -49,6 +51,7 @@ __all__ = [
     "ItemView",
     "PayloadView",
     "ProjectScopeView",
+    "ResolutionInterpreterBindingView",
     "ResolutionBindingMismatch",
     "SourceResolutionSuccessorInterpreter",
     "authority_requirement_digest",
@@ -93,50 +96,121 @@ InterpreterOutcome: TypeAlias = InterpreterSuccess[T] | InterpreterFailure
 
 @runtime_checkable
 class ProjectScopeView(Protocol):
-    project_key: str
-    registry_revision: int
-    incarnation: str
-    scope_digest: str
+    @property
+    def project_key(self) -> str: ...
+
+    @property
+    def registry_revision(self) -> int: ...
+
+    @property
+    def incarnation(self) -> str: ...
+
+    @property
+    def scope_digest(self) -> str: ...
 
 
 @runtime_checkable
 class CatalogEntryView(Protocol):
-    channel_key: str
-    provider: str
-    provider_type: str
-    enabled: bool
-    extra: Any
+    @property
+    def channel_key(self) -> str: ...
+
+    @property
+    def provider(self) -> str: ...
+
+    @property
+    def provider_type(self) -> str: ...
+
+    @property
+    def enabled(self) -> bool: ...
+
+    @property
+    def extra(self) -> Any: ...
 
 
 @runtime_checkable
 class CatalogSnapshotView(Protocol):
-    schema_version: str
-    revision: int
-    incarnation: str
-    digest: str
-    entries: tuple[Any, ...]
+    @property
+    def schema_version(self) -> str: ...
+
+    @property
+    def revision(self) -> int: ...
+
+    @property
+    def incarnation(self) -> str: ...
+
+    @property
+    def digest(self) -> str: ...
+
+    @property
+    def entries(self) -> tuple[Any, ...]: ...
 
 
 @runtime_checkable
 class ItemView(Protocol):
-    item_key: str
-    channel_key: str
-    enabled: bool
-    item_type: str | None
-    managed_by: str | None
-    params: Any
-    extra: Any
+    @property
+    def item_key(self) -> str: ...
+
+    @property
+    def channel_key(self) -> str: ...
+
+    @property
+    def enabled(self) -> bool: ...
+
+    @property
+    def item_type(self) -> str | None: ...
+
+    @property
+    def managed_by(self) -> str | None: ...
+
+    @property
+    def params(self) -> Any: ...
+
+    @property
+    def extra(self) -> Any: ...
 
 
 @runtime_checkable
 class PayloadView(Protocol):
-    schema_version: str
-    operation_kind: str
-    project_scope: ProjectScopeView
-    catalog: CatalogSnapshotView
-    item: ItemView
-    params: Any
-    payload_digest: str
+    @property
+    def schema_version(self) -> str: ...
+
+    @property
+    def operation_kind(self) -> str: ...
+
+    @property
+    def project_scope(self) -> ProjectScopeView: ...
+
+    @property
+    def catalog(self) -> CatalogSnapshotView: ...
+
+    @property
+    def item(self) -> ItemView: ...
+
+    @property
+    def params(self) -> Any: ...
+
+    @property
+    def payload_digest(self) -> str: ...
+
+
+@runtime_checkable
+class ResolutionInterpreterBindingView(Protocol):
+    """Read-only exact-binding facts consumed by the pure interpreter."""
+
+    @property
+    def binding_digest(self) -> str: ...
+
+    @property
+    def operation_contract_digest(self) -> str: ...
+
+    @property
+    def project_scope_digest(self) -> str: ...
+
+    @property
+    def deployment_catalog_digest(self) -> str: ...
+
+    @property
+    def interpreter_profile_digest(self) -> str: ...
 
 
 def _thaw(value: Any) -> Any:
@@ -961,15 +1035,15 @@ def _is_hex64(value: Any) -> bool:
 
 def require_exact_resolution_binding(
     *,
-    program: Any,
-    plan: Any,
+    program: ProgramSpec,
+    plan: ExecutionPlan,
     contract_ref: OperationContractRef,
-    payload_ref: Any,
-    payload: PayloadView,
-    project_scope: ProjectScopeView,
+    payload_ref: ValueRef,
+    payload: resolution.SourceResolutionPayload,
+    project_scope: resolution.AuthenticatedProjectScope,
     catalog: OperationContractCatalogSnapshot,
     deployment_catalog_digest: str,
-    binding: Any,
+    binding: ResolutionInterpreterBindingView,
     expected_interpreter_profile_digest: str | None = None,
 ) -> dict[str, str]:
     """Fail closed unless the complete C2.1 closure is exact."""
@@ -1147,15 +1221,15 @@ class SourceResolutionSuccessorInterpreter:
     def interpret(
         self,
         *,
-        program: Any,
-        plan: Any,
+        program: ProgramSpec,
+        plan: ExecutionPlan,
         contract_ref: OperationContractRef,
-        payload_ref: Any,
-        payload: PayloadView,
-        project_scope: ProjectScopeView,
+        payload_ref: ValueRef,
+        payload: resolution.SourceResolutionPayload,
+        project_scope: resolution.AuthenticatedProjectScope,
         catalog: OperationContractCatalogSnapshot,
         deployment_catalog_digest: str,
-        binding: Any,
+        binding: ResolutionInterpreterBindingView,
     ) -> InterpreterOutcome[resolution.SourceResolutionResult]:
         try:
             require_exact_resolution_binding(

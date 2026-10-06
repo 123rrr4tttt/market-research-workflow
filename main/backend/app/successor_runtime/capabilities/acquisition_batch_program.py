@@ -14,8 +14,9 @@ ordered traversal in-process only for bounded local fixtures and parity.
 
 from __future__ import annotations
 import dataclasses
+from collections.abc import Iterable
 from functorial_kit import Failure
-from typing import Annotated, Any, Literal, NoReturn, TypeAlias
+from typing import Annotated, Literal, NoReturn, Protocol, TypeAlias, runtime_checkable
 from app.successor_runtime.capabilities import acquisition_batch as acquisition
 from app.successor_runtime.capabilities.checksum import canonical_json, content_digest, require_hex64, sha256_hex
 from app.successor_runtime.language.algebra import AlgebraRef, OperationSpec, ValueRef, freeze_json_object
@@ -27,7 +28,9 @@ from app.successor_runtime.language.compile import (
     compile_program,
 )
 from app.successor_runtime.language.object_contracts import OperationContractRef, OperationContractResolver
+from app.successor_runtime.language.plan import ExecutionPlan
 from app.successor_runtime.language.program import (
+    Atom,
     ProgramSpec,
     atom_node,
     identity_node,
@@ -36,6 +39,7 @@ from app.successor_runtime.language.program import (
     traverse_ordered_node,
 )
 from app.successor_runtime.language.transforms import TransformRef, TransformRegistry
+from app.successor_runtime.research.object_types import ObjectType
 
 __all__ = [
     "COLLECT_FOLD_TRANSFORM_NAME",
@@ -77,6 +81,17 @@ FAMILY_PAYLOAD_PROVENANCE_SCHEMA = "mrw.acquisition.batch-element-sequence.prove
 ProgramBuildResult: TypeAlias = "ProgramSpec | Failure"
 
 
+@runtime_checkable
+class _PlainMapping(Protocol):
+    def items(self) -> Iterable[tuple[str, object]]: ...
+
+
+def _plain_object(value: object, field_name: str) -> dict[str, object]:
+    if not isinstance(value, _PlainMapping):
+        acquisition.raise_collect_programmer_defect(f"fold transform requires {field_name}", TypeError)
+    return dict(value.items())
+
+
 def _program_contract_failure(
     *, message: str, site: str, domain_outcome: Literal["INVALID_INPUT", "FOLD_CONTRACT_FAILURE"]
 ) -> Failure:
@@ -101,7 +116,7 @@ def _reject_program_contract(
     )
 
 
-def _element_atom_root() -> Any:
+def _element_atom_root() -> Atom:
     bundle = acquisition.build_acquisition_batch_bundle()
     ref = bundle.execute_element_operation.ref
     dummy = ValueRef(
@@ -131,7 +146,7 @@ def _element_atom_root() -> Any:
     )
 
 
-def family_payload_sequence_type() -> Any:
+def family_payload_sequence_type() -> ObjectType:
     return traverse_ordered_node(_element_atom_root(), traversal_policy="MATERIALIZED_SHAPE").input_type
 
 
@@ -186,7 +201,7 @@ def build_family_payload_value_ref(
     )
 
 
-def _sequence_to_fold_payload_plain(sequence_plain: dict[str, Any]) -> dict[str, Any]:
+def _sequence_to_fold_payload_plain(sequence_plain: dict[str, object]) -> dict[str, object]:
     """Pure typed intermediate: ordered outcome sequence -> fold payload."""
     parent_request_ref = sequence_plain.get("parent_request_ref")
     if not isinstance(parent_request_ref, dict):
@@ -199,20 +214,21 @@ def _sequence_to_fold_payload_plain(sequence_plain: dict[str, Any]) -> dict[str,
     }
 
 
-def _fold_ordered_payload_plain(payload_plain: dict[str, Any]) -> dict[str, Any]:
+def _fold_ordered_payload_plain(payload_plain: dict[str, object]) -> dict[str, object]:
     """Pure named fold transform over an already observed fold payload."""
-    outcomes = payload_plain.get("ordered_outcomes")
-    if not isinstance(outcomes, dict):
-        acquisition.raise_collect_programmer_defect("fold transform requires ordered_outcomes", TypeError)
+    outcomes = _plain_object(payload_plain["ordered_outcomes"], "ordered_outcomes")
+    parent_request_ref = _plain_object(outcomes["parent_request_ref"], "parent_request_ref")
+    aggregation_policy_ref = payload_plain.get("aggregation_policy_ref")
+    observation_profile_ref = payload_plain.get("observation_profile_ref")
+    if not isinstance(aggregation_policy_ref, str):
+        aggregation_policy_ref = acquisition.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF
+    if not isinstance(observation_profile_ref, str):
+        observation_profile_ref = acquisition.COLLECT_FOLD_OBSERVATION_PROFILE
     payload = acquisition.collect_fold_payload_from_dicts(
-        parent_request_ref=outcomes["parent_request_ref"],
+        parent_request_ref=parent_request_ref,
         ordered_outcomes=outcomes,
-        aggregation_policy_ref=payload_plain.get(
-            "aggregation_policy_ref", acquisition.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF
-        ),
-        observation_profile_ref=payload_plain.get(
-            "observation_profile_ref", acquisition.COLLECT_FOLD_OBSERVATION_PROFILE
-        ),
+        aggregation_policy_ref=aggregation_policy_ref,
+        observation_profile_ref=observation_profile_ref,
     )
     aggregate = acquisition.fold_ordered_results(
         payload.ordered_outcomes,
@@ -233,7 +249,7 @@ def _register_fold_transform(registry: TransformRegistry) -> TransformRef:
     )
 
 
-def _register_sequence_to_fold_payload(registry: TransformRegistry, *, sequence_type: Any) -> TransformRef:
+def _register_sequence_to_fold_payload(registry: TransformRegistry, *, sequence_type: ObjectType) -> TransformRef:
     return registry.register_transform(
         name=COLLECT_SEQUENCE_TO_FOLD_PAYLOAD_TRANSFORM_NAME,
         version="1.0.0",
@@ -283,7 +299,13 @@ def exact_contract_ref(catalog: OperationContractCatalogSnapshot, *, kind: str) 
 
 
 def payload_value_ref(
-    payload: Any, *, program_id: str, project_key: str, payload_type: Any, codec_id: str, value_suffix: str
+    payload: acquisition.CollectBatchElementPayload | acquisition.CollectFoldPayload,
+    *,
+    program_id: str,
+    project_key: str,
+    payload_type: ObjectType,
+    codec_id: str,
+    value_suffix: str,
 ) -> ValueRef:
     """Build the exact content-addressed ValueRef for one acquisition payload."""
     if payload.parent_request_ref.project_key != project_key:
@@ -323,14 +345,14 @@ def payload_value_ref(
 
 def _metadata(
     *,
-    payload: Any,
+    payload: acquisition.CollectBatchElementPayload | acquisition.CollectFoldPayload,
     program_id: str,
     project_key: str,
     project_registry_revision: int,
     project_scope_digest: str,
     value_ref: ValueRef,
-    extra: dict[str, Any],
-) -> dict[str, Any]:
+    extra: dict[str, object],
+) -> dict[str, object]:
     return {
         "schema": (
             acquisition.ACQUISITION_BATCH_ELEMENT_PAYLOAD_SCHEMA
@@ -353,7 +375,7 @@ def _metadata(
 
 def build_collect_program(
     *,
-    payload: Any,
+    payload: acquisition.CollectBatchElementPayload | acquisition.CollectFoldPayload,
     catalog: OperationContractCatalogSnapshot,
     program_id: str,
     project_key: str,
@@ -362,11 +384,11 @@ def build_collect_program(
     operation_id: str,
     semantic_identity: str,
     observation_profile: str,
-    payload_type: Any,
-    result_type: Any,
+    payload_type: ObjectType,
+    result_type: ObjectType,
     codec_id: str,
     value_suffix: str,
-    extra_metadata: dict[str, Any] | None = None,
+    extra_metadata: dict[str, object] | None = None,
     contract_version: str = "mrw.functorial-successor.program-spec.v1",
 ) -> Annotated[
     ProgramSpec,
@@ -433,7 +455,7 @@ def build_collect_program(
 
 def try_build_collect_program(
     *,
-    payload: Any,
+    payload: acquisition.CollectBatchElementPayload | acquisition.CollectFoldPayload,
     catalog: OperationContractCatalogSnapshot,
     program_id: str,
     project_key: str,
@@ -442,11 +464,11 @@ def try_build_collect_program(
     operation_id: str,
     semantic_identity: str,
     observation_profile: str,
-    payload_type: Any,
-    result_type: Any,
+    payload_type: ObjectType,
+    result_type: ObjectType,
     codec_id: str,
     value_suffix: str,
-    extra_metadata: dict[str, Any] | None = None,
+    extra_metadata: dict[str, object] | None = None,
     contract_version: str = "mrw.functorial-successor.program-spec.v1",
 ) -> ProgramBuildResult:
     """Total exact single-Atom Program construction."""
@@ -779,7 +801,7 @@ def compile_collect_program(
     *,
     operation_contracts: OperationContractResolver,
     transform_registry: TransformRegistry | None = None,
-) -> Any:
+) -> ExecutionPlan:
     """Compile an acquisition single-Atom Program through the shared compiler."""
     return compile_program(
         program, catalog, operation_contracts=operation_contracts, transform_registry=transform_registry
@@ -794,7 +816,7 @@ class TraversalCompileStatus:
     program_digest: str
     plan_digest: str | None = None
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> dict[str, object]:
         return {
             "compiled": self.compiled,
             "code": self.code,
@@ -850,7 +872,7 @@ def build_declared_traversal_program(
         project_scope_digest=project_scope_digest,
     )
     root = traverse_ordered_node(element_program.root, traversal_policy=traversal_policy)
-    metadata_payload: dict[str, Any] = {
+    metadata_payload: dict[str, object] = {
         "schema": "mrw.acquisition.batch.execute_element.declared-traversal.v2",
         "operation_kind": acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND,
         "traversal_policy": traversal_policy,

@@ -15,8 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.integration
 
 try:
-    from fastapi.testclient import TestClient
+    from app.api import ingest as ingest_api
     from app.main import app as backend_app
+    from fastapi.testclient import TestClient
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -46,6 +47,18 @@ def _response_payload(body):
 
 def _unique_key(prefix: str) -> str:
     return f"{prefix}-{uuid4().hex}"
+
+
+def _reserve_in_fixture_memory(**kwargs):
+    return ingest_api.reserve_ingest_submission_memory_for_test(
+        registry_key=kwargs["registry_key"],
+        project_key=kwargs["project_key"],
+        idempotency_key=kwargs["idempotency_key"],
+        trigger_type=kwargs["trigger_type"],
+        subject=kwargs["subject"],
+        request_hash=kwargs["request_hash"],
+        degraded=True,
+    )
 
 
 class IngestCoreContractTestCase(unittest.TestCase):
@@ -615,7 +628,15 @@ class IngestCoreContractTestCase(unittest.TestCase):
             "async_mode": True,
         }
 
-        with patch("app.api.ingest._tasks_module", return_value=tasks):
+        with (
+            patch("app.api.ingest._tasks_module", return_value=tasks),
+            patch(
+                "app.api.ingest._reserve_ingest_submission_db",
+                side_effect=_reserve_in_fixture_memory,
+            ),
+            patch("app.api.ingest._complete_ingest_submission_db"),
+            patch("app.api.ingest._forget_ingest_submission_db"),
+        ):
             resp = self.client.post("/api/v1/ingest/url/single", json=payload)
 
         self.assertEqual(resp.status_code, 200, msg=resp.text)
@@ -659,7 +680,15 @@ class IngestCoreContractTestCase(unittest.TestCase):
             "async_mode": True,
         }
 
-        with patch("app.api.ingest._tasks_module", return_value=tasks):
+        with (
+            patch("app.api.ingest._tasks_module", return_value=tasks),
+            patch(
+                "app.api.ingest._reserve_ingest_submission_db",
+                side_effect=_reserve_in_fixture_memory,
+            ),
+            patch("app.api.ingest._complete_ingest_submission_db"),
+            patch("app.api.ingest._forget_ingest_submission_db"),
+        ):
             first_resp = self.client.post("/api/v1/ingest/url/single", json=payload)
             duplicate_resp = self.client.post("/api/v1/ingest/url/single", json=payload)
 
@@ -721,7 +750,7 @@ class IngestCoreContractTestCase(unittest.TestCase):
             return_value=[legacy_job],
         ), patch(
             "app.api.ingest._reserve_ingest_submission_db",
-            side_effect=OperationalError("select", {}, Exception("database down")),
+            side_effect=_reserve_in_fixture_memory,
         ), patch("app.api.ingest._complete_ingest_submission_db"), patch(
             "app.api.ingest._list_recent_ingest_submissions_db", return_value=[]
         ):
@@ -773,7 +802,15 @@ class IngestCoreContractTestCase(unittest.TestCase):
             "override_params": {"k": "v"},
         }
 
-        with patch("app.api.ingest._tasks_module", return_value=tasks):
+        with (
+            patch("app.api.ingest._tasks_module", return_value=tasks),
+            patch(
+                "app.api.ingest._reserve_ingest_submission_db",
+                side_effect=_reserve_in_fixture_memory,
+            ),
+            patch("app.api.ingest._complete_ingest_submission_db"),
+            patch("app.api.ingest._forget_ingest_submission_db"),
+        ):
             first_resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
             duplicate_resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
 
@@ -820,7 +857,7 @@ class IngestCoreContractTestCase(unittest.TestCase):
             "trigger_type": "ingest.url.single",
             "project_key": "demo_proj",
             "registry_key": "ingest.url.single:demo_proj:core-url-single-db-idem-1",
-            "request_hash": "a" * 64,
+            "request_hash": "",
             "subject": {"url": "https://example.com/post/db-duplicate", "project_key": "demo_proj"},
             "response": {
                 "task_id": "db-task-1",
@@ -832,9 +869,13 @@ class IngestCoreContractTestCase(unittest.TestCase):
             "registry_degraded": False,
         }
 
+        def reserve_existing(**kwargs):
+            submission["request_hash"] = kwargs["request_hash"]
+            return submission, True
+
         with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
             "app.api.ingest._reserve_ingest_submission_db",
-            return_value=(submission, True),
+            side_effect=reserve_existing,
         ) as reserve_db:
             resp = self.client.post("/api/v1/ingest/url/single", json=payload)
 
@@ -846,11 +887,11 @@ class IngestCoreContractTestCase(unittest.TestCase):
         self.assertTrue(data.get("duplicate"))
         self.assertEqual(data.get("registry_backend"), "db")
         self.assertFalse(data.get("registry_degraded"))
-        self.assertEqual(data.get("request_hash"), "a" * 64)
+        self.assertEqual(data.get("request_hash"), submission["request_hash"])
         tasks.task_ingest_url_via_source_library.delay.assert_not_called()
         reserve_db.assert_called_once()
 
-    def test_url_single_async_marks_memory_registry_when_db_unavailable(self):
+    def test_url_single_async_fails_closed_when_db_unavailable(self):
         tasks = _TrackedTasks()
         idempotency_key = _unique_key("core-url-single-db-down-idem")
         unique_url = f"https://example.com/post/{idempotency_key}"
@@ -869,19 +910,89 @@ class IngestCoreContractTestCase(unittest.TestCase):
         ), patch("app.api.ingest._complete_ingest_submission_db"):
             resp = self.client.post("/api/v1/ingest/url/single", json=payload)
 
-        self.assertEqual(resp.status_code, 200, msg=resp.text)
-        data = _response_payload(resp.json())
-        self.assertEqual(data.get("task_id"), "single-url-task-1")
-        self.assertEqual(data.get("registry_backend"), "memory")
-        self.assertTrue(data.get("registry_degraded"))
-        self.assertEqual(data.get("idempotency_key"), idempotency_key)
-        self.assertTrue(data.get("request_hash"))
-        tasks.task_ingest_url_via_source_library.delay.assert_called_once_with(
-            unique_url,
-            ["market"],
-            False,
-            "demo_proj",
+        self.assertEqual(resp.status_code, 503, msg=resp.text)
+        error = resp.json()["detail"]["error"]
+        self.assertEqual(error["code"], "UPSTREAM_ERROR")
+        self.assertEqual(error["details"]["reason"], "ingest_submission_registry_unavailable")
+        tasks.task_ingest_url_via_source_library.delay.assert_not_called()
+
+    def test_url_single_async_rejects_same_key_with_changed_url_without_dispatch(self):
+        tasks = _TrackedTasks()
+        idempotency_key = _unique_key("core-url-single-hash-conflict")
+        first_payload = {
+            "url": "https://example.com/post/first",
+            "idempotency_key": idempotency_key,
+            "project_key": "demo_proj",
+            "async_mode": True,
+        }
+        changed_payload = {**first_payload, "url": "https://example.com/post/changed"}
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
+            "app.api.ingest._reserve_ingest_submission_db",
+            side_effect=_reserve_in_fixture_memory,
+        ), patch("app.api.ingest._complete_ingest_submission_db"):
+            first_resp = self.client.post("/api/v1/ingest/url/single", json=first_payload)
+            conflict_resp = self.client.post("/api/v1/ingest/url/single", json=changed_payload)
+
+        self.assertEqual(first_resp.status_code, 200, msg=first_resp.text)
+        self.assertEqual(conflict_resp.status_code, 409, msg=conflict_resp.text)
+        error = conflict_resp.json()["detail"]["error"]
+        self.assertEqual(error["code"], "INVALID_INPUT")
+        self.assertEqual(error["details"]["reason"], "idempotency_key_payload_conflict")
+        tasks.task_ingest_url_via_source_library.delay.assert_called_once()
+
+    def test_source_library_run_rejects_same_key_with_changed_item_without_dispatch(self):
+        tasks = _TrackedTasks()
+        idempotency_key = _unique_key("core-source-item-hash-conflict")
+        first_payload = {
+            "item_key": "fixture.item.first",
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "idempotency_key": idempotency_key,
+        }
+        changed_payload = {**first_payload, "item_key": "fixture.item.changed"}
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
+            "app.api.ingest._reserve_ingest_submission_db",
+            side_effect=_reserve_in_fixture_memory,
+        ), patch("app.api.ingest._complete_ingest_submission_db"):
+            first_resp = self.client.post("/api/v1/ingest/source-library/run", json=first_payload)
+            conflict_resp = self.client.post("/api/v1/ingest/source-library/run", json=changed_payload)
+
+        self.assertEqual(first_resp.status_code, 200, msg=first_resp.text)
+        self.assertEqual(conflict_resp.status_code, 409, msg=conflict_resp.text)
+        self.assertEqual(
+            conflict_resp.json()["detail"]["error"]["details"]["reason"],
+            "idempotency_key_payload_conflict",
         )
+        tasks.task_run_source_library_item.delay.assert_called_once()
+
+    def test_source_library_run_rejects_same_key_with_changed_params_without_dispatch(self):
+        tasks = _TrackedTasks()
+        idempotency_key = _unique_key("core-source-params-hash-conflict")
+        first_payload = {
+            "item_key": "fixture.item.same",
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "idempotency_key": idempotency_key,
+            "override_params": {"limit": 1},
+        }
+        changed_payload = {**first_payload, "override_params": {"limit": 2}}
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
+            "app.api.ingest._reserve_ingest_submission_db",
+            side_effect=_reserve_in_fixture_memory,
+        ), patch("app.api.ingest._complete_ingest_submission_db"):
+            first_resp = self.client.post("/api/v1/ingest/source-library/run", json=first_payload)
+            conflict_resp = self.client.post("/api/v1/ingest/source-library/run", json=changed_payload)
+
+        self.assertEqual(first_resp.status_code, 200, msg=first_resp.text)
+        self.assertEqual(conflict_resp.status_code, 409, msg=conflict_resp.text)
+        self.assertEqual(
+            conflict_resp.json()["detail"]["error"]["details"]["reason"],
+            "idempotency_key_payload_conflict",
+        )
+        tasks.task_run_source_library_item.delay.assert_called_once()
 
     def test_source_library_run_reuses_persistent_registry_hit_without_dispatch(self):
         tasks = _TrackedTasks()
@@ -898,7 +1009,7 @@ class IngestCoreContractTestCase(unittest.TestCase):
             "trigger_type": "ingest.source_library.run",
             "project_key": "demo_proj",
             "registry_key": "ingest.source_library.run:demo_proj:core-source-library-db-idem-1",
-            "request_hash": "b" * 64,
+            "request_hash": "",
             "subject": {"item_key": "demo-item-db-idempotent", "project_key": "demo_proj"},
             "response": {
                 "task_id": "source-db-task-1",
@@ -910,9 +1021,13 @@ class IngestCoreContractTestCase(unittest.TestCase):
             "registry_degraded": False,
         }
 
+        def reserve_existing(**kwargs):
+            submission["request_hash"] = kwargs["request_hash"]
+            return submission, True
+
         with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
             "app.api.ingest._reserve_ingest_submission_db",
-            return_value=(submission, True),
+            side_effect=reserve_existing,
         ):
             resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
 
@@ -1003,9 +1118,17 @@ class IngestCoreContractTestCase(unittest.TestCase):
             "light_filter_min_score": 42,
         }
 
-        with patch(
-            "app.services.ingest.url_pool.ingest_url_via_source_library_frontdoor",
-            return_value={"status": "degraded_success", "inserted": 0},
+        with (
+            patch(
+                "app.services.ingest.url_pool.ingest_url_via_source_library_frontdoor",
+                return_value={"status": "degraded_success", "inserted": 0},
+            ),
+            patch(
+                "app.api.ingest._reserve_ingest_submission_db",
+                side_effect=_reserve_in_fixture_memory,
+            ),
+            patch("app.api.ingest._complete_ingest_submission_db"),
+            patch("app.api.ingest._forget_ingest_submission_db"),
         ):
             resp = self.client.post("/api/v1/ingest/url/single", json=payload)
 

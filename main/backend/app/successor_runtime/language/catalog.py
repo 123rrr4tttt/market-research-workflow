@@ -3,25 +3,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Annotated
+from typing import Annotated, NoReturn
 
 from functorial_kit import Failure
 
 from app.successor_runtime.language.object_contracts import (
     OperationContract,
     OperationContractRef,
-    OperationContractResolver,
-    _failure as language_failure,
-    _raise_failure as raise_language_failure,
+    language_failure,
+    raise_language_failure,
 )
 from app.successor_runtime.research.codec import finalize_digest
 from app.successor_runtime.research.object_types import (
-    CAPTURED_MATERIAL_SNAPSHOT_TYPE,
     CLAIM_TYPE,
     DELIVERY_ATTEMPT_TYPE,
     DELIVERY_INTENT_TYPE,
     DELIVERY_RECEIPT_REF_TYPE,
-    EVIDENCE_QUALIFICATION_TYPE,
     GAP_TYPE,
     INQUIRY_TYPE,
     MATERIAL_REF_TYPE,
@@ -32,6 +29,7 @@ from app.successor_runtime.research.object_types import (
     DomainContractSnapshot,
     ObjectContract,
     ObjectType,
+    OwnerMode,
 )
 from app.successor_runtime.research.relations import RELATION_CONTRACT_REFS
 
@@ -58,7 +56,7 @@ def _failure_argument(error: Exception) -> object:
     return error.args[0] if len(error.args) == 1 else str(error)
 
 
-def _lift_catalog_failure(failure: Failure) -> None:
+def _lift_catalog_failure(failure: Failure) -> NoReturn:
     exception_name = str((failure.context or {}).get("public_exception") or "")
     exception_type = {"ValueError": ValueError, "TypeError": TypeError, "KeyError": KeyError}.get(
         exception_name
@@ -192,12 +190,16 @@ class OperationContractCatalogSnapshot:
         return self
 
 
+def _empty_contract_index() -> dict[tuple[str, str, str], OperationContract]:
+    return {}
+
+
 @dataclass(frozen=True, slots=True)
 class OperationContractRegistry:
     catalog: OperationContractCatalogSnapshot
     contracts: tuple[OperationContract, ...]
     _by_ref: dict[tuple[str, str, str], OperationContract] = field(
-        default_factory=dict,
+        default_factory=_empty_contract_index,
         init=False,
         repr=False,
         compare=False,
@@ -258,7 +260,7 @@ class OperationContractRegistry:
 
 
 _OBJECT_CONTRACT_SPEC: tuple[
-    tuple[ObjectType, str, str, tuple[str, ...]],
+    tuple[ObjectType, OwnerMode, str, tuple[str, ...]],
     ...,
 ] = (
     (
@@ -405,23 +407,6 @@ def try_build_first_specimen_object_contracts() -> tuple[ObjectContract, ...] | 
         )
 
 
-def _catalog_from_contracts(
-    contracts: tuple[OperationContract, ...],
-) -> OperationContractCatalogSnapshot:
-    entries = tuple(
-        (
-            contract.ref.kind,
-            contract.ref.contract_version,
-            contract.ref.contract_digest,
-            contract.owner_capability_id,
-        )
-        for contract in contracts
-    )
-    return OperationContractCatalogSnapshot(
-        catalog_id=FIRST_SPECIMEN_CATALOG_ID,
-        catalog_version=FIRST_SPECIMEN_CATALOG_VERSION,
-        entries=entries,
-    )
 def build_first_specimen_domain_snapshot() -> Annotated[
     DomainContractSnapshot,
     "kit:non-authoritative derived_as=view "

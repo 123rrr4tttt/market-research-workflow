@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 from pathlib import Path
 import sys
@@ -101,6 +102,33 @@ def _read_file(path: Path) -> str:
         return ""
 
 
+def _function(tree: ast.AST, name: str) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    return next(
+        (
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name
+        ),
+        None,
+    )
+
+
+def _called_names(function: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    return {
+        node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id
+        for node in ast.walk(function)
+        if isinstance(node, ast.Call) and isinstance(node.func, (ast.Attribute, ast.Name))
+    }
+
+
+def _string_constants(function: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    return {
+        node.value
+        for node in ast.walk(function)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    }
+
+
 def _migration_checks(migration_root: Path) -> dict[str, bool]:
     node_migration = _read_file(migration_root / "20260303_000004_add_graph_node_projection_tables.py")
     edge_migration = _read_file(migration_root / "20260303_000005_add_graph_edge_projection_table.py")
@@ -114,13 +142,21 @@ def _migration_checks(migration_root: Path) -> dict[str, bool]:
 
 
 def _failure_isolation_checks() -> dict[str, bool]:
-    admin_source = _read_file(BACKEND_ROOT / "app" / "api" / "admin.py")
+    document_admin_source = _read_file(BACKEND_ROOT / "app" / "services" / "document_admin.py")
     backfill_source = _read_file(BACKEND_ROOT / "app" / "services" / "graph" / "backfill_graph_nodes.py")
+    try:
+        document_admin_tree = ast.parse(document_admin_source)
+    except SyntaxError:
+        document_admin_tree = ast.Module(body=[], type_ignores=[])
+    finalize = _function(document_admin_tree, "_finalize_admin_graph")
+    finalize_calls = _called_names(finalize) if finalize is not None else set()
+    finalize_messages = _string_constants(finalize) if finalize is not None else set()
     return {
-        "admin_shadow_write_rollback_and_continue": "_rollback_quietly(session, context=\"graph_b_write\")" in admin_source
-        and "graph_b_write_failed" in admin_source,
-        "admin_b_read_fallback_to_a": "_rollback_quietly(session, context=\"graph_b_read\")" in admin_source
-        and "graph_b_read_fallback_to_a" in admin_source,
+        "admin_shadow_write_rollback_and_continue": "_rollback_graph_session" in finalize_calls
+        and any("graph_b_write_failed" in message for message in finalize_messages),
+        "admin_b_read_fallback_to_a": "GraphNodeReader" in finalize_calls
+        and "_rollback_graph_session" in finalize_calls
+        and any("graph_b_read_fallback_to_a" in message for message in finalize_messages),
         "backfill_apply_rollback_on_failure": "_rollback_quietly(session)" in backfill_source
         and "except Exception:" in backfill_source
         and "raise" in backfill_source,

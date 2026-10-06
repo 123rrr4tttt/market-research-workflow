@@ -8,7 +8,15 @@ import pytest
 
 from app.models.entities import Document
 from app.services.agent_runtime.structured_data_quality import detect_structured_record_noise
-from app.services.agent_runtime.structured_data_search import _normalize_datasets, _normalize_query, _parse_structured_data_read_ref, _query_model, _record
+from app.services.agent_runtime.structured_data_search import (
+    _normalize_datasets,
+    _normalize_query,
+    _parse_structured_data_read_ref,
+    _query_model,
+    _record,
+    read_project_structured_data_item,
+    read_project_structured_data_items,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -45,6 +53,29 @@ class StructuredDataSearchUnitTest(unittest.TestCase):
             )
             self.assertEqual(parsed["dataset"], "materials")
             self.assertEqual(parsed["record_id"], "42")
+
+    def test_structured_resource_uri_preserves_project_scope(self):
+        parsed = _parse_structured_data_read_ref(
+            project_key="project-a",
+            dataset=None,
+            record_id=None,
+            item_id=None,
+            resource_uri="project://structured/project-b/documents/42",
+        )
+        self.assertEqual(parsed["project_key"], "project-a")
+        self.assertEqual(parsed["scope_error"], "cross_project_reference")
+        result = read_project_structured_data_item(
+            project_key="project-a",
+            resource_uri="project://structured/project-b/documents/42",
+        )
+        self.assertEqual(result["item"], None)
+        self.assertEqual(result["errors"][0]["type"], "cross_project_reference")
+        batch = read_project_structured_data_items(
+            project_key="project-a",
+            items=[{"project_key": "project-b", "dataset": "documents", "record_id": "42"}],
+        )
+        self.assertEqual(batch["total_returned"], 0)
+        self.assertEqual(batch["errors"][0]["type"], "cross_project_reference")
 
     def test_targeted_search_skips_dataset_count_query(self):
         session = Mock()

@@ -3,10 +3,14 @@ from __future__ import annotations
 import logging
 
 from sqlalchemy import text
+from sqlalchemy.engine import Connection
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql.schema import Table
 
 from ...models.base import engine
 from ...models.information_topology_entities import InformationTopologyLink, InformationTopologyState
-from ...models.project_retrieval import ProjectRetrievalMode, ProjectRetrievalPlan, ProjectRetrievalRun
+from ...models.ingest_registry import IngestSubmissionRegistry
+from ...models.project_retrieval import project_retrieval_tables
 from ...models.entities import (
     ConfigState,
     Document,
@@ -28,14 +32,14 @@ from ...models.entities import (
     Topic,
 )
 from ...models.writing_entities import WritingDocument, WritingDocumentCitation, WritingDocumentDraft
-from .context import _normalize_project_key, project_schema_name
+from .context import normalize_project_key, project_schema_name
 from .schema_initialization import run_serialized_schema_ddl
 
 
 logger = logging.getLogger(__name__)
 
 
-TENANT_TABLES = [
+TENANT_TABLES: list[Table] = [
     Source.__table__,
     Document.__table__,
     MarketStat.__table__,
@@ -46,6 +50,7 @@ TENANT_TABLES = [
     KeywordHistory.__table__,
     KeywordPrior.__table__,
     LlmServiceConfig.__table__,
+    IngestSubmissionRegistry.__table__,
     Topic.__table__,
     IngestChannel.__table__,
     SourceLibraryItem.__table__,
@@ -59,9 +64,7 @@ TENANT_TABLES = [
     WritingDocumentCitation.__table__,
     InformationTopologyState.__table__,
     InformationTopologyLink.__table__,
-    ProjectRetrievalMode.__table__,
-    ProjectRetrievalPlan.__table__,
-    ProjectRetrievalRun.__table__,
+    *project_retrieval_tables(),
 ]
 
 
@@ -70,13 +73,30 @@ def _is_missing_vector_type(exc: Exception) -> bool:
     return "vector" in message and "does not exist" in message
 
 
+def tenant_table_exists(
+    connection: Connection,
+    *,
+    schema_name: str,
+    table_name: str,
+) -> bool:
+    """Check the tenant namespace directly without search_path fallback."""
+    exists = connection.execute(
+        text(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+            "WHERE table_schema=:schema_name AND table_name=:table_name)"
+        ),
+        {"schema_name": schema_name, "table_name": table_name},
+    ).scalar()
+    return bool(exists)
+
+
 def ensure_project_schema_ready(project_key: str, *, name: str | None = None) -> dict[str, str]:
     """Ensure a project can run tenant-scoped scripts outside FastAPI startup."""
-    normalized = _normalize_project_key(project_key)
+    normalized = normalize_project_key(project_key)
     schema_name = project_schema_name(normalized)
     display_name = (name or normalized.replace("_", " ").title()).strip() or normalized
 
-    def _initialize(conn: object) -> None:
+    def _initialize(conn: Connection) -> None:
         conn.execute(text('SET search_path TO "public"'))
         conn.execute(
             text(
@@ -92,13 +112,19 @@ def ensure_project_schema_ready(project_key: str, *, name: str | None = None) ->
             {"project_key": normalized, "name": display_name, "schema_name": schema_name},
         )
         conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
-        conn.execute(text(f'SET search_path TO "{schema_name}"'))
+        conn.execute(text(f'SET search_path TO "{schema_name}", public'))
         for table in TENANT_TABLES:
+            if tenant_table_exists(
+                conn,
+                schema_name=schema_name,
+                table_name=table.name,
+            ):
+                continue
             try:
                 with conn.begin_nested():
-                    table.create(bind=conn, checkfirst=True)
-            except Exception as exc:  # noqa: BLE001
-                table_name = getattr(table, "name", "")
+                    table.create(bind=conn, checkfirst=False)
+            except SQLAlchemyError as exc:
+                table_name = table.name
                 if table_name == "embeddings" and _is_missing_vector_type(exc):
                     logger.warning(
                         "skip embeddings table for schema=%s because vector type is unavailable: %s",
@@ -118,7 +144,7 @@ def ensure_project_schema_ready(project_key: str, *, name: str | None = None) ->
     return {"project_key": normalized, "schema_name": schema_name}
 
 
-def _ensure_tenant_id_sequences(schema_name: str, *, connection: object) -> None:
+def _ensure_tenant_id_sequences(schema_name: str, *, connection: Connection) -> None:
     table_names = [table.name for table in TENANT_TABLES if "id" in table.c]
     for table_name in table_names:
         connection.execute(

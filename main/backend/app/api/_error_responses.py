@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Mapping
 
 from fastapi.responses import JSONResponse
 
@@ -14,11 +14,16 @@ def error_json_response(
     code: ErrorCode,
     message: str,
     *,
-    details: dict[str, Any] | None = None,
-    meta: dict[str, Any] | None = None,
+    details: Mapping[str, object] | None = None,
+    meta: Mapping[str, object] | None = None,
 ) -> JSONResponse:
     """Project a contracts envelope to HTTP without changing its semantics."""
-    payload = error_response(code, message, details=details, meta=meta)
+    payload = error_response(
+        code,
+        message,
+        details=None if details is None else dict(details),
+        meta=None if meta is None else dict(meta),
+    )
     payload["detail"] = {"error": payload["error"], "message": message}
     return JSONResponse(
         status_code=status_code,

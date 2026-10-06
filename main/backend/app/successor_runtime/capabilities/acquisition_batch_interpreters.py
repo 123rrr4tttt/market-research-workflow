@@ -16,7 +16,8 @@ import dataclasses
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextvars import copy_context
 from dataclasses import dataclass
-from typing import Any, Generic, Literal, Protocol, TypeAlias, TypeVar, runtime_checkable
+from collections.abc import Callable
+from typing import Generic, Literal, Protocol, TypeAlias, TypeVar, runtime_checkable
 from functorial_kit import Failure
 from app.successor_runtime.capabilities import acquisition_batch as acquisition
 from app.successor_runtime.capabilities import acquisition_batch_program as cp
@@ -24,8 +25,9 @@ from app.successor_runtime.capabilities.checksum import canonical_json, content_
 from app.successor_runtime.language.catalog import OperationContractCatalogSnapshot
 from app.successor_runtime.language.compile import TRAVERSAL_MATERIALIZER_TRANSFORM, TRAVERSAL_MATERIALIZER_VERSION
 from app.successor_runtime.language.object_contracts import OperationContractRef
-from app.successor_runtime.language.plan import with_plan_digest
+from app.successor_runtime.language.plan import CompiledControlNode, CompiledStep, ExecutionPlan, with_plan_digest
 from app.successor_runtime.language.program import ProgramSpec
+from app.successor_runtime.language.algebra import ValueRef
 from app.successor_runtime.research.codec import is_sha256_hex
 
 __all__ = [
@@ -37,15 +39,23 @@ __all__ = [
     "CollectFoldSuccessorInterpreter",
     "CollectTraversalSuccessorInterpreter",
     "ComposedCollectSuccessorInterpreter",
+    "ComposedAssignmentView",
+    "CollectBindingReceipt",
+    "ComposedBindingReceipt",
     "ElementPayloadView",
     "ElementRunner",
     "FoldPayloadView",
     "InterpreterFailure",
+    "InterpreterBindingView",
     "InterpreterOutcome",
     "InterpreterSuccess",
     "ProjectScopeView",
     "RequestRefView",
+    "TraversalBindingReceipt",
     "ExactBindingResult",
+    "CollectBindingResult",
+    "ComposedBindingResult",
+    "TraversalBindingResult",
     "authority_requirement_digest",
     "deterministic_composed_element_runner",
     "legacy_execute_element_interpreter_profile_digest",
@@ -82,7 +92,42 @@ class InterpreterFailure:
 
 
 InterpreterOutcome: TypeAlias = InterpreterSuccess[T] | InterpreterFailure
-ExactBindingResult: TypeAlias = "Any | Failure"
+
+
+@dataclass(frozen=True, slots=True)
+class CollectBindingReceipt:
+    program_digest: str
+    plan_digest: str
+    contract_digest: str
+    payload_content_digest: str
+    binding_digest: str
+
+
+@dataclass(frozen=True, slots=True)
+class TraversalBindingReceipt:
+    program_digest: str
+    plan_digest: str
+    traversal_binding_digest: str
+    element_program_digest: str
+    traversal_element_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class ComposedBindingReceipt:
+    composed_program_digest: str
+    composed_plan_digest: str
+    traversal_binding_digest: str
+    fold_binding_digest: str
+    payload_value_id: str
+    payload_content_digest: str
+    payload_element_count: int
+    payload_incarnation: str
+
+
+CollectBindingResult: TypeAlias = CollectBindingReceipt | Failure
+TraversalBindingResult: TypeAlias = TraversalBindingReceipt | Failure
+ComposedBindingResult: TypeAlias = ComposedBindingReceipt | Failure
+ExactBindingResult: TypeAlias = CollectBindingReceipt | TraversalBindingReceipt | ComposedBindingReceipt | Failure
 
 
 @runtime_checkable
@@ -95,6 +140,43 @@ class ProjectScopeView(Protocol):
 
     @property
     def scope_digest(self) -> str: ...
+
+
+@runtime_checkable
+class InterpreterBindingView(Protocol):
+    """Capability-side exact fields read by acquisition binding checks."""
+
+    @property
+    def binding_digest(self) -> str: ...
+
+    @property
+    def operation_contract_digest(self) -> str: ...
+
+    @property
+    def interpreter_profile_digest(self) -> str: ...
+
+    @property
+    def deployment_catalog_digest(self) -> str: ...
+
+    @property
+    def project_scope_digest(self) -> str: ...
+
+
+@runtime_checkable
+class ComposedAssignmentView(Protocol):
+    """Runtime assignment fields that bind the composed payload closure."""
+
+    @property
+    def payload_ref(self) -> str | None: ...
+
+    @property
+    def payload_digest(self) -> str | None: ...
+
+    @property
+    def input_refs(self) -> tuple[str, ...]: ...
+
+    @property
+    def input_closure_digest(self) -> str | None: ...
 
 
 @runtime_checkable
@@ -186,23 +268,23 @@ def _exact_binding_failure(*, message: str, site: str) -> Failure:
     )
 
 
-def _is_hex64(value: Any) -> bool:
+def _is_hex64(value: object) -> bool:
     return isinstance(value, str) and is_sha256_hex(value)
 
 
 def try_exact_collect_binding(
     *,
-    program: Any,
-    plan: Any,
+    program: ProgramSpec,
+    plan: ExecutionPlan,
     contract_ref: OperationContractRef,
-    payload_ref: Any,
-    payload: Any,
+    payload_ref: ValueRef,
+    payload: acquisition.CollectBatchElementPayload | acquisition.CollectFoldPayload,
     project_scope: ProjectScopeView,
     catalog: OperationContractCatalogSnapshot,
     deployment_catalog_digest: str,
-    binding: Any,
+    binding: InterpreterBindingView,
     expected_interpreter_profile_digest: str | None = None,
-) -> ExactBindingResult:
+) -> CollectBindingResult:
     """Return the exact acquisition closure or one canonical binding failure."""
     failures: list[str] = []
     expected_kind = payload.operation_kind
@@ -255,9 +337,9 @@ def try_exact_collect_binding(
         if expected_kind == acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND
         else acquisition.COLLECT_FOLD_RESULT_TYPE
     )
-    if getattr(plan.input_type, "type_id", None) != payload_type.type_id:
+    if plan.input_type.type_id != payload_type.type_id:
         failures.append("plan input type")
-    if getattr(plan.output_type, "type_id", None) != result_type.type_id:
+    if plan.output_type.type_id != result_type.type_id:
         failures.append("plan output type")
     effect_steps = tuple(
         (step for step in plan.ordered_steps if step.step_kind == "EFFECT" and step.operation_contract_ref is not None)
@@ -266,7 +348,9 @@ def try_exact_collect_binding(
         failures.append("plan effect steps")
     else:
         step_ref = effect_steps[0].operation_contract_ref
-        if (
+        if step_ref is None:
+            failures.append("plan effect steps")
+        elif (
             step_ref.kind != contract_ref.kind
             or step_ref.contract_version != contract_ref.contract_version
             or step_ref.contract_digest != contract_ref.contract_digest
@@ -287,51 +371,51 @@ def try_exact_collect_binding(
         failures.append("payload ref content digest")
     if payload_ref.project_key != project_scope.project_key:
         failures.append("payload ref project key")
-    if getattr(payload_ref.object_type, "type_id", None) != payload_type.type_id:
+    if payload_ref.object_type.type_id != payload_type.type_id:
         failures.append("payload ref object type")
     if not _is_hex64(payload_ref.provenance_digest):
         failures.append("payload ref provenance digest")
     if not _is_hex64(binding.binding_digest):
         failures.append("binding digest")
-    if getattr(binding, "operation_contract_digest", None) != contract_ref.contract_digest:
+    if binding.operation_contract_digest != contract_ref.contract_digest:
         failures.append("binding/contract digest")
-    if getattr(binding, "project_scope_digest", None) != project_scope.scope_digest:
+    if binding.project_scope_digest != project_scope.scope_digest:
         failures.append("binding/scope digest")
     if not _is_hex64(deployment_catalog_digest):
         failures.append("deployment catalog digest")
-    if getattr(binding, "deployment_catalog_digest", None) != deployment_catalog_digest:
+    if binding.deployment_catalog_digest != deployment_catalog_digest:
         failures.append("binding/deployment catalog digest")
     if (
         expected_interpreter_profile_digest is not None
-        and getattr(binding, "interpreter_profile_digest", None) != expected_interpreter_profile_digest
+        and binding.interpreter_profile_digest != expected_interpreter_profile_digest
     ):
         failures.append("binding/interpreter profile")
     if failures:
         return _exact_binding_failure(
             message="C3 collect binding drift: " + ", ".join(sorted(set(failures))), site="try_exact_collect_binding"
         )
-    return {
-        "program_digest": program.program_digest,
-        "plan_digest": plan.plan_digest,
-        "contract_digest": contract_ref.contract_digest,
-        "payload_content_digest": payload_ref.content_digest,
-        "binding_digest": binding.binding_digest,
-    }
+    return CollectBindingReceipt(
+        program_digest=program.program_digest,
+        plan_digest=plan.plan_digest,
+        contract_digest=contract_ref.contract_digest,
+        payload_content_digest=payload_ref.content_digest,
+        binding_digest=binding.binding_digest,
+    )
 
 
 def require_exact_collect_binding(
     *,
-    program: Any,
-    plan: Any,
+    program: ProgramSpec,
+    plan: ExecutionPlan,
     contract_ref: OperationContractRef,
-    payload_ref: Any,
-    payload: Any,
+    payload_ref: ValueRef,
+    payload: acquisition.CollectBatchElementPayload | acquisition.CollectFoldPayload,
     project_scope: ProjectScopeView,
     catalog: OperationContractCatalogSnapshot,
     deployment_catalog_digest: str,
-    binding: Any,
+    binding: InterpreterBindingView,
     expected_interpreter_profile_digest: str | None = None,
-) -> dict[str, str]:
+) -> CollectBindingReceipt:
     """Preserve the legacy exception ABI for exact acquisition binding checks."""
     result = try_exact_collect_binding(
         program=program,
@@ -351,8 +435,11 @@ def require_exact_collect_binding(
 
 
 def try_exact_traversal_binding(
-    *, program: Any, plan: Any, catalog: OperationContractCatalogSnapshot
-) -> ExactBindingResult:
+    *,
+    program: ProgramSpec,
+    plan: ExecutionPlan,
+    catalog: OperationContractCatalogSnapshot,
+) -> TraversalBindingResult:
     """Return the exact traversal binding or one canonical failure."""
     failures: list[str] = []
     program_metadata = dict(program.metadata)
@@ -387,13 +474,19 @@ def try_exact_traversal_binding(
     transform_steps = tuple(
         (step for step in plan.ordered_steps if step.step_kind == "TRANSFORM" and step.transform_ref is not None)
     )
+    traversal_transform = transform_steps[0].transform_ref if transform_steps else None
     if len(transform_steps) != 1:
         failures.append("plan traversal transform steps")
     else:
-        transform = transform_steps[0].transform_ref
-        if transform.name != TRAVERSAL_MATERIALIZER_TRANSFORM or transform.version != TRAVERSAL_MATERIALIZER_VERSION:
+        traversal_transform = transform_steps[0].transform_ref
+        if traversal_transform is None:
             failures.append("plan traversal transform ref")
-        if not _is_hex64(transform.digest):
+        elif (
+            traversal_transform.name != TRAVERSAL_MATERIALIZER_TRANSFORM
+            or traversal_transform.version != TRAVERSAL_MATERIALIZER_VERSION
+        ):
+            failures.append("plan traversal transform ref")
+        elif not _is_hex64(traversal_transform.digest):
             failures.append("plan traversal binding digest")
     attributes = dict(plan.control_root.attributes)
     if (
@@ -411,19 +504,31 @@ def try_exact_traversal_binding(
             message="C3 traversal binding drift: " + ", ".join(sorted(set(failures))),
             site="try_exact_traversal_binding",
         )
-    assert transform_steps[0].transform_ref is not None
-    return {
-        "program_digest": program.program_digest,
-        "plan_digest": plan.plan_digest,
-        "traversal_binding_digest": str(transform_steps[0].transform_ref.digest),
-        "element_program_digest": str(program_metadata.get("element_program_digest")),
-        "traversal_element_count": int(element_count if element_count is not None else 0),
-    }
+    element_program_digest = program_metadata.get("element_program_digest")
+    if not isinstance(element_program_digest, str):
+        failures.append("program metadata/element program digest")
+    if failures:
+        return _exact_binding_failure(
+            message="C3 traversal binding drift: " + ", ".join(sorted(set(failures))),
+            site="try_exact_traversal_binding",
+        )
+    assert traversal_transform is not None
+    assert isinstance(element_program_digest, str)
+    return TraversalBindingReceipt(
+        program_digest=program.program_digest,
+        plan_digest=plan.plan_digest,
+        traversal_binding_digest=traversal_transform.digest,
+        element_program_digest=element_program_digest,
+        traversal_element_count=element_count if isinstance(element_count, int) else 0,
+    )
 
 
 def require_exact_traversal_binding(
-    *, program: Any, plan: Any, catalog: OperationContractCatalogSnapshot
-) -> dict[str, str | int]:
+    *,
+    program: ProgramSpec,
+    plan: ExecutionPlan,
+    catalog: OperationContractCatalogSnapshot,
+) -> TraversalBindingReceipt:
     """Preserve the legacy exception ABI for traversal binding checks."""
     result = try_exact_traversal_binding(program=program, plan=plan, catalog=catalog)
     if isinstance(result, Failure):
@@ -552,7 +657,7 @@ def run_ordered_traversal(
     )
 
 
-def _find_control_node(node: Any, step_id: str) -> Any | None:
+def _find_control_node(node: CompiledControlNode, step_id: str) -> CompiledControlNode | None:
     if step_id in node.step_ids:
         return node
     for child in node.children:
@@ -563,8 +668,12 @@ def _find_control_node(node: Any, step_id: str) -> Any | None:
 
 
 def try_exact_composed_binding(
-    *, program: ProgramSpec, plan: Any, catalog: OperationContractCatalogSnapshot, assignment: Any | None = None
-) -> ExactBindingResult:
+    *,
+    program: ProgramSpec,
+    plan: ExecutionPlan,
+    catalog: OperationContractCatalogSnapshot,
+    assignment: ComposedAssignmentView | None = None,
+) -> ComposedBindingResult:
     """Return the exact composed closure or one canonical failure."""
     failures: list[str] = []
     metadata = dict(program.metadata)
@@ -597,22 +706,21 @@ def try_exact_composed_binding(
         failures.append("plan/program binding")
     if plan.plan_digest != with_plan_digest(plan).plan_digest:
         failures.append("plan digest forged")
-    transform_steps = tuple(
-        (step for step in plan.ordered_steps if step.step_kind == "TRANSFORM" and step.transform_ref is not None)
-    )
-    traverse_steps = tuple(
-        (step for step in transform_steps if step.transform_ref.name == TRAVERSAL_MATERIALIZER_TRANSFORM)
-    )
-    fold_map_steps = tuple(
-        (
-            step
-            for step in transform_steps
-            if step.transform_ref.name == cp.COLLECT_SEQUENCE_TO_FOLD_PAYLOAD_TRANSFORM_NAME
-        )
-    )
+    traverse_steps: list[CompiledStep] = []
+    fold_map_steps: list[CompiledStep] = []
+    for step in plan.ordered_steps:
+        if step.step_kind != "TRANSFORM" or step.transform_ref is None:
+            continue
+        if step.transform_ref.name == TRAVERSAL_MATERIALIZER_TRANSFORM:
+            traverse_steps.append(step)
+        if step.transform_ref.name == cp.COLLECT_SEQUENCE_TO_FOLD_PAYLOAD_TRANSFORM_NAME:
+            fold_map_steps.append(step)
+    traverse_transform = traverse_steps[0].transform_ref if traverse_steps else None
     if len(traverse_steps) != 1 or len(fold_map_steps) != 1:
         failures.append("composed plan transform steps")
     else:
+        if traverse_transform is None:
+            failures.append("composed plan transform steps")
         traverse_step = traverse_steps[0]
         control = _find_control_node(plan.control_root, traverse_step.step_id)
         attributes = {} if control is None else dict(control.attributes)
@@ -623,11 +731,14 @@ def try_exact_composed_binding(
     effect_steps = tuple(
         (step for step in plan.ordered_steps if step.step_kind == "EFFECT" and step.operation_contract_ref is not None)
     )
+    fold_contract_ref = effect_steps[0].operation_contract_ref if effect_steps else None
     if len(effect_steps) != 1:
         failures.append("composed plan effect steps")
-    elif effect_steps[0].operation_contract_ref.kind != acquisition.COLLECT_FOLD_ORDERED_RESULTS_KIND:
-        failures.append("composed fold atom contract")
-    if getattr(plan.output_type, "type_id", None) != acquisition.COLLECT_FOLD_RESULT_TYPE.type_id:
+    else:
+        fold_contract_ref = effect_steps[0].operation_contract_ref
+        if fold_contract_ref is None or fold_contract_ref.kind != acquisition.COLLECT_FOLD_ORDERED_RESULTS_KIND:
+            failures.append("composed fold atom contract")
+    if plan.output_type.type_id != acquisition.COLLECT_FOLD_RESULT_TYPE.type_id:
         failures.append("composed plan output type")
     if any((step.step_kind == "ADMISSION" for step in plan.ordered_steps)):
         failures.append("composed plan admission step")
@@ -640,9 +751,17 @@ def try_exact_composed_binding(
         or any((not isinstance(value, str) or len(value) != 64 for value in element_digests))
     ):
         failures.append("program metadata/payload element digests")
-    incarnation = metadata.get("payload_incarnation")
-    if not isinstance(incarnation, str) or not incarnation.startswith("payload-inc:"):
+    payload_incarnation = metadata.get("payload_incarnation")
+    if not isinstance(payload_incarnation, str) or not payload_incarnation.startswith("payload-inc:"):
         failures.append("program metadata/payload incarnation")
+    payload_value_id = metadata.get("payload_value_id")
+    payload_content_digest = metadata.get("payload_content_digest")
+    if (
+        not isinstance(payload_value_id, str)
+        or not isinstance(payload_content_digest, str)
+        or not isinstance(payload_incarnation, str)
+    ):
+        failures.append("program metadata/composed receipt fields")
     if assignment is not None:
         expected_storage_ref = metadata.get("payload_storage_ref")
         if assignment.payload_ref != expected_storage_ref:
@@ -658,21 +777,32 @@ def try_exact_composed_binding(
         return _exact_binding_failure(
             message="C3 composed binding drift: " + ", ".join(sorted(set(failures))), site="try_exact_composed_binding"
         )
-    return {
-        "composed_program_digest": program.program_digest,
-        "composed_plan_digest": plan.plan_digest,
-        "traversal_binding_digest": traverse_steps[0].transform_ref.digest,
-        "fold_binding_digest": effect_steps[0].operation_contract_ref.contract_digest,
-        "payload_value_id": str(metadata["payload_value_id"]),
-        "payload_content_digest": str(metadata["payload_content_digest"]),
-        "payload_element_count": str(metadata["payload_element_count"]),
-        "payload_incarnation": str(metadata["payload_incarnation"]),
-    }
+    assert traverse_transform is not None
+    assert fold_contract_ref is not None
+    payload_element_count = metadata.get("payload_element_count")
+    assert isinstance(payload_value_id, str)
+    assert isinstance(payload_content_digest, str)
+    assert isinstance(payload_incarnation, str)
+    assert isinstance(payload_element_count, int)
+    return ComposedBindingReceipt(
+        composed_program_digest=program.program_digest,
+        composed_plan_digest=plan.plan_digest,
+        traversal_binding_digest=traverse_transform.digest,
+        fold_binding_digest=fold_contract_ref.contract_digest,
+        payload_value_id=payload_value_id,
+        payload_content_digest=payload_content_digest,
+        payload_element_count=payload_element_count,
+        payload_incarnation=payload_incarnation,
+    )
 
 
 def require_exact_composed_binding(
-    *, program: Any, plan: Any, catalog: OperationContractCatalogSnapshot, assignment: Any | None = None
-) -> dict[str, str]:
+    *,
+    program: ProgramSpec,
+    plan: ExecutionPlan,
+    catalog: OperationContractCatalogSnapshot,
+    assignment: ComposedAssignmentView | None = None,
+) -> ComposedBindingReceipt:
     """Preserve the legacy exception ABI for composed binding checks."""
     result = try_exact_composed_binding(program=program, plan=plan, catalog=catalog, assignment=assignment)
     if isinstance(result, Failure):
@@ -709,7 +839,10 @@ def deterministic_composed_element_runner(
 
 
 class ElementRunnerType:
-    def __init__(self, func: Any) -> None:
+    def __init__(
+        self,
+        func: Callable[[acquisition.CollectBatchElement], acquisition.CollectElementOutcome],
+    ) -> None:
         self.func = func
 
     def run(self, element: acquisition.CollectBatchElement) -> acquisition.CollectElementOutcome:
@@ -724,15 +857,15 @@ class CollectTraversalSuccessorInterpreter:
     def interpret(
         self,
         *,
-        program: Any,
-        plan: Any,
+        program: ProgramSpec,
+        plan: ExecutionPlan,
         contract_ref: OperationContractRef,
-        payload_ref: Any,
-        payload: ElementPayloadView,
+        payload_ref: ValueRef,
+        payload: acquisition.CollectBatchElementPayload,
         project_scope: ProjectScopeView,
         catalog: OperationContractCatalogSnapshot,
         deployment_catalog_digest: str,
-        binding: Any,
+        binding: InterpreterBindingView,
         runner: ElementRunner,
     ) -> InterpreterOutcome[acquisition.CollectElementOutcome]:
         try:
@@ -764,15 +897,15 @@ class CollectFoldSuccessorInterpreter:
     def interpret(
         self,
         *,
-        program: Any,
-        plan: Any,
+        program: ProgramSpec,
+        plan: ExecutionPlan,
         contract_ref: OperationContractRef,
-        payload_ref: Any,
-        payload: FoldPayloadView,
+        payload_ref: ValueRef,
+        payload: acquisition.CollectFoldPayload,
         project_scope: ProjectScopeView,
         catalog: OperationContractCatalogSnapshot,
         deployment_catalog_digest: str,
-        binding: Any,
+        binding: InterpreterBindingView,
     ) -> InterpreterOutcome[acquisition.CollectAggregateOutcome]:
         try:
             require_exact_collect_binding(
@@ -810,13 +943,13 @@ class ComposedCollectSuccessorInterpreter:
     def interpret(
         self,
         *,
-        program: Any,
-        plan: Any,
+        program: ProgramSpec,
+        plan: ExecutionPlan,
         catalog: OperationContractCatalogSnapshot,
-        binding: Any,
+        binding: InterpreterBindingView,
         element_payloads: tuple[acquisition.CollectBatchElementPayload, ...],
         receipts: tuple[acquisition.CollectAttemptReceipt | None, ...] = (),
-        assignment: Any | None = None,
+        assignment: ComposedAssignmentView | None = None,
     ) -> InterpreterOutcome[acquisition.CollectAggregateOutcome]:
         if not _is_hex64(binding.binding_digest):
             return InterpreterFailure(

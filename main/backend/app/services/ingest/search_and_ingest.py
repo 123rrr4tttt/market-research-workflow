@@ -8,7 +8,7 @@ caller-owned effects.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any, Callable, Literal, Mapping
+from typing import Annotated, Any, Callable, Literal, Mapping, TypedDict
 
 from ..search.candidate_contracts import Candidate, CandidateBundle, CandidateSearchRequest
 from ..search.candidate_search import discover_candidates
@@ -19,6 +19,17 @@ from .material_input import GivenContent, prepare_material
 
 MissingBodyAction = Literal["route", "wait", "fail"]
 RetentionAction = Literal["none", "resource_pool"]
+
+
+class SearchMaterialWritePayload(TypedDict):
+    """Authoritative fixed effect payload handed to search-and-ingest writers."""
+
+    project_key: str | None
+    source_ref: dict[str, str]
+    collection_payload: dict[str, object]
+    raw_snapshot: dict[str, object]
+    entrypoint: str
+    source_mode: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,7 +84,7 @@ class SearchAndIngestSpec:
 class SearchIngestPorts:
     exists: Callable[[str], bool]
     fetch_text: Callable[[str], str | None]
-    write: Callable[[dict[str, Any]], Mapping[str, Any]]
+    write: Callable[[SearchMaterialWritePayload], Mapping[str, Any]]
     route_missing: Callable[[list[str]], Mapping[str, Any]] | None = None
     retain: Callable[[Candidate], None] | None = None
     discover: Callable[[CandidateSearchRequest], CandidateBundle] = discover_candidates
@@ -99,13 +110,13 @@ def build_search_material_payload(
     legacy_payload_shape: bool = False,
     resource_uri: str | None = None,
 ) -> Annotated[
-    dict[str, dict[str, Any]],
+    dict[str, object],
     "kit:non-authoritative derived_as=view fact_source=candidate+acquired_body+target+source witness=test:test_third_facet_uses_same_search_material_constructor_and_keeps_occurrences",
 ]:
     """Use the R3 material projection after a real acquisition supplied body text."""
     uri = resource_uri or candidate.resource_uri
     prepared = prepare_material(GivenContent.from_text(body_text, source_locator=uri))
-    payload = build_material_frontdoor_payload(
+    material = build_material_frontdoor_payload(
         prepared,
         target=MaterialTargetSpec(
             doc_type=target.doc_type,
@@ -128,12 +139,19 @@ def build_search_material_payload(
         ),
         extracted_data_base={"platform": candidate.source or provider, "keyword": candidate.keyword},
     )
-    payload["document_candidate"]["source_base_url"] = source.base_url
+    document_candidate: dict[str, object] = dict(material["document_candidate"])
+    terminal_context: dict[str, object] = dict(material["terminal_context"])
+    extraction_plan: dict[str, object] = dict(material["extraction_plan"])
+    document_candidate["source_base_url"] = source.base_url
     if legacy_payload_shape:
-        payload["document_candidate"]["text_hash"] = None
-        payload["extraction_plan"].pop("mode", None)
-        payload["extraction_plan"].pop("chunks", None)
-    return payload
+        document_candidate["text_hash"] = None
+        extraction_plan.pop("mode", None)
+        extraction_plan.pop("chunks", None)
+    return {
+        "document_candidate": document_candidate,
+        "terminal_context": terminal_context,
+        "extraction_plan": extraction_plan,
+    }
 
 
 def run_search_and_ingest(spec: SearchAndIngestSpec, ports: SearchIngestPorts) -> SearchIngestResult:

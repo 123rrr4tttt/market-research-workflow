@@ -6,7 +6,6 @@ import importlib
 import inspect
 import json
 import os
-from typing import Any
 
 from functorial_kit import Failure
 
@@ -30,22 +29,29 @@ from app.settings.config import settings
 from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, CoreToolResult, CoreToolSpec
 from .registry import CoreToolRegistry
 from .tool_support import (
-    _compact_json_value,
-    _compact_skill_meta,
-    _missing_project_result,
-    _normalize_string_list,
-    _resolve_project_key,
-    _stable_hash,
-    _utcnow_iso,
+    JSONObject,
+    JSONValue,
+    agent_artifact_store,
+    compact_json_value,
+    compact_skill_meta,
+    core_status,
+    json_list,
+    json_object,
+    json_strings,
+    missing_project_result,
+    normalize_string_list,
+    resolve_project_key,
+    runtime_failure_result,
+    safe_int,
+    SourceLibraryLister,
+    StructuredDataSearcher,
+    stable_hash,
+    utcnow_iso,
 )
 from .tool_contribution import (
     ProjectToolAuthorSource,
     register_project_tool_contributions,
 )
-
-
-SourceLibraryLister = Callable[[str | None], list[dict[str, Any]]]
-StructuredDataSearcher = Callable[..., dict[str, Any]]
 
 
 def query_project_tool_sources(
@@ -208,7 +214,9 @@ def _skill_search_spec() -> CoreToolSpec:
     )
 
 
-def _skill_search_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
+def _skill_search_handler() -> Callable[
+    [CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult
+]:
     def handler(
         tool_call: CoreToolCall,
         tool_spec: CoreToolSpec,
@@ -217,11 +225,11 @@ def _skill_search_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRe
     ) -> CoreToolResult:
         query = str(tool_call.arguments.get("query") or "").strip().lower()
         owner = str(tool_call.arguments.get("owner") or "").strip().lower()
-        limit = max(1, min(50, int(tool_call.arguments.get("limit") or 12)))
+        limit = max(1, min(50, safe_int(tool_call.arguments.get("limit")) or 12))
         include_write = bool(tool_call.arguments.get("include_write_skills"))
-        matches: list[dict[str, Any]] = []
+        matches: list[JSONObject] = []
         for skill in list_registered_skills():
-            meta = _compact_skill_meta(dict(skill or {}))
+            meta = compact_skill_meta(dict(skill or {}))
             if not include_write and str(meta.get("concurrency_class") or "read_only") != "read_only":
                 continue
             haystack = json.dumps(meta, ensure_ascii=False, sort_keys=True, default=str).lower()
@@ -274,7 +282,9 @@ def _skill_load_spec() -> CoreToolSpec:
     )
 
 
-def _skill_load_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
+def _skill_load_handler() -> Callable[
+    [CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult
+]:
     def handler(
         tool_call: CoreToolCall,
         tool_spec: CoreToolSpec,
@@ -293,7 +303,7 @@ def _skill_load_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequ
         for skill in list_registered_skills():
             if str(skill.get("skill_id") or "").strip() != skill_id:
                 continue
-            meta = _compact_skill_meta(dict(skill or {}))
+            meta = compact_skill_meta(dict(skill or {}))
             return CoreToolResult(
                 call_id=tool_call.call_id,
                 tool_name=tool_call.tool_name,
@@ -357,13 +367,13 @@ def _project_graph_search_handler(
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
+            return missing_project_result(tool_call)
         query = str(tool_call.arguments.get("query") or request.message or "").strip()
-        limit = max(1, min(50, int(tool_call.arguments.get("limit") or 12)))
+        limit = max(1, min(50, safe_int(tool_call.arguments.get("limit")) or 12))
         try:
-            result = searcher(project_key=project_key, query=query, limit=limit, datasets=["graph_nodes"])
+            result = json_object(searcher(project_key=project_key, query=query, limit=limit, datasets=["graph_nodes"]))
         except Exception as exc:  # noqa: BLE001
             return CoreToolResult(
                 call_id=tool_call.call_id,
@@ -372,7 +382,7 @@ def _project_graph_search_handler(
                 model_summary=f"Project graph search failed: {exc}",
                 error={"code": exc.__class__.__name__, "message": str(exc)},
             )
-        items = list(result.get("items") or [])
+        items = json_list(result.get("items"))
         return CoreToolResult(
             call_id=tool_call.call_id,
             tool_name=tool_call.tool_name,
@@ -384,9 +394,9 @@ def _project_graph_search_handler(
                 "query": query,
                 "total_matches": result.get("total_matches"),
                 "total_stored_rows": result.get("total_stored_rows"),
-                "inventory": _compact_json_value(result.get("inventory"), max_items=8, max_depth=3),
-                "graph_nodes": _compact_json_value(items, max_items=limit, max_depth=5),
-                "errors": _compact_json_value(result.get("errors"), max_items=6, max_depth=3),
+                "inventory": compact_json_value(result.get("inventory"), max_items=8, max_depth=3),
+                "graph_nodes": compact_json_value(items, max_items=limit, max_depth=5),
+                "errors": compact_json_value(result.get("errors"), max_items=6, max_depth=3),
             },
         )
 
@@ -455,18 +465,19 @@ def _project_structured_graph_query_handler(
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
+            return missing_project_result(tool_call)
         query = str(tool_call.arguments.get("query") or request.message or "").strip()
-        limit = max(1, min(50, int(tool_call.arguments.get("limit") or 12)))
+        limit = max(1, min(50, safe_int(tool_call.arguments.get("limit")) or 12))
+        raw_datasets: JSONValue = tool_call.arguments.get("datasets")
         datasets = [
             str(item or "").strip()
-            for item in list(tool_call.arguments.get("datasets") or default_datasets)
+            for item in (raw_datasets if isinstance(raw_datasets, list) else default_datasets)
             if str(item or "").strip()
         ]
         try:
-            result = searcher(project_key=project_key, query=query, limit=limit, datasets=datasets)
+            result = json_object(searcher(project_key=project_key, query=query, limit=limit, datasets=datasets))
         except Exception as exc:  # noqa: BLE001
             return CoreToolResult(
                 call_id=tool_call.call_id,
@@ -475,7 +486,7 @@ def _project_structured_graph_query_handler(
                 model_summary=f"Structured/graph project query failed: {exc}",
                 error={"code": exc.__class__.__name__, "message": str(exc)},
             )
-        grouped = _group_items_by_dataset(list(result.get("items") or []))
+        grouped = _group_items_by_dataset(json_list(result.get("items")))
         return CoreToolResult(
             call_id=tool_call.call_id,
             tool_name=tool_call.tool_name,
@@ -490,13 +501,13 @@ def _project_structured_graph_query_handler(
                 "query": query,
                 "query_mode": result.get("query_mode"),
                 "datasets_requested": datasets,
-                "inventory": _compact_json_value(result.get("inventory"), max_items=20, max_depth=3),
-                "dataset_total_rows": dict(result.get("dataset_total_rows") or {}),
+                "inventory": compact_json_value(result.get("inventory"), max_items=20, max_depth=3),
+                "dataset_total_rows": json_object(result.get("dataset_total_rows")),
                 "total_stored_rows": result.get("total_stored_rows"),
                 "total_matches": result.get("total_matches"),
-                "items_by_dataset": _compact_json_value(grouped, max_items=12, max_depth=5),
-                "items": _compact_json_value(result.get("items"), max_items=limit, max_depth=5),
-                "errors": _compact_json_value(result.get("errors"), max_items=8, max_depth=3),
+                "items_by_dataset": compact_json_value(grouped, max_items=12, max_depth=5),
+                "items": compact_json_value(result.get("items"), max_items=limit, max_depth=5),
+                "errors": compact_json_value(result.get("errors"), max_items=8, max_depth=3),
             },
         )
 
@@ -530,23 +541,27 @@ def _project_structured_data_quality_audit_spec() -> CoreToolSpec:
     )
 
 
-def _project_structured_data_quality_audit_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
+def _project_structured_data_quality_audit_handler() -> Callable[
+    [CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult
+]:
     def handler(
         tool_call: CoreToolCall,
         tool_spec: CoreToolSpec,
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
-        scan_limit = max(1, min(5000, int(tool_call.arguments.get("scan_limit") or 500)))
-        sample_limit = max(1, min(100, int(tool_call.arguments.get("sample_limit") or 20)))
+            return missing_project_result(tool_call)
+        scan_limit = max(1, min(5000, safe_int(tool_call.arguments.get("scan_limit")) or 500))
+        sample_limit = max(1, min(100, safe_int(tool_call.arguments.get("sample_limit")) or 20))
         try:
-            result = audit_project_structured_data_quality(
-                project_key=project_key,
-                scan_limit=scan_limit,
-                sample_limit=sample_limit,
+            result = json_object(
+                audit_project_structured_data_quality(
+                    project_key=project_key,
+                    scan_limit=scan_limit,
+                    sample_limit=sample_limit,
+                )
             )
         except Exception as exc:  # noqa: BLE001
             return CoreToolResult(
@@ -559,7 +574,7 @@ def _project_structured_data_quality_audit_handler() -> Callable[[CoreToolCall, 
         return CoreToolResult(
             call_id=tool_call.call_id,
             tool_name=tool_call.tool_name,
-            status=str(result.get("status") or "completed"),
+            status=core_status(result.get("status") or "completed"),
             model_summary=(
                 f"Audited structured data quality: scanned={result.get('scanned')}, "
                 f"noisy_records={result.get('noisy_record_count')}, by_dataset={result.get('by_dataset')}."
@@ -570,9 +585,12 @@ def _project_structured_data_quality_audit_handler() -> Callable[[CoreToolCall, 
     return handler
 
 
-def _group_items_by_dataset(items: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    grouped: dict[str, list[dict[str, Any]]] = {}
-    for item in items:
+def _group_items_by_dataset(items: list[JSONValue]) -> dict[str, list[JSONObject]]:
+    grouped: dict[str, list[JSONObject]] = {}
+    for value in items:
+        if not isinstance(value, dict):
+            continue
+        item = value
         dataset = str(item.get("dataset") or "unknown").strip() or "unknown"
         grouped.setdefault(dataset, []).append(item)
     return grouped
@@ -596,11 +614,17 @@ def _source_discovery_plan_spec() -> CoreToolSpec:
                 "domains": {"type": "array", "items": {"type": "string"}},
                 "source_kinds": {
                     "type": "array",
-                    "items": {"type": "string", "enum": ["official", "market", "academic", "news", "regulatory", "company", "database"]},
+                    "items": {
+                        "type": "string",
+                        "enum": ["official", "market", "academic", "news", "regulatory", "company", "database"],
+                    },
                 },
                 "max_candidates": {"type": "integer", "minimum": 1, "maximum": 30},
                 "min_trust_score": {"type": "number", "minimum": 0, "maximum": 100},
-                "matrix_mode": {"type": "boolean", "description": "Default true. Return intent/query/tool/evidence/verification matrix metadata."},
+                "matrix_mode": {
+                    "type": "boolean",
+                    "description": "Default true. Return intent/query/tool/evidence/verification matrix metadata.",
+                },
             },
             "additionalProperties": False,
         },
@@ -624,44 +648,55 @@ def _source_discovery_plan_handler(
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
+            return missing_project_result(tool_call)
         topic = str(tool_call.arguments.get("topic") or request.message or "").strip()
-        query_terms = _normalize_string_list(tool_call.arguments.get("query_terms"))
+        query_terms = normalize_string_list(tool_call.arguments.get("query_terms"))
         if not query_terms and topic:
             query_terms = _derive_query_terms(topic)
-        source_kinds = _normalize_string_list(tool_call.arguments.get("source_kinds")) or ["official", "regulatory", "company", "news", "database"]
-        max_candidates = max(1, min(30, int(tool_call.arguments.get("max_candidates") or 12)))
-        candidate_urls = _normalize_string_list(tool_call.arguments.get("candidate_urls"))
-        domains = _normalize_string_list(tool_call.arguments.get("domains"))
-        min_trust_score = float(tool_call.arguments.get("min_trust_score") or 60)
+        source_kinds = normalize_string_list(tool_call.arguments.get("source_kinds")) or [
+            "official",
+            "regulatory",
+            "company",
+            "news",
+            "database",
+        ]
+        max_candidates = max(1, min(30, safe_int(tool_call.arguments.get("max_candidates")) or 12))
+        candidate_urls = normalize_string_list(tool_call.arguments.get("candidate_urls"))
+        domains = normalize_string_list(tool_call.arguments.get("domains"))
+        min_trust_score = _safe_float(tool_call.arguments.get("min_trust_score"), default=60.0)
         matrix_mode = bool(tool_call.arguments.get("matrix_mode", True))
-        source_items: list[dict[str, Any]] = []
-        source_lister_error: dict[str, str] | None = None
+        source_items: list[JSONObject] = []
+        source_lister_error: JSONObject | None = None
         if source_library_lister is not None:
             try:
-                source_items = [dict(item or {}) for item in list(source_library_lister(project_key) or [])]
+                source_items = [json_object(item) for item in source_library_lister(project_key)]
             except Exception as exc:  # noqa: BLE001
                 source_lister_error = {"code": exc.__class__.__name__, "message": str(exc)}
 
-        trust_plan = build_source_candidate_plan(
-            project_key=project_key,
-            query=" ".join(query_terms) or topic,
-            urls=candidate_urls,
-            domains=domains,
-            source_library_items=source_items,
-            max_candidates=max_candidates,
-            min_trust_score=min_trust_score,
+        trust_plan = json_object(
+            build_source_candidate_plan(
+                project_key=project_key,
+                query=" ".join(query_terms) or topic,
+                urls=candidate_urls,
+                domains=domains,
+                source_library_items=source_items,
+                max_candidates=max_candidates,
+                min_trust_score=min_trust_score,
+            )
         )
         url_assessments = (
-            list(trust_plan.get("candidate_urls") or [])
-            + list(trust_plan.get("rejected_urls") or [])
-            + list(trust_plan.get("duplicate_urls") or [])
+            [item for item in json_list(trust_plan.get("candidate_urls")) if isinstance(item, dict)]
+            + [item for item in json_list(trust_plan.get("rejected_urls")) if isinstance(item, dict)]
+            + [item for item in json_list(trust_plan.get("duplicate_urls")) if isinstance(item, dict)]
         )
-        search_queries = _build_source_search_queries(topic=topic, query_terms=query_terms, source_kinds=source_kinds, limit=max_candidates)
-        for query in trust_plan.get("search_queries") or []:
-            if isinstance(query, str) and query and all(item.get("query") != query for item in search_queries):
+        search_queries = _build_source_search_queries(
+            topic=topic, query_terms=query_terms, source_kinds=source_kinds, limit=max_candidates
+        )
+        for query_value in json_list(trust_plan.get("search_queries")):
+            query = str(query_value or "")
+            if query and all(item.get("query") != query for item in search_queries):
                 search_queries.append(
                     {
                         "query": query,
@@ -673,7 +708,7 @@ def _source_discovery_plan_handler(
             if len(search_queries) >= max_candidates:
                 break
         source_directions = _build_source_directions(topic=topic, query_terms=query_terms, source_kinds=source_kinds)
-        capability_matrix = (
+        capability_matrix: JSONObject | None = (
             _build_source_capability_matrix(
                 topic=topic,
                 query_terms=query_terms,
@@ -687,12 +722,12 @@ def _source_discovery_plan_handler(
             if matrix_mode
             else None
         )
-        rejected = [item for item in url_assessments if item["status"] == "rejected"]
-        accepted = [item for item in url_assessments if item["status"] == "accepted"]
+        rejected = [item for item in url_assessments if item.get("status") == "rejected"]
+        accepted = [item for item in url_assessments if item.get("status") == "accepted"]
         model_summary = (
             f"Planned {len(search_queries)} source search querie(s), "
             f"{len(source_directions)} source direction(s), accepted_urls={len(accepted)}, rejected_urls={len(rejected)}, "
-            f"candidate_source_items={len(list(trust_plan.get('candidate_source_items') or []))}."
+            f"candidate_source_items={len(json_list(trust_plan.get('candidate_source_items')))}."
         )
         return CoreToolResult(
             call_id=tool_call.call_id,
@@ -708,10 +743,14 @@ def _source_discovery_plan_handler(
                 "source_kinds": source_kinds,
                 "search_queries": search_queries,
                 "capability_matrix": capability_matrix,
-                "matrix_summary": _compact_json_value((capability_matrix or {}).get("summary"), max_items=20, max_depth=4),
+                "matrix_summary": compact_json_value(
+                    (capability_matrix or {}).get("summary"), max_items=20, max_depth=4
+                ),
                 "source_directions": source_directions,
                 "candidate_urls": url_assessments,
-                "candidate_source_items": _compact_json_value(trust_plan.get("candidate_source_items"), max_items=max_candidates, max_depth=4),
+                "candidate_source_items": compact_json_value(
+                    trust_plan.get("candidate_source_items"), max_items=max_candidates, max_depth=4
+                ),
                 "source_lister_error": source_lister_error,
                 "quality_gates": {
                     "external_write_performed": False,
@@ -720,7 +759,9 @@ def _source_discovery_plan_handler(
                     "minimum_score_for_auto_candidate": min_trust_score,
                     "reject_private_or_local_networks": True,
                     "dedupe_key": "normalized_url_sha256",
-                    "pre_ingest_required_checks": list((trust_plan.get("trust_policy") or {}).get("pre_ingest_required_checks") or []),
+                    "pre_ingest_required_checks": json_list(
+                        json_object(trust_plan.get("trust_policy")).get("pre_ingest_required_checks")
+                    ),
                     "next_tool_after_candidate_review": "source.candidate.review, then ingest.source_library.run or ingest.url_pool.submit when approved",
                 },
                 "trust_pipeline": trust_plan.get("trust_policy"),
@@ -753,7 +794,9 @@ def _derive_query_terms(topic: str) -> list[str]:
     return out
 
 
-def _build_source_search_queries(*, topic: str, query_terms: list[str], source_kinds: list[str], limit: int) -> list[dict[str, Any]]:
+def _build_source_search_queries(
+    *, topic: str, query_terms: list[str], source_kinds: list[str], limit: int
+) -> list[JSONObject]:
     terms = " ".join(query_terms[:6]) or topic
     templates = {
         "official": ['"{terms}" official data', '"{terms}" site:.gov OR site:.org'],
@@ -764,7 +807,7 @@ def _build_source_search_queries(*, topic: str, query_terms: list[str], source_k
         "news": ['"{terms}" recent news evidence', '"{terms}" investigation report'],
         "database": ['"{terms}" database statistics', '"{terms}" API dataset'],
     }
-    out: list[dict[str, Any]] = []
+    out: list[JSONObject] = []
     for kind in source_kinds:
         for template in templates.get(kind, [f'"{{terms}}" {kind} evidence']):
             query = template.format(terms=terms).strip()
@@ -782,15 +825,15 @@ def _build_source_search_queries(*, topic: str, query_terms: list[str], source_k
     return out
 
 
-def _build_source_directions(*, topic: str, query_terms: list[str], source_kinds: list[str]) -> list[dict[str, Any]]:
-    directions: list[dict[str, Any]] = []
+def _build_source_directions(*, topic: str, query_terms: list[str], source_kinds: list[str]) -> list[JSONObject]:
+    directions: list[JSONObject] = []
     for kind in source_kinds:
         directions.append(
             {
                 "source_kind": kind,
                 "target": _source_kind_target(kind),
                 "why": _source_kind_purpose(kind),
-                "candidate_terms": query_terms[:6],
+                "candidate_terms": json_strings(query_terms[:6]),
                 "trust_notes": _source_kind_trust_notes(kind),
                 "ingest_boundary": "candidate only; source-library execution remains explicit-request governed",
             }
@@ -895,9 +938,9 @@ def _clue_chain_expand_handler(
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
+            return missing_project_result(tool_call)
         chain_id = str(tool_call.arguments.get("chain_id") or "").strip()
         if not chain_id:
             return CoreToolResult(
@@ -920,15 +963,15 @@ def _clue_chain_expand_handler(
                     "message": "mode/provider must be one of: source_library_search, external_search_fixture",
                 },
             )
-        frontier_node_ids = _normalize_string_list(tool_call.arguments.get("frontier_node_ids"))
+        frontier_node_ids = normalize_string_list(tool_call.arguments.get("frontier_node_ids"))
         query = str(tool_call.arguments.get("query") or request.message or "").strip()
-        limit = max(1, min(20, int(tool_call.arguments.get("limit") or 5)))
+        limit = max(1, min(20, safe_int(tool_call.arguments.get("limit")) or 5))
         idempotency_key = str(tool_call.arguments.get("idempotency_key") or "").strip()
-        payload = {
+        payload: JSONObject = {
             "project_key": project_key,
             "chain_id": chain_id,
             "query": query,
-            "frontier_node_ids": frontier_node_ids,
+            "frontier_node_ids": json_strings(frontier_node_ids),
             "mode": mode,
             "provider": mode,
             "limit": limit,
@@ -969,22 +1012,26 @@ def _clue_chain_expand_handler(
             idempotency_key=idempotency_key,
             service_status=service_status,
         )
+        if isinstance(fallback, Failure):
+            return runtime_failure_result(tool_call, fallback)
         return CoreToolResult(
             call_id=tool_call.call_id,
             tool_name=tool_call.tool_name,
             status="completed",
             model_summary=(
                 f"Requested clue chain expansion for chain={chain_id}; "
-                f"mode={mode}; candidates={len(fallback['candidates'])}; requires_review=True; promoted_to_graph=False."
+                f"mode={mode}; candidates={len(json_list(fallback.get('candidates')))}; requires_review=True; promoted_to_graph=False."
             ),
             structured_content=fallback,
-            artifact_refs=(str((fallback.get("artifact") or {}).get("artifact_id") or "clue_chain_expansions.json"),),
+            artifact_refs=(
+                str(json_object(fallback.get("artifact")).get("artifact_id") or "clue_chain_expansions.json"),
+            ),
         )
 
     return handler
 
 
-def _normalize_clue_chain_expand_mode(value: Any) -> str | None:
+def _normalize_clue_chain_expand_mode(value: object) -> str | None:
     mode = str(value or "source_library_search").strip().lower() or "source_library_search"
     aliases = {
         "source_library": "source_library_search",
@@ -999,7 +1046,7 @@ def _normalize_clue_chain_expand_mode(value: Any) -> str | None:
     return aliases.get(mode)
 
 
-def _try_clue_chain_service_expand(payload: dict[str, Any]) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+def _try_clue_chain_service_expand(payload: JSONObject) -> tuple[JSONObject | None, JSONObject]:
     try:
         module = importlib.import_module("app.services.clue_chains.service")
     except Exception as exc:  # noqa: BLE001
@@ -1014,7 +1061,7 @@ def _try_clue_chain_service_expand(payload: dict[str, Any]) -> tuple[dict[str, A
         if not callable(handler):
             continue
         try:
-            result = handler(**_filter_kwargs_for_callable(handler, payload))
+            result = json_object(handler(**_filter_kwargs_for_callable(handler, payload)))
         except Exception as exc:  # noqa: BLE001
             return None, {
                 "service_adapter": "app.services.clue_chains.service",
@@ -1023,7 +1070,7 @@ def _try_clue_chain_service_expand(payload: dict[str, Any]) -> tuple[dict[str, A
                 "code": exc.__class__.__name__,
                 "message": str(exc),
             }
-        return dict(result or {}), {
+        return result, {
             "service_adapter": "app.services.clue_chains.service",
             "handler": name,
             "status": "completed",
@@ -1035,7 +1082,7 @@ def _try_clue_chain_service_expand(payload: dict[str, Any]) -> tuple[dict[str, A
     }
 
 
-def _filter_kwargs_for_callable(handler: Callable[..., Any], payload: dict[str, Any]) -> dict[str, Any]:
+def _filter_kwargs_for_callable(handler: Callable[..., object], payload: JSONObject) -> JSONObject:
     try:
         signature = inspect.signature(handler)
     except Exception:  # noqa: BLE001
@@ -1055,23 +1102,24 @@ def _clue_chain_expand_result_from_service(
     frontier_node_ids: list[str],
     mode: str,
     limit: int,
-    service_result: dict[str, Any],
-    service_status: dict[str, Any],
+    service_result: JSONObject,
+    service_status: JSONObject,
 ) -> CoreToolResult:
-    candidates = list(service_result.get("candidates") or [])
-    if not candidates and isinstance(service_result.get("hop"), dict):
-        candidates = list(dict(service_result.get("hop") or {}).get("candidates") or [])
-    normalized = {
+    candidates = json_list(service_result.get("candidates"))
+    hop_value = service_result.get("hop")
+    if not candidates and isinstance(hop_value, dict):
+        candidates = json_list(hop_value.get("candidates"))
+    normalized: JSONObject = {
         **service_result,
         "contract_version": "chain.expand.v1",
         "project_key": service_result.get("project_key") or project_key,
         "chain_id": service_result.get("chain_id") or chain_id,
         "query": service_result.get("query") or query,
-        "frontier_node_ids": list(service_result.get("frontier_node_ids") or frontier_node_ids),
+        "frontier_node_ids": json_list(service_result.get("frontier_node_ids")) or list[JSONValue](frontier_node_ids),
         "mode": service_result.get("mode") or mode,
         "provider": service_result.get("provider") or service_result.get("mode") or mode,
         "limit": service_result.get("limit") or limit,
-        "candidates": _compact_json_value(candidates, max_items=max(30, limit), max_depth=6),
+        "candidates": compact_json_value(candidates, max_items=max(30, limit), max_depth=6),
         "candidate_count": len(candidates),
         "requires_review": True,
         "review_status": "pending_review",
@@ -1105,13 +1153,20 @@ def _record_clue_chain_expand_request_artifact(
     mode: str,
     limit: int,
     idempotency_key: str,
-    service_status: dict[str, Any],
-) -> dict[str, Any]:
+    service_status: JSONObject,
+) -> JSONObject | Failure:
     artifact_name = "clue_chain_expansions.json"
-    existing_artifact = next((item for item in service.list_artifacts(request.session_id) if item.get("name") == artifact_name), None)
-    existing_content = dict((existing_artifact or {}).get("content_json") or {})
-    replay_keys = [str(item or "") for item in list(existing_content.get("replay_keys") or []) if str(item or "").strip()]
-    request_key = idempotency_key or _stable_hash(
+    artifacts = service.list_artifacts(request.session_id)
+    if isinstance(artifacts, Failure):
+        return artifacts
+    existing_artifact = next(
+        (item for item in artifacts if item.get("name") == artifact_name), None
+    )
+    existing_content = json_object((existing_artifact or {}).get("content_json"))
+    replay_keys = [
+        str(item or "") for item in json_list(existing_content.get("replay_keys")) if str(item or "").strip()
+    ]
+    request_key = idempotency_key or stable_hash(
         {
             "project_key": project_key,
             "chain_id": chain_id,
@@ -1123,29 +1178,37 @@ def _record_clue_chain_expand_request_artifact(
         },
     )
     replayed = bool(idempotency_key and idempotency_key in replay_keys)
-    requests = [dict(item) for item in list(existing_content.get("requests") or []) if isinstance(item, dict)]
-    hops = [dict(item) for item in list(existing_content.get("hops") or []) if isinstance(item, dict)]
-    candidates = [dict(item) for item in list(existing_content.get("candidates") or []) if isinstance(item, dict)]
+    requests = [item for item in json_list(existing_content.get("requests")) if isinstance(item, dict)]
+    hops = [item for item in json_list(existing_content.get("hops")) if isinstance(item, dict)]
+    candidates = [item for item in json_list(existing_content.get("candidates")) if isinstance(item, dict)]
 
     if replayed:
-        expansion_request = next((item for item in requests if str(item.get("request_key") or "") == request_key), {})
-        hop = next((item for item in hops if str(item.get("expansion_request_id") or "") == expansion_request.get("expansion_request_id")), {})
-        selected_candidates = [
-            item
-            for item in candidates
-            if str(item.get("hop_id") or "") == str(hop.get("hop_id") or "")
+        expansion_request = next((item for item in requests if str(item.get("request_key") or "") == request_key))
+        if not expansion_request:
+            expansion_request = {}
+        hop = next(
+            (
+                item
+                for item in hops
+                if str(item.get("expansion_request_id") or "") == expansion_request.get("expansion_request_id")
+            ),
+        )
+        if not hop:
+            hop = {}
+        selected_candidates: list[JSONObject] = [
+            item for item in candidates if str(item.get("hop_id") or "") == str(hop.get("hop_id") or "")
         ]
     else:
-        expansion_request_id = f"chain-exp-{_stable_hash({'request_key': request_key, 'chain_id': chain_id})[:16]}"
-        hop_id = f"chain-hop-{_stable_hash({'expansion_request_id': expansion_request_id, 'mode': mode})[:16]}"
-        now = _utcnow_iso()
-        expansion_request = {
+        expansion_request_id = f"chain-exp-{stable_hash({'request_key': request_key, 'chain_id': chain_id})[:16]}"
+        hop_id = f"chain-hop-{stable_hash({'expansion_request_id': expansion_request_id, 'mode': mode})[:16]}"
+        now = utcnow_iso()
+        expansion_request: JSONObject = {
             "expansion_request_id": expansion_request_id,
             "request_key": request_key,
             "chain_id": chain_id,
             "project_key": project_key,
             "query": query,
-            "frontier_node_ids": frontier_node_ids,
+            "frontier_node_ids": list[JSONValue](frontier_node_ids),
             "mode": mode,
             "provider": mode,
             "limit": limit,
@@ -1157,13 +1220,13 @@ def _record_clue_chain_expand_request_artifact(
             "turn_id": request.turn_id,
             "call_id": tool_call.call_id,
         }
-        hop = {
+        hop: JSONObject = {
             "hop_id": hop_id,
             "expansion_request_id": expansion_request_id,
             "chain_id": chain_id,
             "project_key": project_key,
             "query": query,
-            "frontier_node_ids": frontier_node_ids,
+            "frontier_node_ids": list[JSONValue](frontier_node_ids),
             "mode": mode,
             "provider": mode,
             "status": "pending_review",
@@ -1182,13 +1245,11 @@ def _record_clue_chain_expand_request_artifact(
             mode=mode,
             limit=limit,
         )
-        hop["candidate_ids"] = [item["candidate_id"] for item in selected_candidates]
+        hop["candidate_ids"] = [str(item.get("candidate_id") or "") for item in selected_candidates]
         requests = [item for item in requests if str(item.get("request_key") or "") != request_key]
         hops = [item for item in hops if str(item.get("hop_id") or "") != hop_id]
         candidates = [
-            item
-            for item in candidates
-            if str(item.get("expansion_request_id") or "") != expansion_request_id
+            item for item in candidates if str(item.get("expansion_request_id") or "") != expansion_request_id
         ]
         requests.append(expansion_request)
         hops.append(hop)
@@ -1196,15 +1257,15 @@ def _record_clue_chain_expand_request_artifact(
         if idempotency_key:
             replay_keys.append(idempotency_key)
 
-    content = {
+    content: JSONObject = {
         **existing_content,
         "contract_version": "chain.expand.v1",
         "project_key": project_key,
-        "updated_at": _utcnow_iso(),
+        "updated_at": utcnow_iso(),
         "replay_keys": replay_keys[-50:],
-        "requests": requests[-100:],
-        "hops": hops[-100:],
-        "candidates": candidates[-200:],
+        "requests": list[JSONValue](requests[-100:]),
+        "hops": list[JSONValue](hops[-100:]),
+        "candidates": list[JSONValue](candidates[-200:]),
         "counts": {
             "requests": len(requests),
             "hops": len(hops),
@@ -1219,7 +1280,10 @@ def _record_clue_chain_expand_request_artifact(
             "decision_contract": "ChainDecision",
         },
     }
-    artifact = service.store.upsert_artifact(
+    store = agent_artifact_store(service.store)
+    if store is None:
+        raise TypeError("AgentSessionService.store does not provide the artifact store contract")
+    artifact_value = store.upsert_artifact(
         {
             "session_id": request.session_id,
             "name": artifact_name,
@@ -1237,18 +1301,21 @@ def _record_clue_chain_expand_request_artifact(
             },
         }
     )
+    if isinstance(artifact_value, Failure):
+        return artifact_value
+    artifact = json_object(artifact_value)
     return {
         "contract_version": "chain.expand.v1",
         "project_key": project_key,
         "chain_id": chain_id,
         "query": query,
-        "frontier_node_ids": frontier_node_ids,
+        "frontier_node_ids": list[JSONValue](frontier_node_ids),
         "mode": mode,
         "provider": mode,
         "limit": limit,
-        "expansion_request": _compact_json_value(expansion_request, max_items=24, max_depth=5),
-        "hop": _compact_json_value(hop, max_items=24, max_depth=5),
-        "candidates": _compact_json_value(selected_candidates, max_items=max(30, limit), max_depth=6),
+        "expansion_request": compact_json_value(expansion_request, max_items=24, max_depth=5),
+        "hop": compact_json_value(hop, max_items=24, max_depth=5),
+        "candidates": compact_json_value(selected_candidates, max_items=max(30, limit), max_depth=6),
         "candidate_count": len(selected_candidates),
         "requires_review": True,
         "review_status": "pending_review",
@@ -1259,7 +1326,7 @@ def _record_clue_chain_expand_request_artifact(
         "no_silent_promote": True,
         "decision_gate": _clue_chain_decision_gate(chain_id),
         "service_status": service_status,
-        "artifact": _compact_json_value(artifact, max_items=18, max_depth=4),
+        "artifact": compact_json_value(artifact, max_items=18, max_depth=4),
         "replayed": replayed,
     }
 
@@ -1274,11 +1341,11 @@ def _build_clue_chain_review_candidates(
     frontier_node_ids: list[str],
     mode: str,
     limit: int,
-) -> list[dict[str, Any]]:
+) -> list[JSONObject]:
     seed_labels = frontier_node_ids[:limit] or [query or chain_id]
-    candidates: list[dict[str, Any]] = []
+    candidates: list[JSONObject] = []
     for index, seed in enumerate(seed_labels[:limit], start=1):
-        candidate_id = f"chain-cand-{_stable_hash({'hop_id': hop_id, 'seed': seed, 'index': index})[:16]}"
+        candidate_id = f"chain-cand-{stable_hash({'hop_id': hop_id, 'seed': seed, 'index': index})[:16]}"
         candidates.append(
             {
                 "candidate_id": candidate_id,
@@ -1293,7 +1360,9 @@ def _build_clue_chain_review_candidates(
                 "query": query,
                 "frontier_node_ids": frontier_node_ids,
                 "frontier_seed": seed,
-                "candidate_type": "source_library_lead" if mode == "source_library_search" else "external_search_fixture_lead",
+                "candidate_type": "source_library_lead"
+                if mode == "source_library_search"
+                else "external_search_fixture_lead",
                 "review_status": "pending_review",
                 "requires_review": True,
                 "promote_allowed": False,
@@ -1315,7 +1384,7 @@ def _clue_chain_candidate_title(*, mode: str, query: str, seed: str) -> str:
     return f"Source-library search lead for {label}"
 
 
-def _clue_chain_decision_gate(chain_id: str) -> dict[str, Any]:
+def _clue_chain_decision_gate(chain_id: str) -> JSONObject:
     return {
         "gate": "ChainDecision",
         "chain_id": chain_id,
@@ -1340,11 +1409,20 @@ def _source_web_search_spec() -> CoreToolSpec:
             "properties": {
                 "query": {"type": "string"},
                 "query_terms": {"type": "array", "items": {"type": "string"}},
-                "language": {"type": "string", "enum": ["en", "zh", "bi", "bilingual", "zh-en", "zh_en", "both", "multi", "multilingual"]},
-                "provider": {"type": "string", "enum": ["auto", "ddg", "google", "serper", "serpstack", "serpapi", "searxng", "yacy"]},
+                "language": {
+                    "type": "string",
+                    "enum": ["en", "zh", "bi", "bilingual", "zh-en", "zh_en", "both", "multi", "multilingual"],
+                },
+                "provider": {
+                    "type": "string",
+                    "enum": ["auto", "ddg", "google", "serper", "serpstack", "serpapi", "searxng", "yacy"],
+                },
                 "providers": {
                     "type": "array",
-                    "items": {"type": "string", "enum": ["auto", "ddg", "google", "serper", "serpstack", "serpapi", "searxng", "yacy"]},
+                    "items": {
+                        "type": "string",
+                        "enum": ["auto", "ddg", "google", "serper", "serpstack", "serpapi", "searxng", "yacy"],
+                    },
                     "description": "Optional provider branches for matrix mode. Capped to a small safe fanout.",
                 },
                 "query_variants": {
@@ -1352,7 +1430,10 @@ def _source_web_search_spec() -> CoreToolSpec:
                     "items": {"type": "string"},
                     "description": "Optional keyword/query branches for matrix mode.",
                 },
-                "matrix_mode": {"type": "boolean", "description": "Run a bounded query/provider matrix and merge/rank candidates."},
+                "matrix_mode": {
+                    "type": "boolean",
+                    "description": "Run a bounded query/provider matrix and merge/rank candidates.",
+                },
                 "max_results": {"type": "integer", "minimum": 1, "maximum": 20},
                 "days_back": {"type": "integer", "minimum": 1, "maximum": 3650},
                 "domains": {"type": "array", "items": {"type": "string"}},
@@ -1367,39 +1448,50 @@ def _source_web_search_spec() -> CoreToolSpec:
         timeout_seconds=30,
         result_budget=9000,
         project_service_id="source.web.search",
-        metadata={"contract_version": "source.web.search.v1", "external_network_io": True, "no_ingest": True, "no_project_write": True},
+        metadata={
+            "contract_version": "source.web.search.v1",
+            "external_network_io": True,
+            "no_ingest": True,
+            "no_project_write": True,
+        },
     )
 
 
-def _source_web_search_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
+def _source_web_search_handler() -> Callable[
+    [CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult
+]:
     def handler(
         tool_call: CoreToolCall,
         tool_spec: CoreToolSpec,
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
-        query_terms = _normalize_string_list(tool_call.arguments.get("query_terms"))
+            return missing_project_result(tool_call)
+        query_terms = normalize_string_list(tool_call.arguments.get("query_terms"))
         query = str(tool_call.arguments.get("query") or " ".join(query_terms) or request.message or "").strip()
-        domains = _normalize_string_list(tool_call.arguments.get("domains"))
+        domains = normalize_string_list(tool_call.arguments.get("domains"))
         language = str(tool_call.arguments.get("language") or "en").strip() or "en"
         provider = str(tool_call.arguments.get("provider") or "auto").strip() or "auto"
         providers = _normalize_source_search_providers(tool_call.arguments.get("providers"), default_provider=provider)
-        query_variants = _normalize_string_list(tool_call.arguments.get("query_variants"))
-        matrix_mode = bool(tool_call.arguments.get("matrix_mode", False) or len(providers) > 1 or len(query_variants) > 1)
+        query_variants = normalize_string_list(tool_call.arguments.get("query_variants"))
+        matrix_mode = bool(
+            tool_call.arguments.get("matrix_mode", False) or len(providers) > 1 or len(query_variants) > 1
+        )
         if not query_variants:
-            query_variants = _build_query_matrix_variants(query=query, query_terms=query_terms, domains=domains, matrix_mode=matrix_mode)
+            query_variants = _build_query_matrix_variants(
+                query=query, query_terms=query_terms, domains=domains, matrix_mode=matrix_mode
+            )
         if not matrix_mode:
             query_variants = query_variants[:1]
             providers = providers[:1]
-        max_results = max(1, min(20, int(tool_call.arguments.get("max_results") or 8)))
+        max_results = max(1, min(20, safe_int(tool_call.arguments.get("max_results")) or 8))
         days_back_raw = tool_call.arguments.get("days_back")
-        days_back = None if days_back_raw in (None, "") else max(1, min(3650, int(days_back_raw)))
-        min_trust_score = float(tool_call.arguments.get("min_trust_score") or 40)
-        search_branches: list[dict[str, Any]] = []
-        all_candidates: list[dict[str, Any]] = []
+        days_back = None if days_back_raw in (None, "") else max(1, min(3650, safe_int(days_back_raw) or 1))
+        min_trust_score = _safe_float(tool_call.arguments.get("min_trust_score"), default=40.0)
+        search_branches: list[JSONObject] = []
+        all_candidates: list[JSONObject] = []
         branch_limit = max(1, min(5, max_results))
         branch_specs = _build_source_search_branch_specs(
             query_variants=query_variants,
@@ -1423,7 +1515,7 @@ def _source_web_search_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentC
                 )
                 candidate_bundle = discover_candidates(candidate_request)
                 branch_observations = candidate_bundle.observations
-                raw_results = [dict(candidate.raw) for candidate in candidate_bundle.candidates]
+                raw_results = [json_object(candidate.raw) for candidate in candidate_bundle.candidates]
             except Exception as exc:  # noqa: BLE001
                 if matrix_mode:
                     diagnostics = _source_web_search_provider_diagnostics(provider=branch_provider, result_count=0)
@@ -1456,9 +1548,17 @@ def _source_web_search_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentC
                         "ingest_performed": False,
                     },
                 )
-            normalized_branch_results = _normalize_web_search_results(raw_results, query=branch_query, min_trust_score=min_trust_score)
-            accepted_branch_count = sum(1 for item in normalized_branch_results if str((item.get("trust") or {}).get("status") or "") == "accepted")
-            diagnostics = _source_web_search_provider_diagnostics(provider=branch_provider, result_count=len(normalized_branch_results))
+            normalized_branch_results = _normalize_web_search_results(
+                raw_results, query=branch_query, min_trust_score=min_trust_score
+            )
+            accepted_branch_count = sum(
+                1
+                for item in normalized_branch_results
+                if str(json_object(item.get("trust")).get("status") or "") == "accepted"
+            )
+            diagnostics = _source_web_search_provider_diagnostics(
+                provider=branch_provider, result_count=len(normalized_branch_results)
+            )
             for candidate in normalized_branch_results:
                 candidate["_matrix_branch"] = {
                     "branch_id": f"b{branch_index}",
@@ -1474,7 +1574,9 @@ def _source_web_search_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentC
                     "query": branch_query,
                     "provider": branch_provider,
                     "purpose": branch.get("purpose"),
-                    "status": "partial" if observed_failures and normalized_branch_results else ("failed" if observed_failures else "completed"),
+                    "status": "partial"
+                    if observed_failures and normalized_branch_results
+                    else ("failed" if observed_failures else "completed"),
                     "observations": [
                         {
                             "provider": item.provider,
@@ -1494,8 +1596,14 @@ def _source_web_search_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentC
                 }
             )
         normalized_results = _merge_rank_web_search_candidates(all_candidates, max_results=max_results)
-        accepted_count = sum(1 for item in normalized_results if str((item.get("trust") or {}).get("status") or "") == "accepted")
-        provider_diagnostics = _source_web_search_provider_diagnostics(provider=provider, result_count=len(normalized_results))
+        accepted_count = sum(
+            1
+            for item in normalized_results
+            if str(json_object(item.get("trust")).get("status") or "") == "accepted"
+        )
+        provider_diagnostics = _source_web_search_provider_diagnostics(
+            provider=provider, result_count=len(normalized_results)
+        )
         matrix_summary = _build_web_search_matrix_summary(
             matrix_mode=matrix_mode,
             query_variants=query_variants,
@@ -1550,16 +1658,16 @@ def _source_web_search_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentC
                 "ingest_performed": False,
                 "candidate_count": len(normalized_results),
                 "accepted_candidate_count": accepted_count,
-                "candidates": _compact_json_value(normalized_results, max_items=max(12, max_results), max_depth=5),
-                "search_branches": _compact_json_value(search_branches, max_items=12, max_depth=5),
+                "candidates": compact_json_value(normalized_results, max_items=max(12, max_results), max_depth=5),
+                "search_branches": compact_json_value(search_branches, max_items=12, max_depth=5),
                 "matrix_summary": matrix_summary,
                 "agent_matrix_evidence_contract_version": AGENT_MATRIX_SEARCH_EVIDENCE_CONTRACT_VERSION,
                 "global_vector_object_contract_version": GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION,
                 "evidence_hit_contract_version": SEARCH_EVIDENCE_HIT_CONTRACT_VERSION,
                 "retrieval_run_contract_version": SEARCH_RETRIEVAL_RUN_CONTRACT_VERSION,
                 "query_group_id": query_group_id,
-                "evidence_hits": _compact_json_value(evidence_hits, max_items=max(30, max_results), max_depth=6),
-                "retrieval_run": _compact_json_value(retrieval_run, max_items=max(30, max_results), max_depth=6),
+                "evidence_hits": compact_json_value(evidence_hits, max_items=max(30, max_results), max_depth=6),
+                "retrieval_run": compact_json_value(retrieval_run, max_items=max(30, max_results), max_depth=6),
                 "provider_diagnostics": provider_diagnostics,
                 "empty_result_guidance": (
                     "No live candidates returned. Do not conclude absence of evidence; retry with a configured provider, "
@@ -1576,18 +1684,22 @@ def _source_web_search_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentC
     return handler
 
 
-def _source_web_search_provider_diagnostics(*, provider: str, result_count: int) -> dict[str, Any]:
-    google_api_key_configured = bool(os.getenv("GOOGLE_SEARCH_API_KEY") or getattr(settings, "google_search_api_key", None))
+def _source_web_search_provider_diagnostics(*, provider: str, result_count: int) -> JSONObject:
+    google_api_key_configured = bool(
+        os.getenv("GOOGLE_SEARCH_API_KEY") or getattr(settings, "google_search_api_key", None)
+    )
     google_cse_configured = bool(os.getenv("GOOGLE_SEARCH_CSE_ID") or getattr(settings, "google_search_cse_id", None))
     google_oauth_path = str(os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "").strip()
     google_oauth_configured = bool(google_oauth_path and os.path.isfile(os.path.expanduser(google_oauth_path)))
     google_configured = bool(google_cse_configured and (google_api_key_configured or google_oauth_configured))
     serper_configured = bool(os.getenv("SERPER_API_KEY") or getattr(settings, "serper_api_key", None))
     serpstack_configured = bool(os.getenv("SERPSTACK_KEY") or getattr(settings, "serpstack_key", None))
-    serpapi_configured = bool(os.getenv("SERPAPI_KEY") or os.getenv("SERPAPI_API_KEY") or getattr(settings, "serpapi_key", None))
+    serpapi_configured = bool(
+        os.getenv("SERPAPI_KEY") or os.getenv("SERPAPI_API_KEY") or getattr(settings, "serpapi_key", None)
+    )
     searxng_base_url = str(os.getenv("SEARXNG_BASE_URL") or "http://127.0.0.1:8088").strip()
     yacy_base_url = str(os.getenv("YACY_BASE_URL") or "http://127.0.0.1:8090").strip()
-    provider_readiness = {
+    provider_readiness: dict[str, JSONObject] = {
         "google": {
             "configured": google_configured,
             "cse_configured": google_cse_configured,
@@ -1599,7 +1711,10 @@ def _source_web_search_provider_diagnostics(*, provider: str, result_count: int)
         "serpstack": {"configured": serpstack_configured, "required": "SERPSTACK_KEY"},
         "serpapi": {"configured": serpapi_configured, "required": "SERPAPI_KEY or SERPAPI_API_KEY"},
         "ddg": {"configured": True, "required": "no key; public endpoint may rate-limit"},
-        "searxng": {"configured": bool(searxng_base_url), "required": "SEARXNG_BASE_URL; defaults to http://127.0.0.1:8088"},
+        "searxng": {
+            "configured": bool(searxng_base_url),
+            "required": "SEARXNG_BASE_URL; defaults to http://127.0.0.1:8088",
+        },
         "yacy": {"configured": bool(yacy_base_url), "required": "YACY_BASE_URL; defaults to http://127.0.0.1:8090"},
     }
     configured_paid_providers = [
@@ -1617,11 +1732,9 @@ def _source_web_search_provider_diagnostics(*, provider: str, result_count: int)
     if requested_provider in provider_readiness:
         selected_provider_configured = bool(provider_readiness[requested_provider].get("configured"))
     missing_config = [
-        name
-        for name, meta in provider_readiness.items()
-        if name != "ddg" and not bool(meta.get("configured"))
+        name for name, meta in provider_readiness.items() if name != "ddg" and not bool(meta.get("configured"))
     ]
-    empty_causes = []
+    empty_causes: list[str] = []
     if result_count == 0:
         if requested_provider != "auto" and not selected_provider_configured:
             empty_causes.append(f"{requested_provider}_not_configured")
@@ -1657,51 +1770,97 @@ def _build_source_capability_matrix(
     query_terms: list[str],
     source_kinds: list[str],
     domains: list[str],
-    search_queries: list[dict[str, Any]],
-    provider_diagnostics: dict[str, Any],
+    search_queries: list[JSONObject],
+    provider_diagnostics: JSONObject,
     source_item_count: int,
     max_candidates: int,
-) -> dict[str, Any]:
+) -> JSONObject:
     keyword_variants = _build_query_matrix_variants(
         query=" ".join(query_terms) or topic,
         query_terms=query_terms,
         domains=domains,
         matrix_mode=True,
     )
-    provider_routes = []
-    readiness = dict(provider_diagnostics.get("provider_readiness") or {})
+    provider_routes: list[JSONObject] = []
+    readiness = json_object(provider_diagnostics.get("provider_readiness"))
     for provider_name in ["serper", "google", "serpstack", "serpapi", "ddg", "searxng", "yacy"]:
-        meta = dict(readiness.get(provider_name) or {})
+        meta = json_object(readiness.get(provider_name))
         provider_routes.append(
             {
                 "provider": provider_name,
                 "configured": bool(meta.get("configured")),
-                "route_class": "paid_search" if provider_name in {"serper", "google", "serpstack", "serpapi"} else "fallback_or_local",
+                "route_class": "paid_search"
+                if provider_name in {"serper", "google", "serpstack", "serpapi"}
+                else "fallback_or_local",
                 "use_when": (
                     "preferred configured provider for live candidate retrieval"
-                    if bool(meta.get("configured")) and provider_name in set(provider_diagnostics.get("configured_paid_providers") or [])
+                    if bool(meta.get("configured"))
+                    and provider_name
+                    in set(normalize_string_list(provider_diagnostics.get("configured_paid_providers")))
                     else "fallback branch; preserve diagnostics and do not claim absence from zero results"
                 ),
             }
         )
-    internal_routes = [
-        {"tool": "project.context.bundle", "scope": "internal_existing", "purpose": "project-local evidence inventory first"},
-        {"tool": "project.structured_data.search", "scope": "internal_existing", "purpose": "stored structured/project data"},
-        {"tool": "project.structured_graph.query", "scope": "internal_existing", "purpose": "entity/relation/clue graph evidence"},
-        {"tool": "source.history.read", "scope": "session_existing", "purpose": "recover prior candidate reviews and URL-pool submissions"},
-        {"tool": "source_library.item.list", "scope": "source_catalog", "purpose": "collection entrypoints, not already ingested evidence"},
+    internal_routes: list[JSONObject] = [
+        {
+            "tool": "project.context.bundle",
+            "scope": "internal_existing",
+            "purpose": "project-local evidence inventory first",
+        },
+        {
+            "tool": "project.structured_data.search",
+            "scope": "internal_existing",
+            "purpose": "stored structured/project data",
+        },
+        {
+            "tool": "project.structured_graph.query",
+            "scope": "internal_existing",
+            "purpose": "entity/relation/clue graph evidence",
+        },
+        {
+            "tool": "source.history.read",
+            "scope": "session_existing",
+            "purpose": "recover prior candidate reviews and URL-pool submissions",
+        },
+        {
+            "tool": "source_library.item.list",
+            "scope": "source_catalog",
+            "purpose": "collection entrypoints, not already ingested evidence",
+        },
     ]
-    external_routes = [
-        {"tool": "source.discovery.plan", "scope": "external_candidate_plan", "purpose": "no-fetch/no-write query and trust plan"},
-        {"tool": "source.web.search", "scope": "external_live_candidate", "purpose": "bounded live provider candidate retrieval"},
-        {"tool": "source.candidate.review", "scope": "governed_decision", "purpose": "approve/defer/reject before ingest"},
-        {"tool": "ingest.url_pool.submit", "scope": "governed_ingest", "purpose": "explicit collection boundary after review"},
+    external_routes: list[JSONObject] = [
+        {
+            "tool": "source.discovery.plan",
+            "scope": "external_candidate_plan",
+            "purpose": "no-fetch/no-write query and trust plan",
+        },
+        {
+            "tool": "source.web.search",
+            "scope": "external_live_candidate",
+            "purpose": "bounded live provider candidate retrieval",
+        },
+        {
+            "tool": "source.candidate.review",
+            "scope": "governed_decision",
+            "purpose": "approve/defer/reject before ingest",
+        },
+        {
+            "tool": "ingest.url_pool.submit",
+            "scope": "governed_ingest",
+            "purpose": "explicit collection boundary after review",
+        },
     ]
     return {
         "contract_version": "agent_core.source_capability_matrix.v1",
         "summary": {
             "topic": topic,
-            "intent_facets": ["internal evidence", "external candidates", "source quality", "freshness", "writing/answer fit"],
+            "intent_facets": [
+                "internal evidence",
+                "external candidates",
+                "source quality",
+                "freshness",
+                "writing/answer fit",
+            ],
             "keyword_variant_count": len(keyword_variants),
             "planned_search_query_count": len(search_queries),
             "provider_route_count": len(provider_routes),
@@ -1710,27 +1869,48 @@ def _build_source_capability_matrix(
             "merge_rank_required": True,
         },
         "intent_facets": [
-            {"facet": "internal_project_evidence", "first_tools": ["project.context.bundle", "project.structured_data.search", "project.structured_graph.query"]},
-            {"facet": "source_catalog_entrypoints", "first_tools": ["source_library.item.list"], "catalog_items_available": source_item_count},
+            {
+                "facet": "internal_project_evidence",
+                "first_tools": [
+                    "project.context.bundle",
+                    "project.structured_data.search",
+                    "project.structured_graph.query",
+                ],
+            },
+            {
+                "facet": "source_catalog_entrypoints",
+                "first_tools": ["source_library.item.list"],
+                "catalog_items_available": source_item_count,
+            },
             {"facet": "external_live_candidates", "first_tools": ["source.discovery.plan", "source.web.search"]},
             {"facet": "quality_and_trust", "first_tools": ["source.discovery.plan", "source.candidate.review"]},
-            {"facet": "writing_or_answer_integration", "first_tools": ["writing.document.read", "writing.document.insert_paragraph", "agent_investigation.leads.append"]},
+            {
+                "facet": "writing_or_answer_integration",
+                "first_tools": [
+                    "writing.document.read",
+                    "writing.document.insert_paragraph",
+                    "agent_investigation.leads.append",
+                ],
+            },
         ],
-        "keyword_matrix": [
-            {"variant": item, "purpose": _query_variant_purpose(item)}
-            for item in keyword_variants
-        ],
+        "keyword_matrix": [{"variant": item, "purpose": _query_variant_purpose(item)} for item in keyword_variants],
         "tool_provider_matrix": {
             "internal_routes": internal_routes,
             "external_routes": external_routes,
             "provider_routes": provider_routes,
         },
         "scope_matrix": [
-            {"scope": "internal_existing", "rule": "prefer for project facts and writing unless external/new/outside material is explicit or a gap is proven"},
+            {
+                "scope": "internal_existing",
+                "rule": "prefer for project facts and writing unless external/new/outside material is explicit or a gap is proven",
+            },
             {"scope": "generated_project_artifacts", "rule": "usable as project context but preserve provenance"},
             {"scope": "source_catalog", "rule": "entrypoint for collection; not treated as already available evidence"},
             {"scope": "external_candidate", "rule": "search result only until candidate review and ingest complete"},
-            {"scope": "external_ingested", "rule": "answer-grade only after task/status/readback evidence confirms availability"},
+            {
+                "scope": "external_ingested",
+                "rule": "answer-grade only after task/status/readback evidence confirms availability",
+            },
         ],
         "evidence_matrix": [
             "candidate title/snippet/url",
@@ -1749,16 +1929,22 @@ def _build_source_capability_matrix(
         ],
         "merge_rank_policy": {
             "dedupe_key": "normalized_url_or_checksum",
-            "rank_order": ["accepted trust status", "trust_score", "configured provider", "official/regulatory domains", "branch diversity"],
+            "rank_order": [
+                "accepted trust status",
+                "trust_score",
+                "configured provider",
+                "official/regulatory domains",
+                "branch diversity",
+            ],
             "absence_claim_rule": "blocked unless multiple query/provider/internal branches have been verified or explicitly unavailable",
         },
     }
 
 
-def _normalize_source_search_providers(raw: Any, *, default_provider: str) -> list[str]:
+def _normalize_source_search_providers(raw: object, *, default_provider: str) -> list[str]:
     allowed = {"auto", "ddg", "google", "serper", "serpstack", "serpapi", "searxng", "yacy"}
     providers: list[str] = []
-    for item in _normalize_string_list(raw):
+    for item in normalize_string_list(raw):
         provider = item.lower()
         if provider in allowed and provider not in providers:
             providers.append(provider)
@@ -1772,7 +1958,20 @@ def _normalize_source_search_providers(raw: Any, *, default_provider: str) -> li
     return providers[:3]
 
 
-def _build_query_matrix_variants(*, query: str, query_terms: list[str], domains: list[str], matrix_mode: bool) -> list[str]:
+def _safe_float(value: object, *, default: float = 0.0) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return default
+    return default
+
+
+def _build_query_matrix_variants(
+    *, query: str, query_terms: list[str], domains: list[str], matrix_mode: bool
+) -> list[str]:
     base = str(query or " ".join(query_terms) or "").strip()
     terms = " ".join(query_terms[:6]).strip() or base
     variants: list[str] = []
@@ -1808,11 +2007,11 @@ def _build_source_search_branch_specs(
     query_variants: list[str],
     providers: list[str],
     max_branches: int,
-) -> list[dict[str, Any]]:
-    branches: list[dict[str, Any]] = []
+) -> list[JSONObject]:
+    branches: list[JSONObject] = []
     for query_index, query in enumerate(query_variants, start=1):
         for provider in providers:
-            branch = {
+            branch: JSONObject = {
                 "query": query,
                 "provider": provider,
                 "purpose": _query_variant_purpose(query),
@@ -1840,40 +2039,40 @@ def _query_variant_purpose(query: str) -> str:
     return "base semantic query branch"
 
 
-def _merge_rank_web_search_candidates(candidates: list[dict[str, Any]], *, max_results: int) -> list[dict[str, Any]]:
-    merged: dict[str, dict[str, Any]] = {}
+def _merge_rank_web_search_candidates(candidates: list[JSONObject], *, max_results: int) -> list[JSONObject]:
+    merged: dict[str, JSONObject] = {}
     for item in candidates:
-        trust = dict(item.get("trust") or {})
+        trust = json_object(item.get("trust"))
         key = str(item.get("url") or trust.get("url_checksum") or item.get("title") or "").strip()
         if not key:
             continue
         existing = merged.get(key)
-        branch = dict(item.pop("_matrix_branch", {}) or {})
+        branch = json_object(item.pop("_matrix_branch", {}))
         if existing is None:
-            item["matrix_branches"] = [branch] if branch else []
+            item["matrix_branches"] = list[JSONValue]([branch]) if branch else []
             merged[key] = item
             continue
-        existing_score = float((existing.get("trust") or {}).get("trust_score") or 0)
-        item_score = float(trust.get("trust_score") or 0)
+        existing_score = _safe_float(json_object(existing.get("trust")).get("trust_score"))
+        item_score = _safe_float(trust.get("trust_score"))
         if branch:
-            branches = list(existing.get("matrix_branches") or [])
+            branches = [value for value in json_list(existing.get("matrix_branches")) if isinstance(value, dict)]
             if all(existing_branch.get("branch_id") != branch.get("branch_id") for existing_branch in branches):
                 branches.append(branch)
-            existing["matrix_branches"] = branches[:8]
+            existing["matrix_branches"] = list[JSONValue](branches[:8])
         if item_score > existing_score:
-            item["matrix_branches"] = existing.get("matrix_branches") or ([branch] if branch else [])
+            item["matrix_branches"] = existing.get("matrix_branches") or (list[JSONValue]([branch]) if branch else [])
             merged[key] = item
     ranked = sorted(
         merged.values(),
         key=lambda item: (
-            str((item.get("trust") or {}).get("status") or "") != "accepted",
-            -float((item.get("trust") or {}).get("trust_score") or 0),
+            str(json_object(item.get("trust")).get("status") or "") != "accepted",
+            -_safe_float(json_object(item.get("trust")).get("trust_score")),
             str(item.get("url") or ""),
         ),
     )
     for index, item in enumerate(ranked[:max_results], start=1):
         item["matrix_rank"] = index
-        item["branch_count"] = len(list(item.get("matrix_branches") or []))
+        item["branch_count"] = len(json_list(item.get("matrix_branches")))
     return ranked[:max_results]
 
 
@@ -1882,12 +2081,12 @@ def _build_web_search_matrix_summary(
     matrix_mode: bool,
     query_variants: list[str],
     providers: list[str],
-    branches: list[dict[str, Any]],
-    candidates: list[dict[str, Any]],
-) -> dict[str, Any]:
+    branches: list[JSONObject],
+    candidates: list[JSONObject],
+) -> JSONObject:
     completed = [item for item in branches if item.get("status") == "completed"]
     failed = [item for item in branches if item.get("status") == "failed"]
-    zero_result = [item for item in completed if int(item.get("result_count") or 0) == 0]
+    zero_result = [item for item in completed if (safe_int(item.get("result_count")) or 0) == 0]
     provider_names = sorted({str(item.get("provider") or "") for item in branches if item.get("provider")})
     return {
         "contract_version": "agent_core.source_web_search_matrix.v1",
@@ -1899,7 +2098,9 @@ def _build_web_search_matrix_summary(
         "failed_branch_count": len(failed),
         "zero_result_branch_count": len(zero_result),
         "merged_candidate_count": len(candidates),
-        "accepted_candidate_count": sum(1 for item in candidates if str((item.get("trust") or {}).get("status") or "") == "accepted"),
+        "accepted_candidate_count": sum(
+            1 for item in candidates if str(json_object(item.get("trust")).get("status") or "") == "accepted"
+        ),
         "providers_considered": provider_names,
         "merge_rank_applied": True,
         "dedupe_policy": "normalized_url_or_checksum",
@@ -1908,24 +2109,31 @@ def _build_web_search_matrix_summary(
     }
 
 
-def _normalize_web_search_results(raw_results: Any, *, query: str, min_trust_score: float) -> list[dict[str, Any]]:
-    candidates: list[dict[str, Any]] = []
+def _normalize_web_search_results(raw_results: object, *, query: str, min_trust_score: float) -> list[JSONObject]:
+    candidates: list[JSONObject] = []
     seen: set[str] = set()
-    for index, raw in enumerate(list(raw_results or []), start=1):
-        if not isinstance(raw, dict):
+    for index, raw_value in enumerate(json_list(raw_results), start=1):
+        if not isinstance(raw_value, dict):
             continue
+        raw = raw_value
         url = str(raw.get("canonical_link") or raw.get("link") or raw.get("url") or raw.get("href") or "").strip()
         if not url:
             continue
-        trust = build_source_candidate_plan(
-            project_key="-",
-            query=query,
-            urls=[url],
-            max_candidates=1,
-            min_trust_score=min_trust_score,
+        trust = json_object(
+            build_source_candidate_plan(
+                project_key="-",
+                query=query,
+                urls=[url],
+                max_candidates=1,
+                min_trust_score=min_trust_score,
+            )
         )
-        assessments = list(trust.get("candidate_urls") or []) + list(trust.get("rejected_urls") or []) + list(trust.get("duplicate_urls") or [])
-        assessment = dict(assessments[0] if assessments else {})
+        assessments = (
+            [item for item in json_list(trust.get("candidate_urls")) if isinstance(item, dict)]
+            + [item for item in json_list(trust.get("rejected_urls")) if isinstance(item, dict)]
+            + [item for item in json_list(trust.get("duplicate_urls")) if isinstance(item, dict)]
+        )
+        assessment = assessments[0] if assessments else {}
         normalized_url = str(assessment.get("normalized_url") or url).strip()
         dedupe_key = normalized_url or url
         if dedupe_key in seen:
@@ -1969,7 +2177,10 @@ def _source_candidate_review_spec() -> CoreToolSpec:
             "properties": {
                 "project_key": {"type": "string"},
                 "artifact_name": {"type": "string"},
-                "decision": {"type": "string", "enum": ["approved", "approve", "采集", "deferred", "defer", "暂缓", "rejected", "reject", "拒绝"]},
+                "decision": {
+                    "type": "string",
+                    "enum": ["approved", "approve", "采集", "deferred", "defer", "暂缓", "rejected", "reject", "拒绝"],
+                },
                 "reason": {"type": "string"},
                 "preferred_ingest": {"type": "string", "enum": ["auto", "url_pool", "source_library", "manual"]},
                 "source_library_item_key": {"type": "string"},
@@ -1986,7 +2197,11 @@ def _source_candidate_review_spec() -> CoreToolSpec:
         timeout_seconds=10,
         result_budget=7000,
         project_service_id="source.candidate.review",
-        metadata={"contract_version": "source.candidate.review.v1", "auto_allow_session_write": True, "no_external_io": True},
+        metadata={
+            "contract_version": "source.candidate.review.v1",
+            "auto_allow_session_write": True,
+            "no_external_io": True,
+        },
     )
 
 
@@ -1999,19 +2214,26 @@ def _source_candidate_review_handler(
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
+            return missing_project_result(tool_call)
         candidate = _normalize_source_candidate(_candidate_review_input(tool_call.arguments.get("candidate")))
         decision = _normalize_source_candidate_decision(tool_call.arguments.get("decision"))
-        artifact_name = str(tool_call.arguments.get("artifact_name") or "source.candidate_reviews.json").strip() or "source.candidate_reviews.json"
+        artifact_name = (
+            str(tool_call.arguments.get("artifact_name") or "source.candidate_reviews.json").strip()
+            or "source.candidate_reviews.json"
+        )
         preferred_ingest = str(tool_call.arguments.get("preferred_ingest") or "auto").strip() or "auto"
         if preferred_ingest not in {"auto", "url_pool", "source_library", "manual"}:
             preferred_ingest = "auto"
-        source_library_item_key = str(tool_call.arguments.get("source_library_item_key") or candidate.get("item_key") or "").strip()
+        source_library_item_key = str(
+            tool_call.arguments.get("source_library_item_key") or candidate.get("item_key") or ""
+        ).strip()
         reason = str(tool_call.arguments.get("reason") or "").strip()
         idempotency_key = str(tool_call.arguments.get("idempotency_key") or "").strip()
-        review_key = idempotency_key or _source_candidate_review_key(project_key=project_key, decision=decision, candidate=candidate)
+        review_key = idempotency_key or _source_candidate_review_key(
+            project_key=project_key, decision=decision, candidate=candidate
+        )
         ingest_payload = _build_source_candidate_ingest_payload(
             project_key=project_key,
             candidate=candidate,
@@ -2019,7 +2241,7 @@ def _source_candidate_review_handler(
             preferred_ingest=preferred_ingest,
             source_library_item_key=source_library_item_key,
         )
-        review = {
+        review: JSONObject = {
             "review_key": review_key,
             "decision": decision,
             "reason": reason,
@@ -2028,15 +2250,20 @@ def _source_candidate_review_handler(
             "source_library_item_key": source_library_item_key,
             "ingest_payload": ingest_payload,
             "next_gate": _source_candidate_next_gate(decision=decision, ingest_payload=ingest_payload),
-            "reviewed_at": _utcnow_iso(),
+            "reviewed_at": utcnow_iso(),
             "source_call_id": tool_call.call_id,
         }
 
-        existing_artifact = next((item for item in service.list_artifacts(request.session_id) if item.get("name") == artifact_name), None)
-        existing_content = dict((existing_artifact or {}).get("content_json") or {})
-        replay_keys = [str(item or "") for item in list(existing_content.get("replay_keys") or []) if str(item or "").strip()]
+        artifacts = service.list_artifacts(request.session_id)
+        if isinstance(artifacts, Failure):
+            return runtime_failure_result(tool_call, artifacts)
+        existing_artifact = next((item for item in artifacts if item.get("name") == artifact_name), None)
+        existing_content = json_object((existing_artifact or {}).get("content_json"))
+        replay_keys = [
+            str(item or "") for item in json_list(existing_content.get("replay_keys")) if str(item or "").strip()
+        ]
         replayed = bool(idempotency_key and idempotency_key in replay_keys)
-        reviews = [dict(item) for item in list(existing_content.get("reviews") or []) if isinstance(item, dict)]
+        reviews = [item for item in json_list(existing_content.get("reviews")) if isinstance(item, dict)]
         if not replayed:
             reviews = [item for item in reviews if str(item.get("review_key") or "") != review_key]
             reviews.append(review)
@@ -2047,17 +2274,20 @@ def _source_candidate_review_handler(
             "deferred": sum(1 for item in reviews if str(item.get("decision") or "") == "deferred"),
             "rejected": sum(1 for item in reviews if str(item.get("decision") or "") == "rejected"),
         }
-        updated_content = {
+        updated_content: JSONObject = {
             **existing_content,
             "contract_version": "source.candidate.review.v1",
             "project_key": project_key,
-            "updated_at": _utcnow_iso(),
+            "updated_at": utcnow_iso(),
             "source_call_id": tool_call.call_id,
             "replay_keys": replay_keys[-50:],
-            "reviews": reviews[-100:],
+            "reviews": list[JSONValue](reviews[-100:]),
             "counts": counts,
         }
-        artifact = service.store.upsert_artifact(
+        store = agent_artifact_store(service.store)
+        if store is None:
+            raise TypeError("AgentSessionService.store does not provide the artifact store contract")
+        artifact_value = store.upsert_artifact(
             {
                 "session_id": request.session_id,
                 "name": artifact_name,
@@ -2073,7 +2303,10 @@ def _source_candidate_review_handler(
                 },
             }
         )
-        payload_type = str((ingest_payload or {}).get("type") or "none")
+        if isinstance(artifact_value, Failure):
+            return runtime_failure_result(tool_call, artifact_value)
+        artifact = json_object(artifact_value)
+        payload_type = str(json_object(ingest_payload).get("type") or "none")
         return CoreToolResult(
             call_id=tool_call.call_id,
             tool_name=tool_call.tool_name,
@@ -2085,8 +2318,8 @@ def _source_candidate_review_handler(
             structured_content={
                 "contract_version": "source.candidate.review.v1",
                 "project_key": project_key,
-                "artifact": _compact_json_value(artifact, max_items=16, max_depth=4),
-                "review": _compact_json_value(review, max_items=18, max_depth=5),
+                "artifact": compact_json_value(artifact, max_items=16, max_depth=4),
+                "review": compact_json_value(review, max_items=18, max_depth=5),
                 "decision": decision,
                 "ingest_payload": ingest_payload,
                 "next_gate": review["next_gate"],
@@ -2099,9 +2332,9 @@ def _source_candidate_review_handler(
     return handler
 
 
-def _normalize_source_candidate(value: Any) -> dict[str, Any]:
-    raw = dict(value or {}) if isinstance(value, dict) else {}
-    trust = dict(raw.get("trust") or {}) if isinstance(raw.get("trust"), dict) else {}
+def _normalize_source_candidate(value: object) -> JSONObject:
+    raw = json_object(value)
+    trust = json_object(raw.get("trust"))
     url = str(raw.get("url") or raw.get("normalized_url") or raw.get("original_url") or raw.get("link") or "").strip()
     title = str(raw.get("title") or raw.get("name") or trust.get("domain") or url or "source candidate").strip()
     snippet = str(raw.get("snippet") or raw.get("summary") or raw.get("body") or "").strip()
@@ -2118,11 +2351,11 @@ def _normalize_source_candidate(value: Any) -> dict[str, Any]:
     }
 
 
-def _candidate_review_input(value: Any) -> dict[str, Any]:
+def _candidate_review_input(value: object) -> JSONObject:
     """Pure projection from a shared candidate to the established review payload."""
     if isinstance(value, Candidate):
         return {
-            **dict(value.raw),
+            **json_object(value.raw),
             "url": value.resource_uri,
             "title": value.title,
             "snippet": value.snippet,
@@ -2131,10 +2364,10 @@ def _candidate_review_input(value: Any) -> dict[str, Any]:
             "rank": value.original_rank,
             "result_rank": value.result_rank,
         }
-    return dict(value) if isinstance(value, dict) else {}
+    return json_object(value)
 
 
-def _normalize_source_candidate_decision(value: Any) -> str:
+def _normalize_source_candidate_decision(value: object) -> str:
     text = str(value or "").strip().lower()
     if text in {"approved", "approve", "accept", "accepted", "采集", "通过", "采用", "批准"}:
         return "approved"
@@ -2143,8 +2376,8 @@ def _normalize_source_candidate_decision(value: Any) -> str:
     return "rejected"
 
 
-def _source_candidate_review_key(*, project_key: str, decision: str, candidate: dict[str, Any]) -> str:
-    trust = dict(candidate.get("trust") or {}) if isinstance(candidate.get("trust"), dict) else {}
+def _source_candidate_review_key(*, project_key: str, decision: str, candidate: JSONObject) -> str:
+    trust = json_object(candidate.get("trust"))
     raw = "|".join(
         [
             project_key,
@@ -2161,11 +2394,11 @@ def _source_candidate_review_key(*, project_key: str, decision: str, candidate: 
 def _build_source_candidate_ingest_payload(
     *,
     project_key: str,
-    candidate: dict[str, Any],
+    candidate: JSONObject,
     decision: str,
     preferred_ingest: str,
     source_library_item_key: str,
-) -> dict[str, Any] | None:
+) -> JSONObject | None:
     if decision != "approved":
         return None
     url = str(candidate.get("url") or "").strip()
@@ -2178,7 +2411,7 @@ def _build_source_candidate_ingest_payload(
             "override_params": {"source_mode": "agent_candidate_review"},
         }
     if url and preferred_ingest != "source_library":
-        trust = dict(candidate.get("trust") or {}) if isinstance(candidate.get("trust"), dict) else {}
+        trust = json_object(candidate.get("trust"))
         return {
             "type": "url_pool",
             "project_key": project_key,
@@ -2199,7 +2432,7 @@ def _build_source_candidate_ingest_payload(
     }
 
 
-def _source_candidate_next_gate(*, decision: str, ingest_payload: dict[str, Any] | None) -> str:
+def _source_candidate_next_gate(*, decision: str, ingest_payload: JSONObject | None) -> str:
     if decision == "approved" and ingest_payload:
         payload_type = str(ingest_payload.get("type") or "manual")
         if payload_type == "source_library":

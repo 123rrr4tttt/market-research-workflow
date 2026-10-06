@@ -6,11 +6,12 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-EVIDENCE_PATH = (
-    ROOT
-    / "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release"
-    / "stage0-evidence/declared-loss-ingest.v1.json"
+EVIDENCE_RELATIVE_PATH = Path(
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release"
+    "/stage0-evidence/declared-loss-ingest.v1.json"
 )
+EVIDENCE_PATH = ROOT / EVIDENCE_RELATIVE_PATH
+HISTORICAL_SOURCE_COMMIT = "203611915bd2659adff4aadfbb67485daed8964a"
 DECISIONS = {
     "ACCEPTED_EXPLICIT_LOSS",
     "IMPLEMENTED",
@@ -28,7 +29,7 @@ def _load() -> dict[str, object]:
 
 def _historical_source(path: str) -> str:
     completed = subprocess.run(
-        ("git", "-C", str(ROOT), "show", f"HEAD:{path}"),
+        ("git", "-C", str(ROOT), "show", f"{HISTORICAL_SOURCE_COMMIT}:{path}"),
         check=True,
         capture_output=True,
         text=True,
@@ -39,6 +40,7 @@ def _historical_source(path: str) -> str:
 def test_JSON__stage0_ingest_loss_record_is_parseable_and_versioned() -> None:
     payload = _load()
 
+    assert EVIDENCE_PATH.read_text(encoding="utf-8") == _historical_source(EVIDENCE_RELATIVE_PATH.as_posix())
     assert payload["schema"] == "mrw.formal_release.stage0.declared_loss_ingest.v1"
     assert payload["version"] == "1.0.0"
     assert payload["stage"] == "STAGE_0B"
@@ -87,7 +89,7 @@ def test_TRACEABILITY__all_source_caller_and_witness_paths_exist() -> None:
         for reference in (source, morphism):
             path = reference["path"]
             assert isinstance(path, str) and path.strip()
-            historical = _historical_source(path)
+            _historical_source(path)
             assert isinstance(reference.get("symbol"), str) and reference["symbol"].strip()
 
         callers = item["affected_callers"]
@@ -96,7 +98,7 @@ def test_TRACEABILITY__all_source_caller_and_witness_paths_exist() -> None:
             assert isinstance(caller, dict)
             path = caller["path"]
             assert isinstance(path, str)
-            historical = _historical_source(path)
+            _historical_source(path)
             assert isinstance(caller.get("symbol"), str) and caller["symbol"].strip()
 
         witnesses = item["witness"]

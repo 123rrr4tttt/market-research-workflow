@@ -5,7 +5,7 @@ import hashlib
 import json
 from importlib import import_module
 from threading import RLock
-from typing import Any, Callable, Mapping, NoReturn
+from typing import TYPE_CHECKING, Callable, Mapping, NoReturn, TypeGuard, TypedDict
 
 from functorial_kit import Failure
 
@@ -15,8 +15,68 @@ from app.settings.config import settings
 from app.services.agent_batch.task_contract import build_agent_batch_manifest_entry, list_agent_batch_dispatch_skill_bindings
 from mrw_functorial_kit.core.agent_service_semantics import agent_skill_runtime_failures
 
+if TYPE_CHECKING:
+    from app.contracts.json import JSONObject as AgentSessionJsonObject, JSONValue as AgentSessionJsonValue
 
-SkillHandler = Callable[..., Any]
+
+SkillHandler = Callable[..., object]
+SkillDocument = dict[str, object]
+StringCollection = list[str] | tuple[str, ...] | set[str]
+ObjectCollection = list[object] | tuple[object, ...] | set[object]
+
+
+class SkillInvocationContext(TypedDict, total=False):
+    actor_role: str
+    permissions: StringCollection
+    consumer: str
+    trace_id: str
+    agent_session_id: str | None
+    session_id: str | None
+    agent_task_id: str | None
+    task_id: str | None
+    approval_granted: bool
+    bypass_approval: bool
+    write_set: StringCollection
+
+
+class SkillRegistrationView(TypedDict):
+    skill_id: str
+    allowed_actor_roles: list[str]
+    required_permissions: list[str]
+    owner: str
+    execution_profile: str
+    concurrency_class: str
+    input_schema: SkillDocument
+    approval_policy: SkillDocument
+    artifact_contract: SkillDocument
+    agent_batch_task_manifest: SkillDocument
+
+
+class SkillInvocation(TypedDict):
+    skill_id: str
+    result: object
+    trace_id: str
+    consumer: str
+    actor_role: str
+    requested_permissions: list[str]
+    owner: str
+    execution_profile: str
+    concurrency_class: str
+    approval_policy: SkillDocument
+    artifact_contract: SkillDocument
+    approval_request: None
+
+
+class SafeSkillInvocation(TypedDict):
+    ok: bool
+    result: SkillInvocation | None
+    error: str | None
+
+
+class _LoopGuardState(TypedDict):
+    signature: str
+    count: int
+    updated_at: int
 _ALLOWED_ACTOR_ROLES = frozenset({"orchestration_runtime", "business_capability_wrapper", "user_facing_assistant"})
 _ALLOWED_CONCURRENCY_CLASSES = frozenset({"read_only", "write_shared", "write_external", "privileged"})
 _SKILL_FAILURE_WITNESS = "test:test_w02_skill_runtime_failure_lifts"
@@ -85,19 +145,19 @@ class SkillSpec:
     owner: str
     execution_profile: str = "default"
     concurrency_class: str = "read_only"
-    input_schema: dict[str, Any] | None = None
-    approval_policy: dict[str, Any] | None = None
-    artifact_contract: dict[str, Any] | None = None
-    agent_batch_task_manifest: dict[str, Any] | None = None
+    input_schema: SkillDocument | None = None
+    approval_policy: SkillDocument | None = None
+    artifact_contract: SkillDocument | None = None
+    agent_batch_task_manifest: SkillDocument | None = None
 
 
 class SkillRuntime:
-    def __init__(self) -> None:
+    def __init__(self, *, bootstrap: bool = True) -> None:
         self._lock = RLock()
         self._registry: dict[str, SkillSpec] = {}
-        self._bootstrapped = False
+        self._bootstrapped = not bootstrap
 
-    def list_skills(self) -> list[dict[str, Any]]:
+    def list_skills(self) -> list[SkillRegistrationView]:
         self._bootstrap()
         with self._lock:
             return [
@@ -116,10 +176,10 @@ class SkillRuntime:
                 for item in sorted(self._registry.values(), key=lambda x: x.skill_id)
             ]
 
-    def list_agent_batch_task_manifest_entries(self) -> list[dict[str, Any]]:
+    def list_agent_batch_task_manifest_entries(self) -> list[SkillDocument]:
         self._bootstrap()
         with self._lock:
-            out: list[dict[str, Any]] = []
+            out: list[SkillDocument] = []
             for item in self._registry.values():
                 entry = item.agent_batch_task_manifest
                 if isinstance(entry, dict) and entry:
@@ -136,10 +196,10 @@ class SkillRuntime:
         owner: str = "unknown",
         execution_profile: str = "default",
         concurrency_class: str = "read_only",
-        input_schema: Mapping[str, Any] | None = None,
-        approval_policy: Mapping[str, Any] | None = None,
-        artifact_contract: Mapping[str, Any] | None = None,
-        agent_batch_task_manifest: Mapping[str, Any] | None = None,
+        input_schema: Mapping[str, object] | None = None,
+        approval_policy: Mapping[str, object] | None = None,
+        artifact_contract: Mapping[str, object] | None = None,
+        agent_batch_task_manifest: Mapping[str, object] | None = None,
     ) -> None:
         resolved_skill_id = str(skill_id or "").strip()
         if not resolved_skill_id:
@@ -179,11 +239,11 @@ class SkillRuntime:
         self,
         *,
         skill_id: str,
-        payload: Any = None,
-        args: tuple[Any, ...] | None = None,
-        kwargs: dict[str, Any] | None = None,
-        context: Mapping[str, Any] | None = None,
-    ) -> dict[str, Any]:
+        payload: object = None,
+        args: tuple[object, ...] | None = None,
+        kwargs: Mapping[str, object] | None = None,
+        context: Mapping[str, object] | None = None,
+    ) -> SkillInvocation:
         self._bootstrap()
         resolved_skill_id = str(skill_id or "").strip()
         if not resolved_skill_id:
@@ -610,7 +670,7 @@ def _normalize_permissions(values: tuple[str, ...] | list[str] | set[str]) -> li
     return out
 
 
-def _normalize_agent_batch_task_manifest(value: Mapping[str, Any] | None) -> dict[str, Any] | None:
+def _normalize_agent_batch_task_manifest(value: Mapping[str, object] | None) -> SkillDocument | None:
     if value is None:
         return None
     entry = dict(value)
@@ -634,13 +694,13 @@ def _normalize_concurrency_class(value: str | None) -> str:
     return candidate
 
 
-def _normalize_contract_dict(value: Mapping[str, Any] | None) -> dict[str, Any] | None:
+def _normalize_contract_dict(value: Mapping[str, object] | None) -> SkillDocument | None:
     if value is None:
         return None
     return dict(value)
 
 
-def _resolve_actor_role(context: Mapping[str, Any] | None) -> str:
+def _resolve_actor_role(context: Mapping[str, object] | None) -> str:
     actor_role = str((context or {}).get("actor_role") or "orchestration_runtime").strip()
     if actor_role not in _ALLOWED_ACTOR_ROLES:
         _raise_skill_failure(
@@ -656,24 +716,41 @@ def _resolve_actor_role(context: Mapping[str, Any] | None) -> str:
     return actor_role
 
 
-def _resolve_requested_permissions(context: Mapping[str, Any] | None, defaults: tuple[str, ...]) -> list[str]:
+def _object_collection(value: object) -> ObjectCollection:
+    if _is_object_list(value) or _is_object_tuple(value) or _is_object_set(value):
+        return value
+    return []
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_object_tuple(value: object) -> TypeGuard[tuple[object, ...]]:
+    return isinstance(value, tuple)
+
+
+def _is_object_set(value: object) -> TypeGuard[set[object]]:
+    return isinstance(value, set)
+
+
+def _resolve_requested_permissions(context: Mapping[str, object] | None, defaults: tuple[str, ...]) -> list[str]:
     raw = (context or {}).get("permissions")
-    if isinstance(raw, (list, tuple, set)):
-        values = _normalize_permissions(tuple(str(x or "") for x in raw))
-        if values:
-            return values
+    values = _normalize_permissions(tuple(str(item or "") for item in _object_collection(raw)))
+    if values:
+        return values
     return list(defaults)
 
 
 def _build_approval_binding(
     *,
     skill_id: str,
-    payload: Any,
-    args: tuple[Any, ...] | None,
-    kwargs: dict[str, Any] | None,
-    context: Mapping[str, Any] | None,
+    payload: object,
+    args: tuple[object, ...] | None,
+    kwargs: Mapping[str, object] | None,
+    context: Mapping[str, object] | None,
     spec: SkillSpec,
-) -> dict[str, Any]:
+) -> SkillDocument:
     return {
         "skill_id": skill_id,
         "payload": payload,
@@ -687,7 +764,7 @@ def _build_approval_binding(
     }
 
 
-def _resolve_agent_session_context(context: Mapping[str, Any] | None) -> tuple[str | None, str | None]:
+def _resolve_agent_session_context(context: Mapping[str, object] | None) -> tuple[str | None, str | None]:
     session_id = str(
         (context or {}).get("agent_session_id")
         or (context or {}).get("session_id")
@@ -701,31 +778,42 @@ def _resolve_agent_session_context(context: Mapping[str, Any] | None) -> tuple[s
     return session_id, task_id
 
 
-def _normalize_context_write_set(value: Any) -> list[str]:
+def _normalize_context_write_set(value: object) -> list[str]:
     out: list[str] = []
-    for item in value or []:
+    for item in _object_collection(value):
         text = str(item or "").strip()
         if text and text not in out:
             out.append(text)
     return out
 
 
-def _enforce_write_shared_policy(*, skill_id: str, context: Mapping[str, Any] | None) -> None:
+def _enforce_write_shared_policy(*, skill_id: str, context: Mapping[str, object] | None) -> None:
     session_id, task_id = _resolve_agent_session_context(context)
     if not session_id or not task_id:
         return
     service = get_agent_session_service()
     service.reclaim_expired_tasks(session_id)
     task = service.store.get_task(session_id, task_id)
-    tasks = service.store.list_tasks(session_id)
-    write_set = _normalize_context_write_set((context or {}).get("write_set")) or _normalize_context_write_set(task.get("write_set"))
+    if isinstance(task, Failure):
+        _raise_skill_runtime_defect(f"skill task context unavailable: {task.message}")
+    tasks = service.list_tasks(session_id)
+    if isinstance(tasks, Failure):
+        _raise_skill_runtime_defect(f"skill session context unavailable: {tasks.message}")
+    write_set = _normalize_context_write_set((context or {}).get("write_set")) or list(task["write_set"])
     conflict = assert_no_write_conflict(tasks, task_id, write_set)
     if conflict is not None:
+        write_set_payload: list[AgentSessionJsonValue] = [
+            item for item in write_set
+        ]
+        event_payload: AgentSessionJsonObject = {
+            "skill_id": skill_id,
+            "write_set": write_set_payload,
+        }
         service.store.append_event(
             session_id,
             event_type="skill.write_conflict",
             task_id=task_id,
-            payload={"skill_id": skill_id, "write_set": write_set},
+            payload=event_payload,
         )
         _raise_skill_failure(
             _skill_failure(
@@ -743,11 +831,11 @@ def _enforce_runtime_policies(
     *,
     spec: SkillSpec,
     skill_id: str,
-    payload: Any,
-    args: tuple[Any, ...] | None,
-    kwargs: dict[str, Any] | None,
-    context: Mapping[str, Any] | None,
-) -> dict[str, Any] | None:
+    payload: object,
+    args: tuple[object, ...] | None,
+    kwargs: Mapping[str, object] | None,
+    context: Mapping[str, object] | None,
+) -> None:
     concurrency_class = spec.concurrency_class
     if concurrency_class == "write_shared":
         _enforce_write_shared_policy(skill_id=skill_id, context=context)
@@ -795,6 +883,8 @@ def _enforce_runtime_policies(
             "force_approval": True,
         },
     )
+    if isinstance(approval, Failure):
+        _raise_skill_runtime_defect(f"skill approval request failed: {approval.message}")
     _raise_skill_failure(
         _skill_failure(
             "approval_required",
@@ -808,17 +898,23 @@ def _enforce_runtime_policies(
 
 
 _LOOP_GUARD_LOCK = RLock()
-_LOOP_GUARD_STATE: dict[str, dict[str, Any]] = {}
+_LOOP_GUARD_STATE: dict[str, _LoopGuardState] = {}
 
 
-def _safe_json(value: Any) -> str:
+def _safe_json(value: object) -> str:
     try:
         return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
     except Exception:
         return str(value)
 
 
-def _signature_for_loop_guard(*, skill_id: str, payload: Any, args: tuple[Any, ...] | None, kwargs: dict[str, Any] | None) -> str:
+def _signature_for_loop_guard(
+    *,
+    skill_id: str,
+    payload: object,
+    args: tuple[object, ...] | None,
+    kwargs: Mapping[str, object] | None,
+) -> str:
     raw = {
         "skill_id": skill_id,
         "payload": payload,
@@ -831,15 +927,15 @@ def _signature_for_loop_guard(*, skill_id: str, payload: Any, args: tuple[Any, .
 def _detect_skill_loop_guard(
     *,
     skill_id: str,
-    payload: Any,
-    args: tuple[Any, ...] | None,
-    kwargs: dict[str, Any] | None,
-    context: Mapping[str, Any] | None,
+    payload: object,
+    args: tuple[object, ...] | None,
+    kwargs: Mapping[str, object] | None,
+    context: Mapping[str, object] | None,
 ) -> str | None:
-    if not bool(getattr(settings, "skill_loop_guard_enabled", True)):
+    if not settings.skill_loop_guard_enabled:
         return None
-    threshold = max(2, int(getattr(settings, "skill_loop_guard_threshold", 10) or 10))
-    ttl_seconds = max(60, int(getattr(settings, "skill_loop_guard_ttl_seconds", 600) or 600))
+    threshold = max(2, settings.skill_loop_guard_threshold)
+    ttl_seconds = max(60, settings.skill_loop_guard_ttl_seconds)
     consumer = str((context or {}).get("consumer") or "unknown_consumer").strip() or "unknown_consumer"
     trace_id = str((context or {}).get("trace_id") or "").strip() or "no-trace"
     key = f"{consumer}:{trace_id}:{skill_id}"
@@ -872,7 +968,7 @@ def _detect_skill_loop_guard(
 _RUNTIME = SkillRuntime()
 
 
-def list_registered_skills() -> list[dict[str, Any]]:
+def list_registered_skills() -> list[SkillRegistrationView]:
     return _RUNTIME.list_skills()
 
 
@@ -885,10 +981,10 @@ def register_skill(
     owner: str = "unknown",
     execution_profile: str = "default",
     concurrency_class: str = "read_only",
-    input_schema: Mapping[str, Any] | None = None,
-    approval_policy: Mapping[str, Any] | None = None,
-    artifact_contract: Mapping[str, Any] | None = None,
-    agent_batch_task_manifest: Mapping[str, Any] | None = None,
+    input_schema: Mapping[str, object] | None = None,
+    approval_policy: Mapping[str, object] | None = None,
+    artifact_contract: Mapping[str, object] | None = None,
+    agent_batch_task_manifest: Mapping[str, object] | None = None,
 ) -> None:
     _RUNTIME.register(
         skill_id=skill_id,
@@ -908,22 +1004,22 @@ def register_skill(
 def invoke_skill(
     *,
     skill_id: str,
-    payload: Any = None,
-    args: tuple[Any, ...] | None = None,
-    kwargs: dict[str, Any] | None = None,
-    context: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
+    payload: object = None,
+    args: tuple[object, ...] | None = None,
+    kwargs: Mapping[str, object] | None = None,
+    context: Mapping[str, object] | None = None,
+) -> SkillInvocation:
     return _RUNTIME.invoke(skill_id=skill_id, payload=payload, args=args, kwargs=kwargs, context=context)
 
 
 def invoke_skill_safe(
     *,
     skill_id: str,
-    payload: Any = None,
-    args: tuple[Any, ...] | None = None,
-    kwargs: dict[str, Any] | None = None,
-    context: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
+    payload: object = None,
+    args: tuple[object, ...] | None = None,
+    kwargs: Mapping[str, object] | None = None,
+    context: Mapping[str, object] | None = None,
+) -> SafeSkillInvocation:
     """
     Safe wrapper for skill invocation used by loop-based orchestrators.
 
@@ -947,5 +1043,5 @@ def invoke_skill_safe(
         return {"ok": False, "result": None, "error": str(exc)}
 
 
-def list_registered_agent_batch_task_manifest_entries() -> list[dict[str, Any]]:
+def list_registered_agent_batch_task_manifest_entries() -> list[SkillDocument]:
     return _RUNTIME.list_agent_batch_task_manifest_entries()

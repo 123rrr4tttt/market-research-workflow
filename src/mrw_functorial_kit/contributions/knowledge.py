@@ -4,7 +4,18 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from app.successor_runtime.capabilities.knowledge_graph_projection_contribution import (
+    KnowledgeGraphProjectionAssemblyContext,
+)
+from app.successor_runtime.capabilities.knowledge_native_contribution import KnowledgeNativeAssemblyContext
+from app.successor_runtime.capabilities.knowledge_program import (
+    build_knowledge_bundle,
+    knowledge_native_contributions,
+    validate_knowledge_graph_projection_contributions,
+    validate_knowledge_native_contributions,
+)
 from functorial_kit.contribution_verification import (
+    VerificationChanges,
     VerificationPlan,
     VerificationRegistration,
     VerificationSource,
@@ -18,21 +29,12 @@ from functorial_kit.law_witness import (
     define_law_witness,
     law_witness_reference,
 )
-from app.successor_runtime.capabilities.knowledge_graph_projection_contribution import (
-    KnowledgeGraphProjectionAssemblyContext,
-)
+
 from mrw_functorial_kit.contributions.knowledge_graph_projection import knowledge_graph_projection_native_contributions
-from app.successor_runtime.capabilities.knowledge_native_contribution import KnowledgeNativeAssemblyContext
-from app.successor_runtime.capabilities.knowledge_program import (
-    build_knowledge_bundle,
-    knowledge_native_contributions,
-    validate_knowledge_graph_projection_contributions,
-    validate_knowledge_native_contributions,
-)
 
 
 def knowledge_verification_plan_for(
-    changes: object | None = None,
+    changes: VerificationChanges | None = None,
 ) -> VerificationPlan:
     """Derive an inert verification plan from the same native catalog.
 
@@ -104,7 +106,7 @@ def _run_knowledge_native_catalog_law() -> None:
                     raise AssertionError(
                         f"{native.definition.cell_id} payload codec identity drift"
                     )
-            if bundle.profiles[native.definition.cell_id] != dict(native.definition.profiles):
+            if bundle.profiles[native.definition.cell_id] != native.definition.profiles:
                 raise AssertionError(f"{native.definition.cell_id} profile binding drift")
     for native in graph_contributions:
         definition = native.definition
@@ -117,7 +119,7 @@ def _run_knowledge_native_catalog_law() -> None:
             raise AssertionError(f"{definition.cell_id} operation contract drift")
         if bundle.codec_by_kind(definition.kind) is not definition.payload_codec:
             raise AssertionError(f"{definition.cell_id} payload codec identity drift")
-        if bundle.profiles[definition.cell_id] != dict(definition.profiles):
+        if bundle.profiles[definition.cell_id] != definition.profiles:
             raise AssertionError(f"{definition.cell_id} profile binding drift")
 
 

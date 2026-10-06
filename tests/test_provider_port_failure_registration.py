@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from functorial_kit import Failure
 
 from mrw_functorial_kit.core.provider_port_failures import (
     collect_runtime_failures,
@@ -194,7 +195,7 @@ def test_FAILURE_PRESERVED__reddit_business_methods_are_best_effort_total() -> N
     adapter = RedditAdapter()
     with pytest.MonkeyPatch.context() as monkeypatch:
         monkeypatch.setattr(
-            "app.services.ingest.adapters.social_reddit.fetch_html", fail_fetch
+            "app.services.ingest.adapters.social_reddit._request_html", fail_fetch
         )
         monkeypatch.setattr("time.sleep", lambda *_args: None)
         assert list(adapter.fetch_posts("stocks", ["ai"], 2)) == []
@@ -219,28 +220,49 @@ def test_FAILURE_PRESERVED__google_news_business_methods_are_best_effort_total()
         assert list(adapter.search_multiple_keywords(["ai"], 2)) == []
 
 
-def test_FAILURE_PRESERVED__collect_registration_contracts_fail_closed() -> None:
+def test_FAILURE_PRESERVED__collect_registration_contracts_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from app.services.collect_runtime import runtime
-
-    original_registry = dict(runtime._SKILL_REGISTRY)
-    original_projector = runtime._SOURCE_LIBRARY_COMPAT_PROJECTOR
 
     class _Adapter:
         @staticmethod
         def run(_request: object) -> object:
             return object()
 
-    try:
-        with pytest.raises(ValueError, match="skill_id is required"):
-            runtime.register_collect_skill("", _Adapter())
-        with pytest.raises(TypeError, match="collect adapter must provide run"):
-            runtime.register_collect_skill("bad", object())
-        with pytest.raises(TypeError, match="projector must be callable"):
-            runtime.register_source_library_compat_projector(object())
-    finally:
-        runtime._SKILL_REGISTRY.clear()
-        runtime._SKILL_REGISTRY.update(original_registry)
-        runtime._SOURCE_LIBRARY_COMPAT_PROJECTOR = original_projector
+    with pytest.raises(ValueError, match="skill_id is required"):
+        runtime.register_collect_skill("", _Adapter())
+    with pytest.raises(TypeError, match="collect adapter must provide run"):
+        runtime.register_collect_skill("bad", object())
+    with pytest.raises(TypeError, match="projector must be callable"):
+        runtime.register_source_library_compat_projector(object())
+
+    class _ClassifiedFailure(Exception):
+        def __init__(self, failure: object) -> None:
+            self.failure = failure
+
+    def capture_failure(failure: object, *_args: object, **_kwargs: object) -> None:
+        raise _ClassifiedFailure(failure)
+
+    monkeypatch.setattr(runtime, "_raise_collect_contract", capture_failure)
+    classified_cases = (
+        (lambda: runtime.register_collect_skill("", _Adapter()), "skill_id_required"),
+        (
+            lambda: runtime.register_collect_skill("bad", object()),
+            "collect_adapter_contract_invalid",
+        ),
+        (
+            lambda: runtime.register_source_library_compat_projector(object()),
+            "compat_projector_contract_invalid",
+        ),
+    )
+    for invoke, expected_code in classified_cases:
+        with pytest.raises(_ClassifiedFailure) as captured:
+            invoke()
+        failure = captured.value.failure
+        assert isinstance(failure, Failure)
+        assert collect_runtime_failures.matches(failure)
+        assert failure.code == expected_code
 
 
 def test_INVARIANT__runtime_failure_literals_are_bounded_by_source() -> None:

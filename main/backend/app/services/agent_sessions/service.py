@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from functorial_kit import Failure
@@ -18,9 +19,33 @@ from app.services.agent_runtime import (
     find_unresolved_dependencies,
     resolve_session_status,
 )
-from .store import build_agent_session_store
+from .store import (
+    AgentEventPayload,
+    AgentEventRecord,
+    AgentArtifactPayload,
+    AgentApprovalPayload,
+    AgentApprovalTransitionMutation,
+    AgentMessagePayload,
+    AgentSessionPayload,
+    AgentSessionRecord,
+    AgentSessionStore,
+    AgentTaskPayload,
+    AgentTaskRecord,
+    AgentTaskTransitionMutation,
+    InMemoryAgentSessionStore,
+    JsonObject,
+    SqlAgentSessionStore,
+    build_agent_session_store,
+    validate_json_object,
+)
 
-TASK_STATUSES = frozenset({"pending", "active", "blocked", "completed", "failed", "canceled"})
+if TYPE_CHECKING:
+    from app.services.workflow_graph.contracts import (
+        WorkflowJsonValue,
+        WorkflowRunSnapshot,
+        WorkflowRuntimeGraph,
+    )
+
 TASK_STATUSES = frozenset({"pending", "claimed", "in_progress", "blocked", "completed", "failed", "canceled", "expired"})
 TASK_PHASES = frozenset({"conversation", "research", "synthesis", "implementation", "verification", "maintenance"})
 EXECUTION_MODES = frozenset({"worker", "system"})
@@ -104,13 +129,27 @@ def _normalize_execution_mode(value: str | None) -> str | Failure:
     return candidate
 
 
-def _normalize_string_list(values: Any) -> list[str]:
+def _normalize_string_list(values: Iterable[object] | None) -> list[str]:
     out: list[str] = []
     for value in values or []:
         item = str(value or "").strip()
         if item and item not in out:
             out.append(item)
     return out
+
+
+def _open_record(value: Mapping[str, Any]) -> dict[str, Any]:
+    return dict(value)
+
+
+def _open_records(values: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    return [_open_record(value) for value in values]
+
+
+def _json_field(value: dict[str, Any], key: str) -> Any:
+    if type(value) is not dict:
+        return None
+    return value.get(key)
 
 
 def _short_json(value: Any, *, limit: int = 240) -> str:
@@ -129,53 +168,90 @@ def _hash_binding(binding: dict[str, Any]) -> str:
 
 
 class AgentSessionService:
-    def __init__(self, *, store: Any | None = None) -> None:
-        self.store = store or build_agent_session_store()
+    store: AgentSessionStore
 
-    def list_sessions(self, *, limit: int = 50) -> list[dict[str, Any]]:
+    def __init__(self, *, store: InMemoryAgentSessionStore | SqlAgentSessionStore | None = None) -> None:
+        resolved_store = store if store is not None else build_agent_session_store()
+        if isinstance(resolved_store, Failure):
+            self._initialization_failure: Failure | None = resolved_store
+            return
+        self._initialization_failure = None
+        self.store = resolved_store
+
+    def _store_failure(self) -> Failure | None:
+        return self._initialization_failure
+
+    def list_sessions(self, *, limit: int = 50) -> list[dict[str, Any]] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         out: list[dict[str, Any]] = []
         for item in self.store.list_sessions(limit=limit):
             session_id = str(item.get("session_id") or "")
             tasks = self.store.list_tasks(session_id) if session_id else []
+            if isinstance(tasks, Failure):
+                return tasks
+            events = self.store.list_events(session_id) if session_id else []
+            if isinstance(events, Failure):
+                return events
+            artifacts = self.store.list_artifacts(session_id) if session_id else []
+            if isinstance(artifacts, Failure):
+                return artifacts
             out.append(
                 self._decorate_session(
-                    item,
-                    tasks=tasks,
+                    _open_record(item),
+                    tasks=_open_records(tasks),
                     task_count=len(tasks),
-                    event_count=len(self.store.list_events(session_id)) if session_id else 0,
-                    artifact_count=len(self.store.list_artifacts(session_id)) if session_id else 0,
+                    event_count=len(events),
+                    artifact_count=len(artifacts),
                     approval_count=len(self.store.list_approvals(session_id=session_id)) if session_id else 0,
                 )
             )
         return out
 
     def get_session(self, session_id: str) -> dict[str, Any] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         tasks = self.store.list_tasks(session_id)
         if isinstance(tasks, Failure):
             return tasks
         session = self.store.get_session(session_id)
         if isinstance(session, Failure):
             return session
-        return self._decorate_session(session, tasks=tasks, task_count=len(tasks))
+        return self._decorate_session(
+            _open_record(session), tasks=_open_records(tasks), task_count=len(tasks)
+        )
 
     def list_tasks(self, session_id: str) -> list[dict[str, Any]] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         rows = self.store.list_tasks(session_id)
         if isinstance(rows, Failure):
             return rows
-        tasks = [self._decorate_task(task) for task in rows]
+        tasks = [self._decorate_task(_open_record(task)) for task in rows]
         return tasks
 
-    def list_events(self, session_id: str) -> list[dict[str, Any]]:
-        return list(self.store.list_events(session_id))
+    def list_events(self, session_id: str) -> list[AgentEventRecord] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
+        rows = self.store.list_events(session_id)
+        return rows
 
-    def list_artifacts(self, session_id: str) -> list[dict[str, Any]]:
-        return list(self.store.list_artifacts(session_id))
+    def list_artifacts(self, session_id: str) -> list[dict[str, Any]] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
+        rows = self.store.list_artifacts(session_id)
+        return rows if isinstance(rows, Failure) else _open_records(rows)
 
-    def list_messages(self, session_id: str) -> list[dict[str, Any]]:
-        return list(self.store.list_messages(session_id))
+    def list_messages(self, session_id: str) -> list[dict[str, Any]] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
+        rows = self.store.list_messages(session_id)
+        return rows if isinstance(rows, Failure) else _open_records(rows)
 
-    def list_approvals(self, *, session_id: str | None = None) -> list[dict[str, Any]]:
-        return list(self.store.list_approvals(session_id=session_id))
+    def list_approvals(self, *, session_id: str | None = None) -> list[dict[str, Any]] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
+        return _open_records(self.store.list_approvals(session_id=session_id))
 
     def get_session_summary(self, session_id: str) -> dict[str, Any] | Failure:
         session = self.get_session(session_id)
@@ -185,9 +261,17 @@ class AgentSessionService:
         if isinstance(tasks, Failure):
             return tasks
         messages = self.list_messages(session_id)
+        if isinstance(messages, Failure):
+            return messages
         events = self.list_events(session_id)
+        if isinstance(events, Failure):
+            return events
         artifacts = self.list_artifacts(session_id)
+        if isinstance(artifacts, Failure):
+            return artifacts
         approvals = self.list_approvals(session_id=session_id)
+        if isinstance(approvals, Failure):
+            return approvals
 
         task_counts: dict[str, int] = {}
         completed_results: list[dict[str, Any]] = []
@@ -238,6 +322,8 @@ class AgentSessionService:
         task_id: str | None = None,
         run_id: str | None = None,
     ) -> dict[str, Any] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         session_id = str(session_id or "").strip()
         task_id = str(task_id or "").strip() or None
         run_id = str(run_id or "").strip() or None
@@ -261,16 +347,28 @@ class AgentSessionService:
                 export_status="not_found",
                 reason_code=session.code,
             )
-        if isinstance(tasks, Failure) or isinstance(events, Failure):
+        if isinstance(tasks, Failure):
             return self._empty_failure_package(
                 session_id=session_id,
                 task_id=task_id,
                 run_id=run_id,
                 export_status="not_found",
-                reason_code=(tasks.code if isinstance(tasks, Failure) else events.code),
+                reason_code=tasks.code,
+            )
+        if isinstance(events, Failure):
+            return self._empty_failure_package(
+                session_id=session_id,
+                task_id=task_id,
+                run_id=run_id,
+                export_status="not_found",
+                reason_code=events.code,
             )
 
-        selected_task = self._select_failure_package_task(tasks, task_id=task_id, run_id=run_id)
+        session_record = _open_record(session)
+        task_records = _open_records(tasks)
+        event_records = _open_records(events)
+
+        selected_task = self._select_failure_package_task(task_records, task_id=task_id, run_id=run_id)
         if selected_task is None and task_id:
             return self._empty_failure_package(
                 session_id=session_id,
@@ -278,61 +376,61 @@ class AgentSessionService:
                 run_id=run_id,
                 export_status="not_found",
                 reason_code="task_not_found",
-                project_key=session.get("project_key"),
+                project_key=session_record.get("project_key"),
             )
-        if selected_task is None and run_id and self._session_run_id(session) != run_id:
+        if selected_task is None and run_id and self._session_run_id(session_record) != run_id:
             return self._empty_failure_package(
                 session_id=session_id,
                 task_id=task_id,
                 run_id=run_id,
                 export_status="not_found",
                 reason_code="run_not_found",
-                project_key=session.get("project_key"),
+                project_key=session_record.get("project_key"),
             )
 
-        failed_tasks = [task for task in tasks if str(task.get("status") or "") == "failed"]
+        failed_tasks = [task for task in task_records if str(task.get("status") or "") == "failed"]
         package_tasks = [selected_task] if selected_task is not None else failed_tasks
-        session_failed = str(session.get("status") or "") == "failed"
+        session_failed = str(session_record.get("status") or "") == "failed"
         if selected_task is not None and str(selected_task.get("status") or "") != "failed":
             return self._empty_failure_package(
                 session_id=session_id,
                 task_id=str(selected_task.get("task_id") or task_id or ""),
-                run_id=run_id or self._task_run_id(selected_task) or self._session_run_id(session),
+                run_id=run_id or self._task_run_id(selected_task) or self._session_run_id(session_record),
                 export_status="not_failed",
                 reason_code="task_not_failed",
-                project_key=session.get("project_key"),
+                project_key=session_record.get("project_key"),
             )
         if not package_tasks and not session_failed:
             return self._empty_failure_package(
                 session_id=session_id,
                 task_id=task_id,
-                run_id=run_id or self._session_run_id(session),
+                run_id=run_id or self._session_run_id(session_record),
                 export_status="not_failed",
                 reason_code="session_not_failed",
-                project_key=session.get("project_key"),
+                project_key=session_record.get("project_key"),
             )
 
-        scoped_events = self._scope_failure_events(events, tasks=package_tasks)
-        last_event = scoped_events[-1] if scoped_events else (events[-1] if events else None)
+        scoped_events = self._scope_failure_events(event_records, tasks=package_tasks)
+        last_event = scoped_events[-1] if scoped_events else (event_records[-1] if event_records else None)
         resolved_run_id = (
             run_id
             or self._first_non_empty([self._task_run_id(task) for task in package_tasks])
-            or self._session_run_id(session)
+            or self._session_run_id(session_record)
         )
         resolved_task_id = str(package_tasks[0].get("task_id") or "") if len(package_tasks) == 1 else task_id
         trace_id = self._first_non_empty(
             [self._task_trace_id(task) for task in package_tasks]
             + [self._event_trace_id(event) for event in reversed(scoped_events)]
-            + [self._session_trace_id(session)]
+            + [self._session_trace_id(session_record)]
         )
-        errors = self._collect_failure_errors(package_tasks, scoped_events=scoped_events, session=session)
+        errors = self._collect_failure_errors(package_tasks, scoped_events=scoped_events, session=session_record)
         failed_steps = [self._failure_step_from_task(task) for task in package_tasks]
         if not failed_steps and session_failed:
             failed_steps.append(
                 {
                     "scope": "session",
-                    "status": str(session.get("status") or ""),
-                    "summary": str(session.get("final_summary") or "").strip() or None,
+                    "status": str(session_record.get("status") or ""),
+                    "summary": str(session_record.get("final_summary") or "").strip() or None,
                 }
             )
 
@@ -340,7 +438,7 @@ class AgentSessionService:
             "session_id": session_id,
             "run_id": resolved_run_id,
             "task_id": resolved_task_id,
-            "project_key": session.get("project_key"),
+            "project_key": session_record.get("project_key"),
             "trace_id": trace_id,
             "failed_steps": failed_steps,
             "errors": errors,
@@ -357,19 +455,19 @@ class AgentSessionService:
             "failure_package": failure_package,
         }
 
-    def find_session_by_compat_job_id(self, compat_job_id: str) -> dict[str, Any] | None:
+    def find_session_by_compat_job_id(self, compat_job_id: str) -> AgentSessionRecord | None | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         item = self.store.find_session_by_compat_job_id(compat_job_id)
-        if item is None:
-            return None
-        tasks = self.store.list_tasks(str(item.get("session_id") or ""))
-        return self._decorate_session(item, tasks=tasks, task_count=len(tasks))
+        return item
 
-    def find_session_by_logical_task_list_key(self, logical_task_list_key: str) -> dict[str, Any] | None:
+    def find_session_by_logical_task_list_key(
+        self, logical_task_list_key: str
+    ) -> AgentSessionRecord | None | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         item = self.store.find_session_by_logical_task_list_key(logical_task_list_key)
-        if item is None:
-            return None
-        tasks = self.store.list_tasks(str(item.get("session_id") or ""))
-        return self._decorate_session(item, tasks=tasks, task_count=len(tasks))
+        return item
 
     def create_session(
         self,
@@ -383,8 +481,12 @@ class AgentSessionService:
         compat_job_id: str | None = None,
         logical_task_list_key: str | None = None,
         metadata: dict[str, Any] | None = None,
-        task_blueprints: list[dict[str, Any]] | None = None,
+        task_blueprints: Sequence[Mapping[str, Any]] | None = None,
+        _command_artifacts: list[AgentArtifactPayload] | None = None,
+        _command_events: list[AgentEventPayload] | None = None,
     ) -> dict[str, Any] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         session_id = _new_id("as")
         session_metadata = dict(metadata or {})
         if initial_context:
@@ -393,80 +495,104 @@ class AgentSessionService:
         normalized_blueprints = self._materialize_blueprints(goal=goal, blueprints=blueprints)
         if isinstance(normalized_blueprints, Failure):
             return normalized_blueprints
-        root_task_id = str(normalized_blueprints[0]["task_id"] or "") if normalized_blueprints else None
-        session = self.store.create_session(
-            {
-                "session_id": session_id,
-                "source": str(source or "user").strip() or "user",
-                "project_key": (project_key or "").strip() or None,
-                "entrypoint_type": str(entrypoint_type or "chat").strip() or "chat",
-                "goal": str(goal or "").strip(),
-                "status": "pending",
-                "current_phase": normalized_blueprints[0]["phase"] if normalized_blueprints else "conversation",
-                "compat_mode": bool(compat_mode),
-                "compat_job_id": (compat_job_id or "").strip() or None,
-                "logical_task_list_key": (logical_task_list_key or session_id).strip() or session_id,
-                "root_task_id": root_task_id,
-                "metadata": session_metadata,
-                "final_result": {},
-            }
-        )
-        if isinstance(session, Failure):
-            return session
+        root_task_id = str(normalized_blueprints[0].get("task_id") or "") if normalized_blueprints else None
+        session_payload: AgentSessionPayload = {
+            "session_id": session_id,
+            "source": str(source or "user").strip() or "user",
+            "project_key": (project_key or "").strip() or None,
+            "entrypoint_type": str(entrypoint_type or "chat").strip() or "chat",
+            "goal": str(goal or "").strip(),
+            "status": "pending",
+            "current_phase": str(normalized_blueprints[0].get("phase") or "conversation") if normalized_blueprints else "conversation",
+            "compat_mode": bool(compat_mode),
+            "compat_job_id": (compat_job_id or "").strip() or None,
+            "logical_task_list_key": (logical_task_list_key or session_id).strip() or session_id,
+            "root_task_id": root_task_id,
+            "metadata": session_metadata,
+            "final_result": {},
+        }
         for blueprint in normalized_blueprints:
-            created_task = self.store.create_task({"session_id": session_id, **blueprint})
-            if isinstance(created_task, Failure):
-                return created_task
-        message = self.store.create_message(
+            blueprint["session_id"] = session_id
+        command_artifacts = list(_command_artifacts or [])
+        for artifact in command_artifacts:
+            artifact["session_id"] = session_id
+        creation_events: list[AgentEventPayload] = [
             {
-                "session_id": session_id,
-                "role": "user",
-                "actor": "session_entrypoint",
-                "content": str(goal or "").strip(),
-                "metadata": {"entrypoint_type": entrypoint_type, "source": source},
-            }
-        )
-        if isinstance(message, Failure):
-            return message
-        created_event = self.store.append_event(
-            session_id,
-            event_type="session.created",
-            payload={
-                "source": session["source"],
-                "entrypoint_type": session["entrypoint_type"],
-                "compat_mode": bool(session["compat_mode"]),
-                "root_task_id": session["root_task_id"],
-            },
-        )
-        if isinstance(created_event, Failure):
-            return created_event
-        for task in self.store.list_tasks(session_id):
-            created_event = self.store.append_event(
-                session_id,
-                event_type="task.created",
-                task_id=task["task_id"],
-                payload={
-                    "phase": task["phase"],
-                    "task_type": task["task_type"],
-                    "blocked_by": list(task["blocked_by"] or []),
-                    "write_set": list(task["write_set"] or []),
+                "event_type": "session.created",
+                "payload": {
+                    "source": session_payload["source"],
+                    "entrypoint_type": session_payload["entrypoint_type"],
+                    "compat_mode": session_payload["compat_mode"],
+                    "root_task_id": session_payload["root_task_id"],
                 },
-            )
-            if isinstance(created_event, Failure):
-                return created_event
+            },
+            *[
+                {
+                    "event_type": "task.created",
+                    "task_id": str(task.get("task_id") or ""),
+                    "payload": {
+                        "phase": str(task.get("phase") or ""),
+                        "task_type": str(task.get("task_type") or ""),
+                        "blocked_by": list(task.get("blocked_by") or []),
+                        "write_set": list(task.get("write_set") or []),
+                    },
+                }
+                for task in normalized_blueprints
+            ],
+        ]
+        created = self.store.commit_session_command(
+            session_id,
+            session_create=session_payload,
+            expected_session_statuses=None,
+            session_changes=self._derive_session_changes(
+                _open_record(session_payload),
+                [_open_record(task) for task in normalized_blueprints],
+            ),
+            task_creates=normalized_blueprints,
+            task_mutations=[],
+            message_creates=[
+                {
+                    "session_id": session_id,
+                    "role": "user",
+                    "actor": "session_entrypoint",
+                    "content": str(goal or "").strip(),
+                    "metadata": {"entrypoint_type": entrypoint_type, "source": source},
+                }
+            ],
+            artifact_upserts=command_artifacts,
+            approval_mutation=None,
+            events=[*creation_events, *list(_command_events or [])],
+        )
+        if isinstance(created, Failure):
+            return created
         return self.get_session_bundle(session_id)
 
     def get_session_bundle(self, session_id: str) -> dict[str, Any] | Failure:
         session = self.get_session(session_id)
         if isinstance(session, Failure):
             return session
+        tasks = self.list_tasks(session_id)
+        if isinstance(tasks, Failure):
+            return tasks
+        messages = self.list_messages(session_id)
+        if isinstance(messages, Failure):
+            return messages
+        artifacts = self.list_artifacts(session_id)
+        if isinstance(artifacts, Failure):
+            return artifacts
+        events = self.list_events(session_id)
+        if isinstance(events, Failure):
+            return events
+        approvals = self.list_approvals(session_id=session_id)
+        if isinstance(approvals, Failure):
+            return approvals
         return {
             "session": session,
-            "tasks": self.list_tasks(session_id),
-            "messages": self.list_messages(session_id),
-            "artifacts": self.list_artifacts(session_id),
-            "events": self.list_events(session_id),
-            "approvals": self.list_approvals(session_id=session_id),
+            "tasks": tasks,
+            "messages": messages,
+            "artifacts": artifacts,
+            "events": events,
+            "approvals": approvals,
         }
 
     def create_message(
@@ -479,28 +605,46 @@ class AgentSessionService:
         task_id: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         session = self.store.get_session(session_id)
         if isinstance(session, Failure):
             return session
-        row = self.store.create_message(
-            {
-                "session_id": session_id,
-                "task_id": task_id,
-                "role": str(role or "assistant").strip() or "assistant",
-                "actor": str(actor or role or "assistant").strip() or "assistant",
-                "content": str(content or "").strip(),
-                "metadata": dict(metadata or {}),
-            }
-        )
-        if isinstance(row, Failure):
-            return row
-        self.store.append_event(
+        message_metadata = validate_json_object(metadata or {}, field="message.metadata")
+        if isinstance(message_metadata, Failure):
+            return message_metadata
+        message_payload: AgentMessagePayload = {
+            "session_id": session_id,
+            "task_id": task_id,
+            "role": str(role or "assistant").strip() or "assistant",
+            "actor": str(actor or role or "assistant").strip() or "assistant",
+            "content": str(content or "").strip(),
+            "metadata": message_metadata,
+        }
+        committed = self.store.commit_session_command(
             session_id,
-            event_type="message.created",
-            task_id=task_id,
-            payload={"role": row.get("role"), "actor": row.get("actor")},
+            session_create=None,
+            expected_session_statuses=[str(session.get("status") or "")],
+            session_changes={},
+            task_creates=[],
+            task_mutations=[],
+            message_creates=[message_payload],
+            artifact_upserts=[],
+            approval_mutation=None,
+            events=[
+                {
+                    "event_type": "message.created",
+                    "task_id": task_id,
+                    "payload": {
+                        "role": message_payload["role"],
+                        "actor": message_payload["actor"],
+                    },
+                }
+            ],
         )
-        return row
+        if isinstance(committed, Failure):
+            return committed
+        return _open_record(committed["messages"][0])
 
     def create_host_user_message(
         self,
@@ -511,12 +655,15 @@ class AgentSessionService:
     ) -> dict[str, Any] | Failure:
         """Record a user message at the trusted host input boundary only."""
 
+        if (failure := self._store_failure()) is not None:
+            return failure
+
         from app.services.agent_core.host_authorization import (
             HOST_AUTHORIZATION_CONTRACT_VERSION,
-            _validate_context,
+            validate_context,
         )
 
-        context_failure = _validate_context(context)
+        context_failure = validate_context(context)
         if isinstance(context_failure, Failure):
             return context_failure
         metadata: dict[str, Any] = {
@@ -549,15 +696,18 @@ class AgentSessionService:
     ) -> dict[str, Any] | Failure:
         """Resolve one host approval from an explicitly associated user message."""
 
+        if (failure := self._store_failure()) is not None:
+            return failure
+
         from app.services.agent_core.host_authorization import (
             HOST_AUTHORIZATION_CONTRACT_VERSION,
-            _validate_context,
+            validate_context,
         )
 
         normalized_approval_id = str(approval_id or "").strip()
         if not normalized_approval_id:
             return _failure("approval_id_required", "approval_id is required")
-        context_failure = _validate_context(context)
+        context_failure = validate_context(context)
         if isinstance(context_failure, Failure):
             return context_failure
         approval = self.store.get_approval(normalized_approval_id)
@@ -582,20 +732,11 @@ class AgentSessionService:
         requested_decision = "approved" if approved else "rejected"
 
         if str(approval.get("status") or "") != "pending":
-            return _reconcile_confirmation(approval, requested_decision, normalized_approval_id)
+            return _reconcile_confirmation(_open_record(approval), requested_decision, normalized_approval_id)
 
-        message = self.create_host_user_message(context, content=text, approval_id=normalized_approval_id)
-        if isinstance(message, Failure):
-            return message
         approved_by = f"trusted_host:{context.host_thread_id}"
-        confirmed = self.store.confirm_host_approval(
-            approval_id=normalized_approval_id,
-            expected_binding_payload=binding,
-            expected_requester_actor=approved_by,
-            approved=approved,
-            approved_by=approved_by,
-            approved_at=_utcnow(),
-            confirmation_metadata={
+        confirmation_metadata = validate_json_object(
+            {
                 "contract_version": HOST_AUTHORIZATION_CONTRACT_VERSION,
                 "host_confirmation": {
                     "approval_id": normalized_approval_id,
@@ -605,34 +746,156 @@ class AgentSessionService:
                     "decision": requested_decision,
                 },
             },
-            audit_log=[
+            field="approval.confirmation.metadata",
+        )
+        if isinstance(confirmation_metadata, Failure):
+            return confirmation_metadata
+        approval_metadata = dict(approval.get("metadata") or {})
+        approval_metadata.update(confirmation_metadata)
+        normalized_approval_metadata = validate_json_object(
+            approval_metadata,
+            field="approval.metadata",
+        )
+        if isinstance(normalized_approval_metadata, Failure):
+            return normalized_approval_metadata
+        audit_entry = validate_json_object(
+            {
+                "at": _utcnow().isoformat(),
+                "action": "approved" if approved else "rejected",
+                "actor": approved_by,
+            },
+            field="approval.audit_log.entry",
+        )
+        if isinstance(audit_entry, Failure):
+            return audit_entry
+        audit_log: list[JsonObject] = [
+            *list(approval.get("audit_log") or []),
+            audit_entry,
+        ]
+        confirmed_status = "approved" if approved else "failed"
+        approval_payload: AgentApprovalPayload = {
+            **approval,
+            "status": confirmed_status,
+            "approved_by": approved_by,
+            "approved_at": _utcnow(),
+            "metadata": normalized_approval_metadata,
+            "audit_log": audit_log,
+        }
+        requester_session_id = str(approval.get("requester_session_id") or "").strip()
+        if not requester_session_id:
+            return _host_failure("host_confirmation_session_mismatch", approval_id=normalized_approval_id)
+        session = self.store.get_session(requester_session_id)
+        if isinstance(session, Failure):
+            return session
+        tasks = self.store.list_tasks(requester_session_id)
+        if isinstance(tasks, Failure):
+            return tasks
+        requester_task_id = str(approval.get("requester_task_id") or "").strip() or None
+        post_tasks = _open_records(tasks)
+        mutations: list[AgentTaskTransitionMutation] = []
+        for index, task in enumerate(tasks):
+            is_wait = (
+                str(task.get("task_type") or "") == "approval_wait"
+                and str(dict(task.get("metadata") or {}).get("approval_id") or "") == normalized_approval_id
+            )
+            is_gated = requester_task_id is not None and task["task_id"] == requester_task_id
+            if not is_wait and not is_gated:
+                continue
+            if is_wait:
+                changes: AgentTaskPayload = {
+                    "status": "completed" if approved else "failed",
+                    "completed_at": _utcnow(),
+                    "lease_until": None,
+                    "last_activity": f"approval {normalized_approval_id} {'approved' if approved else 'rejected'}",
+                    "recent_activities": [f"approval {normalized_approval_id} {'approved' if approved else 'rejected'}"],
+                }
+            elif approved:
+                unresolved = find_unresolved_dependencies(_open_record(task), _open_records(tasks))
+                changes = {
+                    "status": "blocked" if unresolved else "pending",
+                    "last_activity": f"approval {normalized_approval_id} approved",
+                    "recent_activities": [f"approval {normalized_approval_id} approved"],
+                }
+            else:
+                changes = {
+                    "status": "failed",
+                    "completed_at": _utcnow(),
+                    "last_activity": f"approval {normalized_approval_id} rejected",
+                    "recent_activities": [f"approval {normalized_approval_id} rejected"],
+                }
+            projected_task = {**_open_record(task), **changes}
+            changes["summary_label"] = build_summary_label(projected_task)
+            post_tasks[index].update(changes)
+            mutations.append(
                 {
-                    "at": _utcnow().isoformat(),
-                    "action": "approved" if approved else "rejected",
+                    "task_id": task["task_id"],
+                    "expected_statuses": [str(task.get("status") or "")],
+                    "expected_owner": task.get("owner"),
+                    "changes": changes,
+                }
+            )
+        message_metadata = validate_json_object(
+            {
+                "contract_version": HOST_AUTHORIZATION_CONTRACT_VERSION,
+                "host_message": {
+                    "project_key": context.project_key,
+                    "session_id": context.session_id,
+                    "host_thread_id": context.host_thread_id,
+                    "turn_id": context.turn_id,
+                    "user_message_id": context.user_message_id,
+                },
+                "host_confirmation": {"approval_id": normalized_approval_id},
+            },
+            field="host_confirmation.message.metadata",
+        )
+        if isinstance(message_metadata, Failure):
+            return message_metadata
+        committed = self.store.commit_session_command(
+            requester_session_id,
+            session_create=None,
+            expected_session_statuses=[str(session.get("status") or "")],
+            session_changes=self._derive_session_changes(_open_record(session), post_tasks),
+            task_creates=[],
+            task_mutations=mutations,
+            message_creates=[
+                {
+                    "session_id": requester_session_id,
+                    "role": "user",
                     "actor": approved_by,
+                    "content": text,
+                    "metadata": message_metadata,
                 }
             ],
+            artifact_upserts=[],
+            approval_mutation={
+                "expected_statuses": ["pending"],
+                "expected_binding_payload": approval["binding_payload"],
+                "expected_requester_actor": approved_by,
+                "payload": approval_payload,
+            },
+            events=[
+                {
+                    "event_type": "message.created",
+                    "payload": {"role": "user", "actor": approved_by},
+                },
+                {
+                    "event_type": f"approval.{confirmed_status}",
+                    "task_id": requester_task_id,
+                    "payload": {
+                        "approval_id": normalized_approval_id,
+                        "approved_by": approved_by,
+                    },
+                },
+            ],
         )
-        if isinstance(confirmed, Failure):
+        if isinstance(committed, Failure):
             fresh = self.store.get_approval(normalized_approval_id)
             if not isinstance(fresh, Failure) and str(fresh.get("status") or "") != "pending":
-                return _reconcile_confirmation(fresh, requested_decision, normalized_approval_id)
-            return _confirmation_failure(confirmed)
-        requester_session_id = str(confirmed.get("requester_session_id") or "").strip() or None
-        if requester_session_id:
-            requester_task_id = str(confirmed.get("requester_task_id") or "").strip() or None
-            self._apply_approval_resolution(
-                session_id=requester_session_id,
-                requester_task_id=requester_task_id,
-                approval=confirmed,
-                approved=approved,
-            )
-            self.store.append_event(
-                requester_session_id,
-                event_type=f"approval.{confirmed['status']}",
-                task_id=confirmed.get("requester_task_id"),
-                payload={"approval_id": normalized_approval_id, "approved_by": confirmed.get("approved_by")},
-            )
+                return _reconcile_confirmation(_open_record(fresh), requested_decision, normalized_approval_id)
+            return _confirmation_failure(committed)
+        confirmed = committed["approval"]
+        if confirmed is None:
+            return _failure("approval_not_found", "approval confirmation did not return a record")
         row = dict(confirmed)
         row["requested_status"] = "approved" if approved else "failed"
         row["final_status"] = str(row.get("status") or "")
@@ -647,6 +910,8 @@ class AgentSessionService:
         goal: str | None = None,
         task_blueprints: list[dict[str, Any]],
     ) -> list[dict[str, Any]] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         session = self.store.get_session(session_id)
         if isinstance(session, Failure):
             return session
@@ -656,27 +921,43 @@ class AgentSessionService:
         )
         if isinstance(materialized, Failure):
             return materialized
-        created: list[dict[str, Any]] = []
         for blueprint in materialized:
-            task = self.store.create_task({"session_id": session_id, **blueprint})
-            if isinstance(task, Failure):
-                return task
-            self.store.append_event(
-                session_id,
-                event_type="task.created",
-                task_id=task["task_id"],
-                payload={
-                    "phase": task["phase"],
-                    "task_type": task["task_type"],
-                    "blocked_by": list(task["blocked_by"] or []),
-                    "write_set": list(task["write_set"] or []),
-                },
-            )
-            created.append(self._decorate_task(task))
-        self._sync_session_state(session_id)
-        return created
+            blueprint["session_id"] = session_id
+        existing_tasks = self.store.list_tasks(session_id)
+        if isinstance(existing_tasks, Failure):
+            return existing_tasks
+        post_tasks = [*_open_records(existing_tasks), *[_open_record(item) for item in materialized]]
+        committed = self.store.commit_session_command(
+            session_id,
+            session_create=None,
+            expected_session_statuses=[str(session.get("status") or "")],
+            session_changes=self._derive_session_changes(_open_record(session), post_tasks),
+            task_creates=materialized,
+            task_mutations=[],
+            message_creates=[],
+            artifact_upserts=[],
+            approval_mutation=None,
+            events=[
+                {
+                    "event_type": "task.created",
+                    "task_id": str(task.get("task_id") or ""),
+                    "payload": {
+                        "phase": str(task.get("phase") or ""),
+                        "task_type": str(task.get("task_type") or ""),
+                        "blocked_by": list(task.get("blocked_by") or []),
+                        "write_set": list(task.get("write_set") or []),
+                    },
+                }
+                for task in materialized
+            ],
+        )
+        if isinstance(committed, Failure):
+            return committed
+        return [self._decorate_task(_open_record(task)) for task in committed["tasks"]]
 
     def claim_task(self, session_id: str, task_id: str, *, owner: str, lease_seconds: int = 300) -> dict[str, Any] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         task_owner = str(owner or "").strip()
         if not task_owner:
             return _failure(
@@ -695,6 +976,8 @@ class AgentSessionService:
         tasks = self.store.list_tasks(session_id)
         if isinstance(tasks, Failure):
             return tasks
+        task_record = _open_record(task)
+        task_records = _open_records(tasks)
         if task["status"] not in {"pending", "blocked"}:
             return _failure(
                 "task_not_claimable",
@@ -703,7 +986,7 @@ class AgentSessionService:
                 task_id=task_id,
                 status=task["status"],
             )
-        unresolved = find_unresolved_dependencies(task, tasks)
+        unresolved = find_unresolved_dependencies(task_record, task_records)
         if unresolved:
             return _failure(
                 "task_dependencies_incomplete",
@@ -712,35 +995,48 @@ class AgentSessionService:
                 task_id=task_id,
                 dependencies=list(unresolved),
             )
-        conflict = assert_no_write_conflict(tasks, task_id, list(task.get("write_set") or []))
+        conflict = assert_no_write_conflict(task_records, task_id, list(task.get("write_set") or []))
         if isinstance(conflict, Failure):
             return conflict
         now = _utcnow()
-        updated = self.store.update_task(
+        lease_until = now + timedelta(seconds=max(30, int(lease_seconds or 300)))
+        changes: AgentTaskPayload = {
+            "status": "claimed",
+            "owner": task_owner,
+            "lease_until": lease_until,
+            "claimed_at": now,
+            "started_at": task.get("started_at") or now,
+            "last_activity": "task claimed",
+        }
+        preview = {**task_record, **changes}
+        changes["summary_label"] = build_summary_label(preview)
+        preview["summary_label"] = changes["summary_label"]
+        post_tasks = [preview if item["task_id"] == task_id else item for item in task_records]
+        session = self.store.get_session(session_id)
+        if isinstance(session, Failure):
+            return session
+        session_changes = self._derive_session_changes(_open_record(session), post_tasks)
+        transitioned = self.store.transition_task(
             session_id,
-            task_id,
-            {
-                "status": "claimed",
-                "owner": task_owner,
-                "lease_until": now + timedelta(seconds=max(30, int(lease_seconds or 300))),
-                "claimed_at": now,
-                "started_at": task.get("started_at") or now,
-                "last_activity": "task claimed",
+            primary={
+                "task_id": task_id,
+                "expected_statuses": ["pending", "blocked"],
+                "expected_owner": task.get("owner"),
+                "changes": changes,
             },
+            related=[],
+            session_changes=session_changes,
+            events=[
+                {
+                    "event_type": "task.claimed",
+                    "task_id": task_id,
+                    "payload": {"owner": task_owner, "lease_until": lease_until.isoformat()},
+                }
+            ],
         )
-        if isinstance(updated, Failure):
-            return updated
-        updated = self.store.update_task(session_id, task_id, {"summary_label": build_summary_label(updated)})
-        if isinstance(updated, Failure):
-            return updated
-        self._sync_session_state(session_id)
-        self.store.append_event(
-            session_id,
-            event_type="task.claimed",
-            task_id=task_id,
-            payload={"owner": updated.get("owner"), "lease_until": updated.get("lease_until")},
-        )
-        return self._decorate_task(updated)
+        if isinstance(transitioned, Failure):
+            return transitioned
+        return self._decorate_task(_open_record(transitioned["task"]))
 
     def heartbeat_task(
         self,
@@ -752,6 +1048,8 @@ class AgentSessionService:
         tool_use_count: int | None = None,
         token_usage: int | None = None,
     ) -> dict[str, Any] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         task = self.store.get_task(session_id, task_id)
         if isinstance(task, Failure):
             return task
@@ -760,36 +1058,53 @@ class AgentSessionService:
         if activity:
             recent_activities.append(str(activity))
             recent_activities = recent_activities[-8:]
-        updated = self.store.update_task(
-            session_id,
-            task_id,
+        lease_until = now + timedelta(seconds=max(30, int(lease_seconds or 300)))
+        changes: AgentTaskPayload = {
+            "status": "in_progress" if task["status"] in {"claimed", "in_progress"} else task["status"],
+            "lease_until": lease_until,
+            "started_at": task.get("started_at") or now,
+            "last_activity": activity or task.get("last_activity"),
+            "recent_activities": recent_activities,
+            "tool_use_count": int(tool_use_count) if tool_use_count is not None else int(task.get("tool_use_count") or 0),
+            "token_usage": int(token_usage) if token_usage is not None else int(task.get("token_usage") or 0),
+        }
+        preview = _open_record(task)
+        preview.update(changes)
+        changes["summary_label"] = build_summary_label(preview)
+        preview["summary_label"] = changes["summary_label"]
+        tasks = self.store.list_tasks(session_id)
+        session = self.store.get_session(session_id)
+        if isinstance(tasks, Failure):
+            return tasks
+        if isinstance(session, Failure):
+            return session
+        post_tasks = [preview if item["task_id"] == task_id else item for item in _open_records(tasks)]
+        heartbeat_payload = validate_json_object(
             {
-                "status": "in_progress" if task["status"] in {"claimed", "in_progress"} else task["status"],
-                "lease_until": now + timedelta(seconds=max(30, int(lease_seconds or 300))),
-                "started_at": task.get("started_at") or now,
-                "last_activity": activity or task.get("last_activity"),
-                "recent_activities": recent_activities,
-                "tool_use_count": int(tool_use_count) if tool_use_count is not None else int(task.get("tool_use_count") or 0),
-                "token_usage": int(token_usage) if token_usage is not None else int(task.get("token_usage") or 0),
+                "lease_until": lease_until.isoformat(),
+                "activity": preview.get("last_activity"),
+                "tool_use_count": preview.get("tool_use_count"),
+                "token_usage": preview.get("token_usage"),
             },
+            field="task.heartbeat.payload",
         )
-        if isinstance(updated, Failure):
-            return updated
-        updated = self.store.update_task(session_id, task_id, {"summary_label": build_summary_label(updated)})
-        if isinstance(updated, Failure):
-            return updated
-        self.store.append_event(
+        if isinstance(heartbeat_payload, Failure):
+            return heartbeat_payload
+        transitioned = self.store.transition_task(
             session_id,
-            event_type="task.heartbeat",
-            task_id=task_id,
-            payload={
-                "lease_until": updated.get("lease_until"),
-                "activity": updated.get("last_activity"),
-                "tool_use_count": updated.get("tool_use_count"),
-                "token_usage": updated.get("token_usage"),
+            primary={
+                "task_id": task_id,
+                "expected_statuses": [str(task.get("status") or "")],
+                "expected_owner": task.get("owner"),
+                "changes": changes,
             },
+            related=[],
+            session_changes=self._derive_session_changes(_open_record(session), post_tasks),
+            events=[{"event_type": "task.heartbeat", "task_id": task_id, "payload": heartbeat_payload}],
         )
-        return self._decorate_task(updated)
+        if isinstance(transitioned, Failure):
+            return transitioned
+        return self._decorate_task(_open_record(transitioned["task"]))
 
     def release_task(
         self,
@@ -803,6 +1118,8 @@ class AgentSessionService:
         token_usage: int | None = None,
         activity: str | None = None,
     ) -> dict[str, Any] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         normalized_status = _normalize_status(status, allowed=TASK_STATUSES, default="completed")
         if isinstance(normalized_status, Failure):
             return normalized_status
@@ -813,7 +1130,7 @@ class AgentSessionService:
         if activity:
             recent_activities.append(str(activity))
             recent_activities = recent_activities[-8:]
-        changes: dict[str, Any] = {
+        changes: AgentTaskPayload = {
             "status": normalized_status,
             "result_summary": result_summary or task.get("result_summary"),
             "result_payload": dict(result_payload or task.get("result_payload") or {}),
@@ -825,126 +1142,263 @@ class AgentSessionService:
         }
         if normalized_status in FINAL_TASK_STATUSES:
             changes["completed_at"] = _utcnow()
-        updated = self.store.update_task(session_id, task_id, changes)
-        if isinstance(updated, Failure):
-            return updated
-        updated = self.store.update_task(session_id, task_id, {"summary_label": build_summary_label(updated)})
-        if isinstance(updated, Failure):
-            return updated
+        task_record = _open_record(task)
+        preview: dict[str, Any] = dict(task_record)
+        preview.update(changes)
+        changes["summary_label"] = build_summary_label(preview)
+        preview["summary_label"] = changes["summary_label"]
+        tasks = self.store.list_tasks(session_id)
+        if isinstance(tasks, Failure):
+            return tasks
+        task_records = _open_records(tasks)
+        post_tasks = [preview if item["task_id"] == task_id else item for item in task_records]
+        related: list[AgentTaskTransitionMutation] = []
+        events: list[AgentEventPayload] = []
         if normalized_status == "completed":
-            self._unblock_dependents(session_id, task_id)
-        self._sync_session_state(session_id)
-        self.store.append_event(
-            session_id,
-            event_type=f"task.{normalized_status}",
-            task_id=task_id,
-            payload={
-                "result_summary": updated.get("result_summary"),
-                "summary_label": updated.get("summary_label"),
-                "progress": build_task_progress_summary(updated),
+            for dependent in post_tasks:
+                blocked_by = _normalize_string_list(dependent.get("blocked_by"))
+                if task_id not in blocked_by or dependent.get("status") != "blocked":
+                    continue
+                unresolved = [dep for dep in blocked_by if self._task_status(post_tasks, dep) != "completed"]
+                if unresolved:
+                    continue
+                dependent_changes: AgentTaskPayload = {"status": "pending"}
+                dependent_preview: dict[str, Any] = dict(dependent)
+                dependent_preview.update(dependent_changes)
+                dependent_changes["summary_label"] = build_summary_label(dependent_preview)
+                dependent_preview["summary_label"] = dependent_changes["summary_label"]
+                post_tasks = [
+                    dependent_preview if item["task_id"] == dependent["task_id"] else item
+                    for item in post_tasks
+                ]
+                dependent_id = str(dependent["task_id"])
+                dependent_owner = str(dependent.get("owner") or "").strip() or None
+                mutation: AgentTaskTransitionMutation = {
+                    "task_id": dependent_id,
+                    "expected_statuses": ["blocked"],
+                    "expected_owner": dependent_owner,
+                    "changes": dependent_changes,
+                }
+                related.append(mutation)
+                unblocked_event: AgentEventPayload = {
+                    "event_type": "task.unblocked",
+                    "task_id": dependent_id,
+                    "payload": {"unblocked_by": task_id},
+                }
+                events.append(unblocked_event)
+        session = self.store.get_session(session_id)
+        if isinstance(session, Failure):
+            return session
+        session_changes = self._derive_session_changes(_open_record(session), post_tasks)
+        release_payload = validate_json_object(
+            {
+                "result_summary": preview.get("result_summary"),
+                "summary_label": preview.get("summary_label"),
+                "progress": build_task_progress_summary(preview),
             },
+            field="task.release_event.payload",
         )
-        return self._decorate_task(updated)
+        if isinstance(release_payload, Failure):
+            return release_payload
+        release_event: AgentEventPayload = {
+            "event_type": f"task.{normalized_status}",
+            "task_id": task_id,
+            "payload": release_payload,
+        }
+        events.append(release_event)
+        transitioned = self.store.transition_task(
+            session_id,
+            primary={
+                "task_id": task_id,
+                "expected_statuses": [str(task.get("status") or "")],
+                "expected_owner": task.get("owner"),
+                "changes": changes,
+            },
+            related=related,
+            session_changes=session_changes,
+            events=events,
+        )
+        if isinstance(transitioned, Failure):
+            return transitioned
+        return self._decorate_task(_open_record(transitioned["task"]))
 
     def retry_task(self, session_id: str, task_id: str) -> dict[str, Any] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         task = self.store.get_task(session_id, task_id)
         if isinstance(task, Failure):
             return task
         if str(task.get("status") or "") == "pending":
-            out = self._decorate_task(task)
+            out = self._decorate_task(_open_record(task))
             out["action_status"] = "already_pending"
             out["retry_status"] = "already_pending"
             return out
-        updated = self.store.update_task(
-            session_id,
-            task_id,
-            {
-                "status": "pending",
-                "result_summary": None,
-                "result_payload": {},
-                "lease_until": None,
-                "completed_at": None,
-                "last_activity": "task retried",
-                "recent_activities": ["task retried"],
-                "summary_label": f"{task['subject']} [pending]",
-            },
-        )
-        if isinstance(updated, Failure):
-            return updated
+        changes: AgentTaskPayload = {
+            "status": "pending",
+            "result_summary": None,
+            "result_payload": {},
+            "lease_until": None,
+            "completed_at": None,
+            "last_activity": "task retried",
+            "recent_activities": ["task retried"],
+            "summary_label": f"{task['subject']} [pending]",
+        }
+        preview = _open_record(task)
+        preview.update(changes)
         items = self.store.list_tasks(session_id)
         if isinstance(items, Failure):
             return items
+        post_tasks = [preview if item["task_id"] == task_id else _open_record(item) for item in items]
+        related: list[AgentTaskTransitionMutation] = []
         for item in items:
             if task_id in list(item.get("blocked_by") or []):
-                self.store.update_task(
-                    session_id,
-                    item["task_id"],
+                dependent_changes: AgentTaskPayload = {
+                    "status": "blocked",
+                    "completed_at": None,
+                    "summary_label": f"{item['subject']} [blocked]",
+                }
+                dependent_preview = _open_record(item)
+                dependent_preview.update(dependent_changes)
+                post_tasks = [
+                    dependent_preview if candidate["task_id"] == item["task_id"] else candidate
+                    for candidate in post_tasks
+                ]
+                related.append(
                     {
-                        "status": "blocked",
-                        "completed_at": None,
-                        "summary_label": f"{item['subject']} [blocked]",
-                    },
+                        "task_id": item["task_id"],
+                        "expected_statuses": [str(item.get("status") or "")],
+                        "expected_owner": item.get("owner"),
+                        "changes": dependent_changes,
+                    }
                 )
-        self._sync_session_state(session_id)
-        self.store.append_event(session_id, event_type="task.retried", task_id=task_id, payload={"task_id": task_id})
-        out = self._decorate_task(updated)
+        session = self.store.get_session(session_id)
+        if isinstance(session, Failure):
+            return session
+        transitioned = self.store.transition_task(
+            session_id,
+            primary={
+                "task_id": task_id,
+                "expected_statuses": [str(task.get("status") or "")],
+                "expected_owner": task.get("owner"),
+                "changes": changes,
+            },
+            related=related,
+            session_changes=self._derive_session_changes(_open_record(session), post_tasks),
+            events=[{"event_type": "task.retried", "task_id": task_id, "payload": {"task_id": task_id}}],
+        )
+        if isinstance(transitioned, Failure):
+            return transitioned
+        out = self._decorate_task(_open_record(transitioned["task"]))
         out["action_status"] = "retried"
         out["retry_status"] = "retried"
         return out
 
     def reclaim_expired_tasks(self, session_id: str) -> list[dict[str, Any]] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         tasks = self.store.list_tasks(session_id)
         if isinstance(tasks, Failure):
             return tasks
-        expired_task_ids = collect_expired_task_ids(tasks)
-        reclaimed: list[dict[str, Any]] = []
+        expired_task_ids = collect_expired_task_ids(_open_records(tasks))
+        if not expired_task_ids:
+            return []
+        by_id = {item["task_id"]: item for item in tasks}
+        mutations: list[AgentTaskTransitionMutation] = []
+        events: list[AgentEventPayload] = []
+        post_tasks = _open_records(tasks)
         for task_id in expired_task_ids:
-            updated = self.store.update_task(
-                session_id,
-                task_id,
+            task = by_id[task_id]
+            changes: AgentTaskPayload = {
+                "status": "expired",
+                "lease_until": None,
+                "last_activity": "lease expired",
+                "recent_activities": ["lease expired"],
+                "completed_at": _utcnow(),
+            }
+            preview = _open_record(task)
+            preview.update(changes)
+            changes["summary_label"] = build_summary_label(preview)
+            preview["summary_label"] = changes["summary_label"]
+            post_tasks = [preview if item["task_id"] == task_id else item for item in post_tasks]
+            mutations.append(
                 {
-                    "status": "expired",
-                    "lease_until": None,
-                    "last_activity": "lease expired",
-                    "recent_activities": ["lease expired"],
-                    "completed_at": _utcnow(),
-                },
+                    "task_id": task_id,
+                    "expected_statuses": [str(task.get("status") or "")],
+                    "expected_owner": task.get("owner"),
+                    "changes": changes,
+                }
             )
-            if isinstance(updated, Failure):
-                return updated
-            updated = self.store.update_task(session_id, task_id, {"summary_label": build_summary_label(updated)})
-            if isinstance(updated, Failure):
-                return updated
-            self.store.append_event(
-                session_id,
-                event_type="task.expired",
-                task_id=task_id,
-                payload={"reason": "lease_timeout"},
+            events.append(
+                {"event_type": "task.expired", "task_id": task_id, "payload": {"reason": "lease_timeout"}}
             )
-            reclaimed.append(self._decorate_task(updated))
-        if reclaimed:
-            self._sync_session_state(session_id)
-        return reclaimed
+        session = self.store.get_session(session_id)
+        if isinstance(session, Failure):
+            return session
+        transitioned = self.store.transition_task(
+            session_id,
+            primary=mutations[0],
+            related=mutations[1:],
+            session_changes=self._derive_session_changes(_open_record(session), post_tasks),
+            events=events,
+        )
+        if isinstance(transitioned, Failure):
+            return transitioned
+        updated_by_id = {
+            item["task_id"]: item
+            for item in [transitioned["task"], *transitioned["related_tasks"]]
+        }
+        return [self._decorate_task(_open_record(updated_by_id[task_id])) for task_id in expired_task_ids]
 
-    def cancel_session(self, session_id: str) -> dict[str, Any]:
+    def cancel_session(self, session_id: str) -> dict[str, Any] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         current = self.store.get_session(session_id)
+        if isinstance(current, Failure):
+            return current
         if str(current.get("status") or "") == "canceled":
-            return self._decorate_session(current)
-        for task in self.store.list_tasks(session_id):
+            return self._decorate_session(_open_record(current))
+        tasks = self.store.list_tasks(session_id)
+        if isinstance(tasks, Failure):
+            return tasks
+        mutations: list[AgentTaskTransitionMutation] = []
+        for task in tasks:
             if str(task.get("status") or "") not in FINAL_TASK_STATUSES:
-                self.store.update_task(
-                    session_id,
-                    task["task_id"],
+                changes: AgentTaskPayload = {
+                    "status": "canceled",
+                    "lease_until": None,
+                    "completed_at": _utcnow(),
+                    "summary_label": f"{task['subject']} [canceled]",
+                }
+                mutations.append(
                     {
-                        "status": "canceled",
-                        "lease_until": None,
-                        "completed_at": _utcnow(),
-                        "summary_label": f"{task['subject']} [canceled]",
-                    },
+                        "task_id": task["task_id"],
+                        "expected_statuses": [str(task.get("status") or "")],
+                        "expected_owner": task.get("owner"),
+                        "changes": changes,
+                    }
                 )
-        session = self.store.update_session(session_id, {"status": "canceled"})
-        self.store.append_event(session_id, event_type="session.canceled", payload={"session_id": session_id})
-        return self._decorate_session(session)
+        cancellation_event: AgentEventPayload = {
+            "event_type": "session.canceled",
+            "payload": {"session_id": session_id},
+        }
+        if mutations:
+            transitioned = self.store.transition_task(
+                session_id,
+                primary=mutations[0],
+                related=mutations[1:],
+                session_changes={"status": "canceled"},
+                events=[cancellation_event],
+            )
+        else:
+            transitioned = self.store.transition_session(
+                session_id,
+                expected_statuses=[str(current.get("status") or "")],
+                session_changes={"status": "canceled"},
+                events=[cancellation_event],
+            )
+        if isinstance(transitioned, Failure):
+            return transitioned
+        return self._decorate_session(_open_record(transitioned["session"]))
 
     def create_or_update_approval(
         self,
@@ -961,40 +1415,53 @@ class AgentSessionService:
         metadata: dict[str, Any] | None = None,
         audit_log: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         normalized_status = _normalize_status(status, allowed=TASK_STATUSES | {"approved", "pending"}, default="pending")
         if isinstance(normalized_status, Failure):
             return normalized_status
-        row = self.store.create_or_update_approval(
-            {
-                "approval_id": str(approval_id or "").strip(),
-                "binding_hash": _hash_binding(binding_payload),
-                "binding_payload": dict(binding_payload or {}),
-                "requester_session_id": requester_session_id,
-                "requester_task_id": requester_task_id,
-                "requester_actor": str(requester_actor or "unknown").strip() or "unknown",
-                "approved_by": approved_by,
-                "approved_at": approved_at,
-                "expires_at": expires_at,
-                "status": normalized_status,
-                "metadata": dict(metadata or {}),
-                "audit_log": list(audit_log or []),
-            }
+        binding = validate_json_object(binding_payload, field="approval.binding_payload")
+        if isinstance(binding, Failure):
+            return binding
+        approval_metadata = validate_json_object(metadata or {}, field="approval.metadata")
+        if isinstance(approval_metadata, Failure):
+            return approval_metadata
+        normalized_audit_log: list[JsonObject] = []
+        for index, entry in enumerate(audit_log or []):
+            normalized_entry = validate_json_object(
+                entry,
+                field=f"approval.audit_log.{index}",
+            )
+            if isinstance(normalized_entry, Failure):
+                return normalized_entry
+            normalized_audit_log.append(normalized_entry)
+        approval_payload: AgentApprovalPayload = {
+            "approval_id": str(approval_id or "").strip(),
+            "binding_hash": _hash_binding(binding_payload),
+            "binding_payload": binding,
+            "requester_session_id": requester_session_id,
+            "requester_task_id": requester_task_id,
+            "requester_actor": str(requester_actor or "unknown").strip() or "unknown",
+            "approved_by": approved_by,
+            "approved_at": approved_at,
+            "expires_at": expires_at,
+            "status": normalized_status,
+            "metadata": approval_metadata,
+            "audit_log": normalized_audit_log,
+        }
+        return self._commit_approval_request(
+            approval_payload,
+            extra_events=[
+                {
+                    "event_type": f"approval.{normalized_status}",
+                    "task_id": requester_task_id,
+                    "payload": {
+                        "approval_id": approval_payload["approval_id"],
+                        "expires_at": str(expires_at or "") or None,
+                    },
+                }
+            ],
         )
-        if isinstance(row, Failure):
-            return row
-        if requester_session_id:
-            self._ensure_approval_wait_task(
-                requester_session_id=requester_session_id,
-                requester_task_id=requester_task_id,
-                approval=row,
-            )
-            self.store.append_event(
-                requester_session_id,
-                event_type=f"approval.{row['status']}",
-                task_id=requester_task_id,
-                payload={"approval_id": row["approval_id"], "expires_at": row.get("expires_at")},
-            )
-        return row
 
     def request_approval(
         self,
@@ -1006,33 +1473,74 @@ class AgentSessionService:
         expires_at: datetime | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         task = self.store.get_task(session_id, task_id)
         if isinstance(task, Failure):
             return task
         approval_id = str((metadata or {}).get("approval_id") or _new_id("approval")).strip()
-        if not self._requires_approval_for_task(task):
+        gated_metadata: JsonObject | None = None
+        if not self._requires_approval_for_task(_open_record(task)):
             task_metadata = dict(task.get("metadata") or {})
             if dict(metadata or {}).get("force_approval"):
                 task_metadata["concurrency_class"] = "write_external"
-                self.store.update_task(session_id, task_id, {"metadata": task_metadata})
-        row = self.create_or_update_approval(
-            approval_id=approval_id,
-            binding_payload=dict(binding_payload or {}),
-            requester_session_id=session_id,
-            requester_task_id=task_id,
-            requester_actor=requester_actor,
-            expires_at=expires_at,
-            status="pending",
-            metadata=dict(metadata or {}),
-            audit_log=[{"action": "requested", "actor": requester_actor, "at": _utcnow().isoformat()}],
+                validated_task_metadata = validate_json_object(
+                    task_metadata,
+                    field="approval.gated_task.metadata",
+                )
+                if isinstance(validated_task_metadata, Failure):
+                    return validated_task_metadata
+                gated_metadata = validated_task_metadata
+        binding = validate_json_object(binding_payload, field="approval.binding_payload")
+        if isinstance(binding, Failure):
+            return binding
+        approval_metadata = validate_json_object(metadata or {}, field="approval.metadata")
+        if isinstance(approval_metadata, Failure):
+            return approval_metadata
+        audit_entry = validate_json_object(
+            {
+                "action": "requested",
+                "actor": requester_actor,
+                "at": _utcnow().isoformat(),
+            },
+            field="approval.audit_log.entry",
         )
-        self.store.append_event(
-            session_id,
-            event_type="approval.requested",
-            task_id=task_id,
-            payload={"approval_id": row["approval_id"], "binding_hash": row["binding_hash"]},
+        if isinstance(audit_entry, Failure):
+            return audit_entry
+        approval_payload: AgentApprovalPayload = {
+            "approval_id": approval_id,
+            "binding_hash": _hash_binding(binding_payload),
+            "binding_payload": binding,
+            "requester_session_id": session_id,
+            "requester_task_id": task_id,
+            "requester_actor": str(requester_actor or "unknown").strip() or "unknown",
+            "expires_at": expires_at,
+            "status": "pending",
+            "metadata": approval_metadata,
+            "audit_log": [audit_entry],
+        }
+        row = self._commit_approval_request(
+            approval_payload,
+            extra_events=[
+                {
+                    "event_type": "approval.pending",
+                    "task_id": task_id,
+                    "payload": {
+                        "approval_id": approval_id,
+                        "expires_at": str(expires_at or "") or None,
+                    },
+                },
+                {
+                    "event_type": "approval.requested",
+                    "task_id": task_id,
+                    "payload": {
+                        "approval_id": approval_id,
+                        "binding_hash": approval_payload["binding_hash"],
+                    },
+                },
+            ],
+            gated_metadata=gated_metadata,
         )
-        self._sync_session_state(session_id)
         return row
 
     def resolve_approval(
@@ -1042,6 +1550,8 @@ class AgentSessionService:
         approved_by: str,
         approved: bool = True,
     ) -> dict[str, Any] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         current = self.store.get_approval(approval_id)
         if isinstance(current, Failure):
             return current
@@ -1062,30 +1572,101 @@ class AgentSessionService:
                 "actor": str(approved_by or "unknown").strip() or "unknown",
             }
         )
-        row = self.store.create_or_update_approval(
-            {
-                **current,
-                "status": requested_status,
-                "approved_by": str(approved_by or "unknown").strip() or "unknown",
-                "approved_at": _utcnow(),
-                "audit_log": audit_log,
-            }
-        )
-        requester_session_id = str(row.get("requester_session_id") or "").strip() or None
+        approval_payload: AgentApprovalPayload = {
+            **current,
+            "status": requested_status,
+            "approved_by": str(approved_by or "unknown").strip() or "unknown",
+            "approved_at": _utcnow(),
+            "audit_log": audit_log,
+        }
+        requester_session_id = str(current.get("requester_session_id") or "").strip() or None
         if requester_session_id:
-            requester_task_id = str(row.get("requester_task_id") or "").strip() or None
-            self._apply_approval_resolution(
-                session_id=requester_session_id,
-                requester_task_id=requester_task_id,
-                approval=row,
-                approved=approved,
-            )
-            self.store.append_event(
+            session = self.store.get_session(requester_session_id)
+            if isinstance(session, Failure):
+                return session
+            tasks = self.store.list_tasks(requester_session_id)
+            if isinstance(tasks, Failure):
+                return tasks
+            post_tasks = _open_records(tasks)
+            mutations: list[AgentTaskTransitionMutation] = []
+            requester_task_id = str(current.get("requester_task_id") or "").strip() or None
+            for index, task in enumerate(tasks):
+                is_wait = (
+                    str(task.get("task_type") or "") == "approval_wait"
+                    and str(dict(task.get("metadata") or {}).get("approval_id") or "") == approval_id
+                )
+                is_gated = requester_task_id is not None and task["task_id"] == requester_task_id
+                if not is_wait and not is_gated:
+                    continue
+                if is_wait:
+                    changes: AgentTaskPayload = {
+                        "status": "completed" if approved else "failed",
+                        "completed_at": _utcnow(),
+                        "lease_until": None,
+                        "last_activity": f"approval {approval_id} {'approved' if approved else 'rejected'}",
+                        "recent_activities": [f"approval {approval_id} {'approved' if approved else 'rejected'}"],
+                    }
+                elif approved:
+                    unresolved = find_unresolved_dependencies(_open_record(task), _open_records(tasks))
+                    changes = {
+                        "status": "blocked" if unresolved else "pending",
+                        "last_activity": f"approval {approval_id} approved",
+                        "recent_activities": [f"approval {approval_id} approved"],
+                    }
+                else:
+                    changes = {
+                        "status": "failed",
+                        "completed_at": _utcnow(),
+                        "last_activity": f"approval {approval_id} rejected",
+                        "recent_activities": [f"approval {approval_id} rejected"],
+                    }
+                projected_task = {**_open_record(task), **changes}
+                changes["summary_label"] = build_summary_label(projected_task)
+                post_tasks[index].update(changes)
+                mutations.append(
+                    {
+                        "task_id": task["task_id"],
+                        "expected_statuses": [str(task.get("status") or "")],
+                        "expected_owner": task.get("owner"),
+                        "changes": changes,
+                    }
+                )
+            committed = self.store.commit_session_command(
                 requester_session_id,
-                event_type=f"approval.{row['status']}",
-                task_id=row.get("requester_task_id"),
-                payload={"approval_id": approval_id, "approved_by": row.get("approved_by")},
+                session_create=None,
+                expected_session_statuses=[str(session.get("status") or "")],
+                session_changes=self._derive_session_changes(_open_record(session), post_tasks),
+                task_creates=[],
+                task_mutations=mutations,
+                message_creates=[],
+                artifact_upserts=[],
+                approval_mutation={
+                    "expected_statuses": [current_status],
+                    "expected_binding_payload": current["binding_payload"],
+                    "expected_requester_actor": current["requester_actor"],
+                    "payload": approval_payload,
+                },
+                events=[
+                    {
+                        "event_type": f"approval.{requested_status}",
+                        "task_id": requester_task_id,
+                        "payload": {
+                            "approval_id": approval_id,
+                            "approved_by": approval_payload["approved_by"],
+                        },
+                    }
+                ],
             )
+            if isinstance(committed, Failure):
+                return committed
+            row = committed["approval"]
+            if row is None:
+                return _failure("approval_not_found", f"approval not found: {approval_id}", approval_id=approval_id)
+        else:
+            stored = self.store.create_or_update_approval(approval_payload)
+            if isinstance(stored, Failure):
+                return stored
+            row = stored
         row = dict(row)
         row["requested_status"] = requested_status
         row["final_status"] = str(row.get("status") or "")
@@ -1102,8 +1683,12 @@ class AgentSessionService:
         accepted_items: list[dict[str, Any]],
         rejected_items: list[dict[str, Any]],
         rule_set_id: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         existing = self.find_session_by_compat_job_id(job_id)
+        if isinstance(existing, Failure):
+            return existing
         if existing is not None:
             return self.get_session_bundle(str(existing["session_id"]))
 
@@ -1112,6 +1697,8 @@ class AgentSessionService:
             accepted_items=accepted_items,
             rejected_items=rejected_items,
         )
+        if isinstance(task_blueprints, Failure):
+            return task_blueprints
         metadata = {
             "compat_projection_version": "agent_batch.jobs.v1",
             "agent_batch": {
@@ -1121,6 +1708,18 @@ class AgentSessionService:
                 "rejected_count": len(rejected_items),
             },
         }
+        submit_content = validate_json_object(
+            {
+                "job_id": job_id,
+                "request_payload": request_payload,
+                "accepted_items": accepted_items,
+                "rejected_items": rejected_items,
+                "rule_set_id": rule_set_id,
+            },
+            field="compat.job.submit.content_json",
+        )
+        if isinstance(submit_content, Failure):
+            return submit_content
         bundle = self.create_session(
             source="agent_batch",
             entrypoint_type="agent_batch.jobs",
@@ -1131,35 +1730,29 @@ class AgentSessionService:
             compat_job_id=job_id,
             metadata=metadata,
             task_blueprints=task_blueprints,
+            _command_artifacts=[
+                {
+                    "artifact_type": "compat.job.submit",
+                    "name": "compat.job.submit.json",
+                    "mime_type": "application/json",
+                    "content_json": submit_content,
+                    "metadata": {"source": "agent_batch.jobs"},
+                }
+            ],
+            _command_events=[
+                {
+                    "event_type": "compat.job_projected",
+                    "payload": {
+                        "compat_job_id": job_id,
+                        "accepted_count": len(accepted_items),
+                        "rejected_count": len(rejected_items),
+                    },
+                }
+            ],
         )
-        session_id = str(bundle["session"]["session_id"])
-        self.store.upsert_artifact(
-            {
-                "session_id": session_id,
-                "artifact_type": "compat.job.submit",
-                "name": "compat.job.submit.json",
-                "mime_type": "application/json",
-                "content_json": {
-                    "job_id": job_id,
-                    "request_payload": request_payload,
-                    "accepted_items": accepted_items,
-                    "rejected_items": rejected_items,
-                    "rule_set_id": rule_set_id,
-                },
-                "metadata": {"source": "agent_batch.jobs"},
-            }
-        )
-        self.store.append_event(
-            session_id,
-            event_type="compat.job_projected",
-            payload={
-                "compat_job_id": job_id,
-                "accepted_count": len(accepted_items),
-                "rejected_count": len(rejected_items),
-            },
-        )
-        self._sync_session_state(session_id)
-        return self.get_session_bundle(session_id)
+        if isinstance(bundle, Failure):
+            return bundle
+        return bundle
 
     def project_agent_batch_job_state(
         self,
@@ -1168,14 +1761,23 @@ class AgentSessionService:
         projected_items: list[dict[str, Any]],
         phase: str,
         progress: dict[str, Any],
-    ) -> dict[str, Any] | None:
+    ) -> dict[str, Any] | None | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         existing = self.find_session_by_compat_job_id(compat_job_id)
+        if isinstance(existing, Failure):
+            return existing
         if existing is None:
             return None
 
         session_id = str(existing["session_id"])
         tasks = self.store.list_tasks(session_id)
-        item_tasks = {
+        if isinstance(tasks, Failure):
+            return tasks
+        session = self.store.get_session(session_id)
+        if isinstance(session, Failure):
+            return session
+        item_tasks: dict[str, AgentTaskRecord | AgentTaskPayload] = {
             str(dict(task.get("metadata") or {}).get("item_id") or ""): task
             for task in tasks
             if str(dict(task.get("metadata") or {}).get("compat_projection") or "") == "agent_batch.job_item"
@@ -1188,127 +1790,216 @@ class AgentSessionService:
             ),
             None,
         )
-        changed_any = False
+        task_creates: list[AgentTaskPayload] = []
+        task_mutations: list[AgentTaskTransitionMutation] = []
+        command_events: list[AgentEventPayload] = []
+        post_tasks = _open_records(tasks)
+        task_indexes = {task["task_id"]: index for index, task in enumerate(tasks)}
+        projected_item_ids = [
+            str(item.get("item_id") or "").strip()
+            for item in projected_items
+            if str(item.get("item_id") or "").strip()
+        ]
+        if len(projected_item_ids) != len(set(projected_item_ids)):
+            return _failure(
+                "task_transition_conflict",
+                "agent batch projection contains duplicate item ids",
+                session_id=session_id,
+            )
         for projected in projected_items:
             item_id = str(projected.get("item_id") or "").strip()
             if not item_id:
                 continue
             task = item_tasks.get(item_id)
+            item_payload: AgentTaskPayload | None = None
             if task is None:
-                task = self.store.create_task(
-                    self._build_agent_batch_job_item_blueprint(compat_job_id=compat_job_id, item=projected)
-                    | {"session_id": session_id}
+                item_payload = self._build_agent_batch_job_item_blueprint(
+                    compat_job_id=compat_job_id, item=projected
                 )
-                self.store.append_event(
-                    session_id,
-                    event_type="task.created",
-                    task_id=task["task_id"],
-                    payload={
-                        "phase": task["phase"],
-                        "task_type": task["task_type"],
-                        "blocked_by": list(task.get("blocked_by") or []),
-                        "write_set": list(task.get("write_set") or []),
-                    },
+                item_payload["session_id"] = session_id
+                task = item_payload
+                command_events.append(
+                    {
+                        "event_type": "task.created",
+                        "task_id": str(task.get("task_id") or ""),
+                        "payload": {
+                            "phase": str(task.get("phase") or ""),
+                            "task_type": str(task.get("task_type") or ""),
+                            "blocked_by": list(task.get("blocked_by") or []),
+                            "write_set": list(task.get("write_set") or []),
+                        },
+                    }
                 )
                 item_tasks[item_id] = task
-                changed_any = True
             snapshot = dict(projected.get("snapshot") or {})
             mapped_status = self._map_agent_batch_task_status(str(snapshot.get("status") or "pending"))
-            changes = {
-                "status": mapped_status,
-                "result_summary": _short_json(
+            next_result_summary = _short_json(
                     {
                         "task_status": snapshot.get("status"),
                         "run_id": projected.get("run_id"),
                         "workflow_run_id": projected.get("workflow_run_id"),
                     },
                     limit=180,
-                ),
-                "result_payload": {
+                )
+            next_result_payload = validate_json_object({
                     "snapshot": snapshot,
                     "run_id": projected.get("run_id"),
                     "workflow_run_id": projected.get("workflow_run_id"),
                     "trace_id": projected.get("trace_id"),
                     "lane": projected.get("lane"),
-                },
-                "last_activity": f"compat job item {item_id} status={snapshot.get('status')}",
-                "recent_activities": [f"compat job item {item_id} status={snapshot.get('status')}"],
-                "lease_until": None,
-                "completed_at": (
+                }, field=f"agent_batch.items.{item_id}.result_payload")
+            if isinstance(next_result_payload, Failure):
+                return next_result_payload
+            next_activity = f"compat job item {item_id} status={snapshot.get('status')}"
+            next_completed_at = (
                     task.get("completed_at") or _utcnow()
                     if mapped_status in FINAL_TASK_STATUSES
                     else None
-                ),
-            }
-            changes = {key: value for key, value in changes.items() if task.get(key) != value}
+                )
+            changes: AgentTaskPayload = {}
+            if task.get("status") != mapped_status:
+                changes["status"] = mapped_status
+            if task.get("result_summary") != next_result_summary:
+                changes["result_summary"] = next_result_summary
+            if task.get("result_payload") != next_result_payload:
+                changes["result_payload"] = next_result_payload
+            if task.get("last_activity") != next_activity:
+                changes["last_activity"] = next_activity
+            if task.get("recent_activities") != [next_activity]:
+                changes["recent_activities"] = [next_activity]
+            if task.get("lease_until") is not None:
+                changes["lease_until"] = None
+            if task.get("completed_at") != next_completed_at:
+                changes["completed_at"] = next_completed_at
             if changes:
-                updated = self.store.update_task(session_id, task["task_id"], changes)
-                summary_label = build_summary_label(updated)
-                if updated.get("summary_label") != summary_label:
-                    updated = self.store.update_task(
-                        session_id, task["task_id"], {"summary_label": summary_label}
+                projected_task = {**_open_record(task), **_open_record(changes)}
+                changes["summary_label"] = build_summary_label(projected_task)
+                if item_payload is not None:
+                    item_payload.update(changes)
+                    task_creates.append(item_payload)
+                    post_tasks.append(_open_record(item_payload))
+                else:
+                    task_id = str(task.get("task_id") or "")
+                    task_mutations.append(
+                        {
+                            "task_id": task_id,
+                            "expected_statuses": [str(task.get("status") or "")],
+                            "expected_owner": task.get("owner"),
+                            "changes": changes,
+                        }
                     )
-                self.store.append_event(
-                    session_id,
-                    event_type=f"task.{mapped_status}",
-                    task_id=task["task_id"],
-                    payload={
+                    post_tasks[task_indexes[task_id]].update(_open_record(changes))
+                command_events.append(
+                    {
+                        "event_type": f"task.{mapped_status}",
+                        "task_id": str(task.get("task_id") or ""),
+                        "payload": {
                         "compat_job_id": compat_job_id,
                         "item_id": item_id,
                         "run_id": projected.get("run_id"),
                         "workflow_run_id": projected.get("workflow_run_id"),
+                        },
                     },
                 )
-                changed_any = True
+            elif item_payload is not None:
+                task_creates.append(item_payload)
+                post_tasks.append(_open_record(item_payload))
 
         if verification_task is not None:
             verification_status = self._map_agent_batch_job_phase_to_task_status(phase, progress=progress)
-            verification_changes = {
-                "status": verification_status,
-                "result_summary": _short_json({"phase": phase, "progress": progress}, limit=180),
-                "result_payload": {"phase": phase, "progress": progress},
-                "last_activity": f"compat job {compat_job_id} phase={phase}",
-                "recent_activities": [f"compat job {compat_job_id} phase={phase}"],
-                "lease_until": None,
-                "completed_at": (
+            next_verification_summary = _short_json({"phase": phase, "progress": progress}, limit=180)
+            next_verification_payload: dict[str, Any] = {"phase": phase, "progress": progress}
+            next_verification_activity = f"compat job {compat_job_id} phase={phase}"
+            next_verification_completed_at = (
                     verification_task.get("completed_at") or _utcnow()
                     if verification_status in FINAL_TASK_STATUSES
                     else None
-                ),
-            }
-            verification_changes = {
-                key: value
-                for key, value in verification_changes.items()
-                if verification_task.get(key) != value
-            }
-            if verification_changes:
-                updated = self.store.update_task(
-                    session_id, verification_task["task_id"], verification_changes
                 )
-                summary_label = build_summary_label(updated)
-                if updated.get("summary_label") != summary_label:
-                    self.store.update_task(
-                        session_id,
-                        verification_task["task_id"],
-                        {"summary_label": summary_label},
-                    )
-                changed_any = True
-        session = self.store.get_session(session_id)
+            verification_changes: AgentTaskPayload = {}
+            if verification_task.get("status") != verification_status:
+                verification_changes["status"] = verification_status
+            if verification_task.get("result_summary") != next_verification_summary:
+                verification_changes["result_summary"] = next_verification_summary
+            if verification_task.get("result_payload") != next_verification_payload:
+                verification_changes["result_payload"] = next_verification_payload
+            if verification_task.get("last_activity") != next_verification_activity:
+                verification_changes["last_activity"] = next_verification_activity
+            if verification_task.get("recent_activities") != [next_verification_activity]:
+                verification_changes["recent_activities"] = [next_verification_activity]
+            if verification_task.get("lease_until") is not None:
+                verification_changes["lease_until"] = None
+            if verification_task.get("completed_at") != next_verification_completed_at:
+                verification_changes["completed_at"] = next_verification_completed_at
+            if verification_changes:
+                projected_verification = {
+                    **_open_record(verification_task),
+                    **_open_record(verification_changes),
+                }
+                verification_changes["summary_label"] = build_summary_label(projected_verification)
+                verification_id = verification_task["task_id"]
+                task_mutations.append(
+                    {
+                        "task_id": verification_id,
+                        "expected_statuses": [str(verification_task.get("status") or "")],
+                        "expected_owner": verification_task.get("owner"),
+                        "changes": verification_changes,
+                    }
+                )
+                post_tasks[task_indexes[verification_id]].update(_open_record(verification_changes))
         metadata = dict(session.get("metadata") or {})
-        agent_batch_meta = dict(metadata.get("agent_batch") or {})
-        last_projection = {"status": phase, "progress": dict(progress or {})}
-        if dict(agent_batch_meta.get("last_projection") or {}) != last_projection:
+        agent_batch_meta = validate_json_object(metadata.get("agent_batch") or {}, field="metadata.agent_batch")
+        if isinstance(agent_batch_meta, Failure):
+            return agent_batch_meta
+        progress_json = validate_json_object(progress or {}, field="last_projection.progress")
+        if isinstance(progress_json, Failure):
+            return progress_json
+        last_projection: JsonObject = {"status": phase, "progress": progress_json}
+        previous_projection = validate_json_object(
+            agent_batch_meta.get("last_projection") or {}, field="metadata.agent_batch.last_projection"
+        )
+        if isinstance(previous_projection, Failure):
+            return previous_projection
+        metadata_changed = previous_projection != last_projection
+        if previous_projection != last_projection:
             agent_batch_meta["last_projection"] = last_projection
             metadata["agent_batch"] = agent_batch_meta
-            self.store.update_session(session_id, {"metadata": metadata})
-            self.store.append_event(
-                session_id,
-                event_type="compat.job_state_projected",
-                payload={"compat_job_id": compat_job_id, "phase": phase, "progress": progress},
+            command_events.append(
+                {
+                    "event_type": "compat.job_state_projected",
+                    "payload": {
+                        "compat_job_id": compat_job_id,
+                        "phase": phase,
+                        "progress": progress_json,
+                    },
+                }
             )
-            changed_any = True
-        if changed_any:
-            self._sync_session_state(session_id)
+        if task_creates or task_mutations or metadata_changed:
+            session_changes = self._derive_session_changes(
+                _open_record(session),
+                post_tasks,
+            )
+            if metadata_changed:
+                validated_metadata = validate_json_object(
+                    metadata,
+                    field="agent_batch.session.metadata",
+                )
+                if isinstance(validated_metadata, Failure):
+                    return validated_metadata
+                session_changes["metadata"] = validated_metadata
+            committed = self.store.commit_session_command(
+                session_id,
+                session_create=None,
+                expected_session_statuses=[str(session.get("status") or "")],
+                session_changes=session_changes,
+                task_creates=task_creates,
+                task_mutations=task_mutations,
+                message_creates=[],
+                artifact_upserts=[],
+                approval_mutation=None,
+                events=command_events,
+            )
+            if isinstance(committed, Failure):
+                return committed
         return self.get_session_bundle(session_id)
 
     def create_workflow_graph_session(
@@ -1319,7 +2010,7 @@ class AgentSessionService:
         goal: str,
         project_key: str | None = None,
         initial_context: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | Failure:
         return self.create_session(
             source="workflow_graph",
             entrypoint_type="workflow_graph",
@@ -1335,88 +2026,224 @@ class AgentSessionService:
         *,
         graph_id: str,
         run_id: str,
-        workflow: dict[str, Any],
-        inputs: dict[str, Any],
-        snapshot: dict[str, Any],
+        workflow: WorkflowRuntimeGraph,
+        inputs: Mapping[str, WorkflowJsonValue],
+        snapshot: WorkflowRunSnapshot,
         project_key: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | Failure:
+        if (failure := self._store_failure()) is not None:
+            return failure
         existing = self.find_session_by_logical_task_list_key(run_id)
+        if isinstance(existing, Failure):
+            return existing
+        snapshot_content = validate_json_object(
+            {"workflow": workflow, "inputs": dict(inputs), "snapshot": snapshot},
+            field="workflow_graph.snapshot.content_json",
+        )
+        if isinstance(snapshot_content, Failure):
+            return snapshot_content
+        session_create: AgentSessionPayload | None = None
+        task_creates: list[AgentTaskPayload] = []
+        message_creates: list[AgentMessagePayload] = []
+        command_events: list[AgentEventPayload] = []
         if existing is None:
-            task_blueprints = self._build_workflow_graph_task_blueprints(graph_id=graph_id, run_id=run_id, workflow=workflow)
-            bundle = self.create_session(
-                source="workflow_graph",
-                entrypoint_type="workflow_graph.run",
+            materialized = self._materialize_blueprints(
                 goal=f"Execute workflow graph {graph_id}",
-                project_key=project_key,
-                initial_context={"inputs": inputs},
-                logical_task_list_key=run_id,
-                metadata={"workflow_graph": {"graph_id": graph_id, "run_id": run_id, "inputs": inputs}},
-                task_blueprints=task_blueprints,
+                blueprints=self._build_workflow_graph_task_blueprints(
+                    graph_id=graph_id,
+                    run_id=run_id,
+                    workflow=workflow,
+                ),
             )
-            session = dict(bundle["session"])
+            if isinstance(materialized, Failure):
+                return materialized
+            session_id = _new_id("as")
+            for task in materialized:
+                task["session_id"] = session_id
+            task_creates = materialized
+            workflow_metadata = validate_json_object(
+                {
+                    "initial_context": {"inputs": dict(inputs)},
+                    "workflow_graph": {
+                        "graph_id": graph_id,
+                        "run_id": run_id,
+                        "inputs": dict(inputs),
+                    },
+                },
+                field="workflow_graph.session.metadata",
+            )
+            if isinstance(workflow_metadata, Failure):
+                return workflow_metadata
+            session_create = {
+                "session_id": session_id,
+                "source": "workflow_graph",
+                "project_key": (project_key or "").strip() or None,
+                "entrypoint_type": "workflow_graph.run",
+                "goal": f"Execute workflow graph {graph_id}",
+                "status": "pending",
+                "current_phase": str(task_creates[0].get("phase") or "conversation") if task_creates else "conversation",
+                "compat_mode": False,
+                "logical_task_list_key": run_id,
+                "root_task_id": str(task_creates[0].get("task_id") or "") if task_creates else None,
+                "metadata": workflow_metadata,
+                "final_result": {},
+            }
+            session = _open_record(session_create)
+            message_creates = [
+                {
+                    "session_id": session_id,
+                    "role": "user",
+                    "actor": "session_entrypoint",
+                    "content": f"Execute workflow graph {graph_id}",
+                    "metadata": {
+                        "entrypoint_type": "workflow_graph.run",
+                        "source": "workflow_graph",
+                    },
+                }
+            ]
+            command_events.extend(
+                [
+                    {
+                        "event_type": "session.created",
+                        "payload": {
+                            "source": "workflow_graph",
+                            "entrypoint_type": "workflow_graph.run",
+                            "compat_mode": False,
+                            "root_task_id": session_create["root_task_id"],
+                        },
+                    },
+                    *[
+                        {
+                            "event_type": "task.created",
+                            "task_id": str(task.get("task_id") or ""),
+                            "payload": {
+                                "phase": str(task.get("phase") or ""),
+                                "task_type": str(task.get("task_type") or ""),
+                                "blocked_by": list(task.get("blocked_by") or []),
+                                "write_set": list(task.get("write_set") or []),
+                            },
+                        }
+                        for task in task_creates
+                    ],
+                ]
+            )
         else:
-            session = existing
-        session_id = str(session["session_id"])
-        results = dict(snapshot.get("results") or {})
-        run = dict(snapshot.get("run") or {})
-        node_statuses = dict(run.get("node_statuses") or {})
-        tasks = self.store.list_tasks(session_id)
-        verification_task_id: str | None = None
-        for task in tasks:
+            session = _open_record(existing)
+            session_id = str(session["session_id"])
+        results = snapshot["results"]
+        run = snapshot["run"]
+        node_statuses = run["node_statuses"]
+        if session_create is None:
+            stored_tasks = self.store.list_tasks(session_id)
+            if isinstance(stored_tasks, Failure):
+                return stored_tasks
+            tasks = stored_tasks
+        else:
+            tasks = task_creates
+        task_mutations: list[AgentTaskTransitionMutation] = []
+        post_tasks = _open_records(tasks)
+        for index, task in enumerate(tasks):
             metadata = dict(task.get("metadata") or {})
-            workflow_node = metadata.get("workflow_graph_node")
+            workflow_node_source: Any = metadata.get("workflow_graph_node")
             if metadata.get("workflow_graph_verification"):
-                verification_task_id = task["task_id"]
+                run_status = run["status"]
+                verification_status = "completed" if run_status == "succeeded" else "failed" if run_status == "failed" else "pending"
+                verification_result = validate_json_object(
+                    {"run": run, "results": results},
+                    field="workflow_graph.verification.result_payload",
+                )
+                if isinstance(verification_result, Failure):
+                    return verification_result
+                task_changes: AgentTaskPayload = {
+                    "status": verification_status,
+                    "result_summary": f"workflow run {run_id} status={run_status}",
+                    "result_payload": verification_result,
+                    "completed_at": _utcnow() if verification_status in FINAL_TASK_STATUSES else None,
+                    "summary_label": f"Verification [{verification_status}]",
+                }
+                post_tasks[index].update(_open_record(task_changes))
+                if session_create is None:
+                    task_mutations.append(
+                        {
+                            "task_id": str(task.get("task_id") or ""),
+                            "expected_statuses": [str(task.get("status") or "")],
+                            "expected_owner": task.get("owner"),
+                            "changes": task_changes,
+                        }
+                    )
+                else:
+                    task_creates[index].update(task_changes)
                 continue
-            if not isinstance(workflow_node, dict):
-                continue
-            node_id = str(workflow_node.get("node_id") or "").strip()
+            node_id = str(_json_field(workflow_node_source, "node_id") or "").strip()
             if not node_id:
                 continue
             node_status = str(node_statuses.get(node_id) or task.get("status") or "")
             mapped_status = self._map_workflow_graph_status(node_status)
             result_payload = results.get(node_id)
-            self.store.update_task(
-                session_id,
-                task["task_id"],
-                {
-                    "status": mapped_status,
-                    "result_summary": _short_json(result_payload if result_payload is not None else {"status": node_status}, limit=180),
-                    "result_payload": result_payload if isinstance(result_payload, dict) else {"result": result_payload} if result_payload is not None else {"status": node_status},
-                    "completed_at": _utcnow() if mapped_status in FINAL_TASK_STATUSES else None,
-                    "summary_label": f"{task['subject']} [{mapped_status}]",
-                },
+            projected_result = validate_json_object(
+                result_payload
+                if isinstance(result_payload, dict)
+                else {"result": result_payload}
+                if result_payload is not None
+                else {"status": node_status},
+                field=f"workflow_graph.results.{node_id}",
             )
-        if verification_task_id:
-            run_status = str(run.get("status") or "queued")
-            verification_status = "completed" if run_status == "succeeded" else "failed" if run_status == "failed" else "pending"
-            self.store.update_task(
-                session_id,
-                verification_task_id,
-                {
-                    "status": verification_status,
-                    "result_summary": f"workflow run {run_id} status={run_status}",
-                    "result_payload": {"run": run, "results": results},
-                    "completed_at": _utcnow() if verification_status in FINAL_TASK_STATUSES else None,
-                    "summary_label": f"Verification [{verification_status}]",
-                },
-            )
-        self._sync_session_state(session_id)
-        self.store.upsert_artifact(
-            {
+            if isinstance(projected_result, Failure):
+                return projected_result
+            task_changes: AgentTaskPayload = {
+                "status": mapped_status,
+                "result_summary": _short_json(
+                    result_payload if result_payload is not None else {"status": node_status},
+                    limit=180,
+                ),
+                "result_payload": projected_result,
+                "completed_at": _utcnow() if mapped_status in FINAL_TASK_STATUSES else None,
+                "summary_label": f"{str(task.get('subject') or '')} [{mapped_status}]",
+            }
+            post_tasks[index].update(_open_record(task_changes))
+            if session_create is None:
+                task_mutations.append(
+                    {
+                        "task_id": str(task.get("task_id") or ""),
+                        "expected_statuses": [str(task.get("status") or "")],
+                        "expected_owner": task.get("owner"),
+                        "changes": task_changes,
+                    }
+                )
+            else:
+                task_creates[index].update(task_changes)
+        snapshot_artifact: AgentArtifactPayload = {
                 "session_id": session_id,
                 "artifact_type": "workflow_graph.snapshot",
                 "name": "workflow_graph.snapshot.json",
                 "mime_type": "application/json",
-                "content_json": {"workflow": workflow, "inputs": inputs, "snapshot": snapshot},
+                "content_json": snapshot_content,
                 "metadata": {"source": "workflow_graph.runtime"},
+        }
+        command_events.append(
+            {
+                "event_type": "workflow_graph.run_projected",
+                "payload": {
+                    "graph_id": graph_id,
+                    "run_id": run_id,
+                    "status": run["status"],
+                },
             }
         )
-        self.store.append_event(
+        committed = self.store.commit_session_command(
             session_id,
-            event_type="workflow_graph.run_projected",
-            payload={"graph_id": graph_id, "run_id": run_id, "status": run.get("status")},
+            session_create=session_create,
+            expected_session_statuses=None if session_create is not None else [str(session.get("status") or "")],
+            session_changes=self._derive_session_changes(session, post_tasks),
+            task_creates=task_creates,
+            task_mutations=task_mutations,
+            message_creates=message_creates,
+            artifact_upserts=[snapshot_artifact],
+            approval_mutation=None,
+            events=command_events,
         )
+        if isinstance(committed, Failure):
+            return committed
         return self.get_session_bundle(session_id)
 
     @staticmethod
@@ -1563,9 +2390,10 @@ class AgentSessionService:
             for key in ("error", "errors", "exception", "error_code", "reason", "reason_code"):
                 if key not in result_payload:
                     continue
-                value = result_payload.get(key)
+                value: Any = result_payload.get(key)
+                items: list[Any] = value
                 if isinstance(value, list):
-                    for item in value:
+                    for item in items:
                         errors.append({"source": f"task.result_payload.{key}", "task_id": task_id, "detail": item})
                 else:
                     errors.append({"source": f"task.result_payload.{key}", "task_id": task_id, "detail": value})
@@ -1620,153 +2448,161 @@ class AgentSessionService:
             "payload": {"task_id": task_id},
         }
 
-    def _ensure_approval_wait_task(
+    def _commit_approval_request(
         self,
+        approval_payload: AgentApprovalPayload,
         *,
-        requester_session_id: str,
-        requester_task_id: str | None,
-        approval: dict[str, Any],
-    ) -> dict[str, Any] | None:
-        if not requester_task_id:
-            return None
-        approval_id = str(approval.get("approval_id") or "").strip()
-        if not approval_id:
-            return None
-        session_tasks = self.store.list_tasks(requester_session_id)
-        if isinstance(session_tasks, Failure):
-            return None
-        existing = next(
+        extra_events: list[AgentEventPayload],
+        gated_metadata: JsonObject | None = None,
+    ) -> dict[str, Any] | Failure:
+        requester_session_id = str(approval_payload.get("requester_session_id") or "").strip()
+        if not requester_session_id:
+            row = self.store.create_or_update_approval(approval_payload)
+            return row if isinstance(row, Failure) else _open_record(row)
+        session = self.store.get_session(requester_session_id)
+        if isinstance(session, Failure):
+            return session
+        tasks = self.store.list_tasks(requester_session_id)
+        if isinstance(tasks, Failure):
+            return tasks
+        approval_id = str(approval_payload.get("approval_id") or "").strip()
+        existing_approval = self.store.get_approval(approval_id)
+        expected_approval_statuses: list[str] = []
+        if not isinstance(existing_approval, Failure):
+            expected_approval_statuses = [str(existing_approval.get("status") or "")]
+        elif existing_approval.code != "approval_not_found":
+            return existing_approval
+        requester_task_id = str(approval_payload.get("requester_task_id") or "").strip() or None
+        task_creates: list[AgentTaskPayload] = []
+        task_mutations: list[AgentTaskTransitionMutation] = []
+        post_tasks = _open_records(tasks)
+        existing_wait = next(
             (
                 task
-                for task in session_tasks
+                for task in tasks
                 if str(task.get("task_type") or "") == "approval_wait"
                 and str(dict(task.get("metadata") or {}).get("approval_id") or "") == approval_id
             ),
             None,
         )
-        if existing is not None:
-            return existing
-        try:
-            gated_task = self.store.get_task(requester_session_id, requester_task_id)
-        except KeyError:
-            return None
-        if isinstance(gated_task, Failure):
-            return None
-        if str(gated_task.get("status") or "") not in FINAL_TASK_STATUSES:
-            self.store.update_task(
-                requester_session_id,
-                requester_task_id,
-                {
+        command_events = list(extra_events)
+        if requester_task_id and existing_wait is None:
+            gated_index = next(
+                (
+                    index
+                    for index, task in enumerate(tasks)
+                    if task["task_id"] == requester_task_id
+                ),
+                None,
+            )
+            if gated_index is None:
+                gated_task = None
+            else:
+                gated_task = tasks[gated_index]
+            if (
+                gated_task is not None
+                and gated_index is not None
+                and str(gated_task.get("status") or "") not in FINAL_TASK_STATUSES
+            ):
+                gated_changes: AgentTaskPayload = {
                     "status": "blocked",
                     "last_activity": f"waiting for approval {approval_id}",
                     "recent_activities": [f"waiting for approval {approval_id}"],
                     "summary_label": f"{gated_task['subject']} [blocked]",
-                },
-            )
-        task = self.store.create_task(
-            {
-                "session_id": requester_session_id,
-                "task_id": _new_id("task"),
-                "parent_task_id": requester_task_id,
-                "subject": f"Approval wait: {approval_id}",
-                "description": "Formal approval_wait blocker task projected into the task bus.",
-                "task_type": "approval_wait",
-                "phase": str(gated_task.get("phase") or "maintenance"),
-                "status": "in_progress" if str(approval.get("status") or "") == "pending" else "completed",
-                "execution_mode": "system",
-                "blocked_by": [],
-                "blocks": [requester_task_id],
-                "priority": max(0, int(gated_task.get("priority") or 5) - 1),
-                "write_set": [],
-                "read_set": list(gated_task.get("write_set") or []),
-                "task_spec": {
-                    "task_type": "approval_wait",
-                    "goal": f"Wait for approval {approval_id}",
-                    "context": {"approval_id": approval_id, "requester_task_id": requester_task_id},
-                    "target_scope": requester_task_id,
-                    "write_set": [],
-                    "completion_criteria": ["Approval is resolved explicitly."],
-                    "verification_steps": ["Confirm approval outcome is reflected in the gated task state."],
-                    "artifact_targets": [],
-                },
-                "metadata": {
-                    "approval_id": approval_id,
-                    "gated_task_id": requester_task_id,
-                },
-                "last_activity": f"approval {approval_id} requested",
-                "recent_activities": [f"approval {approval_id} requested"],
-                "summary_label": f"Approval wait: {approval_id}",
-            }
-        )
-        if isinstance(task, Failure):
-            return None
-        self.store.append_event(
-            requester_session_id,
-            event_type="approval.waiting",
-            task_id=task["task_id"],
-            payload={"approval_id": approval_id, "gated_task_id": requester_task_id},
-        )
-        return task
-
-    def _apply_approval_resolution(
-        self,
-        *,
-        session_id: str,
-        requester_task_id: str | None,
-        approval: dict[str, Any],
-        approved: bool,
-    ) -> None:
-        approval_id = str(approval.get("approval_id") or "").strip()
-        wait_tasks = [
-            task
-            for task in self.store.list_tasks(session_id)
-            if str(task.get("task_type") or "") == "approval_wait"
-            and str(dict(task.get("metadata") or {}).get("approval_id") or "") == approval_id
-        ]
-        for wait_task in wait_tasks:
-            status = "completed" if approved else "failed"
-            updated = self.store.update_task(
-                session_id,
-                wait_task["task_id"],
-                {
-                    "status": status,
-                    "completed_at": _utcnow(),
-                    "lease_until": None,
-                    "last_activity": f"approval {approval_id} {'approved' if approved else 'rejected'}",
-                    "recent_activities": [f"approval {approval_id} {'approved' if approved else 'rejected'}"],
-                },
-            )
-            self.store.update_task(session_id, wait_task["task_id"], {"summary_label": build_summary_label(updated)})
-        if requester_task_id:
-            gated_task = self.store.get_task(session_id, requester_task_id)
-            if approved:
-                unresolved = find_unresolved_dependencies(gated_task, self.store.list_tasks(session_id))
-                new_status = "blocked" if unresolved else "pending"
-                updated = self.store.update_task(
-                    session_id,
-                    requester_task_id,
+                }
+                if gated_metadata is not None:
+                    gated_changes["metadata"] = gated_metadata
+                task_mutations.append(
                     {
-                        "status": new_status,
-                        "last_activity": f"approval {approval_id} approved",
-                        "recent_activities": [f"approval {approval_id} approved"],
-                    },
+                        "task_id": requester_task_id,
+                        "expected_statuses": [str(gated_task.get("status") or "")],
+                        "expected_owner": gated_task.get("owner"),
+                        "changes": gated_changes,
+                    }
                 )
+                post_tasks[gated_index].update(gated_changes)
+            wait_task_id = _new_id("task")
+            if gated_task is None:
+                wait_task_id = ""
             else:
-                updated = self.store.update_task(
-                    session_id,
-                    requester_task_id,
-                    {
-                        "status": "failed",
-                        "completed_at": _utcnow(),
-                        "last_activity": f"approval {approval_id} rejected",
-                        "recent_activities": [f"approval {approval_id} rejected"],
+                wait_task: AgentTaskPayload = {
+                    "session_id": requester_session_id,
+                    "task_id": wait_task_id,
+                    "parent_task_id": requester_task_id,
+                    "subject": f"Approval wait: {approval_id}",
+                    "description": "Formal approval_wait blocker task projected into the task bus.",
+                    "task_type": "approval_wait",
+                    "phase": str(gated_task.get("phase") or "maintenance"),
+                    "status": "in_progress" if str(approval_payload.get("status") or "") == "pending" else "completed",
+                    "execution_mode": "system",
+                    "blocked_by": [],
+                    "blocks": [requester_task_id],
+                    "priority": max(0, int(gated_task.get("priority") or 5) - 1),
+                    "write_set": [],
+                    "read_set": list(gated_task.get("write_set") or []),
+                    "task_spec": {
+                        "task_type": "approval_wait",
+                        "goal": f"Wait for approval {approval_id}",
+                        "context": {
+                            "approval_id": approval_id,
+                            "requester_task_id": requester_task_id,
+                        },
+                        "target_scope": requester_task_id,
+                        "write_set": [],
+                        "completion_criteria": ["Approval is resolved explicitly."],
+                        "verification_steps": ["Confirm approval outcome is reflected in the gated task state."],
+                        "artifact_targets": [],
                     },
+                    "metadata": {
+                        "approval_id": approval_id,
+                        "gated_task_id": requester_task_id,
+                    },
+                    "last_activity": f"approval {approval_id} requested",
+                    "recent_activities": [f"approval {approval_id} requested"],
+                    "summary_label": f"Approval wait: {approval_id}",
+                }
+                task_creates.append(wait_task)
+                post_tasks.append(_open_record(wait_task))
+                command_events.append(
+                    {
+                        "event_type": "approval.waiting",
+                        "task_id": wait_task_id,
+                        "payload": {
+                            "approval_id": approval_id,
+                            "gated_task_id": requester_task_id,
+                        },
+                    }
                 )
-            self.store.update_task(session_id, requester_task_id, {"summary_label": build_summary_label(updated)})
-        self._sync_session_state(session_id)
+        approval_mutation: AgentApprovalTransitionMutation = {
+            "expected_statuses": expected_approval_statuses,
+            "payload": approval_payload,
+        }
+        if not isinstance(existing_approval, Failure):
+            approval_mutation["expected_binding_payload"] = existing_approval["binding_payload"]
+            approval_mutation["expected_requester_actor"] = existing_approval["requester_actor"]
+        committed = self.store.commit_session_command(
+            requester_session_id,
+            session_create=None,
+            expected_session_statuses=[str(session.get("status") or "")],
+            session_changes=self._derive_session_changes(_open_record(session), post_tasks),
+            task_creates=task_creates,
+            task_mutations=task_mutations,
+            message_creates=[],
+            artifact_upserts=[],
+            approval_mutation=approval_mutation,
+            events=command_events,
+        )
+        if isinstance(committed, Failure):
+            return committed
+        approval = committed["approval"]
+        if approval is None:
+            return _failure("approval_not_found", f"approval not found: {approval_id}", approval_id=approval_id)
+        return _open_record(approval)
 
-    def _materialize_blueprints(self, *, goal: str, blueprints: list[dict[str, Any]]) -> list[dict[str, Any]] | Failure:
-        materialized: list[dict[str, Any]] = []
+    def _materialize_blueprints(
+        self, *, goal: str, blueprints: Sequence[Mapping[str, Any]]
+    ) -> list[AgentTaskPayload] | Failure:
+        materialized: list[AgentTaskPayload] = []
         prev_task_id: str | None = None
         for blueprint in blueprints:
             task_id = str(blueprint.get("task_id") or _new_id("task")).strip()
@@ -1782,7 +2618,22 @@ class AgentSessionService:
                 return status
             if blocked_by and status == "pending":
                 status = "blocked"
-            task = {
+            execution_mode = _normalize_execution_mode(blueprint.get("execution_mode"))
+            if isinstance(execution_mode, Failure):
+                return execution_mode
+            default_task_spec: dict[str, Any] = {
+                "task_type": str(blueprint.get("task_type") or phase),
+                "goal": goal,
+                "context": {},
+                "target_scope": "session",
+                "write_set": _normalize_string_list(blueprint.get("write_set")),
+                "completion_criteria": list(blueprint.get("completion_criteria") or []),
+                "verification_steps": list(blueprint.get("verification_steps") or []),
+                "artifact_targets": list(blueprint.get("artifact_targets") or []),
+            }
+            task_spec_source: Any = blueprint.get("task_spec") or default_task_spec
+            task_spec: dict[str, Any] = dict(task_spec_source)
+            task: AgentTaskPayload = {
                 "task_id": task_id,
                 "parent_task_id": blueprint.get("parent_task_id"),
                 "subject": str(blueprint.get("subject") or blueprint.get("task_type") or phase).strip(),
@@ -1790,23 +2641,14 @@ class AgentSessionService:
                 "task_type": str(blueprint.get("task_type") or phase).strip(),
                 "phase": phase,
                 "status": status,
-                "execution_mode": _normalize_execution_mode(blueprint.get("execution_mode")),
+                "execution_mode": execution_mode,
                 "owner": blueprint.get("owner"),
                 "blocked_by": blocked_by,
                 "blocks": [],
                 "priority": int(blueprint.get("priority") or 5),
                 "write_set": _normalize_string_list(blueprint.get("write_set")),
                 "read_set": _normalize_string_list(blueprint.get("read_set")),
-                "task_spec": dict(blueprint.get("task_spec") or {
-                    "task_type": str(blueprint.get("task_type") or phase),
-                    "goal": goal,
-                    "context": {},
-                    "target_scope": "session",
-                    "write_set": _normalize_string_list(blueprint.get("write_set")),
-                    "completion_criteria": list(blueprint.get("completion_criteria") or []),
-                    "verification_steps": list(blueprint.get("verification_steps") or []),
-                    "artifact_targets": list(blueprint.get("artifact_targets") or []),
-                }),
+                "task_spec": task_spec,
                 "metadata": dict(blueprint.get("metadata") or {}),
                 "result_summary": blueprint.get("result_summary"),
                 "result_payload": dict(blueprint.get("result_payload") or {}),
@@ -1816,20 +2658,18 @@ class AgentSessionService:
                 "recent_activities": list(blueprint.get("recent_activities") or []),
                 "summary_label": blueprint.get("summary_label"),
             }
-            if isinstance(task["execution_mode"], Failure):
-                return task["execution_mode"]
-            task["summary_label"] = task["summary_label"] or build_summary_label(task)
+            task["summary_label"] = task["summary_label"] or build_summary_label(_open_record(task))
             materialized.append(task)
             prev_task_id = task_id
-        task_ids = {item["task_id"] for item in materialized}
+        task_ids = {str(item.get("task_id") or "") for item in materialized}
         for item in materialized:
             item["blocked_by"] = [dep for dep in list(item.get("blocked_by") or []) if dep in task_ids]
-        blockers = {item["task_id"]: [] for item in materialized}
+        blockers: dict[str, list[str]] = {str(item.get("task_id") or ""): [] for item in materialized}
         for item in materialized:
             for dep in list(item.get("blocked_by") or []):
-                blockers.setdefault(dep, []).append(item["task_id"])
+                blockers.setdefault(str(dep), []).append(str(item.get("task_id") or ""))
         for item in materialized:
-            item["blocks"] = blockers.get(item["task_id"], [])
+            item["blocks"] = blockers.get(str(item.get("task_id") or ""), [])
         return materialized
 
     def _build_agent_batch_job_blueprints(
@@ -1838,14 +2678,20 @@ class AgentSessionService:
         job_id: str,
         accepted_items: list[dict[str, Any]],
         rejected_items: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
-        blueprints: list[dict[str, Any]] = []
+    ) -> list[AgentTaskPayload] | Failure:
+        blueprints: list[AgentTaskPayload] = []
         item_task_ids: list[str] = []
         for item in accepted_items:
             blueprint = self._build_agent_batch_job_item_blueprint(compat_job_id=job_id, item=item)
             blueprints.append(blueprint)
-            item_task_ids.append(str(blueprint["task_id"]))
+            item_task_ids.append(str(blueprint.get("task_id") or ""))
         verification_status = "blocked" if item_task_ids else "completed"
+        verification_context = validate_json_object(
+            {"accepted_items": accepted_items, "rejected_items": rejected_items},
+            field="agent_batch.verification.task_spec.context",
+        )
+        if isinstance(verification_context, Failure):
+            return verification_context
         blueprints.append(
             {
                 "task_id": _new_id("task"),
@@ -1867,7 +2713,7 @@ class AgentSessionService:
                 "task_spec": {
                     "task_type": "verification",
                     "goal": f"Verify projected agent_batch job {job_id}",
-                    "context": {"accepted_items": accepted_items, "rejected_items": rejected_items},
+                    "context": verification_context,
                     "target_scope": job_id,
                     "write_set": [],
                     "completion_criteria": ["Reflect aggregate batch job completion state in the session ledger."],
@@ -1878,9 +2724,13 @@ class AgentSessionService:
         )
         return blueprints
 
-    def _build_agent_batch_job_item_blueprint(self, *, compat_job_id: str, item: dict[str, Any]) -> dict[str, Any]:
+    def _build_agent_batch_job_item_blueprint(
+        self, *, compat_job_id: str, item: dict[str, Any]
+    ) -> AgentTaskPayload:
         item_id = str(item.get("item_id") or _new_id("task")).strip()
-        task_status = self._map_agent_batch_task_status(str((item.get("snapshot") or {}).get("status") or "pending"))
+        snapshot_value: Any = item.get("snapshot")
+        snapshot_status = _json_field(snapshot_value, "status")
+        task_status = self._map_agent_batch_task_status(str(snapshot_status or "pending"))
         return {
             "task_id": _new_id("task"),
             "subject": f"Dispatch {item_id}",
@@ -1922,14 +2772,26 @@ class AgentSessionService:
             },
         }
 
-    def _build_workflow_graph_task_blueprints(self, *, graph_id: str, run_id: str, workflow: dict[str, Any]) -> list[dict[str, Any]]:
-        topo_order = [str(item or "").strip() for item in list(workflow.get("topo_order") or []) if str(item or "").strip()]
-        nodes = dict(workflow.get("nodes") or {})
+    def _build_workflow_graph_task_blueprints(
+        self,
+        *,
+        graph_id: str,
+        run_id: str,
+        workflow: WorkflowRuntimeGraph,
+    ) -> list[dict[str, Any]]:
+        topo_order = [str(item or "").strip() for item in workflow["topo_order"] if str(item or "").strip()]
+        nodes = workflow["nodes"]
         blueprints: list[dict[str, Any]] = []
         for index, node_id in enumerate(topo_order, start=1):
-            node = dict(nodes.get(node_id) or {})
+            node = nodes.get(node_id)
+            if node is None:
+                continue
             task_id = self._workflow_graph_node_task_id(run_id=run_id, node_id=node_id)
-            depends_on = [self._workflow_graph_node_task_id(run_id=run_id, node_id=dep) for dep in list(node.get("depends_on") or []) if str(dep or "").strip()]
+            depends_on = [
+                self._workflow_graph_node_task_id(run_id=run_id, node_id=dep)
+                for dep in node["depends_on"]
+                if dep.strip()
+            ]
             blueprints.append(
                 {
                     "task_id": task_id,
@@ -2042,43 +2904,22 @@ class AgentSessionService:
             return "blocked"
         return "pending"
 
-    def _sync_session_state(self, session_id: str) -> dict[str, Any]:
-        tasks = self.store.list_tasks(session_id)
-        session = self.store.get_session(session_id)
+    @staticmethod
+    def _derive_session_changes(
+        session: dict[str, Any], tasks: list[dict[str, Any]]
+    ) -> AgentSessionPayload:
         if not tasks:
-            return self._decorate_session(session)
+            return {}
         status, current_phase = resolve_session_status(tasks)
-        current_phase = current_phase or session.get("current_phase")
         final_summary = session.get("final_summary")
         if status == "completed":
             verification = next((task for task in reversed(tasks) if task.get("phase") == "verification"), None)
             final_summary = str((verification or {}).get("result_summary") or final_summary or "").strip() or None
-
-        updated = self.store.update_session(
-            session_id,
-            {"status": status, "current_phase": current_phase, "final_summary": final_summary},
-        )
-        return self._decorate_session(updated, tasks=tasks, task_count=len(tasks))
-
-    def _unblock_dependents(self, session_id: str, task_id: str) -> None:
-        tasks = self.store.list_tasks(session_id)
-        task_index = {task["task_id"]: task for task in tasks}
-        for task in tasks:
-            blocked_by = list(task.get("blocked_by") or [])
-            if task_id not in blocked_by:
-                continue
-            unresolved = [dep for dep in blocked_by if self._task_status(tasks, dep) != "completed"]
-            if unresolved:
-                continue
-            if task.get("status") == "blocked":
-                updated = self.store.update_task(session_id, task["task_id"], {"status": "pending"})
-                self.store.update_task(session_id, task["task_id"], {"summary_label": build_summary_label(updated)})
-                self.store.append_event(
-                    session_id,
-                    event_type="task.unblocked",
-                    task_id=task["task_id"],
-                    payload={"unblocked_by": task_id},
-                )
+        return {
+            "status": status,
+            "current_phase": current_phase or str(session.get("current_phase") or "research"),
+            "final_summary": final_summary,
+        }
 
     @staticmethod
     def _task_status(tasks: list[dict[str, Any]], task_id: str) -> str | None:
@@ -2132,16 +2973,16 @@ class AgentSessionService:
         return item
 
 
-_SERVICE: AgentSessionService | None = None
+_service_instance: AgentSessionService | None = None
 
 
 def get_agent_session_service() -> AgentSessionService:
-    global _SERVICE
-    if _SERVICE is None:
-        _SERVICE = AgentSessionService()
-    return _SERVICE
+    global _service_instance
+    if _service_instance is None:
+        _service_instance = AgentSessionService()
+    return _service_instance
 
 
 def reset_agent_session_service_for_tests(service: AgentSessionService | None = None) -> None:
-    global _SERVICE
-    _SERVICE = service
+    global _service_instance
+    _service_instance = service

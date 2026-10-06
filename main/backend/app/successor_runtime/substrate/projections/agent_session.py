@@ -38,11 +38,8 @@ from app.successor_runtime.runtime.transitions import (
 from app.successor_runtime.substrate.postgres.runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
-    _mapping_rows,
-    _one_mapping,
-    _scope_key,
-    _table,
 )
+from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
 
 from .runtime_run import RuntimeJournalSource
 
@@ -87,7 +84,7 @@ class TaskStatus(StrEnum):
 
 
 class AgentTaskSnapshot(FrozenContract):
-    schema_version: Literal[AGENT_TASK_SNAPSHOT_SCHEMA_V1] = (
+    schema_version: Literal["mrw.task.observation.v1"] = (
         AGENT_TASK_SNAPSHOT_SCHEMA_V1
     )
     task_id: str = Field(min_length=1)
@@ -113,7 +110,7 @@ class AgentTaskSnapshot(FrozenContract):
 class AgentSessionSnapshot(FrozenContract):
     """Disposable session read model bound to one journal run incarnation."""
 
-    schema_version: Literal[AGENT_SESSION_SNAPSHOT_SCHEMA_V1] = (
+    schema_version: Literal["mrw.task.session-observation.v1"] = (
         AGENT_SESSION_SNAPSHOT_SCHEMA_V1
     )
     session_id: str = Field(min_length=1)
@@ -174,8 +171,6 @@ def fold_agent_session(
 ) -> AgentSessionSnapshot:
     """Fold one replay projection into a disposable session/task read model."""
 
-    if not isinstance(projection, RuntimeReplayProjection):
-        raise AgentSessionProjectionError("session fold requires replay projection")
     session = session_id or projection.run_id
     tasks = tuple(
         _task_snapshot(projection, step_id=step_id, state=state, session_id=session)
@@ -350,18 +345,20 @@ class PostgresAgentSessionReadAdapter:
         return fold_agent_session(projection)
 
     def _require_source_identity(self, source: RuntimeJournalSource) -> None:
-        runs = _table("runtime_runs")
-        row = _one_mapping(
+        runs = PUBLIC_TABLES["runtime_runs"]
+        row = (
             self.connection.execute(
                 select(
                     runs.c.project_key,
                     runs.c.run_id,
                     runs.c.incarnation,
                 ).where(
-                    runs.c.project_key == _scope_key(self.scope),
+                    runs.c.project_key == self.scope.project_scope.project_key,
                     runs.c.run_id == source.run_id,
                 )
             )
+            .mappings()
+            .one_or_none()
         )
         if row is None:
             raise RecordNotFound(
@@ -373,17 +370,19 @@ class PostgresAgentSessionReadAdapter:
             )
 
     def _load_events(self, source: RuntimeJournalSource) -> tuple[ReplayEvent, ...]:
-        table = _table("runtime_events")
-        rows = _mapping_rows(
+        table = PUBLIC_TABLES["runtime_events"]
+        rows = (
             self.connection.execute(
                 select(table)
                 .where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == self.scope.project_scope.project_key,
                     table.c.run_id == source.run_id,
                     table.c.seq >= 1,
                 )
                 .order_by(table.c.seq)
             )
+            .mappings()
+            .all()
         )
         return tuple(
             ReplayEvent.from_content(
@@ -416,7 +415,7 @@ class PostgresAgentSessionReadAdapter:
 class HistoricalAgentSessionSnapshotRead:
     """Explicit historical v1 snapshot decode; its digest is never rehashed."""
 
-    schema_version: Literal[HISTORICAL_AGENT_SESSION_SNAPSHOT_SCHEMA_V1]
+    schema_version: Literal["mrw.successor.agent-session-snapshot.v1"]
     content: Mapping[str, object]
     projection_digest: str
 

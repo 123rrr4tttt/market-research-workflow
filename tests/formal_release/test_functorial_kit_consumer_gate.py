@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import subprocess
 import sys
@@ -28,12 +29,16 @@ def _historical_pyproject_root(
     root = tmp_path / "consumer-gate-history"
     root.mkdir()
     pyproject = root / "pyproject.toml"
-    completed = subprocess.run(
-        ("git", "-C", str(ROOT), "show", "HEAD:pyproject.toml"),
-        check=True,
-        capture_output=True,
-    )
-    pyproject.write_bytes(completed.stdout)
+    fixture_root = ROOT / "tests/fixtures/functorial_kit_consumer_gate_history"
+    provenance = json.loads((fixture_root / "manifest.json").read_text(encoding="utf-8"))
+    assert provenance["schema"] == "mrw.test.historical-source.v1"
+    assert provenance["original_path"] == "pyproject.toml"
+    assert provenance["fixture"] == "pyproject.toml.source"
+    assert len(provenance["revision"]) == 40
+    raw = (fixture_root / "pyproject.toml.source").read_bytes()
+    assert len(raw) == provenance["bytes"]
+    assert hashlib.sha256(raw).hexdigest() == provenance["sha256"]
+    pyproject.write_bytes(raw)
     tool_root = root / "tools" / "functorial-kit"
     tool_root.mkdir(parents=True)
     shutil.copy2(MANIFEST, tool_root / MANIFEST.name)

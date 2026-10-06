@@ -26,7 +26,9 @@ from typing import (
     Mapping,
     NoReturn,
     Protocol,
+    TypeAlias,
     TypeGuard,
+    overload,
     runtime_checkable,
 )
 
@@ -38,12 +40,14 @@ from mrw_functorial_kit.core.w05_capability_semantics import (
 
 from app.successor_runtime.capabilities import source_contracts as source_contracts
 from app.successor_runtime.capabilities.checksum import (
+    CanonicalJsonObject,
     canonical_json,
     content_digest,
     sha256_hex,
 )
 from app.successor_runtime.capabilities.codecs import (
     PayloadCodec,
+    codec_digest,
     dataclass_codec,
 )
 from app.successor_runtime.language.catalog import (
@@ -2207,14 +2211,46 @@ def _make_contract(
     )
 
 
+BatchTaskPayloadCodec: TypeAlias = (
+    PayloadCodec[BatchPlanPayload]
+    | PayloadCodec[RetryReducerInput]
+    | PayloadCodec[AgentBatchSubmission]
+)
+
+
 @dataclass(frozen=True, slots=True)
 class BatchTaskCapabilityBundle:
     bundle_id: str
     operations: tuple[OperationContract, ...]
-    codecs: tuple[PayloadCodec, ...]
+    codecs: tuple[
+        PayloadCodec[BatchPlanPayload],
+        PayloadCodec[RetryReducerInput],
+        PayloadCodec[AgentBatchSubmission],
+    ]
     profiles: dict[str, object]
 
-    def codec_by_kind(self, kind: str) -> PayloadCodec:
+    @overload
+    def codec_by_kind(
+        self,
+        kind: Literal["batch.task.build_plan.v2"],
+    ) -> PayloadCodec[BatchPlanPayload]: ...
+
+    @overload
+    def codec_by_kind(
+        self,
+        kind: Literal["batch.task.reduce_retry.v2"],
+    ) -> PayloadCodec[RetryReducerInput]: ...
+
+    @overload
+    def codec_by_kind(
+        self,
+        kind: Literal["batch.task.submit.v2"],
+    ) -> PayloadCodec[AgentBatchSubmission]: ...
+
+    @overload
+    def codec_by_kind(self, kind: str) -> BatchTaskPayloadCodec: ...
+
+    def codec_by_kind(self, kind: str) -> BatchTaskPayloadCodec:
         for codec in self.codecs:
             if codec.contract_ref.kind == kind:
                 return codec
@@ -2400,7 +2436,7 @@ def decode_submission_receipt_readback(
 
 def _decode_nested(
     dto_cls: type,
-    value: dict[str, object],
+    value: Mapping[str, object],
     *,
     _seen: set[type] | None = None,
 ) -> object:
@@ -2455,35 +2491,62 @@ def _decode_nested(
     return dto_cls(**restored)
 
 
-def _payload_codec(contract_ref: OperationContractRef, dto_cls: type) -> PayloadCodec:
+@overload
+def _payload_codec(
+    contract_ref: OperationContractRef,
+    dto_cls: type[BatchPlanPayload],
+) -> PayloadCodec[BatchPlanPayload]: ...
+
+
+@overload
+def _payload_codec(
+    contract_ref: OperationContractRef,
+    dto_cls: type[RetryReducerInput],
+) -> PayloadCodec[RetryReducerInput]: ...
+
+
+@overload
+def _payload_codec(
+    contract_ref: OperationContractRef,
+    dto_cls: type[AgentBatchSubmission],
+) -> PayloadCodec[AgentBatchSubmission]: ...
+
+
+def _payload_codec(
+    contract_ref: OperationContractRef,
+    dto_cls: type[BatchPlanPayload]
+    | type[RetryReducerInput]
+    | type[AgentBatchSubmission],
+) -> BatchTaskPayloadCodec:
     kind = contract_ref.kind
-    if kind in {BATCH_PLAN_KIND, RETRY_REDUCE_KIND}:
-        codec_id = (
-            BATCH_PLAN_PAYLOAD_CODEC_ID
-            if kind == BATCH_PLAN_KIND
-            else RETRY_REDUCER_PAYLOAD_CODEC_ID
-        )
-        payload_type = (
-            BATCH_PLAN_PAYLOAD_TYPE
-            if kind == BATCH_PLAN_KIND
-            else RETRY_REDUCER_PAYLOAD_TYPE
-        )
+    if dto_cls is BatchPlanPayload and kind == BATCH_PLAN_KIND:
         return dataclass_codec(
+            codec_id=BATCH_PLAN_PAYLOAD_CODEC_ID,
+            codec_version="1",
+            contract_ref=contract_ref,
+            payload_type_id=BATCH_PLAN_PAYLOAD_TYPE.type_id,
+            dto_cls=BatchPlanPayload,
+        )
+    if dto_cls is RetryReducerInput and kind == RETRY_REDUCE_KIND:
+        return dataclass_codec(
+            codec_id=RETRY_REDUCER_PAYLOAD_CODEC_ID,
+            codec_version="1",
+            contract_ref=contract_ref,
+            payload_type_id=RETRY_REDUCER_PAYLOAD_TYPE.type_id,
+            dto_cls=RetryReducerInput,
+        )
+    if dto_cls is AgentBatchSubmission and kind == SUBMISSION_KIND:
+        codec_id = SUBMISSION_PAYLOAD_CODEC_ID
+        payload_type = SUBMISSION_TYPE
+        base_codec = dataclass_codec(
             codec_id=codec_id,
             codec_version="1",
             contract_ref=contract_ref,
             payload_type_id=payload_type.type_id,
-            dto_cls=dto_cls,
-        )
-    if kind == SUBMISSION_KIND:
-        codec_id = SUBMISSION_PAYLOAD_CODEC_ID
-        payload_type = SUBMISSION_TYPE
-        from app.successor_runtime.capabilities.codecs import (
-            PayloadCodec,
-            codec_digest,
+            dto_cls=AgentBatchSubmission,
         )
 
-        def encode(value: object) -> dict[str, object]:
+        def encode(value: object) -> CanonicalJsonObject:
             if not isinstance(value, AgentBatchSubmission):
                 _raise_contract_failure(
                     _failure(
@@ -2494,10 +2557,21 @@ def _payload_codec(contract_ref: OperationContractRef, dto_cls: type) -> Payload
                     ),
                     TypeError,
                 )
-            return dataclasses.asdict(value)
+            return base_codec.encode_payload(value)
 
-        def decode(value: dict[str, object]) -> object:
-            return _decode_nested(dto_cls, value)
+        def decode(value: CanonicalJsonObject) -> AgentBatchSubmission:
+            decoded = _decode_nested(AgentBatchSubmission, value)
+            if not isinstance(decoded, AgentBatchSubmission):
+                _raise_contract_failure(
+                    _failure(
+                        "codec_contract_invalid",
+                        "submission codec returned an invalid payload type",
+                        site="submission_codec/decode",
+                        public_exception="TypeError",
+                    ),
+                    TypeError,
+                )
+            return decoded
 
         return PayloadCodec(
             codec_id=codec_id,

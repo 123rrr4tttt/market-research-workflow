@@ -1,11 +1,17 @@
 """仪表盘数据API"""
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from decimal import Decimal
+from typing import Literal, NoReturn, TypeAlias
+
 from fastapi import APIRouter, Query, HTTPException, Request
-from pydantic import BaseModel, Field
-from typing import Any, Mapping, Optional
+from pydantic import BaseModel, Field, JsonValue, TypeAdapter, ValidationError
 from uuid import uuid4
-from sqlalchemy import select, func, and_, or_, case
+from sqlalchemy import select, func, and_, case
+from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.orm import Session
 from sqlalchemy.exc import OperationalError, DatabaseError
 from datetime import datetime, date, timedelta
 import logging
@@ -42,8 +48,7 @@ from ..services.llm_report_trends import (
     record_quality_trend_metric,
     summarize_quality_trends,
 )
-from ..services.projects import bind_project
-from ..services.projects.context import _normalize_project_key
+from ..services.projects import bind_project, normalize_project_key
 from ..services.request_identity import resolve_request_actor_context
 from ..services.writing import create_document
 from ..settings.config import settings
@@ -53,13 +58,70 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _FRONTDOOR_TRI_STATE_STATUSES = ("success", "degraded_success", "failed")
+_DASHBOARD_RUNTIME_FAILURES = (DatabaseError, OSError, RuntimeError, TypeError, ValueError)
+
+DashboardJsonInput: TypeAlias = dict[str, JsonValue]
+DashboardJsonObject: TypeAlias = dict[str, object]
+_DASHBOARD_JSON_OBJECT_ADAPTER = TypeAdapter(DashboardJsonInput)
+_DASHBOARD_JSON_ARRAY_ADAPTER = TypeAdapter(list[JsonValue])
+
+
+class DashboardJsonValueError(ValueError):
+    def __init__(self, field: str, expected: str) -> None:
+        super().__init__(f"{field} must be {expected}")
+
+
+class DashboardProjectionTypeError(TypeError):
+    def __init__(self, actual_type: type[object]) -> None:
+        super().__init__(f"dashboard projection expected a numeric value, received {actual_type.__name__}")
+
+
+def _parse_dashboard_json_object(value: object, *, field: str) -> DashboardJsonInput:
+    """Validate a dynamic dashboard payload at its JSON boundary."""
+    try:
+        return _DASHBOARD_JSON_OBJECT_ADAPTER.validate_python(value, strict=True)
+    except ValidationError as exc:
+        raise DashboardJsonValueError(field, "a JSON object") from exc
+
+
+def _parse_dashboard_json_projection(value: object, *, field: str) -> DashboardJsonObject:
+    parsed = _parse_dashboard_json_object(value, field=field)
+    projection: DashboardJsonObject = {}
+    projection.update(parsed)
+    return projection
+
+
+def _parse_optional_dashboard_json_object(value: object, *, field: str) -> DashboardJsonInput:
+    if value is None:
+        return {}
+    return _parse_dashboard_json_object(value, field=field)
+
+
+def _parse_dashboard_json_array(value: object, *, field: str) -> list[JsonValue]:
+    try:
+        return _DASHBOARD_JSON_ARRAY_ADAPTER.validate_python(value, strict=True)
+    except ValidationError as exc:
+        raise DashboardJsonValueError(field, "a JSON array") from exc
+
+
+def _parse_dashboard_json_object_list(value: object, *, field: str) -> list[DashboardJsonObject]:
+    items = _parse_dashboard_json_array(value, field=field)
+    return [
+        _parse_dashboard_json_projection(item, field=f"{field}[{index}]")
+        for index, item in enumerate(items)
+    ]
+
+
+def _normalize_dashboard_project_key(project_key: str) -> str:
+    """Use the project owner to normalize a key without duplicating its rules."""
+    return normalize_project_key(project_key)
 
 
 class DashboardReportFromFilterRequest(BaseModel):
     request_type: str = Field(default="report_from_dashboard_filter", max_length=80)
     project_key: str | None = Field(default=None, max_length=64)
-    dashboard: dict[str, Any] = Field(default_factory=dict)
-    report_options: dict[str, Any] = Field(default_factory=dict)
+    dashboard: DashboardJsonInput = Field(default_factory=dict)
+    report_options: DashboardJsonInput = Field(default_factory=dict)
     quality_gate_mode: str | None = Field(default=None, max_length=24)
     fail_on_quality_gate: bool | None = Field(default=None)
 
@@ -69,8 +131,8 @@ def _dashboard_source_query(
     *,
     table: str,
     metrics: list[str],
-    filters: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
+    filters: Mapping[str, object] | None = None,
+) -> DashboardJsonObject:
     return {
         "scope": "dashboard.stats",
         "card": card,
@@ -86,8 +148,8 @@ def _dashboard_source_ref(
     table: str,
     columns: list[str],
     detail: str | None = None,
-) -> dict[str, Any]:
-    ref: dict[str, Any] = {
+) -> DashboardJsonObject:
+    ref: DashboardJsonObject = {
         "id": f"dashboard.stats.{ref_id}",
         "kind": "sql_table",
         "table": table,
@@ -99,15 +161,15 @@ def _dashboard_source_ref(
 
 
 def _with_dashboard_sources(
-    payload: dict[str, Any],
+    payload: DashboardJsonObject,
     card: str,
     *,
     table: str,
     metrics: list[str],
     columns: list[str],
-    filters: Mapping[str, Any] | None = None,
+    filters: Mapping[str, object] | None = None,
     detail: str | None = None,
-) -> dict[str, Any]:
+) -> DashboardJsonObject:
     return {
         **payload,
         "source_query": _dashboard_source_query(
@@ -127,7 +189,7 @@ def _with_dashboard_sources(
     }
 
 
-def _dashboard_llm_report_quality_summary(limit: int = 50) -> dict[str, Any]:
+def _dashboard_llm_report_quality_summary(limit: int = 50) -> DashboardJsonObject:
     records, storage = list_quality_trend_records(limit=limit)
     summary = summarize_quality_trends(records)
     export_records = list_recent_llm_report_export_audit_events(limit=min(limit, 50))
@@ -193,33 +255,40 @@ def _dashboard_llm_report_quality_summary(limit: int = 50) -> dict[str, Any]:
             "recorded_at",
         ],
         filters={"event_type": "llm_report_export", "source": "dedicated_export_audit_table"},
-        detail="llm report export audit events from dedicated structured table; quality trend records remain in recent_records",
+        detail=(
+            "llm report export audit events from dedicated structured table; "
+            "quality trend records remain in recent_records"
+        ),
     )
 
 
-def _dashboard_detail_mapping(value: Any) -> dict[str, Any]:
-    return dict(value) if isinstance(value, Mapping) else {}
+def _dashboard_detail_mapping(value: object) -> DashboardJsonObject:
+    if value is None:
+        return {}
+    return _parse_dashboard_json_projection(value, field="dashboard detail object")
 
 
-def _dashboard_detail_list(value: Any) -> list[Any]:
-    return list(value) if isinstance(value, list) else []
+def _dashboard_detail_list(value: object) -> list[JsonValue]:
+    if value is None:
+        return []
+    return _parse_dashboard_json_array(value, field="dashboard detail list")
 
 
-def _dashboard_detail_job_context(record: Mapping[str, Any] | None) -> dict[str, Any]:
+def _dashboard_detail_job_context(record: Mapping[str, object] | None) -> DashboardJsonObject:
     if not isinstance(record, Mapping):
         return {}
     return _dashboard_detail_mapping(record.get("job_context"))
 
 
-def _dashboard_detail_without_secret(value: Mapping[str, Any]) -> dict[str, Any]:
+def _dashboard_detail_without_secret(value: Mapping[str, object]) -> DashboardJsonObject:
     blocked_keys = {"artifact_token", "token", "signed_token", "secret", "signature"}
     return {str(key): item for key, item in value.items() if str(key).lower() not in blocked_keys}
 
 
 def _dashboard_detail_artifact_summary(
-    quality_record: Mapping[str, Any] | None,
-    export_events: list[dict[str, Any]],
-) -> dict[str, Any]:
+    quality_record: Mapping[str, object] | None,
+    export_events: list[DashboardJsonObject],
+) -> DashboardJsonObject:
     context = _dashboard_detail_job_context(quality_record)
     artifact = _dashboard_detail_mapping(context.get("report_artifact"))
     if not artifact and isinstance(quality_record, Mapping):
@@ -247,7 +316,7 @@ def _dashboard_detail_artifact_summary(
     return {}
 
 
-def _dashboard_detail_quality_gate(quality_record: Mapping[str, Any] | None) -> dict[str, Any]:
+def _dashboard_detail_quality_gate(quality_record: Mapping[str, object] | None) -> DashboardJsonObject:
     context = _dashboard_detail_job_context(quality_record)
     quality_gate = _dashboard_detail_mapping(context.get("quality_gate"))
     if not quality_gate and isinstance(quality_record, Mapping):
@@ -277,7 +346,7 @@ def _dashboard_detail_quality_gate(quality_record: Mapping[str, Any] | None) -> 
     }
 
 
-def _dashboard_detail_source_refs(quality_record: Mapping[str, Any] | None) -> list[Any]:
+def _dashboard_detail_source_refs(quality_record: Mapping[str, object] | None) -> list[JsonValue]:
     context = _dashboard_detail_job_context(quality_record)
     source_refs = _dashboard_detail_list(context.get("source_refs"))
     if source_refs:
@@ -292,8 +361,8 @@ def _dashboard_detail_source_query(
     trace_id: str,
     project_key: str | None,
     limit: int,
-    quality_record: Mapping[str, Any] | None,
-) -> dict[str, Any]:
+    quality_record: Mapping[str, object] | None,
+) -> DashboardJsonObject:
     context = _dashboard_detail_job_context(quality_record)
     source_query = _dashboard_detail_mapping(context.get("source_query"))
     if not source_query and isinstance(quality_record, Mapping):
@@ -314,10 +383,10 @@ def _dashboard_detail_source_query(
 def _dashboard_detail_repair_context(
     *,
     trace_id: str,
-    quality_record: Mapping[str, Any] | None,
-    export_events: list[dict[str, Any]],
-    source_refs: list[Any],
-) -> dict[str, Any]:
+    quality_record: Mapping[str, object] | None,
+    export_events: list[DashboardJsonObject],
+    source_refs: list[JsonValue],
+) -> DashboardJsonObject:
     context = _dashboard_detail_job_context(quality_record)
     repair_context = _dashboard_detail_mapping(context.get("repair_context"))
     if repair_context:
@@ -351,7 +420,10 @@ def _dashboard_detail_repair_context(
     }
 
 
-def _dashboard_detail_prefer_quality_record(records: list[dict[str, Any]], requested_trace_id: str) -> dict[str, Any] | None:
+def _dashboard_detail_prefer_quality_record(
+    records: list[DashboardJsonObject],
+    requested_trace_id: str,
+) -> DashboardJsonObject | None:
     if not records:
         return None
     non_export_records = [
@@ -372,9 +444,9 @@ def _dashboard_detail_prefer_quality_record(records: list[dict[str, Any]], reque
 
 def _dashboard_detail_storage(
     *,
-    quality_storage: Mapping[str, Any],
-    export_storage: Mapping[str, Any],
-) -> dict[str, Any]:
+    quality_storage: Mapping[str, object],
+    export_storage: Mapping[str, object],
+) -> DashboardJsonObject:
     degraded = bool(quality_storage.get("degraded") or export_storage.get("degraded"))
     return {
         "contract_version": "dashboard.llm_report_detail.storage.v1",
@@ -387,10 +459,10 @@ def _dashboard_detail_storage(
 def _dashboard_detail_actionability(
     *,
     found: bool,
-    storage: Mapping[str, Any],
-    quality_record: Mapping[str, Any] | None,
-    export_events: list[dict[str, Any]],
-) -> dict[str, Any]:
+    storage: Mapping[str, object],
+    quality_record: Mapping[str, object] | None,
+    export_events: list[DashboardJsonObject],
+) -> DashboardJsonObject:
     decision = str((quality_record or {}).get("decision") or "").strip().lower()
     has_failed_export = any(
         str(event.get("outcome") or event.get("export_outcome") or "").strip().lower()
@@ -398,7 +470,18 @@ def _dashboard_detail_actionability(
         for event in export_events
     )
     requires_repair = decision == "fail" or has_failed_export
-    if not found:
+    quality_storage = _dashboard_detail_mapping(storage.get("quality"))
+    export_storage = _dashboard_detail_mapping(storage.get("export_audit"))
+    service_unavailable = {
+        str(quality_storage.get("degraded_reason") or ""),
+        str(export_storage.get("degraded_reason") or ""),
+    } & {
+        "llm_report_quality_detail_service_unavailable",
+        "llm_report_export_audit_service_unavailable",
+    }
+    if service_unavailable:
+        next_action = "retry_detail_query_or_inspect_process_history_by_trace_id"
+    elif not found:
         next_action = "refresh_llm_report_quality_trends"
     elif requires_repair:
         next_action = (
@@ -419,25 +502,25 @@ def _dashboard_detail_actionability(
     }
 
 
-def _dashboard_detail_record_matches_trace(record: Mapping[str, Any], trace_id: str) -> bool:
+def _dashboard_detail_record_matches_trace(record: Mapping[str, object], trace_id: str) -> bool:
     return (
         str(record.get("trace_id") or "").strip() == trace_id
         or str(record.get("source_trace_id") or "").strip() == trace_id
     )
 
 
-def _dashboard_detail_record_matches_project(record: Mapping[str, Any], project_key: str | None) -> bool:
+def _dashboard_detail_record_matches_project(record: Mapping[str, object], project_key: str | None) -> bool:
     return not project_key or str(record.get("project_key") or "") == project_key
 
 
 def _dashboard_detail_filter_recent_records(
-    records: list[dict[str, Any]],
+    records: list[DashboardJsonObject],
     *,
     trace_ids: set[str],
     project_key: str | None,
     limit: int,
-) -> list[dict[str, Any]]:
-    filtered: list[dict[str, Any]] = []
+) -> list[DashboardJsonObject]:
+    filtered: list[DashboardJsonObject] = []
     for record in records:
         if not any(_dashboard_detail_record_matches_trace(record, trace_id) for trace_id in trace_ids):
             continue
@@ -452,16 +535,22 @@ def _dashboard_detail_export_events(
     trace_id: str,
     project_key: str | None,
     limit: int,
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    events, storage = list_llm_report_export_audit_events_for_trace(
+) -> tuple[list[DashboardJsonObject], DashboardJsonObject]:
+    raw_events, raw_storage = list_llm_report_export_audit_events_for_trace(
         trace_id=trace_id,
         project_key=project_key,
         limit=limit,
     )
+    events = _parse_dashboard_json_object_list(raw_events, field="llm report export audit events")
+    storage = _parse_dashboard_json_projection(raw_storage, field="llm report export audit storage")
     if events or not storage.get("degraded"):
         return events, storage
-    fallback = _dashboard_detail_filter_recent_records(
+    recent_events = _parse_dashboard_json_object_list(
         list_recent_llm_report_export_audit_events(limit=max(limit, 50), project_key=project_key),
+        field="recent llm report export audit events",
+    )
+    fallback = _dashboard_detail_filter_recent_records(
+        recent_events,
         trace_ids={trace_id},
         project_key=project_key,
         limit=limit,
@@ -475,38 +564,39 @@ def _dashboard_detail_export_events(
     return events, storage
 
 
-def _dashboard_detail_export_events_summary(export_events: list[dict[str, Any]]) -> dict[str, Any]:
+def _dashboard_detail_export_events_summary(export_events: list[DashboardJsonObject]) -> DashboardJsonObject:
     by_outcome: dict[str, int] = {}
     by_format: dict[str, int] = {}
-    summary = {
-        "contract_version": "dashboard.llm_report_detail.export_events_summary.v1",
-        "total": 0,
-        "success": 0,
-        "blocked": 0,
-        "token_invalid": 0,
-        "failed": 0,
-        "ui_read_only_context_included_count": 0,
-    }
+    total = 0
+    success = 0
+    blocked = 0
+    token_invalid = 0
+    failed = 0
+    read_only_context_count = 0
     for event in export_events:
-        summary["total"] += 1
+        total += 1
         outcome = str(event.get("outcome") or event.get("export_outcome") or "unknown").strip().lower() or "unknown"
         export_format = str(event.get("export_format") or "unknown").strip().lower() or "unknown"
         by_outcome[outcome] = by_outcome.get(outcome, 0) + 1
         by_format[export_format] = by_format.get(export_format, 0) + 1
-        if outcome in {"success", "blocked", "token_invalid", "failed"}:
-            summary[outcome] += 1
+        if outcome == "success":
+            success += 1
+        elif outcome == "blocked":
+            blocked += 1
+        elif outcome == "token_invalid":
+            token_invalid += 1
         else:
-            summary["failed"] += 1
+            failed += 1
         if event.get("ui_read_only_context_included") is True:
-            summary["ui_read_only_context_included_count"] += 1
+            read_only_context_count += 1
     return {
-        "contract_version": summary["contract_version"],
-        "total": summary["total"],
-        "success": summary["success"],
-        "blocked": summary["blocked"],
-        "token_invalid": summary["token_invalid"],
-        "failed": summary["failed"],
-        "ui_read_only_context_included_count": summary["ui_read_only_context_included_count"],
+        "contract_version": "dashboard.llm_report_detail.export_events_summary.v1",
+        "total": total,
+        "success": success,
+        "blocked": blocked,
+        "token_invalid": token_invalid,
+        "failed": failed,
+        "ui_read_only_context_included_count": read_only_context_count,
         "by_outcome": by_outcome,
         "by_format": by_format,
         "read_only_context_semantics": (
@@ -521,17 +611,27 @@ def _dashboard_detail_quality_records(
     trace_ids: set[str],
     project_key: str | None,
     limit: int,
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    records, storage = list_quality_trend_records_for_trace_ids(
+) -> tuple[list[DashboardJsonObject], DashboardJsonObject]:
+    raw_records, raw_storage = list_quality_trend_records_for_trace_ids(
         trace_ids=sorted(trace_ids),
         project_key=project_key,
         limit=limit,
     )
+    records = _parse_dashboard_json_object_list(raw_records, field="llm report quality records")
+    storage = _parse_dashboard_json_projection(raw_storage, field="llm report quality storage")
     if records or not storage.get("degraded"):
         return records, storage
-    recent_records, recent_storage = list_quality_trend_records(
+    raw_recent_records, raw_recent_storage = list_quality_trend_records(
         limit=max(limit, 50),
         project_key=project_key,
+    )
+    recent_records = _parse_dashboard_json_object_list(
+        raw_recent_records,
+        field="recent llm report quality records",
+    )
+    recent_storage = _parse_dashboard_json_projection(
+        raw_recent_storage,
+        field="recent llm report quality storage",
     )
     fallback = _dashboard_detail_filter_recent_records(
         recent_records,
@@ -549,10 +649,10 @@ def _dashboard_detail_quality_records(
     return records, storage
 
 
-@router.get("/llm-report-detail", response_model=ApiEnvelope[dict[str, Any]])
+@router.get("/llm-report-detail", response_model=ApiEnvelope[DashboardJsonInput])
 def get_dashboard_llm_report_detail(
     trace_id: str = Query("", max_length=128, description="LLM report trace_id or export trace_id"),
-    project_key: Optional[str] = Query(None, max_length=64, description="Optional project key filter"),
+    project_key: str | None = Query(None, max_length=64, description="Optional project key filter"),
     limit: int = Query(10, ge=1, le=50, description="Maximum matching records/events to inspect"),
 ):
     """Return a trace-oriented LLM report detail contract without failing closed on missing records."""
@@ -568,14 +668,18 @@ def get_dashboard_llm_report_detail(
                 "value": trace_id,
             },
         )
-    normalized_project_key = _normalize_project_key(project_key) if str(project_key or "").strip() else None
+    normalized_project_key = (
+        _normalize_dashboard_project_key(project_key)
+        if project_key is not None and project_key.strip()
+        else None
+    )
     try:
         export_events, export_storage = _dashboard_detail_export_events(
             trace_id=normalized_trace_id,
             project_key=normalized_project_key,
             limit=limit,
         )
-    except Exception as exc:  # noqa: BLE001
+    except _DASHBOARD_RUNTIME_FAILURES as exc:
         export_events = []
         export_storage = {
             "contract_version": "llm_report.export_audit_detail_storage.v1",
@@ -598,7 +702,7 @@ def get_dashboard_llm_report_detail(
             project_key=normalized_project_key,
             limit=limit,
         )
-    except Exception as exc:  # noqa: BLE001
+    except _DASHBOARD_RUNTIME_FAILURES as exc:
         quality_records = []
         quality_storage = {
             "contract_version": "llm_report.quality_detail_storage.v1",
@@ -615,11 +719,12 @@ def get_dashboard_llm_report_detail(
     quality_record = _dashboard_detail_prefer_quality_record(quality_records, normalized_trace_id)
     found = bool(quality_record or export_events)
     storage = _dashboard_detail_storage(quality_storage=quality_storage, export_storage=export_storage)
-    resolved_project_key = (
+    resolved_project_key_value = (
         normalized_project_key
-        or (quality_record.get("project_key") if isinstance(quality_record, Mapping) else None)
+        or (quality_record.get("project_key") if quality_record else None)
         or (export_events[0].get("project_key") if export_events else None)
     )
+    resolved_project_key = str(resolved_project_key_value).strip() if resolved_project_key_value else None
     source_refs = _dashboard_detail_source_refs(quality_record)
     report_artifact = _dashboard_detail_artifact_summary(quality_record, export_events)
     quality_gate = _dashboard_detail_quality_gate(quality_record)
@@ -681,27 +786,28 @@ def _dashboard_project_key_from_request(
             candidate = resolved
     if not candidate:
         candidate = (request.headers.get("X-Project-Key") or request.query_params.get("project_key") or "").strip()
-    return _normalize_project_key(candidate or settings.active_project_key or "default")
+    return _normalize_dashboard_project_key(candidate or settings.active_project_key or "default")
 
 
-def _dashboard_actor_id_from_request(request: Request | None) -> str:
-    return resolve_request_actor_context(request).actor_id
+def _dashboard_report_mapping(value: object) -> DashboardJsonObject:
+    parsed = _parse_optional_dashboard_json_object(value, field="dashboard report object")
+    result: DashboardJsonObject = {}
+    result.update(parsed)
+    return result
 
 
-def _dashboard_report_mapping(value: Any) -> dict[str, Any]:
-    return dict(value) if isinstance(value, Mapping) else {}
-
-
-def _normalize_dashboard_report_source_refs(value: Any) -> list[dict[str, Any]]:
-    if not isinstance(value, list):
+def _normalize_dashboard_report_source_refs(value: object) -> list[DashboardJsonObject]:
+    if value is None:
         return []
-    refs: list[dict[str, Any]] = []
+    items = _parse_dashboard_json_array(value, field="dashboard source_refs")
+    refs: list[DashboardJsonObject] = []
     seen: set[str] = set()
-    for item in value:
+    for item in items:
         if isinstance(item, str):
-            ref = {"id": item.strip()}
-        elif isinstance(item, Mapping):
-            ref = dict(item)
+            ref: DashboardJsonObject = {"id": item.strip()}
+        elif isinstance(item, dict):
+            ref = {}
+            ref.update(item)
             ref["id"] = str(ref.get("id") or ref.get("source_ref") or ref.get("detail") or "").strip()
         else:
             continue
@@ -713,13 +819,13 @@ def _normalize_dashboard_report_source_refs(value: Any) -> list[dict[str, Any]]:
     return refs
 
 
-def _dashboard_report_json(value: Any) -> str:
+def _dashboard_report_json(value: object) -> str:
     import json
 
     return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True, default=str)
 
 
-def _dashboard_report_title(dashboard: Mapping[str, Any]) -> str:
+def _dashboard_report_title(dashboard: Mapping[str, object]) -> str:
     label = str(dashboard.get("selected_label") or "").strip()
     metric = str(dashboard.get("selected_metric") or dashboard.get("selected_source_ref") or "").strip()
     base = label or metric or "Dashboard filter"
@@ -728,11 +834,11 @@ def _dashboard_report_title(dashboard: Mapping[str, Any]) -> str:
 
 def _dashboard_report_checklist(
     *,
-    filters: Mapping[str, Any],
-    source_refs: list[dict[str, Any]],
-    source_query: Mapping[str, Any],
-    sample_rows: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+    filters: Mapping[str, object],
+    source_refs: list[DashboardJsonObject],
+    source_query: Mapping[str, object],
+    sample_rows: list[DashboardJsonObject],
+) -> list[DashboardJsonObject]:
     return [
         {
             "id": "filters_preserved",
@@ -757,21 +863,25 @@ def _dashboard_report_checklist(
     ]
 
 
-def _dashboard_report_float(value: Any, default: float) -> float:
+def _dashboard_report_float(value: object, default: float) -> float:
     try:
-        return float(value)
+        if isinstance(value, (str, int, float)):
+            return float(value)
     except (TypeError, ValueError):
-        return default
+        pass
+    return default
 
 
-def _dashboard_report_int(value: Any, default: int) -> int:
+def _dashboard_report_int(value: object, default: int) -> int:
     try:
-        return int(value)
+        if isinstance(value, (str, int)):
+            return int(value)
     except (TypeError, ValueError):
-        return default
+        pass
+    return default
 
 
-def _dashboard_report_bool(value: Any, default: bool = False) -> bool:
+def _dashboard_report_bool(value: object, default: bool = False) -> bool:
     if value is None:
         return default
     if isinstance(value, bool):
@@ -789,7 +899,7 @@ def _dashboard_report_bool(value: Any, default: bool = False) -> bool:
 
 def _dashboard_report_quality_gate_mode(
     payload: DashboardReportFromFilterRequest,
-    report_options: Mapping[str, Any],
+    report_options: Mapping[str, object],
 ) -> str:
     raw_mode = (
         payload.quality_gate_mode
@@ -804,7 +914,7 @@ def _dashboard_report_quality_gate_mode(
     return "strict" if strict_requested else "compatible"
 
 
-def _dashboard_report_quality_next_action(report_quality_gate: Mapping[str, Any]) -> str:
+def _dashboard_report_quality_next_action(report_quality_gate: Mapping[str, object]) -> str:
     status = str(report_quality_gate.get("status") or "").strip().lower()
     if status == "blocked":
         return "fix_blocking_quality_gate_reasons_before_generating_report"
@@ -813,7 +923,7 @@ def _dashboard_report_quality_next_action(report_quality_gate: Mapping[str, Any]
     return "continue_to_draft_generation"
 
 
-def _dashboard_report_gate_for_export(report_quality_gate: Mapping[str, Any]) -> dict[str, Any]:
+def _dashboard_report_gate_for_export(report_quality_gate: Mapping[str, object]) -> DashboardJsonObject:
     status = str(report_quality_gate.get("status") or "").strip().lower()
     decision = "pass" if status == "pass" else ("warn" if status == "warn" else "fail")
     blocking_reasons = report_quality_gate.get("blocking_reasons")
@@ -842,17 +952,21 @@ def _dashboard_report_quality_trend_record(
     request_id: str | None,
     project_key: str,
     title: str,
-    source_refs: list[dict[str, Any]],
-    source_query: Mapping[str, Any],
-    report_quality_gate: Mapping[str, Any],
+    source_refs: list[DashboardJsonObject],
+    source_query: Mapping[str, object],
+    report_quality_gate: Mapping[str, object],
     quality_gate_mode: str,
     next_action: str,
-    export_artifact: Mapping[str, Any],
-    document: Mapping[str, Any],
-) -> dict[str, Any]:
+    export_artifact: Mapping[str, object],
+    document: Mapping[str, object],
+) -> DashboardJsonObject:
     gate = _dashboard_report_gate_for_export(report_quality_gate)
     decision = str(gate.get("decision") or "fail").strip().lower() or "fail"
-    evidence = report_quality_gate.get("evidence") if isinstance(report_quality_gate.get("evidence"), Mapping) else {}
+    evidence = _dashboard_report_mapping(report_quality_gate.get("evidence"))
+    expected_source_refs = _dashboard_detail_list(evidence.get("expected_source_refs"))
+    missing_items = _dashboard_detail_list(gate.get("missing_items"))
+    hard_failures = _dashboard_detail_list(gate.get("hard_failures"))
+    soft_failures = _dashboard_detail_list(gate.get("soft_failures"))
     sanitized_artifact = _dashboard_detail_without_secret(export_artifact)
     sanitized_artifact["document_id"] = document.get("id")
     return {
@@ -865,16 +979,16 @@ def _dashboard_report_quality_trend_record(
         "gate_mode": _dashboard_report_gate_mode_for_export(quality_gate_mode),
         "gate_mode_raw": quality_gate_mode,
         "gate_mode_fallback": False,
-        "citation_coverage": float(report_quality_gate.get("source_ref_coverage") or 0.0),
-        "evidence_coverage": float(report_quality_gate.get("source_ref_coverage") or 0.0),
+        "citation_coverage": _dashboard_report_float(report_quality_gate.get("source_ref_coverage"), 0.0),
+        "evidence_coverage": _dashboard_report_float(report_quality_gate.get("source_ref_coverage"), 0.0),
         "source_count": len(source_refs),
-        "source_count_requested": max(len(source_refs), len(evidence.get("expected_source_refs") or [])),
+        "source_count_requested": max(len(source_refs), len(expected_source_refs)),
         "source_count_resolved": len(source_refs),
-        "missing_items_count": len(gate.get("missing_items") or []),
-        "hard_failure_count": len(gate.get("hard_failures") or []),
-        "soft_failure_count": len(gate.get("soft_failures") or []),
-        "hard_failures": gate.get("hard_failures") or [],
-        "soft_failures": gate.get("soft_failures") or [],
+        "missing_items_count": len(missing_items),
+        "hard_failure_count": len(hard_failures),
+        "soft_failure_count": len(soft_failures),
+        "hard_failures": hard_failures,
+        "soft_failures": soft_failures,
         "readiness": "blocked" if decision == "fail" else ("review_required" if decision == "warn" else "ready"),
         "next_action": next_action,
         "source_refs": source_refs,
@@ -892,16 +1006,21 @@ def _dashboard_report_quality_trend_record(
     }
 
 
-def _dashboard_report_source_ref_ids(value: Any) -> list[str]:
+def _dashboard_report_source_ref_ids(value: object) -> list[str]:
     if value is None:
         return []
-    raw_items = value if isinstance(value, list) else [value]
+    raw_items: list[object] = []
+    try:
+        raw_items.extend(_parse_dashboard_json_array(value, field="dashboard source ref ids"))
+    except ValueError:
+        raw_items.append(value)
     ids: list[str] = []
     seen: set[str] = set()
     for item in raw_items:
-        if isinstance(item, Mapping):
-            ref_id = str(item.get("id") or item.get("source_ref") or "").strip()
-        else:
+        try:
+            item_mapping = _dashboard_report_mapping(item)
+            ref_id = str(item_mapping.get("id") or item_mapping.get("source_ref") or "").strip()
+        except ValueError:
             ref_id = str(item or "").strip()
         if ref_id and ref_id not in seen:
             seen.add(ref_id)
@@ -910,8 +1029,8 @@ def _dashboard_report_source_ref_ids(value: Any) -> list[str]:
 
 
 def _dashboard_report_expected_source_ref_ids(
-    dashboard: Mapping[str, Any],
-    source_refs: list[dict[str, Any]],
+    dashboard: Mapping[str, object],
+    source_refs: list[DashboardJsonObject],
 ) -> list[str]:
     expected: list[str] = []
     for key in (
@@ -926,10 +1045,10 @@ def _dashboard_report_expected_source_ref_ids(
                 expected.append(ref_id)
     if expected:
         return expected
-    return [ref["id"] for ref in source_refs if ref.get("id")]
+    return [str(ref["id"]) for ref in source_refs if ref.get("id")]
 
 
-def _dashboard_report_ref_date(ref: Mapping[str, Any]) -> date | None:
+def _dashboard_report_ref_date(ref: Mapping[str, object]) -> date | None:
     for key in (
         "published_at",
         "publish_date",
@@ -960,14 +1079,16 @@ def _dashboard_report_ref_date(ref: Mapping[str, Any]) -> date | None:
     return None
 
 
-def _dashboard_report_trust_score(ref: Mapping[str, Any]) -> float | None:
+def _dashboard_report_trust_score(ref: Mapping[str, object]) -> float | None:
     for key in ("trust_score", "credibility", "confidence", "reliability_score", "source_quality_score"):
         raw_value = ref.get(key)
         if raw_value is None:
             continue
+        if not isinstance(raw_value, (str, int, float)):
+            continue
         try:
             score = float(raw_value)
-        except (TypeError, ValueError):
+        except ValueError:
             continue
         if score > 1.0:
             score = score / 100.0
@@ -982,10 +1103,10 @@ def _dashboard_report_trust_score(ref: Mapping[str, Any]) -> float | None:
 
 def _build_dashboard_report_quality_gate(
     *,
-    dashboard: Mapping[str, Any],
-    source_refs: list[dict[str, Any]],
-    report_options: Mapping[str, Any],
-) -> dict[str, Any]:
+    dashboard: Mapping[str, object],
+    source_refs: list[DashboardJsonObject],
+    report_options: Mapping[str, object],
+) -> DashboardJsonObject:
     total_refs = len(source_refs)
     provided_ids = {str(ref.get("id") or "").strip() for ref in source_refs if str(ref.get("id") or "").strip()}
     expected_ids = _dashboard_report_expected_source_ref_ids(dashboard, source_refs)
@@ -997,7 +1118,10 @@ def _build_dashboard_report_quality_gate(
     min_source_refs = max(1, _dashboard_report_int(report_options.get("min_source_refs"), 1))
     min_coverage = max(0.0, min(1.0, _dashboard_report_float(report_options.get("min_source_ref_coverage"), 1.0)))
     max_stale_ratio = max(0.0, min(1.0, _dashboard_report_float(report_options.get("max_stale_source_ratio"), 0.0)))
-    max_low_trust_ratio = max(0.0, min(1.0, _dashboard_report_float(report_options.get("max_low_trust_source_ratio"), 0.0)))
+    max_low_trust_ratio = max(
+        0.0,
+        min(1.0, _dashboard_report_float(report_options.get("max_low_trust_source_ratio"), 0.0)),
+    )
     min_trust_score = max(0.0, min(1.0, _dashboard_report_float(report_options.get("min_source_trust_score"), 0.6)))
 
     stale_ids: list[str] = []
@@ -1018,7 +1142,7 @@ def _build_dashboard_report_quality_gate(
     stale_ratio = (len(stale_ids) / total_refs) if total_refs else 0.0
     low_trust_ratio = (len(low_trust_ids) / total_refs) if total_refs else 0.0
 
-    checks: list[dict[str, Any]] = []
+    checks: list[DashboardJsonObject] = []
     warnings: list[str] = []
     blocking_reasons: list[str] = []
 
@@ -1111,13 +1235,13 @@ def _render_dashboard_report_body(
     *,
     title: str,
     project_key: str,
-    dashboard: Mapping[str, Any],
-    filters: Mapping[str, Any],
-    source_refs: list[dict[str, Any]],
-    source_query: Mapping[str, Any],
-    sample_rows: list[dict[str, Any]],
-    checklist: list[dict[str, Any]],
-    report_quality_gate: Mapping[str, Any],
+    dashboard: Mapping[str, object],
+    filters: Mapping[str, object],
+    source_refs: list[DashboardJsonObject],
+    source_query: Mapping[str, object],
+    sample_rows: list[DashboardJsonObject],
+    checklist: list[DashboardJsonObject],
+    report_quality_gate: Mapping[str, object],
 ) -> str:
     source_ref_lines = [
         f"- `{ref.get('id')}`"
@@ -1190,9 +1314,9 @@ def _dashboard_pending_action(
     detail: str,
     source_metric: str,
     source_ref: str,
-    filters: Mapping[str, Any] | None = None,
+    filters: Mapping[str, object] | None = None,
     suggested_action: str | None = None,
-) -> dict[str, Any]:
+) -> DashboardJsonObject:
     return {
         "id": action_id,
         "type": action_type,
@@ -1214,12 +1338,12 @@ def _build_dashboard_pending_actions(
     source_total: int,
     source_enabled: int,
     task_failed: int,
-    frontdoor_tri_state: Mapping[str, Any],
-) -> list[dict[str, Any]]:
-    actions: list[dict[str, Any]] = []
+    frontdoor_tri_state: Mapping[str, object],
+) -> list[DashboardJsonObject]:
+    actions: list[DashboardJsonObject] = []
     tri_counts = _as_mapping(frontdoor_tri_state.get("counts"))
-    degraded_count = int(tri_counts.get("degraded_success") or 0)
-    frontdoor_failed_count = int(tri_counts.get("failed") or 0)
+    degraded_count = _dashboard_report_int(tri_counts.get("degraded_success"), 0)
+    frontdoor_failed_count = _dashboard_report_int(tri_counts.get("failed"), 0)
     if degraded_count or frontdoor_failed_count:
         actions.append(
             _dashboard_pending_action(
@@ -1320,43 +1444,48 @@ def _build_dashboard_pending_actions(
     return actions
 
 
-def _decimal_to_float(value):
+def _decimal_to_float(value: object) -> float | None:
     """将Decimal转换为float"""
     if value is None:
         return None
-    return float(value)
+    if isinstance(value, (str, int, float, Decimal)):
+        return float(value)
+    raise DashboardProjectionTypeError(type(value))
 
 
 def _empty_frontdoor_tri_state_counts() -> dict[str, int]:
     return {status: 0 for status in _FRONTDOOR_TRI_STATE_STATUSES}
 
 
-def _as_mapping(value: Any) -> Mapping[str, Any]:
-    return value if isinstance(value, Mapping) else {}
+def _as_mapping(value: object) -> DashboardJsonObject:
+    return _dashboard_report_mapping(value)
 
 
-def _frontdoor_summary_from_params(params: Mapping[str, Any]) -> Mapping[str, Any]:
+def _frontdoor_summary_from_params(params: Mapping[str, object]) -> DashboardJsonObject:
     direct = params.get("frontdoor_status_summary")
-    if isinstance(direct, Mapping):
-        return direct
+    if direct is not None:
+        return _dashboard_report_mapping(direct)
     for parent_key in ("meta", "debug"):
         parent = params.get(parent_key)
-        if isinstance(parent, Mapping) and isinstance(parent.get("frontdoor_status_summary"), Mapping):
-            return parent["frontdoor_status_summary"]
+        parent_mapping = _dashboard_report_mapping(parent)
+        nested = parent_mapping.get("frontdoor_status_summary")
+        if nested is not None:
+            return _dashboard_report_mapping(nested)
     return {}
 
 
-def _build_frontdoor_tri_state_summary(rows: list[Any]) -> dict[str, Any]:
+def _build_frontdoor_tri_state_summary(rows: Sequence[object]) -> DashboardJsonObject:
     counts = _empty_frontdoor_tri_state_counts()
     observed = 0
     for row in rows:
         params = _as_mapping(getattr(row, "params", None))
         summary = _frontdoor_summary_from_params(params)
-        raw_counts = summary.get("dashboard_status_counts") if isinstance(summary, Mapping) else None
-        if not isinstance(raw_counts, Mapping):
+        raw_counts_value = summary.get("dashboard_status_counts")
+        if raw_counts_value is None:
             continue
+        raw_counts = _dashboard_report_mapping(raw_counts_value)
         for status in _FRONTDOOR_TRI_STATE_STATUSES:
-            value = int(raw_counts.get(status) or 0)
+            value = _dashboard_report_int(raw_counts.get(status), 0)
             counts[status] += max(0, value)
             observed += max(0, value)
     return {
@@ -1381,7 +1510,7 @@ def _build_frontdoor_tri_state_summary(rows: list[Any]) -> dict[str, Any]:
     }
 
 
-def _raise_invalid_input_422(message: str, *, field: str, value: str) -> None:
+def _raise_invalid_input_422(message: str, *, field: str, value: str) -> NoReturn:
     raise HTTPException(
         status_code=422,
         detail=error_response(
@@ -1395,7 +1524,7 @@ def _raise_invalid_input_422(message: str, *, field: str, value: str) -> None:
     )
 
 
-def _raise_upstream_error(message: str, *, details: dict | None = None) -> None:
+def _raise_upstream_error(message: str, *, details: DashboardJsonObject | None = None) -> NoReturn:
     raise HTTPException(
         status_code=503,
         detail=error_response(
@@ -1406,7 +1535,7 @@ def _raise_upstream_error(message: str, *, details: dict | None = None) -> None:
     )
 
 
-def _raise_internal_error(message: str, *, details: dict | None = None) -> None:
+def _raise_internal_error(message: str, *, details: DashboardJsonObject | None = None) -> NoReturn:
     raise HTTPException(
         status_code=500,
         detail=error_response(
@@ -1417,7 +1546,7 @@ def _raise_internal_error(message: str, *, details: dict | None = None) -> None:
     )
 
 
-def _parse_ymd_date_param(value: Optional[str], *, field: str) -> Optional[date]:
+def _parse_ymd_date_param(value: str | None, *, field: str) -> date | None:
     if value is None:
         return None
     raw = value.strip()
@@ -1435,7 +1564,7 @@ def _parse_ymd_date_param(value: Optional[str], *, field: str) -> Optional[date]
         )
 
 
-def _parse_iso8601_datetime_param(value: Optional[str], *, field: str) -> Optional[datetime]:
+def _parse_iso8601_datetime_param(value: str | None, *, field: str) -> datetime | None:
     if value is None:
         return None
     raw = value.strip()
@@ -1456,7 +1585,7 @@ def _parse_iso8601_datetime_param(value: Optional[str], *, field: str) -> Option
     return parsed
 
 
-@router.get("/global/stats", response_model=ApiEnvelope[dict[str, Any]])
+@router.get("/global/stats", response_model=ApiEnvelope[DashboardJsonInput])
 def get_global_stats():
     """总库汇总统计（aggregator schema）"""
     from sqlalchemy import text
@@ -1482,7 +1611,7 @@ def get_global_stats():
         })
 
 
-@router.get("/stats", response_model=ApiEnvelope[dict[str, Any]])
+@router.get("/stats", response_model=ApiEnvelope[DashboardJsonInput])
 def get_dashboard_stats(request: Request):
     """获取仪表盘概览统计数据"""
     try:
@@ -1514,7 +1643,7 @@ def get_dashboard_stats(request: Request):
             # 数据源统计
             source_total = session.execute(select(func.count(Source.id))).scalar() or 0
             source_enabled = session.execute(
-                select(func.count(Source.id)).where(Source.enabled == True)
+                select(func.count(Source.id)).where(Source.enabled.is_(True))
             ).scalar() or 0
             
             # 搜索历史统计
@@ -1632,7 +1761,8 @@ def get_dashboard_stats(request: Request):
     except Exception as e:
         logger.exception("获取仪表盘统计数据失败")
         error_msg = str(e)
-        if "Connection" in error_msg or "db" in error_msg.lower() or "database" in error_msg.lower() or "postgres" in error_msg.lower() or "timeout" in error_msg.lower():
+        normalized_error = error_msg.lower()
+        if any(token in normalized_error for token in ("connection", "db", "database", "postgres", "timeout")):
             _raise_upstream_error(
                 "数据库服务不可用，请检查数据库服务是否已启动。",
                 details={
@@ -1647,15 +1777,15 @@ def get_dashboard_stats(request: Request):
         )
 
 
-def _isoformat_or_none(value: Any) -> str | None:
+def _isoformat_or_none(value: object) -> str | None:
     if value is None:
         return None
-    if hasattr(value, "isoformat"):
+    if isinstance(value, (datetime, date)):
         return value.isoformat()
     return str(value)
 
 
-def _serialize_document_drilldown_row(row: Any) -> dict[str, Any]:
+def _serialize_document_drilldown_row(row: object) -> DashboardJsonObject:
     return {
         "id": getattr(row, "id", None),
         "title": getattr(row, "title", None),
@@ -1670,7 +1800,7 @@ def _serialize_document_drilldown_row(row: Any) -> dict[str, Any]:
     }
 
 
-def _serialize_source_drilldown_row(row: Any) -> dict[str, Any]:
+def _serialize_source_drilldown_row(row: object) -> DashboardJsonObject:
     return {
         "id": getattr(row, "id", None),
         "name": getattr(row, "name", None),
@@ -1681,7 +1811,7 @@ def _serialize_source_drilldown_row(row: Any) -> dict[str, Any]:
     }
 
 
-def _serialize_search_history_drilldown_row(row: Any) -> dict[str, Any]:
+def _serialize_search_history_drilldown_row(row: object) -> DashboardJsonObject:
     return {
         "id": getattr(row, "id", None),
         "topic": getattr(row, "topic", None),
@@ -1689,7 +1819,7 @@ def _serialize_search_history_drilldown_row(row: Any) -> dict[str, Any]:
     }
 
 
-def _serialize_task_drilldown_row(row: Any) -> dict[str, Any]:
+def _serialize_task_drilldown_row(row: object) -> DashboardJsonObject:
     return {
         "id": getattr(row, "id", None),
         "job_type": getattr(row, "job_type", None),
@@ -1723,6 +1853,22 @@ _DASHBOARD_DRILLDOWN_ALIASES = {
     "tasks.frontdoor_tri_state": "tasks.frontdoor_tri_state",
 }
 
+DashboardDrilldownResource: TypeAlias = Literal[
+    "documents",
+    "sources",
+    "search_history",
+    "tasks",
+    "tasks.frontdoor_tri_state",
+]
+
+
+@dataclass(frozen=True)
+class DashboardDrilldownConfig:
+    resource: DashboardDrilldownResource
+    table: str
+    columns: tuple[str, ...]
+    base_filters: DashboardJsonObject
+
 
 def _normalize_dashboard_drilldown_key(value: str) -> str:
     raw = value.strip()
@@ -1738,52 +1884,75 @@ def _normalize_dashboard_drilldown_key(value: str) -> str:
     return key
 
 
-def _dashboard_drilldown_config(metric: str) -> dict[str, Any]:
+def _dashboard_drilldown_config(metric: str) -> DashboardDrilldownConfig:
     if metric == "documents":
-        return {
-            "table": "documents",
-            "columns": ["id", "title", "doc_type", "status", "state", "uri", "source_id", "created_at"],
-            "base_filters": {},
-            "query": select(Document).order_by(Document.created_at.desc(), Document.id.desc()),
-            "serializer": _serialize_document_drilldown_row,
-        }
+        return DashboardDrilldownConfig(
+            resource="documents",
+            table="documents",
+            columns=("id", "title", "doc_type", "status", "state", "uri", "source_id", "created_at"),
+            base_filters={},
+        )
     if metric == "sources":
-        return {
-            "table": "sources",
-            "columns": ["id", "name", "kind", "base_url", "enabled", "updated_at"],
-            "base_filters": {},
-            "query": select(Source).order_by(Source.updated_at.desc(), Source.id.desc()),
-            "serializer": _serialize_source_drilldown_row,
-        }
+        return DashboardDrilldownConfig(
+            resource="sources",
+            table="sources",
+            columns=("id", "name", "kind", "base_url", "enabled", "updated_at"),
+            base_filters={},
+        )
     if metric == "search_history":
-        return {
-            "table": "search_history",
-            "columns": ["id", "topic", "last_search_time"],
-            "base_filters": {},
-            "query": select(SearchHistory).order_by(SearchHistory.last_search_time.desc(), SearchHistory.id.desc()),
-            "serializer": _serialize_search_history_drilldown_row,
-        }
+        return DashboardDrilldownConfig(
+            resource="search_history",
+            table="search_history",
+            columns=("id", "topic", "last_search_time"),
+            base_filters={},
+        )
     if metric == "tasks.frontdoor_tri_state":
-        return {
-            "table": "etl_job_runs",
-            "columns": ["id", "job_type", "status", "external_provider", "params", "error"],
-            "base_filters": {"params.frontdoor_status_summary": "present"},
-            "query": select(EtlJobRun).where(EtlJobRun.params.isnot(None)).order_by(EtlJobRun.id.desc()),
-            "serializer": _serialize_task_drilldown_row,
-        }
-    return {
-        "table": "etl_job_runs",
-        "columns": ["id", "job_type", "status", "external_provider", "params", "error"],
-        "base_filters": {},
-        "query": select(EtlJobRun).order_by(EtlJobRun.id.desc()),
-        "serializer": _serialize_task_drilldown_row,
-    }
+        return DashboardDrilldownConfig(
+            resource="tasks.frontdoor_tri_state",
+            table="etl_job_runs",
+            columns=("id", "job_type", "status", "external_provider", "params", "error"),
+            base_filters={"params.frontdoor_status_summary": "present"},
+        )
+    return DashboardDrilldownConfig(
+        resource="tasks",
+        table="etl_job_runs",
+        columns=("id", "job_type", "status", "external_provider", "params", "error"),
+        base_filters={},
+    )
 
 
-@router.get("/drilldown", response_model=ApiEnvelope[dict[str, Any]])
+def _load_dashboard_drilldown_rows(
+    session: Session,
+    config: DashboardDrilldownConfig,
+    *,
+    limit: int,
+) -> list[DashboardJsonObject]:
+    if config.resource == "documents":
+        rows = session.execute(
+            select(Document).order_by(Document.created_at.desc(), Document.id.desc()).limit(limit)
+        ).scalars().all()
+        return [_serialize_document_drilldown_row(row) for row in rows]
+    if config.resource == "sources":
+        rows = session.execute(
+            select(Source).order_by(Source.updated_at.desc(), Source.id.desc()).limit(limit)
+        ).scalars().all()
+        return [_serialize_source_drilldown_row(row) for row in rows]
+    if config.resource == "search_history":
+        rows = session.execute(
+            select(SearchHistory).order_by(SearchHistory.last_search_time.desc(), SearchHistory.id.desc()).limit(limit)
+        ).scalars().all()
+        return [_serialize_search_history_drilldown_row(row) for row in rows]
+    query = select(EtlJobRun)
+    if config.resource == "tasks.frontdoor_tri_state":
+        query = query.where(EtlJobRun.params.isnot(None))
+    rows = session.execute(query.order_by(EtlJobRun.id.desc()).limit(limit)).scalars().all()
+    return [_serialize_task_drilldown_row(row) for row in rows]
+
+
+@router.get("/drilldown", response_model=ApiEnvelope[DashboardJsonInput])
 def get_dashboard_drilldown(
-    metric: Optional[str] = Query(None, description="Dashboard metric key, e.g. documents.total"),
-    source_ref: Optional[str] = Query(None, description="Dashboard source ref id, e.g. dashboard.stats.documents"),
+    metric: str | None = Query(None, description="Dashboard metric key, e.g. documents.total"),
+    source_ref: str | None = Query(None, description="Dashboard source ref id, e.g. dashboard.stats.documents"),
     limit: int = Query(10, ge=1, le=50, description="Maximum sample rows to return"),
 ):
     """Return sample rows and filters for a dashboard metric/source ref."""
@@ -1805,32 +1974,29 @@ def get_dashboard_drilldown(
 
     try:
         config = _dashboard_drilldown_config(normalized_metric)
-        query = config["query"].limit(limit)
         with SessionLocal() as session:
-            rows = session.execute(query).scalars().all()
-        serializer = config["serializer"]
-        sample_rows = [serializer(row) for row in rows]
+            sample_rows = _load_dashboard_drilldown_rows(session, config, limit=limit)
         ref_id = f"dashboard.stats.{normalized_metric}"
         return ok({
             "metric": normalized_metric,
             "source_ref": ref_id,
             "filters": {
-                **config["base_filters"],
+                **config.base_filters,
                 "limit": limit,
             },
             "sample_rows": sample_rows,
             "row_count": len(sample_rows),
             "source_query": _dashboard_source_query(
                 normalized_metric,
-                table=config["table"],
+                table=config.table,
                 metrics=[normalized_metric],
-                filters=config["base_filters"],
+                filters=config.base_filters,
             ),
             "source_refs": [
                 _dashboard_source_ref(
                     normalized_metric,
-                    table=config["table"],
-                    columns=config["columns"],
+                    table=config.table,
+                    columns=list(config.columns),
                 )
             ],
         })
@@ -1854,16 +2020,20 @@ def get_dashboard_drilldown(
         )
 
 
-@router.post("/report-from-filter", response_model=ApiEnvelope[dict[str, Any]])
+@router.post("/report-from-filter", response_model=ApiEnvelope[DashboardJsonInput])
 def create_dashboard_report_from_filter(payload: DashboardReportFromFilterRequest, request: Request):
     """Create a writing draft from Dashboard filters and source references."""
     dashboard = _dashboard_report_mapping(payload.dashboard)
-    report_options = dict(payload.report_options or {})
+    report_options = _dashboard_report_mapping(payload.report_options)
     filters = _dashboard_report_mapping(dashboard.get("filters"))
     source_query = _dashboard_report_mapping(dashboard.get("source_query"))
     source_refs = _normalize_dashboard_report_source_refs(dashboard.get("source_refs"))
-    raw_sample_rows = dashboard.get("sample_rows")
-    sample_rows = [dict(item) for item in raw_sample_rows if isinstance(item, Mapping)] if isinstance(raw_sample_rows, list) else []
+    raw_sample_rows = _dashboard_detail_list(dashboard.get("sample_rows"))
+    sample_rows = [
+        _dashboard_report_mapping(item)
+        for item in raw_sample_rows
+        if isinstance(item, dict)
+    ]
     checklist = _dashboard_report_checklist(
         filters=filters,
         source_refs=source_refs,
@@ -1877,7 +2047,7 @@ def create_dashboard_report_from_filter(payload: DashboardReportFromFilterReques
     )
     quality_gate_mode = _dashboard_report_quality_gate_mode(payload, report_options)
     next_action = _dashboard_report_quality_next_action(report_quality_gate)
-    quality = {
+    quality: DashboardJsonObject = {
         "status": "ready" if source_refs else "blocked",
         "checklist": checklist,
         "report_quality_gate": report_quality_gate,
@@ -1915,7 +2085,7 @@ def create_dashboard_report_from_filter(payload: DashboardReportFromFilterReques
 
     project_key = _dashboard_project_key_from_request(request, payload.project_key)
     title = _dashboard_report_title(dashboard)
-    evidence_metadata = {
+    evidence_metadata: DashboardJsonObject = {
         "contract_version": "dashboard.report_from_filter.v1",
         "request_type": payload.request_type or "report_from_dashboard_filter",
         "project_key": project_key,
@@ -1930,7 +2100,7 @@ def create_dashboard_report_from_filter(payload: DashboardReportFromFilterReques
             "drilldown_filters": _dashboard_report_mapping(dashboard.get("drilldown_filters")),
             "source_query": source_query,
             "source_refs": source_refs,
-            "sample_row_count": int(dashboard.get("sample_row_count") or len(sample_rows) or 0),
+            "sample_row_count": _dashboard_report_int(dashboard.get("sample_row_count"), len(sample_rows)),
         },
         "report_options": report_options,
         "quality": quality,
@@ -1952,7 +2122,7 @@ def create_dashboard_report_from_filter(payload: DashboardReportFromFilterReques
     report_request_id = str(request.headers.get("x-request-id") or "").strip() or None
     evidence_metadata["trace_id"] = report_trace_id
     evidence_metadata["request_id"] = report_request_id
-    export_artifact = build_llm_report_export_artifact(
+    export_artifact = _dashboard_report_mapping(build_llm_report_export_artifact(
         markdown=body_md,
         gate=_dashboard_report_gate_for_export(report_quality_gate),
         gate_mode=_dashboard_report_gate_mode_for_export(quality_gate_mode),
@@ -1965,18 +2135,18 @@ def create_dashboard_report_from_filter(payload: DashboardReportFromFilterReques
         actor_id=actor_context.actor_id,
         ttl_seconds=getattr(settings, "llm_report_export_token_ttl_seconds", 3600),
         one_time_use=bool(getattr(settings, "llm_report_export_one_time_use_enabled", True)),
-    )
+    ))
     export_artifact["actor_context"] = actor_context.to_observability()
     evidence_metadata["export_artifact"] = export_artifact
     try:
         with bind_project(project_key):
-            document = create_document(
+            document = _dashboard_report_mapping(create_document(
                 project_key=project_key,
                 title=title,
                 body_md=body_md,
                 updated_by_user_id="dashboard.report_from_filter",
                 metadata_json=evidence_metadata,
-            )
+            ))
     except ValueError as exc:
         return _error_json(
             400,
@@ -2005,7 +2175,7 @@ def create_dashboard_report_from_filter(payload: DashboardReportFromFilterReques
             job_status="completed" if report_quality_gate.get("status") != "blocked" else "failed",
             source="dashboard_report_from_filter",
         )
-    except Exception:  # noqa: BLE001
+    except _DASHBOARD_RUNTIME_FAILURES:
         logger.exception("记录 dashboard report quality trend 失败")
 
     report_id = f"writing_document:{document.get('id')}"
@@ -2040,17 +2210,17 @@ def create_dashboard_report_from_filter(payload: DashboardReportFromFilterReques
     )
 
 
-@router.get("/document-analysis", response_model=ApiEnvelope[dict[str, Any]])
+@router.get("/document-analysis", response_model=ApiEnvelope[DashboardJsonInput])
 def get_document_analysis(
-    start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
-    end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD"),
 ):
     """获取文档分析数据"""
     start = _parse_ymd_date_param(start_date, field="start_date")
     end = _parse_ymd_date_param(end_date, field="end_date")
 
     with SessionLocal() as session:
-        conditions = []
+        conditions: list[ColumnElement[bool]] = []
         if start:
             conditions.append(func.date(Document.created_at) >= start)
         if end:
@@ -2144,10 +2314,10 @@ def get_document_analysis(
         })
 
 
-@router.get("/sentiment-analysis", response_model=ApiEnvelope[dict[str, Any]])
+@router.get("/sentiment-analysis", response_model=ApiEnvelope[DashboardJsonInput])
 def get_sentiment_analysis(
-    start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
-    end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD"),
 ):
     """获取社交媒体情感分析数据"""
     start = _parse_ymd_date_param(start_date, field="start_date")
@@ -2156,36 +2326,26 @@ def get_sentiment_analysis(
     graph_doc_types = resolve_graph_doc_types()
     social_doc_types = graph_doc_types.get("social") or ["social_sentiment", "social_feed"]
     with SessionLocal() as session:
-        conditions = [
+        conditions: list[ColumnElement[bool]] = [
             *document_queries.social_document_base_conditions(social_doc_types),
         ]
         
         if start:
             # 使用发布时间过滤，如果没有发布时间则使用创建时间
-            conditions.append(
-                or_(
-                    Document.publish_date >= start,
-                    and_(Document.publish_date.is_(None), func.date(Document.created_at) >= start)
-                )
-            )
+            conditions.append(document_queries.document_publish_or_created_on_or_after_condition(start))
         if end:
             # 使用发布时间过滤，如果没有发布时间则使用创建时间
-            conditions.append(
-                or_(
-                    Document.publish_date <= end,
-                    and_(Document.publish_date.is_(None), func.date(Document.created_at) <= end)
-                )
-            )
+            conditions.append(document_queries.document_publish_or_created_on_or_before_condition(end))
         
         query = select(Document).where(and_(*conditions))
         docs = session.execute(query).scalars().all()
         
         # 情感分布统计
-        sentiment_counts = {"positive": 0, "negative": 0, "neutral": 0, "unknown": 0}
-        platform_counts = {}
-        platform_sentiment = {}  # 每个平台的情感分布
-        sentiment_trend = {}
-        keyword_counts = {}  # 关键词统计
+        sentiment_counts: dict[str, int] = {"positive": 0, "negative": 0, "neutral": 0, "unknown": 0}
+        platform_counts: dict[str, int] = {}
+        platform_sentiment: dict[str, dict[str, int]] = {}
+        sentiment_trend: dict[str, dict[str, int]] = {}
+        keyword_counts: dict[str, int] = {}
         
         for doc in docs:
             sentiment = get_social_sentiment_orientation(doc)
@@ -2195,7 +2355,7 @@ def get_sentiment_analysis(
                 sentiment_counts["unknown"] = sentiment_counts.get("unknown", 0) + 1
             
             # 平台统计
-            platform = get_social_platform_label(doc)
+            platform = get_social_platform_label(doc) or "unknown"
             platform_counts[platform] = platform_counts.get(platform, 0) + 1
             
             # 平台情感分布统计
@@ -2207,9 +2367,15 @@ def get_sentiment_analysis(
                 platform_sentiment[platform]["unknown"] = platform_sentiment[platform].get("unknown", 0) + 1
             
             # 情感趋势（按日期）- 使用发布时间，如果没有则使用创建时间
-            date_for_trend = doc.publish_date if doc.publish_date else (doc.created_at.date() if doc.created_at else None)
-            if date_for_trend:
-                date_key = date_for_trend.isoformat() if isinstance(date_for_trend, date) else date_for_trend
+            publish_date = getattr(doc, "publish_date", None)
+            created_at = getattr(doc, "created_at", None)
+            date_for_trend = (
+                publish_date
+                if isinstance(publish_date, date)
+                else created_at.date() if isinstance(created_at, datetime) else None
+            )
+            if date_for_trend is not None:
+                date_key = date_for_trend.isoformat()
                 if date_key not in sentiment_trend:
                     sentiment_trend[date_key] = {"positive": 0, "negative": 0, "neutral": 0}
                 if sentiment in ["positive", "negative", "neutral"]:
@@ -2222,7 +2388,7 @@ def get_sentiment_analysis(
                     keyword_counts[term_lower] = keyword_counts.get(term_lower, 0) + 1
         
         # 转换趋势数据为列表格式
-        trend_series = []
+        trend_series: list[DashboardJsonObject] = []
         for date_key in sorted(sentiment_trend.keys()):
             trend_series.append({
                 "date": date_key,
@@ -2230,7 +2396,7 @@ def get_sentiment_analysis(
             })
         
         # 平台分布（包含情感数据）
-        platform_distribution = []
+        platform_distribution: list[DashboardJsonObject] = []
         for platform, count in platform_counts.items():
             platform_distribution.append({
                 "platform": platform,
@@ -2247,7 +2413,7 @@ def get_sentiment_analysis(
             key=lambda x: x[1],
             reverse=True
         )[:20]
-        keyword_ranking_list = [
+        keyword_ranking_list: list[DashboardJsonObject] = [
             {"keyword": keyword, "count": count}
             for keyword, count in keyword_ranking
         ]
@@ -2261,12 +2427,12 @@ def get_sentiment_analysis(
         })
 
 
-@router.get("/sentiment-sources", response_model=ApiEnvelope[dict[str, Any]])
+@router.get("/sentiment-sources", response_model=ApiEnvelope[DashboardJsonInput])
 def get_sentiment_sources(
-    sentiment: Optional[str] = Query(None, description="情感类型: positive, negative, neutral, unknown"),
-    platform: Optional[str] = Query(None, description="平台名称"),
-    start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
-    end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
+    sentiment: str | None = Query(None, description="情感类型: positive, negative, neutral, unknown"),
+    platform: str | None = Query(None, description="平台名称"),
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD"),
     limit: int = Query(default=50, ge=1, le=200, description="返回数量限制"),
 ):
     """根据筛选条件获取数据源列表"""
@@ -2276,32 +2442,22 @@ def get_sentiment_sources(
     graph_doc_types = resolve_graph_doc_types()
     social_doc_types = graph_doc_types.get("social") or ["social_sentiment", "social_feed"]
     with SessionLocal() as session:
-        conditions = [
+        conditions: list[ColumnElement[bool]] = [
             *document_queries.social_document_base_conditions(social_doc_types),
         ]
         
         if start:
             # 使用发布时间过滤，如果没有发布时间则使用创建时间
-            conditions.append(
-                or_(
-                    Document.publish_date >= start,
-                    and_(Document.publish_date.is_(None), func.date(Document.created_at) >= start)
-                )
-            )
+            conditions.append(document_queries.document_publish_or_created_on_or_after_condition(start))
         if end:
             # 使用发布时间过滤，如果没有发布时间则使用创建时间
-            conditions.append(
-                or_(
-                    Document.publish_date <= end,
-                    and_(Document.publish_date.is_(None), func.date(Document.created_at) <= end)
-                )
-            )
+            conditions.append(document_queries.document_publish_or_created_on_or_before_condition(end))
         
         query = select(Document).where(and_(*conditions))
         docs = session.execute(query).scalars().all()
         
         # 根据情感和平台筛选
-        filtered_docs = []
+        filtered_docs: list[object] = []
         for doc in docs:
             doc_sentiment = get_social_sentiment_orientation(doc)
             doc_platform = get_social_platform_label(doc)
@@ -2326,17 +2482,17 @@ def get_sentiment_sources(
         filtered_docs = filtered_docs[:limit]
         
         # 构建返回数据
-        sources = []
+        sources: list[DashboardJsonObject] = []
         for doc in filtered_docs:
             sources.append({
-                "id": doc.id,
-                "title": doc.title or "无标题",
-                "uri": doc.uri,
+                "id": getattr(doc, "id", None),
+                "title": getattr(doc, "title", None) or "无标题",
+                "uri": getattr(doc, "uri", None),
                 "platform": get_social_platform_label(doc),
                 "sentiment": get_social_sentiment_orientation(doc, default="unknown"),
-                "created_at": doc.created_at.isoformat() if doc.created_at else None,
-                "publish_date": doc.publish_date.isoformat() if doc.publish_date else None,
-                "summary": doc.summary or "",
+                "created_at": _isoformat_or_none(getattr(doc, "created_at", None)),
+                "publish_date": _isoformat_or_none(getattr(doc, "publish_date", None)),
+                "summary": getattr(doc, "summary", None) or "",
             })
         
         return ok({
@@ -2351,10 +2507,10 @@ def get_sentiment_sources(
         })
 
 
-@router.get("/task-monitoring", response_model=ApiEnvelope[dict[str, Any]])
+@router.get("/task-monitoring", response_model=ApiEnvelope[DashboardJsonInput])
 def get_task_monitoring(
     limit: int = Query(default=50, ge=1, le=500),
-    status: Optional[str] = Query(None, description="任务状态过滤"),
+    status: str | None = Query(None, description="任务状态过滤"),
 ):
     """获取任务监控数据"""
     with SessionLocal() as session:
@@ -2389,22 +2545,24 @@ def get_task_monitoring(
         ]
         
         # 最近任务列表
-        recent_tasks = []
+        recent_tasks: list[DashboardJsonObject] = []
         for task in tasks:
-            duration = None
-            if task.started_at and task.finished_at:
-                duration = (task.finished_at - task.started_at).total_seconds()
-            elif task.started_at:
-                duration = (datetime.now(task.started_at.tzinfo) - task.started_at).total_seconds()
+            duration: float | None = None
+            started_at = getattr(task, "started_at", None)
+            finished_at = getattr(task, "finished_at", None)
+            if isinstance(started_at, datetime) and isinstance(finished_at, datetime):
+                duration = (finished_at - started_at).total_seconds()
+            elif isinstance(started_at, datetime):
+                duration = (datetime.now(started_at.tzinfo) - started_at).total_seconds()
             
             recent_tasks.append({
-                "id": task.id,
-                "job_type": task.job_type,
-                "status": task.status,
-                "started_at": task.started_at.isoformat() if task.started_at else None,
-                "finished_at": task.finished_at.isoformat() if task.finished_at else None,
+                "id": getattr(task, "id", None),
+                "job_type": getattr(task, "job_type", None),
+                "status": getattr(task, "status", None),
+                "started_at": _isoformat_or_none(started_at),
+                "finished_at": _isoformat_or_none(finished_at),
                 "duration_seconds": duration,
-                "error": task.error,
+                "error": getattr(task, "error", None),
             })
         
         return ok({
@@ -2413,7 +2571,7 @@ def get_task_monitoring(
         })
 
 
-@router.get("/search-analytics", response_model=ApiEnvelope[dict[str, Any]])
+@router.get("/search-analytics", response_model=ApiEnvelope[DashboardJsonInput])
 def get_search_analytics(limit: int = Query(default=50, ge=1, le=500)):
     """获取搜索行为分析数据"""
     with SessionLocal() as session:
@@ -2424,12 +2582,13 @@ def get_search_analytics(limit: int = Query(default=50, ge=1, le=500)):
         history = session.execute(query).scalars().all()
         
         # 统计每个主题的搜索次数（基于topic唯一性，实际是last_search_time）
-        topic_counts = {}
+        topic_counts: dict[str, int] = {}
         for h in history:
-            topic_counts[h.topic] = topic_counts.get(h.topic, 0) + 1
+            topic = str(getattr(h, "topic", "") or "").strip()
+            topic_counts[topic] = topic_counts.get(topic, 0) + 1
         
         # 转换为列表并排序
-        popular_topics = [
+        popular_topics: list[DashboardJsonObject] = [
             {"topic": topic, "count": count}
             for topic, count in sorted(topic_counts.items(), key=lambda x: x[1], reverse=True)
         ]
@@ -2456,11 +2615,11 @@ def get_search_analytics(limit: int = Query(default=50, ge=1, le=500)):
         })
 
 
-@router.get("/commodity-trends", response_model=ApiEnvelope[dict[str, Any]])
+@router.get("/commodity-trends", response_model=ApiEnvelope[DashboardJsonInput])
 def get_commodity_trends(
-    metric_key: Optional[str] = Query(None),
-    start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
-    end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
+    metric_key: str | None = Query(None),
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD"),
     period: str = Query("daily", pattern="^(daily|monthly)$"),
 ):
     start = _parse_ymd_date_param(start_date, field="start_date")
@@ -2476,17 +2635,16 @@ def get_commodity_trends(
             query = query.where(MarketMetricPoint.date <= end)
 
         if period == "monthly":
+            monthly_query = select(
+                func.date_trunc("month", MarketMetricPoint.date).label("month"),
+                MarketMetricPoint.metric_key,
+                func.avg(MarketMetricPoint.value).label("avg_value"),
+                func.count(MarketMetricPoint.id).label("count"),
+            )
+            if metric_key:
+                monthly_query = monthly_query.where(MarketMetricPoint.metric_key == metric_key)
             rows = session.execute(
-                select(
-                    func.date_trunc("month", MarketMetricPoint.date).label("month"),
-                    MarketMetricPoint.metric_key,
-                    func.avg(MarketMetricPoint.value).label("avg_value"),
-                    func.count(MarketMetricPoint.id).label("count"),
-                )
-                .where(
-                    MarketMetricPoint.metric_key == metric_key if metric_key else True
-                )
-                .group_by(func.date_trunc("month", MarketMetricPoint.date), MarketMetricPoint.metric_key)
+                monthly_query.group_by(func.date_trunc("month", MarketMetricPoint.date), MarketMetricPoint.metric_key)
                 .order_by(func.date_trunc("month", MarketMetricPoint.date))
             ).all()
             series = [
@@ -2502,7 +2660,7 @@ def get_commodity_trends(
             rows = session.execute(query.order_by(MarketMetricPoint.date.asc())).scalars().all()
             series = [
                 {
-                    "date": row.date.isoformat() if row.date else None,
+                    "date": _isoformat_or_none(getattr(row, "date", None)),
                     "metric_key": row.metric_key,
                     "value": _decimal_to_float(row.value),
                     "unit": row.unit,
@@ -2529,11 +2687,11 @@ def get_commodity_trends(
         })
 
 
-@router.get("/ecom-price-trends", response_model=ApiEnvelope[dict[str, Any]])
+@router.get("/ecom-price-trends", response_model=ApiEnvelope[DashboardJsonInput])
 def get_ecom_price_trends(
-    product_id: Optional[int] = Query(None),
-    start_date: Optional[str] = Query(None, description="开始时间 ISO8601"),
-    end_date: Optional[str] = Query(None, description="结束时间 ISO8601"),
+    product_id: int | None = Query(None),
+    start_date: str | None = Query(None, description="开始时间 ISO8601"),
+    end_date: str | None = Query(None, description="结束时间 ISO8601"),
 ):
     start_dt = _parse_iso8601_datetime_param(start_date, field="start_date")
     end_dt = _parse_iso8601_datetime_param(end_date, field="end_date")

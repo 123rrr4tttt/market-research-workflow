@@ -8,10 +8,10 @@ persisted fragment bytes.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any, Literal, get_args
+from collections.abc import Mapping, Sequence
+from typing import Literal, TypeAlias, TypeGuard, Union, get_args
 
-from functorial_kit import define_codec, define_failure_family
+from functorial_kit import Failure, define_codec, define_failure_family
 
 
 SharedFamilyGeneratorFailureCode = Literal[
@@ -32,10 +32,33 @@ shared_family_generator_failures = define_failure_family(
 )
 
 
-def _parse_fragment(value: Mapping[str, Any]) -> Mapping[str, Any]:
+SharedFamilyFragmentValue: TypeAlias = Union[
+    None,
+    bool,
+    int,
+    float,
+    str,
+    Mapping[str, "SharedFamilyFragmentValue"],
+    Sequence["SharedFamilyFragmentValue"],
+]
+SharedFamilyFragment: TypeAlias = Mapping[str, SharedFamilyFragmentValue]
+
+
+def _is_fragment(value: Mapping[str, object]) -> TypeGuard[SharedFamilyFragment]:
     identity_fields = ("family", "fragment_id", "phase", "schema", "status")
-    missing = [field for field in identity_fields if not isinstance(value.get(field), str)]
-    if missing:
+    return all(isinstance(value.get(field), str) for field in identity_fields)
+
+
+def _parse_fragment(
+    value: Mapping[str, object],
+) -> SharedFamilyFragment | Failure:
+    if not _is_fragment(value):
+        identity_fields = ("family", "fragment_id", "phase", "schema", "status")
+        missing = [
+            field
+            for field in identity_fields
+            if not isinstance(value.get(field), str)
+        ]
         return shared_family_generator_failures.fail(
             "fragment_invariant_invalid",
             "fragment identity fields must be strings",

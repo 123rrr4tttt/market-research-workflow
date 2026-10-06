@@ -5,12 +5,12 @@ from datetime import datetime, timezone
 import logging
 import re
 import time
-from types import SimpleNamespace
-from typing import Any
+from typing import Any, NoReturn, TypeGuard
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
 from fastapi.encoders import jsonable_encoder
+from functorial_kit import Failure
 from pydantic import BaseModel, Field
 
 from ..contracts import ErrorCode, error_response
@@ -31,7 +31,6 @@ from ..services.agent_batch.task_contract import (
     build_agent_batch_approval_argv,
     build_agent_batch_dispatch_invocation,
     build_agent_batch_execution_registry,
-    build_agent_batch_submit_item_data,
     build_source_library_override_params,
     get_allowed_override_params_by_channel,
     get_agent_batch_known_channels,
@@ -42,7 +41,7 @@ from ..services.agent_batch.task_contract import (
 from ..services.collect_runtime.delivery import observe_delivery
 from ..services.agent_sessions import get_agent_session_service
 from ..services.task_readback_metadata import build_runtime_readback_payload
-from ..services.skill_runtime import invoke_skill
+from ..services.skill_runtime import SkillInvocation, invoke_skill
 from ..services import tasks as tasks_module
 from ..services.projects import current_project_key
 from ..services.workflow_graph.handoff_store import handoff_store
@@ -59,7 +58,7 @@ _READBACK_LINE_KEYS_BY_CHANNEL = {
 }
 
 
-def _raise_invalid_input(message: str) -> None:
+def _raise_invalid_input(message: str) -> NoReturn:
     raise HTTPException(
         status_code=400,
         detail=error_response(
@@ -69,7 +68,7 @@ def _raise_invalid_input(message: str) -> None:
     )
 
 
-def _raise_not_found(message: str) -> None:
+def _raise_not_found(message: str) -> NoReturn:
     raise HTTPException(
         status_code=404,
         detail=error_response(
@@ -79,7 +78,7 @@ def _raise_not_found(message: str) -> None:
     )
 
 
-def _raise_agent_runtime_retired() -> None:
+def _raise_agent_runtime_retired() -> NoReturn:
     detail = error_response(
         ErrorCode.INVALID_INPUT,
         "agent batch natural-language command execution is retired; submit structured jobs",
@@ -96,18 +95,64 @@ def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _empty_string_list() -> list[str]:
+    return []
+
+
+def _empty_object_dict() -> dict[str, Any]:
+    return {}
+
+
+def _empty_batch_item_list() -> list["_BatchItemRecord"]:
+    return []
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    return dict(value) if _is_object_dict(value) else {}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_list(value: object) -> list[object]:
+    return list(value) if _is_object_list(value) else []
+
+
+def _normalized_string_set(value: object) -> set[str]:
+    normalized: set[str] = set()
+    for entry in _object_list(value):
+        text = str(entry or "").strip().lower()
+        if text:
+            normalized.add(text)
+    return normalized
+
+
+@dataclass(slots=True)
+class _SnapshotDeliveryView:
+    status: str | None
+    provider_job_id: str | None
+    provider_type: str | None
+    provider_status: str | None
+    meta: dict[str, object] | None
+
+
 @dataclass
 class _BatchItemRecord:
     item_id: str
     item_key: str
     project_key: str | None
     channel: str | None = None
-    query_terms: list[str] = field(default_factory=list)
+    query_terms: list[str] = field(default_factory=_empty_string_list)
     max_items: int | None = None
     provider: str | None = None
     language: str | None = None
     days_back: int | None = None
-    override_params: dict[str, Any] = field(default_factory=dict)
+    override_params: dict[str, Any] = field(default_factory=_empty_object_dict)
     task_id: str = ""
     lane: str | None = None
     workflow_run_id: str | None = None
@@ -121,8 +166,8 @@ class _BatchJobRecord:
     project_key: str | None
     created_at: str = field(default_factory=_utcnow_iso)
     idempotency_key: str | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-    items: list[_BatchItemRecord] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=_empty_object_dict)
+    items: list[_BatchItemRecord] = field(default_factory=_empty_batch_item_list)
 
 
 _BATCH_JOB_REGISTRY: dict[str, _BatchJobRecord] = {}
@@ -235,7 +280,7 @@ def _resolve_item_key(job: AgentBatchItemSubmit) -> str:
 
 
 def _normalize_query_terms(raw: list[str]) -> list[str]:
-    cleaned = []
+    cleaned: list[str] = []
     for term in raw:
         value = str(term or "").strip()
         if value and value not in cleaned:
@@ -243,30 +288,8 @@ def _normalize_query_terms(raw: list[str]) -> list[str]:
     return cleaned
 
 
-def _extract_query_terms_from_command(command: str) -> list[str]:
-    text = str(command or "").strip()
-    if not text:
-        return []
-    separators = r"[，,、；;和与及\|/]+"
-    segments = [seg.strip() for seg in re.split(separators, text) if seg.strip()]
-    if not segments:
-        return [text]
-    return _normalize_query_terms(segments[:6])
-
-
 def _detect_language(command: str) -> str:
     return "zh" if re.search(r"[\u4e00-\u9fff]", command or "") else "en"
-
-
-def _extract_days_back(command: str) -> int:
-    text = str(command or "")
-    m_cn = re.search(r"最近\s*(\d{1,3})\s*天", text)
-    if m_cn:
-        return max(1, min(365, int(m_cn.group(1))))
-    m_en = re.search(r"last\s+(\d{1,3})\s+days?", text, flags=re.IGNORECASE)
-    if m_en:
-        return max(1, min(365, int(m_en.group(1))))
-    return 7
 
 
 def _load_job(job_id: str) -> _BatchJobRecord:
@@ -294,6 +317,8 @@ def _project_agent_session_from_job_submission(
             rule_set_id=request_payload.rule_set_id,
         )
     except Exception:
+        return None
+    if isinstance(bundle, Failure):
         return None
     session = dict(bundle.get("session") or {})
     session_id = str(session.get("session_id") or "").strip()
@@ -343,7 +368,9 @@ def _project_agent_session_from_job_state(
         )
     except Exception:
         return None
-    session = dict((bundle or {}).get("session") or {})
+    if bundle is None or isinstance(bundle, Failure):
+        return None
+    session = dict(bundle.get("session") or {})
     return session or None
 
 
@@ -388,10 +415,10 @@ def _job_progress_from_snapshots(snapshots: list[dict[str, Any]]) -> dict[str, i
 
 def _delivery_from_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
     """Read recorded worker and provider facts without treating ACK as delivery."""
-    result = snapshot.get("result") if isinstance(snapshot.get("result"), dict) else {}
-    terminal_output = result.get("terminal_output") if isinstance(result.get("terminal_output"), dict) else {}
-    terminal_meta = terminal_output.get("meta") if isinstance(terminal_output.get("meta"), dict) else {}
-    handoff = terminal_meta.get("provider_handoff") if isinstance(terminal_meta.get("provider_handoff"), dict) else {}
+    result = _object_dict(snapshot.get("result"))
+    terminal_output = _object_dict(result.get("terminal_output"))
+    terminal_meta = _object_dict(terminal_output.get("meta"))
+    handoff = _object_dict(terminal_meta.get("provider_handoff"))
     readback = terminal_meta.get("terminal_readback") or result.get("terminal_readback")
     worker_state = str(snapshot.get("status") or "").strip().lower()
     worker_status = {
@@ -399,12 +426,17 @@ def _delivery_from_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
         "failure": "failed",
         "revoked": "cancelled",
     }.get(worker_state, worker_state or "unknown")
-    provider_job_id = result.get("provider_job_id") or terminal_meta.get("provider_job_id") or handoff.get("provider_job_id")
-    provider_status = result.get("provider_status") or handoff.get("provider_status") or terminal_output.get("status")
-    observed = observe_delivery(SimpleNamespace(
+    provider_job_id = str(
+        result.get("provider_job_id") or terminal_meta.get("provider_job_id") or handoff.get("provider_job_id") or ""
+    ).strip() or None
+    provider_status = str(
+        result.get("provider_status") or handoff.get("provider_status") or terminal_output.get("status") or ""
+    ).strip() or None
+    provider_type = str(result.get("provider_type") or handoff.get("provider_type") or "").strip() or None
+    observed = observe_delivery(_SnapshotDeliveryView(
         status=worker_status,
         provider_job_id=provider_job_id,
-        provider_type=result.get("provider_type") or handoff.get("provider_type"),
+        provider_type=provider_type,
         provider_status=provider_status,
         meta={"terminal_readback": readback},
     ), expected_delivery="unknown")
@@ -479,7 +511,7 @@ def _await_job_completion(*, job_id: str, timeout_seconds: int, poll_seconds: fl
                 record=record, snapshots=last_snapshots,
                 phase=summary["phase"], progress=summary["progress"],
             )
-            items = []
+            items: list[dict[str, Any]] = []
             for item, snap in zip(record.items, last_snapshots):
                 run_id = _resolve_run_id(item, snap)
                 items.append(
@@ -509,6 +541,9 @@ def _await_job_completion(*, job_id: str, timeout_seconds: int, poll_seconds: fl
         time.sleep(poll)
 
 
+agent_batch_await_job_completion = _await_job_completion
+
+
 def _build_failure_reason_metrics(limit: int = 20) -> dict[str, Any]:
     safe_limit = max(1, min(int(limit or 20), 100))
     reason_counts: dict[str, int] = {}
@@ -522,8 +557,9 @@ def _build_failure_reason_metrics(limit: int = 20) -> dict[str, Any]:
                 continue
             result = snap.get("result")
             reason_code = "task_failed"
-            if isinstance(result, dict):
-                reason_code = str(result.get("reason_code") or result.get("code") or reason_code).strip() or reason_code
+            result_object = _object_dict(result)
+            if result_object:
+                reason_code = str(result_object.get("reason_code") or result_object.get("code") or reason_code).strip() or reason_code
             elif result is not None:
                 reason_text = str(result)
                 if "unsupported collect channel" in reason_text:
@@ -644,15 +680,15 @@ def _resolve_run_id(item: _BatchItemRecord, task_snapshot: dict[str, Any]) -> st
     pinned = str(item.workflow_run_id or "").strip()
     if pinned:
         return pinned
-    result = task_snapshot.get("result")
-    if isinstance(result, dict):
+    result = _object_dict(task_snapshot.get("result"))
+    if result:
         for key in ("run_id", "workflow_run_id"):
             value = str(result.get(key) or "").strip()
             if value:
                 return value
         for parent in ("data", "meta", "persistence", "workflow_graph"):
-            nested = result.get(parent)
-            if not isinstance(nested, dict):
+            nested = _object_dict(result.get(parent))
+            if not nested:
                 continue
             for key in ("run_id", "workflow_run_id"):
                 value = str(nested.get(key) or "").strip()
@@ -665,7 +701,7 @@ def _resolve_run_id(item: _BatchItemRecord, task_snapshot: dict[str, Any]) -> st
     return None
 
 
-def _invoke_agent_batch_dispatch(channel: str, payload: dict[str, Any], *, trace_id: str | None) -> dict[str, Any]:
+def _invoke_agent_batch_dispatch(channel: str, payload: dict[str, Any], *, trace_id: str | None) -> SkillInvocation:
     invocation = build_agent_batch_dispatch_invocation(channel, payload, trace_id=trace_id)
     return invoke_skill(
         skill_id=str(invocation.get("skill_id") or ""),
@@ -704,10 +740,11 @@ def _submit_source_item(
         },
         trace_id=trace_id,
     )
-    result = invoked.get("result")
-    if not isinstance(result, dict) or not str(result.get("task_id") or "").strip():
+    result = _object_dict(invoked["result"])
+    task_id = str(result.get("task_id") or "").strip()
+    if not task_id:
         raise RuntimeError("skill dispatch returned no task_id for source_library_item")
-    return str(result.get("task_id"))
+    return task_id
 
 
 def _submit_market_collect(
@@ -748,10 +785,11 @@ def _submit_market_collect(
         },
         trace_id=trace_id,
     )
-    result = invoked.get("result")
-    if not isinstance(result, dict) or not str(result.get("task_id") or "").strip():
+    result = _object_dict(invoked["result"])
+    task_id = str(result.get("task_id") or "").strip()
+    if not task_id:
         raise RuntimeError("skill dispatch returned no task_id for market_collect")
-    return str(result.get("task_id"))
+    return task_id
 
 
 def _skill_dispatch_source_library_item(payload: dict[str, Any]) -> dict[str, Any]:
@@ -882,8 +920,7 @@ def _enforce_search_market_rule_set(job: AgentBatchItemSubmit, rule_set: dict[st
                 "details": {"requested": requested, "cap": cap},
             }
 
-    allowlist_raw = rule_set.get("provider_allowlist")
-    allowlist = {str(x or "").strip().lower() for x in allowlist_raw or [] if str(x or "").strip()}
+    allowlist = _normalized_string_set(rule_set.get("provider_allowlist"))
     provider = str(job.provider or "auto").strip().lower()
     if allowlist and provider not in allowlist:
         return {
@@ -973,9 +1010,18 @@ def _submit_source_library_job(
     }
 
 
+_TASK_CONTRACT_EXPORTS = {
+    "_submit_search_market_job": _submit_search_market_job,
+    "_enforce_search_market_rule_set": _enforce_search_market_rule_set,
+    "_skill_dispatch_market_collect": _skill_dispatch_market_collect,
+    "_submit_source_library_job": _submit_source_library_job,
+    "_skill_dispatch_source_library_item": _skill_dispatch_source_library_item,
+}
+
+
 _CHANNEL_EXECUTION_REGISTRY = build_agent_batch_execution_registry(
     execution_bindings=list_agent_batch_execution_bindings(),
-    globals_map=globals(),
+    globals_map={**globals(), **_TASK_CONTRACT_EXPORTS},
 )
 
 
@@ -1008,8 +1054,7 @@ def _guard_batch_item(
             "details": {"channel": channel},
         }
 
-    blocked_channels_raw = rule_set.get("blocked_channels")
-    blocked_channels = {str(x or "").strip().lower() for x in blocked_channels_raw or [] if str(x or "").strip()}
+    blocked_channels = _normalized_string_set(rule_set.get("blocked_channels"))
     if channel in blocked_channels:
         return {
             "reason_code": "channel_blocked_by_rule_set",
@@ -1221,8 +1266,9 @@ def submit_agent_batch_job(payload: AgentBatchSubmitRequest) -> dict[str, Any]:
                 }
             )
         except HTTPException as exc:
-            detail = exc.detail if isinstance(exc.detail, dict) else {}
-            error = detail.get("error") if isinstance(detail, dict) else {}
+            detail = _object_dict(exc.detail)
+            error = _object_dict(detail.get("error"))
+            error_details = _object_dict(error.get("details"))
             rejected.append(
                 {
                     "index": idx,
@@ -1230,7 +1276,7 @@ def submit_agent_batch_job(payload: AgentBatchSubmitRequest) -> dict[str, Any]:
                     "reason": str(error.get("message") or exc.detail or "dispatch error"),
                     "details": {
                         "error_code": error.get("code"),
-                        **(dict(error.get("details") or {}) if isinstance(error, dict) else {}),
+                        **error_details,
                     },
                 }
             )
@@ -1318,7 +1364,7 @@ def list_agent_batch_items(job_id: str) -> dict[str, Any]:
     _project_agent_session_from_job_state(
         record=record, snapshots=snapshots, phase=summary["phase"], progress=summary["progress"]
     )
-    items = []
+    items: list[dict[str, Any]] = []
     for item, snap in zip(record.items, snapshots):
         run_id = _resolve_run_id(item, snap)
         items.append(
@@ -1438,14 +1484,15 @@ def get_agent_batch_events(job_id: str) -> dict[str, Any]:
     _project_agent_session_from_job_state(
         record=record, snapshots=snapshots, phase=summary["phase"], progress=summary["progress"]
     )
-    events = []
+    events: list[dict[str, Any]] = []
     search_brief = dict((record.metadata or {}).get("search_brief") or {})
     search_critic = dict((record.metadata or {}).get("search_critic") or {})
     search_retry = dict((record.metadata or {}).get("search_retry") or {})
-    submit_rounds = list((record.metadata or {}).get("submit_rounds") or [])
-    search_brief_stage = dict(((record.metadata or {}).get("stage_artifacts") or {}).get("search_brief") or {})
-    search_critic_stage = dict(((record.metadata or {}).get("stage_artifacts") or {}).get("search_critic") or {})
-    search_retry_stage = dict(((record.metadata or {}).get("stage_artifacts") or {}).get("search_retry") or {})
+    submit_rounds = [_object_dict(entry) for entry in _object_list((record.metadata or {}).get("submit_rounds"))]
+    stage_artifacts = _object_dict((record.metadata or {}).get("stage_artifacts"))
+    search_brief_stage = _object_dict(stage_artifacts.get("search_brief"))
+    search_critic_stage = _object_dict(stage_artifacts.get("search_critic"))
+    search_retry_stage = _object_dict(stage_artifacts.get("search_retry"))
     if search_brief:
         events.append(
             {
@@ -1466,7 +1513,8 @@ def get_agent_batch_events(job_id: str) -> dict[str, Any]:
         )
     if submit_rounds:
         for submit_round in submit_rounds:
-            round_index = int(submit_round.get("round") or 0)
+            round_value = submit_round.get("round")
+            round_index = int(round_value) if isinstance(round_value, (str, int, float)) else 0
             events.append(
                 {
                     "id": f"evt-{record.job_id}-search-round-{round_index}",

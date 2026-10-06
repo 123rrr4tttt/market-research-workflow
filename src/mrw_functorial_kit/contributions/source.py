@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from functorial_kit.contribution_verification import (
+    VerificationChanges,
     VerificationPlan,
     VerificationRegistration,
     VerificationSource,
@@ -20,14 +21,13 @@ from functorial_kit.law_witness import (
 )
 from app.successor_runtime.capabilities.source_native_contribution import (
     SourceAssemblyContext,
-    SourceNativeSource,
     DEFAULT_SOURCE_NATIVE_SOURCE,
     compile_source_native_contribution,
 )
 
 
 def source_verification_plan_for(
-    changes: object | None = None,
+    changes: VerificationChanges | None = None,
 ) -> VerificationPlan:
     """Derive an inert verification plan from the same native C2 catalog."""
 
@@ -49,10 +49,10 @@ def _run_source_native_catalog_law() -> None:
     native = compile_source_native_contribution(DEFAULT_SOURCE_NATIVE_SOURCE)
     if isinstance(native, Failure):
         raise AssertionError(native.message)
-    expected_projection_ids = tuple(
-        compile_source_native_contribution(source).projection.id  # type: ignore[union-attr]
-        for source in (DEFAULT_SOURCE_NATIVE_SOURCE,)
-    )
+    expected_native = compile_source_native_contribution(DEFAULT_SOURCE_NATIVE_SOURCE)
+    if isinstance(expected_native, Failure):
+        raise AssertionError(expected_native.message)
+    expected_projection_ids = (expected_native.projection.id,)
     if (native.projection.id,) != expected_projection_ids:
         raise AssertionError("C2 native catalog order drifted from definition order")
     binding = native.assemble(

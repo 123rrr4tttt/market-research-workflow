@@ -92,9 +92,24 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["data"]["event"]["run_id"], "r-1")
         self.assertIn("trace_id", body["data"]["event"])
 
-    def test_compile_requires_explicit_project_key(self):
-        with patch("app.api.workflow_graph._invoke_compile") as compile_mock:
+    def test_compile_accepts_explicit_header_project_key(self):
+        with patch(
+            "app.api.workflow_graph._invoke_compile",
+            return_value={"graph_id": "g-header"},
+        ) as compile_mock:
             response = self.client.post("/api/v1/workflow-graph/compile", json={"dsl": {}}, headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        compile_mock.assert_called_once_with({"dsl": {}, "project_key": "demo_proj"})
+        self.assertEqual(response.json()["data"]["project_key"], "demo_proj")
+
+    def test_compile_requires_project_key_when_all_sources_are_absent(self):
+        with patch("app.api.workflow_graph._invoke_compile") as compile_mock:
+            response = self.client.post(
+                "/api/v1/workflow-graph/compile",
+                json={"dsl": {}},
+                headers={"X-Request-Id": "workflow-graph-missing-project"},
+            )
 
         self.assertEqual(response.status_code, 400)
         compile_mock.assert_not_called()
@@ -105,6 +120,18 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["error"]["details"]["field"], "project_key")
         self.assertEqual(body["error"]["details"]["next_action"], "retry_with_explicit_project_key")
         self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_compile_rejects_disagreeing_explicit_project_keys(self):
+        with patch("app.api.workflow_graph._invoke_compile") as compile_mock:
+            response = self.client.post(
+                "/api/v1/workflow-graph/compile?project_key=query_proj",
+                json={"project_key": "body_proj", "dsl": {}},
+                headers={**self.headers, "X-Project-Key": "header_proj"},
+            )
+
+        self.assertEqual(response.status_code, 400)
+        compile_mock.assert_not_called()
+        self.assertEqual(response.json()["error"]["details"]["category"], "project_key_mismatch")
 
     def test_run_rejects_blank_project_key(self):
         with patch("app.api.workflow_graph._invoke_run") as run_mock:

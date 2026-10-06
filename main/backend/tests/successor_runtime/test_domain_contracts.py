@@ -570,6 +570,11 @@ def test_operation_contract_digest_mismatch_fails_closed() -> None:
 
 def test_profiles_have_unified_refs_and_content_digests() -> None:
     from app.successor_runtime.language import profiles as language_profiles
+    from app.successor_runtime.language.object_contracts import ContractProfileRef as ObjectContractProfileRef
+
+    assert ObjectContractProfileRef is ContractProfileRef
+    with pytest.raises(ValueError, match="ContractProfileRef.profile_digest must be a 64-char lowercase hex digest"):
+        ObjectContractProfileRef("profile.invalid", "1", "invalid")
 
     assert PROFILE_FAMILIES == (
         "SemanticProfile", "EffectProfile", "ResourceProfile",

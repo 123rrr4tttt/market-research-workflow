@@ -14,6 +14,15 @@
     },
     {
       "codes": [
+        "json_value_invalid",
+        "json_number_non_finite",
+        "json_key_invalid",
+        "config_shape_invalid"
+      ],
+      "name": "llm.provider_input.failure"
+    },
+    {
+      "codes": [
         "first_specimen_handler_contract_invalid",
         "first_specimen_operation_unsupported",
         "first_specimen_semantic_product_invalid",
@@ -322,6 +331,7 @@
         "artifact_identity_required",
         "backend_unavailable",
         "execution_mode_invalid",
+        "json_value_invalid",
         "phase_invalid",
         "session_already_exists",
         "session_id_required",
@@ -330,7 +340,8 @@
         "task_dependencies_incomplete",
         "task_identity_required",
         "task_not_claimable",
-        "task_not_found"
+        "task_not_found",
+        "task_transition_conflict"
       ],
       "name": "agent.session.failure"
     },
@@ -418,6 +429,7 @@
     },
     {
       "codes": [
+        "social_collect_result_invalid",
         "canary_readback_not_object",
         "commodity_collection_failed",
         "ecom_collection_failed",
@@ -451,6 +463,7 @@
     },
     {
       "codes": [
+        "record_field_type_invalid",
         "preset_pack_unknown",
         "query_terms_required",
         "search_template_invalid",

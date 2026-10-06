@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -9,12 +10,14 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from scripts.check_graph_visual_data_smoke_gate import (  # noqa: E402
+    backend_data_static_checks,
     build_gate_snapshot,
     validate_gate_snapshot,
 )
 
 
 pytestmark = pytest.mark.unit
+REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
 def _backend_data_evidence() -> dict:
@@ -61,6 +64,33 @@ def _live_ui_evidence() -> dict:
 
 
 class GraphVisualDataSmokeGateUnitTest(unittest.TestCase):
+    def test_static_gate_follows_current_backend_owner_and_native_graph_modules(self) -> None:
+        checks = backend_data_static_checks(REPO_ROOT)
+
+        self.assertTrue(all(checks.values()), checks)
+
+    def test_legacy_markers_without_owner_relationships_do_not_pass_static_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            admin_path = root / "main/backend/app/api/admin.py"
+            graph_page_path = root / "main/frontend-modern/src/pages/GraphPage.tsx"
+            admin_path.parent.mkdir(parents=True)
+            graph_page_path.parent.mkdir(parents=True)
+            admin_path.write_text(
+                "# @router.get(\"/market-graph\") graph_b_read_fallback_to_a\n",
+                encoding="utf-8",
+            )
+            graph_page_path.write_text(
+                "// sourceGraphNodes effectiveGraphData topology.connectedNodes.map forceGraphData.nodes\n",
+                encoding="utf-8",
+            )
+
+            checks = backend_data_static_checks(root)
+
+        self.assertFalse(checks["admin_backend_graph_routes_exist"])
+        self.assertFalse(checks["admin_graph_routes_keep_b_read_fallback"])
+        self.assertFalse(checks["graphpage_maps_backend_nodes_to_force3d_data"])
+
     def test_default_gate_is_partial_and_does_not_close_live_ui(self) -> None:
         snapshot = build_gate_snapshot()
 

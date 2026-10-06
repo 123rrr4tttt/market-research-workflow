@@ -6,45 +6,16 @@ validates the runtime binding.
 
 from __future__ import annotations
 
-import dataclasses
-from collections.abc import Mapping
 from dataclasses import dataclass
-from types import MappingProxyType
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Generic, Literal, Protocol, TypeGuard, TypeVar
 
-from app.successor_runtime.capabilities.knowledge_common import (
-    KNOWLEDGE_GRAPH_PROJECTION_CELL_ID,
-    reject_knowledge_contract,
-    reject_knowledge_projection,
-    reject_knowledge_value,
-    GRAPH_CONTEXT_PROJECTION,
-    GRAPH_PROJECTION_SCHEMA,
-)
-from app.successor_runtime.capabilities.checksum import content_digest, require_hex64
-from app.successor_runtime.capabilities.codecs import PayloadCodec, dataclass_codec
-from app.successor_runtime.language.object_contracts import (
-    READ_CANONICAL_REF_RETURN_CONTRACT_REF,
-    OperationContract,
-    make_operation_contract,
-)
-from app.successor_runtime.language.profiles import (
-    AuthorityProfile,
-    EffectProfile,
-    FailureProfile,
-    InterpreterProfile,
-    ObservationProfile,
-    ResourceProfile,
-    SemanticProfile,
-)
-from app.successor_runtime.research.object_types import ObjectType
-from functorial_kit.contributions import ContributionObject, contribution_failures
-from functorial_kit.core.failure import Failure
-from dataclasses import replace
 from functorial_kit.contribution_compiler import NativeContributionRule, compile_native_contribution
 from functorial_kit.contribution_verification import (
     ContributionVerification,
     VerificationCheck,
 )
+from functorial_kit.contributions import ContributionObject, contribution_failures
+from functorial_kit.core.failure import Failure
 from functorial_kit.law_witness import define_law_witness
 from functorial_kit.native_contribution import (
     BindingAccepted,
@@ -53,7 +24,46 @@ from functorial_kit.native_contribution import (
     NativeContribution,
     ProjectedContributionSpec,
 )
+
+from app.successor_runtime.capabilities.checksum import content_digest, require_hex64
+from app.successor_runtime.capabilities.codecs import PayloadCodec, dataclass_codec
+from app.successor_runtime.capabilities.knowledge_common import (
+    GRAPH_CONTEXT_PROJECTION,
+    GRAPH_PROJECTION_SCHEMA,
+    KNOWLEDGE_GRAPH_PROJECTION_CELL_ID,
+    KnowledgeProfile,
+    KnowledgeProfiles,
+    reject_knowledge_contract,
+    reject_knowledge_projection,
+    reject_knowledge_value,
+)
+from app.successor_runtime.language.object_contracts import (
+    READ_CANONICAL_REF_RETURN_CONTRACT_REF,
+    OperationContract,
+    make_operation_contract,
+)
+from app.successor_runtime.language.profiles import (
+    AuthorityProfile,
+    ContractProfileRef,
+    EffectProfile,
+    FailureProfile,
+    InterpreterProfile,
+    ObservationProfile,
+    ResourceProfile,
+    SemanticProfile,
+    build_profile,
+)
+from app.successor_runtime.research.object_types import ObjectType
 from mrw_functorial_kit.core.knowledge_semantics import knowledge_graph_failures, knowledge_operation_kinds
+
+if TYPE_CHECKING:
+    from app.successor_runtime.assembly.base import (
+        CellBinding,
+        ProjectorSourceKey,
+        ProjectorWiring,
+        RollbackBindingDeclaration,
+    )
+    from app.successor_runtime.substrate.projections.registry import ProjectorRegistry
 
 __all__ = [
     "KNOWLEDGE_GRAPH_PROJECTION_CELL_ID",
@@ -124,12 +134,32 @@ KNOWLEDGE_GRAPH_PROJECTION_DECLARED_LOSS = (
     "knowledge.graph.casefold-and-duplicate-collapse.v2",
     "knowledge.graph.omitted-fields.v2",
 )
+GraphPayloadT = TypeVar("GraphPayloadT")
 
 
-def _payload_body_digest(payload: Any) -> str:
+class KnowledgeGraphPayload(Protocol):
+    project_key: str
+    graph_id: str
+    node_keys: tuple[str, ...]
+    node_types: tuple[str, ...]
+    payload_digest: str
+
+
+def _payload_body_digest(payload: KnowledgeGraphProjectInput) -> str:
     return content_digest(
-        {name: value for name, value in dataclasses.asdict(payload).items() if name != "payload_digest"}
+        {
+            "project_key": payload.project_key,
+            "graph_id": payload.graph_id,
+            "node_keys": payload.node_keys,
+            "node_types": payload.node_types,
+        }
     )
+
+
+def _is_graph_payload_type(
+    value: object,
+) -> TypeGuard[type[KnowledgeGraphPayload]]:
+    return isinstance(value, type)
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,7 +208,7 @@ class KnowledgeProgramAtomWiring:
 
 
 @dataclass(frozen=True, slots=True)
-class KnowledgeGraphProjectionAuthorSource:
+class KnowledgeGraphProjectionAuthorSource(Generic[GraphPayloadT]):
     """Immutable native author facts lowered into one C8 graph cell definition."""
 
     cell_id: str
@@ -188,7 +218,7 @@ class KnowledgeGraphProjectionAuthorSource:
     payload_codec_id: str
     input_type: ObjectType
     output_type: ObjectType
-    payload_type: type
+    payload_type: type[GraphPayloadT]
     projector_wiring: KnowledgeGraphProjectionWiring | None
     rollback_refs: tuple[str, ...]
     failure_codes: tuple[str, ...] = KNOWLEDGE_GRAPH_PROJECTION_FAILURE_CODES
@@ -197,7 +227,7 @@ class KnowledgeGraphProjectionAuthorSource:
 
 
 @dataclass(frozen=True, slots=True)
-class KnowledgeCellDefinition:
+class KnowledgeCellDefinition(Generic[GraphPayloadT]):
     """Complete native meaning of one graph-projection cell."""
 
     family_id: str
@@ -209,9 +239,9 @@ class KnowledgeCellDefinition:
     input_type: ObjectType
     output_type: ObjectType
     return_contract_ref: str
-    payload_type: type
-    payload_codec: PayloadCodec
-    profiles: Mapping[str, object]
+    payload_type: type[GraphPayloadT]
+    payload_codec: PayloadCodec[GraphPayloadT]
+    profiles: KnowledgeProfiles
     operation_contract: OperationContract
     program_atom: KnowledgeProgramAtomWiring
     failure_codes: tuple[str, ...]
@@ -258,8 +288,8 @@ KnowledgeGraphProjectionDefinition = KnowledgeCellDefinition
 KnowledgeGraphProjectionOperationDefinition = KnowledgeCellDefinition
 
 
-def _profile_ref(profile: Any) -> str:
-    return f"{profile.profile_id}@{profile.profile_version}"
+def _profile_ref(profile: KnowledgeProfile) -> ContractProfileRef:
+    return profile.ref
 
 
 def _profiles(
@@ -270,7 +300,7 @@ def _profiles(
     input_type: ObjectType,
     output_type: ObjectType,
     failure_codes: tuple[str, ...],
-) -> Mapping[str, object]:
+) -> KnowledgeProfiles:
     namespace = owner.removesuffix(".v2")
     semantic_values = {
         "semantic_profile_id": f"{namespace}.semantic",
@@ -359,22 +389,48 @@ def _profiles(
         "compatible_with_legacy": True,
         "observation_schema_ref": f"mrw.{namespace}.observation.v2",
     }
-    return MappingProxyType(
-        {
-            "semantic": SemanticProfile(**semantic_values, profile_digest=content_digest(semantic_values)),
-            "effect": EffectProfile(**effect_values, profile_digest=content_digest(effect_values)),
-            "resource": ResourceProfile(**resource_values, profile_digest=content_digest(resource_values)),
-            "failure": FailureProfile(**failure_values, profile_digest=content_digest(failure_values)),
-            "authority": AuthorityProfile(**authority_values, profile_digest=content_digest(authority_values)),
-            "interpreter": InterpreterProfile(**interpreter_values, profile_digest=content_digest(interpreter_values)),
-            "observation": ObservationProfile(**observation_values, profile_digest=content_digest(observation_values)),
-        }
+    return KnowledgeProfiles(
+        semantic=build_profile(
+            SemanticProfile,
+            **semantic_values,
+            profile_digest=content_digest(semantic_values),
+        ),
+        effect=build_profile(
+            EffectProfile,
+            **effect_values,
+            profile_digest=content_digest(effect_values),
+        ),
+        resource=build_profile(
+            ResourceProfile,
+            **resource_values,
+            profile_digest=content_digest(resource_values),
+        ),
+        failure=build_profile(
+            FailureProfile,
+            **failure_values,
+            profile_digest=content_digest(failure_values),
+        ),
+        authority=build_profile(
+            AuthorityProfile,
+            **authority_values,
+            profile_digest=content_digest(authority_values),
+        ),
+        interpreter=build_profile(
+            InterpreterProfile,
+            **interpreter_values,
+            profile_digest=content_digest(interpreter_values),
+        ),
+        observation=build_profile(
+            ObservationProfile,
+            **observation_values,
+            profile_digest=content_digest(observation_values),
+        ),
     )
 
 
 def lower_knowledge_graph_projection_author_source(
-    source: KnowledgeGraphProjectionAuthorSource,
-) -> KnowledgeCellDefinition:
+    source: KnowledgeGraphProjectionAuthorSource[GraphPayloadT],
+) -> KnowledgeCellDefinition[GraphPayloadT]:
     """Lower native author facts into profiles, contract, codec, and Program atom."""
 
     profiles = _profiles(
@@ -418,7 +474,7 @@ def lower_knowledge_graph_projection_author_source(
         value_suffix=source.cell_id.lower().replace(".", "-"),
     )
     contribution_namespace = source.cell_id.removeprefix("knowledge.").removesuffix(".v2")
-    return KnowledgeCellDefinition(
+    return KnowledgeCellDefinition[GraphPayloadT](
         family_id=KNOWLEDGE_FAMILY_ID,
         contribution_id=(
             source.contribution_id
@@ -453,14 +509,14 @@ def define_knowledge_graph_projection_cell(
     payload_codec_id: str,
     input_type: ObjectType,
     output_type: ObjectType,
-    payload_type: type,
+    payload_type: type[GraphPayloadT],
     projector_wiring: KnowledgeGraphProjectionWiring | None,
     rollback_refs: tuple[str, ...],
     failure_codes: tuple[str, ...] = KNOWLEDGE_GRAPH_PROJECTION_FAILURE_CODES,
     return_contract_ref: str = KNOWLEDGE_GRAPH_PROJECTION_RETURN_CONTRACT_REF,
-) -> KnowledgeCellDefinition:
+) -> KnowledgeCellDefinition[GraphPayloadT]:
     lowered = lower_knowledge_graph_projection_author_source(
-        KnowledgeGraphProjectionAuthorSource(
+        KnowledgeGraphProjectionAuthorSource[GraphPayloadT](
             cell_id=cell_id,
             contribution_id=contribution_id,
             owner=owner,
@@ -503,7 +559,7 @@ KNOWLEDGE_GRAPH_PROJECTION_AUTHOR_SOURCE = KnowledgeGraphProjectionAuthorSource(
 
 
 def project_knowledge_graph_projection_definition(
-    definition: KnowledgeCellDefinition,
+    definition: KnowledgeCellDefinition[GraphPayloadT],
 ) -> ProjectedContributionSpec | Failure:
     issues = knowledge_graph_projection_definition_issues(definition)
     if issues:
@@ -536,16 +592,16 @@ class KnowledgeGraphProjectionAssemblyContext:
 
 
 @dataclass(frozen=True, slots=True)
-class KnowledgeGraphProjectionRuntimeBinding:
-    definition: KnowledgeCellDefinition
+class KnowledgeGraphProjectionRuntimeBinding(Generic[GraphPayloadT]):
+    definition: KnowledgeCellDefinition[GraphPayloadT]
     cell_id: str
     operation_contract: OperationContract
-    payload_codec: PayloadCodec
-    profiles: Mapping[str, object]
+    payload_codec: PayloadCodec[GraphPayloadT]
+    profiles: KnowledgeProfiles
     projector_wiring: KnowledgeGraphProjectionWiring | None
     rollback_binding: KnowledgeGraphProjectionRollback
 
-    def assembly_projector_wiring(self) -> Any:
+    def assembly_projector_wiring(self) -> ProjectorWiring:
         from app.successor_runtime.assembly.base import ProjectorWiring
 
         assert self.projector_wiring is not None
@@ -560,7 +616,7 @@ class KnowledgeGraphProjectionRuntimeBinding:
             note=self.projector_wiring.note,
         )
 
-    def assembly_rollback_binding(self) -> Any:
+    def assembly_rollback_binding(self) -> RollbackBindingDeclaration:
         from app.successor_runtime.assembly.base import RollbackBindingDeclaration
 
         return RollbackBindingDeclaration(
@@ -569,7 +625,7 @@ class KnowledgeGraphProjectionRuntimeBinding:
             binding_refs=self.rollback_binding.binding_refs,
         )
 
-    def unbound_cell(self) -> Any:
+    def unbound_cell(self) -> CellBinding:
         from app.successor_runtime.assembly.base import CellBinding
 
         return CellBinding(
@@ -587,7 +643,10 @@ class KnowledgeGraphProjectionRuntimeBinding:
             ),
         )
 
-    def install(self, source_key: Any) -> tuple[Any, Any] | None:
+    def install(
+        self,
+        source_key: ProjectorSourceKey,
+    ) -> tuple[CellBinding, ProjectorRegistry] | None:
         from app.successor_runtime.assembly.base import (
             PROJECTOR_REGISTRY_INCARNATION,
             CellBinding,
@@ -630,9 +689,9 @@ class KnowledgeGraphProjectionRuntimeBinding:
 
 
 def assemble_knowledge_graph_projection_definition(
-    definition: KnowledgeCellDefinition,
+    definition: KnowledgeCellDefinition[GraphPayloadT],
     context: KnowledgeGraphProjectionAssemblyContext,
-) -> KnowledgeGraphProjectionRuntimeBinding:
+) -> KnowledgeGraphProjectionRuntimeBinding[GraphPayloadT]:
     del context
     return KnowledgeGraphProjectionRuntimeBinding(
         definition=definition,
@@ -645,11 +704,19 @@ def assemble_knowledge_graph_projection_definition(
     )
 
 
-def validate_knowledge_graph_projection_binding(
-    definition: KnowledgeCellDefinition,
+def _is_graph_projection_runtime_binding(
     candidate: object,
-) -> BindingAccepted[KnowledgeGraphProjectionRuntimeBinding] | BindingRejected:
-    if not isinstance(candidate, KnowledgeGraphProjectionRuntimeBinding):
+    definition: KnowledgeCellDefinition[GraphPayloadT],
+) -> TypeGuard[KnowledgeGraphProjectionRuntimeBinding[GraphPayloadT]]:
+    del definition
+    return isinstance(candidate, KnowledgeGraphProjectionRuntimeBinding)
+
+
+def validate_knowledge_graph_projection_binding(
+    definition: KnowledgeCellDefinition[GraphPayloadT],
+    candidate: object,
+) -> BindingAccepted[KnowledgeGraphProjectionRuntimeBinding[GraphPayloadT]] | BindingRejected:
+    if not _is_graph_projection_runtime_binding(candidate, definition):
         return BindingRejected((NativeBindingIssue("$.binding", "expected C8GraphProjectionRuntimeBinding"),))
     definition_issues = knowledge_graph_projection_definition_issues(definition)
     checks = (
@@ -696,17 +763,17 @@ def validate_knowledge_graph_projection_binding(
 
 
 def knowledge_graph_projection_definition_issues(
-    definition: KnowledgeCellDefinition,
+    definition: KnowledgeCellDefinition[GraphPayloadT],
 ) -> tuple[NativeBindingIssue, ...]:
     """Check equations internal to one authoritative native definition."""
 
     atom = definition.program_atom
     operation = definition.operation_contract
     codec = definition.payload_codec
-    semantic = definition.profiles.get("semantic")
-    authority = definition.profiles.get("authority")
-    interpreter = definition.profiles.get("interpreter")
-    failure = definition.profiles.get("failure")
+    semantic = definition.profiles["semantic"]
+    authority = definition.profiles["authority"]
+    interpreter = definition.profiles["interpreter"]
+    failure = definition.profiles["failure"]
     checks = (
         (bool(definition.contribution_id), "$.definition.contribution_id", "contribution id is empty"),
         (operation.ref.kind == definition.kind, "$.definition.operation_contract.ref.kind", "operation kind drift"),
@@ -737,7 +804,7 @@ def knowledge_graph_projection_definition_issues(
             "codec payload type drift",
         ),
         (
-            isinstance(definition.payload_type, type),
+            _is_graph_payload_type(definition.payload_type),
             "$.definition.payload_type",
             "codec payload type must be a type",
         ),
@@ -756,24 +823,23 @@ def knowledge_graph_projection_definition_issues(
             "atom return contract drift",
         ),
         (
-            semantic is not None
-            and tuple(semantic.reads) == (definition.input_type.type_id,)
+            tuple(semantic.reads) == (definition.input_type.type_id,)
             and tuple(semantic.creates) == (definition.output_type.type_id,),
             "$.definition.profiles.semantic",
             "semantic types drift",
         ),
         (
-            authority is not None and authority.canonical_owner == definition.owner,
+            authority.canonical_owner == definition.owner,
             "$.definition.profiles.authority",
             "authority owner drift",
         ),
         (
-            interpreter is not None and tuple(interpreter.supported_contract_kinds) == (definition.kind,),
+            tuple(interpreter.supported_contract_kinds) == (definition.kind,),
             "$.definition.profiles.interpreter",
             "interpreter kind drift",
         ),
         (
-            failure is not None and tuple(failure.typed_failures) == definition.failure_codes,
+            tuple(failure.typed_failures) == definition.failure_codes,
             "$.definition.profiles.failure",
             "failure codes drift",
         ),
@@ -782,24 +848,10 @@ def knowledge_graph_projection_definition_issues(
     return tuple(NativeBindingIssue(path, message) for valid, path, message in checks if not valid)
 
 
-# One reusable MRW rule wires shared graph lowering and the existing definition callbacks.
-# The default is compiled through this rule exactly once; no second hand-built definition exists.
-KNOWLEDGE_GRAPH_PROJECTION_NATIVE_RULE = NativeContributionRule[
-    KnowledgeGraphProjectionAuthorSource,
-    KnowledgeCellDefinition,
-    KnowledgeGraphProjectionAssemblyContext,
-    KnowledgeGraphProjectionRuntimeBinding,
-](
-    lower=lower_knowledge_graph_projection_author_source,
-    project=project_knowledge_graph_projection_definition,
-    assemble=assemble_knowledge_graph_projection_definition,
-    validate_binding=validate_knowledge_graph_projection_binding,
-)
-
 def build_knowledge_graph_projection_binding(
     context: KnowledgeGraphProjectionAssemblyContext | None = None,
 ) -> Annotated[
-    KnowledgeGraphProjectionRuntimeBinding,
+    KnowledgeGraphProjectionRuntimeBinding[KnowledgeGraphProjectInput],
     Literal[
         "kit:non-authoritative derived_as=view fact_source=C8CellDefinition "
         "witness=test:test_default_and_installed_c8_4_assembly_preserve_exact_declarations"
@@ -824,12 +876,14 @@ KNOWLEDGE_GRAPH_PROJECTION_VERIFICATION_INPUTS = (
 )
 
 
-def _run_knowledge_graph_projection_definition_law(definition: KnowledgeCellDefinition) -> Failure | None:
+def _run_knowledge_graph_projection_definition_law(
+    definition: KnowledgeCellDefinition[GraphPayloadT],
+) -> Failure | None:
     """Run the inert definition law for the graph projection cell; no assembly runs."""
 
     issues = knowledge_graph_projection_definition_issues(definition)
-    authority = definition.profiles.get("authority")
-    if authority is None or authority.approval_required is not False:
+    authority = definition.profiles["authority"]
+    if authority.approval_required is not False:
         issues += (
             NativeBindingIssue(
                 "$.definition.profiles.authority",
@@ -851,8 +905,12 @@ def _run_knowledge_graph_projection_definition_law(definition: KnowledgeCellDefi
 
 
 def verify_knowledge_graph_projection_definition(
-    definition: KnowledgeCellDefinition,
-    native: object,
+    definition: KnowledgeCellDefinition[GraphPayloadT],
+    native: NativeContribution[
+        KnowledgeCellDefinition[GraphPayloadT],
+        KnowledgeGraphProjectionAssemblyContext,
+        KnowledgeGraphProjectionRuntimeBinding[GraphPayloadT],
+    ],
 ) -> ContributionVerification | Failure:
     """Plan inert law obligations for the graph projection native definition."""
 
@@ -871,14 +929,46 @@ def verify_knowledge_graph_projection_definition(
     )
 
 
-KNOWLEDGE_GRAPH_PROJECTION_NATIVE_RULE = replace(
-    KNOWLEDGE_GRAPH_PROJECTION_NATIVE_RULE,
-    verification=verify_knowledge_graph_projection_definition,
-)
+def knowledge_graph_projection_native_rule() -> NativeContributionRule[
+    KnowledgeGraphProjectionAuthorSource[GraphPayloadT],
+    KnowledgeCellDefinition[GraphPayloadT],
+    KnowledgeGraphProjectionAssemblyContext,
+    KnowledgeGraphProjectionRuntimeBinding[GraphPayloadT],
+]:
+    return NativeContributionRule(
+        lower=lower_knowledge_graph_projection_author_source,
+        project=project_knowledge_graph_projection_definition,
+        assemble=assemble_knowledge_graph_projection_definition,
+        validate_binding=validate_knowledge_graph_projection_binding,
+        verification=verify_knowledge_graph_projection_definition,
+    )
 
-_compiled_knowledge_graph_projection_native = compile_native_contribution(
-    KNOWLEDGE_GRAPH_PROJECTION_AUTHOR_SOURCE,
-    KNOWLEDGE_GRAPH_PROJECTION_NATIVE_RULE,
+
+def compile_knowledge_graph_projection_author_source(
+    source: KnowledgeGraphProjectionAuthorSource[GraphPayloadT],
+) -> (
+    NativeContribution[
+        KnowledgeCellDefinition[GraphPayloadT],
+        KnowledgeGraphProjectionAssemblyContext,
+        KnowledgeGraphProjectionRuntimeBinding[GraphPayloadT],
+    ]
+    | Failure
+):
+    return compile_native_contribution(
+        source,
+        knowledge_graph_projection_native_rule(),
+    )
+
+
+KNOWLEDGE_GRAPH_PROJECTION_NATIVE_RULE: NativeContributionRule[
+    KnowledgeGraphProjectionAuthorSource[KnowledgeGraphPayload],
+    KnowledgeCellDefinition[KnowledgeGraphPayload],
+    KnowledgeGraphProjectionAssemblyContext,
+    KnowledgeGraphProjectionRuntimeBinding[KnowledgeGraphPayload],
+] = knowledge_graph_projection_native_rule()
+
+_compiled_knowledge_graph_projection_native = compile_knowledge_graph_projection_author_source(
+    KNOWLEDGE_GRAPH_PROJECTION_AUTHOR_SOURCE
 )
 if isinstance(_compiled_knowledge_graph_projection_native, Failure):
     reject_knowledge_contract(
@@ -889,8 +979,8 @@ if isinstance(_compiled_knowledge_graph_projection_native, Failure):
         site="c8_graph_projection_contribution.import",
     )
 knowledge_graph_projection_native_contribution: NativeContribution[
-    KnowledgeCellDefinition,
+    KnowledgeCellDefinition[KnowledgeGraphProjectInput],
     KnowledgeGraphProjectionAssemblyContext,
-    KnowledgeGraphProjectionRuntimeBinding,
+    KnowledgeGraphProjectionRuntimeBinding[KnowledgeGraphProjectInput],
 ] = _compiled_knowledge_graph_projection_native
 KNOWLEDGE_GRAPH_PROJECTION_DEFINITION = knowledge_graph_projection_native_contribution.definition

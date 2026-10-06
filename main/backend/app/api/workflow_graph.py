@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from functools import wraps
+from typing import cast
 from typing import Annotated, Any, Callable
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse
 from functorial_kit import Failure
 
@@ -17,7 +18,7 @@ from ..contracts.schemas.workflow_graph import (
     WorkflowGraphHandoffListData,
     WorkflowGraphHandoffReplayData,
 )
-from ..services.skill_runtime import invoke_skill
+from ..services.skill_runtime import SkillInvocationContext, invoke_skill
 from ..services.workflow_graph.curated_service import WorkflowGraphObjectMissingError, WorkflowGraphSyncConflictError
 from ..services.workflow_graph.contracts import WorkflowGraphCompileError, WorkflowGraphIntegrityError
 from ..services.workflow_graph.edit_contract import WorkflowGraphEditContractError
@@ -100,7 +101,7 @@ def _error_json(code: ErrorCode, message: str, details: dict[str, Any] | None = 
     )
 
 
-def _skill_context(*, operation: str, actor_role: str = "orchestration_runtime") -> dict[str, Any]:
+def _skill_context(*, operation: str, actor_role: str = "orchestration_runtime") -> SkillInvocationContext:
     return {
         "actor_role": actor_role,
         "permissions": [operation],
@@ -356,16 +357,66 @@ def _ok_workflow_graph(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _as_dict(value: Any) -> dict[str, Any]:
-    return value if isinstance(value, dict) else {}
+    if not isinstance(value, dict):
+        return {}
+    return cast(dict[str, Any], value)
 
 
 def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _require_write_project_key(payload: dict[str, Any] | None, *, route_path: str) -> dict[str, Any] | JSONResponse:
+def _require_write_project_key(
+    payload: dict[str, Any] | None,
+    *,
+    route_path: str,
+    request: Request,
+) -> dict[str, Any] | JSONResponse:
     data = dict(payload or {})
-    project_key = str(data.get("project_key") or "").strip()
+    raw_project_keys = (
+        ("body", data.get("project_key"), "project_key" in data),
+        (
+            "query",
+            request.query_params.get("project_key"),
+            "project_key" in request.query_params,
+        ),
+        (
+            "header",
+            request.headers.get("X-Project-Key"),
+            "x-project-key" in request.headers,
+        ),
+    )
+    normalized_project_keys: list[str] = []
+    for source, value, provided in raw_project_keys:
+        if not provided:
+            continue
+        normalized = str(value or "").strip()
+        if not normalized:
+            return _error_json(
+                ErrorCode.PROJECT_KEY_REQUIRED,
+                "project_key is required for workflow graph write requests",
+                details={
+                    "field": "project_key",
+                    "source": source,
+                    "route_path": route_path,
+                    "category": "project_key_blank",
+                    "recoverable": True,
+                    "next_action": "retry_with_explicit_project_key",
+                },
+            )
+        normalized_project_keys.append(normalized)
+    explicit_project_keys = set(normalized_project_keys)
+    if len(explicit_project_keys) > 1:
+        return _error_json(
+            ErrorCode.INVALID_INPUT,
+            "project_key values in body, query, and header must agree",
+            details={
+                "field": "project_key",
+                "route_path": route_path,
+                "category": "project_key_mismatch",
+            },
+        )
+    project_key = next(iter(explicit_project_keys), "")
     if not project_key:
         return _error_json(
             ErrorCode.PROJECT_KEY_REQUIRED,
@@ -404,8 +455,8 @@ def _event_schema(
 
 
 def _normalize_event_item(value: Any, *, run_id: str | None = None, session_id: str | None = None) -> dict[str, Any]:
-    data = dict(value or {}) if isinstance(value, dict) else {}
-    payload = data.get("payload") if isinstance(data.get("payload"), dict) else {}
+    data = _as_dict(value)
+    payload = _as_dict(data.get("payload"))
     event_type = str(data.get("event_type") or data.get("type") or data.get("event") or "").strip() or "workflow_graph.event"
     resolved_run_id = str(data.get("run_id") or run_id or "").strip() or None
     resolved_session_id = str(data.get("session_id") or session_id or payload.get("session_id") or "").strip() or None
@@ -431,7 +482,7 @@ def _normalize_event_item(value: Any, *, run_id: str | None = None, session_id: 
 
 def _normalize_compile(value: Any, *, project_key: str | None = None) -> dict[str, Any]:
     data = _as_dict(value)
-    normalized = {
+    normalized: dict[str, Any] = {
         "graph_id": data.get("graph_id"),
         "version": data.get("version"),
         "checksum": data.get("checksum"),
@@ -450,7 +501,7 @@ def _normalize_compile(value: Any, *, project_key: str | None = None) -> dict[st
 
 def _normalize_run(value: Any, *, project_key: str | None = None) -> dict[str, Any]:
     data = _as_dict(value)
-    node_statuses = data.get("node_statuses") if isinstance(data.get("node_statuses"), dict) else {}
+    node_statuses = _as_dict(data.get("node_statuses"))
     run_id = data.get("run_id")
     session_id = data.get("session_id")
     normalized = {
@@ -478,7 +529,7 @@ def _normalize_run(value: Any, *, project_key: str | None = None) -> dict[str, A
 
 def _normalize_run_detail(value: Any) -> dict[str, Any]:
     data = _as_dict(value)
-    node_statuses = data.get("node_statuses") if isinstance(data.get("node_statuses"), dict) else {}
+    node_statuses = _as_dict(data.get("node_statuses"))
     return {
         **data,
         "node_statuses": node_statuses,
@@ -489,7 +540,8 @@ def _normalize_run_detail(value: Any) -> dict[str, Any]:
 
 def _normalize_run_events(value: Any, *, run_id: str | None = None) -> dict[str, Any]:
     data = _as_dict(value)
-    items = data.get("items") if isinstance(data.get("items"), list) else []
+    raw_items = data.get("items")
+    items = cast(list[Any], raw_items) if isinstance(raw_items, list) else []
     session_id = data.get("session_id")
     normalized_items = [_normalize_event_item(item, run_id=run_id, session_id=session_id) for item in items]
     normalized = {
@@ -526,8 +578,12 @@ def _workflow_sync_error_json(exc: Exception, *, fallback_message: str) -> JSONR
 
 
 @router.post("/compile", response_model=WorkflowGraphDynamicEnvelope)
-def compile_workflow_graph(payload: dict[str, Any]) -> Any:
-    checked_payload = _require_write_project_key(payload, route_path="/api/v1/workflow-graph/compile")
+def compile_workflow_graph(request: Request, payload: dict[str, Any]) -> Any:
+    checked_payload = _require_write_project_key(
+        payload,
+        route_path="/api/v1/workflow-graph/compile",
+        request=request,
+    )
     if isinstance(checked_payload, JSONResponse):
         return checked_payload
     try:
@@ -542,8 +598,12 @@ def compile_workflow_graph(payload: dict[str, Any]) -> Any:
 
 
 @router.post("/run", response_model=WorkflowGraphDynamicEnvelope)
-def run_workflow_graph(payload: dict[str, Any]) -> Any:
-    checked_payload = _require_write_project_key(payload, route_path="/api/v1/workflow-graph/run")
+def run_workflow_graph(request: Request, payload: dict[str, Any]) -> Any:
+    checked_payload = _require_write_project_key(
+        payload,
+        route_path="/api/v1/workflow-graph/run",
+        request=request,
+    )
     if isinstance(checked_payload, JSONResponse):
         return checked_payload
     try:
@@ -634,8 +694,12 @@ def list_workflow_graph_templates() -> Any:
 
 
 @router.post("/templates", response_model=WorkflowGraphDynamicEnvelope)
-def create_workflow_graph_template(payload: dict[str, Any]) -> Any:
-    checked_payload = _require_write_project_key(payload, route_path="/api/v1/workflow-graph/templates")
+def create_workflow_graph_template(request: Request, payload: dict[str, Any]) -> Any:
+    checked_payload = _require_write_project_key(
+        payload,
+        route_path="/api/v1/workflow-graph/templates",
+        request=request,
+    )
     if isinstance(checked_payload, JSONResponse):
         return checked_payload
     try:
@@ -663,8 +727,12 @@ def get_workflow_graph_template(template_id: str) -> Any:
 
 
 @router.patch("/templates/{template_id}", response_model=WorkflowGraphDynamicEnvelope)
-def patch_workflow_graph_template(template_id: str, payload: dict[str, Any]) -> Any:
-    checked_payload = _require_write_project_key(payload, route_path="/api/v1/workflow-graph/templates/{template_id}")
+def patch_workflow_graph_template(request: Request, template_id: str, payload: dict[str, Any]) -> Any:
+    checked_payload = _require_write_project_key(
+        payload,
+        route_path="/api/v1/workflow-graph/templates/{template_id}",
+        request=request,
+    )
     if isinstance(checked_payload, JSONResponse):
         return checked_payload
     try:
@@ -679,8 +747,16 @@ def patch_workflow_graph_template(template_id: str, payload: dict[str, Any]) -> 
 
 
 @router.delete("/templates/{template_id}", response_model=WorkflowGraphDynamicEnvelope)
-def delete_workflow_graph_template(template_id: str, payload: dict[str, Any] | None = Body(default=None)) -> Any:
-    checked_payload = _require_write_project_key(payload, route_path="/api/v1/workflow-graph/templates/{template_id}")
+def delete_workflow_graph_template(
+    request: Request,
+    template_id: str,
+    payload: dict[str, Any] | None = Body(default=None),
+) -> Any:
+    checked_payload = _require_write_project_key(
+        payload,
+        route_path="/api/v1/workflow-graph/templates/{template_id}",
+        request=request,
+    )
     if isinstance(checked_payload, JSONResponse):
         return checked_payload
     try:
@@ -708,8 +784,12 @@ def list_workflow_graph_template_versions(template_id: str) -> Any:
 
 
 @router.post("/templates/{template_id}/versions", response_model=WorkflowGraphDynamicEnvelope)
-def create_workflow_graph_template_version(template_id: str, payload: dict[str, Any]) -> Any:
-    checked_payload = _require_write_project_key(payload, route_path="/api/v1/workflow-graph/templates/{template_id}/versions")
+def create_workflow_graph_template_version(request: Request, template_id: str, payload: dict[str, Any]) -> Any:
+    checked_payload = _require_write_project_key(
+        payload,
+        route_path="/api/v1/workflow-graph/templates/{template_id}/versions",
+        request=request,
+    )
     if isinstance(checked_payload, JSONResponse):
         return checked_payload
     try:
@@ -738,6 +818,7 @@ def get_workflow_graph_template_version(template_id: str, version_id: str) -> An
 
 @router.post("/templates/{template_id}/versions/{version_id}/activate", response_model=WorkflowGraphDynamicEnvelope)
 def activate_workflow_graph_template_version(
+    request: Request,
     template_id: str,
     version_id: str,
     payload: dict[str, Any] | None = Body(default=None),
@@ -745,6 +826,7 @@ def activate_workflow_graph_template_version(
     checked_payload = _require_write_project_key(
         payload,
         route_path="/api/v1/workflow-graph/templates/{template_id}/versions/{version_id}/activate",
+        request=request,
     )
     if isinstance(checked_payload, JSONResponse):
         return checked_payload
@@ -776,8 +858,12 @@ def get_workflow_graph_curated_state(graph_id: str) -> Any:
     response_model=ApiEnvelope[WorkflowGraphCuratedStateData],
     response_model_exclude_unset=True,
 )
-def save_workflow_graph_curated_draft(graph_id: str, payload: dict[str, Any]) -> Any:
-    checked_payload = _require_write_project_key(payload, route_path="/api/v1/workflow-graph/curated/{graph_id}/draft")
+def save_workflow_graph_curated_draft(request: Request, graph_id: str, payload: dict[str, Any]) -> Any:
+    checked_payload = _require_write_project_key(
+        payload,
+        route_path="/api/v1/workflow-graph/curated/{graph_id}/draft",
+        request=request,
+    )
     if isinstance(checked_payload, JSONResponse):
         return checked_payload
     try:
@@ -791,8 +877,16 @@ def save_workflow_graph_curated_draft(graph_id: str, payload: dict[str, Any]) ->
     response_model=ApiEnvelope[WorkflowGraphCuratedStateData],
     response_model_exclude_unset=True,
 )
-def submit_workflow_graph_curated_draft(graph_id: str, payload: dict[str, Any] | None = Body(default=None)) -> Any:
-    checked_payload = _require_write_project_key(payload, route_path="/api/v1/workflow-graph/curated/{graph_id}/submit")
+def submit_workflow_graph_curated_draft(
+    request: Request,
+    graph_id: str,
+    payload: dict[str, Any] | None = Body(default=None),
+) -> Any:
+    checked_payload = _require_write_project_key(
+        payload,
+        route_path="/api/v1/workflow-graph/curated/{graph_id}/submit",
+        request=request,
+    )
     if isinstance(checked_payload, JSONResponse):
         return checked_payload
     try:
@@ -806,8 +900,16 @@ def submit_workflow_graph_curated_draft(graph_id: str, payload: dict[str, Any] |
     response_model=ApiEnvelope[WorkflowGraphCuratedStateData],
     response_model_exclude_unset=True,
 )
-def sync_workflow_graph_curated_state(graph_id: str, payload: dict[str, Any] | None = Body(default=None)) -> Any:
-    checked_payload = _require_write_project_key(payload, route_path="/api/v1/workflow-graph/curated/{graph_id}/sync")
+def sync_workflow_graph_curated_state(
+    request: Request,
+    graph_id: str,
+    payload: dict[str, Any] | None = Body(default=None),
+) -> Any:
+    checked_payload = _require_write_project_key(
+        payload,
+        route_path="/api/v1/workflow-graph/curated/{graph_id}/sync",
+        request=request,
+    )
     if isinstance(checked_payload, JSONResponse):
         return checked_payload
     try:
@@ -821,8 +923,12 @@ def sync_workflow_graph_curated_state(graph_id: str, payload: dict[str, Any] | N
     response_model=ApiEnvelope[WorkflowGraphCuratedStateData],
     response_model_exclude_unset=True,
 )
-def rollback_workflow_graph_curated_state(graph_id: str, payload: dict[str, Any]) -> Any:
-    checked_payload = _require_write_project_key(payload, route_path="/api/v1/workflow-graph/curated/{graph_id}/rollback")
+def rollback_workflow_graph_curated_state(request: Request, graph_id: str, payload: dict[str, Any]) -> Any:
+    checked_payload = _require_write_project_key(
+        payload,
+        route_path="/api/v1/workflow-graph/curated/{graph_id}/rollback",
+        request=request,
+    )
     if isinstance(checked_payload, JSONResponse):
         return checked_payload
     try:
@@ -849,6 +955,7 @@ def list_workflow_graph_curated_audits(graph_id: str, limit: int = 50) -> Any:
     response_model_exclude_unset=True,
 )
 def build_workflow_graph_evidence_pack(
+    request: Request,
     graph_id: str,
     payload: dict[str, Any] | None = Body(default=None),
 ) -> Annotated[
@@ -857,7 +964,11 @@ def build_workflow_graph_evidence_pack(
     "fact_source=app.services.workflow_graph.curated_service "
     "witness=test:test_curated_evidence_pack_and_handoffs_success",
 ]:
-    checked_payload = _require_write_project_key(payload, route_path="/api/v1/workflow-graph/curated/{graph_id}/evidence-pack")
+    checked_payload = _require_write_project_key(
+        payload,
+        route_path="/api/v1/workflow-graph/curated/{graph_id}/evidence-pack",
+        request=request,
+    )
     if isinstance(checked_payload, JSONResponse):
         return checked_payload
     try:
@@ -871,11 +982,15 @@ def build_workflow_graph_evidence_pack(
     response_model=ApiEnvelope[WorkflowGraphHandoffData],
     response_model_exclude_unset=True,
 )
-def build_workflow_graph_reporting_handoff(graph_id: str, payload: dict[str, Any]) -> Annotated[
+def build_workflow_graph_reporting_handoff(request: Request, graph_id: str, payload: dict[str, Any]) -> Annotated[
     Any,
     "kit:non-authoritative derived_as=view fact_source=api.workflow_graph witness=test:test_w01_meta",
 ]:
-    checked_payload = _require_write_project_key(payload, route_path="/api/v1/workflow-graph/curated/{graph_id}/handoff/reporting")
+    checked_payload = _require_write_project_key(
+        payload,
+        route_path="/api/v1/workflow-graph/curated/{graph_id}/handoff/reporting",
+        request=request,
+    )
     if isinstance(checked_payload, JSONResponse):
         return checked_payload
     try:
@@ -892,11 +1007,15 @@ def build_workflow_graph_reporting_handoff(graph_id: str, payload: dict[str, Any
     response_model=ApiEnvelope[WorkflowGraphHandoffData],
     response_model_exclude_unset=True,
 )
-def build_workflow_graph_writing_handoff(graph_id: str, payload: dict[str, Any]) -> Annotated[
+def build_workflow_graph_writing_handoff(request: Request, graph_id: str, payload: dict[str, Any]) -> Annotated[
     Any,
     "kit:non-authoritative derived_as=view fact_source=api.workflow_graph witness=test:test_w01_meta",
 ]:
-    checked_payload = _require_write_project_key(payload, route_path="/api/v1/workflow-graph/curated/{graph_id}/handoff/writing")
+    checked_payload = _require_write_project_key(
+        payload,
+        route_path="/api/v1/workflow-graph/curated/{graph_id}/handoff/writing",
+        request=request,
+    )
     if isinstance(checked_payload, JSONResponse):
         return checked_payload
     try:

@@ -36,6 +36,7 @@ _INGEST_OPERATIONS = frozenset(
 _RESOURCE_POOL_OPERATIONS = frozenset(
     (
         ("POST", "/api/v1/resource_pool/extract/from-documents"),
+        ("POST", "/api/v1/resource_pool/extract/from-materials"),
         ("GET", "/api/v1/resource_pool/urls"),
         ("GET", "/api/v1/resource_pool/open-source-presets"),
         ("POST", "/api/v1/resource_pool/import/open-source-presets"),
@@ -62,6 +63,11 @@ _RESOURCE_POOL_OPERATIONS = frozenset(
 _EXPECTED_OPERATIONS = {
     "ingest.py": _INGEST_OPERATIONS,
     "resource_pool.py": _RESOURCE_POOL_OPERATIONS,
+}
+
+_EXPECTED_RESPONSE_MODELS = {
+    "ingest.py": ("ApiEnvelope[JsonValue]", "ApiEnvelope_JsonValue_"),
+    "resource_pool.py": ("ApiEnvelope[Any]", "ApiEnvelope_Any_"),
 }
 
 try:
@@ -100,14 +106,24 @@ class ApiSchemaIngestResourceContractTestCase(unittest.TestCase):
             self.assertEqual(untyped_paths, [], msg=f"{module} still has untyped 200 schemas")
             self.assertEqual(
                 {operation["response_model"] for operation in rows},
-                {"ApiEnvelope[Any]"},
-                msg=f"{module} should expose conservative envelope response models",
+                {_EXPECTED_RESPONSE_MODELS[module][0]},
+                msg=f"{module} should expose its declared envelope response model",
             )
             self.assertEqual(
                 {operation["response_200_schema"] for operation in rows},
-                {"ApiEnvelope_Any_"},
+                {_EXPECTED_RESPONSE_MODELS[module][1]},
                 msg=f"{module} should expose a stable OpenAPI envelope schema",
             )
+
+    def test_ingest_envelope_data_is_declared_as_json_value(self):
+        schemas = backend_app.openapi()["components"]["schemas"]
+        envelope = schemas["ApiEnvelope_JsonValue_"]
+        self.assertEqual(envelope["title"], "ApiEnvelope[JsonValue]")
+        self.assertIn("JsonValue", schemas)
+        self.assertIn(
+            {"$ref": "#/components/schemas/JsonValue"},
+            envelope["properties"]["data"]["anyOf"],
+        )
 
 
 if __name__ == "__main__":

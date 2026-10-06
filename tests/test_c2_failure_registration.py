@@ -68,6 +68,27 @@ PROVIDER_OWNERS = {
     "ProviderHandoff",
     "RedactedCredentialRejection",
 }
+PLAIN_SCHEMA_DECODER_OWNERS = {
+    "_catalog_schema",
+    "_concurrency_stage_from_plain",
+    "_plain_bool",
+    "_plain_extra",
+    "_plain_int",
+    "_plain_object",
+    "_plain_optional_float",
+    "_plain_pairs",
+    "_plain_sequence",
+    "_plain_string",
+    "_planning_kind",
+    "_planning_schema",
+    "_required_plain_field",
+    "_source_mode",
+    "_taxonomy_item_type",
+    "_taxonomy_manager",
+    "_warning_code",
+}
+
+
 def _owners_with_contract_rejections() -> set[str]:
     module = ast.parse(C2_SOURCE.read_text(encoding="utf-8"))
     owners: set[str] = set()
@@ -99,6 +120,7 @@ def test_INVARIANT__every_c2_constructor_failure_owner_is_classified() -> None:
         | MODE_OWNERS
         | TERMINAL_OWNERS
         | PROVIDER_OWNERS
+        | PLAIN_SCHEMA_DECODER_OWNERS
     )
     assert _owners_with_contract_rejections() == classified
 

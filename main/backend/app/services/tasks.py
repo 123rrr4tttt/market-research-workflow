@@ -6,7 +6,9 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from math import ceil
-from typing import Any
+from typing import TYPE_CHECKING, Mapping, Protocol, TypeGuard, TypedDict
+
+from functorial_kit import Failure
 
 from ..celery_app import celery_app
 from ..models.base import SessionLocal
@@ -14,9 +16,182 @@ from ..models.entities import EtlJobRun
 from .job_logger import complete_job, fail_job, start_job
 from .projects import bind_project
 
+if TYPE_CHECKING:
+    from app.contracts.json import JSONObject as AgentSessionJsonObject, JSONValue as AgentSessionJsonValue
+    from .agent_sessions.store import (
+        AgentArtifactPayload,
+    )
+    from .collect_runtime.contracts import CollectJsonObject, CollectJsonValue
+    from .crawlers.base import CrawlerJsonObject, CrawlerJsonValue
+    from .indexer.application import IndexingApplicationService
+    from .ingest.social_application import SocialIngestApplicationService
+    from .project_retrieval.contracts import RetrievalJsonArray, RetrievalJsonObject, RetrievalJsonValue, RetrievalRunResult
+
+
+TaskObject = dict[str, object]
+TaskResult = Mapping[str, object]
+
+
+class TaskRequest(Protocol):
+    @property
+    def id(self) -> object: ...
+
+
+class BoundTask(Protocol):
+    @property
+    def request(self) -> TaskRequest: ...
+
+    def update_state(self, *, state: str, meta: Mapping[str, object]) -> object: ...
+
+
+class CrawlerBridgeCall(Protocol):
+    def __call__(self, **payload: object) -> object: ...
+
+
+class DiscoveryWriteResult(TypedDict):
+    upserted: int
+    skipped: int
+    errors: list[object]
+
+
+class DiscoveryTotals(TypedDict):
+    domains_scanned: int
+    candidates_count: int
+    probe_stats: dict[str, int]
+    errors: list[object]
+    write_result: DiscoveryWriteResult
+    batches_total: int
+    batches_completed: int
+    pre_simplify: object | None
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _task_object(value: object) -> TaskObject:
+    return {str(key): item for key, item in value.items()} if _is_object_mapping(value) else {}
+
+
+def _task_object_list(value: object) -> list[TaskObject]:
+    if not _is_object_list(value):
+        return []
+    return [_task_object(item) for item in value if _is_object_mapping(item)]
+
+
+def _agent_session_json_value(value: object) -> AgentSessionJsonValue:
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if _is_object_list(value):
+        return [_agent_session_json_value(item) for item in value]
+    if _is_object_mapping(value):
+        return {
+            str(key): _agent_session_json_value(item)
+            for key, item in value.items()
+        }
+    return str(value)
+
+
+def _agent_session_json_object(value: object) -> AgentSessionJsonObject:
+    if not _is_object_mapping(value):
+        return {}
+    return {
+        str(key): _agent_session_json_value(item)
+        for key, item in value.items()
+    }
+
+
+def _crawler_json_value(value: object) -> CrawlerJsonValue:
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if _is_object_list(value):
+        return [_crawler_json_value(item) for item in value]
+    if _is_object_mapping(value):
+        return {
+            str(key): _crawler_json_value(item)
+            for key, item in value.items()
+        }
+    return str(value)
+
+
+def _crawler_json_object(value: object) -> CrawlerJsonObject:
+    if not _is_object_mapping(value):
+        return {}
+    return {
+        str(key): _crawler_json_value(item)
+        for key, item in value.items()
+    }
+
+
+def _optional_text(value: object) -> str | None:
+    text = str(value or "").strip()
+    return text or None
+
+
+def _optional_int(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _collect_json_value(value: object) -> CollectJsonValue:
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if _is_object_list(value):
+        return [_collect_json_value(item) for item in value]
+    if _is_object_mapping(value):
+        return {str(key): _collect_json_value(item) for key, item in value.items()}
+    return str(value)
+
+
+def _collect_json_object(value: object) -> CollectJsonObject:
+    if not _is_object_mapping(value):
+        return {}
+    return {str(key): _collect_json_value(item) for key, item in value.items()}
+
+
+def _retrieval_array(value: RetrievalJsonValue | None) -> RetrievalJsonArray:
+    return value if isinstance(value, list) else []
+
+
+def _retrieval_object(value: RetrievalJsonValue | None) -> RetrievalJsonObject:
+    return value if isinstance(value, dict) else {}
+
+
+def _retrieval_object_array(value: RetrievalJsonValue | None) -> list[Mapping[str, RetrievalJsonValue]]:
+    return [item for item in _retrieval_array(value) if isinstance(item, dict)]
+
+
+def _retrieval_json_value(value: object) -> RetrievalJsonValue:
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if _is_object_list(value):
+        return [_retrieval_json_value(item) for item in value]
+    if _is_object_mapping(value):
+        return {str(key): _retrieval_json_value(item) for key, item in value.items()}
+    raise TypeError(f"retrieval result contains a non-JSON value: {type(value).__name__}")
+
+
+def _retrieval_run_result_object(value: RetrievalRunResult) -> RetrievalJsonObject:
+    normalized = _retrieval_json_value(value)
+    if not isinstance(normalized, dict):
+        raise TypeError("retrieval result must be a JSON object")
+    return normalized
+
 
 @celery_app.task(name="project_retrieval.execute")
-def task_project_retrieval_run(project_key: str, run_id: str) -> dict[str, Any]:
+def task_project_retrieval_run(project_key: str, run_id: str) -> RetrievalJsonObject:
     """Interpret one manually authorized, version-pinned retrieval plan."""
     from .agent_sessions import get_agent_session_service
     from .project_retrieval.execution import execute_retrieval_run
@@ -30,37 +205,46 @@ def task_project_retrieval_run(project_key: str, run_id: str) -> dict[str, Any]:
             # Duplicate deliveries must not start a second Agent session or
             # compete for the run-owned topology identity.
             return service.read_run(project_key, run_id)
-        plan = service.read_plan(project_key, run["plan_id"])
+        plan: RetrievalJsonObject = service.read_plan(project_key, str(run["plan_id"]))
         plan["run_id"] = run_id
         plan["topology_ref"] = {
             "project_key": project_key, "module_id": "retrieval",
             "namespace": "rapid", "state_id": f"retrieval-run:{run_id}",
         }
 
-        def emit(kind: str, payload: Any) -> None:
+        def emit(kind: str, payload: RetrievalJsonObject) -> None:
             phase = "search" if kind == "tool.result" else "session" if kind == "run.started" else "readback"
             service.update_run(project_key, run_id, status="running", phase=phase,
                                receipt={"latest_event": kind, "latest_event_payload": dict(payload)})
 
         try:
-            result = dict(execute_retrieval_run(
+            result = _retrieval_run_result_object(execute_retrieval_run(
                 project_key=project_key, plan=plan,
                 topology_service=build_topology_service(),
                 session_factory=get_agent_session_service, emit=emit,
             ))
         except Exception as exc:  # persist failures rather than leave an endless running row
-            result = {"status": "failed", "failures": [{"phase": "worker", "kind": type(exc).__name__,
-                                                        "message": str(exc)}]}
+            failure: RetrievalJsonObject = {
+                "phase": "worker",
+                "kind": type(exc).__name__,
+                "message": str(exc),
+            }
+            failures: RetrievalJsonArray = [failure]
+            result = {"status": "failed", "failures": failures}
         status = str(result.get("status") or "failed")
         if status not in {"completed", "partial", "blocked", "failed"}:
             status = "failed"
-        counts = {
-            "attempts": len(result.get("attempts") or []),
-            "candidates": len(result.get("candidates") or []),
-            "materials": len(result.get("materials") or []),
-            "formal_graphs": len((result.get("report") or {}).get("formal_graph_refs") or []),
+        report = _retrieval_object(result.get("report"))
+        counts: RetrievalJsonObject = {
+            "attempts": len(_retrieval_array(result.get("attempts"))),
+            "candidates": len(_retrieval_array(result.get("candidates"))),
+            "materials": len(_retrieval_array(result.get("materials"))),
+            "formal_graphs": len(_retrieval_array(report.get("formal_graph_refs"))),
         }
-        visible_errors = list(result.get("failures") or []) + list(result.get("gaps") or [])
+        visible_errors: list[Mapping[str, RetrievalJsonValue]] = [
+            *_retrieval_object_array(result.get("failures")),
+            *_retrieval_object_array(result.get("gaps")),
+        ]
         service.update_run(project_key, run_id, status=status, phase="finished", counts=counts,
                            errors=visible_errors, receipt=result)
         return {"run_id": run_id, "status": status, "counts": counts}
@@ -70,11 +254,11 @@ from .task_readback_metadata import (
     merge_runtime_readback_payload,
 )
 
-_social_ingest_app = None
-_indexing_app = None
+_social_ingest_app: SocialIngestApplicationService | None = None
+_indexing_app: IndexingApplicationService | None = None
 
 
-def _get_social_ingest_app():
+def _get_social_ingest_app() -> SocialIngestApplicationService:
     global _social_ingest_app
     if _social_ingest_app is None:
         from .ingest.social_application import SocialIngestApplicationService
@@ -83,7 +267,7 @@ def _get_social_ingest_app():
     return _social_ingest_app
 
 
-def _get_indexing_app():
+def _get_indexing_app() -> IndexingApplicationService:
     global _indexing_app
     if _indexing_app is None:
         from .indexer.application import IndexingApplicationService
@@ -92,12 +276,11 @@ def _get_indexing_app():
     return _indexing_app
 
 
-def _normalize_crawler_response(payload: Any) -> dict[str, Any]:
-    if isinstance(payload, dict):
-        return payload
-    if hasattr(payload, "__dict__"):
-        return {k: v for k, v in vars(payload).items() if not k.startswith("_")}
-    return {"raw": payload}
+def _normalize_crawler_response(payload: object) -> TaskObject:
+    source = _task_object(payload)
+    if not source and hasattr(payload, "__dict__"):
+        source = {str(key): value for key, value in vars(payload).items() if not str(key).startswith("_")}
+    return source or {"raw": payload}
 
 
 def _map_provider_status(status: str | None, default: str = "running") -> str:
@@ -126,7 +309,7 @@ def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _stable_hash(value: Any) -> str:
+def _stable_hash(value: object) -> str:
     try:
         encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
     except Exception:
@@ -137,13 +320,13 @@ def _stable_hash(value: Any) -> str:
 def _build_task_runtime_readback(
     *,
     line_key: str,
-    task_request: Any,
-    source_payload: dict[str, Any] | None = None,
+    task_request: TaskRequest | None,
+    source_payload: TaskResult | None = None,
     workflow_run_id: str | None = None,
     trace_id: str | None = None,
     fallback_worker_name: str,
     fallback_queue: str,
-) -> dict[str, Any]:
+) -> TaskObject:
     metadata = {
         **extract_runtime_readback_payload(source_payload or {}),
         "line_key": line_key,
@@ -164,9 +347,9 @@ def _build_task_runtime_readback(
 
 
 def _attach_completed_runtime_readback(
-    result: dict[str, Any],
-    runtime_readback: dict[str, Any],
-) -> dict[str, Any]:
+    result: TaskResult,
+    runtime_readback: TaskResult,
+) -> TaskObject:
     payload = dict(result or {})
     payload["runtime_readback"] = merge_runtime_readback_payload(
         dict(runtime_readback or {}),
@@ -181,8 +364,8 @@ def _attach_completed_runtime_readback(
 def _start_resource_pool_job(
     *,
     job_type: str,
-    task_request: Any,
-    params: dict[str, Any],
+    task_request: TaskRequest | None,
+    params: TaskResult,
 ) -> int:
     runtime_readback = _build_task_runtime_readback(
         line_key="resource_source_library",
@@ -205,12 +388,12 @@ def _start_resource_pool_job(
 def _finish_resource_pool_job(
     *,
     job_id: int,
-    task_request: Any,
-    result: dict[str, Any],
+    task_request: TaskRequest | None,
+    result: TaskResult,
 ) -> None:
     complete_job(
         job_id,
-        result=result,
+        result=dict(result),
         external_job_id=str(getattr(task_request, "id", None) or "").strip() or None,
     )
 
@@ -218,7 +401,7 @@ def _finish_resource_pool_job(
 def _fail_resource_pool_job(
     *,
     job_id: int,
-    task_request: Any,
+    task_request: TaskRequest | None,
     error: Exception,
 ) -> None:
     fail_job(
@@ -228,32 +411,32 @@ def _fail_resource_pool_job(
     )
 
 
-def _compact_agent_task_value(value: Any, *, max_items: int = 20, max_depth: int = 4) -> Any:
+def _compact_agent_task_value(value: object, *, max_items: int = 20, max_depth: int = 4) -> object:
     if max_depth <= 0:
         return "..."
-    if isinstance(value, dict):
-        out: dict[str, Any] = {}
+    if _is_object_mapping(value):
+        out: TaskObject = {}
         for index, (key, item) in enumerate(value.items()):
             if index >= max_items:
                 out["..."] = f"{len(value) - max_items} more"
                 break
             out[str(key)] = _compact_agent_task_value(item, max_items=max_items, max_depth=max_depth - 1)
         return out
-    if isinstance(value, list):
+    if _is_object_list(value):
         return [_compact_agent_task_value(item, max_items=max_items, max_depth=max_depth - 1) for item in value[:max_items]]
     if isinstance(value, str) and len(value) > 1200:
         return f"{value[:1200]}..."
     return value
 
 
-def _agent_url_pool_marker(search_options: dict | None) -> dict[str, Any]:
-    if not isinstance(search_options, dict):
+def _agent_url_pool_marker(search_options: TaskObject | None) -> TaskObject:
+    if search_options is None:
         return {}
     marker = search_options.get("_agent_core_url_pool_submission")
-    return dict(marker or {}) if isinstance(marker, dict) else {}
+    return _task_object(marker)
 
 
-def _agent_session_canceled(marker: dict[str, Any]) -> bool:
+def _agent_session_canceled(marker: TaskObject) -> bool:
     session_id = str(marker.get("session_id") or "").strip()
     if not session_id:
         return False
@@ -263,14 +446,16 @@ def _agent_session_canceled(marker: dict[str, Any]) -> bool:
         session = get_agent_session_service().get_session(session_id)
     except Exception:  # noqa: BLE001
         return False
-    return str((session or {}).get("status") or "").strip().lower() == "canceled"
+    if isinstance(session, Failure):
+        return False
+    return str(session.get("status") or "").strip().lower() == "canceled"
 
 
 def _record_agent_url_pool_task_event(
-    marker: dict[str, Any],
+    marker: TaskObject,
     *,
     status: str,
-    result: dict[str, Any] | None = None,
+    result: TaskResult | None = None,
     error: str | None = None,
 ) -> None:
     session_id = str(marker.get("session_id") or "").strip()
@@ -280,7 +465,7 @@ def _record_agent_url_pool_task_event(
     task_id = str(marker.get("task_id") or "").strip()
     url = str(marker.get("url") or "").strip()
     idempotency_key = str(marker.get("idempotency_key") or "").strip()
-    event_payload = {
+    event_payload: AgentSessionJsonObject = {
         "event_id": _stable_hash({"session_id": session_id, "task_id": task_id, "url": url, "status": status}),
         "contract_version": "ingest.url_pool.task_event.v1",
         "project_key": str(marker.get("project_key") or "").strip(),
@@ -291,58 +476,61 @@ def _record_agent_url_pool_task_event(
         "candidate_review_key": str(marker.get("candidate_review_key") or "").strip(),
         "source_call_id": str(marker.get("source_call_id") or "").strip(),
         "recorded_at": _utcnow_iso(),
-        "result": _compact_agent_task_value(result or {}, max_items=18, max_depth=4),
+        "result": _agent_session_json_value(
+            _compact_agent_task_value(result or {}, max_items=18, max_depth=4)
+        ),
         "error": str(error or "").strip() or None,
     }
     try:
         from .agent_sessions.service import get_agent_session_service
 
         service = get_agent_session_service()
+        artifacts = service.list_artifacts(session_id)
+        if isinstance(artifacts, Failure):
+            return
         existing_events_artifact = next(
-            (item for item in service.list_artifacts(session_id) if item.get("name") == "ingest.url_pool_task_events.json"),
+            (item for item in artifacts if item.get("name") == "ingest.url_pool_task_events.json"),
             None,
         )
-        events_content = dict((existing_events_artifact or {}).get("content_json") or {})
-        events = [dict(item) for item in list(events_content.get("events") or []) if isinstance(item, dict)]
+        events_content = _task_object((existing_events_artifact or {}).get("content_json"))
+        events = _task_object_list(events_content.get("events"))
         events = [item for item in events if str(item.get("event_id") or "") != event_payload["event_id"]]
-        events.append(event_payload)
+        events.append(_task_object(event_payload))
+        task_events_content: AgentSessionJsonObject = {
+            "contract_version": "ingest.url_pool.task_event.v1",
+            "updated_at": event_payload["recorded_at"],
+            "events": _agent_session_json_value(events[-100:]),
+        }
+        task_events_artifact: AgentArtifactPayload = {
+            "session_id": session_id,
+            "name": "ingest.url_pool_task_events.json",
+            "artifact_type": "url_pool_ingest_task_event_state",
+            "mime_type": "application/json",
+            "content_text": json.dumps(
+                task_events_content,
+                ensure_ascii=False,
+                sort_keys=True,
+                default=str,
+            ),
+            "content_json": task_events_content,
+            "metadata": {
+                "contract_version": "ingest.url_pool.task_event.v1",
+                "auto_written_by": "task_ingest_url_via_source_library",
+            },
+        }
         service.store.upsert_artifact(
-            {
-                "session_id": session_id,
-                "name": "ingest.url_pool_task_events.json",
-                "artifact_type": "url_pool_ingest_task_event_state",
-                "mime_type": "application/json",
-                "content_text": json.dumps(
-                    {
-                        "contract_version": "ingest.url_pool.task_event.v1",
-                        "updated_at": event_payload["recorded_at"],
-                        "events": events[-100:],
-                    },
-                    ensure_ascii=False,
-                    sort_keys=True,
-                    default=str,
-                ),
-                "content_json": {
-                    "contract_version": "ingest.url_pool.task_event.v1",
-                    "updated_at": event_payload["recorded_at"],
-                    "events": events[-100:],
-                },
-                "metadata": {
-                    "contract_version": "ingest.url_pool.task_event.v1",
-                    "auto_written_by": "task_ingest_url_via_source_library",
-                },
-            }
+            task_events_artifact
         )
 
-        existing_submission_artifact = next((item for item in service.list_artifacts(session_id) if item.get("name") == artifact_name), None)
-        submission_content = dict((existing_submission_artifact or {}).get("content_json") or {})
-        submissions = [dict(item) for item in list(submission_content.get("submissions") or []) if isinstance(item, dict)]
+        existing_submission_artifact = next((item for item in artifacts if item.get("name") == artifact_name), None)
+        submission_content = _task_object((existing_submission_artifact or {}).get("content_json"))
+        submissions = _task_object_list(submission_content.get("submissions"))
         for submission in submissions:
             same_key = idempotency_key and str(submission.get("idempotency_key") or "") == idempotency_key
             same_url = url and str(submission.get("url") or "").strip() == url
             if not same_key and not same_url:
                 continue
-            task_events = [dict(item) for item in list(submission.get("task_events") or []) if isinstance(item, dict)]
+            task_events = _task_object_list(submission.get("task_events"))
             task_events = [item for item in task_events if str(item.get("event_id") or "") != event_payload["event_id"]]
             task_events.append(event_payload)
             submission["task_events"] = task_events[-20:]
@@ -355,24 +543,33 @@ def _record_agent_url_pool_task_event(
                 submission["failed_at"] = event_payload["recorded_at"]
                 submission["task_error"] = event_payload["error"]
         if submissions:
-            updated_submission_content = {
+            updated_submission_content = _agent_session_json_object({
                 **submission_content,
                 "updated_at": event_payload["recorded_at"],
                 "submissions": submissions[-100:],
+            })
+            submission_artifact: AgentArtifactPayload = {
+                "session_id": session_id,
+                "name": artifact_name,
+                "artifact_type": "url_pool_ingest_submission_state",
+                "mime_type": "application/json",
+                "content_text": json.dumps(
+                    updated_submission_content,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    default=str,
+                ),
+                "content_json": updated_submission_content,
+                "metadata": {
+                    "contract_version": str(
+                        updated_submission_content.get("contract_version")
+                        or "ingest.url_pool.submit.v1"
+                    ),
+                    "auto_updated_by": "task_ingest_url_via_source_library",
+                },
             }
             service.store.upsert_artifact(
-                {
-                    "session_id": session_id,
-                    "name": artifact_name,
-                    "artifact_type": "url_pool_ingest_submission_state",
-                    "mime_type": "application/json",
-                    "content_text": json.dumps(updated_submission_content, ensure_ascii=False, sort_keys=True, default=str),
-                    "content_json": updated_submission_content,
-                    "metadata": {
-                        "contract_version": str(updated_submission_content.get("contract_version") or "ingest.url_pool.submit.v1"),
-                        "auto_updated_by": "task_ingest_url_via_source_library",
-                    },
-                }
+                submission_artifact
             )
         service.store.append_event(
             session_id,
@@ -383,8 +580,10 @@ def _record_agent_url_pool_task_event(
         return
 
 
-def _load_crawlers_bridge_api():
-    from . import crawlers as _crawlers  # noqa: F401 - ensure builtin providers are registered
+def _load_crawlers_bridge_api() -> tuple[CrawlerBridgeCall, CrawlerBridgeCall]:
+    from . import crawlers
+
+    _ = crawlers  # importing the package registers built-in providers
     try:
         module = import_module(".crawlers.bridge", package=__package__)
     except Exception:
@@ -398,7 +597,7 @@ def _load_crawlers_bridge_api():
     from .crawlers.base import CrawlerDispatchRequest
     from .crawlers.registry import get_provider
 
-    def _fallback_submit(**payload: Any) -> dict[str, Any]:
+    def _fallback_submit(**payload: object) -> TaskObject:
         provider_key = str(payload.get("provider") or payload.get("external_provider") or "").strip()
         provider = get_provider(provider_key)
         if not provider:
@@ -407,13 +606,15 @@ def _load_crawlers_bridge_api():
             provider=provider_key,
             project=str(payload.get("project") or ""),
             spider=str(payload.get("spider") or ""),
-            arguments=dict(payload.get("arguments") or {}),
-            settings=dict(payload.get("settings") or {}),
-            version=payload.get("version"),
-            priority=payload.get("priority"),
-            job_id=payload.get("external_job_id"),
+            arguments=_crawler_json_object(payload.get("arguments")),
+            settings=_crawler_json_object(payload.get("settings")),
+            version=_optional_text(payload.get("version")),
+            priority=_optional_int(payload.get("priority")),
+            job_id=_optional_text(payload.get("external_job_id")),
         )
         result = provider.dispatch(request)
+        if isinstance(result, Failure):
+            raise RuntimeError(result.message)
         return {
             "provider_status": result.provider_status,
             "provider_job_id": result.provider_job_id,
@@ -422,7 +623,7 @@ def _load_crawlers_bridge_api():
             "raw": result.raw,
         }
 
-    def _fallback_poll(**payload: Any) -> dict[str, Any]:
+    def _fallback_poll(**payload: object) -> TaskObject:
         provider_key = str(payload.get("external_provider") or payload.get("provider") or "").strip()
         provider = get_provider(provider_key)
         if not provider:
@@ -430,29 +631,35 @@ def _load_crawlers_bridge_api():
         poll_fn_local = getattr(provider, "poll", None)
         if not callable(poll_fn_local):
             raise ValueError(f"crawler provider does not support poll(): {provider_key}")
+        external_job_id = _optional_text(payload.get("external_job_id"))
+        if external_job_id is None:
+            raise ValueError("external_job_id is required")
         result = poll_fn_local(
-            external_job_id=payload.get("external_job_id"),
-            project=payload.get("project"),
-            spider=payload.get("spider"),
-            options=dict(payload.get("options") or {}),
+            external_job_id=external_job_id,
+            project=_optional_text(payload.get("project")),
+            spider=_optional_text(payload.get("spider")),
+            options=_task_object(payload.get("options")),
         )
+        if isinstance(result, Failure):
+            raise RuntimeError(result.message)
         return _normalize_crawler_response(result)
 
     return _fallback_submit, _fallback_poll
 
 
-def _load_db_job_tracking(job_id: int) -> dict[str, Any]:
+def _load_db_job_tracking(job_id: int) -> TaskObject:
     with SessionLocal() as session:
         row = session.get(EtlJobRun, int(job_id))
         if not row:
             return {}
-        return {
+        tracking: TaskObject = {
             "external_provider": row.external_provider,
             "external_job_id": row.external_job_id,
             "retry_count": row.retry_count,
             "status": row.status,
-            "params": dict(row.params or {}),
+            "params": _task_object(row.params),
         }
+        return tracking
 
 
 @celery_app.task
@@ -472,12 +679,12 @@ def task_select_prompt_time_windows(
     tau: float = 0.03,
     avoid_peak: bool = True,
     end: str | None = None,
-) -> dict[str, Any]:
+) -> TaskObject:
     from .stats import query_prompt_time_density_priority
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        end_date = datetime.strptime(end, "%Y-%m-%d").date() if end else datetime.utcnow().date()
+        end_date = datetime.strptime(end, "%Y-%m-%d").date() if end else datetime.now(timezone.utc).date()
         windows = candidate_windows or ["7d", "30d", "90d"]
         rows = query_prompt_time_density_priority(
             end=end_date,
@@ -496,18 +703,19 @@ def task_select_prompt_time_windows(
             project_key=project_key,
         )
         selected = rows[: max(1, int(top_k or 10))]
-        return {
+        response: TaskObject = {
             "project_key": project_key,
             "end": end_date.isoformat(),
             "candidate_windows": windows,
             "selected": selected,
             "total": len(rows),
         }
+        return response
 
 
 @celery_app.task(bind=True)
 def task_ingest_market(
-    self,
+    self: BoundTask,
     query_terms: list[str],
     max_items: int = 20,
     enable_extraction: bool = True,
@@ -520,8 +728,8 @@ def task_ingest_market(
     trace_id: str | None = None,
     line_key: str | None = None,
     queue: str | None = None,
-    runtime_readback: dict[str, Any] | None = None,
-) -> dict:
+    runtime_readback: TaskObject | None = None,
+) -> TaskObject:
     from .collect_runtime import collect_request_from_market_api, run_collect
 
     runtime_readback = _build_task_runtime_readback(
@@ -549,29 +757,31 @@ def task_ingest_market(
             req.source_context = {**(req.source_context or {}), "workflow_run_id": str(workflow_run_id)}
         if str(trace_id or "").strip():
             req.source_context = {**(req.source_context or {}), "trace_id": str(trace_id)}
-        req.source_context = {
+        req.source_context = _collect_json_object({
             **(req.source_context or {}),
             "runtime_readback": runtime_readback,
-        }
+        })
         cr = run_collect(req)
-        raw = dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped})
+        raw = _collect_json_object((cr.meta or {}).get("raw"))
+        if not raw:
+            raw = {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped}
         return _attach_completed_runtime_readback(raw, runtime_readback)
 
 
 @celery_app.task(bind=True)
 def task_ingest_url_via_source_library(
-    self,
+    self: BoundTask,
     url: str,
     query_terms: list[str] | None = None,
     strict_mode: bool = False,
     project_key: str | None = None,
-    search_options: dict | None = None,
-) -> dict:
+    search_options: TaskObject | None = None,
+) -> TaskObject:
     from .ingest.url_pool import ingest_url_via_source_library_frontdoor
 
     marker = _agent_url_pool_marker(search_options)
     if _agent_session_canceled(marker):
-        result = {
+        result: TaskObject = {
             "status": "canceled",
             "abort_requested": True,
             "url": url,
@@ -619,10 +829,7 @@ def task_ingest_url_via_source_library(
             fail_job(job_id, str(exc))
             _record_agent_url_pool_task_event(marker, status="failed", error=str(exc))
             raise
-        completed_result = _attach_completed_runtime_readback(
-            result if isinstance(result, dict) else {"result": result},
-            runtime_readback,
-        )
+        completed_result = _attach_completed_runtime_readback(result, runtime_readback)
         complete_job(job_id, result=completed_result)
         _record_agent_url_pool_task_event(marker, status="completed", result=completed_result)
         return completed_result
@@ -630,10 +837,10 @@ def task_ingest_url_via_source_library(
 
 
 @celery_app.task
-def task_index_policy(document_ids: list[int], project_key: str | None = None) -> dict:
+def task_index_policy(document_ids: list[int], project_key: str | None = None) -> TaskObject:
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        return _get_indexing_app().index_policy(document_ids=document_ids)
+        return _task_object(_get_indexing_app().index_policy(document_ids=document_ids))
 
 
 @celery_app.task
@@ -641,7 +848,7 @@ def task_collect_news_resource(
     resource_id: str,
     limit: int = 10,
     project_key: str | None = None,
-) -> dict:
+) -> TaskObject:
     """Dispatch to news resource handler. Effective = shared (总库) + project (子项目库), project overrides."""
     from ..project_customization import get_project_customization
 
@@ -654,25 +861,25 @@ def task_collect_news_resource(
         handler = handlers.get(resource_id)
         if not handler:
             raise ValueError(f"Project '{project_key}' does not support news resource '{resource_id}'")
-        return handler(limit=limit)
+        return _task_object(handler(limit))
 
 
 @celery_app.task(bind=True)
 def task_extract_resource_pool_from_documents(
-    self,
+    self: BoundTask,
     project_key: str,
     scope: str = "project",
     doc_type: list[str] | None = None,
     state: list[str] | None = None,
     document_ids: list[int] | None = None,
     limit: int = 500,
-) -> dict:
+) -> TaskObject:
     """Extract URLs from documents into resource pool."""
     from .resource_pool import extract_from_documents
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        params = {
+        params: TaskObject = {
             "project_key": project_key,
             "scope": scope,
             "doc_type": doc_type,
@@ -686,14 +893,14 @@ def task_extract_resource_pool_from_documents(
             params=params,
         )
         try:
-            result = extract_from_documents(
+            result = _task_object(extract_from_documents(
                 project_key=project_key,
                 scope=scope,
                 doc_type=doc_type,
                 state=state,
                 document_ids=document_ids,
                 limit=limit,
-            )
+            ))
         except Exception as exc:
             _fail_resource_pool_job(
                 job_id=job_id,
@@ -711,20 +918,20 @@ def task_extract_resource_pool_from_documents(
 
 @celery_app.task(bind=True)
 def task_extract_resource_pool_from_tasks(
-    self,
+    self: BoundTask,
     project_key: str,
     scope: str = "project",
     task_ids: list[int] | None = None,
     job_type: str | None = None,
     since: str | None = None,
     limit: int = 100,
-) -> dict:
+) -> TaskObject:
     """Extract URLs from EtlJobRun params into resource pool."""
     from .resource_pool import extract_from_tasks
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        params = {
+        params: TaskObject = {
             "project_key": project_key,
             "scope": scope,
             "task_ids": task_ids,
@@ -738,14 +945,14 @@ def task_extract_resource_pool_from_tasks(
             params=params,
         )
         try:
-            result = extract_from_tasks(
+            result = _task_object(extract_from_tasks(
                 project_key=project_key,
                 scope=scope,
                 task_ids=task_ids,
                 job_type=job_type,
                 since=since,
                 limit=limit,
-            )
+            ))
         except Exception as exc:
             _fail_resource_pool_job(
                 job_id=job_id,
@@ -763,7 +970,7 @@ def task_extract_resource_pool_from_tasks(
 
 @celery_app.task(bind=True)
 def task_discover_site_entries_batched(
-    self,
+    self: BoundTask,
     project_key: str,
     url_scope: str = "effective",
     target_scope: str = "project",
@@ -780,7 +987,7 @@ def task_discover_site_entries_batched(
     write: bool = True,
     batch_size: int = 20,
     simplify_pool_first: bool = True,
-) -> dict:
+) -> TaskObject:
     from .resource_pool import (
         discover_site_entries_from_urls,
         list_discovery_domains,
@@ -790,7 +997,7 @@ def task_discover_site_entries_batched(
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        params = {
+        params: TaskObject = {
             "project_key": project_key,
             "url_scope": url_scope,
             "target_scope": target_scope,
@@ -823,7 +1030,7 @@ def task_discover_site_entries_batched(
                 deny_domains=deny_domains,
             )
             batch_size = max(1, min(100, int(batch_size or 20)))
-            totals = {
+            totals: DiscoveryTotals = {
                 "domains_scanned": 0,
                 "candidates_count": 0,
                 "probe_stats": {},
@@ -909,34 +1116,34 @@ def task_discover_site_entries_batched(
             task_request=getattr(self, "request", None),
             result=totals,
         )
-        return totals
+        return dict(totals)
 
 
 @celery_app.task
-def task_collect_reddit(subreddit: str = "news", limit: int = 20, project_key: str | None = None) -> dict:
+def task_collect_reddit(subreddit: str = "news", limit: int = 20, project_key: str | None = None) -> TaskObject:
     from .ingest.news import collect_reddit_discussions
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        return collect_reddit_discussions(subreddit=subreddit, limit=limit)
+        return _task_object(collect_reddit_discussions(subreddit=subreddit, limit=limit))
 
 
 @celery_app.task
-def task_collect_weekly_reports(limit: int = 10, project_key: str | None = None) -> dict:
+def task_collect_weekly_reports(limit: int = 10, project_key: str | None = None) -> TaskObject:
     from .ingest.reports.general import collect_weekly_market_reports
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        return collect_weekly_market_reports(limit=limit)
+        return _task_object(collect_weekly_market_reports(limit=limit))
 
 
 @celery_app.task
-def task_collect_monthly_reports(limit: int = 8, project_key: str | None = None) -> dict:
+def task_collect_monthly_reports(limit: int = 8, project_key: str | None = None) -> TaskObject:
     from .ingest.reports.general import collect_monthly_financial_reports
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        return collect_monthly_financial_reports(limit=limit)
+        return _task_object(collect_monthly_financial_reports(limit=limit))
 
 
 @celery_app.task
@@ -948,17 +1155,17 @@ def task_collect_data_api(
     enable_subreddit_discovery: bool = True,
     base_subreddits: list[str] | None = None,
     project_key: str | None = None,
-) -> dict:
+) -> TaskObject:
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        return _get_social_ingest_app().collect_data_api(
+        return _task_object(_get_social_ingest_app().collect_data_api(
             keywords=keywords,
             platforms=platforms,
             limit=limit,
             enable_extraction=enable_extraction,
             enable_subreddit_discovery=enable_subreddit_discovery,
             base_subreddits=base_subreddits,
-        )
+        ))
 
 
 @celery_app.task
@@ -971,7 +1178,7 @@ def task_collect_policy_regulation(
     days_back: int | None = None,
     language: str | None = None,
     provider: str | None = None,
-) -> dict:
+) -> TaskObject:
     from .collect_runtime import collect_request_from_policy_api, run_collect
 
     ctx = bind_project(project_key) if project_key else nullcontext()
@@ -987,46 +1194,50 @@ def task_collect_policy_regulation(
             enable_extraction=enable_extraction,
         )
         cr = run_collect(req)
-        return dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped})
+        raw = _collect_json_object((cr.meta or {}).get("raw"))
+        if raw:
+            return dict(raw)
+        response: TaskObject = {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped}
+        return response
 
 
 @celery_app.task
-def task_ingest_commodity_metrics(limit: int = 30, project_key: str | None = None) -> dict:
+def task_ingest_commodity_metrics(limit: int = 30, project_key: str | None = None) -> TaskObject:
     from .ingest.commodity import ingest_commodity_metrics
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        return ingest_commodity_metrics(limit=limit)
+        return _task_object(ingest_commodity_metrics(limit=limit))
 
 
 @celery_app.task
-def task_collect_ecom_prices(limit: int = 100, project_key: str | None = None) -> dict:
+def task_collect_ecom_prices(limit: int = 100, project_key: str | None = None) -> TaskObject:
     from .ingest.ecom import collect_ecom_price_observations
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        return collect_ecom_price_observations(limit=limit)
+        return _task_object(collect_ecom_price_observations(limit=limit))
 
 
 @celery_app.task
 def task_sync_aggregator(
-) -> dict:
+) -> TaskObject:
     # Aggregator reads from public + all project schemas.
     from .aggregator import sync_project_data_to_aggregator
-    return sync_project_data_to_aggregator()
+    return _task_object(sync_project_data_to_aggregator())
 
 
 @celery_app.task(bind=True)
 def task_worker_observability_noop(
-    self,
+    self: BoundTask,
     request_id: str | None = None,
     run_id: str | None = None,
     trace_id: str | None = None,
     project_key: str | None = None,
     candidate_id: str | None = None,
     queue: str | None = None,
-    runtime_readback: dict[str, Any] | None = None,
-) -> dict:
+    runtime_readback: TaskObject | None = None,
+) -> TaskObject:
     """Execute one identity-preserving observation without effect sinks."""
 
     runtime_readback = _build_task_runtime_readback(
@@ -1038,7 +1249,7 @@ def task_worker_observability_noop(
         fallback_worker_name="local.task_worker_observability_noop",
         fallback_queue=queue or "celery",
     )
-    return {
+    response: TaskObject = {
         "contract_version": "production.observability.worker-noop.v1",
         "status": "completed",
         "effect_sinks": "none",
@@ -1066,29 +1277,30 @@ def task_worker_observability_noop(
             event_source="celery_worker",
         ),
     }
+    return response
 
 
 @celery_app.task
-def task_raw_import_documents(payload: dict, project_key: str | None = None) -> dict:
+def task_raw_import_documents(payload: TaskObject, project_key: str | None = None) -> TaskObject:
     from .ingest.raw_import import run_raw_import_documents
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        return run_raw_import_documents(payload=payload or {}, project_key=project_key or "")
+        return _task_object(run_raw_import_documents(payload=payload or {}, project_key=project_key or ""))
 
 
 @celery_app.task(bind=True)
 def task_run_source_library_item(
-    self,
+    self: BoundTask,
     item_key: str,
     project_key: str | None = None,
-    override_params: dict | None = None,
+    override_params: TaskObject | None = None,
     workflow_run_id: str | None = None,
     trace_id: str | None = None,
     line_key: str | None = None,
     queue: str | None = None,
-    runtime_readback: dict[str, Any] | None = None,
-) -> dict:
+    runtime_readback: TaskObject | None = None,
+) -> TaskObject:
     from .collect_runtime import run_source_library_item_compat
 
     runtime_readback = _build_task_runtime_readback(
@@ -1103,14 +1315,14 @@ def task_run_source_library_item(
     result = run_source_library_item_compat(
         item_key=item_key,
         project_key=project_key,
-        override_params={
+        override_params=_collect_json_object({
             **(override_params or {}),
             **({"workflow_run_id": str(workflow_run_id)} if str(workflow_run_id or "").strip() else {}),
             **({"trace_id": str(trace_id)} if str(trace_id or "").strip() else {}),
             "runtime_readback": runtime_readback,
-        },
+        }),
     )
-    return _attach_completed_runtime_readback(result if isinstance(result, dict) else {"result": result}, runtime_readback)
+    return _attach_completed_runtime_readback(result, runtime_readback)
 
 
 @celery_app.task
@@ -1119,11 +1331,11 @@ def task_submit_crawler_job(
     provider: str,
     project: str,
     spider: str,
-    arguments: dict[str, Any] | None = None,
-    settings: dict[str, Any] | None = None,
+    arguments: TaskObject | None = None,
+    settings: TaskObject | None = None,
     version: str | None = None,
     priority: int | None = None,
-) -> dict[str, Any]:
+) -> TaskObject:
     from .job_logger import fail_job, update_job_tracking
 
     submit_fn, _ = _load_crawlers_bridge_api()
@@ -1157,15 +1369,15 @@ def task_submit_crawler_job(
             int(job_id),
             external_job_id=external_job_id,
             external_provider=external_provider,
-            retry_count=int(retry_count) if retry_count is not None else None,
-            status=_map_provider_status(submitted.get("provider_status"), default="running"),
+            retry_count=_optional_int(retry_count),
+            status=_map_provider_status(_optional_text(submitted.get("provider_status")), default="running"),
             result={"crawler_submit": submitted},
         )
         return {
             "job_id": int(job_id),
             "external_provider": external_provider,
             "external_job_id": external_job_id,
-            "status": _map_provider_status(submitted.get("provider_status"), default="running"),
+            "status": _map_provider_status(_optional_text(submitted.get("provider_status")), default="running"),
             "raw": submitted,
         }
     except Exception as exc:
@@ -1180,8 +1392,8 @@ def task_poll_crawler_job(
     external_job_id: str | None = None,
     project: str | None = None,
     spider: str | None = None,
-    options: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+    options: TaskObject | None = None,
+) -> TaskObject:
     from .job_logger import fail_job, update_job_tracking
 
     _, poll_fn = _load_crawlers_bridge_api()
@@ -1209,12 +1421,15 @@ def task_poll_crawler_job(
         retry_count = polled.get("retry_count")
         if retry_count is None:
             retry_count = polled.get("attempt_count")
-        mapped_status = _map_provider_status(provider_status, default=str(tracked.get("status") or "running"))
+        mapped_status = _map_provider_status(
+            _optional_text(provider_status),
+            default=str(tracked.get("status") or "running"),
+        )
         update_job_tracking(
             int(job_id),
             external_job_id=str(polled.get("external_job_id") or provider_job_id),
             external_provider=str(polled.get("external_provider") or provider),
-            retry_count=int(retry_count) if retry_count is not None else None,
+            retry_count=_optional_int(retry_count),
             status=mapped_status,
             result={"crawler_poll": polled},
             error=str(polled.get("error") or "") or None,
@@ -1238,9 +1453,9 @@ def task_crawler_deploy_version(
     egg_file_path: str | None = None,
     egg_content_b64: str | None = None,
     base_url: str | None = None,
-    metadata: dict[str, Any] | None = None,
+    metadata: TaskObject | None = None,
     job_id: int | None = None,
-) -> dict[str, Any]:
+) -> TaskObject:
     return _execute_crawler_deploy_version(
         project=project,
         version=version,
@@ -1259,9 +1474,9 @@ def _execute_crawler_deploy_version(
     egg_file_path: str | None = None,
     egg_content_b64: str | None = None,
     base_url: str | None = None,
-    metadata: dict[str, Any] | None = None,
+    metadata: TaskObject | None = None,
     job_id: int | None = None,
-) -> dict[str, Any]:
+) -> TaskObject:
     from .crawlers_mgmt import deploy_scrapy_project_version
     from .job_logger import fail_job, update_job_tracking
 
@@ -1297,14 +1512,14 @@ def task_register_source_library_scrapy_binding(
     channel_name: str | None = None,
     item_name: str | None = None,
     description: str | None = None,
-    arguments: dict[str, Any] | None = None,
-    settings: dict[str, Any] | None = None,
-    item_params_patch: dict[str, Any] | None = None,
-    channel_extra_patch: dict[str, Any] | None = None,
-    item_extra_patch: dict[str, Any] | None = None,
+    arguments: TaskObject | None = None,
+    settings: TaskObject | None = None,
+    item_params_patch: TaskObject | None = None,
+    channel_extra_patch: TaskObject | None = None,
+    item_extra_patch: TaskObject | None = None,
     enabled: bool = True,
     job_id: int | None = None,
-) -> dict[str, Any]:
+) -> TaskObject:
     return _execute_register_source_library_scrapy_binding(
         project_key=project_key,
         channel_key=channel_key,
@@ -1334,14 +1549,14 @@ def _execute_register_source_library_scrapy_binding(
     channel_name: str | None = None,
     item_name: str | None = None,
     description: str | None = None,
-    arguments: dict[str, Any] | None = None,
-    settings: dict[str, Any] | None = None,
-    item_params_patch: dict[str, Any] | None = None,
-    channel_extra_patch: dict[str, Any] | None = None,
-    item_extra_patch: dict[str, Any] | None = None,
+    arguments: TaskObject | None = None,
+    settings: TaskObject | None = None,
+    item_params_patch: TaskObject | None = None,
+    channel_extra_patch: TaskObject | None = None,
+    item_extra_patch: TaskObject | None = None,
     enabled: bool = True,
     job_id: int | None = None,
-) -> dict[str, Any]:
+) -> TaskObject:
     from .crawlers_mgmt import register_or_update_source_library_scrapy_binding
     from .job_logger import fail_job, update_job_tracking
 
@@ -1383,21 +1598,23 @@ def task_orchestrate_crawler_deploy(
     channel_key: str,
     item_key: str,
     version: str,
+    deploy_run_id: int | None = None,
     egg_file_path: str | None = None,
     egg_content_b64: str | None = None,
     base_url: str | None = None,
-    metadata: dict[str, Any] | None = None,
+    metadata: TaskObject | None = None,
     channel_name: str | None = None,
     item_name: str | None = None,
     description: str | None = None,
-    arguments: dict[str, Any] | None = None,
-    settings: dict[str, Any] | None = None,
-    item_params_patch: dict[str, Any] | None = None,
-    channel_extra_patch: dict[str, Any] | None = None,
-    item_extra_patch: dict[str, Any] | None = None,
+    arguments: TaskObject | None = None,
+    settings: TaskObject | None = None,
+    item_params_patch: TaskObject | None = None,
+    channel_extra_patch: TaskObject | None = None,
+    item_extra_patch: TaskObject | None = None,
     enabled: bool = True,
     job_id: int | None = None,
-) -> dict[str, Any]:
+) -> TaskObject:
+    from .crawlers_mgmt import finalize_deploy_run
     from .job_logger import fail_job, update_job_tracking
 
     try:
@@ -1436,7 +1653,7 @@ def task_orchestrate_crawler_deploy(
             enabled=enabled,
             job_id=job_id,
         )
-        orchestrated = {
+        orchestrated: TaskObject = {
             "project_key": project_key,
             "channel_key": channel_key,
             "item_key": item_key,
@@ -1450,8 +1667,12 @@ def task_orchestrate_crawler_deploy(
                 status="completed",
                 result={"crawler_deploy_orchestration": orchestrated},
             )
+        if deploy_run_id is not None:
+            finalize_deploy_run(int(deploy_run_id), status="succeeded")
         return orchestrated
     except Exception as exc:
+        if deploy_run_id is not None:
+            finalize_deploy_run(int(deploy_run_id), status="failed", error=str(exc))
         if job_id is not None:
             fail_job(int(job_id), str(exc), external_provider="scrapy")
         raise
@@ -1463,7 +1684,7 @@ def task_crawler_rollback_version(
     version: str,
     base_url: str | None = None,
     job_id: int | None = None,
-) -> dict[str, Any]:
+) -> TaskObject:
     return _execute_crawler_rollback_version(
         project=project,
         version=version,
@@ -1478,7 +1699,7 @@ def _execute_crawler_rollback_version(
     version: str,
     base_url: str | None = None,
     job_id: int | None = None,
-) -> dict[str, Any]:
+) -> TaskObject:
     from .crawlers_mgmt import rollback_scrapy_project_version
     from .job_logger import fail_job, update_job_tracking
 
@@ -1508,7 +1729,7 @@ def task_disable_source_library_channel_provider_native(
     item_key: str | None = None,
     keep_item_enabled: bool = True,
     job_id: int | None = None,
-) -> dict[str, Any]:
+) -> TaskObject:
     return _execute_disable_source_library_channel_provider_native(
         project_key=project_key,
         channel_key=channel_key,
@@ -1525,7 +1746,7 @@ def _execute_disable_source_library_channel_provider_native(
     item_key: str | None = None,
     keep_item_enabled: bool = True,
     job_id: int | None = None,
-) -> dict[str, Any]:
+) -> TaskObject:
     from .crawlers_mgmt import apply_source_library_native_rollback
     from .job_logger import fail_job, update_job_tracking
 
@@ -1554,17 +1775,19 @@ def task_orchestrate_crawler_rollback(
     project_key: str,
     scrapy_project: str,
     channel_key: str,
+    deploy_run_id: int | None = None,
     item_key: str | None = None,
     version: str | None = None,
     base_url: str | None = None,
     disable_provider_type_to_native: bool = True,
     keep_item_enabled: bool = True,
     job_id: int | None = None,
-) -> dict[str, Any]:
+) -> TaskObject:
+    from .crawlers_mgmt import finalize_deploy_run
     from .job_logger import fail_job, update_job_tracking
 
     try:
-        rollback_result: dict[str, Any] | None = None
+        rollback_result: TaskObject | None = None
         if version:
             rollback_result = _execute_crawler_rollback_version(
                 project=scrapy_project,
@@ -1573,7 +1796,7 @@ def task_orchestrate_crawler_rollback(
                 job_id=job_id,
             )
 
-        native_result: dict[str, Any] | None = None
+        native_result: TaskObject | None = None
         if disable_provider_type_to_native:
             native_result = _execute_disable_source_library_channel_provider_native(
                 project_key=project_key,
@@ -1583,7 +1806,7 @@ def task_orchestrate_crawler_rollback(
                 job_id=job_id,
             )
 
-        orchestrated = {
+        orchestrated: TaskObject = {
             "project_key": project_key,
             "channel_key": channel_key,
             "item_key": item_key,
@@ -1597,8 +1820,12 @@ def task_orchestrate_crawler_rollback(
                 status="completed",
                 result={"crawler_rollback_orchestration": orchestrated},
             )
+        if deploy_run_id is not None:
+            finalize_deploy_run(int(deploy_run_id), status="succeeded")
         return orchestrated
     except Exception as exc:
+        if deploy_run_id is not None:
+            finalize_deploy_run(int(deploy_run_id), status="failed", error=str(exc))
         if job_id is not None:
             fail_job(int(job_id), str(exc), external_provider="scrapy")
         raise

@@ -10,15 +10,16 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from hashlib import sha256
 import json
-from typing import Any
+from typing import Any, cast
 
 from functorial_kit import Failure
 
 from app.services.information_topology.modules.retrieval import validate_evidence_v2
-from .failures import retrieval_failure
+from .contracts import FormalizationResult
+from .failures import ProjectRetrievalFailureCode, retrieval_failure
 
 
-ModelInvoke = Callable[[str], Any]
+ModelInvoke = Callable[[str], object]
 
 _RELATION_CLASSES = frozenset({"线索链", "逻辑依赖", "证据网"})
 _VOCABULARY_KEYS = {
@@ -31,69 +32,80 @@ _VOCABULARY_KEYS = {
 }
 
 
-def _invalid(code: str, message: str, path: str) -> Failure:
+def _invalid(code: ProjectRetrievalFailureCode, message: str, path: str) -> Failure:
     return retrieval_failure(code, message, site="formalization.validation", path=path)
 
 
-def _failed(code: str, message: str, *, path: str | None = None) -> dict[str, Any]:
+def _failed(code: ProjectRetrievalFailureCode, message: str, *, path: str | None = None) -> FormalizationResult:
     error: dict[str, Any] = {"code": code, "message": message}
     if path is not None:
         error["context"] = {"path": path}
-    return {"status": "failed", "error": error}
+    return cast(FormalizationResult, {"status": "failed", "error": error})
 
 
-def _failure_result(failure: Failure) -> dict[str, Any]:
-    context = failure.context if isinstance(failure.context, Mapping) else {}
+def _failure_result(failure: Failure) -> FormalizationResult:
+    context: Mapping[str, object] = failure.context if isinstance(failure.context, Mapping) else {}
     path = context.get("path")
-    return _failed(failure.code, failure.message, path=path if isinstance(path, str) else None)
+    return _failed(
+        cast(ProjectRetrievalFailureCode, failure.code),
+        failure.message,
+        path=path if isinstance(path, str) else None,
+    )
 
 
 def _failure_path(failure: Failure) -> str:
-    context = failure.context if isinstance(failure.context, Mapping) else {}
+    context: Mapping[str, object] = failure.context if isinstance(failure.context, Mapping) else {}
     path = context.get("path")
     return path if isinstance(path, str) else "response"
 
 
-def _object(value: object, path: str, *, code: str) -> Mapping[str, Any] | Failure:
+def _object(value: object, path: str, *, code: ProjectRetrievalFailureCode) -> Mapping[str, Any] | Failure:
     if not isinstance(value, Mapping):
         return _invalid(code, "expected an object", path)
-    return value
+    return cast(Mapping[str, Any], value)
 
 
-def _text(value: object, path: str, *, code: str) -> str | Failure:
+def _text(value: object, path: str, *, code: ProjectRetrievalFailureCode) -> str | Failure:
     if not isinstance(value, str) or not value.strip():
         return _invalid(code, "expected a nonempty string", path)
     return value.strip()
 
 
-def _source_text(value: object, path: str, *, code: str) -> str | Failure:
+def _source_text(value: object, path: str, *, code: ProjectRetrievalFailureCode) -> str | Failure:
     """Validate source bytes represented as text without normalizing them."""
     if not isinstance(value, str) or not value.strip():
         return _invalid(code, "expected nonempty source text", path)
     return value
 
 
-def _identity(value: object, path: str, *, code: str) -> str | Failure:
+def _identity(value: object, path: str, *, code: ProjectRetrievalFailureCode) -> str | Failure:
     if isinstance(value, bool) or not isinstance(value, (str, int)) or not str(value).strip():
         return _invalid(code, "expected a nonempty string or integer identity", path)
     return str(value).strip()
 
 
-def _string_list(value: object, path: str, *, code: str, nonempty: bool = True) -> list[str] | Failure:
-    if (not isinstance(value, list) or (nonempty and not value)
-            or any(not isinstance(item, str) or not item.strip() for item in value)):
+def _string_list(
+    value: object, path: str, *, code: ProjectRetrievalFailureCode, nonempty: bool = True,
+) -> list[str] | Failure:
+    if not isinstance(value, list):
         return _invalid(code, "expected an array of nonempty strings", path)
-    normalized = [item.strip() for item in value]
+    values = cast(list[object], value)
+    if ((nonempty and not values)
+            or any(not isinstance(item, str) or not item.strip() for item in values)):
+        return _invalid(code, "expected an array of nonempty strings", path)
+    normalized = [item.strip() for item in values if isinstance(item, str)]
     if len(normalized) != len(set(normalized)):
         return _invalid(code, "values must be unique", path)
     return normalized
 
 
-def _only_keys(value: Mapping[str, Any], expected: set[str], path: str, *, code: str) -> Failure | None:
+def _only_keys(
+    value: Mapping[str, Any], expected: set[str], path: str, *, code: ProjectRetrievalFailureCode,
+) -> Failure | None:
     missing = sorted(expected - set(value))
     unknown = sorted(set(value) - expected)
     if missing or unknown:
-        detail = []
+        detail: list[str] = []
         if missing:
             detail.append(f"missing {missing}")
         if unknown:
@@ -160,9 +172,10 @@ def _input(payload: Mapping[str, Any]) -> dict[str, Any] | Failure:
             "updated_at": payload.get("material_updated_at", payload.get("document_updated_at")), "body_digest": payload.get("body_digest"),
         }
     else:
-        document = _object(nested_document, "document", code="FORMALIZATION_INPUT_INVALID")
-        if isinstance(document, Failure):
-            return document
+        document_value = _object(nested_document, "document", code="FORMALIZATION_INPUT_INVALID")
+        if isinstance(document_value, Failure):
+            return document_value
+        document = document_value
     normalized_document: dict[str, str] = {}
     if document.get("material_id") is not None and document.get("document_id") is not None:
         if str(document["material_id"]) != str(document["document_id"]):
@@ -292,14 +305,21 @@ def _prompt(value: Mapping[str, Any]) -> str:
     )
 
 
-def _response_value(response: Any) -> Mapping[str, Any] | Failure:
+def _response_value(response: object) -> Mapping[str, Any] | Failure:
     if hasattr(response, "content"):
-        response = response.content
+        response = getattr(response, "content")
     if isinstance(response, Mapping):
-        return response
+        return cast(Mapping[str, Any], response)
     if isinstance(response, Sequence) and not isinstance(response, (str, bytes, bytearray)):
-        text_parts = [item.get("text") for item in response if isinstance(item, Mapping)
-                      and isinstance(item.get("text"), str)]
+        sequence = cast(Sequence[object], response)
+        text_parts: list[str] = []
+        for item in sequence:
+            if not isinstance(item, Mapping):
+                continue
+            item_mapping = cast(Mapping[str, object], item)
+            text = item_mapping.get("text")
+            if isinstance(text, str):
+                text_parts.append(text)
         response = "".join(text_parts)
     if not isinstance(response, str):
         return _invalid("FORMALIZATION_RESPONSE_INVALID", "provider did not return JSON text or an object", "response")
@@ -307,7 +327,7 @@ def _response_value(response: Any) -> Mapping[str, Any] | Failure:
     if text.startswith("```json") and text.endswith("```"):
         text = text[7:-3].strip()
     try:
-        parsed = json.loads(text)
+        parsed: object = json.loads(text)
     except (TypeError, json.JSONDecodeError) as exc:
         return _invalid(
             "FORMALIZATION_RESPONSE_INVALID", f"provider response is not valid JSON: {exc}", "response",
@@ -336,7 +356,7 @@ def _proposal(raw: object, source: Mapping[str, Any]) -> dict[str, Any] | Failur
     nodes: list[dict[str, str]] = []
     node_keys: set[str] = set()
     allowed_node_types = set(source["domain_vocabulary"]["node_types"])
-    for index, raw_node in enumerate(raw_nodes):
+    for index, raw_node in enumerate(cast(list[object], raw_nodes)):
         path = f"response.proposal.nodes[{index}]"
         node = _object(raw_node, path, code=code)
         if isinstance(node, Failure):
@@ -488,8 +508,8 @@ def _validated_response(response: Mapping[str, Any], source: Mapping[str, Any]) 
 
 
 def formalize_document(
-    payload: Mapping[str, Any], *, model_invoke: ModelInvoke | None = None,
-) -> Mapping[str, Any]:
+    payload: object, *, model_invoke: ModelInvoke | None = None,
+) -> FormalizationResult:
     """Return one validated proposal/no-claim result without writing topology state.
 
     ``model_invoke`` is a narrow injection seam for deterministic fixtures.  A
@@ -499,7 +519,7 @@ def formalize_document(
     """
     if not isinstance(payload, Mapping):
         return _failed("FORMALIZATION_INPUT_INVALID", "payload must be an object", path="payload")
-    source = _input(payload)
+    source = _input(cast(Mapping[str, Any], payload))
     if isinstance(source, Failure):
         return _failure_result(source)
 
@@ -523,7 +543,7 @@ def formalize_document(
         else _validated_response(initial_value, source)
     )
     if not isinstance(initial_result, Failure):
-        return initial_result
+        return cast(FormalizationResult, initial_result)
 
     # A correction is a second provider judgment, never a parser or evidence
     # shortcut. Its result passes the same strict validator exactly once.
@@ -544,20 +564,25 @@ def formalize_document(
     )
     if isinstance(corrected_result, Failure):
         return _failure_result(corrected_result)
-    return corrected_result
+    return cast(FormalizationResult, corrected_result)
 
 
 def formalize_material(
-    payload: Mapping[str, Any], *, model_invoke: ModelInvoke | None = None,
-) -> Mapping[str, Any]:
+    payload: object, *, model_invoke: ModelInvoke | None = None,
+) -> FormalizationResult:
     """Canonical material capability; legacy provenance keys remain read aliases."""
-    result = dict(formalize_document(payload, model_invoke=model_invoke))
+    result = cast(dict[str, Any], dict(formalize_document(payload, model_invoke=model_invoke)))
     if isinstance(result.get("proposal"), Mapping):
-        proposal = dict(result["proposal"])
-        provenance = dict(proposal.get("provenance") or {})
+        proposal = dict(cast(Mapping[str, Any], result["proposal"]))
+        provenance_value = proposal.get("provenance")
+        provenance = (
+            dict(cast(Mapping[str, Any], provenance_value))
+            if isinstance(provenance_value, Mapping)
+            else {}
+        )
         for key in ("id", "url", "updated_at"):
             if "document_" + key in provenance:
                 provenance["material_" + key] = provenance["document_" + key]
         proposal["provenance"] = provenance
         result["proposal"] = proposal
-    return result
+    return cast(FormalizationResult, result)

@@ -20,14 +20,22 @@ TOPIC_ID = "2026-03-14-consumer-side-modularization"
 QUERY_FACADE = "main/backend/app/services/document_queries/consumer_predicates.py"
 QUERY_BOUNDARY = "main/backend/app/services/document_queries"
 BOUNDARY_RULE = (
-    "admin.py and dashboard.py consumer SQL JSON predicates must call document_queries; "
+    "admin.py delegates query ownership to document_admin; document_admin.py and dashboard.py "
+    "consumer SQL JSON predicates must call document_queries; "
     "Document.extracted_data[...] expressions are owned by the query facade."
 )
 
 CHECKED_SURFACES = (
     "main/backend/app/api/admin.py",
+    "main/backend/app/services/document_admin.py",
     "main/backend/app/api/dashboard.py",
 )
+
+REQUIRED_IMPORTS = {
+    "main/backend/app/api/admin.py": ("document_admin",),
+    "main/backend/app/services/document_admin.py": ("document_queries",),
+    "main/backend/app/api/dashboard.py": ("document_queries",),
+}
 
 REQUIRED_FACADE_FUNCTIONS = (
     "content_graph_structured_condition",
@@ -52,23 +60,30 @@ REQUIRED_FACADE_FUNCTIONS = (
 
 REQUIRED_CALLS = {
     "main/backend/app/api/admin.py": {
-        "list_documents": (
+        "list_documents": ("list_admin_documents",),
+        "list_social_data": ("list_admin_social_data",),
+        "get_content_graph": ("get_admin_content_graph",),
+        "get_market_graph": ("get_admin_market_graph",),
+        "get_policy_graph": ("get_admin_policy_graph",),
+    },
+    "main/backend/app/services/document_admin.py": {
+        "list_admin_documents": (
             "document_has_extracted_data_condition",
             "document_missing_extracted_data_condition",
         ),
-        "list_social_data": (
+        "list_admin_social_data": (
             "social_platform_condition",
             "social_sentiment_orientation_condition",
         ),
-        "get_content_graph": ("content_graph_structured_condition",),
-        "get_market_graph": (
+        "get_admin_content_graph": ("content_graph_structured_condition",),
+        "get_admin_market_graph": (
             "market_graph_structured_condition",
             "market_state_condition",
             "market_game_condition",
             "market_publish_created_or_report_on_or_after_condition",
             "market_publish_created_or_report_on_or_before_condition",
         ),
-        "get_policy_graph": (
+        "get_admin_policy_graph": (
             "policy_graph_has_data_condition",
             "policy_graph_state_condition",
             "policy_graph_type_ilike_condition",
@@ -180,7 +195,8 @@ def _surface_result(root: Path, rel_path: str) -> dict[str, Any]:
     imports = _import_tokens(tree) if tree is not None else set()
     functions = _function_map(tree) if tree is not None else {}
     direct_reads = _sql_json_reads(tree) if tree is not None else []
-    missing_imports = [] if "document_queries" in imports else ["document_queries"]
+    required_imports = REQUIRED_IMPORTS.get(rel_path, ())
+    missing_imports = [name for name in required_imports if name not in imports]
 
     function_results: list[dict[str, Any]] = []
     for name, required_calls in REQUIRED_CALLS.get(rel_path, {}).items():
@@ -216,7 +232,7 @@ def _surface_result(root: Path, rel_path: str) -> dict[str, Any]:
     return {
         "path": rel_path,
         "exists": exists,
-        "required_imports": ["document_queries"],
+        "required_imports": list(required_imports),
         "missing_imports": missing_imports,
         "direct_document_extracted_data_reads": [read.__dict__ for read in direct_reads],
         "functions": function_results,
@@ -285,8 +301,8 @@ def build_check(
             "checked_consumer_query_function_count": checked_functions,
             "direct_admin_dashboard_document_extracted_data_read_count": direct_api_reads,
             "covered_scope": (
-                "admin.py and dashboard.py no longer own Document.extracted_data SQL JSON predicates; "
-                "selected document-view consumer queries call document_queries helpers."
+                "admin.py delegates query ownership to document_admin; document_admin.py and dashboard.py "
+                "do not own Document.extracted_data SQL JSON expressions and call document_queries helpers."
             ),
             "remaining_boundary": (
                 "Document.extracted_data SQL JSON paths remain inside document_queries helper modules. "

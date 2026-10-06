@@ -83,6 +83,7 @@ _EXPECTED_CODES: dict[str, tuple[str, ...]] = {
     ),
     "crawler.registry.contract_failure": ("provider_key_required",),
     "ingest.operation.failure": (
+        "social_collect_result_invalid",
         "canary_readback_not_object",
         "commodity_collection_failed",
         "ecom_collection_failed",
@@ -110,6 +111,7 @@ _EXPECTED_CODES: dict[str, tuple[str, ...]] = {
         "repository_type_invalid",
     ),
     "resource_pool.contract.failure": (
+        "record_field_type_invalid",
         "preset_pack_unknown",
         "query_terms_required",
         "search_template_invalid",

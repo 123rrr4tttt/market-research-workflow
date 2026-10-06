@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
@@ -22,8 +22,40 @@ from ..services.crawlers_mgmt import (
 router = APIRouter(prefix="/crawler", tags=["crawler"])
 
 
-@router.get("/agent-modules")
-def list_crawler_agent_modules_api(request: Request):
+class CrawlerAgentOperation(BaseModel):
+    id: str
+    title: str
+    effect: Literal["read_only", "write", "execute"]
+
+
+class CrawlerAgentMethod(BaseModel):
+    id: str
+    title: str
+
+
+class CrawlerAgentTarget(BaseModel):
+    id: str
+    label: str
+
+
+class CrawlerAgentModule(BaseModel):
+    id: str
+    title: str
+    status: Literal["registered", "unavailable"]
+    available: bool
+    reason: str | None
+    cell_ref: str
+    operations: list[CrawlerAgentOperation]
+    methods: list[CrawlerAgentMethod]
+    targets: list[CrawlerAgentTarget]
+
+
+class CrawlerAgentModulesData(BaseModel):
+    items: list[CrawlerAgentModule]
+
+
+@router.get("/agent-modules", response_model=ApiEnvelope[CrawlerAgentModulesData])
+def list_crawler_agent_modules_api(request: Request) -> JSONResponse:
     from ..services.crawlers_mgmt.workbench import workbench_module
 
     project_key = _resolve_registration_project_key(request)

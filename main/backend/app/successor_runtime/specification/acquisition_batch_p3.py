@@ -20,6 +20,7 @@ from app.successor_runtime.capabilities import acquisition_batch_interpreters as
 from app.successor_runtime.capabilities import acquisition_batch_program as cp
 from app.successor_runtime.capabilities.checksum import content_digest
 from app.successor_runtime.language.compile import compile_program
+from app.successor_runtime.language.program import Atom
 from app.successor_runtime.runtime.assignments import InterpreterBinding
 from app.successor_runtime.specification.shared_family_generator import (
     BindingsByKind,
@@ -316,7 +317,6 @@ def _c3_1_fixtures() -> dict[str, Any]:
     observation = getattr(traversal_result, "observation", None)
     observation_digest = "" if observation is None else observation.observation_digest
 
-    fold_ref = bundle.fold_ordered_results_operation.ref
     successor_binding = _successor_fold_binding(bundle)
     successor_composed = ci.ComposedCollectSuccessorInterpreter().interpret(
         program=composed_program,
@@ -325,6 +325,11 @@ def _c3_1_fixtures() -> dict[str, Any]:
         binding=successor_binding,
         element_payloads=element_payloads,
     )
+    if isinstance(successor_composed, ci.InterpreterFailure):
+        raise RuntimeError(
+            "C3 fragment composed interpreter failed: "
+            f"{successor_composed.code}: {successor_composed.message}"
+        )
     return {
         "bundle": bundle,
         "catalog": catalog,
@@ -390,7 +395,7 @@ def _c3_2_fixtures() -> dict[str, Any]:
         outcome_digest="",
     )
     sequence = c3.OrderedCollectElementOutcomeSequence(
-        schema_version="mrw.successor.collect.c3.outcome-sequence.v1",
+        schema_version=c3.ORDERED_OUTCOME_SEQUENCE_SCHEMA_REF,
         parent_request_ref=request_ref,
         outcomes=(succeeded, failed),
         sequence_digest="",
@@ -422,6 +427,8 @@ def _c3_2_fixtures() -> dict[str, Any]:
         operation_contracts=registry,
         transform_registry=cp.build_acquisition_batch_transform_registry(),
     )
+    if not isinstance(program.root, Atom):
+        raise TypeError("C3 fold fragment program root must be an Atom")
     aggregate = ci.CollectFoldSuccessorInterpreter().interpret(
         program=program,
         plan=plan,
@@ -433,7 +440,12 @@ def _c3_2_fixtures() -> dict[str, Any]:
         deployment_catalog_digest=c3.deployment_catalog_digest(),
         binding=_successor_fold_binding(bundle),
     )
-    aggregate_digest = getattr(aggregate.value, "aggregate_digest", "")
+    if isinstance(aggregate, ci.InterpreterFailure):
+        raise RuntimeError(
+            "C3 fragment fold interpreter failed: "
+            f"{aggregate.code}: {aggregate.message}"
+        )
+    aggregate_digest = aggregate.value.aggregate_digest
 
     return {
         "bundle": bundle,

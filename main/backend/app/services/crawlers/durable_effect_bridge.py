@@ -10,14 +10,24 @@ durable for as long as its owner keeps it alive (it is never a module cache).
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Any, NoReturn, Protocol
+from typing import Literal, NoReturn, Protocol
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.provider_port_failures import crawler_runtime_failures
 
+from app.successor_runtime.capabilities.source_contracts import (
+    CancelReceipt,
+    ProviderAttemptRef,
+    ProviderReadbackResult,
+    SourcePlainObject,
+)
+
 from .base import (
+    CrawlerCancelPort,
     CrawlerDispatchRequest,
     CrawlerDispatchResult,
+    CrawlerJsonObject,
+    CrawlerProvider,
     crawler_request_digest,
     typed_crawler_readback,
 )
@@ -31,14 +41,12 @@ class CrawlerAttemptRecord:
     attempt_id: str
     request: CrawlerDispatchRequest
     dispatch: CrawlerDispatchResult | None = None
-    terminal_readback: Any | None = None
-    cancel_receipt: Any | None = None
+    terminal_readback: ProviderReadbackResult | None = None
+    cancel_receipt: CancelReceipt | None = None
 
     @property
-    def attempt_ref(self) -> Any:
+    def attempt_ref(self) -> ProviderAttemptRef:
         """Materialize the canonical C2.3 attempt reference on demand."""
-
-        from app.successor_runtime.capabilities.source_contracts import ProviderAttemptRef
 
         return ProviderAttemptRef(
             attempt_id=self.attempt_id,
@@ -51,12 +59,7 @@ class CrawlerAttemptRecord:
         if self.cancel_receipt is not None:
             return True
         if self.terminal_readback is not None:
-            plain = (
-                self.terminal_readback.to_plain()
-                if hasattr(self.terminal_readback, "to_plain")
-                else self.terminal_readback
-            )
-            return isinstance(plain, dict) and plain.get("kind") == "terminal"
+            return self.terminal_readback.to_plain().get("kind") == "terminal"
         # A provider label such as ``completed`` is only an observation.  The
         # C2.3 terminal proof is the typed authoritative readback (or cancel
         # receipt), which must survive the bridge boundary.
@@ -75,10 +78,18 @@ class CrawlerAttemptStore(Protocol):
     def save_dispatch(self, record: CrawlerAttemptRecord, dispatch: CrawlerDispatchResult) -> CrawlerAttemptRecord:
         ...
 
-    def save_readback(self, record: CrawlerAttemptRecord, readback: Any) -> CrawlerAttemptRecord:
+    def save_readback(
+        self,
+        record: CrawlerAttemptRecord,
+        readback: ProviderReadbackResult,
+    ) -> CrawlerAttemptRecord:
         ...
 
-    def save_cancel(self, record: CrawlerAttemptRecord, receipt: Any) -> CrawlerAttemptRecord:
+    def save_cancel(
+        self,
+        record: CrawlerAttemptRecord,
+        receipt: CancelReceipt,
+    ) -> CrawlerAttemptRecord:
         ...
 
     def find_by_job_id(self, provider: str, provider_job_id: str) -> CrawlerAttemptRecord | None:
@@ -123,12 +134,20 @@ class InMemoryCrawlerAttemptStore:
         self._records[(record.provider.lower(), record.idempotency_key)] = updated
         return updated
 
-    def save_readback(self, record: CrawlerAttemptRecord, readback: Any) -> CrawlerAttemptRecord:
+    def save_readback(
+        self,
+        record: CrawlerAttemptRecord,
+        readback: ProviderReadbackResult,
+    ) -> CrawlerAttemptRecord:
         updated = replace(record, terminal_readback=readback)
         self._records[(record.provider.lower(), record.idempotency_key)] = updated
         return updated
 
-    def save_cancel(self, record: CrawlerAttemptRecord, receipt: Any) -> CrawlerAttemptRecord:
+    def save_cancel(
+        self,
+        record: CrawlerAttemptRecord,
+        receipt: CancelReceipt,
+    ) -> CrawlerAttemptRecord:
         updated = replace(record, cancel_receipt=receipt)
         self._records[(record.provider.lower(), record.idempotency_key)] = updated
         return updated
@@ -147,7 +166,13 @@ class RequestDigestMismatch(ValueError):
     pass
 
 
-def _failure(code: str, message: str, *, public_exception: str = "RuntimeError", **details: Any) -> Failure:
+def _failure(
+    code: str,
+    message: str,
+    *,
+    public_exception: str = "RuntimeError",
+    **details: object,
+) -> Failure:
     reason_code = code
     if code not in crawler_runtime_failures.codes:
         code = (
@@ -156,7 +181,7 @@ def _failure(code: str, message: str, *, public_exception: str = "RuntimeError",
             else "scrapyd_transport"
         )
         details.setdefault("reason_code", reason_code)
-    context = {
+    context: dict[str, object] = {
         "boundary_class": "PURE_CONTRACT_FAILURE",
         "failure_family": crawler_runtime_failures.name,
         "operation": "crawlers.durable_effect_bridge",
@@ -179,15 +204,23 @@ def _raise_contract_failure(failure: Failure, *, cause: BaseException | None = N
     raise ValueError(message) from cause
 
 
+def _cancel_status(value: object) -> Literal["CANCEL_ACCEPTED", "ALREADY_TERMINAL"] | None:
+    if value == "CANCEL_ACCEPTED":
+        return "CANCEL_ACCEPTED"
+    if value == "ALREADY_TERMINAL":
+        return "ALREADY_TERMINAL"
+    return None
+
+
 class DurableCrawlerEffectBridge:
     """Bind legacy dispatch/poll/cancel operations to an injected store."""
 
     def __init__(
         self,
         *,
-        provider: Any,
+        provider: CrawlerProvider,
         store: CrawlerAttemptStore | None,
-        cancel_port: Any | None = None,
+        cancel_port: CrawlerCancelPort | None = None,
     ) -> None:
         if store is None:
             _raise_contract_failure(
@@ -245,8 +278,14 @@ class DurableCrawlerEffectBridge:
                         "attempt_store_unavailable",
                         f"crawler attempt store replay readback failed: {exc}",
                     )
+            persisted_dispatch = record.dispatch
+            if persisted_dispatch is None:
+                return _failure(
+                    "attempt_store_unavailable",
+                    "crawler attempt store lost the persisted dispatch",
+                )
             return self._with_readback(
-                record.dispatch,
+                persisted_dispatch,
                 record.terminal_readback,
                 idempotency_key=request.idempotency_key,
                 attempt_id=request.attempt_id,
@@ -255,8 +294,8 @@ class DurableCrawlerEffectBridge:
             dispatch = self.provider.dispatch(request)
         except Exception as exc:  # provider effect boundary
             return _failure("scrapyd_transport", f"crawler provider dispatch failed: {exc}", cause=exc)
-        if not isinstance(dispatch, CrawlerDispatchResult):
-            return _failure("scrapyd_response_invalid", "crawler provider dispatch returned a non-canonical result")
+        if isinstance(dispatch, Failure):
+            return dispatch
         try:
             if record is None:
                 record = self.store.reserve(request)
@@ -268,34 +307,32 @@ class DurableCrawlerEffectBridge:
         except Exception as exc:
             return _failure("attempt_store_unavailable", f"crawler attempt store dispatch write failed: {exc}")
         if record.terminal_readback is None and dispatch.provider_job_id:
-            poll_fn = getattr(self.provider, "poll", None)
-            if callable(poll_fn):
+            try:
+                payload = self.provider.poll(
+                    external_job_id=dispatch.provider_job_id,
+                    project=request.project,
+                    spider=request.spider,
+                    options={"idempotency_key": request.idempotency_key, "attempt_id": request.attempt_id},
+                )
+                readback = typed_crawler_readback(
+                    attempt_id=record.attempt_id,
+                    provider_job_id=dispatch.provider_job_id,
+                    payload=payload,
+                )
+                record = self.store.save_readback(record, readback)
+            except Exception as exc:
+                readback = typed_crawler_readback(
+                    attempt_id=record.attempt_id,
+                    provider_job_id=dispatch.provider_job_id,
+                    payload={"status": "unknown", "reason": f"crawler provider poll failed: {exc}"},
+                )
                 try:
-                    payload = poll_fn(
-                        external_job_id=dispatch.provider_job_id,
-                        project=request.project,
-                        spider=request.spider,
-                        options={"idempotency_key": request.idempotency_key, "attempt_id": request.attempt_id},
-                    )
-                    readback = typed_crawler_readback(
-                        attempt_id=record.attempt_id,
-                        provider_job_id=dispatch.provider_job_id,
-                        payload=payload,
-                    )
                     record = self.store.save_readback(record, readback)
-                except Exception as exc:
-                    readback = typed_crawler_readback(
-                        attempt_id=record.attempt_id,
-                        provider_job_id=dispatch.provider_job_id,
-                        payload={"status": "unknown", "reason": f"crawler provider poll failed: {exc}"},
+                except Exception as store_exc:
+                    return _failure(
+                        "attempt_store_unavailable",
+                        f"crawler attempt store readback write failed: {store_exc}",
                     )
-                    try:
-                        record = self.store.save_readback(record, readback)
-                    except Exception as store_exc:
-                        return _failure(
-                            "attempt_store_unavailable",
-                            f"crawler attempt store readback write failed: {store_exc}",
-                        )
         return self._with_readback(
             dispatch,
             record.terminal_readback,
@@ -306,7 +343,7 @@ class DurableCrawlerEffectBridge:
     @staticmethod
     def _with_readback(
         dispatch: CrawlerDispatchResult,
-        readback: Any | None,
+        readback: ProviderReadbackResult | None,
         *,
         idempotency_key: str | None = None,
         attempt_id: str | None = None,
@@ -324,9 +361,9 @@ class DurableCrawlerEffectBridge:
         external_job_id: str,
         project: str | None = None,
         spider: str | None = None,
-        options: dict[str, Any] | None = None,
-    ) -> dict[str, Any] | Failure:
-        provider = str(getattr(self.provider, "provider_type", "crawler"))
+        options: CrawlerJsonObject | None = None,
+    ) -> SourcePlainObject | Failure:
+        provider = self.provider.provider_type
         record = self.store.find_by_job_id(provider, external_job_id)
         if record is None:
             return _failure(
@@ -335,18 +372,11 @@ class DurableCrawlerEffectBridge:
                 provider_job_id=external_job_id,
             )
         if record.terminal_readback is not None:
-            plain = (
-                record.terminal_readback.to_plain()
-                if hasattr(record.terminal_readback, "to_plain")
-                else record.terminal_readback
-            )
-            if isinstance(plain, dict) and plain.get("kind") == "terminal":
+            plain = record.terminal_readback.to_plain()
+            if plain.get("kind") == "terminal":
                 return plain
-        poll_fn = getattr(self.provider, "poll", None)
-        if not callable(poll_fn):
-            return _failure("provider_poll_unsupported", f"crawler provider does not support poll(): {provider}")
         try:
-            payload = poll_fn(
+            payload = self.provider.poll(
                 external_job_id=external_job_id,
                 project=project or record.request.project,
                 spider=spider or record.request.spider,
@@ -358,8 +388,7 @@ class DurableCrawlerEffectBridge:
                 payload=payload,
             )
             self.store.save_readback(record, readback)
-            plain = readback.to_plain() if hasattr(readback, "to_plain") else readback
-            return plain if isinstance(plain, dict) else {"readback": plain}
+            return readback.to_plain()
         except Exception as exc:
             readback = typed_crawler_readback(
                 attempt_id=record.attempt_id,
@@ -376,7 +405,10 @@ class DurableCrawlerEffectBridge:
             plain = readback.to_plain()
             return plain
 
-    def reconcile(self, request: CrawlerDispatchRequest) -> Any:
+    def reconcile(
+        self,
+        request: CrawlerDispatchRequest,
+    ) -> ProviderReadbackResult | SourcePlainObject | Failure:
         """Read back an existing attempt without ever dispatching it again."""
 
         invalid = self._validate_request(request)
@@ -391,12 +423,7 @@ class DurableCrawlerEffectBridge:
         if record is None or record.dispatch is None or not record.dispatch.provider_job_id:
             return _failure("attempt_not_found", "crawler attempt has no provider job for readback")
         if record.terminal_readback is not None:
-            plain = (
-                record.terminal_readback.to_plain()
-                if hasattr(record.terminal_readback, "to_plain")
-                else record.terminal_readback
-            )
-            if isinstance(plain, dict) and plain.get("kind") == "terminal":
+            if record.terminal_readback.to_plain().get("kind") == "terminal":
                 return record.terminal_readback
         result = self.poll(
             external_job_id=record.dispatch.provider_job_id,
@@ -408,7 +435,7 @@ class DurableCrawlerEffectBridge:
 
     readback = reconcile
 
-    def cancel(self, request: CrawlerDispatchRequest) -> Any:
+    def cancel(self, request: CrawlerDispatchRequest) -> CancelReceipt | Failure:
         invalid = self._validate_request(request)
         if invalid is not None:
             return invalid
@@ -424,11 +451,6 @@ class DurableCrawlerEffectBridge:
             return record.cancel_receipt
         if record.terminal:
             try:
-                from app.successor_runtime.capabilities.source_contracts import (
-                    CancelReceipt,
-                    ProviderAttemptRef,
-                )
-
                 attempt = ProviderAttemptRef(
                     attempt_id=record.attempt_id,
                     request_digest=record.request_digest,
@@ -444,37 +466,46 @@ class DurableCrawlerEffectBridge:
                 return receipt
             except Exception as exc:
                 return _failure("cancel_failed", f"could not create terminal cancellation receipt: {exc}")
-        cancel_fn = getattr(self.cancel_port or self.provider, "cancel", None)
-        if not callable(cancel_fn):
+        cancel_candidate: object = self.cancel_port or self.provider
+        if not isinstance(cancel_candidate, CrawlerCancelPort):
             return _failure(
                 "provider_cancel_unsupported",
                 f"crawler provider does not support cancel(): {record.provider}",
             )
         try:
-            from app.successor_runtime.capabilities.source_contracts import CancelReceipt, ProviderAttemptRef
-
             attempt = ProviderAttemptRef(
                 attempt_id=record.attempt_id,
                 request_digest=record.request_digest,
                 provider=record.provider,
             )
-            try:
-                raw = cancel_fn(
-                    attempt_ref=attempt,
-                    request=request,
-                    external_job_id=record.dispatch.provider_job_id,
-                    project=request.project,
-                    spider=request.spider,
-                )
-            except TypeError:
-                # C2.3 ports expose the minimal two-argument cancellation ABI.
-                raw = cancel_fn(attempt, request)
-            receipt = raw if isinstance(raw, CancelReceipt) else CancelReceipt(
-                cancel_receipt_id=str((raw or {}).get("cancel_receipt_id") or f"cancel:crawler:{record.attempt_id}"),
-                attempt_ref=attempt.as_ref_string(),
-                request_digest=record.request_digest,
-                cancel_status=str((raw or {}).get("cancel_status") or "CANCEL_ACCEPTED"),
+            raw = cancel_candidate.cancel(
+                attempt_ref=attempt,
+                request=request,
+                external_job_id=record.dispatch.provider_job_id,
+                project=request.project,
+                spider=request.spider,
             )
+            if isinstance(raw, CancelReceipt):
+                receipt = raw
+            elif isinstance(raw, Failure):
+                return raw
+            else:
+                raw_status = raw.get("cancel_status") or "CANCEL_ACCEPTED"
+                cancel_status = _cancel_status(raw_status)
+                if cancel_status is None:
+                    return _failure(
+                        "cancel_failed",
+                        f"crawler provider returned unsupported cancellation status: {raw_status}",
+                    )
+                receipt = CancelReceipt(
+                    cancel_receipt_id=str(
+                        raw.get("cancel_receipt_id")
+                        or f"cancel:crawler:{record.attempt_id}"
+                    ),
+                    attempt_ref=attempt.as_ref_string(),
+                    request_digest=record.request_digest,
+                    cancel_status=cancel_status,
+                )
             if receipt.request_digest != record.request_digest or receipt.attempt_ref != attempt.as_ref_string():
                 return _failure(
                     "cancel_failed",

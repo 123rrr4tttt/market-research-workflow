@@ -13,12 +13,12 @@ network, credential or fixture-closure fallback.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, NoReturn
 
 import sqlalchemy as sa
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from app.successor_runtime.capabilities import source_resolution as c2_1
 from app.successor_runtime.capabilities.checksum import (
@@ -31,6 +31,7 @@ from app.successor_runtime.capabilities.source_resolution import (
     build_source_resolution_bundle,
     build_source_resolution_catalog,
 )
+from app.successor_runtime.capabilities.codecs import PayloadCodec
 from app.successor_runtime.capabilities.source_resolution_interpreters import (
     InterpreterFailure,
     SourceResolutionSuccessorInterpreter,
@@ -42,11 +43,13 @@ from app.successor_runtime.capabilities.source_resolution_program import (
 )
 from app.successor_runtime.language.algebra import ValueRef
 from app.successor_runtime.language.catalog import OperationContractCatalogSnapshot
+from app.successor_runtime.language.object_contracts import OperationContractRef
 from app.successor_runtime.language.plan import ExecutionPlan
 from app.successor_runtime.language.program import ProgramSpec
 from app.successor_runtime.runtime.assignments import (
     AssignmentKind,
     CompiledStepRole,
+    InterpreterBinding,
     RuntimeAssignment,
     require_digest,
 )
@@ -70,8 +73,8 @@ from app.successor_runtime.substrate.postgres.research_ledger import (
 from app.successor_runtime.substrate.postgres.runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
-    _one_mapping,
-    _table,
+    one_mapping,
+    runtime_table,
 )
 from app.successor_runtime.substrate.postgres.session import (
     ProjectScopeStale,
@@ -140,7 +143,7 @@ def _reject(code: str, exc: BaseException) -> NoReturn:
 class _LoadedClosure:
     program: ProgramSpec
     plan: ExecutionPlan
-    contract_ref: Any
+    contract_ref: OperationContractRef
     payload_ref: ValueRef
     payload: c2_1.SourceResolutionPayload
     catalog: OperationContractCatalogSnapshot
@@ -317,6 +320,9 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
             raise DefiniteInterpreterFailure(
                 "EXACT_SOURCE_REQUEST_RESOLUTION_DEPLOYMENT_CATALOG_DRIFT"
             )
+        binding = assignment.handler_binding
+        if not isinstance(binding, InterpreterBinding):
+            raise DefiniteInterpreterFailure(C2_1_ASSIGNMENT_BINDING_MISSING)
 
         loaded = self._load_exact_closure(assignment, context.node.node_id)
         ceiling_rejection = require_resource_ceiling(loaded.payload)
@@ -332,11 +338,16 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
             project_scope=loaded.payload.project_scope,
             catalog=loaded.catalog,
             deployment_catalog_digest=self.deployment_catalog_digest,
-            binding=assignment.handler_binding,
+            binding=binding,
         )
         if isinstance(outcome, InterpreterFailure):
             raise DefiniteInterpreterFailure(outcome.code)
-        return InterpreterOutcome.succeeded(outcome.value.observation_digest)
+        result_digest = (
+            outcome.value.observation_digest
+            if isinstance(outcome.value, c2_1.ResolvedResolution)
+            else checksum_content_digest(outcome.value.to_plain())
+        )
+        return InterpreterOutcome.succeeded(result_digest)
 
     def _load_exact_closure(
         self,
@@ -452,9 +463,9 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
         self,
         connection: Connection,
         assignment: RuntimeAssignment,
-    ) -> Mapping[str, Any]:
-        runs = _table("runtime_runs")
-        run = _one_mapping(
+    ) -> RowMapping:
+        runs = runtime_table("runtime_runs")
+        run = one_mapping(
             connection.execute(
                 sa.select(runs).where(
                     runs.c.project_key == assignment.project_key,
@@ -483,7 +494,7 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
     def _resolve_scope(
         self,
         connection: Connection,
-        run: Mapping[str, Any],
+        run: RowMapping,
         assignment: RuntimeAssignment,
         *,
         actor_id: str,
@@ -512,9 +523,9 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
         self,
         connection: Connection,
         assignment: RuntimeAssignment,
-    ) -> Mapping[str, Any]:
-        refs = _table("runtime_program_refs")
-        row = _one_mapping(
+    ) -> RowMapping:
+        refs = runtime_table("runtime_program_refs")
+        row = one_mapping(
             connection.execute(
                 sa.select(refs).where(
                     refs.c.project_key == assignment.project_key,
@@ -535,7 +546,7 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
         tables: Any,
         scope: RuntimeScope,
         assignment: RuntimeAssignment,
-        program_ref: Mapping[str, Any],
+        program_ref: RowMapping,
     ) -> ProgramSpec:
         try:
             program = ProgramRepository(connection, tables).get(
@@ -565,13 +576,13 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
     def _plan_ref(
         self,
         connection: Connection,
-        run: Mapping[str, Any],
+        run: RowMapping,
         assignment: RuntimeAssignment,
-        program_ref: Mapping[str, Any],
-    ) -> Mapping[str, Any]:
+        program_ref: RowMapping,
+    ) -> RowMapping:
         assert assignment.plan_digest is not None
-        refs = _table("runtime_plan_refs")
-        row = _one_mapping(
+        refs = runtime_table("runtime_plan_refs")
+        row = one_mapping(
             connection.execute(
                 sa.select(refs).where(
                     refs.c.project_key == assignment.project_key,
@@ -600,12 +611,12 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
         connection: Connection,
         tables: Any,
         assignment: RuntimeAssignment,
-        plan_ref: Mapping[str, Any],
-        program_ref: Mapping[str, Any],
-    ) -> Mapping[str, Any]:
+        plan_ref: RowMapping,
+        program_ref: RowMapping,
+    ) -> RowMapping:
         assert assignment.plan_digest is not None
         plans = tables.research_execution_plans
-        row = _one_mapping(
+        row = one_mapping(
             connection.execute(
                 sa.select(plans).where(
                     plans.c.project_key == assignment.project_key,
@@ -653,8 +664,8 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
         tables: Any,
         scope: RuntimeScope,
         assignment: RuntimeAssignment,
-        plan_ref: Mapping[str, Any],
-        program_ref: Mapping[str, Any],
+        plan_ref: RowMapping,
+        program_ref: RowMapping,
     ) -> ExecutionPlan:
         assert assignment.plan_digest is not None
         try:
@@ -681,11 +692,11 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
 
     def _installed_closure(
         self,
-        plan_ref: Mapping[str, Any],
+        plan_ref: RowMapping,
     ) -> tuple[
         OperationContractCatalogSnapshot,
-        Any,
-        Any,
+        OperationContractRef,
+        PayloadCodec[c2_1.SourceResolutionPayload],
     ]:
         bundle = build_source_resolution_bundle()
         catalog = build_source_resolution_catalog(bundle)
@@ -705,22 +716,22 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
 
     def _require_operation_catalog(
         self,
-        plan_ref: Mapping[str, Any],
-        project_plan_row: Mapping[str, Any],
+        plan_ref: RowMapping,
+        project_plan_row: RowMapping,
         catalog: OperationContractCatalogSnapshot,
-        contract_ref: Any,
+        contract_ref: OperationContractRef,
         assignment: RuntimeAssignment,
     ) -> None:
         op = assignment.operation_contract_ref
+        installed_ref = catalog.lookup(contract_ref)
         if (
             op is None
             or op.kind != contract_ref.kind
             or op.contract_version != contract_ref.contract_version
             or op.contract_digest != contract_ref.contract_digest
             or assignment.operation_contract_digest != contract_ref.contract_digest
-            or catalog.lookup(contract_ref) is None
-            or catalog.lookup(contract_ref).contract_digest
-            != contract_ref.contract_digest
+            or installed_ref is None
+            or installed_ref.contract_digest != contract_ref.contract_digest
         ):
             _reject(
                 C2_1_OPERATION_CATALOG_DRIFT,
@@ -742,9 +753,9 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
         connection: Connection,
         assignment: RuntimeAssignment,
         payload_identity: C2_1PayloadValueIdentity,
-    ) -> Mapping[str, Any]:
-        values = _table("runtime_values")
-        row = _one_mapping(
+    ) -> RowMapping:
+        values = runtime_table("runtime_values")
+        row = one_mapping(
             connection.execute(
                 sa.select(values).where(
                     values.c.project_key == assignment.project_key,
@@ -784,10 +795,10 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
         connection: Connection,
         tables: Any,
         payload_identity: C2_1PayloadValueIdentity,
-        runtime_value: Mapping[str, Any],
-    ) -> Mapping[str, Any]:
+        runtime_value: RowMapping,
+    ) -> RowMapping:
         values = tables.successor_values
-        row = _one_mapping(
+        row = one_mapping(
             connection.execute(
                 sa.select(values).where(
                     values.c.project_key == payload_identity.project_key,
@@ -827,8 +838,8 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
         connection: Connection,
         tables: Any,
         scope: RuntimeScope,
-        project_value: Mapping[str, Any],
-        runtime_value: Mapping[str, Any],
+        project_value: RowMapping,
+        runtime_value: RowMapping,
         payload_identity: C2_1PayloadValueIdentity,
     ) -> bytes:
         try:
@@ -856,19 +867,19 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
 
     def _decode_payload(
         self,
-        codec: Any,
+        codec: PayloadCodec[c2_1.SourceResolutionPayload],
         payload_bytes: bytes,
         assignment: RuntimeAssignment,
     ) -> c2_1.SourceResolutionPayload:
         assert assignment.payload_digest is not None
         try:
-            payload = codec.decode_payload(json.loads(payload_bytes.decode("utf-8")))
+            decoded_json: object = json.loads(payload_bytes.decode("utf-8"))
+            payload = codec.decode_payload(
+                c2_1.source_resolution_payload_wire_from_value(decoded_json)
+            )
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
             _reject(C2_1_PAYLOAD_CODEC_DRIFT, exc)
-        if (
-            not isinstance(payload, c2_1.SourceResolutionPayload)
-            or payload.payload_digest != assignment.payload_digest
-        ):
+        if payload.payload_digest != assignment.payload_digest:
             _reject(
                 C2_1_PAYLOAD_CODEC_DRIFT,
                 ValueError("decoded payload digest drift"),
@@ -878,8 +889,8 @@ class SourceLibraryC2_1StoreRehydratedHandler(RuntimeHandler):
     def _rebuild_payload_ref(
         self,
         payload: c2_1.SourceResolutionPayload,
-        runtime_value: Mapping[str, Any],
-        project_value: Mapping[str, Any],
+        runtime_value: RowMapping,
+        project_value: RowMapping,
         payload_identity: C2_1PayloadValueIdentity,
     ) -> ValueRef:
         payload_ref = payload_value_ref(

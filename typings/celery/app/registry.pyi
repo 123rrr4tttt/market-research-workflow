@@ -1,0 +1,13 @@
+from collections.abc import Iterator, Mapping
+
+class RegisteredRun:
+    def __call__(self, *args: object, **kwargs: object) -> object: ...
+
+class RegisteredTask:
+    name: str
+    run: RegisteredRun
+
+class TaskRegistry(Mapping[str, RegisteredTask]):
+    def __getitem__(self, key: str) -> RegisteredTask: ...
+    def __iter__(self) -> Iterator[str]: ...
+    def __len__(self) -> int: ...

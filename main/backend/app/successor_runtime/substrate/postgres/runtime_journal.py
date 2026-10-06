@@ -20,7 +20,7 @@ from typing import Any, Literal
 
 from pydantic import Field, model_validator
 from sqlalchemy import Table, insert, select, update
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, Result, RowMapping
 
 from app.successor_runtime.runtime.assignments import (
     Digest,
@@ -173,11 +173,14 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-def _table(name: str) -> Table:
+def runtime_table(name: str) -> Table:
     try:
         return PUBLIC_TABLES[name]
     except KeyError as exc:  # pragma: no cover - integration configuration error
         raise RuntimeError(f"missing P0-B public table: {name}") from exc
+
+
+_table = runtime_table
 
 
 def _scope_key(scope: RuntimeScope) -> str:
@@ -198,11 +201,13 @@ def _as_mapping(row: Any) -> Mapping[str, Any] | None:
     raise TypeError("database row does not expose a mapping")
 
 
-def _one_mapping(result: Any) -> Mapping[str, Any] | None:
-    mappings = getattr(result, "mappings", None)
-    if callable(mappings):
-        return _as_mapping(mappings().one_or_none())
-    return _as_mapping(result.one_or_none())
+def one_mapping(result: Result[tuple[object, ...]]) -> RowMapping | None:
+    """Return the unique SQLAlchemy mapping row without weakening its type."""
+
+    return result.mappings().one_or_none()
+
+
+_one_mapping = one_mapping
 
 
 def _mapping_rows(result: Any) -> tuple[Mapping[str, Any], ...]:
@@ -707,7 +712,7 @@ class RuntimeJournalRepository:
     def append_transition(self, **kwargs: Any) -> JournalTransitionReceipt:
         return self.commands(**kwargs).execute(self.connection)
 
-    def load_run(self, run_id: str, *, for_update: bool = False) -> Mapping[str, Any]:
+    def load_run(self, run_id: str, *, for_update: bool = False) -> RowMapping:
         runs = _table("runtime_runs")
         statement = select(runs).where(
             runs.c.project_key == _scope_key(self.scope), runs.c.run_id == run_id

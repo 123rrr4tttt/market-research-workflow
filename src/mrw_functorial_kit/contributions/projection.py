@@ -10,6 +10,7 @@ from app.successor_runtime.runtime.projection_native_contribution import (
     NON_DEFAULT_PROJECTION_NATIVE_SOURCE,
     PROJECTION_SOURCE_ANCHOR_OBJECT_SUFFIX,
     PROJECTION_SOURCE_VIEWS_OBJECT_SUFFIX,
+    ProjectionNativeBinding,
     ProjectionNativeDefinition,
     compile_projection_native_contribution,
 )
@@ -20,6 +21,7 @@ from app.successor_runtime.substrate.projections import (
     projection_sources as projection_sources,
 )
 from functorial_kit.contribution_verification import (
+    VerificationChanges,
     VerificationPlan,
     VerificationRegistration,
     VerificationSource,
@@ -33,6 +35,7 @@ from functorial_kit.law_witness import (
     define_law_witness,
     law_witness_reference,
 )
+from functorial_kit.native_contribution import NativeContribution
 
 from mrw_functorial_kit.core.projection_semantics import projection_processing_failures
 
@@ -82,9 +85,18 @@ def _projection_source_views_sketch(
                 },
             ],
             "operations": [
-                {"name": "build_agent_session_payload", "order_depends_on": []},
-                {"name": "build_research_graph_payload", "order_depends_on": []},
-                {"name": "build_search_payload", "order_depends_on": []},
+                {
+                    "name": "build_agent_session_payload",
+                    "order_depends_on": list[str](),
+                },
+                {
+                    "name": "build_research_graph_payload",
+                    "order_depends_on": list[str](),
+                },
+                {
+                    "name": "build_search_payload",
+                    "order_depends_on": list[str](),
+                },
             ],
             "equations": [
                 {
@@ -174,7 +186,10 @@ def _projection_source_anchor_sketch(
                 },
             ],
             "operations": [
-                {"name": "build_semantic_source_closure", "order_depends_on": []},
+                {
+                    "name": "build_semantic_source_closure",
+                    "order_depends_on": list[str](),
+                },
                 {
                     "name": "put_semantic_source_rows",
                     "order_depends_on": ["build_semantic_source_closure"],
@@ -232,7 +247,17 @@ def _projection_source_anchor_sketch(
     )
 
 
-def _attach_projection_source_sketches(native: object) -> object:
+def _attach_projection_source_sketches(
+    native: NativeContribution[
+        ProjectionNativeDefinition,
+        object,
+        ProjectionNativeBinding,
+    ],
+) -> NativeContribution[
+    ProjectionNativeDefinition,
+    object,
+    ProjectionNativeBinding,
+]:
     definition = native.definition
     projection = replace(
         native.projection,
@@ -244,7 +269,9 @@ def _attach_projection_source_sketches(native: object) -> object:
     return replace(native, projection=projection)
 
 
-def projection_verification_plan_for(changes: object | None = None) -> VerificationPlan:
+def projection_verification_plan_for(
+    changes: VerificationChanges | None = None,
+) -> VerificationPlan:
     plan = plan_contribution_verification(
         tuple(
             VerificationSource(native.projection, native.verification)
@@ -276,11 +303,13 @@ if isinstance(_catalog_law, Failure):
     raise RuntimeError(f"invalid C9 native catalog law: {_catalog_law.message}")
 
 
-_default_compiled = (compile_projection_native_contribution(DEFAULT_PROJECTION_NATIVE_SOURCE),)
-if any(isinstance(native, Failure) for native in _default_compiled):
+_default_compiled = compile_projection_native_contribution(
+    DEFAULT_PROJECTION_NATIVE_SOURCE
+)
+if isinstance(_default_compiled, Failure):
     raise RuntimeError("invalid default C9 native contribution")
-projection_native_contributions = tuple(
-    _attach_projection_source_sketches(native) for native in _default_compiled
+projection_native_contributions = (
+    _attach_projection_source_sketches(_default_compiled),
 )
 projection_native_catalog = projection_native_contributions
 projection_verification_plan = projection_verification_plan_for()

@@ -35,7 +35,7 @@ class IngestCanaryClosureReadinessTest(unittest.TestCase):
             self.assertEqual(topic["missing_authority_tokens"], [])
             self.assertTrue(topic["authority_index_points_to_current_doc"])
             self.assertFalse(topic["current_dev_directory_exists"])
-            self.assertTrue(topic["current_dev_navigation_row_present"])
+            self.assertFalse(topic["current_dev_navigation_row_present"])
             self.assertFalse(topic["current_dev_is_authority"])
             self.assertFalse(topic["historical_wave27"]["is_current_authority"])
 
@@ -60,6 +60,27 @@ class IngestCanaryClosureReadinessTest(unittest.TestCase):
         errors = validate_report(report)
 
         self.assertTrue(any("Wave27 history must not be current authority" in error for error in errors))
+
+    def test_missing_current_dev_navigation_is_valid_after_migration(self) -> None:
+        report = run_check()
+
+        self.assertTrue(
+            all(
+                topic["current_dev_navigation_row_present"] is False
+                for topic in report["topics"]
+            )
+        )
+        self.assertEqual(validate_report(report), [])
+
+    def test_missing_actual_authority_still_fails_closed(self) -> None:
+        report = run_check()
+        report["topics"][0]["authority_index_points_to_current_doc"] = False
+
+        errors = validate_report(report)
+
+        self.assertTrue(
+            any("authority index must point to current document" in error for error in errors)
+        )
 
     def test_write_output_round_trips_report_file(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ingest-canary-closure-readiness-") as tmp_dir:

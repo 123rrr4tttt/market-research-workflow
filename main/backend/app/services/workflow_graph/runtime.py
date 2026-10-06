@@ -1,37 +1,39 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Set
-from typing import Any, NoReturn, Protocol, runtime_checkable
+from typing import NoReturn, TypeGuard
 
 from functorial_kit import Failure
 
 from app.successor_runtime.language.plan import ExecutionPlan
 from app.successor_runtime.language.program import ProgramSpec
 from app.successor_runtime.language.transforms import TransformRegistry
-from app.successor_runtime.runtime.activation import (
-    BoundStepValue,
-    activate_plan_result,
-)
+from app.successor_runtime.runtime.activation import BoundStepValue, activate_plan_result
 
 from .contracts import (
     WorkflowGraphCompileError,
+    WorkflowIntegrityIssueValue,
+    WorkflowIntegrityReportValue,
+    WorkflowJsonObject,
+    WorkflowJsonValue,
+    WorkflowNodeResult,
+    WorkflowNodeResults,
+    WorkflowRuntimeGraph,
+    WorkflowRuntimeNode,
+    WorkflowRunSnapshot,
     build_workflow_graph_integrity_report,
     raise_workflow_graph_legacy,
     workflow_graph_failure,
 )
 from .executors.kernel import WorkflowNodeType
 from .executors.kernel import NodeExecutionContext, execute_node, to_workflow_graph_failure
+from .schema import try_parse_workflow_json_object
 from .store import InMemoryRunStore, SqlRunStore
 
 
 class WorkflowGraphPlatformInterpreter:
-    """Run one bound Program/Plan through the shared activation interpreter."""
+    """Interpret one exact Program/Plan against its typed workflow projection."""
 
-    def __init__(
-        self,
-        *,
-        store: InMemoryRunStore | SqlRunStore | None = None,
-    ) -> None:
+    def __init__(self, *, store: InMemoryRunStore | SqlRunStore | None = None) -> None:
         self.store = store or InMemoryRunStore()
 
     def run(
@@ -39,47 +41,51 @@ class WorkflowGraphPlatformInterpreter:
         *,
         program: ProgramSpec,
         plan: ExecutionPlan,
-        workflow: dict[str, Any],
-        inputs: dict[str, Any] | None = None,
+        workflow: WorkflowRuntimeGraph,
+        inputs: WorkflowJsonObject | None = None,
         run_id: str | None = None,
         project_key: str | None = None,
         trace_id: str | None = None,
         session_id: str | None = None,
-    ) -> dict[str, Any]:
-        nodes = _normalize_nodes(workflow.get("nodes") or {})
+    ) -> WorkflowRunSnapshot:
+        nodes = _normalize_nodes(workflow.get("nodes"))
         topo_order = _resolve_topo_order(workflow=workflow, nodes=nodes)
         integrity = _build_runtime_integrity_report(
             workflow=workflow,
             nodes=nodes,
             topo_order=topo_order,
         )
+        metadata: WorkflowJsonObject = {
+            "workflow_id": workflow.get("workflow_id"),
+            "project_key": str(project_key or "").strip() or None,
+            "trace_id": str(trace_id or "").strip() or None,
+            "session_id": str(session_id or "").strip() or None,
+            "program_digest": workflow.get("program_digest"),
+            "plan_digest": workflow.get("plan_digest"),
+        }
         resolved_run_id = self.store.create_run(
             run_id=run_id,
             topo_order=topo_order,
-            metadata={
-                "workflow_id": workflow.get("workflow_id"),
-                "project_key": str(project_key or "").strip() or None,
-                "trace_id": str(trace_id or "").strip() or None,
-                "session_id": str(session_id or "").strip() or None,
-                "program_digest": workflow.get("program_digest"),
-                "plan_digest": workflow.get("plan_digest"),
-            },
+            metadata=metadata,
         )
-        self.store.append_event(resolved_run_id, event_type="run.queued", payload={
-            "topo_order": topo_order,
+        topo_values: list[WorkflowJsonValue] = list(topo_order)
+        queued_payload: WorkflowJsonObject = {
+            "topo_order": topo_values,
             "program_digest": workflow.get("program_digest"),
             "plan_digest": workflow.get("plan_digest"),
-        })
+        }
+        self.store.append_event(resolved_run_id, event_type="run.queued", payload=queued_payload)
         self.store.set_run_status(resolved_run_id, "running")
         self.store.append_event(resolved_run_id, event_type="run.running")
 
         if not integrity["valid"]:
+            integrity_payload = _json_object(integrity) or {}
             return self._fail_run(
                 resolved_run_id,
                 payload={
                     "reason_code": "workflow_integrity_failed",
                     "reason": "workflow graph integrity check failed",
-                    "integrity": integrity,
+                    "integrity": integrity_payload,
                 },
             )
 
@@ -115,11 +121,14 @@ class WorkflowGraphPlatformInterpreter:
                 node_id = _node_id_from_payload_ref(activation.payload_ref.value_id)
                 node = nodes.get(node_id)
                 if activation.step_kind != "EFFECT" or node is None:
-                    return self._fail_run(resolved_run_id, payload={
-                        "reason_code": "workflow_activation_binding_invalid",
-                        "reason": f"activation is not a known workflow node: {node_id}",
-                        "step_id": activation.step_id,
-                    })
+                    return self._fail_run(
+                        resolved_run_id,
+                        payload={
+                            "reason_code": "workflow_activation_binding_invalid",
+                            "reason": f"activation is not a known workflow node: {node_id}",
+                            "step_id": activation.step_id,
+                        },
+                    )
 
                 self.store.ensure_node(resolved_run_id, node_id)
                 self.store.set_node_status(resolved_run_id, node_id, "running")
@@ -130,8 +139,7 @@ class WorkflowGraphPlatformInterpreter:
                     payload={"activation_digest": activation.activation_digest},
                 )
                 try:
-                    result = self._execute_activation(
-                        activation=activation,
+                    result = self._execute_node(
                         node=node,
                         run_id=resolved_run_id,
                         inputs=run_inputs,
@@ -148,33 +156,28 @@ class WorkflowGraphPlatformInterpreter:
                     node_id=node_id,
                 )
                 completed = completed + (
-                    BoundStepValue(
-                        activation.step_id,
-                        activation.payload_ref,
-                        result,
-                    ),
+                    BoundStepValue(activation.step_id, activation.payload_ref, result),
                 )
 
         self.store.set_run_status(resolved_run_id, "succeeded")
         self.store.append_event(resolved_run_id, event_type="run.succeeded")
         return self.store.snapshot(resolved_run_id)
 
-    def _execute_activation(
+    def _execute_node(
         self,
         *,
-        activation: object,
-        node: dict[str, Any],
+        node: WorkflowRuntimeNode,
         run_id: str,
-        inputs: dict[str, Any],
-    ) -> dict[str, Any]:
-        node_id = str(node.get("id") or "").strip()
-        node_type = _node_type(node.get("node_type"))
-        if not node_type:
-            _raise_contract(f"node_type missing: {node_id or '<unknown>'}")
-
+        inputs: WorkflowJsonObject,
+    ) -> WorkflowNodeResult:
+        node_id = node["id"].strip()
+        node_type = _node_type(node["node_type"])
         all_results = self.store.get_results(run_id)
-        upstream_ids = [str(x).strip() for x in _object_list(node.get("depends_on")) or [] if str(x).strip()]
-        upstream_results = {nid: all_results[nid] for nid in upstream_ids if nid in all_results}
+        upstream_results: WorkflowJsonObject = {}
+        for upstream_id in node["depends_on"]:
+            upstream_result = all_results.get(upstream_id)
+            if upstream_result is not None:
+                upstream_results[upstream_id] = upstream_result
         resolved_inputs = _resolve_node_inputs(
             node=node,
             runtime_inputs=inputs,
@@ -190,7 +193,7 @@ class WorkflowGraphPlatformInterpreter:
         context = NodeExecutionContext(
             node_id=node_id,
             node_type=node_type,
-            params=dict(node.get("params") or {}),
+            params=node["params"],
             inputs=resolved_inputs,
             input_trace=io_trace,
             upstream_results=upstream_results,
@@ -208,7 +211,7 @@ class WorkflowGraphPlatformInterpreter:
             io_trace=io_trace,
         )
 
-    def _fail_run(self, run_id: str, *, payload: dict[str, Any]) -> dict[str, Any]:
+    def _fail_run(self, run_id: str, *, payload: WorkflowJsonObject) -> WorkflowRunSnapshot:
         self.store.set_run_status(run_id, "failed")
         self.store.append_event(run_id, event_type="run.failed", payload=payload)
         return self.store.snapshot(run_id)
@@ -217,30 +220,31 @@ class WorkflowGraphPlatformInterpreter:
         self.store.set_node_status(run_id, node_id, "failed")
         self.store.set_run_status(run_id, "failed")
         failure_fields = _exception_failure_fields(exc)
-        error_payload = {"error": str(exc), **failure_fields}
+        error_payload: WorkflowJsonObject = {"error": str(exc)}
+        error_payload.update(failure_fields)
         self.store.append_event(
             run_id,
             event_type="node.failed",
             node_id=node_id,
             payload=error_payload,
         )
-        self.store.append_event(
-            run_id,
-            event_type="run.failed",
-            payload={"node_id": node_id, **error_payload},
-        )
+        run_payload: WorkflowJsonObject = {"node_id": node_id}
+        run_payload.update(error_payload)
+        self.store.append_event(run_id, event_type="run.failed", payload=run_payload)
 
 
 def _raise_contract(message: str) -> NoReturn:
-    raise_workflow_graph_legacy(workflow_graph_failure(
-        "contract_invalid",
-        message,
-        owner="workflow_graph.platform_interpreter",
-        public_exception=WorkflowGraphCompileError,
-        public_message=message,
-        field="workflow",
-        index=-1,
-    ))
+    raise_workflow_graph_legacy(
+        workflow_graph_failure(
+            "contract_invalid",
+            message,
+            owner="workflow_graph.platform_interpreter",
+            public_exception=WorkflowGraphCompileError,
+            public_message=message,
+            field="workflow",
+            index=-1,
+        )
+    )
 
 
 def _node_id_from_payload_ref(value_id: str) -> str:
@@ -251,150 +255,142 @@ def _node_id_from_payload_ref(value_id: str) -> str:
     return value_id.split(prefix, 1)[1][: -len(suffix)]
 
 
-@runtime_checkable
-class _StringKeyMapping(Protocol):
-    def keys(self) -> Set[str]: ...
-    def __getitem__(self, key: str) -> Any: ...
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
 
 
-@runtime_checkable
-class _ObjectSequence(Protocol):
-    def __len__(self) -> int: ...
-    def __getitem__(self, index: int) -> object: ...
+def _json_object(value: object) -> WorkflowJsonObject | None:
+    parsed = try_parse_workflow_json_object(value, field="runtime")
+    return None if isinstance(parsed, Failure) else parsed
 
 
-def _mapping(value: object) -> dict[str, Any] | None:
-    if not isinstance(value, _StringKeyMapping):
-        return None
-    if not all(type(key) is str for key in value.keys()):
-        return None
-    return {key: value[key] for key in value.keys()}
-
-
-def _object_list(value: object) -> list[object] | None:
-    if not isinstance(value, _ObjectSequence):
-        return None
-    return [value[index] for index in range(len(value))]
-
-
-def _object_dict(value: object) -> dict[str, Any] | None:
-    return _mapping(value)
+def _json_list(value: object) -> list[object] | None:
+    return value if _is_object_list(value) else None
 
 
 def _node_type(value: object) -> WorkflowNodeType:
     normalized = str(value or "").strip().lower()
-    if normalized in {"vector_search", "llm_call", "join"}:
-        if normalized == "vector_search":
-            return "vector_search"
-        if normalized == "llm_call":
-            return "llm_call"
+    if normalized == "vector_search":
+        return "vector_search"
+    if normalized == "llm_call":
+        return "llm_call"
+    if normalized == "join":
         return "join"
     _raise_contract(f"unsupported workflow node_type: {normalized or '<missing>'}")
 
 
-def _exception_failure_fields(exc: Exception) -> dict[str, Any]:
-    failure = getattr(exc, "workflow_failure", None)
-    if failure is None or not getattr(failure, "failure", False):
+def _exception_failure_fields(exc: Exception) -> WorkflowJsonObject:
+    candidate: object = getattr(exc, "workflow_failure", None)
+    if not isinstance(candidate, Failure):
         return {}
-    family = getattr(failure, "family", "")
-    code = getattr(failure, "code", "")
-    raw_context = getattr(failure, "context", None)
-    normalized_context = _mapping(raw_context)
+    context = _json_object(candidate.context) or {}
     return {
-        "failure_family": str(family),
-        "failure_code": str(code),
-        "failure_context": dict(normalized_context or {}),
+        "failure_family": str(candidate.family),
+        "failure_code": str(candidate.code),
+        "failure_context": context,
     }
 
 
-def _normalize_nodes(nodes: Any) -> dict[str, dict[str, Any]]:
-    normalized_nodes = _object_dict(nodes)
+def _normalize_nodes(nodes: object) -> dict[str, WorkflowRuntimeNode]:
+    normalized_nodes = _json_object(nodes)
     if normalized_nodes is not None:
-        out: dict[str, dict[str, Any]] = {}
-        for node_id, node_data in normalized_nodes.items():
-            data = _object_dict(node_data) or {}
-            data.setdefault("id", str(node_id))
-            out[str(node_id)] = data
+        out: dict[str, WorkflowRuntimeNode] = {}
+        for node_id, raw_node in normalized_nodes.items():
+            data = _json_object(raw_node)
+            if data is None:
+                _raise_contract(f"workflow node '{node_id}' must be an object")
+            out[node_id] = _runtime_node(data, fallback_id=node_id)
         return out
-    node_items = _object_list(nodes)
+    node_items = _json_list(nodes)
     if node_items is not None:
         out = {}
-        for node in node_items:
-            data = _object_dict(node) or {}
-            node_id = str(data.get("id") or "").strip()
-            if not node_id:
-                _raise_contract("node id is required")
-            out[node_id] = data
+        for raw_node in node_items:
+            data = _json_object(raw_node)
+            if data is None:
+                _raise_contract("workflow node must be an object")
+            node = _runtime_node(data)
+            out[node["id"]] = node
         return out
     _raise_contract("workflow.nodes must be dict or list")
 
 
+def _runtime_node(data: WorkflowJsonObject, *, fallback_id: str = "") -> WorkflowRuntimeNode:
+    raw_id = data.get("id")
+    node_id = (raw_id if isinstance(raw_id, str) else fallback_id).strip()
+    raw_type = data.get("node_type")
+    node_type = raw_type.strip() if isinstance(raw_type, str) else ""
+    params = _json_object(data.get("params")) or {}
+    depends_raw = _json_list(data.get("depends_on")) or []
+    depends_on = [item.strip() for item in depends_raw if isinstance(item, str) and item.strip()]
+    if not node_id:
+        _raise_contract("node id is required")
+    if not node_type:
+        _raise_contract(f"node_type missing: {node_id}")
+    return {"id": node_id, "node_type": node_type, "params": params, "depends_on": depends_on}
+
+
 def _resolve_topo_order(
     *,
-    workflow: dict[str, Any],
-    nodes: dict[str, dict[str, Any]],
+    workflow: WorkflowRuntimeGraph,
+    nodes: dict[str, WorkflowRuntimeNode],
 ) -> list[str]:
-    topo_items = _object_list(workflow.get("topo_order")) or []
-    topo = [str(item).strip() for item in topo_items if str(item).strip()]
+    topo = [item.strip() for item in workflow.get("topo_order", []) if item.strip()]
     return topo or list(nodes.keys())
 
 
 def _build_runtime_integrity_report(
     *,
-    workflow: dict[str, Any],
-    nodes: dict[str, dict[str, Any]],
+    workflow: WorkflowRuntimeGraph,
+    nodes: dict[str, WorkflowRuntimeNode],
     topo_order: list[str],
-) -> dict[str, Any]:
+) -> WorkflowIntegrityReportValue:
     edges: list[tuple[str, str]] = []
     for node_id, node in nodes.items():
-        for upstream in _object_list(node.get("depends_on")) or []:
-            upstream_id = str(upstream or "").strip()
-            if upstream_id:
-                edges.append((upstream_id, node_id))
+        edges.extend((upstream_id, node_id) for upstream_id in node["depends_on"])
     report = build_workflow_graph_integrity_report(
         node_ids=list(nodes.keys()),
         edges=edges,
         topo_order=topo_order,
     )
+    issues: list[WorkflowIntegrityIssueValue] = [
+        {"code": issue.code, "message": issue.message, "details": dict(issue.details)}
+        for issue in report.issues
+    ]
     return {
         "contract_version": report.contract_version,
         "valid": report.valid,
         "issue_count": report.issue_count,
-        "issues": [
-            {"code": issue.code, "message": issue.message, "details": dict(issue.details)}
-            for issue in report.issues
-        ],
+        "issues": issues,
         "workflow_id": workflow.get("workflow_id"),
     }
 
 
 def _resolve_node_inputs(
     *,
-    node: dict[str, Any],
-    runtime_inputs: dict[str, Any],
-    all_results: dict[str, Any],
-    upstream_results: dict[str, Any],
-) -> dict[str, Any]:
-    params = _object_dict(node.get("params"))
-    if params is None:
-        return dict(runtime_inputs)
-    input_vars = _object_list(params.get("input_vars"))
+    node: WorkflowRuntimeNode,
+    runtime_inputs: WorkflowJsonObject,
+    all_results: WorkflowNodeResults,
+    upstream_results: WorkflowJsonObject,
+) -> WorkflowJsonObject:
+    input_vars = _json_list(node["params"].get("input_vars"))
     if input_vars is None:
         return dict(runtime_inputs)
 
     resolved = dict(runtime_inputs)
-    for item in input_vars:
-        input_item = _object_dict(item)
-        if input_item is None:
+    for raw_item in input_vars:
+        item = _json_object(raw_item)
+        if item is None:
             continue
-        name = str(input_item.get("name") or "").strip()
+        raw_name = item.get("name")
+        name = raw_name.strip() if isinstance(raw_name, str) else ""
         if not name:
             continue
-        source = str(input_item.get("source") or "input").strip().lower()
-        default_value = input_item.get("default_value")
-        required = bool(input_item.get("required"))
+        raw_source = item.get("source")
+        source = raw_source.strip().lower() if isinstance(raw_source, str) else "input"
+        default_value = item.get("default_value")
+        required = bool(item.get("required"))
         value = _resolve_input_value(
-            item=input_item,
+            item=item,
             source=source,
             runtime_inputs=runtime_inputs,
             all_results=all_results,
@@ -404,13 +400,18 @@ def _resolve_node_inputs(
             value = default_value
         if value is None and required:
             message = f"required input missing: {name}"
-            raise_workflow_graph_legacy(workflow_graph_failure(
-                "required_input_missing", message,
-                owner="workflow_graph.platform_interpreter",
-                public_exception=WorkflowGraphCompileError,
-                public_message=message,
-                field="input", index=-1, name=name,
-            ))
+            raise_workflow_graph_legacy(
+                workflow_graph_failure(
+                    "required_input_missing",
+                    message,
+                    owner="workflow_graph.platform_interpreter",
+                    public_exception=WorkflowGraphCompileError,
+                    public_message=message,
+                    field="input",
+                    index=-1,
+                    name=name,
+                )
+            )
         if value is not None:
             resolved[name] = value
     return resolved
@@ -418,72 +419,76 @@ def _resolve_node_inputs(
 
 def _resolve_input_value(
     *,
-    item: Mapping[str, object],
+    item: WorkflowJsonObject,
     source: str,
-    runtime_inputs: dict[str, Any],
-    all_results: dict[str, Any],
-    upstream_results: dict[str, Any],
-) -> Any:
+    runtime_inputs: WorkflowJsonObject,
+    all_results: WorkflowNodeResults,
+    upstream_results: WorkflowJsonObject,
+) -> WorkflowJsonValue:
     if source == "constant":
         return item.get("default_value")
     if source == "node_output":
-        from_node = str(item.get("from_node") or "").strip()
-        from_key = str(item.get("from_key") or "").strip()
-        node_data = upstream_results.get(from_node) or all_results.get(from_node)
+        raw_from_node = item.get("from_node")
+        raw_from_key = item.get("from_key")
+        from_node = raw_from_node.strip() if isinstance(raw_from_node, str) else ""
+        from_key = raw_from_key.strip() if isinstance(raw_from_key, str) else ""
+        node_data: WorkflowJsonValue = upstream_results.get(from_node)
+        if node_data is None:
+            node_data = all_results.get(from_node)
         if node_data is None:
             return None
         if not from_key:
             return node_data
-        node_payload = _object_dict(node_data)
-        return node_payload.get(from_key) if node_payload is not None else None
+        return node_data.get(from_key) if isinstance(node_data, dict) else None
     if source == "expression":
-        expr = str(item.get("expr") or item.get("default_value") or "").strip()
+        raw_expr = item.get("expr") or item.get("default_value") or ""
         return _evaluate_expression(
-            expr=expr,
+            expr=raw_expr if isinstance(raw_expr, str) else "",
             runtime_inputs=runtime_inputs,
             all_results=all_results,
             upstream_results=upstream_results,
         )
-    name = str(item.get("name") or "").strip()
+    raw_name = item.get("name")
+    name = raw_name.strip() if isinstance(raw_name, str) else ""
     return runtime_inputs.get(name) if name else None
 
 
 def _build_input_trace(
     *,
-    node: dict[str, Any],
-    runtime_inputs: dict[str, Any],
-    all_results: dict[str, Any],
-    upstream_results: dict[str, Any],
-) -> dict[str, Any]:
-    params = _object_dict(node.get("params"))
-    if params is None:
-        return {}
-    input_vars = _object_list(params.get("input_vars"))
+    node: WorkflowRuntimeNode,
+    runtime_inputs: WorkflowJsonObject,
+    all_results: WorkflowNodeResults,
+    upstream_results: WorkflowJsonObject,
+) -> WorkflowJsonObject:
+    input_vars = _json_list(node["params"].get("input_vars"))
     if input_vars is None:
         return {}
-    trace: dict[str, Any] = {}
-    for item in input_vars:
-        input_item = _object_dict(item)
-        if input_item is None:
+    trace: WorkflowJsonObject = {}
+    for raw_item in input_vars:
+        item = _json_object(raw_item)
+        if item is None:
             continue
-        name = str(input_item.get("name") or "").strip()
+        raw_name = item.get("name")
+        name = raw_name.strip() if isinstance(raw_name, str) else ""
         if not name:
             continue
-        source = str(input_item.get("source") or "input").strip().lower()
+        raw_source = item.get("source")
+        source = raw_source.strip().lower() if isinstance(raw_source, str) else "input"
         value = _resolve_input_value(
-            item=input_item,
+            item=item,
             source=source,
             runtime_inputs=runtime_inputs,
             all_results=all_results,
             upstream_results=upstream_results,
         )
-        if value is None and input_item.get("default_value") not in (None, ""):
-            value = input_item.get("default_value")
+        default_value = item.get("default_value")
+        if value is None and default_value not in (None, ""):
+            value = default_value
         trace[name] = {
             "source": source,
-            "from_node": input_item.get("from_node"),
-            "from_key": input_item.get("from_key"),
-            "expr": input_item.get("expr"),
+            "from_node": item.get("from_node"),
+            "from_key": item.get("from_key"),
+            "expr": item.get("expr"),
             "resolved": value,
             "resolved_type": type(value).__name__ if value is not None else "none",
         }
@@ -493,10 +498,10 @@ def _build_input_trace(
 def _evaluate_expression(
     *,
     expr: str,
-    runtime_inputs: dict[str, Any],
-    all_results: dict[str, Any],
-    upstream_results: dict[str, Any],
-) -> Any:
+    runtime_inputs: WorkflowJsonObject,
+    all_results: WorkflowNodeResults,
+    upstream_results: WorkflowJsonObject,
+) -> WorkflowJsonValue:
     text = expr.strip()
     if not text:
         return None
@@ -509,10 +514,9 @@ def _evaluate_expression(
     if text.startswith("$node."):
         parts = text.split(".")
         if len(parts) >= 3:
-            payload = upstream_results.get(parts[1]) or all_results.get(parts[1])
-            node_payload = _object_dict(payload)
-            if node_payload is not None:
-                return node_payload.get(".".join(parts[2:]))
+            node_data = upstream_results.get(parts[1]) or all_results.get(parts[1])
+            if isinstance(node_data, dict):
+                return node_data.get(".".join(parts[2:]))
             return None
     return runtime_inputs.get(text)
 
@@ -520,25 +524,16 @@ def _evaluate_expression(
 def _normalize_node_result(
     *,
     node_id: str,
-    node_type: str,
-    result: Any,
-    io_trace: dict[str, Any],
-) -> dict[str, Any]:
-    node_result = _object_dict(result)
-    if node_result is not None:
-        out = dict(node_result)
-        out.setdefault("data", dict(node_result))
-        out.setdefault("error", None)
-        meta = _object_dict(out.get("meta")) or {}
-        meta.setdefault("node_id", node_id)
-        meta.setdefault("node_type", node_type)
-        out["meta"] = meta
-        out.setdefault("io_trace", io_trace)
-        return out
-    return {
-        "node_type": node_type,
-        "data": result,
-        "error": None,
-        "meta": {"node_id": node_id, "node_type": node_type},
-        "io_trace": io_trace,
-    }
+    node_type: WorkflowNodeType,
+    result: WorkflowJsonObject,
+    io_trace: WorkflowJsonObject,
+) -> WorkflowNodeResult:
+    out = dict(result)
+    out.setdefault("data", dict(result))
+    out.setdefault("error", None)
+    meta = _json_object(out.get("meta")) or {}
+    meta.setdefault("node_id", node_id)
+    meta.setdefault("node_type", node_type)
+    out["meta"] = meta
+    out.setdefault("io_trace", io_trace)
+    return out

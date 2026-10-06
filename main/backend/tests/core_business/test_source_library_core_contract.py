@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from contextlib import nullcontext
 import sys
 from pathlib import Path
@@ -15,6 +16,7 @@ pytestmark = pytest.mark.contract
 try:
     from fastapi.testclient import TestClient
 
+    from app.services.source_library import item_writer as source_library_item_writer
     from app.api import source_library as source_library_api
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
@@ -162,6 +164,7 @@ def test_source_library_items_default_filters_user_defined_and_include_system_op
             {"item_key": "db.system", "name": "DB System", "item_type": "service_aggregated", "managed_by": "system", "extra": {}},
             {"item_key": "sys.cluster", "name": "System Cluster", "extra": {"item_type": "service_aggregated"}},
             {"item_key": "legacy.cluster", "name": "Legacy Cluster", "extra": {"stable_handler_cluster": True}},
+            {"item_key": "handler.cluster.legacy", "name": "Legacy Key Cluster", "extra": {}},
         ]
 
     monkeypatch.setattr(source_library_api, "list_effective_items", _fake_service)
@@ -179,7 +182,14 @@ def test_source_library_items_default_filters_user_defined_and_include_system_op
     )
     assert include_system_resp.status_code == 200
     include_system_items = include_system_resp.json()["data"]["items"]
-    assert {x["item_key"] for x in include_system_items} == {"legacy.user", "explicit.user", "db.system", "sys.cluster", "legacy.cluster"}
+    assert {x["item_key"] for x in include_system_items} == {
+        "legacy.user",
+        "explicit.user",
+        "db.system",
+        "sys.cluster",
+        "legacy.cluster",
+        "handler.cluster.legacy",
+    }
     assert {x["item_type"] for x in include_system_items} == {"user_defined", "service_aggregated"}
 
 
@@ -233,9 +243,13 @@ def test_source_library_items_include_execution_plan_preview_contract(client, mo
     assert item["execution_plan"]["expected_entry_type"] == "search_template"
 
 
-def test_upsert_project_item_internal_supports_project_key_call_without_request(
+def test_source_library_item_writer_supports_project_key_call_without_request(
     monkeypatch: pytest.MonkeyPatch,
 ):
+    assert (
+        source_library_api.SourceLibraryItemUpsertPayload
+        is source_library_item_writer.SourceLibraryItemUpsertPayload
+    )
     captured = {}
 
     class _ExecuteResult:
@@ -265,11 +279,15 @@ def test_upsert_project_item_internal_supports_project_key_call_without_request(
             assert captured.get("session_open") is True
             captured["committed"] = True
 
-    monkeypatch.setattr(source_library_api, "bind_project", lambda project_key: nullcontext(project_key))
-    monkeypatch.setattr(source_library_api, "SessionLocal", lambda: _Session())
+    monkeypatch.setattr(
+        source_library_item_writer,
+        "bind_project",
+        lambda project_key: nullcontext(project_key),
+    )
+    monkeypatch.setattr(source_library_item_writer, "SessionLocal", lambda: _Session())
 
-    resp = source_library_api._upsert_project_item_internal(
-        payload=source_library_api.SourceLibraryItemUpsertPayload(
+    resp = source_library_item_writer.upsert_project_item(
+        payload=source_library_item_writer.SourceLibraryItemUpsertPayload(
             item_key="internal.demo",
             name="Internal Demo",
             channel_key="news",
@@ -287,6 +305,41 @@ def test_upsert_project_item_internal_supports_project_key_call_without_request(
     assert captured["committed"] is True
     assert captured["row"].item_key == "internal.demo"
     assert captured["row"].params["site_entries"] == ["https://example.com/feed.xml"]
+
+
+def test_source_library_update_routes_canonical_payload_to_item_writer(
+    client,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    captured = {}
+
+    def _fake_write(*, payload, project_key: str):
+        captured["payload"] = payload
+        captured["project_key"] = project_key
+        return {"status": "ok", "data": {"item_key": payload.item_key}, "error": None, "meta": {}}
+
+    monkeypatch.setattr(source_library_api, "_write_project_item", _fake_write)
+
+    resp = client.put(
+        "/api/v1/source_library/items/demo.item",
+        params={"project_key": "demo_proj"},
+        json={
+            "item_key": "demo.item",
+            "name": "Updated Demo",
+            "channel_key": "market.general",
+            "params": {"keywords": ["water"]},
+            "extra": {},
+        },
+        headers=HEADERS,
+    )
+
+    assert resp.status_code == 200
+    assert isinstance(
+        captured["payload"],
+        source_library_item_writer.SourceLibraryItemUpsertPayload,
+    )
+    assert captured["payload"].name == "Updated Demo"
+    assert captured["project_key"] == "demo_proj"
 
 
 def test_source_library_run_item_payload_returns_execution_fact_for_single_source_guard():
@@ -366,6 +419,250 @@ def test_source_library_item_write_rejects_service_aggregated_from_user_api(clie
     body = resp.json()
     assert body["error"]["code"] == ErrorCode.INVALID_INPUT.value
     assert "system-managed" in body["error"]["message"]
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("post", "/api/v1/source_library/items"),
+        ("put", "/api/v1/source_library/items/handler.cluster.news"),
+    ],
+)
+def test_source_library_item_write_cannot_overwrite_existing_system_item(
+    client,
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+    path: str,
+):
+    row = SimpleNamespace(
+        item_key="handler.cluster.news",
+        name="Handler Cluster news",
+        channel_key="handler.cluster",
+        description="System item",
+        params={"site_entries": ["https://example.com/feed"]},
+        tags=["handler_cluster", "news"],
+        schedule=None,
+        extends_item_key=None,
+        item_type="service_aggregated",
+        managed_by="system",
+        enabled=True,
+        extra={
+            "item_type": "service_aggregated",
+            "managed_by": "system",
+            "stable_handler_cluster": True,
+            "creation_handler": "handler.entry_type",
+        },
+    )
+    before = deepcopy(vars(row))
+    write_effects: list[str] = []
+    validation_effects: list[str] = []
+
+    class _Result:
+        @staticmethod
+        def scalar_one_or_none():
+            return row
+
+    class _Session:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        @staticmethod
+        def execute(_query):
+            return _Result()
+
+        @staticmethod
+        def add(_row):
+            write_effects.append("add")
+
+        @staticmethod
+        def commit():
+            write_effects.append("commit")
+
+    monkeypatch.setattr(
+        source_library_item_writer,
+        "bind_project",
+        lambda project_key: nullcontext(project_key),
+    )
+    monkeypatch.setattr(source_library_item_writer, "SessionLocal", lambda: _Session())
+    monkeypatch.setattr(
+        source_library_item_writer,
+        "validate_handler_item_constraints",
+        lambda **_kwargs: validation_effects.append("validate"),
+    )
+
+    requester = getattr(client, method)
+    resp = requester(
+        path,
+        params={"project_key": "demo_proj"},
+        json={
+            "item_key": "handler.cluster.news",
+            "name": "Malicious Downgrade",
+            "channel_key": "news",
+            "params": {},
+            "extra": {},
+        },
+        headers=HEADERS,
+    )
+
+    assert resp.status_code == 403
+    assert resp.headers.get("x-error-code") == ErrorCode.INVALID_INPUT.value
+    assert "system-managed" in resp.json()["error"]["message"]
+    assert vars(row) == before
+    assert validation_effects == []
+    assert write_effects == []
+
+
+def test_source_library_item_writer_updates_existing_user_item(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    row = SimpleNamespace(
+        item_key="user.demo",
+        name="Old Name",
+        channel_key="news",
+        description=None,
+        params={},
+        tags=[],
+        schedule=None,
+        extends_item_key=None,
+        item_type="user_defined",
+        managed_by="user",
+        enabled=True,
+        extra={"item_type": "user_defined", "managed_by": "user"},
+    )
+    write_effects: list[str] = []
+
+    class _Result:
+        @staticmethod
+        def scalar_one_or_none():
+            return row
+
+    class _Session:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        @staticmethod
+        def execute(_query):
+            return _Result()
+
+        @staticmethod
+        def add(_row):
+            write_effects.append("add")
+
+        @staticmethod
+        def commit():
+            write_effects.append("commit")
+
+    monkeypatch.setattr(
+        source_library_item_writer,
+        "bind_project",
+        lambda project_key: nullcontext(project_key),
+    )
+    monkeypatch.setattr(source_library_item_writer, "SessionLocal", lambda: _Session())
+
+    resp = source_library_item_writer.upsert_project_item(
+        payload=source_library_item_writer.SourceLibraryItemUpsertPayload(
+            item_key="user.demo",
+            name="Updated User Item",
+            channel_key="news",
+            params={"keywords": ["water"]},
+            tags=["user"],
+            extra={},
+        ),
+        project_key="demo_proj",
+    )
+
+    assert resp["status"] == "ok"
+    assert row.name == "Updated User Item"
+    assert row.params == {"keywords": ["water"]}
+    assert row.item_type == "user_defined"
+    assert row.managed_by == "user"
+    assert write_effects == ["commit"]
+
+
+def test_source_library_internal_sync_updates_existing_system_item(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    row = SimpleNamespace(
+        item_key="handler.cluster.news",
+        name="Handler Cluster news",
+        channel_key="handler.cluster",
+        params={"site_entries": []},
+        tags=["handler_cluster", "news"],
+        item_type="service_aggregated",
+        managed_by="system",
+        enabled=True,
+        extra={
+            "item_type": "service_aggregated",
+            "managed_by": "system",
+            "stable_handler_cluster": True,
+        },
+    )
+    effects: list[str] = []
+
+    class _Result:
+        @staticmethod
+        def scalar_one_or_none():
+            return row
+
+    class _Session:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        @staticmethod
+        def execute(_query):
+            return _Result()
+
+        @staticmethod
+        def add(_row):
+            effects.append("add")
+
+        @staticmethod
+        def commit():
+            effects.append("commit")
+
+    monkeypatch.setattr(
+        source_library_item_writer,
+        "bind_project",
+        lambda project_key: nullcontext(project_key),
+    )
+    monkeypatch.setattr(source_library_item_writer, "SessionLocal", lambda: _Session())
+    monkeypatch.setattr(
+        source_library_item_writer,
+        "list_site_entries",
+        lambda **_kwargs: ([{"entry_type": "news"}], 1),
+    )
+    monkeypatch.setattr(
+        source_library_item_writer,
+        "refresh_handler_item_site_entries",
+        lambda **_kwargs: {"site_entries_count": 1},
+    )
+    monkeypatch.setattr(
+        source_library_item_writer,
+        "validate_handler_item_constraints",
+        lambda **_kwargs: effects.append("validate"),
+    )
+
+    resp = source_library_item_writer.sync_handler_cluster_items(
+        project_key="demo_proj",
+        handlers=["news"],
+        incremental=True,
+        max_site_entries=10,
+    )
+
+    assert resp["status"] == "ok"
+    assert row.item_type == "service_aggregated"
+    assert row.managed_by == "system"
+    assert row.extra["stable_handler_cluster"] is True
+    assert effects == ["validate", "commit"]
 
 
 def test_source_library_item_write_rejects_generic_web_user_defined(client):
@@ -578,7 +875,7 @@ def test_external_project_register_persist_upserts_synthesized_item(client, monk
         return {"status": "ok"}
 
     monkeypatch.setattr(source_library_api, "synthesize_external_project_item", _fake_synthesize)
-    monkeypatch.setattr(source_library_api, "_upsert_project_item_internal", _fake_upsert)
+    monkeypatch.setattr(source_library_api, "_write_project_item", _fake_upsert)
     monkeypatch.setattr(
         external_project_service.socket,
         "getaddrinfo",
@@ -713,7 +1010,11 @@ def test_source_library_write_routes_require_project_key_with_standard_error_env
     path: str,
     payload: dict,
 ):
-    monkeypatch.setattr(source_library_api, "get_effective_project_key_enforcement_mode", lambda: "require")
+    monkeypatch.setattr(
+        source_library_item_writer,
+        "get_effective_project_key_enforcement_mode",
+        lambda: "require",
+    )
 
     requester = getattr(client, method)
     resp = requester(path, json=payload)
@@ -743,7 +1044,11 @@ def test_source_library_sync_shared_from_files_requires_project_key_with_standar
     client,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(source_library_api, "get_effective_project_key_enforcement_mode", lambda: "require")
+    monkeypatch.setattr(
+        source_library_item_writer,
+        "get_effective_project_key_enforcement_mode",
+        lambda: "require",
+    )
 
     resp = client.post("/api/v1/source_library/sync_shared_from_files")
 
@@ -770,7 +1075,7 @@ def test_source_library_refresh_missing_item_returns_not_found_envelope(client):
             return False
 
     with pytest.MonkeyPatch.context() as monkeypatch:
-        monkeypatch.setattr(source_library_api, "SessionLocal", lambda: _FakeSession())
+        monkeypatch.setattr(source_library_item_writer, "SessionLocal", lambda: _FakeSession())
         resp = client.post(
             "/api/v1/source_library/items/demo.item/refresh",
             json={"project_key": "demo_proj", "incremental": True, "max_site_entries": 10},
@@ -810,8 +1115,8 @@ def test_source_library_refresh_runtime_failure_returns_internal_error_envelope(
     def _boom(**_kwargs):
         raise RuntimeError("refresh backend exploded")
 
-    monkeypatch.setattr(source_library_api, "SessionLocal", lambda: _FakeSession())
-    monkeypatch.setattr(source_library_api, "_refresh_handler_item_site_entries", _boom)
+    monkeypatch.setattr(source_library_item_writer, "SessionLocal", lambda: _FakeSession())
+    monkeypatch.setattr(source_library_item_writer, "refresh_handler_item_site_entries", _boom)
 
     resp = client.post(
         "/api/v1/source_library/items/demo.item/refresh",

@@ -13,8 +13,8 @@ from app.successor_runtime.assembly.base import (
     successor_binding,
 )
 from app.successor_runtime.assembly.task_observation_assembly import (
-    C5_4LineEventReadbackRouteHandler,
     PROCESS_OBSERVATION_CELL_ID,
+    ProcessLineEventReadbackRouteHandler,
     build_task_observation_assembly,
 )
 from app.successor_runtime.capabilities.line_event_readback_port import (
@@ -116,21 +116,21 @@ def test_projection_requires_at_least_one_typed_record() -> None:
         project_line_event_readbacks(())
 
 
-def _handler() -> C5_4LineEventReadbackRouteHandler:
+def _handler() -> ProcessLineEventReadbackRouteHandler:
     assembly = build_task_observation_assembly(
         options=TaskObservationAssemblyOptions(line_event_readback_records=(_terminal_record(),))
     )
     line_handlers = [
         handler
         for handler in assembly.handlers
-        if isinstance(handler, C5_4LineEventReadbackRouteHandler)
+        if isinstance(handler, ProcessLineEventReadbackRouteHandler)
     ]
     assert len(line_handlers) == 1
     return line_handlers[0]
 
 
 def _binding(
-    handler: C5_4LineEventReadbackRouteHandler,
+    handler: ProcessLineEventReadbackRouteHandler,
 ) -> InterpreterBinding:
     binding = successor_binding(
         operation_contract_digest=handler.operation_contract_digest,
@@ -146,7 +146,7 @@ def _binding(
 
 
 def _assignment(
-    handler: C5_4LineEventReadbackRouteHandler,
+    handler: ProcessLineEventReadbackRouteHandler,
     binding: InterpreterBinding,
 ) -> RuntimeAssignment:
     return RuntimeAssignment(
@@ -193,7 +193,7 @@ def _assignment(
 
 
 def _claim(
-    handler: C5_4LineEventReadbackRouteHandler,
+    handler: ProcessLineEventReadbackRouteHandler,
     assignment: RuntimeAssignment,
 ) -> ClaimBinding:
     return ClaimBinding.bind(

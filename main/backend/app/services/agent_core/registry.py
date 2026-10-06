@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
 
 from functorial_kit import Failure
+from app.services.agent_sessions.service import AgentSessionService
 from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failures
 
-from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, CoreToolResult, CoreToolSpec
+from .contracts import (
+    AgentCoreRequest,
+    compact_json_value,
+    CoreEvent,
+    CoreToolCall,
+    CoreToolResult,
+    CoreToolSpec,
+    JSONObject,
+    ToolStatus,
+)
 from .host_authorization import (
     TrustedHostContext,
     authorize_tool_call,
@@ -47,7 +56,7 @@ class CoreToolRegistry:
     def list_specs(self) -> list[CoreToolSpec]:
         return [self._specs[name] for name in sorted(self._specs)]
 
-    def schema_inventory(self) -> dict[str, Any]:
+    def schema_inventory(self) -> JSONObject:
         specs = self.list_specs()
         tools = [spec.to_dict() for spec in specs]
         return {
@@ -70,7 +79,7 @@ class CoreToolRegistry:
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
         trusted_context: TrustedHostContext | None = None,
-        authorization_service: Any | None = None,
+        authorization_service: AgentSessionService | None = None,
         host_authorization: VerifiedHostAuthorization | None = None,
         package_digest: str | None = None,
     ) -> CoreToolResult:
@@ -180,7 +189,7 @@ class CoreToolRegistry:
         call: CoreToolCall,
         status: str = "completed",
         model_summary: str,
-        structured_content: dict[str, Any] | None = None,
+        structured_content: JSONObject | None = None,
     ) -> CoreToolResult | Failure:
         normalized_status = _validate_tool_status(status)
         if isinstance(normalized_status, Failure):
@@ -194,7 +203,7 @@ class CoreToolRegistry:
         )
 
 
-def _validate_tool_name(value: Any) -> str | Failure:
+def _validate_tool_name(value: object) -> str | Failure:
     name = str(value or "").strip()
     if not name:
         return agent_runtime_failures.fail(
@@ -231,22 +240,30 @@ def _failure_result(tool_call: CoreToolCall, failure: Failure) -> CoreToolResult
         tool_name=tool_call.tool_name,
         status="failed",
         model_summary=failure.message,
-        error={"code": failure.code, "message": failure.message, "context": dict(failure.context or {})},
+        error={"code": failure.code, "message": failure.message, "context": compact_json_value(failure.context)},
     )
 
 
-def _validate_tool_status(value: Any) -> str | Failure:
+def _validate_tool_status(value: object) -> ToolStatus | Failure:
     status = str(value or "").strip()
-    if status not in {"completed", "failed", "canceled", "needs_approval", "deferred"}:
+    statuses: dict[str, ToolStatus] = {
+        "completed": "completed",
+        "failed": "failed",
+        "canceled": "canceled",
+        "needs_approval": "needs_approval",
+        "deferred": "deferred",
+    }
+    normalized = statuses.get(status)
+    if normalized is None:
         return agent_runtime_failures.fail(
             "tool_status_unsupported",
             f"unsupported tool status: {status}",
             {"field": "status", "value": value},
         )
-    return status
+    return normalized
 
 
-def _count_by(items: list[dict[str, Any]], key: str) -> dict[str, int]:
+def _count_by(items: list[JSONObject], key: str) -> dict[str, int]:
     counts: dict[str, int] = {}
     for item in items:
         value = str(item.get(key) or "unknown").strip() or "unknown"

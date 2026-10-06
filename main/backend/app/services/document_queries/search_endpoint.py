@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Iterable, Mapping
+from typing import Annotated, Iterable
 
 from .contracts import (
     DOCUMENT_QUERY_CONTRACT_VERSION,
     DocumentQuery,
+    DocumentQueryFilterInput,
+    DocumentQueryResultEnvelope,
+    DocumentQueryRow,
     build_document_query,
     build_document_query_result_envelope,
+    coerce_document_query_result_row,
     validate_document_query_result_envelope,
 )
 
@@ -15,17 +19,17 @@ SEARCH_ENDPOINT_CONSUMER = "api.search"
 SEARCH_ENDPOINT_SOURCE = "api.search.hybrid"
 
 
-def _clean_text(value: Any) -> str:
+def _clean_text(value: object) -> str:
     return " ".join(str(value or "").strip().split())
 
 
-def _clean_optional_text(value: Any) -> str | None:
+def _clean_optional_text(value: object) -> str | None:
     cleaned = _clean_text(value)
     return cleaned or None
 
 
-def _mapping_rows(rows: Iterable[Any]) -> list[dict[str, Any]]:
-    return [dict(row) for row in rows if isinstance(row, Mapping)]
+def _mapping_rows(rows: Iterable[object]) -> list[DocumentQueryRow]:
+    return [coerce_document_query_result_row(row) for row in rows]
 
 
 def build_search_endpoint_document_query(
@@ -39,7 +43,7 @@ def build_search_endpoint_document_query(
     "kit:prepared-command effect_boundary=app.services.document_queries.statement_builder "
     "witness=test:test_w04_authority_metadata",
 ]:
-    filters: list[dict[str, Any]] = []
+    filters: list[DocumentQueryFilterInput] = []
     state_filter = _clean_optional_text(state)
     if state_filter:
         filters.append({"field": "state", "op": "eq", "value": state_filter})
@@ -62,11 +66,11 @@ def build_search_endpoint_document_query_envelope(
     modality: str = "any",
     rank: str = "hybrid",
     top_k: int,
-    results: Iterable[Any],
+    results: Iterable[object],
     project_key: str | None = None,
     used_backends: Iterable[str] = (),
 ) -> Annotated[
-    dict[str, Any],
+    DocumentQueryResultEnvelope,
     "kit:non-authoritative derived_as=view fact_source=api.search.hybrid "
     "witness=test:test_search_endpoint_envelope_exposes_document_query_contract",
 ]:

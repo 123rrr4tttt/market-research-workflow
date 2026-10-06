@@ -7,11 +7,11 @@ effect of ``InformationTopologyService.apply_batch`` and its repository.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence, Set as AbstractSet
 from dataclasses import dataclass
 from hashlib import sha256
 import json
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict, cast
 
 from functorial_kit import Failure, define_failure_family
 
@@ -21,6 +21,8 @@ from app.services.information_topology.modules.retrieval import (
     domain_vocabulary_element,
     make_rapid_proposal_profile,
 )
+from app.services.information_topology.service import InformationTopologyService
+from .contracts import RetrievalFailureWire, RetrievalJsonObject
 
 
 RAPID_PROPOSAL_CONTRACT_VERSION = "rapid.proposal.v1"
@@ -42,6 +44,15 @@ rapid_proposal_failures = define_failure_family(
     ),
 )
 
+_EMPTY_FIELDS: frozenset[str] = frozenset()
+ProposalDefinition = tuple[
+    str,
+    set[str],
+    Callable[..., Any],
+    tuple[str, ...],
+    AbstractSet[str],
+]
+
 
 def _canonical(value: Any) -> bytes:
     return json.dumps(
@@ -62,9 +73,12 @@ def _nonempty(value: Any) -> bool:
 
 
 def _strings(value: Any) -> tuple[str, ...] | None:
-    if not isinstance(value, (list, tuple)) or any(not _nonempty(item) for item in value):
+    if not isinstance(value, (list, tuple)):
         return None
-    return tuple(value)
+    sequence = cast(Sequence[object], value)
+    if any(not _nonempty(item) for item in sequence):
+        return None
+    return tuple(cast(Sequence[str], value))
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,7 +86,7 @@ class ProposalFacet:
     facet_ref: str
     source_ref: str
 
-    def to_mapping(self) -> dict[str, Any]:
+    def to_mapping(self) -> RetrievalJsonObject:
         return {"facet_ref": self.facet_ref, "source_ref": self.source_ref}
 
 
@@ -82,7 +96,7 @@ class ProposalQuery:
     facet_ref: str
     expression: str
 
-    def to_mapping(self) -> dict[str, Any]:
+    def to_mapping(self) -> RetrievalJsonObject:
         return {"query_id": self.query_id, "facet_ref": self.facet_ref, "expression": self.expression}
 
 
@@ -92,7 +106,7 @@ class ProposalSnapshot:
     content_digest: str
     source_ref: str
 
-    def to_mapping(self) -> dict[str, Any]:
+    def to_mapping(self) -> RetrievalJsonObject:
         return {
             "snapshot_ref": self.snapshot_ref,
             "content_digest": self.content_digest,
@@ -107,7 +121,7 @@ class ProposalAttempt:
     outcome: Literal["hit", "miss", "access_failed", "off_topic", "partial", "unknown"]
     snapshot_refs: tuple[str, ...] = ()
 
-    def to_mapping(self) -> dict[str, Any]:
+    def to_mapping(self) -> RetrievalJsonObject:
         return {
             "attempt_id": self.attempt_id,
             "query_id": self.query_id,
@@ -125,7 +139,7 @@ class ProposalOccurrence:
     snapshot_ref: str
     source_ref: str
 
-    def to_mapping(self) -> dict[str, Any]:
+    def to_mapping(self) -> RetrievalJsonObject:
         return {
             "occurrence_id": self.occurrence_id,
             "facet_ref": self.facet_ref,
@@ -151,8 +165,8 @@ class ProposalDigest:
     body_digests: tuple[str, ...] = ()
     gap_ids: tuple[str, ...] = ()
 
-    def to_mapping(self) -> dict[str, Any]:
-        result = {
+    def to_mapping(self) -> RetrievalJsonObject:
+        result = cast(RetrievalJsonObject, {
             "digest_id": self.digest_id,
             "occurrence_ids": list(self.occurrence_ids),
             "summary": self.summary,
@@ -160,7 +174,7 @@ class ProposalDigest:
             "analysis_positions": list(self.analysis_positions),
             "coverage_boundary": self.coverage_boundary,
             "failure_boundary": self.failure_boundary,
-        }
+        })
         if self.query_ids or self.attempt_ids or self.material_refs or self.body_digests or self.gap_ids:
             result.update({
                 "query_ids": list(self.query_ids),
@@ -180,7 +194,7 @@ class ProposalGap:
     source_attempt_ids: tuple[str, ...] = ()
     source_occurrence_ids: tuple[str, ...] = ()
 
-    def to_mapping(self) -> dict[str, Any]:
+    def to_mapping(self) -> RetrievalJsonObject:
         return {
             "gap_id": self.gap_id,
             "facet_ref": self.facet_ref,
@@ -204,8 +218,8 @@ class ProposalFrontier:
     outline_section: str = ""
     target_edge: str = ""
 
-    def to_mapping(self) -> dict[str, Any]:
-        result = {
+    def to_mapping(self) -> RetrievalJsonObject:
+        result = cast(RetrievalJsonObject, {
             "frontier_id": self.frontier_id,
             "facet_ref": self.facet_ref,
             "proposed_query": self.proposed_query,
@@ -213,7 +227,7 @@ class ProposalFrontier:
             "source_digest_ids": list(self.source_digest_ids),
             "source_gap_ids": list(self.source_gap_ids),
             "source_occurrence_ids": list(self.source_occurrence_ids),
-        }
+        })
         if any((self.parent_digest_id, self.gap_id, self.outline_section, self.target_edge)):
             result.update({
                 "parent_digest_id": self.parent_digest_id,
@@ -247,7 +261,7 @@ class RapidProposal:
     def content_digest(self) -> str:
         return _digest(self.to_mapping())
 
-    def to_mapping(self) -> dict[str, Any]:
+    def to_mapping(self) -> RetrievalJsonObject:
         return {
             "contract_version": self.contract_version,
             "proposal_id": self.proposal_id,
@@ -421,16 +435,19 @@ def _parse_rows(
     fields: set[str],
     factory: Callable[..., Any],
     tuple_fields: tuple[str, ...] = (),
-    optional_fields: set[str] = frozenset(),
+    optional_fields: AbstractSet[str] = frozenset(),
 ) -> tuple[Any, ...] | Failure:
     rows = raw.get(key)
     if not isinstance(rows, list):
         return rapid_proposal_failures.fail("INVALID_PROPOSAL", f"{key} must be an array")
     parsed: list[Any] = []
-    for row in rows:
-        if not isinstance(row, Mapping) or not fields.issubset(row) or not set(row).issubset(fields | optional_fields):
+    for row in cast(list[object], rows):
+        if not isinstance(row, Mapping):
             return rapid_proposal_failures.fail("INVALID_PROPOSAL", f"{key} row has missing or unknown fields")
-        values = dict(row)
+        row_mapping = cast(Mapping[str, Any], row)
+        if not fields.issubset(row_mapping) or not set(row_mapping).issubset(fields | set(optional_fields)):
+            return rapid_proposal_failures.fail("INVALID_PROPOSAL", f"{key} row has missing or unknown fields")
+        values = dict(row_mapping)
         for field in tuple_fields:
             if field not in values:
                 continue
@@ -452,29 +469,33 @@ def rapid_proposal_from_mapping(raw: object) -> RapidProposal | Failure:
         "contract_version", "proposal_id", "proposal_version", "claim_ceiling",
         "facets", "queries", "snapshots", "attempts", "occurrences", "digests", "gaps", "frontier",
     }
-    if set(raw) != expected:
+    raw_mapping = cast(Mapping[str, Any], raw)
+    if set(raw_mapping) != expected:
         return rapid_proposal_failures.fail("INVALID_PROPOSAL", "proposal has missing or unknown fields")
-    definitions = (
-        ("facets", {"facet_ref", "source_ref"}, ProposalFacet, (), set()),
-        ("queries", {"query_id", "facet_ref", "expression"}, ProposalQuery, (), set()),
-        ("snapshots", {"snapshot_ref", "content_digest", "source_ref"}, ProposalSnapshot, (), set()),
-        ("attempts", {"attempt_id", "query_id", "outcome", "snapshot_refs"}, ProposalAttempt, ("snapshot_refs",), set()),
-        ("occurrences", {"occurrence_id", "facet_ref", "query_id", "attempt_id", "snapshot_ref", "source_ref"}, ProposalOccurrence, (), set()),
+    for field in ("proposal_id", "proposal_version", "claim_ceiling", "contract_version"):
+        if not isinstance(raw_mapping.get(field), str):
+            return rapid_proposal_failures.fail("INVALID_PROPOSAL", f"{field} must be a string")
+    definitions: tuple[ProposalDefinition, ...] = (
+        ("facets", {"facet_ref", "source_ref"}, ProposalFacet, (), _EMPTY_FIELDS),
+        ("queries", {"query_id", "facet_ref", "expression"}, ProposalQuery, (), _EMPTY_FIELDS),
+        ("snapshots", {"snapshot_ref", "content_digest", "source_ref"}, ProposalSnapshot, (), _EMPTY_FIELDS),
+        ("attempts", {"attempt_id", "query_id", "outcome", "snapshot_refs"}, ProposalAttempt, ("snapshot_refs",), _EMPTY_FIELDS),
+        ("occurrences", {"occurrence_id", "facet_ref", "query_id", "attempt_id", "snapshot_ref", "source_ref"}, ProposalOccurrence, (), _EMPTY_FIELDS),
         ("digests", {"digest_id", "occurrence_ids", "summary", "classification_proposals", "analysis_positions", "coverage_boundary", "failure_boundary"}, ProposalDigest, ("occurrence_ids", "classification_proposals", "analysis_positions", "query_ids", "attempt_ids", "material_refs", "body_digests", "gap_ids"), {"query_ids", "attempt_ids", "material_refs", "body_digests", "gap_ids"}),
-        ("gaps", {"gap_id", "facet_ref", "description", "source_attempt_ids", "source_occurrence_ids"}, ProposalGap, ("source_attempt_ids", "source_occurrence_ids"), set()),
+        ("gaps", {"gap_id", "facet_ref", "description", "source_attempt_ids", "source_occurrence_ids"}, ProposalGap, ("source_attempt_ids", "source_occurrence_ids"), _EMPTY_FIELDS),
         ("frontier", {"frontier_id", "facet_ref", "proposed_query", "reason", "source_digest_ids", "source_gap_ids", "source_occurrence_ids"}, ProposalFrontier, ("source_digest_ids", "source_gap_ids", "source_occurrence_ids"), {"parent_digest_id", "gap_id", "outline_section", "target_edge"}),
     )
     parsed: dict[str, tuple[Any, ...]] = {}
     for key, fields, factory, tuple_fields, optional_fields in definitions:
-        rows = _parse_rows(raw, key, fields, factory, tuple_fields, optional_fields)
+        rows = _parse_rows(raw_mapping, key, fields, factory, tuple_fields, optional_fields)
         if isinstance(rows, Failure):
             return rows
         parsed[key] = rows
     proposal = RapidProposal(
-        proposal_id=raw["proposal_id"],
-        proposal_version=raw["proposal_version"],
-        claim_ceiling=raw["claim_ceiling"],
-        contract_version=raw["contract_version"],
+        proposal_id=cast(str, raw_mapping["proposal_id"]),
+        proposal_version=cast(str, raw_mapping["proposal_version"]),
+        claim_ceiling=cast(str, raw_mapping["claim_ceiling"]),
+        contract_version=cast(str, raw_mapping["contract_version"]),
         **parsed,
     )
     invalid = proposal.validate()
@@ -508,7 +529,7 @@ def rapid_proposal_element(
     )
 
 
-def validate_persisted_proposal_attributes(attributes: Mapping[str, Any]) -> str | None:
+def validate_persisted_proposal_attributes(attributes: Mapping[str, object]) -> str | None:
     expected = {"contract_version", "proposal_version", "claim_ceiling", "content_digest", "payload"}
     if set(attributes) != expected:
         return "rapid proposal attributes are incomplete or unknown"
@@ -526,6 +547,19 @@ def validate_persisted_proposal_attributes(attributes: Mapping[str, Any]) -> str
 
 
 ProposalSaveStatus = Literal["persisted", "already_persisted", "conflict", "failed", "unknown"]
+ProposalReadbackStatus = Literal["verified", "not_found", "mismatch", "unavailable", "not_attempted"]
+
+
+class ProposalSaveObservationWire(TypedDict):
+    status: ProposalSaveStatus
+    proposal_id: str
+    proposal_version: str
+    content_digest: str
+    topology_ref: RetrievalJsonObject
+    revision: int | None
+    topology_digest: str | None
+    readback_status: ProposalReadbackStatus
+    failure: RetrievalFailureWire | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -534,14 +568,14 @@ class ProposalSaveObservation:
     proposal_id: str
     proposal_version: str
     content_digest: str
-    topology_ref: Mapping[str, Any]
+    topology_ref: RetrievalJsonObject
     revision: int | None = None
     topology_digest: str | None = None
-    readback_status: Literal["verified", "not_found", "mismatch", "unavailable", "not_attempted"] = "not_attempted"
-    failure: Mapping[str, Any] | None = None
+    readback_status: ProposalReadbackStatus = "not_attempted"
+    failure: RetrievalFailureWire | None = None
 
-    def to_mapping(self) -> dict[str, Any]:
-        return {
+    def to_mapping(self) -> ProposalSaveObservationWire:
+        result: ProposalSaveObservationWire = {
             "status": self.status,
             "proposal_id": self.proposal_id,
             "proposal_version": self.proposal_version,
@@ -550,17 +584,18 @@ class ProposalSaveObservation:
             "revision": self.revision,
             "topology_digest": self.topology_digest,
             "readback_status": self.readback_status,
-            "failure": dict(self.failure) if self.failure is not None else None,
+            "failure": self.failure,
         }
+        return result
 
 
-def _failure_wire(failure: Failure | BaseException, *, fallback_code: str) -> dict[str, Any]:
+def _failure_wire(failure: Failure | BaseException, *, fallback_code: str) -> RetrievalFailureWire:
     if isinstance(failure, Failure):
         return {
             "family": failure.family,
             "code": failure.code,
             "message": failure.message,
-            "context": dict(failure.context or {}),
+            "context": cast(RetrievalJsonObject, dict(failure.context or {})),
         }
     return {"family": "exception", "code": fallback_code, "message": str(failure), "context": {}}
 
@@ -573,16 +608,16 @@ class RapidProposalTopologyAdapter:
     never blindly replayed after an unknown effect.
     """
 
-    def __init__(self, topology_service: Any):
+    def __init__(self, topology_service: InformationTopologyService):
         self.topology_service = topology_service
 
     @staticmethod
-    def target(proposal_id: str, proposal_version: str) -> dict[str, Any]:
-        return {
+    def target(proposal_id: str, proposal_version: str) -> RetrievalJsonObject:
+        return cast(RetrievalJsonObject, {
             "module_id": RAPID_PROPOSAL_MODULE_ID,
             "namespace": RAPID_PROPOSAL_NAMESPACE,
             "state_id": f"{proposal_id}@{proposal_version}",
-        }
+        })
 
     def read(self, project_key: str, proposal_id: str, proposal_version: str) -> RapidProposal | Failure:
         target = self.target(proposal_id, proposal_version)
@@ -594,16 +629,21 @@ class RapidProposalTopologyAdapter:
             if result.code == "NOT_FOUND":
                 return rapid_proposal_failures.fail("NOT_FOUND", "rapid proposal was not found", {"topology_ref": target})
             return result
-        elements = result.get("topology", {}).get("elements", []) if isinstance(result, Mapping) else []
+        topology_value = result.get("topology")
+        topology: Mapping[str, Any] = cast(Mapping[str, Any], topology_value) if isinstance(topology_value, Mapping) else {}
+        elements_value = topology.get("elements")
+        elements = cast(list[object], elements_value) if isinstance(elements_value, list) else []
         if len(elements) != 1 or not isinstance(elements[0], Mapping):
             return rapid_proposal_failures.fail("READBACK_MISMATCH", "proposal readback has no unique proposal element")
-        attributes = elements[0].get("attributes")
+        element = cast(Mapping[str, Any], elements[0])
+        attributes = element.get("attributes")
         if not isinstance(attributes, Mapping):
             return rapid_proposal_failures.fail("READBACK_MISMATCH", "proposal readback attributes are missing")
-        error = validate_persisted_proposal_attributes(attributes)
+        attribute_mapping = cast(Mapping[str, Any], attributes)
+        error = validate_persisted_proposal_attributes(attribute_mapping)
         if error is not None:
             return rapid_proposal_failures.fail("READBACK_MISMATCH", error)
-        proposal = rapid_proposal_from_mapping(attributes["payload"])
+        proposal = rapid_proposal_from_mapping(attribute_mapping["payload"])
         if isinstance(proposal, Failure):
             return rapid_proposal_failures.fail("READBACK_MISMATCH", proposal.message)
         if (proposal.proposal_id, proposal.proposal_version) != (proposal_id, proposal_version):
@@ -647,7 +687,7 @@ class RapidProposalTopologyAdapter:
                 profile.version,
                 (domain_vocabulary_element(vocabulary), proposal_element),
             )
-            initial = {
+            initial: dict[str, Any] = {
                 "profile_id": state.profile_id,
                 "profile_version": state.profile_version,
                 "elements": [
@@ -690,13 +730,32 @@ class RapidProposalTopologyAdapter:
                 return self._observation("conflict", proposal, target, readback_status="mismatch", failure=written)
             return self._observation("failed", proposal, target, failure=written)
 
-        state_revisions = written.get("state_revisions") if isinstance(written, Mapping) else None
-        if not isinstance(state_revisions, list) or len(state_revisions) != 1:
+        state_revisions = written.get("state_revisions")
+        if not isinstance(state_revisions, list):
+            failure = rapid_proposal_failures.fail(
+                "PERSISTENCE_UNKNOWN", "writer did not return a saved state identity", {"topology_ref": target}
+            )
+            return self._observation("unknown", proposal, target, readback_status="not_attempted", failure=failure)
+        revisions = cast(list[object], state_revisions)
+        if len(revisions) != 1:
             failure = rapid_proposal_failures.fail(
                 "PERSISTENCE_UNKNOWN", "writer did not return a unique saved state identity", {"topology_ref": target}
             )
             return self._observation("unknown", proposal, target, readback_status="not_attempted", failure=failure)
-        revision = state_revisions[0].get("revision")
+        state_revision = revisions[0]
+        if not isinstance(state_revision, Mapping):
+            failure = rapid_proposal_failures.fail(
+                "PERSISTENCE_UNKNOWN", "writer returned an invalid saved state identity", {"topology_ref": target}
+            )
+            return self._observation("unknown", proposal, target, readback_status="not_attempted", failure=failure)
+        state_revision_mapping = cast(Mapping[str, Any], state_revision)
+        revision_value = state_revision_mapping.get("revision")
+        revision = revision_value if isinstance(revision_value, int) and not isinstance(revision_value, bool) else None
+        if revision is None:
+            failure = rapid_proposal_failures.fail(
+                "PERSISTENCE_UNKNOWN", "writer returned a non-integer saved revision", {"topology_ref": target}
+            )
+            return self._observation("unknown", proposal, target, readback_status="not_attempted", failure=failure)
         readback = self.read(project_key, proposal.proposal_id, proposal.proposal_version)
         if isinstance(readback, Failure):
             failure = rapid_proposal_failures.fail(
@@ -712,7 +771,10 @@ class RapidProposalTopologyAdapter:
             return self._observation(
                 "unknown", proposal, target, revision=revision, readback_status="mismatch", failure=failure
             )
-        topology_digest = state_revisions[0].get("topology", {}).get("digest")
+        topology_value = state_revision_mapping.get("topology")
+        topology = cast(Mapping[str, Any], topology_value) if isinstance(topology_value, Mapping) else cast(Mapping[str, Any], {})
+        digest_value = topology.get("digest")
+        topology_digest = digest_value if isinstance(digest_value, str) else None
         return self._observation(
             "persisted",
             proposal,
@@ -726,11 +788,11 @@ class RapidProposalTopologyAdapter:
     def _observation(
         status: ProposalSaveStatus,
         proposal: RapidProposal,
-        target: Mapping[str, Any],
+        target: RetrievalJsonObject,
         *,
         revision: int | None = None,
         topology_digest: str | None = None,
-        readback_status: Literal["verified", "not_found", "mismatch", "unavailable", "not_attempted"] = "not_attempted",
+        readback_status: ProposalReadbackStatus = "not_attempted",
         failure: Failure | BaseException | None = None,
     ) -> ProposalSaveObservation:
         return ProposalSaveObservation(

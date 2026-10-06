@@ -10,12 +10,12 @@ unboundness explicitly.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Literal, NoReturn, Required, TypedDict, Unpack
 
 from functorial_kit import Failure
-
 from pydantic import Field, ValidationError, model_validator
 
 from .assignments import Digest, FrozenContract, canonical_digest
@@ -26,7 +26,7 @@ class LegacyObservationError(ValueError):
     """Invalid captured legacy evidence at the compatibility boundary."""
 
 
-def _raise_legacy_observation_failure(message: object, *, site: str) -> None:
+def _raise_legacy_observation_failure(message: object, *, site: str) -> NoReturn:
     """Preserve native validation errors while recording typed evidence."""
 
     failure: Failure = runtime_failure(
@@ -58,6 +58,39 @@ class ObservationFreshness(StrEnum):
     FRESH = "FRESH"
     STALE = "STALE"
     UNKNOWN = "UNKNOWN"
+
+
+class _LegacySourceObservationContent(TypedDict, total=False):
+    """Caller-supplied fields before the source digest is derived."""
+
+    schema_version: Literal["mrw.runtime.legacy-observation.v1"]
+    source_kind: Required[ObservationSourceKind]
+    source_locator: Required[str]
+    source_identity: Required[str]
+    observed_state: str | None
+    observation_class: Required[ObservationClass]
+    observed_at: Required[datetime]
+    freshness: Required[ObservationFreshness]
+    linked_run_id: str | None
+    linked_step_id: str | None
+    linked_attempt_id: Digest | None
+    raw_evidence_ref: str | None
+    reason: str | None
+    terminal_authority_claim: None
+
+
+class _LegacyObservationSetContent(TypedDict, total=False):
+    """Caller-supplied fields before the observation-set digest is derived."""
+
+    schema_version: Literal["mrw.runtime.legacy-observation-set.v1"]
+    captured_at: Required[datetime]
+    observations: Required[tuple[LegacySourceObservation, ...]]
+
+
+def _contains_derived_key(content: Mapping[str, object], key: str) -> bool:
+    """Keep the runtime guard visible for dynamically unpacked callers."""
+
+    return key in content
 
 
 class LegacySourceObservation(FrozenContract):
@@ -118,8 +151,11 @@ class LegacySourceObservation(FrozenContract):
         return self
 
     @classmethod
-    def from_content(cls, **content: object) -> LegacySourceObservation:
-        if "source_digest" in content:
+    def from_content(
+        cls,
+        **content: Unpack[_LegacySourceObservationContent],
+    ) -> LegacySourceObservation:
+        if _contains_derived_key(content, "source_digest"):
             _raise_legacy_observation_failure(
                 "source_digest is derived, not caller supplied",
                 site="runtime.observations.from_content.source_digest",
@@ -173,8 +209,11 @@ class LegacyObservationSet(FrozenContract):
         return self
 
     @classmethod
-    def from_content(cls, **content: object) -> LegacyObservationSet:
-        if "set_digest" in content:
+    def from_content(
+        cls,
+        **content: Unpack[_LegacyObservationSetContent],
+    ) -> LegacyObservationSet:
+        if _contains_derived_key(content, "set_digest"):
             _raise_legacy_observation_failure(
                 "set_digest is derived, not caller supplied",
                 site="runtime.observations.set.from_content.set_digest",

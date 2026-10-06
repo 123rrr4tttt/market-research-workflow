@@ -403,6 +403,7 @@ def test_raw_import_overwrite_from_plain_to_html_clears_stale_material_witness(m
         summary=None,
         text_hash="old",
         uri="https://example.test/source",
+        status=None,
         updated_at=None,
         extracted_data={
             "_raw_input": {

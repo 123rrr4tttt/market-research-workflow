@@ -163,6 +163,26 @@ class ApiEnvelopeGapFixesIntegrationTestCase(unittest.TestCase):
         self.assertEqual(response["data"]["skill_meta"]["artifact_contract"]["primary"], "memory.md")
         self.assertIsNone(response["data"]["skill_meta"]["approval_request"])
 
+    def test_skills_invoke_openapi_declares_typed_success_envelope(self):
+        schema = backend_app.openapi()
+        success_schema = schema["paths"]["/api/v1/skills/invoke"]["post"]["responses"]["200"][
+            "content"
+        ]["application/json"]["schema"]
+
+        self.assertEqual(
+            success_schema,
+            {"$ref": "#/components/schemas/ApiEnvelope_SkillInvokeData_"},
+        )
+        invoke_data = schema["components"]["schemas"]["SkillInvokeData"]
+        self.assertEqual(
+            invoke_data["properties"]["skill_meta"],
+            {"$ref": "#/components/schemas/SkillInvokeMetaData"},
+        )
+        self.assertEqual(
+            invoke_data["properties"]["result"],
+            {"$ref": "#/components/schemas/JsonValue"},
+        )
+
     def test_skills_invoke_approval_required_returns_error_envelope(self):
         with patch(
             "app.api.skills.invoke_skill",

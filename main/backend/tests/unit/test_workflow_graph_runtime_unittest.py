@@ -143,7 +143,8 @@ class WorkflowGraphPlatformInterpreterUnitTest(unittest.TestCase):
             "app.services.workflow_graph.runtime.execute_node",
             side_effect=execute,
         ) as kernel:
-            snapshot = WorkflowGraphPlatformInterpreter().run(
+            engine = WorkflowGraphPlatformInterpreter()
+            snapshot = engine.run(
                 plan=plan,
                 program=program,
                 workflow=workflow,
@@ -163,6 +164,11 @@ class WorkflowGraphPlatformInterpreterUnitTest(unittest.TestCase):
             failed["payload"]["failure_context"]["owner"],
             "workflow_graph.kernel.llm_call",
         )
+        service = WorkflowGraphRuntimeService()
+        service._engine = engine
+        replay = service.replay_run("run-failure", replay_mode="stateful")
+        self.assertTrue(replay["replay_consistency"]["consistent"])
+        self.assertEqual(replay["node_statuses"]["n3"], "queued")
 
     def test_expression_and_node_output_input_projection_is_preserved(self) -> None:
         payload = _dsl()

@@ -110,8 +110,8 @@ def _organic_fake_transport(status: int = 200, organic: list[Any] | None = None)
 def test_serper_authority_digest_is_frozen() -> None:
     expected = content_digest(
         {
-            "schema": "mrw.successor.source-library.c2-3.live-authority.v1",
-            "canonical_owner": "source_library.c2_3.v1",
+            "schema": "mrw.source.provider-acquisition.live-authority.v2",
+            "canonical_owner": "source.execute_provider_acquisition.v2",
             "provider": LIVE_PROVIDER,
             "grant_scope": "project",
             "redaction": "credential-ref-only",

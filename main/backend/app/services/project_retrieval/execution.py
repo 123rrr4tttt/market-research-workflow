@@ -9,13 +9,16 @@ from __future__ import annotations
 from datetime import datetime, UTC
 from hashlib import sha256
 import json
-from typing import Any
+from typing import Any, Literal, cast
 from collections.abc import Callable, Mapping
 
 from functorial_kit import Failure
 
-from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+from app.services.agent_core.contracts import AgentCoreRequest, CoreEvent, CoreToolCall
 from app.services.agent_core.project_tools import build_project_core_tool_registry
+from app.services.agent_core.registry import CoreToolRegistry
+from app.services.agent_sessions.service import AgentSessionService
+from app.services.agent_sessions.store import validate_json_object
 from app.services.information_topology.contracts import (
     topology_state_codec,
     TopologyState,
@@ -31,8 +34,14 @@ from app.services.information_topology.modules.retrieval import (
     profile_from_state_payload,
     validate_evidence_v2,
 )
-from app.services.information_topology.profiles import decode_state, validate_state
-from app.services.skill_runtime import invoke_skill
+from app.services.information_topology.profiles import ProfileSpec, decode_state, validate_state
+from app.services.information_topology.service import InformationTopologyService
+from app.services.project_retrieval.contracts import (
+    RetrievalJsonObject,
+    RetrievalRunCompleted,
+    RetrievalRunResult,
+)
+from app.services.skill_runtime import SkillInvocationContext, invoke_skill
 
 
 def _digest(value: Any) -> str:
@@ -43,6 +52,24 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _mapping(value: object) -> Mapping[str, Any] | None:
+    return cast(Mapping[str, Any], value) if isinstance(value, Mapping) else None
+
+
+def _mapping_list(value: object) -> list[Mapping[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [cast(Mapping[str, Any], row) for row in cast(list[object], value) if isinstance(row, Mapping)]
+
+
+def _list(value: object) -> list[Any]:
+    return cast(list[Any], value) if isinstance(value, list) else []
+
+
+def _ignore_event(_: CoreEvent) -> None:
+    return None
+
+
 def _failure(value: Any) -> dict[str, Any]:
     if isinstance(value, Failure):
         return {"code": value.code, "message": value.message, "context": dict(value.context or {})}
@@ -51,10 +78,10 @@ def _failure(value: Any) -> dict[str, Any]:
 
 def _ingest_failure_receipt(dispatch: Mapping[str, Any], ingest: Mapping[str, Any]) -> dict[str, Any]:
     """Keep a precise rejection code without copying fetched body bytes into run errors."""
-    postprocess = dispatch.get("postprocess_frontdoor")
-    postprocess_meta = postprocess.get("meta") if isinstance(postprocess, Mapping) else None
-    strict_gate = dispatch.get("canary_handoff")
-    strict_state = strict_gate.get("strict_gate_state") if isinstance(strict_gate, Mapping) else None
+    postprocess = _mapping(dispatch.get("postprocess_frontdoor"))
+    postprocess_meta = _mapping(postprocess.get("meta")) if postprocess is not None else None
+    strict_gate = _mapping(dispatch.get("canary_handoff"))
+    strict_state = _mapping(strict_gate.get("strict_gate_state")) if strict_gate is not None else None
     reason = (
         (postprocess_meta or {}).get("reason_code")
         or (strict_state or {}).get("reason_code")
@@ -86,15 +113,16 @@ def _compile_topology_seed(
         profile = make_retrieval_profile(vocabulary)
         elements = [domain_vocabulary_element(vocabulary)]
         by_query = {attempt["query_id"]: attempt["result"] for attempt in attempts}
-        for kind, rows, identity in (
+        for kind, rows_value, identity in (
             ("source_route", raw.get("source_routes"), "route_id"),
             ("keyword_plan", raw.get("keyword_plans"), "plan_id"),
             ("source_registry", raw.get("source_registry", []), "source_id"),
         ):
-            if not isinstance(rows, list):
+            if not isinstance(rows_value, list):
                 return {"error": "TOPOLOGY_SEED_INVALID", "message": f"{kind} rows are absent"}
-            for row in rows:
-                if not isinstance(row, Mapping) or not str(row.get(identity) or ""):
+            for row_value in cast(list[object], rows_value):
+                row = _mapping(row_value)
+                if row is None or not str(row.get(identity) or ""):
                     return {"error": "TOPOLOGY_SEED_INVALID", "message": f"{kind} identity is absent"}
                 attrs = {key: value for key, value in row.items() if key in profile.types[kind].attributes}
                 if kind == "keyword_plan" and str(row[identity]) in by_query:
@@ -108,8 +136,8 @@ def _compile_topology_seed(
                     _digest(attrs),
                 )
                 elements.append(Element(ref, attrs))
-        declared_queries = {str(row.get("plan_id") or "") for row in raw.get("keyword_plans") or []}
-        route_ids = [str(row.get("route_id") or "") for row in raw.get("source_routes") or []]
+        declared_queries = {str(row.get("plan_id") or "") for row in _mapping_list(raw.get("keyword_plans"))}
+        route_ids = [str(row.get("route_id") or "") for row in _mapping_list(raw.get("source_routes"))]
         for attempt in attempts:
             query_id = str(attempt["query_id"])
             if query_id in declared_queries:
@@ -136,12 +164,12 @@ def _compile_topology_seed(
 
 
 def _tool(
-    registry: Any,
+    registry: CoreToolRegistry,
     request: AgentCoreRequest,
     name: str,
     arguments: Mapping[str, Any],
     *,
-    emit: Callable[[str, Mapping[str, Any]], None] | None,
+    emit: Callable[[str, RetrievalJsonObject], None] | None,
 ) -> dict[str, Any]:
     spec = registry.get(name)
     if spec is None:
@@ -152,27 +180,33 @@ def _tool(
         call_id=f"retrieval-{_digest((request.session_id, name, arguments))[:24]}",
     )
     try:
-        result = registry.execute_tool(tool_call=call, tool_spec=spec, request=request, emit=lambda _: None)
+        result = registry.execute_tool(tool_call=call, tool_spec=spec, request=request, emit=_ignore_event)
         receipt = result.to_dict()
     except Exception as exc:  # failed tool calls are evidence, not an implicit retry
         receipt = {"status": "failed", "error": _failure(exc), "structured_content": {}}
     if emit is not None:
         emit(
             "tool.result",
-            {"tool": name, "call_id": call.call_id, "status": receipt["status"], "error": receipt.get("error")},
+            cast(RetrievalJsonObject, {
+                "tool": name,
+                "call_id": call.call_id,
+                "status": receipt["status"],
+                "error": receipt.get("error"),
+            }),
         )
     return receipt
 
 
-def _read_document_body(topology_service: Any, project_key: str, document_id: Any) -> tuple[dict[str, Any], str | None]:
+def _read_document_body(topology_service: InformationTopologyService, project_key: str, document_id: object) -> tuple[dict[str, Any], str | None]:
     """Read the persisted ingest output; a queued task or document ID alone is not a body."""
     try:
         from app.models.entities import Document
         from app.services.projects import bind_project
 
+        normalized_document_id = int(str(document_id))
         with bind_project(project_key):
             with topology_service.dependencies.session_factory() as session:
-                document = session.get(Document, int(document_id))
+                document = session.get(Document, normalized_document_id)
                 if document is None:
                     return {"status": "missing", "error": {"code": "DOCUMENT_NOT_FOUND"}}, None
                 body = str(document.content or "").strip()
@@ -180,7 +214,7 @@ def _read_document_body(topology_service: Any, project_key: str, document_id: An
                     return {"status": "missing", "error": {"code": "DOCUMENT_BODY_EMPTY"}}, None
                 return {
                     "status": "read",
-                    "document_id": int(document_id),
+                    "document_id": normalized_document_id,
                     "title": str(document.title or ""),
                     "uri": str(document.uri or ""),
                     "body_digest": sha256(body.encode("utf-8")).hexdigest(),
@@ -194,21 +228,23 @@ def _read_document_body(topology_service: Any, project_key: str, document_id: An
 
 
 def _formal_group(
-    *, project_key: str, target: Mapping[str, str], session_id: str, package: Mapping[str, Any], profile: Any
+    *, project_key: str, target: Mapping[str, str], session_id: str, package: Mapping[str, Any], profile: ProfileSpec
 ) -> tuple[list[Element], dict[str, Any]] | dict[str, Any]:
     """Interpret one formalizer proposal against the bound profile and read body."""
-    proposal = package.get("proposal")
-    receipt = package.get("body_read")
+    proposal = _mapping(package.get("proposal"))
+    receipt = _mapping(package.get("body_read"))
     body = package.get("body")
-    if not isinstance(proposal, Mapping) or not isinstance(receipt, Mapping) or not isinstance(body, str):
+    if proposal is None or receipt is None or not isinstance(body, str):
         return {"code": "FORMAL_PROPOSAL_INVALID", "message": "proposal or document observation is missing"}
-    nodes = proposal.get("nodes")
-    judgment = proposal.get("judgment")
-    evidence = proposal.get("evidence")
-    clue = proposal.get("clue")
-    if not isinstance(nodes, list) or len(nodes) < 2 or not all(isinstance(n, Mapping) for n in nodes):
+    nodes_value = proposal.get("nodes")
+    nodes = _mapping_list(nodes_value)
+    judgment = _mapping(proposal.get("judgment"))
+    evidence = _mapping(proposal.get("evidence"))
+    clue = _mapping(proposal.get("clue"))
+    raw_nodes = cast(list[object], nodes_value) if isinstance(nodes_value, list) else []
+    if not isinstance(nodes_value, list) or len(nodes) != len(raw_nodes) or len(nodes) < 2:
         return {"code": "FORMAL_PROPOSAL_INVALID", "message": "at least two nodes are required"}
-    if not all(isinstance(part, Mapping) for part in (judgment, evidence, clue)):
+    if judgment is None or evidence is None or clue is None:
         return {"code": "FORMAL_PROPOSAL_INVALID", "message": "judgment, evidence and clue are required"}
     observed = str(receipt.get("body_digest") or "")
     if not observed or sha256(body.encode("utf-8")).hexdigest() != observed:
@@ -257,8 +293,8 @@ def _formal_group(
             return {"code": "FORMAL_JUDGMENT_INVALID", "message": f"{field} must be an array"}
     outline_section = str(judgment.get("outline_section") or "")
     edge_type = str(judgment.get("edge_type") or "")
-    query = package.get("query") if isinstance(package.get("query"), Mapping) else {}
-    route = package.get("source_route") if isinstance(package.get("source_route"), Mapping) else {}
+    query = _mapping(package.get("query")) or {}
+    route = _mapping(package.get("source_route")) or {}
     if query.get("outline_sections") and outline_section not in query["outline_sections"]:
         return {"code": "QUERY_SCOPE_MISMATCH", "message": "judgment outline section is outside the selected query"}
     if query.get("target_edge") and edge_type != query["target_edge"]:
@@ -266,7 +302,7 @@ def _formal_group(
     if route.get("pool") and any(pool != route["pool"] for pool in judgment["pools"]):
         return {"code": "ROUTE_SCOPE_MISMATCH", "message": "judgment pool differs from the selected route"}
 
-    material_attrs = {
+    material_attrs: dict[str, Any] = {
         "title": str(receipt.get("title") or receipt.get("uri") or "material"),
         "url": str(receipt.get("uri") or package.get("url") or ""),
         "grade": str(evidence.get("grade") or ""),
@@ -362,7 +398,7 @@ def _formal_group(
 
 def _append_attempts(
     *,
-    topology_service: Any,
+    topology_service: InformationTopologyService,
     project_key: str,
     topology_ref: Mapping[str, Any] | None,
     topology_seed: Mapping[str, Any] | None,
@@ -396,18 +432,21 @@ def _append_attempts(
     profile_version = profile_version or str(topology_seed.get("profile_version") or "")
     if (topology_seed.get("profile_id"), topology_seed.get("profile_version")) != (profile_id, profile_version):
         return {"status": "failed", "error": {"code": "PROFILE_VERSION_CONFLICT"}, "attempt_refs": []}
-    elements = list(topology_seed["elements"])
+    elements_value = topology_seed["elements"]
+    elements = list(cast(list[Any], elements_value))
+    element_mappings = [_mapping(element) for element in elements]
     if any(
-        not isinstance(element, Mapping)
-        or ((element.get("ref") or {}).get("ref") or {}).get("project_key") != project_key
-        for element in elements
+        element is None
+        or ((_mapping((_mapping(element.get("ref")) or {}).get("ref")) or {}).get("project_key")) != project_key
+        for element in element_mappings
     ):
         return {"status": "failed", "error": {"code": "TOPOLOGY_SEED_PROJECT_MISMATCH"}, "attempt_refs": []}
     if (
         sum(
             1
-            for element in elements
-            if ((element.get("ref") or {}).get("ref") or {}).get("type_id") == "domain_vocabulary"
+            for element in element_mappings
+            if element is not None
+            and ((_mapping((_mapping(element.get("ref")) or {}).get("ref")) or {}).get("type_id")) == "domain_vocabulary"
         )
         != 1
     ):
@@ -439,7 +478,7 @@ def _append_attempts(
             "observed_revision": session_id,
             "content_digest": _digest(attempt),
         }
-        element = {"ref": ref, "attributes": attempt, "endpoints": []}
+        element: dict[str, Any] = {"ref": ref, "attributes": attempt, "endpoints": []}
         elements.append(element)
         refs.append(ref)
     wire = {
@@ -499,7 +538,8 @@ def _append_attempts(
         return {"status": "failed", "error": _failure(exc), "attempt_refs": []}
     if isinstance(result, Failure):
         return {"status": "failed", "error": _failure(result), "attempt_refs": []}
-    revision = (result.get("state_revisions") or [{}])[0].get("revision")
+    revision_rows = _mapping_list(result.get("state_revisions"))
+    revision = revision_rows[0].get("revision") if revision_rows else None
     try:
         readback = topology_service.read_topology(project_key, {**target, "revision": revision}, {})
     except Exception as exc:
@@ -520,9 +560,10 @@ def _append_attempts(
             "formal_graph_refs": [],
             "state_revision": revision,
         }
+    readback_topology = _mapping(readback.get("topology")) or {}
     read_ids = {
-        str(((element.get("ref") or {}).get("ref") or {}).get("local_id") or "")
-        for element in (readback.get("topology") or {}).get("elements") or []
+        str((_mapping((_mapping(element.get("ref")) or {}).get("ref")) or {}).get("local_id") or "")
+        for element in _mapping_list(readback_topology.get("elements"))
     }
     verified = [
         group
@@ -557,25 +598,26 @@ def _append_attempts(
 def execute_retrieval_run(
     *,
     project_key: str,
-    plan: Mapping[str, Any],
-    topology_service: Any,
-    session_factory: Callable[[], Any],
-    emit: Callable[[str, Mapping[str, Any]], None] | None = None,
-) -> Mapping[str, Any]:
+    plan: RetrievalJsonObject,
+    topology_service: InformationTopologyService,
+    session_factory: Callable[[], AgentSessionService],
+    emit: Callable[[str, RetrievalJsonObject], None] | None = None,
+) -> RetrievalRunResult:
     """Run a fixed plan once and return inspectable receipts and precise gaps.
 
     ``session_factory`` returns the configured AgentSessionService.  The caller
     owns plan validation, idempotent run creation, and background dispatch.
     This function creates one project Agent session for its actual tool calls.
     """
-    plan_id = str(plan.get("plan_id") or "").strip()
-    selected = [str(value) for value in plan.get("query_ids") or []]
+    plan_mapping = cast(Mapping[str, Any], plan)
+    plan_id = str(plan_mapping.get("plan_id") or "").strip()
+    selected = [str(value) for value in cast(list[Any], plan_mapping.get("query_ids") or [])]
     queries = {
         str(item.get("id") or item.get("query_id") or ""): dict(item)
-        for item in plan.get("queries") or []
-        if isinstance(item, Mapping) and (item.get("id") or item.get("query_id"))
+        for item in _mapping_list(plan_mapping.get("queries"))
+        if item.get("id") or item.get("query_id")
     }
-    limits = plan.get("limits") if isinstance(plan.get("limits"), Mapping) else {}
+    limits = _mapping(plan_mapping.get("limits")) or {}
     max_queries = _bounded_limit(limits.get("max_queries"), 10, 10)
     max_materials = _bounded_limit(limits.get("max_materials"), 20, 20)
     max_followups = _bounded_limit(limits.get("max_followups"), 2, 2)
@@ -589,7 +631,7 @@ def execute_retrieval_run(
             "graph": None,
         }
     selected = selected[:max_queries]
-    route_id = str(plan.get("route_id") or "")
+    route_id = str(plan_mapping.get("route_id") or "")
     if any(
         str(queries[q].get("source_route_id") or queries[q].get("route_id") or route_id) != route_id for q in selected
     ):
@@ -611,8 +653,8 @@ def execute_retrieval_run(
             project_key=project_key,
             initial_context={
                 "plan_id": plan_id,
-                "mode_id": plan.get("mode_id"),
-                "mode_version": plan.get("mode_version"),
+                "mode_id": plan_mapping.get("mode_id"),
+                "mode_version": plan_mapping.get("mode_version"),
             },
             metadata={"project_retrieval": {"plan_id": plan_id, "route_id": route_id}},
             task_blueprints=[
@@ -626,8 +668,8 @@ def execute_retrieval_run(
                     "phase": "research",
                     "execution_mode": "worker",
                     "priority": 1,
-                    "write_set": [f"project:{project_key}:retrieval-run:{plan.get('run_id') or plan_id}"],
-                    "read_set": [f"project:{project_key}:retrieval-mode:{plan.get('mode_version')}"],
+                    "write_set": [f"project:{project_key}:retrieval-run:{plan_mapping.get('run_id') or plan_id}"],
+                    "read_set": [f"project:{project_key}:retrieval-mode:{plan_mapping.get('mode_version')}"],
                     "task_spec": {
                         "plan_id": plan_id,
                         "route_id": route_id,
@@ -638,19 +680,19 @@ def execute_retrieval_run(
             ],
         )
         if isinstance(bundle, Failure):
-            return {
+            return cast(RetrievalRunResult, {
                 "status": "failed",
                 "error": _failure(bundle),
                 "attempts": [],
                 "candidates": [],
                 "materials": [],
                 "graph": None,
-            }
+            })
         session_id = str(bundle["session"]["session_id"])
         task_id = str(bundle["session"]["root_task_id"])
         claimed = service.claim_task(session_id, task_id, owner="project_retrieval.executor")
         if isinstance(claimed, Failure):
-            return {
+            return cast(RetrievalRunResult, {
                 "status": "failed",
                 "error": _failure(claimed),
                 "session_id": session_id,
@@ -658,7 +700,7 @@ def execute_retrieval_run(
                 "candidates": [],
                 "materials": [],
                 "graph": None,
-            }
+            })
         registry = build_project_core_tool_registry(service=service)
     except Exception as exc:
         return {
@@ -735,9 +777,9 @@ def execute_retrieval_run(
             failures.append(
                 {"phase": "receipt", "kind": "persistence_failure", "query_id": query_id, "error": _failure(exc)}
             )
-        content = search.get("structured_content") or {}
-        found = list(content.get("candidates") or []) if search["status"] == "completed" else []
-        attempt = {
+        content = _mapping(search.get("structured_content")) or {}
+        found = _mapping_list(content.get("candidates")) if search["status"] == "completed" else []
+        attempt: dict[str, Any] = {
             "attempt_id": f"attempt-{_digest((session_id, query_id))[:24]}",
             "query_id": query_id,
             "round_id": session_id,
@@ -759,15 +801,13 @@ def execute_retrieval_run(
             )
             return
         for raw in found:
-            if not isinstance(raw, Mapping):
-                continue
-            candidate = dict(raw)
+            candidate: dict[str, Any] = dict(raw)
             url = str(candidate.get("url") or "").strip()
             if not url or url in seen_urls:
                 continue
             seen_urls.add(url)
             candidate_id = f"candidate-{_digest((session_id, query_id, url))[:24]}"
-            item = {
+            item: dict[str, Any] = {
                 "candidate_id": candidate_id,
                 "query_id": query_id,
                 "url": url,
@@ -780,14 +820,15 @@ def execute_retrieval_run(
             if len(materials) >= max_materials:
                 item["review_status"] = "budget_exhausted"
                 continue
-            trusted = str((candidate.get("trust") or {}).get("status") or "") == "accepted"
+            trust = _mapping(candidate.get("trust")) or {}
+            trusted = str(trust.get("status") or "") == "accepted"
             if not trusted:
                 failures.append(
                     {
                         "phase": "candidate_review",
                         "kind": "source_access_blocked",
                         "candidate_id": candidate_id,
-                        "reason": (candidate.get("trust") or {}).get("blocked_reason")
+                        "reason": trust.get("blocked_reason")
                         or "candidate trust gate did not accept this URL",
                     }
                 )
@@ -819,7 +860,8 @@ def execute_retrieval_run(
                     }
                 )
                 continue
-            ingest_payload = (review.get("structured_content") or {}).get("ingest_payload")
+            review_content = _mapping(review.get("structured_content")) or {}
+            ingest_payload = _mapping(review_content.get("ingest_payload"))
             if not trusted:
                 continue
             if not isinstance(ingest_payload, Mapping) or ingest_payload.get("type") != "url_pool":
@@ -827,7 +869,7 @@ def execute_retrieval_run(
                     {
                         "code": "CANDIDATE_INGEST_PAYLOAD_MISSING",
                         "candidate_id": candidate_id,
-                        "next_gate": (review.get("structured_content") or {}).get("next_gate"),
+                        "next_gate": review_content.get("next_gate"),
                     }
                 )
                 continue
@@ -845,12 +887,13 @@ def execute_retrieval_run(
                 },
                 emit=emit,
             )
-            dispatch = (ingest.get("structured_content") or {}).get("dispatch_result") or {}
-            document_id = dispatch.get("document_id") if isinstance(dispatch, Mapping) else None
+            ingest_content = _mapping(ingest.get("structured_content")) or {}
+            dispatch = _mapping(ingest_content.get("dispatch_result")) or {}
+            document_id = dispatch.get("document_id")
             body_read, body = (
                 _read_document_body(topology_service, project_key, document_id) if document_id else (None, None)
             )
-            material = {
+            material: dict[str, Any] = {
                 "candidate_id": candidate_id,
                 "url": url,
                 "document_id": document_id,
@@ -861,11 +904,11 @@ def execute_retrieval_run(
                 "ingest_receipt": {
                     "call_id": ingest.get("call_id"),
                     "tool_status": ingest.get("status"),
-                    "task_id": (ingest.get("structured_content") or {}).get("task_id"),
+                    "task_id": ingest_content.get("task_id"),
                     "document_id": document_id,
-                    "status": dispatch.get("status") if isinstance(dispatch, Mapping) else None,
-                    "reason_code": dispatch.get("reason_code") if isinstance(dispatch, Mapping) else None,
-                    "errors": dispatch.get("errors") if isinstance(dispatch, Mapping) else None,
+                    "status": dispatch.get("status"),
+                    "reason_code": dispatch.get("reason_code"),
+                    "errors": dispatch.get("errors"),
                 },
                 "formal_topology_ref": None,
             }
@@ -881,17 +924,20 @@ def execute_retrieval_run(
                     }
                 )
                 continue
-            route_rows = (
-                (plan.get("binding_snapshot") or {}).get("routes")
-                or (plan.get("topology_seed") or {}).get("source_routes")
-                or []
-            )
-            source_route = next(
-                (dict(row) for row in route_rows if isinstance(row, Mapping) and row.get("route_id") == route_id), {}
+            if body_read is None or body is None:
+                failures.append({"phase": "body_read", "kind": "source_failure", "candidate_id": candidate_id})
+                continue
+            binding_snapshot = _mapping(plan_mapping.get("binding_snapshot")) or {}
+            topology_seed_mapping = _mapping(plan_mapping.get("topology_seed")) or {}
+            route_rows = _mapping_list(binding_snapshot.get("routes"))
+            if not route_rows:
+                route_rows = _mapping_list(topology_seed_mapping.get("source_routes"))
+            source_route: dict[str, Any] = next(
+                (dict(row) for row in route_rows if row.get("route_id") == route_id), cast(dict[str, Any], {})
             )
             payload = {
                 "project_key": project_key,
-                "run_id": str(plan.get("run_id") or session_id),
+                "run_id": str(plan_mapping.get("run_id") or session_id),
                 "plan_id": plan_id,
                 "route_id": route_id,
                 "query_id": query_id,
@@ -902,25 +948,25 @@ def execute_retrieval_run(
                 "body": body,
                 "body_digest": body_read["body_digest"],
                 "document_updated_at": body_read.get("document_updated_at"),
-                "domain_vocabulary": plan.get("domain_vocabulary")
-                or (plan.get("topology_seed") or {}).get("domain_vocabulary"),
+                "domain_vocabulary": plan_mapping.get("domain_vocabulary")
+                or (_mapping(plan_mapping.get("topology_seed")) or {}).get("domain_vocabulary"),
                 "query": dict(query),
                 "source_route": source_route,
             }
             try:
+                skill_context: SkillInvocationContext = {
+                    "actor_role": "orchestration_runtime",
+                    "permissions": ["project_retrieval.formalize"],
+                    "agent_session_id": session_id,
+                    "agent_task_id": task_id,
+                    "consumer": "project_retrieval.executor",
+                }
                 invoked = invoke_skill(
                     skill_id="project_retrieval.formalize_material",
                     payload=payload,
-                    context={
-                        "actor_role": "orchestration_runtime",
-                        "permissions": ["project_retrieval.formalize"],
-                        "agent_session_id": session_id,
-                        "agent_task_id": task_id,
-                        "project_key": project_key,
-                        "consumer": "project_retrieval.executor",
-                    },
+                    context=skill_context,
                 )
-                formal = invoked.get("result")
+                formal = _mapping(invoked.get("result"))
             except Exception as exc:
                 error = _failure(exc)
                 code = "FORMALIZATION_OPERATOR_UNAVAILABLE" if isinstance(exc, KeyError) else "FORMALIZATION_FAILED"
@@ -928,16 +974,16 @@ def execute_retrieval_run(
                 if emit is not None:
                     emit("formalizer.result", {"candidate_id": candidate_id, "status": "failed", "error": error})
                 continue
-            if not isinstance(formal, Mapping):
+            if formal is None:
                 gaps.append({"code": "FORMALIZATION_INVALID_RESULT", "candidate_id": candidate_id})
                 continue
             formal_status = str(formal.get("status") or "")
             material["formalizer_status"] = formal_status
-            material["formalizer_gaps"] = list(formal.get("gaps") or [])
+            material["formalizer_gaps"] = _list(formal.get("gaps"))
             if formal_status == "proposed":
                 gaps.extend(
                     {"code": "FORMALIZATION_REMAINING_GAP", "candidate_id": candidate_id, "detail": detail}
-                    for detail in formal.get("gaps") or []
+                    for detail in _list(formal.get("gaps"))
                 )
             if formal.get("error"):
                 material["formalizer_error"] = formal["error"]
@@ -948,7 +994,7 @@ def execute_retrieval_run(
                     {
                         "code": "NO_CLAIM" if formal_status == "no_claim" else "FORMALIZATION_FAILED",
                         "candidate_id": candidate_id,
-                        "details": list(formal.get("gaps") or []),
+                        "details": _list(formal.get("gaps")),
                         "error": formal.get("error"),
                     }
                 )
@@ -1003,13 +1049,13 @@ def execute_retrieval_run(
             if planned["status"] != "completed":
                 gaps.append({"code": "FOLLOWUP_PLANNER_FAILED", "round": round_number, "error": planned.get("error")})
                 break
-            proposed_queries = (planned.get("structured_content") or {}).get("search_queries") or []
+            planned_content = _mapping(planned.get("structured_content")) or {}
+            proposed_queries = _mapping_list(planned_content.get("search_queries"))
             expression = next(
                 (
                     str(item.get("query") or "").strip()
                     for item in proposed_queries
-                    if isinstance(item, Mapping)
-                    and str(item.get("query") or "").strip()
+                    if str(item.get("query") or "").strip()
                     and str(item.get("query") or "").strip() not in executed_expressions
                 ),
                 "",
@@ -1019,7 +1065,7 @@ def execute_retrieval_run(
                 break
             originating = next((item for item in candidates if item["candidate_id"] == gap.get("candidate_id")), None)
             basis_id = str((originating or {}).get("query_id") or selected[0])
-            basis = dict(queries.get(basis_id) or queries[selected[0]])
+            basis: dict[str, Any] = dict(queries.get(basis_id) or queries[selected[0]])
             followup_id = f"followup:{round_number}:{_digest(expression)[:12]}"
             basis.update({"query_id": followup_id, "route_id": route_id, "expression": expression})
             execute_query(followup_id, basis)
@@ -1028,26 +1074,27 @@ def execute_retrieval_run(
     topology = _append_attempts(
         topology_service=topology_service,
         project_key=project_key,
-        topology_ref=plan.get("topology_ref"),
-        profile_id=str(plan.get("profile_id") or ""),
-        topology_seed=plan.get("topology_seed"),
-        profile_version=str(plan.get("profile_version") or ""),
+        topology_ref=_mapping(plan_mapping.get("topology_ref")),
+        profile_id=str(plan_mapping.get("profile_id") or ""),
+        topology_seed=_mapping(plan_mapping.get("topology_seed")),
+        profile_version=str(plan_mapping.get("profile_version") or ""),
         session_id=session_id,
         attempts=attempts,
         formal_packages=formal_packages,
     )
+    topology_error = _mapping(topology.get("error")) or {}
     if topology["status"] in {"failed", "blocked", "readback_failed"}:
         failures.append(
             {
                 "phase": "topology_write",
                 "kind": "structure_conflict"
-                if (topology.get("error") or {}).get("code")
+                if topology_error.get("code")
                 in {"VERSION_CONFLICT", "PROFILE_VERSION_CONFLICT", "IDENTITY_CONFLICT"}
                 else "topology_unavailable",
                 "error": topology.get("error"),
             }
         )
-    for rejected in topology.get("rejected_formal") or []:
+    for rejected in _mapping_list(topology.get("rejected_formal")):
         gaps.append({"code": "FORMAL_PROPOSAL_REJECTED", **rejected})
     budget_deferred = sum(item.get("review_status") == "budget_exhausted" for item in candidates)
     if budget_deferred:
@@ -1061,8 +1108,8 @@ def execute_retrieval_run(
         gaps.append(
             {"code": "FOLLOWUP_INCOMPLETE", "executed_rounds": followup_rounds, "allowed_rounds": max_followups}
         )
-    formal_graph_refs = list(topology.get("formal_graph_refs") or [])
-    status = (
+    formal_graph_refs = _mapping_list(topology.get("formal_graph_refs"))
+    status: Literal["completed", "partial", "blocked"] = (
         "completed"
         if formal_graph_refs and not gaps and not failures
         else ("partial" if attempts or candidates or materials else "blocked")
@@ -1083,39 +1130,56 @@ def execute_retrieval_run(
         "formal_graph_refs": formal_graph_refs,
         "gaps": gaps,
     }
-    result = {
+    result: RetrievalRunCompleted = {
         "status": status,
         "session_id": session_id,
         "plan_id": plan_id,
-        "mode_id": plan.get("mode_id"),
-        "mode_version": plan.get("mode_version"),
-        "discovery": discovery,
-        "attempts": attempts,
-        "candidates": candidates,
-        "materials": materials,
-        "topology_write": topology,
-        "graph": {"topology_ref": topology.get("topology_ref"), "groups": formal_graph_refs}
+        "mode_id": plan_mapping.get("mode_id"),
+        "mode_version": plan_mapping.get("mode_version"),
+        "discovery": cast(RetrievalJsonObject, discovery),
+        "attempts": cast(list[RetrievalJsonObject], attempts),
+        "candidates": cast(list[RetrievalJsonObject], candidates),
+        "materials": cast(list[RetrievalJsonObject], materials),
+        "topology_write": cast(RetrievalJsonObject, topology),
+        "graph": cast(RetrievalJsonObject, {"topology_ref": topology.get("topology_ref"), "groups": formal_graph_refs})
         if formal_graph_refs
         else None,
-        "failures": failures,
-        "gaps": gaps,
-        "report": report,
+        "failures": cast(list[RetrievalJsonObject], failures),
+        "gaps": cast(list[RetrievalJsonObject], gaps),
+        "report": cast(RetrievalJsonObject, report),
         "followup_rounds": followup_rounds,
     }
-    try:
-        service.store.upsert_artifact(
+    report_json = validate_json_object(
+        report,
+        field="project_retrieval.run_report.content_json",
+    )
+    report_persistence_failure: Failure | Exception | None
+    if isinstance(report_json, Failure):
+        report_persistence_failure = report_json
+    else:
+        report_persistence_failure = None
+        try:
+            service.store.upsert_artifact(
+                {
+                    "session_id": session_id,
+                    "name": "project_retrieval.run_report.json",
+                    "artifact_type": "project_retrieval_run_report",
+                    "mime_type": "application/json",
+                    "content_text": json.dumps(report, ensure_ascii=False, sort_keys=True, default=str),
+                    "content_json": report_json,
+                    "metadata": {"project_key": project_key, "plan_id": plan_id},
+                }
+            )
+        except Exception as exc:
+            report_persistence_failure = exc
+    if report_persistence_failure is not None:
+        failures.append(
             {
-                "session_id": session_id,
-                "name": "project_retrieval.run_report.json",
-                "artifact_type": "project_retrieval_run_report",
-                "mime_type": "application/json",
-                "content_text": json.dumps(report, ensure_ascii=False, sort_keys=True, default=str),
-                "content_json": report,
-                "metadata": {"project_key": project_key, "plan_id": plan_id},
+                "phase": "report",
+                "kind": "persistence_failure",
+                "error": _failure(report_persistence_failure),
             }
         )
-    except Exception as exc:
-        failures.append({"phase": "report", "kind": "persistence_failure", "error": _failure(exc)})
         gaps.append({"code": "REPORT_PERSISTENCE_FAILED"})
         report["gaps"] = gaps
         if status == "completed":
@@ -1139,7 +1203,7 @@ def execute_retrieval_run(
         result_summary="Formal graph committed" if status == "completed" else "Retrieval finished with unresolved gaps",
         result_payload={
             "plan_id": plan_id,
-            "run_id": plan.get("run_id"),
+            "run_id": plan_mapping.get("run_id"),
             "status": status,
             "report_artifact": "project_retrieval.run_report.json",
         },

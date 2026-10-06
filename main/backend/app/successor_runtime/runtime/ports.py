@@ -57,6 +57,14 @@ CONTROL_PLANE_PERMISSIONS: Final[frozenset[str]] = frozenset(
 )
 
 
+def _valid_registry_revision(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _valid_scope_incarnation(value: object) -> bool:
+    return isinstance(value, str) and bool(value) and value == value.strip() and len(value) <= 128
+
+
 @dataclass(frozen=True, slots=True)
 class ProjectScopeRef:
     """Server-validated project scope identity.
@@ -79,19 +87,10 @@ class ProjectScopeRef:
         if not self.resolved_schema:
             # kit:boundary owner=successor.runtime.ports.project_scope class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("ProjectScopeRef requires resolved_schema")
-        if (
-            not isinstance(self.project_registry_revision, int)
-            or isinstance(self.project_registry_revision, bool)
-            or self.project_registry_revision < 0
-        ):
+        if not _valid_registry_revision(self.project_registry_revision):
             # kit:boundary owner=successor.runtime.ports.project_scope class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("ProjectScopeRef registry_revision must be >= 0")
-        if (
-            not isinstance(self.incarnation, str)
-            or not self.incarnation
-            or self.incarnation != self.incarnation.strip()
-            or len(self.incarnation) > 128
-        ):
+        if not _valid_scope_incarnation(self.incarnation):
             # kit:boundary owner=successor.runtime.ports.project_scope class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError(
                 "ProjectScopeRef incarnation must be a non-empty canonical identity"
@@ -356,19 +355,42 @@ class Projector(Protocol):
     def apply(self, scope: object, source: object, offset: object) -> object: ...
     def rebuild(self, scope: object, source: object) -> object: ...
 
+
+class ProjectionAuthority(Protocol):
+    """Read-only identity of an installed projector class, without execution rights."""
+
+    @property
+    def projector_id(self) -> str: ...
+
+    @property
+    def projector_version(self) -> str: ...
+
+    @property
+    def source_kind(self) -> str: ...
+
+
+def session_observation_projector_authority() -> type[ProjectionAuthority]:
+    from ..substrate.projections.agent_session import PostgresAgentSessionReadAdapter  # kit:boundary
+
+    return PostgresAgentSessionReadAdapter
+
+
+def runtime_run_projector_authority() -> type[ProjectionAuthority]:
+    from ..substrate.projections.runtime_run import PostgresRuntimeRunProjector  # kit:boundary
+
+    return PostgresRuntimeRunProjector
+
 # Public projection-authority bridge. Imports are deferred to avoid a runtime
 # import cycle while keeping substrate access behind the port boundary.
 def __getattr__(name: str):
     if name == "PostgresAgentSessionReadAdapter":
-        from ..substrate.projections.agent_session import PostgresAgentSessionReadAdapter  # kit:boundary
-        return PostgresAgentSessionReadAdapter
+        return session_observation_projector_authority()
     if name == "PostgresRuntimeRunProjector":
-        from ..substrate.projections.runtime_run import PostgresRuntimeRunProjector  # kit:boundary
-        return PostgresRuntimeRunProjector
+        return runtime_run_projector_authority()
     if name == "project_line_event_readbacks":
         from ..substrate.projections.legacy_process import project_line_event_readbacks  # kit:boundary
         return project_line_event_readbacks
     if name == "projection_offsets":
-        from ..substrate.projections import registry  # kit:boundary
-        return registry
+        from . import projection_contracts  # kit:boundary
+        return projection_contracts
     raise AttributeError(name)  # kit:boundary owner=successor.runtime.ports class=PROGRAMMER_DEFECT failure_family=none witness=test:test_successor_runtime_dependency_direction_is_fail_closed

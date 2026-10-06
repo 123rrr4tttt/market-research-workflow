@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+from threading import Barrier
 import unittest
+from unittest.mock import patch
 
 import pytest
 from functorial_kit import Failure
 
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.agent_sessions.store import InMemoryAgentSessionStore
+from app.services.workflow_graph.contracts import (
+    WorkflowRunSnapshot,
+    WorkflowRuntimeGraph,
+)
+from mrw_functorial_kit.core.agent_service_semantics import agent_session_failures
 
 pytestmark = pytest.mark.unit
 
@@ -82,6 +91,69 @@ class AgentSessionServiceUnitTest(unittest.TestCase):
         self.assertEqual(result.code, "execution_mode_invalid")
         self.assertEqual(self.service.get_session_bundle(session_id), before)
 
+    def test_workflow_graph_run_projection_is_typed_and_idempotent(self):
+        workflow: WorkflowRuntimeGraph = {
+            "workflow_id": "graph-projected",
+            "program_digest": "program-digest",
+            "plan_digest": "plan-digest",
+            "topo_order": ["node-a"],
+            "nodes": {
+                "node-a": {
+                    "id": "node-a",
+                    "node_type": "llm_call",
+                    "params": {"prompt": "Inspect the source"},
+                    "depends_on": [],
+                }
+            },
+        }
+        snapshot: WorkflowRunSnapshot = {
+            "run": {
+                "run_id": "run-projected",
+                "status": "succeeded",
+                "created_at": "2026-10-06T00:00:00Z",
+                "updated_at": "2026-10-06T00:01:00Z",
+                "node_statuses": {"node-a": "succeeded"},
+                "metadata": {"completed": True},
+            },
+            "events": [],
+            "results": {"node-a": {"answer": "source inspection complete"}},
+        }
+
+        bundle = self.service.project_workflow_graph_run(
+            graph_id="graph-projected",
+            run_id="run-projected",
+            workflow=workflow,
+            inputs={"project_key": "proj-projected"},
+            snapshot=snapshot,
+            project_key="proj-projected",
+        )
+        repeated = self.service.project_workflow_graph_run(
+            graph_id="graph-projected",
+            run_id="run-projected",
+            workflow=workflow,
+            inputs={"project_key": "proj-projected"},
+            snapshot=snapshot,
+            project_key="proj-projected",
+        )
+
+        self.assertEqual(bundle["session"]["project_key"], "proj-projected")
+        self.assertEqual(len(bundle["tasks"]), 2)
+        node_task = next(task for task in bundle["tasks"] if task["metadata"].get("workflow_graph_node"))
+        verification_task = next(task for task in bundle["tasks"] if task["metadata"].get("workflow_graph_verification"))
+        self.assertEqual(node_task["status"], "completed")
+        self.assertEqual(node_task["metadata"]["workflow_graph_node"]["node_type"], "llm_call")
+        self.assertEqual(node_task["result_payload"], {"answer": "source inspection complete"})
+        self.assertEqual(verification_task["status"], "completed")
+        self.assertEqual(
+            verification_task["result_payload"],
+            {"run": snapshot["run"], "results": snapshot["results"]},
+        )
+        artifact = bundle["artifacts"][0]
+        self.assertEqual(artifact["content_json"]["inputs"], {"project_key": "proj-projected"})
+        self.assertIn("workflow_graph.run_projected", [event["event_type"] for event in bundle["events"]])
+        self.assertEqual(repeated["session"]["session_id"], bundle["session"]["session_id"])
+        self.assertEqual(len(repeated["tasks"]), 2)
+
     def test_stored_coordinator_mode_and_messages_remain_readable(self):
         bundle = self.service.create_session(
             source="user", entrypoint_type="chat", goal="Historical coordinator facts",
@@ -123,10 +195,24 @@ class AgentSessionServiceUnitTest(unittest.TestCase):
             accepted_items=[{"item_id": "item-1", "index": 1, "snapshot": {"status": "pending"}}],
             rejected_items=[],
         )
+        workflow: WorkflowRuntimeGraph = {
+            "workflow_id": "graph-cleanup",
+            "program_digest": "program-digest",
+            "plan_digest": "plan-digest",
+            "topo_order": ["node-a"],
+            "nodes": {
+                "node-a": {
+                    "id": "node-a",
+                    "node_type": "llm_call",
+                    "params": {},
+                    "depends_on": [],
+                }
+            },
+        }
         workflow_blueprints = self.service._build_workflow_graph_task_blueprints(
             graph_id="graph-cleanup",
             run_id="run-cleanup",
-            workflow={"topo_order": ["node-a"], "nodes": {"node-a": {"depends_on": []}}},
+            workflow=workflow,
         )
 
         for blueprints in (batch_blueprints, workflow_blueprints):
@@ -198,6 +284,376 @@ class AgentSessionServiceUnitTest(unittest.TestCase):
         tasks = self.service.list_tasks(session_id)
         by_id = {item["task_id"]: item for item in tasks}
         self.assertEqual(by_id[synthesis_task["task_id"]]["status"], "pending")
+
+    def test_concurrent_claim_has_exactly_one_winner_and_one_claim_event(self):
+        bundle = self.service.create_session(
+            source="user",
+            entrypoint_type="chat",
+            goal="Concurrent claim flow",
+            task_blueprints=[self._task_blueprint("task-claim-once")],
+        )
+        session_id = bundle["session"]["session_id"]
+        store = self.service.store
+        original_get_task = store.get_task
+        readers_ready = Barrier(2)
+
+        def synchronized_get_task(candidate_session_id: str, candidate_task_id: str):
+            task = original_get_task(candidate_session_id, candidate_task_id)
+            readers_ready.wait(timeout=5)
+            return task
+
+        with patch.object(store, "get_task", side_effect=synchronized_get_task):
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                results = list(
+                    executor.map(
+                        lambda owner: self.service.claim_task(
+                            session_id, "task-claim-once", owner=owner
+                        ),
+                        ("worker-a", "worker-b"),
+                    )
+                )
+
+        winners = [result for result in results if not isinstance(result, Failure)]
+        losers = [result for result in results if isinstance(result, Failure)]
+        self.assertEqual(len(winners), 1)
+        self.assertEqual(len(losers), 1)
+        self.assertEqual(losers[0].code, "task_transition_conflict")
+        stored = store.get_task(session_id, "task-claim-once")
+        self.assertEqual(stored["owner"], winners[0]["owner"])
+        claim_events = [
+            event
+            for event in store.list_events(session_id)
+            if event["event_type"] == "task.claimed"
+        ]
+        self.assertEqual(len(claim_events), 1)
+
+    def test_release_rolls_back_task_dependents_session_and_events_when_event_write_fails(self):
+        bundle = self.service.create_session(
+            source="user",
+            entrypoint_type="chat",
+            goal="Atomic release flow",
+            task_blueprints=[
+                self._task_blueprint("task-release"),
+                {**self._task_blueprint("task-dependent"), "blocked_by_refs": ["prev"]},
+            ],
+        )
+        session_id = bundle["session"]["session_id"]
+        store = self.service.store
+        before_session = store.get_session(session_id)
+        before_tasks = store.list_tasks(session_id)
+        before_events = store.list_events(session_id)
+        original_append = store.append_event
+        calls = 0
+
+        def fail_second_event(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                return agent_session_failures.fail(
+                    "backend_unavailable",
+                    "forced event failure",
+                    {"operation": "append_event"},
+                )
+            return original_append(*args, **kwargs)
+
+        with patch.object(store, "append_event", side_effect=fail_second_event):
+            released = self.service.release_task(
+                session_id,
+                "task-release",
+                status="completed",
+                result_summary="done",
+            )
+
+        self.assertIsInstance(released, Failure)
+        self.assertEqual(store.get_session(session_id), before_session)
+        self.assertEqual(store.list_tasks(session_id), before_tasks)
+        self.assertEqual(store.list_events(session_id), before_events)
+
+    def test_store_rejects_nested_non_json_values_without_writing_session(self):
+        store = InMemoryAgentSessionStore()
+        invalid_values = (
+            datetime.now(timezone.utc),
+            ("tuple",),
+            {1: "non-string-key"},
+            float("nan"),
+        )
+
+        for index, invalid_value in enumerate(invalid_values):
+            with self.subTest(index=index):
+                session_id = f"session-invalid-json-{index}"
+                result = store.create_session(
+                    {
+                        "session_id": session_id,
+                        "metadata": {"nested": {"value": invalid_value}},
+                    }
+                )
+
+                self.assertIsInstance(result, Failure)
+                self.assertEqual(result.code, "json_value_invalid")
+                self.assertIsInstance(store.get_session(session_id), Failure)
+
+        command_result = store.commit_session_command(
+            "session-command-invalid-json",
+            session_create={
+                "session_id": "session-command-invalid-json",
+                "metadata": {"nested": ("tuple",)},
+            },
+            expected_session_statuses=None,
+            session_changes={},
+            task_creates=[],
+            task_mutations=[],
+            message_creates=[],
+            artifact_upserts=[],
+            approval_mutation=None,
+            events=[],
+        )
+        self.assertIsInstance(command_result, Failure)
+        self.assertEqual(command_result.code, "json_value_invalid")
+        self.assertIsInstance(
+            store.get_session("session-command-invalid-json"),
+            Failure,
+        )
+
+    def test_concurrent_event_appends_keep_unique_monotonic_sequence(self):
+        store = InMemoryAgentSessionStore()
+        created = store.create_session({"session_id": "session-event-sequence"})
+        self.assertNotIsInstance(created, Failure)
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            results = list(
+                executor.map(
+                    lambda index: store.append_event(
+                        "session-event-sequence",
+                        event_type="test.concurrent",
+                        payload={"index": index},
+                    ),
+                    range(32),
+                )
+            )
+
+        self.assertFalse(any(isinstance(result, Failure) for result in results))
+        events = store.list_events("session-event-sequence")
+        self.assertEqual([event["seq"] for event in events], list(range(1, 33)))
+
+    def test_create_session_command_rolls_back_all_facts_when_event_fails(self):
+        failure = agent_session_failures.fail(
+            "backend_unavailable",
+            "forced command event failure",
+            {"operation": "append_event"},
+        )
+        with patch.object(self.service.store, "append_event", return_value=failure):
+            result = self.service.create_session(
+                source="user",
+                entrypoint_type="chat",
+                goal="Atomic create",
+                task_blueprints=[self._task_blueprint("atomic-create-task")],
+            )
+
+        self.assertIsInstance(result, Failure)
+        self.assertEqual(self.service.list_sessions(), [])
+
+    def test_message_and_blueprint_commands_roll_back_when_event_fails(self):
+        bundle = self.service.create_session(
+            source="user",
+            entrypoint_type="chat",
+            goal="Atomic child commands",
+            task_blueprints=[self._task_blueprint("existing-command-task")],
+        )
+        session_id = bundle["session"]["session_id"]
+        before = self.service.get_session_bundle(session_id)
+        failure = agent_session_failures.fail(
+            "backend_unavailable",
+            "forced command event failure",
+            {"operation": "append_event"},
+        )
+
+        with patch.object(self.service.store, "append_event", return_value=failure):
+            message_result = self.service.create_message(
+                session_id,
+                role="assistant",
+                content="must rollback",
+            )
+        self.assertIsInstance(message_result, Failure)
+        self.assertEqual(self.service.get_session_bundle(session_id), before)
+
+        with patch.object(self.service.store, "append_event", return_value=failure):
+            blueprint_result = self.service.append_task_blueprints(
+                session_id,
+                task_blueprints=[self._task_blueprint("must-not-persist")],
+            )
+        self.assertIsInstance(blueprint_result, Failure)
+        self.assertEqual(self.service.get_session_bundle(session_id), before)
+
+    def test_approval_resolution_command_rolls_back_approval_tasks_and_events(self):
+        bundle = self.service.create_session(
+            source="user",
+            entrypoint_type="chat",
+            goal="Atomic approval resolution",
+            task_blueprints=[self._task_blueprint("approval-command-task")],
+        )
+        session_id = bundle["session"]["session_id"]
+        approval = self.service.request_approval(
+            session_id=session_id,
+            task_id="approval-command-task",
+            requester_actor="reviewer",
+            binding_payload={"action": "write"},
+            metadata={"force_approval": True},
+        )
+        before_bundle = self.service.get_session_bundle(session_id)
+        before_approval = self.service.store.get_approval(approval["approval_id"])
+        failure = agent_session_failures.fail(
+            "backend_unavailable",
+            "forced approval event failure",
+            {"operation": "append_event"},
+        )
+
+        with patch.object(self.service.store, "append_event", return_value=failure):
+            resolved = self.service.resolve_approval(
+                approval["approval_id"],
+                approved_by="reviewer",
+            )
+
+        self.assertIsInstance(resolved, Failure)
+        self.assertEqual(self.service.get_session_bundle(session_id), before_bundle)
+        self.assertEqual(
+            self.service.store.get_approval(approval["approval_id"]),
+            before_approval,
+        )
+
+    def test_workflow_projection_command_rolls_back_new_session_on_event_failure(self):
+        workflow: WorkflowRuntimeGraph = {
+            "workflow_id": "graph-rollback",
+            "program_digest": "program",
+            "plan_digest": "plan",
+            "topo_order": ["node-a"],
+            "nodes": {
+                "node-a": {
+                    "id": "node-a",
+                    "node_type": "llm_call",
+                    "params": {},
+                    "depends_on": [],
+                }
+            },
+        }
+        snapshot: WorkflowRunSnapshot = {
+            "run": {
+                "run_id": "run-rollback",
+                "status": "succeeded",
+                "created_at": "2026-10-06T00:00:00Z",
+                "updated_at": "2026-10-06T00:01:00Z",
+                "node_statuses": {"node-a": "succeeded"},
+                "metadata": {},
+            },
+            "events": [],
+            "results": {"node-a": {"answer": "done"}},
+        }
+        failure = agent_session_failures.fail(
+            "backend_unavailable",
+            "forced workflow event failure",
+            {"operation": "append_event"},
+        )
+
+        with patch.object(self.service.store, "append_event", return_value=failure):
+            result = self.service.project_workflow_graph_run(
+                graph_id="graph-rollback",
+                run_id="run-rollback",
+                workflow=workflow,
+                inputs={},
+                snapshot=snapshot,
+            )
+
+        self.assertIsInstance(result, Failure)
+        self.assertIsNone(
+            self.service.find_session_by_logical_task_list_key("run-rollback")
+        )
+
+    def test_agent_batch_submission_and_state_commands_are_atomic(self):
+        submitted = self.service.project_agent_batch_job_submission(
+            job_id="batch-command-job",
+            project_key="project-a",
+            request_payload={"query": "water"},
+            accepted_items=[
+                {
+                    "item_id": "item-a",
+                    "snapshot": {"status": "pending"},
+                    "lane": "default",
+                }
+            ],
+            rejected_items=[],
+        )
+        self.assertNotIsInstance(submitted, Failure)
+        self.assertEqual(submitted["artifacts"][0]["name"], "compat.job.submit.json")
+        self.assertIn(
+            "compat.job_projected",
+            [event["event_type"] for event in submitted["events"]],
+        )
+        session_id = submitted["session"]["session_id"]
+        before = self.service.get_session_bundle(session_id)
+        failure = agent_session_failures.fail(
+            "backend_unavailable",
+            "forced batch projection event failure",
+            {"operation": "append_event"},
+        )
+
+        with patch.object(self.service.store, "append_event", return_value=failure):
+            projected = self.service.project_agent_batch_job_state(
+                compat_job_id="batch-command-job",
+                projected_items=[
+                    {
+                        "item_id": "item-a",
+                        "snapshot": {"status": "success"},
+                        "lane": "default",
+                    }
+                ],
+                phase="completed",
+                progress={"completed": 1, "failed": 0},
+            )
+
+        self.assertIsInstance(projected, Failure)
+        self.assertEqual(self.service.get_session_bundle(session_id), before)
+
+    def test_agent_batch_submission_rolls_back_session_tasks_artifact_and_events(self):
+        failure = agent_session_failures.fail(
+            "backend_unavailable",
+            "forced batch submission event failure",
+            {"operation": "append_event"},
+        )
+        with patch.object(self.service.store, "append_event", return_value=failure):
+            result = self.service.project_agent_batch_job_submission(
+                job_id="batch-command-rollback",
+                project_key="project-a",
+                request_payload={"query": "water"},
+                accepted_items=[],
+                rejected_items=[],
+            )
+
+        self.assertIsInstance(result, Failure)
+        self.assertIsNone(
+            self.service.find_session_by_compat_job_id("batch-command-rollback")
+        )
+
+    def test_approval_mutations_reject_noncanonical_json_before_state_change(self):
+        store = InMemoryAgentSessionStore()
+        created = store.create_or_update_approval(
+            {
+                "approval_id": "approval-invalid-json",
+                "binding_hash": "binding",
+                "binding_payload": {"action": "write"},
+                "status": "pending",
+            }
+        )
+        self.assertNotIsInstance(created, Failure)
+        before = store.get_approval("approval-invalid-json")
+
+        result = store.confirm_host_approval(
+            "approval-invalid-json",
+            expected_binding_payload={"action": "write"},
+            confirmation_metadata={"invalid": ("tuple",)},
+        )
+
+        self.assertIsInstance(result, Failure)
+        self.assertEqual(result.code, "json_value_invalid")
+        self.assertEqual(store.get_approval("approval-invalid-json"), before)
 
     def test_claim_rejects_write_set_conflict(self):
         bundle = self.service.create_session(

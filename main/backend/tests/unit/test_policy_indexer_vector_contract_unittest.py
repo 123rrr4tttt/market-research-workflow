@@ -193,6 +193,25 @@ class _RecordingElasticsearch:
         self.delete_queries.append(dict(kwargs))
 
 
+class _RecordingQdrantClient:
+    def __init__(self) -> None:
+        self.collection_reads: list[str] = []
+        self.collection_creates: list[dict[str, object]] = []
+        self.upserts: list[dict[str, object]] = []
+
+    def get_collection(self, collection_name: str) -> object:
+        self.collection_reads.append(collection_name)
+        raise LookupError(collection_name)
+
+    def create_collection(self, **kwargs: object) -> object:
+        self.collection_creates.append(dict(kwargs))
+        return {"status": "created"}
+
+    def upsert(self, **kwargs: object) -> object:
+        self.upserts.append(dict(kwargs))
+        return {"status": "accepted"}
+
+
 class _OneChunkSplitter:
     def __init__(self, **_kwargs: object) -> None:
         return None
@@ -401,6 +420,68 @@ def test_policy_bulk_failure_marks_job_failed_after_db_commit(
     assert session.rollbacks == 1
     assert effects.failed_jobs == ["es bulk unavailable"]
     assert effects.completed_jobs == []
+
+
+def test_policy_qdrant_optional_boundary_preserves_create_and_upsert_shapes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _RecordingQdrantClient()
+    created_clients: list[dict[str, object]] = []
+
+    def client_factory(**kwargs: object) -> _RecordingQdrantClient:
+        created_clients.append(dict(kwargs))
+        return client
+
+    def point_factory(**kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(**kwargs)
+
+    def import_module(name: str) -> object:
+        if name == "qdrant_client":
+            return SimpleNamespace(QdrantClient=client_factory)
+        if name == "qdrant_client.models":
+            return SimpleNamespace(PointStruct=point_factory)
+        raise ModuleNotFoundError(name)
+
+    monkeypatch.setenv("QDRANT_URL", "http://qdrant.test")
+    monkeypatch.delenv("QDRANT_HOST", raising=False)
+    monkeypatch.delenv("QDRANT_PORT", raising=False)
+    monkeypatch.setattr(policy_module, "import_module", import_module)
+
+    resolved = policy_module._get_qdrant_client()
+    assert resolved is client
+    assert created_clients == [{"url": "http://qdrant.test"}]
+    assert policy_module._ensure_qdrant_collection(
+        resolved,
+        "policy_chunks",
+        3,
+    )
+    assert client.collection_reads == ["policy_chunks"]
+    assert client.collection_creates == [
+        {
+            "collection_name": "policy_chunks",
+            "vectors_config": {"size": 3, "distance": "Cosine"},
+        }
+    ]
+
+    factory = policy_module._get_qdrant_point_factory()
+    assert factory is not None
+    point = factory(
+        id=7,
+        vector=[0.1, 0.2, 0.3],
+        payload={"project_key": "demo"},
+    )
+    resolved.upsert(
+        collection_name="policy_chunks",
+        points=[point],
+        wait=False,
+    )
+    assert client.upserts == [
+        {
+            "collection_name": "policy_chunks",
+            "points": [point],
+            "wait": False,
+        }
+    ]
 
 
 if __name__ == "__main__":

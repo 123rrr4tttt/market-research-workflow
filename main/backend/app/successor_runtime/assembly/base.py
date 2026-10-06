@@ -74,12 +74,9 @@ class ProjectorSourceKey:
     source_incarnation: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.source_ref, str) or not self.source_ref.strip():
+        if not self.source_ref.strip():
             raise ValueError("projector source_ref must be a non-empty string")
-        if (
-            not isinstance(self.source_incarnation, str)
-            or not self.source_incarnation.strip()
-        ):
+        if not self.source_incarnation.strip():
             raise ValueError("projector source_incarnation must be a non-empty string")
 
 
@@ -101,8 +98,7 @@ def local_assembly_scope_digest() -> str:
 
 def require_assembly_digest(value: str, label: str) -> None:
     if (
-        not isinstance(value, str)
-        or len(value) != 64
+        len(value) != 64
         or any(character not in "0123456789abcdef" for character in value)
     ):
         raise ValueError(f"{label} must be a sha256 hex digest")
@@ -539,6 +535,10 @@ class ProjectionAssemblyOptions:
     note: str = "LOCAL_OFFLINE deterministic facade validation closure"
 
 
+def _empty_projector_source_keys() -> dict[str, ProjectorSourceKey]:
+    return {}
+
+
 @dataclass(frozen=True, slots=True)
 class FamilyAssemblyOptions:
     """Caller-controlled fixture/dependency closures for assembly builders."""
@@ -550,7 +550,7 @@ class FamilyAssemblyOptions:
     c8: KnowledgeAssemblyOptions = KnowledgeAssemblyOptions()
     c9: ProjectionAssemblyOptions = ProjectionAssemblyOptions()
     projector_source_keys: Mapping[str, ProjectorSourceKey] = field(
-        default_factory=dict
+        default_factory=_empty_projector_source_keys
     )
 
 

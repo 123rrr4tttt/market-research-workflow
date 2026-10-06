@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Annotated, Any, TypeGuard
+from typing import Annotated, TypeGuard
 
 from .contracts import (
     ALLOWED_COLLECT_FLOWS,
     CollectJsonObject,
+    CollectJsonValue,
     CollectRequest,
     CollectResult,
     FLOW_COLLECT,
@@ -13,10 +14,10 @@ from .contracts import (
 )
 
 
-def _dedup_text_list(values: Sequence[object] | None) -> list[str] | None:
+def _dedup_text_list(values: Sequence[object] | None) -> list[CollectJsonValue] | None:
     if not isinstance(values, Sequence) or isinstance(values, str):
         return None
-    out: list[str] = []
+    out: list[CollectJsonValue] = []
     for v in values:
         s = str(v or "").strip()
         if s and s not in out:
@@ -48,7 +49,7 @@ def _json_object_argument(value: object) -> CollectJsonObject:
     return source_library_compat_response(value)
 
 
-def _tag_list(value: object) -> list[str] | None:
+def _tag_list(value: object) -> list[CollectJsonValue] | None:
     if not _is_object_list(value):
         return None
     return _dedup_text_list([_text_argument(item) or "" for item in value])
@@ -59,13 +60,13 @@ def _is_json_object(value: object) -> TypeGuard[dict[object, object]]:
 
 
 def build_display_meta(request: CollectRequest, result: CollectResult | None = None, *, summary: str | None = None) -> Annotated[
-    dict[str, Any],
+    CollectJsonObject,
     "kit:non-authoritative derived_as=view fact_source=request+result+summary witness=test:test_w03_ingest_ports_authority_metadata",
 ]:
     flow = str(request.flow or "").strip() or FLOW_COLLECT
     if flow not in ALLOWED_COLLECT_FLOWS:
         flow = FLOW_COLLECT
-    meta: dict[str, Any] = {
+    meta: CollectJsonObject = {
         "version": 1,
         "flow": flow,
         "channel": request.channel,
@@ -101,7 +102,7 @@ def build_display_meta(request: CollectRequest, result: CollectResult | None = N
 
 def infer_display_meta_from_celery_task(
     name: str, args: Sequence[object], kwargs: dict[str, object] | None
-) -> dict[str, object] | None:
+) -> CollectJsonObject | None:
     k = kwargs or {}
     n = str(name or "")
     if "task_ingest_market" in n:

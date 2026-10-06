@@ -1,0 +1,10 @@
+from celery import Celery
+
+app = Celery("negative-plain")
+
+@app.task
+def plain(value: str, count: int) -> int:
+    return len(value) * count
+
+plain.delay(123, 2)
+plain.apply_async(args=(123, 2))

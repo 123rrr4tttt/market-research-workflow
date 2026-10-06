@@ -138,6 +138,7 @@ def validate_registration_package(payload: Mapping[str, Any], *, project_key: st
         if isinstance(value, Failure):
             return value
         arrays[key] = value
+    canonical_arrays = {key: list(refs) for key, refs in arrays.items()}
     skills = payload.get("skill_contents", [])
     if not isinstance(skills, list):
         return _failure("macro_registration_invalid", "skill_contents must be an array", path="$.skill_contents")
@@ -199,7 +200,13 @@ def validate_registration_package(payload: Mapping[str, Any], *, project_key: st
         "package_version": version,
         "project_key": project_key,
         "owner": owner,
-        "cell": {**dict(cell), **arrays, "cell_id": str(cell["cell_id"]).strip(), "core_binding_ref": str(cell["core_binding_ref"]).strip(), "core_mode": core_mode},
+        "cell": {
+            **dict(cell),
+            **canonical_arrays,
+            "cell_id": str(cell["cell_id"]).strip(),
+            "core_binding_ref": str(cell["core_binding_ref"]).strip(),
+            "core_mode": core_mode,
+        },
         "skill_contents": normalized_skills,
         "relations": normalized_relations,
         "activation": {"status": "candidate", "authority": "host_activation_required"},

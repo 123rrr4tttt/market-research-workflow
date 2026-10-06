@@ -9,23 +9,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import TYPE_CHECKING, Generic, Literal, Protocol, TypeGuard, TypeVar
 
-from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.codecs import PayloadCodec, dataclass_codec
-from app.successor_runtime.language.object_contracts import OperationContract, make_operation_contract
-from app.successor_runtime.language.profiles import (
-    AuthorityProfile,
-    EffectProfile,
-    FailureProfile,
-    InterpreterProfile,
-    ObservationProfile,
-    ResourceProfile,
-    SemanticProfile,
-)
-from app.successor_runtime.research.object_types import ObjectType
-from dataclasses import replace
-from functorial_kit.contribution_compiler import NativeContributionRule
+from functorial_kit.contribution_compiler import NativeContributionRule, compile_native_contribution
 from functorial_kit.contribution_verification import (
     ContributionVerification,
     VerificationCheck,
@@ -37,8 +23,29 @@ from functorial_kit.native_contribution import (
     BindingAccepted,
     BindingRejected,
     NativeBindingIssue,
+    NativeContribution,
     ProjectedContributionSpec,
 )
+
+from app.successor_runtime.capabilities.checksum import content_digest
+from app.successor_runtime.capabilities.codecs import PayloadCodec, dataclass_codec
+from app.successor_runtime.capabilities.knowledge_common import (
+    KnowledgeProfile,
+    KnowledgeProfiles,
+)
+from app.successor_runtime.language.object_contracts import OperationContract, make_operation_contract
+from app.successor_runtime.language.profiles import (
+    AuthorityProfile,
+    ContractProfileRef,
+    EffectProfile,
+    FailureProfile,
+    InterpreterProfile,
+    ObservationProfile,
+    ResourceProfile,
+    SemanticProfile,
+    build_profile,
+)
+from app.successor_runtime.research.object_types import ObjectType
 from mrw_functorial_kit.core.knowledge_semantics import knowledge_operation_kinds
 
 if TYPE_CHECKING:
@@ -53,6 +60,7 @@ __all__ = [
     "KnowledgeNativeOperationSource",
     "KnowledgeNativeRuntimeBinding",
     "KNOWLEDGE_NATIVE_CONTRIBUTION_RULE",
+    "compile_knowledge_native_author_source",
     "knowledge_native_definition_issues",
     "KNOWLEDGE_NATIVE_RULE_ID",
     "KNOWLEDGE_NATIVE_VERIFICATION_INPUTS",
@@ -64,10 +72,18 @@ __all__ = [
 
 KNOWLEDGE_NATIVE_FAMILY_ID = "mrw.knowledge"
 KnowledgeExecutionClass = Literal["PURE_TRANSFORM", "EFFECTFUL", "ADMISSION"]
+PayloadT = TypeVar("PayloadT")
+
+
+class KnowledgePayload(Protocol):
+    project_key: str
+    payload_digest: str
+def _empty_object_mapping() -> dict[str, object]:
+    return {}
 
 
 @dataclass(frozen=True, slots=True)
-class KnowledgeNativeOperationSource:
+class KnowledgeNativeOperationSource(Generic[PayloadT]):
     operation_id: str
     kind: str
     input_type: ObjectType
@@ -75,7 +91,7 @@ class KnowledgeNativeOperationSource:
     return_contract_ref: str
     value_suffix: str
     payload_codec_id: str | None = None
-    payload_type: type | None = None
+    payload_type: type[PayloadT] | None = None
     catalog_operation_id: str | None = None
     catalog_input_type_id: str | None = None
     catalog_output_type_id: str | None = None
@@ -95,13 +111,13 @@ class KnowledgeNativeAssemblyDeclaration:
 
 
 @dataclass(frozen=True, slots=True)
-class KnowledgeNativeAuthorSource:
+class KnowledgeNativeAuthorSource(Generic[PayloadT]):
     contribution_id: str
     cell_id: str
     owner: str
     runtime_owner: str
     execution_class: KnowledgeExecutionClass
-    operations: tuple[KnowledgeNativeOperationSource, ...]
+    operations: tuple[KnowledgeNativeOperationSource[PayloadT], ...]
     ordered_operation_ids: tuple[str, ...]
     reads: tuple[str, ...]
     creates: tuple[str, ...]
@@ -113,7 +129,9 @@ class KnowledgeNativeAuthorSource:
     additional_failure_families: tuple[FailureFamily, ...] = ()
     declared_loss: tuple[str, ...] = ()
     creates_relations: tuple[str, ...] = ()
-    extra_program_metadata: Mapping[str, object] = field(default_factory=dict)
+    extra_program_metadata: Mapping[str, object] = field(
+        default_factory=_empty_object_mapping
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,24 +146,24 @@ class KnowledgeProgramAtomWiring:
 
 
 @dataclass(frozen=True, slots=True)
-class KnowledgeNativeOperationDefinition:
-    source: KnowledgeNativeOperationSource
+class KnowledgeNativeOperationDefinition(Generic[PayloadT]):
+    source: KnowledgeNativeOperationSource[PayloadT]
     operation_contract: OperationContract
-    payload_codec: PayloadCodec | None
+    payload_codec: PayloadCodec[PayloadT] | None
     program_atom: KnowledgeProgramAtomWiring
 
 
 @dataclass(frozen=True, slots=True)
-class KnowledgeNativeDefinition:
+class KnowledgeNativeDefinition(Generic[PayloadT]):
     family_id: str
     contribution_id: str
     cell_id: str
     owner: str
     runtime_owner: str
     execution_class: KnowledgeExecutionClass
-    operations: tuple[KnowledgeNativeOperationDefinition, ...]
+    operations: tuple[KnowledgeNativeOperationDefinition[PayloadT], ...]
     ordered_operation_ids: tuple[str, ...]
-    profiles: Mapping[str, object]
+    profiles: KnowledgeProfiles
     assembly: KnowledgeNativeAssemblyDeclaration
     failure_codes: tuple[str, ...]
     failure_family: FailureFamily
@@ -153,7 +171,7 @@ class KnowledgeNativeDefinition:
     extra_program_metadata: Mapping[str, object]
 
     @property
-    def operation_by_id(self) -> Mapping[str, KnowledgeNativeOperationDefinition]:
+    def operation_by_id(self) -> Mapping[str, KnowledgeNativeOperationDefinition[PayloadT]]:
         return MappingProxyType(
             {operation.source.operation_id: operation for operation in self.operations}
         )
@@ -205,23 +223,11 @@ class KnowledgeNativeDefinition:
         )
 
 
-class _ProfileRefSource(Protocol):
-    @property
-    def profile_id(self) -> str: ...
-
-    @property
-    def profile_version(self) -> str: ...
+def _profile_ref(profile: KnowledgeProfile) -> ContractProfileRef:
+    return profile.ref
 
 
-def _profile_ref(profile: _ProfileRefSource) -> str:
-    return f"{profile.profile_id}@{profile.profile_version}"
-
-
-def _cell_suffix(cell_id: str) -> str:
-    return cell_id.lower().replace(".", "-")
-
-
-def _profiles(source: KnowledgeNativeAuthorSource) -> Mapping[str, object]:
+def _profiles(source: KnowledgeNativeAuthorSource[PayloadT]) -> KnowledgeProfiles:
     namespace = source.owner.removesuffix(".v2")
     semantic_values = {
         "semantic_profile_id": f"{namespace}.semantic",
@@ -310,22 +316,50 @@ def _profiles(source: KnowledgeNativeAuthorSource) -> Mapping[str, object]:
         "compatible_with_legacy": True,
         "observation_schema_ref": f"mrw.{namespace}.observation.v2",
     }
-    return MappingProxyType(
-        {
-            "semantic": SemanticProfile(**semantic_values, profile_digest=content_digest(semantic_values)),
-            "effect": EffectProfile(**effect_values, profile_digest=content_digest(effect_values)),
-            "resource": ResourceProfile(**resource_values, profile_digest=content_digest(resource_values)),
-            "failure": FailureProfile(**failure_values, profile_digest=content_digest(failure_values)),
-            "authority": AuthorityProfile(**authority_values, profile_digest=content_digest(authority_values)),
-            "interpreter": InterpreterProfile(**interpreter_values, profile_digest=content_digest(interpreter_values)),
-            "observation": ObservationProfile(**observation_values, profile_digest=content_digest(observation_values)),
-        }
+    return KnowledgeProfiles(
+        semantic=build_profile(
+            SemanticProfile,
+            **semantic_values,
+            profile_digest=content_digest(semantic_values),
+        ),
+        effect=build_profile(
+            EffectProfile,
+            **effect_values,
+            profile_digest=content_digest(effect_values),
+        ),
+        resource=build_profile(
+            ResourceProfile,
+            **resource_values,
+            profile_digest=content_digest(resource_values),
+        ),
+        failure=build_profile(
+            FailureProfile,
+            **failure_values,
+            profile_digest=content_digest(failure_values),
+        ),
+        authority=build_profile(
+            AuthorityProfile,
+            **authority_values,
+            profile_digest=content_digest(authority_values),
+        ),
+        interpreter=build_profile(
+            InterpreterProfile,
+            **interpreter_values,
+            profile_digest=content_digest(interpreter_values),
+        ),
+        observation=build_profile(
+            ObservationProfile,
+            **observation_values,
+            profile_digest=content_digest(observation_values),
+        ),
     )
 
 
-def lower_knowledge_native_author_source(source: KnowledgeNativeAuthorSource) -> KnowledgeNativeDefinition:
+def lower_knowledge_native_author_source(
+    source: KnowledgeNativeAuthorSource[PayloadT],
+) -> KnowledgeNativeDefinition[PayloadT]:
     profiles = _profiles(source)
-    operations: list[KnowledgeNativeOperationDefinition] = []
+    operations: list[KnowledgeNativeOperationDefinition[PayloadT]] = []
     for operation_source in source.operations:
         operation = make_operation_contract(
             kind=operation_source.kind,
@@ -351,7 +385,10 @@ def lower_knowledge_native_author_source(source: KnowledgeNativeAuthorSource) ->
                 payload_type_id=operation_source.input_type.type_id,
                 dto_cls=operation_source.payload_type,
             )
-            if operation_source.payload_codec_id is not None
+            if (
+                operation_source.payload_codec_id is not None
+                and operation_source.payload_type is not None
+            )
             else None
         )
         atom = KnowledgeProgramAtomWiring(
@@ -389,7 +426,9 @@ def lower_knowledge_native_author_source(source: KnowledgeNativeAuthorSource) ->
     )
 
 
-def knowledge_native_definition_issues(definition: KnowledgeNativeDefinition) -> tuple[NativeBindingIssue, ...]:
+def knowledge_native_definition_issues(
+    definition: KnowledgeNativeDefinition[PayloadT],
+) -> tuple[NativeBindingIssue, ...]:
     operations = definition.operation_by_id
     checks = (
         (bool(definition.contribution_id), "$.definition.contribution_id", "contribution id is empty"),
@@ -480,7 +519,9 @@ def knowledge_native_definition_issues(definition: KnowledgeNativeDefinition) ->
     return issues
 
 
-def project_knowledge_native_definition(definition: KnowledgeNativeDefinition) -> ProjectedContributionSpec | Failure:
+def project_knowledge_native_definition(
+    definition: KnowledgeNativeDefinition[PayloadT],
+) -> ProjectedContributionSpec | Failure:
     issues = knowledge_native_definition_issues(definition)
     if issues:
         return contribution_failures.fail(
@@ -511,11 +552,11 @@ class KnowledgeNativeAssemblyContext:
 
 
 @dataclass(frozen=True, slots=True)
-class KnowledgeNativeRuntimeBinding:
-    definition: KnowledgeNativeDefinition
+class KnowledgeNativeRuntimeBinding(Generic[PayloadT]):
+    definition: KnowledgeNativeDefinition[PayloadT]
     cell_id: str
-    operations: tuple[KnowledgeNativeOperationDefinition, ...]
-    profiles: Mapping[str, object]
+    operations: tuple[KnowledgeNativeOperationDefinition[PayloadT], ...]
+    profiles: KnowledgeProfiles
     assembly: KnowledgeNativeAssemblyDeclaration
 
     def assembly_rollback_binding(self) -> RollbackBindingDeclaration:
@@ -556,9 +597,9 @@ class KnowledgeNativeRuntimeBinding:
 
 
 def assemble_knowledge_native_definition(
-    definition: KnowledgeNativeDefinition,
+    definition: KnowledgeNativeDefinition[PayloadT],
     context: KnowledgeNativeAssemblyContext,
-) -> KnowledgeNativeRuntimeBinding:
+) -> KnowledgeNativeRuntimeBinding[PayloadT]:
     del context
     return KnowledgeNativeRuntimeBinding(
         definition=definition,
@@ -569,11 +610,19 @@ def assemble_knowledge_native_definition(
     )
 
 
-def validate_knowledge_native_binding(
-    definition: KnowledgeNativeDefinition,
+def _is_knowledge_native_runtime_binding(
     candidate: object,
-) -> BindingAccepted[KnowledgeNativeRuntimeBinding] | BindingRejected:
-    if not isinstance(candidate, KnowledgeNativeRuntimeBinding):
+    definition: KnowledgeNativeDefinition[PayloadT],
+) -> TypeGuard[KnowledgeNativeRuntimeBinding[PayloadT]]:
+    del definition
+    return isinstance(candidate, KnowledgeNativeRuntimeBinding)
+
+
+def validate_knowledge_native_binding(
+    definition: KnowledgeNativeDefinition[PayloadT],
+    candidate: object,
+) -> BindingAccepted[KnowledgeNativeRuntimeBinding[PayloadT]] | BindingRejected:
+    if not _is_knowledge_native_runtime_binding(candidate, definition):
         return BindingRejected((NativeBindingIssue("$.binding", "expected C8NativeRuntimeBinding"),))
     checks = (
         (candidate.definition == definition, "$.binding.definition", "definition drift"),
@@ -588,19 +637,6 @@ def validate_knowledge_native_binding(
     return BindingRejected(issues) if issues else BindingAccepted(candidate)
 
 
-KNOWLEDGE_NATIVE_CONTRIBUTION_RULE = NativeContributionRule[
-    KnowledgeNativeAuthorSource,
-    KnowledgeNativeDefinition,
-    KnowledgeNativeAssemblyContext,
-    KnowledgeNativeRuntimeBinding,
-](
-    lower=lower_knowledge_native_author_source,
-    project=project_knowledge_native_definition,
-    assemble=assemble_knowledge_native_definition,
-    validate_binding=validate_knowledge_native_binding,
-)
-
-
 KNOWLEDGE_NATIVE_RULE_ID = "mrw.knowledge.native-rule.v2"
 KNOWLEDGE_NATIVE_VERIFICATION_INPUTS = (
     "mrw.knowledge.definition",
@@ -612,7 +648,7 @@ KNOWLEDGE_NATIVE_VERIFICATION_INPUTS = (
 
 
 def _knowledge_native_definition_law_failure(
-    definition: KnowledgeNativeDefinition,
+    definition: KnowledgeNativeDefinition[PayloadT],
     issues: tuple[NativeBindingIssue, ...],
 ) -> Failure:
     return contribution_failures.fail(
@@ -627,7 +663,9 @@ def _knowledge_native_definition_law_failure(
     )
 
 
-def _run_knowledge_native_definition_law(definition: KnowledgeNativeDefinition) -> Failure | None:
+def _run_knowledge_native_definition_law(
+    definition: KnowledgeNativeDefinition[PayloadT],
+) -> Failure | None:
     """Run the inert definition law for one native C8 cell; no assembly runs."""
 
     issues = knowledge_native_definition_issues(definition)
@@ -640,10 +678,9 @@ def _run_knowledge_native_definition_law(definition: KnowledgeNativeDefinition) 
                 "assembly operation refs drift from native definition kinds",
             ),
         )
-    authority = definition.profiles.get("authority")
+    authority = definition.profiles["authority"]
     if (
-        authority is None
-        or authority.canonical_owner != definition.runtime_owner
+        authority.canonical_owner != definition.runtime_owner
         or authority.approval_required is not False
     ):
         issues += (
@@ -656,8 +693,12 @@ def _run_knowledge_native_definition_law(definition: KnowledgeNativeDefinition) 
 
 
 def verify_knowledge_native_definition(
-    definition: KnowledgeNativeDefinition,
-    native: object,
+    definition: KnowledgeNativeDefinition[PayloadT],
+    native: NativeContribution[
+        KnowledgeNativeDefinition[PayloadT],
+        KnowledgeNativeAssemblyContext,
+        KnowledgeNativeRuntimeBinding[PayloadT],
+    ],
 ) -> ContributionVerification | Failure:
     """Plan inert law obligations for one non-graph C8 native definition."""
 
@@ -676,7 +717,44 @@ def verify_knowledge_native_definition(
     )
 
 
-KNOWLEDGE_NATIVE_CONTRIBUTION_RULE = replace(
-    KNOWLEDGE_NATIVE_CONTRIBUTION_RULE,
-    verification=verify_knowledge_native_definition,
-)
+def knowledge_native_contribution_rule() -> NativeContributionRule[
+    KnowledgeNativeAuthorSource[PayloadT],
+    KnowledgeNativeDefinition[PayloadT],
+    KnowledgeNativeAssemblyContext,
+    KnowledgeNativeRuntimeBinding[PayloadT],
+]:
+    """Return the one generic C8 rule body at the caller's payload type."""
+
+    return NativeContributionRule(
+        lower=lower_knowledge_native_author_source,
+        project=project_knowledge_native_definition,
+        assemble=assemble_knowledge_native_definition,
+        validate_binding=validate_knowledge_native_binding,
+        verification=verify_knowledge_native_definition,
+    )
+
+
+def compile_knowledge_native_author_source(
+    source: KnowledgeNativeAuthorSource[PayloadT],
+) -> (
+    NativeContribution[
+        KnowledgeNativeDefinition[PayloadT],
+        KnowledgeNativeAssemblyContext,
+        KnowledgeNativeRuntimeBinding[PayloadT],
+    ]
+    | Failure
+):
+    """Compile a typed source without erasing its canonical payload codec."""
+
+    return compile_native_contribution(source, knowledge_native_contribution_rule())
+
+
+# Historical runtime consumers still pass one rule object to the kit compiler.
+# Production publishers use ``compile_knowledge_native_author_source`` so their
+# concrete DTO type remains associated end to end.
+KNOWLEDGE_NATIVE_CONTRIBUTION_RULE: NativeContributionRule[
+    KnowledgeNativeAuthorSource[KnowledgePayload],
+    KnowledgeNativeDefinition[KnowledgePayload],
+    KnowledgeNativeAssemblyContext,
+    KnowledgeNativeRuntimeBinding[KnowledgePayload],
+] = knowledge_native_contribution_rule()

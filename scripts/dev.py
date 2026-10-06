@@ -409,6 +409,17 @@ def _parser() -> argparse.ArgumentParser:
         )
     inspect_parser = subparsers.choices["inspect"]
     inspect_parser.add_argument("--id", dest="contribution_id")
+    boundary_group = subparsers.choices["typecheck"].add_mutually_exclusive_group()
+    boundary_group.add_argument(
+        "--public-boundaries",
+        action="store_true",
+        help="check src and backend public boundaries declared in tool.pyright.include",
+    )
+    boundary_group.add_argument(
+        "--backend-boundaries",
+        action="store_true",
+        help="check backend boundaries declared in tool.pyright.include",
+    )
     subparsers.choices["typecheck"].add_argument(
         "paths",
         nargs="*",
@@ -418,7 +429,24 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+    parser = _parser()
+    args = parser.parse_args(argv)
+    public_boundaries = getattr(args, "public_boundaries", False)
+    backend_boundaries = getattr(args, "backend_boundaries", False)
+    if public_boundaries or backend_boundaries:
+        flag = "--public-boundaries" if public_boundaries else "--backend-boundaries"
+        if args.paths:
+            parser.error(f"{flag} cannot be combined with explicit paths")
+        declaration = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+        args.paths = [
+            path for path in declaration["tool"]["pyright"]["include"]
+            if isinstance(path, str) and (
+                path.startswith("main/backend/")
+                or public_boundaries and (path == "src" or path.startswith("src/"))
+            )
+        ]
+        if not args.paths:
+            parser.error("tool.pyright.include declares no selected public boundaries")
     python = _python_executable()
     try:
         _kit_source()

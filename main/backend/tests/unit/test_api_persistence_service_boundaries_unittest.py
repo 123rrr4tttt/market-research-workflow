@@ -5,11 +5,14 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from sqlalchemy.exc import IntegrityError
-
+from app.api import ingest as ingest_api
 from app.services.ingest.adapters import submission_registry
 from app.services.typed_knowledge.adapters import live_service
-
+from app.successor_runtime.capabilities.material_ingest_registry import (
+    MaterialIngestRegistryBackendUnavailableError,
+    MaterialIngestRegistryConflictError,
+)
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 pytestmark = pytest.mark.unit
 
@@ -137,6 +140,7 @@ def _submission_row(**overrides: Any) -> SimpleNamespace:
         "project_key": "project_a",
         "registry_key": "ingest.url.single:project_a:idem-existing",
         "request_hash": "b" * 64,
+        "request_payload": {"url": "https://example.com"},
         "subject_payload": {"url": "https://example.com"},
         "status": "submitted",
         "task_id": None,
@@ -164,7 +168,7 @@ def test_ingest_submission_db_adapter_duplicate_is_read_only(
         trigger_type=existing.trigger_type,
         subject={"url": "https://ignored.example"},
         request_payload={"url": "https://ignored.example"},
-        request_hash="c" * 64,
+        request_hash="b" * 64,
     )
 
     assert duplicate is True
@@ -172,6 +176,32 @@ def test_ingest_submission_db_adapter_duplicate_is_read_only(
     assert session.added == []
     assert session.commit_count == 0
     assert session.rollback_count == 0
+
+
+def test_ingest_submission_db_adapter_rejects_existing_hash_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    existing = _submission_row()
+    session = _Session()
+    session.execute = lambda _statement: _ScalarResult(existing)  # type: ignore[method-assign]
+
+    monkeypatch.setattr(submission_registry, "SessionLocal", lambda: session)
+
+    with pytest.raises(MaterialIngestRegistryConflictError) as raised:
+        submission_registry.reserve_submission_db(
+            registry_key=existing.registry_key,
+            project_key="project_a",
+            idempotency_key=existing.idempotency_key,
+            trigger_type=existing.trigger_type,
+            subject={"url": "https://changed.example"},
+            request_payload={"url": "https://changed.example"},
+            request_hash="c" * 64,
+        )
+
+    assert raised.value.registry_key == existing.registry_key
+    assert raised.value.request_hash == "c" * 64
+    assert session.added == []
+    assert session.commit_count == 0
 
 
 def test_ingest_submission_db_adapter_integrity_conflict_rolls_back_and_rereads(
@@ -202,7 +232,7 @@ def test_ingest_submission_db_adapter_integrity_conflict_rolls_back_and_rereads(
         trigger_type=existing.trigger_type,
         subject={"url": "https://example.com"},
         request_payload={"url": "https://example.com"},
-        request_hash="d" * 64,
+        request_hash="b" * 64,
     )
 
     assert duplicate is True
@@ -210,6 +240,96 @@ def test_ingest_submission_db_adapter_integrity_conflict_rolls_back_and_rereads(
     assert session.execute_count == 2
     assert session.commit_count == 1
     assert session.rollback_count == 1
+
+
+def test_ingest_submission_db_adapter_unique_race_rejects_hash_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    existing = _submission_row()
+
+    class ConflictSession(_Session):
+        def __init__(self) -> None:
+            super().__init__()
+            self.execute_count = 0
+
+        def execute(self, _statement: Any) -> _ScalarResult:
+            self.execute_count += 1
+            return _ScalarResult(None if self.execute_count == 1 else existing)
+
+        def commit(self) -> None:
+            self.commit_count += 1
+            raise IntegrityError("insert", {}, Exception("duplicate idempotency key"))
+
+    session = ConflictSession()
+    monkeypatch.setattr(submission_registry, "SessionLocal", lambda: session)
+
+    with pytest.raises(MaterialIngestRegistryConflictError):
+        submission_registry.reserve_submission_db(
+            registry_key=existing.registry_key,
+            project_key="project_a",
+            idempotency_key=existing.idempotency_key,
+            trigger_type=existing.trigger_type,
+            subject={"url": "https://changed.example"},
+            request_payload={"url": "https://changed.example"},
+            request_hash="d" * 64,
+        )
+
+    assert session.execute_count == 2
+    assert session.commit_count == 1
+    assert session.rollback_count == 1
+
+
+def test_ingest_submission_db_adapter_backend_failure_is_typed_and_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = _Session()
+    database_error = OperationalError("select", {}, Exception("database down"))
+    session.execute = lambda _statement: (_ for _ in ()).throw(database_error)  # type: ignore[method-assign]
+    monkeypatch.setattr(submission_registry, "SessionLocal", lambda: session)
+
+    with pytest.raises(MaterialIngestRegistryBackendUnavailableError) as raised:
+        submission_registry.reserve_submission_db(
+            registry_key="ingest.url.single:project_a:idem-backend",
+            project_key="project_a",
+            idempotency_key="idem-backend",
+            trigger_type="ingest.url.single",
+            subject={"url": "https://example.com"},
+            request_payload={"url": "https://example.com"},
+            request_hash="e" * 64,
+        )
+
+    assert raised.value.__cause__ is database_error
+    assert session.added == []
+    assert session.commit_count == 0
+
+
+def test_ingest_submission_memory_helper_exact_duplicate_and_hash_conflict() -> None:
+    registry_key = "ingest.url.single:project_a:idem-memory"
+    with ingest_api._INGEST_SUBMISSION_LOCK:
+        ingest_api._INGEST_SUBMISSIONS.pop(registry_key, None)
+    kwargs = {
+        "registry_key": registry_key,
+        "project_key": "project_a",
+        "idempotency_key": "idem-memory",
+        "trigger_type": "ingest.url.single",
+        "subject": {"url": "https://example.com"},
+        "request_hash": "f" * 64,
+        "degraded": True,
+    }
+    try:
+        first, first_duplicate = ingest_api.reserve_ingest_submission_memory_for_test(**kwargs)
+        duplicate, duplicate_flag = ingest_api.reserve_ingest_submission_memory_for_test(**kwargs)
+
+        assert first_duplicate is False
+        assert duplicate_flag is True
+        assert duplicate == first
+        with pytest.raises(MaterialIngestRegistryConflictError):
+            ingest_api.reserve_ingest_submission_memory_for_test(
+                **{**kwargs, "request_hash": "0" * 64}
+            )
+    finally:
+        with ingest_api._INGEST_SUBMISSION_LOCK:
+            ingest_api._INGEST_SUBMISSIONS.pop(registry_key, None)
 
 
 def test_ingest_submission_db_completion_and_forget_preserve_exact_target_and_commit(

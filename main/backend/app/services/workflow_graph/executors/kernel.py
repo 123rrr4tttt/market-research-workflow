@@ -1,17 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, TypeAlias, Union
+from typing import Literal
 
 from functorial_kit import Failure
 
-
-WorkflowJsonAtom = str | int | float | bool | None
-WorkflowJsonArray = list["WorkflowJsonValue"]
-WorkflowJsonValue: TypeAlias = Union[
-    WorkflowJsonAtom, WorkflowJsonArray, "WorkflowJsonObject"
-]  # noqa: UP007
-WorkflowJsonObject = dict[str, "WorkflowJsonValue"]
+from ..contracts import WorkflowJsonObject
 
 
 NodeEffectStatus = Literal["SUCCEEDED", "DEGRADED", "FAILED"]

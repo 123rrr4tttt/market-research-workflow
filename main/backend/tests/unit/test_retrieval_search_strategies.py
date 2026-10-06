@@ -4,7 +4,7 @@ import numpy as np
 from sqlalchemy import Float, select
 from sqlalchemy.dialects import postgresql
 
-from app.services.search.candidate_contracts import Candidate, CandidateBundle, CandidateSearchRequest, ProviderObservation
+from app.services.search.candidate_contracts import Candidate, CandidateBundle, ProviderObservation
 from app.models.entities import Embedding
 from app.services.search import smart
 from app.services.discovery import deep_search as deep_search_module
@@ -117,6 +117,26 @@ def test_bm25_search_filters_explicit_project_scope():
     assert {"term": {"project_key": "project_a"}} in body["query"]["bool"]["must"]
     assert hits[0]["document_id"] == 71
     assert hits[0]["project_key"] == "project_a"
+
+
+def test_bm25_search_keeps_valid_hits_when_one_provider_row_is_not_json():
+    class _PartialElasticsearch(_RecordingElasticsearch):
+        def search(self, *, index, body):
+            response = super().search(index=index, body=body)
+            response["hits"]["hits"].append(
+                {"_score": 1.0, "_source": {"document_id": object()}}
+            )
+            return response
+
+    hits = hybrid_search_module.bm25_search(
+        _PartialElasticsearch(),
+        "shared policy phrase",
+        state=None,
+        top_k=5,
+        project_key="project_a",
+    )
+
+    assert [hit["document_id"] for hit in hits] == [71]
 
 
 def test_bm25_search_uses_bound_scope_for_existing_unparameterized_consumer():

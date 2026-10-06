@@ -80,7 +80,7 @@ _BATCH_TASK_FRAGMENT = (
     "2026-08-30-functorial-successor-migration/evidence/p3-fragments/C4.json"
 )
 _BATCH_TASK_SUBMISSION_HANDLER_PATH = (
-    "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_3_handler.py"
+    "main/backend/app/successor_runtime/substrate/postgres/batch_task_submission_handler.py"
 )
 
 PROJECT_KEY = "batch-task-local"
@@ -106,7 +106,7 @@ class _I1BatchTaskSourceCandidateView:
 def _i1_batch_task_source_item(
     item_key: str, *, enabled: bool = True
 ) -> source_contracts.SourceItemDefinition:
-    values = {
+    values: dict[str, object] = {
         "item_key": item_key,
         "channel_key": (
             "handler.cluster" if item_key.startswith("handler") else "market.default"
@@ -250,7 +250,6 @@ def _canary_handler(
         raise ValueError(
             "C4 canary payload scope digest must equal the assembly project scope digest"
         )
-    bundle = native_definition.bundle
     catalog = native_definition.catalog
     registry = native_definition.registry
     program = program_builder(
@@ -423,7 +422,6 @@ def build_batch_task_assembly(
             )
         )
 
-    bundle = native_definition.bundle
     catalog = native_definition.catalog
     contract_ref = catalog.lookup(batch_task.SUBMISSION_KIND)
     if contract_ref is None:
@@ -457,7 +455,7 @@ def build_batch_task_assembly(
     )
     handlers.append(submission_handler)
     quality_installed = opts.quality_evidence is not None
-    if quality_installed:
+    if opts.quality_evidence is not None:
         quality_binding = successor_binding(
             operation_contract_digest=native_definition.source.quality_promotion.operation_digest,
             interpreter_profile_digest=native_definition.source.quality_promotion.interpreter_digest,

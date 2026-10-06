@@ -20,16 +20,16 @@ changes alter the exact program and plan digests.
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Annotated, Any, Literal, NoReturn, TypeAlias
+from typing import Annotated, Literal, NoReturn, TypeAlias
 
 from functorial_kit import Failure
 
 from app.successor_runtime.capabilities.checksum import canonical_json, content_digest
 from app.successor_runtime.capabilities.workflow_common import (
     HISTORICAL_C1_DSL_RECEIPT_SCHEMA,
+    HISTORICAL_WORKFLOW_V2_RECEIPT_SCHEMA,
     WORKFLOW_CONTRACT_KIND_UNSUPPORTED,
     WORKFLOW_DEFINITION_FAILURES,
     WORKFLOW_DSL_COMPILE_FAILURE,
@@ -44,9 +44,13 @@ from app.successor_runtime.capabilities.workflow_common import (
     WORKFLOW_DSL_RECEIPT_SCHEMA,
     WORKFLOW_DSL_UNSUPPORTED_NODE_TYPE,
     WORKFLOW_RECEIPT_CONTRACT_INVALID,
+    WorkflowJsonObject,
+    WorkflowJsonValue,
+    normalize_workflow_json_object,
 )
 from app.successor_runtime.language.algebra import (
     AlgebraRef,
+    FrozenJsonValue,
     OperationSpec,
     ValueRef,
     freeze_json_object,
@@ -58,6 +62,7 @@ from app.successor_runtime.language.catalog import (
 from app.successor_runtime.language.compile import CompileFailure, compile_program
 from app.successor_runtime.language.object_contracts import (
     SINGLE_TYPED_OUTPUT_RETURN_CONTRACT_REF,
+    ContractProfileRef,
     OperationContract,
     OperationContractRef,
     ReturnContract,
@@ -76,6 +81,7 @@ from app.successor_runtime.research.object_types import ObjectType
 
 __all__ = [
     "HISTORICAL_C1_DSL_RECEIPT_SCHEMA",
+    "HISTORICAL_WORKFLOW_V2_RECEIPT_SCHEMA",
     "HISTORICAL_C1_DSL_FAILURE_CODES",
     "HISTORICAL_C1_OPERATION_CATALOG_ID",
     "WORKFLOW_DEFINITION_FAILURES",
@@ -136,10 +142,10 @@ WORKFLOW_CONTRACT_KINDS = tuple(NODE_TYPE_TO_CONTRACT_KIND.values())
 
 WORKFLOW_OPERATION_CATALOG_ID = "mrw.workflow.definition.operation-catalog.v2"
 HISTORICAL_C1_OPERATION_CATALOG_ID = "mrw.functorial-successor.c1.operations"
-WORKFLOW_OPERATION_CATALOG_VERSION = "1.0.0"
-WORKFLOW_OPERATION_CONTRACT_VERSION = "1"
+WORKFLOW_OPERATION_CATALOG_VERSION = "2.0.0"
+WORKFLOW_OPERATION_CONTRACT_VERSION = "2"
 WORKFLOW_OPERATION_OWNER = "workflow.definition.compile.v2"
-WORKFLOW_PROGRAM_CONTRACT_VERSION = "mrw.workflow.program-spec.v2"
+WORKFLOW_PROGRAM_CONTRACT_VERSION = "mrw.workflow.program-spec.v3"
 WORKFLOW_PROJECT_KEY = "workflow.definition.compile.v2"
 WORKFLOW_SEMANTIC_IDENTITY = "workflow.definition.parse-validate-compile.v2"
 WORKFLOW_OBSERVATION_PROFILE = "mrw.workflow.definition.compile.observation.v2"
@@ -159,7 +165,7 @@ class WorkflowCompileSchemaIdentity:
     """Explicit read identity for current or historical compile artifacts."""
 
     schema: str
-    era: Literal["current", "historical_c1"]
+    era: Literal["current", "historical_v2", "historical_c1"]
     program_schema: str
     project_scope_schema: str
     program_metadata_schema: str
@@ -185,6 +191,14 @@ def decode_workflow_compile_schema(schema: str) -> WorkflowCompileSchemaIdentity
             project_scope_schema=WORKFLOW_DSL_PROJECT_SCOPE_SCHEMA,
             program_metadata_schema=WORKFLOW_DSL_PROGRAM_METADATA_SCHEMA,
         )
+    if schema == HISTORICAL_WORKFLOW_V2_RECEIPT_SCHEMA:
+        return WorkflowCompileSchemaIdentity(
+            schema=schema,
+            era="historical_v2",
+            program_schema="mrw.workflow.definition.compile.program.v2",
+            project_scope_schema="mrw.workflow.definition.compile.project-scope.v2",
+            program_metadata_schema="mrw.workflow.definition.compile.program-metadata.v2",
+        )
     if schema == HISTORICAL_C1_DSL_RECEIPT_SCHEMA:
         return WorkflowCompileSchemaIdentity(
             schema=schema,
@@ -208,21 +222,18 @@ def decode_workflow_compile_schema(schema: str) -> WorkflowCompileSchemaIdentity
 def read_workflow_compile_artifact(
     *,
     schema: str,
-    raw_bytes: bytes,
+    raw_bytes: object,
 ) -> WorkflowCompileArtifactRead:
     """Read versioned workflow bytes without normalizing or re-encoding them."""
 
     if not isinstance(raw_bytes, bytes):
-        _raise_contract_failure(
-            _contract_failure(
-                WORKFLOW_RECEIPT_CONTRACT_INVALID,
-                "workflow compile artifact raw_bytes must be bytes",
-                operation="workflow.definition.read_historical_artifact",
-                site="raw_bytes",
-                exception_type=TypeError,
-            ),
-            TypeError,
-        )
+        _raise_contract_failure(_contract_failure(
+            WORKFLOW_RECEIPT_CONTRACT_INVALID,
+            "workflow compile artifact raw_bytes must be bytes",
+            operation="workflow.definition.read_historical_artifact",
+            site="raw_bytes",
+            exception_type=TypeError,
+        ), TypeError)
     return WorkflowCompileArtifactRead(
         identity=decode_workflow_compile_schema(schema),
         raw_bytes=raw_bytes,
@@ -307,14 +318,14 @@ class WorkflowLegacyDSLReceipt:
 class _ParsedNode:
     node_id: str
     node_type: str
-    config: dict[str, Any]
+    config: WorkflowJsonObject
     contract_kind: str
 
 
 @dataclass(frozen=True, slots=True)
 class _ParsedGraph:
     version: str
-    options: dict[str, Any]
+    options: WorkflowJsonObject
     nodes: tuple[_ParsedNode, ...]
     edges: tuple[tuple[str, str], ...]
     topo_order: tuple[str, ...]
@@ -330,7 +341,7 @@ def _contract_failure(
     operation: str,
     site: str,
     exception_type: type[Exception] = ValueError,
-    **details: Any,
+    **details: WorkflowJsonValue,
 ) -> Failure:
     return WORKFLOW_DEFINITION_FAILURES.fail(
         code,
@@ -394,14 +405,16 @@ def _failure_receipt(
     )
 
 
-def _parse_payload(payload: Any) -> _ParsedGraph | Failure:
-    if not isinstance(payload, Mapping):
+def _parse_payload(payload: object) -> _ParsedGraph | Failure:
+    try:
+        normalized_payload = normalize_workflow_json_object(payload, path="payload")
+    except TypeError as exc:
         return _parse_failure(
             WORKFLOW_DSL_MALFORMED_PAYLOAD,
-            "legacy graph DSL payload must be a mapping",
+            str(exc),
             "payload",
         )
-    version = payload.get("version", WORKFLOW_DSL_INPUT_VERSION)
+    version = normalized_payload.get("version", WORKFLOW_DSL_INPUT_VERSION)
     if not isinstance(version, str) or not version.strip():
         return _parse_failure(
             WORKFLOW_DSL_MALFORMED_PAYLOAD,
@@ -417,21 +430,21 @@ def _parse_payload(payload: Any) -> _ParsedGraph | Failure:
             ),
             "version",
         )
-    options_raw = payload.get("options", {})
-    if not isinstance(options_raw, Mapping):
+    options_raw = normalized_payload.get("options", {})
+    if not isinstance(options_raw, dict):
         return _parse_failure(
             WORKFLOW_DSL_MALFORMED_PAYLOAD,
             "options must be a mapping",
             "options",
         )
-    nodes_raw = payload.get("nodes", [])
+    nodes_raw = normalized_payload.get("nodes", [])
     if not isinstance(nodes_raw, list):
         return _parse_failure(
             WORKFLOW_DSL_MALFORMED_PAYLOAD,
             "nodes must be a list",
             "nodes",
         )
-    edges_raw = payload.get("edges", [])
+    edges_raw = normalized_payload.get("edges", [])
     if not isinstance(edges_raw, list):
         return _parse_failure(
             WORKFLOW_DSL_MALFORMED_PAYLOAD,
@@ -443,7 +456,7 @@ def _parse_payload(payload: Any) -> _ParsedGraph | Failure:
     seen_ids: set[str] = set()
     for index, item in enumerate(nodes_raw):
         path = f"nodes[{index}]"
-        if not isinstance(item, Mapping):
+        if not isinstance(item, dict):
             return _parse_failure(
                 WORKFLOW_DSL_MALFORMED_PAYLOAD,
                 f"node at index {index} must be a mapping",
@@ -466,7 +479,7 @@ def _parse_payload(payload: Any) -> _ParsedGraph | Failure:
         config_raw = item.get("config")
         if config_raw is None:
             config_raw = item.get("params", {})
-        if not isinstance(config_raw, Mapping):
+        if not isinstance(config_raw, dict):
             return _parse_failure(
                 WORKFLOW_DSL_MALFORMED_PAYLOAD,
                 f"config for node {node_id!r} must be a mapping",
@@ -497,14 +510,24 @@ def _parse_payload(payload: Any) -> _ParsedGraph | Failure:
     edges: list[tuple[str, str]] = []
     for index, item in enumerate(edges_raw):
         path = f"edges[{index}]"
-        if not isinstance(item, Mapping):
+        if not isinstance(item, dict):
             return _parse_failure(
                 WORKFLOW_DSL_MALFORMED_PAYLOAD,
                 f"edge at index {index} must be a mapping",
                 path,
             )
-        from_node = item.get("from") or item.get("from_node") or item.get("source")
-        to_node = item.get("to") or item.get("to_node") or item.get("target")
+        from_node = (
+            item.get("from_node_id")
+            or item.get("from")
+            or item.get("from_node")
+            or item.get("source")
+        )
+        to_node = (
+            item.get("to_node_id")
+            or item.get("to")
+            or item.get("to_node")
+            or item.get("target")
+        )
         if not isinstance(from_node, str) or not from_node.strip():
             return _parse_failure(
                 WORKFLOW_DSL_MALFORMED_PAYLOAD,
@@ -575,10 +598,6 @@ def _topological_order(
     return tuple(topo_order)
 
 
-def _ordered_unique(values: tuple[str, ...]) -> tuple[str, ...]:
-    return tuple(dict.fromkeys(values))
-
-
 def _return_contract() -> ReturnContract:
     return ReturnContract(
         success_modes=("SUCCEEDED",),
@@ -600,21 +619,50 @@ def _make_contract(kind: str) -> OperationContract | Failure:
         )
     suffix = kind.removeprefix("workflow.").removesuffix(".v1")
     profile = f"mrw.workflow.definition.{suffix}"
+    semantic = _profile_reference_descriptor(f"{profile}.semantic.v1")
+    effect = _profile_reference_descriptor(f"{profile}.effect.v1")
+    resource = _profile_reference_descriptor(f"{profile}.resource.v1")
+    failure = _profile_reference_descriptor(f"{profile}.failure.v1")
+    authority = _profile_reference_descriptor(f"{profile}.authority.v1")
+    interpreter = _profile_reference_descriptor(f"{profile}.interpreter.v1")
+    observation = _profile_reference_descriptor(f"{profile}.observation.v1")
     return make_operation_contract(
         kind=kind,
         contract_version=WORKFLOW_OPERATION_CONTRACT_VERSION,
         input_type=WORKFLOW_CONTEXT_TYPE,
         output_type=WORKFLOW_CONTEXT_TYPE,
         return_contract_ref=SINGLE_TYPED_OUTPUT_RETURN_CONTRACT_REF,
-        semantic_profile_ref=f"{profile}.semantic.v1",
-        effect_profile_ref=f"{profile}.effect.v1",
-        resource_profile_ref=f"{profile}.resource.v1",
-        failure_profile_ref=f"{profile}.failure.v1",
-        authority_profile_ref=f"{profile}.authority.v1",
-        interpreter_compatibility_ref=f"{profile}.interpreter.v1",
-        observation_profile_ref=f"{profile}.observation.v1",
+        semantic_profile_ref=semantic,
+        effect_profile_ref=effect,
+        resource_profile_ref=resource,
+        failure_profile_ref=failure,
+        authority_profile_ref=authority,
+        interpreter_compatibility_ref=interpreter,
+        observation_profile_ref=observation,
         allowed_override_schema_ref="mrw.workflow.override.none.v2",
         owner_capability_id=WORKFLOW_OPERATION_OWNER,
+    )
+
+
+def _profile_reference_descriptor(ref_string: str) -> ContractProfileRef:
+    """Identify an opaque legacy reference descriptor, not native profile content."""
+    profile_id, separator, profile_version = ref_string.rpartition(".v")
+    if not separator or not profile_id or not profile_version:
+        _raise_contract_failure(
+            _contract_failure(
+                WORKFLOW_RECEIPT_CONTRACT_INVALID,
+                f"invalid workflow profile ref: {ref_string}",
+                operation="workflow.definition.build_contract",
+                site="profile_ref",
+            )
+        )
+    return ContractProfileRef(
+        profile_id=f"{profile_id}.reference-descriptor",
+        profile_version="1",
+        profile_digest=content_digest({
+            "schema": "mrw.workflow.profile-reference-descriptor.v1",
+            "referenced_profile": ref_string,
+        }),
     )
 
 
@@ -736,6 +784,8 @@ def _program_root(
             catalog=catalog,
         )
         root = atom if root is None else then_node(root, atom)
+    if root is None:
+        return identity_node(WORKFLOW_CONTEXT_TYPE), ()
     return root, graph.topo_order
 
 
@@ -836,7 +886,7 @@ def _build_program(
 
 
 def parse_and_validate_workflow_dsl(
-    payload: Any,
+    payload: object,
     *,
     catalog: OperationContractCatalogSnapshot | None = None,
     operation_contracts: OperationContractRegistry | None = None,
@@ -908,6 +958,13 @@ def parse_and_validate_workflow_dsl(
             nested_code=type(exc).__name__,
         )
 
+    catalog_digest = catalog.catalog_digest
+    if catalog_digest is None:
+        return _failure_receipt(
+            WORKFLOW_DSL_COMPILE_FAILURE,
+            "workflow operation catalog digest is unbound",
+            "catalog",
+        )
     return WorkflowLegacyDSLReceipt(
         schema=WORKFLOW_DSL_RECEIPT_SCHEMA,
         ok=True,
@@ -915,35 +972,36 @@ def parse_and_validate_workflow_dsl(
         plan=plan,
         program_digest=program.program_digest,
         plan_digest=plan.plan_digest,
-        catalog_digest=catalog.catalog_digest,
+        catalog_digest=catalog_digest,
         node_count=len(graph.nodes),
         edge_count=len(graph.edges),
         topo_order=graph.topo_order,
     )
 
 
-def workflow_program_metadata(program: ProgramSpec) -> dict[str, Any]:
+def workflow_program_metadata(program: ProgramSpec) -> WorkflowJsonObject:
     """Read one exact program's canonical workflow scheduling metadata."""
-
-    from app.successor_runtime.language.program import _metadata_plain
-
-    def plain(value: Any) -> Any:
-        if isinstance(value, tuple) and value and all(
-            isinstance(item, tuple)
-            and len(item) == 2
-            and isinstance(item[0], str)
-            for item in value
-        ):
-            return {key: plain(item) for key, item in value}
-        if isinstance(value, tuple):
-            return [plain(item) for item in value]
-        if isinstance(value, list):
-            return [plain(item) for item in value]
-        if isinstance(value, dict):
-            return {key: plain(item) for key, item in value.items()}
-        return value
-
     return {
-        key: plain(item)
-        for key, item in _metadata_plain(program.metadata).items()
+        key: _plain_frozen_json_value(value)
+        for key, value in program.metadata
     }
+
+
+def _plain_frozen_json_value(value: FrozenJsonValue) -> WorkflowJsonValue:
+    if isinstance(value, frozenset):
+        return [item for item in sorted(value)]
+    if isinstance(value, tuple):
+        pairs: list[tuple[str, FrozenJsonValue]] = []
+        object_like = bool(value)
+        for item in value:
+            if not isinstance(item, tuple) or len(item) != 2 or not isinstance(item[0], str):
+                object_like = False
+                break
+            pairs.append((item[0], item[1]))
+        if object_like:
+            return {
+                key: _plain_frozen_json_value(item)
+                for key, item in pairs
+            }
+        return [_plain_frozen_json_value(item) for item in value]
+    return value

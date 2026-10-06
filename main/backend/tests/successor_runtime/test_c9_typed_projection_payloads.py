@@ -335,17 +335,17 @@ def test_field_level_loss_records_are_bound_to_payloads() -> None:
 
 
 def test_unknown_types_and_kinds_fail_closed() -> None:
-    with pytest.raises(TypeError, match="requires RuntimeSessionSourceV1"):
+    with pytest.raises(TypeError, match="requires TaskSource"):
         c9.build_task_view(
             None,  # type: ignore[arg-type]
             declared_losses=(_loss("events"),),
         )
-    with pytest.raises(TypeError, match="requires ResearchGraphSourceV1"):
+    with pytest.raises(TypeError, match="requires KnowledgeSource"):
         c9.build_knowledge_view(
             _session_source(),  # type: ignore[arg-type]
             declared_losses=(_loss("objects"),),
         )
-    with pytest.raises(TypeError, match="requires C7SearchSourceV1"):
+    with pytest.raises(TypeError, match="requires MaterialSource"):
         c9.build_material_view(
             _graph_source(),  # type: ignore[arg-type]
             declared_losses=(_loss("segments"),),
@@ -371,9 +371,9 @@ def test_c8_coverage_flags_are_non_empty_and_closed() -> None:
         closure_id="closure-1",
         revision="r1",
         incarnation="inc-1",
-        runtime_session_source=source,
-        research_graph_source=_graph_source(),
-        c7_search_source=_search_source(),
+        task_source=source,
+        knowledge_source=_graph_source(),
+        material_source=_search_source(),
     )
     assert set(closure.coverage_incomplete_flags) == set(
         c9.PROJECTION_COVERAGE_INCOMPLETE_FLAGS
@@ -398,8 +398,8 @@ def test_c8_coverage_flags_are_non_empty_and_closed() -> None:
             closure_id="closure-1",
             revision="r1",
             incarnation="inc-1",
-            runtime_session_source=_session_source(),
-            research_graph_source=c9.KnowledgeSource(
+            task_source=_session_source(),
+            knowledge_source=c9.KnowledgeSource(
                 schema_version=c9.KNOWLEDGE_SOURCE_SCHEMA,
                 project_scope_ref="other-project",
                 graph_ref="graph-1",
@@ -408,7 +408,7 @@ def test_c8_coverage_flags_are_non_empty_and_closed() -> None:
                 objects=(_object("o1", "alpha"), _object("o2", "beta")),
                 relations=(_relation("r1", "o1", "o2"),),
             ),
-            c7_search_source=_search_source(),
+            material_source=_search_source(),
         )
 
 

@@ -39,9 +39,11 @@ class ConsumerSqlPredicateFacadeUnitTestCase(unittest.TestCase):
             set(surfaces),
             {
                 "main/backend/app/api/admin.py",
+                "main/backend/app/services/document_admin.py",
                 "main/backend/app/api/dashboard.py",
             },
         )
+        self.assertEqual(result["validation"]["checked_api_surface_count"], 3)
         for surface in surfaces.values():
             self.assertTrue(surface["passed"], surface)
             self.assertFalse(surface["direct_document_extracted_data_reads"], surface)

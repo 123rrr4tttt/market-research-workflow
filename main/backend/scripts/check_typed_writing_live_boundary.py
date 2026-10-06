@@ -31,13 +31,12 @@ from app.contracts.schemas.writing import (  # noqa: E402
     TypedKnowledgeWritingHandoffData,
     WritingContextEnvelope,
 )
-from app.models.base import SessionLocal  # noqa: E402
 from app.services.document_views.writing_card_view import (  # noqa: E402
     build_keyword_card_from_typed_knowledge_handoff,
 )
-from app.services.projects import bind_project  # noqa: E402
 from app.services.typed_knowledge import contracts  # noqa: E402
 from app.services.typed_knowledge import persistence_boundary  # noqa: E402
+from app.services.typed_knowledge.adapters import live_service  # noqa: E402
 
 
 CONTRACT_VERSION = "typed_writing.live_boundary_inventory.v1"
@@ -299,12 +298,13 @@ def _deterministic_coverage(root: Path, sources: Mapping[str, Mapping[str, Any]]
                     "buildPersistedTypedKnowledgeKeywordCardRequest",
                 ),
             )
-            and "sources = ['document', 'resource', 'graph']" in frontend_domain,
+            and "sources = ['material', 'resource', 'graph']" in frontend_domain,
             [
                 "main/frontend-modern/src/pages/WritingWorkbenchPage.tsx",
                 "main/frontend-modern/src/lib/api/domains/writing.ts",
             ],
-            "workbench remains a writing API consumer surface, with persisted typed-card request defaults kept in the API domain helper",
+            "workbench remains a writing API consumer surface, with current "
+            "material/resource/graph defaults kept in the API domain helper",
         ),
     ]
 
@@ -354,48 +354,36 @@ def _typed_knowledge_migration_exists(root: Path) -> bool:
 
 def _live_db_runtime_readback() -> dict[str, Any]:
     try:
-        with bind_project("demo_proj"), SessionLocal() as session:
-            boundary_envelope = persistence_boundary.build_live_db_boundary_envelope(
-                session=session,
-                project_key="demo_proj",
-                seed_sample=True,
-            )
-            route_envelope = persistence_boundary.build_public_api_route_contract_envelope(
-                project_key="demo_proj",
-                boundary_envelope=boundary_envelope,
-            )
-            mutation = persistence_boundary.apply_live_governance_review_state(
-                session=session,
-                project_key="demo_proj",
-                object_type=persistence_boundary.OBJECT_TYPE_KNOWLEDGE_ITEM,
-                object_key="ki:robotics-policy",
-                review_state=contracts.REVIEW_STATE_HUMAN_CONFIRMED,
-                actor_type=contracts.ACTOR_HUMAN,
-                actor_id="wave54-checker",
-                write_time="2026-05-23T00:00:00Z",
-            )
-            context = persistence_boundary.build_live_writing_context_from_repository(
-                session=session,
-                project_key="demo_proj",
-                seed_sample=True,
-            )
-            readback = persistence_boundary.build_persisted_card_request_response_readback(
-                project_key="demo_proj",
-                boundary_envelope=boundary_envelope,
-                live_db_backed=True,
-            )
-            payload = KeywordCardRequest.model_validate(readback["keyword_card_request"]["body"])
-            typed_context_payload = payload.context.typed_knowledge_context
-            if hasattr(typed_context_payload, "model_dump"):
-                typed_context_payload = typed_context_payload.model_dump()
-            handoff = contracts.parse_writing_knowledge_context_envelope(
-                typed_context_payload
-            )[0]
-            card = build_keyword_card_from_typed_knowledge_handoff(
-                handoff,
-                normalized_query=str(payload.query or "").strip().lower(),
-            )
-            session.commit()
+        project_key = "demo_proj"
+        boundary_envelope = live_service.seed_live_sample(project_key=project_key)
+        route_envelope = live_service.read_live_public_route_contract(
+            project_key=project_key
+        )
+        mutation = live_service.apply_governance_review_state(
+            project_key=project_key,
+            object_type=persistence_boundary.OBJECT_TYPE_KNOWLEDGE_ITEM,
+            object_key="ki:robotics-policy",
+            review_state=contracts.REVIEW_STATE_HUMAN_CONFIRMED,
+            actor_type=contracts.ACTOR_HUMAN,
+            actor_id="wave54-checker",
+        )
+        context = live_service.read_live_writing_context(project_key=project_key)
+        readback = route_envelope["data"][
+            "persisted_card_request_response_readback"
+        ]
+        payload = KeywordCardRequest.model_validate(
+            readback["keyword_card_request"]["body"]
+        )
+        typed_context_payload = payload.context.typed_knowledge_context
+        if hasattr(typed_context_payload, "model_dump"):
+            typed_context_payload = typed_context_payload.model_dump()
+        handoff = contracts.parse_writing_knowledge_context_envelope(
+            typed_context_payload
+        )[0]
+        card = build_keyword_card_from_typed_knowledge_handoff(
+            handoff,
+            normalized_query=str(payload.query or "").strip().lower(),
+        )
         return {
             "passed": True,
             "execution_status": LIVE_VERIFIED,

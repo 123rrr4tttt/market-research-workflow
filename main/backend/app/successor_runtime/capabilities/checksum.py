@@ -5,17 +5,31 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import asdict, dataclass, fields, is_dataclass
-from typing import Any, NoReturn
+from collections.abc import Mapping
+from dataclasses import asdict, fields, is_dataclass
+from typing import NoReturn, TypeAlias, TypeGuard, TypeVar, Union
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.w06_semantics import capability_primitive_contract_failures
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _PRIMITIVE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
+PayloadModel = TypeVar("PayloadModel")
+CanonicalJsonValue: TypeAlias = Union[
+    None,
+    bool,
+    int,
+    float,
+    str,
+    "CanonicalJsonObject",
+    "CanonicalJsonArray",
+]
+CanonicalJsonObject: TypeAlias = dict[str, CanonicalJsonValue]
+CanonicalJsonArray: TypeAlias = list[CanonicalJsonValue]
+DecodedCanonicalValue: TypeAlias = CanonicalJsonValue | tuple[CanonicalJsonValue, ...]
 
 
-def _primitive_failure(
+def primitive_failure(
     code: str,
     message: str,
     *,
@@ -36,7 +50,7 @@ def _primitive_failure(
     )
 
 
-def _raise_primitive_failure(
+def raise_primitive_failure(
     failure: Failure,
     exception_type: type[Exception],
 ) -> NoReturn:
@@ -57,33 +71,55 @@ def sha256_hex(payload: bytes) -> str:
 
 
 def require_hex64(value: str, field_name: str) -> str:
-    if not isinstance(value, str) or _HEX64.fullmatch(value) is None:
-        failure = _primitive_failure(
+    if _HEX64.fullmatch(value) is None:
+        failure = primitive_failure(
             "digest_contract_invalid",
             f"{field_name} must be a 64-char lowercase hex digest",
             exception_type=ValueError,
             field_name=field_name,
         )
-        _raise_primitive_failure(failure, ValueError)
+        raise_primitive_failure(failure, ValueError)
     return value
 
 
-def _scrub(value: Any) -> Any:
-    if is_dataclass(value):
-        return {k: _scrub(v) for k, v in sorted(asdict(value).items())}
-    if isinstance(value, dict):
-        return {str(k): _scrub(v) for k, v in sorted(value.items())}
-    if isinstance(value, (list, tuple)):
-        return [_scrub(v) for v in value]
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(
+    value: object,
+) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _scrub(value: object) -> CanonicalJsonValue:
+    if is_dataclass(value) and not isinstance(value, type):
+        dataclass_value: object = asdict(value)
+        return _scrub(dataclass_value)
+    if _is_object_mapping(value):
+        return {
+            str(key): _scrub(item)
+            for key, item in sorted(value.items(), key=lambda entry: str(entry[0]))
+        }
+    if _is_object_sequence(value):
+        return [_scrub(item) for item in value]
     if isinstance(value, bytes):
         return value.hex()
-    return value
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    failure = primitive_failure(
+        "codec_input_type_invalid",
+        f"canonical codec cannot encode {type(value).__name__}",
+        exception_type=TypeError,
+        field_name="canonical_json/value",
+    )
+    raise_primitive_failure(failure, TypeError)
 
 
-def canonical_json(value: Any, *, omit_fields: tuple[str, ...] = ()) -> str:
+def canonical_json(value: object, *, omit_fields: tuple[str, ...] = ()) -> str:
     """Sort-key canonical JSON for a dataclass, mapping or scalar."""
 
-    def drop(mapping: dict[str, Any]) -> dict[str, Any]:
+    def drop(mapping: CanonicalJsonObject) -> CanonicalJsonObject:
         return {k: v for k, v in mapping.items() if k not in omit_fields}
 
     payload = _scrub(value)
@@ -92,14 +128,25 @@ def canonical_json(value: Any, *, omit_fields: tuple[str, ...] = ()) -> str:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
-def content_digest(value: Any, *, omit_fields: tuple[str, ...] = ()) -> str:
+def content_digest(value: object, *, omit_fields: tuple[str, ...] = ()) -> str:
     return sha256_hex(canonical_json(value, omit_fields=omit_fields).encode("utf-8"))
 
 
-def dataclass_field_names(obj: Any) -> tuple[str, ...]:
+def dataclass_field_names(obj: object) -> tuple[str, ...]:
+    if not is_dataclass(obj):
+        failure = primitive_failure(
+            "codec_input_type_invalid",
+            "decode target must be a dataclass",
+            exception_type=TypeError,
+            field_name="decode_dataclass/target",
+        )
+        raise_primitive_failure(failure, TypeError)
     return tuple(f.name for f in fields(obj) if f.init)
 
 
-def decode_dataclass(cls: type, payload: dict[str, Any]) -> Any:
+def decode_dataclass(
+    cls: type[PayloadModel],
+    payload: Mapping[str, DecodedCanonicalValue],
+) -> PayloadModel:
     allowed = set(dataclass_field_names(cls))
     return cls(**{k: v for k, v in payload.items() if k in allowed})

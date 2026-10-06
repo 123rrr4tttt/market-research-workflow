@@ -90,6 +90,42 @@ def test_valid_legacy_dsl_parse_and_compile_is_deterministic() -> None:
     assert first.plan_digest == first.plan.plan_digest
 
 
+def test_curated_edge_projection_preserves_legacy_dsl_topology() -> None:
+    """The current curated graph projection is a supported DSL wire shape."""
+    receipt = workflow.parse_and_validate_workflow_dsl(
+        _payload(
+            nodes=[
+                _node("retrieve", "vector_search"),
+                _node("draft", "llm_call"),
+                _node("combine", "join"),
+            ],
+            edges=[
+                {
+                    "from_node_id": "retrieve",
+                    "to_node_id": "draft",
+                    "from": {"id": "retrieve", "type": "vector_search"},
+                    "to": {"id": "draft", "type": "llm_call"},
+                },
+                {
+                    "from_node_id": "retrieve",
+                    "to_node_id": "combine",
+                    "from": {"id": "retrieve", "type": "vector_search"},
+                    "to": {"id": "combine", "type": "join"},
+                },
+                {
+                    "from_node_id": "draft",
+                    "to_node_id": "combine",
+                    "from": {"id": "draft", "type": "llm_call"},
+                    "to": {"id": "combine", "type": "join"},
+                },
+            ],
+        )
+    )
+
+    assert receipt.ok
+    assert receipt.topo_order == ("retrieve", "draft", "combine")
+
+
 def test_duplicate_node_id_is_rejected_with_typed_code() -> None:
     """movement binding: C1-M001 | evidence ref: evidence:c1:m001:legacy-dsl-parity"""
     receipt = workflow.parse_and_validate_workflow_dsl(

@@ -9,26 +9,24 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
-from app.successor_runtime.research.object_types import ObjectType
-from functorial_kit.contribution_compiler import compile_native_contribution
-from functorial_kit.core.failure import Failure
-from functorial_kit.native_contribution import NativeContribution
-from mrw_functorial_kit.core.knowledge_semantics import knowledge_writing_failures
 
+from functorial_kit.core.failure import Failure
+
+from app.successor_runtime.capabilities.checksum import content_digest, require_hex64
 from app.successor_runtime.capabilities.knowledge_common import (
     KNOWLEDGE_WRITING_CELL_ID,
     reject_knowledge_contract,
     reject_knowledge_value,
 )
-from app.successor_runtime.capabilities.checksum import content_digest, require_hex64
 from app.successor_runtime.language.object_contracts import SINGLE_TYPED_OUTPUT_RETURN_CONTRACT_REF
+from app.successor_runtime.research.object_types import ObjectType
+from mrw_functorial_kit.core.knowledge_semantics import knowledge_writing_failures
+
 from . import (
-    KNOWLEDGE_NATIVE_CONTRIBUTION_RULE,
-    KnowledgeNativeAssemblyContext,
     KnowledgeNativeAssemblyDeclaration,
     KnowledgeNativeAuthorSource,
-    KnowledgeNativeDefinition,
     KnowledgeNativeOperationSource,
+    compile_knowledge_native_author_source,
 )
 
 __all__ = [
@@ -174,9 +172,8 @@ KNOWLEDGE_WRITING_AUTHOR_SOURCE = KnowledgeNativeAuthorSource(
     failure_family=knowledge_writing_failures,
 )
 
-_compiled_knowledge_writing_native = compile_native_contribution(
-    KNOWLEDGE_WRITING_AUTHOR_SOURCE,
-    KNOWLEDGE_NATIVE_CONTRIBUTION_RULE,
+_compiled_knowledge_writing_native = compile_knowledge_native_author_source(
+    KNOWLEDGE_WRITING_AUTHOR_SOURCE
 )
 if isinstance(_compiled_knowledge_writing_native, Failure):
     reject_knowledge_contract(

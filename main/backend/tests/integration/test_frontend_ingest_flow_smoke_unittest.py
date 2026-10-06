@@ -4,10 +4,9 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy.exc import OperationalError
-
+from app.api import ingest as ingest_api
 from app.main import app
+from fastapi.testclient import TestClient
 
 pytestmark = pytest.mark.integration
 
@@ -44,11 +43,21 @@ def client():
 def test_frontend_ingest_flow_contract_smoke(client: TestClient):
     headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "ingest-flow-smoke"}
     tasks_stub = _TasksStub()
-    db_error = OperationalError("select", {}, Exception("database down"))
+
+    def reserve_in_fixture_memory(**kwargs):
+        return ingest_api.reserve_ingest_submission_memory_for_test(
+            registry_key=kwargs["registry_key"],
+            project_key=kwargs["project_key"],
+            idempotency_key=kwargs["idempotency_key"],
+            trigger_type=kwargs["trigger_type"],
+            subject=kwargs["subject"],
+            request_hash=kwargs["request_hash"],
+            degraded=True,
+        )
 
     with patch("app.api.ingest._tasks_module", return_value=tasks_stub), patch(
         "app.api.ingest._reserve_ingest_submission_db",
-        side_effect=db_error,
+        side_effect=reserve_in_fixture_memory,
     ), patch("app.api.ingest._complete_ingest_submission_db"):
         source_library_async_resp = client.post(
             "/api/v1/ingest/source-library/run",

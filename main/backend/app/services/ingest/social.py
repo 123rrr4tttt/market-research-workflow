@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from typing import List, Optional, Protocol, TypeGuard, runtime_checkable
 
 from sqlalchemy.orm import Session
@@ -92,7 +93,7 @@ def _append_resource_pool_url(
     )
 
 
-def _required_str(data: dict[str, object], key: str) -> str:
+def _required_str(data: Mapping[str, object], key: str) -> str:
     value = data.get(key)
     if not isinstance(value, str):
         # kit:boundary owner=ingest.social_frontdoor.writer_contract class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_social_frontdoor_writer_shape_guards_preserve_invalid_payload_failures
@@ -100,7 +101,7 @@ def _required_str(data: dict[str, object], key: str) -> str:
     return value
 
 
-def _optional_str(data: dict[str, object], key: str) -> str | None:
+def _optional_str(data: Mapping[str, object], key: str) -> str | None:
     value = data.get(key)
     if value is None or isinstance(value, str):
         return value
@@ -108,7 +109,7 @@ def _optional_str(data: dict[str, object], key: str) -> str | None:
     raise TypeError(f"frontdoor writer data requires optional string {key}")
 
 
-def _required_str_object_dict(data: dict[str, object], key: str) -> dict[str, object]:
+def _required_str_object_dict(data: Mapping[str, object], key: str) -> dict[str, object]:
     value = data.get(key)
     if value is None:
         # kit:boundary owner=ingest.social_frontdoor.writer_contract class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_social_frontdoor_writer_shape_guards_preserve_invalid_payload_failures
@@ -434,6 +435,7 @@ def collect_policy_and_regulation(
     from ..search.candidate_contracts import CandidateSearchRequest
     from ..search.facets import POLICY_FACET
     from .search_and_ingest import (
+        SearchMaterialWritePayload,
         SearchAndIngestSpec,
         SearchIngestPorts,
         SearchIngestSource,
@@ -505,7 +507,7 @@ def collect_policy_and_regulation(
                     project_key=effective_project,
                 )
 
-        def write_frontdoor(data: dict[str, object]) -> dict[str, object]:
+        def write_frontdoor(data: SearchMaterialWritePayload) -> dict[str, object]:
             ingress_envelope = build_frontdoor_ingress_envelope(
                 ingress_type="discovery",
                 entrypoint=_required_str(data, "entrypoint"),

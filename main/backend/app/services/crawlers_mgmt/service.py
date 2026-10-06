@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import hashlib
 import json
 import re
+from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import func, select
 
@@ -393,6 +393,7 @@ def deploy_project(
                 }
                 try:
                     task = _tasks_module().task_orchestrate_crawler_deploy.delay(
+                        deploy_run_id=int(run.id),
                         project_key=registration_key,
                         scrapy_project=str(
                             import_payload.get("scrapy_project")
@@ -486,6 +487,7 @@ def rollback_project(
                 registration_key = str(registration_project_key or "").strip() or project.project_key
                 try:
                     task = _tasks_module().task_orchestrate_crawler_rollback.delay(
+                        deploy_run_id=int(run.id),
                         project_key=registration_key,
                         scrapy_project=str(
                             import_payload.get("scrapy_project")
@@ -536,6 +538,42 @@ def get_deploy_run(run_id: int) -> dict[str, Any] | None:
             if row is None:
                 return None
             return _serialize_run(row)
+
+
+def finalize_deploy_run(
+    run_id: int,
+    *,
+    status: Literal["succeeded", "failed"],
+    error: str | None = None,
+) -> dict[str, Any]:
+    """Persist the terminal state owned by the original crawler deploy run."""
+    if status not in {"succeeded", "failed"}:
+        raise ValueError(f"unsupported crawler deploy terminal status: {status}")
+    with bind_schema("public"):
+        with SessionLocal() as session:
+            run = session.execute(
+                select(CrawlerDeployRun).where(CrawlerDeployRun.id == int(run_id))
+            ).scalar_one_or_none()
+            if run is None:
+                raise ValueError(f"crawler deploy run not found: {run_id}")
+            if run.status in {"succeeded", "failed"}:
+                return _serialize_run(run)
+
+            project = session.execute(
+                select(CrawlerProject).where(CrawlerProject.id == run.crawler_project_id)
+            ).scalar_one()
+            run.status = status
+            run.error = str(error or "").strip() or None
+            run.finished_at = _utcnow()
+            if run.action == "rollback":
+                project.status = "rolled_back" if status == "succeeded" else "rollback_failed"
+            else:
+                project.status = "deployed" if status == "succeeded" else "deploy_failed"
+            session.add(run)
+            session.add(project)
+            session.commit()
+            session.refresh(run)
+            return _serialize_run(run)
 
 
 def list_deploy_runs(

@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from functorial_kit import Failure
 from sqlalchemy import select
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -28,12 +29,34 @@ from app.services.document_queries import (
     query_source_library_material_envelope,
     query_source_library_material_rows,
     rows_for_document_views,
+    try_build_document_query,
+    try_validate_document_query_result_envelope,
     validate_document_query_result_envelope,
+)
+from app.services.document_queries.identity import (
+    canonical_material_identity,
+    document_identity,
+    material_identity,
 )
 from app.services.document_views import build_keyword_card_from_hybrid_row, build_keyword_card_from_material_item
 
 
 class DocumentQueriesContractUnitTestCase(unittest.TestCase):
+    def test_canonical_material_identity_accepts_canonical_or_legacy_address(self) -> None:
+        canonical = material_identity("demo_proj", 42)
+        legacy = document_identity("demo_proj", 42)
+
+        self.assertEqual(canonical_material_identity("demo_proj", canonical), canonical)
+        self.assertEqual(canonical_material_identity("demo_proj", legacy), canonical)
+        self.assertIsNone(canonical_material_identity("other_proj", canonical))
+        self.assertIsNone(canonical_material_identity("demo_proj", {**canonical, "extra": "forged"}))
+        self.assertIsNone(
+            canonical_material_identity(
+                "demo_proj",
+                {**canonical, "module_id": "documents"},
+            )
+        )
+
     def test_material_and_legacy_sources_share_query_and_sql_identity(self) -> None:
         legacy = build_document_query("robotics", sources=("document",))
         material = build_document_query("robotics", sources=("material",))
@@ -117,6 +140,56 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
         self.assertEqual(card.source_type, "material")
         self.assertEqual(card.extra["backend"], "hybrid")
         self.assertEqual(card.extra["document_id"], 42)
+
+    def test_non_json_filter_value_returns_failure_and_legacy_shape(self) -> None:
+        result = try_build_document_query(
+            "",
+            filters=({"field": "state", "op": "eq", "value": object()},),
+        )
+
+        self.assertIsInstance(result, Failure)
+        assert isinstance(result, Failure)
+        self.assertTrue(result.failure)
+        self.assertEqual(result.code, "filter_invalid")
+        self.assertEqual(result.message, "document query JSON value must be str, int, float, bool, null, array, or object")
+        self.assertEqual(result.context["owner"], "document_queries.contracts.json")
+        with self.assertRaisesRegex(ValueError, "document query JSON value"):
+            build_document_query("", filters=({"field": "state", "op": "eq", "value": object()},))
+
+    def test_non_json_result_row_is_rejected_without_field_erasure(self) -> None:
+        query = build_document_query("robotics", limit=2)
+
+        with self.assertRaisesRegex(ValueError, "document query JSON value"):
+            build_document_query_result_envelope(
+                query,
+                [{"document_id": 7, "bad": object()}],
+                source="search.hybrid",
+            )
+
+    def test_invalid_result_envelope_status_preserves_failure_shape(self) -> None:
+        result = try_validate_document_query_result_envelope(
+            {
+                "status": "error",
+                "data": {},
+                "error": None,
+                "meta": {},
+            }
+        )
+
+        self.assertIsInstance(result, Failure)
+        assert isinstance(result, Failure)
+        self.assertTrue(result.failure)
+        self.assertEqual(result.code, "result_envelope_invalid")
+        self.assertEqual(result.message, "document query result envelope status must be ok")
+        with self.assertRaisesRegex(ValueError, "document query result envelope status must be ok"):
+            validate_document_query_result_envelope(
+                {
+                    "status": "error",
+                    "data": {},
+                    "error": None,
+                    "meta": {},
+                }
+            )
 
     def test_writing_hybrid_query_uses_contract_envelope_before_legacy_rows(self) -> None:
         with patch(

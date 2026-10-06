@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from collections.abc import Mapping
-from typing import Any
-
 import requests
 
 from app.services.ingest.adapters import http_utils
@@ -26,7 +24,7 @@ class RequestsHttpFetchPort:
         url: str,
         *,
         headers: Mapping[str, str] | None = None,
-        params: Mapping[str, Any] | None = None,
+        params: Mapping[str, object] | None = None,
         cookies: Mapping[str, str] | None = None,
         timeout: float = 30.0,
         retries: int = 3,
@@ -53,9 +51,9 @@ class RequestsHttpFetchPort:
 class SourceLibraryOfficialAccessPort:
     def handle(
         self,
-        params: dict[str, Any],
+        params: dict[str, object],
         project_key: str | None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         return official_access.handle_official_access_api(params, project_key)
 
 

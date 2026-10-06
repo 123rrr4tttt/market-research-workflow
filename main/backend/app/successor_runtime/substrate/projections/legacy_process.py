@@ -8,21 +8,23 @@ adapter, then re-exports the same runtime objects for historical import paths.
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import TypedDict, TypeGuard
 
 from app.successor_runtime.capabilities.line_event_readback_port import (
+    LineEventReadbackPayload,
     LineEventReadbackPort,
     LineEventReadbackRecord,
 )
 from app.successor_runtime.runtime.process_observation import (
-    HISTORICAL_PROCESS_OBSERVATION_PROJECTOR_ID,
     HISTORICAL_PROCESS_OBSERVATION_PROJECTION_SCHEMA_V1,
-    HistoricalProcessObservationProjectionRead,
+    HISTORICAL_PROCESS_OBSERVATION_PROJECTOR_ID,
     LINE_EVENT_READBACK_PROJECTOR_REF,
     PROCESS_OBSERVATION_PROJECTION_SCHEMA_V1,
     PROCESS_OBSERVATION_PROJECTOR_ID,
     PROCESS_OBSERVATION_PROJECTOR_REF,
     PROCESS_OBSERVATION_PROJECTOR_VERSION,
     PROCESS_OBSERVATION_TASK_SCHEMA_V1,
+    HistoricalProcessObservationProjectionRead,
     ProcessObservationProjection,
     ProcessProjectionError,
     ProcessTaskProjection,
@@ -37,9 +39,24 @@ class LineEventProjectionError(ProcessProjectionError):
     """Line-event readback records cannot form a trustworthy projection."""
 
 
+class LineEventProjectionRow(TypedDict):
+    """One exact outer row built around the canonical readback payload."""
+
+    line_key: str
+    record_digest: str
+    persistence_decidable: bool
+    persistence_observed: bool
+    readback_reason: str | None
+    payload: LineEventReadbackPayload
+
+
+def _is_line_event_readback_record(value: object) -> TypeGuard[LineEventReadbackRecord]:
+    return isinstance(value, LineEventReadbackRecord)
+
+
 def project_line_event_readbacks(
     records: Iterable[LineEventReadbackRecord],
-) -> tuple[dict[str, object], ...]:
+) -> tuple[LineEventProjectionRow, ...]:
     """Project typed line-event records through the successor readback port."""
 
     typed = tuple(records)
@@ -48,7 +65,7 @@ def project_line_event_readbacks(
             "line-event readback projection requires at least one record"
         )
     for record in typed:
-        if not isinstance(record, LineEventReadbackRecord):
+        if not _is_line_event_readback_record(record):
             raise LineEventProjectionError(
                 "line-event projection requires typed readback records"
             )
@@ -58,7 +75,7 @@ def project_line_event_readbacks(
         raise LineEventProjectionError(
             "line-event projection cannot carry duplicate line keys"
         )
-    rows: list[dict[str, object]] = []
+    rows: list[LineEventProjectionRow] = []
     for record in ordered:
         readback = LineEventReadbackPort.readback(record)
         payload = LineEventReadbackPort.build_payload(record)
@@ -87,6 +104,7 @@ __all__ = [
     "LegacyProcessObservationProjection",
     "LegacyProcessTaskProjection",
     "LineEventProjectionError",
+    "LineEventProjectionRow",
     "PROCESS_OBSERVATION_PROJECTOR_ID",
     "PROCESS_OBSERVATION_PROJECTOR_REF",
     "PROCESS_OBSERVATION_PROJECTOR_VERSION",

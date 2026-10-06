@@ -1,0 +1,9 @@
+from celery import Celery
+
+app = Celery("negative-output")
+
+@app.task
+def plain(value: str) -> int:
+    return len(value)
+
+result: str = plain.run("value")

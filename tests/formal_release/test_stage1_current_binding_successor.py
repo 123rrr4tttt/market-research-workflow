@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import shutil
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -13,6 +13,43 @@ from scripts.formal_release import generate_stage1_production_contract_record as
 
 
 ROOT = Path(__file__).resolve().parents[2]
+HISTORY_FIXTURE_ROOT = ROOT / "tests/fixtures/stage1_current_binding_history"
+
+
+def _historical_fixture(relative: Path) -> bytes:
+    manifest = json.loads(
+        (HISTORY_FIXTURE_ROOT / "manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["schema"] == "mrw.test.stage1-current-binding-history.v1"
+    matches = [
+        entry
+        for entry in manifest["entries"]
+        if entry["relative_path"] == relative.as_posix()
+    ]
+    assert len(matches) == 1, relative
+    entry = matches[0]
+    assert set(entry) == {
+        "bytes",
+        "fixture",
+        "git_path",
+        "git_revision",
+        "relative_path",
+        "sha256",
+    }
+    assert entry["git_path"] == relative.as_posix()
+    assert len(entry["git_revision"]) == 40
+    int(entry["git_revision"], 16)
+    assert len(entry["sha256"]) == 64
+    int(entry["sha256"], 16)
+    fixture = Path(entry["fixture"])
+    assert not fixture.is_absolute() and ".." not in fixture.parts
+    assert fixture.name.endswith(".py.source")
+    fixture_path = HISTORY_FIXTURE_ROOT / fixture
+    assert fixture_path.is_file() and not fixture_path.is_symlink()
+    payload = fixture_path.read_bytes()
+    assert len(payload) == entry["bytes"]
+    assert hashlib.sha256(payload).hexdigest() == entry["sha256"]
+    return payload
 
 
 def _copy(root: Path, relative: Path | str) -> None:
@@ -23,12 +60,7 @@ def _copy(root: Path, relative: Path | str) -> None:
     if source.is_file():
         shutil.copyfile(source, destination)
         return
-    completed = subprocess.run(
-        ("git", "-C", str(ROOT), "show", f"HEAD:{relative.as_posix()}"),
-        check=True,
-        capture_output=True,
-    )
-    destination.write_bytes(completed.stdout)
+    destination.write_bytes(_historical_fixture(relative))
 
 
 def successor_fixture(tmp_path: Path) -> Path:

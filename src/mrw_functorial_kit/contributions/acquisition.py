@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from functorial_kit.contribution_verification import (
+    VerificationChanges,
     VerificationPlan,
     VerificationRegistration,
     VerificationSource,
@@ -19,11 +20,15 @@ from functorial_kit.law_witness import (
     law_witness_reference,
 )
 from app.successor_runtime.assembly.base import AcquisitionAssemblyOptions
-from app.successor_runtime.capabilities.acquisition_native_contribution import AcquisitionAssemblyContext, AcquisitionNativeSource, DEFAULT_ACQUISITION_NATIVE_SOURCE, compile_acquisition_native_contribution
+from app.successor_runtime.capabilities.acquisition_native_contribution import (
+    DEFAULT_ACQUISITION_NATIVE_SOURCE,
+    AcquisitionAssemblyContext,
+    compile_acquisition_native_contribution,
+)
 
 
 def acquisition_verification_plan_for(
-    changes: object | None = None,
+    changes: VerificationChanges | None = None,
 ) -> VerificationPlan:
     """Derive an inert verification plan from the same native C3 catalog."""
 
@@ -45,10 +50,10 @@ def _run_acquisition_native_catalog_law() -> None:
     native = compile_acquisition_native_contribution(DEFAULT_ACQUISITION_NATIVE_SOURCE)
     if isinstance(native, Failure):
         raise AssertionError(native.message)
-    expected_projection_ids = tuple(
-        compile_acquisition_native_contribution(source).projection.id  # type: ignore[union-attr]
-        for source in (DEFAULT_ACQUISITION_NATIVE_SOURCE,)
-    )
+    expected_native = compile_acquisition_native_contribution(DEFAULT_ACQUISITION_NATIVE_SOURCE)
+    if isinstance(expected_native, Failure):
+        raise AssertionError(expected_native.message)
+    expected_projection_ids = (expected_native.projection.id,)
     if (native.projection.id,) != expected_projection_ids:
         raise AssertionError("C3 native catalog order drifted from definition order")
     binding = native.assemble(

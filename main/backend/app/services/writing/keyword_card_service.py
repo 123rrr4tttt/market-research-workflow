@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import TypeAlias
 
 from functorial_kit import Failure
 
@@ -17,6 +18,9 @@ from ...contracts.schemas.writing import (
     KeywordCardRequest,
 )
 from ..document_queries import (
+    DocumentQueryJsonObject,
+    DocumentQueryRow,
+    coerce_document_query_result_row,
     query_hybrid_document_rows,
     query_report_source_rows,
     query_source_library_material_rows,
@@ -30,9 +34,21 @@ from ..document_views import (
 )
 from ..search.hybrid import get_last_used_backends
 from ..typed_knowledge.contracts import parse_writing_knowledge_context_envelope
-from .document_service import _raise_writing_legacy, _writing_failure
+from .document_service import raise_writing_legacy, writing_failure
 
-_CARD_CACHE: dict[str, dict[str, Any]] = {}
+
+@dataclass(frozen=True, slots=True)
+class CardCacheEntry:
+    item: KeywordCardItem
+    normalized_query: str
+    raw: DocumentQueryRow
+    cached_at: str
+
+
+CardWithRaw: TypeAlias = tuple[KeywordCardItem, DocumentQueryRow]
+
+
+_CARD_CACHE: dict[str, CardCacheEntry] = {}
 _SELECTION_CACHE: dict[str, KeywordCardListResponse] = {}
 _CACHE_TTL_MS = 10_000
 _QUERY_SPLIT_RE = re.compile(r"\s+")
@@ -43,7 +59,7 @@ def normalize_and_rewrite_query(text: str) -> str:
     return normalized
 
 
-def _selection_hash(project_key: str, query: str) -> str:
+def _selection_hash(project_key: str | None, query: str) -> str:
     payload = f"{project_key}:{normalize_and_rewrite_query(query)}"
     return hashlib.sha1(
         payload.encode("utf-8", errors="ignore"),
@@ -55,39 +71,39 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _remember_card(item: KeywordCardItem, *, normalized_query: str, raw: dict[str, Any]) -> None:
-    _CARD_CACHE[item.card_id] = {
-        "item": item.model_dump(),
-        "normalized_query": normalized_query,
-        "raw": raw,
-        "cached_at": _now_iso(),
-    }
+def _remember_card(item: KeywordCardItem, *, normalized_query: str, raw: DocumentQueryRow) -> None:
+    _CARD_CACHE[item.card_id] = CardCacheEntry(
+        item=item,
+        normalized_query=normalized_query,
+        raw=raw,
+        cached_at=_now_iso(),
+    )
 
 
-def _cards_from_hybrid(query: str, limit: int) -> list[tuple[KeywordCardItem, dict[str, Any]]]:
+def _cards_from_hybrid(query: str, limit: int) -> list[CardWithRaw]:
     normalized_query = normalize_and_rewrite_query(query)
     rows = query_hybrid_document_rows(query, limit=limit)
-    cards: list[tuple[KeywordCardItem, dict[str, Any]]] = []
+    cards: list[CardWithRaw] = []
     for row in rows:
         card = build_keyword_card_from_hybrid_row(row, normalized_query=normalized_query)
         cards.append((card, row))
     return cards
 
 
-def _cards_from_sources(query: str, limit: int) -> list[tuple[KeywordCardItem, dict[str, Any]]]:
+def _cards_from_sources(query: str, limit: int) -> list[CardWithRaw]:
     normalized_query = normalize_and_rewrite_query(query)
     rows = query_report_source_rows(query, limit=limit)
-    cards: list[tuple[KeywordCardItem, dict[str, Any]]] = []
+    cards: list[CardWithRaw] = []
     for row in rows:
         card = build_keyword_card_from_source_row(row, normalized_query=normalized_query)
         cards.append((card, row))
     return cards
 
 
-def _cards_from_source_library(project_key: str, query: str, limit: int) -> list[tuple[KeywordCardItem, dict[str, Any]]]:
+def _cards_from_source_library(project_key: str, query: str, limit: int) -> list[CardWithRaw]:
     normalized_query = normalize_and_rewrite_query(query)
     items = query_source_library_material_rows(project_key, query=query)
-    cards: list[tuple[KeywordCardItem, dict[str, Any]]] = []
+    cards: list[CardWithRaw] = []
     for item in items:
         card = build_keyword_card_from_material_item(item, normalized_query=normalized_query)
         cards.append((card, item))
@@ -96,42 +112,35 @@ def _cards_from_source_library(project_key: str, query: str, limit: int) -> list
     return cards
 
 
-def _extract_graph_context(payload: KeywordCardRequest) -> dict[str, Any]:
-    if isinstance(payload.context, dict):
-        nested = payload.context.get("graph_context")
-        if isinstance(nested, dict):
-            return nested
-    if getattr(payload, "context", None) is not None and isinstance(payload.context.graph_context, dict):
-        return payload.context.graph_context
-    return payload.graph_context if isinstance(payload.graph_context, dict) else {}
+def _extract_graph_context(payload: KeywordCardRequest) -> DocumentQueryJsonObject:
+    context = payload.context
+    if context is not None and context.graph_context is not None:
+        return coerce_document_query_result_row(context.graph_context)
+    if payload.graph_context is not None:
+        return coerce_document_query_result_row(payload.graph_context)
+    return {}
 
 
-def _extract_typed_knowledge_context(payload: KeywordCardRequest) -> dict[str, Any]:
-    context = getattr(payload, "context", None)
-    if isinstance(context, dict):
-        nested = context.get("typed_knowledge_context")
-    elif context is not None:
-        nested = getattr(context, "typed_knowledge_context", None)
-    else:
-        nested = None
+def _extract_typed_knowledge_context(payload: KeywordCardRequest) -> DocumentQueryJsonObject:
+    context = payload.context
+    nested = context.typed_knowledge_context if context is not None else None
     if nested is None:
         return {}
-    if hasattr(nested, "model_dump"):
-        dumped = nested.model_dump()
-        return dumped if isinstance(dumped, dict) else {}
-    return nested if isinstance(nested, dict) else {}
+    return coerce_document_query_result_row(nested.model_dump(mode="json"))
 
 
-def _cards_from_graph_context(payload: KeywordCardRequest, limit: int) -> list[tuple[KeywordCardItem, dict[str, Any]]]:
+def _cards_from_graph_context(payload: KeywordCardRequest, limit: int) -> list[CardWithRaw]:
     graph_context = _extract_graph_context(payload)
-    selected_nodes = graph_context.get("selected_nodes") if isinstance(graph_context.get("selected_nodes"), list) else []
+    selected_nodes_value = graph_context.get("selected_nodes")
+    selected_nodes = selected_nodes_value if isinstance(selected_nodes_value, list) else []
     if not selected_nodes:
         return []
     normalized_query = normalize_and_rewrite_query(payload.query)
-    cards: list[tuple[KeywordCardItem, dict[str, Any]]] = []
-    for node in selected_nodes:
-        if not isinstance(node, dict):
+    cards: list[CardWithRaw] = []
+    for node_value in selected_nodes:
+        if not isinstance(node_value, dict):
             continue
+        node = coerce_document_query_result_row(node_value)
         card = build_keyword_card_from_graph_node(
             node,
             normalized_query=normalized_query,
@@ -146,12 +155,12 @@ def _cards_from_graph_context(payload: KeywordCardRequest, limit: int) -> list[t
 def _cards_from_typed_knowledge_context(
     payload: KeywordCardRequest,
     limit: int,
-) -> list[tuple[KeywordCardItem, dict[str, Any]]]:
+) -> list[CardWithRaw]:
     typed_context = _extract_typed_knowledge_context(payload)
     if not typed_context:
         return []
     normalized_query = normalize_and_rewrite_query(payload.query)
-    cards: list[tuple[KeywordCardItem, dict[str, Any]]] = []
+    cards: list[CardWithRaw] = []
     for handoff in parse_writing_knowledge_context_envelope(typed_context):
         card = build_keyword_card_from_typed_knowledge_handoff(handoff, normalized_query=normalized_query)
         cards.append((card, {"typed_knowledge_context": typed_context}))
@@ -161,9 +170,9 @@ def _cards_from_typed_knowledge_context(
 
 
 def dedupe_and_score(
-    cards: list[tuple[KeywordCardItem, dict[str, Any]]],
+    cards: list[CardWithRaw],
     query: str,
-    project_key: str,
+    project_key: str | None,
     *,
     graph_context_attached: bool = False,
     accepted_citation_count: int = 0,
@@ -180,7 +189,7 @@ def dedupe_and_score(
 
     deduped: list[KeywordCardItem] = []
     seen: set[str] = set()
-    score_snapshot: dict[str, Any] = {}
+    score_snapshot: DocumentQueryJsonObject = {}
     for item, raw in cards:
         dedupe_key = f"{item.url or ''}|{item.title.lower()}|{item.source_type}"
         if dedupe_key in seen:
@@ -246,18 +255,19 @@ def dedupe_and_score(
 
 def aggregate_cards(payload: KeywordCardRequest) -> KeywordCardListResponse:
     query = payload.query.strip()
-    cards: list[tuple[KeywordCardItem, dict[str, Any]]] = []
+    cards: list[CardWithRaw] = []
     requested_sources = set(payload.sources or [])
     graph_context = _extract_graph_context(payload)
-    graph_context_attached = bool(graph_context.get("selected_nodes")) if isinstance(graph_context, dict) else False
+    graph_context_attached = bool(graph_context.get("selected_nodes"))
     accepted_citation_count = 0
-    if payload.context is not None and isinstance(payload.context.accepted_citation_context, dict):
-        citation_items = payload.context.accepted_citation_context.get("citations")
+    if payload.context is not None:
+        accepted_citations = coerce_document_query_result_row(payload.context.accepted_citation_context)
+        citation_items = accepted_citations.get("citations")
         if isinstance(citation_items, list):
             accepted_citation_count = len(citation_items)
     if graph_context_attached and (not requested_sources or "graph" in requested_sources):
         cards.extend(_cards_from_graph_context(payload, payload.limit))
-    typed_knowledge_cards: list[tuple[KeywordCardItem, dict[str, Any]]] = []
+    typed_knowledge_cards: list[CardWithRaw] = []
     if not requested_sources or "resource" in requested_sources:
         typed_knowledge_cards = _cards_from_typed_knowledge_context(payload, payload.limit)
         cards.extend(typed_knowledge_cards)
@@ -265,7 +275,7 @@ def aggregate_cards(payload: KeywordCardRequest) -> KeywordCardListResponse:
         cards.extend(_cards_from_hybrid(query, payload.limit))
     if not requested_sources or bool({"resource", "graph"} & requested_sources):
         cards.extend(_cards_from_sources(query, payload.limit))
-    if not requested_sources or "resource" in requested_sources:
+    if (not requested_sources or "resource" in requested_sources) and payload.project_key is not None:
         cards.extend(_cards_from_source_library(payload.project_key, query, payload.limit))
     if requested_sources:
         cards = [(item, raw) for item, raw in cards if item.source_type in requested_sources]
@@ -283,67 +293,68 @@ def aggregate_cards(payload: KeywordCardRequest) -> KeywordCardListResponse:
 def try_get_card_preview(payload: KeywordCardPreviewRequest) -> KeywordCardPreviewResponse | Failure:
     cached = _CARD_CACHE.get(payload.card_id)
     if cached is None:
-        return _writing_failure(
+        return writing_failure(
             "card_not_found",
             f"card not found: {payload.card_id}",
             owner="writing.keyword_card_service.get_card_preview",
             public_exception=KeyError,
         )
-    item = cached["item"]
+    item = cached.item
     return KeywordCardPreviewResponse(
-        card_id=item["card_id"],
-        title=item["title"],
-        url=item.get("url"),
-        publisher=item.get("publisher"),
-        snippet=item.get("snippet") or "",
-        score=float(item.get("score") or 0.0),
-        source_type=item["source_type"],
-        quick_actions=item.get("quick_actions") or [],
+        card_id=item.card_id,
+        title=item.title,
+        url=item.url,
+        publisher=item.publisher,
+        snippet=item.snippet,
+        score=item.score,
+        source_type=item.source_type,
+        quick_actions=item.quick_actions,
     )
 
 
 def get_card_preview(payload: KeywordCardPreviewRequest) -> KeywordCardPreviewResponse:
     outcome = try_get_card_preview(payload)
     if isinstance(outcome, Failure):
-        _raise_writing_legacy(outcome)
+        raise_writing_legacy(outcome)
     return outcome
 
 
 def try_get_card_detail(payload: KeywordCardDetailRequest) -> KeywordCardDetailResponse | Failure:
     cached = _CARD_CACHE.get(payload.card_id)
     if cached is None:
-        return _writing_failure(
+        return writing_failure(
             "card_not_found",
             f"card not found: {payload.card_id}",
             owner="writing.keyword_card_service.get_card_detail",
             public_exception=KeyError,
         )
-    item = cached["item"]
-    raw = cached["raw"] if isinstance(cached.get("raw"), dict) else {}
-    provenance = {
-        "cached_at": cached.get("cached_at"),
-        "raw_keys": sorted(raw.keys())[: payload.max_provenance_items],
-        "project_key": payload.project_key,
-    }
+    item = cached.item
+    provenance = coerce_document_query_result_row(
+        {
+            "cached_at": cached.cached_at,
+            "raw_keys": sorted(cached.raw.keys())[: payload.max_provenance_items],
+            "project_key": payload.project_key,
+        }
+    )
     return KeywordCardDetailResponse(
-        card_id=item["card_id"],
-        title=item["title"],
-        url=item.get("url"),
-        score=float(item.get("score") or 0.0),
-        evidence=item.get("evidence"),
-        publisher=item.get("publisher"),
-        published_at=item.get("published_at"),
-        retrieved_at=item.get("retrieved_at"),
-        normalized_query=cached.get("normalized_query"),
-        dedupe_trace=[{"card_id": item["card_id"], "strategy": "url+title+source_type"}],
+        card_id=item.card_id,
+        title=item.title,
+        url=item.url,
+        score=item.score,
+        evidence=item.evidence,
+        publisher=item.publisher,
+        published_at=item.published_at,
+        retrieved_at=item.retrieved_at,
+        normalized_query=cached.normalized_query,
+        dedupe_trace=[{"card_id": item.card_id, "strategy": "url+title+source_type"}],
         provenance=provenance if payload.include_provenance else {},
-        selection_matches={"query": cached.get("normalized_query"), "request_id": payload.request_id},
-        source_type=item["source_type"],
+        selection_matches={"query": cached.normalized_query, "request_id": payload.request_id},
+        source_type=item.source_type,
     )
 
 
 def get_card_detail(payload: KeywordCardDetailRequest) -> KeywordCardDetailResponse:
     outcome = try_get_card_detail(payload)
     if isinstance(outcome, Failure):
-        _raise_writing_legacy(outcome)
+        raise_writing_legacy(outcome)
     return outcome

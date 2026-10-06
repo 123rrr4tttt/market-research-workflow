@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 from pathlib import Path
 from typing import Annotated, Any
@@ -53,6 +54,89 @@ def _read_json(path: str | None) -> dict[str, Any] | None:
 
 def _contains_all(source: str, needles: tuple[str, ...]) -> bool:
     return all(needle in source for needle in needles)
+
+
+def _qualified_name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        parent = _qualified_name(node.value)
+        return f"{parent}.{node.attr}" if parent else node.attr
+    return ""
+
+
+def _python_functions(source: str) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return {}
+    return {
+        node.name: node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+
+
+def _called_paths(function: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    return {
+        _qualified_name(node.func)
+        for node in ast.walk(function)
+        if isinstance(node, ast.Call) and _qualified_name(node.func)
+    }
+
+
+def _string_constants(function: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    return {
+        node.value
+        for node in ast.walk(function)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    }
+
+
+def _route_paths(function: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    paths: set[str] = set()
+    for decorator in function.decorator_list:
+        if not isinstance(decorator, ast.Call) or _qualified_name(decorator.func) != "router.get":
+            continue
+        if decorator.args and isinstance(decorator.args[0], ast.Constant) and isinstance(decorator.args[0].value, str):
+            paths.add(decorator.args[0].value)
+    return paths
+
+
+def _admin_graph_routes_delegate_to_owner(admin_source: str) -> bool:
+    functions = _python_functions(admin_source)
+    expected = {
+        "get_market_graph": ("/market-graph", "document_admin.get_admin_market_graph"),
+        "get_policy_graph": ("/policy-graph", "document_admin.get_admin_policy_graph"),
+        "get_content_graph": ("/content-graph", "document_admin.get_admin_content_graph"),
+    }
+    return all(
+        (function := functions.get(name)) is not None
+        and route_path in _route_paths(function)
+        and owner_call in _called_paths(function)
+        for name, (route_path, owner_call) in expected.items()
+    )
+
+
+def _document_admin_keeps_b_read_fallback(owner_source: str) -> bool:
+    functions = _python_functions(owner_source)
+    finalize = functions.get("_finalize_admin_graph")
+    if finalize is None:
+        return False
+    calls = _called_paths(finalize)
+    messages = _string_constants(finalize)
+    consumers = ("get_admin_content_graph", "get_admin_market_graph", "get_admin_policy_graph")
+    return (
+        "GraphNodeReader" in calls
+        and "_rollback_graph_session" in calls
+        and "_export_graph" in calls
+        and any("graph_b_read_fallback_to_a" in message for message in messages)
+        and all(
+            (consumer := functions.get(name)) is not None
+            and "_finalize_admin_graph" in _called_paths(consumer)
+            for name in consumers
+        )
+    )
 
 
 def _fixture_graph_payload() -> dict[str, Any]:
@@ -162,31 +246,24 @@ def _failed_check_names(checks: dict[str, bool]) -> list[str]:
 
 def backend_data_static_checks(repo_root: Path = REPO_ROOT) -> dict[str, bool]:
     admin_source = _read_file(repo_root / "main" / "backend" / "app" / "api" / "admin.py")
+    document_admin_source = _read_file(
+        repo_root / "main" / "backend" / "app" / "services" / "document_admin.py"
+    )
     endpoints_source = _read_file(repo_root / "main" / "frontend-modern" / "src" / "lib" / "api" / "endpoints.ts")
     graph_api_source = _read_file(
         repo_root / "main" / "frontend-modern" / "src" / "lib" / "api" / "domains" / "graph-workflow.ts"
     )
     graph_page_source = _read_file(repo_root / "main" / "frontend-modern" / "src" / "pages" / "GraphPage.tsx")
+    topology_source = _read_file(
+        repo_root / "main" / "frontend-modern" / "src" / "pages" / "graph" / "domain" / "topology.ts"
+    )
+    force3d_objects_source = _read_file(
+        repo_root / "main" / "frontend-modern" / "src" / "pages" / "graph" / "renderers" / "force3dObjects.ts"
+    )
     return {
-        "admin_backend_graph_routes_exist": _contains_all(
-            admin_source,
-            (
-                '@router.get("/market-graph"',
-                '@router.get("/policy-graph"',
-                '@router.get("/content-graph"',
-                "def get_market_graph",
-                "def get_policy_graph",
-                "def get_content_graph",
-                "return success_response(export_to_json(graph))",
-            ),
-        ),
-        "admin_graph_routes_keep_b_read_fallback": _contains_all(
-            admin_source,
-            (
-                "_finalize_graph_response(",
-                "_rollback_quietly(session, context=\"graph_b_read\")",
-                "graph_b_read_fallback_to_a",
-            ),
+        "admin_backend_graph_routes_exist": _admin_graph_routes_delegate_to_owner(admin_source),
+        "admin_graph_routes_keep_b_read_fallback": _document_admin_keeps_b_read_fallback(
+            document_admin_source
         ),
         "frontend_backend_data_endpoints_exist": _contains_all(
             endpoints_source,
@@ -211,13 +288,26 @@ def backend_data_static_checks(repo_root: Path = REPO_ROOT) -> dict[str, bool]:
             ),
         ),
         "graphpage_maps_backend_nodes_to_force3d_data": _contains_all(
+            topology_source,
+            (
+                "export function computeVisibleSubgraph",
+                "connectedNodes",
+                "connectedEdges",
+                "edgeResolvedKeyMap",
+            ),
+        )
+        and _contains_all(
+            force3d_objects_source,
+            ("export function createForceNodeObject", "export function linkEnds"),
+        )
+        and _contains_all(
             graph_page_source,
             (
-                "sourceGraphNodes",
-                "effectiveGraphData",
+                "from './graph/domain/topology'",
+                "computeVisibleSubgraph({",
+                "from './graph/renderers/force3dObjects'",
                 "topology.connectedNodes.map",
-                "forceGraphData.nodes",
-                "forceGraphData.links",
+                "graphData={forceGraphData}",
             ),
         ),
     }
@@ -357,7 +447,10 @@ def _build_backend_data_stage(
         status="ready_not_run",
         passed=True,
         validated=False,
-        detail="backend graph routes, frontend wrappers, and GraphPage data mapping are present; live backend-data payload smoke was not supplied",
+        detail=(
+            "admin routes delegate to document_admin, frontend wrappers consume declared endpoints, and GraphPage "
+            "consumes native topology/force3d modules; live backend-data payload smoke was not supplied"
+        ),
         gaps=[
             "run an admin graph endpoint against nonempty backend data and capture the response payload",
             "prove nodes/edges come from backend data, not only repo fixture data",

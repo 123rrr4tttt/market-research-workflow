@@ -37,14 +37,25 @@ def _passing_failure_isolation_checks() -> dict[str, bool]:
 
 def _passing_force3d_rollback_checks() -> dict[str, bool]:
     return {
-        "force3d_load_and_render_fallback_to_legacy": True,
-        "force3d_manual_engine_switch_available": True,
-        "force3d_switch_readback_covered_by_mocked_e2e": True,
-        "runtime_pixel_gate_has_fallback_data_framing": True,
+        "force3d_failure_boundary_exposes_retry": True,
+        "force3d_manual_2d_3d_switch_available": True,
+        "force3d_mode_switch_readback_covered_by_mocked_e2e": True,
+        "runtime_pixel_gate_has_backend_data_framing": True,
     }
 
 
 class GraphRolloutReadbackGateUnitTest(unittest.TestCase):
+    def test_current_force3d_modules_supply_the_default_rollback_readback(self) -> None:
+        snapshot = build_gate_snapshot(
+            migration_checks=_passing_migration_checks(),
+            failure_isolation_checks=_passing_failure_isolation_checks(),
+            database_url="postgresql+psycopg2://postgres:postgres@localhost:5432/postgres",
+        )
+
+        stages = {stage["name"]: stage for stage in snapshot["stages"]}
+        self.assertEqual(stages["rollback_ready_trace"]["status"], "passed")
+        self.assertEqual(stages["force3d_visual_boundary_readback"]["status"], "passed")
+
     def test_default_gate_is_deterministic_pre_live_and_non_closing(self) -> None:
         first = build_gate_snapshot(
             migration_checks=_passing_migration_checks(),
@@ -95,7 +106,7 @@ class GraphRolloutReadbackGateUnitTest(unittest.TestCase):
 
     def test_rollback_trace_failure_is_isolated_from_visual_live_closure(self) -> None:
         force3d_checks = _passing_force3d_rollback_checks()
-        force3d_checks["force3d_load_and_render_fallback_to_legacy"] = False
+        force3d_checks["force3d_failure_boundary_exposes_retry"] = False
 
         snapshot = build_gate_snapshot(
             migration_checks=_passing_migration_checks(),
@@ -107,7 +118,7 @@ class GraphRolloutReadbackGateUnitTest(unittest.TestCase):
         self.assertFalse(snapshot["webgl_live_visual_validated"])
         stages = {stage["name"]: stage for stage in snapshot["stages"]}
         self.assertEqual(stages["rollback_ready_trace"]["status"], "failed")
-        self.assertIn("force3d_load_and_render_fallback_to_legacy", stages["rollback_ready_trace"]["failures"])
+        self.assertIn("force3d_failure_boundary_exposes_retry", stages["rollback_ready_trace"]["failures"])
         self.assertEqual(stages["force3d_visual_boundary_readback"]["status"], "passed")
 
 

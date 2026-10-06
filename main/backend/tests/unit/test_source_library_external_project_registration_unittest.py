@@ -13,6 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.unit
 
 from app.services.source_library.external_project_registration import (
+    _extract_urls_from_html,
+    _summarize_html_or_text,
     collect_external_project_context,
     synthesize_external_project_item,
     synthesize_external_project_manifest,
@@ -20,6 +22,41 @@ from app.services.source_library.external_project_registration import (
 
 
 class ExternalProjectRegistrationUnitTestCase(unittest.TestCase):
+    def test_html_parser_preserves_visible_text_and_link_discovery_parity(self) -> None:
+        cases = {
+            "malformed": (
+                '<html><body><div>Alpha <b>Beta</div><a href="/feed.xml">Feed',
+                "Alpha\nBeta\nFeed",
+                ["https://example.com/feed.xml"],
+            ),
+            "entities": (
+                '<html><body>A &amp; B&nbsp;<a href="/search?q=a&amp;b">Q&amp;A</a></body></html>',
+                "A & B\nQ&A",
+                ["https://example.com/search?q=a&b"],
+            ),
+            "script_link": (
+                '<html><body>Visible<script><a href="/evil.xml">bad</a></script>'
+                '<style>.x{}</style><noscript>hidden</noscript><a href="/ok.xml">OK</a></body></html>',
+                "Visible\nOK",
+                ["https://example.com/ok.xml"],
+            ),
+            "anchors": (
+                '<html><head><link href="/rss.xml" rel="alternate"></head><body>'
+                '<a href="https://example.com/api">API</a><a name="missing">No href</a>'
+                '<a href="">Empty</a></body></html>',
+                "API\nNo href\nEmpty",
+                ["https://example.com/rss.xml", "https://example.com/api"],
+            ),
+        }
+
+        for name, (html, expected_text, expected_urls) in cases.items():
+            with self.subTest(name=name):
+                self.assertEqual(_summarize_html_or_text(html), expected_text)
+                self.assertEqual(
+                    _extract_urls_from_html("https://example.com/docs", html),
+                    expected_urls,
+                )
+
     def test_collect_external_project_context_uses_github_api_when_repo_link(self) -> None:
         def _fake_get_json(url: str, **kwargs):  # noqa: ANN001
             if url.endswith("/repos/example/demo"):

@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Annotated, Any, Iterable, Mapping, NoReturn
+from typing import Annotated, Iterable, Literal, Mapping, NoReturn, NotRequired, TypeAlias, TypeGuard, TypedDict, Union
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.w04_service_semantics import document_query_failures
@@ -19,6 +19,66 @@ DEFAULT_QUERY_LIMIT = 20
 MAX_QUERY_LIMIT = 100
 
 
+DocumentQueryJsonAtom = str | int | float | bool | None
+DocumentQueryJsonArray = list["DocumentQueryJsonValue"]
+DocumentQueryJsonValue: TypeAlias = Union[
+    DocumentQueryJsonAtom,
+    DocumentQueryJsonArray,
+    "DocumentQueryJsonObject",
+]  # noqa: UP007
+DocumentQueryJsonObject = dict[str, "DocumentQueryJsonValue"]
+DocumentQueryRow = DocumentQueryJsonObject
+
+
+class DocumentQueryFilterPayload(TypedDict):
+    field: str
+    op: str
+    value: DocumentQueryJsonValue
+
+
+class DocumentQuerySortPayload(TypedDict):
+    field: str
+    direction: str
+
+
+class DocumentQueryPayload(TypedDict):
+    contract_version: str
+    query: str
+    normalized_query: str
+    project_key: str | None
+    consumer: str | None
+    sources: list[str]
+    filters: list[DocumentQueryFilterPayload]
+    sort: list[DocumentQuerySortPayload]
+    limit: int
+    offset: int
+    query_id: NotRequired[str]
+
+
+class DocumentQueryPaginationPayload(TypedDict):
+    limit: int
+    offset: int
+    result_count: int
+    total: int
+
+
+class DocumentQueryResultData(TypedDict):
+    contract_version: str
+    query: DocumentQueryPayload
+    results: list[DocumentQueryRow]
+    pagination: DocumentQueryPaginationPayload
+
+
+class DocumentQueryResultEnvelope(TypedDict):
+    status: Literal["ok"]
+    data: DocumentQueryResultData
+    error: None
+    meta: DocumentQueryJsonObject
+
+
+DocumentQueryFilterInput: TypeAlias = "DocumentQueryFilter | Mapping[str, object]"
+DocumentQuerySortInput: TypeAlias = "DocumentQuerySort | Mapping[str, object]"
+
 def document_query_failure(
     code: str,
     message: str,
@@ -26,7 +86,7 @@ def document_query_failure(
     owner: str,
     public_exception: type[Exception] | str = ValueError,
     public_message: str | None = None,
-    **details: Any,
+    **details: object,
 ) -> Failure:
     return document_query_failures.fail(
         code,
@@ -63,50 +123,121 @@ def raise_document_query_legacy(
     raise exception_type(message) from cause
 
 
-def _clean_text(value: Any) -> str:
+def _clean_text(value: object) -> str:
     return " ".join(str(value or "").strip().split())
 
 
-def _clean_optional_text(value: Any) -> str | None:
+def _clean_optional_text(value: object) -> str | None:
     cleaned = _clean_text(value)
     return cleaned or None
 
 
-def _as_mapping(value: Any) -> Mapping[str, Any]:
-    return value if isinstance(value, Mapping) else {}
+def _is_str_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    return isinstance(value, Mapping)
 
 
-def _lookup(row: Any, *keys: str) -> Any:
-    if isinstance(row, Mapping):
-        for key in keys:
-            if key in row:
-                return row[key]
-        return None
+def _is_object_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _as_mapping(value: object) -> Mapping[str, object]:
+    return value if _is_str_object_mapping(value) else {}
+
+
+def _lookup(row: Mapping[str, object], *keys: str) -> object | None:
     for key in keys:
-        if hasattr(row, key):
-            return getattr(row, key)
+        if key in row:
+            return row[key]
     return None
 
 
-def _coerce_float(value: Any, default: float = 0.0) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
+def _try_json_value(value: object) -> DocumentQueryJsonValue | Failure:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if _is_object_sequence(value):
+        values: DocumentQueryJsonArray = []
+        for item in value:
+            converted = _try_json_value(item)
+            if isinstance(converted, Failure):
+                return converted
+            values.append(converted)
+        return values
+    if _is_str_object_mapping(value):
+        return _try_json_object(value)
+    return document_query_failure(
+        "filter_invalid",
+        "document query JSON value must be str, int, float, bool, null, array, or object",
+        owner="document_queries.contracts.json",
+    )
 
 
-def _coerce_int(value: Any, default: int) -> int:
+def _try_json_object(value: object) -> DocumentQueryJsonObject | Failure:
+    if not _is_str_object_mapping(value):
+        return document_query_failure(
+            "result_row_invalid",
+            "document query JSON object is required",
+            owner="document_queries.contracts.json",
+        )
+    output: DocumentQueryJsonObject = {}
+    for key, item in value.items():
+        if type(key) is not str:
+            return document_query_failure(
+                "result_row_invalid",
+                "document query JSON object keys must be strings",
+                owner="document_queries.contracts.json",
+            )
+        converted = _try_json_value(item)
+        if isinstance(converted, Failure):
+            return converted
+        output[key] = converted
+    return output
+
+
+def _json_object(value: object) -> DocumentQueryJsonObject:
+    result = _try_json_object(value)
+    if isinstance(result, Failure):
+        raise_document_query_legacy(result)
+    return result
+
+
+def _coerce_float(value: object, default: float = 0.0) -> float:
     try:
-        return int(value)
+        if isinstance(value, (str, int, float)):
+            return float(value)
     except (TypeError, ValueError):
-        return default
+        pass
+    return default
+
+
+def _coerce_int(value: object, default: int) -> int:
+    try:
+        if isinstance(value, (str, int)):
+            return int(value)
+    except (TypeError, ValueError):
+        pass
+    return default
+
+
+def _normalize_material_source_type(value: object) -> str:
+    return normalize_material_source_type(value)
+
+
+def _json_lookup(row: DocumentQueryJsonObject, *keys: str) -> DocumentQueryJsonValue:
+    result = _try_json_value(_lookup(row, *keys))
+    if isinstance(result, Failure):
+        raise_document_query_legacy(result)
+    return result
 
 
 @dataclass(frozen=True)
 class DocumentQueryFilter:
     field: str
     op: str = "eq"
-    value: Any = None
+    value: DocumentQueryJsonValue = None
 
     def __post_init__(self) -> None:
         field = _clean_text(self.field)
@@ -116,14 +247,15 @@ class DocumentQueryFilter:
         if op not in FILTER_OPERATORS:
             message = f"unsupported document query filter operator: {op}"
             raise_document_query_legacy(document_query_failure("filter_invalid", message, owner="document_queries.contracts.filter"))
+        value = _try_json_value(self.value)
+        if isinstance(value, Failure):
+            raise_document_query_legacy(value)
         object.__setattr__(self, "field", field)
         object.__setattr__(self, "op", op)
+        object.__setattr__(self, "value", value)
 
-    def to_dict(self) -> dict[str, Any]:
-        value = self.value
-        if isinstance(value, tuple):
-            value = list(value)
-        return {"field": self.field, "op": self.op, "value": value}
+    def to_dict(self) -> DocumentQueryFilterPayload:
+        return {"field": self.field, "op": self.op, "value": self.value}
 
 
 @dataclass(frozen=True)
@@ -140,7 +272,7 @@ class DocumentQuerySort:
         object.__setattr__(self, "field", field)
         object.__setattr__(self, "direction", direction)
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> DocumentQuerySortPayload:
         return {"field": self.field, "direction": self.direction}
 
 
@@ -180,8 +312,8 @@ class DocumentQuery:
             usedforsecurity=False,
         ).hexdigest()[:16]
 
-    def to_dict(self, *, include_query_id: bool = True) -> dict[str, Any]:
-        payload: dict[str, Any] = {
+    def to_dict(self, *, include_query_id: bool = True) -> DocumentQueryPayload:
+        payload: DocumentQueryPayload = {
             "contract_version": DOCUMENT_QUERY_CONTRACT_VERSION,
             "query": self.query,
             "normalized_query": self.normalized_query,
@@ -198,18 +330,24 @@ class DocumentQuery:
         return payload
 
 
-def coerce_document_query_filter(value: DocumentQueryFilter | Mapping[str, Any]) -> DocumentQueryFilter:
+DocumentQueryInput: TypeAlias = DocumentQuery | Mapping[str, object]
+
+
+def coerce_document_query_filter(value: DocumentQueryFilterInput) -> DocumentQueryFilter:
     if isinstance(value, DocumentQueryFilter):
         return value
     payload = _as_mapping(value)
+    converted_value = _try_json_value(payload.get("value"))
+    if isinstance(converted_value, Failure):
+        raise_document_query_legacy(converted_value)
     return DocumentQueryFilter(
         field=str(payload.get("field") or ""),
         op=str(payload.get("op") or "eq"),
-        value=payload.get("value"),
+        value=converted_value,
     )
 
 
-def coerce_document_query_sort(value: DocumentQuerySort | Mapping[str, Any]) -> DocumentQuerySort:
+def coerce_document_query_sort(value: DocumentQuerySortInput) -> DocumentQuerySort:
     if isinstance(value, DocumentQuerySort):
         return value
     payload = _as_mapping(value)
@@ -225,8 +363,8 @@ def build_document_query(
     project_key: str | None = None,
     consumer: str | None = None,
     sources: Iterable[str] = (),
-    filters: Iterable[DocumentQueryFilter | Mapping[str, Any]] = (),
-    sort: Iterable[DocumentQuerySort | Mapping[str, Any]] = (),
+    filters: Iterable[DocumentQueryFilterInput] = (),
+    sort: Iterable[DocumentQuerySortInput] = (),
     limit: int = DEFAULT_QUERY_LIMIT,
     offset: int = 0,
 ) -> Annotated[
@@ -255,8 +393,8 @@ def try_build_document_query(
     project_key: str | None = None,
     consumer: str | None = None,
     sources: Iterable[str] = (),
-    filters: Iterable[DocumentQueryFilter | Mapping[str, Any]] = (),
-    sort: Iterable[DocumentQuerySort | Mapping[str, Any]] = (),
+    filters: Iterable[DocumentQueryFilterInput] = (),
+    sort: Iterable[DocumentQuerySortInput] = (),
     limit: int = DEFAULT_QUERY_LIMIT,
     offset: int = 0,
 ) -> DocumentQuery | Failure:
@@ -270,19 +408,24 @@ def try_build_document_query(
             return document_query_failure("filter_invalid", "document query filter field is required", owner="document_queries.contracts.filter")
         if op not in FILTER_OPERATORS:
             return document_query_failure("filter_invalid", f"unsupported document query filter operator: {op}", owner="document_queries.contracts.filter")
+        value = _try_json_value(payload.get("value"))
+        if isinstance(value, Failure):
+            return value
     for item in sort_values:
         payload = item.to_dict() if isinstance(item, DocumentQuerySort) else _as_mapping(item)
         direction = _clean_text(payload.get("direction")).lower() or "desc"
         if direction not in SORT_DIRECTIONS:
             return document_query_failure("sort_invalid", f"unsupported document query sort direction: {direction}", owner="document_queries.contracts.sort")
     try:
+        filter_objects = tuple(coerce_document_query_filter(item) for item in filter_values)
+        sort_objects = tuple(coerce_document_query_sort(item) for item in sort_values)
         return DocumentQuery(
             query=query,
             project_key=project_key,
             consumer=consumer,
             sources=tuple(sources),
-            filters=filter_values,
-            sort=sort_values,
+            filters=filter_objects,
+            sort=sort_objects,
             limit=limit,
             offset=offset,
         )
@@ -291,36 +434,37 @@ def try_build_document_query(
 
 
 def build_document_query_result_item(
-    row: Any,
+    row: Mapping[str, object],
     *,
     source_type: str,
     rank: int,
 ) -> Annotated[
-    dict[str, Any],
+    DocumentQueryRow,
     "kit:non-authoritative derived_as=view "
     "fact_source=repository_row+source_type+rank "
     "witness=test:test_w04_authority_metadata",
 ]:
-    raw = dict(row) if isinstance(row, Mapping) else {}
-    title = _clean_text(_lookup(row, "title", "document_title", "name", "id")) or "Document"
-    snippet = _clean_text(_lookup(row, "snippet", "summary", "description", "content", "evidence"))
-    url = _clean_optional_text(_lookup(row, "url", "uri", "source_uri"))
-    publisher = _clean_optional_text(_lookup(row, "publisher", "source", "channel_key"))
-    published_at = _clean_optional_text(_lookup(row, "published_at", "publish_date", "date"))
-    document_id = _lookup(row, "material_id", "document_id", "doc_id", "id")
-    backend = _clean_optional_text(_lookup(row, "backend", "provider", "source_type"))
+    raw = _json_object(row)
+    title = _clean_text(_json_lookup(raw, "title", "document_title", "name", "id")) or "Document"
+    snippet = _clean_text(_json_lookup(raw, "snippet", "summary", "description", "content", "evidence"))
+    url = _clean_optional_text(_json_lookup(raw, "url", "uri", "source_uri"))
+    publisher = _clean_optional_text(_json_lookup(raw, "publisher", "source", "channel_key"))
+    published_at = _clean_optional_text(_json_lookup(raw, "published_at", "publish_date", "date"))
+    document_id = _json_lookup(raw, "material_id", "document_id", "doc_id", "id")
+    backend = _clean_optional_text(_json_lookup(raw, "backend", "provider", "source_type"))
+    normalized_source_type = _normalize_material_source_type(source_type) or "material"
     return {
         **raw,
-        "id": _lookup(row, "id", "item_key", "source_id"),
+        "id": _json_lookup(raw, "id", "item_key", "source_id"),
         "document_id": document_id,
-        "material_id": document_id if normalize_material_source_type(source_type) == "material" else _lookup(row, "material_id", "document_id", "doc_id"),
+        "material_id": document_id if normalized_source_type == "material" else _json_lookup(raw, "material_id", "document_id", "doc_id"),
         "title": title,
         "snippet": snippet,
         "summary": snippet,
         "url": url,
         "uri": url,
-        "score": _coerce_float(_lookup(row, "score", "_score", "rank_score"), default=0.0),
-        "source_type": normalize_material_source_type(source_type) or "material",
+        "score": _coerce_float(_json_lookup(raw, "score", "_score", "rank_score"), default=0.0),
+        "source_type": normalized_source_type,
         "publisher": publisher,
         "published_at": published_at,
         "backend": backend,
@@ -329,16 +473,20 @@ def build_document_query_result_item(
     }
 
 
+def coerce_document_query_result_row(value: object) -> DocumentQueryRow:
+    return _json_object(value)
+
+
 def build_document_query_result_envelope(
     query: DocumentQuery,
-    rows: Iterable[Any],
+    rows: Iterable[Mapping[str, object]],
     *,
     source: str,
     result_source_type: str = "material",
     total: int | None = None,
-    meta: Mapping[str, Any] | None = None,
+    meta: Mapping[str, object] | None = None,
 ) -> Annotated[
-    dict[str, Any],
+    DocumentQueryResultEnvelope,
     "kit:non-authoritative derived_as=view "
     "fact_source=document_query+rows+source+meta "
     "witness=test:test_w04_authority_metadata",
@@ -349,15 +497,15 @@ def build_document_query_result_envelope(
     ]
     result_count = len(results)
     total_count = total if total is not None else result_count
-    merged_meta = {
+    merged_meta: DocumentQueryJsonObject = {
         "contract_version": DOCUMENT_QUERY_CONTRACT_VERSION,
         "query_id": query.query_id,
         "consumer": query.consumer,
         "source": _clean_text(source),
         "result_count": result_count,
     }
-    merged_meta.update(dict(meta or {}))
-    return {
+    merged_meta.update(_json_object(meta or {}))
+    envelope: DocumentQueryResultEnvelope = {
         "status": "ok",
         "data": {
             "contract_version": DOCUMENT_QUERY_CONTRACT_VERSION,
@@ -373,41 +521,74 @@ def build_document_query_result_envelope(
         "error": None,
         "meta": merged_meta,
     }
+    return envelope
 
 
-def try_validate_document_query_result_envelope(envelope: Mapping[str, Any]) -> None | Failure:
+def try_validate_document_query_result_envelope(envelope: Mapping[str, object]) -> None | Failure:
+    converted_envelope = _try_json_object(envelope)
+    if isinstance(converted_envelope, Failure):
+        return converted_envelope
     if envelope.get("status") != "ok":
         return document_query_failure("result_envelope_invalid", "document query result envelope status must be ok", owner="document_queries.contracts.result_envelope")
-    data = envelope.get("data")
-    if not isinstance(data, Mapping):
+    data = converted_envelope.get("data")
+    if not _is_str_object_mapping(data):
         return document_query_failure("result_envelope_invalid", "document query result envelope data must be an object", owner="document_queries.contracts.result_envelope")
     if data.get("contract_version") not in SUPPORTED_DOCUMENT_QUERY_CONTRACT_VERSIONS:
         return document_query_failure("result_envelope_invalid", "unsupported document query result envelope contract_version", owner="document_queries.contracts.result_envelope")
     query = data.get("query")
-    if not isinstance(query, Mapping) or query.get("contract_version") not in SUPPORTED_DOCUMENT_QUERY_CONTRACT_VERSIONS:
+    if not _is_str_object_mapping(query) or query.get("contract_version") not in SUPPORTED_DOCUMENT_QUERY_CONTRACT_VERSIONS:
         return document_query_failure("result_envelope_invalid", "document query result envelope query contract is missing", owner="document_queries.contracts.result_envelope")
     results = data.get("results")
-    if not isinstance(results, list):
+    if not _is_object_list(results):
         return document_query_failure("result_envelope_invalid", "document query result envelope results must be a list", owner="document_queries.contracts.result_envelope")
-    for result in results:
-        if not isinstance(result, Mapping):
+    for item in results:
+        if not _is_str_object_mapping(item):
             return document_query_failure("result_envelope_invalid", "document query result item must be an object", owner="document_queries.contracts.result_envelope")
         for key in ("title", "snippet", "source_type", "rank"):
-            if key not in result:
+            if key not in item:
                 return document_query_failure("result_envelope_invalid", f"document query result item missing key: {key}", owner="document_queries.contracts.result_envelope")
 
 
-def validate_document_query_result_envelope(envelope: Mapping[str, Any]) -> None:
+def validate_document_query_result_envelope(envelope: Mapping[str, object]) -> None:
     result = try_validate_document_query_result_envelope(envelope)
     if isinstance(result, Failure):
         raise_document_query_legacy(result)
 
 
-def rows_for_document_views(envelope: Mapping[str, Any]) -> list[dict[str, Any]]:
+def rows_for_document_views(envelope: Mapping[str, object]) -> list[DocumentQueryRow]:
     validate_document_query_result_envelope(envelope)
-    data = envelope["data"]
-    return [
-        {**item, "source_type": normalize_material_source_type(item.get("source_type")),
-         "material_id": _lookup(item, "material_id", "document_id", "doc_id")}
-        for item in data["results"]
-    ]
+    envelope_object = _json_object(envelope)
+    data_value = envelope_object.get("data")
+    if not _is_str_object_mapping(data_value):
+        raise_document_query_legacy(
+            document_query_failure(
+                "result_envelope_invalid",
+                "validated document query envelope data must be an object",
+                owner="document_queries.contracts.rows_for_document_views",
+                public_exception=TypeError,
+            ),
+            TypeError,
+        )
+    data = _json_object(data_value)
+    results_value = data.get("results")
+    if not isinstance(results_value, list):
+        raise_document_query_legacy(
+            document_query_failure(
+                "result_envelope_invalid",
+                "validated document query envelope results must be a list",
+                owner="document_queries.contracts.rows_for_document_views",
+                public_exception=TypeError,
+            ),
+            TypeError,
+        )
+    output: list[DocumentQueryRow] = []
+    for item in results_value:
+        row = _json_object(item)
+        output.append(
+            {
+                **row,
+                "source_type": _normalize_material_source_type(_json_lookup(row, "source_type")),
+                "material_id": _json_lookup(row, "material_id", "document_id", "doc_id"),
+            }
+        )
+    return output

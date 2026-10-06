@@ -522,7 +522,8 @@
         }
       ],
       "failures": [
-        "llm.provider_resolution.failure"
+        "llm.provider_resolution.failure",
+        "llm.provider_input.failure"
       ],
       "objects": [
         {
@@ -1221,6 +1222,225 @@
         {
           "name": "require_admitted",
           "order_depends_on": []
+        }
+      ],
+      "shape": "capability-interface"
+    },
+    {
+      "axes": {
+        "closed": "declared result fields and failure members",
+        "open": "input records"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
+      },
+      "derived": {
+        "authoritative": false,
+        "derived_as": "external_claim"
+      },
+      "equations": [
+        {
+          "claim": "malformed record fields preserve typed contract failure",
+          "class": "testable",
+          "witness": "test:test_resource_extract_classifies_malformed_record_fields"
+        },
+        {
+          "claim": "invalid input preserves TypeError ABI and cause without writes",
+          "class": "testable",
+          "witness": "test:test_resource_extract_preserves_type_error_abi_cause_and_no_write"
+        }
+      ],
+      "failures": [
+        "resource_pool.contract.failure"
+      ],
+      "id": "ResourceExtractionResult",
+      "objects": [
+        {
+          "kind": "record",
+          "name": "DocumentExtractionResult",
+          "owner": "main/backend/app/services/resource_pool/extract.py"
+        },
+        {
+          "kind": "record",
+          "name": "TaskExtractionResult",
+          "owner": "main/backend/app/services/resource_pool/extract.py"
+        }
+      ],
+      "operations": [
+        {
+          "name": "extract_from_documents",
+          "order_depends_on": []
+        },
+        {
+          "name": "extract_from_tasks",
+          "order_depends_on": []
+        }
+      ],
+      "shape": "capability-interface"
+    },
+    {
+      "axes": {
+        "closed": "declared result fields and failure members",
+        "open": "input records"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
+      },
+      "derived": {
+        "authoritative": false,
+        "derived_as": "external_claim"
+      },
+      "equations": [
+        {
+          "claim": "all malformed result branches preserve one typed failure family",
+          "class": "testable",
+          "witness": "test:test_social_collect_result_parser_classifies_all_malformed_branches"
+        },
+        {
+          "claim": "legacy result parser preserves TypeError ABI and cause",
+          "class": "testable",
+          "witness": "test:test_social_collect_result_parser_preserves_type_error_abi_and_cause"
+        }
+      ],
+      "failures": [
+        "ingest.operation.failure"
+      ],
+      "id": "SocialCollectResult",
+      "objects": [
+        {
+          "kind": "record",
+          "name": "SocialCollectResult",
+          "owner": "main/backend/app/services/ingest/social_application.py"
+        }
+      ],
+      "operations": [
+        {
+          "name": "try_parse_social_collect_result",
+          "order_depends_on": []
+        }
+      ],
+      "shape": "capability-interface"
+    },
+    {
+      "axes": {
+        "closed": "declared result fields and failure members",
+        "open": "input records"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
+      },
+      "derived": {
+        "authoritative": false,
+        "derived_as": "external_claim"
+      },
+      "equations": [
+        {
+          "claim": "commodity failure lift preserves original exception and cause",
+          "class": "testable",
+          "witness": "test:test_FAILURE_PRESERVED__commodity_failure_lift_preserves_original_exception"
+        },
+        {
+          "claim": "report failure lifts preserve original exception and cause",
+          "class": "testable",
+          "witness": "test:test_FAILURE_PRESERVED__report_failure_lifts_preserve_original_exception"
+        },
+        {
+          "claim": "report and commodity contract branches remain observable",
+          "class": "testable",
+          "witness": "test:test_FAILURE_PRESERVED__report_and_commodity_contract_branches_are_observable"
+        }
+      ],
+      "failures": [
+        "ingest.operation.failure"
+      ],
+      "id": "ReportCommodityIngestResult",
+      "objects": [
+        {
+          "kind": "record",
+          "name": "CommodityIngestResult",
+          "owner": "main/backend/app/services/ingest/commodity.py"
+        },
+        {
+          "kind": "record",
+          "name": "ReportIngestResult",
+          "owner": "main/backend/app/services/ingest/reports/general.py"
+        }
+      ],
+      "operations": [
+        {
+          "name": "ingest_commodity_metrics",
+          "order_depends_on": []
+        },
+        {
+          "name": "collect_weekly_market_reports",
+          "order_depends_on": []
+        },
+        {
+          "name": "collect_monthly_financial_reports",
+          "order_depends_on": []
+        }
+      ],
+      "shape": "capability-interface"
+    },
+    {
+      "axes": {
+        "closed": "session state transitions and JSON fields",
+        "open": "store interpreters"
+      },
+      "change": {
+        "declared_loss": [],
+        "kind": "extension"
+      },
+      "derived": {
+        "authoritative": false,
+        "derived_as": "external_claim"
+      },
+      "equations": [
+        {
+          "claim": "concurrent claims have one winner and one claim event",
+          "class": "testable",
+          "witness": "test:test_concurrent_claim_has_exactly_one_winner_and_one_claim_event"
+        },
+        {
+          "claim": "failed event persistence rolls back task dependents session and events",
+          "class": "testable",
+          "witness": "test:test_release_rolls_back_task_dependents_session_and_events_when_event_write_fails"
+        },
+        {
+          "claim": "nested non-JSON payload is rejected without persistence",
+          "class": "testable",
+          "witness": "test:test_store_rejects_nested_non_json_values_without_writing_session"
+        }
+      ],
+      "failures": [
+        "agent.session.failure"
+      ],
+      "id": "AgentSessionMutation",
+      "objects": [
+        {
+          "kind": "record",
+          "name": "AgentSessionRecord",
+          "owner": "main/backend/app/services/agent_sessions/store.py"
+        },
+        {
+          "kind": "record",
+          "name": "AgentTaskRecord",
+          "owner": "main/backend/app/services/agent_sessions/store.py"
+        }
+      ],
+      "operations": [
+        {
+          "name": "claim_task",
+          "order_depends_on": []
+        },
+        {
+          "name": "release_task",
+          "order_depends_on": [
+            "claim_task"
+          ]
         }
       ],
       "shape": "capability-interface"

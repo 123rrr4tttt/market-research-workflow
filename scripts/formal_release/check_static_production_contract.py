@@ -41,6 +41,7 @@ ALLOWED_STEP_CONDITIONS = frozenset({"failure()", "always()"})
 SUPPORT_STEP_MARKERS = ("cleanup", "diagnostic", "teardown")
 REQUIRED_CHECK_CATEGORIES = (
     "formal-release",
+    "backend-typecheck",
     "backend-unit",
     "backend-integration",
     "frontend-lint",

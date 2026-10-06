@@ -1,15 +1,31 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
-from typing import Annotated, Any, NoReturn
+from typing import Annotated, NoReturn, TypeGuard
 
 from functorial_kit import Failure
 
 from mrw_functorial_kit.core.w06_semantics import source_single_source_guard_failures
 
 
+GuardObject = dict[str, object]
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_guard_object(value: object) -> TypeGuard[GuardObject]:
+    return _is_object_mapping(value) and all(isinstance(key, str) for key in value)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
 class SourceLibrarySingleSourceGuardError(ValueError):
-    def __init__(self, message: str, *, details: dict[str, Any]) -> None:
+    def __init__(self, message: str, *, details: GuardObject) -> None:
         super().__init__(message)
         self.details = details
 
@@ -21,7 +37,7 @@ def _guard_failure(
     code: str,
     message: str,
     *,
-    details: dict[str, Any],
+    details: GuardObject,
 ) -> Failure:
     context = {
         "boundary_class": "PURE_CONTRACT_FAILURE",
@@ -37,7 +53,7 @@ def _guard_failure(
     return source_single_source_guard_failures.fail(code, message, context)
 
 
-def _raise_guard_failure(failure: Failure, *, details: dict[str, Any]) -> NoReturn:
+def _raise_guard_failure(failure: Failure, *, details: GuardObject) -> NoReturn:
     context = failure.context or {}
     required = {"boundary_class", "failure_family", "operation", "owner", "public_exception", "public_message", "site", "witness"}
     if (
@@ -57,34 +73,41 @@ def _raise_guard_failure(failure: Failure, *, details: dict[str, Any]) -> NoRetu
 def build_single_source_guard_error_details(
     *,
     reason_code: str,
-    guard: Any,
-    expected: Any,
-    actual: Any,
+    guard: object,
+    expected: object,
+    actual: object,
 ) -> Annotated[
-    dict[str, Any],
+    GuardObject,
     "kit:non-authoritative derived_as=view fact_source=source_library.single_source_guard witness=test:test_w01_meta",
 ]:
     return {
         "reason_code": reason_code,
         "field": "override_params.single_source_guard",
-        "single_source_guard": deepcopy(guard) if isinstance(guard, dict) else guard,
+        "single_source_guard": deepcopy(guard) if _is_guard_object(guard) else guard,
         "expected": expected,
         "actual": actual,
     }
 
 
 def build_single_source_execution_fact(
-    guard: dict[str, Any],
+    guard: Mapping[str, object],
     *,
     item_key: str | None = None,
     project_key: str | None = None,
     reason_code: str = "single_source_guard_passed",
 ) -> Annotated[
-    dict[str, Any],
+    GuardObject,
     "kit:non-authoritative derived_as=view fact_source=source_library.single_source_guard witness=test:test_w01_meta",
 ]:
-    source_ref = guard.get("source_ref") if isinstance(guard.get("source_ref"), dict) else {}
+    source_ref_value = guard.get("source_ref")
+    source_ref = dict(source_ref_value) if _is_guard_object(source_ref_value) else {}
     report_source_ref = str(guard.get("report_source_ref") or "").strip()
+    allowed_urls_value = guard.get("allowed_urls")
+    allowed_url = (
+        allowed_urls_value[0]
+        if _is_object_list(allowed_urls_value) and allowed_urls_value
+        else None
+    )
     return {
         "contract_version": "source_library.execution_fact.v1",
         "reason_code": reason_code,
@@ -96,13 +119,13 @@ def build_single_source_execution_fact(
             {
                 "kind": "resource_pool.site_entry",
                 "report_source_ref": report_source_ref,
-                "site_entry_url": (guard.get("allowed_urls") or [None])[0] if isinstance(guard.get("allowed_urls"), list) else None,
+                "site_entry_url": allowed_url,
                 "source_ref": source_ref,
             }
         ],
         "source_ref": source_ref,
         "report_source_ref": report_source_ref,
-        "single_source_guard": deepcopy(guard),
+        "single_source_guard": deepcopy(dict(guard)),
     }
 
 
@@ -110,10 +133,10 @@ def _raise_guard_error(
     message: str,
     *,
     reason_code: str,
-    guard: Any,
-    expected: Any,
-    actual: Any,
-) -> None:
+    guard: object,
+    expected: object,
+    actual: object,
+) -> NoReturn:
     details = build_single_source_guard_error_details(
         reason_code=reason_code,
         guard=guard,
@@ -126,13 +149,15 @@ def _raise_guard_error(
     )
 
 
-def validate_single_source_guard(override_params: dict[str, Any] | None) -> dict[str, Any] | None:
-    if not isinstance(override_params, dict) or "single_source_guard" not in override_params:
+def validate_single_source_guard(
+    override_params: object,
+) -> GuardObject | None:
+    if not _is_guard_object(override_params) or "single_source_guard" not in override_params:
         return None
 
     guard = override_params.get("single_source_guard")
     site_entries = override_params.get("site_entries")
-    if not isinstance(guard, dict):
+    if not _is_guard_object(guard):
         _raise_guard_error(
             "override_params.single_source_guard must be an object.",
             reason_code="single_source_guard_invalid_shape",
@@ -163,7 +188,7 @@ def validate_single_source_guard(override_params: dict[str, Any] | None) -> dict
             expected={"guarantee": True, "blocked_reason": None},
             actual={"guarantee": guarantee, "blocked_reason": blocked_reason},
         )
-    if not isinstance(allowed_urls, list) or allowed_count != 1 or len(allowed_urls) != 1:
+    if not _is_object_list(allowed_urls) or allowed_count != 1 or len(allowed_urls) != 1:
         _raise_guard_error(
             "override_params.single_source_guard.allowed_urls must contain exactly one URL.",
             reason_code="single_source_guard_allowed_urls_invalid",
@@ -172,10 +197,10 @@ def validate_single_source_guard(override_params: dict[str, Any] | None) -> dict
             actual={
                 "allowed_count": allowed_count,
                 "allowed_urls": allowed_urls,
-                "allowed_urls_length": len(allowed_urls) if isinstance(allowed_urls, list) else None,
+                "allowed_urls_length": len(allowed_urls) if _is_object_list(allowed_urls) else None,
             },
         )
-    if not isinstance(site_entries, list) or site_entries != allowed_urls:
+    if not _is_object_list(site_entries) or site_entries != allowed_urls:
         _raise_guard_error(
             "override_params.site_entries must exactly match single_source_guard.allowed_urls.",
             reason_code="single_source_guard_site_entries_mismatch",

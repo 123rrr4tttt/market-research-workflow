@@ -7,17 +7,18 @@ import re
 import socket
 import threading
 import time
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable
-from urllib.parse import ParseResult, parse_qsl, urlencode, urlparse, urlunparse, unquote
+from typing import Any
+from urllib.parse import ParseResult, parse_qsl, unquote, urlencode, urlparse, urlunparse
 
 import requests
-
 from app.services.ingest.retry_policy import (
     RateGate,
     RequestScope,
     parse_retry_after_seconds,
 )
+from requests import Response
 
 
 _TRACKING_QUERY_KEYS = {
@@ -336,7 +337,12 @@ def _decode_google_news_batch_execute_diagnostic(url: str) -> GoogleNewsDecodeRe
             return GoogleNewsDecodeResult(url=url, changed=False, reason="fetch_failed", retryable=True)
         if status_code >= 400:
             _google_news_batch_cache_put_negative(gn_art_id)
-            return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_article_http_error", retryable=False)
+            return GoogleNewsDecodeResult(
+                url=url,
+                changed=False,
+                reason="google_news_article_http_error",
+                retryable=False,
+            )
         article_html = str(getattr(response, "text", "") or "")
     except Exception:
         _google_news_batch_cache_put_negative(gn_art_id)
@@ -386,7 +392,12 @@ def _decode_google_news_batch_execute_diagnostic(url: str) -> GoogleNewsDecodeRe
             return GoogleNewsDecodeResult(url=url, changed=False, reason="fetch_failed", retryable=True)
         if status_code >= 400:
             _google_news_batch_cache_put_negative(gn_art_id)
-            return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_batch_http_error", retryable=False)
+            return GoogleNewsDecodeResult(
+                url=url,
+                changed=False,
+                reason="google_news_batch_http_error",
+                retryable=False,
+            )
     except Exception:
         _google_news_batch_cache_put_negative(gn_art_id)
         return GoogleNewsDecodeResult(url=url, changed=False, reason="fetch_failed", retryable=True)
@@ -409,7 +420,12 @@ def _decode_google_news_batch_execute_diagnostic(url: str) -> GoogleNewsDecodeRe
         return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_batch_parse_failed", retryable=False)
     if not _is_safe_redirect_target(decoded_url):
         _google_news_batch_cache_put_negative(gn_art_id)
-        return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_unsafe_redirect_target", retryable=False)
+        return GoogleNewsDecodeResult(
+            url=url,
+            changed=False,
+            reason="google_news_unsafe_redirect_target",
+            retryable=False,
+        )
     if decoded_url == url:
         _google_news_batch_cache_put_negative(gn_art_id)
         return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_decode_unchanged", retryable=False)
@@ -461,14 +477,8 @@ def _google_news_batch_sleep(seconds: float) -> None:
     time.sleep(seconds)
 
 
-def _response_retry_after(response: object) -> float | None:
-    headers = getattr(response, "headers", None) or {}
-    raw = None
-    for key, value in headers.items():
-        if str(key).lower() == "retry-after":
-            raw = value
-            break
-    return parse_retry_after_seconds(raw)
+def _response_retry_after(response: Response) -> float | None:
+    return parse_retry_after_seconds(response.headers.get("Retry-After"))
 
 
 _GOOGLE_NEWS_RATE_GATE = RateGate(
@@ -483,7 +493,7 @@ def _google_news_batch_acquire_network_slot() -> bool:
     return bool(_GOOGLE_NEWS_RATE_GATE.acquire(_GOOGLE_NEWS_SCOPE).acquired)
 
 
-def _google_news_batch_record_throttle(response: object | None = None) -> None:
+def _google_news_batch_record_throttle(response: Response | None = None) -> None:
     retry_after = _response_retry_after(response) if response is not None else None
     _GOOGLE_NEWS_RATE_GATE.record_throttle(
         _GOOGLE_NEWS_SCOPE,
@@ -697,7 +707,11 @@ def unwrap_url(
     return UrlUnwrapResult(url=current, changed=bool(steps), steps=steps)
 
 
-def unwrap_urls(urls: Iterable[str], *, enable_network_redirect: bool = True) -> tuple[list[str], dict[str, UrlUnwrapResult]]:
+def unwrap_urls(
+    urls: Iterable[str],
+    *,
+    enable_network_redirect: bool = True,
+) -> tuple[list[str], dict[str, UrlUnwrapResult]]:
     out: list[str] = []
     trace: dict[str, UrlUnwrapResult] = {}
     seen: set[str] = set()

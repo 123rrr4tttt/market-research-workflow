@@ -12,12 +12,16 @@ from hashlib import sha256
 import json
 from pathlib import Path
 import re
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 from urllib.parse import urlsplit
 
 from functorial_kit import Failure
 
 from .failures import retrieval_failure
+from .contracts import RetrievalJsonObject
+
+
+__all__ = ("build_hk_snapshot", "write_hk_snapshot", "_source_registry")
 
 
 _NAMES = ("分析总纲.md", "域.json", "来源池.md", "初始关键词池.md", "已固化源.md")
@@ -119,8 +123,11 @@ def _build_hk_snapshot_result(source_directory: Path, *, version: str) -> dict[s
         return _rejected("version must be an explicit safe identifier")
     raw = {name: (source_directory / name).read_bytes() for name in _NAMES}
     text = {name: raw[name].decode("utf-8") for name in _NAMES}
-    vocabulary = json.loads(text["域.json"])
-    if not isinstance(vocabulary, dict) or set(vocabulary) != {
+    vocabulary_value: object = json.loads(text["域.json"])
+    if not isinstance(vocabulary_value, dict):
+        return _rejected("域.json must contain exactly the seven domain fields")
+    vocabulary = cast(dict[str, Any], vocabulary_value)
+    if set(vocabulary) != {
         "域名", "节点类型", "边类型", "问题意识视角", "大纲节", "池", "档"
     }:
         return _rejected("域.json must contain exactly the seven domain fields")
@@ -174,8 +181,8 @@ def _build_hk_snapshot_result(source_directory: Path, *, version: str) -> dict[s
     sections = re.findall(r"^### ([1-4]) (.+)$", outline, flags=re.MULTILINE)
     if [section for section, _ in sections] != vocabulary["大纲节"]:
         return _rejected("outline sections differ from 域.json")
-    summary = {
-        "title": vocabulary["域名"],
+    summary: dict[str, Any] = {
+        "title": str(vocabulary["域名"]),
         "sections": [{"section": section, "label": label} for section, label in sections],
         "research_scope": (
             "从水文运动、供水、排水河流、港湾与生活现场调查物质过程、社会关系、阶级意识和文化再生产；"
@@ -204,7 +211,7 @@ def _build_hk_snapshot_result(source_directory: Path, *, version: str) -> dict[s
 
 
 def build_hk_snapshot(source_directory: Path, *, version: str) -> Annotated[
-    dict[str, Any],
+    RetrievalJsonObject,
     "kit:non-authoritative derived_as=view fact_source=source_owned_five_files+version witness=test:test_build_hk_snapshot_derives_declared_sources",
 ]:
     """Read five source-owned files and derive one versioned declaration."""
@@ -212,10 +219,10 @@ def build_hk_snapshot(source_directory: Path, *, version: str) -> Annotated[
     if isinstance(result, Failure):
         # kit:boundary owner=project_retrieval.hk_loader.authoring_import class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=project_retrieval.failure witness=test:test_build_hk_snapshot_rejects_invalid_version
         raise ValueError(result.message)
-    return result
+    return cast(RetrievalJsonObject, result)
 
 
-def write_hk_snapshot(snapshot: dict[str, Any], destination: Path) -> None:
+def write_hk_snapshot(snapshot: RetrievalJsonObject, destination: Path) -> None:
     """Explicitly persist an authored snapshot without overwriting a version."""
     if destination.exists():
         previous = json.loads(destination.read_text(encoding="utf-8"))

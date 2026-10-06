@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ..contracts import ErrorCode, error_response, success_response
-from ..services.projects.context import _normalize_project_key
+from ..services.projects.context import normalize_project_key
 from ..services.typed_knowledge import contracts
 from ..services.typed_knowledge.adapters import live_service
 from ..services.typed_knowledge import persistence_boundary
@@ -73,7 +73,7 @@ class TypedKnowledgeGovernanceReviewStateRequest(BaseModel):
 
 
 def _typed_project_key(project_key: str | None) -> str:
-    return _normalize_project_key(str(project_key or "demo_proj"))
+    return normalize_project_key(str(project_key or "demo_proj"))
 
 
 def _required_write_project_key(
@@ -92,12 +92,12 @@ def _required_write_project_key(
                 "next_action": "retry_with_explicit_project_key",
             },
         }
-    normalized_project_key = _normalize_project_key(raw_project_key)
-    fallback_project_key = _normalize_project_key("")
+    normalized_project_key = normalize_project_key(raw_project_key)
+    fallback_project_key = normalize_project_key("")
     identity_probe = "typed_knowledge_request_identity"
     retains_request_identity = (
-        _normalize_project_key(f"{raw_project_key}_{identity_probe}")
-        != _normalize_project_key(identity_probe)
+        normalize_project_key(f"{raw_project_key}_{identity_probe}")
+        != normalize_project_key(identity_probe)
     )
     if normalized_project_key == "public" or (
         normalized_project_key == fallback_project_key and not retains_request_identity

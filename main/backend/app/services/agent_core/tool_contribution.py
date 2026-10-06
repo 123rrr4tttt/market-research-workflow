@@ -8,7 +8,7 @@ caller explicitly invokes the registered handler.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -91,9 +91,6 @@ def _invalid(*issues: tuple[str, str]) -> Failure:
 
 
 def lower_project_tool_source(source: ProjectToolAuthorSource) -> FacilityBinding | Failure:
-    if not isinstance(source, ProjectToolAuthorSource):
-        return _invalid(("$.source", "source must be a ProjectToolAuthorSource"))
-
     issues: list[tuple[str, str]] = []
     for name in (
         "binding_id",
@@ -105,40 +102,34 @@ def lower_project_tool_source(source: ProjectToolAuthorSource) -> FacilityBindin
         "readback_semantics",
     ):
         value = getattr(source, name)
-        if not isinstance(value, str) or not value.strip():
+        if not value.strip():
             issues.append((f"$.source.{name}", "nonempty semantic reference required"))
-    if not isinstance(source.tool_spec, CoreToolSpec):
-        issues.append(("$.source.tool_spec", "tool_spec must be a CoreToolSpec"))
-    else:
-        if not isinstance(source.tool_spec.name, str) or not source.tool_spec.name.strip():
-            issues.append(("$.source.tool_spec.name", "tool name is required"))
-        if (
-            not isinstance(source.tool_spec.description_for_model, str)
-            or not source.tool_spec.description_for_model.strip()
-        ):
-            issues.append((
-                "$.source.tool_spec.description_for_model",
-                "model description is required",
-            ))
-        if (
-            not isinstance(source.tool_spec.input_schema, Mapping)
-            or source.tool_spec.input_schema.get("type") != "object"
-        ):
-            issues.append((
-                "$.source.tool_spec.input_schema",
-                "tool input schema must describe an object",
-            ))
-    if not callable(source.handler):
+    if not source.tool_spec.name.strip():
+        issues.append(("$.source.tool_spec.name", "tool name is required"))
+    if not source.tool_spec.description_for_model.strip():
+        issues.append((
+            "$.source.tool_spec.description_for_model",
+            "model description is required",
+        ))
+    if source.tool_spec.input_schema.get("type") != "object":
+        issues.append((
+            "$.source.tool_spec.input_schema",
+            "tool input schema must describe an object",
+        ))
+    if source.handler is None:
         issues.append(("$.source.handler", "tool contribution needs an actual handler"))
     if issues:
         return _invalid(*issues)
+    handler = source.handler
+    if handler is None:
+        return _invalid(("$.source.handler", "tool contribution needs an actual handler"))
 
     try:
         return FacilityBinding(
             binding_id=source.binding_id,
             version=source.version,
             tool_spec=source.tool_spec,
-            handler=source.handler,
+            handler=handler,
             executor_ref=source.executor_ref,
             scope_source=source.scope_source,
             permission_source=source.permission_source,
@@ -181,10 +172,7 @@ def assemble_project_tool_definition(
     definition: FacilityBinding,
     context: ProjectToolAssemblyContext,
 ) -> ProjectToolBinding | Failure:
-    if (
-        not isinstance(context, ProjectToolAssemblyContext)
-        or context.registry_owner != PROJECT_TOOL_REGISTRY_OWNER
-    ):
+    if context.registry_owner != PROJECT_TOOL_REGISTRY_OWNER:
         return _invalid((
             "$.context.registry_owner",
             "project tool must target the existing CoreToolRegistry",

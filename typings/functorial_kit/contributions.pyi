@@ -1,6 +1,6 @@
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Generic, Protocol, TypeVar
+from typing import Generic, Never, Protocol, TypeVar
 from .core.failure import Failure, FailureFamily
 from .core.vocab import Vocabulary
 
@@ -9,8 +9,8 @@ from .core.vocab import Vocabulary
 The descriptions are pure: defining and composing them never invokes a factory. Assembly is
 an explicit runtime operation and therefore lives on the composed value, not in projection.
 """
-Context = TypeVar("Context")
-Binding = TypeVar("Binding")
+Context = TypeVar("Context", contravariant=True)
+Binding = TypeVar("Binding", covariant=True)
 contribution_failures: FailureFamily
 @dataclass(frozen=True, slots=True)
 class ContributionObject:
@@ -42,8 +42,12 @@ class ContributionCodec(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class ContributionCatalog:
-    """Trusted local catalog module result; it contains declarations only."""
-    contributions: tuple[Contribution[Any, Any], ...]
+    """Heterogeneous declarations have no shared assembly context.
+
+    ``Never`` keeps their factories unavailable through this metadata view;
+    native typed contributions retain their own context and binding association.
+    """
+    contributions: tuple[Contribution[Never, object], ...]
     registries_dir: str | None = ...
     sketches_path: str | None = ...
 
@@ -91,7 +95,7 @@ class ContributionRegistries:
 
 @dataclass(frozen=True, slots=True)
 class ComposedContributions(Generic[Context, Binding]):
-    contributions: tuple[Contribution[Any, Any], ...] = ...
+    contributions: tuple[Contribution[Context, Binding], ...] = ...
     objects: tuple[ContributionObject, ...] = ...
     registry_entries: ContributionRegistries = ...
     sketches: tuple[Mapping[str, object], ...] = ...
@@ -101,7 +105,7 @@ class ComposedContributions(Generic[Context, Binding]):
 
 
 
-def compose_contributions(contributions: Sequence[Contribution[Any, Any]]) -> ComposedContributions[Any, Any] | Failure:
+def compose_contributions(contributions: Sequence[Contribution[Context, Binding]]) -> ComposedContributions[Context, Binding] | Failure:
     """Validate typed declarations and compose them in input order.
 
     All validation issues are collected before one ``Failure`` is returned. Malformed specs are

@@ -9,9 +9,10 @@ manufacture evidence.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Literal, get_args
+from typing import Literal, get_args
 
 from functorial_kit import define_codec, define_failure_family, define_vocabulary
+from functorial_kit.core.failure import Failure
 
 
 ScheduledAutomationStatus = Literal["passed", "blocked"]
@@ -88,7 +89,7 @@ scheduled_automation_failures = define_failure_family(
 )
 
 
-def _parse_report(value: Mapping[str, Any]) -> Mapping[str, Any]:
+def _parse_report(value: Mapping[str, object]) -> Mapping[str, object] | Failure:
     status = value.get("status")
     if status not in scheduled_automation_statuses.members:
         return scheduled_automation_failures.fail(

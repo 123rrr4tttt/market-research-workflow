@@ -5,11 +5,12 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from sqlalchemy import text
+from sqlalchemy.engine import Connection
+from sqlalchemy.sql.schema import Table
 
 from .models.base import Base, engine
 from .models.information_topology_entities import InformationTopologyLink, InformationTopologyState
-from .models.project_retrieval import ProjectRetrievalMode, ProjectRetrievalPlan, ProjectRetrievalRun
-from .models.base import SessionLocal
+from .models.project_retrieval import project_retrieval_tables
 from .settings.config import settings
 from .services.projects.schema_initialization import (
     initialize_default_project_schema,
@@ -59,16 +60,20 @@ def register_startup_hooks(app: FastAPI) -> None:
     logger = logging.getLogger("app")
 
     app.state.information_topology_service = build_topology_service()
-    @app.on_event("startup")
+
     def _ensure_default_project_schema() -> None:
         initialize_default_project_schema(logger_obj=logger)
+
+    app.router.add_event_handler("startup", _ensure_default_project_schema)
 
     def _is_missing_vector_type(exc: Exception) -> bool:
         message = str(exc).lower()
         return "vector" in message and "does not exist" in message
 
-    def _create_tenant_tables_best_effort(schema_name: str, tenant_tables: list) -> None:
-        def _create(conn: object) -> None:
+    def _create_tenant_tables_best_effort(
+        schema_name: str, tenant_tables: list[Table]
+    ) -> None:
+        def _create(conn: Connection) -> None:
             conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
             conn.execute(text(f'SET search_path TO "{schema_name}", public'))
             for table in tenant_tables:
@@ -79,7 +84,8 @@ def register_startup_hooks(app: FastAPI) -> None:
                     table_name = getattr(table, "name", "")
                     if table_name == "embeddings" and _is_missing_vector_type(exc):
                         logger.warning(
-                            "skip embeddings table for schema=%s because vector type is unavailable in current search_path: %s",
+                            "skip embeddings table for schema=%s because vector type is unavailable "
+                            "in current search_path: %s",
                             schema_name,
                             exc,
                         )
@@ -92,7 +98,6 @@ def register_startup_hooks(app: FastAPI) -> None:
             operation=_create,
         )
 
-    @app.on_event("startup")
     def _ensure_bootstrap_projects() -> None:
         """
         Bootstrap control-plane projects with neutral defaults.
@@ -102,15 +107,19 @@ def register_startup_hooks(app: FastAPI) -> None:
         - All projects are peers. "public" schema is reserved for control-plane and shared tables.
         """
         try:
-            def _bootstrap(conn: object) -> None:
+            def _bootstrap(conn: Connection) -> None:
                 conn.execute(text('SET search_path TO "public"'))
 
-                count = conn.execute(text("SELECT COUNT(*) FROM public.projects")).scalar() or 0
-                if int(count) == 0 and bool(getattr(settings, "bootstrap_create_initial_project", False)):
+                raw_count = conn.execute(text("SELECT COUNT(*) FROM public.projects")).scalar()
+                count = raw_count if isinstance(raw_count, int) else 0
+                if count == 0 and settings.bootstrap_create_initial_project:
                     conn.execute(
                         text(
                             """
-                            INSERT INTO public.projects(project_key, name, schema_name, enabled, is_active, created_at, updated_at)
+                            INSERT INTO public.projects(
+                                project_key, name, schema_name, enabled,
+                                is_active, created_at, updated_at
+                            )
                             VALUES (:project_key, :name, :schema_name, true, true, now(), now())
                             """
                         ),
@@ -120,16 +129,20 @@ def register_startup_hooks(app: FastAPI) -> None:
                             "schema_name": "project_business_survey",
                         },
                     )
-                elif int(count) == 0:
+                elif count == 0:
                     logging.getLogger("app").info(
                         "project bootstrap skipped: no projects found and bootstrap_create_initial_project=false"
                     )
 
-                has_public_docs = conn.execute(text("SELECT to_regclass('public.documents') IS NOT NULL")).scalar()
+                public_docs_value = conn.execute(
+                    text("SELECT to_regclass('public.documents') IS NOT NULL")
+                ).scalar()
+                has_public_docs = public_docs_value is True
                 neutral_schema = f'{settings.project_schema_prefix}{settings.active_project_key}'
-                has_target_docs = conn.execute(
+                target_docs_value = conn.execute(
                     text(f"SELECT to_regclass('{neutral_schema}.documents') IS NOT NULL")
                 ).scalar()
+                has_target_docs = target_docs_value is True
                 if has_public_docs and not has_target_docs:
                     conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{neutral_schema}"'))
                     tenant_tables = [
@@ -164,9 +177,10 @@ def register_startup_hooks(app: FastAPI) -> None:
         except Exception as exc:  # noqa: BLE001
             logging.getLogger("app").warning("failed to bootstrap projects: %s", exc)
 
-    @app.on_event("startup")
+    app.router.add_event_handler("startup", _ensure_bootstrap_projects)
+
     def _ensure_all_project_schemas_ready() -> None:
-        tenant_tables = [
+        tenant_tables: list[Table] = [
             Source.__table__,
             Document.__table__,
             MarketStat.__table__,
@@ -193,23 +207,22 @@ def register_startup_hooks(app: FastAPI) -> None:
             WritingDocumentCitation.__table__,
             InformationTopologyState.__table__,
             InformationTopologyLink.__table__,
-            ProjectRetrievalMode.__table__,
-            ProjectRetrievalPlan.__table__,
-            ProjectRetrievalRun.__table__,
+            *project_retrieval_tables(),
         ]
         try:
             with engine.begin() as conn:
                 rows = conn.execute(
                     text("SELECT project_key, schema_name FROM public.projects WHERE enabled = true")
                 ).fetchall()
-            for _project_key, schema_name in rows:
-                if not schema_name:
+            for _project_key, schema_name_value in rows:
+                if not isinstance(schema_name_value, str) or not schema_name_value:
                     continue
-                _create_tenant_tables_best_effort(schema_name, tenant_tables)
+                _create_tenant_tables_best_effort(schema_name_value, tenant_tables)
         except Exception as exc:  # noqa: BLE001
             logger.warning("failed to ensure project schemas ready: %s", exc)
 
-    @app.on_event("startup")
+    app.router.add_event_handler("startup", _ensure_all_project_schemas_ready)
+
     def _sync_llm_prompts_from_files() -> None:
         try:
             from scripts.sync_llm_prompts import sync_prompts
@@ -221,9 +234,10 @@ def register_startup_hooks(app: FastAPI) -> None:
         except Exception as exc:  # noqa: BLE001
             logging.getLogger("app").warning("LLM prompts sync failed: %s", exc)
 
-    @app.on_event("startup")
+    app.router.add_event_handler("startup", _sync_llm_prompts_from_files)
+
     def _ensure_shared_library_tables_ready() -> None:
-        shared_tables = [
+        shared_tables: list[Table] = [
             AgentSession.__table__,
             AgentTask.__table__,
             AgentMessage.__table__,
@@ -239,7 +253,7 @@ def register_startup_hooks(app: FastAPI) -> None:
             WorkflowGraphEvent.__table__,
         ]
         try:
-            def _create_shared_tables(conn: object) -> None:
+            def _create_shared_tables(conn: Connection) -> None:
                 conn.execute(text('SET search_path TO "public"'))
                 Base.metadata.create_all(bind=conn, tables=shared_tables, checkfirst=True)
 
@@ -250,3 +264,5 @@ def register_startup_hooks(app: FastAPI) -> None:
             )
         except Exception as exc:  # noqa: BLE001
             logging.getLogger("app").warning("failed to ensure shared source-library tables ready: %s", exc)
+
+    app.router.add_event_handler("startup", _ensure_shared_library_tables_ready)

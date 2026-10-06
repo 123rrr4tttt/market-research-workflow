@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Literal, TypeGuard
 from uuid import uuid4
+
+from app.contracts.json import JSONObject as JSONObject, JSONValue as JSONValue
 
 
 CoreEventType = Literal["tool_progress"]
@@ -14,6 +17,100 @@ ToolSource = Literal["builtin", "project", "skill", "mcp", "legacy_adapter"]
 ToolStatus = Literal["completed", "failed", "canceled", "needs_approval", "deferred"]
 AGENT_CORE_TOOL_CALL_CONTRACT_VERSION = "agent_core.tool_call_shape.v1"
 CORE_TOOL_CALL_REQUIRED_KEYS = ("call_id", "tool_name", "arguments", "reason")
+
+
+def _is_json_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_json_sequence(value: object) -> TypeGuard[Sequence[object]]:
+    return isinstance(value, (list, tuple))
+
+
+def _json_text(value: object) -> str:
+    return str(value or "").strip()
+
+
+def compact_json_value(
+    value: object,
+    *,
+    max_items: int = 30,
+    max_depth: int = 5,
+    max_string: int = 500,
+) -> JSONValue:
+    """Project an arbitrary result into bounded model-visible JSON."""
+
+    if max_depth <= 0:
+        if _is_json_mapping(value) or _is_json_sequence(value):
+            return "[truncated]"
+        if value is None or isinstance(value, (str, bool, int, float)):
+            return value
+        return str(value)
+    if _is_json_mapping(value):
+        compacted_object: dict[str, JSONValue] = {}
+        for index, (key, item) in enumerate(value.items()):
+            if index >= max_items:
+                compacted_object["_truncated"] = True
+                compacted_object["_omitted_count"] = max(0, len(value) - max_items)
+                break
+            compacted_object[_json_text(key)] = compact_json_value(
+                item,
+                max_items=max_items,
+                max_depth=max_depth - 1,
+                max_string=max_string,
+            )
+        return compacted_object
+    if _is_json_sequence(value):
+        items = list(value)
+        compacted_sequence: list[JSONValue] = [
+            compact_json_value(
+                item,
+                max_items=max_items,
+                max_depth=max_depth - 1,
+                max_string=max_string,
+            )
+            for item in items[:max_items]
+        ]
+        if len(items) > max_items:
+            compacted_sequence.append(
+                {"_truncated": True, "_omitted_count": len(items) - max_items}
+            )
+        return compacted_sequence
+    if isinstance(value, str):
+        return value[:max_string] + "..." if len(value) > max_string else value
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    return str(value)
+
+
+def _json_value(value: object) -> JSONValue:
+    """Normalize JSON without the bounded result projection used above."""
+
+    if _is_json_mapping(value):
+        return {str(key): _json_value(item) for key, item in value.items()}
+    if _is_json_sequence(value):
+        return [_json_value(item) for item in value]
+    if value is None or isinstance(value, (str, bool, int, float)):
+        return value
+    return str(value)
+
+
+def json_object(value: object) -> JSONObject:
+    normalized = _json_value(value)
+    if not isinstance(normalized, Mapping):
+        return {}
+    return {str(key): item for key, item in normalized.items()}
+
+
+def json_list(value: object) -> list[JSONValue]:
+    normalized = _json_value(value)
+    if isinstance(normalized, Sequence) and not isinstance(normalized, str):
+        return list(normalized)
+    return []
+
+
+def json_strings(values: Sequence[str]) -> list[JSONValue]:
+    return list[JSONValue](values)
 
 
 def utcnow_iso() -> str:
@@ -28,7 +125,7 @@ def new_core_id(prefix: str) -> str:
 class CoreEvent:
     event_type: CoreEventType
     session_id: str
-    payload: dict[str, Any] = field(default_factory=dict)
+    payload: JSONObject = field(default_factory=lambda: {})
     event_id: str = field(default_factory=lambda: new_core_id("evt"))
     turn_id: str | None = None
     call_id: str | None = None
@@ -36,8 +133,8 @@ class CoreEvent:
     created_at: str = field(default_factory=utcnow_iso)
     version: int = 1
 
-    def to_dict(self) -> dict[str, Any]:
-        out = {
+    def to_dict(self) -> JSONObject:
+        out: JSONObject = {
             "event_id": self.event_id,
             "event_type": self.event_type,
             "session_id": self.session_id,
@@ -58,8 +155,8 @@ class CoreToolSpec:
     name: str
     description_for_model: str
     title: str | None = None
-    input_schema: dict[str, Any] = field(default_factory=lambda: {"type": "object", "properties": {}})
-    output_schema: dict[str, Any] = field(default_factory=lambda: {"type": "object", "additionalProperties": True})
+    input_schema: JSONObject = field(default_factory=lambda: {"type": "object", "properties": {}})
+    output_schema: JSONObject = field(default_factory=lambda: {"type": "object", "additionalProperties": True})
     source: ToolSource = "project"
     risk: ToolRisk = "read_only"
     permission: ToolPermission = "allow"
@@ -69,9 +166,9 @@ class CoreToolSpec:
     mcp_server: str | None = None
     skill_id: str | None = None
     project_service_id: str | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: JSONObject = field(default_factory=lambda: {})
 
-    def to_model_tool(self) -> dict[str, Any]:
+    def to_model_tool(self) -> JSONObject:
         return {
             "name": self.name,
             "title": self.title or self.name,
@@ -83,7 +180,7 @@ class CoreToolSpec:
             "concurrency": self.concurrency,
         }
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> JSONObject:
         return {
             "name": self.name,
             "title": self.title or self.name,
@@ -106,11 +203,11 @@ class CoreToolSpec:
 @dataclass(frozen=True)
 class CoreToolCall:
     tool_name: str
-    arguments: dict[str, Any] = field(default_factory=dict)
+    arguments: JSONObject = field(default_factory=lambda: {})
     call_id: str = field(default_factory=lambda: new_core_id("call"))
     reason: str | None = None
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> JSONObject:
         return {
             "call_id": self.call_id,
             "tool_name": self.tool_name,
@@ -123,11 +220,13 @@ def core_tool_call_contract_shape(
     tool_call: CoreToolCall,
     *,
     provider_key: str | None = None,
-) -> dict[str, Any]:
+) -> JSONObject:
     """Return the stable model-to-runtime tool-call shape used by provider gates."""
 
     payload = tool_call.to_dict()
     missing = [key for key in CORE_TOOL_CALL_REQUIRED_KEYS if key not in payload]
+    arguments_value = payload.get("arguments")
+    arguments = dict(arguments_value) if isinstance(arguments_value, Mapping) else {}
     return {
         "contract_version": AGENT_CORE_TOOL_CALL_CONTRACT_VERSION,
         "provider_key": provider_key,
@@ -136,14 +235,14 @@ def core_tool_call_contract_shape(
         "missing_keys": missing,
         "call_id": str(payload.get("call_id") or ""),
         "tool_name": str(payload.get("tool_name") or ""),
-        "arguments_type": "object" if isinstance(payload.get("arguments"), dict) else type(payload.get("arguments")).__name__,
-        "arguments": dict(payload.get("arguments") or {}) if isinstance(payload.get("arguments"), dict) else {},
+        "arguments_type": "object" if isinstance(arguments_value, Mapping) else type(arguments_value).__name__,
+        "arguments": arguments,
         "reason_present": bool(str(payload.get("reason") or "").strip()),
         "shape_status": "valid"
         if not missing
         and bool(str(payload.get("call_id") or "").strip())
         and bool(str(payload.get("tool_name") or "").strip())
-        and isinstance(payload.get("arguments"), dict)
+        and isinstance(arguments_value, Mapping)
         else "invalid",
     }
 
@@ -155,13 +254,13 @@ class CoreToolResult:
     status: ToolStatus
     model_summary: str
     ui_summary: str | None = None
-    structured_content: dict[str, Any] = field(default_factory=dict)
+    structured_content: JSONObject = field(default_factory=lambda: {})
     artifact_refs: tuple[str, ...] = ()
-    error: dict[str, Any] | None = None
+    error: JSONObject | None = None
     retry_hint: str | None = None
 
-    def to_dict(self) -> dict[str, Any]:
-        out = {
+    def to_dict(self) -> JSONObject:
+        out: JSONObject = {
             "call_id": self.call_id,
             "tool_name": self.tool_name,
             "status": self.status,
@@ -183,4 +282,4 @@ class AgentCoreRequest:
     session_id: str
     project_key: str | None = None
     turn_id: str = field(default_factory=lambda: new_core_id("turn"))
-    context: dict[str, Any] = field(default_factory=dict)
+    context: JSONObject = field(default_factory=lambda: {})

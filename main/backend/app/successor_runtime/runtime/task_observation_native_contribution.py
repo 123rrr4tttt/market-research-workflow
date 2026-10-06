@@ -9,8 +9,10 @@ Program execution evidence.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Final, Literal
+from datetime import datetime
+from typing import TYPE_CHECKING, Final, Literal, Protocol, TypeAlias
 
 from functorial_kit.contribution_compiler import (
     NativeContributionRule,
@@ -30,6 +32,7 @@ from functorial_kit.native_contribution import (
     BindingAccepted,
     BindingRejected,
     NativeBindingIssue,
+    NativeContribution,
     ProjectedContributionSpec,
 )
 
@@ -42,8 +45,15 @@ from app.successor_runtime.assembly.task_observation_assembly import (
     TASK_OBSERVATION_FAMILY_ID,
     ProcessLineEventReadbackRouteHandler,
     TaskEffectReconcileRouteHandler,
-    build_task_observation_assembly,
     build_deterministic_reconciliation_binding,
+    build_task_observation_assembly,
+)
+from app.successor_runtime.capabilities.line_event_readback_port import (
+    LineEventReadbackRecord,
+)
+from app.successor_runtime.runtime.observations import LegacySourceObservation
+from app.successor_runtime.runtime.process_observation import (
+    ProcessObservationProjection,
 )
 from app.successor_runtime.runtime.reconciliation import (
     AuthoritativeEffectReadback,
@@ -51,7 +61,11 @@ from app.successor_runtime.runtime.reconciliation import (
 )
 from mrw_functorial_kit.core.w07_semantics import runtime_failures
 
-from .ports import PostgresAgentSessionReadAdapter, PostgresRuntimeRunProjector
+from .ports import (
+    ProjectionAuthority,
+    runtime_run_projector_authority,
+    session_observation_projector_authority,
+)
 from .process_observation import (
     LINE_EVENT_READBACK_PROJECTOR_REF,
     PROCESS_OBSERVATION_PROJECTOR_REF,
@@ -59,9 +73,15 @@ from .process_observation import (
 )
 
 if TYPE_CHECKING:
-    from app.successor_runtime.assembly.base import TaskObservationAssemblyOptions, FamilyAssembly
+    from app.successor_runtime.assembly.base import (
+        FamilyAssembly,
+        TaskObservationAssemblyOptions,
+    )
 else:  # assembly option import remains safe/inert for definition compilation
-    from app.successor_runtime.assembly.base import TaskObservationAssemblyOptions, FamilyAssembly
+    from app.successor_runtime.assembly.base import (
+        FamilyAssembly,
+        TaskObservationAssemblyOptions,
+    )
 
 
 __all__ = [
@@ -70,6 +90,7 @@ __all__ = [
     "TASK_OBSERVATION_NATIVE_VERIFICATION_INPUTS",
     "TaskObservationAssemblyContext",
     "TaskObservationNativeDefinition",
+    "TaskObservationNativeContribution",
     "TaskObservationNativeRuntimeBinding",
     "DEFAULT_TASK_OBSERVATION_NATIVE_SOURCE",
     "NON_DEFAULT_TASK_OBSERVATION_NATIVE_SOURCE",
@@ -89,13 +110,13 @@ TASK_OBSERVATION_NATIVE_VERIFICATION_INPUTS: Final = (
     "mrw.task.observation-authority",
 )
 
-TaskObservationCellId = Literal[
-    SESSION_OBSERVATION_CELL_ID,
-    TASK_EFFECT_RECONCILE_CELL_ID,
-    RUN_OBSERVATION_CELL_ID,
-    PROCESS_OBSERVATION_CELL_ID,
+TaskObservationCellId: TypeAlias = Literal[
+    "task.session-observation.project.v1",
+    "runtime.effect.reconcile.v1",
+    "runtime.event.project.v1",
+    "process.observation.project.v1",
 ]
-TaskObservationCellRole = Literal[
+TaskObservationCellRole: TypeAlias = Literal[
     "session_observation_projection",
     "effect_reconciliation_readback",
     "runtime_run_projection",
@@ -126,14 +147,17 @@ class TaskObservationNativeSource:
     rollback_refs: tuple[str, ...]
     requires_reconciliation_route: bool = True
     projector_source_keys: tuple[tuple[TaskObservationCellId, ProjectorSourceKey], ...] = ()
-    line_event_readback_records: tuple[object, ...] | None = None
+    line_event_readback_records: tuple[LineEventReadbackRecord, ...] | None = None
     production_canonical_write: bool = False
     durable_evidence_authorized: bool = False
     registry_metadata_is_execution_evidence: bool = False
 
     @property
-    def projector_key_map(self) -> dict[TaskObservationCellId, ProjectorSourceKey]:
-        return dict(self.projector_source_keys)
+    def projector_key_map(self) -> dict[str, ProjectorSourceKey]:
+        projector_keys: dict[str, ProjectorSourceKey] = {}
+        for cell_id, key in self.projector_source_keys:
+            projector_keys[cell_id] = key
+        return projector_keys
 
 
 _DEFAULT_RECONCILER_REF = (
@@ -238,14 +262,25 @@ def _definition_issues(source: TaskObservationNativeSource) -> tuple[NativeBindi
     return issues
 
 
+class ProcessObservationProjector(Protocol):
+    """Exact pure process-observation projection callable."""
+
+    def __call__(
+        self,
+        observations: Iterable[LegacySourceObservation],
+        *,
+        captured_at: datetime,
+    ) -> ProcessObservationProjection | Failure: ...
+
+
 @dataclass(frozen=True, slots=True)
 class TaskObservationNativeDefinition:
     source: TaskObservationNativeSource
     reconciler: type[EffectReconciler]
-    readback_contract: object
-    session_projector: type[PostgresAgentSessionReadAdapter]
-    runtime_projector: type[PostgresRuntimeRunProjector]
-    process_observation_projector: object
+    readback_contract: type[AuthoritativeEffectReadback]
+    session_projector: type[ProjectionAuthority]
+    runtime_projector: type[ProjectionAuthority]
+    process_observation_projector: ProcessObservationProjector
     line_event_projector_ref: str
 
     @property
@@ -316,8 +351,8 @@ def lower_task_observation_native_source(source: TaskObservationNativeSource) ->
         source=source,
         reconciler=EffectReconciler,
         readback_contract=AuthoritativeEffectReadback,
-        session_projector=PostgresAgentSessionReadAdapter,
-        runtime_projector=PostgresRuntimeRunProjector,
+        session_projector=session_observation_projector_authority(),
+        runtime_projector=runtime_run_projector_authority(),
         process_observation_projector=try_join_process_observations,
         line_event_projector_ref=LINE_EVENT_READBACK_PROJECTOR_REF,
     )
@@ -490,7 +525,11 @@ def validate_task_observation_native_binding(
 
 def verify_task_observation_native_definition(
     definition: TaskObservationNativeDefinition,
-    native: object,
+    native: NativeContribution[
+        TaskObservationNativeDefinition,
+        TaskObservationAssemblyContext,
+        TaskObservationNativeRuntimeBinding,
+    ],
 ) -> ContributionVerification | Failure:
     """Return an inert definition law; it does not prove handler execution."""
 
@@ -501,11 +540,12 @@ def verify_task_observation_native_definition(
             (not _definition_issues(definition.source), "definition issues"),
             (definition.reconciler is EffectReconciler, "effect reconciler identity"),
             (
-                definition.session_projector is PostgresAgentSessionReadAdapter,
+                definition.session_projector
+                is session_observation_projector_authority(),
                 "session observation projector identity",
             ),
             (
-                definition.runtime_projector is PostgresRuntimeRunProjector,
+                definition.runtime_projector is runtime_run_projector_authority(),
                 "runtime run projector identity",
             ),
             (
@@ -551,8 +591,16 @@ TASK_OBSERVATION_NATIVE_CONTRIBUTION_RULE = NativeContributionRule[
     verification=verify_task_observation_native_definition,
 )
 
+TaskObservationNativeContribution: TypeAlias = NativeContribution[
+    TaskObservationNativeDefinition,
+    TaskObservationAssemblyContext,
+    TaskObservationNativeRuntimeBinding,
+]
 
-def compile_task_observation_native_contribution(source: TaskObservationNativeSource) -> object:
+
+def compile_task_observation_native_contribution(
+    source: TaskObservationNativeSource,
+) -> TaskObservationNativeContribution | Failure:
     return compile_native_contribution(source, TASK_OBSERVATION_NATIVE_CONTRIBUTION_RULE)
 
 
@@ -594,7 +642,7 @@ DEFAULT_TASK_OBSERVATION_NATIVE_SOURCE = TaskObservationNativeSource(
     requires_reconciliation_route=True,
 )
 
-ASSEMBLY_CELL_IDS: Final = tuple(
+ASSEMBLY_CELL_IDS: Final[tuple[TaskObservationCellId, ...]] = tuple(
     cell.cell_id for cell in DEFAULT_TASK_OBSERVATION_NATIVE_SOURCE.cells
 )
 

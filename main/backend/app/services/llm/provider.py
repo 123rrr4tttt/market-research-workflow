@@ -4,7 +4,12 @@ from typing import TYPE_CHECKING, Self
 from types import SimpleNamespace
 
 from . import cache  # ensure cache setup on import
-from .ports import ChatModelOptions, LLMProviderPort, resolve_llm_provider
+from .ports import (
+    ChatModelOptions,
+    LLMJsonValue,
+    LLMProviderPort,
+    resolve_llm_provider,
+)
 from ...settings.config import settings
 
 _cache = cache
@@ -24,7 +29,7 @@ def get_chat_model(
     top_p: float | None = None,
     presence_penalty: float | None = None,
     frequency_penalty: float | None = None,
-    **kwargs: object,
+    **kwargs: LLMJsonValue,
 ) -> ChatModel:
     """按 composition 注册的 provider port 解析聊天模型。"""
     options = ChatModelOptions(
@@ -34,7 +39,7 @@ def get_chat_model(
         top_p=top_p,
         presence_penalty=presence_penalty,
         frequency_penalty=frequency_penalty,
-        extra=kwargs or {},
+        extra=dict(kwargs),
     )
     return _provider().get_chat_model(options)
 
@@ -46,7 +51,7 @@ def get_embeddings(model: str | None = None) -> EmbeddingModel:
 def get_local_fallback_chat(
     model: str | None = None,
     temperature: float = 0.0,
-    **kwargs: object,
+    **kwargs: LLMJsonValue,
 ) -> _LightChat:
     """返回轻量本地兜底 Chat 对象。
 
@@ -58,7 +63,7 @@ def get_local_fallback_chat(
         ChatModelOptions(
             model=model,
             temperature=temperature,
-            extra=kwargs or {},
+            extra=dict(kwargs),
         )
     )
 

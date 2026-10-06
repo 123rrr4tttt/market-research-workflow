@@ -158,6 +158,31 @@ class APILayerStandardsGuardTests(unittest.TestCase):
         self.assertIn("Stale HTTPException allowlist entries", output)
         self.assertIn("gone.py|raise HTTPException", output)
 
+    def test_removing_or_splitting_imports_preserves_exact_name_allowances(self) -> None:
+        self.model_allowlist.write_text(
+            "alpha.py|from ..models.entities import Document, Source, Topic\n",
+            encoding="utf-8",
+        )
+        self._write_api("alpha.py", "from ..models.entities import Document\nfrom ..models.entities import Topic\n")
+        self.assertEqual(self._run()[0], 0)
+
+    def test_new_import_name_alias_file_or_module_is_rejected(self) -> None:
+        self.model_allowlist.write_text(
+            "alpha.py|from ..models.entities import Document, Source\n",
+            encoding="utf-8",
+        )
+        for filename, source in (
+            ("alpha.py", "from ..models.entities import Document, Topic\n"),
+            ("alpha.py", "from ..models.entities import Document as Other\n"),
+            ("beta.py", "from ..models.entities import Document\n"),
+            ("alpha.py", "from ..models.other import Document\n"),
+        ):
+            with self.subTest(filename=filename, source=source):
+                for old in self.api_dir.glob("*.py"):
+                    old.unlink()
+                self._write_api(filename, source)
+                self.assertEqual(self._run()[0], 1)
+
     def test_malformed_allowance_fails_closed(self) -> None:
         self._write_api(
             "alpha.py",

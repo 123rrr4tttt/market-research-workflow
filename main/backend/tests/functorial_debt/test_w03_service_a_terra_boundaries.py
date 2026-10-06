@@ -8,12 +8,15 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy.exc import ProgrammingError
 
+from mrw_functorial_kit.core.provider_port_failures import collect_runtime_failures
+
 from app.services.collect_runtime import runtime as collect_runtime
 from app.services.collect_runtime.contracts import CollectRequest, CollectResult
 from app.services.crawlers import registry
 from app.services.http.client import HttpClient
 from app.services.indexer import policy as indexer_policy
 from app.services import job_logger
+from app.successor_runtime.capabilities import acquisition_batch as acquisition
 
 
 # Keep the exact witness strings discoverable by the boundary metadata scanner.
@@ -136,15 +139,61 @@ class _HistorySession:
 
 def test_w03_effect_boundaries(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "test:" + test_w03_effect_boundaries.__name__ in WITNESSES
-    request = CollectRequest(channel="search.market")
-    with pytest.raises(RuntimeError, match="^batch failure$"):
-        collect_runtime._run_single_auto_batch(
-            request,
-            ["term"],
-            1,
-            lambda _request: (_ for _ in ()).throw(RuntimeError("batch failure")),
-            fail_fast=True,
-        )
+    bundle = acquisition.build_acquisition_batch_bundle()
+    assert bundle.execute_element_operation.owner_capability_id == (
+        acquisition.ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER
+    )
+    assert bundle.profiles["effect.c3_1"].execution_class == "EFFECTFUL"
+    assert bundle.profiles["effect.c3_2"].execution_class == "PURE_TRANSFORM"
+    assert "ELEMENT_EXECUTION_FAILED" in bundle.profiles["failure.c3_1"].typed_failures
+
+    failure = collect_runtime_failures.fail(
+        "auto_batch_execution_failed",
+        "batch failure",
+        {
+            "operation": acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND,
+            "owner": acquisition.ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER,
+            "site": "test_w03_effect_boundaries",
+            "witness": "test:test_w03_effect_boundaries",
+        },
+    )
+    assert failure.family == "collect.runtime.failure"
+    assert failure.code == "auto_batch_execution_failed"
+
+    effect_calls: list[CollectRequest] = []
+
+    def fail_collect_effect(effect_request: CollectRequest) -> CollectResult:
+        effect_calls.append(effect_request)
+        raise RuntimeError("batch failure")
+
+    monkeypatch.setattr(collect_runtime, "_successor_effect_gateway", fail_collect_effect)
+    request = CollectRequest(
+        channel="search.market",
+        project_key="project:w03",
+        query_terms=["t1", "t2", "t3", "t4", "t5", "t6"],
+        limit=60,
+        options={"batch_fail_fast": True},
+    )
+    result = collect_runtime.run_collect(request)
+    assert result.status == "cancelled"
+    assert (result.inserted, result.updated, result.skipped) == (0, 0, 0)
+    assert len(effect_calls) == 1
+    assert effect_calls[0].query_terms == ["t1", "t2", "t3", "t4", "t5"]
+    assert len(result.errors) == 1
+    assert result.errors[0].get("code") == failure.code
+    assert result.errors[0].get("message") == "batch failure"
+    assert result.errors[0].get("exception_type") == "RuntimeError"
+
+    raw = result.meta["raw"]
+    assert isinstance(raw, dict)
+    typed_results = raw["typed_batch_results"]
+    assert isinstance(typed_results, list)
+    assert len(typed_results) == 1
+    typed_failure = typed_results[0]
+    assert isinstance(typed_failure, dict)
+    assert typed_failure["counts"] == {"inserted": 0, "updated": 0, "skipped": 0}
+    assert typed_failure["links"] == ()
+    assert typed_failure["receipt"] is None
 
     http_client = object.__new__(HttpClient)
     http_client.max_retries = 0

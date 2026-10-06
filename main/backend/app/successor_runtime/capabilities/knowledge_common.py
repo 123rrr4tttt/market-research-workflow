@@ -13,12 +13,22 @@ import dataclasses
 import hashlib
 import json
 import math
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Annotated, Any, NoReturn
+from typing import Annotated, Any, Literal, NoReturn, TypeGuard, overload
 
 from functorial_kit import Failure
+
+from app.successor_runtime.language.profiles import (
+    AuthorityProfile,
+    EffectProfile,
+    FailureProfile,
+    InterpreterProfile,
+    ObservationProfile,
+    ResourceProfile,
+    SemanticProfile,
+)
 from mrw_functorial_kit.core.knowledge_semantics import (
     knowledge_report_export_contract_failures,
 )
@@ -59,6 +69,8 @@ __all__ = [
     "HandleResolution",
     "IssuedKnowledgeRead",
     "KnowledgeItem",
+    "KnowledgeProfile",
+    "KnowledgeProfiles",
     "KnowledgeRead",
     "KnowledgeReadHandle",
     "Provenance",
@@ -106,6 +118,84 @@ __all__ = [
     "validate_citation_closure",
     "validate_typed_knowledge_candidate",
 ]
+
+
+KnowledgeProfile = (
+    SemanticProfile
+    | EffectProfile
+    | ResourceProfile
+    | FailureProfile
+    | AuthorityProfile
+    | InterpreterProfile
+    | ObservationProfile
+)
+
+
+@dataclass(frozen=True, slots=True)
+class KnowledgeProfiles(Mapping[str, KnowledgeProfile]):
+    """Exact immutable profile family shared by every C8 knowledge cell."""
+
+    semantic: SemanticProfile
+    effect: EffectProfile
+    resource: ResourceProfile
+    failure: FailureProfile
+    authority: AuthorityProfile
+    interpreter: InterpreterProfile
+    observation: ObservationProfile
+
+    @overload
+    def __getitem__(self, key: Literal["semantic"]) -> SemanticProfile: ...
+
+    @overload
+    def __getitem__(self, key: Literal["effect"]) -> EffectProfile: ...
+
+    @overload
+    def __getitem__(self, key: Literal["resource"]) -> ResourceProfile: ...
+
+    @overload
+    def __getitem__(self, key: Literal["failure"]) -> FailureProfile: ...
+
+    @overload
+    def __getitem__(self, key: Literal["authority"]) -> AuthorityProfile: ...
+
+    @overload
+    def __getitem__(self, key: Literal["interpreter"]) -> InterpreterProfile: ...
+
+    @overload
+    def __getitem__(self, key: Literal["observation"]) -> ObservationProfile: ...
+
+    @overload
+    def __getitem__(self, key: str) -> KnowledgeProfile: ...
+
+    def __getitem__(self, key: str) -> KnowledgeProfile:
+        profile_by_key: Mapping[str, KnowledgeProfile] = MappingProxyType(
+            {
+                "semantic": self.semantic,
+                "effect": self.effect,
+                "resource": self.resource,
+                "failure": self.failure,
+                "authority": self.authority,
+                "interpreter": self.interpreter,
+                "observation": self.observation,
+            }
+        )
+        return profile_by_key[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(
+            (
+                "semantic",
+                "effect",
+                "resource",
+                "failure",
+                "authority",
+                "interpreter",
+                "observation",
+            )
+        )
+
+    def __len__(self) -> int:
+        return 7
 
 KNOWLEDGE_READ_CELL_ID = "knowledge.read.v2"
 KNOWLEDGE_WRITING_CELL_ID = "knowledge.writing.v2"
@@ -182,7 +272,7 @@ def raise_knowledge_contract_failure(
 ) -> NoReturn:
     """Lift one complete typed failure at a legacy/public ABI boundary."""
 
-    if not isinstance(failure, Failure):
+    if not _is_failure(failure):
         # kit:boundary owner=c8_common.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
         raise TypeError("knowledge report contract lift requires a Failure")
     context = failure.context or {}
@@ -245,6 +335,18 @@ def reject_knowledge_key(message: str) -> NoReturn:
     reject_knowledge_contract(message, exception_type=KeyError)
 
 
+def _is_failure(value: object) -> TypeGuard[Failure]:
+    return isinstance(value, Failure)
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
@@ -255,14 +357,14 @@ def _to_plain(value: Any) -> Any:
             item.name: _to_plain(getattr(value, item.name))
             for item in dataclasses.fields(value)
         }
-    if isinstance(value, Mapping):
+    if _is_object_mapping(value):
         normalized: dict[str, Any] = {}
         for key, item in value.items():
             if not isinstance(key, str):
                 reject_knowledge_type("canonical JSON requires string mapping keys")
             normalized[key] = _to_plain(item)
         return normalized
-    if isinstance(value, (list, tuple)):
+    if _is_object_sequence(value):
         return [_to_plain(item) for item in value]
     if isinstance(value, (bool, str)) or value is None:
         return value
@@ -278,14 +380,14 @@ def _to_plain(value: Any) -> Any:
 def deep_freeze_json(value: Any) -> Any:
     """Recursively freeze canonical JSON into immutable nested values."""
 
-    if isinstance(value, Mapping):
+    if _is_object_mapping(value):
         frozen: dict[str, Any] = {}
         for key, item in value.items():
             if not isinstance(key, str):
                 reject_knowledge_type("canonical JSON requires string mapping keys")
             frozen[key] = deep_freeze_json(item)
         return MappingProxyType(frozen)
-    if isinstance(value, (list, tuple)):
+    if _is_object_sequence(value):
         return tuple(deep_freeze_json(item) for item in value)
     if isinstance(value, (bool, str)) or value is None:
         return value
@@ -864,7 +966,7 @@ def validate_citation_closure(
     for index, ref in enumerate(closure.refs, start=1):
         if ref.position != index:
             reject_knowledge_projection("citation order is not contiguous")
-    seen: dict[str, tuple[str, str]] = {}
+    seen: dict[str, tuple[str, str, int, str, str, str]] = {}
     for ref in closure.refs:
         bound = (
             ref.source_identity,
@@ -897,7 +999,7 @@ def collapse_duplicate_citations(
     seen: set[str] = set()
     kept: list[CitationRef] = []
     dropped: list[str] = []
-    for index, ref in enumerate(closure.refs, start=1):
+    for ref in closure.refs:
         if ref.citation_id in seen:
             dropped.append(ref.citation_id)
             continue

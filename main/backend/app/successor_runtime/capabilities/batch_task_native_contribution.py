@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 from functorial_kit.contribution_compiler import NativeContributionRule
@@ -26,6 +26,7 @@ from functorial_kit.contributions import (
 from functorial_kit.core.failure import Failure
 from functorial_kit.law_witness import define_law_witness
 from functorial_kit.native_contribution import (
+    NativeContribution,
     BindingAccepted,
     BindingRejected,
     NativeBindingIssue,
@@ -33,9 +34,28 @@ from functorial_kit.native_contribution import (
 )
 
 from app.successor_runtime.capabilities import batch_task as batch_task
+from app.successor_runtime.language.catalog import (
+    OperationContractCatalogSnapshot,
+    OperationContractRegistry,
+)
+from app.successor_runtime.language.object_contracts import OperationContract
+from app.successor_runtime.substrate.postgres.batch_task_canary_handlers import (
+    BatchTaskPlanRuntimeHandler,
+    BatchTaskRetryRuntimeHandler,
+)
+from app.successor_runtime.substrate.postgres.batch_task_quality_promotion_handler import (
+    BatchTaskQualityPromotionRuntimeHandler,
+)
+from app.successor_runtime.substrate.postgres.batch_task_submission_handler import (
+    BatchTaskSubmissionStoreRehydratedHandler,
+)
+from app.successor_runtime.substrate.postgres.unit_of_work import RuntimeUnitOfWork
 
 if TYPE_CHECKING:
-    from app.successor_runtime.assembly.base import FamilyAssembly
+    from app.successor_runtime.assembly.base import (
+        BatchTaskAssemblyOptions,
+        FamilyAssembly,
+    )
 
 __all__ = [
     "ASSEMBLY_CELL_IDS",
@@ -126,16 +146,16 @@ class BatchTaskNativeSource:
 @dataclass(frozen=True, slots=True)
 class BatchTaskNativeOperationDefinition:
     source: BatchTaskNativeOperationSource
-    contract: object
-    codec: object
+    contract: OperationContract
+    codec: batch_task.BatchTaskPayloadCodec
 
 
 @dataclass(frozen=True, slots=True)
 class BatchTaskNativeDefinition:
     source: BatchTaskNativeSource
     bundle: batch_task.BatchTaskCapabilityBundle
-    catalog: object
-    registry: object
+    catalog: OperationContractCatalogSnapshot
+    registry: OperationContractRegistry
     _operations: tuple[BatchTaskNativeOperationDefinition, ...] = ()
 
     @property
@@ -145,9 +165,7 @@ class BatchTaskNativeDefinition:
     def operation_by_slot(
         self, slot: BatchTaskNativeSlot
     ) -> BatchTaskNativeOperationDefinition | None:
-        for current_operation_id, current_codec_id, operation in zip(
-            _CURRENT_OPERATION_IDS, _CURRENT_CODEC_IDS, self.operations
-        ):
+        for operation in self.operations:
             if operation.source.slot == slot:
                 return operation
         return None
@@ -341,10 +359,10 @@ def project_batch_task_native_definition(
 class BatchTaskAssemblyContext:
     """Runtime inputs for inert native assembly; no provider or live submit."""
 
-    uow_factory: Callable[[], object]
+    uow_factory: Callable[[], RuntimeUnitOfWork]
     project_scope_digest: str
     definition: "BatchTaskNativeDefinition"
-    options: object = field(default_factory=lambda: None)
+    options: BatchTaskAssemblyOptions | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -366,7 +384,11 @@ def _verify(definition: BatchTaskNativeDefinition) -> Failure | None:
 
 def verify_batch_task_native_definition(
     definition: BatchTaskNativeDefinition,
-    native: object,
+    native: NativeContribution[
+        BatchTaskNativeDefinition,
+        BatchTaskAssemblyContext,
+        BatchTaskNativeBinding,
+    ],
 ) -> ContributionVerification | Failure:
     del native
 
@@ -436,8 +458,16 @@ def validate_batch_task_native_binding(
         (
             bool(assembly.handlers)
             and all(
-                getattr(handler, "deployment_catalog_digest", None)
-                == source.deployment_catalog_digest
+                isinstance(
+                    handler,
+                    (
+                        BatchTaskPlanRuntimeHandler,
+                        BatchTaskRetryRuntimeHandler,
+                        BatchTaskSubmissionStoreRehydratedHandler,
+                        BatchTaskQualityPromotionRuntimeHandler,
+                    ),
+                )
+                and handler.deployment_catalog_digest == source.deployment_catalog_digest
                 for handler in assembly.handlers
             ),
             "$.binding.handlers.deployment_catalog_digest",
@@ -447,14 +477,13 @@ def validate_batch_task_native_binding(
     quality_handlers = tuple(
         handler
         for handler in assembly.handlers
-        if getattr(handler, "gate_calls", None) is not None
-        and getattr(handler, "evidence", None) is not None
+        if isinstance(handler, BatchTaskQualityPromotionRuntimeHandler)
     )
     submission_handler = next(
         (
             handler
             for handler in assembly.handlers
-            if getattr(handler, "receipt_codec_id", None) is not None
+            if isinstance(handler, BatchTaskSubmissionStoreRehydratedHandler)
         ),
         None,
     )
@@ -478,11 +507,9 @@ def validate_batch_task_native_binding(
             (
                 len(quality_handlers) == 1
                 and quality.effect_boundary == "READBACK_ONLY"
-                and getattr(quality_handler, "operation_contract_digest", None)
-                == quality.operation_digest
-                and getattr(quality_handler, "interpreter_profile_digest", None)
-                == quality.interpreter_digest
-                and getattr(quality_handler, "deployment_catalog_digest", None)
+                and quality_handler.operation_contract_digest == quality.operation_digest
+                and quality_handler.interpreter_profile_digest == quality.interpreter_digest
+                and quality_handler.deployment_catalog_digest
                 == source.deployment_catalog_digest,
                 "$.binding.quality_promotion",
                 "quality promotion binding drift or boundary change",
@@ -494,7 +521,7 @@ def validate_batch_task_native_binding(
 BATCH_TASK_NATIVE_CONTRIBUTION_RULE = NativeContributionRule[
     BatchTaskNativeSource,
     BatchTaskNativeDefinition,
-    object,
+    BatchTaskAssemblyContext,
     BatchTaskNativeBinding,
 ](
     lower=lower_batch_task_native_source,
@@ -507,24 +534,10 @@ BATCH_TASK_NATIVE_CONTRIBUTION_RULE = NativeContributionRule[
 
 def _assemble_batch_task_native_definition(
     definition: BatchTaskNativeDefinition,
-    context: object,
+    context: BatchTaskAssemblyContext,
 ) -> BatchTaskNativeBinding | Failure:
     from app.successor_runtime.assembly.batch_task_assembly import build_batch_task_assembly
 
-    if not isinstance(context, BatchTaskAssemblyContext):
-        return contribution_failures.fail(
-            "CONTRIBUTION_INVALID",
-            "C4 native assembly requires C4AssemblyContext",
-            {
-                "issues": (
-                    {
-                        "code": "invalid_context",
-                        "path": "$.context",
-                        "message": "expected C4AssemblyContext",
-                    },
-                )
-            },
-        )
     family_assembly = build_batch_task_assembly(
         uow_factory=context.uow_factory,
         project_scope_digest=context.project_scope_digest,
@@ -539,7 +552,11 @@ def _assemble_batch_task_native_definition(
 
 def compile_batch_task_native_contribution(
     source: BatchTaskNativeSource,
-) -> object:
+) -> NativeContribution[
+    BatchTaskNativeDefinition,
+    BatchTaskAssemblyContext,
+    BatchTaskNativeBinding,
+] | Failure:
     from functorial_kit.contribution_compiler import compile_native_contribution
 
     return compile_native_contribution(source, BATCH_TASK_NATIVE_CONTRIBUTION_RULE)

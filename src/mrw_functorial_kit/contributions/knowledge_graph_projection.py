@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
+from app.successor_runtime.capabilities.knowledge_graph_projection_contribution import (
+    KnowledgeGraphProjectInput,
+    KnowledgeGraphProjectionAssemblyContext,
+    KnowledgeGraphProjectionRuntimeBinding,
+    knowledge_graph_projection_native_contribution,
+)
 from functorial_kit.contributions import ContributionCatalog
 from functorial_kit.core.failure import Failure
 from functorial_kit.law_witness import (
     LawWitness,
     define_law_witness,
     law_witness_reference,
-)
-from app.successor_runtime.capabilities.knowledge_graph_projection_contribution import (
-    KnowledgeGraphProjectionAssemblyContext,
-    KnowledgeGraphProjectionRuntimeBinding,
-    knowledge_graph_projection_native_contribution,
 )
 
 
@@ -31,7 +32,9 @@ def _run_knowledge_graph_projection_native_catalog_law() -> None:
     if projected_ids != expected_ids:
         raise AssertionError("native contribution order drifted from definition order")
 
-    bindings: list[KnowledgeGraphProjectionRuntimeBinding] = []
+    bindings: list[
+        KnowledgeGraphProjectionRuntimeBinding[KnowledgeGraphProjectInput]
+    ] = []
     for native in natives:
         binding = native.assemble(KnowledgeGraphProjectionAssemblyContext())
         if isinstance(binding, Failure):
@@ -47,7 +50,7 @@ def _run_knowledge_graph_projection_native_catalog_law() -> None:
             node_types=("Topic",),
         )
         wire = codec.encode_payload(sample)
-        decoded = codec.decode_payload(wire)
+        decoded: KnowledgeGraphProjectInput = codec.decode_payload(wire)
         if decoded != sample or codec.encode_payload(decoded) != wire:
             raise AssertionError(f"{definition.cell_id} payload codec round-trip drift")
         bindings.append(binding)
@@ -69,7 +72,7 @@ def _run_knowledge_graph_projection_native_catalog_law() -> None:
             raise AssertionError(f"{definition.cell_id} operation contract drift")
         if bundle.codec_by_kind(definition.kind) is not binding.payload_codec:
             raise AssertionError(f"{definition.cell_id} payload codec identity drift")
-        if bundle.profiles[definition.cell_id] != dict(binding.profiles):
+        if bundle.profiles[definition.cell_id] != binding.profiles:
             raise AssertionError(f"{definition.cell_id} profile binding drift")
 
 

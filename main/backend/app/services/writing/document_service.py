@@ -88,6 +88,11 @@ def _raise_writing_legacy(failure: Failure, *, cause: BaseException | None = Non
     raise TypeError(f"unsupported writing failure code: {failure.code}")
 
 
+# Public aliases let sibling writing services reuse the single failure owner and ABI lift.
+writing_failure = _writing_failure
+raise_writing_legacy = _raise_writing_legacy
+
+
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 

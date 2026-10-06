@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, NoReturn
+from typing import NoReturn
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.provider_port_failures import (
@@ -27,17 +27,17 @@ _CRAWLER_FAILURE_CONTEXT_KEYS = frozenset(
 )
 
 
-def _failure(
+def crawler_failure(
     code: str,
     message: str,
     *,
     operation: str = "crawler.runtime",
     site: str = "app.services.crawlers",
     public_exception: str = "ValueError",
-    **details: Any,
+    **details: object,
 ) -> Failure:
     """Create a closed crawler failure before the compatibility lift."""
-    context: dict[str, Any] = {
+    context: dict[str, object] = {
         "boundary_class": "PURE_CONTRACT_FAILURE",
         "failure_family": crawler_runtime_failures.name,
         "operation": operation,
@@ -74,7 +74,7 @@ def _registry_precondition_failure(
     )
 
 
-def _raise_contract_failure(
+def raise_crawler_contract_failure(
     failure: Failure,
     exception_type: type[Exception] = ValueError,
     *,
@@ -116,7 +116,7 @@ def register_provider(provider: str, instance: CrawlerProvider) -> None:
             operation="register_provider",
             site="app.services.crawlers.registry.register_provider",
         )
-        _raise_contract_failure(failure)
+        raise_crawler_contract_failure(failure)
     _PROVIDERS[key] = instance
 
 
@@ -128,4 +128,15 @@ def list_providers() -> list[str]:
     return sorted(_PROVIDERS.keys())
 
 
-__all__ = ["register_provider", "get_provider", "list_providers"]
+# Historical imports remain valid while consumers move to the public owner.
+_failure = crawler_failure
+_raise_contract_failure = raise_crawler_contract_failure
+
+
+__all__ = [
+    "crawler_failure",
+    "raise_crawler_contract_failure",
+    "register_provider",
+    "get_provider",
+    "list_providers",
+]

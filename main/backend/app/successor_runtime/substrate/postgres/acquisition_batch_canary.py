@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Literal
+from typing import TypeGuard
 
 from sqlalchemy import MetaData, select
 from sqlalchemy.engine import Connection
@@ -44,18 +45,17 @@ from app.successor_runtime.substrate.postgres.authority import (
     CapabilityAuthority,
     CapabilityAuthorityRepository,
 )
-from app.successor_runtime.substrate.postgres.models import project_tables
+from app.successor_runtime.substrate.postgres.models import project_tables, runtime_work_items
 from app.successor_runtime.substrate.postgres.research_ledger import (
     ExactContentConflict,
     ProjectRecordNotFound,
+    one_mapping,
 )
 from app.successor_runtime.substrate.postgres.runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
     RuntimeJournalRepository,
     StaleRevisionError,
-    _one_mapping,
-    _table,
 )
 from app.successor_runtime.substrate.postgres.session import (
     ProjectScopeStale,
@@ -156,42 +156,41 @@ def select_future_owner(
     return "none"
 
 
-class _ScopeView:
-    project_key: str
-    registry_revision: int
-    scope_digest: str
-
-    def __init__(
-        self, *, project_key: str, registry_revision: int, scope_digest: str
-    ) -> None:
-        self.project_key = project_key
-        self.registry_revision = registry_revision
-        self.scope_digest = scope_digest
+def _is_string_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    # Values reach this boundary only through ``json.loads``; JSON object keys
+    # are strings by definition.
+    return isinstance(value, Mapping)
 
 
-class _DeterministicElementRunner:
-    """No-provider element interpreter used by the C3 canary handler."""
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
 
-    def run(self, element: c3.CollectBatchElement) -> c3.CollectElementOutcome:
-        legacy_ref = "legacy:" + content_digest(
-            {
-                "schema": "mrw.acquisition.batch.canary-element.v2",
-                "element_id": element.element_id,
-                "input_index": element.input_index,
-            }
-        )
-        return c3.CollectElementSucceeded(
-            schema_version=c3.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
-            element_id=element.element_id,
-            input_index=element.input_index,
-            counts=c3.CollectCounts(inserted=len(element.query_terms)),
-            links=tuple(
-                f"https://canary.example/{term}" for term in element.query_terms
-            ),
-            receipt=None,
-            legacy_observation_ref=legacy_ref,
-            outcome_digest="",
-        )
+
+def _element_payload_from_json(value: object) -> c3.CollectBatchElementPayload:
+    if not _is_string_object_mapping(value):
+        raise TypeError("family element payload must be a JSON object")
+    request_ref = value.get("parent_request_ref")
+    request_snapshot = value.get("request_snapshot")
+    element = value.get("element")
+    resource_policy = value.get("resource_policy")
+    authority_scope_ref = value.get("authority_scope_ref")
+    if not _is_string_object_mapping(request_ref):
+        raise TypeError("family element payload request_ref must be a JSON object")
+    if not _is_string_object_mapping(request_snapshot):
+        raise TypeError("family element payload request_snapshot must be a JSON object")
+    if not _is_string_object_mapping(element):
+        raise TypeError("family element payload element must be a JSON object")
+    if not _is_string_object_mapping(resource_policy):
+        raise TypeError("family element payload resource_policy must be a JSON object")
+    if not isinstance(authority_scope_ref, str):
+        raise TypeError("family element payload authority_scope_ref must be a string")
+    return c3.collect_batch_element_payload_from_dicts(
+        request_ref=dict(request_ref),
+        request_snapshot=dict(request_snapshot),
+        element=dict(element),
+        resource_policy=dict(resource_policy),
+        authority_scope_ref=authority_scope_ref,
+    )
 
 
 class AcquisitionBatchComposedRuntimeHandler(RuntimeHandler):
@@ -309,7 +308,7 @@ class AcquisitionBatchComposedRuntimeHandler(RuntimeHandler):
         )
         tables = project_tables(MetaData(), resolved.resolved_schema)
         table = tables.successor_values
-        row = _one_mapping(
+        row = one_mapping(
             connection.execute(
                 select(table).where(
                     table.c.project_key == assignment.project_key,
@@ -340,18 +339,11 @@ class AcquisitionBatchComposedRuntimeHandler(RuntimeHandler):
         if len(exact) != int(metadata["payload_byte_size"]):
             raise DefiniteInterpreterFailure("C3_PAYLOAD_BYTE_SIZE_DRIFT")
         try:
-            plain_sequence = json.loads(exact.decode("utf-8"))
-            if not isinstance(plain_sequence, list):
+            plain_sequence: object = json.loads(exact.decode("utf-8"))
+            if not _is_object_list(plain_sequence):
                 raise TypeError("family payload sequence must be a JSON array")
             element_payloads = tuple(
-                c3.collect_batch_element_payload_from_dicts(
-                    request_ref=item["parent_request_ref"],
-                    request_snapshot=item["request_snapshot"],
-                    element=item["element"],
-                    resource_policy=item["resource_policy"],
-                    authority_scope_ref=item["authority_scope_ref"],
-                )
-                for item in plain_sequence
+                _element_payload_from_json(item) for item in plain_sequence
             )
         except (TypeError, ValueError, KeyError, json.JSONDecodeError) as exc:
             raise DefiniteInterpreterFailure("C3_PAYLOAD_CODEC_DRIFT") from exc
@@ -569,8 +561,8 @@ class AcquisitionBatchRollbackService:
         payload_digest: str,
         successor_binding_digest: str,
     ) -> None:
-        table = _table("runtime_work_items")
-        row = _one_mapping(
+        table = runtime_work_items
+        row = one_mapping(
             self.connection.execute(
                 select(table).where(
                     table.c.project_key == self.scope.project_scope.project_key,

@@ -121,8 +121,9 @@ def test_import_uses_document_owner_and_ordinary_document_apis(unified, monkeypa
     assert service.resolve("it-retrieval", [document_identity("it-retrieval", doc_id)])["total"] == 1
     assert isinstance(service.resolve("it-retrieval", [material_identity("other", doc_id)]), Failure)
     from app.api import admin
+    from app.services import document_admin
 
-    monkeypatch.setattr(admin, "SessionLocal", sessions)
+    monkeypatch.setattr(document_admin, "SessionLocal", sessions)
     monkeypatch.setattr(admin, "_project_key_from_request", lambda request: "it-retrieval")
     listing = admin.list_documents(None, admin.DocumentListRequest(include_topology_materials=True))["data"]
     assert listing["total"] == 1 and listing["items"][0]["id"] == doc_id

@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Annotated, Any, NoReturn, Protocol, runtime_checkable
+from typing import Annotated, Any, NoReturn, Protocol, runtime_checkable
 
 from functorial_kit import Failure
 
 
-from app.successor_runtime.research.codec import dataclass_to_json, sha256_hex
+from app.successor_runtime.research.codec import dataclass_to_json, is_sha256_hex, sha256_hex
 from app.successor_runtime.research.object_types import ObjectType
-
-if TYPE_CHECKING:
-    from app.successor_runtime.language.profiles import ContractProfileRef
 
 @runtime_checkable
 class _FailureFamilyLike(Protocol):
@@ -130,6 +127,7 @@ __all__ = [
     "RESEARCH_ARTIFACT_RETURN_CONTRACT_REF",
     "RUNTIME_VALUE_RETURN_CONTRACT_REF",
     "OperationContract",
+    "ContractProfileRef",
     "OperationContractRef",
     "OperationContractResolver",
     "ReturnContract",
@@ -141,6 +139,30 @@ __all__ = [
     "build_frozen_base_return_contract_registry",
     "make_operation_contract",
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class ContractProfileRef:
+    """Profile identity referenced by operation contracts and profile values."""
+
+    profile_id: str
+    profile_version: str
+    profile_digest: str
+
+    def __post_init__(self) -> None:
+        if not is_sha256_hex(self.profile_digest):
+            raise_language_failure(
+                language_failure(
+                    "PROFILE_INVALID",
+                    "ContractProfileRef.profile_digest must be a 64-char lowercase hex digest",
+                    ValueError,
+                    site="ContractProfileRef.profile_digest.digest",
+                ),
+                ValueError,
+            )
+
+    def to_ref_string(self) -> str:
+        return f"{self.profile_id}@{self.profile_version}"
 
 
 @dataclass(frozen=True, slots=True)

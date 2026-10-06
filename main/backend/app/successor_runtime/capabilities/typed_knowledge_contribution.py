@@ -9,21 +9,18 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
-from app.successor_runtime.capabilities.knowledge_common import KNOWLEDGE_READ_CELL_ID, reject_knowledge_value
+
 from app.successor_runtime.capabilities.checksum import content_digest, require_hex64
+from app.successor_runtime.capabilities.knowledge_common import KNOWLEDGE_READ_CELL_ID, reject_knowledge_value
 from app.successor_runtime.language.object_contracts import READ_CANONICAL_REF_RETURN_CONTRACT_REF
 from app.successor_runtime.research.object_types import ObjectType
-from functorial_kit.contribution_compiler import compile_native_contribution
-from functorial_kit.core.failure import Failure
-from functorial_kit.native_contribution import NativeContribution
 from mrw_functorial_kit.core.knowledge_semantics import knowledge_typed_knowledge_failures
+
 from . import (
-    KNOWLEDGE_NATIVE_CONTRIBUTION_RULE,
-    KnowledgeNativeAssemblyContext,
     KnowledgeNativeAssemblyDeclaration,
     KnowledgeNativeAuthorSource,
-    KnowledgeNativeDefinition,
     KnowledgeNativeOperationSource,
+    compile_knowledge_native_author_source,
 )
 
 __all__ = [
@@ -139,7 +136,6 @@ KNOWLEDGE_TYPED_KNOWLEDGE_AUTHOR_SOURCE = KnowledgeNativeAuthorSource(
     failure_family=knowledge_typed_knowledge_failures,
 )
 
-KNOWLEDGE_TYPED_KNOWLEDGE_NATIVE = compile_native_contribution(
-    KNOWLEDGE_TYPED_KNOWLEDGE_AUTHOR_SOURCE,
-    KNOWLEDGE_NATIVE_CONTRIBUTION_RULE,
+KNOWLEDGE_TYPED_KNOWLEDGE_NATIVE = compile_knowledge_native_author_source(
+    KNOWLEDGE_TYPED_KNOWLEDGE_AUTHOR_SOURCE
 )

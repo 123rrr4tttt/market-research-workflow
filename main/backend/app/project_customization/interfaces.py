@@ -1,53 +1,71 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Protocol
+from typing import NotRequired, Protocol, TypeAlias, TypedDict, runtime_checkable
 
 
-ChannelHandler = Callable[[Dict[str, Any], Dict[str, Any], Optional[str]], Dict[str, Any]]
+CustomizationJsonAtom: TypeAlias = None | bool | int | float | str
+CustomizationJsonValue: TypeAlias = (
+    CustomizationJsonAtom
+    | list["CustomizationJsonValue"]
+    | dict[str, "CustomizationJsonValue"]
+)
+CustomizationJsonObject: TypeAlias = dict[str, CustomizationJsonValue]
+
+ChannelHandler = Callable[
+    [CustomizationJsonObject, CustomizationJsonObject, str | None],
+    CustomizationJsonObject,
+]
 
 # News resource handler: (limit: int) -> dict
-NewsResourceHandler = Callable[[int], Dict[str, Any]]
+NewsResourceHandler = Callable[[int], CustomizationJsonObject]
+
+
+class KeywordSuggestion(TypedDict):
+    search_keywords: list[str]
+    subreddit_keywords: NotRequired[list[str]]
 
 
 @dataclass(slots=True)
 class WorkflowStep:
     handler: str
-    params: Dict[str, Any] = field(default_factory=dict)
+    params: CustomizationJsonObject = field(default_factory=lambda: {})
     enabled: bool = True
     name: str | None = None
 
 
 @dataclass(slots=True)
 class WorkflowDefinition:
-    steps: list[WorkflowStep] = field(default_factory=list)
+    steps: list[WorkflowStep] = field(default_factory=lambda: [])
 
 
+@runtime_checkable
 class ProjectCustomization(Protocol):
     project_key: str
 
-    def get_menu_config(self) -> Dict[str, Any]:
+    def get_menu_config(self) -> CustomizationJsonObject:
         ...
 
-    def get_workflow_mapping(self) -> Dict[str, WorkflowDefinition]:
+    def get_workflow_mapping(self) -> dict[str, WorkflowDefinition]:
         ...
 
-    def get_llm_mapping(self) -> Dict[str, Dict[str, Any]]:
+    def get_llm_mapping(self) -> dict[str, CustomizationJsonObject]:
         ...
 
-    def get_field_mapping(self) -> Dict[str, Any]:
+    def get_field_mapping(self) -> CustomizationJsonObject:
         ...
 
-    def get_channel_handlers(self) -> Dict[tuple[str, str], ChannelHandler]:
+    def get_channel_handlers(self) -> dict[tuple[str, str], ChannelHandler]:
         ...
 
     def suggest_keywords(
         self,
         topic: str,
-        base_keywords: Optional[List[str]] = None,
-        platform: Optional[str] = None,
+        base_keywords: list[str] | None = None,
+        platform: str | None = None,
         language: str = "zh",
-    ) -> Optional[Dict[str, Any]]:
+    ) -> CustomizationJsonObject | None:
         """Keyword suggestion for collection workflow.
 
         Subprojects override to provide domain-specific suggestions.
@@ -56,7 +74,7 @@ class ProjectCustomization(Protocol):
         """
         ...
 
-    def get_social_keyword_guidelines(self) -> Optional[str]:
+    def get_social_keyword_guidelines(self) -> str | None:
         """Optional guidelines appended to social_keyword_generation prompt.
 
         Return None to skip appending (use template as-is).
@@ -64,7 +82,7 @@ class ProjectCustomization(Protocol):
         """
         ...
 
-    def get_domain_tokens(self) -> Optional[list[str]]:
+    def get_domain_tokens(self) -> list[str] | None:
         """Optional domain tokens for keyword filtering.
 
         Return None or empty to allow all keywords (no domain filter).
@@ -76,7 +94,7 @@ class ProjectCustomization(Protocol):
         """Report title for generated reports. Fallback: 商业报告."""
         ...
 
-    def get_news_resource_handlers(self) -> Dict[str, NewsResourceHandler]:
+    def get_news_resource_handlers(self) -> dict[str, NewsResourceHandler]:
         """Project-specific (子项目库) news ingest handlers. resource_id -> (limit) -> result dict.
 
         All behaviors must follow 总库/子项目库 dichotomy. This returns project pool only.
@@ -85,7 +103,7 @@ class ProjectCustomization(Protocol):
         """
         ...
 
-    def get_shared_news_resource_handlers(self) -> Dict[str, NewsResourceHandler]:
+    def get_shared_news_resource_handlers(self) -> dict[str, NewsResourceHandler]:
         """Shared (总库) news ingest handlers. resource_id -> (limit) -> result dict.
 
         Cross-project generic sources (e.g. google_news, market_info). Return {} if none.

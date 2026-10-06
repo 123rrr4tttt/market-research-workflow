@@ -1,18 +1,85 @@
 """Nitter (Twitter替代前端) 数据适配器"""
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, TypeGuard
 from urllib.parse import quote
+
+from functorial_kit import Failure
 
 from ..retry_policy import RateGate, RequestScope
 from .http_utils import HttpFetchError, HttpFetchFailureReason, RequestOutcome, request_html
 
 logger = logging.getLogger(__name__)
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_dict(value: object) -> dict[str, object] | None:
+    if not _is_object_dict(value):
+        return None
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if isinstance(key, str):
+            result[key] = item
+    return result
+
+
+def _string(data: dict[str, object], *keys: str) -> str:
+    for key in keys:
+        value = data.get(key)
+        if isinstance(value, str) and value:
+            return value
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return str(value)
+    return ""
+
+
+def _integer(data: dict[str, object], *keys: str) -> int:
+    for key in keys:
+        value = data.get(key)
+        if isinstance(value, bool):
+            return int(value)
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value)
+        if isinstance(value, str):
+            try:
+                return int(float(value))
+            except ValueError:
+                continue
+    return 0
+
+
+def _tweet_records(payload: object) -> list[dict[str, object]]:
+    root = _object_dict(payload)
+    if root is None:
+        return []
+    raw_tweets = root.get("tweets")
+    if not _is_object_list(raw_tweets):
+        timeline = _object_dict(root.get("timeline"))
+        raw_tweets = timeline.get("tweets") if timeline is not None else None
+    if not _is_object_list(raw_tweets):
+        return []
+    records: list[dict[str, object]] = []
+    for value in raw_tweets:
+        record = _object_dict(value)
+        if record is not None:
+            records.append(record)
+    return records
 
 
 @dataclass(slots=True)
@@ -56,6 +123,7 @@ class NitterAdapter:
         """
         self.instance_url = instance_url or self.DEFAULT_INSTANCES[0]
         self._tested_instances: List[str] = []
+        self.last_failures: tuple[Failure, ...] = ()
     
     def _request_html(self, url: str, headers: dict[str, str], *, timeout: float, retries: int = 3) -> RequestOutcome:
         return request_html(
@@ -69,18 +137,21 @@ class NitterAdapter:
 
     @staticmethod
     def _raise_request_failure(url: str, outcome: RequestOutcome) -> None:
-        decision = outcome.decisions[-1]
-        status_code = decision.failure.context.get("status_code")
+        failure = outcome.failures[-1]
+        context = failure.context or {}
+        status_value = context.get("status_code")
+        status_code = status_value if isinstance(status_value, int) else None
+        retryable = context.get("retryable") is True
         raise HttpFetchError(
-            decision.failure.message,
+            failure.message,
             reason=(
                 HttpFetchFailureReason.HTTP_STATUS
                 if status_code is not None
                 else HttpFetchFailureReason.TRANSPORT
             ),
             url=url,
-            status_code=int(status_code) if status_code is not None else None,
-            retryable=bool(decision.retryable),
+            status_code=status_code,
+            retryable=retryable,
         )
 
     def _get_available_instance(self) -> str:
@@ -108,6 +179,7 @@ class NitterAdapter:
                     "Accept": "text/html,application/xhtml+xml",
                 }
                 outcome = self._request_html(test_url, headers=headers, timeout=10.0, retries=1)
+                self.last_failures = outcome.failures
                 response = outcome.response
                 if outcome.ok and response is not None and response.status_code == 200:
                     logger.info(f"Nitter instance available: {instance}")
@@ -157,6 +229,7 @@ class NitterAdapter:
             # 先尝试JSON格式
             try:
                 outcome = self._request_html(json_url, headers=headers, timeout=15.0)
+                self.last_failures = outcome.failures
                 response_text = outcome.text
                 response = outcome.response
                 if (
@@ -166,8 +239,8 @@ class NitterAdapter:
                     and response_text
                 ):
                     try:
-                        import json
-                        data = json.loads(response_text)
+                        raw_data: object = json.loads(response_text)
+                        _tweet_records(raw_data)
                         # 如果成功解析JSON，使用JSON格式
                         logger.info(f"Successfully fetched JSON from Nitter for @{username}")
                     except json.JSONDecodeError:
@@ -185,6 +258,7 @@ class NitterAdapter:
                 try:
                     headers["Accept"] = "application/rss+xml,application/xml,text/xml,*/*"
                     outcome = self._request_html(rss_url, headers=headers, timeout=15.0)
+                    self.last_failures = outcome.failures
                     response_text = outcome.text
                     response = outcome.response
                     if not outcome.ok:
@@ -200,16 +274,14 @@ class NitterAdapter:
             # 根据格式解析数据
             if use_json:
                 try:
-                    import json
-                    data = json.loads(response_text)
-                    return self._parse_json_tweets(data, username, keywords, limit)
+                    raw_data = json.loads(response_text)
+                    return self._parse_json_tweets(raw_data, username, keywords, limit)
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse JSON from Nitter for @{username}: {e}")
                     return []
             else:
                 # 解析RSS XML
                 try:
-                    import xml.etree.ElementTree as ET
                     root = ET.fromstring(response_text)
                     return self._parse_rss_tweets(root, username, keywords, limit)
                 except ET.ParseError as e:
@@ -222,24 +294,18 @@ class NitterAdapter:
 
     def _parse_json_tweets(
         self,
-        data: dict,
+        data: object,
         username: str,
         keywords: Optional[List[str]],
         limit: int,
     ) -> List[TwitterPost]:
         """解析JSON格式的推文数据"""
-        posts = []
+        posts: list[TwitterPost] = []
         total_posts_before_filter = 0
         filtered_by_keywords = 0
         
         # Nitter JSON格式：通常包含tweets数组
-        tweets = []
-        if isinstance(data, dict):
-            tweets = data.get("tweets", [])
-            if not tweets and "timeline" in data:
-                tweets = data.get("timeline", {}).get("tweets", [])
-        elif isinstance(data, list):
-            tweets = data
+        tweets = _tweet_records(data)
         
         logger.info(f"Nitter JSON returned {len(tweets)} tweets from @{username}")
         
@@ -251,9 +317,9 @@ class NitterAdapter:
             total_posts_before_filter += 1
             
             # 提取推文字段（根据Nitter JSON格式调整）
-            text = tweet_data.get("text", "") or tweet_data.get("tweetText", "") or ""
-            tweet_id = tweet_data.get("id", "") or tweet_data.get("tweetId", "")
-            date_str = tweet_data.get("date", "") or tweet_data.get("dateText", "")
+            text = _string(tweet_data, "text", "tweetText")
+            tweet_id = _string(tweet_data, "id", "tweetId")
+            date_str = _string(tweet_data, "date", "dateText")
             
             # 构建链接
             link = f"{self.instance_url}/{username}/status/{tweet_id}" if tweet_id else ""
@@ -287,9 +353,9 @@ class NitterAdapter:
                         pass
             
             # 提取互动数据
-            likes = tweet_data.get("likes", 0) or tweet_data.get("likeCount", 0) or 0
-            retweets = tweet_data.get("retweets", 0) or tweet_data.get("retweetCount", 0) or 0
-            replies = tweet_data.get("replies", 0) or tweet_data.get("replyCount", 0) or 0
+            likes = _integer(tweet_data, "likes", "likeCount")
+            retweets = _integer(tweet_data, "retweets", "retweetCount")
+            replies = _integer(tweet_data, "replies", "replyCount")
             
             post = TwitterPost(
                 title=text[:200] if text else "",  # 使用推文前200字符作为标题
@@ -312,13 +378,13 @@ class NitterAdapter:
     
     def _parse_rss_tweets(
         self,
-        root,
+        root: ET.Element,
         username: str,
         keywords: Optional[List[str]],
         limit: int,
     ) -> List[TwitterPost]:
         """解析RSS格式的推文数据"""
-        posts = []
+        posts: list[TwitterPost] = []
         total_posts_before_filter = 0
         filtered_by_keywords = 0
         
@@ -337,7 +403,7 @@ class NitterAdapter:
             description_elem = item.find("description")
             pub_date_elem = item.find("pubDate")
             
-            if not title_elem or not link_elem:
+            if title_elem is None or link_elem is None:
                 continue
             
             title = title_elem.text or ""
@@ -419,8 +485,8 @@ class NitterAdapter:
             
             try:
                 outcome = self._request_html(search_url, headers=headers, timeout=15.0)
+                self.last_failures = outcome.failures
                 response_text = outcome.text
-                response = outcome.response
                 if not outcome.ok:
                     self._raise_request_failure(search_url, outcome)
             except Exception as e:
@@ -433,13 +499,12 @@ class NitterAdapter:
             
             # 解析RSS XML（与fetch_user_tweets类似）
             try:
-                import xml.etree.ElementTree as ET
                 root = ET.fromstring(response_text)
             except ET.ParseError as e:
                 logger.error(f"Failed to parse RSS XML from Nitter search: {e}")
                 return []
             
-            posts = []
+            posts: list[TwitterPost] = []
             items = root.findall(".//item")
             logger.info(f"Nitter search returned {len(items)} tweets for query '{query}'")
             
@@ -454,7 +519,7 @@ class NitterAdapter:
                 description_elem = item.find("description")
                 pub_date_elem = item.find("pubDate")
                 
-                if not title_elem or not link_elem:
+                if title_elem is None or link_elem is None:
                     continue
                 
                 title = title_elem.text or ""
@@ -531,14 +596,17 @@ class NitterAdapter:
         all_posts: List[TwitterPost] = []
         logger.info(f"Searching {len(queries)} queries: {queries}, keywords: {keywords}")
         
-        for idx, query in enumerate(queries):
+        failures: list[Failure] = []
+        for query in queries:
             try:
                 posts = list(self.search_tweets(query, keywords, limit_per_query))
                 logger.info(f"Query '{query}': fetched {len(posts)} tweets")
                 all_posts.extend(posts)
+                failures.extend(self.last_failures)
             except Exception as exc:
                 logger.error(f"Failed to search for '{query}': {exc}", exc_info=True)
                 continue
         
+        self.last_failures = tuple(failures)
         logger.info(f"Total tweets collected from all queries: {len(all_posts)}")
         return all_posts

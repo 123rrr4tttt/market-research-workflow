@@ -870,6 +870,27 @@ class AgentBatchApiUnitTest(unittest.TestCase):
         self.assertEqual(len(resp["data"]["items"]), 0)
 
     def test_approval_request_persists_agent_approval(self):
+        service = agent_batch_api.get_agent_session_service()
+        bundle = service.create_session(
+            source="agent_batch",
+            entrypoint_type="approval_request",
+            goal="Approve a batch action",
+            project_key="proj-a",
+            task_blueprints=[
+                {
+                    "task_id": "task-1",
+                    "subject": "Approval-gated batch action",
+                    "task_type": "implementation",
+                    "phase": "implementation",
+                    "write_set": ["external:search.market"],
+                }
+            ],
+        )
+        session_id = bundle["session"]["session_id"]
+        events_before = service.list_events(session_id)
+        messages_before = service.list_messages(session_id)
+        artifacts_before = service.list_artifacts(session_id)
+
         response = agent_batch_api.create_agent_batch_approval(
             agent_batch_api.AgentBatchApprovalRequest(
                 argv=["task_ingest_market", "ai terminals"],
@@ -877,16 +898,51 @@ class AgentBatchApiUnitTest(unittest.TestCase):
                 env={"TRACE_ID": "trace-1"},
                 channel="search.market",
                 project_key="proj-a",
-                requester_session_id="session-1",
+                requester_session_id=session_id,
                 requester_task_id="task-1",
             )
         )
 
         self.assertEqual(response["status"], "ok")
         token = response["data"]["approval_token"]
-        approvals = agent_batch_api.get_agent_session_service().list_approvals(session_id="session-1")
+        approvals = service.list_approvals(session_id=session_id)
         self.assertEqual(len(approvals), 1)
         self.assertEqual(approvals[0]["approval_id"], token)
+        self.assertEqual(approvals[0]["status"], "pending")
+        self.assertEqual(approvals[0]["requester_session_id"], session_id)
+        self.assertEqual(approvals[0]["requester_task_id"], "task-1")
+        self.assertEqual(approvals[0]["requester_actor"], "user_facing_assistant")
+        self.assertEqual(
+            approvals[0]["binding_payload"],
+            {
+                "argv": ["task_ingest_market", "ai terminals"],
+                "cwd": "/workspace/proj-a",
+                "env": {"TRACE_ID": "trace-1"},
+                "channel": "search.market",
+                "project_key": "proj-a",
+            },
+        )
+        self.assertEqual(
+            approvals[0]["metadata"],
+            {"channel": "search.market", "project_key": "proj-a"},
+        )
+
+        tasks = {item["task_id"]: item for item in service.list_tasks(session_id)}
+        approval_wait = next(item for item in tasks.values() if item["task_type"] == "approval_wait")
+        self.assertEqual(tasks["task-1"]["status"], "blocked")
+        self.assertEqual(approval_wait["status"], "in_progress")
+        self.assertEqual(approval_wait["metadata"]["approval_id"], token)
+
+        events_after = service.list_events(session_id)
+        self.assertEqual(len(events_after), len(events_before) + 2)
+        self.assertEqual(
+            [event["event_type"] for event in events_after[-2:]],
+            ["approval.pending", "approval.waiting"],
+        )
+        self.assertEqual(events_after[-2]["payload"]["approval_id"], token)
+        self.assertEqual(events_after[-1]["payload"]["approval_id"], token)
+        self.assertEqual(service.list_messages(session_id), messages_before)
+        self.assertEqual(service.list_artifacts(session_id), artifacts_before)
 
     def test_load_job_missing_raises_structured_not_found(self):
         with self.assertRaises(HTTPException) as ctx:

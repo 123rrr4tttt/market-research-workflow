@@ -4,9 +4,11 @@ from datetime import date, datetime
 from decimal import Decimal
 import json
 import re
-from typing import Annotated, Any, Callable
+from collections.abc import Callable, Mapping
+from typing import Annotated, Any, TypeAlias, cast as type_cast
 
 from sqlalchemy import Text, cast, func, or_, select
+from sqlalchemy.orm import Session
 
 from app.models.base import SessionLocal
 from app.contracts.materials import normalize_material_dataset
@@ -24,12 +26,18 @@ from app.models.entities import (
     Source,
 )
 from app.services.document_queries import build_structured_data_search_document_query_envelope
+from app.services.document_queries.contracts import (
+    DocumentQueryJsonObject,
+    DocumentQueryJsonValue,
+    DocumentQueryRow,
+)
 from app.services.projects import bind_project
 
 
-StructuredSearchResult = dict[str, Any]
-DatasetHandler = Callable[[Any, str, int], tuple[list[dict[str, Any]], int | None]]
-DatasetItemMapper = Callable[[Any], dict[str, Any]]
+StructuredSearchResult: TypeAlias = DocumentQueryJsonObject
+StructuredRecord: TypeAlias = DocumentQueryRow
+DatasetHandler: TypeAlias = Callable[[Session, str, int], tuple[list[StructuredRecord], int | None]]
+DatasetItemMapper: TypeAlias = Callable[..., StructuredRecord]
 
 
 DATASET_ORDER: tuple[str, ...] = (
@@ -103,10 +111,10 @@ def query_project_structured_data(
     capped_limit = max(1, min(50, int(limit or 12)))
     selected_datasets = _normalize_datasets(datasets)
     per_dataset_limit = max(3, min(25, capped_limit))
-    dataset_results: list[dict[str, Any]] = []
-    flat_items: list[dict[str, Any]] = []
-    fallback_items: list[dict[str, Any]] = []
-    errors: list[dict[str, Any]] = []
+    dataset_results: list[StructuredRecord] = []
+    flat_items: list[StructuredRecord] = []
+    fallback_items: list[StructuredRecord] = []
+    errors: list[StructuredRecord] = []
 
     with bind_project(resolved_project_key):
         with SessionLocal() as session:
@@ -137,13 +145,13 @@ def query_project_structured_data(
                     items = []
                     total_rows = None
                 dataset_results.append(
-                    {
+                    type_cast(StructuredRecord, {
                         "dataset": dataset,
                         "label": DATASET_LABELS.get(dataset, dataset),
                         "sample_count": len(items),
                         "total_rows": total_rows,
                         "items": items,
-                    }
+                    })
                 )
                 flat_items.extend(items)
             if query_text and not flat_items and _should_include_inventory_fallback(query_text):
@@ -172,9 +180,16 @@ def query_project_structured_data(
                         item["match_type"] = "inventory_fallback"
                     fallback_items.extend(items)
 
-    dataset_counts = {item["dataset"]: item["sample_count"] for item in dataset_results}
-    dataset_total_rows = {item["dataset"]: item["total_rows"] for item in dataset_results if item.get("total_rows") is not None}
-    total_stored_rows = sum(int(value or 0) for value in dataset_total_rows.values())
+    dataset_counts = {
+        str(item["dataset"]): _int_value(item["sample_count"], default=0)
+        for item in dataset_results
+    }
+    dataset_total_rows = {
+        str(item["dataset"]): _int_value(item["total_rows"], default=0)
+        for item in dataset_results
+        if item.get("total_rows") is not None
+    }
+    total_stored_rows = sum(dataset_total_rows.values())
     inventory = [
         {
             "dataset": item["dataset"],
@@ -197,7 +212,7 @@ def query_project_structured_data(
         fallback_used=bool(fallback_items and not flat_items),
     )
     document_query_data = document_query_envelope["data"]
-    return {
+    return type_cast(StructuredSearchResult, {
         "contract_version": "project.structured_data.search.v2",
         "project_key": resolved_project_key,
         "query": query_text,
@@ -224,17 +239,17 @@ def query_project_structured_data(
         ),
         "dataset_results": dataset_results,
         "errors": errors,
-    }
+    })
 
 
 def build_structured_data_model_evidence_manifest(
     *,
     project_key: str | None,
     query: str | None,
-    items: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None,
+    items: list[StructuredRecord] | tuple[StructuredRecord, ...] | None,
     limit: int = 12,
 ) -> Annotated[
-    list[dict[str, Any]],
+    list[StructuredRecord],
     "kit:non-authoritative derived_as=generated_evidence fact_source=structured_data_model_outputs "
     "witness=test:test_w02_agent_authority_metadata"
 ]:
@@ -242,17 +257,21 @@ def build_structured_data_model_evidence_manifest(
 
     resolved_project_key = str(project_key or "").strip()
     query_text = _normalize_query(query)
-    out: list[dict[str, Any]] = []
+    out: list[StructuredRecord] = []
     for item in list(items or [])[: max(1, int(limit or 12))]:
-        if not isinstance(item, dict):
-            continue
         dataset = normalize_material_dataset(item.get("dataset"))
         record_id = str(item.get("record_id") or item.get("id") or "").strip()
         if not dataset or not record_id:
             continue
         source_uri = str(item.get("source_uri") or "").strip() or None
-        fields = item.get("fields") if isinstance(item.get("fields"), dict) else {}
-        quality_flags = fields.get("quality_flags") if isinstance(fields.get("quality_flags"), dict) else {}
+        raw_fields = item.get("fields")
+        fields = raw_fields if isinstance(raw_fields, dict) else {}
+        raw_quality_flags = fields.get("quality_flags")
+        quality_flags = (
+            raw_quality_flags
+            if isinstance(raw_quality_flags, dict)
+            else {}
+        )
         out.append(
             {
                 "item_id": f"structured:{dataset}:{record_id}",
@@ -283,7 +302,7 @@ def read_project_structured_data_item(
     *,
     project_key: str | None,
     dataset: str | None = None,
-    record_id: Any | None = None,
+    record_id: object | None = None,
     item_id: str | None = None,
     resource_uri: str | None = None,
 ) -> StructuredSearchResult:
@@ -293,6 +312,14 @@ def read_project_structured_data_item(
     parsed = _parse_structured_data_read_ref(project_key=resolved_project_key, dataset=dataset, record_id=record_id, item_id=item_id, resource_uri=resource_uri)
     if not resolved_project_key:
         return _structured_item_read_error(project_key=project_key, dataset=parsed["dataset"], record_id=parsed["record_id"], code="missing_project_key", message="project_key is required")
+    if parsed.get("scope_error"):
+        return _structured_item_read_error(
+            project_key=resolved_project_key,
+            dataset=parsed["dataset"],
+            record_id=parsed["record_id"],
+            code="cross_project_reference",
+            message="structured resource belongs to another project",
+        )
     if not parsed["dataset"] or not parsed["record_id"]:
         return _structured_item_read_error(project_key=resolved_project_key, dataset=parsed["dataset"], record_id=parsed["record_id"], code="missing_record_ref", message="dataset and record_id are required")
     dataset_name = str(parsed["dataset"])
@@ -316,70 +343,95 @@ def read_project_structured_data_item(
             else:
                 item = mapper(row)
     manifest = build_structured_data_model_evidence_manifest(project_key=resolved_project_key, query=None, items=[item], limit=1)
-    return {
+    item_fields_value = item.get("fields")
+    item_fields = item_fields_value if isinstance(item_fields_value, dict) else {}
+    item_quality_value = item_fields.get("quality_flags")
+    item_quality = (
+        item_quality_value
+        if isinstance(item_quality_value, dict)
+        else {}
+    )
+    manifest_uri = manifest[0].get("resource_uri") if manifest else None
+    return type_cast(StructuredSearchResult, {
         "contract_version": "project.structured_data.item.read.v2",
         "project_key": resolved_project_key,
         "dataset": dataset_name,
         "record_id": str(parsed["record_id"]),
         "item": item,
         "model_evidence_manifest": manifest,
-        "resource_uri": manifest[0]["resource_uri"] if manifest else _structured_resource_uri(resolved_project_key, dataset_name, str(parsed["record_id"])),
+        "resource_uri": str(manifest_uri) if manifest_uri else _structured_resource_uri(resolved_project_key, dataset_name, str(parsed["record_id"])),
         "cleaned_text": item.get("summary") or "",
-        "source_ref": item.get("source_uri") or dict(item.get("fields") or {}).get("source_ref"),
-        "quality_flags": dict(dict(item.get("fields") or {}).get("quality_flags") or {}),
+        "source_ref": item.get("source_uri") or item_fields.get("source_ref"),
+        "quality_flags": item_quality,
         "errors": [],
-    }
+    })
 
 
 def read_project_structured_data_items(
     *,
     project_key: str | None,
-    items: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None,
+    items: list[StructuredRecord] | tuple[StructuredRecord, ...] | None,
     limit: int = 8,
 ) -> StructuredSearchResult:
     safe_limit = max(1, min(25, int(limit or 8)))
-    results: list[dict[str, Any]] = []
-    errors: list[dict[str, Any]] = []
+    results: list[StructuredSearchResult] = []
+    errors: list[StructuredRecord] = []
     for ref in list(items or [])[:safe_limit]:
-        if not isinstance(ref, dict):
+        requested_project = str(project_key or "").strip()
+        claimed_project = _optional_text(ref.get("project_key"))
+        if requested_project and claimed_project and claimed_project != requested_project:
+            read_result = _structured_item_read_error(
+                project_key=requested_project,
+                dataset=_optional_text(ref.get("dataset")),
+                record_id=ref.get("record_id"),
+                code="cross_project_reference",
+                message="structured record belongs to another project",
+            )
+            raw_errors = read_result.get("errors")
+            if isinstance(raw_errors, list):
+                errors.extend([item for item in raw_errors if isinstance(item, dict)])
             continue
         read_result = read_project_structured_data_item(
-            project_key=ref.get("project_key") or project_key,
-            dataset=ref.get("dataset"),
+            project_key=requested_project or claimed_project,
+            dataset=_optional_text(ref.get("dataset")),
             record_id=ref.get("record_id"),
-            item_id=ref.get("item_id"),
-            resource_uri=ref.get("resource_uri"),
+            item_id=_optional_text(ref.get("item_id")),
+            resource_uri=_optional_text(ref.get("resource_uri")),
         )
         if read_result.get("item"):
             results.append(read_result)
-        errors.extend([item for item in list(read_result.get("errors") or []) if isinstance(item, dict)])
-    manifest: list[dict[str, Any]] = []
+        raw_errors = read_result.get("errors")
+        if isinstance(raw_errors, list):
+            errors.extend([item for item in raw_errors if isinstance(item, dict)])
+    manifest: list[StructuredRecord] = []
     for result in results:
-        manifest.extend([item for item in list(result.get("model_evidence_manifest") or []) if isinstance(item, dict)])
-    return {
+        raw_manifest = result.get("model_evidence_manifest")
+        if isinstance(raw_manifest, list):
+            manifest.extend([item for item in raw_manifest if isinstance(item, dict)])
+    return type_cast(StructuredSearchResult, {
         "contract_version": "project.structured_data.items.read.v2",
         "project_key": str(project_key or "").strip(),
         "items": results,
         "model_evidence_manifest": manifest,
         "total_returned": len(results),
         "errors": errors,
-    }
+    })
 
 
 def read_project_context_resource(*, project_key: str | None, resource_uri: str | None) -> StructuredSearchResult:
     uri = str(resource_uri or "").strip()
     if uri.startswith("project://structured/"):
         return read_project_structured_data_item(project_key=project_key, resource_uri=uri)
-    return {
+    return type_cast(StructuredSearchResult, {
         "contract_version": "project.context.resource.read.v1",
         "project_key": str(project_key or "").strip(),
         "resource_uri": uri,
         "item": None,
         "errors": [{"type": "unsupported_resource_uri", "message": "Only project://structured/... resources are supported by this read-only tool."}],
-    }
+    })
 
 
-def _normalize_query(value: Any) -> str:
+def _normalize_query(value: object) -> str:
     text = " ".join(str(value or "").strip().split())
     lowered = text.lower()
     if not lowered:
@@ -391,6 +443,22 @@ def _normalize_query(value: Any) -> str:
     if topic:
         return topic
     return text
+
+
+def _optional_text(value: object) -> str | None:
+    text = str(value).strip() if value is not None else ""
+    return text or None
+
+
+def _int_value(value: object, *, default: int) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float, str)):
+        try:
+            return int(value)
+        except ValueError:
+            return default
+    return default
 
 
 def _extract_topic_query(text: str) -> str:
@@ -455,16 +523,16 @@ def _should_include_inventory_fallback(query: str) -> bool:
 
 
 def _query_model(
-    session: Any,
-    model: Any,
+    session: Session,
+    model: type[object],
     *,
     dataset: str,
     query: str,
     limit: int,
-    mapper: Callable[[Any], dict[str, Any]],
+    mapper: DatasetItemMapper,
     search_columns: tuple[Any, ...] = (),
     order_columns: tuple[Any, ...] = (),
-) -> tuple[list[dict[str, Any]], int | None]:
+) -> tuple[list[StructuredRecord], int | None]:
     # Inventory questions need table sizes; targeted search turns need samples first.
     # Avoid a count(*) per dataset on normal search, which dominates tail latency
     # once the project accumulates larger structured tables.
@@ -493,8 +561,8 @@ def _search_condition(query: str, columns: tuple[Any, ...]) -> Any:
     return or_(*[cast(column, Text).ilike(pattern) for column in columns])
 
 
-def _rank_visible_query_matches(items: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:
-    scored: list[tuple[int, int, dict[str, Any]]] = []
+def _rank_visible_query_matches(items: list[StructuredRecord], query: str) -> list[StructuredRecord]:
+    scored: list[tuple[int, int, StructuredRecord]] = []
     for index, item in enumerate(items):
         score = _visible_query_score(item, query)
         if score > 0:
@@ -503,7 +571,7 @@ def _rank_visible_query_matches(items: list[dict[str, Any]], query: str) -> list
     return [item for _score, _index, item in scored]
 
 
-def _visible_query_score(item: dict[str, Any], query: str) -> int:
+def _visible_query_score(item: StructuredRecord, query: str) -> int:
     query_terms = _query_terms(query)
     if not query_terms:
         return 0
@@ -530,13 +598,13 @@ def _query_terms(query: str) -> list[str]:
     return [part for part in re.split(r"[^a-z0-9]+", text) if len(part) >= 3]
 
 
-def _searchable_text(value: Any) -> str:
+def _searchable_text(value: object) -> str:
     if isinstance(value, (dict, list, tuple)):
         return json.dumps(value, ensure_ascii=False, default=str).lower()
     return str(value or "").lower()
 
 
-def _query_documents(session: Any, query: str, limit: int) -> tuple[list[dict[str, Any]], int | None]:
+def _query_documents(session: Session, query: str, limit: int) -> tuple[list[StructuredRecord], int | None]:
     return _query_model(
         session,
         Document,
@@ -558,7 +626,7 @@ def _query_documents(session: Any, query: str, limit: int) -> tuple[list[dict[st
     )
 
 
-def _query_sources(session: Any, query: str, limit: int) -> tuple[list[dict[str, Any]], int | None]:
+def _query_sources(session: Session, query: str, limit: int) -> tuple[list[StructuredRecord], int | None]:
     return _query_model(
         session,
         Source,
@@ -571,7 +639,7 @@ def _query_sources(session: Any, query: str, limit: int) -> tuple[list[dict[str,
     )
 
 
-def _query_metric_points(session: Any, query: str, limit: int) -> tuple[list[dict[str, Any]], int | None]:
+def _query_metric_points(session: Session, query: str, limit: int) -> tuple[list[StructuredRecord], int | None]:
     return _query_model(
         session,
         MarketMetricPoint,
@@ -591,7 +659,7 @@ def _query_metric_points(session: Any, query: str, limit: int) -> tuple[list[dic
     )
 
 
-def _query_products(session: Any, query: str, limit: int) -> tuple[list[dict[str, Any]], int | None]:
+def _query_products(session: Session, query: str, limit: int) -> tuple[list[StructuredRecord], int | None]:
     return _query_model(
         session,
         Product,
@@ -612,7 +680,7 @@ def _query_products(session: Any, query: str, limit: int) -> tuple[list[dict[str
     )
 
 
-def _query_price_observations(session: Any, query: str, limit: int) -> tuple[list[dict[str, Any]], int | None]:
+def _query_price_observations(session: Session, query: str, limit: int) -> tuple[list[StructuredRecord], int | None]:
     stmt = select(PriceObservation, Product.name, Product.category).join(Product, Product.id == PriceObservation.product_id)
     if query:
         stmt = stmt.where(
@@ -632,7 +700,7 @@ def _query_price_observations(session: Any, query: str, limit: int) -> tuple[lis
     return [_price_observation_item(row[0], product_name=row[1], product_category=row[2]) for row in rows], total_rows
 
 
-def _query_resource_pool_urls(session: Any, query: str, limit: int) -> tuple[list[dict[str, Any]], int | None]:
+def _query_resource_pool_urls(session: Session, query: str, limit: int) -> tuple[list[StructuredRecord], int | None]:
     return _query_model(
         session,
         ResourcePoolUrl,
@@ -645,7 +713,7 @@ def _query_resource_pool_urls(session: Any, query: str, limit: int) -> tuple[lis
     )
 
 
-def _query_resource_pool_sites(session: Any, query: str, limit: int) -> tuple[list[dict[str, Any]], int | None]:
+def _query_resource_pool_sites(session: Session, query: str, limit: int) -> tuple[list[StructuredRecord], int | None]:
     return _query_model(
         session,
         ResourcePoolSiteEntry,
@@ -669,7 +737,7 @@ def _query_resource_pool_sites(session: Any, query: str, limit: int) -> tuple[li
     )
 
 
-def _query_graph_nodes(session: Any, query: str, limit: int) -> tuple[list[dict[str, Any]], int | None]:
+def _query_graph_nodes(session: Session, query: str, limit: int) -> tuple[list[StructuredRecord], int | None]:
     return _query_model(
         session,
         GraphNodeRecord,
@@ -688,7 +756,7 @@ def _query_graph_nodes(session: Any, query: str, limit: int) -> tuple[list[dict[
     )
 
 
-def _query_keyword_history(session: Any, query: str, limit: int) -> tuple[list[dict[str, Any]], int | None]:
+def _query_keyword_history(session: Session, query: str, limit: int) -> tuple[list[StructuredRecord], int | None]:
     return _query_model(
         session,
         KeywordHistory,
@@ -708,7 +776,7 @@ def _query_keyword_history(session: Any, query: str, limit: int) -> tuple[list[d
     )
 
 
-def _query_keyword_priors(session: Any, query: str, limit: int) -> tuple[list[dict[str, Any]], int | None]:
+def _query_keyword_priors(session: Session, query: str, limit: int) -> tuple[list[StructuredRecord], int | None]:
     return _query_model(
         session,
         KeywordPrior,
@@ -721,7 +789,7 @@ def _query_keyword_priors(session: Any, query: str, limit: int) -> tuple[list[di
     )
 
 
-def _query_search_history(session: Any, query: str, limit: int) -> tuple[list[dict[str, Any]], int | None]:
+def _query_search_history(session: Session, query: str, limit: int) -> tuple[list[StructuredRecord], int | None]:
     return _query_model(
         session,
         SearchHistory,
@@ -734,7 +802,7 @@ def _query_search_history(session: Any, query: str, limit: int) -> tuple[list[di
     )
 
 
-def _document_item(row: Document) -> dict[str, Any]:
+def _document_item(row: Document) -> StructuredRecord:
     return _record(
         "materials",
         row.id,
@@ -756,7 +824,7 @@ def _document_item(row: Document) -> dict[str, Any]:
     )
 
 
-def _source_item(row: Source) -> dict[str, Any]:
+def _source_item(row: Source) -> StructuredRecord:
     return _record(
         "sources",
         row.id,
@@ -773,7 +841,7 @@ def _source_item(row: Source) -> dict[str, Any]:
     )
 
 
-def _metric_point_item(row: MarketMetricPoint) -> dict[str, Any]:
+def _metric_point_item(row: MarketMetricPoint) -> StructuredRecord:
     return _record(
         "metric_points",
         row.id,
@@ -794,7 +862,7 @@ def _metric_point_item(row: MarketMetricPoint) -> dict[str, Any]:
     )
 
 
-def _product_item(row: Product) -> dict[str, Any]:
+def _product_item(row: Product) -> StructuredRecord:
     return _record(
         "products",
         row.id,
@@ -816,7 +884,9 @@ def _product_item(row: Product) -> dict[str, Any]:
     )
 
 
-def _price_observation_item(row: PriceObservation, *, product_name: str | None, product_category: str | None) -> dict[str, Any]:
+def _price_observation_item(
+    row: PriceObservation, *, product_name: str | None, product_category: str | None,
+) -> StructuredRecord:
     return _record(
         "price_observations",
         row.id,
@@ -838,7 +908,7 @@ def _price_observation_item(row: PriceObservation, *, product_name: str | None, 
     )
 
 
-def _resource_pool_url_item(row: ResourcePoolUrl) -> dict[str, Any]:
+def _resource_pool_url_item(row: ResourcePoolUrl) -> StructuredRecord:
     return _record(
         "resource_pool_urls",
         row.id,
@@ -856,7 +926,7 @@ def _resource_pool_url_item(row: ResourcePoolUrl) -> dict[str, Any]:
     )
 
 
-def _resource_pool_site_item(row: ResourcePoolSiteEntry) -> dict[str, Any]:
+def _resource_pool_site_item(row: ResourcePoolSiteEntry) -> StructuredRecord:
     return _record(
         "resource_pool_sites",
         row.id,
@@ -879,7 +949,7 @@ def _resource_pool_site_item(row: ResourcePoolSiteEntry) -> dict[str, Any]:
     )
 
 
-def _graph_node_item(row: GraphNodeRecord) -> dict[str, Any]:
+def _graph_node_item(row: GraphNodeRecord) -> StructuredRecord:
     return _record(
         "graph_nodes",
         row.id,
@@ -899,7 +969,7 @@ def _graph_node_item(row: GraphNodeRecord) -> dict[str, Any]:
     )
 
 
-def _keyword_history_item(row: KeywordHistory) -> dict[str, Any]:
+def _keyword_history_item(row: KeywordHistory) -> StructuredRecord:
     return _record(
         "keyword_history",
         row.id,
@@ -921,7 +991,7 @@ def _keyword_history_item(row: KeywordHistory) -> dict[str, Any]:
     )
 
 
-def _keyword_prior_item(row: KeywordPrior) -> dict[str, Any]:
+def _keyword_prior_item(row: KeywordPrior) -> StructuredRecord:
     return _record(
         "keyword_priors",
         row.id,
@@ -941,7 +1011,7 @@ def _keyword_prior_item(row: KeywordPrior) -> dict[str, Any]:
     )
 
 
-def _search_history_item(row: SearchHistory) -> dict[str, Any]:
+def _search_history_item(row: SearchHistory) -> StructuredRecord:
     return _record(
         "search_history",
         row.id,
@@ -957,29 +1027,31 @@ def _search_history_item(row: SearchHistory) -> dict[str, Any]:
 
 def _record(
     dataset: str,
-    record_id: Any,
-    title: Any,
-    summary: Any,
-    fields: dict[str, Any],
+    record_id: object,
+    title: object,
+    summary: object,
+    fields: Mapping[str, object],
     *,
-    source_uri: str | None = None,
-    date_value: Any | None = None,
-) -> dict[str, Any]:
-    fields = dict(fields or {})
+    source_uri: object | None = None,
+    date_value: object | None = None,
+) -> StructuredRecord:
+    normalized_fields = _compact_json_value(fields, max_items=18, max_depth=4)
+    fields_object = normalized_fields if isinstance(normalized_fields, dict) else {}
     dataset = normalize_material_dataset(dataset)
     summary_text, summary_flags = _clean_display_summary(summary, limit=420)
     if summary_flags:
-        quality_flags = dict(fields.get("quality_flags") or {})
+        existing_flags = fields_object.get("quality_flags")
+        quality_flags: DocumentQueryJsonObject = dict(existing_flags) if isinstance(existing_flags, dict) else {}
         quality_flags.update(summary_flags)
-        fields["quality_flags"] = quality_flags
+        fields_object["quality_flags"] = quality_flags
     return {
         "dataset": dataset,
         "record_id": _serialize_value(record_id),
         "title": _trim_text(title, 180),
         "summary": summary_text,
-        "source_uri": source_uri,
+        "source_uri": str(source_uri).strip() if source_uri is not None else None,
         "date": _serialize_value(date_value),
-        "fields": _compact_json_value(fields, max_items=18, max_depth=4),
+        "fields": fields_object,
     }
 
 
@@ -991,7 +1063,7 @@ def _parse_structured_data_read_ref(
     *,
     project_key: str,
     dataset: str | None,
-    record_id: Any | None,
+    record_id: object | None,
     item_id: str | None,
     resource_uri: str | None,
 ) -> dict[str, str]:
@@ -1002,6 +1074,13 @@ def _parse_structured_data_read_ref(
     if uri_text.startswith("project://structured/"):
         parts = uri_text.removeprefix("project://structured/").split("/", 2)
         if len(parts) == 3:
+            if project_key and parts[0] != project_key:
+                return {
+                    "project_key": project_key,
+                    "dataset": normalize_material_dataset(dataset_text or parts[1]),
+                    "record_id": record_text or parts[2],
+                    "scope_error": "cross_project_reference",
+                }
             if not project_key:
                 project_key = parts[0]
             dataset_text = dataset_text or parts[1]
@@ -1018,7 +1097,7 @@ def _structured_item_read_error(
     *,
     project_key: str | None,
     dataset: str | None,
-    record_id: Any | None,
+    record_id: object | None,
     code: str,
     message: str,
 ) -> StructuredSearchResult:
@@ -1033,15 +1112,23 @@ def _structured_item_read_error(
     }
 
 
-def _serialize_value(value: Any) -> Any:
+def _serialize_value(value: object) -> DocumentQueryJsonValue:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
     if isinstance(value, Decimal):
         return str(value)
     if isinstance(value, (datetime, date)):
         return value.isoformat()
-    return value
+    if isinstance(value, Mapping):
+        mapping = type_cast(Mapping[object, object], value)
+        return {str(key): _serialize_value(item) for key, item in mapping.items()}
+    if isinstance(value, (list, tuple)):
+        sequence = type_cast(list[object] | tuple[object, ...], value)
+        return [_serialize_value(item) for item in sequence]
+    return str(value)
 
 
-def _trim_text(value: Any, limit: int) -> str:
+def _trim_text(value: object, limit: int) -> str:
     text = " ".join(str(value or "").split())
     if len(text) <= limit:
         return text
@@ -1059,7 +1146,7 @@ _WEB_NOISE_PATTERNS: tuple[re.Pattern[str], ...] = (
 )
 
 
-def _clean_display_summary(value: Any, *, limit: int) -> tuple[str, dict[str, Any]]:
+def _clean_display_summary(value: object, *, limit: int) -> tuple[str, DocumentQueryJsonObject]:
     text = " ".join(str(value or "").split())
     if not text:
         return "", {}
@@ -1080,29 +1167,32 @@ def _punctuation_ratio(text: str) -> float:
     return punctuation_count / max(1, len(text))
 
 
-def _compact_json_value(value: Any, *, max_items: int, max_depth: int, max_string: int = 500) -> Any:
+def _compact_json_value(
+    value: object, *, max_items: int, max_depth: int, max_string: int = 500,
+) -> DocumentQueryJsonValue:
     if max_depth <= 0:
         if isinstance(value, (dict, list, tuple)):
             return "[truncated]"
         return _serialize_value(value)
-    if isinstance(value, dict):
-        out: dict[str, Any] = {}
-        for index, (key, item) in enumerate(value.items()):
+    if isinstance(value, Mapping):
+        mapping = type_cast(Mapping[object, object], value)
+        out: DocumentQueryJsonObject = {}
+        for index, (key, item) in enumerate(mapping.items()):
             if index >= max_items:
                 out["_truncated"] = True
-                out["_omitted_count"] = max(0, len(value) - max_items)
+                out["_omitted_count"] = max(0, len(mapping) - max_items)
                 break
             out[str(key)] = _compact_json_value(item, max_items=max_items, max_depth=max_depth - 1, max_string=max_string)
         return out
     if isinstance(value, (list, tuple)):
-        items = list(value)
-        out = [
+        items = list(type_cast(list[object] | tuple[object, ...], value))
+        array: list[DocumentQueryJsonValue] = [
             _compact_json_value(item, max_items=max_items, max_depth=max_depth - 1, max_string=max_string)
             for item in items[:max_items]
         ]
         if len(items) > max_items:
-            out.append({"_truncated": True, "_omitted_count": len(items) - max_items})
-        return out
+            array.append({"_truncated": True, "_omitted_count": len(items) - max_items})
+        return array
     value = _serialize_value(value)
     if isinstance(value, str) and len(value) > max_string:
         return f"{value[:max_string]}..."
@@ -1137,12 +1227,21 @@ _DATASET_MODELS: dict[str, Any] = {
     "sources": Source,
 }
 
+
+def _price_observation_item_without_product(row: object) -> StructuredRecord:
+    return _price_observation_item(
+        type_cast(PriceObservation, row),
+        product_name=None,
+        product_category=None,
+    )
+
+
 _DATASET_ITEM_MAPPERS: dict[str, DatasetItemMapper] = {
     "materials": _document_item,
     "graph_nodes": _graph_node_item,
     "metric_points": _metric_point_item,
     "products": _product_item,
-    "price_observations": lambda row: _price_observation_item(row, product_name=None, product_category=None),
+    "price_observations": _price_observation_item_without_product,
     "resource_pool_urls": _resource_pool_url_item,
     "resource_pool_sites": _resource_pool_site_item,
     "keyword_history": _keyword_history_item,

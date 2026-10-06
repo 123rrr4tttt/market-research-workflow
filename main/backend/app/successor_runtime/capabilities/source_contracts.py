@@ -21,11 +21,27 @@ import json
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Annotated, Any, Literal, NoReturn, Protocol, TypeAlias, TypeGuard, get_args, runtime_checkable
+from typing import (
+    Annotated,
+    Any,
+    Generic,
+    Literal,
+    NoReturn,
+    Protocol,
+    TypedDict,
+    TypeAlias,
+    TypeGuard,
+    TypeVar,
+    get_args,
+    runtime_checkable,
+)
 
 from functorial_kit import Failure
 
 from app.successor_runtime.capabilities.checksum import (
+    CanonicalJsonArray as CanonicalJsonArray,  # required by get_type_hints on recursive aliases
+    CanonicalJsonObject,
+    CanonicalJsonValue,
     content_digest,
     require_hex64,
     sha256_hex,
@@ -33,7 +49,17 @@ from app.successor_runtime.capabilities.checksum import (
 from app.successor_runtime.capabilities.codecs import PayloadCodec, codec_digest
 from app.successor_runtime.capabilities.contracts import OperationContract
 from app.successor_runtime.capabilities.profiles import ContractProfileRef
+from app.successor_runtime.capabilities.profiles import (
+    AuthorityProfile,
+    EffectProfile,
+    FailureProfile,
+    InterpreterProfile,
+    ObservationProfile,
+    ResourceProfile,
+    SemanticProfile,
+)
 from app.successor_runtime.language.algebra import (
+    FrozenJsonAtom as FrozenJsonAtom,  # required by get_type_hints on recursive aliases
     FrozenJsonObject,
     FrozenJsonValue as FrozenJsonValue,  # required by get_type_hints on mirrored DTOs
     freeze_json_object,
@@ -54,6 +80,8 @@ from mrw_functorial_kit.core.w06_semantics import (
     source_single_source_guard_failures,
 )
 
+SourcePayloadModel = TypeVar("SourcePayloadModel")
+
 SOURCE_TOTAL_CORE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
 
 SOURCE_RESOLUTION_KIND = "source_library.resolve_execution_request.v1"
@@ -64,6 +92,70 @@ SOURCE_RESOLUTION_HISTORICAL_PAYLOAD_SCHEMA = "mrw.successor.source-library.c2-1
 SOURCE_RESOLUTION_PAYLOAD_CODEC_ID = "mrw.source.resolve-execution-request.payload.codec.v2"
 SOURCE_RESOLUTION_HISTORICAL_PAYLOAD_CODEC_ID = "mrw.successor.source-library.c2-1.payload.codec.v1"
 SOURCE_RESOLUTION_CATALOG_ID = "mrw.source.resolve-execution-request.operations.v2"
+
+SourcePlainAtom: TypeAlias = None | bool | int | float | str
+SourcePlainValue: TypeAlias = (
+    SourcePlainAtom
+    | list["SourcePlainValue"]
+    | tuple["SourcePlainValue", ...]
+    | frozenset[str]
+    | dict[str, "SourcePlainValue"]
+)
+SourcePlainObject: TypeAlias = dict[str, SourcePlainValue]
+SourceAuthorization: TypeAlias = None | Mapping[str, SourcePlainValue]
+
+
+def source_plain_value_to_canonical(
+    value: SourcePlainValue,
+) -> CanonicalJsonValue:
+    """Project source plain values onto the shared canonical JSON wire."""
+
+    if isinstance(value, dict):
+        return {
+            key: source_plain_value_to_canonical(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [source_plain_value_to_canonical(item) for item in value]
+    if isinstance(value, frozenset):
+        return [
+            source_plain_value_to_canonical(item)
+            for item in sorted(value)
+        ]
+    return value
+
+
+def source_plain_object_to_canonical(
+    value: SourcePlainObject,
+) -> CanonicalJsonObject:
+    return {
+        key: source_plain_value_to_canonical(item)
+        for key, item in value.items()
+    }
+
+
+def canonical_value_to_source_plain(
+    value: CanonicalJsonValue,
+) -> SourcePlainValue:
+    """Restore the source plain vocabulary without changing stored identity."""
+
+    if isinstance(value, dict):
+        return {
+            key: canonical_value_to_source_plain(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [canonical_value_to_source_plain(item) for item in value]
+    return value
+
+
+def canonical_object_to_source_plain(
+    value: CanonicalJsonObject,
+) -> SourcePlainObject:
+    return {
+        key: canonical_value_to_source_plain(item)
+        for key, item in value.items()
+    }
 
 
 def source_contract_failure(
@@ -377,7 +469,7 @@ class VersionedSchema:
                     "VersionedSchema.schema_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_ref": self.schema_ref,
             "field_requiredness": [[name, required] for name, required in self.field_requiredness],
@@ -522,7 +614,7 @@ class AuthenticatedProjectScope:
                     exception_type=ValueError,
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "project_key": self.project_key,
             "registry_revision": self.registry_revision,
@@ -637,7 +729,7 @@ class ChannelCatalogSnapshot:
                 return entry
         return None
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "revision": self.revision,
@@ -728,7 +820,7 @@ class SourceItemDefinition:
                     "SourceItemDefinition.content_digest does not match item content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "item_key": self.item_key,
             "channel_key": self.channel_key,
@@ -803,7 +895,7 @@ class SourceMode:
         if not _is_string(self.version) or not self.version.strip():
             _reject_source_contract("SourceMode.version is required", exception_type=ValueError)
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "mode": self.mode,
@@ -836,7 +928,7 @@ class SourceTaxonomy:
         if self.managed_by not in {"user", "system"}:
             _reject_source_contract(f"unsupported managed_by {self.managed_by!r}", exception_type=ValueError)
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "channel_family": self.channel_family,
@@ -873,7 +965,7 @@ class VersionedWarning:
         if not all(_is_string(item) for item in self.ordered_payload):
             _reject_source_contract("VersionedWarning.ordered_payload must contain strings", exception_type=ValueError)
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "code": self.code,
@@ -943,7 +1035,7 @@ class SourceRejection:
         if not _is_string(self.message):
             _reject_source_contract("SourceRejection.message must be a string", exception_type=TypeError)
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "code": self.code,
@@ -1158,7 +1250,7 @@ class NormalizedParamsSnapshot:
         extra = tuple((key, _json_text(value)) for key, value in values.items() if key not in _PARAMS_KNOWN_FIELDS)
         return cls(**known, extra=extra)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> SourcePlainObject:
         out: dict[str, Any] = {}
         attribute_for = {name: name for name in _PARAMS_KNOWN_FIELDS}
         attribute_for["_allow_internal_generic_web"] = "allow_internal_generic_web"
@@ -1169,7 +1261,7 @@ class NormalizedParamsSnapshot:
             out[key] = json.loads(text)
         return out
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "query_terms": list(self.query_terms),
             "max_items": self.max_items,
@@ -1208,7 +1300,7 @@ class FrontDoorConcurrencyStage:
     fail_fast: bool
     timeout_seconds: float | None
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "stage": self.stage,
             "tasks_total": self.tasks_total,
@@ -1227,7 +1319,7 @@ class FrontDoorConcurrencyPlan:
     search: FrontDoorConcurrencyStage
     url: FrontDoorConcurrencyStage
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "batch_size": self.batch_size,
             "shared_budget": self.shared_budget,
@@ -1262,7 +1354,7 @@ class FrontDoorProtocol:
     source_tier: str
     onboarding_priority: str
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "item_key": self.item_key,
             "item_channel_key": self.item_channel_key,
@@ -1333,7 +1425,7 @@ class SourceExecutionRequest:
         )
         require_hex64(self.catalog_digest, "SourceExecutionRequest.catalog_digest")
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "source_mode": self.source_mode.to_plain(),
@@ -1399,7 +1491,7 @@ class ResourceCeiling:
                     "ResourceCeiling.ceiling_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_ref": self.schema_ref,
             "max_catalog_entries": self.max_catalog_entries,
@@ -1590,7 +1682,7 @@ class CredentialRef:
         }:
             _reject_source_contract("CredentialRef.schema_version is not the frozen schema", exception_type=ValueError)
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "ref": self.ref,
@@ -1638,7 +1730,7 @@ class ProviderResourcePolicy:
         if self.artifact_byte_ceiling > SOURCE_PROVIDER_ACQUISITION_MAX_ARTIFACT_BYTES:
             _reject_source_contract("artifact_byte_ceiling exceeds the frozen ceiling", exception_type=ValueError)
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "resource_class": self.resource_class,
@@ -1756,7 +1848,7 @@ class ProviderEffectRequest:
             "terminal_output_only": self.terminal_output_only,
         }
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {**self._digest_payload(), "request_digest": self.request_digest}
 
 
@@ -1785,7 +1877,7 @@ class ProviderAttemptRef:
     def as_ref_string(self) -> str:
         return f"provider-attempt:{self.attempt_id}"
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "attempt_id": self.attempt_id,
@@ -1834,7 +1926,7 @@ class ProviderReceipt:
                     "ProviderReceipt.receipt_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "receipt_id": self.receipt_id,
@@ -1868,7 +1960,7 @@ class CapturedSourceRecordRef:
                 "CapturedSourceRecordRef.schema_version is not the frozen schema", exception_type=ValueError
             )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "record_id": self.record_id,
@@ -1903,7 +1995,7 @@ class StagedArtifactRef:
                 "StagedArtifactRef.schema_version is not the frozen schema", exception_type=ValueError
             )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "artifact_id": self.artifact_id,
@@ -1946,7 +2038,7 @@ class CredentialDecisionReceipt:
                     "CredentialDecisionReceipt.receipt_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "decision": self.decision,
@@ -1992,7 +2084,7 @@ class AuthoritativeProviderReadback:
                     "AuthoritativeProviderReadback.readback_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "attempt_ref": self.attempt_ref,
@@ -2028,7 +2120,7 @@ class NonStartProof:
             if self.proof_digest != expected:
                 _reject_source_contract("NonStartProof.proof_digest does not match content", exception_type=ValueError)
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "attempt_ref": self.attempt_ref,
@@ -2042,7 +2134,7 @@ class NonStartUnprovable:
     attempt_ref: str
     reason: str
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {"attempt_ref": self.attempt_ref, "reason": self.reason}
 
 
@@ -2077,7 +2169,7 @@ class CancelReceipt:
                     "CancelReceipt.receipt_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "cancel_receipt_id": self.cancel_receipt_id,
@@ -2106,7 +2198,7 @@ class OrderedProviderFailure:
         if not _is_string(self.source) or not self.source.strip():
             _reject_source_contract("OrderedProviderFailure.source is required", exception_type=ValueError)
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "order_index": self.order_index,
             "code": self.code,
@@ -2142,7 +2234,7 @@ class CompletedProviderEffect:
                     "CompletedProviderEffect.outcome_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "receipt": self.receipt.to_plain(),
@@ -2175,7 +2267,7 @@ class AcceptedProviderEffect:
                     "AcceptedProviderEffect.outcome_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "receipt": self.receipt.to_plain(),
@@ -2213,7 +2305,7 @@ class PartiallyCompletedProviderEffect:
                     "PartiallyCompletedProviderEffect.outcome_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "receipt": self.receipt.to_plain(),
@@ -2249,7 +2341,7 @@ class RejectedProviderEffect:
                     "RejectedProviderEffect.outcome_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "code": self.code,
@@ -2286,7 +2378,7 @@ class FailedProviderEffect:
                     "FailedProviderEffect.outcome_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "code": self.code,
@@ -2325,7 +2417,7 @@ class CancelledProviderEffect:
                     "CancelledProviderEffect.outcome_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "cancel_receipt": self.cancel_receipt.to_plain(),
@@ -2358,7 +2450,7 @@ class OutcomeUnknownProviderEffect:
                     "OutcomeUnknownProviderEffect.outcome_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "attempt_ref": self.attempt_ref,
@@ -2400,7 +2492,7 @@ class ReconciledProviderEffect:
                     "ReconciledProviderEffect.outcome_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "attempt_ref": self.attempt_ref,
@@ -2413,7 +2505,7 @@ class ReconciledProviderEffect:
 class ReadbackTerminal:
     readback: AuthoritativeProviderReadback
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {"kind": "terminal", "readback": self.readback.to_plain()}
 
 
@@ -2422,7 +2514,7 @@ class ReadbackWaiting:
     attempt_ref: str
     observed_at: str
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": "waiting",
             "attempt_ref": self.attempt_ref,
@@ -2435,7 +2527,7 @@ class ReadbackUnavailable:
     attempt_ref: str
     reason: str
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": "unavailable",
             "attempt_ref": self.attempt_ref,
@@ -2647,7 +2739,7 @@ class SourceModePlanningPayload:
             "resource_ceiling_digest": self.resource_ceiling_digest,
         }
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {**self._digest_payload(), "payload_digest": self.payload_digest}
 
 
@@ -2658,7 +2750,7 @@ class FallbackRule:
     target: str
     authority_bound: bool = True
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "when": self.when,
             "reason": self.reason,
@@ -2674,7 +2766,7 @@ class TerminalConstructionProfile:
     provider_handoff_contract_version: str = PROVIDER_HANDOFF_SCHEMA
     document_adoption: bool = False
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "terminal_kind": self.terminal_kind,
             "collect_only": self.collect_only,
@@ -2704,7 +2796,7 @@ class OrderedFoldPolicy:
         ):
             _reject_source_contract("max_partial_failures must be a bounded positive int", exception_type=ValueError)
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "fold_kind": self.fold_kind,
             "failure_mode": self.failure_mode,
@@ -2751,7 +2843,7 @@ class SourceModeTask:
             if self.task_digest != expected:
                 _reject_source_contract("SourceModeTask.task_digest does not match content", exception_type=ValueError)
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "task_id": self.task_id,
@@ -2839,7 +2931,7 @@ class SourceModePlan:
             if self.plan_digest != expected:
                 _reject_source_contract("SourceModePlan.plan_digest does not match content", exception_type=ValueError)
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "plan_id": self.plan_id,
@@ -2879,7 +2971,7 @@ class PlannedPlanning:
                     "PlannedPlanning.result_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "plan": self.plan.to_plain(),
@@ -2914,7 +3006,7 @@ class RejectedPlanning:
                     "RejectedPlanning.result_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "code": self.code,
@@ -2942,7 +3034,7 @@ class OrderedFailure:
         if not _is_string(self.source) or not self.source.strip():
             _reject_source_contract("OrderedFailure.source is required", exception_type=ValueError)
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "order_index": self.order_index,
             "code": self.code,
@@ -2970,7 +3062,7 @@ class ProviderHandoff:
                 "ProviderHandoff.contract_version is not the frozen contract", exception_type=ValueError
             )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "handoff_id": self.handoff_id,
             "mode": self.mode,
@@ -2997,7 +3089,7 @@ class SourceTaskOutcome:
     ordered_failures: tuple[OrderedFailure, ...] = ()
     provider_handoff: ProviderHandoff | None = None
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "task_id": self.task_id,
             "mode": self.mode,
@@ -3047,7 +3139,7 @@ class SourceCollectionTerminal:
                     "SourceCollectionTerminal.collection_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "schema_version": self.schema_version,
             "terminal_id": self.terminal_id,
@@ -3083,7 +3175,7 @@ class CollectionCompleted:
                     "CollectionCompleted.outcome_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "terminal": self.terminal.to_plain(),
@@ -3117,7 +3209,7 @@ class CollectionPartiallyCompleted:
                     "CollectionPartiallyCompleted.outcome_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "terminal": self.terminal.to_plain(),
@@ -3148,7 +3240,7 @@ class CollectionProviderAccepted:
                     "CollectionProviderAccepted.outcome_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "terminal": self.terminal.to_plain(),
@@ -3184,7 +3276,7 @@ class CollectionRejected:
                     "CollectionRejected.outcome_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "code": self.code,
@@ -3229,7 +3321,7 @@ class CollectionFailed:
                     "CollectionFailed.outcome_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "code": self.code,
@@ -3262,7 +3354,7 @@ class CollectionCancelled:
                     "CollectionCancelled.outcome_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "reason": self.reason,
@@ -3293,7 +3385,7 @@ class CollectionOutcomeUnknown:
                     "CollectionOutcomeUnknown.outcome_digest does not match content", exception_type=ValueError
                 )
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "kind": self.kind,
             "reason": self.reason,
@@ -3441,7 +3533,7 @@ class EphemeralCredentialLease:
     expires_at: str
     credential_decision_receipt: CredentialDecisionReceipt
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "lease_id": self.lease_id,
             "credential_ref": self.credential_ref,
@@ -3465,7 +3557,7 @@ class RedactedCredentialRejection:
         if not _is_string(self.message):
             _reject_source_contract("RedactedCredentialRejection.message must be a string", exception_type=ValueError)
 
-    def to_plain(self) -> dict[str, Any]:
+    def to_plain(self) -> SourcePlainObject:
         return {
             "code": self.code,
             "credential_ref": self.credential_ref,
@@ -3481,7 +3573,7 @@ class CredentialResolverPort(Protocol):
     def resolve(
         self,
         ref: CredentialRef,
-        authorization: Any,
+        authorization: SourceAuthorization,
     ) -> EphemeralCredentialLease | RedactedCredentialRejection:
         """Resolve one opaque credential ref or return a redacted rejection."""
         ...
@@ -3534,7 +3626,7 @@ class ProviderEffectGateway(Protocol):
     def execute(
         self,
         request: ProviderEffectRequest,
-        authorization: Any,
+        authorization: SourceAuthorization,
     ) -> ProviderEffectOutcome:
         """Resolve credentials then execute one provider effect."""
         ...
@@ -3968,60 +4060,101 @@ def source_mode_planning_payload_from_historical_plain(
 
 
 @dataclass(frozen=True, slots=True)
-class SourcePayloadCodecDeclaration:
+class SourcePayloadCodecDeclaration(Generic[SourcePayloadModel]):
     codec_id: str
     codec_version: str
     payload_type_id: str
-    encode: Callable[[Any], dict[str, Any]]
-    decode: Callable[[dict[str, Any]], Any]
+    encode: Callable[[SourcePayloadModel], CanonicalJsonObject]
+    decode: Callable[[CanonicalJsonObject], SourcePayloadModel]
+
+
+SourceOperationProfile: TypeAlias = (
+    SemanticProfile
+    | EffectProfile
+    | ResourceProfile
+    | FailureProfile
+    | AuthorityProfile
+    | InterpreterProfile
+    | ObservationProfile
+)
+
+
+class SourceOperationProfiles(TypedDict):
+    """The seven canonical profiles required by a source operation contract."""
+
+    semantic: SemanticProfile
+    effect: EffectProfile
+    resource: ResourceProfile
+    failure: FailureProfile
+    authority: AuthorityProfile
+    interpreter: InterpreterProfile
+    observation: ObservationProfile
 
 
 @dataclass(frozen=True, slots=True)
-class SourceSingleOperationContractDeclaration:
+class SourceSingleOperationContractDeclaration(Generic[SourcePayloadModel]):
     kind: str
     owner_capability_id: str
     input_type: ObjectType
     output_type: ObjectType
-    codec: SourcePayloadCodecDeclaration
-    profiles: Mapping[str, Any]
+    codec: SourcePayloadCodecDeclaration[SourcePayloadModel]
+    profiles: SourceOperationProfiles
     contract_version: str = "1.0.0"
     return_contract_ref: str = RUNTIME_VALUE_RETURN_CONTRACT_REF
     allowed_override_schema_ref: str = "mrw.functorial-successor.override.none.v1"
 
 
 @dataclass(frozen=True, slots=True)
-class SourceSingleOperationParts:
+class SourceSingleOperationParts(Generic[SourcePayloadModel]):
     operation: OperationContract
-    codecs: tuple[PayloadCodec, ...]
-    profiles: dict[str, Any]
+    codecs: tuple[PayloadCodec[SourcePayloadModel], ...]
+    profiles: SourceOperationProfiles
 
 
-_SOURCE_PROFILE_REF_FIELDS = (
-    ("semantic", "semantic_profile_id", "semantic_profile_version"),
-    ("effect", "effect_profile_id", "effect_profile_version"),
-    ("resource", "resource_profile_id", "resource_profile_version"),
-    ("failure", "failure_profile_id", "failure_profile_version"),
-    ("authority", "authority_profile_id", "authority_profile_version"),
-    ("interpreter", "interpreter_profile_id", "interpreter_profile_version"),
-    ("observation", "observation_profile_id", "observation_profile_version"),
-)
-
-
-def _source_profile_refs(profiles: Mapping[str, Any]) -> dict[str, ContractProfileRef]:
+def _source_profile_refs(profiles: SourceOperationProfiles) -> dict[str, ContractProfileRef]:
     return {
-        name: ContractProfileRef(
-            profile_id=getattr(profiles[name], id_field),
-            profile_version=getattr(profiles[name], version_field),
-            profile_digest=profiles[name].profile_digest,
-        )
-        for name, id_field, version_field in _SOURCE_PROFILE_REF_FIELDS
+        "semantic": ContractProfileRef(
+            profile_id=profiles["semantic"].semantic_profile_id,
+            profile_version=profiles["semantic"].semantic_profile_version,
+            profile_digest=profiles["semantic"].profile_digest,
+        ),
+        "effect": ContractProfileRef(
+            profile_id=profiles["effect"].effect_profile_id,
+            profile_version=profiles["effect"].effect_profile_version,
+            profile_digest=profiles["effect"].profile_digest,
+        ),
+        "resource": ContractProfileRef(
+            profile_id=profiles["resource"].resource_profile_id,
+            profile_version=profiles["resource"].resource_profile_version,
+            profile_digest=profiles["resource"].profile_digest,
+        ),
+        "failure": ContractProfileRef(
+            profile_id=profiles["failure"].failure_profile_id,
+            profile_version=profiles["failure"].failure_profile_version,
+            profile_digest=profiles["failure"].profile_digest,
+        ),
+        "authority": ContractProfileRef(
+            profile_id=profiles["authority"].authority_profile_id,
+            profile_version=profiles["authority"].authority_profile_version,
+            profile_digest=profiles["authority"].profile_digest,
+        ),
+        "interpreter": ContractProfileRef(
+            profile_id=profiles["interpreter"].interpreter_profile_id,
+            profile_version=profiles["interpreter"].interpreter_profile_version,
+            profile_digest=profiles["interpreter"].profile_digest,
+        ),
+        "observation": ContractProfileRef(
+            profile_id=profiles["observation"].observation_profile_id,
+            profile_version=profiles["observation"].observation_profile_version,
+            profile_digest=profiles["observation"].profile_digest,
+        ),
     }
 
 
 def build_source_operation_parts(
-    declaration: SourceSingleOperationContractDeclaration,
+    declaration: SourceSingleOperationContractDeclaration[SourcePayloadModel],
 ) -> Annotated[
-    SourceSingleOperationParts,
+    SourceSingleOperationParts[SourcePayloadModel],
     "kit:non-authoritative derived_as=operation_contract_assembly "
     "fact_source=C2SingleOperationContractDeclaration witness=test:test_native_definition_keeps_exact_c2_1_and_c2_3_codec_identities",
 ]:
@@ -4059,12 +4192,12 @@ def build_source_operation_parts(
     return SourceSingleOperationParts(
         operation=operation,
         codecs=(codec,),
-        profiles=dict(declaration.profiles),
+        profiles=declaration.profiles,
     )
 
 
 def build_source_operation_catalog(
-    parts: SourceSingleOperationParts,
+    parts: SourceSingleOperationParts[SourcePayloadModel],
     *,
     catalog_id: str,
     catalog_version: str,

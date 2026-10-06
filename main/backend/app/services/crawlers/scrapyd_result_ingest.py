@@ -3,18 +3,35 @@ from __future__ import annotations
 import ast
 import json
 import time
-from typing import Any
 from urllib.parse import urljoin
 
 import httpx
 
 from ..ingest.raw_import import run_raw_import_documents
+from ..projects.context import bind_project
+from .base import CrawlerJsonObject, CrawlerJsonValue
+from .providers.scrapy import finished_job_status
 from .scrapyd_client import ScrapydClient
 from .scrapyd_runtime import ensure_scrapyd_ready
 
 
-def _as_list(value: Any) -> list[Any]:
-    return list(value) if isinstance(value, list) else []
+def _json_value(value: CrawlerJsonValue) -> CrawlerJsonValue:
+    if isinstance(value, dict):
+        return {str(key): _json_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_value(item) for item in value]
+    return value
+
+
+def _json_object(value: CrawlerJsonValue) -> CrawlerJsonObject:
+    normalized = _json_value(value)
+    return normalized if isinstance(normalized, dict) else {}
+
+
+def _job_rows(value: CrawlerJsonValue) -> list[CrawlerJsonObject]:
+    if not isinstance(value, list):
+        return []
+    return [_json_object(item) for item in value if isinstance(item, dict)]
 
 
 def _absolute_url(base_url: str, maybe_relative: str | None) -> str | None:
@@ -26,33 +43,34 @@ def _absolute_url(base_url: str, maybe_relative: str | None) -> str | None:
     return urljoin(base_url.rstrip("/") + "/", raw.lstrip("/"))
 
 
-def _find_job_entry(listjobs: dict[str, Any], job_id: str) -> tuple[str | None, dict[str, Any] | None]:
+def _find_job_entry(
+    listjobs: CrawlerJsonObject,
+    job_id: str,
+) -> tuple[str | None, CrawlerJsonObject | None]:
     for bucket in ("pending", "running", "finished"):
-        for row in _as_list(listjobs.get(bucket)):
-            if not isinstance(row, dict):
-                continue
+        for row in _job_rows(listjobs.get(bucket)):
             if str(row.get("id") or "").strip() == job_id:
                 return bucket, row
     return None, None
 
 
-def _parse_jsonl_items(text: str) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
+def _parse_jsonl_items(text: str) -> list[CrawlerJsonObject]:
+    out: list[CrawlerJsonObject] = []
     for line in str(text or "").splitlines():
         raw = line.strip()
         if not raw:
             continue
         try:
-            value = json.loads(raw)
+            value: CrawlerJsonValue = json.loads(raw)
         except Exception:
             continue
         if isinstance(value, dict):
-            out.append(value)
+            out.append(_json_object(value))
     return out
 
 
-def _parse_log_items(text: str) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
+def _parse_log_items(text: str) -> list[CrawlerJsonObject]:
+    out: list[CrawlerJsonObject] = []
     lines = str(text or "").splitlines()
     for idx, line in enumerate(lines):
         if "Scraped from" not in line:
@@ -63,19 +81,21 @@ def _parse_log_items(text: str) -> list[dict[str, Any]]:
         if not (payload.startswith("{") and payload.endswith("}")):
             continue
         try:
-            value = ast.literal_eval(payload)
+            value: CrawlerJsonValue = ast.literal_eval(payload)
         except Exception:
             continue
         if isinstance(value, dict):
-            out.append(value)
+            out.append(_json_object(value))
     return out
 
 
-def _normalize_raw_items_to_import_items(raw_items: list[dict[str, Any]], *, doc_type: str) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
+def _normalize_raw_items_to_import_items(
+    raw_items: list[CrawlerJsonObject],
+    *,
+    doc_type: str,
+) -> list[CrawlerJsonObject]:
+    out: list[CrawlerJsonObject] = []
     for row in raw_items:
-        if not isinstance(row, dict):
-            continue
         text = ""
         for key in ("text", "content", "body", "summary", "snippet", "description"):
             value = str(row.get(key) or "").strip()
@@ -107,7 +127,7 @@ def ingest_scrapyd_job_output(
     doc_type: str = "news",
     enable_extraction: bool = False,
     max_items: int = 100,
-) -> dict[str, Any]:
+) -> CrawlerJsonObject:
     if not project_key:
         return {"status": "skipped", "reason": "missing_project_key"}
     if not scrapy_project:
@@ -120,11 +140,10 @@ def ingest_scrapyd_job_output(
 
     deadline = time.time() + max(1.0, float(wait_timeout_seconds))
     state: str | None = None
-    job_entry: dict[str, Any] | None = None
-    last_listjobs: dict[str, Any] = {}
+    job_entry: CrawlerJsonObject | None = None
+    last_listjobs: CrawlerJsonObject = {}
     while time.time() <= deadline:
-        listjobs = client.list_jobs(project=scrapy_project)
-        last_listjobs = listjobs if isinstance(listjobs, dict) else {}
+        last_listjobs = _json_object(client.list_jobs(project=scrapy_project))
         state, job_entry = _find_job_entry(last_listjobs, job_id)
         if state == "finished":
             break
@@ -145,10 +164,20 @@ def ingest_scrapyd_job_output(
             "raw": {"listjobs": last_listjobs},
         }
 
+    terminal_status = finished_job_status(job_entry)
+    if terminal_status != "completed":
+        return {
+            "status": f"finished_{terminal_status}",
+            "state": state,
+            "job_id": job_id,
+            "scrapy_project": scrapy_project,
+            "raw_item_count": 0,
+        }
+
     log_url = _absolute_url(resolved_base_url, str(job_entry.get("log_url") or ""))
     items_url = _absolute_url(resolved_base_url, str(job_entry.get("items_url") or ""))
     fetched_from = None
-    raw_items: list[dict[str, Any]] = []
+    raw_items: list[CrawlerJsonObject] = []
     with httpx.Client(timeout=15.0) as http:
         if items_url:
             try:
@@ -182,15 +211,16 @@ def ingest_scrapyd_job_output(
             "raw_item_count": 0,
         }
 
-    import_result = run_raw_import_documents(
-        payload={
-            "source_name": source_name or f"crawler.{scrapy_project}",
-            "default_doc_type": doc_type,
-            "enable_extraction": bool(enable_extraction),
-            "items": import_items,
-        },
-        project_key=project_key,
-    )
+    with bind_project(project_key):
+        import_result = run_raw_import_documents(
+            payload={
+                "source_name": source_name or f"crawler.{scrapy_project}",
+                "default_doc_type": doc_type,
+                "enable_extraction": bool(enable_extraction),
+                "items": import_items,
+            },
+            project_key=project_key,
+        )
     return {
         "status": "ingested",
         "state": state,
@@ -200,7 +230,7 @@ def ingest_scrapyd_job_output(
         "log_url": log_url,
         "items_url": items_url,
         "raw_item_count": len(raw_items),
-        "import_result": import_result,
+        "import_result": _json_object(import_result),
     }
 
 

@@ -4,9 +4,32 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Protocol
+from typing import Literal, Protocol, TypeAlias, runtime_checkable
 
 from functorial_kit import Failure
+from app.successor_runtime.capabilities.source_contracts import (
+    CancelReceipt,
+    ProviderAttemptRef,
+    ProviderReadbackResult,
+    ReadbackTerminal,
+    ReadbackUnavailable,
+    ReadbackWaiting,
+    AuthoritativeProviderReadback,
+)
+
+
+CrawlerJsonAtom: TypeAlias = None | bool | int | float | str
+CrawlerJsonValue: TypeAlias = (
+    CrawlerJsonAtom | list["CrawlerJsonValue"] | dict[str, "CrawlerJsonValue"]
+)
+CrawlerJsonObject: TypeAlias = dict[str, CrawlerJsonValue]
+CrawlerPollOutcome: TypeAlias = CrawlerJsonObject | Failure
+CrawlerCancelOutcome: TypeAlias = CancelReceipt | CrawlerJsonObject | Failure
+CrawlerTerminalStatus: TypeAlias = Literal["COMPLETED", "FAILED", "CANCELLED"]
+
+
+def _empty_crawler_json_object() -> CrawlerJsonObject:
+    return {}
 
 
 @dataclass(slots=True)
@@ -14,8 +37,8 @@ class CrawlerDispatchRequest:
     provider: str
     project: str
     spider: str
-    arguments: dict[str, Any] = field(default_factory=dict)
-    settings: dict[str, Any] = field(default_factory=dict)
+    arguments: CrawlerJsonObject = field(default_factory=_empty_crawler_json_object)
+    settings: CrawlerJsonObject = field(default_factory=_empty_crawler_json_object)
     version: str | None = None
     priority: int | None = None
     job_id: str | None = None
@@ -60,10 +83,10 @@ class CrawlerDispatchResult:
     provider_status: str
     provider_job_id: str | None = None
     attempt_count: int | None = None
-    raw: dict[str, Any] = field(default_factory=dict)
+    raw: CrawlerJsonObject = field(default_factory=_empty_crawler_json_object)
     idempotency_key: str | None = None
     attempt_id: str | None = None
-    terminal_readback: Any | None = None
+    terminal_readback: ProviderReadbackResult | None = None
     dispatch_acknowledged: bool | None = None
 
     def __post_init__(self) -> None:
@@ -110,27 +133,27 @@ def typed_crawler_readback(
     *,
     attempt_id: str,
     provider_job_id: str | None,
-    payload: Any,
-) -> Any:
+    payload: CrawlerPollOutcome,
+) -> ProviderReadbackResult:
     """Map provider poll output into the shared C2.3 readback vocabulary."""
-
-    from app.successor_runtime.capabilities.source_contracts import (
-        AuthoritativeProviderReadback,
-        ReadbackTerminal,
-        ReadbackUnavailable,
-        ReadbackWaiting,
-    )
 
     attempt_ref = f"provider-attempt:{attempt_id}"
     observed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    if not isinstance(payload, dict):
+    if isinstance(payload, Failure):
         return ReadbackUnavailable(attempt_ref=attempt_ref, reason="crawler poll returned a non-object payload")
     status = str(payload.get("provider_status") or payload.get("status") or "").strip().lower()
     if status in CRAWLER_TERMINAL_STATUSES:
-        terminal_status = status.upper()
+        terminal_status: CrawlerTerminalStatus
+        if status == "completed":
+            terminal_status = "COMPLETED"
+        elif status == "failed":
+            terminal_status = "FAILED"
+        else:
+            terminal_status = "CANCELLED"
+        raw_provider_job_id = payload.get("external_job_id")
         readback = AuthoritativeProviderReadback(
             attempt_ref=attempt_ref,
-            provider_job_id=provider_job_id or payload.get("external_job_id"),
+            provider_job_id=provider_job_id or (str(raw_provider_job_id) if raw_provider_job_id else None),
             terminal_status=terminal_status,
             readback_receipt_id=str(payload.get("readback_receipt_id") or f"readback:crawler:{attempt_id}"),
             observed_at=str(payload.get("observed_at") or observed_at),
@@ -156,9 +179,25 @@ class CrawlerProvider(Protocol):
         external_job_id: str,
         project: str | None = None,
         spider: str | None = None,
-        options: dict[str, Any] | None = None,
-    ) -> dict[str, Any] | Failure:
+        options: CrawlerJsonObject | None = None,
+    ) -> CrawlerPollOutcome:
         """Return provider observation; terminal completion requires typed readback."""
+        ...
+
+
+@runtime_checkable
+class CrawlerCancelPort(Protocol):
+    """Optional provider cancellation boundary used by the durable bridge."""
+
+    def cancel(
+        self,
+        *,
+        attempt_ref: ProviderAttemptRef,
+        request: CrawlerDispatchRequest,
+        external_job_id: str | None,
+        project: str,
+        spider: str,
+    ) -> CrawlerCancelOutcome:
         ...
 
 
@@ -166,6 +205,12 @@ __all__ = [
     "CrawlerDispatchRequest",
     "CrawlerDispatchResult",
     "CrawlerDispatchOutcome",
+    "CrawlerJsonAtom",
+    "CrawlerJsonValue",
+    "CrawlerJsonObject",
+    "CrawlerPollOutcome",
+    "CrawlerCancelOutcome",
+    "CrawlerCancelPort",
     "crawler_request_digest",
     "CRAWLER_ACCEPTED_STATUSES",
     "CRAWLER_DISPATCH_ACK_STATUSES",

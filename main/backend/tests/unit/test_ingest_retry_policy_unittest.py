@@ -6,6 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -14,18 +15,16 @@ pytestmark = pytest.mark.unit
 try:
     from app.services.ingest.adapters.http_utils import request_html
     from app.services.ingest.retry_policy import (
+        RETRY_CLASS_PERMANENT,
+        RETRY_CLASS_TRANSIENT,
         RateGate,
         RateGateDecision,
         RequestScope,
+        build_retry_observability,
+        classify_retry_reason,
         combine_request_outcomes,
         decide_request_retry,
         parse_retry_after_seconds,
-    )
-    from app.services.ingest.retry_policy import (
-        RETRY_CLASS_PERMANENT,
-        RETRY_CLASS_TRANSIENT,
-        build_retry_observability,
-        classify_retry_reason,
     )
 
     _IMPORT_ERROR = None
@@ -37,7 +36,8 @@ class IngestRetryPolicyUnitTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if _IMPORT_ERROR is not None:
-            raise unittest.SkipTest(f"ingest retry policy unit tests require backend dependencies: {_IMPORT_ERROR}")
+            message = f"ingest retry policy unit tests require backend dependencies: {_IMPORT_ERROR}"
+            raise unittest.SkipTest(message)
 
     def test_classify_retry_reason_transient_and_permanent(self):
         fetch_reason, fetch_class = classify_retry_reason("fetch_failed")
@@ -299,6 +299,40 @@ class IngestRetryPolicyUnitTestCase(unittest.TestCase):
         self.assertEqual(len(outcome.decisions), 2)
         self.assertEqual(outcome.decisions[-1].retry_after_seconds, 7.0)
         self.assertEqual(outcome.failures[-1].code, "RATE_LIMITED")
+
+    def test_request_html_transport_exhaustion_returns_failure_without_terminal_sleep(self):
+        class FakeSession:
+            def __init__(self) -> None:
+                self.calls = 0
+                self.headers: dict[str, str] = {}
+                self.cookies: dict[str, str] = {}
+
+            def get(self, url: str, **kwargs: object) -> None:
+                self.calls += 1
+                raise requests.ConnectionError
+
+            def close(self) -> None:
+                return None
+
+        session = FakeSession()
+        sleeps: list[float] = []
+        outcome = request_html(
+            "https://example.test/search",
+            scope=RequestScope(provider="search", account="acct", worker="a"),
+            retries=2,
+            backoff_seconds=1.0,
+            sleeper=sleeps.append,
+            client_factory=lambda: session,
+        )
+
+        self.assertFalse(outcome.ok)
+        self.assertEqual(outcome.status, "failed")
+        self.assertEqual(outcome.attempts, 2)
+        self.assertEqual(session.calls, 2)
+        self.assertEqual(sleeps, [1.0])
+        self.assertEqual(len(outcome.failures), 2)
+        self.assertEqual(outcome.failures[-1].code, "UPSTREAM_ERROR")
+        self.assertIsInstance(outcome.last_exception, requests.ConnectionError)
 
 
 if __name__ == "__main__":

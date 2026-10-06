@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from sqlalchemy import select
 from functorial_kit import Failure
+from sqlalchemy.orm import Session
+from sqlalchemy.sql.selectable import Select
 
 from .contracts import document_query_failure, raise_document_query_legacy
 
 from ...models.writing_entities import WritingDocument, WritingDocumentCitation, WritingDocumentDraft
 
 
-def _active_document_stmt(*, project_key: str, doc_id: int | None = None):
+def _active_document_stmt(*, project_key: str, doc_id: int | None = None) -> Select[tuple[WritingDocument]]:
     stmt = select(WritingDocument).where(
         WritingDocument.project_key == project_key,
         WritingDocument.deleted_at.is_(None),
@@ -18,19 +20,19 @@ def _active_document_stmt(*, project_key: str, doc_id: int | None = None):
     return stmt
 
 
-def fetch_active_document(session, *, doc_id: int, project_key: str) -> WritingDocument | None:
+def fetch_active_document(session: Session, *, doc_id: int, project_key: str) -> WritingDocument | None:
     stmt = _active_document_stmt(project_key=project_key, doc_id=doc_id)
     return session.execute(stmt).scalar_one_or_none()
 
 
-def require_active_document(session, *, doc_id: int, project_key: str) -> WritingDocument:
+def require_active_document(session: Session, *, doc_id: int, project_key: str) -> WritingDocument:
     result = try_require_active_document(session, doc_id=doc_id, project_key=project_key)
     if isinstance(result, Failure):
         raise_document_query_legacy(result, exception_type=KeyError)
     return result
 
 
-def try_require_active_document(session, *, doc_id: int, project_key: str) -> WritingDocument | Failure:
+def try_require_active_document(session: Session, *, doc_id: int, project_key: str) -> WritingDocument | Failure:
     row = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
     if row is None:
         return document_query_failure(
@@ -42,7 +44,7 @@ def try_require_active_document(session, *, doc_id: int, project_key: str) -> Wr
     return row
 
 
-def list_active_documents(session, *, project_key: str, limit: int = 50) -> list[WritingDocument]:
+def list_active_documents(session: Session, *, project_key: str, limit: int = 50) -> list[WritingDocument]:
     stmt = (
         _active_document_stmt(project_key=project_key)
         .order_by(WritingDocument.updated_at.desc().nullslast(), WritingDocument.id.desc())
@@ -52,7 +54,7 @@ def list_active_documents(session, *, project_key: str, limit: int = 50) -> list
 
 
 def fetch_draft_by_autosave_token(
-    session,
+    session: Session,
     *,
     doc_id: int,
     project_key: str,
@@ -66,7 +68,7 @@ def fetch_draft_by_autosave_token(
     return session.execute(stmt).scalar_one_or_none()
 
 
-def list_citations_for_document(session, *, doc_id: int, project_key: str) -> list[WritingDocumentCitation]:
+def list_citations_for_document(session: Session, *, doc_id: int, project_key: str) -> list[WritingDocumentCitation]:
     stmt = (
         select(WritingDocumentCitation)
         .where(

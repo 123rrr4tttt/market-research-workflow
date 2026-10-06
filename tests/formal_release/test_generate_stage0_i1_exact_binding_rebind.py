@@ -20,10 +20,55 @@ assert SPEC is not None and SPEC.loader is not None
 GENERATOR = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GENERATOR)
 
+HISTORICAL_CANDIDATE_REL = (
+    GENERATOR.EXACT_REBIND_REL
+    / "stage-b23-2026-09-08/candidates/I1/candidate.v2.json"
+)
+HISTORICAL_CANDIDATE_SHA256 = (
+    "d493658852aa1a8a61c2f5631968e87ce55c1b1efea6b45004a87391117de2c5"
+)
+
+
+def _declared_binding_paths(root: Path) -> set[str]:
+    paths: set[str] = set(GENERATOR.EXACT_PROTOCOL_PATHS)
+    for spec_path in sorted((root / GENERATOR.SPECS_REL).glob("C*.v1.json")):
+        payload = json.loads(spec_path.read_text(encoding="utf-8"))
+        for group in ("source_bindings", "test_bindings", "rollback_bindings"):
+            paths.update(binding["path"] for binding in payload[group])
+    packet = json.loads((root / GENERATOR.P2_C21_PACKET_REL).read_text(encoding="utf-8"))
+    paths.update(binding["path"] for binding in packet["source_bindings"])
+    return paths
+
+
+def _restore_retired_binding_snapshots(root: Path) -> None:
+    candidate_path = root / HISTORICAL_CANDIDATE_REL
+    candidate_bytes = candidate_path.read_bytes()
+    assert hashlib.sha256(candidate_bytes).hexdigest() == HISTORICAL_CANDIDATE_SHA256
+    candidate = json.loads(candidate_bytes)
+    snapshots = {item["path"]: item for item in candidate["sources"]}
+
+    for path in sorted(_declared_binding_paths(root)):
+        relative = Path(path)
+        assert not relative.is_absolute() and ".." not in relative.parts
+        target = root / relative
+        if target.exists():
+            continue
+        record = snapshots[path]
+        snapshot_relative = Path(record["snapshot_path"])
+        assert snapshot_relative.parts[0] == "snapshots"
+        assert ".." not in snapshot_relative.parts
+        snapshot = candidate_path.parent / snapshot_relative
+        assert snapshot.is_file() and not snapshot.is_symlink()
+        payload = snapshot.read_bytes()
+        assert hashlib.sha256(payload).hexdigest() == record["file_sha256"]
+        assert len(payload) == record["bytes"]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(payload)
+
 
 @pytest.fixture(scope="module", autouse=True)
 def historical_root(tmp_path_factory: pytest.TempPathFactory):
-    """Run B13-B23 contracts against the local HEAD bytes, not live cleanup."""
+    """Run B13-B23 against HEAD plus exact bytes for retired frozen bindings."""
     global ROOT
     live_root = ROOT
     root = tmp_path_factory.mktemp("stage0-i1-history", numbered=True)
@@ -48,6 +93,7 @@ def historical_root(tmp_path_factory: pytest.TempPathFactory):
     with tarfile.open(archive, mode="r:") as bundle:
         bundle.extractall(root)
     archive.unlink()
+    _restore_retired_binding_snapshots(root)
     ROOT = root
     yield root
     ROOT = live_root

@@ -12,102 +12,30 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Generic, Literal, TypeVar, overload
+
+from functorial_kit.contributions import compose_contributions
 from functorial_kit.core.failure import Failure
 from functorial_kit.native_contribution import NativeContribution
-from app.successor_runtime.research.object_types import ObjectType
-from app.successor_runtime.capabilities.checksum import canonical_json, content_digest, require_hex64, sha256_hex
-from app.successor_runtime.capabilities.codecs import PayloadCodec, dataclass_codec
-from app.successor_runtime.language.algebra import AlgebraRef, OperationSpec, ValueRef, freeze_json_object
-from app.successor_runtime.language.catalog import OperationContractCatalogSnapshot, OperationContractRegistry
-from app.successor_runtime.language.compile import compile_program
-from app.successor_runtime.language.object_contracts import (
-    DELIVERY_INTENT_RECEIPT_RETURN_CONTRACT_REF,
-    READ_CANONICAL_REF_RETURN_CONTRACT_REF,
-    RESEARCH_ARTIFACT_RETURN_CONTRACT_REF,
-    RUNTIME_VALUE_RETURN_CONTRACT_REF,
-    SINGLE_TYPED_OUTPUT_RETURN_CONTRACT_REF,
-    OperationContract,
-    OperationContractRef,
-    ReturnContract,
-    make_operation_contract,
-)
-from app.successor_runtime.language.profiles import (
-    AuthorityProfile, ContractProfileRef, EffectProfile, FailureProfile,
-    InterpreterProfile, ObservationProfile, ResourceProfile, SemanticProfile,
-)
-from app.successor_runtime.language.program import ProgramSpec, atom_node, then_node
 
 from app.successor_runtime.capabilities import knowledge_common as knowledge
-from app.successor_runtime.capabilities.knowledge_common import (
-    KNOWLEDGE_READ_CELL_ID,
-    KNOWLEDGE_WRITING_CELL_ID,
-    KNOWLEDGE_REPORT_CELL_ID,
-    KNOWLEDGE_GRAPH_PROJECTION_CELL_ID,
-    reject_knowledge_key,
-    reject_knowledge_projection,
-    reject_knowledge_value,
-)
-from . import (
-    KNOWLEDGE_GRAPH_PROJECTION_INPUT_TYPE,
-    KNOWLEDGE_GRAPH_PROJECTION_KIND,
-    KNOWLEDGE_GRAPH_PROJECTION_OPERATION_ID,
-    KNOWLEDGE_GRAPH_PROJECTION_OWNER,
-    KNOWLEDGE_GRAPH_PROJECTION_PAYLOAD_CODEC_ID,
-    KNOWLEDGE_GRAPH_PROJECTION_RESULT_TYPE,
-    KNOWLEDGE_GRAPH_PROJECTION_RETURN_CONTRACT_REF,
-    KnowledgeCellDefinition,
-    KnowledgeGraphProjectInput,
-    KnowledgeGraphProjectionAssemblyContext,
-    KnowledgeGraphProjectionRuntimeBinding,
-    knowledge_graph_projection_definition_issues,
-)
-from . import (
-    KnowledgeNativeAssemblyContext,
-    KnowledgeNativeDefinition,
-    KnowledgeNativeRuntimeBinding,
-)
-from . import (
-    KNOWLEDGE_REPORT_INPUT_TYPE,
-    KNOWLEDGE_REPORT_KIND,
-    KNOWLEDGE_REPORT_OPERATION_ID,
-    KNOWLEDGE_REPORT_OWNER,
-    KNOWLEDGE_REPORT_PAYLOAD_CODEC_ID,
-    KNOWLEDGE_REPORT_RESULT_TYPE,
-    KnowledgeReportStageInput,
-    knowledge_report_native_contribution,
-)
-from . import (
-    KNOWLEDGE_WRITING_COMPOSE_INPUT_TYPE,
-    KNOWLEDGE_WRITING_COMPOSE_KIND,
-    KNOWLEDGE_WRITING_COMPOSE_OPERATION_ID,
-    KNOWLEDGE_WRITING_COMPOSE_PAYLOAD_CODEC_ID,
-    KNOWLEDGE_WRITING_COMPOSE_RESULT_TYPE,
-    KNOWLEDGE_WRITING_OWNER,
-    KNOWLEDGE_WRITING_STAGE_INPUT_TYPE,
-    KNOWLEDGE_WRITING_STAGE_KIND,
-    KNOWLEDGE_WRITING_STAGE_OPERATION_ID,
-    KNOWLEDGE_WRITING_STAGE_RESULT_TYPE,
-    KnowledgeWritingComposeInput,
-    knowledge_writing_native_contribution,
-)
-from . import (
-    KNOWLEDGE_READ_INPUT_TYPE,
-    KNOWLEDGE_READ_KIND,
-    KNOWLEDGE_READ_OPERATION_ID,
-    KNOWLEDGE_READ_OWNER,
-    KNOWLEDGE_READ_PAYLOAD_CODEC_ID,
-    KNOWLEDGE_READ_RESULT_TYPE,
-    KNOWLEDGE_TYPED_KNOWLEDGE_NATIVE,
-    KnowledgeDemandReadInput,
-)
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     content_digest,
     require_hex64,
     sha256_hex,
 )
-from app.successor_runtime.capabilities.codecs import PayloadCodec, dataclass_codec
+from app.successor_runtime.capabilities.codecs import PayloadCodec
+from app.successor_runtime.capabilities.knowledge_common import (
+    KNOWLEDGE_GRAPH_PROJECTION_CELL_ID,
+    KNOWLEDGE_READ_CELL_ID,
+    KNOWLEDGE_REPORT_CELL_ID,
+    KNOWLEDGE_WRITING_CELL_ID,
+    KnowledgeProfiles,
+    reject_knowledge_key,
+    reject_knowledge_projection,
+    reject_knowledge_value,
+)
 from app.successor_runtime.language.algebra import (
     AlgebraRef,
     OperationSpec,
@@ -132,7 +60,6 @@ from app.successor_runtime.language.object_contracts import (
 )
 from app.successor_runtime.language.profiles import (
     AuthorityProfile,
-    ContractProfileRef,
     EffectProfile,
     FailureProfile,
     InterpreterProfile,
@@ -142,13 +69,54 @@ from app.successor_runtime.language.profiles import (
 )
 from app.successor_runtime.language.program import ProgramSpec, atom_node, then_node
 from app.successor_runtime.research.object_types import CANONICAL_CODEC_ID, ObjectType
-from functorial_kit.contributions import compose_contributions
-from functorial_kit.core.failure import Failure
-from functorial_kit.native_contribution import NativeContribution
 from mrw_functorial_kit.contributions.knowledge_graph_projection import (
     knowledge_graph_projection_native_contributions as kit_graph_projection_native_contributions,
 )
 
+from . import (
+    KNOWLEDGE_GRAPH_PROJECTION_INPUT_TYPE,
+    KNOWLEDGE_GRAPH_PROJECTION_KIND,
+    KNOWLEDGE_GRAPH_PROJECTION_OPERATION_ID,
+    KNOWLEDGE_GRAPH_PROJECTION_OWNER,
+    KNOWLEDGE_GRAPH_PROJECTION_RESULT_TYPE,
+    KNOWLEDGE_GRAPH_PROJECTION_RETURN_CONTRACT_REF,
+    KNOWLEDGE_READ_INPUT_TYPE,
+    KNOWLEDGE_READ_KIND,
+    KNOWLEDGE_READ_OPERATION_ID,
+    KNOWLEDGE_READ_OWNER,
+    KNOWLEDGE_READ_PAYLOAD_CODEC_ID,
+    KNOWLEDGE_READ_RESULT_TYPE,
+    KNOWLEDGE_REPORT_INPUT_TYPE,
+    KNOWLEDGE_REPORT_KIND,
+    KNOWLEDGE_REPORT_OPERATION_ID,
+    KNOWLEDGE_REPORT_OWNER,
+    KNOWLEDGE_REPORT_PAYLOAD_CODEC_ID,
+    KNOWLEDGE_REPORT_RESULT_TYPE,
+    KNOWLEDGE_TYPED_KNOWLEDGE_NATIVE,
+    KNOWLEDGE_WRITING_COMPOSE_INPUT_TYPE,
+    KNOWLEDGE_WRITING_COMPOSE_KIND,
+    KNOWLEDGE_WRITING_COMPOSE_OPERATION_ID,
+    KNOWLEDGE_WRITING_COMPOSE_PAYLOAD_CODEC_ID,
+    KNOWLEDGE_WRITING_COMPOSE_RESULT_TYPE,
+    KNOWLEDGE_WRITING_OWNER,
+    KNOWLEDGE_WRITING_STAGE_INPUT_TYPE,
+    KNOWLEDGE_WRITING_STAGE_KIND,
+    KNOWLEDGE_WRITING_STAGE_OPERATION_ID,
+    KNOWLEDGE_WRITING_STAGE_RESULT_TYPE,
+    KnowledgeCellDefinition,
+    KnowledgeDemandReadInput,
+    KnowledgeGraphProjectInput,
+    KnowledgeGraphProjectionAssemblyContext,
+    KnowledgeGraphProjectionRuntimeBinding,
+    KnowledgeNativeAssemblyContext,
+    KnowledgeNativeDefinition,
+    KnowledgeNativeRuntimeBinding,
+    KnowledgeReportStageInput,
+    KnowledgeWritingComposeInput,
+    knowledge_graph_projection_definition_issues,
+    knowledge_report_native_contribution,
+    knowledge_writing_native_contribution,
+)
 
 __all__ = [
     "KNOWLEDGE_READ_INPUT_TYPE",
@@ -258,6 +226,7 @@ _KNOWLEDGE_WRITING__RETURN_CONTRACT_REF = SINGLE_TYPED_OUTPUT_RETURN_CONTRACT_RE
 _KNOWLEDGE_REPORT__RETURN_CONTRACT_REF = RUNTIME_VALUE_RETURN_CONTRACT_REF
 _KNOWLEDGE_GRAPH_PROJECTION__RETURN_CONTRACT_REF = KNOWLEDGE_GRAPH_PROJECTION_RETURN_CONTRACT_REF
 _CELL_IDS = (KNOWLEDGE_READ_CELL_ID, KNOWLEDGE_WRITING_CELL_ID, KNOWLEDGE_REPORT_CELL_ID)
+DeliveryPayloadT = TypeVar("DeliveryPayloadT")
 
 
 def payload_body_digest(payload: Any) -> str:
@@ -269,40 +238,99 @@ def payload_body_digest(payload: Any) -> str:
     return content_digest(body)
 
 
-def _profile_ref(profile: Any) -> ContractProfileRef:
-    return ContractProfileRef(
-        profile.profile_id,
-        profile.profile_version,
-        profile.profile_digest,
-    )
-
-
-def _cell_suffix(cell_id: str) -> str:
-    return cell_id.lower().replace(".", "-")
-
-
 @dataclass(frozen=True, slots=True)
-class KnowledgeCapabilityBundle:
+class KnowledgeCapabilityBundle(Generic[DeliveryPayloadT]):
     bundle_id: str
     operations: tuple[OperationContract, ...]
-    codecs: tuple[PayloadCodec, ...]
-    profiles: dict[str, dict[str, object]]
+    codecs: tuple[
+        PayloadCodec[KnowledgeDemandReadInput],
+        PayloadCodec[KnowledgeWritingComposeInput],
+        PayloadCodec[KnowledgeReportStageInput],
+        PayloadCodec[KnowledgeGraphProjectInput],
+        *tuple[
+            PayloadCodec[KnowledgeGraphProjectInput]
+            | PayloadCodec[DeliveryPayloadT],
+            ...,
+        ],
+    ]
+    profiles: dict[str, KnowledgeProfiles]
 
-    def codec_by_kind(self, kind: str) -> PayloadCodec:
+    @overload
+    def codec_by_kind(
+        self, kind: Literal["knowledge.read.demand.v2"]
+    ) -> PayloadCodec[KnowledgeDemandReadInput]: ...
+
+    @overload
+    def codec_by_kind(
+        self, kind: Literal["knowledge.writing.compose.v2"]
+    ) -> PayloadCodec[KnowledgeWritingComposeInput]: ...
+
+    @overload
+    def codec_by_kind(
+        self, kind: Literal["knowledge.report.stage.v2"]
+    ) -> PayloadCodec[KnowledgeReportStageInput]: ...
+
+    @overload
+    def codec_by_kind(
+        self, kind: Literal["knowledge.graph.project.v2"]
+    ) -> PayloadCodec[KnowledgeGraphProjectInput]: ...
+
+    @overload
+    def codec_by_kind(
+        self, kind: str
+    ) -> (
+        PayloadCodec[KnowledgeDemandReadInput]
+        | PayloadCodec[KnowledgeWritingComposeInput]
+        | PayloadCodec[KnowledgeReportStageInput]
+        | PayloadCodec[KnowledgeGraphProjectInput]
+        | PayloadCodec[DeliveryPayloadT]
+    ): ...
+
+    def codec_by_kind(
+        self, kind: str
+    ) -> (
+        PayloadCodec[KnowledgeDemandReadInput]
+        | PayloadCodec[KnowledgeWritingComposeInput]
+        | PayloadCodec[KnowledgeReportStageInput]
+        | PayloadCodec[KnowledgeGraphProjectInput]
+        | PayloadCodec[DeliveryPayloadT]
+    ):
         for codec in self.codecs:
             if codec.contract_ref.kind == kind:
                 return codec
         reject_knowledge_key(f"no knowledge payload codec for kind {kind}")
 
 
-KnowledgeNativeContribution = NativeContribution[
-    KnowledgeNativeDefinition,
+KnowledgeReadNativeContribution = NativeContribution[
+    KnowledgeNativeDefinition[KnowledgeDemandReadInput],
     KnowledgeNativeAssemblyContext,
-    KnowledgeNativeRuntimeBinding,
+    KnowledgeNativeRuntimeBinding[KnowledgeDemandReadInput],
 ]
+KnowledgeWritingNativeContribution = NativeContribution[
+    KnowledgeNativeDefinition[KnowledgeWritingComposeInput],
+    KnowledgeNativeAssemblyContext,
+    KnowledgeNativeRuntimeBinding[KnowledgeWritingComposeInput],
+]
+KnowledgeReportNativeContribution = NativeContribution[
+    KnowledgeNativeDefinition[KnowledgeReportStageInput],
+    KnowledgeNativeAssemblyContext,
+    KnowledgeNativeRuntimeBinding[KnowledgeReportStageInput],
+]
+KnowledgeNativeContribution = (
+    KnowledgeReadNativeContribution
+    | KnowledgeWritingNativeContribution
+    | KnowledgeReportNativeContribution
+)
+
+if isinstance(KNOWLEDGE_TYPED_KNOWLEDGE_NATIVE, Failure):
+    reject_knowledge_value(
+        "invalid native typed-knowledge contribution: "
+        f"{KNOWLEDGE_TYPED_KNOWLEDGE_NATIVE.message}"
+    )
+knowledge_read_native_contribution = KNOWLEDGE_TYPED_KNOWLEDGE_NATIVE
 
 knowledge_native_contributions: tuple[KnowledgeNativeContribution, ...] = (
-    KNOWLEDGE_TYPED_KNOWLEDGE_NATIVE,
+    knowledge_read_native_contribution,
     knowledge_writing_native_contribution,
     knowledge_report_native_contribution,
 )
@@ -348,13 +376,22 @@ def validate_knowledge_native_contributions(
 
 def _knowledge_native_bindings(
     native_composition: tuple[KnowledgeNativeContribution, ...] | None,
-) -> tuple[KnowledgeNativeRuntimeBinding, ...]:
+) -> tuple[
+    KnowledgeNativeRuntimeBinding[KnowledgeDemandReadInput]
+    | KnowledgeNativeRuntimeBinding[KnowledgeWritingComposeInput]
+    | KnowledgeNativeRuntimeBinding[KnowledgeReportStageInput],
+    ...,
+]:
     natives = (
         compose_default_knowledge_native_contributions()
         if native_composition is None
         else validate_knowledge_native_contributions(native_composition)
     )
-    bindings: list[KnowledgeNativeRuntimeBinding] = []
+    bindings: list[
+        KnowledgeNativeRuntimeBinding[KnowledgeDemandReadInput]
+        | KnowledgeNativeRuntimeBinding[KnowledgeWritingComposeInput]
+        | KnowledgeNativeRuntimeBinding[KnowledgeReportStageInput]
+    ] = []
     for native in natives:
         binding = native.assemble(KnowledgeNativeAssemblyContext())
         if isinstance(binding, Failure):
@@ -366,11 +403,51 @@ def _knowledge_native_bindings(
     return tuple(bindings)
 
 
+@overload
+def knowledge_native_binding(
+    cell_id: Literal["knowledge.read.v2"],
+    *,
+    native_composition: tuple[KnowledgeNativeContribution, ...] | None = None,
+) -> KnowledgeNativeRuntimeBinding[KnowledgeDemandReadInput]: ...
+
+
+@overload
+def knowledge_native_binding(
+    cell_id: Literal["knowledge.writing.v2"],
+    *,
+    native_composition: tuple[KnowledgeNativeContribution, ...] | None = None,
+) -> KnowledgeNativeRuntimeBinding[KnowledgeWritingComposeInput]: ...
+
+
+@overload
+def knowledge_native_binding(
+    cell_id: Literal["knowledge.report.v2"],
+    *,
+    native_composition: tuple[KnowledgeNativeContribution, ...] | None = None,
+) -> KnowledgeNativeRuntimeBinding[KnowledgeReportStageInput]: ...
+
+
+@overload
 def knowledge_native_binding(
     cell_id: str,
     *,
     native_composition: tuple[KnowledgeNativeContribution, ...] | None = None,
-) -> KnowledgeNativeRuntimeBinding:
+) -> (
+    KnowledgeNativeRuntimeBinding[KnowledgeDemandReadInput]
+    | KnowledgeNativeRuntimeBinding[KnowledgeWritingComposeInput]
+    | KnowledgeNativeRuntimeBinding[KnowledgeReportStageInput]
+): ...
+
+
+def knowledge_native_binding(
+    cell_id: str,
+    *,
+    native_composition: tuple[KnowledgeNativeContribution, ...] | None = None,
+) -> (
+    KnowledgeNativeRuntimeBinding[KnowledgeDemandReadInput]
+    | KnowledgeNativeRuntimeBinding[KnowledgeWritingComposeInput]
+    | KnowledgeNativeRuntimeBinding[KnowledgeReportStageInput]
+):
     for binding in _knowledge_native_bindings(native_composition):
         if binding.cell_id == cell_id:
             return binding
@@ -379,11 +456,51 @@ def knowledge_native_binding(
     )
 
 
+@overload
+def knowledge_native_definition(
+    cell_id: Literal["knowledge.read.v2"],
+    *,
+    native_composition: tuple[KnowledgeNativeContribution, ...] | None = None,
+) -> KnowledgeNativeDefinition[KnowledgeDemandReadInput]: ...
+
+
+@overload
+def knowledge_native_definition(
+    cell_id: Literal["knowledge.writing.v2"],
+    *,
+    native_composition: tuple[KnowledgeNativeContribution, ...] | None = None,
+) -> KnowledgeNativeDefinition[KnowledgeWritingComposeInput]: ...
+
+
+@overload
+def knowledge_native_definition(
+    cell_id: Literal["knowledge.report.v2"],
+    *,
+    native_composition: tuple[KnowledgeNativeContribution, ...] | None = None,
+) -> KnowledgeNativeDefinition[KnowledgeReportStageInput]: ...
+
+
+@overload
 def knowledge_native_definition(
     cell_id: str,
     *,
     native_composition: tuple[KnowledgeNativeContribution, ...] | None = None,
-) -> KnowledgeNativeDefinition:
+) -> (
+    KnowledgeNativeDefinition[KnowledgeDemandReadInput]
+    | KnowledgeNativeDefinition[KnowledgeWritingComposeInput]
+    | KnowledgeNativeDefinition[KnowledgeReportStageInput]
+): ...
+
+
+def knowledge_native_definition(
+    cell_id: str,
+    *,
+    native_composition: tuple[KnowledgeNativeContribution, ...] | None = None,
+) -> (
+    KnowledgeNativeDefinition[KnowledgeDemandReadInput]
+    | KnowledgeNativeDefinition[KnowledgeWritingComposeInput]
+    | KnowledgeNativeDefinition[KnowledgeReportStageInput]
+):
     natives = (
         compose_default_knowledge_native_contributions()
         if native_composition is None
@@ -418,22 +535,22 @@ def _make_contract(
         input_type=input_type,
         output_type=output_type,
         return_contract_ref=return_contract_ref,
-        semantic_profile_ref=_profile_ref(semantic).to_ref_string(),
-        effect_profile_ref=_profile_ref(effect).to_ref_string(),
-        resource_profile_ref=_profile_ref(resource).to_ref_string(),
-        failure_profile_ref=_profile_ref(failure).to_ref_string(),
-        authority_profile_ref=_profile_ref(authority).to_ref_string(),
-        interpreter_compatibility_ref=_profile_ref(interpreter).to_ref_string(),
-        observation_profile_ref=_profile_ref(observation).to_ref_string(),
+        semantic_profile_ref=semantic.ref,
+        effect_profile_ref=effect.ref,
+        resource_profile_ref=resource.ref,
+        failure_profile_ref=failure.ref,
+        authority_profile_ref=authority.ref,
+        interpreter_compatibility_ref=interpreter.ref,
+        observation_profile_ref=observation.ref,
         allowed_override_schema_ref="mrw.functorial-successor.override.none.v1",
         owner_capability_id=owner,
     )
 
 
 GraphProjectionNativeContribution = NativeContribution[
-    KnowledgeCellDefinition,
+    KnowledgeCellDefinition[KnowledgeGraphProjectInput],
     KnowledgeGraphProjectionAssemblyContext,
-    KnowledgeGraphProjectionRuntimeBinding,
+    KnowledgeGraphProjectionRuntimeBinding[KnowledgeGraphProjectInput],
 ]
 
 
@@ -480,13 +597,17 @@ def validate_knowledge_graph_projection_contributions(
 def _graph_projection_bindings(
     graph_projection_contributions: tuple[GraphProjectionNativeContribution, ...]
     | None,
-) -> tuple[KnowledgeGraphProjectionRuntimeBinding, ...]:
+) -> tuple[
+    KnowledgeGraphProjectionRuntimeBinding[KnowledgeGraphProjectInput], ...
+]:
     natives = (
         compose_default_knowledge_graph_projection_contributions()
         if graph_projection_contributions is None
         else validate_knowledge_graph_projection_contributions(graph_projection_contributions)
     )
-    bindings: list[KnowledgeGraphProjectionRuntimeBinding] = []
+    bindings: list[
+        KnowledgeGraphProjectionRuntimeBinding[KnowledgeGraphProjectInput]
+    ] = []
     for native in natives:
         binding = native.assemble(KnowledgeGraphProjectionAssemblyContext())
         if isinstance(binding, Failure):
@@ -503,7 +624,7 @@ def graph_projection_binding(
     *,
     graph_projection_composition: tuple[GraphProjectionNativeContribution, ...]
     | None = None,
-) -> KnowledgeGraphProjectionRuntimeBinding:
+) -> KnowledgeGraphProjectionRuntimeBinding[KnowledgeGraphProjectInput]:
     """Resolve one assembled graph operation binding by its native cell id."""
 
     for binding in _graph_projection_bindings(graph_projection_composition):
@@ -517,7 +638,7 @@ def graph_projection_definition(
     *,
     graph_projection_composition: tuple[GraphProjectionNativeContribution, ...]
     | None = None,
-) -> KnowledgeCellDefinition:
+) -> KnowledgeCellDefinition[KnowledgeGraphProjectInput]:
     """Read a native definition without assembling a runtime binding."""
 
     natives = (
@@ -537,54 +658,83 @@ def build_knowledge_bundle(
     graph_projection_composition: tuple[GraphProjectionNativeContribution, ...]
     | None = None,
 ) -> Annotated[  # NonAuthoritative
-    KnowledgeCapabilityBundle,
+    KnowledgeCapabilityBundle[KnowledgeGraphProjectInput],
     Literal[
         "kit:non-authoritative derived_as=view fact_source=native_C8_definitions "
         "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands"
     ],
 ]:
-    profiles_by_cell: dict[str, dict[str, object]] = {}
-    contracts: list[OperationContract] = []
-    codecs: list[PayloadCodec] = []
-    for binding in _knowledge_native_bindings(native_composition):
-        profiles_by_cell[binding.cell_id] = dict(binding.profiles)
-        for operation in binding.operations:
-            contracts.append(operation.operation_contract)
-            if operation.payload_codec is not None:
-                codecs.append(operation.payload_codec)
-    for binding in _graph_projection_bindings(graph_projection_composition):
-        profiles_by_cell[binding.cell_id] = dict(binding.profiles)
-        contracts.append(binding.operation_contract)
-        codecs.append(binding.payload_codec)
-    return KnowledgeCapabilityBundle(
+    read_binding = knowledge_native_binding(
+        KNOWLEDGE_READ_CELL_ID,
+        native_composition=native_composition,
+    )
+    writing_binding = knowledge_native_binding(
+        KNOWLEDGE_WRITING_CELL_ID,
+        native_composition=native_composition,
+    )
+    report_binding = knowledge_native_binding(
+        KNOWLEDGE_REPORT_CELL_ID,
+        native_composition=native_composition,
+    )
+    graph_bindings = _graph_projection_bindings(graph_projection_composition)
+    if not graph_bindings:
+        reject_knowledge_value("knowledge graph-projection composition is empty")
+    graph_head = graph_bindings[0]
+    graph_tail = graph_bindings[1:]
+    read_codec = _required_native_payload_codec(
+        read_binding,
+        KNOWLEDGE_READ_OPERATION_ID,
+    )
+    writing_codec = _required_native_payload_codec(
+        writing_binding,
+        KNOWLEDGE_WRITING_COMPOSE_OPERATION_ID,
+    )
+    report_codec = _required_native_payload_codec(
+        report_binding,
+        KNOWLEDGE_REPORT_OPERATION_ID,
+    )
+    contracts = tuple(
+        operation.operation_contract
+        for binding in (read_binding, writing_binding, report_binding)
+        for operation in binding.operations
+    ) + tuple(binding.operation_contract for binding in graph_bindings)
+    return KnowledgeCapabilityBundle[KnowledgeGraphProjectInput](
         bundle_id="mrw.knowledge.v2",
-        operations=tuple(contracts),
-        codecs=tuple(codecs),
-        profiles=profiles_by_cell,
-    )
-
-def _contract_by_kind(
-    contracts: list[OperationContract], kind: str
-) -> OperationContract:
-    return next(contract for contract in contracts if contract.ref.kind == kind)
-
-
-def _payload_codec(
-    contract_ref: OperationContractRef,
-    codec_id: str,
-    payload_type: ObjectType,
-    dto_cls: type,
-) -> PayloadCodec:
-    return dataclass_codec(
-        codec_id=codec_id,
-        codec_version="1",
-        contract_ref=contract_ref,
-        payload_type_id=payload_type.type_id,
-        dto_cls=dto_cls,
+        operations=contracts,
+        codecs=(
+            read_codec,
+            writing_codec,
+            report_codec,
+            graph_head.payload_codec,
+            *(binding.payload_codec for binding in graph_tail),
+        ),
+        profiles={
+            read_binding.cell_id: read_binding.profiles,
+            writing_binding.cell_id: writing_binding.profiles,
+            report_binding.cell_id: report_binding.profiles,
+            **{binding.cell_id: binding.profiles for binding in graph_bindings},
+        },
     )
 
 
-def build_knowledge_catalog(bundle: KnowledgeCapabilityBundle) -> Annotated[  # NonAuthoritative
+NativePayloadT = TypeVar("NativePayloadT")
+
+
+def _required_native_payload_codec(
+    binding: KnowledgeNativeRuntimeBinding[NativePayloadT],
+    operation_id: str,
+) -> PayloadCodec[NativePayloadT]:
+    operation = binding.definition.operation_by_id.get(operation_id)
+    if operation is None or operation.payload_codec is None:
+        reject_knowledge_value(
+            f"native knowledge operation {operation_id} lacks a payload codec"
+        )
+    return operation.payload_codec
+
+
+def build_knowledge_catalog(
+    bundle: KnowledgeCapabilityBundle[DeliveryPayloadT],
+) -> Annotated[  # NonAuthoritative
     OperationContractCatalogSnapshot,
     Literal["kit:non-authoritative derived_as=view fact_source=C8_contract_and_profile_constants witness=test:test_w06_successor_authority_metadata"],
 ]:
@@ -603,7 +753,9 @@ def build_knowledge_catalog(bundle: KnowledgeCapabilityBundle) -> Annotated[  # 
     )
 
 
-def build_knowledge_registry(bundle: KnowledgeCapabilityBundle) -> Annotated[  # NonAuthoritative
+def build_knowledge_registry(
+    bundle: KnowledgeCapabilityBundle[DeliveryPayloadT],
+) -> Annotated[  # NonAuthoritative
     OperationContractRegistry,
     Literal["kit:non-authoritative derived_as=view fact_source=C8_contract_and_profile_constants witness=test:test_w06_successor_authority_metadata"],
 ]:
@@ -978,7 +1130,7 @@ def handler_binding_closure_payloads(
 
 
 def build_knowledge_bridge_bundle() -> Annotated[  # NonAuthoritative
-    KnowledgeCapabilityBundle,
+    KnowledgeCapabilityBundle[KnowledgeGraphProjectInput],
     Literal["kit:non-authoritative derived_as=view fact_source=C8_contract_and_profile_constants witness=test:test_w06_successor_authority_metadata"],
 ]:
     base = build_knowledge_bundle()
@@ -1011,7 +1163,7 @@ def build_knowledge_bridge_bundle() -> Annotated[  # NonAuthoritative
         observation=profiles["observation"],
         owner=KNOWLEDGE_REPORT_OWNER,
     )
-    return KnowledgeCapabilityBundle(
+    return KnowledgeCapabilityBundle[KnowledgeGraphProjectInput](
         bundle_id="mrw.knowledge.report.bridge.v2",
         operations=base.operations + (verify_contract, admission_contract),
         codecs=base.codecs,
@@ -1179,9 +1331,9 @@ def validate_delivery_operation_contract(
 
 
 def validate_delivery_payload_codec(
-    delivery_codec: PayloadCodec,
+    delivery_codec: PayloadCodec[DeliveryPayloadT],
     delivery_operation: OperationContract,
-) -> PayloadCodec:
+) -> PayloadCodec[DeliveryPayloadT]:
     if delivery_codec.codec_id != "delivery.internal_export.v1.payload":
         reject_knowledge_projection(
             "delivery codec id must be delivery.internal_export.v1.payload"
@@ -1199,9 +1351,9 @@ def validate_delivery_payload_codec(
 
 def build_knowledge_delivery_bridge_bundle(
     delivery_operation: OperationContract,
-    delivery_codec: PayloadCodec,
+    delivery_codec: PayloadCodec[DeliveryPayloadT],
 ) -> Annotated[  # NonAuthoritative
-    KnowledgeCapabilityBundle,
+    KnowledgeCapabilityBundle[DeliveryPayloadT],
     Literal["kit:non-authoritative derived_as=view fact_source=C8_contract_and_profile_constants witness=test:test_w06_successor_authority_metadata"],
 ]:
     validate_delivery_operation_contract(delivery_operation)
@@ -1222,7 +1374,7 @@ def build_knowledge_delivery_bridge_bundle(
         observation=profiles["observation"],
         owner=KNOWLEDGE_REPORT_OWNER,
     )
-    return KnowledgeCapabilityBundle(
+    return KnowledgeCapabilityBundle[DeliveryPayloadT](
         bundle_id="mrw.knowledge.report.delivery-bridge.v2",
         operations=base.operations + (prepare_contract, delivery_operation),
         codecs=base.codecs + (delivery_codec,),
@@ -1233,7 +1385,7 @@ def build_knowledge_delivery_bridge_bundle(
 def build_knowledge_delivery_bridge_program(
     *,
     delivery_operation: OperationContract,
-    delivery_codec: PayloadCodec,
+    delivery_codec: PayloadCodec[DeliveryPayloadT],
     delivery_payload_ref: ValueRef,
     artifact_input_ref: ValueRef,
     intent_input_ref: ValueRef,

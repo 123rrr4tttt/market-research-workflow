@@ -38,14 +38,14 @@ from app.successor_runtime.language.object_contracts import OperationContractRef
 from app.successor_runtime.language.plan import ExecutionPlan, with_plan_digest
 from app.successor_runtime.language.program import ProgramSpec
 from app.successor_runtime.research.codec import is_sha256_hex
-from app.successor_runtime.runtime.assignments import InterpreterBinding
-
 __all__ = [
     "BATCH_TASK_SUCCESSOR_PLAN_INTERPRETER_ID",
     "BATCH_TASK_SUCCESSOR_RETRY_INTERPRETER_ID",
     "BatchTaskPlanSuccessorInterpreter",
     "BatchTaskRetrySuccessorInterpreter",
     "BatchTaskSubmissionSuccessorInterpreter",
+    "BatchTaskInterpreterBindingSpec",
+    "InterpreterBindingView",
     "BatchPlanBindingMismatch",
     "InterpreterFailure",
     "InterpreterOutcome",
@@ -95,6 +95,52 @@ class InterpreterFailure:
 
 
 InterpreterOutcome: TypeAlias = InterpreterSuccess[T] | InterpreterFailure
+
+
+@runtime_checkable
+class InterpreterBindingView(Protocol):
+    @property
+    def binding_digest(self) -> str: ...
+
+    @property
+    def operation_contract_digest(self) -> str: ...
+
+    @property
+    def interpreter_profile_digest(self) -> str: ...
+
+    @property
+    def deployment_catalog_digest(self) -> str: ...
+
+    @property
+    def project_scope_digest(self) -> str: ...
+
+
+@dataclass(frozen=True, slots=True)
+class BatchTaskInterpreterBindingSpec:
+    """Capability-owned exact facts materialized by the runtime binding owner."""
+
+    binding_kind: Literal["INTERPRETER"]
+    operation_contract_digest: str
+    interpreter_profile_digest: str
+    deployment_catalog_digest: str
+    runtime_protocol_version: str
+    project_scope_digest: str
+    resource_policy_epoch: int
+    authority_requirement_digest: str
+    binding_digest: str = ""
+
+    def __post_init__(self) -> None:
+        expected = content_digest(self, omit_fields=("binding_digest",))
+        if self.binding_digest == "":
+            object.__setattr__(self, "binding_digest", expected)
+        elif self.binding_digest != expected:
+            failure = batch_task.agent_batch_contract_failure(
+                "program_binding_invalid",
+                "BatchTaskInterpreterBindingSpec digest does not match content",
+                site="BatchTaskInterpreterBindingSpec.__post_init__",
+                public_exception="ValueError",
+            )
+            batch_task.raise_agent_batch_contract_failure(failure, ValueError)
 
 
 @runtime_checkable
@@ -149,7 +195,7 @@ def _validate_exact_binding(
     project_scope: ProjectScopeView,
     catalog: OperationContractCatalogSnapshot,
     deployment_catalog_digest: str,
-    binding: InterpreterBinding,
+    binding: InterpreterBindingView,
     expected_interpreter_profile_digest: str | None,
 ) -> dict[str, str] | Failure:
     """Return the exact C4 closure receipt or its canonical typed failure."""
@@ -282,7 +328,7 @@ def require_exact_batch_plan_binding(
     project_scope: ProjectScopeView,
     catalog: OperationContractCatalogSnapshot,
     deployment_catalog_digest: str,
-    binding: InterpreterBinding,
+    binding: InterpreterBindingView,
     expected_interpreter_profile_digest: str | None = None,
 ) -> dict[str, str]:
     result = validate_exact_batch_plan_binding(
@@ -312,7 +358,7 @@ def validate_exact_batch_plan_binding(
     project_scope: ProjectScopeView,
     catalog: OperationContractCatalogSnapshot,
     deployment_catalog_digest: str,
-    binding: InterpreterBinding,
+    binding: InterpreterBindingView,
     expected_interpreter_profile_digest: str | None = None,
 ) -> dict[str, str] | Failure:
     return _validate_exact_binding(
@@ -344,7 +390,7 @@ def require_exact_retry_binding(
     project_scope: ProjectScopeView,
     catalog: OperationContractCatalogSnapshot,
     deployment_catalog_digest: str,
-    binding: InterpreterBinding,
+    binding: InterpreterBindingView,
     expected_interpreter_profile_digest: str | None = None,
 ) -> dict[str, str]:
     result = validate_exact_retry_binding(
@@ -374,7 +420,7 @@ def validate_exact_retry_binding(
     project_scope: ProjectScopeView,
     catalog: OperationContractCatalogSnapshot,
     deployment_catalog_digest: str,
-    binding: InterpreterBinding,
+    binding: InterpreterBindingView,
     expected_interpreter_profile_digest: str | None = None,
 ) -> dict[str, str] | Failure:
     return _validate_exact_binding(
@@ -435,7 +481,7 @@ def build_successor_agent_batch_c4_plan_binding(
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
 ) -> Annotated[
-    InterpreterBinding,
+    BatchTaskInterpreterBindingSpec,
     Literal[
         "kit:non-authoritative derived_as=view "
         "fact_source=contract_digest+deployment_catalog_digest+project_scope_digest"
@@ -444,7 +490,8 @@ def build_successor_agent_batch_c4_plan_binding(
         "witness=test:test_native_plan_interpreter_binds_and_projects_exact_order"
     ],
 ]:
-    return InterpreterBinding.from_content(
+    return BatchTaskInterpreterBindingSpec(
+        binding_kind="INTERPRETER",
         operation_contract_digest=contract_digest,
         interpreter_profile_digest=successor_plan_interpreter_profile_digest(),
         deployment_catalog_digest=deployment_catalog_digest,
@@ -463,7 +510,7 @@ def build_successor_agent_batch_c4_retry_binding(
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
 ) -> Annotated[
-    InterpreterBinding,
+    BatchTaskInterpreterBindingSpec,
     Literal[
         "kit:non-authoritative derived_as=view "
         "fact_source=contract_digest+deployment_catalog_digest+project_scope_digest"
@@ -472,7 +519,8 @@ def build_successor_agent_batch_c4_retry_binding(
         "witness=test:test_native_retry_interpreter_binds_exact_attempt"
     ],
 ]:
-    return InterpreterBinding.from_content(
+    return BatchTaskInterpreterBindingSpec(
+        binding_kind="INTERPRETER",
         operation_contract_digest=contract_digest,
         interpreter_profile_digest=successor_retry_interpreter_profile_digest(),
         deployment_catalog_digest=deployment_catalog_digest,
@@ -491,7 +539,7 @@ def build_successor_agent_batch_c4_submission_binding(
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
 ) -> Annotated[
-    InterpreterBinding,
+    BatchTaskInterpreterBindingSpec,
     Literal[
         "kit:non-authoritative derived_as=view "
         "fact_source=contract_digest+deployment_catalog_digest+project_scope_digest"
@@ -500,7 +548,8 @@ def build_successor_agent_batch_c4_submission_binding(
         "witness=test:test_submission_payload_codec_restores_nested_typed_jobs"
     ],
 ]:
-    return InterpreterBinding.from_content(
+    return BatchTaskInterpreterBindingSpec(
+        binding_kind="INTERPRETER",
         operation_contract_digest=contract_digest,
         interpreter_profile_digest=successor_submission_interpreter_profile_digest(),
         deployment_catalog_digest=deployment_catalog_digest,
@@ -527,7 +576,7 @@ class BatchTaskPlanSuccessorInterpreter:
         project_scope: ProjectScopeView,
         catalog: OperationContractCatalogSnapshot,
         deployment_catalog_digest: str,
-        binding: InterpreterBinding,
+        binding: InterpreterBindingView,
     ) -> InterpreterOutcome[batch_task.BatchPlanResult]:
         binding_result = validate_exact_batch_plan_binding(
             program=program,
@@ -575,7 +624,7 @@ class BatchTaskRetrySuccessorInterpreter:
         project_scope: ProjectScopeView,
         catalog: OperationContractCatalogSnapshot,
         deployment_catalog_digest: str,
-        binding: InterpreterBinding,
+        binding: InterpreterBindingView,
     ) -> InterpreterOutcome[batch_task.RetryTransition]:
         binding_result = validate_exact_retry_binding(
             program=program,
@@ -632,7 +681,7 @@ class BatchTaskSubmissionSuccessorInterpreter:
         project_scope: ProjectScopeView,
         catalog: OperationContractCatalogSnapshot,
         deployment_catalog_digest: str,
-        binding: InterpreterBinding,
+        binding: InterpreterBindingView,
         run_ref: str = "run:batch-task-submission",
         created_at: str = "2030-09-01T08:00:00Z",
     ) -> InterpreterOutcome[batch_task.AgentBatchSubmissionReceipt]:

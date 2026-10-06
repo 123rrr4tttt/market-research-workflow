@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -12,7 +12,7 @@ from ..models.base import SessionLocal, get_db
 from ..models.entities import LlmServiceConfig, Project
 from ..services.llm.config_service import LlmConfigService
 from ..contracts import success_response
-from ..services.projects.context import bind_project, bind_schema, _normalize_project_key
+from ..services.projects.context import bind_project, bind_schema, normalize_project_key
 
 
 router = APIRouter(prefix="/llm-config", tags=["llm-config"])
@@ -149,7 +149,7 @@ class CopyLlmConfigsRequest(BaseModel):
 
 
 def _assert_project_exists(project_key: str) -> str:
-    normalized = _normalize_project_key(project_key)
+    normalized = normalize_project_key(project_key)
     with bind_schema("public"):
         with SessionLocal() as session:
             project = session.execute(

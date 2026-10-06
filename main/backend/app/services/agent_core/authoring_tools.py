@@ -9,11 +9,10 @@ grants no business-effect authority.
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 import difflib
 import json
-from typing import Any
 
 from functorial_kit import Failure
 
@@ -34,23 +33,61 @@ from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failur
 
 from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, CoreToolResult, CoreToolSpec
 from .tool_support import (
-    _abort_requested_result,
-    _compact_json_value,
-    _compact_session,
-    _concurrency_from_class,
-    _missing_project_result,
-    _normalize_string_list,
-    _permission_from_approval,
-    _resolve_project_key,
-    _risk_from_metadata,
-    _runtime_failure_result,
-    _safe_int,
-    _safe_nonnegative_int,
-    _session_abort_requested,
-    _stable_hash,
-    _utcnow_iso,
+    JSONObject,
+    JSONValue,
+    StructuredDataSearcher,
+    agent_artifact_store,
+    abort_requested_result,
+    compact_json_value,
+    compact_session,
+    concurrency_from_class,
+    json_list,
+    json_object,
+    missing_project_result,
+    normalize_string_list,
+    permission_from_approval,
+    resolve_project_key,
+    risk_from_metadata,
+    runtime_failure_result,
+    safe_int,
+    safe_nonnegative_int,
+    session_abort_requested,
+    stable_hash,
+    utcnow_iso,
 )
 from .tool_contribution import ProjectToolAuthorSource
+
+
+def _session_artifacts(service: AgentSessionService, session_id: str) -> list[JSONObject]:
+    result = service.list_artifacts(session_id)
+    if isinstance(result, Failure):
+        raise RuntimeError(f"{result.code}: {result.message}")
+    return [json_object(item) for item in result]
+
+
+def _upsert_session_artifact(service: AgentSessionService, payload: JSONObject) -> JSONObject | Failure:
+    store = agent_artifact_store(service.store)
+    if store is None:
+        raise TypeError("AgentSessionService.store does not provide the artifact store contract")
+    result = store.upsert_artifact(payload)
+    if isinstance(result, Failure):
+        return result
+    return json_object(result)
+
+
+def _append_session_event(
+    service: AgentSessionService,
+    session_id: str,
+    *,
+    event_type: str,
+    task_id: str | None = None,
+    payload: JSONObject | None = None,
+) -> Failure | None:
+    store = agent_artifact_store(service.store)
+    if store is None:
+        raise TypeError("AgentSessionService.store does not provide the event store contract")
+    result = store.append_event(session_id, event_type=event_type, task_id=task_id, payload=payload)
+    return result if isinstance(result, Failure) else None
 
 
 def _agent_batch_submit_spec() -> CoreToolSpec:
@@ -72,7 +109,9 @@ def _agent_batch_submit_spec() -> CoreToolSpec:
                 },
                 "batch": {
                     "type": "object",
-                    "properties": {"jobs": {"type": "array", "items": {"type": "object", "additionalProperties": True}}},
+                    "properties": {
+                        "jobs": {"type": "array", "items": {"type": "object", "additionalProperties": True}}
+                    },
                     "additionalProperties": True,
                 },
                 "idempotency_key": {"type": "string"},
@@ -92,7 +131,10 @@ def _agent_batch_submit_spec() -> CoreToolSpec:
         metadata={"contract_version": "agent_batch.submit.v1", "implemented": True},
     )
 
-def _agent_batch_submit_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
+
+def _agent_batch_submit_handler() -> Callable[
+    [CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult
+]:
     def handler(
         tool_call: CoreToolCall,
         tool_spec: CoreToolSpec,
@@ -102,6 +144,7 @@ def _agent_batch_submit_handler() -> Callable[[CoreToolCall, CoreToolSpec, Agent
         return _run_agent_batch_submit_tool(tool_call=tool_call, request=request)
 
     return handler
+
 
 def _agent_task_plan_append_spec() -> CoreToolSpec:
     return CoreToolSpec(
@@ -118,7 +161,10 @@ def _agent_task_plan_append_spec() -> CoreToolSpec:
             "properties": {
                 "goal": {"type": "string", "description": "Optional refined goal for the appended plan."},
                 "idempotency_key": {"type": "string", "description": "Stable key for replay-safe task creation."},
-                "sequential": {"type": "boolean", "description": "When true, later tasks depend on the previous task unless dependencies are explicit."},
+                "sequential": {
+                    "type": "boolean",
+                    "description": "When true, later tasks depend on the previous task unless dependencies are explicit.",
+                },
                 "tasks": {
                     "type": "array",
                     "minItems": 1,
@@ -132,7 +178,14 @@ def _agent_task_plan_append_spec() -> CoreToolSpec:
                             "description": {"type": "string"},
                             "phase": {
                                 "type": "string",
-                                "enum": ["conversation", "research", "synthesis", "implementation", "verification", "maintenance"],
+                                "enum": [
+                                    "conversation",
+                                    "research",
+                                    "synthesis",
+                                    "implementation",
+                                    "verification",
+                                    "maintenance",
+                                ],
                             },
                             "task_type": {"type": "string"},
                             "priority": {"type": "integer", "minimum": 1, "maximum": 10},
@@ -161,6 +214,7 @@ def _agent_task_plan_append_spec() -> CoreToolSpec:
         metadata={"auto_allow_session_write": True, "contract_version": "agent_task.plan.append.v1"},
     )
 
+
 def _agent_task_plan_append_handler(
     service: AgentSessionService,
 ) -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
@@ -170,8 +224,8 @@ def _agent_task_plan_append_handler(
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        raw_tasks = tool_call.arguments.get("tasks") or tool_call.arguments.get("task_blueprints") or []
-        if not isinstance(raw_tasks, list) or not raw_tasks:
+        raw_tasks = json_list(tool_call.arguments.get("tasks") or tool_call.arguments.get("task_blueprints"))
+        if not raw_tasks:
             return CoreToolResult(
                 call_id=tool_call.call_id,
                 tool_name=tool_call.tool_name,
@@ -181,9 +235,9 @@ def _agent_task_plan_append_handler(
             )
 
         idempotency_key = str(tool_call.arguments.get("idempotency_key") or "").strip()
-        normalized_for_hash = _compact_json_value(raw_tasks, max_items=60, max_depth=6, max_string=800)
+        normalized_for_hash = compact_json_value(raw_tasks, max_items=60, max_depth=6, max_string=800)
         if not idempotency_key:
-            idempotency_key = _stable_hash(
+            idempotency_key = stable_hash(
                 {
                     "session_id": request.session_id,
                     "goal": tool_call.arguments.get("goal") or request.message,
@@ -191,18 +245,21 @@ def _agent_task_plan_append_handler(
                 }
             )
 
-        existing_tasks = service.list_tasks(request.session_id)
+        existing_tasks_value = service.list_tasks(request.session_id)
+        if isinstance(existing_tasks_value, Failure):
+            return runtime_failure_result(tool_call, existing_tasks_value)
+        existing_tasks = [json_object(task) for task in existing_tasks_value]
         existing_ids = {str(task.get("task_id") or "") for task in existing_tasks}
         existing_keys = {
-            str((task.get("metadata") or {}).get("agent_core_plan_idempotency_key") or "")
+            str(json_object(task.get("metadata")).get("agent_core_plan_idempotency_key") or "")
             for task in existing_tasks
-            if isinstance(task.get("metadata"), dict)
         }
         if idempotency_key in existing_keys:
             matched = [
                 _compact_task(task)
                 for task in existing_tasks
-                if str((task.get("metadata") or {}).get("agent_core_plan_idempotency_key") or "") == idempotency_key
+                if str(json_object(task.get("metadata")).get("agent_core_plan_idempotency_key") or "")
+                == idempotency_key
             ]
             return CoreToolResult(
                 call_id=tool_call.call_id,
@@ -221,11 +278,12 @@ def _agent_task_plan_append_handler(
             )
 
         sequential = bool(tool_call.arguments.get("sequential"))
-        blueprints: list[dict[str, Any]] = []
+        blueprints: list[JSONObject] = []
         skipped_task_ids: list[str] = []
-        for index, raw in enumerate(raw_tasks[:50], start=1):
-            if not isinstance(raw, dict):
+        for index, raw_value in enumerate(raw_tasks[:50], start=1):
+            if not isinstance(raw_value, Mapping):
                 continue
+            raw = json_object(raw_value)
             subject = str(raw.get("subject") or raw.get("title") or "").strip()
             if not subject:
                 continue
@@ -233,10 +291,10 @@ def _agent_task_plan_append_handler(
             if task_id and task_id in existing_ids:
                 skipped_task_ids.append(task_id)
                 continue
-            blocked_by_refs = list(raw.get("blocked_by_refs") or [])
+            blocked_by_refs = normalize_string_list(raw.get("blocked_by_refs"))
             if sequential and index > 1 and not raw.get("blocked_by") and "prev" not in blocked_by_refs:
                 blocked_by_refs.append("prev")
-            metadata = dict(raw.get("metadata") or {})
+            metadata = json_object(raw.get("metadata"))
             metadata.update(
                 {
                     "created_by": "agent_core",
@@ -245,21 +303,21 @@ def _agent_task_plan_append_handler(
                     "agent_core_plan_index": index,
                 }
             )
-            blueprint = {
+            blueprint: JSONObject = {
                 "subject": subject,
                 "description": raw.get("description"),
                 "phase": str(raw.get("phase") or "research").strip() or "research",
                 "task_type": str(raw.get("task_type") or raw.get("phase") or "research").strip() or "research",
-                "priority": int(raw.get("priority") or 5),
-                "blocked_by": list(raw.get("blocked_by") or []),
+                "priority": safe_int(raw.get("priority")) or 5,
+                "blocked_by": normalize_string_list(raw.get("blocked_by")),
                 "blocked_by_refs": blocked_by_refs,
-                "read_set": list(raw.get("read_set") or []),
-                "write_set": list(raw.get("write_set") or []),
-                "completion_criteria": list(raw.get("completion_criteria") or []),
-                "verification_steps": list(raw.get("verification_steps") or []),
-                "artifact_targets": list(raw.get("artifact_targets") or []),
+                "read_set": normalize_string_list(raw.get("read_set")),
+                "write_set": normalize_string_list(raw.get("write_set")),
+                "completion_criteria": normalize_string_list(raw.get("completion_criteria")),
+                "verification_steps": normalize_string_list(raw.get("verification_steps")),
+                "artifact_targets": normalize_string_list(raw.get("artifact_targets")),
                 "metadata": metadata,
-                "task_spec": dict(raw.get("task_spec") or {}),
+                "task_spec": json_object(raw.get("task_spec")),
             }
             if task_id:
                 blueprint["task_id"] = task_id
@@ -281,10 +339,10 @@ def _agent_task_plan_append_handler(
             )
 
         try:
-            created = service.append_task_blueprints(
+            created_value = service.append_task_blueprints(
                 request.session_id,
                 goal=str(tool_call.arguments.get("goal") or request.message or "").strip() or None,
-                task_blueprints=blueprints,
+                task_blueprints=[dict(item) for item in blueprints],
             )
         except Exception as exc:  # noqa: BLE001
             return CoreToolResult(
@@ -295,6 +353,9 @@ def _agent_task_plan_append_handler(
                 error={"code": exc.__class__.__name__, "message": str(exc)},
             )
 
+        if isinstance(created_value, Failure):
+            return runtime_failure_result(tool_call, created_value)
+        created = [json_object(task) for task in created_value]
         compact_tasks = [_compact_task(task) for task in created]
         return CoreToolResult(
             call_id=tool_call.call_id,
@@ -313,6 +374,7 @@ def _agent_task_plan_append_handler(
         )
 
     return handler
+
 
 _LONG_TASK_STAGE_ORDER = (
     "plan",
@@ -340,6 +402,7 @@ _LONG_TASK_STAGE_LABELS = {
 
 _LONG_TASK_STAGE_STATUSES = {"pending", "in_progress", "completed", "blocked", "failed"}
 
+
 def _agent_long_task_stage_update_spec() -> CoreToolSpec:
     return CoreToolSpec(
         name="agent_long_task.stage.update",
@@ -361,13 +424,34 @@ def _agent_long_task_stage_update_spec() -> CoreToolSpec:
                 "stage_status": {"type": "string", "enum": sorted(_LONG_TASK_STAGE_STATUSES), "default": "in_progress"},
                 "summary": {"type": "string"},
                 "idempotency_key": {"type": "string"},
-                "evidence_refs": {"type": "array", "items": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]}},
-                "gap_list": {"type": "array", "items": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]}},
-                "external_discovery_plan": {"type": "array", "items": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]}},
-                "source_intake": {"type": "array", "items": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]}},
-                "clue_refs": {"type": "array", "items": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]}},
-                "draft_refs": {"type": "array", "items": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]}},
-                "next_actions": {"type": "array", "items": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]}},
+                "evidence_refs": {
+                    "type": "array",
+                    "items": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]},
+                },
+                "gap_list": {
+                    "type": "array",
+                    "items": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]},
+                },
+                "external_discovery_plan": {
+                    "type": "array",
+                    "items": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]},
+                },
+                "source_intake": {
+                    "type": "array",
+                    "items": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]},
+                },
+                "clue_refs": {
+                    "type": "array",
+                    "items": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]},
+                },
+                "draft_refs": {
+                    "type": "array",
+                    "items": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]},
+                },
+                "next_actions": {
+                    "type": "array",
+                    "items": {"oneOf": [{"type": "string"}, {"type": "object", "additionalProperties": True}]},
+                },
                 "metadata": {"type": "object", "additionalProperties": True},
             },
             "additionalProperties": False,
@@ -382,6 +466,7 @@ def _agent_long_task_stage_update_spec() -> CoreToolSpec:
         metadata={"auto_allow_session_write": True, "contract_version": "agent_long_task.stage.v1"},
     )
 
+
 def _agent_long_task_stage_update_handler(
     service: AgentSessionService,
 ) -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
@@ -393,23 +478,33 @@ def _agent_long_task_stage_update_handler(
     ) -> CoreToolResult:
         stage = _normalize_long_task_stage(tool_call.arguments.get("stage"))
         if isinstance(stage, Failure):
-            return _runtime_failure_result(tool_call, stage)
+            return runtime_failure_result(tool_call, stage)
         stage_status = _normalize_long_task_stage_status(tool_call.arguments.get("stage_status"))
         if isinstance(stage_status, Failure):
-            return _runtime_failure_result(tool_call, stage_status)
-        project_key = _resolve_project_key(tool_call, request) or str(request.project_key or "").strip() or None
-        artifact_name = str(tool_call.arguments.get("artifact_name") or "agent_long_task.state.json").strip() or "agent_long_task.state.json"
+            return runtime_failure_result(tool_call, stage_status)
+        project_key = resolve_project_key(tool_call, request) or str(request.project_key or "").strip() or None
+        artifact_name = (
+            str(tool_call.arguments.get("artifact_name") or "agent_long_task.state.json").strip()
+            or "agent_long_task.state.json"
+        )
         task_id = str(tool_call.arguments.get("task_id") or "").strip() or None
         task_kind = str(tool_call.arguments.get("task_kind") or "mixed").strip().lower()
         if task_kind not in {"investigation", "writing", "mixed"}:
             task_kind = "mixed"
-        existing_artifact = next((item for item in service.list_artifacts(request.session_id) if item.get("name") == artifact_name), None)
-        existing_content = dict((existing_artifact or {}).get("content_json") or {})
+        existing_artifact = next(
+            (item for item in _session_artifacts(service, request.session_id) if item.get("name") == artifact_name),
+            None,
+        )
+        existing_content = json_object((existing_artifact or {}).get("content_json"))
         idempotency_key = str(tool_call.arguments.get("idempotency_key") or "").strip()
-        replay_keys = [str(item or "") for item in list(existing_content.get("replay_keys") or []) if str(item or "").strip()]
+        replay_keys = [
+            str(item or "") for item in json_list(existing_content.get("replay_keys")) if str(item or "").strip()
+        ]
         replayed = bool(idempotency_key and idempotency_key in replay_keys)
         if replayed:
-            updated_content = _normalize_long_task_state(existing_content, session_id=request.session_id, project_key=project_key, task_kind=task_kind)
+            updated_content = _normalize_long_task_state(
+                existing_content, session_id=request.session_id, project_key=project_key, task_kind=task_kind
+            )
         else:
             if idempotency_key:
                 replay_keys.append(idempotency_key)
@@ -424,7 +519,8 @@ def _agent_long_task_stage_update_handler(
                 stage_status=stage_status,
                 replay_keys=replay_keys[-80:],
             )
-        artifact = service.store.upsert_artifact(
+        artifact = _upsert_session_artifact(
+            service,
             {
                 "session_id": request.session_id,
                 "name": artifact_name,
@@ -441,6 +537,8 @@ def _agent_long_task_stage_update_handler(
                 },
             }
         )
+        if isinstance(artifact, Failure):
+            return runtime_failure_result(tool_call, artifact)
         if task_id:
             _attach_long_task_state_to_task(
                 service=service,
@@ -451,7 +549,8 @@ def _agent_long_task_stage_update_handler(
                 stage=stage,
                 stage_status=stage_status,
             )
-        service.store.append_event(
+        event_failure = _append_session_event(
+            service,
             request.session_id,
             event_type="agent_long_task.stage.updated",
             task_id=task_id,
@@ -463,6 +562,8 @@ def _agent_long_task_stage_update_handler(
                 "replayed": replayed,
             },
         )
+        if isinstance(event_failure, Failure):
+            return runtime_failure_result(tool_call, event_failure)
         state = _compact_long_task_state(updated_content)
         return CoreToolResult(
             call_id=tool_call.call_id,
@@ -481,6 +582,7 @@ def _agent_long_task_stage_update_handler(
         )
 
     return handler
+
 
 def _agent_long_task_stage_read_spec() -> CoreToolSpec:
     return CoreToolSpec(
@@ -505,6 +607,7 @@ def _agent_long_task_stage_read_spec() -> CoreToolSpec:
         metadata={"contract_version": "agent_long_task.stage.v1"},
     )
 
+
 def _agent_long_task_stage_read_handler(
     service: AgentSessionService,
 ) -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
@@ -514,10 +617,18 @@ def _agent_long_task_stage_read_handler(
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        artifact_name = str(tool_call.arguments.get("artifact_name") or "agent_long_task.state.json").strip() or "agent_long_task.state.json"
-        artifact = next((item for item in service.list_artifacts(request.session_id) if item.get("name") == artifact_name), None)
+        artifact_name = (
+            str(tool_call.arguments.get("artifact_name") or "agent_long_task.state.json").strip()
+            or "agent_long_task.state.json"
+        )
+        artifact = next(
+            (item for item in _session_artifacts(service, request.session_id) if item.get("name") == artifact_name),
+            None,
+        )
         if artifact is None:
-            state = _seed_long_task_state(session_id=request.session_id, project_key=request.project_key, task_kind="mixed", replay_keys=[])
+            state = _seed_long_task_state(
+                session_id=request.session_id, project_key=request.project_key, task_kind="mixed", replay_keys=[]
+            )
             return CoreToolResult(
                 call_id=tool_call.call_id,
                 tool_name=tool_call.tool_name,
@@ -531,10 +642,10 @@ def _agent_long_task_stage_read_handler(
                 },
             )
         content = _normalize_long_task_state(
-            dict(artifact.get("content_json") or {}),
+            json_object(artifact.get("content_json")),
             session_id=request.session_id,
             project_key=request.project_key,
-            task_kind=str((artifact.get("metadata") or {}).get("task_kind") or "mixed"),
+            task_kind=str(json_object(artifact.get("metadata")).get("task_kind") or "mixed"),
         )
         return CoreToolResult(
             call_id=tool_call.call_id,
@@ -552,6 +663,7 @@ def _agent_long_task_stage_read_handler(
         )
 
     return handler
+
 
 def _agent_session_resume_bundle_spec() -> CoreToolSpec:
     return CoreToolSpec(
@@ -575,6 +687,7 @@ def _agent_session_resume_bundle_spec() -> CoreToolSpec:
         project_service_id="agent_session.resume_bundle",
     )
 
+
 def _agent_session_resume_bundle_handler(
     service: AgentSessionService,
 ) -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
@@ -584,9 +697,9 @@ def _agent_session_resume_bundle_handler(
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        limit = max(1, min(30, int(tool_call.arguments.get("limit") or 10)))
+        limit = max(1, min(30, safe_int(tool_call.arguments.get("limit")) or 10))
         try:
-            bundle = service.get_session_bundle(request.session_id)
+            bundle_value = service.get_session_bundle(request.session_id)
         except Exception as exc:  # noqa: BLE001
             return CoreToolResult(
                 call_id=tool_call.call_id,
@@ -595,34 +708,54 @@ def _agent_session_resume_bundle_handler(
                 model_summary=f"Failed to read session resume bundle: {exc}",
                 error={"code": exc.__class__.__name__, "message": str(exc)},
             )
-        tasks = list(bundle.get("tasks") or [])
-        artifacts = list(bundle.get("artifacts") or [])
-        active_tasks = [task for task in tasks if str(task.get("status") or "") not in {"completed", "failed", "canceled", "expired"}]
+        if isinstance(bundle_value, Failure):
+            return runtime_failure_result(tool_call, bundle_value)
+        bundle = json_object(bundle_value)
+        tasks = [json_object(item) for item in json_list(bundle.get("tasks"))]
+        artifacts = [json_object(item) for item in json_list(bundle.get("artifacts"))]
+        active_tasks = [
+            task
+            for task in tasks
+            if str(task.get("status") or "") not in {"completed", "failed", "canceled", "expired"}
+        ]
         long_task_states = [
-            _compact_long_task_state(_normalize_long_task_state(dict(item.get("content_json") or {}), session_id=request.session_id, project_key=request.project_key, task_kind=str((item.get("metadata") or {}).get("task_kind") or "mixed")))
+            _compact_long_task_state(
+                _normalize_long_task_state(
+                    json_object(item.get("content_json")),
+                    session_id=request.session_id,
+                    project_key=request.project_key,
+                    task_kind=str(json_object(item.get("metadata")).get("task_kind") or "mixed"),
+                )
+            )
             for item in artifacts
             if str(item.get("artifact_type") or "") == "agent_long_task_state"
         ]
         content = {
             "contract_version": "agent_session.resume_bundle.v1",
-            "session": _compact_session(dict(bundle.get("session") or {})),
+            "session": compact_session(json_object(bundle.get("session"))),
             "active_tasks": [_compact_task(task) for task in active_tasks[:limit]],
             "recent_tasks": [_compact_task(task) for task in tasks[-limit:]],
-            "recent_messages": _compact_json_value(list(bundle.get("messages") or [])[-limit:], max_items=limit, max_depth=4),
-            "recent_artifacts": _compact_json_value(artifacts[-limit:], max_items=limit, max_depth=4),
-            "long_task_states": _compact_json_value(long_task_states[-limit:], max_items=limit, max_depth=5),
-            "pending_approvals": _compact_json_value(
-                [item for item in list(bundle.get("approvals") or []) if str(item.get("status") or "") in {"pending", "requested"}],
+            "recent_messages": compact_json_value(
+                json_list(bundle.get("messages"))[-limit:], max_items=limit, max_depth=4
+            ),
+            "recent_artifacts": compact_json_value(artifacts[-limit:], max_items=limit, max_depth=4),
+            "long_task_states": compact_json_value(long_task_states[-limit:], max_items=limit, max_depth=5),
+            "pending_approvals": compact_json_value(
+                [
+                    item
+                    for item in (json_object(value) for value in json_list(bundle.get("approvals")))
+                    if str(item.get("status") or "") in {"pending", "requested"}
+                ],
                 max_items=limit,
                 max_depth=4,
             ),
             "counts": {
                 "tasks": len(tasks),
                 "active_tasks": len(active_tasks),
-                "messages": len(list(bundle.get("messages") or [])),
+                "messages": len(json_list(bundle.get("messages"))),
                 "artifacts": len(artifacts),
                 "long_task_states": len(long_task_states),
-                "approvals": len(list(bundle.get("approvals") or [])),
+                "approvals": len(json_list(bundle.get("approvals"))),
             },
         }
         return CoreToolResult(
@@ -634,6 +767,7 @@ def _agent_session_resume_bundle_handler(
         )
 
     return handler
+
 
 def _ingest_url_pool_submit_spec() -> CoreToolSpec:
     return CoreToolSpec(
@@ -680,6 +814,7 @@ def _ingest_url_pool_submit_spec() -> CoreToolSpec:
         },
     )
 
+
 def _ingest_url_pool_submit_handler(
     service: AgentSessionService,
 ) -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
@@ -689,16 +824,12 @@ def _ingest_url_pool_submit_handler(
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        raw_payload = tool_call.arguments.get("ingest_payload")
-        ingest_payload = dict(raw_payload or {}) if isinstance(raw_payload, dict) else {}
+        ingest_payload = json_object(tool_call.arguments.get("ingest_payload"))
         project_key = str(
-            tool_call.arguments.get("project_key")
-            or ingest_payload.get("project_key")
-            or request.project_key
-            or ""
+            tool_call.arguments.get("project_key") or ingest_payload.get("project_key") or request.project_key or ""
         ).strip()
         if not project_key:
-            return _missing_project_result(tool_call)
+            return missing_project_result(tool_call)
 
         url = str(tool_call.arguments.get("url") or ingest_payload.get("url") or "").strip()
         if not url:
@@ -708,26 +839,28 @@ def _ingest_url_pool_submit_handler(
                 status="failed",
                 model_summary="url is required for URL-pool ingestion.",
                 error={"code": "missing_url", "message": "url is required"},
-                structured_content={"arguments": dict(tool_call.arguments or {})},
+                structured_content={"arguments": json_object(tool_call.arguments)},
             )
 
-        query_terms = _normalize_string_list(tool_call.arguments.get("query_terms") or ingest_payload.get("query_terms"))
+        query_terms = normalize_string_list(tool_call.arguments.get("query_terms") or ingest_payload.get("query_terms"))
         strict_mode = bool(tool_call.arguments.get("strict_mode") or ingest_payload.get("strict_mode") or False)
         async_mode = bool(tool_call.arguments.get("async_mode", ingest_payload.get("async_mode", True)))
-        search_options = tool_call.arguments.get("search_options", ingest_payload.get("search_options"))
-        search_options = dict(search_options) if isinstance(search_options, dict) else None
-        metadata = dict(ingest_payload.get("metadata") or {})
-        if isinstance(tool_call.arguments.get("metadata"), dict):
-            metadata.update(dict(tool_call.arguments.get("metadata") or {}))
+        search_options_value: object = tool_call.arguments.get("search_options", ingest_payload.get("search_options"))
+        normalized_search_options = json_object(search_options_value)
+        search_options = normalized_search_options if isinstance(search_options_value, Mapping) else None
+        metadata = json_object(ingest_payload.get("metadata"))
+        metadata.update(json_object(tool_call.arguments.get("metadata")))
         source_name = str(
-            tool_call.arguments.get("source_name")
-            or ingest_payload.get("source_name")
-            or metadata.get("title")
-            or url
+            tool_call.arguments.get("source_name") or ingest_payload.get("source_name") or metadata.get("title") or url
         ).strip()
-        artifact_name = str(tool_call.arguments.get("artifact_name") or "ingest.url_pool_submissions.json").strip() or "ingest.url_pool_submissions.json"
-        candidate_review_key = str(tool_call.arguments.get("candidate_review_key") or metadata.get("review_key") or "").strip()
-        idempotency_key = str(tool_call.arguments.get("idempotency_key") or "").strip() or _stable_hash(
+        artifact_name = (
+            str(tool_call.arguments.get("artifact_name") or "ingest.url_pool_submissions.json").strip()
+            or "ingest.url_pool_submissions.json"
+        )
+        candidate_review_key = str(
+            tool_call.arguments.get("candidate_review_key") or metadata.get("review_key") or ""
+        ).strip()
+        idempotency_key = str(tool_call.arguments.get("idempotency_key") or "").strip() or stable_hash(
             {
                 "project_key": project_key,
                 "url": url,
@@ -738,8 +871,8 @@ def _ingest_url_pool_submit_handler(
             }
         )
 
-        if _session_abort_requested(service=service, session_id=request.session_id):
-            return _abort_requested_result(
+        if session_abort_requested(service=service, session_id=request.session_id):
+            return abort_requested_result(
                 service=service,
                 request=request,
                 tool_call=tool_call,
@@ -748,10 +881,15 @@ def _ingest_url_pool_submit_handler(
                 dispatched_count=0,
             )
 
-        existing_artifact = next((item for item in service.list_artifacts(request.session_id) if item.get("name") == artifact_name), None)
-        existing_content = dict((existing_artifact or {}).get("content_json") or {})
-        submissions = [dict(item) for item in list(existing_content.get("submissions") or []) if isinstance(item, dict)]
-        replayed_submission = next((item for item in submissions if str(item.get("idempotency_key") or "") == idempotency_key), None)
+        existing_artifact = next(
+            (item for item in _session_artifacts(service, request.session_id) if item.get("name") == artifact_name),
+            None,
+        )
+        existing_content = json_object((existing_artifact or {}).get("content_json"))
+        submissions = [json_object(item) for item in json_list(existing_content.get("submissions"))]
+        replayed_submission = next(
+            (item for item in submissions if str(item.get("idempotency_key") or "") == idempotency_key), None
+        )
         if replayed_submission:
             return CoreToolResult(
                 call_id=tool_call.call_id,
@@ -764,13 +902,15 @@ def _ingest_url_pool_submit_handler(
                     "project_key": project_key,
                     "url": url,
                     "replayed": True,
-                    "submission": _compact_json_value(replayed_submission, max_items=18, max_depth=5),
+                    "submission": compact_json_value(replayed_submission, max_items=18, max_depth=5),
                 },
                 artifact_refs=(str((existing_artifact or {}).get("artifact_id") or artifact_name),),
             )
 
-        task_search_options = dict(search_options or {})
-        deterministic_task_id = f"agent-url-pool-{_stable_hash({'project_key': project_key, 'url': url, 'idempotency_key': idempotency_key})[:24]}"
+        task_search_options: dict[str, object] = {
+            key: value for key, value in json_object(search_options).items()
+        }
+        deterministic_task_id = f"agent-url-pool-{stable_hash({'project_key': project_key, 'url': url, 'idempotency_key': idempotency_key})[:24]}"
         agent_submission_marker = {
             "session_id": request.session_id,
             "artifact_name": artifact_name,
@@ -788,11 +928,16 @@ def _ingest_url_pool_submit_handler(
                 from app.services.tasks import task_ingest_url_via_source_library
 
                 task_args = (url, query_terms or None, strict_mode, project_key, task_search_options)
-                if hasattr(task_ingest_url_via_source_library, "apply_async"):
-                    async_result = task_ingest_url_via_source_library.apply_async(args=task_args, task_id=deterministic_task_id)
+                celery_task: object = task_ingest_url_via_source_library
+                apply_async = getattr(celery_task, "apply_async", None)
+                if callable(apply_async):
+                    async_result = apply_async(args=task_args, task_id=deterministic_task_id)
                 else:
-                    async_result = task_ingest_url_via_source_library.delay(*task_args)
-                dispatch_result = {
+                    delay = getattr(celery_task, "delay", None)
+                    if not callable(delay):
+                        raise TypeError("URL-pool task exposes neither apply_async nor delay")
+                    async_result = delay(*task_args)
+                dispatch_result: JSONObject = {
                     "task_id": str(getattr(async_result, "id", "") or ""),
                     "status": "queued",
                     "async": True,
@@ -816,29 +961,30 @@ def _ingest_url_pool_submit_handler(
                 with bind_project(project_key):
                     from app.services.ingest.url_pool import ingest_url_via_source_library_frontdoor
 
-                    dispatch_result = ingest_url_via_source_library_frontdoor(
-                        url=url,
-                        project_key=project_key,
-                        query_terms=query_terms or None,
-                        strict_mode=strict_mode,
-                        search_options=task_search_options,
-                        frontdoor_options={"enabled": True},
-                        entrypoint="agent_core.ingest.url_pool.submit",
-                        source_name=source_name or "agent_core_url_pool_submit",
-                        enable_extraction=True,
-                    )
-                    if isinstance(dispatch_result, dict):
-                        dispatch_result.setdefault(
-                            "effective_payload",
-                            {
-                                "url": url,
-                                "project_key": project_key,
-                                "query_terms": query_terms or None,
-                                "strict_mode": strict_mode,
-                                "async_mode": False,
-                                "agent_session_id": request.session_id,
-                            },
+                    dispatch_result = json_object(
+                        ingest_url_via_source_library_frontdoor(
+                            url=url,
+                            project_key=project_key,
+                            query_terms=query_terms or None,
+                            strict_mode=strict_mode,
+                            search_options=task_search_options,
+                            frontdoor_options={"enabled": True},
+                            entrypoint="agent_core.ingest.url_pool.submit",
+                            source_name=source_name or "agent_core_url_pool_submit",
+                            enable_extraction=True,
                         )
+                    )
+                    dispatch_result.setdefault(
+                        "effective_payload",
+                        {
+                            "url": url,
+                            "project_key": project_key,
+                            "query_terms": query_terms or None,
+                            "strict_mode": strict_mode,
+                            "async_mode": False,
+                            "agent_session_id": request.session_id,
+                        },
+                    )
         except Exception as exc:  # noqa: BLE001
             return CoreToolResult(
                 call_id=tool_call.call_id,
@@ -855,8 +1001,8 @@ def _ingest_url_pool_submit_handler(
                 },
             )
 
-        if _session_abort_requested(service=service, session_id=request.session_id):
-            return _abort_requested_result(
+        if session_abort_requested(service=service, session_id=request.session_id):
+            return abort_requested_result(
                 service=service,
                 request=request,
                 tool_call=tool_call,
@@ -868,12 +1014,12 @@ def _ingest_url_pool_submit_handler(
                     "project_key": project_key,
                     "url": url,
                     "async_mode": async_mode,
-                    "dispatch_result": _compact_json_value(dispatch_result, max_items=20, max_depth=5),
+                    "dispatch_result": compact_json_value(dispatch_result, max_items=20, max_depth=5),
                 },
             )
 
-        task_id = str((dispatch_result or {}).get("task_id") or "").strip() if isinstance(dispatch_result, dict) else ""
-        submission = {
+        task_id = str(dispatch_result.get("task_id") or "").strip()
+        submission: JSONObject = {
             "idempotency_key": idempotency_key,
             "project_key": project_key,
             "url": url,
@@ -884,17 +1030,17 @@ def _ingest_url_pool_submit_handler(
             "source_name": source_name,
             "metadata": metadata,
             "candidate_review_key": candidate_review_key,
-            "dispatch_result": _compact_json_value(dispatch_result, max_items=20, max_depth=5),
-            "submitted_at": _utcnow_iso(),
+            "dispatch_result": compact_json_value(dispatch_result, max_items=20, max_depth=5),
+            "submitted_at": utcnow_iso(),
             "source_call_id": tool_call.call_id,
         }
         submissions = [item for item in submissions if str(item.get("idempotency_key") or "") != idempotency_key]
         submissions.append(submission)
-        updated_content = {
+        updated_content: JSONObject = {
             **existing_content,
             "contract_version": "ingest.url_pool.submit.v1",
             "project_key": project_key,
-            "updated_at": _utcnow_iso(),
+            "updated_at": utcnow_iso(),
             "submissions": submissions[-100:],
             "counts": {
                 "submitted": len(submissions),
@@ -902,7 +1048,8 @@ def _ingest_url_pool_submit_handler(
                 "sync": sum(1 for item in submissions if not bool(item.get("async_mode"))),
             },
         }
-        artifact = service.store.upsert_artifact(
+        artifact = _upsert_session_artifact(
+            service,
             {
                 "session_id": request.session_id,
                 "name": artifact_name,
@@ -918,6 +1065,8 @@ def _ingest_url_pool_submit_handler(
                 },
             }
         )
+        if isinstance(artifact, Failure):
+            return runtime_failure_result(tool_call, artifact)
         return CoreToolResult(
             call_id=tool_call.call_id,
             tool_name=tool_call.tool_name,
@@ -933,9 +1082,9 @@ def _ingest_url_pool_submit_handler(
                 "url": url,
                 "async_mode": async_mode,
                 "task_id": task_id,
-                "dispatch_result": _compact_json_value(dispatch_result, max_items=20, max_depth=5),
-                "submission": _compact_json_value(submission, max_items=20, max_depth=5),
-                "artifact": _compact_json_value(artifact, max_items=16, max_depth=4),
+                "dispatch_result": compact_json_value(dispatch_result, max_items=20, max_depth=5),
+                "submission": compact_json_value(submission, max_items=20, max_depth=5),
+                "artifact": compact_json_value(artifact, max_items=16, max_depth=4),
                 "replayed": False,
                 "next_gate": "inspect_ingest_status_or_source_artifacts",
             },
@@ -943,6 +1092,7 @@ def _ingest_url_pool_submit_handler(
         )
 
     return handler
+
 
 def _ingest_url_pool_status_spec() -> CoreToolSpec:
     return CoreToolSpec(
@@ -973,9 +1123,10 @@ def _ingest_url_pool_status_spec() -> CoreToolSpec:
         metadata={"contract_version": "ingest.url_pool.status.v1", "after_tool": "ingest.url_pool.submit"},
     )
 
+
 def _ingest_url_pool_status_handler(
     service: AgentSessionService,
-    searcher: Callable[..., dict[str, Any]],
+    searcher: StructuredDataSearcher,
 ) -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
     def handler(
         tool_call: CoreToolCall,
@@ -983,32 +1134,47 @@ def _ingest_url_pool_status_handler(
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
-        artifact_name = str(tool_call.arguments.get("artifact_name") or "ingest.url_pool_submissions.json").strip() or "ingest.url_pool_submissions.json"
-        limit = max(1, min(20, int(tool_call.arguments.get("limit") or 8)))
+            return missing_project_result(tool_call)
+        artifact_name = (
+            str(tool_call.arguments.get("artifact_name") or "ingest.url_pool_submissions.json").strip()
+            or "ingest.url_pool_submissions.json"
+        )
+        limit = _bounded_int(tool_call.arguments.get("limit"), default=8, minimum=1, maximum=20)
         explicit_url = str(tool_call.arguments.get("url") or "").strip()
         explicit_task_id = str(tool_call.arguments.get("task_id") or "").strip()
 
-        artifact = next((item for item in service.list_artifacts(request.session_id) if item.get("name") == artifact_name), None)
-        artifact_content = dict((artifact or {}).get("content_json") or {})
-        submissions = [dict(item) for item in list(artifact_content.get("submissions") or []) if isinstance(item, dict)]
+        artifact = next(
+            (item for item in _session_artifacts(service, request.session_id) if item.get("name") == artifact_name),
+            None,
+        )
+        artifact_content = json_object((artifact or {}).get("content_json"))
+        submissions = [json_object(item) for item in json_list(artifact_content.get("submissions"))]
         if explicit_url:
-            submissions = [item for item in submissions if str(item.get("url") or "").strip() == explicit_url] or submissions
+            submissions = [
+                item for item in submissions if str(item.get("url") or "").strip() == explicit_url
+            ] or submissions
         if explicit_task_id:
             submissions = [
-                item
-                for item in submissions
-                if explicit_task_id in json.dumps(item, ensure_ascii=False, default=str)
+                item for item in submissions if explicit_task_id in json.dumps(item, ensure_ascii=False, default=str)
             ] or submissions
         latest_submission = submissions[-1] if submissions else {}
         url = explicit_url or str(latest_submission.get("url") or "").strip()
-        dispatch = dict(latest_submission.get("dispatch_result") or {}) if isinstance(latest_submission.get("dispatch_result"), dict) else {}
+        dispatch = json_object(latest_submission.get("dispatch_result"))
         task_id = explicit_task_id or str(dispatch.get("task_id") or latest_submission.get("task_id") or "").strip()
-        task_event_artifact = next((item for item in service.list_artifacts(request.session_id) if item.get("name") == "ingest.url_pool_task_events.json"), None)
-        task_event_content = dict((task_event_artifact or {}).get("content_json") or {})
-        all_task_events = [dict(item) for item in list(task_event_content.get("events") or []) if isinstance(item, dict)]
+        task_event_artifact = next(
+            (
+                item
+                for item in _session_artifacts(service, request.session_id)
+                if item.get("name") == "ingest.url_pool_task_events.json"
+            ),
+            None,
+        )
+        task_event_content = json_object((task_event_artifact or {}).get("content_json"))
+        all_task_events = [
+            json_object(item) for item in json_list(task_event_content.get("events"))
+        ]
         latest_submission_key = str(latest_submission.get("idempotency_key") or "").strip()
         task_events = [
             item
@@ -1022,7 +1188,7 @@ def _ingest_url_pool_status_handler(
         latest_task_event = task_events[-1] if task_events else {}
         latest_task_event_status = str(latest_task_event.get("status") or "").strip().lower()
 
-        job_matches: list[dict[str, Any]] = []
+        job_matches: list[JSONObject] = []
         try:
             from app.services.job_logger import list_jobs
 
@@ -1030,16 +1196,18 @@ def _ingest_url_pool_status_handler(
             for job in list_jobs(limit=max(20, limit * 4)):
                 haystack = json.dumps(job, ensure_ascii=False, default=str)
                 if any(needle in haystack for needle in needle_values):
-                    job_matches.append(job)
+                    job_matches.append(json_object(job))
         except Exception as exc:  # noqa: BLE001
             job_error = {"code": exc.__class__.__name__, "message": str(exc)}
         else:
             job_error = None
 
-        stored_result: dict[str, Any] = {}
+        stored_result: JSONObject = {}
         if url:
             try:
-                stored_result = searcher(project_key=project_key, query=url, limit=limit, datasets=["documents", "sources"])
+                stored_result = json_object(
+                    searcher(project_key=project_key, query=url, limit=limit, datasets=["documents", "sources"])
+                )
             except Exception as exc:  # noqa: BLE001
                 stored_result = {
                     "contract_version": "project.structured_data.search.v1",
@@ -1050,16 +1218,22 @@ def _ingest_url_pool_status_handler(
                     "errors": [{"dataset": "documents|sources", "type": exc.__class__.__name__, "message": str(exc)}],
                 }
 
-        evidence_items = list(stored_result.get("items") or []) if isinstance(stored_result, dict) else []
+        evidence_items = json_list(stored_result.get("items"))
         verified = bool(evidence_items)
         latest_job_status = str((job_matches[0] if job_matches else {}).get("status") or "").strip().lower()
-        pending = not verified and latest_task_event_status not in {"failed", "canceled", "cancelled"} and (
-            latest_task_event_status != "completed"
-            and (bool(task_id) or latest_job_status in {"", "queued", "running", "pending", "started"})
+        pending = (
+            not verified
+            and latest_task_event_status not in {"failed", "canceled", "cancelled"}
+            and (
+                latest_task_event_status != "completed"
+                and (bool(task_id) or latest_job_status in {"", "queued", "running", "pending", "started"})
+            )
         )
         if verified:
             next_gate = "verified_evidence_ready_for_writing"
-            writing_guidance = "Verified project evidence is available; writing may replace pending language with cited evidence."
+            writing_guidance = (
+                "Verified project evidence is available; writing may replace pending language with cited evidence."
+            )
         elif latest_task_event_status == "failed":
             next_gate = "url_pool_ingest_failed_review_error_or_retry"
             writing_guidance = "The URL-pool ingest task failed; keep writing language pending and inspect the task error before retrying."
@@ -1078,17 +1252,17 @@ def _ingest_url_pool_status_handler(
             "url": url,
             "task_id": task_id,
             "artifact_name": artifact_name,
-            "submission": _compact_json_value(latest_submission, max_items=20, max_depth=5),
+            "submission": compact_json_value(latest_submission, max_items=20, max_depth=5),
             "artifact_found": bool(artifact),
-            "task_events": _compact_json_value(task_events, max_items=limit, max_depth=5),
-            "latest_task_event": _compact_json_value(latest_task_event, max_items=12, max_depth=4),
+            "task_events": compact_json_value(task_events, max_items=limit, max_depth=5),
+            "latest_task_event": compact_json_value(latest_task_event, max_items=12, max_depth=4),
             "task_event_artifact_found": bool(task_event_artifact),
-            "job_matches": _compact_json_value(job_matches[:limit], max_items=limit, max_depth=4),
+            "job_matches": compact_json_value(job_matches[:limit], max_items=limit, max_depth=4),
             "job_error": job_error,
-            "stored_evidence": _compact_json_value(stored_result, max_items=20, max_depth=5),
+            "stored_evidence": compact_json_value(stored_result, max_items=20, max_depth=5),
             "verified": verified,
             "pending": pending,
-            "evidence_items": _compact_json_value(evidence_items[:limit], max_items=limit, max_depth=4),
+            "evidence_items": compact_json_value(evidence_items[:limit], max_items=limit, max_depth=4),
             "next_gate": next_gate,
             "writing_guidance": writing_guidance,
         }
@@ -1105,6 +1279,7 @@ def _ingest_url_pool_status_handler(
         )
 
     return handler
+
 
 def _source_history_read_spec() -> CoreToolSpec:
     return CoreToolSpec(
@@ -1135,6 +1310,7 @@ def _source_history_read_spec() -> CoreToolSpec:
         metadata={"contract_version": "source.history.read.v1", "no_external_io": True, "no_project_write": True},
     )
 
+
 def _source_history_read_handler(
     service: AgentSessionService,
 ) -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
@@ -1144,24 +1320,33 @@ def _source_history_read_handler(
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
+            return missing_project_result(tool_call)
         include_recent_sessions = bool(tool_call.arguments.get("include_recent_sessions"))
-        session_limit = max(1, min(10, int(tool_call.arguments.get("session_limit") or 5)))
-        item_limit = max(1, min(50, int(tool_call.arguments.get("item_limit") or 20)))
+        session_limit = max(1, min(10, safe_int(tool_call.arguments.get("session_limit")) or 5))
+        item_limit = max(1, min(50, safe_int(tool_call.arguments.get("item_limit")) or 20))
 
         session_ids: list[str] = [request.session_id]
-        session_meta_by_id: dict[str, dict[str, Any]] = {}
+        session_meta_by_id: dict[str, JSONObject] = {}
         try:
             current_session = service.get_session(request.session_id)
-            session_meta_by_id[request.session_id] = current_session
-        except Exception:
-            current_session = {"session_id": request.session_id, "project_key": project_key}
-            session_meta_by_id[request.session_id] = current_session
+            if isinstance(current_session, Failure):
+                return runtime_failure_result(tool_call, current_session)
+            session_meta_by_id[request.session_id] = json_object(current_session)
+        except Exception as exc:  # noqa: BLE001
+            return _source_history_read_exception_result(tool_call, phase="session_read", exc=exc)
 
         if include_recent_sessions:
-            for session in service.list_sessions(limit=max(session_limit * 3, session_limit)):
+            try:
+                recent_sessions_value = service.list_sessions(limit=max(session_limit * 3, session_limit))
+            except Exception as exc:  # noqa: BLE001
+                return _source_history_read_exception_result(tool_call, phase="session_list", exc=exc)
+            if isinstance(recent_sessions_value, Failure):
+                return runtime_failure_result(tool_call, recent_sessions_value)
+            recent_sessions = recent_sessions_value
+            for session_value in recent_sessions:
+                session = json_object(session_value)
                 sid = str(session.get("session_id") or "").strip()
                 if not sid or sid in session_ids:
                     continue
@@ -1172,27 +1357,38 @@ def _source_history_read_handler(
                 if len(session_ids) >= session_limit:
                     break
 
-        sessions: list[dict[str, Any]] = []
-        totals = {"sessions": 0, "reviews": 0, "approved": 0, "deferred": 0, "rejected": 0, "submissions": 0, "task_events": 0}
+        sessions: list[JSONObject] = []
+        totals = {
+            "sessions": 0,
+            "reviews": 0,
+            "approved": 0,
+            "deferred": 0,
+            "rejected": 0,
+            "submissions": 0,
+            "task_events": 0,
+        }
         for sid in session_ids[:session_limit]:
             meta = session_meta_by_id.get(sid) or {"session_id": sid}
             try:
-                artifacts = service.list_artifacts(sid)
-            except Exception:
-                artifacts = []
-            reviews: list[dict[str, Any]] = []
-            submissions: list[dict[str, Any]] = []
-            task_events: list[dict[str, Any]] = []
+                artifacts_value = service.list_artifacts(sid)
+            except Exception as exc:  # noqa: BLE001
+                return _source_history_read_exception_result(tool_call, phase="artifact_read", exc=exc)
+            if isinstance(artifacts_value, Failure):
+                return runtime_failure_result(tool_call, artifacts_value)
+            artifacts = [json_object(item) for item in artifacts_value]
+            reviews: list[JSONObject] = []
+            submissions: list[JSONObject] = []
+            task_events: list[JSONObject] = []
             for artifact in artifacts:
-                content = dict(artifact.get("content_json") or {}) if isinstance(artifact.get("content_json"), dict) else {}
+                content = json_object(artifact.get("content_json"))
                 name = str(artifact.get("name") or "").strip()
                 contract = str(content.get("contract_version") or "").strip()
                 if name == "source.candidate_reviews.json" or contract == "source.candidate.review.v1":
-                    reviews.extend([dict(item) for item in list(content.get("reviews") or []) if isinstance(item, dict)])
+                    reviews.extend(json_object(item) for item in json_list(content.get("reviews")))
                 if name == "ingest.url_pool_submissions.json" or contract == "ingest.url_pool.submit.v1":
-                    submissions.extend([dict(item) for item in list(content.get("submissions") or []) if isinstance(item, dict)])
+                    submissions.extend(json_object(item) for item in json_list(content.get("submissions")))
                 if name == "ingest.url_pool_task_events.json" or contract == "ingest.url_pool.task_event.v1":
-                    task_events.extend([dict(item) for item in list(content.get("events") or []) if isinstance(item, dict)])
+                    task_events.extend(json_object(item) for item in json_list(content.get("events")))
 
             reviews = _sort_source_history_items(reviews, keys=("reviewed_at", "updated_at"))[-item_limit:]
             submissions = _sort_source_history_items(submissions, keys=("submitted_at", "updated_at"))[-item_limit:]
@@ -1213,16 +1409,20 @@ def _source_history_read_handler(
                         "goal": str(meta.get("goal") or ""),
                         "updated_at": str(meta.get("updated_at") or ""),
                         "counts": counts,
-                        "reviews": _compact_json_value(reviews, max_items=item_limit, max_depth=5),
-                        "submissions": _compact_json_value(submissions, max_items=item_limit, max_depth=5),
-                        "task_events": _compact_json_value(task_events, max_items=item_limit, max_depth=5),
+                        "reviews": compact_json_value(reviews, max_items=item_limit, max_depth=5),
+                        "submissions": compact_json_value(submissions, max_items=item_limit, max_depth=5),
+                        "task_events": compact_json_value(task_events, max_items=item_limit, max_depth=5),
                     }
                 )
                 totals["sessions"] += 1
                 for key in ("reviews", "approved", "deferred", "rejected", "submissions", "task_events"):
                     totals[key] += counts[key]
 
-        next_gate = "resume_reviewed_sources_or_check_url_pool_status" if totals["reviews"] or totals["submissions"] else "run_source_discovery_or_search_first"
+        next_gate = (
+            "resume_reviewed_sources_or_check_url_pool_status"
+            if totals["reviews"] or totals["submissions"]
+            else "run_source_discovery_or_search_first"
+        )
         return CoreToolResult(
             call_id=tool_call.call_id,
             tool_name=tool_call.tool_name,
@@ -1237,7 +1437,7 @@ def _source_history_read_handler(
                 "session_id": request.session_id,
                 "include_recent_sessions": include_recent_sessions,
                 "totals": totals,
-                "sessions": _compact_json_value(sessions, max_items=session_limit, max_depth=6),
+                "sessions": compact_json_value(sessions, max_items=session_limit, max_depth=6),
                 "next_gate": next_gate,
                 "guidance": (
                     "Use approved reviews and URL-pool submissions as prior context. Call ingest.url_pool.status before treating queued sources as verified writing evidence."
@@ -1249,11 +1449,35 @@ def _source_history_read_handler(
 
     return handler
 
-def _sort_source_history_items(items: list[dict[str, Any]], *, keys: tuple[str, ...]) -> list[dict[str, Any]]:
+
+def _source_history_read_exception_result(
+    tool_call: CoreToolCall,
+    *,
+    phase: str,
+    exc: Exception,
+) -> CoreToolResult:
+    return CoreToolResult(
+        call_id=tool_call.call_id,
+        tool_name=tool_call.tool_name,
+        status="failed",
+        model_summary=f"Source history could not be read during {phase}: {exc}",
+        error={
+            "code": "source_history_read_failed",
+            "message": f"source history {phase} failed",
+            "phase": phase,
+            "cause_code": exc.__class__.__name__,
+            "cause_message": str(exc),
+        },
+        retry_hint="Retry only after the session artifact store failure is resolved.",
+    )
+
+
+def _sort_source_history_items(items: list[JSONObject], *, keys: tuple[str, ...]) -> list[JSONObject]:
     return sorted(
         items,
         key=lambda item: next((str(item.get(key) or "") for key in keys if str(item.get(key) or "").strip()), ""),
     )
+
 
 def _agent_investigation_leads_append_spec() -> CoreToolSpec:
     return CoreToolSpec(
@@ -1303,6 +1527,7 @@ def _agent_investigation_leads_append_spec() -> CoreToolSpec:
         metadata={"contract_version": "agent_investigation.leads.v1", "auto_allow_session_write": True},
     )
 
+
 def _agent_investigation_leads_append_handler(
     service: AgentSessionService,
 ) -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
@@ -1312,31 +1537,45 @@ def _agent_investigation_leads_append_handler(
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
+            return missing_project_result(tool_call)
         artifact_name = str(tool_call.arguments.get("artifact_name") or "investigation.leads.json").strip()
         if not artifact_name:
             artifact_name = "investigation.leads.json"
-        existing_artifact = next((item for item in service.list_artifacts(request.session_id) if item.get("name") == artifact_name), None)
-        existing_content = dict((existing_artifact or {}).get("content_json") or {})
+        existing_artifact = next(
+            (item for item in _session_artifacts(service, request.session_id) if item.get("name") == artifact_name),
+            None,
+        )
+        existing_content = json_object((existing_artifact or {}).get("content_json"))
         idempotency_key = str(tool_call.arguments.get("idempotency_key") or "").strip()
-        replay_keys = [str(item or "") for item in list(existing_content.get("replay_keys") or []) if str(item or "").strip()]
+        replay_keys = [
+            str(item or "") for item in json_list(existing_content.get("replay_keys")) if str(item or "").strip()
+        ]
         replayed = bool(idempotency_key and idempotency_key in replay_keys)
 
         sections = {
-            "clue_nodes": _dedupe_artifact_records(existing_content.get("clue_nodes"), tool_call.arguments.get("clue_nodes")),
-            "clue_edges": _dedupe_artifact_records(existing_content.get("clue_edges"), tool_call.arguments.get("clue_edges")),
-            "pending_questions": _dedupe_artifact_records(existing_content.get("pending_questions"), tool_call.arguments.get("pending_questions")),
-            "followed_leads": _dedupe_artifact_records(existing_content.get("followed_leads"), tool_call.arguments.get("followed_leads")),
-            "rejected_leads": _dedupe_artifact_records(existing_content.get("rejected_leads"), tool_call.arguments.get("rejected_leads")),
-            "citations": _dedupe_artifact_records(existing_content.get("citations"), tool_call.arguments.get("citations")),
+            "clue_nodes": _dedupe_artifact_records(
+                existing_content.get("clue_nodes"), tool_call.arguments.get("clue_nodes")
+            ),
+            "clue_edges": _dedupe_artifact_records(
+                existing_content.get("clue_edges"), tool_call.arguments.get("clue_edges")
+            ),
+            "pending_questions": _dedupe_artifact_records(
+                existing_content.get("pending_questions"), tool_call.arguments.get("pending_questions")
+            ),
+            "followed_leads": _dedupe_artifact_records(
+                existing_content.get("followed_leads"), tool_call.arguments.get("followed_leads")
+            ),
+            "rejected_leads": _dedupe_artifact_records(
+                existing_content.get("rejected_leads"), tool_call.arguments.get("rejected_leads")
+            ),
+            "citations": _dedupe_artifact_records(
+                existing_content.get("citations"), tool_call.arguments.get("citations")
+            ),
         }
         if replayed:
-            sections = {
-                key: _normalize_artifact_records(existing_content.get(key))
-                for key in sections
-            }
+            sections = {key: _normalize_artifact_records(existing_content.get(key)) for key in sections}
         elif idempotency_key:
             replay_keys.append(idempotency_key)
 
@@ -1348,12 +1587,13 @@ def _agent_investigation_leads_append_handler(
             "project_key": project_key,
             "goal": goal,
             "summary": summary or existing_content.get("summary") or "",
-            "updated_at": _utcnow_iso(),
+            "updated_at": utcnow_iso(),
             "source_call_id": tool_call.call_id,
             "replay_keys": replay_keys[-50:],
             **sections,
         }
-        artifact = service.store.upsert_artifact(
+        artifact = _upsert_session_artifact(
+            service,
             {
                 "session_id": request.session_id,
                 "name": artifact_name,
@@ -1369,6 +1609,8 @@ def _agent_investigation_leads_append_handler(
                 },
             }
         )
+        if isinstance(artifact, Failure):
+            return runtime_failure_result(tool_call, artifact)
         counts = {key: len(value) for key, value in sections.items()}
         return CoreToolResult(
             call_id=tool_call.call_id,
@@ -1378,7 +1620,7 @@ def _agent_investigation_leads_append_handler(
             structured_content={
                 "contract_version": "agent_investigation.leads.v1",
                 "project_key": project_key,
-                "artifact": _compact_json_value(artifact, max_items=16, max_depth=4),
+                "artifact": compact_json_value(artifact, max_items=16, max_depth=4),
                 "counts": counts,
                 "replayed": replayed,
             },
@@ -1386,6 +1628,7 @@ def _agent_investigation_leads_append_handler(
         )
 
     return handler
+
 
 def _agent_investigation_trace_read_spec() -> CoreToolSpec:
     return CoreToolSpec(
@@ -1422,6 +1665,7 @@ def _agent_investigation_trace_read_spec() -> CoreToolSpec:
         metadata={"contract_version": "agent_investigation.trace.v1"},
     )
 
+
 def _agent_investigation_trace_read_handler(
     service: AgentSessionService,
 ) -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
@@ -1431,9 +1675,9 @@ def _agent_investigation_trace_read_handler(
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
+            return missing_project_result(tool_call)
         artifact_name = str(tool_call.arguments.get("artifact_name") or "investigation.leads.json").strip()
         if not artifact_name:
             artifact_name = "investigation.leads.json"
@@ -1441,9 +1685,12 @@ def _agent_investigation_trace_read_handler(
         max_hops = _bounded_int(tool_call.arguments.get("max_hops"), default=2, minimum=0, maximum=5)
         max_items = _bounded_int(tool_call.arguments.get("max_items"), default=30, minimum=1, maximum=100)
 
-        artifact = next((item for item in service.list_artifacts(request.session_id) if item.get("name") == artifact_name), None)
+        artifact = next(
+            (item for item in _session_artifacts(service, request.session_id) if item.get("name") == artifact_name),
+            None,
+        )
         if artifact is None:
-            payload = {
+            payload: JSONObject = {
                 "contract_version": "agent_investigation.trace.v1",
                 "project_key": project_key,
                 "artifact_name": artifact_name,
@@ -1467,7 +1714,7 @@ def _agent_investigation_trace_read_handler(
                 structured_content=payload,
             )
 
-        content = dict(artifact.get("content_json") or {})
+        content = json_object(artifact.get("content_json"))
         payload = _build_investigation_trace_payload(
             project_key=project_key,
             artifact_name=artifact_name,
@@ -1482,13 +1729,15 @@ def _agent_investigation_trace_read_handler(
             status="completed",
             model_summary=(
                 f"Read investigation trace from {artifact_name}: "
-                f"{payload['counts']['nodes']} node(s), {payload['counts']['edges']} edge(s)."
+                f"{json_object(payload.get('counts')).get('nodes')} node(s), "
+                f"{json_object(payload.get('counts')).get('edges')} edge(s)."
             ),
             structured_content=payload,
             artifact_refs=(str(artifact.get("artifact_id") or artifact_name),),
         )
 
     return handler
+
 
 def _writing_document_list_spec() -> CoreToolSpec:
     return CoreToolSpec(
@@ -1512,17 +1761,20 @@ def _writing_document_list_spec() -> CoreToolSpec:
         project_service_id="writing.document.list",
     )
 
-def _writing_document_list_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
+
+def _writing_document_list_handler() -> Callable[
+    [CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult
+]:
     def handler(
         tool_call: CoreToolCall,
         tool_spec: CoreToolSpec,
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
-        limit = max(1, min(100, int(tool_call.arguments.get("limit") or 20)))
+            return missing_project_result(tool_call)
+        limit = _bounded_int(tool_call.arguments.get("limit"), default=20, minimum=1, maximum=100)
         try:
             with bind_project(project_key):
                 documents = list_documents(project_key=project_key, limit=limit)
@@ -1549,6 +1801,7 @@ def _writing_document_list_handler() -> Callable[[CoreToolCall, CoreToolSpec, Ag
         )
 
     return handler
+
 
 def _writing_document_read_spec() -> CoreToolSpec:
     return CoreToolSpec(
@@ -1577,17 +1830,20 @@ def _writing_document_read_spec() -> CoreToolSpec:
         project_service_id="writing.document.read",
     )
 
-def _writing_document_read_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
+
+def _writing_document_read_handler() -> Callable[
+    [CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult
+]:
     def handler(
         tool_call: CoreToolCall,
         tool_spec: CoreToolSpec,
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
-        doc_id = _safe_int(tool_call.arguments.get("doc_id"))
+            return missing_project_result(tool_call)
+        doc_id = safe_int(tool_call.arguments.get("doc_id"))
         if not doc_id:
             return CoreToolResult(
                 call_id=tool_call.call_id,
@@ -1596,7 +1852,7 @@ def _writing_document_read_handler() -> Callable[[CoreToolCall, CoreToolSpec, Ag
                 model_summary="doc_id is required to read a writing document.",
                 error={"code": "missing_doc_id", "message": "doc_id is required"},
             )
-        max_chars = max(200, min(50000, int(tool_call.arguments.get("max_chars") or 8000)))
+        max_chars = _bounded_int(tool_call.arguments.get("max_chars"), default=8000, minimum=200, maximum=50000)
         try:
             with bind_project(project_key):
                 document = get_document(doc_id=doc_id, project_key=project_key)
@@ -1622,6 +1878,7 @@ def _writing_document_read_handler() -> Callable[[CoreToolCall, CoreToolSpec, Ag
         )
 
     return handler
+
 
 def _writing_document_section_read_spec() -> CoreToolSpec:
     return CoreToolSpec(
@@ -1654,17 +1911,20 @@ def _writing_document_section_read_spec() -> CoreToolSpec:
         project_service_id="writing.document.section.read",
     )
 
-def _writing_document_section_read_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
+
+def _writing_document_section_read_handler() -> Callable[
+    [CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult
+]:
     def handler(
         tool_call: CoreToolCall,
         tool_spec: CoreToolSpec,
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
-        doc_id = _safe_int(tool_call.arguments.get("doc_id"))
+            return missing_project_result(tool_call)
+        doc_id = safe_int(tool_call.arguments.get("doc_id"))
         if not doc_id:
             return CoreToolResult(
                 call_id=tool_call.call_id,
@@ -1685,13 +1945,13 @@ def _writing_document_section_read_handler() -> Callable[[CoreToolCall, CoreTool
                 error={"code": exc.__class__.__name__, "message": str(exc)},
             )
         body = str(document.get("body_md") or "")
-        max_chars = max(200, min(20000, int(tool_call.arguments.get("max_chars") or 5000)))
+        max_chars = _bounded_int(tool_call.arguments.get("max_chars"), default=5000, minimum=200, maximum=20000)
         section = _extract_writing_section(
             body,
             heading=str(tool_call.arguments.get("heading") or "").strip(),
             block_id=str(tool_call.arguments.get("block_id") or "").strip(),
-            line_start=_safe_int(tool_call.arguments.get("line_start")),
-            line_end=_safe_int(tool_call.arguments.get("line_end")),
+            line_start=safe_int(tool_call.arguments.get("line_start")),
+            line_end=safe_int(tool_call.arguments.get("line_end")),
             max_chars=max_chars,
         )
         compact_doc = _compact_writing_document(document, include_body=False)
@@ -1710,6 +1970,7 @@ def _writing_document_section_read_handler() -> Callable[[CoreToolCall, CoreTool
 
     return handler
 
+
 def _writing_document_create_spec() -> CoreToolSpec:
     return CoreToolSpec(
         name="writing.document.create",
@@ -1726,7 +1987,10 @@ def _writing_document_create_spec() -> CoreToolSpec:
                 "project_key": {"type": "string"},
                 "title": {"type": "string", "minLength": 1, "maxLength": 500},
                 "body_md": {"type": "string", "description": "Initial markdown body for the document."},
-                "content_md": {"type": "string", "description": "Alias for body_md when the model has already drafted markdown."},
+                "content_md": {
+                    "type": "string",
+                    "description": "Alias for body_md when the model has already drafted markdown.",
+                },
                 "dry_run": {"type": "boolean"},
                 "source_refs": {"type": "array", "items": {"type": "string"}},
                 "provenance": {"type": "object", "additionalProperties": True},
@@ -1744,16 +2008,19 @@ def _writing_document_create_spec() -> CoreToolSpec:
         metadata={"contract_version": "writing.document.create.v1"},
     )
 
-def _writing_document_create_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
+
+def _writing_document_create_handler() -> Callable[
+    [CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult
+]:
     def handler(
         tool_call: CoreToolCall,
         tool_spec: CoreToolSpec,
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
+            return missing_project_result(tool_call)
         title = str(tool_call.arguments.get("title") or "").strip()
         if not title:
             return CoreToolResult(
@@ -1772,20 +2039,20 @@ def _writing_document_create_handler() -> Callable[[CoreToolCall, CoreToolSpec, 
                 model_summary="body_md is too large for one writing document create operation.",
                 error={"code": "body_too_large", "message": "body_md must be <= 50000 characters"},
             )
-        source_refs = _normalize_string_list(tool_call.arguments.get("source_refs"))
-        provenance = dict(tool_call.arguments.get("provenance") or {})
-        metadata_json = dict(tool_call.arguments.get("metadata_json") or {})
+        source_refs = normalize_string_list(tool_call.arguments.get("source_refs"))
+        provenance = json_object(tool_call.arguments.get("provenance"))
+        metadata_json = json_object(tool_call.arguments.get("metadata_json"))
         metadata_json.update(
             {
                 "created_by": "agent_core",
                 "agent_core_call_id": tool_call.call_id,
                 "source_refs": source_refs,
-                "provenance": _compact_json_value(provenance, max_items=20, max_depth=4),
+                "provenance": compact_json_value(provenance, max_items=20, max_depth=4),
                 "agent_document_contract": "writing.document.create.v1",
             }
         )
         if bool(tool_call.arguments.get("dry_run")):
-            preview_document = {
+            preview_document: JSONObject = {
                 "id": None,
                 "project_key": project_key,
                 "title": title,
@@ -1826,7 +2093,7 @@ def _writing_document_create_handler() -> Callable[[CoreToolCall, CoreToolSpec, 
                 model_summary=f"Failed to create writing document: {exc}",
                 error={"code": exc.__class__.__name__, "message": str(exc)},
             )
-        doc_id = _safe_int(saved.get("id"))
+        doc_id = safe_int(saved.get("id"))
         return CoreToolResult(
             call_id=tool_call.call_id,
             tool_name=tool_call.tool_name,
@@ -1844,6 +2111,7 @@ def _writing_document_create_handler() -> Callable[[CoreToolCall, CoreToolSpec, 
         )
 
     return handler
+
 
 def _writing_document_insert_paragraph_spec() -> CoreToolSpec:
     return CoreToolSpec(
@@ -1904,16 +2172,19 @@ def _writing_document_insert_paragraph_spec() -> CoreToolSpec:
         metadata={"contract_version": "writing.document.insert_paragraph.v1"},
     )
 
-def _writing_document_insert_paragraph_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
+
+def _writing_document_insert_paragraph_handler() -> Callable[
+    [CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult
+]:
     def handler(
         tool_call: CoreToolCall,
         tool_spec: CoreToolSpec,
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
+            return missing_project_result(tool_call)
         content_md = str(tool_call.arguments.get("content_md") or "").strip()
         if not content_md:
             return CoreToolResult(
@@ -1932,11 +2203,11 @@ def _writing_document_insert_paragraph_handler() -> Callable[[CoreToolCall, Core
                 error={"code": "content_too_large", "message": "content_md must be <= 20000 characters"},
             )
 
-        doc_id = _safe_int(tool_call.arguments.get("doc_id"))
+        doc_id = safe_int(tool_call.arguments.get("doc_id"))
         operation = str(tool_call.arguments.get("operation") or "append").strip() or "append"
         dry_run = bool(tool_call.arguments.get("dry_run"))
         allow_latest = bool(tool_call.arguments.get("allow_latest"))
-        base_version = _safe_int(tool_call.arguments.get("base_version"))
+        base_version = safe_int(tool_call.arguments.get("base_version"))
         if_match = str(tool_call.arguments.get("if_match") or "").strip() or None
         create_if_missing = bool(tool_call.arguments.get("create_if_missing"))
         title = str(tool_call.arguments.get("title") or "").strip()
@@ -1946,15 +2217,15 @@ def _writing_document_insert_paragraph_handler() -> Callable[[CoreToolCall, Core
         try:
             with bind_project(project_key):
                 if doc_id:
-                    current = get_document(doc_id=doc_id, project_key=project_key)
+                    current: JSONObject = json_object(get_document(doc_id=doc_id, project_key=project_key))
                 elif create_if_missing:
-                    current = {
+                    current = json_object({
                         "id": None,
                         "title": title or "Untitled",
                         "body_md": "",
                         "version": 1,
                         "etag": None,
-                    }
+                    })
                 else:
                     return CoreToolResult(
                         call_id=tool_call.call_id,
@@ -1997,8 +2268,8 @@ def _writing_document_insert_paragraph_handler() -> Callable[[CoreToolCall, Core
                                 "diff_excerpt": "",
                                 "diff_truncated": False,
                             },
-                            "source_refs": _normalize_string_list(tool_call.arguments.get("source_refs")),
-                            "provenance": dict(tool_call.arguments.get("provenance") or {}),
+                            "source_refs": normalize_string_list(tool_call.arguments.get("source_refs")),
+                            "provenance": json_object(tool_call.arguments.get("provenance")),
                             "agent_update": replayed_update,
                         },
                     )
@@ -2008,19 +2279,22 @@ def _writing_document_insert_paragraph_handler() -> Callable[[CoreToolCall, Core
                     content_md=content_md,
                     anchor_heading=str(tool_call.arguments.get("anchor_heading") or "").strip(),
                     anchor_text=str(tool_call.arguments.get("anchor_text") or "").strip(),
-                    range_start=_safe_nonnegative_int(tool_call.arguments.get("range_start")),
-                    range_end=_safe_nonnegative_int(tool_call.arguments.get("range_end")),
-                    cursor_offset=_safe_nonnegative_int(tool_call.arguments.get("cursor_offset")),
+                    range_start=safe_nonnegative_int(tool_call.arguments.get("range_start")),
+                    range_end=safe_nonnegative_int(tool_call.arguments.get("range_end")),
+                    cursor_offset=safe_nonnegative_int(tool_call.arguments.get("cursor_offset")),
                 )
                 if isinstance(new_body, Failure):
-                    return _runtime_failure_result(tool_call, new_body)
+                    return runtime_failure_result(tool_call, new_body)
                 if len(new_body) > 50000:
                     return CoreToolResult(
                         call_id=tool_call.call_id,
                         tool_name=tool_call.tool_name,
                         status="failed",
                         model_summary="The updated writing document would exceed the 50000 character limit.",
-                        error={"code": "document_too_large", "message": "updated document would exceed 50000 characters"},
+                        error={
+                            "code": "document_too_large",
+                            "message": "updated document would exceed 50000 characters",
+                        },
                     )
 
                 diff = _body_diff_summary(old_body, new_body)
@@ -2045,14 +2319,14 @@ def _writing_document_insert_paragraph_handler() -> Callable[[CoreToolCall, Core
                             "dry_run": True,
                             "operation": operation,
                             "diff": diff,
-                            "source_refs": _normalize_string_list(tool_call.arguments.get("source_refs")),
-                            "provenance": dict(tool_call.arguments.get("provenance") or {}),
+                            "source_refs": normalize_string_list(tool_call.arguments.get("source_refs")),
+                            "provenance": json_object(tool_call.arguments.get("provenance")),
                             "agent_update": agent_update,
                         },
                     )
 
                 if doc_id:
-                    current_version = int(current.get("version") or 1)
+                    current_version = safe_int(current.get("version")) or 1
                     current_etag = str(current.get("etag") or "").strip() or None
                     if not base_version and not if_match and not allow_latest:
                         return CoreToolResult(
@@ -2096,19 +2370,20 @@ def _writing_document_insert_paragraph_handler() -> Callable[[CoreToolCall, Core
                         {
                             "created_by": "agent_core",
                             "agent_core_call_id": tool_call.call_id,
-                            "source_refs": _normalize_string_list(tool_call.arguments.get("source_refs")),
-                            "provenance": dict(tool_call.arguments.get("provenance") or {}),
+                            "source_refs": normalize_string_list(tool_call.arguments.get("source_refs")),
+                            "provenance": json_object(tool_call.arguments.get("provenance")),
                         },
                         agent_update,
                     )
                     saved = create_document(
                         project_key=project_key,
-                        title=str(tool_call.arguments.get("title") or current.get("title") or "Untitled").strip() or "Untitled",
+                        title=str(tool_call.arguments.get("title") or current.get("title") or "Untitled").strip()
+                        or "Untitled",
                         body_md=new_body,
                         updated_by_user_id="agent_core",
                         metadata_json=metadata_json,
                     )
-                    doc_id = int(saved.get("id") or 0)
+                    doc_id = safe_int(saved.get("id")) or 0
         except WritingVersionConflictError as exc:
             return CoreToolResult(
                 call_id=tool_call.call_id,
@@ -2136,9 +2411,11 @@ def _writing_document_insert_paragraph_handler() -> Callable[[CoreToolCall, Core
                 error={"code": exc.__class__.__name__, "message": str(exc)},
             )
 
-        document_title = str((saved or {}).get("title") or current.get("title") or tool_call.arguments.get("title") or "Untitled").strip()
+        document_title = str(
+            (saved or {}).get("title") or current.get("title") or tool_call.arguments.get("title") or "Untitled"
+        ).strip()
         inserted_excerpt = " ".join(str(content_md or "").split())[:180]
-        source_ref_count = len(_normalize_string_list(tool_call.arguments.get("source_refs")))
+        source_ref_count = len(normalize_string_list(tool_call.arguments.get("source_refs")))
         return CoreToolResult(
             call_id=tool_call.call_id,
             tool_name=tool_call.tool_name,
@@ -2156,13 +2433,14 @@ def _writing_document_insert_paragraph_handler() -> Callable[[CoreToolCall, Core
                 "document": _compact_writing_document(saved, include_body=False),
                 "operation": operation,
                 "diff": diff,
-                "source_refs": _normalize_string_list(tool_call.arguments.get("source_refs")),
-                "provenance": dict(tool_call.arguments.get("provenance") or {}),
+                "source_refs": normalize_string_list(tool_call.arguments.get("source_refs")),
+                "provenance": json_object(tool_call.arguments.get("provenance")),
                 "agent_update": agent_update,
             },
         )
 
     return handler
+
 
 def _writing_document_citations_upsert_spec() -> CoreToolSpec:
     return CoreToolSpec(
@@ -2223,17 +2501,20 @@ def _writing_document_citations_upsert_spec() -> CoreToolSpec:
         metadata={"contract_version": "writing.document.citations.upsert.v1"},
     )
 
-def _writing_document_citations_upsert_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
+
+def _writing_document_citations_upsert_handler() -> Callable[
+    [CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult
+]:
     def handler(
         tool_call: CoreToolCall,
         tool_spec: CoreToolSpec,
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        project_key = _resolve_project_key(tool_call, request)
+        project_key = resolve_project_key(tool_call, request)
         if not project_key:
-            return _missing_project_result(tool_call)
-        doc_id = _safe_int(tool_call.arguments.get("doc_id"))
+            return missing_project_result(tool_call)
+        doc_id = safe_int(tool_call.arguments.get("doc_id"))
         if not doc_id:
             return CoreToolResult(
                 call_id=tool_call.call_id,
@@ -2259,7 +2540,9 @@ def _writing_document_citations_upsert_handler() -> Callable[[CoreToolCall, Core
             with bind_project(project_key):
                 existing = [] if mode == "replace" else list_citations(doc_id=doc_id, project_key=project_key)
                 merged = _merge_writing_citations(existing, incoming)
-                saved = merged if dry_run else upsert_citations(doc_id=doc_id, project_key=project_key, citations=merged)
+                saved = (
+                    merged if dry_run else upsert_citations(doc_id=doc_id, project_key=project_key, citations=merged)
+                )
         except Exception as exc:  # noqa: BLE001
             return CoreToolResult(
                 call_id=tool_call.call_id,
@@ -2284,26 +2567,37 @@ def _writing_document_citations_upsert_handler() -> Callable[[CoreToolCall, Core
                 "dry_run": dry_run,
                 "added_count": added_count,
                 "total_count": len(saved),
-                "citations": _compact_json_value(saved, max_items=20, max_depth=4),
+                "citations": compact_json_value(saved, max_items=20, max_depth=4),
             },
         )
 
     return handler
 
-def _normalize_writing_citation_inputs(arguments: dict[str, Any]) -> list[dict[str, Any]]:
+
+def _normalize_writing_citation_inputs(arguments: Mapping[str, object]) -> list[JSONObject]:
     root_anchor = str(arguments.get("position_anchor") or "").strip() or None
-    provenance = dict(arguments.get("provenance") or {})
-    out: list[dict[str, Any]] = []
-    for item in list(arguments.get("citations") or []) + list(arguments.get("material_cards") or []):
-        if not isinstance(item, dict):
+    provenance = json_object(arguments.get("provenance"))
+    out: list[JSONObject] = []
+    raw_items = [*json_list(arguments.get("citations")), *json_list(arguments.get("material_cards"))]
+    for raw_item in raw_items:
+        if not isinstance(raw_item, Mapping):
             continue
+        item = json_object(raw_item)
         card_id = str(item.get("card_id") or item.get("id") or item.get("source_id") or "").strip() or None
         source_uri = str(item.get("source_uri") or item.get("url") or item.get("uri") or "").strip() or None
-        source_title = str(item.get("source_title") or item.get("title") or item.get("label") or card_id or source_uri or "").strip() or None
-        quote_text = str(item.get("quote_text") or item.get("quote") or item.get("snippet") or item.get("summary") or "").strip() or None
-        source_doc_id = _safe_int(item.get("source_doc_id") or item.get("doc_id"))
+        source_title = (
+            str(
+                item.get("source_title") or item.get("title") or item.get("label") or card_id or source_uri or ""
+            ).strip()
+            or None
+        )
+        quote_text = (
+            str(item.get("quote_text") or item.get("quote") or item.get("snippet") or item.get("summary") or "").strip()
+            or None
+        )
+        source_doc_id = safe_int(item.get("source_doc_id") or item.get("doc_id"))
         position_anchor = str(item.get("position_anchor") or item.get("anchor") or root_anchor or "").strip() or None
-        metadata_json = dict(item.get("metadata_json") or {})
+        metadata_json = json_object(item.get("metadata_json"))
         if provenance:
             metadata_json.setdefault("provenance", provenance)
         if not any([card_id, source_doc_id, source_uri, source_title, quote_text]):
@@ -2321,12 +2615,12 @@ def _normalize_writing_citation_inputs(arguments: dict[str, Any]) -> list[dict[s
                 }
             )
         )
-    for ref in _normalize_string_list(arguments.get("source_refs")):
-        ref_metadata: dict[str, Any] = {"source_ref": ref}
+    for ref in normalize_string_list(arguments.get("source_refs")):
+        ref_metadata: JSONObject = {"source_ref": ref}
         if provenance:
             ref_metadata["provenance"] = provenance
         if ref.startswith(("http://", "https://")):
-            citation = {
+            citation: JSONObject = {
                 "card_id": ref,
                 "source_uri": ref,
                 "source_title": ref,
@@ -2343,26 +2637,26 @@ def _normalize_writing_citation_inputs(arguments: dict[str, Any]) -> list[dict[s
         out.append(_prune_empty_citation(citation))
     return _merge_writing_citations([], out)
 
-def _prune_empty_citation(citation: dict[str, Any]) -> dict[str, Any]:
+
+def _prune_empty_citation(citation: JSONObject) -> JSONObject:
     return {key: value for key, value in citation.items() if value not in (None, "", [], {})}
 
-def _merge_writing_citations(existing: list[dict[str, Any]], incoming: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    merged: list[dict[str, Any]] = []
+
+def _merge_writing_citations(existing: list[JSONObject], incoming: list[JSONObject]) -> list[JSONObject]:
+    merged: list[JSONObject] = []
     seen: set[tuple[str, str]] = set()
-    for item in list(existing or []) + list(incoming or []):
-        if not isinstance(item, dict):
-            continue
-        normalized = _prune_empty_citation(
+    for item in [*existing, *incoming]:
+        normalized = _prune_empty_citation(json_object(
             {
-                "source_doc_id": _safe_int(item.get("source_doc_id")),
+                "source_doc_id": safe_int(item.get("source_doc_id")),
                 "source_uri": str(item.get("source_uri") or "").strip() or None,
                 "source_title": str(item.get("source_title") or item.get("title") or "").strip() or None,
                 "quote_text": str(item.get("quote_text") or item.get("quote") or "").strip() or None,
                 "position_anchor": str(item.get("position_anchor") or "").strip() or None,
                 "card_id": str(item.get("card_id") or item.get("id") or "").strip() or None,
-                "metadata_json": dict(item.get("metadata_json") or {}) if isinstance(item.get("metadata_json"), dict) else {},
+                "metadata_json": json_object(item.get("metadata_json")),
             }
-        )
+        ))
         identity = _writing_citation_identity(normalized)
         if identity in seen:
             continue
@@ -2370,7 +2664,8 @@ def _merge_writing_citations(existing: list[dict[str, Any]], incoming: list[dict
         merged.append(normalized)
     return merged
 
-def _writing_citation_identity(item: dict[str, Any]) -> tuple[str, str]:
+
+def _writing_citation_identity(item: JSONObject) -> tuple[str, str]:
     for key in ("card_id", "source_uri", "source_doc_id"):
         value = item.get(key)
         if value not in (None, ""):
@@ -2382,31 +2677,35 @@ def _writing_citation_identity(item: dict[str, Any]) -> tuple[str, str]:
             str(item.get("position_anchor") or ""),
         ]
     )
-    return "content", _stable_hash(fallback)
+    return "content", stable_hash(fallback)
 
-def _compact_task(task: dict[str, Any]) -> dict[str, Any]:
+
+def _compact_task(task: Mapping[str, object]) -> JSONObject:
+    normalized = json_object(task)
+    task_spec = json_object(normalized.get("task_spec"))
     return {
-        "task_id": task.get("task_id"),
-        "parent_task_id": task.get("parent_task_id"),
-        "subject": task.get("subject"),
-        "description": task.get("description"),
-        "task_type": task.get("task_type"),
-        "phase": task.get("phase"),
-        "status": task.get("status"),
-        "priority": task.get("priority"),
-        "blocked_by": list(task.get("blocked_by") or []),
-        "blocks": list(task.get("blocks") or []),
-        "read_set": list(task.get("read_set") or []),
-        "write_set": list(task.get("write_set") or []),
-        "artifact_targets": list((task.get("task_spec") or {}).get("artifact_targets") or []),
-        "result_summary": task.get("result_summary"),
-        "result_payload": _compact_json_value(task.get("result_payload"), max_items=8, max_depth=3),
-        "summary_label": task.get("summary_label"),
-        "last_activity": task.get("last_activity"),
-        "metadata": _compact_json_value(task.get("metadata"), max_items=8, max_depth=3),
+        "task_id": normalized.get("task_id"),
+        "parent_task_id": normalized.get("parent_task_id"),
+        "subject": normalized.get("subject"),
+        "description": normalized.get("description"),
+        "task_type": normalized.get("task_type"),
+        "phase": normalized.get("phase"),
+        "status": normalized.get("status"),
+        "priority": normalized.get("priority"),
+        "blocked_by": json_list(normalized.get("blocked_by")),
+        "blocks": json_list(normalized.get("blocks")),
+        "read_set": json_list(normalized.get("read_set")),
+        "write_set": json_list(normalized.get("write_set")),
+        "artifact_targets": json_list(task_spec.get("artifact_targets")),
+        "result_summary": normalized.get("result_summary"),
+        "result_payload": compact_json_value(normalized.get("result_payload"), max_items=8, max_depth=3),
+        "summary_label": normalized.get("summary_label"),
+        "last_activity": normalized.get("last_activity"),
+        "metadata": compact_json_value(normalized.get("metadata"), max_items=8, max_depth=3),
     }
 
-def _normalize_long_task_stage(value: Any) -> str | Failure:
+
+def _normalize_long_task_stage(value: object) -> str | Failure:
     stage = str(value or "").strip().lower()
     if stage not in _LONG_TASK_STAGE_ORDER:
         return agent_runtime_failures.fail(
@@ -2416,7 +2715,8 @@ def _normalize_long_task_stage(value: Any) -> str | Failure:
         )
     return stage
 
-def _normalize_long_task_stage_status(value: Any) -> str | Failure:
+
+def _normalize_long_task_stage_status(value: object) -> str | Failure:
     status = str(value or "in_progress").strip().lower() or "in_progress"
     if status not in _LONG_TASK_STAGE_STATUSES:
         return agent_runtime_failures.fail(
@@ -2426,14 +2726,15 @@ def _normalize_long_task_stage_status(value: Any) -> str | Failure:
         )
     return status
 
+
 def _seed_long_task_state(
     *,
     session_id: str,
     project_key: str | None,
     task_kind: str,
     replay_keys: list[str],
-) -> dict[str, Any]:
-    now = _utcnow_iso()
+) -> JSONObject:
+    now = utcnow_iso()
     return {
         "contract_version": "agent_long_task.stage.v1",
         "session_id": session_id,
@@ -2463,26 +2764,26 @@ def _seed_long_task_state(
         ],
     }
 
+
 def _normalize_long_task_state(
-    content: dict[str, Any],
+    content: JSONObject,
     *,
     session_id: str,
     project_key: str | None,
     task_kind: str,
-) -> dict[str, Any]:
+) -> JSONObject:
     seeded = _seed_long_task_state(
         session_id=session_id,
         project_key=str(content.get("project_key") or project_key or "").strip() or None,
         task_kind=str(content.get("task_kind") or task_kind or "mixed").strip().lower(),
-        replay_keys=[str(item or "") for item in list(content.get("replay_keys") or []) if str(item or "").strip()],
+        replay_keys=[str(item or "") for item in json_list(content.get("replay_keys")) if str(item or "").strip()],
     )
     existing_by_stage = {
-        str(item.get("stage") or "").strip(): dict(item)
-        for item in list(content.get("stages") or [])
-        if isinstance(item, dict)
+        str(item.get("stage") or "").strip(): item
+        for item in (json_object(value) for value in json_list(content.get("stages")))
     }
-    normalized_stages: list[dict[str, Any]] = []
-    for seeded_stage in seeded["stages"]:
+    normalized_stages: list[JSONObject] = []
+    for seeded_stage in (json_object(value) for value in json_list(seeded.get("stages"))):
         stage_name = str(seeded_stage.get("stage") or "")
         merged = {**seeded_stage, **existing_by_stage.get(stage_name, {})}
         merged["stage"] = stage_name
@@ -2490,9 +2791,17 @@ def _normalize_long_task_state(
         merged["status"] = str(merged.get("status") or "pending").strip().lower()
         if merged["status"] not in _LONG_TASK_STAGE_STATUSES:
             merged["status"] = "pending"
-        for key in ("evidence_refs", "gap_list", "external_discovery_plan", "source_intake", "clue_refs", "draft_refs", "next_actions"):
+        for key in (
+            "evidence_refs",
+            "gap_list",
+            "external_discovery_plan",
+            "source_intake",
+            "clue_refs",
+            "draft_refs",
+            "next_actions",
+        ):
             merged[key] = _normalize_artifact_records(merged.get(key))
-        merged["metadata"] = dict(merged.get("metadata") or {}) if isinstance(merged.get("metadata"), dict) else {}
+        merged["metadata"] = json_object(merged.get("metadata"))
         normalized_stages.append(merged)
     seeded.update(
         {
@@ -2500,16 +2809,22 @@ def _normalize_long_task_state(
             "contract_version": "agent_long_task.stage.v1",
             "session_id": session_id,
             "project_key": str(content.get("project_key") or project_key or "").strip() or None,
-            "task_kind": str(content.get("task_kind") or task_kind or "mixed").strip().lower() if str(content.get("task_kind") or task_kind or "mixed").strip().lower() in {"investigation", "writing", "mixed"} else "mixed",
+            "task_kind": str(content.get("task_kind") or task_kind or "mixed").strip().lower()
+            if str(content.get("task_kind") or task_kind or "mixed").strip().lower()
+            in {"investigation", "writing", "mixed"}
+            else "mixed",
             "stages": normalized_stages,
-            "current_stage": _derive_long_task_current_stage(normalized_stages, preferred=str(content.get("current_stage") or "")),
+            "current_stage": _derive_long_task_current_stage(
+                normalized_stages, preferred=str(content.get("current_stage") or "")
+            ),
         }
     )
     return seeded
 
+
 def _update_long_task_state(
     *,
-    existing_content: dict[str, Any],
+    existing_content: JSONObject,
     session_id: str,
     project_key: str | None,
     task_kind: str,
@@ -2518,10 +2833,12 @@ def _update_long_task_state(
     stage: str,
     stage_status: str,
     replay_keys: list[str],
-) -> dict[str, Any]:
-    state = _normalize_long_task_state(existing_content, session_id=session_id, project_key=project_key, task_kind=task_kind)
-    now = _utcnow_iso()
-    stages = list(state.get("stages") or [])
+) -> JSONObject:
+    state = _normalize_long_task_state(
+        existing_content, session_id=session_id, project_key=project_key, task_kind=task_kind
+    )
+    now = utcnow_iso()
+    stages = [json_object(value) for value in json_list(state.get("stages"))]
     stage_index = _LONG_TASK_STAGE_ORDER.index(stage)
     for index, item in enumerate(stages):
         if index < stage_index and str(item.get("status") or "pending") == "pending":
@@ -2538,10 +2855,18 @@ def _update_long_task_state(
         item["source_call_id"] = tool_call.call_id
         if stage_status == "completed":
             item["completed_at"] = now
-        for key in ("evidence_refs", "gap_list", "external_discovery_plan", "source_intake", "clue_refs", "draft_refs", "next_actions"):
+        for key in (
+            "evidence_refs",
+            "gap_list",
+            "external_discovery_plan",
+            "source_intake",
+            "clue_refs",
+            "draft_refs",
+            "next_actions",
+        ):
             item[key] = _dedupe_artifact_records(item.get(key), tool_call.arguments.get(key))
-        metadata = dict(item.get("metadata") or {})
-        metadata.update(dict(tool_call.arguments.get("metadata") or {}))
+        metadata = json_object(item.get("metadata"))
+        metadata.update(json_object(tool_call.arguments.get("metadata")))
         item["metadata"] = metadata
         break
     state.update(
@@ -2554,27 +2879,38 @@ def _update_long_task_state(
             "source_call_id": tool_call.call_id,
             "replay_keys": replay_keys[-80:],
             "stages": stages,
-            "current_stage": _derive_long_task_current_stage(stages, preferred=stage if stage_status != "completed" else ""),
+            "current_stage": _derive_long_task_current_stage(
+                stages, preferred=stage if stage_status != "completed" else ""
+            ),
         }
     )
     return state
 
-def _derive_long_task_current_stage(stages: list[dict[str, Any]], *, preferred: str = "") -> str:
+
+def _derive_long_task_current_stage(stages: list[JSONObject], *, preferred: str = "") -> str:
     if preferred in _LONG_TASK_STAGE_ORDER:
-        preferred_status = next((str(item.get("status") or "") for item in stages if str(item.get("stage") or "") == preferred), "")
+        preferred_status = next(
+            (str(item.get("status") or "") for item in stages if str(item.get("stage") or "") == preferred), ""
+        )
         if preferred_status in {"pending", "in_progress", "blocked", "failed"}:
             return preferred
     for stage in _LONG_TASK_STAGE_ORDER:
-        status = next((str(item.get("status") or "pending") for item in stages if str(item.get("stage") or "") == stage), "pending")
+        status = next(
+            (str(item.get("status") or "pending") for item in stages if str(item.get("stage") or "") == stage),
+            "pending",
+        )
         if status != "completed":
             return stage
     return "done"
 
-def _compact_long_task_state(state: dict[str, Any]) -> dict[str, Any]:
-    stages = list(state.get("stages") or [])
+
+def _compact_long_task_state(state: JSONObject) -> JSONObject:
+    stages = [json_object(value) for value in json_list(state.get("stages"))]
     completed = [str(item.get("stage") or "") for item in stages if str(item.get("status") or "") == "completed"]
-    blocked = [str(item.get("stage") or "") for item in stages if str(item.get("status") or "") in {"blocked", "failed"}]
-    stage_summaries = []
+    blocked = [
+        str(item.get("stage") or "") for item in stages if str(item.get("status") or "") in {"blocked", "failed"}
+    ]
+    stage_summaries: list[JSONValue] = []
     for item in stages:
         stage_summaries.append(
             {
@@ -2585,21 +2921,23 @@ def _compact_long_task_state(state: dict[str, Any]) -> dict[str, Any]:
                 "task_id": item.get("task_id"),
                 "updated_at": item.get("updated_at"),
                 "counts": {
-                    "evidence_refs": len(list(item.get("evidence_refs") or [])),
-                    "gap_list": len(list(item.get("gap_list") or [])),
-                    "external_discovery_plan": len(list(item.get("external_discovery_plan") or [])),
-                    "source_intake": len(list(item.get("source_intake") or [])),
-                    "clue_refs": len(list(item.get("clue_refs") or [])),
-                    "draft_refs": len(list(item.get("draft_refs") or [])),
-                    "next_actions": len(list(item.get("next_actions") or [])),
+                    "evidence_refs": len(json_list(item.get("evidence_refs"))),
+                    "gap_list": len(json_list(item.get("gap_list"))),
+                    "external_discovery_plan": len(json_list(item.get("external_discovery_plan"))),
+                    "source_intake": len(json_list(item.get("source_intake"))),
+                    "clue_refs": len(json_list(item.get("clue_refs"))),
+                    "draft_refs": len(json_list(item.get("draft_refs"))),
+                    "next_actions": len(json_list(item.get("next_actions"))),
                 },
-                "evidence_refs": _compact_json_value(item.get("evidence_refs"), max_items=5, max_depth=3),
-                "gap_list": _compact_json_value(item.get("gap_list"), max_items=5, max_depth=3),
-                "external_discovery_plan": _compact_json_value(item.get("external_discovery_plan"), max_items=5, max_depth=3),
-                "source_intake": _compact_json_value(item.get("source_intake"), max_items=5, max_depth=3),
-                "clue_refs": _compact_json_value(item.get("clue_refs"), max_items=5, max_depth=3),
-                "draft_refs": _compact_json_value(item.get("draft_refs"), max_items=5, max_depth=3),
-                "next_actions": _compact_json_value(item.get("next_actions"), max_items=5, max_depth=3),
+                "evidence_refs": compact_json_value(item.get("evidence_refs"), max_items=5, max_depth=3),
+                "gap_list": compact_json_value(item.get("gap_list"), max_items=5, max_depth=3),
+                "external_discovery_plan": compact_json_value(
+                    item.get("external_discovery_plan"), max_items=5, max_depth=3
+                ),
+                "source_intake": compact_json_value(item.get("source_intake"), max_items=5, max_depth=3),
+                "clue_refs": compact_json_value(item.get("clue_refs"), max_items=5, max_depth=3),
+                "draft_refs": compact_json_value(item.get("draft_refs"), max_items=5, max_depth=3),
+                "next_actions": compact_json_value(item.get("next_actions"), max_items=5, max_depth=3),
             }
         )
     return {
@@ -2615,8 +2953,9 @@ def _compact_long_task_state(state: dict[str, Any]) -> dict[str, Any]:
         "next_actions": _collect_long_task_next_actions(stages),
     }
 
-def _collect_long_task_next_actions(stages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
+
+def _collect_long_task_next_actions(stages: list[JSONObject]) -> list[JSONObject]:
+    out: list[JSONObject] = []
     for item in stages:
         for action in _normalize_artifact_records(item.get("next_actions")):
             action.setdefault("stage", item.get("stage"))
@@ -2625,27 +2964,31 @@ def _collect_long_task_next_actions(stages: list[dict[str, Any]]) -> list[dict[s
                 return out
     return out
 
+
 def _attach_long_task_state_to_task(
     *,
     service: AgentSessionService,
     session_id: str,
     task_id: str,
     artifact_name: str,
-    state: dict[str, Any],
+    state: JSONObject,
     stage: str,
     stage_status: str,
 ) -> None:
     try:
-        task = service.store.get_task(session_id, task_id)
+        task_result = service.store.get_task(session_id, task_id)
     except Exception:
         return
-    metadata = dict(task.get("metadata") or {})
+    if isinstance(task_result, Failure):
+        return
+    task = json_object(task_result)
+    metadata = json_object(task.get("metadata"))
     metadata["long_task_state_artifact"] = artifact_name
     metadata["long_task_current_stage"] = state.get("current_stage")
     metadata["long_task_last_stage"] = stage
-    result_payload = dict(task.get("result_payload") or {})
+    result_payload = json_object(task.get("result_payload"))
     result_payload["long_task_stage_state"] = _compact_long_task_state(state)
-    recent_activities = list(task.get("recent_activities") or [])
+    recent_activities = normalize_string_list(task.get("recent_activities"))
     recent_activities.append(f"{stage}:{stage_status}")
     service.store.update_task(
         session_id,
@@ -2658,52 +3001,64 @@ def _attach_long_task_state_to_task(
         },
     )
 
-def _bounded_int(value: Any, *, default: int, minimum: int, maximum: int) -> int:
-    try:
-        resolved = int(value)
-    except (TypeError, ValueError):
+
+def _bounded_int(value: object, *, default: int, minimum: int, maximum: int) -> int:
+    resolved = safe_int(value)
+    if resolved is None:
         resolved = default
     return max(minimum, min(maximum, resolved))
 
-def _normalize_artifact_records(value: Any) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
-    raw_items = value if isinstance(value, list) else []
+
+def _normalize_artifact_records(value: object) -> list[JSONObject]:
+    records: list[JSONObject] = []
+    raw_items = json_list(value)
     for raw in raw_items:
         if isinstance(raw, dict):
-            item = dict(raw)
+            item = json_object(raw)
         else:
             text = str(raw or "").strip()
             if not text:
                 continue
-            item = {"text": text}
-        item.setdefault("record_id", _stable_hash(item))
+            item: JSONObject = {"text": text}
+        item.setdefault("record_id", stable_hash(item))
         records.append(item)
     return records
 
-def _dedupe_artifact_records(existing: Any, incoming: Any) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
+
+def _dedupe_artifact_records(existing: object, incoming: object) -> list[JSONObject]:
+    out: list[JSONObject] = []
     seen: set[str] = set()
     for item in [*_normalize_artifact_records(existing), *_normalize_artifact_records(incoming)]:
-        key = str(item.get("record_id") or item.get("id") or item.get("url") or item.get("title") or item.get("text") or _stable_hash(item))
+        key = str(
+            item.get("record_id")
+            or item.get("id")
+            or item.get("url")
+            or item.get("title")
+            or item.get("text")
+            or stable_hash(item)
+        )
         if key in seen:
             continue
         seen.add(key)
-        normalized = dict(item)
+        normalized = json_object(item)
         normalized["record_id"] = key
         out.append(normalized)
     return out
+
 
 def _build_investigation_trace_payload(
     *,
     project_key: str,
     artifact_name: str,
-    artifact_content: dict[str, Any],
+    artifact_content: JSONObject,
     focus_node_id: str,
     max_hops: int,
     max_items: int,
-) -> dict[str, Any]:
+) -> JSONObject:
     nodes_by_id, node_order = _normalize_investigation_nodes(artifact_content.get("clue_nodes"))
-    edges = _normalize_investigation_edges(artifact_content.get("clue_edges"), nodes_by_id=nodes_by_id, node_order=node_order)
+    edges = _normalize_investigation_edges(
+        artifact_content.get("clue_edges"), nodes_by_id=nodes_by_id, node_order=node_order
+    )
     focus = str(focus_node_id or "").strip()
     if focus:
         selected_node_ids = _trace_investigation_node_ids(
@@ -2748,12 +3103,12 @@ def _build_investigation_trace_payload(
         "max_items": max_items,
         "goal": artifact_content.get("goal") or "",
         "summary": artifact_content.get("summary") or "",
-        "nodes": _compact_json_value(selected_nodes, max_items=max_items, max_depth=4),
-        "edges": _compact_json_value(selected_edges, max_items=max_items, max_depth=4),
-        "followed_leads": _compact_json_value(followed_leads, max_items=max_items, max_depth=4),
-        "rejected_leads": _compact_json_value(rejected_leads, max_items=max_items, max_depth=4),
-        "citations": _compact_json_value(citations, max_items=max_items, max_depth=4),
-        "pending_questions": _compact_json_value(pending_questions, max_items=max_items, max_depth=4),
+        "nodes": compact_json_value(selected_nodes, max_items=max_items, max_depth=4),
+        "edges": compact_json_value(selected_edges, max_items=max_items, max_depth=4),
+        "followed_leads": compact_json_value(followed_leads, max_items=max_items, max_depth=4),
+        "rejected_leads": compact_json_value(rejected_leads, max_items=max_items, max_depth=4),
+        "citations": compact_json_value(citations, max_items=max_items, max_depth=4),
+        "pending_questions": compact_json_value(pending_questions, max_items=max_items, max_depth=4),
         "available_node_ids": node_order[:max_items],
         "counts": {
             "nodes": len(selected_nodes),
@@ -2766,14 +3121,19 @@ def _build_investigation_trace_payload(
             "citations": len(citations),
         },
         "trace_summary": trace_summary,
-        "next_steps": _derive_investigation_next_steps(pending_questions, followed_leads, citations, focus_found=focus_found),
+        "next_steps": _derive_investigation_next_steps(
+            pending_questions, followed_leads, citations, focus_found=focus_found
+        ),
     }
 
-def _normalize_investigation_nodes(value: Any) -> tuple[dict[str, dict[str, Any]], list[str]]:
-    nodes_by_id: dict[str, dict[str, Any]] = {}
+
+def _normalize_investigation_nodes(value: object) -> tuple[dict[str, JSONObject], list[str]]:
+    nodes_by_id: dict[str, JSONObject] = {}
     node_order: list[str] = []
     for index, raw in enumerate(_normalize_artifact_records(value), start=1):
-        node_id = _first_text_value(raw, ("id", "node_id", "entity_id", "record_id", "url", "title", "label", "name", "text"))
+        node_id = _first_text_value(
+            raw, ("id", "node_id", "entity_id", "record_id", "url", "title", "label", "name", "text")
+        )
         if not node_id:
             node_id = f"node-{index}"
         node = dict(raw)
@@ -2786,15 +3146,16 @@ def _normalize_investigation_nodes(value: Any) -> tuple[dict[str, dict[str, Any]
         node_order.append(node_id)
     return nodes_by_id, node_order
 
+
 def _normalize_investigation_edges(
-    value: Any,
+    value: object,
     *,
-    nodes_by_id: dict[str, dict[str, Any]],
+    nodes_by_id: dict[str, JSONObject],
     node_order: list[str],
-) -> list[dict[str, Any]]:
-    edges: list[dict[str, Any]] = []
+) -> list[JSONObject]:
+    edges: list[JSONObject] = []
     seen: set[str] = set()
-    for index, raw in enumerate(_normalize_artifact_records(value), start=1):
+    for raw in _normalize_artifact_records(value):
         source = _first_text_value(raw, ("source", "source_id", "from", "from_id", "start", "subject", "subject_id"))
         target = _first_text_value(raw, ("target", "target_id", "to", "to_id", "end", "object", "object_id"))
         if not source or not target:
@@ -2813,11 +3174,12 @@ def _normalize_investigation_edges(
         edges.append(edge)
     return edges
 
+
 def _trace_investigation_node_ids(
     *,
     focus_node_id: str,
     node_order: list[str],
-    edges: list[dict[str, Any]],
+    edges: list[JSONObject],
     max_hops: int,
     max_items: int,
 ) -> list[str]:
@@ -2847,7 +3209,8 @@ def _trace_investigation_node_ids(
             queue.append((neighbor, hops + 1))
     return selected
 
-def _first_text_value(item: dict[str, Any], keys: tuple[str, ...]) -> str:
+
+def _first_text_value(item: JSONObject, keys: tuple[str, ...]) -> str:
     for key in keys:
         value = item.get(key)
         if isinstance(value, (dict, list)):
@@ -2857,6 +3220,7 @@ def _first_text_value(item: dict[str, Any], keys: tuple[str, ...]) -> str:
             return text
     return ""
 
+
 def _summarize_investigation_trace(
     *,
     goal: str,
@@ -2864,7 +3228,7 @@ def _summarize_investigation_trace(
     focus_found: bool,
     node_count: int,
     edge_count: int,
-    pending_questions: list[dict[str, Any]],
+    pending_questions: list[JSONObject],
 ) -> str:
     if focus_node_id and not focus_found:
         return f"Focus node {focus_node_id} was not found in the investigation artifact."
@@ -2874,10 +3238,11 @@ def _summarize_investigation_trace(
     prefix = f"Goal: {goal}. " if goal else ""
     return f"{prefix}Expanded {node_count} node(s) and {edge_count} edge(s) {scope}.{suffix}"
 
+
 def _derive_investigation_next_steps(
-    pending_questions: list[dict[str, Any]],
-    followed_leads: list[dict[str, Any]],
-    citations: list[dict[str, Any]],
+    pending_questions: list[JSONObject],
+    followed_leads: list[JSONObject],
+    citations: list[JSONObject],
     *,
     focus_found: bool,
 ) -> list[str]:
@@ -2889,35 +3254,40 @@ def _derive_investigation_next_steps(
     if followed_leads and not citations:
         steps.append("Validate followed_leads with citations before writing derived claims.")
     if citations:
-        steps.append("Use citations and selected trace nodes as source_refs/provenance when updating the writing workbench.")
+        steps.append(
+            "Use citations and selected trace nodes as source_refs/provenance when updating the writing workbench."
+        )
     if not steps:
         steps.append("Append new clue nodes or edges after the next investigation pass.")
     return steps
 
-def _compact_writing_document(document: dict[str, Any], *, include_body: bool, max_chars: int = 8000) -> dict[str, Any]:
-    body = str(document.get("body_md") or "")
-    compact = {
-        "id": document.get("id"),
-        "project_key": document.get("project_key"),
-        "title": document.get("title"),
-        "status": document.get("status"),
-        "version": document.get("version"),
-        "etag": document.get("etag"),
-        "updated_at": document.get("updated_at"),
-        "created_at": document.get("created_at"),
-        "updated_by_user_id": document.get("updated_by_user_id"),
+
+def _compact_writing_document(document: Mapping[str, object], *, include_body: bool, max_chars: int = 8000) -> JSONObject:
+    normalized = json_object(document)
+    body = str(normalized.get("body_md") or "")
+    compact: JSONObject = {
+        "id": normalized.get("id"),
+        "project_key": normalized.get("project_key"),
+        "title": normalized.get("title"),
+        "status": normalized.get("status"),
+        "version": normalized.get("version"),
+        "etag": normalized.get("etag"),
+        "updated_at": normalized.get("updated_at"),
+        "created_at": normalized.get("created_at"),
+        "updated_by_user_id": normalized.get("updated_by_user_id"),
         "body_length": len(body),
         "block_anchors": _writing_block_anchors(body),
-        "metadata_json": _compact_json_value(document.get("metadata_json"), max_items=8, max_depth=3),
+        "metadata_json": compact_json_value(normalized.get("metadata_json"), max_items=8, max_depth=3),
     }
     if include_body:
         compact["body_md"] = body[:max_chars]
         compact["body_truncated"] = len(body) > max_chars
     return compact
 
-def _writing_block_anchors(body_md: str, *, max_blocks: int = 80) -> list[dict[str, Any]]:
+
+def _writing_block_anchors(body_md: str, *, max_blocks: int = 80) -> list[JSONObject]:
     lines = str(body_md or "").splitlines()
-    blocks: list[dict[str, Any]] = []
+    blocks: list[JSONObject] = []
     start_line: int | None = None
     buffer: list[str] = []
 
@@ -2933,13 +3303,13 @@ def _writing_block_anchors(body_md: str, *, max_blocks: int = 80) -> list[dict[s
         heading_level = len(first_line) - len(first_line.lstrip("#")) if kind == "heading" else None
         blocks.append(
             {
-                "block_id": f"block-{_stable_hash({'start': start_line, 'text': text})}",
+                "block_id": f"block-{stable_hash({'start': start_line, 'text': text})}",
                 "kind": kind,
                 "heading_level": heading_level,
                 "line_start": start_line,
                 "line_end": end_line,
                 "preview": _first_nonempty_line(text),
-                "content_hash": _stable_hash({"text": text}),
+                "content_hash": stable_hash({"text": text}),
             }
         )
         start_line = None
@@ -2957,6 +3327,7 @@ def _writing_block_anchors(body_md: str, *, max_blocks: int = 80) -> list[dict[s
     flush(len(lines))
     return blocks[:max_blocks]
 
+
 def _extract_writing_section(
     body_md: str,
     *,
@@ -2965,7 +3336,7 @@ def _extract_writing_section(
     line_start: int | None = None,
     line_end: int | None = None,
     max_chars: int = 5000,
-) -> dict[str, Any]:
+) -> JSONObject:
     lines = str(body_md or "").splitlines()
     anchors = _writing_block_anchors(body_md, max_blocks=500)
     selected_start = line_start if line_start and line_start > 0 else None
@@ -2973,8 +3344,8 @@ def _extract_writing_section(
     if block_id:
         anchor = next((item for item in anchors if str(item.get("block_id") or "") == block_id), None)
         if anchor:
-            selected_start = int(anchor.get("line_start") or 1)
-            selected_end = int(anchor.get("line_end") or selected_start)
+            selected_start = safe_int(anchor.get("line_start")) or 1
+            selected_end = safe_int(anchor.get("line_end")) or selected_start
     if heading and selected_start is None:
         lowered = heading.lower()
         heading_anchor = next(
@@ -2986,13 +3357,17 @@ def _extract_writing_section(
             None,
         )
         if heading_anchor:
-            selected_start = int(heading_anchor.get("line_start") or 1)
+            selected_start = safe_int(heading_anchor.get("line_start")) or 1
             selected_end = len(lines)
-            heading_level = int(heading_anchor.get("heading_level") or 1)
+            heading_level = safe_int(heading_anchor.get("heading_level")) or 1
             for candidate in anchors:
-                candidate_start = int(candidate.get("line_start") or 0)
-                candidate_level = int(candidate.get("heading_level") or 0)
-                if candidate_start > selected_start and candidate.get("kind") == "heading" and candidate_level <= heading_level:
+                candidate_start = safe_nonnegative_int(candidate.get("line_start")) or 0
+                candidate_level = safe_nonnegative_int(candidate.get("heading_level")) or 0
+                if (
+                    candidate_start > selected_start
+                    and candidate.get("kind") == "heading"
+                    and candidate_level <= heading_level
+                ):
                     selected_end = max(selected_start, candidate_start - 1)
                     break
     if selected_start is None:
@@ -3015,12 +3390,14 @@ def _extract_writing_section(
         "body_line_count": len(lines),
     }
 
+
 def _first_nonempty_line(value: str, *, max_chars: int = 240) -> str:
     for line in str(value or "").splitlines():
         normalized = line.strip()
         if normalized:
             return normalized[:max_chars]
     return str(value or "").strip()[:max_chars]
+
 
 def _find_anchor_line(body_md: str, content_md: str) -> int | None:
     body = str(body_md or "")
@@ -3034,33 +3411,36 @@ def _find_anchor_line(body_md: str, content_md: str) -> int | None:
             return body[:offset].count("\n") + 1
     return None
 
+
 def _build_agent_writing_update(
     *,
     tool_call: CoreToolCall,
-    current: dict[str, Any],
+    current: JSONObject,
     new_body: str,
     operation: str,
     content_md: str,
-    diff: dict[str, Any],
-) -> dict[str, Any]:
-    old_version = _safe_int(current.get("version"))
+    diff: JSONObject,
+) -> JSONObject:
+    old_version = safe_int(current.get("version"))
     old_body = str(current.get("body_md") or "")
     selection_snapshot = _normalize_selection_snapshot(tool_call.arguments.get("selection_snapshot"))
     selection_text = str(selection_snapshot.get("selected_text") or selection_snapshot.get("text") or "").strip()
     explicit_anchor_text = str(tool_call.arguments.get("anchor_text") or "").strip()
     anchor_text = selection_text or explicit_anchor_text or _first_nonempty_line(content_md)
-    content_hash = _stable_hash({"content_md": content_md})
-    idempotency_key = _agent_writing_idempotency_key(tool_call=tool_call, current=current, content_md=content_md, operation=operation)
-    anchor_id = f"agent-{_stable_hash({'idempotency_key': idempotency_key, 'content_hash': content_hash})}"
+    content_hash = stable_hash({"content_md": content_md})
+    idempotency_key = _agent_writing_idempotency_key(
+        tool_call=tool_call, current=current, content_md=content_md, operation=operation
+    )
+    anchor_id = f"agent-{stable_hash({'idempotency_key': idempotency_key, 'content_hash': content_hash})}"
     inserted_text = str(content_md or "").strip()
     replaced_text = _extract_replaced_writing_text(
         old_body,
         operation=operation,
         anchor_text=explicit_anchor_text or selection_text,
-        range_start=_safe_nonnegative_int(tool_call.arguments.get("range_start")),
-        range_end=_safe_nonnegative_int(tool_call.arguments.get("range_end")),
+        range_start=safe_nonnegative_int(tool_call.arguments.get("range_start")),
+        range_end=safe_nonnegative_int(tool_call.arguments.get("range_end")),
     )
-    provenance = dict(tool_call.arguments.get("provenance") or {})
+    provenance = json_object(tool_call.arguments.get("provenance"))
     if selection_snapshot:
         provenance.setdefault("selection_snapshot", selection_snapshot)
     return {
@@ -3071,7 +3451,7 @@ def _build_agent_writing_update(
         "tool_name": tool_call.tool_name,
         "actor": "agent_core",
         "operation": operation,
-        "created_at": _utcnow_iso(),
+        "created_at": utcnow_iso(),
         "doc_id": current.get("id"),
         "title": current.get("title"),
         "old_version": old_version,
@@ -3082,67 +3462,72 @@ def _build_agent_writing_update(
         "replaced_text": replaced_text[:2000],
         "replaced_text_truncated": len(replaced_text) > 2000,
         "summary": f"{operation} via AgentCore: +{diff.get('added_lines')} -{diff.get('removed_lines')} lines",
-        "diff": _compact_json_value(diff, max_items=8, max_depth=3, max_string=1200),
-        "source_refs": _normalize_string_list(tool_call.arguments.get("source_refs")),
-        "provenance": _compact_json_value(provenance, max_items=20, max_depth=4),
+        "diff": compact_json_value(diff, max_items=8, max_depth=3, max_string=1200),
+        "source_refs": normalize_string_list(tool_call.arguments.get("source_refs")),
+        "provenance": compact_json_value(provenance, max_items=20, max_depth=4),
         "locator": {
             "anchor_id": anchor_id,
             "anchor_text": anchor_text,
             "anchor_heading": str(tool_call.arguments.get("anchor_heading") or "").strip() or None,
             "anchor_line": _find_anchor_line(new_body, content_md),
-            "range_start": _safe_nonnegative_int(tool_call.arguments.get("range_start")),
-            "range_end": _safe_nonnegative_int(tool_call.arguments.get("range_end")),
-            "cursor_offset": _safe_nonnegative_int(tool_call.arguments.get("cursor_offset")),
+            "range_start": safe_nonnegative_int(tool_call.arguments.get("range_start")),
+            "range_end": safe_nonnegative_int(tool_call.arguments.get("range_end")),
+            "cursor_offset": safe_nonnegative_int(tool_call.arguments.get("cursor_offset")),
             "selection_snapshot": selection_snapshot or None,
             "content_hash": content_hash,
         },
     }
 
+
 def _agent_writing_idempotency_key(
     *,
     tool_call: CoreToolCall,
-    current: dict[str, Any],
+    current: JSONObject,
     content_md: str,
     operation: str,
 ) -> str:
     explicit = str(tool_call.arguments.get("idempotency_key") or "").strip()
-    provenance = dict(tool_call.arguments.get("provenance") or {})
+    provenance = json_object(tool_call.arguments.get("provenance"))
     explicit = explicit or str(provenance.get("idempotency_key") or "").strip()
     if explicit:
         return explicit[:240]
     selection_snapshot = _normalize_selection_snapshot(tool_call.arguments.get("selection_snapshot"))
-    return _stable_hash(
+    return stable_hash(
         {
             "session_anchor": provenance.get("session_id") or provenance.get("message_id"),
             "doc_id": current.get("id") or tool_call.arguments.get("doc_id") or tool_call.arguments.get("title"),
             "operation": operation,
             "anchor_heading": str(tool_call.arguments.get("anchor_heading") or "").strip(),
             "anchor_text": str(tool_call.arguments.get("anchor_text") or "").strip(),
-            "range_start": _safe_nonnegative_int(tool_call.arguments.get("range_start")),
-            "range_end": _safe_nonnegative_int(tool_call.arguments.get("range_end")),
-            "cursor_offset": _safe_nonnegative_int(tool_call.arguments.get("cursor_offset")),
+            "range_start": safe_nonnegative_int(tool_call.arguments.get("range_start")),
+            "range_end": safe_nonnegative_int(tool_call.arguments.get("range_end")),
+            "cursor_offset": safe_nonnegative_int(tool_call.arguments.get("cursor_offset")),
             "selection": selection_snapshot,
-            "content_hash": _stable_hash({"content_md": content_md}),
+            "content_hash": stable_hash({"content_md": content_md}),
         }
     )
 
+
 def _find_replayed_agent_writing_update(
     *,
-    metadata: Any,
+    metadata: object,
     tool_call: CoreToolCall,
-    current: dict[str, Any],
+    current: JSONObject,
     content_md: str,
     operation: str,
-) -> dict[str, Any] | None:
-    if not isinstance(metadata, dict):
-        return None
-    idempotency_key = _agent_writing_idempotency_key(tool_call=tool_call, current=current, content_md=content_md, operation=operation)
-    for item in reversed([dict(entry) for entry in list(metadata.get("agent_updates") or []) if isinstance(entry, dict)]):
+) -> JSONObject | None:
+    normalized_metadata = json_object(metadata)
+    idempotency_key = _agent_writing_idempotency_key(
+        tool_call=tool_call, current=current, content_md=content_md, operation=operation
+    )
+    entries = [json_object(entry) for entry in json_list(normalized_metadata.get("agent_updates")) if isinstance(entry, Mapping)]
+    for item in reversed(entries):
         if str(item.get("call_id") or "") == tool_call.call_id:
             return item
         if idempotency_key and str(item.get("idempotency_key") or "") == idempotency_key:
             return item
     return None
+
 
 def _extract_replaced_writing_text(
     body_md: str,
@@ -3164,18 +3549,16 @@ def _extract_replaced_writing_text(
             return body[index : index + len(anchor_text)]
     return ""
 
-def _append_agent_writing_update(metadata: Any, update: dict[str, Any], *, max_items: int = 30) -> dict[str, Any]:
-    next_metadata = dict(metadata or {}) if isinstance(metadata, dict) else {}
-    existing = [
-        dict(item)
-        for item in list(next_metadata.get("agent_updates") or [])
-        if isinstance(item, dict)
-    ]
-    next_updates = [*existing, dict(update)][-max_items:]
+
+def _append_agent_writing_update(metadata: object, update: JSONObject, *, max_items: int = 30) -> JSONObject:
+    next_metadata = json_object(metadata)
+    existing = [json_object(item) for item in json_list(next_metadata.get("agent_updates")) if isinstance(item, Mapping)]
+    next_updates = [*existing, json_object(update)][-max_items:]
     next_metadata["agent_updates"] = next_updates
     next_metadata["last_agent_update"] = dict(update)
     next_metadata["agent_update_count"] = len(next_updates)
     return next_metadata
+
 
 def _apply_writing_body_operation(
     body_md: str,
@@ -3288,6 +3671,7 @@ def _apply_writing_body_operation(
         {"operation": operation},
     )
 
+
 def _validate_body_range(body: str, start: int, end: int) -> Failure | None:
     if start < 0 or end < 0:
         return agent_runtime_failures.fail(
@@ -3310,6 +3694,7 @@ def _validate_body_range(body: str, start: int, end: int) -> Failure | None:
         )
     return None
 
+
 def _splice_markdown_range(body: str, start: int, end: int, content: str) -> str:
     raw_body = str(body or "")
     inserted = str(content or "").strip()
@@ -3321,18 +3706,19 @@ def _splice_markdown_range(body: str, start: int, end: int, content: str) -> str
         return _join_markdown_blocks(before, inserted)
     return _join_markdown_blocks(_join_markdown_blocks(before, inserted), after)
 
-def _normalize_selection_snapshot(value: Any) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        return {}
-    out: dict[str, Any] = {}
+
+def _normalize_selection_snapshot(value: object) -> JSONObject:
+    normalized = json_object(value)
+    out: JSONObject = {}
     for key in ("text", "selected_text", "start", "end", "line", "active_heading", "before", "after"):
-        if key not in value:
+        if key not in normalized:
             continue
-        item = value.get(key)
+        item = normalized.get(key)
         if isinstance(item, str):
             item = item[:1400]
         out[key] = item
     return out
+
 
 def _join_markdown_blocks(first: str, second: str) -> str:
     left = str(first or "").strip()
@@ -3343,15 +3729,19 @@ def _join_markdown_blocks(first: str, second: str) -> str:
         return f"{left}\n"
     return f"{left}\n\n{right}\n"
 
+
 def _heading_matches(line: str, anchor_heading: str) -> bool:
     left = str(line or "").strip().lstrip("#").strip().lower()
     right = str(anchor_heading or "").strip().lstrip("#").strip().lower()
     return bool(left and right and left == right)
 
-def _body_diff_summary(old_body: str, new_body: str) -> dict[str, Any]:
+
+def _body_diff_summary(old_body: str, new_body: str) -> JSONObject:
     old_lines = str(old_body or "").splitlines()
     new_lines = str(new_body or "").splitlines()
-    diff_lines = list(difflib.unified_diff(old_lines, new_lines, fromfile="before.md", tofile="after.md", lineterm="", n=3))
+    diff_lines = list(
+        difflib.unified_diff(old_lines, new_lines, fromfile="before.md", tofile="after.md", lineterm="", n=3)
+    )
     added = sum(1 for line in diff_lines if line.startswith("+") and not line.startswith("+++"))
     removed = sum(1 for line in diff_lines if line.startswith("-") and not line.startswith("---"))
     return {
@@ -3363,14 +3753,15 @@ def _body_diff_summary(old_body: str, new_body: str) -> dict[str, Any]:
         "diff_truncated": len(diff_lines) > 120,
     }
 
+
 def _run_agent_batch_submit_tool(
     *,
     tool_call: CoreToolCall,
     request: AgentCoreRequest,
 ) -> CoreToolResult:
-    project_key = _resolve_project_key(tool_call, request)
+    project_key = resolve_project_key(tool_call, request)
     if not project_key:
-        return _missing_project_result(tool_call)
+        return missing_project_result(tool_call)
     idempotency_key = str(tool_call.arguments.get("idempotency_key") or "").strip() or None
 
     jobs = _agent_batch_structured_jobs(tool_call.arguments)
@@ -3384,15 +3775,20 @@ def _run_agent_batch_submit_tool(
         )
 
     try:
-        from app.api.agent_batch import AgentBatchItemSubmit, AgentBatchSubmitBatch, AgentBatchSubmitRequest, submit_agent_batch_job
+        from app.api.agent_batch import (
+            AgentBatchItemSubmit,
+            AgentBatchSubmitBatch,
+            AgentBatchSubmitRequest,
+            submit_agent_batch_job,
+        )
 
         payload = AgentBatchSubmitRequest(
             project_key=project_key,
-            batch=AgentBatchSubmitBatch(jobs=[AgentBatchItemSubmit(**dict(item or {})) for item in jobs]),
+            batch=AgentBatchSubmitBatch(jobs=[AgentBatchItemSubmit.model_validate(item) for item in jobs]),
             idempotency_key=idempotency_key,
-            priority=tool_call.arguments.get("priority"),
-            rule_set_id=tool_call.arguments.get("rule_set_id"),
-            rule_set=dict(tool_call.arguments.get("rule_set") or {}),
+            priority=safe_nonnegative_int(tool_call.arguments.get("priority")),
+            rule_set_id=str(tool_call.arguments.get("rule_set_id") or "").strip() or None,
+            rule_set=json_object(tool_call.arguments.get("rule_set")),
         )
         response = submit_agent_batch_job(payload)
     except Exception as exc:  # noqa: BLE001
@@ -3404,7 +3800,7 @@ def _run_agent_batch_submit_tool(
             error={"code": exc.__class__.__name__, "message": str(exc)},
         )
 
-    data = dict(response.get("data") or {}) if isinstance(response, dict) else {}
+    data = json_object(response.get("data"))
     return CoreToolResult(
         call_id=tool_call.call_id,
         tool_name=tool_call.tool_name,
@@ -3419,198 +3815,206 @@ def _run_agent_batch_submit_tool(
             "status": data.get("status"),
             "accepted_count": data.get("accepted_count"),
             "rejected_count": data.get("rejected_count"),
-            "result": _compact_json_value(data, max_items=30, max_depth=5),
+            "result": compact_json_value(data, max_items=30, max_depth=5),
         },
     )
 
-def _agent_batch_structured_jobs(arguments: dict[str, Any]) -> list[dict[str, Any]]:
-    raw_jobs = arguments.get("jobs")
-    if raw_jobs is None and isinstance(arguments.get("batch"), dict):
-        raw_jobs = dict(arguments.get("batch") or {}).get("jobs")
-    return [dict(item or {}) for item in list(raw_jobs or []) if isinstance(item, dict)]
 
+def _agent_batch_structured_jobs(arguments: Mapping[str, object]) -> list[JSONObject]:
+    normalized = json_object(arguments)
+    raw_jobs = normalized.get("jobs")
+    if raw_jobs is None:
+        raw_jobs = json_object(normalized.get("batch")).get("jobs")
+    return [json_object(item) for item in json_list(raw_jobs) if isinstance(item, Mapping)]
 
 
 def _workflow_graph_run_handler(
     service: AgentSessionService,
     tool_call: CoreToolCall,
-            tool_spec: CoreToolSpec,
-            request: AgentCoreRequest,
-            emit: Callable[[CoreEvent], None],
-        ) -> CoreToolResult:
-            project_key = _resolve_project_key(tool_call, request)
-            graph_id = str(tool_call.arguments.get("graph_id") or "").strip()
-            inputs = tool_call.arguments.get("inputs")
-            if inputs is None:
-                inputs = tool_call.arguments.get("input")
-            if not project_key:
-                return _missing_project_result(tool_call)
-            if not graph_id:
-                return CoreToolResult(
-                    call_id=tool_call.call_id,
-                    tool_name=tool_call.tool_name,
-                    status="failed",
-                    model_summary="graph_id is required for workflow_graph.run.",
-                    error={"code": "missing_graph_id", "message": "graph_id is required"},
-                )
-            if not isinstance(inputs, dict):
-                return CoreToolResult(
-                    call_id=tool_call.call_id,
-                    tool_name=tool_call.tool_name,
-                    status="failed",
-                    model_summary="inputs must be an object for workflow_graph.run.",
-                    error={"code": "invalid_inputs", "message": "inputs must be an object"},
-                )
-            if _session_abort_requested(service=service, session_id=request.session_id):
-                return _abort_requested_result(
-                    service=service,
-                    request=request,
-                    tool_call=tool_call,
-                    emit=emit,
-                    skipped_items=[graph_id],
-                    dispatched_count=0,
-                )
-            invoked = invoke_skill(
-                skill_id="workflow_graph.run",
-                payload={"graph_id": graph_id, "input": dict(inputs), "project_key": project_key},
-                context={
-                    "actor_role": "business_capability_wrapper",
-                    "permissions": ["workflow_graph.run"],
-                    "agent_session_id": request.session_id,
-                    "agent_task_id": str((request.context or {}).get("root_task_id") or "").strip() or None,
-                    "approval_granted": True,
-                    "consumer": "agent_core.workflow_graph.run",
-                    "trace_id": tool_call.call_id,
-                },
-            )
-            result = invoked.get("result") if isinstance(invoked, dict) else invoked
-            run_id = str((result or {}).get("run_id") or "").strip() if isinstance(result, dict) else ""
-            return CoreToolResult(
-                call_id=tool_call.call_id,
-                tool_name=tool_call.tool_name,
-                status="completed",
-                model_summary=f"Started workflow graph run {run_id or graph_id}.",
-                ui_summary=f"Started workflow graph: {graph_id}",
-                structured_content={
-                    "contract_version": "workflow_graph.run.agent_core.v1",
-                    "project_key": project_key,
-                    "graph_id": graph_id,
-                    "result": _compact_json_value(result, max_items=30, max_depth=5),
-                    "skill_meta": {
-                        "owner": invoked.get("owner") if isinstance(invoked, dict) else None,
-                        "execution_profile": invoked.get("execution_profile") if isinstance(invoked, dict) else None,
-                    },
-                },
-            )
+    tool_spec: CoreToolSpec,
+    request: AgentCoreRequest,
+    emit: Callable[[CoreEvent], None],
+) -> CoreToolResult:
+    project_key = resolve_project_key(tool_call, request)
+    graph_id = str(tool_call.arguments.get("graph_id") or "").strip()
+    inputs_value: object = tool_call.arguments.get("inputs")
+    if inputs_value is None:
+        inputs_value = tool_call.arguments.get("input")
+    if not project_key:
+        return missing_project_result(tool_call)
+    if not graph_id:
+        return CoreToolResult(
+            call_id=tool_call.call_id,
+            tool_name=tool_call.tool_name,
+            status="failed",
+            model_summary="graph_id is required for workflow_graph.run.",
+            error={"code": "missing_graph_id", "message": "graph_id is required"},
+        )
+    inputs = json_object(inputs_value)
+    if not isinstance(inputs_value, Mapping):
+        return CoreToolResult(
+            call_id=tool_call.call_id,
+            tool_name=tool_call.tool_name,
+            status="failed",
+            model_summary="inputs must be an object for workflow_graph.run.",
+            error={"code": "invalid_inputs", "message": "inputs must be an object"},
+        )
+    if session_abort_requested(service=service, session_id=request.session_id):
+        return abort_requested_result(
+            service=service,
+            request=request,
+            tool_call=tool_call,
+            emit=emit,
+            skipped_items=[graph_id],
+            dispatched_count=0,
+        )
+    invoked = invoke_skill(
+        skill_id="workflow_graph.run",
+        payload={"graph_id": graph_id, "input": inputs, "project_key": project_key},
+        context={
+            "actor_role": "business_capability_wrapper",
+            "permissions": ["workflow_graph.run"],
+            "agent_session_id": request.session_id,
+            "agent_task_id": str((request.context or {}).get("root_task_id") or "").strip() or None,
+            "approval_granted": True,
+            "consumer": "agent_core.workflow_graph.run",
+            "trace_id": tool_call.call_id,
+        },
+    )
+    result = json_object(invoked.get("result"))
+    run_id = str(result.get("run_id") or "").strip()
+    return CoreToolResult(
+        call_id=tool_call.call_id,
+        tool_name=tool_call.tool_name,
+        status="completed",
+        model_summary=f"Started workflow graph run {run_id or graph_id}.",
+        ui_summary=f"Started workflow graph: {graph_id}",
+        structured_content={
+            "contract_version": "workflow_graph.run.agent_core.v1",
+            "project_key": project_key,
+            "graph_id": graph_id,
+            "result": compact_json_value(result, max_items=30, max_depth=5),
+            "skill_meta": {
+                "owner": invoked.get("owner"),
+                "execution_profile": invoked.get("execution_profile"),
+            },
+        },
+    )
+
 
 def _report_generate_handler(
     service: AgentSessionService,
     capability_id: str,
     tool_call: CoreToolCall,
-            tool_spec: CoreToolSpec,
-            request: AgentCoreRequest,
-            emit: Callable[[CoreEvent], None],
-        ) -> CoreToolResult:
-            project_key = _resolve_project_key(tool_call, request)
-            topic = str(tool_call.arguments.get("topic") or request.message or "").strip()
-            output_path = str(tool_call.arguments.get("output_path") or "").strip()
-            if not topic:
-                return CoreToolResult(
-                    call_id=tool_call.call_id,
-                    tool_name=tool_call.tool_name,
-                    status="failed",
-                    model_summary="topic is required for report.generate.",
-                    error={"code": "missing_topic", "message": "topic is required"},
-                )
-            if not output_path:
-                return CoreToolResult(
-                    call_id=tool_call.call_id,
-                    tool_name=tool_call.tool_name,
-                    status="failed",
-                    model_summary="output_path is required for report.generate.",
-                    error={"code": "missing_output_path", "message": "output_path is required"},
-                )
-            if _session_abort_requested(service=service, session_id=request.session_id):
-                return _abort_requested_result(
-                    service=service,
-                    request=request,
-                    tool_call=tool_call,
-                    emit=emit,
-                    skipped_items=[output_path],
-                    dispatched_count=0,
-                )
-            raw_sources = tool_call.arguments.get("sources")
-            sources = [dict(item or {}) for item in list(raw_sources or []) if isinstance(item, dict)]
-            if not sources:
-                sources = [
-                    {
-                        "id": "S1",
-                        "title": "Current agent session context",
-                        "url": f"agent-session://{request.session_id}",
-                        "publisher": "agent_session",
-                        "evidence": request.message,
-                    }
-                ]
-            section_titles = [str(item) for item in list(tool_call.arguments.get("section_titles") or []) if str(item or "").strip()]
-            try:
-                from app.services.llm_report_generator import build_structured_report, evaluate_report_gate, render_markdown
+    tool_spec: CoreToolSpec,
+    request: AgentCoreRequest,
+    emit: Callable[[CoreEvent], None],
+) -> CoreToolResult:
+    project_key = resolve_project_key(tool_call, request)
+    topic = str(tool_call.arguments.get("topic") or request.message or "").strip()
+    output_path = str(tool_call.arguments.get("output_path") or "").strip()
+    if not topic:
+        return CoreToolResult(
+            call_id=tool_call.call_id,
+            tool_name=tool_call.tool_name,
+            status="failed",
+            model_summary="topic is required for report.generate.",
+            error={"code": "missing_topic", "message": "topic is required"},
+        )
+    if not output_path:
+        return CoreToolResult(
+            call_id=tool_call.call_id,
+            tool_name=tool_call.tool_name,
+            status="failed",
+            model_summary="output_path is required for report.generate.",
+            error={"code": "missing_output_path", "message": "output_path is required"},
+        )
+    if session_abort_requested(service=service, session_id=request.session_id):
+        return abort_requested_result(
+            service=service,
+            request=request,
+            tool_call=tool_call,
+            emit=emit,
+            skipped_items=[output_path],
+            dispatched_count=0,
+        )
+    sources: list[JSONObject] = [
+        json_object(item) for item in json_list(tool_call.arguments.get("sources")) if isinstance(item, Mapping)
+    ]
+    if not sources:
+        sources = [
+            {
+                "id": "S1",
+                "title": "Current agent session context",
+                "url": f"agent-session://{request.session_id}",
+                "publisher": "agent_session",
+                "evidence": request.message,
+            }
+        ]
+    section_titles = normalize_string_list(tool_call.arguments.get("section_titles"))
+    try:
+        from app.services.llm_report_generator import build_structured_report, evaluate_report_gate, render_markdown
 
-                report = build_structured_report(topic=topic[:200], sources=sources, section_titles=section_titles or None)
-                markdown = render_markdown(report)
-                gate = evaluate_report_gate(report)
-                artifact = service.store.upsert_artifact(
-                    {
-                        "session_id": request.session_id,
-                        "task_id": str((request.context or {}).get("root_task_id") or "").strip() or None,
-                        "artifact_type": "report.generate.markdown",
-                        "name": output_path,
-                        "mime_type": "text/markdown",
-                        "content_text": markdown,
-                        "content_json": {"report": report.to_dict(), "quality_gate": gate},
-                        "metadata": {
-                            "turn_id": request.turn_id,
-                            "capability_id": capability_id,
-                            "project_key": project_key,
-                            "output_path": output_path,
-                            "agent_core_call_id": tool_call.call_id,
-                        },
-                    }
-                )
-            except Exception as exc:  # noqa: BLE001
-                return CoreToolResult(
-                    call_id=tool_call.call_id,
-                    tool_name=tool_call.tool_name,
-                    status="failed",
-                    model_summary=f"report.generate failed: {exc}",
-                    error={"code": exc.__class__.__name__, "message": str(exc)},
-                )
-            return CoreToolResult(
-                call_id=tool_call.call_id,
-                tool_name=tool_call.tool_name,
-                status="completed",
-                model_summary=f"Generated report draft artifact {output_path}.",
-                ui_summary=f"Generated report: {output_path}",
-                structured_content={
-                    "contract_version": "report.generate.agent_core.v1",
+        report = build_structured_report(topic=topic[:200], sources=sources, section_titles=section_titles or None)
+        markdown = render_markdown(report)
+        gate = evaluate_report_gate(report)
+        artifact = _upsert_session_artifact(
+            service,
+            json_object({
+                "session_id": request.session_id,
+                "task_id": str((request.context or {}).get("root_task_id") or "").strip() or None,
+                "artifact_type": "report.generate.markdown",
+                "name": output_path,
+                "mime_type": "text/markdown",
+                "content_text": markdown,
+                "content_json": {"report": report.to_dict(), "quality_gate": gate},
+                "metadata": {
+                    "turn_id": request.turn_id,
+                    "capability_id": capability_id,
                     "project_key": project_key,
-                    "topic": topic[:200],
                     "output_path": output_path,
-                    "artifact_id": artifact.get("artifact_id"),
-                    "quality_gate": gate,
-                    "artifact": _compact_json_value(artifact, max_items=16, max_depth=4),
+                    "agent_core_call_id": tool_call.call_id,
                 },
-                artifact_refs=(str(artifact.get("artifact_id") or output_path),),
-            )
+            })
+        )
+    except Exception as exc:  # noqa: BLE001
+        return CoreToolResult(
+            call_id=tool_call.call_id,
+            tool_name=tool_call.tool_name,
+            status="failed",
+            model_summary=f"report.generate failed: {exc}",
+            error={"code": exc.__class__.__name__, "message": str(exc)},
+        )
+    if isinstance(artifact, Failure):
+        return runtime_failure_result(tool_call, artifact)
+    return CoreToolResult(
+        call_id=tool_call.call_id,
+        tool_name=tool_call.tool_name,
+        status="completed",
+        model_summary=f"Generated report draft artifact {output_path}.",
+        ui_summary=f"Generated report: {output_path}",
+        structured_content={
+            "contract_version": "report.generate.agent_core.v1",
+            "project_key": project_key,
+            "topic": topic[:200],
+            "output_path": output_path,
+            "artifact_id": artifact.get("artifact_id"),
+            "quality_gate": gate,
+            "artifact": compact_json_value(artifact, max_items=16, max_depth=4),
+        },
+        artifact_refs=(str(artifact.get("artifact_id") or output_path),),
+    )
+
 
 @dataclass(frozen=True, slots=True)
 class AuthoringToolContext:
     """Injected runtime objects used by the authored static tool catalog."""
 
     service: AgentSessionService
-    structured_data_searcher: Callable[..., dict[str, Any]] | None = None
+    structured_data_searcher: StructuredDataSearcher | None = None
 
 
-def _structured_data_searcher(context: AuthoringToolContext) -> Callable[..., dict[str, Any]]:
+def _structured_data_searcher(context: AuthoringToolContext) -> StructuredDataSearcher:
     return context.structured_data_searcher or query_project_structured_data
 
 
@@ -3691,9 +4095,7 @@ def authoring_ingest_writing_batch_sources(context: AuthoringToolContext) -> tup
             permission_source="CoreToolSpec.permission plus governed source-library frontdoor/task dispatch boundary",
             failure_family="CoreToolResult.status/error; task execution failures remain owned by ingest task/runtime",
             readback_semantics="deterministic submission artifact plus ingest.url_pool.status and task-event readback",
-            governed_dispatch_ref=(
-                "services.ingest.url_pool.ingest_url_via_source_library_frontdoor"
-            ),
+            governed_dispatch_ref=("services.ingest.url_pool.ingest_url_via_source_library_frontdoor"),
         ),
         _authoring_source(
             tool_spec=_ingest_url_pool_status_spec(),
@@ -3796,35 +4198,35 @@ def authoring_tool_sources(context: AuthoringToolContext) -> tuple[ProjectToolAu
 
 
 def _capability_metadata_projection(
-    capability: Mapping[str, Any],
+    capability: Mapping[str, object],
     *,
-    input_schema: dict[str, Any],
+    input_schema: JSONObject,
 ) -> CoreToolSpec:
     """Project only the authored workflow/report capability declarations."""
 
     capability_id = str(capability.get("capability_id") or "").strip()
     approval_level = str(capability.get("approval_level") or "none").strip()
     concurrency_class = str(capability.get("concurrency_class") or "read_only").strip()
-    risks = list(capability.get("risks") or [])
+    risks = normalize_string_list(capability.get("risks"))
     return CoreToolSpec(
         name=capability_id,
         title=str(capability.get("name") or capability_id),
         description_for_model=str(capability.get("description") or capability_id),
         input_schema=input_schema,
         source="legacy_adapter",
-        risk=_risk_from_metadata(
+        risk=risk_from_metadata(
             approval_level=approval_level,
             concurrency_class=concurrency_class,
             risks=risks,
         ),
-        permission=_permission_from_approval(approval_level),
-        concurrency=_concurrency_from_class(concurrency_class),
+        permission=permission_from_approval(approval_level),
+        concurrency=concurrency_from_class(concurrency_class),
         project_service_id=capability_id,
-        metadata={"legacy_capability": dict(capability)},
+        metadata={"legacy_capability": json_object(capability)},
     )
 
 
-def _workflow_graph_run_spec(capability: Mapping[str, Any]) -> CoreToolSpec:
+def _workflow_graph_run_spec(capability: Mapping[str, object]) -> CoreToolSpec:
     return _capability_metadata_projection(
         capability,
         input_schema={
@@ -3841,7 +4243,7 @@ def _workflow_graph_run_spec(capability: Mapping[str, Any]) -> CoreToolSpec:
     )
 
 
-def _report_generate_spec(capability: Mapping[str, Any]) -> CoreToolSpec:
+def _report_generate_spec(capability: Mapping[str, object]) -> CoreToolSpec:
     return _capability_metadata_projection(
         capability,
         input_schema={
@@ -3861,7 +4263,7 @@ def _report_generate_spec(capability: Mapping[str, Any]) -> CoreToolSpec:
 
 def authoring_capability_sources(
     service: AgentSessionService,
-    capabilities: list[dict[str, Any]] | tuple[dict[str, Any], ...],
+    capabilities: Sequence[Mapping[str, object]],
 ) -> tuple[ProjectToolAuthorSource, ...]:
     """Return workflow/report sources while preserving caller capability order."""
 
@@ -3869,25 +4271,27 @@ def authoring_capability_sources(
     for capability in capabilities:
         capability_id = str(capability.get("capability_id") or "").strip()
         if capability_id == "workflow_graph.run":
+
             def workflow_handler(
                 tool_call: CoreToolCall,
                 tool_spec: CoreToolSpec,
                 request: AgentCoreRequest,
                 emit: Callable[[CoreEvent], None],
             ) -> CoreToolResult:
-                return _workflow_graph_run_handler(
-                    service, tool_call, tool_spec, request, emit
-                )
+                return _workflow_graph_run_handler(service, tool_call, tool_spec, request, emit)
 
-            sources.append(_authoring_source(
-                tool_spec=_workflow_graph_run_spec(capability),
-                handler=workflow_handler,
-                scope_source="AgentCoreRequest.project_key and requested workflow graph_id",
-                permission_source="CoreToolSpec.permission plus workflow_graph.run skill dispatch boundary",
-                failure_family="CoreToolResult.status/error; workflow execution failures remain owned by workflow runtime",
-                readback_semantics="graph run identity/result projection; workflow runtime remains the completion authority",
-            ))
+            sources.append(
+                _authoring_source(
+                    tool_spec=_workflow_graph_run_spec(capability),
+                    handler=workflow_handler,
+                    scope_source="AgentCoreRequest.project_key and requested workflow graph_id",
+                    permission_source="CoreToolSpec.permission plus workflow_graph.run skill dispatch boundary",
+                    failure_family="CoreToolResult.status/error; workflow execution failures remain owned by workflow runtime",
+                    readback_semantics="graph run identity/result projection; workflow runtime remains the completion authority",
+                )
+            )
         elif capability_id == "report.generate":
+
             def report_handler(
                 tool_call: CoreToolCall,
                 tool_spec: CoreToolSpec,
@@ -3903,12 +4307,14 @@ def authoring_capability_sources(
                     emit,
                 )
 
-            sources.append(_authoring_source(
-                tool_spec=_report_generate_spec(capability),
-                handler=report_handler,
-                scope_source="AgentCoreRequest.project_key, requested topic, and output_path artifact name",
-                permission_source="CoreToolSpec.permission plus report generation and session artifact write boundary",
-                failure_family="CoreToolResult.status/error from report generation, quality gate, or artifact persistence",
-                readback_semantics="durable report markdown artifact with structured report and quality-gate readback",
-            ))
+            sources.append(
+                _authoring_source(
+                    tool_spec=_report_generate_spec(capability),
+                    handler=report_handler,
+                    scope_source="AgentCoreRequest.project_key, requested topic, and output_path artifact name",
+                    permission_source="CoreToolSpec.permission plus report generation and session artifact write boundary",
+                    failure_family="CoreToolResult.status/error from report generation, quality gate, or artifact persistence",
+                    readback_semantics="durable report markdown artifact with structured report and quality-gate readback",
+                )
+            )
     return tuple(sources)

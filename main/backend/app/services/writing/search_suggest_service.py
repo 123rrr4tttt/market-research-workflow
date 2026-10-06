@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from ...contracts.schemas.writing import SuggestItem, SuggestRequest, SuggestResponse
 from ..document_queries import query_source_library_material_rows
 from ..keyword_memory import list_keyword_history, normalize_keyword
@@ -38,14 +36,15 @@ def _keyword_items(query: str, limit: int) -> list[SuggestItem]:
     rows = list_keyword_history(limit=limit, q=query)
     items: list[SuggestItem] = []
     for row in rows[:limit]:
+        keyword = str(row.keyword)
         items.append(
             SuggestItem(
                 kind="keyword",
                 id=str(row.id),
-                label=row.keyword,
-                snippet=f"search_count={int(row.search_count or 0)} hit_count={int(row.hit_count or 0)}",
-                score=_score(row.keyword, query),
-                extra={"normalized_keyword": row.normalized_keyword},
+                label=keyword,
+                snippet=f"search_count={int(str(row.search_count or 0))} hit_count={int(str(row.hit_count or 0))}",
+                score=_score(keyword, query),
+                extra={"normalized_keyword": str(row.normalized_keyword)},
             )
         )
     return items
@@ -127,7 +126,7 @@ def suggest(payload: SuggestRequest) -> SuggestResponse:
         items = _template_items(query, payload.limit)
         sources = ["builtin_templates"]
     elif mode == "material":
-        items = _material_items(payload.project_key, query, payload.limit)
+        items = _material_items(payload.project_key, query, payload.limit) if payload.project_key is not None else []
         sources = ["source_library"]
     else:
         items = _command_items(query, payload.limit)

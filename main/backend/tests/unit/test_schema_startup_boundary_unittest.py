@@ -36,9 +36,17 @@ pytestmark = pytest.mark.unit
 class _RecordingConnection:
     def __init__(self) -> None:
         self.statements: list[str] = []
+        self.executions: list[tuple[str, object]] = []
+        self.table_catalog: set[tuple[str, str]] = set()
 
-    def execute(self, statement: object, _parameters: object = None) -> None:
-        self.statements.append(str(statement))
+    def execute(self, statement: object, parameters: object = None) -> _ScalarResult:
+        statement_text = str(statement)
+        self.statements.append(statement_text)
+        self.executions.append((statement_text, parameters))
+        if "information_schema.tables" in statement_text and isinstance(parameters, dict):
+            table_key = (str(parameters.get("schema_name")), str(parameters.get("table_name")))
+            return _ScalarResult(table_key in self.table_catalog)
+        return _ScalarResult(False)
 
     def begin_nested(self) -> _BeginContext:
         return _BeginContext(self)
@@ -53,6 +61,14 @@ class _BeginContext:
 
     def __exit__(self, *_args: object) -> None:
         return None
+
+
+class _ScalarResult:
+    def __init__(self, value: object) -> None:
+        self.value = value
+
+    def scalar(self) -> object:
+        return self.value
 
 
 class _RecordingEngine:
@@ -212,7 +228,7 @@ def test_workflow_graph_schema_ddl_uses_the_public_schema_process_lock(
         create_all.assert_called_once()
     else:
         create_all.assert_not_called()
-        assert "CREATE TABLE IF NOT EXISTS workflow_graph_compiled_artifacts" in (
+        assert "CREATE TABLE IF NOT EXISTS public.workflow_graph_compiled_artifacts" in (
             database_engine.connection.statements[-1]
         )
 
@@ -254,6 +270,7 @@ def test_project_schema_cli_preflight_is_one_serialized_transaction(
 
     database_engine = _RecordingEngine()
     database_engine.dialect = SimpleNamespace(name="postgresql")
+    database_engine.connection.table_catalog.add(("public", "documents"))
     created: list[tuple[object, bool]] = []
     table = SimpleNamespace(
         name="documents",
@@ -262,7 +279,7 @@ def test_project_schema_cli_preflight_is_one_serialized_transaction(
     )
     monkeypatch.setattr(bootstrap_module, "engine", database_engine)
     monkeypatch.setattr(bootstrap_module, "TENANT_TABLES", [table])
-    monkeypatch.setattr(bootstrap_module, "_normalize_project_key", lambda value: value)
+    monkeypatch.setattr(bootstrap_module, "normalize_project_key", lambda value: value)
     monkeypatch.setattr(
         bootstrap_module,
         "project_schema_name",
@@ -280,11 +297,30 @@ def test_project_schema_cli_preflight_is_one_serialized_transaction(
         'SET search_path TO "public"',
     ]
     assert "INSERT INTO public.projects" in database_engine.connection.statements[3]
-    assert database_engine.connection.statements[-2:] == [
+    assert database_engine.connection.statements[-3:] == [
         'CREATE SCHEMA IF NOT EXISTS "project_cli_demo"',
-        'SET search_path TO "project_cli_demo"',
+        'SET search_path TO "project_cli_demo", public',
+        "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+        "WHERE table_schema=:schema_name AND table_name=:table_name)",
     ]
-    assert created == [(database_engine.connection, True)]
+    assert database_engine.connection.executions[-1][1] == {
+        "schema_name": "project_cli_demo",
+        "table_name": "documents",
+    }
+    assert created == [(database_engine.connection, False)]
+
+
+def test_project_tenant_table_manifest_includes_mandatory_ingest_registry_once() -> None:
+    from app.models.ingest_registry import IngestSubmissionRegistry
+    from app.services.projects.bootstrap import TENANT_TABLES
+
+    registry_tables = [
+        table
+        for table in TENANT_TABLES
+        if table.name == "ingest_submission_registry"
+    ]
+
+    assert registry_tables == [IngestSubmissionRegistry.__table__]
 
 
 def test_database_cli_wrapper_runs_preflight_before_command(monkeypatch: pytest.MonkeyPatch) -> None:

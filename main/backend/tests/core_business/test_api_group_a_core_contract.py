@@ -98,7 +98,19 @@ class ApiGroupACoreContractTestCase(unittest.TestCase):
         )
 
     def test_search_success_envelope(self):
-        mocked_results = [{"id": "doc-1", "score": 0.91}]
+        mocked_results = [
+            {
+                "id": "doc-1",
+                "document_id": "doc-1",
+                "material_id": "doc-1",
+                "score": 0.91,
+                "source_type": "material",
+                "provenance": {
+                    "source_id": "source-1",
+                    "source_reference": "document:doc-1",
+                },
+            }
+        ]
 
         with patch("app.api.search.hybrid_search", return_value=mocked_results):
             response = self.client.get(
@@ -113,6 +125,23 @@ class ApiGroupACoreContractTestCase(unittest.TestCase):
         self.assertIsNone(body["error"])
         self.assertEqual(body["data"]["query"], "market")
         self.assertEqual(body["data"]["results"], mocked_results)
+        self.assertEqual(
+            body["data"]["document_query_contract_version"],
+            "document_queries.v2",
+        )
+        self.assertEqual(body["data"]["document_query"]["project_key"], "demo_proj")
+        self.assertEqual(body["data"]["document_query"]["sources"], ["material"])
+        typed_hit = body["data"]["document_query_results"][0]
+        self.assertEqual(typed_hit["material_id"], "doc-1")
+        self.assertEqual(typed_hit["source_type"], "material")
+        self.assertEqual(typed_hit["rank"], 1)
+        evidence_hit = body["data"]["evidence_hits"][0]
+        self.assertEqual(evidence_hit["material_id"], "doc-1")
+        self.assertEqual(evidence_hit["global_vector_object"]["material_id"], "doc-1")
+        self.assertEqual(
+            evidence_hit["global_vector_object"]["provenance"]["source_reference"],
+            "document:doc-1",
+        )
 
     def test_search_upstream_error_maps_to_standard_error_envelope(self):
         with patch("app.api.search.hybrid_search", side_effect=RuntimeError("Elasticsearch Connection refused")):

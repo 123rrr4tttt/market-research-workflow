@@ -11,10 +11,14 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from hashlib import sha256
 import json
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal, cast
 
 from functorial_kit import Failure, define_failure_family
 
+from app.services.agent_sessions.service import AgentSessionService
+from app.services.information_topology.modules.retrieval import DomainVocabulary
+from app.services.information_topology.service import InformationTopologyService
+from app.services.project_retrieval.contracts import RetrievalJsonObject
 from app.services.project_retrieval.execution import execute_retrieval_run
 from app.services.project_retrieval.proposals import (
     ProposalAttempt,
@@ -25,6 +29,7 @@ from app.services.project_retrieval.proposals import (
     ProposalOccurrence,
     ProposalQuery,
     ProposalSnapshot,
+    ProposalSaveObservation,
     RapidProposal,
     RapidProposalTopologyAdapter,
 )
@@ -44,10 +49,20 @@ def _text(value: Any) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
+def _mapping(value: object) -> Mapping[str, Any] | None:
+    return cast(Mapping[str, Any], value) if isinstance(value, Mapping) else None
+
+
+def _mapping_list(value: object) -> list[Mapping[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [cast(Mapping[str, Any], row) for row in cast(list[object], value) if isinstance(row, Mapping)]
+
+
 def build_round_proposal(
     *,
-    plan: Mapping[str, Any],
-    result: Mapping[str, Any],
+    plan: RetrievalJsonObject,
+    result: RetrievalJsonObject,
     proposal_id: str,
     proposal_version: str,
     facet_ref: str,
@@ -73,6 +88,8 @@ def build_round_proposal(
     it cannot be presented as a material snapshot. A miss or access failure can
     still produce a digest with an explicit gap and no invented body.
     """
+    plan_mapping = cast(Mapping[str, Any], plan)
+    result_mapping = cast(Mapping[str, Any], result)
     required = (
         proposal_id, proposal_version, facet_ref, facet_source_ref, digest_summary,
         coverage_boundary, failure_boundary, gap_description,
@@ -81,17 +98,16 @@ def build_round_proposal(
         return rapid_macro_failures.fail("ROUND_OBSERVATION_INVALID", "round identity and method judgments are required")
     if any(not _text(value) for value in (*classification_proposals, *analysis_positions)):
         return rapid_macro_failures.fail("ROUND_OBSERVATION_INVALID", "classification and position values must be nonempty")
-    session_id = _text(result.get("session_id"))
-    if not session_id or _text(result.get("plan_id")) != _text(plan.get("plan_id")):
+    session_id = _text(result_mapping.get("session_id"))
+    if not session_id or _text(result_mapping.get("plan_id")) != _text(plan_mapping.get("plan_id")):
         return rapid_macro_failures.fail("ROUND_OBSERVATION_INVALID", "executor session or plan identity is missing")
-    attempts_raw = result.get("attempts")
+    attempts_raw = result_mapping.get("attempts")
     if not isinstance(attempts_raw, list) or not attempts_raw:
         return rapid_macro_failures.fail("ROUND_OBSERVATION_INVALID", "an actual search attempt is required")
     plan_queries = {
         str(row.get("query_id") or row.get("id") or ""): row
-        for row in plan.get("queries") or [] if isinstance(row, Mapping)
+        for row in _mapping_list(plan_mapping.get("queries"))
     }
-    route_id = _text(plan.get("route_id"))
     queries: list[ProposalQuery] = []
     attempts: list[ProposalAttempt] = []
     snapshots: list[ProposalSnapshot] = []
@@ -102,18 +118,17 @@ def build_round_proposal(
     snapshot_ids: set[str] = set()
     candidate_rows = {
         str(row.get("candidate_id") or ""): row
-        for row in result.get("candidates") or [] if isinstance(row, Mapping)
+        for row in _mapping_list(result_mapping.get("candidates"))
     }
     materials_by_query: dict[str, list[Mapping[str, Any]]] = {}
-    for material in result.get("materials") or []:
-        if not isinstance(material, Mapping):
-            continue
+    for material in _mapping_list(result_mapping.get("materials")):
         candidate = candidate_rows.get(str(material.get("candidate_id") or ""))
         if candidate is not None:
             materials_by_query.setdefault(str(candidate.get("query_id") or ""), []).append(material)
-    for raw in attempts_raw:
-        if not isinstance(raw, Mapping):
+    for raw_value in cast(list[object], attempts_raw):
+        if not isinstance(raw_value, Mapping):
             return rapid_macro_failures.fail("ROUND_OBSERVATION_INVALID", "attempt row is invalid")
+        raw = cast(Mapping[str, Any], raw_value)
         query_id = _text(raw.get("query_id"))
         attempt_id = _text(raw.get("attempt_id"))
         expression = _text(raw.get("actual_query"))
@@ -135,8 +150,8 @@ def build_round_proposal(
         queries.append(ProposalQuery(query_id, facet_ref, expression))
         refs: list[str] = []
         for material in materials_by_query.get(query_id, []):
-            read = material.get("body_read")
-            if material.get("status") != "body_read" or not isinstance(read, Mapping) or read.get("status") != "read":
+            read = _mapping(material.get("body_read"))
+            if material.get("status") != "body_read" or read is None or read.get("status") != "read":
                 continue
             document_id = read.get("document_id")
             body_digest = _text(read.get("body_digest"))
@@ -159,9 +174,10 @@ def build_round_proposal(
                 f"occurrence:{_identity((attempt_id, candidate_id, snapshot_ref))}",
                 facet_ref, query_id, attempt_id, snapshot_ref, candidate_id,
             ))
+        normalized_outcome = cast(Literal["hit", "miss", "access_failed"], outcome)
         attempts.append(ProposalAttempt(
             attempt_id, query_id,
-            outcome if outcome != "hit" or refs else "unknown",
+            normalized_outcome if normalized_outcome != "hit" or refs else "unknown",
             tuple(refs),
         ))
     if len({item.attempt_id for item in attempts}) != len(attempts):
@@ -198,22 +214,23 @@ def build_round_proposal(
 
 
 def save_round_proposal(
-    *, adapter: RapidProposalTopologyAdapter, project_key: str, proposal: RapidProposal, vocabulary: Any,
-) -> Any:
+    *, adapter: RapidProposalTopologyAdapter, project_key: str, proposal: RapidProposal, vocabulary: DomainVocabulary,
+) -> ProposalSaveObservation:
     """Use the existing writer; only persisted plus verified readback closes delivery."""
     return adapter.save(project_key, proposal, vocabulary)
 
 
 def continuation_plan_from_saved_frontier(
     *, adapter: RapidProposalTopologyAdapter, project_key: str, proposal_id: str,
-    proposal_version: str, frontier_id: str, base_plan: Mapping[str, Any],
+    proposal_version: str, frontier_id: str, base_plan: RetrievalJsonObject,
     remaining_followup_budget: int,
-) -> dict[str, Any] | Failure:
+) -> RetrievalJsonObject | Failure:
     """Turn one saved frontier into a single query for the original executor.
 
     ``remaining_followup_budget`` is the caller's explicit continuation budget.
     The base plan's ``max_queries`` only limits searches inside one executor run.
     """
+    base_plan_mapping = cast(Mapping[str, Any], base_plan)
     if type(remaining_followup_budget) is not int or remaining_followup_budget <= 0:
         return rapid_macro_failures.fail("CONTINUATION_BUDGET_EXHAUSTED", "no authorized continuation remains")
     saved = adapter.read(project_key, proposal_id, proposal_version)
@@ -231,17 +248,19 @@ def continuation_plan_from_saved_frontier(
     target_edge = frontier.target_edge
     if (not outline_section or not target_edge) and frontier.reason:
         try:
-            reason_payload = json.loads(frontier.reason)
+            reason_payload: object = json.loads(frontier.reason)
         except (TypeError, ValueError):
-            reason_payload = {}
-        if isinstance(reason_payload, Mapping):
-            outline_section = outline_section or _text(reason_payload.get("outline_section"))
-            target_edge = target_edge or _text(reason_payload.get("target_edge"))
+            reason_payload = cast(object, {})
+        reason_mapping = _mapping(reason_payload)
+        if reason_mapping is not None:
+            outline_section = outline_section or _text(reason_mapping.get("outline_section"))
+            target_edge = target_edge or _text(reason_mapping.get("target_edge"))
     if not all((parent_digest_id, gap_id, outline_section, target_edge, frontier.proposed_query, frontier.reason)):
         return rapid_macro_failures.fail("CONTINUATION_INVALID", "saved frontier has no complete continuation basis")
-    route_id = _text(base_plan.get("route_id"))
-    routes = (base_plan.get("binding_snapshot") or {}).get("routes") or []
-    route = next((row for row in routes if isinstance(row, Mapping) and row.get("route_id") == route_id), None)
+    route_id = _text(base_plan_mapping.get("route_id"))
+    binding_snapshot = _mapping(base_plan_mapping.get("binding_snapshot"))
+    routes = _mapping_list(binding_snapshot.get("routes") if binding_snapshot is not None else None)
+    route = next((row for row in routes if row.get("route_id") == route_id), None)
     if not route_id or route is None:
         return rapid_macro_failures.fail("CONTINUATION_INVALID", "base plan has no matching route snapshot")
     if (
@@ -249,7 +268,7 @@ def continuation_plan_from_saved_frontier(
         or target_edge not in (route.get("target_edges") or [])
     ):
         return rapid_macro_failures.fail("CONTINUATION_INVALID", "frontier is outside the bound route")
-    previous = [row for row in base_plan.get("queries") or [] if isinstance(row, Mapping)]
+    previous = _mapping_list(base_plan_mapping.get("queries"))
     # The frozen base plan may already contain the next query as an unexecuted
     # route seed (the normal preview path does exactly that).  It is only a
     # duplicate continuation when the expression was actually persisted in the
@@ -268,7 +287,7 @@ def continuation_plan_from_saved_frontier(
         "outline_sections": [outline_section],
         "target_edge": target_edge,
     })
-    limits = dict(base_plan.get("limits") or {})
+    limits = dict(_mapping(base_plan_mapping.get("limits")) or {})
     if type(limits.get("max_materials")) is not int or limits["max_materials"] < 1:
         return rapid_macro_failures.fail("CONTINUATION_INVALID", "base plan material budget is invalid")
     limits.update({"max_queries": 1, "max_followups": 0})
@@ -282,30 +301,30 @@ def continuation_plan_from_saved_frontier(
         "reason": frontier.reason,
         "remaining_followup_budget": remaining_followup_budget - 1,
     }
-    plan = dict(base_plan)
-    topology_ref = base_plan.get("topology_ref")
+    plan = dict(base_plan_mapping)
+    topology_ref = base_plan_mapping.get("topology_ref")
     if isinstance(topology_ref, Mapping):
         plan["topology_ref"] = {
             **topology_ref,
             "state_id": f"retrieval-run:{query_id}",
         }
     plan.update({
-        "plan_id": f"rapid-continuation:{_identity((base_plan.get('plan_id'), continuation, query_id))}",
+        "plan_id": f"rapid-continuation:{_identity((base_plan_mapping.get('plan_id'), continuation, query_id))}",
         "query_ids": [query_id],
         "queries": [basis],
         "limits": limits,
         "rapid_continuation": continuation,
     })
-    return plan
+    return cast(RetrievalJsonObject, plan)
 
 
 def execute_saved_frontier(
     *, adapter: RapidProposalTopologyAdapter, project_key: str, proposal_id: str,
-    proposal_version: str, frontier_id: str, base_plan: Mapping[str, Any],
-    remaining_followup_budget: int, topology_service: Any,
-    session_factory: Callable[[], Any],
-    emit: Callable[[str, Mapping[str, Any]], None] | None = None,
-) -> dict[str, Any] | Failure:
+    proposal_version: str, frontier_id: str, base_plan: RetrievalJsonObject,
+    remaining_followup_budget: int, topology_service: InformationTopologyService,
+    session_factory: Callable[[], AgentSessionService],
+    emit: Callable[[str, RetrievalJsonObject], None] | None = None,
+) -> RetrievalJsonObject | Failure:
     """Dispatch the saved next query through the existing executor, preserving its receipts."""
     plan = continuation_plan_from_saved_frontier(
         adapter=adapter, project_key=project_key, proposal_id=proposal_id,
@@ -318,7 +337,7 @@ def execute_saved_frontier(
         project_key=project_key, plan=plan, topology_service=topology_service,
         session_factory=session_factory, emit=emit,
     )
-    return {"plan": plan, "result": result, "continuation": plan["rapid_continuation"]}
+    return cast(RetrievalJsonObject, {"plan": plan, "result": result, "continuation": plan["rapid_continuation"]})
 
 
 __all__ = [

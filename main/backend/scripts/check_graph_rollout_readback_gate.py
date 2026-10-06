@@ -181,46 +181,57 @@ def _projection_readback_failures(
 def _force3d_rollback_checks(frontend_root: Path = FRONTEND_ROOT) -> dict[str, bool]:
     graph_page = _read_file(frontend_root / "src" / "pages" / "GraphPage.tsx")
     mode_switch = _read_file(frontend_root / "src" / "pages" / "graph" / "hooks" / "useGraphModeSwitch.ts")
+    force_loader = _read_file(frontend_root / "src" / "pages" / "graph" / "hooks" / "useForceGraph3DLoader.ts")
     e2e = _read_file(frontend_root / "tests" / "e2e" / "graphpage.spec.ts")
     runtime_gate = _read_file(frontend_root / "tests" / "e2e" / "graph-runtime-pixel-gate.spec.ts")
     return {
-        "force3d_load_and_render_fallback_to_legacy": _contains_all(
+        "force3d_failure_boundary_exposes_retry": _contains_all(
             graph_page,
             (
                 "handleForceGraphRenderError",
-                "requestProjectionEngineChange('legacy')",
-                "3D引擎渲染失败，已自动降级到 legacy-projection",
-                "3D引擎加载失败，已自动降级到 legacy-projection",
+                "ForceGraphRenderBoundary",
+                "retryForceGraph3D()",
+                "forceGraphLoadError || forceGraphRenderError",
+            ),
+        )
+        and _contains_all(
+            force_loader,
+            (
+                "export function useForceGraph3DLoader",
+                "forceGraph3DPromise = null",
+                "setRetryNonce",
+                "return { component, error, retry }",
             ),
         ),
-        "force3d_manual_engine_switch_available": _contains_all(
+        "force3d_manual_2d_3d_switch_available": _contains_all(
             graph_page,
             (
-                '<option value="legacy">legacy-projection</option>',
-                '<option value="force3d">react-force-graph-3d</option>',
+                "useGraphModeSwitch()",
+                "requestRenderModeChange(renderMode === '2d' ? 'projection3d' : '2d')",
             ),
         )
         and _contains_all(
             mode_switch,
             (
-                "export type ProjectionEngine = 'legacy' | 'force3d'",
-                "requestProjectionEngineChange",
-                "window.clearTimeout(projectionEngineSwitchTimerRef.current)",
+                "import type { RenderMode } from '../renderers/types'",
+                "export function useGraphModeSwitch",
+                "requestRenderModeChange",
+                "graphWorkspaceRenderMode = next",
             ),
         ),
-        "force3d_switch_readback_covered_by_mocked_e2e": _contains_all(
+        "force3d_mode_switch_readback_covered_by_mocked_e2e": _contains_all(
             e2e,
             (
-                "graph page survives rapid 3D engine switch with viewport evidence or fallback",
-                "selectOption('legacy')",
-                "selectOption('force3d')",
-                "已自动降级到 legacy-projection",
+                "graph page can switch 2D/3D mode and interact with key slider",
+                "graph page preserves the final rapid 2D/3D selection and restores its viewport",
+                "graph-force3d-canvas-host",
             ),
         ),
-        "runtime_pixel_gate_has_fallback_data_framing": _contains_all(
+        "runtime_pixel_gate_has_backend_data_framing": _contains_all(
             runtime_gate,
             (
-                "fallback-data-framing",
+                "nonblank-pixels",
+                "hits.marketGraphHit",
                 "tenantDbRequired: false",
                 "externalGpuRequired: false",
             ),
@@ -258,18 +269,18 @@ def _rollback_ready_trace(
         {
             "name": "force3d_load_or_render_failure",
             "trigger": "react-force-graph-3d load or render boundary fails",
-            "rollback_action": "switch projection engine to legacy-projection and keep GraphPage usable",
-            "readback_anchor": "force3d_load_and_render_fallback_to_legacy",
-            "ready": bool(force3d_rollback_checks.get("force3d_load_and_render_fallback_to_legacy")),
+            "rollback_action": "isolate the failed 3D surface, expose retry, and retain the 2D mode switch",
+            "readback_anchor": "force3d_failure_boundary_exposes_retry",
+            "ready": bool(force3d_rollback_checks.get("force3d_failure_boundary_exposes_retry")),
         },
         {
             "name": "force3d_manual_switch_or_mocked_readback",
-            "trigger": "operator or mocked gate needs to compare force3d and legacy framing",
-            "rollback_action": "keep legacy/force3d selector and mocked fallback-data-framing evidence available",
-            "readback_anchor": "force3d_manual_engine_switch_available+runtime_pixel_gate_has_fallback_data_framing",
-            "ready": bool(force3d_rollback_checks.get("force3d_manual_engine_switch_available"))
-            and bool(force3d_rollback_checks.get("force3d_switch_readback_covered_by_mocked_e2e"))
-            and bool(force3d_rollback_checks.get("runtime_pixel_gate_has_fallback_data_framing")),
+            "trigger": "operator or mocked gate needs to compare the 2D and force3d projections",
+            "rollback_action": "retain the 2D/3D switch and backend-data pixel/readback evidence",
+            "readback_anchor": "force3d_manual_2d_3d_switch_available+runtime_pixel_gate_has_backend_data_framing",
+            "ready": bool(force3d_rollback_checks.get("force3d_manual_2d_3d_switch_available"))
+            and bool(force3d_rollback_checks.get("force3d_mode_switch_readback_covered_by_mocked_e2e"))
+            and bool(force3d_rollback_checks.get("runtime_pixel_gate_has_backend_data_framing")),
         },
     ]
     failures = [step["readback_anchor"] for step in steps if not step["ready"]]

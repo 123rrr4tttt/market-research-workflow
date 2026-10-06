@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import TypeGuard
+
+from functorial_kit import Failure
 
 from ...llm.config_loader import get_llm_config
 from ...llm.platformization import (
@@ -23,6 +26,38 @@ from .kernel import (
     node_success,
 )
 from ..contracts import WorkflowGraphCompileError, raise_workflow_graph_legacy, workflow_graph_failure
+from ..schema import try_parse_workflow_json_object
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _mapping_value(value: object, key: str) -> object:
+    if not _is_object_mapping(value):
+        return None
+    for raw_key, raw_value in value.items():
+        if raw_key == key:
+            return raw_value
+    return None
+
+
+def _json_object(value: object, *, field: str) -> WorkflowJsonObject:
+    parsed = try_parse_workflow_json_object(value, field=field)
+    if isinstance(parsed, Failure):
+        message = f"{field} must be a JSON object"
+        raise_workflow_graph_legacy(
+            workflow_graph_failure(
+                "contract_invalid",
+                message,
+                owner="workflow_graph.executors.llm_call",
+                public_exception=WorkflowGraphCompileError,
+                public_message=message,
+                field=field,
+                index=-1,
+            )
+        )
+    return parsed
 
 
 def _invoke_llm(
@@ -32,16 +67,18 @@ def _invoke_llm(
     temperature: float = 0.0,
     max_tokens: int | None = None,
     top_p: float | None = None,
-    extra: dict[str, Any] | None = None,
+    extra: WorkflowJsonObject | None = None,
 ) -> str:
-    from app.services.llm.provider import get_chat_model
+    from app.services.llm.ports import ChatModelOptions, resolve_llm_provider
 
-    chat = get_chat_model(
-        model=model,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        top_p=top_p,
-        **(extra or {}),
+    chat = resolve_llm_provider(settings.llm_provider or "").get_chat_model(
+        ChatModelOptions(
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            extra=dict(extra or {}),
+        )
     )
     resp = chat.invoke(prompt)
     if isinstance(resp, str):
@@ -49,25 +86,25 @@ def _invoke_llm(
     content = getattr(resp, "content", None)
     if content is not None:
         return str(content)
-    if isinstance(resp, dict) and "content" in resp:
-        return str(resp["content"])
+    mapping_content = _mapping_value(resp, "content")
+    if mapping_content is not None:
+        return str(mapping_content)
     return str(resp)
 
 
-def invoke_workflow_llm_call_skill(payload: Mapping[str, Any]) -> dict[str, Any]:
-    if not isinstance(payload, Mapping):
-        raise_workflow_graph_legacy(workflow_graph_failure("contract_invalid", "workflow.llm_call payload must be a mapping", owner="workflow_graph.executors.llm_call", public_exception=WorkflowGraphCompileError, public_message="workflow.llm_call payload must be a mapping", field="payload", index=-1))
-    prompt = str(payload.get("prompt") or "").strip()
+def invoke_workflow_llm_call_skill(payload: object) -> WorkflowJsonObject:
+    normalized_payload = _json_object(payload, field="workflow.llm_call.payload")
+    prompt = str(normalized_payload.get("prompt") or "").strip()
     if not prompt:
         raise_workflow_graph_legacy(workflow_graph_failure("contract_invalid", "prompt is required", owner="workflow_graph.executors.llm_call", public_exception=WorkflowGraphCompileError, public_message="prompt is required", field="prompt", index=-1))
 
     text = _invoke_llm(
         prompt,
-        model=_as_str_or_none(payload.get("model")),
-        temperature=_to_float(payload.get("temperature"), default=0.0),
-        max_tokens=_to_int_or_none(payload.get("max_tokens")),
-        top_p=_to_float_or_none(payload.get("top_p")),
-        extra=dict(payload.get("extra") or {}),
+        model=_as_str_or_none(normalized_payload.get("model")),
+        temperature=_to_float(normalized_payload.get("temperature"), default=0.0),
+        max_tokens=_to_int_or_none(normalized_payload.get("max_tokens")),
+        top_p=_to_float_or_none(normalized_payload.get("top_p")),
+        extra=_json_object(normalized_payload.get("extra") or {}, field="workflow.llm_call.extra"),
     )
     return {"text": text}
 
@@ -79,7 +116,7 @@ def _invoke_llm_via_skill(
     temperature: float,
     max_tokens: int | None,
     top_p: float | None,
-    extra: dict[str, Any],
+    extra: WorkflowJsonObject,
     trace_id: str | None,
 ) -> str:
     from app.services.skill_runtime import invoke_skill
@@ -101,11 +138,10 @@ def _invoke_llm_via_skill(
             "consumer": "workflow_graph.llm_call.executor",
         },
     )
-    result = invoked.get("result")
-    if isinstance(result, Mapping):
-        text = result.get("text")
-        if text is not None:
-            return str(text)
+    result = _mapping_value(invoked, "result")
+    text = _mapping_value(result, "text")
+    if text is not None:
+        return str(text)
     return str(result)
 
 
@@ -156,7 +192,7 @@ def run_llm_call_kernel(context: NodeExecutionContext) -> NodeEffectResult:
     max_tokens = _to_int_or_none(invoke_opts.get("max_tokens"))
     top_p = _to_float_or_none(invoke_opts.get("top_p"))
     provider = routing.provider
-    failure_code: str
+    failure_code = "LLM_CALL_DEGRADED"
     cause_type: str | None = None
     cause_message: str | None = None
     if not agent_boundary.allowed:
@@ -267,7 +303,7 @@ def run_llm_call_kernel(context: NodeExecutionContext) -> NodeEffectResult:
     return node_success(context, payload)
 
 
-def _build_prompt(*, params: dict[str, Any], context: NodeExecutionContext) -> str:
+def _build_prompt(*, params: WorkflowJsonObject, context: NodeExecutionContext) -> str:
     template = str(params.get("prompt_template") or "").strip()
     if template:
         scope = _build_prompt_scope(context=context, params=params)
@@ -290,7 +326,7 @@ def _build_prompt(*, params: dict[str, Any], context: NodeExecutionContext) -> s
 
 def _assert_prompt_template_inputs(
     *,
-    params: dict[str, Any],
+    params: WorkflowJsonObject,
     context: NodeExecutionContext,
 ) -> NodeEffectResult | None:
     template = str(params.get("prompt_template") or "").strip()
@@ -308,7 +344,7 @@ def _assert_prompt_template_inputs(
             details={
                 "field": "prompt_template",
                 "index": -1,
-                "missing": sorted(missing),
+                "missing": [name for name in sorted(missing)],
             },
         )
     return None
@@ -319,7 +355,7 @@ def _extract_template_variables(template: str) -> set[str]:
     return {name for name in names if name not in {"run_id", "node_id", "prompt_class", "upstream"}}
 
 
-def _normalize_provider_params(params: dict[str, Any]) -> dict[str, Any]:
+def _normalize_provider_params(params: WorkflowJsonObject) -> WorkflowJsonObject:
     provider = str(params.get("provider") or "").strip().lower()
     normalized = dict(params)
     if provider in {"ollama", "local"}:
@@ -329,8 +365,8 @@ def _normalize_provider_params(params: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def _build_prompt_scope(*, context: NodeExecutionContext, params: dict[str, Any]) -> dict[str, Any]:
-    scope: dict[str, Any] = {}
+def _build_prompt_scope(*, context: NodeExecutionContext, params: WorkflowJsonObject) -> WorkflowJsonObject:
+    scope: WorkflowJsonObject = {}
     scope.update(context.inputs)
     scope["node_id"] = context.node_id
     scope["run_id"] = context.correlation_id
@@ -341,7 +377,7 @@ def _build_prompt_scope(*, context: NodeExecutionContext, params: dict[str, Any]
     return scope
 
 
-def _collect_requested_permissions(*, params: dict[str, Any], context: NodeExecutionContext) -> list[str]:
+def _collect_requested_permissions(*, params: WorkflowJsonObject, context: NodeExecutionContext) -> list[str]:
     requested: list[str] = ["llm.invoke", "project.read"]
     if params.get("provider") or params.get("model"):
         requested.append("provider.route_override")
@@ -354,7 +390,7 @@ def _collect_requested_permissions(*, params: dict[str, Any], context: NodeExecu
     return requested
 
 
-def _safe_format(template: str, scope: dict[str, Any]) -> str:
+def _safe_format(template: str, scope: WorkflowJsonObject) -> str:
     try:
         return template.format(**scope)
     except Exception:
@@ -370,32 +406,38 @@ def _fallback_text(prompt: str, context: NodeExecutionContext) -> str:
     )
 
 
-def _as_str_or_none(value: Any) -> str | None:
+def _as_str_or_none(value: object) -> str | None:
     text = str(value or "").strip()
     return text or None
 
 
-def _to_float(value: Any, *, default: float) -> float:
+def _to_float(value: object, *, default: float) -> float:
+    if not isinstance(value, str | int | float):
+        return default
     try:
         return float(value)
-    except Exception:  # noqa: BLE001
+    except (TypeError, ValueError):
         return default
 
 
-def _to_float_or_none(value: Any) -> float | None:
+def _to_float_or_none(value: object) -> float | None:
     if value is None or str(value).strip() == "":
+        return None
+    if not isinstance(value, str | int | float):
         return None
     try:
         return float(value)
-    except Exception:  # noqa: BLE001
+    except (TypeError, ValueError):
         return None
 
 
 
-def _to_int_or_none(value: Any) -> int | None:
+def _to_int_or_none(value: object) -> int | None:
     if value is None or str(value).strip() == "":
+        return None
+    if not isinstance(value, str | int | float):
         return None
     try:
         return int(value)
-    except Exception:  # noqa: BLE001
+    except (TypeError, ValueError, OverflowError):
         return None

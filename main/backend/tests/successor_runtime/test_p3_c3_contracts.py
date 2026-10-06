@@ -13,6 +13,10 @@ from app.successor_runtime.capabilities import acquisition_batch_program as cp
 from app.successor_runtime.language.algebra import ValueRef, freeze_json_object
 from app.successor_runtime.language.checksum import sha256_hex
 from app.successor_runtime.language.combinators import default_registries
+from app.successor_runtime.language.catalog import (
+    OperationContractCatalogSnapshot,
+    OperationContractRegistry,
+)
 from app.successor_runtime.language.plan import traversal_shape_digest
 from app.successor_runtime.language.program import (
     ProgramSpec,
@@ -44,11 +48,11 @@ def _bundle() -> acquisition.AcquisitionBatchCapabilityBundle:
     return acquisition.build_acquisition_batch_bundle()
 
 
-def _catalog() -> Any:
+def _catalog() -> OperationContractCatalogSnapshot:
     return acquisition.build_acquisition_batch_catalog(_bundle())
 
 
-def _registry() -> Any:
+def _registry() -> OperationContractRegistry:
     return acquisition.build_acquisition_batch_registry(_bundle())
 
 
@@ -98,7 +102,7 @@ def _plan(
     *,
     plan_id: str = "c3.contracts.plan",
     static_elements: tuple[acquisition.CollectBatchElement, ...] | None = None,
-    traversal_policy: str = "MATERIALIZED_SHAPE",
+    traversal_policy: acquisition.TraversalPolicy = "MATERIALIZED_SHAPE",
     options: dict[str, Any] | None = None,
     terms: tuple[str, ...] = ("t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"),
     limit: int | None = 80,
@@ -207,11 +211,14 @@ def test_payload_codecs_round_trip_c3_1_and_c3_2() -> None:
     bundle = _bundle()
     plan = _plan()
     payload = _element_payload(plan)
-    decoded = bundle.batch_element_payload_codec().decode_payload(
-        bundle.batch_element_payload_codec().encode_payload(payload)
+    decoded = acquisition.try_decode_acquisition_payload(
+        bundle.batch_element_payload_codec(),
+        bundle.batch_element_payload_codec().encode_payload(payload),
     )
+    assert isinstance(decoded, acquisition.CollectBatchElementPayload)
     assert decoded.payload_digest == payload.payload_digest
     assert decoded.element.element_digest == payload.element.element_digest
+    assert decoded.parent_request_ref.project_key == _scope().project_key
 
     outcome = acquisition.CollectElementSucceeded(
         schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
@@ -232,10 +239,47 @@ def test_payload_codecs_round_trip_c3_1_and_c3_2() -> None:
         parent_request_ref=_request_ref(),
         ordered_outcomes=seq,
     )
-    decoded_fold = bundle.ordered_result_fold_payload_codec().decode_payload(
-        bundle.ordered_result_fold_payload_codec().encode_payload(fold_payload)
+    decoded_fold = acquisition.try_decode_acquisition_payload(
+        bundle.ordered_result_fold_payload_codec(),
+        bundle.ordered_result_fold_payload_codec().encode_payload(fold_payload),
     )
+    assert isinstance(decoded_fold, acquisition.CollectFoldPayload)
     assert decoded_fold.payload_digest == fold_payload.payload_digest
+
+
+def test_element_outcome_constructors_reject_malformed_typed_fields() -> None:
+    malformed_error = object.__new__(acquisition.CollectElementError)
+    object.__setattr__(malformed_error, "code", "auto_batch_execution_failed")
+    object.__setattr__(malformed_error, "message", "fixture failure")
+    object.__setattr__(malformed_error, "query_terms", ("term",))
+    object.__setattr__(malformed_error, "exception_type", 7)
+    object.__setattr__(malformed_error, "error_digest", "")
+    with pytest.raises(ValueError, match="exception_type must be a string or None"):
+        malformed_error.__post_init__()
+
+    succeeded = acquisition.CollectElementSucceeded(
+        schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+        element_id="element:malformed-succeeded",
+        input_index=0,
+        legacy_observation_ref="legacy:" + "a" * 64,
+    )
+    object.__setattr__(succeeded, "receipt", object())
+    with pytest.raises(ValueError, match="receipt must be CollectAttemptReceipt or None"):
+        succeeded.__post_init__()
+
+    failed = acquisition.CollectElementFailed(
+        schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+        element_id="element:malformed-failed",
+        input_index=0,
+        error=acquisition.CollectElementError(
+            code="auto_batch_execution_failed",
+            message="fixture failure",
+        ),
+        legacy_observation_ref="legacy:" + "b" * 64,
+    )
+    object.__setattr__(failed, "receipt", object())
+    with pytest.raises(ValueError, match="receipt must be CollectAttemptReceipt or None"):
+        failed.__post_init__()
 
 
 def test_historical_c3_payload_bytes_have_explicit_decoder_only() -> None:
@@ -444,6 +488,7 @@ def test_pure_fold_program_realizes_as_registered_transform() -> None:
         transform_registry=cp.build_acquisition_batch_transform_registry(),
     )
     assert [step.step_kind for step in plan.ordered_steps] == ["TRANSFORM"]
+    assert plan.ordered_steps[0].transform_ref is not None
     assert plan.ordered_steps[0].transform_ref.name == cp.COLLECT_FOLD_TRANSFORM_NAME
     assert plan.ordered_steps[0].effect_profile_ref == "PURE_TRANSFORM"
     assert plan.output_type.type_id == acquisition.COLLECT_FOLD_RESULT_TYPE.type_id
@@ -481,6 +526,7 @@ def test_composed_program_binds_traverse_epoch_and_fold_contract() -> None:
         for step in compiled.ordered_steps
         if step.step_kind == "EFFECT" and step.operation_contract_ref is not None
     )
+    assert effect.operation_contract_ref is not None
     assert effect.operation_contract_ref.kind == acquisition.COLLECT_FOLD_ORDERED_RESULTS_KIND
     assert compiled.output_type.type_id == acquisition.COLLECT_FOLD_RESULT_TYPE.type_id
     assert compiled.input_type.type_id.startswith("sequence:")
@@ -527,7 +573,7 @@ def test_materialized_traversal_compiles_with_occurrence_binding() -> None:
         plan=compiled_plan,
         catalog=_catalog(),
     )
-    assert len(str(binding["traversal_binding_digest"])) == 64
+    assert len(binding.traversal_binding_digest) == 64
 
 
 def _compiled_traversal_plan(declared: Any) -> Any:
@@ -607,7 +653,7 @@ def test_static_traversal_with_exact_shape_metadata_compiles() -> None:
         plan=_compiled_traversal_plan(declared),
         catalog=_catalog(),
     )
-    assert binding["traversal_element_count"] == len(plan.elements)
+    assert binding.traversal_element_count == len(plan.elements)
 
     sequence_bytes = canonical_bytes(list(element_payloads))
     sequence_ref = ValueRef(
@@ -641,7 +687,9 @@ def test_deployment_catalog_digest_is_distinct_from_operation_catalog() -> None:
     deployment = acquisition.deployment_catalog_digest()
     assert len(deployment) == 64
     assert deployment != catalog.catalog_digest
-    assert catalog.lookup(acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND).contract_digest != deployment
+    operation = catalog.lookup(acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND)
+    assert operation is not None
+    assert operation.contract_digest != deployment
 
 
 def test_collect_runtime_mode_is_fail_closed() -> None:

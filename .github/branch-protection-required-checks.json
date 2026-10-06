@@ -2,6 +2,7 @@
   "branch": "main",
   "required_checks": [
     "formal-release-check",
+    "backend-typecheck-check",
     "backend-unit-check",
     "backend-integration-check",
     "frontend-lint-check",
@@ -18,6 +19,10 @@
   "required_check_contracts": {
     "formal-release": {
       "required_check": "formal-release-check",
+      "source": ".github/workflows/backend-tests.yml"
+    },
+    "backend-typecheck": {
+      "required_check": "backend-typecheck-check",
       "source": ".github/workflows/backend-tests.yml"
     },
     "backend-unit": {
@@ -82,7 +87,8 @@
     "docker-config-check": ".github/workflows/backend-tests.yml",
     "evidence-validation-check": ".github/workflows/backend-tests.yml",
     "artifact-metadata-check": ".github/workflows/backend-tests.yml",
-    "image-vulnerability-scan-check": ".github/workflows/backend-tests.yml"
+    "image-vulnerability-scan-check": ".github/workflows/backend-tests.yml",
+    "backend-typecheck-check": ".github/workflows/backend-tests.yml"
   },
   "default_pr_evidence": {
     "template": ".github/PULL_REQUEST_TEMPLATE.md",

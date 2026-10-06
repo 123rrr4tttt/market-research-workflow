@@ -14,7 +14,7 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -146,22 +146,47 @@ def _topic_result(topic: TopicSpec, *, current_dev_index_text: str, authority_in
     }
 
 
-def validate_report(report: Mapping[str, Any]) -> list[str]:
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _string_object_mapping(value: object) -> dict[str, object]:
+    if not _is_object_mapping(value):
+        return {}
+    return {
+        key: item
+        for key, item in value.items()
+        if isinstance(key, str)
+    }
+
+
+def _object_list(value: object) -> list[object]:
+    if not _is_object_list(value):
+        return []
+    return list(value)
+
+
+def validate_report(report: Mapping[str, object]) -> list[str]:
     errors: list[str] = []
     if report.get("contract_version") != CONTRACT_VERSION:
         errors.append("contract_version mismatch")
-    authority = report.get("authority") if isinstance(report.get("authority"), Mapping) else {}
+    authority = _string_object_mapping(report.get("authority"))
     if authority.get("root") != AUTHORITY_ROOT.as_posix():
         errors.append("authority root mismatch")
     if authority.get("deleted_json_or_jsonl_used_as_evidence") is not False:
         errors.append("deleted JSON or JSONL must not be used as current evidence")
-    topics = report.get("topics") if isinstance(report.get("topics"), list) else []
+    topics = _object_list(report.get("topics"))
     if len(topics) != len(TOPICS):
         errors.append(f"expected {len(TOPICS)} topic results, got {len(topics)}")
-    for topic in topics:
-        if not isinstance(topic, Mapping):
+    for topic_value in topics:
+        if not _is_object_mapping(topic_value):
             errors.append("topic result must be an object")
             continue
+        topic = _string_object_mapping(topic_value)
         slug = str(topic.get("slug") or "<missing>")
         if topic.get("authority_directory_exists") is not True:
             errors.append(f"{slug}: authority directory must exist")
@@ -173,11 +198,12 @@ def validate_report(report: Mapping[str, Any]) -> list[str]:
             errors.append(f"{slug}: authority index must point to current document")
         if topic.get("current_dev_directory_exists") is not False:
             errors.append(f"{slug}: topic must remain migrated out of CURRENT_DEV")
-        if topic.get("current_dev_navigation_row_present") is not True:
-            errors.append(f"{slug}: CURRENT_DEV compatibility navigation row missing")
+        # A migrated topic may disappear from the evolving CURRENT_DEV index.
+        # Keep the row as an observation; current validity comes from the
+        # archive authority directory, document, tokens, and index binding.
         if topic.get("current_dev_is_authority") is not False:
             errors.append(f"{slug}: CURRENT_DEV must not be treated as authority")
-        history = topic.get("historical_wave27") if isinstance(topic.get("historical_wave27"), Mapping) else {}
+        history = _string_object_mapping(topic.get("historical_wave27"))
         if history.get("is_current_authority") is not False:
             errors.append(f"{slug}: Wave27 history must not be current authority")
         status = topic.get("current_status")

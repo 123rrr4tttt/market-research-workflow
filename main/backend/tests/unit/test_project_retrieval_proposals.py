@@ -88,6 +88,7 @@ class FakeTopologyService:
     def __init__(self) -> None:
         self.states: dict[tuple[str, str, str, str], dict] = {}
         self.raise_on_write = False
+        self.malformed_write_result = False
 
     def read_topology(self, project_key, target, filters):
         key = (project_key, target["module_id"], target["namespace"], target["state_id"])
@@ -116,6 +117,8 @@ class FakeTopologyService:
         topology = dict(patch["initial_state"])
         digest = _wire_digest(topology)
         self.states[key] = {"topology": topology, "revision": 1, "digest": digest}
+        if self.malformed_write_result:
+            return {"state_revisions": [{"target": dict(target), "revision": "one"}], "link_revisions": []}
         return {"state_revisions": [{"target": dict(target), "revision": 1, "topology": topology}], "link_revisions": []}
 
 
@@ -133,6 +136,11 @@ def test_rapid_proposal_roundtrip_closes_every_source_layer() -> None:
 
     broken_ceiling = replace(value, claim_ceiling="formal_evidence")
     failure = broken_ceiling.validate()
+    assert isinstance(failure, Failure) and failure.code == "INVALID_PROPOSAL"
+
+    malformed_identity = value.to_mapping()
+    malformed_identity["proposal_id"] = 7
+    failure = rapid_proposal_from_mapping(malformed_identity)
     assert isinstance(failure, Failure) and failure.code == "INVALID_PROPOSAL"
 
 
@@ -198,6 +206,16 @@ def test_topology_adapter_keeps_unknown_effect_unconfirmed() -> None:
     observation = RapidProposalTopologyAdapter(service).save("project_a", proposal(), vocabulary())
     assert observation.status == "unknown"
     assert observation.readback_status == "unavailable"
+    assert observation.failure["code"] == "PERSISTENCE_UNKNOWN"
+
+
+def test_topology_adapter_rejects_malformed_writer_receipt() -> None:
+    service = FakeTopologyService()
+    service.malformed_write_result = True
+    observation = RapidProposalTopologyAdapter(service).save("project_a", proposal(), vocabulary())
+    assert observation.status == "unknown"
+    assert observation.readback_status == "not_attempted"
+    assert observation.revision is None
     assert observation.failure["code"] == "PERSISTENCE_UNKNOWN"
 
 

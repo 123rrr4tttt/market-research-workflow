@@ -4,9 +4,9 @@ from typing import Any
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
-from ..contracts import ErrorCode, fail, map_exception_to_error
+from ..contracts import ApiEnvelope, ErrorCode, fail, map_exception_to_error
 from ..contracts.responses import ok
 from ..services.skill_runtime import invoke_skill, list_registered_skills
 
@@ -44,13 +44,35 @@ class SkillInvokeRequest(BaseModel):
     consumer: str | None = Field(default="skills.api", max_length=128)
 
 
+class SkillInvokeMetaData(BaseModel):
+    trace_id: str | None = None
+    consumer: str | None = None
+    actor_role: str | None = None
+    permissions: list[str] = Field(default_factory=list)
+    owner: str | None = None
+    execution_profile: str | None = None
+    concurrency_class: str | None = None
+    approval_policy: dict[str, JsonValue] = Field(default_factory=dict)
+    artifact_contract: dict[str, JsonValue] = Field(default_factory=dict)
+    approval_request: JsonValue = None
+
+
+class SkillInvokeData(BaseModel):
+    skill_id: str | None = None
+    result: JsonValue = None
+    skill_meta: SkillInvokeMetaData
+
+
+SkillInvokeEnvelope = ApiEnvelope[SkillInvokeData]
+
+
 @router.get("")
 def list_skills() -> dict[str, Any]:
     return ok({"items": list_registered_skills(), "total": len(list_registered_skills())})
 
 
-@router.post("/invoke")
-def invoke_skill_api(payload: SkillInvokeRequest) -> dict[str, Any]:
+@router.post("/invoke", response_model=SkillInvokeEnvelope)
+def invoke_skill_api(payload: SkillInvokeRequest) -> dict[str, Any] | JSONResponse:
     try:
         invoked = invoke_skill(
             skill_id=payload.skill_id,

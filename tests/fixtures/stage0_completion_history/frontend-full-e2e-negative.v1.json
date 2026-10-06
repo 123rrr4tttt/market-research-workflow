@@ -1,0 +1,55 @@
+{
+  "schema": "mrw.formal_release.stage0.frontend_full_e2e_negative.v1",
+  "status": "OBSERVED_FAILURES_RETAINED_NOT_STAGE0_DEPENDENCIES",
+  "authoritative": false,
+  "derived_as": "test_observation",
+  "observed_at": "2026-09-05T11:09:07.097Z",
+  "command": "npm run test:e2e -- --reporter=line",
+  "exit_code": 1,
+  "summary": {
+    "failed": 4,
+    "skipped": 14,
+    "did_not_run": 1,
+    "passed": 93,
+    "duration": "51.3s"
+  },
+  "findings": [
+    {
+      "test": "tests/e2e/agent-chat-writing-crossflow.spec.ts:52",
+      "owner": "frontend-runtime/codex-websocket",
+      "reason": "The scenario requires the live Codex WebSocket and backend surface rather than the Stage 0 client or mocked interpreter boundary.",
+      "stage0_dependency": false,
+      "observed_result": "FAIL"
+    },
+    {
+      "test": "tests/e2e/real-backend-business-lines.spec.ts:200",
+      "owner": "backend-runtime/search-discovery",
+      "reason": "The scenario requires a named live search-discovery endpoint and runtime data fixtures that Stage 0 does not realize.",
+      "stage0_dependency": false,
+      "observed_result": "FAIL"
+    },
+    {
+      "test": "tests/e2e/real-backend-business-lines.spec.ts:264",
+      "owner": "backend-runtime/writing-knowledge-graph-agent",
+      "reason": "The scenario requires live writing, knowledge-graph, and Agent runtime data that belongs to the production runtime contract after Stage 0.",
+      "stage0_dependency": false,
+      "observed_result": "FAIL"
+    },
+    {
+      "test": "tests/e2e/runtime-smoke.spec.ts:431",
+      "owner": "backend-runtime/graph-projection",
+      "reason": "The scenario waits for live graph endpoints returning HTTP 200; Stage 0 validates the client and projection contracts without asserting that runtime realization.",
+      "stage0_dependency": false,
+      "observed_result": "FAIL"
+    }
+  ],
+  "authority": {
+    "production_qualification": false,
+    "deployment": false,
+    "live_provider": false,
+    "production_canonical_write": false,
+    "canary": false,
+    "cutover": false,
+    "push": false
+  }
+}

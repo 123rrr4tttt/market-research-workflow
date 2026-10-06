@@ -1,0 +1,50 @@
+{
+  "schema": "mrw.successor_runtime.shared_root_history_fixture.v1",
+  "files": [
+    {
+      "history": "original-packet-baseline",
+      "relative_path": "runtime/reducer.py",
+      "fixture": "baseline__runtime__reducer.py.source",
+      "git_revision": "9fa8aefaae8f30a080f3d2dcac6dfb6ff9f773e0",
+      "git_path": "main/backend/app/successor_runtime/runtime/reducer.py",
+      "sha256": "0462576d08ec7748aaf96fabf739707ca44b3b6a4a9c1f85f52574122af31856",
+      "bytes": 14962
+    },
+    {
+      "history": "original-packet-baseline",
+      "relative_path": "runtime/transitions.py",
+      "fixture": "baseline__runtime__transitions.py.source",
+      "git_revision": "9fa8aefaae8f30a080f3d2dcac6dfb6ff9f773e0",
+      "git_path": "main/backend/app/successor_runtime/runtime/transitions.py",
+      "sha256": "5fca6cda9ec554e660ea615ec32a848d819d7be48dc2a32ef5481f4bd5a88b4b",
+      "bytes": 9234
+    },
+    {
+      "history": "original-packet-baseline",
+      "relative_path": "runtime/work_items.py",
+      "fixture": "baseline__runtime__work_items.py.source",
+      "git_revision": "9fa8aefaae8f30a080f3d2dcac6dfb6ff9f773e0",
+      "git_path": "main/backend/app/successor_runtime/runtime/work_items.py",
+      "sha256": "5acf8ecdfc4c85aec16af6798f7ea24053b7b77a3ab49187a6a3387a4c5d75f2",
+      "bytes": 5707
+    },
+    {
+      "history": "simp04-program-atoms-2026-10-03",
+      "relative_path": "language/program.py",
+      "fixture": "simp04__language__program.py.source",
+      "git_revision": "bb57307d1590e9ce86c1fe2a20772f6f4f5c2b56",
+      "git_path": "main/backend/app/successor_runtime/language/program.py",
+      "sha256": "d6cafde456556d97a0432064accdaaad6f8a8d7030bb7b27bcd31c0d69a93639",
+      "bytes": 42641
+    },
+    {
+      "history": "simp04-program-atoms-2026-10-03",
+      "relative_path": "runtime/transitions.py",
+      "fixture": "simp04__runtime__transitions.py.source",
+      "git_revision": "bb57307d1590e9ce86c1fe2a20772f6f4f5c2b56",
+      "git_path": "main/backend/app/successor_runtime/runtime/transitions.py",
+      "sha256": "87a1f2fc993d2f143b4f31df786e45c3ded48081349f35fa8ed25ec81cc1bbaa",
+      "bytes": 10184
+    }
+  ]
+}

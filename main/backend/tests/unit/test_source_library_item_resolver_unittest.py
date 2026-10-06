@@ -123,6 +123,25 @@ class SourceLibraryItemResolverUnitTestCase(unittest.TestCase):
         self.assertEqual(item["item_type"], "service_aggregated")
         self.assertEqual(item["managed_by"], "system")
 
+    def test_normalize_item_taxonomy_recognizes_each_owner_marker_family(self) -> None:
+        cases = [
+            ({"item_type": "service_aggregated"}, "service_aggregated", "system"),
+            ({"managed_by": "system"}, "user_defined", "system"),
+            ({"extra": {"item_type": "service_aggregated"}}, "service_aggregated", "system"),
+            ({"extra": {"managed_by": "system"}}, "user_defined", "system"),
+            ({"item_key": "handler.cluster.news"}, "service_aggregated", "system"),
+            ({"channel_key": "crawler.demo"}, "service_aggregated", "system"),
+            ({"extra": {"stable_handler_cluster": True}}, "service_aggregated", "system"),
+            ({"extra": {"creation_handler": "handler.entry_type"}}, "service_aggregated", "system"),
+            ({"extra": {"crawler_provider": "scrapy"}}, "service_aggregated", "system"),
+        ]
+
+        for payload, expected_item_type, expected_managed_by in cases:
+            with self.subTest(payload=payload):
+                item = normalize_item_taxonomy(payload)
+                self.assertEqual(item["item_type"], expected_item_type)
+                self.assertEqual(item["managed_by"], expected_managed_by)
+
     def test_execution_request_dict_contains_taxonomy_snapshot(self) -> None:
         item = {
             "item_key": "handler.cluster.search_template",

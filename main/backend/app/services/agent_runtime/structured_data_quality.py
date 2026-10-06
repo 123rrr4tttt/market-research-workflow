@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Literal, Protocol, TypedDict, cast as type_cast
 
 from sqlalchemy import Text, cast, func, select
 
@@ -20,12 +20,71 @@ _NOISE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 _SCAN_TEXT_LIMIT = 4000
 
 
+class StructuredNoiseDetection(TypedDict):
+    """Closed result of the pure noise classifier."""
+
+    is_noisy: bool
+    noise_reasons: list[str]
+    punctuation_ratio: float
+
+
+class StructuredQualityFinding(TypedDict, total=False):
+    dataset: Literal["documents", "graph_nodes"]
+    record_id: int | str
+    title: str
+    source_uri: str | None
+    noise_reasons: list[str]
+    summary_noisy: bool
+    content_noisy: bool
+    sample: str
+    recommended_action: str
+
+
+class StructuredQualityAuditFailure(TypedDict):
+    contract_version: Literal["project.structured_data.quality_audit.v1"]
+    project_key: str | None
+    status: Literal["failed"]
+    error: dict[str, str]
+
+
+class StructuredQualityAuditSuccess(TypedDict):
+    contract_version: Literal["project.structured_data.quality_audit.v1"]
+    project_key: str
+    status: Literal["completed"]
+    scan_limit: int
+    sample_limit: int
+    scanned: dict[str, int]
+    noisy_record_count: int
+    by_dataset: dict[str, int]
+    by_reason: dict[str, int]
+    samples: list[StructuredQualityFinding]
+    recommended_actions: list[str]
+
+
+StructuredQualityAuditResult = StructuredQualityAuditFailure | StructuredQualityAuditSuccess
+
+
+class _DocumentNoiseRow(Protocol):
+    id: int | str
+    title: str | None
+    uri: str | None
+    summary_sample: object
+    content_sample: object
+
+
+class _GraphNodeNoiseRow(Protocol):
+    id: int | str
+    display_name: str | None
+    canonical_id: str
+    properties_sample: object
+
+
 def audit_project_structured_data_quality(
     *,
     project_key: str | None,
     scan_limit: int = 500,
     sample_limit: int = 20,
-) -> dict[str, Any]:
+) -> StructuredQualityAuditResult:
     resolved_project_key = str(project_key or "").strip()
     if not resolved_project_key:
         return {
@@ -37,7 +96,7 @@ def audit_project_structured_data_quality(
 
     capped_scan = max(1, min(5000, int(scan_limit or 500)))
     capped_samples = max(1, min(100, int(sample_limit or 20)))
-    findings: list[dict[str, Any]] = []
+    findings: list[StructuredQualityFinding] = []
     scanned = {"documents": 0, "graph_nodes": 0}
 
     with bind_project(resolved_project_key):
@@ -45,14 +104,14 @@ def audit_project_structured_data_quality(
             doc_rows = session.execute(_document_scan_statement(capped_scan)).all()
             scanned["documents"] = len(doc_rows)
             for row in doc_rows:
-                finding = _document_noise_finding(row)
+                finding = _document_noise_finding(type_cast(_DocumentNoiseRow, row))
                 if finding:
                     findings.append(finding)
 
             graph_rows = session.execute(_graph_node_scan_statement(capped_scan)).all()
             scanned["graph_nodes"] = len(graph_rows)
             for row in graph_rows:
-                finding = _graph_node_noise_finding(row)
+                finding = _graph_node_noise_finding(type_cast(_GraphNodeNoiseRow, row))
                 if finding:
                     findings.append(finding)
 
@@ -112,7 +171,7 @@ def _graph_node_scan_statement(scan_limit: int) -> Any:
     )
 
 
-def detect_structured_record_noise(value: Any) -> dict[str, Any]:
+def detect_structured_record_noise(value: object) -> StructuredNoiseDetection:
     text = _stringify(value)
     if not text:
         return {"is_noisy": False, "noise_reasons": [], "punctuation_ratio": 0.0}
@@ -127,7 +186,7 @@ def detect_structured_record_noise(value: Any) -> dict[str, Any]:
     }
 
 
-def _document_noise_finding(row: Any) -> dict[str, Any] | None:
+def _document_noise_finding(row: _DocumentNoiseRow) -> StructuredQualityFinding | None:
     summary = getattr(row, "summary_sample", None)
     content = getattr(row, "content_sample", None)
     summary_noise = detect_structured_record_noise(summary)
@@ -148,7 +207,7 @@ def _document_noise_finding(row: Any) -> dict[str, Any] | None:
     }
 
 
-def _graph_node_noise_finding(row: Any) -> dict[str, Any] | None:
+def _graph_node_noise_finding(row: _GraphNodeNoiseRow) -> StructuredQualityFinding | None:
     properties = getattr(row, "properties_sample", None)
     noise = detect_structured_record_noise(properties)
     if not noise["is_noisy"]:
@@ -163,13 +222,13 @@ def _graph_node_noise_finding(row: Any) -> dict[str, Any] | None:
     }
 
 
-def _stringify(value: Any) -> str:
+def _stringify(value: object) -> str:
     if value is None:
         return ""
     return " ".join(str(value).split())
 
 
-def _trim(value: Any, limit: int) -> str:
+def _trim(value: object, limit: int) -> str:
     text = _stringify(value)
     if len(text) <= limit:
         return text

@@ -1,24 +1,75 @@
 from __future__ import annotations
 
 import unittest
+from collections.abc import Mapping
+from typing import TypeGuard
 from unittest.mock import patch
 
 import pytest
+from functorial_kit import Failure
 
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.agent_sessions.store import InMemoryAgentSessionStore
-from app.services.skill_runtime import SkillRuntime
+from app.services.skill_runtime import SkillInvocationContext, SkillRuntime
 
 pytestmark = pytest.mark.unit
 
 
+def _runtime() -> SkillRuntime:
+    return SkillRuntime(bootstrap=False)
+
+
+def _identity(payload: object) -> object:
+    return payload
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _object_mapping(value: object) -> Mapping[str, object]:
+    if not _is_object_mapping(value):
+        raise AssertionError(f"expected mapping, received {type(value).__name__}")
+    return {str(key): item for key, item in value.items()}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_list(value: object) -> list[object]:
+    if isinstance(value, Failure):
+        raise AssertionError(value.message)
+    if not _is_object_list(value):
+        raise AssertionError(f"expected list, received {type(value).__name__}")
+    return value
+
+
+def _payload_value(payload: object) -> object:
+    return _object_mapping(payload).get("value")
+
+
+def _echo(payload: object) -> dict[str, object]:
+    return {"echo": _payload_value(payload)}
+
+
+def _ok(payload: object) -> dict[str, object]:
+    return {"ok": _payload_value(payload)}
+
+
+def _session_id(bundle: object) -> str:
+    if isinstance(bundle, Failure):
+        raise AssertionError(bundle.message)
+    session = _object_mapping(_object_mapping(bundle).get("session"))
+    return str(session["session_id"])
+
+
 class SkillRuntimeUnitTest(unittest.TestCase):
     def test_register_and_invoke_skill(self):
-        runtime = SkillRuntime()
-        runtime._bootstrapped = True
+        runtime = _runtime()
         runtime.register(
             skill_id="test.echo",
-            handler=lambda payload: {"echo": payload.get("value")},
+            handler=_echo,
             required_permissions=("test.invoke",),
         )
 
@@ -28,15 +79,14 @@ class SkillRuntimeUnitTest(unittest.TestCase):
             context={"actor_role": "orchestration_runtime", "permissions": ["test.invoke"]},
         )
 
-        self.assertEqual(out["result"]["echo"], "ok")
+        self.assertEqual(_object_mapping(out["result"])["echo"], "ok")
         self.assertEqual(out["skill_id"], "test.echo")
 
     def test_invoke_denied_when_missing_permission(self):
-        runtime = SkillRuntime()
-        runtime._bootstrapped = True
+        runtime = _runtime()
         runtime.register(
             skill_id="test.needs_perm",
-            handler=lambda payload: payload,
+            handler=_identity,
             required_permissions=("test.invoke",),
         )
 
@@ -49,11 +99,10 @@ class SkillRuntimeUnitTest(unittest.TestCase):
         self.assertIn("missing_required_permissions", str(exc.exception))
 
     def test_invoke_denied_when_role_not_allowed(self):
-        runtime = SkillRuntime()
-        runtime._bootstrapped = True
+        runtime = _runtime()
         runtime.register(
             skill_id="test.role",
-            handler=lambda payload: payload,
+            handler=_identity,
             allowed_actor_roles=("business_capability_wrapper",),
             required_permissions=("test.invoke",),
         )
@@ -67,8 +116,7 @@ class SkillRuntimeUnitTest(unittest.TestCase):
         self.assertIn("actor_role_not_allowed", str(exc.exception))
 
     def test_invoke_with_args_and_kwargs(self):
-        runtime = SkillRuntime()
-        runtime._bootstrapped = True
+        runtime = _runtime()
 
         def _concat(prefix: str, suffix: str = "") -> str:
             return f"{prefix}:{suffix}"
@@ -89,10 +137,9 @@ class SkillRuntimeUnitTest(unittest.TestCase):
         self.assertEqual(out["result"], "left:right")
 
     def test_invoke_propagates_skill_handler_error_for_upstream_fallback(self):
-        runtime = SkillRuntime()
-        runtime._bootstrapped = True
+        runtime = _runtime()
 
-        def _boom(_: dict):
+        def _boom(_: object) -> object:
             raise RuntimeError("skill_planner_failed")
 
         runtime.register(
@@ -110,14 +157,13 @@ class SkillRuntimeUnitTest(unittest.TestCase):
         self.assertIn("skill_planner_failed", str(exc.exception))
 
     def test_loop_guard_blocks_repeated_identical_skill_calls(self):
-        runtime = SkillRuntime()
-        runtime._bootstrapped = True
+        runtime = _runtime()
         runtime.register(
             skill_id="test.repeat",
-            handler=lambda payload: payload,
+            handler=_identity,
             required_permissions=("test.invoke",),
         )
-        context = {
+        context: SkillInvocationContext = {
             "actor_role": "orchestration_runtime",
             "permissions": ["test.invoke"],
             "consumer": "unit.test",
@@ -132,11 +178,10 @@ class SkillRuntimeUnitTest(unittest.TestCase):
         self.assertIn("tool_loop_detected", str(exc.exception))
 
     def test_register_updates_agent_batch_task_manifest_entries(self):
-        runtime = SkillRuntime()
-        runtime._bootstrapped = True
+        runtime = _runtime()
         runtime.register(
             skill_id="test.agent_batch_search",
-            handler=lambda payload: payload,
+            handler=_identity,
             required_permissions=("test.invoke",),
             execution_profile="agent.dispatch",
             concurrency_class="write_shared",
@@ -156,14 +201,13 @@ class SkillRuntimeUnitTest(unittest.TestCase):
         listed = runtime.list_skills()[0]
         self.assertEqual(listed["execution_profile"], "agent.dispatch")
         self.assertEqual(listed["concurrency_class"], "write_shared")
-        self.assertEqual(listed["approval_policy"]["default"], "required")
+        self.assertEqual(_object_mapping(listed["approval_policy"])["default"], "required")
 
     def test_write_external_requires_approval_context(self):
-        runtime = SkillRuntime()
-        runtime._bootstrapped = True
+        runtime = _runtime()
         runtime.register(
             skill_id="test.external_write",
-            handler=lambda payload: payload,
+            handler=_identity,
             required_permissions=("test.invoke",),
             concurrency_class="write_external",
         )
@@ -177,17 +221,16 @@ class SkillRuntimeUnitTest(unittest.TestCase):
         self.assertIn("approval_context_required", str(exc.exception))
 
     def test_write_external_creates_approval_wait_when_session_context_exists(self):
-        runtime = SkillRuntime()
-        runtime._bootstrapped = True
+        runtime = _runtime()
         runtime.register(
             skill_id="test.external_write",
-            handler=lambda payload: payload,
+            handler=_identity,
             required_permissions=("test.invoke",),
             concurrency_class="write_external",
             approval_policy={"default": "required"},
         )
         service = AgentSessionService(store=InMemoryAgentSessionStore())
-        bundle = service.create_session(
+        bundle: object = service.create_session(
             source="user",
             entrypoint_type="chat",
             goal="Skill approval",
@@ -201,7 +244,7 @@ class SkillRuntimeUnitTest(unittest.TestCase):
                 }
             ],
         )
-        session_id = bundle["session"]["session_id"]
+        session_id = _session_id(bundle)
 
         with patch("app.services.skill_runtime.get_agent_session_service", return_value=service):
             with self.assertRaises(PermissionError) as exc:
@@ -217,17 +260,16 @@ class SkillRuntimeUnitTest(unittest.TestCase):
                     },
                 )
         self.assertIn("approval_required:", str(exc.exception))
-        approvals = service.list_approvals(session_id=session_id)
-        self.assertEqual(len(approvals), 1)
-        tasks = service.list_tasks(session_id)
-        self.assertTrue(any(item["task_type"] == "approval_wait" for item in tasks))
+        approvals: object = service.list_approvals(session_id=session_id)
+        self.assertEqual(len(_object_list(approvals)), 1)
+        tasks: object = service.list_tasks(session_id)
+        self.assertTrue(any(_object_mapping(item)["task_type"] == "approval_wait" for item in _object_list(tasks)))
 
     def test_write_external_allows_execution_when_approval_granted(self):
-        runtime = SkillRuntime()
-        runtime._bootstrapped = True
+        runtime = _runtime()
         runtime.register(
             skill_id="test.external_write",
-            handler=lambda payload: {"ok": payload.get("value")},
+            handler=_ok,
             required_permissions=("test.invoke",),
             concurrency_class="write_external",
         )
@@ -241,19 +283,18 @@ class SkillRuntimeUnitTest(unittest.TestCase):
                 "approval_granted": True,
             },
         )
-        self.assertEqual(out["result"]["ok"], "done")
+        self.assertEqual(_object_mapping(out["result"])["ok"], "done")
 
     def test_write_shared_rejects_conflicting_active_write_set(self):
-        runtime = SkillRuntime()
-        runtime._bootstrapped = True
+        runtime = _runtime()
         runtime.register(
             skill_id="test.shared_write",
-            handler=lambda payload: payload,
+            handler=_identity,
             required_permissions=("test.invoke",),
             concurrency_class="write_shared",
         )
         service = AgentSessionService(store=InMemoryAgentSessionStore())
-        bundle = service.create_session(
+        bundle: object = service.create_session(
             source="user",
             entrypoint_type="chat",
             goal="Write shared conflict",
@@ -274,7 +315,7 @@ class SkillRuntimeUnitTest(unittest.TestCase):
                 },
             ],
         )
-        session_id = bundle["session"]["session_id"]
+        session_id = _session_id(bundle)
         service.claim_task(session_id, "impl-a", owner="worker-a")
 
         with patch("app.services.skill_runtime.get_agent_session_service", return_value=service):
@@ -290,20 +331,19 @@ class SkillRuntimeUnitTest(unittest.TestCase):
                     },
                 )
         self.assertIn("write_set_conflict", str(exc.exception))
-        events = service.list_events(session_id)
-        self.assertTrue(any(item["event_type"] == "skill.write_conflict" for item in events))
+        events: object = service.list_events(session_id)
+        self.assertTrue(any(_object_mapping(item)["event_type"] == "skill.write_conflict" for item in _object_list(events)))
 
     def test_write_shared_allows_non_conflicting_write_set(self):
-        runtime = SkillRuntime()
-        runtime._bootstrapped = True
+        runtime = _runtime()
         runtime.register(
             skill_id="test.shared_write",
-            handler=lambda payload: {"ok": payload.get("value")},
+            handler=_ok,
             required_permissions=("test.invoke",),
             concurrency_class="write_shared",
         )
         service = AgentSessionService(store=InMemoryAgentSessionStore())
-        bundle = service.create_session(
+        bundle: object = service.create_session(
             source="user",
             entrypoint_type="chat",
             goal="Write shared no conflict",
@@ -324,7 +364,7 @@ class SkillRuntimeUnitTest(unittest.TestCase):
                 },
             ],
         )
-        session_id = bundle["session"]["session_id"]
+        session_id = _session_id(bundle)
         service.claim_task(session_id, "impl-a", owner="worker-a")
 
         with patch("app.services.skill_runtime.get_agent_session_service", return_value=service):
@@ -338,7 +378,7 @@ class SkillRuntimeUnitTest(unittest.TestCase):
                     "agent_task_id": "impl-b",
                 },
             )
-        self.assertEqual(out["result"]["ok"], "done")
+        self.assertEqual(_object_mapping(out["result"])["ok"], "done")
 
 
 if __name__ == "__main__":

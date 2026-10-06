@@ -78,7 +78,9 @@
     "src/mrw_functorial_kit/shell",
     "main/backend/app/services/agent_core/query_tools.py",
     "main/backend/app/services/agent_core/authoring_tools.py",
-    "main/backend/app/services/agent_core/tool_support.py"
+    "main/backend/app/services/agent_core/tool_support.py",
+    "main/backend/app/services/document_admin.py",
+    "main/backend/app/services/source_library/item_writer.py"
   ],
   "test_paths": [
     "main/backend/tests",

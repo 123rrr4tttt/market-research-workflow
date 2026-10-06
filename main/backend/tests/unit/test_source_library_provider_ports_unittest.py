@@ -128,6 +128,7 @@ def test_INVARIANT__default_composition_lazily_constructs_and_registers_scrapy_p
     from app.services.source_library import provider_ports
 
     original = provider_ports._CRAWLER_PROVIDER_RESOLVER
+    original_output_ingest = provider_ports._crawler_output_ingest_port
     configure_source_library_adapters()
     resolver = provider_ports._CRAWLER_PROVIDER_RESOLVER
     assert isinstance(resolver, DefaultCrawlerProviderResolver)
@@ -163,3 +164,43 @@ def test_INVARIANT__default_composition_lazily_constructs_and_registers_scrapy_p
         register_provider.assert_called_once_with("scrapy", provider)
     finally:
         provider_ports.set_crawler_provider_resolver(original)
+        provider_ports.set_crawler_output_ingest_port(original_output_ingest)
+
+
+def test_INVARIANT__scrapyd_output_ingest_adapter_interprets_typed_source_library_request() -> None:
+    from app.composition.source_library import ScrapydCrawlerOutputIngestPort
+    from app.services.source_library.provider_ports import CrawlerOutputIngestRequest
+
+    request = CrawlerOutputIngestRequest(
+        provider_type="scrapy",
+        project_key="demo_proj",
+        provider_project="crawler_runtime",
+        provider_job_id="job-output-1",
+        base_url="http://scrapyd.test",
+        wait_timeout_seconds=120.0,
+        poll_interval_seconds=0.5,
+        source_name="crawler.demo_proj",
+        doc_type="news",
+        enable_extraction=False,
+        max_items=100,
+    )
+    with patch(
+        "app.services.crawlers.scrapyd_result_ingest.ingest_scrapyd_job_output",
+        return_value={"status": "ingested", "import_result": {"inserted": 1}},
+    ) as ingest:
+        result = ScrapydCrawlerOutputIngestPort().ingest(request)
+
+    assert result.status == "ingested"
+    assert result.payload["import_result"] == {"inserted": 1}
+    ingest.assert_called_once_with(
+        project_key="demo_proj",
+        scrapy_project="crawler_runtime",
+        job_id="job-output-1",
+        base_url="http://scrapyd.test",
+        wait_timeout_seconds=120.0,
+        poll_interval_seconds=0.5,
+        source_name="crawler.demo_proj",
+        doc_type="news",
+        enable_extraction=False,
+        max_items=100,
+    )

@@ -22,13 +22,66 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any, NoReturn
+from datetime import datetime
+from typing import Literal, NoReturn, TypeAlias, TypedDict, overload
 
 from functorial_kit import Failure
+
 from mrw_functorial_kit.core.w06_semantics import line_event_readback_failures
 
 SCHEMA_REF = "mrw.successor.runtime.c5-4.line-event-readback.v1"
-AUTHORITY_SNAPSHOT = {
+
+
+class LineEventRuntimeContext(TypedDict, total=False):
+    """Optional identity and routing fields accepted by the pure readback port."""
+
+    task_id: str | None
+    run_id: str | None
+    trace_id: str | None
+    worker_name: str | None
+    queue: str | None
+
+
+class LineEventPayloadEvent(TypedDict):
+    event: str
+    event_source: str
+    timestamp: str
+
+
+class LineEventPayloadReadback(TypedDict):
+    terminal_event: str
+    persistence_decidable: bool
+    persistence_observed: bool
+    reason: str | None
+
+
+class LineEventAuthoritySnapshot(TypedDict):
+    canonical_write: bool
+    live_provider: bool
+    external_delivery: bool
+    scheduler: bool
+    executor: bool
+    cutover: bool
+
+
+class LineEventReadbackPayload(TypedDict):
+    schema: Literal["mrw.successor.runtime.c5-4.line-event-readback.v1"]
+    line_key: str
+    status: str | None
+    task_id: str | None
+    run_id: str | None
+    trace_id: str | None
+    worker_name: str | None
+    queue: str | None
+    events: list[LineEventPayloadEvent]
+    readback: LineEventPayloadReadback
+    authority: LineEventAuthoritySnapshot
+
+
+LineEventTimestampInput: TypeAlias = datetime | str | int | float | None
+
+
+AUTHORITY_SNAPSHOT: LineEventAuthoritySnapshot = {
     "canonical_write": False,
     "live_provider": False,
     "external_delivery": False,
@@ -165,7 +218,7 @@ def _reject(
     _raise_contract_failure(_failure(code, message, public_exception=exception_type.__name__), exception_type)
 
 
-def normalize_line_key(value: Any) -> str | None:
+def normalize_line_key(value: str | None) -> str | None:
     """Normalize one raw line key to the typed snake_case key form."""
 
     if value is None:
@@ -174,7 +227,7 @@ def normalize_line_key(value: Any) -> str | None:
     return text.replace("-", "_").replace(" ", "_") or None
 
 
-def non_empty_text(value: Any) -> str | None:
+def non_empty_text(value: str | None) -> str | None:
     """Return trimmed text, or None for empty/missing values."""
 
     if value is None:
@@ -183,25 +236,57 @@ def non_empty_text(value: Any) -> str | None:
     return text or None
 
 
-def _canonical_json(value: Any) -> str:
+_CanonicalJsonScalar: TypeAlias = str | int | float | bool | None
+_CanonicalJsonValue: TypeAlias = (
+    _CanonicalJsonScalar
+    | dict[str, "_CanonicalJsonValue"]
+    | list["_CanonicalJsonValue"]
+    | tuple["_CanonicalJsonValue", ...]
+)
+
+
+@overload
+def _canonical_json(value: dict[str, _CanonicalJsonValue]) -> str: ...
+
+
+@overload
+def _canonical_json(
+    value: list[_CanonicalJsonValue] | tuple[_CanonicalJsonValue, ...],
+) -> str: ...
+
+
+@overload
+def _canonical_json(value: _CanonicalJsonScalar) -> _CanonicalJsonScalar: ...
+
+
+def _canonical_json(value: _CanonicalJsonValue) -> _CanonicalJsonValue:
     if isinstance(value, dict):
-        payload = {key: _canonical_json(item) for key, item in sorted(value.items())}
-    elif isinstance(value, (list, tuple)):
-        payload = [_canonical_json(item) for item in value]
-    else:
-        return value
-    return json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-    )
+        payload: dict[str, _CanonicalJsonValue] = {
+            key: _canonical_json(item) for key, item in sorted(value.items())
+        }
+        return json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        )
+    if isinstance(value, (list, tuple)):
+        payload_items: list[_CanonicalJsonValue] = [
+            _canonical_json(item) for item in value
+        ]
+        return json.dumps(
+            payload_items,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        )
+    return value
 
 
 def record_digest(record: LineEventReadbackRecord) -> str:
     """Return the content digest of one immutable readback record."""
 
-    body = {
+    body: dict[str, _CanonicalJsonValue] = {
         "schema": SCHEMA_REF,
         "line_key": record.line_key,
         "status": record.status,
@@ -228,14 +313,14 @@ def record_digest(record: LineEventReadbackRecord) -> str:
     return hashlib.sha256(_canonical_json(body).encode("utf-8")).hexdigest()
 
 
-def _iso_timestamp_or_default(value: Any) -> str:
+def _iso_timestamp_or_default(value: LineEventTimestampInput) -> str:
     if value is None:
         return DEFAULT_TIMESTAMP
     text = str(value).strip()
     return text or DEFAULT_TIMESTAMP
 
 
-def _normalize_status(value: Any) -> str | None:
+def _normalize_status(value: str | None) -> str | None:
     if value is None:
         return None
     text = str(value).strip().lower()
@@ -366,7 +451,7 @@ class LineEventReadbackPort:
         event: str | None = None,
         status: str | None = None,
         source: str = "runtime",
-        observed_at: Any = None,
+        observed_at: LineEventTimestampInput = None,
         task_id: str | None = None,
         run_id: str | None = None,
         trace_id: str | None = None,
@@ -506,12 +591,12 @@ class LineEventReadbackPort:
     def merge_context(
         cls,
         record: LineEventReadbackRecord,
-        context: dict[str, Any] | None = None,
+        context: LineEventRuntimeContext | None = None,
     ) -> LineEventReadbackRecord:
         """Merge optional identity/routing metadata and return a new record."""
 
         record.verify_digest()
-        merged = dict(context or {})
+        merged: LineEventRuntimeContext = {} if context is None else context
         return LineEventReadbackRecord(
             line_key=record.line_key,
             events=record.events,
@@ -560,10 +645,24 @@ class LineEventReadbackPort:
     def build_payload(
         cls,
         record: LineEventReadbackRecord,
-    ) -> dict[str, Any]:
+    ) -> LineEventReadbackPayload:
         """Build the structured legacy-compatible readback payload view."""
 
         result = cls.readback(record)
+        events: list[LineEventPayloadEvent] = [
+            {
+                "event": item.event,
+                "event_source": item.source,
+                "timestamp": item.observed_at,
+            }
+            for item in record.events
+        ]
+        readback: LineEventPayloadReadback = {
+            "terminal_event": LINE_EVENT_CHAINS[record.line_key][-1],
+            "persistence_decidable": result.persistence_decidable,
+            "persistence_observed": result.persistence_observed,
+            "reason": result.reason,
+        }
         return {
             "schema": SCHEMA_REF,
             "line_key": record.line_key,
@@ -573,21 +672,9 @@ class LineEventReadbackPort:
             "trace_id": record.trace_id,
             "worker_name": record.worker_name,
             "queue": record.queue,
-            "events": [
-                {
-                    "event": item.event,
-                    "event_source": item.source,
-                    "timestamp": item.observed_at,
-                }
-                for item in record.events
-            ],
-            "readback": {
-                "terminal_event": LINE_EVENT_CHAINS[record.line_key][-1],
-                "persistence_decidable": result.persistence_decidable,
-                "persistence_observed": result.persistence_observed,
-                "reason": result.reason,
-            },
-            "authority": dict(AUTHORITY_SNAPSHOT),
+            "events": events,
+            "readback": readback,
+            "authority": AUTHORITY_SNAPSHOT.copy(),
         }
 
     @classmethod
@@ -625,10 +712,16 @@ __all__ = [
     "TERMINAL_READBACK_EVENTS",
     "IllegalEventMigrationError",
     "LineEvent",
+    "LineEventAuthoritySnapshot",
+    "LineEventPayloadEvent",
+    "LineEventPayloadReadback",
+    "LineEventReadbackPayload",
     "LineEventReadbackError",
     "LineEventReadbackPort",
     "LineEventReadbackRecord",
     "LineEventReadbackResult",
+    "LineEventRuntimeContext",
+    "LineEventTimestampInput",
     "UnknownLineEventError",
     "UnknownLineKeyError",
     "non_empty_text",

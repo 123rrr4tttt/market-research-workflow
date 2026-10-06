@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from functorial_kit.contribution_verification import (
+    VerificationChanges,
     VerificationPlan,
     VerificationRegistration,
     VerificationSource,
@@ -29,7 +30,7 @@ _C5_SOURCES = (DEFAULT_TASK_OBSERVATION_NATIVE_SOURCE, NON_DEFAULT_TASK_OBSERVAT
 
 
 def task_verification_plan_for(
-    changes: object | None = None,
+    changes: VerificationChanges | None = None,
 ) -> VerificationPlan:
     """Derive an inert verification plan from the same native C5 catalog."""
 
@@ -48,10 +49,16 @@ def task_verification_plan_for(
 def _run_task_native_catalog_law() -> None:
     """Compile both authored definitions and assert stable catalog order."""
 
-    compiled = tuple(compile_task_observation_native_contribution(source) for source in _C5_SOURCES)
-    if any(isinstance(native, Failure) for native in compiled):
-        raise AssertionError("invalid default C5 native contribution")
-    expected = tuple(native.projection.id for native in compiled)  # type: ignore[union-attr]
+    default_native = compile_task_observation_native_contribution(_C5_SOURCES[0])
+    if isinstance(default_native, Failure):
+        raise AssertionError(default_native.message)
+    non_default_native = compile_task_observation_native_contribution(_C5_SOURCES[1])
+    if isinstance(non_default_native, Failure):
+        raise AssertionError(non_default_native.message)
+    expected = (
+        default_native.projection.id,
+        non_default_native.projection.id,
+    )
     if tuple(native.projection.id for native in task_native_catalog) != expected:
         raise AssertionError("C5 native catalog order drifted from definition order")
 
@@ -64,10 +71,21 @@ if isinstance(_catalog_law, Failure):
     raise RuntimeError(f"invalid C5 native catalog law: {_catalog_law.message}")
 
 
-_default_compiled = tuple(compile_task_observation_native_contribution(source) for source in _C5_SOURCES)
-if any(isinstance(native, Failure) for native in _default_compiled):
-    raise RuntimeError("invalid C5 native contribution")
-task_native_contributions = _default_compiled
+_default_native_contribution = compile_task_observation_native_contribution(_C5_SOURCES[0])
+if isinstance(_default_native_contribution, Failure):
+    raise RuntimeError(
+        f"invalid default C5 native contribution: {_default_native_contribution.message}"
+    )
+_non_default_native_contribution = compile_task_observation_native_contribution(_C5_SOURCES[1])
+if isinstance(_non_default_native_contribution, Failure):
+    raise RuntimeError(
+        "invalid non-default C5 native contribution: "
+        f"{_non_default_native_contribution.message}"
+    )
+task_native_contributions = (
+    _default_native_contribution,
+    _non_default_native_contribution,
+)
 task_native_catalog = task_native_contributions
 
 task_verification_plan = task_verification_plan_for()

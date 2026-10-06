@@ -10,18 +10,23 @@ PostgreSQL opt-in surface.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 
 import pytest
-from sqlalchemy import create_engine
-
+from app.successor_runtime.assembly.material_ingest_assembly import (
+    ASSEMBLY_CELL_IDS as MATERIAL_ASSEMBLY_CELL_IDS,
+)
 from app.successor_runtime.assembly.successor_assembly import (
+    ALL_I1_CELLS,
     assemble_successor_runtime,
     build_local_offline_fixture_options,
 )
 from app.successor_runtime.specification import CapabilityCellSpec
+from sqlalchemy import create_engine
+from tests.successor_runtime.historical_fixture import historical_bytes
 from tests.successor_runtime.i1_binding_candidate_support import (
     REPOSITORY_ROOT,
 )
@@ -31,15 +36,49 @@ TOPIC = Path(
     "2026-08-30-functorial-successor-migration"
 )
 SPECS_DIR = REPOSITORY_ROOT / TOPIC / "evidence/capability-specs"
+RETIRED_FROZEN_CELL_IDS = frozenset({"C6.1", "C6.2", "C6.3"})
 
 pytestmark = pytest.mark.unit
 
 
-def _load(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _load(path: Path) -> dict[str, object]:
+    value: object = json.loads(path.read_text(encoding="utf-8"))
+    if not _is_object_dict(value):
         raise TypeError(f"expected JSON object: {path}")  # noqa: TRY003
-    return value
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            raise TypeError(f"expected string JSON key: {path}")  # noqa: TRY003
+        result[key] = item
+    return result
+
+
+def _verify_frozen_rollback_bindings() -> int:
+    """Verify frozen capability records without treating them as live inventory."""
+
+    paths = tuple(sorted(SPECS_DIR.glob("C*.v1.json")))
+    specs = tuple(CapabilityCellSpec.from_dict(_load(path)) for path in paths)
+    assert len(specs) == 30
+    assert len({spec.cell_id for spec in specs}) == len(specs)
+    assert RETIRED_FROZEN_CELL_IDS <= {spec.cell_id for spec in specs}
+    for path, spec in zip(paths, specs, strict=True):
+        assert path.name == f"{spec.cell_id}.v1.json"
+        for binding in spec.rollback_bindings:
+            frozen = historical_bytes(binding.path, binding.file_sha256)
+            assert hashlib.sha256(frozen).hexdigest() == binding.file_sha256
+    return len(specs)
+
+
+def _require_current_binding_paths(binding_refs: tuple[str, ...]) -> None:
+    for binding_ref in binding_refs:
+        path = Path(binding_ref)
+        if not path.is_absolute():
+            path = REPOSITORY_ROOT / path
+        assert path.is_file(), f"current rollback binding missing: {binding_ref}"
 
 
 def _rollback_rows() -> list[dict[str, Any]]:
@@ -50,66 +89,64 @@ def _rollback_rows() -> list[dict[str, Any]]:
     declarations = {item.cell_id: item for item in assembly.rollback_bindings}
     rows: list[dict[str, Any]] = []
     for cell in assembly.cells:
-        spec_value = _load(SPECS_DIR / f"{cell.cell_id}.v1.json")
-        spec = CapabilityCellSpec.from_dict(spec_value)
-        spec_bindings = tuple(
-            binding.path for binding in spec.rollback_bindings
-        )
         declaration = declarations.get(cell.cell_id)
-        for binding in spec.rollback_bindings:
-            from .historical_fixture import historical_bytes
-            import hashlib
-
-            frozen = historical_bytes(binding.path, binding.file_sha256)
-            assert hashlib.sha256(frozen).hexdigest() == binding.file_sha256
-        if cell.cell_id.startswith("C7.") and declaration.status == "PRESENT":
-            assert declaration is not None
-            for binding_path in declaration.binding_refs:
-                path = Path(binding_path)
-                if not path.is_absolute():
-                    path = REPOSITORY_ROOT / path
-                assert path.is_file(), f"rollback route missing: {binding_path}"
-            rows.append(
-                {
-                    "cell_id": cell.cell_id,
-                    "rehearsal_status": "ROUTE_ASSEMBLED",
-                    "declaration_status": "PRESENT",
-                    "binding_refs": list(declaration.binding_refs),
-                    "note": declaration.note,
-                }
-            )
-            continue
-        if cell.cell_id.startswith("C7."):
-            assert declaration is not None
-            assert declaration.status == "DECLARED_GAP"
+        if declaration is None:
             rows.append(
                 {
                     "cell_id": cell.cell_id,
                     "rehearsal_status": "BLOCKED",
-                    "declaration_status": "DECLARED_GAP",
-                    "binding_refs": list(declaration.binding_refs),
-                    "note": declaration.note,
+                    "declaration_status": "UNKNOWN_GAP",
+                    "binding_refs": [],
+                    "handler_binding_digest": cell.handler_binding_digest,
+                    "operation_contract_refs": list(cell.operation_contract_refs),
+                    "note": "current rollback declaration is absent",
                 }
             )
             continue
-        if declaration is not None and declaration.status == "PRESENT":
-            assert declaration is not None
+        _require_current_binding_paths(declaration.binding_refs)
+        row_base = {
+            "cell_id": cell.cell_id,
+            "binding_refs": list(declaration.binding_refs),
+            "handler_binding_digest": cell.handler_binding_digest,
+            "operation_contract_refs": list(cell.operation_contract_refs),
+            "note": declaration.note,
+        }
+        if (
+            cell.cell_id in MATERIAL_ASSEMBLY_CELL_IDS
+            and declaration.status == "PRESENT"
+        ):
             rows.append(
                 {
-                    "cell_id": cell.cell_id,
-                    "rehearsal_status": "STRUCTURAL_PASS",
+                    **row_base,
+                    "rehearsal_status": "ROUTE_ASSEMBLED",
                     "declaration_status": "PRESENT",
-                    "binding_refs": list(spec_bindings),
-                    "note": "historical rollback bytes verified; durable epoch rehearsal is PG opt-in",
                 }
             )
-        elif declaration is not None and declaration.status == "DECLARED_OPEN":
+            continue
+        if cell.cell_id in MATERIAL_ASSEMBLY_CELL_IDS:
+            assert declaration.status == "DECLARED_GAP"
             rows.append(
                 {
-                    "cell_id": cell.cell_id,
+                    **row_base,
+                    "rehearsal_status": "BLOCKED",
+                    "declaration_status": "DECLARED_GAP",
+                }
+            )
+            continue
+        if declaration.status == "PRESENT":
+            rows.append(
+                {
+                    **row_base,
+                    "rehearsal_status": "STRUCTURAL_PASS",
+                    "declaration_status": "PRESENT",
+                }
+            )
+        elif declaration.status == "DECLARED_OPEN":
+            rows.append(
+                {
+                    **row_base,
                     "rehearsal_status": "DECLARED_OPEN",
                     "declaration_status": "DECLARED_OPEN",
-                    "binding_refs": list(declaration.binding_refs),
                     "note": declaration.note
                     or "no rollback implementation binding is installed",
                 }
@@ -117,17 +154,16 @@ def _rollback_rows() -> list[dict[str, Any]]:
         else:
             rows.append(
                 {
-                    "cell_id": cell.cell_id,
-                    "rehearsal_status": "DECLARED_OPEN",
-                    "declaration_status": "DECLARED_OPEN",
-                    "binding_refs": [],
-                    "note": (
-                        "spec has no rollback_bindings; no rollback route was invented"
-                    ),
+                    **row_base,
+                    "rehearsal_status": "BLOCKED",
+                    "declaration_status": declaration.status,
                 }
             )
     assert len(rows) == len(assembly.cells)
-    assert not any(row["cell_id"].startswith("C6.") for row in rows)
+    assert {row["cell_id"] for row in rows} == ALL_I1_CELLS
+    assert RETIRED_FROZEN_CELL_IDS.isdisjoint(
+        row["cell_id"] for row in rows
+    )
     return rows
 
 
@@ -135,7 +171,13 @@ def test_i1_rollback_rehearsal_matrix_covers_current_twenty_seven_cells() -> Non
     rows = _rollback_rows()
     assert len(rows) == 27
     by_id = {row["cell_id"]: row for row in rows}
-    for cell_id in ("C7.1", "C7.2", "C7.3", "C7.4"):
+    assert set(by_id) == ALL_I1_CELLS
+    for row in rows:
+        assert row["operation_contract_refs"]
+        assert row["handler_binding_digest"] is not None
+        assert len(row["handler_binding_digest"]) == 64
+        assert row["declaration_status"] != "UNKNOWN_GAP"
+    for cell_id in MATERIAL_ASSEMBLY_CELL_IDS:
         assert by_id[cell_id]["rehearsal_status"] == "ROUTE_ASSEMBLED"
         assert by_id[cell_id]["declaration_status"] == "PRESENT"
         assert by_id[cell_id]["binding_refs"]
@@ -148,9 +190,10 @@ def test_i1_default_c7_rollback_gap_blocks_without_inventing_bindings() -> None:
     declarations = {
         item.cell_id: item
         for item in assembly.rollback_bindings
-        if item.cell_id.startswith("C7.")
+        if item.cell_id in MATERIAL_ASSEMBLY_CELL_IDS
     }
-    for cell_id in ("C7.1", "C7.2", "C7.3", "C7.4"):
+    assert set(declarations) == set(MATERIAL_ASSEMBLY_CELL_IDS)
+    for cell_id in MATERIAL_ASSEMBLY_CELL_IDS:
         declaration = declarations[cell_id]
         assert declaration.status == "DECLARED_GAP"
         assert declaration.binding_refs == ()
@@ -158,6 +201,7 @@ def test_i1_default_c7_rollback_gap_blocks_without_inventing_bindings() -> None:
 
 
 def test_i1_present_rollback_bindings_are_exact_on_disk() -> None:
+    assert _verify_frozen_rollback_bindings() == 30
     rows = _rollback_rows()
     present = [row for row in rows if row["declaration_status"] == "PRESENT"]
     assert present

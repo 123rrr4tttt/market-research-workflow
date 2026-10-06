@@ -1,20 +1,26 @@
 from __future__ import annotations
 
-from typing import Any
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 
+from app.services.llm.ports import ChatModelOptions
 from app.services.workflow_graph.executors.join import run_join_kernel
 from app.services.workflow_graph.executors.kernel import (
     NodeExecutionContext,
+    WorkflowNodeType,
     execute_node,
     to_workflow_graph_failure,
 )
-from app.services.workflow_graph.executors.llm_call import run_llm_call_kernel
+from app.services.workflow_graph.executors.llm_call import (
+    invoke_workflow_llm_call_skill,
+    run_llm_call_kernel,
+)
 from app.services.workflow_graph.executors.vector_search import run_vector_search_kernel
 from app.services.workflow_graph.contracts import (
     WorkflowGraphCompileError,
+    WorkflowJsonObject,
     raise_workflow_graph_legacy,
 )
 
@@ -23,15 +29,15 @@ pytestmark = pytest.mark.unit
 
 
 def _context(
-    node_type: str,
+    node_type: WorkflowNodeType,
     *,
-    params: dict[str, Any] | None = None,
-    inputs: dict[str, Any] | None = None,
-    upstream: dict[str, Any] | None = None,
+    params: WorkflowJsonObject | None = None,
+    inputs: WorkflowJsonObject | None = None,
+    upstream: WorkflowJsonObject | None = None,
 ) -> NodeExecutionContext:
     return NodeExecutionContext(
         node_id="node-1",
-        node_type=node_type,  # type: ignore[arg-type]
+        node_type=node_type,
         params=params or {},
         inputs=inputs or {},
         input_trace={"query": {"source": "input"}},
@@ -88,7 +94,11 @@ def test_vector_search_kernel_returns_typed_degraded_result() -> None:
     assert result.failure is not None
     assert result.failure.code == "vector_search_degraded"
     assert result.failure.cause_type == "RuntimeError"
-    assert result.payload["hits"][0]["backend"] == "mock"
+    hits = result.payload["hits"]
+    assert isinstance(hits, list)
+    first_hit = hits[0]
+    assert isinstance(first_hit, dict)
+    assert first_hit["backend"] == "mock"
     assert result.payload["degraded"] is True
 
 
@@ -130,8 +140,41 @@ def test_llm_kernel_success_and_failure_are_directly_interpretable() -> None:
     projected = to_workflow_graph_failure(failed)
     assert projected is not None
     assert projected.code == "required_input_missing"
+    assert projected.context is not None
     assert projected.context["owner"] == "workflow_graph.kernel.llm_call"
     assert invoke.call_count == 0
+
+
+def test_llm_skill_passes_validated_options_to_registered_provider() -> None:
+    captured: list[ChatModelOptions] = []
+
+    class _Chat:
+        def invoke(self, prompt: str) -> SimpleNamespace:
+            return SimpleNamespace(content=f"provider:{prompt}")
+
+    class _Provider:
+        def get_chat_model(self, options: ChatModelOptions) -> _Chat:
+            captured.append(options)
+            return _Chat()
+
+    with patch(
+        "app.services.llm.ports.resolve_llm_provider",
+        return_value=_Provider(),
+    ):
+        result = invoke_workflow_llm_call_skill(
+            {
+                "prompt": "hello",
+                "model": "typed-model",
+                "temperature": 0.25,
+                "extra": {"seed": 7},
+            }
+        )
+
+    assert result == {"text": "provider:hello"}
+    assert len(captured) == 1
+    assert captured[0].model == "typed-model"
+    assert captured[0].temperature == 0.25
+    assert captured[0].extra == {"seed": 7}
 
 
 def test_execute_node_dispatches_without_workflow_or_store() -> None:
@@ -159,4 +202,4 @@ def test_typed_llm_failure_projects_to_current_workflow_failure_abi() -> None:
         assert failure is not None
         raise_workflow_graph_legacy(failure)
 
-    assert caught.value.workflow_failure.code == "required_input_missing"
+    assert str(caught.value) == "prompt_template_missing_inputs:query"

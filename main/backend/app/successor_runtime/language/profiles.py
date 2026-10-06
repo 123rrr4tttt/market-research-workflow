@@ -8,6 +8,7 @@ from typing import Annotated, Literal, NoReturn, Protocol, TypeGuard, TypeVar, r
 from functorial_kit import Failure
 
 from app.successor_runtime.language.object_contracts import (
+    ContractProfileRef as ContractProfileRef,
     OperationContractRef,
     language_failure as _language_failure,
     raise_language_failure as _lift_language_failure,
@@ -96,19 +97,6 @@ PROFILE_FAMILIES: tuple[str, ...] = (
     "AuthorityProfile",
     "InterpreterProfile",
 )
-
-
-@dataclass(frozen=True, slots=True)
-class ContractProfileRef:
-    profile_id: str
-    profile_version: str
-    profile_digest: str
-
-    def __post_init__(self) -> None:
-        require_hex64(self.profile_digest, "ContractProfileRef.profile_digest")
-
-    def to_ref_string(self) -> str:
-        return f"{self.profile_id}@{self.profile_version}"
 
 
 @runtime_checkable

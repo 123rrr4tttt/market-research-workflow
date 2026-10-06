@@ -83,19 +83,23 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         self.assertEqual(detail["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
 
     def test_source_library_require_project_key_fallback_logs_warning(self):
-        with patch("app.api.source_library.settings.project_key_enforcement_mode", "warn"):
-            with patch("app.api.source_library.current_project_key", return_value="demo_proj"):
-                with self.assertLogs("app.api.source_library", level="WARNING") as cm:
+        with patch(
+            "app.services.source_library.item_writer.get_effective_project_key_enforcement_mode",
+            return_value="warn",
+        ):
+            with patch("app.services.source_library.item_writer.current_project_key", return_value="demo_proj"):
+                with self.assertLogs("app.services.source_library.item_writer", level="WARNING") as cm:
                     value = source_library_api._require_project_key(None)
         self.assertEqual(value, "demo_proj")
         self.assertTrue(any("project_key_fallback_used" in msg for msg in cm.output))
 
     def test_source_library_require_project_key_in_non_dev_opt_in_require_rejects_fallback(self):
         with (
-            patch("app.api.source_library.settings.project_key_enforcement_mode", "warn"),
-            patch("app.api.source_library.settings.env", "staging"),
-            patch("app.api.source_library.settings.project_key_require_in_non_dev", True),
-            patch("app.api.source_library.current_project_key", return_value="demo_proj"),
+            patch(
+                "app.services.source_library.item_writer.get_effective_project_key_enforcement_mode",
+                return_value="require",
+            ),
+            patch("app.services.source_library.item_writer.current_project_key", return_value="demo_proj"),
         ):
             with self.assertRaises(HTTPException) as ctx:
                 source_library_api._require_project_key(None)
@@ -284,7 +288,10 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
 
     def test_source_library_project_scope_missing_project_key_in_require_mode_fails(self):
         client = TestClient(backend_app)
-        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+        with patch(
+            "app.services.source_library.item_writer.get_effective_project_key_enforcement_mode",
+            return_value="require",
+        ):
             resp = client.get("/api/v1/source_library/items", params={"scope": "project"})
         self.assertEqual(resp.status_code, 400)
         body = resp.json()
@@ -292,7 +299,10 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
 
     def test_source_library_post_item_missing_project_key_in_require_mode_fails(self):
         client = TestClient(backend_app)
-        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+        with patch(
+            "app.services.source_library.item_writer.get_effective_project_key_enforcement_mode",
+            return_value="require",
+        ):
             resp = client.post(
                 "/api/v1/source_library/items",
                 json={
@@ -309,7 +319,10 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
 
     def test_source_library_put_item_missing_project_key_in_require_mode_fails(self):
         client = TestClient(backend_app)
-        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+        with patch(
+            "app.services.source_library.item_writer.get_effective_project_key_enforcement_mode",
+            return_value="require",
+        ):
             resp = client.put(
                 "/api/v1/source_library/items/demo.item",
                 json={
@@ -326,7 +339,10 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
 
     def test_source_library_refresh_missing_project_key_in_require_mode_fails(self):
         client = TestClient(backend_app)
-        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+        with patch(
+            "app.services.source_library.item_writer.get_effective_project_key_enforcement_mode",
+            return_value="require",
+        ):
             resp = client.post(
                 "/api/v1/source_library/items/demo.item/refresh",
                 json={"incremental": True, "max_site_entries": 10},
@@ -337,7 +353,10 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
 
     def test_source_library_sync_handler_clusters_missing_project_key_in_require_mode_fails(self):
         client = TestClient(backend_app)
-        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+        with patch(
+            "app.services.source_library.item_writer.get_effective_project_key_enforcement_mode",
+            return_value="require",
+        ):
             resp = client.post(
                 "/api/v1/source_library/handler_clusters/sync",
                 json={"handlers": ["rss"], "incremental": True, "max_site_entries": 10},
@@ -348,7 +367,10 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
 
     def test_source_library_external_project_register_missing_project_key_in_require_mode_fails(self):
         client = TestClient(backend_app)
-        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+        with patch(
+            "app.services.source_library.item_writer.get_effective_project_key_enforcement_mode",
+            return_value="require",
+        ):
             resp = client.post(
                 "/api/v1/source_library/external-projects/register",
                 json={"project_link": "https://github.com/example/demo", "persist": False},
@@ -359,7 +381,10 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
 
     def test_source_library_sync_shared_from_files_missing_project_key_in_require_mode_fails(self):
         client = TestClient(backend_app)
-        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+        with patch(
+            "app.services.source_library.item_writer.get_effective_project_key_enforcement_mode",
+            return_value="require",
+        ):
             resp = client.post("/api/v1/source_library/sync_shared_from_files")
         self.assertEqual(resp.status_code, 400)
         body = resp.json()
