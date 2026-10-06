@@ -1,6 +1,6 @@
 # MRW 结构整理方案与分发包
 
-当前入口：[运行时退役与类型收敛框架](#11-运行时退役与类型收敛框架)。2026-10-05 外部审核后的五个只读调研包已完成，§11 为本轮运行时退役与类型收敛主入口。2026-10-06 复核后的当前状态为 **公共严格类型、功能套件及三条真实业务链的既有验证继续有效；统一执行结构与平台 run/step 事实 owner 的原收敛目标未完成，已确认 workflow 与 retrieval 两处 service 自管执行及运行状态写入缺口**。原“本轮实施与本地验收完成”结论撤回其整体迁移含义，证据及原退出条件见 §11.9 末尾复核记录。旧 runtime 整体退役仍是本轮最高优先交付，独有能力迁入现行体系，不以“不同义”保留旧执行系统。下方旧完成记录保留为当时结论，不覆盖此次确认的未完成状态。
+当前入口：[运行时退役与类型收敛框架](#11-运行时退役与类型收敛框架)。2026-10-06 对原两份清简方案、本文 §1–§10 与 §11.3/§11.6 的全部删除终点复核后，当前状态为 **64个独立终点中已删除29项、仅接入4项、未完成20项、待确证11项；整体执行、事实 owner 与机械实现收敛未完成**。已确认缺口包括 workflow/retrieval/functorial HTTP/project-customization 的正式执行链、batch 实际派发及 session/process 状态推演、collect service 执行主体、Graph 副本及机械/API 重复；具体证据、原 owner 与 blocked_by 见 §11.9 末尾完整清单。公共严格类型、功能套件及三条真实业务链的既有验证保持各自范围，不能抵扣这些删除条件。此前整体完成声明与仅列两处缺口的复核均由完整清单更新；下方历史记录保留为当时结论。旧 runtime 整体退役仍是本轮最高优先交付，独有能力迁入现行体系。
 
 上一轮（2026-10-04）状态：`IMPLEMENTATION_COMPLETE / LOCAL_DAILY_RUNTIME_VERIFIED`，范围与证据见 §8。
 
@@ -1297,3 +1297,109 @@ cwd：/Users/wangyiliang/market-research-workflow
 按 Git 跟踪的生产 Python 物理行数统计（含空行、注释），最后实施批次 `06edde58 → 5eb37268` 的 `app/services` 从119665增至130302，净增10637；`app` 从294581增至307501，净增12920。增长包括类型定义、转换与事务代码、API 实现下移和新增 writer；这些数字不表示新增行全部冗余，也不能证明实现主体已收敛。入口接入、公开类型闭合与机械绑定/实现主体删除须分别验收。
 
 可保留的是领域特殊 kernel、外部 adapter、原 Document/知识/模板等事实 writer 及必要单向投影；自管有序执行、下一步决策和通用运行状态的 service 部分仍受原退役条件约束。“不同义”不构成保留执行 service 的理由。当前撤回统一核心执行结构、service 执行层退役及整体实现/机械层收敛已完成的结论。本次仅纠正已有文档，未修改源码、未重跑套件、未建立新分发体系；代码整改范围由后续主线确定。
+
+#### 2026-10-06 全部原删除终点复核：当前有效清单
+
+本段按 `main@f1cfa8e2` 的只读代码与文件审计更新当前状态，覆盖 [实现清简方案](MRW实现清简方案.md)、[清简分阶段实施分发包](MRW清简分阶段实施分发包.md)、本文 §1–§10 与 §11.3/§11.6 的原删除条件。此前两项复核只确认了 workflow/retrieval 的缺口，本段取代其作为完整缺口清单的含义。各历史 PASS、当时删除记录与真实业务链证据保持原观察范围；当前公共 strict0 也不能证明所有 producer/consumer 已使用明确业务协议。
+
+按可独立核验的删除或收敛终点归一后，分母为 **64项：已删除29项、仅接入4项、未完成20项、待确证11项**。同一对象在多份原文重复出现只计一次；已知相互独立的页面、死文案、执行主体、持久写权和纯规则副本分开列示。“已删除”表示该行指定的旧对象/重复已退出；“仅接入”表示新接口或共同实现存在，但原消费者仍有应退出的机械实现；“未完成”表示当前源码中已确认残留；“待确证”表示原条件尚缺必要的当前证据，既不计完成，也不把合法保留物直接判成待删垃圾。已删除的完成数为29；仅接入4项仍未达到原删除终点，不能合计为33项完成。表内 owner 是原职责归属，未创建新分发包。
+
+继承边界：原流程生命周期差异允许保留领域版本模型，不豁免后来 §11 指定的执行器退役；原六个迁移 adapter 的暂留与 shadow 限制已受 §11 的在线桥删除条件约束；旧 AgentChat 的410/native兼容方案由 §11.6 的整页与旧 API 退役覆盖；C6 的条件保留已由实际退役解除。五个 collect channel 共用 typed gateway，不要求合法单项 source/URL/crawler effect 都进入 C3 batch。历史数据库、精确 codec/digest、只读 decoder、领域特殊 kernel、外部协议 adapter 和原事实 writer 按各自职责保留；现行消费者未迁属于具体 gap。
+
+路径缩写：`A=main/backend/app`，`F=main/frontend-modern/src`；未带前缀的后端 service 文件位于 `A/services` 的对应模块，`language/capabilities/runtime/assembly/substrate` 位于 `A/successor_runtime`；WebUI 路径位于 `main/ops/codex-webui` 的源码树。行号用于本次定位，不作为冻结绑定。
+
+**已删除：29项**
+
+| 删除/收敛终点与原出处 | 原退出条件 | 当前文件/调用证据 | 状态 | 剩余实现与迁入目标 | 原 owner | blocked_by |
+|---|---|---|---|---|---|---|
+| 彩票整体（原A7） | 专用项目、采集、MarketStat产品接口退出 | A/models/entities.py:71–90；projects/bootstrap.py:42–45；现行API/service无彩票执行消费者 | 已删除 | 无活动执行待删；ORM/schema只保全历史数据 | 原彩票退役/集成 | 无 |
+| 旧AgentCore及provider专属循环（Q2/SIMP07） | run_loop/planner/InteractiveAgentRuntime、旧provider包装和自动回退退出 | agent_core无旧core/run_loop/planner/provider模块；agent_runtime仅progress/task_bus/watchers，CodexAppServerCore仍为宿主入口 | 已删除 | 保留现行工具合同、宿主binding | 原后端旧内核退役 | 无 |
+| 旧NL二次循环（Q2/SIMP07） | NL loop、direct替代执行及command fallback退出 | A/api/agent_batch.py:1783–1792仅410 agent_runtime_retired；旧agent_loop不在 | 已删除 | 两条明确拒绝路由无执行能力，按§11.3保留 | 原旧内核/控制入口 | 无 |
+| CoordinatorRuntime/task.continue（§11.3/11.6） | 类、coordinator-pass、继续伪完成及其注册退出 | coordinator.py/tool_policy.py不在；task.continue无注册；control_tools.py:186–214的summary为读回 | 已删除 | 取消/重试是否统一执行另列task ledger项 | 原控制/会话事实+工具+入口 | 无 |
+| SessionMemoryRuntime及刷新器（§11.3/11.6） | 推理memory/scratchpad更新器、阈值及触发器退出 | agent_runtime/memory.py不在；现行摘要读task事实；残留long-task阶段推演另列 | 已删除 | 历史artifact读取保留，不把类删除扩称全部续接状态已迁 | 原控制/会话事实 | 无 |
+| 旧AgentChat后端（§11.6追加） | turn/stream/capabilities/approval执行API及装配删除 | A/api/agent_chat.py不在，api/__init__.py无旧router；旧URL消费者已退出 | 已删除 | 现行macro host和agent-cell继续使用 | agentchat_backend_retire/集成 | 无 |
+| 旧聊天前端/mini-chat（Q2、§11.6追加） | 旧页/hooks/styles/stories、写作mini-chat请求、旧helper删除 | AgentChatPage不在；WritingWorkbenchPage:2146–2149只链接现行agent页；retired hash→null | 已删除 | 旧hash墓碑不是可执行旧页面 | writing_agentchat_retire/kernel | 无 |
+| flowAgentChat与旧胞腔URL（§11.6追加） | 活动身份改flowCodex，删除/agent-chat/cell别名 | F/app/kernel/moduleManifest.ts:106–114；endpoints.ts:113–115；A/api/agent_cell.py:14,35 | 已删除 | 现行flowCodex及GET /agent-cell | codex_module_identity/agent_cell_frontend | 无 |
+| 重复batch完成事件/完成时间（A1/SIMP01） | 相同snapshot重读不追加完成事件/完成时间 | A/services/agent_sessions/service.py:1834–1976差异检查及原completed_at保留；旧持续投影另列 | 已删除 | 仅确认原同snapshot重复写缺陷，不能抵扣投影authority迁移 | 原SIMP01/控制会话事实 | 无 |
+| 旧collect分派/迁移开关（§11.3/11.6） | WorkflowRoutingAdapter、legacy_collect_runtime和产品flags删除 | 旧类/模块与env reader不在；composition统一五channel typed gateway；acquisition_batch:258–277仅历史rollback parser | 已删除 | 单项效果无需强加C3 batch；入口接入不证明adapter主体已退役 | 原采集/总入口 | 无 |
+| 候选聚合纯规则副本（Q3/A9/SIMP10） | 两handler共用已确认相同的词/限额/去重/统计规则 | candidate_aggregation.py:18–98被resolver:2030–2107,2236与handler_cluster:51–176双消费 | 已删除 | 领域错误/并发策略差异不属于该纯规则副本；整调度退役另列 | 原候选聚合 | 无 |
+| workflow编译缓存双写（§11.9后续明确变更） | 删除_compiled缓存及失败后合并/返回副本 | WorkflowGraphCompilerService:189 save_compiled，205–209 get/list直达选定store，无_compiled成员 | 已删除 | SQL/内存store的合法不同运行形态保留 | 原工作流/平台绑定 | 无 |
+| 写作伪queued及重复结果构造（Q5/A2/SIMP02） | 同步结果不伪排队，response/job/readback共用结果 | writing/llm_action_service.py:131–135,238–268统一inline/completed/content；history:327–364读已存params | 已删除 | 模板写作kernel、历史job投影保留 | 原写作结果owner | 无 |
+| 三份静态AST遍历（A3/SIMP04） | 共同纯遍历由原语言层拥有 | language/program.py:338 program_atoms；captured_values:103/115、first_specimen_handlers:427、delivery_handler:552消费；原_atoms不在 | 已删除 | 原精确匹配/权限检查仍由消费者负责 | 原平台纯遍历 | 无 |
+| C2两份profile/contract/codec拼装（A4/SIMP05） | 原消费者共用一个构造，旧67行机械段退出 | source_resolution.py:855–877与source_provider_acquisition.py:733–755均调用source_contracts.py:4154 build_source_operation_parts | 已删除 | 保留各自实际profile、输入/输出、权限和effect内核 | 原C2共同构造 | 无 |
+| 七份P1读取/摘要及CLI算法（A5/SIMP04） | 一个root/UTF-8/cell定位/digest规则，薄CLI只委托 | shared_family_generator.py:238–281；acquisition_batch_p3:216与c9_p4:106共用；c4/c5冻结reader；旧c2/c6/c8规格删除，4现存旧CLI用run_legacy_cli | 已删除 | 冻结fragment读取与领域body保留，旧生成器所需缺失历史输入另列 | 原规格资料读取/迁移历史 | 无 |
+| 静态工具重复spec/registration（§10.6–10.7） | 同一定义经原规则到Core/Codex消费者 | query/authoring sources→tool_contribution.py:232–263统一编译后注册；project_tools.py:314–344实际消费 | 已删除 | 范围为原静态工具族；开放MCP及真正权限wrapper不自动判重复 | 原工具贡献/端口工具 | 无 |
+| 根catalog转发（§4/§10.10） | 无消费者per-family wrapper删除，唯一project catalog | contributions当前仅project_catalog.py；直接组合native family；scripts/dev.py及架构消费者直达它 | 已删除 | 活动出口已退出；历史‘十个’逐名数量另作证据缺口，不重建转发 | 原贡献出口/集成 | 无活动消费者；旧数量缺完整逐名清单 |
+| 默认开发个人kit路径（§10.4） | 默认固定来源，不要求同一Desktop目录 | scripts/dev.py:105–128,280–326固定Git provenance并支持显式--local-kit | 已删除 | 保留显式本地开发模式；不扩成禁止所有部署mount | 原开发入口 | 无 |
+| WebUI个人worktree硬依赖（§4） | 默认启动迁主仓，外部override显式 | codex-webui/start.sh:7–18,56–69,100–121自ROOT；当前plist指主仓；package pin0.160.0 | 已删除 | 溯源README和宿主OAuth/原会话保留 | 原WebUI归仓/ops | 无；本轮未重启/live |
+| launcher两页状态/登录逻辑（A10/SIMP09） | 两页共用同一查询/显示实现 | launcher-ui/app.js:28–135 createCodexAuth；settings.html载app.js，settings.js:108只调refresh | 已删除 | 两页DOM挂载和各自配置/启停职责保留 | 原launcher | 无；本轮未重跑浏览器 |
+| 当前业务身份/旧编号出口（§1/§9/§10.8） | 活动调用直接业务符号，新写身份不默认旧编号 | 当前源码为业务作者/装配；successor-runtime.ts:239–255,475–490业务v2拒旧写，1332–1376显式历史decode | 已删除 | 保留明确历史schema/ID/digest；内部acquisition标签另列待确证 | 原八族源码出口/集成 | 无已发现当前编号转发依赖 |
+| 当前诊断历史批账（Q6/A11/SIMP11） | 当前响应移除失效installed/PASS及历史批次叙述 | A/api/business_lines.py:764–878当前static contract，观测not_observed/unknown；Ops动态diagnostics，Dashboard合法reset telemetry | 已删除 | 历史v1及有效readback/reset字段保留；旧checker去留另列 | 原诊断/API卫生 | 无 |
+| C6旧执行/装配/canary（A6/SIMP06） | 满足原保留条件后退出当前执行及canary | bb57307d删除C6 assembly/canary/worker/execution；successor_assembly.py:101–105,186–218当前27 cells不含C6 | 已删除 | 冻结spec/fragment、rebind和历史rollback serializer保留；ignored pyc不算在线引擎 | 原C6退役/集成 | 无 |
+| 在线legacy oracle/迁移执行桥（§2.4→§11.3） | 在线不导入oracle/replay/旧collect/workflow执行桥 | 760571ec删除successor_migration旧oracle/replay/collect/workflow/C7/C8执行文件及其旧测试；仅余document_canonical_read与ingest_recovery_c7 | 已删除 | 保留前者SELECT精确读和后者新epoch纯见证；C8原substrate查询fallback另列 | 原桥退役/历史读回 | 无 |
+| 十五脚本/十九词表副本（A12/SIMP11） | 业务词汇由单一权威提供，原复制退出 | src/mrw_functorial_kit/business_line_vocabulary.py:23–43；scripts/_automation_runtime.py:11–18；API business_lines及projection_evidence_matrix同源；原4 build/7 check/4 run均消费 | 已删除 | 脚本各自流程与精确历史值保留 | 原词表/诊断与脚本 | 无 |
+| API重复错误envelope（§11.6） | 错误结构只有一个owner，路由只投影协议 | contracts/responses.py:88–113统一ok/fail；api/_error_responses.py:12–32统一HTTP投影；三API _raise只选择status/code | 已删除 | 保留transport status/header/detail边界及领域错误 | 原API/admin+ingest+dashboard | 无 |
+| 手工WebUI API-key页面/退出控件（SIMP08） | 旧手工登录页、外层JWT控制及session logout控件删除 | router.tsx:44–95 bootstrap及旧login重定向；LoginPage/Form不在；AuthenticatedLayout:218–246仅过期清理；外层CodexAgentPage无JWT控制 | 已删除 | 保留Codex account登录、MCP登录和真实会话bootstrap；未调用API/生成SDK非页面残留 | 原WebUI/auth | 无 |
+| module逐项title/nav词表（原清简固定前缀项） | 从moduleKey派生固定前缀，不平行手填映射 | F/app/kernel/moduleManifest.ts:39–68 defineModule派生shell.title/navigation.item；types.ts:69–70固定类型 | 已删除 | 保留module业务定义与真正翻译文本 | 原前端module/kernel | 无 |
+
+**仅接入：4项**
+
+| 删除/收敛终点与原出处 | 原退出条件 | 当前文件/调用证据 | 状态 | 剩余实现与迁入目标 | 原 owner | blocked_by |
+|---|---|---|---|---|---|---|
+| 已适用C3批处理手工接线（§11.6） | 正式消费者复用已有组合与派生绑定 | collect_runtime/runtime.py:393–645仍自建scope/Program/binding/traversal/fold；已有acquisition_batch_program:655–750及native composed handler | 仅接入 | 将正式batch路径接已有组合，删除同形lowering/fold胶水；等待/取消观察保持 | 原采集/总入口 | 已有composed Program/assembly尚未被此正式service消费者使用 |
+| 两份HTML正文定位（Q1/A8/SIMP03） | raw_import与url_pool退出独立selector/120/body循环 | raw_import.py:93–101已用content_extraction共核；ingest/url_pool.py:668–685仍本地循环 | 仅接入 | URL入口改消费共核，保留normalize/max_chars及原异常行为 | 原正文定位/采集来源URL | URL入口尚未迁共同定位规则 |
+| 同形类型转换/接线尾部（§11.4/11.6） | 确定规则复用，公开类型接入不代替机械实现收敛 | source_library/runner.py:115与134两同算法递归JSON转换，153又转换；collect手工绑定另列 | 仅接入 | 共用已确认同形算法，保留必要输入边界与结果类型 | 原业务端口/source runner+集成 | 真实producer/consumer尚未共用相同转换实现 |
+| ingest service不透明返回边界（§11.4/§11.6） | 公开类型贯穿实际producer/consumer，退出不透明机械重解析 | A/api/ingest.py:90–135四组实际service Protocol返回object，API据此广泛解析 | 仅接入 | 按实际service结果固定协议，收敛强迫消费者重建类型的胶水 | 原API/ingest+业务端口 | 真实service返回合同尚未贯通；strict0不证明这一语义端点已完成 |
+
+**未完成：20项**
+
+| 删除/收敛终点与原出处 | 原退出条件 | 当前文件/调用证据 | 状态 | 剩余实现与迁入目标 | 原 owner | blocked_by |
+|---|---|---|---|---|---|---|
+| session通用task执行承载（§11.3） | 旧task生命周期/状态推演迁到平台执行事实 | AgentSessionService:958–1401自行claim/lease/retry/reclaim/cancel，2908–2922推演session；Ops/API/skill_runtime实际消费 | 未完成 | 迁走通用task engine；保留消息、批准审计、业务artifact与宿主显式plan输入 | 原控制/会话事实+集成 | 现task消费者及租约/依赖/冲突/终态尚未接原runtime run/step/journal |
+| batch→session持续状态回写（Q4/SIMP12、§11.3） | 必要关联只读现行事实，旧聊天投影及旧状态推演退出 | A/api/agent_batch.py:336–374,1320–1366的GET/wait触发投影；service.py:1757–2003合成implementation/verification任务与事件 | 未完成 | 停止读操作重建执行事实，接substrate/projections/agent_session.py的journal投影；保留真实batch读回 | 原控制/会话事实+batch集成 | batch/session消费者及状态身份未切平台事实；A1幂等修复不解除此项 |
+| long-task自动阶段推演/副本（§11.2/11.3同类遗漏） | 宿主推理状态不在service自动合成完成或重复回写 | authoring_tools.py:2844将前序pending自动改completed并补时间/文案；2890推演current_stage；2968–3002回写task | 未完成 | 删除自动推演和task副本；宿主明确提供的plan/artifact、历史读取保留 | 原控制/工具+会话事实 | 阶段读回需改为显式宿主/领域事实；plan.append本身不生成研究计划 |
+| collect残留三别名注册（§11.3/11.6） | 过渡注册随消费者切换删除 | collect_runtime/runtime.py:32,50–84写_SKILL_REGISTRY三别名，无app执行lookup；真实gateway捕获composition局部map | 未完成 | 删除无执行消费者的旧注册面，复用composition唯一effect map | 原采集/总入口+集成 | 无执行消费者阻塞；需同步原注册/list入口合同 |
+| URL pool完整执行主体（§11.3/11.6） | adapter仅保留特殊effect kernel，旧调度/状态推演退出 | Collect URL adapter→ingest/url_pool.py:456–665,1518–1605,1631–2085；market/social/news/unified_search实际调用 | 未完成 | 迁走celery/thread/sync选择、ThreadPool批调度、mutable fold/job终态；保留单URL取得/入库 | 原采集/来源URL+集成 | target/顺序/wait结果及状态owner尚未接平台 |
+| source adapter/resolver执行主体（§11.3/11.6） | 必要provider kernel迁入平台，旧调度与ETL执行状态退出 | adapters/source_library.py:144–252建/终结ETL job；resolver.py:738–835,941–1059,2018–2204自管并发/超时/批次 | 未完成 | 迁走resolver调度与adapter ETL运行写权，保留解析、provider协议及单向读回 | 原采集/来源URL+总入口 | source计划、provider效果、取消和ETL读回尚未统一事实 |
+| ingest.source_library.run工具多项循环（§11.3同类遗漏） | 工具调用已有有序执行，不另管多项调度事实 | project_tools.py:187–209,435–675实际fallback注册，逐item invoke_skill并自管abort/skipped/artifact；非死代码 | 未完成 | 迁走多项loop及执行状态胶水，保留单项skill→Celery effect与宿主授权 | 原端口/工具+采集总入口 | 有序receipt/abort读回尚未接；当前消费者未迁是缺口 |
+| WorkflowGraph循环及新run写权（§11.2/11.6） | 平台解释器与run/step owner接管，删旧循环/新run双写/装配 | API→skill→WorkflowGraphRuntimeService→PlatformInterpreter:66–164 while/execute/store写；SqlRunStore:364–476写public.workflow_graph_runs | 未完成 | 迁走service驱动和新run写面，保留模板版本、节点kernel、历史decoder/只读投影 | 原工作流/平台绑定+历史读回+集成 | 正式node效果及run/step持久owner未切；typed DSL/activation只完成接入 |
+| retrieval查询/补检执行（§11.3同类遗漏） | 有序执行和新运行状态归原平台 | POST runs→ProjectRetrievalService.start→Celery→execute_retrieval_run:1023/1028 query/followup循环；claim_run/update_run写ProjectRetrievalRun | 未完成 | 迁走service循环与运行终态写权；保留检索kernel、显式领域结果/历史读取 | 原端口/项目检索+集成 | 查询、followup预算/失败、run身份尚未接平台 |
+| functorial HTTP工具程序执行（§11.3同类遗漏） | 现行程序组合不另保留service顺序执行器 | api/__init__.py:61挂载；api/functorial.py:154→functorial/run.py:138–189逐工具execute_tool并串结果/判终态 | 未完成 | 迁走线性程序执行器，接现有Program/Plan；保留需要的声明和真实权限边界 | 建议原工作流/平台绑定+集成 | HTTP消费者尚未迁；PROJECTION_ONLY标签不消除实际工具调用 |
+| project-customization步骤执行（§11.3同类遗漏） | 版本模型可保留，通用步骤执行迁原平台 | api/project_customization.py:1757→services/projects/workflow.py:210–305循环steps并直接调用4个ingest handlers/判终态 | 未完成 | 删除_WORKFLOW_HANDLERS第二执行装配与loop；保留模板版本/参数和特殊采集kernel | 建议原工作流/平台绑定+采集集成 | 当前定制workflow消费者、失败短路及effect尚未迁 |
+| Graph additional名单双写（§10.5/§11.6） | 同身份可写图状态只有一个owner | GraphPage:721–722与useGraphDraft:43–46双存；3935–3988创建双写，3957–3967删除仅draft，1054–1071用副本过滤 | 未完成 | 删除projectAdditionalNodes/Edges写副本，改从draft/source identity派生 | 原Graph草稿/页面模板 | create/delete/reset/save及legacy snapshot消费者需同步迁移 |
+| Graph旧拓扑panel（§10.5/§11.6） | 无消费者重复组件实际删除 | GraphTopologyPanel.tsx:19–66另有saved/status/error/readTopology；src/tests零importer，CSS随组件；共享client有ReportTopologyPanel消费者 | 未完成 | 删除该死组件及专属CSS，保留共享client与报告面板 | 原Graph纯投影/页面 | 无已发现活动消费者；本轮未据文件名删除 |
+| C8生产旧projector查询alias（§11.3） | 旧生产查询alias退出，历史读取具名隔离 | substrate/postgres/c8_production.py:203现行→旧projector fallback，1396/1462调用；1418–1437接受旧authority/loss registry | 未完成 | 迁出当前兼容fallback，保留明确历史decoder；这是只读查询alias，不是旧writer | 原图投影/历史读回+集成 | 当前已装配内部调用仍接受旧身份；外部live消费者未确证 |
+| admin/dashboard重复request scope解析（§11.6） | API消费共享scope，不重建事实owner | A/main.py:451–462,674–690绑定request.state；api/admin.py:66–84、dashboard.py:777–789仍各自重放header/query/settings fallback | 未完成 | 收敛共享request-scope解析，明确保留payload require与不同fallback语义 | 原API/admin+dashboard+集成 | 两API fallback顺序不同，真实消费者须同步而不能机械替换 |
+| ingest JSON重复递归（§11.4/§11.6） | 同一输入树按一个已定规则验证 | A/api/ingest.py:171–180 _json_object先递归整树，再逐成员重复_json_value | 未完成 | 删除第二遍同数据校验，保持路径化TypeError/coercion合同 | 原API/ingest | 无外部前置；需保持当前失败路径 |
+| 旧手工auth五个死locale键（SIMP08） | 对应旧界面移除后删除无消费者文案 | WebUI zh-CN.json:20–21,85,87–88五个旧session logout/API-key页面文案无非generated UI消费者 | 未完成 | 删除这5键；API Key和Login各有account/MCP真实消费者而保留 | 原WebUI/auth | 无已发现活动UI消费者 |
+| module registry重复派生表达式（§10/§11.4） | 原manifest派生结果直接供registry消费 | F/platform/modules/registry.ts:7–19再次生成同一两个模板表达式 | 未完成 | 直接消费entry.titleKey/navLabelKey，删除同形投影算法 | 原前端module/kernel | 无；不是第二事实表，也不抵消旧逐项映射已删 |
+| batch实际派发/重试执行承载（§11.3） | 旧batch service有序执行与状态写权迁入原runtime | A/api/agent_batch.py:1160–1294自管for-loop/registry/guard/dispatch/idempotency，1400–1475重试派发；batch.task.submit.v2现handler provider_calls=0只产closure/receipt | 未完成 | 迁走实际Celery派发/重试与执行胶水，保留具体任务effect及幂等语义；与session投影缺口分别验收 | 原控制/批任务+集成 | submission_handler.py:232–267,360–409及interpreters.py:662–738尚未承接实际effects |
+| process状态猜测/旧别名投影（§11.3） | process读回消费当前观察事实，退出旧status猜测与并行投影 | A/api/process.py:243–249,458–508从任意nested payload猜status；1238–1286拼接inspect/ETL；未消费已存ProcessObservationProjection（172–240,325–390） | 未完成 | 切已存观察投影，删除旧猜测/别名；保留1289–1311真实cancel revoke及1485–1534领域retry kernel | 原控制/process读回+集成 | 正式process消费者尚未迁当前观察事实，旧投影仍在现行路径 |
+
+**待确证：11项**
+
+| 删除/收敛终点与原出处 | 原退出条件 | 当前文件/调用证据 | 状态 | 剩余实现与迁入目标 | 原 owner | blocked_by |
+|---|---|---|---|---|---|---|
+| Graph pending/active视图副本（§10.5/§11.6） | 只删已证明可派生且无独立生命周期的副本 | GraphPage:1133–1137同值写pendingProjectViewSpec/activeProjectViewSpec，但分别参与hydration guard/已加载基线 | 待确证 | 需先确定是否可单向派生；不把draft/applied或guard差异误删 | 原Graph页面模板 | 两者状态转移观察尚未证明等价 |
+| acquisition内部旧label边界（§1/§10.8） | 区分新运行identity与精确历史profile/digest | acquisition_batch.py:180–218,3279–3293及interpreters:73–75,1005–1030仍含legacy/C3 snapshot/profile/deployment字面 | 待确证 | 先确认其新写身份/历史绑定地位，不能因字面含legacy即删或重算digest | 原采集native/集成 | 当前内部标签是否属于承诺迁移的产品canonical identity未确证 |
+| 当前文档导航/旧core说明（§4/§10.10） | 默认导航唯一，退役执行叙述退出当前说明 | 原§8/§10.11记录已切当前导航；本次桥/文档审查未给全部现行正文逐项源码式覆盖 | 待确证 | 核对当前导航与仍可达说明的退役叙述；历史正文不重写 | 原文档/检查导航 | 当前导航及退役叙述删除范围未逐项复核，既有四checker通过不替代内容结论 |
+| 四类文档checker重复（§11.6） | 同一静态检查由原声明派生或合并，真实不同合同保留 | structure、migration_manifest、content_plan、navigation_drift分别检查章节/入口/owner/导航；语义重复比较未完成 | 待确证 | 只删除已证明同义的检查；四类不同合同不因数量直接删除 | 原文档/检查导航 | 具体重复判断与消费者影响尚未确证 |
+| 25个历史参考gitlink（§10.10/§11.6） | 无真实引用/独有用途的clone实际删除 | references/repos仍有25个tracked gitlink，约613M，工作树clean，无.gitmodules；历史archive有精确引用 | 待确证 | 按真实保留用途/引用确定逐项处置，不能把clean等同可删除 | 原文档/本地遗留物 | 保留用途/精确引用尚未核对完 |
+| 根0、五截图、六RELEASE_NOTES（§10.10/§11.6） | 根误产物逐项核用并处置，无用途者真正删除 | 根0仍tracked 23B，5 png及6 RELEASE_NOTES仍在；0.9有历史交叉引用，v0.1.0绑定Stage3 security fingerprint | 待确证 | 完成精确用途核对后只处置已证实无用对象，冻结引用保持 | 原文档/本地遗留物 | 保留用途/精确引用尚未核对完 |
+| coverage/误命名pytest目录等生成物（§11.6） | 已确认无用生成物清除，不把目录当文件 | ignored main/backend/coverage.xml、.coverage、误命名python -m pytest -q -p no:cacheprovider tests/目录仍在；tracked coverage.contract.xml约578K | 待确证 | 核对精确用途后清理；tracked合同文件与ignored产物分别处置 | 原文档/本地遗留物 | 当前生成物用途及coverage.contract.xml引用尚未核对完 |
+| 历史Docker/本地快照物理清理（§8续接） | 仅已核验旧临时资源删除，保留真实数据/恢复输入 | §8有2026-10-04精确删除记录及结果路径；本轮未读取daemon或复核其当前物理状态 | 待确证 | 历史已删结论保留为当时事实；当前物理完成不据旧磁盘数推定 | 原资源清理/集成 | 本轮未复核当前物理状态；无已发现新执行阻塞 |
+| HTTP/搜索/社交重复policy（§11.6） | 实际同义请求/重试/限速规则共用，删除各自副本 | 原记录HTTP policy20 passed/8 subtests、port6、social4、search trace8；本轮未重读http_utils/url_unwrap/retry_policy及全部消费者 | 待确证 | 核对共享规则的实际consumer与旧副本退出；保留provider/account/worker真实差异 | 原请求公共边界+搜索+社交 | 本轮源码删除覆盖未确证；原局部测试保留原范围 |
+| 失败伪空/宽泛异常余部（§11.6） | 读取失败不伪成功，捕获边界符合真实协议 | 原异常/请求包及source.history.read有局部修复和测试记录；本轮未逐项复核所有约定调用族 | 待确证 | 沿原具名消费者核对失败保持，不重开全仓异常扫描 | 原请求边界+端口工具 | 原退出条件的剩余源码覆盖未确证 |
+| batch冗余phase缓存（A1/SIMP01） | 原重复phase缓存与计算退出，观察值从真实事实派生 | A1本轮证据仅确认service.py:1834–1976的同snapshot事件/完成时间去重，未提供原phase字段删除证据 | 待确证 | 核对原字段/缓存消费者及删除结果；不把事件幂等修复算作全部A1完成 | 原SIMP01/控制会话事实 | 原phase缓存退役尚缺独立当前证据 |
+
+四条当前正式执行链必须分别完成原退出条件：[WorkflowGraph service](../../main/backend/app/services/workflow_graph/runtime.py) 管节点遍历和新 run 写入；[ProjectRetrieval executor](../../main/backend/app/services/project_retrieval/execution.py) 管查询与补检；[Functorial HTTP runner](../../main/backend/app/services/agent_core/functorial/run.py) 在已挂载 HTTP 路由内逐工具执行；[project-customization workflow](../../main/backend/app/services/projects/workflow.py) 通过第二 handler 表循环步骤。后两条是本次补入的现行正式消费者，不能用 MCP 拒绝、`PROJECTION_ONLY` 标签或版本模型保留理由抵扣；本次没有据此推断授权漏洞。
+
+控制面剩余的是 [session task engine](../../main/backend/app/services/agent_sessions/service.py) 的 claim/lease/retry/cancel、batch GET/wait 的持续事实回写以及 [long-task 阶段推演](../../main/backend/app/services/agent_core/authoring_tools.py)。`agent_task.plan.append` 接收宿主显式任务，本身不是第二推理循环；应保留其合法输入职责。采集剩余的是 [batch service 的手工组合](../../main/backend/app/services/collect_runtime/runtime.py)、[URL pool 调度](../../main/backend/app/services/ingest/url_pool.py)、source resolver/adapter 的执行责任和实际注册的 source-library 多项工具。crawler.scrapy 只确认 map 注册与测试，未确认产品请求构造调用，不能用 gateway 五通道注册证明所有产品链已迁。
+
+机械尾部须与类型接入分开收敛：HTML URL 入口仍未消费已建共核，source runner 两套递归转换及 API 重复校验仍在，module registry 仍重复派生 title/nav。Graph additional 名单的第二写副本与无消费者 panel 属于已确认删除缺口；pending/active 的不同 hydration/base 职责尚未证明可合并。API envelope 已有共同 owner，薄 HTTP 错误投影、strict dashboard 解析和 payload require-mode 不作为重复删除。
+
+目录与历史数量单独报告：活动 catalog 已唯一，原“十个出口”目前仅恢复出部分精确旧名，历史数量逐名复原仍缺证据，不再虚构十名清单，也不把它增计成新的活动执行缺口。25个 gitlink、根误产物及 coverage/pytest 目录的剩余条件是保留用途和精确引用尚未核对完；本次没有观察到可据以宣称的运行进程、唯一改动或恢复阻塞。C8 fallback 已确认是内部现行可调用的只读旧身份兼容；外部 live caller 未确认，不能扩称旧写入引擎。
+
+规模口径延续上段：生产 `app` 的307501物理Python行不含另计的测试183409行和脚本56465行；因此测试体积不能解释生产 app 的约30万行。runtime 内当前 capabilities51534、substrate47445、runtime15897、language7797、assembly7326行只是定位信息，不把全部新增类型/事务/writer当成冗余，也不以行数下降代替上述删除终点。
+
+本轮仅更新本文件。已对表格数据执行确定性检查：64个唯一终点、每行7个非空字段、状态枚举及四类计数一致；10个新增相对链接目标存在，限定文档的 `git diff --check` 退出码0。没有修改源码、测试、冻结数据，没有启动业务服务或重跑功能套件。本段列出的20项已确认未完成、4项仅接入和11项待确证均保留原身份与具体依赖，整体结构收敛仍未完成。
