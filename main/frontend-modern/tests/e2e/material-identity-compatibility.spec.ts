@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { classifyReference } from '../../src/features/information-topology/referenceStatus'
 import { normalizeMaterialRef } from '../../src/features/information-topology/materialIdentity'
-import { materialReaderId, normalizeMaterialGraph } from '../../src/pages/graph/realizer/materialGraph'
+import { materialReaderId, normalizeMaterialGraph, projectDocumentMaterials } from '../../src/pages/graph/realizer/materialGraph'
 import { applyProjectGraphView, normalizeProjectGraphViewSpec } from '../../src/pages/graph/realizer/projectGraphView'
 import { projectInformationTopologies } from '../../src/pages/graph/realizer/topologyProjection'
 import type { BoundRef, CurrentTopologyItem } from '../../src/features/information-topology/types'
@@ -19,6 +19,27 @@ test('reference comparison transports identity while retaining revision and dige
   expect(classifyReference(previous, [{ ...previous, ref: canonicalRef, observed_revision: 'r2' }]).status).toBe('stale')
   expect(classifyReference(previous, [{ ...previous, ref: canonicalRef, content_digest: 'other' }]).status).toBe('stale')
   expect(normalizeMaterialRef({ ...legacyRef, module_id: 'writing' }).module_id).toBe('writing')
+})
+
+test('document reader projects canonical material nodes without invented relations', () => {
+  const graph = projectDocumentMaterials([{
+    id: 12,
+    title: 'Crawler material',
+    doc_type: 'news',
+    uri: 'https://example.test/source',
+    created_at: '2026-10-06T10:00:00Z',
+  }], 'p')
+
+  expect(graph.source_kind).toBe('document_materials')
+  expect(graph.edges).toEqual([])
+  expect(graph.nodes).toEqual([expect.objectContaining({
+    id: '12',
+    type: 'material',
+    material_id: 12,
+    title: 'Crawler material',
+    material_ref: canonicalRef,
+    topology_ref: canonicalRef,
+  })])
 })
 
 test('legacy graph keys, selections and endpoints transport together into saved material views', () => {

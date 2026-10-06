@@ -1,5 +1,5 @@
 import { isCanonicalMaterialRef, normalizeMaterialGraphId, normalizeMaterialRef } from '../../../features/information-topology/materialIdentity'
-import type { GraphEdgeItem, GraphNodeItem, GraphResponse } from '../../../lib/types'
+import type { AdminDocumentItem, GraphEdgeItem, GraphNodeItem, GraphResponse } from '../../../lib/types'
 import { normalizeNodeType } from './nodeStyleLibrary'
 
 export function materialReaderId(node: GraphNodeItem | null): number | null {
@@ -65,4 +65,35 @@ export function normalizeMaterialGraph(graph: GraphResponse): GraphResponse {
     if (canonical) canonicalKeys.add(key)
   }
   return { ...graph, nodes: [...nodes.values()], edges: graph.edges.map(normalizeMaterialGraphEdge) }
+}
+
+/** Read-only projection of canonical Document rows into GraphPage material nodes. */
+export function projectDocumentMaterials(items: AdminDocumentItem[], projectKey: string): GraphResponse {
+  const nodes = items.flatMap((item): GraphNodeItem[] => {
+    const materialId = Number(item.material_id ?? item.id)
+    if (!Number.isSafeInteger(materialId) || materialId <= 0) return []
+    const materialRef = {
+      project_key: projectKey,
+      module_id: 'materials',
+      namespace: 'materials',
+      type_id: 'material',
+      local_id: String(materialId),
+    }
+    const title = String(item.title || item.uri || `Material ${materialId}`)
+    return [{
+      id: String(materialId),
+      entry_id: String(materialId),
+      type: 'material',
+      name: title,
+      title,
+      material_id: materialId,
+      topology_ref: materialRef,
+      material_ref: materialRef,
+      observed_revision: String(item.updated_at || item.created_at || 'current'),
+      doc_type: item.doc_type,
+      state: item.state,
+      uri: item.uri,
+    }]
+  })
+  return normalizeMaterialGraph({ nodes, edges: [], source_kind: 'document_materials' })
 }

@@ -136,6 +136,9 @@ async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?
       }),
     })
   })
+  await page.route(/\/api\/v1\/admin\/materials\/list(?=\?|$)/, async (route) => {
+    await fulfillKernelRuntime(route, { items: [], total: 0, page: 1, page_size: 100 })
+  })
 
   await page.route('**/api/v1/project-customization/graph-config**', async (route) => {
     graphConfigHit += 1

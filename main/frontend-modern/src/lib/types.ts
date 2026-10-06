@@ -2362,7 +2362,7 @@ export type GraphEdgeItem = {
 export type GraphResponse = {
   nodes: GraphNodeItem[]
   edges: GraphEdgeItem[]
-  source_kind?: 'project_topology'
+  source_kind?: 'project_topology' | 'document_materials'
   /** Optional label supplied by a project-bound semantic projection. */
   source_label?: string
   /** Optional project binding into the frontend edge-style catalog. */

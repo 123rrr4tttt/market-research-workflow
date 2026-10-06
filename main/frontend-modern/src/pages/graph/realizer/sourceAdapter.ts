@@ -1,8 +1,8 @@
-import { getMarketGraph, getPolicyGraph, getSocialGraph } from '../../../lib/api'
-import type { GraphResponse } from '../../../lib/types'
+import { getMarketGraph, getPolicyGraph, getSocialGraph, listAdminMaterials } from '../../../lib/api'
+import type { AdminDocumentItem, GraphResponse } from '../../../lib/types'
 import type { GraphProjectionDefinition } from './contract'
 import { informationTopologyClient } from '../../../features/information-topology'
-import { normalizeMaterialGraph } from './materialGraph'
+import { normalizeMaterialGraph, projectDocumentMaterials } from './materialGraph'
 import {
   hasProjectRetrievalSemantics,
   projectInformationTopologies,
@@ -22,6 +22,7 @@ export type GraphProjectionFilters = {
 
 /** Maps a project projection definition and its filters to the canonical graph shape. */
 export async function readGraphProjection(
+  projectKey: string,
   definition: GraphProjectionDefinition,
   filters: GraphProjectionFilters,
   topologyFilter?: TopologyProjectionFilter,
@@ -33,22 +34,39 @@ export async function readGraphProjection(
       topologyFilter,
     )
   }
+  const materialItems: AdminDocumentItem[] = []
+  const materialLimit = Math.max(1, Math.min(filters.limit, 2000))
+  for (let page = 1; materialItems.length < materialLimit; page += 1) {
+    const remaining = materialLimit - materialItems.length
+    const response = await listAdminMaterials({
+      page,
+      page_size: Math.min(100, remaining),
+      sort_by: 'created_at',
+      sort_order: 'desc',
+    })
+    materialItems.push(...response.items)
+    if (!response.items.length || materialItems.length >= response.total) break
+  }
+  const materialGraph = projectDocumentMaterials(materialItems, projectKey)
   const common = {
     start_date: filters.startDate,
     end_date: filters.endDate,
     limit: filters.limit,
   }
-  if (definition.graphKind === 'policy') {
-    return normalizeMaterialGraph(await getPolicyGraph({ ...common, state: filters.state, policy_type: filters.policyType }))
-  }
-  if (definition.graphKind === 'social') {
-    return normalizeMaterialGraph(await getSocialGraph({ ...common, platform: filters.platform, topic: filters.topic }))
-  }
-  return normalizeMaterialGraph(await getMarketGraph({
-    ...common,
-    state: filters.state,
-    game: filters.game,
-    view: definition.marketView,
-    topic_scope: definition.topicScope,
-  }))
+  const domainGraph = definition.graphKind === 'policy'
+    ? await getPolicyGraph({ ...common, state: filters.state, policy_type: filters.policyType })
+    : definition.graphKind === 'social'
+      ? await getSocialGraph({ ...common, platform: filters.platform, topic: filters.topic })
+      : await getMarketGraph({
+        ...common,
+        state: filters.state,
+        game: filters.game,
+        view: definition.marketView,
+        topic_scope: definition.topicScope,
+      })
+  return normalizeMaterialGraph({
+    ...domainGraph,
+    nodes: [...materialGraph.nodes, ...domainGraph.nodes],
+    source_kind: materialGraph.nodes.length ? 'document_materials' : domainGraph.source_kind,
+  })
 }

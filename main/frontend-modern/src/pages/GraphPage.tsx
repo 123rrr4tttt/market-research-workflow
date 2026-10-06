@@ -234,6 +234,7 @@ declare global {
     }
     __graphPageE2E?: {
       selectNode: (nodeId: string) => boolean
+      getGraphSnapshot: () => { nodes: GraphNodeItem[]; edges: GraphEdgeItem[] }
     }
   }
 }
@@ -922,7 +923,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       graphDataViewKey,
     ],
     queryFn: async () => {
-      return readGraphProjection(templateBuilder ? GRAPH_PROJECTIONS.graphDeep : sourceProjection, {
+      return readGraphProjection(projectKey, templateBuilder ? GRAPH_PROJECTIONS.graphDeep : sourceProjection, {
         startDate: appliedFilters.startDate,
         endDate: appliedFilters.endDate,
         state: appliedFilters.state,
@@ -1813,11 +1814,15 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         setSelectionEnabled(true)
         return true
       },
+      getGraphSnapshot: () => ({
+        nodes: effectiveGraphData.nodes,
+        edges: effectiveGraphData.edges,
+      }),
     }
     return () => {
       delete window.__graphPageE2E
     }
-  }, [connectedNodeMap, setManualSelectedNodeKeys, setManualDeselectedNodeKeys, setSelectionEnabled])
+  }, [connectedNodeMap, effectiveGraphData.edges, effectiveGraphData.nodes, setManualSelectedNodeKeys, setManualDeselectedNodeKeys, setSelectionEnabled])
 
   useEffect(() => {
     if (previousGraphKindRef.current === graphKind && previousProjectViewResetEpochRef.current === projectViewResetEpoch) return

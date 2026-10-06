@@ -180,6 +180,10 @@ function requireNonEmptyList(data: unknown, label: string) {
 type GraphNodePayload = {
   type: unknown
   id: unknown
+  material_id?: unknown
+  material_ref?: unknown
+  topology_ref?: unknown
+  uri?: unknown
 }
 
 type GraphEdgePayload = {
@@ -206,6 +210,25 @@ function requireGraphArrays(data: unknown, label: string) {
     throw new Error(`${label} is missing nodes/edges arrays.`)
   }
   return { nodes: payload.nodes as GraphNodePayload[], edges: payload.edges as GraphEdgePayload[] }
+}
+
+type AdminMaterialPayload = {
+  id: unknown
+  material_id?: unknown
+  uri?: unknown
+}
+
+function requireAdminMaterials(data: unknown, label: string) {
+  const payload = requireObject(data, label)
+  if (!Array.isArray(payload.items)) {
+    throw new Error(`${label} is missing its items array.`)
+  }
+  return payload.items as AdminMaterialPayload[]
+}
+
+function projectedMaterialId(item: AdminMaterialPayload) {
+  const materialId = Number(item.material_id ?? item.id)
+  return Number.isSafeInteger(materialId) && materialId > 0 ? materialId : null
 }
 
 function requireSimp11NonEmptyMarketGraph(data: unknown) {
@@ -280,17 +303,16 @@ test('real-backend business line smoke [line_key=search_discovery_index] classif
   })
 
   await bootstrapRealBackendPage(page)
-  const topicsResponse = page.waitForResponse((response) => {
-    return response.url().includes('/api/v1/topics') && response.status() === 200
-  })
-  const productsResponse = page.waitForResponse((response) => {
-    return response.url().includes('/api/v1/products') && response.status() === 200
+  const legacyCatalogRequests: string[] = []
+  page.on('request', (request) => {
+    if (/\/api\/v1\/(topics|products)(?:[/?]|$)/.test(request.url())) {
+      legacyCatalogRequests.push(request.url())
+    }
   })
   await page.goto('/#/visual/catalog')
-  await topicsResponse
-  await productsResponse
-  await expectVisible(lineKey, page.getByRole('heading', { level: 1, name: '行业公司/商品/经营' }))
-  await expectVisible(lineKey, page.getByRole('heading', { name: '主题管理' }))
+  await expectVisible(lineKey, page.getByRole('heading', { level: 2, name: '统计视图' }))
+  await expectVisible(lineKey, page.getByText('当前统计视图暂无指标。'))
+  expect(legacyCatalogRequests).toEqual([])
 })
 
 test('real-backend business line smoke [line_key=dashboard_admin_governance] classifies endpoint, data, and browser failures', async ({ page, request }) => {
@@ -307,11 +329,11 @@ test('real-backend business line smoke [line_key=dashboard_admin_governance] cla
 
   await bootstrapRealBackendPage(page)
   const statsResponse = page.waitForResponse((response) => {
-    return response.url().includes('/api/v1/dashboard/stats') && response.status() === 200
+    return response.url().includes('/api/v1/admin/stats') && response.status() === 200
   })
-  await page.goto('/#/visual/dashboard')
+  await page.goto('/#/admin/ops')
   await statsResponse
-  await expectVisible(lineKey, page.getByRole('heading', { name: '数据仪表盘' }))
+  await expectVisible(lineKey, page.getByRole('heading', { name: '材料治理', exact: true }))
 })
 
 test('real-backend business line smoke [line_key=projects_config_workflow] classifies endpoint, data, and browser failures', async ({ page, request }) => {
@@ -346,6 +368,27 @@ test('real-backend business line smoke [line_key=writing_knowledge_graph_agent] 
     }),
     'Market graph',
   )
+  const adminMaterials = requireAdminMaterials(
+    await probeEndpoint(request, `${lineKey} materials`, '/api/v1/admin/materials/list', {
+      method: 'POST',
+      body: {
+        page: 1,
+        page_size: 100,
+        state: null,
+        doc_type: null,
+        has_extracted_data: null,
+        search: null,
+        sort_by: 'created_at',
+        sort_order: 'desc',
+      },
+    }),
+    'Admin materials',
+  )
+  const projectedMaterials = adminMaterials.flatMap((item) => {
+    const materialId = projectedMaterialId(item)
+    return materialId == null ? [] : [{ item, materialId }]
+  })
+  expect(new Set(projectedMaterials.map(({ materialId }) => materialId)).size).toBe(projectedMaterials.length)
 
   await bootstrapRealBackendPage(page)
   const graphConfigResponse = page.waitForResponse((response) => {
@@ -353,6 +396,9 @@ test('real-backend business line smoke [line_key=writing_knowledge_graph_agent] 
   })
   const marketGraphResponse = page.waitForResponse((response) => {
     return response.url().includes('/api/v1/admin/market-graph') && response.status() === 200
+  })
+  const materialListResponse = page.waitForResponse((response) => {
+    return response.url().includes('/api/v1/admin/materials/list') && response.status() === 200
   })
   await page.goto('/#/visual/graph/market')
   await graphConfigResponse
@@ -366,7 +412,55 @@ test('real-backend business line smoke [line_key=writing_knowledge_graph_agent] 
   const browserGraph = requireGraphArrays(browserMarketGraph, 'Browser market graph')
   expect(browserGraph.nodes.map(graphNodeKey).sort()).toEqual(marketGraph.nodes.map(graphNodeKey).sort())
   expect(browserGraph.edges.map(graphEdgeKey).sort()).toEqual(marketGraph.edges.map(graphEdgeKey).sort())
+  const browserAdminMaterials = await materialListResponse.then(async (response) => {
+    const body = await response.text()
+    if (!response.ok()) {
+      throw new Error(`Browser material list response failed: status=${response.status()} body=${truncate(body)}`)
+    }
+    return requireAdminMaterials(unwrapEnvelope(parseJsonOrText(body)), 'Browser admin materials')
+  })
+  expect(browserAdminMaterials.map(projectedMaterialId)).toEqual(adminMaterials.map(projectedMaterialId))
   await expectVisible(lineKey, page.getByRole('heading', { name: '市场图谱' }))
+  const expectedNodeKeys = [
+    ...marketGraph.nodes.map(graphNodeKey),
+    ...projectedMaterials.map(({ materialId }) => `material:${materialId}`),
+  ]
+  expect(new Set(expectedNodeKeys).size).toBe(expectedNodeKeys.length)
+  await expect.poll(async () => page.evaluate(() => {
+    const graphPage = window as Window & {
+      __graphPageE2E?: { getGraphSnapshot: () => { nodes: unknown[] } }
+    }
+    return graphPage.__graphPageE2E?.getGraphSnapshot().nodes.length ?? -1
+  })).toBe(expectedNodeKeys.length)
+
+  const browserGraphSnapshot = await page.evaluate(() => {
+    const graphPage = window as Window & {
+      __graphPageE2E?: {
+        getGraphSnapshot: () => { nodes: GraphNodePayload[]; edges: GraphEdgePayload[] }
+      }
+    }
+    return graphPage.__graphPageE2E?.getGraphSnapshot()
+  })
+  if (!browserGraphSnapshot) {
+    throw new Error('GraphPage did not expose its realized graph snapshot for real-backend verification.')
+  }
+  expect(browserGraphSnapshot.nodes.map(graphNodeKey).sort()).toEqual(expectedNodeKeys.sort())
+  expect(browserGraphSnapshot.edges.map(graphEdgeKey).sort()).toEqual(marketGraph.edges.map(graphEdgeKey).sort())
+  for (const { item, materialId } of projectedMaterials) {
+    const materialNode = browserGraphSnapshot.nodes.find((node) => graphNodeKey(node) === `material:${materialId}`)
+    expect(materialNode).toBeDefined()
+    const canonicalRef = {
+      project_key: PROJECT_KEY,
+      module_id: 'materials',
+      namespace: 'materials',
+      type_id: 'material',
+      local_id: String(materialId),
+    }
+    expect(materialNode?.material_id).toBe(materialId)
+    expect(materialNode?.material_ref).toEqual(canonicalRef)
+    expect(materialNode?.topology_ref).toEqual(canonicalRef)
+    expect(materialNode?.uri ?? null).toBe(item.uri ?? null)
+  }
 
   const nodeSummary = page.locator('.gv2-macro-stat').filter({
     has: page.getByText('节点总数', { exact: true }),
@@ -376,7 +470,7 @@ test('real-backend business line smoke [line_key=writing_knowledge_graph_agent] 
   }).locator('strong')
   await expectVisible(lineKey, nodeSummary)
   await expectVisible(lineKey, edgeSummary)
-  await expect(nodeSummary).toHaveText(String(marketGraph.nodes.length))
+  await expect(nodeSummary).toHaveText(String(expectedNodeKeys.length))
   await expect(edgeSummary).toHaveText(String(marketGraph.edges.length))
 
   if (graphFixtureMode === 'simp11_nonempty') {
@@ -448,11 +542,7 @@ test('real-backend business line smoke [line_key=runtime_ops] classifies endpoin
   const healthResponse = page.waitForResponse((response) => {
     return response.url().includes('/api/v1/health') && response.status() === 200
   })
-  const adminStatsResponse = page.waitForResponse((response) => {
-    return response.url().includes('/api/v1/admin/stats') && response.status() === 200
-  })
-  await page.goto('/#/admin/ops')
+  await page.goto('/#/admin/backend')
   await healthResponse
-  await adminStatsResponse
   await expectVisible(lineKey, page.getByRole('heading', { name: '运行态状态' }))
 })

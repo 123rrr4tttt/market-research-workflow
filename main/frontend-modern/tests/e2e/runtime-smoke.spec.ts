@@ -471,7 +471,7 @@ test('graph runtime smoke loads against live graph endpoints', async ({ page, re
   await expect(page.getByText('边总数', { exact: true })).toBeVisible()
 })
 
-test('dashboard report browser behavior uses mocked backend only (not real-backend proof)', async ({ page }) => {
+test('retired dashboard rail keeps the statistics view empty without legacy calls', async ({ page }) => {
   const captured = {
     apiCalls: [] as CapturedApiCall[],
     reportPayloads: [] as Array<Record<string, unknown>>,
@@ -483,108 +483,17 @@ test('dashboard report browser behavior uses mocked backend only (not real-backe
   await mockDashboardReportApi(page, captured)
   await bootstrapMockedDashboard(page)
 
-  const statsResponse = page.waitForResponse((response) => {
-    return response.url().includes('/api/v1/dashboard/stats') && response.status() === 200
-  })
   const response = await page.goto('/#dashboard.html')
   expect(response?.ok()).toBeTruthy()
-  await statsResponse
+  await expect(page.getByRole('heading', { level: 2, name: '统计视图' })).toBeVisible()
+  await expect(page.getByText('当前统计视图暂无指标。')).toBeVisible()
 
-  await expect(page.getByRole('heading', { level: 1, name: '数据仪表盘' })).toBeVisible()
-  await expect(page.getByRole('heading', { level: 3, name: '从当前过滤器生成报告' })).toBeVisible()
-  await expect(page.getByRole('heading', { level: 3, name: '检索运行详情' })).toBeVisible()
-
-  await page.getByTestId('dashboard-search-run-id-input').fill('retrieval_run_dashboard_57')
-  await page.getByTestId('dashboard-load-search-run').click()
-  await expect(page.getByText('当前 run: retrieval_run_dashboard_57')).toBeVisible()
-  await expect(page.getByTestId('dashboard-search-run-provider-trace')).toContainText('opensearch_lexical')
-  await expect(page.getByTestId('dashboard-search-run-provider-trace')).toContainText('"fallback_used": true')
-  await expect(page.getByTestId('dashboard-search-run-index-freshness')).toContainText('fallback_available')
-  await expect(page.getByTestId('dashboard-search-run-index-freshness')).toContainText('"readback_available": true')
-  await expect(page.getByTestId('dashboard-search-run-source-refs')).toContainText('dashboard-search-source')
-
-  await page.getByTestId('dashboard-source-ref-dashboard-documents-source').first().click()
-  await expect(page.getByText('当前下钻: 文档总数')).toBeVisible()
-  await expect(page.getByRole('cell', { name: 'Boundary D dashboard evidence row' })).toBeVisible()
-
-  await page.getByTestId('dashboard-generate-report-draft').click()
-  await expect(page.getByText('报告草稿已生成: 5702')).toBeVisible()
-  expect(captured.reportPayloads).toHaveLength(1)
-  expect(captured.reportPayloads[0]).toMatchObject({
-    request_type: 'report_from_dashboard_filter',
-    project_key: 'dashboard_e2e',
-  })
-  expect(captured.reportPayloads[0].dashboard).toMatchObject({
-    selected_label: '文档总数',
-    selected_source_ref: 'dashboard-documents-source',
-    sample_row_count: 1,
-    reset_telemetry_boundary_context: {
-      scope: 'ui_read_only_evidence_context',
-      not_report_proof: true,
-      not_scheduled_run_evidence_proof: true,
-      scheduled_evidence_write: 'none',
-      scheduled_completion_proof: 'unchanged',
-    },
-  })
-  expect(captured.reportPayloads[0].report_options).toMatchObject({
-    include_reset_telemetry_boundary_context: true,
-  })
-
-  await page.getByTestId('dashboard-open-quality-report-detail').click()
-  await expect(page.getByText('当前报告详情 trace: trace-dashboard-57')).toBeVisible()
-  await expect(page.getByTestId('dashboard-report-detail-source-refs')).toContainText('dashboard-documents-source')
-  await expect(page.getByTestId('dashboard-report-detail-artifact')).toContainText('"artifact_id": "artifact-dashboard-57"')
-  await expect(page.getByTestId('dashboard-report-detail-quality-gate')).toContainText('"decision": "pass"')
-  await expect(page.getByTestId('dashboard-report-detail-export-events-summary')).toContainText('"export_format": "pdf"')
-  await expect(page.getByTestId('dashboard-report-detail-export-events-summary')).toContainText('"export_outcome": "success"')
-
-  await page.getByRole('button', { name: '复制详情修复上下文' }).click()
-  await expect(page.getByText('报告详情修复上下文已复制')).toBeVisible()
-  const clipboard = await page.evaluate(() => navigator.clipboard.readText())
-  expect(JSON.parse(clipboard)).toMatchObject({
-    trace_id: 'trace-dashboard-57',
-    project_key: 'dashboard_e2e',
-    action: 'replay_export_with_trusted_token',
-  })
-
-  const markdownDownload = page.waitForEvent('download')
-  await page.getByTestId('dashboard-export-markdown').click()
-  await expect((await markdownDownload).suggestedFilename()).toBe('boundary-d-dashboard-report.md')
-  await expect(page.getByText('Markdown 已导出: boundary-d-dashboard-report.md')).toBeVisible()
-
-  const pdfDownload = page.waitForEvent('download')
-  await page.getByTestId('dashboard-export-pdf').click()
-  await expect((await pdfDownload).suggestedFilename()).toBe('boundary-d-dashboard-report.pdf')
-  await expect(page.getByText('文件已导出: boundary-d-dashboard-report.pdf')).toBeVisible()
-
-  const docxDownload = page.waitForEvent('download')
-  await page.getByTestId('dashboard-export-docx').click()
-  await expect((await docxDownload).suggestedFilename()).toBe('boundary-d-dashboard-report.docx')
-  await expect(page.getByText('文件已导出: boundary-d-dashboard-report.docx')).toBeVisible()
-  expect(captured.fileExportPayloads).toHaveLength(2)
-  expect(captured.fileExportPayloads.map((item) => item.format)).toEqual(['pdf', 'docx'])
-  captured.fileExportPayloads.forEach(({ payload }) => {
-    expect(payload).toMatchObject({
-      artifact_token: 'trusted-token-dashboard-57',
-      artifact_sha256: 'sha256-dashboard-57',
-      project_key: 'dashboard_e2e',
-      quality_gate_mode: 'strict',
-      reset_telemetry_boundary_context: {
-        scope: 'ui_read_only_evidence_context',
-        not_report_proof: true,
-        not_scheduled_run_evidence_proof: true,
-        scheduled_evidence_write: 'none',
-        scheduled_completion_proof: 'unchanged',
-      },
-    })
-  })
-  await page.getByTestId('dashboard-open-export-report-detail').click()
-  await expect(page.getByText('当前报告详情 trace: trace-dashboard-57')).toBeVisible()
-
-  expect(captured.apiCalls).toEqual(expect.arrayContaining([
-    expect.objectContaining({ method: 'GET', pathname: '/api/v1/dashboard/stats' }),
-    expect.objectContaining({ method: 'GET', pathname: '/api/v1/dashboard/drilldown' }),
-    expect.objectContaining({ method: 'GET', pathname: '/api/v1/dashboard/llm-report-detail' }),
-    expect.objectContaining({ method: 'GET', pathname: '/api/v1/search/runs/retrieval_run_dashboard_57' }),
-  ]))
+  const retiredCalls = captured.apiCalls.filter(({ pathname }) => (
+    pathname.startsWith('/api/v1/dashboard/')
+    || pathname.startsWith('/api/v1/search/runs/')
+    || pathname.startsWith('/api/v1/reports/')
+  ))
+  expect(retiredCalls).toEqual([])
+  expect(captured.reportPayloads).toEqual([])
+  expect(captured.fileExportPayloads).toEqual([])
 })
