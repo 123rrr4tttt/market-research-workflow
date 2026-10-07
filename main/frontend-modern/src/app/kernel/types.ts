@@ -28,63 +28,34 @@ export const KERNEL_RENDER_SHELL_MODE = {
 
 export type KernelRenderShellMode = (typeof KERNEL_RENDER_SHELL_MODE)[keyof typeof KERNEL_RENDER_SHELL_MODE]
 
-export type KernelModuleKey =
-  | 'overviewTasks'
-  | 'overviewData'
-  | 'dataDashboard'
-  | 'dataMarket'
-  | 'dataSocial'
-  | 'dataPolicy'
-  | 'dataCatalog'
-  | 'graphMarket'
-  | 'graphPolicy'
-  | 'graphSocial'
-  | 'graphCompany'
-  | 'graphProduct'
-  | 'graphOperation'
-  | 'graphDeep'
-  | 'graphBuilder'
-  | 'flowIngest'
-  | 'flowSpecialized'
-  | 'flowProcessing'
-  | 'flowRawData'
-  | 'flowExtract'
-  | 'flowAnalysis'
-  | 'flowBoard'
-  | 'flowWriting'
-  | 'flowCodex'
-  | 'flowCell'
-  | 'flowLlmNodeDesign'
-  | 'sysProjects'
-  | 'sysCrawler'
-  | 'sysResource'
-  | 'sysBackend'
-  | 'sysSettings'
-  | 'sysLlm'
-  | 'sysSuccessorRuntime'
-  | 'sysBusinessGuide'
+import type { KernelModuleKey } from './moduleManifest'
 
-export type NavMode = KernelModuleKey
+export type {
+  KernelModuleKey,
+  ModuleContract,
+  ModuleManifestEntry,
+  NavMode,
+} from './moduleManifest'
 
-export type TitleMessageKey = `shell.title.${KernelModuleKey}`
-export type NavMessageKey = `navigation.item.${KernelModuleKey}`
+export type TitleMessageKey<ModuleKey extends string = string> = `shell.title.${ModuleKey}`
+export type NavMessageKey<ModuleKey extends string = string> = `navigation.item.${ModuleKey}`
 
-export type RouteManifest = {
+export type RouteManifest<ModuleKey extends string = string> = {
   layerId: LayerId
   surfaceKind: SurfaceKind
   routePath: `/${string}`
   legacyHashes: readonly string[]
-  moduleKey: KernelModuleKey
+  moduleKey: ModuleKey
 }
 
-export type ModuleContract = {
-  moduleKey: KernelModuleKey
+export type ModuleContractDefinition<ModuleKey extends string = string> = {
+  moduleKey: ModuleKey
   layerId: LayerId
   surfaceKind: SurfaceKind
   entryRoute: `/${string}`
   legacyHashes: readonly string[]
-  titleKey: TitleMessageKey
-  navLabelKey: NavMessageKey
+  titleKey: TitleMessageKey<ModuleKey>
+  navLabelKey: NavMessageKey<ModuleKey>
   navGroupKey: ModuleNavGroupKey
   storybookGroup: StorybookGroup
   requiredContext: readonly string[]
@@ -101,14 +72,14 @@ export type DesignSourceRecord = {
   validationMethod: string
 }
 
-export type ModuleManifestEntry = {
-  moduleKey: KernelModuleKey
+export type ModuleManifestEntryDefinition<ModuleKey extends string = string> = {
+  moduleKey: ModuleKey
   layerId: LayerId
   surfaceKind: SurfaceKind
   entryRoute: `/${string}`
   legacyHashes: readonly string[]
-  titleKey: TitleMessageKey
-  navLabelKey: NavMessageKey
+  titleKey: TitleMessageKey<ModuleKey>
+  navLabelKey: NavMessageKey<ModuleKey>
   navGroupKey: ModuleNavGroupKey
   storybookGroup: StorybookGroup
   requiredContext: readonly string[]

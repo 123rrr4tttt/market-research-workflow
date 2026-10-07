@@ -55,10 +55,15 @@ from app.successor_runtime.runtime.admission_coordinator import (
     AdmissionRegistration,
     ExactAdmissionRegistry,
 )
+from app.successor_runtime.runtime.assignments import AssignmentKind
+from app.successor_runtime.runtime.claims import ClaimBinding
 from app.successor_runtime.runtime.node import (
     Clock,
+    DefiniteInterpreterFailure,
     DeploymentBinding,
+    InterpreterOutcome,
     NodeIdentity,
+    RuntimeExecutionContext,
     RuntimeHandler,
     RuntimeNode,
     RuntimeNodeProfile,
@@ -82,8 +87,7 @@ from app.successor_runtime.substrate.postgres.c8_artifact_handler import (
 )
 from app.successor_runtime.substrate.postgres.c8_graph_projector import (
     KNOWLEDGE_GRAPH_PROJECTOR_ID,
-    C8GraphProjectionUnavailableError,
-    LEGACY_C8_GRAPH_PROJECTOR_ID,
+    KNOWLEDGE_GRAPH_PROJECTOR_VERSION,
     project_graph_generation as project_graph_generation_db,
 )
 from app.successor_runtime.substrate.postgres.c8_graph_projector import (
@@ -105,9 +109,6 @@ from app.successor_runtime.substrate.postgres.composition_root import (
 from app.successor_runtime.substrate.postgres.first_specimen_activation import (
     FirstSpecimenActivationCatalog,
     PostgresFirstSpecimenActivationPort,
-)
-from app.successor_runtime.substrate.postgres.first_specimen_assembly import (
-    FirstSpecimenOperationHandler,
 )
 from app.successor_runtime.substrate.postgres.first_specimen_delivery_gate import (
     FirstSpecimenDeliveryGateRequest,
@@ -143,8 +144,6 @@ from app.successor_runtime.substrate.postgres.unit_of_work import RuntimeUnitOfW
 
 __all__ = [
     "PRODUCTION_AUTHORITY_ID",
-    "LEGACY_PRODUCTION_AUTHORITY_DIGEST",
-    "LEGACY_PRODUCTION_AUTHORITY_ID",
     "C8DeliveryUnavailableError",
     "C8PostgresDeliveryAssembly",
     "C8ProductionRoot",
@@ -163,22 +162,6 @@ PRODUCTION_AUTHORITY_ID = "knowledge.production.v2"
 PRODUCTION_AUTHORITY_DIGEST = c8.knowledge_canonical_digest(
     {"authority_id": PRODUCTION_AUTHORITY_ID}
 )
-LEGACY_PRODUCTION_AUTHORITY_ID = "c8.production.v1"
-LEGACY_PRODUCTION_AUTHORITY_DIGEST = c8.knowledge_canonical_digest(
-    {"authority_id": LEGACY_PRODUCTION_AUTHORITY_ID}
-)
-_LEGACY_GRAPH_LOSS_REGISTRY_ID = (
-    "c8.graph-loss-profile.c8.production.v1"
-)
-_LEGACY_GRAPH_LOSS_REGISTRY_DIGEST = c8.knowledge_canonical_digest(
-    {
-        "registry_id": _LEGACY_GRAPH_LOSS_REGISTRY_ID,
-        "authority_id": LEGACY_PRODUCTION_AUTHORITY_ID,
-        "authority_digest": LEGACY_PRODUCTION_AUTHORITY_DIGEST,
-    }
-)
-_CURRENT_GRAPH_PROJECTOR_ID = KNOWLEDGE_GRAPH_PROJECTOR_ID
-_LEGACY_GRAPH_PROJECTOR_ID = LEGACY_C8_GRAPH_PROJECTOR_ID
 _PRODUCTION_SEAL = object()
 
 FAMILY_LOSS_PROFILE = c8.GraphLossProfile(
@@ -200,40 +183,47 @@ class C8DeliveryUnavailableError(C8ProductionTrustRootError):
     """Internal delivery attempt is typed unavailable in this milestone."""
 
 
-def _read_active_graph_compatible(
-    connection: Connection,
-    *,
-    scope: RuntimeScope,
-    graph_id: str,
-    source_ref: str,
-    source_incarnation: str,
-    projector_id: str,
-    projector_version: str,
-) -> c8.GraphProjectionGeneration:
-    """Read current identity first, then one exact legacy projector identity."""
+class _C8OperationHandler(RuntimeHandler):
+    """Dispatch one exact C8 operation to its effect or admission role."""
 
-    try:
-        return read_active_graph(
-            connection,
-            scope=scope,
-            graph_id=graph_id,
-            source_ref=source_ref,
-            source_incarnation=source_incarnation,
-            projector_id=projector_id,
-            projector_version=projector_version,
-        )
-    except C8GraphProjectionUnavailableError:
-        if projector_id != _CURRENT_GRAPH_PROJECTOR_ID:
-            raise
-        return read_active_graph(
-            connection,
-            scope=scope,
-            graph_id=graph_id,
-            source_ref=source_ref,
-            source_incarnation=source_incarnation,
-            projector_id=_LEGACY_GRAPH_PROJECTOR_ID,
-            projector_version=projector_version,
-        )
+    def __init__(
+        self,
+        *,
+        effect: RuntimeHandler,
+        verify_admit: RuntimeHandler | None,
+        operation_contract_digest: str,
+    ) -> None:
+        self.effect = effect
+        self.verify_admit = verify_admit
+        self.handler_binding_digest = effect.handler_binding_digest
+        self.interpreter_profile_digest = effect.interpreter_profile_digest
+        self.operation_contract_digest = operation_contract_digest
+        if (
+            getattr(effect, "operation_contract_digest", None)
+            != operation_contract_digest
+        ):
+            raise ValueError("effect handler operation contract drift")
+        if verify_admit is not None and (
+            verify_admit.handler_binding_digest != self.handler_binding_digest
+            or verify_admit.interpreter_profile_digest
+            != self.interpreter_profile_digest
+            or getattr(verify_admit, "operation_contract_digest", None)
+            != operation_contract_digest
+        ):
+            raise ValueError("effect/admission handler installation drift")
+
+    def execute(
+        self,
+        assignment: object,
+        claim: ClaimBinding,
+        context: RuntimeExecutionContext,
+    ) -> InterpreterOutcome:
+        kind = getattr(assignment, "assignment_kind", None)
+        if kind is AssignmentKind.INTERPRET:
+            return self.effect.execute(assignment, claim, context)  # type: ignore[arg-type]
+        if kind is AssignmentKind.VERIFY_ADMIT and self.verify_admit is not None:
+            return self.verify_admit.execute(assignment, claim, context)  # type: ignore[arg-type]
+        raise DefiniteInterpreterFailure("ASSIGNMENT_ROLE_NOT_INSTALLED")
 
 
 class _ProductionAuthority:
@@ -559,7 +549,7 @@ class C8PostgresDeliveryAssembly:
     activation: PostgresFirstSpecimenActivationPort
     terminal_hook: PostgresFirstSpecimenTerminalHook
     delivery_gate: PostgresFirstSpecimenDeliveryGate
-    handlers: tuple[FirstSpecimenOperationHandler, ...]
+    handlers: tuple[_C8OperationHandler, ...]
     recovery_handlers: tuple[RuntimeHandler, ...]
 
     def activate_initial(
@@ -691,7 +681,7 @@ def build_postgres_c8_delivery_assembly(
         activation=activation,
         admission_factory=admission_factory,
     )
-    handlers: list[FirstSpecimenOperationHandler] = []
+    handlers: list[_C8OperationHandler] = []
     recovery_handlers: list[RuntimeHandler] = []
     for operation in operations:
         entry = activation_catalog.entry_for(operation.ref.contract_digest)
@@ -728,7 +718,7 @@ def build_postgres_c8_delivery_assembly(
             else None
         )
         handlers.append(
-            FirstSpecimenOperationHandler(
+            _C8OperationHandler(
                 effect=effect,
                 verify_admit=verify,
                 operation_contract_digest=operation.ref.contract_digest,
@@ -1346,8 +1336,8 @@ class C8ProductionRoot:
         source_incarnation: str,
         source_digest: str,
         source_revision: int,
-        projector_id: str = _CURRENT_GRAPH_PROJECTOR_ID,
-        projector_version: str = "1",
+        projector_id: str = KNOWLEDGE_GRAPH_PROJECTOR_ID,
+        projector_version: str = KNOWLEDGE_GRAPH_PROJECTOR_VERSION,
         expected_offset_revision: int | None = None,
         expected_generation: int | None = None,
     ) -> ProductionGraphWriteResult:
@@ -1388,19 +1378,17 @@ class C8ProductionRoot:
         graph_id: str,
         source_ref: str,
         source_incarnation: str,
-        projector_id: str = _CURRENT_GRAPH_PROJECTOR_ID,
-        projector_version: str = "1",
     ) -> ProductionGraphReadHandle:
         """Issue an active handle from offset+generation in one transaction."""
 
-        generation = _read_active_graph_compatible(
+        generation = read_active_graph(
             self._connection,
             scope=self._scope,
             graph_id=graph_id,
             source_ref=source_ref,
             source_incarnation=source_incarnation,
-            projector_id=projector_id,
-            projector_version=projector_version,
+            projector_id=KNOWLEDGE_GRAPH_PROJECTOR_ID,
+            projector_version=KNOWLEDGE_GRAPH_PROJECTOR_VERSION,
         )
         self._require_active_generation(generation)
         handle = ProductionGraphReadHandle(
@@ -1426,15 +1414,7 @@ class C8ProductionRoot:
             and generation.loss_profile_registry_digest
             == self._loss_registry.registry_digest
         )
-        legacy_authority = (
-            generation.authority_kind == LEGACY_PRODUCTION_AUTHORITY_ID
-            and generation.authority_digest == LEGACY_PRODUCTION_AUTHORITY_DIGEST
-            and generation.loss_profile_registry_id
-            == _LEGACY_GRAPH_LOSS_REGISTRY_ID
-            and generation.loss_profile_registry_digest
-            == _LEGACY_GRAPH_LOSS_REGISTRY_DIGEST
-        )
-        if not (current_authority or legacy_authority):
+        if not current_authority:
             raise C8ProductionTrustRootError(
                 "active graph generation production authority or loss registry drift"
             )
@@ -1447,8 +1427,6 @@ class C8ProductionRoot:
         source_ref: str,
         source_incarnation: str,
         request_claim_support: bool = False,
-        projector_id: str = _CURRENT_GRAPH_PROJECTOR_ID,
-        projector_version: str = "1",
     ) -> c8.GraphConsumerResult:
         """Re-read the active offset/value and reject stale handles."""
 
@@ -1459,14 +1437,14 @@ class C8ProductionRoot:
             raise C8ProductionTrustRootError(
                 "active graph handle was not issued by this root"
             )
-        generation = _read_active_graph_compatible(
+        generation = read_active_graph(
             self._connection,
             scope=self._scope,
             graph_id=active_handle.graph_id,
             source_ref=source_ref,
             source_incarnation=source_incarnation,
-            projector_id=projector_id,
-            projector_version=projector_version,
+            projector_id=KNOWLEDGE_GRAPH_PROJECTOR_ID,
+            projector_version=KNOWLEDGE_GRAPH_PROJECTOR_VERSION,
         )
         self._require_active_generation(generation)
         if (

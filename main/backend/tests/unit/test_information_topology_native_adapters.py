@@ -1,8 +1,7 @@
+import json
 from dataclasses import dataclass, field
 
 import pytest
-from functorial_kit import Failure
-
 from app.services.information_topology.adapters.native import (
     adapt_clue_chain_state,
     adapt_document,
@@ -10,12 +9,13 @@ from app.services.information_topology.adapters.native import (
     adapt_typed_knowledge,
     adapt_writing_document,
     clue_retrieval_correspondence,
+    resolve_retrieval_domain,
 )
 from app.services.information_topology.contracts import BoundRef, ElementRef
-from app.services.information_topology.modules.retrieval import DomainVocabulary, make_retrieval_profile
-from app.services.information_topology.adapters.native import resolve_retrieval_domain
 from app.services.information_topology.modules.graph_view import graph_view_profile, make_graph_view_spec
+from app.services.information_topology.modules.retrieval import DomainVocabulary, make_retrieval_profile
 from app.services.information_topology.profiles import project_view, validate_state
+from functorial_kit import Failure
 
 
 @dataclass
@@ -104,6 +104,55 @@ def test_graph_adapter_preserves_relation_origin_and_endpoints_and_ignores_ui_st
     assert "selection" not in view.organization
     with pytest.raises(ValueError, match="group_by"):
         make_graph_view_spec(group_by=" ")
+
+
+def test_graph_adapter_preserves_compound_node_and_directed_edge_identity():
+    article = Node("Article", "shared")
+    topic = Node("Topic", "shared")
+    delimited_type = Node("Article:News", "same")
+    delimited_id = Node("Article", "News:same")
+    graph = Graph(
+        {
+            "Article:shared": article,
+            "Topic:shared": topic,
+            "Article:News:same:type": delimited_type,
+            "Article:News:same:id": delimited_id,
+        },
+        [
+            Edge("RELATED", article, topic),
+            Edge("RELATED", topic, article),
+            Edge("DELIMITED", delimited_type, article),
+            Edge("DELIMITED", delimited_id, article),
+        ],
+    )
+
+    observed = adapt_graph(graph, project_key="p")
+
+    assert validate_state(graph_view_profile, observed.state) is None
+    nodes = [item for item in observed.state.elements if item.ref.ref.type_id == "graph_node"]
+    relations = [item for item in observed.state.elements if item.ref.ref.type_id == "graph_relation"]
+    expected_node_ids = {
+        json.dumps(("Article", "shared"), ensure_ascii=False, separators=(",", ":")),
+        json.dumps(("Topic", "shared"), ensure_ascii=False, separators=(",", ":")),
+        json.dumps(("Article:News", "same"), ensure_ascii=False, separators=(",", ":")),
+        json.dumps(("Article", "News:same"), ensure_ascii=False, separators=(",", ":")),
+    }
+    assert {item.ref.ref.local_id for item in nodes} == expected_node_ids
+    assert len({item.ref.ref.local_id for item in relations}) == 4
+    assert {
+        tuple(endpoint.target.ref.local_id for endpoint in item.endpoints)
+        for item in relations
+        if item.attributes["edge_type"] == "RELATED"
+    } == {
+        (
+            json.dumps(("Article", "shared"), ensure_ascii=False, separators=(",", ":")),
+            json.dumps(("Topic", "shared"), ensure_ascii=False, separators=(",", ":")),
+        ),
+        (
+            json.dumps(("Topic", "shared"), ensure_ascii=False, separators=(",", ":")),
+            json.dumps(("Article", "shared"), ensure_ascii=False, separators=(",", ":")),
+        ),
+    }
 
 
 def test_retrieval_domain_resolver_binds_two_domains_and_exact_observed_version():

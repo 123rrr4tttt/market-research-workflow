@@ -24,7 +24,7 @@ from ..services.graph.doc_types import (
 )
 from ..services.projects.workflow import (
     WORKFLOW_PLATFORM_CONFIG_KEY,
-    _WORKFLOW_HANDLERS,
+    available_project_workflow_handlers,
     dump_workflow_definition,
     execute_project_workflow,
     load_custom_workflow_board_layout,
@@ -775,6 +775,7 @@ def _build_workflow_dry_run_result(
     normalized_workflow_name = workflow_name.strip()
     current_version = _read_workflow_config_version(effective_project_key)
 
+    available_handlers = available_project_workflow_handlers()
     missing_dependencies: list[dict[str, Any]] = []
     step_preview: list[dict[str, Any]] = []
     enabled_count = 0
@@ -799,7 +800,7 @@ def _build_workflow_dry_run_result(
             continue
 
         enabled_count += 1
-        if handler not in _WORKFLOW_HANDLERS:
+        if handler not in available_handlers:
             dependency = {
                 "index": idx,
                 "name": name,

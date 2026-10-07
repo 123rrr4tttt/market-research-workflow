@@ -18,10 +18,10 @@ from app.models.base import SessionLocal
 
 from .contracts import (
     BoundRef, Element, ElementRef, Endpoint, PatchOperation, TopologyState,
-    topology_failures, topology_state_codec,
+    topology_failures,
 )
 from .mapping import MappingSpec, preview_mapping
-from .profiles import ProfileSpec, apply_patch, decode_state, encode_state
+from .profiles import ProfileSpec, apply_patch, decode_state
 from .structural_schema import derive_read_model_attributes
 from .repository import (
     InformationTopologyRepository,
@@ -260,8 +260,6 @@ class InformationTopologyService:
                     session.rollback()
                     return result
         return {"project_key": project_key, "migrated_states": len(writes)}
-
-    merge_material_documents = merge_materials
 
     def resolve(self, project_key: str, refs: Sequence[Mapping[str, Any]]) -> dict[str, Any] | Failure:
         resolved: list[dict[str, Any]] = []

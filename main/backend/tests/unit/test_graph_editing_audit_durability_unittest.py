@@ -13,6 +13,7 @@ from scripts.check_graph_editing_audit_durability import (  # noqa: E402
     CONFLICT_READBACK_PROJECT_KEY,
     TENANT_LIKE_GRAPH_ID,
     TENANT_LIKE_PROJECT_KEY,
+    _exercise_handoff_audit_readback,
     build_gate_snapshot,
     validate_gate_snapshot,
 )
@@ -26,7 +27,7 @@ def _live_db_evidence() -> dict:
         "live_db_audit_durability_validated": True,
         "curated_submit_audit_readback_from_fresh_session": True,
         "curated_rollback_audit_readback_from_fresh_session": True,
-        "handoff_persist_replay_readback_from_fresh_session": True,
+        "historical_handoff_readback_from_persistent_storage": True,
         "tenant_project_scope_checked": True,
     }
 
@@ -68,10 +69,71 @@ class GraphEditingAuditDurabilityGateUnitTest(unittest.TestCase):
             ]
         )
         self.assertIn("repo-local audit/readback contract", snapshot["boundary"])
+        self.assertIn("request-local handoff build", snapshot["boundary"])
         self.assertIn("tenant-like fixture audit trace", snapshot["boundary"])
         self.assertIn("conflict rollback readback fixture", snapshot["boundary"])
         self.assertIn("live_tenant_db_audit_open=true", snapshot["boundary"])
         self.assertIn("tenant DB", " ".join(snapshot["remaining_gaps"]))
+
+        repo_metrics = stages["repo_local_audit_readback_contract"]["metrics"]
+        self.assertFalse(repo_metrics["handoff_build_durable"])
+        self.assertEqual(repo_metrics["handoff_build_reader_access_count"], 0)
+        self.assertTrue(repo_metrics["handoff_list_read_only"])
+        self.assertTrue(repo_metrics["handoff_replay_read_only"])
+        self.assertTrue(repo_metrics["historical_project_scope_rejected"])
+        self.assertTrue(repo_metrics["historical_snapshot_unchanged"])
+        self.assertTrue(repo_metrics["historical_readback_events_match_input"])
+        self.assertTrue(repo_metrics["historical_result_matches_input"])
+        self.assertTrue(repo_metrics["listed_item_metadata_matches_input"])
+        self.assertEqual(repo_metrics["handoff_event_count"], 2)
+        self.assertEqual(repo_metrics["handoff_input_event_count"], 2)
+        self.assertEqual(
+            repo_metrics["handoff_event_types"],
+            ["handoff.persisted", "handoff.replayed"],
+        )
+        self.assertTrue(
+            repo_metrics["static_checks"]["handoff_store_builds_request_local_carrier"]
+        )
+        self.assertTrue(
+            repo_metrics["static_checks"]["handoff_store_decodes_history_without_writer"]
+        )
+        self.assertTrue(repo_metrics["static_checks"]["handoff_store_has_no_event_writer"])
+        self.assertTrue(
+            repo_metrics["static_checks"][
+                "workflow_graph_handoff_history_requires_explicit_historical_source"
+            ]
+        )
+
+    def test_historical_handoff_reader_event_loss_fails(self) -> None:
+        result = _exercise_handoff_audit_readback(reader_drops_replay_event=True)
+
+        self.assertTrue(result["failures"])
+        self.assertIn(
+            "historical replay readback events do not equal the fixed input events",
+            result["failures"],
+        )
+        self.assertIn("handoff event sequence mismatch", " ".join(result["failures"]))
+        self.assertFalse(result["metrics"]["historical_readback_events_match_input"])
+        self.assertEqual(result["metrics"]["handoff_event_count"], 1)
+        self.assertEqual(result["metrics"]["handoff_input_event_count"], 2)
+        self.assertTrue(result["metrics"]["historical_snapshot_unchanged"])
+
+    def test_historical_handoff_reader_audit_loss_fails(self) -> None:
+        result = _exercise_handoff_audit_readback(reader_drops_persisted_audit=True)
+
+        self.assertTrue(result["failures"])
+        self.assertIn(
+            "historical replay result does not equal the fixed persisted payload",
+            result["failures"],
+        )
+        self.assertIn(
+            "persisted handoff audit record did not preserve governance metadata",
+            result["failures"],
+        )
+        self.assertFalse(result["metrics"]["historical_readback_events_match_input"])
+        self.assertFalse(result["metrics"]["historical_result_matches_input"])
+        self.assertIsNone(result["metrics"]["persisted_audit_contract_version"])
+        self.assertTrue(result["metrics"]["historical_snapshot_unchanged"])
 
     def test_tenant_like_fixture_proves_audit_readback_and_rollback_trace(self) -> None:
         snapshot = build_gate_snapshot()

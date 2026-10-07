@@ -12,6 +12,7 @@ from app.services.agent_core.host_authorization import (
     TrustedHostContext,
     VerifiedHostAuthorization,
     canonical_arguments_sha256,
+    current_verified_host_authorization,
 )
 from app.services.agent_core.macro_environment import (
     RESOLVED_MACRO_ENVIRONMENT_CONTRACT_VERSION,
@@ -30,6 +31,7 @@ from app.services.agent_core.macro_registration import (
 from app.services.agent_core.project_tools import get_agent_macro_facility_catalog
 from app.services.agent_core.registry import CoreToolRegistry
 from app.services.projects.context import bind_project
+from app.services.request_identity import RequestActorContext
 
 
 pytestmark = pytest.mark.unit
@@ -196,8 +198,14 @@ def _registry(tool_name="skill.project_retrieval.read_run") -> CoreToolRegistry:
     def read_run(call, spec, request, emit):
         from app.services.project_retrieval import skill
 
+        authorization = current_verified_host_authorization()
+        if authorization is None or authorization.actor_context is None:
+            raise RuntimeError("macro read_run requires verified host actor context")
         with bind_project(request.project_key):
-            value = skill.read_run(call.arguments)
+            value = skill.read_run(
+                call.arguments,
+                invocation_context={"actor_context": authorization.actor_context},
+            )
         return CoreToolResult(
             call_id=call.call_id,
             tool_name=call.tool_name,
@@ -265,7 +273,16 @@ def test_real_pilot_environment_preserves_base_and_project_reader() -> None:
     assert resolved.skills[0].native.name == "agent-macro-pilot"
     assert resolved.skills[0].authored.content_id == f"sha256:{resolved.skills[0].native.content_digest}"
 
-    context = TrustedHostContext("trusted_project", "session-1", "host-thread-1", "turn-1", "message-1")
+    actor_context = RequestActorContext(
+        actor_id="trusted-project-reader",
+        actor_source="authenticated_session",
+        actor_trusted=True,
+        actor_auth_mode="session",
+    )
+    context = TrustedHostContext(
+        "trusted_project", "session-1", "host-thread-1", "turn-1", "message-1",
+        actor_context=actor_context,
+    )
     binding = assemble_native_macro_binding(resolved, context, service)
     assert not isinstance(binding, Failure)
     assert binding.binding_id == "agent-macro-pilot.v1"
@@ -278,8 +295,8 @@ def test_real_pilot_environment_preserves_base_and_project_reader() -> None:
     from app.services.project_retrieval.service import ProjectRetrievalService
     observed = {}
 
-    def read_run(self, project_key, run_id):
-        observed.update(project_key=project_key, run_id=run_id)
+    def read_run(self, project_key, run_id, *, actor_id):
+        observed.update(project_key=project_key, run_id=run_id, actor_id=actor_id)
         return {"run_id": run_id, "status": "queued", "receipt": {}}
 
     original = ProjectRetrievalService.read_run
@@ -288,7 +305,11 @@ def test_real_pilot_environment_preserves_base_and_project_reader() -> None:
         result = reader.handler({"run_id": "run-7"})
     finally:
         ProjectRetrievalService.read_run = original
-    assert observed == {"project_key": "trusted_project", "run_id": "run-7"}
+    assert observed == {
+        "project_key": "trusted_project",
+        "run_id": "run-7",
+        "actor_id": "trusted-project-reader",
+    }
     assert result["status"] == "completed"
     assert result["structured_content"]["run_id"] == "run-7"
 

@@ -30,7 +30,6 @@ const EXPECTED_THEME_TOKEN_LEAVES = {
 
 const files = {
   appShell: 'src/app/shell/AppShell.tsx',
-  baselineInventory: 'src/app/topology/baselineInventory.ts',
   catalog: 'src/app/platform/i18n/catalog.ts',
   figmaSideNav: 'src/components/FigmaSideNav.tsx',
   kernelTypes: 'src/app/kernel/types.ts',
@@ -120,24 +119,6 @@ function extractStringInitializer(sourceFile, variableName) {
     return ''
   }
   return initializer.text
-}
-
-function extractStringUnion(sourceFile, typeName) {
-  let values = []
-  sourceFile.forEachChild((node) => {
-    if (!ts.isTypeAliasDeclaration(node) || node.name.text !== typeName) return
-    if (!ts.isUnionTypeNode(node.type)) {
-      fail(`${typeName} is not a string literal union`)
-      return
-    }
-    values = node.type.types
-      .filter(ts.isLiteralTypeNode)
-      .map((item) => item.literal)
-      .filter(ts.isStringLiteral)
-      .map((literal) => literal.text)
-  })
-  if (values.length === 0) fail(`Could not read union ${typeName}`)
-  return values
 }
 
 function extractObjectLiteralProperties(objectNode) {
@@ -312,23 +293,19 @@ const kernelTypes = parseFile(files.kernelTypes)
 const localeTypesFile = parseFile(files.localeTypes)
 const moduleManifestFile = parseFile(files.moduleManifest)
 const pagePlacementFile = parseFile(files.pagePlacement)
-const baselineInventoryFile = parseFile(files.baselineInventory)
 const catalogFile = parseFile(files.catalog)
 const themeTypesFile = parseFile(files.themeTypes)
 const themeTokensFile = parseFile(files.themeTokens)
 const sharedContractFile = parseFile(files.sharedContract)
 const topologyContractsFile = parseFile(files.topologyContracts)
 
-const kernelModes = extractStringUnion(kernelTypes, 'KernelModuleKey')
 const navGroupKeys = extractConstStringArray(kernelTypes, 'MODULE_NAV_GROUP_KEYS')
 const appLocales = extractConstStringArray(localeTypesFile, 'APP_LOCALES')
 const defaultLocale = extractStringInitializer(localeTypesFile, 'DEFAULT_APP_LOCALE')
 const moduleEntries = extractModuleManifest(moduleManifestFile)
 const manifestModes = moduleEntries.map((entry) => entry.moduleKey)
 const placementRecords = extractPageRecords(pagePlacementFile, 'PAGE_PLACEMENT_BASELINE')
-const baselineRecords = extractPageRecords(baselineInventoryFile, 'BASELINE_PAGE_INVENTORY')
 const placementModes = placementRecords.flatMap((record) => record.navModes)
-const baselineModes = baselineRecords.flatMap((record) => record.navModes)
 const catalogShape = extractNestedCatalog(catalogFile, 'MESSAGE_KEY_SHAPE')
 const zhCNMessages = extractNestedCatalog(catalogFile, 'zhCNMessages')
 const enUSMessages = extractNestedCatalog(catalogFile, 'enUSMessages')
@@ -341,9 +318,7 @@ const sharedCapabilityIds = extractObjectArrayPropertyValues(sharedContractFile,
 const topologyScopeKeys = extractObjectKeys(topologyContractsFile, 'TOPOLOGY_SCOPE')
 const storageKeys = extractObjectKeys(parseFile(files.storageKeys), 'APP_STORAGE_KEYS')
 
-compareSets('KernelModuleKey vs moduleManifest', kernelModes, manifestModes)
-compareSets('KernelModuleKey vs PAGE_PLACEMENT_BASELINE', kernelModes, placementModes)
-compareSets('KernelModuleKey vs BASELINE_PAGE_INVENTORY', kernelModes, baselineModes)
+compareSets('moduleManifest vs PAGE_PLACEMENT_BASELINE', manifestModes, placementModes)
 compareSets('APP_LOCALES vs MESSAGE_CATALOGS', appLocales, catalogLocales)
 compareCatalogShape('zh-CN catalog shape', catalogShape, zhCNMessages)
 compareCatalogShape('en-US catalog shape', catalogShape, enUSMessages)
@@ -355,25 +330,12 @@ assertCondition(storageKeys.includes('theme'), 'APP_STORAGE_KEYS must include th
 for (const [mode, count] of Object.entries(countValues(placementModes))) {
   if (count !== 1) fail(`PAGE_PLACEMENT_BASELINE mode appears ${count} times: ${mode}`)
 }
-for (const [mode, count] of Object.entries(countValues(baselineModes))) {
-  if (count !== 1) fail(`BASELINE_PAGE_INVENTORY mode appears ${count} times: ${mode}`)
-}
-
 const placementByMode = new Map()
 for (const record of placementRecords) {
   for (const mode of record.navModes) placementByMode.set(mode, record.surface)
 }
-for (const record of baselineRecords) {
-  for (const mode of record.navModes) {
-    const placementSurface = placementByMode.get(mode)
-    if (placementSurface !== record.surface) {
-      fail(`Baseline inventory surface mismatch for ${mode}: ${record.surface} != ${placementSurface}`)
-    }
-  }
-}
 
 for (const entry of moduleEntries) {
-  assertCondition(kernelModes.includes(entry.moduleKey), `Unknown moduleManifest moduleKey: ${entry.moduleKey}`)
   assertCondition(navGroupKeys.includes(entry.navGroupKey), `Unknown nav group for ${entry.moduleKey}: ${entry.navGroupKey}`)
   assertCondition(entry.entryRoute.startsWith('/'), `entryRoute must start with / for ${entry.moduleKey}`)
   assertCondition(entry.legacyHash.startsWith('#'), `legacyHash must start with # for ${entry.moduleKey}`)
@@ -436,10 +398,9 @@ assertCondition(sharedContractSource.includes("retain: ['projectKey', 'theme', '
 
 const summary = {
   status: failures.length === 0 ? 'ok' : 'failed',
-  modules: kernelModes.length,
+  modules: manifestModes.length,
   manifest_entries: moduleEntries.length,
   placement_records: placementRecords.length,
-  baseline_inventory_records: baselineRecords.length,
   topology_surfaces: {
     management: placementModes.filter((mode) => placementByMode.get(mode) === 'management').length,
     workbench: placementModes.filter((mode) => placementByMode.get(mode) === 'workbench').length,

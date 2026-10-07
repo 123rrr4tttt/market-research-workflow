@@ -13,9 +13,7 @@ from ..contracts import (
     source_library_compat_response,
 )
 from ..display_meta import build_display_meta
-from ...job_logger import complete_job, fail_job, start_job
 from ...projects import bind_project
-from ...task_readback_metadata import extract_runtime_readback_payload, merge_runtime_readback_payload
 from ...ingest.frontdoor_ingress import build_source_library_ingress_envelope
 from ...ingest.postprocess_frontdoor import run_postprocess_frontdoor
 
@@ -95,11 +93,6 @@ def _json_object_list(value: object) -> list[CollectJsonObject]:
     return [_json_object(item) for item in validated]
 
 
-def _optional_json_object(value: object) -> CollectJsonObject | None:
-    validated = source_library_compat_response({"value": value}).get("value")
-    return validated if isinstance(validated, dict) else None
-
-
 def _json_list(value: object) -> list[CollectJsonValue]:
     validated = source_library_compat_response({"value": value}).get("value")
     return validated if isinstance(validated, list) else []
@@ -149,108 +142,62 @@ class SourceLibraryAdapter:
             run_item_payload,
         )
 
-        job_id = None
-        runtime_options: object = request.options
-        override_params = _json_object(_json_object(runtime_options).get("override_params"))
-        runtime_readback = _json_object(extract_runtime_readback_payload(
-            request.source_context,
-            request.options,
-            _optional_json_object(override_params),
-        ))
-        try:
-            with (bind_project(request.project_key) if request.project_key else nullcontext()):
-                job_id = start_job(
-                    "source_library_run",
-                    {
-                        "item_key": request.item_key,
-                        "project_key": request.project_key,
-                        **({"runtime_readback": runtime_readback} if runtime_readback else {}),
-                        "display_meta": build_display_meta(request, None, summary=f"执行来源项 {request.item_key or '-'}"),
-                    },
-                )
-                override_params = _json_object(request.options.get("override_params"))
-                item_key = str(request.item_key or "").strip()
-                channels = _json_object_list(list_effective_channels(scope="effective", project_key=request.project_key))
-                items = _json_object_list(list_effective_items(scope="effective", project_key=request.project_key))
-                item_map = {str(x.get("item_key") or ""): x for x in items}
-                item = item_map.get(item_key)
-                if item is None:
-                    raise ValueError(f"source item not found: {item_key}")
-                raw_response: object = run_item_payload(
-                    item=item,
-                    channels=channels,
-                    project_key=request.project_key,
-                    override_params=override_params,
-                )
-            raw = _json_object(raw_response)
-            nested = _json_object(raw.get("result"))
-            terminal_output = build_source_library_terminal_output(
-                result_payload=raw,
-                collect_result=CollectResult(channel=request.channel or "source_library"),
+        override_params = _json_object(request.options.get("override_params"))
+        item_key = str(request.item_key or "").strip()
+        with (bind_project(request.project_key) if request.project_key else nullcontext()):
+            channels = _json_object_list(
+                list_effective_channels(scope="effective", project_key=request.project_key)
             )
-            terminal_output = _json_object(terminal_output)
-            collection_status = _derive_source_library_status(
-                raw=raw,
-                terminal_output=terminal_output,
+            items = _json_object_list(
+                list_effective_items(scope="effective", project_key=request.project_key)
             )
-            terminal_results = _json_object(terminal_output.get("results"))
-            stats = _json_object(terminal_results.get("stats"))
-            records = terminal_results.get("records")
-            has_clean_signal = bool(records) or any(
-                _json_int(stats.get(key)) > 0 for key in ("fetched", "normalized", "dropped", "errors")
+            item_map = {str(x.get("item_key") or ""): x for x in items}
+            item = item_map.get(item_key)
+            if item is None:
+                raise ValueError(f"source item not found: {item_key}")
+            raw_response: object = run_item_payload(
+                item=item,
+                channels=channels,
+                project_key=request.project_key,
+                override_params=override_params,
             )
-            cr = CollectResult(
-                channel=request.channel or "source_library",
-                status=collection_status,
-                inserted=0 if has_clean_signal else _json_int(nested.get("inserted")),
-                updated=0 if has_clean_signal else _json_int(nested.get("updated")),
-                skipped=0 if has_clean_signal else _json_int(nested.get("skipped")),
-                errors=[
-                    {"message": e}
-                    for e in _json_list(nested.get("errors"))
-                    if isinstance(e, str)
-                ],
-                meta={
-                    "raw": raw,
-                    "terminal_output": terminal_output,
-                },
-            )
-            cr.display_meta = build_display_meta(request, cr, summary=f"执行来源项 {request.item_key or '-'}")
-            with (bind_project(request.project_key) if request.project_key else nullcontext()):
-                complete_result = {
-                    "inserted": cr.inserted,
-                    "updated": cr.updated,
-                    "skipped": cr.skipped,
-                    "display_meta": cr.display_meta,
-                }
-                if runtime_readback:
-                    complete_result["runtime_readback"] = merge_runtime_readback_payload(
-                        runtime_readback,
-                        runtime_readback,
-                        status=cr.status,
-                        event=cr.status if cr.status in {"completed", "failed", "cancelled"} else None,
-                        event_source="collect_adapter",
-                    )
-                if cr.status == "accepted":
-                    # Dispatch was accepted but no authoritative terminal
-                    # readback exists yet.  Leave the ETL job open for
-                    # reconciliation; never rewrite ACK as completion.
-                    pass
-                elif cr.status == "failed":
-                    error_text = "; ".join(
-                        message
-                        for message in (_failure_message(item) for item in cr.errors)
-                        if isinstance(message, str) and message.strip()
-                    ) or "source-library provider failed"
-                    fail_job(job_id, error_text)
-                else:
-                    complete_job(job_id, status=cr.status, result=complete_result)
-            return cr
-        except Exception as exc:  # noqa: BLE001
-            if job_id is not None:
-                with (bind_project(request.project_key) if request.project_key else nullcontext()):
-                    fail_job(job_id, str(exc))
-            raise
+        raw = _json_object(raw_response)
+        nested = _json_object(raw.get("result"))
+        terminal_output = build_source_library_terminal_output(
+            result_payload=raw,
+            collect_result=CollectResult(channel=request.channel or "source_library"),
+        )
+        terminal_output = _json_object(terminal_output)
+        collection_status = _derive_source_library_status(
+            raw=raw,
+            terminal_output=terminal_output,
+        )
+        terminal_results = _json_object(terminal_output.get("results"))
+        stats = _json_object(terminal_results.get("stats"))
+        records = terminal_results.get("records")
+        has_clean_signal = bool(records) or any(
+            _json_int(stats.get(key)) > 0 for key in ("fetched", "normalized", "dropped", "errors")
+        )
+        cr = CollectResult(
+            channel=request.channel or "source_library",
+            status=collection_status,
+            inserted=0 if has_clean_signal else _json_int(nested.get("inserted")),
+            updated=0 if has_clean_signal else _json_int(nested.get("updated")),
+            skipped=0 if has_clean_signal else _json_int(nested.get("skipped")),
+            errors=[
+                {"message": e}
+                for e in _json_list(nested.get("errors"))
+                if isinstance(e, str)
+            ],
+            meta={
+                "raw": raw,
+                "terminal_output": terminal_output,
+            },
+        )
+        cr.display_meta = build_display_meta(
+            request, cr, summary=f"执行来源项 {request.item_key or '-'}"
+        )
+        return cr
 
 
 def to_source_library_response(raw_collect_result: CollectResult) -> SourceLibraryCompatResponse:

@@ -31,7 +31,7 @@ def _load_wave29_module():
 
 
 class Wave29OssNodeVectorManifestReplayTest(unittest.TestCase):
-    def test_node_manifest_replay_restores_dispatcher_after_interpreter_error(self) -> None:
+    def test_node_manifest_replay_restores_dispatcher_after_leaf_error(self) -> None:
         module = _load_wave29_module()
         provider_manifest = {
             "contract_version": "wave19-vectorization-provider-manifest.v1",
@@ -55,13 +55,17 @@ class Wave29OssNodeVectorManifestReplayTest(unittest.TestCase):
         runtime_module = importlib.import_module("app.services.workflow_graph.runtime")
         original_execute_node = runtime_module.execute_node
 
-        with patch.object(module.WorkflowGraphPlatformInterpreter, "run", side_effect=RuntimeError("run failed")):
-            with self.assertRaisesRegex(RuntimeError, "run failed"):
+        with patch.object(
+            module,
+            "invoke_workflow_runtime_node",
+            side_effect=RuntimeError("leaf failed"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "leaf failed"):
                 module._run_node_manifest_replay(provider_manifest)
 
         self.assertIs(runtime_module.execute_node, original_execute_node)
 
-    def test_node_manifest_replay_uses_current_platform_interpreter(self) -> None:
+    def test_node_manifest_replay_uses_fixed_offline_leaf_witness(self) -> None:
         module = _load_wave29_module()
         provider_manifest = {
             "contract_version": "wave19-vectorization-provider-manifest.v1",
@@ -91,6 +95,9 @@ class Wave29OssNodeVectorManifestReplayTest(unittest.TestCase):
         self.assertEqual(replay["status"], "passed")
         self.assertEqual(replay["run"]["status"], "succeeded")
         self.assertEqual(replay["run"]["results_count"], len(module.REQUIRED_MODES))
+        self.assertEqual(replay["run"]["execution_scope"], "fixed_offline_witness")
+        self.assertFalse(replay["run"]["durable"])
+        self.assertNotIn("event_replay_consistency", replay)
 
     def test_node_manifest_replay_closes_repo_local_oss_node_blockers(self) -> None:
         module = _load_wave29_module()

@@ -2,21 +2,20 @@ from __future__ import annotations
 
 import importlib
 import pkgutil
-from typing import Dict, Type
 
 from ..services.projects.context import (
-    _project_failure,
-    _raise_project_failure,
+    _project_failure,  # pyright: ignore[reportPrivateUsage]
+    _raise_project_failure,  # pyright: ignore[reportPrivateUsage]
     current_project_key,
 )
 from .base import SubprojectExtractionAdapter
 from .default_adapter import DefaultExtractionAdapter
 
-AdapterType = Type[SubprojectExtractionAdapter]
+AdapterType = type[SubprojectExtractionAdapter]
 
-_EXACT_REGISTRY: Dict[str, AdapterType] = {}
-_PREFIX_REGISTRY: Dict[str, AdapterType] = {}
-_BOOTSTRAPPED = False
+_EXACT_REGISTRY: dict[str, AdapterType] = {}
+_PREFIX_REGISTRY: dict[str, AdapterType] = {}
+_bootstrapped: bool = False
 
 
 def register_extraction_adapter(project_key: str, adapter_cls: AdapterType) -> None:
@@ -29,6 +28,17 @@ def register_extraction_adapter(project_key: str, adapter_cls: AdapterType) -> N
                 operation="register_extraction_adapter",
                 site="app.subprojects.registry.register_extraction_adapter",
                 public_exception="ValueError",
+            )
+        )
+    if key in _EXACT_REGISTRY:
+        _raise_project_failure(
+            _project_failure(
+                "project_binding_conflict",
+                f"extraction adapter already registered: {key}",
+                operation="register_extraction_adapter",
+                site="app.subprojects.registry.register_extraction_adapter",
+                public_exception="ValueError",
+                project_key=key,
             )
         )
     _EXACT_REGISTRY[key] = adapter_cls
@@ -46,12 +56,23 @@ def register_extraction_adapter_prefix(prefix: str, adapter_cls: AdapterType) ->
                 public_exception="ValueError",
             )
         )
+    if key in _PREFIX_REGISTRY:
+        _raise_project_failure(
+            _project_failure(
+                "project_binding_conflict",
+                f"extraction adapter prefix already registered: {key}",
+                operation="register_extraction_adapter_prefix",
+                site="app.subprojects.registry.register_extraction_adapter_prefix",
+                public_exception="ValueError",
+                prefix=key,
+            )
+        )
     _PREFIX_REGISTRY[key] = adapter_cls
 
 
 def _ensure_builtin_registrations() -> None:
-    global _BOOTSTRAPPED
-    if _BOOTSTRAPPED:
+    global _bootstrapped
+    if _bootstrapped:
         return
 
     package = importlib.import_module(".", __package__)
@@ -71,7 +92,7 @@ def _ensure_builtin_registrations() -> None:
             normalized = (prefix or "").strip().lower()
             if normalized:
                 register_extraction_adapter_prefix(normalized, adapter_cls)
-    _BOOTSTRAPPED = True
+    _bootstrapped = True
 
 
 def get_extraction_adapter() -> SubprojectExtractionAdapter:

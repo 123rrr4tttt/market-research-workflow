@@ -19,6 +19,8 @@ from app.services.source_library.adapters.url_pool import (  # noqa: E402
     _materialize_pdf_artifact,
     handle_url_pool,
 )
+from app.services.ingest.adapters.http_utils import RequestOutcome  # noqa: E402
+from functorial_kit import Failure  # noqa: E402
 
 
 def _text_pdf_bytes(text: str) -> bytes:
@@ -296,10 +298,9 @@ class SourceLibraryUrlPoolAdapterUnitTestCase(unittest.TestCase):
             "app.services.source_library.adapters.url_pool.gettempdir",
             return_value=tmpdir,
         ), patch(
-            "app.services.source_library.adapters.url_pool.requests.get",
-            return_value=SimpleNamespace(
-                content=b"%PDF-1.4 fake pdf bytes",
-                raise_for_status=lambda: None,
+            "app.services.source_library.adapters.url_pool.request_html",
+            return_value=RequestOutcome(
+                response=SimpleNamespace(content=b"%PDF-1.4 fake pdf bytes"),
             ),
         ):
             artifact = _materialize_pdf_artifact(
@@ -319,6 +320,191 @@ class SourceLibraryUrlPoolAdapterUnitTestCase(unittest.TestCase):
             self.assertTrue(Path(artifact["local_path"]).exists())
             self.assertEqual(Path(artifact["local_path"]).read_bytes(), b"%PDF-1.4 fake pdf bytes")
             self.assertEqual(artifact["byte_size"], len(b"%PDF-1.4 fake pdf bytes"))
+
+    def test_materialize_pdf_artifact_rate_limit_marks_failed_not_downloaded(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir, patch(
+            "app.services.source_library.adapters.url_pool.gettempdir",
+            return_value=tmpdir,
+        ), patch(
+            "app.services.source_library.adapters.url_pool.request_html",
+            return_value=RequestOutcome(
+                failures=(
+                    Failure(
+                        family="public_request",
+                        code="RATE_LIMITED",
+                        message="public request failed: rate_limited",
+                        context={"status_code": 429, "retry_after_seconds": 5.0},
+                    ),
+                ),
+            ),
+        ):
+            artifact = _materialize_pdf_artifact(
+                {
+                    "artifact_source": "pdf",
+                    "artifact_role": "primary_source_pdf",
+                    "source_locator": "https://arxiv.org/pdf/1808.00177v5.pdf",
+                    "mime_type": "application/pdf",
+                    "download_status": "pending",
+                },
+                timeout=8.0,
+                retries=1,
+            )
+
+        self.assertEqual(artifact["download_status"], "failed")
+        self.assertNotIn("local_path", artifact)
+        self.assertIn("rate_limited", artifact["download_error"])
+
+    def test_materialize_pdf_artifact_transport_failure_is_not_success(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir, patch(
+            "app.services.source_library.adapters.url_pool.gettempdir",
+            return_value=tmpdir,
+        ), patch(
+            "app.services.source_library.adapters.url_pool.request_html",
+            return_value=RequestOutcome(
+                response=None,
+                failures=(
+                    Failure(
+                        family="public_request",
+                        code="UPSTREAM_ERROR",
+                        message="public request failed: fetch_failed",
+                        context={"transport_error": True},
+                    ),
+                ),
+            ),
+        ):
+            artifact = _materialize_pdf_artifact(
+                {
+                    "artifact_source": "pdf",
+                    "artifact_role": "primary_source_pdf",
+                    "source_locator": "https://arxiv.org/pdf/1808.00177v5.pdf",
+                    "mime_type": "application/pdf",
+                    "download_status": "pending",
+                },
+                timeout=8.0,
+                retries=1,
+            )
+
+        self.assertEqual(artifact["download_status"], "failed")
+        self.assertNotIn("local_path", artifact)
+        self.assertNotIn("sha256", artifact)
+
+    def test_materialize_pdf_artifact_delegates_retry_policy_to_http_utils(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir, patch(
+            "app.services.source_library.adapters.url_pool.gettempdir",
+            return_value=tmpdir,
+        ), patch(
+            "app.services.source_library.adapters.url_pool.request_html",
+            return_value=RequestOutcome(
+                response=SimpleNamespace(content=b"%PDF-1.4 fake pdf bytes"),
+            ),
+        ) as request_html:
+            _materialize_pdf_artifact(
+                {
+                    "artifact_source": "pdf",
+                    "artifact_role": "primary_source_pdf",
+                    "source_locator": "https://arxiv.org/pdf/1808.00177v5.pdf",
+                    "mime_type": "application/pdf",
+                    "download_status": "pending",
+                },
+                timeout=8.0,
+                retries=3,
+            )
+
+        call = request_html.call_args
+        self.assertEqual(call.kwargs["timeout"], 8.0)
+        self.assertEqual(call.kwargs["retries"], 4)
+        self.assertEqual(call.kwargs["headers"], {"Accept": "application/pdf"})
+        self.assertIsNotNone(call.kwargs["scope"])
+        self.assertIsNotNone(call.kwargs["retry_gate"])
+
+    def test_materialize_pdf_artifact_retries_transport_failure_then_succeeds(self) -> None:
+        import requests as requests_module
+
+        from app.services.ingest.retry_policy import RateGate
+
+        pdf_bytes = b"%PDF-1.4 fake pdf bytes"
+
+        class _FlakySession:
+            def __init__(self) -> None:
+                self.headers: dict[str, str] = {}
+                self.attempts = 0
+
+            def get(self, url, params=None, timeout=None, allow_redirects=True):
+                self.attempts += 1
+                if self.attempts == 1:
+                    raise requests_module.RequestException("connection reset")
+                return SimpleNamespace(
+                    status_code=200,
+                    headers={},
+                    text="",
+                    content=pdf_bytes,
+                )
+
+            def close(self) -> None:
+                pass
+
+        session = _FlakySession()
+        with tempfile.TemporaryDirectory() as tmpdir, patch(
+            "app.services.source_library.adapters.url_pool.gettempdir",
+            return_value=tmpdir,
+        ), patch(
+            "app.services.source_library.adapters.url_pool._PDF_ARTIFACT_RATE_GATE",
+            RateGate(
+                rate_limit_interval_seconds=1.0,
+                backoff_base_seconds=1.5,
+                backoff_max_seconds=60.0,
+                sleeper=lambda s: None,
+            ),
+        ), patch(
+            "app.services.ingest.adapters.http_utils._default_client_factory",
+            return_value=session,
+        ), patch("time.sleep"):
+            artifact = _materialize_pdf_artifact(
+                {
+                    "artifact_source": "pdf",
+                    "artifact_role": "primary_source_pdf",
+                    "source_locator": "https://arxiv.org/pdf/1808.00177v5.pdf",
+                    "mime_type": "application/pdf",
+                    "download_status": "pending",
+                },
+                timeout=8.0,
+                retries=1,
+            )
+
+        self.assertEqual(artifact["download_status"], "downloaded")
+        self.assertEqual(session.attempts, 2)
+
+    def test_materialize_pdf_artifact_write_failure_marks_failed_without_redownload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir, patch(
+            "app.services.source_library.adapters.url_pool.gettempdir",
+            return_value=tmpdir,
+        ), patch(
+            "app.services.source_library.adapters.url_pool.request_html",
+            return_value=RequestOutcome(
+                response=SimpleNamespace(content=b"%PDF-1.4 fake pdf bytes"),
+            ),
+        ) as request_html, patch(
+            "app.services.source_library.adapters.url_pool.Path.exists",
+            return_value=False,
+        ), patch(
+            "app.services.source_library.adapters.url_pool.Path.write_bytes",
+            side_effect=PermissionError("read-only filesystem"),
+        ):
+            artifact = _materialize_pdf_artifact(
+                {
+                    "artifact_source": "pdf",
+                    "artifact_role": "primary_source_pdf",
+                    "source_locator": "https://arxiv.org/pdf/1808.00177v5.pdf",
+                    "mime_type": "application/pdf",
+                    "download_status": "pending",
+                },
+                timeout=8.0,
+                retries=1,
+            )
+
+        self.assertEqual(artifact["download_status"], "failed")
+        self.assertIn("read-only filesystem", artifact["download_error"])
+        request_html.assert_called_once()
 
 
 if __name__ == "__main__":

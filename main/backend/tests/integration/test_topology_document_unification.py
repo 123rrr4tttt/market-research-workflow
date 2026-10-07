@@ -115,7 +115,7 @@ def test_import_uses_document_owner_and_ordinary_document_apis(unified, monkeypa
             Failure,
         )
     projected = current_material(service)
-    assert projected["attributes"]["material_id"] == doc_id
+    assert projected["attributes"]["material_ref"] == material_identity("it-retrieval", doc_id)
     assert projected["attributes"]["title"] == source["materials"][0]["标题"]
     assert service.resolve("it-retrieval", [projected["attributes"]["material_ref"]])["total"] == 1
     assert service.resolve("it-retrieval", [document_identity("it-retrieval", doc_id)])["total"] == 1
@@ -171,8 +171,8 @@ def test_migration_reuses_existing_document_preserves_history_and_provenance(uni
             ),
             Failure,
         )
-    assert service.merge_material_documents("it-retrieval")["migrated_states"] == 1
-    assert service.merge_material_documents("it-retrieval")["migrated_states"] == 0
+    assert service.merge_materials("it-retrieval")["migrated_states"] == 1
+    assert service.merge_materials("it-retrieval")["migrated_states"] == 0
     with sessions() as session:
         assert session.execute(select(func.count(Document.id))).scalar_one() == 1
         current = repository.read_state(session, preview.state_key)
@@ -180,7 +180,7 @@ def test_migration_reuses_existing_document_preserves_history_and_provenance(uni
         assert current["provenance"] == preview.provenance
         assert historical["state"] == preview.state
         assert current["revision"] == 2
-    assert current_material(service)["attributes"]["material_id"] == doc_id
+    assert current_material(service)["attributes"]["material_ref"] == material_identity("it-retrieval", doc_id)
     assert current_material(service)["attributes"]["title"] == "Owner title"
 
 

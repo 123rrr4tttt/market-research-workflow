@@ -31,14 +31,21 @@ def test_INVARIANT__runtime_module_does_not_import_concrete_adapters() -> None:
     assert "from .adapters." not in source
 
 
-def test_INVARIANT__composition_registers_adapters_and_compat_projector() -> None:
+def test_INVARIANT__composition_owns_adapter_map_and_compat_projector() -> None:
     from app.composition import collect_runtime as composition
     from app.services.collect_runtime import runtime
 
     composition.configure_default_collect_adapters(force=True)
-    assert "search.market" in runtime.list_collect_skills()
-    assert "collect.source_library" in runtime.list_collect_skills()
-    assert "crawler.scrapy" in runtime.list_collect_skills()
+    channels = sorted(composition.default_collect_adapters())
+    assert channels == [
+        "crawler.scrapy",
+        "search.market",
+        "search.policy",
+        "source_library",
+        "url_pool",
+    ]
+    assert not hasattr(runtime, "list_collect_skills")
+    assert not hasattr(runtime, "_SKILL_REGISTRY")
     assert callable(runtime._successor_effect_gateway)
 
 

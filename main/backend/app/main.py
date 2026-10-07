@@ -41,6 +41,7 @@ from .services.request_identity import (
     actor_id_from_secret,
     authenticated_actor_context,
     legacy_actor_id_from_request,
+    resolve_local_single_user_actor_context,
     set_request_actor_context,
 )
 from .startup_hooks import register_startup_hooks
@@ -126,8 +127,10 @@ def _configure_shell_ports() -> None:
     """Install explicit network ports before API request handlers can run."""
 
     from .composition.resource_pool import configure_resource_pool_ports
+    from .composition.collect_runtime import configure_default_collect_adapters
 
     configure_resource_pool_ports()
+    configure_default_collect_adapters()
 
 
 def _validate_production_composition() -> None:
@@ -450,16 +453,13 @@ def _uses_endpoint_owned_project_context(path: str) -> bool:
 
 def _resolve_request_project_context(request: Request) -> tuple[str, str, bool]:
     """Resolve project key source for observability and fallback warning."""
-    header_key = (request.headers.get("X-Project-Key") or "").strip()
-    if header_key:
-        return header_key, "header", False
-    query_key = (request.query_params.get("project_key") or "").strip()
-    if query_key:
-        return query_key, "query", False
-    if _uses_endpoint_owned_project_context(request.url.path):
-        return "", "endpoint_payload", False
-    fallback = _get_active_project_key_fallback() or settings.active_project_key
-    return fallback, "fallback", True
+    from .services.projects.context import resolve_request_project_context
+
+    return resolve_request_project_context(
+        request,
+        fallback=lambda: _get_active_project_key_fallback() or settings.active_project_key,
+        endpoint_payload=_uses_endpoint_owned_project_context(request.url.path),
+    )
 
 
 def _parse_codex_auth_tokens() -> set[str]:
@@ -640,16 +640,24 @@ async def metrics_middleware(
     controller = getattr(app.state, "production_observability_r7", None)
     production_runtime = is_production_environment()
     observe_http = production_runtime or controller is not None
-    authenticated_actor: RequestActorContext | None = None
+    authenticated_actor: RequestActorContext | None = resolve_local_single_user_actor_context(
+        request,
+        enabled=bool(getattr(settings, "codex_webui_local_single_user_enabled", False)),
+        server_api_key=getattr(settings, "codex_webui_server_api_key", ""),
+    )
     auth_error_response: Response | None = None
-    if _is_codex_protected_path(request.url.path):
+    protected_path = _is_codex_protected_path(request.url.path)
+    optional_url_identity = request.url.path == "/api/v1/ingest/url/single" and (
+        bool(_extract_codex_token(request)) or bool(request.cookies.get(codex_cookie_name()))
+    )
+    if authenticated_actor is None and (protected_path or optional_url_identity):
         valid_tokens = _parse_codex_auth_tokens()
         token = _extract_codex_token(request)
         if token and token in valid_tokens:
             authenticated_actor = _static_codex_token_actor(request, token)
         else:
             authenticated_actor = _resolve_codex_oauth_actor_context(request)
-            if authenticated_actor is None:
+            if authenticated_actor is None and protected_path:
                 if token:
                     auth_error_response = _build_codex_auth_error(
                         request, reason="invalid_token"

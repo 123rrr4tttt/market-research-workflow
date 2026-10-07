@@ -12,7 +12,7 @@ from ...models.base import SessionLocal
 from ...models.entities import Document
 from ..job_logger import complete_job, fail_job, start_job
 from ..resource_pool.http_port import fetch_html, make_html_parser
-from .content_extraction import _locate_main_text_from_html
+from .content_extraction import locate_main_text_from_html
 from .frontdoor_ingress import build_raw_import_ingress_envelope
 from .material_ingress import MaterialSourceContext, MaterialTargetSpec, build_material_frontdoor_payload
 from .material_input import FetchedResource, GivenContent, PreparedMaterial, ResourceRef, prepare_material
@@ -92,7 +92,7 @@ def _normalize_uri_list(item: dict[str, Any], infer_from_text: bool) -> list[str
 
 def _extract_text_from_html(html: str) -> str:
     try:
-        return _locate_main_text_from_html(
+        return locate_main_text_from_html(
             html,
             selectors=("article", "main article", "[role='main'] article", "main"),
             transform=lambda text: text[:50000],

@@ -122,7 +122,7 @@ def materialize_policy_documents(
     idempotency_key: str | None = None,
     _iteration_error_out: list[BaseException] | None = None,
 ) -> tuple[list[PolicyDocument], acquisition.CollectTraversalResult]:
-    """Materialize a bounded policy iterable with C3 ordered observations.
+    """Materialize a bounded policy iterable with typed ordered observations.
 
     The iterable is consumed in input order and each yielded document receives
     a content-bound attempt/readback receipt and replay identity. Cancellation
@@ -149,7 +149,7 @@ def materialize_policy_documents(
                 error_digest="",
             )
             return materialized, acquisition.OrderedTraversalAborted(
-                schema_version="mrw.successor.collect.c3.traversal-result.v1",
+                schema_version=acquisition.COLLECT_TRAVERSAL_RESULT_SCHEMA_REF,
                 partial_outcomes=tuple(outcomes),
                 cause=cause,
                 cancellation_receipt=acquisition.CollectCancellationReceipt(
@@ -235,12 +235,12 @@ def materialize_policy_documents(
     traversal: acquisition.CollectTraversalResult
     if len(outcomes) == 1:
         traversal = acquisition.CollectTraversalSingleton(
-            schema_version="mrw.successor.collect.c3.traversal-result.v1",
+            schema_version=acquisition.COLLECT_TRAVERSAL_RESULT_SCHEMA_REF,
             observation=observation,
         )
     else:
         traversal = acquisition.OrderedTraversalCompleted(
-            schema_version="mrw.successor.collect.c3.traversal-result.v1",
+            schema_version=acquisition.COLLECT_TRAVERSAL_RESULT_SCHEMA_REF,
             observation=observation,
         )
     return materialized, traversal
@@ -287,7 +287,7 @@ def _policy_materialization_typed_views(
         else getattr(traversal, "partial_outcomes", ())
     ) or ()
     sequence = acquisition.OrderedCollectElementOutcomeSequence(
-        schema_version="mrw.successor.collect.c3.outcome-sequence.v1",
+        schema_version=acquisition.ORDERED_OUTCOME_SEQUENCE_SCHEMA_REF,
         parent_request_ref=(
             getattr(observation, "request_ref", None)
             or _policy_request_ref(

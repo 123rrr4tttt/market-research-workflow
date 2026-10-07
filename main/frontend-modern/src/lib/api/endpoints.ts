@@ -106,7 +106,6 @@ export const endpoints = {
     jobs: `${API_BASE}/agent-batch/jobs`,
     jobById: (jobId: string) => `${API_BASE}/agent-batch/jobs/${encodeURIComponent(jobId)}`,
     itemsByJob: (jobId: string) => `${API_BASE}/agent-batch/jobs/${encodeURIComponent(jobId)}/items`,
-    retryByJob: (jobId: string) => `${API_BASE}/agent-batch/jobs/${encodeURIComponent(jobId)}/retry`,
     eventsByJob: (jobId: string) => `${API_BASE}/agent-batch/jobs/${encodeURIComponent(jobId)}/events`,
     ruleSetValidate: `${API_BASE}/agent-batch/rule-sets/validate`,
   },
@@ -121,10 +120,7 @@ export const endpoints = {
     messagesBySession: (sessionId: string) => `${API_BASE}/agent-sessions/${encodeURIComponent(sessionId)}/messages`,
     eventsBySession: (sessionId: string) => `${API_BASE}/agent-sessions/${encodeURIComponent(sessionId)}/events`,
     artifactsBySession: (sessionId: string) => `${API_BASE}/agent-sessions/${encodeURIComponent(sessionId)}/artifacts`,
-    retryTaskBySession: (sessionId: string) =>
-      `${API_BASE}/agent-sessions/${encodeURIComponent(sessionId)}/actions/retry-task`,
     cancelBySession: (sessionId: string) => `${API_BASE}/agent-sessions/${encodeURIComponent(sessionId)}/actions/cancel`,
-    reclaimExpiredBySession: (sessionId: string) => `${API_BASE}/agent-sessions/${encodeURIComponent(sessionId)}/actions/reclaim-expired`,
     requestApprovalBySession: (sessionId: string) => `${API_BASE}/agent-sessions/${encodeURIComponent(sessionId)}/actions/request-approval`,
     approvals: `${API_BASE}/agent-approvals`,
     approvalById: (approvalId: string) => `${API_BASE}/agent-approvals/${encodeURIComponent(approvalId)}`,
@@ -205,8 +201,8 @@ export const endpoints = {
       `${API_BASE}/workflow-graph/curated/${encodeURIComponent(graphId)}/handoff/reporting`,
     curatedWritingHandoff: (graphId: string) =>
       `${API_BASE}/workflow-graph/curated/${encodeURIComponent(graphId)}/handoff/writing`,
-    handoffReplay: (runId: string, handoffId: string) =>
-      `${API_BASE}/workflow-graph/runs/${encodeURIComponent(runId)}/handoff/${encodeURIComponent(handoffId)}/replay`,
+    handoffReplay: (runId: string, handoffId: string, projectKey: string) =>
+      `${API_BASE}/workflow-graph/runs/${encodeURIComponent(runId)}/handoff/${encodeURIComponent(handoffId)}/replay?source=historical&project_key=${encodeURIComponent(projectKey)}`,
     templates: `${API_BASE}/workflow-graph/templates`,
     templateById: (templateId: string) => `${API_BASE}/workflow-graph/templates/${encodeURIComponent(templateId)}`,
     templateVersions: (templateId: string) =>

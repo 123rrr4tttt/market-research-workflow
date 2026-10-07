@@ -279,8 +279,8 @@ def test_plan_digest_and_store_decode_bind_traversal_transform_ref() -> None:
 @pytest.mark.parametrize(
     ("field", "value", "message"),
     [
-        ("codec_id", "wrong.traversal.codec.v1", "input codec drift"),
-        ("byte_size", 999999, "input byte-size drift"),
+        ("codec_id", "wrong.traversal.codec.v1", "typed value codec identity drift"),
+        ("byte_size", 999999, "typed value exact bytes binding drift"),
     ],
 )
 def test_traversal_input_codec_and_byte_size_are_exact(
@@ -305,3 +305,56 @@ def test_traversal_input_codec_and_byte_size_are_exact(
             merge_registry=registries.merges,
             discriminator_registry=registries.discriminators,
         )
+
+
+def test_sequence_v2_separates_typed_empty_bytes_without_reinterpreting_v1() -> None:
+    from app.successor_runtime.language.program import (
+        TraverseOrdered, bind_program_contracts, decode_ast, sequence_object_type,
+    )
+    from app.successor_runtime.language.normalize import normalize_node, normalized_structure
+    from app.successor_runtime.research.object_types import ObjectType
+
+    program, _, registry, _ = _closure(policy="MATERIALIZED_SHAPE", elements=())
+    legacy = program.root
+    assert isinstance(legacy, TraverseOrdered)
+    frozen_ast = {
+        "node_kind": "traverse_ordered",
+        "element_program": legacy.element_program.encode_ast(),
+        "traversal_policy": "MATERIALIZED_SHAPE",
+    }
+    assert canonical_bytes(legacy.encode_ast()) == canonical_bytes(frozen_ast)
+    assert decode_ast(frozen_ast) == legacy
+    assert normalize_node(legacy).encode_ast() == frozen_ast
+    assert len(normalized_structure(legacy)) == 3
+    assert bind_program_contracts(program, registry).root.encode_ast() == frozen_ast
+
+    typed = replace(legacy, sequence_codec_version="2")
+    assert typed.encode_ast()["sequence_codec_version"] == "2"
+    assert decode_ast(typed.encode_ast()) == typed
+    assert normalize_node(typed) == typed
+    assert typed.ast_digest() != legacy.ast_digest()
+    typed_program = replace(program, root=typed, input_type=typed.input_type,
+                            output_type=typed.output_type, program_digest="").with_digest()
+    assert bind_program_contracts(typed_program, registry).root == typed
+    variants = (
+        ObjectType("Body", "1", "body.codec", "1"),
+        ObjectType("Url", "1", "body.codec", "1"),
+        ObjectType("Body", "2", "body.codec", "1"),
+        ObjectType("Body", "1", "other.codec", "1"),
+        ObjectType("Body", "1", "body.codec", "2"),
+    )
+    assert len({sequence_object_type(item, version="2").codec_id for item in variants}) == len(variants)
+    assert len({sequence_object_type(item).codec_id for item in variants}) == 1
+
+
+@pytest.mark.parametrize("version", ["", "0", "3"])
+def test_traversal_rejects_unsupported_sequence_codec_versions(version: str) -> None:
+    from app.successor_runtime.language.program import decode_ast, sequence_object_type
+
+    program, _, _, _ = _closure(policy="MATERIALIZED_SHAPE", elements=())
+    with pytest.raises(ValueError):
+        traverse_ordered_node(program.root.element_program, "MATERIALIZED_SHAPE", sequence_codec_version=version)
+    with pytest.raises(ValueError):
+        sequence_object_type(program.root.element_program.input_type, version=version)
+    with pytest.raises(ValueError):
+        decode_ast({**program.root.encode_ast(), "sequence_codec_version": version})

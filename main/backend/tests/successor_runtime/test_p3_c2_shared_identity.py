@@ -86,15 +86,15 @@ def test_public_type_bindings_have_no_erased_boundaries() -> None:
     assert "getattr" not in inspect.getsource(contracts.build_source_operation_parts)
 
 
-def test_public_operation_identities_are_unchanged() -> None:
+def test_public_operation_identities_are_versioned() -> None:
     resolution_bundle = resolution.build_source_resolution_bundle()
     provider_bundle = provider_acquisition.build_source_provider_acquisition_bundle()
 
     assert resolution_bundle.operation.ref.contract_digest == (
-        "6ced6266314f92d80b4590532c2fa491c407a64a7923cd587499c05ebbfc66d4"
+        "75985813967dab3c925ca5f64b24b275f0c69546076b4c5ebc8335c8aa20c616"
     )
     assert resolution_bundle.payload_codec().codec_digest == (
-        "add3182f99ddba400b2c69c8d2b82470786ba4a28d0a88b73a744a4fe24b6e9e"
+        "856080fb33135677f1b433cfcfdc3dd346f9707585d54273d0346736a164b352"
     )
     assert provider_bundle.operation.ref.contract_digest == (
         "627bdba3636568d4497ca291b919ea8388bf8ec6313e6e370f51eced9d5db794"

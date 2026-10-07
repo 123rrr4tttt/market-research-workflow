@@ -8,18 +8,15 @@ new bounded executor run and retains the saved proposal as its reason.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from hashlib import sha256
 import json
 from typing import Annotated, Any, Literal, cast
 
 from functorial_kit import Failure, define_failure_family
 
-from app.services.agent_sessions.service import AgentSessionService
 from app.services.information_topology.modules.retrieval import DomainVocabulary
-from app.services.information_topology.service import InformationTopologyService
 from app.services.project_retrieval.contracts import RetrievalJsonObject
-from app.services.project_retrieval.execution import execute_retrieval_run
 from app.services.project_retrieval.proposals import (
     ProposalAttempt,
     ProposalDigest,
@@ -98,9 +95,9 @@ def build_round_proposal(
         return rapid_macro_failures.fail("ROUND_OBSERVATION_INVALID", "round identity and method judgments are required")
     if any(not _text(value) for value in (*classification_proposals, *analysis_positions)):
         return rapid_macro_failures.fail("ROUND_OBSERVATION_INVALID", "classification and position values must be nonempty")
-    session_id = _text(result_mapping.get("session_id"))
-    if not session_id or _text(result_mapping.get("plan_id")) != _text(plan_mapping.get("plan_id")):
-        return rapid_macro_failures.fail("ROUND_OBSERVATION_INVALID", "executor session or plan identity is missing")
+    root_run_id = _text(result_mapping.get("run_id"))
+    if not root_run_id or _text(result_mapping.get("plan_id")) != _text(plan_mapping.get("plan_id")):
+        return rapid_macro_failures.fail("ROUND_OBSERVATION_INVALID", "Runtime run or plan identity is missing")
     attempts_raw = result_mapping.get("attempts")
     if not isinstance(attempts_raw, list) or not attempts_raw:
         return rapid_macro_failures.fail("ROUND_OBSERVATION_INVALID", "an actual search attempt is required")
@@ -136,7 +133,7 @@ def build_round_proposal(
         if (
             not query_id or not attempt_id or not expression
             or outcome not in {"hit", "miss", "access_failed"}
-            or _text(raw.get("round_id")) != session_id
+            or _text(raw.get("round_id")) != root_run_id
             or raw.get("tool") != "source.web.search"
             or not _text(raw.get("raw_return_location"))
         ):
@@ -318,29 +315,7 @@ def continuation_plan_from_saved_frontier(
     return cast(RetrievalJsonObject, plan)
 
 
-def execute_saved_frontier(
-    *, adapter: RapidProposalTopologyAdapter, project_key: str, proposal_id: str,
-    proposal_version: str, frontier_id: str, base_plan: RetrievalJsonObject,
-    remaining_followup_budget: int, topology_service: InformationTopologyService,
-    session_factory: Callable[[], AgentSessionService],
-    emit: Callable[[str, RetrievalJsonObject], None] | None = None,
-) -> RetrievalJsonObject | Failure:
-    """Dispatch the saved next query through the existing executor, preserving its receipts."""
-    plan = continuation_plan_from_saved_frontier(
-        adapter=adapter, project_key=project_key, proposal_id=proposal_id,
-        proposal_version=proposal_version, frontier_id=frontier_id, base_plan=base_plan,
-        remaining_followup_budget=remaining_followup_budget,
-    )
-    if isinstance(plan, Failure):
-        return plan
-    result = execute_retrieval_run(
-        project_key=project_key, plan=plan, topology_service=topology_service,
-        session_factory=session_factory, emit=emit,
-    )
-    return cast(RetrievalJsonObject, {"plan": plan, "result": result, "continuation": plan["rapid_continuation"]})
-
-
 __all__ = [
     "build_round_proposal", "save_round_proposal", "continuation_plan_from_saved_frontier",
-    "execute_saved_frontier", "rapid_macro_failures",
+    "rapid_macro_failures",
 ]

@@ -111,10 +111,6 @@ def _serialize_document(row: WritingDocument) -> dict[str, Any]:
     return serialized
 
 
-def _serialize_draft(row: WritingDocumentDraft) -> dict[str, Any]:
-    return serialize_writing_document_draft(row)
-
-
 def _build_conflict_details(row: WritingDocument, *, expected_version: int | None) -> dict[str, Any]:
     details = build_writing_conflict_details(row, expected_version=expected_version)
     details["server_snapshot"]["etag"] = details["server_snapshot"].get("etag") or _compute_etag(
@@ -344,7 +340,7 @@ def try_save_draft_autosave(
         session.add(row)
         session.flush()
         session.refresh(row)
-        return _serialize_draft(row)
+        return serialize_writing_document_draft(row)
 
     return run_with_session_retry(_op, log_context={"operation": "autosave_writing_document", "doc_id": doc_id, "project_key": project_key})
 

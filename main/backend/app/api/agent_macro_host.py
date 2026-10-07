@@ -13,6 +13,11 @@ from ..models.entities import Project
 from ..services.agent_core.macro_host import AgentMacroHostService, MacroHostError
 from ..services.agent_sessions.service import get_agent_session_service
 from ..services.projects.context import bind_schema
+from ..services.request_identity import (
+    RequestActorContext,
+    resolve_local_single_user_actor_context,
+    resolve_request_actor_context,
+)
 from ..settings.config import settings
 from sqlalchemy import select
 
@@ -90,9 +95,38 @@ def require_webui_server(
     del request
     configured = _configured_server_key()
     if not configured:
-        raise MacroHostError("server_api_key_unconfigured", "codex webui server api key is not configured", status_code=503)
+        _raise_host_error(MacroHostError(
+            "server_api_key_unconfigured",
+            "codex webui server api key is not configured",
+            status_code=503,
+        ))
     if x_mrw_server_api_key is None or not secrets.compare_digest(x_mrw_server_api_key, configured):
-        raise MacroHostError("invalid_server_api_key", "codex webui server authentication failed", status_code=401)
+        _raise_host_error(MacroHostError(
+            "invalid_server_api_key",
+            "codex webui server authentication failed",
+            status_code=401,
+        ))
+
+
+def _authenticated_actor(request: Request) -> RequestActorContext | None:
+    local_actor = resolve_local_single_user_actor_context(
+        request,
+        enabled=bool(getattr(settings, "codex_webui_local_single_user_enabled", False)),
+        server_api_key=getattr(settings, "codex_webui_server_api_key", ""),
+    )
+    if local_actor is not None:
+        return local_actor
+    actor = resolve_request_actor_context(request)
+    if actor.actor_source in {
+        "authenticated_oauth_token_sink",
+        "authenticated_oauth_token_sink_claims",
+    }:
+        raise MacroHostError(
+            "authenticated_host_actor_required",
+            "provider credentials do not identify an authenticated MRW host user",
+            status_code=401,
+        )
+    return actor if actor.actor_trusted else None
 
 
 def _project_exists(project_key: str) -> bool:
@@ -161,13 +195,14 @@ def read_macro_environment(bindingId: str | None = None, threadId: str | None = 
 
 
 @router.post("/record-input", dependencies=[Depends(require_webui_server)])
-def record_macro_input(payload: RecordInputRequest) -> dict[str, Any]:
+def record_macro_input(payload: RecordInputRequest, request: Request) -> dict[str, Any]:
     service = get_agent_macro_host_service()
     try:
         return service.record_input(
             thread_id=payload.threadId,
             turn_id=payload.turnId,
             content=payload.content,
+            actor_context=_authenticated_actor(request),
         )
     except MacroHostError as exc:
         _raise_host_error(exc)
@@ -189,7 +224,7 @@ def confirm_macro_action(payload: ConfirmRequest) -> dict[str, Any]:
 
 
 @router.post("/dispatch", dependencies=[Depends(require_webui_server)])
-def dispatch_macro_tool(payload: DispatchRequest) -> dict[str, Any]:
+def dispatch_macro_tool(payload: DispatchRequest, request: Request) -> dict[str, Any]:
     service = get_agent_macro_host_service()
     try:
         return service.dispatch(
@@ -199,6 +234,7 @@ def dispatch_macro_tool(payload: DispatchRequest) -> dict[str, Any]:
             namespace=payload.namespace,
             tool=payload.tool,
             arguments=payload.arguments,
+            actor_context=_authenticated_actor(request),
         )
     except MacroHostError as exc:
         _raise_host_error(exc)

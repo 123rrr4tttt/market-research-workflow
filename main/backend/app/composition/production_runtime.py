@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 import hashlib
 from typing import Annotated
@@ -21,6 +21,7 @@ import redis as redis_client
 from fastapi import Request
 from sqlalchemy import and_, or_, select
 from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.production_contract import APPROVED_DECISION, ApprovalGrant, ProviderClass
 from app.services.request_identity import RequestActorContext, require_trusted_actor_context
@@ -30,6 +31,10 @@ from app.successor_runtime.runtime.facade import SuccessorRuntimeFacade
 from app.successor_runtime.runtime.facade_contracts import FacadeQueryV2, QueryResult
 from app.successor_runtime.runtime.facade_contracts import CommandReceipt, FacadeCommandV2
 from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
+from app.successor_runtime.runtime.resources import ResourcePolicySnapshot
+from app.successor_runtime.language.catalog import OperationContractRegistry
+from app.successor_runtime.substrate.postgres.authority import AuthorityGrant, AuthorityGrantRepository, CapabilityAuthority
+from app.successor_runtime.substrate.postgres.runtime_journal import ExactBindingConflict
 from app.successor_runtime.substrate.postgres.facade_commands import (
     C9_CAPABILITY_ID,
     PostgresC9CommandRepository,
@@ -38,6 +43,7 @@ from app.successor_runtime.substrate.postgres.facade_commands import (
 from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
 from app.successor_runtime.substrate.postgres.session import (
     ProjectScopeResolver,
+    RegistryBackedProjectScopeResolver,
     ServerProjectScopeResolver,
 )
 
@@ -61,23 +67,95 @@ class ProductionRuntimeAuthorityUnavailable(RuntimeError):
     """A configured authority source cannot return a valid observation."""
 
 
+def install_runtime_authority(
+    connection: Connection, *, administrator: RequestActorContext,
+    project_scope: ProjectScopeRef, grant: AuthorityGrant,
+    capability: CapabilityAuthority, resource: ResourcePolicySnapshot,
+    installed: OperationContractRegistry,
+) -> None:
+    """Apply an explicit, finite administrator deployment declaration.
+
+    This deployment entry is never called by a request or policy PASS. Existing
+    mismatched/revoked records require their normal owner transition; installation
+    cannot overwrite them or silently renew an expired grant.
+    """
+    now = datetime.now(UTC)
+    if (not administrator.actor_trusted or not administrator.actor_id or not grant.actor_id
+            or grant.grant_epoch < 1 or grant.expires_at is None
+            or grant.expires_at.tzinfo is None or grant.expires_at <= now):
+        raise ProductionRuntimeAuthorityUnavailable("installation requires a trusted administrator and a finite grant")
+    if ServerProjectScopeResolver(connection=connection).resolve(project_scope.project_key) != project_scope:
+        raise ExactBindingConflict("installation project scope is stale")
+    if (
+        grant.capability_id != capability.capability_id
+        or resource.capability_id != capability.capability_id
+        or resource.project_key != project_scope.project_key
+        or grant.operation_scope_json.project_scope_digest != project_scope.scope_digest
+        or capability.legacy_claim_enabled or not capability.successor_claim_enabled
+        or capability.mode not in {"on", "canary"}
+        or not capability.rollback_target_ref or not capability.approval_ref
+    ):
+        raise ExactBindingConflict("installation scope/capability declaration mismatch")
+    for kind in grant.operation_scope_json.operation_kinds:
+        ref = installed.catalog.lookup(kind)
+        if ref is None or installed.resolve_required(ref).owner_capability_id != capability.capability_id:
+            raise ExactBindingConflict("installation grant references an uninstalled operation")
+    resource_limits = grant.resource_ceiling_json.limits
+    if any(limit.resource_class != resource.resource_class.value or limit.units > resource.max_units
+           for limit in resource_limits) or grant.resource_ceiling_json.max_active > resource.max_capability_active:
+        raise ExactBindingConflict("installation grant exceeds the declared resource policy")
+    capability_values = {
+        **asdict(capability), "project_key": project_scope.project_key,
+        "updated_by": administrator.actor_id,
+    }
+    resource_values = {
+        "resource_policy_id": f"policy:{resource.policy_digest}",
+        "project_key": resource.project_key, "capability_id": resource.capability_id,
+        "resource_class": resource.resource_class.value,
+        "concurrency_limit": resource.max_capability_active,
+        "max_project_active": resource.max_project_active,
+        "max_capability_active": resource.max_capability_active,
+        "max_resource_active": resource.max_resource_active,
+        "units_ceiling": resource.max_units, "provider_limit": resource.max_provider_active,
+        "policy_epoch": resource.policy_epoch, "policy_digest": resource.policy_digest,
+    }
+    for name, values in (("runtime_capability_authority", capability_values),
+                         ("runtime_resource_policies", resource_values)):
+        table = PUBLIC_TABLES[name]
+        connection.execute(pg_insert(table).values(**values).on_conflict_do_nothing())
+        row = connection.execute(select(table).where(
+            table.c.project_key == project_scope.project_key,
+            table.c.capability_id == capability.capability_id,
+            *(() if name == "runtime_capability_authority" else (
+                table.c.policy_epoch == resource.policy_epoch,
+                table.c.resource_class == resource.resource_class.value,
+            )),
+        )).mappings().one()
+        if any(row[key] != value for key, value in values.items()):
+            raise ExactBindingConflict("installation conflicts with existing authority/resource facts")
+    scope = RuntimeScope(project_scope=project_scope, actor_id=administrator.actor_id)
+    table = PUBLIC_TABLES["runtime_authority_grants"]
+    row = connection.execute(select(table).where(
+        table.c.project_key == project_scope.project_key, table.c.grant_id == grant.grant_id,
+    )).mappings().one_or_none()
+    if row is None:
+        AuthorityGrantRepository(connection, scope).create(grant)
+    else:
+        expected = {
+            **asdict(grant),
+            "operation_scope_json": grant.operation_scope_json.model_dump(mode="json"),
+            "resource_ceiling_json": grant.resource_ceiling_json.model_dump(mode="json"),
+        }
+        if row["revoked_at"] is not None or any(row[key] != value for key, value in expected.items()):
+            raise ExactBindingConflict("installation cannot replace or renew an existing grant")
+
+
 @contextmanager
 def _read_only_connection(engine: Engine) -> Iterator[Connection]:
     with engine.connect() as connection:
         # Adapters only issue SELECT statements; connection close rolls back
         # the implicit read transaction.
         yield connection
-
-
-class EngineProjectScopeResolver:
-    """Adapt the existing server resolver to fresh pooled connections."""
-
-    def __init__(self, engine: Engine) -> None:
-        self._engine = engine
-
-    def resolve(self, authenticated_project_key: str) -> ProjectScopeRef:
-        with _read_only_connection(self._engine) as connection:
-            return ServerProjectScopeResolver(connection=connection).resolve(authenticated_project_key)
 
 
 class EngineC9QueryReadPort:
@@ -148,7 +226,7 @@ def build_production_successor_runtime_app_dependencies(
     """Bind the mounted C9 command/query paths to PostgreSQL."""
 
     return ProductionSuccessorRuntimeAppDependencies(
-        resolver=EngineProjectScopeResolver(engine),
+        resolver=RegistryBackedProjectScopeResolver(engine=engine),
         facade=SuccessorRuntimeFacade(
             submission_port=PostgresC9CommandSubmissionPort(engine),
             query_port=EngineC9QueryReadPort(engine),
@@ -418,38 +496,6 @@ class RegisteredProviderSelection:
 
 
 @dataclass(frozen=True, slots=True)
-class UnavailableProviderCatalog:
-    capability = "provider_catalog"
-
-@dataclass(frozen=True, slots=True)
-class UnavailableProviderSelection:
-    capability = "provider_selection"
-
-    def select(
-        self,
-        actor: RequestActorContext,
-        provider_class: ProviderClass,
-        request_payload_bytes: int,
-    ) -> ProviderSelection | None:
-        return None
-
-
-@dataclass(frozen=True, slots=True)
-class UnavailableCanonicalWriter:
-    capability = "canonical_writer"
-
-    def owner(
-        self,
-        operation: str,
-        project_key: str,
-        canonical_owner_ref: str,
-        writer_port_kind: str,
-        approvals: tuple[ApprovalGrant, ...],
-    ) -> str | None:
-        return None
-
-
-@dataclass(frozen=True, slots=True)
 class InstalledCanonicalWriterBinding:
     operation: str
     canonical_owner_ref: str
@@ -569,7 +615,7 @@ def build_production_runtime_bindings(
         if binding.requires_canonical_writer
     )
     return ProductionRuntimeBindings(
-        project_scope_resolver=EngineProjectScopeResolver(engine),
+        project_scope_resolver=RegistryBackedProjectScopeResolver(engine=engine),
         actor_scopes=PostgresProductionActorScopes(engine),
         approvals=PostgresProductionApprovals(engine),
         rate_observations=AtomicRedisRateObservations(
@@ -592,7 +638,6 @@ def build_production_runtime_bindings(
 
 __all__ = [
     "EngineC9QueryReadPort",
-    "EngineProjectScopeResolver",
     "PostgresC9CommandSubmissionPort",
     "C9ProjectionCanonicalWriterBinding",
     "PostgresProductionActorScopes",
@@ -604,9 +649,6 @@ __all__ = [
     "InstalledCanonicalWriterBinding",
     "RegisteredCanonicalWriter",
     "RegisteredProviderSelection",
-    "UnavailableCanonicalWriter",
-    "UnavailableProviderCatalog",
-    "UnavailableProviderSelection",
     "build_production_runtime_bindings",
     "build_production_successor_runtime_app_dependencies",
 ]

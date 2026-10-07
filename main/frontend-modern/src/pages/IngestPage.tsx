@@ -12,7 +12,6 @@ import {
   Play,
   Radar,
   RefreshCw,
-  RotateCcw,
   Search,
   Sparkles,
 } from 'lucide-react'
@@ -365,11 +364,6 @@ function statusClass(status?: string) {
   return 'chip chip-warn'
 }
 
-function isFailedStatus(status?: string) {
-  const key = String(status || '').toLowerCase()
-  return key.includes('fail') || key.includes('error') || key.includes('revoked')
-}
-
 function toErrorText(value: unknown) {
   if (typeof value === 'string') return value
   if (!value || typeof value !== 'object') return ''
@@ -542,7 +536,6 @@ export type IngestPageViewProps = {
   onLoadRetrievalRunReadback: (retrievalRunId: string) => void
   onSubmitAgentBatch: () => void
   onRefreshBatchStatus: () => void
-  onRetryBatchItem: (item: AgentBatchItemRow) => void
   onRefreshHistory: () => void
 }
 
@@ -575,7 +568,6 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
     getAgentBatchJob,
     listAgentBatchItems,
     getAgentBatchEvents,
-    retryAgentBatchJob,
     submission,
   } = useIngestActions(projectKey)
 
@@ -778,18 +770,6 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
     setAgentBatchRejectedReasonCodes(Array.from(new Set(reasonCodes)))
   }
 
-  const onRetryBatchItem = async (item: AgentBatchItemRow) => {
-    if (!agentBatchJobId || !item.item_id) return
-    const result = await retryAgentBatchJob(agentBatchJobId, {
-      scope: 'items',
-      item_ids: [item.item_id],
-      reason: 'ui_retry_failed_item',
-      max_retries: 1,
-    })
-    if (!result) return
-    await Promise.all([agentBatchJob.refetch(), agentBatchItems.refetch(), agentBatchEvents.refetch(), history.refetch()])
-  }
-
   const onLoadRetrievalRunReadback = async (retrievalRunId: string) => {
     const runId = retrievalRunId.trim()
     if (!runId) return
@@ -879,9 +859,6 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
       onRefreshBatchStatus={() => {
         void Promise.all([agentBatchJob.refetch(), agentBatchItems.refetch(), agentBatchEvents.refetch()])
       }}
-      onRetryBatchItem={(item) => {
-        void onRetryBatchItem(item)
-      }}
       onRefreshHistory={() => {
         void history.refetch()
       }}
@@ -925,7 +902,6 @@ export function IngestPageView({
   onLoadRetrievalRunReadback,
   onSubmitAgentBatch,
   onRefreshBatchStatus,
-  onRetryBatchItem,
   onRefreshHistory,
 }: IngestPageViewProps) {
   const locale = useAppLocale()
@@ -933,14 +909,12 @@ export function IngestPageView({
   const tf = (key: IngestMessageKey, values: Record<string, string | number>) => formatIngestTemplate(t(key), values)
   const isSpecialized = variant === 'specialized'
   const progress = agentBatchJob?.progress
-  const failedBatchItems = agentBatchItems.filter((item) => isFailedStatus(item.status))
   const hasBatch = Boolean(agentBatchJobId)
   const batchSummaryParts = [
     hasBatch ? tf('ingestPage.summary.status', { status: agentBatchJob?.status || '-' }) : '',
     hasBatch ? tf('ingestPage.summary.progress', { succeeded: progress?.succeeded || 0, total: progress?.total || 0 }) : '',
     hasBatch && (progress?.failed || 0) ? tf('ingestPage.summary.failed', { count: progress?.failed || 0 }) : '',
     agentBatchRejectedReasonCodes.length ? tf('ingestPage.summary.rejected', { reasons: agentBatchRejectedReasonCodes.join(', ') }) : '',
-    hasBatch && failedBatchItems.length ? tf('ingestPage.summary.retryPending', { count: failedBatchItems.length }) : '',
   ].filter(Boolean)
   const visibleActionStatus = actionStatus.message
     ? actionStatus
@@ -1337,7 +1311,6 @@ export function IngestPageView({
                           <th>{t('ingestPage.table.task')}</th>
                           <th>{t('ingestPage.table.status')}</th>
                           <th>{t('ingestPage.table.error')}</th>
-                          <th>{t('ingestPage.table.action')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1347,16 +1320,11 @@ export function IngestPageView({
                             <td>{item.task_id || '-'}</td>
                             <td><span className={statusClass(item.status)}>{item.status || '-'}</span></td>
                             <td>{toErrorText(item.error) || '-'}</td>
-                            <td>
-                              <button disabled={actionPending || !isFailedStatus(item.status)} onClick={() => onRetryBatchItem(item)}>
-                                <RotateCcw size={14} />{t('ingestPage.action.retry')}
-                              </button>
-                            </td>
                           </tr>
                         ))}
                         {!agentBatchItems.length ? (
                           <tr>
-                            <td colSpan={5} className="empty-cell">{t('ingestPage.empty.batchItems')}</td>
+                            <td colSpan={4} className="empty-cell">{t('ingestPage.empty.batchItems')}</td>
                           </tr>
                         ) : null}
                       </tbody>

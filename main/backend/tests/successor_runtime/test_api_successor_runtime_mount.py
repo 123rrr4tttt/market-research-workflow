@@ -45,15 +45,13 @@ from app.successor_runtime.assembly.knowledge_assembly import (
 )
 from app.successor_runtime.assembly.successor_assembly import (
     assemble_successor_runtime,
+    build_local_offline_fixture_options,
 )
 from app.successor_runtime.capabilities.batch_task_native_contribution import (
     ASSEMBLY_CELL_IDS as BATCH_TASK_ASSEMBLY_CELL_IDS,
 )
 from app.successor_runtime.capabilities.workflow_native_contribution import (
     ASSEMBLY_CELL_IDS as WORKFLOW_ASSEMBLY_CELL_IDS,
-)
-from app.successor_runtime.capabilities.acquisition_native_contribution import (
-    ASSEMBLY_CELL_IDS as ACQUISITION_ASSEMBLY_CELL_IDS,
 )
 from app.successor_runtime.capabilities.source_native_contribution import (
     ASSEMBLY_CELL_IDS as SOURCE_ASSEMBLY_CELL_IDS,
@@ -90,7 +88,6 @@ EXPECTED_I1_CELLS = frozenset(
     (
         *WORKFLOW_ASSEMBLY_CELL_IDS,
         *SOURCE_ASSEMBLY_CELL_IDS,
-        *ACQUISITION_ASSEMBLY_CELL_IDS,
         *BATCH_TASK_ASSEMBLY_CELL_IDS,
         *TASK_OBSERVATION_ASSEMBLY_CELL_IDS,
         *MATERIAL_ASSEMBLY_CELL_IDS,
@@ -272,9 +269,11 @@ def test_default_dependencies_are_closed_local_only() -> None:
 
 def test_default_mount_options_keep_assembly_fail_closed() -> None:
     deps = build_successor_runtime_app_dependencies()
+    assert deps.assembly_options.c4.plan_payload is None
+    assert not deps.assembly_options.projector_source_keys
     assembly = assemble_successor_runtime(
         engine=_engine(),
-        options=deps.assembly_options,
+        options=build_local_offline_fixture_options(),
     )
     coverage = assembly.coverage()
     assert coverage[PROJECTION_COMMAND_QUERY_CELL] == "INSTALLED"
@@ -447,7 +446,8 @@ def test_production_query_mount_returns_exact_registry_scope(
                 ),
             )
 
-    monkeypatch.setattr(production_runtime, "ServerProjectScopeResolver", _RegistryResolver)
+    from app.successor_runtime.substrate.postgres import session as runtime_session
+    monkeypatch.setattr(runtime_session, "ServerProjectScopeResolver", _RegistryResolver)
     monkeypatch.setattr(production_runtime, "PostgresC9QueryRepository", _Repository)
     deps = build_production_successor_runtime_app_dependencies(_Engine())  # type: ignore[arg-type]
     router = api_module.create_successor_runtime_router(

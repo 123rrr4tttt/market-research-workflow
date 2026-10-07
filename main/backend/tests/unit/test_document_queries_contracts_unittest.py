@@ -139,7 +139,8 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
         self.assertEqual(rows[0]["document_id"], 42)
         self.assertEqual(card.source_type, "material")
         self.assertEqual(card.extra["backend"], "hybrid")
-        self.assertEqual(card.extra["document_id"], 42)
+        self.assertEqual(card.extra["material_id"], 42)
+        self.assertNotIn("document_id", card.extra)
 
     def test_non_json_filter_value_returns_failure_and_legacy_shape(self) -> None:
         result = try_build_document_query(

@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import nullcontext
-from contextvars import copy_context
 import logging
-import time
 from types import SimpleNamespace
 from typing import Any, Dict, List, Literal, NoReturn, Sequence, Tuple
 
@@ -14,7 +11,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from functorial_kit import Failure
 from mrw_functorial_kit.core.application_failure_semantics import (
     source_library_contract_failures,
-    source_library_resolver_failures,
 )
 
 from ...models.base import SessionLocal
@@ -28,11 +24,11 @@ from ..ingest_config.service import get_config as get_ingest_config
 from ..projects import bind_project, bind_schema
 from .external_project import EXTERNAL_PROJECT_CHANNEL_KEY
 from .candidate_aggregation import (
+    HandlerCandidateLimits,
     aggregate_written_counts,
     batch_max_candidates,
     candidate_record_stats,
     normalize_handler_candidate_limits,
-    split_query_batches,
     unique_candidates,
     unique_site_entries,
 )
@@ -102,45 +98,6 @@ def _raise_resolver_failure(failure: Failure) -> NoReturn:
     # kit:boundary owner=source_library.resolver.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_w01_source_export_failures
     raise ValueError(str(context["public_message"]))
 
-
-def _parallel_failure(
-    code: str,
-    message: str,
-    *,
-    site: str,
-    public_exception: str,
-    **details: Any,
-) -> Failure:
-    context: dict[str, Any] = {
-        "boundary_class": "EFFECT_FAILURE",
-        "failure_family": source_library_resolver_failures.name,
-        "operation": "source_library.resolver.parallel",
-        "owner": "source_library.resolver",
-        "public_exception": public_exception,
-        "public_message": message,
-        "site": site,
-        "witness": _FAILURE_WITNESS,
-    }
-    context.update(details)
-    return source_library_resolver_failures.fail(code, message, context)
-
-
-def _raise_parallel_failure(failure: Failure, *, cause: BaseException) -> NoReturn:
-    context = failure.context or {}
-    required = {"boundary_class", "failure_family", "operation", "owner", "public_exception", "public_message", "site", "witness"}
-    if (
-        not source_library_resolver_failures.matches(failure)
-        or required - set(context)
-        or context.get("failure_family") != source_library_resolver_failures.name
-        or context.get("boundary_class") != "EFFECT_FAILURE"
-        or context.get("public_exception") != type(cause).__name__
-        or context.get("public_message") != failure.message
-        or str(cause) != failure.message
-    ):
-        # kit:boundary owner=source_library.resolver.parallel_failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
-        raise TypeError("source-library resolver parallel failure lift context is incomplete or inconsistent")
-    # kit:boundary owner=source_library.resolver.parallel_failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.resolver.failure witness=test:test_w01_source_export_failures
-    raise cause
 
 def _as_list(value: Any) -> list:
     if isinstance(value, list):
@@ -733,160 +690,6 @@ def _protocol_to_dict(protocol: FrontDoorExecutionProtocol) -> Dict[str, Any]:
             "candidate_source_count": len(protocol.site_entries),
         },
     }
-
-
-def _try_run_tasks_with_concurrency_plan(
-    *,
-    values: list[Any],
-    worker,
-    max_workers: int,
-    timeout_seconds: float | None,
-    fail_fast: bool,
-    thread_name_prefix: str,
-    timeout_row_builder=None,
-    error_row_builder=None,
-) -> list[Any] | Failure:
-    if not values:
-        return []
-    if max_workers <= 1 and timeout_seconds is None:
-        out: list[Any] = []
-        for index, value in enumerate(values):
-            try:
-                out.append(worker(value))
-            except Exception as exc:
-                if fail_fast:
-                    return _parallel_failure(
-                        "parallel_item_failed",
-                        str(exc),
-                        site="_run_tasks_with_concurrency_plan.serial",
-                        public_exception=type(exc).__name__,
-                        item_index=index,
-                        thread_name_prefix=thread_name_prefix,
-                        cause=exc,
-                    )
-                if error_row_builder is not None:
-                    out.append(error_row_builder(value, exc))
-        return out
-
-    executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix=thread_name_prefix)
-    futures = {}
-    rows: list[Any] = [None] * len(values)
-    poll_interval = 0.05 if timeout_seconds is None else max(0.001, min(0.05, timeout_seconds / 2))
-    try:
-        for idx, value in enumerate(values):
-            futures[executor.submit(copy_context().run, worker, value)] = {
-                "index": idx,
-                "value": value,
-                "started_at": time.monotonic(),
-            }
-        if futures and not all(hasattr(future, "_condition") for future in futures):
-            for future, meta in list(futures.items()):
-                futures.pop(future, None)
-                idx = int(meta["index"])
-                value = meta["value"]
-                try:
-                    rows[idx] = future.result()
-                except Exception as exc:
-                    if fail_fast:
-                        return _parallel_failure(
-                            "parallel_item_failed",
-                            str(exc),
-                            site="_run_tasks_with_concurrency_plan.future_fallback",
-                            public_exception=type(exc).__name__,
-                            item_index=idx,
-                            thread_name_prefix=thread_name_prefix,
-                            cause=exc,
-                        )
-                    if error_row_builder is not None:
-                        rows[idx] = error_row_builder(value, exc)
-            return rows
-        while futures:
-            done, _ = wait(list(futures.keys()), timeout=poll_interval, return_when=FIRST_COMPLETED)
-            for future in done:
-                meta = futures.pop(future)
-                idx = int(meta["index"])
-                value = meta["value"]
-                elapsed = time.monotonic() - float(meta["started_at"])
-                try:
-                    result = future.result()
-                    if timeout_seconds is not None and elapsed >= timeout_seconds and timeout_row_builder is not None:
-                        rows[idx] = timeout_row_builder(value, timeout_seconds)
-                    else:
-                        rows[idx] = result
-                except Exception as exc:
-                    if fail_fast:
-                        return _parallel_failure(
-                            "parallel_item_failed",
-                            str(exc),
-                            site="_run_tasks_with_concurrency_plan.future_completed",
-                            public_exception=type(exc).__name__,
-                            item_index=idx,
-                            thread_name_prefix=thread_name_prefix,
-                            cause=exc,
-                        )
-                    if error_row_builder is not None:
-                        rows[idx] = error_row_builder(value, exc)
-            if timeout_seconds is None:
-                continue
-            now = time.monotonic()
-            expired = []
-            for future, meta in futures.items():
-                if (now - float(meta["started_at"])) >= timeout_seconds:
-                    expired.append((future, meta))
-            for future, meta in expired:
-                futures.pop(future, None)
-                future.cancel()
-                idx = int(meta["index"])
-                value = meta["value"]
-                if timeout_row_builder is not None:
-                    rows[idx] = timeout_row_builder(value, timeout_seconds)
-                if fail_fast:
-                    timeout = TimeoutError(f"{thread_name_prefix} timeout after {timeout_seconds:.3f}s")
-                    return _parallel_failure(
-                        "parallel_timeout",
-                        str(timeout),
-                        site="_run_tasks_with_concurrency_plan.timeout",
-                        public_exception="TimeoutError",
-                        item_index=idx,
-                        thread_name_prefix=thread_name_prefix,
-                        timeout_seconds=timeout_seconds,
-                        cause=timeout,
-                    )
-        return rows
-    finally:
-        shutdown = getattr(executor, "shutdown", None)
-        if callable(shutdown):
-            shutdown(wait=False, cancel_futures=True)
-
-
-def _run_tasks_with_concurrency_plan(
-    *,
-    values: list[Any],
-    worker,
-    max_workers: int,
-    timeout_seconds: float | None,
-    fail_fast: bool,
-    thread_name_prefix: str,
-    timeout_row_builder=None,
-    error_row_builder=None,
-) -> list[Any]:
-    outcome = _try_run_tasks_with_concurrency_plan(
-        values=values,
-        worker=worker,
-        max_workers=max_workers,
-        timeout_seconds=timeout_seconds,
-        fail_fast=fail_fast,
-        thread_name_prefix=thread_name_prefix,
-        timeout_row_builder=timeout_row_builder,
-        error_row_builder=error_row_builder,
-    )
-    if isinstance(outcome, Failure):
-        cause = (outcome.context or {}).get("cause")
-        if not isinstance(cause, BaseException):
-            # kit:boundary owner=source_library.resolver.parallel_failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
-            raise TypeError("source-library resolver parallel failure has no exception cause")
-        _raise_parallel_failure(outcome, cause=cause)
-    return outcome
 
 
 def _run_single_routed_url(
@@ -1740,48 +1543,26 @@ def _run_url_routing_materialization(
             project_key=project_key,
         )
 
-    concurrency_plan = build_source_concurrency_plan(
-        params=params,
-        total_search_tasks=1,
-        total_url_tasks=len(urls),
-    )
-    max_workers = concurrency_plan.url.parallelism
-    per_url_timeout = concurrency_plan.url.timeout_seconds
-    row_builder = _run_single_routed_url
-    row_kwargs = {
-        "item": item,
-        "params": params,
-        "project_key": project_key,
-        "channel_map": channel_map,
-        "has_query_terms": has_query_terms,
-        "force_url_routing_flow": force_url_routing_flow,
-        "preferred_crawler_channel_key": preferred_crawler_channel_key,
-        "fallback_crawler_channel_key": fallback_crawler_channel_key,
-        "force_crawler_fallback_on_empty": force_crawler_fallback_on_empty,
-        "execution_layer": execution_layer,
-    }
-
-    rows = _run_tasks_with_concurrency_plan(
-        values=list(urls),
-        worker=lambda url: row_builder(url=url, **row_kwargs),
-        max_workers=max_workers,
-        timeout_seconds=per_url_timeout,
-        fail_fast=concurrency_plan.url.fail_fast,
-        thread_name_prefix="url-routing",
-        timeout_row_builder=lambda url, timeout: {
-            "url": str(url or ""),
-            "channel_key": None,
-            "error": f"url routing timeout after {timeout:.3f}s",
-            "result": None,
-            "timeout": True,
-        },
-        error_row_builder=lambda url, exc: {
-            "url": str(url or ""),
-            "channel_key": None,
-            "error": str(exc),
-            "result": None,
-        },
-    )
+    rows: List[Dict[str, Any]] = []
+    for url in urls:
+        try:
+            rows.append(
+                _run_single_routed_url(
+                    url=url,
+                    item=item,
+                    params=params,
+                    project_key=project_key,
+                    channel_map=channel_map,
+                    has_query_terms=has_query_terms,
+                    force_url_routing_flow=force_url_routing_flow,
+                    preferred_crawler_channel_key=preferred_crawler_channel_key,
+                    fallback_crawler_channel_key=fallback_crawler_channel_key,
+                    force_crawler_fallback_on_empty=force_crawler_fallback_on_empty,
+                    execution_layer=execution_layer,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            rows.append({"url": str(url or ""), "channel_key": None, "error": str(exc), "result": None})
 
     for row in rows:
         result = row.get("result")
@@ -1822,14 +1603,14 @@ def _run_url_routing_materialization(
         },
         "errors": errors,
         "middle_layer_protocol": _protocol_to_dict(protocol),
-        "url_routing_parallelism": max_workers,
+        "url_routing_parallelism": 1,
         "diagnostics": {
             "concurrency_plan": dict(protocol.concurrency_plan),
             "url_stage": {
-                "budget": concurrency_plan.url.budget,
-                "parallelism": max_workers,
-                "fail_fast": concurrency_plan.url.fail_fast,
-                "timeout_seconds": per_url_timeout,
+                "budget": len(urls),
+                "parallelism": 1,
+                "fail_fast": False,
+                "timeout_seconds": None,
                 "tasks_total": len(urls),
                 "timed_out": sum(1 for row in by_url if isinstance(row, dict) and row.get("timeout")),
             },
@@ -2015,6 +1796,35 @@ def _should_refetch_candidate_only_results(
     return len(records) <= 0
 
 
+def _run_single_handler_search_batch(
+    *,
+    project_key: str | None,
+    merged_search_item: Dict[str, Any],
+    execution_plan: Dict[str, Any],
+    term_batch: list[str],
+    candidate_limits: HandlerCandidateLimits,
+    params: Dict[str, Any],
+) -> Any:
+    from ..resource_pool import unified_search_by_item_payload
+
+    return unified_search_by_item_payload(
+        project_key=str(project_key or ""),
+        item=merged_search_item,
+        execution_plan=execution_plan,
+        query_terms=term_batch,
+        max_candidates=batch_max_candidates(candidate_limits, len(term_batch)),
+        write_to_pool=bool(params.get("write_to_pool", True)),
+        pool_scope=str(params.get("pool_scope") or "project"),
+        probe_timeout=float(params.get("probe_timeout") or 10.0),
+        sitemap_max_depth=candidate_limits.sitemap_max_depth,
+        sitemap_max_sitemaps=candidate_limits.sitemap_max_sitemaps,
+        auto_ingest=False,
+        ingest_limit=candidate_limits.global_ingest_limit,
+        enable_extraction=bool(params.get("enable_extraction", True)),
+        allow_term_fallback=bool(params.get("allow_term_fallback", False)),
+    )
+
+
 def _run_handler_cluster_item(
     *,
     item: Dict[str, Any],
@@ -2022,29 +1832,14 @@ def _run_handler_cluster_item(
     project_key: str | None,
     channel_map: Dict[str, Dict[str, Any]],
 ) -> Dict[str, Any]:
-    from ..resource_pool import unified_search_by_item_payload
-
     item_extra = (item or {}).get("extra") or {}
     item_params = (item or {}).get("params") or {}
     protocol = _build_frontdoor_protocol(item=item, params=params, project_key=project_key)
     q = list(protocol.query_terms)
-    pre_plan = build_source_concurrency_plan(
-        params=params,
-        total_search_tasks=max(1, len(q)),
-        total_url_tasks=0,
-    )
-    batch_size = pre_plan.batch_size
-    term_batches = split_query_batches(q, batch_size)
-    concurrency_plan = build_source_concurrency_plan(
-        params=params,
-        total_search_tasks=len(term_batches),
-        total_url_tasks=0,
-    )
-    search_parallelism = concurrency_plan.search.parallelism
+    term_batches = [q]
+    search_parallelism = 1
     candidate_limits = normalize_handler_candidate_limits(params)
     per_keyword_limit = candidate_limits.per_keyword_limit
-    sitemap_max_depth = candidate_limits.sitemap_max_depth
-    sitemap_max_sitemaps = candidate_limits.sitemap_max_sitemaps
     merged_search_item = dict(item or {})
     merged_search_item["params"] = {
         **dict(item_params or {}),
@@ -2060,46 +1855,34 @@ def _run_handler_cluster_item(
     }
     execution_plan = build_item_execution_plan(merged_search_item)
 
-    def _run_search_batch(term_batch: list[str]):
-        return unified_search_by_item_payload(
-            project_key=str(project_key or ""),
-            item=merged_search_item,
-            execution_plan=execution_plan,
-            query_terms=term_batch,
-            max_candidates=batch_max_candidates(candidate_limits, len(term_batch)),
-            write_to_pool=bool(params.get("write_to_pool", True)),
-            pool_scope=str(params.get("pool_scope") or "project"),
-            probe_timeout=float(params.get("probe_timeout") or 10.0),
-            sitemap_max_depth=sitemap_max_depth,
-            sitemap_max_sitemaps=sitemap_max_sitemaps,
-            auto_ingest=False,
-            ingest_limit=candidate_limits.global_ingest_limit,
-            enable_extraction=bool(params.get("enable_extraction", True)),
-            allow_term_fallback=bool(params.get("allow_term_fallback", False)),
-        )
-
-    us_runs = _run_tasks_with_concurrency_plan(
-        values=list(term_batches),
-        worker=_run_search_batch,
-        max_workers=search_parallelism,
-        timeout_seconds=concurrency_plan.search.timeout_seconds,
-        fail_fast=concurrency_plan.search.fail_fast,
-        thread_name_prefix="handler-search",
-        error_row_builder=lambda term_batch, exc: SimpleNamespace(
-            site_entries_used=[],
-            candidates=[],
-            written={"urls_new": 0, "urls_skipped": 0},
-            ingest_result={"inserted": 0, "updated": 0, "skipped": 0, "inserted_valid": 0, "rejected_count": 0, "rejection_breakdown": {}},
-            errors=[{"error": str(exc), "query_terms": list(term_batch or [])}],
-        ),
-        timeout_row_builder=lambda term_batch, timeout: SimpleNamespace(
-            site_entries_used=[],
-            candidates=[],
-            written={"urls_new": 0, "urls_skipped": 0},
-            ingest_result={"inserted": 0, "updated": 0, "skipped": 0, "inserted_valid": 0, "rejected_count": 0, "rejection_breakdown": {}},
-            errors=[{"error": f"search batch timeout after {timeout:.3f}s", "query_terms": list(term_batch or []), "timeout": True}],
-        ),
-    )
+    try:
+        us_runs = [
+            _run_single_handler_search_batch(
+                project_key=project_key,
+                merged_search_item=merged_search_item,
+                execution_plan=execution_plan,
+                term_batch=q,
+                candidate_limits=candidate_limits,
+                params=params,
+            )
+        ]
+    except Exception as exc:  # noqa: BLE001
+        us_runs = [
+            SimpleNamespace(
+                site_entries_used=[],
+                candidates=[],
+                written={"urls_new": 0, "urls_skipped": 0},
+                ingest_result={
+                    "inserted": 0,
+                    "updated": 0,
+                    "skipped": 0,
+                    "inserted_valid": 0,
+                    "rejected_count": 0,
+                    "rejection_breakdown": {},
+                },
+                errors=[{"error": str(exc), "query_terms": list(q)}],
+            )
+        ]
 
     benign_markers = {"url_term_filter_empty_fallback_used", "url_term_filter_empty_no_fallback"}
     merged_site_entries = unique_site_entries(us_runs)
@@ -2341,10 +2124,10 @@ def _run_handler_cluster_item(
                 "legacy_counts": dict(routed_summary.get("legacy_counts") or {}),
                 "concurrency": {
                     "search": {
-                        "budget": concurrency_plan.search.budget,
-                        "parallelism": concurrency_plan.search.parallelism,
-                        "fail_fast": concurrency_plan.search.fail_fast,
-                        "timeout_seconds": concurrency_plan.search.timeout_seconds,
+                        "budget": 1,
+                        "parallelism": 1,
+                        "fail_fast": False,
+                        "timeout_seconds": None,
                         "tasks_total": len(term_batches),
                     },
                     "url": {

@@ -16,6 +16,7 @@ from typing import Any
 
 from sqlalchemy import (
     MetaData,
+    Table,
     and_,
     cast,
     delete,
@@ -29,6 +30,7 @@ from sqlalchemy import (
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import Select
+from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.types import Integer
 
 from app.successor_runtime.runtime.assignments import (
@@ -125,6 +127,40 @@ class ClaimRecord:
     claim_binding: ClaimBinding
 
 
+def _ordered_child_claim_eligible(work: Table) -> ColumnElement[bool]:
+    """Only a completed ordered prefix releases the next child's effects."""
+    events, runs = _table("runtime_events"), _table("runtime_runs")
+    child = events.alias("claim_child")
+    prior = events.alias("claim_prior_child")
+    prior_run = runs.alias("claim_prior_run")
+    parent = runs.alias("claim_parent")
+    completed_prefix = select(func.count(func.distinct(cast(prior.c.event_metadata_json["element_index"].astext, Integer)))).select_from(prior.join(prior_run, and_(
+        prior_run.c.project_key == prior.c.project_key,
+        prior_run.c.run_id == prior.c.event_metadata_json["child_run_id"].astext,
+    ))).where(
+        prior.c.project_key == child.c.project_key, prior.c.run_id == child.c.run_id,
+        prior.c.event_type == "ActiveChildMaterialized",
+        prior.c.event_metadata_json["source_step_id"].astext == child.c.event_metadata_json["source_step_id"].astext,
+        cast(prior.c.event_metadata_json["element_index"].astext, Integer) < cast(child.c.event_metadata_json["element_index"].astext, Integer),
+        prior_run.c.state == "COMPLETED",
+        cast(prior.c.event_metadata_json["element_index"].astext, Integer) >= 0,
+    ).correlate(child).scalar_subquery()
+    blocked = select(literal(1)).select_from(child.outerjoin(parent, and_(
+        parent.c.project_key == child.c.project_key, parent.c.run_id == child.c.run_id,
+    ))).where(
+        child.c.project_key == work.c.project_key,
+        child.c.event_type == "ActiveChildMaterialized",
+        child.c.event_metadata_json["child_run_id"].astext == work.c.run_id,
+        or_(parent.c.run_id.is_(None), parent.c.state != "WAITING", parent.c.cancellation_requested.is_(True),
+            child.c.event_metadata_json["source_step_id"].astext.is_(None),
+            child.c.event_metadata_json["source_step_id"].astext == "",
+            child.c.event_metadata_json["element_index"].astext.is_(None),
+            cast(child.c.event_metadata_json["element_index"].astext, Integer) < 0,
+            completed_prefix != cast(child.c.event_metadata_json["element_index"].astext, Integer)),
+    ).correlate(work).exists()
+    return or_(work.c.assignment_kind.notin_(("INTERPRET", "VERIFY_ADMIT")), ~blocked)
+
+
 def due_claim_statement(
     context: NodeClaimContext,
     *,
@@ -184,6 +220,7 @@ def due_claim_statement(
             work.c.enqueue_seq,
         )
         .where(
+            _ordered_child_claim_eligible(work),
             or_(
                 work.c.state == "READY",
                 and_(
@@ -466,6 +503,30 @@ class WorkItemClaimRepository:
         ):
             raise ClaimConflict("locked work item is no longer claimable")
         assignment = validate_runtime_assignment_row(work)
+        table = _table("runtime_work_items")
+        if self.connection.execute(select(table.c.work_item_id).where(
+            table.c.work_item_id == work["work_item_id"], _ordered_child_claim_eligible(table),
+        )).first() is None:
+            return None
+        if assignment.assignment_kind in {AssignmentKind.INTERPRET, AssignmentKind.VERIFY_ADMIT}:
+            from .first_specimen_activation import ordered_active_child_lineage
+            lineage = ordered_active_child_lineage(
+                self.connection, project_key=assignment.project_key, child_run_id=assignment.run_id,
+            )
+            if lineage is not None:
+                parent_id, siblings, index = lineage
+                runs = _table("runtime_runs")
+                parent = _one_mapping(self.connection.execute(select(runs).where(
+                    runs.c.project_key == assignment.project_key, runs.c.run_id == parent_id,
+                ).with_for_update()))
+                if parent is None or parent["state"] != "WAITING" or parent["cancellation_requested"]:
+                    return None
+                for sibling in siblings[:index]:
+                    prior = _one_mapping(self.connection.execute(select(runs).where(
+                        runs.c.project_key == assignment.project_key, runs.c.run_id == sibling["child_run_id"],
+                    )))
+                    if prior is None or prior["state"] != "COMPLETED":
+                        return None
         _authority, authorization, step, run = self._require_exact_bindings(
             work,
             assignment=assignment,

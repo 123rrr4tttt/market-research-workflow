@@ -10,14 +10,21 @@ from starlette.requests import Request
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from app.services.request_identity import (  # noqa: E402
+    actor_id_from_secret,
     authenticated_actor_context,
     require_trusted_actor_context,
+    resolve_local_single_user_actor_context,
     resolve_request_actor_context,
     set_request_actor_context,
 )
 
 
-def _request(headers: dict[str, str] | None = None) -> Request:
+def _request(
+    headers: dict[str, str] | None = None,
+    *,
+    path: str = "/api/v1/protected",
+    client_host: str = "testclient",
+) -> Request:
     raw_headers = [
         (str(key).lower().encode("latin-1"), str(value).encode("latin-1"))
         for key, value in (headers or {}).items()
@@ -26,18 +33,60 @@ def _request(headers: dict[str, str] | None = None) -> Request:
         {
             "type": "http",
             "method": "POST",
-            "path": "/api/v1/protected",
+            "path": path,
             "headers": raw_headers,
             "query_string": b"",
             "server": ("testserver", 80),
             "scheme": "http",
-            "client": ("testclient", 50000),
+            "client": (client_host, 50000),
             "state": {},
         }
     )
 
 
 class RequestIdentityBoundaryTests(unittest.TestCase):
+    def test_local_single_user_actor_has_stable_explicit_identity(self):
+        key = "webui-service-key"
+        request = _request(
+            {"X-MRW-Server-API-Key": key, "X-Actor-Id": "forged"},
+            path="/api/v1/agent-macro-host/record-input",
+            client_host="127.0.0.1",
+        )
+
+        context = resolve_local_single_user_actor_context(
+            request, enabled=True, server_api_key=key,
+        )
+
+        self.assertIsNotNone(context)
+        assert context is not None
+        self.assertEqual(context.actor_id, actor_id_from_secret("local_host", key))
+        self.assertEqual(context.actor_source, "local_host")
+        self.assertEqual(context.actor_auth_mode, "local_host")
+        self.assertEqual(context.legacy_actor_id, "forged")
+        self.assertTrue(context.actor_trusted)
+
+    def test_local_single_user_actor_rejects_nonlocal_or_spoofable_inputs(self):
+        key = "webui-service-key"
+        cases = (
+            (False, "127.0.0.1", {}, key, "/api/v1/agent-macro-host/record-input"),
+            (True, "192.0.2.10", {}, key, "/api/v1/agent-macro-host/record-input"),
+            (True, "127.0.0.1", {"Forwarded": "for=127.0.0.1"}, key, "/api/v1/agent-macro-host/record-input"),
+            (True, "127.0.0.1", {"X-Forwarded-For": "127.0.0.1"}, key, "/api/v1/agent-macro-host/record-input"),
+            (True, "127.0.0.1", {"X-Real-IP": "127.0.0.1"}, key, "/api/v1/agent-macro-host/record-input"),
+            (True, "127.0.0.1", {}, "wrong-key", "/api/v1/agent-macro-host/record-input"),
+            (True, "127.0.0.1", {}, key, "/api/v1/agent-macro-host/confirm"),
+        )
+        for enabled, client_host, extra_headers, configured_key, path in cases:
+            with self.subTest(enabled=enabled, client_host=client_host, headers=extra_headers, path=path):
+                request = _request(
+                    {"X-MRW-Server-API-Key": key, **extra_headers},
+                    path=path,
+                    client_host=client_host,
+                )
+                self.assertIsNone(resolve_local_single_user_actor_context(
+                    request, enabled=enabled, server_api_key=configured_key,
+                ))
+
     def test_authenticated_state_actor_overrides_legacy_spoof_header_and_aliases(self):
         request = _request({"X-Actor-Id": "spoofed-header-actor"})
         request.state.authenticated_actor = {
@@ -107,6 +156,18 @@ class RequestIdentityBoundaryTests(unittest.TestCase):
         self.assertEqual(exc.detail["actor_context"]["auth_mode"], "legacy_header")
         self.assertEqual(exc.detail["actor_context"]["legacy_actor_id"], "spoofed-header-actor")
         self.assertFalse(exc.detail["actor_context"]["actor_trusted"])
+
+    def test_provider_token_sink_cannot_supply_mrw_user_identity(self):
+        for source in ("authenticated_oauth_token_sink", "authenticated_oauth_token_sink_claims"):
+            with self.subTest(source=source):
+                request = _request()
+                set_request_actor_context(request, authenticated_actor_context(
+                    actor_id="provider-user", source=source, auth_mode="provider_oauth",
+                ))
+                with self.assertRaises(HTTPException) as rejected:
+                    require_trusted_actor_context(request)
+                self.assertEqual(rejected.exception.status_code, 403)
+                self.assertEqual(rejected.exception.detail["reason_code"], "trusted_actor_required")
 
     def test_require_trusted_actor_returns_authenticated_actor(self):
         request = _request({"X-Actor-Id": "spoofed-header-actor"})

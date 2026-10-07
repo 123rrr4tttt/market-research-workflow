@@ -24,6 +24,7 @@ from typing import (
     TypeAlias,
     TypeGuard,
     TypeVar,
+    cast,
     get_args,
     get_origin,
 )
@@ -134,6 +135,10 @@ __all__ = [
 
 
 from app.successor_runtime.capabilities import source_contracts as contracts
+from app.successor_runtime.language.algebra import (
+    is_frozen_json_object,
+    thaw_json_value,
+)
 
 SOURCE_RESOLUTION_KIND = contracts.SOURCE_RESOLUTION_KIND
 SOURCE_RESOLUTION_OWNER = contracts.SOURCE_RESOLUTION_OWNER
@@ -336,7 +341,7 @@ class SourceResolutionPayload:
     """Exact-bound Atom payload; raw dictionaries live only at this boundary."""
 
     schema_version: Literal[
-        "mrw.source.resolve-execution-request.payload.v2",
+        "mrw.source.resolve-execution-request.payload.v3",
         "mrw.successor.source-library.c2-1.payload.v1",
     ]
     operation_kind: Literal["source_library.resolve_execution_request.v1"]
@@ -355,7 +360,18 @@ class SourceResolutionPayload:
         if self.operation_kind != SOURCE_RESOLUTION_KIND:
             _raise_programmer_defect(f"unsupported operation kind {self.operation_kind!r}")
         object.__setattr__(self, "params", freeze_json_object(dict(self.params)))
-        expected = content_digest(self, omit_fields=("payload_digest",))
+        expected = (
+            content_digest(self, omit_fields=("payload_digest",))
+            if self.schema_version == SOURCE_RESOLUTION_HISTORICAL_PAYLOAD_SCHEMA
+            else content_digest({
+                "schema_version": self.schema_version,
+                "operation_kind": self.operation_kind,
+                "project_scope": self.project_scope.to_plain(),
+                "catalog": self.catalog.to_plain(),
+                "item": self.item.to_plain(),
+                "params": thaw_json_value(self.params),
+            })
+        )
         if self.payload_digest == "":
             object.__setattr__(self, "payload_digest", expected)
         else:
@@ -370,7 +386,7 @@ class SourceResolutionPayload:
             "project_scope": self.project_scope.to_plain(),
             "catalog": self.catalog.to_plain(),
             "item": self.item.to_plain(),
-            "params": dict(self.params),
+            "params": thaw_json_value(self.params),
             "payload_digest": self.payload_digest,
         }
 
@@ -476,6 +492,8 @@ def _is_plain_sequence(value: object) -> TypeGuard[Sequence[object]]:
 def _plain(value: object) -> contracts.SourcePlainValue:
     if dataclasses.is_dataclass(value):
         return {item.name: _plain(getattr(value, item.name)) for item in dataclasses.fields(value)}
+    if is_frozen_json_object(value):
+        return {key: _plain(item) for key, item in value}
     if _is_plain_mapping(value):
         return {str(key): _plain(item) for key, item in value.items()}
     if _is_plain_sequence(value):
@@ -511,6 +529,8 @@ def _rebuild_value(value: Any, hint: Any) -> Any:
     if value is None or hint is Any:
         return value
     origin = get_origin(hint)
+    if origin is tuple and isinstance(value, Mapping):
+        return freeze_json_object(cast(dict[str, Any], value))
     if origin is tuple:
         args = get_args(hint)
         if len(args) == 2 and args[1] is Ellipsis:
@@ -535,6 +555,11 @@ def _decode_plain(cls: type[TDecoded], value: contracts.SourcePlainObject) -> TD
 
 
 def _encode_payload(value: SourceResolutionPayload) -> CanonicalJsonObject:
+    if value.schema_version != SOURCE_RESOLUTION_PAYLOAD_SCHEMA:
+        _raise_legacy_compatibility(
+            f"unsupported resolution payload schema {value.schema_version!r}",
+            ValueError,
+        )
     return source_resolution_payload_wire_from_value(value)
 
 
@@ -544,6 +569,11 @@ def _decode_payload(value: CanonicalJsonObject) -> SourceResolutionPayload:
     if schema_version == SOURCE_RESOLUTION_HISTORICAL_PAYLOAD_SCHEMA:
         _raise_legacy_compatibility(
             "historical resolution payload requires the historical decoder",
+            ValueError,
+        )
+    if schema_version != SOURCE_RESOLUTION_PAYLOAD_SCHEMA:
+        _raise_legacy_compatibility(
+            f"unsupported resolution payload schema {schema_version!r}",
             ValueError,
         )
     return _decode_plain(SourceResolutionPayload, plain)
@@ -559,7 +589,178 @@ def decode_historical_source_resolution_payload(
             "historical resolution decoder requires the exact C2 payload schema",
             ValueError,
         )
-    return _decode_plain(SourceResolutionPayload, value)
+
+    def require_exact_fields(
+        cls: type[Any], plain: contracts.SourcePlainObject
+    ) -> None:
+        expected = {field.name for field in dataclasses.fields(cls)}
+        actual = set(plain)
+        if actual != expected:
+            missing = sorted(expected - actual)
+            extra = sorted(actual - expected)
+            _raise_legacy_compatibility(
+                f"{cls.__name__} codec rejected payload fields: missing={missing} extra={extra}",
+                ValueError,
+            )
+
+    require_exact_fields(SourceResolutionPayload, value)
+
+    def legacy_nested(value: FrozenJsonValue) -> FrozenJsonValue:
+        if is_frozen_json_object(value):
+            return tuple((key, legacy_nested(item)) for key, item in value)
+        if isinstance(value, tuple):
+            return tuple(legacy_nested(item) for item in value)
+        return value
+
+    def legacy_frozen_object(value: contracts.SourcePlainValue) -> FrozenJsonObject:
+        if not isinstance(value, list):
+            _raise_legacy_compatibility(
+                "historical frozen JSON object must be a pair array",
+                ValueError,
+            )
+        plain: dict[str, contracts.SourcePlainValue] = {}
+        for pair in value:
+            if (
+                not isinstance(pair, list)
+                or len(pair) != 2
+                or not isinstance(pair[0], str)
+            ):
+                _raise_legacy_compatibility(
+                    "historical frozen JSON object pair is invalid",
+                    ValueError,
+                )
+            plain[pair[0]] = pair[1]
+        frozen = freeze_json_object(plain)
+        return freeze_json_object(
+            {key: legacy_nested(item) for key, item in frozen}
+        )
+
+    item_value = _plain_object(value["item"])
+    require_exact_fields(contracts.SourceItemDefinition, item_value)
+    if item_value["schema_version"] != "mrw.source.source-item-definition.v2":
+        _raise_legacy_compatibility(
+            "historical resolution item schema is not supported without exact bytes",
+            ValueError,
+        )
+    item = contracts.SourceItemDefinition(
+        revision=cast(int, item_value["revision"]),
+        incarnation=cast(str, item_value["incarnation"]),
+        content_digest="",
+        schema_version=contracts.SOURCE_ITEM_DEFINITION_HISTORICAL_SCHEMA_REF,
+        item_key=cast(str, item_value["item_key"]),
+        channel_key=cast(str, item_value["channel_key"]),
+        enabled=cast(bool, item_value["enabled"]),
+        item_type=cast(str | None, item_value["item_type"]),
+        managed_by=cast(str | None, item_value["managed_by"]),
+    )
+    object.__setattr__(item, "schema_version", item_value["schema_version"])
+    object.__setattr__(item, "params", legacy_frozen_object(item_value["params"]))
+    object.__setattr__(item, "extra", legacy_frozen_object(item_value["extra"]))
+    object.__setattr__(
+        item, "content_digest", cast(str, item_value["content_digest"])
+    )
+    if item.content_digest != content_digest(
+        {
+            "schema": "mrw.source.source-item-definition.v2",
+            "item_key": item.item_key,
+            "channel_key": item.channel_key,
+            "enabled": item.enabled,
+            "item_type": item.item_type,
+            "managed_by": item.managed_by,
+            "params": dict(item.params),
+            "extra": dict(item.extra),
+            "revision": item.revision,
+            "incarnation": item.incarnation,
+        }
+    ):
+        _raise_legacy_compatibility(
+            "historical resolution item digest does not match content",
+            ValueError,
+        )
+
+    catalog_value = _plain_object(value["catalog"])
+    require_exact_fields(contracts.ChannelCatalogSnapshot, catalog_value)
+    if catalog_value["schema_version"] != "mrw.source.channel-catalog.v2":
+        _raise_legacy_compatibility(
+            "historical resolution catalog schema is not supported without exact bytes",
+            ValueError,
+        )
+    raw_entries = catalog_value["entries"]
+    if not isinstance(raw_entries, list):
+        _raise_legacy_compatibility(
+            "historical resolution catalog entries must be an array",
+            ValueError,
+        )
+    entry_values = tuple(_plain_object(entry) for entry in raw_entries)
+    for entry_value in entry_values:
+        require_exact_fields(contracts.ChannelCatalogEntry, entry_value)
+    entries = tuple(
+        contracts.ChannelCatalogEntry(
+            channel_key=cast(str, entry["channel_key"]),
+            provider=cast(str, entry["provider"]),
+            provider_type=cast(str, entry["provider_type"]),
+            enabled=cast(bool, entry["enabled"]),
+        )
+        for entry in entry_values
+    )
+    for entry, entry_value in zip(entries, entry_values, strict=True):
+        object.__setattr__(entry, "extra", legacy_frozen_object(entry_value["extra"]))
+    catalog = contracts.ChannelCatalogSnapshot(
+        schema_version=contracts.CHANNEL_CATALOG_HISTORICAL_SCHEMA_REF,
+        revision=cast(int, catalog_value["revision"]),
+        incarnation=cast(str, catalog_value["incarnation"]),
+        digest="",
+        entries=entries,
+    )
+    object.__setattr__(catalog, "schema_version", catalog_value["schema_version"])
+    object.__setattr__(catalog, "digest", cast(str, catalog_value["digest"]))
+    if catalog.digest != content_digest(
+        {
+            "schema": catalog.schema_version,
+            "revision": catalog.revision,
+            "incarnation": catalog.incarnation,
+            "entries": [
+                [
+                    entry.channel_key,
+                    entry.provider,
+                    entry.provider_type,
+                    entry.enabled,
+                    dict(entry.extra),
+                ]
+                for entry in entries
+            ],
+        }
+    ):
+        _raise_legacy_compatibility(
+            "historical resolution catalog digest does not match content",
+            ValueError,
+        )
+
+    decoded = SourceResolutionPayload(
+        schema_version=SOURCE_RESOLUTION_HISTORICAL_PAYLOAD_SCHEMA,
+        operation_kind=cast(
+            Literal["source_library.resolve_execution_request.v1"],
+            value["operation_kind"],
+        ),
+        project_scope=_decode_plain(
+            contracts.AuthenticatedProjectScope, _plain_object(value["project_scope"])
+        ),
+        catalog=catalog,
+        item=item,
+        params=freeze_json_object({}),
+        payload_digest="",
+    )
+    object.__setattr__(decoded, "params", legacy_frozen_object(value["params"]))
+    object.__setattr__(
+        decoded, "payload_digest", cast(str, value["payload_digest"])
+    )
+    expected = content_digest(decoded, omit_fields=("payload_digest",))
+    if decoded.payload_digest != expected:
+        _raise_legacy_compatibility(
+            "historical resolution payload digest does not match content",
+            ValueError,
+        )
+    return decoded
 
 
 def _contract_declaration(
@@ -572,7 +773,7 @@ def _contract_declaration(
         output_type=SOURCE_RESOLUTION_RESULT_TYPE,
         codec=contracts.SourcePayloadCodecDeclaration(
             codec_id=SOURCE_RESOLUTION_PAYLOAD_CODEC_ID,
-            codec_version="1",
+            codec_version="2",
             payload_type_id=SOURCE_RESOLUTION_PAYLOAD_TYPE.type_id,
             encode=_encode_payload,
             decode=_decode_payload,

@@ -237,6 +237,7 @@ function threadSettings(
   effort: string | null,
 ): v2.ThreadSettings {
   return {
+    disabledPluginIds: [],
     cwd: '/workspace',
     approvalPolicy: 'never',
     approvalsReviewer: 'user',

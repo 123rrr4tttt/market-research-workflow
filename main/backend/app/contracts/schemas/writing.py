@@ -322,7 +322,6 @@ class WritingCitationData(BaseModel):
     doc_id: int | None = None
     project_key: str | None = None
     source_doc_id: int | None = None
-    source_material_id: int | None = None
     source_uri: str | None = None
     source_title: str | None = None
     quote_text: str | None = None

@@ -2,24 +2,24 @@
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextvars import copy_context
 import logging
 import os
 from contextlib import nullcontext
 from importlib import import_module
 from collections.abc import Callable
-from typing import Protocol, TypeGuard, TypeVar
-
-T = TypeVar("T")
+from typing import NoReturn, Protocol, TypeGuard
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.provider_port_failures import ingest_operation_failures
 
 from ...models.entities import Document
 from ..job_logger import complete_job, fail_job, start_job
 from ..collect_runtime.display_meta import build_display_meta
 from ..collect_runtime.contracts import CollectFailure, CollectRequest, CollectResult
 from ..task_readback_metadata import extract_runtime_readback_payload
+from .content_extraction import locate_main_text_from_html
 from .metrics_payload import (
     attach_metrics_payload,
     build_metrics_payload_from_summary,
@@ -36,23 +36,19 @@ from .frontdoor_router_contract import build_frontdoor_fetch_router_contract, ro
 from .content_cleaner import normalize_content_for_ingest
 from .source_search_contract import build_query_url_from_contract, normalize_source_search_contract
 from .url_unwrap import unwrap_url
+from app.successor_runtime.capabilities.acquisition_url import (
+    UrlSingleUrlOutcome,
+    UrlSingleUrlRequest,
+    UrlSingleUrlStatus,
+)
+from app.successor_runtime.capabilities.checksum import CanonicalJsonObject, CanonicalJsonValue
+from app.successor_runtime.runtime.ports import ProjectScopeRef
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["_extract_text_from_html"]
 
 JsonObject = dict[str, object]
-
-
-class _HtmlNode(Protocol):
-    def text(self, *, separator: str, strip: bool) -> str: ...
-
-
-class _HtmlParser(Protocol):
-    def css_first(self, selector: str) -> _HtmlNode | None: ...
-
-    @property
-    def body(self) -> _HtmlNode | None: ...
 
 
 class _DatabaseRow(Protocol):
@@ -93,15 +89,7 @@ def _is_session_factory(value: object) -> TypeGuard[Callable[[], _DatabaseSessio
     return callable(value)
 
 
-def _is_html_parser_factory(value: object) -> TypeGuard[Callable[[str], _HtmlParser]]:
-    return callable(value)
-
-
 def _is_list_urls(value: object) -> TypeGuard[Callable[..., tuple[list[JsonObject], int]]]:
-    return callable(value)
-
-
-def _is_delay_callable(value: object) -> TypeGuard[Callable[..., object]]:
     return callable(value)
 
 
@@ -179,18 +167,6 @@ _HIGH_JS_DOMAINS = {
 }
 
 
-def _resolve_default_parallel_workers() -> int:
-    raw = os.getenv("URL_POOL_DEFAULT_PARALLEL_WORKERS", "").strip()
-    if raw:
-        try:
-            return max(1, min(32, int(raw)))
-        except Exception:
-            pass
-    cpu = os.cpu_count() or 4
-    return max(1, min(12, int(cpu)))
-
-
-_DEFAULT_PARALLEL_WORKERS = _resolve_default_parallel_workers()
 _SOURCE_SEARCH_CONTRACT_FIELDS = {
     "param_key",
     "encoding",
@@ -217,18 +193,9 @@ def _open_session() -> _DatabaseSessionContext:
     module = import_module("app.models.base")
     factory = getattr(module, "SessionLocal")
     if not _is_session_factory(factory):
-        # kit:boundary owner=ingest.url_pool.dynamic_ports class=PROGRAMMER_DEFECT failure_family=none witness=test:test_url_pool_dynamic_port_guards_reject_incompatible_bindings
+        # kit:boundary owner=ingest.url_pool.dynamic_ports class=PROGRAMMER_DEFECT failure_family=none witness=test:test_url_pool_dynamic_database_ports_reject_incompatible_bindings
         raise TypeError("SessionLocal has an incompatible callable contract")
     return factory()
-
-
-def _make_html_parser(html: str) -> _HtmlParser:
-    module = import_module("app.services.resource_pool.http_port")
-    parser_factory = getattr(module, "make_html_parser")
-    if not _is_html_parser_factory(parser_factory):
-        # kit:boundary owner=ingest.url_pool.dynamic_ports class=PROGRAMMER_DEFECT failure_family=none witness=test:test_url_pool_dynamic_port_guards_reject_incompatible_bindings
-        raise TypeError("make_html_parser has an incompatible callable contract")
-    return parser_factory(html)
 
 
 def list_urls(
@@ -243,7 +210,7 @@ def list_urls(
     module = import_module("app.services.resource_pool.resolver")
     list_urls = getattr(module, "list_urls")
     if not _is_list_urls(list_urls):
-        # kit:boundary owner=ingest.url_pool.dynamic_ports class=PROGRAMMER_DEFECT failure_family=none witness=test:test_url_pool_dynamic_port_guards_reject_incompatible_bindings
+        # kit:boundary owner=ingest.url_pool.dynamic_ports class=PROGRAMMER_DEFECT failure_family=none witness=test:test_url_pool_dynamic_database_ports_reject_incompatible_bindings
         raise TypeError("list_urls has an incompatible callable contract")
     result: tuple[list[JsonObject], int] = list_urls(
         scope=scope,
@@ -256,14 +223,6 @@ def list_urls(
     return result
 
 
-def _delay_task(task: object, *args: object) -> object:
-    delay = getattr(task, "delay")
-    if not _is_delay_callable(delay):
-        # kit:boundary owner=ingest.url_pool.dynamic_ports class=PROGRAMMER_DEFECT failure_family=none witness=test:test_url_pool_dynamic_port_guards_reject_incompatible_bindings
-        raise TypeError("url pool ingest task does not support delayed dispatch")
-    return delay(*args)
-
-
 def _runtime_readback_for_url_pool(extra_params: Optional[JsonObject]) -> JsonObject:
     runtime_readback = extract_runtime_readback_payload(extra_params or {})
     if not runtime_readback:
@@ -271,20 +230,6 @@ def _runtime_readback_for_url_pool(extra_params: Optional[JsonObject]) -> JsonOb
     return {
         **runtime_readback,
         "line_key": "ingest",
-    }
-
-
-def _attach_url_pool_runtime_readback(
-    search_options: Optional[JsonObject],
-    *,
-    extra_params: Optional[JsonObject],
-) -> JsonObject | None:
-    runtime_readback = _runtime_readback_for_url_pool(extra_params)
-    if not runtime_readback:
-        return search_options
-    return {
-        **(search_options or {}),
-        "runtime_readback": runtime_readback,
     }
 
 
@@ -453,6 +398,213 @@ def _apply_frontdoor_target_hint(
     return out
 
 
+def execute_single_url_kernel(
+    *,
+    url: str,
+    project_key: Optional[str] = None,
+    query_terms: Optional[List[str]] = None,
+    extra_params: Optional[JsonObject] = None,
+    enable_extraction: bool = True,
+    target: Optional[JsonObject] = None,
+    context: Optional[JsonObject] = None,
+) -> JsonObject:
+    """Execute one prepared URL through fetch and the Document writer."""
+    target_url = str(url or "").strip()
+    default_target: JsonObject = {
+        "url": target_url,
+        "entry_type": "detail",
+        "domain": _domain_key(target_url),
+        "from_url": target_url,
+        "is_site_seed": False,
+    }
+    target_metadata = target if _is_object_dict(target) else default_target
+    normalized_terms = _normalize_terms(query_terms)
+    strict_mode = _resolve_url_strict_mode(extra_params)
+    frontdoor_options = _resolve_frontdoor_options(extra_params)
+    try:
+        search_options = _search_options_for_target(
+            target_url,
+            normalized_terms,
+            target=target_metadata,
+            extra_params=extra_params,
+        )
+        search_options = _apply_frontdoor_to_search_options(search_options, frontdoor_options)
+        search_options = _apply_frontdoor_target_hint(
+            search_options=search_options,
+            frontdoor_options=frontdoor_options,
+            target_url=target_url,
+        )
+        search_options = _as_object_dict(search_options)
+        target_frontdoor_options = _as_object_dict(frontdoor_options)
+        target_frontdoor_options["enabled"] = True
+        target_frontdoor_options["route_hint"] = str(search_options.get("frontdoor_route_hint") or "")
+        target_frontdoor_options["fetch_strategy"] = str(search_options.get("frontdoor_fetch_strategy") or "")
+        target_frontdoor_options["render_required"] = bool(search_options.get("frontdoor_render_required"))
+        if isinstance(search_options.get("frontdoor_route_profile"), dict):
+            target_frontdoor_options["route_profile"] = _as_object_dict(search_options.get("frontdoor_route_profile"))
+        if isinstance(search_options.get("frontdoor_router_contract"), dict):
+            target_frontdoor_options["router_contract"] = _as_object_dict(search_options.get("frontdoor_router_contract"))
+        target_frontdoor_options["prefer_crawler"] = bool(search_options.get("frontdoor_prefers_crawler"))
+        target_frontdoor_options["prefer_search_shell"] = bool(
+            search_options.get("frontdoor_prefers_search_shell")
+        )
+        result = _run_source_library_frontdoor_ingress(
+            url=target_url,
+            project_key=project_key,
+            query_terms=normalized_terms,
+            search_options=search_options,
+            strict_mode=strict_mode,
+            frontdoor_options=target_frontdoor_options,
+            entrypoint="ingest.url_pool",
+            source_name="url_pool",
+            enable_extraction=bool(enable_extraction),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("url_pool url_routing dispatch failed for %s: %s", target_url[:80], exc)
+        return {"status": "failed", "inserted": 0, "skipped": 1, "error": _safe_exc(exc)}
+    _annotate_url_pool_context(
+        doc_ids=_extract_doc_ids_from_ingest_result(result),
+        context=context if _is_object_dict(context) else {},
+    )
+    return result
+
+
+def invoke_url_single_url(request: UrlSingleUrlRequest) -> UrlSingleUrlOutcome:
+    """Bind one prepared single-URL request to the existing Document kernel."""
+
+    result = execute_single_url_kernel(
+        url=request.url,
+        project_key=request.project_key,
+        query_terms=list(request.query_terms),
+        extra_params=dict(request.extra_params),
+        enable_extraction=request.enable_extraction,
+        target=dict(request.target) if request.target else None,
+        context=dict(request.context) if request.context else None,
+    )
+    return UrlSingleUrlOutcome(
+        status=_url_single_url_status(result.get("status")),
+        inserted=_as_int(result.get("inserted")),
+        updated=_as_int(result.get("updated")),
+        skipped=_as_int(result.get("skipped")),
+        document_id=_as_int(result.get("document_id")) or None,
+        error=_as_text(result.get("error")) or None,
+        task_id=_url_single_url_task_id(result),
+        readback=_url_single_url_readback(result),
+    )
+
+
+def _url_single_url_status(value: object) -> UrlSingleUrlStatus:
+    raw = _as_text(value).strip().lower()
+    if raw == "failed":
+        return "failed"
+    if raw == "cancelled":
+        return "cancelled"
+    if raw == "accepted":
+        return "accepted"
+    if raw == "partial":
+        return "partial"
+    if raw == "degraded_success":
+        return "partial"
+    if raw in {"success", "completed"}:
+        return "completed"
+    return "unknown"
+
+
+def _url_single_url_task_id(result: JsonObject) -> str | None:
+    canary = _as_object_dict(result.get("canary_handoff"))
+    frontdoor_run = _as_object_dict(canary.get("frontdoor_run"))
+    trace_id = frontdoor_run.get("trace_id")
+    return trace_id if isinstance(trace_id, str) and trace_id else None
+
+
+def _url_single_url_readback(result: JsonObject) -> CanonicalJsonObject:
+    readback: dict[str, CanonicalJsonValue] = {}
+    canary = _as_object_dict(result.get("canary_handoff"))
+    handoff_state = canary.get("handoff_state")
+    if isinstance(handoff_state, str):
+        readback["handoff_state"] = handoff_state
+    closure_claim = canary.get("closure_claim")
+    if isinstance(closure_claim, bool):
+        readback["closure_claim"] = closure_claim
+    frontdoor_run = _as_object_dict(canary.get("frontdoor_run"))
+    trace_id = frontdoor_run.get("trace_id")
+    if isinstance(trace_id, str):
+        readback["trace_id"] = trace_id
+    reason_code = result.get("reason_code")
+    if isinstance(reason_code, str):
+        readback["reason_code"] = reason_code
+    return readback
+
+
+def _url_single_url_input_failure(
+    request: UrlSingleUrlRequest,
+    scope: ProjectScopeRef,
+    capability_id: str,
+) -> Failure | None:
+    """Return the typed failure for an invalid installed single-URL binding."""
+
+    from app.successor_runtime.capabilities.acquisition_url import URL_SINGLE_URL_OWNER
+
+    if request.project_key != scope.project_key:
+        reason_code = "project_scope_mismatch"
+        message = "URL single-URL request crosses the installed project scope"
+    elif capability_id != URL_SINGLE_URL_OWNER:
+        reason_code = "capability_drift"
+        message = "URL single-URL request capability drift"
+    else:
+        return None
+    return ingest_operation_failures.fail(
+        "url_pool_collection_failed",
+        message,
+        {
+            "operation": "ingest.url_pool.validate_single_url_input",
+            "reason_code": reason_code,
+            "request_project_key": request.project_key,
+            "scope_project_key": scope.project_key,
+            "capability_id": capability_id,
+            "expected_capability_id": URL_SINGLE_URL_OWNER,
+            "public_exception": "ValueError",
+            "public_message": message,
+        },
+    )
+
+
+def _raise_url_single_url_input_failure(failure: Failure) -> NoReturn:
+    context = failure.context or {}
+    required = {
+        "operation",
+        "reason_code",
+        "request_project_key",
+        "scope_project_key",
+        "capability_id",
+        "expected_capability_id",
+        "public_exception",
+        "public_message",
+    }
+    if (
+        not ingest_operation_failures.matches(failure)
+        or failure.code != "url_pool_collection_failed"
+        or required - set(context)
+        or context.get("public_exception") != "ValueError"
+    ):
+        # kit:boundary owner=ingest.url_pool.single_url_input class=PROGRAMMER_DEFECT failure_family=none witness=test:test_url_single_url_input_validation_preserves_typed_scope_and_capability_failures
+        raise TypeError("URL single-URL input failure lift context is invalid")
+    # kit:boundary owner=ingest.url_pool.single_url_input class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_url_single_url_input_validation_preserves_typed_scope_and_capability_failures
+    raise ValueError(str(context["public_message"]))
+
+
+def validate_url_single_url_input(
+    request: UrlSingleUrlRequest,
+    scope: ProjectScopeRef,
+    capability_id: str,
+) -> None:
+    """Reject a single-URL request that crosses the installed project scope."""
+
+    failure = _url_single_url_input_failure(request, scope, capability_id)
+    if failure is not None:
+        _raise_url_single_url_input_failure(failure)
+
+
 def _collect_urls_from_list_with_runtime_targets(
     *,
     urls: List[str],
@@ -480,56 +632,11 @@ def _collect_urls_from_list_with_runtime_targets(
     errors: list[JsonObject] = []
     workflow_name = "front_door_url_routing"
 
-    parallel_workers = _resolve_parallel_workers(extra_params=extra_params, target_count=len(runtime_targets))
-    parallel_batch_size = _resolve_parallel_batch_size(extra_params=extra_params, parallel_workers=parallel_workers)
     metrics_summary: JsonObject = new_metrics_summary()
     source_template_health_summary = _new_source_template_health_summary()
     frontdoor_status_summary = _new_frontdoor_status_summary()
     frontdoor_slo_summary: JsonObject = new_frontdoor_slo_summary()
     queued = 0
-    def _run_single_target(target_url: str, target: JsonObject) -> JsonObject:
-        try:
-            search_options = _search_options_for_target(
-                target_url,
-                normalized_terms,
-                target=target,
-                extra_params=extra_params,
-            )
-            search_options = _apply_frontdoor_to_search_options(search_options, frontdoor_options)
-            search_options = _apply_frontdoor_target_hint(
-                search_options=search_options,
-                frontdoor_options=frontdoor_options,
-                target_url=target_url,
-            )
-            search_options = _as_object_dict(search_options)
-            target_frontdoor_options = _as_object_dict(frontdoor_options)
-            target_frontdoor_options["enabled"] = True
-            target_frontdoor_options["route_hint"] = str(search_options.get("frontdoor_route_hint") or "")
-            target_frontdoor_options["fetch_strategy"] = str(search_options.get("frontdoor_fetch_strategy") or "")
-            target_frontdoor_options["render_required"] = bool(search_options.get("frontdoor_render_required"))
-            if isinstance(search_options.get("frontdoor_route_profile"), dict):
-                target_frontdoor_options["route_profile"] = _as_object_dict(search_options.get("frontdoor_route_profile"))
-            if isinstance(search_options.get("frontdoor_router_contract"), dict):
-                target_frontdoor_options["router_contract"] = _as_object_dict(search_options.get("frontdoor_router_contract"))
-            target_frontdoor_options["prefer_crawler"] = bool(search_options.get("frontdoor_prefers_crawler"))
-            target_frontdoor_options["prefer_search_shell"] = bool(
-                search_options.get("frontdoor_prefers_search_shell")
-            )
-            return _run_source_library_frontdoor_ingress(
-                url=target_url,
-                project_key=project_key,
-                query_terms=normalized_terms,
-                search_options=search_options,
-                strict_mode=strict_mode,
-                frontdoor_options=target_frontdoor_options,
-                entrypoint="ingest.url_pool",
-                source_name="url_pool",
-                enable_extraction=bool(enable_extraction),
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("url_pool url_routing dispatch failed for %s: %s", target_url[:80], exc)
-            return {"status": "failed", "inserted": 0, "skipped": 1, "error": _safe_exc(exc)}
-
     def _collect_item_result(target_url: str, target: JsonObject, item_result: JsonObject) -> None:
         nonlocal inserted, inserted_valid, skipped, rejected_count, skipped_exists, skipped_fetch_error
         inserted += _as_int(item_result.get("inserted"))
@@ -555,19 +662,6 @@ def _collect_urls_from_list_with_runtime_targets(
         _record_frontdoor_status_observation(frontdoor_status_summary, frontdoor_status)
         record_frontdoor_slo_observation(frontdoor_slo_summary, frontdoor_status)
 
-        context_doc_ids = _extract_doc_ids_from_ingest_result(item_result)
-        _annotate_url_pool_context(
-            doc_ids=context_doc_ids,
-            context={
-                "mode": "list",
-                "project_key": project_key,
-                "entry_type": target.get("entry_type"),
-                "site_seed": bool(target.get("is_site_seed")),
-                "domain": target.get("domain"),
-                "source_url": target.get("from_url"),
-            },
-        )
-
         if len(details) < _DEBUG_MAX_URLS:
             details.append(
                 _detail(
@@ -588,21 +682,27 @@ def _collect_urls_from_list_with_runtime_targets(
                 )
             )
 
-    for batch in _batch_slice(runtime_targets, parallel_batch_size):
-        if parallel_workers <= 1 or len(batch) <= 1:
-            for target_url, target in batch:
-                item_result = _run_single_target(target_url, target)
-                _collect_item_result(target_url, target, item_result)
-            continue
-        with ThreadPoolExecutor(max_workers=min(parallel_workers, len(batch))) as executor:
-            future_to_target = {
-                executor.submit(copy_context().run, _run_single_target, tu, t): (tu, t)
-                for tu, t in batch
-            }
-            for future in as_completed(future_to_target):
-                tu, t = future_to_target[future]
-                item_result = future.result()
-                _collect_item_result(tu, t, item_result)
+    def _run_prepared_target(target_url: str, target: JsonObject) -> JsonObject:
+        return execute_single_url_kernel(
+            url=target_url,
+            project_key=project_key,
+            query_terms=normalized_terms,
+            extra_params=extra_params,
+            enable_extraction=enable_extraction,
+            target=target,
+            context={
+                "mode": "list",
+                "project_key": project_key,
+                "entry_type": target.get("entry_type"),
+                "site_seed": bool(target.get("is_site_seed")),
+                "domain": target.get("domain"),
+                "source_url": target.get("from_url"),
+            },
+        )
+
+    for target_url, target in runtime_targets:
+        item_result = _run_prepared_target(target_url, target)
+        _collect_item_result(target_url, target, item_result)
 
     result: JsonObject = {
         "inserted": inserted,
@@ -617,12 +717,13 @@ def _collect_urls_from_list_with_runtime_targets(
         "single_write_workflow": workflow_name,
         "debug": {
             "mode": "list",
+            "dispatch_mode": "inline",
             "strict_mode": bool(strict_mode),
             "frontdoor_enabled": bool(frontdoor_options.get("enabled")),
             "disable_site_seed_expansion": bool(target_mode == "detail_only"),
             "target_mode": target_mode,
-            "parallel_workers": parallel_workers,
-            "parallel_batch_size": parallel_batch_size,
+            "parallel_workers": 1,
+            "parallel_batch_size": 1,
             "raw_url_count": raw_count,
             "normalized_url_count": normalized_count,
             "filtered_out": max(0, raw_count - normalized_count),
@@ -668,19 +769,11 @@ def _collect_urls_from_list_with_runtime_targets(
 def _extract_text_from_html(html: str) -> str:
     """Extract main text from HTML for storage."""
     try:
-        parser: _HtmlParser = _make_html_parser(html)
-        for selector in ("article", "main article", "[role='main'] article", "main"):
-            node = parser.css_first(selector)
-            if node is None:
-                continue
-            text = str(node.text(separator="\n", strip=True) or "").strip()
-            if len(text) >= 120:
-                return normalize_content_for_ingest(text, max_chars=50000)
-        body = parser.body
-        if body is not None:
-            text = str(body.text(separator="\n", strip=True) or "").strip()
-            return normalize_content_for_ingest(text, max_chars=50000)
-        return ""
+        return locate_main_text_from_html(
+            html,
+            selectors=("article", "main article", "[role='main'] article", "main"),
+            transform=lambda text: normalize_content_for_ingest(text, max_chars=50000),
+        )
     except Exception:  # noqa: BLE001
         return ""
 
@@ -1138,6 +1231,107 @@ def _resolve_target_url(
     return str(unwrapped.url or resolved)
 
 
+def prepare_url_list_targets(
+    *,
+    urls: List[str],
+    query_terms: Optional[List[str]] = None,
+    extra_params: Optional[JsonObject] = None,
+) -> tuple[list[tuple[str, JsonObject]], JsonObject]:
+    normalized_urls = _normalize_url_list(urls)
+    normalized_terms = _normalize_terms(query_terms)
+    targets, target_mode = _resolve_runtime_targets(normalized_urls, extra_params=extra_params)
+    runtime_targets: list[tuple[str, JsonObject]] = []
+    seen_runtime_urls: set[str] = set()
+    for target in targets:
+        target_url = _resolve_target_url(target, normalized_terms, extra_params=extra_params)
+        if target_url in seen_runtime_urls:
+            continue
+        seen_runtime_urls.add(target_url)
+        runtime_targets.append((target_url, target))
+    diagnostics: JsonObject = {
+        "raw_url_count": len(urls),
+        "normalized_url_count": len(normalized_urls),
+        "filtered_out": max(0, len(urls) - len(normalized_urls)),
+        "target_mode": target_mode,
+        "target_count": len(targets),
+        "target_deduped_count": len(runtime_targets),
+    }
+    return runtime_targets, diagnostics
+
+
+def prepare_url_pool_targets(
+    *,
+    scope: str = "effective",
+    project_key: Optional[str] = None,
+    domain: Optional[str] = None,
+    source_filter: Optional[str] = None,
+    limit: int = _DEFAULT_LIMIT,
+    query_terms: Optional[List[str]] = None,
+    extra_params: Optional[JsonObject] = None,
+) -> tuple[list[tuple[str, JsonObject, JsonObject]], JsonObject]:
+    normalized_terms = _normalize_terms(query_terms)
+    items, total = list_urls(
+        scope=scope,
+        project_key=project_key,
+        source=source_filter,
+        domain=domain,
+        page=1,
+        page_size=min(limit, 100),
+    )
+    item_by_url = {_as_text(x.get("url")): _as_object_dict(x) for x in items if x.get("url")}
+    urls = [_as_text(x.get("url")) for x in items if x.get("url")]
+    normalized_urls: List[str] = []
+    pool_item_by_target: Dict[str, JsonObject] = {}
+    for url in urls:
+        normalized = _normalize_url_no_fragment(str(url or ""))
+        if not normalized:
+            continue
+        normalized_urls.append(normalized)
+        if normalized not in pool_item_by_target:
+            pool_item_by_target[normalized] = item_by_url.get(url) or {}
+    targets, target_mode = _resolve_runtime_targets(normalized_urls, extra_params=extra_params)
+    for target in targets:
+        if bool(target.get("is_site_seed")) and target_mode != "site_only":
+            continue
+        target_url = str(target.get("url") or "")
+        if target_url and target_url not in pool_item_by_target:
+            pool_item_by_target[target_url] = item_by_url.get(target_url) or {}
+    runtime_targets: list[tuple[str, JsonObject, JsonObject]] = []
+    seen_runtime_urls: set[str] = set()
+    invalid_target_count = 0
+    for target in targets:
+        target_url = _resolve_target_url(target, normalized_terms, extra_params=extra_params)
+        if target_url in seen_runtime_urls:
+            continue
+        seen_runtime_urls.add(target_url)
+        if not target_url or not str(target_url).strip().startswith(("http://", "https://")):
+            invalid_target_count += 1
+            continue
+        pool_item = pool_item_by_target.get(str(target.get("url") or "")) or {}
+        runtime_targets.append((target_url, target, pool_item))
+    diagnostics: JsonObject = {
+        "pool_total": int(total or 0),
+        "pool_returned": len(items),
+        "target_mode": target_mode,
+        "site_seed_count": len([x for x in targets if bool(x.get("is_site_seed"))]),
+        "target_count": len(targets),
+        "target_deduped_count": len(runtime_targets) + invalid_target_count,
+        "invalid_target_count": invalid_target_count,
+        "pool_items_sample": [
+            {
+                "id": x.get("id"),
+                "url": x.get("url"),
+                "scope": x.get("scope"),
+                "source": x.get("source"),
+                "domain": x.get("domain"),
+                "source_ref": x.get("source_ref"),
+            }
+            for x in (items[:_DEBUG_MAX_POOL_ITEMS] if items else [])
+        ],
+    }
+    return runtime_targets, diagnostics
+
+
 def _extract_doc_ids_from_ingest_result(result: JsonObject) -> List[int]:
     doc_ids: List[int] = []
     try:
@@ -1515,19 +1709,6 @@ def _first_non_negative_float(*values: object) -> float | None:
     return None
 
 
-def _resolve_dispatch_mode(extra_params: Optional[JsonObject]) -> str:
-    if not _is_object_dict(extra_params):
-        return "sync"
-    if bool(extra_params.get("url_async")):
-        return "celery_async"
-    raw = str(extra_params.get("url_dispatch_mode") or "").strip().lower()
-    if raw in {"celery_async", "async", "queue"}:
-        return "celery_async"
-    if raw in {"thread", "threads", "parallel"}:
-        return "thread"
-    return "sync"
-
-
 def _resolve_url_strict_mode(extra_params: Optional[JsonObject]) -> bool:
     if not _is_object_dict(extra_params):
         return False
@@ -1566,43 +1747,6 @@ def _apply_frontdoor_to_search_options(
     out["frontdoor_write_mode"] = frontdoor_options.get("write_mode")
     out["frontdoor_execution_mode"] = frontdoor_options.get("execution_mode")
     return out
-
-
-def _resolve_parallel_workers(
-    *,
-    extra_params: Optional[JsonObject],
-    target_count: int,
-) -> int:
-    default_workers = _DEFAULT_PARALLEL_WORKERS
-    if not _is_object_dict(extra_params):
-        return min(default_workers, target_count) if target_count > 0 else default_workers
-    raw = extra_params.get(
-        "url_parallel_workers",
-        extra_params.get("parallel_workers", default_workers),
-    )
-    workers = max(1, _as_int(raw, default_workers))
-    workers = min(32, workers)
-    if target_count > 0:
-        workers = min(workers, target_count)
-    return max(1, workers)
-
-
-def _resolve_parallel_batch_size(
-    *,
-    extra_params: Optional[JsonObject],
-    parallel_workers: int,
-) -> int:
-    default_size = max(16, parallel_workers * 4)
-    if not _is_object_dict(extra_params):
-        return default_size
-    raw = extra_params.get("url_parallel_batch_size", default_size)
-    return max(1, _as_int(raw, default_size))
-
-
-def _batch_slice(items: list[T], size: int) -> list[list[T]]:
-    if size <= 0:
-        return [items]
-    return [items[i : i + size] for i in range(0, len(items), size)]
 
 
 def _annotate_url_pool_context(
@@ -1741,10 +1885,6 @@ def collect_urls_from_pool(
         job_params["runtime_readback"] = runtime_readback
     job_id = start_job("url_pool_fetch", job_params)
     try:
-        # kit:boundary owner=ingest.url_pool.dispatch class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_collect_urls_from_pool_preserves_target_specific_search_contracts
-        tasks_module = import_module("app.services.tasks")
-        task: object = getattr(tasks_module, "task_ingest_url_via_source_library")
-
         items, total = list_urls(
             scope=scope,
             project_key=project_key,
@@ -1783,7 +1923,6 @@ def collect_urls_from_pool(
                 continue
             pool_item_by_target[tu] = item_by_url.get(tu) or {}
         seen_runtime_urls: set[str] = set()
-        dispatch_mode = _resolve_dispatch_mode(extra_params)
         strict_mode = _resolve_url_strict_mode(extra_params)
         frontdoor_options = _resolve_frontdoor_options(extra_params)
         workflow_name = "front_door_url_routing"
@@ -1813,57 +1952,32 @@ def collect_urls_from_pool(
                 continue
             runtime_targets.append((target_url, target, pool_item))
 
-        parallel_workers = _resolve_parallel_workers(extra_params=extra_params, target_count=len(runtime_targets))
-        parallel_batch_size = _resolve_parallel_batch_size(extra_params=extra_params, parallel_workers=parallel_workers)
         metrics_summary: JsonObject = new_metrics_summary()
         source_template_health_summary = _new_source_template_health_summary()
         frontdoor_status_summary = _new_frontdoor_status_summary()
         frontdoor_slo_summary: JsonObject = new_frontdoor_slo_summary()
         queued = 0
-        queued_tasks: list[JsonObject] = []
 
         def _run_single_target(target_url: str, target: JsonObject) -> JsonObject:
-            try:
-                search_options = _search_options_for_target(
-                    target_url,
-                    normalized_terms,
-                    target=target,
-                    extra_params=extra_params,
-                )
-                search_options = _apply_frontdoor_to_search_options(search_options, frontdoor_options)
-                search_options = _apply_frontdoor_target_hint(
-                    search_options=search_options,
-                    frontdoor_options=frontdoor_options,
-                    target_url=target_url,
-                )
-                search_options = _as_object_dict(search_options)
-                target_frontdoor_options = _as_object_dict(frontdoor_options)
-                target_frontdoor_options["enabled"] = True
-                target_frontdoor_options["route_hint"] = str(search_options.get("frontdoor_route_hint") or "")
-                target_frontdoor_options["fetch_strategy"] = str(search_options.get("frontdoor_fetch_strategy") or "")
-                target_frontdoor_options["render_required"] = bool(search_options.get("frontdoor_render_required"))
-                if isinstance(search_options.get("frontdoor_route_profile"), dict):
-                    target_frontdoor_options["route_profile"] = _as_object_dict(search_options.get("frontdoor_route_profile"))
-                if isinstance(search_options.get("frontdoor_router_contract"), dict):
-                    target_frontdoor_options["router_contract"] = _as_object_dict(search_options.get("frontdoor_router_contract"))
-                target_frontdoor_options["prefer_crawler"] = bool(search_options.get("frontdoor_prefers_crawler"))
-                target_frontdoor_options["prefer_search_shell"] = bool(
-                    search_options.get("frontdoor_prefers_search_shell")
-                )
-                return _run_source_library_frontdoor_ingress(
-                    url=target_url,
-                    project_key=project_key,
-                    query_terms=normalized_terms,
-                    search_options=search_options,
-                    strict_mode=strict_mode,
-                    frontdoor_options=target_frontdoor_options,
-                    entrypoint="ingest.url_pool",
-                    source_name="url_pool",
-                    enable_extraction=bool(enable_extraction),
-                )
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("url_pool url_routing dispatch failed for %s: %s", str(target_url)[:80], exc)
-                return {"status": "failed", "inserted": 0, "skipped": 1, "error": _safe_exc(exc)}
+            pool_item = pool_item_by_target.get(str(target.get("url") or "")) or {}
+            return execute_single_url_kernel(
+                url=target_url,
+                project_key=project_key,
+                query_terms=normalized_terms,
+                extra_params=extra_params,
+                enable_extraction=enable_extraction,
+                target=target,
+                context={
+                    "mode": "pool",
+                    "project_key": project_key,
+                    "entry_type": target.get("entry_type"),
+                    "site_seed": bool(target.get("is_site_seed")),
+                    "scope": pool_item.get("scope"),
+                    "source": pool_item.get("source"),
+                    "domain": pool_item.get("domain") or target.get("domain"),
+                    "source_ref": pool_item.get("source_ref"),
+                },
+            )
 
         def _collect_item_result(target_url: str, target: JsonObject, pool_item: JsonObject, item_result: JsonObject) -> None:
             nonlocal inserted, inserted_valid, skipped, rejected_count, skipped_exists, skipped_fetch_error
@@ -1890,21 +2004,6 @@ def collect_urls_from_pool(
             _record_frontdoor_status_observation(frontdoor_status_summary, frontdoor_status)
             record_frontdoor_slo_observation(frontdoor_slo_summary, frontdoor_status)
 
-            context_doc_ids = _extract_doc_ids_from_ingest_result(item_result)
-            _annotate_url_pool_context(
-                doc_ids=context_doc_ids,
-                context={
-                    "mode": "pool",
-                    "project_key": project_key,
-                    "entry_type": target.get("entry_type"),
-                    "site_seed": bool(target.get("is_site_seed")),
-                    "scope": pool_item.get("scope"),
-                    "source": pool_item.get("source"),
-                    "domain": pool_item.get("domain") or target.get("domain"),
-                    "source_ref": pool_item.get("source_ref"),
-                },
-            )
-
             if len(details) < _DEBUG_MAX_URLS:
                 details.append(
                     _detail(
@@ -1929,83 +2028,9 @@ def collect_urls_from_pool(
                     )
                 )
 
-        if dispatch_mode == "celery_async":
-            for target_url, target, pool_item in runtime_targets:
-                search_options = _search_options_for_target(
-                    target_url,
-                    normalized_terms,
-                    target=target,
-                    extra_params=extra_params,
-                )
-                search_options = _apply_frontdoor_to_search_options(search_options, frontdoor_options)
-                search_options = _apply_frontdoor_target_hint(
-                    search_options=search_options,
-                    frontdoor_options=frontdoor_options,
-                    target_url=target_url,
-                )
-                search_options = _attach_url_pool_runtime_readback(
-                    search_options,
-                    extra_params=extra_params,
-                )
-                async_result = _delay_task(
-                    task,
-                    target_url,
-                    normalized_terms,
-                    strict_mode,
-                    project_key,
-                    search_options,
-                )
-                queued += 1
-                frontdoor_status = _build_frontdoor_status_projection(
-                    {
-                        "status": "degraded_success",
-                        "reason_code": "queued_async",
-                        "inserted_valid": 0,
-                        "frontdoor_router_contract": _as_object_dict(search_options).get("frontdoor_router_contract"),
-                    }
-                )
-                _record_frontdoor_status_observation(frontdoor_status_summary, frontdoor_status)
-                record_frontdoor_slo_observation(frontdoor_slo_summary, frontdoor_status)
-                record_metrics_observation(
-                    metrics_summary,
-                    {
-                        "inserted_valid": 0,
-                        "single_write_workflow": workflow_name,
-                        "reason_code": "queued_async",
-                    },
-                    fallback_adapter=workflow_name,
-                )
-                if len(queued_tasks) < _DEBUG_MAX_URLS:
-                    queued_tasks.append(
-                        _detail(
-                            target_url,
-                            action="queued",
-                            task_id=getattr(async_result, "id", None),
-                            entry_type=target.get("entry_type"),
-                            site_seed=bool(target.get("is_site_seed")),
-                            pool_scope=pool_item.get("scope"),
-                            pool_source=pool_item.get("source"),
-                            pool_domain=pool_item.get("domain"),
-                            pool_source_ref=pool_item.get("source_ref"),
-                            frontdoor_status=frontdoor_status,
-                        )
-                    )
-        else:
-            for batch in _batch_slice(runtime_targets, parallel_batch_size):
-                if parallel_workers <= 1 or len(batch) <= 1:
-                    for target_url, target, pool_item in batch:
-                        item_result = _run_single_target(target_url, target)
-                        _collect_item_result(target_url, target, pool_item, item_result)
-                    continue
-                with ThreadPoolExecutor(max_workers=min(parallel_workers, len(batch))) as executor:
-                    future_to_target = {
-                        executor.submit(copy_context().run, _run_single_target, tu, t): (tu, t, p)
-                        for tu, t, p in batch
-                    }
-                    for future in as_completed(future_to_target):
-                        tu, t, p = future_to_target[future]
-                        item_result = future.result()
-                        _collect_item_result(tu, t, p, item_result)
+        for target_url, target, pool_item in runtime_targets:
+            item_result = _run_single_target(target_url, target)
+            _collect_item_result(target_url, target, pool_item, item_result)
 
         result: JsonObject = {
             "inserted": inserted,
@@ -2023,13 +2048,13 @@ def collect_urls_from_pool(
             "single_write_workflow": workflow_name,
             "debug": {
                 "mode": "pool",
-                "dispatch_mode": dispatch_mode,
+                "dispatch_mode": "inline",
                 "strict_mode": bool(strict_mode),
                 "frontdoor_enabled": bool(frontdoor_options.get("enabled")),
                 "disable_site_seed_expansion": bool(target_mode == "detail_only"),
                 "target_mode": target_mode,
-                "parallel_workers": parallel_workers,
-                "parallel_batch_size": parallel_batch_size,
+                "parallel_workers": 1,
+                "parallel_batch_size": 1,
                 "pool_total": int(total or 0),
                 "pool_returned": len(items),
                 "site_seed_count": len([x for x in targets if bool(x.get("is_site_seed"))]),
@@ -2046,8 +2071,8 @@ def collect_urls_from_pool(
                     }
                     for x in (items[:_DEBUG_MAX_POOL_ITEMS] if items else [])
                 ],
-                "url_details": queued_tasks if dispatch_mode == "celery_async" else details,
-                "url_details_truncated": len(runtime_targets) > len(queued_tasks if dispatch_mode == "celery_async" else details),
+                "url_details": details,
+                "url_details_truncated": len(runtime_targets) > len(details),
                 "errors": errors,
             },
         }

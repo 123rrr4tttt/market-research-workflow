@@ -160,14 +160,29 @@ def utcnow_iso() -> str:
 
 
 def session_abort_requested(*, service: AgentSessionService, session_id: str) -> bool:
-    try:
-        session = service.get_session(session_id)
-    except Exception:  # noqa: BLE001
-        return False
+    session = service.get_session(session_id)
     if isinstance(session, Failure):
-        return False
-    status: object = session.get("status")
-    return _text(status).lower() == "canceled"
+        raise RuntimeError(f"session readback failed: {session.code}")
+    run_id = _text(session.get("compat_job_id"))
+    if not run_id:
+        return _text(session.get("status")).lower() == "canceled"
+    from app.services.agent_core.host_authorization import (
+        current_verified_host_authorization,
+    )
+
+    authorization = current_verified_host_authorization()
+    if authorization is None:
+        raise RuntimeError("canonical runtime cancellation readback requires verified host authorization")
+    actor_context = authorization.actor_context
+    if actor_context is None or not actor_context.actor_trusted or not actor_context.actor_id:
+        raise RuntimeError("canonical runtime cancellation readback requires an authenticated request actor")
+    if authorization.context.project_key != _text(session.get("project_key")):
+        raise RuntimeError("canonical runtime cancellation readback project scope mismatch")
+    return service.read_run_cancellation(
+        run_id,
+        project_key=_text(session.get("project_key")),
+        actor_id=actor_context.actor_id,
+    )
 
 
 def abort_requested_result(
@@ -214,7 +229,7 @@ def abort_requested_result(
         ui_summary=f"{tool_call.tool_name} stopped after session cancellation.",
         structured_content=content,
         error={"code": "session_canceled", "message": "session is canceled"},
-        retry_hint="Read task.summary first; use task.retry only when the user wants the task to run again.",
+        retry_hint="Read task.summary and the canonical runtime run before choosing an owner-supported recovery action.",
     )
 
 

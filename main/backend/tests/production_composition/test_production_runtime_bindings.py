@@ -13,6 +13,7 @@ import sys
 import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
+from starlette.datastructures import State
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -30,7 +31,6 @@ from app.composition.production import (
 from app.composition.production_runtime import (
     AtomicRedisRateObservations,
     EngineC9QueryReadPort,
-    EngineProjectScopeResolver,
     PostgresProductionActorScopes,
     PostgresProductionApprovals,
     ProductionRuntimeAuthorityUnavailable,
@@ -60,7 +60,7 @@ from app.successor_runtime.runtime.facade_contracts import (
     QueryMetaV2,
 )
 from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
-from app.successor_runtime.substrate.postgres.session import compute_scope_digest
+from app.successor_runtime.substrate.postgres.session import RegistryBackedProjectScopeResolver, compute_scope_digest
 
 
 pytestmark = pytest.mark.unit
@@ -94,6 +94,7 @@ def production_startup_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     import app.composition.production as production
     from app.settings.config import settings
 
+    monkeypatch.setattr(production_app, "state", State(dict(production_app.state._state)))
     for key, value in vars(_settings()).items():
         monkeypatch.setattr(settings, key, value)
     monkeypatch.setattr(
@@ -319,7 +320,7 @@ def test_production_successor_runtime_dependencies_preserve_scope_and_actor(
     monkeypatch.setattr(production_runtime, "PostgresC9QueryRepository", _Repository)
     engine = _Engine()
     dependencies = build_production_successor_runtime_app_dependencies(engine)  # type: ignore[arg-type]
-    assert isinstance(dependencies.resolver, EngineProjectScopeResolver)
+    assert isinstance(dependencies.resolver, RegistryBackedProjectScopeResolver)
     assert isinstance(dependencies.facade, SuccessorRuntimeFacade)
     query_port = dependencies.facade._query_port  # noqa: SLF001
     assert isinstance(query_port, EngineC9QueryReadPort)
@@ -383,7 +384,7 @@ def test_production_startup_installs_runtime_bindings_and_route_coverage_passes(
 
     runtime = production_app.state.production_runtime_bindings
     assert isinstance(runtime, ProductionRuntimeBindings)
-    assert isinstance(runtime.project_scope_resolver, EngineProjectScopeResolver)
+    assert isinstance(runtime.project_scope_resolver, RegistryBackedProjectScopeResolver)
     assert isinstance(runtime.actor_scopes, PostgresProductionActorScopes)
     assert isinstance(runtime.approvals, PostgresProductionApprovals)
 

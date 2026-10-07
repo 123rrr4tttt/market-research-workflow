@@ -1,4 +1,4 @@
-"""Non-PostgreSQL structural assertions for the I1 C1/C2/C3 assemblies."""
+"""Non-PostgreSQL structural assertions for the I1 C1/C2 assemblies."""
 
 from __future__ import annotations
 
@@ -6,19 +6,11 @@ from dataclasses import replace
 from datetime import UTC, datetime
 
 from app.successor_runtime.assembly.base import (
-    AcquisitionAssemblyOptions,
     ProjectorSourceKey,
     local_assembly_scope_digest,
-    successor_binding,
 )
 from app.successor_runtime.assembly.workflow_assembly import build_workflow_assembly
 from app.successor_runtime.assembly.source_assembly import build_source_assembly
-from app.successor_runtime.assembly.acquisition_batch_assembly import (
-    ACQUISITION_BATCH_FAMILY_ID,
-    build_acquisition_batch_assembly,
-    build_deterministic_element_payloads,
-)
-from app.successor_runtime.capabilities import acquisition_batch as acquisition
 from app.successor_runtime.capabilities import source_resolution as c21
 from app.successor_runtime.capabilities import source_planning as c22
 from app.successor_runtime.capabilities import source_provider_acquisition as c23
@@ -31,13 +23,6 @@ from app.successor_runtime.capabilities.workflow_native_contribution import (
 )
 from app.successor_runtime.capabilities.workflow_native_contribution import (
     DEFAULT_WORKFLOW_NATIVE_SOURCE,
-)
-from app.successor_runtime.capabilities.acquisition_native_contribution import (
-    ASSEMBLY_CELL_IDS as ACQUISITION_ASSEMBLY_CELL_IDS,
-)
-from app.successor_runtime.capabilities.acquisition_batch_interpreters import (
-    authority_requirement_digest,
-    successor_fold_ordered_results_interpreter_profile_digest,
 )
 from app.successor_runtime.capabilities.source_native_contribution import (
     ASSEMBLY_CELL_IDS as SOURCE_ASSEMBLY_CELL_IDS,
@@ -88,52 +73,6 @@ def _uow_factory() -> object:
 
 def _scope_digest() -> str:
     return local_assembly_scope_digest()
-
-
-def _c3_element_payloads(project_key: str = "project:c3-assembly-test"):
-    request_ref = acquisition.build_collect_request_ref(
-        request_id="request:c3-assembly-test",
-        project_key=project_key,
-        channel="search.market",
-    )
-    snapshot = acquisition.CollectLegacyRequestSnapshot(
-        schema_version=acquisition.COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
-        flow="collect",
-        channel="search.market",
-        project_key=project_key,
-        query_terms=("t1", "t2"),
-        urls=(),
-        limit=80,
-        options=acquisition.freeze_json_object({}),
-        source_context=acquisition.freeze_json_object({}),
-        snapshot_digest="",
-    )
-    policy = acquisition.CollectResourcePolicy(
-        schema_ref=acquisition.COLLECT_RESOURCE_POLICY_SCHEMA_REF,
-        max_parallelism=2,
-        deadline_seconds=60,
-        cancellation="COORDINATED",
-        backpressure=True,
-        provider_concurrency_key="search.market",
-        policy_digest="",
-    )
-    plan = acquisition.build_collect_batch_plan(
-        request_ref=request_ref,
-        snapshot=snapshot,
-        plan_id="plan:c3-assembly-test",
-        resource_policy=policy,
-        authority_scope_ref="project:c3-assembly-test",
-    )
-    return tuple(
-        acquisition.collect_batch_element_payload_from_dicts(
-            request_ref=request_ref,
-            request_snapshot=snapshot,
-            element=plan.elements[index],
-            resource_policy=policy,
-            authority_scope_ref="project:c3-assembly-test",
-        )
-        for index in range(len(plan.elements))
-    )
 
 
 def test_c1_assembly_installs_kernel_wiring_for_c12_and_c13() -> None:
@@ -362,71 +301,3 @@ def test_c2_installed_digests_match_existing_binding_builders() -> None:
         runtime_protocol_version="1",
     )
     assert c2_3_binding.binding_digest in by_cell
-
-
-def test_c3_assembly_without_payloads_requires_fixture_closure() -> None:
-    assembly = build_acquisition_batch_assembly(
-        uow_factory=_uow_factory,
-        project_scope_digest=_scope_digest(),
-    )
-
-    assert assembly.family_id == ACQUISITION_BATCH_FAMILY_ID
-    assert assembly.coverage() == {
-        ACQUISITION_ASSEMBLY_CELL_IDS[0]: "FIXTURE_CLOSURE_REQUIRED",
-        ACQUISITION_ASSEMBLY_CELL_IDS[1]: "FIXTURE_CLOSURE_REQUIRED",
-    }
-    assert assembly.handlers == ()
-    for cell in assembly.cells:
-        assert cell.handler_binding_digest is None
-
-
-def test_c3_assembly_with_payloads_installs_shared_composed_handler() -> None:
-    project_scope_digest = _scope_digest()
-    assembly = build_acquisition_batch_assembly(
-        uow_factory=_uow_factory,
-        project_scope_digest=project_scope_digest,
-        options=AcquisitionAssemblyOptions(
-            element_payloads=_c3_element_payloads(),
-        ),
-    )
-
-    assert assembly.family_id == ACQUISITION_BATCH_FAMILY_ID
-    assert assembly.coverage() == {
-        ACQUISITION_ASSEMBLY_CELL_IDS[0]: "INSTALLED",
-        ACQUISITION_ASSEMBLY_CELL_IDS[1]: "INSTALLED",
-    }
-    assert len(assembly.handlers) == 1
-    handler = assembly.handlers[0]
-    assert handler.handler_binding_digest == assembly.cell(ACQUISITION_ASSEMBLY_CELL_IDS[0]).handler_binding_digest
-    assert handler.handler_binding_digest == assembly.cell(ACQUISITION_ASSEMBLY_CELL_IDS[1]).handler_binding_digest
-
-    bundle = acquisition.build_acquisition_batch_bundle()
-    fold_ref = bundle.fold_ordered_results_operation.ref
-    expected_binding = successor_binding(
-        operation_contract_digest=fold_ref.contract_digest,
-        interpreter_profile_digest=successor_fold_ordered_results_interpreter_profile_digest(),
-        deployment_catalog_digest=acquisition.deployment_catalog_digest(),
-        project_scope_digest=project_scope_digest,
-        authority_requirement_digest=authority_requirement_digest(fold_ref.kind),
-        resource_policy_epoch=1,
-        runtime_protocol_version="1",
-    )
-    assert handler.handler_binding_digest == expected_binding.binding_digest
-    assert handler.provider_calls == 0
-
-
-def test_c3_assembly_installs_with_production_fixture_builder() -> None:
-    project_scope_digest = _scope_digest()
-    assembly = build_acquisition_batch_assembly(
-        uow_factory=_uow_factory,
-        project_scope_digest=project_scope_digest,
-        options=AcquisitionAssemblyOptions(
-            element_payloads=build_deterministic_element_payloads(),
-        ),
-    )
-    assert assembly.coverage() == {
-        ACQUISITION_ASSEMBLY_CELL_IDS[0]: "INSTALLED",
-        ACQUISITION_ASSEMBLY_CELL_IDS[1]: "INSTALLED",
-    }
-    assert len(assembly.handlers) == 1
-    assert assembly.handlers[0].provider_calls == 0

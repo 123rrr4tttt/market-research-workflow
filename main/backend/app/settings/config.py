@@ -143,11 +143,13 @@ class Settings(BaseSettings):
     codex_auth_tokens: str = Field(default="")
     codex_webui_internal_url: str = Field(default="http://127.0.0.1:8172")
     codex_webui_server_api_key: SecretStr = Field(default=SecretStr(""))
+    codex_webui_local_single_user_enabled: bool = Field(default=False)
     codex_auth_protected_prefixes: str = Field(
         default=(
             "/api/v1/agent-cell,/api/v1/agent-batch,/api/v1/agent-sessions,"
             "/api/v1/agent-approvals,/api/v1/workflow-graph,/api/v1/skills,"
             "/api/v1/codex-auth/webui/bootstrap,"
+            "/api/v1/agent-macro-host/record-input,/api/v1/agent-macro-host/dispatch,"
             + _SUCCESSOR_MOUNT_DEFAULT_PREFIX
         )
     )

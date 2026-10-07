@@ -6,7 +6,6 @@ from app.services.agent_batch.task_contract import (
     _apply_retry_action,
     _build_search_brief,
     _expand_tasks_with_limited_branching,
-    build_agent_batch_execution_registry,
     normalize_agent_batch_task,
 )
 
@@ -122,36 +121,3 @@ def test_retry_attach_source_library_inherits_query_terms_and_target_count() -> 
     assert source_task["query_terms"] == ["ai terminal products companies"]
     assert source_task["max_items"] == 8
     assert source_task["source_mode"] is None
-
-
-def test_build_agent_batch_execution_registry_resolves_exports_and_fails_fast() -> None:
-    registry = build_agent_batch_execution_registry(
-        execution_bindings=[
-            {
-                "channel": "search.market",
-                "submitter_export": "submit_search",
-                "rule_guard_export": "guard_search",
-            }
-        ],
-        globals_map={
-            "submit_search": lambda *_args, **_kwargs: None,
-            "guard_search": lambda *_args, **_kwargs: None,
-        },
-    )
-    assert callable(registry["search.market"]["submitter"])
-    assert callable(registry["search.market"]["rule_guard"])
-
-    try:
-        build_agent_batch_execution_registry(
-            execution_bindings=[
-                {
-                    "channel": "search.market",
-                    "submitter_export": "missing_submit",
-                }
-            ],
-            globals_map={},
-        )
-    except RuntimeError as error:
-        assert str(error) == "channel submitter export not found: missing_submit"
-    else:
-        raise AssertionError("missing submitter export must fail fast")

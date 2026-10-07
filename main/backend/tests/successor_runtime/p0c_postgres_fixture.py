@@ -16,7 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Iterator
 
 import pytest
 import sqlalchemy as sa
@@ -26,35 +26,25 @@ from sqlalchemy.pool import NullPool
 from app.successor_migration.document_canonical_read import (
     PostgresLegacyDocumentCanonicalReadAdapter,
 )
-from app.successor_runtime.capabilities import (
-    build_first_specimen_bundle,
-    build_first_specimen_catalog,
+from app.successor_runtime.capabilities.first_specimen_interpreters import (
+    derive_material_ref,
 )
-from app.successor_runtime.capabilities.first_specimen_delivery_gate import (
-    DeliveryIntentTemplate,
-)
-from app.successor_runtime.capabilities.first_specimen_submission import (
-    CompileAssignmentRequest,
-    FirstSpecimenSubmissionService,
-    SubmissionCommand,
-    SubmittedRuntimePacket,
-)
-from app.successor_runtime.language.combinators import default_registries
-from app.successor_runtime.research.codec import sha256_hex
-from app.successor_runtime.research.inquiries import (
-    Inquiry,
-    PlanWorkItem,
-    ResearchIntent,
-    ResearchPlan,
+from app.successor_runtime.language.algebra import ValueRef
+from app.successor_runtime.research.codec import canonical_bytes, sha256_hex
+from app.successor_runtime.research.identities import ResearchObjectRef
+from app.successor_runtime.research.materials import CapturedMaterialSnapshot, MaterialRef
+from app.successor_runtime.research.object_types import (
+    CAPTURED_MATERIAL_SNAPSHOT_TYPE,
+    MATERIAL_REF_TYPE,
+    ObjectType,
+    SOURCE_REF_TYPE,
 )
 from app.successor_runtime.research.sources import SourceRef
-from app.successor_runtime.runtime.assignments import (
-    AssignmentKind,
-    CompilerBinding,
-    HandlerBindingKind,
-    RuntimeAssignment,
+from app.successor_runtime.runtime.ports import (
+    CanonicalDocumentRead,
+    ProjectScopeRef,
+    RuntimeScope,
 )
-from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
 from app.successor_runtime.substrate.postgres.models import (
     PUBLIC_METADATA,
     PUBLIC_TABLES,
@@ -65,14 +55,8 @@ from app.successor_runtime.substrate.postgres.owner_bindings import (
     OwnerBindingRecord,
     OwnerBindingRepository,
 )
-from app.successor_runtime.substrate.postgres.programs import ProgramRepository
 from app.successor_runtime.substrate.postgres.research_ledger import (
     ResearchLedgerRepository,
-)
-from app.successor_runtime.substrate.postgres.runtime_lifecycle import (
-    AssignmentEnvelope,
-    RuntimeLifecycleRepository,
-    SubmitRun,
 )
 from app.successor_runtime.substrate.postgres.session import (
     compute_scope_digest,
@@ -208,6 +192,110 @@ LEGACY_DOCUMENTS = sa.Table(
 
 
 @dataclass(frozen=True, slots=True)
+class P0CCapture:
+    source_ref: SourceRef
+    observation: CanonicalDocumentRead
+    snapshot: CapturedMaterialSnapshot
+    snapshot_value_ref: ValueRef
+    source_value_ref: ValueRef
+    material: MaterialRef
+    material_value_ref: ValueRef
+    material_object_ref: ResearchObjectRef
+
+
+def _value_ref_from_row(row: sa.RowMapping) -> ValueRef:
+    return ValueRef(
+        value_id=str(row["value_id"]),
+        project_key=PROJECT_KEY,
+        object_type={
+            CAPTURED_MATERIAL_SNAPSHOT_TYPE.type_id: CAPTURED_MATERIAL_SNAPSHOT_TYPE,
+            SOURCE_REF_TYPE.type_id: SOURCE_REF_TYPE,
+            MATERIAL_REF_TYPE.type_id: MATERIAL_REF_TYPE,
+        }[str(row["object_type"])],
+        codec_id=str(row["codec_id"]),
+        content_digest=str(row["content_digest"]),
+        storage_kind="project_value_ref",
+        store_id="successor_values",
+        store_version="1",
+        storage_ref=f"project-value:{row['value_id']}",
+        byte_size=int(row["byte_size"]),
+        provenance_digest=str(row["provenance_digest"]),
+    )
+
+
+def _value_ref(
+    *, value_id: str, object_type: ObjectType, exact: bytes, provenance: dict[str, object]
+) -> ValueRef:
+    return ValueRef(
+        value_id=value_id,
+        project_key=PROJECT_KEY,
+        object_type=object_type,
+        codec_id=object_type.codec_id,
+        content_digest=hashlib.sha256(exact).hexdigest(),
+        storage_kind="project_value_ref",
+        store_id="successor_values",
+        store_version="1",
+        storage_ref=f"project-value:{value_id}",
+        byte_size=len(exact),
+        provenance_digest=sha256_hex(provenance),
+    )
+
+
+def _capture_from_rows(
+    rows: dict[str, sa.RowMapping], *, suffix: str, label: str, document_id: int
+) -> P0CCapture:
+    source = source_ref(document_id)
+    snapshot_row = rows[f"capture:{suffix}:snapshot:{label}"]
+    source_row = rows[source.source_ref_id]
+    exact = bytes(snapshot_row["content_bytes"])
+    provenance = dict(snapshot_row["provenance_json"])
+    observation = CanonicalDocumentRead(
+        document_id=document_id,
+        text_hash=provenance.get("observed_text_hash"),
+        updated_at=datetime.fromisoformat(str(provenance["observed_updated_at"])),
+        exact_bytes=exact,
+    )
+    snapshot_ref = _value_ref_from_row(snapshot_row)
+    snapshot = CapturedMaterialSnapshot(
+        value_ref=snapshot_ref.storage_ref,
+        document_id=document_id,
+        observed_text_hash=observation.text_hash,
+        observed_updated_at=observation.updated_at,
+        byte_size=len(exact),
+    )
+    material = derive_material_ref(
+        source_ref=source.source_ref_id,
+        snapshot=snapshot,
+        owner_id=source.owner_id,
+        locator=source.locator,
+        observed_at=source.observed_at.isoformat(),
+    )
+    material_ref = _value_ref_from_row(rows[material.material_ref_id])
+    material_object_ref = ResearchObjectRef(
+        object_id=material.material_ref_id,
+        object_type=MATERIAL_REF_TYPE,
+        project_key=PROJECT_KEY,
+        revision=1,
+        incarnation=f"capture:{suffix}:object:{material.material_ref_id}",
+        owner_binding_ref="CapturedMaterialSnapshot",
+        content_ref=material_ref.storage_ref,
+        content_digest=material_ref.content_digest,
+        provenance_closure_digest=material_ref.provenance_digest,
+        lifecycle_state="ADMITTED",
+    )
+    return P0CCapture(
+        source_ref=source,
+        observation=observation,
+        snapshot=snapshot,
+        snapshot_value_ref=snapshot_ref,
+        source_value_ref=_value_ref_from_row(source_row),
+        material=material,
+        material_value_ref=material_ref,
+        material_object_ref=material_object_ref,
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class LiveP0CDatabase:
     engine: Engine
     project_metadata: sa.MetaData
@@ -229,113 +317,189 @@ class LiveP0CDatabase:
             assert hashlib.sha256(exact).hexdigest() == row["content_digest"]
             return exact
 
-    def submission_service(
+    def capture_documents(
         self,
         *,
+        suffix: str = "1",
+        submission_id: str | None = None,
         document_port: Callable[[RuntimeUnitOfWork], object] | None = None,
-        value_port: Callable[[RuntimeUnitOfWork], object] | None = None,
-        runtime_port: Callable[[RuntimeUnitOfWork], object] | None = None,
-    ) -> FirstSpecimenSubmissionService:
-        def uow_factory() -> RuntimeUnitOfWork:
-            return RuntimeUnitOfWork(engine=self.engine)
-
-        return FirstSpecimenSubmissionService(
-            uow_factory=uow_factory,
-            document_port=document_port
-            or (
-                lambda uow: PostgresLegacyDocumentCanonicalReadAdapter(
-                    uow.connection
-                )
-            ),
-            value_port=value_port
-            or (lambda uow: ValueRepository(uow.connection, self.project_tables)),
-            ledger_port=lambda uow: ResearchLedgerRepository(
-                uow.connection, self.project_tables
-            ),
-            program_port=lambda uow: ProgramRepository(
-                uow.connection, self.project_tables
-            ),
-            runtime_port=runtime_port
-            or (
-                lambda uow: _SubmissionRuntimeAdapter(
-                    uow.connection, self.scope
-                )
-            ),
-            compile_assignment_factory=compile_assignment,
+    ) -> tuple[P0CCapture, P0CCapture]:
+        snapshot_ids = tuple(
+            f"capture:{suffix}:snapshot:{label}" for label in ("a", "b")
         )
-
-
-class _SubmissionRuntimeAdapter:
-    """Tests-only composition adapter over the production lifecycle repository."""
-
-    def __init__(self, connection: sa.Connection, scope: RuntimeScope) -> None:
-        self._repository = RuntimeLifecycleRepository(connection, scope)
-
-    def get_submission(
-        self, _scope: RuntimeScope, _submission_id: str
-    ) -> None:
-        # P0-C submits one new exact logical request per clean fixture.  Durable
-        # idempotency/reconstruction is exercised directly by its repositories.
-        return None
-
-    def create_submitted(
-        self, _scope: RuntimeScope, packet: SubmittedRuntimePacket
-    ) -> Any:
-        envelope = AssignmentEnvelope(
-            assignment=packet.compile_assignment,
-            required_node_profile_selector=packet.required_node_profile_selector,
-            authority_digest=packet.submission_authority_digest,
-            resource_policy_digest=packet.resource_policy_digest,
-            fairness_key=packet.fairness_key,
-        )
-        return self._repository.submit(
-            SubmitRun(
-                run_id=packet.run_id,
-                incarnation=packet.run_incarnation,
-                program_id=packet.program_id,
-                program_digest=packet.program_digest,
-                program_storage_ref=packet.program_storage_ref,
-                contract_version=packet.contract_version,
-                submission_authority_digest=packet.submission_authority_digest,
-                compile_work=envelope,
-                due_at=packet.due_at,
+        with RuntimeUnitOfWork(engine=self.engine) as uow:
+            table = self.project_tables.successor_values
+            existing = tuple(
+                uow.connection.execute(
+                    sa.select(table).where(
+                        table.c.project_key == PROJECT_KEY,
+                        table.c.value_id.in_(snapshot_ids),
+                    )
+                ).mappings()
             )
-        )
+            if existing:
+                if len(existing) != 2:
+                    raise AssertionError("partial document capture closure")
+                all_ids = (*snapshot_ids, *(source_ref(item).source_ref_id for item in (101, 102)))
+                rows = {
+                    str(row["value_id"]): row
+                    for row in uow.connection.execute(
+                        sa.select(table).where(
+                            table.c.project_key == PROJECT_KEY,
+                            sa.or_(
+                                table.c.value_id.in_(all_ids),
+                                table.c.object_type == MATERIAL_REF_TYPE.type_id,
+                            ),
+                        )
+                    ).mappings()
+                }
+                return tuple(
+                    _capture_from_rows(
+                        rows, suffix=suffix, label=label, document_id=document_id
+                    )
+                    for label, document_id in zip(("a", "b"), (101, 102), strict=True)
+                )
 
-    def record_submission(self, _scope: RuntimeScope, _submitted: Any) -> None:
-        # The authoritative data already lives in project/public tables.  A
-        # Python object cache would be a second truth source.
-        return None
-
-
-def compile_assignment(request: CompileAssignmentRequest) -> RuntimeAssignment:
-    command = request.command
-    compiler = command.compiler_binding
-    if not isinstance(compiler, CompilerBinding):
-        raise TypeError("first specimen compile requires CompilerBinding")
-    return RuntimeAssignment(
-        runtime_protocol_version="1",
-        work_item_id=f"{command.run_id}:compile",
-        assignment_kind=AssignmentKind.COMPILE,
-        project_key=PROJECT_KEY,
-        run_id=command.run_id,
-        capability_id="mrw.first-specimen.compile",
-        handler_binding_kind=HandlerBindingKind.COMPILER,
-        handler_binding_ref=f"handler-binding:sha256:{compiler.binding_digest}",
-        handler_binding_digest=compiler.binding_digest,
-        handler_binding=compiler,
-        program_digest=request.program.program_digest,
-        deployment_catalog_digest=command.deployment_catalog_digest,
-        execution_epoch=0,
-        incarnation=command.run_incarnation,
-        input_refs=request.input_refs,
-        input_closure_digest=sha256_hex(list(request.input_refs)),
-        queue_eligibility_digest=command.queue_eligibility_digest,
-        resource_policy_epoch=command.resource_policy_epoch,
-        claim_authority_epoch=command.claim_authority_epoch,
-        claim_policy_digest=command.claim_policy_digest,
-        trace_id=command.trace_id,
-    )
+            documents = (
+                document_port(uow)
+                if document_port is not None
+                else PostgresLegacyDocumentCanonicalReadAdapter(uow.connection)
+            )
+            values = ValueRepository(uow.connection, self.project_tables)
+            ledger = ResearchLedgerRepository(uow.connection, self.project_tables)
+            captures: list[P0CCapture] = []
+            for label, document_id in zip(("a", "b"), (101, 102), strict=True):
+                source = source_ref(document_id)
+                observation = documents.read_document(self.scope, document_id)
+                snapshot_provenance = {
+                    (
+                        "submission_id" if submission_id is not None else "capture_id"
+                    ): submission_id or f"capture:{suffix}",
+                    "document_id": document_id,
+                    "source_ref": source.source_ref_id,
+                    "observed_text_hash": observation.text_hash,
+                    "observed_updated_at": observation.updated_at.isoformat(),
+                }
+                snapshot_id = f"capture:{suffix}:snapshot:{label}"
+                snapshot_ref = _value_ref(
+                    value_id=snapshot_id,
+                    object_type=CAPTURED_MATERIAL_SNAPSHOT_TYPE,
+                    exact=observation.exact_bytes,
+                    provenance=snapshot_provenance,
+                )
+                values.put_exact(
+                    self.scope,
+                    value_id=snapshot_id,
+                    object_type=snapshot_ref.object_type.type_id,
+                    codec_id=snapshot_ref.codec_id,
+                    content=observation.exact_bytes,
+                    expected_digest=snapshot_ref.content_digest,
+                    provenance_digest=snapshot_ref.provenance_digest,
+                    expected_revision=0,
+                    expected_incarnation=(
+                        f"p0c:{submission_id}:{snapshot_id}"
+                        if submission_id is not None
+                        else f"capture:{suffix}:{snapshot_id}"
+                    ),
+                    source_ref=source.source_ref_id,
+                    provenance=snapshot_provenance,
+                )
+                snapshot = CapturedMaterialSnapshot(
+                    value_ref=snapshot_ref.storage_ref,
+                    document_id=document_id,
+                    observed_text_hash=observation.text_hash,
+                    observed_updated_at=observation.updated_at,
+                    byte_size=len(observation.exact_bytes),
+                )
+                material = derive_material_ref(
+                    source_ref=source.source_ref_id,
+                    snapshot=snapshot,
+                    owner_id=source.owner_id,
+                    locator=source.locator,
+                    observed_at=source.observed_at.isoformat(),
+                )
+                source_exact = canonical_bytes(source)
+                source_provenance = {
+                    (
+                        "submission_id" if submission_id is not None else "capture_id"
+                    ): submission_id or f"capture:{suffix}",
+                    "document_id": document_id,
+                    "owner_id": source.owner_id,
+                }
+                source_value = _value_ref(
+                    value_id=source.source_ref_id,
+                    object_type=SOURCE_REF_TYPE,
+                    exact=source_exact,
+                    provenance=source_provenance,
+                )
+                material_exact = canonical_bytes(material)
+                material_provenance = {
+                    (
+                        "submission_id" if submission_id is not None else "capture_id"
+                    ): submission_id or f"capture:{suffix}",
+                    "source_ref": source.source_ref_id,
+                    "snapshot_value_ref": snapshot.value_ref,
+                    "snapshot_digest": snapshot_ref.content_digest,
+                }
+                material_value = _value_ref(
+                    value_id=material.material_ref_id,
+                    object_type=MATERIAL_REF_TYPE,
+                    exact=material_exact,
+                    provenance=material_provenance,
+                )
+                for ref, exact, provenance in (
+                    (source_value, source_exact, source_provenance),
+                    (material_value, material_exact, material_provenance),
+                ):
+                    values.put_exact(
+                        self.scope,
+                        value_id=ref.value_id,
+                        object_type=ref.object_type.type_id,
+                        codec_id=ref.codec_id,
+                        content=exact,
+                        expected_digest=ref.content_digest,
+                        provenance_digest=ref.provenance_digest,
+                        expected_revision=0,
+                        expected_incarnation=(
+                            f"p0c:{submission_id}:{ref.value_id}"
+                            if submission_id is not None
+                            else f"capture:{suffix}:{ref.value_id}"
+                        ),
+                        source_ref=source.source_ref_id,
+                        provenance=provenance,
+                    )
+                material_object = ResearchObjectRef(
+                    object_id=material.material_ref_id,
+                    object_type=MATERIAL_REF_TYPE,
+                    project_key=PROJECT_KEY,
+                    revision=1,
+                    incarnation=f"capture:{suffix}:object:{material.material_ref_id}",
+                    owner_binding_ref="CapturedMaterialSnapshot",
+                    content_ref=material_value.storage_ref,
+                    content_digest=material_value.content_digest,
+                    provenance_closure_digest=material_value.provenance_digest,
+                    lifecycle_state="ADMITTED",
+                )
+                ledger.put_object(
+                    self.scope,
+                    material_object,
+                    expected_revision=0,
+                    expected_incarnation=material_object.incarnation,
+                )
+                captures.append(
+                    P0CCapture(
+                        source_ref=source,
+                        observation=observation,
+                        snapshot=snapshot,
+                        snapshot_value_ref=snapshot_ref,
+                        source_value_ref=source_value,
+                        material=material,
+                        material_value_ref=material_value,
+                        material_object_ref=material_object,
+                    )
+                )
+            uow.commit()
+            return captures[0], captures[1]
 
 
 def source_ref(document_id: int) -> SourceRef:
@@ -346,93 +510,6 @@ def source_ref(document_id: int) -> SourceRef:
         source_class="existing_project_document",
         observed_at=NOW,
         access_profile_ref="DocumentCanonicalReadPort",
-    )
-
-
-def submission_command(*, suffix: str = "1") -> SubmissionCommand:
-    bundle = build_first_specimen_bundle()
-    catalog = build_first_specimen_catalog(bundle.operations)
-    assert catalog.catalog_digest is not None
-    compiler = CompilerBinding.from_content(
-        compiler_id="mrw.functorial-successor.compiler",
-        compiler_version="1.0.0",
-        compiler_digest=hashlib.sha256(b"p0c-compiler").hexdigest(),
-        operation_catalog_digest=catalog.catalog_digest,
-        domain_contract_snapshot_digest=hashlib.sha256(
-            b"p0c-domain-contract-snapshot"
-        ).hexdigest(),
-    )
-    intent = ResearchIntent(
-        intent_id=f"intent:p0c:{suffix}",
-        project_key=PROJECT_KEY,
-        purpose="compare the exact frozen Document 101 and 102 captures",
-        audience_or_use="internal research review",
-        scope={"documents": [101, 102]},
-        as_of=NOW,
-        constraints={"network": False, "external_delivery": False},
-        expected_delivery={"format": "markdown", "channel": "internal_export"},
-    )
-    inquiry = Inquiry(
-        inquiry_id=f"inquiry:p0c:{suffix}",
-        intent_ref=intent.intent_id,
-        question_or_hypothesis="What claim is supported by both exact documents?",
-        acceptance_conditions=("two exact captured inputs",),
-        stop_conditions=("claim or explicit gap",),
-        uncertainty_ceiling="explicit",
-    )
-    research_plan = ResearchPlan(
-        plan_id=f"research-plan:p0c:{suffix}",
-        inquiry_ref=inquiry.inquiry_id,
-        work_items=(
-            PlanWorkItem("source:a", "capture_read_qualify"),
-            PlanWorkItem("source:b", "capture_read_qualify", ("source:a",)),
-        ),
-        budget={"documents": 2},
-        deadline=None,
-        replan_policy={"mode": "open_gap"},
-    )
-    return SubmissionCommand(
-        submission_id=f"submission:p0c:{suffix}",
-        scope=RuntimeScope(
-            ProjectScopeRef(
-                project_key=PROJECT_KEY,
-                resolved_schema=PROJECT_SCHEMA,
-                project_registry_revision=PROJECT_REGISTRY_REVISION,
-                incarnation=PROJECT_INCARNATION,
-                scope_digest=PROJECT_SCOPE_DIGEST,
-            ),
-            actor_id="human:p0c-postgres-acceptance",
-        ),
-        program_id=f"program:p0c:{suffix}",
-        run_id=f"run:p0c:{suffix}",
-        run_incarnation=f"run-inc:p0c:{suffix}",
-        intent=intent,
-        inquiry=inquiry,
-        research_plan=research_plan,
-        source_refs=(source_ref(101), source_ref(102)),
-        document_ids=(101, 102),
-        delivery_template=DeliveryIntentTemplate(
-            value_id=f"delivery-template:p0c:{suffix}",
-            delivery_intent_id=f"delivery-intent:p0c:{suffix}",
-            audience="internal-review",
-            approval_ref=f"approval:p0c:{suffix}",
-            authority_digest=DELIVERY_AUTHORITY_DIGEST,
-            idempotency_key=f"delivery:p0c:{suffix}",
-        ),
-        catalog=catalog,
-        registries=default_registries(),
-        compiler_binding=compiler,
-        deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
-        submission_authority_digest=SUBMISSION_AUTHORITY_DIGEST,
-        claim_authority_epoch=7,
-        claim_policy_digest=CLAIM_POLICY_DIGEST,
-        resource_policy_digest=RESOURCE_POLICY_DIGEST,
-        resource_policy_epoch=8,
-        queue_eligibility_digest=QUEUE_ELIGIBILITY_DIGEST,
-        required_node_profile_selector="node-profile:p0c",
-        fairness_key="p0c:mrw.first-specimen.compile",
-        trace_id=f"trace:p0c:{suffix}",
-        due_at=NOW,
     )
 
 
@@ -611,10 +688,8 @@ __all__ = [
     "SEED_CONTENT_SHA256",
     "SEED_STATEMENT_SHA256",
     "SUBMISSION_AUTHORITY_DIGEST",
-    "compile_assignment",
     "frozen_document_seed_statements",
     "live_p0c_database",
     "p0c_database",
     "source_ref",
-    "submission_command",
 ]

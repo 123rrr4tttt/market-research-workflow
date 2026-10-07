@@ -3,8 +3,11 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
+from starlette.requests import Request
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -17,6 +20,21 @@ from scripts.check_admin_dashboard_consumer_boundary import (  # noqa: E402
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _scope_request(headers: dict[str, str] | None = None, query: str = "") -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "headers": [
+                (name.lower().encode("ascii"), value.encode("utf-8"))
+                for name, value in (headers or {}).items()
+            ],
+            "query_string": query.encode("utf-8"),
+        }
+    )
 
 
 class AdminDashboardConsumerBoundaryUnitTestCase(unittest.TestCase):
@@ -73,6 +91,73 @@ class AdminDashboardConsumerBoundaryUnitTestCase(unittest.TestCase):
         self.assertEqual(by_name["get_content_graph"]["sql_json_expression_count"], 0)
         self.assertEqual(by_name["get_market_graph"]["sql_json_expression_count"], 0)
         self.assertIn("Wave15", result["boundary_rule"])
+
+    def test_dashboard_scope_keeps_payload_explicit_and_query_explicit(self) -> None:
+        from app.api.dashboard import _dashboard_project_key_from_request
+
+        payload_request = _scope_request(headers={"X-Project-Key": "header-project"})
+        self.assertEqual(
+            _dashboard_project_key_from_request(payload_request, "payload-project"),
+            "payload_project",
+        )
+
+        header_request = _scope_request(headers={"X-Project-Key": "header-project"})
+        header_request.state.project_key_resolved = "header-project"
+        header_request.state.project_key_source = "header"
+        self.assertEqual(_dashboard_project_key_from_request(header_request), "header_project")
+
+        query_request = _scope_request(query="project_key=query-project")
+        query_request.state.project_key_resolved = "fallback-state"
+        query_request.state.project_key_source = "fallback"
+        self.assertEqual(_dashboard_project_key_from_request(query_request), "query_project")
+
+    def test_admin_scope_falls_back_to_active_database_project(self) -> None:
+        from app.api.admin import _project_key_from_request
+
+        class FakeResult:
+            def fetchone(self) -> tuple[str]:
+                return ("database-project",)
+
+        class FakeConnection:
+            def __enter__(self) -> "FakeConnection":
+                return self
+
+            def __exit__(
+                self,
+                exc_type: type[BaseException] | None,
+                exc_value: BaseException | None,
+                traceback: object | None,
+            ) -> bool:
+                return False
+
+            def execute(self, statement: object) -> FakeResult:
+                return FakeResult()
+
+        class FakeEngine:
+            def connect(self):
+                return FakeConnection()
+
+        with patch("app.models.base.engine", FakeEngine()):
+            self.assertEqual(_project_key_from_request(_scope_request()), "database-project")
+
+    def test_admin_scope_uses_shared_resolved_fallback_state(self) -> None:
+        from app.api.admin import _project_key_from_request
+
+        request = _scope_request()
+        request.state.project_key_resolved = "state-fallback"
+        request.state.project_key_source = "fallback"
+        self.assertEqual(_project_key_from_request(request), "state-fallback")
+
+    def test_dashboard_rejects_fallback_state_and_uses_declared_fallback(self) -> None:
+        from app.api.dashboard import _dashboard_project_key_from_request
+
+        request = _scope_request()
+        request.state.project_key_resolved = "state-fallback"
+        request.state.project_key_source = "fallback"
+        settings = SimpleNamespace(active_project_key="settings-project")
+
+        with patch("app.api.dashboard.settings", settings):
+            self.assertEqual(_dashboard_project_key_from_request(request), "settings_project")
 
 
 if __name__ == "__main__":

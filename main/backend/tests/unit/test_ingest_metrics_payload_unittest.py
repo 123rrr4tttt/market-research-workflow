@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-import types
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -13,7 +12,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.unit
 
 try:
-    from app.services.ingest.meaningful_gate import GateDecision
     from app.services.ingest import url_pool as url_pool_module
     from app.services.ingest.metrics_payload import (
         build_metrics_payload_from_summary,
@@ -195,7 +193,7 @@ class IngestMetricsPayloadUnitTestCase(unittest.TestCase):
         self.assertNotIn("url_batch_path_mode", debug)
         self.assertGreaterEqual(bridge.call_count, 1)
 
-    def test_url_pool_async_request_uses_gateway_without_legacy_task_dispatch(self):
+    def test_url_pool_inline_request_uses_kernel_without_task_dispatch(self):
         bridge = Mock(
             return_value={
                 "status": "success",
@@ -209,22 +207,18 @@ class IngestMetricsPayloadUnitTestCase(unittest.TestCase):
             }
         )
 
-        task_delay = Mock(side_effect=AssertionError("legacy task dispatch must not run"))
         with patch.object(url_pool_module, "_run_source_library_frontdoor_ingress", bridge), patch.object(
             url_pool_module, "_annotate_url_pool_context"
-        ), patch(
-            "app.services.tasks.task_ingest_url_via_source_library.delay",
-            task_delay,
         ):
             result = url_pool_module.collect_urls_from_list(
                 ["https://a.example.com/path/1"],
                 query_terms=["metrics"],
-                extra_params={"url_async": True},
+                extra_params={"dispatch_mode": "inline"},
             )
 
         self.assertGreaterEqual(bridge.call_count, 1)
-        task_delay.assert_not_called()
         self.assertEqual(result.get("queued"), 0)
+        self.assertEqual(result.get("debug", {}).get("dispatch_mode"), "inline")
 
     def test_url_pool_result_contains_source_template_health_defaults(self):
         bridge = Mock(

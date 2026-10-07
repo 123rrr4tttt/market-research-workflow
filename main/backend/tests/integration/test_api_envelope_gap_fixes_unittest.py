@@ -150,7 +150,8 @@ class ApiEnvelopeGapFixesIntegrationTestCase(unittest.TestCase):
             },
         ):
             response = invoke_skill_api(
-                SkillInvokeRequest(skill_id="demo.skill", payload={"query": "ping"})
+                SkillInvokeRequest(skill_id="demo.skill", payload={"query": "ping"}),
+                request=self._login_request(),
             )
 
         self.assertEqual(response["status"], "ok")
@@ -173,6 +174,7 @@ class ApiEnvelopeGapFixesIntegrationTestCase(unittest.TestCase):
             success_schema,
             {"$ref": "#/components/schemas/ApiEnvelope_SkillInvokeData_"},
         )
+
         invoke_data = schema["components"]["schemas"]["SkillInvokeData"]
         self.assertEqual(
             invoke_data["properties"]["skill_meta"],
@@ -182,6 +184,22 @@ class ApiEnvelopeGapFixesIntegrationTestCase(unittest.TestCase):
             invoke_data["properties"]["result"],
             {"$ref": "#/components/schemas/JsonValue"},
         )
+
+
+    def test_retrieval_skill_uses_server_actor_and_rejects_payload_identity(self):
+        from fastapi import HTTPException
+        from app.services.request_identity import authenticated_actor_context, set_request_actor_context
+        request = self._login_request()
+        actor = authenticated_actor_context(actor_id="skill-user", source="test", auth_mode="session")
+        set_request_actor_context(request, actor)
+        payload = SkillInvokeRequest(skill_id="project_retrieval.start", payload={"actor_id": "forged"})
+        with patch("app.api.skills.invoke_skill", return_value={}) as invoke:
+            invoke_skill_api(payload, request=request)
+            self.assertEqual(invoke.call_args.kwargs["context"]["actor_context"], actor)
+        with patch("app.api.skills.invoke_skill") as invoke:
+            with self.assertRaises(HTTPException):
+                invoke_skill_api(payload, request=self._login_request())
+            invoke.assert_not_called()
 
     def test_skills_invoke_approval_required_returns_error_envelope(self):
         with patch(
@@ -194,7 +212,8 @@ class ApiEnvelopeGapFixesIntegrationTestCase(unittest.TestCase):
                     payload={},
                     session_id="as-1",
                     task_id="task-1",
-                )
+                ),
+                request=self._login_request(),
             )
 
         self.assertEqual(response.status_code, 400)
@@ -215,7 +234,8 @@ class ApiEnvelopeGapFixesIntegrationTestCase(unittest.TestCase):
                     payload={},
                     session_id="as-1",
                     task_id="task-1",
-                )
+                ),
+                request=self._login_request(),
             )
 
         self.assertEqual(response.status_code, 400)
@@ -227,7 +247,7 @@ class ApiEnvelopeGapFixesIntegrationTestCase(unittest.TestCase):
 
     def test_skills_invoke_permission_error_returns_error_envelope(self):
         with patch("app.api.skills.invoke_skill", side_effect=PermissionError("approval_granted is required")):
-            response = invoke_skill_api(SkillInvokeRequest(skill_id="demo.skill", payload={}))
+            response = invoke_skill_api(SkillInvokeRequest(skill_id="demo.skill", payload={}), request=self._login_request())
 
         self.assertEqual(response.status_code, 400)
         payload = json.loads(response.body)
@@ -241,7 +261,7 @@ class ApiEnvelopeGapFixesIntegrationTestCase(unittest.TestCase):
 
     def test_skills_invoke_maps_generic_exception_to_error_status(self):
         with patch("app.api.skills.invoke_skill", side_effect=RuntimeError("skill not found")):
-            response = invoke_skill_api(SkillInvokeRequest(skill_id="missing.skill", payload={}))
+            response = invoke_skill_api(SkillInvokeRequest(skill_id="missing.skill", payload={}), request=self._login_request())
 
         self.assertEqual(response.status_code, 404)
         payload = json.loads(response.body)
@@ -255,7 +275,7 @@ class ApiEnvelopeGapFixesIntegrationTestCase(unittest.TestCase):
 
     def test_skills_invoke_maps_config_error_to_400(self):
         with patch("app.api.skills.invoke_skill", side_effect=RuntimeError("missing API key")):
-            response = invoke_skill_api(SkillInvokeRequest(skill_id="missing.skill", payload={}))
+            response = invoke_skill_api(SkillInvokeRequest(skill_id="missing.skill", payload={}), request=self._login_request())
 
         self.assertEqual(response.status_code, 400)
         payload = json.loads(response.body)

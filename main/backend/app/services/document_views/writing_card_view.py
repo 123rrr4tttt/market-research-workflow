@@ -105,8 +105,7 @@ def build_keyword_card_from_hybrid_row(
         evidence=str(row.get("evidence") or "").strip() or None,
         normalized_query=normalized_query,
         extra={"backend": row.get("backend"),
-               "material_id": row.get("material_id") or row.get("document_id") or row.get("doc_id") or row.get("id"),
-               "document_id": row.get("material_id") or row.get("document_id") or row.get("doc_id") or row.get("id")},
+               "material_id": row.get("material_id") or row.get("document_id") or row.get("doc_id") or row.get("id")},
     )
 
 

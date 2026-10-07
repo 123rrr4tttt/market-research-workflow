@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, JsonValue
 
@@ -72,12 +72,17 @@ def list_skills() -> dict[str, Any]:
 
 
 @router.post("/invoke", response_model=SkillInvokeEnvelope)
-def invoke_skill_api(payload: SkillInvokeRequest) -> dict[str, Any] | JSONResponse:
+def invoke_skill_api(payload: SkillInvokeRequest, request: Request) -> dict[str, Any] | JSONResponse:
+    actor_context = None
+    if payload.skill_id in {"project_retrieval.start", "project_retrieval.read_run", "project_retrieval.continue_saved_frontier"}:
+        from ..services.request_identity import require_trusted_actor_context
+        actor_context = require_trusted_actor_context(request)
     try:
         invoked = invoke_skill(
             skill_id=payload.skill_id,
             payload=dict(payload.payload or {}),
             context={
+                "actor_context": actor_context,
                 "actor_role": payload.actor_role,
                 "permissions": payload.permissions,
                 "agent_session_id": payload.session_id,

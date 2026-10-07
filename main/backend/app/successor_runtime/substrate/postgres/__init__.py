@@ -16,11 +16,7 @@ from .composition_root import (
     build_postgres_first_specimen_runtime_node,
     compose_postgres_first_specimen_runtime,
 )
-from .first_specimen_assembly import (
-    FirstSpecimenOperationHandler,
-    PostgresFirstSpecimenAssembly,
-    build_postgres_first_specimen_assembly,
-)
+from .first_specimen_activation import load_bound_runtime_output
 from .models import (
     PROJECT_TABLE_NAMES,
     PUBLIC_METADATA,
@@ -79,7 +75,6 @@ __all__ = [
     "EffectTerminalKind",
     "EvidenceRelationCandidate",
     "ExactInstalledHandlerResolver",
-    "FirstSpecimenOperationHandler",
     "InstalledMaterialReadHandler",
     "LifecycleCacheMiss",
     "MaterialReadReplay",
@@ -89,7 +84,6 @@ __all__ = [
     "PostgresCapturedValueReplayAdapter",
     "PostgresCommitIntentAdapter",
     "PostgresFirstSpecimenRuntime",
-    "PostgresFirstSpecimenAssembly",
     "PostgresMaterialReadHandler",
     "PostgresRuntimeNodeAdapter",
     "ProjectTables",
@@ -108,10 +102,10 @@ __all__ = [
     "TerminalCommitHook",
     "build_first_specimen_admission_registry",
     "build_postgres_first_specimen_runtime_node",
-    "build_postgres_first_specimen_assembly",
     "canonical_read_payload_from_source",
     "commit_binding_from_assignment",
     "compose_postgres_first_specimen_runtime",
+    "load_bound_runtime_output",
     "project_tables",
     "runtime_uow_factory",
 ]

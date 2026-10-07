@@ -475,14 +475,6 @@ class TaskObservationAssemblyOptions:
 
 
 @dataclass(frozen=True, slots=True)
-class AcquisitionAssemblyOptions:
-    """Optional deterministic element payloads for the C3 composed handler."""
-
-    element_payloads: tuple[Any, ...] = ()
-    note: str = "LOCAL_OFFLINE deterministic no-provider fixture closure"
-
-
-@dataclass(frozen=True, slots=True)
 class BatchTaskAssemblyOptions:
     """Optional deterministic payloads for the C4.1/C4.2 canary handlers."""
 
@@ -544,7 +536,6 @@ class FamilyAssemblyOptions:
     """Caller-controlled fixture/dependency closures for assembly builders."""
 
     c5: TaskObservationAssemblyOptions = TaskObservationAssemblyOptions()
-    c3: AcquisitionAssemblyOptions = AcquisitionAssemblyOptions()
     c4: BatchTaskAssemblyOptions = BatchTaskAssemblyOptions()
     c7: MaterialIngestAssemblyOptions = MaterialIngestAssemblyOptions()
     c8: KnowledgeAssemblyOptions = KnowledgeAssemblyOptions()
@@ -611,7 +602,6 @@ __all__ = [
     "LOCAL_ONLY_SCOPE_IDENTITY",
     "PROJECTOR_REGISTRY_INCARNATION",
     "AssemblyStatus",
-    "AcquisitionAssemblyOptions",
     "BatchTaskAssemblyOptions",
     "TaskObservationAssemblyOptions",
     "MaterialIngestAssemblyOptions",

@@ -117,6 +117,78 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         assert registry.get("agent_batch.submit") is not None
         assert registry.get("writing.document.insert_paragraph") is not None
 
+    def test_long_task_stage_update_requires_explicit_stage_completion(self):
+        from app.services.agent_core.authoring_tools import (
+            AuthoringToolContext,
+            authoring_task_session_sources,
+        )
+        from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        bundle = service.create_session(
+            source="user",
+            entrypoint_type="agent_core",
+            goal="explicit long-task stages",
+            project_key="demo_proj",
+            task_blueprints=[
+                {
+                    "task_id": "task-long",
+                    "subject": "long task",
+                    "task_type": "execute",
+                    "phase": "research",
+                }
+            ],
+        )
+        session_id = bundle["session"]["session_id"]
+        task_before = service.store.get_task(session_id, "task-long")
+        source = next(
+            item
+            for item in authoring_task_session_sources(
+                AuthoringToolContext(service=service, structured_data_searcher=lambda **_kwargs: {})
+            )
+            if item.tool_spec.name == "agent_long_task.stage.update"
+        )
+
+        result = source.handler(
+            CoreToolCall(
+                tool_name="agent_long_task.stage.update",
+                call_id="call-long-stage",
+                arguments={
+                    "stage": "gap_analysis",
+                    "stage_status": "in_progress",
+                    "task_id": "task-long",
+                    "summary": "Explicit gap analysis",
+                },
+            ),
+            source.tool_spec,
+            AgentCoreRequest(
+                message="continue long task",
+                session_id=session_id,
+                project_key="demo_proj",
+            ),
+            lambda _event: None,
+        )
+
+        assert result.status == "completed"
+        assert "current_stage" not in result.structured_content["state"]
+        artifact = next(
+            item
+            for item in service.list_artifacts(session_id)
+            if item["name"] == "agent_long_task.state.json"
+        )
+        stages = {
+            item["stage"]: item
+            for item in artifact["content_json"]["stages"]
+        }
+        assert stages["plan"]["status"] == "pending"
+        assert stages["plan"]["summary"] == ""
+        assert "completed_at" not in stages["plan"]
+        assert stages["internal_evidence"]["status"] == "pending"
+        assert stages["gap_analysis"]["status"] == "in_progress"
+        assert stages["gap_analysis"]["task_id"] == "task-long"
+        assert "current_stage" not in artifact["content_json"]
+        assert service.store.get_task(session_id, "task-long") == task_before
+
     def test_authoring_writing_conflict_readback_is_preserved(self):
         from app.services.agent_core.authoring_tools import (
             AuthoringToolContext,
@@ -236,7 +308,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
             task_blueprints=[],
         )
         session_id = bundle["session"]["session_id"]
-        service.cancel_session(session_id)
+        service.store.update_session(session_id, {"status": "canceled"})
         context = AuthoringToolContext(
             service=service,
             structured_data_searcher=lambda **_kwargs: {},
@@ -246,7 +318,6 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
             for item in authoring_ingest_writing_batch_sources(context)
             if item.tool_spec.name == "ingest.url_pool.submit"
         )
-
         events = []
         result = source.handler(
             CoreToolCall(
@@ -267,10 +338,202 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         assert result.error["code"] == "session_canceled"
         assert "task.continue" not in result.retry_hint
         assert "task.summary" in result.retry_hint
-        assert "task.retry" in result.retry_hint
+        assert "canonical runtime run" in result.retry_hint
         assert events[0].payload["skipped_items"] == ["https://example.gov/report"]
 
-    def test_canceled_url_pool_status_recommends_summary_then_retry(self):
+    def test_authoring_url_pool_submit_fails_closed_without_trusted_request_actor(self):
+        from app.services.agent_core.authoring_tools import (
+            AuthoringToolContext,
+            authoring_ingest_writing_batch_sources,
+        )
+        from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+        from app.services.agent_core.host_authorization import (
+            TrustedHostContext,
+            VerifiedHostAuthorization,
+            verified_host_authorization_channel,
+        )
+
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        session_id = service.create_session(
+            source="user",
+            entrypoint_type="agent_core",
+            goal="URL pool durable submission",
+            project_key="demo_proj",
+            task_blueprints=[],
+        )["session"]["session_id"]
+        context = AuthoringToolContext(
+            service=service,
+            structured_data_searcher=lambda **_kwargs: {},
+        )
+        source = next(
+            item
+            for item in authoring_ingest_writing_batch_sources(context)
+            if item.tool_spec.name == "ingest.url_pool.submit"
+        )
+        trusted_context = TrustedHostContext(
+            project_key="demo_proj",
+            session_id=session_id,
+            host_thread_id="url-host-thread-1",
+            turn_id="turn-url-runtime",
+            user_message_id="input-url-runtime",
+        )
+        authorization = VerifiedHostAuthorization(
+            context=trusted_context,
+            tool_name="ingest.url_pool.submit",
+            arguments_sha256="0" * 64,
+            package_digest=None,
+            permission="allow",
+            approval_id=None,
+            origin_call_id="call-url-runtime",
+            origin_turn_id="turn-url-runtime",
+            origin_user_message_id="input-url-runtime",
+        )
+
+        with (
+            patch(
+                "app.composition.production.submit_installed_program"
+            ) as submit_runtime,
+        ):
+            with verified_host_authorization_channel(authorization):
+                result = source.handler(
+                    CoreToolCall(
+                        tool_name="ingest.url_pool.submit",
+                        call_id="call-url-runtime",
+                        arguments={
+                            "url": "https://example.gov/report",
+                            "async_mode": True,
+                            "search_options": {"light_filter_min_score": 55},
+                        },
+                    ),
+                    source.tool_spec,
+                    AgentCoreRequest(
+                        message="collect",
+                        session_id=session_id,
+                        project_key="demo_proj",
+                        turn_id="turn-url-runtime",
+                    ),
+                    lambda _event: None,
+                )
+
+        assert result.status == "failed"
+        assert result.error["code"] == "request_actor_context_missing"
+        assert "trusted request actor" in result.model_summary
+        submit_runtime.assert_not_called()
+        assert all(
+            item["name"] != "ingest.url_pool_submissions.json"
+            for item in service.list_artifacts(session_id)
+        )
+
+    def test_authoring_url_pool_submit_uses_trusted_actor_for_runtime_submission(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+
+        from app.services.agent_core.authoring_tools import (
+            AuthoringToolContext,
+            authoring_ingest_writing_batch_sources,
+        )
+        from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+        from app.services.agent_core.host_authorization import (
+            TrustedHostContext,
+            VerifiedHostAuthorization,
+            verified_host_authorization_channel,
+        )
+        from app.services.request_identity import authenticated_actor_context
+
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        session_id = service.create_session(
+            source="user",
+            entrypoint_type="agent_core",
+            goal="URL pool durable submission",
+            project_key="demo_proj",
+            task_blueprints=[],
+        )["session"]["session_id"]
+        context = AuthoringToolContext(
+            service=service,
+            structured_data_searcher=lambda **_kwargs: {},
+        )
+        source = next(
+            item
+            for item in authoring_ingest_writing_batch_sources(context)
+            if item.tool_spec.name == "ingest.url_pool.submit"
+        )
+        actor_context = authenticated_actor_context(
+            actor_id="host-actor-17",
+            source="test-host",
+            auth_mode="test-auth",
+        )
+        trusted_context = TrustedHostContext(
+            project_key="demo_proj",
+            session_id=session_id,
+            host_thread_id="url-host-thread-1",
+            turn_id="turn-url-runtime",
+            user_message_id="input-url-runtime",
+            actor_context=actor_context,
+        )
+        authorization = VerifiedHostAuthorization(
+            context=trusted_context,
+            tool_name="ingest.url_pool.submit",
+            arguments_sha256="0" * 64,
+            package_digest=None,
+            permission="allow",
+            approval_id=None,
+            origin_call_id="call-url-runtime",
+            origin_turn_id="turn-url-runtime",
+            origin_user_message_id="input-url-runtime",
+        )
+
+        with (
+            patch("app.models.base.engine") as engine,
+            patch(
+                "app.successor_runtime.substrate.postgres.session.ServerProjectScopeResolver"
+            ) as resolver,
+            patch(
+                "app.composition.production.submit_installed_program",
+                return_value=(
+                    {"run_id": "url-single-agent-runtime-1", "state": "READY"},
+                    ("work:url-single-agent-runtime-1:1",),
+                ),
+            ) as submit_runtime,
+        ):
+            connection = engine.connect.return_value.__enter__.return_value
+            resolver.return_value = SimpleNamespace(
+                resolve=Mock(
+                    return_value=SimpleNamespace(
+                        project_key="demo_proj",
+                        project_registry_revision=1,
+                        scope_digest="a" * 64,
+                    )
+                )
+            )
+            with verified_host_authorization_channel(authorization):
+                result = source.handler(
+                    CoreToolCall(
+                        tool_name="ingest.url_pool.submit",
+                        call_id="call-url-runtime",
+                        arguments={
+                            "url": "https://example.gov/report",
+                            "async_mode": True,
+                        },
+                    ),
+                    source.tool_spec,
+                    AgentCoreRequest(
+                        message="collect",
+                        session_id=session_id,
+                        project_key="demo_proj",
+                        turn_id="turn-url-runtime",
+                    ),
+                    lambda _event: None,
+                )
+
+        assert connection is not None
+        assert result.status == "completed"
+        assert result.structured_content["task_id"] == ""
+        assert result.structured_content["runtime_run_ref"] == "runtime-run:url-single-agent-runtime-1"
+        assert result.structured_content["work_item_ids"] == ["work:url-single-agent-runtime-1:1"]
+        submit_runtime.assert_called_once()
+        assert submit_runtime.call_args.kwargs["actor_id"] == "host-actor-17"
+
+    def test_canceled_url_pool_status_recommends_runtime_observation(self):
         from app.services.agent_core.authoring_tools import (
             AuthoringToolContext,
             authoring_ingest_writing_batch_sources,
@@ -302,125 +565,5 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
             )
         guidance = result.structured_content["writing_guidance"]
         assert "task.continue" not in guidance
-        assert guidance.index("task.summary") < guidance.index("task.retry")
-
-    def test_url_pool_background_task_stops_when_agent_session_is_canceled(self):
-        from app.services.tasks import task_ingest_url_via_source_library
-
-        service = AgentSessionService(store=InMemoryAgentSessionStore())
-        bundle = service.create_session(
-            source="user",
-            entrypoint_type="agent_core",
-            goal="URL-pool background cancel",
-            project_key="demo_proj",
-            task_blueprints=[],
-        )
-        session_id = bundle["session"]["session_id"]
-        service.cancel_session(session_id)
-        marker = {
-            "session_id": session_id,
-            "artifact_name": "ingest.url_pool_submissions.json",
-            "idempotency_key": "cancel-bg:url_pool",
-            "project_key": "demo_proj",
-            "url": "https://example.gov/reports/robotics-market",
-            "task_id": "task-cancel-bg",
-            "source_call_id": "call-url-pool-background-cancel",
-        }
-
-        with (
-            patch(
-                "app.services.agent_sessions.service.get_agent_session_service",
-                return_value=service,
-            ),
-            patch(
-                "app.services.ingest.url_pool.ingest_url_via_source_library_frontdoor"
-            ) as mocked_frontdoor,
-        ):
-            result = task_ingest_url_via_source_library(
-                "https://example.gov/reports/robotics-market",
-                query_terms=["robotics"],
-                strict_mode=False,
-                project_key="demo_proj",
-                search_options={"_agent_core_url_pool_submission": marker},
-            )
-
-        mocked_frontdoor.assert_not_called()
-        assert result["status"] == "canceled"
-        assert result["abort_requested"] is True
-        event_artifact = next(
-            item
-            for item in service.list_artifacts(session_id)
-            if item["name"] == "ingest.url_pool_task_events.json"
-        )
-        assert event_artifact["content_json"]["events"][0]["status"] == "canceled"
-
-    def test_url_pool_task_completion_helper_writes_session_artifacts(self):
-        from app.services.tasks import _record_agent_url_pool_task_event
-
-        service = AgentSessionService(store=InMemoryAgentSessionStore())
-        bundle = service.create_session(
-            source="user",
-            entrypoint_type="agent_core",
-            goal="Background URL-pool completion",
-            project_key="demo_proj",
-            task_blueprints=[],
-        )
-        session_id = bundle["session"]["session_id"]
-        service.store.upsert_artifact(
-            {
-                "session_id": session_id,
-                "name": "ingest.url_pool_submissions.json",
-                "artifact_type": "url_pool_ingest_submission_state",
-                "mime_type": "application/json",
-                "content_json": {
-                    "contract_version": "ingest.url_pool.submit.v1",
-                    "project_key": "demo_proj",
-                    "submissions": [
-                        {
-                            "idempotency_key": "candidate-example-gov:url_pool",
-                            "url": "https://example.gov/reports/robotics-market",
-                            "dispatch_result": {
-                                "task_id": "agent-url-pool-123",
-                                "status": "queued",
-                            },
-                        }
-                    ],
-                },
-            }
-        )
-
-        with patch(
-            "app.services.agent_sessions.service.get_agent_session_service",
-            return_value=service,
-        ):
-            _record_agent_url_pool_task_event(
-                {
-                    "session_id": session_id,
-                    "artifact_name": "ingest.url_pool_submissions.json",
-                    "idempotency_key": "candidate-example-gov:url_pool",
-                    "project_key": "demo_proj",
-                    "url": "https://example.gov/reports/robotics-market",
-                    "task_id": "agent-url-pool-123",
-                },
-                status="completed",
-                result={"inserted": 1, "documents": [{"id": 7}]},
-            )
-
-        event_artifact = next(
-            item
-            for item in service.list_artifacts(session_id)
-            if item["name"] == "ingest.url_pool_task_events.json"
-        )
-        assert event_artifact["content_json"]["events"][0]["status"] == "completed"
-        submission_artifact = next(
-            item
-            for item in service.list_artifacts(session_id)
-            if item["name"] == "ingest.url_pool_submissions.json"
-        )
-        submission = submission_artifact["content_json"]["submissions"][0]
-        assert submission["latest_task_status"] == "completed"
-        assert submission["task_events"][0]["task_id"] == "agent-url-pool-123"
-        assert any(
-            event["event_type"] == "ingest.url_pool.task.completed"
-            for event in service.list_events(session_id)
-        )
+        assert "task.retry" not in guidance
+        assert guidance.index("runtime summary") < guidance.index("cancellation observation")

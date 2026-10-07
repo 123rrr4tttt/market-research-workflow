@@ -24,7 +24,6 @@ from .frontdoor_ingress import build_frontdoor_ingress_envelope
 from .postprocess_frontdoor import run_postprocess_frontdoor
 from ..resource_pool.http_port import fetch_html
 from . import url_pool as url_pool_module
-from .url_pool import collect_urls_from_list
 from ..task_readback_metadata import merge_runtime_readback_payload
 from .search_and_ingest import (
     SearchAndIngestSpec,
@@ -171,19 +170,30 @@ def collect_market_info(
             return _writer_result(frontdoor_result)
 
         def route_missing(urls: list[str]) -> ResultRecord:
-            return collect_urls_from_list(
-                urls,
-                project_key=effective_project,
-                query_terms=list(keywords or []),
-                extra_params={
-                    "dispatch_mode": "inline",
-                    "front_door_owner": "ingest.market_web",
-                    "frontdoor_route_decision": "front_door_url_routing",
-                    "frontdoor_write_mode": "front_door_url_routing",
-                    "frontdoor_execution_mode": "url_routing",
-                },
-                enable_extraction=enable_extraction,
+            from ..collect_runtime.runtime import run_collect
+
+            collect_result = run_collect(
+                CollectRequest(
+                    channel="url_pool",
+                    project_key=effective_project,
+                    urls=urls,
+                    query_terms=list(keywords or []),
+                    options={
+                        "dispatch_mode": "inline",
+                        "front_door_owner": "ingest.market_web",
+                        "frontdoor_route_decision": "front_door_url_routing",
+                        "frontdoor_write_mode": "front_door_url_routing",
+                        "frontdoor_execution_mode": "url_routing",
+                        "enable_extraction": enable_extraction,
+                    },
+                )
             )
+            raw_result = collect_result.meta.get("raw")
+            if not isinstance(raw_result, dict):
+                return {}
+            routed: ResultRecord = {}
+            routed.update(raw_result)
+            return routed
 
         with SessionLocal() as session:
             _get_or_create_source(session, "Search API Market", "search", "search")

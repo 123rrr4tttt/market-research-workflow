@@ -5,22 +5,40 @@ from collections.abc import Mapping
 from typing import cast
 
 from app.services.projects.context import current_project_key
-from .failures import retrieval_failure
+from app.services.request_identity import RequestActorContext
 from .contracts import RetrievalJsonObject
-from .service import ProjectRetrievalService, RetrievalError
+from .service import ProjectRetrievalService, raise_retrieval_failure
 
 
 def _project(payload: Mapping[str, object]) -> str:
     active = current_project_key()
     claimed = payload.get("project_key")
     if claimed is not None and claimed != active:
-        failure = retrieval_failure(
-            "PROJECT_MISMATCH", "skill payload belongs to another project",
-            site="skill.project_context", claimed_project=claimed, active_project=active,
+        raise_retrieval_failure(
+            "PROJECT_MISMATCH",
+            "skill payload belongs to another project",
+            404,
         )
-        # kit:boundary owner=project_retrieval.skill.project_context class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=project_retrieval.failure witness=test:test_skill_adapter_rejects_cross_project_key
-        raise RetrievalError(failure.code, failure.message, 404)
     return active
+
+
+def _actor_id(invocation_context: Mapping[str, object]) -> str:
+    actor = invocation_context.get("actor_context")
+    if (
+        not isinstance(actor, RequestActorContext)
+        or not actor.actor_trusted
+        or not actor.actor_id.strip()
+        or actor.actor_source in {
+            "authenticated_oauth_token_sink",
+            "authenticated_oauth_token_sink_claims",
+        }
+    ):
+        raise_retrieval_failure(
+            "INVALID_PLAN",
+            "trusted skill actor identity is required",
+            403,
+        )
+    return actor.actor_id
 
 
 def current(payload: Mapping[str, object]) -> RetrievalJsonObject:
@@ -49,21 +67,35 @@ def preview(payload: Mapping[str, object]) -> RetrievalJsonObject:
     )
 
 
-def start(payload: Mapping[str, object]) -> RetrievalJsonObject:
+def start(
+    payload: Mapping[str, object],
+    *,
+    invocation_context: Mapping[str, object],
+) -> RetrievalJsonObject:
     project = _project(payload)
     return ProjectRetrievalService().start(
         project, plan_id=str(payload.get("plan_id") or ""),
         idempotency_key=str(payload.get("idempotency_key") or ""),
+        actor_id=_actor_id(invocation_context),
     )
 
 
-def read_run(payload: Mapping[str, object]) -> RetrievalJsonObject:
+def read_run(
+    payload: Mapping[str, object],
+    *,
+    invocation_context: Mapping[str, object],
+) -> RetrievalJsonObject:
     return ProjectRetrievalService().read_run(
         _project(payload), str(payload.get("run_id") or ""),
+        actor_id=_actor_id(invocation_context),
     )
 
 
-def continue_saved_frontier(payload: Mapping[str, object]) -> RetrievalJsonObject:
+def continue_saved_frontier(
+    payload: Mapping[str, object],
+    *,
+    invocation_context: Mapping[str, object],
+) -> RetrievalJsonObject:
     """Run one source-closed, persisted frontier through the fixed executor."""
 
     budget = payload.get("remaining_followup_budget")
@@ -75,4 +107,5 @@ def continue_saved_frontier(payload: Mapping[str, object]) -> RetrievalJsonObjec
         proposal_version=str(payload.get("proposal_version") or ""),
         frontier_id=str(payload.get("frontier_id") or ""),
         remaining_followup_budget=normalized_budget,
+        actor_id=_actor_id(invocation_context),
     )

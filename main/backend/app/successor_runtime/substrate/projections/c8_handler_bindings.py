@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Protocol
 
+from app.successor_runtime.runtime.activation import encode_language_value
 from app.successor_runtime.capabilities import knowledge_common as c8
 from app.successor_runtime.capabilities.knowledge_common import knowledge_canonical_digest
 from app.successor_runtime.capabilities.knowledge_program import (
@@ -139,6 +140,7 @@ def build_c8_delivery_activation_catalog(
         transform_registry=registries.transforms,
         merge_registry=registries.merges,
         discriminator_registry=registries.discriminators,
+        encode_value=encode_language_value,
     )
 
 

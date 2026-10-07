@@ -10,7 +10,6 @@ import {
   ingestSingleUrl,
   ingestDataApi,
   listAgentBatchItems,
-  retryAgentBatchJob,
   runSourceLibrary,
   submitAgentBatchJob,
   syncSourceLibrary,
@@ -31,7 +30,6 @@ type SourceLibraryRunPayload = {
 export type { TaskSubmissionState }
 
 type AgentBatchSubmitPayload = Parameters<typeof submitAgentBatchJob>[0]
-type AgentBatchRetryPayload = Parameters<typeof retryAgentBatchJob>[1]
 type AgentBatchRuleSetValidatePayload = Parameters<typeof validateAgentBatchRuleSet>[0]
 export type IngestActionStatusState = {
   phase: 'idle' | 'running' | 'submitted' | 'completed' | 'failed'
@@ -254,8 +252,6 @@ export function useIngestActions(projectKey: string) {
     getAgentBatchJob,
     listAgentBatchItems,
     getAgentBatchEvents,
-    retryAgentBatchJob: (jobId: string, payload?: AgentBatchRetryPayload) =>
-      runAction('重试批量采集任务', () => retryAgentBatchJob(jobId, payload || {})),
     validateAgentBatchRuleSet: (payload: AgentBatchRuleSetValidatePayload) =>
       runAction('校验规则集', () => validateAgentBatchRuleSet(payload)),
   }

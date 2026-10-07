@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import dataclasses
 
+import pytest
 from functorial_kit.contributions import contribution_failures
 
+from app.successor_runtime.capabilities import (
+    workflow_native_contribution as workflow_runtime_module,
+)
 from app.successor_runtime.capabilities.workflow_legacy_dsl import (
     HISTORICAL_C1_DSL_RECEIPT_SCHEMA,
     WORKFLOW_DSL_RECEIPT_SCHEMA,
@@ -23,6 +27,10 @@ from app.successor_runtime.capabilities.workflow_native_contribution import (
     DEFAULT_WORKFLOW_NATIVE_SOURCE,
     WORKFLOW_DEFINITION_FAILURES,
     compile_workflow_native_contribution,
+    advance_workflow_execution_context,
+    build_workflow_runtime_definition,
+    build_workflow_runtime_program,
+    validate_workflow_context_bound_inputs,
 )
 from functorial_kit.contribution_verification import VerificationChanges
 from functorial_kit.core.failure import Failure
@@ -30,10 +38,10 @@ from functorial_kit.core.failure import Failure
 from mrw_functorial_kit.contributions import workflow as c1_catalog_module
 
 EXPECTED_WORKFLOW_PROGRAM_DIGEST = (
-    "129b11a7ba7c9cc106120c92a3e103a8654d5f4481ec9323909eaa17c3164d3a"
+    "9d59c7f244312015cf98e28519ead5b5048446cf6f2314f89ea65cff4bac06f0"
 )
 EXPECTED_WORKFLOW_PLAN_DIGEST = (
-    "d431e12489ababe36519481baaef6fbd9ec1bf432a70aac63f4a055d4fdc3823"
+    "598448169562000b641cf18418011feb93c4559674359ee2968bd2dd0cc977d6"
 )
 EXPECTED_WORKFLOW_CATALOG_DIGEST = (
     "355c3dc24b7857b3f5ee5c1d03870c47ea3d3c1cfc2e7452c958713d995b91b1"
@@ -342,3 +350,110 @@ def test_current_profile_references_identify_versioned_opaque_descriptors() -> N
 def test_compile_artifact_reader_rejects_non_bytes_at_runtime() -> None:
     with __import__("pytest").raises(TypeError, match="raw_bytes must be bytes"):
         read_workflow_compile_artifact(schema=WORKFLOW_DSL_RECEIPT_SCHEMA, raw_bytes="{}")
+
+
+def test_runtime_program_uses_real_profiles_exact_bytes_and_unique_occurrences() -> None:
+    definition = build_workflow_runtime_definition()
+    runtime = build_workflow_runtime_program(
+        workflow_id="graph-1",
+        nodes=(
+            {
+                "node_id": "search",
+                "node_type": "vector_search",
+                "params": {"top_k": 3},
+                "depends_on": [],
+            },
+            {
+                "node_id": "draft",
+                "node_type": "llm_call",
+                "params": {"prompt": "$node.search"},
+                "depends_on": ["search"],
+            },
+            {
+                "node_id": "combine",
+                "node_type": "join",
+                "params": {},
+                "depends_on": ["search", "draft"],
+            },
+        ),
+        topo_order=("search", "draft", "combine"),
+        inputs={"query": "water"},
+        program_id="workflow:graph-1:run-1",
+        project_key="project-1",
+        project_registry_revision=7,
+        project_scope_digest="a" * 64,
+        incarnation="incarnation-1",
+        trace_id="trace-1",
+    )
+
+    assert runtime.program.contract_version == "mrw.workflow.runtime.program.v1"
+    assert runtime.operation_ids == (
+        "workflow-node:0:search",
+        "workflow-node:1:draft",
+        "workflow-node:2:combine",
+    )
+    assert len(set(ref.content_digest for ref, _ in runtime.values)) == 3
+    assert all(ref.byte_size == len(exact) for ref, exact in runtime.values)
+    assert all(
+        operation.contract.semantic_profile_ref == operation.profiles.semantic.ref
+        and operation.contract.effect_profile_ref == operation.profiles.effect.ref
+        and operation.contract.resource_profile_ref == operation.profiles.resource.ref
+        and operation.contract.failure_profile_ref == operation.profiles.failure.ref
+        and operation.contract.authority_profile_ref == operation.profiles.authority.ref
+        and operation.contract.interpreter_compatibility_ref
+        == operation.profiles.interpreter.ref
+        for operation in definition.operations
+    )
+
+    first_operation = definition.operation_for_node_type("vector_search")
+    first_ref, first_exact = runtime.values[0]
+    first_context = first_operation.context_codec.decode_payload(
+        __import__("json").loads(first_exact)
+    )
+    validate_workflow_context_bound_inputs(
+        first_context,
+        ((first_ref, first_exact),),
+        operation=first_operation,
+    )
+    advanced = advance_workflow_execution_context(
+        first_context,
+        node_id="search",
+        result={"items": ["a"]},
+    )
+    second_operation = definition.operation_for_node_type("llm_call")
+    second_ref, second_exact = runtime.values[1]
+    validate_workflow_context_bound_inputs(
+        advanced,
+        ((second_ref, second_exact),),
+        operation=second_operation,
+    )
+    assert advanced.cursor == 1
+    assert advanced.results == {"search": {"items": ["a"]}}
+
+
+def test_workflow_runtime_validation_uses_typed_failure_lift() -> None:
+    failure = workflow_runtime_module._workflow_runtime_failure(
+        workflow_runtime_module.WORKFLOW_PROGRAM_PLAN_BINDING_INVALID,
+        "workflow runtime test rejection",
+        site="test_workflow_runtime_validation",
+    )
+    assert failure.family == "workflow.definition.failure"
+    assert failure.code == "WORKFLOW_PROGRAM_PLAN_BINDING_INVALID"
+    assert failure.context is not None
+    assert failure.context["public_exception"] == "ValueError"
+
+    with pytest.raises(ValueError, match="^workflow runtime test rejection$"):
+        workflow_runtime_module._raise_workflow_runtime_failure(failure)
+    malformed_failure = contribution_failures.fail(
+        "CONTRIBUTION_INVALID",
+        "not a workflow runtime failure",
+        {},
+    )
+    with pytest.raises(TypeError, match="workflow runtime failure lift context is incomplete"):
+        workflow_runtime_module._raise_workflow_runtime_failure(malformed_failure)
+
+    definition = build_workflow_runtime_definition()
+    with pytest.raises(ValueError, match="unsupported workflow runtime node type"):
+        definition.operation_for_node_type("unsupported")
+    with pytest.raises(TypeError, match="workflow runtime context JSON shape is invalid"):
+        definition.operations[0].context_codec.decode_payload({})

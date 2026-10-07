@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Literal, NoReturn, SupportsIndex, SupportsInt, TypeGuard
@@ -10,10 +9,10 @@ from functorial_kit.core.failure import Failure
 from mrw_functorial_kit.core.provider_port_failures import collect_runtime_failures
 
 from ..agent_batch.task_contract import parse_source_library_runtime_params
+from app.successor_runtime.language.sync import interpret_ordered_sync
 
 from .contracts import (
     FLOW_SOURCE_COLLECT,
-    CollectAdapter,
     CollectEffectGateway,
     CollectFailure,
     CollectJsonObject,
@@ -23,13 +22,11 @@ from .contracts import (
     SourceLibraryCompatResponse,
     SourceLibraryCompatProjector,
 )
-from .delivery import DeliveryObservation, observe_delivery, resource_compatibility
-from .successor_bridge import outcome_unknown_result
+from .delivery import DeliveryObservation, observe_delivery
 
 if TYPE_CHECKING:
     from app.successor_runtime.capabilities import acquisition_batch as acquisition
 
-_SKILL_REGISTRY: dict[str, CollectAdapter] = {}
 _source_library_compat_projector: SourceLibraryCompatProjector | None = None
 _successor_effect_gateway: CollectEffectGateway | None = None
 
@@ -45,43 +42,6 @@ def _collect_contract_failure(code: str, message: str, *, site: str) -> Failure:
 def _raise_collect_contract(failure: Failure, exception_type: type[Exception] = ValueError) -> NoReturn:
     # kit:boundary owner=collect.runtime.contract_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=collect.runtime.failure witness=test:test_w03_collect_contract_failures
     raise exception_type(failure.message)
-
-
-def register_collect_skill(skill_id: str, adapter: CollectAdapter) -> None:
-    sid = str(skill_id or "").strip()
-    if not sid:
-        _raise_collect_contract(
-            _collect_contract_failure("skill_id_required", "skill_id is required", site="register_collect_skill.skill_id")
-        )
-    if not callable(getattr(adapter, "run", None)):
-        _raise_collect_contract(
-            _collect_contract_failure(
-                "collect_adapter_contract_invalid",
-                "collect adapter must provide run(request)",
-                site="register_collect_skill.adapter",
-            ),
-            TypeError,
-        )
-    _SKILL_REGISTRY[sid] = adapter
-
-
-def list_collect_skills() -> list[str]:
-    return sorted(_SKILL_REGISTRY.keys())
-
-
-def register_collect_adapters(adapters: Mapping[str, CollectAdapter]) -> None:
-    """Register a complete adapter set without importing concrete adapters."""
-
-    for channel, adapter in adapters.items():
-        register_collect_skill(str(channel), adapter)
-        register_collect_skill(f"collect.{channel}", adapter)
-        register_collect_skill(f"skill.collect.{channel}", adapter)
-
-
-def reset_collect_adapters() -> None:
-    """Reset process-local adapter registration; intended for composition tests."""
-
-    _SKILL_REGISTRY.clear()
 
 
 def register_source_library_compat_projector(projector: SourceLibraryCompatProjector) -> None:
@@ -132,18 +92,6 @@ def run_collect(request: CollectRequest) -> CollectResult:
     return _run_collect_no_batch(request)
 
 
-@dataclass(frozen=True, slots=True)
-class _CollectProjectScope:
-    project_key: str
-    registry_revision: int
-    scope_digest: str
-
-
-@dataclass(slots=True)
-class _CollectConcurrencyView:
-    provider_concurrency_key: str | None
-
-
 @dataclass(slots=True)
 class _CollectDeliveryView:
     status: str | None
@@ -188,54 +136,6 @@ class _CollectDeliveryRow:
         return value
 
 
-def _successor_request_id(request: CollectRequest) -> str:
-    from app.successor_runtime.capabilities.checksum import content_digest
-
-    return "collect:" + content_digest(
-        {
-            "flow": request.flow,
-            "channel": request.channel,
-            "project_key": request.project_key,
-            "query_terms": list(request.query_terms or []),
-            "urls": list(request.urls or []),
-            "limit": request.limit,
-            "provider": request.provider,
-            "language": request.language,
-            "scope": request.scope,
-            "item_key": request.item_key,
-            "options": dict(request.options or {}),
-            "source_context": dict(request.source_context or {}),
-        }
-    )
-
-
-def _successor_resource_policy(request: CollectRequest) -> acquisition.CollectResourcePolicy:
-    from app.successor_runtime.capabilities import acquisition_batch as acquisition
-
-    # C3 has a provider key but no write scopes or capacity ledger. A caller's
-    # independence hint cannot establish that two effects are compatible.
-    provider_key = f"{request.channel}:{request.provider or 'default'}"
-    siblings = _CollectConcurrencyView(provider_concurrency_key=provider_key)
-    compatibility = resource_compatibility(siblings, siblings)
-    requested = acquisition.resolve_auto_batch_parallelism(request) if compatibility == "compatible" else 1
-    raw_deadline = request.options.get("deadline_seconds")
-    deadline = None
-    if isinstance(raw_deadline, (bool, int, float, str)):
-        try:
-            deadline = max(1, int(raw_deadline))
-        except (TypeError, ValueError):
-            deadline = None
-    return acquisition.CollectResourcePolicy(
-        schema_ref=acquisition.COLLECT_RESOURCE_POLICY_SCHEMA_REF,
-        max_parallelism=max(1, requested),
-        deadline_seconds=deadline,
-        cancellation=("COORDINATED" if acquisition.resolve_auto_batch_fail_fast(request) else "NONE"),
-        backpressure=True,
-        provider_concurrency_key=provider_key,
-        policy_digest="",
-    )
-
-
 def _collect_delivery_observation(
     result: CollectResult, *, expected_delivery: str = "unknown"
 ) -> DeliveryObservation:
@@ -269,6 +169,30 @@ def _attach_delivery_observation(result: CollectResult) -> CollectResult:
     return result
 
 
+def _outcome_unknown_result(request: CollectRequest) -> CollectResult:
+    """Fail closed when no explicit collect effect gateway is bound."""
+
+    result = CollectResult(
+        flow=request.flow,
+        channel=request.channel,
+        status="unknown",
+        errors=[{
+            "code": "successor_effect_gateway_unavailable",
+            "message": "collect requires an explicit effect gateway",
+        }],
+        meta={
+            "raw": {
+                "outcome": "OutcomeUnknown",
+                "reason": "effect_gateway_unavailable",
+            }
+        },
+    )
+    from .display_meta import build_display_meta
+
+    result.display_meta = build_display_meta(request, result)
+    return result
+
+
 def _json_object(value: CollectJsonValue) -> CollectJsonObject:
     return value if isinstance(value, dict) else {}
 
@@ -283,7 +207,7 @@ def _json_link_values(value: CollectJsonValue) -> list[CollectJsonValue] | dict[
         _collect_contract_failure(
             "auto_batch_execution_failed",
             f"'{type(value).__name__}' object is not iterable",
-            site="collect_result_to_c3_outcome.links",
+            site="collect_result_to_element_outcome.links",
         ),
         TypeError,
     )
@@ -293,7 +217,7 @@ def _json_links(value: CollectJsonValue) -> tuple[str, ...]:
     return tuple(str(link).strip() for link in _json_link_values(value) if str(link).strip())
 
 
-def _collect_result_to_c3_outcome(
+def _collect_result_to_element_outcome(
     result: CollectResult, element: acquisition.CollectBatchElement
 ) -> acquisition.CollectElementOutcome:
     from app.successor_runtime.capabilities import acquisition_batch as acquisition
@@ -361,8 +285,254 @@ def _collect_result_to_c3_outcome(
     )
 
 
+def _build_collect_batch_plan(
+    request: CollectRequest,
+) -> tuple[acquisition.CollectBatchPlan, acquisition.CollectResourcePolicy]:
+    from app.successor_runtime.capabilities import acquisition_batch as acquisition
+    from app.successor_runtime.capabilities.checksum import content_digest
+
+    project_key = str(request.project_key or "").strip()
+    request_id = "collect:" + content_digest(
+        {
+            "flow": request.flow,
+            "channel": request.channel,
+            "project_key": project_key,
+            "query_terms": list(request.query_terms or []),
+            "urls": list(request.urls or []),
+            "limit": request.limit,
+            "provider": request.provider,
+            "language": request.language,
+            "scope": request.scope,
+            "item_key": request.item_key,
+            "options": dict(request.options or {}),
+            "source_context": dict(request.source_context or {}),
+        }
+    )
+    request_ref = acquisition.build_collect_request_ref(
+        request_id=request_id,
+        project_key=project_key,
+        channel=request.channel,
+    )
+    snapshot = acquisition.CollectLegacyRequestSnapshot(
+        schema_version=acquisition.COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
+        flow=request.flow,
+        channel=request.channel,
+        project_key=project_key,
+        query_terms=tuple(request.query_terms or ()),
+        urls=tuple(request.urls or ()),
+        limit=request.limit,
+        options=acquisition.freeze_json_object(dict(request.options or {})),
+        source_context=acquisition.freeze_json_object(dict(request.source_context or {})),
+        snapshot_digest="",
+    )
+    raw_deadline = request.options.get("deadline_seconds")
+    deadline_seconds: int | None = None
+    if isinstance(raw_deadline, (bool, int, float, str)):
+        try:
+            deadline_seconds = max(1, int(raw_deadline))
+        except (TypeError, ValueError):
+            deadline_seconds = None
+    policy = acquisition.CollectResourcePolicy(
+        schema_ref=acquisition.COLLECT_RESOURCE_POLICY_SCHEMA_REF,
+        max_parallelism=1,
+        deadline_seconds=deadline_seconds,
+        cancellation=(
+            "COORDINATED"
+            if acquisition.resolve_auto_batch_fail_fast(request)
+            else "NONE"
+        ),
+        backpressure=True,
+        provider_concurrency_key=f"{request.channel}:{request.provider or 'default'}",
+        policy_digest="",
+    )
+    plan = acquisition.build_collect_batch_plan(
+        request_ref=request_ref,
+        snapshot=snapshot,
+        plan_id=f"collect-sync:{request_id}",
+        resource_policy=policy,
+        authority_scope_ref=f"project:{project_key}",
+    )
+    return plan, policy
+
+
+def _failed_collect_outcome(
+    element: acquisition.CollectBatchElement,
+    exc: Exception,
+) -> acquisition.CollectElementFailed:
+    from app.successor_runtime.capabilities import acquisition_batch as acquisition
+
+    error = acquisition.CollectElementError(
+        code="auto_batch_execution_failed",
+        message=str(exc) or exc.__class__.__name__,
+        query_terms=element.query_terms,
+        exception_type=exc.__class__.__name__,
+        error_digest="",
+    )
+    return acquisition.CollectElementFailed(
+        schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+        element_id=element.element_id,
+        input_index=element.input_index,
+        error=error,
+        counts=acquisition.CollectCounts(),
+        links=(),
+        receipt=None,
+        legacy_observation_ref="legacy:" + error.error_digest,
+        outcome_digest="",
+    )
+
+
+def _collect_cancellation_receipt(
+    cause: acquisition.CollectElementError,
+    *,
+    trigger_input_index: int,
+) -> acquisition.CollectCancellationReceipt:
+    from app.successor_runtime.capabilities import acquisition_batch as acquisition
+
+    return acquisition.CollectCancellationReceipt(
+        schema_version=acquisition.COLLECT_CANCELLATION_RECEIPT_SCHEMA_REF,
+        code="FAIL_FAST_CANCELLED",
+        message=cause.message,
+        trigger_input_index=trigger_input_index,
+        observed="SERIAL_EXECUTION",
+        receipt_digest="",
+    )
+
+
+def _project_collect_aggregate(
+    request: CollectRequest,
+    aggregate: acquisition.CollectAggregateOutcome,
+    sequence: acquisition.OrderedCollectElementOutcomeSequence,
+    plan: acquisition.CollectBatchPlan,
+    *,
+    cancellation: acquisition.CollectCancellationReceipt | None = None,
+) -> CollectResult:
+    from app.successor_runtime.capabilities import acquisition_batch as acquisition
+
+    counts: acquisition.CollectCounts | None = None
+    receipts: tuple[acquisition.CollectAttemptReceipt, ...] = ()
+    links: tuple[str, ...] = ()
+    element_errors: tuple[acquisition.CollectElementError, ...] = ()
+    if isinstance(
+        aggregate,
+        (
+            acquisition.CollectAggregateSucceeded,
+            acquisition.CollectAggregatePartial,
+            acquisition.CollectAggregateFailed,
+        ),
+    ):
+        counts = aggregate.aggregate_counts
+        receipts = aggregate.receipts
+        links = aggregate.links
+    if isinstance(
+        aggregate,
+        (acquisition.CollectAggregatePartial, acquisition.CollectAggregateFailed),
+    ):
+        element_errors = aggregate.errors
+
+    batch_results: list[CollectJsonValue] = []
+    inserted_count = 0 if counts is None else counts.inserted
+    updated_count = 0 if counts is None else counts.updated
+    skipped_count = 0 if counts is None else counts.skipped
+    raw: CollectJsonObject = {
+        "inserted": inserted_count,
+        "updated": updated_count,
+        "skipped": skipped_count,
+        "auto_batched": True,
+        "batches_total": len(plan.elements),
+        "batch_parallelism": plan.effective_parallelism,
+        "batch_parallelism_requested": plan.requested_parallelism,
+        "batch_independence_policy_explicit": plan.effective_parallelism > 1,
+        "batch_results": batch_results,
+        "typed_batch_results": [outcome.to_plain() for outcome in sequence.outcomes],
+        "ordered_outcomes": sequence.to_plain(),
+        "aggregate": aggregate.to_plain(),
+        "aggregate_kind": aggregate.kind,
+    }
+    for outcome in sequence.outcomes:
+        projection: CollectJsonObject = {
+            "status": outcome.status,
+            "inserted": outcome.counts.inserted,
+            "updated": outcome.counts.updated,
+            "skipped": outcome.counts.skipped,
+            "errors": (
+                [outcome.error.to_plain()]
+                if isinstance(outcome, acquisition.CollectElementFailed)
+                and outcome.error is not None
+                else []
+            ),
+            "links": list(outcome.links),
+        }
+        item: CollectJsonObject = {
+            "query_terms": list(
+                plan.elements[outcome.input_index].query_terms
+                if 0 <= outcome.input_index < len(plan.elements)
+                else (
+                    outcome.error.query_terms
+                    if isinstance(outcome, acquisition.CollectElementFailed)
+                    and outcome.error is not None
+                    else ()
+                )
+            ),
+            "result": projection,
+        }
+        if outcome.receipt is not None:
+            item.update(
+                {
+                    "provider_job_id": outcome.receipt.provider_job_id,
+                    "provider_type": outcome.receipt.provider_type,
+                    "provider_status": outcome.receipt.provider_status,
+                    "attempt_count": outcome.receipt.attempt_count,
+                }
+            )
+        batch_results.append(item)
+    if cancellation is not None:
+        raw["cancellation_receipt"] = cancellation.to_plain()
+    if receipts:
+        raw["receipts"] = [receipt.to_plain() for receipt in receipts]
+        raw["provider_job_ids"] = [receipt.provider_job_id for receipt in receipts]
+    if links:
+        raw["links"] = list(links)
+    errors: list[CollectFailure] = [
+        CollectFailure(**error.to_plain()) for error in element_errors
+    ]
+    terminal_receipts = bool(receipts) and all(
+        acquisition.receipt_implies_completed(receipt) for receipt in receipts
+    )
+    if cancellation is not None:
+        status = "cancelled"
+    elif aggregate.kind == "succeeded" and terminal_receipts:
+        status = "completed"
+    elif aggregate.kind == "succeeded":
+        status = "accepted"
+    elif aggregate.kind == "partial":
+        status = "partial"
+    else:
+        status = "failed"
+    result = CollectResult(
+        flow=request.flow,
+        channel=request.channel,
+        status=status,
+        inserted=inserted_count,
+        updated=updated_count,
+        skipped=skipped_count,
+        errors=errors,
+        meta={
+            "raw": raw,
+            "batch_parallelism": plan.effective_parallelism,
+            "batch_parallelism_requested": plan.requested_parallelism,
+            "batch_independence_policy_explicit": plan.effective_parallelism > 1,
+        },
+    )
+    if len(receipts) == 1:
+        result.provider_job_id = receipts[0].provider_job_id
+        result.provider_type = receipts[0].provider_type
+        result.provider_status = receipts[0].provider_status
+        result.attempt_count = receipts[0].attempt_count
+    return result
+
+
 def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
-    """Execute eligible search batches through the real typed C3 interpreters."""
+    """Interpret one known finite collect batch in request-local order."""
 
     from app.successor_runtime.capabilities import acquisition_batch as acquisition
     if (
@@ -373,56 +543,14 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
         return None
     gateway = _successor_effect_gateway
     if gateway is None:
-        return outcome_unknown_result(request)
-    from app.successor_runtime.capabilities import acquisition_batch_interpreters as ci
-    from app.successor_runtime.capabilities import acquisition_batch_program as cp
-    from app.successor_runtime.capabilities.acquisition_native_contribution import (
-        default_acquisition_native_definition,
-    )
-    from app.successor_runtime.runtime.assignments import InterpreterBinding
-    from app.successor_runtime.language.catalog import OperationContractCatalogSnapshot, OperationContractRegistry
-    from app.successor_runtime.language.program import Atom
-
-    native_definition = default_acquisition_native_definition()
-    if isinstance(native_definition, Failure):
-        return None
-    catalog = native_definition.catalog
-    registry = native_definition.registry
-    assert isinstance(catalog, OperationContractCatalogSnapshot)
-    assert isinstance(registry, OperationContractRegistry)
-    request_ref = acquisition.build_collect_request_ref(
-        request_id=_successor_request_id(request),
-        project_key=str(request.project_key),
-        channel=request.channel,
-    )
-    snapshot = acquisition.CollectLegacyRequestSnapshot(
-        schema_version=acquisition.COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
-        flow=request.flow,
-        channel=request.channel,
-        project_key=request.project_key,
-        query_terms=tuple(request.query_terms or ()),
-        urls=tuple(request.urls or ()),
-        limit=request.limit,
-        options=acquisition.freeze_json_object(dict(request.options or {})),
-        source_context=acquisition.freeze_json_object(dict(request.source_context or {})),
-        snapshot_digest="",
-    )
-    policy = _successor_resource_policy(request)
-    plan = acquisition.build_collect_batch_plan(
-        request_ref=request_ref,
-        snapshot=snapshot,
-        plan_id=f"successor:{request_ref.request_id}",
-        resource_policy=policy,
-        authority_scope_ref=f"project:{request.project_key}",
-    )
-    scope = _CollectProjectScope(
-        project_key=str(request.project_key),
-        registry_revision=1,
-        scope_digest=acquisition.content_digest({"project_key": request.project_key, "revision": 1}),
-    )
+        return _outcome_unknown_result(request)
+    plan, policy = _build_collect_batch_plan(request)
     delivery_by_index: dict[int, _CollectDeliveryRow] = {}
 
-    def _run_bound_effect(element: acquisition.CollectBatchElement) -> acquisition.CollectElementOutcome:
+    def _run_bound_effect(
+        element: acquisition.CollectBatchElement,
+        _previous: None,
+    ) -> acquisition.CollectElementOutcome:
         effect_request = replace(
             request,
             query_terms=list(element.query_terms),
@@ -432,8 +560,31 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
                 "auto_batched_child": True,
             },
         )
-        effect_result = gateway(effect_request)
+        try:
+            effect_result = gateway(effect_request)
+        except Exception as exc:  # noqa: BLE001 - domain failure row preserves partial order
+            return _failed_collect_outcome(element, exc)
         effect_raw = _json_object(effect_result.meta.get("raw"))
+        try:
+            observed_links = tuple(
+                str(link)
+                for link in _json_link_values(effect_raw.get("links"))
+                if str(link).strip()
+            )
+        except Exception as exc:  # noqa: BLE001 - preserve the attempted delivery before typed projection
+            delivery_by_index[element.input_index] = _CollectDeliveryRow(
+                element_id=element.element_id,
+                input_index=element.input_index,
+                query_terms=element.query_terms,
+                observation=_collect_delivery_observation(effect_result),
+                counts=_CollectDeliveryCounts(
+                    inserted=int(effect_result.inserted or 0),
+                    updated=int(effect_result.updated or 0),
+                    skipped=int(effect_result.skipped or 0),
+                ),
+                execution_state="attempted_unknown",
+            )
+            return _failed_collect_outcome(element, exc)
         delivery_by_index[element.input_index] = _CollectDeliveryRow(
             element_id=element.element_id,
             input_index=element.input_index,
@@ -444,90 +595,45 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
                 updated=int(effect_result.updated or 0),
                 skipped=int(effect_result.skipped or 0),
             ),
-            links=tuple(str(link) for link in _json_link_values(effect_raw.get("links")) if str(link).strip()),
+            links=observed_links,
         )
-        return _collect_result_to_c3_outcome(effect_result, element)
+        try:
+            return _collect_result_to_element_outcome(effect_result, element)
+        except Exception as exc:  # noqa: BLE001 - typed projection failure remains one ordered element failure
+            row = delivery_by_index[element.input_index]
+            if row.observation.state == "unknown" and row.observation.provider_state == "unknown":
+                delivery_by_index[element.input_index] = replace(
+                    row,
+                    execution_state="attempted_unknown",
+                )
+            return _failed_collect_outcome(element, exc)
 
-    class _AdapterRunner:
-        def run(self, element: acquisition.CollectBatchElement) -> acquisition.CollectElementOutcome:
-            return _run_bound_effect(element)
-
-    class _BoundRunner:
-        def run(self, element: acquisition.CollectBatchElement) -> acquisition.CollectElementOutcome:
-            payload = acquisition.CollectBatchElementPayload(
-                schema_version=acquisition.ACQUISITION_BATCH_ELEMENT_PAYLOAD_SCHEMA,
-                operation_kind=acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND,
-                parent_request_ref=request_ref,
-                request_snapshot=snapshot,
-                element=element,
-                resource_policy=policy,
-                authority_scope_ref=f"project:{request.project_key}",
-                payload_digest="",
-            )
-            program_id = (
-                f"{plan.plan_id}:execute-element:{element.input_index}"
-            )
-            program = cp.build_collect_batch_element_program(
-                payload=payload,
-                catalog=catalog,
-                program_id=program_id,
-                project_key=scope.project_key,
-                project_registry_revision=scope.registry_revision,
-                project_scope_digest=scope.scope_digest,
-            )
-            bound_plan = cp.compile_collect_program(program, catalog, operation_contracts=registry)
-            assert isinstance(program.root, Atom)
-            outcome = ci.CollectTraversalSuccessorInterpreter().interpret(
-                program=program,
-                plan=bound_plan,
-                contract_ref=program.root.operation.contract_ref,
-                payload_ref=program.root.operation.payload_ref,
-                payload=payload,
-                project_scope=scope,
-                catalog=catalog,
-                deployment_catalog_digest=acquisition.deployment_catalog_digest(),
-                binding=InterpreterBinding.from_content(
-                    operation_contract_digest=program.root.operation.contract_ref.contract_digest,
-                    interpreter_profile_digest=ci.successor_execute_element_interpreter_profile_digest(),
-                    deployment_catalog_digest=acquisition.deployment_catalog_digest(),
-                    runtime_protocol_version="mrw.runtime.protocol.v1",
-                    project_scope_digest=scope.scope_digest,
-                    resource_policy_epoch=1,
-                    authority_requirement_digest=ci.authority_requirement_digest(
-                        acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND
-                    ),
-                ),
-                runner=_AdapterRunner(),
-            )
-            if isinstance(outcome, ci.InterpreterSuccess):
-                return outcome.value
-            return acquisition.CollectElementFailed(
-                schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
-                element_id=element.element_id,
-                input_index=element.input_index,
-                error=acquisition.CollectElementError(
-                    code="auto_batch_execution_failed",
-                    message=outcome.message,
-                    query_terms=tuple(element.query_terms),
-                    error_digest="",
-                ),
-                counts=acquisition.CollectCounts(),
-                links=(),
-                receipt=None,
-                legacy_observation_ref="legacy:" + acquisition.content_digest({"element": element.element_id, "error": outcome.code}),
-                outcome_digest="",
-            )
-
-    traversal = ci.run_ordered_traversal(plan, _BoundRunner())
-    if isinstance(traversal, acquisition.OrderedTraversalAborted):
-        ordered_outcomes = tuple(sorted(traversal.partial_outcomes, key=lambda item: item.input_index))
+    ordered_outcomes = interpret_ordered_sync(
+        plan.elements,
+        initial_value=None,
+        invoke=_run_bound_effect,
+        continue_after=lambda outcome: not (
+            isinstance(outcome, acquisition.CollectElementFailed)
+            and plan.failure_policy == "FAIL_FAST_WITH_PARTIAL_OBSERVATION"
+        ),
+        output_value=lambda _outcome: None,
+    )
+    failed = next(
+        (
+            outcome
+            for outcome in ordered_outcomes
+            if isinstance(outcome, acquisition.CollectElementFailed)
+        ),
+        None,
+    )
+    if failed is not None and plan.failure_policy == "FAIL_FAST_WITH_PARTIAL_OBSERVATION":
+        assert failed.error is not None
         cancelled = True
-        cancellation = traversal.cancellation_receipt
+        cancellation = _collect_cancellation_receipt(
+            failed.error,
+            trigger_input_index=failed.input_index,
+        )
     else:
-        observation = None if isinstance(traversal, acquisition.CollectTraversalBypassed) else traversal.observation
-        if observation is None:
-            return CollectResult(channel=request.channel, status="failed", errors=[{"code": "auto_batch_execution_failed", "message": "successor traversal produced no observation"}])
-        ordered_outcomes = observation.ordered_outcomes
         cancelled = False
         cancellation = None
     outcome_indexes = {item.input_index for item in ordered_outcomes}
@@ -543,7 +649,8 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
             )
         delivery_rows.append(replace(row,
             execution_state=(
-                "attempted" if element.input_index in delivery_by_index
+                row.execution_state if row.execution_state != "not_attempted"
+                else "attempted" if element.input_index in delivery_by_index
                 else "attempted_unknown" if element.input_index in outcome_indexes
                 else "not_attempted"
             ),
@@ -555,7 +662,7 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
     pending_delivery = any(state in {"waiting", "unknown"} for state in delivery_states)
     delivery_cancelled = any(state == "cancelled" for state in delivery_states)
     if pending_delivery or delivery_cancelled:
-        # C3 currently has only succeeded/failed element variants. Preserve
+        # The acquisition outcome union has only succeeded/failed element variants. Preserve
         # uncertain or cancelled owner observations before its fold would
         # mislabel them as failures, and do not unlock the next collect step.
         counts = {
@@ -607,53 +714,21 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
         )
     sequence = acquisition.OrderedCollectElementOutcomeSequence(
         schema_version=acquisition.ORDERED_OUTCOME_SEQUENCE_SCHEMA_REF,
-        parent_request_ref=request_ref,
+        parent_request_ref=plan.request_ref,
         outcomes=ordered_outcomes,
         sequence_digest="",
     )
-    fold_payload = acquisition.build_collect_fold_payload(parent_request_ref=request_ref, ordered_outcomes=sequence)
-    fold_program = cp.build_collect_fold_ordered_results_program(
-        payload=fold_payload,
-        catalog=catalog,
-        program_id=f"{plan.plan_id}:fold-ordered-results",
-        project_key=scope.project_key,
-        project_registry_revision=scope.registry_revision,
-        project_scope_digest=scope.scope_digest,
+    aggregate = acquisition.fold_ordered_results(
+        sequence,
+        aggregation_policy_ref=acquisition.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
+        observation_profile_ref=acquisition.COLLECT_FOLD_OBSERVATION_PROFILE,
     )
-    fold_plan = cp.compile_collect_program(fold_program, catalog, operation_contracts=registry)
-    assert isinstance(fold_program.root, Atom)
-    fold_result = ci.CollectFoldSuccessorInterpreter().interpret(
-        program=fold_program,
-        plan=fold_plan,
-        contract_ref=fold_program.root.operation.contract_ref,
-        payload_ref=fold_program.root.operation.payload_ref,
-        payload=fold_payload,
-        project_scope=scope,
-        catalog=catalog,
-        deployment_catalog_digest=acquisition.deployment_catalog_digest(),
-        binding=InterpreterBinding.from_content(
-            operation_contract_digest=fold_program.root.operation.contract_ref.contract_digest,
-            interpreter_profile_digest=ci.successor_fold_ordered_results_interpreter_profile_digest(),
-            deployment_catalog_digest=acquisition.deployment_catalog_digest(),
-            runtime_protocol_version="mrw.runtime.protocol.v1",
-            project_scope_digest=scope.scope_digest,
-            resource_policy_epoch=1,
-            authority_requirement_digest=ci.authority_requirement_digest(
-                acquisition.COLLECT_FOLD_ORDERED_RESULTS_KIND
-            ),
-        ),
-    )
-    if not isinstance(fold_result, ci.InterpreterSuccess):
-        return CollectResult(channel=request.channel, status="failed", errors=[{"code": "auto_batch_execution_failed", "message": fold_result.message}])
-    aggregate = fold_result.value
-    from .successor_bridge import project_successor_aggregate
 
-    result = project_successor_aggregate(
+    result = _project_collect_aggregate(
         request,
         aggregate,
         sequence,
         plan,
-        acquisition,
         cancellation=(cancellation if cancelled else None),
     )
     delivery_plain: list[CollectJsonValue] = [row.to_plain() for row in delivery_rows]
@@ -670,7 +745,7 @@ def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
 
 def _run_collect_no_batch(request: CollectRequest) -> CollectResult:
     if _successor_effect_gateway is None:
-        return _attach_delivery_observation(outcome_unknown_result(request))
+        return _attach_delivery_observation(_outcome_unknown_result(request))
     return _attach_delivery_observation(_successor_effect_gateway(request))
 
 

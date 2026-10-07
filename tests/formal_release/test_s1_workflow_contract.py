@@ -94,8 +94,9 @@ class S1WorkflowContractTestCase(unittest.TestCase):
         self.assertEqual(expected_test_dependencies, installed_test_dependencies)
 
         unit_step = steps["Run pytest (unit, deterministic lane)"]
-        self.assertEqual("main/backend", unit_step["working-directory"])
-        self.assertIn('pytest -m "unit and not external and not flaky" -q', unit_step["run"])
+        self.assertNotIn("working-directory", unit_step)
+        self.assertEqual("1", unit_step["env"]["MRW_PYTEST_EXCLUDE_FLAKY"])
+        self.assertIn("bash scripts/test-standardize.sh unit -q", unit_step["run"])
 
         dockerfile_test = (ROOT / "main/backend/Dockerfile.test").read_text(encoding="utf-8")
         self.assertIn("COPY ./pyproject.toml /opt/mrw/pyproject.toml", dockerfile_test)

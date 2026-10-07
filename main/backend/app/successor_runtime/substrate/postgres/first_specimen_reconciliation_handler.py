@@ -9,7 +9,7 @@ original internal export.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol, Self
@@ -915,4 +915,727 @@ __all__ = [
     "PostgresFirstSpecimenReconciliationHandler",
     "ReconciliationUnitOfWorkFactory",
     "VerifyAdmitRecoveryPort",
+    "BatchBusinessBrokerReadbackFacade",
+    "BatchBusinessCancelResult",
+    "BatchBusinessNonStartUnprovable",
+    "BatchBusinessReadback",
+    "BatchBusinessReadbackError",
+    "BatchBusinessReadbackReplayData",
+    "BatchBusinessReadbackReplayPort",
+    "BatchBusinessReadbackRequest",
+    "BatchBusinessWaitHandler",
+    "BatchTaskBusinessRecoveryReadback",
+    "BusinessResultPublisher",
+    "InstalledBatchTaskBusinessReadbackHandler",
+    "PostgresBatchBusinessReadbackReplay",
+    "PostgresBusinessResultPublisher",
+    "PostgresBatchTaskBusinessReadbackHandler",
 ]
+
+
+import json
+from datetime import UTC
+from typing import Literal
+
+from app.successor_runtime.capabilities.batch_business import (
+    BrokerBusinessReadback,
+    BusinessCancelObservation,
+    BusinessTaskObservation,
+    BusinessTaskState,
+)
+from app.successor_runtime.capabilities import batch_task
+from app.successor_runtime.capabilities import batch_business
+from app.successor_runtime.capabilities.checksum import canonical_json
+from app.successor_runtime.runtime.recovery import NonStartProof
+
+from .first_specimen_activation import PostgresFirstSpecimenActivationBindingAdapter
+from .batch_task_submission_handler import PersistentOperationHandler
+from .node_adapter import UowFactory
+
+
+class BatchBusinessReadbackError(RuntimeError):
+    """The durable wait graph or the business broker readback drifted."""
+
+
+@dataclass(frozen=True, slots=True)
+class BatchBusinessReadbackRequest:
+    """Exact readback target rebuilt from the accepted dispatch ACK."""
+
+    project_key: str
+    project_scope_digest: str
+    run_id: str
+    step_id: str
+    attempt_id: str
+    assignment_digest: str
+    operation_contract_ref: OperationContractRef
+    handler_binding_digest: str
+    dispatch_id: str
+    channel: str
+    lane: str
+    celery_task_id: str
+    ack_digest: str
+
+    def __post_init__(self) -> None:
+        for name in (
+            "project_key",
+            "run_id",
+            "step_id",
+            "attempt_id",
+            "assignment_digest",
+            "handler_binding_digest",
+            "project_scope_digest",
+            "dispatch_id",
+            "celery_task_id",
+            "ack_digest",
+        ):
+            if not getattr(self, name):
+                raise ValueError(f"BatchBusinessReadbackRequest requires {name}")
+        for name in (
+            "project_scope_digest",
+            "attempt_id",
+            "assignment_digest",
+            "handler_binding_digest",
+            "operation_contract_ref.contract_digest",
+            "ack_digest",
+        ):
+            value = (
+                self.operation_contract_ref.contract_digest
+                if name == "operation_contract_ref.contract_digest"
+                else getattr(self, name)
+            )
+            require_digest(value, name)
+
+    @property
+    def external_idempotency_key(self) -> str:
+        return self.celery_task_id
+
+    @property
+    def request_digest(self) -> str:
+        return canonical_digest(
+            {
+                "schema_version": "mrw.batch.business-readback.request.v1",
+                "project_key": self.project_key,
+                "project_scope_digest": self.project_scope_digest,
+                "run_id": self.run_id,
+                "step_id": self.step_id,
+                "attempt_id": self.attempt_id,
+                "assignment_digest": self.assignment_digest,
+                "operation_contract_digest": (
+                    self.operation_contract_ref.contract_digest
+                ),
+                "handler_binding_digest": self.handler_binding_digest,
+                "dispatch_id": self.dispatch_id,
+                "channel": self.channel,
+                "lane": self.lane,
+                "celery_task_id": self.celery_task_id,
+                "ack_digest": self.ack_digest,
+            }
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class BatchBusinessReadback:
+    """Exact business readback outcome carrying the precise typed result."""
+
+    readback: AuthoritativeEffectReadback
+    result: batch_business.BatchBusinessResult | None = None
+    business_state: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class BatchBusinessCancelResult:
+    """Typed broker cancellation request; terminality stays with a readback."""
+
+    attempt_id: str
+    task_id: str
+    state: Literal["REVOKE_REQUESTED", "REVOKE_FAILED"]
+    reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class BatchBusinessNonStartUnprovable:
+    """A broker observation that does not authoritatively prove non-start."""
+
+    attempt_id: str
+    reason: str
+
+
+class BatchTaskBusinessRecoveryReadback(Protocol):
+    """Capability-limited business readback facade; it cannot redispatch."""
+
+    interpreter_id: str
+    interpreter_version: str
+    provider_id: str
+    provider_version: str
+    operation_contract_ref: OperationContractRef
+
+    def readback_locator(self, request: BatchBusinessReadbackRequest) -> str: ...
+
+    def readback_exact(
+        self, request: BatchBusinessReadbackRequest
+    ) -> BatchBusinessReadback | AuthoritativeEffectReadback: ...
+
+    def cancel(
+        self, request: BatchBusinessReadbackRequest
+    ) -> BatchBusinessCancelResult: ...
+
+    def prove_not_started(
+        self, request: BatchBusinessReadbackRequest
+    ) -> NonStartProof | BatchBusinessNonStartUnprovable: ...
+
+
+def _batch_unknown_readback(
+    request: BatchBusinessReadbackRequest,
+    reason: str,
+    state_label: str,
+) -> AuthoritativeEffectReadback:
+    return AuthoritativeEffectReadback(
+        attempt_id=request.attempt_id,
+        disposition=EffectDisposition.OUTCOME_UNKNOWN,
+        observation_digest=canonical_digest(
+            {
+                "attempt_id": request.attempt_id,
+                "reason": reason,
+                "business_state": state_label,
+                "task_id": request.celery_task_id,
+            }
+        ),
+        reason=reason,
+    )
+
+
+def _not_start_reason(state: BusinessTaskState) -> str:
+    if state is BusinessTaskState.PENDING:
+        return "CELERY_PENDING_IS_NOT_NON_START_EVIDENCE"
+    if state is BusinessTaskState.UNKNOWN:
+        return "CELERY_BROKER_STATE_UNKNOWN"
+    return "BUSINESS_ALREADY_TERMINAL"
+
+
+class BatchBusinessBrokerReadbackFacade:
+    """Bridge one broker observer into the generic reconciliation contract."""
+
+    interpreter_id = "successor-native.batch-business-readback"
+    interpreter_version = "1.0.0"
+    provider_id = "mrw.batch.celery-business"
+    provider_version = "1.0.0"
+
+    def __init__(
+        self,
+        *,
+        operation_contract_ref: OperationContractRef,
+        broker: BrokerBusinessReadback,
+    ) -> None:
+        self.operation_contract_ref = operation_contract_ref
+        self._broker = broker
+
+    def readback_locator(self, request: BatchBusinessReadbackRequest) -> str:
+        return f"celery-task:{request.celery_task_id}"
+
+    def readback_exact(
+        self, request: BatchBusinessReadbackRequest
+    ) -> BatchBusinessReadback | AuthoritativeEffectReadback:
+        if request.operation_contract_ref != self.operation_contract_ref:
+            raise BatchBusinessReadbackError("operation contract digest drift")
+        observation = self._broker.read_task(request.celery_task_id)
+        if observation.task_id != request.celery_task_id:
+            raise BatchBusinessReadbackError("broker observation task id drift")
+        locator = self.readback_locator(request)
+        state = observation.state
+        if state is BusinessTaskState.SUCCESS:
+            result = batch_business.build_batch_business_result_from_ack_fields(
+                task_id=request.celery_task_id,
+                ack_digest=request.ack_digest,
+                output=observation.result,
+            )
+            readback = AuthoritativeEffectReadback(
+                attempt_id=request.attempt_id,
+                disposition=EffectDisposition.SUCCEEDED,
+                provider_locator=locator,
+                receipt_digest=result.receipt_digest,
+                observation_digest=canonical_digest(
+                    {
+                        "request_digest": request.request_digest,
+                        "provider_locator": locator,
+                        "receipt_digest": result.receipt_digest,
+                    }
+                ),
+            )
+            return BatchBusinessReadback(
+                readback=readback,
+                result=result,
+                business_state=state.value,
+            )
+        if state in {BusinessTaskState.FAILURE, BusinessTaskState.REVOKED}:
+            reason = (
+                "CELERY_TASK_REVOKED"
+                if state is BusinessTaskState.REVOKED
+                else "CELERY_TASK_FAILURE"
+            )
+            failure_digest = canonical_digest(
+                {
+                    "attempt_id": request.attempt_id,
+                    "task_id": request.celery_task_id,
+                    "business_state": state.value,
+                    "reason": reason,
+                    "error": observation.result,
+                }
+            )
+            return AuthoritativeEffectReadback(
+                attempt_id=request.attempt_id,
+                disposition=EffectDisposition.FAILED,
+                failure_digest=failure_digest,
+                observation_digest=canonical_digest(
+                    {
+                        "attempt_id": request.attempt_id,
+                        "failure_digest": failure_digest,
+                        "request_digest": request.request_digest,
+                    }
+                ),
+                reason=reason,
+            )
+        if state is BusinessTaskState.PENDING:
+            return _batch_unknown_readback(request, "CELERY_PENDING", "PENDING")
+        if state is BusinessTaskState.NOT_STARTED:
+            return _batch_unknown_readback(request, "CELERY_NOT_STARTED", "NOT_STARTED")
+        return _batch_unknown_readback(
+            request, "CELERY_BROKER_STATE_UNKNOWN", "UNKNOWN"
+        )
+
+    def cancel(
+        self, request: BatchBusinessReadbackRequest
+    ) -> BatchBusinessCancelResult:
+        observation: BusinessCancelObservation = self._broker.cancel_task(
+            request.celery_task_id
+        )
+        return BatchBusinessCancelResult(
+            attempt_id=request.attempt_id,
+            task_id=request.celery_task_id,
+            state=observation.state,
+            reason=observation.reason,
+        )
+
+    def prove_not_started(
+        self, request: BatchBusinessReadbackRequest
+    ) -> NonStartProof | BatchBusinessNonStartUnprovable:
+        observation: BusinessTaskObservation = self._broker.read_task(
+            request.celery_task_id
+        )
+        if observation.state is not BusinessTaskState.NOT_STARTED:
+            return BatchBusinessNonStartUnprovable(
+                request.attempt_id, _not_start_reason(observation.state)
+            )
+        locator = self.readback_locator(request)
+        observed_at = datetime.now(UTC)
+        observation_payload: dict[str, object] = {
+            "attempt_id": request.attempt_id,
+            "authoritative_readback_locator": locator,
+            "broker_state": observation.state.value,
+            "task_id": request.celery_task_id,
+        }
+        authoritative_observation_digest = canonical_digest(observation_payload)
+        provisional = NonStartProof.model_construct(
+            attempt_id=request.attempt_id,
+            interpreter_id=self.interpreter_id,
+            interpreter_version=self.interpreter_version,
+            provider_id=self.provider_id,
+            provider_version=self.provider_version,
+            external_idempotency_key=request.celery_task_id,
+            authoritative_readback_locator=locator,
+            authoritative_observation_digest=authoritative_observation_digest,
+            observed_at=observed_at,
+            proof_digest="0" * 64,
+        )
+        proof_digest = canonical_digest(
+            provisional, exclude_fields={"proof_digest"}
+        )
+        return NonStartProof(
+            attempt_id=request.attempt_id,
+            interpreter_id=self.interpreter_id,
+            interpreter_version=self.interpreter_version,
+            provider_id=self.provider_id,
+            provider_version=self.provider_version,
+            external_idempotency_key=request.celery_task_id,
+            authoritative_readback_locator=locator,
+            authoritative_observation_digest=authoritative_observation_digest,
+            observed_at=observed_at,
+            proof_digest=proof_digest,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class InstalledBatchTaskBusinessReadbackHandler:
+    """Exact business-readback realization installed on one runtime node."""
+
+    recovery_binding: RecoveryBinding
+    operation_contract_digest: str
+
+    def __post_init__(self) -> None:
+        require_digest(self.operation_contract_digest, "operation_contract_digest")
+        if self.recovery_binding.interpreter_profile_digest is None:
+            raise ValueError(
+                "business readback recovery requires original interpreter profile"
+            )
+
+    @property
+    def handler_binding_digest(self) -> str:
+        return self.recovery_binding.binding_digest
+
+    @property
+    def interpreter_profile_digest(self) -> str:
+        profile = self.recovery_binding.interpreter_profile_digest
+        assert profile is not None
+        return profile
+
+
+@dataclass(frozen=True, slots=True)
+class BatchBusinessReadbackReplayData:
+    """What a replay must reconstruct before the readback facade is entered."""
+
+    scope: RuntimeScope
+    request: BatchBusinessReadbackRequest
+
+
+class BatchBusinessReadbackReplayPort(Protocol):
+    def load_exact(
+        self,
+        connection: Connection,
+        installation: InstalledBatchTaskBusinessReadbackHandler,
+        assignment: RuntimeAssignment,
+        claim: ClaimBinding,
+        context: RuntimeExecutionContext,
+    ) -> BatchBusinessReadbackReplayData: ...
+
+
+class PostgresBatchBusinessReadbackReplay:
+    """Rebuild the accepted ACK through the shared activation read path."""
+
+    def load_exact(
+        self,
+        connection: Connection,
+        installation: InstalledBatchTaskBusinessReadbackHandler,
+        assignment: RuntimeAssignment,
+        claim: ClaimBinding,
+        context: RuntimeExecutionContext,
+    ) -> BatchBusinessReadbackReplayData:
+        contract_ref = assignment.operation_contract_ref
+        if contract_ref is None:
+            raise BatchBusinessReadbackError(
+                "business wait assignment lacks operation contract"
+            )
+        runs = PUBLIC_TABLES["runtime_runs"]
+        run = one_mapping(
+            connection.execute(
+                select(runs).where(
+                    runs.c.project_key == assignment.project_key,
+                    runs.c.run_id == assignment.run_id,
+                )
+            )
+        )
+        if run is None:
+            raise BatchBusinessReadbackError("business wait run is absent")
+        resolver = ServerProjectScopeResolver(connection=connection)
+        resolved = resolver.resolve_expected(
+            assignment.project_key,
+            int(run["project_registry_revision"]),
+            str(run["project_scope_digest"]),
+        )
+        if (
+            isinstance(resolved, ProjectScopeStale)
+            or resolver.resolve(assignment.project_key) != resolved
+        ):
+            raise BatchBusinessReadbackError("business wait project scope is stale")
+        scope = RuntimeScope(project_scope=resolved, actor_id=context.node.node_id)
+        tables = project_tables(MetaData(), resolved.resolved_schema)
+        adapter = PostgresFirstSpecimenActivationBindingAdapter()
+        descriptor = adapter.load_exact(connection, assignment, scope, tables)
+        input_ref = adapter.semantic_input_ref(
+            connection, assignment, scope, tables, descriptor
+        )
+        exact = adapter.read_value_bytes(connection, scope, tables, input_ref)
+        ack = self._decode_ack(exact, contract_ref)
+        request = BatchBusinessReadbackRequest(
+            project_key=assignment.project_key,
+            project_scope_digest=resolved.scope_digest,
+            run_id=assignment.run_id,
+            step_id=assignment.step_id or "",
+            attempt_id=claim.attempt_id,
+            assignment_digest=assignment.assignment_digest,
+            operation_contract_ref=contract_ref,
+            handler_binding_digest=assignment.handler_binding_digest,
+            dispatch_id=ack.dispatch_id,
+            channel=ack.channel,
+            lane=ack.lane,
+            celery_task_id=ack.celery_task_id,
+            ack_digest=ack.ack_digest,
+        )
+        return BatchBusinessReadbackReplayData(scope=scope, request=request)
+
+    @staticmethod
+    def _decode_ack(
+        exact: bytes, contract_ref: OperationContractRef
+    ) -> batch_task.BatchTaskSingleDispatchAck:
+        try:
+            codec = batch_business.build_batch_business_wait_input_codec(contract_ref)
+            return codec.decode_payload(json.loads(exact.decode("utf-8")))
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise BatchBusinessReadbackError(
+                "business wait ACK input is malformed"
+            ) from exc
+
+
+class _BatchBusinessReadbackAdapter:
+    """Bridge the exact request readback into the generic reconciler contract."""
+
+    def __init__(
+        self,
+        *,
+        facade: BatchTaskBusinessRecoveryReadback,
+        request: BatchBusinessReadbackRequest,
+        expected: EffectAttemptObservation,
+    ) -> None:
+        self.interpreter_id = facade.interpreter_id
+        self.interpreter_version = facade.interpreter_version
+        self.provider_id = facade.provider_id
+        self.provider_version = facade.provider_version
+        self._facade = facade
+        self._request = request
+        self._expected = expected
+        self.result: batch_business.BatchBusinessResult | None = None
+
+    def readback(
+        self, attempt: EffectAttemptObservation
+    ) -> AuthoritativeEffectReadback:
+        if attempt != self._expected:
+            raise BatchBusinessReadbackError(
+                "reconciler changed the exact original-attempt observation"
+            )
+        observed = self._facade.readback_exact(self._request)
+        if isinstance(observed, BatchBusinessReadback):
+            self.result = observed.result
+            return observed.readback
+        return observed
+
+    def prove_not_started(
+        self, attempt: EffectAttemptObservation
+    ) -> NonStartProof | BatchBusinessNonStartUnprovable:
+        if attempt != self._expected:
+            raise BatchBusinessReadbackError(
+                "reconciler changed the exact original-attempt observation"
+            )
+        return self._facade.prove_not_started(self._request)
+
+
+class BusinessResultPublisher(Protocol):
+    """Publish the precise typed business result on a resolved success."""
+
+    def publish(
+        self,
+        connection: Connection,
+        assignment: RuntimeAssignment,
+        scope: RuntimeScope,
+        result: batch_business.BatchBusinessResult,
+    ) -> str: ...
+
+
+class PostgresBusinessResultPublisher:
+    """Persist the typed business result through the shared activation adapter."""
+
+    def publish(
+        self,
+        connection: Connection,
+        assignment: RuntimeAssignment,
+        scope: RuntimeScope,
+        result: batch_business.BatchBusinessResult,
+    ) -> str:
+        contract_ref = assignment.operation_contract_ref
+        if contract_ref is None:
+            raise BatchBusinessReadbackError(
+                "business wait assignment lacks operation contract"
+            )
+        tables = project_tables(MetaData(), scope.project_scope.resolved_schema)
+        adapter = PostgresFirstSpecimenActivationBindingAdapter()
+        codec = batch_business.build_batch_business_wait_result_codec(
+            contract_ref
+        )
+        content = canonical_json(codec.encode_payload(result)).encode("utf-8")
+        return adapter.publish_output(
+            connection, assignment, scope, tables, content=content
+        )
+
+
+class BatchBusinessWaitHandler(
+    PersistentOperationHandler[
+        batch_task.BatchTaskSingleDispatchAck, batch_business.BatchBusinessResult
+    ]
+):
+    """INTERPRET wait kernel: reads the ACK via the shared adapter, publishes
+    the precise typed business result, and never redispaches the item."""
+
+    def __init__(
+        self,
+        *,
+        uow_factory: UowFactory,
+        binding: InterpreterBinding,
+        invoke: Callable[[batch_task.BatchTaskSingleDispatchAck], batch_business.BatchBusinessResult],
+    ) -> None:
+        contract = batch_business.build_batch_business_wait_contract()
+        super().__init__(
+            uow_factory=uow_factory,
+            binding=binding,
+            contract=contract,
+            input_codec=batch_business.build_batch_business_wait_input_codec(
+                contract.ref
+            ),
+            output_codec=batch_business.build_batch_business_wait_result_codec(
+                contract.ref
+            ),
+            invoke=invoke,
+            validate_output=self._check_result,
+        )
+
+    @staticmethod
+    def _check_result(
+        ack: batch_task.BatchTaskSingleDispatchAck,
+        result: batch_business.BatchBusinessResult,
+    ) -> None:
+        if result.task_id != ack.celery_task_id:
+            raise ValueError("business wait result does not bind the dispatched task")
+
+
+class PostgresBatchTaskBusinessReadbackHandler:
+    """Read back one broker business result; it never redispaches the item."""
+
+    handler_binding_digest: str
+    interpreter_profile_digest: str | None
+
+    def __init__(
+        self,
+        installation: InstalledBatchTaskBusinessReadbackHandler,
+        uow_factory: ReconciliationUnitOfWorkFactory,
+        *,
+        readback: BatchTaskBusinessRecoveryReadback,
+        replay: BatchBusinessReadbackReplayPort | None = None,
+        publisher: BusinessResultPublisher | None = None,
+    ) -> None:
+        if (
+            readback.operation_contract_ref.contract_digest
+            != installation.operation_contract_digest
+            or readback.operation_contract_ref.kind != batch_business.BUSINESS_WAIT_KIND
+        ):
+            raise ValueError("recovery readback operation contract drift")
+        self.installation = installation
+        self.handler_binding_digest = installation.handler_binding_digest
+        self.interpreter_profile_digest = installation.interpreter_profile_digest
+        self.operation_contract_digest = installation.operation_contract_digest
+        self._uow_factory = uow_factory
+        self._readback = readback
+        self._replay = replay or PostgresBatchBusinessReadbackReplay()
+        self._publisher = publisher or PostgresBusinessResultPublisher()
+        self._reconciler = EffectReconciler()
+
+    def execute(
+        self,
+        assignment: RuntimeAssignment,
+        claim: ClaimBinding,
+        context: RuntimeExecutionContext,
+    ) -> ReconciliationHandlerOutcome:
+        self._require_exact_recovery_assignment(assignment, claim)
+        with self._uow_factory() as uow:
+            original_assignment, original_claim = _load_exact_original_graph(
+                uow.connection,
+                assignment,
+                interpreter_profile_digest=self.installation.interpreter_profile_digest,
+            )
+            replay = self._replay.load_exact(
+                uow.connection,
+                self.installation,
+                original_assignment,
+                original_claim,
+                context,
+            )
+            request = replay.request
+            binding = original_assignment.handler_binding
+            assert isinstance(binding, InterpreterBinding)
+            observation = EffectAttemptObservation(
+                attempt_id=original_claim.attempt_id,
+                assignment_digest=original_assignment.assignment_digest,
+                handler_binding_digest=original_assignment.handler_binding_digest,
+                interpreter_profile_digest=binding.interpreter_profile_digest,
+                interpreter_id=self._readback.interpreter_id,
+                interpreter_version=self._readback.interpreter_version,
+                provider_id=self._readback.provider_id,
+                provider_version=self._readback.provider_version,
+                external_idempotency_key=request.external_idempotency_key,
+                authoritative_readback_locator=self._readback.readback_locator(request),
+            )
+            adapter = _BatchBusinessReadbackAdapter(
+                facade=self._readback, request=request, expected=observation
+            )
+            result = self._reconciler.reconcile(
+                assignment=assignment, attempt=observation, interpreter=adapter
+            )
+            if result.state is ReconciliationState.WAITING:
+                return ReconciliationHandlerOutcome(result=result)
+            if result.disposition is EffectDisposition.FAILED:
+                return ReconciliationHandlerOutcome(result=result)
+            if (
+                result.state is not ReconciliationState.RESOLVED
+                or result.disposition is not EffectDisposition.SUCCEEDED
+                or result.readback is None
+                or adapter.result is None
+            ):
+                raise BatchBusinessReadbackError(
+                    "batch business readback produced an unsupported reconciliation state"
+                )
+            business_result = adapter.result
+            if business_result.receipt_digest != result.readback.receipt_digest:
+                raise BatchBusinessReadbackError(
+                    "reconstructed business result/readback receipt drift"
+                )
+            published_digest = self._publish_result(
+                uow.connection, original_assignment, replay.scope, business_result
+            )
+            uow.commit()
+            return ReconciliationHandlerOutcome(
+                result=result,
+                output_digest=published_digest,
+                receipt_ref=f"receipt:sha256:{published_digest}",
+            )
+
+    def _publish_result(
+        self,
+        connection: Connection,
+        original: RuntimeAssignment,
+        scope: RuntimeScope,
+        result: batch_business.BatchBusinessResult,
+    ) -> str:
+        return self._publisher.publish(connection, original, scope, result)
+
+    def _require_exact_recovery_assignment(
+        self,
+        assignment: RuntimeAssignment,
+        claim: ClaimBinding,
+    ) -> None:
+        claim.validate_against(assignment)
+        binding = assignment.handler_binding
+        installed = self.installation.recovery_binding
+        if (
+            assignment.assignment_kind is not AssignmentKind.RECONCILE
+            or not isinstance(binding, RecoveryBinding)
+            or binding != installed
+            or binding.binding_digest != self.handler_binding_digest
+            or binding.recovery_handler_id != installed.recovery_handler_id
+            or binding.recovery_handler_version != installed.recovery_handler_version
+            or binding.authoritative_readback_profile_ref
+            != installed.authoritative_readback_profile_ref
+            or binding.interpreter_profile_digest != self.interpreter_profile_digest
+            or assignment.operation_contract_digest != self.operation_contract_digest
+            or assignment.operation_contract_ref
+            != self._readback.operation_contract_ref
+            or claim.interpreter_profile_digest != self.interpreter_profile_digest
+            or assignment.reconciliation_attempt_id is None
+        ):
+            raise BatchBusinessReadbackError(
+                "exact RecoveryBinding/readback/original-profile drift"
+            )

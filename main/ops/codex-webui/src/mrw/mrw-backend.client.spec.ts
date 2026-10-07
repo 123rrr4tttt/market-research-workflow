@@ -1,5 +1,8 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
-import { MrwBackendClient } from './mrw-backend.client';
+import {
+  MrwBackendClient,
+  readMrwRequestCredentials,
+} from './mrw-backend.client';
 
 describe('MrwBackendClient', () => {
   const originalUrl = process.env.MRW_BACKEND_URL;
@@ -11,6 +14,7 @@ describe('MrwBackendClient', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     if (originalUrl === undefined) delete process.env.MRW_BACKEND_URL;
     else process.env.MRW_BACKEND_URL = originalUrl;
@@ -18,19 +22,55 @@ describe('MrwBackendClient', () => {
     else process.env.MRW_BACKEND_API_KEY = originalKey;
   });
 
-  it('posts prepare with the server API key and normalized base URL', async () => {
+  it('forwards only the configured MRW cookie and original MRW token', async () => {
+    vi.stubEnv('CODEX_OAUTH_COOKIE_NAME', 'custom_mrw_session');
+    const credentials = readMrwRequestCredentials({
+      cookie:
+        'other=private; custom_mrw_session=mrw-session; codex_session=wrong-name',
+      authorization: 'Bearer webui-jwt',
+      'x-codex-auth': 'mrw-token',
+    });
     const fetchMock = vi
       .fn()
       .mockResolvedValue({
         ok: true,
         status: 200,
-        json: async () => ({
-          status: 'ok',
-          data: { bindingId: 'b1', environmentDigest: 'd1' },
-          error: null,
-          meta: { requestId: 'r1' },
-        }),
+        json: async () => ({ status: 'ok', data: {} }),
       });
+    vi.stubGlobal('fetch', fetchMock);
+    await new MrwBackendClient().recordInput(
+      't1',
+      'turn1',
+      'read',
+      credentials,
+    );
+    expect(fetchMock.mock.calls[0][1].headers).toEqual({
+      'Content-Type': 'application/json',
+      'X-MRW-Server-API-Key': 'server-secret',
+      Cookie: 'custom_mrw_session=mrw-session',
+      'X-Codex-Auth': 'mrw-token',
+    });
+    expect(
+      readMrwRequestCredentials({ authorization: 'Bearer webui-jwt' }),
+    ).toBeUndefined();
+    expect(
+      readMrwRequestCredentials({
+        cookie: 'custom_mrw_session=a; custom_mrw_session=b',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('posts prepare with the server API key and normalized base URL', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        status: 'ok',
+        data: { bindingId: 'b1', environmentDigest: 'd1' },
+        error: null,
+        meta: { requestId: 'r1' },
+      }),
+    });
     vi.stubGlobal('fetch', fetchMock);
 
     const client = new MrwBackendClient();
@@ -40,7 +80,9 @@ describe('MrwBackendClient', () => {
       'http://backend/api/v1/agent-macro-host/prepare',
       expect.objectContaining({
         method: 'POST',
-        headers: expect.objectContaining({ 'X-MRW-Server-API-Key': 'server-secret' }),
+        headers: expect.objectContaining({
+          'X-MRW-Server-API-Key': 'server-secret',
+        }),
         body: JSON.stringify({ projectKey: 'hk_water_investigation' }),
       }),
     );
@@ -91,19 +133,25 @@ describe('MrwBackendClient', () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ status: 'error', data: null, error: { message: 'bad' } }),
+      json: async () => ({
+        status: 'error',
+        data: null,
+        error: { message: 'bad' },
+      }),
     });
     vi.stubGlobal('fetch', fetchMock);
 
     const client = new MrwBackendClient();
-    await expect(client.dispatch({
-      threadId: 't1',
-      turnId: 'turn1',
-      callId: 'c1',
-      namespace: null,
-      tool: 'read',
-      arguments: {},
-    })).rejects.toBeInstanceOf(HttpException);
+    await expect(
+      client.dispatch({
+        threadId: 't1',
+        turnId: 'turn1',
+        callId: 'c1',
+        namespace: null,
+        tool: 'read',
+        arguments: {},
+      }),
+    ).rejects.toBeInstanceOf(HttpException);
   });
 
   it('rejects a malformed response body', async () => {
@@ -130,6 +178,8 @@ describe('MrwBackendClient', () => {
     }
 
     expect(caught).toBeInstanceOf(HttpException);
-    expect((caught as HttpException).getStatus()).toBe(HttpStatus.SERVICE_UNAVAILABLE);
+    expect((caught as HttpException).getStatus()).toBe(
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
   });
 });

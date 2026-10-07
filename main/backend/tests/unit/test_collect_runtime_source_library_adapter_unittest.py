@@ -36,7 +36,7 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
             "cancelled",
         )
 
-    def test_source_library_adapter_keeps_crawler_ack_open_until_terminal_readback(self) -> None:
+    def test_source_library_adapter_preserves_accepted_ack_without_etl_run_write(self) -> None:
         request = CollectRequest(
             channel="source_library",
             project_key="demo_proj",
@@ -58,9 +58,6 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
         }
 
         with (
-            patch("app.services.collect_runtime.adapters.source_library.start_job", return_value=123),
-            patch("app.services.collect_runtime.adapters.source_library.complete_job") as mocked_complete,
-            patch("app.services.collect_runtime.adapters.source_library.fail_job"),
             patch(
                 "app.services.source_library.resolver.list_effective_channels",
                 return_value=[{"channel_key": "crawler.demo_proj", "enabled": True}],
@@ -76,7 +73,6 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
         self.assertEqual(result.status, "accepted")
         self.assertEqual(result.meta["terminal_output"]["status"], "accepted")
         self.assertEqual(result.meta["terminal_output"]["meta"]["outcome_unknown"]["kind"], "outcome_unknown")
-        mocked_complete.assert_not_called()
 
     def test_collect_request_from_source_library_api_uses_shared_runtime_param_parser(self) -> None:
         request = collect_request_from_source_library_api(

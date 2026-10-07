@@ -1,4 +1,4 @@
-"""Collect runtime consumes the compiled C3 native definition, not a second bundle."""
+"""Collect runtime binds the ordered sync kernel to the explicit effect gateway."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from app.services.collect_runtime import runtime
-from app.services.collect_runtime.contracts import CollectEffectGateway, CollectRequest
+from app.services.collect_runtime.contracts import CollectEffectGateway, CollectRequest, CollectResult
 
 
 def _request() -> CollectRequest:
@@ -36,32 +36,34 @@ def test_missing_gateway_status_is_closed_unknown() -> None:
     assert result.errors[0].get("code") == "successor_effect_gateway_unavailable"
 
 
-def test_runtime_consumes_default_c3_native_definition(monkeypatch: pytest.MonkeyPatch) -> None:
-    from app.successor_runtime.capabilities.acquisition_native_contribution import (
-        default_acquisition_native_definition,
-    )
+def test_runtime_uses_ordered_sync_and_preserves_gateway_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    traversals: list[tuple[int, ...]] = []
+    gateway_calls: list[tuple[str, ...]] = []
+    original = runtime.interpret_ordered_sync
 
-    definition = default_acquisition_native_definition()
-    calls: list[str] = []
+    def observed(elements, **kwargs):
+        traversals.append(tuple(element.input_index for element in elements))
+        return original(elements, **kwargs)
 
-    def _observed():
-        calls.append(definition.bundle.bundle_id)
-        return definition
-
-    monkeypatch.setattr(
-        "app.successor_runtime.capabilities.acquisition_native_contribution.default_acquisition_native_definition",
-        _observed,
-    )
-    from app.services.collect_runtime.contracts import CollectResult
+    monkeypatch.setattr(runtime, "interpret_ordered_sync", observed)
 
     def gateway(request: CollectRequest) -> CollectResult:
+        gateway_calls.append(tuple(request.query_terms))
         return CollectResult(
             channel=request.channel,
             status="failed",
+            provider_job_id=f"job-{request.query_terms[0]}",
             errors=[{
                 "code": "auto_batch_execution_failed",
                 "message": "bad",
             }],
+            meta={"terminal_readback": {
+                "kind": "terminal",
+                "provider_job_id": f"job-{request.query_terms[0]}",
+                "status": "failed",
+            }},
         )
 
     gateway_contract: CollectEffectGateway = gateway
@@ -71,13 +73,18 @@ def test_runtime_consumes_default_c3_native_definition(monkeypatch: pytest.Monke
         gateway_contract,
     )
     result = runtime._run_successor_collect(_request())
-    assert calls == [definition.bundle.bundle_id]
+    assert traversals == [(0, 1, 2)]
+    assert gateway_calls == [
+        ("a1", "a2", "a3", "a4"),
+        ("b1", "b2", "b3", "b4"),
+        ("c1",),
+    ]
     assert result is not None
-    assert result.status == "unknown"
-    assert result.errors == []
+    assert result.status == "failed"
+    assert [item["input_index"] for item in result.meta["raw"]["typed_batch_results"]] == [0, 1, 2]
     raw = result.meta.get("raw")
     assert isinstance(raw, dict)
-    assert raw.get("reason") == "provider_readback_pending"
+    assert raw.get("aggregate_kind") == "failed"
 
 
 def test_STATIC_NEGATIVE__gateway_return_type_is_rejected() -> None:

@@ -15,6 +15,24 @@ from app.main import app
 pytestmark = pytest.mark.e2e
 
 
+class _FakeProcessScalarResult:
+    def scalars(self):
+        return SimpleNamespace(all=lambda: [])
+
+
+class _FakeEmptyProcessSession:
+    def execute(self, _query):
+        return _FakeProcessScalarResult()
+
+
+class _FakeProcessSessionLocalEmpty:
+    def __enter__(self):
+        return _FakeEmptyProcessSession()
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
 def test_metrics_endpoint_exposes_request_metrics() -> None:
     with TestClient(app) as client:
         health = client.get("/api/v1/health", headers={"X-Request-Id": "metrics-smoke-1"})
@@ -37,7 +55,10 @@ def test_process_stats_runtime_smoke_returns_ok_with_request_context() -> None:
     )
 
     with TestClient(app) as client:
-        with patch("app.api.process.celery_app.control.inspect", return_value=inspect):
+        with (
+            patch("app.api.process.celery_app.control.inspect", return_value=inspect),
+            patch("app.api.process.SessionLocal", return_value=_FakeProcessSessionLocalEmpty()),
+        ):
             response = client.get(
                 "/api/v1/process/stats",
                 headers={"X-Project-Key": "demo_proj", "X-Request-Id": "process-stats-smoke-1"},

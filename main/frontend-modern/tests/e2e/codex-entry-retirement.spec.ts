@@ -50,7 +50,7 @@ async function mockShellApis(page: Page, codexStatusOk = true) {
       body: '<!doctype html><html><body><main id="codex-webui">Codex WebUI</main></body></html>',
     }),
   )
-  await page.route('http://127.0.0.1:8172/?mrw=macro-host-v1', (route) =>
+  await page.route('http://localhost:8172/?mrw=macro-host-v1', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'text/html',
@@ -61,7 +61,7 @@ async function mockShellApis(page: Page, codexStatusOk = true) {
 
 async function expectCodexPage(page: Page) {
   await expect(page.getByTestId('codex-agent-page')).toBeVisible()
-  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', 'http://127.0.0.1:8172/?mrw=macro-host-v1')
+  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', 'http://localhost:8172/?mrw=macro-host-v1')
   await expect(page.locator('.agent-chat-page')).toHaveCount(0)
   await expect(page.getByTestId('agent-chat-compat-link')).toHaveCount(0)
 }
@@ -152,7 +152,7 @@ test('local token-sink-only host identity mounts the direct loopback WebUI', asy
     proxiedFrameRequested = true
     return route.fulfill({ status: 200, contentType: 'text/html', body: '' })
   })
-  await page.route('http://127.0.0.1:8172/?mrw=macro-host-v1', (route) =>
+  await page.route('http://localhost:8172/?mrw=macro-host-v1', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'text/html',
@@ -165,11 +165,49 @@ test('local token-sink-only host identity mounts the direct loopback WebUI', asy
   await expect(page.getByTestId('codex-agent-page')).toBeVisible()
   await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute(
     'src',
-    'http://127.0.0.1:8172/?mrw=macro-host-v1',
+    'http://localhost:8172/?mrw=macro-host-v1',
   )
   await expect(page.getByTestId('codex-agent-host-auth')).toHaveText('宿主 CLI 已授权')
   await expect(page.getByTestId('codex-agent-auth-panel')).toHaveCount(0)
   expect(proxiedFrameRequested).toBe(false)
+})
+
+test('local iframe transports the host-only MRW browser cookie', async ({ page }) => {
+  await mockCommonShellApis(page, {
+    authenticated: true,
+    token_sink_authenticated: true,
+    codex_oauth_enabled: true,
+  })
+  const browserSession = 'browser-session-transport-witness'
+  await page.context().addCookies([
+    {
+      name: 'codex_session',
+      value: browserSession,
+      url: 'http://localhost:8172/',
+      httpOnly: true,
+      sameSite: 'Lax',
+    },
+  ])
+  let observedCookie = ''
+  await page.route('http://localhost:8172/?mrw=macro-host-v1', (route) => {
+    observedCookie = route.request().headers()['cookie'] ?? ''
+    return route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: '<!doctype html><html><body><main>Cookie transport witness</main></body></html>',
+    })
+  })
+  const baseURL = test.info().project.use.baseURL!
+  const localhostFrontend = new URL(baseURL)
+  localhostFrontend.hostname = 'localhost'
+
+  await page.goto(`${localhostFrontend.origin}/#/workbench/agent`)
+
+  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute(
+    'src',
+    'http://localhost:8172/?mrw=macro-host-v1',
+  )
+  await expect.poll(() => observedCookie).toContain(`codex_session=${browserSession}`)
 })
 
 async function mockRemoteOrigin(page: Page) {
@@ -190,7 +228,7 @@ test('remote token-sink-only host identity remains on the connection panel', asy
     token_sink_authenticated: true,
     codex_oauth_enabled: true,
   })
-  await page.route('http://127.0.0.1:8172/?mrw=macro-host-v1', (route) =>
+  await page.route('http://localhost:8172/?mrw=macro-host-v1', (route) =>
     route.fulfill({ status: 200, contentType: 'text/html', body: '' }),
   )
 
@@ -276,7 +314,7 @@ test('local iframe survives auth expiry and status failures without reloading', 
     }),
   )
   let frameLoads = 0
-  await page.route('http://127.0.0.1:8172/?mrw=macro-host-v1', (route) => {
+  await page.route('http://localhost:8172/?mrw=macro-host-v1', (route) => {
     frameLoads += 1
     return route.fulfill({
       status: 200,

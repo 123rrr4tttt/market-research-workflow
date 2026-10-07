@@ -438,6 +438,15 @@ class OutcomeCommitPort(Protocol):
         observed_at: datetime,
     ) -> None: ...
 
+    def commit_non_start_cancellation(
+        self,
+        *,
+        control_scope: ControlPlaneScope,
+        claim: RuntimeClaim,
+        expected_revision: int,
+        observed_at: datetime,
+    ) -> None: ...
+
 
 @runtime_checkable
 class CancellationPort(Protocol):
@@ -459,6 +468,10 @@ class CancellationPort(Protocol):
 
 class LeaseLost(RuntimeError):
     """The exact lease token/revision no longer grants write authority."""
+
+
+class CancellationBeforeEffect(RuntimeError):
+    """The run was cancelled before crossing the interpreter effect boundary."""
 
 
 class ExactHandlerMismatch(RuntimeError):
@@ -621,7 +634,7 @@ class RuntimeNode:
             return self._lease_lost(claim, executed=False, reason=str(exc))
         except Exception as exc:  # noqa: BLE001 - isolate malformed claims in a batch
             if claim.assignment.assignment_kind is AssignmentKind.RECONCILE:
-                return self._reconciliation_rejected(claim, self._error_code(exc))
+                return self._unknown_without_commit(claim, self._error_code(exc))
             return self._rejected_without_commit(claim, self._error_code(exc))
 
         if claim.effect_disposition is not EffectDisposition.NOT_STARTED:
@@ -643,7 +656,7 @@ class RuntimeNode:
             return self._lease_lost(claim, executed=False, reason=str(exc))
         except Exception as exc:  # noqa: BLE001 - port failure is claim-local
             if claim.assignment.assignment_kind is AssignmentKind.RECONCILE:
-                return self._reconciliation_rejected(claim, self._error_code(exc))
+                return self._unknown_without_commit(claim, self._error_code(exc))
             return self._rejected_without_commit(claim, self._error_code(exc))
 
         try:
@@ -663,7 +676,7 @@ class RuntimeNode:
             # this claim; a post-claim rollout race remains non-terminal and is
             # recovered after lease expiry without emitting EffectFailed.
             if live_claim.assignment.assignment_kind is AssignmentKind.RECONCILE:
-                return self._reconciliation_rejected(
+                return self._unknown_without_commit(
                     live_claim,
                     self._error_code(exc),
                 )
@@ -671,13 +684,20 @@ class RuntimeNode:
                 live_claim,
                 self._error_code(exc, default="DIFFERENT_HANDLER_DIGEST"),
             )
+        except CancellationBeforeEffect:
+            if live_claim.assignment.assignment_kind is AssignmentKind.RECONCILE:
+                return self._unknown_without_commit(
+                    live_claim,
+                    "RUN_CANCELLED_BEFORE_EFFECT",
+                )
+            return self._commit_cancellation_before_effect(live_claim)
         except Exception as exc:  # noqa: BLE001 - resolver/guard must fail closed
             if live_claim.assignment.assignment_kind is AssignmentKind.RECONCILE:
-                return self._reconciliation_rejected(
+                return self._unknown_without_commit(
                     live_claim,
                     self._error_code(exc),
                 )
-            return self._commit_pre_effect_failure(
+            return self._rejected_without_commit(
                 live_claim,
                 self._error_code(exc, default="AUTHORITY_STALE_BEFORE_EFFECT"),
             )
@@ -697,15 +717,23 @@ class RuntimeNode:
                 expected_revision=live_claim.work_item_revision,
                 started_at=self._now(),
             )
+        except LeaseLost:
+            return self._lease_lost(live_claim, executed=False)
+        except Exception as exc:  # noqa: BLE001 - start failure is claim-local
+            return self._unknown_without_commit(
+                live_claim, self._error_code(exc)
+            )
+
+        try:
             self._validate_successor_claim(
                 live_claim,
                 in_flight,
                 expected_disposition=EffectDisposition.IN_FLIGHT,
             )
-        except LeaseLost:
-            return self._lease_lost(live_claim, executed=False)
-        except Exception as exc:  # noqa: BLE001 - start failure is claim-local
-            return self._commit_pre_effect_failure(live_claim, self._error_code(exc))
+        except Exception as exc:  # noqa: BLE001 - invalid start receipt stays uncommitted
+            return self._unknown_without_commit(
+                live_claim, self._error_code(exc)
+            )
 
         try:
             # Re-check after the durable IN_FLIGHT transition and immediately
@@ -713,6 +741,8 @@ class RuntimeNode:
             self._require_effect_guard(in_flight)
         except LeaseLost:
             return self._lease_lost(in_flight, executed=False)
+        except CancellationBeforeEffect:
+            return self._commit_cancellation_before_effect(in_flight)
         except Exception as exc:  # noqa: BLE001 - guard must fail closed
             return self._commit_pre_effect_failure(
                 in_flight,
@@ -875,7 +905,7 @@ class RuntimeNode:
                     site="runtime.node.reconciliation.result.identity",
                 )
         except Exception as exc:  # noqa: BLE001 - readback cannot fabricate terminality
-            return self._reconciliation_rejected(
+            return self._unknown_without_commit(
                 claim,
                 self._error_code(exc, default="NON-RECONCILIATIONHANDLEROUTCOME"),
             )
@@ -885,7 +915,7 @@ class RuntimeNode:
         except LeaseLost:
             return self._reconciliation_lease_lost(claim)
         except Exception as exc:  # noqa: BLE001 - heartbeat outage cannot authorize commit
-            return self._reconciliation_rejected(claim, self._error_code(exc))
+            return self._unknown_without_commit(claim, self._error_code(exc))
 
         try:
             self.outcomes.commit_outcome(
@@ -898,7 +928,7 @@ class RuntimeNode:
         except LeaseLost:
             return self._reconciliation_lease_lost(commit_claim)
         except Exception as exc:  # noqa: BLE001 - failed adoption remains non-terminal
-            return self._reconciliation_rejected(
+            return self._unknown_without_commit(
                 commit_claim,
                 self._error_code(exc),
             )
@@ -1096,6 +1126,10 @@ class RuntimeNode:
     def _commit_pre_effect_failure(
         self, claim: RuntimeClaim, failure_code: str
     ) -> ClaimRunResult:
+        # This terminal path is legal only after begin_in_flight returned the
+        # exact durable start receipt. Earlier rejection cannot invent one.
+        if claim.effect_disposition is not EffectDisposition.IN_FLIGHT:
+            return self._rejected_without_commit(claim, failure_code)
         outcome = InterpreterOutcome.failed(failure_code)
         try:
             self.outcomes.commit_outcome(
@@ -1119,6 +1153,30 @@ class RuntimeNode:
             failure_code=failure_code,
         )
 
+    def _commit_cancellation_before_effect(
+        self, claim: RuntimeClaim
+    ) -> ClaimRunResult:
+        try:
+            self.outcomes.commit_non_start_cancellation(
+                control_scope=self.control_scope,
+                claim=claim,
+                expected_revision=claim.work_item_revision,
+                observed_at=self._now(),
+            )
+        except LeaseLost:
+            return self._lease_lost(claim, executed=False)
+        except Exception as exc:  # noqa: BLE001 - cancel commit stays claim-local
+            return self._rejected_without_commit(claim, self._error_code(exc))
+        return ClaimRunResult(
+            work_item_id=claim.assignment.work_item_id,
+            attempt_id=claim.claim_binding.attempt_id,
+            state=ClaimRunState.COMMITTED,
+            disposition=EffectDisposition.NOT_STARTED,
+            executed=False,
+            committed=True,
+            failure_code=None,
+        )
+
     @staticmethod
     def _reconciliation_lease_lost(claim: RuntimeClaim) -> ClaimRunResult:
         return ClaimRunResult(
@@ -1132,7 +1190,7 @@ class RuntimeNode:
         )
 
     @staticmethod
-    def _reconciliation_rejected(
+    def _unknown_without_commit(
         claim: RuntimeClaim,
         failure_code: str,
     ) -> ClaimRunResult:
@@ -1193,10 +1251,10 @@ class RuntimeNode:
     ) -> str:
         if isinstance(exc, DefiniteInterpreterFailure):
             return exc.failure_code
-        if default != "NODE_PORT_RESULT_INVALID":
-            return default
         if isinstance(exc, AuthorityGrantUnavailable):
             return "AUTHORITY_GRANT_INVALID"
+        if default != "NODE_PORT_RESULT_INVALID":
+            return default
         if isinstance(exc, ExactHandlerMismatch):
             return "NODE_HANDLER_CONTRACT_INVALID"
         if isinstance(exc, ClaimBindingMismatch):

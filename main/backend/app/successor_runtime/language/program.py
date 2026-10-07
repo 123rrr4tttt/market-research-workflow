@@ -6,6 +6,7 @@ are never a substitute for the full tree.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Literal, NoReturn, Protocol, TypeAlias, TypeGuard, runtime_checkable
 from collections.abc import Iterable, Mapping, Sequence
@@ -24,6 +25,8 @@ from .algebra import (
     canonical_digest,
     canonical_json_bytes,
     default_return_contract,
+    freeze_json_value,
+    is_frozen_json_object,
     sha256_digest_bytes,
 )
 from .object_contracts import (
@@ -46,7 +49,8 @@ ALLOWED_NODE_KINDS = (
     "traverse_ordered",
     "decide",
 )
-PROGRAM_AST_CODEC_ID = "mrw.functorial-successor.program-ast.codec.v1"
+PROGRAM_AST_CODEC_V1_ID = "mrw.functorial-successor.program-ast.codec.v1"
+PROGRAM_AST_CODEC_ID = "mrw.functorial-successor.program-ast.codec.v2"
 OBJECT_TYPE_PLACEHOLDER_CODEC_ID = "mrw.invalid.unresolved"
 OBJECT_TYPE_PLACEHOLDER_VERSION = "0"
 
@@ -500,25 +504,32 @@ class TraverseOrdered:
         return "traverse_ordered"
     element_program: "ProgramNode"
     traversal_policy: str
+    sequence_codec_version: str = "1"
+
+    def __post_init__(self) -> None:
+        sequence_object_type(self.element_program.input_type, version=self.sequence_codec_version)
 
     @property
     def input_type(self) -> "ObjectType":
-        return _sequence_object_type(self.element_program.input_type)
+        return sequence_object_type(self.element_program.input_type, version=self.sequence_codec_version)
 
     @property
     def output_type(self) -> "ObjectType":
-        return _sequence_object_type(self.element_program.output_type)
+        return sequence_object_type(self.element_program.output_type, version=self.sequence_codec_version)
 
     @property
     def return_contract(self) -> ReturnContract:
         return default_return_contract()
 
     def encode_ast(self) -> "dict[str, object]":
-        return {
+        encoded: dict[str, object] = {
             "node_kind": self.node_kind,
             "element_program": self.element_program.encode_ast(),
             "traversal_policy": self.traversal_policy,
         }
+        if self.sequence_codec_version != "1":
+            encoded["sequence_codec_version"] = self.sequence_codec_version
+        return encoded
 
     def ast_digest(self) -> str:
         return canonical_digest(self.encode_ast())
@@ -597,56 +608,16 @@ def _is_sequence(value: object) -> TypeGuard[Sequence[object]]:
     return isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
 
 
-def _is_set(value: object) -> TypeGuard[frozenset[object] | set[object]]:
-    return isinstance(value, (frozenset, set))
-
-
 def _is_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
     return isinstance(value, Mapping)
 
 
-def _json_value(value: object) -> FrozenJsonValue:
-    if value is None or isinstance(value, (bool, int, str)):
-        return value
-    if isinstance(value, float):
-        if value != value or value in (float("inf"), float("-inf")):
-            # kit:boundary owner=successor.language.program.codec class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_pure_literal_rejects_non_json_values_as_typed_failure
-            raise ValueError("non-finite float is not a frozen JSON value")
-        return value
-    if _is_sequence(value) and not isinstance(value, (str, bytes, bytearray)):
-        return tuple(_json_value(item) for item in _sequence_items(value))
-    if _is_set(value):
-        members = _sequence_items(value)
-        if not all(isinstance(item, str) for item in members):
-            # kit:boundary owner=successor.language.program.codec class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_pure_literal_rejects_non_json_values_as_typed_failure
-            raise ValueError("set members must be strings")
-        return frozenset(item for item in members if isinstance(item, str))
-    if not _is_mapping(value):
-        # kit:boundary owner=successor.language.program.codec class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_pure_literal_rejects_non_json_values_as_typed_failure
-        raise TypeError(f"unsupported JSON value type: {type(value)!r}")
-    pairs: list[tuple[str, FrozenJsonValue]] = []
-    entries = _mapping_items(value)
-    for key_object, item_object in sorted(entries, key=lambda pair: str(pair[0])):
-        pairs.append((str(key_object), _json_value(item_object)))
-    return tuple(pairs)
-
-
 def _json_object(value: object) -> FrozenJsonObject:
-    frozen = _json_value(value)
-    if not isinstance(frozen, tuple):
+    frozen = freeze_json_value(value)
+    if not is_frozen_json_object(frozen):
         # kit:boundary owner=successor.language.program.codec class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_metadata_codec_rejects_malformed_objects_as_typed_failure
         raise TypeError("expected a JSON object value")
-    pairs: list[tuple[str, FrozenJsonValue]] = []
-    for pair_object in frozen:
-        if not isinstance(pair_object, tuple) or len(pair_object) != 2:
-            # kit:boundary owner=successor.language.program.codec class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_metadata_codec_rejects_malformed_objects_as_typed_failure
-            raise TypeError("expected a JSON object pair")
-        key, item = pair_object
-        if not isinstance(key, str):
-            # kit:boundary owner=successor.language.program.codec class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_metadata_codec_rejects_malformed_objects_as_typed_failure
-            raise TypeError("expected a JSON object key")
-        pairs.append((key, item))
-    return tuple(pairs)
+    return frozen
 
 
 def _json_dict(value: object, message: str) -> "dict[str, object]":
@@ -717,6 +688,8 @@ def _encode_tagged(value: Any, tag: str) -> "dict[str, object]":
 
 
 def _encode_plain(value: object) -> object:
+    if is_frozen_json_object(value):
+        return json.loads(canonical_json_bytes(value))
     if _is_mapping(value):
         if "$tag" in value and "$json" in value:
             return value
@@ -819,7 +792,21 @@ def _tuple_object_type(types: "tuple[ObjectType, ...]") -> ObjectType:
     )
 
 
-def _sequence_object_type(element_type: ObjectType) -> ObjectType:
+def sequence_object_type(element_type: ObjectType, *, version: str = "1") -> ObjectType:
+    """Preserve v1 sequences; v2 codec identity binds the complete element type."""
+    if version not in {"1", "2"}:
+        _lift_program_failure(_program_failure(
+            "PROGRAM_TYPE_INVALID", "unsupported sequence codec version", ValueError,
+            site="sequence_object_type",
+        ), ValueError)
+    if version == "2":
+        _check_runtime_object_type(element_type, "sequence.element_type")
+        return ObjectType(
+            type_id="sequence:" + element_type.type_id,
+            schema_version="2",
+            codec_id="mrw.successor.sequence_codec.v2:" + canonical_digest(element_type),
+            canonical_codec_version="2",
+        )
     return ObjectType(
         type_id="sequence:" + element_type.type_id,
         schema_version="1",
@@ -846,7 +833,7 @@ def try_pure_node(
     literal_codec: str,
 ) -> Pure | Failure:
     try:
-        frozen_literal = _json_value(literal_value)
+        frozen_literal = freeze_json_value(literal_value)
         return Pure(
             input_type_ref=input_type,
             output_type_ref=output_type,
@@ -1011,11 +998,13 @@ def zip_ordered_node(
 def try_traverse_ordered_node(
     element_program: "ProgramNode",
     traversal_policy: str,
+    *, sequence_codec_version: str = "1",
 ) -> TraverseOrdered | Failure:
     try:
         node = TraverseOrdered(
             element_program=element_program,
             traversal_policy=traversal_policy,
+            sequence_codec_version=sequence_codec_version,
         )
         _check_runtime_object_type(node.input_type, "traverse_ordered.input_type")
         _check_runtime_object_type(node.output_type, "traverse_ordered.output_type")
@@ -1029,8 +1018,9 @@ def try_traverse_ordered_node(
 def traverse_ordered_node(
     element_program: "ProgramNode",
     traversal_policy: str,
+    *, sequence_codec_version: str = "1",
 ) -> TraverseOrdered:
-    result = try_traverse_ordered_node(element_program, traversal_policy)
+    result = try_traverse_ordered_node(element_program, traversal_policy, sequence_codec_version=sequence_codec_version)
     if isinstance(result, Failure):
         _lift_program_failure(result, ValueError)
     return result
@@ -1233,6 +1223,7 @@ def _bind_node_contracts(
                 node.element_program, resolver, f"{path}.element_program"
             ),
             node.traversal_policy,
+            sequence_codec_version=node.sequence_codec_version,
         )
     if isinstance(node, Decide):
         return decide_node(
@@ -1457,7 +1448,7 @@ def try_successor_materialization(
         return _program_failure(code, message, type(exc), site="SuccessorMaterialization")
 
 def encode_program_spec(spec: ProgramSpec) -> "dict[str, object]":
-    payload = spec.payload_dict()
+    payload = json.loads(spec.canonical_json())
     return {
         "schema": "mrw.functorial_successor.program_spec.v1",
         "program": payload,
@@ -1623,10 +1614,6 @@ def _decode_array(value: object) -> "list[object]":
 
 
 def _decode_json_object(value: object) -> "dict[str, object]":
-    if _is_sequence(value):
-        items = _sequence_items(value)
-        if not items or items[0] == "$array":
-            return {}
     if _is_mapping(value):
         return _json_dict(value, "expected encoded object")
     # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
@@ -1650,7 +1637,7 @@ def _decode_ast_impl(value: object) -> ProgramNode:
             output_type_ref=_decode_type(fields.get("output_type_ref")),
             literal_codec=_json_text(fields.get("literal_codec"), "literal_codec must be text"),
             literal_digest=_json_text(fields.get("literal_digest"), "literal_digest must be text"),
-            literal_value=_json_value(literal_value),
+            literal_value=freeze_json_value(literal_value),
         )
     if node_kind == "atom":
         operation_fields = _decode_tagged(fields.get("operation"), "operation_spec")
@@ -1720,6 +1707,7 @@ def _decode_ast_impl(value: object) -> ProgramNode:
         return TraverseOrdered(
             element_program=_decode_ast_impl(fields.get("element_program")),
             traversal_policy=_json_text(fields.get("traversal_policy"), "traversal_policy must be text"),
+            sequence_codec_version=_json_text(fields.get("sequence_codec_version", "1"), "sequence_codec_version must be text"),
         )
     df = _decode_tagged(fields.get("discriminator_ref"), "discriminator_ref")
     branches: "list[DecisionBranch]" = []

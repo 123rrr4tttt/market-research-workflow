@@ -158,3 +158,13 @@ def test_bundle_has_three_c4_operations_and_submission_codec() -> None:
     assert bundle.codec_by_kind(c4.SUBMISSION_KIND).payload_type_id == (
         c4.SUBMISSION_TYPE.type_id
     )
+
+
+@pytest.mark.parametrize("content", [b"{}", b"null"])
+def test_dispatch_payload_bytes_reject_invalid_shape(content):
+    import json
+
+    contract = c4.build_batch_task_single_dispatch_contract()
+    codec = c4.build_batch_task_single_dispatch_payload_codec(contract.ref)
+    with pytest.raises(TypeError):
+        codec.decode_payload(json.loads(content))

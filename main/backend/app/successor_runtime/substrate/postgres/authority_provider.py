@@ -15,11 +15,16 @@ from typing import Any
 from sqlalchemy import MetaData, or_, select
 from sqlalchemy.engine import Connection
 
-from app.successor_runtime.runtime.assignments import canonical_digest
+from app.successor_runtime.language.algebra import OperationSpec
+from app.successor_runtime.language.object_contracts import OperationContract
+from app.successor_runtime.language.plan import CompiledStep
+from app.successor_runtime.runtime.assignments import InterpreterBinding, canonical_digest
 from app.successor_runtime.runtime.authority_grants import (
     AuthorityGrantUnavailable,
     AuthorityOperationScope,
+    AuthorityResourceCeiling,
 )
+from app.successor_runtime.runtime.resources import QueueEligibility
 from app.successor_runtime.runtime.ports import RuntimeScope
 from app.successor_runtime.runtime.qualification import (
     AuthorityContext,
@@ -66,6 +71,151 @@ class PostgresAuthorityProvider:
     def __init__(self, connection: Connection, scope: RuntimeScope) -> None:
         self.connection = connection
         self.scope = scope
+
+    def qualify_step(
+        self,
+        *,
+        run_id: str,
+        step: CompiledStep,
+        operation: OperationSpec,
+        installed_operation: OperationContract,
+        interpreter: InterpreterBinding,
+        eligibility: QueueEligibility,
+        canonical_base_revision: int,
+        canonical_incarnation: str,
+        approval_refs: tuple[str, ...] = (),
+        now: datetime | None = None,
+    ) -> tuple[AuthorityContext, StepAuthorizationBinding]:
+        """Derive one authorization from current grants and an installed step.
+
+        This read-only operation neither creates grants nor reserves capacity.
+        Optional approvals are checked against the exact run, step and payload;
+        capability-specific requirements remain part of admission.
+        """
+        observed_at = now or _utcnow()
+        scope_ref = self.scope.project_scope
+        contract = step.operation_contract_ref
+        payload = operation.payload_ref
+        if (
+            step.step_kind not in {"EFFECT", "ADMISSION"}
+            or contract is None
+            or step.operation_id != operation.operation_id
+            or contract != operation.contract_ref
+            or installed_operation.ref != contract
+            or installed_operation.owner_capability_id != eligibility.capability_id
+            or interpreter.operation_contract_digest != contract.contract_digest
+            or interpreter.project_scope_digest != scope_ref.scope_digest
+            or eligibility.project_key != scope_ref.project_key
+            or payload.project_key != scope_ref.project_key
+            or interpreter.resource_policy_epoch != eligibility.policy_epoch
+        ):
+            raise ExactBindingConflict("qualification installed step binding drift")
+        context = self.current_context(
+            self.scope.actor_id,
+            capability_id=eligibility.capability_id,
+            approval_refs=approval_refs,
+            canonical_base_revision=canonical_base_revision,
+            canonical_incarnation=canonical_incarnation,
+            now=observed_at,
+        )
+        capabilities = _table("runtime_capability_authority")
+        capability = _one_mapping(self.connection.execute(
+            select(capabilities).where(
+                capabilities.c.project_key == scope_ref.project_key,
+                capabilities.c.capability_id == eligibility.capability_id,
+            ).with_for_update(read=True)
+        ))
+        if (
+            capability is None
+            or capability["mode"] not in {"on", "canary"}
+            or capability["effective_at"] > observed_at
+        ):
+            raise ExactBindingConflict("qualification capability is not currently executable")
+        policies = _table("runtime_resource_policies")
+        policy = _one_mapping(self.connection.execute(
+            select(policies).where(
+                policies.c.project_key == scope_ref.project_key,
+                policies.c.capability_id == eligibility.capability_id,
+                policies.c.resource_class == eligibility.resource_class.value,
+                policies.c.policy_epoch == eligibility.policy_epoch,
+                policies.c.policy_digest == eligibility.policy_digest,
+            ).with_for_update(read=True)
+        ))
+        if policy is None or int(policy["units_ceiling"]) < eligibility.units:
+            raise ExactBindingConflict("qualification resource policy is absent or exceeded")
+        grants = _table("runtime_authority_grants")
+        rows = _mapping_rows(self.connection.execute(
+            select(grants).where(
+                grants.c.project_key == scope_ref.project_key,
+                grants.c.actor_id == self.scope.actor_id,
+                grants.c.capability_id == eligibility.capability_id,
+                grants.c.grant_epoch == context.grant_epoch,
+                grants.c.revoked_at.is_(None),
+                or_(grants.c.expires_at.is_(None), grants.c.expires_at > observed_at),
+            ).with_for_update(read=True)
+        ))
+        covered = False
+        for row in rows:
+            operation_scope = AuthorityOperationScope.model_validate(row["operation_scope_json"])
+            ceiling = AuthorityResourceCeiling.model_validate(row["resource_ceiling_json"])
+            if (
+                operation_scope.project_scope_digest == scope_ref.scope_digest
+                and contract.kind in operation_scope.operation_kinds
+                and any(
+                    limit.resource_class == eligibility.resource_class.value
+                    and limit.units >= eligibility.units
+                    for limit in ceiling.limits
+                )
+            ):
+                covered = True
+        if not covered:
+            raise CurrentAuthorityGrantUnavailable("no current grant covers this operation and resource")
+        approvals = _table("runtime_approvals")
+        for approval_ref in approval_refs:
+            approval = _one_mapping(self.connection.execute(
+                select(approvals).where(
+                    approvals.c.project_key == scope_ref.project_key,
+                    approvals.c.approval_id == approval_ref,
+                ).with_for_update(read=True)
+            ))
+            if approval is None or (
+                approval["actor_id"], approval["run_id"],
+                approval["step_id"], approval["payload_digest"],
+            ) != (self.scope.actor_id, run_id, step.step_id, payload.content_digest):
+                raise ExactBindingConflict("qualification approval exact step binding drift")
+        capability_sources = tuple(
+            source for source in context.authority_source_bindings
+            if source.source_kind == "CAPABILITY_AUTHORITY"
+        )
+        if len(capability_sources) != 1:
+            raise ExactBindingConflict("qualification capability authority is ambiguous")
+        return context, StepAuthorizationBinding.from_content(
+            run_id=run_id,
+            step_id=step.step_id,
+            operation_kind=contract.kind,
+            operation_contract_digest=contract.contract_digest,
+            capability_id=eligibility.capability_id,
+            claim_owner="successor",
+            claim_authority_epoch=capability_sources[0].source_epoch,
+            claim_policy_digest=context.operation_scope_digest,
+            payload_digest=payload.content_digest,
+            actor_id=self.scope.actor_id,
+            project_key=scope_ref.project_key,
+            project_registry_revision=scope_ref.project_registry_revision,
+            project_scope_digest=scope_ref.scope_digest,
+            interpreter_binding_digest=interpreter.binding_digest,
+            deployment_catalog_digest=interpreter.deployment_catalog_digest,
+            authority_source_bindings=context.authority_source_bindings,
+            grants_digest=context.grants_digest,
+            approval_refs=approval_refs,
+            resource_ceiling_digest=context.resource_ceiling_digest,
+            resource_policy_epoch=eligibility.policy_epoch,
+            queue_eligibility_digest=eligibility.eligibility_digest,
+            grant_epoch=context.grant_epoch,
+            expires_at=context.expires_at,
+            canonical_base_revision=canonical_base_revision,
+            canonical_incarnation=canonical_incarnation,
+        )
 
     def current_context(
         self,

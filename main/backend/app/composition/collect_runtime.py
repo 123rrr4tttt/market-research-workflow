@@ -22,7 +22,6 @@ from app.services.collect_runtime.contracts import (
     source_library_compat_response,
 )
 from app.services.collect_runtime.runtime import (
-    register_collect_adapters,
     register_successor_collect_effect_gateway,
     register_source_library_compat_projector,
     run_collect,
@@ -47,7 +46,6 @@ def configure_default_collect_adapters(*, force: bool = False) -> None:
     if _configured and not force:
         return
     adapters = default_collect_adapters()
-    register_collect_adapters(adapters)
     def project_source_library(result: CollectResult) -> SourceLibraryCompatResponse:
         return source_library_compat_response(to_source_library_response(result))
 

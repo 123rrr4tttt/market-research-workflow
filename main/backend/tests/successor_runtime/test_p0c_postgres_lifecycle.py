@@ -218,7 +218,8 @@ def test_runtime_value_index_and_staged_artifact_store_only_opaque_refs(scope) -
         )
 
 
-def test_submit_and_attach_plan_are_caller_transaction_command_packets(scope) -> None:
+@pytest.mark.parametrize("queued_preparation", [True, False])
+def test_submit_and_attach_plan_are_caller_transaction_command_packets(scope, queued_preparation) -> None:
     now = datetime(2030, 1, 1, tzinfo=UTC)
     compiler = CompilerBinding.from_content(
         compiler_id="compiler",
@@ -265,7 +266,7 @@ def test_submit_and_attach_plan_are_caller_transaction_command_packets(scope) ->
                 authority_digest=_digest("submit-authority"),
                 resource_policy_digest=_digest("compile-policy"),
                 fairness_key="project-a",
-            ),
+            ) if queued_preparation else None,
             due_at=now,
         )
     )
@@ -274,8 +275,9 @@ def test_submit_and_attach_plan_are_caller_transaction_command_packets(scope) ->
         "runtime_program_refs",
         "runtime_runs",
         "runtime_events",
-        "runtime_work_items",
     }
+    assert ("runtime_work_items" in connection.rows) is queued_preparation
+    assert submitted["qualification_digest"] is None
 
     run_row = connection.rows["runtime_runs"][0]
     run_row.update(state="COMPILING", revision=1, next_event_seq=2)
@@ -333,8 +335,9 @@ def test_submit_and_attach_plan_are_caller_transaction_command_packets(scope) ->
                 authority_digest=_digest("qualify-authority"),
                 resource_policy_digest=_digest("qualify-policy"),
                 fairness_key="project-a",
-            ),
+            ) if queued_preparation else None,
             due_at=now,
+            compilation_authority_digest=_digest("synchronous-compile-authority"),
         )
     )
     assert attached["plan_id"] == "plan-submit"
@@ -343,6 +346,11 @@ def test_submit_and_attach_plan_are_caller_transaction_command_packets(scope) ->
         == qualify_assignment.plan_digest
     )
     assert not hasattr(connection, "commit")
+    assert attached["qualification_digest"] is None
+    assert ("runtime_work_items" in connection.rows) is queued_preparation
+    assert connection.rows["runtime_events"][-1]["authority_digest"] == _digest(
+        "qualify-authority" if queued_preparation else "synchronous-compile-authority"
+    )
 
 
 def _authorization(scope: RuntimeScope, now: datetime) -> StepAuthorizationBinding:

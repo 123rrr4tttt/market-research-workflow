@@ -1,5 +1,11 @@
 /** Stable wire shapes shared by the MRW host transport and its consumers. */
 
+/** Original MRW credentials, retained only for the active host turn. */
+export type MrwRequestCredentials = {
+  sessionCookie?: string;
+  codexAuth?: string;
+};
+
 export type MrwSkillDescriptor = {
   name: string;
   path: string;

@@ -2,16 +2,27 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from threading import RLock
-from typing import NoReturn, TypeGuard
-from uuid import uuid4
+from typing import TYPE_CHECKING, Literal, NoReturn, cast
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from functorial_kit import Failure
 
-from app.services.agent_sessions import get_agent_session_service
+if TYPE_CHECKING:
+    from app.successor_runtime.substrate.projections.agent_session import (
+        AgentSessionSnapshot,
+    )
+
 from app.successor_runtime.capabilities.workflow_legacy_dsl import (
     WorkflowLegacyDSLReceipt,
     parse_and_validate_workflow_dsl,
+)
+from app.successor_runtime.capabilities.workflow_native_contribution import (
+    WORKFLOW_RUNTIME_OWNER,
+    WorkflowExecutionContext,
+    build_workflow_runtime_program,
+    decode_workflow_runtime_output,
 )
 
 from .compiler import compile_workflow_graph
@@ -20,10 +31,12 @@ from .contracts import (
     CompiledWorkflowGraphValue,
     WorkflowCompilerResponse,
     WorkflowEventView,
+    WorkflowGraphEvent,
     WorkflowIntegrityIssueValue,
     WorkflowJsonObject,
     WorkflowJsonValue,
     WorkflowNodeStatus,
+    WorkflowNodeResults,
     WorkflowPlatformBinding,
     WorkflowReplayConsistencyReport,
     WorkflowReplayResponse,
@@ -31,23 +44,23 @@ from .contracts import (
     WorkflowRunEventsResponse,
     WorkflowRunResponse,
     WorkflowRunStatus,
-    WorkflowRuntimeGraph,
     WorkflowRuntimeNode,
-    WorkflowRunSnapshot,
     raise_workflow_graph_legacy,
     workflow_graph_failure,
 )
 from .curated_service import WorkflowGraphCuratedService
-from .runtime import WorkflowGraphPlatformInterpreter
+from . import runtime as _workflow_runtime_leaf
+del _workflow_runtime_leaf
 from .schema import (
     parse_workflow_graph_dsl,
     try_parse_workflow_json_object,
 )
 from .store import (
+    HistoricalWorkflowRunReader,
     InMemoryCompiledGraphStore,
     SqlCompiledGraphStore,
     build_compiled_graph_store,
-    build_run_store,
+    build_historical_workflow_run_reader,
 )
 from .templates import WorkflowGraphTemplateService
 
@@ -88,19 +101,6 @@ def _serialize_json_object(value: object, message: str) -> WorkflowJsonObject:
     except (TypeError, ValueError) as exc:
         _raise_facade_failure("contract_invalid", f"{message}: {exc}")
     return _require_json_object(normalized, message)
-
-
-def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
-    return isinstance(value, Mapping)
-
-
-def _mapping_value(value: object, key: str) -> object:
-    if not _is_object_mapping(value):
-        return None
-    for raw_key, raw_value in value.items():
-        if raw_key == key:
-            return raw_value
-    return None
 
 
 class WorkflowGraphCompilerService:
@@ -256,308 +256,511 @@ compiler: WorkflowGraphCompilerService
 
 
 class WorkflowGraphRuntimeService:
-    """Runtime facade backed by the current workflow platform interpreter."""
+    """Durable workflow facade over the canonical successor Runtime."""
 
-    def __init__(self) -> None:
-        self._engine: WorkflowGraphPlatformInterpreter | None = None
-        self._lock = RLock()
+    def __init__(
+        self,
+        *,
+        historical_reader: HistoricalWorkflowRunReader | None = None,
+    ) -> None:
+        self._historical_reader = historical_reader
+        self._historical_reader_lock = RLock()
 
-    def _resolved_engine(self) -> WorkflowGraphPlatformInterpreter:
-        with self._lock:
-            if self._engine is None:
-                self._engine = WorkflowGraphPlatformInterpreter(store=build_run_store())
-            return self._engine
+    def _resolved_historical_reader(self) -> HistoricalWorkflowRunReader:
+        with self._historical_reader_lock:
+            if self._historical_reader is None:
+                self._historical_reader = build_historical_workflow_run_reader()
+            return self._historical_reader
+
+    @staticmethod
+    def _run_source(value: str) -> Literal["canonical", "historical"]:
+        normalized = str(value or "canonical").strip().lower()
+        if normalized not in {"canonical", "historical"}:
+            _raise_facade_failure(
+                "contract_invalid",
+                "source must be canonical or historical",
+            )
+        return cast(Literal["canonical", "historical"], normalized)
+
+    @staticmethod
+    def _require_historical_project(
+        run: Mapping[str, object], *, project_key: str,
+    ) -> None:
+        metadata = run.get("metadata")
+        metadata_map: Mapping[str, object] = (
+            cast(Mapping[str, object], metadata)
+            if isinstance(metadata, dict)
+            else cast(Mapping[str, object], {})
+        )
+        historical_project = (
+            str(metadata_map.get("project_key") or "").strip()
+        )
+        if historical_project != project_key:
+            _raise_facade_failure(
+                "object_not_found",
+                "historical workflow run is not available in this project",
+                exception_type=KeyError,
+            )
+
+    @staticmethod
+    def _required_text(payload: Mapping[str, WorkflowJsonValue], key: str) -> str:
+        value = payload.get(key)
+        normalized = value.strip() if isinstance(value, str) else ""
+        if not normalized:
+            _raise_facade_failure("contract_invalid", f"{key} is required")
+        return normalized
+
+    @staticmethod
+    def _runtime_status(value: object) -> WorkflowRunStatus:
+        state = str(value or "").strip().upper()
+        if state in {"SUBMITTED", "COMPILING", "AWAITING_APPROVAL", "READY"}:
+            return "queued"
+        if state in {"RUNNING", "WAITING", "RECONCILING", "CANCELLING"}:
+            return "running"
+        if state == "COMPLETED":
+            return "succeeded"
+        if state in {"FAILED", "CANCELLED", "SUPERSEDED"}:
+            return "failed"
+        _raise_facade_failure("integrity_invalid", f"unknown canonical runtime state: {state}")
+
+    @staticmethod
+    def _node_status(value: object) -> WorkflowNodeStatus:
+        state = str(value or "").strip().upper()
+        if state in {"PENDING", "AWAITING_APPROVAL", "READY"}:
+            return "queued"
+        if state in {"CLAIMED", "RUNNING", "COMMITTING", "WAITING_EXTERNAL",
+                     "RETRY_SCHEDULED", "RECONCILING", "CANCEL_REQUESTED"}:
+            return "running"
+        if state in {"SUCCEEDED", "NOT_SELECTED", "SKIPPED_BY_DECISION"}:
+            return "succeeded"
+        if state in {"FAILED", "CANCELLED", "SUPERSEDED"}:
+            return "failed"
+        _raise_facade_failure("integrity_invalid", f"unknown canonical step state: {state}")
+
+    @staticmethod
+    def _node_id(step: Mapping[str, object]) -> str:
+        operation_id = str(step.get("operation_id") or "")
+        if not operation_id.startswith("workflow-node:"):
+            _raise_facade_failure(
+                "integrity_invalid",
+                f"canonical workflow step has unexpected operation id: {operation_id}",
+            )
+        _, _, node_id = operation_id.split(":", 2)
+        if not node_id:
+            _raise_facade_failure("integrity_invalid", "canonical workflow step has no node id")
+        return node_id
+
+    @classmethod
+    def _node_statuses(
+        cls, steps: tuple[dict[str, object], ...],
+    ) -> dict[str, WorkflowNodeStatus]:
+        return {cls._node_id(step): cls._node_status(step.get("state")) for step in steps}
+
+    @staticmethod
+    def _read_runtime(
+        *, run_id: str, project_key: str, actor_id: str,
+    ) -> tuple[dict[str, object], tuple[dict[str, object], ...], tuple[dict[str, object], ...]]:
+        from app.composition.production import read_installed_program
+        from app.models.base import engine
+
+        run, steps, events = read_installed_program(
+            engine=engine, project_key=project_key, actor_id=actor_id, run_id=run_id,
+        )
+        return (
+            dict(run),
+            tuple(dict(step) for step in steps),
+            tuple(dict(event) for event in events),
+        )
+
+    @staticmethod
+    def _read_runtime_outputs(
+        *, run_id: str, project_key: str, actor_id: str,
+    ) -> tuple[tuple[str, WorkflowExecutionContext], ...]:
+        from app.composition.production import read_installed_program_outputs
+        from app.models.base import engine
+
+        return tuple(
+            (step_id, decode_workflow_runtime_output(value_ref, exact))
+            for step_id, value_ref, exact in read_installed_program_outputs(
+                engine=engine,
+                project_key=project_key,
+                actor_id=actor_id,
+                run_id=run_id,
+            )
+        )
+
+    @staticmethod
+    def _load_agent_session_snapshot(
+        *, run_id: str, incarnation: str, project_key: str, actor_id: str,
+    ) -> AgentSessionSnapshot:
+        from app.models.base import engine
+        from app.successor_runtime.runtime.ports import RuntimeScope
+        from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
+        from app.successor_runtime.substrate.projections.agent_session import (
+            PostgresAgentSessionReadAdapter,
+        )
+        from app.successor_runtime.substrate.projections.runtime_run import (
+            RuntimeJournalSource,
+        )
+
+        with engine.connect() as connection:
+            project_scope = ServerProjectScopeResolver(connection=connection).resolve(project_key)
+            return PostgresAgentSessionReadAdapter(
+                connection,
+                RuntimeScope(project_scope=project_scope, actor_id=actor_id),
+            ).load(
+                RuntimeJournalSource(
+                    run_id=run_id,
+                    run_incarnation=incarnation,
+                    source_ref=f"runtime-run:{run_id}",
+                )
+            )
 
     def run(self, payload: Mapping[str, WorkflowJsonValue]) -> WorkflowRunResponse:
         raw_payload = _require_json_object(payload, "run payload must be a JSON mapping")
-        raw_graph_id = raw_payload.get("graph_id")
-        graph_id = raw_graph_id.strip() if isinstance(raw_graph_id, str) else ""
-        if not graph_id:
-            _raise_facade_failure("contract_invalid", "graph_id is required")
-
+        graph_id = self._required_text(raw_payload, "graph_id")
+        project_key = self._required_text(raw_payload, "project_key")
+        actor_id = self._required_text(raw_payload, "actor_id")
         compiled = compiler.get_compiled(graph_id)
         run_input = raw_payload.get("input")
         if run_input is None:
             run_input = raw_payload.get("inputs")
         normalized_run_input = _require_json_object(
-            {} if run_input is None else run_input,
-            "input must be a JSON mapping",
+            {} if run_input is None else run_input, "input must be a JSON mapping",
         )
-        raw_project_key = raw_payload.get("project_key")
-        project_key = raw_project_key.strip() if isinstance(raw_project_key, str) else ""
-        raw_trace_id = raw_payload.get("trace_id")
-        trace_id = raw_trace_id.strip() if isinstance(raw_trace_id, str) and raw_trace_id.strip() else None
-
         receipt = parse_and_validate_workflow_dsl(compiled["dsl"])
         if (
-            not receipt.ok
-            or receipt.program is None
-            or receipt.plan is None
+            not receipt.ok or receipt.program is None or receipt.plan is None
             or not self._platform_binding_matches(compiled, receipt)
         ):
             _raise_facade_failure("integrity_invalid", "compiled workflow platform binding is stale")
 
-        dsl = parse_workflow_graph_dsl(compiled["dsl"])
-        runtime_nodes: dict[str, WorkflowRuntimeNode] = {}
-        for node in dsl.nodes:
-            runtime_nodes[node.node_id] = {
-                "id": node.node_id,
-                "node_type": node.node_type,
-                "params": dict(node.config),
-                "depends_on": list(compiled["incoming_edges"].get(node.node_id, [])),
-            }
-        workflow: WorkflowRuntimeGraph = {
-            "workflow_id": graph_id,
-            "project_key": project_key or None,
-            "program_digest": receipt.program_digest,
-            "plan_digest": receipt.plan_digest,
-            "topo_order": list(receipt.topo_order),
-            "nodes": runtime_nodes,
-        }
-        if project_key:
-            normalized_run_input.setdefault("project_key", project_key)
-        if trace_id:
-            normalized_run_input.setdefault("trace_id", trace_id)
-        raw_run_id = raw_payload.get("run_id")
-        run_id = raw_run_id.strip() if isinstance(raw_run_id, str) and raw_run_id.strip() else None
-        snapshot = self._resolved_engine().run(
-            plan=receipt.plan,
-            program=receipt.program,
-            workflow=workflow,
-            inputs=normalized_run_input,
+        run_id_value = raw_payload.get("run_id")
+        explicit_run_id = (
+            run_id_value.strip()
+            if isinstance(run_id_value, str) and run_id_value.strip()
+            else ""
+        )
+        idem_value = raw_payload.get("idempotency_key")
+        logical_request_id = (
+            idem_value.strip()
+            if isinstance(idem_value, str) and idem_value.strip()
+            else explicit_run_id
+        )
+        run_id = explicit_run_id or (
+            f"workflow-{uuid5(NAMESPACE_URL, f'mrw://workflow/{project_key}/{actor_id}/{logical_request_id}').hex}"
+            if logical_request_id
+            else f"workflow-{uuid4().hex}"
+        )
+        if not logical_request_id:
+            logical_request_id = run_id
+        trace_value = raw_payload.get("trace_id")
+        trace_id = (
+            trace_value.strip()
+            if isinstance(trace_value, str) and trace_value.strip()
+            else f"workflow_graph.{run_id}"
+        )
+        incarnation = f"workflow:{run_id}"
+
+        from app.composition.production import submit_installed_program
+        from app.models.base import engine
+        from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
+
+        with engine.connect() as connection:
+            project_scope = ServerProjectScopeResolver(connection=connection).resolve(project_key)
+        runtime_program = build_workflow_runtime_program(
+            workflow_id=graph_id,
+            nodes=tuple({
+                "node_id": node_id, "node_type": node["node_type"],
+                "params": dict(node["params"]), "depends_on": list(node["depends_on"]),
+            } for node_id, node in compiled["nodes"].items()),
+            topo_order=tuple(compiled["topo_order"]), inputs=normalized_run_input,
+            program_id=f"workflow-program:{run_id}", project_key=project_key,
+            project_registry_revision=project_scope.project_registry_revision,
+            project_scope_digest=project_scope.scope_digest,
+            incarnation=incarnation, trace_id=trace_id,
+        )
+        submit_installed_program(
+            engine=engine, project_key=project_key, actor_id=actor_id,
+            program=runtime_program.program, operation_catalog=runtime_program.catalog,
+            operation_contracts=runtime_program.registry, values=runtime_program.values,
+            idempotency_id=f"workflow-idempotency:{run_id}",
+            identity_capability_id=WORKFLOW_RUNTIME_OWNER,
+            logical_request_id=logical_request_id,
+            identity_operation_kind=runtime_program.registry.contracts[0].ref.kind,
             run_id=run_id,
-            project_key=project_key or None,
-            trace_id=trace_id,
+            incarnation=incarnation, canonical_bindings=runtime_program.canonical_bindings,
+            approvals_by_step={}, trace_id=trace_id, now=datetime.now(UTC), queue="celery",
         )
-        run = snapshot["run"]
-        session_bundle = get_agent_session_service().project_workflow_graph_run(
-            graph_id=graph_id,
-            run_id=run["run_id"],
-            workflow=workflow,
-            inputs=normalized_run_input,
-            snapshot=snapshot,
-            project_key=project_key or None,
+        run, steps, _ = self._read_runtime(
+            run_id=run_id, project_key=project_key, actor_id=actor_id,
         )
-        if isinstance(session_bundle, Failure):
-            _raise_facade_failure("integrity_invalid", "workflow run session projection failed")
-        session = _mapping_value(session_bundle, "session")
         return {
-            "run_id": run["run_id"],
-            "status": run["status"],
-            "node_statuses": dict(run["node_statuses"]),
-            "session_id": _optional_object_string(_mapping_value(session, "session_id")),
-            "current_phase": _optional_object_string(_mapping_value(session, "current_phase")),
-            "root_task_id": _optional_object_string(_mapping_value(session, "root_task_id")),
+            "run_id": str(run["run_id"]),
+            "status": self._runtime_status(run.get("state")),
+            "node_statuses": self._node_statuses(steps),
+            "session_id": None, "current_phase": None, "root_task_id": None,
             "compat_mode": False,
         }
 
-    def get_run(self, run_id: str) -> WorkflowRunDetail:
-        stored_run = self._resolved_engine().store.get_run(str(run_id))
-        out: WorkflowRunDetail = {
-            "run_id": stored_run["run_id"],
-            "status": stored_run["status"],
-            "created_at": stored_run["created_at"],
-            "updated_at": stored_run["updated_at"],
-            "node_statuses": dict(stored_run["node_statuses"]),
-            "metadata": dict(stored_run["metadata"]),
+    def get_run(
+        self,
+        run_id: str,
+        *,
+        project_key: str,
+        actor_id: str,
+        source: str = "canonical",
+    ) -> WorkflowRunDetail:
+        if self._run_source(source) == "historical":
+            historical = self._resolved_historical_reader().get_run(str(run_id))
+            self._require_historical_project(historical, project_key=project_key)
+            return cast(WorkflowRunDetail, historical)
+        run, steps, _ = self._read_runtime(
+            run_id=str(run_id), project_key=project_key, actor_id=actor_id,
+        )
+        created_at = run.get("created_at")
+        updated_at = run.get("updated_at")
+        return {
+            "run_id": str(run["run_id"]), "status": self._runtime_status(run.get("state")),
+            "created_at": created_at.isoformat() if isinstance(created_at, datetime) else str(created_at or ""),
+            "updated_at": updated_at.isoformat() if isinstance(updated_at, datetime) else str(updated_at or ""),
+            "node_statuses": self._node_statuses(steps),
+            "metadata": {
+                "project_key": str(run.get("project_key") or project_key),
+                "program_id": str(run.get("program_id") or ""),
+                "program_digest": str(run.get("program_digest") or ""),
+                "plan_id": str(run.get("plan_id") or ""),
+                "plan_digest": str(run.get("plan_digest") or ""),
+                "runtime_state": str(run.get("state") or ""),
+            },
         }
-        session_raw = get_agent_session_service().find_session_by_logical_task_list_key(str(run_id))
-        if _is_object_mapping(session_raw):
-            out["session_id"] = _optional_object_string(_mapping_value(session_raw, "session_id"))
-            out["current_phase"] = _optional_object_string(_mapping_value(session_raw, "current_phase"))
-            out["root_task_id"] = _optional_object_string(_mapping_value(session_raw, "root_task_id"))
-        return out
 
     @staticmethod
     def _platform_binding_matches(
-        compiled: CompiledWorkflowGraphRecord,
-        receipt: WorkflowLegacyDSLReceipt,
+        compiled: CompiledWorkflowGraphRecord, receipt: WorkflowLegacyDSLReceipt,
     ) -> bool:
         expected = compiled["platform"]
-        return all(
-            (
-                expected["program_digest"] == receipt.program_digest,
-                expected["plan_digest"] == receipt.plan_digest,
-                expected["catalog_digest"] == receipt.catalog_digest,
-            )
-        )
+        return all((
+            expected["program_digest"] == receipt.program_digest,
+            expected["plan_digest"] == receipt.plan_digest,
+            expected["catalog_digest"] == receipt.catalog_digest,
+        ))
 
-    def get_run_events(self, run_id: str) -> WorkflowRunEventsResponse:
-        items: list[WorkflowEventView] = [
-            {
-                "ts": event["ts"],
-                "type": event["type"],
-                "node_id": event["node_id"],
-                "payload": event["payload"],
-                "event_id": event["event_id"],
-                "event_type": event["event_type"],
-                "project_key": event["project_key"],
-                "session_id": event["session_id"],
-                "run_id": event["run_id"],
-                "trace_id": event["trace_id"],
-                "created_at": event["created_at"],
-                "seq": event["seq"],
-            }
-            for event in self._resolved_engine().store.get_events(str(run_id))
-        ]
-        session_raw = get_agent_session_service().find_session_by_logical_task_list_key(str(run_id))
-        session = session_raw if _is_object_mapping(session_raw) else None
-        if session is not None:
-            session_id = _optional_object_string(_mapping_value(session, "session_id"))
-            session_events = get_agent_session_service().list_events(session_id or "")
-            if isinstance(session_events, Failure):
-                _raise_facade_failure(
-                    "integrity_invalid",
-                    "agent session events projection failed",
-                )
-            for raw_event in session_events:
-                payload = _serialize_json_object(
-                    _mapping_value(raw_event, "payload") or {},
-                    "agent session event payload must be JSON",
-                )
-                event_type = _optional_object_string(_mapping_value(raw_event, "event_type")) or "unknown"
-                items.append(
-                    {
-                        "ts": _optional_object_string(_mapping_value(raw_event, "ts")) or "",
-                        "type": f"agent_session.{event_type}",
-                        "node_id": None,
-                        "payload": payload,
-                    }
-                )
-        return {
-            "items": items,
-            "session_id": _optional_object_string(_mapping_value(session, "session_id")) if session is not None else None,
-        }
-
-    def get_run_agent_session(self, run_id: str) -> WorkflowJsonObject:
-        session_raw = get_agent_session_service().find_session_by_logical_task_list_key(str(run_id))
-        if not _is_object_mapping(session_raw):
-            _raise_facade_failure(
-                "object_not_found",
-                f"agent session not found for run: {run_id}",
-                exception_type=KeyError,
-            )
-        session_id = _optional_object_string(_mapping_value(session_raw, "session_id")) or ""
-        bundle = get_agent_session_service().get_session_bundle(session_id)
-        if isinstance(bundle, Failure):
-            _raise_facade_failure("object_not_found", "agent session bundle not found", exception_type=KeyError)
-        return _serialize_json_object(bundle, "agent session bundle must be JSON")
-
-    def replay_run(self, run_id: str, replay_mode: str = "events_only") -> WorkflowReplayResponse:
-        resolved_mode = str(replay_mode or "events_only").strip().lower() or "events_only"
-        if resolved_mode not in {"events_only", "stateful"}:
-            _raise_facade_failure("contract_invalid", "replay_mode must be events_only or stateful")
-
-        snapshot = self._resolved_engine().store.snapshot(str(run_id))
-        replay_consistency = _build_replay_consistency_report(snapshot)
-        if resolved_mode == "stateful":
-            run = snapshot["run"]
+    def get_run_events(
+        self,
+        run_id: str,
+        *,
+        project_key: str,
+        actor_id: str,
+        source: str = "canonical",
+    ) -> WorkflowRunEventsResponse:
+        if self._run_source(source) == "historical":
+            reader = self._resolved_historical_reader()
+            historical = reader.get_run(str(run_id))
+            self._require_historical_project(historical, project_key=project_key)
+            session_id = historical["metadata"].get("session_id")
             return {
-                "run_id": run["run_id"],
-                "status": run["status"],
-                "node_statuses": dict(run["node_statuses"]),
-                "events_count": len(snapshot["events"]),
-                "events": list(snapshot["events"]),
-                "results": dict(snapshot["results"]),
-                "replay_mode": "stateful",
-                "replay_consistency": replay_consistency,
+                "items": cast(
+                    list[WorkflowEventView], reader.get_events(str(run_id)),
+                ),
+                "session_id": (
+                    session_id.strip()
+                    if isinstance(session_id, str) and session_id.strip()
+                    else None
+                ),
             }
-
-        events = self._resolved_engine().store.get_events(str(run_id))
-        node_statuses: dict[str, WorkflowNodeStatus] = {}
-        run_status: WorkflowRunStatus = "queued"
+        _, steps, events = self._read_runtime(
+            run_id=str(run_id), project_key=project_key, actor_id=actor_id,
+        )
+        node_by_step = {str(step.get("step_id") or ""): self._node_id(step) for step in steps}
+        items: list[WorkflowEventView] = []
         for event in events:
-            event_type = event["type"]
-            node_id = event["node_id"] or ""
-            if event_type == "run.running":
-                run_status = "running"
-            elif event_type == "run.succeeded":
-                run_status = "succeeded"
-            elif event_type == "run.failed":
-                run_status = "failed"
-            elif event_type == "node.running" and node_id:
-                node_statuses[node_id] = "running"
-            elif event_type == "node.succeeded" and node_id:
-                node_statuses[node_id] = "succeeded"
-            elif event_type == "node.failed" and node_id:
-                node_statuses[node_id] = "failed"
-        return {
-            "run_id": str(run_id),
-            "status": run_status,
-            "node_statuses": node_statuses,
-            "events_count": len(events),
-            "replay_mode": "events_only",
-            "replay_consistency": replay_consistency,
-        }
+            created_at = event.get("created_at")
+            timestamp = created_at.isoformat() if isinstance(created_at, datetime) else str(created_at or "")
+            event_type = str(event.get("event_type") or "runtime.event")
+            metadata = _serialize_json_object(
+                event.get("event_metadata_json") or {},
+                "canonical runtime event metadata must be JSON",
+            )
+            raw_seq = event.get("seq")
+            seq = raw_seq if isinstance(raw_seq, int) and not isinstance(raw_seq, bool) else 0
+            items.append({
+                "ts": timestamp, "type": event_type,
+                "node_id": node_by_step.get(str(event.get("step_id") or "")),
+                "payload": metadata, "event_id": f"{run_id}:{event.get('seq')}",
+                "event_type": event_type, "project_key": project_key, "session_id": None,
+                "run_id": str(run_id),
+                "trace_id": str(metadata.get("trace_id") or f"workflow_graph.{run_id}"),
+                "created_at": timestamp, "seq": seq,
+            })
+        return {"items": items, "session_id": None}
 
+    def get_run_agent_session(
+        self, run_id: str, *, project_key: str, actor_id: str,
+    ) -> WorkflowJsonObject:
+        run, _, _ = self._read_runtime(
+            run_id=str(run_id), project_key=project_key, actor_id=actor_id,
+        )
+        incarnation = str(run.get("incarnation") or "").strip()
+        if not incarnation:
+            _raise_facade_failure(
+                "integrity_invalid",
+                "canonical workflow run has no incarnation",
+            )
 
-def _optional_object_string(value: object) -> str | None:
-    return value if isinstance(value, str) else None
-
-
-def _build_replay_consistency_report(snapshot: WorkflowRunSnapshot) -> WorkflowReplayConsistencyReport:
-    run = snapshot["run"]
-    events = snapshot["events"]
-    derived_status: WorkflowRunStatus = "queued"
-    derived_node_statuses: dict[str, WorkflowNodeStatus] = {}
-    issues: list[WorkflowIntegrityIssueValue] = []
-
-    for event in events:
-        event_type = event["type"]
-        node_id = event["node_id"] or ""
-        if event_type == "run.queued":
-            raw_topo_order = event["payload"].get("topo_order")
-            if isinstance(raw_topo_order, list):
-                for raw_node_id in raw_topo_order:
-                    if isinstance(raw_node_id, str) and raw_node_id:
-                        derived_node_statuses.setdefault(raw_node_id, "queued")
-        elif event_type == "run.running":
-            derived_status = "running"
-        elif event_type == "run.succeeded":
-            derived_status = "succeeded"
-        elif event_type == "run.failed":
-            derived_status = "failed"
-        elif event_type == "node.running" and node_id:
-            derived_node_statuses[node_id] = "running"
-        elif event_type == "node.succeeded" and node_id:
-            derived_node_statuses[node_id] = "succeeded"
-        elif event_type == "node.failed" and node_id:
-            derived_node_statuses[node_id] = "failed"
-
-    stored_status = run["status"]
-    if stored_status != derived_status:
-        issues.append(
+        snapshot = self._load_agent_session_snapshot(
+            run_id=str(run_id), incarnation=incarnation,
+            project_key=project_key, actor_id=actor_id,
+        )
+        session = snapshot.model_dump(mode="json", exclude={"tasks"})
+        tasks = [task.model_dump(mode="json") for task in snapshot.tasks]
+        events = list(self.get_run_events(
+            run_id, project_key=project_key, actor_id=actor_id,
+        )["items"])
+        return _serialize_json_object(
             {
-                "code": "run_status_mismatch",
-                "message": f"stored run status '{stored_status}' does not match replayed status '{derived_status}'",
-                "details": {"stored_status": stored_status, "replayed_status": derived_status},
-            }
+                "session": session,
+                "tasks": tasks,
+                "messages": [],
+                "artifacts": [],
+                "events": events,
+                "approvals": [],
+            },
+            "agent session projection must be JSON",
         )
 
-    stored_node_statuses = run["node_statuses"]
-    for node_id in sorted(set(stored_node_statuses) | set(derived_node_statuses)):
-        stored_node_status = stored_node_statuses.get(node_id, "")
-        derived_node_status = derived_node_statuses.get(node_id, "")
-        if stored_node_status != derived_node_status:
-            issues.append(
-                {
+    def replay_run(
+        self, run_id: str, replay_mode: str = "events_only",
+        *, project_key: str, actor_id: str,
+    ) -> WorkflowReplayResponse:
+        raw_mode = str(replay_mode or "events_only").strip().lower() or "events_only"
+        if raw_mode not in {"events_only", "stateful"}:
+            _raise_facade_failure("contract_invalid", "replay_mode must be events_only or stateful")
+        mode: Literal["events_only", "stateful"] = (
+            "stateful" if raw_mode == "stateful" else "events_only"
+        )
+        run, steps, events = self._read_runtime(
+            run_id=str(run_id), project_key=project_key, actor_id=actor_id,
+        )
+        stored_status = self._runtime_status(run.get("state"))
+        stored_node_statuses = self._node_statuses(steps)
+        incarnation = str(run.get("incarnation") or "").strip()
+        if not incarnation:
+            _raise_facade_failure("integrity_invalid", "canonical workflow run has no incarnation")
+        snapshot = self._load_agent_session_snapshot(
+            run_id=str(run_id), incarnation=incarnation,
+            project_key=project_key, actor_id=actor_id,
+        )
+        session_status = str(snapshot.status)
+        if session_status == "pending":
+            replayed_status: WorkflowRunStatus = "queued"
+        elif session_status == "active":
+            replayed_status = "running"
+        elif session_status == "completed":
+            replayed_status = "succeeded"
+        elif session_status in {"failed", "canceled", "unknown"}:
+            replayed_status = "failed"
+        else:
+            active_states = {
+                "CLAIMED", "RUNNING", "COMMITTING", "WAITING_EXTERNAL",
+                "RECONCILING", "CANCEL_REQUESTED",
+            }
+            replayed_status = (
+                "running"
+                if any(str(task.step_state) in active_states for task in snapshot.tasks)
+                else "queued"
+            )
+        node_by_step = {
+            str(step.get("step_id") or ""): self._node_id(step) for step in steps
+        }
+        replayed_node_statuses: dict[str, WorkflowNodeStatus] = {
+            node_by_step[task.step_id]: self._node_status(task.step_state)
+            for task in snapshot.tasks
+            if task.step_id in node_by_step
+        }
+        issues: list[WorkflowIntegrityIssueValue] = []
+        if stored_status != replayed_status:
+            issues.append({
+                "code": "run_status_mismatch",
+                "message": "stored runtime status does not match journal replay",
+                "details": {"stored": stored_status, "replayed": replayed_status},
+            })
+        for node_id in sorted(set(stored_node_statuses) | set(replayed_node_statuses)):
+            stored_node = stored_node_statuses.get(node_id)
+            replayed_node = replayed_node_statuses.get(node_id)
+            if stored_node != replayed_node:
+                issues.append({
                     "code": "node_status_mismatch",
-                    "message": f"stored node status for '{node_id}' does not match replayed status",
+                    "message": f"stored node status does not match journal replay: {node_id}",
                     "details": {
                         "node_id": node_id,
-                        "stored_status": stored_node_status,
-                        "replayed_status": derived_node_status,
+                        "stored": stored_node,
+                        "replayed": replayed_node,
                     },
-                }
+                })
+        consistency: WorkflowReplayConsistencyReport = {
+            "contract_version": "workflow_graph.replay_consistency.v1",
+            "consistent": not issues, "issue_count": len(issues), "issues": issues,
+            "stored_status": stored_status, "replayed_status": replayed_status,
+        }
+        response: WorkflowReplayResponse = {
+            "run_id": str(run_id), "status": replayed_status,
+            "node_statuses": replayed_node_statuses,
+            "events_count": len(events), "replay_mode": mode,
+            "replay_consistency": consistency,
+        }
+        if mode == "stateful":
+            response["events"] = cast(list[WorkflowGraphEvent], list(self.get_run_events(
+                run_id, project_key=project_key, actor_id=actor_id,
+            )["items"]))
+            output_contexts = self._read_runtime_outputs(
+                run_id=str(run_id), project_key=project_key, actor_id=actor_id,
             )
-    return {
-        "contract_version": "workflow_graph.replay_consistency.v1",
-        "consistent": not issues,
-        "issue_count": len(issues),
-        "issues": issues,
-        "stored_status": stored_status,
-        "replayed_status": derived_status,
-    }
+            steps_by_id = {str(step.get("step_id") or ""): step for step in steps}
+            latest_context: WorkflowExecutionContext | None = None
+            prior_context: WorkflowExecutionContext | None = None
+            for step_id, context in output_contexts:
+                step = steps_by_id.get(step_id)
+                if step is None:
+                    _raise_facade_failure(
+                        "integrity_invalid",
+                        f"canonical workflow output has no matching step: {step_id}",
+                    )
+                node_id = self._node_id(step)
+                completed_node = context.nodes[context.cursor - 1]
+                if (
+                    context.project_key != project_key
+                    or completed_node.get("node_id") != node_id
+                    or context.cursor != (1 if prior_context is None else prior_context.cursor + 1)
+                    or (
+                        prior_context is not None
+                        and (
+                            context.workflow_id != prior_context.workflow_id
+                            or context.trace_id != prior_context.trace_id
+                            or context.inputs != prior_context.inputs
+                            or context.nodes != prior_context.nodes
+                            or any(
+                                context.results.get(key) != value
+                                for key, value in prior_context.results.items()
+                            )
+                        )
+                    )
+                ):
+                    _raise_facade_failure(
+                        "integrity_invalid",
+                        f"canonical workflow output occurrence drift: {step_id}",
+                    )
+                prior_context = context
+                if latest_context is None or context.cursor > latest_context.cursor:
+                    latest_context = context
+            response["results"] = cast(
+                WorkflowNodeResults,
+                _serialize_json_object(
+                    {} if latest_context is None else latest_context.results,
+                    "canonical workflow results must be JSON",
+                ),
+            )
+        return response
 
 
 compiler = WorkflowGraphCompilerService()

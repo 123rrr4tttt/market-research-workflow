@@ -54,5 +54,20 @@ class SearchEndpointDocumentQueryContractUnitTestCase(unittest.TestCase):
         self.assertEqual(data["results"][0]["raw"]["backend"], "opensearch_lexical")
 
 
+class SearchApiDefensiveDefaultsUnitTestCase(unittest.TestCase):
+    def test_unreachable_defensive_defaults(self) -> None:
+        # These guards are not reachable through a legal public readback/search
+        # record: the validator enforces list-shaped branch/hit fields (no
+        # non-list `_search_object_list`/`_search_text_list`), evidence hits are
+        # forced to a non-empty `hit_id`, and the vector provenance source is
+        # mandatory. They are verified directly as the default contract.
+        from app.api import search as search_api
+
+        self.assertEqual(search_api._search_object_list(None), [])
+        self.assertEqual(search_api._search_text_list(None), [])
+        self.assertEqual(search_api._search_result_identifier({}, index=3), "result-3")
+        self.assertEqual(search_api._search_group_provenance_key({}), "unknown")
+
+
 if __name__ == "__main__":
     unittest.main()

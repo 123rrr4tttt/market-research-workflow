@@ -33,9 +33,12 @@ from app.successor_runtime.language.algebra import (
     ReturnContract,
     ValueRef,
     default_return_contract,
+    freeze_json_value,
     freeze_json_object,
+    is_frozen_json_object,
     try_canonical_json_bytes,
     try_freeze_json_object,
+    thaw_json_value,
 )
 from app.successor_runtime.language import algebra as algebra_module
 from app.successor_runtime.language import object_contracts as object_contracts_module
@@ -704,3 +707,24 @@ def test_freeze_json_object_validates_input_and_normalizes_key_order() -> None:
     assert first == second
     assert isinstance(invalid, Failure)
     assert invalid.code == "CANONICAL_VALUE_INVALID"
+
+
+def test_frozen_json_shape_survives_freeze_thaw_and_canonical_encoding() -> None:
+    source = {
+        "empty_array": [],
+        "empty_object": {},
+        "pair_array": [["key", 1]],
+        "nested": {"array": [["left", "right"]], "object": {"empty_array": []}},
+        "scalar": 1.0,
+        "boolean": False,
+    }
+    frozen = freeze_json_value(source)
+
+    assert is_frozen_json_object(frozen)
+    assert freeze_json_value(frozen) is frozen
+    assert thaw_json_value(frozen) == source
+    encoded = json.loads(algebra_module.canonical_json_bytes(frozen))
+    assert encoded["empty_array"] == ["$array", []]
+    assert encoded["empty_object"] == {}
+    assert encoded["pair_array"] == ["$array", [["$array", ["key", 1]]]]
+    assert thaw_json_value(freeze_json_value(frozenset({"b", "a"}))) == ["a", "b"]

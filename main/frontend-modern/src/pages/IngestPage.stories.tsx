@@ -148,7 +148,6 @@ function createIngestViewProps(overrides: Partial<IngestPageViewProps> = {}): In
     onLoadRetrievalRunReadback: () => undefined,
     onSubmitAgentBatch: () => undefined,
     onRefreshBatchStatus: () => undefined,
-    onRetryBatchItem: () => undefined,
     onRefreshHistory: () => undefined,
     ...overrides,
   }
@@ -207,7 +206,6 @@ function applyIngestMocks(mode: 'ready' | 'empty' | 'market-error' | 'loading') 
   mocked(api.getAgentBatchJob).mockResolvedValue({ status: 'queued', progress: {} } as never)
   mocked(api.listAgentBatchItems).mockResolvedValue({ items: [] } as never)
   mocked(api.getAgentBatchEvents).mockResolvedValue({ events: [] } as never)
-  mocked(api.retryAgentBatchJob).mockResolvedValue({ ok: true } as never)
   mocked(api.validateAgentBatchRuleSet).mockResolvedValue({ valid: true } as never)
   mocked(api.generateKeywords).mockResolvedValue({ keywords: ['储能', '电池'], provider: 'storybook' } as never)
   mocked(api.ingestMarket).mockImplementation(() => {

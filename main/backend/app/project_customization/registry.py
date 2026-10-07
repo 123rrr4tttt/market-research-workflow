@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Tuple
+from collections.abc import Callable
 
-from ..services.projects.context import _project_failure, _raise_project_failure
+from ..services.projects.context import (  # pyright: ignore[reportPrivateUsage]
+    _project_failure,  # pyright: ignore[reportPrivateUsage]
+    _raise_project_failure,  # pyright: ignore[reportPrivateUsage]
+)
 from .defaults import DefaultProjectCustomization
 from .interfaces import ProjectCustomization
 
 CustomizationFactory = Callable[[], ProjectCustomization]
 
-_REGISTRY: Dict[str, CustomizationFactory] = {}
-_PREFIX_REGISTRY: List[Tuple[str, CustomizationFactory]] = []
+_REGISTRY: dict[str, CustomizationFactory] = {}
+_PREFIX_REGISTRY: list[tuple[str, CustomizationFactory]] = []
 
 
 def _normalize_project_key(project_key: str | None) -> str:
@@ -29,6 +32,17 @@ def register_project_customization(project_key: str, factory: CustomizationFacto
                 public_exception="ValueError",
             )
         )
+    if normalized in _REGISTRY:
+        _raise_project_failure(
+            _project_failure(
+                "project_binding_conflict",
+                f"project customization already registered: {normalized}",
+                operation="register_project_customization",
+                site="app.project_customization.registry.register_project_customization",
+                public_exception="ValueError",
+                project_key=normalized,
+            )
+        )
     _REGISTRY[normalized] = factory
 
 
@@ -42,6 +56,17 @@ def register_project_customization_prefix(prefix: str, factory: CustomizationFac
                 operation="register_project_customization_prefix",
                 site="app.project_customization.registry.register_project_customization_prefix",
                 public_exception="ValueError",
+            )
+        )
+    if any(prefix == normalized for prefix, _factory in _PREFIX_REGISTRY):
+        _raise_project_failure(
+            _project_failure(
+                "project_binding_conflict",
+                f"project customization prefix already registered: {normalized}",
+                operation="register_project_customization_prefix",
+                site="app.project_customization.registry.register_project_customization_prefix",
+                public_exception="ValueError",
+                prefix=normalized,
             )
         )
     _PREFIX_REGISTRY.append((normalized, factory))

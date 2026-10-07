@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from contextvars import ContextVar
+from collections.abc import Callable
+from starlette.requests import Request
 import logging
 import re
 from typing import Any, NoReturn
@@ -81,6 +83,34 @@ def _raise_project_failure(
         raise exception_type(message)
     # kit:boundary owner=projects.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=project.operation.failure witness=test:test_w01_project_context_and_workflow_lifts_preserve_public_messages
     raise exception_type(message) from cause
+
+
+def resolve_request_project_context(
+    request: Request,
+    *,
+    fallback: Callable[[], str],
+    explicit_project_key: str | None = None,
+    use_resolved_fallback: bool = False,
+    endpoint_payload: bool = False,
+) -> tuple[str, str, bool]:
+    """Read request scope once, preserving the endpoint's declared fallback."""
+    explicit = str(explicit_project_key or "").strip()
+    if explicit:
+        return explicit, "endpoint_payload", False
+    source = str(getattr(request.state, "project_key_source", "") or "")
+    resolved = str(getattr(request.state, "project_key_resolved", "") or "").strip()
+    if resolved and (source in {"header", "query"} or (use_resolved_fallback and source == "fallback")):
+        return resolved, source, source == "fallback"
+    for source, value in (
+        ("header", request.headers.get("X-Project-Key")),
+        ("query", request.query_params.get("project_key")),
+    ):
+        key = str(value or "").strip()
+        if key:
+            return key, source, False
+    if endpoint_payload:
+        return "", "endpoint_payload", False
+    return fallback(), "fallback", True
 
 
 def normalize_project_key(project_key: str) -> str:
@@ -189,6 +219,18 @@ def bind_project(project_key: str):
         normalized = settings.active_project_key
     token_key = _PROJECT_KEY_VAR.set(normalized)
     token_schema = _SCHEMA_VAR.set(project_schema_name(normalized))
+    try:
+        yield
+    finally:
+        _SCHEMA_VAR.reset(token_schema)
+        _PROJECT_KEY_VAR.reset(token_key)
+
+
+@contextmanager
+def bind_resolved_project(project_key: str, resolved_schema: str):
+    """Bind the exact server-resolved identity for an installed runtime kernel."""
+    token_key = _PROJECT_KEY_VAR.set(project_key)
+    token_schema = _SCHEMA_VAR.set(resolved_schema)
     try:
         yield
     finally:

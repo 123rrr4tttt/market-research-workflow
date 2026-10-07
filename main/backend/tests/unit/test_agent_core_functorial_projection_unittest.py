@@ -11,6 +11,7 @@ from app.services.agent_core.functorial import workflow as workflow_module
 from app.services.agent_core.functorial.contracts import OperatorValidationError
 from app.services.agent_core.functorial.operator import OperatorSpec, _operator_from_core_spec
 from app.services.agent_core.functorial.registry import CatalogLoadError, FunctorialCatalog
+from app.successor_runtime.language.sync import interpret_ordered_sync
 
 
 class _Registry:
@@ -123,6 +124,108 @@ def test_FAILURE_PRESERVED__terminal_operator_stops_sequence(monkeypatch: pytest
     assert output["failure"]["code"] == "OPERATOR_FAILED"
     assert output["steps"][0]["error"] == {"code": "UPSTREAM"}
     assert output["steps"][0]["retry_hint"] == "inspect provider"
+
+
+def test_ordered_sync_retains_partial_failure_when_caller_policy_continues() -> None:
+    calls: list[tuple[str, int]] = []
+
+    def invoke(step: str, value: int) -> tuple[str, int]:
+        calls.append((step, value))
+        return step, value + 1
+
+    results = interpret_ordered_sync(
+        ("failed", "completed"),
+        initial_value=0,
+        invoke=invoke,
+        continue_after=lambda _result: True,
+        output_value=lambda result: result[1],
+    )
+
+    assert calls == [("failed", 0), ("completed", 1)]
+    assert results == (("failed", 1), ("completed", 2))
+
+
+def test_missing_operator_preserves_not_registered_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    registry = _Registry([])
+    workflow = {
+        "program": {"nodes": [{"kind": "operator", "ref": "operator:missing"}]}
+    }
+    monkeypatch.setattr(run_module, "AgentSessionService", lambda: object())
+    monkeypatch.setattr(
+        run_module,
+        "build_project_core_tool_registry",
+        lambda **_: registry,
+    )
+    monkeypatch.setattr(run_module, "_resolve_session_id", lambda *_: "session")
+    monkeypatch.setattr(
+        run_module._fcatalog,
+        "get",
+        lambda _collection, workflow_id: workflow if workflow_id == "wf" else None,
+    )
+
+    output = run_module.run_workflow("wf", {}, "project")
+
+    assert output["status"] == "failed"
+    assert output["failure"]["code"] == "OPERATOR_NOT_REGISTERED"
+    assert output["steps"][0]["error"]["code"] == "OPERATOR_NOT_REGISTERED"
+
+
+@pytest.mark.parametrize(
+    ("tool_status", "workflow_status", "executed", "failure_code"),
+    [
+        ("completed", "completed", True, None),
+        ("failed", "failed", False, "OPERATOR_FAILED"),
+        ("needs_approval", "blocked", False, "OPERATOR_NEEDS_APPROVAL"),
+        ("deferred", "blocked", False, "OPERATOR_DEFERRED"),
+    ],
+)
+def test_single_operator_preserves_synchronous_typed_result(
+    monkeypatch: pytest.MonkeyPatch,
+    tool_status: str,
+    workflow_status: str,
+    executed: bool,
+    failure_code: str | None,
+) -> None:
+    registry = _Registry(
+        [_result("first", status=tool_status, data={"value": "typed-output"})]
+    )
+    workflow = {
+        "program": {"nodes": [{"kind": "operator", "ref": "operator:first"}]}
+    }
+    monkeypatch.setattr(run_module, "AgentSessionService", lambda: object())
+    monkeypatch.setattr(
+        run_module,
+        "build_project_core_tool_registry",
+        lambda **_: registry,
+    )
+    monkeypatch.setattr(run_module, "_resolve_session_id", lambda *_: "session")
+    monkeypatch.setattr(
+        run_module._fcatalog,
+        "get",
+        lambda _collection, workflow_id: workflow if workflow_id == "wf" else None,
+    )
+
+    output = run_module.run_workflow("wf", {"value": "input"}, "project")
+
+    assert registry.calls == [{"value": "input"}]
+    assert output["status"] == workflow_status
+    assert output["executed"] is executed
+    assert output["steps"] == [
+        {
+            "ok": tool_status == "completed",
+            "status": tool_status,
+            "tool": "first",
+            "summary": f"first:{tool_status}",
+            "data": {"value": "typed-output"},
+            "error": None,
+            "retry_hint": None,
+        }
+    ]
+    assert (
+        output["failure"]["code"] if output["failure"] is not None else None
+    ) == failure_code
 
 
 def test_INVARIANT__operator_schema_derives_from_core_spec() -> None:

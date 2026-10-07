@@ -30,7 +30,6 @@ PILOT_TESTS = (
     "main/backend/tests/successor_runtime/test_c8_native_catalog.py",
     "main/backend/tests/successor_runtime/test_c1_native_catalog.py",
     "main/backend/tests/successor_runtime/test_c2_native_catalog.py",
-    "main/backend/tests/successor_runtime/test_c3_native_catalog.py",
     "main/backend/tests/successor_runtime/test_c4_native_contribution.py",
     "main/backend/tests/successor_runtime/test_c5_native_catalog.py",
     "main/backend/tests/successor_runtime/test_c7_native_catalog.py",
@@ -42,11 +41,11 @@ ARCHITECTURE_TEST = "tests/test_architecture.py"
 VALIDATE_COMMANDS = ("sync", "check", "typecheck", "test", "gates")
 _KIT_PACKAGE = "functorial-kit"
 _MISSING_KIT_SOURCE = (
-    "pyproject.toml must declare valid [tool.mrw.dev-kit] repository, revision, and subdirectory fields"
+    "pyproject.toml must declare one valid functorial-kit Git dependency"
 )
 _SOURCE_DECLARATION_MISMATCH = (
-    "functorial-kit source declarations do not match [tool.mrw.dev-kit]; "
-    "expected {declaration!r} in pyproject.toml and main/backend/requirements.txt"
+    "functorial-kit source declarations do not match; "
+    "expected {declaration!r} in main/backend/requirements.txt"
 )
 _KIT_PROBE_CODE = """
 import importlib.metadata
@@ -86,21 +85,32 @@ class KitSource:
 def _kit_source() -> KitSource:
     try:
         document = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
-        config = document["tool"]["mrw"]["dev-kit"]
-        package = config["package"]
+        dependencies = document["project"]["dependencies"]
+        declarations = [
+            item for item in dependencies
+            if isinstance(item, str) and item.startswith(f"{_KIT_PACKAGE} @ git+")
+        ]
+        if len(declarations) != 1:
+            raise ValueError("expected one functorial-kit dependency")
+        declaration = declarations[0]
+        requirement = declaration.split(" @ git+", 1)[1]
+        source_ref, fragment = requirement.split("#", 1)
+        repository, revision = source_ref.rsplit("@", 1)
+        subdirectories = parse_qs(fragment).get("subdirectory")
+        if not subdirectories or len(subdirectories) != 1:
+            raise ValueError("expected one subdirectory")
         source = KitSource(
-            repository=config["repository"],
-            revision=config["revision"],
-            subdirectory=config["subdirectory"],
+            repository=repository,
+            revision=revision,
+            subdirectory=subdirectories[0],
         )
-    except (KeyError, OSError, tomllib.TOMLDecodeError, TypeError) as exc:
+    except (KeyError, OSError, tomllib.TOMLDecodeError, TypeError, ValueError) as exc:
         raise RuntimeError(_MISSING_KIT_SOURCE) from exc
     fields = (source.repository, source.revision, source.subdirectory)
-    if package != _KIT_PACKAGE or not all(isinstance(field, str) and field.strip() for field in fields):
+    if not all(isinstance(field, str) and field.strip() for field in fields):
         raise RuntimeError(_MISSING_KIT_SOURCE)
-    dependencies = document.get("project", {}).get("dependencies", [])
     requirements = (ROOT / "main" / "backend" / "requirements.txt").read_text(encoding="utf-8").splitlines()
-    if source.declaration not in dependencies or source.declaration not in requirements:
+    if source.declaration != declaration or source.declaration not in requirements:
         raise RuntimeError(_SOURCE_DECLARATION_MISMATCH.format(declaration=source.declaration))
     return source
 

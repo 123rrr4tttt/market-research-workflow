@@ -8,6 +8,7 @@ from typing import Any, Self
 
 import pytest
 
+import app.successor_runtime.substrate.postgres.first_specimen_activation as activation_module
 import app.successor_runtime.substrate.postgres.first_specimen_terminal as terminal_module
 from app.successor_runtime.capabilities.first_specimen import (
     build_first_specimen_bundle,
@@ -60,6 +61,10 @@ from app.successor_runtime.runtime.qualification import (
     AuthoritySourceBinding,
     StepAuthorizationBinding,
 )
+from app.successor_runtime.runtime.reconciliation import (
+    ReconciliationState,
+)
+from app.successor_runtime.runtime.transitions import EffectDisposition
 from app.successor_runtime.substrate.postgres.first_specimen_terminal import (
     ExactAdmissionPacket,
     ExactFirstSpecimenStage,
@@ -525,11 +530,17 @@ class _Activation:
     def __init__(self, connection: object) -> None:
         self.connection = connection
         self.calls = 0
+        self.settled_runs: list[str] = []
 
     def activate_after_terminal(self, **kwargs: object) -> object:
         assert kwargs["connection"] is self.connection
         self.calls += 1
         return {"activated": True}
+
+    def settle_parents_after_terminal(self, **kwargs: object) -> object:
+        assert kwargs["connection"] is self.connection
+        self.settled_runs.append(str(kwargs["run_id"]))
+        return ()
 
 
 class _FakeLifecycleRepository:
@@ -721,6 +732,108 @@ def test_terminal_hook_enlists_commit_and_activation_on_the_same_connection(
         terminal=prepared,
     )
     assert activation.calls == 1
+    assert activation.settled_runs == [assignment.run_id]
+
+
+def test_terminal_hook_settles_parent_after_failed_child_without_reactivation() -> None:
+    assignment = _assignment()
+    authorization = _authorization(assignment)
+    claim_binding = _claim(assignment, authorization)
+    connection = object()
+    activation = _Activation(connection)
+    hook = PostgresFirstSpecimenTerminalHook(activation=activation)
+    lifecycle = _lifecycle(claim_binding)
+
+    hook.after_terminal(
+        connection=connection,
+        scope=_scope(),
+        claim=SimpleNamespace(assignment=assignment),
+        lifecycle=lifecycle,
+        outcome=InterpreterOutcome.failed("PROVIDER_REJECTED"),
+        terminal=TerminalOutcome(
+            claimed=lifecycle,
+            kind=EffectTerminalKind.FAILED,
+            authority_digest=authorization.binding_digest,
+            failure_ref="project-value:runtime-failure:attempt-1",
+            failure_digest=_digest("failure"),
+            observed_at=NOW,
+        ),
+    )
+
+    assert activation.calls == 0
+    assert activation.settled_runs == [assignment.run_id]
+
+
+def test_terminal_hook_settles_parent_after_resolved_failed_readback() -> None:
+    assignment = _assignment()
+    connection = object()
+    activation = _Activation(connection)
+    hook = PostgresFirstSpecimenTerminalHook(activation=activation)
+
+    hook.after_reconciliation(
+        connection=connection,
+        scope=_scope(),
+        claim=SimpleNamespace(assignment=assignment),
+        outcome=SimpleNamespace(
+            result=SimpleNamespace(
+                state=ReconciliationState.RESOLVED,
+                disposition=EffectDisposition.FAILED,
+            )
+        ),
+        observed_at=NOW,
+    )
+
+    assert activation.calls == 0
+    assert activation.settled_runs == [assignment.run_id]
+
+
+def test_activation_port_materializes_each_traversal_in_terminal_uow(
+    monkeypatch,
+) -> None:
+    connection = object()
+    descriptor = object()
+    receipt = SimpleNamespace(
+        result=SimpleNamespace(traversal_materializations=(descriptor,))
+    )
+    monkeypatch.setattr(
+        activation_module,
+        "activate_run",
+        lambda *_args, **_kwargs: receipt,
+    )
+    monkeypatch.setattr(
+        activation_module,
+        "_active_child_authority_scope",
+        lambda *_args, **_kwargs: _scope(),
+    )
+    calls: list[dict[str, object]] = []
+
+    def materialize(**kwargs: object) -> object:
+        calls.append(dict(kwargs))
+        return object()
+
+    port = activation_module.PostgresFirstSpecimenActivationPort(
+        SimpleNamespace(),
+        active_child_materializer=materialize,
+    )
+    observed = NOW
+
+    assert (
+        port.activate_after_terminal(
+            connection=connection,
+            scope=_scope(),
+            run_id="run-parent",
+            observed_at=observed,
+            authority_step_id="step-parent",
+            authority_digest=_digest("parent-authority"),
+        )
+        is receipt
+    )
+    assert len(calls) == 1
+    assert calls[0]["connection"] is connection
+    assert calls[0]["scope"] == _scope()
+    assert calls[0]["parent_run_id"] == "run-parent"
+    assert calls[0]["descriptor"] is descriptor
+    assert calls[0]["trigger"].observed_at == observed
 
 
 def test_terminal_hook_fails_closed_if_shared_commit_transition_is_absent(

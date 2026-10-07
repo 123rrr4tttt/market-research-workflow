@@ -3,6 +3,7 @@
  */
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { CodexService } from '../codex/codex.service';
+import type { MrwRequestCredentials } from '../mrw/mrw.types';
 import type { v2 } from '../codex/codex-schema';
 import { BusinessException } from '../common/business.exception';
 import { ErrorCode } from '../common/error-codes';
@@ -110,7 +111,8 @@ export class ThreadsService {
       historyMode: REQUIRED_HISTORY_MODE,
     };
     if (prepared) {
-      requestParams.dynamicTools = prepared.dynamicTools as v2.DynamicToolSpec[];
+      requestParams.dynamicTools =
+        prepared.dynamicTools as v2.DynamicToolSpec[];
       await this.mrw.mountSkillEnvironment(prepared);
     }
 
@@ -298,7 +300,10 @@ export class ThreadsService {
    * @param params - Turn start parameters (threadId, input, model overrides, etc.)
    * @returns The created turn
    */
-  async startTurn(params: v2.TurnStartParams): Promise<v2.TurnStartResponse> {
+  async startTurn(
+    params: v2.TurnStartParams,
+    credentials?: MrwRequestCredentials,
+  ): Promise<v2.TurnStartResponse> {
     this.deletionRegistry.assertMutable(params.threadId);
     const bound = this.mrw.isBound(params.threadId);
     if (bound) {
@@ -346,6 +351,7 @@ export class ThreadsService {
             params.threadId,
             response.turn.id,
             originalText,
+            credentials,
           );
         } else {
           this.mrw.releaseTurnInput(params.threadId);
@@ -367,7 +373,10 @@ export class ThreadsService {
    * @param params - Turn steer parameters including the active turn precondition
    * @returns The turn id accepted by app-server
    */
-  async steerTurn(params: v2.TurnSteerParams): Promise<v2.TurnSteerResponse> {
+  async steerTurn(
+    params: v2.TurnSteerParams,
+    credentials?: MrwRequestCredentials,
+  ): Promise<v2.TurnSteerResponse> {
     this.deletionRegistry.assertMutable(params.threadId);
     const response = await this.codex.request<v2.TurnSteerResponse>(
       'turn/steer',
@@ -379,6 +388,7 @@ export class ThreadsService {
         params.threadId,
         params.expectedTurnId,
         appendedText,
+        credentials,
       );
     }
     return response;

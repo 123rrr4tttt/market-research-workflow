@@ -442,7 +442,7 @@ def collect_policy_and_regulation(
         SearchIngestTarget,
         run_search_and_ingest,
     )
-    from .url_pool import collect_urls_from_list
+    from ..collect_runtime.runtime import run_collect
 
     job_id = start_job(
         "policy_regulation",
@@ -529,19 +529,23 @@ def collect_policy_and_regulation(
             return {}
 
         def route_missing(urls: list[str]) -> dict[str, object]:
-            routed: object = collect_urls_from_list(
-                urls,
-                project_key=effective_project,
-                query_terms=list(keywords or []),
-                extra_params={
-                    "dispatch_mode": "inline",
-                    "front_door_owner": "ingest.policy_regulation",
-                    "frontdoor_route_decision": "front_door_url_routing",
-                    "frontdoor_write_mode": "front_door_url_routing",
-                    "frontdoor_execution_mode": "url_routing",
-                },
-                enable_extraction=enable_extraction,
+            collect_result = run_collect(
+                CollectRequest(
+                    channel="url_pool",
+                    project_key=effective_project,
+                    urls=urls,
+                    query_terms=list(keywords or []),
+                    options={
+                        "dispatch_mode": "inline",
+                        "front_door_owner": "ingest.policy_regulation",
+                        "frontdoor_route_decision": "front_door_url_routing",
+                        "frontdoor_write_mode": "front_door_url_routing",
+                        "frontdoor_execution_mode": "url_routing",
+                        "enable_extraction": enable_extraction,
+                    },
+                )
             )
+            routed: object = collect_result.meta.get("raw")
             if _is_object_dict(routed):
                 return _as_str_object_dict(routed)
             return {}

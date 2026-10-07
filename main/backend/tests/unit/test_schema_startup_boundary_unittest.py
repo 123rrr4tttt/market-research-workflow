@@ -201,9 +201,7 @@ def test_failed_postgresql_schema_transaction_is_retryable() -> None:
     assert database_engine.connection.statements.count("DDL") == 2
 
 
-@pytest.mark.parametrize("store_name", ["SqlRunStore", "SqlCompiledGraphStore"])
-def test_workflow_graph_schema_ddl_uses_the_public_schema_process_lock(
-    store_name: str,
+def test_workflow_graph_compiled_schema_ddl_uses_the_public_schema_process_lock(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from app.services.projects import schema_initialization as schema_module
@@ -211,12 +209,10 @@ def test_workflow_graph_schema_ddl_uses_the_public_schema_process_lock(
 
     database_engine = _RecordingEngine()
     database_engine.dialect = SimpleNamespace(name="postgresql")
-    create_all = Mock()
     monkeypatch.setattr(store_module, "engine", database_engine)
-    monkeypatch.setattr(store_module.Base.metadata, "create_all", create_all)
     monkeypatch.setattr(schema_module.settings, "db_lock_timeout_ms", 1234)
 
-    getattr(store_module, store_name)()
+    store_module.SqlCompiledGraphStore()
 
     assert database_engine.begin_calls == 1
     assert database_engine.connection.statements[:3] == [
@@ -224,13 +220,9 @@ def test_workflow_graph_schema_ddl_uses_the_public_schema_process_lock(
         "SELECT pg_advisory_xact_lock(hashtextextended(:lock_scope, 0))",
         'SET search_path TO "public"',
     ]
-    if store_name == "SqlRunStore":
-        create_all.assert_called_once()
-    else:
-        create_all.assert_not_called()
-        assert "CREATE TABLE IF NOT EXISTS public.workflow_graph_compiled_artifacts" in (
-            database_engine.connection.statements[-1]
-        )
+    assert "CREATE TABLE IF NOT EXISTS public.workflow_graph_compiled_artifacts" in (
+        database_engine.connection.statements[-1]
+    )
 
 
 def test_cli_schema_preflight_is_explicit_and_fail_closed() -> None:

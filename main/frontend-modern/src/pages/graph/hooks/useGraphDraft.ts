@@ -42,8 +42,8 @@ function buildEdgeKey(edge: GraphEdgeItem) {
 export function useGraphDraft({ sourceNodes, sourceEdges, getNodeKey, autoSyncSource = true }: UseGraphDraftParams) {
   const [draftNodes, setDraftNodes] = useState<GraphNodeItem[]>(() => sourceNodes.map(cloneNode))
   const [draftEdges, setDraftEdges] = useState<GraphEdgeItem[]>(() => sourceEdges.map(cloneEdge))
+  const [base, setBase] = useState(() => cloneSnapshot(sourceNodes, sourceEdges))
   const [dirty, setDirty] = useState(false)
-  const baseRef = useRef(cloneSnapshot(sourceNodes, sourceEdges))
   const syncedSourceRef = useRef({ nodes: sourceNodes, edges: sourceEdges })
   const nextNodeSeqRef = useRef(1)
 
@@ -52,8 +52,8 @@ export function useGraphDraft({ sourceNodes, sourceEdges, getNodeKey, autoSyncSo
     if (syncedSourceRef.current.nodes === sourceNodes && syncedSourceRef.current.edges === sourceEdges) return
     syncedSourceRef.current = { nodes: sourceNodes, edges: sourceEdges }
     const snap = cloneSnapshot(sourceNodes, sourceEdges)
-    baseRef.current = snap
     const timerId = window.setTimeout(() => {
+      setBase(snap)
       setDraftNodes(snap.nodes)
       setDraftEdges(snap.edges)
     }, 0)
@@ -67,22 +67,24 @@ export function useGraphDraft({ sourceNodes, sourceEdges, getNodeKey, autoSyncSo
   }, [draftNodes, getNodeKey])
 
   const resetDraft = useCallback(() => {
-    const snap = cloneSnapshot(baseRef.current.nodes, baseRef.current.edges)
+    const snap = cloneSnapshot(base.nodes, base.edges)
     setDraftNodes(snap.nodes)
     setDraftEdges(snap.edges)
     setDirty(false)
-  }, [])
+  }, [base.edges, base.nodes])
 
   const markSaved = useCallback(() => {
     const snap = cloneSnapshot(draftNodes, draftEdges)
-    baseRef.current = snap
+    setBase(snap)
     syncedSourceRef.current = { nodes: sourceNodes, edges: sourceEdges }
     setDirty(false)
   }, [draftNodes, draftEdges, sourceNodes, sourceEdges])
 
   const replaceDraft = useCallback((nodes: GraphNodeItem[], edges: GraphEdgeItem[], options?: { markAsDirty?: boolean }) => {
     const snap = cloneSnapshot(nodes, edges)
-    if (options?.markAsDirty === false) baseRef.current = snap
+    if (options?.markAsDirty === false) {
+      setBase(snap)
+    }
     setDraftNodes(snap.nodes)
     setDraftEdges(snap.edges)
     syncedSourceRef.current = { nodes: sourceNodes, edges: sourceEdges }
@@ -163,6 +165,8 @@ export function useGraphDraft({ sourceNodes, sourceEdges, getNodeKey, autoSyncSo
   return {
     draftNodes,
     draftEdges,
+    baseNodes: base.nodes,
+    baseEdges: base.edges,
     nodeByKey,
     dirty,
     resetDraft,

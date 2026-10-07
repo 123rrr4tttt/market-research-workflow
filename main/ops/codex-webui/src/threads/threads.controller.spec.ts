@@ -83,9 +83,43 @@ describe('ThreadsController rich input validation', () => {
       input: [{ type: 'text', text: 'hello' }],
     } as never);
 
-    expect(threadsService.startTurn).toHaveBeenCalledWith({
-      threadId: 'thread1',
-      input: [{ type: 'text', text: 'hello', text_elements: [] }],
+    expect(threadsService.startTurn).toHaveBeenCalledWith(
+      {
+        threadId: 'thread1',
+        input: [{ type: 'text', text: 'hello', text_elements: [] }],
+      },
+      undefined,
+    );
+  });
+
+  it('transports MRW credentials separately from Codex turn input', async () => {
+    const request = {
+      headers: {
+        cookie: 'codex_session=original; unrelated=private',
+        authorization: 'Bearer webui-jwt',
+      },
+    };
+    await controller.startTurn(
+      'thread1',
+      { input: [{ type: 'text', text: 'read' }] } as never,
+      request as never,
+    );
+    expect(threadsService.startTurn).toHaveBeenLastCalledWith(
+      {
+        threadId: 'thread1',
+        input: [{ type: 'text', text: 'read', text_elements: [] }],
+      },
+      { sessionCookie: 'codex_session=original', codexAuth: undefined },
+    );
+    await controller.steerTurn(
+      'thread1',
+      'turn1',
+      { input: [{ type: 'text', text: 'more' }] } as never,
+      request as never,
+    );
+    expect(threadsService.steerTurn.mock.lastCall?.[1]).toEqual({
+      sessionCookie: 'codex_session=original',
+      codexAuth: undefined,
     });
   });
 
@@ -97,10 +131,13 @@ describe('ThreadsController rich input validation', () => {
     expect(chatUploadService.resolveStoredUploadPath).toHaveBeenCalledWith(
       '/tmp/webui-uploads/image.png',
     );
-    expect(threadsService.startTurn).toHaveBeenCalledWith({
-      threadId: 'thread1',
-      input: [{ type: 'localImage', path: '/tmp/webui-uploads/image.png' }],
-    });
+    expect(threadsService.startTurn).toHaveBeenCalledWith(
+      {
+        threadId: 'thread1',
+        input: [{ type: 'localImage', path: '/tmp/webui-uploads/image.png' }],
+      },
+      undefined,
+    );
   });
 
   it('resolves mention paths through FilesService workspace validation', async () => {
@@ -111,11 +148,16 @@ describe('ThreadsController rich input validation', () => {
     expect(filesService.resolveSafePath).toHaveBeenCalledWith(
       '/workspace/file.ts',
     );
-    expect(threadsService.steerTurn).toHaveBeenCalledWith({
-      threadId: 'thread1',
-      expectedTurnId: 'turn1',
-      input: [{ type: 'mention', name: 'file.ts', path: '/workspace/file.ts' }],
-    });
+    expect(threadsService.steerTurn).toHaveBeenCalledWith(
+      {
+        threadId: 'thread1',
+        expectedTurnId: 'turn1',
+        input: [
+          { type: 'mention', name: 'file.ts', path: '/workspace/file.ts' },
+        ],
+      },
+      undefined,
+    );
   });
 
   it('passes skill inputs by validated shape', async () => {
@@ -123,10 +165,13 @@ describe('ThreadsController rich input validation', () => {
       input: [{ type: 'skill', name: 'review', path: '/skills/review' }],
     } as never);
 
-    expect(threadsService.startTurn).toHaveBeenCalledWith({
-      threadId: 'thread1',
-      input: [{ type: 'skill', name: 'review', path: '/skills/review' }],
-    });
+    expect(threadsService.startTurn).toHaveBeenCalledWith(
+      {
+        threadId: 'thread1',
+        input: [{ type: 'skill', name: 'review', path: '/skills/review' }],
+      },
+      undefined,
+    );
   });
 
   it('rejects malformed image URLs', async () => {

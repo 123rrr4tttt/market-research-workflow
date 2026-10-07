@@ -18,6 +18,8 @@ from functorial_kit import Failure
 from app.successor_runtime.language.checksum import is_sha256_hex, sha256_hex
 from app.successor_runtime.runtime.transitions import (
     EffectDisposition,
+    STEP_TRANSITIONS,
+    TERMINAL_RUN_STATES,
     RunEvent,
     RunState,
     StepEvent,
@@ -61,6 +63,13 @@ _EVENT_SCHEMAS: Mapping[str, frozenset[str]] = MappingProxyType(
         "QualificationActivated": frozenset(
             {"mrw.runtime.event.qualification_activated.v1"}
         ),
+        RunEvent.CANCELLATION_REQUESTED.value: frozenset({"mrw.runtime.event.cancellation_requested.v1"}),
+        StepEvent.CLEANUP_OR_READBACK_CONFIRMED.value: frozenset(
+            {"mrw.runtime.event.cancellation_cleanup_confirmed.v1"}
+        ),
+        RunEvent.REQUIRED_CLEANUP_SETTLED.value: frozenset(
+            {"mrw.runtime.event.cancellation_cleanup_settled.v1"}
+        ),
         "DeliveryReady": frozenset({"mrw.runtime.event.delivery_ready.v1"}),
         "StepActivated": frozenset({"mrw.runtime.event.step_activated.v1"}),
         StepEvent.STEP_CLAIMED.value: frozenset({"mrw.runtime.event.step_claimed.v1"}),
@@ -98,7 +107,8 @@ _EVENT_SCHEMAS: Mapping[str, frozenset[str]] = MappingProxyType(
             {"mrw.runtime.event.authoritative_readback.v1"}
         ),
         RunEvent.REQUIRED_STEP_FAILED.value: frozenset(
-            {"mrw.runtime.event.required_step_failed.v1"}
+            {"mrw.runtime.event.required_step_failed.v1",
+             "mrw.runtime.event.required_step_failed.active_child.v2"}
         ),
         RunEvent.RUN_COMPLETION_DERIVED.value: frozenset(
             {"mrw.runtime.event.run_completion_derived.v1"}
@@ -109,6 +119,15 @@ _EVENT_SCHEMAS: Mapping[str, frozenset[str]] = MappingProxyType(
         ),
         "SuccessorMaterialized": frozenset(
             {"mrw.runtime.event.successor_materialized.v1"}
+        ),
+        "TraversalMaterializationRequested": frozenset(
+            {"mrw.runtime.event.traversal_materialization_requested.v1"}
+        ),
+        "ActiveChildMaterialized": frozenset(
+            {"mrw.runtime.event.active_child_materialized.v1"}
+        ),
+        "ActiveChildrenSettled": frozenset(
+            {"mrw.runtime.event.active_children_settled.v1"}
         ),
     }
 )
@@ -259,6 +278,8 @@ class RuntimeReplayProjection:
     attempts: tuple[tuple[str, EffectDisposition], ...] = ()
     attempt_step_bindings: tuple[tuple[str, str], ...] = ()
     recovery_claim_bindings: tuple[tuple[str, str, str], ...] = ()
+    traversal_bindings: tuple[tuple[str, str, tuple[str, ...]], ...] = ()
+    active_child_bindings: tuple[tuple[str, int, str, str, str], ...] = ()
     required_failure_step_ids: tuple[str, ...] = ()
     observed_event_types: tuple[str, ...] = ()
     pending_required_failure: tuple[int, str, str, str] | None = None
@@ -342,6 +363,46 @@ class RuntimeReplayProjection:
             return _replay_failure("REPLAY_PROJECTION_INVALID", "projection recovery claim target closure is invalid")
         if set(attempt_binding_ids) & set(recovery_binding_ids):
             return _replay_failure("REPLAY_PROJECTION_INVALID", "effect attempt and recovery claim identities overlap")
+        if tuple(sorted(self.traversal_bindings)) != self.traversal_bindings:
+            return _replay_failure(
+                "REPLAY_PROJECTION_INVALID", "projection traversal bindings are not ordered"
+            )
+        traversal_by_step: dict[str, tuple[str, tuple[str, ...]]] = {}
+        for step_id, materialization_digest, element_digests in self.traversal_bindings:
+            if (
+                not step_id
+                or step_id in traversal_by_step
+                or not is_sha256_hex(materialization_digest)
+                or any(not is_sha256_hex(item) for item in element_digests)
+            ):
+                return _replay_failure(
+                    "REPLAY_PROJECTION_INVALID", "projection traversal binding is invalid"
+                )
+            traversal_by_step[step_id] = (materialization_digest, element_digests)
+        if tuple(sorted(self.active_child_bindings)) != self.active_child_bindings:
+            return _replay_failure(
+                "REPLAY_PROJECTION_INVALID", "projection active-child bindings are not ordered"
+            )
+        child_ids: set[str] = set()
+        positions: set[tuple[str, int]] = set()
+        for step_id, index, child_run_id, element_digest, materialization_digest in self.active_child_bindings:
+            traversal = traversal_by_step.get(step_id)
+            if (
+                traversal is None
+                or type(index) is not int
+                or index < 0
+                or index >= len(traversal[1])
+                or traversal[0] != materialization_digest
+                or traversal[1][index] != element_digest
+                or not child_run_id
+                or child_run_id in child_ids
+                or (step_id, index) in positions
+            ):
+                return _replay_failure(
+                    "REPLAY_PROJECTION_INVALID", "projection active-child lineage is invalid"
+                )
+            child_ids.add(child_run_id)
+            positions.add((step_id, index))
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -388,6 +449,24 @@ class RuntimeReplayProjection:
                 }
                 for attempt_id, step_id, reconciliation_attempt_id in self.recovery_claim_bindings
             ],
+            "traversal_bindings": [
+                {
+                    "source_step_id": step_id,
+                    "materialization_digest": materialization_digest,
+                    "element_digests": list(element_digests),
+                }
+                for step_id, materialization_digest, element_digests in self.traversal_bindings
+            ],
+            "active_child_bindings": [
+                {
+                    "source_step_id": step_id,
+                    "element_index": index,
+                    "child_run_id": child_run_id,
+                    "element_digest": element_digest,
+                    "materialization_digest": materialization_digest,
+                }
+                for step_id, index, child_run_id, element_digest, materialization_digest in self.active_child_bindings
+            ],
             "required_failure_step_ids": list(self.required_failure_step_ids),
             "observed_event_types": list(self.observed_event_types),
             "pending_required_failure": (
@@ -432,12 +511,16 @@ class RuntimeReplayProjection:
         raw_attempts = value.get("attempts")
         raw_attempt_step_bindings = value.get("attempt_step_bindings")
         raw_recovery_claim_bindings = value.get("recovery_claim_bindings")
+        raw_traversal_bindings = value.get("traversal_bindings", [])
+        raw_active_child_bindings = value.get("active_child_bindings", [])
         if (
             not isinstance(raw_steps, list)
             or not isinstance(raw_activation_bindings, list)
             or not isinstance(raw_attempts, list)
             or not isinstance(raw_attempt_step_bindings, list)
             or not isinstance(raw_recovery_claim_bindings, list)
+            or not isinstance(raw_traversal_bindings, list)
+            or not isinstance(raw_active_child_bindings, list)
         ):
             return cast(RuntimeReplayProjection, _replay_failure(
                 "REPLAY_PROJECTION_INVALID", "runtime projection state collections are invalid"
@@ -512,6 +595,31 @@ class RuntimeReplayProjection:
                         str(item["reconciliation_attempt_id"]),
                     )
                     for item in raw_recovery_claim_bindings
+                    if isinstance(item, Mapping)
+                )
+            ),
+            traversal_bindings=tuple(
+                sorted(
+                    (
+                        str(item["source_step_id"]),
+                        str(item["materialization_digest"]),
+                        tuple(str(digest) for digest in item["element_digests"]),
+                    )
+                    for item in raw_traversal_bindings
+                    if isinstance(item, Mapping)
+                    and isinstance(item.get("element_digests"), list)
+                )
+            ),
+            active_child_bindings=tuple(
+                sorted(
+                    (
+                        str(item["source_step_id"]),
+                        int(item["element_index"]),
+                        str(item["child_run_id"]),
+                        str(item["element_digest"]),
+                        str(item["materialization_digest"]),
+                    )
+                    for item in raw_active_child_bindings
                     if isinstance(item, Mapping)
                 )
             ),
@@ -609,6 +717,16 @@ def replay_runtime_events(
     return _legacy_lift(result)
 
 
+def active_child_failure_decision_digest(metadata: Mapping[str, object]) -> str:
+    """Bind the ordered-required-child policy to its exact causal observation."""
+    return sha256_hex({"policy": "ordered_required_child.v2", **{
+        key: metadata.get(key) for key in (
+            "source_step_id", "child_run_id", "element_index", "materialization_digest",
+            "source_revision", "source_event_digest",
+        )
+    }})
+
+
 def projection_digest(projection: RuntimeReplayProjection) -> str:
     return sha256_hex(projection.to_json())
 
@@ -678,6 +796,14 @@ def _apply_event(
             activation_digest,
             input_closure_digest,
         ) in projection.step_activation_bindings
+    }
+    traversals = {
+        step_id: (materialization_digest, element_digests)
+        for step_id, materialization_digest, element_digests in projection.traversal_bindings
+    }
+    active_children = {
+        (step_id, index): (child_run_id, element_digest, materialization_digest)
+        for step_id, index, child_run_id, element_digest, materialization_digest in projection.active_child_bindings
     }
     run_state = projection.run_state
     plan_digest = projection.plan_digest
@@ -1064,6 +1190,33 @@ def _apply_event(
                 pending = (event.seq + 1, step_id, attempt_id, event.event_digest)
             else:
                 return _replay_failure("readback failure successor seq drift")
+    elif (event.event_type == RunEvent.REQUIRED_STEP_FAILED.value
+          and event.schema_version == "mrw.runtime.event.required_step_failed.active_child.v2"):
+        source_step = event.metadata.get("source_step_id")
+        index = event.metadata.get("element_index")
+        revision = event.metadata.get("source_revision")
+        if (run_state is not RunState.WAITING or event.step_id is not None
+                or event.attempt_id is not None or pending is not None
+                or not isinstance(source_step, str)
+                or not isinstance(index, int) or isinstance(index, bool) or index < 0
+                or not isinstance(revision, int) or isinstance(revision, bool) or revision < 1):
+            return _replay_failure("active child failure requires an exact waiting traversal")
+        child = active_children.get((source_step, index))
+        traversal = traversals.get(source_step)
+        if (child is None or traversal is None
+                or child[0] != event.metadata.get("child_run_id")
+                or child[2] != event.metadata.get("materialization_digest")
+                or traversal[0] != child[2]
+                or any((source_step, position) not in active_children for position in range(len(traversal[1])))):
+            return _replay_failure("active child failure lineage binding drift")
+        for key in ("source_event_digest", "failure_policy_decision_digest"):
+            checked = _require_metadata_digest(event, key)
+            if isinstance(checked, Failure):
+                return checked
+        if event.metadata["failure_policy_decision_digest"] != active_child_failure_decision_digest(event.metadata):
+            return _replay_failure("active child failure cause binding drift")
+        run_state = RunState.FAILED
+        failures.append(source_step)
     elif event.event_type == RunEvent.REQUIRED_STEP_FAILED.value:
         effect_identity = _require_effect_identity(event)
         if isinstance(effect_identity, Failure):
@@ -1081,6 +1234,64 @@ def _apply_event(
         if step_id not in failures:
             failures.append(step_id)
         pending = None
+    elif event.event_type == RunEvent.CANCELLATION_REQUESTED.value:
+        if event.attempt_id is not None:
+            return _replay_failure("cancellation command cannot impersonate an effect attempt")
+        if event.step_id is None:
+            if run_state in TERMINAL_RUN_STATES:
+                return _replay_failure("cancellation requires a live run")
+            in_flight = any(
+                StepState.CANCEL_REQUESTED in STEP_TRANSITIONS.get(
+                    (state, StepEvent.CANCELLATION_REQUESTED), frozenset()
+                ) for state in steps.values()
+            )
+            run_state = RunState.CANCELLING if in_flight else RunState.CANCELLED
+        else:
+            if run_state not in {RunState.CANCELLING, RunState.CANCELLED}:
+                return _replay_failure("step cancellation requires the run cancellation command")
+            previous = steps.get(event.step_id)
+            if previous is None:
+                return _replay_failure("cancellation references an unknown step")
+            allowed = STEP_TRANSITIONS.get((previous, StepEvent.CANCELLATION_REQUESTED), frozenset())
+            target = event.metadata.get("state")
+            if len(allowed) != 1 or target != next(iter(allowed)).value:
+                return _replay_failure("step cancellation target contradicts current effect state")
+            steps[event.step_id] = next(iter(allowed))
+    elif event.event_type == StepEvent.CLEANUP_OR_READBACK_CONFIRMED.value:
+        identity = _require_effect_identity(event)
+        if isinstance(identity, Failure):
+            return identity
+        step_id, attempt_id = identity
+        if (
+            run_state is not RunState.CANCELLING
+            or steps.get(step_id) is not StepState.CANCEL_REQUESTED
+            or event.metadata.get("state") != StepState.CANCELLED.value
+            or event.metadata.get("reason") != "NODE_BEFORE_HANDLER"
+            or attempt_steps.get(attempt_id) != step_id
+            or attempts.get(attempt_id) not in {
+                EffectDisposition.NOT_STARTED, EffectDisposition.IN_FLIGHT,
+            }
+        ):
+            return _replay_failure("non-start cleanup requires the exact cancelled attempt and node proof")
+        steps[step_id] = StepState.CANCELLED
+        attempts[attempt_id] = EffectDisposition.NOT_STARTED
+    elif event.event_type == RunEvent.REQUIRED_CLEANUP_SETTLED.value:
+        identity = _require_run_identity(event)
+        if isinstance(identity, Failure):
+            return identity
+        if (
+            run_state is not RunState.CANCELLING
+            or event.metadata.get("state") != RunState.CANCELLED.value
+            or any(state not in {
+                StepState.CANCELLED, StepState.SUCCEEDED, StepState.FAILED,
+                StepState.SKIPPED_BY_DECISION,
+            } for state in steps.values())
+            or any(disposition in {
+                EffectDisposition.IN_FLIGHT, EffectDisposition.OUTCOME_UNKNOWN,
+            } for disposition in attempts.values())
+        ):
+            return _replay_failure("cancellation cannot settle while effects or cleanup remain pending")
+        run_state = RunState.CANCELLED
     elif event.event_type == RunEvent.RUN_COMPLETION_DERIVED.value:
         identity = _require_run_identity(event)
         if isinstance(identity, Failure):
@@ -1104,6 +1315,163 @@ def _apply_event(
                 "RunCompletionDerived required step closure is not exactly succeeded"
             )
         run_state = RunState.COMPLETED
+    elif event.event_type == "TraversalMaterializationRequested":
+        if run_state not in {RunState.READY, RunState.RUNNING, RunState.WAITING}:
+            return _replay_failure(
+                "TraversalMaterializationRequested requires a live parent run"
+            )
+        if event.step_id is not None or event.attempt_id is not None:
+            return _replay_failure(
+                "TraversalMaterializationRequested is a run observation"
+            )
+        for key in (
+            "source_step_id",
+            "input_ref",
+            "traversal_policy",
+        ):
+            value = event.metadata.get(key)
+            if not isinstance(value, str) or not value:
+                return _replay_failure(
+                    "TraversalMaterializationRequested identity is incomplete"
+                )
+        for key in (
+            "input_sequence_digest",
+            "element_program_digest",
+            "shape_digest",
+            "binding_digest",
+            "materialization_digest",
+        ):
+            digest = _require_metadata_digest(event, key)
+            if isinstance(digest, Failure):
+                return digest
+        element_count = event.metadata.get("element_count")
+        raw_element_digests = event.metadata.get("element_digests")
+        element_digests = (
+            cast(tuple[object, ...] | list[object], raw_element_digests)
+            if isinstance(raw_element_digests, (tuple, list))
+            else None
+        )
+        if (
+            not isinstance(element_count, int)
+            or isinstance(element_count, bool)
+            or element_count < 0
+            or element_digests is None
+            or len(element_digests) != element_count
+            or any(
+                not isinstance(item, str) or len(item) != 64
+                for item in element_digests
+            )
+        ):
+            return _replay_failure(
+                "TraversalMaterializationRequested element binding drift"
+            )
+        source_step_id = cast(str, event.metadata["source_step_id"])
+        if source_step_id in traversals:
+            return _replay_failure(
+                "TraversalMaterializationRequested source step is duplicated"
+            )
+        traversals[source_step_id] = (
+            cast(str, event.metadata["materialization_digest"]),
+            tuple(cast(str, item) for item in element_digests),
+        )
+        run_state = RunState.WAITING
+    elif event.event_type == "ActiveChildMaterialized":
+        if run_state is not RunState.WAITING:
+            return _replay_failure("ActiveChildMaterialized requires WAITING parent")
+        if event.step_id is not None or event.attempt_id is not None:
+            return _replay_failure("ActiveChildMaterialized is a run observation")
+        for key in (
+            "source_step_id",
+            "child_run_id",
+            "root_value_identity",
+            "root_value_ref",
+            "result_step_id",
+            "input_ref",
+        ):
+            value = event.metadata.get(key)
+            if not isinstance(value, str) or not value:
+                return _replay_failure("ActiveChildMaterialized identity is incomplete")
+        for key in (
+            "materialization_digest",
+            "element_digest",
+            "child_program_digest",
+            "root_value_digest",
+            "input_digest",
+        ):
+            digest = _require_metadata_digest(event, key)
+            if isinstance(digest, Failure):
+                return digest
+        index = event.metadata.get("element_index")
+        if not isinstance(index, int) or isinstance(index, bool) or index < 0:
+            return _replay_failure("ActiveChildMaterialized index is invalid")
+        source_step_id = cast(str, event.metadata["source_step_id"])
+        materialization_digest = cast(str, event.metadata["materialization_digest"])
+        element_digest = cast(str, event.metadata["element_digest"])
+        child_run_id = cast(str, event.metadata["child_run_id"])
+        traversal = traversals.get(source_step_id)
+        if (
+            traversal is None
+            or traversal[0] != materialization_digest
+            or index >= len(traversal[1])
+            or traversal[1][index] != element_digest
+            or (source_step_id, index) in active_children
+            or child_run_id
+            in {binding[0] for binding in active_children.values()}
+        ):
+            return _replay_failure("ActiveChildMaterialized lineage binding drift")
+        active_children[(source_step_id, index)] = (
+            child_run_id,
+            element_digest,
+            materialization_digest,
+        )
+    elif event.event_type == "ActiveChildrenSettled":
+        if run_state is not RunState.WAITING:
+            return _replay_failure("ActiveChildrenSettled requires WAITING parent")
+        if event.step_id is not None or event.attempt_id is not None:
+            return _replay_failure("ActiveChildrenSettled is a run observation")
+        source_step_id = event.metadata.get("source_step_id")
+        child_count = event.metadata.get("child_count")
+        if (
+            not isinstance(source_step_id, str)
+            or not source_step_id
+            or not isinstance(child_count, int)
+            or isinstance(child_count, bool)
+            or child_count < 0
+            or event.payload_ref is None
+            or event.payload_digest is None
+        ):
+            return _replay_failure("ActiveChildrenSettled binding is incomplete")
+        result_digest = _require_metadata_digest(event, "result_digest")
+        if isinstance(result_digest, Failure):
+            return result_digest
+        if event.payload_digest != result_digest:
+            return _replay_failure("ActiveChildrenSettled payload digest drift")
+        child_run_ids = event.metadata.get("child_run_ids")
+        child_result_digests = event.metadata.get("child_result_digests")
+        traversal = traversals.get(source_step_id)
+        ordered_children = tuple(
+            active_children.get((source_step_id, index))
+            for index in range(child_count)
+        )
+        if (
+            traversal is None
+            or child_count != len(traversal[1])
+            or any(item is None for item in ordered_children)
+            or not isinstance(child_run_ids, (tuple, list))
+            or tuple(child_run_ids)
+            != tuple(item[0] for item in ordered_children if item is not None)
+            or not isinstance(child_result_digests, (tuple, list))
+            or len(child_result_digests) != child_count
+            or any(
+                item is not None and not is_sha256_hex(item)
+                for item in child_result_digests
+            )
+        ):
+            return _replay_failure("ActiveChildrenSettled child closure drift")
+        if source_step_id in steps:
+            return _replay_failure("ActiveChildrenSettled source step is duplicated")
+        steps[source_step_id] = StepState.SUCCEEDED
+        run_state = RunState.RUNNING
     elif event.event_type == "SuccessorMaterialized":
         if run_state is not RunState.COMPLETED:
             return _replay_failure(
@@ -1180,6 +1548,22 @@ def _apply_event(
             sorted(
                 (recovery_attempt_id, step_id, target_attempt_id)
                 for recovery_attempt_id, (step_id, target_attempt_id) in recovery_claims.items()
+            )
+        ),
+        traversal_bindings=tuple(
+            sorted(
+                (step_id, materialization_digest, element_digests)
+                for step_id, (materialization_digest, element_digests) in traversals.items()
+            )
+        ),
+        active_child_bindings=tuple(
+            sorted(
+                (step_id, index, child_run_id, element_digest, materialization_digest)
+                for (step_id, index), (
+                    child_run_id,
+                    element_digest,
+                    materialization_digest,
+                ) in active_children.items()
             )
         ),
         required_failure_step_ids=tuple(sorted(failures)),

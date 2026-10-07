@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import secrets
 from dataclasses import dataclass, field
 from typing import Any, Mapping, NoReturn
 
@@ -10,6 +11,14 @@ from mrw_functorial_kit.core.application_failure_semantics import request_identi
 
 
 LEGACY_ACTOR_HEADERS = ("X-Actor-Id", "X-User-Id", "X-User-Email", "X-Request-Actor")
+
+LOCAL_SINGLE_USER_ACTOR_PATHS = frozenset(
+    {
+        "/api/v1/agent-macro-host/record-input",
+        "/api/v1/agent-macro-host/dispatch",
+    }
+)
+_FORWARDED_CLIENT_HEADERS = frozenset({"forwarded", "x-real-ip"})
 
 _REQUEST_IDENTITY_FAILURE_WITNESS = "test:test_w01_project_identity_failures"
 _REQUEST_IDENTITY_FAILURE_CONTEXT_KEYS = frozenset(
@@ -136,6 +145,56 @@ def authenticated_actor_context(
         actor_auth_mode=_clean_text(auth_mode, max_length=64) or "authenticated",
         legacy_actor_id=_clean_text(legacy_actor_id),
         actor_metadata=_safe_actor_metadata(actor_metadata),
+    )
+
+
+def _configured_secret_text(value: Any) -> str:
+    reveal = getattr(value, "get_secret_value", None)
+    if callable(reveal):
+        value = reveal()
+    return str(value or "").strip()
+
+
+def _has_forwarded_client_header(request: Request) -> bool:
+    return any(
+        name.lower() in _FORWARDED_CLIENT_HEADERS
+        or name.lower().startswith("x-forwarded-")
+        for name in request.headers.keys()
+    )
+
+
+def resolve_local_single_user_actor_context(
+    request: Request | None,
+    *,
+    enabled: bool,
+    server_api_key: Any,
+) -> RequestActorContext | None:
+    """Project a direct local WebUI service request to one stable host actor."""
+
+    if (
+        not enabled
+        or request is None
+        or str(request.scope.get("path") or "") not in LOCAL_SINGLE_USER_ACTOR_PATHS
+    ):
+        return None
+    client = request.client
+    if client is None or client.host not in {"127.0.0.1", "::1", "::ffff:127.0.0.1"}:
+        return None
+    if _has_forwarded_client_header(request):
+        return None
+    configured_key = _configured_secret_text(server_api_key)
+    supplied_key = request.headers.get("X-MRW-Server-API-Key")
+    if (
+        not configured_key
+        or supplied_key is None
+        or not secrets.compare_digest(supplied_key, configured_key)
+    ):
+        return None
+    return authenticated_actor_context(
+        actor_id=actor_id_from_secret("local_host", configured_key),
+        source="local_host",
+        auth_mode="local_host",
+        legacy_actor_id=legacy_actor_id_from_request(request),
     )
 
 
@@ -268,7 +327,10 @@ def resolve_request_actor_context(request: Request | None) -> RequestActorContex
 
 def require_trusted_actor_context(request: Request | None) -> RequestActorContext:
     context = resolve_request_actor_context(request)
-    if context.actor_trusted:
+    if context.actor_trusted and context.actor_source not in {
+        "authenticated_oauth_token_sink",
+        "authenticated_oauth_token_sink_claims",
+    }:
         return context
     detail = {
         "message": "trusted actor required",

@@ -5,19 +5,15 @@ import hashlib
 import json
 from importlib import import_module
 from threading import RLock
-from typing import TYPE_CHECKING, Callable, Mapping, NoReturn, TypeGuard, TypedDict
+from typing import Callable, Mapping, NoReturn, TypeGuard, TypedDict
 
 from functorial_kit import Failure
 
-from app.services.agent_runtime import assert_no_write_conflict
 from app.services.agent_sessions import get_agent_session_service
+from app.services.request_identity import RequestActorContext
 from app.settings.config import settings
 from app.services.agent_batch.task_contract import build_agent_batch_manifest_entry, list_agent_batch_dispatch_skill_bindings
 from mrw_functorial_kit.core.agent_service_semantics import agent_skill_runtime_failures
-
-if TYPE_CHECKING:
-    from app.contracts.json import JSONObject as AgentSessionJsonObject, JSONValue as AgentSessionJsonValue
-
 
 SkillHandler = Callable[..., object]
 SkillDocument = dict[str, object]
@@ -26,6 +22,7 @@ ObjectCollection = list[object] | tuple[object, ...] | set[object]
 
 
 class SkillInvocationContext(TypedDict, total=False):
+    actor_context: RequestActorContext | None
     actor_role: str
     permissions: StringCollection
     consumer: str
@@ -149,6 +146,7 @@ class SkillSpec:
     approval_policy: SkillDocument | None = None
     artifact_contract: SkillDocument | None = None
     agent_batch_task_manifest: SkillDocument | None = None
+    pass_invocation_context: bool = False
 
 
 class SkillRuntime:
@@ -200,6 +198,7 @@ class SkillRuntime:
         approval_policy: Mapping[str, object] | None = None,
         artifact_contract: Mapping[str, object] | None = None,
         agent_batch_task_manifest: Mapping[str, object] | None = None,
+        pass_invocation_context: bool = False,
     ) -> None:
         resolved_skill_id = str(skill_id or "").strip()
         if not resolved_skill_id:
@@ -231,6 +230,7 @@ class SkillRuntime:
             approval_policy=_normalize_contract_dict(approval_policy),
             artifact_contract=_normalize_contract_dict(artifact_contract),
             agent_batch_task_manifest=_normalize_agent_batch_task_manifest(agent_batch_task_manifest),
+            pass_invocation_context=pass_invocation_context,
         )
         with self._lock:
             self._registry[resolved_skill_id] = spec
@@ -320,7 +320,12 @@ class SkillRuntime:
             context=context,
         )
 
-        if args is None and kwargs is None:
+        if spec.pass_invocation_context:
+            if args is not None or kwargs is not None:
+                # kit:boundary owner=skill.invocation_context class=PROGRAMMER_DEFECT failure_family=none witness=test:test_context_bound_handler_keeps_actor_proof_outside_payload
+                raise TypeError("context-bound skills require the declared payload entry")
+            result = spec.handler(payload, invocation_context=dict(context or {}))
+        elif args is None and kwargs is None:
             result = spec.handler(payload)
         else:
             result = spec.handler(*(args or ()), **(kwargs or {}))
@@ -593,6 +598,7 @@ class SkillRuntime:
         ):
             self.register(
                 skill_id=f"project_retrieval.{name}", handler=handler,
+                pass_invocation_context=name in {"start", "read_run", "continue_saved_frontier"},
                 allowed_actor_roles=("orchestration_runtime", "business_capability_wrapper", "user_facing_assistant"),
                 required_permissions=(permission,), owner="project_retrieval.service",
                 concurrency_class=concurrency,
@@ -778,55 +784,6 @@ def _resolve_agent_session_context(context: Mapping[str, object] | None) -> tupl
     return session_id, task_id
 
 
-def _normalize_context_write_set(value: object) -> list[str]:
-    out: list[str] = []
-    for item in _object_collection(value):
-        text = str(item or "").strip()
-        if text and text not in out:
-            out.append(text)
-    return out
-
-
-def _enforce_write_shared_policy(*, skill_id: str, context: Mapping[str, object] | None) -> None:
-    session_id, task_id = _resolve_agent_session_context(context)
-    if not session_id or not task_id:
-        return
-    service = get_agent_session_service()
-    service.reclaim_expired_tasks(session_id)
-    task = service.store.get_task(session_id, task_id)
-    if isinstance(task, Failure):
-        _raise_skill_runtime_defect(f"skill task context unavailable: {task.message}")
-    tasks = service.list_tasks(session_id)
-    if isinstance(tasks, Failure):
-        _raise_skill_runtime_defect(f"skill session context unavailable: {tasks.message}")
-    write_set = _normalize_context_write_set((context or {}).get("write_set")) or list(task["write_set"])
-    conflict = assert_no_write_conflict(tasks, task_id, write_set)
-    if conflict is not None:
-        write_set_payload: list[AgentSessionJsonValue] = [
-            item for item in write_set
-        ]
-        event_payload: AgentSessionJsonObject = {
-            "skill_id": skill_id,
-            "write_set": write_set_payload,
-        }
-        service.store.append_event(
-            session_id,
-            event_type="skill.write_conflict",
-            task_id=task_id,
-            payload=event_payload,
-        )
-        _raise_skill_failure(
-            _skill_failure(
-                "write_set_conflict",
-                f"skill invoke denied: {skill_id} (write_set_conflict)",
-                operation="enforce_write_shared_policy",
-                site="write_set",
-                public_exception="RuntimeError",
-            ),
-            RuntimeError,
-        )
-
-
 def _enforce_runtime_policies(
     *,
     spec: SkillSpec,
@@ -838,7 +795,6 @@ def _enforce_runtime_policies(
 ) -> None:
     concurrency_class = spec.concurrency_class
     if concurrency_class == "write_shared":
-        _enforce_write_shared_policy(skill_id=skill_id, context=context)
         return None
     if concurrency_class not in {"write_external", "privileged"}:
         return None
@@ -985,6 +941,7 @@ def register_skill(
     approval_policy: Mapping[str, object] | None = None,
     artifact_contract: Mapping[str, object] | None = None,
     agent_batch_task_manifest: Mapping[str, object] | None = None,
+    pass_invocation_context: bool = False,
 ) -> None:
     _RUNTIME.register(
         skill_id=skill_id,
@@ -998,6 +955,7 @@ def register_skill(
         approval_policy=approval_policy,
         artifact_contract=artifact_contract,
         agent_batch_task_manifest=agent_batch_task_manifest,
+        pass_invocation_context=pass_invocation_context,
     )
 
 

@@ -250,6 +250,17 @@ export type WorkflowGraphEvidencePackResponse = {
   [key: string]: unknown
 }
 
+export type WorkflowGraphRequestLocalHandoffCarrier = {
+  contract_version?: string
+  run_id?: string
+  handoff_id?: string
+  handoff_mode?: string
+  payload?: Record<string, unknown>
+  durable: false
+  backend_marker: 'workflow_graph.request_local_handoff'
+  [key: string]: unknown
+}
+
 export type WorkflowGraphHandoffResponse = {
   contract_version?: string
   handoff_id?: string
@@ -261,7 +272,7 @@ export type WorkflowGraphHandoffResponse = {
   keyword_card_request?: Record<string, unknown>
   evidence_pack?: WorkflowGraphEvidencePackResponse | Record<string, unknown>
   graph_context?: WorkflowGraphEvidencePackResponse | Record<string, unknown>
-  persistence?: Record<string, unknown>
+  persistence?: WorkflowGraphRequestLocalHandoffCarrier
   [key: string]: unknown
 }
 
@@ -271,6 +282,8 @@ export type WorkflowGraphHandoffReplayResponse = {
   events?: Array<Record<string, unknown>>
   result?: Record<string, unknown>
   contract_version?: string
+  read_only?: true
+  backend_marker?: 'workflow_graph.historical_run_decoder'
   [key: string]: unknown
 }
 
@@ -388,8 +401,10 @@ export async function buildWorkflowGraphWritingHandoff(graphId: string, payload:
   return post<WorkflowGraphHandoffResponse>(endpoints.workflowGraph.curatedWritingHandoff(graphId), payload)
 }
 
-export async function replayWorkflowGraphHandoff(runId: string, handoffId: string) {
-  return get<WorkflowGraphHandoffReplayResponse>(endpoints.workflowGraph.handoffReplay(runId, handoffId))
+export async function replayWorkflowGraphHandoff(runId: string, handoffId: string, projectKey: string) {
+  return get<WorkflowGraphHandoffReplayResponse>(
+    endpoints.workflowGraph.handoffReplay(runId, handoffId, projectKey),
+  )
 }
 
 export async function exportGraph(docIds: number[] | string) {

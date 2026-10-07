@@ -20,14 +20,12 @@ from fastapi import Request
 
 from app.successor_runtime.assembly.base import (
     FamilyAssemblyOptions,
+    ProjectionAssemblyOptions,
     local_assembly_scope_digest,
 )
 from app.successor_runtime.assembly.projection_assembly import (
     build_deterministic_facade_closure,
     build_deterministic_command_submission_port,
-)
-from app.successor_runtime.assembly.successor_assembly import (
-    build_local_offline_fixture_options,
 )
 from app.successor_runtime.runtime.facade import SuccessorRuntimeFacade
 from app.successor_runtime.runtime.ports import ProjectScopeRef
@@ -37,7 +35,7 @@ from app.successor_runtime.substrate.postgres.projection_query_read_port import 
 from app.successor_runtime.substrate.postgres.session import (
     ProjectScopeResolver,
     ProjectScopeValidationError,
-    ServerProjectScopeResolver,
+    RegistryBackedProjectScopeResolver,
     default_project_schema_name,
     validate_project_key,
 )
@@ -101,53 +99,6 @@ class AuthActorUnresolvedError(RuntimeError):
 
 class SuccessorProductionConfigurationError(RuntimeError):
     """Raised when the production registry mount is misconfigured."""
-
-
-class RegistryBackedProjectScopeResolver:
-    """Registry resolver that opens one fixed-public connection per call.
-
-    The resolver never owns a connection at import/assembly time.  The engine
-    (or a factory returning one) is supplied by the application startup point;
-    each ``resolve``/``resolve_expected`` call opens a short-lived connection
-    and delegates to the authoritative ``ServerProjectScopeResolver``.
-    """
-
-    def __init__(
-        self,
-        *,
-        engine: Any | None = None,
-        engine_factory: Callable[[], Any] | None = None,
-    ) -> None:
-        if (engine is None) == (engine_factory is None):
-            raise ValueError(
-                "RegistryBackedProjectScopeResolver requires exactly one of "
-                "engine or engine_factory"
-            )
-        self._engine = engine
-        self._engine_factory = engine_factory
-
-    def _connect(self):
-        engine = self._engine if self._engine is not None else self._engine_factory()
-        return engine.connect()
-
-    def resolve(self, authenticated_project_key: str) -> Any:
-        with self._connect() as connection:
-            resolver = ServerProjectScopeResolver(connection=connection)
-            return resolver.resolve(authenticated_project_key)
-
-    def resolve_expected(
-        self,
-        project_key: str,
-        registry_revision: int,
-        scope_digest: str,
-    ) -> Any:
-        with self._connect() as connection:
-            resolver = ServerProjectScopeResolver(connection=connection)
-            return resolver.resolve_expected(
-                project_key,
-                registry_revision,
-                scope_digest,
-            )
 
 
 def _local_only_actor_provider(request: Request) -> str:
@@ -265,11 +216,13 @@ def build_successor_runtime_app_dependencies(
 ]:
     """Build the default LOCAL_ONLY router dependencies.
 
-    ``options`` defaults to the closed local-only fixture options; the C9
-    facade closure from those options is the mounted command/query facade.
+    The default options bind only the mounted C9 command/query facade.
+    Complete offline family fixtures are selected explicitly by their consumers.
     """
 
-    assembly_options = options or build_local_offline_fixture_options()
+    assembly_options = options or FamilyAssemblyOptions(
+        c9=ProjectionAssemblyOptions(facade=build_deterministic_facade_closure()),
+    )
     facade = assembly_options.c9.facade
     if facade is None:
         facade = build_deterministic_facade_closure()
@@ -315,7 +268,7 @@ def build_successor_registry_app_dependencies(
     """
 
     _production_validation_from_settings()
-    assembly_options = options or build_local_offline_fixture_options()
+    assembly_options = options or FamilyAssemblyOptions()
     facade = SuccessorRuntimeFacade(
         submission_port=build_deterministic_command_submission_port(),
         query_port=EngineBackedProjectionQueryReadPort(

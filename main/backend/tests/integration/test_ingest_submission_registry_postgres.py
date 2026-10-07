@@ -15,7 +15,6 @@ from contextlib import nullcontext
 from threading import Barrier, Lock
 from types import SimpleNamespace
 from typing import TypeGuard
-from unittest.mock import Mock
 from uuid import uuid4
 
 import pytest
@@ -185,11 +184,10 @@ def test_postgres_concurrent_reserve_is_single_row_and_hash_drift_conflicts(
         with session_factory() as session:
             assert session.scalar(select(func.count()).select_from(IngestSubmissionRegistry)) == 2
 
-        delay = Mock(return_value=SimpleNamespace(id="must-not-dispatch"))
-        tasks = SimpleNamespace(
-            task_ingest_url_via_source_library=SimpleNamespace(delay=delay)
+        trusted_request = SimpleNamespace(
+            state=SimpleNamespace(authenticated_actor_id="postgres-url-actor"),
+            headers={},
         )
-        monkeypatch.setattr(ingest_api, "_tasks_module", lambda: tasks)
         exact_response = ingest_api.ingest_url_single(
             ingest_api.SingleUrlIngestRequest(
                 project_key="project_a",
@@ -198,7 +196,8 @@ def test_postgres_concurrent_reserve_is_single_row_and_hash_drift_conflicts(
                 strict_mode=False,
                 async_mode=True,
                 idempotency_key="postgres-race",
-            )
+            ),
+            trusted_request,
         )
         exact_envelope = _object_dict(exact_response)
         exact_data = _object_dict(exact_envelope.get("data"))
@@ -212,15 +211,15 @@ def test_postgres_concurrent_reserve_is_single_row_and_hash_drift_conflicts(
                     query_terms=["market"],
                     strict_mode=False,
                     async_mode=True,
-                    idempotency_key="postgres-race",
-                )
-            )
+                idempotency_key="postgres-race",
+            ),
+            trusted_request,
+        )
         assert conflict.value.status_code == 409
         conflict_detail = _object_dict(conflict.value.detail)
         conflict_error_envelope = _object_dict(conflict_detail.get("error"))
         conflict_error = _object_dict(conflict_error_envelope.get("details"))
         assert conflict_error["reason"] == "idempotency_key_payload_conflict"
-        delay.assert_not_called()
 
         with pytest.raises(MaterialIngestRegistryConflictError) as raised:
             submission_registry.reserve_submission_db(

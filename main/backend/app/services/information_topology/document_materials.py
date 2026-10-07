@@ -262,7 +262,6 @@ def project_document_materials(
                 "source_uri": str(document.uri or ""),
                 "content_summary": str(document.summary or ""),
                 "source_status": str(document.status or ""),
-                "material_id": document_id,
                 "material_revision": document_revision(document),
             }
             )

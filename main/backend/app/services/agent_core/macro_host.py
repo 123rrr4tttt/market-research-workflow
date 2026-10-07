@@ -11,6 +11,7 @@ from uuid import uuid4
 from functorial_kit import Failure
 
 from .contracts import AgentCoreRequest, CoreToolCall
+from app.services.request_identity import RequestActorContext
 from .host_authorization import TrustedHostContext, canonical_arguments_sha256
 from .macro_environment import (
     ResolvedMacroEnvironment,
@@ -201,6 +202,12 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _actor_identity(actor: RequestActorContext | None) -> tuple[str, str, str, bool] | None:
+    if actor is None:
+        return None
+    return actor.actor_id, actor.actor_source, actor.actor_auth_mode, actor.actor_trusted
+
+
 def _required_str(value: Any, *, label: str) -> str:
     result = str(value or "").strip()
     if not result:
@@ -335,9 +342,18 @@ class AgentMacroHostService:
             "environmentStale": stale,
         }
 
-    def record_input(self, *, thread_id: str, content: str, turn_id: str) -> dict[str, Any]:
+    def record_input(
+        self, *, thread_id: str, content: str, turn_id: str,
+        actor_context: RequestActorContext | None = None,
+    ) -> dict[str, Any]:
+        if actor_context is not None and (not actor_context.actor_trusted or not actor_context.actor_id):
+            raise MacroHostError("host_actor_untrusted", "host actor is not authenticated", status_code=403)
         binding = self._bound_binding(thread_id)
         normalized_turn = _required_str(turn_id, label="turnId")
+        with self._lock:
+            prior = binding.turn_contexts.get(normalized_turn)
+            if prior is not None and _actor_identity(prior.actor_context) != _actor_identity(actor_context):
+                raise MacroHostError("host_actor_mismatch", "recorded turn belongs to another authenticated actor", status_code=403)
         normalized_content = str(content or "").strip()
         if not normalized_content:
             raise MacroHostError("invalid_input", "original user input is required")
@@ -362,12 +378,16 @@ class AgentMacroHostService:
             host_thread_id=binding.thread_id or thread_id,
             turn_id=normalized_turn,
             user_message_id=f"host-message-{uuid4().hex}",
+            actor_context=actor_context,
         )
         turn_binding = self._assemble_turn(binding.environment, context)
         message = self.agent_session_service.create_host_user_message(context, content=normalized_content)
         if isinstance(message, Failure):
             raise MacroHostError("host_input_rejected", message.message, status_code=403)
         with self._lock:
+            prior = binding.turn_contexts.get(normalized_turn)
+            if prior is not None and _actor_identity(prior.actor_context) != _actor_identity(actor_context):
+                raise MacroHostError("host_actor_mismatch", "recorded turn belongs to another authenticated actor", status_code=403)
             binding.turn_contexts[normalized_turn] = context
             binding.turn_bindings[normalized_turn] = turn_binding
         message_id = message.get("message_id") if isinstance(message, Mapping) else getattr(message, "message_id", None)
@@ -440,6 +460,7 @@ class AgentMacroHostService:
         namespace: str | None,
         tool: str,
         arguments: Mapping[str, Any],
+        actor_context: RequestActorContext | None = None,
     ) -> dict[str, Any]:
         normalized_thread = _required_str(thread_id, label="threadId")
         normalized_turn = _required_str(turn_id, label="turnId")
@@ -455,6 +476,8 @@ class AgentMacroHostService:
             native = binding.turn_bindings.get(normalized_turn)
         if context is None or native is None:
             return self._tool_failure("dynamic tool call rejected: trusted host input is not recorded for this turn")
+        if _actor_identity(context.actor_context) != _actor_identity(actor_context):
+            return self._tool_failure("dynamic tool call rejected: authenticated host actor differs from recorded input")
         logical_name = native.logical_tool_name(namespace=namespace, name=tool_name)
         if logical_name is None or native.registry.get(logical_name) is None:
             return self._tool_failure(f"unknown mounted macro tool: {namespace + '.' if namespace else ''}{tool_name}")

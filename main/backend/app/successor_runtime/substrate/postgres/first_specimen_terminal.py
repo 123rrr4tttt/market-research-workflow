@@ -137,6 +137,8 @@ class FirstSpecimenActivationPort(Protocol):
         scope: RuntimeScope,
         run_id: str,
         observed_at: datetime,
+        authority_step_id: str | None = None,
+        authority_digest: str | None = None,
     ) -> object: ...
 
 
@@ -701,6 +703,7 @@ def _read_project_provider_receipt(
 AdmissionCoordinatorFactory = Callable[
     [Connection, RuntimeScope, ProjectTables], AdmissionCoordinator
 ]
+AdmissionBundleFactory = Callable[[], Any]
 PlanRepositoryFactory = Callable[[Connection, ProjectTables], Any]
 
 
@@ -710,8 +713,9 @@ class PostgresFirstSpecimenTerminalHook:
     def __init__(
         self,
         *,
-        bundle: Any,
         activation: FirstSpecimenActivationPort,
+        bundle: Any | None = None,
+        bundle_factory: AdmissionBundleFactory | None = None,
         stage_reader: PostgresFirstSpecimenStageReader | None = None,
         candidate_decoder: FirstSpecimenCandidateDecoder | None = None,
         admission_factory: AdmissionCoordinatorFactory | None = None,
@@ -720,7 +724,10 @@ class PostgresFirstSpecimenTerminalHook:
             [Connection, RuntimeScope], PostgresAuthorityProvider
         ] = PostgresAuthorityProvider,
     ) -> None:
+        if bundle is not None and bundle_factory is not None:
+            raise ValueError("supply either admission bundle or bundle_factory")
         self._bundle = bundle
+        self._bundle_factory = bundle_factory
         self._activation = activation
         self._stage_reader = stage_reader or PostgresFirstSpecimenStageReader()
         self._decoder = candidate_decoder or FirstSpecimenCandidateDecoder()
@@ -1028,6 +1035,15 @@ class PostgresFirstSpecimenTerminalHook:
         terminal: TerminalOutcome,
     ) -> None:
         del lifecycle, outcome
+        observed = terminal.observed_at or datetime.now().astimezone()
+        if terminal.kind.value == "FAILED":
+            self._settle_active_parents(
+                connection=connection,
+                scope=scope,
+                run_id=claim.assignment.run_id,
+                observed_at=observed,
+            )
+            return
         if terminal.kind.value != "SUCCEEDED":
             return
         self._activate_and_complete(
@@ -1035,7 +1051,7 @@ class PostgresFirstSpecimenTerminalHook:
             scope=scope,
             assignment=claim.assignment,
             authority_digest=terminal.authority_digest,
-            observed_at=terminal.observed_at,
+            observed_at=observed,
         )
 
     def after_reconciliation(
@@ -1047,10 +1063,17 @@ class PostgresFirstSpecimenTerminalHook:
         outcome: ReconciliationHandlerOutcome,
         observed_at: datetime,
     ) -> None:
-        if (
-            outcome.result.state is not ReconciliationState.RESOLVED
-            or outcome.result.disposition is not EffectDisposition.SUCCEEDED
-        ):
+        if outcome.result.state is not ReconciliationState.RESOLVED:
+            return
+        if outcome.result.disposition is EffectDisposition.FAILED:
+            self._settle_active_parents(
+                connection=connection,
+                scope=scope,
+                run_id=claim.assignment.run_id,
+                observed_at=observed_at,
+            )
+            return
+        if outcome.result.disposition is not EffectDisposition.SUCCEEDED:
             return
         if claim.assignment.step_role is not None and (
             claim.assignment.step_role.value == "ADMISSION"
@@ -1136,11 +1159,13 @@ class PostgresFirstSpecimenTerminalHook:
         observed_at: datetime | None,
     ) -> None:
         observed = observed_at or datetime.now().astimezone()
-        self._activation.activate_after_terminal(
+        activation = self._activation.activate_after_terminal(
             connection=connection,
             scope=scope,
             run_id=assignment.run_id,
             observed_at=observed,
+            authority_step_id=assignment.step_id,
+            authority_digest=authority_digest,
         )
         if assignment.plan_digest is None:
             raise FirstSpecimenTerminalError(
@@ -1155,12 +1180,43 @@ class PostgresFirstSpecimenTerminalHook:
             for step in plan.ordered_steps
             if step.step_kind in {"EFFECT", "ADMISSION"}
         )
+        from .first_specimen_activation import ActivationReceipt, selected_completion_steps
+        journal_steps: frozenset[str] = frozenset()
+        if isinstance(activation, ActivationReceipt):
+            completion = selected_completion_steps(plan, activation.result)
+            if completion is None:
+                self._settle_active_parents(connection=connection, scope=scope,
+                                           run_id=assignment.run_id, observed_at=observed)
+                return
+            required_step_ids, journal_steps = completion
         RuntimeLifecycleRepository(connection, scope).complete_if_satisfied(
-            assignment.run_id,
-            required_step_ids=required_step_ids,
-            authority_digest=authority_digest,
+            assignment.run_id, required_step_ids=required_step_ids,
+            journal_succeeded_step_ids=journal_steps,
+            authority_digest=authority_digest, observed_at=observed,
+        )
+        self._settle_active_parents(
+            connection=connection,
+            scope=scope,
+            run_id=assignment.run_id,
             observed_at=observed,
         )
+
+    def _settle_active_parents(
+        self,
+        *,
+        connection: Connection,
+        scope: RuntimeScope,
+        run_id: str,
+        observed_at: datetime,
+    ) -> None:
+        settle_parents = getattr(self._activation, "settle_parents_after_terminal", None)
+        if settle_parents is not None:
+            settle_parents(
+                connection=connection,
+                scope=scope,
+                run_id=run_id,
+                observed_at=observed_at,
+            )
 
     def _packet(
         self,
@@ -1301,11 +1357,18 @@ class PostgresFirstSpecimenTerminalHook:
     def _default_admission(
         self, connection: Connection, scope: RuntimeScope, tables: ProjectTables
     ) -> AdmissionCoordinator:
+        bundle = self._bundle
+        if bundle is None and self._bundle_factory is not None:
+            bundle = self._bundle_factory()
+        if bundle is None:
+            raise FirstSpecimenTerminalError(
+                "canonical admission requires an installed admission bundle"
+            )
         return AdmissionCoordinator(
             registry=build_first_specimen_admission_registry(
                 connection=connection,
                 tables=tables,
-                bundle=self._bundle,
+                bundle=bundle,
             ),
             commit_intents=PostgresCommitIntentAdapter(
                 CommitIntentRepository(connection, scope)

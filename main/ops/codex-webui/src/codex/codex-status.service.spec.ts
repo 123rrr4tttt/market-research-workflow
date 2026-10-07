@@ -76,6 +76,7 @@ function model(overrides: Partial<v2.Model> = {}): v2.Model {
     additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,
+    availableAccessPrograms: null,
     isDefault: true,
     ...overrides,
   };

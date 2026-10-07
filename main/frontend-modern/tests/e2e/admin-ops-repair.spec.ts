@@ -2,6 +2,7 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 
 const PROJECT_KEY = 'ops_repair_mock'
 const TASK_ID = 'ops-repair-celery-task'
+const RUNTIME_RUN_REF = 'runtime-run:ops-repair-runtime-run'
 const AGENT_SESSION_ID = 'ops-repair-agent-session'
 const AGENT_TASK_ID = 'ops-repair-agent-task'
 const LONG_TITLE = `Project evidence ${'with a long document title '.repeat(9)}`
@@ -15,7 +16,7 @@ async function fulfill(route: Route, data: unknown) {
   })
 }
 
-async function mockOps(page: Page, options: { documentError?: boolean; synchronous?: boolean; taskError?: boolean } = {}) {
+async function mockOps(page: Page, options: { documentError?: boolean; runtimeReceipt?: boolean; synchronous?: boolean; taskError?: boolean } = {}) {
   const state = {
     completed: false,
     documentReads: 0,
@@ -25,9 +26,8 @@ async function mockOps(page: Page, options: { documentError?: boolean; synchrono
     diagnosticReads: 0,
     sessionDetailReads: 0,
     sessionCancels: 0,
-    taskRetries: 0,
     coordinatorPasses: 0,
-    lastRetryTaskId: null as string | null,
+    runtimeReadbackProjectKey: null as string | null,
   }
   await page.addInitScript((projectKey) => {
     localStorage.setItem('market_project_key', projectKey)
@@ -50,7 +50,16 @@ async function mockOps(page: Page, options: { documentError?: boolean; synchrono
     }
     if (['/api/v1/admin/materials/re-extract', '/api/v1/admin/materials/topic-extract', '/api/v1/governance/aggregator/sync'].includes(path)) {
       state.writes += 1
-      return fulfill(route, { task_id: TASK_ID, async: !options.synchronous, trace_id: 'ops-repair-trace' })
+      return fulfill(route, {
+        task_id: options.runtimeReceipt ? null : TASK_ID,
+        runtime_run_ref: options.runtimeReceipt ? RUNTIME_RUN_REF : undefined,
+        async: !options.synchronous,
+        trace_id: 'ops-repair-trace',
+      })
+    }
+    if (path === `/api/v1/process/${encodeURIComponent(RUNTIME_RUN_REF)}`) {
+      state.runtimeReadbackProjectKey = new URL(route.request().url()).searchParams.get('project_key')
+      return fulfill(route, { task_id: RUNTIME_RUN_REF, runtime_run_ref: RUNTIME_RUN_REF, status: 'COMPLETED', name: 'mocked.runtime.program', progress: {} })
     }
     if (path === `/api/v1/process/${TASK_ID}`) {
       if (options.taskError) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ status: 'error', error: { message: 'mocked task readback unavailable' } }) })
@@ -84,23 +93,6 @@ async function mockOps(page: Page, options: { documentError?: boolean; synchrono
         body: JSON.stringify({ status: 'error', error: { code: 'NOT_FOUND', message: 'coordinator-pass endpoint is retired' } }),
       })
     }
-    if (path === `/api/v1/agent-sessions/${AGENT_SESSION_ID}/actions/retry-task`) {
-      state.taskRetries += 1
-      const payload = route.request().postDataJSON() as { task_id?: string }
-      state.lastRetryTaskId = payload.task_id || null
-      return fulfill(route, {
-        session_id: AGENT_SESSION_ID,
-        status: state.sessionCancels ? 'canceled' : 'active',
-        tasks: [{
-          task_id: AGENT_TASK_ID,
-          subject: 'Evidence repair',
-          task_type: 'repair',
-          phase: 'research',
-          status: state.taskRetries ? 'pending' : 'failed',
-          owner: 'codex',
-        }],
-      })
-    }
     if (path === `/api/v1/agent-sessions/${AGENT_SESSION_ID}/actions/cancel`) {
       state.sessionCancels += 1
       return fulfill(route, {
@@ -127,7 +119,7 @@ async function mockOps(page: Page, options: { documentError?: boolean; synchrono
           subject: 'Evidence repair',
           task_type: 'repair',
           phase: 'research',
-          status: state.taskRetries ? 'pending' : 'failed',
+          status: 'failed',
           owner: 'codex',
         }],
         messages: [{
@@ -233,6 +225,17 @@ test('async false never fabricates an asynchronous task receipt (mocked)', async
   await expect(page.getByTestId('task-submission-notice')).toHaveCount(0)
 })
 
+test('runtime run receipt is retained and read back in its project scope (mocked)', async ({ page }) => {
+  const state = await mockOps(page, { runtimeReceipt: true })
+  await page.goto('/#/admin/ops')
+  await page.locator('.ops-page').getByRole('tab', { name: 'Governance', exact: true }).click()
+  await page.locator('.ops-page').getByRole('button', { name: 'Re-extract Materials', exact: true }).click()
+  const notice = page.getByTestId('task-submission-notice')
+  await expect(notice).toContainText(RUNTIME_RUN_REF)
+  await expect(notice).toContainText('Completed')
+  await expect.poll(() => state.runtimeReadbackProjectKey).toBe(PROJECT_KEY)
+})
+
 test('task readback unavailable retains receipt and documents query failures stay visible (mocked)', async ({ page }) => {
   await mockOps(page, { documentError: true, taskError: true })
   await page.goto('/#/admin/ops')
@@ -245,7 +248,7 @@ test('task readback unavailable retains receipt and documents query failures sta
   await expect(notice).not.toContainText('Completed')
 })
 
-test('agent session cancel and task retry retain owner state without coordinator pass (mocked)', async ({ page }) => {
+test('agent session cancel retains owner state without coordinator pass (mocked)', async ({ page }) => {
   const state = await mockOps(page)
   await page.goto('/#/admin/backend')
   await page.getByRole('tab', { name: 'Agent sessions', exact: true }).click()
@@ -260,11 +263,8 @@ test('agent session cancel and task retry retain owner state without coordinator
   await expect(ops.getByRole('heading', { name: 'Session Messages' })).toBeVisible()
   await expect(ops.getByText('Session fact retained')).toBeVisible()
 
-  await taskRow.getByRole('button', { name: 'Retry', exact: true }).click()
-  await expect.poll(() => state.taskRetries).toBe(1)
-  expect(state.lastRetryTaskId).toBe(AGENT_TASK_ID)
-  await expect(taskRow).toContainText('pending')
-  await expect(taskRow).toContainText('codex')
+  await expect(taskRow.getByRole('button', { name: 'Retry', exact: true })).toHaveCount(0)
+  await expect(ops.getByRole('button', { name: 'Reclaim Expired Lease', exact: true })).toHaveCount(0)
 
   await taskRow.getByRole('button', { name: 'Open', exact: true }).click()
   const selectedTaskDetail = ops.getByText('Selected task detail').locator('xpath=following-sibling::pre[1]')

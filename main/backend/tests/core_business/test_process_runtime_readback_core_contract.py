@@ -142,6 +142,7 @@ def test_process_tasks_projects_celery_inspect_worker_readback_fields(
                     "id": "runtime-task-1",
                     "name": "tasks.ingest_pipeline",
                     "kwargs": {
+                        "line_key": "ingest",
                         "trace_id": "trace-runtime-1",
                         "queue": "queue.ingest",
                     },
@@ -171,7 +172,9 @@ def test_process_tasks_projects_celery_inspect_worker_readback_fields(
     assert item["worker_name"] == "worker-runtime-a"
     assert item["queue"] == "queue.ingest"
     assert item["trace_id"] == "trace-runtime-1"
-    assert item["status"] == "running"
+    assert item["status"] == "active"
+    assert item["observation_class"] == "OBSERVED"
+    assert item["terminal_authority_claim"] is None
     assert item["mocked"] is False
     assert item["skipped"] is False
     assert item["readback_path"].startswith("/api/v1/process/tasks")
@@ -224,6 +227,67 @@ def test_process_runtime_readback_filters_unknown_and_other_project_tasks(
     assert resp.status_code == 200, resp.text
     items = resp.json()["data"]["items"]
     assert [item["task_id"] for item in items] == ["celery-runtime-alpha"]
+
+
+def test_process_list_and_stats_consume_observation_projection_without_write(
+    core_business_client,
+    contract_headers: dict[str, str],
+) -> None:
+    now = datetime(2026, 10, 6, 12, 0, 0)
+    jobs = [
+        SimpleNamespace(
+            id=921,
+            job_type="policy_ingest",
+            status="running",
+            params={
+                "project_key": "project_alpha",
+                "line_key": "ingest",
+                "task_id": "celery-running-alpha",
+                "worker_name": "worker@resource",
+                "queue": "queue.ingest",
+                "status": "failed",
+            },
+            started_at=now,
+            finished_at=None,
+            error=None,
+            external_provider=None,
+            external_job_id=None,
+            retry_count=0,
+        )
+    ]
+    inspect = SimpleNamespace(
+        active=lambda: {},
+        scheduled=lambda: {},
+        reserved=lambda: {},
+        registered=lambda: {"worker@registered": ["tasks.registered"]},
+    )
+
+    with (
+        patch("app.api.process.celery_app.control.inspect", return_value=inspect),
+        patch("app.api.process.SessionLocal", new=_RuntimeReadbackSessionLocal(jobs)),
+    ):
+        list_resp = core_business_client.get(
+            "/api/v1/process/list?status_filter=active&limit=10&project_key=project_alpha",
+            headers=contract_headers,
+        )
+        stats_resp = core_business_client.get(
+            "/api/v1/process/stats?project_key=project_alpha",
+            headers=contract_headers,
+        )
+
+    assert list_resp.status_code == 200, list_resp.text
+    assert stats_resp.status_code == 200, stats_resp.text
+    task = list_resp.json()["data"]["tasks"][0]
+    assert task["task_id"] == "celery-running-alpha"
+    assert task["status"] == "active"
+    assert task["kwargs"]["status"] == "failed"
+    stats = stats_resp.json()["data"]
+    assert stats["active_tasks"] == 1
+    assert stats["total_running"] == 1
+    assert set(stats["worker_names"]) == {"worker@registered", "worker@resource"}
+    from app.api import process as process_api
+
+    assert not hasattr(process_api, "_debug_log")
 
 
 def test_process_completed_celery_id_reads_history_detail_and_flattened_result(
@@ -404,6 +468,7 @@ def test_process_tasks_do_not_treat_business_state_as_runtime_status(
             params={
                 "line_key": "ingest",
                 "state": "CA",
+                "status": "failed",
                 "task_id": "ingest-task-3",
             },
             started_at=now,
@@ -420,7 +485,8 @@ def test_process_tasks_do_not_treat_business_state_as_runtime_status(
 
     assert resp.status_code == 200, resp.text
     item = resp.json()["data"]["items"][0]
-    assert item["status"] == "running"
+    assert item["status"] == "active"
+    assert item["observation_class"] == "OBSERVED"
     assert item["status"] != "ca"
 
 
@@ -444,7 +510,10 @@ def test_process_failed_celery_task_result_is_json_compatible(
     assert body["status"] == "ok"
     data = body["data"]
     assert data["task_id"] == task_id
-    assert data["status"] == "FAILURE"
+    assert data["status"] == "failed"
+    assert data["observation_class"] == "OBSERVED"
+    assert data["source_identities"] == [f"celery-async-result://{task_id}"]
+    assert data["terminal_authority_claim"] is None
     assert data["ready"] is True
     assert data["successful"] is False
     assert data["failed"] is True

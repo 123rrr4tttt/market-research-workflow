@@ -32,6 +32,7 @@ from typing import (
     TypeAlias,
     TypeGuard,
     TypeVar,
+    cast,
     get_args,
     runtime_checkable,
 )
@@ -63,6 +64,8 @@ from app.successor_runtime.language.algebra import (
     FrozenJsonObject,
     FrozenJsonValue as FrozenJsonValue,  # required by get_type_hints on mirrored DTOs
     freeze_json_object,
+    is_frozen_json_object,
+    thaw_json_value,
 )
 from app.successor_runtime.language.catalog import (
     OperationContractCatalogSnapshot,
@@ -87,9 +90,9 @@ SOURCE_TOTAL_CORE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
 SOURCE_RESOLUTION_KIND = "source_library.resolve_execution_request.v1"
 SOURCE_RESOLUTION_OWNER = "source.resolve_execution_request.v2"
 SOURCE_RESOLUTION_OPERATION_ID = "source_library.resolve_execution_request"
-SOURCE_RESOLUTION_PAYLOAD_SCHEMA = "mrw.source.resolve-execution-request.payload.v2"
+SOURCE_RESOLUTION_PAYLOAD_SCHEMA = "mrw.source.resolve-execution-request.payload.v3"
 SOURCE_RESOLUTION_HISTORICAL_PAYLOAD_SCHEMA = "mrw.successor.source-library.c2-1.payload.v1"
-SOURCE_RESOLUTION_PAYLOAD_CODEC_ID = "mrw.source.resolve-execution-request.payload.codec.v2"
+SOURCE_RESOLUTION_PAYLOAD_CODEC_ID = "mrw.source.resolve-execution-request.payload.codec.v3"
 SOURCE_RESOLUTION_HISTORICAL_PAYLOAD_CODEC_ID = "mrw.successor.source-library.c2-1.payload.codec.v1"
 SOURCE_RESOLUTION_CATALOG_ID = "mrw.source.resolve-execution-request.operations.v2"
 
@@ -110,6 +113,11 @@ def source_plain_value_to_canonical(
 ) -> CanonicalJsonValue:
     """Project source plain values onto the shared canonical JSON wire."""
 
+    if is_frozen_json_object(value):
+        return {
+            key: source_plain_value_to_canonical(item)
+            for key, item in value
+        }
     if isinstance(value, dict):
         return {
             key: source_plain_value_to_canonical(item)
@@ -296,7 +304,7 @@ _FORBIDDEN_RESOLVED_SCHEMAS = frozenset(
     }
 )
 
-SOURCE_ITEM_DEFINITION_SCHEMA_REF = "mrw.source.source-item-definition.v2"
+SOURCE_ITEM_DEFINITION_SCHEMA_REF = "mrw.source.source-item-definition.v3"
 SOURCE_ITEM_DEFINITION_HISTORICAL_SCHEMA_REF = "mrw.successor.source-library.c2-1.source-item-definition.v1"
 SOURCE_TAXONOMY_SCHEMA_REF = "mrw.source.source-taxonomy.v2"
 SOURCE_TAXONOMY_HISTORICAL_SCHEMA_REF = "mrw.successor.source-library.c2-1.source-taxonomy.v1"
@@ -312,7 +320,7 @@ SOURCE_RESOLUTION_OBSERVATION_SCHEMA_REF = "mrw.source.resolution-observation.v2
 SOURCE_RESOLUTION_OBSERVATION_HISTORICAL_SCHEMA_REF = "mrw.successor.source-library.c2-1.observation.v1"
 RESOURCE_CEILING_SCHEMA_REF = "mrw.source.resource-ceiling.v2"
 DEPLOYMENT_CATALOG_SCHEMA_REF = "mrw.source.deployment-catalog.v2"
-CHANNEL_CATALOG_SCHEMA_REF = "mrw.source.channel-catalog.v2"
+CHANNEL_CATALOG_SCHEMA_REF = "mrw.source.channel-catalog.v3"
 CHANNEL_CATALOG_HISTORICAL_SCHEMA_REF = "mrw.successor.source-library.channel-catalog.v1"
 
 SOURCE_MODE_TYPE = ObjectType("SourceMode.v1")
@@ -323,7 +331,10 @@ SOURCE_TAXONOMY_TYPE = ObjectType("SourceTaxonomy.v1")
 SOURCE_EXECUTION_REQUEST_TYPE = ObjectType("SourceExecutionRequest.v1")
 SOURCE_WARNING_TYPE = ObjectType("SourceWarning.v1")
 SOURCE_REJECTION_TYPE = ObjectType("SourceRejection.v1")
-SOURCE_RESOLUTION_PAYLOAD_TYPE = ObjectType("SourceResolutionPayload.v1")
+SOURCE_RESOLUTION_PAYLOAD_TYPE = ObjectType(
+    "SourceResolutionPayload.v2",
+    codec_id=SOURCE_RESOLUTION_PAYLOAD_CODEC_ID,
+)
 SOURCE_RESOLUTION_RESULT_TYPE = ObjectType("SourceResolutionResult.v1")
 
 SourceModeLiteral = Literal["protocol_search", "provider_harvest", "site_search", "url_execution"]
@@ -647,7 +658,7 @@ class ChannelCatalogEntry:
             "provider": self.provider,
             "provider_type": self.provider_type,
             "enabled": self.enabled,
-            "extra": dict(self.extra),
+            "extra": cast(SourcePlainValue, thaw_json_value(self.extra)),
         }
 
 
@@ -669,7 +680,7 @@ def channel_catalog_digest(
                     entry.provider,
                     entry.provider_type,
                     entry.enabled,
-                    dict(entry.extra),
+                    thaw_json_value(entry.extra),
                 )
                 for entry in entries
             ),
@@ -682,7 +693,7 @@ class ChannelCatalogSnapshot:
     """Immutable channel catalog snapshot with exact revision/incarnation/digest."""
 
     schema_version: Literal[
-        "mrw.source.channel-catalog.v2",
+        "mrw.source.channel-catalog.v3",
         "mrw.successor.source-library.channel-catalog.v1",
     ]
     revision: int
@@ -827,8 +838,8 @@ class SourceItemDefinition:
             "enabled": self.enabled,
             "item_type": self.item_type,
             "managed_by": self.managed_by,
-            "params": dict(self.params),
-            "extra": dict(self.extra),
+            "params": cast(SourcePlainValue, thaw_json_value(self.params)),
+            "extra": cast(SourcePlainValue, thaw_json_value(self.extra)),
             "revision": self.revision,
             "incarnation": self.incarnation,
             "content_digest": self.content_digest,
@@ -847,8 +858,8 @@ def source_item_definition_content_digest(item: dict[str, Any]) -> str:
             "enabled": bool(item.get("enabled", True)),
             "item_type": item.get("item_type"),
             "managed_by": item.get("managed_by"),
-            "params": dict(item.get("params") or {}),
-            "extra": dict(item.get("extra") or {}),
+            "params": source_plain_value_to_canonical(item.get("params") or {}),
+            "extra": source_plain_value_to_canonical(item.get("extra") or {}),
             "revision": item.get("revision"),
             "incarnation": item.get("incarnation", ""),
         }
@@ -1839,7 +1850,7 @@ class ProviderEffectRequest:
             "provider_config_ref": self.provider_config_ref,
             "effect_payload_codec_ref": self.effect_payload_codec_ref,
             "effect_payload_digest": self.effect_payload_digest,
-            "effect_payload": dict(self.effect_payload),
+            "effect_payload": thaw_json_value(self.effect_payload),
             "credential_refs": [ref.to_plain() for ref in self.credential_refs],
             "policy": self.policy.to_plain(),
             "catalog_revision": self.catalog_revision,
@@ -2026,7 +2037,7 @@ class CredentialDecisionReceipt:
                 "schema_version": self.schema_version,
                 "decision": self.decision,
                 "credential_refs": list(self.credential_refs),
-                "redacted_profile": dict(self.redacted_profile),
+                "redacted_profile": thaw_json_value(self.redacted_profile),
             }
         )
         if self.receipt_digest == "":
@@ -2043,7 +2054,9 @@ class CredentialDecisionReceipt:
             "schema_version": self.schema_version,
             "decision": self.decision,
             "credential_refs": list(self.credential_refs),
-            "redacted_profile": dict(self.redacted_profile),
+            "redacted_profile": cast(
+                SourcePlainValue, thaw_json_value(self.redacted_profile)
+            ),
             "receipt_digest": self.receipt_digest,
         }
 
@@ -3730,7 +3743,7 @@ def _planning_kind(value: object, field_name: str) -> SourcePlanningOperationKin
 
 def _catalog_schema(
     value: object,
-) -> Literal["mrw.source.channel-catalog.v2", "mrw.successor.source-library.channel-catalog.v1"]:
+) -> Literal["mrw.source.channel-catalog.v3", "mrw.successor.source-library.channel-catalog.v1"]:
     _plain_string(value, "catalog/schema_version")
     if value == CHANNEL_CATALOG_SCHEMA_REF:
         return CHANNEL_CATALOG_SCHEMA_REF

@@ -56,14 +56,14 @@ target="${LOCAL_DEPLOY_SCRIPT}"
 target_arg=""
 
 case "${cmd}" in
-  start)
+  start|local-start)
     target_arg="start"
     ;;
-  ui)
+  ui|configure)
     echo "Running: ${cmd}"
     exec python3 "${ROOT_DIR}/scripts/launch.py" "$@"
     ;;
-  stop)
+  stop|local-stop)
     target_arg="stop"
     ;;
   restart)
@@ -74,12 +74,6 @@ case "${cmd}" in
     ;;
   health)
     target_arg="health"
-    ;;
-  local-start)
-    target_arg="start"
-    ;;
-  local-stop)
-    target_arg="stop"
     ;;
   docker-start)
     echo "Running: ${cmd}"
@@ -100,10 +94,6 @@ case "${cmd}" in
   docker-status)
     echo "Running: ${cmd}"
     exec "${DOCKER_APP_CONTROL_SCRIPT}" status "$@"
-    ;;
-  configure)
-    echo "Running: ${cmd}"
-    exec python3 "${ROOT_DIR}/scripts/launch.py" "$@"
     ;;
   doctor)
     echo "Running: ${cmd}"

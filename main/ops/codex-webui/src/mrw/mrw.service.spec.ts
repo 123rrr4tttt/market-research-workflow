@@ -75,13 +75,73 @@ describe('MrwService', () => {
 
     await service.handleDynamicToolCall(9, callParams);
 
-    expect(mockBackend.dispatch).toHaveBeenCalledWith(callParams);
+    expect(mockBackend.dispatch).toHaveBeenCalledWith(callParams, undefined);
     expect(mockEvents.emitActionRequired).toHaveBeenCalledWith(
       expect.objectContaining({ actionId: 'a1', callId: 'call1' }),
     );
     expect(respond).not.toHaveBeenCalled();
     expect(service.listPending('t1')).toHaveLength(1);
   });
+
+  it('binds original credentials to the accepted turn and clears them on end', async () => {
+    mockBackend.bind.mockResolvedValue({ threadId: 't1' });
+    mockBackend.recordInput.mockResolvedValue({ recorded: true });
+    mockBackend.dispatch.mockResolvedValue({ success: true, contentItems: [] });
+    const credentials = { sessionCookie: 'codex_session=original-session' };
+    await service.bindThread('b1', 't1');
+    await service.recordInput('t1', 'turn1', 'read', credentials);
+    await service.handleDynamicToolCall(1, callParams);
+    expect(mockBackend.dispatch).toHaveBeenLastCalledWith(
+      callParams,
+      credentials,
+    );
+    await service.handleDynamicToolCall(2, {
+      ...callParams,
+      turnId: 'other-turn',
+    });
+    expect(mockBackend.dispatch).toHaveBeenLastCalledWith(
+      { ...callParams, turnId: 'other-turn' },
+      undefined,
+    );
+    await service.endTurn('t1', 'turn1');
+    await service.handleDynamicToolCall(3, callParams);
+    expect(mockBackend.dispatch).toHaveBeenLastCalledWith(
+      callParams,
+      undefined,
+    );
+  });
+
+  it.each(['thread', 'turn', 'end', 'expire'])(
+    'does not restore credentials when pending input settles after %s cleanup',
+    async (cleanup) => {
+      mockBackend.bind.mockResolvedValue({ threadId: 't1' });
+      mockBackend.dispatch.mockResolvedValue({
+        success: true,
+        contentItems: [],
+      });
+      let resolve!: (value: unknown) => void;
+      mockBackend.recordInput.mockReturnValue(
+        new Promise((done) => {
+          resolve = done;
+        }),
+      );
+      await service.bindThread('b1', 't1');
+      const pending = service.recordInput('t1', 'turn1', 'read', {
+        codexAuth: 'original-token',
+      });
+      if (cleanup === 'thread') service.cancelForThread('t1');
+      else if (cleanup === 'turn') service.cancelForTurn('t1', 'turn1');
+      else if (cleanup === 'end') await service.endTurn('t1', 'turn1');
+      else service.expireAll();
+      resolve({ recorded: true });
+      await pending;
+      await service.handleDynamicToolCall(1, callParams);
+      expect(mockBackend.dispatch).toHaveBeenLastCalledWith(
+        callParams,
+        undefined,
+      );
+    },
+  );
 
   it('answers the app-server directly for a completed call', async () => {
     mockBackend.dispatch.mockResolvedValue({
@@ -357,21 +417,35 @@ describe('MrwService', () => {
         ...base,
         bindingId: 'b1',
         skills: [
-          { name: 'a', path: '/app/a/SKILL.md', contentDigest: digest, relativePath: 'a/SKILL.md' },
+          {
+            name: 'a',
+            path: '/app/a/SKILL.md',
+            contentDigest: digest,
+            relativePath: 'a/SKILL.md',
+          },
         ],
       });
       await service.mountSkillEnvironment({
         ...base,
         bindingId: 'b2',
         skills: [
-          { name: 'b', path: '/app/b/SKILL.md', contentDigest: digest, relativePath: 'b/SKILL.md' },
+          {
+            name: 'b',
+            path: '/app/b/SKILL.md',
+            contentDigest: digest,
+            relativePath: 'b/SKILL.md',
+          },
         ],
       });
       await service.bindThread('b1', 't1');
       await service.bindThread('b2', 't2');
 
-      expect(service.turnSkillInputs('t1').map((item) => item.name)).toEqual(['a']);
-      expect(service.turnSkillInputs('t2').map((item) => item.name)).toEqual(['b']);
+      expect(service.turnSkillInputs('t1').map((item) => item.name)).toEqual([
+        'a',
+      ]);
+      expect(service.turnSkillInputs('t2').map((item) => item.name)).toEqual([
+        'b',
+      ]);
       expect(mockCodex.request).toHaveBeenCalledWith('skills/extraRoots/set', {
         extraRoots: [sourceRoot],
       });
@@ -390,6 +464,7 @@ describe('MrwService', () => {
       't1',
       'turn1',
       'original user words',
+      undefined,
     );
   });
 
@@ -449,7 +524,10 @@ describe('MrwService', () => {
     expect(respond).toHaveBeenCalledWith(9, {
       success: false,
       contentItems: [
-        { type: 'inputText', text: 'MRW host input was not recorded for this turn' },
+        {
+          type: 'inputText',
+          text: 'MRW host input was not recorded for this turn',
+        },
       ],
     });
   });

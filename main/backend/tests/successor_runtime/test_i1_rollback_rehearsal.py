@@ -37,6 +37,39 @@ TOPIC = Path(
 )
 SPECS_DIR = REPOSITORY_ROOT / TOPIC / "evidence/capability-specs"
 RETIRED_FROZEN_CELL_IDS = frozenset({"C6.1", "C6.2", "C6.3"})
+RETIRED_CURRENT_CELL_IDS = frozenset(
+    {
+        "acquisition.batch.execute_element.v2",
+        "acquisition.batch.fold_ordered_results.v2",
+    }
+)
+CURRENT_I1_CELL_ORDER = (
+    "workflow.definition.compile.v2",
+    "workflow.runtime.observe.v2",
+    "workflow.state.restore.v2",
+    "source.resolve-execution-request.v2",
+    "source.plan-source-mode.v2",
+    "source.execute-provider-acquisition.v2",
+    "source.project-terminal-result.v2",
+    "batch.task.build_plan.v2",
+    "batch.task.reduce_retry.v2",
+    "batch.task.submit.v2",
+    "task.session-observation.project.v1",
+    "runtime.effect.reconcile.v1",
+    "runtime.event.project.v1",
+    "process.observation.project.v1",
+    "material.ingest.stage-candidate.v2",
+    "material.ingest.commit-readback.v2",
+    "material.ingest.projection-diff.v2",
+    "material.ingest.reconciliation.v2",
+    "knowledge.read.v2",
+    "knowledge.writing.v2",
+    "knowledge.report.v2",
+    "knowledge.graph-projection.v2",
+    "projection.command-query.v2",
+    "projection.client-contract.v2",
+    "projection.read-model.v2",
+)
 
 pytestmark = pytest.mark.unit
 
@@ -164,14 +197,20 @@ def _rollback_rows() -> list[dict[str, Any]]:
     assert RETIRED_FROZEN_CELL_IDS.isdisjoint(
         row["cell_id"] for row in rows
     )
+    assert tuple(row["cell_id"] for row in rows) == CURRENT_I1_CELL_ORDER
+    assert len(set(CURRENT_I1_CELL_ORDER)) == len(CURRENT_I1_CELL_ORDER)
+    assert RETIRED_CURRENT_CELL_IDS.isdisjoint(CURRENT_I1_CELL_ORDER)
     return rows
 
 
-def test_i1_rollback_rehearsal_matrix_covers_current_twenty_seven_cells() -> None:
+def test_i1_rollback_rehearsal_matrix_covers_current_twenty_five_cells() -> None:
     rows = _rollback_rows()
-    assert len(rows) == 27
+    assert len(rows) == 25
+    assert tuple(row["cell_id"] for row in rows) == CURRENT_I1_CELL_ORDER
+    assert RETIRED_CURRENT_CELL_IDS.isdisjoint(ALL_I1_CELLS)
     by_id = {row["cell_id"]: row for row in rows}
     assert set(by_id) == ALL_I1_CELLS
+    assert len(by_id) == len(rows)
     for row in rows:
         assert row["operation_contract_refs"]
         assert row["handler_binding_digest"] is not None

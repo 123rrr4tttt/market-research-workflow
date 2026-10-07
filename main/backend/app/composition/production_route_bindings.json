@@ -803,105 +803,10 @@
       }
     },
     {
-      "route_template": "/api/v1/agent-batch/jobs/{job_id}/retry",
-      "domain": "agent-batch",
-      "operation": "agent-batch.retry_agent_batch_job",
-      "metrics_label": "agent-batch:/api/v1/agent-batch/jobs/{job_id}/retry",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": "handler_effect_path.v1",
-        "conditional_branches": [
-          "no_effect_or_read",
-          "external_or_legacy_effect"
-        ]
-      }
-    },
-    {
       "route_template": "/api/v1/agent-batch/jobs/{job_id}/workflow-handoffs",
       "domain": "agent-batch",
       "operation": "agent-batch.list_agent_batch_job_workflow_handoffs",
       "metrics_label": "agent-batch:/api/v1/agent-batch/jobs/{job_id}/workflow-handoffs",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": null,
-        "conditional_branches": []
-      }
-    },
-    {
-      "route_template": "/api/v1/agent-batch/metrics/search-policy",
-      "domain": "agent-batch",
-      "operation": "agent-batch.get_agent_batch_search_policy_metrics",
-      "metrics_label": "agent-batch:/api/v1/agent-batch/metrics/search-policy",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": null,
-        "conditional_branches": []
-      }
-    },
-    {
-      "route_template": "/api/v1/agent-batch/metrics/search-policy/benchmark-pack",
-      "domain": "agent-batch",
-      "operation": "agent-batch.get_agent_batch_search_policy_benchmark_pack",
-      "metrics_label": "agent-batch:/api/v1/agent-batch/metrics/search-policy/benchmark-pack",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": null,
-        "conditional_branches": []
-      }
-    },
-    {
-      "route_template": "/api/v1/agent-batch/metrics/search-policy/gate",
-      "domain": "agent-batch",
-      "operation": "agent-batch.get_agent_batch_search_policy_gate",
-      "metrics_label": "agent-batch:/api/v1/agent-batch/metrics/search-policy/gate",
       "methods": [
         "GET"
       ],
@@ -956,29 +861,6 @@
       "capability_id": null,
       "effect_contract": {
         "effect_class": "pure_compute",
-        "admission": "admitted",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": null,
-        "conditional_branches": []
-      }
-    },
-    {
-      "route_template": "/api/v1/agent-batch/observability/failure-reasons",
-      "domain": "agent-batch",
-      "operation": "agent-batch.get_agent_batch_failure_reasons",
-      "metrics_label": "agent-batch:/api/v1/agent-batch/observability/failure-reasons",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
         "admission": "admitted",
         "provider_port": null,
         "provider_class": "null",
@@ -1292,29 +1174,6 @@
       }
     },
     {
-      "route_template": "/api/v1/agent-sessions/{session_id}/actions/reclaim-expired",
-      "domain": "agent-sessions",
-      "operation": "agent-sessions.reclaim_agent_session_expired_tasks",
-      "metrics_label": "agent-sessions:/api/v1/agent-sessions/{session_id}/actions/reclaim-expired",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "legacy_write",
-        "admission": "blocked_until_effect_binding",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": null,
-        "conditional_branches": []
-      }
-    },
-    {
       "route_template": "/api/v1/agent-sessions/{session_id}/actions/request-approval",
       "domain": "agent-sessions",
       "operation": "agent-sessions.request_agent_session_approval",
@@ -1335,32 +1194,6 @@
         "filesystem_port": null,
         "conditional_discriminator": null,
         "conditional_branches": []
-      }
-    },
-    {
-      "route_template": "/api/v1/agent-sessions/{session_id}/actions/retry-task",
-      "domain": "agent-sessions",
-      "operation": "agent-sessions.retry_agent_session_task",
-      "metrics_label": "agent-sessions:/api/v1/agent-sessions/{session_id}/actions/retry-task",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": "handler_effect_path.v1",
-        "conditional_branches": [
-          "no_effect_or_read",
-          "external_or_legacy_effect"
-        ]
       }
     },
     {

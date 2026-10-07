@@ -1,20 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import logging
 import re
-import time
-from typing import Any, NoReturn, TypeGuard
+from typing import Annotated, Any, NoReturn, TypeGuard
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
-from fastapi.encoders import jsonable_encoder
-from functorial_kit import Failure
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from ..contracts import ErrorCode, error_response
-from ..celery_app import celery_app
 from ..contracts.responses import ok
 from ..settings.config import get_effective_project_key_enforcement_mode, settings
 from ..services.agent_batch.approval_binding import (
@@ -25,26 +20,33 @@ from ..services.agent_batch.approval_binding import (
     verify_approval_token,
 )
 from ..services.agent_batch.executor_health import inspect_executor_health
-from ..services.agent_batch.benchmark import build_search_policy_benchmark_pack, evaluate_search_policy_gate
 from ..services.agent_batch.routing import apply_async_or_delay, resolve_queue_for_lane, validate_lane
 from ..services.agent_batch.task_contract import (
     build_agent_batch_approval_argv,
-    build_agent_batch_dispatch_invocation,
-    build_agent_batch_execution_registry,
-    build_source_library_override_params,
     get_allowed_override_params_by_channel,
     get_agent_batch_known_channels,
     infer_agent_batch_channel,
-    list_agent_batch_execution_bindings,
     resolve_agent_batch_lane,
 )
-from ..services.collect_runtime.delivery import observe_delivery
 from ..services.agent_sessions import get_agent_session_service
 from ..services.task_readback_metadata import build_runtime_readback_payload
-from ..services.skill_runtime import SkillInvocation, invoke_skill
 from ..services import tasks as tasks_module
 from ..services.projects import current_project_key
 from ..services.workflow_graph.handoff_store import handoff_store
+from app.successor_runtime.capabilities import batch_task
+from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
+from app.services.agent_batch.dispatch import (
+    load_dispatch_run as dispatch_load_run,
+    submit_dispatch_run as dispatch_submit_run,
+)
+from app.successor_runtime.substrate.postgres.authority_provider import (
+    CurrentAuthorityGrantUnavailable,
+)
+from app.successor_runtime.substrate.postgres.runtime_journal import (
+    ExactBindingConflict,
+)
+from app.models.base import engine
+from app.services.request_identity import RequestActorContext, require_trusted_actor_context
 
 router = APIRouter(prefix="/agent-batch", tags=["agent_batch"])
 logger = logging.getLogger(__name__)
@@ -95,24 +97,8 @@ def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _empty_string_list() -> list[str]:
-    return []
-
-
-def _empty_object_dict() -> dict[str, Any]:
-    return {}
-
-
-def _empty_batch_item_list() -> list["_BatchItemRecord"]:
-    return []
-
-
 def _is_object_dict(value: object) -> TypeGuard[dict[str, object]]:
     return isinstance(value, dict)
-
-
-def _object_dict(value: object) -> dict[str, object]:
-    return dict(value) if _is_object_dict(value) else {}
 
 
 def _is_object_list(value: object) -> TypeGuard[list[object]]:
@@ -130,48 +116,6 @@ def _normalized_string_set(value: object) -> set[str]:
         if text:
             normalized.add(text)
     return normalized
-
-
-@dataclass(slots=True)
-class _SnapshotDeliveryView:
-    status: str | None
-    provider_job_id: str | None
-    provider_type: str | None
-    provider_status: str | None
-    meta: dict[str, object] | None
-
-
-@dataclass
-class _BatchItemRecord:
-    item_id: str
-    item_key: str
-    project_key: str | None
-    channel: str | None = None
-    query_terms: list[str] = field(default_factory=_empty_string_list)
-    max_items: int | None = None
-    provider: str | None = None
-    language: str | None = None
-    days_back: int | None = None
-    override_params: dict[str, Any] = field(default_factory=_empty_object_dict)
-    task_id: str = ""
-    lane: str | None = None
-    workflow_run_id: str | None = None
-    trace_id: str | None = None
-    created_at: str = field(default_factory=_utcnow_iso)
-
-
-@dataclass
-class _BatchJobRecord:
-    job_id: str
-    project_key: str | None
-    created_at: str = field(default_factory=_utcnow_iso)
-    idempotency_key: str | None = None
-    metadata: dict[str, Any] = field(default_factory=_empty_object_dict)
-    items: list[_BatchItemRecord] = field(default_factory=_empty_batch_item_list)
-
-
-_BATCH_JOB_REGISTRY: dict[str, _BatchJobRecord] = {}
-_IDEMPOTENCY_INDEX: dict[str, str] = {}
 
 
 class AgentBatchItemSubmit(BaseModel):
@@ -206,13 +150,6 @@ class AgentBatchSubmitRequest(BaseModel):
     rule_set: dict[str, Any] = Field(default_factory=dict)
 
 
-class AgentBatchRetryRequest(BaseModel):
-    scope: str = Field(default="job")
-    item_ids: list[str] = Field(default_factory=list)
-    reason: str | None = Field(default=None, max_length=512)
-    max_retries: int | None = Field(default=None, ge=1, le=20)
-
-
 class RuleSetValidateRequest(BaseModel):
     rule_set_id: str | None = Field(default=None, max_length=128)
     rule_set: dict[str, Any] = Field(default_factory=dict)
@@ -241,7 +178,7 @@ class AgentBatchApprovalResolveRequest(BaseModel):
     approved: bool = Field(default=True)
 
 
-def _resolve_project_key(project_key: str | None) -> str | None:
+def _resolve_project_key(project_key: str | None) -> str:
     explicit = (project_key or "").strip()
     if explicit:
         return explicit
@@ -292,346 +229,6 @@ def _detect_language(command: str) -> str:
     return "zh" if re.search(r"[\u4e00-\u9fff]", command or "") else "en"
 
 
-def _load_job(job_id: str) -> _BatchJobRecord:
-    record = _BATCH_JOB_REGISTRY.get(job_id)
-    if record is None:
-        _raise_not_found(f"agent batch job not found: {job_id}")
-    return record
-
-
-def _project_agent_session_from_job_submission(
-    *,
-    record: _BatchJobRecord,
-    request_payload: AgentBatchSubmitRequest,
-    accepted_items: list[dict[str, Any]],
-    rejected_items: list[dict[str, Any]],
-) -> dict[str, Any] | None:
-    try:
-        service = get_agent_session_service()
-        bundle = service.project_agent_batch_job_submission(
-            job_id=record.job_id,
-            project_key=record.project_key,
-            request_payload=request_payload.model_dump(),
-            accepted_items=accepted_items,
-            rejected_items=rejected_items,
-            rule_set_id=request_payload.rule_set_id,
-        )
-    except Exception:
-        return None
-    if isinstance(bundle, Failure):
-        return None
-    session = dict(bundle.get("session") or {})
-    session_id = str(session.get("session_id") or "").strip()
-    if session_id:
-        record.metadata.update(
-            {
-                "session_id": session_id,
-                "compat_mode": True,
-                "compat_projection_version": session.get("compat_projection_version") or "agent_batch.jobs.v1",
-            }
-        )
-    return session
-
-
-def _project_agent_session_from_job_state(
-    *,
-    record: _BatchJobRecord,
-    snapshots: list[dict[str, Any]],
-    phase: str,
-    progress: dict[str, Any],
-) -> dict[str, Any] | None:
-    session_id = str((record.metadata or {}).get("session_id") or "").strip()
-    if not session_id:
-        return None
-    projected_items: list[dict[str, Any]] = []
-    for item, snapshot in zip(record.items, snapshots):
-        projected_items.append(
-            {
-                "item_id": item.item_id,
-                "index": len(projected_items) + 1,
-                "task_id": item.task_id,
-                "channel": item.channel,
-                "item_key": item.item_key,
-                "lane": item.lane,
-                "workflow_run_id": item.workflow_run_id,
-                "trace_id": item.trace_id,
-                "run_id": _resolve_run_id(item, snapshot),
-                "snapshot": snapshot,
-            }
-        )
-    try:
-        bundle = get_agent_session_service().project_agent_batch_job_state(
-            compat_job_id=record.job_id,
-            projected_items=projected_items,
-            phase=phase,
-            progress=progress,
-        )
-    except Exception:
-        return None
-    if bundle is None or isinstance(bundle, Failure):
-        return None
-    session = dict(bundle.get("session") or {})
-    return session or None
-
-
-def _task_snapshot(task_id: str) -> dict[str, Any]:
-    result = celery_app.AsyncResult(task_id)
-    status = str(result.status or "").lower() or "unknown"
-    raw_result = result.result if result.ready() else None
-    try:
-        safe_result = jsonable_encoder(
-            raw_result,
-            custom_encoder={
-                BaseException: lambda exc: str(exc) or exc.__class__.__name__,
-            },
-        )
-    except Exception:
-        safe_result = str(raw_result) if raw_result is not None else None
-    return {
-        "task_id": task_id,
-        "status": status,
-        "ready": result.ready(),
-        "successful": result.successful() if result.ready() else None,
-        "failed": result.failed() if result.ready() else None,
-        "result": safe_result,
-    }
-
-
-def _job_progress_from_snapshots(snapshots: list[dict[str, Any]]) -> dict[str, int]:
-    total = len(snapshots)
-    succeeded = sum(1 for it in snapshots if it.get("status") == "success")
-    failed = sum(1 for it in snapshots if it.get("status") == "failure")
-    cancelled = sum(1 for it in snapshots if it.get("status") == "revoked")
-    running = sum(1 for it in snapshots if it.get("status") in {"pending", "started", "retry", "running"})
-    return {
-        "total": total,
-        "succeeded": succeeded,
-        "failed": failed,
-        "cancelled": cancelled,
-        "running": running,
-        "queued": max(0, total - succeeded - failed - cancelled - running),
-    }
-
-
-def _delivery_from_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
-    """Read recorded worker and provider facts without treating ACK as delivery."""
-    result = _object_dict(snapshot.get("result"))
-    terminal_output = _object_dict(result.get("terminal_output"))
-    terminal_meta = _object_dict(terminal_output.get("meta"))
-    handoff = _object_dict(terminal_meta.get("provider_handoff"))
-    readback = terminal_meta.get("terminal_readback") or result.get("terminal_readback")
-    worker_state = str(snapshot.get("status") or "").strip().lower()
-    worker_status = {
-        "success": "completed",
-        "failure": "failed",
-        "revoked": "cancelled",
-    }.get(worker_state, worker_state or "unknown")
-    provider_job_id = str(
-        result.get("provider_job_id") or terminal_meta.get("provider_job_id") or handoff.get("provider_job_id") or ""
-    ).strip() or None
-    provider_status = str(
-        result.get("provider_status") or handoff.get("provider_status") or terminal_output.get("status") or ""
-    ).strip() or None
-    provider_type = str(result.get("provider_type") or handoff.get("provider_type") or "").strip() or None
-    observed = observe_delivery(_SnapshotDeliveryView(
-        status=worker_status,
-        provider_job_id=provider_job_id,
-        provider_type=provider_type,
-        provider_status=provider_status,
-        meta={"terminal_readback": readback},
-    ), expected_delivery="unknown")
-    readback_job_id = observed.readback_job_id
-    return {
-        **asdict(observed),
-        "readback_job_id": readback_job_id,
-        "terminal_identity_match": observed.identity_match is True,
-        # Agent-batch has no declared material/artifact target or canonical
-        # writer readback. A provider terminality observation cannot unlock it.
-        "expected_delivery": "unknown",
-        "ready_for_successor": False,
-    }
-
-
-def _delivery_progress_from_snapshots(snapshots: list[dict[str, Any]]) -> dict[str, int]:
-    states = [_delivery_from_snapshot(snapshot)["state"] for snapshot in snapshots]
-    return {"total": len(states), **{state: states.count(state) for state in (
-        "delivered", "failed", "cancelled", "waiting", "unknown"
-    )}}
-
-
-def _job_observation_summary(snapshots: list[dict[str, Any]]) -> dict[str, Any]:
-    progress = _job_progress_from_snapshots(snapshots)
-    executor_completed = progress["total"] > 0 and (
-        progress["succeeded"] + progress["failed"] + progress["cancelled"] == progress["total"]
-    )
-    delivery_progress = _delivery_progress_from_snapshots(snapshots)
-    unresolved_effect = any(
-        delivery["provider_state"] in {"waiting", "unknown"}
-        and snapshot.get("status") in {"success", "failure", "revoked"}
-        for snapshot, delivery in (
-            (snapshot, _delivery_from_snapshot(snapshot)) for snapshot in snapshots
-        )
-    )
-    # Agent Batch does not declare a target artifact or expose writer readback.
-    delivery_ready = False
-    if not executor_completed:
-        phase = "running"
-    elif unresolved_effect:
-        phase = "awaiting_delivery"
-    elif progress["failed"]:
-        phase = "completed"  # The existing session projector marks verification failed.
-    elif progress["cancelled"]:
-        phase = "cancelled"
-    else:
-        phase = "awaiting_delivery"
-    return {
-        "progress": progress,
-        "delivery_progress": delivery_progress,
-        "executor_completed": executor_completed,
-        "delivery_ready": delivery_ready,
-        "phase": phase,
-    }
-
-
-def _await_job_completion(*, job_id: str, timeout_seconds: int, poll_seconds: float) -> dict[str, Any]:
-    started_ts = time.time()
-    deadline = started_ts + max(1, int(timeout_seconds))
-    poll = max(0.2, min(float(poll_seconds), 10.0))
-    record = _load_job(job_id)
-    last_snapshots: list[dict[str, Any]] = []
-
-    while True:
-        last_snapshots = [_task_snapshot(item.task_id) for item in record.items]
-        summary = _job_observation_summary(last_snapshots)
-        completed = summary["executor_completed"]
-        now = time.time()
-        timed_out = now >= deadline
-        if completed or timed_out:
-            _project_agent_session_from_job_state(
-                record=record, snapshots=last_snapshots,
-                phase=summary["phase"], progress=summary["progress"],
-            )
-            items: list[dict[str, Any]] = []
-            for item, snap in zip(record.items, last_snapshots):
-                run_id = _resolve_run_id(item, snap)
-                items.append(
-                    {
-                        "item_id": item.item_id,
-                        "task_id": item.task_id,
-                        "status": snap.get("status"),
-                        "delivery": _delivery_from_snapshot(snap),
-                        "run_id": run_id,
-                        "output": snap.get("result") if snap.get("successful") else None,
-                        "error": snap.get("result") if snap.get("failed") else None,
-                    }
-                )
-            return {
-                "job_id": job_id,
-                "completed": bool(completed),
-                "completion_scope": "executor",
-                "executor_completed": bool(completed),
-                "delivery_ready": summary["delivery_ready"],
-                "timed_out": bool(timed_out and not completed),
-                "phase": summary["phase"],
-                "progress": summary["progress"],
-                "delivery_progress": summary["delivery_progress"],
-                "elapsed_seconds": round(now - started_ts, 3),
-                "items": items,
-            }
-        time.sleep(poll)
-
-
-agent_batch_await_job_completion = _await_job_completion
-
-
-def _build_failure_reason_metrics(limit: int = 20) -> dict[str, Any]:
-    safe_limit = max(1, min(int(limit or 20), 100))
-    reason_counts: dict[str, int] = {}
-    sample_events: dict[str, dict[str, Any]] = {}
-
-    for job in _BATCH_JOB_REGISTRY.values():
-        for item in job.items:
-            snap = _task_snapshot(item.task_id)
-            status = str(snap.get("status") or "")
-            if status not in {"failure", "revoked"}:
-                continue
-            result = snap.get("result")
-            reason_code = "task_failed"
-            result_object = _object_dict(result)
-            if result_object:
-                reason_code = str(result_object.get("reason_code") or result_object.get("code") or reason_code).strip() or reason_code
-            elif result is not None:
-                reason_text = str(result)
-                if "unsupported collect channel" in reason_text:
-                    reason_code = "unsupported_channel"
-                elif "rate limit" in reason_text.lower():
-                    reason_code = "rate_limited"
-            reason_counts[reason_code] = int(reason_counts.get(reason_code) or 0) + 1
-            sample_events.setdefault(
-                reason_code,
-                {
-                    "job_id": job.job_id,
-                    "item_id": item.item_id,
-                    "task_id": item.task_id,
-                    "status": status,
-                    "ts": _utcnow_iso(),
-                },
-            )
-
-    items = [
-        {"reason_code": code, "count": count, "sample": sample_events.get(code)}
-        for code, count in sorted(reason_counts.items(), key=lambda kv: kv[1], reverse=True)[:safe_limit]
-    ]
-    return {
-        "contract_version": "agent_batch.metrics.v1",
-        "taxonomy_version": "agent_batch.reason_taxonomy.v1",
-        "items": items,
-        "total_reasons": len(reason_counts),
-        "taxonomy_coverage": 1.0 if not items else round(len(items) / max(1, len(reason_counts)), 4),
-        "generated_at": _utcnow_iso(),
-    }
-
-
-def _build_search_policy_metrics() -> dict[str, Any]:
-    next_action_counts: dict[str, int] = {}
-    retry_outcome_counts = {"scheduled": 0, "skipped": 0}
-    scores: list[float] = []
-    round_counts: list[int] = []
-
-    for job in _BATCH_JOB_REGISTRY.values():
-        metadata = dict(job.metadata or {})
-        critic = dict(metadata.get("search_critic") or {})
-        retry = dict(metadata.get("search_retry") or {})
-        submit_rounds = list(metadata.get("submit_rounds") or [])
-
-        if critic:
-            try:
-                scores.append(float(critic.get("score") or 0.0))
-            except Exception:
-                pass
-            next_action = str(critic.get("next_action") or "").strip() or "unknown"
-            next_action_counts[next_action] = int(next_action_counts.get(next_action) or 0) + 1
-
-        if retry:
-            if bool(retry.get("scheduled")):
-                retry_outcome_counts["scheduled"] += 1
-            else:
-                retry_outcome_counts["skipped"] += 1
-
-        if submit_rounds:
-            round_counts.append(len(submit_rounds))
-
-    return {
-        "contract_version": "agent_batch.search_policy_metrics.v1",
-        "job_count": len(_BATCH_JOB_REGISTRY),
-        "critic_job_count": len(scores),
-        "average_critic_score": round(sum(scores) / len(scores), 4) if scores else None,
-        "next_action_counts": next_action_counts,
-        "retry_outcome_counts": retry_outcome_counts,
-        "average_submit_rounds": round(sum(round_counts) / len(round_counts), 4) if round_counts else None,
-        "generated_at": _utcnow_iso(),
-    }
-
 
 def _build_item_workflow_run_id(*, job_id: str, item_id: str) -> str:
     safe_item = re.sub(r"[^a-zA-Z0-9_-]+", "-", str(item_id or "").strip()) or "item"
@@ -651,8 +248,14 @@ def _resolve_queue_for_lane(lane: str) -> str:
     return resolve_queue_for_lane(lane)
 
 
-def _apply_async_or_delay(task_func: Any, args: tuple[Any, ...], kwargs: dict[str, Any], lane: str) -> Any:
-    return apply_async_or_delay(task_func, args, kwargs, lane)
+def _apply_async_or_delay(
+    task_func: Any,
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    lane: str,
+    task_id: str | None = None,
+) -> Any:
+    return apply_async_or_delay(task_func, args, kwargs, lane, task_id=task_id)
 
 
 def _build_dispatch_runtime_readback(
@@ -676,120 +279,11 @@ def _build_dispatch_runtime_readback(
     )
 
 
-def _resolve_run_id(item: _BatchItemRecord, task_snapshot: dict[str, Any]) -> str | None:
-    pinned = str(item.workflow_run_id or "").strip()
-    if pinned:
-        return pinned
-    result = _object_dict(task_snapshot.get("result"))
-    if result:
-        for key in ("run_id", "workflow_run_id"):
-            value = str(result.get(key) or "").strip()
-            if value:
-                return value
-        for parent in ("data", "meta", "persistence", "workflow_graph"):
-            nested = _object_dict(result.get(parent))
-            if not nested:
-                continue
-            for key in ("run_id", "workflow_run_id"):
-                value = str(nested.get(key) or "").strip()
-                if value:
-                    return value
-    for key in ("run_id", "workflow_run_id"):
-        value = str(item.override_params.get(key) or "").strip()
-        if value:
-            return value
-    return None
 
 
-def _invoke_agent_batch_dispatch(channel: str, payload: dict[str, Any], *, trace_id: str | None) -> SkillInvocation:
-    invocation = build_agent_batch_dispatch_invocation(channel, payload, trace_id=trace_id)
-    return invoke_skill(
-        skill_id=str(invocation.get("skill_id") or ""),
-        payload=dict(invocation.get("payload") or {}),
-        context=dict(invocation.get("context") or {}),
-    )
 
 
-def _submit_source_item(
-    *,
-    item_key: str,
-    project_key: str | None,
-    override_params: dict[str, Any],
-    trace_id: str | None = None,
-    lane: str = "main",
-    workflow_run_id: str | None = None,
-) -> str:
-    queue_name = _resolve_queue_for_lane(lane)
-    runtime_readback = _build_dispatch_runtime_readback(
-        channel="source_library",
-        trace_id=trace_id,
-        workflow_run_id=workflow_run_id,
-        queue=queue_name,
-    )
-    invoked = _invoke_agent_batch_dispatch(
-        "source_library",
-        {
-            "item_key": item_key,
-            "project_key": project_key,
-            "override_params": dict(override_params or {}),
-            "trace_id": trace_id,
-            "lane": lane,
-            "workflow_run_id": workflow_run_id,
-            "queue": queue_name,
-            "runtime_readback": runtime_readback,
-        },
-        trace_id=trace_id,
-    )
-    result = _object_dict(invoked["result"])
-    task_id = str(result.get("task_id") or "").strip()
-    if not task_id:
-        raise RuntimeError("skill dispatch returned no task_id for source_library_item")
-    return task_id
 
-
-def _submit_market_collect(
-    *,
-    query_terms: list[str],
-    max_items: int,
-    project_key: str | None,
-    provider: str | None,
-    language: str | None,
-    days_back: int | None,
-    override_params: dict[str, Any] | None = None,
-    trace_id: str | None = None,
-    lane: str = "main",
-    workflow_run_id: str | None = None,
-) -> str:
-    queue_name = _resolve_queue_for_lane(lane)
-    runtime_readback = _build_dispatch_runtime_readback(
-        channel="search.market",
-        trace_id=trace_id,
-        workflow_run_id=workflow_run_id,
-        queue=queue_name,
-    )
-    invoked = _invoke_agent_batch_dispatch(
-        "search.market",
-        {
-            "query_terms": list(query_terms or []),
-            "max_items": int(max_items),
-            "project_key": project_key,
-            "provider": provider,
-            "language": language,
-            "days_back": days_back,
-            "override_params": dict(override_params or {}),
-            "trace_id": trace_id,
-            "lane": lane,
-            "workflow_run_id": workflow_run_id,
-            "queue": queue_name,
-            "runtime_readback": runtime_readback,
-        },
-        trace_id=trace_id,
-    )
-    result = _object_dict(invoked["result"])
-    task_id = str(result.get("task_id") or "").strip()
-    if not task_id:
-        raise RuntimeError("skill dispatch returned no task_id for market_collect")
-    return task_id
 
 
 def _skill_dispatch_source_library_item(payload: dict[str, Any]) -> dict[str, Any]:
@@ -799,9 +293,10 @@ def _skill_dispatch_source_library_item(payload: dict[str, Any]) -> dict[str, An
     project_key = str((payload or {}).get("project_key") or "").strip() or None
     override_params = dict((payload or {}).get("override_params") or {})
     trace_id = str((payload or {}).get("trace_id") or "").strip() or None
+    dispatch_task_id = str((payload or {}).get("task_id") or "").strip() or None
     lane = validate_lane((payload or {}).get("lane"), fallback="main")
     workflow_run_id = str((payload or {}).get("workflow_run_id") or "").strip() or None
-    queue_name = str((payload or {}).get("queue") or "").strip() or _resolve_queue_for_lane(lane)
+    queue_name = _resolve_queue_for_lane(lane)
     runtime_readback = dict((payload or {}).get("runtime_readback") or {})
     if not runtime_readback:
         runtime_readback = _build_dispatch_runtime_readback(
@@ -826,6 +321,7 @@ def _skill_dispatch_source_library_item(payload: dict[str, Any]) -> dict[str, An
             "runtime_readback": runtime_readback,
         },
         lane,
+        task_id=dispatch_task_id,
     )
     return {"task_id": str(task.id)}
 
@@ -847,9 +343,10 @@ def _skill_dispatch_market_collect(payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(start_offset, int):
         start_offset = None
     trace_id = str((payload or {}).get("trace_id") or "").strip() or None
+    dispatch_task_id = str((payload or {}).get("task_id") or "").strip() or None
     lane = validate_lane((payload or {}).get("lane"), fallback="main")
     workflow_run_id = str((payload or {}).get("workflow_run_id") or "").strip() or None
-    queue_name = str((payload or {}).get("queue") or "").strip() or _resolve_queue_for_lane(lane)
+    queue_name = _resolve_queue_for_lane(lane)
     runtime_readback = dict((payload or {}).get("runtime_readback") or {})
     if not runtime_readback:
         runtime_readback = _build_dispatch_runtime_readback(
@@ -869,6 +366,7 @@ def _skill_dispatch_market_collect(payload: dict[str, Any]) -> dict[str, Any]:
             "runtime_readback": runtime_readback,
         },
         lane,
+        task_id=dispatch_task_id,
     )
     return {"task_id": str(task.id)}
 
@@ -884,6 +382,118 @@ def _normalize_channel(job: AgentBatchItemSubmit) -> str:
         }
     )
     return str(inferred or "").strip().lower()
+
+
+def build_dispatch_single_payload_from_item(
+    *,
+    item: AgentBatchItemSubmit,
+    dispatch_id: str,
+    project_key: str,
+    resolved_schema: str,
+    registry_revision: int,
+    scope_incarnation: str,
+    scope_digest: str,
+    capability_id: str,
+    lane: str,
+    queue: str | None,
+    trace_id: str | None,
+    workflow_run_id: str | None,
+    runtime_readback: dict[str, Any] | None = None,
+) -> Annotated[
+    batch_task.BatchTaskSingleDispatchPayload,
+    "kit:non-authoritative derived_as=payload fact_source=resolved_project_scope_and_batch_submission_item witness=test:test_body_lowering_preserves_channel_scope_and_routing",
+]:
+    """Pure typed body -> single-dispatch payload lowering.
+
+    The resolved project scope, capability identity and routing context are
+    supplied by the caller (server-side scope resolution and admission); this
+    function performs no network, database, provider or credential work.
+    """
+
+    channel = _normalize_channel(item)
+    submission_item = batch_task.AgentBatchSubmissionItem(
+        job_id=str(item.item_id or dispatch_id),
+        channel=channel,
+        query_terms=tuple(item.query_terms or []),
+        urls=tuple(item.urls or []),
+        max_items=int(item.max_items or 20),
+        provider=str(item.provider or "auto"),
+        language=str(item.language or "zh"),
+        days_back=item.days_back,
+        item_key=_resolve_item_key(item) if channel == "source_library" else item.item_key,
+        scope=item.scope,
+        platforms=tuple(item.platforms or []),
+        override_params=dict(item.override_params or {}),
+        lane=lane,
+        workflow_run_id=workflow_run_id,
+        trace_id=trace_id,
+    )
+    return batch_task.BatchTaskSingleDispatchPayload(
+        schema_version=batch_task.DISPATCH_SINGLE_PAYLOAD_SCHEMA,
+        operation_kind=batch_task.DISPATCH_SINGLE_KIND,
+        dispatch_id=dispatch_id,
+        project_key=project_key,
+        resolved_schema=resolved_schema,
+        registry_revision=registry_revision,
+        scope_incarnation=scope_incarnation,
+        scope_digest=scope_digest,
+        capability_id=capability_id,
+        item=submission_item,
+        lane=lane,
+        queue=queue,
+        trace_id=trace_id,
+        workflow_run_id=workflow_run_id,
+        runtime_readback=dict(runtime_readback or {}),
+    )
+
+
+def _submit_dispatch_run(
+    *,
+    run_id: str,
+    payloads: tuple[batch_task.BatchTaskSingleDispatchPayload, ...],
+    project_key: str,
+    actor_id: str,
+    queue: str,
+    idempotency_key: str | None,
+    now: datetime,
+) -> tuple[str, tuple[str, ...]]:
+    return dispatch_submit_run(
+        run_id=run_id,
+        payloads=payloads,
+        project_key=project_key,
+        actor_id=actor_id,
+        queue=queue,
+        idempotency_key=idempotency_key,
+        now=now,
+    )
+
+
+def _load_dispatch_run(
+    *,
+    run_id: str,
+    project_key: str,
+    actor_id: str,
+) -> tuple[dict[str, Any], list[dict[str, Any]], tuple[dict[str, Any], ...]]:
+    return dispatch_load_run(
+        run_id=run_id,
+        project_key=project_key,
+        actor_id=actor_id,
+    )
+
+
+def _run_product_status(run: dict[str, Any], items: list[dict[str, Any]]) -> str:
+    state = str(run.get("state") or "")
+    if state in {"SUBMITTED", "COMPILING"}:
+        return "queued"
+    if state in {"FAILED", "CANCELLED", "SUPERSEDED"}:
+        return state.lower()
+    if state == "COMPLETED":
+        return "completed" if run.get("business_program") and all(item["status"] == "succeeded" for item in items) else "submitted"
+    if any(item["status"] == "unknown" for item in items):
+        return "unknown"
+    if state == "WAITING" or any(item["status"] == "waiting" for item in items):
+        return "waiting"
+    return "running"
 
 
 def _validate_override_params_for_channel(channel: str, override_params: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -931,98 +541,9 @@ def _enforce_search_market_rule_set(job: AgentBatchItemSubmit, rule_set: dict[st
     return None
 
 
-def _submit_search_market_job(
-    job: AgentBatchItemSubmit,
-    *,
-    project_key: str | None,
-    lane: str,
-    trace_id: str | None,
-    workflow_run_id: str,
-) -> tuple[str, dict[str, Any]]:
-    query_terms = _normalize_query_terms(job.query_terms)
-    if not query_terms and isinstance(job.input, dict):
-        query_terms = _normalize_query_terms(job.input.get("query_terms") or [])
-    if not query_terms:
-        _raise_invalid_input("search.market item requires query_terms")
-    max_items = int(job.max_items or 20)
-    language = job.language or _detect_language(" ".join(query_terms))
-    override_params = dict(job.override_params or {})
-    task_id = _submit_market_collect(
-        query_terms=query_terms,
-        max_items=max_items,
-        project_key=project_key,
-        provider=job.provider or "auto",
-        language=language,
-        days_back=job.days_back,
-        override_params=override_params,
-        trace_id=trace_id,
-        lane=lane,
-        workflow_run_id=workflow_run_id,
-    )
-    return task_id, {
-        "query_terms": query_terms,
-        "max_items": max_items,
-        "provider": job.provider or "auto",
-        "language": language,
-        "days_back": job.days_back,
-        "override_params": override_params,
-    }
-
-
-def _submit_source_library_job(
-    job: AgentBatchItemSubmit,
-    *,
-    project_key: str | None,
-    lane: str,
-    trace_id: str | None,
-    workflow_run_id: str,
-) -> tuple[str, dict[str, Any]]:
-    item_key = _resolve_item_key(job)
-    override_params = build_source_library_override_params(
-        {
-            "override_params": dict(job.override_params or {}),
-            "query_terms": list(job.query_terms or []),
-            "urls": list(job.urls or []),
-            "max_items": job.max_items,
-            "provider": job.provider,
-            "language": job.language,
-            "scope": job.scope,
-            "platforms": list(job.platforms or []),
-            "source_mode": job.source_mode,
-        },
-        workflow_run_id=workflow_run_id,
-    )
-    task_id = _submit_source_item(
-        item_key=item_key,
-        project_key=project_key,
-        override_params=override_params,
-        trace_id=trace_id,
-        lane=lane,
-        workflow_run_id=workflow_run_id,
-    )
-    return task_id, {
-        "item_key": item_key,
-        "query_terms": _normalize_query_terms(job.query_terms),
-        "max_items": job.max_items,
-        "provider": job.provider,
-        "language": job.language,
-        "override_params": override_params,
-    }
-
-
-_TASK_CONTRACT_EXPORTS = {
-    "_submit_search_market_job": _submit_search_market_job,
-    "_enforce_search_market_rule_set": _enforce_search_market_rule_set,
-    "_skill_dispatch_market_collect": _skill_dispatch_market_collect,
-    "_submit_source_library_job": _submit_source_library_job,
-    "_skill_dispatch_source_library_item": _skill_dispatch_source_library_item,
+_CHANNEL_EXECUTION_REGISTRY = {
+    "search.market": {"rule_guard": _enforce_search_market_rule_set},
 }
-
-
-_CHANNEL_EXECUTION_REGISTRY = build_agent_batch_execution_registry(
-    execution_bindings=list_agent_batch_execution_bindings(),
-    globals_map={**globals(), **_TASK_CONTRACT_EXPORTS},
-)
 
 
 def _guard_batch_item(
@@ -1073,30 +594,6 @@ def _guard_batch_item(
         if guard is not None:
             return guard
     return None
-
-
-def _submit_batch_item(
-    job: AgentBatchItemSubmit,
-    *,
-    project_key: str | None,
-    priority: int | None,
-    trace_id: str | None,
-    workflow_run_id: str,
-) -> tuple[str, str, str, dict[str, Any]]:
-    channel = _normalize_channel(job)
-    lane = _resolve_lane(channel=channel, priority=priority)
-    channel_registry = dict(_CHANNEL_EXECUTION_REGISTRY.get(channel) or {})
-    submitter = channel_registry.get("submitter")
-    if submitter is None:
-        _raise_invalid_input(f"channel has no submit handler: {channel}")
-    task_id, resolved_payload = submitter(
-        job,
-        project_key=project_key,
-        lane=lane,
-        trace_id=trace_id,
-        workflow_run_id=workflow_run_id,
-    )
-    return task_id, channel, lane, resolved_payload
 
 
 def _build_approval_binding(
@@ -1158,538 +655,253 @@ def _enforce_approval_if_needed(
 
 
 @router.post("/jobs")
-def submit_agent_batch_job(payload: AgentBatchSubmitRequest) -> dict[str, Any]:
+def submit_agent_batch_job(
+    payload: AgentBatchSubmitRequest, request: Request
+) -> dict[str, Any]:
+    return submit_agent_batch_for_actor(payload, require_trusted_actor_context(request))
+
+
+def submit_agent_batch_for_actor(
+    payload: AgentBatchSubmitRequest, actor: RequestActorContext
+) -> dict[str, Any]:
+    """Submit using the trusted actor proof from HTTP or verified host context."""
+    if not actor.actor_trusted or not actor.actor_id or actor.actor_source in {
+        "authenticated_oauth_token_sink", "authenticated_oauth_token_sink_claims",
+    }:
+        raise HTTPException(status_code=401, detail="trusted actor required")
     cleanup_expired()
     project_key = _resolve_project_key(payload.project_key)
-    idem = str(payload.idempotency_key or "").strip() or None
-    if idem and idem in _IDEMPOTENCY_INDEX:
-        existing_job_id = _IDEMPOTENCY_INDEX[idem]
-        existing = _load_job(existing_job_id)
-        run_ids = [run_id for run_id in (str(it.workflow_run_id or "").strip() for it in existing.items) if run_id]
-        return ok(
+    jobs = payload.batch.jobs
+    rule_set = dict(payload.rule_set or {})
+    with engine.connect() as connection:
+        project_scope = ServerProjectScopeResolver(connection=connection).resolve(
+            project_key
+        )
+    logical_request_id = str(payload.idempotency_key or "").strip() or None
+    if logical_request_id:
+        job_id = batch_task.derive_dispatch_run_id(
+            project_scope_digest=project_scope.scope_digest,
+            actor_id=actor.actor_id,
+            logical_request_id=logical_request_id,
+        )
+    else:
+        job_id = f"batch-dispatch-{uuid4().hex[:16]}"
+
+    accepted: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = []
+    dispatch_payloads: list[batch_task.BatchTaskSingleDispatchPayload] = []
+    worker_queue: str | None = None
+    for idx, item in enumerate(jobs):
+        guard = _guard_batch_item(item, project_key=project_key, rule_set=rule_set)
+        if guard is not None:
+            rejected.append({"index": idx, **guard})
+            continue
+        item_id = str(item.item_id or f"{job_id}-item-{idx + 1}").strip()
+        dispatch_id = f"{job_id}:{item_id}"
+        resolved_channel = _normalize_channel(item)
+        lane = _resolve_lane(channel=resolved_channel, priority=payload.priority)
+        queue = _resolve_queue_for_lane(lane)
+        worker_queue = worker_queue or queue
+        workflow_run_id = _build_item_workflow_run_id(job_id=job_id, item_id=item_id)
+        trace_id = _build_item_trace_id(job_id=job_id, item_id=item_id)
+        runtime_readback = _build_dispatch_runtime_readback(
+            channel=resolved_channel,
+            trace_id=trace_id,
+            workflow_run_id=workflow_run_id,
+            queue=queue,
+        )
+        # Request-time event timestamps are observations, not dispatch input.
+        # Runtime and business execution own the persisted event history.
+        runtime_readback.pop("events", None)
+        approval_guard = _enforce_approval_if_needed(
+            channel=resolved_channel,
+            project_key=project_key,
+            workflow_run_id=workflow_run_id,
+            trace_id=trace_id,
+            job=item,
+            rule_set=rule_set,
+        )
+        if approval_guard is not None:
+            rejected.append({"index": idx, **approval_guard})
+            continue
+        dispatch_payloads.append(
+            build_dispatch_single_payload_from_item(
+                item=item,
+                dispatch_id=dispatch_id,
+                project_key=project_key,
+                resolved_schema=project_scope.resolved_schema,
+                registry_revision=project_scope.project_registry_revision,
+                scope_incarnation=project_scope.incarnation,
+                scope_digest=project_scope.scope_digest,
+                capability_id=batch_task.BATCH_TASK_OWNER,
+                lane=lane,
+                queue=queue,
+                trace_id=trace_id,
+                workflow_run_id=workflow_run_id,
+                runtime_readback=runtime_readback,
+            )
+        )
+        accepted.append(
             {
-                "job_id": existing.job_id,
-                "status": "accepted",
-                "accepted_count": len(existing.items),
-                "rejected_count": 0,
-                "accepted_job_items": [
-                    {
-                        "item_id": it.item_id,
-                        "task_id": it.task_id,
-                        "lane": it.lane,
-                        "workflow_run_id": it.workflow_run_id,
-                        "trace_id": it.trace_id,
-                    }
-                    for it in existing.items
-                ],
-                "rejected_job_items": [],
-                "run_ids": run_ids,
-                "created_at": existing.created_at,
-                "idempotency_reused": True,
-                "session_id": (existing.metadata or {}).get("session_id"),
+                "index": idx,
+                "item_id": item_id,
+                "dispatch_id": dispatch_id,
+                "channel": resolved_channel,
+                "lane": lane,
+                "trace_id": trace_id,
             }
         )
 
-    job_id = f"abj-{uuid4().hex[:16]}"
-    record = _BatchJobRecord(job_id=job_id, project_key=project_key, idempotency_key=idem)
-    accepted: list[dict[str, Any]] = []
-    rejected: list[dict[str, Any]] = []
+    if not dispatch_payloads:
+        return ok(
+            {
+                "job_id": None,
+                "status": "rejected",
+                "accepted_count": 0,
+                "rejected_count": len(rejected),
+                "accepted_job_items": [],
+                "rejected_job_items": rejected,
+            }
+        )
 
-    rule_set = dict(payload.rule_set or {})
-    for idx, item in enumerate(payload.batch.jobs):
-        guard = _guard_batch_item(item, project_key=project_key, rule_set=rule_set)
-        if guard is not None:
-            rejected.append(
-                {
-                    "index": idx,
-                    "reason_code": guard["reason_code"],
-                    "reason": guard["message"],
-                    "details": guard.get("details") or {},
-                }
-            )
-            continue
-        try:
-            item_id = str(item.item_id or f"{job_id}-item-{idx+1}").strip()
-            workflow_run_id = _build_item_workflow_run_id(job_id=job_id, item_id=item_id)
-            trace_id = _build_item_trace_id(job_id=job_id, item_id=item_id)
-            resolved_channel = _normalize_channel(item)
-            approval_guard = _enforce_approval_if_needed(
-                channel=resolved_channel,
-                project_key=project_key,
-                workflow_run_id=workflow_run_id,
-                trace_id=trace_id,
-                job=item,
-                rule_set=rule_set,
-            )
-            if approval_guard is not None:
-                rejected.append({"index": idx, **approval_guard})
-                continue
-
-            task_id, resolved_channel, lane, resolved_payload = _submit_batch_item(
-                item,
-                project_key=project_key,
-                priority=payload.priority,
-                trace_id=trace_id,
-                workflow_run_id=workflow_run_id,
-            )
-            record.items.append(
-                _BatchItemRecord(
-                    item_id=item_id,
-                    item_key=str(resolved_payload.get("item_key") or ""),
-                    channel=resolved_channel,
-                    query_terms=list(resolved_payload.get("query_terms") or []),
-                    max_items=resolved_payload.get("max_items"),
-                    provider=resolved_payload.get("provider"),
-                    language=resolved_payload.get("language"),
-                    days_back=resolved_payload.get("days_back"),
-                    project_key=project_key,
-                    override_params=dict(resolved_payload.get("override_params") or item.override_params or {}),
-                    task_id=task_id,
-                    lane=lane,
-                    workflow_run_id=workflow_run_id,
-                    trace_id=trace_id,
-                )
-            )
-            accepted.append(
-                {
-                    "index": idx,
-                    "item_id": item_id,
-                    "task_id": task_id,
-                    "lane": lane,
-                    "channel": resolved_channel,
-                    "item_key": resolved_payload.get("item_key"),
-                    "query_terms": resolved_payload.get("query_terms"),
-                    "contract_version": item.contract_version,
-                    "run_id": workflow_run_id,
-                    "workflow_run_id": workflow_run_id,
-                    "trace_id": trace_id,
-                }
-            )
-        except HTTPException as exc:
-            detail = _object_dict(exc.detail)
-            error = _object_dict(detail.get("error"))
-            error_details = _object_dict(error.get("details"))
-            rejected.append(
-                {
-                    "index": idx,
-                    "reason_code": "dispatch_error",
-                    "reason": str(error.get("message") or exc.detail or "dispatch error"),
-                    "details": {
-                        "error_code": error.get("code"),
-                        **error_details,
-                    },
-                }
-            )
-        except Exception as exc:  # noqa: BLE001
-            rejected.append({"index": idx, "reason_code": "dispatch_error", "reason": str(exc)})
-
-    _BATCH_JOB_REGISTRY[job_id] = record
-    if idem:
-        _IDEMPOTENCY_INDEX[idem] = job_id
-    projected_session = _project_agent_session_from_job_submission(
-        record=record,
-        request_payload=payload,
-        accepted_items=accepted,
-        rejected_items=rejected,
-    )
-    run_ids = [run_id for run_id in (str(it.workflow_run_id or "").strip() for it in record.items) if run_id]
+    try:
+        run_id, work_item_ids = _submit_dispatch_run(
+            run_id=job_id,
+            payloads=tuple(dispatch_payloads),
+            project_key=project_key,
+            actor_id=actor.actor_id,
+            queue=worker_queue or _resolve_queue_for_lane("main"),
+            idempotency_key=logical_request_id,
+            now=datetime.now(timezone.utc),
+        )
+    except CurrentAuthorityGrantUnavailable as exc:
+        raise HTTPException(
+            status_code=403,
+            detail=error_response(
+                ErrorCode.INVALID_INPUT,
+                "actor has no current dispatch grant",
+            ),
+        ) from exc
+    except ExactBindingConflict as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=error_response(
+                ErrorCode.INVALID_INPUT,
+                "idempotency request conflicts with an existing dispatch",
+            ),
+        ) from exc
     return ok(
         {
-            "job_id": job_id,
+            "job_id": run_id,
             "status": "accepted",
             "accepted_count": len(accepted),
             "rejected_count": len(rejected),
             "accepted_job_items": accepted,
             "rejected_job_items": rejected,
-            "run_ids": run_ids,
-            "created_at": record.created_at,
-            "links": {
-                "self": f"/api/v1/agent-batch/jobs/{job_id}",
-                "items": f"/api/v1/agent-batch/jobs/{job_id}/items",
-                "events": f"/api/v1/agent-batch/jobs/{job_id}/events",
-                "retry": f"/api/v1/agent-batch/jobs/{job_id}/retry",
-            },
+            "run_ids": [run_id],
+            "work_item_ids": work_item_ids,
+            "created_at": _utcnow_iso(),
             "rule_set_id": payload.rule_set_id,
-            "session_id": str((projected_session or {}).get("session_id") or "").strip() or None,
-            "current_phase": (projected_session or {}).get("current_phase"),
         }
     )
 
 
 @router.get("/jobs/{job_id}")
-def get_agent_batch_job(job_id: str) -> dict[str, Any]:
-    record = _load_job(job_id)
-    snapshots = [_task_snapshot(item.task_id) for item in record.items]
-    run_ids: list[str] = []
-    for item, snapshot in zip(record.items, snapshots):
-        run_id = _resolve_run_id(item, snapshot)
-        if run_id and run_id not in run_ids:
-            run_ids.append(run_id)
-    summary = _job_observation_summary(snapshots)
-    projected_session = _project_agent_session_from_job_state(
-        record=record, snapshots=snapshots, phase=summary["phase"], progress=summary["progress"]
+def get_agent_batch_job(
+    job_id: str, request: Request, project_key: str | None = None
+) -> dict[str, Any]:
+    actor = require_trusted_actor_context(request)
+    resolved_project_key = _resolve_project_key(project_key)
+    run, items, events = _load_dispatch_run(
+        run_id=job_id,
+        project_key=resolved_project_key,
+        actor_id=actor.actor_id,
     )
-    session_id = str((record.metadata or {}).get("session_id") or "").strip() or None
-    # Historical records may carry a stored phase; current responses derive it
-    # from the live session projection above.
-    historical_phase = str((record.metadata or {}).get("current_phase") or "").strip() or None
     return ok(
         {
-            "job_id": record.job_id,
-            "status": "completed" if summary["executor_completed"] else "running",
-            "completion_scope": "executor",
-            "phase": summary["phase"],
-            "executor_completed": summary["executor_completed"],
-            "session_id": str((projected_session or {}).get("session_id") or session_id or "").strip() or None,
-            "current_phase": (projected_session or {}).get("current_phase") or historical_phase,
-            "progress": summary["progress"],
-            "delivery_progress": summary["delivery_progress"],
-            "delivery_ready": summary["delivery_ready"],
-            "started_at": record.created_at,
-            "updated_at": _utcnow_iso(),
-            "finished_at": _utcnow_iso() if summary["executor_completed"] else None,
+            "job_id": job_id,
+            "status": _run_product_status(run, items),
+            "phase": run.get("state"),
+            "progress": {
+                "total": len(items),
+                **{state: sum(item["status"] == state for item in items)
+                   for state in ("succeeded", "failed", "cancelled", "superseded", "running", "queued", "waiting", "unknown", "submitted")},
+            },
             "retry_count": 0,
             "error": None,
-            "meta": {"project_key": record.project_key, **dict(record.metadata or {})},
-            "run_ids": run_ids,
+            "events": events,
+            "business_terminal": bool(items) and all(item["business_terminal"] for item in items),
+            "meta": {"project_key": resolved_project_key},
         }
     )
 
 
 @router.get("/jobs/{job_id}/items")
-def list_agent_batch_items(job_id: str) -> dict[str, Any]:
-    record = _load_job(job_id)
-    snapshots = [_task_snapshot(item.task_id) for item in record.items]
-    summary = _job_observation_summary(snapshots)
-    _project_agent_session_from_job_state(
-        record=record, snapshots=snapshots, phase=summary["phase"], progress=summary["progress"]
+def list_agent_batch_items(
+    job_id: str, request: Request, project_key: str | None = None
+) -> dict[str, Any]:
+    actor = require_trusted_actor_context(request)
+    resolved_project_key = _resolve_project_key(project_key)
+    _, items, _ = _load_dispatch_run(
+        run_id=job_id, project_key=resolved_project_key, actor_id=actor.actor_id
     )
-    items: list[dict[str, Any]] = []
-    for item, snap in zip(record.items, snapshots):
-        run_id = _resolve_run_id(item, snap)
-        items.append(
-            {
-                "item_id": item.item_id,
-                "task_id": item.task_id,
-                "lane": item.lane,
-                "run_id": run_id,
-                "status": snap.get("status"),
-                "delivery": _delivery_from_snapshot(snap),
-                "input": {
-                    "item_key": item.item_key,
-                    "channel": item.channel,
-                    "query_terms": item.query_terms,
-                    "max_items": item.max_items,
-                    "provider": item.provider,
-                    "language": item.language,
-                    "days_back": item.days_back,
-                    "override_params": item.override_params,
-                    "run_id": run_id,
-                    "workflow_run_id": item.workflow_run_id,
-                    "trace_id": item.trace_id,
-                    "lane": item.lane,
-                },
-                "output": snap.get("result") if snap.get("successful") else None,
-                "error": snap.get("result") if snap.get("failed") else None,
-                "last_update_at": _utcnow_iso(),
-            }
-        )
     return ok({"items": items, "pagination": {"next_cursor": None, "has_more": False}})
 
 
-@router.post("/jobs/{job_id}/retry")
-def retry_agent_batch_job(job_id: str, payload: AgentBatchRetryRequest) -> dict[str, Any]:
-    record = _load_job(job_id)
-    target_ids = set(payload.item_ids or [])
-    replayed_task_ids: list[str] = []
-    blocked_items: list[dict[str, Any]] = []
-    for item in list(record.items):
-        if target_ids and item.item_id not in target_ids:
-            continue
-        snap = _task_snapshot(item.task_id)
-        if snap.get("status") not in {"failure", "revoked"}:
-            continue
-        delivery = _delivery_from_snapshot(snap)
-        if delivery["provider_state"] not in {"failed", "cancelled"} or not delivery["terminal_identity_match"]:
-            blocked_items.append({
-                "item_id": item.item_id,
-                "task_id": item.task_id,
-                "provider_job_id": delivery["provider_job_id"],
-                "provider_state": delivery["provider_state"],
-                "readback_job_id": delivery["readback_job_id"],
-                "blocked_by": (
-                    "PROVIDER_READBACK_REQUIRED" if delivery["provider_job_id"] else "EFFECT_OUTCOME_UNKNOWN"
-                ),
-            })
-            continue
-        retry_index = len(replayed_task_ids) + 1
-        retry_item_id = f"{item.item_id}-retry-{retry_index}"
-        retry_run_id = _build_item_workflow_run_id(job_id=job_id, item_id=retry_item_id)
-        retry_trace_id = _build_item_trace_id(job_id=job_id, item_id=retry_item_id)
-        retry_job = AgentBatchItemSubmit(
-            item_id=retry_item_id,
-            item_key=item.item_key or None,
-            channel=item.channel,
-            query_terms=list(item.query_terms or []),
-            max_items=item.max_items,
-            provider=item.provider,
-            language=item.language,
-            days_back=item.days_back,
-            override_params=dict(item.override_params or {}),
-        )
-        resolved_channel = _normalize_channel(retry_job)
-        new_task_id, _, resolved_lane, resolved_payload = _submit_batch_item(
-            retry_job,
-            project_key=item.project_key,
-            priority=None,
-            trace_id=retry_trace_id,
-            workflow_run_id=retry_run_id,
-        )
-        replayed_task_ids.append(new_task_id)
-        record.items.append(
-            _BatchItemRecord(
-                item_id=retry_item_id,
-                item_key=str(resolved_payload.get("item_key") or item.item_key or ""),
-                channel=resolved_channel,
-                query_terms=list(resolved_payload.get("query_terms") or item.query_terms or []),
-                max_items=resolved_payload.get("max_items", item.max_items),
-                provider=resolved_payload.get("provider", item.provider),
-                language=resolved_payload.get("language", item.language),
-                days_back=resolved_payload.get("days_back", item.days_back),
-                project_key=item.project_key,
-                override_params=dict(resolved_payload.get("override_params") or item.override_params or {}),
-                task_id=new_task_id,
-                lane=resolved_lane,
-                workflow_run_id=retry_run_id,
-                trace_id=retry_trace_id,
-            )
-        )
-    return ok(
-        {
-            "job_id": job_id,
-            "retry_session_id": f"retry-{uuid4().hex[:12]}",
-            "status": "accepted" if replayed_task_ids else "blocked" if blocked_items else "accepted",
-            "retry_count": len(replayed_task_ids),
-            "targets": replayed_task_ids,
-            "blocked_items": blocked_items,
-        }
-    )
-
 
 @router.get("/jobs/{job_id}/events")
-def get_agent_batch_events(job_id: str) -> dict[str, Any]:
-    record = _load_job(job_id)
-    snapshots = [_task_snapshot(item.task_id) for item in record.items]
-    summary = _job_observation_summary(snapshots)
-    _project_agent_session_from_job_state(
-        record=record, snapshots=snapshots, phase=summary["phase"], progress=summary["progress"]
+def get_agent_batch_events(
+    job_id: str, request: Request, project_key: str | None = None
+) -> dict[str, Any]:
+    actor = require_trusted_actor_context(request)
+    resolved_project_key = _resolve_project_key(project_key)
+    _, _, events = _load_dispatch_run(
+        run_id=job_id, project_key=resolved_project_key, actor_id=actor.actor_id
     )
-    events: list[dict[str, Any]] = []
-    search_brief = dict((record.metadata or {}).get("search_brief") or {})
-    search_critic = dict((record.metadata or {}).get("search_critic") or {})
-    search_retry = dict((record.metadata or {}).get("search_retry") or {})
-    submit_rounds = [_object_dict(entry) for entry in _object_list((record.metadata or {}).get("submit_rounds"))]
-    stage_artifacts = _object_dict((record.metadata or {}).get("stage_artifacts"))
-    search_brief_stage = _object_dict(stage_artifacts.get("search_brief"))
-    search_critic_stage = _object_dict(stage_artifacts.get("search_critic"))
-    search_retry_stage = _object_dict(stage_artifacts.get("search_retry"))
-    if search_brief:
-        events.append(
-            {
-                "id": f"evt-{record.job_id}-search-brief",
-                "event_type": "search_brief.created",
-                "ts": _utcnow_iso(),
-                "item_id": None,
-                "lane": None,
-                "run_id": None,
-                "severity": "info",
-                "message": "search brief created for nl-command job",
-                "payload": {
-                    "loop_id": (record.metadata or {}).get("loop_id"),
-                    "search_brief": search_brief,
-                    "stage": search_brief_stage,
-                },
-            }
-        )
-    if submit_rounds:
-        for submit_round in submit_rounds:
-            round_value = submit_round.get("round")
-            round_index = int(round_value) if isinstance(round_value, (str, int, float)) else 0
-            events.append(
-                {
-                    "id": f"evt-{record.job_id}-search-round-{round_index}",
-                    "event_type": "search_round.completed",
-                    "ts": _utcnow_iso(),
-                    "item_id": None,
-                    "lane": None,
-                    "run_id": None,
-                    "severity": "info",
-                    "message": f"search round {round_index} completed",
-                    "payload": {
-                        "loop_id": (record.metadata or {}).get("loop_id"),
-                        "round": submit_round,
-                    },
-                }
-            )
-    if search_critic:
-        events.append(
-            {
-                "id": f"evt-{record.job_id}-search-critic",
-                "event_type": "search_critic.scored",
-                "ts": _utcnow_iso(),
-                "item_id": None,
-                "lane": None,
-                "run_id": None,
-                "severity": "info",
-                "message": "search critic scored the current plan",
-                "payload": {
-                    "loop_id": (record.metadata or {}).get("loop_id"),
-                    "search_critic": search_critic,
-                    "stage": search_critic_stage,
-                },
-            }
-        )
-    if search_retry:
-        retry_event_type = "search_retry.scheduled" if bool(search_retry.get("scheduled")) else "search_retry.skipped"
-        events.append(
-            {
-                "id": f"evt-{record.job_id}-search-retry",
-                "event_type": retry_event_type,
-                "ts": _utcnow_iso(),
-                "item_id": None,
-                "lane": None,
-                "run_id": None,
-                "severity": "info",
-                "message": "bounded retry decision recorded",
-                "payload": {
-                    "loop_id": (record.metadata or {}).get("loop_id"),
-                    "search_retry": search_retry,
-                    "stage": search_retry_stage,
-                },
-            }
-        )
-    if search_critic and str(search_critic.get("next_action") or "").strip().lower() == "stop":
-        events.append(
-            {
-                "id": f"evt-{record.job_id}-search-stop",
-                "event_type": "search_stop.completed",
-                "ts": _utcnow_iso(),
-                "item_id": None,
-                "lane": None,
-                "run_id": None,
-                "severity": "info",
-                "message": "search loop stopped after critic evaluation",
-                "payload": {
-                    "loop_id": (record.metadata or {}).get("loop_id"),
-                    "search_critic": search_critic,
-                    "search_retry": search_retry,
-                },
-            }
-        )
-    for item, snap in zip(record.items, snapshots):
-        run_id = _resolve_run_id(item, snap)
-        events.append(
-            {
-                "id": f"evt-{item.task_id}",
-                "event_type": f"task.{snap.get('status')}",
-                "ts": _utcnow_iso(),
-                "item_id": item.item_id,
-                "lane": item.lane,
-                "run_id": run_id,
-                "severity": "error" if snap.get("failed") else "info",
-                "message": f"task {item.task_id} status={snap.get('status')}",
-                "payload": {
-                    "task_id": item.task_id,
-                    "lane": item.lane,
-                    "status": snap.get("status"),
-                    "run_id": run_id,
-                    "workflow_run_id": item.workflow_run_id,
-                    "trace_id": item.trace_id,
-                },
-            }
-        )
     return ok({"events": events, "pagination": {"next_cursor": None, "has_more": False}})
-
-
-@router.get("/metrics/search-policy")
-def get_agent_batch_search_policy_metrics() -> dict[str, Any]:
-    return ok(_build_search_policy_metrics())
-
-
-@router.get("/metrics/search-policy/benchmark-pack")
-def get_agent_batch_search_policy_benchmark_pack() -> dict[str, Any]:
-    return ok(build_search_policy_benchmark_pack())
-
-
-@router.get("/metrics/search-policy/gate")
-def get_agent_batch_search_policy_gate() -> dict[str, Any]:
-    return ok(evaluate_search_policy_gate(_build_search_policy_metrics()))
 
 
 @router.get("/jobs/{job_id}/workflow-handoffs")
 def list_agent_batch_job_workflow_handoffs(job_id: str, handoff_mode: str | None = None) -> dict[str, Any]:
-    record = _load_job(job_id)
-    run_cache: dict[str, dict[str, Any]] = {}
-    items: list[dict[str, Any]] = []
-    skipped: list[dict[str, Any]] = []
-
-    for item in record.items:
-        snap = _task_snapshot(item.task_id)
-        run_id = _resolve_run_id(item, snap)
-        if not run_id:
-            skipped.append(
-                {
-                    "item_id": item.item_id,
-                    "task_id": item.task_id,
-                    "reason_code": "run_id_missing",
-                    "reason": "item has no resolvable run_id",
-                }
+    handoffs: dict[str, Any]
+    try:
+        handoffs = handoff_store.list_handoffs(run_id=job_id, handoff_mode=handoff_mode)
+    except (KeyError, ValueError):
+        handoffs = {"items": [], "total": 0, "query_error": "run_or_handoff_unavailable"}
+    handoff_items: list[dict[str, object]] = [
+        dict(entry)
+        for entry in _object_list(handoffs.get("items"))
+        if _is_object_dict(entry)
+    ]
+    replay_map = {
+        str(entry.get("handoff_id") or ""): {
+            "workflow_graph": (
+                f"/api/v1/workflow-graph/runs/{job_id}/handoff/{entry.get('handoff_id')}/replay?source=historical"
             )
-            continue
-
-        if run_id not in run_cache:
-            try:
-                run_cache[run_id] = handoff_store.list_handoffs(run_id=run_id, handoff_mode=handoff_mode)
-            except (KeyError, ValueError):
-                run_cache[run_id] = {"items": [], "total": 0, "query_error": "run_or_handoff_unavailable"}
-
-        handoff_items = list(run_cache[run_id].get("items") or [])
-        replay_map = {
-            str(entry.get("handoff_id") or ""): {
-                "workflow_graph": f"/api/v1/workflow-graph/runs/{run_id}/handoff/{entry.get('handoff_id')}/replay"
-            }
-            for entry in handoff_items
-            if str(entry.get("handoff_id") or "").strip()
         }
-        items.append(
-            {
-                "item_id": item.item_id,
-                "task_id": item.task_id,
-                "task_status": snap.get("status"),
-                "run_id": run_id,
-                "handoffs_total": len(handoff_items),
-                "handoffs": handoff_items,
-                "replay_entry_map": replay_map,
-            }
-        )
+        for entry in handoff_items
+        if str(entry.get("handoff_id") or "").strip()
+    }
 
     return ok(
         {
-            "job_id": record.job_id,
-            "items": items,
-            "runs_total": len(run_cache),
-            "handoffs_total": sum(len(x.get("items") or []) for x in run_cache.values()),
-            "skipped_items": skipped,
-            "skipped_count": len(skipped),
+            "job_id": job_id,
+            "items": [
+                {
+                    "item_id": job_id,
+                    "run_id": job_id,
+                    "handoffs_total": len(handoff_items),
+                    "handoffs": handoff_items,
+                    "replay_entry_map": replay_map,
+                }
+            ],
+            "runs_total": 1,
+            "handoffs_total": len(handoff_items),
+            "skipped_items": [],
+            "skipped_count": 0,
             "contract_version": "agent_batch.workflow_handoff.query.v1",
         }
     )
-
-
-@router.get("/observability/failure-reasons")
-def get_agent_batch_failure_reasons(limit: int = 20) -> dict[str, Any]:
-    return ok(_build_failure_reason_metrics(limit=limit))
-
 
 @router.post("/approvals/request")
 def create_agent_batch_approval(payload: AgentBatchApprovalRequest) -> dict[str, Any]:
@@ -1795,3 +1007,6 @@ def run_agent_batch_nl_command_direct(payload: AgentBatchNlCommandRequest) -> di
 @router.get("/executor/health")
 def get_agent_batch_executor_health() -> dict[str, Any]:
     return ok(inspect_executor_health())
+
+# Native dispatch names are resolved by the authoritative task-contract manifest.
+__all__ = ["_skill_dispatch_source_library_item", "_skill_dispatch_market_collect"]

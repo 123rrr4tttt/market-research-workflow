@@ -10,13 +10,17 @@ from unittest.mock import patch
 from functorial_kit import Failure
 import pytest
 
-from app.services.workflow_graph.runtime import WorkflowGraphPlatformInterpreter
+from app.services.workflow_graph.runtime import invoke_workflow_runtime_node
+from app.successor_runtime.capabilities.workflow_native_contribution import (
+    WorkflowExecutionContext,
+)
 from app.successor_runtime.capabilities.workflow_legacy_dsl import (
     workflow_program_metadata,
 )
 from app.successor_runtime.capabilities.workflow_legacy_dsl import (
     parse_and_validate_workflow_dsl,
 )
+from app.successor_runtime.language.program import decode_program_spec, encode_program_spec
 from app.successor_runtime.language.plan import ExecutionPlan
 from app.successor_runtime.language.program import ProgramSpec
 from app.successor_runtime.runtime.activation import activate_plan_result
@@ -79,8 +83,31 @@ def test_workflow_low_once_into_exact_program_and_plan() -> None:
     )
 
 
-def test_shared_predecessor_executes_once_through_platform_interpreter() -> None:
-    program, plan, metadata = _current_program_plan()
+def test_workflow_metadata_preserves_json_shapes_through_program_persistence() -> None:
+    dsl = _workflow_dsl()
+    dsl["options"] = {
+        "empty_array": [],
+        "empty_object": {},
+        "pair_array": [["key", 1]],
+    }
+    dsl["nodes"][0]["config"] = {
+        "top_k": 3,
+        "nested": {"empty_array": [], "empty_object": {}, "pairs": [["k", 1]]},
+    }
+    receipt = parse_and_validate_workflow_dsl(dsl)
+
+    assert receipt.ok and receipt.program is not None
+    decoded = decode_program_spec(encode_program_spec(receipt.program))
+    metadata = workflow_program_metadata(decoded)
+    assert metadata["options"] == dsl["options"]
+    assert metadata["topo_order"] == ["retrieve", "draft", "combine"]
+    assert metadata["nodes"][0]["config"] == dsl["nodes"][0]["config"]
+    assert metadata["nodes"][0]["config"]["nested"]["empty_array"] == []
+    assert metadata["nodes"][0]["config"]["nested"]["empty_object"] == {}
+
+
+def test_shared_predecessor_executes_once_through_runtime_leaf_transport() -> None:
+    _, _, metadata = _current_program_plan()
     nodes = {
         str(item["node_id"]): {
             "id": str(item["node_id"]),
@@ -95,13 +122,15 @@ def test_shared_predecessor_executes_once_through_platform_interpreter() -> None
             for edge in metadata["edges"]
             if edge["to"] == node["id"]
         ]
-    workflow = {
-        "workflow_id": "current-workflow-boundary",
-        "program_digest": program.program_digest,
-        "plan_digest": plan.plan_digest,
-        "topo_order": list(metadata["topo_order"]),
-        "nodes": nodes,
-    }
+    ordered_nodes = tuple(
+        {
+            "node_id": node_id,
+            "node_type": nodes[node_id]["node_type"],
+            "params": nodes[node_id]["params"],
+            "depends_on": nodes[node_id]["depends_on"],
+        }
+        for node_id in metadata["topo_order"]
+    )
     calls: list[str] = []
 
     def execute(context):
@@ -119,19 +148,23 @@ def test_shared_predecessor_executes_once_through_platform_interpreter() -> None
         "app.services.workflow_graph.runtime.execute_node",
         side_effect=execute,
     ) as kernel:
-        snapshot = WorkflowGraphPlatformInterpreter().run(
-            program=program,
-            plan=plan,
-            workflow=workflow,
-            run_id="current-workflow-run",
+        context = WorkflowExecutionContext(
+            schema="mrw.workflow.runtime.context.v1",
+            workflow_id="current-workflow-boundary",
+            project_key="demo_proj",
+            trace_id="current-workflow-run",
+            inputs={},
+            nodes=ordered_nodes,
+            cursor=0,
+            results={},
         )
+        for _ in ordered_nodes:
+            context = invoke_workflow_runtime_node(context)
 
     assert calls == ["retrieve", "draft", "combine"]
     assert kernel.call_count == 3
-    assert snapshot["run"]["status"] == "succeeded"
-    assert snapshot["results"]["combine"]["values"] == ["retrieved", "drafted"]
-    assert snapshot["run"]["metadata"]["program_digest"] == program.program_digest
-    assert snapshot["run"]["metadata"]["plan_digest"] == plan.plan_digest
+    assert context.cursor == 3
+    assert context.results["combine"]["values"] == ["retrieved", "drafted"]
 
 
 def test_activation_has_one_ready_effect_per_fixed_point_round() -> None:

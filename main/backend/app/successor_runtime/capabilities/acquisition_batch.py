@@ -4,66 +4,38 @@ This module owns the canonical vocabulary for the two acquisition operations:
 authenticated request refs, the finite ordered batch plan, element identity,
 element outcomes, attempt receipts, the ordered outcome sequence and the
 aggregate outcome union.  It also owns the pure deterministic plan rules and
-the pure ordered fold used by both the successor interpreter and the legacy
-parity adapter.
+the pure ordered fold used by the collect runtime and policy materializer.
 
-The module is capability-boundary only: it never imports legacy service
-packages and never performs network, database, provider or credential work.
-Raw legacy dictionaries stay at the codec/parity boundary.
+The module is capability-boundary only: it never imports service packages and
+never performs network, database, provider or credential work.
 """
 
 from __future__ import annotations
-import dataclasses
+
 import math
 import re
-import types
-import typing
 from collections.abc import Mapping
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field
 from typing import (
     Annotated,
     Any,
     Literal,
     NoReturn,
     TypeAlias,
-    TypeVar,
-    get_args,
-    get_origin,
 )
-from typing import TypeGuard, TypedDict
+from typing import TypeGuard
+
 from functorial_kit import Failure, define_failure_family
+
 from app.successor_runtime.capabilities.checksum import (
-    CanonicalJsonObject,
-    CanonicalJsonValue,
     canonical_json,
     content_digest,
     require_hex64,
 )
-from app.successor_runtime.capabilities.codecs import PayloadCodec, codec_digest
-from app.successor_runtime.capabilities.contracts import OperationContract
-from app.successor_runtime.capabilities.profiles import (
-    AuthorityProfile,
-    ContractProfileRef,
-    EffectProfile,
-    FailureProfile,
-    InterpreterProfile,
-    ObservationProfile,
-    ResourceProfile,
-    SemanticProfile,
-)
 from app.successor_runtime.language.algebra import (
-    FrozenJsonAtom as FrozenJsonAtom,  # required by get_type_hints on recursive aliases
     FrozenJsonObject,
-    FrozenJsonValue as FrozenJsonValue,  # required by get_type_hints on mirrored DTOs
     freeze_json_object,
 )
-from app.successor_runtime.language.catalog import OperationContractCatalogSnapshot, OperationContractRegistry
-from app.successor_runtime.language.object_contracts import (
-    RUNTIME_VALUE_RETURN_CONTRACT_REF,
-    OperationContractRef,
-    make_operation_contract,
-)
-from app.successor_runtime.language.profiles import build_profile
 from app.successor_runtime.research.object_types import ObjectType
 
 __all__ = [
@@ -75,22 +47,8 @@ __all__ = [
     "COLLECT_ATTEMPT_RECEIPT_TYPE",
     "COLLECT_BATCH_ELEMENT_TYPE",
     "COLLECT_BATCH_PLAN_TYPE",
-    "COLLECT_EXECUTE_BATCH_ELEMENT_KIND",
-    "ACQUISITION_BATCH_EXECUTE_ELEMENT_OPERATION_ID",
     "ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER",
-    "ACQUISITION_BATCH_ELEMENT_PAYLOAD_CODEC_ID",
-    "ACQUISITION_BATCH_ELEMENT_PAYLOAD_SCHEMA",
-    "COLLECT_BATCH_ELEMENT_PAYLOAD_TYPE",
     "COLLECT_ELEMENT_OUTCOME_TYPE",
-    "ACQUISITION_BATCH_EXECUTE_ELEMENT_SEMANTIC_IDENTITY",
-    "COLLECT_FOLD_ORDERED_RESULTS_KIND",
-    "ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_OPERATION_ID",
-    "ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_OWNER",
-    "ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_CODEC_ID",
-    "ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_SCHEMA",
-    "COLLECT_FOLD_PAYLOAD_TYPE",
-    "ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_SEMANTIC_IDENTITY",
-    "ACQUISITION_BATCH_CATALOG_VERSION",
     "COLLECT_CANCELLATION_RECEIPT_SCHEMA_REF",
     "COLLECT_ELEMENT_OUTCOME_TYPE",
     "COLLECT_FOLD_OBSERVATION_PROFILE",
@@ -100,13 +58,8 @@ __all__ = [
     "COLLECT_RECEIPT_DEDUPE_STABLE_FIRST_REF",
     "COLLECT_REQUEST_TYPE",
     "COLLECT_TRAVERSAL_OBSERVATION_PROFILE",
+    "COLLECT_TRAVERSAL_RESULT_SCHEMA_REF",
     "COLLECT_TRAVERSAL_RESULT_TYPE",
-    "HISTORICAL_ACQUISITION_BATCH_ELEMENT_OWNER",
-    "HISTORICAL_ACQUISITION_BATCH_ELEMENT_PAYLOAD_CODEC_ID",
-    "HISTORICAL_ACQUISITION_BATCH_ELEMENT_PAYLOAD_SCHEMA",
-    "HISTORICAL_ACQUISITION_ORDERED_RESULT_FOLD_OWNER",
-    "HISTORICAL_ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_CODEC_ID",
-    "HISTORICAL_ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_SCHEMA",
     "CollectAggregateCounts",
     "CollectAggregateFailed",
     "CollectAggregateOutcome",
@@ -114,9 +67,7 @@ __all__ = [
     "CollectAggregateSucceeded",
     "CollectAttemptReceipt",
     "CollectBatchElement",
-    "CollectBatchElementPayload",
     "CollectBatchPlan",
-    "AcquisitionBatchCapabilityBundle",
     "CollectCancellationReceipt",
     "CollectCounts",
     "CollectElementError",
@@ -124,7 +75,6 @@ __all__ = [
     "CollectElementOutcome",
     "CollectElementSucceeded",
     "CollectFoldContractFailure",
-    "CollectFoldPayload",
     "CollectFoldResourceCeiling",
     "CollectLegacyRequestSnapshot",
     "CollectRequestRef",
@@ -133,24 +83,14 @@ __all__ = [
     "CollectTraversalObservation",
     "CollectTraversalResult",
     "CollectTraversalSingleton",
-    "FrozenJsonValue",
     "OrderedCollectElementOutcomeSequence",
     "OrderedTraversalAborted",
     "OrderedTraversalCompleted",
     "build_collect_batch_plan",
-    "build_acquisition_batch_bundle",
-    "build_acquisition_batch_catalog",
-    "build_acquisition_batch_registry",
-    "build_collect_fold_payload",
     "build_collect_request_ref",
-    "collect_batch_element_payload_from_dicts",
-    "collect_claim_route",
     "collect_contract_failure",
-    "collect_fold_payload_from_dicts",
     "collect_request_ref_from_dict",
-    "collect_runtime_mode",
     "CollectPlanBuildResult",
-    "deployment_catalog_digest",
     "fold_ordered_results",
     "per_batch_limit_for",
     "receipt_implies_completed",
@@ -162,57 +102,14 @@ __all__ = [
     "should_auto_batch",
     "split_query_terms",
     "try_build_collect_batch_plan",
-    "try_decode_acquisition_payload",
-    "try_decode_historical_acquisition_payload",
 ]
 CollectPlanBuildResult: TypeAlias = "CollectBatchPlan | Failure"
-PayloadDecodeResult: TypeAlias = (
-    "CollectBatchElementPayload | CollectFoldPayload | dict[str, object] | Failure"
-)
-AcquisitionPayloadCodec: TypeAlias = (
-    "PayloadCodec[CollectBatchElementPayload] | PayloadCodec[CollectFoldPayload]"
-)
-AcquisitionPayloadModel = TypeVar(
-    "AcquisitionPayloadModel",
-    "CollectBatchElementPayload",
-    "CollectFoldPayload",
-)
-COLLECT_EXECUTE_BATCH_ELEMENT_KIND = "collect.execute_batch_element.v1"
-COLLECT_FOLD_ORDERED_RESULTS_KIND = "collect.fold_ordered_results.v1"
 ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER = "acquisition.batch.execute_element.v2"
-ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_OWNER = "acquisition.batch.fold_ordered_results.v2"
-ACQUISITION_BATCH_EXECUTE_ELEMENT_OPERATION_ID = ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER
-ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_OPERATION_ID = ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_OWNER
-ACQUISITION_BATCH_ELEMENT_PAYLOAD_SCHEMA = "mrw.acquisition.batch-element.payload.v2"
-ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_SCHEMA = "mrw.acquisition.ordered-result-fold.payload.v2"
-ACQUISITION_BATCH_ELEMENT_PAYLOAD_CODEC_ID = "mrw.acquisition.batch-element.codec.v2"
-ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_CODEC_ID = "mrw.acquisition.ordered-result-fold.codec.v2"
-ACQUISITION_BATCH_OPERATION_CONTRACTS_CATALOG_ID = "mrw.acquisition.batch.operation-contracts.v2"
-HISTORICAL_ACQUISITION_BATCH_ELEMENT_OWNER = "collect.c3_1.v1"
-HISTORICAL_ACQUISITION_ORDERED_RESULT_FOLD_OWNER = "collect.c3_2.v1"
-HISTORICAL_ACQUISITION_BATCH_ELEMENT_PAYLOAD_SCHEMA = "mrw.successor.collect.c3-1.payload.v1"
-HISTORICAL_ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_SCHEMA = "mrw.successor.collect.c3-2.payload.v1"
-HISTORICAL_ACQUISITION_BATCH_ELEMENT_PAYLOAD_CODEC_ID = "mrw.successor.collect.c3-1.payload.codec.v1"
-HISTORICAL_ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_CODEC_ID = "mrw.successor.collect.c3-2.payload.codec.v1"
-ACQUISITION_BATCH_CATALOG_VERSION = "1.0.0"
 COLLECT_TRAVERSAL_OBSERVATION_PROFILE = "acquisition.batch.execute_element.ordered_observation.v2"
 COLLECT_FOLD_OBSERVATION_PROFILE = "acquisition.batch.fold_ordered_results.receipt_preservation.v2"
-ACQUISITION_BATCH_EXECUTE_ELEMENT_SEMANTIC_IDENTITY = ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER
-ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_SEMANTIC_IDENTITY = ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_OWNER
 ACQUISITION_BATCH_FAILURES = define_failure_family(
     "acquisition.batch.failure",
-    (
-        "INVALID_INPUT",
-        "ASSIGNMENT_BINDING_MISMATCH",
-        "INTERPRETER_UNAVAILABLE",
-        "TRAVERSAL_COMPILE_PENDING",
-        "FOLD_CONTRACT_FAILURE",
-        "ELEMENT_EXECUTION_FAILED",
-        "ORDERED_TRAVERSAL_ABORTED",
-        "RESOURCE_POLICY_EXCEEDED",
-        "AGGREGATE_ALL_FAILED",
-        "QUEUED_ACK_NOT_COMPLETION",
-    ),
+    ("INVALID_INPUT",),
 )
 COLLECT_REQUEST_SCHEMA_REF = "mrw.acquisition.request-ref.v2"
 COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF = "mrw.acquisition.legacy-request-snapshot.v2"
@@ -228,7 +125,6 @@ COLLECT_TRAVERSAL_RESULT_SCHEMA_REF = "mrw.acquisition.batch.execute_element.res
 COLLECT_CANCELLATION_RECEIPT_SCHEMA_REF = "mrw.acquisition.cancellation-receipt.v2"
 COLLECT_FOLD_RESOURCE_CEILING_SCHEMA_REF = "mrw.acquisition.fold_ordered_results.resource-ceiling.v2"
 COLLECT_RECEIPT_DEDUPE_STABLE_FIRST_REF = "mrw.acquisition.fold_ordered_results.receipt-dedupe.stable-first.v2"
-DEPLOYMENT_CATALOG_SCHEMA_REF = "mrw.acquisition.deployment-catalog.v2"
 COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF = "mrw.acquisition.fold_ordered_results.aggregation.accumulate.v2"
 COLLECT_AGGREGATION_POLICY_FAIL_FAST_REF = "mrw.acquisition.fold_ordered_results.aggregation.fail_fast_partial.v2"
 COLLECT_AGGREGATION_POLICY_REFS = frozenset(
@@ -243,8 +139,6 @@ COLLECT_ATTEMPT_RECEIPT_TYPE = ObjectType("CollectAttemptReceipt.v1")
 ORDERED_COLLECT_ELEMENT_OUTCOME_SEQUENCE_TYPE = ObjectType("OrderedCollectElementOutcomeSequence.v1")
 COLLECT_AGGREGATE_OUTCOME_TYPE = ObjectType("CollectAggregateOutcome.v1")
 COLLECT_TRAVERSAL_RESULT_TYPE = ObjectType("CollectTraversalResult.v1")
-COLLECT_BATCH_ELEMENT_PAYLOAD_TYPE = ObjectType("CollectBatchElementPayload.v1")
-COLLECT_FOLD_PAYLOAD_TYPE = ObjectType("CollectFoldPayload.v1")
 COLLECT_FOLD_RESULT_TYPE = COLLECT_AGGREGATE_OUTCOME_TYPE
 TraversalPolicy = Literal["STATIC_SHAPE", "MATERIALIZED_SHAPE"]
 FailurePolicy = Literal["ACCUMULATE", "FAIL_FAST_WITH_PARTIAL_OBSERVATION"]
@@ -255,35 +149,13 @@ _LEGACY_OBSERVATION_REF = re.compile("^legacy:[0-9a-f]{64}$")
 _OBSERVED_AT = re.compile("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$")
 
 
-def collect_runtime_mode(raw: str | None) -> Literal["legacy", "shadow", "canary", "on"]:
-    """Fail-closed rollback route for ``SUCCESSOR_RUNTIME_COLLECT``."""
-    value = str(raw or "").strip().lower()
-    if value == "shadow":
-        return "shadow"
-    if value == "canary":
-        return "canary"
-    if value in {"on", "successor"}:
-        return "on"
-    return "legacy"
-
-
-def collect_claim_route(mode: str) -> Literal["legacy", "shadow", "successor"]:
-    """Route one logical run to at most one claim authority."""
-    normalized = str(mode or "").strip().lower()
-    if normalized == "shadow":
-        return "shadow"
-    if normalized in {"canary", "on", "successor"}:
-        return "successor"
-    return "legacy"
-
-
 def _freeze(value: FrozenJsonObject | dict[str, Any]) -> FrozenJsonObject:
     if isinstance(value, dict):
         return freeze_json_object(value)
     return freeze_json_object(dict(value))
 
 
-_ACQUISITION_BATCH_CONTRACT_WITNESS = "test:test_w05_n5_c3_contract_failures_use_canonical_value"
+_ACQUISITION_BATCH_CONTRACT_WITNESS = "test:test_acquisition_contract_failures_use_canonical_value"
 _ACQUISITION_BATCH_CONTRACT_CONTEXT_KEYS = frozenset(
     {"operation", "owner", "public_exception", "public_message", "site", "domain_outcome", "reason_code", "witness"}
 )
@@ -296,17 +168,16 @@ def collect_contract_failure(
     message: str,
     operation: str,
     site: str,
-    domain_outcome: Literal["INVALID_INPUT", "FOLD_CONTRACT_FAILURE"],
+    domain_outcome: Literal["INVALID_INPUT"],
     public_exception: str = "ValueError",
     owner: str = ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER,
 ) -> Failure:
     """Build the one canonical acquisition contract-failure value."""
     resolved_reason_code = reason_code or code
-    resolved_code = {
-        "schema_contract_invalid": "INVALID_INPUT",
-        "codec_contract_invalid": domain_outcome,
-        "program_binding_invalid": "ASSIGNMENT_BINDING_MISMATCH",
-    }.get(code, code)
+    resolved_code = "INVALID_INPUT" if code in {
+        "schema_contract_invalid",
+        "codec_contract_invalid",
+    } else code
     return ACQUISITION_BATCH_FAILURES.fail(
         resolved_code,
         message,
@@ -331,14 +202,14 @@ def raise_collect_contract_failure(failure: Failure, exception_type: type[Except
         or _ACQUISITION_BATCH_CONTRACT_CONTEXT_KEYS - set(context)
         or context.get("public_exception") != exception_type.__name__
     ):
-        raise_collect_programmer_defect("C3 contract lift context is invalid", TypeError)
-    # kit:boundary owner=acquisition.public_contract class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.capability.contract_failure witness=test:test_w05_n5_c3_legacy_compatibility_lift_preserves_exception_abi
+        raise_collect_programmer_defect("acquisition contract lift context is invalid", TypeError)
+    # kit:boundary owner=acquisition.public_contract class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=acquisition.batch.failure witness=test:test_acquisition_compatibility_lift_preserves_exception_abi
     raise exception_type(str(context["public_message"]))
 
 
 def raise_collect_programmer_defect(message: str, exception_type: type[Exception]) -> NoReturn:
     """Retain an internal invariant exception outside the contract family."""
-    # kit:boundary owner=acquisition.programmer_defect class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w05_n5_c3_programmer_defect_lift_preserves_exception_abi
+    # kit:boundary owner=acquisition.programmer_defect class=PROGRAMMER_DEFECT failure_family=none witness=test:test_acquisition_programmer_defect_lift_preserves_exception_abi
     raise exception_type(message)
 
 
@@ -364,33 +235,6 @@ def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
 
 def _is_object_tuple(value: object) -> TypeGuard[tuple[object, ...]]:
     return isinstance(value, tuple)
-
-
-def _is_object_list(value: object) -> TypeGuard[list[object]]:
-    return isinstance(value, list)
-
-
-def _is_dataclass_type(value: object) -> TypeGuard[type[object]]:
-    return isinstance(value, type) and dataclasses.is_dataclass(value)
-
-
-def _string_object_dict(value: object, field_name: str) -> dict[str, object]:
-    if not _is_object_mapping(value):
-        _reject_collect_contract(
-            f"{field_name} must be an object",
-            TypeError,
-            site="_string_object_dict",
-        )
-    result: dict[str, object] = {}
-    for key, item in value.items():
-        if not isinstance(key, str):
-            _reject_collect_contract(
-                f"{field_name} keys must be strings",
-                TypeError,
-                site="_string_object_dict",
-            )
-        result[key] = item
-    return result
 
 
 def _require_optional_string(value: object, field_name: str, *, site: str) -> str | None:
@@ -1116,7 +960,7 @@ def build_collect_batch_plan(
     static_elements: tuple[CollectBatchElement, ...] | None = None,
 ) -> Annotated[
     CollectBatchPlan,
-    "kit:non-authoritative derived_as=view fact_source=CollectBatchPlanPayload+ordered_element_policy witness=test:test_w05_collect_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=CollectLegacyRequestSnapshot+ordered_element_policy witness=test:test_w05_collect_authority_metadata",
 ]:
     """Pure finite ordered plan rules; never mutates the request in place."""
     result = try_build_collect_batch_plan(
@@ -1176,7 +1020,7 @@ def _construct_collect_batch_plan(
     static_elements: tuple[CollectBatchElement, ...] | None = None,
 ) -> Annotated[
     CollectBatchPlan,
-    "kit:non-authoritative derived_as=view fact_source=CollectBatchPlanPayload+ordered_element_policy witness=test:test_w05_collect_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=CollectLegacyRequestSnapshot+ordered_element_policy witness=test:test_w05_collect_authority_metadata",
 ]:
     """Ordered construction core invoked by the total plan boundary."""
     _require_non_empty_string(authority_scope_ref, "authority_scope_ref")
@@ -2203,1092 +2047,3 @@ class CollectTraversalSingleton:
 CollectTraversalResult: TypeAlias = (
     OrderedTraversalCompleted | OrderedTraversalAborted | CollectTraversalBypassed | CollectTraversalSingleton
 )
-
-
-@dataclass(frozen=True, slots=True)
-class CollectBatchElementPayload:
-    """Exact-bound batch-element payload; dictionaries stay at the codec edge."""
-
-    schema_version: Literal["mrw.acquisition.batch-element.payload.v2"]
-    operation_kind: Literal["collect.execute_batch_element.v1"]
-    parent_request_ref: CollectRequestRef
-    request_snapshot: CollectLegacyRequestSnapshot
-    element: CollectBatchElement
-    resource_policy: CollectResourcePolicy
-    authority_scope_ref: str
-    payload_digest: str = ""
-
-    def __post_init__(self) -> None:
-        if self.schema_version != ACQUISITION_BATCH_ELEMENT_PAYLOAD_SCHEMA:
-            _reject_collect_contract(
-                f"unsupported payload schema {self.schema_version!r}",
-                ValueError,
-                site="CollectBatchElementPayload.__post_init__",
-            )
-        if self.operation_kind != COLLECT_EXECUTE_BATCH_ELEMENT_KIND:
-            _reject_collect_contract(
-                f"unsupported operation kind {self.operation_kind!r}",
-                ValueError,
-                site="CollectBatchElementPayload.__post_init__",
-            )
-        object.__setattr__(
-            self, "authority_scope_ref", _require_non_empty_string(self.authority_scope_ref, "authority_scope_ref")
-        )
-        expected = content_digest(self, omit_fields=("payload_digest",))
-        if self.payload_digest == "":
-            object.__setattr__(self, "payload_digest", expected)
-        else:
-            require_hex64(self.payload_digest, "CollectBatchElementPayload.payload_digest")
-            if self.payload_digest != expected:
-                _reject_collect_contract(
-                    "CollectBatchElementPayload.payload_digest does not match content",
-                    ValueError,
-                    site="CollectBatchElementPayload.__post_init__",
-                )
-
-    def to_plain(self) -> dict[str, Any]:
-        return {
-            "schema_version": self.schema_version,
-            "operation_kind": self.operation_kind,
-            "parent_request_ref": self.parent_request_ref.to_plain(),
-            "request_snapshot": self.request_snapshot.to_plain(),
-            "element": self.element.to_plain(),
-            "resource_policy": self.resource_policy.to_plain(),
-            "authority_scope_ref": self.authority_scope_ref,
-            "payload_digest": self.payload_digest,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class CollectFoldPayload:
-    """Exact-bound ordered-result-fold payload over observed outcomes."""
-
-    schema_version: Literal["mrw.acquisition.ordered-result-fold.payload.v2"]
-    operation_kind: Literal["collect.fold_ordered_results.v1"]
-    parent_request_ref: CollectRequestRef
-    ordered_outcomes: OrderedCollectElementOutcomeSequence
-    aggregation_policy_ref: str
-    observation_profile_ref: str
-    payload_digest: str = ""
-
-    def __post_init__(self) -> None:
-        if self.schema_version != ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_SCHEMA:
-            _reject_collect_contract(
-                f"unsupported payload schema {self.schema_version!r}",
-                ValueError,
-                site="CollectFoldPayload.__post_init__",
-            )
-        if self.operation_kind != COLLECT_FOLD_ORDERED_RESULTS_KIND:
-            _reject_collect_contract(
-                f"unsupported operation kind {self.operation_kind!r}",
-                ValueError,
-                site="CollectFoldPayload.__post_init__",
-            )
-        _require_non_empty_string(self.aggregation_policy_ref, "aggregation_policy_ref")
-        _require_non_empty_string(self.observation_profile_ref, "observation_profile_ref")
-        expected = content_digest(self, omit_fields=("payload_digest",))
-        if self.payload_digest == "":
-            object.__setattr__(self, "payload_digest", expected)
-        else:
-            require_hex64(self.payload_digest, "CollectFoldPayload.payload_digest")
-            if self.payload_digest != expected:
-                _reject_collect_contract(
-                    "CollectFoldPayload.payload_digest does not match content",
-                    ValueError,
-                    site="CollectFoldPayload.__post_init__",
-                )
-
-    def to_plain(self) -> dict[str, Any]:
-        return {
-            "schema_version": self.schema_version,
-            "operation_kind": self.operation_kind,
-            "parent_request_ref": self.parent_request_ref.to_plain(),
-            "ordered_outcomes": self.ordered_outcomes.to_plain(),
-            "aggregation_policy_ref": self.aggregation_policy_ref,
-            "observation_profile_ref": self.observation_profile_ref,
-            "payload_digest": self.payload_digest,
-        }
-
-
-def _snapshot_from_dict(value: dict[str, Any]) -> CollectLegacyRequestSnapshot:
-    return CollectLegacyRequestSnapshot(
-        schema_version=COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
-        flow=value.get("flow", "collect"),
-        channel=value["channel"],
-        project_key=value.get("project_key"),
-        query_terms=tuple(value.get("query_terms") or ()),
-        urls=tuple(value.get("urls") or ()),
-        limit=value.get("limit"),
-        options=freeze_json_object(dict(value.get("options") or {})),
-        source_context=freeze_json_object(dict(value.get("source_context") or {})),
-        snapshot_digest="",
-    )
-
-
-def collect_batch_element_payload_from_dicts(
-    *,
-    request_ref: dict[str, Any] | CollectRequestRef,
-    request_snapshot: dict[str, Any] | CollectLegacyRequestSnapshot,
-    element: dict[str, Any] | CollectBatchElement,
-    resource_policy: dict[str, Any] | CollectResourcePolicy,
-    authority_scope_ref: str,
-) -> CollectBatchElementPayload:
-    ref = request_ref if isinstance(request_ref, CollectRequestRef) else collect_request_ref_from_dict(request_ref)
-    snapshot = (
-        request_snapshot
-        if isinstance(request_snapshot, CollectLegacyRequestSnapshot)
-        else _snapshot_from_dict(request_snapshot)
-    )
-    element_obj = (
-        element
-        if isinstance(element, CollectBatchElement)
-        else CollectBatchElement(
-            schema_version=COLLECT_BATCH_ELEMENT_SCHEMA_REF,
-            element_id=element["element_id"],
-            input_index=element["input_index"],
-            query_terms=tuple(element["query_terms"]),
-            per_batch_limit=element["per_batch_limit"],
-            traversal_policy=element.get("traversal_policy", "MATERIALIZED_SHAPE"),
-            failure_policy=element.get("failure_policy", "ACCUMULATE"),
-            element_digest="",
-        )
-    )
-    policy = (
-        resource_policy
-        if isinstance(resource_policy, CollectResourcePolicy)
-        else CollectResourcePolicy(
-            schema_ref=COLLECT_RESOURCE_POLICY_SCHEMA_REF,
-            max_parallelism=resource_policy["max_parallelism"],
-            deadline_seconds=resource_policy.get("deadline_seconds"),
-            cancellation=resource_policy.get("cancellation", "NONE"),
-            backpressure=bool(resource_policy.get("backpressure", False)),
-            provider_concurrency_key=resource_policy["provider_concurrency_key"],
-            policy_digest="",
-        )
-    )
-    return CollectBatchElementPayload(
-        schema_version=ACQUISITION_BATCH_ELEMENT_PAYLOAD_SCHEMA,
-        operation_kind=COLLECT_EXECUTE_BATCH_ELEMENT_KIND,
-        parent_request_ref=ref,
-        request_snapshot=snapshot,
-        element=element_obj,
-        resource_policy=policy,
-        authority_scope_ref=authority_scope_ref,
-        payload_digest="",
-    )
-
-
-def build_collect_fold_payload(
-    *,
-    parent_request_ref: CollectRequestRef,
-    ordered_outcomes: OrderedCollectElementOutcomeSequence,
-    aggregation_policy_ref: str = COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
-    observation_profile_ref: str = COLLECT_FOLD_OBSERVATION_PROFILE,
-) -> Annotated[
-    CollectFoldPayload,
-    "kit:non-authoritative derived_as=view fact_source=ordered_outcomes+aggregation_policy_ref witness=test:test_w05_collect_authority_metadata",
-]:
-    return CollectFoldPayload(
-        schema_version=ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_SCHEMA,
-        operation_kind=COLLECT_FOLD_ORDERED_RESULTS_KIND,
-        parent_request_ref=parent_request_ref,
-        ordered_outcomes=ordered_outcomes,
-        aggregation_policy_ref=aggregation_policy_ref,
-        observation_profile_ref=observation_profile_ref,
-        payload_digest="",
-    )
-
-
-def collect_fold_payload_from_dicts(
-    *,
-    parent_request_ref: dict[str, Any] | CollectRequestRef,
-    ordered_outcomes: dict[str, Any],
-    aggregation_policy_ref: str = COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
-    observation_profile_ref: str = COLLECT_FOLD_OBSERVATION_PROFILE,
-) -> CollectFoldPayload:
-    ref = (
-        parent_request_ref
-        if isinstance(parent_request_ref, CollectRequestRef)
-        else collect_request_ref_from_dict(parent_request_ref)
-    )
-    outcomes = [_outcome_from_dict(item) for item in ordered_outcomes.get("outcomes", [])]
-    sequence = OrderedCollectElementOutcomeSequence(
-        schema_version="mrw.acquisition.ordered-result-fold.input.v2",
-        parent_request_ref=ref,
-        outcomes=tuple(outcomes),
-        sequence_digest="",
-    )
-    return CollectFoldPayload(
-        schema_version=ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_SCHEMA,
-        operation_kind=COLLECT_FOLD_ORDERED_RESULTS_KIND,
-        parent_request_ref=ref,
-        ordered_outcomes=sequence,
-        aggregation_policy_ref=aggregation_policy_ref,
-        observation_profile_ref=observation_profile_ref,
-        payload_digest="",
-    )
-
-
-def _outcome_from_dict(value: Mapping[str, object]) -> CollectElementOutcome:
-    status = value.get("status")
-    counts_raw = _string_object_dict(value.get("counts", {}), "outcome.counts")
-    counts = CollectCounts(
-        inserted=_require_non_negative_int(counts_raw.get("inserted", 0), "counts.inserted"),
-        updated=_require_non_negative_int(counts_raw.get("updated", 0), "counts.updated"),
-        skipped=_require_non_negative_int(counts_raw.get("skipped", 0), "counts.skipped"),
-    )
-    receipt_raw = value.get("receipt")
-    if receipt_raw is None:
-        receipt = None
-    else:
-        receipt_values = _string_object_dict(receipt_raw, "outcome.receipt")
-        receipt_kind = receipt_values.get("receipt_kind")
-        if receipt_kind == "DISPATCH_ACKNOWLEDGEMENT":
-            typed_receipt_kind: Literal[
-                "DISPATCH_ACKNOWLEDGEMENT", "AUTHORITATIVE_READBACK"
-            ] = "DISPATCH_ACKNOWLEDGEMENT"
-        elif receipt_kind == "AUTHORITATIVE_READBACK":
-            typed_receipt_kind = "AUTHORITATIVE_READBACK"
-        else:
-            _reject_collect_contract(
-                "outcome receipt_kind is invalid",
-                ValueError,
-                site="_outcome_from_dict",
-            )
-        provider_status = receipt_values.get("provider_status")
-        if provider_status is not None and not isinstance(provider_status, str):
-            _reject_collect_contract(
-                "outcome provider_status must be a string or None",
-                ValueError,
-                site="_outcome_from_dict",
-            )
-        authoritative_readback = receipt_values.get("authoritative_readback")
-        if not isinstance(authoritative_readback, bool):
-            _reject_collect_contract(
-                "outcome authoritative_readback must be a bool",
-                ValueError,
-                site="_outcome_from_dict",
-            )
-        receipt = CollectAttemptReceipt(
-            schema_version=COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
-            receipt_kind=typed_receipt_kind,
-            provider_type=_require_non_empty_string(receipt_values.get("provider_type"), "provider_type"),
-            provider_job_id=_require_non_empty_string(
-                receipt_values.get("provider_job_id"), "provider_job_id"
-            ),
-            provider_status=provider_status,
-            attempt_count=_require_non_negative_int(
-                receipt_values.get("attempt_count"), "attempt_count"
-            ),
-            observed_at=_require_non_empty_string(receipt_values.get("observed_at"), "observed_at"),
-            raw_digest=_require_non_empty_string(receipt_values.get("raw_digest"), "raw_digest"),
-            authoritative_readback=authoritative_readback,
-            receipt_digest="",
-        )
-    element_id = _require_non_empty_string(value.get("element_id"), "element_id")
-    input_index = _require_non_negative_int(value.get("input_index"), "input_index")
-    links = _require_string_tuple(value.get("links"), "links")
-    legacy_observation_ref = _require_non_empty_string(
-        value.get("legacy_observation_ref"), "legacy_observation_ref"
-    )
-    if status == "succeeded":
-        return CollectElementSucceeded(
-            schema_version=COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
-            element_id=element_id,
-            input_index=input_index,
-            counts=counts,
-            links=links,
-            receipt=receipt,
-            legacy_observation_ref=legacy_observation_ref,
-            outcome_digest="",
-        )
-    if status == "failed":
-        error_raw = _string_object_dict(value.get("error"), "outcome.error")
-        exception_type = error_raw.get("exception_type")
-        if exception_type is not None and not isinstance(exception_type, str):
-            _reject_collect_contract(
-                "outcome error exception_type must be a string or None",
-                ValueError,
-                site="_outcome_from_dict",
-            )
-        error = CollectElementError(
-            code=_require_non_empty_string(error_raw.get("code"), "error.code"),
-            message=_require_non_empty_string(error_raw.get("message"), "error.message"),
-            query_terms=_require_string_tuple(error_raw.get("query_terms"), "error.query_terms"),
-            exception_type=exception_type,
-            error_digest="",
-        )
-        return CollectElementFailed(
-            schema_version=COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
-            element_id=element_id,
-            input_index=input_index,
-            error=error,
-            counts=counts,
-            links=links,
-            receipt=receipt,
-            legacy_observation_ref=legacy_observation_ref,
-            outcome_digest="",
-        )
-    _reject_collect_contract(f"unsupported element outcome status {status!r}", ValueError, site="_outcome_from_dict")
-
-
-def _plain(value: object) -> CanonicalJsonValue:
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return {item.name: _plain(getattr(value, item.name)) for item in dataclasses.fields(value)}
-    if _is_object_mapping(value):
-        return {str(key): _plain(item) for key, item in value.items()}
-    if _is_object_list(value) or _is_object_tuple(value):
-        return [_plain(item) for item in value]
-    if isinstance(value, bytes):
-        return value.hex()
-    if value is None or isinstance(value, bool | int | float | str):
-        return value
-    _reject_collect_contract(
-        f"payload codec cannot encode {type(value).__name__}",
-        TypeError,
-        site="_plain",
-    )
-
-
-def _rebuild_value(value: object, hint: object) -> object:
-    if value is None or hint is Any:
-        return value
-    origin = get_origin(hint)
-    if origin in (typing.Union, types.UnionType):
-        if value is None:
-            return None
-        if not _is_object_mapping(value):
-            return value
-        plain = _string_object_dict(value, "union value")
-        args: tuple[object, ...] = get_args(hint)
-        candidates = tuple(candidate for candidate in args if _is_dataclass_type(candidate))
-        status = plain.get("status")
-        kind = plain.get("kind")
-        if status is not None:
-            for candidate in candidates:
-                if getattr(candidate, "status", None) == status:
-                    return _decode_plain(candidate, plain)
-        if kind is not None:
-            for candidate in candidates:
-                if getattr(candidate, "kind", None) == kind:
-                    try:
-                        return _decode_plain(candidate, plain)
-                    except (TypeError, ValueError):
-                        continue
-        for candidate in candidates:
-            try:
-                return _decode_plain(candidate, plain)
-            except (TypeError, ValueError):
-                continue
-        _reject_collect_contract(
-            f"cannot rebuild union value {hint} from {type(value).__name__}", ValueError, site="_rebuild_value"
-        )
-    if origin is tuple:
-        if not (_is_object_list(value) or _is_object_tuple(value)):
-            _reject_collect_contract("tuple field must be an array", TypeError, site="_rebuild_value")
-        args: tuple[object, ...] = get_args(hint)
-        if len(args) == 2 and args[1] is Ellipsis:
-            return tuple((_rebuild_value(item, args[0]) for item in value))
-        return tuple((_rebuild_value(item, args[index]) for index, item in enumerate(value)))
-    if origin is list:
-        if not (_is_object_list(value) or _is_object_tuple(value)):
-            _reject_collect_contract("list field must be an array", TypeError, site="_rebuild_value")
-        args: tuple[object, ...] = get_args(hint)
-        item_hint = args[0] if args else object
-        return [_rebuild_value(item, item_hint) for item in value]
-    if _is_dataclass_type(hint):
-        return _decode_plain(hint, _string_object_dict(value, hint.__name__))
-    return value
-
-
-def _rebuild_field_value(
-    cls: object,
-    field_name: str,
-    value: object,
-    hint: object,
-) -> object:
-    if (
-        cls is CollectLegacyRequestSnapshot
-        and field_name in {"options", "source_context"}
-        and _is_object_mapping(value)
-    ):
-        return _freeze(_string_object_dict(value, field_name))
-    return _rebuild_value(value, hint)
-
-
-def _decode_plain(cls: type[Any], value: Mapping[str, object]) -> Any:
-    plain = _string_object_dict(value, cls.__name__)
-    expected = {item.name for item in fields(cls)}
-    if set(plain) != expected:
-        missing = sorted(expected - set(plain))
-        extra = sorted(set(plain) - expected)
-        _reject_collect_contract(
-            f"{cls.__name__} codec rejected payload fields: missing={missing} extra={extra}",
-            ValueError,
-            site="_decode_plain",
-        )
-    hints = typing.get_type_hints(cls)
-    kwargs: dict[str, object] = {
-        item.name: _rebuild_field_value(
-            cls,
-            item.name,
-            plain[item.name], hints.get(item.name, item.type)
-        )
-        for item in fields(cls)
-    }
-    return cls(**kwargs)
-
-
-def _payload_codec(
-    contract_ref: OperationContractRef,
-    *,
-    codec_id: str,
-    payload_cls: type[AcquisitionPayloadModel],
-    payload_type: ObjectType,
-) -> PayloadCodec[AcquisitionPayloadModel]:
-    codec_version = "2"
-
-    def encode(value: object) -> CanonicalJsonObject:
-        if not isinstance(value, payload_cls):
-            _reject_collect_contract(
-                f"{codec_id} codec expected {payload_cls.__name__}, got {type(value).__name__}",
-                TypeError,
-                site="_payload_codec.encode",
-            )
-        result = _plain(value)
-        if not isinstance(result, dict):
-            _reject_collect_contract(
-                "payload codec produced a non-object encoding", TypeError, site="_payload_codec.encode"
-            )
-        return result
-
-    def decode(value: CanonicalJsonObject) -> AcquisitionPayloadModel:
-        if not _is_object_mapping(value):
-            failure = collect_contract_failure(
-                code="FOLD_CONTRACT_FAILURE"
-                if contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
-                else "INVALID_INPUT",
-                reason_code="codec_contract_invalid",
-                message="payload codec requires a JSON object",
-                operation="collect.decode_payload",
-                site="PayloadCodec.decode",
-                domain_outcome="FOLD_CONTRACT_FAILURE"
-                if contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
-                else "INVALID_INPUT",
-                public_exception="TypeError",
-                owner=ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_OWNER
-                if contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
-                else ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER,
-            )
-            raise_collect_contract_failure(failure, TypeError)
-        try:
-            decoded: object = _decode_plain(
-                payload_cls,
-                _string_object_dict(value, "payload"),
-            )
-            if not isinstance(decoded, payload_cls):
-                _reject_collect_contract(
-                    "payload codec returned an invalid payload type",
-                    TypeError,
-                    site="_payload_codec.decode",
-                )
-            return decoded
-        except (TypeError, ValueError) as exc:
-            failure = collect_contract_failure(
-                code="FOLD_CONTRACT_FAILURE"
-                if contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
-                else "INVALID_INPUT",
-                reason_code="codec_contract_invalid",
-                message=str(exc),
-                operation="collect.decode_payload",
-                site="PayloadCodec.decode",
-                domain_outcome="FOLD_CONTRACT_FAILURE"
-                if contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
-                else "INVALID_INPUT",
-                public_exception=type(exc).__name__,
-                owner=ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_OWNER
-                if contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
-                else ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER,
-            )
-            raise_collect_contract_failure(failure, type(exc))
-
-    return PayloadCodec(
-        codec_id=codec_id,
-        codec_version=codec_version,
-        contract_ref=contract_ref,
-        payload_type_id=payload_type.type_id,
-        encode=encode,
-        decode=decode,
-        codec_digest=codec_digest(
-            codec_id=codec_id,
-            codec_version=codec_version,
-            contract_ref=contract_ref,
-            payload_type_id=payload_type.type_id,
-        ),
-    )
-
-
-def try_decode_acquisition_payload(
-    codec: AcquisitionPayloadCodec,
-    value: object,
-) -> PayloadDecodeResult:
-    """Total family-local codec parse without changing public codec errors."""
-    if not _is_object_mapping(value):
-        return collect_contract_failure(
-            code="FOLD_CONTRACT_FAILURE"
-            if codec.contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
-            else "INVALID_INPUT",
-            reason_code="codec_contract_invalid",
-            message="payload codec requires a JSON object",
-            operation="collect.decode_payload",
-            site="try_decode_c3_payload.value",
-            domain_outcome="FOLD_CONTRACT_FAILURE"
-            if codec.contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
-            else "INVALID_INPUT",
-            public_exception="TypeError",
-        )
-    try:
-        canonical_value = _plain(value)
-        if not isinstance(canonical_value, dict):
-            return collect_contract_failure(
-                code="FOLD_CONTRACT_FAILURE"
-                if codec.contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
-                else "INVALID_INPUT",
-                reason_code="codec_contract_invalid",
-                message="payload codec requires a JSON object",
-                operation="collect.decode_payload",
-                site="try_decode_c3_payload.value",
-                domain_outcome="FOLD_CONTRACT_FAILURE"
-                if codec.contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
-                else "INVALID_INPUT",
-                public_exception="TypeError",
-            )
-        return codec.decode_payload(canonical_value)
-    except (TypeError, ValueError) as exc:
-        return collect_contract_failure(
-            code="FOLD_CONTRACT_FAILURE"
-            if codec.contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
-            else "INVALID_INPUT",
-            reason_code="codec_contract_invalid",
-            message=str(exc),
-            operation="collect.decode_payload",
-            site="try_decode_c3_payload",
-            domain_outcome="FOLD_CONTRACT_FAILURE"
-            if codec.contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
-            else "INVALID_INPUT",
-            public_exception=type(exc).__name__,
-            owner=ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_OWNER
-            if codec.contract_ref.kind == COLLECT_FOLD_ORDERED_RESULTS_KIND
-            else ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER,
-        )
-
-
-def try_decode_historical_acquisition_payload(
-    codec: AcquisitionPayloadCodec | str, value: object
-) -> PayloadDecodeResult:
-    """Read exact legacy acquisition payload bytes without rehashing them."""
-    codec_id = codec.codec_id if isinstance(codec, PayloadCodec) else codec
-    historical_schemas = {
-        ACQUISITION_BATCH_ELEMENT_PAYLOAD_CODEC_ID: HISTORICAL_ACQUISITION_BATCH_ELEMENT_PAYLOAD_SCHEMA,
-        ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_CODEC_ID: HISTORICAL_ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_SCHEMA,
-        HISTORICAL_ACQUISITION_BATCH_ELEMENT_PAYLOAD_CODEC_ID: HISTORICAL_ACQUISITION_BATCH_ELEMENT_PAYLOAD_SCHEMA,
-        HISTORICAL_ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_CODEC_ID: HISTORICAL_ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_SCHEMA,
-    }
-    expected_schema = historical_schemas.get(codec_id)
-    if expected_schema is None:
-        return collect_contract_failure(
-            code="INVALID_INPUT",
-            reason_code="codec_contract_invalid",
-            message=f"{codec_id} has no historical C3 payload decoder",
-            operation="collect.decode_historical_payload",
-            site="try_decode_historical_c3_payload.codec",
-            domain_outcome="INVALID_INPUT",
-            public_exception="TypeError",
-            owner=HISTORICAL_ACQUISITION_BATCH_ELEMENT_OWNER,
-        )
-    if not _is_object_mapping(value):
-        return collect_contract_failure(
-            code="INVALID_INPUT",
-            reason_code="codec_contract_invalid",
-            message="historical payload decoder requires a JSON object",
-            operation="collect.decode_historical_payload",
-            site="try_decode_historical_c3_payload.value",
-            domain_outcome="INVALID_INPUT",
-            public_exception="TypeError",
-            owner=HISTORICAL_ACQUISITION_BATCH_ELEMENT_OWNER,
-        )
-    plain = _string_object_dict(value, "historical payload")
-    if plain.get("schema_version") != expected_schema:
-        return collect_contract_failure(
-            code="INVALID_INPUT",
-            reason_code="codec_contract_invalid",
-            message=f"historical payload schema must be {expected_schema!r}",
-            operation="collect.decode_historical_payload",
-            site="try_decode_historical_c3_payload.schema_version",
-            domain_outcome="INVALID_INPUT",
-            public_exception="ValueError",
-            owner=HISTORICAL_ACQUISITION_BATCH_ELEMENT_OWNER,
-        )
-    supplied_digest = plain.get("payload_digest")
-    if not isinstance(supplied_digest, str):
-        return collect_contract_failure(
-            code="INVALID_INPUT",
-            reason_code="codec_contract_invalid",
-            message="historical payload digest is missing",
-            operation="collect.decode_historical_payload",
-            site="try_decode_historical_c3_payload.payload_digest",
-            domain_outcome="INVALID_INPUT",
-            public_exception="ValueError",
-            owner=HISTORICAL_ACQUISITION_BATCH_ELEMENT_OWNER,
-        )
-    try:
-        require_hex64(supplied_digest, "historical C3 payload_digest")
-    except ValueError as exc:
-        return collect_contract_failure(
-            code="INVALID_INPUT",
-            reason_code="codec_contract_invalid",
-            message=str(exc),
-            operation="collect.decode_historical_payload",
-            site="try_decode_historical_c3_payload.payload_digest",
-            domain_outcome="INVALID_INPUT",
-            public_exception="ValueError",
-            owner=HISTORICAL_ACQUISITION_BATCH_ELEMENT_OWNER,
-        )
-    if content_digest(plain, omit_fields=("payload_digest",)) != supplied_digest:
-        return collect_contract_failure(
-            code="INVALID_INPUT",
-            reason_code="codec_contract_invalid",
-            message="historical payload digest does not match retained bytes",
-            operation="collect.decode_historical_payload",
-            site="try_decode_historical_acquisition_payload.payload_digest",
-            domain_outcome="INVALID_INPUT",
-            public_exception="ValueError",
-            owner=HISTORICAL_ACQUISITION_BATCH_ELEMENT_OWNER,
-        )
-    return plain
-
-
-def _profile_ref(profile_id: str, profile_version: str, digest: str) -> ContractProfileRef:
-    return ContractProfileRef(profile_id=profile_id, profile_version=profile_version, profile_digest=digest)
-
-
-def _semantic_profile(
-    *, operation_kind: str, owner: str, reads: tuple[str, ...], creates: tuple[str, ...], observation: str
-) -> SemanticProfile:
-    values: dict[str, object] = {
-        "semantic_profile_id": f"{operation_kind}.semantic",
-        "semantic_profile_version": "1.0.0",
-        "reads": reads,
-        "creates": creates,
-        "creates_relations": (),
-        "declared_loss": (),
-        "observation_profile_ref": observation,
-    }
-    return build_profile(SemanticProfile, **values, profile_digest=content_digest(values))
-
-
-def _effect_profile(
-    *,
-    operation_kind: str,
-    execution_class: Literal["PURE_TRANSFORM", "EFFECTFUL", "ADMISSION", "PROJECTION"],
-    network_required: bool,
-    irreversible: bool,
-    external_visibility: Literal["NONE", "INTERNAL_ONLY", "EXTERNAL"],
-    internal_export_only: bool,
-) -> EffectProfile:
-    values: dict[str, object] = {
-        "effect_profile_id": f"{operation_kind}.effect",
-        "effect_profile_version": "1.0.0",
-        "execution_class": execution_class,
-        "external_visibility": external_visibility,
-        "network_required": network_required,
-        "irreversible": irreversible,
-        "cancellation_points": ("element_boundary", "step_boundary"),
-        "internal_export_only": internal_export_only,
-        "human_approval_required": False,
-        "external_acquisition": False,
-        "idempotency_profile_ref": "logical_request_id",
-    }
-    return build_profile(EffectProfile, **values, profile_digest=content_digest(values))
-
-
-def _resource_profile(*, operation_kind: str, concurrency_key: str, units: int) -> ResourceProfile:
-    values: dict[str, object] = {
-        "resource_profile_id": f"{operation_kind}.resource",
-        "resource_profile_version": "1.0.0",
-        "resource_classes": ("cpu", "network"),
-        "concurrency_key": concurrency_key,
-        "budget_units": "element",
-        "default_soft_limit_seconds": 120,
-        "default_hard_limit_seconds": 300,
-        "node_profile_selector": "any",
-        "budget_ref": "mrw.acquisition.batch.budget.v2",
-        "deadline_policy_ref": "mrw.acquisition.batch.deadline-policy.v2",
-        "node_profile_requirements": ("any",),
-        "units": units,
-    }
-    return build_profile(ResourceProfile, **values, profile_digest=content_digest(values))
-
-
-def _failure_profile(*, operation_kind: str, typed_failures: tuple[str, ...], retryable: bool) -> FailureProfile:
-    values: dict[str, object] = {
-        "failure_profile_id": f"{operation_kind}.failure",
-        "failure_profile_version": "1.0.0",
-        "typed_failures": typed_failures,
-        "retryable": retryable,
-        "degraded_acceptable": False,
-        "unknown_outcome_supported": False,
-        "readback_or_compensation": "none",
-        "failure_union_ref": f"mrw.functorial-successor.failures.{operation_kind}.v1",
-        "retryable_failure_kinds": (),
-        "readback_profile_ref": None,
-        "compensation_profile_ref": None,
-    }
-    return build_profile(FailureProfile, **values, profile_digest=content_digest(values))
-
-
-def _authority_profile(*, operation_kind: str, owner: str) -> AuthorityProfile:
-    values: dict[str, object] = {
-        "authority_profile_id": f"{operation_kind}.authority",
-        "authority_profile_version": "1.0.0",
-        "grant_scopes": ("project",),
-        "approval_required": False,
-        "approval_kinds": (),
-        "credential_refs": (),
-        "canonical_owner": owner,
-        "revalidation_points": ("claim_time",),
-        "authority_epoch": 1,
-    }
-    return build_profile(AuthorityProfile, **values, profile_digest=content_digest(values))
-
-
-def _interpreter_profile(*, interpreter_id: str, supported_kind: str, donor: str) -> InterpreterProfile:
-    dependency_digest = content_digest(
-        {"interpreter": interpreter_id, "version": "1.0.0", "donor": donor}
-    )
-    values: dict[str, object] = {
-        "interpreter_profile_id": interpreter_id,
-        "interpreter_profile_version": "1.0.0",
-        "supported_contract_kinds": (supported_kind,),
-        "supported_contract_refs": (),
-        "dependency_digest": dependency_digest,
-        "security_profile_ref": "mrw.functorial-successor.security.pure.v1",
-        "resource_profile_ref": f"{supported_kind}.resource",
-        "credential_requirements_ref": None,
-        "cancellation_profile_ref": "element_boundary",
-        "idempotency_profile_ref": "logical_request_id",
-        "authoritative_readback_profile_ref": None,
-        "receipt_codec_ref": COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
-    }
-    return build_profile(InterpreterProfile, **values, profile_digest=content_digest(values))
-
-
-def _observation_profile(*, profile_id: str, dimensions: tuple[str, ...], schema_ref: str) -> ObservationProfile:
-    values: dict[str, object] = {
-        "observation_profile_id": profile_id,
-        "observation_profile_version": "1.0.0",
-        "dimensions": dimensions,
-        "compatible_with_legacy": True,
-        "observation_schema_ref": schema_ref,
-    }
-    return build_profile(ObservationProfile, **values, profile_digest=content_digest(values))
-
-
-AcquisitionBatchProfiles = TypedDict(
-    "AcquisitionBatchProfiles",
-    {
-        "semantic.c3_1": SemanticProfile,
-        "effect.c3_1": EffectProfile,
-        "resource.c3_1": ResourceProfile,
-        "failure.c3_1": FailureProfile,
-        "authority.c3_1": AuthorityProfile,
-        "interpreter.c3_1": InterpreterProfile,
-        "observation.c3_1": ObservationProfile,
-        "semantic.c3_2": SemanticProfile,
-        "effect.c3_2": EffectProfile,
-        "resource.c3_2": ResourceProfile,
-        "failure.c3_2": FailureProfile,
-        "authority.c3_2": AuthorityProfile,
-        "interpreter.c3_2": InterpreterProfile,
-        "observation.c3_2": ObservationProfile,
-    },
-)
-
-
-@dataclass(frozen=True, slots=True)
-class AcquisitionBatchCapabilityBundle:
-    bundle_id: str
-    execute_element_operation: OperationContract
-    fold_ordered_results_operation: OperationContract
-    codecs: tuple[
-        PayloadCodec[CollectBatchElementPayload],
-        PayloadCodec[CollectFoldPayload],
-    ]
-    profiles: AcquisitionBatchProfiles
-
-    def batch_element_payload_codec(self) -> PayloadCodec[CollectBatchElementPayload]:
-        return self.codecs[0]
-
-    def ordered_result_fold_payload_codec(self) -> PayloadCodec[CollectFoldPayload]:
-        return self.codecs[1]
-
-
-def build_acquisition_batch_bundle() -> Annotated[
-    AcquisitionBatchCapabilityBundle,
-    "kit:non-authoritative derived_as=view fact_source=COLLECT_C3_OWNER+capability_contract_constants witness=test:test_w05_collect_authority_metadata",
-]:
-    common_failures = (
-        "INVALID_INPUT",
-        "ASSIGNMENT_BINDING_MISMATCH",
-        "INTERPRETER_UNAVAILABLE",
-        "TRAVERSAL_COMPILE_PENDING",
-        "FOLD_CONTRACT_FAILURE",
-    )
-    semantic_1 = _semantic_profile(
-        operation_kind=COLLECT_EXECUTE_BATCH_ELEMENT_KIND,
-        owner=ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER,
-        reads=("CollectRequest.v1", "CollectBatchElement.v1", "CollectResourcePolicy.v1"),
-        creates=("CollectTraversalResult.v1",),
-        observation=COLLECT_TRAVERSAL_OBSERVATION_PROFILE,
-    )
-    effect_1 = _effect_profile(
-        operation_kind=COLLECT_EXECUTE_BATCH_ELEMENT_KIND,
-        execution_class="EFFECTFUL",
-        network_required=True,
-        irreversible=True,
-        external_visibility="INTERNAL_ONLY",
-        internal_export_only=True,
-    )
-    resource_1 = _resource_profile(
-        operation_kind=COLLECT_EXECUTE_BATCH_ELEMENT_KIND, concurrency_key="project:provider", units=1
-    )
-    failure_1 = _failure_profile(
-        operation_kind=COLLECT_EXECUTE_BATCH_ELEMENT_KIND,
-        typed_failures=common_failures
-        + ("ELEMENT_EXECUTION_FAILED", "ORDERED_TRAVERSAL_ABORTED", "RESOURCE_POLICY_EXCEEDED"),
-        retryable=True,
-    )
-    authority_1 = _authority_profile(
-        operation_kind=COLLECT_EXECUTE_BATCH_ELEMENT_KIND, owner=ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER
-    )
-    interpreter_1 = _interpreter_profile(
-        interpreter_id="mrw.acquisition.batch.execute_element.interpreter.v2",
-        supported_kind=COLLECT_EXECUTE_BATCH_ELEMENT_KIND,
-        donor="collect_runtime._split_query_terms+_run_auto_batch",
-    )
-    observation_1 = _observation_profile(
-        profile_id=COLLECT_TRAVERSAL_OBSERVATION_PROFILE,
-        dimensions=(
-            "schema_version",
-            "observation_profile",
-            "request_ref",
-            "traversal_policy",
-            "failure_policy",
-            "ordered_outcomes",
-            "requested_parallelism",
-            "effective_parallelism",
-            "cancellation_observed",
-            "observation_digest",
-        ),
-        schema_ref=COLLECT_TRAVERSAL_OBSERVATION_SCHEMA_REF,
-    )
-    semantic_2 = _semantic_profile(
-        operation_kind=COLLECT_FOLD_ORDERED_RESULTS_KIND,
-        owner=ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_OWNER,
-        reads=("OrderedCollectElementOutcomeSequence.v1",),
-        creates=("CollectAggregateOutcome.v1",),
-        observation=COLLECT_FOLD_OBSERVATION_PROFILE,
-    )
-    effect_2 = _effect_profile(
-        operation_kind=COLLECT_FOLD_ORDERED_RESULTS_KIND,
-        execution_class="PURE_TRANSFORM",
-        network_required=False,
-        irreversible=False,
-        external_visibility="NONE",
-        internal_export_only=False,
-    )
-    resource_2 = _resource_profile(operation_kind=COLLECT_FOLD_ORDERED_RESULTS_KIND, concurrency_key="project", units=1)
-    failure_2 = _failure_profile(
-        operation_kind=COLLECT_FOLD_ORDERED_RESULTS_KIND,
-        typed_failures=common_failures + ("AGGREGATE_ALL_FAILED", "QUEUED_ACK_NOT_COMPLETION"),
-        retryable=False,
-    )
-    authority_2 = _authority_profile(
-        operation_kind=COLLECT_FOLD_ORDERED_RESULTS_KIND, owner=ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_OWNER
-    )
-    interpreter_2 = _interpreter_profile(
-        interpreter_id="mrw.acquisition.batch.fold_ordered_results.interpreter.v2",
-        supported_kind=COLLECT_FOLD_ORDERED_RESULTS_KIND,
-        donor="collect_runtime._merge_collect_results",
-    )
-    observation_2 = _observation_profile(
-        profile_id=COLLECT_FOLD_OBSERVATION_PROFILE,
-        dimensions=(
-            "schema_version",
-            "ordered_outcomes",
-            "aggregate_counts",
-            "errors",
-            "receipts",
-            "links",
-            "aggregate_digest",
-        ),
-        schema_ref=COLLECT_AGGREGATE_OUTCOME_SCHEMA_REF,
-    )
-    operation_1 = make_operation_contract(
-        kind=COLLECT_EXECUTE_BATCH_ELEMENT_KIND,
-        contract_version="1.0.0",
-        input_type=COLLECT_BATCH_ELEMENT_PAYLOAD_TYPE,
-        output_type=COLLECT_ELEMENT_OUTCOME_TYPE,
-        return_contract_ref=RUNTIME_VALUE_RETURN_CONTRACT_REF,
-        semantic_profile_ref=_profile_ref(
-            semantic_1.semantic_profile_id, semantic_1.semantic_profile_version, semantic_1.profile_digest
-        ),
-        effect_profile_ref=_profile_ref(
-            effect_1.effect_profile_id, effect_1.effect_profile_version, effect_1.profile_digest
-        ),
-        resource_profile_ref=_profile_ref(
-            resource_1.resource_profile_id, resource_1.resource_profile_version, resource_1.profile_digest
-        ),
-        failure_profile_ref=_profile_ref(
-            failure_1.failure_profile_id, failure_1.failure_profile_version, failure_1.profile_digest
-        ),
-        authority_profile_ref=_profile_ref(
-            authority_1.authority_profile_id, authority_1.authority_profile_version, authority_1.profile_digest
-        ),
-        interpreter_compatibility_ref=_profile_ref(
-            interpreter_1.interpreter_profile_id,
-            interpreter_1.interpreter_profile_version,
-            interpreter_1.profile_digest,
-        ),
-        observation_profile_ref=_profile_ref(
-            observation_1.observation_profile_id,
-            observation_1.observation_profile_version,
-            observation_1.profile_digest,
-        ),
-        allowed_override_schema_ref="mrw.functorial-successor.override.none.v1",
-        owner_capability_id=ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER,
-    )
-    operation_2 = make_operation_contract(
-        kind=COLLECT_FOLD_ORDERED_RESULTS_KIND,
-        contract_version="1.0.0",
-        input_type=COLLECT_FOLD_PAYLOAD_TYPE,
-        output_type=COLLECT_FOLD_RESULT_TYPE,
-        return_contract_ref=RUNTIME_VALUE_RETURN_CONTRACT_REF,
-        semantic_profile_ref=_profile_ref(
-            semantic_2.semantic_profile_id, semantic_2.semantic_profile_version, semantic_2.profile_digest
-        ),
-        effect_profile_ref=_profile_ref(
-            effect_2.effect_profile_id, effect_2.effect_profile_version, effect_2.profile_digest
-        ),
-        resource_profile_ref=_profile_ref(
-            resource_2.resource_profile_id, resource_2.resource_profile_version, resource_2.profile_digest
-        ),
-        failure_profile_ref=_profile_ref(
-            failure_2.failure_profile_id, failure_2.failure_profile_version, failure_2.profile_digest
-        ),
-        authority_profile_ref=_profile_ref(
-            authority_2.authority_profile_id, authority_2.authority_profile_version, authority_2.profile_digest
-        ),
-        interpreter_compatibility_ref=_profile_ref(
-            interpreter_2.interpreter_profile_id,
-            interpreter_2.interpreter_profile_version,
-            interpreter_2.profile_digest,
-        ),
-        observation_profile_ref=_profile_ref(
-            observation_2.observation_profile_id,
-            observation_2.observation_profile_version,
-            observation_2.profile_digest,
-        ),
-        allowed_override_schema_ref="mrw.functorial-successor.override.none.v1",
-        owner_capability_id=ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_OWNER,
-    )
-    codec_1 = _payload_codec(
-        operation_1.ref,
-        codec_id=ACQUISITION_BATCH_ELEMENT_PAYLOAD_CODEC_ID,
-        payload_cls=CollectBatchElementPayload,
-        payload_type=COLLECT_BATCH_ELEMENT_PAYLOAD_TYPE,
-    )
-    codec_2 = _payload_codec(
-        operation_2.ref,
-        codec_id=ACQUISITION_ORDERED_RESULT_FOLD_PAYLOAD_CODEC_ID,
-        payload_cls=CollectFoldPayload,
-        payload_type=COLLECT_FOLD_PAYLOAD_TYPE,
-    )
-    return AcquisitionBatchCapabilityBundle(
-        bundle_id="mrw.acquisition.batch.bundle.v2",
-        execute_element_operation=operation_1,
-        fold_ordered_results_operation=operation_2,
-        codecs=(codec_1, codec_2),
-        profiles={
-            "semantic.c3_1": semantic_1,
-            "effect.c3_1": effect_1,
-            "resource.c3_1": resource_1,
-            "failure.c3_1": failure_1,
-            "authority.c3_1": authority_1,
-            "interpreter.c3_1": interpreter_1,
-            "observation.c3_1": observation_1,
-            "semantic.c3_2": semantic_2,
-            "effect.c3_2": effect_2,
-            "resource.c3_2": resource_2,
-            "failure.c3_2": failure_2,
-            "authority.c3_2": authority_2,
-            "interpreter.c3_2": interpreter_2,
-            "observation.c3_2": observation_2,
-        },
-    )
-
-
-def build_acquisition_batch_catalog(
-    bundle: AcquisitionBatchCapabilityBundle,
-) -> Annotated[
-    OperationContractCatalogSnapshot,
-    "kit:non-authoritative derived_as=view fact_source=AcquisitionBatchCapabilityBundle.operations witness=test:test_w05_collect_authority_metadata",
-]:
-    return OperationContractCatalogSnapshot(
-        catalog_id=ACQUISITION_BATCH_OPERATION_CONTRACTS_CATALOG_ID,
-        catalog_version=ACQUISITION_BATCH_CATALOG_VERSION,
-        entries=(
-            (
-                bundle.execute_element_operation.ref.kind,
-                bundle.execute_element_operation.ref.contract_version,
-                bundle.execute_element_operation.ref.contract_digest,
-                bundle.execute_element_operation.owner_capability_id,
-            ),
-            (
-                bundle.fold_ordered_results_operation.ref.kind,
-                bundle.fold_ordered_results_operation.ref.contract_version,
-                bundle.fold_ordered_results_operation.ref.contract_digest,
-                bundle.fold_ordered_results_operation.owner_capability_id,
-            ),
-        ),
-    )
-
-
-def build_acquisition_batch_registry(
-    bundle: AcquisitionBatchCapabilityBundle,
-) -> Annotated[
-    OperationContractRegistry,
-    "kit:non-authoritative derived_as=view fact_source=AcquisitionBatchCapabilityBundle+catalog_snapshot witness=test:test_w05_collect_authority_metadata",
-]:
-    return OperationContractRegistry(
-        build_acquisition_batch_catalog(bundle),
-        (bundle.execute_element_operation, bundle.fold_ordered_results_operation),
-    )
-
-
-def deployment_catalog_digest() -> str:
-    """Immutable deployment catalog identity distinct from operation catalogs."""
-    return content_digest(
-        {
-            "schema": DEPLOYMENT_CATALOG_SCHEMA_REF,
-            "capability_family": "acquisition.batch.v2",
-            "canonical_owner_c3_1": ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER,
-            "canonical_owner_c3_2": ACQUISITION_BATCH_FOLD_ORDERED_RESULTS_OWNER,
-            "operation_c3_1": COLLECT_EXECUTE_BATCH_ELEMENT_KIND,
-            "operation_c3_2": COLLECT_FOLD_ORDERED_RESULTS_KIND,
-            "legacy_execute_element_interpreter": "legacy.collect_runtime.batch_traverse.v1",
-            "execute_element_interpreter": "mrw.acquisition.batch.execute_element.interpreter.v2",
-            "legacy_fold_interpreter": "legacy.collect_runtime.result_fold.v1",
-            "fold_interpreter": "mrw.acquisition.batch.fold_ordered_results.interpreter.v2",
-        }
-    )

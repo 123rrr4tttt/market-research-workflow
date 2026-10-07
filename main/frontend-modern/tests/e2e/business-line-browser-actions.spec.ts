@@ -761,7 +761,7 @@ async function setupMockedBusinessLineRail(
     }>,
   }
 
-  await page.route('http://127.0.0.1:8172/**', (route) =>
+  await page.route('http://localhost:8172/**', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'text/html',
@@ -1902,7 +1902,7 @@ test('batch 58 statistics view -> Projects -> Graph -> Ingest/Search -> Resource
   const agentResponse = await page.goto('/#/workbench/agent')
   if (agentResponse) expect(agentResponse.ok()).toBeTruthy()
   await expect(page.getByTestId('codex-agent-page')).toBeVisible()
-  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', 'http://127.0.0.1:8172/?mrw=macro-host-v1')
+  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', 'http://localhost:8172/?mrw=macro-host-v1')
 
   await page.goto('/#/workbench/ingest/specialized')
   await expect(page.getByRole('heading', { name: '单 URL 入库' })).toBeVisible()

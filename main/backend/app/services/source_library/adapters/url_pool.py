@@ -9,10 +9,10 @@ from tempfile import gettempdir
 from typing import Any
 from urllib.parse import urlparse
 
-import requests
 from pypdf import PdfReader
 
-from ...ingest.adapters.http_utils import fetch_html, make_html_parser
+from ...ingest.adapters.http_utils import fetch_html, make_html_parser, request_html
+from ...ingest.retry_policy import RateGate, RequestScope
 from ...resource_pool import list_urls
 from ...resource_pool.article_extraction_service import extract_article_content_from_html
 from ..external_project import validate_external_http_url
@@ -21,6 +21,12 @@ from ..external_project import validate_external_http_url
 _MAX_PDF_BYTES = 20 * 1024 * 1024
 _MAX_PDF_PAGES = 100
 _MAX_CONTENT_CHARS = 50000
+_PDF_ARTIFACT_REQUEST_SCOPE = RequestScope(provider="source_library_pdf_artifact")
+_PDF_ARTIFACT_RATE_GATE = RateGate(
+    rate_limit_interval_seconds=1.0,
+    backoff_base_seconds=1.5,
+    backoff_max_seconds=60.0,
+)
 
 
 def _response_mime_type(response: Any) -> str:
@@ -163,35 +169,43 @@ def _materialize_pdf_artifact(
     artifact_dir = Path(gettempdir()) / "source-library-artifacts"
     artifact_dir.mkdir(parents=True, exist_ok=True)
 
-    last_error = None
-    for _attempt in range(max(retries, 1) + 1):
-        try:
-            response = requests.get(pdf_url, timeout=timeout)
-            response.raise_for_status()
-            pdf_bytes = response.content
-            digest = sha256(pdf_bytes).hexdigest()
-            local_path = artifact_dir / f"{digest}.pdf"
-            if not local_path.exists():
-                local_path.write_bytes(pdf_bytes)
-            materialized = dict(artifact_ref)
-            materialized.update(
-                {
-                    "download_status": "downloaded",
-                    "storage_kind": "local_file",
-                    "local_path": str(local_path),
-                    "sha256": digest,
-                    "byte_size": len(pdf_bytes),
-                }
-            )
-            return materialized  # noqa: TRY300
-        except Exception as exc:  # noqa: BLE001
-            last_error = str(exc)
+    outcome = request_html(
+        pdf_url,
+        scope=_PDF_ARTIFACT_REQUEST_SCOPE,
+        headers={"Accept": "application/pdf"},
+        timeout=timeout,
+        retries=max(retries, 1) + 1,
+        retry_gate=_PDF_ARTIFACT_RATE_GATE,
+    )
+    if not outcome.ok or outcome.response is None:
+        degraded = dict(artifact_ref)
+        degraded["download_status"] = "failed"
+        if outcome.failures:
+            degraded["download_error"] = outcome.failures[-1].message
+        return degraded
 
-    degraded = dict(artifact_ref)
-    degraded["download_status"] = "failed"
-    if last_error:
-        degraded["download_error"] = last_error
-    return degraded
+    pdf_bytes = outcome.response.content
+    digest = sha256(pdf_bytes).hexdigest()
+    local_path = artifact_dir / f"{digest}.pdf"
+    try:
+        if not local_path.exists():
+            local_path.write_bytes(pdf_bytes)
+    except OSError as exc:
+        degraded = dict(artifact_ref)
+        degraded["download_status"] = "failed"
+        degraded["download_error"] = str(exc)
+        return degraded
+    materialized = dict(artifact_ref)
+    materialized.update(
+        {
+            "download_status": "downloaded",
+            "storage_kind": "local_file",
+            "local_path": str(local_path),
+            "sha256": digest,
+            "byte_size": len(pdf_bytes),
+        }
+    )
+    return materialized
 
 
 def handle_url_pool(params: dict[str, Any], project_key: str | None) -> dict[str, Any]:

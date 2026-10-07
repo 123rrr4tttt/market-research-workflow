@@ -21,10 +21,6 @@ from app.successor_runtime.substrate.postgres.composition_root import (
 from app.successor_runtime.substrate.postgres.delivery_runtime import (
     build_delivery_runtime_assignment,
 )
-from app.successor_runtime.substrate.postgres.first_specimen_assembly import (
-    PostgresFirstSpecimenAssembly,
-    build_postgres_first_specimen_assembly,
-)
 from app.successor_runtime.substrate.postgres.ingest_c7_movement_admission import (
     build_commit_binding,
     build_commit_intent,
@@ -60,9 +56,6 @@ _EXACT_BASELINE_KEYS = {
     "main/backend/app/successor_runtime/substrate/postgres/delivery_runtime.py|"
     "build_delivery_runtime_assignment returns an unmarked derived value",
     "derived-marked|"
-    "main/backend/app/successor_runtime/substrate/postgres/first_specimen_assembly.py|"
-    "build_postgres_first_specimen_assembly returns an unmarked derived value",
-    "derived-marked|"
     "main/backend/app/successor_runtime/substrate/postgres/ingest_c7_movement_admission.py|"
     "build_commit_binding returns an unmarked derived value",
     "derived-marked|"
@@ -94,10 +87,6 @@ def test_w08c_postgres_builder_metadata_preserves_return_types() -> None:
             RuntimeAssignment,
             prepared_command,
         ),
-        build_postgres_first_specimen_assembly: (
-            PostgresFirstSpecimenAssembly,
-            prepared_command,
-        ),
         build_commit_binding: (CommitIntentBinding, prepared_command),
         build_commit_intent: (CommitIntent, prepared_command),
         build_first_specimen_admission_registry: (
@@ -106,7 +95,7 @@ def test_w08c_postgres_builder_metadata_preserves_return_types() -> None:
         ),
     }
 
-    assert len(_EXACT_BASELINE_KEYS) == 8
+    assert len(_EXACT_BASELINE_KEYS) == 7
     for function, (expected_return_type, expected_prefix) in metadata.items():
         return_type = get_type_hints(function, include_extras=True)["return"]
         assert get_origin(return_type) is Annotated

@@ -17,7 +17,6 @@ from app.services.collect_runtime.adapters.source_library import SourceLibraryAd
 from app.services.collect_runtime.contracts import CollectRequest
 from app.celery_app import celery_app
 from app.services.tasks import (
-    task_ingest_url_via_source_library,
     task_raw_import_documents,
 )
 
@@ -70,7 +69,7 @@ class TaskRuntimeReadbackIngestBoundaryUnitTestCase(unittest.TestCase):
         self.assertEqual(runtime_readback["queue"], "search.q")
         self.assertEqual(runtime_readback["trace_id"], "trace-market")
 
-    def test_source_library_adapter_writes_runtime_readback_to_job_params_and_result(self) -> None:
+    def test_source_library_adapter_preserves_runtime_readback_in_resolver_override(self) -> None:
         adapter = SourceLibraryAdapter()
         runtime_readback = {
             "line_key": "resource_source_library",
@@ -93,9 +92,6 @@ class TaskRuntimeReadbackIngestBoundaryUnitTestCase(unittest.TestCase):
         }
 
         with (
-            patch("app.services.collect_runtime.adapters.source_library.start_job", return_value=123) as mocked_start,
-            patch("app.services.collect_runtime.adapters.source_library.complete_job") as mocked_complete,
-            patch("app.services.collect_runtime.adapters.source_library.fail_job"),
             patch(
                 "app.services.source_library.resolver.list_effective_channels",
                 return_value=[{"channel_key": "handler.cluster", "enabled": True}],
@@ -104,58 +100,19 @@ class TaskRuntimeReadbackIngestBoundaryUnitTestCase(unittest.TestCase):
                 "app.services.source_library.resolver.list_effective_items",
                 return_value=[{"item_key": "handler.cluster.search_template", "channel_key": "handler.cluster"}],
             ),
-            patch("app.services.source_library.resolver.run_item_payload", return_value=raw),
+            patch("app.services.source_library.resolver.run_item_payload", return_value=raw) as mocked_run,
         ):
             result = adapter.run(request)
 
         self.assertEqual(result.inserted, 2)
-        start_params = mocked_start.call_args.args[1]
-        self.assertEqual(start_params["runtime_readback"]["line_key"], "resource_source_library")
-        self.assertEqual(start_params["runtime_readback"]["task_id"], "celery-source-1")
-        complete_result = mocked_complete.call_args.kwargs["result"]
-        self.assertEqual(complete_result["runtime_readback"]["line_key"], "resource_source_library")
-        self.assertEqual(complete_result["runtime_readback"]["status"], "completed")
-        self.assertTrue(
-            any(
-                isinstance(item, dict) and item.get("event") == "completed"
-                for item in complete_result["runtime_readback"]["events"]
-            )
+        override = mocked_run.call_args.kwargs["override_params"]
+        self.assertEqual(override["runtime_readback"]["line_key"], "resource_source_library")
+        self.assertEqual(override["runtime_readback"]["task_id"], "celery-source-1")
+        self.assertEqual(result.meta["raw"], raw)
+        self.assertEqual(
+            result.meta["terminal_output"]["contract_version"],
+            "source_library.terminal_output.v1",
         )
-
-    def test_url_pool_async_task_prefers_celery_request_runtime_context(self) -> None:
-        task_ingest_url_via_source_library.push_request(
-            id="celery-url-1",
-            hostname="worker@ingest",
-            delivery_info={"routing_key": "ingest.q"},
-        )
-        try:
-            with (
-                patch("app.services.tasks.start_job", return_value=456) as mocked_start,
-                patch("app.services.tasks.complete_job") as mocked_complete,
-                patch("app.services.tasks.fail_job"),
-                patch("app.services.ingest.url_pool.ingest_url_via_source_library_frontdoor") as mocked_ingest,
-            ):
-                mocked_ingest.return_value = {"status": "success", "inserted": 1, "skipped": 0}
-                result = task_ingest_url_via_source_library.run(
-                    "https://example.com/a",
-                    ["ai terminal"],
-                    False,
-                    None,
-                    {"runtime_readback": {"trace_id": "trace-url"}},
-                )
-        finally:
-            task_ingest_url_via_source_library.pop_request()
-
-        runtime_readback = mocked_start.call_args.args[1]["runtime_readback"]
-        self.assertEqual(runtime_readback["line_key"], "ingest")
-        self.assertEqual(runtime_readback["task_id"], "celery-url-1")
-        self.assertEqual(runtime_readback["worker_name"], "worker@ingest")
-        self.assertEqual(runtime_readback["queue"], "ingest.q")
-        self.assertEqual(runtime_readback["trace_id"], "trace-url")
-        self.assertEqual(result["runtime_readback"]["status"], "completed")
-        complete_result = mocked_complete.call_args.kwargs["result"]
-        self.assertEqual(complete_result["runtime_readback"]["task_id"], "celery-url-1")
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.contract
 
 _TARGET_MODULE_COUNTS = {
-    "agent_sessions.py": 16,
+    "agent_sessions.py": 14,
     "codex_auth.py": 7,
     "app.web_ui_routes": 1,
 }
@@ -27,9 +27,7 @@ _JSON_ENVELOPE_PATHS = {
     ("POST", "/api/v1/agent-sessions/{session_id}/messages"),
     ("GET", "/api/v1/agent-sessions/{session_id}/failure-package"),
     ("GET", "/api/v1/agent-approvals"),
-    ("POST", "/api/v1/agent-sessions/{session_id}/actions/retry-task"),
     ("POST", "/api/v1/agent-sessions/{session_id}/actions/cancel"),
-    ("POST", "/api/v1/agent-sessions/{session_id}/actions/reclaim-expired"),
     ("POST", "/api/v1/agent-sessions/{session_id}/actions/request-approval"),
     ("POST", "/api/v1/agent-approvals/{approval_id}/resolve"),
     ("GET", "/api/v1/codex-auth/status"),

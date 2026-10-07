@@ -6,6 +6,7 @@ import importlib
 import inspect
 import json
 import os
+from typing import Annotated
 
 from functorial_kit import Failure
 
@@ -691,7 +692,7 @@ def _source_discovery_plan_handler(
             + [item for item in json_list(trust_plan.get("rejected_urls")) if isinstance(item, dict)]
             + [item for item in json_list(trust_plan.get("duplicate_urls")) if isinstance(item, dict)]
         )
-        search_queries = _build_source_search_queries(
+        search_queries = build_source_discovery_search_queries(
             topic=topic, query_terms=query_terms, source_kinds=source_kinds, limit=max_candidates
         )
         for query_value in json_list(trust_plan.get("search_queries")):
@@ -823,6 +824,22 @@ def _build_source_search_queries(
             if len(out) >= limit:
                 return out
     return out
+
+
+def build_source_discovery_search_queries(
+    *, topic: str, query_terms: list[str], source_kinds: list[str], limit: int
+) -> Annotated[
+    list[JSONObject],
+    "kit:non-authoritative derived_as=view fact_source=topic+query_terms+source_kinds+limit witness=test:test_source_discovery_runtime_kernels_preserve_original_pure_decisions",
+]:
+    """Public pure source-discovery query kernel for Runtime follow-ups."""
+
+    return _build_source_search_queries(
+        topic=topic,
+        query_terms=query_terms,
+        source_kinds=source_kinds,
+        limit=max(1, min(30, limit)),
+    )
 
 
 def _build_source_directions(*, topic: str, query_terms: list[str], source_kinds: list[str]) -> list[JSONObject]:
@@ -2217,42 +2234,25 @@ def _source_candidate_review_handler(
         project_key = resolve_project_key(tool_call, request)
         if not project_key:
             return missing_project_result(tool_call)
-        candidate = _normalize_source_candidate(_candidate_review_input(tool_call.arguments.get("candidate")))
-        decision = _normalize_source_candidate_decision(tool_call.arguments.get("decision"))
         artifact_name = (
             str(tool_call.arguments.get("artifact_name") or "source.candidate_reviews.json").strip()
             or "source.candidate_reviews.json"
         )
-        preferred_ingest = str(tool_call.arguments.get("preferred_ingest") or "auto").strip() or "auto"
-        if preferred_ingest not in {"auto", "url_pool", "source_library", "manual"}:
-            preferred_ingest = "auto"
-        source_library_item_key = str(
-            tool_call.arguments.get("source_library_item_key") or candidate.get("item_key") or ""
-        ).strip()
-        reason = str(tool_call.arguments.get("reason") or "").strip()
         idempotency_key = str(tool_call.arguments.get("idempotency_key") or "").strip()
-        review_key = idempotency_key or _source_candidate_review_key(
-            project_key=project_key, decision=decision, candidate=candidate
-        )
-        ingest_payload = _build_source_candidate_ingest_payload(
+        review = build_source_candidate_review_decision(
             project_key=project_key,
-            candidate=candidate,
-            decision=decision,
-            preferred_ingest=preferred_ingest,
-            source_library_item_key=source_library_item_key,
+            candidate=tool_call.arguments.get("candidate"),
+            decision=tool_call.arguments.get("decision"),
+            preferred_ingest=tool_call.arguments.get("preferred_ingest"),
+            source_library_item_key=tool_call.arguments.get("source_library_item_key"),
+            reason=tool_call.arguments.get("reason"),
+            idempotency_key=idempotency_key,
+            reviewed_at=utcnow_iso(),
+            source_call_id=tool_call.call_id,
         )
-        review: JSONObject = {
-            "review_key": review_key,
-            "decision": decision,
-            "reason": reason,
-            "candidate": candidate,
-            "preferred_ingest": preferred_ingest,
-            "source_library_item_key": source_library_item_key,
-            "ingest_payload": ingest_payload,
-            "next_gate": _source_candidate_next_gate(decision=decision, ingest_payload=ingest_payload),
-            "reviewed_at": utcnow_iso(),
-            "source_call_id": tool_call.call_id,
-        }
+        review_key = str(review["review_key"])
+        decision = str(review["decision"])
+        ingest_payload = json_object(review.get("ingest_payload")) or None
 
         artifacts = service.list_artifacts(request.session_id)
         if isinstance(artifacts, Failure):
@@ -2330,6 +2330,66 @@ def _source_candidate_review_handler(
         )
 
     return handler
+
+
+def build_source_candidate_review_decision(
+    *,
+    project_key: str,
+    candidate: object,
+    decision: object,
+    preferred_ingest: object = "auto",
+    source_library_item_key: object = "",
+    reason: object = "",
+    idempotency_key: str = "",
+    reviewed_at: str,
+    source_call_id: str,
+) -> Annotated[
+    JSONObject,
+    "kit:non-authoritative derived_as=decision fact_source=project_key+candidate+decision+ingest_policy witness=test:test_source_discovery_runtime_kernels_preserve_original_pure_decisions",
+]:
+    """Apply the original candidate-review decision and ingest-payload kernel.
+
+    Persistence is deliberately outside this pure kernel.  The established
+    Agent tool persists the returned decision in its session artifact, while
+    formal retrieval records the same decision in its Runtime typed output.
+    """
+
+    project_key = str(project_key or "").strip()
+    if not project_key:
+        raise ValueError("source candidate review requires a project key")
+    normalized_candidate = _normalize_source_candidate(_candidate_review_input(candidate))
+    normalized_decision = _normalize_source_candidate_decision(decision)
+    preferred = str(preferred_ingest or "auto").strip() or "auto"
+    if preferred not in {"auto", "url_pool", "source_library", "manual"}:
+        preferred = "auto"
+    item_key = str(source_library_item_key or normalized_candidate.get("item_key") or "").strip()
+    review_key = idempotency_key or _source_candidate_review_key(
+        project_key=project_key,
+        decision=normalized_decision,
+        candidate=normalized_candidate,
+    )
+    ingest_payload = _build_source_candidate_ingest_payload(
+        project_key=project_key,
+        candidate=normalized_candidate,
+        decision=normalized_decision,
+        preferred_ingest=preferred,
+        source_library_item_key=item_key,
+    )
+    return {
+        "review_key": review_key,
+        "decision": normalized_decision,
+        "reason": str(reason or "").strip(),
+        "candidate": normalized_candidate,
+        "preferred_ingest": preferred,
+        "source_library_item_key": item_key,
+        "ingest_payload": ingest_payload,
+        "next_gate": _source_candidate_next_gate(
+            decision=normalized_decision,
+            ingest_payload=ingest_payload,
+        ),
+        "reviewed_at": str(reviewed_at or "").strip(),
+        "source_call_id": str(source_call_id or "").strip(),
+    }
 
 
 def _normalize_source_candidate(value: object) -> JSONObject:
@@ -2446,6 +2506,8 @@ def _source_candidate_next_gate(*, decision: str, ingest_payload: JSONObject | N
 
 
 __all__ = [
+    "build_source_candidate_review_decision",
+    "build_source_discovery_search_queries",
     "query_project_tool_sources",
     "register_query_project_tools",
 ]

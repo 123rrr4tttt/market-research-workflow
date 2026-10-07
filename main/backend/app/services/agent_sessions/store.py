@@ -221,13 +221,6 @@ class AgentTaskTransitionMutation(TypedDict):
     changes: AgentTaskPayload
 
 
-class AgentTaskTransitionResult(TypedDict):
-    task: AgentTaskRecord
-    related_tasks: list[AgentTaskRecord]
-    session: AgentSessionRecord
-    events: list[AgentEventRecord]
-
-
 class AgentSessionTransitionResult(TypedDict):
     session: AgentSessionRecord
     events: list[AgentEventRecord]
@@ -551,8 +544,6 @@ class InMemoryAgentSessionStore:
                 session["goal"] = changes.get("goal") or ""
             if "status" in changes:
                 session["status"] = changes.get("status") or session["status"]
-            if "current_phase" in changes:
-                session["current_phase"] = changes.get("current_phase") or session["current_phase"]
             if "compat_mode" in changes:
                 session["compat_mode"] = bool(changes.get("compat_mode"))
             if "compat_job_id" in changes:
@@ -736,88 +727,6 @@ class InMemoryAgentSessionStore:
             item["updated_at"] = _as_iso(_utcnow())
             self._sessions[session_id]["updated_at"] = item["updated_at"]
             return _clone(item)
-
-    def transition_task(
-        self,
-        session_id: str,
-        *,
-        primary: AgentTaskTransitionMutation,
-        related: list[AgentTaskTransitionMutation],
-        session_changes: AgentSessionPayload,
-        events: list[AgentEventPayload],
-    ) -> AgentTaskTransitionResult | Failure:
-        mutations = [primary, *related]
-        if len({item["task_id"] for item in mutations}) != len(mutations):
-            return _failure("task_transition_conflict", "task transition contains duplicate task mutations")
-        if (failure := _json_fields_failure(session_changes, ("metadata", "final_result"))) is not None:
-            return failure
-        for mutation in mutations:
-            if (failure := _json_fields_failure(
-                mutation["changes"], ("task_spec", "metadata", "result_payload")
-            )) is not None:
-                return failure
-        for event in events:
-            if (failure := _json_fields_failure(event, ("payload",))) is not None:
-                return failure
-        with self._lock:
-            session = self._must_get_session_ref(session_id)
-            if isinstance(session, Failure):
-                return session
-            task_refs: dict[str, AgentTaskRecord] = {}
-            for mutation in mutations:
-                task = self._must_get_task_ref(session_id, mutation["task_id"])
-                if isinstance(task, Failure):
-                    return task
-                if (
-                    task["status"] not in mutation["expected_statuses"]
-                    or task.get("owner") != mutation["expected_owner"]
-                ):
-                    return _transition_precondition_failure(
-                        session_id=session_id,
-                        task_id=mutation["task_id"],
-                        status=task["status"],
-                        owner=task.get("owner"),
-                    )
-                task_refs[mutation["task_id"]] = task
-
-            session_before = _clone(session)
-            tasks_before = {task_id: _clone(task) for task_id, task in task_refs.items()}
-            events_before = _clone(self._events[session_id])
-            updated_tasks: dict[str, AgentTaskRecord] = {}
-            created_events: list[AgentEventRecord] = []
-            for mutation in mutations:
-                updated = self.update_task(session_id, mutation["task_id"], mutation["changes"])
-                if isinstance(updated, Failure):
-                    self._sessions[session_id] = session_before
-                    self._tasks[session_id].update(tasks_before)
-                    self._events[session_id] = events_before
-                    return updated
-                updated_tasks[mutation["task_id"]] = updated
-            updated_session = self.update_session(session_id, session_changes)
-            if isinstance(updated_session, Failure):
-                self._sessions[session_id] = session_before
-                self._tasks[session_id].update(tasks_before)
-                self._events[session_id] = events_before
-                return updated_session
-            for event in events:
-                created = self.append_event(
-                    session_id,
-                    event_type=event.get("event_type") or "task.updated",
-                    task_id=event.get("task_id"),
-                    payload=event.get("payload") or {},
-                )
-                if isinstance(created, Failure):
-                    self._sessions[session_id] = session_before
-                    self._tasks[session_id].update(tasks_before)
-                    self._events[session_id] = events_before
-                    return created
-                created_events.append(created)
-            return {
-                "task": updated_tasks[primary["task_id"]],
-                "related_tasks": [updated_tasks[item["task_id"]] for item in related],
-                "session": updated_session,
-                "events": created_events,
-            }
 
     def transition_session(
         self,
@@ -1425,7 +1334,6 @@ class SqlAgentSessionStore:
                 entrypoint_type=str(payload.get("entrypoint_type") or "chat"),
                 goal=str(payload.get("goal") or ""),
                 status=str(payload.get("status") or "pending"),
-                current_phase=str(payload.get("current_phase") or "research"),
                 compat_mode=bool(payload.get("compat_mode")),
                 compat_job_id=payload.get("compat_job_id"),
                 logical_task_list_key=payload.get("logical_task_list_key"),
@@ -1456,8 +1364,6 @@ class SqlAgentSessionStore:
                 row.goal = str(changes["goal"] or "")
             if "status" in changes:
                 row.status = str(changes["status"] or row.status)
-            if "current_phase" in changes:
-                row.current_phase = str(changes["current_phase"] or row.current_phase)
             if "compat_mode" in changes:
                 row.compat_mode = bool(changes["compat_mode"])
             if "compat_job_id" in changes:
@@ -1572,182 +1478,6 @@ class SqlAgentSessionStore:
             session.refresh(row)
             return _task_row_to_dict(row)
 
-    def transition_task(
-        self,
-        session_id: str,
-        *,
-        primary: AgentTaskTransitionMutation,
-        related: list[AgentTaskTransitionMutation],
-        session_changes: AgentSessionPayload,
-        events: list[AgentEventPayload],
-    ) -> AgentTaskTransitionResult | Failure:
-        mutations = [primary, *related]
-        task_ids = [item["task_id"] for item in mutations]
-        if len(set(task_ids)) != len(task_ids):
-            return _failure("task_transition_conflict", "task transition contains duplicate task mutations")
-        if (failure := _json_fields_failure(session_changes, ("metadata", "final_result"))) is not None:
-            return failure
-        for mutation in mutations:
-            if (failure := _json_fields_failure(
-                mutation["changes"], ("task_spec", "metadata", "result_payload")
-            )) is not None:
-                return failure
-        for event in events:
-            if (failure := _json_fields_failure(event, ("payload",))) is not None:
-                return failure
-
-        with SessionLocal() as session:
-            try:
-                parent = (
-                    session.query(AgentSession)
-                    .filter(AgentSession.session_id == session_id)
-                    .with_for_update()
-                    .one_or_none()
-                )
-                if parent is None:
-                    return _failure("session_not_found", f"session not found: {session_id}", session_id=session_id)
-                rows = (
-                    session.query(AgentTask)
-                    .filter(AgentTask.session_id == session_id, AgentTask.task_id.in_(sorted(task_ids)))
-                    .order_by(AgentTask.task_id.asc())
-                    .with_for_update()
-                    .all()
-                )
-                rows_by_id = {str(row.task_id): row for row in rows}
-                for mutation in mutations:
-                    row = rows_by_id.get(mutation["task_id"])
-                    if row is None:
-                        return _failure(
-                            "task_not_found",
-                            f"task not found: {mutation['task_id']}",
-                            session_id=session_id,
-                            task_id=mutation["task_id"],
-                        )
-                    if (
-                        str(row.status or "") not in mutation["expected_statuses"]
-                        or row.owner != mutation["expected_owner"]
-                    ):
-                        return _transition_precondition_failure(
-                            session_id=session_id,
-                            task_id=mutation["task_id"],
-                            status=str(row.status or ""),
-                            owner=row.owner,
-                        )
-
-                for mutation in mutations:
-                    row = rows_by_id[mutation["task_id"]]
-                    changes = mutation["changes"]
-                    if "parent_task_id" in changes:
-                        row.parent_task_id = changes["parent_task_id"]
-                    if "subject" in changes:
-                        row.subject = str(changes["subject"] or row.subject)
-                    if "description" in changes:
-                        row.description = changes["description"]
-                    if "task_type" in changes:
-                        row.task_type = str(changes["task_type"] or row.task_type)
-                    if "phase" in changes:
-                        row.phase = str(changes["phase"] or row.phase)
-                    if "status" in changes:
-                        row.status = str(changes["status"] or row.status)
-                    if "execution_mode" in changes:
-                        row.execution_mode = str(changes["execution_mode"] or row.execution_mode)
-                    if "owner" in changes:
-                        row.owner = changes["owner"]
-                    if "blocked_by" in changes:
-                        row.blocked_by = list(changes["blocked_by"] or [])
-                    if "blocks" in changes:
-                        row.blocks = list(changes["blocks"] or [])
-                    if "priority" in changes:
-                        row.priority = int(changes["priority"] or row.priority or 5)
-                    if "write_set" in changes:
-                        row.write_set = list(changes["write_set"] or [])
-                    if "read_set" in changes:
-                        row.read_set = list(changes["read_set"] or [])
-                    if "task_spec" in changes:
-                        row.task_spec = dict(changes["task_spec"] or {})
-                    if "metadata" in changes:
-                        row.metadata_json = dict(changes["metadata"] or {})
-                    if "result_summary" in changes:
-                        row.result_summary = changes["result_summary"]
-                    if "result_payload" in changes:
-                        row.result_payload = dict(changes["result_payload"] or {})
-                    if "tool_use_count" in changes:
-                        row.tool_use_count = int(changes["tool_use_count"] or 0)
-                    if "token_usage" in changes:
-                        row.token_usage = int(changes["token_usage"] or 0)
-                    if "last_activity" in changes:
-                        row.last_activity = changes["last_activity"]
-                    if "recent_activities" in changes:
-                        row.recent_activities = list(changes["recent_activities"] or [])
-                    if "summary_label" in changes:
-                        row.summary_label = changes["summary_label"]
-                    if "lease_until" in changes:
-                        row.lease_until = changes["lease_until"]
-                    if "claimed_at" in changes:
-                        row.claimed_at = changes["claimed_at"]
-                    if "started_at" in changes:
-                        row.started_at = changes["started_at"]
-                    if "completed_at" in changes:
-                        row.completed_at = changes["completed_at"]
-
-                if "source" in session_changes:
-                    parent.source = str(session_changes["source"] or "user")
-                if "project_key" in session_changes:
-                    parent.project_key = session_changes["project_key"]
-                if "entrypoint_type" in session_changes:
-                    parent.entrypoint_type = str(session_changes["entrypoint_type"] or "chat")
-                if "goal" in session_changes:
-                    parent.goal = str(session_changes["goal"] or "")
-                if "status" in session_changes:
-                    parent.status = str(session_changes["status"] or parent.status)
-                if "current_phase" in session_changes:
-                    parent.current_phase = str(session_changes["current_phase"] or parent.current_phase)
-                if "compat_mode" in session_changes:
-                    parent.compat_mode = bool(session_changes["compat_mode"])
-                if "compat_job_id" in session_changes:
-                    parent.compat_job_id = session_changes["compat_job_id"]
-                if "logical_task_list_key" in session_changes:
-                    parent.logical_task_list_key = session_changes["logical_task_list_key"]
-                if "root_task_id" in session_changes:
-                    parent.root_task_id = session_changes["root_task_id"]
-                if "metadata" in session_changes:
-                    parent.metadata_json = dict(session_changes["metadata"] or {})
-                if "final_summary" in session_changes:
-                    parent.final_summary = session_changes["final_summary"]
-                if "final_result" in session_changes:
-                    parent.final_result = dict(session_changes["final_result"] or {})
-
-                seq = int(
-                    session.query(func.coalesce(func.max(AgentEvent.seq), 0))
-                    .filter(AgentEvent.session_id == session_id)
-                    .scalar()
-                    or 0
-                )
-                event_rows: list[object] = []
-                for offset, event in enumerate(events, start=1):
-                    event_row = AgentEvent(
-                        session_id=session_id,
-                        seq=seq + offset,
-                        event_type=str(event.get("event_type") or "task.updated"),
-                        task_id=str(event.get("task_id") or "").strip() or None,
-                        payload=dict(event.get("payload") or {}),
-                    )
-                    session.add(event_row)
-                    event_rows.append(event_row)
-                parent.updated_at = _utcnow()
-                session.flush()
-                result: AgentTaskTransitionResult = {
-                    "task": _task_row_to_dict(rows_by_id[primary["task_id"]]),
-                    "related_tasks": [_task_row_to_dict(rows_by_id[item["task_id"]]) for item in related],
-                    "session": _session_row_to_dict(parent),
-                    "events": [_event_row_to_dict(row) for row in event_rows],
-                }
-                session.commit()
-                return result
-            except SQLAlchemyError as exc:
-                session.rollback()
-                return _backend_operation_failure("transition_task", exc)
-
     def transition_session(
         self,
         session_id: str,
@@ -1780,8 +1510,6 @@ class SqlAgentSessionStore:
                     )
                 if "status" in session_changes:
                     parent.status = str(session_changes["status"] or parent.status)
-                if "current_phase" in session_changes:
-                    parent.current_phase = str(session_changes["current_phase"] or parent.current_phase)
                 if "final_summary" in session_changes:
                     parent.final_summary = session_changes["final_summary"]
                 if "final_result" in session_changes:
@@ -1866,7 +1594,6 @@ class SqlAgentSessionStore:
                         entrypoint_type=str(session_create.get("entrypoint_type") or "chat"),
                         goal=str(session_create.get("goal") or ""),
                         status=str(session_create.get("status") or "pending"),
-                        current_phase=str(session_create.get("current_phase") or "research"),
                         compat_mode=bool(session_create.get("compat_mode")),
                         compat_job_id=session_create.get("compat_job_id"),
                         logical_task_list_key=session_create.get("logical_task_list_key"),
@@ -2198,8 +1925,6 @@ class SqlAgentSessionStore:
                     parent.goal = str(session_changes["goal"] or "")
                 if "status" in session_changes:
                     parent.status = str(session_changes["status"] or parent.status)
-                if "current_phase" in session_changes:
-                    parent.current_phase = str(session_changes["current_phase"] or parent.current_phase)
                 if "compat_mode" in session_changes:
                     parent.compat_mode = bool(session_changes["compat_mode"])
                 if "compat_job_id" in session_changes:

@@ -18,7 +18,7 @@ from app.services.source_library.resolver import run_item_payload
 
 
 class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
-    def test_run_item_payload_uses_controlled_parallel_search_batches(self) -> None:
+    def test_run_item_payload_executes_one_query_atom_with_full_terms(self) -> None:
         item = {
             "item_key": "handler.cluster.search_template",
             "channel_key": "generic_web.search_template",
@@ -32,42 +32,19 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
                 "expected_entry_type": "search_template",
             },
         }
-        seen = {"max_workers": None, "mapped_terms": [], "submitted_terms": []}
-
-        class _FakeExecutor:
-            def __init__(self, *, max_workers, thread_name_prefix):  # noqa: ANN001
-                seen["max_workers"] = max_workers
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):  # noqa: ANN001
-                return False
-
-            class _Future:
-                def __init__(self, value):  # noqa: ANN001
-                    self._value = value
-
-                def result(self):
-                    return self._value
-
-            def map(self, fn, iterable):
-                rows = list(iterable)
-                seen["mapped_terms"] = [list(x) for x in rows]
-                return [fn(row) for row in rows]
-
-            def submit(self, fn, *args, **kwargs):  # noqa: ANN001
-                if len(args) >= 2 and isinstance(args[1], list):
-                    seen["submitted_terms"].append(list(args[1]))
-                return self._Future(fn(*args, **kwargs))
-
         def _fake_run(**kwargs):
             query_terms = list(kwargs.get("query_terms") or [])
-            term = query_terms[0] if query_terms else ""
             return SimpleNamespace(
-                site_entries_used=[{"site_url": f"https://example.com/search?q={term}"}],
-                candidates=[f"https://example.com/posts/{term}"],
-                written={"urls_new": 1, "urls_skipped": 0},
+                site_entries_used=[
+                    {
+                        "site_url": f"https://example.com/search?q={term}",
+                        "site_policy": "keep",
+                        "search_service": "resilient",
+                    }
+                    for term in query_terms
+                ],
+                candidates=[f"https://example.com/posts/{term}" for term in query_terms],
+                written={"urls_new": len(query_terms), "urls_skipped": 0},
                 ingest_result={
                     "inserted": 0,
                     "updated": 0,
@@ -79,10 +56,10 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
                 errors=[],
             )
 
-        with patch("app.services.source_library.resolver.ThreadPoolExecutor", _FakeExecutor), patch(
+        with patch(
             "app.services.resource_pool.unified_search_by_item_payload",
             side_effect=_fake_run,
-        ), patch(
+        ) as mocked_search, patch(
             "app.services.source_library.resolver.run_item_with_url_routing",
             return_value={"inserted": 0, "updated": 0, "skipped": 0, "errors": [], "by_url": []},
         ):
@@ -94,23 +71,74 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
                     "query_terms": ["alpha", "beta", "gamma"],
                     "keyword_batch_size": 1,
                     "search_parallelism": 2,
+                    "per_keyword_limit": 2,
                     "_allow_internal_generic_web": True,
                 },
             )
 
-        self.assertEqual(seen["max_workers"], 2)
-        self.assertEqual(seen["submitted_terms"], [["alpha"], ["beta"], ["gamma"]])
+        self.assertEqual(mocked_search.call_count, 1)
+        self.assertEqual(mocked_search.call_args.kwargs["query_terms"], ["alpha", "beta", "gamma"])
+        self.assertEqual(mocked_search.call_args.kwargs["max_candidates"], 6)
         self.assertEqual(
             raw["result"]["candidates"],
             ["https://example.com/posts/alpha", "https://example.com/posts/beta", "https://example.com/posts/gamma"],
         )
-        self.assertEqual(raw["result"]["search_parallelism"], 2)
-        self.assertEqual(raw["result"]["concurrency_plan"]["search"]["parallelism"], 2)
-        self.assertEqual(raw["result"]["fetch_diagnostics"]["concurrency"]["search"]["budget"], 3)
+        self.assertEqual(raw["result"]["query_term_batches"], [["alpha", "beta", "gamma"]])
+        self.assertEqual(raw["result"]["batches_total"], 1)
+        self.assertEqual(raw["result"]["search_parallelism"], 1)
+        self.assertEqual(raw["result"]["concurrency_plan"]["search"]["requested_parallelism"], 2)
+        search_execution = raw["result"]["fetch_diagnostics"]["concurrency"]["search"]
+        self.assertEqual(search_execution["budget"], 1)
+        self.assertEqual(search_execution["parallelism"], 1)
+        self.assertEqual(search_execution["tasks_total"], 1)
+        self.assertEqual(raw["result"]["site_entry_count"], 3)
+        self.assertEqual(
+            raw["result"]["candidate_pipeline"]["candidate_generation"]["site_policy_breakdown"],
+            {"keep": 3},
+        )
+        self.assertEqual(
+            raw["result"]["candidate_pipeline"]["candidate_generation"]["search_service_breakdown"],
+            {"resilient": 3},
+        )
         self.assertEqual(raw["result"]["candidate_pipeline"]["mode"], "query_search_candidate_fetch")
         self.assertFalse(raw["result"]["candidate_pipeline"]["candidate_generation"]["candidate_sources_are_fetch_targets"])
-        self.assertEqual(raw["result"]["candidate_pipeline"]["candidate_generation"]["search_service_breakdown"], {})
-        self.assertEqual(raw["result"]["candidate_pipeline"]["candidate_generation"]["site_policy_breakdown"], {})
+
+    def test_run_item_payload_preserves_search_failure_for_full_query_atom(self) -> None:
+        item = {
+            "item_key": "handler.cluster.search_template",
+            "channel_key": "generic_web.search_template",
+            "enabled": True,
+            "params": {
+                "site_entries": ["https://example.com/search?q=%7B%7Dq%7D%7D"],
+                "expected_entry_type": "search_template",
+            },
+            "extra": {"stable_handler_cluster": True, "expected_entry_type": "search_template"},
+        }
+
+        with patch(
+            "app.services.resource_pool.unified_search_by_item_payload",
+            side_effect=RuntimeError("search unavailable"),
+        ) as mocked_search, patch(
+            "app.services.source_library.resolver.run_item_with_url_routing",
+        ) as routed_run:
+            raw = run_item_payload(
+                item=item,
+                channels=[],
+                project_key="demo_proj",
+                override_params={"query_terms": ["alpha", "beta"], "_allow_internal_generic_web": True},
+            )
+
+        self.assertEqual(mocked_search.call_count, 1)
+        self.assertEqual(mocked_search.call_args.kwargs["query_terms"], ["alpha", "beta"])
+        routed_run.assert_not_called()
+        self.assertEqual(raw["result"]["errors"], ["search unavailable"])
+        self.assertEqual(
+            raw["result"]["error_details"],
+            [{"error": "search unavailable", "query_terms": ["alpha", "beta"]}],
+        )
+        self.assertEqual(raw["result"]["candidates"], [])
+        self.assertEqual(raw["result"]["stats"], {"fetched": 0, "normalized": 0, "dropped": 0, "errors": 1})
+        self.assertEqual(raw["result"]["fetch_diagnostics"]["concurrency"]["search"]["tasks_total"], 1)
 
     def test_run_item_payload_handles_handler_cluster_inside_resolver(self) -> None:
         item = {
@@ -129,13 +157,12 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
 
         def _fake_run(**kwargs):
             query_terms = list(kwargs.get("query_terms") or [])
-            term = query_terms[0] if query_terms else ""
             return SimpleNamespace(
-                site_entries_used=[{"site_url": f"https://example.com/search?q={term}"}],
-                candidates=[f"https://example.com/posts/{term}"],
-                written={"urls_new": 1, "urls_skipped": 0},
+                site_entries_used=[{"site_url": f"https://example.com/search?q={term}"} for term in query_terms],
+                candidates=[f"https://example.com/posts/{term}" for term in query_terms],
+                written={"urls_new": len(query_terms), "urls_skipped": 0},
                 ingest_result={
-                    "inserted": 2,
+                    "inserted": 2 * len(query_terms),
                     "updated": 0,
                     "skipped": 0,
                     "inserted_valid": 2,
@@ -156,11 +183,14 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
                 override_params={"query_terms": ["alpha", "beta"], "keyword_batch_size": 1, "_allow_internal_generic_web": True},
             )
 
-        self.assertEqual(mocked.call_count, 2)
+        self.assertEqual(mocked.call_count, 1)
+        self.assertEqual(mocked.call_args.kwargs["query_terms"], ["alpha", "beta"])
+        self.assertEqual(mocked.call_args.kwargs["max_candidates"], 10)
         self.assertEqual(raw["channel_key"], "handler.cluster")
         self.assertEqual(raw["result"]["stats"]["fetched"], 2)
         self.assertEqual(raw["result"]["stats"]["normalized"], 2)
-        self.assertEqual(raw["result"]["batches_total"], 2)
+        self.assertEqual(raw["result"]["batches_total"], 1)
+        self.assertEqual(raw["result"]["query_term_batches"], [["alpha", "beta"]])
         self.assertEqual(raw["result"]["candidates"], ["https://example.com/posts/alpha", "https://example.com/posts/beta"])
         self.assertEqual(raw["result"]["middle_layer_protocol"]["front_door_owner"], "run_item_payload")
         self.assertEqual(raw["result"]["middle_layer_protocol"]["execution_mode"], "url_routing")
@@ -499,7 +529,7 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
         self.assertEqual(raw["result"]["middle_layer_protocol"]["route_decision"], "front_door_url_routing")
         self.assertEqual(raw["result"]["middle_layer_protocol"]["front_door_owner"], "run_item_payload")
 
-    def test_run_item_payload_preserves_first_seen_candidate_order_across_batches(self) -> None:
+    def test_run_item_payload_preserves_first_seen_candidate_order_in_query_atom(self) -> None:
         item = {
             "item_key": "handler.cluster.search_template",
             "channel_key": "generic_web.search_template",
@@ -522,10 +552,9 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
 
         def _fake_run(**kwargs):
             query_terms = list(kwargs.get("query_terms") or [])
-            term = query_terms[0] if query_terms else ""
             return SimpleNamespace(
-                site_entries_used=[{"site_url": f"https://example.com/search?q={term}"}],
-                candidates=batch_payloads.get(term, []),
+                site_entries_used=[{"site_url": f"https://example.com/search?q={term}"} for term in query_terms],
+                candidates=[url for term in query_terms for url in batch_payloads.get(term, [])],
                 written={"urls_new": 0, "urls_skipped": 0},
                 ingest_result={
                     "inserted": 0,
@@ -538,7 +567,7 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
                 errors=[],
             )
 
-        with patch("app.services.resource_pool.unified_search_by_item_payload", side_effect=_fake_run), patch(
+        with patch("app.services.resource_pool.unified_search_by_item_payload", side_effect=_fake_run) as mocked_search, patch(
             "app.services.source_library.resolver.run_item_with_url_routing",
             return_value={"inserted": 0, "updated": 0, "skipped": 0, "errors": [], "by_url": []},
         ):
@@ -546,9 +575,15 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
                 item=item,
                 channels=[],
                 project_key="demo_proj",
-                override_params={"query_terms": ["alpha", "beta", "gamma"], "keyword_batch_size": 1, "_allow_internal_generic_web": True},
+                override_params={
+                    "query_terms": ["alpha", "beta", "gamma"],
+                    "keyword_batch_size": 1,
+                    "_allow_internal_generic_web": True,
+                },
             )
 
+        self.assertEqual(mocked_search.call_count, 1)
+        self.assertEqual(mocked_search.call_args.kwargs["query_terms"], ["alpha", "beta", "gamma"])
         self.assertEqual(
             raw["result"]["candidates"],
             [
@@ -571,10 +606,12 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
     def test_source_library_adapter_always_delegates_to_run_item_payload(self) -> None:
         adapter = SourceLibraryAdapter()
         request = CollectRequest(
+            flow="source_collect",
             channel="source_library",
             project_key=None,
             item_key="handler.cluster.search_template",
             options={"override_params": {"query_terms": ["alpha"]}},
+            source_context={"summary": "执行来源项 handler.cluster.search_template"},
         )
         raw = {
             "item_key": "handler.cluster.search_template",
@@ -583,9 +620,7 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
             "result": {"inserted": 3, "updated": 1, "skipped": 0, "errors": []},
         }
 
-        with patch("app.services.collect_runtime.adapters.source_library.start_job", return_value=7), patch(
-            "app.services.collect_runtime.adapters.source_library.complete_job"
-        ), patch(
+        with patch(
             "app.services.source_library.resolver.list_effective_channels",
             return_value=[{"channel_key": "handler.cluster", "enabled": True}],
         ), patch(
@@ -618,6 +653,9 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
         self.assertEqual(result.inserted, 3)
         self.assertEqual(result.updated, 1)
         self.assertEqual(result.skipped, 0)
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(result.meta["raw"], raw)
+        self.assertEqual(result.meta["terminal_output"]["contract_version"], "source_library.terminal_output.v1")
 
 
 if __name__ == "__main__":

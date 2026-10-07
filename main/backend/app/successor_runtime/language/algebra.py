@@ -153,16 +153,20 @@ class _FrozenJsonObjectMarker(tuple[tuple[str, FrozenJsonValue], ...]):
 
 
 def _freeze_json_value(value: object) -> FrozenJsonValue:
+    if isinstance(value, _FrozenJsonObjectMarker):
+        return value
     if value is None or isinstance(value, (bool, int, float, str)):
         if isinstance(value, float) and not math.isfinite(value):
             # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
             raise ValueError("non-finite float is not a frozen JSON value")
         return value
     if _is_mapping(value):
-        pairs: list[tuple[str, FrozenJsonValue]] = []
-        for key_object, item_object in sorted(_mapping_items(value), key=lambda pair: str(pair[0])):
-            pairs.append((str(key_object), _freeze_json_value(item_object)))
-        return tuple(pairs)
+        return _FrozenJsonObjectMarker(
+            (str(key_object), _freeze_json_value(item_object))
+            for key_object, item_object in sorted(
+                _mapping_items(value), key=lambda pair: str(pair[0])
+            )
+        )
     if _is_sequence(value):
         return tuple(_freeze_json_value(item) for item in value)
     if _is_set(value):
@@ -224,11 +228,14 @@ def try_freeze_json_object(value: object) -> FrozenJsonObject | Failure:
             site="language.algebra.freeze_json_object.input",
         )
     try:
-        pairs = [
-            (str(key), _freeze_json_value(item))
-            for key, item in sorted(_mapping_items(value), key=lambda pair: str(pair[0]))
-        ]
-        result: FrozenJsonObject = _FrozenJsonObjectMarker(pairs)
+        result = _freeze_json_value(value)
+        if not is_frozen_json_object(result):
+            return language_failure(
+                "CANONICAL_VALUE_INVALID",
+                "expected a JSON object value",
+                TypeError,
+                site="language.algebra.freeze_json_object.value",
+            )
         return result
     except (TypeError, ValueError) as error:
         return language_failure(
@@ -237,6 +244,24 @@ def try_freeze_json_object(value: object) -> FrozenJsonObject | Failure:
             type(error),
             site="language.algebra.freeze_json_object.value",
         )
+
+
+def is_frozen_json_object(value: object) -> TypeGuard[_FrozenJsonObjectMarker]:
+    return isinstance(value, _FrozenJsonObjectMarker)
+
+
+def thaw_json_value(value: object) -> object:
+    """Restore declared JSON object/array shapes from a frozen Program value."""
+    if is_frozen_json_object(value):
+        return {key: thaw_json_value(item) for key, item in value}
+    if _is_mapping(value):
+        return {str(key): thaw_json_value(item) for key, item in value.items()}
+    if _is_set(value):
+        return [thaw_json_value(item) for item in sorted(value, key=str)]
+    if _is_sequence(value):
+        return [thaw_json_value(item) for item in value]
+    return value
+
 
 @runtime_checkable
 class _PlainEncodable(Protocol):

@@ -48,8 +48,6 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
                     "readback": {"provider_job_id": f"job-{first}", "terminal_status": "completed"},
                 }},
             )
-
-        runtime.reset_collect_adapters()
         runtime.register_successor_collect_effect_gateway(gateway)
         request = self._successor_request()
         try:
@@ -66,7 +64,6 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
             self.assertFalse(hasattr(runtime, "_successor_switch_configured"))
             self.assertFalse(hasattr(runtime, "_resolve_workflow_mode"))
         finally:
-            runtime.reset_collect_adapters()
             runtime.reset_successor_collect_effect_gateway()
         self.assertEqual(with_flags.status, "unknown")
         self.assertEqual(with_flags.meta["raw"]["reason"], "target_delivery_readback_required")
@@ -83,8 +80,6 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
         def gateway(request: CollectRequest) -> CollectResult:
             observed.append(request.channel)
             return CollectResult(channel=request.channel, status="completed")
-
-        runtime.reset_collect_adapters()
         runtime.register_successor_collect_effect_gateway(gateway)
         requests = [
             CollectRequest(channel="search.market", query_terms=["one"], project_key="project"),
@@ -96,7 +91,6 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
         try:
             results = [runtime.run_collect(request) for request in requests]
         finally:
-            runtime.reset_collect_adapters()
             runtime.reset_successor_collect_effect_gateway()
         self.assertEqual(observed, [
             "search.market", "search.policy", "source_library", "url_pool", "crawler.scrapy",
@@ -104,31 +98,53 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
         self.assertEqual([result.status for result in results], ["completed"] * 5)
 
     def test_missing_gateway_is_unknown_and_registry_has_no_product_dispatch(self):
-        calls = []
-
-        class _RegistryOnlyAdapter:
-            def run(self, request):
-                calls.append(request)
-                return CollectResult(channel=request.channel, status="completed")
-
-        runtime.reset_collect_adapters()
         runtime.reset_successor_collect_effect_gateway()
-        runtime.register_collect_skill("search.market", _RegistryOnlyAdapter())
         try:
             batched = runtime.run_collect(self._successor_request())
             single = runtime.run_collect(CollectRequest(channel="source_library", item_key="item"))
         finally:
-            runtime.reset_collect_adapters()
-        self.assertEqual(calls, [])
+            runtime.reset_successor_collect_effect_gateway()
+        self.assertFalse(hasattr(runtime, "_SKILL_REGISTRY"))
         self.assertEqual(batched.status, "unknown")
         self.assertEqual(batched.errors[0]["code"], "successor_effect_gateway_unavailable")
         self.assertEqual(single.status, "unknown")
         self.assertEqual(single.errors[0]["code"], "successor_effect_gateway_unavailable")
 
+    def test_policy_batch_uses_composed_elements(self):
+        calls: list[tuple[str, tuple[str, ...]]] = []
+
+        def gateway(request: CollectRequest) -> CollectResult:
+            calls.append((request.channel, tuple(request.query_terms)))
+            return CollectResult(
+                channel=request.channel,
+                status="failed",
+                provider_job_id=f"job-{request.query_terms[0]}",
+                errors=[{"code": "x", "message": "bad"}],
+                meta={"terminal_readback": {
+                    "kind": "terminal",
+                    "provider_job_id": f"job-{request.query_terms[0]}",
+                    "status": "failed",
+                }},
+            )
+
+        runtime.register_successor_collect_effect_gateway(gateway)
+        try:
+            result = runtime.run_collect(self._successor_request(channel="search.policy"))
+        finally:
+            runtime.reset_successor_collect_effect_gateway()
+
+        self.assertEqual(calls, [
+            ("search.policy", ("a1", "a2", "a3", "a4")),
+            ("search.policy", ("b1", "b2", "b3", "b4")),
+        ])
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.meta["raw"]["aggregate_kind"], "failed")
+        self.assertEqual(result.meta["raw"]["batches_total"], 2)
+
     def _successor_request(self, **kwargs):
         options = kwargs.pop("options", {})
         return CollectRequest(
-            channel="search.market",
+            channel=kwargs.pop("channel", "search.market"),
             project_key="successor-test",
             query_terms=["a1", "a2", "a3", "a4", "b1", "b2", "b3", "b4"],
             limit=80,
@@ -136,7 +152,7 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
             **kwargs,
         )
 
-    def test_successor_route_calls_typed_c3_interpreter_and_orders_outcomes(self):
+    def test_successor_route_orders_sync_outcomes(self):
         calls = []
 
         class _Adapter:
@@ -152,18 +168,10 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
                     provider_status="completed",
                     attempt_count=1,
                 )
-
-        runtime.reset_collect_adapters()
         adapter = _Adapter()
-        runtime.register_collect_skill("search.market", adapter)
         runtime.register_successor_collect_effect_gateway(adapter.run)
         try:
-            from app.successor_runtime.capabilities import acquisition_batch_interpreters as ci
-
-            original_interpret = ci.CollectTraversalSuccessorInterpreter.interpret
-            with patch("app.successor_runtime.capabilities.acquisition_batch_interpreters.CollectTraversalSuccessorInterpreter.interpret", autospec=True) as interpret:
-                interpret.side_effect = original_interpret
-                result = runtime.run_collect(self._successor_request())
+            result = runtime.run_collect(self._successor_request())
             self.assertEqual(result.status, "unknown")
             self.assertEqual(result.meta["raw"]["reason"], "target_delivery_readback_required")
             self.assertNotIn("aggregate_kind", result.meta["raw"])
@@ -182,9 +190,7 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
                 ["unknown", "unknown"],
             )
             self.assertEqual(len(calls), 2)
-            self.assertGreaterEqual(interpret.call_count, 2)
         finally:
-            runtime.reset_collect_adapters()
             runtime.reset_successor_collect_effect_gateway()
 
     def test_successor_partial_projection_is_not_completed(self):
@@ -209,10 +215,7 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
                         "kind": "terminal", "provider_job_id": "job-b2", "status": "completed",
                     }},
                 )
-
-        runtime.reset_collect_adapters()
         adapter = _Adapter()
-        runtime.register_collect_skill("search.market", adapter)
         runtime.register_successor_collect_effect_gateway(adapter.run)
         try:
             class FixedDatetime(datetime):
@@ -228,7 +231,6 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
             self.assertEqual(result.meta["raw"]["delivery_observations"][0]["observation"]["state"], "unknown")
             self.assertEqual(result.meta["raw"]["delivery_observations"][1]["observation"]["state"], "failed")
         finally:
-            runtime.reset_collect_adapters()
             runtime.reset_successor_collect_effect_gateway()
 
     def test_successor_all_failed_projection_is_failed(self):
@@ -243,17 +245,13 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
                         "kind": "terminal", "provider_job_id": "job-failed", "status": "failed",
                     }},
                 )
-
-        runtime.reset_collect_adapters()
         adapter = _Adapter()
-        runtime.register_collect_skill("search.market", adapter)
         runtime.register_successor_collect_effect_gateway(adapter.run)
         try:
             result = runtime.run_collect(self._successor_request())
             self.assertEqual(result.status, "failed")
             self.assertEqual(result.meta["raw"]["aggregate_kind"], "failed")
         finally:
-            runtime.reset_collect_adapters()
             runtime.reset_successor_collect_effect_gateway()
 
     def test_successor_fail_fast_projection_is_cancelled_and_keeps_receipts(self):
@@ -271,10 +269,7 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
                     provider_status="queued",
                     attempt_count=1,
                 )
-
-        runtime.reset_collect_adapters()
         adapter = _Adapter()
-        runtime.register_collect_skill("search.market", adapter)
         runtime.register_successor_collect_effect_gateway(adapter.run)
         try:
             result = runtime.run_collect(self._successor_request(options={"batch_fail_fast": True}))
@@ -283,8 +278,40 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
             self.assertEqual(result.meta["raw"]["typed_batch_results"][0]["receipt"]["provider_job_id"], "job-a")
             self.assertFalse(result.meta["raw"]["typed_batch_results"][0]["receipt"]["authoritative_readback"])
         finally:
-            runtime.reset_collect_adapters()
             runtime.reset_successor_collect_effect_gateway()
+
+    def test_successor_fail_fast_stops_after_first_failed_element(self):
+        calls: list[tuple[str, ...]] = []
+
+        def gateway(request: CollectRequest) -> CollectResult:
+            calls.append(tuple(request.query_terms))
+            return CollectResult(
+                channel=request.channel,
+                status="failed",
+                provider_job_id="job-a1",
+                errors=[{"code": "x", "message": "failed"}],
+                meta={"terminal_readback": {
+                    "kind": "terminal",
+                    "provider_job_id": "job-a1",
+                    "status": "failed",
+                }},
+            )
+
+        runtime.register_successor_collect_effect_gateway(gateway)
+        try:
+            result = runtime.run_collect(
+                self._successor_request(options={"batch_fail_fast": True})
+            )
+        finally:
+            runtime.reset_successor_collect_effect_gateway()
+
+        self.assertEqual(calls, [("a1", "a2", "a3", "a4")])
+        self.assertEqual(result.status, "cancelled")
+        self.assertEqual(len(result.meta["raw"]["typed_batch_results"]), 1)
+        self.assertEqual(
+            [row["execution_state"] for row in result.meta["raw"]["delivery_observations"]],
+            ["attempted", "not_attempted"],
+        )
 
     def test_successor_parallelism_remains_serial_without_capacity_and_write_scopes(self):
         active = 0
@@ -301,10 +328,7 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
                 with lock:
                     active -= 1
                 return CollectResult(channel=request.channel, status="completed", inserted=4, meta={"raw": {}, "terminal_readback": {"kind": "terminal", "status": "completed"}})
-
-        runtime.reset_collect_adapters()
         adapter = _Adapter()
-        runtime.register_collect_skill("search.market", adapter)
         runtime.register_successor_collect_effect_gateway(adapter.run)
         try:
             result = runtime.run_collect(self._successor_request(options={"batch_parallelism": 2}))
@@ -316,7 +340,6 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
             self.assertEqual(result.meta["batch_parallelism"], 1)
             self.assertEqual(result.meta["batch_parallelism_requested"], 2)
         finally:
-            runtime.reset_collect_adapters()
             runtime.reset_successor_collect_effect_gateway()
 
     def test_collect_delivery_uses_source_library_terminal_readback_and_job_identity(self):
@@ -335,7 +358,7 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
         result.meta["terminal_output"]["meta"]["terminal_readback"]["readback"]["provider_job_id"] = "job-2"
         self.assertEqual(runtime._collect_delivery_observation(result).state, "unknown")
 
-    def test_successor_waiting_provider_remains_unknown_before_c3_fold(self):
+    def test_successor_waiting_provider_remains_unknown_before_fold(self):
         class _Gateway:
             def run(self, request):
                 return CollectResult(
@@ -359,7 +382,7 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
         finally:
             runtime.reset_successor_collect_effect_gateway()
 
-    def test_waiting_delivery_observation_survives_c3_count_rejection(self):
+    def test_waiting_delivery_observation_survives_count_rejection(self):
         def gateway(request: CollectRequest) -> CollectResult:
             return CollectResult(
                 channel=request.channel,

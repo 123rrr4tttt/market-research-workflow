@@ -89,20 +89,44 @@ def test_frozen_seed_101_102_statements_and_known_content_contract_are_pinned() 
     }
 
 
-def test_a01_a10_and_cw01_cw10_have_named_live_postgres_evidence() -> None:
-    source = "\n".join(
-        path.read_text(encoding="utf-8").lower() for path in P0C_LIVE_FILES
-    )
-    for index in range(1, 11):
-        assert f"a{index:02d}" in source, f"A{index:02d} lacks named P0-C evidence"
-        assert f"cw{index:02d}" in source, f"CW{index:02d} lacks named P0-C evidence"
+def test_current_p0c_runtime_obligations_have_live_postgres_evidence() -> None:
+    expected = {
+        "test_p0c_submission_postgres.py": {
+            "test_two_real_seed_documents_are_captured_atomically_with_typed_refs",
+            "test_second_document_failure_rolls_back_all_capture_values_and_objects",
+            "test_capture_retry_returns_durable_closure_without_document_reread",
+            "test_capture_value_readback_is_exact_after_engine_restart",
+        },
+        "test_p0c_two_nodes_postgres.py": {
+            "test_a01_cw04_two_isomorphic_nodes_each_execute_one_exact_assignment",
+            "test_backlog_survives_engine_restart_and_stale_node_cannot_claim",
+            "test_cw04_two_connections_cannot_hold_one_valid_lease_and_attempt",
+            "test_cw05_expired_pre_effect_lease_becomes_unknown_and_never_redispatches",
+            "test_a08_cw08_staged_artifact_reopens_exactly_without_upstream_reexecution",
+        },
+        "test_p0c_vertical_specimen_postgres.py": {
+            "test_runtime_material_identity_matches_the_exact_captured_document",
+            "test_a04_a05_a06_relation_only_claim_and_markdown_closure_are_durable",
+            "test_cw07_relation_and_runtime_event_share_one_real_postgres_transaction",
+        },
+        "test_p0c_delivery_recovery_postgres.py": {
+            "test_a07_stale_approval_or_authority_fails_before_internal_export",
+            "test_a10_cw10_effect_before_receipt_event_recovers_without_duplicate_export",
+            "test_cw06_outcome_unknown_waits_or_reads_back_and_reconciler_never_dispatches",
+            "test_a09_cw09_canonical_commit_before_event_recovers_by_readback",
+        },
+    }
+    for path in P0C_LIVE_FILES:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        observed = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        assert expected[path.name] <= observed
     assert ACCEPTANCE_DISPOSITION["A11"] == "P0_D_ONLY_NOT_CLAIMED"
     assert ACCEPTANCE_DISPOSITION["A12"] == "P0_D_ONLY_NOT_CLAIMED"
-    assert "test_a11" not in source
-    assert "test_a12" not in source
 
 
-def test_runtime_harness_never_reopens_legacy_documents_after_submission() -> None:
+def test_runtime_harness_never_reopens_legacy_documents_after_capture() -> None:
     adapter_name = "PostgresLegacyDocumentCanonicalReadAdapter"
     runtime_files = (
         HERE / "test_p0c_two_nodes_postgres.py",
@@ -113,7 +137,8 @@ def test_runtime_harness_never_reopens_legacy_documents_after_submission() -> No
         assert adapter_name not in path.read_text(encoding="utf-8"), path.name
     fixture = (HERE / "p0c_postgres_fixture.py").read_text(encoding="utf-8")
     assert fixture.count(adapter_name) >= 2
-    assert "document_port=" in fixture
+    assert "def capture_documents(" in fixture
+    assert "document_port:" in fixture
 
 
 def test_successor_runtime_has_no_legacy_service_or_migration_import() -> None:

@@ -222,10 +222,15 @@ def _dispatch_links_via_source_library_frontdoor(
 ) -> ResultRecord:
     if not links:
         return {"inserted": 0, "inserted_valid": 0, "skipped": 0, "queued": 0}
-    from .url_pool import collect_urls_from_list
+    from ..collect_runtime.contracts import (
+        CollectJsonObject,
+        CollectRequest,
+        source_library_compat_response,
+    )
+    from ..collect_runtime.runtime import run_collect
 
     project_key = (current_project_key() or "").strip() or None
-    merged_extra_params: JsonRecord = {
+    merged_extra_params: CollectJsonObject = {
         "dispatch_mode": "inline",
         "front_door_owner": "ingest.news",
         "frontdoor_route_decision": "front_door_url_routing",
@@ -233,14 +238,22 @@ def _dispatch_links_via_source_library_frontdoor(
         "frontdoor_execution_mode": "url_routing",
     }
     if isinstance(extra_params, dict) and extra_params:
-        merged_extra_params.update(extra_params)
-    return collect_urls_from_list(
-        links,
-        project_key=project_key,
-        query_terms=list(query_terms or []),
-        extra_params=merged_extra_params,
-        enable_extraction=True,
+        merged_extra_params.update(source_library_compat_response(extra_params))
+    collect_result = run_collect(
+        CollectRequest(
+            channel="url_pool",
+            project_key=project_key,
+            urls=links,
+            query_terms=list(query_terms or []),
+            options={**merged_extra_params, "enable_extraction": True},
+        )
     )
+    raw_result = collect_result.meta.get("raw")
+    if not isinstance(raw_result, dict):
+        return {}
+    routed: ResultRecord = {}
+    routed.update(raw_result)
+    return routed
 
 
 def _dispatch_links_to_single_url(

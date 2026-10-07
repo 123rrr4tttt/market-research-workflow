@@ -372,10 +372,14 @@ describe('ThreadsService', () => {
     ]);
     mockMrw.isBound.mockReturnValue(true);
 
-    await service.startTurn({
-      threadId: 't1',
-      input: [{ type: 'text', text: 'hello' }] as never,
-    });
+    const credentials = { codexAuth: 'original-mrw-token' };
+    await service.startTurn(
+      {
+        threadId: 't1',
+        input: [{ type: 'text', text: 'hello' }] as never,
+      },
+      credentials,
+    );
 
     expect(mockCodex.request).toHaveBeenCalledWith('turn/start', {
       threadId: 't1',
@@ -389,7 +393,12 @@ describe('ThreadsService', () => {
       'turn1',
       'hello',
     );
-    expect(mockMrw.recordInput).toHaveBeenCalledWith('t1', 'turn1', 'hello');
+    expect(mockMrw.recordInput).toHaveBeenCalledWith(
+      't1',
+      'turn1',
+      'hello',
+      credentials,
+    );
   });
 
   it('keeps an unbound turn input unchanged and skips record input', async () => {
@@ -466,16 +475,21 @@ describe('ThreadsService', () => {
     mockCodex.request.mockResolvedValue({ turnId: 'turn1' });
     mockMrw.isBound.mockReturnValue(true);
 
-    await service.steerTurn({
-      threadId: 't1',
-      expectedTurnId: 'turn1',
-      input: [{ type: 'text', text: 'keep going' }] as never,
-    });
+    const credentials = { sessionCookie: 'codex_session=original-session' };
+    await service.steerTurn(
+      {
+        threadId: 't1',
+        expectedTurnId: 'turn1',
+        input: [{ type: 'text', text: 'keep going' }] as never,
+      },
+      credentials,
+    );
 
     expect(mockMrw.recordInput).toHaveBeenCalledWith(
       't1',
       'turn1',
       'keep going',
+      credentials,
     );
   });
 

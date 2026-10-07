@@ -1,20 +1,22 @@
 import { moduleManifest } from '../../kernel/moduleManifest'
 import { moduleRendererBindings } from '../../kernel/moduleContributionRule'
+import type { ModuleManifestEntry } from '../../kernel/types'
 import { resolveInteractionSurface } from '../../topology/contracts'
 import type { InteractionSurface } from '../../topology/surfaces'
 import type { ModuleDescriptor, ModuleNavGroupKey, RegisteredNavMode } from './types'
 
-function defineModule(mode: RegisteredNavMode, navGroupKey: ModuleNavGroupKey, hash: string, visibleInNav: boolean, enabled: boolean): ModuleDescriptor {
+function defineModule(entry: ModuleManifestEntry): ModuleDescriptor {
+  const mode = entry.moduleKey
   const interactionProfile = resolveInteractionSurface(mode) === 'workbench' ? 'workbench' : 'standard'
   return {
     mode,
-    hash,
-    titleKey: `shell.title.${mode}`,
-    navLabelKey: `navigation.item.${mode}`,
-    navGroupKey,
+    hash: `#${entry.entryRoute}`,
+    titleKey: entry.titleKey,
+    navLabelKey: entry.navLabelKey,
+    navGroupKey: entry.navGroupKey,
     interactionProfile,
-    visibleInNav,
-    enabled,
+    visibleInNav: entry.visibleInNav,
+    enabled: entry.enabled,
     rendererBinding: moduleRendererBindings[mode],
   }
 }
@@ -22,13 +24,7 @@ function defineModule(mode: RegisteredNavMode, navGroupKey: ModuleNavGroupKey, h
 export const moduleRegistry: Record<RegisteredNavMode, ModuleDescriptor> = Object.fromEntries(
   moduleManifest.map((entry) => [
       entry.moduleKey,
-      defineModule(
-        entry.moduleKey,
-        entry.navGroupKey,
-        `#${entry.entryRoute}`,
-        entry.visibleInNav,
-        entry.enabled,
-      ),
+      defineModule(entry),
   ]),
 ) as Record<RegisteredNavMode, ModuleDescriptor>
 

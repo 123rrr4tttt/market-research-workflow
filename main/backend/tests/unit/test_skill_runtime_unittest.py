@@ -65,6 +65,23 @@ def _session_id(bundle: object) -> str:
 
 
 class SkillRuntimeUnitTest(unittest.TestCase):
+    def test_context_bound_handler_keeps_actor_proof_outside_payload(self):
+        from app.services.request_identity import authenticated_actor_context
+        actor = authenticated_actor_context(actor_id="trusted-skill-actor", source="test", auth_mode="session")
+        seen = []
+        def handler(payload, *, invocation_context):
+            seen.append((payload, invocation_context["actor_context"]))
+            return {"accepted": True}
+        runtime = _runtime()
+        runtime.register(skill_id="test.context", handler=handler, pass_invocation_context=True)
+        payload = {"actor_id": "forged", "invocation_context": {"actor_context": "forged"}}
+        runtime.invoke(skill_id="test.context", payload=payload, context={"actor_context": actor})
+        self.assertIs(seen[0][1], actor)
+        self.assertEqual(seen[0][0], payload)
+        with self.assertRaises(TypeError):
+            runtime.invoke(skill_id="test.context", kwargs={"invocation_context": {"actor_context": "forged"}})
+        self.assertEqual(len(seen), 1)
+
     def test_register_and_invoke_skill(self):
         runtime = _runtime()
         runtime.register(
@@ -284,102 +301,6 @@ class SkillRuntimeUnitTest(unittest.TestCase):
             },
         )
         self.assertEqual(_object_mapping(out["result"])["ok"], "done")
-
-    def test_write_shared_rejects_conflicting_active_write_set(self):
-        runtime = _runtime()
-        runtime.register(
-            skill_id="test.shared_write",
-            handler=_identity,
-            required_permissions=("test.invoke",),
-            concurrency_class="write_shared",
-        )
-        service = AgentSessionService(store=InMemoryAgentSessionStore())
-        bundle: object = service.create_session(
-            source="user",
-            entrypoint_type="chat",
-            goal="Write shared conflict",
-            task_blueprints=[
-                {
-                    "task_id": "impl-a",
-                    "subject": "Implementation A",
-                    "task_type": "implementation",
-                    "phase": "implementation",
-                    "write_set": ["file:a.py"],
-                },
-                {
-                    "task_id": "impl-b",
-                    "subject": "Implementation B",
-                    "task_type": "implementation",
-                    "phase": "implementation",
-                    "write_set": ["file:a.py"],
-                },
-            ],
-        )
-        session_id = _session_id(bundle)
-        service.claim_task(session_id, "impl-a", owner="worker-a")
-
-        with patch("app.services.skill_runtime.get_agent_session_service", return_value=service):
-            with self.assertRaises(RuntimeError) as exc:
-                runtime.invoke(
-                    skill_id="test.shared_write",
-                    payload={"value": "x"},
-                    context={
-                        "actor_role": "orchestration_runtime",
-                        "permissions": ["test.invoke"],
-                        "agent_session_id": session_id,
-                        "agent_task_id": "impl-b",
-                    },
-                )
-        self.assertIn("write_set_conflict", str(exc.exception))
-        events: object = service.list_events(session_id)
-        self.assertTrue(any(_object_mapping(item)["event_type"] == "skill.write_conflict" for item in _object_list(events)))
-
-    def test_write_shared_allows_non_conflicting_write_set(self):
-        runtime = _runtime()
-        runtime.register(
-            skill_id="test.shared_write",
-            handler=_ok,
-            required_permissions=("test.invoke",),
-            concurrency_class="write_shared",
-        )
-        service = AgentSessionService(store=InMemoryAgentSessionStore())
-        bundle: object = service.create_session(
-            source="user",
-            entrypoint_type="chat",
-            goal="Write shared no conflict",
-            task_blueprints=[
-                {
-                    "task_id": "impl-a",
-                    "subject": "Implementation A",
-                    "task_type": "implementation",
-                    "phase": "implementation",
-                    "write_set": ["file:a.py"],
-                },
-                {
-                    "task_id": "impl-b",
-                    "subject": "Implementation B",
-                    "task_type": "implementation",
-                    "phase": "implementation",
-                    "write_set": ["file:b.py"],
-                },
-            ],
-        )
-        session_id = _session_id(bundle)
-        service.claim_task(session_id, "impl-a", owner="worker-a")
-
-        with patch("app.services.skill_runtime.get_agent_session_service", return_value=service):
-            out = runtime.invoke(
-                skill_id="test.shared_write",
-                payload={"value": "done"},
-                context={
-                    "actor_role": "orchestration_runtime",
-                    "permissions": ["test.invoke"],
-                    "agent_session_id": session_id,
-                    "agent_task_id": "impl-b",
-                },
-            )
-        self.assertEqual(_object_mapping(out["result"])["ok"], "done")
-
 
 if __name__ == "__main__":
     unittest.main()

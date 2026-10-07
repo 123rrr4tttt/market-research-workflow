@@ -31,10 +31,12 @@ class SourceLibraryHandlerClusterUnitTestCase(unittest.TestCase):
     def test_source_library_adapter_uses_run_item_payload_for_handler_cluster_items(self) -> None:
         adapter = SourceLibraryAdapter()
         request = CollectRequest(
+            flow="source_collect",
             channel="source_library",
             project_key="demo_proj",
             item_key="handler.cluster.search_template",
             options={"override_params": {"query_terms": ["Humane AI Pin"]}},
+            source_context={"summary": "执行来源项 handler.cluster.search_template"},
         )
         raw = {
             "item_key": "handler.cluster.search_template",
@@ -44,9 +46,6 @@ class SourceLibraryHandlerClusterUnitTestCase(unittest.TestCase):
         }
 
         with (
-            patch("app.services.collect_runtime.adapters.source_library.start_job", return_value="job-test-1"),
-            patch("app.services.collect_runtime.adapters.source_library.complete_job"),
-            patch("app.services.collect_runtime.adapters.source_library.fail_job"),
             patch(
                 "app.services.source_library.resolver.list_effective_channels",
                 return_value=[{"channel_key": "handler.cluster", "enabled": True}],
@@ -78,7 +77,12 @@ class SourceLibraryHandlerClusterUnitTestCase(unittest.TestCase):
             override_params={"query_terms": ["Humane AI Pin"]},
         )
         self.assertEqual(result.inserted, 1)
+        self.assertEqual(result.status, "completed")
         self.assertEqual(((result.meta or {}).get("raw") or {}).get("channel_key"), "handler.cluster")
+        self.assertEqual(
+            ((result.meta or {}).get("terminal_output") or {}).get("contract_version"),
+            "source_library.terminal_output.v1",
+        )
 
     def test_handler_cluster_adapter_reports_site_search_taxonomy(self) -> None:
         with patch("app.services.resource_pool.unified_search_by_item_payload") as unified_search:

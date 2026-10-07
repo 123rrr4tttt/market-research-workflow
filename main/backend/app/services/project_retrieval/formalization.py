@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from hashlib import sha256
 import json
+from dataclasses import asdict, dataclass
 from typing import Any, cast
 
 from functorial_kit import Failure
@@ -20,6 +21,49 @@ from .failures import ProjectRetrievalFailureCode, retrieval_failure
 
 
 ModelInvoke = Callable[[str], object]
+
+
+@dataclass(frozen=True, slots=True)
+class FormalizationDocument:
+    document_id: str
+    title: str
+    url: str
+    updated_at: str
+    body_digest: str
+    body: str
+
+
+@dataclass(frozen=True, slots=True)
+class FormalizationVocabulary:
+    name: str
+    node_types: tuple[str, ...]
+    edge_types: tuple[str, ...]
+    outline_sections: tuple[str, ...]
+    pools: tuple[str, ...]
+    grades: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class FormalizationRoute:
+    route_id: str
+    pool: str
+    outline_sections: tuple[str, ...]
+    node_types: tuple[str, ...]
+    target_edges: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class FormalizationInput:
+    project_key: str
+    plan_id: str
+    route_id: str
+    query_id: str
+    candidate_id: str
+    document: FormalizationDocument
+    domain_vocabulary: FormalizationVocabulary
+    route: FormalizationRoute
+    run_id: str | None = None
+    session_id: str | None = None
 
 _RELATION_CLASSES = frozenset({"线索链", "逻辑依赖", "证据网"})
 _VOCABULARY_KEYS = {
@@ -114,31 +158,49 @@ def _only_keys(
     return None
 
 
-def _vocabulary(raw: object) -> dict[str, Any] | Failure:
+def _vocabulary_text(value: Mapping[str, Any], aliases: tuple[str, str], path: str) -> str | Failure:
+    selected = [value[key] for key in aliases if key in value]
+    if len(selected) != 1:
+        return _invalid("FORMALIZATION_INPUT_INVALID", f"expected exactly one of {list(aliases)}", path)
+    return _text(selected[0], path, code="FORMALIZATION_INPUT_INVALID")
+
+
+def _vocabulary_list(value: Mapping[str, Any], aliases: tuple[str, str], path: str) -> list[str] | Failure:
+    selected = [value[key] for key in aliases if key in value]
+    if len(selected) != 1:
+        return _invalid("FORMALIZATION_INPUT_INVALID", f"expected exactly one of {list(aliases)}", path)
+    return _string_list(selected[0], path, code="FORMALIZATION_INPUT_INVALID")
+
+
+def _vocabulary(raw: object) -> FormalizationVocabulary | Failure:
     value = _object(raw, "domain_vocabulary", code="FORMALIZATION_INPUT_INVALID")
     if isinstance(value, Failure):
         return value
-    result: dict[str, Any] = {}
-    for canonical, aliases in _VOCABULARY_KEYS.items():
-        selected = [value[key] for key in aliases if key in value]
-        if len(selected) != 1:
-            return _invalid(
-                "FORMALIZATION_INPUT_INVALID",
-                f"expected exactly one of {list(aliases)}",
-                f"domain_vocabulary.{canonical}",
-            )
-        member = (_text(selected[0], f"domain_vocabulary.{canonical}",
-                        code="FORMALIZATION_INPUT_INVALID")
-                  if canonical == "name" else
-                  _string_list(selected[0], f"domain_vocabulary.{canonical}",
-                               code="FORMALIZATION_INPUT_INVALID"))
-        if isinstance(member, Failure):
-            return member
-        result[canonical] = member
-    return result
+    name = _vocabulary_text(value, ("name", "域名"), "domain_vocabulary.name")
+    if isinstance(name, Failure):
+        return name
+    node_types = _vocabulary_list(value, ("node_types", "节点类型"), "domain_vocabulary.node_types")
+    if isinstance(node_types, Failure):
+        return node_types
+    edge_types = _vocabulary_list(value, ("edge_types", "边类型"), "domain_vocabulary.edge_types")
+    if isinstance(edge_types, Failure):
+        return edge_types
+    outline_sections = _vocabulary_list(value, ("outline_sections", "大纲节"), "domain_vocabulary.outline_sections")
+    if isinstance(outline_sections, Failure):
+        return outline_sections
+    pools = _vocabulary_list(value, ("pools", "池"), "domain_vocabulary.pools")
+    if isinstance(pools, Failure):
+        return pools
+    grades = _vocabulary_list(value, ("grades", "档"), "domain_vocabulary.grades")
+    if isinstance(grades, Failure):
+        return grades
+    return FormalizationVocabulary(
+        name=name, node_types=tuple(node_types), edge_types=tuple(edge_types),
+        outline_sections=tuple(outline_sections), pools=tuple(pools), grades=tuple(grades),
+    )
 
 
-def _input(payload: Mapping[str, Any]) -> dict[str, Any] | Failure:
+def _input(payload: Mapping[str, Any]) -> FormalizationInput | Failure:
     required = ("project_key", "plan_id", "route_id", "query_id", "candidate_id")
     identity: dict[str, str] = {}
     for key in required:
@@ -216,24 +278,33 @@ def _input(payload: Mapping[str, Any]) -> dict[str, Any] | Failure:
         return route_id
     if route_id != identity["route_id"]:
         return _invalid("FORMALIZATION_INPUT_INVALID", "route identity does not match payload", "route.route_id")
-    normalized_route: dict[str, Any] = {"route_id": route_id}
     pool = _text(route.get("pool"), "route.pool", code="FORMALIZATION_INPUT_INVALID")
     if isinstance(pool, Failure):
         return pool
-    normalized_route["pool"] = pool
-    for key in ("outline_sections", "node_types", "target_edges"):
-        member = _string_list(route.get(key), f"route.{key}", code="FORMALIZATION_INPUT_INVALID")
-        if isinstance(member, Failure):
-            return member
-        normalized_route[key] = member
-    containment = (
-        ("pool", [normalized_route["pool"]], "pools"),
-        ("outline_sections", normalized_route["outline_sections"], "outline_sections"),
-        ("node_types", normalized_route["node_types"], "node_types"),
-        ("target_edges", normalized_route["target_edges"], "edge_types"),
+    outline_sections = _string_list(route.get("outline_sections"), "route.outline_sections",
+                                    code="FORMALIZATION_INPUT_INVALID")
+    if isinstance(outline_sections, Failure):
+        return outline_sections
+    node_types = _string_list(route.get("node_types"), "route.node_types",
+                              code="FORMALIZATION_INPUT_INVALID")
+    if isinstance(node_types, Failure):
+        return node_types
+    target_edges = _string_list(route.get("target_edges"), "route.target_edges",
+                                code="FORMALIZATION_INPUT_INVALID")
+    if isinstance(target_edges, Failure):
+        return target_edges
+    normalized_route = FormalizationRoute(
+        route_id=route_id, pool=pool, outline_sections=tuple(outline_sections),
+        node_types=tuple(node_types), target_edges=tuple(target_edges),
     )
-    for route_field, values, vocabulary_field in containment:
-        outside = sorted(set(values) - set(vocabulary[vocabulary_field]))
+    containment = (
+        ("pool", [pool], vocabulary.pools),
+        ("outline_sections", outline_sections, vocabulary.outline_sections),
+        ("node_types", node_types, vocabulary.node_types),
+        ("target_edges", target_edges, vocabulary.edge_types),
+    )
+    for route_field, values, allowed in containment:
+        outside = sorted(set(values) - set(allowed))
         if outside:
             return _invalid(
                 "FORMALIZATION_INPUT_INVALID",
@@ -255,11 +326,23 @@ def _input(payload: Mapping[str, Any]) -> dict[str, Any] | Failure:
             return query_route
         if query_route != identity["route_id"]:
             return _invalid("FORMALIZATION_INPUT_INVALID", "query belongs to another route", "query.route_id")
-    return {**identity, "document": normalized_document, "domain_vocabulary": vocabulary,
-            "route": normalized_route}
+    return FormalizationInput(
+        project_key=identity["project_key"], plan_id=identity["plan_id"],
+        route_id=identity["route_id"], query_id=identity["query_id"],
+        candidate_id=identity["candidate_id"],
+        document=FormalizationDocument(
+            document_id=normalized_document["document_id"],
+            title=normalized_document["title"], url=normalized_document["url"],
+            updated_at=normalized_document["updated_at"],
+            body_digest=normalized_document["body_digest"],
+            body=normalized_document["body"],
+        ),
+        domain_vocabulary=vocabulary, route=normalized_route,
+        run_id=identity.get("run_id"), session_id=identity.get("session_id"),
+    )
 
 
-def _prompt(value: Mapping[str, Any]) -> str:
+def _prompt(value: FormalizationInput) -> str:
     contract = {
         "status": "proposed | no_claim",
         "proposal": {
@@ -286,10 +369,10 @@ def _prompt(value: Mapping[str, Any]) -> str:
         "gaps": ["reason no defensible claim can be proposed, or remaining qualification"],
     }
     model_input = {
-        "project_key": value["project_key"], "plan_id": value["plan_id"],
-        "route_id": value["route_id"], "query_id": value["query_id"],
-        "candidate_id": value["candidate_id"], "document": value["document"],
-        "domain_vocabulary": value["domain_vocabulary"], "route": value["route"],
+        "project_key": value.project_key, "plan_id": value.plan_id,
+        "route_id": value.route_id, "query_id": value.query_id,
+        "candidate_id": value.candidate_id, "document": asdict(value.document),
+        "domain_vocabulary": asdict(value.domain_vocabulary), "route": asdict(value.route),
     }
     return (
         "Read the supplied document and return exactly one JSON object. Do not use markdown. "
@@ -341,7 +424,7 @@ def _gaps(value: object, *, required: bool) -> list[str] | Failure:
     return _string_list(value, "response.gaps", code="FORMALIZATION_RESPONSE_INVALID", nonempty=required)
 
 
-def _proposal(raw: object, source: Mapping[str, Any]) -> dict[str, Any] | Failure:
+def _proposal(raw: object, source: FormalizationInput) -> dict[str, Any] | Failure:
     code = "FORMALIZATION_PROPOSAL_INVALID"
     value = _object(raw, "response.proposal", code=code)
     if isinstance(value, Failure):
@@ -355,7 +438,7 @@ def _proposal(raw: object, source: Mapping[str, Any]) -> dict[str, Any] | Failur
         return _invalid(code, "expected at least one node", "response.proposal.nodes")
     nodes: list[dict[str, str]] = []
     node_keys: set[str] = set()
-    allowed_node_types = set(source["domain_vocabulary"]["node_types"])
+    allowed_node_types = set(source.domain_vocabulary.node_types)
     for index, raw_node in enumerate(cast(list[object], raw_nodes)):
         path = f"response.proposal.nodes[{index}]"
         node = _object(raw_node, path, code=code)
@@ -402,13 +485,13 @@ def _proposal(raw: object, source: Mapping[str, Any]) -> dict[str, Any] | Failur
     if normalized_judgment["from_key"] not in node_keys or normalized_judgment["to_key"] not in node_keys:
         return _invalid(code, "judgment endpoints must refer to proposed node local keys",
                         "response.proposal.judgment")
-    if normalized_judgment["edge_type"] not in source["route"]["target_edges"]:
+    if normalized_judgment["edge_type"] not in source.route.target_edges:
         return _invalid(code, "edge type is outside the route and domain vocabulary",
                         "response.proposal.judgment.edge_type")
-    if normalized_judgment["outline_section"] not in source["route"]["outline_sections"]:
+    if normalized_judgment["outline_section"] not in source.route.outline_sections:
         return _invalid(code, "outline section is outside the route and domain vocabulary",
                         "response.proposal.judgment.outline_section")
-    if normalized_judgment["pools"] != [source["route"]["pool"]]:
+    if normalized_judgment["pools"] != [source.route.pool]:
         return _invalid(code, "judgment pools must equal the selected route pool",
                         "response.proposal.judgment.pools")
     if (any(item not in _RELATION_CLASSES for item in normalized_judgment["relation_classes"])
@@ -437,10 +520,10 @@ def _proposal(raw: object, source: Mapping[str, Any]) -> dict[str, Any] | Failur
     if type(evidence["conflict"]) is not bool:
         return _invalid(code, "conflict must be boolean", "response.proposal.evidence.conflict")
     normalized_evidence["conflict"] = evidence["conflict"]
-    if normalized_evidence["grade"] not in source["domain_vocabulary"]["grades"]:
+    if normalized_evidence["grade"] not in source.domain_vocabulary.grades:
         return _invalid(code, "evidence grade is outside the domain vocabulary",
                         "response.proposal.evidence.grade")
-    if normalized_evidence["original_excerpt"] not in source["document"]["body"]:
+    if normalized_evidence["original_excerpt"] not in source.document.body:
         return _invalid(code, "evidence excerpt is not an exact substring of document.body",
                         "response.proposal.evidence.original_excerpt")
     evidence_failure = validate_evidence_v2(normalized_evidence)
@@ -464,23 +547,23 @@ def _proposal(raw: object, source: Mapping[str, Any]) -> dict[str, Any] | Failur
         return _invalid(code, "clue scene_key must refer to a proposed node:现场 node",
                         "response.proposal.clue.scene_key")
 
-    document = source["document"]
+    document = source.document
     provenance = {
-        "project_key": source["project_key"], "plan_id": source["plan_id"],
-        "route_id": source["route_id"], "query_id": source["query_id"],
-        "candidate_id": source["candidate_id"],
-        "document_id": document["document_id"], "document_url": document["url"],
-        "document_updated_at": document["updated_at"], "body_digest": document["body_digest"],
+        "project_key": source.project_key, "plan_id": source.plan_id,
+        "route_id": source.route_id, "query_id": source.query_id,
+        "candidate_id": source.candidate_id,
+        "document_id": document.document_id, "document_url": document.url,
+        "document_updated_at": document.updated_at, "body_digest": document.body_digest,
     }
-    if "run_id" in source:
-        provenance["run_id"] = source["run_id"]
-    if "session_id" in source:
-        provenance["session_id"] = source["session_id"]
+    if source.run_id is not None:
+        provenance["run_id"] = source.run_id
+    if source.session_id is not None:
+        provenance["session_id"] = source.session_id
     return {"nodes": nodes, "judgment": normalized_judgment, "evidence": normalized_evidence,
             "clue": normalized_clue, "provenance": provenance}
 
 
-def _validated_response(response: Mapping[str, Any], source: Mapping[str, Any]) -> dict[str, Any] | Failure:
+def _validated_response(response: Mapping[str, Any], source: FormalizationInput) -> dict[str, Any] | Failure:
     status = response.get("status")
     if status == "no_claim":
         invalid = _only_keys(response, {"status", "gaps"}, "response", code="FORMALIZATION_RESPONSE_INVALID")
@@ -522,7 +605,13 @@ def formalize_document(
     source = _input(cast(Mapping[str, Any], payload))
     if isinstance(source, Failure):
         return _failure_result(source)
+    return formalize_normalized(source, model_invoke=model_invoke)
 
+
+def formalize_normalized(
+    source: FormalizationInput, *, model_invoke: ModelInvoke | None = None,
+) -> FormalizationResult:
+    """Run the provider-backed proposal against one already-normalized input."""
     prompt = _prompt(source)
     try:
         invoke = model_invoke

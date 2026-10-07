@@ -3,11 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from collections.abc import Callable, Mapping
 import json
-from typing import Literal, Protocol, TypeAlias, TypedDict
+from typing import Literal, NoReturn, Protocol, TypeAlias, TypedDict
+
+from functorial_kit.core.failure import Failure
 
 from mrw_functorial_kit.core.provider_port_failures import (
     CollectRuntimeFailureCode,
     CrawlerRuntimeFailureCode,
+    collect_runtime_failures,
 )
 
 FLOW_COLLECT = "collect"
@@ -73,6 +76,7 @@ class CollectFailure(TypedDict, total=False):
             "element_rejected",
             "runner_unavailable",
             "successor_effect_gateway_unavailable",
+            "url_pool_execution_failed",
         ]
     )
     family: CollectFailureFamily
@@ -115,16 +119,45 @@ class SourceLibraryCompatProjector(Protocol):
         ...
 
 
+def _compat_projector_failure(message: str, *, site: str) -> Failure:
+    return collect_runtime_failures.fail(
+        "compat_projector_contract_invalid",
+        message,
+        {"operation": "collect.runtime.compat_projector", "site": site},
+    )
+
+
+def _raise_compat_projector_failure(
+    failure: Failure,
+    *,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    if cause is not None:
+        # kit:boundary owner=collect_runtime.contracts.compat_projector class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=collect.runtime.failure witness=test:test_compat_response_rejects_non_json_and_non_object_payloads
+        raise TypeError(failure.message) from cause
+    # kit:boundary owner=collect_runtime.contracts.compat_projector class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=collect.runtime.failure witness=test:test_compat_response_rejects_non_json_and_non_object_payloads
+    raise TypeError(failure.message)
+
+
 def source_library_compat_response(value: object) -> SourceLibraryCompatResponse:
     """Validate the adapter-owned projection at its single composition seam."""
 
     try:
         encoded = json.dumps(value, allow_nan=False, ensure_ascii=False)
     except (TypeError, ValueError) as exc:
-        # kit:boundary owner=collect_runtime.contracts.compat_projector class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=collect.runtime.failure witness=test:test_compat_response_rejects_non_json_and_non_object_payloads
-        raise TypeError("source-library compatibility response must be JSON") from exc
+        _raise_compat_projector_failure(
+            _compat_projector_failure(
+                "source-library compatibility response must be JSON",
+                site="source_library_compat_response.encode",
+            ),
+            cause=exc,
+        )
     decoded: CollectJsonValue = json.loads(encoded)
     if not isinstance(decoded, dict):
-        # kit:boundary owner=collect_runtime.contracts.compat_projector class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=collect.runtime.failure witness=test:test_compat_response_rejects_non_json_and_non_object_payloads
-        raise TypeError("source-library compatibility response must be a JSON object")
+        _raise_compat_projector_failure(
+            _compat_projector_failure(
+                "source-library compatibility response must be a JSON object",
+                site="source_library_compat_response.decode",
+            )
+        )
     return decoded

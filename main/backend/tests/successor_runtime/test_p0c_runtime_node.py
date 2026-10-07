@@ -4,6 +4,7 @@ import hashlib
 from collections import deque
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from app.successor_runtime.language.object_contracts import (
     OperationContractRef,
@@ -18,6 +19,7 @@ from app.successor_runtime.runtime.assignments import (
     ReturnContractBinding,
     RuntimeAssignment,
 )
+from app.successor_runtime.runtime.authority_grants import AuthorityGrantUnavailable
 from app.successor_runtime.runtime.claims import ClaimBinding
 from app.successor_runtime.runtime.node import (
     ClaimRunState,
@@ -367,6 +369,70 @@ class FakeOutcomeCommitter:
         self.committed.append((claim, outcome, expected_revision))
 
 
+class StartAcknowledgementLostCommitter(FakeOutcomeCommitter):
+    def begin_in_flight(
+        self,
+        *,
+        control_scope: ControlPlaneScope,
+        claim: RuntimeClaim,
+        expected_revision: int,
+        started_at: datetime,
+    ) -> RuntimeClaim:
+        super().begin_in_flight(
+            control_scope=control_scope,
+            claim=claim,
+            expected_revision=expected_revision,
+            started_at=started_at,
+        )
+        raise RuntimeError("durable start acknowledgement lost")
+
+
+class UnstructuredStartReceiptCommitter(FakeOutcomeCommitter):
+    def __init__(self) -> None:
+        super().__init__()
+        self.input_claim: RuntimeClaim | None = None
+
+    def begin_in_flight(
+        self,
+        *,
+        control_scope: ControlPlaneScope,
+        claim: RuntimeClaim,
+        expected_revision: int,
+        started_at: datetime,
+    ) -> RuntimeClaim:
+        self.input_claim = claim
+        super().begin_in_flight(
+            control_scope=control_scope,
+            claim=claim,
+            expected_revision=expected_revision,
+            started_at=started_at,
+        )
+        return cast(RuntimeClaim, None)
+
+
+class ForeignAssignmentStartReceiptCommitter(FakeOutcomeCommitter):
+    def __init__(self) -> None:
+        super().__init__()
+        self.input_claim: RuntimeClaim | None = None
+
+    def begin_in_flight(
+        self,
+        *,
+        control_scope: ControlPlaneScope,
+        claim: RuntimeClaim,
+        expected_revision: int,
+        started_at: datetime,
+    ) -> RuntimeClaim:
+        self.input_claim = claim
+        started = super().begin_in_flight(
+            control_scope=control_scope,
+            claim=claim,
+            expected_revision=expected_revision,
+            started_at=started_at,
+        )
+        return replace(started, assignment=_assignment("foreign-work"))
+
+
 class CurrentGuard:
     def __init__(self) -> None:
         self.cancellation_checks: list[str] = []
@@ -398,7 +464,7 @@ class CurrentGuard:
         )
 
 
-class StaleAuthorityGuard(CurrentGuard):
+class MissingAuthorityGrantGuard(CurrentGuard):
     def require_current_authority(
         self,
         *,
@@ -413,7 +479,26 @@ class StaleAuthorityGuard(CurrentGuard):
             expected_authority_epoch=expected_authority_epoch,
             observed_at=observed_at,
         )
-        raise RuntimeError("authority stale before effect")
+        raise AuthorityGrantUnavailable("no current authority grant")
+
+
+class StaleAfterStartAuthorityGuard(CurrentGuard):
+    def require_current_authority(
+        self,
+        *,
+        claim: RuntimeClaim,
+        expected_authority_digest: str,
+        expected_authority_epoch: int,
+        observed_at: datetime,
+    ) -> None:
+        super().require_current_authority(
+            claim=claim,
+            expected_authority_digest=expected_authority_digest,
+            expected_authority_epoch=expected_authority_epoch,
+            observed_at=observed_at,
+        )
+        if len(self.authority_checks) == 2:
+            raise RuntimeError("authority stale after durable start")
 
 
 def _node(
@@ -609,7 +694,7 @@ def test_missing_exact_installation_stays_non_terminal_before_effect() -> None:
     assert "DIFFERENT_HANDLER_DIGEST" in (result.failure_code or "")
 
 
-def test_cancel_authority_guard_is_rechecked_before_effect() -> None:
+def test_missing_current_grant_rejects_without_start_or_terminal_commit() -> None:
     assignment = _assignment("work-stale-authority")
     queue = FakeClaimBatch((PendingClaim(assignment),))
     handler = DeterministicSimulationInterpreter(
@@ -617,19 +702,122 @@ def test_cancel_authority_guard_is_rechecked_before_effect() -> None:
         {assignment.work_item_id: InterpreterOutcome.succeeded(_digest("result"))},
     )
     commits = FakeOutcomeCommitter()
-    guard = StaleAuthorityGuard()
+    guard = MissingAuthorityGrantGuard()
 
     report = _node("node-1", queue, handler, commits, guard=guard).run_once()
 
     result = report.results[0]
+    assert result.state is ClaimRunState.REJECTED
+    assert result.disposition is EffectDisposition.NOT_STARTED
+    assert result.executed is False
+    assert result.committed is False
+    assert handler.executions == []
+    assert commits.started == []
+    assert commits.committed == []
+    assert len(guard.cancellation_checks) == 1
+    assert len(guard.authority_checks) == 1
+    assert result.failure_code == "AUTHORITY_GRANT_INVALID"
+
+
+def test_authority_rejection_after_durable_start_uses_started_failure_path() -> None:
+    assignment = _assignment("work-stale-authority-after-start")
+    queue = FakeClaimBatch((PendingClaim(assignment),))
+    handler = DeterministicSimulationInterpreter(
+        assignment.handler_binding_digest,
+        {assignment.work_item_id: InterpreterOutcome.succeeded(_digest("result"))},
+    )
+    commits = FakeOutcomeCommitter()
+    guard = StaleAfterStartAuthorityGuard()
+
+    report = _node("node-1", queue, handler, commits, guard=guard).run_once()
+
+    result = report.results[0]
+    assert result.state is ClaimRunState.COMMITTED
     assert result.disposition is EffectDisposition.FAILED
     assert result.executed is False
     assert result.committed is True
+    assert result.failure_code == "AUTHORITY_STALE_BEFORE_EFFECT"
     assert handler.executions == []
-    assert commits.started == []
-    assert len(guard.cancellation_checks) == 1
-    assert len(guard.authority_checks) == 1
-    assert "AUTHORITY_STALE_BEFORE_EFFECT" in (result.failure_code or "")
+    assert commits.started == [(assignment.work_item_id, 1)]
+    assert len(commits.committed) == 1
+    committed_claim, committed_outcome, committed_revision = commits.committed[0]
+    assert committed_claim.effect_disposition is EffectDisposition.IN_FLIGHT
+    assert committed_outcome.disposition is EffectDisposition.FAILED
+    assert committed_revision == 2
+    assert len(guard.cancellation_checks) == 2
+    assert len(guard.authority_checks) == 2
+
+
+def test_unconfirmed_start_transition_defers_to_durable_recovery() -> None:
+    assignment = _assignment("work-start-ack-lost")
+    queue = FakeClaimBatch((PendingClaim(assignment),))
+    handler = DeterministicSimulationInterpreter(
+        assignment.handler_binding_digest,
+        {assignment.work_item_id: InterpreterOutcome.succeeded(_digest("result"))},
+    )
+    commits = StartAcknowledgementLostCommitter()
+
+    report = _node("node-1", queue, handler, commits).run_once()
+
+    result = report.results[0]
+    assert result.state is ClaimRunState.REJECTED
+    assert result.disposition is EffectDisposition.OUTCOME_UNKNOWN
+    assert result.executed is False
+    assert result.committed is False
+    assert result.failure_code == "NODE_PORT_RESULT_INVALID"
+    assert handler.executions == []
+    assert commits.started == [(assignment.work_item_id, 1)]
+    assert commits.committed == []
+
+
+def test_unstructured_start_receipt_keeps_original_claim_identity() -> None:
+    assignment = _assignment("work-unstructured-start-receipt")
+    queue = FakeClaimBatch((PendingClaim(assignment),))
+    handler = DeterministicSimulationInterpreter(
+        assignment.handler_binding_digest,
+        {assignment.work_item_id: InterpreterOutcome.succeeded(_digest("result"))},
+    )
+    commits = UnstructuredStartReceiptCommitter()
+
+    report = _node("node-1", queue, handler, commits).run_once()
+
+    result = report.results[0]
+    assert commits.input_claim is not None
+    assert result.work_item_id == commits.input_claim.assignment.work_item_id
+    assert result.attempt_id == commits.input_claim.claim_binding.attempt_id
+    assert result.state is ClaimRunState.REJECTED
+    assert result.disposition is EffectDisposition.OUTCOME_UNKNOWN
+    assert result.executed is False
+    assert result.committed is False
+    assert result.failure_code == "NODE_PORT_RESULT_INVALID"
+    assert handler.executions == []
+    assert commits.started == [(assignment.work_item_id, 1)]
+    assert commits.committed == []
+
+
+def test_foreign_assignment_start_receipt_keeps_original_claim_identity() -> None:
+    assignment = _assignment("work-foreign-start-receipt")
+    queue = FakeClaimBatch((PendingClaim(assignment),))
+    handler = DeterministicSimulationInterpreter(
+        assignment.handler_binding_digest,
+        {assignment.work_item_id: InterpreterOutcome.succeeded(_digest("result"))},
+    )
+    commits = ForeignAssignmentStartReceiptCommitter()
+
+    report = _node("node-1", queue, handler, commits).run_once()
+
+    result = report.results[0]
+    assert commits.input_claim is not None
+    assert result.work_item_id == commits.input_claim.assignment.work_item_id
+    assert result.attempt_id == commits.input_claim.claim_binding.attempt_id
+    assert result.state is ClaimRunState.REJECTED
+    assert result.disposition is EffectDisposition.OUTCOME_UNKNOWN
+    assert result.executed is False
+    assert result.committed is False
+    assert result.failure_code == "NODE_CLAIM_REJECTED"
+    assert handler.executions == []
+    assert commits.started == [(assignment.work_item_id, 1)]
+    assert commits.committed == []
 
 
 def test_stale_lease_before_effect_prohibits_execution_and_commit() -> None:

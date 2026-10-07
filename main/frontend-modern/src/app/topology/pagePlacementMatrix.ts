@@ -69,6 +69,20 @@ const PAGE_PLACEMENT_BASELINE: readonly PagePlacementRecord[] = [
     },
   },
   {
+    page: 'AgentCellPage',
+    navModes: ['flowCell'],
+    phase1Surface: 'workbench',
+    reason: 'Cell construction and registration readback require a persistent workbench context.',
+    revisit: false,
+    rubricSignals: {
+      interactionDensity: 'workbench',
+      contextContinuity: 'workbench',
+      panelCoordination: 'workbench',
+      stateCoupling: 'workbench',
+      primaryOutcome: 'workbench',
+    },
+  },
+  {
     page: 'ProjectsPage',
     navModes: ['sysProjects'],
     phase1Surface: 'management',
@@ -227,6 +241,20 @@ const PAGE_PLACEMENT_BASELINE: readonly PagePlacementRecord[] = [
     navModes: ['sysSuccessorRuntime'],
     phase1Surface: 'management',
     reason: 'Read-only successor runtime observation stays in the admin review surface; no command or control action is mounted.',
+    revisit: false,
+    rubricSignals: {
+      interactionDensity: 'management',
+      contextContinuity: 'management',
+      panelCoordination: 'management',
+      stateCoupling: 'management',
+      primaryOutcome: 'management',
+    },
+  },
+  {
+    page: 'BusinessGuidePage',
+    navModes: ['sysBusinessGuide'],
+    phase1Surface: 'management',
+    reason: 'Business-chain guidance is primarily read-only management documentation.',
     revisit: false,
     rubricSignals: {
       interactionDensity: 'management',

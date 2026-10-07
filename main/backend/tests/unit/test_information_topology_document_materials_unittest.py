@@ -65,7 +65,7 @@ def test_project_document_materials_hydrates_only_the_derived_read_model() -> No
     attrs = projected["elements"][0]["attributes"]
 
     assert attrs["material_ref"] == material_identity("demo", 42)
-    assert attrs["material_id"] == 42
+    assert "material_id" not in attrs
     assert attrs["title"] == "Canonical material"
     assert attrs["material_revision"] == "2026-10-06T00:00:00+00:00"
     assert wire["elements"][0]["attributes"] == {"material_ref": document_identity("demo", 42)}

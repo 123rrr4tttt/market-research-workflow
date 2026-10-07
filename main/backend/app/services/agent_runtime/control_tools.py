@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from functorial_kit import Failure
+from sqlalchemy.engine import Engine
 
 from app.services.agent_sessions.service import AgentSessionService
 
@@ -17,41 +18,31 @@ def _as_text(value: Any) -> str:
 
 
 class AgentControlToolRuntime:
-    """Session control tools that mutate the current agent ledger."""
+    """Control tools that act on canonical runtime runs or read session projections."""
 
-    def __init__(self, *, service: AgentSessionService) -> None:
+    def __init__(
+        self, *, service: AgentSessionService, engine: Engine | None = None
+    ) -> None:
         self.service = service
+        self._engine = engine
+
+    def _runtime_engine(self) -> Engine:
+        if self._engine is not None:
+            return self._engine
+        from app.models.base import engine
+
+        return engine
 
     def list_tool_definitions(self) -> list[dict[str, Any]]:
         return [
             build_tool_definition(
                 name="task.cancel",
                 capability_id="task.cancel",
-                description="Cancel the current agent session and mark unfinished tasks as canceled.",
+                description="Request cancellation of the canonical runtime run associated with this session.",
                 input_schema={
                     "type": "object",
                     "properties": {
                         "session_id": {"type": "string"},
-                        "reason": {"type": "string"},
-                    },
-                    "additionalProperties": False,
-                },
-                output_schema={"type": "object", "additionalProperties": True},
-                risk_level="medium",
-                concurrency_class="write_shared",
-                approval_level="explicit_user_request",
-                timeout_seconds=10,
-                result_budget=4000,
-            ),
-            build_tool_definition(
-                name="task.retry",
-                capability_id="task.retry",
-                description="Retry a failed, canceled, or expired task in the current agent session.",
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "session_id": {"type": "string"},
-                        "task_id": {"type": "string"},
                         "reason": {"type": "string"},
                     },
                     "additionalProperties": False,
@@ -91,12 +82,6 @@ class AgentControlToolRuntime:
         target_session_id = _as_text(payload.get("session_id")) or session_id
         if name == "task.cancel":
             return self.task_cancel(turn_id=turn_id, session_id=target_session_id)
-        if name == "task.retry":
-            return self.task_retry(
-                turn_id=turn_id,
-                session_id=target_session_id,
-                task_id=_as_text(payload.get("task_id")) or None,
-            )
         if name == "task.summary":
             return self.task_summary(turn_id=turn_id, session_id=target_session_id)
         return build_capability_call(
@@ -111,14 +96,104 @@ class AgentControlToolRuntime:
 
     def task_cancel(self, *, turn_id: str, session_id: str) -> dict[str, Any]:
         try:
-            session = self.service.cancel_session(session_id)
+            from app.services.agent_core.host_authorization import (
+                current_verified_host_authorization,
+            )
+
+            authorization = current_verified_host_authorization()
+            if authorization is None:
+                return build_capability_call(
+                    turn_id=turn_id,
+                    capability_id="task.cancel",
+                    protocol=CONTROL_TOOL_PROTOCOL,
+                    status="failed",
+                    summary="task cancel requires a verified host authorization",
+                    result={"session_id": session_id},
+                    error={
+                        "type": "Failure",
+                        "code": "host_authorization_missing",
+                        "message": "no verified host authorization for task cancel",
+                    },
+                )
+            context = authorization.context
+            if context.session_id != session_id:
+                return build_capability_call(
+                    turn_id=turn_id,
+                    capability_id="task.cancel",
+                    protocol=CONTROL_TOOL_PROTOCOL,
+                    status="failed",
+                    summary="trusted host context does not match the cancel target",
+                    result={"session_id": session_id},
+                    error={
+                        "type": "Failure",
+                        "code": "host_context_session_mismatch",
+                        "message": "verified host session differs from cancel target",
+                    },
+                )
+            session = self.service.get_session(session_id)
+            if isinstance(session, Failure):
+                return self._failure_call(
+                    capability_id="task.cancel",
+                    turn_id=turn_id,
+                    summary=f"cancel failed for session {session_id}",
+                    session_id=session_id,
+                    failure=session,
+                )
+            run_id = _as_text(session.get("compat_job_id"))
+            if not run_id:
+                return build_capability_call(
+                    turn_id=turn_id,
+                    capability_id="task.cancel",
+                    protocol=CONTROL_TOOL_PROTOCOL,
+                    status="failed",
+                    summary="session has no platform run to cancel",
+                    result={"session_id": session_id},
+                    error={
+                        "type": "Failure",
+                        "code": "run_id_missing",
+                        "message": "session compat_job_id is absent",
+                    },
+                )
+            actor_context = authorization.actor_context
+            if actor_context is None or not actor_context.actor_trusted or not actor_context.actor_id:
+                return build_capability_call(
+                    turn_id=turn_id,
+                    capability_id="task.cancel",
+                    protocol=CONTROL_TOOL_PROTOCOL,
+                    status="failed",
+                    summary="task cancel requires an authenticated request actor",
+                    result={"session_id": session_id},
+                    error={
+                        "type": "Failure",
+                        "code": "trusted_actor_missing",
+                        "message": "verified host authorization has no authenticated request actor",
+                    },
+                )
+            result = self.service.cancel_run(
+                run_id,
+                actor_id=actor_context.actor_id,
+                project_key=context.project_key,
+                engine=self._runtime_engine(),
+            )
+            if isinstance(result, Failure):
+                return self._failure_call(
+                    capability_id="task.cancel",
+                    turn_id=turn_id,
+                    summary=f"cancel failed for run {run_id}",
+                    session_id=session_id,
+                    failure=result,
+                )
             return build_capability_call(
                 turn_id=turn_id,
                 capability_id="task.cancel",
                 protocol=CONTROL_TOOL_PROTOCOL,
                 status="completed",
-                summary=f"canceled session {session_id}",
-                result={"session": session, "session_id": session_id},
+                summary=f"cancel requested for run {run_id}",
+                result={
+                    "session_id": session_id,
+                    "run_id": run_id,
+                    "state": result["state"],
+                },
             )
         except Exception as exc:  # noqa: BLE001
             return build_capability_call(
@@ -128,58 +203,6 @@ class AgentControlToolRuntime:
                 status="failed",
                 summary=f"cancel failed for session {session_id}: {exc}",
                 result={"session_id": session_id},
-                error={"type": exc.__class__.__name__, "message": str(exc)},
-            )
-
-    def task_retry(self, *, turn_id: str, session_id: str, task_id: str | None = None) -> dict[str, Any]:
-        resolved_task_id = _as_text(task_id)
-        if not resolved_task_id:
-            tasks = self.service.list_tasks(session_id)
-            if isinstance(tasks, Failure):
-                return self._failure_call(
-                    capability_id="task.retry",
-                    turn_id=turn_id,
-                    summary=f"retry failed for session {session_id}",
-                    session_id=session_id,
-                    failure=tasks,
-                )
-            resolved_task_id = self._find_retryable_task_id(tasks=tasks)
-        if not resolved_task_id:
-            return build_capability_call(
-                turn_id=turn_id,
-                capability_id="task.retry",
-                protocol=CONTROL_TOOL_PROTOCOL,
-                status="skipped",
-                summary="task retry skipped because no failed, canceled, or expired task was found",
-                result={"session_id": session_id, "task_id": None},
-            )
-        try:
-            task = self.service.retry_task(session_id, resolved_task_id)
-            if isinstance(task, Failure):
-                return self._failure_call(
-                    capability_id="task.retry",
-                    turn_id=turn_id,
-                    summary=f"retry failed for task {resolved_task_id}",
-                    session_id=session_id,
-                    task_id=resolved_task_id,
-                    failure=task,
-                )
-            return build_capability_call(
-                turn_id=turn_id,
-                capability_id="task.retry",
-                protocol=CONTROL_TOOL_PROTOCOL,
-                status="completed",
-                summary=f"retried task {resolved_task_id}",
-                result={"session_id": session_id, "task": task, "task_id": resolved_task_id},
-            )
-        except Exception as exc:  # noqa: BLE001
-            return build_capability_call(
-                turn_id=turn_id,
-                capability_id="task.retry",
-                protocol=CONTROL_TOOL_PROTOCOL,
-                status="failed",
-                summary=f"retry failed for task {resolved_task_id}: {exc}",
-                result={"session_id": session_id, "task_id": resolved_task_id},
                 error={"type": exc.__class__.__name__, "message": str(exc)},
             )
 

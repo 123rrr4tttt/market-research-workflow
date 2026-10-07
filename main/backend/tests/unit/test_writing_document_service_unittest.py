@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.unit
 
 try:
+    from app.services.writing import citation_service
     from app.services.writing.document_service import (
         WritingVersionConflictError,
         _build_conflict_details,
@@ -65,6 +66,32 @@ class WritingDocumentServiceUnitTestCase(unittest.TestCase):
         self.assertEqual(serialized["id"], 11)
         self.assertEqual(serialized["version"], 2)
         self.assertEqual(serialized["etag"], "etag-2")
+
+    def test_upsert_citations_normalizes_legacy_source_material_alias(self):
+        from unittest.mock import MagicMock, patch
+
+        session = MagicMock()
+
+        def _run(operation, **_kwargs):
+            return operation(session)
+
+        with (
+            patch.object(citation_service, "run_with_session_retry", side_effect=_run),
+            patch.object(
+                citation_service,
+                "serialize_writing_citation",
+                side_effect=lambda row: {"source_doc_id": row.source_doc_id},
+            ),
+        ):
+            saved = citation_service.upsert_citations(
+                doc_id=11,
+                project_key="demo_proj",
+                citations=[{"source_material_id": 42, "card_id": "card-1"}],
+            )
+
+        row = session.add.call_args.args[0]
+        self.assertEqual(row.source_doc_id, 42)
+        self.assertEqual(saved, [{"source_doc_id": 42}])
 
 
 if __name__ == "__main__":

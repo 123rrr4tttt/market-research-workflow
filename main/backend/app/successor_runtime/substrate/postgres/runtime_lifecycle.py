@@ -36,13 +36,18 @@ from app.successor_runtime.runtime.reducer import (
     reduce_run_event,
     reduce_step,
 )
-from app.successor_runtime.runtime.replay import runtime_event_digest
+from app.successor_runtime.runtime.replay import (
+    ReplayEvent, active_child_failure_decision_digest, replay_runtime_events, runtime_event_digest,
+)
 from app.successor_runtime.runtime.transitions import (
     EffectDisposition,
     RunEvent,
     RunState,
+    STEP_TRANSITIONS,
     StepEvent,
     StepState,
+    TERMINAL_RUN_STATES,
+    TERMINAL_STEP_STATES,
 )
 
 from .failure_policy import PostgresFailurePolicyLoader
@@ -52,11 +57,13 @@ from .runtime_journal import (
     ExactBindingConflict,
     ExactQualificationBinding,
     RecordNotFound,
+    RuntimeJournalRepository,
     StaleRevisionError,
     _one_mapping,
     _scope_key,
     _table,
     _utcnow,
+    validate_authorization_row,
     validate_qualification_row,
     validate_runtime_assignment_row,
 )
@@ -96,8 +103,9 @@ class SubmitRun:
     program_storage_ref: str
     contract_version: str
     submission_authority_digest: str
-    compile_work: AssignmentEnvelope
+    compile_work: AssignmentEnvelope | None
     due_at: datetime
+    execution_epoch: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,8 +125,9 @@ class AttachPlan:
     effect_closure_digest: str
     authority_closure_digest: str
     resource_closure_digest: str
-    qualify_work: AssignmentEnvelope
+    qualify_work: AssignmentEnvelope | None
     due_at: datetime
+    compilation_authority_digest: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +135,15 @@ class ActivateQualification:
     run_id: str
     expected_run_revision: int
     binding: ExactQualificationBinding
+
+
+@dataclass(frozen=True, slots=True)
+class RequestCancel:
+    """Explicit cancellation of a live run, scoped by the caller's actor."""
+
+    run_id: str
+    expected_run_revision: int
+    reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,8 +263,8 @@ class RuntimeLifecycleRepository:
 
     def submit(self, command: SubmitRun) -> Mapping[str, Any]:
         project_key = _scope_key(self.scope)
-        assignment = command.compile_work.assignment
-        if (
+        assignment = command.compile_work.assignment if command.compile_work else None
+        if assignment is not None and (
             assignment.project_key != project_key
             or assignment.run_id != command.run_id
             or assignment.program_digest != command.program_digest
@@ -297,7 +315,9 @@ class RuntimeLifecycleRepository:
                 state="SUBMITTED",
                 revision=0,
                 next_event_seq=2,
-                execution_epoch=assignment.execution_epoch,
+                execution_epoch=(
+                    assignment.execution_epoch if assignment else command.execution_epoch
+                ),
                 incarnation=command.incarnation,
                 submission_authority_digest=command.submission_authority_digest,
                 qualification_digest=None,
@@ -323,14 +343,15 @@ class RuntimeLifecycleRepository:
                 updated_at=now,
             )
         )
-        work_items = _table("runtime_work_items")
-        self.connection.execute(
-            insert(work_items).values(
-                **_assignment_values(command.compile_work, due_at=command.due_at),
-                created_at=now,
-                updated_at=now,
+        if command.compile_work is not None:
+            work_items = _table("runtime_work_items")
+            self.connection.execute(
+                insert(work_items).values(
+                    **_assignment_values(command.compile_work, due_at=command.due_at),
+                    created_at=now,
+                    updated_at=now,
+                )
             )
-        )
         row = _one_mapping(
             self.connection.execute(
                 select(runs).where(
@@ -342,18 +363,16 @@ class RuntimeLifecycleRepository:
         return row
 
     def attach_plan(self, command: AttachPlan) -> Mapping[str, Any]:
-        """Attach exact Plan and enqueue QUALIFY on the caller transaction.
+        """Attach a compiled Plan, optionally enqueueing asynchronous qualification.
 
-        The current P0-B check constraint cannot persist the architecture's
-        required intermediate ``COMPILING + plan + no qualification`` state.
-        This method still emits the exact SQL/CAS contract so a corrected
-        schema can run it; until that correction lands, a live PostgreSQL call
-        fails closed at commit rather than inventing a qualification digest.
+        A caller that compiles and qualifies on this transaction supplies its
+        actual compilation authority and no work item. It must still persist
+        and activate the exact qualification through the existing owner.
         """
 
         project_key = _scope_key(self.scope)
-        assignment = command.qualify_work.assignment
-        if (
+        assignment = command.qualify_work.assignment if command.qualify_work else None
+        if assignment is not None and (
             assignment.assignment_kind.value != "QUALIFY"
             or assignment.run_id != command.run_id
             or assignment.project_key != project_key
@@ -363,6 +382,12 @@ class RuntimeLifecycleRepository:
             raise ExactBindingConflict(
                 "qualification assignment differs from exact Plan"
             )
+        authority_digest = (
+            command.qualify_work.authority_digest
+            if command.qualify_work else command.compilation_authority_digest
+        )
+        if not authority_digest:
+            raise ExactBindingConflict("compiled Plan requires explicit authority")
         plans = _table("runtime_plan_refs")
         now = _utcnow()
         plan_values = {
@@ -439,18 +464,19 @@ class RuntimeLifecycleRepository:
                     "plan_id": command.plan_id,
                     "plan_digest": command.plan_digest,
                 },
-                authority_digest=command.qualify_work.authority_digest,
+                authority_digest=authority_digest,
                 created_at=now,
                 updated_at=now,
             )
         )
-        self.connection.execute(
-            insert(_table("runtime_work_items")).values(
-                **_assignment_values(command.qualify_work, due_at=command.due_at),
-                created_at=now,
-                updated_at=now,
+        if command.qualify_work is not None:
+            self.connection.execute(
+                insert(_table("runtime_work_items")).values(
+                    **_assignment_values(command.qualify_work, due_at=command.due_at),
+                    created_at=now,
+                    updated_at=now,
+                )
             )
-        )
         return {
             **locked,
             "plan_id": command.plan_id,
@@ -892,12 +918,15 @@ class RuntimeLifecycleRepository:
         *,
         required_step_ids: frozenset[str],
         authority_digest: str,
+        journal_succeeded_step_ids: frozenset[str] = frozenset(),
         observed_at: datetime | None = None,
     ) -> bool:
         """Derive the sole ordinary RUNNING -> COMPLETED transition."""
 
         if not required_step_ids:
             raise ExactBindingConflict("run completion requires explicit steps")
+        if not journal_succeeded_step_ids.issubset(required_step_ids):
+            raise ExactBindingConflict("journal completion steps exceed required closure")
         now = observed_at or _utcnow()
         runs = _table("runtime_runs")
         run = _one_mapping(
@@ -915,19 +944,60 @@ class RuntimeLifecycleRepository:
         if run["state"] == RunState.COMPLETED.value:
             return True
 
+        if journal_succeeded_step_ids:
+            events = _table("runtime_events")
+            rows = tuple(
+                self.connection.execute(
+                    select(events)
+                    .where(
+                        events.c.project_key == _scope_key(self.scope),
+                        events.c.run_id == run_id,
+                        events.c.event_type == "ActiveChildrenSettled",
+                    )
+                    .with_for_update(read=True)
+                ).mappings()
+            )
+            witnessed: set[str] = set()
+            for row in rows:
+                metadata = row["event_metadata_json"]
+                step_id = metadata.get("source_step_id")
+                if step_id not in journal_succeeded_step_ids:
+                    continue
+                if (
+                    not isinstance(step_id, str)
+                    or step_id in witnessed
+                    or row["schema_version"]
+                    != "mrw.runtime.event.active_children_settled.v1"
+                    or row["payload_ref"] is None
+                    or row["payload_digest"] is None
+                    or metadata.get("result_digest") != row["payload_digest"]
+                    or row["authority_digest"] != authority_digest
+                ):
+                    raise ExactBindingConflict(
+                        "journal completion witness is not one exact settlement"
+                    )
+                witnessed.add(step_id)
+            if witnessed != set(journal_succeeded_step_ids):
+                raise ExactBindingConflict("journal completion witness is absent")
+
         steps_table = _table("runtime_steps")
-        rows = tuple(
-            self.connection.execute(
-                select(steps_table)
-                .where(
-                    steps_table.c.project_key == _scope_key(self.scope),
-                    steps_table.c.run_id == run_id,
-                    steps_table.c.step_id.in_(tuple(sorted(required_step_ids))),
-                )
-                .with_for_update(read=True)
-            ).mappings()
+        persisted_step_ids = required_step_ids - journal_succeeded_step_ids
+        rows = (
+            tuple(
+                self.connection.execute(
+                    select(steps_table)
+                    .where(
+                        steps_table.c.project_key == _scope_key(self.scope),
+                        steps_table.c.run_id == run_id,
+                        steps_table.c.step_id.in_(tuple(sorted(persisted_step_ids))),
+                    )
+                    .with_for_update(read=True)
+                ).mappings()
+            )
+            if persisted_step_ids
+            else ()
         )
-        if {str(row["step_id"]) for row in rows} != required_step_ids:
+        if {str(row["step_id"]) for row in rows} != persisted_step_ids:
             raise ExactBindingConflict("run completion step closure is incomplete")
         snapshots = tuple(
             StepSnapshot(
@@ -941,6 +1011,14 @@ class RuntimeLifecycleRepository:
                 revision=int(row["revision"]),
             )
             for row in rows
+        ) + tuple(
+            StepSnapshot(
+                step_id=step_id,
+                state=StepState.SUCCEEDED,
+                effect_disposition=EffectDisposition.SUCCEEDED,
+                revision=0,
+            )
+            for step_id in sorted(journal_succeeded_step_ids)
         )
         policy = CompletionPolicy(required_step_ids=required_step_ids)
         if not completion_satisfied(snapshots, policy):
@@ -1019,6 +1097,485 @@ class RuntimeLifecycleRepository:
         ):
             raise ValueError("admission finalization requires admitted staged success")
         self.commit_outcome(outcome)
+
+    def fail_active_child(
+        self, *, parent_run_id: str, source_step_id: str, child_run_id: str,
+        observed_at: datetime | None = None,
+    ) -> None:
+        """Propagate a journal-proven required child failure without a fake effect."""
+        from .first_specimen_activation import _active_child_rows, _require_program_plan_run, _traversal_plan_step
+        from .plans import PlanRepository
+        from .programs import ProgramRepository
+
+        now = observed_at or _utcnow()
+        journal = RuntimeJournalRepository(self.connection, self.scope)
+        parent = dict(journal.load_run(parent_run_id, for_update=True))
+        child = dict(journal.load_run(child_run_id, for_update=True))
+        tables = project_tables(MetaData(), str(parent["resolved_schema"]))
+        program = ProgramRepository(self.connection, tables).get(
+            self.scope, str(parent["program_id"]), expected_digest=str(parent["program_digest"]))
+        plan = PlanRepository(self.connection, tables).get(self.scope, str(parent["plan_digest"]))
+        _require_program_plan_run(program, plan, parent)
+        _traversal_plan_step(plan, source_step_id)
+        events = _table("runtime_events")
+
+        def replay(run: Mapping[str, Any]) -> tuple[ReplayEvent, ...]:
+            rows = self.connection.execute(select(events).where(
+                events.c.project_key == _scope_key(self.scope),
+                events.c.run_id == run["run_id"],
+            ).order_by(events.c.seq)).mappings().all()
+            return tuple(ReplayEvent.from_content(
+                project_key=_scope_key(self.scope), run_id=str(run["run_id"]),
+                run_incarnation=str(run["incarnation"]), seq=int(row["seq"]),
+                event_type=str(row["event_type"]), schema_version=str(row["schema_version"]),
+                step_id=row["step_id"], attempt_id=row["attempt_id"],
+                metadata=row["event_metadata_json"], payload_ref=row["payload_ref"],
+                payload_digest=row["payload_digest"], authority_digest=str(row["authority_digest"]),
+            ) for row in rows)
+
+        parent_events, child_events = replay(parent), replay(child)
+        parent_projection = replay_runtime_events(parent_events)
+        child_projection = replay_runtime_events(child_events)
+        if child["state"] != "FAILED" or child_projection.run_state is not RunState.FAILED:
+            raise ExactBindingConflict("active child has no journal-proven runtime failure")
+        causes = tuple(event for event in child_events if event.event_type == "RequiredStepFailed")
+        if len(causes) != 1:
+            raise ExactBindingConflict("active child failure cause is absent or ambiguous")
+        cause = causes[0]
+        if cause.step_id is not None:
+            authz = _table("runtime_step_authorizations")
+            authority = _one_mapping(self.connection.execute(select(authz).where(
+                authz.c.project_key == _scope_key(self.scope), authz.c.run_id == child_run_id,
+                authz.c.step_id == cause.step_id,
+                authz.c.authorization_digest == cause.authority_digest,
+            )))
+            if authority is None:
+                raise ExactBindingConflict("active child failure authority is absent")
+            validate_authorization_row(dict(authority))
+        elif cause.authority_digest != child["submission_authority_digest"]:
+            raise ExactBindingConflict("nested child failure authority drift")
+        relations = _active_child_rows(self.connection, project_key=_scope_key(self.scope),
+                                      parent_run_id=parent_run_id, source_step_id=source_step_id)
+        matches = tuple(row["event_metadata_json"] for row in relations
+                        if row["event_metadata_json"].get("child_run_id") == child_run_id)
+        if len(matches) != 1:
+            raise ExactBindingConflict("active child failure lineage is absent or ambiguous")
+        relation = matches[0]
+        index = relation["element_index"]
+        for row in relations[:index]:
+            prior = journal.load_run(str(row["event_metadata_json"]["child_run_id"]), for_update=True)
+            if prior["state"] != "COMPLETED":
+                raise ExactBindingConflict("active child failed outside the completed ordered prefix")
+        metadata = {
+            "source_step_id": source_step_id, "child_run_id": child_run_id,
+            "element_index": index, "materialization_digest": relation["materialization_digest"],
+            "source_revision": cause.seq, "source_event_digest": cause.event_digest,
+        }
+        metadata["failure_policy_decision_digest"] = active_child_failure_decision_digest(metadata)
+        if parent["state"] == "FAILED":
+            if (parent_projection.run_state is RunState.FAILED
+                    and parent_events[-1].schema_version == "mrw.runtime.event.required_step_failed.active_child.v2"
+                    and dict(parent_events[-1].metadata) == metadata):
+                return
+            raise ExactBindingConflict("parent failure has a different causal binding")
+        if parent["state"] != "WAITING" or parent_projection.run_state is not RunState.WAITING:
+            raise ExactBindingConflict("active child failure requires a waiting parent")
+        event = ReplayEvent.from_content(
+            project_key=_scope_key(self.scope), run_id=parent_run_id,
+            run_incarnation=str(parent["incarnation"]), seq=int(parent["next_event_seq"]),
+            event_type="RequiredStepFailed", schema_version="mrw.runtime.event.required_step_failed.active_child.v2",
+            step_id=None, attempt_id=None, metadata=metadata, payload_ref=None, payload_digest=None,
+            authority_digest=str(parent["submission_authority_digest"]),
+        )
+        replay_runtime_events((event,), initial=parent_projection)
+        self._cancel_active_children(parent_run_id, now=now)
+        self._cancel_queued_work_items(parent_run_id, now=now)
+        journal.append_transition(
+            run_id=parent_run_id, expected_revision=int(parent["revision"]),
+            snapshot_values={"state": "FAILED", "finished_at": now},
+            events=({"event_type": event.event_type, "schema_version": event.schema_version,
+                     "event_metadata_json": metadata, "authority_digest": event.authority_digest},),
+        )
+
+    def request_cancel(
+        self, command: RequestCancel, *, observed_at: datetime | None = None
+    ) -> Mapping[str, Any]:
+        """Request cancellation of a live run and its non-terminal steps.
+
+        The caller's actor must exactly match the persisted step authorization
+        actor and the backing grant must not be revoked.  Not-yet-started steps
+        become ``CANCELLED``; in-flight steps become ``CANCEL_REQUESTED`` so an
+        unknown effect outcome is never fabricated as terminal.
+        """
+
+        now = observed_at or _utcnow()
+        journal = RuntimeJournalRepository(self.connection, self.scope)
+        run = journal.load_run(command.run_id, for_update=True)
+        if int(run["revision"]) != command.expected_run_revision:
+            raise StaleRevisionError(
+                "cancel run revision CAS failed: "
+                f"expected {command.expected_run_revision}, found {run['revision']}"
+            )
+        if run["state"] in TERMINAL_RUN_STATES:
+            raise ExactBindingConflict("runtime run is already terminal")
+        self._require_cancel_authority(command.run_id, now=now)
+
+        step_events: list[Mapping[str, Any]] = []
+        cancelled_steps = 0
+        cleanup_required = False
+        for step in self._load_cancel_steps(command.run_id):
+            state = StepState(str(step["state"]))
+            if state in TERMINAL_STEP_STATES:
+                continue
+            allowed = STEP_TRANSITIONS.get(
+                (state, StepEvent.CANCELLATION_REQUESTED), frozenset()
+            )
+            if len(allowed) != 1:
+                raise ExactBindingConflict(
+                    f"step state does not support cancellation: {state.value}"
+                )
+            target = next(iter(allowed))
+            reduced = reduce_step(
+                StepSnapshot(
+                    str(step["step_id"]),
+                    state,
+                    EffectDisposition.NOT_STARTED,
+                    revision=int(step["revision"]),
+                ),
+                StepEvent.CANCELLATION_REQUESTED,
+                target,
+                guard=True,
+            )
+            self._cancel_step_row(step, reduced.state, now=now)
+            if reduced.state is StepState.CANCEL_REQUESTED:
+                cleanup_required = True
+            else:
+                cancelled_steps += 1
+            step_events.append(
+                {
+                    "event_type": StepEvent.CANCELLATION_REQUESTED.value,
+                    "schema_version": "mrw.runtime.event.cancellation_requested.v1",
+                    "step_id": str(step["step_id"]),
+                    "attempt_id": None,
+                    "event_metadata_json": {"state": reduced.state.value},
+                    "payload_ref": None,
+                    "payload_digest": None,
+                    "authority_digest": run["submission_authority_digest"],
+                }
+            )
+
+        self._cancel_queued_work_items(command.run_id, now=now)
+        if self._cancel_active_children(command.run_id, now=now):
+            cleanup_required = True
+
+        target_run_state = (
+            RunState.CANCELLING if cleanup_required else RunState.CANCELLED
+        )
+        reduced_run = reduce_run_event(
+            RunSnapshot(
+                command.run_id,
+                RunState(str(run["state"])),
+                int(run["revision"]),
+            ),
+            RunEvent.CANCELLATION_REQUESTED,
+            target_run_state,
+            guard=True,
+        )
+        receipt = journal.append_transition(
+            run_id=command.run_id,
+            expected_revision=command.expected_run_revision,
+            snapshot_values={
+                "cancellation_requested": True,
+                "state": reduced_run.state.value,
+            },
+            events=[
+                {
+                    "event_type": RunEvent.CANCELLATION_REQUESTED.value,
+                    "schema_version": "mrw.runtime.event.cancellation_requested.v1",
+                    "step_id": None,
+                    "attempt_id": None,
+                    "event_metadata_json": {
+                        "reason": command.reason or "explicit_cancel"
+                    },
+                    "payload_ref": None,
+                    "payload_digest": None,
+                    "authority_digest": run["submission_authority_digest"],
+                },
+                *step_events,
+            ],
+        )
+        if target_run_state == RunState.CANCELLED.value:
+            self._settle_active_parent_cancellations(command.run_id, now=now)
+        return {
+            "run_id": command.run_id,
+            "state": reduced_run.state.value,
+            "revision": receipt.revision,
+            "cancelled_step_count": cancelled_steps,
+            "cleanup_required": cleanup_required,
+        }
+
+    def _require_cancel_authority(self, run_id: str, *, now: datetime) -> None:
+        from app.successor_runtime.substrate.postgres.authority_provider import (
+            PostgresAuthorityProvider,
+        )
+
+        authz = _table("runtime_step_authorizations")
+        authz_result = self.connection.execute(
+            select(authz)
+            .where(
+                authz.c.project_key == _scope_key(self.scope),
+                authz.c.run_id == run_id,
+            )
+            .order_by(authz.c.step_id)
+            .with_for_update(read=True)
+        )
+        rows = tuple(
+            dict(row) for row in authz_result.mappings()
+        )
+        if not rows:
+            raise ExactBindingConflict("cancel requires at least one step authorization")
+        provider = PostgresAuthorityProvider(self.connection, self.scope)
+        for row in rows:
+            binding = validate_authorization_row(row)
+            if binding.actor_id != self.scope.actor_id:
+                raise ExactBindingConflict("cancel actor differs from step authorization")
+            provider.current_step_binding(
+                run_id,
+                binding.step_id,
+                now=now,
+            )
+
+    def _load_cancel_steps(self, run_id: str) -> tuple[Mapping[str, Any], ...]:
+        steps = _table("runtime_steps")
+        steps_result = self.connection.execute(
+            select(steps)
+            .where(
+                steps.c.project_key == _scope_key(self.scope),
+                steps.c.run_id == run_id,
+            )
+            .order_by(steps.c.step_id)
+            .with_for_update()
+        )
+        return tuple(
+            dict(row) for row in steps_result.mappings()
+        )
+
+    def _cancel_step_row(
+        self, step: Mapping[str, Any], state: StepState, *, now: datetime
+    ) -> None:
+        steps = _table("runtime_steps")
+        values: dict[str, object] = {
+            "state": state.value,
+            "revision": int(step["revision"]) + 1,
+            "updated_at": now,
+        }
+        if state in TERMINAL_STEP_STATES:
+            values.update(
+                finished_at=now,
+                lease_token=None,
+                lease_owner=None,
+                lease_expires_at=None,
+            )
+        _require_one(
+            self.connection.execute(
+                update(steps)
+                .where(
+                    steps.c.project_key == _scope_key(self.scope),
+                    steps.c.run_id == step["run_id"],
+                    steps.c.step_id == step["step_id"],
+                    steps.c.state == step["state"],
+                    steps.c.revision == int(step["revision"]),
+                )
+                .values(**values)
+            ),
+            "cancel step CAS failed",
+        )
+
+    def _cancel_queued_work_items(self, run_id: str, *, now: datetime) -> None:
+        work_items = _table("runtime_work_items")
+        self.connection.execute(
+            update(work_items)
+            .where(
+                work_items.c.project_key == _scope_key(self.scope),
+                work_items.c.run_id == run_id,
+                work_items.c.state.in_(("PENDING", "READY", "WAITING")),
+            )
+            .values(
+                state="CANCELLED",
+                wait_reason=None,
+                revision=work_items.c.revision + 1,
+                updated_at=now,
+            )
+        )
+
+    def commit_non_start_cancellation(
+        self,
+        *,
+        run_id: str,
+        step_id: str,
+        attempt_id: str,
+        authority_digest: str,
+    ) -> None:
+        """Record one Node-before-handler cancellation and settle the run."""
+
+        journal = RuntimeJournalRepository(self.connection, self.scope)
+        run = journal.load_run(run_id, for_update=True)
+        if run["state"] != RunState.CANCELLING.value:
+            raise ExactBindingConflict(
+                "non-start cancellation requires CANCELLING run"
+            )
+        events: list[Mapping[str, Any]] = [
+            {
+                "event_type": StepEvent.CLEANUP_OR_READBACK_CONFIRMED.value,
+                "schema_version": "mrw.runtime.event.cancellation_cleanup_confirmed.v1",
+                "step_id": step_id,
+                "attempt_id": attempt_id,
+                "event_metadata_json": {
+                    "state": StepState.CANCELLED.value,
+                    "reason": "NODE_BEFORE_HANDLER",
+                },
+                "payload_ref": None,
+                "payload_digest": None,
+                "authority_digest": authority_digest,
+            }
+        ]
+        target_state = RunState.CANCELLING.value
+        if not self._has_non_terminal_steps(run_id) and not self._has_live_active_children(
+            run_id
+        ):
+            target_state = RunState.CANCELLED.value
+            events.append(
+                {
+                    "event_type": RunEvent.REQUIRED_CLEANUP_SETTLED.value,
+                    "schema_version": "mrw.runtime.event.cancellation_cleanup_settled.v1",
+                    "step_id": None,
+                    "attempt_id": None,
+                    "event_metadata_json": {"state": RunState.CANCELLED.value},
+                    "payload_ref": None,
+                    "payload_digest": None,
+                    "authority_digest": authority_digest,
+                }
+            )
+        journal.append_transition(
+            run_id=run_id,
+            expected_revision=int(run["revision"]),
+            snapshot_values={"state": target_state},
+            events=events,
+        )
+        if target_state == RunState.CANCELLED.value:
+            self._settle_active_parent_cancellations(run_id, now=_utcnow())
+
+    def _has_non_terminal_steps(self, run_id: str) -> bool:
+        steps = _table("runtime_steps")
+        terminal_values = tuple(state.value for state in TERMINAL_STEP_STATES)
+        row = _one_mapping(
+            self.connection.execute(
+                select(steps)
+                .where(
+                    steps.c.project_key == _scope_key(self.scope),
+                    steps.c.run_id == run_id,
+                    steps.c.state.notin_(terminal_values),
+                )
+                .limit(1)
+            )
+        )
+        return row is not None
+
+    def _cancel_active_children(self, run_id: str, *, now: datetime) -> bool:
+        events = _table("runtime_events")
+        rows = self.connection.execute(
+            select(events.c.event_metadata_json)
+            .where(
+                events.c.project_key == _scope_key(self.scope),
+                events.c.run_id == run_id,
+                events.c.event_type == "ActiveChildMaterialized",
+            )
+            .order_by(events.c.seq)
+        ).mappings().all()
+        child_ids = tuple(
+            str(row["event_metadata_json"]["child_run_id"]) for row in rows
+        )
+        if len(child_ids) != len(set(child_ids)) or run_id in child_ids:
+            raise ExactBindingConflict("active child cancellation lineage is invalid")
+        cleanup_required = False
+        journal = RuntimeJournalRepository(self.connection, self.scope)
+        for child_id in child_ids:
+            child = journal.load_run(child_id, for_update=True)
+            if str(child["state"]) in {state.value for state in TERMINAL_RUN_STATES}:
+                continue
+            result = self.request_cancel(
+                RequestCancel(
+                    run_id=child_id,
+                    expected_run_revision=int(child["revision"]),
+                    reason=f"active_parent_cancelled:{run_id}",
+                ),
+                observed_at=now,
+            )
+            cleanup_required = cleanup_required or result["state"] == "CANCELLING"
+        return cleanup_required
+
+    def _settle_active_parent_cancellations(
+        self, child_run_id: str, *, now: datetime
+    ) -> None:
+        events = _table("runtime_events")
+        rows = self.connection.execute(
+            select(events.c.run_id)
+            .where(
+                events.c.project_key == _scope_key(self.scope),
+                events.c.event_type == "ActiveChildMaterialized",
+                events.c.event_metadata_json["child_run_id"].astext == child_run_id,
+            )
+            .order_by(events.c.run_id)
+        ).mappings().all()
+        journal = RuntimeJournalRepository(self.connection, self.scope)
+        for row in rows:
+            parent_id = str(row["run_id"])
+            parent = journal.load_run(parent_id, for_update=True)
+            if parent["state"] != RunState.CANCELLING.value:
+                continue
+            if self._has_non_terminal_steps(parent_id) or self._has_live_active_children(
+                parent_id
+            ):
+                continue
+            journal.append_transition(
+                run_id=parent_id,
+                expected_revision=int(parent["revision"]),
+                snapshot_values={"state": RunState.CANCELLED.value},
+                events=(
+                    {
+                        "event_type": RunEvent.REQUIRED_CLEANUP_SETTLED.value,
+                        "schema_version": "mrw.runtime.event.cancellation_cleanup_settled.v1",
+                        "event_metadata_json": {"state": RunState.CANCELLED.value},
+                        "authority_digest": parent["submission_authority_digest"],
+                    },
+                ),
+            )
+            self._settle_active_parent_cancellations(parent_id, now=now)
+
+    def _has_live_active_children(self, parent_run_id: str) -> bool:
+        events = _table("runtime_events")
+        runs = _table("runtime_runs")
+        rows = self.connection.execute(
+            select(events.c.event_metadata_json).where(
+                events.c.project_key == _scope_key(self.scope),
+                events.c.run_id == parent_run_id,
+                events.c.event_type == "ActiveChildMaterialized",
+            )
+        ).mappings().all()
+        terminal = {state.value for state in TERMINAL_RUN_STATES}
+        for row in rows:
+            child_id = str(row["event_metadata_json"]["child_run_id"])
+            child = _one_mapping(
+                self.connection.execute(
+                    select(runs.c.state).where(
+                        runs.c.project_key == _scope_key(self.scope),
+                        runs.c.run_id == child_id,
+                    )
+                )
+            )
+            if child is None or str(child["state"]) not in terminal:
+                return True
+        return False
 
     def _lock_run(self, run_id: str) -> Mapping[str, Any]:
         table = _table("runtime_runs")
@@ -1529,6 +2086,7 @@ __all__ = [
     "AttachPlan",
     "ClaimedLifecycle",
     "EffectTerminalKind",
+    "RequestCancel",
     "RuntimeLifecycleRepository",
     "SubmitRun",
     "TerminalOutcome",

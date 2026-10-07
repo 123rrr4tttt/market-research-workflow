@@ -41,12 +41,14 @@ from app.successor_runtime.research.codec import is_sha256_hex
 __all__ = [
     "BATCH_TASK_SUCCESSOR_PLAN_INTERPRETER_ID",
     "BATCH_TASK_SUCCESSOR_RETRY_INTERPRETER_ID",
+    "BATCH_TASK_SUCCESSOR_DISPATCH_INTERPRETER_ID",
     "BatchTaskPlanSuccessorInterpreter",
     "BatchTaskRetrySuccessorInterpreter",
     "BatchTaskSubmissionSuccessorInterpreter",
     "BatchTaskInterpreterBindingSpec",
     "InterpreterBindingView",
     "BatchPlanBindingMismatch",
+    "DispatchSingleBindingMismatch",
     "InterpreterFailure",
     "InterpreterOutcome",
     "InterpreterSuccess",
@@ -54,16 +56,21 @@ __all__ = [
     "ProjectScopeView",
     "RetryBindingMismatch",
     "authority_requirement_digest",
+    "dispatch_single_authority_requirement_digest",
     "build_successor_agent_batch_c4_plan_binding",
     "build_successor_agent_batch_c4_retry_binding",
     "build_successor_agent_batch_c4_submission_binding",
+    "build_successor_agent_batch_c4_dispatch_binding",
     "require_exact_batch_plan_binding",
     "require_exact_retry_binding",
+    "require_exact_dispatch_single_binding",
     "successor_plan_interpreter_profile_digest",
     "successor_retry_interpreter_profile_digest",
     "successor_submission_interpreter_profile_digest",
+    "successor_dispatch_single_interpreter_profile_digest",
     "validate_exact_batch_plan_binding",
     "validate_exact_retry_binding",
+    "validate_exact_dispatch_single_binding",
 ]
 
 
@@ -75,6 +82,9 @@ BATCH_TASK_SUCCESSOR_RETRY_INTERPRETER_ID = (
 )
 BATCH_TASK_SUCCESSOR_SUBMISSION_INTERPRETER_ID = (
     "batch.task.submit.native.v2"
+)
+BATCH_TASK_SUCCESSOR_DISPATCH_INTERPRETER_ID = (
+    "batch.task.dispatch_single.native.v2"
 )
 
 T = TypeVar("T")
@@ -165,6 +175,7 @@ PayloadView: TypeAlias = (
     batch_task.BatchPlanPayload
     | batch_task.RetryReducerInput
     | batch_task.AgentBatchSubmission
+    | batch_task.BatchTaskSingleDispatchPayload
 )
 
 
@@ -174,6 +185,10 @@ class BatchPlanBindingMismatch(ValueError):
 
 class RetryBindingMismatch(ValueError):
     """Raised when the C4.2 Program/Plan/payload/catalog/binding drifts."""
+
+
+class DispatchSingleBindingMismatch(ValueError):
+    """Raised when the single-dispatch Program/Plan/payload/catalog/binding drifts."""
 
 
 def _is_hex64(value: object) -> bool:
@@ -442,6 +457,70 @@ def validate_exact_retry_binding(
     )
 
 
+def require_exact_dispatch_single_binding(
+    *,
+    program: ProgramSpec,
+    plan: ExecutionPlan,
+    contract_ref: OperationContractRef,
+    payload_ref: ValueRef,
+    payload: batch_task.BatchTaskSingleDispatchPayload,
+    project_scope: ProjectScopeView,
+    catalog: OperationContractCatalogSnapshot,
+    deployment_catalog_digest: str,
+    binding: InterpreterBindingView,
+    expected_interpreter_profile_digest: str | None = None,
+) -> dict[str, str]:
+    result = validate_exact_dispatch_single_binding(
+        program=program,
+        plan=plan,
+        contract_ref=contract_ref,
+        payload_ref=payload_ref,
+        payload=payload,
+        project_scope=project_scope,
+        catalog=catalog,
+        deployment_catalog_digest=deployment_catalog_digest,
+        binding=binding,
+        expected_interpreter_profile_digest=expected_interpreter_profile_digest,
+    )
+    if isinstance(result, Failure):
+        batch_task.raise_agent_batch_contract_failure(
+            result, DispatchSingleBindingMismatch
+        )
+    return result
+
+
+def validate_exact_dispatch_single_binding(
+    *,
+    program: ProgramSpec,
+    plan: ExecutionPlan,
+    contract_ref: OperationContractRef,
+    payload_ref: ValueRef,
+    payload: batch_task.BatchTaskSingleDispatchPayload,
+    project_scope: ProjectScopeView,
+    catalog: OperationContractCatalogSnapshot,
+    deployment_catalog_digest: str,
+    binding: InterpreterBindingView,
+    expected_interpreter_profile_digest: str | None = None,
+) -> dict[str, str] | Failure:
+    return _validate_exact_binding(
+        kind=batch_task.DISPATCH_SINGLE_KIND,
+        operation_id=batch_task.DISPATCH_SINGLE_OPERATION_ID,
+        payload_type_id=batch_task.DISPATCH_SINGLE_PAYLOAD_TYPE.type_id,
+        result_type_id=batch_task.DISPATCH_SINGLE_ACK_TYPE.type_id,
+        mismatch_type=DispatchSingleBindingMismatch,
+        program=program,
+        plan=plan,
+        contract_ref=contract_ref,
+        payload_ref=payload_ref,
+        payload=payload,
+        project_scope=project_scope,
+        catalog=catalog,
+        deployment_catalog_digest=deployment_catalog_digest,
+        binding=binding,
+        expected_interpreter_profile_digest=expected_interpreter_profile_digest,
+    )
+
+
 def authority_requirement_digest() -> str:
     return content_digest(
         {
@@ -449,6 +528,20 @@ def authority_requirement_digest() -> str:
             "canonical_owner": batch_task.BATCH_TASK_OWNER,
             "authority": "read-only batch plan and retry reduction",
             "grant_scope": "project",
+        }
+    )
+
+
+def dispatch_single_authority_requirement_digest() -> str:
+    """Derive the dispatch authority requirement from its EFFECTFUL contract."""
+
+    authority_ref = (
+        batch_task.build_batch_task_single_dispatch_contract().authority_profile_ref
+    )
+    return content_digest(
+        {
+            "schema": batch_task.BATCH_TASK_AUTHORITY_SCHEMA,
+            "authority_profile_digest": authority_ref.profile_digest,
         }
     )
 
@@ -560,6 +653,36 @@ def build_successor_agent_batch_c4_submission_binding(
     )
 
 
+def build_successor_agent_batch_c4_dispatch_binding(
+    *,
+    contract_digest: str,
+    deployment_catalog_digest: str,
+    project_scope_digest: str,
+    resource_policy_epoch: int = 1,
+    runtime_protocol_version: str = "mrw.runtime.protocol.v1",
+) -> Annotated[
+    BatchTaskInterpreterBindingSpec,
+    Literal[
+        "kit:non-authoritative derived_as=view "
+        "fact_source=contract_digest+deployment_catalog_digest+project_scope_digest"
+        "+resource_policy_epoch+runtime_protocol_version"
+        "+successor_dispatch_single_interpreter_profile_digest"
+        "+dispatch_single_authority_requirement_digest "
+        "witness=test:test_dispatch_single_validate_exact_binding_accepts_and_rejects_drift"
+    ],
+]:
+    return BatchTaskInterpreterBindingSpec(
+        binding_kind="INTERPRETER",
+        operation_contract_digest=contract_digest,
+        interpreter_profile_digest=successor_dispatch_single_interpreter_profile_digest(),
+        deployment_catalog_digest=deployment_catalog_digest,
+        runtime_protocol_version=runtime_protocol_version,
+        project_scope_digest=project_scope_digest,
+        resource_policy_epoch=resource_policy_epoch,
+        authority_requirement_digest=dispatch_single_authority_requirement_digest(),
+    )
+
+
 class BatchTaskPlanSuccessorInterpreter:
     """Bound successor interpreter for the C4.1 ordered batch plan atom."""
 
@@ -655,6 +778,16 @@ def successor_submission_interpreter_profile_digest() -> str:
             "interpreter_id": BATCH_TASK_SUCCESSOR_SUBMISSION_INTERPRETER_ID,
             "version": "1.0.0",
             "boundary": "batch task typed submission receipt derivation",
+        }
+    )
+
+
+def successor_dispatch_single_interpreter_profile_digest() -> str:
+    return content_digest(
+        {
+            "interpreter_id": BATCH_TASK_SUCCESSOR_DISPATCH_INTERPRETER_ID,
+            "version": "1.0.0",
+            "boundary": "batch task single-item skill dispatch ACK derivation",
         }
     )
 

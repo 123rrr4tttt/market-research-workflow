@@ -15,6 +15,12 @@ OPS_DIR="${ROOT_DIR}/main/ops"
 FRONTEND_DIR="${ROOT_DIR}/main/frontend-modern"
 ENV_FILE="${BACKEND_DIR}/.env"
 ENV_EXAMPLE_FILE="${BACKEND_DIR}/.env.example"
+UNIT_SELECTOR="unit and not external"
+INTEGRATION_SELECTOR="integration and not external"
+CONTRACT_SELECTOR="contract and not external"
+E2E_SELECTOR="e2e and not external"
+ALL_SELECTOR="(unit or integration or contract or e2e) and not external"
+COVERAGE_SELECTOR="(unit or integration) and not external"
 
 usage() {
   cat <<USAGE
@@ -32,7 +38,7 @@ Profiles:
   frontend-e2e Run frontend Playwright e2e suite
   coverage    Run split coverage gate (core=100%, other=20%)
   all         Run unit + integration + contract + e2e
-  ci-pr       Run CI PR suite (unit + integration)
+  ci-pr       Run CI PR suite (unit + integration + core-business + e2e)
   ci-main     Run CI main suite (unit + integration + contract + e2e)
   docker      Run test suite through Docker compose backend-test service
 USAGE
@@ -65,6 +71,9 @@ compose() {
 run_pytest_marker() {
   local marker="$1"
   shift
+  if [[ "${MRW_PYTEST_EXCLUDE_FLAKY:-0}" == "1" ]]; then
+    marker="(${marker}) and not flaky"
+  fi
   local py_exec
   py_exec="$(resolve_python_exec)"
   (
@@ -75,18 +84,16 @@ run_pytest_marker() {
 
 run_pytest_coverage() {
   local py_exec
-  local core_paths
   py_exec="$(resolve_python_exec)"
-  core_paths="${CORE_COVERAGE_PATHS:-app/api/search.py,app/contracts/api.py,app/contracts/responses.py,app/contracts/tasks.py,app/contracts/errors.py}"
-  if ! "${py_exec}" -m pytest --help 2>/dev/null | grep -q -- "--cov"; then
+  if ! "${py_exec}" -m pytest --help 2>/dev/null | grep -- "--cov" >/dev/null; then
     echo "[test-standardize] Missing pytest-cov plugin in current environment" >&2
     echo "[test-standardize] Install with: ${py_exec} -m pip install pytest-cov" >&2
     return 2
   fi
   (
     cd "${BACKEND_DIR}"
-    "${py_exec}" -m pytest -m "(unit or integration) and not external" --cov=app --cov-report=term-missing --cov-report=xml:coverage.xml "$@"
-    "${py_exec}" scripts/check_coverage_thresholds.py --coverage-file coverage.xml --core-paths "${core_paths}" --core-threshold 100 --other-threshold 20
+    "${py_exec}" -m pytest -m "${COVERAGE_SELECTOR}" --cov=app --cov-report=term-missing --cov-report=xml:coverage.xml "$@"
+    "${py_exec}" scripts/check_coverage_thresholds.py --coverage-file coverage.xml
   )
 }
 
@@ -168,12 +175,12 @@ run_frontend_e2e() {
 
 run_ci_pr_suite() {
   prepare_env
-  run_pytest_marker "unit and not external" -q "$@"
-  run_pytest_marker "integration and not external" -q "$@"
+  run_pytest_marker "${UNIT_SELECTOR}" -q "$@"
+  run_pytest_marker "${INTEGRATION_SELECTOR}" -q "$@"
   (
     cd "${BACKEND_DIR}"
-    "$(resolve_python_exec)" -m pytest -m "(unit or integration or contract or e2e) and not external" tests/core_business -q "$@"
-    "$(resolve_python_exec)" -m pytest -m "e2e and not external" -q "$@"
+    "$(resolve_python_exec)" -m pytest -m "${ALL_SELECTOR}" tests/core_business -q "$@"
+    "$(resolve_python_exec)" -m pytest -m "${E2E_SELECTOR}" -q "$@"
   )
 }
 
@@ -209,27 +216,27 @@ shift
 case "${profile}" in
   unit)
     prepare_env
-    run_pytest_marker "unit and not external" "$@"
+    run_pytest_marker "${UNIT_SELECTOR}" "$@"
     ;;
   integration)
     prepare_env
-    run_pytest_marker "integration and not external" "$@"
+    run_pytest_marker "${INTEGRATION_SELECTOR}" "$@"
     ;;
   schema-guard)
     prepare_env
-    run_pytest_marker "integration and not external" tests/integration/test_project_schema_guard_unittest.py -q "$@"
+    run_pytest_marker "${INTEGRATION_SELECTOR}" tests/integration/test_project_schema_guard_unittest.py -q "$@"
     ;;
   contract)
     prepare_env
-    run_pytest_marker "contract and not external" "$@"
+    run_pytest_marker "${CONTRACT_SELECTOR}" "$@"
     ;;
   e2e)
     prepare_env
-    run_pytest_marker "e2e and not external" "$@"
+    run_pytest_marker "${E2E_SELECTOR}" "$@"
     ;;
   core-business)
     prepare_env
-    run_pytest_marker "(unit or integration or contract or e2e) and not external" tests/core_business -q "$@"
+    run_pytest_marker "${ALL_SELECTOR}" tests/core_business -q "$@"
     ;;
   external-smoke)
     prepare_env
@@ -246,16 +253,12 @@ case "${profile}" in
     prepare_env
     run_pytest_coverage "$@"
     ;;
-  all)
-    prepare_env
-    run_pytest_marker "(unit or integration or contract or e2e) and not external" "$@"
-    ;;
   ci-pr)
     run_ci_pr_suite "$@"
     ;;
-  ci-main)
+  all|ci-main)
     prepare_env
-    run_pytest_marker "(unit or integration or contract or e2e) and not external" "$@"
+    run_pytest_marker "${ALL_SELECTOR}" "$@"
     ;;
   docker)
     prepare_env

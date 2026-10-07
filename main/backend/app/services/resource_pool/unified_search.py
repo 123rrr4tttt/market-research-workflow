@@ -6,18 +6,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 import json
 from typing import Any, NoReturn
-from urllib.parse import urljoin, urlsplit
-import xml.etree.ElementTree as ET
-import gzip
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.provider_port_failures import resource_pool_contract_failures
 
 from .http_port import (
     HttpFetchError,
-    fetch_html,
     handle_official_access_api,
-    make_html_parser,
 )
 from .auto_classify import infer_keyword_capabilities
 from .candidate_source_plan import build_candidate_source_plan, plan_to_metadata
@@ -27,21 +22,17 @@ from ..source_library.relevance_review import build_relevance_review_queue
 from .extract import append_url
 from .resolver import list_urls
 from .search_capabilities import make_search_candidate
-from .search_capabilities import normalize_match_text
-from .search_capabilities import select_search_candidates
 from .site_search_policy import resolve_site_search_policy_for_entry
 from .search_template_service import execute_feed_probe
 from .search_template_service import execute_external_site_search
 from .search_template_service import execute_search_template
 from .search_template_service import execute_sitemap_probe
-from .search_template_service import extract_feed_candidates
 from .search_template_adapters import apply_search_template_adapter_plan
 from .search_template_adapters import resolve_search_template_adapter_plan
-from .search_template_service import normalize_candidate_url
 from .search_template_service import normalize_search_template_placeholders
 from .search_template_service import resolve_search_template_pagination
 from .site_entries import get_site_entry_by_url
-from .url_utils import domain_from_url, normalize_url
+from .url_utils import domain_from_url
 
 
 @dataclass
@@ -512,229 +503,6 @@ def _normalize_search_template_placeholders(template: str | None) -> str:
 
 def _resolve_search_template_pagination(params: dict[str, Any]) -> tuple[int, int]:
     return resolve_search_template_pagination(params)
-
-
-def _normalize_candidate_url(url: str) -> str | None:
-    return normalize_candidate_url(url)
-
-
-def _local_name(tag: str) -> str:
-    if "}" in tag:
-        return tag.split("}", 1)[1]
-    return tag
-
-
-def _extract_urls_from_rss_xml(xml_text: str) -> list[str]:
-    return [item["url"] for item in _extract_rss_candidates_from_xml(xml_text)]
-
-
-def _extract_rss_candidates_from_xml(xml_text: str) -> list[dict[str, str]]:
-    return [
-        {"url": item.url, "title": item.title, "text": item.text, "extra": {"title_hint": item.title}}
-        for item in extract_feed_candidates(xml_text)
-    ]
-
-
-def _parse_sitemap_xml(xml_text: str) -> tuple[str, list[str]]:
-    """Return (kind, locs). kind: urlset|sitemapindex|unknown."""
-    try:
-        root = ET.fromstring(xml_text)
-    except Exception:
-        return "unknown", []
-
-    kind = _local_name(root.tag).lower()
-    locs: list[str] = []
-    for loc in root.findall(".//{*}loc"):
-        if loc.text:
-            norm = _normalize_candidate_url(loc.text.strip())
-            if norm and norm not in locs:
-                locs.append(norm)
-    return kind, locs
-
-
-def _fetch_text_maybe_gzip(url: str, *, timeout: float) -> str:
-    text, resp = fetch_html(url, timeout=timeout, retries=1)
-    if url.lower().endswith(".gz"):
-        try:
-            raw = resp.content
-            return gzip.decompress(raw).decode("utf-8", errors="ignore")
-        except Exception:
-            return text
-    return text
-
-
-def _collect_sitemap_urls(
-    *,
-    sitemap_url: str,
-    timeout: float,
-    max_depth: int = 2,
-    max_sitemaps: int = 50,
-) -> list[str]:
-    """Fetch sitemap urlset, or recursively expand sitemapindex, with limits."""
-    seen: set[str] = set()
-    urls: list[str] = []
-    to_fetch: list[tuple[str, int]] = [(sitemap_url, 0)]
-    fetched = 0
-
-    while to_fetch and fetched < max_sitemaps:
-        u, depth = to_fetch.pop(0)
-        if u in seen:
-            continue
-        seen.add(u)
-        fetched += 1
-
-        xml_text = _fetch_text_maybe_gzip(u, timeout=timeout)
-        kind, locs = _parse_sitemap_xml(xml_text)
-        if kind.endswith("sitemapindex") and depth < max_depth:
-            for loc in locs:
-                if loc not in seen:
-                    to_fetch.append((loc, depth + 1))
-            continue
-
-        for loc in locs:
-            if loc not in urls:
-                urls.append(loc)
-
-    return urls
-
-
-def _build_sitemap_candidates(urls: list[str]) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    for url in urls:
-        norm = _normalize_candidate_url(url)
-        if not norm:
-            continue
-        path = urlsplit(norm).path or ""
-        slug = path.rstrip("/").rsplit("/", 1)[-1].rsplit(".", 1)[0]
-        title_hint = slug.replace("-", " ").replace("_", " ")
-        out.append({"url": norm, "title": "", "text": "", "extra": {"title_hint": title_hint}})
-    return out
-
-
-def _extract_urls_from_html(html: str, *, base_url: str) -> list[str]:
-    urls: list[str] = []
-    try:
-        parser = make_html_parser(html)
-        for node in parser.css("a"):
-            href = (node.attributes.get("href") or "").strip()
-            if not href:
-                continue
-            abs_url = urljoin(base_url, href)
-            norm = _normalize_candidate_url(abs_url)
-            if norm and norm not in urls:
-                urls.append(norm)
-    except Exception:
-        return urls
-    return urls
-
-
-def _normalize_match_text(value: str | None) -> str:
-    return normalize_match_text(value)
-
-
-def _term_matches_texts(term: str, texts: list[str]) -> bool:
-    normalized_term = _normalize_match_text(term)
-    if not normalized_term:
-        return False
-    return any(normalized_term in _normalize_match_text(text) for text in texts if str(text or "").strip())
-
-
-def _extract_link_candidates_from_html(html: str, *, base_url: str) -> list[dict[str, str]]:
-    candidates: list[dict[str, str]] = []
-    seen_urls: set[str] = set()
-    try:
-        parser = make_html_parser(html)
-        for node in parser.css("a"):
-            href = (node.attributes.get("href") or "").strip()
-            if not href:
-                continue
-            abs_url = urljoin(base_url, href)
-            norm = _normalize_candidate_url(abs_url)
-            if not norm or norm in seen_urls:
-                continue
-            seen_urls.add(norm)
-            candidates.append(
-                {
-                    "url": norm,
-                    "text": str(node.text(separator=" ", strip=True) or "").strip(),
-                    "title": str(node.attributes.get("title") or "").strip(),
-                }
-            )
-    except Exception:
-        return candidates
-    return candidates
-
-
-def _filter_urls_by_terms(urls: list[str], terms: list[str]) -> list[str]:
-    if not terms:
-        return urls
-    t = [x.lower() for x in terms if x]
-    out: list[str] = []
-    for u in urls:
-        lu = u.lower()
-        if any(term in lu for term in t):
-            out.append(u)
-    return out
-
-
-def _filter_urls_by_terms_with_fallback(
-    urls: list[str],
-    terms: list[str],
-    *,
-    fallback_limit: int = 30,
-    allow_fallback: bool = True,
-) -> tuple[list[str], bool]:
-    """
-    First try strict URL-term match; if nothing matches, fall back to top URLs.
-    This avoids false-zero results on sites where result URLs don't carry query terms.
-    """
-    filtered = _filter_urls_by_terms(urls, terms)
-    if filtered:
-        return filtered, False
-    if not terms:
-        return urls, False
-    if not allow_fallback:
-        return [], True
-    return urls[: max(1, int(fallback_limit))], True
-
-
-def _filter_link_candidates_by_terms_with_fallback(
-    candidates: list[dict[str, str]],
-    terms: list[str],
-    *,
-    strategy: str = "search_template",
-    entry_domain: str | None = None,
-    search_url: str | None = None,
-    fallback_limit: int = 30,
-    allow_fallback: bool = True,
-    scoring_config: dict[str, Any] | str | None = None,
-) -> tuple[list[dict[str, str]], bool]:
-    scored = [
-        item
-        for item in (
-            make_search_candidate(
-                url=str(candidate.get("url") or "").strip(),
-                strategy=strategy,
-                title=str(candidate.get("title") or "").strip(),
-                text=str(candidate.get("text") or "").strip(),
-                extra=dict(candidate.get("extra") or {}),
-            )
-            for candidate in candidates
-        )
-        if item is not None
-    ]
-    decisions, used_fallback = select_search_candidates(
-        scored,
-        terms,
-        strategy=strategy,
-        entry_domain=entry_domain,
-        search_url=search_url,
-        fallback_limit=fallback_limit,
-        allow_fallback=allow_fallback,
-        scoring_config=scoring_config,
-    )
-    by_url = {str(candidate.get("url") or "").strip(): candidate for candidate in candidates}
-    return [by_url[item.url] for item in decisions if item.url in by_url], used_fallback
 
 
 def _is_low_value_candidate_url(url: str) -> bool:
@@ -1592,7 +1360,8 @@ def unified_search_by_item_payload(
     ingest_result: dict[str, Any] | None = None
     if auto_ingest and (written or candidates):
         try:
-            from ..ingest.url_pool import collect_urls_from_list
+            from ..collect_runtime.contracts import CollectRequest
+            from ..collect_runtime.runtime import run_collect
             from ..projects import bind_project
 
             ingest_candidates = [u for u in candidates if u not in history_pool_urls]
@@ -1611,13 +1380,20 @@ def unified_search_by_item_payload(
             with bind_project(project_key):
                 # Auto-ingest should consume current-run candidates directly, instead of
                 # pulling historical URLs from shared unified_search pool.
-                ir = collect_urls_from_list(
-                    ingest_candidates,
-                    project_key=project_key,
-                    query_terms=terms,
-                    enable_extraction=bool(enable_extraction),
-                    extra_params={"url_target_mode": "detail_only"},
+                collect_result = run_collect(
+                    CollectRequest(
+                        channel="url_pool",
+                        project_key=project_key,
+                        urls=ingest_candidates,
+                        query_terms=terms,
+                        options={
+                            "url_target_mode": "detail_only",
+                            "enable_extraction": bool(enable_extraction),
+                        },
+                    )
                 )
+                raw_result = collect_result.meta.get("raw")
+                ir = dict(raw_result) if isinstance(raw_result, dict) else {}
             debug = ir.get("debug")
             if not isinstance(debug, dict):
                 debug = {}

@@ -65,7 +65,14 @@ def test_w04_authority_metadata() -> None:
     )
     w04 = next(packet_item for packet_item in packet["packets"] if packet_item["id"] == "W04")
     derived_keys = {key for key in w04["expected_removed_keys"] if key.startswith("derived-marked|")}
-    assert len(derived_keys) == 52
+    assert len(derived_keys) == 51
+
+    retired_writer_path = REPO_ROOT / "main/backend/app/services/workflow_graph/store.py"
+    retired_writer_tree = ast.parse(retired_writer_path.read_text(encoding="utf-8"))
+    assert not any(
+        isinstance(node, ast.FunctionDef) and node.name == "build_run_store"
+        for node in retired_writer_tree.body
+    )
 
     expected_targets: set[tuple[str, str]] = set()
     for key in derived_keys:
@@ -270,10 +277,6 @@ def test_w04_authority_metadata() -> None:
         ("main/backend/app/services/workflow_graph/governance_contract.py", "build_handoff_audit_record"): (
             "kit:non-authoritative",
             {"derived_as": "view", "fact_source": "handoff_audit_inputs"},
-        ),
-        ("main/backend/app/services/workflow_graph/store.py", "build_run_store"): (
-            "kit:prepared-command",
-            {"effect_boundary": "workflow_graph_run_store"},
         ),
         ("main/backend/app/services/workflow_graph/store.py", "build_compiled_graph_store"): (
             "kit:prepared-command",

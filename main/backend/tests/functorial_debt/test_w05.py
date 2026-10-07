@@ -17,21 +17,7 @@ from app.successor_runtime.capabilities.batch_task_program import (
 )
 from app.successor_runtime.capabilities.acquisition_batch import (
     build_collect_batch_plan,
-    build_acquisition_batch_bundle,
-    build_acquisition_batch_catalog,
-    build_acquisition_batch_registry,
-    build_collect_fold_payload,
     build_collect_request_ref,
-)
-from app.successor_runtime.capabilities.acquisition_batch_program import (
-    build_collect_batch_element_program,
-    build_collect_fold_ordered_results_program,
-    build_collect_fold_ordered_results_pure_program,
-    build_acquisition_batch_composed_program,
-    build_collect_program,
-    build_acquisition_batch_transform_registry,
-    build_declared_traversal_program,
-    build_family_payload_value_ref,
 )
 
 
@@ -69,27 +55,7 @@ _VIEWS: dict[object, tuple[str, str, str]] = {
     ),
     build_collect_batch_plan: (
         "view",
-        "CollectBatchPlanPayload+ordered_element_policy",
-        "test_w05_collect_authority_metadata",
-    ),
-    build_acquisition_batch_bundle: (
-        "view",
-        "COLLECT_C3_OWNER+capability_contract_constants",
-        "test_w05_collect_authority_metadata",
-    ),
-    build_acquisition_batch_catalog: (
-        "view",
-        "AcquisitionBatchCapabilityBundle.operations",
-        "test_w05_collect_authority_metadata",
-    ),
-    build_acquisition_batch_registry: (
-        "view",
-        "AcquisitionBatchCapabilityBundle+catalog_snapshot",
-        "test_w05_collect_authority_metadata",
-    ),
-    build_collect_fold_payload: (
-        "view",
-        "ordered_outcomes+aggregation_policy_ref",
+        "CollectLegacyRequestSnapshot+ordered_element_policy",
         "test_w05_collect_authority_metadata",
     ),
     build_collect_request_ref: (
@@ -116,38 +82,6 @@ _PREPARED: dict[object, tuple[str, str]] = {
         "successor_program_interpreter",
         "test_w05_agent_batch_authority_metadata",
     ),
-    build_collect_batch_element_program: (
-        "successor_program_interpreter",
-        "test_w05_collect_authority_metadata",
-    ),
-    build_collect_fold_ordered_results_program: (
-        "successor_program_interpreter",
-        "test_w05_collect_authority_metadata",
-    ),
-    build_collect_fold_ordered_results_pure_program: (
-        "successor_program_interpreter",
-        "test_w05_collect_authority_metadata",
-    ),
-    build_acquisition_batch_composed_program: (
-        "successor_program_interpreter",
-        "test_w05_collect_authority_metadata",
-    ),
-    build_collect_program: (
-        "successor_program_interpreter",
-        "test_w05_collect_authority_metadata",
-    ),
-    build_acquisition_batch_transform_registry: (
-        "pure_transform_registry",
-        "test_w05_collect_authority_metadata",
-    ),
-    build_declared_traversal_program: (
-        "successor_program_interpreter",
-        "test_w05_collect_authority_metadata",
-    ),
-    build_family_payload_value_ref: (
-        "successor_values_storage",
-        "test_w05_collect_authority_metadata",
-    ),
 }
 
 _W05_OWNED_CAPABILITY_FILES = {
@@ -155,8 +89,6 @@ _W05_OWNED_CAPABILITY_FILES = {
     "batch_task_interpreters.py",
     "batch_task_program.py",
     "acquisition_batch.py",
-    "acquisition_batch_interpreters.py",
-    "acquisition_batch_program.py",
 }
 
 
@@ -202,22 +134,13 @@ def test_w05_collect_authority_metadata() -> None:
         function for function, value in _VIEWS.items() if value[2].startswith("test_w05_collect")
     } == {
         build_collect_batch_plan,
-        build_acquisition_batch_bundle,
-        build_acquisition_batch_catalog,
-        build_acquisition_batch_registry,
-        build_collect_fold_payload,
         build_collect_request_ref,
     }
-    for function, (effect_boundary, witness) in _PREPARED.items():
-        if witness.startswith("test_w05_collect"):
-            marker, fields = _authority(function)
-            assert marker == "kit:prepared-command"
-            assert fields["effect_boundary"] == effect_boundary
 
 
 def test_w05_metadata_exact_and_runtime_types_preserved() -> None:
     all_functions = {*_VIEWS, *_PREPARED}
-    assert len(all_functions) == 24
+    assert len(all_functions) == 12
     for function in all_functions:
         marker, fields = _authority(function)
         if function in _VIEWS:

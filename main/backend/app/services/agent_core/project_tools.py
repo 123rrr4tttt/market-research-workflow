@@ -238,10 +238,20 @@ def build_project_core_tool_registry(
                 if isinstance(tool_call.arguments.get("payload"), dict)
                 else dict(tool_call.arguments or {})
             )
+            from .host_authorization import current_verified_host_authorization
+            authorization = current_verified_host_authorization()
+            actor = authorization.actor_context if authorization is not None else None
+            actor_context = (
+                actor if authorization is not None and actor is not None and actor.actor_trusted
+                and authorization.context.session_id == request.session_id
+                and authorization.context.project_key == request.project_key
+                else None
+            )
             invoked = invoke_skill(
                 skill_id=str(skill_meta.get("skill_id") or ""),
                 payload=payload,
                 context={
+                    "actor_context": actor_context,
                     "actor_role": "orchestration_runtime",
                     "permissions": normalize_string_list(skill_meta.get("required_permissions")),
                     "agent_session_id": request.session_id,

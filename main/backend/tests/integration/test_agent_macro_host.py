@@ -5,12 +5,16 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 from functorial_kit import Failure
 
 import app.api.agent_macro_host as host_api
 import app.services.agent_core.macro_host as macro_host_module
 from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall, CoreToolSpec
 from app.services.agent_core.host_authorization import TrustedHostContext, authorize_tool_call
+from app.services.agent_core.host_authorization import current_verified_host_authorization
+from app.services.request_identity import authenticated_actor_context, set_request_actor_context
+from starlette.requests import Request
 from app.services.agent_core.macro_host import (
     AgentMacroHostService,
     DefaultMacroEnvironmentOwner,
@@ -29,6 +33,55 @@ from app.services.agent_sessions.store import InMemoryAgentSessionStore
 
 
 pytestmark = pytest.mark.integration
+
+
+def test_authenticated_actor_reaches_tool_and_rejects_cross_actor_cached_dispatch() -> None:
+    actor = authenticated_actor_context(actor_id="user:a", source="oidc", auth_mode="oidc_claims")
+    other = authenticated_actor_context(actor_id="user:b", source="oidc", auth_mode="oidc_claims")
+    observed = []
+    registry = CoreToolRegistry()
+
+    def handler(call, spec, request, emit):
+        authorization = current_verified_host_authorization()
+        assert authorization is not None
+        observed.append(authorization.actor_context)
+        return CoreToolRegistry.simple_result(call=call, model_summary="ran")
+
+    registry.register(CoreToolSpec(name="demo.read", description_for_model="Read", permission="allow"), handler)
+    service, _, _ = _make_service(registry)
+    prepared = service.prepare(project_key="project-a")
+    service.bind(binding_id=prepared["bindingId"], thread_id="thread-1")
+    service.record_input(thread_id="thread-1", turn_id="turn-1", content="read", actor_context=actor)
+    arguments = dict(thread_id="thread-1", turn_id="turn-1", call_id="call-1", namespace="demo", tool="read", arguments={})
+    first = service.dispatch(**arguments, actor_context=actor)
+    assert observed == [actor]
+    assert service.dispatch(**arguments, actor_context=actor) == first
+    for mismatched in (other, None):
+        denied = service.dispatch(**arguments, actor_context=mismatched)
+        assert "authenticated host actor differs" in str(denied)
+    with pytest.raises(MacroHostError, match="another authenticated actor"):
+        service.record_input(thread_id="thread-1", turn_id="turn-1", content="replace", actor_context=other)
+    assert observed == [actor]
+
+
+def test_macro_api_transports_only_authenticated_request_actor(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = []
+    fake = SimpleNamespace(record_input=lambda **kwargs: seen.append(kwargs) or {}, dispatch=lambda **kwargs: seen.append(kwargs) or {})
+    monkeypatch.setattr(host_api, "get_agent_macro_host_service", lambda: fake)
+    request = Request({"type": "http", "state": {}, "headers": [(b"x-actor-id", b"forged")]})
+    record = host_api.RecordInputRequest(threadId="t", turnId="u", content="read")
+    host_api.record_macro_input(record, request)
+    assert seen[-1]["actor_context"] is None
+    actor = authenticated_actor_context(actor_id="user:a", source="oidc", auth_mode="oidc_claims")
+    set_request_actor_context(request, actor)
+    host_api.record_macro_input(record, request)
+    dispatch = host_api.DispatchRequest(threadId="t", turnId="u", callId="c", tool="demo.read")
+    host_api.dispatch_macro_tool(dispatch, request)
+    for transported in (seen[-2]["actor_context"], seen[-1]["actor_context"]):
+        assert transported.actor_id == actor.actor_id
+        assert transported.actor_source == actor.actor_source
+        assert transported.actor_auth_mode == actor.actor_auth_mode
+        assert transported.actor_trusted is True
 
 
 class FakeEnvironmentOwner:
@@ -249,15 +302,17 @@ def test_server_api_key_gate(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(host_api, "_configured_server_key", lambda: "secret")
     host_api.require_webui_server(request=None, x_mrw_server_api_key="secret")
 
-    with pytest.raises(MacroHostError) as exc:
+    with pytest.raises(HTTPException) as exc:
         host_api.require_webui_server(request=None, x_mrw_server_api_key="wrong")
-    assert exc.value.code == "invalid_server_api_key"
+    assert exc.value.status_code == 401
+    assert exc.value.detail["error"]["code"] == "invalid_server_api_key"
+    assert exc.value.detail["error"]["details"]["reason_code"] == "invalid_server_api_key"
 
     monkeypatch.setattr(host_api, "_configured_server_key", lambda: "")
-    with pytest.raises(MacroHostError) as exc:
+    with pytest.raises(HTTPException) as exc:
         host_api.require_webui_server(request=None, x_mrw_server_api_key="secret")
-    assert exc.value.code == "server_api_key_unconfigured"
     assert exc.value.status_code == 503
+    assert exc.value.detail["error"]["code"] == "server_api_key_unconfigured"
 
 
 def test_project_exists_binds_public_schema(monkeypatch: pytest.MonkeyPatch) -> None:

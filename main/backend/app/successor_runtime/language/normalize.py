@@ -63,6 +63,7 @@ def normalize_node(node: ProgramNode) -> ProgramNode:
         return traverse_ordered_node(
             element_program=normalize_node(node.element_program),
             traversal_policy=node.traversal_policy,
+            sequence_codec_version=node.sequence_codec_version,
         )
     if isinstance(node, Decide):
         from .program import decide_node
@@ -199,7 +200,7 @@ def normalized_structure(node: ProgramNode) -> Any:
             "traverse_ordered",
             normalized_structure(node.element_program),
             node.traversal_policy,
-        )
+        ) + ((node.sequence_codec_version,) if node.sequence_codec_version != "1" else ())
     if isinstance(node, Decide):
         return (
             "decide",

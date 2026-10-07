@@ -51,6 +51,7 @@ from .program import (
     pure_node,
     then_node,
     traverse_ordered_node,
+    sequence_object_type,
     zip_ordered_node,
 )
 from .transforms import (
@@ -113,5 +114,6 @@ __all__ = [
     "sha256_digest_bytes",
     "then_node",
     "traverse_ordered_node",
+    "sequence_object_type",
     "zip_ordered_node",
 ]

@@ -61,6 +61,10 @@ def string_list(value: Any) -> list[str]:
     return [item for item in value if isinstance(item, str)]
 
 
+def missing_required_move_blockers(value: Any) -> list[str]:
+    return sorted(REQUIRED_MOVE_BLOCKERS - set(string_list(value)))
+
+
 def validate_discoverability(repo_root: Path, root_raw: str, plan_path: Path, checker_raw: str) -> list[Problem]:
     problems: list[Problem] = []
     root_readme = repo_root / root_raw / "README.md"
@@ -198,8 +202,7 @@ def validate_content_plan_entries(
             if entry.get("move_allowed") is not True:
                 problems.append(Problem(entry_path, "move_allowed must be true for moved_file_batch"))
 
-        blockers = set(string_list(entry.get("blocked_by")))
-        missing_blockers = REQUIRED_MOVE_BLOCKERS - blockers
+        missing_blockers = missing_required_move_blockers(entry.get("blocked_by"))
         if missing_blockers:
             problems.append(Problem(entry_path, f"blocked_by missing required blockers: {sorted(missing_blockers)}"))
         if not isinstance(entry.get("next_gate"), str) or not entry["next_gate"]:
@@ -373,8 +376,7 @@ def validate_remaining_unsafe_moves(
         if not isinstance(move.get("reason"), str) or not move["reason"]:
             problems.append(Problem(move_path, "unsafe move reason is missing"))
 
-        required_gates = set(string_list(move.get("required_gates")))
-        missing_gates = REQUIRED_MOVE_BLOCKERS - required_gates
+        missing_gates = missing_required_move_blockers(move.get("required_gates"))
         if missing_gates:
             problems.append(Problem(move_path, f"required_gates missing blockers: {sorted(missing_gates)}"))
 

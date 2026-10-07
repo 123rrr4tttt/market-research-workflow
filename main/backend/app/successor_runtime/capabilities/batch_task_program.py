@@ -20,14 +20,17 @@ from typing import Annotated, Any
 
 from functorial_kit import Failure
 
-from app.successor_runtime.capabilities import batch_task as batch_task
+from app.successor_runtime.capabilities import batch_task as batch_task, batch_business
 from app.successor_runtime.capabilities.checksum import (
+    CanonicalJsonArray,
+    CanonicalJsonValue,
     canonical_json,
     content_digest,
     sha256_hex,
 )
 from app.successor_runtime.language.algebra import (
     AlgebraRef,
+    ObjectType,
     OperationSpec,
     ValueRef,
     freeze_json_object,
@@ -40,15 +43,23 @@ from app.successor_runtime.language.object_contracts import (
 )
 from app.successor_runtime.language.plan import traversal_shape_digest
 from app.successor_runtime.language.program import (
+    ProgramNode,
     ProgramSpec,
     atom_node,
+    then_node,
+    sequence_object_type,
     traverse_ordered_node,
+    zip_ordered_node,
 )
+from app.successor_runtime.language.transforms import MergeRef, TransformRegistry
 __all__ = [
     "build_batch_task_plan_program",
     "build_batch_task_plan_traversal_program",
     "build_batch_task_retry_program",
+    "build_batch_task_single_dispatch_program",
     "build_batch_task_submission_program",
+    "build_ordered_dispatch_merge_registry",
+    "build_batch_business_program",
     "compile_batch_task_program",
     "exact_contract_ref",
     "payload_value_ref",
@@ -485,3 +496,162 @@ def build_batch_task_submission_program(
         codec_id=batch_task.SUBMISSION_PAYLOAD_CODEC_ID,
         value_suffix="task-submission",
     )
+
+
+def build_batch_task_single_dispatch_program(
+    *,
+    payload: batch_task.BatchTaskSingleDispatchPayload,
+    catalog: OperationContractCatalogSnapshot,
+    program_id: str,
+    project_key: str,
+    project_registry_revision: int,
+    project_scope_digest: str,
+) -> Annotated[  # NonAuthoritative
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=successor_program_interpreter "
+    "witness=test:test_w05_agent_batch_authority_metadata",
+]:
+    """Compilable single-Atom Program for the independent single-item dispatch."""
+
+    return _build_batch_task_program(
+        payload=payload,
+        catalog=catalog,
+        program_id=program_id,
+        project_key=project_key,
+        project_registry_revision=project_registry_revision,
+        project_scope_digest=project_scope_digest,
+        kind=batch_task.DISPATCH_SINGLE_KIND,
+        operation_id=batch_task.DISPATCH_SINGLE_OPERATION_ID,
+        semantic_identity=batch_task.DISPATCH_SINGLE_SEMANTIC_IDENTITY,
+        observation_profile=batch_task.DISPATCH_SINGLE_OBSERVATION_PROFILE,
+        owner=batch_task.DISPATCH_SINGLE_OWNER,
+        input_type=batch_task.DISPATCH_SINGLE_PAYLOAD_TYPE,
+        output_type=batch_task.DISPATCH_SINGLE_ACK_TYPE,
+        object_type=batch_task.DISPATCH_SINGLE_PAYLOAD_TYPE,
+        codec_id=batch_task.DISPATCH_SINGLE_PAYLOAD_CODEC_ID,
+        value_suffix="single-dispatch",
+    )
+
+
+def _collect_pair_dispatch_acks(
+    left: CanonicalJsonValue,
+    right: CanonicalJsonValue,
+) -> CanonicalJsonArray:
+    """Ordered first pair merge: two ACK payloads become one sequence."""
+
+    return [left, right]
+
+
+def _collect_append_dispatch_ack(
+    left: CanonicalJsonArray,
+    right: CanonicalJsonValue,
+) -> CanonicalJsonArray:
+    """Ordered append merge: one ACK is appended after the prior sequence."""
+
+    return [*left, right]
+
+
+def _ordered_dispatch_sequence_type() -> ObjectType:
+    ack = batch_task.DISPATCH_SINGLE_ACK_TYPE
+    return ObjectType(
+        type_id=f"sequence:{ack.type_id}",
+        schema_version="1",
+        codec_id="mrw.successor.sequence_codec.v1",
+        canonical_codec_version="1",
+    )
+
+
+def _register_ordered_dispatch_merges(
+    registry: TransformRegistry,
+    *,
+    element_type: ObjectType = batch_task.DISPATCH_SINGLE_ACK_TYPE,
+    name: str = "mrw.batch.ordered_dispatch",
+    sequence_type: ObjectType | None = None,
+) -> tuple[MergeRef, MergeRef]:
+    ack = element_type
+    seq = sequence_type or _ordered_dispatch_sequence_type()
+    pair_ref = registry.register_merge(
+        name=f"{name}.collect_pair",
+        version="1.0.0",
+        left_type=ack,
+        right_type=ack,
+        output_type=seq,
+        func=_collect_pair_dispatch_acks,
+    )
+    append_ref = registry.register_merge(
+        name=f"{name}.collect_append",
+        version="1.0.0",
+        left_type=seq,
+        right_type=ack,
+        output_type=seq,
+        func=_collect_append_dispatch_ack,
+    )
+    return pair_ref, append_ref
+
+
+def build_ordered_dispatch_merge_registry() -> Annotated[TransformRegistry, 'kit:non-authoritative derived_as=program fact_source=ordered_batch_dispatch_and_business_contracts witness=test:test_post_waits_for_real_business_outputs_in_input_order']:
+    """Rebuild the shared ordered-dispatch merge registry for worker composition."""
+
+    registry = TransformRegistry(
+        registry_id="mrw.batch.ordered-dispatch.merge.v1",
+        registry_version="1",
+    )
+    _register_ordered_dispatch_merges(registry)
+    _register_ordered_dispatch_merges(
+        registry, element_type=batch_business.BUSINESS_WAIT_RESULT_TYPE,
+        name="mrw.batch.ordered_business.v2",
+        sequence_type=sequence_object_type(batch_business.BUSINESS_WAIT_RESULT_TYPE, version="2"),
+    )
+    return registry
+
+
+def build_batch_business_program(
+    *, payloads: tuple[batch_task.BatchTaskSingleDispatchPayload, ...],
+    catalog: OperationContractCatalogSnapshot, program_id: str,
+    project_key: str, project_registry_revision: int, project_scope_digest: str,
+) -> Annotated[ProgramSpec, 'kit:non-authoritative derived_as=program fact_source=ordered_batch_dispatch_and_business_contracts witness=test:test_post_waits_for_real_business_outputs_in_input_order']:
+    """Ordered item dispatch followed by the actual business terminal readback."""
+    if not payloads:
+        batch_task._raise_contract_failure(batch_task._failure(
+            "schema_contract_invalid", "business program requires at least one payload",
+            site="program/business/payloads",
+        ))
+    wait = exact_contract_ref(catalog, kind=batch_business.BUSINESS_WAIT_KIND)
+    roots: list[ProgramNode] = []
+    for index, payload in enumerate(payloads):
+        item = build_batch_task_single_dispatch_program(
+            payload=payload, catalog=catalog, program_id=f"{program_id}:{index}",
+            project_key=project_key, project_registry_revision=project_registry_revision,
+            project_scope_digest=project_scope_digest,
+        )
+        from app.successor_runtime.language.program import program_atoms
+        dispatch = program_atoms(item.root)[0]
+        dispatch = dataclasses.replace(dispatch, operation=dataclasses.replace(
+            dispatch.operation, operation_id=f"{batch_task.DISPATCH_SINGLE_OPERATION_ID}:{payload.dispatch_id}",
+        ))
+        # The immutable request qualifies this occurrence; Then supplies the
+        # actual ACK as semantic input through the existing typed data edge.
+        waiter = atom_node(OperationSpec(
+            operation_id=f"{batch_business.BUSINESS_WAIT_KIND}:{payload.dispatch_id}",
+            contract_ref=wait, input_refs=(dispatch.operation.payload_ref,),
+            payload_ref=dispatch.operation.payload_ref, allowed_overrides=freeze_json_object({}),
+        ), input_type=batch_task.DISPATCH_SINGLE_ACK_TYPE,
+            output_type=batch_business.BUSINESS_WAIT_RESULT_TYPE)
+        roots.append(then_node(dispatch, waiter))
+    seq = sequence_object_type(batch_business.BUSINESS_WAIT_RESULT_TYPE, version="2")
+    registry = TransformRegistry()
+    pair, append = _register_ordered_dispatch_merges(
+        registry, element_type=batch_business.BUSINESS_WAIT_RESULT_TYPE,
+        name="mrw.batch.ordered_business.v2", sequence_type=seq,
+    )
+    root = roots[0]
+    for index, next_item in enumerate(roots[1:], start=1):
+        root = zip_ordered_node(left=root, right=next_item,
+                                merge_ref=pair if index == 1 else append, output_type=seq)
+    return dataclasses.replace(
+        item, program_id=program_id, semantic_identity="batch.task.business-ordered.v2",
+        root=root, input_type=root.input_type, output_type=root.output_type,
+        metadata=freeze_json_object({"schema": "mrw.batch.business-program.v2",
+                                     "ordered_element_count": len(payloads)}),
+        program_digest="",
+    ).with_digest()

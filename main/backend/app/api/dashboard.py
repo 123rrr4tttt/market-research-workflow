@@ -49,6 +49,7 @@ from ..services.llm_report_trends import (
     summarize_quality_trends,
 )
 from ..services.projects import bind_project, normalize_project_key
+from ..services.projects.context import resolve_request_project_context
 from ..services.request_identity import resolve_request_actor_context
 from ..services.writing import create_document
 from ..settings.config import settings
@@ -778,15 +779,12 @@ def _dashboard_project_key_from_request(
     request: Request,
     explicit_project_key: str | None = None,
 ) -> str:
-    candidate = str(explicit_project_key or "").strip()
-    if not candidate:
-        source = str(getattr(getattr(request, "state", None), "project_key_source", "") or "").strip().lower()
-        resolved = str(getattr(getattr(request, "state", None), "project_key_resolved", "") or "").strip()
-        if source in {"header", "query"} and resolved:
-            candidate = resolved
-    if not candidate:
-        candidate = (request.headers.get("X-Project-Key") or request.query_params.get("project_key") or "").strip()
-    return _normalize_dashboard_project_key(candidate or settings.active_project_key or "default")
+    candidate, _, _ = resolve_request_project_context(
+        request,
+        fallback=lambda: settings.active_project_key or "default",
+        explicit_project_key=explicit_project_key,
+    )
+    return _normalize_dashboard_project_key(candidate)
 
 
 def _dashboard_report_mapping(value: object) -> DashboardJsonObject:

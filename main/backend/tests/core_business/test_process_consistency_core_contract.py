@@ -6,6 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
+from app.services.tasks import task_extract_resource_pool_from_documents
+
 pytestmark = [pytest.mark.contract, pytest.mark.mocked]
 
 
@@ -30,7 +32,7 @@ class _FakeListSession:
         self._jobs = jobs or []
 
     def execute(self, _query):
-        # /process/list only queries running EtlJobRun rows for DB fallback.
+        # Runtime readback queries recent EtlJobRun rows before projection.
         return _FakeResult(scalars_value=self._jobs)
 
 
@@ -62,6 +64,82 @@ class _FakeSessionLocal:
         return False
 
 
+class _FailingReadbackSessionLocal:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def execute(self, _query):
+        raise RuntimeError
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/v1/process/list",
+        "/api/v1/process/stats",
+        "/api/v1/process/tasks",
+        "/api/v1/process/logs",
+    ],
+)
+def test_process_readback_db_failure_is_not_empty_success(
+    core_business_client,
+    contract_headers: dict[str, str],
+    path: str,
+) -> None:
+    inspect = SimpleNamespace(
+        active=lambda: None,
+        scheduled=lambda: None,
+        reserved=lambda: None,
+        registered=lambda: None,
+    )
+
+    with (
+        patch("app.api.process.celery_app.control.inspect", return_value=inspect),
+        patch("app.api.process.SessionLocal", return_value=_FailingReadbackSessionLocal()),
+    ):
+        resp = core_business_client.get(path, headers=contract_headers)
+
+    assert resp.status_code == 500, resp.text
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["error"]["code"] == "INTERNAL_ERROR"
+    assert resp.headers["x-error-code"] == "INTERNAL_ERROR"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/v1/process/list",
+        "/api/v1/process/stats",
+        "/api/v1/process/tasks",
+        "/api/v1/process/logs",
+    ],
+)
+def test_process_readback_no_worker_and_empty_db_remains_healthy(
+    core_business_client,
+    contract_headers: dict[str, str],
+    path: str,
+) -> None:
+    inspect = SimpleNamespace(
+        active=lambda: None,
+        scheduled=lambda: None,
+        reserved=lambda: None,
+        registered=lambda: None,
+    )
+
+    with (
+        patch("app.api.process.celery_app.control.inspect", return_value=inspect),
+        patch("app.api.process.SessionLocal", return_value=_FakeSessionLocal(_FakeListSession([]))),
+    ):
+        resp = core_business_client.get(path, headers=contract_headers)
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "ok"
+
+
 def test_process_list_stats_history_consistency_semantics(
     core_business_client,
     contract_headers: dict[str, str],
@@ -74,6 +152,7 @@ def test_process_list_stats_history_consistency_semantics(
             status="running",
             params={
                 "state": "CA",
+                "task_id": "a1",
                 "rejected_count": 2,
                 "rejection_breakdown": {"content_shell_signature": 2},
             },
@@ -89,6 +168,7 @@ def test_process_list_stats_history_consistency_semantics(
             status="running",
             params={
                 "market": "us",
+                "task_id": "a2",
                 "inserted_valid": 3,
                 "rejected_count": 1,
                 "rejection_breakdown": {"url_policy_low_value_endpoint": 1},
@@ -166,6 +246,7 @@ def test_process_list_stats_history_consistency_semantics(
             "app.api.process.SessionLocal",
             side_effect=[
                 _FakeSessionLocal(_FakeListSession()),
+                _FakeSessionLocal(_FakeListSession()),
                 _FakeSessionLocal(_FakeHistorySession(history_jobs, history_status_rows)),
             ],
         ),
@@ -234,15 +315,15 @@ def test_process_list_filters_projects_and_deduplicates_celery_db_identity(
     contract_headers: dict[str, str],
 ) -> None:
     now = datetime(2026, 10, 5, 12, 0, 0)
-    resource_task_name = "app.services.tasks.task_extract_resource_pool_from_documents"
+    resource_task_name = task_extract_resource_pool_from_documents.name
     inspect = SimpleNamespace(
         active=lambda: {
             "worker-a": [
                 {
                     "id": "celery-alpha-1",
                     "name": resource_task_name,
-                    "args": ["project_alpha"],
-                    "kwargs": {},
+                    "args": [],
+                    "kwargs": {"project_key": "project_alpha"},
                 },
                 {
                     "id": "celery-beta-1",
@@ -264,8 +345,8 @@ def test_process_list_filters_projects_and_deduplicates_celery_db_identity(
                 {
                     "id": "celery-alpha-1",
                     "name": resource_task_name,
-                    "args": ["project_alpha"],
-                    "kwargs": {},
+                    "args": [],
+                    "kwargs": {"project_key": "project_alpha"},
                 }
             ]
         },
@@ -302,7 +383,8 @@ def test_process_list_filters_projects_and_deduplicates_celery_db_identity(
             retry_count=0,
         ),
     ]
-    history_status_rows = [SimpleNamespace(status="running", count=2)]
+    project_alpha_history = [job for job in running_jobs if job.params["project_key"] == "project_alpha"]
+    project_alpha_status_rows = [SimpleNamespace(status="running", count=len(project_alpha_history))]
 
     with (
         patch("app.api.process.celery_app.control.inspect", return_value=inspect),
@@ -310,7 +392,8 @@ def test_process_list_filters_projects_and_deduplicates_celery_db_identity(
             "app.api.process.SessionLocal",
             side_effect=[
                 _FakeSessionLocal(_FakeListSession(running_jobs)),
-                _FakeSessionLocal(_FakeHistorySession(running_jobs, history_status_rows)),
+                _FakeSessionLocal(_FakeHistorySession(project_alpha_history, project_alpha_status_rows)),
+                _FakeSessionLocal(_FakeListSession(running_jobs)),
             ],
         ),
     ):
@@ -336,7 +419,8 @@ def test_process_list_filters_projects_and_deduplicates_celery_db_identity(
     assert list_resp.json()["data"]["stats"]["total_tasks"] == 1
 
     history = history_resp.json()["data"]["history"]
-    alpha_history = next(item for item in history if item["id"] == 910)
+    assert [item["id"] for item in history] == [910]
+    alpha_history = history[0]
     assert alpha_history["task_id"] == "celery-alpha-1"
     assert alpha_history["task_name"] == "resource_pool_extract"
     assert alpha_history["source"] == "db"

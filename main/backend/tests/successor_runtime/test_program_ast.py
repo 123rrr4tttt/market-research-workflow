@@ -25,7 +25,9 @@ from app.successor_runtime.language.algebra import (
     ValueRef,
     build_catalog_snapshot,
     canonical_digest,
+    freeze_json_value,
     freeze_json_object,
+    thaw_json_value,
 )
 from app.successor_runtime.language.catalog import OperationContractRegistry
 from app.successor_runtime.language.combinators import (
@@ -45,6 +47,8 @@ from app.successor_runtime.language.object_contracts import (
     make_operation_contract,
 )
 from app.successor_runtime.language.program import (
+    PROGRAM_AST_CODEC_ID,
+    PROGRAM_AST_CODEC_V1_ID,
     DecisionBranch,
     Decide,
     MapOutput,
@@ -256,6 +260,38 @@ def test_persisted_canonical_json_round_trip_keeps_decision_branches() -> None:
 
     assert decoded.program_digest == spec.program_digest
     assert _operation_kinds(decoded.root) == _operation_kinds(spec.root)
+
+
+def test_ast_v2_persists_json_object_and_array_declarations() -> None:
+    literal = {
+        "empty_array": [],
+        "empty_object": {},
+        "pair_array": [["key", 1]],
+        "nested": {"array": [["left", "right"]], "object": {}},
+    }
+    node = pure_node(
+        INTENT,
+        MATERIAL_REF,
+        literal,
+        "mrw.shape-witness.literal.v1",
+    )
+    spec = _program_for_root(node)
+    encoded = encode_program_spec(spec)
+
+    assert encoded["schema"] == "mrw.functorial_successor.program_spec.v1"
+    assert encoded["program"]["codec"] == PROGRAM_AST_CODEC_ID
+    assert encoded["program"]["codec"].endswith(".v2")
+    decoded = decode_program_spec(encoded)
+    decoded_literal = thaw_json_value(decoded.root.literal_value)
+    assert decoded_literal == literal
+    assert decoded.root.ast_digest() == node.ast_digest()
+    assert decoded.program_digest == spec.program_digest
+    assert freeze_json_value(decoded.root.literal_value) == decoded.root.literal_value
+
+    legacy = encoded
+    legacy["program"]["codec"] = PROGRAM_AST_CODEC_V1_ID
+    with pytest.raises(ProgramCodecError, match="unsupported AST codec"):
+        decode_program_spec(legacy)
 
 
 def test_node_kind_fixed_discriminators() -> None:

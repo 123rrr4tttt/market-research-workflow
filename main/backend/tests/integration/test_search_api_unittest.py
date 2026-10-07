@@ -120,6 +120,7 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
             with patch.dict("os.environ", {"SEARCH_RETRIEVAL_RUNS_PATH": str(missing_store_path)}):
                 invalid = self.client.get("/api/v1/search/runs/%20", headers=self.headers)
                 missing_store = self.client.get("/api/v1/search/runs/retrieval_run_missing", headers=self.headers)
+                overlong = self.client.get(f"/api/v1/search/runs/{'r' * 257}", headers=self.headers)
 
             retrieval_runs_path = Path(tmp_dir) / "retrieval_runs.jsonl"
             with (
@@ -143,6 +144,9 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(not_found.headers.get("x-error-code"), ErrorCode.NOT_FOUND.value)
         self.assertEqual(corrupt.status_code, 500)
         self.assertEqual(corrupt.headers.get("x-error-code"), ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(overlong.status_code, 400)
+        self.assertEqual(overlong.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(overlong.json()["error"]["details"]["max_length"], 256)
 
     def test_search_fallback_index_freshness_handles_unavailable_readback(self):
         with (
@@ -184,6 +188,133 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
             body["data"]["provider_trace"]["index_freshness"]["readback_available"],
             body["data"]["index_freshness"]["readback_available"],
         )
+
+    def test_search_index_freshness_unavailable_and_unknown_readback(self):
+        with (
+            patch("app.api.search.hybrid_search", return_value=[{"id": "doc-1", "backend": "opensearch"}]),
+            patch("app.api.search.get_last_used_backends", return_value=["opensearch"]),
+            patch(
+                "app.api.search.persist_search_retrieval_run_record",
+                return_value={"readback_available": False, "status": "failed"},
+            ),
+        ):
+            unavailable = self.client.get("/api/v1/search", params={"q": "market"}, headers=self.headers)
+
+        with (
+            patch("app.api.search.hybrid_search", return_value=[{"id": "doc-1", "backend": "opensearch"}]),
+            patch("app.api.search.get_last_used_backends", return_value=["opensearch"]),
+            patch("app.api.search.persist_search_retrieval_run_record", return_value={}),
+        ):
+            unknown = self.client.get("/api/v1/search", params={"q": "market"}, headers=self.headers)
+
+        self.assertEqual(unavailable.status_code, 200)
+        self.assertEqual(unavailable.json()["data"]["index_freshness"]["freshness_state"], "unavailable")
+        self.assertEqual(unknown.status_code, 200)
+        self.assertEqual(unknown.json()["data"]["index_freshness"]["freshness_state"], "unknown")
+
+    def test_search_fallback_provenance_and_default_backend(self):
+        with (
+            patch(
+                "app.api.search.hybrid_search",
+                return_value=[{"id": "doc-1", "fallback_reason": "index_miss"}],
+            ),
+            patch("app.api.search.get_last_used_backends", return_value=[]),
+            patch(
+                "app.api.search.persist_search_retrieval_run_record",
+                return_value={"readback_available": True, "branch_count": 0, "hit_count": 0},
+            ),
+        ):
+            response = self.client.get("/api/v1/search", params={"q": "market"}, headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["data"]["index_backend"], "opensearch_lexical")
+        self.assertTrue(body["data"]["fallback_used"])
+        self.assertEqual(body["data"]["index_freshness"]["freshness_state"], "fallback_available")
+
+    def test_search_invalid_readback_count_returns_zero(self):
+        with (
+            patch("app.api.search.hybrid_search", return_value=[{"id": "doc-1", "backend": "opensearch"}]),
+            patch("app.api.search.get_last_used_backends", return_value=["opensearch"]),
+            patch(
+                "app.api.search.persist_search_retrieval_run_record",
+                return_value={
+                    "readback_available": True,
+                    "branch_count": "not-a-count",
+                    "hit_count": "also-bad",
+                },
+            ),
+        ):
+            response = self.client.get("/api/v1/search", params={"q": "market"}, headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        freshness = response.json()["data"]["index_freshness"]
+        self.assertEqual(freshness["branch_count"], 1)
+        self.assertEqual(freshness["hit_count"], 1)
+
+    def test_search_readback_deduplicates_refs_and_detects_fallback_provenance(self):
+        from app.services.search.vector_contracts import (
+            build_retrieval_run_record,
+            build_search_evidence_hits,
+        )
+        from app.services.search.retrieval_runs import write_search_retrieval_run_record
+
+        query_group_id, evidence_hits = build_search_evidence_hits(
+            [{"id": "doc-1", "backend": "opensearch", "source_id": "source-a"}],
+            query="market",
+        )
+        record = build_retrieval_run_record(
+            query="market", query_group_id=query_group_id, evidence_hits=evidence_hits
+        )
+        record["evidence_hits"][0]["provenance"]["fallback_reason"] = "index_miss"
+        record["retrieval_hits"][0]["provenance"]["fallback_reason"] = None
+        record["retrieval_hits"][0]["backend"] = "qdrant_vector"
+        record["retrieval_hits"].append(dict(record["retrieval_hits"][0]))
+
+        with tempfile.TemporaryDirectory(prefix="search-api-retrieval-runs-") as tmp_dir:
+            retrieval_runs_path = Path(tmp_dir) / "retrieval_runs.jsonl"
+            write_search_retrieval_run_record(retrieval_runs_path, record)
+            with patch.dict("os.environ", {"SEARCH_RETRIEVAL_RUNS_PATH": str(retrieval_runs_path)}):
+                response = self.client.get(
+                    f"/api/v1/search/runs/{record['run_id']}", headers=self.headers
+                )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        self.assertTrue(data["fallback_used"])
+        self.assertEqual(data["provider_trace"]["providers_used"], ["opensearch_lexical", "qdrant_vector"])
+        evidence_refs = [ref for ref in data["source_refs"] if ref["type"] == "search_evidence_hit"]
+        self.assertEqual(len(evidence_refs), 1)
+        self.assertEqual(evidence_refs[0]["hit_id"], record["retrieval_hits"][0]["hit_id"])
+
+    def test_search_readback_detects_evidence_hit_direct_fallback_reason(self):
+        from app.services.search.vector_contracts import (
+            build_retrieval_run_record,
+            build_search_evidence_hits,
+        )
+        from app.services.search.retrieval_runs import write_search_retrieval_run_record
+
+        query_group_id, evidence_hits = build_search_evidence_hits(
+            [{"id": "doc-1", "backend": "opensearch", "source_id": "source-a"}],
+            query="market",
+        )
+        record = build_retrieval_run_record(
+            query="market", query_group_id=query_group_id, evidence_hits=evidence_hits
+        )
+        record["retrieval_hits"][0]["provenance"]["fallback_reason"] = None
+        record["evidence_hits"][0]["provenance"]["fallback_reason"] = None
+        record["evidence_hits"][0]["fallback_reason"] = "index_miss"
+
+        with tempfile.TemporaryDirectory(prefix="search-api-retrieval-runs-") as tmp_dir:
+            retrieval_runs_path = Path(tmp_dir) / "retrieval_runs.jsonl"
+            write_search_retrieval_run_record(retrieval_runs_path, record)
+            with patch.dict("os.environ", {"SEARCH_RETRIEVAL_RUNS_PATH": str(retrieval_runs_path)}):
+                response = self.client.get(
+                    f"/api/v1/search/runs/{record['run_id']}", headers=self.headers
+                )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["data"]["fallback_used"])
 
     def test_search_upstream_error(self):
         with patch("app.api.search.hybrid_search", side_effect=RuntimeError("Elasticsearch Connection refused")):

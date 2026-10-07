@@ -19,6 +19,7 @@ from ..contracts.schemas.workflow_graph import (
     WorkflowGraphHandoffReplayData,
 )
 from ..services.skill_runtime import SkillInvocationContext, invoke_skill
+from ..services.request_identity import require_trusted_actor_context
 from ..services.workflow_graph.curated_service import WorkflowGraphObjectMissingError, WorkflowGraphSyncConflictError
 from ..services.workflow_graph.contracts import WorkflowGraphCompileError, WorkflowGraphIntegrityError
 from ..services.workflow_graph.edit_contract import WorkflowGraphEditContractError
@@ -129,10 +130,13 @@ def _invoke_run(payload: dict[str, Any]) -> Any:
 
 
 @_lift_workflow_failure
-def _invoke_get_run(run_id: str) -> Any:
+def _invoke_get_run(
+    run_id: str, *, project_key: str, actor_id: str, source: str = "canonical",
+) -> Any:
     return invoke_skill(
         skill_id="workflow_graph.get_run",
         args=(run_id,),
+        kwargs={"project_key": project_key, "actor_id": actor_id, "source": source},
         context=_skill_context(
             operation="workflow_graph.read",
             actor_role="business_capability_wrapper",
@@ -141,10 +145,13 @@ def _invoke_get_run(run_id: str) -> Any:
 
 
 @_lift_workflow_failure
-def _invoke_get_run_events(run_id: str) -> Any:
+def _invoke_get_run_events(
+    run_id: str, *, project_key: str, actor_id: str, source: str = "canonical",
+) -> Any:
     return invoke_skill(
         skill_id="workflow_graph.get_run_events",
         args=(run_id,),
+        kwargs={"project_key": project_key, "actor_id": actor_id, "source": source},
         context=_skill_context(
             operation="workflow_graph.read",
             actor_role="business_capability_wrapper",
@@ -153,11 +160,21 @@ def _invoke_get_run_events(run_id: str) -> Any:
 
 
 @_lift_workflow_failure
-def _invoke_replay_run(run_id: str, replay_mode: str = "events_only") -> Any:
+def _invoke_replay_run(
+    run_id: str,
+    replay_mode: str = "events_only",
+    *,
+    project_key: str,
+    actor_id: str,
+) -> Any:
     return invoke_skill(
         skill_id="workflow_graph.replay_run",
         args=(run_id,),
-        kwargs={"replay_mode": replay_mode},
+        kwargs={
+            "replay_mode": replay_mode,
+            "project_key": project_key,
+            "actor_id": actor_id,
+        },
         context=_skill_context(
             operation="workflow_graph.read",
             actor_role="business_capability_wrapper",
@@ -166,10 +183,16 @@ def _invoke_replay_run(run_id: str, replay_mode: str = "events_only") -> Any:
 
 
 @_lift_workflow_failure
-def _invoke_get_run_agent_session(run_id: str) -> Any:
+def _invoke_get_run_agent_session(
+    run_id: str,
+    *,
+    project_key: str,
+    actor_id: str,
+) -> Any:
     return invoke_skill(
         skill_id="workflow_graph.get_run_agent_session",
         args=(run_id,),
+        kwargs={"project_key": project_key, "actor_id": actor_id},
         context=_skill_context(
             operation="workflow_graph.read",
             actor_role="business_capability_wrapper",
@@ -432,6 +455,41 @@ def _require_write_project_key(
     return data
 
 
+def _require_read_project_key(request: Request, *, route_path: str) -> str | JSONResponse:
+    values = {
+        str(value or "").strip()
+        for value in (
+            request.query_params.get("project_key"),
+            request.headers.get("X-Project-Key"),
+        )
+        if value is not None
+    }
+    if "" in values:
+        return _error_json(
+            ErrorCode.PROJECT_KEY_REQUIRED,
+            "project_key is required for workflow graph reads",
+            details={"field": "project_key", "route_path": route_path},
+        )
+    if len(values) > 1:
+        return _error_json(
+            ErrorCode.INVALID_INPUT,
+            "project_key values in query and header must agree",
+            details={"field": "project_key", "route_path": route_path},
+        )
+    if not values:
+        return _error_json(
+            ErrorCode.PROJECT_KEY_REQUIRED,
+            "project_key is required for workflow graph reads",
+            details={
+                "field": "project_key",
+                "route_path": route_path,
+                "recoverable": True,
+                "next_action": "retry_with_explicit_project_key",
+            },
+        )
+    return next(iter(values))
+
+
 def _event_schema(
     *,
     event_type: str,
@@ -606,6 +664,7 @@ def run_workflow_graph(request: Request, payload: dict[str, Any]) -> Any:
     )
     if isinstance(checked_payload, JSONResponse):
         return checked_payload
+    checked_payload["actor_id"] = require_trusted_actor_context(request).actor_id
     try:
         return _ok_workflow_graph(_normalize_run(_invoke_run(checked_payload), project_key=checked_payload["project_key"]))
     except ValueError as exc:
@@ -618,9 +677,19 @@ def run_workflow_graph(request: Request, payload: dict[str, Any]) -> Any:
 
 
 @router.get("/runs/{run_id}", response_model=WorkflowGraphDynamicEnvelope)
-def get_workflow_graph_run(run_id: str) -> Any:
+def get_workflow_graph_run(
+    run_id: str, request: Request, source: str = "canonical",
+) -> Any:
+    project_key = _require_read_project_key(
+        request, route_path="/api/v1/workflow-graph/runs/{run_id}",
+    )
+    if isinstance(project_key, JSONResponse):
+        return project_key
+    actor_id = require_trusted_actor_context(request).actor_id
     try:
-        return _ok_workflow_graph(_normalize_run_detail(_invoke_get_run(run_id)))
+        return _ok_workflow_graph(_normalize_run_detail(_invoke_get_run(
+            run_id, project_key=project_key, actor_id=actor_id, source=source,
+        )))
     except ValueError as exc:
         return _error_json(ErrorCode.INVALID_INPUT, str(exc) or "invalid input")
     except KeyError as exc:
@@ -631,9 +700,22 @@ def get_workflow_graph_run(run_id: str) -> Any:
 
 
 @router.get("/runs/{run_id}/events", response_model=WorkflowGraphDynamicEnvelope)
-def get_workflow_graph_run_events(run_id: str) -> Any:
+def get_workflow_graph_run_events(
+    run_id: str, request: Request, source: str = "canonical",
+) -> Any:
+    project_key = _require_read_project_key(
+        request, route_path="/api/v1/workflow-graph/runs/{run_id}/events",
+    )
+    if isinstance(project_key, JSONResponse):
+        return project_key
+    actor_id = require_trusted_actor_context(request).actor_id
     try:
-        return _ok_workflow_graph(_normalize_run_events(_invoke_get_run_events(run_id), run_id=run_id))
+        return _ok_workflow_graph(_normalize_run_events(
+            _invoke_get_run_events(
+                run_id, project_key=project_key, actor_id=actor_id, source=source,
+            ),
+            run_id=run_id,
+        ))
     except ValueError as exc:
         return _error_json(ErrorCode.INVALID_INPUT, str(exc) or "invalid input")
     except KeyError as exc:
@@ -644,9 +726,17 @@ def get_workflow_graph_run_events(run_id: str) -> Any:
 
 
 @router.get("/runs/{run_id}/agent-session", response_model=WorkflowGraphDynamicEnvelope)
-def get_workflow_graph_run_agent_session(run_id: str) -> Any:
+def get_workflow_graph_run_agent_session(run_id: str, request: Request) -> Any:
+    project_key = _require_read_project_key(
+        request, route_path="/api/v1/workflow-graph/runs/{run_id}/agent-session",
+    )
+    if isinstance(project_key, JSONResponse):
+        return project_key
+    actor_id = require_trusted_actor_context(request).actor_id
     try:
-        return _ok_workflow_graph(_as_dict(_invoke_get_run_agent_session(run_id)))
+        return _ok_workflow_graph(_as_dict(_invoke_get_run_agent_session(
+            run_id, project_key=project_key, actor_id=actor_id,
+        )))
     except ValueError as exc:
         return _error_json(ErrorCode.INVALID_INPUT, str(exc) or "invalid input")
     except KeyError as exc:
@@ -670,9 +760,19 @@ def get_workflow_graph_compiled(graph_id: str) -> Any:
 
 
 @router.get("/runs/{run_id}/replay", response_model=WorkflowGraphDynamicEnvelope)
-def replay_workflow_graph_run(run_id: str, replay_mode: str = "events_only") -> Any:
+def replay_workflow_graph_run(
+    run_id: str, request: Request, replay_mode: str = "events_only",
+) -> Any:
+    project_key = _require_read_project_key(
+        request, route_path="/api/v1/workflow-graph/runs/{run_id}/replay",
+    )
+    if isinstance(project_key, JSONResponse):
+        return project_key
+    actor_id = require_trusted_actor_context(request).actor_id
     try:
-        return _ok_workflow_graph(_normalize_run_detail(_invoke_replay_run(run_id, replay_mode)))
+        return _ok_workflow_graph(_normalize_run_detail(_invoke_replay_run(
+            run_id, replay_mode, project_key=project_key, actor_id=actor_id,
+        )))
     except ValueError as exc:
         return _error_json(ErrorCode.INVALID_INPUT, str(exc) or "invalid input")
     except KeyError as exc:
@@ -995,8 +1095,9 @@ def build_workflow_graph_reporting_handoff(request: Request, graph_id: str, payl
         return checked_payload
     try:
         handoff_payload = _as_dict(_invoke_reporting_handoff(graph_id, checked_payload))
-        persist = handoff_store.persist(graph_id=graph_id, payload=handoff_payload)
-        handoff_payload["persistence"] = persist
+        handoff_payload["persistence"] = handoff_store.build(
+            graph_id=graph_id, payload=handoff_payload,
+        )
         return _ok_workflow_graph(handoff_payload)
     except Exception as exc:  # noqa: BLE001
         return _workflow_sync_error_json(exc, fallback_message="failed to build reporting handoff")
@@ -1020,8 +1121,9 @@ def build_workflow_graph_writing_handoff(request: Request, graph_id: str, payloa
         return checked_payload
     try:
         handoff_payload = _as_dict(_invoke_writing_handoff(graph_id, checked_payload))
-        persist = handoff_store.persist(graph_id=graph_id, payload=handoff_payload)
-        handoff_payload["persistence"] = persist
+        handoff_payload["persistence"] = handoff_store.build(
+            graph_id=graph_id, payload=handoff_payload,
+        )
         return _ok_workflow_graph(handoff_payload)
     except Exception as exc:  # noqa: BLE001
         return _workflow_sync_error_json(exc, fallback_message="failed to build writing handoff")
@@ -1032,9 +1134,31 @@ def build_workflow_graph_writing_handoff(request: Request, graph_id: str, payloa
     response_model=ApiEnvelope[WorkflowGraphHandoffListData],
     response_model_exclude_unset=True,
 )
-def list_workflow_graph_run_handoffs(run_id: str, handoff_mode: str | None = None) -> Any:
+def list_workflow_graph_run_handoffs(
+    run_id: str,
+    request: Request,
+    source: str = "",
+    handoff_mode: str | None = None,
+) -> Any:
+    project_key = _require_read_project_key(
+        request,
+        route_path="/api/v1/workflow-graph/runs/{run_id}/handoff",
+    )
+    if isinstance(project_key, JSONResponse):
+        return project_key
+    if str(source or "").strip().lower() != "historical":
+        return _error_json(
+            ErrorCode.INVALID_INPUT,
+            "source=historical is required for retired workflow handoff reads",
+            details={"field": "source", "expected": "historical"},
+        )
+    require_trusted_actor_context(request)
     try:
-        return _ok_workflow_graph(_as_dict(handoff_store.list_handoffs(run_id=run_id, handoff_mode=handoff_mode)))
+        return _ok_workflow_graph(_as_dict(handoff_store.list_handoffs(
+            run_id=run_id,
+            handoff_mode=handoff_mode,
+            project_key=project_key,
+        )))
     except ValueError as exc:
         return _error_json(ErrorCode.INVALID_INPUT, str(exc) or "invalid input")
     except KeyError as exc:
@@ -1049,9 +1173,31 @@ def list_workflow_graph_run_handoffs(run_id: str, handoff_mode: str | None = Non
     response_model=ApiEnvelope[WorkflowGraphHandoffReplayData],
     response_model_exclude_unset=True,
 )
-def replay_workflow_graph_handoff(run_id: str, handoff_id: str) -> Any:
+def replay_workflow_graph_handoff(
+    run_id: str,
+    handoff_id: str,
+    request: Request,
+    source: str = "",
+) -> Any:
+    project_key = _require_read_project_key(
+        request,
+        route_path="/api/v1/workflow-graph/runs/{run_id}/handoff/{handoff_id}/replay",
+    )
+    if isinstance(project_key, JSONResponse):
+        return project_key
+    if str(source or "").strip().lower() != "historical":
+        return _error_json(
+            ErrorCode.INVALID_INPUT,
+            "source=historical is required for retired workflow handoff reads",
+            details={"field": "source", "expected": "historical"},
+        )
+    require_trusted_actor_context(request)
     try:
-        return _ok_workflow_graph(_as_dict(handoff_store.replay_handoff(run_id=run_id, handoff_id=handoff_id)))
+        return _ok_workflow_graph(_as_dict(handoff_store.replay_handoff(
+            run_id=run_id,
+            handoff_id=handoff_id,
+            project_key=project_key,
+        )))
     except ValueError as exc:
         return _error_json(ErrorCode.INVALID_INPUT, str(exc) or "invalid input")
     except KeyError as exc:

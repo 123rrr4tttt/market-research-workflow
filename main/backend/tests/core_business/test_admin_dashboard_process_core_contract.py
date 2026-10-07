@@ -151,6 +151,24 @@ class _FakeSessionLocalOperationalError:
         return False
 
 
+class _FakeProcessScalarResult:
+    def scalars(self):
+        return SimpleNamespace(all=lambda: [])
+
+
+class _FakeEmptyProcessSession:
+    def execute(self, _query):
+        return _FakeProcessScalarResult()
+
+
+class _FakeProcessSessionLocalEmpty:
+    def __enter__(self):
+        return _FakeEmptyProcessSession()
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
 class _FakeResultNone:
     def scalar_one_or_none(self):
         return None
@@ -1708,7 +1726,10 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             reserved=lambda: {"w1": [{"id": "r1"}]},
         )
 
-        with patch("app.api.process.celery_app.control.inspect", return_value=inspect):
+        with (
+            patch("app.api.process.celery_app.control.inspect", return_value=inspect),
+            patch("app.api.process.SessionLocal", return_value=_FakeProcessSessionLocalEmpty()),
+        ):
             resp = self.client.get("/api/v1/process/stats", headers=self.headers)
 
         self.assertEqual(resp.status_code, 200)
@@ -1727,7 +1748,10 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             reserved=lambda: {},
         )
 
-        with patch("app.api.process.celery_app.control.inspect", return_value=inspect):
+        with (
+            patch("app.api.process.celery_app.control.inspect", return_value=inspect),
+            patch("app.api.process.SessionLocal", return_value=_FakeProcessSessionLocalEmpty()),
+        ):
             resp = self.client.get("/api/v1/process/stats", headers=self.headers)
 
         self.assertEqual(resp.status_code, 500)

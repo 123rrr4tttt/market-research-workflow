@@ -44,9 +44,8 @@ EVIDENCE_REL = Path(
     "2026-08-30-functorial-successor-migration/evidence"
 )
 EXACT_BYTE_REBIND_REL = EVIDENCE_REL / "exact-byte-rebind"
-ALLOWED_FAMILIES = frozenset({"C3", "C9"})
+ALLOWED_FAMILIES = frozenset({"C9"})
 _FAMILY_MODULES = {
-    "C3": "app.successor_runtime.specification.acquisition_batch_p3",
     "C9": "app.successor_runtime.specification.c9_p4",
 }
 DEFAULT_B13_STAGE = "stage-b13-2026-09-05"

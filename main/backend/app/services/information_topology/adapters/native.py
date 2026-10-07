@@ -6,15 +6,16 @@ ORM tables, mutate owner records, or claim historical lookup support.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Mapping, Protocol
 
-from functorial_kit import Failure
 from app.services.document_queries.identity import material_identity, material_revision
+from functorial_kit import Failure
 
-from ..contracts import BoundRef, Element, ElementRef, Endpoint, TopologyState, topology_failures
 from ..bindings import resolve_project_semantics
+from ..contracts import BoundRef, Element, ElementRef, Endpoint, TopologyState, topology_failures
 from ..mapping import Correspondence
 from ..modules.retrieval import DomainVocabulary, make_retrieval_profile
 from ..profiles import ProfileSpec
@@ -191,21 +192,32 @@ def adapt_graph(graph: Any, *, project_key: str, view_state: Mapping[str, Any] |
         node_id = str(_read(node, "id") or "")
         if not node_type or not node_id:
             continue
-        refs[(node_type, node_id)] = BoundRef(_reference(project_key, "graph", "nodes", "graph_node", node_id), schema_version or "unknown")
+        # GraphNodeRecord is identified by (node_type, canonical_id). JSON keeps
+        # that compound identity unambiguous when either native field contains a separator.
+        local_id = json.dumps((node_type, node_id), ensure_ascii=False, separators=(",", ":"))
+        refs[(node_type, node_id)] = BoundRef(
+            _reference(project_key, "graph", "nodes", "graph_node", local_id),
+            schema_version or "unknown",
+        )
     elements: list[Element] = [Element(ref, {**dict(_read(node, "properties", {}) or {}), "native_type": str(_read(node, "type") or "")}) for node in nodes.values()
         if (str(_read(node, "type") or ""), str(_read(node, "id") or "")) in refs
         for ref in (refs[(str(_read(node, "type") or ""), str(_read(node, "id") or ""))],)]
     for edge in edges:
         source, target = _read(edge, "from_node"), _read(edge, "to_node")
-        source_ref = refs.get((str(_read(source, "type") or ""), str(_read(source, "id") or "")))
-        target_ref = refs.get((str(_read(target, "type") or ""), str(_read(target, "id") or "")))
+        source_key = (str(_read(source, "type") or ""), str(_read(source, "id") or ""))
+        target_key = (str(_read(target, "type") or ""), str(_read(target, "id") or ""))
+        source_ref = refs.get(source_key)
+        target_ref = refs.get(target_key)
         if source_ref is None or target_ref is None:
             continue
         edge_type = str(_read(edge, "type") or "relation")
         # The canonical graph store's uniqueness key is edge type plus endpoints;
-        # derive the view reference from that same key, independent of row order.
-        local_id = f"{edge_type}:{source_ref.ref.module_id}:{source_ref.ref.local_id}->{target_ref.ref.module_id}:{target_ref.ref.local_id}"
-        edge_ref = BoundRef(_reference(project_key, "graph", "relations", "graph_relation", local_id), schema_version or "unknown")
+        # encode the two directed native endpoint identities without delimiter ambiguity.
+        local_id = json.dumps((edge_type, source_key, target_key), ensure_ascii=False, separators=(",", ":"))
+        edge_ref = BoundRef(
+            _reference(project_key, "graph", "relations", "graph_relation", local_id),
+            schema_version or "unknown",
+        )
         elements.append(Element(edge_ref, {"edge_type": edge_type,
             "origin_ref": {"module_id": "graph", "type_id": edge_type, "local_id": local_id},
             "properties": dict(_read(edge, "properties", {}) or {})}, (

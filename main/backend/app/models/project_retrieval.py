@@ -93,72 +93,17 @@ class ProjectRetrievalPlan(BigIDMixin, Base):
         self.payload = payload
 
 
-class ProjectRetrievalRun(BigIDMixin, Base):
-    __tablename__ = "project_retrieval_runs"
-    __table_args__ = (
-        UniqueConstraint("project_key", "run_id", name="uq_project_retrieval_run"),
-        UniqueConstraint("project_key", "idempotency_key", name="uq_project_retrieval_idempotency"),
-    )
-
-    project_key: Mapped[str] = mapped_column(String(128), nullable=False)
-    run_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    plan_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    idempotency_key: Mapped[str] = mapped_column(String(255), nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False)
-    phase: Mapped[str] = mapped_column(String(64), nullable=False)
-    counts: Mapped[RetrievalJsonObject] = mapped_column(
-        JSONB, nullable=False, server_default=text("'{}'::jsonb")
-    )
-    errors: Mapped[list[RetrievalJsonObject]] = mapped_column(
-        JSONB, nullable=False, server_default=text("'[]'::jsonb")
-    )
-    receipt: Mapped[RetrievalJsonObject] = mapped_column(
-        JSONB, nullable=False, server_default=text("'{}'::jsonb")
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
-    )
-
-    def __init__(
-        self,
-        *,
-        project_key: str,
-        run_id: str,
-        plan_id: str,
-        idempotency_key: str,
-        status: str,
-        phase: str,
-        counts: RetrievalJsonObject | None = None,
-        errors: list[RetrievalJsonObject] | None = None,
-        receipt: RetrievalJsonObject | None = None,
-    ) -> None:
-        self.project_key = project_key
-        self.run_id = run_id
-        self.plan_id = plan_id
-        self.idempotency_key = idempotency_key
-        self.status = status
-        self.phase = phase
-        self.counts = {} if counts is None else counts
-        self.errors = [] if errors is None else errors
-        self.receipt = {} if receipt is None else receipt
-
-
-def project_retrieval_tables() -> tuple[Table, Table, Table]:
+def project_retrieval_tables() -> tuple[Table, Table]:
     """Return the native tenant tables owned by project retrieval."""
 
     return (
         ProjectRetrievalMode.__table__,
         ProjectRetrievalPlan.__table__,
-        ProjectRetrievalRun.__table__,
     )
 
 
 __all__ = [
     "ProjectRetrievalMode",
     "ProjectRetrievalPlan",
-    "ProjectRetrievalRun",
     "project_retrieval_tables",
 ]

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, JsonValue
 
@@ -12,6 +12,7 @@ from app.contracts.responses import ApiEnvelope, ApiErrorModel, ApiMetaModel
 from app.services.project_retrieval.contracts import RetrievalJsonObject
 from app.services.project_retrieval.service import ProjectRetrievalService, RetrievalError
 from app.services.projects.context import current_project_key
+from app.services.request_identity import require_trusted_actor_context
 
 router = APIRouter(prefix="/project-retrieval", tags=["project-retrieval"])
 RetrievalEnvelope = ApiEnvelope[dict[str, JsonValue]]
@@ -100,20 +101,25 @@ def preview(payload: PreviewRequest) -> RetrievalEnvelope | JSONResponse:
 
 
 @router.post("/runs", response_model=RetrievalEnvelope)
-def start(payload: StartRequest) -> RetrievalEnvelope | JSONResponse:
+def start(payload: StartRequest, request: Request) -> RetrievalEnvelope | JSONResponse:
+    actor_id = require_trusted_actor_context(request).actor_id
     return _call(
         lambda project_key: ProjectRetrievalService().start(
             project_key,
             plan_id=payload.plan_id,
             idempotency_key=payload.idempotency_key,
+            actor_id=actor_id,
         )
     )
 
 
 @router.get("/runs/{run_id}", response_model=RetrievalEnvelope)
-def read_run(run_id: str) -> RetrievalEnvelope | JSONResponse:
+def read_run(run_id: str, request: Request) -> RetrievalEnvelope | JSONResponse:
+    actor_id = require_trusted_actor_context(request).actor_id
     return _call(
-        lambda project_key: ProjectRetrievalService().read_run(project_key, run_id)
+        lambda project_key: ProjectRetrievalService().read_run(
+            project_key, run_id, actor_id=actor_id
+        )
     )
 
 
@@ -122,8 +128,9 @@ def read_run(run_id: str) -> RetrievalEnvelope | JSONResponse:
     response_model=RetrievalEnvelope,
 )
 def continue_saved_frontier(
-    proposal_id: str, payload: RapidContinuationRequest
+    proposal_id: str, payload: RapidContinuationRequest, request: Request
 ) -> RetrievalEnvelope | JSONResponse:
+    actor_id = require_trusted_actor_context(request).actor_id
     return _call(
         lambda project_key: ProjectRetrievalService().continue_saved_frontier(
             project_key,
@@ -132,5 +139,6 @@ def continue_saved_frontier(
             proposal_version=payload.proposal_version,
             frontier_id=payload.frontier_id,
             remaining_followup_budget=payload.remaining_followup_budget,
+            actor_id=actor_id,
         )
     )

@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import sys
 from typing import Annotated, Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -24,8 +24,9 @@ from app.services.workflow_graph.curated_service import (  # noqa: E402
     WorkflowGraphCuratedService,
     WorkflowGraphSyncConflictError,
 )
+from app.services.workflow_graph.governance_contract import build_handoff_audit_record  # noqa: E402
 from app.services.workflow_graph.handoff_store import WorkflowGraphHandoffStore  # noqa: E402
-from app.services.workflow_graph.store import InMemoryRunStore  # noqa: E402
+from app.services.workflow_graph.store import InMemoryHistoricalWorkflowRunReader  # noqa: E402
 
 
 CONTRACT_VERSION = "graph.editing_audit_durability_gate.v1"
@@ -39,7 +40,7 @@ LIVE_DB_AUDIT_EVIDENCE_FIELDS = (
     "live_db_audit_durability_validated",
     "curated_submit_audit_readback_from_fresh_session",
     "curated_rollback_audit_readback_from_fresh_session",
-    "handoff_persist_replay_readback_from_fresh_session",
+    "historical_handoff_readback_from_persistent_storage",
     "tenant_project_scope_checked",
 )
 
@@ -671,14 +672,21 @@ def _exercise_conflict_rollback_readback_fixture() -> dict[str, Any]:
     return {"failures": failures, "metrics": metrics}
 
 
-def _exercise_handoff_audit_readback() -> dict[str, Any]:
+def _exercise_handoff_audit_readback(
+    *,
+    reader_drops_replay_event: bool = False,
+    reader_drops_persisted_audit: bool = False,
+) -> dict[str, Any]:
     failures: list[str] = []
     metrics: dict[str, Any] = {}
-    run_store = InMemoryRunStore()
+    run_id = "run-audit-durability"
+    handoff_id = "handoff-audit-durability"
+    graph_id = "cg-audit-durability"
+    project_key = "demo_proj"
     payload = {
-        "run_id": "run-audit-durability",
+        "run_id": run_id,
         "contract_version": "graph_handoff.v1",
-        "handoff_id": "handoff-audit-durability",
+        "handoff_id": handoff_id,
         "handoff_mode": "pull_prepared_evidence",
         "producer": "workflow_graph.backend_bridge",
         "consumer": "llm_report.generate",
@@ -687,35 +695,181 @@ def _exercise_handoff_audit_readback() -> dict[str, Any]:
             "pack_id": "gep-audit-durability",
             "provenance": {"project_key": "demo_proj", "audit_id": "audit-from-curated"},
         },
+        "audit": build_handoff_audit_record(
+            action="handoff.persisted",
+            graph_id=graph_id,
+            run_id=run_id,
+            handoff_id=handoff_id,
+            handoff_mode="pull_prepared_evidence",
+            producer="workflow_graph.backend_bridge",
+            consumer="llm_report.generate",
+            timestamp="2026-10-07T00:00:00+00:00",
+            evidence_pack={
+                "contract_version": "graph_evidence_pack.v1",
+                "pack_id": "gep-audit-durability",
+                "provenance": {"project_key": project_key},
+            },
+        ),
     }
+    replay_payload = {
+        "run_id": run_id,
+        "handoff_id": handoff_id,
+        "contract_version": HANDOFF_CONTRACT_VERSION,
+        "audit": build_handoff_audit_record(
+            action="handoff.replayed",
+            graph_id=graph_id,
+            run_id=run_id,
+            handoff_id=handoff_id,
+            handoff_mode="pull_prepared_evidence",
+            producer="workflow_graph.backend_bridge",
+            consumer="llm_report.generate",
+            timestamp="2026-10-07T00:00:01+00:00",
+            evidence_pack={
+                "contract_version": "graph_evidence_pack.v1",
+                "pack_id": "gep-audit-durability",
+                "provenance": {"project_key": project_key},
+            },
+        ),
+    }
+    persisted_event = {
+        "event_id": f"{run_id}:1",
+        "event_type": "handoff.persisted",
+        "project_key": project_key,
+        "session_id": None,
+        "run_id": run_id,
+        "trace_id": f"workflow_graph.{run_id}",
+        "created_at": "2026-10-07T00:00:00+00:00",
+        "ts": "2026-10-07T00:00:00+00:00",
+        "seq": 1,
+        "type": "handoff.persisted",
+        "node_id": None,
+        "payload": payload,
+    }
+    replay_event = {
+        "event_id": f"{run_id}:2",
+        "event_type": "handoff.replayed",
+        "project_key": project_key,
+        "session_id": None,
+        "run_id": run_id,
+        "trace_id": f"workflow_graph.{run_id}",
+        "created_at": "2026-10-07T00:00:01+00:00",
+        "ts": "2026-10-07T00:00:01+00:00",
+        "seq": 2,
+        "type": "handoff.replayed",
+        "node_id": None,
+        "payload": replay_payload,
+    }
+    events = [persisted_event, replay_event]
+    reader_events = deepcopy(events)
+    if reader_drops_persisted_audit:
+        reader_events[0]["payload"].pop("audit", None)
+    if reader_drops_replay_event:
+        reader_events.pop()
 
     try:
-        writer = WorkflowGraphHandoffStore(store=run_store)
-        persisted = writer.persist(graph_id="cg-audit-durability", payload=payload)
-        reader = WorkflowGraphHandoffStore(store=run_store)
-        listed = reader.list_handoffs(run_id="run-audit-durability")
-        replayed = reader.replay_handoff(run_id="run-audit-durability", handoff_id="handoff-audit-durability")
-        events = run_store.get_events("run-audit-durability")
+        build_reader = MagicMock(name="historical reader")
+        builder = WorkflowGraphHandoffStore(reader=build_reader)
+        built = builder.build(graph_id=graph_id, payload=payload)
+
+        historical_reader = InMemoryHistoricalWorkflowRunReader(
+            {
+                run_id: {
+                    "run": {
+                        "run_id": run_id,
+                        "status": "succeeded",
+                        "created_at": "2026-10-07T00:00:00+00:00",
+                        "updated_at": "2026-10-07T00:00:01+00:00",
+                        "node_statuses": {},
+                        "metadata": {"workflow_id": graph_id, "project_key": project_key},
+                    },
+                    "events": reader_events,
+                    "results": {},
+                }
+            }
+        )
+        snapshot_before = historical_reader.snapshot(run_id)
+        reader = WorkflowGraphHandoffStore(reader=historical_reader)
+        listed = reader.list_handoffs(run_id=run_id, project_key=project_key)
+        replayed = reader.replay_handoff(run_id=run_id, handoff_id=handoff_id, project_key=project_key)
+        project_scope_rejected = False
+        try:
+            reader.list_handoffs(run_id=run_id, project_key="other_project")
+        except KeyError:
+            project_scope_rejected = True
+        snapshot_after = historical_reader.snapshot(run_id)
     except Exception as exc:  # noqa: BLE001
         return {"failures": [f"handoff audit fixture raised: {exc}"], "metrics": metrics}
 
-    event_types = [str(event.get("type") or "") for event in events]
-    persisted_event = events[0] if events else {}
-    replay_event = events[-1] if events else {}
-    persisted_audit = {}
-    replay_audit = {}
-    if isinstance(persisted_event.get("payload"), dict):
-        persisted_audit = persisted_event["payload"].get("audit") or {}
-    if isinstance(replay_event.get("payload"), dict):
-        replay_audit = replay_event["payload"].get("audit") or {}
+    readback_events = list(replayed.get("events") or [])
+    event_types = [str(event.get("type") or "") for event in readback_events]
+    listed_items = list(listed.get("items") or [])
+    listed_item = listed_items[0] if listed_items else {}
+    readback_result = replayed.get("result") if isinstance(replayed.get("result"), dict) else {}
+    persisted_audit = readback_result.get("audit") or {}
+    replay_audit = next(
+        (
+            event["payload"].get("audit") or {}
+            for event in readback_events
+            if event.get("type") == "handoff.replayed" and isinstance(event.get("payload"), dict)
+        ),
+        {},
+    )
+    readback_events_match_input = readback_events == events
+    readback_result_matches_input = readback_result == payload
+    listed_item_metadata_matches_input = (
+        listed_item.get("event_type") == "handoff.persisted"
+        and listed_item.get("seq") == persisted_event["seq"]
+        and listed_item.get("handoff_id") == handoff_id
+        and listed_item.get("handoff_mode") == payload["handoff_mode"]
+        and listed_item.get("producer") == payload["producer"]
+        and listed_item.get("consumer") == payload["consumer"]
+        and listed_item.get("contract_version") == payload["contract_version"]
+    )
+    build_reader_access_count = sum(
+        (
+            build_reader.get_run.call_count,
+            build_reader.get_events.call_count,
+            build_reader.get_results.call_count,
+            build_reader.snapshot.call_count,
+        )
+    )
 
-    _expect(failures, persisted.get("audit_contract_version") == AUDIT_CONTRACT_VERSION, "persist audit contract missing")
+    _expect(
+        failures,
+        built.get("durable") is False
+        and built.get("backend_marker") == "workflow_graph.request_local_handoff"
+        and build_reader_access_count == 0,
+        "request-local handoff build must not read or write historical storage",
+    )
     _expect(failures, listed.get("total") == 1, "handoff list readback did not return one persisted handoff")
+    _expect(failures, listed.get("read_only") is True, "handoff list readback did not declare read_only")
+    _expect(
+        failures,
+        listed_item.get("event_type") == "handoff.persisted"
+        and listed_item.get("seq") == persisted_event["seq"]
+        and listed_item.get("handoff_id") == handoff_id
+        and listed_item.get("handoff_mode") == payload["handoff_mode"]
+        and listed_item.get("producer") == payload["producer"]
+        and listed_item.get("consumer") == payload["consumer"]
+        and listed_item.get("contract_version") == payload["contract_version"],
+        "handoff list readback item did not preserve persisted metadata",
+    )
     _expect(
         failures,
         replayed.get("contract_version") == HANDOFF_CONTRACT_VERSION
-        and replayed.get("handoff_id") == "handoff-audit-durability",
+        and replayed.get("handoff_id") == handoff_id
+        and replayed.get("read_only") is True,
         "handoff replay readback contract mismatch",
+    )
+    _expect(
+        failures,
+        readback_events_match_input,
+        "historical replay readback events do not equal the fixed input events",
+    )
+    _expect(
+        failures,
+        readback_result_matches_input,
+        "historical replay result does not equal the fixed persisted payload",
     )
     _expect(
         failures,
@@ -736,12 +890,29 @@ def _exercise_handoff_audit_readback() -> dict[str, Any]:
         and replay_audit.get("context", {}).get("handoff_id") == "handoff-audit-durability",
         "replayed handoff audit record did not preserve replay metadata",
     )
+    _expect(failures, project_scope_rejected, "historical handoff project scope did not reject a mismatched project")
+    _expect(
+        failures,
+        snapshot_before == snapshot_after,
+        "historical handoff list/replay changed the fixed historical event snapshot",
+    )
 
     metrics.update(
         {
-            "handoff_event_count": len(events),
+            "handoff_build_durable": built.get("durable"),
+            "handoff_build_reader_access_count": build_reader_access_count,
+            "handoff_event_count": len(readback_events),
+            "handoff_input_event_count": len(events),
             "handoff_event_types": event_types,
-            "persisted_audit_id": persisted.get("audit_id"),
+            "handoff_list_read_only": listed.get("read_only"),
+            "handoff_replay_read_only": replayed.get("read_only"),
+            "historical_readback_events_match_input": readback_events_match_input,
+            "historical_result_matches_input": readback_result_matches_input,
+            "listed_item_metadata_matches_input": listed_item_metadata_matches_input,
+            "historical_project_scope_rejected": project_scope_rejected,
+            "historical_snapshot_unchanged": snapshot_before == snapshot_after,
+            "persisted_audit_contract_version": persisted_audit.get("contract_version"),
+            "replayed_audit_contract_version": replay_audit.get("contract_version"),
         }
     )
     return {"failures": failures, "metrics": metrics}
@@ -784,14 +955,34 @@ def repo_local_static_checks(repo_root: Path = REPO_ROOT) -> dict[str, bool]:
                 "def replay_workflow_graph_handoff",
             ),
         ),
-        "handoff_store_persists_and_replays_audited_events": _contains_all(
+        "handoff_store_builds_request_local_carrier": _contains_all(
             handoff_source,
             (
-                'event_type="handoff.persisted"',
-                'event_type="handoff.replayed"',
-                '"audit": build_handoff_audit_record(',
+                "HistoricalWorkflowRunReader | None = None",
+                "def build(",
+                '"durable": False',
+                '"backend_marker": "workflow_graph.request_local_handoff"',
+            ),
+        ),
+        "handoff_store_decodes_history_without_writer": _contains_all(
+            handoff_source,
+            (
                 "def list_handoffs",
                 "def replay_handoff",
+                '"read_only": True',
+                '"backend_marker": "workflow_graph.historical_run_decoder"',
+            ),
+        ),
+        "handoff_store_has_no_event_writer": "append_event" not in handoff_source
+        and "InMemoryRunStore" not in handoff_source
+        and "SqlRunStore" not in handoff_source,
+        "workflow_graph_handoff_history_requires_explicit_historical_source": _contains_all(
+            api_source,
+            (
+                'source: str = ""',
+                '!= "historical"',
+                "source=historical is required for retired workflow handoff reads",
+                "project_key=project_key",
             ),
         ),
     }
@@ -881,7 +1072,8 @@ def _build_repo_local_stage(*, static_checks: dict[str, bool]) -> dict[str, Any]
         validated=not failures,
         detail=(
             "deterministic service fixture validates curated submit, rollback, audit list, "
-            "handoff persist/list/replay, and fresh service readback without opening live DB"
+            "request-local handoff build, historical handoff list/replay/project scope, and "
+            "fresh service readback without opening live DB or writing retired-run history"
         ),
         gaps=[] if not failures else ["repo-local audit/readback contract is broken"],
         failures=failures,
@@ -1019,7 +1211,10 @@ def _build_live_db_audit_stage(
                 status="validated",
                 passed=True,
                 validated=True,
-                detail="live tenant evidence proves submit, rollback, and handoff audit readback from persistent storage",
+                detail=(
+                    "live tenant evidence proves curated submit/rollback persistence, project scope, "
+                    "and read-only historical handoff readback from persistent retired-run storage"
+                ),
                 gaps=[],
                 evidence_required=LIVE_DB_AUDIT_EVIDENCE_FIELDS,
             )
@@ -1050,7 +1245,7 @@ def _build_live_db_audit_stage(
         ),
         gaps=[
             "run curated submit and rollback against a tenant DB and read audits back from a fresh session",
-            "run handoff persist/list/replay against persistent storage and read replay audit events back",
+            "read historical handoff list/replay from persistent retired-run storage and verify it remains unchanged",
             "verify project/tenant scoping for audit records",
         ],
         evidence_required=LIVE_DB_AUDIT_EVIDENCE_FIELDS,
@@ -1101,12 +1296,13 @@ def build_gate_snapshot(
         readiness_state = "repo_local_validated_live_gaps_open"
     closure_clause = (
         "closure_claim=true because explicit live evidence sealed tenant DB audit durability, "
-        "persistent handoff replay readback, and tenant/project scoping"
+        "read-only historical handoff readback, and tenant/project scoping"
         if closure_claim
         else "closure_claim=false because live tenant audit durability must be sealed by separate live evidence"
     )
     boundary = (
         "repo-local audit/readback contract is deterministic and validated; "
+        "request-local handoff build and read-only historical handoff decode are validated without retired-run writes; "
         f"tenant-like fixture audit trace={tenant_like_stage['status']}; "
         f"conflict rollback readback fixture={conflict_stage['status']}; "
         f"GraphPage repo-local audit/rollback UI={ui_stage['status']}; "

@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from unittest.mock import patch
-
 from functorial_kit import Failure
 
-from app.services.agent_core.contracts import CoreToolResult
 from app.services.project_retrieval.proposals import rapid_proposal_from_mapping
 from app.services.project_retrieval.rapid_macro import (
     build_round_proposal,
     continuation_plan_from_saved_frontier,
-    execute_saved_frontier,
 )
 
 
@@ -29,11 +25,11 @@ def _plan():
 
 def _round_result():
     return {
-        "plan_id": "plan:1", "session_id": "session:1",
+        "plan_id": "plan:1", "run_id": "retrieval:1",
         "attempts": [{
             "attempt_id": "attempt:1", "query_id": "query:1", "actual_query": "water policy", "result": "hit",
-            "round_id": "session:1", "tool": "source.web.search",
-            "raw_return_location": "agent_session:session:1:artifact:search.json",
+            "round_id": "retrieval:1", "tool": "source.web.search",
+            "raw_return_location": "runtime:retrieval:1:attempt:attempt:1",
         }],
         "candidates": [{"candidate_id": "candidate:1", "query_id": "query:1"}],
         "materials": [{
@@ -144,89 +140,6 @@ def test_saved_frontier_consumes_separate_followup_budget_and_rejects_unbound_sc
     assert isinstance(rejected, Failure) and rejected.code == "CONTINUATION_INVALID"
 
 
-def test_second_query_runs_through_original_executor_and_returns_real_attempt():
-    proposal = _proposal()
-    assert not isinstance(proposal, Failure)
-    calls = []
-
-    class Store:
-        def upsert_artifact(self, item):
-            return item
-
-    class SessionService:
-        store = Store()
-
-        def create_session(self, **kwargs):
-            return {"session": {"session_id": "session:2", "root_task_id": "task:2"}}
-
-        def claim_task(self, *_args, **_kwargs):
-            return {"status": "running"}
-
-        def release_task(self, *_args, **_kwargs):
-            return {"status": "failed"}
-
-    class Registry:
-        def get(self, name):
-            return {"name": name}
-
-        def execute_tool(self, *, tool_call, tool_spec, request, emit):
-            calls.append((tool_call.tool_name, dict(tool_call.arguments)))
-            body = {"candidates": []} if tool_call.tool_name == "source.web.search" else {}
-            return CoreToolResult(
-                call_id=tool_call.call_id, tool_name=tool_call.tool_name, status="completed",
-                model_summary="completed", structured_content=body,
-            )
-
-    with patch("app.services.project_retrieval.execution.build_project_core_tool_registry", return_value=Registry()):
-        observed = execute_saved_frontier(
-            adapter=_SavedAdapter(proposal), project_key="project:1", proposal_id="proposal:1",
-            proposal_version="1", frontier_id=proposal.frontier[0].frontier_id,
-            base_plan=_plan(), remaining_followup_budget=1,
-            topology_service=None, session_factory=SessionService,
-        )
-    assert not isinstance(observed, Failure)
-    second_query = observed["plan"]["queries"][0]
-    assert ("source.web.search", {"query": "water independent report", "language": "en", "max_results": 1}) in calls
-    assert observed["result"]["attempts"][0]["query_id"] == second_query["query_id"]
-    assert observed["result"]["attempts"][0]["actual_query"] == second_query["expression"]
-    assert observed["continuation"]["remaining_followup_budget"] == 0
-
-
-def test_project_service_continuation_uses_saved_plan_and_shared_runtime():
-    from app.services.project_retrieval.service import ProjectRetrievalService
-
-    service = ProjectRetrievalService(session_factory=lambda: None)
-    captured = {}
-
-    def execute(**kwargs):
-        captured.update(kwargs)
-        return {
-            "plan": {"plan_id": "plan:next"},
-            "result": {"status": "completed", "attempts": [{"attempt_id": "attempt:2"}]},
-            "continuation": {"frontier_id": "frontier:1"},
-        }
-
-    with (
-        patch.object(service, "read_plan", return_value=_plan()),
-        patch("app.services.project_retrieval.topology.build_topology_service", return_value=object()),
-        patch("app.services.project_retrieval.rapid_macro.execute_saved_frontier", side_effect=execute),
-    ):
-        result = service.continue_saved_frontier(
-            "project:1",
-            plan_id="plan:1",
-            proposal_id="proposal:1",
-            proposal_version="1",
-            frontier_id="frontier:1",
-            remaining_followup_budget=2,
-        )
-
-    assert result["status"] == "completed"
-    assert result["result"]["attempts"][0]["attempt_id"] == "attempt:2"
-    assert captured["project_key"] == "project:1"
-    assert captured["base_plan"] == _plan()
-    assert captured["remaining_followup_budget"] == 2
-
-
 def test_skill_adapter_forwards_project_bound_continuation(monkeypatch):
     from app.services.project_retrieval import skill
 
@@ -239,6 +152,8 @@ def test_skill_adapter_forwards_project_bound_continuation(monkeypatch):
 
     monkeypatch.setattr(skill, "current_project_key", lambda: "project:1")
     monkeypatch.setattr(skill, "ProjectRetrievalService", Service)
+    from app.services.request_identity import RequestActorContext
+
     result = skill.continue_saved_frontier(
         {
             "plan_id": "plan:1",
@@ -246,7 +161,13 @@ def test_skill_adapter_forwards_project_bound_continuation(monkeypatch):
             "proposal_version": "1",
             "frontier_id": "frontier:1",
             "remaining_followup_budget": 2,
-        }
+        },
+        invocation_context={
+            "actor_context": RequestActorContext(
+                actor_id="actor:1", actor_source="authenticated_session",
+                actor_trusted=True, actor_auth_mode="session",
+            )
+        },
     )
     assert result == {"status": "completed"}
     assert observed == {
@@ -256,6 +177,7 @@ def test_skill_adapter_forwards_project_bound_continuation(monkeypatch):
         "proposal_version": "1",
         "frontier_id": "frontier:1",
         "remaining_followup_budget": 2,
+        "actor_id": "actor:1",
     }
 
 

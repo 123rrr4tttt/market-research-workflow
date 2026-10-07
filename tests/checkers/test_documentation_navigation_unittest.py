@@ -22,6 +22,9 @@ def load_checker(name: str, relative: str):
 
 
 status = load_checker("docs_current_status", "scripts/check_current_dev_status_evidence.py")
+content_plan = load_checker(
+    "check_docs_root_content_plan", "scripts/checkers/check_docs_root_content_plan.py"
+)
 navigation = load_checker("docs_navigation", "scripts/checkers/check_docs_root_navigation_drift.py")
 
 
@@ -103,6 +106,16 @@ class HistoricalNavigationTest(unittest.TestCase):
         self.entry.write_text("[original](../history/original.md)\n")
         self.assertEqual(navigation.missing_references(
             self.root, [self.anchor], (self.surface,), []), [])
+
+    def test_navigation_reuses_content_plan_blocker_rule(self):
+        self.assertEqual(
+            navigation.missing_required_move_blockers(["shared_navigation_sync"]),
+            ["MERGED_OVERVIEW_drift"],
+        )
+        self.assertEqual(content_plan.missing_required_move_blockers(None), [
+            "MERGED_OVERVIEW_drift",
+            "shared_navigation_sync",
+        ])
 
 
 if __name__ == "__main__":

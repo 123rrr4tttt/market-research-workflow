@@ -30,12 +30,8 @@ ResourcePoolOfficialAccessFailureCode = Literal[
     "official_access_port_not_configured",
 ]
 CollectRuntimeFailureCode = Literal[
-    "skill_id_required",
-    "collect_adapter_contract_invalid",
     "compat_projector_contract_invalid",
-    "collect_channel_unsupported",
     "auto_batch_execution_failed",
-    "product_mode_unsupported",
     "successor_effect_gateway_invalid",
 ]
 SourceLibraryCrawlerProviderResolutionFailureCode = Literal[

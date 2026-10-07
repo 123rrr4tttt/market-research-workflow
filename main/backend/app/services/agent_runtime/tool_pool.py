@@ -65,7 +65,6 @@ IMPLEMENTED_TOOL_IDS = CORE_TOOL_IDS | {
     "workflow_graph.run",
     "report.generate",
     "task.cancel",
-    "task.retry",
 }
 
 

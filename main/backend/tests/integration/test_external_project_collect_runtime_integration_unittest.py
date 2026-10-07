@@ -107,12 +107,9 @@ class ExternalProjectCollectRuntimeIntegrationTestCase(unittest.TestCase):
         }
 
         with (
-            patch("app.services.collect_runtime.adapters.source_library.start_job", return_value="job-ext-1"),
-            patch("app.services.collect_runtime.adapters.source_library.complete_job"),
-            patch("app.services.collect_runtime.adapters.source_library.fail_job"),
             patch("app.services.source_library.resolver.list_effective_items", return_value=[fake_item]),
             patch("app.services.source_library.resolver.list_effective_channels", return_value=[]),
-            patch("app.services.source_library.resolver.run_item_payload", return_value=fake_raw),
+            patch("app.services.source_library.resolver.run_item_payload", return_value=fake_raw) as mocked_run,
         ):
             response = run_source_library_item_compat(
                 item_key="external.demo.item",
@@ -120,7 +117,21 @@ class ExternalProjectCollectRuntimeIntegrationTestCase(unittest.TestCase):
                 override_params={"query_terms": ["ai"], "max_items": 1},
             )
 
+        mocked_run.assert_called_once_with(
+            item=fake_item,
+            channels=[],
+            project_key="demo_proj",
+            override_params={"query_terms": ["ai"], "max_items": 1},
+        )
+        self.assertEqual(response["item_key"], "external.demo.item")
+        self.assertEqual(response["params"], fake_raw["params"])
+        self.assertEqual(
+            {key: value for key, value in response["legacy_result"].items() if key != "delivery_observation"},
+            fake_raw,
+        )
+        self.assertIn("delivery_observation", response["legacy_result"])
         self.assertEqual(response["terminal_output"]["item"]["item_key"], "external.demo.item")
+        self.assertEqual(response["terminal_output"]["contract_version"], "source_library.terminal_output.v1")
         self.assertEqual(
             response["terminal_output"]["item"]["external_manifest"]["project_link"],
             "https://github.com/example/external-demo",

@@ -9,12 +9,18 @@ those bytes before publishing the corresponding EFFECT/ADMISSION activation.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Literal
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
+from typing import Any, Literal, cast
 
 from functorial_kit import Failure
 
-from app.successor_runtime.language.algebra import ValueRef, sha256_digest_bytes
+from app.successor_runtime.language.algebra import (
+    ValueRef,
+    sha256_digest_bytes,
+    thaw_json_value,
+)
+from app.successor_runtime.research.object_types import ObjectType
 from app.successor_runtime.language.checksum import canonical_bytes, sha256_hex
 from app.successor_runtime.language.normalize import normalize_program
 from app.successor_runtime.language.plan import (
@@ -57,6 +63,14 @@ from .transitions import RunState, StepState
 from .failure_policy import raise_runtime_failure, runtime_failure
 
 
+ValueEncoder = Callable[[ObjectType, object], bytes]
+
+
+def encode_language_value(object_type: ObjectType, value: object) -> bytes:
+    """The existing language realization; domain installations supply theirs."""
+    return canonical_bytes(value)
+
+
 class ActivationError(ValueError):
     """The exact Program/Plan/value closure cannot be activated safely."""
 
@@ -81,6 +95,7 @@ class ProgramInput:
 
     value_ref: ValueRef
     value: object
+    exact_bytes: bytes | None = field(default=None, kw_only=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +105,7 @@ class BoundStepValue:
     step_id: str
     value_ref: ValueRef
     value: object
+    exact_bytes: bytes | None = field(default=None, kw_only=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +140,13 @@ class TraversalMaterialization:
     shape_digest: str
     binding_digest: str
     materialization_digest: str
+
+
+@dataclass(frozen=True, slots=True)
+class SettledTraversalValue(BoundStepValue):
+    """Project-read settlement bound to its original ordered materialization."""
+
+    materialization: TraversalMaterialization
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,6 +200,7 @@ def _activate_plan_impl(
     merge_registry: TransformRegistry,
     discriminator_registry: TransformRegistry,
     already_activated_step_ids: frozenset[str] = frozenset(),
+    encode_value: ValueEncoder = encode_language_value,
 ) -> ActivationResult | Failure:
     """Interpret pure steps and discover ready effect/admission work.
 
@@ -197,6 +221,11 @@ def _activate_plan_impl(
     if isinstance(exact_plan, Failure):
         return exact_plan
 
+    if program_input is not None:
+        input_check = _require_value_ref(program_input.value_ref, program.project_key)
+        if isinstance(input_check, Failure):
+            return input_check
+
     nodes = _nodes_by_path(normalized.root)
     if isinstance(nodes, Failure):
         return nodes
@@ -204,9 +233,11 @@ def _activate_plan_impl(
     if len(steps) != len(plan.ordered_steps):
         return _activation_failure("ExecutionPlan step IDs must be unique")
 
-    values = _completed_values(completed_outputs, steps, program.project_key)
+    values = _completed_values(completed_outputs, steps, program.project_key, nodes, encode_value)
     if isinstance(values, Failure):
         return values
+    settlements = {key: value for key, value in values.items() if isinstance(value, SettledTraversalValue)}
+    values = {key: value for key, value in values.items() if key not in settlements}
     materializations: dict[str, ValueMaterialization] = {}
     activations: dict[str, ReadyActivation] = {}
     traversal_materializations: dict[str, TraversalMaterialization] = {}
@@ -238,11 +269,19 @@ def _activate_plan_impl(
             if dependencies is None:
                 continue
 
+            if step.step_kind in {"TRANSFORM", "MERGE", "DECIDE"}:
+                semantic = _semantic_dependencies(
+                    plan.control_root, step, values, program_input,
+                )
+                if isinstance(semantic, Failure):
+                    return semantic
+                dependencies = semantic
+
             if step.step_kind == "PURE":
                 node = _require_node(nodes, step, Pure)
                 if isinstance(node, Failure):
                     return node
-                value = _thaw(node.literal_value)
+                value = thaw_json_value(node.literal_value)
                 embedded_ref = _unique_embedded_value_ref(
                     value, project_key=program.project_key
                 )
@@ -256,6 +295,7 @@ def _activate_plan_impl(
                         value=value,
                         dependency_refs=tuple(item.value_ref for item in dependencies),
                         codec_id=node.literal_codec,
+                        encode_value=encode_value,
                     )
                     if isinstance(derived, Failure):
                         return derived
@@ -270,16 +310,34 @@ def _activate_plan_impl(
             if step.step_kind == "TRANSFORM":
                 traversal_node = nodes.get(step.source_path)
                 if isinstance(traversal_node, TraverseOrdered):
+                    settled = settlements.get(step.step_id)
+                    settled_input = None
+                    if settled is not None:
+                        current = dependencies[0] if len(dependencies) == 1 else program_input if not dependencies else None
+                        canonical = settled.materialization.input_ref
+                        if current is None or any(
+                            getattr(current.value_ref, field) != getattr(canonical, field)
+                            for field in ("project_key", "object_type", "codec_id", "content_digest", "byte_size")
+                        ):
+                            return _activation_failure("settled traversal input binding drift")
+                        settled_input = ProgramInput(canonical, current.value, exact_bytes=current.exact_bytes)
                     descriptor = _traversal_materialization_descriptor(
                         program=program,
                         plan=plan,
                         step=step,
                         node=traversal_node,
-                        dependencies=dependencies,
-                        program_input=program_input,
+                        dependencies=() if settled_input is not None else dependencies,
+                        program_input=settled_input or program_input,
+                        encode_value=encode_value,
                     )
                     if isinstance(descriptor, Failure):
                         return descriptor
+                    if settled is not None:
+                        if descriptor != settled.materialization:
+                            return _activation_failure("settled traversal materialization binding drift")
+                        values[step.step_id] = settled
+                        progress = True
+                        continue
                     traversal_materializations.setdefault(
                         step.step_id,
                         descriptor,
@@ -311,9 +369,13 @@ def _activate_plan_impl(
                     return _activation_failure(f"TRANSFORM {step.step_id} failed: {exc}")
                 if entry.preserves_value_ref:
                     try:
-                        bytes_equal = canonical_bytes(value) == canonical_bytes(
-                            dependencies[0].value
-                        )
+                        source = dependencies[0]
+                        original = source.exact_bytes
+                        if original is None:
+                            # Ref-bearing research values transport a reference
+                            # representation; they do not claim its target bytes.
+                            original = encode_value(source.value_ref.object_type, source.value)
+                        bytes_equal = encode_value(source.value_ref.object_type, value) == original
                     except (TypeError, ValueError, OverflowError) as exc:
                         return _activation_failure(str(exc))
                     if not bytes_equal:
@@ -335,6 +397,7 @@ def _activate_plan_impl(
                         step.step_id,
                         dependencies[0].value_ref,
                         dependencies[0].value,
+                        exact_bytes=dependencies[0].exact_bytes,
                     )
                     progress = True
                     continue
@@ -344,6 +407,7 @@ def _activate_plan_impl(
                     step=step,
                     value=value,
                     dependency_refs=(dependencies[0].value_ref,),
+                    encode_value=encode_value,
                 )
                 if isinstance(derived, Failure):
                     return derived
@@ -389,6 +453,7 @@ def _activate_plan_impl(
                     step=step,
                     value=value,
                     dependency_refs=dependency_refs,
+                    encode_value=encode_value,
                 )
                 if isinstance(derived, Failure):
                     return derived
@@ -435,13 +500,23 @@ def _activate_plan_impl(
                     # No branch is released from an unresolved decision.
                     continue
                 values[step.step_id] = BoundStepValue(
-                    step.step_id, decision_input.value_ref, decision_input.value
+                    step.step_id, decision_input.value_ref, decision_input.value,
+                    exact_bytes=decision_input.exact_bytes,
                 )
                 progress = True
                 continue
 
             if step.step_kind in {"EFFECT", "ADMISSION"}:
                 if step.step_id in already_activated_step_ids:
+                    continue
+                groups = activation_dependency_groups(plan, step)
+                if isinstance(groups, Failure):
+                    return groups
+                dependencies = _dependency_values(
+                    replace(step, dependencies=tuple(item.step_id for group in groups for item in group)),
+                    values, steps, decisions,
+                )
+                if dependencies is None:
                     continue
                 atom = _require_atom(nodes, step)
                 if isinstance(atom, Failure):
@@ -460,6 +535,8 @@ def _activate_plan_impl(
 
             return _activation_failure(f"unsupported compiled step kind {step.step_kind!r}")
 
+    if set(settlements) - set(values):
+        return _activation_failure("settled traversal has no released dependency path")
     ordered_value_ids = tuple(
         step.step_id for step in plan.ordered_steps if step.step_id in values
     )
@@ -499,6 +576,7 @@ def activate_plan_result(
     merge_registry: TransformRegistry,
     discriminator_registry: TransformRegistry,
     already_activated_step_ids: frozenset[str] = frozenset(),
+    encode_value: ValueEncoder = encode_language_value,
 ) -> ActivationResult | Failure:
     """Return activation observations or a closed runtime failure value."""
 
@@ -513,6 +591,7 @@ def activate_plan_result(
         merge_registry=merge_registry,
         discriminator_registry=discriminator_registry,
         already_activated_step_ids=already_activated_step_ids,
+        encode_value=encode_value,
     )
 
 
@@ -528,6 +607,7 @@ def activate_plan(
     merge_registry: TransformRegistry,
     discriminator_registry: TransformRegistry,
     already_activated_step_ids: frozenset[str] = frozenset(),
+    encode_value: ValueEncoder = encode_language_value,
 ) -> ActivationResult:
     """Legacy exception ABI over :func:`activate_plan_result`."""
 
@@ -542,6 +622,7 @@ def activate_plan(
         merge_registry=merge_registry,
         discriminator_registry=discriminator_registry,
         already_activated_step_ids=already_activated_step_ids,
+        encode_value=encode_value,
     )
     if isinstance(result, Failure):
         exception_type = {
@@ -563,8 +644,9 @@ def _traversal_materialization_descriptor(
     plan: ExecutionPlan,
     step: CompiledStep,
     node: TraverseOrdered,
-    dependencies: tuple[BoundStepValue, ...],
+    dependencies: tuple[BoundStepValue | ProgramInput, ...],
     program_input: ProgramInput | None,
+    encode_value: ValueEncoder,
 ) -> TraversalMaterialization | Failure:
     if step.transform_ref is None or (
         step.transform_ref.name != "mrw.traverse_ordered.materialize"
@@ -575,6 +657,7 @@ def _traversal_materialization_descriptor(
         traversal_input = ProgramInput(
             dependencies[0].value_ref,
             dependencies[0].value,
+            exact_bytes=dependencies[0].exact_bytes,
         )
     elif not dependencies and program_input is not None:
         traversal_input = program_input
@@ -595,7 +678,7 @@ def _traversal_materialization_descriptor(
 
     elements = tuple(traversal_input.value)
     try:
-        exact_input_bytes = canonical_bytes(list(elements))
+        exact_input_bytes = _bound_value_bytes(traversal_input, encode_value)
     except (TypeError, ValueError, OverflowError) as exc:
         return _activation_failure(str(exc))
     if traversal_input.value_ref.codec_id != step.input_type.codec_id:
@@ -740,15 +823,38 @@ def _controls_by_id(root: CompiledControlNode) -> dict[str, CompiledControlNode]
     return result
 
 
+def _bound_value_bytes(value: BoundStepValue | ProgramInput, encode_value: ValueEncoder) -> bytes:
+    if value.value_ref.codec_id != value.value_ref.object_type.codec_id:
+        raise_runtime_failure(
+            _activation_failure("typed value codec identity drift"), ActivationError
+        )
+    encoded = encode_value(value.value_ref.object_type, value.value)
+    exact = value.exact_bytes if value.exact_bytes is not None else encoded
+    if exact != encoded:
+        raise_runtime_failure(
+            _activation_failure("typed value codec/semantic bytes drift"), ActivationError
+        )
+    if len(exact) != value.value_ref.byte_size or sha256_digest_bytes(exact) != value.value_ref.content_digest:
+        raise_runtime_failure(
+            _activation_failure("typed value exact bytes binding drift"), ActivationError
+        )
+    return exact
+
+
 def _completed_values(
     outputs: tuple[BoundStepValue, ...],
     steps: dict[str, CompiledStep],
     project_key: str,
+    nodes: dict[tuple[str, ...], ProgramNode],
+    encode_value: ValueEncoder,
 ) -> dict[str, BoundStepValue] | Failure:
     result: dict[str, BoundStepValue] = {}
     for output in outputs:
         step = steps.get(output.step_id)
-        if step is None or step.step_kind not in {"EFFECT", "ADMISSION"}:
+        if step is None or (isinstance(output, SettledTraversalValue) and (
+            step.step_kind != "TRANSFORM" or not isinstance(nodes.get(step.source_path), TraverseOrdered)
+            or output.materialization.step_id != output.step_id
+        )) or (not isinstance(output, SettledTraversalValue) and step.step_kind not in {"EFFECT", "ADMISSION"}):
             return _activation_failure("completed output must bind an EFFECT/ADMISSION step")
         value_ref_check = _require_value_ref(output.value_ref, project_key)
         if isinstance(value_ref_check, Failure):
@@ -758,6 +864,24 @@ def _completed_values(
             output.value_ref.object_type,
         ):
             return _activation_failure("completed output ValueRef type mismatch")
+        if output.exact_bytes is not None:
+            try:
+                _bound_value_bytes(output, encode_value)
+            except (TypeError, ValueError, OverflowError) as exc:
+                return _activation_failure(str(exc))
+        if isinstance(output, SettledTraversalValue):
+            count = cast(object, output.materialization.element_count)
+            raw_value: object = output.value
+            sequence = cast(tuple[object, ...] | list[object], raw_value) if isinstance(raw_value, (tuple, list)) else None
+            if (not isinstance(count, int) or isinstance(count, bool) or count < 0
+                    or sequence is None or len(sequence) != count):
+                return _activation_failure("settled traversal output cardinality drift")
+            try:
+                exact = _bound_value_bytes(output, encode_value)
+            except (TypeError, ValueError, OverflowError) as exc:
+                return _activation_failure(str(exc))
+            if sha256_digest_bytes(exact) != output.value_ref.content_digest or len(exact) != output.value_ref.byte_size:
+                return _activation_failure("settled traversal output bytes drift")
         existing = result.get(output.step_id)
         if existing is not None and existing != output:
             return _activation_failure("conflicting duplicate completed step output")
@@ -811,6 +935,85 @@ def _branch_is_released(
     return (
         decision is not None and decision.reduction.selected_branch_id == step.branch_id
     )
+
+
+def semantic_input_step_ids(
+    control: CompiledControlNode, target_path: tuple[str, ...],
+    inherited: tuple[str, ...] = (),
+) -> tuple[str, ...] | Failure:
+    """Project data sources from the original control tree, independently of order."""
+    if control.source_path == target_path:
+        return inherited
+    for index, child in enumerate(control.children):
+        if target_path[:len(child.source_path)] != child.source_path:
+            continue
+        incoming = inherited
+        if control.node_kind == "then" and index == 1:
+            incoming = control.children[0].semantic_return_step_ids or inherited
+        elif control.node_kind == "decide":
+            incoming = control.step_ids
+        elif control.node_kind == "traverse_ordered":
+            return _activation_failure("traversal element requires its materialized Program")
+        return semantic_input_step_ids(child, target_path, incoming)
+    return _activation_failure("source path is absent from compiled control structure")
+
+
+def activation_dependency_groups(
+    plan: ExecutionPlan, step: CompiledStep,
+) -> tuple[tuple[CompiledStep, ...], ...] | Failure:
+    """Bind order witnesses and missing data sources once for execute and reload."""
+    semantic = (() if step.step_kind == "ADMISSION"
+                else semantic_input_step_ids(plan.control_root, step.source_path))
+    if isinstance(semantic, Failure):
+        return semantic
+    source_ids = tuple(dict.fromkeys((*step.dependencies, *semantic)))
+    by_step = {item.step_id: item for item in plan.ordered_steps}
+    groups: list[list[CompiledStep]] = []
+    for source_id in source_ids:
+        dependency = by_step.get(source_id)
+        if dependency is None:
+            return _activation_failure("activation dependency is absent from Plan")
+        control_id = dependency.branch_control_id
+        if control_id is None or dependency.branch_id is None:
+            groups.append([dependency])
+        else:
+            alternative = next((group for group in groups
+                                if group[0].branch_control_id == control_id
+                                and all(item.branch_id != dependency.branch_id for item in group)), None)
+            if alternative is None:
+                groups.append([dependency])
+            else:
+                alternative.append(dependency)
+    return tuple(tuple(group) for group in groups)
+
+
+def _semantic_dependencies(
+    root: CompiledControlNode, step: CompiledStep,
+    values: dict[str, BoundStepValue], program_input: ProgramInput | None,
+) -> tuple[BoundStepValue | ProgramInput, ...] | Failure:
+    incoming = semantic_input_step_ids(root, step.source_path)
+    if isinstance(incoming, Failure):
+        return incoming
+    control = root
+    while control.source_path != step.source_path:
+        control = next(child for child in control.children
+                       if step.source_path[:len(child.source_path)] == child.source_path)
+    sources = ((incoming, control.input_type),)
+    if control.node_kind in {"map_output", "zip_ordered"}:
+        sources = tuple((child.semantic_return_step_ids or incoming, child.output_type)
+                        for child in control.children)
+    resolved: list[BoundStepValue | ProgramInput] = []
+    for source_ids, expected_type in sources:
+        selected = tuple(values[source_id] for source_id in source_ids if source_id in values)
+        if not source_ids and program_input is not None:
+            selected = (program_input,)
+        if len(selected) != 1:
+            return _activation_failure(f"{step.step_kind} requires one exact value per semantic input")
+        value = selected[0]
+        if not _output_type_compatible(expected_type, value.value_ref.object_type):
+            return _activation_failure("compiled semantic input type mismatch")
+        resolved.append(value)
+    return tuple(resolved)
 
 
 def _dependency_values(
@@ -882,12 +1085,13 @@ def _require_transform_types(
 
 
 def _control_input(
-    dependencies: tuple[BoundStepValue, ...],
+    dependencies: tuple[BoundStepValue | ProgramInput, ...],
     program_input: ProgramInput | None,
     step_id: str,
 ) -> ProgramInput | Failure:
     if len(dependencies) == 1:
-        return ProgramInput(dependencies[0].value_ref, dependencies[0].value)
+        return ProgramInput(dependencies[0].value_ref, dependencies[0].value,
+                            exact_bytes=dependencies[0].exact_bytes)
     if not dependencies and program_input is not None:
         return program_input
     return _activation_failure(f"DECIDE {step_id} requires exactly one control input")
@@ -923,9 +1127,10 @@ def _derive_value(
     value: object,
     dependency_refs: tuple[ValueRef, ...],
     codec_id: str | None = None,
+    encode_value: ValueEncoder,
 ) -> tuple[BoundStepValue, ValueMaterialization] | Failure:
     try:
-        exact_bytes = canonical_bytes(value)
+        exact_bytes = encode_value(step.output_type, value)
     except (TypeError, ValueError, OverflowError) as exc:
         return _activation_failure(str(exc))
     content_digest = sha256_digest_bytes(exact_bytes)
@@ -973,7 +1178,7 @@ def _derive_value(
             ),
         }
     )
-    bound = BoundStepValue(step.step_id, value_ref, value)
+    bound = BoundStepValue(step.step_id, value_ref, value, exact_bytes=exact_bytes)
     materialization = ValueMaterialization(
         step.step_id,
         value_ref,
@@ -1002,49 +1207,32 @@ def _activation_descriptor(
         value_ref_check = _require_value_ref(ref, project_key)
         if isinstance(value_ref_check, Failure):
             return value_ref_check
+    return finalize_activation_descriptor(plan, ReadyActivation(
+        step_id=step.step_id, step_kind=step.step_kind, operation_id=step.operation_id,
+        ordered_dependency_refs=dependency_refs, static_atom_input_refs=static_refs,
+        payload_ref=payload_ref, input_closure_digest="0" * 64, activation_digest="0" * 64,
+    ))
+
+
+def finalize_activation_descriptor(plan: ExecutionPlan, descriptor: ReadyActivation) -> ReadyActivation:
+    """One original closure digest rule for pure activation and project rebinding."""
     closure = {
         "schema_version": "mrw.activation-input-closure.v1",
         "plan_digest": plan.plan_digest,
-        "step_id": step.step_id,
-        "step_kind": step.step_kind,
-        "ordered_dependency_refs": tuple(
-            _value_ref_payload(ref) for ref in dependency_refs
-        ),
-        "static_atom_input_refs": tuple(_value_ref_payload(ref) for ref in static_refs),
-        "payload_ref": _value_ref_payload(payload_ref),
+        "step_id": descriptor.step_id,
+        "step_kind": descriptor.step_kind,
+        "ordered_dependency_refs": tuple(ref.to_plain() for ref in descriptor.ordered_dependency_refs),
+        "static_atom_input_refs": tuple(ref.to_plain() for ref in descriptor.static_atom_input_refs),
+        "payload_ref": descriptor.payload_ref.to_plain(),
     }
-    input_closure_digest = sha256_hex(closure)
-    descriptor = {
-        **closure,
-        "operation_id": step.operation_id,
+    digest = sha256_hex(closure)
+    step = next(item for item in plan.ordered_steps if item.step_id == descriptor.step_id)
+    return replace(descriptor, input_closure_digest=digest, activation_digest=sha256_hex({
+        **closure, "operation_id": descriptor.operation_id,
         "operation_contract_digest": step.operation_contract_ref.contract_digest
-        if step.operation_contract_ref is not None
-        else None,
-        "input_closure_digest": input_closure_digest,
-    }
-    return ReadyActivation(
-        step_id=step.step_id,
-        step_kind=step.step_kind,
-        operation_id=step.operation_id,
-        ordered_dependency_refs=dependency_refs,
-        static_atom_input_refs=static_refs,
-        payload_ref=payload_ref,
-        input_closure_digest=input_closure_digest,
-        activation_digest=sha256_hex(descriptor),
-    )
-
-
-def _thaw(value: object) -> object:
-    if isinstance(value, frozenset):
-        return sorted(value)
-    if isinstance(value, tuple):
-        if all(
-            isinstance(item, tuple) and len(item) == 2 and isinstance(item[0], str)
-            for item in value
-        ):
-            return {str(key): _thaw(item) for key, item in value}
-        return [_thaw(item) for item in value]
-    return value
+        if step.operation_contract_ref is not None else None,
+        "input_closure_digest": digest,
+    }))
 
 
 _VALUE_REF_FIELDS = frozenset(
@@ -1149,7 +1337,11 @@ __all__ = [
     "CompletedBranchDecision",
     "ProgramInput",
     "ReadyActivation",
+    "SettledTraversalValue",
     "ValueMaterialization",
+    "semantic_input_step_ids",
+    "activation_dependency_groups",
+    "finalize_activation_descriptor",
     "activate_plan",
     "activate_plan_result",
 ]

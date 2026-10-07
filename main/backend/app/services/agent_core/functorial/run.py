@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any
+from typing import Any, cast
 
 from app.services.agent_core.contracts import (
     AgentCoreRequest,
@@ -16,27 +16,35 @@ from app.services.agent_core.contracts import (
     CoreToolResult,
 )
 from app.services.agent_core.project_tools import build_project_core_tool_registry
+from app.services.agent_core.registry import CoreToolRegistry
 from app.services.agent_sessions.service import AgentSessionService
+from app.successor_runtime.language.sync import interpret_ordered_sync
 
 from .registry import catalog as _fcatalog
-from .contracts import FunctorialFailureCode, failure
+from .contracts import FunctorialFailure, FunctorialFailureCode, failure
 
 _logger = logging.getLogger(__name__)
 
 
 def _resolve_session_id(service: AgentSessionService, project_key: str) -> str:
     try:
-        sessions = service.store.list_sessions(limit=200) or []
-        ok = lambda s: str(s.get("project_key") or "") == project_key
+        sessions = cast(
+            list[dict[str, Any]],
+            service.store.list_sessions(limit=200) or [],
+        )
+        def matches_project(session: dict[str, Any]) -> bool:
+            return str(session.get("project_key") or "") == project_key
+
         actives = [
             s
             for s in sessions
-            if ok(s) and str(s.get("status") or "") in ("active", "pending")
+            if matches_project(s)
+            and str(s.get("status") or "") in ("active", "pending")
         ]
         if actives:
             return str(actives[0].get("session_id") or "")
         for s in sessions:
-            if ok(s):
+            if matches_project(s):
                 return str(s.get("session_id") or "")
     except Exception as exc:  # noqa: BLE001
         _logger.debug("failed to list sessions for project %s: %s", project_key, exc)
@@ -44,15 +52,23 @@ def _resolve_session_id(service: AgentSessionService, project_key: str) -> str:
 
 
 def _program_operators(workflow: dict[str, Any]) -> tuple[str, ...]:
-    program = workflow.get("program") if isinstance(workflow, dict) else None
-    nodes = program.get("nodes") if isinstance(program, dict) else None
-    if not isinstance(nodes, list):
+    program_value = workflow.get("program")
+    if not isinstance(program_value, dict):
+        raise ValueError("workflow program has no ordered nodes")
+    program = cast(dict[str, Any], program_value)
+    nodes_value = program.get("nodes")
+    if not isinstance(nodes_value, list):
         # kit:boundary — reject malformed persisted program before execution.
         raise ValueError("workflow program has no ordered nodes")
+    nodes = cast(list[Any], nodes_value)
 
     operators: list[str] = []
-    for node in nodes:
-        if not isinstance(node, dict) or node.get("kind") != "operator":
+    for node_value in nodes:
+        if not isinstance(node_value, dict):
+            # kit:boundary — persisted programs are operator-only after build.
+            raise ValueError("workflow program contains a non-operator node")
+        node = cast(dict[str, Any], node_value)
+        if node.get("kind") != "operator":
             # kit:boundary — persisted programs are operator-only after build.
             raise ValueError("workflow program contains a non-operator node")
         ref = str(node.get("ref") or "")
@@ -84,6 +100,39 @@ def _terminal_failure(status: str) -> FunctorialFailureCode:
     if status == "needs_approval":
         return "OPERATOR_NEEDS_APPROVAL"
     return "OPERATOR_DEFERRED"
+
+
+def _execute_operator(
+    operator_id: str,
+    arguments: dict[str, Any],
+    *,
+    registry: CoreToolRegistry,
+    request: AgentCoreRequest,
+) -> CoreToolResult:
+    spec = registry.get(operator_id)
+    if spec is None:
+        return CoreToolResult(
+            call_id=f"run-{uuid.uuid4().hex[:16]}",
+            tool_name=operator_id,
+            status="failed",
+            model_summary=f"operator not registered: {operator_id}",
+            error={
+                "code": "OPERATOR_NOT_REGISTERED",
+                "message": f"operator not registered: {operator_id}",
+            },
+        )
+    call = CoreToolCall(
+        call_id=f"run-{uuid.uuid4().hex[:16]}",
+        tool_name=operator_id,
+        arguments=dict(arguments),
+        reason="functorial-workflow",
+    )
+    return registry.execute_tool(
+        tool_call=call,
+        tool_spec=spec,
+        request=request,
+        emit=lambda _event: None,
+    )
 
 
 def run_workflow(
@@ -131,61 +180,52 @@ def run_workflow(
     service = AgentSessionService()
     registry = build_project_core_tool_registry(service=service)
     session_id = _resolve_session_id(service, project_key)
-    results: list[dict[str, Any]] = []
-    current_arguments = dict(inputs or {})
-    workflow_status = "completed"
-    terminal_failure: FunctorialFailure | None = None
-    for op in operators:
-        spec = registry.get(op)
-        if spec is None:
-            terminal_failure = failure(
-                "OPERATOR_NOT_REGISTERED",
-                f"operator not registered: {op}",
-                context={"operator": op},
-            )
-            results.append(
-                {
-                    "ok": False,
-                    "status": "not_registered",
-                    "tool": op,
-                    "summary": "",
-                    "data": {},
-                    "error": {
-                        "code": terminal_failure.code,
-                        "message": terminal_failure.message,
-                    },
-                    "retry_hint": None,
-                }
-            )
-            workflow_status = "failed"
-            break
-        call = CoreToolCall(
-            call_id=f"run-{uuid.uuid4().hex[:16]}",
-            tool_name=op,
-            arguments=dict(current_arguments),
-            reason="functorial-workflow",
+    request = AgentCoreRequest(
+        message="",
+        session_id=session_id,
+        project_key=project_key,
+        turn_id=f"turn-{uuid.uuid4().hex[:16]}",
+    )
+    typed_results = interpret_ordered_sync(
+        operators,
+        initial_value=dict(inputs or {}),
+        invoke=lambda operator_id, arguments: _execute_operator(
+            operator_id,
+            arguments,
+            registry=registry,
+            request=request,
+        ),
+        continue_after=lambda result: result.status == "completed",
+        output_value=lambda result: dict(result.structured_content or {}),
+    )
+    results = [_step_record(result) for result in typed_results]
+    terminal_result = typed_results[-1] if typed_results else None
+    if terminal_result is None or terminal_result.status == "completed":
+        workflow_status = "completed"
+        terminal_failure: FunctorialFailure | None = None
+    else:
+        workflow_status = (
+            "blocked"
+            if terminal_result.status in {"needs_approval", "deferred"}
+            else "failed"
         )
-        request = AgentCoreRequest(
-            message="",
-            session_id=session_id,
-            project_key=project_key,
-            turn_id=f"turn-{uuid.uuid4().hex[:16]}",
+        result_error = dict(terminal_result.error or {})
+        failure_code: FunctorialFailureCode = (
+            "OPERATOR_NOT_REGISTERED"
+            if result_error.get("code") == "OPERATOR_NOT_REGISTERED"
+            else _terminal_failure(terminal_result.status)
         )
-        result = registry.execute_tool(
-            tool_call=call, tool_spec=spec, request=request, emit=lambda _e: None
+        terminal_failure = failure(
+            failure_code,
+            (
+                f"operator {terminal_result.tool_name} ended with status "
+                f"{terminal_result.status}"
+            ),
+            context={
+                "operator": terminal_result.tool_name,
+                "status": terminal_result.status,
+            },
         )
-        results.append(_step_record(result))
-        current_arguments = dict(result.structured_content or {})
-        if result.status != "completed":
-            workflow_status = "blocked" if result.status in {
-                "needs_approval", "deferred"
-            } else "failed"
-            terminal_failure = failure(
-                _terminal_failure(result.status),
-                f"operator {op} ended with status {result.status}",
-                context={"operator": op, "status": result.status},
-            )
-            break
     return {
         "workflow_id": workflow_id,
         "executed": workflow_status == "completed",

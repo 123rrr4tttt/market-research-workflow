@@ -9,16 +9,19 @@ from __future__ import annotations
 from datetime import datetime, UTC
 from hashlib import sha256
 import json
-from typing import Any, Literal, cast
+from dataclasses import dataclass, replace
+from functools import partial
+from typing import Annotated, Any, Literal, cast
 from collections.abc import Callable, Mapping
 
 from functorial_kit import Failure
+from sqlalchemy import MetaData, select
+from sqlalchemy.engine import Connection, Engine
 
-from app.services.agent_core.contracts import AgentCoreRequest, CoreEvent, CoreToolCall
-from app.services.agent_core.project_tools import build_project_core_tool_registry
-from app.services.agent_core.registry import CoreToolRegistry
-from app.services.agent_sessions.service import AgentSessionService
-from app.services.agent_sessions.store import validate_json_object
+from app.services.agent_core.query_tools import (
+    build_source_candidate_review_decision,
+    build_source_discovery_search_queries,
+)
 from app.services.information_topology.contracts import (
     topology_state_codec,
     TopologyState,
@@ -38,10 +41,117 @@ from app.services.information_topology.profiles import ProfileSpec, decode_state
 from app.services.information_topology.service import InformationTopologyService
 from app.services.project_retrieval.contracts import (
     RetrievalJsonObject,
-    RetrievalRunCompleted,
-    RetrievalRunResult,
 )
-from app.services.skill_runtime import SkillInvocationContext, invoke_skill
+from app.services.source_library.source_candidate_trust import (
+    build_source_candidate_plan,
+)
+from app.successor_runtime.capabilities.acquisition_url import (
+    URL_SINGLE_URL_OUTCOME_TYPE,
+    URL_SINGLE_URL_REQUEST_TYPE,
+    UrlSingleUrlOutcome,
+    UrlSingleUrlRequest,
+    build_url_single_url_contract,
+    build_url_single_url_outcome_codec,
+    build_url_single_url_program,
+    build_url_single_url_request_codec,
+)
+from app.successor_runtime.capabilities.catalog import build_operation_catalog
+from app.successor_runtime.capabilities.checksum import (
+    CanonicalJsonObject,
+    CanonicalJsonValue,
+    canonical_json,
+    sha256_hex,
+)
+from app.successor_runtime.capabilities.codecs import PayloadCodec
+from app.successor_runtime.capabilities.retrieval_candidate_native import (
+    RETRIEVAL_CANDIDATE_DISCOVER_V3_KIND,
+    RETRIEVAL_CANDIDATE_ATTEMPT_OUTCOME_TYPE,
+    RETRIEVAL_CANDIDATE_ATTEMPT_SEQUENCE_TYPE,
+    RETRIEVAL_BUDGET_STATE_TYPE,
+    RETRIEVAL_CANDIDATE_INVOCATION_TYPE,
+    build_retrieval_candidate_atom,
+    build_retrieval_candidate_prefix,
+    build_retrieval_candidate_merge_registry,
+    build_retrieval_candidate_runtime_definition,
+)
+from app.successor_runtime.capabilities.retrieval_common import (
+    CandidateSearchRequest,
+    RetrievalBudgetState,
+    RetrievalCandidateAttemptOutcome,
+    RetrievalCandidateInvocation,
+    raise_retrieval_contract_error,
+    retrieval_budget_id,
+)
+from app.successor_runtime.capabilities.retrieval_material_native import (
+    CANDIDATE_WORK_SEQUENCE_TYPE,
+    CANDIDATE_WORK_TYPE,
+    RETRIEVAL_CONTROL_TYPE,
+    RETRIEVAL_LEAF_KINDS,
+    RETRIEVAL_CANDIDATE_REVIEW_KIND,
+    RETRIEVAL_FOLLOWUP_PLAN_KIND,
+    RETRIEVAL_MATERIAL_FORMALIZE_KIND,
+    RETRIEVAL_MATERIAL_READ_BODY_KIND,
+    RETRIEVAL_MATERIAL_REVALIDATE_KIND,
+    RETRIEVAL_TOPOLOGY_COMMIT_KIND,
+    CandidateWork,
+    RetrievalControl,
+    build_retrieval_leaf_definition,
+    build_retrieval_leaf_contract,
+    retrieval_payload_value,
+    validate_candidate_work_transition,
+)
+from app.successor_runtime.language.algebra import (
+    AlgebraRef,
+    OperationSpec,
+    ValueRef,
+    freeze_json_object,
+    freeze_json_value,
+)
+from app.successor_runtime.language.catalog import (
+    OperationContractCatalogSnapshot,
+    OperationContractRegistry,
+)
+from app.successor_runtime.language.object_contracts import OperationContract
+from app.successor_runtime.language.compile import compile_program
+from app.successor_runtime.language.program import (
+    DecisionBranch,
+    ProgramNode,
+    ProgramSpec,
+    atom_node,
+    decide_node,
+    identity_node,
+    map_output_node,
+    pure_node,
+    program_atoms,
+    then_node,
+    traverse_ordered_node,
+    zip_ordered_node,
+)
+from app.successor_runtime.language.transforms import (
+    DiscriminatorRef,
+    MergeRef,
+    TransformRef,
+    TransformRegistry,
+)
+from app.successor_runtime.research.object_types import ObjectType
+from app.successor_runtime.runtime.activation import TraversalMaterialization
+from app.successor_runtime.runtime.ports import RuntimeScope
+from app.successor_runtime.substrate.postgres.first_specimen_activation import (
+    ActiveChildMaterializer,
+    ActiveChildSubmission,
+    ActiveChildMaterializationReceipt,
+    ActiveChildTerminalObservation,
+    ActivationTrigger,
+    FirstSpecimenActivationCatalog,
+    PostgresFirstSpecimenActivationBindingAdapter,
+    materialize_active_children,
+)
+from app.successor_runtime.substrate.postgres.models import (
+    PUBLIC_TABLES,
+    project_tables,
+)
+from app.successor_runtime.substrate.postgres.programs import ProgramRepository
+from app.successor_runtime.substrate.postgres.research_ledger import one_mapping
 
 
 def _digest(value: Any) -> str:
@@ -50,6 +160,2209 @@ def _digest(value: Any) -> str:
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+# The formal root now contains one ordered CandidateWork traversal.  The
+# Program constructors and its sole active-child materializer are defined below.
+
+RetrievalPlanLoader = Callable[[str, str], Mapping[str, Any]]
+RetrievalJournalReader = Callable[[RetrievalControl], Mapping[str, Any]]
+RetrievalEffectInputObservation = tuple[str, str, ValueRef, bytes]
+RetrievalStaticInputObservation = tuple[ValueRef, bytes]
+
+
+def _decode_exact_retrieval_value(
+    *,
+    ref: ValueRef,
+    exact: bytes,
+    expected_type: ObjectType,
+    expected_codec_id: str,
+    project_key: str,
+    label: str,
+) -> CanonicalJsonObject:
+    if (
+        ref.object_type != expected_type
+        or ref.codec_id != expected_codec_id
+        or ref.project_key != project_key
+        or ref.byte_size != len(exact)
+        or ref.content_digest != sha256_hex(exact)
+    ):
+        raise_retrieval_contract_error(ValueError, f'{label} ValueRef or bytes drift')
+    try:
+        decoded: object = json.loads(exact)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise_retrieval_contract_error(ValueError, f'{label} bytes are not canonical JSON', cause=exc)
+    if not isinstance(decoded, dict):
+        raise_retrieval_contract_error(ValueError, f'{label} bytes are not a canonical object')
+    canonical = cast(CanonicalJsonObject, decoded)
+    if canonical_json(canonical).encode("utf-8") != exact:
+        raise_retrieval_contract_error(ValueError, f'{label} bytes are not a canonical object')
+    return canonical
+
+
+def _decode_root_retrieval_budget(
+    control: RetrievalControl,
+    observations: tuple[RetrievalStaticInputObservation, ...],
+) -> RetrievalBudgetState:
+    definition = build_retrieval_candidate_runtime_definition()
+    matching = tuple(
+        (ref, exact)
+        for ref, exact in observations
+        if ref.object_type == RETRIEVAL_BUDGET_STATE_TYPE
+    )
+    if len(matching) != 1:
+        raise_retrieval_contract_error(ValueError, 'retrieval root requires one exact static budget input')
+    ref, exact = matching[0]
+    budget = definition.budget_codec.decode_payload(
+        _decode_exact_retrieval_value(
+            ref=ref,
+            exact=exact,
+            expected_type=RETRIEVAL_BUDGET_STATE_TYPE,
+            expected_codec_id=definition.budget_codec.codec_id,
+            project_key=control.project_key,
+            label="retrieval budget",
+        )
+    )
+    if (
+        budget.budget_id != control.retrieval_budget_id
+        or budget.project_key != control.project_key
+        or budget.root_run_id != control.root_run_id
+        or budget.plan_id != control.plan_id
+        or budget.mode_version != control.mode_version
+        or budget.queries_attempted != 0
+        or budget.materials_accepted != 0
+        or budget.followup_rounds_started != 0
+    ):
+        raise_retrieval_contract_error(ValueError, 'retrieval static budget differs from its root identity')
+    return budget
+
+
+def _decode_started_candidate_invocations(
+    control: RetrievalControl,
+    started_by_step: Mapping[str, Mapping[str, object]],
+    observations: tuple[RetrievalEffectInputObservation, ...],
+) -> dict[str, RetrievalCandidateInvocation]:
+    definition = build_retrieval_candidate_runtime_definition()
+    by_step: dict[str, list[RetrievalEffectInputObservation]] = {}
+    for observation in observations:
+        by_step.setdefault(observation[0], []).append(observation)
+    decoded: dict[str, RetrievalCandidateInvocation] = {}
+    query_ids: set[str] = set()
+    query_ordinals: set[int] = set()
+    for step_id, event in started_by_step.items():
+        matching = by_step.get(step_id, [])
+        if len(matching) != 1:
+            raise_retrieval_contract_error(ValueError, 'begun candidate effect lacks one exact semantic input')
+        observed_step_id, observed_attempt_id, ref, exact = matching[0]
+        if (
+            observed_step_id != step_id
+            or observed_attempt_id != str(event.get("attempt_id") or "")
+        ):
+            raise_retrieval_contract_error(ValueError, 'candidate semantic input attempt identity drift')
+        invocation = definition.invocation_codec.decode_payload(
+            _decode_exact_retrieval_value(
+                ref=ref,
+                exact=exact,
+                expected_type=RETRIEVAL_CANDIDATE_INVOCATION_TYPE,
+                expected_codec_id=definition.invocation_codec.codec_id,
+                project_key=control.project_key,
+                label="candidate invocation",
+            )
+        )
+        if (
+            invocation.budget_id != control.retrieval_budget_id
+            or invocation.route_id != control.route_id
+            or invocation.request.project_ref != control.project_key
+            or invocation.request.source_ref != control.route_id
+            or invocation.query_id in query_ids
+            or invocation.query_ordinal in query_ordinals
+        ):
+            raise_retrieval_contract_error(ValueError, 'candidate invocation differs from its retrieval root')
+        query_ids.add(invocation.query_id)
+        query_ordinals.add(invocation.query_ordinal)
+        decoded[step_id] = invocation
+    return decoded
+
+
+def _validate_candidate_outcome_identity(
+    invocation: RetrievalCandidateInvocation,
+    outcome: RetrievalCandidateAttemptOutcome,
+) -> None:
+    if (
+        outcome.query_id != invocation.query_id
+        or outcome.route_id != invocation.route_id
+        or outcome.query_kind != invocation.query_kind
+        or outcome.query_ordinal != invocation.query_ordinal
+        or outcome.followup_round != invocation.followup_round
+        or outcome.budget_id != invocation.budget_id
+        or (outcome.bundle is not None and outcome.bundle.request != invocation.request)
+    ):
+        raise_retrieval_contract_error(ValueError, 'candidate outcome identity differs from executed invocation')
+
+
+def build_retrieval_runtime_journal_reader(
+    *,
+    engine: Engine,
+    actor_id: str,
+) -> Annotated[
+    RetrievalJournalReader,
+    "kit:non-authoritative derived_as=projection fact_source=runtime_journal+exact_started_semantic_inputs+exact_static_budget+typed_outputs+settlement_events witness=test:test_runtime_journal_reader_uses_executed_invocation_for_unknown_attempt",
+]:
+    """Project canonical Runtime events and typed outputs into retrieval facts.
+
+    The projection has no writer or replay state. Search attempts require an
+    ``EffectStarted`` event and its exact semantic input. Budget ceilings come
+    from the unique original static budget value. CandidateWork values require
+    an exact ``ActiveChildrenSettled`` payload digest from the root run.
+    """
+
+    if not actor_id.strip():
+        raise_retrieval_contract_error(ValueError, 'retrieval journal reader requires a trusted actor identity')
+
+    def read(control: RetrievalControl) -> Mapping[str, Any]:
+        from app.composition.production import (
+            read_installed_program,
+            read_installed_program_input_bindings,
+            read_installed_program_outputs,
+        )
+
+        run, steps, events = read_installed_program(
+            engine=engine,
+            project_key=control.project_key,
+            actor_id=actor_id,
+            run_id=control.root_run_id,
+        )
+        if (
+            str(run.get("run_id") or "") != control.root_run_id
+            or str(run.get("project_key") or "") != control.project_key
+        ):
+            raise_retrieval_contract_error(ValueError, 'retrieval journal run identity drift')
+        outputs = read_installed_program_outputs(
+            engine=engine,
+            project_key=control.project_key,
+            actor_id=actor_id,
+            run_id=control.root_run_id,
+        )
+        static_inputs, effect_inputs = read_installed_program_input_bindings(
+            engine=engine,
+            project_key=control.project_key,
+            actor_id=actor_id,
+            run_id=control.root_run_id,
+            static_input_type=RETRIEVAL_BUDGET_STATE_TYPE,
+        )
+        steps_by_id = {str(step.get("step_id") or ""): step for step in steps}
+        outputs_by_step = {step_id: (ref, exact) for step_id, ref, exact in outputs}
+
+        started = [
+            event
+            for event in events
+            if event.get("event_type") == "EffectStarted"
+            and str(event.get("step_id") or "") in steps_by_id
+        ]
+        started_by_step: dict[str, Mapping[str, object]] = {}
+        for event in started:
+            step_id = str(event.get("step_id") or "")
+            if step_id in started_by_step:
+                raise_retrieval_contract_error(ValueError, 'retrieval effect has more than one begun attempt')
+            started_by_step[step_id] = event
+
+        candidate_steps = [
+            step
+            for step in steps
+            if step.get("operation_kind") == RETRIEVAL_CANDIDATE_DISCOVER_V3_KIND
+            and str(step.get("step_id") or "") in started_by_step
+        ]
+        candidate_started_by_step = {
+            step_id: started_by_step[step_id]
+            for step_id in (str(step.get("step_id") or "") for step in candidate_steps)
+        }
+        root_budget = _decode_root_retrieval_budget(control, static_inputs)
+        candidate_invocations = _decode_started_candidate_invocations(
+            control,
+            candidate_started_by_step,
+            effect_inputs,
+        )
+
+        definition = build_retrieval_candidate_runtime_definition()
+        candidate_outputs: dict[str, RetrievalCandidateAttemptOutcome] = {}
+        final_control: RetrievalControl | None = None
+        settled_work_digests = {
+            str(event.get("payload_digest") or "")
+            for event in events
+            if event.get("event_type") == "ActiveChildrenSettled"
+        }
+        works: list[CandidateWork] = []
+        work_ids: set[str] = set()
+        work_codec = _candidate_work_codec()
+        control_codec = _control_codec()
+        for step_id, (ref, exact) in outputs_by_step.items():
+            raw = json.loads(exact)
+            if ref.object_type == RETRIEVAL_CANDIDATE_ATTEMPT_OUTCOME_TYPE:
+                if not isinstance(raw, dict):
+                    raise_retrieval_contract_error(TypeError, 'candidate Runtime output must be an object')
+                candidate_outputs[step_id] = definition.output_codec.decode_payload(
+                    cast(CanonicalJsonObject, raw)
+                )
+            elif ref.object_type == RETRIEVAL_CONTROL_TYPE:
+                if not isinstance(raw, dict):
+                    raise_retrieval_contract_error(TypeError, 'retrieval control Runtime output must be an object')
+                observed_control = control_codec.decode_payload(cast(CanonicalJsonObject, raw))
+                step = steps_by_id.get(step_id) or {}
+                if step.get("operation_kind") == RETRIEVAL_TOPOLOGY_COMMIT_KIND:
+                    if final_control is not None:
+                        raise_retrieval_contract_error(ValueError, 'retrieval Runtime has multiple topology semantic outputs')
+                    final_control = observed_control
+            elif (
+                ref.object_type == CANDIDATE_WORK_SEQUENCE_TYPE
+                and ref.content_digest in settled_work_digests
+            ):
+                if not isinstance(raw, list):
+                    raise_retrieval_contract_error(TypeError, 'settled CandidateWork output must be a sequence')
+                for item in cast(list[object], raw):
+                    if not isinstance(item, dict):
+                        raise_retrieval_contract_error(TypeError, 'settled CandidateWork element must be an object')
+                    work = work_codec.decode_payload(cast(CanonicalJsonObject, item))
+                    if work.root_run_id != control.root_run_id or work.project_key != control.project_key:
+                        raise_retrieval_contract_error(ValueError, 'settled CandidateWork crosses retrieval root')
+                    if work.candidate_id in work_ids:
+                        raise_retrieval_contract_error(ValueError, 'settled CandidateWork identity repeats')
+                    work_ids.add(work.candidate_id)
+                    works.append(work)
+
+        if any(step_id not in candidate_invocations for step_id in candidate_outputs):
+            raise_retrieval_contract_error(ValueError, 'candidate output lacks a begun semantic invocation')
+        attempts: list[dict[str, Any]] = []
+        for step in candidate_steps:
+            step_id = str(step.get("step_id") or "")
+            event = started_by_step[step_id]
+            invocation = candidate_invocations[step_id]
+            outcome = candidate_outputs.get(step_id)
+            if outcome is not None:
+                _validate_candidate_outcome_identity(invocation, outcome)
+                found = tuple(outcome.bundle.candidates) if outcome.bundle is not None else ()
+                result = "access_failed" if outcome.state != "completed" else ("hit" if found else "miss")
+                note = outcome.error_message or outcome.error_code or ""
+            else:
+                result = "access_failed"
+                note = str(step.get("failure_digest") or "candidate effect ended without a typed outcome")
+            attempt_id = str(event.get("attempt_id") or "")
+            query_id = invocation.query_id
+            actual_query = invocation.request.topic
+            if not attempt_id:
+                raise_retrieval_contract_error(ValueError, 'begun candidate attempt lacks exact journal/query identity')
+            related = [work for work in works if work.query_id == query_id]
+            created = event.get("created_at")
+            attempts.append(
+                {
+                    "attempt_id": attempt_id,
+                    "query_id": query_id,
+                    "round_id": control.root_run_id,
+                    "clue_key": control.route_id,
+                    "executed_at": created.isoformat() if isinstance(created, datetime) else str(created or ""),
+                    "tool": "source.web.search",
+                    "actual_query": actual_query,
+                    "result": result,
+                    "source_ids": [work.candidate_id for work in related],
+                    "material_ids": [
+                        work.candidate_id
+                        for work in related
+                        if work.stage in {"ingested", "body_read", "formalized", "revalidated"}
+                    ],
+                    "next_step": "candidate_review" if result == "hit" else "inspect_provider_diagnostics",
+                    "result_note": note,
+                    "raw_return_location": f"runtime:{control.root_run_id}:attempt:{attempt_id}",
+                }
+            )
+
+        encoded_works = [work_codec.encode_payload(work) for work in works]
+        accepted = sum(
+            1
+            for work in works
+            if work.stage in {"ingested", "body_read", "formalized", "revalidated"}
+        )
+        consumed_budget = root_budget.after_settled_events(
+            query_attempts=len(attempts),
+            accepted_materials=accepted,
+            followup_rounds=len({
+                invocation.followup_round
+                for invocation in candidate_invocations.values()
+                if invocation.query_kind == "followup"
+            }),
+        )
+        budget = {
+            "queries_attempted": consumed_budget.queries_attempted,
+            "materials_accepted": consumed_budget.materials_accepted,
+            "followup_rounds_started": consumed_budget.followup_rounds_started,
+            "max_queries": consumed_budget.max_queries,
+            "max_materials": consumed_budget.max_materials,
+            "max_followups": consumed_budget.max_followups,
+            "remaining_queries": consumed_budget.remaining_queries,
+            "remaining_materials": consumed_budget.remaining_materials,
+            "remaining_followups": consumed_budget.remaining_followups,
+        }
+        candidates = [
+            {
+                "candidate_id": work.candidate_id,
+                "query_id": work.query_id,
+                "url": work.candidate.get("url"),
+                "title": work.candidate.get("title"),
+                "provider": work.candidate.get("provider"),
+                "trust": work.candidate.get("trust"),
+                "status": work.stage,
+                "review_status": work.disposition if work.review is not None else None,
+                "review_receipt": work.review,
+            }
+            for work in works
+        ]
+        materials = [
+            {
+                "candidate_id": work.candidate_id,
+                "url": work.candidate.get("url"),
+                "document_id": (work.ingest or {}).get("document_id"),
+                "status": (
+                    "body_read"
+                    if work.body is not None and work.body.get("status") == "read"
+                    else "submitted"
+                    if work.disposition != "ingest_failed"
+                    else "access_failed"
+                ),
+                "body_read": work.body,
+                "ingest_receipt": work.ingest,
+                "formalization": work.formalization,
+                "formal_topology_ref": None,
+            }
+            for work in works
+            if work.ingest is not None
+        ]
+        gaps = [dict(gap) for work in works for gap in work.gaps]
+        failures = [
+            {"phase": work.stage, "candidate_id": work.candidate_id, "error": work.error}
+            for work in works
+            if work.error is not None
+        ]
+        return {
+            "run": dict(run),
+            "attempts": attempts,
+            "works": encoded_works,
+            "candidates": candidates,
+            "materials": materials,
+            "gaps": gaps,
+            "failures": failures,
+            "budget": budget,
+            "final_control": (
+                control_codec.encode_payload(final_control) if final_control is not None else None
+            ),
+        }
+
+    return read
+
+
+def review_candidate_work(
+    work: CandidateWork,
+    *,
+    approved_prefix_count: int,
+) -> CandidateWork:
+    """Apply the original review decision kernel without creating a session."""
+
+    if work.stage != "candidate":
+        raise_retrieval_contract_error(ValueError, 'candidate review requires candidate-stage work')
+    if type(approved_prefix_count) is not int or approved_prefix_count < 0:
+        raise_retrieval_contract_error(
+            ValueError,
+            "candidate review requires an exact nonnegative approved prefix count",
+        )
+    assessment_plan = build_source_candidate_plan(
+        project_key=work.project_key,
+        query=str(work.candidate.get("query") or ""),
+        urls=[str(work.candidate.get("url") or "")],
+        max_candidates=1,
+    )
+    accepted_rows: object = assessment_plan.get("candidate_urls")
+    rejected_rows: object = assessment_plan.get("rejected_urls")
+    assessment_row: object = None
+    if isinstance(accepted_rows, list) and accepted_rows:
+        assessment_row = cast(list[object], accepted_rows)[0]
+    elif isinstance(rejected_rows, list) and rejected_rows:
+        assessment_row = cast(list[object], rejected_rows)[0]
+    assessment = (
+        cast(dict[str, Any], assessment_row)
+        if isinstance(assessment_row, dict)
+        else {
+            "status": "rejected",
+            "blocked_reason": "candidate trust assessment unavailable",
+        }
+    )
+    trust_status = str(assessment.get("status") or "rejected").strip().lower()
+    budget_exhausted = (
+        trust_status in {"accepted", "approved"}
+        and approved_prefix_count >= work.material_budget_remaining
+    )
+    decision = (
+        "deferred"
+        if budget_exhausted
+        else "approved"
+        if trust_status in {"accepted", "approved"}
+        else "deferred"
+        if trust_status in {"deferred", "pending", "pending_review"}
+        else "rejected"
+    )
+    if budget_exhausted:
+        assessment = {
+            **assessment,
+            "status": "deferred",
+            "blocked_reason": "retrieval material budget exhausted",
+        }
+        trust_status = "deferred"
+    candidate: CanonicalJsonObject = {
+        **work.candidate,
+        "trust": {
+            "status": trust_status,
+            "trust_score": assessment.get("trust_score"),
+            "trust_level": assessment.get("trust_level"),
+            "domain": assessment.get("domain"),
+            "blocked_reason": assessment.get("blocked_reason"),
+            "url_checksum": assessment.get("url_checksum"),
+            "source_policy_action": assessment.get("source_policy_action"),
+            "source_policy_reason": assessment.get("source_policy_reason"),
+            "pre_ingest_required_checks": assessment.get("pre_ingest_required_checks") or [],
+        },
+    }
+    review = build_source_candidate_review_decision(
+        project_key=work.project_key,
+        candidate=candidate,
+        decision=decision,
+        preferred_ingest="url_pool",
+        reason=(
+            "Bounded project retrieval: collect trust-accepted URL for body review"
+            if decision == "approved"
+            else "Candidate trust gate did not authorize collection"
+        ),
+        idempotency_key=work.candidate_id,
+        reviewed_at=_now(),
+        source_call_id=f"runtime:{work.root_run_id}:{work.candidate_id}:review",
+    )
+    receipt: dict[str, CanonicalJsonValue] = {
+        **cast(dict[str, CanonicalJsonValue], review),
+        "contract_version": "project_retrieval.candidate.review.v1",
+        "receipt_owner": RETRIEVAL_CANDIDATE_REVIEW_KIND,
+        "receipt_reference": {
+            "kind": "runtime_step_output",
+            "root_run_id": work.root_run_id,
+            "candidate_id": work.candidate_id,
+        },
+        "review_artifact_ref": None,
+        "approved_prefix_count": approved_prefix_count,
+        "material_budget_remaining": work.material_budget_remaining,
+    }
+    disposition: Literal["approved", "deferred", "rejected"] = decision
+    gaps = work.gaps
+    if disposition != "approved":
+        gaps += (
+            {
+                "code": "CANDIDATE_REVIEW_NOT_APPROVED",
+                "candidate_id": work.candidate_id,
+                "decision": disposition,
+                "trust_status": trust_status,
+            },
+        )
+    after = replace(
+        work,
+        candidate=candidate,
+        stage="reviewed",
+        disposition=disposition,
+        review=receipt,
+        gaps=gaps,
+    )
+    validate_candidate_work_transition(work, after)
+    return after
+
+
+def merge_candidate_work_ingest(work: CandidateWork, outcome: UrlSingleUrlOutcome) -> CandidateWork:
+    """Attach the original URL owner's typed receipt to the reviewed work."""
+
+    if work.stage != "reviewed" or work.disposition != "approved":
+        raise_retrieval_contract_error(ValueError, 'URL acquisition requires approved reviewed work')
+    successful = outcome.status in {"completed", "accepted", "partial"} and bool(outcome.document_id)
+    receipt: dict[str, CanonicalJsonValue] = {
+        "status": outcome.status,
+        "inserted": outcome.inserted,
+        "updated": outcome.updated,
+        "skipped": outcome.skipped,
+        "document_id": outcome.document_id,
+        "error": outcome.error,
+        "task_id": outcome.task_id,
+        "readback": outcome.readback,
+        "receipt_owner": "acquisition.url.single_url.v1",
+    }
+    gaps = work.gaps
+    error = work.error
+    disposition: Literal["approved", "ingest_failed"] = "approved" if successful else "ingest_failed"
+    if not successful:
+        error = {"code": "INGEST_FAILED", "status": outcome.status, "message": outcome.error}
+        gaps += ({"code": "INGEST_FAILED", "candidate_id": work.candidate_id, "status": outcome.status},)
+    after = replace(
+        work,
+        stage="ingested",
+        disposition=disposition,
+        ingest=receipt,
+        error=error,
+        gaps=gaps,
+    )
+    validate_candidate_work_transition(work, after)
+    return after
+
+
+def read_candidate_work_body(
+    topology_service: InformationTopologyService,
+    work: CandidateWork,
+) -> CandidateWork:
+    """Read the exact persisted Document body through its original owner."""
+
+    if work.stage != "ingested" or work.disposition != "approved" or work.ingest is None:
+        raise_retrieval_contract_error(ValueError, 'body read requires a successful ingest receipt')
+    document_id = work.ingest.get("document_id")
+    receipt, body = _read_document_body(topology_service, work.project_key, document_id)
+    status = str(receipt.get("status") or "failed")
+    disposition: Literal["approved", "body_missing", "body_failed"]
+    disposition = "approved" if status == "read" and body is not None else (
+        "body_missing" if status == "missing" else "body_failed"
+    )
+    gaps = work.gaps
+    error = work.error
+    if disposition != "approved":
+        raw_error = receipt.get("error")
+        error = (
+            {
+                str(key): cast(CanonicalJsonValue, value)
+                for key, value in cast(Mapping[object, object], raw_error).items()
+            }
+            if isinstance(raw_error, Mapping)
+            else {"code": "DOCUMENT_BODY_READ_FAILED"}
+        )
+        gaps += (
+            {"code": str(error.get("code") or "DOCUMENT_BODY_READ_FAILED"), "candidate_id": work.candidate_id},
+        )
+    body_receipt = cast(dict[str, CanonicalJsonValue], receipt)
+    after = replace(
+        work,
+        stage="body_read",
+        disposition=disposition,
+        body=body_receipt,
+        body_text=body,
+        error=error,
+        gaps=gaps,
+    )
+    validate_candidate_work_transition(work, after)
+    return after
+
+
+def _formalization_payload(work: CandidateWork, plan: Mapping[str, Any]) -> dict[str, Any]:
+    if work.body is None or work.body_text is None:
+        raise_retrieval_contract_error(ValueError, 'formalization requires a body observation')
+    queries = {
+        str(item.get("id") or item.get("query_id") or ""): item
+        for item in _mapping_list(plan.get("queries"))
+    }
+    query = queries.get(work.query_id)
+    if query is None:
+        planned = _mapping(plan.get("planned_query"))
+        if planned is not None and str(planned.get("query_id") or "") == work.query_id:
+            query = planned
+    if query is None and work.query_kind == "followup":
+        expression = str(work.candidate.get("query") or "").strip()
+        if expression:
+            query = {
+                "query_id": work.query_id,
+                "expression": expression,
+                "query_ordinal": work.query_ordinal,
+                "followup_round": work.followup_round,
+                "source_route_id": work.route_id,
+            }
+    binding = _mapping(plan.get("binding_snapshot")) or {}
+    routes = _mapping_list(binding.get("routes"))
+    if not routes:
+        routes = _mapping_list((_mapping(plan.get("topology_seed")) or {}).get("source_routes"))
+    route = next((item for item in routes if str(item.get("route_id") or "") == work.route_id), None)
+    if route is None or query is None:
+        raise_retrieval_contract_error(ValueError, 'formalization plan lacks the bound route or query')
+    return {
+        "project_key": work.project_key,
+        "run_id": work.root_run_id,
+        "plan_id": work.plan_id,
+        "route_id": work.route_id,
+        "query_id": work.query_id,
+        "candidate_id": work.candidate_id,
+        "document_id": work.body.get("document_id"),
+        "title": work.body.get("title"),
+        "url": work.body.get("uri") or work.candidate.get("url"),
+        "body": work.body_text,
+        "body_digest": work.body.get("body_digest"),
+        "document_updated_at": work.body.get("document_updated_at"),
+        "domain_vocabulary": plan.get("domain_vocabulary")
+        or (_mapping(plan.get("topology_seed")) or {}).get("domain_vocabulary"),
+        "query": dict(query),
+        "source_route": dict(route),
+    }
+
+
+def formalize_candidate_work(
+    plan_loader: RetrievalPlanLoader,
+    work: CandidateWork,
+) -> CandidateWork:
+    """Run the original bounded provider formalizer on the exact body."""
+
+    if work.stage != "body_read" or work.disposition != "approved":
+        raise_retrieval_contract_error(ValueError, 'formalization requires a successful body read')
+    from app.services.project_retrieval.formalization import formalize_material
+
+    try:
+        plan = plan_loader(work.project_key, work.plan_id)
+        result = formalize_material(_formalization_payload(work, plan))
+    except Exception as exc:
+        result = {"status": "failed", "error": _failure(exc)}
+    status = str(result.get("status") or "failed")
+    disposition: Literal["proposed", "no_claim", "formalization_failed"] = (
+        "proposed" if status == "proposed" else "no_claim" if status == "no_claim" else "formalization_failed"
+    )
+    gaps = work.gaps
+    for detail in _list(result.get("gaps")):
+        gaps += ({"code": "FORMALIZATION_REMAINING_GAP", "candidate_id": work.candidate_id, "detail": detail},)
+    error = work.error
+    if disposition == "formalization_failed":
+        raw_error = result.get("error")
+        error = (
+            {
+                str(key): cast(CanonicalJsonValue, value)
+                for key, value in cast(Mapping[object, object], raw_error).items()
+            }
+            if isinstance(raw_error, Mapping)
+            else {"code": "FORMALIZATION_FAILED"}
+        )
+        gaps += ({"code": str(error.get("code") or "FORMALIZATION_FAILED"), "candidate_id": work.candidate_id},)
+    receipt = {str(key): cast(CanonicalJsonValue, value) for key, value in result.items()}
+    after = replace(
+        work,
+        stage="formalized",
+        disposition=disposition,
+        formalization=receipt,
+        error=error,
+        gaps=gaps,
+    )
+    validate_candidate_work_transition(work, after)
+    return after
+
+
+def revalidate_candidate_work(
+    topology_service: InformationTopologyService,
+    work: CandidateWork,
+) -> CandidateWork:
+    """Re-read the exact source before making a proposal topology-eligible."""
+
+    if work.stage != "formalized":
+        raise_retrieval_contract_error(ValueError, 'source revalidation requires formalized work')
+    if work.disposition != "proposed":
+        after = replace(work, stage="revalidated")
+        validate_candidate_work_transition(work, after)
+        return after
+    if work.body is None or work.body_text is None:
+        raise_retrieval_contract_error(ValueError, 'source revalidation requires the original body receipt')
+    receipt, body = _read_document_body(
+        topology_service,
+        work.project_key,
+        work.body.get("document_id"),
+    )
+    consistent = (
+        receipt.get("status") == "read"
+        and body == work.body_text
+        and receipt.get("body_digest") == work.body.get("body_digest")
+        and receipt.get("document_updated_at") == work.body.get("document_updated_at")
+    )
+    gaps = work.gaps
+    error = work.error
+    disposition: Literal["ready", "source_changed"] = "ready" if consistent else "source_changed"
+    if not consistent:
+        error = {"code": "SOURCE_CHANGED", "revalidation": cast(CanonicalJsonValue, receipt)}
+        gaps += ({"code": "SOURCE_CHANGED", "candidate_id": work.candidate_id},)
+    after = replace(work, stage="revalidated", disposition=disposition, error=error, gaps=gaps)
+    validate_candidate_work_transition(work, after)
+    return after
+
+
+def _candidate_work_codec():
+    return cast(
+        PayloadCodec[CandidateWork],
+        build_retrieval_leaf_definition(RETRIEVAL_CANDIDATE_REVIEW_KIND).input_codec,
+    )
+
+
+def _control_codec():
+    return cast(
+        PayloadCodec[RetrievalControl],
+        build_retrieval_leaf_definition(RETRIEVAL_FOLLOWUP_PLAN_KIND).input_codec,
+    )
+
+
+def _retrieval_operation_environment(
+    candidate_contract: OperationContract | None = None,
+) -> tuple[OperationContractCatalogSnapshot, OperationContractRegistry]:
+    contracts = (
+        candidate_contract or build_retrieval_candidate_runtime_definition().operation_contract,
+        build_url_single_url_contract(),
+        *(build_retrieval_leaf_definition(kind).contract for kind in RETRIEVAL_LEAF_KINDS),
+    )
+    catalog = build_operation_catalog(
+        contracts,
+        catalog_id="mrw.project-retrieval.runtime.operations",
+        catalog_version="1",
+    )
+    return catalog, OperationContractRegistry(catalog=catalog, contracts=contracts)
+
+
+def _decode_work(value: object) -> CandidateWork:
+    if not isinstance(value, dict):
+        raise_retrieval_contract_error(TypeError, 'CandidateWork transform input must be an object')
+    return _candidate_work_codec().decode_payload(cast(CanonicalJsonObject, value))
+
+
+def _encode_work(value: CandidateWork) -> CanonicalJsonObject:
+    return _candidate_work_codec().encode_payload(value)
+
+
+def _decode_control(value: object) -> RetrievalControl:
+    if not isinstance(value, dict):
+        raise_retrieval_contract_error(TypeError, 'RetrievalControl transform input must be an object')
+    return _control_codec().decode_payload(cast(CanonicalJsonObject, value))
+
+
+def _encode_control(value: RetrievalControl) -> CanonicalJsonObject:
+    return _control_codec().encode_payload(value)
+
+
+def _candidate_work_to_url_request(value: object) -> CanonicalJsonObject:
+    work = _decode_work(value)
+    if work.review is None:
+        raise_retrieval_contract_error(ValueError, 'approved CandidateWork lacks its review receipt')
+    ingest = _mapping(work.review.get("ingest_payload"))
+    url = str((ingest or {}).get("url") or work.candidate.get("url") or "").strip()
+    request = UrlSingleUrlRequest(
+        url=url,
+        project_key=work.project_key,
+        query_terms=tuple(
+            dict.fromkeys(
+                item
+                for item in (
+                    str(work.candidate.get("query") or "").strip(),
+                    str(work.candidate.get("keyword") or "").strip(),
+                )
+                if item
+            )
+        ),
+        extra_params={"disable_site_seed_expansion": True},
+        enable_extraction=True,
+        target={"candidate_id": work.candidate_id, "query_id": work.query_id},
+        context={"root_run_id": work.root_run_id, "retrieval_budget_id": work.retrieval_budget_id},
+    )
+    contract = build_url_single_url_contract()
+    return build_url_single_url_request_codec(contract.ref).encode_payload(request)
+
+
+def _merge_work_url_outcome(left: object, right: object) -> CanonicalJsonObject:
+    work = _decode_work(left)
+    if not isinstance(right, dict):
+        raise_retrieval_contract_error(TypeError, 'URL outcome must be an object')
+    contract = build_url_single_url_contract()
+    outcome = build_url_single_url_outcome_codec(contract.ref).decode_payload(cast(CanonicalJsonObject, right))
+    return _encode_work(merge_candidate_work_ingest(work, outcome))
+
+
+def _review_branch(value: object) -> str:
+    return "approved" if str(cast(Mapping[str, object], value).get("disposition") or "") == "approved" else "stopped"
+
+
+def _ingest_branch(value: object) -> str:
+    raw = cast(Mapping[str, object], value)
+    return "body" if raw.get("stage") == "ingested" and raw.get("disposition") == "approved" else "stopped"
+
+
+def _body_branch(value: object) -> str:
+    raw = cast(Mapping[str, object], value)
+    return "formalize" if raw.get("stage") == "body_read" and raw.get("disposition") == "approved" else "stopped"
+
+
+def _control_branch(value: object) -> str:
+    return "planned" if str(cast(Mapping[str, object], value).get("state") or "") == "planned" else "skipped"
+
+
+def _control_to_candidate_invocation(value: object) -> CanonicalJsonObject:
+    control = _decode_control(value)
+    planned = control.planned_query or {}
+    query_id = str(planned.get("query_id") or "").strip()
+    expression = str(planned.get("expression") or planned.get("query") or "").strip()
+    max_results_raw = planned.get("max_results")
+    if type(max_results_raw) is not int or max_results_raw <= 0:
+        raise_retrieval_contract_error(ValueError, 'planned follow-up requires a positive max_results budget')
+    invocation = RetrievalCandidateInvocation(
+        query_id=query_id,
+        route_id=control.route_id,
+        query_kind="followup",
+        query_ordinal=_exact_int(planned.get("query_ordinal"), default=0),
+        followup_round=control.round,
+        budget_id=control.retrieval_budget_id,
+        request=CandidateSearchRequest(
+            topic=expression,
+            language=str(planned.get("language") or "bi"),
+            max_results=max_results_raw,
+            project_ref=control.project_key,
+            source_ref=control.route_id,
+        ),
+    )
+    return build_retrieval_candidate_runtime_definition().invocation_codec.encode_payload(invocation)
+
+
+def _decode_candidate_outcomes(value: object) -> tuple[RetrievalCandidateAttemptOutcome, ...]:
+    definition = build_retrieval_candidate_runtime_definition()
+    items: list[object] = cast(list[object], value) if isinstance(value, list) else [value]
+    outcomes: list[RetrievalCandidateAttemptOutcome] = []
+    for item in items:
+        if not isinstance(item, dict):
+            raise_retrieval_contract_error(TypeError, 'candidate outcome must be an object')
+        outcomes.append(definition.output_codec.decode_payload(cast(CanonicalJsonObject, item)))
+    return tuple(outcomes)
+
+
+def _merge_candidate_outcomes_control(left: object, right: object) -> list[CanonicalJsonObject]:
+    outcomes = _decode_candidate_outcomes(left)
+    control = _decode_control(right)
+    remaining_raw = control.budget.get("remaining_materials")
+    if type(remaining_raw) is not int or remaining_raw < 0:
+        raise_retrieval_contract_error(ValueError, 'retrieval control lacks an exact remaining material budget')
+    remaining = remaining_raw
+    works: list[CanonicalJsonObject] = []
+    seen: set[str] = set()
+    for outcome in outcomes:
+        bundle = outcome.bundle if outcome.state == "completed" else None
+        if bundle is None:
+            continue
+        for candidate in bundle.candidates:
+            url = candidate.resource_uri.strip()
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            ordinal = len(works) + 1
+            work = CandidateWork(
+                project_key=control.project_key,
+                root_run_id=control.root_run_id,
+                retrieval_budget_id=control.retrieval_budget_id,
+                plan_id=control.plan_id,
+                mode_version=control.mode_version,
+                route_id=control.route_id,
+                query_id=outcome.query_id,
+                query_kind=outcome.query_kind,
+                query_ordinal=outcome.query_ordinal,
+                followup_round=outcome.followup_round,
+                candidate_ordinal=ordinal,
+                candidate_id="candidate:" + _digest(
+                    (control.retrieval_budget_id, outcome.query_id, candidate.result_rank, url)
+                ),
+                material_budget_remaining=remaining,
+                candidate={
+                    "url": url,
+                    "title": candidate.title or url,
+                    "snippet": candidate.snippet or "",
+                    "provider": candidate.source or "",
+                    "rank": candidate.result_rank,
+                    "keyword": candidate.keyword or "",
+                    "query": bundle.request.topic,
+                    "trust": {"status": "pending_review"},
+                },
+            )
+            works.append(_encode_work(work))
+    return works
+
+
+def _merge_control_outcome(left: object, right: object) -> list[CanonicalJsonObject]:
+    return _merge_candidate_outcomes_control(right, left)
+
+
+def _merge_work_sequence_control(_left: object, right: object) -> CanonicalJsonObject:
+    return cast(CanonicalJsonObject, right)
+
+
+def _candidate_outcome_to_sequence(value: object) -> list[CanonicalJsonObject]:
+    if not isinstance(value, dict):
+        raise_retrieval_contract_error(TypeError, 'candidate outcome must be an object')
+    return [cast(CanonicalJsonObject, value)]
+
+
+def _candidate_work_identity(value: object) -> object:
+    return value
+
+
+def _retrieval_control_identity(value: object) -> object:
+    return value
+
+
+def _register_retrieval_transforms(registry: TransformRegistry) -> dict[str, TransformRef]:
+    return {
+        "work_to_url": registry.register_transform(
+            name="project_retrieval.work.to_url_request",
+            version="1",
+            input_type=CANDIDATE_WORK_TYPE,
+            output_type=URL_SINGLE_URL_REQUEST_TYPE,
+            func=_candidate_work_to_url_request,
+        ),
+        "control_to_invocation": registry.register_transform(
+            name="project_retrieval.control.to_candidate_invocation",
+            version="1",
+            input_type=build_retrieval_leaf_contract(RETRIEVAL_FOLLOWUP_PLAN_KIND).input_type,
+            output_type=build_retrieval_candidate_runtime_definition().program_atom.input_type,
+            func=_control_to_candidate_invocation,
+        ),
+        "candidate_to_sequence": registry.register_transform(
+            name="project_retrieval.candidate.to_sequence",
+            version="1",
+            input_type=RETRIEVAL_CANDIDATE_ATTEMPT_OUTCOME_TYPE,
+            output_type=RETRIEVAL_CANDIDATE_ATTEMPT_SEQUENCE_TYPE,
+            func=_candidate_outcome_to_sequence,
+        ),
+        "work_identity": registry.register_transform(
+            name="project_retrieval.work.identity",
+            version="1",
+            input_type=CANDIDATE_WORK_TYPE,
+            output_type=CANDIDATE_WORK_TYPE,
+            func=_candidate_work_identity,
+            preserves_value_ref=True,
+        ),
+        "control_identity": registry.register_transform(
+            name="project_retrieval.control.identity",
+            version="1",
+            input_type=build_retrieval_leaf_contract(RETRIEVAL_FOLLOWUP_PLAN_KIND).input_type,
+            output_type=build_retrieval_leaf_contract(RETRIEVAL_FOLLOWUP_PLAN_KIND).input_type,
+            func=_retrieval_control_identity,
+            preserves_value_ref=True,
+        ),
+    }
+
+
+def build_retrieval_transform_registry() -> Annotated[
+    TransformRegistry,
+    "kit:non-authoritative derived_as=program fact_source=retrieval_typed_transforms witness=test:test_root_and_candidate_work_have_one_semantic_return",
+]:
+    registry = TransformRegistry(registry_id="mrw.project-retrieval.transforms.v1", registry_version="1")
+    _register_retrieval_transforms(registry)
+    return registry
+
+
+def _register_retrieval_merges(registry: TransformRegistry) -> dict[str, MergeRef]:
+    candidate_output = RETRIEVAL_CANDIDATE_ATTEMPT_SEQUENCE_TYPE
+    control_type = build_retrieval_leaf_contract(RETRIEVAL_FOLLOWUP_PLAN_KIND).input_type
+    return {
+        "work_url": registry.register_merge(
+            name="project_retrieval.work.attach_url_outcome",
+            version="1",
+            left_type=CANDIDATE_WORK_TYPE,
+            right_type=URL_SINGLE_URL_OUTCOME_TYPE,
+            output_type=CANDIDATE_WORK_TYPE,
+            func=_merge_work_url_outcome,
+        ),
+        "candidates_work": registry.register_merge(
+            name="project_retrieval.candidates.to_work",
+            version="1",
+            left_type=candidate_output,
+            right_type=control_type,
+            output_type=CANDIDATE_WORK_SEQUENCE_TYPE,
+            func=_merge_candidate_outcomes_control,
+        ),
+        "followup_work": registry.register_merge(
+            name="project_retrieval.followup.to_work",
+            version="1",
+            left_type=control_type,
+            right_type=RETRIEVAL_CANDIDATE_ATTEMPT_OUTCOME_TYPE,
+            output_type=CANDIDATE_WORK_SEQUENCE_TYPE,
+            func=_merge_control_outcome,
+        ),
+        "work_control": registry.register_merge(
+            name="project_retrieval.work.to_control",
+            version="1",
+            left_type=CANDIDATE_WORK_SEQUENCE_TYPE,
+            right_type=control_type,
+            output_type=control_type,
+            func=_merge_work_sequence_control,
+        ),
+    }
+
+
+def _register_candidate_merges(registry: TransformRegistry) -> None:
+    candidate_registry = build_retrieval_candidate_merge_registry()
+    for merge_ref in candidate_registry.merge_refs():
+        entry = candidate_registry.resolve_merge(merge_ref)
+        registry.register_merge(
+            name=entry.id,
+            version=entry.version,
+            left_type=entry.left_type,
+            right_type=entry.right_type,
+            output_type=entry.output_type,
+            func=entry.callable,
+        )
+
+
+def build_retrieval_merge_registry() -> Annotated[
+    TransformRegistry,
+    "kit:non-authoritative derived_as=program fact_source=retrieval_typed_merges+candidate_attempt_merges witness=test:test_root_and_candidate_work_have_one_semantic_return",
+]:
+    registry = TransformRegistry(registry_id="mrw.project-retrieval.merges.v1", registry_version="1")
+    _register_retrieval_merges(registry)
+    _register_candidate_merges(registry)
+    return registry
+
+
+def _retrieval_merge_refs(registry: TransformRegistry) -> dict[str, MergeRef]:
+    by_name = {ref.name: ref for ref in registry.merge_refs()}
+    names = {
+        "work_url": "project_retrieval.work.attach_url_outcome",
+        "candidates_work": "project_retrieval.candidates.to_work",
+        "followup_work": "project_retrieval.followup.to_work",
+        "work_control": "project_retrieval.work.to_control",
+    }
+    try:
+        return {key: by_name[name] for key, name in names.items()}
+    except KeyError as exc:
+        raise_retrieval_contract_error(ValueError, f'retrieval merge registry lacks {exc.args[0]}', cause=exc)
+
+
+def _register_retrieval_discriminators(
+    registry: TransformRegistry,
+) -> dict[str, DiscriminatorRef]:
+    refs: dict[str, DiscriminatorRef] = {}
+    for name, branches, func in (
+        ("project_retrieval.review.branch", ("approved", "stopped"), _review_branch),
+        ("project_retrieval.ingest.branch", ("body", "stopped"), _ingest_branch),
+        ("project_retrieval.body.branch", ("formalize", "stopped"), _body_branch),
+    ):
+        refs[name] = registry.register_discriminator(
+            name=name, version="1", input_type=CANDIDATE_WORK_TYPE, branch_ids=branches, func=func
+        )
+    refs["project_retrieval.control.branch"] = registry.register_discriminator(
+        name="project_retrieval.control.branch",
+        version="1",
+        input_type=build_retrieval_leaf_contract(RETRIEVAL_FOLLOWUP_PLAN_KIND).input_type,
+        branch_ids=("planned", "skipped"),
+        func=_control_branch,
+    )
+    return refs
+
+
+def build_retrieval_discriminator_registry() -> Annotated[
+    TransformRegistry,
+    "kit:non-authoritative derived_as=program fact_source=retrieval_typed_branch_rules witness=test:test_root_and_candidate_work_have_one_semantic_return",
+]:
+    registry = TransformRegistry(registry_id="mrw.project-retrieval.discriminators.v1", registry_version="1")
+    _register_retrieval_discriminators(registry)
+    return registry
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalWorkChildProgram:
+    element_index: int
+    element_digest: str
+    program: ProgramSpec
+    values: tuple[tuple[ValueRef, bytes], ...]
+    invocation_ref: ValueRef
+    budget_ref: ValueRef
+    canonical_bindings: Mapping[str, tuple[int, str]]
+    approvals_by_step: Mapping[str, tuple[str, ...]]
+    logical_request_id: str
+    idempotency_id: str
+    child_run_id: str
+    incarnation: str
+
+
+def _work_leaf_atom(kind: str, work_ref: ValueRef, budget_ref: ValueRef) -> ProgramNode:
+    contract = build_retrieval_leaf_contract(kind)
+    operation = OperationSpec(
+        operation_id=kind,
+        contract_ref=contract.ref,
+        input_refs=(budget_ref, work_ref),
+        payload_ref=work_ref,
+        allowed_overrides=freeze_json_object({}),
+    )
+    return atom_node(operation, input_type=CANDIDATE_WORK_TYPE, output_type=CANDIDATE_WORK_TYPE)
+
+
+def _url_request_template(work: CandidateWork) -> UrlSingleUrlRequest:
+    return UrlSingleUrlRequest(
+        url=str(work.candidate.get("url") or ""),
+        project_key=work.project_key,
+        query_terms=tuple(
+            item
+            for item in (
+                str(work.candidate.get("query") or "").strip(),
+                str(work.candidate.get("keyword") or "").strip(),
+            )
+            if item
+        ),
+        extra_params={"disable_site_seed_expansion": True},
+        enable_extraction=True,
+        target={"candidate_id": work.candidate_id, "query_id": work.query_id},
+        context={"root_run_id": work.root_run_id, "retrieval_budget_id": work.retrieval_budget_id},
+    )
+
+
+def build_retrieval_work_child_program(
+    *,
+    work: CandidateWork,
+    budget_ref: ValueRef,
+    budget_bytes: bytes,
+    element_index: int,
+    element_digest: str,
+    program_id: str,
+    child_run_id: str,
+    project_registry_revision: int,
+    project_scope_digest: str,
+) -> Annotated[
+    RetrievalWorkChildProgram,
+    "kit:prepared-command effect_boundary=successor_program_interpreter witness=test:test_root_and_candidate_work_have_one_semantic_return",
+]:
+    review_contract = build_retrieval_leaf_contract(RETRIEVAL_CANDIDATE_REVIEW_KIND)
+    work_ref, work_bytes = retrieval_payload_value(
+        value=work,
+        contract_ref=review_contract.ref,
+        value_id=f"{program_id}:payload:candidate-work",
+        project_key=work.project_key,
+    )
+    incarnation = f"retrieval-work:{element_digest}"
+    url_leaf = build_url_single_url_program(
+        request=_url_request_template(work),
+        program_id="program:retrieval-url:" + _digest((program_id, work.candidate_id)),
+        project_key=work.project_key,
+        project_registry_revision=project_registry_revision,
+        project_scope_digest=project_scope_digest,
+        incarnation=incarnation,
+        extra_bound_inputs=((budget_ref, budget_bytes),),
+    )
+    transform_registry = TransformRegistry(
+        registry_id="mrw.project-retrieval.transforms.v1", registry_version="1"
+    )
+    transform_refs = _register_retrieval_transforms(transform_registry)
+    merge_registry = build_retrieval_merge_registry()
+    merge_refs = _retrieval_merge_refs(merge_registry)
+    discriminator_registry = TransformRegistry(
+        registry_id="mrw.project-retrieval.discriminators.v1", registry_version="1"
+    )
+    discriminator_refs = _register_retrieval_discriminators(discriminator_registry)
+
+    review = _work_leaf_atom(RETRIEVAL_CANDIDATE_REVIEW_KIND, work_ref, budget_ref)
+    url_pipeline = then_node(
+        map_output_node(identity_node(CANDIDATE_WORK_TYPE), transform_refs["work_to_url"], URL_SINGLE_URL_REQUEST_TYPE),
+        url_leaf.program.root,
+    )
+    approved = zip_ordered_node(
+        identity_node(CANDIDATE_WORK_TYPE),
+        url_pipeline,
+        merge_refs["work_url"],
+        CANDIDATE_WORK_TYPE,
+    )
+    reviewed = then_node(
+        review,
+        decide_node(
+            discriminator_refs["project_retrieval.review.branch"],
+            (
+                DecisionBranch("approved", "disposition == 'approved'", approved),
+                DecisionBranch(
+                    "stopped",
+                    "disposition != 'approved'",
+                    map_output_node(
+                        identity_node(CANDIDATE_WORK_TYPE),
+                        transform_refs["work_identity"],
+                        CANDIDATE_WORK_TYPE,
+                    ),
+                ),
+            ),
+        ),
+    )
+    body = _work_leaf_atom(RETRIEVAL_MATERIAL_READ_BODY_KIND, work_ref, budget_ref)
+    ingested = then_node(
+        reviewed,
+        decide_node(
+            discriminator_refs["project_retrieval.ingest.branch"],
+            (
+                DecisionBranch("body", "stage == 'ingested' and disposition == 'approved'", body),
+                DecisionBranch(
+                    "stopped",
+                    "stage != 'ingested' or disposition != 'approved'",
+                    map_output_node(
+                        identity_node(CANDIDATE_WORK_TYPE),
+                        transform_refs["work_identity"],
+                        CANDIDATE_WORK_TYPE,
+                    ),
+                ),
+            ),
+        ),
+    )
+    formal = then_node(
+        _work_leaf_atom(RETRIEVAL_MATERIAL_FORMALIZE_KIND, work_ref, budget_ref),
+        _work_leaf_atom(RETRIEVAL_MATERIAL_REVALIDATE_KIND, work_ref, budget_ref),
+    )
+    root = then_node(
+        ingested,
+        decide_node(
+            discriminator_refs["project_retrieval.body.branch"],
+            (
+                DecisionBranch("formalize", "stage == 'body_read' and disposition == 'approved'", formal),
+                DecisionBranch(
+                    "stopped",
+                    "stage != 'body_read' or disposition != 'approved'",
+                    map_output_node(
+                        identity_node(CANDIDATE_WORK_TYPE),
+                        transform_refs["work_identity"],
+                        CANDIDATE_WORK_TYPE,
+                    ),
+                ),
+            ),
+        ),
+    )
+    root = map_output_node(root, transform_refs["work_identity"], CANDIDATE_WORK_TYPE)
+    catalog, registry = _retrieval_operation_environment()
+    program = ProgramSpec(
+        program_id=program_id,
+        contract_version="mrw.functorial-successor.program-spec.v1",
+        project_key=work.project_key,
+        project_registry_revision=project_registry_revision,
+        project_scope_digest=project_scope_digest,
+        semantic_identity="project_retrieval.candidate-work.v1",
+        input_type=CANDIDATE_WORK_TYPE,
+        output_type=CANDIDATE_WORK_TYPE,
+        root=root,
+        algebra_refs=(AlgebraRef("mrw.successor.language.algebra", "1"),),
+        transform_refs=tuple(transform_refs.values()),
+        observation_profile="project_retrieval.candidate-work.observation.v1",
+        metadata=freeze_json_object(
+            {
+                "schema": "mrw.project-retrieval.candidate-work.program.v1",
+                "root_run_id": work.root_run_id,
+                "root_budget_id": work.retrieval_budget_id,
+                "candidate_id": work.candidate_id,
+                "element_index": element_index,
+                "element_digest": element_digest,
+            }
+        ),
+        program_digest="",
+    ).with_digest()
+    plan = compile_program(
+        program,
+        catalog,
+        operation_contracts=registry,
+        transform_registry=transform_registry,
+        merge_registry=merge_registry,
+        discriminator_registry=discriminator_registry,
+    )
+    effects = tuple(step for step in plan.ordered_steps if step.step_kind == "EFFECT")
+    values_by_ref = {budget_ref: budget_bytes, work_ref: work_bytes}
+    for ref, exact in url_leaf.values:
+        previous = values_by_ref.setdefault(ref, exact)
+        if previous != exact:
+            raise_retrieval_contract_error(ValueError, 'retrieval work value identity collision')
+    return RetrievalWorkChildProgram(
+        element_index=element_index,
+        element_digest=element_digest,
+        program=program,
+        values=tuple(values_by_ref.items()),
+        invocation_ref=work_ref,
+        budget_ref=budget_ref,
+        canonical_bindings={step.step_id: (0, incarnation) for step in effects},
+        approvals_by_step={},
+        logical_request_id=f"{work.retrieval_budget_id}:candidate:{work.candidate_id}",
+        idempotency_id="retrieval-work-idem:" + _digest((child_run_id, work.candidate_id)),
+        child_run_id=child_run_id,
+        incarnation=incarnation,
+    )
+
+
+def validate_retrieval_work_bound_inputs(
+    work: CandidateWork | RetrievalControl,
+    bound_inputs: tuple[tuple[ValueRef, bytes], ...],
+) -> None:
+    budget_entries = tuple(item for item in bound_inputs if item[0].object_type == RETRIEVAL_BUDGET_STATE_TYPE)
+    if len(budget_entries) != 1:
+        raise_retrieval_contract_error(ValueError, 'retrieval work requires one immutable root budget')
+    definition = build_retrieval_candidate_runtime_definition()
+    budget_ref, budget_bytes = budget_entries[0]
+    payload_type = CANDIDATE_WORK_TYPE if isinstance(work, CandidateWork) else RETRIEVAL_CONTROL_TYPE
+    payload_entries = tuple(item for item in bound_inputs if item[0].object_type == payload_type)
+    if len(bound_inputs) != 2 or len(payload_entries) != 1:
+        raise_retrieval_contract_error(ValueError, 'retrieval work requires exactly budget and typed payload inputs')
+    payload_ref, payload_bytes = payload_entries[0]
+    payload_codec = _candidate_work_codec() if isinstance(work, CandidateWork) else _control_codec()
+    if (
+        budget_ref.codec_id != definition.budget_codec.codec_id
+        or payload_ref.codec_id != payload_codec.codec_id
+    ):
+        raise_retrieval_contract_error(ValueError, 'retrieval work bound input codec drift')
+    budget_raw = json.loads(budget_bytes)
+    payload_raw = json.loads(payload_bytes)
+    if (
+        not isinstance(budget_raw, dict)
+        or not isinstance(payload_raw, dict)
+        or canonical_json(cast(CanonicalJsonObject, budget_raw)).encode("utf-8") != budget_bytes
+        or canonical_json(cast(CanonicalJsonObject, payload_raw)).encode("utf-8") != payload_bytes
+    ):
+        raise_retrieval_contract_error(ValueError, 'retrieval work bound input is not canonical JSON')
+    budget = definition.budget_codec.decode_payload(cast(CanonicalJsonObject, budget_raw))
+    bound_payload = payload_codec.decode_payload(cast(CanonicalJsonObject, payload_raw))
+    if (
+        bound_payload != work
+        or work.project_key != budget.project_key
+        or work.root_run_id != budget.root_run_id
+        or work.retrieval_budget_id != budget.budget_id
+        or work.plan_id != budget.plan_id
+        or work.mode_version != budget.mode_version
+        or budget_ref.project_key != work.project_key
+        or payload_ref.project_key != work.project_key
+        or (
+            isinstance(work, CandidateWork)
+            and work.material_budget_remaining > budget.max_materials
+        )
+    ):
+        raise_retrieval_contract_error(ValueError, 'retrieval work crosses its immutable root budget')
+    for ref, exact in bound_inputs:
+        if ref.byte_size != len(exact) or ref.content_digest != sha256_hex(exact):
+            raise_retrieval_contract_error(ValueError, 'retrieval work bound input bytes differ from ValueRef')
+
+
+def validate_retrieval_url_bound_inputs(
+    request: UrlSingleUrlRequest,
+    bound_inputs: tuple[tuple[ValueRef, bytes], ...],
+) -> None:
+    """Bind a retrieval URL leaf to its exact request and immutable root budget."""
+
+    if len(bound_inputs) != 2:
+        raise_retrieval_contract_error(ValueError, 'retrieval URL operation requires exactly budget and request inputs')
+    budget_entries = tuple(
+        item for item in bound_inputs if item[0].object_type == RETRIEVAL_BUDGET_STATE_TYPE
+    )
+    request_entries = tuple(
+        item for item in bound_inputs if item[0].object_type == URL_SINGLE_URL_REQUEST_TYPE
+    )
+    if len(budget_entries) != 1 or len(request_entries) != 1:
+        raise_retrieval_contract_error(ValueError, 'retrieval URL bound input types drift')
+    budget_ref, budget_bytes = budget_entries[0]
+    request_ref, request_bytes = request_entries[0]
+    budget_definition = build_retrieval_candidate_runtime_definition()
+    request_codec = build_url_single_url_request_codec(build_url_single_url_contract().ref)
+    if (
+        budget_ref.codec_id != budget_definition.budget_codec.codec_id
+        or request_ref.codec_id != request_codec.codec_id
+    ):
+        raise_retrieval_contract_error(ValueError, 'retrieval URL bound input codec drift')
+    budget_raw = json.loads(budget_bytes)
+    request_raw = json.loads(request_bytes)
+    if (
+        not isinstance(budget_raw, dict)
+        or not isinstance(request_raw, dict)
+        or canonical_json(cast(CanonicalJsonObject, budget_raw)).encode("utf-8") != budget_bytes
+        or canonical_json(cast(CanonicalJsonObject, request_raw)).encode("utf-8") != request_bytes
+    ):
+        raise_retrieval_contract_error(ValueError, 'retrieval URL bound input is not canonical JSON')
+    budget = budget_definition.budget_codec.decode_payload(
+        cast(CanonicalJsonObject, budget_raw)
+    )
+    bound_request = request_codec.decode_payload(cast(CanonicalJsonObject, request_raw))
+    if bound_request != request:
+        raise_retrieval_contract_error(ValueError, 'retrieval URL request differs from its bound input')
+    context = _mapping(request.context) or {}
+    target = _mapping(request.target) or {}
+    if (
+        request.project_key != budget.project_key
+        or budget_ref.project_key != budget.project_key
+        or request_ref.project_key != budget.project_key
+        or str(context.get("root_run_id") or "") != budget.root_run_id
+        or str(context.get("retrieval_budget_id") or "") != budget.budget_id
+        or not str(target.get("candidate_id") or "").strip()
+        or not str(target.get("query_id") or "").strip()
+    ):
+        raise_retrieval_contract_error(ValueError, 'retrieval URL request crosses its CandidateWork root binding')
+    for ref, exact in bound_inputs:
+        if ref.byte_size != len(exact) or ref.content_digest != sha256_hex(exact):
+            raise_retrieval_contract_error(ValueError, 'retrieval URL bound input bytes differ from ValueRef')
+
+
+def build_retrieval_work_active_child_bytes(
+    observations: tuple[ActiveChildTerminalObservation, ...],
+) -> Annotated[
+    bytes,
+    "kit:non-authoritative derived_as=settlement fact_source=active_child_terminal_observations witness=test:test_candidate_work_settlement_binds_exact_input_and_result",
+]:
+    from app.successor_runtime.language.checksum import canonical_bytes as sequence_bytes
+    from app.successor_runtime.language.plan import traversal_element_digests
+
+    codec = _candidate_work_codec()
+    encoded: list[CanonicalJsonObject] = []
+    for index, observation in enumerate(observations):
+        if observation.element_index != index:
+            raise_retrieval_contract_error(ValueError, 'retrieval work terminal observations are not ordered')
+        if observation.state != "COMPLETED":
+            raise_retrieval_contract_error(
+                ValueError,
+                "retrieval work settlement requires completed child observations",
+            )
+        before_raw = cast(CanonicalJsonObject, json.loads(observation.input_bytes))
+        if canonical_json(before_raw).encode("utf-8") != observation.input_bytes:
+            raise_retrieval_contract_error(ValueError, 'retrieval work child input is not canonical JSON')
+        if (
+            observation.input_ref.object_type != CANDIDATE_WORK_TYPE
+            or observation.input_ref.codec_id != codec.codec_id
+            or observation.input_ref.byte_size != len(observation.input_bytes)
+            or observation.input_ref.content_digest != sha256_hex(observation.input_bytes)
+            or observation.element_digest != traversal_element_digests((before_raw,))[0]
+        ):
+            raise_retrieval_contract_error(ValueError, 'retrieval work child input binding drift')
+        before = codec.decode_payload(before_raw)
+        if observation.result_ref is None or observation.result_bytes is None:
+            raise_retrieval_contract_error(ValueError, 'completed retrieval work child lacks its result')
+        after_raw = cast(CanonicalJsonObject, json.loads(observation.result_bytes))
+        if canonical_json(after_raw).encode("utf-8") != observation.result_bytes:
+            raise_retrieval_contract_error(ValueError, 'retrieval work child result is not canonical JSON')
+        if (
+            observation.result_ref.object_type != CANDIDATE_WORK_TYPE
+            or observation.result_ref.codec_id != codec.codec_id
+            or observation.result_ref.byte_size != len(observation.result_bytes)
+            or observation.result_ref.content_digest != sha256_hex(observation.result_bytes)
+            or observation.result_ref.project_key != observation.input_ref.project_key
+        ):
+            raise_retrieval_contract_error(ValueError, 'retrieval work child result binding drift')
+        after = codec.decode_payload(after_raw)
+        validate_candidate_work_transition(before, after)
+        encoded.append(codec.encode_payload(after))
+    return sequence_bytes(encoded)
+
+
+class RetrievalWorkActiveChildMaterializer:
+    """The sole domain materializer for the CandidateWork traversal."""
+
+    def __init__(
+        self,
+        activation_catalog: FirstSpecimenActivationCatalog,
+        *,
+        active_child_materializer_factory: Callable[
+            [FirstSpecimenActivationCatalog], ActiveChildMaterializer
+        ]
+        | None = None,
+        child_activation_catalog_factory: Callable[
+            [Connection, RuntimeScope, ProgramSpec], FirstSpecimenActivationCatalog
+        ]
+        | None = None,
+    ) -> None:
+        self._activation_catalog = activation_catalog
+        self._active_child_materializer_factory = active_child_materializer_factory
+        self._child_activation_catalog_factory = child_activation_catalog_factory
+
+    def __call__(
+        self,
+        *,
+        connection: Connection,
+        scope: RuntimeScope,
+        parent_run_id: str,
+        descriptor: TraversalMaterialization,
+        trigger: ActivationTrigger,
+    ) -> ActiveChildMaterializationReceipt:
+        run = one_mapping(
+            connection.execute(
+                select(PUBLIC_TABLES["runtime_runs"]).where(
+                    PUBLIC_TABLES["runtime_runs"].c.project_key == scope.project_scope.project_key,
+                    PUBLIC_TABLES["runtime_runs"].c.run_id == parent_run_id,
+                )
+            )
+        )
+        if run is None:
+            raise_retrieval_contract_error(ValueError, 'retrieval work parent run is absent')
+        tables = project_tables(MetaData(), scope.project_scope.resolved_schema)
+        program = ProgramRepository(connection, tables).get(
+            scope, str(run["program_id"]), expected_digest=str(run["program_digest"])
+        )
+        metadata = dict(program.metadata)
+        if (
+            metadata.get("schema") != "mrw.project-retrieval.runtime.program.v1"
+            or metadata.get("candidate_work_ast_digest") != descriptor.element_program_digest
+        ):
+            raise_retrieval_contract_error(ValueError, 'retrieval work traversal descriptor differs from its Program')
+        candidate_atoms = tuple(
+            atom
+            for atom in program_atoms(program.root)
+            if atom.operation.contract_ref.kind == RETRIEVAL_CANDIDATE_DISCOVER_V3_KIND
+        )
+        budget_refs = {
+            ref
+            for atom in candidate_atoms
+            for ref in atom.operation.input_refs
+            if ref.object_type == RETRIEVAL_BUDGET_STATE_TYPE
+        }
+        if not candidate_atoms or len(budget_refs) != 1:
+            raise_retrieval_contract_error(ValueError, 'retrieval work Program lacks one shared root budget')
+        budget_ref = next(iter(budget_refs))
+        reader = PostgresFirstSpecimenActivationBindingAdapter()
+        budget_bytes = reader.read_value_bytes(connection, scope, tables, budget_ref)
+        budget = build_retrieval_candidate_runtime_definition().budget_codec.decode_payload(
+            cast(CanonicalJsonObject, json.loads(budget_bytes))
+        )
+        input_bytes = reader.read_value_bytes(connection, scope, tables, descriptor.input_ref)
+        if sha256_hex(input_bytes) != descriptor.input_sequence_digest:
+            raise_retrieval_contract_error(ValueError, 'retrieval work traversal input digest drift')
+        raw_items = json.loads(input_bytes)
+        if not isinstance(raw_items, list):
+            raise_retrieval_contract_error(TypeError, 'retrieval work traversal input must be a sequence')
+        codec = _candidate_work_codec()
+        raw_item_list = cast(list[object], raw_items)
+        works = tuple(
+            codec.decode_payload(cast(CanonicalJsonObject, item))
+            for item in raw_item_list
+            if isinstance(item, dict)
+        )
+        if len(works) != descriptor.element_count or len(works) != len(raw_item_list):
+            raise_retrieval_contract_error(ValueError, 'retrieval work traversal element count drift')
+        round_material_budgets = {work.material_budget_remaining for work in works}
+        if len(round_material_budgets) > 1 or any(
+            remaining > budget.max_materials for remaining in round_material_budgets
+        ):
+            raise_retrieval_contract_error(
+                ValueError,
+                "retrieval work traversal material budget differs within its immutable root budget",
+            )
+        children: list[RetrievalWorkChildProgram] = []
+        for index, (work, element_digest) in enumerate(zip(works, descriptor.element_digests, strict=True)):
+            child_identity = _digest(
+                (parent_run_id, descriptor.step_id, work.query_id, work.candidate_id, index, element_digest)
+            )
+            child_run_id = f"retrieval-work:{child_identity}"
+            child = build_retrieval_work_child_program(
+                work=work,
+                budget_ref=budget_ref,
+                budget_bytes=budget_bytes,
+                element_index=index,
+                element_digest=element_digest,
+                program_id=f"program:retrieval-work:{child_identity}",
+                child_run_id=child_run_id,
+                project_registry_revision=scope.project_scope.project_registry_revision,
+                project_scope_digest=scope.project_scope.scope_digest,
+            )
+            validate_retrieval_work_bound_inputs(work, ((budget_ref, budget_bytes), (child.invocation_ref, dict(child.values)[child.invocation_ref])))
+            children.append(child)
+        catalog, registry = _retrieval_operation_environment()
+        return materialize_active_children(
+            connection,
+            scope,
+            parent_run_id=parent_run_id,
+            descriptor=descriptor,
+            children=cast(tuple[ActiveChildSubmission, ...], tuple(children)),
+            root_value_identity=budget.budget_id,
+            operation_catalog=catalog,
+            operation_contracts=registry,
+            activation_catalog=self._activation_catalog,
+            trigger=trigger,
+            empty_result_bytes=canonical_json([]).encode("utf-8") if not children else None,
+            active_child_materializer_factory=self._active_child_materializer_factory,
+            child_activation_catalog_factory=self._child_activation_catalog_factory,
+        )
+
+
+def plan_retrieval_followup(
+    journal_reader: RetrievalJournalReader,
+    control: RetrievalControl,
+) -> Annotated[
+    RetrievalControl,
+    "kit:non-authoritative derived_as=decision fact_source=runtime_journal+exact_retrieval_budget witness=test:test_followup_planner_uses_settled_runtime_budget",
+]:
+    """Derive one of at most two follow-up slots from settled Runtime facts."""
+
+    observation = journal_reader(control)
+    attempts = _mapping_list(observation.get("attempts"))
+    works = _mapping_list(observation.get("works"))
+    raw_budget = _mapping(observation.get("budget"))
+    if raw_budget is None:
+        raise_retrieval_contract_error(ValueError, 'retrieval journal lacks an exact budget observation')
+    queries_attempted = _required_budget_counter(raw_budget, "queries_attempted")
+    materials_accepted = _required_budget_counter(raw_budget, "materials_accepted")
+    max_queries = _required_budget_counter(raw_budget, "max_queries", positive=True)
+    max_materials = _required_budget_counter(raw_budget, "max_materials", positive=True)
+    if queries_attempted > max_queries or materials_accepted > max_materials:
+        raise_retrieval_contract_error(ValueError, 'retrieval journal budget consumption exceeds its ceiling')
+    budget: dict[str, CanonicalJsonValue] = {
+        "queries_attempted": queries_attempted,
+        "materials_accepted": materials_accepted,
+        "remaining_queries": max(0, max_queries - queries_attempted),
+        "remaining_materials": max(0, max_materials - materials_accepted),
+        "max_queries": max_queries,
+        "max_materials": max_materials,
+        "gap_count": sum(len(cast(list[object], item.get("gaps") or [])) for item in works),
+    }
+    if (
+        control.round < 1
+        or control.round > 2
+        or control.state == "skipped"
+        or budget["remaining_queries"] == 0
+        or budget["remaining_materials"] == 0
+        or any(item.get("disposition") == "ready" for item in works)
+    ):
+        return replace(control, state="skipped", planned_query=None, budget=budget)
+    gap_terms: list[str] = []
+    for item in works:
+        for gap in _mapping_list(item.get("gaps")):
+            for candidate in (gap.get("detail"), gap.get("code")):
+                text = str(candidate or "").strip()
+                if text and text not in gap_terms:
+                    gap_terms.append(text)
+    if not gap_terms:
+        return replace(control, state="skipped", planned_query=None, budget=budget)
+    executed = {str(item.get("actual_query") or "").strip() for item in attempts}
+    planned_rows = build_source_discovery_search_queries(
+        topic=control.route_id,
+        query_terms=gap_terms[:6],
+        source_kinds=["official", "regulatory", "company", "academic", "news", "database"],
+        limit=12,
+    )
+    selected = next((item for item in planned_rows if str(item.get("query") or "").strip() not in executed), None)
+    if selected is None:
+        return replace(control, state="skipped", planned_query=None, budget=budget)
+    expression = str(selected.get("query") or "").strip()
+    planned_query: dict[str, CanonicalJsonValue] = {
+        "query_id": "followup:" + _digest((control.retrieval_budget_id, control.round, expression))[:32],
+        "expression": expression,
+        "query_ordinal": queries_attempted + 1,
+        "followup_round": control.round,
+        "language": "bi",
+        "max_results": min(20, cast(int, budget["remaining_materials"])),
+        "source_kind": str(selected.get("source_kind") or "followup"),
+        "purpose": str(selected.get("purpose") or "close formalization gaps"),
+    }
+    return replace(control, state="planned", planned_query=planned_query, budget=budget)
+
+
+def commit_retrieval_topology(
+    topology_service: InformationTopologyService,
+    journal_reader: RetrievalJournalReader,
+    control: RetrievalControl,
+) -> RetrievalControl:
+    """Call the original topology writer once from settled Runtime readback."""
+
+    observation = journal_reader(control)
+    attempt_rows = _mapping_list(observation.get("attempts"))
+    works = _mapping_list(observation.get("works"))
+    attempts = [
+        RetrievalAttempt(
+            attempt_id=str(item.get("attempt_id") or ""),
+            query_id=str(item.get("query_id") or ""),
+            round_id=str(item.get("round_id") or control.root_run_id),
+            clue_key=str(item.get("clue_key") or control.route_id),
+            executed_at=str(item.get("executed_at") or ""),
+            tool=str(item.get("tool") or "source.web.search"),
+            actual_query=str(item.get("actual_query") or ""),
+            result=str(item.get("result") or "miss"),
+            source_ids=tuple(str(value) for value in cast(list[object], item.get("source_ids") or [])),
+            material_ids=tuple(str(value) for value in cast(list[object], item.get("material_ids") or [])),
+            next_step=str(item.get("next_step") or ""),
+            result_note=str(item.get("result_note") or ""),
+            raw_return_location=str(item.get("raw_return_location") or ""),
+        )
+        for item in attempt_rows
+    ]
+    formal_packages = [
+        {
+            "candidate_id": item.get("candidate_id"),
+            "proposal": (_mapping(item.get("formalization")) or {}).get("proposal"),
+            "body_read": item.get("body"),
+            "body": item.get("body_text"),
+        }
+        for item in works
+        if item.get("disposition") == "ready"
+    ]
+    plan = control.plan_snapshot
+    target = _mapping(plan.get("topology_ref")) or {
+        "module_id": "retrieval",
+        "namespace": "runs",
+        "state_id": f"retrieval-run:{control.root_run_id}",
+    }
+    receipt = _append_attempts(
+        topology_service=topology_service,
+        project_key=control.project_key,
+        topology_ref={str(key): str(value) for key, value in target.items()},
+        topology_seed=_mapping(plan.get("topology_seed")),
+        profile_id=str(plan.get("profile_id") or ""),
+        profile_version=str(plan.get("profile_version") or ""),
+        session_id=control.root_run_id,
+        attempts=tuple(attempts),
+        formal_packages=tuple(formal_packages),
+    ).to_mapping()
+    state: Literal["topology_committed", "topology_failed"] = (
+        "topology_committed"
+        if receipt.get("status") in {"completed", "not_needed"}
+        else "topology_failed"
+    )
+    return replace(
+        control,
+        state=state,
+        planned_query=None,
+        topology=cast(CanonicalJsonObject, receipt),
+    )
+
+
+def build_retrieval_leaf_invocations(
+    *,
+    topology_service: InformationTopologyService,
+    plan_loader: RetrievalPlanLoader,
+    journal_reader: RetrievalJournalReader,
+) -> Annotated[
+    Mapping[str, Callable[[Any], Any]],
+    "kit:prepared-command effect_boundary=successor_retrieval_leaf_handlers witness=test:test_retrieval_runtime_builder_metadata_preserves_semantic_sources",
+]:
+    """Return the stable kind-to-typed-invoke table for generic handlers."""
+
+    return {
+        RETRIEVAL_MATERIAL_READ_BODY_KIND: partial(read_candidate_work_body, topology_service),
+        RETRIEVAL_MATERIAL_FORMALIZE_KIND: partial(formalize_candidate_work, plan_loader),
+        RETRIEVAL_MATERIAL_REVALIDATE_KIND: partial(revalidate_candidate_work, topology_service),
+        RETRIEVAL_FOLLOWUP_PLAN_KIND: partial(plan_retrieval_followup, journal_reader),
+        RETRIEVAL_TOPOLOGY_COMMIT_KIND: partial(
+            commit_retrieval_topology,
+            topology_service,
+            journal_reader,
+        ),
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalRuntimeProgram:
+    run_id: str
+    budget: RetrievalBudgetState
+    program: ProgramSpec
+    values: tuple[tuple[ValueRef, bytes], ...]
+    budget_ref: ValueRef
+    catalog: OperationContractCatalogSnapshot
+    registry: OperationContractRegistry
+    transform_registry: TransformRegistry
+    merge_registry: TransformRegistry
+    discriminator_registry: TransformRegistry
+    canonical_bindings: Mapping[str, tuple[int, str]]
+    approvals_by_step: Mapping[str, tuple[str, ...]]
+    logical_request_id: str
+    idempotency_id: str
+    incarnation: str
+
+
+def _control_literal_node(input_type: ObjectType, control: RetrievalControl) -> ProgramNode:
+    return pure_node(
+        input_type,
+        build_retrieval_leaf_contract(RETRIEVAL_FOLLOWUP_PLAN_KIND).input_type,
+        freeze_json_value(_encode_control(control)),
+        _control_codec().codec_id,
+    )
+
+
+def _control_atom(kind: str, control_ref: ValueRef, budget_ref: ValueRef) -> ProgramNode:
+    contract = build_retrieval_leaf_contract(kind)
+    return atom_node(
+        OperationSpec(
+            operation_id=kind,
+            contract_ref=contract.ref,
+            input_refs=(budget_ref, control_ref),
+            payload_ref=control_ref,
+            allowed_overrides=freeze_json_object({}),
+        ),
+        input_type=contract.input_type,
+        output_type=contract.output_type,
+    )
+
+
+def _work_traversal_to_control(
+    *,
+    specimen_root: ProgramNode,
+    next_control: RetrievalControl,
+    work_control_merge: MergeRef,
+) -> ProgramNode:
+    traversal = traverse_ordered_node(
+        specimen_root,
+        "MATERIALIZED_SHAPE",
+        sequence_codec_version="2",
+    )
+    return zip_ordered_node(
+        traversal,
+        _control_literal_node(CANDIDATE_WORK_SEQUENCE_TYPE, next_control),
+        work_control_merge,
+        build_retrieval_leaf_contract(RETRIEVAL_FOLLOWUP_PLAN_KIND).input_type,
+    )
+
+
+def build_initial_retrieval_program(
+    *,
+    project_key: str,
+    root_run_id: str,
+    plan: RetrievalJsonObject,
+    project_registry_revision: int,
+    project_scope_digest: str,
+    idempotency_key: str,
+) -> Annotated[
+    RetrievalRuntimeProgram,
+    "kit:prepared-command effect_boundary=successor_program_interpreter witness=test:test_actual_root_compiles_initial_candidates_in_declared_order",
+]:
+    """Build the finite formal root with one reusable CandidateWork Traverse."""
+
+    raw = cast(Mapping[str, Any], plan)
+    plan_id = str(raw.get("plan_id") or "").strip()
+    mode_version = str(raw.get("mode_version") or "").strip()
+    route_id = str(raw.get("route_id") or "").strip()
+    selected = tuple(str(item) for item in _list(raw.get("query_ids")))
+    queries = {
+        str(item.get("id") or item.get("query_id") or ""): item
+        for item in _mapping_list(raw.get("queries"))
+        if item.get("id") or item.get("query_id")
+    }
+    limits = _mapping(raw.get("limits")) or {}
+    if not all((project_key, root_run_id, plan_id, mode_version, route_id, idempotency_key)):
+        raise_retrieval_contract_error(ValueError, 'retrieval root requires exact project, run, plan, mode and route identities')
+    if not selected or any(query_id not in queries for query_id in selected):
+        raise_retrieval_contract_error(ValueError, 'retrieval root requires selected queries from the immutable plan')
+    max_queries = _bounded_limit(limits.get("max_queries"), 10, 10)
+    max_materials = _bounded_limit(limits.get("max_materials"), 20, 20)
+    max_followups = _bounded_limit(limits.get("max_followups"), 2, 2)
+    if max_queries < 1 or max_materials < 1 or len(selected) > max_queries:
+        raise_retrieval_contract_error(ValueError, 'retrieval root plan exceeds its domain budget')
+    budget = RetrievalBudgetState(
+        budget_id=retrieval_budget_id(
+            project_key=project_key,
+            root_run_id=root_run_id,
+            plan_id=plan_id,
+            mode_version=mode_version,
+        ),
+        project_key=project_key,
+        root_run_id=root_run_id,
+        plan_id=plan_id,
+        mode_version=mode_version,
+        max_queries=max_queries,
+        max_materials=max_materials,
+        max_followups=max_followups,
+    )
+    invocations: list[RetrievalCandidateInvocation] = []
+    for ordinal, query_id in enumerate(selected, start=1):
+        query = queries[query_id]
+        expression = str(query.get("expression") or "").strip()
+        owner_route = str(query.get("source_route_id") or query.get("route_id") or route_id)
+        if not expression or owner_route != route_id:
+            raise_retrieval_contract_error(ValueError, 'retrieval root query does not belong to its route')
+        invocations.append(
+            RetrievalCandidateInvocation(
+                query_id=query_id,
+                route_id=route_id,
+                query_kind="initial",
+                query_ordinal=ordinal,
+                followup_round=0,
+                budget_id=budget.budget_id,
+                request=CandidateSearchRequest(
+                    topic=expression,
+                    language=str(query.get("language") or "bi"),
+                    max_results=min(20, max_materials),
+                    project_ref=project_key,
+                    source_ref=route_id,
+                ),
+            )
+        )
+    prefix = build_retrieval_candidate_prefix(
+        invocations=tuple(invocations),
+        budget=budget,
+        program_id=f"program:{root_run_id}:candidate-root",
+        project_key=project_key,
+        runtime=build_retrieval_candidate_runtime_definition(),
+    )
+    transform_registry = TransformRegistry(
+        registry_id="mrw.project-retrieval.transforms.v1", registry_version="1"
+    )
+    transform_refs = _register_retrieval_transforms(transform_registry)
+    merge_registry = build_retrieval_merge_registry()
+    merge_refs = _retrieval_merge_refs(merge_registry)
+    discriminator_registry = TransformRegistry(
+        registry_id="mrw.project-retrieval.discriminators.v1", registry_version="1"
+    )
+    discriminator_refs = _register_retrieval_discriminators(discriminator_registry)
+    control_type = build_retrieval_leaf_contract(RETRIEVAL_FOLLOWUP_PLAN_KIND).input_type
+    base_control = RetrievalControl(
+        project_key=project_key,
+        root_run_id=root_run_id,
+        retrieval_budget_id=budget.budget_id,
+        plan_id=plan_id,
+        mode_version=mode_version,
+        route_id=route_id,
+        round=1,
+        plan_snapshot=cast(CanonicalJsonObject, dict(raw)),
+        budget={
+            "max_queries": max_queries,
+            "max_materials": max_materials,
+            "max_followups": max_followups,
+            "remaining_queries": max_queries,
+            "remaining_materials": max_materials,
+        },
+    )
+    initial_candidate_root = prefix.root
+    if prefix.root.output_type == RETRIEVAL_CANDIDATE_ATTEMPT_OUTCOME_TYPE:
+        initial_candidate_root = map_output_node(
+            initial_candidate_root,
+            transform_refs["candidate_to_sequence"],
+            RETRIEVAL_CANDIDATE_ATTEMPT_SEQUENCE_TYPE,
+        )
+    initial_work = zip_ordered_node(
+        initial_candidate_root,
+        _control_literal_node(prefix.root.input_type, base_control),
+        merge_refs["candidates_work"],
+        CANDIDATE_WORK_SEQUENCE_TYPE,
+    )
+    specimen_work = CandidateWork(
+        project_key=project_key,
+        root_run_id=root_run_id,
+        retrieval_budget_id=budget.budget_id,
+        plan_id=plan_id,
+        mode_version=mode_version,
+        route_id=route_id,
+        query_id=selected[0],
+        query_kind="initial",
+        query_ordinal=1,
+        followup_round=0,
+        candidate_ordinal=1,
+        candidate_id="candidate:specimen",
+        material_budget_remaining=max_materials,
+        candidate={"url": "https://specimen.invalid/", "trust": {"status": "pending_review"}},
+    )
+    specimen = build_retrieval_work_child_program(
+        work=specimen_work,
+        budget_ref=prefix.budget_ref,
+        budget_bytes=dict(prefix.values)[prefix.budget_ref],
+        element_index=0,
+        element_digest="0" * 64,
+        program_id=f"program:{root_run_id}:candidate-work-specimen",
+        child_run_id=f"{root_run_id}:candidate-work-specimen",
+        project_registry_revision=project_registry_revision,
+        project_scope_digest=project_scope_digest,
+    )
+
+    followup_slots = tuple(range(1, min(2, max_followups, max_queries - len(invocations)) + 1))
+    control_rounds = followup_slots or (0,)
+    controls: dict[int, RetrievalControl] = {
+        round_id: replace(base_control, round=round_id, state="request", planned_query=None)
+        for round_id in control_rounds
+    }
+    control_values: dict[int, tuple[ValueRef, bytes]] = {}
+    for round_id, control in controls.items():
+        control_values[round_id] = retrieval_payload_value(
+            value=control,
+            contract_ref=build_retrieval_leaf_contract(RETRIEVAL_FOLLOWUP_PLAN_KIND).ref,
+            value_id=f"program:{root_run_id}:control:{round_id}",
+            project_key=project_key,
+        )
+    topology_ref, _ = control_values[control_rounds[-1]]
+
+    current: ProgramNode = then_node(
+        initial_work,
+        _work_traversal_to_control(
+            specimen_root=specimen.program.root,
+            next_control=controls[control_rounds[0]],
+            work_control_merge=merge_refs["work_control"],
+        ),
+    )
+    candidate_definition = build_retrieval_candidate_runtime_definition()
+    extra_values: list[tuple[ValueRef, bytes]] = list(control_values.values())
+    for slot_index, round_id in enumerate(followup_slots):
+        control_ref = control_values[round_id][0]
+        current = then_node(current, _control_atom(RETRIEVAL_FOLLOWUP_PLAN_KIND, control_ref, prefix.budget_ref))
+        ordinal = len(invocations) + round_id
+        template = RetrievalCandidateInvocation(
+            query_id=f"dynamic-followup:{round_id}",
+            route_id=route_id,
+            query_kind="followup",
+            query_ordinal=ordinal,
+            followup_round=round_id,
+            budget_id=budget.budget_id,
+            request=CandidateSearchRequest(
+                topic="__runtime_planned_followup__",
+                language="bi",
+                max_results=min(20, max_materials),
+                project_ref=project_key,
+                source_ref=route_id,
+            ),
+        )
+        candidate_leaf = build_retrieval_candidate_atom(
+            invocation=template,
+            budget=budget,
+            program_id=f"program:{root_run_id}:followup:{round_id}",
+            project_key=project_key,
+            runtime=candidate_definition,
+            budget_binding=(prefix.budget_ref, dict(prefix.values)[prefix.budget_ref]),
+        )
+        extra_values.extend(candidate_leaf.values)
+        candidate_path = then_node(
+            map_output_node(identity_node(control_type), transform_refs["control_to_invocation"], candidate_definition.program_atom.input_type),
+            candidate_leaf.root,
+        )
+        followup_work = zip_ordered_node(
+            identity_node(control_type),
+            candidate_path,
+            merge_refs["followup_work"],
+            CANDIDATE_WORK_SEQUENCE_TYPE,
+        )
+        next_round = followup_slots[slot_index + 1] if slot_index + 1 < len(followup_slots) else control_rounds[-1]
+        next_control = controls[next_round]
+        planned_branch = then_node(
+            followup_work,
+            _work_traversal_to_control(
+                specimen_root=specimen.program.root,
+                next_control=next_control,
+                work_control_merge=merge_refs["work_control"],
+            ),
+        )
+        current = then_node(
+            current,
+            decide_node(
+                discriminator_refs["project_retrieval.control.branch"],
+                (
+                    DecisionBranch("planned", "state == 'planned'", planned_branch),
+                    DecisionBranch(
+                        "skipped",
+                        "state != 'planned'",
+                        map_output_node(
+                            identity_node(control_type),
+                            transform_refs["control_identity"],
+                            control_type,
+                        ),
+                    ),
+                ),
+            ),
+        )
+    root = then_node(current, _control_atom(RETRIEVAL_TOPOLOGY_COMMIT_KIND, topology_ref, prefix.budget_ref))
+    catalog, registry = _retrieval_operation_environment(candidate_definition.operation_contract)
+    program = ProgramSpec(
+        program_id=f"program:{root_run_id}:retrieval-runtime",
+        contract_version="mrw.functorial-successor.program-spec.v1",
+        project_key=project_key,
+        project_registry_revision=project_registry_revision,
+        project_scope_digest=project_scope_digest,
+        semantic_identity="project_retrieval.runtime.v1",
+        input_type=root.input_type,
+        output_type=root.output_type,
+        root=root,
+        algebra_refs=(AlgebraRef("mrw.successor.language.algebra", "1"),),
+        transform_refs=tuple(transform_refs.values()),
+        observation_profile="project_retrieval.runtime.observation.v1",
+        metadata=freeze_json_object(
+            {
+                "schema": "mrw.project-retrieval.runtime.program.v1",
+                "root_run_id": root_run_id,
+                "root_budget_id": budget.budget_id,
+                "candidate_work_ast_digest": specimen.program.root.ast_digest(),
+                "max_followups": max_followups,
+                "plan_id": plan_id,
+                "mode_version": mode_version,
+                "route_id": route_id,
+            }
+        ),
+        program_digest="",
+    ).with_digest()
+    compiled = compile_program(
+        program,
+        catalog,
+        operation_contracts=registry,
+        transform_registry=transform_registry,
+        merge_registry=merge_registry,
+        discriminator_registry=discriminator_registry,
+    )
+    values_by_ref = dict(prefix.values)
+    for ref, exact in (*specimen.values, *extra_values):
+        previous = values_by_ref.setdefault(ref, exact)
+        if previous != exact:
+            raise_retrieval_contract_error(ValueError, 'retrieval root value identity collision')
+    incarnation = f"retrieval-root:{budget.budget_id}"
+    effects = tuple(step for step in compiled.ordered_steps if step.step_kind == "EFFECT")
+    return RetrievalRuntimeProgram(
+        run_id=root_run_id,
+        budget=budget,
+        program=program,
+        values=tuple(values_by_ref.items()),
+        budget_ref=prefix.budget_ref,
+        catalog=catalog,
+        registry=registry,
+        transform_registry=transform_registry,
+        merge_registry=merge_registry,
+        discriminator_registry=discriminator_registry,
+        canonical_bindings={step.step_id: (0, incarnation) for step in effects},
+        approvals_by_step={},
+        logical_request_id=f"{budget.budget_id}:formal-retrieval",
+        idempotency_id=f"retrieval-root-idem:{_digest((project_key, idempotency_key))}",
+        incarnation=incarnation,
+    )
+
+@dataclass(frozen=True, slots=True)
+class RetrievalAttempt:
+    """One executed search attempt owned by this run; identities are explicit."""
+
+    attempt_id: str
+    query_id: str
+    round_id: str
+    clue_key: str
+    executed_at: str
+    tool: str
+    actual_query: str
+    result: str
+    source_ids: tuple[str, ...] = ()
+    material_ids: tuple[str, ...] = ()
+    next_step: str = ""
+    result_note: str = ""
+    raw_return_location: str = ""
+
+    def to_mapping(self) -> RetrievalJsonObject:
+        return {
+            "attempt_id": self.attempt_id,
+            "query_id": self.query_id,
+            "round_id": self.round_id,
+            "clue_key": self.clue_key,
+            "executed_at": self.executed_at,
+            "tool": self.tool,
+            "actual_query": self.actual_query,
+            "result": self.result,
+            "source_ids": list(self.source_ids),
+            "material_ids": list(self.material_ids),
+            "next_step": self.next_step,
+            "result_note": self.result_note,
+            "raw_return_location": self.raw_return_location,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class TopologyCommitObservation:
+    """Typed receipt for one run topology commit plus verified readback."""
+
+    status: Literal["completed", "not_needed", "blocked", "failed", "readback_failed"]
+    attempt_refs: tuple[Mapping[str, object], ...] = ()
+    rejected_formal: tuple[Mapping[str, object], ...] = ()
+    formal_graph_refs: tuple[Mapping[str, object], ...] = ()
+    error: Mapping[str, object] | None = None
+    state_digest: str | None = None
+    topology_ref: Mapping[str, str] | None = None
+    profile_id: str = ""
+    profile_version: str = ""
+    state_revision: int | None = None
+
+    def to_mapping(self) -> dict[str, object]:
+        # Preserve the original per-branch wire shape: empty/absent fields are
+        # omitted exactly where the former dict branches omitted them.
+        wire: dict[str, object] = {
+            "status": self.status,
+            "attempt_refs": [dict(ref) for ref in self.attempt_refs],
+        }
+        if self.error is not None:
+            wire["error"] = dict(self.error)
+        if self.status in {"readback_failed", "completed"}:
+            wire["rejected_formal"] = [dict(item) for item in self.rejected_formal]
+            wire["formal_graph_refs"] = [dict(item) for item in self.formal_graph_refs]
+            wire["state_revision"] = self.state_revision
+        if self.status == "completed":
+            wire["state_digest"] = self.state_digest
+            wire["topology_ref"] = dict(self.topology_ref) if self.topology_ref is not None else None
+            wire["profile_id"] = self.profile_id
+            wire["profile_version"] = self.profile_version
+        return wire
 
 
 def _mapping(value: object) -> Mapping[str, Any] | None:
@@ -66,32 +2379,29 @@ def _list(value: object) -> list[Any]:
     return cast(list[Any], value) if isinstance(value, list) else []
 
 
-def _ignore_event(_: CoreEvent) -> None:
-    return None
-
-
 def _failure(value: Any) -> dict[str, Any]:
     if isinstance(value, Failure):
         return {"code": value.code, "message": value.message, "context": dict(value.context or {})}
     return {"code": type(value).__name__, "message": str(value)}
 
 
-def _ingest_failure_receipt(dispatch: Mapping[str, Any], ingest: Mapping[str, Any]) -> dict[str, Any]:
-    """Keep a precise rejection code without copying fetched body bytes into run errors."""
-    postprocess = _mapping(dispatch.get("postprocess_frontdoor"))
-    postprocess_meta = _mapping(postprocess.get("meta")) if postprocess is not None else None
-    strict_gate = _mapping(dispatch.get("canary_handoff"))
-    strict_state = _mapping(strict_gate.get("strict_gate_state")) if strict_gate is not None else None
-    reason = (
-        (postprocess_meta or {}).get("reason_code")
-        or (strict_state or {}).get("reason_code")
-        or dispatch.get("reason_code")
-    )
-    return {
-        "code": "INGEST_REJECTED" if dispatch.get("status") == "failed" else "INGEST_NO_DOCUMENT",
-        "status": str(dispatch.get("status") or ingest.get("status") or "unknown"),
-        "reason_code": str(reason or "unknown"),
-    }
+def _exact_int(value: object, *, default: int) -> int:
+    return value if type(value) is int else default
+
+
+def _required_budget_counter(
+    budget: Mapping[str, object],
+    field: str,
+    *,
+    positive: bool = False,
+) -> int:
+    value = budget.get(field)
+    if type(value) is not int or value < (1 if positive else 0):
+        raise_retrieval_contract_error(
+            ValueError,
+            f'retrieval journal budget field {field} is missing or invalid',
+        )
+    return value
 
 
 def _bounded_limit(raw: Any, maximum: int, default: int) -> int:
@@ -103,7 +2413,11 @@ def _bounded_limit(raw: Any, maximum: int, default: int) -> int:
 
 
 def _compile_topology_seed(
-    project_key: str, target: Mapping[str, str], raw: Mapping[str, Any], session_id: str, attempts: list[dict[str, Any]]
+    project_key: str,
+    target: Mapping[str, str],
+    raw: Mapping[str, Any],
+    session_id: str,
+    attempts: tuple[RetrievalAttempt, ...],
 ) -> dict[str, Any] | dict[str, str]:
     """Derive a run state from the fixed project vocabulary and selected route/query rows."""
     vocabulary = resolve_domain_vocabulary(project_key, raw)
@@ -112,7 +2426,7 @@ def _compile_topology_seed(
     try:
         profile = make_retrieval_profile(vocabulary)
         elements = [domain_vocabulary_element(vocabulary)]
-        by_query = {attempt["query_id"]: attempt["result"] for attempt in attempts}
+        by_query = {attempt.query_id: attempt.result for attempt in attempts}
         for kind, rows_value, identity in (
             ("source_route", raw.get("source_routes"), "route_id"),
             ("keyword_plan", raw.get("keyword_plans"), "plan_id"),
@@ -139,15 +2453,15 @@ def _compile_topology_seed(
         declared_queries = {str(row.get("plan_id") or "") for row in _mapping_list(raw.get("keyword_plans"))}
         route_ids = [str(row.get("route_id") or "") for row in _mapping_list(raw.get("source_routes"))]
         for attempt in attempts:
-            query_id = str(attempt["query_id"])
+            query_id = str(attempt.query_id)
             if query_id in declared_queries:
                 continue
             attrs = {
                 "plan_id": query_id,
                 "kind": "followup",
-                "expression": attempt["actual_query"],
+                "expression": attempt.actual_query,
                 "execution_status": "executed",
-                "result": attempt["result"],
+                "result": attempt.result,
                 "source_route_id": route_ids[0] if route_ids else "",
             }
             ref = BoundRef(
@@ -163,41 +2477,9 @@ def _compile_topology_seed(
         return {"error": "TOPOLOGY_SEED_INVALID", "message": str(exc)}
 
 
-def _tool(
-    registry: CoreToolRegistry,
-    request: AgentCoreRequest,
-    name: str,
-    arguments: Mapping[str, Any],
-    *,
-    emit: Callable[[str, RetrievalJsonObject], None] | None,
-) -> dict[str, Any]:
-    spec = registry.get(name)
-    if spec is None:
-        return {"status": "failed", "error": {"code": "TOOL_UNAVAILABLE", "message": name}, "structured_content": {}}
-    call = CoreToolCall(
-        tool_name=name,
-        arguments=dict(arguments),
-        call_id=f"retrieval-{_digest((request.session_id, name, arguments))[:24]}",
-    )
-    try:
-        result = registry.execute_tool(tool_call=call, tool_spec=spec, request=request, emit=_ignore_event)
-        receipt = result.to_dict()
-    except Exception as exc:  # failed tool calls are evidence, not an implicit retry
-        receipt = {"status": "failed", "error": _failure(exc), "structured_content": {}}
-    if emit is not None:
-        emit(
-            "tool.result",
-            cast(RetrievalJsonObject, {
-                "tool": name,
-                "call_id": call.call_id,
-                "status": receipt["status"],
-                "error": receipt.get("error"),
-            }),
-        )
-    return receipt
-
-
-def _read_document_body(topology_service: InformationTopologyService, project_key: str, document_id: object) -> tuple[dict[str, Any], str | None]:
+def _read_document_body(
+    topology_service: InformationTopologyService, project_key: str, document_id: object
+) -> tuple[dict[str, Any], str | None]:
     """Read the persisted ingest output; a queued task or document ID alone is not a body."""
     try:
         from app.models.entities import Document
@@ -316,6 +2598,7 @@ def _formal_group(
         "snapshot_path": [f"material:{document_id}"],
     }
     from app.services.document_queries.identity import document_identity, material_identity
+
     if profile.version.startswith("2+"):
         material_attrs["document_ref"] = document_identity(project_key, int(document_id))
     else:
@@ -405,33 +2688,32 @@ def _append_attempts(
     profile_id: str,
     profile_version: str,
     session_id: str,
-    attempts: list[dict[str, Any]],
-    formal_packages: list[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
+    attempts: tuple[RetrievalAttempt, ...],
+    formal_packages: tuple[Mapping[str, Any], ...] | None = None,
+) -> TopologyCommitObservation:
     """Create a run-owned state in one write; historical states are never patched."""
     if not attempts:
-        return {"status": "not_needed", "attempt_refs": []}
+        return TopologyCommitObservation("not_needed")
     if not isinstance(topology_ref, Mapping):
-        return {"status": "blocked", "error": {"code": "TOPOLOGY_TARGET_MISSING"}, "attempt_refs": []}
+        return TopologyCommitObservation("blocked", error={"code": "TOPOLOGY_TARGET_MISSING"})
     target = {key: str(topology_ref.get(key) or "") for key in ("module_id", "namespace", "state_id")}
     if not all(target.values()):
-        return {"status": "blocked", "error": {"code": "TOPOLOGY_TARGET_INCOMPLETE"}, "attempt_refs": []}
+        return TopologyCommitObservation("blocked", error={"code": "TOPOLOGY_TARGET_INCOMPLETE"})
     if not target["state_id"].startswith("retrieval-run:"):
-        return {"status": "blocked", "error": {"code": "RUN_TOPOLOGY_TARGET_REQUIRED"}, "attempt_refs": []}
+        return TopologyCommitObservation("blocked", error={"code": "RUN_TOPOLOGY_TARGET_REQUIRED"})
     if not isinstance(topology_seed, Mapping):
-        return {"status": "blocked", "error": {"code": "TOPOLOGY_SEED_MISSING"}, "attempt_refs": []}
+        return TopologyCommitObservation("blocked", error={"code": "TOPOLOGY_SEED_MISSING"})
     if not isinstance(topology_seed.get("elements"), list):
         topology_seed = _compile_topology_seed(project_key, target, topology_seed, session_id, attempts)
     if "error" in topology_seed:
-        return {
-            "status": "failed",
-            "error": {"code": topology_seed["error"], "message": topology_seed.get("message")},
-            "attempt_refs": [],
-        }
+        return TopologyCommitObservation(
+            "failed",
+            error={"code": topology_seed["error"], "message": topology_seed.get("message")},
+        )
     profile_id = profile_id or str(topology_seed.get("profile_id") or "")
     profile_version = profile_version or str(topology_seed.get("profile_version") or "")
     if (topology_seed.get("profile_id"), topology_seed.get("profile_version")) != (profile_id, profile_version):
-        return {"status": "failed", "error": {"code": "PROFILE_VERSION_CONFLICT"}, "attempt_refs": []}
+        return TopologyCommitObservation("failed", error={"code": "PROFILE_VERSION_CONFLICT"})
     elements_value = topology_seed["elements"]
     elements = list(cast(list[Any], elements_value))
     element_mappings = [_mapping(element) for element in elements]
@@ -440,33 +2722,33 @@ def _append_attempts(
         or ((_mapping((_mapping(element.get("ref")) or {}).get("ref")) or {}).get("project_key")) != project_key
         for element in element_mappings
     ):
-        return {"status": "failed", "error": {"code": "TOPOLOGY_SEED_PROJECT_MISMATCH"}, "attempt_refs": []}
+        return TopologyCommitObservation("failed", error={"code": "TOPOLOGY_SEED_PROJECT_MISMATCH"})
     if (
         sum(
             1
             for element in element_mappings
             if element is not None
-            and ((_mapping((_mapping(element.get("ref")) or {}).get("ref")) or {}).get("type_id")) == "domain_vocabulary"
+            and ((_mapping((_mapping(element.get("ref")) or {}).get("ref")) or {}).get("type_id"))
+            == "domain_vocabulary"
         )
         != 1
     ):
-        return {"status": "failed", "error": {"code": "DOMAIN_VOCABULARY_SEED_REQUIRED"}, "attempt_refs": []}
+        return TopologyCommitObservation("failed", error={"code": "DOMAIN_VOCABULARY_SEED_REQUIRED"})
     try:
         current = topology_service.read_topology(project_key, target, {})
     except Exception as exc:
-        return {"status": "failed", "error": _failure(exc), "attempt_refs": []}
+        return TopologyCommitObservation("failed", error=_failure(exc))
     if not isinstance(current, Failure) or current.code != "NOT_FOUND":
-        return {
-            "status": "failed",
-            "error": {
+        return TopologyCommitObservation(
+            "failed",
+            error={
                 "code": "IDENTITY_CONFLICT" if not isinstance(current, Failure) else current.code,
                 "message": "run topology identity already exists or cannot be read",
             },
-            "attempt_refs": [],
-        }
+        )
     refs: list[dict[str, Any]] = []
     for attempt in attempts:
-        local_id = str(attempt["attempt_id"])
+        local_id = str(attempt.attempt_id)
         ref = {
             "ref": {
                 "project_key": project_key,
@@ -476,9 +2758,9 @@ def _append_attempts(
                 "local_id": local_id,
             },
             "observed_revision": session_id,
-            "content_digest": _digest(attempt),
+            "content_digest": _digest(attempt.to_mapping()),
         }
-        element: dict[str, Any] = {"ref": ref, "attributes": attempt, "endpoints": []}
+        element: dict[str, Any] = {"ref": ref, "attributes": attempt.to_mapping(), "endpoints": []}
         elements.append(element)
         refs.append(ref)
     wire = {
@@ -489,10 +2771,10 @@ def _append_attempts(
     }
     profile = profile_from_state_payload(project_key, profile_id, profile_version, wire)
     if isinstance(profile, Failure):
-        return {"status": "failed", "error": _failure(profile), "attempt_refs": []}
+        return TopologyCommitObservation("failed", error=_failure(profile))
     base = decode_state(profile, wire)
     if isinstance(base, Failure):
-        return {"status": "failed", "error": _failure(base), "attempt_refs": []}
+        return TopologyCommitObservation("failed", error=_failure(base))
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
     state_elements = list(base.elements)
@@ -535,31 +2817,29 @@ def _append_attempts(
             link_read_set=[],
         )
     except Exception as exc:
-        return {"status": "failed", "error": _failure(exc), "attempt_refs": []}
+        return TopologyCommitObservation("failed", error=_failure(exc))
     if isinstance(result, Failure):
-        return {"status": "failed", "error": _failure(result), "attempt_refs": []}
+        return TopologyCommitObservation("failed", error=_failure(result))
     revision_rows = _mapping_list(result.get("state_revisions"))
     revision = revision_rows[0].get("revision") if revision_rows else None
     try:
         readback = topology_service.read_topology(project_key, {**target, "revision": revision}, {})
     except Exception as exc:
-        return {
-            "status": "readback_failed",
-            "error": _failure(exc),
-            "attempt_refs": refs,
-            "rejected_formal": rejected,
-            "formal_graph_refs": [],
-            "state_revision": revision,
-        }
+        return TopologyCommitObservation(
+            "readback_failed",
+            attempt_refs=tuple(refs),
+            rejected_formal=tuple(rejected),
+            error=_failure(exc),
+            state_revision=revision,
+        )
     if isinstance(readback, Failure):
-        return {
-            "status": "readback_failed",
-            "error": _failure(readback),
-            "attempt_refs": refs,
-            "rejected_formal": rejected,
-            "formal_graph_refs": [],
-            "state_revision": revision,
-        }
+        return TopologyCommitObservation(
+            "readback_failed",
+            attempt_refs=tuple(refs),
+            rejected_formal=tuple(rejected),
+            error=_failure(readback),
+            state_revision=revision,
+        )
     readback_topology = _mapping(readback.get("topology")) or {}
     read_ids = {
         str((_mapping((_mapping(element.get("ref")) or {}).get("ref")) or {}).get("local_id") or "")
@@ -574,642 +2854,40 @@ def _append_attempts(
         )
     ]
     if len(verified) != len(accepted) or readback.get("revision") != revision:
-        return {
-            "status": "readback_failed",
-            "error": {"code": "TOPOLOGY_READBACK_MISMATCH"},
-            "attempt_refs": refs,
-            "rejected_formal": rejected,
-            "formal_graph_refs": [],
-            "state_revision": revision,
-        }
-    return {
-        "status": "completed",
-        "attempt_refs": refs,
-        "rejected_formal": rejected,
-        "formal_graph_refs": verified,
-        "state_digest": readback.get("digest"),
-        "topology_ref": target,
-        "profile_id": profile_id,
-        "profile_version": profile_version,
-        "state_revision": revision,
-    }
-
-
-def execute_retrieval_run(
-    *,
-    project_key: str,
-    plan: RetrievalJsonObject,
-    topology_service: InformationTopologyService,
-    session_factory: Callable[[], AgentSessionService],
-    emit: Callable[[str, RetrievalJsonObject], None] | None = None,
-) -> RetrievalRunResult:
-    """Run a fixed plan once and return inspectable receipts and precise gaps.
-
-    ``session_factory`` returns the configured AgentSessionService.  The caller
-    owns plan validation, idempotent run creation, and background dispatch.
-    This function creates one project Agent session for its actual tool calls.
-    """
-    plan_mapping = cast(Mapping[str, Any], plan)
-    plan_id = str(plan_mapping.get("plan_id") or "").strip()
-    selected = [str(value) for value in cast(list[Any], plan_mapping.get("query_ids") or [])]
-    queries = {
-        str(item.get("id") or item.get("query_id") or ""): dict(item)
-        for item in _mapping_list(plan_mapping.get("queries"))
-        if item.get("id") or item.get("query_id")
-    }
-    limits = _mapping(plan_mapping.get("limits")) or {}
-    max_queries = _bounded_limit(limits.get("max_queries"), 10, 10)
-    max_materials = _bounded_limit(limits.get("max_materials"), 20, 20)
-    max_followups = _bounded_limit(limits.get("max_followups"), 2, 2)
-    if not project_key or not plan_id or not selected or max_queries == 0 or any(q not in queries for q in selected):
-        return {
-            "status": "failed",
-            "error": {"code": "INVALID_PLAN", "message": "project, plan and selected queries are required"},
-            "attempts": [],
-            "candidates": [],
-            "materials": [],
-            "graph": None,
-        }
-    selected = selected[:max_queries]
-    route_id = str(plan_mapping.get("route_id") or "")
-    if any(
-        str(queries[q].get("source_route_id") or queries[q].get("route_id") or route_id) != route_id for q in selected
-    ):
-        return {
-            "status": "failed",
-            "error": {"code": "QUERY_ROUTE_MISMATCH"},
-            "attempts": [],
-            "candidates": [],
-            "materials": [],
-            "graph": None,
-        }
-
-    try:
-        service = session_factory()
-        bundle = service.create_session(
-            source="project_retrieval",
-            entrypoint_type="project_retrieval",
-            goal=f"Execute retrieval plan {plan_id} for route {route_id}",
-            project_key=project_key,
-            initial_context={
-                "plan_id": plan_id,
-                "mode_id": plan_mapping.get("mode_id"),
-                "mode_version": plan_mapping.get("mode_version"),
-            },
-            metadata={"project_retrieval": {"plan_id": plan_id, "route_id": route_id}},
-            task_blueprints=[
-                {
-                    "subject": "Execute project retrieval plan",
-                    "description": (
-                        "Run the fixed project method through registered retrieval "
-                        "and topology capabilities."
-                    ),
-                    "task_type": "project_retrieval",
-                    "phase": "research",
-                    "execution_mode": "worker",
-                    "priority": 1,
-                    "write_set": [f"project:{project_key}:retrieval-run:{plan_mapping.get('run_id') or plan_id}"],
-                    "read_set": [f"project:{project_key}:retrieval-mode:{plan_mapping.get('mode_version')}"],
-                    "task_spec": {
-                        "plan_id": plan_id,
-                        "route_id": route_id,
-                        "completion_criteria": ["Read real source bodies and validate formal graph evidence."],
-                        "artifact_targets": ["project_retrieval.run_report.json"],
-                    },
-                }
-            ],
+        return TopologyCommitObservation(
+            "readback_failed",
+            attempt_refs=tuple(refs),
+            rejected_formal=tuple(rejected),
+            error={"code": "TOPOLOGY_READBACK_MISMATCH"},
+            state_revision=revision,
         )
-        if isinstance(bundle, Failure):
-            return cast(RetrievalRunResult, {
-                "status": "failed",
-                "error": _failure(bundle),
-                "attempts": [],
-                "candidates": [],
-                "materials": [],
-                "graph": None,
-            })
-        session_id = str(bundle["session"]["session_id"])
-        task_id = str(bundle["session"]["root_task_id"])
-        claimed = service.claim_task(session_id, task_id, owner="project_retrieval.executor")
-        if isinstance(claimed, Failure):
-            return cast(RetrievalRunResult, {
-                "status": "failed",
-                "error": _failure(claimed),
-                "session_id": session_id,
-                "attempts": [],
-                "candidates": [],
-                "materials": [],
-                "graph": None,
-            })
-        registry = build_project_core_tool_registry(service=service)
-    except Exception as exc:
-        return {
-            "status": "failed",
-            "error": {"code": "SESSION_UNAVAILABLE", "message": str(exc)},
-            "attempts": [],
-            "candidates": [],
-            "materials": [],
-            "graph": None,
-        }
-
-    request = AgentCoreRequest(
-        message=f"Execute fixed project retrieval plan {plan_id}", session_id=session_id, project_key=project_key
+    return TopologyCommitObservation(
+        "completed",
+        attempt_refs=tuple(refs),
+        rejected_formal=tuple(rejected),
+        formal_graph_refs=tuple(verified),
+        state_digest=readback.get("digest") if isinstance(readback.get("digest"), str) else None,
+        topology_ref=target,
+        profile_id=profile_id,
+        profile_version=profile_version,
+        state_revision=revision,
     )
-    if emit is not None:
-        emit("run.started", {"session_id": session_id, "plan_id": plan_id})
-    discovery = _tool(
-        registry,
-        request,
-        "source.discovery.plan",
-        {
-            "topic": route_id,
-            "query_terms": [queries[q]["expression"] for q in selected],
-            "max_candidates": min(30, max_materials or 1),
-        },
-        emit=emit,
-    )
-    attempts: list[dict[str, Any]] = []
-    candidates: list[dict[str, Any]] = []
-    materials: list[dict[str, Any]] = []
-    formal_packages: list[dict[str, Any]] = []
-    gaps: list[dict[str, Any]] = []
-    failures: list[dict[str, Any]] = []
-    if discovery["status"] != "completed":
-        failures.append({"phase": "discovery", "kind": "source_failure", "error": discovery.get("error")})
-    seen_urls: set[str] = set()
-    executed_expressions: set[str] = set()
-
-    def execute_query(query_id: str, query: Mapping[str, Any]) -> None:
-        expression = str(query.get("expression") or "").strip()
-        if not expression:
-            failures.append({"phase": "search", "kind": "invalid_query", "query_id": query_id})
-            return
-        if len(attempts) >= max_queries or expression in executed_expressions:
-            return
-        executed_expressions.add(expression)
-        search = _tool(
-            registry,
-            request,
-            "source.web.search",
-            {
-                "query": expression,
-                "language": str(query.get("language") or "bi"),
-                "max_results": min(20, max_materials or 1),
-            },
-            emit=emit,
-        )
-        receipt_name = f"project_retrieval.search.{_digest(query_id)[:16]}.json"
-        receipt_location = f"agent_session:{session_id}:artifact:{receipt_name}"
-        try:
-            service.store.upsert_artifact(
-                {
-                    "session_id": session_id,
-                    "name": receipt_name,
-                    "artifact_type": "project_retrieval_search_receipt",
-                    "mime_type": "application/json",
-                    "content_text": json.dumps(search, ensure_ascii=False, sort_keys=True, default=str),
-                    "content_json": search,
-                    "metadata": {"project_key": project_key, "plan_id": plan_id, "query_id": query_id},
-                }
-            )
-        except Exception as exc:
-            receipt_location = "unpersisted:search-receipt-failure"
-            failures.append(
-                {"phase": "receipt", "kind": "persistence_failure", "query_id": query_id, "error": _failure(exc)}
-            )
-        content = _mapping(search.get("structured_content")) or {}
-        found = _mapping_list(content.get("candidates")) if search["status"] == "completed" else []
-        attempt: dict[str, Any] = {
-            "attempt_id": f"attempt-{_digest((session_id, query_id))[:24]}",
-            "query_id": query_id,
-            "round_id": session_id,
-            "clue_key": route_id,
-            "executed_at": _now(),
-            "tool": "source.web.search",
-            "actual_query": expression,
-            "result": "access_failed" if search["status"] != "completed" else ("hit" if found else "miss"),
-            "source_ids": [],
-            "material_ids": [],
-            "next_step": "candidate_review" if found else "inspect_provider_diagnostics",
-            "result_note": str(search.get("model_summary") or search.get("error") or ""),
-            "raw_return_location": receipt_location,
-        }
-        attempts.append(attempt)
-        if search["status"] != "completed":
-            failures.append(
-                {"phase": "search", "kind": "source_failure", "query_id": query_id, "error": search.get("error")}
-            )
-            return
-        for raw in found:
-            candidate: dict[str, Any] = dict(raw)
-            url = str(candidate.get("url") or "").strip()
-            if not url or url in seen_urls:
-                continue
-            seen_urls.add(url)
-            candidate_id = f"candidate-{_digest((session_id, query_id, url))[:24]}"
-            item: dict[str, Any] = {
-                "candidate_id": candidate_id,
-                "query_id": query_id,
-                "url": url,
-                "title": str(candidate.get("title") or url),
-                "provider": candidate.get("provider"),
-                "trust": candidate.get("trust"),
-                "status": "candidate",
-            }
-            candidates.append(item)
-            if len(materials) >= max_materials:
-                item["review_status"] = "budget_exhausted"
-                continue
-            trust = _mapping(candidate.get("trust")) or {}
-            trusted = str(trust.get("status") or "") == "accepted"
-            if not trusted:
-                failures.append(
-                    {
-                        "phase": "candidate_review",
-                        "kind": "source_access_blocked",
-                        "candidate_id": candidate_id,
-                        "reason": trust.get("blocked_reason")
-                        or "candidate trust gate did not accept this URL",
-                    }
-                )
-            review = _tool(
-                registry,
-                request,
-                "source.candidate.review",
-                {
-                    "project_key": project_key,
-                    "candidate": candidate,
-                    "decision": "approved" if trusted else "deferred",
-                    "reason": "Bounded project retrieval: collect trust-accepted URL for body review"
-                    if trusted
-                    else "URL trust check did not accept collection",
-                    "preferred_ingest": "url_pool",
-                    "idempotency_key": candidate_id,
-                },
-                emit=emit,
-            )
-            item["review_status"] = review["status"]
-            item["review_receipt"] = review.get("structured_content")
-            if review["status"] != "completed":
-                failures.append(
-                    {
-                        "phase": "review",
-                        "kind": "candidate_review_failure",
-                        "candidate_id": candidate_id,
-                        "error": review.get("error"),
-                    }
-                )
-                continue
-            review_content = _mapping(review.get("structured_content")) or {}
-            ingest_payload = _mapping(review_content.get("ingest_payload"))
-            if not trusted:
-                continue
-            if not isinstance(ingest_payload, Mapping) or ingest_payload.get("type") != "url_pool":
-                gaps.append(
-                    {
-                        "code": "CANDIDATE_INGEST_PAYLOAD_MISSING",
-                        "candidate_id": candidate_id,
-                        "next_gate": review_content.get("next_gate"),
-                    }
-                )
-                continue
-            ingest = _tool(
-                registry,
-                request,
-                "ingest.url_pool.submit",
-                {
-                    "project_key": project_key,
-                    "ingest_payload": dict(ingest_payload),
-                    "async_mode": False,
-                    "candidate_review_key": candidate_id,
-                    "idempotency_key": candidate_id,
-                    "search_options": {"disable_site_seed_expansion": True},
-                },
-                emit=emit,
-            )
-            ingest_content = _mapping(ingest.get("structured_content")) or {}
-            dispatch = _mapping(ingest_content.get("dispatch_result")) or {}
-            document_id = dispatch.get("document_id")
-            body_read, body = (
-                _read_document_body(topology_service, project_key, document_id) if document_id else (None, None)
-            )
-            material: dict[str, Any] = {
-                "candidate_id": candidate_id,
-                "url": url,
-                "document_id": document_id,
-                "status": "body_read"
-                if ingest["status"] == "completed" and body_read and body_read["status"] == "read"
-                else ("submitted" if ingest["status"] == "completed" else "access_failed"),
-                "body_read": body_read,
-                "ingest_receipt": {
-                    "call_id": ingest.get("call_id"),
-                    "tool_status": ingest.get("status"),
-                    "task_id": ingest_content.get("task_id"),
-                    "document_id": document_id,
-                    "status": dispatch.get("status"),
-                    "reason_code": dispatch.get("reason_code"),
-                    "errors": dispatch.get("errors"),
-                },
-                "formal_topology_ref": None,
-            }
-            materials.append(material)
-            if material["status"] != "body_read":
-                failures.append(
-                    {
-                        "phase": "body_read" if document_id else "ingest",
-                        "kind": "source_failure",
-                        "candidate_id": candidate_id,
-                        "error": (body_read or {}).get("error") or ingest.get("error")
-                        or _ingest_failure_receipt(dispatch, ingest),
-                    }
-                )
-                continue
-            if body_read is None or body is None:
-                failures.append({"phase": "body_read", "kind": "source_failure", "candidate_id": candidate_id})
-                continue
-            binding_snapshot = _mapping(plan_mapping.get("binding_snapshot")) or {}
-            topology_seed_mapping = _mapping(plan_mapping.get("topology_seed")) or {}
-            route_rows = _mapping_list(binding_snapshot.get("routes"))
-            if not route_rows:
-                route_rows = _mapping_list(topology_seed_mapping.get("source_routes"))
-            source_route: dict[str, Any] = next(
-                (dict(row) for row in route_rows if row.get("route_id") == route_id), cast(dict[str, Any], {})
-            )
-            payload = {
-                "project_key": project_key,
-                "run_id": str(plan_mapping.get("run_id") or session_id),
-                "plan_id": plan_id,
-                "route_id": route_id,
-                "query_id": query_id,
-                "candidate_id": candidate_id,
-                "document_id": document_id,
-                "title": body_read.get("title"),
-                "url": body_read.get("uri") or url,
-                "body": body,
-                "body_digest": body_read["body_digest"],
-                "document_updated_at": body_read.get("document_updated_at"),
-                "domain_vocabulary": plan_mapping.get("domain_vocabulary")
-                or (_mapping(plan_mapping.get("topology_seed")) or {}).get("domain_vocabulary"),
-                "query": dict(query),
-                "source_route": source_route,
-            }
-            try:
-                skill_context: SkillInvocationContext = {
-                    "actor_role": "orchestration_runtime",
-                    "permissions": ["project_retrieval.formalize"],
-                    "agent_session_id": session_id,
-                    "agent_task_id": task_id,
-                    "consumer": "project_retrieval.executor",
-                }
-                invoked = invoke_skill(
-                    skill_id="project_retrieval.formalize_material",
-                    payload=payload,
-                    context=skill_context,
-                )
-                formal = _mapping(invoked.get("result"))
-            except Exception as exc:
-                error = _failure(exc)
-                code = "FORMALIZATION_OPERATOR_UNAVAILABLE" if isinstance(exc, KeyError) else "FORMALIZATION_FAILED"
-                gaps.append({"code": code, "candidate_id": candidate_id, "error": error})
-                if emit is not None:
-                    emit("formalizer.result", {"candidate_id": candidate_id, "status": "failed", "error": error})
-                continue
-            if formal is None:
-                gaps.append({"code": "FORMALIZATION_INVALID_RESULT", "candidate_id": candidate_id})
-                continue
-            formal_status = str(formal.get("status") or "")
-            material["formalizer_status"] = formal_status
-            material["formalizer_gaps"] = _list(formal.get("gaps"))
-            if formal_status == "proposed":
-                gaps.extend(
-                    {"code": "FORMALIZATION_REMAINING_GAP", "candidate_id": candidate_id, "detail": detail}
-                    for detail in _list(formal.get("gaps"))
-                )
-            if formal.get("error"):
-                material["formalizer_error"] = formal["error"]
-            if emit is not None:
-                emit("formalizer.result", {"candidate_id": candidate_id, "status": formal_status})
-            if formal_status != "proposed" or not isinstance(formal.get("proposal"), Mapping):
-                gaps.append(
-                    {
-                        "code": "NO_CLAIM" if formal_status == "no_claim" else "FORMALIZATION_FAILED",
-                        "candidate_id": candidate_id,
-                        "details": _list(formal.get("gaps")),
-                        "error": formal.get("error"),
-                    }
-                )
-                continue
-            current_body_read, current_body = _read_document_body(topology_service, project_key, document_id)
-            if (
-                current_body_read.get("status") != "read"
-                or current_body_read.get("body_digest") != body_read.get("body_digest")
-                or current_body_read.get("document_updated_at") != body_read.get("document_updated_at")
-                or current_body != body
-            ):
-                gaps.append({"code": "SOURCE_CHANGED", "candidate_id": candidate_id, "document_id": document_id})
-                continue
-            formal_packages.append(
-                {
-                    "proposal": dict(formal["proposal"]),
-                    "body_read": body_read,
-                    "body": body,
-                    "candidate_id": candidate_id,
-                    "query": query,
-                    "source_route": source_route,
-                    "url": url,
-                }
-            )
-
-    for query_id in selected:
-        execute_query(query_id, queries[query_id])
-
-    followup_rounds = 0
-    if max_followups and (gaps or failures):
-        for round_number in range(1, max_followups + 1):
-            if len(attempts) >= max_queries:
-                gaps.append(
-                    {"code": "FOLLOWUP_QUERY_BUDGET_EXHAUSTED", "remaining_rounds": max_followups - followup_rounds}
-                )
-                break
-            gap = gaps[-1] if gaps else failures[-1]
-            gap_subject = str(
-                gap.get("message") or gap.get("code") or gap.get("reason") or gap.get("kind") or "evidence gap"
-            )
-            planned = _tool(
-                registry,
-                request,
-                "source.discovery.plan",
-                {
-                    "topic": f"{route_id}: {gap_subject}",
-                    "query_terms": [queries[selected[0]]["expression"], gap_subject],
-                    "max_candidates": min(30, max_queries - len(attempts)),
-                },
-                emit=emit,
-            )
-            if planned["status"] != "completed":
-                gaps.append({"code": "FOLLOWUP_PLANNER_FAILED", "round": round_number, "error": planned.get("error")})
-                break
-            planned_content = _mapping(planned.get("structured_content")) or {}
-            proposed_queries = _mapping_list(planned_content.get("search_queries"))
-            expression = next(
-                (
-                    str(item.get("query") or "").strip()
-                    for item in proposed_queries
-                    if str(item.get("query") or "").strip()
-                    and str(item.get("query") or "").strip() not in executed_expressions
-                ),
-                "",
-            )
-            if not expression:
-                gaps.append({"code": "FOLLOWUP_QUERY_UNAVAILABLE", "round": round_number})
-                break
-            originating = next((item for item in candidates if item["candidate_id"] == gap.get("candidate_id")), None)
-            basis_id = str((originating or {}).get("query_id") or selected[0])
-            basis: dict[str, Any] = dict(queries.get(basis_id) or queries[selected[0]])
-            followup_id = f"followup:{round_number}:{_digest(expression)[:12]}"
-            basis.update({"query_id": followup_id, "route_id": route_id, "expression": expression})
-            execute_query(followup_id, basis)
-            followup_rounds += 1
-
-    topology = _append_attempts(
-        topology_service=topology_service,
-        project_key=project_key,
-        topology_ref=_mapping(plan_mapping.get("topology_ref")),
-        profile_id=str(plan_mapping.get("profile_id") or ""),
-        topology_seed=_mapping(plan_mapping.get("topology_seed")),
-        profile_version=str(plan_mapping.get("profile_version") or ""),
-        session_id=session_id,
-        attempts=attempts,
-        formal_packages=formal_packages,
-    )
-    topology_error = _mapping(topology.get("error")) or {}
-    if topology["status"] in {"failed", "blocked", "readback_failed"}:
-        failures.append(
-            {
-                "phase": "topology_write",
-                "kind": "structure_conflict"
-                if topology_error.get("code")
-                in {"VERSION_CONFLICT", "PROFILE_VERSION_CONFLICT", "IDENTITY_CONFLICT"}
-                else "topology_unavailable",
-                "error": topology.get("error"),
-            }
-        )
-    for rejected in _mapping_list(topology.get("rejected_formal")):
-        gaps.append({"code": "FORMAL_PROPOSAL_REJECTED", **rejected})
-    budget_deferred = sum(item.get("review_status") == "budget_exhausted" for item in candidates)
-    if budget_deferred:
-        gaps.append({"code": "MATERIAL_BUDGET_EXHAUSTED", "remaining_candidates": budget_deferred})
-    if (
-        (gaps or failures)
-        and max_followups
-        and followup_rounds < max_followups
-        and not any(item["code"].startswith("FOLLOWUP_") for item in gaps)
-    ):
-        gaps.append(
-            {"code": "FOLLOWUP_INCOMPLETE", "executed_rounds": followup_rounds, "allowed_rounds": max_followups}
-        )
-    formal_graph_refs = _mapping_list(topology.get("formal_graph_refs"))
-    status: Literal["completed", "partial", "blocked"] = (
-        "completed"
-        if formal_graph_refs and not gaps and not failures
-        else ("partial" if attempts or candidates or materials else "blocked")
-    )
-    report = {
-        "plan_id": plan_id,
-        "session_id": session_id,
-        "route_id": route_id,
-        "query_ids": selected,
-        "attempt_ids": [item["attempt_id"] for item in attempts],
-        "candidate_ids": [item["candidate_id"] for item in candidates],
-        "document_ids": [item["document_id"] for item in materials if item.get("document_id")],
-        "read_document_ids": [item["document_id"] for item in materials if item["status"] == "body_read"],
-        "topology_attempt_refs": topology.get("attempt_refs") or [],
-        "topology_ref": topology.get("topology_ref"),
-        "profile_id": topology.get("profile_id"),
-        "profile_version": topology.get("profile_version"),
-        "formal_graph_refs": formal_graph_refs,
-        "gaps": gaps,
-    }
-    result: RetrievalRunCompleted = {
-        "status": status,
-        "session_id": session_id,
-        "plan_id": plan_id,
-        "mode_id": plan_mapping.get("mode_id"),
-        "mode_version": plan_mapping.get("mode_version"),
-        "discovery": cast(RetrievalJsonObject, discovery),
-        "attempts": cast(list[RetrievalJsonObject], attempts),
-        "candidates": cast(list[RetrievalJsonObject], candidates),
-        "materials": cast(list[RetrievalJsonObject], materials),
-        "topology_write": cast(RetrievalJsonObject, topology),
-        "graph": cast(RetrievalJsonObject, {"topology_ref": topology.get("topology_ref"), "groups": formal_graph_refs})
-        if formal_graph_refs
-        else None,
-        "failures": cast(list[RetrievalJsonObject], failures),
-        "gaps": cast(list[RetrievalJsonObject], gaps),
-        "report": cast(RetrievalJsonObject, report),
-        "followup_rounds": followup_rounds,
-    }
-    report_json = validate_json_object(
-        report,
-        field="project_retrieval.run_report.content_json",
-    )
-    report_persistence_failure: Failure | Exception | None
-    if isinstance(report_json, Failure):
-        report_persistence_failure = report_json
-    else:
-        report_persistence_failure = None
-        try:
-            service.store.upsert_artifact(
-                {
-                    "session_id": session_id,
-                    "name": "project_retrieval.run_report.json",
-                    "artifact_type": "project_retrieval_run_report",
-                    "mime_type": "application/json",
-                    "content_text": json.dumps(report, ensure_ascii=False, sort_keys=True, default=str),
-                    "content_json": report_json,
-                    "metadata": {"project_key": project_key, "plan_id": plan_id},
-                }
-            )
-        except Exception as exc:
-            report_persistence_failure = exc
-    if report_persistence_failure is not None:
-        failures.append(
-            {
-                "phase": "report",
-                "kind": "persistence_failure",
-                "error": _failure(report_persistence_failure),
-            }
-        )
-        gaps.append({"code": "REPORT_PERSISTENCE_FAILED"})
-        report["gaps"] = gaps
-        if status == "completed":
-            status = "partial"
-            result["status"] = status
-    if emit is not None:
-        emit(
-            "run.finished",
-            {
-                "session_id": session_id,
-                "status": status,
-                "attempt_count": len(attempts),
-                "material_count": len(materials),
-                "formal_graph_count": len(formal_graph_refs),
-            },
-        )
-    service.release_task(
-        session_id,
-        task_id,
-        status="completed" if status == "completed" else "failed",
-        result_summary="Formal graph committed" if status == "completed" else "Retrieval finished with unresolved gaps",
-        result_payload={
-            "plan_id": plan_id,
-            "run_id": plan_mapping.get("run_id"),
-            "status": status,
-            "report_artifact": "project_retrieval.run_report.json",
-        },
-        tool_use_count=1 + len(selected) + len(candidates) + len(materials),
-    )
-    return result
 
 
-__all__ = ["execute_retrieval_run"]
+__all__ = [
+    "RetrievalRuntimeProgram",
+    "RetrievalWorkActiveChildMaterializer",
+    "build_initial_retrieval_program",
+    "build_retrieval_discriminator_registry",
+    "build_retrieval_leaf_invocations",
+    "build_retrieval_merge_registry",
+    "build_retrieval_transform_registry",
+    "build_retrieval_work_active_child_bytes",
+    "commit_retrieval_topology",
+    "formalize_candidate_work",
+    "plan_retrieval_followup",
+    "read_candidate_work_body",
+    "review_candidate_work",
+    "revalidate_candidate_work",
+    "validate_retrieval_work_bound_inputs",
+]

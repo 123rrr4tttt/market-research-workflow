@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from threading import RLock
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
-from .governance_contract import build_handoff_audit_record
-from .store import InMemoryRunStore, SqlRunStore, build_run_store
-from .contracts import raise_workflow_graph_legacy, workflow_graph_failure
+from .contracts import (
+    WorkflowGraphEvent,
+    raise_workflow_graph_legacy,
+    workflow_graph_failure,
+)
+from .store import (
+    HistoricalWorkflowRunReader,
+    build_historical_workflow_run_reader,
+)
 
 HANDOFF_CONTRACT_VERSION = "workflow_graph.handoff.v1"
 _ALLOWED_HANDOFF_MODES = {"pull_prepared_evidence", "push_payload"}
@@ -53,48 +58,52 @@ class HandoffEnvelope:
 
 
 class WorkflowGraphHandoffStore:
-    def __init__(self, *, store: InMemoryRunStore | SqlRunStore | None = None) -> None:
-        self._store = store
-        self._lock = RLock()
+    """Build new handoffs and decode retired-run handoffs without writing them."""
 
-    def _resolved_store(self) -> InMemoryRunStore | SqlRunStore:
-        with self._lock:
-            if self._store is None:
-                self._store = build_run_store()
-            return self._store
+    def __init__(self, *, reader: HistoricalWorkflowRunReader | None = None) -> None:
+        self._reader = reader
 
-    def persist(self, *, graph_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+    def _resolved_reader(self) -> HistoricalWorkflowRunReader:
+        if self._reader is None:
+            self._reader = build_historical_workflow_run_reader()
+        return self._reader
+
+    def _require_historical_project(self, *, run_id: str, project_key: str) -> None:
+        run = self._resolved_reader().get_run(str(run_id))
+        metadata = run.get("metadata")
+        stored_project_key = str(metadata.get("project_key") or "").strip()
+        if not project_key or stored_project_key != project_key:
+            _raise_handoff_failure(
+                "object_not_found",
+                "historical handoff run is not available in this project",
+                exception_type=KeyError,
+            )
+
+    def build(self, *, graph_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+        """Return the typed request-local handoff carrier without a side effect."""
+
         envelope = _normalize_handoff_payload(graph_id=graph_id, payload=payload)
-        self._ensure_run_exists(envelope.run_id, graph_id)
         event_payload = envelope.to_dict()
-        event_payload["audit"] = build_handoff_audit_record(
-            action="handoff.persisted",
-            graph_id=envelope.graph_id,
-            run_id=envelope.run_id,
-            handoff_id=envelope.handoff_id,
-            handoff_mode=envelope.handoff_mode,
-            producer=envelope.producer,
-            consumer=envelope.consumer,
-            evidence_pack=envelope.evidence_pack,
-        )
-        event = self._resolved_store().append_event(
-            envelope.run_id,
-            event_type="handoff.persisted",
-            payload=event_payload,
-        )
         return {
             "contract_version": HANDOFF_CONTRACT_VERSION,
             "run_id": envelope.run_id,
             "handoff_id": envelope.handoff_id,
-            "event_seq": event.get("seq"),
-            "event_type": event.get("type"),
-            "audit_id": event_payload["audit"].get("audit_id"),
-            "audit_contract_version": event_payload["audit"].get("contract_version"),
-            "backend_marker": "workflow_graph.run_store",
+            "handoff_mode": envelope.handoff_mode,
+            "payload": event_payload,
+            "durable": False,
+            "backend_marker": "workflow_graph.request_local_handoff",
         }
 
-    def list_handoffs(self, *, run_id: str, handoff_mode: str | None = None) -> dict[str, Any]:
-        events = self._resolved_store().get_events(str(run_id))
+    def list_handoffs(
+        self,
+        *,
+        run_id: str,
+        handoff_mode: str | None = None,
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        if project_key is not None:
+            self._require_historical_project(run_id=run_id, project_key=project_key)
+        events = self._resolved_reader().get_events(str(run_id))
         items: list[dict[str, Any]] = []
         for event in events:
             event_type = str(event.get("type") or "")
@@ -102,7 +111,7 @@ class WorkflowGraphHandoffStore:
                 continue
             if event_type not in _ALLOWED_EVENT_TYPES:
                 _raise_handoff_failure("contract_invalid", f"unknown handoff event type: {event_type}")
-            payload = event.get("payload") if isinstance(event.get("payload"), Mapping) else {}
+            payload = event["payload"]
             if event_type != "handoff.persisted":
                 continue
             if handoff_mode and str(payload.get("handoff_mode") or "") != str(handoff_mode):
@@ -123,17 +132,28 @@ class WorkflowGraphHandoffStore:
             "run_id": str(run_id),
             "items": items,
             "total": len(items),
-            "backend_marker": "workflow_graph.run_store",
+            "read_only": True,
+            "backend_marker": "workflow_graph.historical_run_decoder",
         }
 
-    def replay_handoff(self, *, run_id: str, handoff_id: str) -> dict[str, Any]:
+    def replay_handoff(
+        self,
+        *,
+        run_id: str,
+        handoff_id: str,
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
         resolved_run_id = str(run_id)
         resolved_handoff_id = str(handoff_id or "").strip()
         if not resolved_handoff_id:
             _raise_handoff_failure("contract_invalid", "handoff_id is required")
-        store = self._resolved_store()
-        events = store.get_events(resolved_run_id)
-        matched: list[dict[str, Any]] = []
+        if project_key is not None:
+            self._require_historical_project(
+                run_id=resolved_run_id,
+                project_key=project_key,
+            )
+        events = self._resolved_reader().get_events(resolved_run_id)
+        matched: list[WorkflowGraphEvent] = []
         current_payload: dict[str, Any] | None = None
         for event in events:
             event_type = str(event.get("type") or "")
@@ -141,7 +161,7 @@ class WorkflowGraphHandoffStore:
                 continue
             if event_type not in _ALLOWED_EVENT_TYPES:
                 _raise_handoff_failure("contract_invalid", f"unknown handoff event type: {event_type}")
-            payload = event.get("payload") if isinstance(event.get("payload"), Mapping) else {}
+            payload = event["payload"]
             if str(payload.get("handoff_id") or "") != resolved_handoff_id:
                 continue
             matched.append(event)
@@ -150,32 +170,6 @@ class WorkflowGraphHandoffStore:
         if current_payload is None:
             _raise_handoff_failure("object_not_found", f"handoff not found: {resolved_handoff_id}", exception_type=KeyError)
 
-        replay_event = store.append_event(
-            resolved_run_id,
-            event_type="handoff.replayed",
-            payload={
-                "run_id": resolved_run_id,
-                "handoff_id": resolved_handoff_id,
-                "contract_version": HANDOFF_CONTRACT_VERSION,
-                "audit": build_handoff_audit_record(
-                    action="handoff.replayed",
-                    graph_id=str(current_payload.get("graph_id") or "unknown"),
-                    run_id=resolved_run_id,
-                    handoff_id=resolved_handoff_id,
-                    handoff_mode=str(current_payload.get("handoff_mode") or "pull_prepared_evidence"),
-                    producer=str(
-                        current_payload.get("producer")
-                        or current_payload.get("owner")
-                        or "workflow_graph.backend_bridge"
-                    ),
-                    consumer=str(current_payload.get("consumer") or "unknown"),
-                    evidence_pack=current_payload.get("evidence_pack")
-                    if isinstance(current_payload.get("evidence_pack"), Mapping)
-                    else {},
-                ),
-            },
-        )
-        matched.append(replay_event)
         ordered = sorted(matched, key=lambda x: int(x.get("seq") or 0))
         return {
             "contract_version": HANDOFF_CONTRACT_VERSION,
@@ -183,21 +177,12 @@ class WorkflowGraphHandoffStore:
             "handoff_id": resolved_handoff_id,
             "events": ordered,
             "result": current_payload,
-            "backend_marker": "workflow_graph.run_store",
+            "read_only": True,
+            "backend_marker": "workflow_graph.historical_run_decoder",
         }
-
-    def _ensure_run_exists(self, run_id: str, graph_id: str) -> None:
-        store = self._resolved_store()
-        try:
-            store.get_run(run_id)
-        except KeyError:
-            store.create_run(run_id=run_id, topo_order=[], metadata={"workflow_id": graph_id, "source": "handoff"})
 
 
 def _normalize_handoff_payload(*, graph_id: str, payload: Mapping[str, Any]) -> HandoffEnvelope:
-    if not isinstance(payload, Mapping):
-        _raise_handoff_failure("contract_invalid", "handoff payload must be a mapping")
-
     run_id = str(payload.get("run_id") or "").strip()
     handoff_id = str(payload.get("handoff_id") or "").strip()
     contract_version = str(payload.get("contract_version") or "").strip()
@@ -233,7 +218,7 @@ def _normalize_handoff_payload(*, graph_id: str, payload: Mapping[str, Any]) -> 
         handoff_mode=handoff_mode,
         producer=producer,
         consumer=consumer,
-        evidence_pack=dict(evidence_pack),
+        evidence_pack=dict(cast(Mapping[str, Any], evidence_pack)),
         payload=dict(payload),
     )
 

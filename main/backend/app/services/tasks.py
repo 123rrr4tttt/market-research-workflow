@@ -3,8 +3,6 @@ from __future__ import annotations
 from importlib import import_module
 from contextlib import nullcontext
 from datetime import datetime, timezone
-import hashlib
-import json
 from math import ceil
 from typing import TYPE_CHECKING, Mapping, Protocol, TypeGuard, TypedDict
 
@@ -17,19 +15,49 @@ from .job_logger import complete_job, fail_job, start_job
 from .projects import bind_project
 
 if TYPE_CHECKING:
-    from app.contracts.json import JSONObject as AgentSessionJsonObject, JSONValue as AgentSessionJsonValue
-    from .agent_sessions.store import (
-        AgentArtifactPayload,
-    )
     from .collect_runtime.contracts import CollectJsonObject, CollectJsonValue
     from .crawlers.base import CrawlerJsonObject, CrawlerJsonValue
     from .indexer.application import IndexingApplicationService
     from .ingest.social_application import SocialIngestApplicationService
-    from .project_retrieval.contracts import RetrievalJsonArray, RetrievalJsonObject, RetrievalJsonValue, RetrievalRunResult
 
 
 TaskObject = dict[str, object]
 TaskResult = Mapping[str, object]
+
+
+@celery_app.task(bind=True, name="app.services.tasks.task_successor_runtime")
+def task_successor_runtime(self: BoundTask, work_item_id: str) -> TaskObject:
+    """Transport one durable work identity to the shared RuntimeNode."""
+    from uuid import uuid4
+    from app.composition.production import execute_successor_work_item, successor_ready_work
+    from app.settings.config import settings
+    from app.successor_runtime.substrate.postgres.session import create_runtime_engine
+
+    engine = create_runtime_engine(settings.database_url)
+    try:
+        report = execute_successor_work_item(
+            engine=engine, work_item_id=work_item_id,
+            node_id=f"celery:{self.request.id}:{uuid4().hex}",
+        )
+        frontier = dict(
+            ready for result in report.results if result.committed
+            for ready in successor_ready_work(engine, result.work_item_id)
+        )
+    finally:
+        engine.dispose()
+    # Terminal commit already activates the next Program frontier. A bounded
+    # continuation drains that work through the same Node, without polling or
+    # reimplementing per-domain dependency/order decisions in Celery.
+    for ready_id, due_at in frontier.items():
+        task_successor_runtime.apply_async(args=(ready_id,), eta=due_at)
+    return {
+        "node_id": report.node_id, "claimed": report.claimed,
+        "results": [{
+            "work_item_id": item.work_item_id, "state": item.state.value,
+            "disposition": item.disposition.value, "executed": item.executed,
+            "committed": item.committed, "failure_code": item.failure_code,
+        } for item in report.results],
+    }
 
 
 class TaskRequest(Protocol):
@@ -75,34 +103,6 @@ def _is_object_list(value: object) -> TypeGuard[list[object]]:
 
 def _task_object(value: object) -> TaskObject:
     return {str(key): item for key, item in value.items()} if _is_object_mapping(value) else {}
-
-
-def _task_object_list(value: object) -> list[TaskObject]:
-    if not _is_object_list(value):
-        return []
-    return [_task_object(item) for item in value if _is_object_mapping(item)]
-
-
-def _agent_session_json_value(value: object) -> AgentSessionJsonValue:
-    if value is None or isinstance(value, (bool, int, float, str)):
-        return value
-    if _is_object_list(value):
-        return [_agent_session_json_value(item) for item in value]
-    if _is_object_mapping(value):
-        return {
-            str(key): _agent_session_json_value(item)
-            for key, item in value.items()
-        }
-    return str(value)
-
-
-def _agent_session_json_object(value: object) -> AgentSessionJsonObject:
-    if not _is_object_mapping(value):
-        return {}
-    return {
-        str(key): _agent_session_json_value(item)
-        for key, item in value.items()
-    }
 
 
 def _crawler_json_value(value: object) -> CrawlerJsonValue:
@@ -161,93 +161,6 @@ def _collect_json_object(value: object) -> CollectJsonObject:
     return {str(key): _collect_json_value(item) for key, item in value.items()}
 
 
-def _retrieval_array(value: RetrievalJsonValue | None) -> RetrievalJsonArray:
-    return value if isinstance(value, list) else []
-
-
-def _retrieval_object(value: RetrievalJsonValue | None) -> RetrievalJsonObject:
-    return value if isinstance(value, dict) else {}
-
-
-def _retrieval_object_array(value: RetrievalJsonValue | None) -> list[Mapping[str, RetrievalJsonValue]]:
-    return [item for item in _retrieval_array(value) if isinstance(item, dict)]
-
-
-def _retrieval_json_value(value: object) -> RetrievalJsonValue:
-    if value is None or isinstance(value, (bool, int, float, str)):
-        return value
-    if _is_object_list(value):
-        return [_retrieval_json_value(item) for item in value]
-    if _is_object_mapping(value):
-        return {str(key): _retrieval_json_value(item) for key, item in value.items()}
-    raise TypeError(f"retrieval result contains a non-JSON value: {type(value).__name__}")
-
-
-def _retrieval_run_result_object(value: RetrievalRunResult) -> RetrievalJsonObject:
-    normalized = _retrieval_json_value(value)
-    if not isinstance(normalized, dict):
-        raise TypeError("retrieval result must be a JSON object")
-    return normalized
-
-
-@celery_app.task(name="project_retrieval.execute")
-def task_project_retrieval_run(project_key: str, run_id: str) -> RetrievalJsonObject:
-    """Interpret one manually authorized, version-pinned retrieval plan."""
-    from .agent_sessions import get_agent_session_service
-    from .project_retrieval.execution import execute_retrieval_run
-    from .project_retrieval.service import ProjectRetrievalService
-    from .project_retrieval.topology import build_topology_service
-
-    with bind_project(project_key):
-        service = ProjectRetrievalService()
-        run = service.read_run(project_key, run_id)
-        if run["status"] != "queued" or not service.claim_run(project_key, run_id):
-            # Duplicate deliveries must not start a second Agent session or
-            # compete for the run-owned topology identity.
-            return service.read_run(project_key, run_id)
-        plan: RetrievalJsonObject = service.read_plan(project_key, str(run["plan_id"]))
-        plan["run_id"] = run_id
-        plan["topology_ref"] = {
-            "project_key": project_key, "module_id": "retrieval",
-            "namespace": "rapid", "state_id": f"retrieval-run:{run_id}",
-        }
-
-        def emit(kind: str, payload: RetrievalJsonObject) -> None:
-            phase = "search" if kind == "tool.result" else "session" if kind == "run.started" else "readback"
-            service.update_run(project_key, run_id, status="running", phase=phase,
-                               receipt={"latest_event": kind, "latest_event_payload": dict(payload)})
-
-        try:
-            result = _retrieval_run_result_object(execute_retrieval_run(
-                project_key=project_key, plan=plan,
-                topology_service=build_topology_service(),
-                session_factory=get_agent_session_service, emit=emit,
-            ))
-        except Exception as exc:  # persist failures rather than leave an endless running row
-            failure: RetrievalJsonObject = {
-                "phase": "worker",
-                "kind": type(exc).__name__,
-                "message": str(exc),
-            }
-            failures: RetrievalJsonArray = [failure]
-            result = {"status": "failed", "failures": failures}
-        status = str(result.get("status") or "failed")
-        if status not in {"completed", "partial", "blocked", "failed"}:
-            status = "failed"
-        report = _retrieval_object(result.get("report"))
-        counts: RetrievalJsonObject = {
-            "attempts": len(_retrieval_array(result.get("attempts"))),
-            "candidates": len(_retrieval_array(result.get("candidates"))),
-            "materials": len(_retrieval_array(result.get("materials"))),
-            "formal_graphs": len(_retrieval_array(report.get("formal_graph_refs"))),
-        }
-        visible_errors: list[Mapping[str, RetrievalJsonValue]] = [
-            *_retrieval_object_array(result.get("failures")),
-            *_retrieval_object_array(result.get("gaps")),
-        ]
-        service.update_run(project_key, run_id, status=status, phase="finished", counts=counts,
-                           errors=visible_errors, receipt=result)
-        return {"run_id": run_id, "status": status, "counts": counts}
 from .task_readback_metadata import (
     extract_runtime_readback_payload,
     merge_request_runtime_context,
@@ -303,18 +216,6 @@ def _map_control_status(status: str | None, default: str = "running") -> str:
     if value in {"failed", "failure", "error", "cancelled", "canceled"}:
         return "failed"
     return default
-
-
-def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _stable_hash(value: object) -> str:
-    try:
-        encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
-    except Exception:
-        encoded = str(value)
-    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def _build_task_runtime_readback(
@@ -409,175 +310,6 @@ def _fail_resource_pool_job(
         str(error),
         external_job_id=str(getattr(task_request, "id", None) or "").strip() or None,
     )
-
-
-def _compact_agent_task_value(value: object, *, max_items: int = 20, max_depth: int = 4) -> object:
-    if max_depth <= 0:
-        return "..."
-    if _is_object_mapping(value):
-        out: TaskObject = {}
-        for index, (key, item) in enumerate(value.items()):
-            if index >= max_items:
-                out["..."] = f"{len(value) - max_items} more"
-                break
-            out[str(key)] = _compact_agent_task_value(item, max_items=max_items, max_depth=max_depth - 1)
-        return out
-    if _is_object_list(value):
-        return [_compact_agent_task_value(item, max_items=max_items, max_depth=max_depth - 1) for item in value[:max_items]]
-    if isinstance(value, str) and len(value) > 1200:
-        return f"{value[:1200]}..."
-    return value
-
-
-def _agent_url_pool_marker(search_options: TaskObject | None) -> TaskObject:
-    if search_options is None:
-        return {}
-    marker = search_options.get("_agent_core_url_pool_submission")
-    return _task_object(marker)
-
-
-def _agent_session_canceled(marker: TaskObject) -> bool:
-    session_id = str(marker.get("session_id") or "").strip()
-    if not session_id:
-        return False
-    try:
-        from .agent_sessions.service import get_agent_session_service
-
-        session = get_agent_session_service().get_session(session_id)
-    except Exception:  # noqa: BLE001
-        return False
-    if isinstance(session, Failure):
-        return False
-    return str(session.get("status") or "").strip().lower() == "canceled"
-
-
-def _record_agent_url_pool_task_event(
-    marker: TaskObject,
-    *,
-    status: str,
-    result: TaskResult | None = None,
-    error: str | None = None,
-) -> None:
-    session_id = str(marker.get("session_id") or "").strip()
-    if not session_id:
-        return
-    artifact_name = str(marker.get("artifact_name") or "ingest.url_pool_submissions.json").strip() or "ingest.url_pool_submissions.json"
-    task_id = str(marker.get("task_id") or "").strip()
-    url = str(marker.get("url") or "").strip()
-    idempotency_key = str(marker.get("idempotency_key") or "").strip()
-    event_payload: AgentSessionJsonObject = {
-        "event_id": _stable_hash({"session_id": session_id, "task_id": task_id, "url": url, "status": status}),
-        "contract_version": "ingest.url_pool.task_event.v1",
-        "project_key": str(marker.get("project_key") or "").strip(),
-        "url": url,
-        "task_id": task_id,
-        "status": status,
-        "idempotency_key": idempotency_key,
-        "candidate_review_key": str(marker.get("candidate_review_key") or "").strip(),
-        "source_call_id": str(marker.get("source_call_id") or "").strip(),
-        "recorded_at": _utcnow_iso(),
-        "result": _agent_session_json_value(
-            _compact_agent_task_value(result or {}, max_items=18, max_depth=4)
-        ),
-        "error": str(error or "").strip() or None,
-    }
-    try:
-        from .agent_sessions.service import get_agent_session_service
-
-        service = get_agent_session_service()
-        artifacts = service.list_artifacts(session_id)
-        if isinstance(artifacts, Failure):
-            return
-        existing_events_artifact = next(
-            (item for item in artifacts if item.get("name") == "ingest.url_pool_task_events.json"),
-            None,
-        )
-        events_content = _task_object((existing_events_artifact or {}).get("content_json"))
-        events = _task_object_list(events_content.get("events"))
-        events = [item for item in events if str(item.get("event_id") or "") != event_payload["event_id"]]
-        events.append(_task_object(event_payload))
-        task_events_content: AgentSessionJsonObject = {
-            "contract_version": "ingest.url_pool.task_event.v1",
-            "updated_at": event_payload["recorded_at"],
-            "events": _agent_session_json_value(events[-100:]),
-        }
-        task_events_artifact: AgentArtifactPayload = {
-            "session_id": session_id,
-            "name": "ingest.url_pool_task_events.json",
-            "artifact_type": "url_pool_ingest_task_event_state",
-            "mime_type": "application/json",
-            "content_text": json.dumps(
-                task_events_content,
-                ensure_ascii=False,
-                sort_keys=True,
-                default=str,
-            ),
-            "content_json": task_events_content,
-            "metadata": {
-                "contract_version": "ingest.url_pool.task_event.v1",
-                "auto_written_by": "task_ingest_url_via_source_library",
-            },
-        }
-        service.store.upsert_artifact(
-            task_events_artifact
-        )
-
-        existing_submission_artifact = next((item for item in artifacts if item.get("name") == artifact_name), None)
-        submission_content = _task_object((existing_submission_artifact or {}).get("content_json"))
-        submissions = _task_object_list(submission_content.get("submissions"))
-        for submission in submissions:
-            same_key = idempotency_key and str(submission.get("idempotency_key") or "") == idempotency_key
-            same_url = url and str(submission.get("url") or "").strip() == url
-            if not same_key and not same_url:
-                continue
-            task_events = _task_object_list(submission.get("task_events"))
-            task_events = [item for item in task_events if str(item.get("event_id") or "") != event_payload["event_id"]]
-            task_events.append(event_payload)
-            submission["task_events"] = task_events[-20:]
-            submission["latest_task_status"] = status
-            submission["latest_task_event_at"] = event_payload["recorded_at"]
-            if status == "completed":
-                submission["completed_at"] = event_payload["recorded_at"]
-                submission["task_result"] = event_payload["result"]
-            if status == "failed":
-                submission["failed_at"] = event_payload["recorded_at"]
-                submission["task_error"] = event_payload["error"]
-        if submissions:
-            updated_submission_content = _agent_session_json_object({
-                **submission_content,
-                "updated_at": event_payload["recorded_at"],
-                "submissions": submissions[-100:],
-            })
-            submission_artifact: AgentArtifactPayload = {
-                "session_id": session_id,
-                "name": artifact_name,
-                "artifact_type": "url_pool_ingest_submission_state",
-                "mime_type": "application/json",
-                "content_text": json.dumps(
-                    updated_submission_content,
-                    ensure_ascii=False,
-                    sort_keys=True,
-                    default=str,
-                ),
-                "content_json": updated_submission_content,
-                "metadata": {
-                    "contract_version": str(
-                        updated_submission_content.get("contract_version")
-                        or "ingest.url_pool.submit.v1"
-                    ),
-                    "auto_updated_by": "task_ingest_url_via_source_library",
-                },
-            }
-            service.store.upsert_artifact(
-                submission_artifact
-            )
-        service.store.append_event(
-            session_id,
-            event_type=f"ingest.url_pool.task.{status}",
-            payload=event_payload,
-        )
-    except Exception:  # noqa: BLE001
-        return
 
 
 def _load_crawlers_bridge_api() -> tuple[CrawlerBridgeCall, CrawlerBridgeCall]:
@@ -766,74 +498,6 @@ def task_ingest_market(
         if not raw:
             raw = {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped}
         return _attach_completed_runtime_readback(raw, runtime_readback)
-
-
-@celery_app.task(bind=True)
-def task_ingest_url_via_source_library(
-    self: BoundTask,
-    url: str,
-    query_terms: list[str] | None = None,
-    strict_mode: bool = False,
-    project_key: str | None = None,
-    search_options: TaskObject | None = None,
-) -> TaskObject:
-    from .ingest.url_pool import ingest_url_via_source_library_frontdoor
-
-    marker = _agent_url_pool_marker(search_options)
-    if _agent_session_canceled(marker):
-        result: TaskObject = {
-            "status": "canceled",
-            "abort_requested": True,
-            "url": url,
-            "project_key": project_key,
-            "reason": "agent_session_canceled_before_url_pool_ingest",
-        }
-        _record_agent_url_pool_task_event(marker, status="canceled", result=result)
-        return result
-    runtime_readback = _build_task_runtime_readback(
-        line_key="ingest",
-        task_request=getattr(self, "request", None),
-        source_payload=search_options,
-        fallback_worker_name="local.task_ingest_url_via_source_library",
-        fallback_queue="local.ingest",
-    )
-    enriched_search_options = {
-        **(search_options or {}),
-        "runtime_readback": runtime_readback,
-    }
-    ctx = bind_project(project_key) if project_key else nullcontext()
-    with ctx:
-        job_id = start_job(
-            "url_pool_fetch",
-            {
-                "mode": "single_url_async",
-                "url": url,
-                "project_key": project_key,
-                "query_terms": list(query_terms or []),
-                "runtime_readback": runtime_readback,
-            },
-        )
-        try:
-            result = ingest_url_via_source_library_frontdoor(
-                url=url,
-                project_key=project_key,
-                query_terms=query_terms,
-                strict_mode=strict_mode,
-                search_options=enriched_search_options,
-                frontdoor_options={"enabled": True},
-                entrypoint="ingest.url.single.async",
-                source_name="task_ingest_url_via_source_library",
-                enable_extraction=True,
-            )
-        except Exception as exc:  # noqa: BLE001
-            fail_job(job_id, str(exc))
-            _record_agent_url_pool_task_event(marker, status="failed", error=str(exc))
-            raise
-        completed_result = _attach_completed_runtime_readback(result, runtime_readback)
-        complete_job(job_id, result=completed_result)
-        _record_agent_url_pool_task_event(marker, status="completed", result=completed_result)
-        return completed_result
-
 
 
 @celery_app.task

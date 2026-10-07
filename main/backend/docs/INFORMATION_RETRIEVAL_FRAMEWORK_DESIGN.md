@@ -2,7 +2,7 @@
 
 > 架构与实现计划稿 · 2026-09-24。范围：来源组织、信息发现、材料获取、agentic search、标准化入库及信息流／方法拓扑。下文保留原设计与迁移计划；当前实测状态见本节。
 
-**当前开发入口（2026-09-27）：** [§13 Agent 宏胞腔开发框架](#13-agent-宏胞腔开发框架)把本文与 [Agent 宏架构](AGENT_MACRO_ARCHITECTURE.md)接成具体实现方案；子 Agent 的 M 系列工作包、独占写面和阶段依赖统一维护在[分发计划](INFORMATION_RETRIEVAL_IMPLEMENTATION_DISPATCH_PLAN.md)。本轮状态为 `PLANNED`，尚未开展 M 系列代码实现或运行验证。下方 2026-09-26 记录及旧 P/R 工作包保留各自历史归属。
+**历史开发入口（2026-09-27）：** [§13 Agent 宏胞腔开发框架](#13-agent-宏胞腔开发框架)保留当时的 M 系列提案、写面划分和验证语义。2026-10-06 起的当前 Agent 宏边界与实际验证范围以 [Agent 宏架构](AGENT_MACRO_ARCHITECTURE.md)为准；M 系列历史执行记录保留在[分发计划](INFORMATION_RETRIEVAL_IMPLEMENTATION_DISPATCH_PLAN.md)。下方 2026-09-26 记录及旧 P/R 工作包保留各自历史归属。
 
 ## 当前实现与实测边界（2026-09-26）
 
@@ -618,24 +618,26 @@ P4/P5 的精确测试选择随实际改动消费者固定，届时写入同一�
 
 第一批实现覆盖：开放消息进入胞腔、一个真实原生读取工具、skill 正文挂载、原生读写／读回、一个既有单次 LLM 工作接入、Rapid 结构化采集与入库、既有外部入口和结构投影。已有检索迁移与[信息拓扑 P04/P07A/P07B](../../../development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-24-information-topology/information-topology-framework-and-work-packages.v1.md)提供候选、材料及历史格式接缝。历史 57 个状态属于原导入／导出合同；本批次的新运行与其身份分开。
 
-### 13.2 当前能力、缺口与代码承载
+### 13.2 历史定位与当前代码承载
 
-下表是 2026-09-27 当前工作树的开发定位；“拟新增”表示设计写面。具体符号导出与文件独占权由 M 系列包维护，表中逻辑角色不要求各建一个模块或服务。
+下表保留 2026-09-27 的角色划分，并把承载列修正为 2026-10-06 当前源码事实；“拟新增”仍是当时设计写面，不表示当前能力。具体符号导出、当前消费者和验证边界以 Agent 宏架构及原 owner 文件为准，表中逻辑角色不要求各建一个模块或服务。
 
 | 构成与唯一职责 | 已有承载 | 本批开发动作与支持边界 |
 | --- | --- | --- |
-| Codex 模型与原生 Agent 的调用边界 | `services/llm/codex_app_server.py::CodexAppServerCore`、`codex_cli.py` | 当前 provider 在 `thread/start` 指令中禁用 tools；保留既有模型调用合同，沿同一 Core 增加明确选择的原生 Agent 接入。先核对实际协议支持，再固定挂载方式 |
-| 现有 MRW 工具合同及执行 | `services/agent_core/contracts.py::{CoreToolSpec,CoreToolResult,AgentCoreRequest}`、`registry.py`、`core.py` | 复用工具含义、权限与原 handler。MRW 循环保持自己的兼容身份；原生路径的模型回合继续由 Codex 持有 |
-| Skill 内容与运行时入口 | `services/skill_runtime.py::SkillSpec`、`project_retrieval/skill.py`；原方法正文 | 当前 `SkillSpec` 声明 handler 等元数据；补实际正文、版本和工具依赖的引用与挂载，项目入口 skill 和原 Rapid 方法分别关联 |
-| 胞腔语义声明与原生装配 | `CapabilityCellSpec`、`CellBinding`、`c6_native_contribution.py`、`retrieval_flow_native.py` | 引用已有类型与合同；通过拟新增 `agent_macro_native.py` 表达当前缺少的内容／环境关联并复用贡献规则。旧规格中的冻结、adoption 字段不作为普通开发必填流程 |
-| 数据读写与真实成果 | `project_retrieval/service.py`、`information_topology/service.py`、原 ingest／C7 writer | 工具委托原服务；补 digest／frontier 提案的合同和原 writer 接缝。持久层 owner 负责事务、版本、冲突及读回 |
-| 原生方法与系统工作接合 | 原 Rapid skill／上下文、`project_retrieval/execution.py` 与 `formalization.py` | 原执行模块提供已有系统操作；拟新增 `project_retrieval/rapid_macro.py` 只承担原生工作入口与成果关联，不复刻原生循环 |
-| 外部请求、消息及消费者 | `api/agent_chat.py` 的 `/agent-chat/turn/stream`、项目检索 API、`AgentChatPage.tsx` | 增量接入开放消息、会话关联、真实状态和产物引用。独立 `CodexAgentPage.tsx` 的 `/codex/` iframe 不构成 MRW 工具桥；业务消费者只接受符合其合同的成果 |
+| Codex 模型与原生 Agent 的调用边界 | `services/llm/codex_app_server.py::CodexAppServerCore`、`codex_macro_binding.py::NativeAgentBinding` | model-only provider 与 `invoke_native` 是两种调用合同。当前 native binding 支持精确 skill roots、动态工具、同进程续接和 turn interrupt；跨进程 thread 恢复与原生审批请求仍不在宣称范围内 |
+| 现有 MRW 工具合同及执行 | `services/agent_core/contracts.py::{CoreToolSpec,CoreToolResult,AgentCoreRequest}`、`registry.py`、`tool_contribution.py` | 合同类型与 registry 继续承载工具含义、权限和原 handler 投影；旧 `AgentCore.run` 循环已退出，不作为兼容执行路径。原生工具回调由宏宿主和 Codex native binding 消费 |
+| Skill 内容与运行时入口 | `services/agent_core/macro_environment.py`、`macro_registration.py`；原项目 skill 声明 | 激活包解析为 inert native environment，校验 skill 正文 digest、工具与设施绑定；装配本身不启动 Core、不执行项目效果 |
+| 胞腔语义声明与原生装配 | `CapabilityCellSpec`、`CellBinding`、`successor_runtime/capabilities/agent_macro_native.py`、`retrieval_flow_native.py` | `agent_macro_native` 是现行宏胞腔声明与结构投影规则；它不复制宿主 binding，也不把离线装配解释为运行完成 |
+| 数据读写与真实成果 | `project_retrieval/service.py`、`information_topology/service.py`、材料 ingest movements／assembly | 工具委托原服务和材料 writer；digest／frontier 提案必须落到实际保存身份与读回。持久层 owner 负责事务、版本、冲突及读回 |
+| 原生方法与系统工作接合 | `project_retrieval/rapid_macro.py`、`project_retrieval/execution.py` 与 `formalization.py` | Rapid 轮次交接只保存显式方法判断、实际 executor attempt 和正文读回见证；固定 executor 是兼容路径，不能冒充原 Rapid 自主循环 |
+| 外部请求、消息及消费者 | `api/agent_macro_host.py`、`services/agent_core/macro_host.py`、`CodexAgentPage.tsx` 与现行 AgentCore/session API | Codex WebUI 宿主负责原生交互和项目-thread-session 关联；MRW 宏宿主只暴露环境、输入、确认、工具回送和终态边界。旧 `agent_chat.py` 与 `AgentChatPage.tsx` 已退出，不构成当前承载 |
 | 派生目录和结构视图 | `contributions/project_catalog.py`、retrieval native catalog、`information_topology/modules/method_flow.py` | 同一 native 定义派生引用和可观察关系；共享目录、注册文件及公共消费者由集成 owner 单点修改 |
 
-`CapabilityCellSpec` 和 C6 是可复用接点，现有 C6 的 fixture／`LOCAL_ONLY` 装配不能证明原生 Codex 已挂载。当前没有必要把整个通用宏填入旧冻结规格；M1 在现有贡献协议内表达必需关系，M8 在真实消费者处接线。
+`CapabilityCellSpec` 与 `CellBinding` 仍是通用类型接点；旧 C6 fixture／`LOCAL_ONLY` 装配不能证明原生 Codex 挂载。当前判断以 `agent_macro_native` 声明、实际宿主 binding 和真实消费者读回为边界。
 
 本轮只读勘察在仓库及 P07A 已知来源根内尚未定位原 Rapid 方法 skill 正文或完整可挂载实现。现存 `project_retrieval/skill.py` 是项目模式、预览、启动和读回入口；`information_topology` 的 state digest 是状态哈希，均不能代替 Rapid 的方法正文或 `FacetDigest`。M2 保留原方法源定位任务，缺口只阻断其正文挂载与原样保留验收，不阻断公共规则及数据接缝开发。
+
+以下 §13.3–13.7 保留 2026-09-27 的 M 系列接口和执行次序提案；其中“拟新增”“M1/M3 接线”等是历史分发语义，不代表 2026-10-06 当前全部已挂载或整组通过。实际状态按 Agent 宏架构、分发计划历史记录及原消费者见证读取。
 
 ### 13.3 先确定的跨包接口
 
@@ -707,7 +709,7 @@ Mock 或 fixture 可以定位局部行为，原生宿主、真实数据库和用
 
 ## 附录 A：实现接点
 
-下列路径相对仓库根，均为当前已有接点；上文标为“建议新增”的文件不在此冒充现存能力。
+下列路径相对仓库根，均为 2026-10-06 当前已有接点；历史建议新增文件若尚未存在，不在此冒充现存能力。
 
 | 路径 | 职责 |
 |---|---|
@@ -720,7 +722,11 @@ Mock 或 fixture 可以定位局部行为，原生宿主、真实数据库和用
 | `main/backend/app/services/search/web.py` | search_sources |
 | `main/backend/app/services/discovery/adapters.py` | 固定消费者 DefaultDiscoveryAdapter.search |
 | `main/backend/app/services/agent_core/project_tools.py` | 搜索、候选评审和 ingest 交接 |
-| `main/backend/app/services/agent_core/core.py` | Agent 控制循环 |
+| `main/backend/app/services/agent_core/contracts.py`、`registry.py`、`tool_contribution.py` | 工具合同、权限与 handler 投影 |
+| `main/backend/app/services/agent_core/macro_environment.py`、`macro_registration.py` | 激活包解析与 inert native 环境 |
+| `main/backend/app/services/agent_core/macro_host.py`、`main/backend/app/api/agent_macro_host.py` | Codex WebUI 宿主输入、确认、工具回送与终态边界 |
+| `main/backend/app/services/llm/codex_macro_binding.py` | NativeAgentBinding、skill 与动态工具 |
+| `main/backend/app/services/project_retrieval/rapid_macro.py` | Rapid 轮次交接与显式 continuation |
 | `main/backend/app/services/information_topology/contracts.py` | 关联结构和 codec |
 | `main/backend/app/services/information_topology/profiles.py` | 校验、纯视图和 patch |
 | `main/backend/app/services/information_topology/modules/method.py` | 描述型方法与组合检查 |
@@ -731,10 +737,11 @@ Mock 或 fixture 可以定位局部行为，原生宿主、真实数据库和用
 | `main/backend/app/successor_runtime/language/object_contracts.py` | 操作合同及引用 |
 | `main/backend/app/successor_runtime/language/program.py` | ProgramSpec |
 | `main/backend/app/successor_runtime/capabilities/codecs.py` | PayloadCodec |
-| `main/backend/app/successor_runtime/capabilities/c3_native_contribution.py` | 贡献与原生装配规则 |
-| `main/backend/app/successor_runtime/capabilities/c8_native_contribution.py` | 共享类型及派生贡献先例 |
-| `main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py` | 材料与规范化动作 |
-| `main/backend/app/successor_runtime/assembly/c7_assembly.py` | C7 writer/projector 装配 |
+| `main/backend/app/successor_runtime/capabilities/agent_macro_native.py` | 宏胞腔声明与结构投影规则 |
+| `main/backend/app/successor_runtime/capabilities/acquisition_native_contribution.py` | 采集贡献与原生装配规则 |
+| `main/backend/app/successor_runtime/capabilities/material_native_contribution.py`、`material_ingest_movements.py` | 材料贡献与规范化动作 |
+| `main/backend/app/successor_runtime/assembly/material_ingest_assembly.py` | 材料入库/projector 装配 |
+| `contributions/project_catalog.py` | 原生贡献目录 |
 | `functorial-kit.json`、`registries/`、`sketches.json` | kit 范围、登记及见证 |
 
 ## 附录 B：数学语言边界

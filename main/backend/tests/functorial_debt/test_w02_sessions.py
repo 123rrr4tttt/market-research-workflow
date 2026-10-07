@@ -65,30 +65,7 @@ def test_w02_sessions_domain_failures_use_closed_kit_family() -> None:
         assert agent_session_failures.matches(result)
 
 
-def test_w02_sessions_service_claim_failures_are_typed() -> None:
-    service = AgentSessionService(store=InMemoryAgentSessionStore())
-    bundle = service.create_session(
-        source="user",
-        entrypoint_type="chat",
-        goal="typed failure",
-        task_blueprints=[
-            {
-                "task_id": "typed-failure-task",
-                "subject": "Typed failure task",
-                "task_type": "implementation",
-                "phase": "implementation",
-                "execution_mode": "worker",
-            }
-        ],
-    )
-    session_id = bundle["session"]["session_id"]
-    task_id = "typed-failure-task"
-
-    service.release_task(session_id, task_id, status="completed")
-    not_claimable = service.claim_task(session_id, task_id, owner="worker")
-    assert isinstance(not_claimable, Failure)
-    assert not_claimable.code == "task_not_claimable"
-
+def test_w02_sessions_service_input_failures_are_typed() -> None:
     invalid = AgentSessionService(store=InMemoryAgentSessionStore()).create_session(
         source="user",
         entrypoint_type="chat",
@@ -143,7 +120,7 @@ def test_w02_sessions_service_propagates_store_initialization_failure(
     assert service.list_events("missing") is backend_failure
 
 
-def test_w02_sessions_postgres_transition_concurrency_and_rollback(
+def test_w02_sessions_postgres_commands_events_and_approvals_are_atomic(
     monkeypatch: MonkeyPatch,
 ) -> None:
     database_url = os.getenv("MRW_AGENT_SESSION_TEST_DATABASE_URL", "").strip()
@@ -164,52 +141,6 @@ def test_w02_sessions_postgres_transition_concurrency_and_rollback(
     prefix = f"w02-{uuid4().hex[:12]}"
 
     try:
-        claim_bundle = service.create_session(
-            source="test",
-            entrypoint_type="test",
-            goal="PostgreSQL exactly-once claim",
-            logical_task_list_key=f"{prefix}-claim",
-            task_blueprints=[
-                {
-                    "task_id": f"{prefix}-claim-task",
-                    "subject": "claim once",
-                    "task_type": "implementation",
-                    "phase": "implementation",
-                }
-            ],
-        )
-        assert not isinstance(claim_bundle, Failure)
-        claim_session_id = claim_bundle["session"]["session_id"]
-        claim_task_id = f"{prefix}-claim-task"
-        original_get_task = store.get_task
-        readers_ready = Barrier(2)
-
-        def synchronized_get_task(session_id: str, task_id: str):
-            task = original_get_task(session_id, task_id)
-            readers_ready.wait(timeout=5)
-            return task
-
-        with patch.object(store, "get_task", side_effect=synchronized_get_task):
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                claims = list(
-                    executor.map(
-                        lambda owner: service.claim_task(
-                            claim_session_id,
-                            claim_task_id,
-                            owner=owner,
-                        ),
-                        ("worker-a", "worker-b"),
-                    )
-                )
-        winners = [item for item in claims if not isinstance(item, Failure)]
-        losers = [item for item in claims if isinstance(item, Failure)]
-        assert len(winners) == 1
-        assert len(losers) == 1
-        assert losers[0].code == "task_transition_conflict"
-        claim_events = store.list_events(claim_session_id)
-        assert not isinstance(claim_events, Failure)
-        assert [event["event_type"] for event in claim_events].count("task.claimed") == 1
-
         sequence_session_id = f"{prefix}-events"
         created_session = store.create_session({"session_id": sequence_session_id})
         assert not isinstance(created_session, Failure)
@@ -228,56 +159,6 @@ def test_w02_sessions_postgres_transition_concurrency_and_rollback(
         sequence_events = store.list_events(sequence_session_id)
         assert not isinstance(sequence_events, Failure)
         assert [event["seq"] for event in sequence_events] == list(range(1, 41))
-
-        rollback_session_id = f"{prefix}-rollback"
-        rollback_task_id = f"{prefix}-rollback-task"
-        assert not isinstance(
-            store.create_session({"session_id": rollback_session_id}),
-            Failure,
-        )
-        assert not isinstance(
-            store.create_task(
-                {
-                    "session_id": rollback_session_id,
-                    "task_id": rollback_task_id,
-                    "subject": "rollback",
-                    "task_type": "implementation",
-                    "phase": "implementation",
-                }
-            ),
-            Failure,
-        )
-        failed = store.transition_task(
-            rollback_session_id,
-            primary={
-                "task_id": rollback_task_id,
-                "expected_statuses": ["pending"],
-                "expected_owner": None,
-                "changes": {"status": "completed", "result_summary": "must rollback"},
-            },
-            related=[],
-            session_changes={"status": "completed"},
-            events=[
-                {
-                    "event_type": "x" * 200,
-                    "task_id": rollback_task_id,
-                    "payload": {"result": "must rollback"},
-                }
-            ],
-        )
-        assert isinstance(failed, Failure)
-        assert failed.code == "backend_unavailable"
-        assert failed.context["operation"] == "transition_task"
-        rolled_back_task = store.get_task(rollback_session_id, rollback_task_id)
-        rolled_back_session = store.get_session(rollback_session_id)
-        rolled_back_events = store.list_events(rollback_session_id)
-        assert not isinstance(rolled_back_task, Failure)
-        assert not isinstance(rolled_back_session, Failure)
-        assert not isinstance(rolled_back_events, Failure)
-        assert rolled_back_task["status"] == "pending"
-        assert rolled_back_task["result_summary"] is None
-        assert rolled_back_session["status"] == "pending"
-        assert rolled_back_events == []
 
         command_session_id = f"{prefix}-command-rollback"
         command_task_id = f"{prefix}-command-task"
@@ -422,56 +303,5 @@ def test_w02_sessions_postgres_transition_concurrency_and_rollback(
             "approval.approved"
         ) == 1
 
-        release_bundle = service.create_session(
-            source="test",
-            entrypoint_type="test",
-            goal="PostgreSQL atomic release projection",
-            logical_task_list_key=f"{prefix}-release",
-            task_blueprints=[
-                {
-                    "task_id": f"{prefix}-primary",
-                    "subject": "primary",
-                    "task_type": "implementation",
-                    "phase": "implementation",
-                },
-                {
-                    "task_id": f"{prefix}-dependent",
-                    "subject": "dependent",
-                    "task_type": "implementation",
-                    "phase": "implementation",
-                    "blocked_by_refs": ["prev"],
-                },
-            ],
-        )
-        assert not isinstance(release_bundle, Failure)
-        release_session_id = release_bundle["session"]["session_id"]
-        claimed = service.claim_task(
-            release_session_id,
-            f"{prefix}-primary",
-            owner="release-worker",
-        )
-        assert not isinstance(claimed, Failure)
-        released = service.release_task(
-            release_session_id,
-            f"{prefix}-primary",
-            status="completed",
-            result_summary="done",
-        )
-        assert not isinstance(released, Failure)
-        release_tasks = store.list_tasks(release_session_id)
-        release_session = store.get_session(release_session_id)
-        release_events = store.list_events(release_session_id)
-        assert not isinstance(release_tasks, Failure)
-        assert not isinstance(release_session, Failure)
-        assert not isinstance(release_events, Failure)
-        tasks_by_id = {task["task_id"]: task for task in release_tasks}
-        assert tasks_by_id[f"{prefix}-primary"]["status"] == "completed"
-        assert tasks_by_id[f"{prefix}-dependent"]["status"] == "pending"
-        assert release_session["status"] == "pending"
-        assert [event["event_type"] for event in release_events[-2:]] == [
-            "task.unblocked",
-            "task.completed",
-        ]
-        assert release_events[-1]["seq"] == release_events[-2]["seq"] + 1
     finally:
         dedicated_engine.dispose()

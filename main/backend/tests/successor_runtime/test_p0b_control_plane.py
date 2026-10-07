@@ -210,6 +210,84 @@ def test_public_journal_rejects_payload_fields_and_bytes(runtime_scope, bad_even
         )
 
 
+@pytest.mark.parametrize("sequence_type", [tuple, list])
+@pytest.mark.parametrize("count", [0, 2, 4096])
+def test_public_journal_accepts_bounded_child_settlement(runtime_scope, sequence_type, count):
+    connection = RecordingConnection(revision=0)
+    metadata = {
+        "source_step_id": "traversal-step-a",
+        "child_count": count,
+        "child_run_ids": sequence_type(f"child-{index}" for index in range(count)),
+        "child_result_digests": sequence_type("b" * 64 if index % 2 else None for index in range(count)),
+        "result_digest": "b" * 64,
+    }
+    receipt = RuntimeJournalRepository(connection, runtime_scope).commands(
+        run_id="run-1", expected_revision=0, snapshot_values={"state": "RUNNING"},
+        events=({**_event("ActiveChildrenSettled"), "event_metadata_json": metadata},),
+    ).execute(connection)
+    assert receipt.revision == 1
+    event_insert = connection.statements[-1].compile().params
+    assert event_insert["event_metadata_json"] == metadata
+
+
+@pytest.mark.parametrize("event_type,metadata", [
+    ("TraversalMaterializationRequested", {
+        "source_step_id": "traversal-step-a", "input_ref": "project-value:sequence",
+        "traversal_policy": "MATERIALIZED_SHAPE", "input_sequence_digest": "b" * 64,
+        "element_program_digest": "b" * 64, "element_count": 2,
+        "element_digests": ("b" * 64, "c" * 64), "shape_digest": "b" * 64,
+        "binding_digest": "b" * 64, "materialization_digest": "b" * 64,
+    }),
+    ("ActiveChildMaterialized", {
+        "source_step_id": "traversal-step-a", "child_run_id": "child-0",
+        "root_value_identity": "retrieval-budget:root", "root_value_ref": "project-value:budget",
+        "result_step_id": "result", "input_ref": "project-value:invocation-0",
+        "input_digest": "b" * 64, "materialization_digest": "b" * 64,
+        "element_index": 0, "element_digest": "b" * 64,
+        "child_program_digest": "b" * 64, "root_value_digest": "b" * 64,
+    }),
+])
+def test_public_journal_accepts_traversal_lifecycle_metadata(runtime_scope, event_type, metadata):
+    connection = RecordingConnection(revision=0)
+    receipt = RuntimeJournalRepository(connection, runtime_scope).commands(
+        run_id="run-1", expected_revision=0, snapshot_values={"state": "WAITING"},
+        events=({**_event(event_type), "event_metadata_json": metadata},),
+    ).execute(connection)
+    assert receipt.revision == 1
+    assert connection.statements[-1].compile().params["event_metadata_json"] == metadata
+
+
+@pytest.mark.parametrize("field,value", [
+    ("child_count", True), ("child_count", -1), ("child_count", 4097),
+    ("child_count", 1.0), ("child_count", None),
+    ("child_run_ids", "child-0"), ("child_run_ids", ["child-0"] * 4097),
+    ("child_run_ids", [None]), ("child_run_ids", [""]),
+    ("child_run_ids", ["x" * 257]), ("child_run_ids", ["tenant document body"]),
+    ("child_run_ids", [{"body": "secret"}]), ("child_run_ids", [b"secret"]),
+    ("child_result_digests", "b" * 64), ("child_result_digests", [None] * 4097),
+    ("child_result_digests", ["g" * 64]), ("child_result_digests", ["b" * 63]),
+    ("child_result_digests", [1]), ("child_result_digests", [["b" * 64]]),
+    ("child_result_digests", [{"body": "secret"}]),
+    ("arbitrary_ids", ["child-0"]), ("result_digest", ["b" * 64]),
+    ("element_count", False), ("element_count", -1), ("element_count", 4097),
+    ("element_index", True), ("element_index", -1), ("element_index", 4096),
+    ("element_index", 1.0), ("element_digests", [None]),
+    ("element_digests", ["b" * 64] * 4097), ("element_digests", ["g" * 64]),
+    ("element_digests", [{"body": "secret"}]),
+    ("root_value_identity", "tenant document body"), ("root_value_identity", "x" * 257),
+    ("root_value_identity", {"body": "secret"}),
+    ("traversal_policy", "tenant document body"), ("traversal_policy", {"body": "secret"}),
+])
+def test_public_journal_rejects_malformed_child_metadata(runtime_scope, field, value):
+    connection = RecordingConnection(revision=0)
+    with pytest.raises(PublicPayloadViolation):
+        RuntimeJournalRepository(connection, runtime_scope).commands(
+            run_id="run-1", expected_revision=0, snapshot_values={"state": "RUNNING"},
+            events=({**_event("ActiveChildrenSettled"), "event_metadata_json": {field: value}},),
+        )
+    assert connection.statements == []
+
+
 def test_public_program_and_plan_tables_are_opaque_refs_only():
     from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
 

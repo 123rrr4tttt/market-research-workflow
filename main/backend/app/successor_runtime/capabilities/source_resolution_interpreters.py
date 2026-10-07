@@ -32,7 +32,7 @@ from app.successor_runtime.capabilities.checksum import (
     content_digest,
     sha256_hex,
 )
-from app.successor_runtime.language.algebra import ValueRef
+from app.successor_runtime.language.algebra import ValueRef, thaw_json_value as _thaw
 from app.successor_runtime.language.catalog import OperationContractCatalogSnapshot
 from app.successor_runtime.language.object_contracts import OperationContractRef
 from app.successor_runtime.language.plan import ExecutionPlan, with_plan_digest
@@ -211,20 +211,6 @@ class ResolutionInterpreterBindingView(Protocol):
 
     @property
     def interpreter_profile_digest(self) -> str: ...
-
-
-def _thaw(value: Any) -> Any:
-    if isinstance(value, dict):
-        return {str(key): _thaw(item) for key, item in value.items()}
-    if isinstance(value, tuple):
-        if value and all(isinstance(item, tuple) and len(item) == 2 and isinstance(item[0], str) for item in value):
-            return {str(key): _thaw(item) for key, item in value}
-        if not value:
-            return {}
-        return [_thaw(item) for item in value]
-    if isinstance(value, list):
-        return [_thaw(item) for item in value]
-    return value
 
 
 def _as_bool(value: Any, default: bool) -> bool:

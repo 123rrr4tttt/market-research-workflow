@@ -63,15 +63,25 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
     def test_news_dispatch_links_via_source_library_frontdoor_enables_frontdoor_by_default(self):
         captured: dict = {}
 
-        def _fake_collect(urls, *, project_key=None, query_terms=None, extra_params=None, enable_extraction=True):
-            captured["urls"] = list(urls)
-            captured["project_key"] = project_key
-            captured["query_terms"] = list(query_terms or [])
-            captured["extra_params"] = dict(extra_params or {})
-            captured["enable_extraction"] = bool(enable_extraction)
-            return {"inserted": 1, "inserted_valid": 1, "skipped": 0, "queued": 0}
+        def _fake_collect(request):
+            from app.services.collect_runtime.contracts import CollectResult
 
-        with patch("app.services.ingest.url_pool.collect_urls_from_list", side_effect=_fake_collect), patch.object(
+            captured["request"] = request
+            return CollectResult(
+                channel="url_pool",
+                status="partial",
+                inserted=1,
+                meta={
+                    "raw": {
+                        "inserted": 1,
+                        "inserted_valid": 1,
+                        "skipped": 0,
+                        "queued": 0,
+                    }
+                },
+            )
+
+        with patch("app.services.collect_runtime.runtime.run_collect", side_effect=_fake_collect), patch.object(
             news_module, "current_project_key", return_value="demo_proj"
         ):
             result = news_module._dispatch_links_via_source_library_frontdoor(
@@ -80,13 +90,16 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
             )
 
         self.assertEqual(result.get("inserted"), 1)
-        self.assertEqual(captured["project_key"], "demo_proj")
-        self.assertEqual(captured["query_terms"], ["market"])
-        self.assertTrue(captured["enable_extraction"])
-        self.assertEqual(captured["extra_params"].get("front_door_owner"), "ingest.news")
-        self.assertEqual(captured["extra_params"].get("frontdoor_route_decision"), "front_door_url_routing")
-        self.assertEqual(captured["extra_params"].get("frontdoor_write_mode"), "front_door_url_routing")
-        self.assertEqual(captured["extra_params"].get("frontdoor_execution_mode"), "url_routing")
+        request = captured["request"]
+        self.assertEqual(request.channel, "url_pool")
+        self.assertEqual(request.urls, ["https://example.com/news/1"])
+        self.assertEqual(request.project_key, "demo_proj")
+        self.assertEqual(request.query_terms, ["market"])
+        self.assertTrue(request.options["enable_extraction"])
+        self.assertEqual(request.options.get("front_door_owner"), "ingest.news")
+        self.assertEqual(request.options.get("frontdoor_route_decision"), "front_door_url_routing")
+        self.assertEqual(request.options.get("frontdoor_write_mode"), "front_door_url_routing")
+        self.assertEqual(request.options.get("frontdoor_execution_mode"), "url_routing")
 
     def test_ingest_url_via_source_library_frontdoor_uses_source_library_bridge_and_postprocess_writer(self):
         captured: dict = {}
@@ -172,13 +185,23 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
     def test_market_web_routed_fetch_enables_frontdoor_and_passes_route_context(self):
         captured: dict = {}
 
-        def _fake_collect(urls, *, project_key=None, query_terms=None, extra_params=None, enable_extraction=True):
-            captured["urls"] = list(urls)
-            captured["project_key"] = project_key
-            captured["query_terms"] = list(query_terms or [])
-            captured["extra_params"] = dict(extra_params or {})
-            captured["enable_extraction"] = bool(enable_extraction)
-            return {"inserted": 0, "inserted_valid": 0, "skipped": 1, "queued": 0}
+        def _fake_collect(request):
+            from app.services.collect_runtime.contracts import CollectResult
+
+            captured["request"] = request
+            return CollectResult(
+                channel="url_pool",
+                status="partial",
+                skipped=1,
+                meta={
+                    "raw": {
+                        "inserted": 0,
+                        "inserted_valid": 0,
+                        "skipped": 1,
+                        "queued": 0,
+                    }
+                },
+            )
 
         def _fake_search_and_ingest(spec, ports):
             missing_url = "https://example.com/post/1"
@@ -199,8 +222,8 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
             market_web_module, "SessionLocal", return_value=_FakeSession()
         ), patch.object(
             market_web_module, "_get_or_create_source", return_value=SimpleNamespace(id=123)
-        ), patch.object(
-            market_web_module, "collect_urls_from_list", side_effect=_fake_collect
+        ), patch(
+            "app.services.collect_runtime.runtime.run_collect", side_effect=_fake_collect
         ), patch.object(
             market_web_module, "current_project_key", return_value="demo_proj"
         ), patch.object(
@@ -213,13 +236,16 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
             )
 
         self.assertEqual(result.get("body_fetch_routed_urls"), 1)
-        self.assertEqual(captured["project_key"], "demo_proj")
-        self.assertEqual(captured["query_terms"], ["ev"])
-        self.assertEqual(captured["enable_extraction"], False)
-        self.assertEqual(captured["extra_params"].get("front_door_owner"), "ingest.market_web")
-        self.assertEqual(captured["extra_params"].get("frontdoor_route_decision"), "front_door_url_routing")
-        self.assertEqual(captured["extra_params"].get("frontdoor_write_mode"), "front_door_url_routing")
-        self.assertEqual(captured["extra_params"].get("frontdoor_execution_mode"), "url_routing")
+        request = captured["request"]
+        self.assertEqual(request.channel, "url_pool")
+        self.assertEqual(request.urls, ["https://example.com/post/1"])
+        self.assertEqual(request.project_key, "demo_proj")
+        self.assertEqual(request.query_terms, ["ev"])
+        self.assertEqual(request.options["enable_extraction"], False)
+        self.assertEqual(request.options.get("front_door_owner"), "ingest.market_web")
+        self.assertEqual(request.options.get("frontdoor_route_decision"), "front_door_url_routing")
+        self.assertEqual(request.options.get("frontdoor_write_mode"), "front_door_url_routing")
+        self.assertEqual(request.options.get("frontdoor_execution_mode"), "url_routing")
 
     def test_collect_urls_from_pool_preserves_target_specific_search_contracts(self):
         captured: list[dict] = []
@@ -319,7 +345,7 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         with self.assertRaisesRegex(TypeError, "not convertible to integer"):
             social_module._as_count(object())
 
-    def test_url_pool_dynamic_port_guards_reject_incompatible_bindings(self):
+    def test_url_pool_dynamic_database_ports_reject_incompatible_bindings(self):
         with patch.object(
             url_pool_module,
             "import_module",
@@ -330,19 +356,10 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         with patch.object(
             url_pool_module,
             "import_module",
-            return_value=SimpleNamespace(make_html_parser=object()),
-        ):
-            with self.assertRaisesRegex(TypeError, "make_html_parser has an incompatible"):
-                url_pool_module._make_html_parser("<html></html>")
-        with patch.object(
-            url_pool_module,
-            "import_module",
             return_value=SimpleNamespace(list_urls=object()),
         ):
             with self.assertRaisesRegex(TypeError, "list_urls has an incompatible"):
                 url_pool_module.list_urls()
-        with self.assertRaisesRegex(TypeError, "does not support delayed dispatch"):
-            url_pool_module._delay_task(SimpleNamespace(delay=object()))
 
     def test_high_js_frontdoor_route_prefers_browser_render_and_projects_dashboard_status(self):
         captured: dict = {}

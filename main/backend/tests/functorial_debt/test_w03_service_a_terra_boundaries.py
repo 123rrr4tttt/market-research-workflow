@@ -32,14 +32,14 @@ WITNESSES = {
 def test_w03_collect_contract_failures() -> None:
     assert "test:" + test_w03_collect_contract_failures.__name__ in WITNESSES
     failure = collect_runtime._collect_contract_failure(
-        "skill_id_required",
-        "skill_id is required",
+        "successor_effect_gateway_invalid",
+        "successor collect effect gateway must be callable",
         site="test.collect",
     )
     assert failure.family == "collect.runtime.failure"
-    assert failure.code == "skill_id_required"
-    with pytest.raises(ValueError, match="^skill_id is required$"):
-        collect_runtime.register_collect_skill("", object())
+    assert failure.code == "successor_effect_gateway_invalid"
+    with pytest.raises(TypeError, match="^successor collect effect gateway must be callable$"):
+        collect_runtime.register_successor_collect_effect_gateway(object())
 
 
 def test_w03_collect_programmer_defect_boundary(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -139,19 +139,11 @@ class _HistorySession:
 
 def test_w03_effect_boundaries(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "test:" + test_w03_effect_boundaries.__name__ in WITNESSES
-    bundle = acquisition.build_acquisition_batch_bundle()
-    assert bundle.execute_element_operation.owner_capability_id == (
-        acquisition.ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER
-    )
-    assert bundle.profiles["effect.c3_1"].execution_class == "EFFECTFUL"
-    assert bundle.profiles["effect.c3_2"].execution_class == "PURE_TRANSFORM"
-    assert "ELEMENT_EXECUTION_FAILED" in bundle.profiles["failure.c3_1"].typed_failures
-
     failure = collect_runtime_failures.fail(
         "auto_batch_execution_failed",
         "batch failure",
         {
-            "operation": acquisition.COLLECT_EXECUTE_BATCH_ELEMENT_KIND,
+            "operation": "collect.runtime",
             "owner": acquisition.ACQUISITION_BATCH_EXECUTE_ELEMENT_OWNER,
             "site": "test_w03_effect_boundaries",
             "witness": "test:test_w03_effect_boundaries",

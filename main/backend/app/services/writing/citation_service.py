@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from sqlalchemy import delete
+from sqlalchemy.orm import Session
 
 from ...models.base import SessionLocal, run_with_session_retry
 from ...models.writing_entities import WritingDocumentCitation
@@ -10,24 +11,16 @@ from ..document_queries import list_citations_for_document, require_active_docum
 from ..document_views import serialize_writing_citation
 
 
-def _serialize_citation(row: WritingDocumentCitation) -> dict[str, Any]:
-    return serialize_writing_citation(row)
-
-
-def _ensure_document_exists(session, *, doc_id: int, project_key: str) -> None:
-    require_active_document(session, doc_id=doc_id, project_key=project_key)
-
-
 def list_citations(*, doc_id: int, project_key: str) -> list[dict[str, Any]]:
     with SessionLocal() as session:
-        _ensure_document_exists(session, doc_id=doc_id, project_key=project_key)
+        require_active_document(session, doc_id=doc_id, project_key=project_key)
         rows = list_citations_for_document(session, doc_id=doc_id, project_key=project_key)
-        return [_serialize_citation(row) for row in rows]
+        return [serialize_writing_citation(row) for row in rows]
 
 
 def upsert_citations(*, doc_id: int, project_key: str, citations: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    def _op(session) -> list[dict[str, Any]]:
-        _ensure_document_exists(session, doc_id=doc_id, project_key=project_key)
+    def _op(session: Session) -> list[dict[str, Any]]:
+        require_active_document(session, doc_id=doc_id, project_key=project_key)
         session.execute(
             delete(WritingDocumentCitation).where(
                 WritingDocumentCitation.doc_id == int(doc_id),
@@ -50,7 +43,7 @@ def upsert_citations(*, doc_id: int, project_key: str, citations: list[dict[str,
             session.add(row)
             rows.append(row)
         session.flush()
-        return [_serialize_citation(row) for row in rows]
+        return [serialize_writing_citation(row) for row in rows]
 
     return run_with_session_retry(_op, log_context={"operation": "upsert_writing_citations", "doc_id": doc_id, "project_key": project_key})
 

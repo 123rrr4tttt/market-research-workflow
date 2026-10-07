@@ -2,25 +2,34 @@ from __future__ import annotations
 
 import unittest
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.services.agent_sessions import (
-    reset_agent_session_service_for_tests,
-    reset_agent_session_store_for_tests,
-)
-from app.services.agent_sessions.service import AgentSessionService
-from app.services.agent_sessions.store import InMemoryAgentSessionStore
 from app.services import workflow_graph as workflow_graph_module
 from app.services.workflow_graph import WorkflowGraphRuntimeService
 from app.services.workflow_graph.governance_contract import build_graph_rollback_contract
-from app.services.workflow_graph.runtime import WorkflowGraphPlatformInterpreter
-from app.services.workflow_graph.store import InMemoryCompiledGraphStore, InMemoryRunStore
+from app.services.workflow_graph.runtime import (
+    WorkflowNodeSettledFailure,
+    invoke_workflow_runtime_node,
+)
+from app.services.workflow_graph.store import (
+    InMemoryCompiledGraphStore,
+    InMemoryHistoricalWorkflowRunReader,
+)
+from app.successor_runtime.capabilities.workflow_native_contribution import (
+    WORKFLOW_RUNTIME_CONTEXT_TYPE,
+    WORKFLOW_RUNTIME_CONTEXT_CODEC_ID,
+    WorkflowExecutionContext,
+    build_workflow_runtime_definition,
+    decode_workflow_runtime_output,
+)
+from app.successor_runtime.capabilities.checksum import canonical_json, content_digest, sha256_hex
+from app.successor_runtime.language.algebra import ValueRef
 from app.successor_runtime.capabilities.workflow_legacy_dsl import (
     parse_and_validate_workflow_dsl,
-    workflow_program_metadata,
 )
+from app.successor_runtime.runtime.ports import ProjectScopeRef
 
 
 pytestmark = pytest.mark.unit
@@ -31,286 +40,157 @@ def _dsl() -> dict[str, Any]:
         "version": "1.0",
         "options": {},
         "nodes": [
-            {"node_id": "n1", "node_type": "vector_search", "config": {"query": "ai", "top_k": 2}},
-            {"node_id": "n2", "node_type": "llm_call", "config": {"prompt": "summarize"}},
-            {"node_id": "n3", "node_type": "join", "config": {"field": "text"}},
+            {
+                "node_id": "n1",
+                "node_type": "vector_search",
+                "config": {"query": "ai", "top_k": 2},
+            },
+            {
+                "node_id": "n2",
+                "node_type": "llm_call",
+                "config": {
+                    "input_vars": [{
+                        "name": "prompt",
+                        "source": "node_output",
+                        "from_node": "n1",
+                        "from_key": "text",
+                        "required": True,
+                    }]
+                },
+            },
         ],
-        "edges": [
-            {"from": "n1", "to": "n2"},
-            {"from": "n2", "to": "n3"},
-            {"from": "n1", "to": "n3"},
-        ],
+        "edges": [{"from": "n1", "to": "n2"}],
     }
 
 
-def _bound() -> tuple[Any, Any, dict[str, Any]]:
-    receipt = parse_and_validate_workflow_dsl(_dsl())
-    assert receipt.ok and receipt.plan is not None
-    metadata = workflow_program_metadata(receipt.program)
-    nodes = {
-        str(item["node_id"]): {
-            "id": str(item["node_id"]),
-            "node_type": item["node_type"],
-            "params": dict(item["config"]),
-        }
-        for item in metadata["nodes"]
-    }
-    workflow = {
-        "workflow_id": "wf-bound",
-        "program_digest": receipt.program_digest,
-        "plan_digest": receipt.plan_digest,
-        "topo_order": list(metadata["topo_order"]),
-        "nodes": nodes,
-    }
-    for node in nodes.values():
-        incoming = [edge["from"] for edge in metadata["edges"] if edge["to"] == node["id"]]
-        node["depends_on"] = incoming
-    return receipt.program, receipt.plan, workflow
+def _context(*, cursor: int = 0, results: dict[str, Any] | None = None) -> WorkflowExecutionContext:
+    return WorkflowExecutionContext(
+        schema="mrw.workflow.runtime.context.v1",
+        workflow_id="wf-runtime",
+        project_key="demo_proj",
+        trace_id="trace-runtime",
+        inputs={"query": "ai"},
+        nodes=(
+            {
+                "node_id": "n1",
+                "node_type": "vector_search",
+                "params": {"query": "ai"},
+                "depends_on": [],
+            },
+            {
+                "node_id": "n2",
+                "node_type": "llm_call",
+                "params": _dsl()["nodes"][1]["config"],
+                "depends_on": ["n1"],
+            },
+        ),
+        cursor=cursor,
+        results=dict(results or {}),
+    )
 
 
-def _effect(node_type: str, payload: dict[str, Any]):
-    from app.services.workflow_graph.executors.kernel import node_success
-
-    def execute(context):
-        assert context.node_type == node_type
-        return node_success(context, payload)
-
-    return execute
-
-
-class WorkflowGraphPlatformInterpreterUnitTest(unittest.TestCase):
-    def setUp(self) -> None:
-        store = InMemoryAgentSessionStore()
-        reset_agent_session_store_for_tests(store)
-        reset_agent_session_service_for_tests(
-            AgentSessionService(store=store)
+class WorkflowRuntimeKernelUnitTest(unittest.TestCase):
+    def test_durable_output_is_decoded_by_the_matching_operation_codec(self) -> None:
+        context = _context(cursor=1, results={"n1": {"text": "found"}})
+        operation = build_workflow_runtime_definition().operation_for_node_type("vector_search")
+        exact = canonical_json(operation.context_codec.encode_payload(context)).encode()
+        value_ref = ValueRef(
+            value_id="workflow-output-1",
+            project_key="demo_proj",
+            object_type=WORKFLOW_RUNTIME_CONTEXT_TYPE,
+            codec_id=WORKFLOW_RUNTIME_CONTEXT_CODEC_ID,
+            content_digest=sha256_hex(exact),
+            storage_kind="runtime_blob_ref",
+            store_id="successor_values",
+            store_version="1",
+            storage_ref="runtime-output:workflow-output-1",
+            byte_size=len(exact),
+            provenance_digest=content_digest({"output": "workflow-output-1"}),
         )
 
-    def test_plan_bound_interpreter_preserves_order_and_single_node_identity(self) -> None:
-        program, plan, workflow = _bound()
-        calls: list[str] = []
+        decoded = decode_workflow_runtime_output(value_ref, exact)
+
+        self.assertEqual(decoded.cursor, 1)
+        self.assertEqual(decoded.results, {"n1": {"text": "found"}})
+
+    def test_current_occurrence_invokes_one_kernel_and_advances_typed_context(self) -> None:
+        from app.services.workflow_graph.executors.kernel import node_success
 
         def execute(context):
-            calls.append(context.node_id)
-            from app.services.workflow_graph.executors.kernel import node_success
-
-            payload = {
-                "vector_search": {"text": "ai"},
-                "llm_call": {"text": "summary"},
-                "join": {"values": ["ai", "summary"]},
-            }[context.node_type]
-            return node_success(context, payload)
+            self.assertEqual(context.node_id, "n1")
+            self.assertEqual(context.inputs["query"], "ai")
+            return node_success(context, {"text": "found"})
 
         with patch(
             "app.services.workflow_graph.runtime.execute_node",
             side_effect=execute,
         ) as kernel:
-            snapshot = WorkflowGraphPlatformInterpreter().run(
-                plan=plan,
-                program=program,
-                workflow=workflow,
-                inputs={"query": "ai"},
-                run_id="run-order",
-            )
+            advanced = invoke_workflow_runtime_node(_context())
 
-        self.assertEqual(calls, ["n1", "n2", "n3"])
-        self.assertEqual(kernel.call_count, 3)
-        self.assertEqual(snapshot["run"]["status"], "succeeded")
-        self.assertEqual(list(snapshot["results"]), ["n1", "n2", "n3"])
-        self.assertEqual(snapshot["results"]["n3"]["values"], ["ai", "summary"])
-        self.assertEqual(snapshot["run"]["metadata"]["program_digest"], workflow["program_digest"])
-        self.assertEqual(snapshot["run"]["metadata"]["plan_digest"], workflow["plan_digest"])
+        self.assertEqual(kernel.call_count, 1)
+        self.assertEqual(advanced.cursor, 1)
+        self.assertEqual(advanced.results["n1"]["text"], "found")
 
-    def test_kernel_failure_stops_unexecuted_downstream_nodes(self) -> None:
-        program, plan, workflow = _bound()
+    def test_upstream_result_projection_is_preserved_at_runtime_leaf(self) -> None:
+        from app.services.workflow_graph.executors.kernel import node_success
 
         def execute(context):
-            from app.services.workflow_graph.executors.kernel import node_failed
+            self.assertEqual(context.node_id, "n2")
+            self.assertEqual(context.inputs["prompt"], "found")
+            return node_success(context, {"text": "summary"})
 
-            if context.node_id == "n2":
-                return node_failed(
-                    context,
-                    "required_input_missing",
-                    "prompt_template_missing_inputs:topic",
-                    owner="workflow_graph.kernel.llm_call",
-                    details={"missing": ["topic"]},
+        with patch("app.services.workflow_graph.runtime.execute_node", side_effect=execute):
+            advanced = invoke_workflow_runtime_node(
+                _context(cursor=1, results={"n1": {"text": "found"}}),
+            )
+
+        self.assertEqual(advanced.cursor, 2)
+        self.assertEqual(advanced.results["n2"]["text"], "summary")
+
+    def test_typed_kernel_failure_lifts_without_running_a_private_loop(self) -> None:
+        from app.services.workflow_graph.executors.kernel import node_failed
+
+        def execute(context):
+            return node_failed(
+                context,
+                "required_input_missing",
+                "missing prompt",
+                owner="workflow_graph.kernel.llm_call",
+                details={},
+            )
+
+        with patch("app.services.workflow_graph.runtime.execute_node", side_effect=execute):
+            with self.assertRaisesRegex(WorkflowNodeSettledFailure, "missing prompt") as raised:
+                invoke_workflow_runtime_node(
+                    _context(cursor=1, results={"n1": {"text": "found"}}),
                 )
-            from app.services.workflow_graph.executors.kernel import node_success
+        self.assertEqual(raised.exception.failure_code, "required_input_missing")
 
-            return node_success(context, {"text": "ok"})
-
+    def test_unknown_kernel_exception_remains_unclassified(self) -> None:
         with patch(
             "app.services.workflow_graph.runtime.execute_node",
-            side_effect=execute,
-        ) as kernel:
-            engine = WorkflowGraphPlatformInterpreter()
-            snapshot = engine.run(
-                plan=plan,
-                program=program,
-                workflow=workflow,
-                run_id="run-failure",
-            )
-
-        self.assertEqual(snapshot["run"]["status"], "failed")
-        self.assertEqual(snapshot["run"]["node_statuses"], {
-            "n1": "succeeded",
-            "n2": "failed",
-            "n3": "queued",
-        })
-        self.assertEqual(kernel.call_count, 2)
-        failed = [event for event in snapshot["events"] if event["event_type"] == "node.failed"][0]
-        self.assertEqual(failed["payload"]["failure_code"], "required_input_missing")
-        self.assertEqual(
-            failed["payload"]["failure_context"]["owner"],
-            "workflow_graph.kernel.llm_call",
-        )
-        service = WorkflowGraphRuntimeService()
-        service._engine = engine
-        replay = service.replay_run("run-failure", replay_mode="stateful")
-        self.assertTrue(replay["replay_consistency"]["consistent"])
-        self.assertEqual(replay["node_statuses"]["n3"], "queued")
-
-    def test_expression_and_node_output_input_projection_is_preserved(self) -> None:
-        payload = _dsl()
-        payload["nodes"][0]["config"]["input_vars"] = [{
-            "name": "query",
-            "source": "expression",
-            "expr": "={{$input.query}}",
-            "required": True,
-        }]
-        payload["nodes"][1]["config"] = {
-            "input_vars": [{
-                "name": "prompt",
-                "source": "node_output",
-                "from_node": "n1",
-                "from_key": "text",
-                "required": True,
-            }]
-        }
-        receipt = parse_and_validate_workflow_dsl(payload)
-        assert receipt.ok and receipt.plan is not None
-        metadata = workflow_program_metadata(receipt.program)
-        nodes = {
-            str(item["node_id"]): {
-                "id": str(item["node_id"]),
-                "node_type": item["node_type"],
-                "params": dict(item["config"]),
-            }
-            for item in metadata["nodes"]
-        }
-        workflow = {
-            "workflow_id": "wf-input",
-            "program_digest": receipt.program_digest,
-            "plan_digest": receipt.plan_digest,
-            "topo_order": list(metadata["topo_order"]),
-            "nodes": nodes,
-        }
-        captured: dict[str, Any] = {}
-
-        def execute(context):
-            from app.services.workflow_graph.executors.kernel import node_success
-
-            captured[context.node_id] = context
-            payload = {"n1": {"text": "hello"}, "n2": {"text": "hello"}, "n3": {}}
-            return node_success(context, payload[context.node_id])
-
-        with patch(
-            "app.services.workflow_graph.runtime.execute_node",
-            side_effect=execute,
+            side_effect=RuntimeError("unknown kernel fault"),
         ):
-            snapshot = WorkflowGraphPlatformInterpreter().run(
-                plan=receipt.plan,
-                program=receipt.program,
-                workflow=workflow,
-                inputs={"query": "hello"},
-                run_id="run-input",
-            )
-
-        self.assertEqual(captured["n1"].inputs.get("query"), "hello")
-        self.assertEqual(captured["n2"].inputs.get("prompt"), "hello")
-        self.assertEqual(
-            snapshot["results"]["n1"]["io_trace"]["query"]["source"],
-            "expression",
-        )
-
-    def test_topo_drift_fails_without_executing_kernels(self) -> None:
-        program, plan, workflow = _bound()
-        workflow["topo_order"] = ["n2", "n1", "n3"]
-        with patch(
-            "app.services.workflow_graph.runtime.execute_node",
-            side_effect=AssertionError("kernel must not run"),
-        ):
-            snapshot = WorkflowGraphPlatformInterpreter().run(
-                plan=plan,
-                program=program,
-                workflow=workflow,
-                run_id="run-drift",
-            )
-
-        self.assertEqual(snapshot["run"]["status"], "failed")
-        failed = [event for event in snapshot["events"] if event["event_type"] == "run.failed"][0]
-        self.assertEqual(failed["payload"]["reason_code"], "workflow_integrity_failed")
+            with self.assertRaisesRegex(RuntimeError, "unknown kernel fault"):
+                invoke_workflow_runtime_node(_context())
 
 
 class WorkflowGraphServiceUnitTest(unittest.TestCase):
-    def setUp(self) -> None:
-        store = InMemoryAgentSessionStore()
-        reset_agent_session_store_for_tests(store)
-        reset_agent_session_service_for_tests(
-            AgentSessionService(store=store)
-        )
+    def test_compiler_keeps_historical_dsl_binding_for_durable_lowering(self) -> None:
+        store = InMemoryCompiledGraphStore()
+        service = workflow_graph_module.WorkflowGraphCompilerService(store=store)
+        response = service.compile({"graph_id": "wf-platform", "dsl": _dsl()})
+        receipt = parse_and_validate_workflow_dsl(_dsl())
 
-    def test_service_uses_current_lowering_and_platform_interpreter(self) -> None:
-        compiled_store = InMemoryCompiledGraphStore()
-        compiler_service = workflow_graph_module.WorkflowGraphCompilerService(
-            store=compiled_store,
-        )
-        response = compiler_service.compile({
-            "graph_id": "wf-platform",
-            "dsl": {
-                "version": "1.0",
-                "nodes": [
-                    {"node_id": "n1", "node_type": "vector_search", "config": {"query": "ai"}},
-                    {"node_id": "n2", "node_type": "join"},
-                ],
-                "edges": [{"from": "n1", "to": "n2"}],
-            },
-        })
-        self.assertTrue(response["program_digest"])
-        self.assertTrue(response["plan_digest"])
-        reloaded_compiler = workflow_graph_module.WorkflowGraphCompilerService(
-            store=compiled_store,
-        )
-        service = WorkflowGraphRuntimeService()
-        service._engine = WorkflowGraphPlatformInterpreter(store=InMemoryRunStore())
+        self.assertTrue(receipt.ok)
+        self.assertEqual(response["program_digest"], receipt.program_digest)
+        self.assertEqual(service.get_compiled("wf-platform")["topo_order"], ["n1", "n2"])
 
-        def execute(context):
-            from app.services.workflow_graph.executors.kernel import node_success
-
-            return node_success(context, {"text": "ai"} if context.node_id == "n1" else {"values": ["ai"]})
-
-        with (
-            patch.object(workflow_graph_module, "compiler", reloaded_compiler),
-            patch(
-                "app.services.workflow_graph.runtime.execute_node",
-                side_effect=execute,
-            ) as kernel,
-        ):
-            out = service.run({"graph_id": "wf-platform", "input": {"query": "ai"}})
-
-        self.assertEqual(out["status"], "succeeded")
-        self.assertEqual(out["compat_mode"], False)
-        self.assertEqual(kernel.call_count, 2)
-        detail = service.get_run(str(out["run_id"]))
-        self.assertEqual(detail["status"], "succeeded")
-        self.assertEqual(detail["metadata"]["program_digest"], response["program_digest"])
-        self.assertEqual(detail["metadata"]["plan_digest"], response["plan_digest"])
-
-    def test_service_rejects_stale_platform_binding(self) -> None:
+    def test_service_rejects_stale_historical_binding_before_submission(self) -> None:
         service = WorkflowGraphRuntimeService()
         compiled = {
             "dsl": _dsl(),
-            "topo_order": ["n1"],
+            "topo_order": ["n1", "n2"],
             "nodes": {},
             "platform": {
                 "program_digest": "stale",
@@ -318,44 +198,332 @@ class WorkflowGraphServiceUnitTest(unittest.TestCase):
                 "catalog_digest": "stale",
             },
         }
-        with patch.object(workflow_graph_module, "compiler") as compiler_patch:
-            compiler_patch.get_compiled.return_value = compiled
+        with patch.object(workflow_graph_module, "compiler") as compiler:
+            compiler.get_compiled.return_value = compiled
             with self.assertRaisesRegex(ValueError, "platform binding is stale"):
-                service.run({"graph_id": "stale", "input": {}})
+                service.run({
+                    "graph_id": "stale",
+                    "project_key": "demo_proj",
+                    "actor_id": "trusted-actor",
+                    "input": {},
+                })
 
-    def test_replay_run_reports_explicit_consistency_mismatch(self) -> None:
-        service = WorkflowGraphRuntimeService()
-        service._engine = WorkflowGraphPlatformInterpreter(store=InMemoryRunStore())
-        run_id = service._engine.store.create_run(
-            run_id="run-replay-mismatch",
-            topo_order=["n1"],
+    def test_service_submits_compiled_graph_to_canonical_runtime(self) -> None:
+        store = InMemoryCompiledGraphStore()
+        compiler = workflow_graph_module.WorkflowGraphCompilerService(store=store)
+        compiler.compile({"graph_id": "wf-submit", "dsl": _dsl()})
+        scope = ProjectScopeRef(
+            project_key="demo_proj",
+            resolved_schema="project_demo_proj",
+            project_registry_revision=3,
+            incarnation="project-incarnation",
+            scope_digest="a" * 64,
         )
-        service._engine.store.set_run_status(run_id, "succeeded")
-        service._engine.store.append_event(run_id, event_type="run.running")
-        service._engine.store.append_event(run_id, event_type="node.running", node_id="n1")
+        fake_engine = MagicMock()
+        fake_engine.connect.return_value.__enter__.return_value = MagicMock()
+        resolver = MagicMock()
+        resolver.resolve.return_value = scope
 
-        replay = service.replay_run(run_id, replay_mode="events_only")
+        with (
+            patch.object(workflow_graph_module, "compiler", compiler),
+            patch("app.models.base.engine", fake_engine),
+            patch(
+                "app.successor_runtime.substrate.postgres.session.ServerProjectScopeResolver",
+                return_value=resolver,
+            ),
+            patch(
+                "app.composition.production.submit_installed_program",
+                return_value=({"run_id": "run-submit", "state": "RUNNING"}, ("work-1",)),
+            ) as submit,
+            patch.object(
+                WorkflowGraphRuntimeService,
+                "_read_runtime",
+                return_value=(
+                    {"run_id": "run-submit", "state": "RUNNING"},
+                    (
+                        {"operation_id": "workflow-node:0:n1", "state": "READY"},
+                        {"operation_id": "workflow-node:1:n2", "state": "PENDING"},
+                    ),
+                    (),
+                ),
+            ),
+        ):
+            result = WorkflowGraphRuntimeService().run({
+                "graph_id": "wf-submit",
+                "project_key": "demo_proj",
+                "actor_id": "trusted-actor",
+                "run_id": "run-submit",
+                "input": {"query": "ai"},
+            })
 
-        self.assertFalse(replay["replay_consistency"]["consistent"])
-        codes = [item["code"] for item in replay["replay_consistency"]["issues"]]
-        self.assertIn("run_status_mismatch", codes)
-        self.assertIn("node_status_mismatch", codes)
+        self.assertEqual(result["status"], "running")
+        self.assertEqual(result["node_statuses"], {"n1": "queued", "n2": "queued"})
+        submitted = submit.call_args.kwargs
+        self.assertEqual(submitted["project_key"], "demo_proj")
+        self.assertEqual(submitted["actor_id"], "trusted-actor")
+        self.assertEqual(dict(submitted["program"].metadata)["workflow_id"], "wf-submit")
+        self.assertEqual(len(submitted["values"]), 2)
+
+    def test_idempotency_key_without_run_id_uses_one_stable_runtime_identity(self) -> None:
+        store = InMemoryCompiledGraphStore()
+        compiler = workflow_graph_module.WorkflowGraphCompilerService(store=store)
+        compiler.compile({"graph_id": "wf-idempotent", "dsl": _dsl()})
+        scope = ProjectScopeRef(
+            project_key="demo_proj",
+            resolved_schema="project_demo_proj",
+            project_registry_revision=3,
+            incarnation="project-incarnation",
+            scope_digest="a" * 64,
+        )
+        fake_engine = MagicMock()
+        fake_engine.connect.return_value.__enter__.return_value = MagicMock()
+        resolver = MagicMock()
+        resolver.resolve.return_value = scope
+
+        def readback(*, run_id: str, **_kwargs: object):
+            return (
+                {"run_id": run_id, "state": "READY"},
+                (
+                    {"operation_id": "workflow-node:0:n1", "state": "READY"},
+                    {"operation_id": "workflow-node:1:n2", "state": "PENDING"},
+                ),
+                (),
+            )
+
+        with (
+            patch.object(workflow_graph_module, "compiler", compiler),
+            patch("app.models.base.engine", fake_engine),
+            patch(
+                "app.successor_runtime.substrate.postgres.session.ServerProjectScopeResolver",
+                return_value=resolver,
+            ),
+            patch(
+                "app.composition.production.submit_installed_program",
+                return_value=({}, ()),
+            ) as submit,
+            patch.object(
+                WorkflowGraphRuntimeService,
+                "_read_runtime",
+                side_effect=readback,
+            ),
+        ):
+            service = WorkflowGraphRuntimeService()
+            payload = {
+                "graph_id": "wf-idempotent",
+                "project_key": "demo_proj",
+                "actor_id": "trusted-actor",
+                "idempotency_key": "same-request",
+                "input": {"query": "ai"},
+            }
+            first = service.run(payload)
+            second = service.run(payload)
+
+        first_run_id = submit.call_args_list[0].kwargs["run_id"]
+        second_run_id = submit.call_args_list[1].kwargs["run_id"]
+        self.assertEqual(first["run_id"], second["run_id"])
+        self.assertEqual(first_run_id, second_run_id)
+        self.assertEqual(first["node_statuses"], {"n1": "queued", "n2": "queued"})
+
+    def test_readback_maps_only_canonical_runtime_facts(self) -> None:
+        service = WorkflowGraphRuntimeService()
+        run = {
+            "run_id": "run-1",
+            "state": "RUNNING",
+            "project_key": "demo_proj",
+            "program_id": "program-1",
+            "program_digest": "a" * 64,
+            "plan_id": "plan-1",
+            "plan_digest": "b" * 64,
+        }
+        steps = (
+            {"step_id": "s1", "operation_id": "workflow-node:0:n1", "state": "SUCCEEDED"},
+            {"step_id": "s2", "operation_id": "workflow-node:1:n2", "state": "RUNNING"},
+        )
+        with patch.object(service, "_read_runtime", return_value=(run, steps, ())):
+            detail = service.get_run(
+                "run-1", project_key="demo_proj", actor_id="trusted-actor",
+            )
+
+        self.assertEqual(detail["status"], "running")
+        self.assertEqual(detail["node_statuses"], {"n1": "succeeded", "n2": "running"})
+        self.assertNotIn("session_id", detail)
+
+    def test_historical_read_requires_explicit_source_and_matching_project(self) -> None:
+        historical_reader = InMemoryHistoricalWorkflowRunReader({
+            "legacy-run": {
+                "run": {
+                    "run_id": "legacy-run",
+                    "status": "succeeded",
+                    "created_at": "2026-09-01T00:00:00+00:00",
+                    "updated_at": "2026-09-01T00:01:00+00:00",
+                    "node_statuses": {"n1": "succeeded"},
+                    "metadata": {
+                        "project_key": "demo_proj",
+                        "workflow_id": "legacy-workflow",
+                    },
+                },
+                "events": [],
+                "results": {"n1": {"text": "legacy"}},
+            },
+        })
+        service = WorkflowGraphRuntimeService(historical_reader=historical_reader)
+
+        detail = service.get_run(
+            "legacy-run",
+            project_key="demo_proj",
+            actor_id="trusted-actor",
+            source="historical",
+        )
+        events = service.get_run_events(
+            "legacy-run",
+            project_key="demo_proj",
+            actor_id="trusted-actor",
+            source="historical",
+        )
+
+        self.assertEqual(detail["metadata"]["workflow_id"], "legacy-workflow")
+        self.assertEqual(events, {"items": [], "session_id": None})
+        with self.assertRaisesRegex(KeyError, "not available in this project"):
+            service.get_run(
+                "legacy-run",
+                project_key="other_proj",
+                actor_id="trusted-actor",
+                source="historical",
+            )
+
+    def test_agent_session_projection_is_folded_read_only_from_runtime_journal(self) -> None:
+        service = WorkflowGraphRuntimeService()
+        scope = ProjectScopeRef(
+            project_key="demo_proj",
+            resolved_schema="project_demo_proj",
+            project_registry_revision=3,
+            incarnation="project-incarnation",
+            scope_digest="a" * 64,
+        )
+        fake_engine = MagicMock()
+        fake_engine.connect.return_value.__enter__.return_value = MagicMock()
+        resolver = MagicMock()
+        resolver.resolve.return_value = scope
+        task = MagicMock()
+        task.model_dump.return_value = {"task_id": "step-1", "status": "completed"}
+        snapshot = MagicMock()
+        snapshot.model_dump.return_value = {
+            "session_id": "run-1",
+            "run_id": "run-1",
+            "run_incarnation": "workflow:run-1",
+            "status": "completed",
+        }
+        snapshot.tasks = (task,)
+        adapter = MagicMock()
+        adapter.load.return_value = snapshot
+        with (
+            patch.object(
+                service,
+                "_read_runtime",
+                return_value=({"incarnation": "workflow:run-1"}, (), ()),
+            ),
+            patch.object(
+                service,
+                "get_run_events",
+                return_value={"items": [{"event_type": "RunCompletionDerived"}]},
+            ),
+            patch("app.models.base.engine", fake_engine),
+            patch(
+                "app.successor_runtime.substrate.postgres.session.ServerProjectScopeResolver",
+                return_value=resolver,
+            ),
+            patch(
+                "app.successor_runtime.substrate.projections.agent_session.PostgresAgentSessionReadAdapter",
+                return_value=adapter,
+            ),
+        ):
+            bundle = service.get_run_agent_session(
+                "run-1", project_key="demo_proj", actor_id="trusted-actor",
+            )
+
+        self.assertEqual(bundle["session"]["session_id"], "run-1")
+        self.assertEqual(bundle["tasks"], [{"task_id": "step-1", "status": "completed"}])
+        self.assertEqual(bundle["artifacts"], [])
+        adapter.load.assert_called_once()
+
+    def test_replay_consistency_is_derived_from_journal_projection(self) -> None:
+        service = WorkflowGraphRuntimeService()
+        run = {"state": "COMPLETED", "incarnation": "workflow:run-1"}
+        steps = (
+            {
+                "step_id": "step-1",
+                "operation_id": "workflow-node:0:n1",
+                "state": "SUCCEEDED",
+                "output_digest": "a" * 64,
+            },
+        )
+        task = MagicMock(step_id="step-1", step_state="SUCCEEDED")
+        snapshot = MagicMock(status="completed", tasks=(task,))
+        with (
+            patch.object(service, "_read_runtime", return_value=(run, steps, ({},))),
+            patch.object(service, "_load_agent_session_snapshot", return_value=snapshot),
+            patch.object(service, "get_run_events", return_value={"items": []}),
+            patch.object(
+                service,
+                "_read_runtime_outputs",
+                return_value=(("step-1", _context(
+                    cursor=1, results={"n1": {"text": "found"}},
+                )),),
+            ),
+        ):
+            replay = service.replay_run(
+                "run-1", "stateful",
+                project_key="demo_proj", actor_id="trusted-actor",
+            )
+
+        self.assertEqual(replay["status"], "succeeded")
+        self.assertEqual(replay["node_statuses"], {"n1": "succeeded"})
+        self.assertTrue(replay["replay_consistency"]["consistent"])
+        self.assertEqual(replay["results"], {"n1": {"text": "found"}})
+
+    def test_stateful_replay_returns_latest_partial_results_after_failure(self) -> None:
+        service = WorkflowGraphRuntimeService()
+        run = {"state": "FAILED", "incarnation": "workflow:run-1"}
+        steps = (
+            {
+                "step_id": "step-1",
+                "operation_id": "workflow-node:0:n1",
+                "state": "SUCCEEDED",
+            },
+            {
+                "step_id": "step-2",
+                "operation_id": "workflow-node:1:n2",
+                "state": "FAILED",
+            },
+        )
+        first_task = MagicMock(step_id="step-1", step_state="SUCCEEDED")
+        second_task = MagicMock(step_id="step-2", step_state="FAILED")
+        snapshot = MagicMock(status="failed", tasks=(first_task, second_task))
+        with (
+            patch.object(service, "_read_runtime", return_value=(run, steps, ({},))),
+            patch.object(service, "_load_agent_session_snapshot", return_value=snapshot),
+            patch.object(service, "get_run_events", return_value={"items": []}),
+            patch.object(
+                service,
+                "_read_runtime_outputs",
+                return_value=(("step-1", _context(
+                    cursor=1, results={"n1": {"text": "partial"}},
+                )),),
+            ),
+        ):
+            replay = service.replay_run(
+                "run-1", "stateful",
+                project_key="demo_proj", actor_id="trusted-actor",
+            )
+
+        self.assertEqual(replay["status"], "failed")
+        self.assertEqual(replay["results"], {"n1": {"text": "partial"}})
 
 
 class WorkflowGraphCompatibilityUnitTest(unittest.TestCase):
-    def test_old_runtime_and_wrappers_are_retired(self) -> None:
+    def test_private_graph_interpreter_is_retired(self) -> None:
         with self.assertRaises(ImportError):
-            from app.services.workflow_graph.runtime import WorkflowGraphRuntime  # noqa: F401
-        with self.assertRaises(ImportError):
-            from app.services.workflow_graph.executors.base import (  # noqa: F401
-                LegacyNodeExecutionContext,
-            )
-        with self.assertRaises(ImportError):
-            from app.services.workflow_graph.executors.join import JoinExecutor  # noqa: F401
-        with self.assertRaises(ImportError):
-            from app.services.workflow_graph.executors.llm_call import LLMCallExecutor  # noqa: F401
-        with self.assertRaises(ImportError):
-            from app.services.workflow_graph.executors.vector_search import VectorSearchExecutor  # noqa: F401
+            from app.services.workflow_graph.runtime import WorkflowGraphPlatformInterpreter  # noqa: F401
 
     def test_graph_rollback_contract_is_preserved(self) -> None:
         contract = build_graph_rollback_contract(

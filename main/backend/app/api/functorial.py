@@ -116,7 +116,11 @@ def functorial_list_motifs() -> dict[str, Any]:
 @router.post("/motifs", response_model=FunctorialEnvelope)
 def functorial_compose_motif(payload: MotifComposePayload) -> dict[str, Any]:
     try:
-        spec = compose_motif(payload.motif_id, payload.name, payload.composition)
+        spec = compose_motif(
+            payload.motif_id,
+            payload.name or payload.motif_id,
+            payload.composition,
+        )
     except Exception as exc:  # noqa: BLE001
         raise _service_http_error(exc) from exc
     record = functorial_catalog.get("motifs", spec.motif_id)
@@ -140,7 +144,7 @@ def functorial_build_workflow(payload: WorkflowBuildPayload) -> dict[str, Any]:
     try:
         spec = build_workflow_program(
             workflow_id=payload.workflow_id,
-            name=payload.name,
+            name=payload.name or payload.workflow_id,
             steps=payload.steps,
             laws=payload.laws,
         )

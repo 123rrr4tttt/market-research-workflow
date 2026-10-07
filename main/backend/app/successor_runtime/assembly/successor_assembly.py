@@ -3,7 +3,7 @@
 This module is the I1 serial integration boundary.  It installs every family
 assembly returned by the family builders into the existing
 ``compose_postgres_first_specimen_runtime`` graph via ``additional_handlers``
-and records a fail-closed 27-cell coverage matrix.  It intentionally does not
+and records a fail-closed declared-cell coverage matrix.  It intentionally does not
 mount an app route, start a node, call a live provider or perform a canonical
 write; those are separate authority milestones.
 """
@@ -22,9 +22,6 @@ from app.successor_runtime.capabilities.batch_task_native_contribution import (
 # Coverage comes from author declarations, independently of assembled results.
 from app.successor_runtime.capabilities.workflow_native_contribution import (
     ASSEMBLY_CELL_IDS as WORKFLOW_CELL_IDS,
-)
-from app.successor_runtime.capabilities.acquisition_native_contribution import (
-    ASSEMBLY_CELL_IDS as ACQUISITION_CELL_IDS,
 )
 from app.successor_runtime.capabilities.source_native_contribution import (
     ASSEMBLY_CELL_IDS as SOURCE_CELL_IDS,
@@ -56,7 +53,6 @@ from app.successor_runtime.substrate.projections.registry import (
 
 from .base import (
     PROJECTOR_REGISTRY_INCARNATION,
-    AcquisitionAssemblyOptions,
     BatchTaskAssemblyOptions,
     TaskObservationAssemblyOptions,
     KnowledgeAssemblyOptions,
@@ -73,7 +69,6 @@ from .base import (
 )
 from .workflow_assembly import build_workflow_assembly
 from .source_assembly import build_source_assembly
-from .acquisition_batch_assembly import build_acquisition_batch_assembly, build_deterministic_element_payloads
 from .batch_task_assembly import (
     build_batch_task_assembly,
     build_deterministic_plan_payload,
@@ -89,17 +84,8 @@ from .knowledge_assembly import (
     build_deterministic_knowledge_payloads,
 )
 from .projection_assembly import build_projection_assembly, build_deterministic_facade_closure
-from .s1_horizontal_port_assembly import (
-    S1HorizontalPortContract,
-    build_s1_horizontal_port_registry,
-)
-from .s2c_ops_domain_surface_assembly import (
-    S2cOpsDomainSurfaceContract,
-    build_s2c_ops_domain_surface_registry,
-)
-
 ALL_I1_CELLS = frozenset(
-    (*WORKFLOW_CELL_IDS, *SOURCE_CELL_IDS, *ACQUISITION_CELL_IDS,
+    (*WORKFLOW_CELL_IDS, *SOURCE_CELL_IDS,
      *BATCH_CELL_IDS, *TASK_CELL_IDS, *MATERIAL_CELL_IDS,
      *KNOWLEDGE_CELL_IDS, *PROJECTION_CELL_IDS)
 )
@@ -119,9 +105,6 @@ class SuccessorAssembly:
     projector_wiring: tuple[ProjectorWiring, ...]
     rollback_bindings: tuple[RollbackBindingDeclaration, ...]
     projector_registry: ProjectorRegistry
-    horizontal_ports: tuple[S1HorizontalPortContract, ...]
-    domain_surfaces: tuple[S2cOpsDomainSurfaceContract, ...]
-
     def by_cell(self, cell_id: str) -> CellBinding:
         matches = tuple(item for item in self.cells if item.cell_id == cell_id)
         if len(matches) != 1:
@@ -190,11 +173,6 @@ def assemble_successor_runtime(
             project_scope_digest=scope_digest,
             projector_source_keys=family_options.projector_source_keys,
         ),
-        build_acquisition_batch_assembly(
-            uow_factory=uow_factory,
-            project_scope_digest=scope_digest,
-            options=family_options.c3,
-        ),
         build_batch_task_assembly(
             uow_factory=uow_factory,
             project_scope_digest=scope_digest,
@@ -222,7 +200,7 @@ def assemble_successor_runtime(
     extra = observed - ALL_I1_CELLS
     if missing or extra:
         raise ValueError(
-            "I1 assembly cell coverage must be exactly 27 cells; "
+            f"I1 assembly cell coverage must match {len(ALL_I1_CELLS)} declared cells; "
             f"missing={sorted(missing)} extra={sorted(extra)}"
         )
     projector_wiring = tuple(
@@ -243,8 +221,6 @@ def assemble_successor_runtime(
         projector_wiring=projector_wiring,
         rollback_bindings=rollback_bindings,
         projector_registry=projector_registry,
-        horizontal_ports=build_s1_horizontal_port_registry(),
-        domain_surfaces=build_s2c_ops_domain_surface_registry(),
     )
 
 
@@ -298,9 +274,6 @@ def build_local_offline_fixture_options() -> Annotated[
                 TASK_CELL_IDS[3], KNOWLEDGE_CELL_IDS[3], PROJECTION_CELL_IDS[2],
             )
         },
-        c3=AcquisitionAssemblyOptions(
-            element_payloads=build_deterministic_element_payloads(),
-        ),
         c4=BatchTaskAssemblyOptions(
             plan_payload=build_deterministic_plan_payload(scope_digest),
             retry_payload=build_deterministic_retry_payload(scope_digest),

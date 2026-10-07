@@ -10,7 +10,7 @@ from importlib import import_module
 from threading import Lock
 from typing import Literal, NoReturn, Protocol, TypeAlias, TypedDict, TypeGuard, runtime_checkable
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, JsonValue, TypeAdapter, ValidationError
 from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError, SQLAlchemyError
@@ -28,7 +28,10 @@ from ..project_customization import get_project_customization
 from ..services.agent_batch.routing import apply_async_or_delay, validate_lane
 from ..services.agent_batch.task_contract import build_source_library_override_params
 from ..services.collect_runtime.contracts import CollectJsonObject, source_library_compat_response
+from ..services.ingest.commodity import CommodityIngestResult
 from ..services.ingest.adapters import submission_registry as ingest_submission_registry
+from ..services.ingest.reports.general import ReportIngestResult
+from ..services.ingest.social_application import SocialCollectResult
 from ..services.job_logger import list_jobs
 from ..services.projects import bind_project, current_project_key
 from ..services.skill_runtime import invoke_skill
@@ -74,7 +77,6 @@ class _AsyncTask(Protocol):
 @runtime_checkable
 class _TasksModule(Protocol):
     task_ingest_market: _AsyncTask
-    task_ingest_url_via_source_library: _AsyncTask
     task_collect_news_resource: _AsyncTask
     task_collect_reddit: _AsyncTask
     task_collect_weekly_reports: _AsyncTask
@@ -88,7 +90,7 @@ class _TasksModule(Protocol):
 
 @runtime_checkable
 class _IngestConfigService(Protocol):
-    def get_config(self, project_key: str, config_key: str) -> object:
+    def get_config(self, project_key: str, config_key: str) -> IngestJsonObject | None:
         ...
 
     def upsert_config(
@@ -98,7 +100,7 @@ class _IngestConfigService(Protocol):
         config_key: str,
         config_type: str,
         payload: IngestJsonObject | None,
-    ) -> object:
+    ) -> IngestJsonObject:
         ...
 
 
@@ -113,16 +115,16 @@ class _SocialIngestApplication(Protocol):
         enable_extraction: bool,
         enable_subreddit_discovery: bool,
         base_subreddits: list[str] | None,
-    ) -> object:
+    ) -> SocialCollectResult:
         ...
 
 
 @runtime_checkable
 class _ReportIngestModule(Protocol):
-    def collect_weekly_market_reports(self, *, limit: int = 10) -> object:
+    def collect_weekly_market_reports(self, *, limit: int = 10) -> ReportIngestResult:
         ...
 
-    def collect_monthly_financial_reports(self, *, limit: int = 8) -> object:
+    def collect_monthly_financial_reports(self, *, limit: int = 8) -> ReportIngestResult:
         ...
 
 
@@ -132,7 +134,7 @@ class _CommodityIngestModule(Protocol):
         self,
         symbols: dict[str, str] | None = None,
         limit: int = 30,
-    ) -> object:
+    ) -> CommodityIngestResult:
         ...
 
 
@@ -142,6 +144,10 @@ def _is_object_list(value: object) -> TypeGuard[list[object]]:
 
 def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
     return isinstance(value, dict)
+
+
+def _is_json_object_dict(value: object) -> TypeGuard[dict[str, JsonValue]]:
+    return _is_object_dict(value) and all(isinstance(key, str) for key in value)
 
 
 def _json_value(value: object, *, path: str) -> JsonValue:
@@ -170,13 +176,10 @@ def _json_value(value: object, *, path: str) -> JsonValue:
 
 def _json_object(value: object, *, path: str) -> IngestJsonObject:
     parsed = _json_value(value, path=path)
-    if not _is_object_dict(parsed):
+    if not _is_json_object_dict(parsed):
         raise TypeError(f"{path} must be a JSON object")
     result: IngestJsonObject = {}
-    for key, item in parsed.items():
-        if not isinstance(key, str):
-            raise TypeError(f"{path} must use string JSON object keys")
-        result[key] = _json_value(item, path=f"{path}.{key}")
+    result.update(parsed)
     return result
 
 
@@ -236,7 +239,7 @@ def _ingest_config_service() -> _IngestConfigService:
     return module
 
 
-def get_ingest_config(project_key: str, config_key: str) -> object:
+def get_ingest_config(project_key: str, config_key: str) -> IngestJsonObject | None:
     """Compatibility seam for the established API tests and direct callers."""
     return _ingest_config_service().get_config(project_key, config_key)
 
@@ -247,7 +250,7 @@ def upsert_ingest_config(
     config_key: str,
     config_type: str,
     payload: IngestJsonObject | None,
-) -> object:
+) -> IngestJsonObject:
     """Compatibility seam that retains the former module-level service alias."""
     return _ingest_config_service().upsert_config(
         project_key=project_key,
@@ -755,6 +758,7 @@ def _feedback_state_for_submission_payload(
 def _submission_history_entry(submission: IngestJsonObject) -> IngestJsonObject:
     response_payload = _optional_json_object(submission.get("response"), path="submission.response") or {}
     task_id = response_payload.get("task_id") or submission.get("task_id")
+    runtime_run_ref = response_payload.get("runtime_run_ref") or submission.get("runtime_run_ref")
     status = response_payload.get("status") or submission.get("status") or submission.get("submission_status")
     trace_chain = _optional_json_object(response_payload.get("trace_chain"), path="submission.response.trace_chain")
     if trace_chain is None:
@@ -774,6 +778,7 @@ def _submission_history_entry(submission: IngestJsonObject) -> IngestJsonObject:
         "status": status,
         "task_status": status,
         "task_id": task_id,
+        "runtime_run_ref": runtime_run_ref,
         "submission_id": submission.get("submission_id"),
         "idempotency_key": submission.get("idempotency_key"),
         "submission_status": submission_status,
@@ -1100,8 +1105,7 @@ def get_ingest_config_endpoint(
     raw_data = get_ingest_config(pk, config_key)
     if raw_data is None:
         return error_json_response(404, ErrorCode.NOT_FOUND, f"Config not found: {config_key}")
-    data = _json_object(raw_data, path="ingest.config.read")
-    return ok(data)
+    return ok(raw_data)
 
 
 @router.post("/config", response_model=IngestJsonEnvelope)
@@ -1109,12 +1113,12 @@ def post_ingest_config_endpoint(body: IngestConfigUpsertPayload) -> IngestJsonOb
     """Upsert ingest config."""
     pk = _require_project_key(body.project_key)
     try:
-        data = _json_object(upsert_ingest_config(
+        data = upsert_ingest_config(
             project_key=pk,
             config_key=body.config_key,
             config_type=body.config_type,
             payload=body.payload,
-        ), path="ingest.config.upsert")
+        )
         return ok(data)
     except ValueError as exc:
         _raise_invalid_input(
@@ -1256,7 +1260,9 @@ def ingest_market(payload: MarketIngestRequest) -> IngestJsonObject | JSONRespon
 
 
 @router.post("/url/single", response_model=IngestJsonEnvelope)
-def ingest_url_single(payload: SingleUrlIngestRequest) -> IngestJsonObject | JSONResponse:
+def ingest_url_single(
+    payload: SingleUrlIngestRequest, request: Request
+) -> IngestJsonObject | JSONResponse:
     project_key = _require_project_key(payload.project_key)
     normalized_url = str(payload.url or "").strip()
     if not normalized_url:
@@ -1313,6 +1319,9 @@ def ingest_url_single(payload: SingleUrlIngestRequest) -> IngestJsonObject | JSO
 
     registry_key: str | None = None
     if payload.async_mode:
+        from ..services.request_identity import require_trusted_actor_context
+
+        actor_context = require_trusted_actor_context(request)
         idempotency_key, registry_key = _derive_ingest_idempotency(
             trigger_type="ingest.url.single",
             project_key=project_key,
@@ -1342,39 +1351,71 @@ def ingest_url_single(payload: SingleUrlIngestRequest) -> IngestJsonObject | JSO
         )
         if duplicate:
             return ok(_duplicate_submission_response(submission))
-        dispatch_search_options = search_options
-        if isinstance(search_options, dict):
-            dispatch_trace_id = f"ingest.url.single:{submission.get('submission_id') or idempotency_key}"
-            dispatch_search_options = _merge_runtime_readback_override(
-                search_options,
-                _build_worker_runtime_readback(
-                    line_key="ingest",
-                    trace_id=dispatch_trace_id,
-                    run_id=str(submission.get("submission_id") or idempotency_key),
-                    queue="local.ingest",
-                ),
-            )
         try:
-            if isinstance(dispatch_search_options, dict):
-                task: object = _tasks_module().task_ingest_url_via_source_library.delay(
-                    normalized_url,
-                    payload.query_terms,
-                    payload.strict_mode,
-                    project_key,
-                    dispatch_search_options,
-                )
-            else:
-                task = _tasks_module().task_ingest_url_via_source_library.delay(
-                    normalized_url,
-                    payload.query_terms,
-                    payload.strict_mode,
-                    project_key,
-                )
+            from app.composition.production import submit_installed_program
+            from app.models.base import engine as runtime_engine
+            from app.successor_runtime.capabilities.acquisition_url import (
+                URL_SINGLE_URL_KIND,
+                URL_SINGLE_URL_OWNER,
+                UrlSingleUrlRequest,
+                build_url_single_url_program,
+            )
+            from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
+
+            submission_id = str(submission.get("submission_id") or idempotency_key)
+            run_id = f"url-single-{submission_id}"
+            trace_id = f"ingest.url.single:{submission_id}"
+            actor_id = actor_context.actor_id
+            extra_params: CollectJsonObject = {
+                "strict_mode": bool(payload.strict_mode),
+                "enable_extraction": True,
+            }
+            if isinstance(search_options, dict):
+                extra_params.update(source_library_compat_response(search_options))
+
+            with runtime_engine.connect() as connection:
+                project_scope = ServerProjectScopeResolver(connection=connection).resolve(project_key)
+            closure = build_url_single_url_program(
+                request=UrlSingleUrlRequest(
+                    url=normalized_url,
+                    project_key=project_key,
+                    query_terms=tuple(payload.query_terms or []),
+                    extra_params=extra_params,
+                    enable_extraction=True,
+                ),
+                program_id=f"program:{run_id}",
+                project_key=project_key,
+                project_registry_revision=project_scope.project_registry_revision,
+                project_scope_digest=project_scope.scope_digest,
+                incarnation=f"url-single:{submission_id}",
+            )
+            run, work_item_ids = submit_installed_program(
+                engine=runtime_engine,
+                project_key=project_key,
+                actor_id=actor_id,
+                program=closure.program,
+                operation_catalog=closure.catalog,
+                operation_contracts=closure.registry,
+                values=closure.values,
+                idempotency_id=f"url-single-idem:{run_id}",
+                identity_capability_id=URL_SINGLE_URL_OWNER,
+                logical_request_id=idempotency_key,
+                identity_operation_kind=URL_SINGLE_URL_KIND,
+                run_id=run_id,
+                incarnation=f"url-single:{submission_id}",
+                canonical_bindings=closure.canonical_bindings,
+                approvals_by_step={},
+                trace_id=trace_id,
+                now=datetime.now(timezone.utc),
+                queue="celery",
+            )
+            canonical_run_id = str(run.get("run_id") or run_id)
+            run_ref = f"runtime-run:{canonical_run_id}"
         except Exception:
             _forget_ingest_submission(registry_key=registry_key)
             raise
         task_payload = _json_object(task_result_response(
-            task_id=_task_result_id(task, task_name="task_ingest_url_via_source_library"),
+            task_id=None,
             async_mode=True,
             params={
                 "url": normalized_url,
@@ -1383,6 +1424,10 @@ def ingest_url_single(payload: SingleUrlIngestRequest) -> IngestJsonObject | JSO
                 **({"search_options": search_options} if isinstance(search_options, dict) else {}),
             },
         ), path="ingest.url.single.async_response")
+        task_payload["status"] = "submitted"
+        task_payload["runtime_run_ref"] = run_ref
+        task_payload["runtime_state"] = str(run.get("state") or "")
+        task_payload["work_item_ids"] = list(work_item_ids)
         task_payload["effective_payload"] = effective_payload
         task_payload = _apply_submission_fields(task_payload, submission=submission)
         task_payload["trace_chain"] = _build_ingest_trace_chain(
@@ -2140,12 +2185,8 @@ def ingest_weekly_reports(payload: NewsRequest) -> IngestJsonObject | JSONRespon
         )
     try:
         with bind_project(project_key):
-            return _json_object(
-                success_response(_json_object(
-                    _report_ingest_module().collect_weekly_market_reports(limit=payload.limit),
-                    path="ingest.reports.weekly.result",
-                )),
-                path="ingest.reports.weekly.response",
+            return success_response(
+                _report_ingest_module().collect_weekly_market_reports(limit=payload.limit)
             )
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
@@ -2165,12 +2206,8 @@ def ingest_monthly_reports(payload: NewsRequest) -> IngestJsonObject | JSONRespo
         )
     try:
         with bind_project(project_key):
-            return _json_object(
-                success_response(_json_object(
-                    _report_ingest_module().collect_monthly_financial_reports(limit=payload.limit),
-                    path="ingest.reports.monthly.result",
-                )),
-                path="ingest.reports.monthly.response",
+            return success_response(
+                _report_ingest_module().collect_monthly_financial_reports(limit=payload.limit)
             )
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
@@ -2453,7 +2490,7 @@ def _run_data_api_batch(
         }
 
     with bind_project(project_key):
-        result = _json_object(_social_ingest_app().collect_data_api(
+        result: IngestJsonObject = dict(_social_ingest_app().collect_data_api(
             keywords=terms,
             platforms=dashboard.platforms,
             limit=max_items,
@@ -2739,7 +2776,7 @@ def ingest_data_api(payload: DataApiRequest) -> IngestJsonObject | JSONResponse:
         ), path="ingest.data_api.async_response")
     try:
         with bind_project(project_key):
-            result = _json_object(_social_ingest_app().collect_data_api(
+            result: IngestJsonObject = dict(_social_ingest_app().collect_data_api(
                 keywords=query_terms,
                 platforms=payload.platforms,
                 limit=max_items,
@@ -2751,7 +2788,7 @@ def ingest_data_api(payload: DataApiRequest) -> IngestJsonObject | JSONResponse:
                 result.setdefault("topic_focus", topic_meta.get("topic_focus"))
                 result.setdefault("topic_hints", topic_meta.get("topic_hints") or [])
                 result.setdefault("topic_search_keywords", topic_meta.get("topic_search_keywords") or [])
-            return _json_object(success_response(result), path="ingest.data_api.response")
+            return ok(result)
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
@@ -3059,12 +3096,8 @@ def ingest_commodity(payload: CommodityRequest) -> IngestJsonObject | JSONRespon
         ), path="ingest.commodity.async_response")
     try:
         with bind_project(project_key):
-            return _json_object(
-                success_response(_json_object(
-                    _commodity_ingest_module().ingest_commodity_metrics(limit=payload.limit),
-                    path="ingest.commodity.result",
-                )),
-                path="ingest.commodity.response",
+            return success_response(
+                _commodity_ingest_module().ingest_commodity_metrics(limit=payload.limit)
             )
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)

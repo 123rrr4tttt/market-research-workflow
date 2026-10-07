@@ -32,7 +32,11 @@ import {
   submitWorkflowGraphCuratedDraft,
   syncWorkflowGraphCuratedState,
 } from '../lib/api'
-import type { WorkflowGraphAuditRecord, WorkflowGraphCuratedStateResponse } from '../lib/api'
+import type {
+  WorkflowGraphAuditRecord,
+  WorkflowGraphCuratedStateResponse,
+  WorkflowGraphHandoffResponse,
+} from '../lib/api'
 import { materialReaderId } from './graph/realizer/materialGraph'
 import type {
   GraphEdgeItem,
@@ -66,7 +70,13 @@ import { ProjectGraphTypeView } from './graph/ProjectGraphTypeView'
 import { loadGraphEchartsCore } from './graph/renderers/loadGraphEchartsCore'
 import './graph/graph-workspace.css'
 import { getGraphProjection, GRAPH_PROJECTIONS, GRAPH_PROJECTIONS_BY_KIND, type GraphProjectionId } from './graph/realizer/definitions'
-import { applyProjectGraphView, projectGraphEdgeKey, type ProjectGraphViewSpec, type ProjectGraphRelationType } from './graph/realizer/projectGraphView'
+import {
+  applyProjectGraphView,
+  projectGraphEdgeKey,
+  projectGraphNodeKey,
+  type ProjectGraphRelationType,
+  type ProjectGraphViewSpec,
+} from './graph/realizer/projectGraphView'
 import type { GraphProjectionDefinition } from './graph/realizer/contract'
 import { readGraphProjection } from './graph/realizer/sourceAdapter'
 import {
@@ -718,8 +728,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const [projectViewSaveStatus, setProjectViewSaveStatus] = useState('')
   const [pendingProjectViewSpec, setPendingProjectViewSpec] = useState<ProjectGraphViewSpec | null>(null)
   const [activeProjectViewSpec, setActiveProjectViewSpec] = useState<ProjectGraphViewSpec | null>(null)
-  const [projectAdditionalNodes, setProjectAdditionalNodes] = useState<GraphNodeItem[]>([])
-  const [projectAdditionalEdges, setProjectAdditionalEdges] = useState<GraphEdgeItem[]>([])
   const [declaredNodeTypes, setDeclaredNodeTypes] = useState<string[]>([])
   const [declaredRelationTypes, setDeclaredRelationTypes] = useState<ProjectGraphRelationType[]>([])
   const [relationTypeDraft, setRelationTypeDraft] = useState<ProjectGraphRelationType>({ sourceType: '', targetType: '', relation: '' })
@@ -784,6 +792,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const [curatedRollbackReason, setCuratedRollbackReason] = useState('')
   const [curatedAuditItems, setCuratedAuditItems] = useState<WorkflowGraphAuditRecord[]>([])
   const [curatedHandoffReplay, setCuratedHandoffReplay] = useState({ runId: '', handoffId: '' })
+  const [curatedHandoffCarrier, setCuratedHandoffCarrier] = useState<WorkflowGraphHandoffResponse | null>(null)
   const [newNodeType, setNewNodeType] = useState(templateBuilder ? '' : 'Entity')
   const [newNodeName, setNewNodeName] = useState('')
   const [edgeDraft, setEdgeDraft] = useState({ sourceKey: '', targetKey: '', relation: '' })
@@ -969,6 +978,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const {
     draftNodes,
     draftEdges,
+    baseNodes,
+    baseEdges,
     nodeByKey: draftNodeMap,
     dirty: isDraftDirty,
     resetDraft,
@@ -996,8 +1007,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     setPendingProjectViewSpec(null)
     setActiveProjectViewSpec(null)
     setLegacySnapshotMode(false)
-    setProjectAdditionalNodes([])
-    setProjectAdditionalEdges([])
     setDeclaredNodeTypes([])
     setDeclaredRelationTypes([])
     setRelationTypeDraft({ sourceType: '', targetType: '', relation: '' })
@@ -1018,7 +1027,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     graphData.data, graphData.isFetching, replaceDraft, sourceGraphNodes, sourceGraphEdges,
     setProjectViewMode, setProjectViewKeys, setProjectViewName, setProjectViewNameTouched,
     setProjectViewSaveBusy, setProjectViewSaveStatus, setPendingProjectViewSpec, setActiveProjectViewSpec,
-    setLegacySnapshotMode, setProjectAdditionalNodes, setProjectAdditionalEdges, setDeclaredNodeTypes,
+    setLegacySnapshotMode, setDeclaredNodeTypes,
     setDeclaredRelationTypes, setRelationTypeDraft, setTypeEditStatus, setBuilderAdvancedOpen,
     setBuilderLegendOpen, setHiddenTypes, setHiddenEdgeKinds,
     setProjectViewResetEpoch, setSelectedNode, setNodeCardAnchor,
@@ -1046,29 +1055,41 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     awaitingProjectSourceRef.current = false
   }, [graphData.data, graphData.isFetching, replaceDraft, sourceGraphEdges, sourceGraphNodes])
 
-  const sourceProjectNodeKeySet = useMemo(() => new Set(sourceGraphNodes.map(nodeKey)), [sourceGraphNodes])
+  const sourceProjectNodeKeySet = useMemo(() => new Set(sourceGraphNodes.map(projectGraphNodeKey)), [sourceGraphNodes])
   const sourceProjectEdgeKeySet = useMemo(
     () => new Set(sourceGraphEdges.map(projectGraphEdgeKey)),
     [sourceGraphEdges],
   )
+  const savedAdditionalNodeKeySet = useMemo(
+    () => new Set((activeProjectViewSpec?.additionalNodes || []).map(projectGraphNodeKey)),
+    [activeProjectViewSpec],
+  )
+  const savedAdditionalEdgeKeySet = useMemo(
+    () => new Set((activeProjectViewSpec?.additionalEdges || []).map(projectGraphEdgeKey)),
+    [activeProjectViewSpec],
+  )
+  const draftBaseNodeKeySet = useMemo(() => new Set(baseNodes.map(projectGraphNodeKey)), [baseNodes])
+  const draftBaseEdgeKeySet = useMemo(() => new Set(baseEdges.map(projectGraphEdgeKey)), [baseEdges])
   const effectiveAdditionalNodes = useMemo(() => {
     if (!legacySnapshotMode) {
-      const draftByKey = new Map(draftNodes.map((node) => [nodeKey(node), node]))
-      return projectAdditionalNodes
-        .map((node) => draftByKey.get(nodeKey(node)))
-        .filter((node): node is GraphNodeItem => Boolean(node))
+      return draftNodes.filter((node) => {
+        const key = projectGraphNodeKey(node)
+        return !sourceProjectNodeKeySet.has(key)
+          && (savedAdditionalNodeKeySet.has(key) || (isDraftDirty && !draftBaseNodeKeySet.has(key)))
+      })
     }
-    return draftNodes.filter((node) => !sourceProjectNodeKeySet.has(nodeKey(node)))
-  }, [draftNodes, legacySnapshotMode, projectAdditionalNodes, sourceProjectNodeKeySet])
+    return draftNodes.filter((node) => !sourceProjectNodeKeySet.has(projectGraphNodeKey(node)))
+  }, [draftBaseNodeKeySet, draftNodes, isDraftDirty, legacySnapshotMode, savedAdditionalNodeKeySet, sourceProjectNodeKeySet])
   const effectiveAdditionalEdges = useMemo(() => {
     if (!legacySnapshotMode) {
-      const draftByKey = new Map(draftEdges.map((edge) => [projectGraphEdgeKey(edge), edge]))
-      return projectAdditionalEdges
-        .map((edge) => draftByKey.get(projectGraphEdgeKey(edge)))
-        .filter((edge): edge is GraphEdgeItem => Boolean(edge))
+      return draftEdges.filter((edge) => {
+        const key = projectGraphEdgeKey(edge)
+        return !sourceProjectEdgeKeySet.has(key)
+          && (savedAdditionalEdgeKeySet.has(key) || (isDraftDirty && !draftBaseEdgeKeySet.has(key)))
+      })
     }
     return draftEdges.filter((edge) => !sourceProjectEdgeKeySet.has(projectGraphEdgeKey(edge)))
-  }, [draftEdges, legacySnapshotMode, projectAdditionalEdges, sourceProjectEdgeKeySet])
+  }, [draftBaseEdgeKeySet, draftEdges, isDraftDirty, legacySnapshotMode, savedAdditionalEdgeKeySet, sourceProjectEdgeKeySet])
   const currentProjectViewSpec = useMemo<ProjectGraphViewSpec>(() => ({
     schema: 'project-graph-view/v1',
     mode: projectViewMode,
@@ -1121,8 +1142,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       setPendingProjectViewSpec(null)
       setActiveProjectViewSpec(null)
       setLegacySnapshotMode(true)
-      setProjectAdditionalNodes([])
-      setProjectAdditionalEdges([])
       hydratedPendingSpecRef.current = null
       return
     }
@@ -1133,8 +1152,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     setPendingProjectViewSpec(spec)
     setActiveProjectViewSpec(spec)
     setLegacySnapshotMode(false)
-    setProjectAdditionalNodes(spec.additionalNodes)
-    setProjectAdditionalEdges(spec.additionalEdges)
     hydratedPendingSpecRef.current = null
     void refetchGraphData()
   }, [
@@ -1144,8 +1161,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     setDeclaredRelationTypes,
     setRelationTypeDraft,
     setTypeEditStatus,
-    setProjectAdditionalEdges,
-    setProjectAdditionalNodes,
     setHiddenEdgeKinds,
     setHiddenTypes,
     setPendingProjectViewSpec,
@@ -2079,7 +2094,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     }
     setCuratedBusy(true)
     try {
-      const replay = await replayWorkflowGraphHandoff(runId, handoffId)
+      const replay = await replayWorkflowGraphHandoff(runId, handoffId, projectKey)
       const events = Array.isArray(replay.events) ? replay.events : []
       setCuratedStatus(`handoff_replay_ready events=${events.length}`)
       setGraphEditStatus(tf('graphPage.status.curatedHandoffReplayRead', { handoffId }))
@@ -2091,7 +2106,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     } finally {
       setCuratedBusy(false)
     }
-  }, [curatedHandoffReplay, setCuratedBusy, setCuratedStatus, setGraphEditStatus, t, tf])
+  }, [curatedHandoffReplay, projectKey, setCuratedBusy, setCuratedStatus, setGraphEditStatus, t, tf])
 
   const handleSyncCuratedGraph = useCallback(async () => {
     const graphId = curatedGraphId.trim()
@@ -2220,13 +2235,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       })
       const reportRequest = handoff.report_generate_request || {}
       const sourceCount = Array.isArray(reportRequest.sources) ? reportRequest.sources.length : 0
-      const persistence = handoff.persistence || {}
-      const runId = String(persistence.run_id || '').trim()
       const handoffId = String(handoff.handoff_id || '').trim()
-      if (runId && handoffId) {
-        setCuratedHandoffReplay({ runId, handoffId })
-      }
-      setCuratedStatus(`report_handoff_ready${sourceCount ? ` sources=${sourceCount}` : ''}${runId ? ` ${runId}` : ''}`)
+      setCuratedHandoffCarrier(handoff)
+      setCuratedStatus(`report_handoff_ready request_local${sourceCount ? ` sources=${sourceCount}` : ''}`)
       setGraphEditStatus(tf('graphPage.status.curatedReportingHandoffGenerated', { handoffId: handoffId || graphId }))
     } catch (error) {
       const message = error instanceof Error ? error.message : t('graphPage.error.handoffBuildFailed')
@@ -2236,7 +2247,27 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     } finally {
       setCuratedBusy(false)
     }
-  }, [curatedGraphId, curatedHandoffTopic, selectedEditableNodes, setCuratedBusy, setCuratedHandoffReplay, setCuratedStatus, setGraphEditStatus, t, tf])
+  }, [curatedGraphId, curatedHandoffTopic, selectedEditableNodes, setCuratedBusy, setCuratedHandoffCarrier, setCuratedStatus, setGraphEditStatus, t, tf])
+
+  const curatedHandoffCarrierJson = useMemo(
+    () => curatedHandoffCarrier ? JSON.stringify(curatedHandoffCarrier, null, 2) : '',
+    [curatedHandoffCarrier],
+  )
+
+  const copyCuratedHandoffCarrier = useCallback(async () => {
+    if (!curatedHandoffCarrierJson) return
+    await navigator.clipboard.writeText(curatedHandoffCarrierJson)
+  }, [curatedHandoffCarrierJson])
+
+  const downloadCuratedHandoffCarrier = useCallback(() => {
+    if (!curatedHandoffCarrierJson) return
+    const blobUrl = URL.createObjectURL(new Blob([curatedHandoffCarrierJson], { type: 'application/json' }))
+    const anchor = document.createElement('a')
+    anchor.href = blobUrl
+    anchor.download = `${String(curatedHandoffCarrier?.handoff_id || 'workflow-handoff')}.json`
+    anchor.click()
+    URL.revokeObjectURL(blobUrl)
+  }, [curatedHandoffCarrier, curatedHandoffCarrierJson])
 
   const selectedExportPayload = useMemo(() => {
     const scopedTopicFocus = graphProjection.topicScope
@@ -3949,10 +3980,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       y: String(node.y ?? ''),
       z: String(node.z ?? ''),
     })
-    setProjectAdditionalNodes((prev) => [...prev, node])
     setNewNodeName('')
     setGraphEditStatus(tf('graphPage.status.nodeCreated', { key }))
-  }, [createDraftNode, effectiveNewNodeType, newNodeName, setGraphEditStatus, setNewNodeName, setNodeEditDraft, setProjectAdditionalNodes, tf])
+  }, [createDraftNode, effectiveNewNodeType, newNodeName, setGraphEditStatus, setNewNodeName, setNodeEditDraft, tf])
 
   const handleDeleteSelectedDraftNodes = useCallback(() => {
     const result = removeDraftNodesByKeys(selectedNodeKeyList)
@@ -3983,9 +4013,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       else window.alert(t('graphPage.error.edgeCreateMissingNode'))
       return
     }
-    setProjectAdditionalEdges((prev) => [...prev, created.edge])
     setGraphEditStatus(tf('graphPage.status.edgeCreated', { source: sourceKey, target: targetKey }))
-  }, [createDraftEdgeByNodeKeys, edgeDraft, projectViewRelationOptions, setGraphEditStatus, setProjectAdditionalEdges, t, tf])
+  }, [createDraftEdgeByNodeKeys, edgeDraft, projectViewRelationOptions, setGraphEditStatus, t, tf])
 
   const handleAddNodeType = useCallback(() => {
     const type = normalizeNodeType(newNodeType)
@@ -4837,6 +4866,26 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       >
                         {t('graphPage.action.buildReportingHandoff')}
                       </button>
+                    </div>
+                    <label className="gv2-control-chip">
+                      {t('graphPage.field.historicalHandoffRunId')}
+                      <input
+                        data-testid="graph-curated-historical-handoff-run-id"
+                        value={curatedHandoffReplay.runId}
+                        onChange={(event) => setCuratedHandoffReplay((current) => ({ ...current, runId: event.target.value }))}
+                        disabled={!editMode || curatedBusy}
+                      />
+                    </label>
+                    <label className="gv2-control-chip">
+                      {t('graphPage.field.historicalHandoffId')}
+                      <input
+                        data-testid="graph-curated-historical-handoff-id"
+                        value={curatedHandoffReplay.handoffId}
+                        onChange={(event) => setCuratedHandoffReplay((current) => ({ ...current, handoffId: event.target.value }))}
+                        disabled={!editMode || curatedBusy}
+                      />
+                    </label>
+                    <div className="gv2-control-chip">
                       <button
                         type="button"
                         className="secondary"
@@ -4847,6 +4896,34 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         {t('graphPage.action.replayHandoff')}
                       </button>
                     </div>
+                    {curatedHandoffCarrier ? (
+                      <div className="gv2-control-chip" data-testid="graph-curated-handoff-carrier">
+                        <textarea
+                          className="gv2-task-json"
+                          data-testid="graph-curated-handoff-carrier-preview"
+                          readOnly
+                          value={curatedHandoffCarrierJson}
+                        />
+                        <div className="gv2-task-actions">
+                          <button
+                            type="button"
+                            className="secondary"
+                            data-testid="graph-curated-handoff-carrier-copy"
+                            onClick={() => void copyCuratedHandoffCarrier()}
+                          >
+                            {t('graphPage.action.copyHandoffCarrier')}
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary"
+                            data-testid="graph-curated-handoff-carrier-download"
+                            onClick={downloadCuratedHandoffCarrier}
+                          >
+                            {t('graphPage.action.downloadHandoffCarrier')}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                     <div className="status-line" data-testid="graph-curated-status">
                       {curatedBusy ? t('graphPage.status.curatedBusy') : (curatedStatus || t('graphPage.status.curatedReady'))}
                     </div>

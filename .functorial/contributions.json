@@ -45,23 +45,6 @@
       }
     },
     "failures": {
-      "acquisition.batch.failure": {
-        "content": {
-          "codes": [
-            "INVALID_INPUT",
-            "ASSIGNMENT_BINDING_MISMATCH",
-            "INTERPRETER_UNAVAILABLE",
-            "TRAVERSAL_COMPILE_PENDING",
-            "FOLD_CONTRACT_FAILURE",
-            "ELEMENT_EXECUTION_FAILED",
-            "ORDERED_TRAVERSAL_ABORTED",
-            "RESOURCE_POLICY_EXCEEDED",
-            "AGGREGATE_ALL_FAILED",
-            "QUEUED_ACK_NOT_COMPLETION"
-          ],
-          "name": "acquisition.batch.failure"
-        }
-      },
       "batch.task.failure": {
         "content": {
           "codes": [
@@ -73,20 +56,6 @@
             "BATCH_TASK_CODEC_INVALID"
           ],
           "name": "batch.task.failure"
-        }
-      },
-      "collect.runtime.failure": {
-        "content": {
-          "codes": [
-            "skill_id_required",
-            "collect_adapter_contract_invalid",
-            "compat_projector_contract_invalid",
-            "collect_channel_unsupported",
-            "auto_batch_execution_failed",
-            "product_mode_unsupported",
-            "successor_effect_gateway_invalid"
-          ],
-          "name": "collect.runtime.failure"
         }
       },
       "information_topology": {

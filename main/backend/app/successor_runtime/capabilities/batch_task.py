@@ -50,6 +50,10 @@ from app.successor_runtime.capabilities.codecs import (
     codec_digest,
     dataclass_codec,
 )
+from app.successor_runtime.capabilities.profiles import (
+    OperationProfiles,
+    build_operation_profiles,
+)
 from app.successor_runtime.language.catalog import (
     OperationContractCatalogSnapshot,
     OperationContractRegistry,
@@ -110,10 +114,23 @@ __all__ = [
     "SUBMISSION_PAYLOAD_SCHEMA",
     "SUBMISSION_RECEIPT_CODEC_ID",
     "SUBMISSION_RECEIPT_PROVENANCE_SCHEMA",
+    "DISPATCH_SINGLE_KIND",
+    "DISPATCH_SINGLE_OPERATION_ID",
+    "DISPATCH_SINGLE_OWNER",
+    "DISPATCH_SINGLE_PAYLOAD_SCHEMA",
+    "DISPATCH_SINGLE_ACK_SCHEMA",
+    "DISPATCH_SINGLE_PAYLOAD_CODEC_ID",
+    "DISPATCH_SINGLE_ACK_CODEC_ID",
+    "DISPATCH_SINGLE_SEMANTIC_IDENTITY",
+    "DISPATCH_SINGLE_OBSERVATION_PROFILE",
+    "DISPATCH_SINGLE_PAYLOAD_TYPE",
+    "DISPATCH_SINGLE_ACK_TYPE",
     "BatchTaskCapabilityBundle",
     "AgentBatchSubmission",
     "AgentBatchSubmissionItem",
     "AgentBatchSubmissionReceipt",
+    "BatchTaskSingleDispatchAck",
+    "BatchTaskSingleDispatchPayload",
     "SubmissionReceiptReadback",
     "AgentBatchTask",
     "BatchPlanPayload",
@@ -134,6 +151,14 @@ __all__ = [
     "build_batch_task_bundle",
     "build_batch_task_catalog",
     "build_batch_task_registry",
+    "build_batch_task_single_dispatch_catalog",
+    "build_batch_task_single_dispatch_ack_codec",
+    "build_batch_task_single_dispatch_contract",
+    "build_batch_task_single_dispatch_payload_codec",
+    "build_batch_task_single_dispatch_profiles",
+    "build_batch_task_single_dispatch_registry",
+    "derive_dispatch_task_id",
+    "derive_dispatch_run_id",
     "build_batch_plan",
     "decode_historical_submission_payload",
     "decode_submission_receipt_readback",
@@ -335,6 +360,19 @@ SUBMISSION_CATALOG_ID = BATCH_TASK_CATALOG_ID
 SUBMISSION_CATALOG_VERSION = "1.0.0"
 SUBMISSION_SEMANTIC_IDENTITY = "batch.task.submit"
 SUBMISSION_OBSERVATION_PROFILE = "mrw.batch.task-submission.observation.v2"
+
+DISPATCH_SINGLE_KIND = "batch.task.dispatch_single.v2"
+DISPATCH_SINGLE_OPERATION_ID = DISPATCH_SINGLE_KIND
+DISPATCH_SINGLE_OWNER = BATCH_TASK_OWNER
+DISPATCH_SINGLE_PAYLOAD_SCHEMA = "mrw.batch.task-dispatch.payload.v2"
+DISPATCH_SINGLE_ACK_SCHEMA = "mrw.batch.task-dispatch.ack.v2"
+DISPATCH_SINGLE_PAYLOAD_CODEC_ID = "mrw.batch.task-dispatch.payload.codec.v2"
+DISPATCH_SINGLE_ACK_CODEC_ID = "mrw.batch.task-dispatch.ack.codec.v2"
+DISPATCH_SINGLE_CATALOG_ID = BATCH_TASK_CATALOG_ID
+DISPATCH_SINGLE_CATALOG_VERSION = "1.0.0"
+DISPATCH_SINGLE_SEMANTIC_IDENTITY = "batch.task.dispatch-single"
+DISPATCH_SINGLE_OBSERVATION_PROFILE = "mrw.batch.task-dispatch.observation.v2"
+
 BATCH_TASK_ASSEMBLY_CELL_IDS = (
     BATCH_PLAN_KIND,
     RETRY_REDUCE_KIND,
@@ -349,6 +387,14 @@ RETRY_REDUCER_PAYLOAD_TYPE = ObjectType("RetryReducerInput.v1")
 RETRY_TRANSITION_TYPE = ObjectType("RetryTransition.v1")
 SUBMISSION_TYPE = ObjectType("AgentBatchSubmission.v1")
 SUBMISSION_RECEIPT_TYPE = ObjectType("AgentBatchSubmissionReceipt.v1")
+DISPATCH_SINGLE_PAYLOAD_TYPE = ObjectType(
+    "BatchTaskSingleDispatchPayload.v1",
+    codec_id=DISPATCH_SINGLE_PAYLOAD_CODEC_ID,
+)
+DISPATCH_SINGLE_ACK_TYPE = ObjectType(
+    "BatchTaskSingleDispatchAck.v1",
+    codec_id=DISPATCH_SINGLE_ACK_CODEC_ID,
+)
 
 RETRIEVAL_MODE_HYBRID = "hybrid"
 RETRIEVAL_MODE_SOURCE_ONLY = "source_only"
@@ -1912,6 +1958,195 @@ def build_agent_batch_submission_digest(
     return sha256_hex(canonical_json(plain).encode("utf-8"))
 
 
+def _dispatch_single_item_failure(item: AgentBatchSubmissionItem) -> Failure | None:
+    channel = str(item.channel or "").strip().lower()
+    if channel not in {"search.market", "source_library"}:
+        return _failure(
+            "schema_contract_invalid",
+            f"unsupported dispatch item channel {channel!r}",
+        )
+    if channel == "search.market" and not item.query_terms:
+        return _failure(
+            "schema_contract_invalid",
+            "search.market dispatch item requires query_terms",
+        )
+    if channel == "source_library" and not str(item.item_key or "").strip():
+        return _failure(
+            "schema_contract_invalid",
+            "source_library dispatch item requires item_key",
+        )
+    return None
+
+
+def _dispatch_single_payload_identity_failure(
+    payload: BatchTaskSingleDispatchPayload,
+) -> Failure | None:
+    if payload.schema_version != DISPATCH_SINGLE_PAYLOAD_SCHEMA:
+        return _failure("schema_contract_invalid", "unsupported dispatch payload schema")
+    if payload.operation_kind != DISPATCH_SINGLE_KIND:
+        return _failure(
+            "schema_contract_invalid", "unsupported dispatch payload operation kind"
+        )
+    if not payload.dispatch_id or not payload.project_key or not payload.capability_id:
+        return _failure(
+            "schema_contract_invalid",
+            "dispatch payload requires id/project/capability identity",
+        )
+    failure = _dispatch_single_item_failure(payload.item)
+    if failure is not None:
+        return failure
+    return _hex64_failure(
+        payload.scope_digest, "BatchTaskSingleDispatchPayload.scope_digest"
+    )
+
+
+def _dispatch_single_payload_digest_failure(
+    payload: BatchTaskSingleDispatchPayload,
+) -> Failure | None:
+    failure = _hex64_failure(
+        payload.payload_digest, "BatchTaskSingleDispatchPayload.payload_digest"
+    )
+    if failure is not None:
+        return failure
+    expected = content_digest(payload, omit_fields=("payload_digest",))
+    if payload.payload_digest != expected:
+        return _failure(
+            "digest_contract_invalid",
+            "BatchTaskSingleDispatchPayload.payload_digest does not match content",
+        )
+    return None
+
+
+@dataclass(frozen=True, slots=True)
+class BatchTaskSingleDispatchPayload:
+    """Exact single-item dispatch payload (batch.task.dispatch_single.v2).
+
+    Reuses ``AgentBatchSubmissionItem`` as the single domain item and carries the
+    exact project scope plus routing context.  It never self-reports actor role
+    or permissions: those are derived from the task contract and bound by server
+    admission.
+    """
+
+    schema_version: Literal["mrw.batch.task-dispatch.payload.v2"]
+    operation_kind: Literal["batch.task.dispatch_single.v2"]
+    dispatch_id: str
+    project_key: str
+    resolved_schema: str
+    registry_revision: int
+    scope_incarnation: str
+    scope_digest: str
+    capability_id: str
+    item: AgentBatchSubmissionItem
+    lane: str
+    queue: str | None = None
+    trace_id: str | None = None
+    workflow_run_id: str | None = None
+    runtime_readback: Mapping[str, object] = field(default_factory=_new_object_mapping)
+    payload_digest: str = ""
+
+    def __post_init__(self) -> None:
+        failure = _dispatch_single_payload_identity_failure(self)
+        if failure is not None:
+            _raise_contract_failure(failure)
+        object.__setattr__(self, "lane", str(self.lane or "main").strip() or "main")
+        object.__setattr__(self, "queue", str(self.queue or "").strip() or None)
+        object.__setattr__(
+            self, "trace_id", str(self.trace_id or "").strip() or None
+        )
+        object.__setattr__(
+            self, "workflow_run_id", str(self.workflow_run_id or "").strip() or None
+        )
+        object.__setattr__(self, "runtime_readback", dict(self.runtime_readback or {}))
+        if self.payload_digest == "":
+            object.__setattr__(
+                self,
+                "payload_digest",
+                content_digest(self, omit_fields=("payload_digest",)),
+            )
+        else:
+            failure = _dispatch_single_payload_digest_failure(self)
+            if failure is not None:
+                _raise_contract_failure(failure)
+
+
+def _dispatch_single_ack_failure(ack: BatchTaskSingleDispatchAck) -> Failure | None:
+    if not ack.dispatch_id or not ack.celery_task_id:
+        return _failure(
+            "schema_contract_invalid",
+            "dispatch ack requires dispatch and celery task identity",
+        )
+    channel = str(ack.channel or "").strip().lower()
+    if channel not in {"search.market", "source_library"}:
+        return _failure(
+            "schema_contract_invalid", f"unsupported dispatch ack channel {channel!r}"
+        )
+    if not ack.queue:
+        return _failure("schema_contract_invalid", "dispatch ack requires queue")
+    return None
+
+
+def _dispatch_single_ack_digest_failure(
+    ack: BatchTaskSingleDispatchAck,
+) -> Failure | None:
+    failure = _hex64_failure(ack.ack_digest, "BatchTaskSingleDispatchAck.ack_digest")
+    if failure is not None:
+        return failure
+    expected = content_digest(ack, omit_fields=("ack_digest",))
+    if ack.ack_digest != expected:
+        return _failure(
+            "digest_contract_invalid",
+            "BatchTaskSingleDispatchAck.ack_digest does not match content",
+        )
+    return None
+
+
+@dataclass(frozen=True, slots=True)
+class BatchTaskSingleDispatchAck:
+    """Typed ACK for a single dispatch: real celery task id plus dispatch params.
+
+    It records the Celery apply result and the original routing context.  It is
+    not a business terminal state; acceptance/terminal state stays with the
+    eventual worker readback.
+    """
+
+    schema_version: Literal["mrw.batch.task-dispatch.ack.v2"]
+    operation_kind: Literal["batch.task.dispatch_single.v2"]
+    dispatch_id: str
+    channel: str
+    celery_task_id: str
+    lane: str
+    queue: str
+    trace_id: str | None = None
+    workflow_run_id: str | None = None
+    runtime_readback: Mapping[str, object] = field(default_factory=_new_object_mapping)
+    ack_digest: str = ""
+
+    def __post_init__(self) -> None:
+        failure = _dispatch_single_ack_failure(self)
+        if failure is not None:
+            _raise_contract_failure(failure)
+        object.__setattr__(self, "channel", str(self.channel or "").strip().lower())
+        object.__setattr__(self, "lane", str(self.lane or "main").strip() or "main")
+        object.__setattr__(self, "queue", str(self.queue or "").strip())
+        object.__setattr__(
+            self, "trace_id", str(self.trace_id or "").strip() or None
+        )
+        object.__setattr__(
+            self, "workflow_run_id", str(self.workflow_run_id or "").strip() or None
+        )
+        object.__setattr__(self, "runtime_readback", dict(self.runtime_readback or {}))
+        if self.ack_digest == "":
+            object.__setattr__(
+                self,
+                "ack_digest",
+                content_digest(self, omit_fields=("ack_digest",)),
+            )
+        else:
+            failure = _dispatch_single_ack_digest_failure(self)
+            if failure is not None:
+                _raise_contract_failure(failure)
+
+
 def _profile_ref(profile: _ProfileIdentity) -> ContractProfileRef:
     return ContractProfileRef(
         profile.profile_id,
@@ -2700,4 +2935,245 @@ def build_batch_task_registry(
     return OperationContractRegistry(
         build_batch_task_catalog(bundle),
         bundle.operations,
+    )
+
+
+def build_batch_task_single_dispatch_profiles() -> Annotated[OperationProfiles, 'kit:non-authoritative derived_as=view fact_source=batch_task_dispatch_definition witness=test:test_dispatch_single_program_compiles_to_one_effect_step']:
+    """Exact single-item dispatch operation profiles via the shared rule."""
+
+    return build_operation_profiles(
+        identity="batch.task.dispatch-single",
+        version="1.0.0",
+        semantic={
+            "reads": ("AgentBatchSubmissionItem.v1", "BatchTaskSingleDispatchPayload.v1"),
+            "creates": ("BatchTaskSingleDispatchAck.v1",),
+            "creates_relations": (),
+            "declared_loss": (),
+            "observation_profile_ref": DISPATCH_SINGLE_OBSERVATION_PROFILE,
+        },
+        effect={
+            "execution_class": "EFFECTFUL",
+            "external_visibility": "INTERNAL_ONLY",
+            "network_required": True,
+            "irreversible": False,
+            "cancellation_points": ("claim_time",),
+            "internal_export_only": False,
+            "human_approval_required": False,
+            "external_acquisition": False,
+            "idempotency_profile_ref": BATCH_TASK_IDEMPOTENCY_PROFILE,
+        },
+        resource={
+            "resource_classes": ("NETWORK_IO",),
+            "concurrency_key": "batch.task.dispatch-single",
+            "budget_units": "units",
+            "default_soft_limit_seconds": 5,
+            "default_hard_limit_seconds": 30,
+            "node_profile_selector": "any",
+            "budget_ref": BATCH_TASK_BUDGET_PROFILE,
+            "deadline_policy_ref": BATCH_TASK_DEADLINE_POLICY,
+            "node_profile_requirements": ("any",),
+            "units": 1,
+        },
+        failure={
+            "typed_failures": (
+                "DISPATCH_ITEM_UNSUPPORTED",
+                "DISPATCH_SKILL_UNAVAILABLE",
+                "DISPATCH_QUEUE_INVALID",
+                "DISPATCH_CELERY_APPLY_FAILED",
+            ),
+            "retryable": False,
+            "degraded_acceptable": False,
+            "unknown_outcome_supported": True,
+            "readback_or_compensation": "readback",
+            "failure_union_ref": BATCH_TASK_FAILURE_UNION,
+            "retryable_failure_kinds": (),
+            "readback_profile_ref": DISPATCH_SINGLE_OBSERVATION_PROFILE,
+            "compensation_profile_ref": None,
+        },
+        authority={
+            "grant_scopes": ("project",),
+            "approval_required": False,
+            "approval_kinds": (),
+            "credential_refs": (),
+            "canonical_owner": DISPATCH_SINGLE_OWNER,
+            "revalidation_points": ("claim_time",),
+            "authority_epoch": 1,
+        },
+        interpreter={
+            "interpreter_profile_id": "batch.task.dispatch-single.native",
+            "supported_contract_kinds": (DISPATCH_SINGLE_KIND,),
+            "supported_contract_refs": (),
+            "dependency_digest": content_digest(
+                {
+                    "interpreter": "batch.task.dispatch-single.native",
+                    "version": "1.0.0",
+                    "boundary": "single-item skill dispatch; no legacy service import",
+                }
+            ),
+            "security_profile_ref": BATCH_TASK_SECURITY_PROFILE,
+            "resource_profile_ref": "batch.task.dispatch-single.resource@1.0.0",
+            "credential_requirements_ref": None,
+            "cancellation_profile_ref": "claim_time",
+            "idempotency_profile_ref": BATCH_TASK_IDEMPOTENCY_PROFILE,
+            "authoritative_readback_profile_ref": None,
+            "receipt_codec_ref": DISPATCH_SINGLE_ACK_CODEC_ID,
+        },
+        observation={
+            "observation_profile_id": DISPATCH_SINGLE_OBSERVATION_PROFILE,
+            "dimensions": ("dispatch_id", "channel", "celery_task_id", "lane", "queue"),
+            "compatible_with_legacy": False,
+            "observation_schema_ref": DISPATCH_SINGLE_OBSERVATION_PROFILE,
+        },
+    )
+
+
+def build_batch_task_single_dispatch_contract() -> Annotated[OperationContract, 'kit:non-authoritative derived_as=view fact_source=batch_task_dispatch_definition witness=test:test_dispatch_single_program_compiles_to_one_effect_step']:
+    """Independent EFFECTFUL contract for single-item skill dispatch."""
+
+    return build_batch_task_single_dispatch_profiles().contract(
+        kind=DISPATCH_SINGLE_KIND,
+        contract_version="1.0.0",
+        input_type=DISPATCH_SINGLE_PAYLOAD_TYPE,
+        output_type=DISPATCH_SINGLE_ACK_TYPE,
+        return_contract_ref=RUNTIME_VALUE_RETURN_CONTRACT_REF,
+        allowed_override_schema_ref="mrw.functorial-successor.override.none.v1",
+        owner_capability_id=DISPATCH_SINGLE_OWNER,
+    )
+
+
+def derive_dispatch_task_id(
+    *,
+    project_scope_digest: str,
+    capability_id: str,
+    dispatch_id: str,
+) -> str:
+    """Server-derived deterministic broker task id for one single dispatch."""
+
+    return sha256_hex(
+        canonical_json(
+            {
+                "schema": "mrw.batch.dispatch-task.v1",
+                "project_scope_digest": project_scope_digest,
+                "capability_id": capability_id,
+                "dispatch_id": dispatch_id,
+            }
+        ).encode("utf-8")
+    )
+
+
+def derive_dispatch_run_id(
+    *,
+    project_scope_digest: str,
+    actor_id: str,
+    logical_request_id: str,
+) -> str:
+    """Deterministic server run identity from scope + actor + logical request."""
+
+    return sha256_hex(
+        canonical_json(
+            {
+                "schema": "mrw.batch.dispatch-run.v1",
+                "project_scope_digest": project_scope_digest,
+                "actor_id": actor_id,
+                "logical_request_id": logical_request_id,
+            }
+        ).encode("utf-8")
+    )
+
+
+def build_batch_task_single_dispatch_payload_codec(
+    contract_ref: OperationContractRef,
+) -> Annotated[PayloadCodec[BatchTaskSingleDispatchPayload], 'kit:non-authoritative derived_as=view fact_source=batch_task_dispatch_definition witness=test:test_dispatch_single_program_compiles_to_one_effect_step']:
+    """Exact payload codec restoring the nested single item and routing context."""
+
+    base_codec = dataclass_codec(
+        codec_id=DISPATCH_SINGLE_PAYLOAD_CODEC_ID,
+        codec_version="1",
+        contract_ref=contract_ref,
+        payload_type_id=DISPATCH_SINGLE_PAYLOAD_TYPE.type_id,
+        dto_cls=BatchTaskSingleDispatchPayload,
+    )
+
+    def encode(value: object) -> CanonicalJsonObject:
+        if not isinstance(value, BatchTaskSingleDispatchPayload):
+            _raise_contract_failure(
+                _failure(
+                    "codec_contract_invalid",
+                    "dispatch payload codec expected BatchTaskSingleDispatchPayload",
+                    site="dispatch_codec/encode",
+                    public_exception="TypeError",
+                ),
+                TypeError,
+            )
+        return base_codec.encode_payload(value)
+
+    def decode(value: CanonicalJsonObject) -> BatchTaskSingleDispatchPayload:
+        decoded = _decode_nested(BatchTaskSingleDispatchPayload, value)
+        if not isinstance(decoded, BatchTaskSingleDispatchPayload):
+            _raise_contract_failure(
+                _failure(
+                    "codec_contract_invalid",
+                    "dispatch payload codec returned an invalid payload type",
+                    site="dispatch_codec/decode",
+                    public_exception="TypeError",
+                ),
+                TypeError,
+            )
+        return decoded
+
+    return PayloadCodec(
+        codec_id=DISPATCH_SINGLE_PAYLOAD_CODEC_ID,
+        codec_version="1",
+        contract_ref=contract_ref,
+        payload_type_id=DISPATCH_SINGLE_PAYLOAD_TYPE.type_id,
+        encode=encode,
+        decode=decode,
+        codec_digest=codec_digest(
+            codec_id=DISPATCH_SINGLE_PAYLOAD_CODEC_ID,
+            codec_version="1",
+            contract_ref=contract_ref,
+            payload_type_id=DISPATCH_SINGLE_PAYLOAD_TYPE.type_id,
+        ),
+    )
+
+
+def build_batch_task_single_dispatch_ack_codec(
+    contract_ref: OperationContractRef,
+) -> Annotated[PayloadCodec[BatchTaskSingleDispatchAck], 'kit:non-authoritative derived_as=view fact_source=batch_task_dispatch_definition witness=test:test_dispatch_single_program_compiles_to_one_effect_step']:
+    """Flat typed ACK codec for the single-item dispatch output."""
+
+    return dataclass_codec(
+        codec_id=DISPATCH_SINGLE_ACK_CODEC_ID,
+        codec_version="1",
+        contract_ref=contract_ref,
+        payload_type_id=DISPATCH_SINGLE_ACK_TYPE.type_id,
+        dto_cls=BatchTaskSingleDispatchAck,
+    )
+
+
+def build_batch_task_single_dispatch_catalog(
+    contract: OperationContract | None = None,
+) -> Annotated[OperationContractCatalogSnapshot, 'kit:non-authoritative derived_as=view fact_source=batch_task_dispatch_definition witness=test:test_dispatch_single_program_compiles_to_one_effect_step']:
+    operation = contract or build_batch_task_single_dispatch_contract()
+    return OperationContractCatalogSnapshot(
+        catalog_id=DISPATCH_SINGLE_CATALOG_ID,
+        catalog_version=DISPATCH_SINGLE_CATALOG_VERSION,
+        entries=(
+            (
+                operation.ref.kind,
+                operation.ref.contract_version,
+                operation.ref.contract_digest,
+                operation.owner_capability_id,
+            ),
+        ),
+    )
+
+
+def build_batch_task_single_dispatch_registry(
+    contract: OperationContract | None = None,
+) -> Annotated[OperationContractRegistry, 'kit:non-authoritative derived_as=view fact_source=batch_task_dispatch_definition witness=test:test_dispatch_single_program_compiles_to_one_effect_step']:
+    operation = contract or build_batch_task_single_dispatch_contract()
+    return OperationContractRegistry(
+        build_batch_task_single_dispatch_catalog(operation),
+        (operation,),
     )

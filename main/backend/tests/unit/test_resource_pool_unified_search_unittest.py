@@ -12,12 +12,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 pytestmark = pytest.mark.unit
 
-from app.services.resource_pool.unified_search import _normalize_search_template_placeholders
-from app.services.resource_pool.unified_search import _filter_link_candidates_by_terms_with_fallback
-from app.services.resource_pool.unified_search import _entry_keyword_mode
-from app.services.resource_pool.unified_search import _entry_supports_query_terms
-from app.services.resource_pool.unified_search import _resolve_search_template_pagination
-from app.services.resource_pool.unified_search import unified_search_by_item_payload
+from app.services.resource_pool.search_capabilities import make_search_candidate, select_search_candidates
+from app.services.resource_pool.unified_search import (
+    _entry_keyword_mode,
+    _entry_supports_query_terms,
+    _normalize_search_template_placeholders,
+    _resolve_search_template_pagination,
+    unified_search_by_item_payload,
+)
 
 
 class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
@@ -26,28 +28,29 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
         normalized = _normalize_search_template_placeholders(raw)
         self.assertEqual(normalized, "https://example.com/search?q={{q}}&page={{page}}")
 
-    def test_filter_link_candidates_matches_anchor_text_when_url_has_no_term(self) -> None:
+    def test_search_candidates_match_anchor_text_when_url_has_no_term(self) -> None:
         candidates = [
-            {
-                "url": "https://example.com/posts/123",
-                "text": "Hands-on with Humane AI Pin",
-                "title": "",
-            },
-            {
-                "url": "https://example.com/posts/456",
-                "text": "Weekly newsletter",
-                "title": "",
-            },
+            make_search_candidate(
+                url="https://example.com/posts/123",
+                strategy="search_template",
+                text="Hands-on with Humane AI Pin",
+            ),
+            make_search_candidate(
+                url="https://example.com/posts/456",
+                strategy="search_template",
+                text="Weekly newsletter",
+            ),
         ]
 
-        filtered, used_fallback = _filter_link_candidates_by_terms_with_fallback(
-            candidates,
+        selected, used_fallback = select_search_candidates(
+            [item for item in candidates if item is not None],
             ["Humane AI Pin"],
             allow_fallback=False,
         )
 
         self.assertFalse(used_fallback)
-        self.assertEqual(filtered, [candidates[0]])
+        self.assertEqual([item.url for item in selected], ["https://example.com/posts/123"])
+        self.assertEqual(selected[0].matched_by, "text")
 
     def test_resolve_search_template_pagination_uses_defaults(self) -> None:
         start_page, max_pages = _resolve_search_template_pagination({})

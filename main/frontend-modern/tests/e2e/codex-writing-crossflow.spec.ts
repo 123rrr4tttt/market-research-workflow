@@ -9,7 +9,7 @@ import {
 } from './helpers/project-fixtures'
 
 const PROJECT_KEY = buildE2eProjectKey('e2e_cross')
-const CODEX_WEBUI_URL = 'http://127.0.0.1:8172/?mrw=macro-host-v1'
+const CODEX_WEBUI_URL = 'http://localhost:8172/?mrw=macro-host-v1'
 const createdDocumentIds = new Set<number>()
 
 type ApiEnvelope<T> = {

@@ -1,7 +1,7 @@
 """I1 serial composition-root coverage and fail-closed smoke tests.
 
 The assembly is local-only: this test never mounts a route, never starts a
-node and never executes a work item.  It verifies that the 27-cell coverage
+node and never executes a work item.  It verifies that the declared coverage
 matrix is complete, installed handler digests are unique, unresolved cells
 are explicitly declared and ``compose_node`` returns a real ``RuntimeNode``
 with all installed handlers resolvable.
@@ -40,9 +40,6 @@ from app.successor_runtime.capabilities.batch_task_native_contribution import (
 from app.successor_runtime.capabilities.workflow_native_contribution import (
     ASSEMBLY_CELL_IDS as WORKFLOW_ASSEMBLY_CELL_IDS,
 )
-from app.successor_runtime.capabilities.acquisition_native_contribution import (
-    ASSEMBLY_CELL_IDS as ACQUISITION_ASSEMBLY_CELL_IDS,
-)
 from app.successor_runtime.capabilities.source_native_contribution import (
     ASSEMBLY_CELL_IDS as SOURCE_ASSEMBLY_CELL_IDS,
 )
@@ -74,7 +71,6 @@ pytestmark = pytest.mark.unit
 EXPECTED_I1_CELL_ORDER = (
     *WORKFLOW_ASSEMBLY_CELL_IDS,
     *SOURCE_ASSEMBLY_CELL_IDS,
-    *ACQUISITION_ASSEMBLY_CELL_IDS,
     *BATCH_TASK_ASSEMBLY_CELL_IDS,
     *TASK_OBSERVATION_ASSEMBLY_CELL_IDS,
     *MATERIAL_ASSEMBLY_CELL_IDS,
@@ -94,10 +90,6 @@ EXPECTED_I1_CELLS = frozenset(EXPECTED_I1_CELL_ORDER)
     SOURCE_PROVIDER_EFFECT_CELL,
     SOURCE_TERMINAL_PROJECTION_CELL,
 ) = SOURCE_ASSEMBLY_CELL_IDS
-(
-    ACQUISITION_EXECUTE_CELL,
-    ACQUISITION_ORDERED_FOLD_CELL,
-) = ACQUISITION_ASSEMBLY_CELL_IDS
 (
     BATCH_PLAN_CELL,
     BATCH_RETRY_CELL,
@@ -175,11 +167,10 @@ def _default_assembly() -> SuccessorAssembly:
     return assemble_successor_runtime(engine=_engine())
 
 
-def test_i1_composition_root_covers_exactly_twenty_seven_cells() -> None:
+def test_i1_composition_root_covers_exact_declared_cells() -> None:
     assembly = _default_assembly()
     assert EXPECTED_I1_CELLS == ALL_I1_CELLS
     assert tuple(item.cell_id for item in assembly.cells) == EXPECTED_I1_CELL_ORDER
-    assert len(EXPECTED_I1_CELL_ORDER) == 27
     assert len(EXPECTED_I1_CELLS) == len(EXPECTED_I1_CELL_ORDER)
     summary = assembly.coverage_summary()
     assert sum(summary.values()) == len(EXPECTED_I1_CELL_ORDER)
@@ -198,7 +189,6 @@ def test_i1_default_coverage_matrix_is_fail_closed() -> None:
     assert coverage[KNOWLEDGE_ASSEMBLY_CELL_IDS[2]] == "UNWIRED_DECLARED"
     assert coverage[PROJECTION_CLIENT_CONTRACT_CELL] == "INSTALLED"
     for cell_id in (
-        *ACQUISITION_ASSEMBLY_CELL_IDS,
         BATCH_PLAN_CELL,
         BATCH_RETRY_CELL,
         TASK_EFFECT_RECONCILIATION_CELL,

@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 pytestmark = pytest.mark.unit
 
+from app.contracts.schemas.writing import WritingCitationData
 from app.services.document_views import (
     build_social_data_item,
     build_keyword_card_from_graph_node,
@@ -28,6 +29,7 @@ from app.services.document_views import (
     get_social_platform_label,
     get_social_sentiment_orientation,
     get_social_sentiment_terms,
+    serialize_writing_citation,
     serialize_writing_document,
 )
 
@@ -169,6 +171,29 @@ class DocumentViewsUnitTestCase(unittest.TestCase):
         self.assertEqual(serialized["metadata_json"], {"section": "overview"})
         self.assertEqual(conflict["current_version"], 3)
         self.assertEqual(conflict["server_snapshot"]["id"], 11)
+
+    def test_writing_citation_view_keeps_single_source_material_identity(self):
+        citation = SimpleNamespace(
+            id=21,
+            doc_id=11,
+            project_key="demo_proj",
+            source_doc_id=42,
+            source_uri="https://example.test/material/42",
+            source_title="Canonical material",
+            quote_text="quoted evidence",
+            position_anchor="selection:1",
+            card_id="card-1",
+            metadata_json={"source": "material"},
+            created_at=datetime(2026, 10, 6, tzinfo=timezone.utc),
+            updated_at=datetime(2026, 10, 6, tzinfo=timezone.utc),
+        )
+
+        serialized = serialize_writing_citation(citation)
+        response = WritingCitationData.model_validate(serialized)
+
+        self.assertEqual(serialized["source_doc_id"], 42)
+        self.assertNotIn("source_material_id", serialized)
+        self.assertNotIn("source_material_id", response.model_dump())
 
     def test_keyword_card_views_normalize_hybrid_and_graph_rows(self):
         hybrid = build_keyword_card_from_hybrid_row(

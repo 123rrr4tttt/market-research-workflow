@@ -9,9 +9,9 @@ binds to an existing projection id and may narrow the topology read model with
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict
 
 from ...defaults import DefaultProjectCustomization
+from ...interfaces import CustomizationJsonObject, CustomizationJsonValue
 
 # 分析总纲 三、大纲节与信息搜集
 OUTLINE_VIEWS: tuple[tuple[str, str], ...] = (
@@ -34,11 +34,11 @@ VIEW_IDS: tuple[str, ...] = (
 )
 
 
-def _graph_projections() -> list[Dict[str, Any]]:
-    projections: list[Dict[str, Any]] = [
+def _graph_projections() -> list[CustomizationJsonObject]:
+    projections: list[CustomizationJsonObject] = [
         {"id": "graphDeep", "label": "总图"},
     ]
-    for (section, label), view_id in zip(OUTLINE_VIEWS, VIEW_IDS[1:5]):
+    for (section, label), view_id in zip(OUTLINE_VIEWS, VIEW_IDS[1:5], strict=True):
         projections.append({
             "id": view_id,
             "label": label,
@@ -53,11 +53,11 @@ def _graph_projections() -> list[Dict[str, Any]]:
 @dataclass(slots=True)
 class HkWaterInvestigationCustomization(DefaultProjectCustomization):
     project_key: str = "hk_water_investigation"
-    _graph_projections: list[Dict[str, Any]] = field(
+    _graph_projections: list[CustomizationJsonObject] = field(
         default_factory=_graph_projections, init=False, repr=False,
     )
 
-    def get_field_mapping(self) -> Dict[str, Any]:
+    def get_field_mapping(self) -> dict[str, CustomizationJsonValue]:
         return {"graph_projections": list(self._graph_projections)}
 
     def get_report_title(self) -> str:

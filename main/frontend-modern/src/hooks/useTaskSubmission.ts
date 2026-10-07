@@ -27,7 +27,7 @@ export function useTaskSubmission({ projectKey, invalidateOnSettled }: {
 
   const detail = useQuery({
     queryKey: queryKeys.process.detailByProject(receipt?.taskId || '', projectKey),
-    queryFn: () => getProcessTaskDetail(String(receipt?.taskId)),
+    queryFn: () => getProcessTaskDetail(String(receipt?.taskId), projectKey),
     enabled: Boolean(receipt),
     refetchInterval: (query) => isTerminalTaskStatus(query.state.data?.status) ? false : 3000,
     refetchIntervalInBackground: true,
@@ -44,7 +44,9 @@ export function useTaskSubmission({ projectKey, invalidateOnSettled }: {
 
   const track = (result: unknown, action: string) => {
     const payload = result && typeof result === 'object' ? result as Record<string, unknown> : {}
-    const taskId = typeof payload.task_id === 'string' ? payload.task_id.trim() : ''
+    const runtimeRunRef = typeof payload.runtime_run_ref === 'string' ? payload.runtime_run_ref.trim() : ''
+    const brokerTaskId = typeof payload.task_id === 'string' ? payload.task_id.trim() : ''
+    const taskId = runtimeRunRef || brokerTaskId
     if (!taskId || payload.async === false) {
       setLastReceipt(null)
       return false

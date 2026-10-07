@@ -91,8 +91,6 @@ from app.successor_runtime.substrate.postgres.c8_material_handler import (
     read_staged_knowledge_value,
 )
 from app.successor_runtime.substrate.postgres.c8_production import (
-    LEGACY_PRODUCTION_AUTHORITY_DIGEST,
-    LEGACY_PRODUCTION_AUTHORITY_ID,
     PRODUCTION_AUTHORITY_ID,
     C8DeliveryUnavailableError,
     C8ProductionRoot,
@@ -172,6 +170,18 @@ FORMATION_PROFILE = c8.FormationProfile(
     profile_version="1",
 )
 PROJECT_TABLES = project_tables(sa.MetaData(), RESOLVED_SCHEMA)
+LEGACY_GRAPH_AUTHORITY_ID = "c8.production.v1"
+LEGACY_GRAPH_AUTHORITY_DIGEST = c8.knowledge_canonical_digest(
+    {"authority_id": LEGACY_GRAPH_AUTHORITY_ID}
+)
+LEGACY_GRAPH_LOSS_REGISTRY_ID = "c8.graph-loss-profile.c8.production.v1"
+LEGACY_GRAPH_LOSS_REGISTRY_DIGEST = c8.knowledge_canonical_digest(
+    {
+        "registry_id": LEGACY_GRAPH_LOSS_REGISTRY_ID,
+        "authority_id": LEGACY_GRAPH_AUTHORITY_ID,
+        "authority_digest": LEGACY_GRAPH_AUTHORITY_DIGEST,
+    }
+)
 
 
 def _server_url() -> str:
@@ -1648,14 +1658,8 @@ def test_legacy_graph_offset_and_value_are_exact_read_only(
     graph_id = "graph:c8-pg-legacy"
     legacy_value_id = f"c8:graph:{graph_id}:gen:0"
     legacy_offset_ref = f"project-value:{legacy_value_id}"
-    legacy_registry_id = "c8.graph-loss-profile.c8.production.v1"
-    legacy_registry_digest = c8.knowledge_canonical_digest(
-        {
-            "registry_id": legacy_registry_id,
-            "authority_id": LEGACY_PRODUCTION_AUTHORITY_ID,
-            "authority_digest": LEGACY_PRODUCTION_AUTHORITY_DIGEST,
-        }
-    )
+    legacy_registry_id = LEGACY_GRAPH_LOSS_REGISTRY_ID
+    legacy_registry_digest = LEGACY_GRAPH_LOSS_REGISTRY_DIGEST
     generation = c8.GraphProjectionGeneration(
         generation_id=f"c8.graph.generation:{graph_id}:0",
         project_key=PROJECT_KEY,
@@ -1663,8 +1667,8 @@ def test_legacy_graph_offset_and_value_are_exact_read_only(
         declared_loss=("c8.graph.historical-loss.v1",),
         provenance_digest="0" * 64,
         offset=legacy_offset_ref,
-        authority_kind=LEGACY_PRODUCTION_AUTHORITY_ID,
-        authority_digest=LEGACY_PRODUCTION_AUTHORITY_DIGEST,
+        authority_kind=LEGACY_GRAPH_AUTHORITY_ID,
+        authority_digest=LEGACY_GRAPH_AUTHORITY_DIGEST,
         loss_profile_registry_id=legacy_registry_id,
         loss_profile_registry_digest=legacy_registry_digest,
     )
@@ -1731,10 +1735,19 @@ def test_legacy_graph_offset_and_value_are_exact_read_only(
             source_digest=source["source_digest"],
             offset_ref=legacy_offset_ref,
         )
-        active = _root(connection).issue_active_graph_handle(
+        with pytest.raises(C8GraphProjectionUnavailableError):
+            _root(connection).issue_active_graph_handle(
+                graph_id=graph_id,
+                source_ref=source["source_ref"],
+                source_incarnation=source["source_incarnation"],
+            )
+        active = read_active_graph(
+            connection,
+            scope=_scope(),
             graph_id=graph_id,
             source_ref=source["source_ref"],
             source_incarnation=source["source_incarnation"],
+            projector_id=LEGACY_C8_GRAPH_PROJECTOR_ID,
         )
         assert active.generation_id == generation.generation_id
         assert active.offset == legacy_offset_ref

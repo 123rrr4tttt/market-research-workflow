@@ -45,7 +45,12 @@ from app.successor_runtime.capabilities.source_resolution_program import (
     build_source_resolution_program,
     compile_source_resolution_program,
 )
-from app.successor_runtime.language.algebra import freeze_json_object
+from app.successor_runtime.capabilities.checksum import canonical_json
+from app.successor_runtime.language.algebra import (
+    freeze_json_object,
+    freeze_json_value,
+    thaw_json_value,
+)
 from app.successor_runtime.language.program import Atom, decode_program_spec
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -187,6 +192,11 @@ def _payload(**overrides):
     return payload_from_dicts(**values)
 
 
+_HISTORICAL_SOURCE_RESOLUTION_WIRE = json.loads(
+    '{"catalog":{"digest":"2d8895d418d4aba0e63f71d9f3fa479c485fa8c2fba22eb3318ac486464fba9b","entries":[{"channel_key":"handler.cluster","enabled":true,"extra":[["nested",[["empty",[]]]]],"provider":"","provider_type":"native"},{"channel_key":"generic_web.search_template","enabled":true,"extra":[],"provider":"generic_web","provider_type":"native"},{"channel_key":"crawler.demo_proj","enabled":true,"extra":[],"provider":"","provider_type":"scrapy"},{"channel_key":"market.default","enabled":true,"extra":[],"provider":"","provider_type":"native"}],"incarnation":"channel-catalog-incarnation-1","revision":1,"schema_version":"mrw.source.channel-catalog.v2"},"item":{"channel_key":"handler.cluster","content_digest":"c468df50af39dc0361c7c1f64fbd5b6495f2f6a5caa43fbd0e47245160dd893e","enabled":true,"extra":[["expected_entry_type","search_template"],["stable_handler_cluster",true]],"incarnation":"item-inc-3","item_key":"handler.cluster.news","item_type":null,"managed_by":null,"params":[["keywords",["robotics"]],["limit",9]],"revision":3,"schema_version":"mrw.source.source-item-definition.v2"},"operation_kind":"source_library.resolve_execution_request.v1","params":[["empty_array",[]],["empty_object",[]],["nested",[["array",[["left","right"]]],["object",[["kept",true]]]]],["pair_array",[["key",1]]]],"payload_digest":"82a82badd7f4f4df4295a71fbff376e9051f7f276fbd1943612fe46e0507e4d8","project_scope":{"incarnation":"scope-inc-5","project_key":"demo_proj","registry_revision":5,"resolved_schema":"mrw_p_demo_proj","scope_digest":"682f257a0aaff8c298025abe8fc783e6d58f023a7bfb983a512f5e50fbd88ed5"},"schema_version":"mrw.successor.source-library.c2-1.payload.v1"}'
+)
+
+
 def _program(payload):
     return build_source_resolution_program(
         payload=payload,
@@ -315,12 +325,45 @@ def test_deployment_catalog_digest_is_distinct_from_operation_catalog() -> None:
 
 def test_payload_codec_round_trip_and_extra_field_reject() -> None:
     bundle = _bundle()
-    payload = _payload()
+    nested = {
+        "empty_array": [],
+        "empty_object": {},
+        "pair_array": [["key", 1]],
+        "nested": {"array": [["left", "right"]], "object": {"kept": True}},
+    }
+    payload = _payload(
+        item={"params": nested, "extra": nested},
+        params=nested,
+    )
     codec = bundle.payload_codec()
     encoded = codec.encode_payload(payload)
     decoded = codec.decode_payload(encoded)
     assert decoded == payload
     assert decoded.payload_digest == payload.payload_digest
+    assert encoded["params"] == nested
+    assert encoded["item"]["params"] == nested
+    assert encoded["item"]["extra"] == nested
+    assert decoded.params == freeze_json_object(nested)
+    assert decoded.item.params == freeze_json_object(nested)
+    assert decoded.item.extra == freeze_json_object(nested)
+    assert codec.codec_id == "mrw.source.resolve-execution-request.payload.codec.v3"
+    assert codec.codec_version == "2"
+
+    old_current = dict(encoded)
+    old_current["schema_version"] = "mrw.source.resolve-execution-request.payload.v2"
+    with pytest.raises(ValueError, match="unsupported resolution payload schema"):
+        codec.decode_payload(old_current)
+
+    with pytest.raises(ValueError, match="SourceItemDefinition.schema_version is not the frozen schema"):
+        dataclasses.replace(
+            payload.item,
+            schema_version="mrw.source.source-item-definition.v2",
+        )
+    with pytest.raises(ValueError, match="ChannelCatalogSnapshot.schema_version is not supported"):
+        dataclasses.replace(
+            payload.catalog,
+            schema_version="mrw.source.channel-catalog.v2",
+        )
 
     with_extra = dict(encoded)
     with_extra["unexpected_field"] = "must-reject"
@@ -427,27 +470,75 @@ def test_item_identity_is_required_and_digest_verified() -> None:
 
 
 def test_historical_payload_requires_explicit_decoder_and_preserves_identity() -> None:
-    historical = dataclasses.replace(
-        _payload(),
-        schema_version=SOURCE_RESOLUTION_HISTORICAL_PAYLOAD_SCHEMA,
-        payload_digest="",
+    encoded = _HISTORICAL_SOURCE_RESOLUTION_WIRE
+    exact = canonical_json(encoded).encode("utf-8")
+    assert hashlib.sha256(exact).hexdigest() == (
+        "f94d9ac5a092b761baafc5871be3ea589c2652e89e4b0d083234d26a61a5df4b"
     )
-    encoded = _bundle().payload_codec().encode_payload(historical)
+    assert encoded["schema_version"] == SOURCE_RESOLUTION_HISTORICAL_PAYLOAD_SCHEMA
+    assert encoded["item"]["schema_version"] == "mrw.source.source-item-definition.v2"
+    assert encoded["catalog"]["schema_version"] == "mrw.source.channel-catalog.v2"
+    assert encoded["payload_digest"] == (
+        "82a82badd7f4f4df4295a71fbff376e9051f7f276fbd1943612fe46e0507e4d8"
+    )
+
     with pytest.raises(ValueError, match="historical resolution payload"):
         _bundle().payload_codec().decode_payload(encoded)
     decoded = decode_historical_source_resolution_payload(encoded)
-    assert _bundle().payload_codec().encode_payload(decoded) == encoded
-    assert decoded.payload_digest == historical.payload_digest
+    assert decoded.schema_version == SOURCE_RESOLUTION_HISTORICAL_PAYLOAD_SCHEMA
+    assert decoded.payload_digest == encoded["payload_digest"]
+    assert decoded.item.schema_version == "mrw.source.source-item-definition.v2"
+    assert decoded.item.content_digest == encoded["item"]["content_digest"]
+    assert decoded.catalog.schema_version == "mrw.source.channel-catalog.v2"
+    assert decoded.catalog.digest == encoded["catalog"]["digest"]
+    assert isinstance(encoded["params"], list)
+    historical_params = thaw_json_value(decoded.params)
+    assert historical_params["empty_array"] == []
+    assert historical_params["pair_array"] == [["key", 1]]
+    assert isinstance(historical_params["empty_object"], list)
+    assert isinstance(historical_params["nested"], list)
 
     wrong_version = dict(encoded)
     wrong_version["schema_version"] = "mrw.source.unknown.v9"
     with pytest.raises(ValueError, match="exact C2 payload schema"):
         decode_historical_source_resolution_payload(wrong_version)
 
+    historical_item = json.loads(exact.decode("utf-8"))
+    historical_item["item"]["schema_version"] = (
+        "mrw.successor.source-library.c2-1.source-item-definition.v1"
+    )
+    with pytest.raises(ValueError, match="historical resolution item schema"):
+        decode_historical_source_resolution_payload(historical_item)
+
+    historical_catalog = json.loads(exact.decode("utf-8"))
+    historical_catalog["catalog"]["schema_version"] = (
+        "mrw.successor.source-library.channel-catalog.v1"
+    )
+    with pytest.raises(ValueError, match="historical resolution catalog schema"):
+        decode_historical_source_resolution_payload(historical_catalog)
+
+    def mutate(remove):
+        value = json.loads(exact.decode("utf-8"))
+        target = value
+        if remove in {"item_field", "catalog_field", "entry_field"}:
+            target = (
+                value["item"] if remove == "item_field"
+                else value["catalog"] if remove == "catalog_field"
+                else value["catalog"]["entries"][0]
+            )
+            target.pop("item_key" if remove == "item_field" else "revision" if remove == "catalog_field" else "provider")
+        else:
+            value["unexpected_field"] = "must-reject"
+        return value
+
+    for mutation in ("top", "item_field", "catalog_field", "entry_field"):
+        with pytest.raises(ValueError, match="rejected payload fields"):
+            decode_historical_source_resolution_payload(mutate(mutation))
+
 
 def test_versioned_schema_maps_are_pinned() -> None:
     pinned = {
-        SOURCE_ITEM_DEFINITION_SCHEMA.schema_ref: ("55d7007b0b87206b17f31dbf72e096e415ed2550e4de04883248215eeca49371"),
+        SOURCE_ITEM_DEFINITION_SCHEMA.schema_ref: ("174de9044f65d6f1591d37fe308a38a8c68f93caf673f930e4aca5a1d4ec3bd2"),
         SOURCE_TAXONOMY_SCHEMA.schema_ref: ("da0661b45a19007a5b3fa8d7f582434b2a62c726a5f39157887632907c203442"),
         SOURCE_MODE_SCHEMA.schema_ref: ("cf2c533ea4ece1d59e1e088449fbf89ad7814f5d1675ec833ebb50205c0c7fb3"),
         SOURCE_EXECUTION_REQUEST_SCHEMA.schema_ref: (
@@ -481,7 +572,7 @@ def test_profile_and_contract_digests_are_pinned() -> None:
         "eb5f5b75c53f7fbaa25c339302d46886fd98bdd7fd136a5d3c6997e4d37c69e0"
     )
     assert profiles["failure"].profile_digest == ("c3f850c5453f687a32c6b99996787fe656514035a82b950ee68c250e958d36d8")
-    assert bundle.operation.ref.contract_digest == ("6ced6266314f92d80b4590532c2fa491c407a64a7923cd587499c05ebbfc66d4")
+    assert bundle.operation.ref.contract_digest == ("75985813967dab3c925ca5f64b24b275f0c69546076b4c5ebc8335c8aa20c616")
 
 
 def test_resource_ceiling_rejects_over_limit_inputs() -> None:
@@ -541,6 +632,27 @@ def test_params_snapshot_to_dict_maps_raw_flag_field() -> None:
     assert restored["_allow_internal_generic_web"] is True
 
 
+def test_source_interpreter_preserves_frozen_json_object_and_array_shapes() -> None:
+    extra = freeze_json_value({
+        "source_registry": [],
+        "pair_array": [["key", 1]],
+        "nested": {"empty_array": [], "empty_object": {}, "object": {"kept": True}},
+    })
+
+    normalized = normalize_item_taxonomy_dict({
+        "item_key": "shape.witness",
+        "channel_key": "handler.cluster",
+        "extra": extra,
+    })
+
+    observed = normalized["extra"]
+    assert observed["source_registry"] == []
+    assert observed["pair_array"] == [["key", 1]]
+    assert observed["nested"] == {
+        "empty_array": [], "empty_object": {}, "object": {"kept": True}
+    }
+
+
 def test_program_ast_single_atom_and_plan_exact() -> None:
     payload = _payload()
     program = _program(payload)
@@ -548,7 +660,7 @@ def test_program_ast_single_atom_and_plan_exact() -> None:
     assert program.root.node_kind == "atom"
     assert program.root.operation.operation_id == ("source_library.resolve_execution_request")
     assert program.root.operation.contract_ref.kind == SOURCE_RESOLUTION_KIND
-    assert program.root.input_type.type_id == "SourceResolutionPayload.v1"
+    assert program.root.input_type.type_id == "SourceResolutionPayload.v2"
     assert program.root.output_type.type_id == "SourceResolutionResult.v1"
 
     decoded = decode_program_spec(
@@ -569,12 +681,12 @@ def test_program_ast_single_atom_and_plan_exact() -> None:
     assert len(effect_steps) == 1
     assert effect_steps[0].operation_contract_ref == program.root.operation.contract_ref
     assert not any(step.step_kind == "ADMISSION" for step in plan.ordered_steps)
-    assert plan.input_type.type_id == "SourceResolutionPayload.v1"
+    assert plan.input_type.type_id == "SourceResolutionPayload.v2"
     assert plan.output_type.type_id == "SourceResolutionResult.v1"
 
     ref = program.root.operation.payload_ref
     assert ref.project_key == PROJECT_KEY
-    assert ref.object_type.type_id == "SourceResolutionPayload.v1"
+    assert ref.object_type.type_id == "SourceResolutionPayload.v2"
     metadata = dict(program.metadata)
     assert metadata["catalog_digest"] == payload.catalog.digest
     assert metadata["catalog_revision"] == payload.catalog.revision

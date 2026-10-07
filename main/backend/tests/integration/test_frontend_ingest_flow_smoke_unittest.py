@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -22,9 +23,6 @@ class _TasksStub:
         self.task_run_source_library_item = SimpleNamespace(
             delay=Mock(return_value=SimpleNamespace(id="source-library-task-1"))
         )
-        self.task_ingest_url_via_source_library = SimpleNamespace(
-            delay=Mock(return_value=SimpleNamespace(id="single-url-task-1"))
-        )
 
     def task_collect_market_data(self, *_args, **_kwargs):  # pragma: no cover - compatibility only
         return SimpleNamespace(id="market-task")
@@ -33,11 +31,58 @@ class _TasksStub:
         return SimpleNamespace(id="news-task")
 
 
+class _AuthenticatedActorStateApp:
+    def __init__(self, app, *, actor_id: str):
+        self._app = app
+        self._actor_id = actor_id
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") == "http":
+            state = scope.setdefault("state", {})
+            actor = {
+                "actor_id": self._actor_id,
+                "source": "test_authenticated_actor_context",
+                "auth_type": "codex_test",
+            }
+            state["authenticated_actor"] = actor
+            state["authenticated_actor_id"] = self._actor_id
+            state["codex_authenticated_actor"] = actor
+        await self._app(scope, receive, send)
+
+
+@contextmanager
+def installed_url_runtime():
+    with (
+        patch("app.models.base.engine") as engine,
+        patch(
+            "app.successor_runtime.substrate.postgres.session.ServerProjectScopeResolver"
+        ) as resolver,
+        patch(
+            "app.composition.production.submit_installed_program"
+        ) as submit_runtime,
+    ):
+        resolver.return_value = SimpleNamespace(
+            resolve=Mock(
+                return_value=SimpleNamespace(
+                    project_key="demo_proj",
+                    project_registry_revision=1,
+                    scope_digest="d" * 64,
+                )
+            )
+        )
+        submit_runtime.return_value = (
+            {"run_id": "url-single-frontend-1", "state": "READY"},
+            ("work:url-single-frontend-1:1",),
+        )
+        yield submit_runtime
+        assert engine.connect.called
+
+
 @pytest.fixture(scope="module")
 def client():
     # Do not enter TestClient's lifespan: application startup contains real
     # configuration-sync effects that are outside this HTTP contract test.
-    return TestClient(app)
+    return TestClient(_AuthenticatedActorStateApp(app, actor_id="frontend-actor-1"))
 
 
 def test_frontend_ingest_flow_contract_smoke(client: TestClient):
@@ -58,7 +103,7 @@ def test_frontend_ingest_flow_contract_smoke(client: TestClient):
     with patch("app.api.ingest._tasks_module", return_value=tasks_stub), patch(
         "app.api.ingest._reserve_ingest_submission_db",
         side_effect=reserve_in_fixture_memory,
-    ), patch("app.api.ingest._complete_ingest_submission_db"):
+    ), patch("app.api.ingest._complete_ingest_submission_db"), installed_url_runtime():
         source_library_async_resp = client.post(
             "/api/v1/ingest/source-library/run",
             json={
@@ -113,8 +158,10 @@ def test_frontend_ingest_flow_contract_smoke(client: TestClient):
     assert source_payload["registry_backend"] == "memory"
     assert source_payload["registry_degraded"] is True
 
-    assert single_payload["status"] == "queued"
-    assert single_payload["task_id"] == "single-url-task-1"
+    assert single_payload["status"] == "submitted"
+    assert single_payload["task_id"] is None
+    assert single_payload["runtime_run_ref"] == "runtime-run:url-single-frontend-1"
+    assert single_payload["work_item_ids"] == ["work:url-single-frontend-1:1"]
     assert single_payload["async"] is True
     assert single_payload["params"]["url"] == "https://example.com"
     assert single_payload["submission_id"]
@@ -124,8 +171,9 @@ def test_frontend_ingest_flow_contract_smoke(client: TestClient):
     assert single_payload["registry_backend"] == "memory"
     assert single_payload["registry_degraded"] is True
 
-    assert duplicate_payload["status"] == "queued"
-    assert duplicate_payload["task_id"] == "single-url-task-1"
+    assert duplicate_payload["status"] == "submitted"
+    assert duplicate_payload["task_id"] is None
+    assert duplicate_payload["runtime_run_ref"] == "runtime-run:url-single-frontend-1"
     assert duplicate_payload["submission_id"] == single_payload["submission_id"]
     assert duplicate_payload["idempotency_key"] == "ingest-flow-smoke-url"
     assert duplicate_payload["submission_status"] == "already_submitted"
@@ -151,13 +199,6 @@ def test_frontend_ingest_flow_contract_smoke(client: TestClient):
         workflow_run_id=source_submission_id,
         trace_id=source_trace_id,
     )
-    tasks_stub.task_ingest_url_via_source_library.delay.assert_called_once_with(
-        "https://example.com",
-        ["market"],
-        False,
-        "demo_proj",
-    )
-
     with patch(
         "app.services.collect_runtime.run_source_library_item_compat",
         return_value={

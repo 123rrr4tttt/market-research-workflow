@@ -22,7 +22,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Annotated, Literal, NoReturn, TypeAlias
+from typing import Annotated, Literal, NoReturn, TypeAlias, cast
 
 from functorial_kit import Failure
 
@@ -50,10 +50,10 @@ from app.successor_runtime.capabilities.workflow_common import (
 )
 from app.successor_runtime.language.algebra import (
     AlgebraRef,
-    FrozenJsonValue,
     OperationSpec,
     ValueRef,
     freeze_json_object,
+    thaw_json_value,
 )
 from app.successor_runtime.language.catalog import (
     OperationContractCatalogSnapshot,
@@ -981,27 +981,7 @@ def parse_and_validate_workflow_dsl(
 
 def workflow_program_metadata(program: ProgramSpec) -> WorkflowJsonObject:
     """Read one exact program's canonical workflow scheduling metadata."""
-    return {
-        key: _plain_frozen_json_value(value)
+    return cast(WorkflowJsonObject, {
+        key: thaw_json_value(value)
         for key, value in program.metadata
-    }
-
-
-def _plain_frozen_json_value(value: FrozenJsonValue) -> WorkflowJsonValue:
-    if isinstance(value, frozenset):
-        return [item for item in sorted(value)]
-    if isinstance(value, tuple):
-        pairs: list[tuple[str, FrozenJsonValue]] = []
-        object_like = bool(value)
-        for item in value:
-            if not isinstance(item, tuple) or len(item) != 2 or not isinstance(item[0], str):
-                object_like = False
-                break
-            pairs.append((item[0], item[1]))
-        if object_like:
-            return {
-                key: _plain_frozen_json_value(item)
-                for key, item in pairs
-            }
-        return [_plain_frozen_json_value(item) for item in value]
-    return value
+    })

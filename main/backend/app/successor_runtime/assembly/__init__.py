@@ -6,7 +6,6 @@ from .base import (
     ASSEMBLY_STATUSES,
     PROJECTOR_REGISTRY_INCARNATION,
     AssemblyStatus,
-    AcquisitionAssemblyOptions,
     BatchTaskAssemblyOptions,
     TaskObservationAssemblyOptions,
     MaterialIngestAssemblyOptions,
@@ -25,11 +24,6 @@ from .base import (
     sha256_hex,
     successor_binding,
 )
-from .s2c_ops_domain_surface_assembly import (
-    S2cOpsDomainSurfaceContract,
-    build_s2c_ops_domain_surface_registry,
-    s2c_ops_domain_surface_registry_digest,
-)
 from .successor_assembly import (
     ALL_I1_CELLS,
     SuccessorAssembly,
@@ -42,7 +36,6 @@ __all__ = [
     "ASSEMBLY_STATUSES",
     "PROJECTOR_REGISTRY_INCARNATION",
     "AssemblyStatus",
-    "AcquisitionAssemblyOptions",
     "BatchTaskAssemblyOptions",
     "TaskObservationAssemblyOptions",
     "MaterialIngestAssemblyOptions",
@@ -56,15 +49,12 @@ __all__ = [
     "ProjectorSourceKey",
     "ProjectorWiring",
     "RollbackBindingDeclaration",
-    "S2cOpsDomainSurfaceContract",
     "SuccessorAssembly",
     "assemble_successor_runtime",
     "build_local_offline_fixture_options",
-    "build_s2c_ops_domain_surface_registry",
     "local_assembly_scope_digest",
     "merge_family_assemblies",
     "require_assembly_digest",
-    "s2c_ops_domain_surface_registry_digest",
     "sha256_hex",
     "successor_binding",
 ]

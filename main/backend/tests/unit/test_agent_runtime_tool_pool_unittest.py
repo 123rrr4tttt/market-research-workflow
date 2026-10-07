@@ -38,7 +38,8 @@ def test_tool_pool_exports_control_owner_actions_without_coordinator_continue() 
     assert "task.continue" not in tools
     assert tools["task.cancel"]["approval_level"] == "explicit_user_request"
     assert tools["task.cancel"]["concurrency_class"] == "write_shared"
-    assert tools["task.retry"]["approval_level"] == "explicit_user_request"
+    assert "task.retry" not in IMPLEMENTED_TOOL_IDS
+    assert "task.retry" not in tools
     assert tools["task.summary"]["implemented"] is True
     assert tools["task.summary"]["approval_level"] == "none"
     assert tools["task.summary"]["concurrency_class"] == "read_only"

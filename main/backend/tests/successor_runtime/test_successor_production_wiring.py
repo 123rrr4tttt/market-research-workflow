@@ -30,7 +30,6 @@ from app.successor_runtime.assembly.app_assembly import (
     PRODUCTION_REGISTRY_CONFIGURATION,
     SUCCESSOR_DEPENDENCIES_STATE_ATTR,
     AuthActorUnresolvedError,
-    RegistryBackedProjectScopeResolver,
     SuccessorProductionConfigurationError,
     SuccessorRuntimeAppDependencies,
     _authenticated_actor_provider,
@@ -39,6 +38,7 @@ from app.successor_runtime.assembly.app_assembly import (
 )
 from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
 from app.successor_runtime.substrate.postgres.session import (
+    RegistryBackedProjectScopeResolver,
     ProjectScopeStale,
     ProjectScopeValidationError,
     compute_scope_digest,

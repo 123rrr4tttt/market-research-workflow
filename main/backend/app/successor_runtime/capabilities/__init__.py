@@ -1,21 +1,5 @@
 """Capability-owned operation contracts for the MRW functorial successor."""
 
-from .acquisition_batch_interpreters import (
-    COLLECT_EXECUTE_BATCH_ELEMENT_LEGACY_INTERPRETER_ID,
-    COLLECT_FOLD_ORDERED_RESULTS_LEGACY_INTERPRETER_ID,
-    CollectBindingMismatch,
-    InterpreterFailure,
-    InterpreterSuccess,
-    authority_requirement_digest,
-    deterministic_composed_element_runner,
-    legacy_execute_element_interpreter_profile_digest,
-    legacy_fold_ordered_results_interpreter_profile_digest,
-    require_exact_collect_binding,
-    require_exact_composed_binding,
-    run_ordered_traversal,
-    successor_execute_element_interpreter_profile_digest,
-    successor_fold_ordered_results_interpreter_profile_digest,
-)
 from .catalog import CapabilityCatalogSnapshot, build_first_specimen_catalog
 from .contracts import (
     ObjectType,
@@ -34,13 +18,7 @@ from .first_specimen import (
     MarkdownComposeInput,
     build_first_specimen_bundle,
 )
-from .first_specimen_payloads import (
-    FirstSpecimenPayloadContext,
-    PersistedOperationPayloads,
-    SourcePayloadContext,
-    persist_first_specimen_payloads,
-    persist_internal_export_payload,
-)
+from .first_specimen_payloads import persist_internal_export_payload
 
 # isort: split
 
@@ -57,21 +35,6 @@ from .first_specimen_delivery_gate import (
     DeliveryReadyPacket,
 )
 from .first_specimen_interpreters import FirstSpecimenInterpreters, derive_material_ref
-from .first_specimen_program import (
-    DELIVERY_TEMPLATE_TYPE,
-    ExactOperationValues,
-    FirstSpecimenProgramValues,
-    build_runtime_first_specimen_program,
-)
-from .first_specimen_submission import (
-    CaptureReceipt,
-    CompileAssignmentRequest,
-    FirstSpecimenSubmissionService,
-    SubmissionCommand,
-    SubmissionRejected,
-    SubmittedFirstSpecimen,
-    SubmittedRuntimePacket,
-)
 from .fixture import FIXTURE_OPERATION_KIND, build_fixture_capability_bundle
 from .knowledge_graph_projection_contribution import (
     KNOWLEDGE_GRAPH_PROJECTION_DECLARED_LOSS as KNOWLEDGE_GRAPH_PROJECTION_DECLARED_LOSS,
@@ -246,20 +209,6 @@ from .typed_knowledge_contribution import (
 )
 
 __all__ = [
-    "COLLECT_EXECUTE_BATCH_ELEMENT_LEGACY_INTERPRETER_ID",
-    "COLLECT_FOLD_ORDERED_RESULTS_LEGACY_INTERPRETER_ID",
-    "CollectBindingMismatch",
-    "InterpreterFailure",
-    "InterpreterSuccess",
-    "authority_requirement_digest",
-    "deterministic_composed_element_runner",
-    "legacy_execute_element_interpreter_profile_digest",
-    "legacy_fold_ordered_results_interpreter_profile_digest",
-    "require_exact_collect_binding",
-    "require_exact_composed_binding",
-    "run_ordered_traversal",
-    "successor_execute_element_interpreter_profile_digest",
-    "successor_fold_ordered_results_interpreter_profile_digest",
     "KNOWLEDGE_GRAPH_PROJECTION_DECLARED_LOSS",
     "KNOWLEDGE_GRAPH_PROJECTION_INPUT_TYPE",
     "KNOWLEDGE_GRAPH_PROJECTION_KIND",
@@ -318,14 +267,11 @@ __all__ = [
     "compile_candidate_native_contribution",
     "compile_retrieval_flow_native",
     "compile_retrieval_semantics_native",
-    "DELIVERY_TEMPLATE_TYPE",
     "FIXTURE_OPERATION_KIND",
     "CanonicalReadInput",
     "CapabilityCatalogSnapshot",
     "CaptureDocumentSnapshotInput",
-    "CaptureReceipt",
     "ClaimOrGapInput",
-    "CompileAssignmentRequest",
     "DeliveryApprovalSnapshot",
     "DeliveryAssignmentParameters",
     "DeliveryAssignmentRequest",
@@ -337,30 +283,18 @@ __all__ = [
     "DeliveryIntentTemplate",
     "DeliveryReadyPacket",
     "EvidenceQualificationInput",
-    "ExactOperationValues",
     "FirstSpecimenCapabilityBundle",
     "FirstSpecimenInterpreters",
     "InternalExportInput",
-    "FirstSpecimenPayloadContext",
-    "FirstSpecimenProgramValues",
-    "FirstSpecimenSubmissionService",
     "MarkdownComposeInput",
     "ObjectType",
     "OperationContract",
     "OperationContractCatalogSnapshot",
     "OperationContractRef",
     "OperationSpec",
-    "PersistedOperationPayloads",
-    "SourcePayloadContext",
-    "SubmissionCommand",
-    "SubmissionRejected",
-    "SubmittedFirstSpecimen",
-    "SubmittedRuntimePacket",
     "build_first_specimen_bundle",
     "build_first_specimen_catalog",
     "build_fixture_capability_bundle",
-    "build_runtime_first_specimen_program",
     "derive_material_ref",
-    "persist_first_specimen_payloads",
     "persist_internal_export_payload",
 ]

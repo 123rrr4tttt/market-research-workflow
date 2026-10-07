@@ -6,7 +6,6 @@ from functorial_kit.contributions import ContributionCatalog
 
 from mrw_functorial_kit.contributions.workflow import workflow_contribution_catalog
 from mrw_functorial_kit.contributions.source import source_contribution_catalog
-from mrw_functorial_kit.contributions.acquisition import acquisition_contribution_catalog
 from mrw_functorial_kit.contributions.batch import batch_contribution_catalog
 from mrw_functorial_kit.contributions.task import task_contribution_catalog
 from mrw_functorial_kit.contributions.material import material_contribution_catalog
@@ -20,7 +19,6 @@ from mrw_functorial_kit.contributions.retrieval import retrieval_contribution_ca
 project_contribution_catalog = (
     *workflow_contribution_catalog,
     *source_contribution_catalog,
-    *acquisition_contribution_catalog,
     *batch_contribution_catalog,
     *task_contribution_catalog,
     *material_contribution_catalog,

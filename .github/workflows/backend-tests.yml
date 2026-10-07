@@ -259,11 +259,11 @@ jobs:
           pip install -r main/backend/requirements.txt "pytest==9.0.3" "pytest-asyncio==1.3.0"
 
       - name: Run pytest (unit, deterministic lane)
-        working-directory: main/backend
         env:
           PYTHONHASHSEED: "0"
+          MRW_PYTEST_EXCLUDE_FLAKY: "1"
         run: |
-          pytest -m "unit and not external and not flaky" -q
+          bash scripts/test-standardize.sh unit -q
 
   backend-typecheck-check:
     name: backend-typecheck-check
@@ -354,11 +354,11 @@ jobs:
           pip install -r main/backend/requirements.txt pytest
 
       - name: Run pytest (integration, deterministic lane)
-        working-directory: main/backend
         env:
           PYTHONHASHSEED: "0"
+          MRW_PYTEST_EXCLUDE_FLAKY: "1"
         run: |
-          pytest -m "integration and not external and not flaky" -q
+          bash scripts/test-standardize.sh integration -q
 
   core-business-check:
     name: core-business-check
@@ -386,11 +386,10 @@ jobs:
           pip install -r main/backend/requirements.txt pytest
 
       - name: Run pytest (core business gate)
-        working-directory: main/backend
         env:
           PYTHONHASHSEED: "0"
         run: |
-          pytest -m "(unit or integration or contract or e2e) and not external" tests/core_business -q
+          bash scripts/test-standardize.sh core-business -q
 
   flaky-observe:
     name: flaky-observe
@@ -720,12 +719,8 @@ jobs:
           pip install -r main/backend/requirements.txt pytest pytest-cov
 
       - name: Run pytest coverage gate (core path)
-        working-directory: main/backend
-        env:
-          CORE_COVERAGE_PATHS: app/api/search.py,app/contracts/api.py,app/contracts/responses.py,app/contracts/tasks.py,app/contracts/errors.py
         run: |
-          pytest -m "(unit or integration) and not external" --cov=app --cov-report=term-missing --cov-report=xml:coverage.xml -q
-          python scripts/check_coverage_thresholds.py --coverage-file coverage.xml --core-paths "${CORE_COVERAGE_PATHS}" --core-threshold 100 --other-threshold 20
+          bash scripts/test-standardize.sh coverage -q
 
   security-check:
     name: security-check
@@ -836,9 +831,8 @@ jobs:
           pip install -r main/backend/requirements.txt pytest
 
       - name: Run pytest (contract)
-        working-directory: main/backend
         run: |
-          pytest -m "contract and not external" -q
+          bash scripts/test-standardize.sh contract -q
 
   e2e-check:
     name: e2e-check
@@ -866,9 +860,8 @@ jobs:
           pip install -r main/backend/requirements.txt pytest
 
       - name: Run pytest (e2e)
-        working-directory: main/backend
         run: |
-          pytest -m "e2e and not external" -q
+          bash scripts/test-standardize.sh e2e -q
 
   docker-config-check:
     name: docker-config-check

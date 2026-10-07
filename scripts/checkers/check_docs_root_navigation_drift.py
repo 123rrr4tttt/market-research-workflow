@@ -18,11 +18,12 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
 
+from check_docs_root_content_plan import missing_required_move_blockers
+
 
 TOPIC_DIR = Path("docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring")
 EVIDENCE_INDEX = Path("docs/history/documentation-migration.md")
 CONTENT_PLAN = Path("docs/development/latest-dev-docs-content-plan.json")
-REQUIRED_BLOCKERS = {"shared_navigation_sync", "MERGED_OVERVIEW_drift"}
 POST_WAVE25_MIN_PREFIX = 14
 
 
@@ -162,8 +163,7 @@ def validate_blocker_fields(
     ledger_field: str,
     problems: list[Problem],
 ) -> None:
-    gates = set(item for item in move.get(gate_field, []) if isinstance(item, str))
-    missing = sorted(REQUIRED_BLOCKERS - gates)
+    missing = missing_required_move_blockers(move.get(gate_field))
     if missing:
         problems.append(Problem(move_path, f"{gate_field} missing docs-root navigation blockers: {missing}"))
 
@@ -180,7 +180,7 @@ def validate_blocker_fields(
     ledger_blockers = set(
         item for item in summary.get("remaining_blockers_after_classification", []) if isinstance(item, str)
     )
-    missing_ledger_blockers = sorted(REQUIRED_BLOCKERS - ledger_blockers)
+    missing_ledger_blockers = missing_required_move_blockers(ledger_blockers)
     if missing_ledger_blockers:
         problems.append(
             Problem(

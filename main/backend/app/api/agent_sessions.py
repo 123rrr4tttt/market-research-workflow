@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, NoReturn, TypeVar
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from functorial_kit import Failure
 from pydantic import BaseModel, Field
@@ -12,6 +12,7 @@ from ..contracts.errors import map_exception_to_error
 from ..contracts.responses import ok
 from ..services.agent_runtime import iter_session_events
 from ..services.agent_sessions import get_agent_session_service
+from ..services.request_identity import require_trusted_actor_context
 
 router = APIRouter(tags=["agent_sessions"])
 AgentSessionEnvelope = ApiEnvelope[dict[str, Any]]
@@ -109,10 +110,6 @@ class AgentSessionCreateRequest(BaseModel):
     logical_task_list_key: str | None = Field(default=None, max_length=128)
     metadata: dict[str, Any] = Field(default_factory=dict)
     task_blueprints: list[AgentSessionTaskBlueprint] = Field(default_factory=list)
-
-
-class AgentTaskRetryRequest(BaseModel):
-    task_id: str = Field(..., min_length=1, max_length=64)
 
 
 class AgentApprovalResolveRequest(BaseModel):
@@ -231,7 +228,10 @@ def export_agent_session_failure_package(
     run_id: str | None = None,
 ) -> dict[str, Any]:
     service = get_agent_session_service()
-    out = service.export_failure_package(session_id, task_id=task_id, run_id=run_id)
+    out = _unwrap_agent_session_failure(
+        service.export_failure_package(session_id, task_id=task_id, run_id=run_id),
+        not_found_message="session not found",
+    )
     if out.get("export_status") == "not_found":
         reason_code = str(out.get("reason_code") or "")
         if reason_code == "session_not_found":
@@ -284,36 +284,26 @@ def stream_agent_session_events(
     )
 
 
-@router.post("/agent-sessions/{session_id}/actions/retry-task", response_model=AgentSessionEnvelope)
-def retry_agent_session_task(session_id: str, payload: AgentTaskRetryRequest) -> dict[str, Any]:
-    service = get_agent_session_service()
-    try:
-        out = service.retry_task(session_id, payload.task_id)
-    except KeyError:
-        _raise_not_found("session or task not found")
-    except Exception as exc:  # noqa: BLE001
-        _raise_mapped_error(exc)
-    return ok(_unwrap_agent_session_failure(out, not_found_message="session or task not found"))
-
-
 @router.post("/agent-sessions/{session_id}/actions/cancel", response_model=AgentSessionEnvelope)
-def cancel_agent_session(session_id: str) -> dict[str, Any]:
+def cancel_agent_session(session_id: str, request: Request) -> dict[str, Any]:
+    context = require_trusted_actor_context(request)
     service = get_agent_session_service()
-    try:
-        out = service.cancel_session(session_id)
-    except KeyError:
+    session = service.get_session(session_id)
+    if isinstance(session, Failure):
         _raise_not_found("session not found")
-    return ok(out)
-
-
-@router.post("/agent-sessions/{session_id}/actions/reclaim-expired", response_model=AgentSessionEnvelope)
-def reclaim_agent_session_expired_tasks(session_id: str) -> dict[str, Any]:
-    service = get_agent_session_service()
-    try:
-        out = service.reclaim_expired_tasks(session_id)
-    except KeyError:
-        _raise_not_found("session not found")
-    return ok({"items": out})
+    run_id = str(session.get("compat_job_id") or "").strip()
+    if not run_id:
+        _raise_not_found("session has no platform run")
+    out = service.cancel_run(
+        run_id,
+        actor_id=context.actor_id,
+        project_key=str(session.get("project_key") or ""),
+    )
+    return ok(
+        _unwrap_agent_session_failure(
+            out, not_found_message="session not found"
+        )
+    )
 
 
 @router.post("/agent-sessions/{session_id}/actions/request-approval", response_model=AgentSessionEnvelope)

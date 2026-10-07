@@ -27,10 +27,6 @@ EXPECTED: dict[str, dict[str, str]] = {
         "build_agent_batch_dispatch_payload": (
             "kit:prepared-command effect_boundary=task_contract"
         ),
-        "build_agent_batch_execution_registry": (
-            "kit:non-authoritative derived_as=view "
-            "fact_source=task_contract_policy_sources"
-        ),
         "build_agent_batch_manifest_entry": (
             "kit:non-authoritative derived_as=view "
             "fact_source=task_contract_policy_sources"

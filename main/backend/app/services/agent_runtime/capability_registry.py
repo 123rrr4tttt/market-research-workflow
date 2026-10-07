@@ -277,18 +277,6 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         "risks": ["session_state_mutation"],
     },
     {
-        "capability_id": "task.retry",
-        "name": "Task retry",
-        "description": "Retry a failed, canceled, or expired task in the current agent session.",
-        "domain": "agent_sessions",
-        "call_pattern": "sync",
-        "approval_level": "explicit_user_request",
-        "concurrency_class": "write_shared",
-        "entrypoints": [{"type": "internal_service", "id": "agent_runtime.control_tools.task_retry"}],
-        "required_input": ["session_id"],
-        "risks": ["session_state_mutation"],
-    },
-    {
         "capability_id": "task.summary",
         "name": "Session summary",
         "description": "Read the current task/session summary owned by AgentSessionService without dispatching work.",
@@ -841,8 +829,6 @@ def select_capabilities_for_goal(goal: str) -> list[dict[str, Any]]:
         add("agent_session.context.read", reason="read current session before applying a control action")
         if _contains_any(text, _TASK_CANCEL_TOKENS):
             add("task.cancel", reason="user explicitly asked to cancel or stop the current session")
-        if _contains_any(text, _TASK_RETRY_TOKENS):
-            add("task.retry", reason="user explicitly asked to retry a failed task")
         if _contains_any(text, _TASK_CONTINUE_TOKENS):
             add("task.summary", reason="coordinator continuation is retired; read the current session state before choosing a real owner action")
         add("agent_session.stream", reason="interactive progress and final-answer delivery")

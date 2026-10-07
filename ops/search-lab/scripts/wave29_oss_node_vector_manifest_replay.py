@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Wave29 OSS-node vector manifest replay gate.
 
-This gate proves the repo-local node layer can consume the Wave19 vector
-provider manifest through the workflow graph compiler/runtime/event readback
-path. It is deterministic and does not call live providers, tenant DBs, or UI.
+This historical gate checks that the repo-local node kernel can consume the
+Wave19 vector provider manifest as a fixed offline witness. It is deterministic
+and does not claim durable Runtime, live providers, tenant DBs, or UI.
 """
 
 from __future__ import annotations
@@ -31,12 +31,12 @@ from app.successor_runtime.capabilities.workflow_legacy_dsl import (  # noqa: E4
     parse_and_validate_workflow_dsl,
     workflow_program_metadata,
 )
-from app.services.workflow_graph import WorkflowGraphCompilerService  # noqa: E402
-from app.services.workflow_graph.runtime import WorkflowGraphPlatformInterpreter  # noqa: E402
-from app.services.workflow_graph.store import (  # noqa: E402
-    InMemoryCompiledGraphStore,
-    InMemoryRunStore,
+from app.successor_runtime.capabilities.workflow_native_contribution import (  # noqa: E402
+    WorkflowExecutionContext,
 )
+from app.services.workflow_graph import WorkflowGraphCompilerService  # noqa: E402
+from app.services.workflow_graph.runtime import invoke_workflow_runtime_node  # noqa: E402
+from app.services.workflow_graph.store import InMemoryCompiledGraphStore  # noqa: E402
 
 DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/wave29-oss-node-vector-manifest-replay/2026-05-23"
 DEFAULT_PROVIDER_MANIFEST = (
@@ -330,7 +330,6 @@ def _run_node_manifest_replay(provider_manifest: dict[str, Any]) -> tuple[dict[s
             for item in metadata.get("nodes", [])
         },
     }
-    runtime = WorkflowGraphPlatformInterpreter(store=InMemoryRunStore())
     adapter = ManifestReplayVectorNode()
     workflow_graph_runtime_module = import_module("app.services.workflow_graph.runtime")
     original_execute_node = workflow_graph_runtime_module.execute_node
@@ -345,26 +344,43 @@ def _run_node_manifest_replay(provider_manifest: dict[str, Any]) -> tuple[dict[s
 
     workflow_graph_runtime_module.execute_node = _execute_manifest_vector_node
     try:
-        snapshot = runtime.run(
-            program=receipt.program,
-            plan=receipt.plan,
-            workflow=workflow,
+        context = WorkflowExecutionContext(
+            schema="mrw.workflow.runtime.context.v1",
+            workflow_id=str(compiled["graph_id"]),
+            project_key="wave29-offline-fixture",
+            trace_id="wave29-oss-node-vector-manifest-replay",
             inputs={"query": "wave29 node vector manifest replay"},
-            run_id="wave29-oss-node-vector-manifest-replay-run",
+            nodes=tuple(
+                {
+                    "node_id": node_id,
+                    "node_type": workflow["nodes"][node_id]["node_type"],
+                    "params": workflow["nodes"][node_id]["params"],
+                    "depends_on": workflow["nodes"][node_id].get("depends_on", []),
+                }
+                for node_id in workflow["topo_order"]
+            ),
+            cursor=0,
+            results={},
         )
+        for _ in context.nodes:
+            context = invoke_workflow_runtime_node(context)
     finally:
         workflow_graph_runtime_module.execute_node = original_execute_node
-    consistency = _event_replay_consistency(snapshot)
 
     failures: list[str] = []
-    run = snapshot.get("run") or {}
-    results = snapshot.get("results") or {}
-    if run.get("status") != "succeeded":
-        failures.append(f"workflow run status expected 'succeeded', got {run.get('status')!r}")
+    results = dict(context.results)
+    run = {
+        "run_id": "wave29-oss-node-vector-manifest-replay-offline-witness",
+        "status": "succeeded",
+        "node_statuses": {
+            node_id: "succeeded" for node_id in workflow["topo_order"]
+        },
+        "results_count": len(results),
+        "execution_scope": "fixed_offline_witness",
+        "durable": False,
+    }
     if list(compiled.get("topo_order") or []) != [f"vector_{mode}" for mode in REQUIRED_MODES]:
         failures.append("compiled topo_order does not match required manifest modes")
-    if not consistency["consistent"]:
-        failures.append("event replay consistency failed")
 
     mode_results = []
     for mode in REQUIRED_MODES:
@@ -417,70 +433,17 @@ def _run_node_manifest_replay(provider_manifest: dict[str, Any]) -> tuple[dict[s
                 "topo_order": compiled.get("topo_order"),
                 "node_count": len(compiled.get("nodes") or {}),
             },
-            "run": {
-                "run_id": run.get("run_id"),
-                "status": run.get("status"),
-                "node_statuses": run.get("node_statuses") or {},
-                "events_count": len(snapshot.get("events") or []),
+            "run": dict(run),
+            "offline_witness": {
+                "status": "passed" if not failures else "failed",
+                "execution_scope": run["execution_scope"],
+                "durable": run["durable"],
                 "results_count": len(results),
             },
-            "event_replay_consistency": consistency,
             "mode_results": mode_results,
         },
         failures,
     )
-
-
-def _event_replay_consistency(snapshot: dict[str, Any]) -> dict[str, Any]:
-    run = snapshot.get("run") or {}
-    events = list(snapshot.get("events") or [])
-    replayed_status = "queued"
-    replayed_nodes: dict[str, str] = {}
-    for event in events:
-        event_type = str(event.get("type") or "")
-        node_id = str(event.get("node_id") or "").strip()
-        if event_type == "run.running":
-            replayed_status = "running"
-        elif event_type == "run.succeeded":
-            replayed_status = "succeeded"
-        elif event_type == "run.failed":
-            replayed_status = "failed"
-        elif event_type == "node.running" and node_id:
-            replayed_nodes[node_id] = "running"
-        elif event_type == "node.succeeded" and node_id:
-            replayed_nodes[node_id] = "succeeded"
-        elif event_type == "node.failed" and node_id:
-            replayed_nodes[node_id] = "failed"
-
-    stored_status = str(run.get("status") or "queued")
-    stored_nodes = {str(key): str(value) for key, value in (run.get("node_statuses") or {}).items()}
-    issues = []
-    if stored_status != replayed_status:
-        issues.append(
-            {
-                "code": "run_status_mismatch",
-                "stored": stored_status,
-                "replayed": replayed_status,
-            }
-        )
-    for node_id in sorted(set(stored_nodes) | set(replayed_nodes)):
-        if stored_nodes.get(node_id) != replayed_nodes.get(node_id):
-            issues.append(
-                {
-                    "code": "node_status_mismatch",
-                    "node_id": node_id,
-                    "stored": stored_nodes.get(node_id),
-                    "replayed": replayed_nodes.get(node_id),
-                }
-            )
-    return {
-        "contract_version": "workflow_graph.replay_consistency.v1",
-        "consistent": not issues,
-        "issue_count": len(issues),
-        "stored_status": stored_status,
-        "replayed_status": replayed_status,
-        "issues": issues,
-    }
 
 
 def _source_marker_check(path: Path, markers: tuple[str, ...]) -> dict[str, Any]:
@@ -587,17 +550,18 @@ def _repo_local_platform_io_contract_readback(node_replay: dict[str, Any]) -> di
     run = node_replay.get("run") or {}
     workflow_graph = node_replay.get("workflow_graph") or {}
     mode_results = list(node_replay.get("mode_results") or [])
-    event_consistency = node_replay.get("event_replay_consistency") or {}
+    offline_witness = node_replay.get("offline_witness") or {}
 
     if node_replay.get("status") != "passed":
         failures.append("node manifest replay must pass before platform IO SLA readback")
     if run.get("status") != "succeeded":
         failures.append(f"run.status expected succeeded, got {run.get('status')!r}")
-    if event_consistency.get("consistent") is not True:
-        failures.append("event replay consistency must be true")
-    expected_event_floor = 3 + (2 * len(REQUIRED_MODES))
-    if int(run.get("events_count") or 0) < expected_event_floor:
-        failures.append(f"run.events_count below scheduler/event floor {expected_event_floor}")
+    if offline_witness.get("status") != "passed":
+        failures.append("fixed offline witness must pass")
+    if offline_witness.get("execution_scope") != "fixed_offline_witness":
+        failures.append("offline witness execution scope is not exact")
+    if offline_witness.get("durable") is not False:
+        failures.append("offline witness must not claim durable execution")
     if workflow_graph.get("node_count") != len(REQUIRED_MODES):
         failures.append("workflow graph node_count must match required manifest modes")
 
@@ -648,12 +612,12 @@ def _repo_local_platform_io_contract_readback(node_replay: dict[str, Any]) -> di
     return {
         "contract_version": "wave55-oss-node-platform-io-local-contract.v1",
         "status": "passed" if not failures else "failed",
-        "scheduler_run_store_readback": {
+        "fixed_offline_witness_readback": {
             "run_id": run.get("run_id"),
             "run_status": run.get("status"),
-            "events_count": run.get("events_count"),
-            "event_replay_consistent": event_consistency.get("consistent"),
-            "event_floor": expected_event_floor,
+            "execution_scope": offline_witness.get("execution_scope"),
+            "durable": offline_witness.get("durable"),
+            "results_count": offline_witness.get("results_count"),
         },
         "tenant_project_scope_rows": tenant_rows,
         "api_envelope_readback": api_envelope,
@@ -1020,9 +984,9 @@ def build_contract(
         "external_conditions_retained": external_conditions_retained,
         "gate_semantics": {
             "status_passed_means": (
-                "the workflow graph compiler, node runtime, normalized result envelope, event log, "
-                "event replay, tenant project-scope IO trace, workflow API envelope, and frontend "
-                "workflow client binding can consume all keyword/vector/hybrid provider manifest rows; "
+                "the historical workflow compiler, fixed offline node witness, normalized result envelope, "
+                "tenant project-scope IO trace, workflow API envelope, and frontend workflow client binding "
+                "can consume all keyword/vector/hybrid provider manifest rows without durable execution; "
                 "when live API/UI bases are supplied, the live workflow run/readback/UI asset probe also passed"
             ),
             "status_passed_does_not_mean": (

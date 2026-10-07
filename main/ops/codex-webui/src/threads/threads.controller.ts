@@ -10,7 +10,10 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
+import type { FastifyRequest } from 'fastify';
+import { readMrwRequestCredentials } from '../mrw/mrw-backend.client';
 import { BusinessException } from '../common/business.exception';
 import { ErrorCode } from '../common/error-codes';
 import {
@@ -351,6 +354,7 @@ export class ThreadsController {
   async startTurn(
     @Param('threadId') threadId: string,
     @Body() body: StartTurnDto,
+    @Req() request?: FastifyRequest,
   ) {
     const input = await this.validateTurnInput(body.input);
     const model = typeof body.model === 'string' ? body.model.trim() : null;
@@ -376,12 +380,15 @@ export class ThreadsController {
         'Invalid reasoning effort',
       );
     }
-    return this.threadsService.startTurn({
-      threadId,
-      input,
-      ...(model && { model }),
-      ...(effort && { effort }),
-    });
+    return this.threadsService.startTurn(
+      {
+        threadId,
+        input,
+        ...(model && { model }),
+        ...(effort && { effort }),
+      },
+      readMrwRequestCredentials(request?.headers ?? {}),
+    );
   }
 
   @Post(':threadId/turns/:turnId/steer')
@@ -393,12 +400,16 @@ export class ThreadsController {
     @Param('threadId') threadId: string,
     @Param('turnId') turnId: string,
     @Body() body: SteerTurnDto,
+    @Req() request?: FastifyRequest,
   ) {
-    return this.threadsService.steerTurn({
-      threadId,
-      expectedTurnId: turnId,
-      input: await this.validateTurnInput(body.input),
-    });
+    return this.threadsService.steerTurn(
+      {
+        threadId,
+        expectedTurnId: turnId,
+        input: await this.validateTurnInput(body.input),
+      },
+      readMrwRequestCredentials(request?.headers ?? {}),
+    );
   }
 
   @Post(':threadId/turns/:turnId/interrupt')

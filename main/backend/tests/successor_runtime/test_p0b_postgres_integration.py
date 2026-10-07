@@ -2365,3 +2365,526 @@ def test_research_ledger_and_runtime_journal_keep_distinct_authority_owners(
             )
             == 1
         )
+
+
+def test_step_qualification_reads_real_grants_without_minting_authority(
+    live_database: LiveDatabase,
+) -> None:
+    from app.successor_runtime.runtime.authority_grants import (
+        AuthorityOperationScope, AuthorityResourceCeiling, AuthorityResourceLimit,
+    )
+    from app.successor_runtime.substrate.postgres.authority import (
+        AuthorityGrant, AuthorityGrantRepository,
+    )
+    from app.successor_runtime.substrate.postgres.authority_provider import (
+        CurrentAuthorityGrantUnavailable, PostgresAuthorityProvider,
+    )
+
+    now = datetime.now(UTC)
+    eligibility = QueueEligibility(
+        project_key=PROJECT_KEY, capability_id="capability-1",
+        resource_class=ResourceClass.CPU_LIGHT, units=1,
+        policy_epoch=1, policy_digest=_digest("qualification-policy"),
+    )
+    with live_database.engine.begin() as connection:
+        _seed_claim_control(connection, now=now)
+        connection.execute(sa.insert(PUBLIC_TABLES["runtime_resource_policies"]).values(
+            resource_policy_id="qualification-policy", project_key=PROJECT_KEY,
+            capability_id="capability-1", resource_class="CPU_LIGHT",
+            concurrency_limit=1, max_project_active=1, max_capability_active=1,
+            max_resource_active=1, units_ceiling=1, policy_epoch=1,
+            policy_digest=eligibility.policy_digest,
+        ))
+        grants = AuthorityGrantRepository(connection, live_database.runtime_scope)
+        grants.create(AuthorityGrant(
+            grant_id="qualification-grant", actor_id=live_database.runtime_scope.actor_id,
+            capability_id="capability-1",
+            operation_scope_json=AuthorityOperationScope.from_content(
+                operation_kinds=(OPERATION_CONTRACTS[0].ref.kind,),
+                project_scope_digest=SCOPE_DIGEST,
+            ),
+            resource_ceiling_json=AuthorityResourceCeiling.from_content(
+                limits=(AuthorityResourceLimit(resource_class="CPU_LIGHT", units=1),),
+                max_active=1,
+            ),
+            credential_ref=None, grant_epoch=1, expires_at=now + timedelta(hours=1),
+        ))
+        provider = PostgresAuthorityProvider(connection, live_database.runtime_scope)
+        context, binding = provider.qualify_step(
+            run_id="run-1", step=PLAN_EFFECT_STEPS[0],
+            operation=PROGRAM_ATOMS[0].operation,
+            installed_operation=OPERATION_CONTRACTS[0],
+            interpreter=_interpreter_binding(STEP_ONE_ID), eligibility=eligibility,
+            canonical_base_revision=0, canonical_incarnation="run-inc-1", now=now,
+        )
+        assert binding.grants_digest == context.grants_digest
+        assert binding.approval_refs == ()
+        assert binding.payload_digest == PROGRAM_ATOMS[0].operation.payload_ref.content_digest
+        assert binding.claim_authority_epoch == 1
+        assert connection.scalar(sa.select(sa.func.count()).select_from(
+            PUBLIC_TABLES["runtime_step_authorizations"]
+        )) == 0
+        assert connection.scalar(sa.select(sa.func.count()).select_from(
+            PUBLIC_TABLES["runtime_resource_reservations"]
+        )) == 0
+        from dataclasses import replace
+        from app.successor_runtime.language.transforms import TransformRegistry
+        from app.successor_runtime.substrate.postgres.first_specimen_activation import (
+            ActivationCatalogEntry, ActivationTrigger, FirstSpecimenActivationCatalog,
+            PostgresFirstSpecimenActivationBindingAdapter, submit_compiled_program,
+        )
+        from app.successor_runtime.substrate.postgres.runtime_journal import validate_runtime_assignment_row
+        from app.successor_runtime.substrate.postgres.idempotency import IdempotencyBinding
+
+        original = PROGRAM_ATOMS[0].operation
+        refs = tuple(replace(ref, byte_size=len(f"{ref.value_id}:content".encode()),
+                             store_id="successor_values", storage_ref=f"project-value:{ref.value_id}")
+                     for ref in (*original.input_refs, original.payload_ref))
+        operation = replace(original, input_refs=refs[:-1], payload_ref=refs[-1])
+        program = replace(
+            EXACT_PROGRAM, program_id="submitted-program",
+            root=replace(PROGRAM_ATOMS[0], operation=operation), program_digest="",
+        ).with_digest()
+        plan = compile_program(program, OPERATION_CATALOG, operation_contracts=OPERATION_REGISTRY)
+        step = next(step for step in plan.ordered_steps if step.step_kind == "EFFECT")
+        activation_catalog = FirstSpecimenActivationCatalog(
+            entries=(ActivationCatalogEntry(
+                operation_contract_digest=OPERATION_CONTRACTS[0].ref.contract_digest,
+                interpreter_binding=_interpreter_binding(STEP_ONE_ID),
+                recovery_binding=RECOVERY_BINDING, queue_eligibility=eligibility,
+                required_node_profile_selector=NODE_PROFILE_DIGEST,
+                resource_policy_digest=eligibility.policy_digest,
+                fairness_key=PROJECT_KEY, effect_class="EFFECTFUL",
+            ),),
+            transform_registry=TransformRegistry(), merge_registry=TransformRegistry(),
+            discriminator_registry=TransformRegistry(),
+        )
+        canonical_bindings = {step.step_id: (0, "submitted-incarnation")}
+        idempotency = IdempotencyBinding(
+            idempotency_id="submitted-idem", capability_id="capability-1",
+            logical_request_id="submitted-request", operation_kind=OPERATION_CONTRACTS[0].ref.kind,
+            run_id="submitted-run", request_digest=canonical_digest({
+                "program_digest": program.program_digest,
+                "actor_id": live_database.runtime_scope.actor_id,
+                "project_scope_digest": SCOPE_DIGEST,
+                "canonical_bindings": canonical_bindings, "approvals_by_step": {},
+            }),
+        )
+        values = tuple((ref, f"{ref.value_id}:content".encode()) for ref in refs)
+        corrupted_values = (*values[:-1], (refs[-1], b"x"))
+        with connection.begin_nested():
+            with pytest.raises(ExactBindingConflict, match="byte size"):
+                submit_compiled_program(
+                    connection, live_database.runtime_scope, program=program,
+                    operation_catalog=OPERATION_CATALOG, operation_contracts=OPERATION_REGISTRY,
+                    activation_catalog=activation_catalog, values=corrupted_values, idempotency=idempotency,
+                    incarnation="submitted-incarnation", canonical_bindings=canonical_bindings,
+                    approvals_by_step={}, trigger=ActivationTrigger(now, "trace:submitted", now),
+                )
+        for _ in range(2):
+            assert submit_compiled_program(
+                connection, live_database.runtime_scope, program=program,
+                operation_catalog=OPERATION_CATALOG, operation_contracts=OPERATION_REGISTRY,
+                activation_catalog=activation_catalog, values=values, idempotency=idempotency,
+                incarnation="submitted-incarnation", canonical_bindings=canonical_bindings,
+                approvals_by_step={}, trigger=ActivationTrigger(now, "trace:submitted", now),
+            ) == "submitted-run"
+        work_items = connection.execute(sa.select(PUBLIC_TABLES["runtime_work_items"])).mappings().all()
+        assert len(work_items) == 1
+        assert work_items[0]["assignment_kind"] == "INTERPRET"
+        assert work_items[0]["run_id"] == "submitted-run"
+        adapter = PostgresFirstSpecimenActivationBindingAdapter()
+        assignment = validate_runtime_assignment_row(work_items[0])
+        assert adapter.read_value_bytes(connection, live_database.runtime_scope,
+                                        live_database.project_tables, refs[-1]) == values[-1][1]
+        with pytest.raises(ExactBindingConflict, match="stored binding"):
+            adapter.read_value_bytes(connection, live_database.runtime_scope,
+                                     live_database.project_tables, replace(refs[-1], byte_size=1))
+        before_run = tuple(dict(row) for row in connection.execute(
+            sa.select(PUBLIC_TABLES["runtime_runs"]).order_by(PUBLIC_TABLES["runtime_runs"].c.run_id)
+        ).mappings())
+        before_steps = tuple(dict(row) for row in connection.execute(
+            sa.select(PUBLIC_TABLES["runtime_steps"])
+        ).mappings())
+        output = b'{"schema":"Inquiry.v1","result":"actual-domain-output"}'
+        for _ in range(2):
+            digest = adapter.publish_output(connection, assignment, live_database.runtime_scope,
+                                             live_database.project_tables, content=output)
+            assert digest == _digest(output)
+        stored = connection.execute(sa.select(PUBLIC_TABLES["runtime_values"]).where(
+            PUBLIC_TABLES["runtime_values"].c.content_digest == digest
+        )).mappings().one()
+        assert stored["project_value_ref"] == f"project-value:operation-output:{digest}"
+        assert stored["byte_size"] == len(output)
+        assert tuple(dict(row) for row in connection.execute(
+            sa.select(PUBLIC_TABLES["runtime_runs"]).order_by(PUBLIC_TABLES["runtime_runs"].c.run_id)
+        ).mappings()) == before_run
+        assert tuple(dict(row) for row in connection.execute(
+            sa.select(PUBLIC_TABLES["runtime_steps"])
+        ).mappings()) == before_steps
+        with pytest.raises(CurrentAuthorityGrantUnavailable, match="covers"):
+            provider.qualify_step(
+                run_id="run-1", step=PLAN_EFFECT_STEPS[1],
+                operation=PROGRAM_ATOMS[1].operation,
+                installed_operation=OPERATION_CONTRACTS[1],
+                interpreter=_interpreter_binding(STEP_TWO_ID), eligibility=eligibility,
+                canonical_base_revision=0, canonical_incarnation="run-inc-1", now=now,
+            )
+        connection.execute(sa.update(PUBLIC_TABLES["runtime_authority_grants"]).values(
+            revoked_at=now,
+        ))
+        with pytest.raises(CurrentAuthorityGrantUnavailable, match="no current"):
+            provider.qualify_step(
+                run_id="run-1", step=PLAN_EFFECT_STEPS[0],
+                operation=PROGRAM_ATOMS[0].operation,
+                installed_operation=OPERATION_CONTRACTS[0],
+                interpreter=_interpreter_binding(STEP_ONE_ID), eligibility=eligibility,
+                canonical_base_revision=0, canonical_incarnation="run-inc-1", now=now,
+            )
+
+
+@pytest.mark.parametrize("mode", ["success", "broker_unknown", "revoked", "no_grant"])
+def test_installed_dispatch_node_persists_ack_and_never_retries_unknown(
+    live_database: LiveDatabase, mode: str,
+) -> None:
+    from contextlib import nullcontext
+    from app.successor_runtime.substrate.postgres.authority_provider import CurrentAuthorityGrantUnavailable
+    from celery import Celery
+    from app.composition.production import build_program_activation, execute_successor_work_item
+    from app.successor_runtime.capabilities import batch_task as c4
+    from app.successor_runtime.capabilities.batch_task_program import build_batch_task_single_dispatch_program
+    from app.successor_runtime.capabilities.checksum import canonical_json
+    from app.successor_runtime.runtime.authority_grants import (
+        AuthorityOperationScope, AuthorityResourceCeiling, AuthorityResourceLimit,
+    )
+    from app.successor_runtime.substrate.postgres.authority import AuthorityGrant
+    from app.successor_runtime.substrate.postgres.first_specimen_activation import (
+        ActivationTrigger, compiled_submission_request_digest, submit_compiled_program,
+    )
+    from app.successor_runtime.substrate.postgres.idempotency import IdempotencyBinding
+    from app.successor_runtime.language.program import program_atoms
+
+    now = datetime.now(UTC)
+    contract = c4.build_batch_task_single_dispatch_contract()
+    catalog = c4.build_batch_task_single_dispatch_catalog(contract)
+    registry = c4.build_batch_task_single_dispatch_registry(contract)
+    payload = c4.BatchTaskSingleDispatchPayload(
+        schema_version=c4.DISPATCH_SINGLE_PAYLOAD_SCHEMA, operation_kind=c4.DISPATCH_SINGLE_KIND,
+        dispatch_id="dispatch:controlled", project_key=PROJECT_KEY, resolved_schema=PROJECT_SCHEMA,
+        registry_revision=REGISTRY_REVISION, scope_incarnation=SCOPE_INCARNATION,
+        scope_digest=SCOPE_DIGEST, capability_id=contract.owner_capability_id,
+        item=c4.AgentBatchSubmissionItem(job_id="item:1", channel="source_library", item_key="source:1"),
+        lane="main", queue="mrw-dispatch-controlled",
+    )
+    program = build_batch_task_single_dispatch_program(
+        payload=payload, catalog=catalog, program_id="dispatch-program", project_key=PROJECT_KEY,
+        project_registry_revision=REGISTRY_REVISION, project_scope_digest=SCOPE_DIGEST,
+    )
+    plan = compile_program(program, catalog, operation_contracts=registry)
+    step = next(step for step in plan.ordered_steps if step.step_kind == "EFFECT")
+    ref = program_atoms(program.root)[0].operation.payload_ref
+    canonical_bindings = {step.step_id: (0, "dispatch-incarnation")}
+    from app.composition.production_runtime import install_runtime_authority
+    from app.services.request_identity import RequestActorContext
+    from app.successor_runtime.substrate.postgres.authority import CapabilityAuthority
+    from app.successor_runtime.runtime.resources import ResourceClass, ResourcePolicySnapshot
+    from dataclasses import replace
+
+    administrator = RequestActorContext("deployment-admin", "deployment", True, "localdev-installation")
+    capability = CapabilityAuthority(
+        capability_id=contract.owner_capability_id, mode="on", authority_epoch=1,
+        successor_claim_enabled=True, legacy_claim_enabled=False,
+        allowlist_digest=_digest("allowlist"), config_digest=_digest("config"),
+        effective_at=now, approval_ref="deployment:controlled-localdev",
+        rollback_target_ref="deployment:controlled-localdev-disabled",
+    )
+    resource = ResourcePolicySnapshot(
+        project_key=PROJECT_KEY, capability_id=contract.owner_capability_id,
+        resource_class=ResourceClass.NETWORK_IO, policy_epoch=1,
+        policy_digest=_digest("dispatch-policy"), max_project_active=1,
+        max_capability_active=1, max_resource_active=1, max_units=1,
+    )
+    grant = AuthorityGrant(
+        grant_id="dispatch-grant", actor_id=live_database.runtime_scope.actor_id,
+        capability_id=contract.owner_capability_id,
+        operation_scope_json=AuthorityOperationScope.from_content(
+            operation_kinds=(contract.ref.kind,), project_scope_digest=SCOPE_DIGEST,
+        ), resource_ceiling_json=AuthorityResourceCeiling.from_content(
+            limits=(AuthorityResourceLimit(resource_class="NETWORK_IO", units=1),), max_active=1,
+        ), credential_ref=None, grant_epoch=1, expires_at=now + timedelta(hours=1),
+    )
+    with live_database.engine.begin() as connection:
+        _seed_run(connection)
+        installation = dict(administrator=administrator, project_scope=live_database.runtime_scope.project_scope,
+                            grant=grant, capability=capability, resource=resource, installed=registry)
+        install_runtime_authority(connection, **installation)
+        install_runtime_authority(connection, **installation)
+        with pytest.raises(ExactBindingConflict), connection.begin_nested():
+            install_runtime_authority(connection, **{**installation, "grant": replace(grant, actor_id="different-actor")})
+        if mode == "no_grant":
+            connection.execute(sa.delete(PUBLIC_TABLES["runtime_authority_grants"]))
+        activation, _ = build_program_activation(connection, live_database.runtime_scope, program)
+        expectation = pytest.raises(CurrentAuthorityGrantUnavailable) if mode == "no_grant" else nullcontext()
+        with expectation, connection.begin_nested():
+            submit_compiled_program(
+                connection, live_database.runtime_scope, program=program, operation_catalog=catalog,
+                operation_contracts=registry, activation_catalog=activation,
+                values=((ref, canonical_json(payload).encode()),),
+                idempotency=IdempotencyBinding(
+                    idempotency_id="dispatch-idem", capability_id=contract.owner_capability_id,
+                    logical_request_id="dispatch-request", operation_kind=contract.ref.kind, run_id="dispatch-run",
+                    request_digest=compiled_submission_request_digest(program, live_database.runtime_scope,
+                                                                      canonical_bindings, {}),
+                ), incarnation="dispatch-incarnation", canonical_bindings=canonical_bindings,
+                approvals_by_step={}, trigger=ActivationTrigger(now, "trace:dispatch", now),
+            )
+        if mode == "no_grant":
+            assert connection.scalar(sa.select(sa.func.count()).select_from(PUBLIC_TABLES["runtime_work_items"])) == 0
+            return
+        if mode == "revoked":
+            connection.execute(sa.update(PUBLIC_TABLES["runtime_authority_grants"]).values(revoked_at=now))
+        work_id = connection.scalar(sa.select(PUBLIC_TABLES["runtime_work_items"].c.work_item_id))
+    broker = Celery("mrw-dispatch-controlled", broker="memory://", backend="cache+memory://")
+    dispatched: list[str] = []
+
+    def dispatch(actual: c4.BatchTaskSingleDispatchPayload) -> c4.BatchTaskSingleDispatchAck:
+        assert actual == payload
+        task = broker.send_task("controlled.source", args=[actual.item.item_key], queue=actual.queue)
+        dispatched.append(task.id)
+        if mode == "broker_unknown":
+            raise ConnectionError("broker accepted but acknowledgement was lost")
+        return c4.BatchTaskSingleDispatchAck(
+            schema_version=c4.DISPATCH_SINGLE_ACK_SCHEMA, operation_kind=c4.DISPATCH_SINGLE_KIND,
+            dispatch_id=actual.dispatch_id, channel=actual.item.channel, celery_task_id=task.id,
+            lane=actual.lane, queue=actual.queue or "celery",
+        )
+
+    report = execute_successor_work_item(engine=live_database.engine, work_item_id=work_id,
+                                        node_id="controlled-node-1", dispatch=dispatch)
+    if mode == "revoked":
+        assert all(not item.executed and not item.committed for item in report.results), report
+        assert dispatched == []
+        return
+    assert report.claimed == 1, report
+    assert report.results[0].committed, report
+    assert report.results[0].disposition.value == ("OUTCOME_UNKNOWN" if mode == "broker_unknown" else "SUCCEEDED"), report
+    replay = execute_successor_work_item(engine=live_database.engine, work_item_id=work_id,
+                                        node_id="controlled-node-2", dispatch=dispatch)
+    assert replay.claimed == 0, replay
+    assert len(dispatched) == 1
+    with broker.connection() as connection:
+        queue = connection.SimpleQueue(payload.queue)
+        message = queue.get(block=False)
+        assert message.headers["id"] == dispatched[0]
+        message.ack()
+        queue.close()
+    with live_database.engine.connect() as connection:
+        run = connection.execute(sa.select(PUBLIC_TABLES["runtime_runs"]).where(
+            PUBLIC_TABLES["runtime_runs"].c.run_id == "dispatch-run",
+        )).mappings().one()
+        outputs = connection.execute(sa.select(live_database.project_tables.successor_values).where(
+            live_database.project_tables.successor_values.c.object_type == c4.DISPATCH_SINGLE_ACK_TYPE.type_id,
+        )).mappings().all()
+        assert len(outputs) == (0 if mode == "broker_unknown" else 1)
+        if mode != "broker_unknown":
+            assert run["state"] == "COMPLETED"
+            assert dispatched[0].encode() in bytes(outputs[0]["content_bytes"])
+        else:
+            assert run["state"] != "COMPLETED"
+
+
+def _candidate_followup_request(value: dict[str, object]) -> dict[str, object]:
+    from dataclasses import replace
+    from app.successor_runtime.capabilities.retrieval_candidate_native import build_retrieval_candidate_runtime_definition
+    from app.successor_runtime.capabilities.retrieval_common import RetrievalCandidateInvocation
+    definition = build_retrieval_candidate_runtime_definition()
+    outcome = definition.output_codec.decode_payload(value)
+    assert outcome.state == "completed" and outcome.bundle is not None
+    return definition.invocation_codec.encode_payload(RetrievalCandidateInvocation(
+        query_id=f"followup:{outcome.query_id}", route_id=outcome.route_id,
+        query_kind="followup", query_ordinal=outcome.query_ordinal + 1,
+        followup_round=outcome.followup_round + 1, budget_id=outcome.budget_id,
+        request=replace(outcome.bundle.request, topic=outcome.bundle.candidates[0].title, max_results=2),
+    ))
+
+
+@pytest.mark.parametrize("upstream", [False, True])
+def test_installed_candidate_node_uses_original_search_kernel(live_database: LiveDatabase, monkeypatch: pytest.MonkeyPatch, upstream: bool) -> None:
+    import json
+    from dataclasses import replace
+    from app.composition import production
+    from app.composition.production import execute_successor_work_item
+    from app.composition.production_runtime import install_runtime_authority
+    from app.services.request_identity import RequestActorContext
+    from app.services.search import candidate_search
+    from app.successor_runtime.capabilities.retrieval_candidate_native import (
+        build_retrieval_candidate_atom, build_retrieval_candidate_runtime_definition,
+    )
+    from app.successor_runtime.capabilities.retrieval_common import (
+        CandidateSearchRequest, RetrievalBudgetState, RetrievalCandidateInvocation, retrieval_budget_id,
+    )
+    from app.successor_runtime.language.program import map_output_node, program_atoms
+    from app.successor_runtime.language.transforms import TransformRegistry
+    from app.successor_runtime.runtime.authority_grants import AuthorityOperationScope, AuthorityResourceCeiling, AuthorityResourceLimit
+    from app.successor_runtime.runtime.resources import ResourceClass, ResourcePolicySnapshot
+    from app.successor_runtime.substrate.postgres.authority import AuthorityGrant, CapabilityAuthority
+    from app.successor_runtime.substrate.postgres.first_specimen_activation import (
+        ActivationTrigger, PostgresFirstSpecimenActivationBindingAdapter,
+        compiled_submission_request_digest, submit_compiled_program,
+    )
+    from app.successor_runtime.substrate.postgres.idempotency import IdempotencyBinding
+    from app.successor_runtime.substrate.postgres.qualification_store import QualificationStoreRepository
+    from app.successor_runtime.substrate.postgres.runtime_journal import validate_runtime_assignment_row
+
+    definition = build_retrieval_candidate_runtime_definition()
+    contract = definition.operation_contract
+    now = datetime.now(UTC)
+    request = CandidateSearchRequest(topic="controlled candidate query", max_results=2, project_ref=PROJECT_KEY)
+    catalog = definition.build_catalog(catalog_id="candidate-installed", catalog_version="3")
+    registry = definition.build_registry(catalog)
+    budget = RetrievalBudgetState(
+        budget_id=retrieval_budget_id(project_key=PROJECT_KEY, root_run_id="candidate-run",
+            plan_id="candidate-plan", mode_version="1"),
+        project_key=PROJECT_KEY, root_run_id="candidate-run", plan_id="candidate-plan", mode_version="1",
+        max_queries=2 if upstream else 1, max_materials=2, max_followups=1 if upstream else 0,
+    )
+    invocation = RetrievalCandidateInvocation(query_id="candidate-query", route_id="controlled-route",
+        query_kind="initial", query_ordinal=1, followup_round=0, budget_id=budget.budget_id, request=request)
+    first = build_retrieval_candidate_atom(invocation=invocation, budget=budget, runtime=definition,
+        program_id="candidate-program", project_key=PROJECT_KEY)
+    root = first.root
+    values = first.values
+    transforms = ()
+    transform_registry = TransformRegistry()
+    if upstream:
+        transform = transform_registry.register_transform(name="controlled.candidate.followup", version="1",
+            input_type=contract.output_type, output_type=contract.input_type, func=_candidate_followup_request)
+        template = replace(invocation, query_id="dynamic-followup:1", query_kind="followup", query_ordinal=2,
+            followup_round=1, request=replace(request, topic="__runtime_planned_followup__"))
+        second = build_retrieval_candidate_atom(invocation=template, budget=budget, runtime=definition,
+            program_id="candidate-second", project_key=PROJECT_KEY, operation_id="candidate-followup")
+        assert second.budget_ref == first.budget_ref and second.values[0] == first.values[0]
+        root = then_node(map_output_node(first.root, transform, contract.input_type), second.root)
+        values = (*first.values, *second.values[1:])
+        transforms = (transform,)
+    program = ProgramSpec(program_id="candidate-program", contract_version="3", project_key=PROJECT_KEY,
+        project_registry_revision=REGISTRY_REVISION, project_scope_digest=SCOPE_DIGEST,
+        semantic_identity="controlled-budget-bound-candidate-search", input_type=contract.input_type,
+        output_type=contract.output_type, root=root, algebra_refs=(AlgebraRef("retrieval-candidate", "3"),),
+        transform_refs=transforms, observation_profile="structural", metadata=freeze_json_object({}),
+        program_digest="").with_digest()
+    activation_calls: list[tuple[str, str]] = []
+    original_builder = production.build_program_activation
+
+    def configured_activation(connection, scope, actual_program):
+        activation_calls.append((scope.actor_id, actual_program.program_digest))
+        activation, deployment = original_builder(connection, scope, actual_program)
+        return (replace(activation, transform_registry=transform_registry) if upstream else activation), deployment
+
+    monkeypatch.setattr(production, "build_program_activation", configured_activation)
+    plan = compile_program(program, catalog, operation_contracts=registry)
+    effect_steps = tuple(step for step in plan.ordered_steps if step.step_kind == "EFFECT")
+    bindings = {step.step_id: (0, "candidate-incarnation") for step in effect_steps}
+    assert len(effect_steps) == (2 if upstream else 1)
+    assert all(atom.operation.input_refs[0] == first.budget_ref for atom in program_atoms(program.root))
+    assert sum(ref == first.budget_ref for ref, _ in values) == 1
+    calls: list[str] = []
+
+    def search(topic: str, **kwargs: object) -> list[dict[str, object]]:
+        from app.services.projects.context import current_project_key, current_project_schema
+        assert current_project_key() == PROJECT_KEY
+        assert current_project_schema() == PROJECT_SCHEMA
+        calls.append(topic)
+        return [{"link": "https://example.test/candidate", "title": "Controlled candidate"}]
+
+    monkeypatch.setattr(candidate_search, "search_sources", search)
+    with live_database.engine.begin() as connection:
+        _seed_run(connection)
+        install_runtime_authority(connection,
+            administrator=RequestActorContext("deployment-admin", "deployment", True, "localdev-installation"),
+            project_scope=live_database.runtime_scope.project_scope,
+            capability=CapabilityAuthority(contract.owner_capability_id, "on", 1, True, False,
+                _digest("allowlist"), _digest("config"), now, "deployment:controlled", "deployment:disabled"),
+            resource=ResourcePolicySnapshot(PROJECT_KEY, contract.owner_capability_id, ResourceClass.NETWORK_IO,
+                1, _digest("candidate-policy"), 1, 1, 1, 1),
+            grant=AuthorityGrant("candidate-grant", live_database.runtime_scope.actor_id, contract.owner_capability_id,
+                AuthorityOperationScope.from_content(operation_kinds=(contract.ref.kind,), project_scope_digest=SCOPE_DIGEST),
+                AuthorityResourceCeiling.from_content(limits=(AuthorityResourceLimit(resource_class="NETWORK_IO", units=1),), max_active=1),
+                None, 1, now + timedelta(hours=1)), installed=registry)
+        activation, _ = production.build_program_activation(connection, live_database.runtime_scope, program)
+        submit_compiled_program(connection, live_database.runtime_scope, program=program, operation_catalog=catalog,
+            operation_contracts=registry, activation_catalog=activation,
+            values=values,
+            idempotency=IdempotencyBinding("candidate-idem", contract.owner_capability_id, "candidate-request",
+                contract.ref.kind, compiled_submission_request_digest(program, live_database.runtime_scope, bindings, {}), "candidate-run"),
+            incarnation="candidate-incarnation", canonical_bindings=bindings, approvals_by_step={},
+            trigger=ActivationTrigger(now, "candidate-trace", now))
+        work = PUBLIC_TABLES["runtime_work_items"]
+        first_work = connection.execute(sa.select(work).where(work.c.run_id == "candidate-run",
+            work.c.step_id == effect_steps[0].step_id)).mappings().one()
+        work_id = first_work["work_item_id"]
+        adapter = PostgresFirstSpecimenActivationBindingAdapter()
+        assignment = validate_runtime_assignment_row(first_work)
+        descriptor = adapter.load_exact(connection, assignment, live_database.runtime_scope, live_database.project_tables)
+        assert descriptor.static_atom_input_refs == (first.budget_ref, first.invocation_ref)
+        assert adapter.semantic_input_ref(connection, assignment, live_database.runtime_scope,
+            live_database.project_tables, descriptor) == first.invocation_ref
+    report = execute_successor_work_item(engine=live_database.engine, work_item_id=work_id, node_id="candidate-node")
+    assert report.claimed == 1 and report.results[0].committed, report
+    assert report.results[0].disposition.value == "SUCCEEDED", report
+    if upstream:
+        assert calls == [request.topic]
+        with live_database.engine.connect() as connection:
+            second_work = connection.execute(sa.select(work).where(work.c.run_id == "candidate-run",
+                work.c.step_id == effect_steps[1].step_id)).mappings().one()
+            second_work_id = second_work["work_item_id"]
+            assert second_work_id != work_id
+            assignment = validate_runtime_assignment_row(second_work)
+            descriptor = adapter.load_exact(connection, assignment, live_database.runtime_scope, live_database.project_tables)
+            assert descriptor.static_atom_input_refs == (first.budget_ref, second.invocation_ref)
+            assert assignment.input_refs == tuple(ref.storage_ref for ref in descriptor.ordered_input_refs)
+            input_ref = adapter.semantic_input_ref(connection, assignment, live_database.runtime_scope,
+                live_database.project_tables, descriptor)
+            assert input_ref in descriptor.ordered_dependency_refs and input_ref != second.invocation_ref
+            dynamic_input = definition.invocation_codec.decode_payload(json.loads(adapter.read_value_bytes(
+                connection, live_database.runtime_scope, live_database.project_tables, input_ref)))
+            assert dynamic_input.request.topic == "Controlled candidate"
+            assert dynamic_input.budget_id == budget.budget_id and dynamic_input.query_ordinal == 2
+            assert definition.invocation_codec.decode_payload(json.loads(adapter.read_value_bytes(
+                connection, live_database.runtime_scope, live_database.project_tables,
+                second.invocation_ref))).request.topic == "__runtime_planned_followup__"
+        second_report = execute_successor_work_item(engine=live_database.engine, work_item_id=second_work_id, node_id="candidate-node-2")
+        assert second_report.claimed == 1 and second_report.results[0].committed, second_report
+        assert second_report.results[0].disposition.value == "SUCCEEDED", second_report
+        assert calls == [request.topic, "Controlled candidate"]
+    else:
+        assert calls == [request.topic]
+    with live_database.engine.connect() as connection:
+        table = live_database.project_tables.successor_values
+        outputs = connection.execute(sa.select(table).where(table.c.object_type == contract.output_type.type_id)).mappings().all()
+        results = sorted((definition.output_codec.decode_payload(json.loads(bytes(output["content_bytes"])))
+            for output in outputs), key=lambda result: result.query_ordinal)
+        assert len(results) == (2 if upstream else 1)
+        assert all(result.state == "completed" and result.bundle is not None for result in results)
+        assert [result.bundle.request.topic for result in results] == calls
+        assert [result.query_ordinal for result in results] == list(range(1, len(results) + 1))
+        assert all(result.budget_id == budget.budget_id and result.route_id == invocation.route_id for result in results)
+        assert all(result.bundle.candidates[0].resource_uri == "https://example.test/candidate" for result in results)
+        authorizations = QualificationStoreRepository(connection, live_database.runtime_scope)
+        for step, atom in zip(effect_steps, program_atoms(program.root), strict=True):
+            authorization = authorizations.load_step_binding("candidate-run", step.step_id)
+            assert authorization.actor_id == live_database.runtime_scope.actor_id
+            assert authorization.payload_digest == atom.operation.payload_ref.content_digest
+            assert authorization.operation_contract_digest == contract.ref.contract_digest
+            assert authorization.grant_epoch == 1
+            assert [(source.source_ref, source.source_epoch) for source in authorization.authority_source_bindings
+                if source.source_kind == "GRANT"] == [("grant:candidate-grant", 1)]
+        for ref, content in values:
+            assert adapter.read_value_bytes(connection, live_database.runtime_scope,
+                live_database.project_tables, ref) == content
+        assert connection.scalar(sa.select(PUBLIC_TABLES["runtime_runs"].c.state).where(
+            PUBLIC_TABLES["runtime_runs"].c.run_id == "candidate-run")) == "COMPLETED"
+    assert all(digest == program.program_digest for _, digest in activation_calls)
+    assert {actor for actor, _ in activation_calls} == {
+        live_database.runtime_scope.actor_id, "candidate-node", *(["candidate-node-2"] if upstream else []),
+    }

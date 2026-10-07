@@ -5,9 +5,28 @@ import type {
   MrwDispatchResult,
   MrwDynamicToolCallParams,
   MrwPreparedEnvironment,
+  MrwRequestCredentials,
 } from './mrw.types';
 
 const HEADER_API_KEY = 'X-MRW-Server-API-Key';
+
+export function readMrwRequestCredentials(
+  headers: Record<string, string | string[] | undefined>,
+): MrwRequestCredentials | undefined {
+  const cookieName =
+    process.env.CODEX_OAUTH_COOKIE_NAME?.trim() || 'codex_session';
+  const cookies =
+    typeof headers.cookie === 'string' ? headers.cookie.split(';') : [];
+  const matches = cookies
+    .map((item) => item.trim())
+    .filter((item) => item.startsWith(`${cookieName}=`));
+  const sessionCookie = matches.length === 1 ? matches[0] : undefined;
+  const codexAuth =
+    typeof headers['x-codex-auth'] === 'string'
+      ? headers['x-codex-auth']
+      : undefined;
+  return sessionCookie || codexAuth ? { sessionCookie, codexAuth } : undefined;
+}
 
 type MrwApiEnvelope = {
   status?: unknown;
@@ -36,16 +55,28 @@ export class MrwBackendClient {
     return this.post<MrwBindResult>('/bind', { bindingId, threadId });
   }
 
-  async dispatch(params: MrwDynamicToolCallParams): Promise<MrwDispatchResult> {
-    return this.post<MrwDispatchResult>('/dispatch', params);
+  async dispatch(
+    params: MrwDynamicToolCallParams,
+    credentials?: MrwRequestCredentials,
+  ): Promise<MrwDispatchResult> {
+    return this.post<MrwDispatchResult>('/dispatch', params, credentials);
   }
 
   async confirm(req: MrwConfirmRequest): Promise<unknown> {
     return this.post<unknown>('/confirm', req);
   }
 
-  async recordInput(threadId: string, turnId: string, content: string): Promise<unknown> {
-    return this.post<unknown>('/record-input', { threadId, turnId, content });
+  async recordInput(
+    threadId: string,
+    turnId: string,
+    content: string,
+    credentials?: MrwRequestCredentials,
+  ): Promise<unknown> {
+    return this.post<unknown>(
+      '/record-input',
+      { threadId, turnId, content },
+      credentials,
+    );
   }
 
   async endTurn(threadId: string, turnId: string): Promise<unknown> {
@@ -58,13 +89,23 @@ export class MrwBackendClient {
     );
   }
 
-  private async post<T>(path: string, body: unknown): Promise<T> {
+  private async post<T>(
+    path: string,
+    body: unknown,
+    credentials?: MrwRequestCredentials,
+  ): Promise<T> {
     const url = this.resolveUrl(path);
     return this.fetchJson<T>(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         [HEADER_API_KEY]: this.apiKey,
+        ...(credentials?.sessionCookie
+          ? { Cookie: credentials.sessionCookie }
+          : {}),
+        ...(credentials?.codexAuth
+          ? { 'X-Codex-Auth': credentials.codexAuth }
+          : {}),
       },
       body: JSON.stringify(body),
     });
@@ -134,7 +175,9 @@ export class MrwBackendClient {
     );
   }
 
-  private async readEnvelope(response: Response): Promise<MrwApiEnvelope | null> {
+  private async readEnvelope(
+    response: Response,
+  ): Promise<MrwApiEnvelope | null> {
     try {
       const body = (await response.json()) as MrwApiEnvelope;
       if (!body || typeof body !== 'object') return null;
@@ -144,7 +187,9 @@ export class MrwBackendClient {
     }
   }
 
-  private envelopeErrorMessage(envelope: MrwApiEnvelope | null): string | undefined {
+  private envelopeErrorMessage(
+    envelope: MrwApiEnvelope | null,
+  ): string | undefined {
     const error = envelope?.error;
     if (typeof error === 'string') return error;
     if (error && typeof error === 'object') {

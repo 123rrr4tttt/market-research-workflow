@@ -22,7 +22,7 @@ export const kernelModuleContracts: Record<KernelModuleKey, ModuleContract> = Ob
   ]),
 ) as Record<KernelModuleKey, ModuleContract>
 
-export const routeManifest: readonly RouteManifest[] = moduleManifest.map((entry) => ({
+export const routeManifest: readonly RouteManifest<KernelModuleKey>[] = moduleManifest.map((entry) => ({
   layerId: entry.layerId,
   surfaceKind: entry.surfaceKind,
   routePath: entry.entryRoute,

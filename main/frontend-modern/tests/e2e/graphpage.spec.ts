@@ -688,9 +688,15 @@ async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?
           },
           persistence: {
             contract_version: 'workflow_graph.handoff.v1',
-            run_id: 'run-report-graphpage-e2e',
+            run_id: 'request-local-report-graphpage-e2e',
             handoff_id: 'h-report-graphpage-e2e',
-            backend_marker: 'workflow_graph.run_store',
+            handoff_mode: 'pull_prepared_evidence',
+            payload: {
+              handoff_id: 'h-report-graphpage-e2e',
+              consumer: 'llm_report.generate',
+            },
+            durable: false,
+            backend_marker: 'workflow_graph.request_local_handoff',
           },
         },
       }),
@@ -699,6 +705,9 @@ async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?
 
   await page.route('**/workflow-graph/runs/**/handoff/**/replay**', async (route) => {
     handoffReplayHit += 1
+    const url = new URL(route.request().url())
+    expect(url.searchParams.get('source')).toBe('historical')
+    expect(url.searchParams.get('project_key')).toBeTruthy()
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -716,6 +725,8 @@ async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?
             handoff_id: 'h-report-graphpage-e2e',
             producer: 'workflow_graph.backend_bridge',
           },
+          read_only: true,
+          backend_marker: 'workflow_graph.historical_run_decoder',
         },
       }),
     })
@@ -1052,7 +1063,11 @@ test('graph builder submits local draft to curated workflow graph API', async ({
 
   await page.getByTestId('graph-curated-reporting-topic').fill('robotics reporting')
   await page.getByTestId('graph-curated-reporting-handoff').click()
-  await expect(page.getByTestId('graph-curated-status')).toContainText('report_handoff_ready sources=1')
+  await expect(page.getByTestId('graph-curated-status')).toContainText('report_handoff_ready request_local sources=1')
+  await expect(page.getByTestId('graph-curated-handoff-carrier-preview')).toContainText('"durable": false')
+  await expect(page.getByTestId('graph-curated-handoff-replay')).toBeDisabled()
+  await page.getByTestId('graph-curated-historical-handoff-run-id').fill('run-report-graphpage-e2e')
+  await page.getByTestId('graph-curated-historical-handoff-id').fill('h-report-graphpage-e2e')
   await page.getByTestId('graph-curated-handoff-replay').click()
   await expect(page.getByTestId('graph-curated-status')).toContainText('handoff_replay_ready events=2')
 

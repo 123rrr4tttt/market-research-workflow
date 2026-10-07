@@ -6,6 +6,7 @@ from typing import NoReturn, Protocol, TypeAlias, TypeGuard
 
 from functorial_kit import Failure
 
+
 from mrw_functorial_kit.core.application_failure_semantics import source_library_contract_failures
 from mrw_functorial_kit.core.provider_port_failures import crawler_runtime_failures
 
@@ -18,7 +19,6 @@ from ..crawlers.base import (
     CrawlerDispatchRequest,
     CrawlerDispatchResult,
     CrawlerJsonObject,
-    CrawlerJsonValue,
     CrawlerProvider,
     is_crawler_dispatch_acknowledged,
     typed_crawler_readback,
@@ -112,60 +112,32 @@ def _mapping(value: object) -> RunnerObject:
     return dict(value)
 
 
-def _crawler_json_value(value: object) -> CrawlerJsonValue:
-    if value is None or isinstance(value, (bool, int, float, str)):
-        return value
+def _runner_json_value(value: object) -> CustomizationJsonValue:
     if isinstance(value, BaseException):
         return str(value)
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
     if _is_object_mapping(value):
-        return {
-            str(key): _crawler_json_value(item)
-            for key, item in value.items()
-        }
+        return {str(key): _runner_json_value(item) for key, item in value.items()}
     if _is_object_iterable(value):
-        return [_crawler_json_value(item) for item in value]
+        return [_runner_json_value(item) for item in value]
     return str(value)
+
+
+def _shared_json_object(value: Mapping[str, object]) -> CustomizationJsonObject:
+    return {str(key): _runner_json_value(item) for key, item in value.items()}
+
+
+def _runner_value(value: object) -> RunnerValue:
+    return _runner_json_value(value)
+
+
+def _runner_object(value: Mapping[str, object]) -> RunnerObject:
+    return {str(key): _runner_value(item) for key, item in value.items()}
 
 
 def _crawler_json_object(value: Mapping[str, RunnerValue]) -> CrawlerJsonObject:
-    return {key: _crawler_json_value(item) for key, item in value.items()}
-
-
-def _customization_json_value(value: object) -> CustomizationJsonValue:
-    if value is None or isinstance(value, (bool, int, float, str)):
-        return value
-    if isinstance(value, BaseException):
-        return str(value)
-    if _is_object_mapping(value):
-        return {
-            str(key): _customization_json_value(item)
-            for key, item in value.items()
-        }
-    if _is_object_iterable(value):
-        return [_customization_json_value(item) for item in value]
-    return str(value)
-
-
-def _customization_json_object(value: Mapping[str, object]) -> CustomizationJsonObject:
-    return {key: _customization_json_value(item) for key, item in value.items()}
-
-
-def _runner_value_from_customization(value: CustomizationJsonValue) -> RunnerValue:
-    if isinstance(value, dict):
-        return {
-            key: _runner_value_from_customization(item)
-            for key, item in value.items()
-        }
-    if isinstance(value, list):
-        return [_runner_value_from_customization(item) for item in value]
-    return value
-
-
-def _runner_object_from_customization(value: CustomizationJsonObject) -> RunnerObject:
-    return {
-        key: _runner_value_from_customization(item)
-        for key, item in value.items()
-    }
+    return _shared_json_object(value)
 
 
 def _optional_string(value: object) -> str | None:
@@ -902,12 +874,12 @@ def run_channel(
     project_handlers = customization.get_channel_handlers()
     handler = project_handlers.get((provider, kind)) if project_handlers else None
     if handler is not None:
-        return _runner_object_from_customization(
+        return _runner_object(
             handler(
-                _customization_json_object(mutable_channel),
-                _customization_json_object(mutable_params),
+                _shared_json_object(mutable_channel),
+                _shared_json_object(mutable_params),
                 project_key,
-            )
+            ),
         )
 
     handler = get(provider, kind)

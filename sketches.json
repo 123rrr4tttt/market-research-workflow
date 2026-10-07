@@ -1384,66 +1384,6 @@
         }
       ],
       "shape": "capability-interface"
-    },
-    {
-      "axes": {
-        "closed": "session state transitions and JSON fields",
-        "open": "store interpreters"
-      },
-      "change": {
-        "declared_loss": [],
-        "kind": "extension"
-      },
-      "derived": {
-        "authoritative": false,
-        "derived_as": "external_claim"
-      },
-      "equations": [
-        {
-          "claim": "concurrent claims have one winner and one claim event",
-          "class": "testable",
-          "witness": "test:test_concurrent_claim_has_exactly_one_winner_and_one_claim_event"
-        },
-        {
-          "claim": "failed event persistence rolls back task dependents session and events",
-          "class": "testable",
-          "witness": "test:test_release_rolls_back_task_dependents_session_and_events_when_event_write_fails"
-        },
-        {
-          "claim": "nested non-JSON payload is rejected without persistence",
-          "class": "testable",
-          "witness": "test:test_store_rejects_nested_non_json_values_without_writing_session"
-        }
-      ],
-      "failures": [
-        "agent.session.failure"
-      ],
-      "id": "AgentSessionMutation",
-      "objects": [
-        {
-          "kind": "record",
-          "name": "AgentSessionRecord",
-          "owner": "main/backend/app/services/agent_sessions/store.py"
-        },
-        {
-          "kind": "record",
-          "name": "AgentTaskRecord",
-          "owner": "main/backend/app/services/agent_sessions/store.py"
-        }
-      ],
-      "operations": [
-        {
-          "name": "claim_task",
-          "order_depends_on": []
-        },
-        {
-          "name": "release_task",
-          "order_depends_on": [
-            "claim_task"
-          ]
-        }
-      ],
-      "shape": "capability-interface"
     }
   ],
   "version": "kit-sketches.v1"

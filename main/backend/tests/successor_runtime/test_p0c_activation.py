@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 
 import pytest
 
@@ -31,6 +32,9 @@ from app.successor_runtime.language.program import (
     then_node,
     zip_ordered_node,
 )
+from app.successor_runtime.language.program import _tuple_object_type, sequence_object_type
+from app.successor_runtime.language.checksum import canonical_bytes
+from app.successor_runtime.language.algebra import sha256_digest_bytes
 from app.successor_runtime.language.transforms import TransformRegistry
 from app.successor_runtime.research.object_types import ObjectType
 from app.successor_runtime.runtime.activation import (
@@ -474,6 +478,196 @@ def test_value_ref_preserving_transform_that_changes_bytes_fails_closed() -> Non
         )
 
 
+def test_value_ref_preserving_transform_transports_supplied_exact_bytes() -> None:
+    transforms, merges, discriminators = _empty_registries()
+    transform_ref = transforms.register_transform(
+        name="activation.exact-bytes-identity",
+        version="1",
+        input_type=CLAIM_OR_GAP,
+        output_type=CLAIM_OR_GAP,
+        func=_copy_claim_or_gap,
+        preserves_value_ref=True,
+    )
+    effect, contract = _operation("exact-bytes-source", INPUT, CLAIM_OR_GAP)
+    program = _program(
+        then_node(
+            effect,
+            map_output_node(
+                identity_node(CLAIM_OR_GAP), transform_ref, CLAIM_OR_GAP
+            ),
+        ),
+        transform_refs=(transform_ref,),
+    )
+    plan = _compile(program, (contract,), transforms, merges, discriminators)
+    effect_step = next(step for step in plan.ordered_steps if step.step_kind == "EFFECT")
+    transform_step = next(step for step in plan.ordered_steps if step.step_kind == "TRANSFORM")
+    value = {"kind": "claim", "title": "水务政策", "\U00010000": "astral"}
+    exact = canonical_bytes(value)
+    source_ref = replace(
+        _value("claim:supplied-exact", CLAIM, value=value),
+        content_digest=sha256_digest_bytes(exact),
+        byte_size=len(exact),
+    )
+
+    result = activate_plan(
+        run_id="run-supplied-exact-identity",
+        program=program,
+        plan=plan,
+        completed_outputs=(
+            BoundStepValue(
+                effect_step.step_id, source_ref, value, exact_bytes=exact
+            ),
+        ),
+        transform_registry=transforms,
+        merge_registry=merges,
+        discriminator_registry=discriminators,
+        already_activated_step_ids=frozenset({effect_step.step_id}),
+    )
+
+    derived = next(item for item in result.values if item.step_id == transform_step.step_id)
+    assert derived.value_ref == source_ref
+    assert derived.exact_bytes == exact
+    assert result.materializations == ()
+
+
+def test_research_value_ref_carrier_flows_through_preserving_map_without_copy() -> None:
+    transforms, merges, discriminators = _empty_registries()
+    transform_ref = transforms.register_transform(
+        name="activation.research-carrier-identity",
+        version="1",
+        input_type=LEFT,
+        output_type=LEFT,
+        func=_copy_claim_or_gap,
+        preserves_value_ref=True,
+    )
+    source_ref = _value("research-carrier:source", LEFT, value={"source": "research"})
+    program = _program(
+        then_node(
+            pure_node(
+                INPUT,
+                LEFT,
+                {"source_value_ref": source_ref.to_plain()},
+                "mrw.functorial-successor.value-ref.literal.v1",
+            ),
+            map_output_node(identity_node(LEFT), transform_ref, LEFT),
+        ),
+        transform_refs=(transform_ref,),
+    )
+    plan = _compile(program, (), transforms, merges, discriminators)
+    transform_step = next(step for step in plan.ordered_steps if step.step_kind == "TRANSFORM")
+
+    result = activate_plan(
+        run_id="run-research-carrier-identity",
+        program=program,
+        plan=plan,
+        transform_registry=transforms,
+        merge_registry=merges,
+        discriminator_registry=discriminators,
+    )
+
+    derived = next(item for item in result.values if item.step_id == transform_step.step_id)
+    assert derived.value_ref == source_ref
+    assert derived.exact_bytes is None
+    assert result.materializations == ()
+
+
+def test_typed_pure_output_uses_installed_domain_bytes() -> None:
+    from app.successor_runtime.capabilities.checksum import canonical_json
+
+    transforms, merges, discriminators = _empty_registries()
+    domain = ObjectType("NativeTypedPure.v1")
+    effect, contract = _operation("native-typed-pure", domain, OUTPUT)
+    value = {
+        "\U00010000": "astral",
+        "\ue000": "bmp",
+        "one": 1,
+        "one_float": 1.0,
+        "disabled": False,
+        "title": "水务政策",
+    }
+    program = _program(then_node(
+        pure_node(INPUT, domain, value, domain.codec_id), effect,
+    ))
+    plan = _compile(program, (contract,), transforms, merges, discriminators)
+
+    result = activate_plan(
+        run_id="run-native-typed-pure",
+        program=program,
+        plan=plan,
+        transform_registry=transforms,
+        merge_registry=merges,
+        discriminator_registry=discriminators,
+        encode_value=lambda _object_type, item: canonical_json(item).encode("utf-8"),
+    )
+
+    exact = canonical_json(value).encode("utf-8")
+    pure_step = next(step for step in plan.ordered_steps if step.step_kind == "PURE")
+    pure_value = next(item for item in result.values if item.step_id == pure_step.step_id)
+    assert pure_value.exact_bytes == exact
+    assert pure_value.value_ref.content_digest == sha256_digest_bytes(exact)
+    assert canonical_bytes(value) != exact
+    assert result.materializations[0].exact_bytes == exact
+
+
+@pytest.mark.parametrize("drift", ["semantic", "hash", "size", "codec", "type"])
+def test_supplied_completed_exact_bytes_reject_each_binding_drift(drift: str) -> None:
+    from app.successor_runtime.capabilities.checksum import canonical_json
+
+    transforms, merges, discriminators = _empty_registries()
+    domain = ObjectType("SuppliedExact.v1")
+    effect, contract = _operation("supplied-exact", domain, OUTPUT)
+    program = _program(effect)
+    plan = _compile(program, (contract,), transforms, merges, discriminators)
+    step = next(item for item in plan.ordered_steps if item.step_kind == "EFFECT")
+    value = {"count": 1, "enabled": True, "title": "水务"}
+    exact = canonical_json(value).encode("utf-8")
+    ref = replace(
+        _value("supplied-exact-output", OUTPUT, value=value),
+        content_digest=sha256_digest_bytes(exact),
+        byte_size=len(exact),
+    )
+    output_value: object = value
+    output_ref = ref
+    output_exact = exact
+    if drift == "semantic":
+        changed_value = {**value, "count": 1.0}
+        output_exact = canonical_json(changed_value).encode("utf-8")
+        output_ref = replace(
+            ref,
+            content_digest=sha256_digest_bytes(output_exact),
+            byte_size=len(output_exact),
+        )
+    elif drift == "hash":
+        output_ref = replace(ref, content_digest="f" * 64)
+    elif drift == "size":
+        output_ref = replace(ref, byte_size=len(exact) + 1)
+    elif drift == "codec":
+        output_ref = replace(ref, codec_id="other-codec")
+    else:
+        output_ref = replace(ref, object_type=MID)
+    expected_message = (
+        "completed output ValueRef type mismatch"
+        if drift == "type"
+        else "typed value"
+    )
+
+    with pytest.raises(ActivationError, match=expected_message):
+        activate_plan(
+            run_id="run-supplied-exact-drift",
+            program=program,
+            plan=plan,
+            completed_outputs=(
+                BoundStepValue(
+                    step.step_id, output_ref, output_value, exact_bytes=output_exact
+                ),
+            ),
+            transform_registry=transforms,
+            merge_registry=merges,
+            discriminator_registry=discriminators,
+            encode_value=lambda _object_type, item: canonical_json(item).encode("utf-8"),
+        )
+
+
 def test_zip_ordered_is_left_to_right_and_not_commutative() -> None:
     transforms, merges, discriminators = _empty_registries()
     forward_ref = merges.register_merge(
@@ -592,6 +786,16 @@ def test_decide_reuses_reducer_and_releases_only_selected_branch() -> None:
     )
     assert states[claim_step.step_id] is StepState.READY
     assert states[gap_step.step_id] is StepState.NOT_SELECTED
+    from app.successor_runtime.substrate.postgres.first_specimen_activation import selected_completion_steps
+    assert selected_completion_steps(plan, result) is None
+    completed = activate_plan(
+        run_id="run-decide", program=program, plan=plan,
+        completed_outputs=(BoundStepValue(claim_step.step_id, _value("selected-result", OUTPUT), {"result": "claim"}),),
+        transform_registry=transforms, merge_registry=merges,
+        discriminator_registry=discriminators,
+    )
+    assert selected_completion_steps(plan, completed) == (frozenset({claim_step.step_id}), frozenset())
+    assert gap_step.step_id not in {value.step_id for value in completed.values}
 
 
 def test_unresolved_decide_does_not_release_static_join_after_all_branches() -> None:
@@ -680,3 +884,164 @@ def test_admission_uses_effect_dynamic_ref_and_duplicate_input_is_idempotent() -
     assert descriptor.payload_ref == atom.operation.payload_ref
     assert descriptor.input_closure_digest == replay.activations[0].input_closure_digest
     assert descriptor.activation_digest == replay.activations[0].activation_digest
+
+
+def _projection_map(value):
+    return {**value, "mapped": True}
+
+
+def _projection_choose(value):
+    return "yes"
+
+
+def _projection_identity(value):
+    return value
+
+
+@pytest.mark.parametrize("left_shape,right_shape", [
+    ("identity", "effect"), ("effect", "identity"),
+    ("identity", "map"), ("map", "identity"),
+    ("identity", "decision"), ("decision", "identity"),
+    ("identity", "identity"),
+])
+def test_control_data_projection_preserves_identity_and_order(left_shape, right_shape):
+    transforms, merges, discriminators = _empty_registries()
+    transform = transforms.register_transform(
+        name="projection.map", version="1", input_type=INPUT, output_type=INPUT,
+        func=_projection_map,
+    )
+    discriminator = discriminators.register_discriminator(
+        name="projection.choose", version="1", input_type=INPUT,
+        branch_ids=("yes", "no"), func=_projection_choose,
+    )
+    merge = merges.register_merge(
+        name="projection.pair", version="1", left_type=INPUT, right_type=INPUT,
+        output_type=PAIR, func=_left_then_right,
+    )
+    effect, contract = _operation("projection.effect", INPUT, INPUT)
+    mapped = map_output_node(identity_node(INPUT), transform, INPUT)
+    shapes = {
+        "identity": identity_node(INPUT), "map": mapped,
+        "effect": then_node(mapped, effect),
+        "decision": decide_node(discriminator, (
+            DecisionBranch("yes", "original == True", mapped),
+            DecisionBranch("no", "original == False", mapped),
+        )),
+    }
+    program = _program(then_node(
+        pure_node(INPUT, INPUT, {"original": True}, "activation-json-v1"),
+        zip_ordered_node(shapes[left_shape], shapes[right_shape], merge, PAIR),
+    ))
+    plan = _compile(program, (contract,), transforms, merges, discriminators)
+    kwargs = dict(run_id="control-projection", program=program, plan=plan,
+                  transform_registry=transforms, merge_registry=merges,
+                  discriminator_registry=discriminators)
+    result = activate_plan(**kwargs)
+    effects = tuple(step for step in plan.ordered_steps if step.step_kind == "EFFECT")
+    if effects:
+        assert len(result.activations) == 1
+        assert not any(item.step_id == plan.control_root.semantic_return_step_ids[0]
+                       for item in result.values)
+        result = activate_plan(**kwargs, completed_outputs=(BoundStepValue(
+            effects[0].step_id, _value("effect-result", INPUT), {"effect": True},
+        ),))
+    expected = {"identity": {"original": True}, "map": {"original": True, "mapped": True},
+                "decision": {"original": True, "mapped": True}, "effect": {"effect": True}}
+    returned = next(item for item in result.values
+                    if item.step_id == plan.control_root.semantic_return_step_ids[0])
+    assert returned.value == {"ordered": [expected[left_shape], expected[right_shape]]}
+    assert all(step.step_kind != "IDENTITY" for step in plan.ordered_steps)
+    pure = next(item for item in result.values if item.value == {"original": True})
+    output = next(item for item in result.materializations if item.step_id == returned.step_id)
+    for index, shape in enumerate((left_shape, right_shape)):
+        if shape == "identity":
+            assert output.dependency_refs[index] == pure.value_ref
+
+
+def test_map_identity_requires_exact_existing_root_input():
+    from app.successor_runtime.runtime.activation import ProgramInput
+    transforms, merges, discriminators = _empty_registries()
+    transform = transforms.register_transform(
+        name="projection.root", version="1", input_type=INPUT, output_type=INPUT,
+        func=_projection_identity,
+    )
+    program = _program(map_output_node(identity_node(INPUT), transform, INPUT))
+    plan = _compile(program, (), transforms, merges, discriminators)
+    kwargs = dict(run_id="root-input", program=program, plan=plan,
+                  transform_registry=transforms, merge_registry=merges,
+                  discriminator_registry=discriminators)
+    with pytest.raises(ActivationError, match="one exact value per semantic input"):
+        activate_plan(**kwargs)
+    ref = _value("root", INPUT)
+    result = activate_plan(**kwargs, program_input=ProgramInput(ref, {"root": True}))
+    assert result.materializations[0].dependency_refs == (ref,)
+    with pytest.raises(ActivationError, match="semantic input type mismatch"):
+        activate_plan(**kwargs, program_input=ProgramInput(_value("wrong-root", OUTPUT), {}))
+
+
+def test_installed_encoder_separates_domain_payload_language_sequence_and_tuple() -> None:
+    from app.composition.production import _installed_value_encoder
+    from app.successor_runtime.capabilities.checksum import canonical_json
+
+    transforms, merges, discriminators = _empty_registries()
+    domain = ObjectType("CodecDomain.v1")
+    tuple_type = _tuple_object_type((LEFT, RIGHT))
+    sequence_type = sequence_object_type(domain, version="2")
+    _, domain_contract = _operation("codec-domain", domain, OUTPUT)
+    _, tuple_contract = _operation("codec-tuple", tuple_type, OUTPUT)
+    _, sequence_contract = _operation("codec-sequence", sequence_type, OUTPUT)
+    merges.register_merge(
+        name="activation.codec-tuple",
+        version="1",
+        left_type=LEFT,
+        right_type=RIGHT,
+        output_type=PAIR,
+        func=_left_then_right,
+    )
+    encode = _installed_value_encoder(
+        (domain_contract, tuple_contract, sequence_contract), transforms, merges
+    )
+    domain_value = {
+        "\U00010000": "astral",
+        "\ue000": "bmp",
+        "int": 1,
+        "float": 1.0,
+        "bool": False,
+        "title": "水务政策",
+    }
+    domain_bytes = canonical_json(domain_value).encode("utf-8")
+    assert encode(domain, domain_value) == domain_bytes
+    assert canonical_bytes(domain_value) != domain_bytes
+    assert encode(tuple_type, [{"left": 1}, {"right": False}]) == canonical_bytes(
+        [{"left": 1}, {"right": False}]
+    )
+    assert encode(sequence_type, []) == b"[]"
+    assert encode(sequence_type, [domain_value]) == canonical_bytes([domain_value])
+    with pytest.raises(ValueError, match="no exact installed endpoint"):
+        encode(ObjectType("UnknownCodec.v1"), domain_value)
+    for mismatched_type in (
+        replace(domain, codec_id="other-codec"),
+        replace(domain, schema_version="other-schema"),
+    ):
+        with pytest.raises(ValueError, match="no exact installed endpoint"):
+            encode(mismatched_type, domain_value)
+
+
+def test_compiler_rejects_bare_identity_decision_branch_without_entries():
+    transforms, merges, discriminators = _empty_registries()
+    discriminator = discriminators.register_discriminator(
+        name="identity.branch-boundary", version="1", input_type=INPUT,
+        branch_ids=("yes", "no"), func=_projection_choose,
+    )
+    transform = transforms.register_transform(
+        name="identity.branch-result", version="1", input_type=INPUT, output_type=INPUT,
+        func=_projection_identity,
+    )
+    branch = decide_node(discriminator, (
+        DecisionBranch("yes", "original == True", identity_node(INPUT)),
+        DecisionBranch("no", "original == False", map_output_node(identity_node(INPUT), transform, INPUT)),
+    ))
+    program = _program(then_node(pure_node(INPUT, INPUT, {"original": True}, "json-v1"),
+                                 map_output_node(branch, transform, INPUT)))
+    with pytest.raises(ValueError, match="compiled decision branch requires steps and entries"):
+        _compile(program, (), transforms, merges, discriminators)

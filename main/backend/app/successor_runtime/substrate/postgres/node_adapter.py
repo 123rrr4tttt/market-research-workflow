@@ -20,7 +20,7 @@ from dataclasses import replace
 from datetime import datetime, timedelta
 from typing import Any, Protocol, Self
 
-from sqlalchemy import MetaData, select
+from sqlalchemy import MetaData, select, update
 from sqlalchemy.engine import Connection
 
 from app.successor_runtime.runtime.assignments import AssignmentKind, canonical_digest
@@ -121,6 +121,17 @@ class _ClaimRepositoryView(Protocol):
         new_expiry: Any,
     ) -> Mapping[str, Any]: ...
 
+    def release(
+        self,
+        scope: RuntimeScope,
+        work_item_id: str,
+        lease_token: str,
+        *,
+        expected_revision: int,
+        terminal_state: str,
+        now: datetime | None = None,
+    ) -> Mapping[str, Any]: ...
+
 
 class _LifecycleRepositoryView(Protocol):
     def start_claim(
@@ -128,6 +139,15 @@ class _LifecycleRepositoryView(Protocol):
     ) -> None: ...
 
     def commit_outcome(self, outcome: TerminalOutcome) -> None: ...
+
+    def commit_non_start_cancellation(
+        self,
+        *,
+        run_id: str,
+        step_id: str,
+        attempt_id: str,
+        authority_digest: str,
+    ) -> None: ...
 
 
 class _ReconciliationOwnerView(Protocol):
@@ -636,7 +656,6 @@ class PostgresRuntimeNodeAdapter:
                     if (
                         callable(after_reconciliation)
                         and outcome.result.state is ReconciliationState.RESOLVED
-                        and outcome.result.disposition is EffectDisposition.SUCCEEDED
                     ):
                         runs = _table("runtime_runs")
                         run = _one_mapping(
@@ -747,6 +766,92 @@ class PostgresRuntimeNodeAdapter:
         except ExactBindingConflict as exc:
             if "claim lease has expired" in str(exc):
                 raise LeaseLost("claim expired before terminal commit") from exc
+            raise
+
+    def commit_non_start_cancellation(
+        self,
+        *,
+        control_scope: ControlPlaneScope,
+        claim: RuntimeClaim,
+        expected_revision: int,
+        observed_at: datetime,
+    ) -> None:
+        self._require_claim_authority(control_scope, claim, observed_at=observed_at)
+        if claim.effect_disposition not in {
+            EffectDisposition.NOT_STARTED,
+            EffectDisposition.IN_FLIGHT,
+        }:
+            raise ExactBindingConflict(
+                "non-start cancellation requires NOT_STARTED or IN_FLIGHT claim"
+            )
+        if expected_revision != claim.work_item_revision:
+            raise LeaseLost("cancel expected revision differs from RuntimeClaim")
+        if claim.assignment.step_id is None:
+            raise ExactBindingConflict(
+                "non-start cancellation requires an effect step identity"
+            )
+        try:
+            with self._uow_factory() as uow:
+                reader = self._state_reader_factory(uow.connection)
+                scope, current = reader.claimed_lifecycle(
+                    claim,
+                    control_scope,
+                    require_started=(
+                        claim.effect_disposition is EffectDisposition.IN_FLIGHT
+                    ),
+                )
+                if current.expected_work_revision != expected_revision:
+                    raise StaleRevisionError(
+                        "non-start cancel work-item revision drift"
+                    )
+                attempts = _table("runtime_effect_attempts")
+                attempt_result = uow.connection.execute(
+                    update(attempts)
+                    .where(
+                        attempts.c.project_key == scope.project_scope.project_key,
+                        attempts.c.attempt_id == current.attempt_id,
+                        attempts.c.revision == current.expected_attempt_revision,
+                        attempts.c.disposition == claim.effect_disposition.value,
+                        attempts.c.claim_binding_digest
+                        == current.claim.binding_digest,
+                    )
+                    .values(
+                        disposition="NOT_STARTED",
+                        started_at=None,
+                        finished_at=observed_at,
+                        revision=current.expected_attempt_revision + 1,
+                        updated_at=observed_at,
+                    )
+                )
+                if getattr(attempt_result, "rowcount", None) != 1:
+                    raise StaleRevisionError(
+                        "non-start cancel attempt CAS failed"
+                    )
+                repository = self._claim_repository_factory(uow.connection)
+                repository.release(
+                    scope,
+                    claim.assignment.work_item_id,
+                    claim.claim_binding.lease_token,
+                    expected_revision=expected_revision,
+                    terminal_state="CANCELLED",
+                    now=observed_at,
+                )
+                lifecycle = self._lifecycle_repository_factory(uow.connection, scope)
+                lifecycle.commit_non_start_cancellation(
+                    run_id=claim.assignment.run_id,
+                    step_id=claim.assignment.step_id,
+                    attempt_id=claim.claim_binding.attempt_id,
+                    authority_digest=claim.claim_binding.authorization_digest,
+                )
+                uow.commit()
+            self._started.pop(claim.claim_binding.attempt_id, None)
+        except (ClaimConflict, StaleRevisionError) as exc:
+            raise LeaseLost(
+                f"non-start cancellation lost exact authority: {exc}"
+            ) from exc
+        except ExactBindingConflict as exc:
+            if "claim lease has expired" in str(exc):
+                raise LeaseLost("claim expired before non-start cancellation") from exc
             raise
 
     @staticmethod

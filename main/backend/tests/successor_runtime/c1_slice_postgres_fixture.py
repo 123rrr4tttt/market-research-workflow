@@ -662,6 +662,7 @@ class PreparedC1Slice:
     interpreter_profile_digests: frozenset[str]
     recovery_binding_digest: str
     profile_digest: str = NODE_PROFILE_DIGEST
+    deployment_catalog_digest: str = DEPLOYMENT_CATALOG_DIGEST
 
     @property
     def capability_ids(self) -> tuple[str, ...]:
@@ -691,6 +692,7 @@ def _compile_assignment(
     project_key: str,
     program_digest: str,
     catalog_digest: str,
+    deployment_catalog_digest: str,
     authority_epoch: int,
 ) -> RuntimeAssignment:
     compiler = CompilerBinding.from_content(
@@ -712,7 +714,7 @@ def _compile_assignment(
         handler_binding_digest=compiler.binding_digest,
         handler_binding=compiler,
         program_digest=program_digest,
-        deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
+        deployment_catalog_digest=deployment_catalog_digest,
         execution_epoch=0,
         incarnation=run_incarnation,
         queue_eligibility_digest=_digest("c1-compile-eligibility"),
@@ -730,13 +732,14 @@ def _qualify_assignment(
     project_key: str,
     program_digest: str,
     plan_digest: str,
+    deployment_catalog_digest: str,
     authority_epoch: int,
 ) -> RuntimeAssignment:
     qualification = QualificationBinding.from_content(
         authority_reader_id="c1-authority-reader",
         authority_reader_version="1.0.0",
         authority_reader_digest=_digest("c1-authority-reader"),
-        deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
+        deployment_catalog_digest=deployment_catalog_digest,
         resource_policy_epoch=RESOURCE_POLICY_EPOCH,
     )
     return RuntimeAssignment(
@@ -752,7 +755,7 @@ def _qualify_assignment(
         handler_binding=qualification,
         program_digest=program_digest,
         plan_digest=plan_digest,
-        deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
+        deployment_catalog_digest=deployment_catalog_digest,
         execution_epoch=0,
         incarnation=run_incarnation,
         queue_eligibility_digest=_digest("c1-qualify-eligibility"),
@@ -952,6 +955,8 @@ def prepare_runtime(
     tag: str,
     run_suffix: str,
     authority_epoch: int = AUTHORITY_EPOCH,
+    node_profile_digest: str = NODE_PROFILE_DIGEST,
+    deployment_catalog_digest: str = DEPLOYMENT_CATALOG_DIGEST,
     handler_builder: Callable[
         [str, str, _C1ExecutionLedger],
         RuntimeHandler,
@@ -1006,6 +1011,7 @@ def prepare_runtime(
         project_key=project_key,
         program_digest=program.program_digest,
         catalog_digest=catalog.catalog_digest,
+        deployment_catalog_digest=deployment_catalog_digest,
         authority_epoch=authority_epoch,
     )
     qualify_assignment = _qualify_assignment(
@@ -1014,6 +1020,7 @@ def prepare_runtime(
         project_key=project_key,
         program_digest=program.program_digest,
         plan_digest=plan.plan_digest,
+        deployment_catalog_digest=deployment_catalog_digest,
         authority_epoch=authority_epoch,
     )
 
@@ -1052,7 +1059,7 @@ def prepare_runtime(
         interpreter_bindings[kind] = InterpreterBinding.from_content(
             operation_contract_digest=operation.ref.contract_digest,
             interpreter_profile_digest=interpreter_profile_digest,
-            deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
+            deployment_catalog_digest=deployment_catalog_digest,
             runtime_protocol_version="1",
             project_scope_digest=scope_digest,
             resource_policy_epoch=RESOURCE_POLICY_EPOCH,
@@ -1138,7 +1145,7 @@ def prepare_runtime(
                 submission_authority_digest=SUBMISSION_AUTHORITY_DIGEST,
                 compile_work=AssignmentEnvelope(
                     assignment=compile_assignment,
-                    required_node_profile_selector=NODE_PROFILE_DIGEST,
+                    required_node_profile_selector=node_profile_digest,
                     authority_digest=SUBMISSION_AUTHORITY_DIGEST,
                     resource_policy_digest=RESOURCE_POLICY_DIGEST,
                     fairness_key=project_key,
@@ -1199,7 +1206,7 @@ def prepare_runtime(
                 resource_closure_digest=plan.resource_closure_digest,
                 qualify_work=AssignmentEnvelope(
                     assignment=qualify_assignment,
-                    required_node_profile_selector=NODE_PROFILE_DIGEST,
+                    required_node_profile_selector=node_profile_digest,
                     authority_digest=contexts[first_capability_id].context_digest,
                     resource_policy_digest=RESOURCE_POLICY_DIGEST,
                     fairness_key=project_key,
@@ -1267,7 +1274,7 @@ def prepare_runtime(
                     interpreter_binding_digest=interpreter_bindings[
                         kind
                     ].binding_digest,
-                    deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
+                    deployment_catalog_digest=deployment_catalog_digest,
                     authority_source_bindings=context.authority_source_bindings,
                     grants_digest=context.grants_digest,
                     approval_refs=(),
@@ -1375,7 +1382,7 @@ def prepare_runtime(
                 handler_binding=interpreter,
                 program_digest=plan.program_digest,
                 plan_digest=plan.plan_digest,
-                deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
+                deployment_catalog_digest=deployment_catalog_digest,
                 execution_epoch=0,
                 incarnation=run_incarnation,
                 input_refs=input_refs,
@@ -1391,7 +1398,7 @@ def prepare_runtime(
             authorization = authorizations[len(assignments) - 1]
             envelope = AssignmentEnvelope(
                 assignment=assignment,
-                required_node_profile_selector=NODE_PROFILE_DIGEST,
+                required_node_profile_selector=node_profile_digest,
                 authority_digest=authorization.binding_digest,
                 resource_policy_digest=RESOURCE_POLICY_DIGEST,
                 fairness_key=project_key,
@@ -1436,28 +1443,32 @@ def prepare_runtime(
 
         DeploymentCatalogRepository(connection).put_exact(
             DeploymentCatalog(
-                catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
+                catalog_digest=deployment_catalog_digest,
                 catalog_version="1.0.0",
                 catalog_ref="artifact:c1-slice-deployment",
-                node_profile_digest=NODE_PROFILE_DIGEST,
+                node_profile_digest=node_profile_digest,
                 security_profile_digest=SECURITY_PROFILE_DIGEST,
                 resource_profile_digest=RESOURCE_PROFILE_DIGEST,
             )
         )
-        nodes = RuntimeNodeRepository(connection)
-        for node_id in (
-            "c1-slice-node-a",
-            "c1-slice-node-b",
-            "c1-unknown-node",
-            "c1-reconcile-node",
+        if (
+            node_profile_digest == NODE_PROFILE_DIGEST
+            and deployment_catalog_digest == DEPLOYMENT_CATALOG_DIGEST
         ):
-            nodes.register(
-                node_id=node_id,
-                node_profile_digest=NODE_PROFILE_DIGEST,
-                deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
-                runtime_protocol_version="1",
-                started_at=NOW - timedelta(minutes=1),
-            )
+            nodes = RuntimeNodeRepository(connection)
+            for node_id in (
+                "c1-slice-node-a",
+                "c1-slice-node-b",
+                "c1-unknown-node",
+                "c1-reconcile-node",
+            ):
+                nodes.register(
+                    node_id=node_id,
+                    node_profile_digest=node_profile_digest,
+                    deployment_catalog_digest=deployment_catalog_digest,
+                    runtime_protocol_version="1",
+                    started_at=NOW - timedelta(minutes=1),
+                )
 
     ledger = _C1ExecutionLedger()
 
@@ -1518,6 +1529,8 @@ def prepare_runtime(
         resolver=_C1ExactResolver(handlers),
         interpreter_profile_digests=profile_digests,
         recovery_binding_digest=reconcile_binding_digest,
+        profile_digest=node_profile_digest,
+        deployment_catalog_digest=deployment_catalog_digest,
     )
 
 
@@ -1527,8 +1540,17 @@ def make_node(
     *,
     authority_epoch: int | None = None,
     clock_start: datetime | None = None,
+    cancellation: Any | None = None,
 ) -> RuntimeNode:
     epoch = prepared.authority_epoch if authority_epoch is None else authority_epoch
+    with prepared.database.engine.begin() as connection:
+        RuntimeNodeRepository(connection).register(
+            node_id=node_id,
+            node_profile_digest=prepared.profile_digest,
+            deployment_catalog_digest=prepared.deployment_catalog_digest,
+            runtime_protocol_version="1",
+            started_at=NOW - timedelta(minutes=1),
+        )
     adapter = PostgresRuntimeNodeAdapter(
         runtime_uow_factory(prepared.database.engine),
         terminal_hook=_C1AdmissionCommitHook(),
@@ -1551,7 +1573,7 @@ def make_node(
             interpreter_profile_digests=prepared.interpreter_profile_digests,
         ),
         deployment=DeploymentBinding(
-            catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
+            catalog_digest=prepared.deployment_catalog_digest,
             node_profile_digest=prepared.profile_digest,
             runtime_protocol_version="1",
         ),
@@ -1564,7 +1586,11 @@ def make_node(
         claims=adapter,
         interpreters=prepared.resolver,
         outcomes=adapter,
-        cancellation=_C1AuthorityGuard(prepared.database.engine, prepared.project_key),
+        cancellation=(
+            cancellation
+            if cancellation is not None
+            else _C1AuthorityGuard(prepared.database.engine, prepared.project_key)
+        ),
         clock=_FixedClock(NOW if clock_start is None else clock_start),
     )
 

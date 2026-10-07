@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -23,12 +23,33 @@ except Exception as exc:  # noqa: BLE001
     _IMPORT_ERROR = exc
 
 
+class _AuthenticatedActorStateApp:
+    def __init__(self, app, *, actor_id: str):
+        self._app = app
+        self._actor_id = actor_id
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") == "http":
+            state = scope.setdefault("state", {})
+            actor = {
+                "actor_id": self._actor_id,
+                "source": "test_authenticated_actor_context",
+                "auth_type": "codex_test",
+            }
+            state["authenticated_actor"] = actor
+            state["authenticated_actor_id"] = self._actor_id
+            state["codex_authenticated_actor"] = actor
+        await self._app(scope, receive, send)
+
+
 class IngestResponseContractTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if _IMPORT_ERROR is not None:
             raise unittest.SkipTest(f"ingest response contract tests require backend dependencies: {_IMPORT_ERROR}")
-        cls.client = TestClient(backend_app)
+        cls.client = TestClient(
+            _AuthenticatedActorStateApp(backend_app, actor_id="contract-actor-1")
+        )
 
     def setUp(self):
         with ingest_api._INGEST_SUBMISSION_LOCK:
@@ -62,6 +83,28 @@ class IngestResponseContractTestCase(unittest.TestCase):
             patcher.stop()
         with ingest_api._INGEST_SUBMISSION_LOCK:
             ingest_api._INGEST_SUBMISSIONS.clear()
+
+    @contextmanager
+    def installed_url_runtime(self, run_id: str = "url-single-contract-1"):
+        with (
+            patch("app.models.base.engine") as engine,
+            patch(
+                "app.successor_runtime.substrate.postgres.session.ServerProjectScopeResolver"
+            ) as resolver,
+            patch("app.composition.production.submit_installed_program") as submit,
+        ):
+            resolver.return_value = SimpleNamespace(
+                resolve=MagicMock(
+                    return_value=SimpleNamespace(
+                        project_key="demo_proj",
+                        project_registry_revision=1,
+                        scope_digest="b" * 64,
+                    )
+                )
+            )
+            submit.return_value = ({"run_id": run_id, "state": "READY"}, ("work:1",))
+            yield submit
+            assert engine.connect.called
 
     def test_single_url_sync_contract_includes_stable_business_fields(self):
         fake_result = {
@@ -104,8 +147,6 @@ class IngestResponseContractTestCase(unittest.TestCase):
         self.assertIsInstance(data.get("degradation_flags"), list)
 
     def test_single_url_async_duplicate_returns_same_pending_submission_without_redis(self):
-        delay = MagicMock(return_value=SimpleNamespace(id="fixture-task-123"))
-        tasks = SimpleNamespace(task_ingest_url_via_source_library=SimpleNamespace(delay=delay))
         request_payload = {
             "url": "https://example.com/post/async-1",
             "project_key": "demo_proj",
@@ -113,7 +154,7 @@ class IngestResponseContractTestCase(unittest.TestCase):
             "async_mode": True,
         }
 
-        with patch.object(ingest_api, "_tasks_module", return_value=tasks):
+        with self.installed_url_runtime() as submit_runtime:
             first = self.client.post(
                 "/api/v1/ingest/url/single",
                 json=request_payload,
@@ -129,21 +170,25 @@ class IngestResponseContractTestCase(unittest.TestCase):
         self.assertEqual(duplicate.status_code, 200, msg=duplicate.text)
         first_data = first.json()["data"]
         duplicate_data = duplicate.json()["data"]
-        self.assertEqual(first_data["task_id"], "fixture-task-123")
+        self.assertIsNone(first_data["task_id"])
+        self.assertEqual(first_data["runtime_run_ref"], "runtime-run:url-single-contract-1")
+        self.assertEqual(first_data["status"], "submitted")
         self.assertEqual(first_data["feedback_state"], "accepted_pending_worker")
         self.assertEqual(first_data["registry_backend"], "memory")
         self.assertTrue(first_data["registry_degraded"])
         self.assertTrue(duplicate_data["duplicate"])
         self.assertEqual(duplicate_data["duplicate_of"], first_data["submission_id"])
         self.assertEqual(duplicate_data["task_id"], first_data["task_id"])
-        delay.assert_called_once()
+        self.assertEqual(submit_runtime.call_count, 1)
 
     def test_single_url_async_dispatch_failure_releases_memory_reservation(self):
-        delay = MagicMock(side_effect=RuntimeError("fixture dispatch failed"))
-        tasks = SimpleNamespace(task_ingest_url_via_source_library=SimpleNamespace(delay=delay))
-        failure_client = TestClient(backend_app, raise_server_exceptions=False)
+        failure_client = TestClient(
+            _AuthenticatedActorStateApp(backend_app, actor_id="contract-actor-1"),
+            raise_server_exceptions=False,
+        )
 
-        with patch.object(ingest_api, "_tasks_module", return_value=tasks):
+        with self.installed_url_runtime() as submit_runtime:
+            submit_runtime.side_effect = RuntimeError("fixture dispatch failed")
             resp = failure_client.post(
                 "/api/v1/ingest/url/single",
                 json={
@@ -310,6 +355,18 @@ class IngestResponseContractTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 502, msg=resp.text)
         self.assertEqual(resp.headers.get("x-error-code"), "PARSE_ERROR")
         self.assertEqual(resp.json()["error"]["code"], "PARSE_ERROR")
+
+    def test_json_object_preserves_nested_non_json_path_failure(self):
+        with self.assertRaises(TypeError) as raised:
+            ingest_api._json_object(
+                {"data": {"value": object()}},
+                path="ingest.fixture",
+            )
+
+        self.assertEqual(
+            str(raised.exception),
+            "ingest.fixture.data.value contains non-JSON value object",
+        )
 
     def test_graph_structured_search_invalid_payload_uses_standard_error_envelope(self):
         resp = self.client.post(

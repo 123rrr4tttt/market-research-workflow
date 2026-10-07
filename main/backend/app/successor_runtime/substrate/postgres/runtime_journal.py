@@ -22,6 +22,7 @@ from pydantic import Field, model_validator
 from sqlalchemy import Table, insert, select, update
 from sqlalchemy.engine import Connection, Result, RowMapping
 
+from app.successor_runtime.language.checksum import is_sha256_hex
 from app.successor_runtime.runtime.assignments import (
     Digest,
     FrozenContract,
@@ -155,6 +156,8 @@ _CONTROL_METADATA_EXACT_KEYS = frozenset(
     {"decision", "reason", "state", "status", "wait_reason"}
 )
 _MAX_CONTROL_SCALAR_CHARS = 4096
+_MAX_CONTROL_SEQUENCE_ITEMS = 4096
+_OPAQUE_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,255}")
 _OPAQUE_LOCATOR_PATTERN = re.compile(
     r"^(?:value|project-value|runtime-blob|blob|canonical|artifact|receipt|staged|external|source):"
     r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$"
@@ -306,6 +309,36 @@ def _validate_event_metadata(value: Any, *, path: str) -> None:
         raise PublicPayloadViolation(f"event metadata must be an object: {path}")
     for key, child in value.items():
         normalized = str(key).strip().lower()
+        if normalized in {"child_count", "element_count", "element_index"}:
+            if (
+                not isinstance(child, int)
+                or isinstance(child, bool)
+                or not 0 <= child <= _MAX_CONTROL_SEQUENCE_ITEMS
+                or (normalized == "element_index" and child == _MAX_CONTROL_SEQUENCE_ITEMS)
+            ):
+                raise PublicPayloadViolation(f"invalid bounded lifecycle count/index: {path}.{key}")
+            continue
+        if normalized in {"child_run_ids", "child_result_digests", "element_digests"}:
+            if not isinstance(child, (tuple, list)) or len(child) > _MAX_CONTROL_SEQUENCE_ITEMS:
+                raise PublicPayloadViolation(f"invalid bounded child sequence: {path}.{key}")
+            for item in child:
+                valid = (
+                    isinstance(item, str) and _OPAQUE_ID_PATTERN.fullmatch(item) is not None
+                    if normalized == "child_run_ids"
+                    else (item is None and normalized == "child_result_digests")
+                    or (isinstance(item, str) and is_sha256_hex(item))
+                )
+                if not valid:
+                    raise PublicPayloadViolation(f"invalid child lifecycle reference: {path}.{key}")
+            continue
+        if normalized == "root_value_identity":
+            if not isinstance(child, str) or _OPAQUE_ID_PATTERN.fullmatch(child) is None:
+                raise PublicPayloadViolation(f"invalid opaque root identity: {path}.{key}")
+            continue
+        if normalized == "traversal_policy":
+            if child not in ("STATIC_SHAPE", "MATERIALIZED_SHAPE"):
+                raise PublicPayloadViolation(f"invalid traversal lifecycle policy: {path}.{key}")
+            continue
         if not normalized or not (
             normalized in _CONTROL_METADATA_EXACT_KEYS
             or normalized.endswith(_CONTROL_METADATA_KEY_SUFFIXES)

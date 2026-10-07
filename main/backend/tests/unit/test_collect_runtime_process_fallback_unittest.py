@@ -89,10 +89,9 @@ class CollectRuntimeProcessFallbackUnitTestCase(unittest.TestCase):
         fake_job = _fake_db_job()
 
         with (
-            patch("app.api.process._debug_log", return_value=None),
             patch("app.api.process._resolve_db_job", return_value=fake_job),
         ):
-            info_resp = process_api.get_task_info("db-job-7", project_key=None)
+            info_resp = process_api.get_task_info("db-job-7", request=None, project_key=None)
             logs_resp = process_api.get_task_logs("db-job-7", tail=50)
 
         self.assertEqual(info_resp["status"], "ok")
@@ -182,10 +181,9 @@ class CollectRuntimeProcessFallbackUnitTestCase(unittest.TestCase):
             with self.subTest(payload_task_id=payload_task_id):
                 fake_job = _fake_db_job(payload_task_id=payload_task_id)
                 with (
-                    patch("app.api.process._debug_log", return_value=None),
                     patch("app.api.process._resolve_db_job", return_value=fake_job),
                 ):
-                    info = process_api.get_task_info("db-job-7", project_key=None)["data"]
+                    info = process_api.get_task_info("db-job-7", request=None, project_key=None)["data"]
                     logs = process_api.get_task_logs("db-job-7", tail=50)["data"]
                 self.assertEqual(info["task_id"], "db-job-7")
                 self.assertEqual(logs["task_id"], info["task_id"])
@@ -210,7 +208,7 @@ class CollectRuntimeProcessFallbackUnitTestCase(unittest.TestCase):
             patch("app.api.process.bind_project", side_effect=capture_bind),
             patch("app.api.process._resolve_db_job", return_value=fake_job),
         ):
-            direct_response = process_api.get_task_info("db-job-7")
+            direct_response = process_api.get_task_info("db-job-7", request=None)
 
         self.assertEqual(captured_bind_values, [query_default])
         self.assertEqual(direct_response["data"]["task_id"], "db-job-7")
@@ -222,7 +220,7 @@ class CollectRuntimeProcessFallbackUnitTestCase(unittest.TestCase):
             patch("app.api.process.bind_project", side_effect=forbidden_bind),
             patch("app.api.process._resolve_db_job", return_value=fake_job),
         ):
-            http_default_response = process_api.get_task_info("db-job-7", project_key=None)
+            http_default_response = process_api.get_task_info("db-job-7", request=None, project_key=None)
 
         self.assertEqual(http_default_response["data"]["task_id"], "db-job-7")
 
@@ -246,6 +244,86 @@ class CollectRuntimeProcessFallbackUnitTestCase(unittest.TestCase):
         # Backward compatibility: downstream consumers still relying on legacy keys
         # should get the same reason resolution after gate_plus fields are added.
         self.assertEqual(reason, "url_policy_low_value_endpoint")
+
+    def test_runtime_run_readback_uses_canonical_run_steps_and_exact_outputs(self):
+        run = {
+            "run_id": "runtime-7",
+            "state": "COMPLETED",
+            "program_id": "url_pool.program",
+            "plan_id": "plan-7",
+            "plan_digest": "a" * 64,
+            "created_at": datetime(2026, 10, 7, 1, 0, tzinfo=timezone.utc),
+            "finished_at": datetime(2026, 10, 7, 1, 1, tzinfo=timezone.utc),
+        }
+        steps = (
+            {
+                "step_id": "collect",
+                "operation_id": "url.collect",
+                "operation_kind": "effect",
+                "state": "SUCCEEDED",
+                "output_digest": "b" * 64,
+                "failure_digest": None,
+                "started_at": run["created_at"],
+                "finished_at": run["finished_at"],
+            },
+        )
+        events = ({"seq": 1, "event_type": "RunCompletionDerived", "step_id": None},)
+        value_ref = SimpleNamespace(to_plain=lambda: {
+            "value_id": "value-7",
+            "content_digest": "b" * 64,
+            "codec_id": "json.v1",
+        })
+        with (
+            patch("app.composition.production.read_installed_program", return_value=(run, steps, events)) as read_run,
+            patch(
+                "app.composition.production.read_installed_program_outputs",
+                return_value=(("collect", value_ref, b'{"inserted_valid": 3}'),),
+            ) as read_outputs,
+        ):
+            info = process_api._runtime_run_task_info(
+                run_ref="runtime-run:runtime-7",
+                project_key="demo_proj",
+                actor_id="trusted-actor",
+            )
+
+        self.assertEqual(info["task_id"], "runtime-run:runtime-7")
+        self.assertEqual(info["run_id"], "runtime-7")
+        self.assertEqual(info["status"], "COMPLETED")
+        self.assertTrue(info["ready"])
+        self.assertTrue(info["successful"])
+        self.assertIsNone(info["result"])
+        self.assertEqual(info["runtime_outputs"][0]["value"], {"inserted_valid": 3})
+        self.assertEqual(info["runtime_outputs"][0]["value_ref"]["value_id"], "value-7")
+        self.assertEqual(info["progress"]["completed_steps"], 1)
+        self.assertIsNone(info["terminal_authority_claim"])
+        self.assertEqual(read_run.call_args.kwargs["project_key"], "demo_proj")
+        self.assertEqual(read_run.call_args.kwargs["actor_id"], "trusted-actor")
+        self.assertEqual(read_outputs.call_args.kwargs["run_id"], "runtime-7")
+
+    def test_runtime_run_endpoint_requires_project_and_uses_trusted_actor_without_legacy_lookup(self):
+        trusted = SimpleNamespace(actor_id="trusted-reader")
+        projected = {"task_id": "runtime-run:run-9", "status": "RUNNING"}
+        with (
+            patch("app.services.request_identity.require_trusted_actor_context", return_value=trusted) as require_actor,
+            patch("app.api.process._runtime_run_task_info", return_value=projected) as read_runtime,
+            patch("app.api.process._resolve_db_job") as legacy_db,
+            patch("app.api.process.celery_app.AsyncResult") as legacy_celery,
+        ):
+            response = process_api.get_task_info(
+                "runtime-run:run-9",
+                request=SimpleNamespace(),
+                project_key="demo_proj",
+            )
+
+        self.assertEqual(response["data"], projected)
+        require_actor.assert_called_once()
+        read_runtime.assert_called_once_with(
+            run_ref="runtime-run:run-9",
+            project_key="demo_proj",
+            actor_id="trusted-reader",
+        )
+        legacy_db.assert_not_called()
+        legacy_celery.assert_not_called()
 
 
 if __name__ == "__main__":

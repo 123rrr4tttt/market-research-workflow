@@ -99,9 +99,6 @@ class T22SourceLibraryScrapyCollectRuntimeIntegrationTestCase(unittest.TestCase)
 
         try:
             with (
-                patch("app.services.collect_runtime.adapters.source_library.start_job", return_value="job-local-1"),
-                patch("app.services.collect_runtime.adapters.source_library.complete_job"),
-                patch("app.services.collect_runtime.adapters.source_library.fail_job"),
                 patch("app.services.source_library.resolver.list_effective_items", return_value=fake_items),
                 patch("app.services.source_library.resolver.list_effective_channels", return_value=fake_channels),
                 patch("app.services.source_library.runner._ensure_handlers_registered", return_value=None),

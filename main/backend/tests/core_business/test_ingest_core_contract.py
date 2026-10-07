@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -27,7 +28,6 @@ except Exception as exc:  # noqa: BLE001
 class _TrackedTasks:
     def __init__(self) -> None:
         self.task_ingest_market = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="market-task-1")))
-        self.task_ingest_url_via_source_library = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="single-url-task-1")))
         self.task_run_source_library_item = SimpleNamespace(
             delay=Mock(return_value=SimpleNamespace(id="source-library-task-1"))
         )
@@ -37,6 +37,25 @@ class _ApplyAsyncTask:
     def __init__(self, task_id: str) -> None:
         self.delay = Mock(return_value=SimpleNamespace(id=task_id))
         self.apply_async = Mock(return_value=SimpleNamespace(id=task_id))
+
+
+class _AuthenticatedActorStateApp:
+    def __init__(self, app, *, actor_id: str):
+        self._app = app
+        self._actor_id = actor_id
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") == "http":
+            state = scope.setdefault("state", {})
+            actor = {
+                "actor_id": self._actor_id,
+                "source": "test_authenticated_actor_context",
+                "auth_type": "codex_test",
+            }
+            state["authenticated_actor"] = actor
+            state["authenticated_actor_id"] = self._actor_id
+            state["codex_authenticated_actor"] = actor
+        await self._app(scope, receive, send)
 
 
 def _response_payload(body):
@@ -61,12 +80,41 @@ def _reserve_in_fixture_memory(**kwargs):
     )
 
 
+@contextmanager
+def installed_url_runtime():
+    run = {"run_id": "url-single-runtime-1", "state": "READY"}
+    work_item_ids = ("work:url-single-runtime-1:1",)
+    with (
+        patch("app.models.base.engine") as engine,
+        patch(
+            "app.successor_runtime.substrate.postgres.session.ServerProjectScopeResolver"
+        ) as resolver,
+        patch(
+            "app.composition.production.submit_installed_program"
+        ) as submit,
+    ):
+        connection = engine.connect.return_value.__enter__.return_value
+        project_scope = SimpleNamespace(
+            project_key="demo_proj",
+            project_registry_revision=1,
+            scope_digest="a" * 64,
+        )
+        resolver.return_value = SimpleNamespace(
+            resolve=Mock(return_value=project_scope)
+        )
+        submit.return_value = (run, work_item_ids)
+        yield submit
+        assert connection is not None
+
+
 class IngestCoreContractTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if _IMPORT_ERROR is not None:
             raise unittest.SkipTest(f"ingest core contract tests require backend dependencies: {_IMPORT_ERROR}")
-        cls.client = TestClient(backend_app)
+        cls.client = TestClient(
+            _AuthenticatedActorStateApp(backend_app, actor_id="api-actor-1")
+        )
 
     def test_market_rejects_empty_query_terms_before_task_dispatch(self):
         tasks = _TrackedTasks()
@@ -571,7 +619,6 @@ class IngestCoreContractTestCase(unittest.TestCase):
     def test_market_async_routes_with_lane_queue_when_apply_async_available(self):
         tasks = SimpleNamespace(
             task_ingest_market=_ApplyAsyncTask("market-task-apply"),
-            task_ingest_url_via_source_library=SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="single-url-task-1"))),
             task_run_source_library_item=SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="source-library-task-1"))),
         )
         payload = {
@@ -595,7 +642,6 @@ class IngestCoreContractTestCase(unittest.TestCase):
     def test_source_library_run_async_routes_with_subagent_lane_when_apply_async_available(self):
         tasks = SimpleNamespace(
             task_ingest_market=SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="market-task-1"))),
-            task_ingest_url_via_source_library=SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="single-url-task-1"))),
             task_run_source_library_item=_ApplyAsyncTask("source-library-task-apply"),
         )
         payload = {
@@ -630,6 +676,7 @@ class IngestCoreContractTestCase(unittest.TestCase):
 
         with (
             patch("app.api.ingest._tasks_module", return_value=tasks),
+            installed_url_runtime() as submit_runtime,
             patch(
                 "app.api.ingest._reserve_ingest_submission_db",
                 side_effect=_reserve_in_fixture_memory,
@@ -645,8 +692,11 @@ class IngestCoreContractTestCase(unittest.TestCase):
 
         data = _response_payload(body)
         self.assertIsInstance(data, dict)
-        self.assertEqual(data.get("task_id"), "single-url-task-1")
-        self.assertEqual(data.get("status"), "queued")
+        self.assertIsNone(data.get("task_id"))
+        self.assertEqual(data.get("runtime_run_ref"), "runtime-run:url-single-runtime-1")
+        self.assertEqual(data.get("runtime_state"), "READY")
+        self.assertEqual(data.get("work_item_ids"), ["work:url-single-runtime-1:1"])
+        self.assertEqual(data.get("status"), "submitted")
         self.assertTrue(data.get("async"))
         self.assertEqual(
             data.get("params"),
@@ -660,12 +710,10 @@ class IngestCoreContractTestCase(unittest.TestCase):
         if task_result_status is not None:
             self.assertEqual(task_result_status, data.get("status"))
 
-        tasks.task_ingest_url_via_source_library.delay.assert_called_once_with(
-            unique_url,
-            ["market"],
-            True,
-            "demo_proj",
-        )
+        self.assertEqual(submit_runtime.call_count, 1)
+        request = submit_runtime.call_args.kwargs
+        self.assertEqual(request["project_key"], "demo_proj")
+        self.assertEqual(request["actor_id"], "api-actor-1")
 
     def test_url_single_async_reuses_existing_submission_for_duplicate_idempotency_key(self):
         tasks = _TrackedTasks()
@@ -682,6 +730,7 @@ class IngestCoreContractTestCase(unittest.TestCase):
 
         with (
             patch("app.api.ingest._tasks_module", return_value=tasks),
+            installed_url_runtime() as submit_runtime,
             patch(
                 "app.api.ingest._reserve_ingest_submission_db",
                 side_effect=_reserve_in_fixture_memory,
@@ -698,8 +747,9 @@ class IngestCoreContractTestCase(unittest.TestCase):
         first_data = _response_payload(first_resp.json())
         duplicate_data = _response_payload(duplicate_resp.json())
 
-        self.assertEqual(first_data.get("task_id"), "single-url-task-1")
-        self.assertEqual(first_data.get("status"), "queued")
+        self.assertIsNone(first_data.get("task_id"))
+        self.assertEqual(first_data.get("runtime_run_ref"), "runtime-run:url-single-runtime-1")
+        self.assertEqual(first_data.get("status"), "submitted")
         self.assertEqual(first_data.get("submission_status"), "submitted")
         self.assertEqual(first_data.get("idempotency_key"), idempotency_key)
         self.assertTrue(first_data.get("submission_id"))
@@ -707,13 +757,14 @@ class IngestCoreContractTestCase(unittest.TestCase):
         first_trace_chain = first_data.get("trace_chain") or {}
         self.assertEqual(first_trace_chain.get("entrypoint"), "ingest.url.single")
         self.assertEqual(first_trace_chain.get("ids", {}).get("submission_id"), first_data.get("submission_id"))
-        self.assertEqual(first_trace_chain.get("ids", {}).get("task_id"), "single-url-task-1")
+        self.assertIsNone(first_trace_chain.get("ids", {}).get("task_id"))
         self.assertEqual(first_trace_chain.get("run_order", [])[2]["status"], "not_created_at_ingest_response")
         self.assertEqual(first_trace_chain.get("fallback", {}).get("used"), "unknown")
         self.assertFalse(first_trace_chain.get("index", {}).get("real_timestamp_available"))
 
-        self.assertEqual(duplicate_data.get("task_id"), "single-url-task-1")
-        self.assertEqual(duplicate_data.get("status"), "queued")
+        self.assertIsNone(duplicate_data.get("task_id"))
+        self.assertEqual(duplicate_data.get("runtime_run_ref"), "runtime-run:url-single-runtime-1")
+        self.assertEqual(duplicate_data.get("status"), "submitted")
         self.assertEqual(duplicate_data.get("submission_id"), first_data.get("submission_id"))
         self.assertEqual(duplicate_data.get("idempotency_key"), idempotency_key)
         self.assertEqual(duplicate_data.get("submission_status"), "already_submitted")
@@ -724,12 +775,7 @@ class IngestCoreContractTestCase(unittest.TestCase):
             first_data.get("submission_id"),
         )
 
-        tasks.task_ingest_url_via_source_library.delay.assert_called_once_with(
-            unique_url,
-            ["market"],
-            True,
-            "demo_proj",
-        )
+        self.assertEqual(submit_runtime.call_count, 1)
 
     def test_url_single_async_submission_readback_is_visible_in_history(self):
         tasks = _TrackedTasks()
@@ -748,7 +794,7 @@ class IngestCoreContractTestCase(unittest.TestCase):
         with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
             "app.api.ingest.list_jobs",
             return_value=[legacy_job],
-        ), patch(
+        ), installed_url_runtime(), patch(
             "app.api.ingest._reserve_ingest_submission_db",
             side_effect=_reserve_in_fixture_memory,
         ), patch("app.api.ingest._complete_ingest_submission_db"), patch(
@@ -772,23 +818,18 @@ class IngestCoreContractTestCase(unittest.TestCase):
         self.assertEqual(duplicate_data.get("submission_id"), first_data.get("submission_id"))
         self.assertEqual(readback.get("submission_id"), first_data.get("submission_id"))
         self.assertEqual(readback.get("idempotency_key"), idempotency_key)
-        self.assertEqual(readback.get("task_id"), "single-url-task-1")
-        self.assertEqual(readback.get("status"), "queued")
-        self.assertEqual(readback.get("task_status"), "queued")
-        self.assertEqual(readback.get("submission_status"), "queued")
+        self.assertIsNone(readback.get("task_id"))
+        self.assertEqual(readback.get("runtime_run_ref"), "runtime-run:url-single-runtime-1")
+        self.assertEqual(readback.get("status"), "submitted")
+        self.assertEqual(readback.get("task_status"), "submitted")
+        self.assertEqual(readback.get("submission_status"), "submitted")
         self.assertEqual(readback.get("feedback_state"), "accepted_pending_worker")
         self.assertEqual(readback.get("registry_backend"), "memory")
         self.assertTrue(readback.get("registry_degraded"))
         self.assertEqual(readback.get("trace_id"), first_data.get("trace_id"))
         self.assertEqual(readback.get("trace_chain", {}).get("ids", {}).get("submission_id"), first_data.get("submission_id"))
-        self.assertEqual(readback.get("trace_chain", {}).get("ids", {}).get("task_id"), "single-url-task-1")
+        self.assertIsNone(readback.get("trace_chain", {}).get("ids", {}).get("task_id"))
         self.assertTrue(any(item.get("job_type") == "legacy_job" for item in history_items))
-        tasks.task_ingest_url_via_source_library.delay.assert_called_once_with(
-            unique_url,
-            ["market"],
-            True,
-            "demo_proj",
-        )
 
     def test_source_library_run_async_reuses_existing_submission_for_explicit_idempotency_key(self):
         tasks = _TrackedTasks()
@@ -888,7 +929,6 @@ class IngestCoreContractTestCase(unittest.TestCase):
         self.assertEqual(data.get("registry_backend"), "db")
         self.assertFalse(data.get("registry_degraded"))
         self.assertEqual(data.get("request_hash"), submission["request_hash"])
-        tasks.task_ingest_url_via_source_library.delay.assert_not_called()
         reserve_db.assert_called_once()
 
     def test_url_single_async_fails_closed_when_db_unavailable(self):
@@ -914,7 +954,6 @@ class IngestCoreContractTestCase(unittest.TestCase):
         error = resp.json()["detail"]["error"]
         self.assertEqual(error["code"], "UPSTREAM_ERROR")
         self.assertEqual(error["details"]["reason"], "ingest_submission_registry_unavailable")
-        tasks.task_ingest_url_via_source_library.delay.assert_not_called()
 
     def test_url_single_async_rejects_same_key_with_changed_url_without_dispatch(self):
         tasks = _TrackedTasks()
@@ -930,7 +969,7 @@ class IngestCoreContractTestCase(unittest.TestCase):
         with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
             "app.api.ingest._reserve_ingest_submission_db",
             side_effect=_reserve_in_fixture_memory,
-        ), patch("app.api.ingest._complete_ingest_submission_db"):
+        ), installed_url_runtime(), patch("app.api.ingest._complete_ingest_submission_db"):
             first_resp = self.client.post("/api/v1/ingest/url/single", json=first_payload)
             conflict_resp = self.client.post("/api/v1/ingest/url/single", json=changed_payload)
 
@@ -939,7 +978,6 @@ class IngestCoreContractTestCase(unittest.TestCase):
         error = conflict_resp.json()["detail"]["error"]
         self.assertEqual(error["code"], "INVALID_INPUT")
         self.assertEqual(error["details"]["reason"], "idempotency_key_payload_conflict")
-        tasks.task_ingest_url_via_source_library.delay.assert_called_once()
 
     def test_source_library_run_rejects_same_key_with_changed_item_without_dispatch(self):
         tasks = _TrackedTasks()
@@ -1070,6 +1108,7 @@ class IngestCoreContractTestCase(unittest.TestCase):
         }
         with (
             patch("app.api.ingest._tasks_module", return_value=tasks),
+            installed_url_runtime() as submit_runtime,
             patch("app.api.ingest._reserve_ingest_submission", return_value=(submission, False)),
             patch("app.api.ingest._complete_ingest_submission"),
         ):
@@ -1096,15 +1135,11 @@ class IngestCoreContractTestCase(unittest.TestCase):
         self.assertEqual(effective_payload.get("light_filter_reject_static_assets"), False)
         self.assertEqual(effective_payload.get("light_filter_reject_search_noise_domain"), False)
 
-        tasks.task_ingest_url_via_source_library.delay.assert_called_once()
-        url_args = tasks.task_ingest_url_via_source_library.delay.call_args.args
-        self.assertEqual(url_args[:4], ("https://example.com/post/43", ["market"], False, "demo_proj"))
-        dispatch_options = url_args[4]
-        self.assertEqual(dispatch_options["light_filter_enabled"], False)
-        self.assertEqual(dispatch_options["light_filter_min_score"], 55)
-        url_readback = dispatch_options["runtime_readback"]
-        self.assertEqual(url_readback["line_key"], "ingest")
-        self.assertTrue(url_readback["trace_id"].startswith("ingest.url.single:"))
+        self.assertEqual(submit_runtime.call_count, 1)
+        submit_request = submit_runtime.call_args.kwargs
+        self.assertEqual(submit_request["program"].project_key, "demo_proj")
+        self.assertEqual(submit_request["trace_id"], "ingest.url.single:sub_url_light_filter_runtime_readback")
+        self.assertEqual(submit_request["run_id"], "url-single-sub_url_light_filter_runtime_readback")
 
     def test_url_single_sync_response_contains_effective_payload_with_light_filter_fields(self):
         unique_url = f"https://example.com/post/{_unique_key('sync-light-filter')}"

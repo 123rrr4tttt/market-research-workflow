@@ -16,6 +16,7 @@ import type {
   MrwPreparedEnvironment,
   MrwSkillDescriptor,
   MrwTurnSkillInput,
+  MrwRequestCredentials,
 } from './mrw.types';
 
 const TURN_INPUT_WAIT_MS = 30_000;
@@ -30,13 +31,23 @@ export class MrwService {
   private readonly logger = new Logger(MrwService.name);
   private readonly preparedSkills = new Map<string, MrwSkillDescriptor[]>();
   private readonly threadSkills = new Map<string, MrwSkillDescriptor[]>();
-  private readonly boundThreads = new Set<string>();
+  private readonly boundThreads = new Map<
+    string,
+    { turnId?: string; credentials?: MrwRequestCredentials }
+  >();
   private readonly activeSkillRoots = new Set<string>();
   private readonly threadInputReadiness = new Map<
     string,
-    { promise: Promise<void>; resolve: () => void; reject: (error: Error) => void }
+    {
+      promise: Promise<void>;
+      resolve: () => void;
+      reject: (error: Error) => void;
+    }
   >();
-  private readonly confirmInFlight = new Map<string, Promise<MrwConfirmResult>>();
+  private readonly confirmInFlight = new Map<
+    string,
+    Promise<MrwConfirmResult>
+  >();
 
   constructor(
     private readonly backend: MrwBackendClient,
@@ -49,10 +60,13 @@ export class MrwService {
     return this.backend.prepare(projectKey);
   }
 
-  async bindThread(bindingId: string, threadId: string): Promise<MrwBindResult> {
+  async bindThread(
+    bindingId: string,
+    threadId: string,
+  ): Promise<MrwBindResult> {
     const result = await this.backend.bind(bindingId, threadId);
     this.threadSkills.set(threadId, this.preparedSkills.get(bindingId) ?? []);
-    this.boundThreads.add(threadId);
+    this.boundThreads.set(threadId, {});
     this.preparedSkills.delete(bindingId);
     return result;
   }
@@ -80,7 +94,10 @@ export class MrwService {
 
     const resolved = new Map<string, string>();
     for (const skill of skills) {
-      resolved.set(skill.name, await this.resolveAndVerifySkill(sourceRoot, skill));
+      resolved.set(
+        skill.name,
+        await this.resolveAndVerifySkill(sourceRoot, skill),
+      );
     }
 
     const roots = new Set<string>();
@@ -179,11 +196,24 @@ export class MrwService {
     this.threadInputReadiness.set(threadId, { promise, resolve, reject });
   }
 
-  recordInput(threadId: string, turnId: string, content: string): Promise<unknown> {
+  recordInput(
+    threadId: string,
+    turnId: string,
+    content: string,
+    credentials?: MrwRequestCredentials,
+  ): Promise<unknown> {
     const readiness = this.threadInputReadiness.get(threadId);
-    const promise = this.backend.recordInput(threadId, turnId, content);
+    const binding = this.boundThreads.get(threadId);
+    const promise = this.backend.recordInput(
+      threadId,
+      turnId,
+      content,
+      credentials,
+    );
     void promise.then(
       () => {
+        if (binding && this.boundThreads.get(threadId) === binding)
+          this.boundThreads.set(threadId, { turnId, credentials });
         readiness?.resolve();
         this.threadInputReadiness.delete(threadId);
       },
@@ -209,6 +239,7 @@ export class MrwService {
    * then the local record is cleared and a resolved event is emitted.
    */
   cancelForThread(threadId: string): void {
+    this.boundThreads.delete(threadId);
     for (const record of this.registry.getForThread(threadId)) {
       this.respond(record.requestId, {
         success: false,
@@ -222,6 +253,9 @@ export class MrwService {
   }
 
   cancelForTurn(threadId: string, turnId: string): void {
+    const binding = this.boundThreads.get(threadId);
+    if (binding && (!binding.turnId || binding.turnId === turnId))
+      this.boundThreads.set(threadId, {});
     for (const record of this.registry.getForThread(threadId)) {
       if (record.turnId !== turnId) continue;
       this.respond(record.requestId, {
@@ -236,16 +270,24 @@ export class MrwService {
   }
 
   endTurn(threadId: string, turnId: string): Promise<unknown> {
+    const binding = this.boundThreads.get(threadId);
+    if (binding && (!binding.turnId || binding.turnId === turnId))
+      this.boundThreads.set(threadId, {});
     return this.backend.endTurn(threadId, turnId);
   }
 
   /** Clears all pending actions after an app-server restart invalidates them. */
   expireAll(): void {
+    for (const threadId of this.boundThreads.keys())
+      this.boundThreads.set(threadId, {});
     for (const record of this.registry.getAll()) {
       this.respond(record.requestId, {
         success: false,
         contentItems: [
-          { type: 'inputText', text: 'MRW action cancelled: app-server restarted' },
+          {
+            type: 'inputText',
+            text: 'MRW action cancelled: app-server restarted',
+          },
         ],
       });
       this.registry.remove(record.actionId);
@@ -268,7 +310,10 @@ export class MrwService {
       this.respond(requestId, {
         success: false,
         contentItems: [
-          { type: 'inputText', text: 'MRW host input was not recorded for this turn' },
+          {
+            type: 'inputText',
+            text: 'MRW host input was not recorded for this turn',
+          },
         ],
       });
       return;
@@ -276,7 +321,10 @@ export class MrwService {
 
     let dispatch: MrwDispatchResult;
     try {
-      dispatch = await this.backend.dispatch(params);
+      dispatch = await this.backend.dispatch(
+        params,
+        this.turnCredentials(params.threadId, params.turnId),
+      );
     } catch (error) {
       this.respond(requestId, {
         success: false,
@@ -317,13 +365,12 @@ export class MrwService {
     return promise;
   }
 
-  private async doConfirmAction(req: MrwConfirmRequest): Promise<MrwConfirmResult> {
+  private async doConfirmAction(
+    req: MrwConfirmRequest,
+  ): Promise<MrwConfirmResult> {
     const record = this.registry.get(req.actionId);
     if (!record) {
-      throw new HttpException(
-        'MRW action not found',
-        HttpStatus.NOT_FOUND,
-      );
+      throw new HttpException('MRW action not found', HttpStatus.NOT_FOUND);
     }
     if (record.threadId !== req.threadId || record.turnId !== req.turnId) {
       throw new HttpException(
@@ -333,14 +380,17 @@ export class MrwService {
     }
 
     await this.backend.confirm(req);
-    const dispatch = await this.backend.dispatch({
-      threadId: record.threadId,
-      turnId: record.turnId,
-      callId: record.callId,
-      namespace: record.namespace,
-      tool: record.tool,
-      arguments: record.arguments,
-    });
+    const dispatch = await this.backend.dispatch(
+      {
+        threadId: record.threadId,
+        turnId: record.turnId,
+        callId: record.callId,
+        namespace: record.namespace,
+        tool: record.tool,
+        arguments: record.arguments,
+      },
+      this.turnCredentials(record.threadId, record.turnId),
+    );
 
     try {
       this.respond(record.requestId, dispatch);
@@ -362,7 +412,18 @@ export class MrwService {
     };
   }
 
-  private respond(requestId: string | number, dispatch: MrwDispatchResult): void {
+  private turnCredentials(
+    threadId: string,
+    turnId: string,
+  ): MrwRequestCredentials | undefined {
+    const binding = this.boundThreads.get(threadId);
+    return binding?.turnId === turnId ? binding.credentials : undefined;
+  }
+
+  private respond(
+    requestId: string | number,
+    dispatch: MrwDispatchResult,
+  ): void {
     try {
       this.codex.getClient().respondToServerRequest(requestId, {
         success: dispatch.success,

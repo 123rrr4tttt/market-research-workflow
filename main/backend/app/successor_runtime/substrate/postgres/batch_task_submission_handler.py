@@ -15,7 +15,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+import json
+from typing import Any, Generic, Literal, TypeVar
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
@@ -26,10 +27,13 @@ from app.successor_runtime.capabilities.batch_task_interpreters import (
     InterpreterFailure,
 )
 from app.successor_runtime.capabilities.checksum import (
+    CanonicalJsonValue,
     canonical_json,
     content_digest,
     sha256_hex,
 )
+from app.successor_runtime.capabilities.codecs import PayloadCodec
+from app.successor_runtime.language.object_contracts import OperationContract
 from app.successor_runtime.language.algebra import ValueRef
 from app.successor_runtime.language.catalog import OperationContractCatalogSnapshot
 from app.successor_runtime.language.plan import ExecutionPlan
@@ -38,6 +42,7 @@ from app.successor_runtime.runtime.assignments import (
     AssignmentKind,
     CompiledStepRole,
     RuntimeAssignment,
+    InterpreterBinding,
     require_digest,
 )
 from app.successor_runtime.runtime.claims import ClaimBinding
@@ -59,8 +64,9 @@ from app.successor_runtime.substrate.postgres.nodes import DeploymentCatalogRepo
 from app.successor_runtime.substrate.postgres.plans import PlanRepository
 from app.successor_runtime.substrate.postgres.programs import ProgramRepository
 from app.successor_runtime.substrate.postgres.runtime_journal import (
-    _one_mapping,
-    _table,
+    ExactBindingConflict, RecordNotFound,
+    one_mapping,
+    runtime_table,
 )
 from app.successor_runtime.substrate.postgres.session import (
     ProjectScopeStale,
@@ -68,6 +74,148 @@ from app.successor_runtime.substrate.postgres.session import (
 )
 from app.successor_runtime.substrate.postgres.unit_of_work import RuntimeUnitOfWork
 from app.successor_runtime.substrate.postgres.values import ValueRepository
+from app.successor_runtime.substrate.postgres.first_specimen_activation import (
+    PostgresFirstSpecimenActivationBindingAdapter,
+)
+from app.successor_runtime.substrate.postgres.node_adapter import UowFactory
+
+
+Input = TypeVar("Input")
+Output = TypeVar("Output")
+
+
+class PersistentOperationHandler(RuntimeHandler, Generic[Input, Output]):
+    """Execute one installed typed kernel from exact project-owned values."""
+
+    def __init__(
+        self, *, uow_factory: UowFactory, binding: InterpreterBinding,
+        contract: OperationContract, input_codec: PayloadCodec[Input],
+        output_codec: PayloadCodec[Output], invoke: Callable[[Input], Output],
+        validate_input: Callable[[Input, ProjectScopeRef, str], None] | None = None,
+        validate_bound_inputs: Callable[
+            [Input, tuple[tuple[ValueRef, bytes], ...]], None
+        ] | None = None,
+        bound_payload_source: Literal["static", "semantic"] = "static",
+        validate_output: Callable[[Input, Output], None] | None = None,
+        invoke_with_assignment: Callable[[Input, RuntimeAssignment], Output] | None = None,
+    ) -> None:
+        if (binding.operation_contract_digest != contract.ref.contract_digest
+                or input_codec.contract_ref != contract.ref or output_codec.contract_ref != contract.ref
+                or input_codec.codec_id != contract.input_type.codec_id
+                or output_codec.codec_id != contract.output_type.codec_id):
+            raise ValueError("installed operation contract/codec drift")
+        self.contract = contract
+        self.binding = binding
+        self.handler_binding_digest = binding.binding_digest
+        self.interpreter_profile_digest = binding.interpreter_profile_digest
+        self.operation_contract_digest = binding.operation_contract_digest
+        self._uow_factory = uow_factory
+        self._invoke = invoke
+        self._invoke_with_assignment = invoke_with_assignment
+        self._input_codec = input_codec
+        self._output_codec = output_codec
+        self._validate_input = validate_input
+        self._validate_bound_inputs = validate_bound_inputs
+        self._bound_payload_source = bound_payload_source
+        self._validate_output = validate_output
+        self._values = PostgresFirstSpecimenActivationBindingAdapter()
+
+    def execute(
+        self, assignment: RuntimeAssignment, claim: ClaimBinding,
+        context: RuntimeExecutionContext,
+    ) -> InterpreterOutcome:
+        claim.validate_against(assignment)
+        if (assignment.assignment_kind is not AssignmentKind.INTERPRET
+                or assignment.handler_binding != self.binding
+                or assignment.operation_contract_ref != self.contract.ref):
+            raise DefiniteInterpreterFailure("OPERATION_BINDING_DRIFT")
+        with self._uow_factory() as uow:
+            project_scope = ServerProjectScopeResolver(connection=uow.connection).resolve(assignment.project_key)
+            if project_scope.scope_digest != self.binding.project_scope_digest:
+                raise DefiniteInterpreterFailure("OPERATION_SCOPE_DRIFT")
+            scope = RuntimeScope(project_scope=project_scope, actor_id=context.node.node_id)
+            tables = project_tables(sa.MetaData(), project_scope.resolved_schema)
+            descriptor = self._values.load_exact(uow.connection, assignment, scope, tables)
+            try:
+                input_ref = self._values.semantic_input_ref(uow.connection, assignment, scope, tables, descriptor)
+                exact = self._values.read_value_bytes(uow.connection, scope, tables, input_ref)
+                static_inputs = tuple(
+                    (
+                        ref,
+                        exact
+                        if ref == input_ref
+                        else self._values.read_value_bytes(
+                            uow.connection, scope, tables, ref
+                        ),
+                    )
+                    for ref in descriptor.static_atom_input_refs
+                )
+                # Static occurrence/budget facts are always read exactly. Only
+                # declared template consumers validate the semantic payload slot.
+                bound_inputs = tuple(
+                    (input_ref, exact)
+                    if self._bound_payload_source == "semantic" and ref == descriptor.payload_ref
+                    else (ref, content)
+                    for ref, content in static_inputs
+                )
+            except (ExactBindingConflict, RecordNotFound) as exc:
+                raise DefiniteInterpreterFailure("OPERATION_INPUT_BINDING_DRIFT") from exc
+            try:
+                decoded: CanonicalJsonValue = json.loads(exact)
+                if not isinstance(decoded, dict) or canonical_json(decoded).encode() != exact:
+                    raise ValueError("noncanonical operation payload")
+                payload = self._input_codec.decode_payload(decoded)
+                if self._validate_input is not None:
+                    self._validate_input(payload, project_scope, assignment.capability_id)
+                if self._validate_bound_inputs is not None:
+                    self._validate_bound_inputs(payload, bound_inputs)
+            except (TypeError, ValueError) as exc:
+                raise DefiniteInterpreterFailure("OPERATION_PAYLOAD_INVALID") from exc
+        # Only this call crosses the effect boundary. Unclassified failures here
+        # or during output persistence remain OUTCOME_UNKNOWN and cannot retry.
+        output = (self._invoke_with_assignment(payload, assignment)
+                  if self._invoke_with_assignment is not None else self._invoke(payload))
+        if self._validate_output is not None:
+            self._validate_output(payload, output)
+        content = canonical_json(self._output_codec.encode_payload(output)).encode()
+        with self._uow_factory() as uow:
+            digest = self._values.publish_output(uow.connection, assignment, scope, tables, content=content)
+            uow.commit()
+        return InterpreterOutcome.succeeded(digest)
+
+
+class BatchTaskSingleDispatchHandler(PersistentOperationHandler[
+    batch_task.BatchTaskSingleDispatchPayload, batch_task.BatchTaskSingleDispatchAck,
+]):
+    """The dispatch kernel adds payload scope and broker ACK association."""
+
+    def __init__(
+        self, *, uow_factory: UowFactory, binding: InterpreterBinding,
+        dispatch: Callable[[batch_task.BatchTaskSingleDispatchPayload], batch_task.BatchTaskSingleDispatchAck],
+    ) -> None:
+        contract = batch_task.build_batch_task_single_dispatch_contract()
+        super().__init__(
+            uow_factory=uow_factory, binding=binding, contract=contract,
+            input_codec=batch_task.build_batch_task_single_dispatch_payload_codec(contract.ref),
+            output_codec=batch_task.build_batch_task_single_dispatch_ack_codec(contract.ref),
+            invoke=dispatch, validate_input=self._check_scope, validate_output=self._check_ack,
+        )
+
+    @staticmethod
+    def _check_scope(payload: batch_task.BatchTaskSingleDispatchPayload, scope: ProjectScopeRef, capability_id: str) -> None:
+        if (payload.project_key != scope.project_key or payload.scope_digest != scope.scope_digest
+                or payload.resolved_schema != scope.resolved_schema
+                or payload.registry_revision != scope.project_registry_revision
+                or payload.scope_incarnation != scope.incarnation or payload.capability_id != capability_id):
+            raise ValueError("single dispatch payload scope drift")
+
+    @staticmethod
+    def _check_ack(payload: batch_task.BatchTaskSingleDispatchPayload, ack: batch_task.BatchTaskSingleDispatchAck) -> None:
+        if (ack.dispatch_id != payload.dispatch_id or ack.channel != payload.item.channel
+                or ack.lane != payload.lane or ack.trace_id != payload.trace_id
+                or ack.workflow_run_id != payload.workflow_run_id
+                or (payload.queue is not None and ack.queue != payload.queue)):
+            raise ValueError("single dispatch ACK does not bind the dispatched item")
 
 BATCH_TASK_SUBMISSION_ASSIGNMENT_BINDING_MISSING = (
     "BATCH_TASK_SUBMISSION_ASSIGNMENT_BINDING_MISSING"
@@ -105,10 +253,6 @@ BATCH_TASK_SUBMISSION_RECEIPT_CODEC_DRIFT = (
 _PAYLOAD_VALUE_ID_SUFFIX = ":payload:task-submission"
 _RECEIPT_VALUE_ID_SUFFIX = ":receipt:task-submission"
 _HISTORICAL_RECEIPT_VALUE_ID_SUFFIX = ":receipt:batch_task-3"
-
-
-def _reject(code: str, exc: BaseException) -> None:
-    raise DefiniteInterpreterFailure(code) from exc
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,7 +304,7 @@ def read_batch_task_submission_receipt(
         else batch_task.SUBMISSION_RECEIPT_PROVENANCE_SCHEMA
     )
     value_id = f"{program_id}{suffix}"
-    row = _one_mapping(
+    row = one_mapping(
         connection.execute(
             sa.select(tables.successor_values).where(
                 tables.successor_values.c.project_key
@@ -177,7 +321,8 @@ def read_batch_task_submission_receipt(
         or str(row["codec_id"]) != expected_codec_id
         or str(row["source_ref"]) != f"project-value:{value_id}"
         or not isinstance(provenance, dict)
-        or str(provenance.get("schema", "")) != expected_provenance_schema
+        or "schema" not in provenance
+        or provenance["schema"] != expected_provenance_schema
     ):
         raise ValueError("batch task submission receipt identity drift")
     exact = row["content_bytes"]
@@ -284,6 +429,8 @@ class BatchTaskSubmissionStoreRehydratedHandler(RuntimeHandler):
             raise DefiniteInterpreterFailure(
                 BATCH_TASK_SUBMISSION_ASSIGNMENT_BINDING_MISSING
             )
+        if not isinstance(assignment.handler_binding, InterpreterBinding):
+            raise DefiniteInterpreterFailure(BATCH_TASK_SUBMISSION_ASSIGNMENT_BINDING_MISSING)
         try:
             with self.uow_factory() as uow:
                 connection = uow.connection
@@ -510,11 +657,11 @@ class BatchTaskSubmissionStoreRehydratedHandler(RuntimeHandler):
     # --- minimal shared-store helpers, mirroring the C2.1 handler ---
 
     def _load_run(self, connection: Connection, assignment: RuntimeAssignment) -> Any:
-        row = _one_mapping(
+        row = one_mapping(
             connection.execute(
-                sa.select(_table("runtime_runs")).where(
-                    _table("runtime_runs").c.project_key == assignment.project_key,
-                    _table("runtime_runs").c.run_id == assignment.run_id,
+                sa.select(runtime_table("runtime_runs")).where(
+                    runtime_table("runtime_runs").c.project_key == assignment.project_key,
+                    runtime_table("runtime_runs").c.run_id == assignment.run_id,
                 )
             )
         )
@@ -550,12 +697,12 @@ class BatchTaskSubmissionStoreRehydratedHandler(RuntimeHandler):
     def _program_ref(
         self, connection: Connection, assignment: RuntimeAssignment
     ) -> str:
-        row = _one_mapping(
+        row = one_mapping(
             connection.execute(
-                sa.select(_table("runtime_program_refs")).where(
-                    _table("runtime_program_refs").c.project_key
+                sa.select(runtime_table("runtime_program_refs")).where(
+                    runtime_table("runtime_program_refs").c.project_key
                     == assignment.project_key,
-                    _table("runtime_program_refs").c.program_digest
+                    runtime_table("runtime_program_refs").c.program_digest
                     == assignment.program_digest,
                 )
             )
@@ -586,8 +733,8 @@ class BatchTaskSubmissionStoreRehydratedHandler(RuntimeHandler):
         assignment: RuntimeAssignment,
         program_ref: str,
     ) -> Any:
-        refs = _table("runtime_plan_refs")
-        row = _one_mapping(
+        refs = runtime_table("runtime_plan_refs")
+        row = one_mapping(
             connection.execute(
                 sa.select(refs).where(
                     refs.c.project_key == assignment.project_key,
@@ -613,7 +760,7 @@ class BatchTaskSubmissionStoreRehydratedHandler(RuntimeHandler):
         program_ref: str,
     ) -> Any:
         plans = tables.research_execution_plans
-        row = _one_mapping(
+        row = one_mapping(
             connection.execute(
                 sa.select(plans).where(
                     plans.c.project_key == assignment.project_key,

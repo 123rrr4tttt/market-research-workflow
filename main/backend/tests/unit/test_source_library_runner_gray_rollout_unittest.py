@@ -104,6 +104,34 @@ class SourceLibraryRunnerGrayRolloutUnitTestCase(unittest.TestCase):
         finally:
             provider_ports.set_crawler_provider_resolver(original_resolver)
 
+    def test_json_boundaries_share_recursive_legacy_semantics(self):
+        from app.services.source_library.runner import (
+            _crawler_json_object,
+            _shared_json_object,
+        )
+
+        source = {
+            1: "integer-key",
+            "set": {"b", "a"},
+            "frozenset": frozenset({"y", "x"}),
+            "tuple": (1, 2),
+            "error": ValueError("invalid option"),
+            "nested": {"ok": True},
+        }
+
+        crawler = _crawler_json_object(source)
+        shared = _shared_json_object(source)
+
+        self.assertEqual(crawler["1"], "integer-key")
+        self.assertEqual(crawler["set"], shared["set"])
+        self.assertEqual(set(crawler["set"]), {"a", "b"})
+        self.assertEqual(crawler["frozenset"], shared["frozenset"])
+        self.assertEqual(set(crawler["frozenset"]), {"x", "y"})
+        self.assertEqual(crawler["tuple"], [1, 2])
+        self.assertEqual(crawler["error"], "invalid option")
+        self.assertEqual(crawler["nested"], {"ok": True})
+        self.assertEqual(shared, crawler)
+
     def test_registered_scrapy_output_ingest_is_the_terminal_material_writer(self):
         from app.services.source_library.provider_ports import CrawlerOutputIngestResult
         from app.services.source_library.runner import _run_via_crawler_provider_registry

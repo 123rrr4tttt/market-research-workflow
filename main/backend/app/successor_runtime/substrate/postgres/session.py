@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
@@ -321,6 +321,55 @@ class ServerProjectScopeResolver:
                 observed_digest=scope_digest,
             )
         return expected
+
+
+class RegistryBackedProjectScopeResolver:
+    """Registry resolver that opens one fixed-public connection per call.
+
+    The resolver never owns a connection at import/assembly time.  The engine
+    (or a factory returning one) is supplied by the application startup point;
+    each ``resolve``/``resolve_expected`` call opens a short-lived connection
+    and delegates to the authoritative ``ServerProjectScopeResolver``.
+    """
+
+    def __init__(
+        self,
+        *,
+        engine: Engine | None = None,
+        engine_factory: Callable[[], Engine] | None = None,
+    ) -> None:
+        if (engine is None) == (engine_factory is None):
+            raise ValueError(
+                "RegistryBackedProjectScopeResolver requires exactly one of "
+                "engine or engine_factory"
+            )
+        self._engine = engine
+        self._engine_factory = engine_factory
+
+    def _connect(self) -> Connection:
+        if self._engine is not None:
+            return self._engine.connect()
+        assert self._engine_factory is not None
+        return self._engine_factory().connect()
+
+    def resolve(self, authenticated_project_key: str) -> ProjectScopeRef:
+        with self._connect() as connection:
+            resolver = ServerProjectScopeResolver(connection=connection)
+            return resolver.resolve(authenticated_project_key)
+
+    def resolve_expected(
+        self,
+        project_key: str,
+        registry_revision: int,
+        scope_digest: str,
+    ) -> ProjectScopeRef | ProjectScopeStale:
+        with self._connect() as connection:
+            resolver = ServerProjectScopeResolver(connection=connection)
+            return resolver.resolve_expected(
+                project_key,
+                registry_revision,
+                scope_digest,
+            )
 
 
 def pin_public_search_path(connection: Connection) -> None:

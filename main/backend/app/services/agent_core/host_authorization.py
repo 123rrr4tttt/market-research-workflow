@@ -12,6 +12,7 @@ from functorial_kit import Failure
 from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failures
 
 from .contracts import AgentCoreRequest, CoreToolCall, CoreToolSpec, ToolPermission
+from app.services.request_identity import RequestActorContext
 
 if TYPE_CHECKING:
     from app.services.agent_sessions.service import AgentSessionService
@@ -28,6 +29,7 @@ class TrustedHostContext:
     host_thread_id: str
     turn_id: str
     user_message_id: str
+    actor_context: RequestActorContext | None = None
 
 
 @dataclass(frozen=True)
@@ -42,6 +44,10 @@ class VerifiedHostAuthorization:
     origin_turn_id: str
     origin_user_message_id: str
     execution_call_id: str = ""
+
+    @property
+    def actor_context(self) -> RequestActorContext | None:
+        return self.context.actor_context
 
 
 @dataclass(frozen=True)
@@ -443,6 +449,10 @@ def validate_context(context: TrustedHostContext) -> None | Failure:
     for field in ("project_key", "session_id", "host_thread_id", "turn_id", "user_message_id"):
         if not str(getattr(context, field) or "").strip():
             return _failure("host_context_invalid", f"trusted host context field is required: {field}", field=field)
+    if context.actor_context is not None and (
+        not context.actor_context.actor_trusted or not context.actor_context.actor_id
+    ):
+        return _failure("host_actor_untrusted", "host actor must come from the authenticated request context")
     return None
 
 

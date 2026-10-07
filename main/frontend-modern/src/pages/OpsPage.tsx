@@ -49,10 +49,8 @@ import {
   getSearchHistory,
   listAdminDocuments,
   listAgentSessions,
-  reclaimExpiredAgentSessionTasks,
   reExtractDocuments,
   resolveAgentApproval,
-  retryAgentSessionTask,
   syncAggregator,
   topicExtractDocuments,
 } from '../lib/api'
@@ -825,26 +823,9 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
       await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions.all() })
     },
   })
-  const retryTaskMutation = useMutation({
-    mutationFn: ({ sessionId, taskId }: { sessionId: string; taskId: string }) =>
-      retryAgentSessionTask(sessionId, { task_id: taskId }),
-    onSuccess: async (_result, variables) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions.all() })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions.detail(variables.sessionId) })
-    },
-  })
   const resolveApprovalMutation = useMutation({
     mutationFn: ({ approvalId, approved }: { approvalId: string; approved: boolean }) =>
       resolveAgentApproval(approvalId, { approved, reason: approved ? 'approved_from_ops_panel' : 'rejected_from_ops_panel' }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions.all() })
-      if (selectedSessionId) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions.detail(selectedSessionId) })
-      }
-    },
-  })
-  const reclaimExpiredMutation = useMutation({
-    mutationFn: (sessionId: string) => reclaimExpiredAgentSessionTasks(sessionId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions.all() })
       if (selectedSessionId) {
@@ -1854,7 +1835,7 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
       </section> : null}
 
       {variant === 'backend' && activeTab === 'agentSessions' && <section id="ops-view-agentSessions" role="tabpanel" aria-labelledby="ops-tab-agentSessions" className="panel ops-agent-session-panel">
-        {[agentSessionsQuery.error, selectedSessionQuery.error, createSessionMutation.error, cancelSessionMutation.error, retryTaskMutation.error, resolveApprovalMutation.error, reclaimExpiredMutation.error].filter(Boolean).map((error, index) => (
+        {[agentSessionsQuery.error, selectedSessionQuery.error, createSessionMutation.error, cancelSessionMutation.error, resolveApprovalMutation.error].filter(Boolean).map((error, index) => (
           <p className="status-line" role="alert" key={index}>{error?.message}</p>
         ))}
         <div className="panel-header">
@@ -2016,17 +1997,6 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
                     <RefreshCw size={14} />
                     {t('opsPage.action.refreshDetails')}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!selectedSessionId) return
-                      reclaimExpiredMutation.mutate(selectedSessionId)
-                    }}
-                    disabled={!selectedSessionId || reclaimExpiredMutation.isPending}
-                  >
-                    <Trash2 size={14} />
-                    {t('opsPage.action.reclaimExpiredLease')}
-                  </button>
                 </div>
               </div>
               <div className="kpi-grid" style={{ marginTop: 0 }}>
@@ -2115,18 +2085,6 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
                             <td>
                               <div className="inline-actions">
                                 <button type="button" onClick={() => setSelectedTaskId(task.task_id)}>{t('opsPage.action.open')}</button>
-                                {String(task.status || '') === 'failed' ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (!selectedSessionId) return
-                                      retryTaskMutation.mutate({ sessionId: selectedSessionId, taskId: task.task_id })
-                                    }}
-                                  disabled={!selectedSessionId || retryTaskMutation.isPending}
-                                >
-                                    {t('opsPage.action.retry')}
-                                  </button>
-                                ) : null}
                               </div>
                             </td>
                           </tr>

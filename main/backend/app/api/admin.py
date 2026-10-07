@@ -12,6 +12,7 @@ import logging
 
 from ..services.extraction.topic_workflow import run_topic_extraction_workflow
 from ..services.projects import bind_project, current_project_key
+from ..services.projects.context import resolve_request_project_context
 from ..contracts import ApiEnvelope, ErrorCode, success_response, task_result_response
 from ..services.ingest.adapters.http_utils import fetch_html
 from ..services.ingest.postprocess_frontdoor import run_frontdoor_extraction
@@ -63,12 +64,8 @@ def _tasks_module() -> _TasksModule:
     return tasks
 
 
-def _project_key_from_request(request: Request) -> str:
-    """Resolve explicit request scope for owners that require a project-key argument."""
+def _project_key_fallback() -> str:
     from ..settings.config import settings
-    pk = request.headers.get("X-Project-Key") or request.query_params.get("project_key")
-    if pk:
-        return pk.strip()
     try:
         from ..models.base import engine
         from sqlalchemy import text
@@ -82,6 +79,16 @@ def _project_key_from_request(request: Request) -> str:
     except Exception:
         pass
     return settings.active_project_key or "default"
+
+
+def _project_key_from_request(request: Request) -> str:
+    """Resolve explicit request scope through the shared request-scope owner."""
+    project_key, _, _ = resolve_request_project_context(
+        request,
+        fallback=_project_key_fallback,
+        use_resolved_fallback=True,
+    )
+    return project_key
 
 
 def _empty_graph_response():

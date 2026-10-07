@@ -65,13 +65,6 @@ class FamilySpec:
 
 
 _FAMILIES = {
-    "C3": FamilySpec(
-        "acquisition_batch_p3",
-        "generate_successor_p3_c3_fragment.py",
-        "p3-fragments/C3.json",
-        f"{_EXACT_BYTE_REBIND}/{_PREDECESSOR_CANDIDATE_STAGE}/fragments/C3.json",
-        "73b63ea7d9b687a2679e1503bb67deec89daf6ec20142922ce693944296e5d17",
-    ),
     "C9": FamilySpec(
         "c9_p4",
         "generate_successor_p4_c9_fragment.py",
@@ -82,6 +75,11 @@ _FAMILIES = {
 }
 
 _RETIRED_HISTORY_FRAGMENTS = {
+    "C3": (
+        "p3-fragments/C3.json",
+        "096bc0a0a7f0459d513c682435bb95e24639d987758e3fd1c8cf441bbd1c7f1d",
+        2,
+    ),
     "C4": (
         "p3-fragments/C4.json",
         "058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188",
@@ -175,10 +173,6 @@ def _subprocess_env() -> dict[str, str]:
 def _legacy_bytes(family: str, module) -> bytes:
     first = module.build_fragment()
     body = {key: value for key, value in first.items() if key != "content_digest"}
-    if family == "C3":
-        digest = module._canonical_digest(body)
-        first["content_digest"] = digest
-        return module.fragment_bytes(first)
     digest = module.content_digest(body)
     first["content_digest"] = digest
     return module._canonical_json(first).encode("utf-8") + b"\n"
@@ -284,7 +278,7 @@ def test_family_fragment_json_is_valid_and_shares_schema() -> None:
 
 
 @pytest.mark.parametrize(("family", "history"), sorted(_RETIRED_HISTORY_FRAGMENTS.items()))
-def test_retired_c4_c5_fragments_are_digest_only_history(
+def test_retired_family_fragments_are_digest_only_history(
     family: str,
     history: tuple[str, str, int],
 ) -> None:

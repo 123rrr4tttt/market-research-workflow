@@ -601,21 +601,6 @@ export type AgentBatchItemsResult = {
   }
 }
 
-export type AgentBatchRetryPayload = {
-  scope?: string
-  item_ids?: string[]
-  reason?: string | null
-  max_retries?: number | null
-}
-
-export type AgentBatchRetryResult = {
-  job_id: string
-  retry_session_id: string
-  status: string
-  retry_count: number
-  targets: string[]
-}
-
 export type AgentBatchEventRow = {
   id: string
   event_type: string
@@ -811,11 +796,6 @@ export type AgentSessionCreatePayload = {
   compat_mode?: boolean | null
 }
 
-export type AgentSessionTaskRetryPayload = {
-  task_id: string
-  reason?: string | null
-}
-
 export type AgentSessionCancelPayload = {
   reason?: string | null
 }
@@ -851,6 +831,7 @@ export type SkillInvokeMeta = {
 export type SkillInvokeResult = {
   skill_id: string
   result?: unknown
+  runtime_outputs?: Array<Record<string, unknown>> | null
   skill_meta?: SkillInvokeMeta | null
 }
 
@@ -1301,6 +1282,8 @@ export type ProcessTaskMeta = {
 
 export type ProcessTaskDetail = {
   task_id: string
+  runtime_run_ref?: string | null
+  run_id?: string | null
   name: string
   status: string
   ready?: boolean | null

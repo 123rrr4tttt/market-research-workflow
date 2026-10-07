@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -816,7 +815,7 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         self.assertTrue(result["middle_layer_protocol"]["prefer_crawler_first"])
         resolve_channel.assert_called_once()
 
-    def test_url_routing_parallelism_keeps_result_order_stable(self):
+    def test_url_routing_inline_execution_keeps_result_order_stable(self):
         item = {"item_key": "report1.root_site_search", "channel_key": "handler.cluster"}
         params = {
             "urls": ["https://example.com/a", "https://example.com/b"],
@@ -832,21 +831,10 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
             },
         }
 
-        lock = threading.Lock()
-        release = threading.Event()
-        active = 0
-        peak_active = 0
+        calls: list[str] = []
 
         def _fake_run_channel(*, channel, params, project_key, item_key):  # noqa: ANN001
-            nonlocal active, peak_active
-            with lock:
-                active += 1
-                peak_active = max(peak_active, active)
-                if peak_active >= 2:
-                    release.set()
-            release.wait(timeout=1.0)
-            with lock:
-                active -= 1
+            calls.append(str((params.get("urls") or [""])[0]))
             return {"inserted": 1, "updated": 0, "skipped": 0}
 
         with (
@@ -864,11 +852,13 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         self.assertEqual(result["updated"], 0)
         self.assertEqual(result["skipped"], 0)
         self.assertEqual([row["url"] for row in result["by_url"]], params["urls"])
-        self.assertGreaterEqual(peak_active, 2)
+        self.assertEqual(calls, params["urls"])
+        self.assertEqual(result["url_routing_parallelism"], 1)
         self.assertEqual(result["diagnostics"]["url_stage"]["budget"], 2)
+        self.assertEqual(result["diagnostics"]["url_stage"]["parallelism"], 1)
         self.assertEqual(result["middle_layer_protocol"]["concurrency_plan"]["url"]["parallelism"], 2)
 
-    def test_url_routing_isolates_single_url_timeout(self):
+    def test_url_routing_slow_leaf_does_not_cancel_downstream(self):
         item = {"item_key": "report1.root_site_search", "channel_key": "handler.cluster"}
         params = {
             "urls": ["https://example.com/a", "https://example.com/b"],
@@ -903,14 +893,63 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
                 channel_map=channel_map,
             )
 
-        self.assertEqual(result["inserted"], 1)
+        self.assertEqual(result["inserted"], 2)
         self.assertEqual(result["updated"], 0)
         self.assertEqual(result["skipped"], 0)
-        self.assertEqual(result["stats"]["errors"], 1)
-        self.assertTrue(result["by_url"][0]["timeout"])
-        self.assertIn("timeout", result["by_url"][0]["error"])
+        self.assertEqual(result["stats"]["errors"], 0)
+        self.assertFalse(result["by_url"][0].get("timeout", False))
         self.assertEqual(result["by_url"][1]["channel_key"], "generic_web.rss")
-        self.assertEqual(result["diagnostics"]["url_stage"]["timed_out"], 1)
+        self.assertEqual(result["diagnostics"]["url_stage"]["timed_out"], 0)
+        self.assertIsNone(result["diagnostics"]["url_stage"]["timeout_seconds"])
+
+    def test_single_handler_search_batch_preserves_provider_kernel_contract(self):
+        item = {
+            "item_key": "handler.cluster.search",
+            "channel_key": "handler.cluster",
+            "params": {"site_entries": ["https://example.com"]},
+        }
+        limits = resolver.HandlerCandidateLimits(
+            per_keyword_limit=3,
+            global_max_candidates=7,
+            global_ingest_limit=5,
+            sitemap_max_depth=2,
+            sitemap_max_sitemaps=30,
+        )
+        sentinel = object()
+
+        with patch(
+            "app.services.resource_pool.unified_search_by_item_payload",
+            return_value=sentinel,
+        ) as unified_search:
+            outcome = resolver._run_single_handler_search_batch(
+                project_key=None,
+                merged_search_item=item,
+                execution_plan={"item_key": item["item_key"]},
+                term_batch=["alpha", "beta"],
+                candidate_limits=limits,
+                params={
+                    "write_to_pool": True,
+                    "pool_scope": "shared",
+                    "probe_timeout": 4.5,
+                    "enable_extraction": True,
+                    "allow_term_fallback": True,
+                },
+            )
+
+        self.assertIs(outcome, sentinel)
+        self.assertIs(unified_search.call_args.kwargs["item"], item)
+        self.assertEqual(unified_search.call_args.kwargs["project_key"], "")
+        self.assertEqual(unified_search.call_args.kwargs["query_terms"], ["alpha", "beta"])
+        self.assertEqual(unified_search.call_args.kwargs["max_candidates"], 6)
+        self.assertEqual(unified_search.call_args.kwargs["ingest_limit"], 5)
+        self.assertEqual(unified_search.call_args.kwargs["sitemap_max_depth"], 2)
+        self.assertEqual(unified_search.call_args.kwargs["sitemap_max_sitemaps"], 30)
+        self.assertTrue(unified_search.call_args.kwargs["write_to_pool"])
+        self.assertEqual(unified_search.call_args.kwargs["pool_scope"], "shared")
+        self.assertEqual(unified_search.call_args.kwargs["probe_timeout"], 4.5)
+        self.assertFalse(unified_search.call_args.kwargs["auto_ingest"])
+        self.assertTrue(unified_search.call_args.kwargs["enable_extraction"])
+        self.assertTrue(unified_search.call_args.kwargs["allow_term_fallback"])
 
     def test_url_pool_static_url_list_routes_through_front_door_by_default(self):
         item = {
@@ -1035,7 +1074,7 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
             result["middle_layer_protocol"]["candidate_urls"],
             ["https://example.com/a", "https://example.com/b", "https://example.com/c"],
         )
-        self.assertEqual(result["url_routing_parallelism"], 2)
+        self.assertEqual(result["url_routing_parallelism"], 1)
 
     def test_run_item_payload_resolves_urls_to_url_execution(self):
         item = {

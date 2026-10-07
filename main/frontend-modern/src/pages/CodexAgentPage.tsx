@@ -11,7 +11,7 @@ type CodexAgentPageProps = {
 
 const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
 const WEBUI_ENTRY_QUERY = '?mrw=macro-host-v1'
-const HOST_WEBUI_URL = `http://127.0.0.1:8172/${WEBUI_ENTRY_QUERY}`
+const HOST_WEBUI_URL = `http://localhost:8172/${WEBUI_ENTRY_QUERY}`
 
 function isExplicitLocalHttpOrigin() {
   return window.location.protocol === 'http:' && LOCAL_HOSTNAMES.has(window.location.hostname)

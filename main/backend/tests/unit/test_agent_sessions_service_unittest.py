@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-from threading import Barrier
 import unittest
 from unittest.mock import patch
 
@@ -11,10 +10,6 @@ from functorial_kit import Failure
 
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.agent_sessions.store import InMemoryAgentSessionStore
-from app.services.workflow_graph.contracts import (
-    WorkflowRunSnapshot,
-    WorkflowRuntimeGraph,
-)
 from mrw_functorial_kit.core.agent_service_semantics import agent_session_failures
 
 pytestmark = pytest.mark.unit
@@ -91,69 +86,6 @@ class AgentSessionServiceUnitTest(unittest.TestCase):
         self.assertEqual(result.code, "execution_mode_invalid")
         self.assertEqual(self.service.get_session_bundle(session_id), before)
 
-    def test_workflow_graph_run_projection_is_typed_and_idempotent(self):
-        workflow: WorkflowRuntimeGraph = {
-            "workflow_id": "graph-projected",
-            "program_digest": "program-digest",
-            "plan_digest": "plan-digest",
-            "topo_order": ["node-a"],
-            "nodes": {
-                "node-a": {
-                    "id": "node-a",
-                    "node_type": "llm_call",
-                    "params": {"prompt": "Inspect the source"},
-                    "depends_on": [],
-                }
-            },
-        }
-        snapshot: WorkflowRunSnapshot = {
-            "run": {
-                "run_id": "run-projected",
-                "status": "succeeded",
-                "created_at": "2026-10-06T00:00:00Z",
-                "updated_at": "2026-10-06T00:01:00Z",
-                "node_statuses": {"node-a": "succeeded"},
-                "metadata": {"completed": True},
-            },
-            "events": [],
-            "results": {"node-a": {"answer": "source inspection complete"}},
-        }
-
-        bundle = self.service.project_workflow_graph_run(
-            graph_id="graph-projected",
-            run_id="run-projected",
-            workflow=workflow,
-            inputs={"project_key": "proj-projected"},
-            snapshot=snapshot,
-            project_key="proj-projected",
-        )
-        repeated = self.service.project_workflow_graph_run(
-            graph_id="graph-projected",
-            run_id="run-projected",
-            workflow=workflow,
-            inputs={"project_key": "proj-projected"},
-            snapshot=snapshot,
-            project_key="proj-projected",
-        )
-
-        self.assertEqual(bundle["session"]["project_key"], "proj-projected")
-        self.assertEqual(len(bundle["tasks"]), 2)
-        node_task = next(task for task in bundle["tasks"] if task["metadata"].get("workflow_graph_node"))
-        verification_task = next(task for task in bundle["tasks"] if task["metadata"].get("workflow_graph_verification"))
-        self.assertEqual(node_task["status"], "completed")
-        self.assertEqual(node_task["metadata"]["workflow_graph_node"]["node_type"], "llm_call")
-        self.assertEqual(node_task["result_payload"], {"answer": "source inspection complete"})
-        self.assertEqual(verification_task["status"], "completed")
-        self.assertEqual(
-            verification_task["result_payload"],
-            {"run": snapshot["run"], "results": snapshot["results"]},
-        )
-        artifact = bundle["artifacts"][0]
-        self.assertEqual(artifact["content_json"]["inputs"], {"project_key": "proj-projected"})
-        self.assertIn("workflow_graph.run_projected", [event["event_type"] for event in bundle["events"]])
-        self.assertEqual(repeated["session"]["session_id"], bundle["session"]["session_id"])
-        self.assertEqual(len(repeated["tasks"]), 2)
-
     def test_stored_coordinator_mode_and_messages_remain_readable(self):
         bundle = self.service.create_session(
             source="user", entrypoint_type="chat", goal="Historical coordinator facts",
@@ -171,63 +103,6 @@ class AgentSessionServiceUnitTest(unittest.TestCase):
         self.assertEqual(restored["tasks"][0]["execution_mode"], "coordinator")
         self.assertEqual(restored["messages"][-1]["role"], "coordinator")
         self.assertEqual(restored["messages"][-1]["content"], "Historical decision")
-
-    def test_blank_claim_owner_fails_closed_without_coordinator_fallback(self):
-        bundle = self.service.create_session(
-            source="user",
-            entrypoint_type="chat",
-            goal="Blank owner flow",
-            task_blueprints=[self._task_blueprint("task-owner-required")],
-        )
-        session_id = bundle["session"]["session_id"]
-
-        claimed = self.service.claim_task(session_id, "task-owner-required", owner=" ")
-
-        self.assertIsInstance(claimed, Failure)
-        assert isinstance(claimed, Failure)
-        self.assertEqual(claimed.code, "task_not_claimable")
-        self.assertEqual(claimed.message, "task owner is required")
-        self.assertEqual(self.service.store.get_task(session_id, "task-owner-required")["status"], "pending")
-
-    def test_automatic_projections_do_not_target_retired_coordinator_artifacts(self):
-        batch_blueprints = self.service._build_agent_batch_job_blueprints(
-            job_id="job-cleanup",
-            accepted_items=[{"item_id": "item-1", "index": 1, "snapshot": {"status": "pending"}}],
-            rejected_items=[],
-        )
-        workflow: WorkflowRuntimeGraph = {
-            "workflow_id": "graph-cleanup",
-            "program_digest": "program-digest",
-            "plan_digest": "plan-digest",
-            "topo_order": ["node-a"],
-            "nodes": {
-                "node-a": {
-                    "id": "node-a",
-                    "node_type": "llm_call",
-                    "params": {},
-                    "depends_on": [],
-                }
-            },
-        }
-        workflow_blueprints = self.service._build_workflow_graph_task_blueprints(
-            graph_id="graph-cleanup",
-            run_id="run-cleanup",
-            workflow=workflow,
-        )
-
-        for blueprints in (batch_blueprints, workflow_blueprints):
-            for blueprint in blueprints:
-                targets = list(dict(blueprint["task_spec"]).get("artifact_targets") or [])
-                self.assertNotIn("memory.md", targets)
-                self.assertNotIn("scratchpad.md", targets)
-        self.assertEqual(
-            batch_blueprints[0]["task_spec"]["artifact_targets"],
-            ["compat.job.submit.json"],
-        )
-        self.assertEqual(
-            workflow_blueprints[0]["task_spec"]["artifact_targets"],
-            ["workflow_graph.snapshot.json"],
-        )
 
     def test_approval_wait_projection_has_no_retired_artifact_targets(self):
         bundle = self.service.create_session(
@@ -254,120 +129,6 @@ class AgentSessionServiceUnitTest(unittest.TestCase):
         )
         self.assertEqual(approval["status"], "pending")
         self.assertEqual(wait_task["task_spec"]["artifact_targets"], [])
-
-    def test_claim_and_complete_task_unblocks_dependents(self):
-        bundle = self.service.create_session(
-            source="user",
-            entrypoint_type="chat",
-            goal="Run coordinator flow",
-            task_blueprints=[
-                self._task_blueprint("task-research", task_type="research"),
-                {**self._task_blueprint("task-synthesis"), "blocked_by_refs": ["prev"]},
-            ],
-        )
-        session_id = bundle["session"]["session_id"]
-        research_task = bundle["tasks"][0]
-        synthesis_task = bundle["tasks"][1]
-
-        claimed = self.service.claim_task(session_id, research_task["task_id"], owner="worker-1")
-        self.assertEqual(claimed["status"], "claimed")
-
-        completed = self.service.release_task(
-            session_id,
-            research_task["task_id"],
-            status="completed",
-            result_summary="Research finished",
-            tool_use_count=4,
-            token_usage=1200,
-        )
-        self.assertEqual(completed["status"], "completed")
-        tasks = self.service.list_tasks(session_id)
-        by_id = {item["task_id"]: item for item in tasks}
-        self.assertEqual(by_id[synthesis_task["task_id"]]["status"], "pending")
-
-    def test_concurrent_claim_has_exactly_one_winner_and_one_claim_event(self):
-        bundle = self.service.create_session(
-            source="user",
-            entrypoint_type="chat",
-            goal="Concurrent claim flow",
-            task_blueprints=[self._task_blueprint("task-claim-once")],
-        )
-        session_id = bundle["session"]["session_id"]
-        store = self.service.store
-        original_get_task = store.get_task
-        readers_ready = Barrier(2)
-
-        def synchronized_get_task(candidate_session_id: str, candidate_task_id: str):
-            task = original_get_task(candidate_session_id, candidate_task_id)
-            readers_ready.wait(timeout=5)
-            return task
-
-        with patch.object(store, "get_task", side_effect=synchronized_get_task):
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                results = list(
-                    executor.map(
-                        lambda owner: self.service.claim_task(
-                            session_id, "task-claim-once", owner=owner
-                        ),
-                        ("worker-a", "worker-b"),
-                    )
-                )
-
-        winners = [result for result in results if not isinstance(result, Failure)]
-        losers = [result for result in results if isinstance(result, Failure)]
-        self.assertEqual(len(winners), 1)
-        self.assertEqual(len(losers), 1)
-        self.assertEqual(losers[0].code, "task_transition_conflict")
-        stored = store.get_task(session_id, "task-claim-once")
-        self.assertEqual(stored["owner"], winners[0]["owner"])
-        claim_events = [
-            event
-            for event in store.list_events(session_id)
-            if event["event_type"] == "task.claimed"
-        ]
-        self.assertEqual(len(claim_events), 1)
-
-    def test_release_rolls_back_task_dependents_session_and_events_when_event_write_fails(self):
-        bundle = self.service.create_session(
-            source="user",
-            entrypoint_type="chat",
-            goal="Atomic release flow",
-            task_blueprints=[
-                self._task_blueprint("task-release"),
-                {**self._task_blueprint("task-dependent"), "blocked_by_refs": ["prev"]},
-            ],
-        )
-        session_id = bundle["session"]["session_id"]
-        store = self.service.store
-        before_session = store.get_session(session_id)
-        before_tasks = store.list_tasks(session_id)
-        before_events = store.list_events(session_id)
-        original_append = store.append_event
-        calls = 0
-
-        def fail_second_event(*args, **kwargs):
-            nonlocal calls
-            calls += 1
-            if calls == 2:
-                return agent_session_failures.fail(
-                    "backend_unavailable",
-                    "forced event failure",
-                    {"operation": "append_event"},
-                )
-            return original_append(*args, **kwargs)
-
-        with patch.object(store, "append_event", side_effect=fail_second_event):
-            released = self.service.release_task(
-                session_id,
-                "task-release",
-                status="completed",
-                result_summary="done",
-            )
-
-        self.assertIsInstance(released, Failure)
-        self.assertEqual(store.get_session(session_id), before_session)
-        self.assertEqual(store.list_tasks(session_id), before_tasks)
-        self.assertEqual(store.list_events(session_id), before_events)
 
     def test_store_rejects_nested_non_json_values_without_writing_session(self):
         store = InMemoryAgentSessionStore()
@@ -520,117 +281,48 @@ class AgentSessionServiceUnitTest(unittest.TestCase):
             before_approval,
         )
 
-    def test_workflow_projection_command_rolls_back_new_session_on_event_failure(self):
-        workflow: WorkflowRuntimeGraph = {
-            "workflow_id": "graph-rollback",
-            "program_digest": "program",
-            "plan_digest": "plan",
-            "topo_order": ["node-a"],
-            "nodes": {
-                "node-a": {
-                    "id": "node-a",
-                    "node_type": "llm_call",
-                    "params": {},
-                    "depends_on": [],
-                }
-            },
-        }
-        snapshot: WorkflowRunSnapshot = {
-            "run": {
-                "run_id": "run-rollback",
-                "status": "succeeded",
-                "created_at": "2026-10-06T00:00:00Z",
-                "updated_at": "2026-10-06T00:01:00Z",
-                "node_statuses": {"node-a": "succeeded"},
-                "metadata": {},
-            },
-            "events": [],
-            "results": {"node-a": {"answer": "done"}},
-        }
-        failure = agent_session_failures.fail(
-            "backend_unavailable",
-            "forced workflow event failure",
-            {"operation": "append_event"},
-        )
-
-        with patch.object(self.service.store, "append_event", return_value=failure):
-            result = self.service.project_workflow_graph_run(
-                graph_id="graph-rollback",
-                run_id="run-rollback",
-                workflow=workflow,
-                inputs={},
-                snapshot=snapshot,
-            )
-
-        self.assertIsInstance(result, Failure)
-        self.assertIsNone(
-            self.service.find_session_by_logical_task_list_key("run-rollback")
-        )
-
-    def test_agent_batch_submission_and_state_commands_are_atomic(self):
-        submitted = self.service.project_agent_batch_job_submission(
-            job_id="batch-command-job",
-            project_key="project-a",
-            request_payload={"query": "water"},
-            accepted_items=[
-                {
-                    "item_id": "item-a",
-                    "snapshot": {"status": "pending"},
-                    "lane": "default",
-                }
+    def test_session_current_phase_remains_an_explicit_host_plan_fact(self):
+        bundle = self.service.create_session(
+            source="user",
+            entrypoint_type="chat",
+            goal="Phase cache retirement",
+            task_blueprints=[
+                self._task_blueprint("phase-research", task_type="research"),
+                {**self._task_blueprint("phase-implementation"), "blocked_by": ["phase-research"]},
             ],
-            rejected_items=[],
         )
-        self.assertNotIsInstance(submitted, Failure)
-        self.assertEqual(submitted["artifacts"][0]["name"], "compat.job.submit.json")
-        self.assertIn(
-            "compat.job_projected",
-            [event["event_type"] for event in submitted["events"]],
-        )
-        session_id = submitted["session"]["session_id"]
-        before = self.service.get_session_bundle(session_id)
-        failure = agent_session_failures.fail(
-            "backend_unavailable",
-            "forced batch projection event failure",
-            {"operation": "append_event"},
+        session_id = bundle["session"]["session_id"]
+        self.assertEqual(bundle["session"]["current_phase"], "research")
+
+        self.service.store.update_task(
+            session_id,
+            "phase-research",
+            {"status": "completed", "result_summary": "done"},
         )
 
-        with patch.object(self.service.store, "append_event", return_value=failure):
-            projected = self.service.project_agent_batch_job_state(
-                compat_job_id="batch-command-job",
-                projected_items=[
-                    {
-                        "item_id": "item-a",
-                        "snapshot": {"status": "success"},
-                        "lane": "default",
-                    }
-                ],
-                phase="completed",
-                progress={"completed": 1, "failed": 0},
-            )
+        self.assertEqual(self.service.get_session(session_id)["current_phase"], "research")
+        self.assertEqual(self.service.store.get_session(session_id)["current_phase"], "research")
 
-        self.assertIsInstance(projected, Failure)
-        self.assertEqual(self.service.get_session_bundle(session_id), before)
-
-    def test_agent_batch_submission_rolls_back_session_tasks_artifact_and_events(self):
-        failure = agent_session_failures.fail(
-            "backend_unavailable",
-            "forced batch submission event failure",
-            {"operation": "append_event"},
+    def test_runtime_associated_session_does_not_write_task_lifecycle_into_session_state(self):
+        bundle = self.service.create_session(
+            source="successor_runtime",
+            entrypoint_type="runtime_projection",
+            goal="Canonical runtime lifecycle",
+            project_key="proj-runtime",
+            compat_job_id="runtime-run-1",
+            task_blueprints=[self._task_blueprint("runtime-step")],
         )
-        with patch.object(self.service.store, "append_event", return_value=failure):
-            result = self.service.project_agent_batch_job_submission(
-                job_id="batch-command-rollback",
-                project_key="project-a",
-                request_payload={"query": "water"},
-                accepted_items=[],
-                rejected_items=[],
-            )
+        session_id = bundle["session"]["session_id"]
+        initial_status = self.service.store.get_session(session_id)["status"]
 
-        self.assertIsInstance(result, Failure)
-        self.assertIsNone(
-            self.service.find_session_by_compat_job_id("batch-command-rollback")
+        observed = self.service.store.update_task(
+            session_id,
+            "runtime-step",
+            {"status": "completed", "result_summary": "historical task observation"},
         )
+
+        self.assertEqual(observed["status"], "completed")
+        self.assertEqual(self.service.store.get_session(session_id)["status"], initial_status)
 
     def test_approval_mutations_reject_noncanonical_json_before_state_change(self):
         store = InMemoryAgentSessionStore()
@@ -655,117 +347,6 @@ class AgentSessionServiceUnitTest(unittest.TestCase):
         self.assertEqual(result.code, "json_value_invalid")
         self.assertEqual(store.get_approval("approval-invalid-json"), before)
 
-    def test_claim_rejects_write_set_conflict(self):
-        bundle = self.service.create_session(
-            source="user",
-            entrypoint_type="chat",
-            goal="Conflict flow",
-            task_blueprints=[
-                {
-                    "task_id": "task-a",
-                    "subject": "Implementation A",
-                    "task_type": "implementation",
-                    "phase": "implementation",
-                    "write_set": ["file:a.py"],
-                },
-                {
-                    "task_id": "task-b",
-                    "subject": "Implementation B",
-                    "task_type": "implementation",
-                    "phase": "implementation",
-                    "write_set": ["file:a.py"],
-                },
-            ],
-        )
-        session_id = bundle["session"]["session_id"]
-        self.service.claim_task(session_id, "task-a", owner="worker-a")
-        conflict = self.service.claim_task(session_id, "task-b", owner="worker-b")
-
-        self.assertIsInstance(conflict, Failure)
-        assert isinstance(conflict, Failure)
-        self.assertEqual((conflict.family, conflict.code), ("agent.runtime.failure", "write_set_conflict"))
-        self.assertEqual(
-            conflict.context,
-            {
-                "task_id": "task-b",
-                "write_set": ["file:a.py"],
-                "conflicting_task_id": "task-a",
-                "conflicting_write_set": ["file:a.py"],
-            },
-        )
-        task_b = self.service.store.get_task(session_id, "task-b")
-        self.assertEqual(task_b["status"], "pending")
-
-    def test_retry_task_resets_downstream_dependents(self):
-        bundle = self.service.create_session(
-            source="user",
-            entrypoint_type="chat",
-            goal="Retry flow",
-            task_blueprints=[
-                self._task_blueprint("task-research", task_type="research"),
-                {**self._task_blueprint("task-synthesis"), "blocked_by_refs": ["prev"]},
-            ],
-        )
-        session_id = bundle["session"]["session_id"]
-        research_task = bundle["tasks"][0]["task_id"]
-        synthesis_task = bundle["tasks"][1]["task_id"]
-
-        self.service.release_task(session_id, research_task, status="completed", result_summary="ok")
-        self.service.release_task(session_id, synthesis_task, status="completed", result_summary="ok")
-
-        retried = self.service.retry_task(session_id, research_task)
-        self.assertEqual(retried["status"], "pending")
-        tasks = {item["task_id"]: item for item in self.service.list_tasks(session_id)}
-        self.assertEqual(tasks[synthesis_task]["status"], "blocked")
-
-    def test_retry_task_repeated_call_is_idempotent(self):
-        bundle = self.service.create_session(
-            source="user",
-            entrypoint_type="chat",
-            goal="Retry idempotency flow",
-            task_blueprints=[self._task_blueprint("task-retry")],
-        )
-        session_id = bundle["session"]["session_id"]
-        research_task = bundle["tasks"][0]["task_id"]
-
-        self.service.release_task(session_id, research_task, status="completed", result_summary="ok")
-        retried = self.service.retry_task(session_id, research_task)
-        event_count = len(self.service.list_events(session_id))
-        stored_after_retry = self.service.store.get_task(session_id, research_task)
-
-        repeated = self.service.retry_task(session_id, research_task)
-
-        self.assertEqual(retried["action_status"], "retried")
-        self.assertEqual(repeated["status"], "pending")
-        self.assertEqual(repeated["action_status"], "already_pending")
-        self.assertEqual(len(self.service.list_events(session_id)), event_count)
-        self.assertEqual(self.service.store.get_task(session_id, research_task), stored_after_retry)
-
-    def test_cancel_session_records_owner_facts_and_can_retry_task(self):
-        bundle = self.service.create_session(
-            source="user",
-            entrypoint_type="chat",
-            goal="Cancel and retry flow",
-            task_blueprints=[self._task_blueprint("task-cancel")],
-        )
-        session_id = bundle["session"]["session_id"]
-        task_id = bundle["tasks"][0]["task_id"]
-
-        canceled = self.service.cancel_session(session_id)
-        repeated = self.service.cancel_session(session_id)
-        tasks = {item["task_id"]: item for item in self.service.list_tasks(session_id)}
-        events = [item["event_type"] for item in self.service.list_events(session_id)]
-
-        self.assertEqual(canceled["status"], "canceled")
-        self.assertEqual(repeated["status"], "canceled")
-        self.assertEqual(tasks[task_id]["status"], "canceled")
-        self.assertEqual(events.count("session.canceled"), 1)
-
-        retried = self.service.retry_task(session_id, task_id)
-        self.assertEqual(retried["action_status"], "retried")
-        self.assertEqual(retried["status"], "pending")
-        self.assertEqual(self.service.get_session(session_id)["status"], "pending")
-
     def test_session_summary_is_read_only_projection(self):
         bundle = self.service.create_session(
             source="user",
@@ -782,7 +363,12 @@ class AgentSessionServiceUnitTest(unittest.TestCase):
         )
         session_id = bundle["session"]["session_id"]
         task_id = "summary-task"
-        self.service.release_task(session_id, task_id, status="completed", result_summary="done")
+        self.service.store.update_task(
+            session_id,
+            task_id,
+            {"status": "completed", "result_summary": "done"},
+        )
+        self.service.store.update_session(session_id, {"status": "completed"})
         self.service.create_message(session_id, role="assistant", content="task completed")
         event_count = len(self.service.list_events(session_id))
 
@@ -843,13 +429,16 @@ class AgentSessionServiceUnitTest(unittest.TestCase):
             ],
         )
         session_id = bundle["session"]["session_id"]
-        self.service.release_task(
+        self.service.store.update_task(
             session_id,
             "task-failed",
-            status="failed",
-            result_summary="provider timeout",
-            result_payload={"error_code": "provider_timeout", "trace_id": "trace-result"},
-            activity="provider failed",
+            {
+                "status": "failed",
+                "result_summary": "provider timeout",
+                "result_payload": {"error_code": "provider_timeout", "trace_id": "trace-result"},
+                "last_activity": "provider failed",
+                "recent_activities": ["provider failed"],
+            },
         )
         self.service.store.append_event(
             session_id,
@@ -870,7 +459,8 @@ class AgentSessionServiceUnitTest(unittest.TestCase):
         self.assertEqual(package["trace_id"], "trace-task")
         self.assertEqual(package["failed_steps"][0]["task_id"], "task-failed")
         self.assertTrue(any(item.get("detail") == "provider_timeout" for item in package["errors"]))
-        self.assertEqual(package["retry_hint"]["next_action"], "retry_task")
+        self.assertFalse(package["retry_hint"]["retryable"])
+        self.assertEqual(package["retry_hint"]["next_action"], "inspect_runtime_run")
         self.assertEqual(package["last_event"]["event_type"], "provider.failed")
 
     def test_export_failure_package_non_failed_task_returns_empty_contract(self):
@@ -904,12 +494,14 @@ class AgentSessionServiceUnitTest(unittest.TestCase):
         )
         session_id = bundle["session"]["session_id"]
         task_id = bundle["tasks"][0]["task_id"]
-        self.service.release_task(
+        self.service.store.update_task(
             session_id,
             task_id,
-            status="failed",
-            result_summary="node failed",
-            result_payload={"reason_code": "node_failed"},
+            {
+                "status": "failed",
+                "result_summary": "node failed",
+                "result_payload": {"reason_code": "node_failed"},
+            },
         )
 
         exported = self.service.export_failure_package(session_id, run_id="run-session-1")
@@ -1097,22 +689,6 @@ class AgentSessionServiceUnitTest(unittest.TestCase):
         tasks = {item["task_id"]: item for item in self.service.list_tasks(session_id)}
         self.assertEqual(tasks[approval_wait["task_id"]]["status"], "completed")
         self.assertEqual(tasks[implementation_task]["status"], "pending")
-
-    def test_reclaim_expired_tasks_marks_task_expired(self):
-        bundle = self.service.create_session(
-            source="user",
-            entrypoint_type="chat",
-            goal="Lease expiry flow",
-            task_blueprints=[self._task_blueprint("task-lease")],
-        )
-        session_id = bundle["session"]["session_id"]
-        research_task = bundle["tasks"][0]["task_id"]
-        self.service.claim_task(session_id, research_task, owner="worker-a", lease_seconds=30)
-        self.service.store.update_task(session_id, research_task, {"lease_until": "2000-01-01T00:00:00+00:00"})
-
-        reclaimed = self.service.reclaim_expired_tasks(session_id)
-        self.assertEqual(len(reclaimed), 1)
-        self.assertEqual(reclaimed[0]["status"], "expired")
 
     def test_coordinator_pass_is_retired(self):
         bundle = self.service.create_session(

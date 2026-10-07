@@ -55,16 +55,6 @@ EXPECTED_ANNOTATIONS: tuple[tuple[str, str, str], ...] = (
     ),
     ("projection_assembly.py", "build_projection_assembly", "FamilyAssembly"),
     (
-        "s1_horizontal_port_assembly.py",
-        "build_s1_horizontal_port_registry",
-        "tuple[S1HorizontalPortContract, ...]",
-    ),
-    (
-        "s2c_ops_domain_surface_assembly.py",
-        "build_s2c_ops_domain_surface_registry",
-        "tuple[S2cOpsDomainSurfaceContract, ...]",
-    ),
-    (
         "successor_assembly.py",
         "build_local_offline_fixture_options",
         "FamilyAssemblyOptions",

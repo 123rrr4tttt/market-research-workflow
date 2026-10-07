@@ -130,11 +130,11 @@ def observe_delivery(
 
 
 def resource_compatibility(left: ConcurrencyObservable | None, right: ConcurrencyObservable | None) -> Compatibility:
-    """Compare declared C3 provider-concurrency keys.
+    """Compare declared collect provider-concurrency keys.
 
     A repeated key is a declared conflict. Different keys do not establish
-    compatibility: C3 supplies neither write scopes nor a shared capacity
-    ledger, so all non-conflicting pairs remain unknown.
+    compatibility: the collect contract supplies neither write scopes nor a
+    shared capacity ledger, so all non-conflicting pairs remain unknown.
     """
     left_key = _normalized(getattr(left, "provider_concurrency_key", None))
     right_key = _normalized(getattr(right, "provider_concurrency_key", None))

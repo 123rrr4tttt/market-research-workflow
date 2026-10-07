@@ -246,3 +246,37 @@ def payload_value_id(program: Any) -> str:
 
 def asdict(value: Any) -> dict[str, Any]:
     return dataclasses.asdict(value)
+
+
+def ordered_dispatch_program(*, payloads: Any, catalog: Any, program_id: str,
+                             project_key: str, project_registry_revision: int,
+                             project_scope_digest: str) -> Any:
+    """Compose test dispatch atoms with the original ordered ACK merge."""
+    from app.successor_runtime.capabilities.batch_task_program import (
+        _register_ordered_dispatch_merges, _ordered_dispatch_sequence_type,
+        build_batch_task_single_dispatch_program,
+    )
+    from app.successor_runtime.language.program import zip_ordered_node
+    from app.successor_runtime.language.transforms import TransformRegistry
+    from app.successor_runtime.language.algebra import freeze_json_object
+
+    pair, append = _register_ordered_dispatch_merges(TransformRegistry())
+    roots = []
+    for index, payload in enumerate(payloads):
+        item = build_batch_task_single_dispatch_program(
+            payload=payload, catalog=catalog, program_id=f"{program_id}:{index}",
+            project_key=project_key, project_registry_revision=project_registry_revision,
+            project_scope_digest=project_scope_digest,
+        )
+        roots.append(dataclasses.replace(item.root, operation=dataclasses.replace(
+            item.root.operation,
+            operation_id=f"{batch_task.DISPATCH_SINGLE_OPERATION_ID}:{payload.dispatch_id}",
+        )))
+    root = roots[0]
+    for index, atom in enumerate(roots[1:], start=1):
+        merge = pair if index == 1 else append
+        root = zip_ordered_node(left=root, right=atom, merge_ref=merge, output_type=_ordered_dispatch_sequence_type())
+    return dataclasses.replace(item, program_id=f"{program_id}:ordered-dispatch",
+                               root=root, input_type=root.input_type, output_type=root.output_type,
+                               metadata=freeze_json_object({"ordered_element_count": len(payloads)}),
+                               program_digest="").with_digest()

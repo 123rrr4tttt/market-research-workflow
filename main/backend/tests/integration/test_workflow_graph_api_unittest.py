@@ -4,6 +4,7 @@ import sys
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -33,6 +34,16 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
             raise unittest.SkipTest(f"workflow graph integration tests require backend dependencies: {_IMPORT_ERROR}")
         cls.client = TestClient(backend_app)
         cls.headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "workflow-graph-integration"}
+
+    def setUp(self):
+        self._actor_patch = patch(
+            "app.api.workflow_graph.require_trusted_actor_context",
+            return_value=SimpleNamespace(actor_id="workflow-test-actor"),
+        )
+        self._actor_patch.start()
+
+    def tearDown(self):
+        self._actor_patch.stop()
 
     def _with_project(self, payload: dict | None = None) -> dict:
         data = dict(payload or {})
@@ -180,6 +191,19 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["data"]["session_id"], "as-1")
         self.assertEqual(body["data"]["contract_version"], "workflow_graph.v2")
 
+    def test_historical_run_source_is_forwarded_explicitly(self):
+        with patch(
+            "app.api.workflow_graph._invoke_get_run",
+            return_value={"run_id": "legacy-1", "status": "succeeded"},
+        ) as read_run:
+            response = self.client.get(
+                "/api/v1/workflow-graph/runs/legacy-1?source=historical",
+                headers=self.headers,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(read_run.call_args.kwargs["source"], "historical")
+
     def test_get_run_agent_session_success(self):
         with patch(
             "app.api.workflow_graph._invoke_get_run_agent_session",
@@ -219,7 +243,12 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
             response = self.client.get("/api/v1/workflow-graph/runs/r-1/replay?replay_mode=stateful", headers=self.headers)
 
         self.assertEqual(response.status_code, 200)
-        replay_mock.assert_called_once_with("r-1", "stateful")
+        replay_mock.assert_called_once_with(
+            "r-1",
+            "stateful",
+            project_key="demo_proj",
+            actor_id="workflow-test-actor",
+        )
         body = response.json()
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["replay_mode"], "stateful")
@@ -776,7 +805,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
                 "producer": "workflow_graph.backend_bridge",
             },
         ), patch(
-            "app.api.workflow_graph.handoff_store.persist",
+            "app.api.workflow_graph.handoff_store.build",
             return_value={"contract_version": "workflow_graph.handoff.v1", "run_id": "r-1", "handoff_id": "h-report-1"},
         ):
             reporting_resp = self.client.post(
@@ -797,7 +826,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
                 "producer": "workflow_graph.backend_bridge",
             },
         ), patch(
-            "app.api.workflow_graph.handoff_store.persist",
+            "app.api.workflow_graph.handoff_store.build",
             return_value={"contract_version": "workflow_graph.handoff.v1", "run_id": "r-1", "handoff_id": "h-writing-1"},
         ):
             writing_resp = self.client.post(
@@ -808,14 +837,16 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(writing_resp.status_code, 200)
         self.assertEqual(writing_resp.json()["data"]["consumer"], "writing.keyword_cards")
 
-    def test_curated_api_handoff_round_trip_uses_service_pack_and_run_store(self):
+    def test_curated_api_builds_request_local_handoff_from_service_pack(self):
         from app.services.workflow_graph.curated_service import WorkflowGraphCuratedService
         from app.services.workflow_graph.handoff_store import WorkflowGraphHandoffStore
-        from app.services.workflow_graph.store import InMemoryRunStore
+        from app.services.workflow_graph.store import InMemoryHistoricalWorkflowRunReader
 
         state_ref = {"payload": {"base_version": 0, "graphs": {}}}
         service = WorkflowGraphCuratedService()
-        api_handoff_store = WorkflowGraphHandoffStore(store=InMemoryRunStore())
+        api_handoff_store = WorkflowGraphHandoffStore(
+            reader=InMemoryHistoricalWorkflowRunReader(),
+        )
 
         def get_config(*_args, **_kwargs):
             return {"payload": state_ref["payload"]}
@@ -918,7 +949,15 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
             self.assertEqual(reporting_data["consumer"], "llm_report.generate")
             self.assertEqual(reporting_data["evidence_pack"]["contract_version"], "graph_evidence_pack.v1")
             self.assertEqual(reporting_data["report_generate_request"]["sources"][0]["publisher"], "graph:Company")
-            self.assertEqual(reporting_data["persistence"]["backend_marker"], "workflow_graph.run_store")
+            self.assertEqual(
+                reporting_data["persistence"]["backend_marker"],
+                "workflow_graph.request_local_handoff",
+            )
+            self.assertFalse(reporting_data["persistence"]["durable"])
+            self.assertEqual(
+                reporting_data["persistence"]["payload"]["handoff_id"],
+                reporting_data["handoff_id"],
+            )
 
             writing_resp = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-contract/handoff/writing",
@@ -934,34 +973,18 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
                 "graph_evidence_pack.v1",
             )
 
-            run_id = reporting_data["persistence"]["run_id"]
-            handoff_id = reporting_data["handoff_id"]
-            list_resp = self.client.get(f"/api/v1/workflow-graph/runs/{run_id}/handoff", headers=self.headers)
-            self.assertEqual(list_resp.status_code, 200)
-            list_data = list_resp.json()["data"]
-            self.assertEqual(list_data["total"], 2)
-            self.assertEqual(list_data["items"][0]["producer"], "workflow_graph.backend_bridge")
-            self.assertEqual(list_data["items"][0]["contract_version"], "graph_handoff.v1")
-
-            replay_resp = self.client.get(
-                f"/api/v1/workflow-graph/runs/{run_id}/handoff/{handoff_id}/replay",
-                headers=self.headers,
-            )
-            self.assertEqual(replay_resp.status_code, 200)
-            replay_data = replay_resp.json()["data"]
-            self.assertEqual(replay_data["result"]["handoff_id"], handoff_id)
-            self.assertEqual(replay_data["result"]["producer"], "workflow_graph.backend_bridge")
-            self.assertEqual(replay_data["result"]["evidence_pack"]["contract_version"], "graph_evidence_pack.v1")
-            self.assertTrue(any(event.get("type") == "handoff.replayed" for event in replay_data["events"]))
-
     def test_handoff_list_replay_and_observability_success(self):
         with patch(
             "app.api.workflow_graph.handoff_store.list_handoffs",
             return_value={"run_id": "r-1", "items": [{"handoff_id": "h-1"}], "total": 1, "contract_version": "workflow_graph.handoff.v1"},
-        ):
-            list_resp = self.client.get("/api/v1/workflow-graph/runs/r-1/handoff", headers=self.headers)
+        ) as list_handoffs:
+            list_resp = self.client.get(
+                "/api/v1/workflow-graph/runs/r-1/handoff?source=historical",
+                headers=self.headers,
+            )
         self.assertEqual(list_resp.status_code, 200)
         self.assertEqual(list_resp.json()["data"]["total"], 1)
+        self.assertEqual(list_handoffs.call_args.kwargs["project_key"], "demo_proj")
 
         with patch(
             "app.api.workflow_graph.handoff_store.replay_handoff",
@@ -972,10 +995,14 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
                 "result": {"handoff_id": "h-1"},
                 "contract_version": "workflow_graph.handoff.v1",
             },
-        ):
-            replay_resp = self.client.get("/api/v1/workflow-graph/runs/r-1/handoff/h-1/replay", headers=self.headers)
+        ) as replay_handoff:
+            replay_resp = self.client.get(
+                "/api/v1/workflow-graph/runs/r-1/handoff/h-1/replay?source=historical",
+                headers=self.headers,
+            )
         self.assertEqual(replay_resp.status_code, 200)
         self.assertEqual(replay_resp.json()["data"]["handoff_id"], "h-1")
+        self.assertEqual(replay_handoff.call_args.kwargs["project_key"], "demo_proj")
 
         with patch(
             "app.api.workflow_graph.query_top_failure_reasons",
@@ -993,10 +1020,13 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
                 "items": [],
                 "total": 0,
                 "contract_version": "workflow_graph.handoff.v1",
-                "backend_marker": "workflow_graph.run_store",
+                "backend_marker": "workflow_graph.historical_run_decoder",
             },
         ):
-            response = self.client.get("/api/v1/workflow-graph/runs/r-empty/handoff", headers=self.headers)
+            response = self.client.get(
+                "/api/v1/workflow-graph/runs/r-empty/handoff?source=historical",
+                headers=self.headers,
+            )
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
@@ -1004,6 +1034,17 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["data"]["total"], 0)
         self.assertEqual(body["data"]["items"], [])
         self.assertEqual(body["data"]["contract_version"], "workflow_graph.handoff.v1")
+
+    def test_handoff_history_rejects_implicit_source(self):
+        with patch("app.api.workflow_graph.handoff_store.list_handoffs") as list_handoffs:
+            response = self.client.get(
+                "/api/v1/workflow-graph/runs/r-1/handoff",
+                headers=self.headers,
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"]["details"]["expected"], "historical")
+        list_handoffs.assert_not_called()
 
     def test_openapi_curated_and_handoff_response_schemas_are_visible(self):
         schema = backend_app.openapi()

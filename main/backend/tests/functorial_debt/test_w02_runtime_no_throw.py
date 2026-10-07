@@ -12,8 +12,6 @@ from app.services.agent_runtime.external_tool_status import (
     mark_mcp_tool_mounted,
     register_external_service_state,
 )
-from app.services.agent_runtime.failures import runtime_failure
-from app.services.agent_runtime.task_bus import assert_no_write_conflict
 
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -44,10 +42,3 @@ def test_w02_runtime_input_failures_are_closed_and_typed() -> None:
     assert _failure_code(register_external_service_state(service_id="")) == "capability_input_missing"
     assert _failure_code(mark_mcp_tool_mounted(service_id="svc", tool_name="")) == "capability_input_missing"
     assert _failure_code(get_external_service_status(None)) == "capability_input_missing"
-    assert _failure_code(
-        assert_no_write_conflict(
-            [{"task_id": "other", "status": "claimed", "write_set": ["shared"]}],
-            "current",
-            ["shared"],
-        )
-    ) == "write_set_conflict"

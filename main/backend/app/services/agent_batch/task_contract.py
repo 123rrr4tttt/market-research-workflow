@@ -493,7 +493,6 @@ _AGENT_BATCH_CHANNEL_SPECS: dict[str, dict[str, Any]] = {
         "execution": {
             "required_non_empty_keys": ["query_terms"],
             "default_lane": "main",
-            "submitter_export": "_submit_search_market_job",
             "rule_guard_export": "_enforce_search_market_rule_set",
             "submit_item_fields": ["query_terms", "max_items", "provider", "language", "days_back", "override_params"],
             "dispatch": {
@@ -512,6 +511,9 @@ _AGENT_BATCH_CHANNEL_SPECS: dict[str, dict[str, Any]] = {
                     "override_params",
                     "trace_id",
                     "lane",
+                    "queue",
+                    "task_id",
+                    "runtime_readback",
                     "workflow_run_id",
                 ],
             },
@@ -557,7 +559,6 @@ _AGENT_BATCH_CHANNEL_SPECS: dict[str, dict[str, Any]] = {
         "execution": {
             "required_non_empty_keys": ["item_key"],
             "default_lane": "subagent",
-            "submitter_export": "_submit_source_library_job",
             "submit_item_fields": [
                 "item_key",
                 "query_terms",
@@ -583,6 +584,9 @@ _AGENT_BATCH_CHANNEL_SPECS: dict[str, dict[str, Any]] = {
                     "override_params",
                     "trace_id",
                     "lane",
+                    "queue",
+                    "task_id",
+                    "runtime_readback",
                     "workflow_run_id",
                 ],
             },
@@ -867,56 +871,6 @@ def list_agent_batch_dispatch_skill_bindings() -> list[dict[str, str]]:
             }
         )
     return bindings
-
-
-def list_agent_batch_execution_bindings() -> list[dict[str, str]]:
-    bindings: list[dict[str, str]] = []
-    for channel, spec in _AGENT_BATCH_CHANNEL_SPECS.items():
-        execution = dict(spec.get("execution") or {})
-        submitter_export = str(execution.get("submitter_export") or "").strip()
-        rule_guard_export = str(execution.get("rule_guard_export") or "").strip()
-        binding = {
-            "channel": channel,
-            "submitter_export": submitter_export,
-        }
-        if rule_guard_export:
-            binding["rule_guard_export"] = rule_guard_export
-        if submitter_export:
-            bindings.append(binding)
-    return bindings
-
-
-def build_agent_batch_execution_registry(
-    *,
-    execution_bindings: list[dict[str, str]] | None = None,
-    globals_map: dict[str, Any] | None = None,
-) -> Annotated[
-    dict[str, dict[str, Any]],
-    "kit:non-authoritative derived_as=view fact_source=task_contract_policy_sources "
-    "witness=test:test_w02_agent_authority_metadata"
-]:
-    bindings = list(execution_bindings or list_agent_batch_execution_bindings())
-    exported = dict(globals_map or {})
-    registry: dict[str, dict[str, Any]] = {}
-    for binding in bindings:
-        channel = str(binding.get("channel") or "").strip().lower()
-        submitter_export = str(binding.get("submitter_export") or "").strip()
-        rule_guard_export = str(binding.get("rule_guard_export") or "").strip()
-        if not channel or not submitter_export:
-            continue
-        submitter = exported.get(submitter_export)
-        if not callable(submitter):
-            # kit:boundary owner=agent_batch.execution_registry class=PROGRAMMER_DEFECT failure_family=none witness=test:test_build_agent_batch_execution_registry_resolves_exports_and_fails_fast
-            raise RuntimeError(f"channel submitter export not found: {submitter_export}")
-        entry: dict[str, Any] = {"submitter": submitter}
-        if rule_guard_export:
-            rule_guard = exported.get(rule_guard_export)
-            if not callable(rule_guard):
-                # kit:boundary owner=agent_batch.execution_registry class=PROGRAMMER_DEFECT failure_family=none witness=test:test_build_agent_batch_execution_registry_resolves_exports_and_fails_fast
-                raise RuntimeError(f"channel rule_guard export not found: {rule_guard_export}")
-            entry["rule_guard"] = rule_guard
-        registry[channel] = entry
-    return registry
 
 
 def normalize_days_back(value: Any) -> int | None:

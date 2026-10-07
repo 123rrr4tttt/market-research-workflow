@@ -37,15 +37,12 @@ import type {
   AgentSessionItem,
   AgentSessionListResult,
   AgentApprovalRequestPayload,
-  AgentSessionTaskRetryPayload,
   AgentSessionEventStreamStatus,
   AgentTaskItem,
   AgentTaskListResult,
   AgentBatchEventsResult,
   AgentBatchJobDetail,
   AgentBatchItemsResult,
-  AgentBatchRetryPayload,
-  AgentBatchRetryResult,
   AgentBatchRuleSetValidatePayload,
   AgentBatchRuleSetValidateResult,
   AgentBatchSubmitPayload,
@@ -405,8 +402,11 @@ export async function listProcessHistory(limit = 50) {
   return get<ProcessHistoryResponse>(`${endpoints.process.history}?${query.toString()}`)
 }
 
-export async function getProcessTaskDetail(taskId: string) {
-  return get<ProcessTaskDetail>(endpoints.process.task(taskId))
+export async function getProcessTaskDetail(taskId: string, projectKey?: string) {
+  const query = new URLSearchParams()
+  if (projectKey) query.set('project_key', projectKey)
+  const suffix = query.size ? `?${query.toString()}` : ''
+  return get<ProcessTaskDetail>(`${endpoints.process.task(taskId)}${suffix}`)
 }
 
 export async function getProcessTaskLogs(taskId: string, tail = 200) {
@@ -505,10 +505,6 @@ export async function getAgentBatchJob(jobId: string) {
 
 export async function listAgentBatchItems(jobId: string) {
   return get<AgentBatchItemsResult>(endpoints.agentBatch.itemsByJob(jobId))
-}
-
-export async function retryAgentBatchJob(jobId: string, payload: AgentBatchRetryPayload = {}) {
-  return post<AgentBatchRetryResult>(endpoints.agentBatch.retryByJob(jobId), payload)
 }
 
 export async function getAgentBatchEvents(jobId: string) {
@@ -682,16 +678,8 @@ export async function listAgentSessionArtifacts(sessionId: string) {
   return extractSectionList<AgentArtifactItem>(data, ['artifacts', 'items'])
 }
 
-export async function retryAgentSessionTask(sessionId: string, payload: AgentSessionTaskRetryPayload) {
-  return post<AgentSessionDetail>(endpoints.agentSessions.retryTaskBySession(sessionId), payload)
-}
-
 export async function cancelAgentSession(sessionId: string, payload: AgentSessionCancelPayload = {}) {
   return post<AgentSessionDetail>(endpoints.agentSessions.cancelBySession(sessionId), payload)
-}
-
-export async function reclaimExpiredAgentSessionTasks(sessionId: string) {
-  return post<{ items?: AgentTaskItem[] }>(endpoints.agentSessions.reclaimExpiredBySession(sessionId), {})
 }
 
 export async function requestAgentSessionApproval(sessionId: string, payload: AgentApprovalRequestPayload) {

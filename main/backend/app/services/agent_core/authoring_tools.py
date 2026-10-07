@@ -539,16 +539,6 @@ def _agent_long_task_stage_update_handler(
         )
         if isinstance(artifact, Failure):
             return runtime_failure_result(tool_call, artifact)
-        if task_id:
-            _attach_long_task_state_to_task(
-                service=service,
-                session_id=request.session_id,
-                task_id=task_id,
-                artifact_name=artifact_name,
-                state=updated_content,
-                stage=stage,
-                stage_status=stage_status,
-            )
         event_failure = _append_session_event(
             service,
             request.session_id,
@@ -558,7 +548,6 @@ def _agent_long_task_stage_update_handler(
                 "artifact_name": artifact_name,
                 "stage": stage,
                 "stage_status": stage_status,
-                "current_stage": updated_content.get("current_stage"),
                 "replayed": replayed,
             },
         )
@@ -569,7 +558,7 @@ def _agent_long_task_stage_update_handler(
             call_id=tool_call.call_id,
             tool_name=tool_call.tool_name,
             status="completed",
-            model_summary=f"Updated long-task stage {stage} as {stage_status}; current_stage={state.get('current_stage')}.",
+            model_summary=f"Updated long-task stage {stage} as {stage_status}.",
             structured_content={
                 "contract_version": "agent_long_task.stage.v1",
                 "project_key": project_key,
@@ -651,7 +640,7 @@ def _agent_long_task_stage_read_handler(
             call_id=tool_call.call_id,
             tool_name=tool_call.tool_name,
             status="completed",
-            model_summary=f"Read long-task stage state from {artifact_name}: current_stage={content.get('current_stage')}.",
+            model_summary=f"Read long-task stage state from {artifact_name}.",
             structured_content={
                 "contract_version": "agent_long_task.stage.v1",
                 "artifact_name": artifact_name,
@@ -910,38 +899,123 @@ def _ingest_url_pool_submit_handler(
         task_search_options: dict[str, object] = {
             key: value for key, value in json_object(search_options).items()
         }
-        deterministic_task_id = f"agent-url-pool-{stable_hash({'project_key': project_key, 'url': url, 'idempotency_key': idempotency_key})[:24]}"
-        agent_submission_marker = {
-            "session_id": request.session_id,
-            "artifact_name": artifact_name,
-            "idempotency_key": idempotency_key,
-            "candidate_review_key": candidate_review_key,
-            "project_key": project_key,
-            "url": url,
-            "task_id": deterministic_task_id,
-            "source_call_id": tool_call.call_id,
-        }
-        task_search_options["_agent_core_url_pool_submission"] = agent_submission_marker
-
+        run_id = (
+            f"url-single-agent-{stable_hash({'project_key': project_key, 'url': url, 'idempotency_key': idempotency_key})[:24]}"
+        )
         try:
             if async_mode:
-                from app.services.tasks import task_ingest_url_via_source_library
+                from .host_authorization import current_verified_host_authorization
 
-                task_args = (url, query_terms or None, strict_mode, project_key, task_search_options)
-                celery_task: object = task_ingest_url_via_source_library
-                apply_async = getattr(celery_task, "apply_async", None)
-                if callable(apply_async):
-                    async_result = apply_async(args=task_args, task_id=deterministic_task_id)
-                else:
-                    delay = getattr(celery_task, "delay", None)
-                    if not callable(delay):
-                        raise TypeError("URL-pool task exposes neither apply_async nor delay")
-                    async_result = delay(*task_args)
+                authorization = current_verified_host_authorization()
+                if (
+                    authorization is None
+                    or authorization.context.project_key != project_key
+                    or authorization.context.session_id != request.session_id
+                ):
+                    return CoreToolResult(
+                        call_id=tool_call.call_id,
+                        tool_name=tool_call.tool_name,
+                        status="failed",
+                        model_summary="URL-pool durable submission requires a verified host authorization.",
+                        error={
+                            "code": "host_authorization_missing",
+                            "message": "no verified host authorization for URL-pool durable submission",
+                        },
+                        structured_content={
+                            "contract_version": "ingest.url_pool.submit.v1",
+                            "project_key": project_key,
+                            "url": url,
+                            "async_mode": True,
+                        },
+                    )
+                actor_context = authorization.actor_context
+                if (
+                    actor_context is None
+                    or not actor_context.actor_trusted
+                    or not str(actor_context.actor_id or "").strip()
+                ):
+                    return CoreToolResult(
+                        call_id=tool_call.call_id,
+                        tool_name=tool_call.tool_name,
+                        status="failed",
+                        model_summary="URL-pool durable submission requires a trusted request actor.",
+                        error={
+                            "code": "request_actor_context_missing",
+                            "message": "verified host authorization has no trusted request actor",
+                        },
+                        structured_content={
+                            "contract_version": "ingest.url_pool.submit.v1",
+                            "project_key": project_key,
+                            "url": url,
+                            "async_mode": True,
+                        },
+                    )
+                from app.composition.production import submit_installed_program
+                from app.models.base import engine as runtime_engine
+                from app.successor_runtime.capabilities.acquisition_url import (
+                    URL_SINGLE_URL_KIND,
+                    URL_SINGLE_URL_OWNER,
+                    UrlSingleUrlRequest,
+                    build_url_single_url_program,
+                )
+                from app.successor_runtime.capabilities.checksum import CanonicalJsonObject
+                from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
+                from app.services.collect_runtime.contracts import source_library_compat_response
+                from datetime import datetime, timezone
+
+                actor_id = actor_context.actor_id
+                trace_id = f"agent_core.ingest.url_pool.submit:{run_id}"
+                extra_params: CanonicalJsonObject = {
+                    "strict_mode": strict_mode,
+                    "enable_extraction": True,
+                }
+                extra_params.update(source_library_compat_response(task_search_options))
+                with runtime_engine.connect() as connection:
+                    project_scope = ServerProjectScopeResolver(connection=connection).resolve(project_key)
+                closure = build_url_single_url_program(
+                    request=UrlSingleUrlRequest(
+                        url=url,
+                        project_key=project_key,
+                        query_terms=tuple(query_terms),
+                        extra_params=extra_params,
+                        enable_extraction=True,
+                    ),
+                    program_id=f"program:{run_id}",
+                    project_key=project_key,
+                    project_registry_revision=project_scope.project_registry_revision,
+                    project_scope_digest=project_scope.scope_digest,
+                    incarnation=f"url-single-agent:{run_id}",
+                )
+                run, work_item_ids = submit_installed_program(
+                    engine=runtime_engine,
+                    project_key=project_key,
+                    actor_id=actor_id,
+                    program=closure.program,
+                    operation_catalog=closure.catalog,
+                    operation_contracts=closure.registry,
+                    values=closure.values,
+                    idempotency_id=f"url-single-agent-idem:{run_id}",
+                    identity_capability_id=URL_SINGLE_URL_OWNER,
+                    logical_request_id=idempotency_key,
+                    identity_operation_kind=URL_SINGLE_URL_KIND,
+                    run_id=run_id,
+                    incarnation=f"url-single-agent:{run_id}",
+                    canonical_bindings=closure.canonical_bindings,
+                    approvals_by_step={},
+                    trace_id=trace_id,
+                    now=datetime.now(timezone.utc),
+                    queue="celery",
+                )
+                canonical_run_id = str(run.get("run_id") or run_id)
+                run_ref = f"runtime-run:{canonical_run_id}"
                 dispatch_result: JSONObject = {
-                    "task_id": str(getattr(async_result, "id", "") or ""),
-                    "status": "queued",
+                    "task_id": None,
+                    "status": "submitted",
                     "async": True,
-                    "task_result_status": "queued",
+                    "task_result_status": "submitted",
+                    "runtime_run_ref": run_ref,
+                    "runtime_state": str(run.get("state") or ""),
+                    "work_item_ids": list(work_item_ids),
                     "params": {
                         "url": url,
                         "query_terms": query_terms or None,
@@ -1019,11 +1093,19 @@ def _ingest_url_pool_submit_handler(
             )
 
         task_id = str(dispatch_result.get("task_id") or "").strip()
+        runtime_run_ref = str(dispatch_result.get("runtime_run_ref") or "").strip()
+        work_item_ids = [
+            str(item)
+            for item in json_list(dispatch_result.get("work_item_ids"))
+            if str(item or "").strip()
+        ]
         submission: JSONObject = {
             "idempotency_key": idempotency_key,
             "project_key": project_key,
             "url": url,
             "task_id": task_id,
+            "runtime_run_ref": runtime_run_ref,
+            "work_item_ids": work_item_ids,
             "query_terms": query_terms,
             "strict_mode": strict_mode,
             "async_mode": async_mode,
@@ -1082,6 +1164,8 @@ def _ingest_url_pool_submit_handler(
                 "url": url,
                 "async_mode": async_mode,
                 "task_id": task_id,
+                "runtime_run_ref": runtime_run_ref,
+                "work_item_ids": work_item_ids,
                 "dispatch_result": compact_json_value(dispatch_result, max_items=20, max_depth=5),
                 "submission": compact_json_value(submission, max_items=20, max_depth=5),
                 "artifact": compact_json_value(artifact, max_items=16, max_depth=4),
@@ -1239,7 +1323,7 @@ def _ingest_url_pool_status_handler(
             writing_guidance = "The URL-pool ingest task failed; keep writing language pending and inspect the task error before retrying."
         elif latest_task_event_status in {"canceled", "cancelled"}:
             next_gate = "url_pool_ingest_canceled_resume_or_retry"
-            writing_guidance = "The URL-pool ingest task was canceled; do not treat it as collected evidence. Read task.summary first; use task.retry only when the user wants collection to run again."
+            writing_guidance = "The URL-pool ingest task was canceled; do not treat it as collected evidence. Read the runtime summary and cancellation observation before deciding whether to submit a new collection request."
         elif latest_task_event_status == "completed":
             next_gate = "ingest_completed_without_verified_project_record"
             writing_guidance = "The URL-pool task completed, but no stored project document/source matched the URL yet; keep writing evidence pending and inspect ingest output."
@@ -2742,7 +2826,6 @@ def _seed_long_task_state(
         "task_kind": task_kind if task_kind in {"investigation", "writing", "mixed"} else "mixed",
         "created_at": now,
         "updated_at": now,
-        "current_stage": "plan",
         "replay_keys": replay_keys[-80:],
         "stages": [
             {
@@ -2814,9 +2897,6 @@ def _normalize_long_task_state(
             in {"investigation", "writing", "mixed"}
             else "mixed",
             "stages": normalized_stages,
-            "current_stage": _derive_long_task_current_stage(
-                normalized_stages, preferred=str(content.get("current_stage") or "")
-            ),
         }
     )
     return seeded
@@ -2839,13 +2919,7 @@ def _update_long_task_state(
     )
     now = utcnow_iso()
     stages = [json_object(value) for value in json_list(state.get("stages"))]
-    stage_index = _LONG_TASK_STAGE_ORDER.index(stage)
-    for index, item in enumerate(stages):
-        if index < stage_index and str(item.get("status") or "pending") == "pending":
-            item["status"] = "completed"
-            item["summary"] = item.get("summary") or f"Completed before {stage}."
-            item["updated_at"] = item.get("updated_at") or now
-            item["completed_at"] = item.get("completed_at") or now
+    for item in stages:
         if str(item.get("stage") or "") != stage:
             continue
         item["status"] = stage_status
@@ -2879,29 +2953,9 @@ def _update_long_task_state(
             "source_call_id": tool_call.call_id,
             "replay_keys": replay_keys[-80:],
             "stages": stages,
-            "current_stage": _derive_long_task_current_stage(
-                stages, preferred=stage if stage_status != "completed" else ""
-            ),
         }
     )
     return state
-
-
-def _derive_long_task_current_stage(stages: list[JSONObject], *, preferred: str = "") -> str:
-    if preferred in _LONG_TASK_STAGE_ORDER:
-        preferred_status = next(
-            (str(item.get("status") or "") for item in stages if str(item.get("stage") or "") == preferred), ""
-        )
-        if preferred_status in {"pending", "in_progress", "blocked", "failed"}:
-            return preferred
-    for stage in _LONG_TASK_STAGE_ORDER:
-        status = next(
-            (str(item.get("status") or "pending") for item in stages if str(item.get("stage") or "") == stage),
-            "pending",
-        )
-        if status != "completed":
-            return stage
-    return "done"
 
 
 def _compact_long_task_state(state: JSONObject) -> JSONObject:
@@ -2940,18 +2994,20 @@ def _compact_long_task_state(state: JSONObject) -> JSONObject:
                 "next_actions": compact_json_value(item.get("next_actions"), max_items=5, max_depth=3),
             }
         )
-    return {
+    compact: JSONObject = {
         "contract_version": "agent_long_task.stage.v1",
         "session_id": state.get("session_id"),
         "project_key": state.get("project_key"),
         "task_kind": state.get("task_kind"),
-        "current_stage": state.get("current_stage"),
         "completed_stages": completed,
         "blocked_stages": blocked,
         "updated_at": state.get("updated_at"),
         "stage_summaries": stage_summaries,
         "next_actions": _collect_long_task_next_actions(stages),
     }
+    if "current_stage" in state:
+        compact["current_stage"] = state.get("current_stage")
+    return compact
 
 
 def _collect_long_task_next_actions(stages: list[JSONObject]) -> list[JSONObject]:
@@ -2963,43 +3019,6 @@ def _collect_long_task_next_actions(stages: list[JSONObject]) -> list[JSONObject
             if len(out) >= 12:
                 return out
     return out
-
-
-def _attach_long_task_state_to_task(
-    *,
-    service: AgentSessionService,
-    session_id: str,
-    task_id: str,
-    artifact_name: str,
-    state: JSONObject,
-    stage: str,
-    stage_status: str,
-) -> None:
-    try:
-        task_result = service.store.get_task(session_id, task_id)
-    except Exception:
-        return
-    if isinstance(task_result, Failure):
-        return
-    task = json_object(task_result)
-    metadata = json_object(task.get("metadata"))
-    metadata["long_task_state_artifact"] = artifact_name
-    metadata["long_task_current_stage"] = state.get("current_stage")
-    metadata["long_task_last_stage"] = stage
-    result_payload = json_object(task.get("result_payload"))
-    result_payload["long_task_stage_state"] = _compact_long_task_state(state)
-    recent_activities = normalize_string_list(task.get("recent_activities"))
-    recent_activities.append(f"{stage}:{stage_status}")
-    service.store.update_task(
-        session_id,
-        task_id,
-        {
-            "metadata": metadata,
-            "result_payload": result_payload,
-            "last_activity": f"long-task stage {stage} {stage_status}",
-            "recent_activities": recent_activities[-8:],
-        },
-    )
 
 
 def _bounded_int(value: object, *, default: int, minimum: int, maximum: int) -> int:
@@ -3779,7 +3798,7 @@ def _run_agent_batch_submit_tool(
             AgentBatchItemSubmit,
             AgentBatchSubmitBatch,
             AgentBatchSubmitRequest,
-            submit_agent_batch_job,
+            submit_agent_batch_for_actor,
         )
 
         payload = AgentBatchSubmitRequest(
@@ -3790,7 +3809,22 @@ def _run_agent_batch_submit_tool(
             rule_set_id=str(tool_call.arguments.get("rule_set_id") or "").strip() or None,
             rule_set=json_object(tool_call.arguments.get("rule_set")),
         )
-        response = submit_agent_batch_job(payload)
+        from .host_authorization import current_verified_host_authorization
+
+        authorization = current_verified_host_authorization()
+        actor = authorization.actor_context if authorization is not None else None
+        if (
+            authorization is None
+            or authorization.context.project_key != project_key
+            or authorization.context.session_id != request.session_id
+            or actor is None
+        ):
+            return CoreToolResult(
+                call_id=tool_call.call_id, tool_name=tool_call.tool_name,
+                status="failed", model_summary="agent_batch.submit requires a trusted request actor.",
+                error={"code": "request_actor_context_missing", "message": "verified host authorization has no trusted request actor"},
+            )
+        response = submit_agent_batch_for_actor(payload, actor)
     except Exception as exc:  # noqa: BLE001
         return CoreToolResult(
             call_id=tool_call.call_id,
@@ -3868,9 +3902,36 @@ def _workflow_graph_run_handler(
             skipped_items=[graph_id],
             dispatched_count=0,
         )
+    from .host_authorization import current_verified_host_authorization
+
+    authorization = current_verified_host_authorization()
+    actor_context = authorization.actor_context if authorization is not None else None
+    if (
+        authorization is None
+        or authorization.context.project_key != project_key
+        or authorization.context.session_id != request.session_id
+        or actor_context is None
+        or not actor_context.actor_trusted
+        or not str(actor_context.actor_id or "").strip()
+    ):
+        return CoreToolResult(
+            call_id=tool_call.call_id,
+            tool_name=tool_call.tool_name,
+            status="failed",
+            model_summary="workflow_graph.run requires a trusted request actor.",
+            error={
+                "code": "request_actor_context_missing",
+                "message": "verified host authorization has no trusted request actor",
+            },
+        )
     invoked = invoke_skill(
         skill_id="workflow_graph.run",
-        payload={"graph_id": graph_id, "input": inputs, "project_key": project_key},
+        payload={
+            "graph_id": graph_id,
+            "input": inputs,
+            "project_key": project_key,
+            "actor_id": actor_context.actor_id,
+        },
         context={
             "actor_role": "business_capability_wrapper",
             "permissions": ["workflow_graph.run"],

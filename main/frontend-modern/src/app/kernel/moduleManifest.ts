@@ -1,4 +1,9 @@
-import { STORYBOOK_GROUP_BY_LAYER, type KernelModuleKey, type ModuleManifestEntry, type NavMessageKey, type TitleMessageKey } from './types'
+import {
+  STORYBOOK_GROUP_BY_LAYER,
+  type ModuleContractDefinition,
+  type ModuleManifestEntryDefinition as ModuleManifestEntryShape,
+  type ModuleNavGroupKey,
+} from './types'
 
 const WRITING_LOOPS = ['edit', 'preview', 'template', 'llm-assist', 'citation-basket', 'info-card'] as const
 const WORKFLOW_LOOPS = ['node-template', 'edge-link', 'run-params', 'result-review', 'import-export'] as const
@@ -20,7 +25,7 @@ const DESIGN_SOURCES = {
   codemirrorTooltip: 'reference-pool/oss/codemirror-view/src/tooltip.ts',
 } as const
 
-function buildDesignSources(layerId: ModuleManifestEntry['layerId'], moduleKey: KernelModuleKey): readonly string[] {
+function buildDesignSources(layerId: ModuleManifestEntryShape['layerId'], moduleKey: string): readonly string[] {
   const shared = [DESIGN_SOURCES.figma]
   if (layerId === 'A') {
     const sources: string[] = [DESIGN_SOURCES.quiet, DESIGN_SOURCES.outlineSidebar]
@@ -36,19 +41,19 @@ function buildDesignSources(layerId: ModuleManifestEntry['layerId'], moduleKey: 
   return [...shared, DESIGN_SOURCES.monolith, DESIGN_SOURCES.outlineSidebar]
 }
 
-function defineModule(
-  moduleKey: KernelModuleKey,
-  layerId: ModuleManifestEntry['layerId'],
-  surfaceKind: ModuleManifestEntry['surfaceKind'],
-  entryRoute: ModuleManifestEntry['entryRoute'],
+function defineModule<ModuleKey extends string>(
+  moduleKey: ModuleKey,
+  layerId: ModuleManifestEntryShape['layerId'],
+  surfaceKind: ModuleManifestEntryShape['surfaceKind'],
+  entryRoute: ModuleManifestEntryShape['entryRoute'],
   legacyHash: string,
-  navGroupKey: ModuleManifestEntry['navGroupKey'],
+  navGroupKey: ModuleNavGroupKey,
   keepLoops: readonly string[],
   supportsInfoCard: boolean,
   additionalLegacyHashes: readonly string[] = [],
-): ModuleManifestEntry {
-  const titleKey = `shell.title.${moduleKey}` as TitleMessageKey
-  const navLabelKey = `navigation.item.${moduleKey}` as NavMessageKey
+): ModuleManifestEntryShape<ModuleKey> {
+  const titleKey: ModuleManifestEntryShape<ModuleKey>['titleKey'] = `shell.title.${moduleKey}`
+  const navLabelKey: ModuleManifestEntryShape<ModuleKey>['navLabelKey'] = `navigation.item.${moduleKey}`
 
   return {
     moduleKey,
@@ -69,8 +74,6 @@ function defineModule(
   }
 }
 
-export const DEFAULT_KERNEL_MODULE: KernelModuleKey = 'overviewTasks'
-
 // Presentation grouping only. Routes, labels and module identities still come from the manifest.
 export const ADMIN_NAV_SECTIONS: readonly { labelKey: 'shell.admin.group.projectData' | 'shell.admin.group.runtime' | 'shell.admin.group.configuration'; items: readonly KernelModuleKey[] }[] = [
   { labelKey: 'shell.admin.group.projectData', items: ['overviewData', 'sysResource', 'flowExtract', 'sysCrawler'] },
@@ -78,7 +81,7 @@ export const ADMIN_NAV_SECTIONS: readonly { labelKey: 'shell.admin.group.project
   { labelKey: 'shell.admin.group.configuration', items: ['sysProjects', 'sysSettings', 'sysLlm', 'sysBusinessGuide'] },
 ]
 
-export const moduleManifest: readonly ModuleManifestEntry[] = [
+export const moduleManifest = [
   defineModule('overviewTasks', 'C', 'management', '/admin/process', '#process-management.html', 'navigation.group.overview', PROCESS_LOOPS, false),
   defineModule('overviewData', 'C', 'management', '/admin/ops', '#admin.html', 'navigation.group.overview', ['status-review', 'control-entry'], false),
   defineModule('dataDashboard', 'B', 'visualization', '/visual/dashboard', '#dashboard.html', 'navigation.group.dataFacets', VISUAL_LOOPS, true),
@@ -123,6 +126,13 @@ export const moduleManifest: readonly ModuleManifestEntry[] = [
   defineModule('sysSuccessorRuntime', 'C', 'management', '/admin/successor-runtime', '#successor-runtime.html', 'navigation.group.system', ['status-review'], false),
   defineModule('sysBusinessGuide', 'C', 'management', '/admin/guide', '#business-guide.html', 'navigation.group.system', ['chain-overview', 'detail-inspect'], false),
 ] as const
+
+export type KernelModuleKey = (typeof moduleManifest)[number]['moduleKey']
+export type NavMode = KernelModuleKey
+export type ModuleManifestEntry = ModuleManifestEntryShape<KernelModuleKey>
+export type ModuleContract = ModuleContractDefinition<KernelModuleKey>
+
+export const DEFAULT_KERNEL_MODULE: KernelModuleKey = 'overviewTasks'
 
 export const moduleManifestByKey = Object.fromEntries(
   moduleManifest.map((entry) => [entry.moduleKey, entry]),

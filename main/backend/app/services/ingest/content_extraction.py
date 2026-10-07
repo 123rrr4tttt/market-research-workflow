@@ -218,7 +218,7 @@ def extract_main_text_from_html(html: str) -> str:
     if not raw_html:
         return ""
     try:
-        return _locate_main_text_from_html(
+        return locate_main_text_from_html(
             raw_html,
             selectors=("article", "main article", "[role='main'] article", "main", "[role='main']"),
         )
@@ -227,7 +227,7 @@ def extract_main_text_from_html(html: str) -> str:
     return ""
 
 
-def _locate_main_text_from_html(
+def locate_main_text_from_html(
     html: Any,
     *,
     selectors: tuple[str, ...],

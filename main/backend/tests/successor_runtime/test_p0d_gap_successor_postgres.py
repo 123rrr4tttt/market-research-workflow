@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 import pytest
@@ -12,13 +13,27 @@ from app.successor_runtime.capabilities import (
     build_first_specimen_catalog,
 )
 from app.successor_runtime.capabilities.catalog import build_first_specimen_registry
+from app.successor_runtime.language.combinators import (
+    build_first_specimen_program,
+    default_registries,
+)
 from app.successor_runtime.language.compile import compile_program
 from app.successor_runtime.research.claims import Gap
-from app.successor_runtime.research.codec import dataclass_to_json, sha256_hex
+from app.successor_runtime.research.codec import (
+    canonical_bytes,
+    dataclass_to_json,
+    sha256_hex,
+)
 from app.successor_runtime.research.identities import ResearchObjectRef
-from app.successor_runtime.research.object_types import GAP_TYPE
+from app.successor_runtime.research.inquiries import Inquiry, ResearchIntent
+from app.successor_runtime.research.object_types import (
+    GAP_TYPE,
+    INQUIRY_TYPE,
+    RESEARCH_INTENT_TYPE,
+)
 from app.successor_runtime.runtime.assignments import (
     AssignmentKind,
+    CompilerBinding,
     HandlerBindingKind,
     MaterializerBinding,
     RuntimeAssignment,
@@ -50,11 +65,14 @@ from app.successor_runtime.substrate.postgres.nodes import (
     RuntimeNodeRepository,
 )
 from app.successor_runtime.substrate.postgres.plans import PlanRepository
+from app.successor_runtime.substrate.postgres.programs import ProgramRepository
 from app.successor_runtime.substrate.postgres.research_ledger import (
     ResearchLedgerRepository,
 )
 from app.successor_runtime.substrate.postgres.runtime_lifecycle import (
     AssignmentEnvelope,
+    RuntimeLifecycleRepository,
+    SubmitRun,
     _assignment_values,
 )
 from app.successor_runtime.substrate.postgres.unit_of_work import RuntimeUnitOfWork
@@ -72,7 +90,7 @@ from .p0c_postgres_fixture import (
     LiveP0CDatabase,
     live_p0c_database,  # noqa: F401 - registers the module-scoped dependency fixture
     p0c_database,  # noqa: F401 - imported pytest fixture
-    submission_command,
+    source_ref,
 )
 
 pytestmark = pytest.mark.integration
@@ -94,23 +112,75 @@ class _AdvancingClock:
         return self.current
 
 
+@dataclass(frozen=True, slots=True)
+class _Predecessor:
+    run_id: str
+    run_incarnation: str
+    inquiry_id: str
+    claim_authority_epoch: int
+    claim_policy_digest: str
+    resource_policy_epoch: int
+    compiler_binding: CompilerBinding
+
+
 def _seed_predecessor(database: LiveP0CDatabase) -> tuple[object, object, object]:
-    command = submission_command(suffix="p0d-gap")
-    submitted = database.submission_service().submit(command)
     bundle = build_first_specimen_bundle()
     catalog = build_first_specimen_catalog(bundle.operations)
     registry = build_first_specimen_registry(bundle.operations)
+    registries = default_registries()
+    program = build_first_specimen_program(
+        catalog=catalog,
+        program_id="program:p0d-gap",
+        project_key=PROJECT_KEY,
+        project_scope_digest=database.scope.project_scope.scope_digest,
+        project_registry_revision=database.scope.project_scope.project_registry_revision,
+        registries=registries,
+        source_refs=(source_ref(101), source_ref(102)),
+    )
+    command = _Predecessor(
+        run_id="run:p0d-gap",
+        run_incarnation="run-inc:p0d-gap",
+        inquiry_id="inquiry:first-specimen",
+        claim_authority_epoch=7,
+        claim_policy_digest=_digest("p0d-claim-policy"),
+        resource_policy_epoch=8,
+        compiler_binding=CompilerBinding.from_content(
+            compiler_id="mrw.functorial-successor.compiler",
+            compiler_version="1.0.0",
+            compiler_digest=_digest("p0d-compiler"),
+            operation_catalog_digest=catalog.catalog_digest or "",
+            domain_contract_snapshot_digest=_digest("p0d-domain-contract"),
+        ),
+    )
     plan = compile_program(
-        submitted.program,
+        program,
         catalog,
         operation_contracts=registry,
-        transform_registry=command.registries.transforms,
-        merge_registry=command.registries.merges,
-        discriminator_registry=command.registries.discriminators,
+        transform_registry=registries.transforms,
+        merge_registry=registries.merges,
+        discriminator_registry=registries.discriminators,
+    )
+    intent = ResearchIntent(
+        intent_id="intent:first-specimen",
+        project_key=PROJECT_KEY,
+        purpose="compare the exact frozen Document 101 and 102 captures",
+        audience_or_use="internal research review",
+        scope={"documents": [101, 102]},
+        as_of=NOW,
+        constraints={"network": False, "external_delivery": False},
+        expected_delivery={"format": "markdown", "channel": "internal_export"},
+    )
+    inquiry = Inquiry(
+        inquiry_id=command.inquiry_id,
+        intent_ref=intent.intent_id,
+        question_or_hypothesis="bounded first-specimen inquiry",
+        acceptance_conditions=("two exact existing document captures",),
+        stop_conditions=("claim or explicit gap formed",),
+        uncertainty_ceiling="explicit",
     )
     gap = Gap(
         gap_id="gap:p0d:admitted",
-        inquiry_ref=command.inquiry.inquiry_id,
+        inquiry_ref=command.inquiry_id,
         requirement="two supporting qualifications",
         reason="the second source remains insufficient",
         closure_condition="admit two exact supporting qualifications",
@@ -135,6 +205,72 @@ def _seed_predecessor(database: LiveP0CDatabase) -> tuple[object, object, object
     )
     step_id = "step:p0d:admitted-gap"
     with database.engine.begin() as connection:
+        values = ValueRepository(connection, database.project_tables)
+        ledger = ResearchLedgerRepository(connection, database.project_tables)
+        for payload, object_id, object_type, incarnation in (
+            (
+                intent,
+                intent.intent_id,
+                RESEARCH_INTENT_TYPE,
+                "intent-inc:p0d:first-specimen",
+            ),
+            (
+                inquiry,
+                inquiry.inquiry_id,
+                INQUIRY_TYPE,
+                "inquiry-inc:p0d:first-specimen",
+            ),
+        ):
+            exact = canonical_bytes(payload)
+            exact_digest = hashlib.sha256(exact).hexdigest()
+            object_provenance = _digest(f"p0d-{object_id}-provenance")
+            values.put_exact(
+                database.scope,
+                value_id=object_id,
+                object_type=object_type.type_id,
+                codec_id=object_type.codec_id,
+                content=exact,
+                expected_digest=exact_digest,
+                provenance_digest=object_provenance,
+                expected_revision=0,
+                expected_incarnation=incarnation,
+                provenance={
+                    "kind": object_type.type_id,
+                    "run_id": command.run_id,
+                },
+            )
+            ledger.put_object(
+                database.scope,
+                ResearchObjectRef(
+                    object_id=object_id,
+                    object_type=object_type,
+                    project_key=PROJECT_KEY,
+                    incarnation=incarnation,
+                    owner_binding_ref="ResearchLedger",
+                    content_ref=f"project-value:{object_id}",
+                    content_digest=exact_digest,
+                    provenance_closure_digest=object_provenance,
+                    lifecycle_state="ADMITTED",
+                ),
+                expected_revision=0,
+                expected_incarnation=incarnation,
+            )
+        ProgramRepository(connection, database.project_tables).put_exact(
+            database.scope, program, program.program_digest
+        )
+        RuntimeLifecycleRepository(connection, database.scope).submit(
+            SubmitRun(
+                run_id=command.run_id,
+                incarnation=command.run_incarnation,
+                program_id=program.program_id,
+                program_digest=program.program_digest,
+                program_storage_ref=f"project-value:program:{program.program_id}",
+                contract_version=program.contract_version,
+                submission_authority_digest=_digest("p0d-submission-authority"),
+                compile_work=None,
+                due_at=NOW,
+            )
+        )
         PlanRepository(connection, database.project_tables).put_exact(
             database.scope,
             plan,
@@ -198,7 +334,7 @@ def _seed_predecessor(database: LiveP0CDatabase) -> tuple[object, object, object
                 finished_at=NOW,
             )
         )
-        ValueRepository(connection, database.project_tables).put_exact(
+        values.put_exact(
             database.scope,
             value_id=gap.gap_id,
             object_type=GAP_TYPE.type_id,
@@ -210,7 +346,7 @@ def _seed_predecessor(database: LiveP0CDatabase) -> tuple[object, object, object
             expected_incarnation=gap_incarnation,
             provenance={"kind": "admitted-gap", "run_id": command.run_id},
         )
-        ResearchLedgerRepository(connection, database.project_tables).put_object(
+        ledger.put_object(
             database.scope,
             gap_ref,
             expected_revision=0,
@@ -234,7 +370,7 @@ def _seed_predecessor(database: LiveP0CDatabase) -> tuple[object, object, object
         handler_binding_ref=f"handler-binding:sha256:{binding.binding_digest}",
         handler_binding_digest=binding.binding_digest,
         handler_binding=binding,
-        program_digest=submitted.program.program_digest,
+        program_digest=program.program_digest,
         plan_digest=plan.plan_digest,
         deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
         execution_epoch=0,

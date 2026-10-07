@@ -27,6 +27,7 @@ from app.successor_runtime.runtime.assignments import (
 )
 from app.successor_runtime.runtime.claims import ClaimBinding
 from app.successor_runtime.runtime.node import (
+    CancellationBeforeEffect,
     Clock,
     DefiniteInterpreterFailure,
     DeploymentBinding,
@@ -213,7 +214,7 @@ class PostgresCancellationAuthorityGuard:
         with self._uow_factory() as uow:
             run = self._run(uow.connection, assignment)
             if run["cancellation_requested"]:
-                raise ExactBindingConflict("run cancellation is current")
+                raise CancellationBeforeEffect("run cancellation is current")
             if (
                 assignment.deadline_at is not None
                 and assignment.deadline_at <= observed_at
@@ -237,7 +238,6 @@ class PostgresCancellationAuthorityGuard:
             scope = self._scope(
                 connection, run, assignment, claim.claim_binding.node_id
             )
-            del scope  # The validated current scope is the authority boundary.
 
             if assignment.assignment_kind is AssignmentKind.MATERIALIZE_SUCCESSOR:
                 if (
@@ -314,6 +314,20 @@ class PostgresCancellationAuthorityGuard:
                 or authorization.expires_at <= observed_at
             ):
                 raise ExactBindingConflict("step authorization exact binding drift")
+
+            # Re-read the actual grant/approval sources before crossing the
+            # effect boundary. The frozen authorization row alone cannot
+            # establish that a grant has not since been revoked.
+            from .authority_provider import PostgresAuthorityProvider
+            from app.successor_runtime.runtime.qualification import require_current_authority
+
+            current = PostgresAuthorityProvider(
+                connection,
+                RuntimeScope(project_scope=scope.project_scope, actor_id=authorization.actor_id),
+            ).current_step_binding(
+                assignment.run_id, assignment.step_id or "", now=observed_at,
+            )
+            require_current_authority(authorization, current, now=observed_at)
 
             capabilities = PUBLIC_TABLES["runtime_capability_authority"]
             capability = (

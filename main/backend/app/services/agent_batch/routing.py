@@ -32,10 +32,22 @@ def resolve_queue_for_lane(lane: str) -> str:
     return str(getattr(settings, "agent_batch_lane_main_queue", "celery") or "celery")
 
 
-def apply_async_or_delay(task_func: Any, args: tuple[Any, ...], kwargs: dict[str, Any], lane: str) -> Any:
+def apply_async_or_delay(
+    task_func: Any,
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    lane: str,
+    task_id: str | None = None,
+) -> Any:
     normalized = validate_lane(lane)
     queue_name = resolve_queue_for_lane(normalized)
     routing_key = f"agent_batch.{normalized}"
     if hasattr(task_func, "apply_async"):
-        return task_func.apply_async(args=args, kwargs=kwargs, queue=queue_name, routing_key=routing_key)
+        return task_func.apply_async(
+            args=args,
+            kwargs=kwargs,
+            queue=queue_name,
+            routing_key=routing_key,
+            task_id=task_id,
+        )
     return task_func.delay(*args, **kwargs)

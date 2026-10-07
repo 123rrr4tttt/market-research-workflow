@@ -127,7 +127,8 @@ class ValueRepository:
             table.c.project_key == project_key, table.c.value_id == value_id
         )))
         digest_row = one_mapping(self.connection.execute(select(table).where(
-            table.c.project_key == project_key, table.c.content_digest == expected_digest
+            table.c.project_key == project_key, table.c.content_digest == expected_digest,
+            table.c.codec_id == codec_id,
         )))
         for existing in (row, digest_row):
             if existing is None:

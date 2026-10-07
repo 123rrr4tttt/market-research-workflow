@@ -16,17 +16,54 @@ from app.successor_runtime.capabilities import (
     build_first_specimen_catalog,
 )
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.first_specimen import CanonicalReadInput
+from app.successor_runtime.capabilities.first_specimen import (
+    CanonicalReadInput,
+    CaptureDocumentSnapshotInput,
+    EvidenceQualificationInput,
+)
 from app.successor_runtime.capabilities.first_specimen_interpreters import (
     CapturedDocumentValue,
     FirstSpecimenInterpreters,
     InterpreterSuccess,
 )
+from app.successor_runtime.language.algebra import (
+    AlgebraRef,
+    OperationSpec,
+    ValueRef,
+    freeze_json_object,
+)
 from app.successor_runtime.language.catalog import OperationContractRegistry
+from app.successor_runtime.language.combinators import (
+    PROGRAM_CONTRACT_VERSION,
+    default_registries,
+)
 from app.successor_runtime.language.compile import compile_program
+from app.successor_runtime.language.program import (
+    ProgramNode,
+    ProgramSpec,
+    atom_node,
+    content_addressed_literal,
+    identity_node,
+    map_output_node,
+    pure_node,
+    then_node,
+    zip_ordered_node,
+)
 from app.successor_runtime.research.artifacts import ResearchArtifact
-from app.successor_runtime.research.codec import canonical_bytes, dataclass_to_json
-from app.successor_runtime.research.object_types import RESEARCH_ARTIFACT_TYPE
+from app.successor_runtime.research.codec import (
+    canonical_bytes,
+    dataclass_to_json,
+    sha256_hex,
+)
+from app.successor_runtime.research.object_types import (
+    CAPTURED_MATERIAL_SNAPSHOT_TYPE,
+    EVIDENCE_QUALIFICATION_TYPE,
+    MATERIAL_REF_TYPE,
+    RESEARCH_ARTIFACT_TYPE,
+    RESEARCH_PLAN_TYPE,
+    SOURCE_REF_TYPE,
+    ObjectType,
+)
 from app.successor_runtime.runtime.assignments import (
     AssignmentKind,
     CompiledStepRole,
@@ -70,6 +107,9 @@ from app.successor_runtime.substrate.postgres.authority import (
 from app.successor_runtime.substrate.postgres.authority_provider import (
     PostgresAuthorityProvider,
 )
+from app.successor_runtime.substrate.postgres.captured_values import (
+    canonical_read_payload_from_source,
+)
 from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
 from app.successor_runtime.substrate.postgres.node_adapter import (
     PostgresRuntimeNodeAdapter,
@@ -81,6 +121,7 @@ from app.successor_runtime.substrate.postgres.nodes import (
     RuntimeNodeRepository,
 )
 from app.successor_runtime.substrate.postgres.plans import PlanRepository
+from app.successor_runtime.substrate.postgres.programs import ProgramRepository
 from app.successor_runtime.substrate.postgres.qualification_store import (
     QualificationStoreRepository,
 )
@@ -93,6 +134,7 @@ from app.successor_runtime.substrate.postgres.runtime_lifecycle import (
     AssignmentEnvelope,
     AttachPlan,
     RuntimeLifecycleRepository,
+    SubmitRun,
     _assignment_values,
 )
 from app.successor_runtime.substrate.postgres.runtime_values import (
@@ -117,13 +159,12 @@ from .p0c_postgres_fixture import (
     PROJECT_REGISTRY_REVISION,
     PROJECT_SCOPE_DIGEST,
     RESOURCE_POLICY_DIGEST,
+    SUBMISSION_AUTHORITY_DIGEST,
     LiveP0CDatabase,
-    live_p0c_database,
-    p0c_database,
-    submission_command,
 )
 
 pytestmark = pytest.mark.integration
+pytest_plugins = ("tests.successor_runtime.p0c_postgres_fixture",)
 
 NODE_PROFILE_DIGEST = hashlib.sha256(b"p0c-isomorphic-node-profile").hexdigest()
 SECURITY_PROFILE_DIGEST = hashlib.sha256(b"p0c-security-profile").hexdigest()
@@ -269,23 +310,260 @@ def _payload(cls: type, **values: object) -> Any:
     return cls(**values, payload_digest=content_digest(values))
 
 
+def _material_to_qualification_input(material: Any) -> dict[str, Any]:
+    return {"material_ref": getattr(material, "material_ref_id", material)}
+
+
+def _merge_qualifications(left: Any, right: Any) -> dict[str, Any]:
+    return {"evidence_qualifications": [left, right]}
+
+
+def _persist_payload(
+    connection: Any,
+    database: LiveP0CDatabase,
+    *,
+    submission_id: str,
+    operation_id: str,
+    operation_kind: str,
+    payload: object,
+) -> ValueRef:
+    codec = build_first_specimen_bundle().codec_by_kind(operation_kind)
+    exact = canonical_bytes(codec.encode_payload(payload))
+    provenance = {
+        "submission_id": submission_id,
+        "operation_id": operation_id,
+        "operation_kind": operation_kind,
+        "codec_digest": codec.codec_digest,
+    }
+    value_id = f"{submission_id}:payload:{operation_id}"
+    object_type = ObjectType(
+        type_id=codec.payload_type_id,
+        schema_version=codec.codec_version,
+        codec_id=codec.codec_id,
+        canonical_codec_version=codec.codec_version,
+    )
+    ref = ValueRef(
+        value_id=value_id,
+        project_key=PROJECT_KEY,
+        object_type=object_type,
+        codec_id=codec.codec_id,
+        content_digest=hashlib.sha256(exact).hexdigest(),
+        storage_kind="project_value_ref",
+        store_id="successor_values",
+        store_version="1",
+        storage_ref=f"project-value:{value_id}",
+        byte_size=len(exact),
+        provenance_digest=sha256_hex(provenance),
+    )
+    ValueRepository(connection, database.project_tables).put_exact(
+        database.scope,
+        value_id=ref.value_id,
+        object_type=ref.object_type.type_id,
+        codec_id=ref.codec_id,
+        content=exact,
+        expected_digest=ref.content_digest,
+        provenance_digest=ref.provenance_digest,
+        expected_revision=0,
+        expected_incarnation=f"p0c:{submission_id}:{value_id}",
+        provenance=provenance,
+    )
+    return ref
+
+
+def _exact_atom(
+    *,
+    catalog: Any,
+    operation_id: str,
+    operation_kind: str,
+    input_type: ObjectType,
+    output_type: ObjectType,
+    input_ref: ValueRef,
+    payload_ref: ValueRef,
+) -> ProgramNode:
+    contract_ref = catalog.lookup(operation_kind)
+    assert contract_ref is not None
+    return atom_node(
+        OperationSpec(
+            operation_id=operation_id,
+            contract_ref=contract_ref,
+            input_refs=(input_ref,),
+            payload_ref=payload_ref,
+            allowed_overrides=freeze_json_object({}),
+        ),
+        input_type=input_type,
+        output_type=output_type,
+    )
+
+
 def _prepare_execution(database: LiveP0CDatabase) -> _PreparedNodeSpecimen:
-    command = submission_command()
-    submitted = database.submission_service().submit(command)
+    run_id = "run:p0c:two-nodes"
+    run_incarnation = "run-inc:p0c:two-nodes"
+    submission_id = "submission:two-nodes"
+    captures = database.capture_documents(
+        suffix="two-nodes", submission_id=submission_id
+    )
     bundle = build_first_specimen_bundle()
     catalog = build_first_specimen_catalog(bundle.operations)
     registry = OperationContractRegistry(catalog, bundle.operations)
+    registries = default_registries()
+    evidence_bundle_type = ObjectType("EvidenceBundle.v1")
+    qualification_bundle_type = ObjectType("EvidenceQualificationBundle.v1")
+    material_to_qualification = registries.transforms.register_transform(
+        name="mrw.p0c.two-nodes.material-to-qualification",
+        version="1",
+        input_type=MATERIAL_REF_TYPE,
+        output_type=evidence_bundle_type,
+        func=_material_to_qualification_input,
+    )
+    qualification_merge = registries.merges.register_merge(
+        name="mrw.p0c.two-nodes.qualification-merge",
+        version="1",
+        left_type=EVIDENCE_QUALIFICATION_TYPE,
+        right_type=EVIDENCE_QUALIFICATION_TYPE,
+        output_type=qualification_bundle_type,
+        func=_merge_qualifications,
+    )
+
+    operation_payloads: dict[str, ValueRef] = {}
+    with database.engine.begin() as connection:
+        for label, capture in zip(("a", "b"), captures, strict=True):
+            payloads = (
+                (
+                    f"material.capture.source.{label}",
+                    "material.capture_document_snapshot.v1",
+                    _payload(
+                        CaptureDocumentSnapshotInput,
+                        source_ref=capture.source_ref.source_ref_id,
+                        document_id=capture.observation.document_id,
+                        content_sha256_hex=capture.snapshot_value_ref.content_digest,
+                        observed_updated_at=capture.observation.updated_at.isoformat(),
+                        byte_size=len(capture.observation.exact_bytes),
+                    ),
+                ),
+                (
+                    f"material.read.source.{label}",
+                    "material.read_canonical_ref.v1",
+                    canonical_read_payload_from_source(capture.source_ref),
+                ),
+                (
+                    f"evidence.qualify.source.{label}",
+                    "evidence.qualify.v1",
+                    _payload(
+                        EvidenceQualificationInput,
+                        qualification_id=f"qualification:{run_id}:source:{label}",
+                        material_ref=capture.material.material_ref_id,
+                        inquiry_ref="inquiry:first-specimen",
+                        direction="SUPPORTS" if label == "a" else "CONTRADICTS",
+                        scope_statement_ref=f"scope-statement:{run_id}:source:{label}",
+                        uncertainty_profile_ref=(
+                            "uncertainty:first-specimen:explicit"
+                        ),
+                        verifier_profile_ref=(
+                            "verifier:first-specimen:deterministic"
+                        ),
+                    ),
+                ),
+            )
+            for operation_id, operation_kind, payload in payloads:
+                operation_payloads[operation_id] = _persist_payload(
+                    connection,
+                    database,
+                    submission_id=submission_id,
+                    operation_id=operation_id,
+                    operation_kind=operation_kind,
+                    payload=payload,
+                )
+
+    paths: list[ProgramNode] = []
+    for label, capture in zip(("a", "b"), captures, strict=True):
+        source_node = pure_node(
+            input_type=RESEARCH_PLAN_TYPE,
+            output_type=SOURCE_REF_TYPE,
+            literal_value=content_addressed_literal(
+                {"source_value_ref": capture.source_value_ref.to_plain()}
+            ),
+            literal_codec="mrw.functorial-successor.value-ref.literal.v1",
+        )
+        capture_node = _exact_atom(
+            catalog=catalog,
+            operation_id=f"material.capture.source.{label}",
+            operation_kind="material.capture_document_snapshot.v1",
+            input_type=SOURCE_REF_TYPE,
+            output_type=CAPTURED_MATERIAL_SNAPSHOT_TYPE,
+            input_ref=capture.source_value_ref,
+            payload_ref=operation_payloads[f"material.capture.source.{label}"],
+        )
+        read_node = _exact_atom(
+            catalog=catalog,
+            operation_id=f"material.read.source.{label}",
+            operation_kind="material.read_canonical_ref.v1",
+            input_type=CAPTURED_MATERIAL_SNAPSHOT_TYPE,
+            output_type=MATERIAL_REF_TYPE,
+            input_ref=capture.snapshot_value_ref,
+            payload_ref=operation_payloads[f"material.read.source.{label}"],
+        )
+        qualification_input_node = map_output_node(
+            identity_node(MATERIAL_REF_TYPE),
+            material_to_qualification,
+            evidence_bundle_type,
+        )
+        qualification_node = _exact_atom(
+            catalog=catalog,
+            operation_id=f"evidence.qualify.source.{label}",
+            operation_kind="evidence.qualify.v1",
+            input_type=evidence_bundle_type,
+            output_type=EVIDENCE_QUALIFICATION_TYPE,
+            input_ref=capture.material_value_ref,
+            payload_ref=operation_payloads[f"evidence.qualify.source.{label}"],
+        )
+        path = source_node
+        for node in (
+            capture_node,
+            read_node,
+            qualification_input_node,
+            qualification_node,
+        ):
+            path = then_node(path, node)
+        paths.append(path)
+
+    root = zip_ordered_node(
+        paths[0],
+        paths[1],
+        qualification_merge,
+        output_type=qualification_bundle_type,
+    )
+    program = ProgramSpec(
+        program_id="program:p0c:two-nodes",
+        contract_version=PROGRAM_CONTRACT_VERSION,
+        project_key=PROJECT_KEY,
+        project_registry_revision=PROJECT_REGISTRY_REVISION,
+        project_scope_digest=PROJECT_SCOPE_DIGEST,
+        semantic_identity="two-exact-captured-material-reads",
+        input_type=root.input_type,
+        output_type=root.output_type,
+        root=root,
+        algebra_refs=(
+            AlgebraRef(
+                algebra_id="mrw.successor.language.algebra",
+                algebra_version="1",
+            ),
+        ),
+        transform_refs=(material_to_qualification, qualification_merge),
+        observation_profile="mrw.p0c.two-nodes.observation.v1",
+        metadata=freeze_json_object({"fixture": "p0c-two-nodes"}),
+        program_digest="",
+    ).with_digest()
     plan = compile_program(
-        submitted.program,
+        program,
         catalog,
         operation_contracts=registry,
-        transform_registry=command.registries.transforms,
-        merge_registry=command.registries.merges,
-        discriminator_registry=command.registries.discriminators,
+        transform_registry=registries.transforms,
+        merge_registry=registries.merges,
+        discriminator_registry=registries.discriminators,
     )
     capture_by_label = {
-        "material.read.source.a": submitted.captures[0],
-        "material.read.source.b": submitted.captures[1],
+        "material.read.source.a": captures[0],
+        "material.read.source.b": captures[1],
     }
     contracts = {operation.ref.kind: operation for operation in bundle.operations}
     bindings: dict[str, InterpreterBinding] = {}
@@ -398,7 +676,7 @@ def _prepare_execution(database: LiveP0CDatabase) -> _PreparedNodeSpecimen:
         eligibility = eligibility_by_step[step.step_id]
         authorizations.append(
             StepAuthorizationBinding.from_content(
-                run_id=command.run_id,
+                run_id=run_id,
                 step_id=step.step_id,
                 operation_kind=step.operation_contract_ref.kind,
                 operation_contract_digest=step.operation_contract_ref.contract_digest,
@@ -435,7 +713,7 @@ def _prepare_execution(database: LiveP0CDatabase) -> _PreparedNodeSpecimen:
     exact_qualification = ExactQualificationBinding.from_content(
         qualification_id="qualification:p0c:execution-plan",
         project_key=PROJECT_KEY,
-        run_id=command.run_id,
+        run_id=run_id,
         plan_id=plan.plan_id,
         plan_digest=plan.plan_digest,
         authority_context=authority_context,
@@ -453,10 +731,10 @@ def _prepare_execution(database: LiveP0CDatabase) -> _PreparedNodeSpecimen:
     )
     qualify_assignment = RuntimeAssignment(
         runtime_protocol_version="1",
-        work_item_id=f"{command.run_id}:qualify",
+        work_item_id=f"{run_id}:qualify",
         assignment_kind=AssignmentKind.QUALIFY,
         project_key=PROJECT_KEY,
-        run_id=command.run_id,
+        run_id=run_id,
         capability_id="mrw.first-specimen.qualify",
         handler_binding_kind=HandlerBindingKind.QUALIFICATION,
         handler_binding_ref=(
@@ -464,11 +742,11 @@ def _prepare_execution(database: LiveP0CDatabase) -> _PreparedNodeSpecimen:
         ),
         handler_binding_digest=qualification_handler.binding_digest,
         handler_binding=qualification_handler,
-        program_digest=submitted.program.program_digest,
+        program_digest=program.program_digest,
         plan_digest=plan.plan_digest,
         deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
         execution_epoch=0,
-        incarnation=command.run_incarnation,
+        incarnation=run_incarnation,
         queue_eligibility_digest=_digest("p0c-qualify-eligibility"),
         resource_policy_epoch=RESOURCE_POLICY_EPOCH,
         claim_authority_epoch=AUTHORITY_EPOCH,
@@ -486,8 +764,24 @@ def _prepare_execution(database: LiveP0CDatabase) -> _PreparedNodeSpecimen:
         )
 
     with database.engine.begin() as connection:
+        ProgramRepository(connection, database.project_tables).put_exact(
+            database.scope, program, program.program_digest
+        )
+        RuntimeLifecycleRepository(connection, database.scope).submit(
+            SubmitRun(
+                run_id=run_id,
+                incarnation=run_incarnation,
+                program_id=program.program_id,
+                program_digest=program.program_digest,
+                program_storage_ref=f"project-value:program:{program.program_id}",
+                contract_version=program.contract_version,
+                submission_authority_digest=SUBMISSION_AUTHORITY_DIGEST,
+                compile_work=None,
+                due_at=NOW,
+            )
+        )
         RuntimeJournalRepository(connection, database.scope).append_transition(
-            run_id=command.run_id,
+            run_id=run_id,
             expected_revision=0,
             snapshot_values={"state": "COMPILING"},
             events=(
@@ -495,17 +789,9 @@ def _prepare_execution(database: LiveP0CDatabase) -> _PreparedNodeSpecimen:
                     "event_type": "CompileSucceeded",
                     "schema_version": "mrw.runtime.event.compile-succeeded.v1",
                     "event_metadata_json": {"plan_digest": plan.plan_digest},
-                    "authority_digest": command.submission_authority_digest,
+                    "authority_digest": SUBMISSION_AUTHORITY_DIGEST,
                 },
             ),
-        )
-        connection.execute(
-            sa.update(PUBLIC_TABLES["runtime_work_items"])
-            .where(
-                PUBLIC_TABLES["runtime_work_items"].c.work_item_id
-                == submitted.compile_assignment.work_item_id
-            )
-            .values(state="COMPLETED", revision=1)
         )
         PlanRepository(connection, database.project_tables).put_exact(
             database.scope,
@@ -518,7 +804,7 @@ def _prepare_execution(database: LiveP0CDatabase) -> _PreparedNodeSpecimen:
         lifecycle = RuntimeLifecycleRepository(connection, database.scope)
         lifecycle.attach_plan(
             AttachPlan(
-                run_id=command.run_id,
+                run_id=run_id,
                 expected_run_revision=1,
                 plan_id=plan.plan_id,
                 plan_digest=plan.plan_digest,
@@ -550,7 +836,7 @@ def _prepare_execution(database: LiveP0CDatabase) -> _PreparedNodeSpecimen:
             connection.execute(
                 sa.insert(PUBLIC_TABLES["runtime_steps"]).values(
                     project_key=PROJECT_KEY,
-                    run_id=command.run_id,
+                    run_id=run_id,
                     step_id=step.step_id,
                     operation_id=step.operation_id,
                     operation_kind=step.operation_contract_ref.kind,
@@ -575,7 +861,7 @@ def _prepare_execution(database: LiveP0CDatabase) -> _PreparedNodeSpecimen:
         )
         lifecycle.activate_qualification(
             ActivateQualification(
-                run_id=command.run_id,
+                run_id=run_id,
                 expected_run_revision=2,
                 binding=exact_qualification,
             )
@@ -634,7 +920,7 @@ def _prepare_execution(database: LiveP0CDatabase) -> _PreparedNodeSpecimen:
                 work_item_id=f"work:{step.step_id}",
                 assignment_kind=AssignmentKind.INTERPRET,
                 project_key=PROJECT_KEY,
-                run_id=command.run_id,
+                run_id=run_id,
                 step_id=step.step_id,
                 step_role=CompiledStepRole.EFFECT,
                 capability_id=CAPABILITY_ID,
@@ -653,7 +939,7 @@ def _prepare_execution(database: LiveP0CDatabase) -> _PreparedNodeSpecimen:
                 plan_digest=plan.plan_digest,
                 deployment_catalog_digest=DEPLOYMENT_CATALOG_DIGEST,
                 execution_epoch=0,
-                incarnation=command.run_incarnation,
+                incarnation=run_incarnation,
                 input_refs=input_refs,
                 input_closure_digest=input_digest,
                 queue_eligibility_digest=eligibility.eligibility_digest,

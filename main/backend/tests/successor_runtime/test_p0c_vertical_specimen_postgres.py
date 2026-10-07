@@ -25,9 +25,11 @@ from app.successor_runtime.research import Claim
 from app.successor_runtime.research.codec import canonical_bytes, dataclass_to_json
 from app.successor_runtime.research.evidence import Validity
 from app.successor_runtime.research.identities import ResearchObjectRef
+from app.successor_runtime.research.inquiries import Inquiry
 from app.successor_runtime.research.object_types import (
     CLAIM_TYPE,
     RESEARCH_ARTIFACT_TYPE,
+    INQUIRY_TYPE,
 )
 from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
 from app.successor_runtime.substrate.postgres.research_ledger import (
@@ -36,6 +38,10 @@ from app.successor_runtime.substrate.postgres.research_ledger import (
 from app.successor_runtime.substrate.postgres.runtime_journal import (
     RuntimeJournalRepository,
 )
+from app.successor_runtime.substrate.postgres.runtime_lifecycle import (
+    RuntimeLifecycleRepository,
+    SubmitRun,
+)
 from app.successor_runtime.substrate.postgres.values import ValueRepository
 
 from .p0c_postgres_fixture import (
@@ -43,14 +49,14 @@ from .p0c_postgres_fixture import (
     PROJECT_KEY,
     SEED_CONTENT_SHA256,
     LiveP0CDatabase,
-    live_p0c_database,
-    p0c_database,
-    submission_command,
 )
 
 pytestmark = pytest.mark.integration
+pytest_plugins = ("tests.successor_runtime.p0c_postgres_fixture",)
 
 PROVENANCE_DIGEST = hashlib.sha256(b"p0c-vertical-provenance").hexdigest()
+RUN_ID = "run:p0c:vertical"
+SUBMISSION_AUTHORITY_DIGEST = hashlib.sha256(b"p0c-vertical-authority").hexdigest()
 
 
 def _payload(cls: type, **values: object) -> Any:
@@ -163,46 +169,84 @@ def _put_payload_object(
     return ref
 
 
-def test_runtime_material_identity_matches_the_exact_submission_program_output(
+def _captures_and_inquiry(
+    database: LiveP0CDatabase,
+) -> tuple[tuple[Any, Any], ResearchObjectRef]:
+    captures = database.capture_documents(suffix="vertical")
+    inquiry = Inquiry(
+        inquiry_id="inquiry:p0c:vertical",
+        intent_ref="intent:p0c:vertical",
+        question_or_hypothesis="What do the two frozen documents establish?",
+        acceptance_conditions=("two exact captured inputs",),
+        stop_conditions=("claim or explicit gap",),
+        uncertainty_ceiling="explicit",
+    )
+    inquiry_ref = _put_payload_object(
+        database,
+        payload=inquiry,
+        object_id=inquiry.inquiry_id,
+        object_type=INQUIRY_TYPE,
+        owner="ResearchLedger",
+        incarnation="inquiry-inc:p0c:vertical",
+    )
+    return captures, inquiry_ref
+
+
+def _seed_runtime_run(database: LiveP0CDatabase) -> None:
+    with database.engine.begin() as connection:
+        RuntimeLifecycleRepository(connection, database.scope).submit(
+            SubmitRun(
+                run_id=RUN_ID,
+                incarnation="run-inc:p0c:vertical",
+                program_id="program:p0c:vertical",
+                program_digest=hashlib.sha256(b"p0c-vertical-program").hexdigest(),
+                program_storage_ref="project-value:program:p0c:vertical",
+                contract_version="1.0.0",
+                submission_authority_digest=SUBMISSION_AUTHORITY_DIGEST,
+                compile_work=None,
+                due_at=NOW,
+            )
+        )
+
+
+def test_runtime_material_identity_matches_the_exact_captured_document(
     p0c_database: LiveP0CDatabase,
 ) -> None:
-    submitted = p0c_database.submission_service().submit(submission_command())
+    captures = p0c_database.capture_documents(suffix="vertical-identity")
     interpreters = FirstSpecimenInterpreters()
     runtime_materials = tuple(
-        _runtime_material(interpreters, capture) for capture in submitted.captures
+        _runtime_material(interpreters, capture) for capture in captures
     )
 
-    assert runtime_materials == tuple(
-        capture.material for capture in submitted.captures
-    )
+    assert runtime_materials == tuple(capture.material for capture in captures)
     assert tuple(
         hashlib.sha256(capture.observation.exact_bytes).hexdigest()
-        for capture in submitted.captures
+        for capture in captures
     ) == (SEED_CONTENT_SHA256[101], SEED_CONTENT_SHA256[102])
 
 
 def test_a04_a05_a06_relation_only_claim_and_markdown_closure_are_durable(
     p0c_database: LiveP0CDatabase,
 ) -> None:
-    submitted = p0c_database.submission_service().submit(submission_command())
+    captures, inquiry_ref = _captures_and_inquiry(p0c_database)
     interpreters = FirstSpecimenInterpreters()
     materials = tuple(
-        _runtime_material(interpreters, capture) for capture in submitted.captures
+        _runtime_material(interpreters, capture) for capture in captures
     )
-    assert materials == tuple(capture.material for capture in submitted.captures)
+    assert materials == tuple(capture.material for capture in captures)
 
     qualifications = (
         _qualify(
             interpreters,
             material=materials[0],
-            inquiry_ref=submitted.inquiry_ref.object_id,
+            inquiry_ref=inquiry_ref.object_id,
             label="support",
             direction="SUPPORTS",
         ),
         _qualify(
             interpreters,
             material=materials[1],
-            inquiry_ref=submitted.inquiry_ref.object_id,
+            inquiry_ref=inquiry_ref.object_id,
             label="contradiction",
             direction="CONTRADICTS",
         ),
@@ -210,13 +254,13 @@ def test_a04_a05_a06_relation_only_claim_and_markdown_closure_are_durable(
     with p0c_database.engine.begin() as connection:
         ledger = ResearchLedgerRepository(connection, p0c_database.project_tables)
         for qualification, capture in zip(
-            qualifications, submitted.captures, strict=True
+            qualifications, captures, strict=True
         ):
             ledger.put_evidence_qualification(
                 p0c_database.scope,
                 qualification,
                 source_ref=capture.material_object_ref,
-                target_ref=submitted.inquiry_ref,
+                target_ref=inquiry_ref,
                 expected_revision=0,
                 expected_incarnation=qualification.incarnation,
             )
@@ -226,7 +270,7 @@ def test_a04_a05_a06_relation_only_claim_and_markdown_closure_are_durable(
             ClaimOrGapInput,
             claim_or_gap_id="claim:p0c:two-documents",
             statement_ref="statement:p0c:bounded-comparison",
-            inquiry_ref=submitted.inquiry_ref.object_id,
+            inquiry_ref=inquiry_ref.object_id,
             support_relation_refs=(qualifications[0].qualification_id,),
             contradiction_relation_refs=(qualifications[1].qualification_id,),
             uncertainty_profile_ref="uncertainty:p0c:explicit",
@@ -309,12 +353,13 @@ def test_a04_a05_a06_relation_only_claim_and_markdown_closure_are_durable(
 def test_cw07_relation_and_runtime_event_share_one_real_postgres_transaction(
     p0c_database: LiveP0CDatabase,
 ) -> None:
-    submitted = p0c_database.submission_service().submit(submission_command())
+    captures, inquiry_ref = _captures_and_inquiry(p0c_database)
+    _seed_runtime_run(p0c_database)
     interpreters = FirstSpecimenInterpreters()
     qualification = _qualify(
         interpreters,
-        material=submitted.captures[0].material,
-        inquiry_ref=submitted.inquiry_ref.object_id,
+        material=captures[0].material,
+        inquiry_ref=inquiry_ref.object_id,
         label="cw07",
         direction="SUPPORTS",
     )
@@ -327,15 +372,15 @@ def test_cw07_relation_and_runtime_event_share_one_real_postgres_transaction(
         ).put_evidence_qualification(
             p0c_database.scope,
             qualification,
-            source_ref=submitted.captures[0].material_object_ref,
-            target_ref=submitted.inquiry_ref,
+            source_ref=captures[0].material_object_ref,
+            target_ref=inquiry_ref,
             expected_revision=0,
             expected_incarnation=qualification.incarnation,
         )
         RuntimeJournalRepository(
             connection, p0c_database.scope
         ).append_transition(
-            run_id=submission_command().run_id,
+            run_id=RUN_ID,
             expected_revision=0,
             snapshot_values={"state": "COMPILING"},
             events=(
@@ -350,7 +395,7 @@ def test_cw07_relation_and_runtime_event_share_one_real_postgres_transaction(
                             f"{qualification.qualification_id}"
                         ),
                     "payload_digest": qualification.qualification_digest,
-                    "authority_digest": submission_command().submission_authority_digest,
+                    "authority_digest": SUBMISSION_AUTHORITY_DIGEST,
                 },
             ),
         )
@@ -387,15 +432,15 @@ def test_cw07_relation_and_runtime_event_share_one_real_postgres_transaction(
         ).put_evidence_qualification(
             p0c_database.scope,
             qualification,
-            source_ref=submitted.captures[0].material_object_ref,
-            target_ref=submitted.inquiry_ref,
+            source_ref=captures[0].material_object_ref,
+            target_ref=inquiry_ref,
             expected_revision=0,
             expected_incarnation=qualification.incarnation,
         )
         RuntimeJournalRepository(
             connection, p0c_database.scope
         ).append_transition(
-            run_id=submission_command().run_id,
+            run_id=RUN_ID,
             expected_revision=0,
             snapshot_values={"state": "COMPILING"},
             events=(
@@ -410,7 +455,7 @@ def test_cw07_relation_and_runtime_event_share_one_real_postgres_transaction(
                             f"{qualification.qualification_id}"
                         ),
                     "payload_digest": qualification.qualification_digest,
-                    "authority_digest": submission_command().submission_authority_digest,
+                    "authority_digest": SUBMISSION_AUTHORITY_DIGEST,
                 },
             ),
         )

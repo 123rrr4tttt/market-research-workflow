@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
 
@@ -15,6 +16,7 @@ pytestmark = pytest.mark.integration
 
 try:
     from fastapi.testclient import TestClient
+    from app import main as main_module
     from app.contracts.errors import ErrorCode
     from app.api import ingest as ingest_api
     from app.api import resource_pool as resource_pool_api
@@ -30,6 +32,18 @@ def _response_payload(body):
     if isinstance(body, dict) and isinstance(body.get("data"), dict):
         return body["data"]
     return body
+
+
+_ACTOR_TOKEN = "test-batch-token"
+
+
+@contextmanager
+def _trusted_codex_actor():
+    with (
+        patch.object(main_module.settings, "codex_auth_enabled", True),
+        patch.object(main_module, "_parse_codex_auth_tokens", return_value={_ACTOR_TOKEN}),
+    ):
+        yield
 
 
 class ProjectKeyPolicyTestCase(unittest.TestCase):
@@ -258,14 +272,26 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
 
     def test_agent_batch_jobs_missing_project_key_in_require_mode_fails(self):
         client = TestClient(backend_app)
-        with patch("app.api.agent_batch.settings.project_key_enforcement_mode", "require"):
+        with (
+            patch("app.api.agent_batch.settings.project_key_enforcement_mode", "require"),
+            _trusted_codex_actor(),
+        ):
             resp = client.post(
                 "/api/v1/agent-batch/jobs",
                 json={"batch": {"jobs": [{"item_key": "demo-item"}]}},
+                headers={"Authorization": f"Bearer {_ACTOR_TOKEN}"},
             )
         self.assertEqual(resp.status_code, 400)
         body = resp.json()
         self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_agent_batch_jobs_without_trusted_actor_fails_403(self):
+        client = TestClient(backend_app)
+        resp = client.post(
+            "/api/v1/agent-batch/jobs",
+            json={"project_key": "demo_proj", "batch": {"jobs": [{"item_key": "demo-item"}]}},
+        )
+        self.assertEqual(resp.status_code, 403)
 
     def test_agent_batch_nl_command_retired_contract_precedes_project_key_requirement(self):
         client = TestClient(backend_app)

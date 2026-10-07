@@ -74,29 +74,35 @@ def test_compiler_store_is_built_only_when_a_store_operation_is_requested(
     build_store.assert_called_once()
 
 
-def test_runtime_store_is_built_only_when_a_runtime_operation_is_requested(
+def test_runtime_facade_has_no_private_run_store_builder() -> None:
+    assert not hasattr(workflow_graph_module, "build_run_store")
+    assert not hasattr(WorkflowGraphRuntimeService(), "_resolved_engine")
+
+
+def test_historical_handoff_reader_is_built_only_for_readback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    build_store = Mock(side_effect=RuntimeError("run store unavailable"))
-    monkeypatch.setattr(workflow_graph_module, "build_run_store", build_store)
-
-    service = WorkflowGraphRuntimeService()
-
-    build_store.assert_not_called()
-    with pytest.raises(RuntimeError, match="run store unavailable"):
-        service.get_run("run-1")
-    build_store.assert_called_once()
-
-
-def test_handoff_store_is_built_only_when_a_handoff_operation_is_requested(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    build_store = Mock(side_effect=RuntimeError("handoff store unavailable"))
-    monkeypatch.setattr(handoff_store_module, "build_run_store", build_store)
+    build_reader = Mock(side_effect=RuntimeError("historical reader unavailable"))
+    monkeypatch.setattr(
+        handoff_store_module,
+        "build_historical_workflow_run_reader",
+        build_reader,
+    )
 
     service = WorkflowGraphHandoffStore()
 
-    build_store.assert_not_called()
-    with pytest.raises(RuntimeError, match="handoff store unavailable"):
+    built = service.build(
+        graph_id="graph-1",
+        payload={
+            "handoff_id": "handoff-1",
+            "contract_version": "graph_handoff.v1",
+            "handoff_mode": "pull_prepared_evidence",
+            "producer": "workflow_graph.backend_bridge",
+            "consumer": "llm_report.generate",
+        },
+    )
+    assert built["durable"] is False
+    build_reader.assert_not_called()
+    with pytest.raises(RuntimeError, match="historical reader unavailable"):
         service.list_handoffs(run_id="run-1")
-    build_store.assert_called_once()
+    build_reader.assert_called_once()

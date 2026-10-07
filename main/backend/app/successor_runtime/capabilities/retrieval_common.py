@@ -13,7 +13,9 @@ from here so their existing consumers keep the same import identities.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Literal, Mapping, get_args
+from hashlib import sha256
+import json
+from typing import Any, Callable, Literal, Mapping, NoReturn, cast, get_args
 
 from functorial_kit import Failure, define_codec, define_failure_family
 from functorial_kit.contributions import contribution_failures
@@ -37,6 +39,27 @@ class CandidateRequestFailure:
     message: str
 
 
+def _runtime_object(value: object) -> object:
+    """Keep constructor inputs total when callers bypass static annotations."""
+
+    return value
+
+
+def raise_retrieval_contract_error(
+    exception_type: type[Exception],
+    message: object,
+    *,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    """Preserve the public exception ABI for unreachable contract defects."""
+
+    if cause is None:
+        # kit:boundary owner=ret class=PROGRAMMER_DEFECT failure_family=none witness=test:test_ret_contract_errors
+        raise exception_type(message)
+    # kit:boundary owner=ret class=PROGRAMMER_DEFECT failure_family=none witness=test:test_ret_contract_errors
+    raise exception_type(message) from cause
+
+
 @dataclass(frozen=True, slots=True)
 class CandidateSearchRequest:
     topic: str
@@ -52,23 +75,34 @@ class CandidateSearchRequest:
     facet_ref: str | None = None
 
     def __post_init__(self) -> None:
-        if isinstance(self.keywords, (list, tuple)):
-            object.__setattr__(self, "keywords", tuple(self.keywords))
+        raw_keywords: object = self.keywords
+        if isinstance(raw_keywords, (list, tuple)):
+            object.__setattr__(self, "keywords", tuple(raw_keywords))
 
     def validation_failure(self) -> CandidateRequestFailure | None:
-        if not isinstance(self.topic, str) or not self.topic.strip():
+        topic = _runtime_object(self.topic)
+        max_results = _runtime_object(self.max_results)
+        days_back = _runtime_object(self.days_back)
+        start_offset = _runtime_object(self.start_offset)
+        keywords = _runtime_object(self.keywords)
+        if not isinstance(topic, str) or not topic.strip():
             return CandidateRequestFailure("INVALID_TOPIC", "topic", "topic must be nonempty")
-        if not isinstance(self.max_results, int) or self.max_results < 1:
+        if type(max_results) is not int or max_results < 1:
             return CandidateRequestFailure("INVALID_LIMIT", "max_results", "max_results must be positive")
-        if self.days_back is not None and (not isinstance(self.days_back, int) or self.days_back < 1):
+        if days_back is not None and (type(days_back) is not int or days_back < 1):
             return CandidateRequestFailure("INVALID_DAYS_BACK", "days_back", "days_back must be positive")
-        if self.start_offset is not None and (not isinstance(self.start_offset, int) or self.start_offset < 1):
+        if start_offset is not None and (type(start_offset) is not int or start_offset < 1):
             return CandidateRequestFailure("INVALID_OFFSET", "start_offset", "start_offset must be positive")
-        if self.keywords is not None and (
-            not isinstance(self.keywords, tuple)
-            or any(not isinstance(term, str) for term in self.keywords)
+        if keywords is not None and (
+            not isinstance(keywords, tuple)
+            or any(
+                not isinstance(item, str) or not item.strip()
+                for item in cast(tuple[object, ...], keywords)
+            )
         ):
-            return CandidateRequestFailure("INVALID_KEYWORDS", "keywords", "keywords must be a sequence of search terms")
+            return CandidateRequestFailure(
+                "INVALID_KEYWORDS", "keywords", "keywords must contain only nonempty strings"
+            )
         return None
 
     @classmethod
@@ -109,7 +143,7 @@ class Candidate:
     original_rank: int | None
     result_rank: int
     relevance_score: float
-    raw: dict[str, Any] = field(default_factory=dict)
+    raw: dict[str, Any] = field(default_factory=dict[str, Any])
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,6 +162,260 @@ class CandidateBundle:
     def legacy_list(self) -> list[dict[str, Any]]:
         """Compatibility projection. Branch failures and duplicate occurrences are lost."""
         return [dict(item.raw) for item in self.candidates]
+
+
+RetrievalQueryKind = Literal["initial", "followup"]
+
+
+def retrieval_budget_id(
+    *, project_key: str, root_run_id: str, plan_id: str, mode_version: str
+) -> str:
+    """Return the stable identity shared by every child of one retrieval root."""
+
+    payload = json.dumps(
+        {
+            "mode_version": mode_version,
+            "plan_id": plan_id,
+            "project_key": project_key,
+            "root_run_id": root_run_id,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return "retrieval-budget:" + sha256(payload).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalBudgetState:
+    """Immutable domain budget transported across event-linked child runs.
+
+    The runtime journal remains the consumption evidence.  A new value is
+    materialized from settled child events; this object is not a second budget
+    ledger and cannot reserve or release capacity by itself.
+    """
+
+    budget_id: str
+    project_key: str
+    root_run_id: str
+    plan_id: str
+    mode_version: str
+    max_queries: int
+    max_materials: int
+    max_followups: int
+    queries_attempted: int = 0
+    materials_accepted: int = 0
+    followup_rounds_started: int = 0
+
+    def __post_init__(self) -> None:
+        identities = (
+            self.budget_id,
+            self.project_key,
+            self.root_run_id,
+            self.plan_id,
+            self.mode_version,
+        )
+        if any(not value.strip() for value in identities):
+            raise_retrieval_contract_error(ValueError, 'retrieval budget identities must be nonempty')
+        expected = retrieval_budget_id(
+            project_key=self.project_key,
+            root_run_id=self.root_run_id,
+            plan_id=self.plan_id,
+            mode_version=self.mode_version,
+        )
+        if self.budget_id != expected:
+            raise_retrieval_contract_error(ValueError, 'retrieval budget identity does not match its root binding')
+        counts = (
+            self.max_queries,
+            self.max_materials,
+            self.max_followups,
+            self.queries_attempted,
+            self.materials_accepted,
+            self.followup_rounds_started,
+        )
+        if any(type(value) is not int for value in counts):
+            raise_retrieval_contract_error(TypeError, 'retrieval budget counters must be integers')
+        if self.max_queries < 1 or self.max_materials < 1 or self.max_followups < 0:
+            raise_retrieval_contract_error(ValueError, 'retrieval budget ceilings are invalid')
+        if not 0 <= self.queries_attempted <= self.max_queries:
+            raise_retrieval_contract_error(ValueError, 'retrieval query consumption exceeds its ceiling')
+        if not 0 <= self.materials_accepted <= self.max_materials:
+            raise_retrieval_contract_error(ValueError, 'retrieval material consumption exceeds its ceiling')
+        if not 0 <= self.followup_rounds_started <= self.max_followups:
+            raise_retrieval_contract_error(ValueError, 'retrieval followup consumption exceeds its ceiling')
+
+    @property
+    def remaining_queries(self) -> int:
+        return self.max_queries - self.queries_attempted
+
+    @property
+    def remaining_materials(self) -> int:
+        return self.max_materials - self.materials_accepted
+
+    @property
+    def remaining_followups(self) -> int:
+        return self.max_followups - self.followup_rounds_started
+
+    def after_settled_events(
+        self,
+        *,
+        query_attempts: int = 0,
+        accepted_materials: int = 0,
+        followup_rounds: int = 0,
+    ) -> "RetrievalBudgetState":
+        """Derive the next value from unique settled lineage events."""
+
+        deltas = (query_attempts, accepted_materials, followup_rounds)
+        if any(type(value) is not int or value < 0 for value in deltas):
+            raise_retrieval_contract_error(ValueError, 'retrieval budget deltas must be nonnegative integers')
+        return RetrievalBudgetState(
+            budget_id=self.budget_id,
+            project_key=self.project_key,
+            root_run_id=self.root_run_id,
+            plan_id=self.plan_id,
+            mode_version=self.mode_version,
+            max_queries=self.max_queries,
+            max_materials=self.max_materials,
+            max_followups=self.max_followups,
+            queries_attempted=self.queries_attempted + query_attempts,
+            materials_accepted=self.materials_accepted + accepted_materials,
+            followup_rounds_started=self.followup_rounds_started + followup_rounds,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalCandidateInvocation:
+    """One exact provider attempt linked to the immutable root budget."""
+
+    query_id: str
+    route_id: str
+    query_kind: RetrievalQueryKind
+    query_ordinal: int
+    followup_round: int
+    budget_id: str
+    request: CandidateSearchRequest
+
+    def __post_init__(self) -> None:
+        if any(
+            not value.strip()
+            for value in (self.query_id, self.route_id, self.budget_id)
+        ):
+            raise_retrieval_contract_error(ValueError, 'retrieval candidate invocation identities must be nonempty')
+        if self.query_kind not in ("initial", "followup"):
+            raise_retrieval_contract_error(ValueError, 'retrieval candidate invocation has an invalid query kind')
+        if type(self.query_ordinal) is not int or self.query_ordinal < 1:
+            raise_retrieval_contract_error(ValueError, 'retrieval query ordinal must be positive')
+        if type(self.followup_round) is not int or self.followup_round < 0:
+            raise_retrieval_contract_error(ValueError, 'retrieval followup round must be nonnegative')
+        if self.query_kind == "initial" and self.followup_round != 0:
+            raise_retrieval_contract_error(ValueError, 'initial query cannot carry a followup round')
+        if self.query_kind == "followup" and self.followup_round < 1:
+            raise_retrieval_contract_error(ValueError, 'followup query requires a positive round')
+
+    def validate_budget(self, budget: RetrievalBudgetState) -> None:
+        """Fail before an effect when the exact root budget no longer admits it."""
+
+        if self.budget_id != budget.budget_id:
+            raise_retrieval_contract_error(ValueError, 'candidate invocation crosses retrieval budget identity')
+        if self.query_ordinal <= budget.queries_attempted:
+            raise_retrieval_contract_error(ValueError, 'candidate invocation would replay a consumed query ordinal')
+        if self.query_ordinal > budget.max_queries:
+            raise_retrieval_contract_error(ValueError, 'candidate invocation exceeds the query budget')
+        if self.query_kind == "followup":
+            if self.followup_round <= budget.followup_rounds_started:
+                raise_retrieval_contract_error(ValueError, 'candidate invocation would replay a followup round')
+            if self.followup_round > budget.max_followups:
+                raise_retrieval_contract_error(ValueError, 'candidate invocation exceeds the followup budget')
+
+
+CandidateAttemptState = Literal["completed", "failed", "cancelled"]
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalCandidateAttemptOutcome:
+    """One settled query attempt, including runtime failure and cancellation."""
+
+    query_id: str
+    route_id: str
+    query_kind: RetrievalQueryKind
+    query_ordinal: int
+    followup_round: int
+    budget_id: str
+    state: CandidateAttemptState
+    bundle: CandidateBundle | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    terminal_ref: str | None = None
+    terminal_digest: str | None = None
+
+    def __post_init__(self) -> None:
+        identities = (self.query_id, self.route_id, self.budget_id)
+        if any(not value.strip() for value in identities):
+            raise_retrieval_contract_error(ValueError, 'candidate attempt outcome identities must be nonempty')
+        if self.state not in ("completed", "failed", "cancelled"):
+            raise_retrieval_contract_error(ValueError, 'candidate attempt outcome has an invalid state')
+        if type(self.query_ordinal) is not int or self.query_ordinal < 1:
+            raise_retrieval_contract_error(ValueError, 'candidate attempt outcome ordinal must be positive')
+        if type(self.followup_round) is not int or self.followup_round < 0:
+            raise_retrieval_contract_error(ValueError, 'candidate attempt outcome followup round must be nonnegative')
+        if self.query_kind == "initial" and self.followup_round != 0:
+            raise_retrieval_contract_error(ValueError, 'initial candidate outcome cannot carry a followup round')
+        if self.query_kind == "followup" and self.followup_round < 1:
+            raise_retrieval_contract_error(ValueError, 'followup candidate outcome requires a positive round')
+        if self.state == "completed":
+            if self.bundle is None:
+                raise_retrieval_contract_error(ValueError, 'completed candidate outcome requires a bundle')
+            if self.bundle.request.validation_failure() is not None:
+                raise_retrieval_contract_error(ValueError, 'completed candidate outcome carries an invalid request')
+        elif self.bundle is not None:
+            raise_retrieval_contract_error(ValueError, 'non-completed candidate outcome cannot carry a bundle')
+        if self.state == "failed" and not str(self.error_code or "").strip():
+            raise_retrieval_contract_error(ValueError, 'failed candidate outcome requires an error code')
+
+    @classmethod
+    def completed(
+        cls,
+        invocation: RetrievalCandidateInvocation,
+        bundle: CandidateBundle,
+    ) -> "RetrievalCandidateAttemptOutcome":
+        if bundle.request != invocation.request:
+            raise_retrieval_contract_error(ValueError, 'candidate bundle request differs from its invocation')
+        return cls(
+            query_id=invocation.query_id,
+            route_id=invocation.route_id,
+            query_kind=invocation.query_kind,
+            query_ordinal=invocation.query_ordinal,
+            followup_round=invocation.followup_round,
+            budget_id=invocation.budget_id,
+            state="completed",
+            bundle=bundle,
+        )
+
+    @classmethod
+    def terminal_without_value(
+        cls,
+        invocation: RetrievalCandidateInvocation,
+        *,
+        state: Literal["failed", "cancelled"],
+        error_code: str | None = None,
+        error_message: str | None = None,
+        terminal_ref: str | None = None,
+        terminal_digest: str | None = None,
+    ) -> "RetrievalCandidateAttemptOutcome":
+        return cls(
+            query_id=invocation.query_id,
+            route_id=invocation.route_id,
+            query_kind=invocation.query_kind,
+            query_ordinal=invocation.query_ordinal,
+            followup_round=invocation.followup_round,
+            budget_id=invocation.budget_id,
+            state=state,
+            error_code=error_code or ("CANCELLED" if state == "cancelled" else None),
+            error_message=error_message,
+            terminal_ref=terminal_ref,
+            terminal_digest=terminal_digest,
+        )
 
 
 CANDIDATE_REQUEST_TYPE = ObjectType("CandidateSearchRequest.v1")
@@ -222,25 +510,6 @@ class RetrievalFlowDefinition:
     @property
     def contribution_id(self) -> str:
         return f"{self.source.flow_id}.{self.source.version}"
-
-
-@dataclass(frozen=True, slots=True)
-class RetrievalMethodIndexEntry:
-    flow_id: str
-    version: str
-    inputs: FlowInterface
-    outputs: FlowInterface
-    operation_refs: tuple[tuple[str, str], ...]
-
-
-def project_retrieval_method_index(definition: RetrievalFlowDefinition) -> RetrievalMethodIndexEntry | None:
-    if not definition.source.indexed:
-        return None
-    return RetrievalMethodIndexEntry(
-        definition.source.flow_id, definition.source.version,
-        definition.inputs, definition.outputs,
-        tuple((item.operation.operation_id, item.operation.version) for item in definition.occurrences),
-    )
 
 
 def _interface(expression: FlowExpression) -> tuple[FlowInterface, FlowInterface]:
@@ -439,7 +708,7 @@ class Endpoint:
 @dataclass(frozen=True, slots=True)
 class Element:
     ref: BoundRef
-    attributes: Mapping[str, Any] = field(default_factory=dict)
+    attributes: Mapping[str, Any] = field(default_factory=dict[str, Any])
     endpoints: tuple[Endpoint, ...] = ()
 
 
@@ -457,7 +726,7 @@ class TopologyView:
     input_revisions: Mapping[str, str]
     members: tuple[BoundRef, ...]
     relations: tuple[BoundRef, ...]
-    organization: Mapping[str, Any] = field(default_factory=dict)
+    organization: Mapping[str, Any] = field(default_factory=dict[str, Any])
 
 
 ViewProjection = Callable[[TopologyState], tuple[tuple[BoundRef, ...], tuple[BoundRef, ...], Mapping[str, Any]]]
@@ -514,24 +783,41 @@ def _invalid(path: str) -> Failure:
     return topology_failures.fail("INVALID_WIRE_FORMAT", f"invalid topology wire value at {path}", {"path": path})
 
 
+def _string_object_mapping(value: object) -> Mapping[str, object] | None:
+    if not isinstance(value, Mapping):
+        return None
+    untyped = cast(Mapping[object, object], value)
+    if any(not isinstance(key, str) for key in untyped):
+        return None
+    return cast(Mapping[str, object], untyped)
+
+
 def _parse_ref(raw: object, path: str) -> ElementRef | Failure:
-    if not isinstance(raw, Mapping) or set(raw) != {
+    values = _string_object_mapping(raw)
+    if values is None or set(values) != {
         "project_key", "module_id", "namespace", "type_id", "local_id"
     }:
         return _invalid(path)
-    if any(not isinstance(raw[key], str) or not raw[key] for key in raw):
+    if any(not isinstance(values[key], str) or not values[key] for key in values):
         return _invalid(path)
-    return ElementRef(**raw)
+    return ElementRef(
+        project_key=cast(str, values["project_key"]),
+        module_id=cast(str, values["module_id"]),
+        namespace=cast(str, values["namespace"]),
+        type_id=cast(str, values["type_id"]),
+        local_id=cast(str, values["local_id"]),
+    )
 
 
 def _parse_bound(raw: object, path: str) -> BoundRef | Failure:
-    if not isinstance(raw, Mapping) or set(raw) != {"ref", "observed_revision", "content_digest"}:
+    values = _string_object_mapping(raw)
+    if values is None or set(values) != {"ref", "observed_revision", "content_digest"}:
         return _invalid(path)
-    ref = _parse_ref(raw["ref"], f"{path}.ref")
+    ref = _parse_ref(values["ref"], f"{path}.ref")
     if isinstance(ref, Failure):
         return ref
-    revision = raw["observed_revision"]
-    digest = raw["content_digest"]
+    revision = values["observed_revision"]
+    digest = values["content_digest"]
     if not isinstance(revision, str) or not revision or (digest is not None and not isinstance(digest, str)):
         return _invalid(path)
     return BoundRef(ref, revision, digest)
@@ -542,38 +828,46 @@ def _parse_state(raw: Mapping[str, Any]) -> TopologyState | Failure:
         return _invalid("profile_id")
     if not isinstance(raw["profile_version"], str) or not raw["profile_version"]:
         return _invalid("profile_version")
-    source_elements = raw["elements"]
+    source_elements: object = raw["elements"]
     if not isinstance(source_elements, list):
         return _invalid("elements")
     elements: list[Element] = []
-    for index, item in enumerate(source_elements):
+    for index, item in enumerate(cast(list[object], source_elements)):
         path = f"elements[{index}]"
-        if not isinstance(item, Mapping) or set(item) != {"ref", "attributes", "endpoints"}:
+        item_values = _string_object_mapping(item)
+        if item_values is None or set(item_values) != {"ref", "attributes", "endpoints"}:
             return _invalid(path)
-        ref = _parse_bound(item["ref"], f"{path}.ref")
+        ref = _parse_bound(item_values["ref"], f"{path}.ref")
         if isinstance(ref, Failure):
             return ref
-        attributes = item["attributes"]
-        if not isinstance(attributes, Mapping) or any(not isinstance(k, str) for k in attributes):
+        attributes = item_values["attributes"]
+        attribute_values = _string_object_mapping(attributes)
+        if attribute_values is None:
             return _invalid(f"{path}.attributes")
-        source_endpoints = item["endpoints"]
+        typed_attributes = cast(Mapping[str, Any], attribute_values)
+        source_endpoints = item_values["endpoints"]
         if not isinstance(source_endpoints, list):
             return _invalid(f"{path}.endpoints")
         endpoints: list[Endpoint] = []
-        for endpoint_index, raw_endpoint in enumerate(source_endpoints):
+        for endpoint_index, raw_endpoint in enumerate(cast(list[object], source_endpoints)):
             endpoint_path = f"{path}.endpoints[{endpoint_index}]"
-            if not isinstance(raw_endpoint, Mapping) or set(raw_endpoint) != {"role", "target", "position"}:
+            endpoint_values = _string_object_mapping(raw_endpoint)
+            if endpoint_values is None or set(endpoint_values) != {"role", "target", "position"}:
                 return _invalid(endpoint_path)
-            target = _parse_bound(raw_endpoint["target"], f"{endpoint_path}.target")
+            target = _parse_bound(endpoint_values["target"], f"{endpoint_path}.target")
             if isinstance(target, Failure):
                 return target
-            role = raw_endpoint["role"]
-            position = raw_endpoint["position"]
+            role = endpoint_values["role"]
+            position = endpoint_values["position"]
             if not isinstance(role, str) or not role or (position is not None and (type(position) is not int or position < 0)):
                 return _invalid(endpoint_path)
             endpoints.append(Endpoint(role, target, position))
-        elements.append(Element(ref, dict(attributes), tuple(endpoints)))
-    return TopologyState(raw["profile_id"], raw["profile_version"], tuple(elements))
+        elements.append(Element(ref, dict(typed_attributes), tuple(endpoints)))
+    return TopologyState(
+        raw["profile_id"],
+        raw["profile_version"],
+        tuple(elements),
+    )
 
 
 topology_state_codec = define_codec(
@@ -650,18 +944,17 @@ __all__ = [
     "PortWire",
     "ProjectRetrievalFailureCode",
     "ProviderObservation",
+    "raise_retrieval_contract_error",
     "RetrievalFlowAssemblyContext",
     "RetrievalFlowBinding",
     "RetrievalFlowDefinition",
     "RetrievalFlowSource",
-    "RetrievalMethodIndexEntry",
     "TopologyState",
     "TopologyView",
     "ViewSpec",
     "assemble_retrieval_flow_definition",
     "lower_retrieval_flow_source",
     "project_retrieval_failures",
-    "project_retrieval_method_index",
     "retrieval_failure",
     "topology_failures",
     "topology_state_codec",
