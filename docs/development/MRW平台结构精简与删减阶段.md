@@ -10,11 +10,11 @@ services旧整体组织承载与successor重复承载都在退役范围，API/�
 
 ## 2. 基线、预算与完成判断
 
-全项目计量范围、当前基线、各项硬上限和分帽以[框架§4](MRW精简框架.md#4-全项目规模预算与收支约束)为唯一权威；本文不另抄预算表。app仍为`c3adced`的758文件307472行；上一轮迁移净减29行，不计作本轮结构退役完成。现场全项目定位数据为`/tmp/mrw-whole-project-budget-20261007/whole-source-baseline.json`，可按原口径复算。
+全项目计量范围、当前基线和预算规则以[框架§4](MRW精简框架.md#4-全项目规模预算与收支约束)为唯一权威。上轮未经充分保留核与真实收缩包支持的规模硬帽、分帽和族净减承诺已撤回，历史探索值不驱动当前发包或验收。app仍为`c3adced`的758文件307472行；上一轮迁移净减29行，不计作本轮结构退役完成。现场全项目定位数据为`/tmp/mrw-whole-project-budget-20261007/whole-source-baseline.json`，可按原口径复算。
 
-`A=main/backend/app`，`B=main/backend/tests`。全局设计上限已经确定，但可达性未证明。每包发放前仍须取得精确可删闭包、必要保留核与`D/A_max/N_min`，共享文件/符号只计一次；新增含集成接缝及跨目录转出。原130文件运行结构物理族同时受框架净减目标约束，抽出领域核及所有替代/接缝成本计回原族，不能仅改归domain声称删除；该族与全局只计一次。未定该包预算时只做定界，不先扩建实现；不等待全部包预算相加才承认全局目标。首批2149仅覆盖三个小闭包，不能代替下述三阶段退出条件。
+`A=main/backend/app`，`B=main/backend/tests`。每包发放前取得精确可删闭包、必要保留核与`D/A_max/N_min`；抽出领域核、跨目录保留原字节、替代及共同接缝计回原族，搬家净收益为零，原族与全局同一代码只计一次。未定该包预算时先做有界定界，不扩建实现；已证明的首批预算保持，安全删除不等待全项目预算校准。
 
-超过分帽须由root按框架规则在固定总额内裁定；无法满足最小充分语义时报告具名反例与备选，不默增、不删必要能力、不弱类型。测试、现役文档与历史库存分账，不抵扣运行实现成本，也不能靠移入archive逃预算。
+冗余职责切断、旧执行owner全量退出、唯一路径和必要typed/authority/effect/UNKNOWN/恢复保持仍是硬方向；现既选核收缩冗余，不要求重写。后续总体区间与累计净减由root据代表包和具名保留核裁定，不另猜一组温和数字。测试、现役文档与历史库存分账；首批2149或净减大于零不能代替整体退役，也不能靠移入archive逃账。
 
 ## 3. 已定首批退役包
 
@@ -31,7 +31,7 @@ services旧整体组织承载与successor重复承载都在退役范围，API/�
 
 ## 4. 运行结构专项与全域定界包
 
-运行结构专项由耐久内核owner统一承担：沿既选核确定满足框架Runtime分帽的最小保留结构，在原实现内删除或合并重复codec/state、first-specimen/sample、install/admission/reconcile外壳和冻结审批生产化，保留必要typed语言、claim/commit、PG事务与读回；不先新建另一套kernel或全面重写；同时切断旧services执行owner与控制循环。领域canonical writer保持原权威，PG终态记录原子性与current grant重读不得丢失。Runtime跨目录成本全部追入该专项，不能移到领域handler或kit逃账。该专项在第一阶段达标，不能以迁移PASS推迟到最终收尾。
+运行结构专项由耐久内核owner统一承担：沿既选核和真实消费者确定最小充分保留结构，在原实现内删除或合并重复codec/state、first-specimen/sample、install/admission/reconcile外壳和冻结审批生产化，保留必要typed语言、claim/commit、PG事务与读回；不先新建另一套kernel或全面重写；同时切断旧services执行owner与控制循环。领域canonical writer保持原权威，PG终态记录原子性与current grant重读不得丢失。Runtime跨目录成本全部追入该专项，不能移到领域handler或kit逃账。先核清保持与退役边界，再以真实收缩包推进；不能以迁移PASS代替旧执行owner退出，也不因难度将旧runtime永久保留。
 
 下表是本轮当前工作，不是无限期后置。每个owner输出“必要能力/权威或effect → 具体核 → 要退整族 → 精确消费者和注册闭包 → 互斥文件集 → D/A_max/N_min → 原验证selector”，形成可直接派发的实现包。基线行数只是调查面，不是可删承诺。先扣除§3已分配文件，再为剩余文件发预算；item_writer跨包只有按顺序交接，没有重复成本。
 
@@ -44,11 +44,11 @@ services旧整体组织承载与successor重复承载都在退役范围，API/�
 | **项目治理及旧工具定界／项目治理owner** | `services/{projects,aggregator,governance,local_index,stats,streamplus}/**`：19文件3307行；local_index/streamplus先扣§3 | projects scope、聚合与显式清理效果逐核保留；stats1190行与`main/backend/scripts/check_time_density_runtime_support.py`851行同义尚未证，必须查configured live/release gate/pinned consumer后给出合并或停止闭包，不臆造零新增 | 原project registry/领域事务；V-project与相关现存time semantics原checker。D/A_max/N_min未定 |
 | **服务根胶水定界／服务集成owner** | `services/*.py`的19个tracked文件11659行，不含任何子目录 | 精确含`codex_oauth,derived,document_admin,job_logger,keyword_generation,keyword_memory,llm_report_export,llm_report_export_audit,llm_report_export_token_state,llm_report_generator,llm_report_source_enrichment,llm_report_trends,observability_tasks,report,request_identity,settings_manager,skill_runtime,task_readback_metadata,tasks.py`；分别核auth/写入/export效果与可退路由胶水，不能漏账或以根目录全保 | 原host auth、writer、task/skill贡献入口；对应业务owner原consumer。D/A_max/N_min未定 |
 | **原生能力与样板定界／原生能力owner** | `successor_runtime/{capabilities,specification,research,ops_domain}/**`：103文件55651行；扣ops_domain已定包 | `specification`2280行连生成脚本/exact-byte历史重放查清；其余capability DTO/特殊核、acceptance/sample/强制装配分别定界。`source_contracts.py`4245、`knowledge_common.py`1597、`material_ingest_common.py`708均须逐consumer重证，禁止无依据80%目标或因测试引用整保 | 原native贡献定义及catalog；V-kit、原catalog/历史reader见证。D/A_max/N_min未定 |
-| **耐久核与装配定界／耐久内核owner** | `successor_runtime/{language,runtime,substrate,assembly}/**`及其根`__init__.py`：130文件79503行 | 当前唯一Runtime的claim/commit/UNKNOWN/cancel、typed codec、恢复与effect边界保留必要语义；逐模块删重复表示、安装/样板依赖和桥。调查面79503必须受框架Runtime硬帽约束，至少收缩64503；不能把此数冒充已证明的删除闭包。`projection_contracts.py`由ports/native/projection registry真实消费，须评估最小合同，不能误删 | 原Program/compiler/Runtime ports、ValueRepository、原Postgres实现；V-core/V-durable/V-kit。族净减目标沿框架，实施子包D/A_max及闭包待定 |
+| **耐久核与装配定界／耐久内核owner** | `successor_runtime/{language,runtime,substrate,assembly}/**`及其根`__init__.py`：130文件79503行 | 当前唯一Runtime的claim/commit/UNKNOWN/cancel、typed codec、恢复与effect边界保留必要语义；逐模块删重复表示、安装/样板依赖和桥。调查面79503仅为物理基线；按必要保留核与真实消费者确定删除闭包和替代成本，不要求重写现核。`projection_contracts.py`由ports/native/projection registry真实消费，须评估最小合同，不能误删 | 原Program/compiler/Runtime ports、ValueRepository、原Postgres实现；V-core/V-durable/V-kit。实施子包D/A_max/N_min及闭包待定，已证包先行 |
 | **API消费者切断定界／API集成owner** | `api/**`：39文件26297行 | 逐路由归具体用户能力，停止冗余功能入口；保留入口转回已选kernel，消除另行拼接/补写与兼容层。`api/__init__.py`与successor mount唯一集成写者，不按mount存在豁免 | 原API envelope/auth/项目scope、原native提交与reader；相关原integration/core tests。D/A_max/N_min未定 |
 | **平台其余承载定界／平台owner** | app其余88文件15463行：`composition,contracts,models,production_contract,production_observability,project_customization,settings,subprojects,successor_migration`及根`__init__,celery_app,main,release_identity,startup_hooks,web_ui_routes.py` | 模型/合同权威、启动与运维effect按能力核；历史migration/sample/profile和启动胶水给整族退出终点。不得把“其它”当无需调查残差，root文件只按该owner交接 | 原composition、registry、启动与观测入口；V-project/V-ops/V-host/V-kit及真实受影响原测试。D/A_max/N_min未定 |
 
-全项目其它具名包由root分配现有作者席，依框架对应硬帽取得精确收支：**前端owner**审`main/frontend-modern/src`的真实页面/交互与重复表达；**工具集成owner**覆盖kit、贡献、backend/root scripts、迁移、ops、search-lab、frontend tools和local入口，按当前用途停止或替换工具，selector随被测职责退役；**WebUI适配owner**相对具名上游分离vendor内MRW实现及测试增量，未知量不记零；**测试与文档集成owner**在职责退役后合并重复验证/说明并保留独立见证、现役合同及冻结历史。每包使用原入口和原测试，不新增统计平台；现役工具不可改标签逃账。
+全项目其它具名包由root分配现有作者席，按真实用途与删除闭包取得精确收支：**前端owner**审`main/frontend-modern/src`的真实页面/交互与重复表达；**工具集成owner**覆盖kit、贡献、backend/root scripts、迁移、ops、search-lab、frontend tools和local入口，按当前用途停止或替换工具，selector随被测职责退役；**WebUI适配owner**相对具名上游分离vendor内MRW实现及测试增量，未知量不记零；**测试与文档集成owner**在职责退役后合并重复验证/说明并保留独立见证、现役合同及冻结历史。每包使用原入口和原测试，不新增统计平台；现役工具不可改标签逃账。
 
 services六行恰398文件130558行；successor两行恰233文件135154行，连API与其它覆盖758文件。调查owner覆盖完整面，实施写权只按随后精确包授权。两面有真实消费者关联时必须把双方修改合入同一退役闭包，不能各保一层互相引用。
 
@@ -56,9 +56,9 @@ services六行恰398文件130558行；successor两行恰233文件135154行，连
 
 ## 5. 工作顺序、独占写面与资源
 
-1. **运行结构退役**：主线先压缩现Runtime并停旧执行owner，退出条件为跨目录Runtime≤15000、原130文件族达到框架净减目标及旧控制循环整族退出。独立领域必要核、前端、工具当前用途定界与纯删除可并行；依赖泛用接口替代时由一个owner先打通最小首例，不先建大kernel。具体D/A/N按实际闭包发包，未达预算不能以迁移PASS宣布本阶段完成。
-2. **领域整族退出**：必要领域语义接入最小承载，同批切断旧消费者、注册、adapter、配置与实现，退出条件为app≤80000及框架各责任分帽满足。API和其它平台在所需接口具备后并行；共享消费者、贡献源和生成闭包由集成owner串行交接。第一阶段已缩减的Runtime不能在本阶段重新膨胀。
-3. **整组收口**：自有实现与工具≤130000、自有测试≤100000、当前正式文档≤10000，并完成受影响typed、权限、UNKNOWN、恢复和真实消费者保持验证。工具主体职责退役才取消其selector，现役七gate不降低。新passed、依赖未变kept、skip/not_run及失败分别记录；首批小包、单项green或净减大于零均不构成整体完成。
+1. **保持现核并推进已证删除**：核清必要typed/authority/effect、真实消费者与旧执行owner边界；已确认的零新增或最小替代整族包并行推进，不等待所有预算校准。旧runtime全量退役与唯一路径方向不变，当前既选核只压缩冗余，不推倒重写。
+2. **代表包校准并扩展同形删除**：由一个owner完成有真实消费者的代表性收缩包，核实最小充分保留核、真实删除与替代成本；已有充分证据直接复用，不新增流程门禁。每包独立固定D/A/N后扩展；领域、API、前端和工具的无依赖包继续并行，共享消费者、贡献源与生成闭包由集成owner串行交接。
+3. **有据形成总体承诺并收口**：具名必要保留核与互斥删除包预算形成后，由root裁定可执行总体区间与累计净减并持续实施，不无限定界。整体按结构退出、已证收支及必要行为保持验收；typed、权限、UNKNOWN、恢复和真实消费者验证不能为行数削减。工具职责退役才取消selector，现役七gate不降低；passed、kept、skip/not_run及失败分列，首批小包或净减大于零不构成整体完成。
 
 全局最多6名活跃Agent，明确包含root分发1名和Astra编排1名，因此最多4名实际作者或调查者、最多4个独立写面。集成owner从这4个席位中指定，不能另增第7名集成层；root负责分发和预算裁定，Astra只编排、只读审查和文档维护，其它owner实施；Astra不执行代码验证。可并行的是无重叠贡献源/consumer/测试资源的实际包，不是仅文件名不同。`pre_release_gate.sh`的local-index/streamplus两已退selector由同一集成owner串行清理；item_writer先常量包后来源包。ops_domain涉及的贡献源、派生registry/sketch/witness和公共checker同样集中交接，不能两个作者各改同一生成闭包。
 
@@ -101,11 +101,11 @@ focused() (
 
 - 必要能力、事实owner、真实effect、身份/当前权限和失败语义保持；明确停用能力已撤去公开与内部执行入口。
 - services旧整体承载、successor冗余族、API/胶水及其它承载均完成具体处置；必要核逐项有依据，不能把全目录改名、委托或保留互相引用当退役。
-- 每个实施包整族退出并达到发包前D/A_max/N_min；框架全部规模约束和本文三阶段退出条件同时满足，不能以局部收支合格代替全项目上限。
+- 每个实施包整族退出并达到发包前D/A_max/N_min；全项目具名必要保留核与互斥包覆盖明确，达到root据真实闭包裁定的总体区间与累计净减，不以局部收支合格代替整体退役。
 - 原注册/配置/派生见证/专属测试/文档同批一致；必要行为、公共类型、现役七gate及实际交付要求通过，kept、skip、not_run与失败按原归属记录。
 - 成本包含共同修复和跨目录新增；生产/测试/工具/前端/vendor/历史分列，不以删文档、搬家或旧dirty回撤抵扣。缺失调用/token和完整验收成本不记零，不报无证据提速。
 
-内部全面类型治理、UI重设计、性能和新扩展建设不自动加入退出条件。它们也不能被拿来掩盖当前结构退役未完成。全项目硬预算已确定，精确包定界与实施仍未完成；上限不是已经实现或已证明可达的结论。
+内部全面类型治理、UI重设计、性能和新扩展建设不自动加入退出条件。它们也不能被拿来掩盖当前结构退役未完成。未经证明的硬规模承诺已撤回，精确包定界、代表性收缩与总体承诺校准仍未完成；这不授权永久保留完整services或旧runtime。
 
 ## 8. 上一轮迁移历史及本轮状态
 
@@ -115,4 +115,4 @@ focused() (
 
 原frontend14含route mocks及Codex iframe mock shell，direct HOST1只证明注册写作工具/approval/turn及canonical API/SQL读回；内部类型/Ruff债、4skip和缺失调用/token成本继续保留。上一轮workflow＋999/retrieval＋3763/shared＋1594的独立增长责任进入本轮定界，source下降不抵消。
 
-本轮实际完成：复用c3源码定位与首批定界，结合现场全项目盘点确定全项目硬预算、Runtime专项分帽和三阶段退出条件，更新框架、本文及开发README入口。纠正了旧ThreadPool区间、不存在staged/effect文件的重复删除候选，撤回projection_contracts/material_native零consumer误判和无依据80%目标。没有生产/测试代码修改、实际退役或代码验证执行；文档随本次交付统一提交；未push或deploy。下一工作按§3与§4现有包执行；旧Stage4–6部署任务继续STOPPED。
+本轮实际完成：保留c3源码定位、全项目盘点与已证首批预算，撤回未经证明的硬行数上限和净减承诺，改为现核保持、代表包校准及有据总体收口，更新框架、本文及开发README入口。纠正了旧ThreadPool区间、不存在staged/effect文件的重复删除候选，撤回projection_contracts/material_native零consumer误判和无依据80%目标。没有生产/测试代码修改、实际退役或代码验证执行；文档随本次交付统一提交；未push或deploy。下一工作按§3与§4现有包执行；旧Stage4–6部署任务继续STOPPED。
