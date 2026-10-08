@@ -545,58 +545,6 @@ class FamilyAssemblyOptions:
     )
 
 
-def merge_family_assemblies(
-    families: tuple[FamilyAssembly, ...],
-) -> tuple[
-    tuple[CellBinding, ...],
-    tuple[RuntimeHandler, ...],
-    tuple[RuntimeHandler, ...],
-    tuple[KernelWiring, ...],
-]:
-    """Merge family installations with exact-digest and coverage validation."""
-
-    seen_cells: set[str] = set()
-    cells: list[CellBinding] = []
-    handlers: list[RuntimeHandler] = []
-    recovery: list[RuntimeHandler] = []
-    kernel_wiring: list[KernelWiring] = []
-    digest_owner: dict[str, str] = {}
-    for family in families:
-        for cell in family.cells:
-            if cell.cell_id in seen_cells:
-                raise ValueError(f"duplicate cell coverage: {cell.cell_id}")
-            seen_cells.add(cell.cell_id)
-            cells.append(cell)
-        for handler in family.handlers:
-            digest = handler.handler_binding_digest
-            owner = digest_owner.get(digest)
-            if owner is not None:
-                raise ValueError(
-                    f"merged assembly duplicate handler digest {digest} ({owner})"
-                )
-            digest_owner[digest] = f"{family.family_id}:handler"
-            handlers.append(handler)
-        for handler in family.recovery_handlers:
-            digest = handler.handler_binding_digest
-            owner = digest_owner.get(digest)
-            if owner is not None:
-                raise ValueError(
-                    f"merged assembly duplicate recovery digest {digest} ({owner})"
-                )
-            digest_owner[digest] = f"{family.family_id}:recovery"
-            recovery.append(handler)
-        for wiring in family.kernel_wiring:
-            digest = wiring.binding_digest
-            owner = digest_owner.get(digest)
-            if owner is not None:
-                raise ValueError(
-                    f"merged assembly duplicate kernel digest {digest} ({owner})"
-                )
-            digest_owner[digest] = f"{family.family_id}:kernel:{wiring.cell_id}"
-            kernel_wiring.append(wiring)
-    return tuple(cells), tuple(handlers), tuple(recovery), tuple(kernel_wiring)
-
-
 __all__ = [
     "ASSEMBLY_STATUSES",
     "LOCAL_ONLY_SCOPE_IDENTITY",
@@ -615,7 +563,6 @@ __all__ = [
     "ProjectorWiring",
     "RollbackBindingDeclaration",
     "local_assembly_scope_digest",
-    "merge_family_assemblies",
     "require_assembly_digest",
     "sha256_hex",
     "successor_binding",

@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
-from functorial_kit.contributions import ContributionCatalog
+from functorial_kit.contributions import (
+    ContributionCatalog,
+    ContributionSpec,
+    contribution_failures,
+    define_contribution,
+)
 
-from mrw_functorial_kit.contributions.workflow import workflow_contribution_catalog
+from app.successor_runtime.capabilities.workflow_common import (
+    WORKFLOW_DEFINITION_FAILURES,
+)
+
 from mrw_functorial_kit.contributions.source import source_contribution_catalog
 from mrw_functorial_kit.contributions.batch import batch_contribution_catalog
 from mrw_functorial_kit.contributions.task import task_contribution_catalog
@@ -17,7 +25,13 @@ from mrw_functorial_kit.contributions.retrieval import retrieval_contribution_ca
 # Family modules remain the authored semantic sources.  This tuple is the
 # only project-level composition used by the CLI and architecture check.
 project_contribution_catalog = (
-    *workflow_contribution_catalog,
+    define_contribution(
+        ContributionSpec(
+            id="mrw.project.failure.metadata.v1",
+            owner="mrw.project",
+            failures=(WORKFLOW_DEFINITION_FAILURES, contribution_failures),
+        )
+    ),
     *source_contribution_catalog,
     *batch_contribution_catalog,
     *task_contribution_catalog,

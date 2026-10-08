@@ -26,41 +26,13 @@ from app.services.request_identity import (
     authenticated_actor_context,
     set_request_actor_context,
 )
-from app.successor_runtime.assembly import (
-    ALL_I1_CELLS,
-    local_assembly_scope_digest,
-)
+from app.successor_runtime.assembly import local_assembly_scope_digest
 from app.successor_runtime.assembly.app_assembly import (
     AUTHORITY_CEILING_CLOSED,
     SUCCESSOR_DEPENDENCIES_STATE_ATTR,
     LOCAL_ONLY_MOUNT_ACTOR,
     SuccessorRuntimeAppDependencies,
     build_successor_runtime_app_dependencies,
-)
-from app.successor_runtime.assembly.material_ingest_assembly import (
-    ASSEMBLY_CELL_IDS as MATERIAL_ASSEMBLY_CELL_IDS,
-)
-from app.successor_runtime.assembly.knowledge_assembly import (
-    ASSEMBLY_CELL_IDS as KNOWLEDGE_ASSEMBLY_CELL_IDS,
-)
-from app.successor_runtime.assembly.successor_assembly import (
-    assemble_successor_runtime,
-    build_local_offline_fixture_options,
-)
-from app.successor_runtime.capabilities.batch_task_native_contribution import (
-    ASSEMBLY_CELL_IDS as BATCH_TASK_ASSEMBLY_CELL_IDS,
-)
-from app.successor_runtime.capabilities.workflow_native_contribution import (
-    ASSEMBLY_CELL_IDS as WORKFLOW_ASSEMBLY_CELL_IDS,
-)
-from app.successor_runtime.capabilities.source_native_contribution import (
-    ASSEMBLY_CELL_IDS as SOURCE_ASSEMBLY_CELL_IDS,
-)
-from app.successor_runtime.runtime.task_observation_native_contribution import (
-    ASSEMBLY_CELL_IDS as TASK_OBSERVATION_ASSEMBLY_CELL_IDS,
-)
-from app.successor_runtime.runtime.projection_native_contribution import (
-    ASSEMBLY_CELL_IDS as PROJECTION_ASSEMBLY_CELL_IDS,
 )
 from app.successor_runtime.runtime.facade import SuccessorRuntimeFacade
 from app.successor_runtime.runtime.facade_contracts import (
@@ -80,24 +52,10 @@ from app.successor_runtime.substrate.postgres.session import compute_scope_diges
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
-from sqlalchemy import create_engine
 
 pytestmark = pytest.mark.unit
 
-EXPECTED_I1_CELLS = frozenset(
-    (
-        *WORKFLOW_ASSEMBLY_CELL_IDS,
-        *SOURCE_ASSEMBLY_CELL_IDS,
-        *BATCH_TASK_ASSEMBLY_CELL_IDS,
-        *TASK_OBSERVATION_ASSEMBLY_CELL_IDS,
-        *MATERIAL_ASSEMBLY_CELL_IDS,
-        *KNOWLEDGE_ASSEMBLY_CELL_IDS,
-        *PROJECTION_ASSEMBLY_CELL_IDS,
-    )
-)
-PROJECTION_COMMAND_QUERY_CELL = PROJECTION_ASSEMBLY_CELL_IDS[0]
-PROJECTION_CLIENT_CONTRACT_CELL = PROJECTION_ASSEMBLY_CELL_IDS[1]
-KNOWLEDGE_REPORT_CELL = KNOWLEDGE_ASSEMBLY_CELL_IDS[2]
+PROJECTION_COMMAND_QUERY_CELL = "projection.command-query.v2"
 
 LOCAL_PROJECT = "local-mount-demo"
 TRACE = "trace:mount:1"
@@ -126,10 +84,6 @@ CONTROL_TOP_LEVEL_FIELDS = (
     "schema",
     "control",
 )
-
-
-def _engine():
-    return create_engine("sqlite+pysqlite:///:memory:", future=True)
 
 
 def _command_body(**overrides: Any) -> dict[str, Any]:
@@ -265,24 +219,6 @@ def test_default_dependencies_are_closed_local_only() -> None:
     assert resolved.scope_digest == local_assembly_scope_digest()
     with pytest.raises(Exception, match="LOCAL_ONLY"):
         deps.resolver.resolve_expected(LOCAL_PROJECT, 0, "0" * 64)
-
-
-def test_default_mount_options_keep_assembly_fail_closed() -> None:
-    deps = build_successor_runtime_app_dependencies()
-    assert deps.assembly_options.c4.plan_payload is None
-    assert not deps.assembly_options.projector_source_keys
-    assembly = assemble_successor_runtime(
-        engine=_engine(),
-        options=build_local_offline_fixture_options(),
-    )
-    coverage = assembly.coverage()
-    assert coverage[PROJECTION_COMMAND_QUERY_CELL] == "INSTALLED"
-    assert coverage[PROJECTION_CLIENT_CONTRACT_CELL] == "INSTALLED"
-    assert coverage[KNOWLEDGE_REPORT_CELL] == "INSTALLED"
-    installed = {cell_id for cell_id, status in coverage.items() if status == "INSTALLED"}
-    assert EXPECTED_I1_CELLS == ALL_I1_CELLS
-    assert installed == EXPECTED_I1_CELLS
-    assert len(assembly.projector_registry.projectors) == 6
 
 
 def test_mounted_command_returns_typed_envelope() -> None:

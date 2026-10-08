@@ -38,14 +38,6 @@ class FamilySpec:
 
 
 _FAMILIES = {
-    "C4": FamilySpec(
-        "c4_p3",
-        "p3-fragments/C4.json",
-        f"{_EXACT_BYTE_REBIND}/stage-b23-2026-09-07/fragments/C4.json",
-        "058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188",
-        "STAGE_B23_C4_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY",
-        True,
-    ),
     "C6": FamilySpec(
         "c6_p3",
         "p3-fragments/C6.json",
@@ -54,28 +46,12 @@ _FAMILIES = {
         "STAGE_B23_C6_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY",
         True,
     ),
-    "C9": FamilySpec(
-        "c9_p4",
-        "p4-fragments/C9.json",
-        f"{_EXACT_BYTE_REBIND}/stage-b23-2026-09-07/fragments/C9.json",
-        "fdc4b2ab2616431b2d20ec41e207b41e978df833c94a1c92561360708bc89be1",
-        "STAGE_B23_C9_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY",
-        True,
-    ),
 }
 
 _LIVE_STATUS = "CANDIDATE_VALID_NOT_AUTHORITY"
 _HISTORY_STATUS = "HISTORY_SNAPSHOT_VALID_NOT_AUTHORITY"
 _CANDIDATE_SCHEMA = "mrw.family_fragment_rebind.candidate.v2"
 
-
-
-def _load_config(family: str):
-    module_name = _FAMILIES[family].module
-    module = __import__(
-        f"app.successor_runtime.specification.{module_name}", fromlist=["CONFIG"]
-    )
-    return module.CONFIG
 
 
 def _file_snapshot(path: Path) -> tuple[bytes, int]:

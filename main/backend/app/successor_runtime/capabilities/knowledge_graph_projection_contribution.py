@@ -118,7 +118,8 @@ KNOWLEDGE_GRAPH_PROJECTION_RESULT_TYPE = ObjectType("KnowledgeGraphContext.v2")
 KNOWLEDGE_GRAPH_PROJECTION_RETURN_CONTRACT_REF = READ_CANONICAL_REF_RETURN_CONTRACT_REF
 KNOWLEDGE_GRAPH_PROJECTION_FAILURE_CODES = knowledge_graph_failures.codes
 KNOWLEDGE_GRAPH_PROJECTION_ROLLBACK_REF = (
-    "main/backend/app/successor_runtime/assembly/knowledge_assembly.py"
+    "main/backend/app/successor_runtime/capabilities/knowledge_graph_projection_contribution.py",
+    "main/backend/app/successor_runtime/substrate/postgres/c8_graph_projector.py",
 )
 
 # The PostgreSQL projector, FamilyAssembly and catalog projection all import
@@ -554,7 +555,7 @@ KNOWLEDGE_GRAPH_PROJECTION_AUTHOR_SOURCE = KnowledgeGraphProjectionAuthorSource(
         declared_loss=KNOWLEDGE_GRAPH_PROJECTION_DECLARED_LOSS,
         note=(f"capability schema: {GRAPH_PROJECTION_SCHEMA}; exact per-run source key is supplied by the runner"),
     ),
-    rollback_refs=(KNOWLEDGE_GRAPH_PROJECTION_ROLLBACK_REF,),
+    rollback_refs=KNOWLEDGE_GRAPH_PROJECTION_ROLLBACK_REF,
 )
 
 
@@ -854,7 +855,7 @@ def build_knowledge_graph_projection_binding(
     KnowledgeGraphProjectionRuntimeBinding[KnowledgeGraphProjectInput],
     Literal[
         "kit:non-authoritative derived_as=view fact_source=C8CellDefinition "
-        "witness=test:test_default_and_installed_c8_4_assembly_preserve_exact_declarations"
+        "witness=test:test_native_binding_installs_exact_projector_declaration"
     ],
 ]:
     binding = assemble_knowledge_graph_projection_definition(

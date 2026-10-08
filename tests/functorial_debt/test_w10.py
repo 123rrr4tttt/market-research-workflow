@@ -35,28 +35,6 @@ CASES: list[tuple[str, str, object, str]] = [
         _metadata("fastapi.openapi.routes"),
     ),
     (
-        "generate_c1_slice_acceptance",
-        "build_slice",
-        dict,
-        _metadata(
-            "successor_program_specs+legacy_oracle_receipt+pg_gate_bindings"
-        ),
-    ),
-    (
-        "generate_c1_slice_acceptance",
-        "build_evidence",
-        tuple,
-        _metadata(
-            "successor_program_specs+legacy_oracle_receipt+pg_gate_bindings"
-        ),
-    ),
-    (
-        "generate_c1_slice_acceptance",
-        "build_aggregate_from_disk",
-        dict,
-        _metadata("three_exact_c1_slice_artifacts+P1P3_movement_matrix"),
-    ),
-    (
         "generate_capability_spec_route_decision",
         "build_documents",
         tuple,
@@ -109,30 +87,6 @@ CASES: list[tuple[str, str, object, str]] = [
         "build_p3_aggregate",
         AggregateBuild,
         _metadata("migration_ledger+P1_selection+P2_packet+P3_fragments"),
-    ),
-    (
-        "generate_successor_p3_c3_fragment",
-        "build_fragment",
-        dict,
-        _metadata("C3.1_C3.2_fixtures+current_repo_bindings"),
-    ),
-    (
-        "generate_successor_p3_c4_fragment",
-        "build_fragment",
-        dict,
-        _metadata("C4.1_plan+C4.2_retry+C4.3_submission+repo_bindings"),
-    ),
-    (
-        "generate_successor_p3_c5_fragment",
-        "build_fragment",
-        dict,
-        _metadata("C5.1-C5.4_observations+repo_bindings"),
-    ),
-    (
-        "generate_successor_p4_c9_fragment",
-        "build_fragment",
-        dict,
-        _metadata("C9.1-C9.3_contracts+repo_bindings"),
     ),
 ]
 

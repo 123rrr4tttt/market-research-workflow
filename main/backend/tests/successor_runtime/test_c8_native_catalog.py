@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from app.successor_runtime.assembly.knowledge_assembly import ASSEMBLY_CELL_IDS
-
 from mrw_functorial_kit.contributions.knowledge_graph_projection import (
     knowledge_graph_projection_native_contributions,
 )
@@ -100,4 +96,6 @@ def test_default_bundle_uses_combined_native_catalog_without_duplicates() -> Non
     bundle = build_knowledge_bundle()
     kinds = [operation.ref.kind for operation in bundle.operations]
     assert len(kinds) == len(set(kinds))
-    assert tuple(bundle.profiles) == ASSEMBLY_CELL_IDS
+    assert tuple(bundle.profiles) == tuple(
+        native.definition.cell_id for native in knowledge_native_catalog
+    )

@@ -808,25 +808,6 @@
     },
     {
       "codes": [
-        "WORKFLOW_ACCEPTANCE_DIGEST_INVALID",
-        "WORKFLOW_ACCEPTANCE_INPUT_INVALID",
-        "WORKFLOW_CONTRACT_KIND_UNSUPPORTED",
-        "WORKFLOW_DSL_COMPILE_FAILURE",
-        "WORKFLOW_DSL_CYCLE",
-        "WORKFLOW_DSL_DUPLICATE_NODE_ID",
-        "WORKFLOW_DSL_MALFORMED_PAYLOAD",
-        "WORKFLOW_DSL_MISSING_ENDPOINT",
-        "WORKFLOW_DSL_UNSUPPORTED_NODE_TYPE",
-        "WORKFLOW_OBSERVATION_SHAPE_INVALID",
-        "WORKFLOW_PROGRAM_PLAN_BINDING_INVALID",
-        "WORKFLOW_RECEIPT_CONTRACT_INVALID",
-        "WORKFLOW_ROLLBACK_BINDING_INVALID",
-        "WORKFLOW_SLICE_SHAPE_INVALID"
-      ],
-      "name": "workflow.definition.failure"
-    },
-    {
-      "codes": [
         "SOURCE_SCHEMA_INVALID",
         "SOURCE_DIGEST_INVALID",
         "SOURCE_SCOPE_INVALID",
@@ -888,12 +869,6 @@
         "REBUILD_FAILED"
       ],
       "name": "projection.processing.failure"
-    },
-    {
-      "codes": [
-        "CONTRIBUTION_INVALID"
-      ],
-      "name": "kit.contribution"
     },
     {
       "codes": [
@@ -1089,6 +1064,31 @@
         "INVALID_INPUT"
       ],
       "name": "acquisition.batch.failure"
+    },
+    {
+      "codes": [
+        "WORKFLOW_ACCEPTANCE_DIGEST_INVALID",
+        "WORKFLOW_ACCEPTANCE_INPUT_INVALID",
+        "WORKFLOW_CONTRACT_KIND_UNSUPPORTED",
+        "WORKFLOW_DSL_COMPILE_FAILURE",
+        "WORKFLOW_DSL_CYCLE",
+        "WORKFLOW_DSL_DUPLICATE_NODE_ID",
+        "WORKFLOW_DSL_MALFORMED_PAYLOAD",
+        "WORKFLOW_DSL_MISSING_ENDPOINT",
+        "WORKFLOW_DSL_UNSUPPORTED_NODE_TYPE",
+        "WORKFLOW_OBSERVATION_SHAPE_INVALID",
+        "WORKFLOW_PROGRAM_PLAN_BINDING_INVALID",
+        "WORKFLOW_RECEIPT_CONTRACT_INVALID",
+        "WORKFLOW_ROLLBACK_BINDING_INVALID",
+        "WORKFLOW_SLICE_SHAPE_INVALID"
+      ],
+      "name": "workflow.definition.failure"
+    },
+    {
+      "codes": [
+        "CONTRIBUTION_INVALID"
+      ],
+      "name": "kit.contribution"
     }
   ],
   "version": "kit-registry.failures.v1"

@@ -25,6 +25,8 @@ ALLOWED_NODE_TYPES = frozenset({"vector_search", "llm_call", "join"})
 
 WorkflowNodeStatus: TypeAlias = Literal["queued", "running", "succeeded", "failed"]
 WorkflowRunStatus: TypeAlias = Literal["queued", "running", "succeeded", "failed"]
+WorkflowGraphDomainBindingVersion: TypeAlias = Literal["workflow-graph.domain.v1"]
+WORKFLOW_GRAPH_DOMAIN_BINDING_VERSION: WorkflowGraphDomainBindingVersion = "workflow-graph.domain.v1"
 
 
 class WorkflowRuntimeNode(TypedDict):
@@ -43,21 +45,6 @@ class WorkflowRuntimeGraph(TypedDict):
     project_key: NotRequired[str | None]
 
 
-class WorkflowPlatformBinding(TypedDict):
-    program_digest: str
-    plan_digest: str
-    catalog_digest: str
-
-
-class CompiledWorkflowGraphValue(TypedDict):
-    version: str
-    options: WorkflowJsonObject
-    topo_order: list[str]
-    outgoing_edges: dict[str, list[str]]
-    incoming_edges: dict[str, list[str]]
-    checksum: str
-
-
 class CompiledWorkflowGraphRecord(TypedDict):
     graph_id: str
     version: str
@@ -68,8 +55,10 @@ class CompiledWorkflowGraphRecord(TypedDict):
     incoming_edges: dict[str, list[str]]
     nodes: dict[str, WorkflowRuntimeNode]
     dsl: WorkflowJsonObject
-    compiled: CompiledWorkflowGraphValue
-    platform: WorkflowPlatformBinding
+    binding_version: NotRequired[WorkflowGraphDomainBindingVersion]
+    dsl_content_digest: NotRequired[str]
+    compiled: NotRequired[WorkflowJsonObject]
+    platform: NotRequired[WorkflowJsonObject]
 
 
 class WorkflowCompilerResponse(TypedDict):
@@ -78,9 +67,6 @@ class WorkflowCompilerResponse(TypedDict):
     checksum: str
     topo_order: list[str]
     warnings: list[str]
-    program_digest: str
-    plan_digest: str
-    catalog_digest: str
     template_id: NotRequired[str]
     version_id: NotRequired[str | None]
 

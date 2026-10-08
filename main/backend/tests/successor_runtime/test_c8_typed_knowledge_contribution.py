@@ -3,24 +3,6 @@
 from __future__ import annotations
 
 import dataclasses
-from types import SimpleNamespace
-
-import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
-
-from app.successor_runtime.assembly.base import (
-    KnowledgeAssemblyOptions,
-    local_assembly_scope_digest,
-)
-from app.successor_runtime.assembly.knowledge_assembly import (
-    KNOWLEDGE_DEPLOYMENT_CATALOG_DIGEST,
-    KnowledgeDemandReadRouteHandler,
-    KNOWLEDGE_DEMAND_READ_FAILURE_CODE,
-    build_knowledge_assembly,
-    build_deterministic_knowledge_payloads,
-)
-from app.successor_runtime.capabilities import knowledge_common as c8
 from app.successor_runtime.capabilities.knowledge_program import (
     KnowledgeDemandReadInput as LegacyC8DemandReadInput,
     build_knowledge_bundle,
@@ -50,13 +32,8 @@ from functorial_kit.contribution_compiler import compile_native_contribution
 from functorial_kit.core.failure import Failure
 from functorial_kit.native_contribution import BindingRejected, NativeContribution
 from mrw_functorial_kit.core.knowledge_semantics import knowledge_operation_kinds, knowledge_typed_knowledge_failures
-from app.successor_runtime.runtime.node import DefiniteInterpreterFailure
 
 from .p4_c8_fixture import PROJECT_KEY, captured_item, new_registry
-
-
-def _engine() -> Engine:
-    return create_engine("sqlite:///:memory:")
 
 
 def _native() -> NativeContribution[
@@ -178,46 +155,6 @@ def test_binding_assembly_and_drift_rejection_preserve_c8_1_declarations() -> No
     assert rollback.binding_refs == KNOWLEDGE_READ_ROLLBACK_REFS
 
 
-def test_declared_and_installed_cells_match_existing_assembly_path() -> None:
-    native = _native()
-    binding = native.assemble(KnowledgeNativeAssemblyContext())
-    assert not isinstance(binding, Failure)
-    scope = local_assembly_scope_digest()
-
-    unbound = build_knowledge_assembly(
-        engine=_engine(),
-        project_scope_digest=scope,
-    )
-    assert unbound.cell("knowledge.read.v2") == binding.declared_cell()
-
-    payloads = build_deterministic_knowledge_payloads(scope)
-    installed = build_knowledge_assembly(
-        engine=_engine(),
-        project_scope_digest=scope,
-        options=KnowledgeAssemblyOptions(c81_payload=payloads["c81_payload"]),
-    )
-    handler = next(
-        handler
-        for handler in installed.handlers
-        if isinstance(handler, KnowledgeDemandReadRouteHandler)
-    )
-    assert installed.cell("knowledge.read.v2") == binding.installed_cell(
-        handler.handler_binding_digest
-    )
-    assert installed.cell("knowledge.read.v2").status == "INSTALLED"
-    assert installed.cell("knowledge.read.v2").required_wiring == (
-        "admission_not_called/export_not_executed 保持",
-    )
-
-    rollback = next(
-        declaration
-        for declaration in installed.rollback_bindings
-        if declaration.cell_id == "knowledge.read.v2"
-    )
-    assert rollback == binding.assembly_rollback_binding()
-    assert rollback.binding_refs == KNOWLEDGE_READ_ROLLBACK_REFS
-
-
 def test_payload_and_original_demand_read_semantics_remain_compatible() -> None:
     payload = KnowledgeDemandReadInput(
         project_key=PROJECT_KEY,
@@ -243,47 +180,3 @@ def test_payload_and_original_demand_read_semantics_remain_compatible() -> None:
     )
     assert set(read.fields) == {"canonical_statement", "evidence_refs"}
     assert read.fields["canonical_statement"] == item.canonical_statement
-
-
-def test_route_failure_records_current_knowledge_read_code(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    binding = SimpleNamespace(
-        binding_digest="1" * 64,
-        interpreter_profile_digest="2" * 64,
-        operation_contract_digest="3" * 64,
-    )
-    handler = KnowledgeDemandReadRouteHandler(
-        payload={
-            "items": (captured_item(),),
-            "item_key": captured_item().key,
-            "fields": ("canonical_statement",),
-            "project_key": PROJECT_KEY,
-            "registry": new_registry(),
-        },
-        binding=binding,
-        deployment_catalog_digest=KNOWLEDGE_DEPLOYMENT_CATALOG_DIGEST,
-    )
-    assignment = SimpleNamespace(
-        assignment_digest="4" * 64,
-        claim_authority_epoch=1,
-        handler_binding_digest=binding.binding_digest,
-        operation_contract_digest=binding.operation_contract_digest,
-        deployment_catalog_digest=KNOWLEDGE_DEPLOYMENT_CATALOG_DIGEST,
-    )
-    claim = SimpleNamespace(
-        assignment_digest=assignment.assignment_digest,
-        claim_authority_epoch=assignment.claim_authority_epoch,
-    )
-
-    def unavailable(*args: object, **kwargs: object) -> object:
-        raise c8.UnavailableProjection("unavailable")
-
-    monkeypatch.setattr(
-        "app.successor_runtime.assembly.knowledge_assembly.demand_read",
-        unavailable,
-    )
-    with pytest.raises(DefiniteInterpreterFailure) as captured:
-        handler.execute(assignment, claim, None)  # type: ignore[arg-type]
-    assert captured.value.failure_code == KNOWLEDGE_DEMAND_READ_FAILURE_CODE
-    assert captured.value.failure_code in KNOWLEDGE_TYPED_KNOWLEDGE_AUTHOR_SOURCE.failure_codes

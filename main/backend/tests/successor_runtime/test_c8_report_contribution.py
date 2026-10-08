@@ -176,7 +176,7 @@ def test_rollback_and_declared_cell_preserve_unwired_boundary() -> None:
     rollback = binding.assembly_rollback_binding()
     assert rollback.cell_id == "knowledge.report.v2"
     assert rollback.status == "PRESENT"
-    assert rollback.binding_refs == (KNOWLEDGE_REPORT_ROLLBACK_REF,)
+    assert rollback.binding_refs == KNOWLEDGE_REPORT_ROLLBACK_REF
     declared = binding.declared_cell()
     assert declared.status == "UNWIRED_DECLARED"
     assert declared.handler_binding_digest is None

@@ -124,7 +124,8 @@ def test_INVARIANT__shared_family_projection_preserves_mixed_lineage_rows() -> N
     )
     projection = entry["shared_family_projection"]
     assert "stage" not in projection
-    assert projection["kind"] == "CURRENT_CANDIDATE_ROWS"
+    assert projection["kind"] == "HISTORICAL_CANDIDATE_ROWS"
+    assert entry["state"] == "RETIRED_GENERATOR_HISTORICAL_READBACK_ONLY"
     assert projection["lineage"] == "MIXED_STAGE_LINEAGE"
     rows = projection["rows"]
     assert {row["family"] for row in rows} == EXPECTED_FAMILIES - {"I1"}

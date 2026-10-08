@@ -1,6 +1,6 @@
 # MRW 精简框架
 
-> 2026-10-08 · 当前主线为原生规则贯通生产消费者并同批整族退役，基线为已提交的 `c3adced5946a52b66be4494aba3dbb707ee879b5`。上一轮完成的是迁移保持与本地验证，生产仅净减29行，不构成全局退役或显著瘦身完成。本批安全整族退役及Runtime、workflow有界首例已实施；app净减2114行，其中Runtime仅净减14行、workflow首例净增50行，尚不支持总体减量或提速结论。实际收支、验证及attempt集中见[平台结构精简与删减阶段](MRW平台结构精简与删减阶段.md)。
+> 2026-10-08 · 当前主线为原生规则贯通生产消费者并同批整族退役，基线为已提交的 `c3adced5946a52b66be4494aba3dbb707ee879b5`。上一轮完成的是迁移保持与本地验证，生产仅净减29行，不构成全局退役或显著瘦身完成。第二批已从`0dc9b3c3`退出旧generator、I1装配外壳及workflow静态资格链，app本批净减6124行至299234行，较初始基线累计净减8238行。整体精简仍未完成，不外推总体减量或提速；实际收支、验证及attempt集中见[阶段§2.2](MRW平台结构精简与删减阶段.md#22-第二批整族退役结果与证据)。
 
 ## 1. 从必要能力确定退役对象
 
@@ -46,9 +46,9 @@ $$
 
 这是待实现和见证的设计义务，不是已验证定理；只主张已声明端点及有序复合保持，不自动推出交换、自然性或不同形状同构，不据此新增代码schema。operation输入/输出、codec、kernel签名及reader结果关系须由同一原生定义维持；本批重复接线产生的Any/宽dict随壳消除，不能先擦成object/cast再称同源。JSON/provider不可信值只在解析边界开放，经原具体模型或判别失败收窄后进入领域/Runtime；现有无关类型债不纳入全库清零。
 
-已有局部链路证明此方向可复用，但尚未全域贯通。`successor_runtime/capabilities/knowledge_graph_projection_contribution.py`的`KnowledgeGraphProjectionAuthorSource`经`lower_knowledge_graph_projection_author_source`派生contract/profile/dataclass codec/Program atom，`knowledge_graph_projection_native_rule`及`KNOWLEDGE_GRAPH_PROJECTION_NATIVE_RULE`组织规则；`assembly/knowledge_assembly.py`实际调用`native.assemble`和`binding.install`。图的`substrate/postgres/c8_graph_projector.py::project_graph_generation/read_active_graph`仍承担不能由模板猜出的业务/持久化语义。这是静态链路证据，不是本轮运行证明。
+已有局部链路证明此方向可复用，但尚未全域贯通。`successor_runtime/capabilities/knowledge_graph_projection_contribution.py`的`KnowledgeGraphProjectionAuthorSource`经`lower_knowledge_graph_projection_author_source`派生contract/profile/dataclass codec/Program atom，`knowledge_graph_projection_native_rule`及`KNOWLEDGE_GRAPH_PROJECTION_NATIVE_RULE`组织规则；原`assembly/knowledge_assembly.py`曾组合`native.assemble`和`binding.install`，现已随I1局部总装退役；既有native binding及真实kernel仍保留，不将旧总装存在作为能力成立条件。图的`substrate/postgres/c8_graph_projector.py::project_graph_generation/read_active_graph`仍承担不能由模板猜出的业务/持久化语义。本批真实消费者的运行范围见阶段§2.2，不由静态链路推断全域贯通。
 
-workflow局部首例已使`composition/production.py::_installed_operation_facts`和`_installed_operation_handler`从同一选定`WorkflowRuntimeDefinition`查找完整operation ref，并由`workflow_assembly.py::assemble_workflow_runtime_handler`构造原handler、检查完整类型/codec/authority关联。原`build_workflow_runtime_definition`支持既有三类节点内的kind映射，真实PG见证覆盖default与alternate。此处只统一operation安装接缝，未使`WORKFLOW_NATIVE_CONTRIBUTION_RULE`或全能力目录全面贯通；提取原handler及新增检查的成本计入首例，详见阶段§2.1。复用`PersistentOperationHandler`及`services/workflow_graph/__init__.py`的`submit_installed_program`与reader；`runtime.py::invoke_workflow_runtime_node`的输入关系与`execute_node`效果继续由领域核承担。`contributions/project_catalog.py`当前主要给CLI/check投影，`retrieval_native_catalog.py`也区分native与projection，均不能单凭catalog声称worker已安装。
+workflow局部首例已使`composition/production.py::_installed_operation_facts`和`_installed_operation_handler`从同一选定`WorkflowRuntimeDefinition`查找完整operation ref，并由`workflow_assembly.py::assemble_workflow_runtime_handler`构造原handler、检查完整类型/codec/authority关联。原`build_workflow_runtime_definition`支持既有三类节点内的kind映射，真实PG见证覆盖default与alternate。此处只统一operation安装接缝；第二批已删除服务旧静态资格cell的`WORKFLOW_NATIVE_CONTRIBUTION_RULE`及其catalog，保留真实runtime definition与handler。首例成本见阶段§2.1，整族退役及旧compiled运行需重编译的显式损失见§2.2；不宣称全能力目录贯通。复用`PersistentOperationHandler`及`services/workflow_graph/__init__.py`的`submit_installed_program`与reader；`runtime.py::invoke_workflow_runtime_node`的输入关系与`execute_node`效果继续由领域核承担。`contributions/project_catalog.py`当前主要给CLI/check投影，`retrieval_native_catalog.py`也区分native与projection，均不能单凭catalog声称worker已安装。
 
 Runtime自身同样沿“原生typed状态/值/事件/命令语义 → 已有关系规则 → 当前Node/PG消费者与只读readback”收敛。同一运行事实的codec、row映射、装配、投影与验证接入可以有向派生，减少重复模型和检查维护；结构收益不自动等于总代码减少，新增规则与派生生产量均计成本。现有局部调查与首例分为四面：
 
@@ -90,17 +90,17 @@ app的c3路径基线互斥覆盖：services398文件130558行、successor_runtim
 
 **测试、文档与库存另账。** 基线自有测试773文件235198行含`scripts/tests`，不含vendor内测试；后续分离出的MRW定制测试仍入自有测试账。全库1444个Markdown文件172971行是当前与历史合计，正式现役入口须单独定界。vendor库存77588行已含generated8154行；历史脚本11785与evidence/fixture22315合计34100行另列。该机械路径口径的自有代码含测试与库存共784440行（515142＋235198＋34100），vendor单列；历史初分不授权退役现役依赖。历史脚本或fixture若仍被当前运行或验证工具执行，其必要实现成本回纳对应预算。库存不抵扣实现退役收益，冻结原字节不改写，不能以转archive或标历史逃账。测试和文档随真实职责退役、重复承载合并而收缩，不设未经证明的行数帽，不按LOC删除必要独立见证；现役七gate与真实消费者保持验证继续严格。
 
-每个实现包发放前，从精确删除闭包取得最低删除量`D`、新增上限`A_max`和最低净减`N_min`，实际另报`D_actual/A_actual/N_actual`。新增包括公共接缝、派生生产物及跨目录提取；不得以难为由保留完整services或已被替代的旧runtime。安全首批发包预算`D=2155/A_max=6/N_min=2149`已达到，仅覆盖三个小闭包；本批各面实际收支统一见阶段§2.1，不构成整体目标。上一轮新增18141、删除18170、净减29仍只是历史迁移结果。
+每个实现包发放前，从精确删除闭包取得最低删除量`D`、新增上限`A_max`和最低净减`N_min`，实际另报`D_actual/A_actual/N_actual`。新增包括公共接缝、派生生产物及跨目录提取；不得以难为由保留完整services或已被替代的旧runtime。安全首批发包预算`D=2155/A_max=6/N_min=2149`已达到，仅覆盖三个小闭包；首批实际收支见阶段§2.1，第二批见§2.2，不构成整体目标。上一轮新增18141、删除18170、净减29仍只是历史迁移结果。
 
 以workflow公共首例及同形迁移的真实消费者校准最小充分保留核、实际删除与替代成本；已有证据充分就复用，不增流程门禁。具名保留核与互斥删除包预算形成后，由root裁定可执行总体区间与累计净减，继续扩展同形删除，不无限定界，也不以首批或总净减大于零结项。实际缺口回到对应包修正，不为行数弱化类型、权限、UNKNOWN、恢复或消费者见证。
 
 ## 5. 推进与验证
 
-安全整族退役与两个有界首例已有本批结果；下一前沿是寻找既有同形的整族重复装配或旧执行owner闭包，证明计入规则和集成成本后仍有正净收益，再发包。其它能力形状与D/A/N仍待定，不由首例通过直接宣布可批量迁移。首例一名owner贯通共享规则与production后，释放依赖它的同形作者；公共消费者和目录始终由集成owner串行收敛，消费者切换与整族删除同包验收。具体合同、依赖、写面及命令见阶段文档；完整路径覆盖账只防漏项，不决定架构切片。
+首批安全退役与首例、第二批旧generator/I1/workflow静态资格链均已有局部结果；下一前沿是寻找既有同形的整族重复装配或旧执行owner闭包，证明计入规则和集成成本后仍有正净收益，再发包。其它能力形状与D/A/N仍待定，不由首例通过直接宣布可批量迁移。首例一名owner贯通共享规则与production后，释放依赖它的同形作者；公共消费者和目录始终由集成owner串行收敛，消费者切换与整族删除同包验收。具体合同、依赖、写面及命令见阶段文档；完整路径覆盖账只防漏项，不决定架构切片。
 
 全局最多6名活跃Agent，root分发与Astra编排各1名，最多4名作者/调查者；集成owner占其中1席。领域作者不各写adapter补共同缺口；共同规则失败回到唯一owner，独立包继续。PG、coverage、前端build/E2E独占，pure最多2个资源隔离进程。原进度记录汇总现成分派、首次共同验收、失败、手写机械接线、调用/token及共同修复成本；缺失不记零，不能由局部通过推断整体提速。
 
-复用原贡献权威源与`sync/check`，派生registry、sketch和witness不手工改表。停用功能的专属测试/脚本/selector随功能退役；仍存在的相邻能力、身份和权限见证继续执行，现役七gate不降低。原测试命令、公共类型检查、PG、coverage、build及其独占资源见[工作包文档](MRW平台结构精简与删减阶段.md)。本批执行、kept、失败attempt及未运行范围集中见阶段§2.1；当前文档同步只做文档检查，不重复运行源码验证。后续删除沿用户已授权范围和预算就绪派发，普通定界不新增审批。
+复用原贡献权威源与`sync/check`，派生registry、sketch和witness不手工改表。停用功能的专属测试/脚本/selector随功能退役；仍存在的相邻能力、身份和权限见证继续执行，现役七gate不降低。原测试命令、公共类型检查、PG、coverage、build及其独占资源见[工作包文档](MRW平台结构精简与删减阶段.md)。各批执行、复用、失败attempt及未运行范围分别见阶段§2.1/§2.2；当前文档同步只做文档检查，不重复运行源码验证。后续删除沿用户已授权范围和预算就绪派发，普通定界不新增审批。
 
 ## 6. 历史迁移结果与当前状态
 
@@ -108,4 +108,4 @@ app的c3路径基线互斥覆盖：services398文件130558行、successor_runtim
 
 精确历史可从`git show c3adced:docs/development/MRW平台结构精简与删减阶段.md`读取；原aggregate为`/tmp/mrw-structure-20261007-w4uct7gr/integration/ci-group-resumption-2.json`。这些是旧候选证据，新退役改动只能按未变依赖复用。全文件类型债、浏览器mocks、direct HOST写作工具证明范围和不完整调用/token成本仍保留，不新增为本次后置治理工程。
 
-当前状态：局部试跑已完成安全整族退役、Runtime值映射派生与workflow安装接缝贯通；实际收支、验证范围及成本缺失统一见[阶段§2.1](MRW平台结构精简与删减阶段.md#21-本批局部试跑结果与证据)。全能力规则贯通和整体精简仍未完成。未经证明的硬行数帽继续撤回，“6–10万”保留为未校准历史情景，不是可信预期；不外推总体删减或提速。文档交回集成统一提交，未push或deploy；旧生产部署Stage4–6继续STOPPED。
+当前状态：第二批整族退役已完成所需局部验证，保留实际kernel、权限、PG、UNKNOWN及历史reader；旧compiled graph只读保留、运行需重新编译。实际收支、返工与成本缺失见[阶段§2.2](MRW平台结构精简与删减阶段.md#22-第二批整族退役结果与证据)，首批结果保留于§2.1。全能力规则贯通和整体精简仍未完成。未经证明的硬行数帽继续撤回，“6–10万”保留为未校准历史情景，不是可信预期；不外推总体删减或提速。文档交回集成统一提交，未push或deploy；旧生产部署Stage4–6继续STOPPED。

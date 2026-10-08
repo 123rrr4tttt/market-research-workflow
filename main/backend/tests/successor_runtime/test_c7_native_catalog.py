@@ -8,7 +8,10 @@ import pytest
 from functorial_kit.contribution_verification import VerificationChanges
 from functorial_kit.core.failure import Failure
 
-from app.successor_runtime.assembly.base import local_assembly_scope_digest
+from app.successor_runtime.assembly.base import (
+    MaterialIngestAssemblyOptions,
+    local_assembly_scope_digest,
+)
 from app.successor_runtime.capabilities import material_ingest_common as c7
 from app.successor_runtime.capabilities import material_ingest_movements as c7m
 from app.successor_runtime.capabilities.material_native_contribution import (
@@ -186,20 +189,24 @@ def test_non_default_context_flows_into_program_and_assembly() -> None:
     assert tuple(binding.family_assembly.coverage()) == ASSEMBLY_CELL_IDS
     from app.successor_runtime.assembly.material_ingest_assembly import (
         build_material_ingest_assembly,
-        build_deterministic_material_ingest_rollback_options,
     )
 
+    options = MaterialIngestAssemblyOptions(submission=submission)
     scoped = build_material_ingest_assembly(
-        options=build_deterministic_material_ingest_rollback_options(context_scope),
+        options=options,
         project_scope_digest=context_scope,
         native_definition=compiled.definition,
     )
     local_scope = local_assembly_scope_digest()
     local = build_material_ingest_assembly(
-        options=build_deterministic_material_ingest_rollback_options(local_scope),
+        options=options,
         project_scope_digest=local_scope,
         native_definition=compiled.definition,
     )
+    native_ref = compiled.definition.catalog.lookup(c7.MATERIAL_STAGE_CANDIDATE_KIND)
+    assert native_ref is not None
+    assert len(scoped.handlers) == 1
+    assert scoped.handlers[0].operation_contract_digest == native_ref.contract_digest
     assert tuple(
         handler.handler_binding_digest for handler in scoped.handlers
     ) != tuple(handler.handler_binding_digest for handler in local.handlers)

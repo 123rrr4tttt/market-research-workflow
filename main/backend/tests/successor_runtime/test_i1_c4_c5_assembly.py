@@ -13,8 +13,6 @@ from app.successor_runtime.assembly.base import (
 )
 from app.successor_runtime.assembly.batch_task_assembly import (
     build_batch_task_assembly,
-    build_deterministic_plan_payload,
-    build_deterministic_retry_payload,
 )
 from app.successor_runtime.assembly.task_observation_assembly import (
     TASK_EFFECT_RECONCILE_DURABLE_ATTEMPT_NODE_NOT_PROVEN,
@@ -166,25 +164,6 @@ def test_c4_assembly_installs_canary_handlers_with_payloads() -> None:
     assert len(set(digests)) == len(digests)
     installed_digests = {cell.handler_binding_digest for cell in assembly.cells if cell.status == "INSTALLED"}
     assert installed_digests == set(digests)
-
-
-def test_c4_assembly_installs_with_production_fixture_builder() -> None:
-    scope_digest = local_assembly_scope_digest()
-    options = BatchTaskAssemblyOptions(
-        plan_payload=build_deterministic_plan_payload(scope_digest),
-        retry_payload=build_deterministic_retry_payload(scope_digest),
-    )
-    assembly = build_batch_task_assembly(
-        uow_factory=_uow_factory(),
-        project_scope_digest=scope_digest,
-        options=options,
-    )
-    assert assembly.coverage() == {
-        BATCH_PLAN_CELL: "INSTALLED",
-        BATCH_RETRY_CELL: "INSTALLED",
-        BATCH_SUBMIT_CELL: "INSTALLED",
-    }
-    assert len(assembly.handlers) == 3
 
 
 def test_c4_assembly_rejects_payload_scope_drift() -> None:

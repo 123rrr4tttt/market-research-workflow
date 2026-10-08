@@ -19,20 +19,12 @@ from .base import (
     ProjectorWiring,
     RollbackBindingDeclaration,
     local_assembly_scope_digest,
-    merge_family_assemblies,
     require_assembly_digest,
     sha256_hex,
     successor_binding,
 )
-from .successor_assembly import (
-    ALL_I1_CELLS,
-    SuccessorAssembly,
-    assemble_successor_runtime,
-    build_local_offline_fixture_options,
-)
 
 __all__ = [
-    "ALL_I1_CELLS",
     "ASSEMBLY_STATUSES",
     "PROJECTOR_REGISTRY_INCARNATION",
     "AssemblyStatus",
@@ -49,11 +41,7 @@ __all__ = [
     "ProjectorSourceKey",
     "ProjectorWiring",
     "RollbackBindingDeclaration",
-    "SuccessorAssembly",
-    "assemble_successor_runtime",
-    "build_local_offline_fixture_options",
     "local_assembly_scope_digest",
-    "merge_family_assemblies",
     "require_assembly_digest",
     "sha256_hex",
     "successor_binding",

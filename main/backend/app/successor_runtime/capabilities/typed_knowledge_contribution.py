@@ -55,7 +55,8 @@ KNOWLEDGE_READ_RECOVERY_BINDING_REF = (
     "read-handle-retained;no-dual-write"
 )
 KNOWLEDGE_READ_ROLLBACK_REFS = (
-    "main/backend/app/successor_runtime/assembly/knowledge_assembly.py",
+    "main/backend/app/successor_runtime/capabilities/typed_knowledge.py",
+    "main/backend/app/successor_runtime/substrate/postgres/c8_material_handler.py",
 )
 
 

@@ -11,22 +11,12 @@ identity and is consumed by exact handlers and the default assembly.
 
 from __future__ import annotations
 
-import dataclasses
 from collections.abc import Callable
 from typing import Annotated, Any
 
 from functorial_kit.core.failure import Failure
 
 from app.successor_runtime.capabilities import batch_task as batch_task
-from app.successor_runtime.capabilities import source_contracts as source_contracts
-from app.successor_runtime.capabilities.batch_task import (
-    AgentBatchTask,
-    BatchPlanPayload,
-    CriticDecision,
-    RetryAction,
-    RetryBudget,
-    RetryReducerInput,
-)
 from app.successor_runtime.capabilities.batch_task_interpreters import (
     authority_requirement_digest,
     successor_plan_interpreter_profile_digest,
@@ -82,149 +72,6 @@ _BATCH_TASK_FRAGMENT = (
 _BATCH_TASK_SUBMISSION_HANDLER_PATH = (
     "main/backend/app/successor_runtime/substrate/postgres/batch_task_submission_handler.py"
 )
-
-PROJECT_KEY = "batch-task-local"
-REGISTRY_REVISION = 3
-RESOLVED_SCHEMA = "mrw_batch_task_local"
-SCOPE_INCARNATION = "scope-inc-batch-task-local"
-DEFAULT_BATCH_TASK_SCOPE_DIGEST = source_contracts.project_scope_digest(
-    project_key=PROJECT_KEY,
-    resolved_schema=RESOLVED_SCHEMA,
-    project_registry_revision=REGISTRY_REVISION,
-    incarnation=SCOPE_INCARNATION,
-)
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class _I1BatchTaskSourceCandidateView:
-    """Deterministic C2 candidate snapshot used by the C4 fixture payloads."""
-
-    catalog: Any
-    source_items: tuple[Any, ...]
-
-
-def _i1_batch_task_source_item(
-    item_key: str, *, enabled: bool = True
-) -> source_contracts.SourceItemDefinition:
-    values: dict[str, object] = {
-        "item_key": item_key,
-        "channel_key": (
-            "handler.cluster" if item_key.startswith("handler") else "market.default"
-        ),
-        "enabled": enabled,
-        "params": {},
-        "extra": {},
-        "revision": REGISTRY_REVISION,
-        "incarnation": "item-inc-batch-task-local",
-    }
-    values["content_digest"] = source_contracts.source_item_definition_content_digest(values)
-    return source_contracts.source_item_definition_from_dict(values)
-
-
-def _i1_batch_task_snapshot() -> _I1BatchTaskSourceCandidateView:
-    catalog = source_contracts.build_channel_catalog_snapshot(
-        revision=9,
-        incarnation="channel-catalog-inc-batch-task-local",
-        entries=(),
-    )
-    source_items = (
-        _i1_batch_task_source_item("handler.cluster.news"),
-        _i1_batch_task_source_item("market.default.tech"),
-    )
-    return _I1BatchTaskSourceCandidateView(catalog=catalog, source_items=source_items)
-
-
-def _i1_batch_task_task() -> AgentBatchTask:
-    return AgentBatchTask(
-        task_id="search_1",
-        channel="search.market",
-        query_terms=("机器人",),
-        max_items=20,
-        provider="auto",
-        language="zh",
-        days_back=30,
-        item_key=None,
-        scope=None,
-        platforms=(),
-        override_params={},
-    )
-
-
-def build_deterministic_plan_payload(scope_digest: str) -> Annotated[
-    BatchPlanPayload,
-    "kit:prepared-command effect_boundary=successor_runtime.c4_assembly "
-    "witness=test:test_c4_assembly_installs_with_production_fixture_builder",
-]:
-    """Build the deterministic batch-task plan payload for one exact scope."""
-
-    payload = BatchPlanPayload(
-        schema_version=batch_task.BATCH_PLAN_PAYLOAD_SCHEMA,
-        operation_kind=batch_task.BATCH_PLAN_KIND,
-        project_key=PROJECT_KEY,
-        registry_revision=REGISTRY_REVISION,
-        resolved_schema=RESOLVED_SCHEMA,
-        scope_incarnation=SCOPE_INCARNATION,
-        scope_digest=scope_digest,
-        tasks=(_i1_batch_task_task(),),
-        retrieval_mode="hybrid",
-        command="调研机器人产品、公司和最近动态",
-        language="zh",
-        coverage_axes=(),
-        candidates=_i1_batch_task_snapshot(),
-        limited_branching_enabled=False,
-        max_source_tasks=2,
-    )
-    if payload.scope_digest != scope_digest:
-        raise ValueError(
-            "deterministic plan payload scope digest must equal the requested scope"
-        )
-    return payload
-
-
-def build_deterministic_retry_payload(scope_digest: str) -> Annotated[
-    RetryReducerInput,
-    "kit:prepared-command effect_boundary=successor_runtime.c4_assembly "
-    "witness=test:test_c4_assembly_installs_with_production_fixture_builder",
-]:
-    """Build the deterministic batch-task retry payload for one exact scope."""
-
-    payload = RetryReducerInput(
-        schema_version=batch_task.RETRY_REDUCER_PAYLOAD_SCHEMA,
-        operation_kind=batch_task.RETRY_REDUCE_KIND,
-        project_key=PROJECT_KEY,
-        registry_revision=REGISTRY_REVISION,
-        resolved_schema=RESOLVED_SCHEMA,
-        scope_incarnation=SCOPE_INCARNATION,
-        scope_digest=scope_digest,
-        tasks=(_i1_batch_task_task(),),
-        critic=CriticDecision(
-            score=0.5,
-            next_action="retry_with_source_library",
-            reason_codes=("source_backing_missing",),
-            rewrite={},
-        ),
-        retry_action=RetryAction(
-            action="attach_source_library",
-            reason="source_backing_missing",
-            channel="source_library",
-            rewrite={
-                "item_key": "handler.cluster.news",
-                "query_terms": ("机器人",),
-                "max_items": 20,
-            },
-        ),
-        budget=RetryBudget(remaining=1, used=0, max_rounds=1),
-        prior_attempt_ref="attempt:round-1",
-        command="调研机器人",
-        retry_enabled=True,
-        dry_run=False,
-    )
-    if payload.scope_digest != scope_digest:
-        raise ValueError(
-            "deterministic retry payload scope digest must equal the requested scope"
-        )
-    return payload
-
 
 def _payload_scope_digest(payload: Any) -> str:
     scope = getattr(payload, "scope_digest", None)
@@ -318,7 +165,7 @@ def build_batch_task_assembly(
 ) -> Annotated[
     FamilyAssembly,
     "kit:prepared-command effect_boundary=successor_runtime.c4_assembly "
-    "witness=test:test_c4_assembly_installs_with_production_fixture_builder",
+    "witness=test:test_c4_assembly_installs_canary_handlers_with_payloads",
 ]:
     """Install submission and, when payloads are supplied, the canaries."""
 
@@ -504,12 +351,5 @@ def build_batch_task_assembly(
 
 
 __all__ = [
-    "DEFAULT_BATCH_TASK_SCOPE_DIGEST",
-    "PROJECT_KEY",
-    "REGISTRY_REVISION",
-    "RESOLVED_SCHEMA",
-    "SCOPE_INCARNATION",
     "build_batch_task_assembly",
-    "build_deterministic_plan_payload",
-    "build_deterministic_retry_payload",
 ]

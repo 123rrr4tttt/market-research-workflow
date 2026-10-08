@@ -23,27 +23,6 @@ EXPECTED_ANNOTATIONS: tuple[tuple[str, str, str], ...] = (
     ("task_observation_assembly.py", "build_task_observation_assembly", "FamilyAssembly"),
     ("material_ingest_assembly.py", "build_material_ingest_assembly", "FamilyAssembly"),
     (
-        "material_ingest_assembly.py",
-        "build_deterministic_material_ingest_rollback_options",
-        "MaterialIngestAssemblyOptions",
-    ),
-    (
-        "knowledge_assembly.py",
-        "build_deterministic_knowledge_delivery_closure",
-        "dict[str, Any]",
-    ),
-    (
-        "knowledge_assembly.py",
-        "build_deterministic_knowledge_payloads",
-        "dict[str, Any]",
-    ),
-    ("knowledge_assembly.py", "build_knowledge_assembly", "FamilyAssembly"),
-    (
-        "projection_assembly.py",
-        "build_deterministic_facade_validation_query",
-        "FacadeQueryV2",
-    ),
-    (
         "projection_assembly.py",
         "build_deterministic_facade_closure",
         "SuccessorRuntimeFacade",
@@ -52,12 +31,6 @@ EXPECTED_ANNOTATIONS: tuple[tuple[str, str, str], ...] = (
         "projection_assembly.py",
         "build_deterministic_command_submission_port",
         "CommandSubmissionPort",
-    ),
-    ("projection_assembly.py", "build_projection_assembly", "FamilyAssembly"),
-    (
-        "successor_assembly.py",
-        "build_local_offline_fixture_options",
-        "FamilyAssemblyOptions",
     ),
 )
 

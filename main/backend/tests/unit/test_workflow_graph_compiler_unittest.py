@@ -11,9 +11,7 @@ from app.services.workflow_graph import WorkflowGraphCompilerService
 from app.services.workflow_graph.compiler import compile_workflow_graph
 from app.services.workflow_graph.contracts import WorkflowGraphCompileError
 from app.services.workflow_graph.store import InMemoryCompiledGraphStore
-from app.successor_runtime.capabilities.workflow_legacy_dsl import (
-    parse_and_validate_workflow_dsl,
-)
+from app.successor_runtime.capabilities.checksum import content_digest
 from app.successor_runtime.capabilities.workflow_common import (
     normalize_workflow_json_object,
     normalize_workflow_json_value,
@@ -115,17 +113,6 @@ class WorkflowGraphCompilerUnitTestCase(unittest.TestCase):
         with self.assertRaisesRegex(WorkflowGraphCompileError, "keys must be strings"):
             compile_workflow_graph(payload)
 
-    def test_successor_parser_rejects_nested_non_json_values(self):
-        payload = self._build_valid_payload()
-        payload["options"] = {"callback": object()}
-
-        receipt = parse_and_validate_workflow_dsl(payload)
-
-        self.assertFalse(receipt.ok)
-        self.assertIsNotNone(receipt.failure)
-        self.assertEqual(receipt.failure.code, "WORKFLOW_DSL_MALFORMED_PAYLOAD")
-        self.assertIn("non-JSON value", receipt.failure.message)
-
     def test_workflow_json_normalizer_uses_typed_failure_lift_for_public_type_error(self):
         failure = try_normalize_workflow_json_value(
             {"nested": float("inf")},
@@ -199,24 +186,44 @@ class WorkflowGraphCompilerUnitTestCase(unittest.TestCase):
         self.assertEqual(compiled["topo_order"], ["n1", "n2", "n3"])
         self.assertEqual(compiled["checksum"], response["checksum"])
 
-    def test_compiler_service_lowers_and_binds_exact_platform_plan(self):
+    def test_compiler_service_binds_exact_domain_dsl_content(self):
         payload = self._build_valid_payload()
-        receipt = parse_and_validate_workflow_dsl(payload)
-        self.assertTrue(receipt.ok)
 
         service = WorkflowGraphCompilerService(store=InMemoryCompiledGraphStore())
         response = service.compile({"dsl": payload, "graph_id": "graph-platform"})
         compiled = service.get_compiled("graph-platform")
 
-        self.assertEqual(response["program_digest"], receipt.program_digest)
-        self.assertEqual(response["plan_digest"], receipt.plan_digest)
-        self.assertEqual(response["catalog_digest"], receipt.catalog_digest)
-        self.assertEqual(compiled["platform"], {
-            "program_digest": receipt.program_digest,
-            "plan_digest": receipt.plan_digest,
-            "catalog_digest": receipt.catalog_digest,
-        })
-        self.assertEqual(list(receipt.topo_order), compiled["topo_order"])
+        self.assertEqual(compiled["binding_version"], "workflow-graph.domain.v1")
+        self.assertEqual(compiled["dsl_content_digest"], content_digest(payload))
+        self.assertNotIn("platform", compiled)
+        self.assertNotIn("compiled", compiled)
+        self.assertNotIn("program_digest", response)
+        self.assertNotIn("plan_digest", response)
+        self.assertNotIn("catalog_digest", response)
+        self.assertEqual(["n1", "n2", "n3"], compiled["topo_order"])
+
+    def test_store_keeps_legacy_platform_record_read_only_and_rejects_unknown_binding(self):
+        store = InMemoryCompiledGraphStore()
+        service = WorkflowGraphCompilerService(store=store)
+        service.compile({"dsl": self._build_valid_payload(), "graph_id": "legacy-readable"})
+        legacy = service.get_compiled("legacy-readable")
+        legacy.pop("binding_version")
+        legacy.pop("dsl_content_digest")
+        legacy["platform"] = {
+            "program_digest": "a" * 64,
+            "plan_digest": "b" * 64,
+            "catalog_digest": "c" * 64,
+        }
+        legacy["compiled"] = {"historical": True}
+        store.save_compiled(legacy)
+
+        self.assertEqual(store.get_compiled("legacy-readable")["platform"], legacy["platform"])
+        self.assertEqual(store.list_compiled()[0]["compiled"], {"historical": True})
+
+        unknown = dict(legacy)
+        unknown["binding_version"] = "workflow-graph.domain.v999"
+        with self.assertRaisesRegex(ValueError, "unsupported binding version; recompile"):
+            store.save_compiled(unknown)
 
     def test_save_failure_is_not_masked_by_service_memory(self):
         store = MagicMock(spec=InMemoryCompiledGraphStore)

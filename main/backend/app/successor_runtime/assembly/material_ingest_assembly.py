@@ -1110,64 +1110,6 @@ def build_material_ingest_assembly(
     )
 
 
-def build_deterministic_material_ingest_rollback_options(
-    project_scope_digest: str,
-) -> Annotated[
-    MaterialIngestAssemblyOptions,
-    "kit:prepared-command effect_boundary=successor_runtime.c7_assembly "
-    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
-]:
-    """Build the deterministic local C7 rollback-route fixture closures."""
-
-    require_assembly_digest(
-        project_scope_digest,
-        "C7 rollback options project scope digest",
-    )
-    submission = MaterialIngestSubmission(
-        idempotency_key="idem:i1-local-c7:001",
-        project_key="i1-local-c7",
-        source_locator="https://example.invalid/i1-local-c7/001",
-        request_key="req:i1-local-c7:001",
-        raw_payload={
-            "title": "I1 local C7 rollback route fixture",
-            "text": "deterministic staged candidate fixture",
-            "project_scope_digest": project_scope_digest,
-        },
-    )
-    commit_readback = {
-        "commit_intent_id": "commit:i1-c7:001",
-        "content_digest_hex": sha256_hex("content:i1-c7:001"),
-        "verification_binding_digest": sha256_hex("verification:i1-c7:001"),
-        "state": "readback_available",
-    }
-    projection_diff = ProjectionDiff(
-        source_identity="document:i1-c7:001",
-        projection_kind="search",
-        source_digest=sha256_hex("source:i1-c7:001"),
-        projection_digest=sha256_hex("projection:i1-c7:001"),
-        declared_loss=(
-            ("full_text", "raw text not indexed"),
-            ("raw_payload", "raw payload not indexed"),
-        ),
-    )
-    reconciliation_decision = MaterialReconciliationDecision(
-        new_attempt_allowed=False,
-        requirement=(
-            "exact non-start proof plus current authority required before "
-            "any new attempt"
-        ),
-        reason=(
-            "deterministic local rollback reconciliation fixture; new attempt forbidden"
-        ),
-    )
-    return MaterialIngestAssemblyOptions(
-        submission=submission,
-        commit_readback=commit_readback,
-        projection_diff=projection_diff,
-        reconciliation_decision=reconciliation_decision,
-    )
-
-
 __all__ = [
     "ASSEMBLY_CELL_IDS",
     "MATERIAL_INGEST_ASSEMBLY_CELL_IDS",
@@ -1185,6 +1127,5 @@ __all__ = [
     "MaterialProjectorDriverHandler",
     "MaterialReconciliationRollbackRouteHandler",
     "build_material_ingest_assembly",
-    "build_deterministic_material_ingest_rollback_options",
     "validate_material_ingest_assembly_native_definition",
 ]

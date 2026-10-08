@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from copy import deepcopy
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -26,9 +27,6 @@ from app.successor_runtime.capabilities.workflow_native_contribution import (
 )
 from app.successor_runtime.capabilities.checksum import canonical_json, content_digest, sha256_hex
 from app.successor_runtime.language.algebra import ValueRef
-from app.successor_runtime.capabilities.workflow_legacy_dsl import (
-    parse_and_validate_workflow_dsl,
-)
 from app.successor_runtime.runtime.ports import ProjectScopeRef
 
 
@@ -176,37 +174,85 @@ class WorkflowRuntimeKernelUnitTest(unittest.TestCase):
 
 
 class WorkflowGraphServiceUnitTest(unittest.TestCase):
-    def test_compiler_keeps_historical_dsl_binding_for_durable_lowering(self) -> None:
+    def test_compiler_keeps_domain_binding_for_durable_lowering(self) -> None:
         store = InMemoryCompiledGraphStore()
         service = workflow_graph_module.WorkflowGraphCompilerService(store=store)
         response = service.compile({"graph_id": "wf-platform", "dsl": _dsl()})
-        receipt = parse_and_validate_workflow_dsl(_dsl())
 
-        self.assertTrue(receipt.ok)
-        self.assertEqual(response["program_digest"], receipt.program_digest)
-        self.assertEqual(service.get_compiled("wf-platform")["topo_order"], ["n1", "n2"])
+        compiled = service.get_compiled("wf-platform")
+        self.assertEqual(response["checksum"], compiled["checksum"])
+        self.assertEqual(compiled["binding_version"], "workflow-graph.domain.v1")
+        self.assertEqual(compiled["dsl_content_digest"], content_digest(_dsl()))
+        self.assertEqual(compiled["topo_order"], ["n1", "n2"])
 
-    def test_service_rejects_stale_historical_binding_before_submission(self) -> None:
+    def test_service_rejects_old_unknown_and_tampered_bindings_before_any_effect(self) -> None:
+        store = InMemoryCompiledGraphStore()
+        compiler_service = workflow_graph_module.WorkflowGraphCompilerService(store=store)
+        compiler_service.compile({"graph_id": "bound", "dsl": _dsl()})
+        current = compiler_service.get_compiled("bound")
+
+        cases: list[tuple[str, dict[str, Any], str]] = []
+
+        old = deepcopy(current)
+        old.pop("binding_version")
+        old.pop("dsl_content_digest")
+        old["platform"] = {"program_digest": "a", "plan_digest": "b", "catalog_digest": "c"}
+        cases.append(("old", old, "missing or unsupported binding version"))
+
+        unknown = deepcopy(current)
+        unknown["binding_version"] = "workflow-graph.domain.v999"
+        cases.append(("unknown", unknown, "missing or unsupported binding version"))
+
+        dsl_only = deepcopy(current)
+        dsl_only["dsl"]["nodes"][0]["config"]["top_k"] = 99
+        cases.append(("dsl-only", dsl_only, "DSL content digest is stale"))
+
+        dsl_rehashed_only = deepcopy(current)
+        dsl_rehashed_only["dsl"]["nodes"][0]["config"]["top_k"] = 99
+        dsl_rehashed_only["dsl_content_digest"] = content_digest(
+            dsl_rehashed_only["dsl"]
+        )
+        cases.append(("dsl-rehashed-only", dsl_rehashed_only, "domain projection is stale"))
+
+        nodes_only = deepcopy(current)
+        nodes_only["nodes"]["n1"]["params"]["top_k"] = 99
+        cases.append(("nodes-only", nodes_only, "domain projection is stale"))
+
+        dsl_and_nodes = deepcopy(current)
+        dsl_and_nodes["dsl"]["nodes"][0]["config"]["top_k"] = 99
+        dsl_and_nodes["nodes"]["n1"]["params"]["top_k"] = 99
+        cases.append(("dsl-and-nodes", dsl_and_nodes, "DSL content digest is stale"))
+
+        edges = deepcopy(current)
+        edges["outgoing_edges"]["n1"] = []
+        cases.append(("edges", edges, "domain projection is stale"))
+
+        topo = deepcopy(current)
+        topo["topo_order"] = ["n2", "n1"]
+        cases.append(("topo", topo, "domain projection is stale"))
+
+        wrong_identity = deepcopy(current)
+        wrong_identity["graph_id"] = "different"
+        cases.append(("identity", wrong_identity, "identity does not match"))
+
         service = WorkflowGraphRuntimeService()
-        compiled = {
-            "dsl": _dsl(),
-            "topo_order": ["n1", "n2"],
-            "nodes": {},
-            "platform": {
-                "program_digest": "stale",
-                "plan_digest": "stale",
-                "catalog_digest": "stale",
-            },
-        }
-        with patch.object(workflow_graph_module, "compiler") as compiler:
-            compiler.get_compiled.return_value = compiled
-            with self.assertRaisesRegex(ValueError, "platform binding is stale"):
-                service.run({
-                    "graph_id": "stale",
-                    "project_key": "demo_proj",
-                    "actor_id": "trusted-actor",
-                    "input": {},
-                })
+        for label, compiled, message in cases:
+            with self.subTest(label=label):
+                with (
+                    patch.object(workflow_graph_module, "compiler") as compiler,
+                    patch("app.models.base.engine") as runtime_engine,
+                    patch("app.composition.production.submit_installed_program") as submit,
+                ):
+                    compiler.get_compiled.return_value = compiled
+                    with self.assertRaisesRegex(ValueError, message):
+                        service.run({
+                            "graph_id": "bound",
+                            "project_key": "demo_proj",
+                            "actor_id": "trusted-actor",
+                            "input": {},
+                        })
+                    runtime_engine.connect.assert_not_called()
+                    submit.assert_not_called()
 
     def test_service_submits_compiled_graph_to_canonical_runtime(self) -> None:
         store = InMemoryCompiledGraphStore()

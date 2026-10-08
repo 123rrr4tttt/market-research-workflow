@@ -7,19 +7,11 @@ from functorial_kit.arch.gates import scan_project
 from functorial_kit.arch.scan import ratchet, violation_key
 
 from app.successor_runtime.specification.compiler import build_manifest_bytes
-from app.successor_runtime.specification.shared_family_generator import (
-    build_fragment,
-    build_fragment_bytes,
-)
 
 
 W08B_EXACT_KEYS = {
     "derived-marked|main/backend/app/successor_runtime/specification/compiler.py|"
     "build_manifest_bytes returns an unmarked derived value",
-    "derived-marked|main/backend/app/successor_runtime/specification/shared_family_generator.py|"
-    "build_fragment returns an unmarked derived value",
-    "derived-marked|main/backend/app/successor_runtime/specification/shared_family_generator.py|"
-    "build_fragment_bytes returns an unmarked derived value",
 }
 WITNESS = "test:test_w08b_specification_authority_metadata_preserves_abi"
 
@@ -38,23 +30,15 @@ def _return_metadata(function: object) -> str:
 
 
 def test_w08b_specification_authority_metadata_preserves_abi() -> None:
-    assert len(W08B_EXACT_KEYS) == 3
+    assert len(W08B_EXACT_KEYS) == 1
 
-    generated = (build_fragment,)
-    for function in generated:
-        metadata = _return_metadata(function)
-        assert metadata.startswith("kit:non-authoritative")
-        assert "derived_as=generated_evidence" in metadata
-        assert "fact_source=" in metadata
-
-    prepared = (build_manifest_bytes, build_fragment_bytes)
+    prepared = (build_manifest_bytes,)
     for function in prepared:
         metadata = _return_metadata(function)
         assert metadata.startswith("kit:prepared-command")
         assert "effect_boundary=" in metadata
 
     assert build_manifest_bytes({"a": 1}).endswith(b'\n')
-    assert build_fragment_bytes({"a": 1}).endswith(b'\n')
 
 
 def test_w08b_exact_keys_are_removed_from_live_scan() -> None:
@@ -68,7 +52,6 @@ def test_w08b_exact_keys_are_removed_from_live_scan() -> None:
         if violation.file
         in {
             "main/backend/app/successor_runtime/specification/compiler.py",
-            "main/backend/app/successor_runtime/specification/shared_family_generator.py",
         }
         and violation.gate == "derived-marked"
     }

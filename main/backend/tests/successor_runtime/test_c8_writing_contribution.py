@@ -3,16 +3,9 @@
 from __future__ import annotations
 
 import dataclasses
-from types import SimpleNamespace
 
 import pytest
 
-from app.successor_runtime.assembly.knowledge_assembly import (
-    KNOWLEDGE_DEPLOYMENT_CATALOG_DIGEST,
-    KnowledgeWritingComposeStageRouteHandler,
-    KNOWLEDGE_WRITING_STAGE_FAILURE_CODE,
-)
-from app.successor_runtime.capabilities import knowledge_common as c8
 from app.successor_runtime.capabilities.knowledge_native_contribution import (
     KnowledgeNativeAssemblyContext,
     KNOWLEDGE_NATIVE_CONTRIBUTION_RULE,
@@ -31,6 +24,7 @@ from app.successor_runtime.capabilities.knowledge_writing import (
 from app.successor_runtime.capabilities.knowledge_writing_contribution import (
     KNOWLEDGE_WRITING_AUTHOR_SOURCE,
     KNOWLEDGE_WRITING_NATIVE_DEFINITION,
+    KNOWLEDGE_WRITING_ROLLBACK_REFS,
     KnowledgeWritingComposeInput,
     knowledge_writing_native_contribution,
 )
@@ -38,7 +32,6 @@ from functorial_kit.contributions import compose_contributions
 from functorial_kit.contribution_compiler import compile_native_contribution
 from functorial_kit.core.failure import Failure
 from functorial_kit.native_contribution import BindingRejected
-from app.successor_runtime.runtime.node import DefiniteInterpreterFailure
 
 from .p4_c8_fixture import (
     PROJECT_KEY,
@@ -155,16 +148,14 @@ def test_program_atoms_preserve_compose_before_stage() -> None:
     assert stage.program_atom.value_suffix == "knowledge-writing-stage"
 
 
-def test_rollback_and_exact_cell_texts_are_preserved() -> None:
+def test_native_binding_preserves_rollback_and_cell_declarations() -> None:
     binding = knowledge_writing_native_contribution.assemble(KnowledgeNativeAssemblyContext())
     assert not isinstance(binding, Failure)
 
     rollback = binding.assembly_rollback_binding()
     assert rollback.cell_id == "knowledge.writing.v2"
     assert rollback.status == "PRESENT"
-    assert rollback.binding_refs == (
-        "main/backend/app/successor_runtime/assembly/knowledge_assembly.py",
-    )
+    assert rollback.binding_refs == KNOWLEDGE_WRITING_ROLLBACK_REFS
 
     unwired = binding.declared_cell()
     assert unwired.to_dict() == {
@@ -281,53 +272,3 @@ def test_payload_digest_rejects_body_drift() -> None:
             demand_fields=payload.demand_fields,
             payload_digest=payload.payload_digest,
         )
-
-
-def test_route_failure_records_current_knowledge_writing_code(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    item = captured_item()
-    read = demand_read(
-        (item,),
-        item_key=item.key,
-        fields=("canonical_statement", "evidence_refs"),
-        project_key=PROJECT_KEY,
-        registry=new_registry(),
-    )
-    binding = SimpleNamespace(
-        binding_digest="1" * 64,
-        interpreter_profile_digest="2" * 64,
-        operation_contract_digest="3" * 64,
-    )
-    handler = KnowledgeWritingComposeStageRouteHandler(
-        payload={
-            "read": read,
-            "selection_hash": SELECTION_HASH,
-            "selection_text": SELECTION_TEXT,
-        },
-        binding=binding,
-        deployment_catalog_digest=KNOWLEDGE_DEPLOYMENT_CATALOG_DIGEST,
-    )
-    assignment = SimpleNamespace(
-        assignment_digest="4" * 64,
-        claim_authority_epoch=1,
-        handler_binding_digest=binding.binding_digest,
-        operation_contract_digest=binding.operation_contract_digest,
-        deployment_catalog_digest=KNOWLEDGE_DEPLOYMENT_CATALOG_DIGEST,
-    )
-    claim = SimpleNamespace(
-        assignment_digest=assignment.assignment_digest,
-        claim_authority_epoch=assignment.claim_authority_epoch,
-    )
-
-    def unavailable(*args: object, **kwargs: object) -> object:
-        raise c8.UnavailableProjection("unavailable")
-
-    monkeypatch.setattr(
-        "app.successor_runtime.assembly.knowledge_assembly.stage_writing_artifact",
-        unavailable,
-    )
-    with pytest.raises(DefiniteInterpreterFailure) as captured:
-        handler.execute(assignment, claim, None)  # type: ignore[arg-type]
-    assert captured.value.failure_code == KNOWLEDGE_WRITING_STAGE_FAILURE_CODE
-    assert captured.value.failure_code in KNOWLEDGE_WRITING_NATIVE_DEFINITION.failure_codes

@@ -76,7 +76,9 @@ KNOWLEDGE_REPORT_RETURN_CONTRACT_REF = RUNTIME_VALUE_RETURN_CONTRACT_REF
 KNOWLEDGE_REPORT_FAILURE_CODES = knowledge_report_delivery_failures.codes
 KNOWLEDGE_REPORT_DECLARED_LOSS = ("graph_node_filter", "report_export_body")
 KNOWLEDGE_REPORT_ROLLBACK_REF = (
-    "main/backend/app/successor_runtime/assembly/knowledge_assembly.py"
+    "main/backend/app/successor_runtime/capabilities/knowledge_report.py",
+    "main/backend/app/successor_runtime/substrate/postgres/c8_artifact_handler.py",
+    "main/backend/app/successor_runtime/substrate/postgres/c8_production.py",
 )
 
 
@@ -173,7 +175,7 @@ KNOWLEDGE_REPORT_STAGE_AUTHOR_SOURCE = KnowledgeNativeAuthorSource(
             "build_postgres_c8_delivery_assembly exists but no app caller "
             "instantiates it; admission/export authority gate stays closed"
         ),
-        rollback_refs=(KNOWLEDGE_REPORT_ROLLBACK_REF,),
+        rollback_refs=KNOWLEDGE_REPORT_ROLLBACK_REF,
     ),
 )
 

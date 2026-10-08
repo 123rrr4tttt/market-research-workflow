@@ -212,7 +212,7 @@ def build_successor_runtime_app_dependencies(
     SuccessorRuntimeAppDependencies,
     "kit:prepared-command "
     "effect_boundary=successor_runtime.app_assembly "
-    "witness=test:test_default_mount_options_keep_assembly_fail_closed",
+    "witness=test:test_default_dependencies_are_closed_local_only",
 ]:
     """Build the default LOCAL_ONLY router dependencies.
 

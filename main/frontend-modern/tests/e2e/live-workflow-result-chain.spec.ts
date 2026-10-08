@@ -42,6 +42,14 @@ type RunResult = {
   run_id?: string
   status?: string
   node_statuses?: Record<string, string>
+  metadata?: {
+    project_key?: string
+    program_id?: string
+    program_digest?: string
+    plan_id?: string
+    plan_digest?: string
+    runtime_state?: string
+  }
 }
 
 type StatefulReplay = {
@@ -307,34 +315,76 @@ test.describe('live workflow result chain', () => {
       graph_id?: string
       checksum?: string
       topo_order?: string[]
-      platform?: { program_digest?: string; plan_digest?: string; catalog_digest?: string }
+      binding_version?: string
+      dsl_content_digest?: string
+      dsl?: CuratedDsl
     }
     expect(dbCompiled.graph_id).toBe(SUCCESS_GRAPH_ID)
     expect(dbCompiled.checksum).toBe(compiled.checksum)
     expect(dbCompiled.topo_order).toEqual(['retrieve', 'draft', 'combine'])
-    expect(dbCompiled.platform?.program_digest).toMatch(/^[0-9a-f]{64}$/)
-    expect(dbCompiled.platform?.plan_digest).toMatch(/^[0-9a-f]{64}$/)
-    expect(dbCompiled.platform?.catalog_digest).toMatch(/^[0-9a-f]{64}$/)
+    expect(dbCompiled.binding_version).toBe('workflow-graph.domain.v1')
+    expect(dbCompiled.dsl_content_digest).toMatch(/^[0-9a-f]{64}$/)
+    expect(dbCompiled.dsl?.nodes?.map((node) => [node.node_id, node.node_type])).toEqual([
+      ['retrieve', 'vector_search'],
+      ['draft', 'llm_call'],
+      ['combine', 'join'],
+    ])
 
     const dbRun = psqlJson(
-      `SELECT jsonb_build_object('run_id', run_id, 'workflow_id', workflow_id, 'status', status, 'node_statuses', node_statuses, 'metadata', metadata, 'results', results) FROM workflow_graph_runs WHERE run_id = '${SUCCESS_RUN_ID}'`,
+      `SELECT jsonb_build_object(
+        'run_id', run.run_id,
+        'project_key', run.project_key,
+        'state', run.state,
+        'program_id', run.program_id,
+        'program_digest', run.program_digest,
+        'plan_id', run.plan_id,
+        'plan_digest', run.plan_digest,
+        'installed_program_id', program.program_id,
+        'installed_program_digest', program.program_digest,
+        'installed_program_storage_ref', program.project_storage_ref,
+        'installed_plan_id', plan.plan_id,
+        'installed_plan_digest', plan.plan_digest,
+        'installed_plan_program_digest', plan.program_digest
+      )
+      FROM public.runtime_runs AS run
+      JOIN public.runtime_program_refs AS program
+        ON program.project_key = run.project_key AND program.program_id = run.program_id
+      JOIN public.runtime_plan_refs AS plan
+        ON plan.project_key = run.project_key AND plan.plan_id = run.plan_id
+      WHERE run.run_id = '${SUCCESS_RUN_ID}'`,
     ) as {
       run_id?: string
-      workflow_id?: string
-      status?: string
-      node_statuses?: Record<string, string>
-      metadata?: { project_key?: string; program_digest?: string; plan_digest?: string }
-      results?: Record<string, Record<string, unknown>>
+      project_key?: string
+      state?: string
+      program_id?: string
+      program_digest?: string
+      plan_id?: string
+      plan_digest?: string
+      installed_program_id?: string
+      installed_program_digest?: string
+      installed_program_storage_ref?: string
+      installed_plan_id?: string
+      installed_plan_digest?: string
+      installed_plan_program_digest?: string
     }
     expect(dbRun.run_id).toBe(SUCCESS_RUN_ID)
-    expect(dbRun.workflow_id).toBe(SUCCESS_GRAPH_ID)
-    expect(dbRun.status).toBe('succeeded')
-    expect(dbRun.node_statuses).toEqual(run.node_statuses)
-    expect(dbRun.metadata?.project_key).toBe(PROJECT_KEY)
-    expect(dbRun.metadata?.program_digest).toBe(dbCompiled.platform?.program_digest)
-    expect(dbRun.metadata?.plan_digest).toBe(dbCompiled.platform?.plan_digest)
-    expect(dbRun.results?.draft?.degraded).toBe(false)
-    expect(dbRun.results?.combine?.sources).toEqual(['draft', 'retrieve'])
+    expect(dbRun.project_key).toBe(PROJECT_KEY)
+    expect(dbRun.state).toBe('COMPLETED')
+    expect(dbRun.program_id).toBe(`workflow-program:${SUCCESS_RUN_ID}`)
+    expect(dbRun.program_digest).toMatch(/^[0-9a-f]{64}$/)
+    expect(dbRun.plan_id).toBeTruthy()
+    expect(dbRun.plan_digest).toMatch(/^[0-9a-f]{64}$/)
+    expect(dbRun.installed_program_id).toBe(dbRun.program_id)
+    expect(dbRun.installed_program_digest).toBe(dbRun.program_digest)
+    expect(dbRun.installed_program_storage_ref).toBeTruthy()
+    expect(dbRun.installed_plan_id).toBe(dbRun.plan_id)
+    expect(dbRun.installed_plan_digest).toBe(dbRun.plan_digest)
+    expect(dbRun.installed_plan_program_digest).toBe(dbRun.program_digest)
+    expect(runDetail.metadata?.program_id).toBe(dbRun.program_id)
+    expect(runDetail.metadata?.program_digest).toBe(dbRun.program_digest)
+    expect(runDetail.metadata?.plan_id).toBe(dbRun.plan_id)
+    expect(runDetail.metadata?.plan_digest).toBe(dbRun.plan_digest)
+    expect(runDetail.metadata?.runtime_state).toBe('COMPLETED')
   })
 
   test('template edit API and current run persist a bounded kernel failure', async ({ request }) => {
@@ -379,11 +429,17 @@ test.describe('live workflow result chain', () => {
     expect(stateful.results).toEqual({})
 
     const dbFailure = psqlJson(
-      `SELECT jsonb_build_object('status', status, 'node_statuses', node_statuses, 'metadata', metadata, 'results', results) FROM workflow_graph_runs WHERE run_id = '${FAILURE_RUN_ID}'`,
-    ) as { status?: string; node_statuses?: Record<string, string>; metadata?: { project_key?: string } }
-    expect(dbFailure.status).toBe('failed')
-    expect(dbFailure.node_statuses).toEqual(run.node_statuses)
-    expect(dbFailure.metadata?.project_key).toBe(PROJECT_KEY)
+      `SELECT jsonb_build_object(
+        'state', state,
+        'project_key', project_key,
+        'program_digest', program_digest,
+        'plan_digest', plan_digest
+      ) FROM public.runtime_runs WHERE run_id = '${FAILURE_RUN_ID}'`,
+    ) as { state?: string; project_key?: string; program_digest?: string; plan_digest?: string }
+    expect(dbFailure.state).toBe('FAILED')
+    expect(dbFailure.project_key).toBe(PROJECT_KEY)
+    expect(dbFailure.program_digest).toMatch(/^[0-9a-f]{64}$/)
+    expect(dbFailure.plan_digest).toMatch(/^[0-9a-f]{64}$/)
 
     const templateState = psqlJson(
       `SELECT payload FROM ingest_config WHERE project_key = '${PROJECT_KEY}' AND config_key = 'workflow_graph_templates_v1'`,

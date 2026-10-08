@@ -685,11 +685,6 @@
           "claim": "report staging, verification, and admission remain explicit interface contracts",
           "class": "testable",
           "witness": "test:test_report_semantics_witnesses_readonly_stage_and_admission_intent"
-        },
-        {
-          "claim": "the C8.3 assembly installs the delivery bridge",
-          "class": "testable",
-          "witness": "test:test_i1_c8_3_closed_assembly_installs_delivery_bridge"
         }
       ],
       "failures": [
@@ -958,11 +953,6 @@
           "claim": "registered fragment codecs match their on-disk representative key sets",
           "class": "testable",
           "witness": "test:INVARIANT__shared_family_fragment_registry_consistency"
-        },
-        {
-          "claim": "shared family fragments remain deterministic and non-authoritative",
-          "class": "testable",
-          "witness": "test:test_shared_fragment_is_deterministic_and_authority_false"
         },
         {
           "claim": "mapping projection preserves fragment identity without rewriting persisted bytes",

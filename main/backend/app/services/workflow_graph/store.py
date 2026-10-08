@@ -18,12 +18,11 @@ from app.settings.config import settings
 
 from .contracts import (
     CompiledWorkflowGraphRecord,
-    CompiledWorkflowGraphValue,
+    WORKFLOW_GRAPH_DOMAIN_BINDING_VERSION,
     WorkflowGraphEvent,
     WorkflowJsonObject,
     WorkflowNodeResults,
     WorkflowNodeStatus,
-    WorkflowPlatformBinding,
     WorkflowRunRecord,
     WorkflowRunSnapshot,
     WorkflowRunStatus,
@@ -140,28 +139,9 @@ def _runtime_nodes(value: object, *, field: str) -> dict[str, WorkflowRuntimeNod
     return nodes
 
 
-def _compiled_value(payload: WorkflowJsonObject) -> CompiledWorkflowGraphValue:
-    return {
-        "version": _required_text(payload, "version", field="compiled"),
-        "options": _required_object(payload, "options", field="compiled"),
-        "topo_order": _required_text_list(payload, "topo_order", field="compiled"),
-        "outgoing_edges": _required_edge_map(payload, "outgoing_edges", field="compiled"),
-        "incoming_edges": _required_edge_map(payload, "incoming_edges", field="compiled"),
-        "checksum": _required_text(payload, "checksum", field="compiled"),
-    }
-
-
-def _platform_binding(payload: WorkflowJsonObject) -> WorkflowPlatformBinding:
-    return {
-        "program_digest": _required_text(payload, "program_digest", field="platform"),
-        "plan_digest": _required_text(payload, "plan_digest", field="platform"),
-        "catalog_digest": _required_text(payload, "catalog_digest", field="platform"),
-    }
-
-
 def _normalize_compiled_record(value: object) -> CompiledWorkflowGraphRecord:
     record = _json_object(value, field="compiled_graph")
-    return {
+    normalized: CompiledWorkflowGraphRecord = {
         "graph_id": _required_text(record, "graph_id", field="compiled_graph"),
         "version": _required_text(record, "version", field="compiled_graph"),
         "options": _required_object(record, "options", field="compiled_graph"),
@@ -171,9 +151,32 @@ def _normalize_compiled_record(value: object) -> CompiledWorkflowGraphRecord:
         "incoming_edges": _required_edge_map(record, "incoming_edges", field="compiled_graph"),
         "nodes": _runtime_nodes(record.get("nodes"), field="compiled_graph.nodes"),
         "dsl": _required_object(record, "dsl", field="compiled_graph"),
-        "compiled": _compiled_value(_required_object(record, "compiled", field="compiled_graph")),
-        "platform": _platform_binding(_required_object(record, "platform", field="compiled_graph")),
     }
+    if "binding_version" in record:
+        binding_version = _required_text(
+            record, "binding_version", field="compiled_graph"
+        )
+        if binding_version != WORKFLOW_GRAPH_DOMAIN_BINDING_VERSION:
+            _raise_store_failure(
+                "integrity_invalid",
+                "compiled workflow uses an unsupported binding version; recompile the graph",
+            )
+        normalized["binding_version"] = WORKFLOW_GRAPH_DOMAIN_BINDING_VERSION
+    if "dsl_content_digest" in record:
+        normalized["dsl_content_digest"] = _required_text(
+            record, "dsl_content_digest", field="compiled_graph"
+        )
+    # Historical compile artifacts remain list/get readable with their exact
+    # nested payloads. They are never accepted as current execution bindings.
+    if "compiled" in record:
+        normalized["compiled"] = _required_object(
+            record, "compiled", field="compiled_graph"
+        )
+    if "platform" in record:
+        normalized["platform"] = _required_object(
+            record, "platform", field="compiled_graph"
+        )
+    return normalized
 
 
 def _node_statuses(value: object) -> dict[str, WorkflowNodeStatus]:

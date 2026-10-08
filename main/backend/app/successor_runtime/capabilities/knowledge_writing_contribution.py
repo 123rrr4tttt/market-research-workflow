@@ -73,7 +73,8 @@ KNOWLEDGE_WRITING_OBSERVATION_DIMENSIONS = (
     "provenance_chain",
 )
 KNOWLEDGE_WRITING_ROLLBACK_REFS = (
-    "main/backend/app/successor_runtime/assembly/knowledge_assembly.py",
+    "main/backend/app/successor_runtime/capabilities/knowledge_writing.py",
+    "main/backend/app/successor_runtime/substrate/postgres/c8_artifact_handler.py",
 )
 
 

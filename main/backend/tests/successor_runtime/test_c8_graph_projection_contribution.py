@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 import dataclasses
-import importlib.util
 import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import pytest
-from sqlalchemy import create_engine
 
-from app.successor_runtime.assembly.base import (
-    KnowledgeAssemblyOptions,
-    ProjectorSourceKey,
-    local_assembly_scope_digest,
-)
-from app.successor_runtime.assembly.knowledge_assembly import build_knowledge_assembly
+from app.successor_runtime.assembly.base import ProjectorSourceKey
 from app.successor_runtime.capabilities.knowledge_graph_projection_contribution import (
     KNOWLEDGE_GRAPH_PROJECTION_FAILURE_CODES,
     KNOWLEDGE_GRAPH_PROJECTION_DEFINITION,
@@ -150,13 +143,6 @@ def test_default_runtime_uses_single_catalog_contribution() -> None:
     assert contract is not None
     assert contract.owner_capability_id == "knowledge.graph-projection.v2"
 
-    assembly = build_knowledge_assembly(
-        engine=create_engine("sqlite:///:memory:"),  # type: ignore[arg-type]
-        project_scope_digest=local_assembly_scope_digest(),
-    )
-    assert assembly.coverage()["knowledge.graph-projection.v2"] == "PROJECTOR_WIRING_DECLARED"
-
-
 def test_legacy_cell_constructor_lowers_the_same_author_source() -> None:
     source = _extra_source()
     legacy = define_knowledge_graph_projection_cell(
@@ -204,13 +190,11 @@ def test_catalog_composition_is_pure_and_extra_entry_reaches_native_registries()
     assert extra_ref is not None
     assert registry.resolve(extra_ref) is not None
 
-    assembly = build_knowledge_assembly(
-        engine=create_engine("sqlite:///:memory:"),  # type: ignore[arg-type]
-        project_scope_digest=local_assembly_scope_digest(),
-        options=KnowledgeAssemblyOptions(graph_projection_composition=natives),
-    )
-    assert assembly.cell("knowledge.graph-projection.test.v2").operation_contract_refs == (EXTRA_KIND,)
-    assert assembly.cell("knowledge.graph-projection.test.v2").status == "PROJECTOR_WIRING_DECLARED"
+    extra_binding = extra.assemble(KnowledgeGraphProjectionAssemblyContext())
+    assert not isinstance(extra_binding, Failure)
+    extra_cell = extra_binding.unbound_cell()
+    assert extra_cell.operation_contract_refs == (EXTRA_KIND,)
+    assert extra_cell.status == "PROJECTOR_WIRING_DECLARED"
     object_kinds = {obj.id: obj.kind for obj in composition.objects}
     assert object_kinds[EXTRA_INPUT.type_id] == "ObjectType"
     assert object_kinds["knowledge.graph.project.test"] == "Capability"
@@ -291,37 +275,31 @@ def test_definition_consistency_and_duplicate_cell_ids_fail_closed() -> None:
         validate_knowledge_graph_projection_contributions((knowledge_graph_projection_native_contribution, duplicate_cell))
 
 
-def test_default_and_installed_c8_4_assembly_preserve_exact_declarations() -> None:
-    scope = local_assembly_scope_digest()
-    source_key = {
-        "knowledge.graph-projection.v2": ProjectorSourceKey(
-            source_ref="run:c8-graph-contribution:before-after",
-            source_incarnation="incarnation:c8-graph-contribution:before-after",
-        )
-    }
-    unbound = build_knowledge_assembly(
-        engine=create_engine("sqlite:///:memory:"),  # type: ignore[arg-type]
-        project_scope_digest=scope,
+def test_native_binding_installs_exact_projector_declaration() -> None:
+    binding = knowledge_graph_projection_native_contribution.assemble(
+        KnowledgeGraphProjectionAssemblyContext()
     )
-    installed = build_knowledge_assembly(
-        engine=create_engine("sqlite:///:memory:"),  # type: ignore[arg-type]
-        project_scope_digest=scope,
-        projector_source_keys=source_key,
+    assert not isinstance(binding, Failure)
+    source_key = ProjectorSourceKey(
+        source_ref="run:c8-graph-contribution:before-after",
+        source_incarnation="incarnation:c8-graph-contribution:before-after",
     )
-    assert unbound.projector_registry is None
-    wiring = unbound.projector_wiring[-1].to_dict()
-    assert wiring == installed.projector_wiring[-1].to_dict()
+    installed = binding.install(source_key)
+    assert installed is not None
+    installed_cell, registry = installed
+    projector_wiring = binding.assembly_projector_wiring()
+    wiring = projector_wiring.to_dict()
     assert wiring["cell_id"] == "knowledge.graph-projection.v2"
     assert wiring["projector_id"] == "knowledge.graph.projector"
     assert wiring["source_kind"] == "knowledge_value"
     assert wiring["projection_schema_ref"] == "mrw.knowledge.graph-projection.v2"
-    assert unbound.cell("knowledge.graph-projection.v2").status == "PROJECTOR_WIRING_DECLARED"
-    assert installed.cell("knowledge.graph-projection.v2").status == "INSTALLED"
-    assert installed.projector_registry is not None
-    assert any(
-        binding.cell_id == "knowledge.graph-projection.v2"
-        for binding in installed.rollback_bindings
+    assert binding.unbound_cell().status == "PROJECTOR_WIRING_DECLARED"
+    assert installed_cell.status == "INSTALLED"
+    assert installed_cell.handler_binding_digest == projector_wiring.registration_digest(
+        registry.projectors[0]
     )
+    assert len(registry.projectors) == 1
+    assert binding.assembly_rollback_binding().cell_id == "knowledge.graph-projection.v2"
 
 
 def test_default_bundle_preserves_native_payload_codec_behavior() -> None:

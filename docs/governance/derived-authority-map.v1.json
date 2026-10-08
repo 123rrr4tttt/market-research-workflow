@@ -139,7 +139,9 @@
     },
     {
       "surface": "shared successor family fragment registration projection",
-      "functions": ["build_documents"],
+      "functions": [
+        "build_documents"
+      ],
       "path": "scripts/generate_stage0_family_exact_byte_rebind.py",
       "implementation_path": "main/backend/app/successor_runtime/specification/shared_family_generator.py",
       "generator_mode": "create_only",
@@ -151,10 +153,10 @@
         "promotion": false,
         "candidate_claim": false
       },
-      "state": "REGISTERED_WITH_ADDITIVE_CANDIDATE_LINEAGE_NOT_AUTHORITY",
-      "constraint": "The create-only Stage 0 generator emits additive family evidence; it does not rewrite frozen fragments or authorize evidence writes, promotion, cutover or authority transfer.",
+      "state": "RETIRED_GENERATOR_HISTORICAL_READBACK_ONLY",
+      "constraint": "The Stage 0 shared family generator is retired; this entry is a historical readback-only projection that does not restore the generator, authorize writes, promotion, cutover or authority transfer.",
       "shared_family_projection": {
-        "kind": "CURRENT_CANDIDATE_ROWS",
+        "kind": "HISTORICAL_CANDIDATE_ROWS",
         "lineage": "MIXED_STAGE_LINEAGE",
         "rows": [
           {

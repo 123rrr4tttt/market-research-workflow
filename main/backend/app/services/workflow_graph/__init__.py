@@ -14,10 +14,7 @@ if TYPE_CHECKING:
         AgentSessionSnapshot,
     )
 
-from app.successor_runtime.capabilities.workflow_legacy_dsl import (
-    WorkflowLegacyDSLReceipt,
-    parse_and_validate_workflow_dsl,
-)
+from app.successor_runtime.capabilities.checksum import content_digest
 from app.successor_runtime.capabilities.workflow_native_contribution import (
     WORKFLOW_RUNTIME_OWNER,
     WorkflowExecutionContext,
@@ -28,7 +25,7 @@ from app.successor_runtime.capabilities.workflow_native_contribution import (
 from .compiler import compile_workflow_graph
 from .contracts import (
     CompiledWorkflowGraphRecord,
-    CompiledWorkflowGraphValue,
+    WORKFLOW_GRAPH_DOMAIN_BINDING_VERSION,
     WorkflowCompilerResponse,
     WorkflowEventView,
     WorkflowGraphEvent,
@@ -37,7 +34,6 @@ from .contracts import (
     WorkflowJsonValue,
     WorkflowNodeStatus,
     WorkflowNodeResults,
-    WorkflowPlatformBinding,
     WorkflowReplayConsistencyReport,
     WorkflowReplayResponse,
     WorkflowRunDetail,
@@ -139,13 +135,6 @@ class WorkflowGraphCompilerService:
         normalized_dsl_payload = _require_json_object(dsl_payload, "dsl payload must be a JSON mapping")
         dsl = parse_workflow_graph_dsl(normalized_dsl_payload)
         compiled = compile_workflow_graph(dsl)
-        platform_receipt = parse_and_validate_workflow_dsl(normalized_dsl_payload)
-        if not platform_receipt.ok or platform_receipt.program is None or platform_receipt.plan is None:
-            failure = platform_receipt.failure
-            _raise_facade_failure(
-                "integrity_invalid",
-                failure.message if failure is not None else "workflow platform lowering failed",
-            )
 
         raw_graph_id = raw_payload.get("graph_id")
         graph_id = raw_graph_id.strip() if isinstance(raw_graph_id, str) else ""
@@ -160,19 +149,6 @@ class WorkflowGraphCompilerService:
                 "params": dict(node.config),
                 "depends_on": list(compiled.incoming_edges.get(node.node_id, ())),
             }
-        platform: WorkflowPlatformBinding = {
-            "program_digest": platform_receipt.program_digest,
-            "plan_digest": platform_receipt.plan_digest,
-            "catalog_digest": platform_receipt.catalog_digest,
-        }
-        compiled_value: CompiledWorkflowGraphValue = {
-            "version": compiled.version,
-            "options": dict(compiled.options),
-            "topo_order": list(compiled.topo_order),
-            "outgoing_edges": {node_id: list(targets) for node_id, targets in compiled.outgoing_edges.items()},
-            "incoming_edges": {node_id: list(sources) for node_id, sources in compiled.incoming_edges.items()},
-            "checksum": compiled.checksum,
-        }
         compiled_record: CompiledWorkflowGraphRecord = {
             "graph_id": graph_id,
             "version": compiled.version,
@@ -183,8 +159,8 @@ class WorkflowGraphCompilerService:
             "incoming_edges": {node_id: list(sources) for node_id, sources in compiled.incoming_edges.items()},
             "nodes": normalized_nodes,
             "dsl": normalized_dsl_payload,
-            "compiled": compiled_value,
-            "platform": platform,
+            "binding_version": WORKFLOW_GRAPH_DOMAIN_BINDING_VERSION,
+            "dsl_content_digest": content_digest(normalized_dsl_payload),
         }
         self._resolved_store().save_compiled(compiled_record)
         response: WorkflowCompilerResponse = {
@@ -193,9 +169,6 @@ class WorkflowGraphCompilerService:
             "checksum": compiled.checksum,
             "topo_order": list(compiled.topo_order),
             "warnings": [],
-            "program_digest": platform_receipt.program_digest,
-            "plan_digest": platform_receipt.plan_digest,
-            "catalog_digest": platform_receipt.catalog_digest,
         }
         if template_id:
             response["template_id"] = template_id
@@ -428,12 +401,7 @@ class WorkflowGraphRuntimeService:
         normalized_run_input = _require_json_object(
             {} if run_input is None else run_input, "input must be a JSON mapping",
         )
-        receipt = parse_and_validate_workflow_dsl(compiled["dsl"])
-        if (
-            not receipt.ok or receipt.program is None or receipt.plan is None
-            or not self._platform_binding_matches(compiled, receipt)
-        ):
-            _raise_facade_failure("integrity_invalid", "compiled workflow platform binding is stale")
+        self._require_current_domain_binding(compiled, requested_graph_id=graph_id)
 
         run_id_value = raw_payload.get("run_id")
         explicit_run_id = (
@@ -536,15 +504,56 @@ class WorkflowGraphRuntimeService:
         }
 
     @staticmethod
-    def _platform_binding_matches(
-        compiled: CompiledWorkflowGraphRecord, receipt: WorkflowLegacyDSLReceipt,
-    ) -> bool:
-        expected = compiled["platform"]
-        return all((
-            expected["program_digest"] == receipt.program_digest,
-            expected["plan_digest"] == receipt.plan_digest,
-            expected["catalog_digest"] == receipt.catalog_digest,
-        ))
+    def _require_current_domain_binding(
+        compiled: CompiledWorkflowGraphRecord,
+        *,
+        requested_graph_id: str,
+    ) -> None:
+        if compiled["graph_id"] != requested_graph_id:
+            _raise_facade_failure(
+                "integrity_invalid",
+                "compiled workflow graph identity does not match the requested graph; recompile the graph",
+            )
+        if compiled.get("binding_version") != WORKFLOW_GRAPH_DOMAIN_BINDING_VERSION:
+            _raise_facade_failure(
+                "integrity_invalid",
+                "compiled workflow uses a missing or unsupported binding version; recompile the graph",
+            )
+        if compiled.get("dsl_content_digest") != content_digest(compiled["dsl"]):
+            _raise_facade_failure(
+                "integrity_invalid",
+                "compiled workflow DSL content digest is stale; recompile the graph",
+            )
+
+        dsl = parse_workflow_graph_dsl(compiled["dsl"])
+        projection = compile_workflow_graph(dsl)
+        expected_nodes: dict[str, WorkflowRuntimeNode] = {
+            node.node_id: {
+                "id": node.node_id,
+                "node_type": node.node_type,
+                "params": dict(node.config),
+                "depends_on": list(projection.incoming_edges.get(node.node_id, ())),
+            }
+            for node in dsl.nodes
+        }
+        matches = all(
+            (
+                compiled["version"] == projection.version,
+                compiled["options"] == dict(projection.options),
+                compiled["checksum"] == projection.checksum,
+                compiled["topo_order"] == list(projection.topo_order),
+                compiled["outgoing_edges"]
+                == {key: list(value) for key, value in projection.outgoing_edges.items()},
+                compiled["incoming_edges"]
+                == {key: list(value) for key, value in projection.incoming_edges.items()},
+                compiled["nodes"] == expected_nodes,
+            )
+        )
+        if not matches:
+            _raise_facade_failure(
+                "integrity_invalid",
+                "compiled workflow domain projection is stale; recompile the graph",
+            )
 
     def get_run_events(
         self,
