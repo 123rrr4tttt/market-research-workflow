@@ -73,6 +73,7 @@ from app.successor_runtime.language.compile import compile_program
 from app.successor_runtime.language.object_contracts import (
     RUNTIME_VALUE_RETURN_CONTRACT_REF,
     OperationContract,
+    OperationContractRef,
 )
 from app.successor_runtime.language.program import (
     ProgramNode,
@@ -273,6 +274,17 @@ class WorkflowRuntimeDefinition:
             site="WorkflowRuntimeDefinition.operation_for_kind",
         )
 
+    def operation_for_ref(self, ref: OperationContractRef) -> WorkflowRuntimeOperationDefinition | None:
+        operation = next((item for item in self.operations if item.contract.ref.kind == ref.kind), None)
+        if operation is None:
+            return None
+        if operation.contract.ref != ref:
+            _reject_workflow_runtime(
+                "workflow runtime operation ref drift",
+                site="WorkflowRuntimeDefinition.operation_for_ref",
+            )
+        return operation
+
 
 @dataclass(frozen=True, slots=True)
 class WorkflowRuntimeProgram:
@@ -380,7 +392,9 @@ def _build_workflow_runtime_profiles(node_type: str, kind: str) -> OperationProf
     )
 
 
-def build_workflow_runtime_definition() -> Annotated[
+def build_workflow_runtime_definition(
+    operation_kinds: Mapping[str, str] | None = None,
+) -> Annotated[
     WorkflowRuntimeDefinition,
     (
         "kit:non-authoritative derived_as=view "
@@ -390,10 +404,19 @@ def build_workflow_runtime_definition() -> Annotated[
 ]:
     """Build the current durable declarations without changing compile history."""
 
+    selected_kinds = WORKFLOW_RUNTIME_NODE_KINDS if operation_kinds is None else operation_kinds
+    if (set(selected_kinds) != set(WORKFLOW_RUNTIME_NODE_KINDS)
+            or any(not kind for kind in selected_kinds.values())
+            or len(set(selected_kinds.values())) != len(selected_kinds)):
+        _reject_workflow_runtime(
+            "workflow runtime operation kinds are invalid",
+            site="build_workflow_runtime_definition.operation_kinds",
+        )
     operation_parts: list[
         tuple[str, OperationContract, OperationProfiles]
     ] = []
-    for node_type, kind in WORKFLOW_RUNTIME_NODE_KINDS.items():
+    for node_type in WORKFLOW_RUNTIME_NODE_KINDS:
+        kind = selected_kinds[node_type]
         profiles = _build_workflow_runtime_profiles(node_type, kind)
         contract = profiles.contract(
             kind=kind,

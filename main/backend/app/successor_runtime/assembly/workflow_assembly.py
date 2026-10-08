@@ -5,15 +5,15 @@ observation and store-rehydrate facade surfaces.  Workflow definition compile is
 installed as a deterministic pure ``RuntimeHandler`` over
 ``workflow_legacy_dsl.parse_and_validate_workflow_dsl`` and the
 ``workflow_slice_acceptance.accept_workflow_slice`` named-observation shadow
-gate.  It performs no effect, database, provider or canonical write.  Runtime
-observation and state restore are carried by explicit ``KernelWiring``
-declarations installed by the PostgreSQL composition root; they are not family
-``RuntimeHandler`` instances.
+gate without effect, database, provider or canonical writes. Durable node execution
+binds the existing ``PersistentOperationHandler`` from one typed operation at production assembly.
+Observation and restore remain explicit ``KernelWiring`` declarations, not family ``RuntimeHandler`` instances.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import partial
 from typing import Annotated, Any
 
 from app.successor_runtime.assembly.base import (
@@ -31,15 +31,20 @@ from app.successor_runtime.capabilities import workflow_slice_acceptance as work
 from app.successor_runtime.capabilities.workflow_native_contribution import (
     ASSEMBLY_CELL_IDS,
     DEFAULT_WORKFLOW_NATIVE_SOURCE,
+    WORKFLOW_RUNTIME_CONTEXT_TYPE,
+    WORKFLOW_RUNTIME_OWNER,
     WORKFLOW_FAMILY_ID,
     WorkflowCellSource,
+    WorkflowExecutionContext,
+    WorkflowRuntimeOperationDefinition,
+    validate_workflow_context_bound_inputs,
 )
 from app.successor_runtime.capabilities.checksum import content_digest
 from app.successor_runtime.capabilities.material_ingest_common import MaterialIngestSubmission, build_material_ingest_bundle, build_material_ingest_catalog, build_material_ingest_registry
 from app.successor_runtime.capabilities.material_ingest_program import build_material_stage_candidate_program, compile_material_ingest_program
 from app.successor_runtime.language.plan import ExecutionPlan
 from app.successor_runtime.language.program import ProgramSpec
-from app.successor_runtime.runtime.assignments import RuntimeAssignment
+from app.successor_runtime.runtime.assignments import InterpreterBinding, RuntimeAssignment
 from app.successor_runtime.runtime.claims import ClaimBinding
 from app.successor_runtime.runtime.node import (
     DefiniteInterpreterFailure,
@@ -47,6 +52,9 @@ from app.successor_runtime.runtime.node import (
     RuntimeExecutionContext,
     RuntimeHandler,
 )
+from app.successor_runtime.runtime.ports import ProjectScopeRef
+from app.successor_runtime.substrate.postgres.batch_task_submission_handler import PersistentOperationHandler
+from app.successor_runtime.substrate.postgres.node_adapter import UowFactory
 
 WORKFLOW_COMPILE_BOUNDARY_MODULE = (
     "main/backend/app/successor_runtime/capabilities/workflow_legacy_dsl.py"
@@ -315,6 +323,48 @@ def _workflow_compile_binding(
         ),
         resource_policy_epoch=1,
         runtime_protocol_version="1",
+    )
+
+
+def assemble_workflow_runtime_handler(
+    *,
+    operation: WorkflowRuntimeOperationDefinition,
+    uow_factory: UowFactory,
+    binding: InterpreterBinding,
+    project_key: str,
+    resolved_schema: str,
+) -> PersistentOperationHandler[WorkflowExecutionContext, WorkflowExecutionContext]:
+    """Bind durable node execution; observe/restore kernel wiring stays handler-free."""
+    contract, profiles, codec = operation.contract, operation.profiles, operation.context_codec
+    if any((
+        contract.input_type != WORKFLOW_RUNTIME_CONTEXT_TYPE,
+        contract.output_type != WORKFLOW_RUNTIME_CONTEXT_TYPE,
+        codec.payload_type_id != WORKFLOW_RUNTIME_CONTEXT_TYPE.type_id,
+        codec.contract_ref != contract.ref,
+        contract.authority_profile_ref != profiles.authority.ref,
+        (contract.owner_capability_id, profiles.authority.canonical_owner) != (WORKFLOW_RUNTIME_OWNER,) * 2,
+    )):
+        raise ValueError("workflow runtime operation binding drift")
+    from app.services.projects.context import bind_resolved_project
+    from app.services.workflow_graph.runtime import WorkflowNodeSettledFailure, invoke_workflow_runtime_node
+
+    def check_scope(context: WorkflowExecutionContext, project: ProjectScopeRef, capability_id: str) -> None:
+        if (context.project_key, project.project_key, project.resolved_schema, capability_id) != (
+            project_key, project_key, resolved_schema, contract.owner_capability_id,
+        ):
+            raise ValueError("workflow context crosses the installed project scope")
+
+    def invoke(context: WorkflowExecutionContext) -> WorkflowExecutionContext:
+        with bind_resolved_project(project_key, resolved_schema):
+            try:
+                return invoke_workflow_runtime_node(context)
+            except WorkflowNodeSettledFailure as exc:
+                raise DefiniteInterpreterFailure(exc.failure_code) from exc
+
+    return PersistentOperationHandler(
+        uow_factory=uow_factory, binding=binding, contract=contract,
+        input_codec=codec, output_codec=codec, invoke=invoke, validate_input=check_scope,
+        validate_bound_inputs=partial(validate_workflow_context_bound_inputs, operation=operation),
     )
 
 

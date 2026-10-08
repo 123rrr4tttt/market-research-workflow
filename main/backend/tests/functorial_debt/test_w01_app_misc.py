@@ -17,7 +17,6 @@ from app.services.source_library.single_source_guard import (
     SourceLibrarySingleSourceGuardError,
     validate_single_source_guard,
 )
-from app.services.streamplus.contracts import build_idempotency_key
 from app.services.task_readback_metadata import build_runtime_readback_payload
 
 W01_ROOT = Path(__file__).resolve().parents[4]
@@ -126,11 +125,6 @@ EXPECTED_DERIVED_METADATA = {
             "view fact_source=prompt_time_density.trace"
         ),
     },
-    "main/backend/app/services/streamplus/contracts.py": {
-        "build_idempotency_key": (
-            "prepared-command effect_boundary=streamplus.idempotency"
-        ),
-    },
     "main/backend/app/services/task_readback_metadata.py": {
         "build_runtime_readback_payload": (
             "view fact_source=task.runtime_readback"
@@ -151,8 +145,8 @@ def _return_annotation(file_path: Path, function_name: str) -> str:
 
 
 def test_w01_meta() -> None:
-    assert len(EXPECTED_DERIVED_METADATA) == 17
-    assert sum(len(functions) for functions in EXPECTED_DERIVED_METADATA.values()) == 31
+    assert len(EXPECTED_DERIVED_METADATA) == 16
+    assert sum(len(functions) for functions in EXPECTED_DERIVED_METADATA.values()) == 30
 
     for relative_path, functions in EXPECTED_DERIVED_METADATA.items():
         source_path = W01_ROOT / relative_path
@@ -172,13 +166,6 @@ def test_w01_derived_metadata_preserves_runtime_values() -> None:
     assert capability["declared_capability"] == "llm_report_generation"
     assert capability["real_model_path"] is False
 
-    idempotency_key = build_idempotency_key(
-        canonical_url="https://Example.com/a?b=2",
-        content_hash="hash",
-        scope="project",
-    )
-    assert len(idempotency_key) == 64
-
     payload = build_runtime_readback_payload(
         line_key=" line ",
         status="RUNNING",
@@ -192,7 +179,6 @@ def test_w01_derived_metadata_preserves_runtime_values() -> None:
 def test_w01_annotated_runtime_type_hints_are_standard_library() -> None:
     for function in (
         build_report_capability_truth,
-        build_idempotency_key,
         build_runtime_readback_payload,
     ):
         return_hint = get_type_hints(function, include_extras=True)["return"]
@@ -230,7 +216,6 @@ def test_w01_source_export_failures() -> None:
         lambda: external_project_registry._raise_provider_failure(incomplete),
         lambda: loader._raise_loader_failure(incomplete),
         lambda: resolver._raise_resolver_failure(incomplete),
-        lambda: resolver._raise_parallel_failure(incomplete, cause=ValueError("invalid")),
         lambda: runner._raise_runner_failure(incomplete),
         lambda: single_source_guard._raise_guard_failure(incomplete, details={}),
         lambda: single_channel._raise_orchestrator_failure(incomplete),
@@ -255,14 +240,6 @@ def test_w01_source_export_failures() -> None:
         loader._raise_loader_failure(loader._loader_failure("yaml_parser_unavailable", "loader", site="test"))
     with pytest.raises(ValueError, match="resolver"):
         resolver._raise_resolver_failure(resolver._resolver_failure("external_project_manifest_invalid", "resolver", site="test"))
-    parallel_cause = ValueError("parallel")
-    with pytest.raises(ValueError, match="parallel"):
-        resolver._raise_parallel_failure(
-            resolver._parallel_failure(
-                "parallel_item_failed", "parallel", site="test", public_exception="ValueError"
-            ),
-            cause=parallel_cause,
-        )
     with pytest.raises(ValueError, match="runner"):
         runner._raise_runner_failure(runner._runner_failure("external_project_manifest_invalid", "runner", site="test"))
     guard_failure = single_source_guard._guard_failure("single_source_guard_blocked", "guard", details={})

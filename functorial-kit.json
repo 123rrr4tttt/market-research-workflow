@@ -51,7 +51,6 @@
     "main/backend/app/services/graph/adapters",
     "main/backend/app/services/ingest/adapters",
     "main/backend/app/services/llm/adapters",
-    "main/backend/app/services/local_index/adapters",
     "main/backend/app/services/source_library/adapters",
     "main/backend/app/services/typed_knowledge/adapters",
     "main/backend/app/services/settings_manager.py",

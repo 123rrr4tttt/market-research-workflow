@@ -53,10 +53,8 @@ echo "[gate] step 1/4: python syntax smoke (compileall app/)"
 echo "[gate] step 2/4: targeted contract/unit tests"
 if [[ "$MODE" == "quick" ]]; then
   "$PYTHON_BIN" -m pytest -q \
-    tests/unit/test_streamplus_contracts_unittest.py \
     tests/unit/test_collect_runtime_process_fallback_unittest.py \
     tests/unit/test_agent_control_tools_unittest.py \
-    tests/unit/test_local_index_service_unittest.py \
     tests/unit/test_material_ontology_unittest.py \
     tests/unit/test_search_web_provider_adapters_unittest.py \
     tests/unit/test_source_candidate_trust_unittest.py \

@@ -455,5 +455,87 @@ def test_workflow_runtime_validation_uses_typed_failure_lift() -> None:
     definition = build_workflow_runtime_definition()
     with pytest.raises(ValueError, match="unsupported workflow runtime node type"):
         definition.operation_for_node_type("unsupported")
+    kinds = dict(workflow_runtime_module.WORKFLOW_RUNTIME_NODE_KINDS)
+    for invalid in (
+        {"join": kinds["join"]},
+        {**kinds, "join": kinds["llm_call"]},
+        {**kinds, "join": ""},
+        {**kinds, "unsupported": "workflow.runtime.unsupported.v1"},
+    ):
+        with pytest.raises(ValueError, match="operation kinds are invalid"):
+            build_workflow_runtime_definition(invalid)
+    operation = definition.operation_for_node_type("join")
+    for invalid_ref in (
+        dataclasses.replace(operation.contract.ref, contract_version="wrong"),
+        dataclasses.replace(operation.contract.ref, contract_digest="0" * 64),
+    ):
+        with pytest.raises(ValueError, match="operation ref drift"):
+            definition.operation_for_ref(invalid_ref)
     with pytest.raises(TypeError, match="workflow runtime context JSON shape is invalid"):
         definition.operations[0].context_codec.decode_payload({})
+
+
+def test_runtime_handler_assembly_rejects_drift_without_effect(monkeypatch: pytest.MonkeyPatch) -> None:
+    from importlib import import_module
+
+    from app.successor_runtime.assembly.base import successor_binding
+    from app.successor_runtime.assembly.workflow_assembly import assemble_workflow_runtime_handler
+    from app.successor_runtime.capabilities.codecs import dataclass_codec
+    from app.successor_runtime.research.object_types import ObjectType
+
+    workflow_kernel = import_module("app.services.workflow_graph.runtime")
+    definition = build_workflow_runtime_definition()
+    operation = definition.operation_for_node_type("join")
+    contract, profiles, codec = operation.contract, operation.profiles, operation.context_codec
+    binding = successor_binding(
+        operation_contract_digest=contract.ref.contract_digest,
+        interpreter_profile_digest=profiles.interpreter.ref.profile_digest,
+        deployment_catalog_digest="a" * 64, project_scope_digest="b" * 64, resource_policy_epoch=1,
+        authority_requirement_digest=profiles.authority.ref.profile_digest, runtime_protocol_version="1",
+    )
+    calls: list[object] = []
+    monkeypatch.setattr(workflow_kernel, "invoke_workflow_runtime_node", lambda value: calls.append(value))
+
+    def assemble(candidate: workflow_runtime_module.WorkflowRuntimeOperationDefinition):
+        return assemble_workflow_runtime_handler(
+            operation=candidate, uow_factory=lambda: (_ for _ in ()).throw(AssertionError("UoW opened")),
+            binding=binding, project_key="project-1", resolved_schema="project_1",
+        )
+
+    handler = assemble(operation)
+    assert handler.contract == contract
+    assert calls == []
+    wrong_type = ObjectType("WrongWorkflowContext.v1", codec_id=codec.codec_id)
+
+    def rebound_operation(
+        *, input_type: ObjectType = contract.input_type,
+        output_type: ObjectType = contract.output_type,
+        owner: str = contract.owner_capability_id,
+    ) -> workflow_runtime_module.WorkflowRuntimeOperationDefinition:
+        rebound = profiles.contract(
+            kind=contract.ref.kind, contract_version=contract.ref.contract_version,
+            input_type=input_type, output_type=output_type,
+            return_contract_ref=contract.return_contract_ref,
+            allowed_override_schema_ref=contract.allowed_override_schema_ref,
+            owner_capability_id=owner,
+        )
+        return dataclasses.replace(
+            operation, contract=rebound,
+            context_codec=dataclasses.replace(codec, contract_ref=rebound.ref),
+        )
+
+    wrong_codec = dataclass_codec(
+        codec_id=codec.codec_id, codec_version=codec.codec_version, contract_ref=contract.ref,
+        payload_type_id=wrong_type.type_id, dto_cls=workflow_runtime_module.WorkflowExecutionContext)
+    other = definition.operation_for_node_type("llm_call")
+    invalid_operations = (
+        rebound_operation(input_type=wrong_type),
+        rebound_operation(output_type=wrong_type),
+        dataclasses.replace(operation, context_codec=wrong_codec),
+        dataclasses.replace(operation, context_codec=other.context_codec),
+        rebound_operation(owner="wrong.workflow.owner"),
+        dataclasses.replace(operation, profiles=dataclasses.replace(profiles, authority=other.profiles.authority)),
+    )
+    for invalid in invalid_operations:
+        with pytest.raises(ValueError, match="operation binding drift"):
+            assemble(invalid)

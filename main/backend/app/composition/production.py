@@ -1186,9 +1186,8 @@ def _installed_operation_facts(
         RETRIEVAL_CANDIDATE_DISCOVER_V3_KIND, build_retrieval_candidate_runtime_definition,
     )
     from app.successor_runtime.capabilities import acquisition_url, batch_business, retrieval_material_native
-    from app.successor_runtime.capabilities.workflow_native_contribution import (
-        WORKFLOW_RUNTIME_NODE_KINDS, build_workflow_runtime_definition,
-    )
+    from app.successor_runtime.capabilities.workflow_native_contribution import build_workflow_runtime_definition
+    workflow_operation = build_workflow_runtime_definition().operation_for_ref(ref)
     if ref.kind == batch_task.DISPATCH_SINGLE_KIND:
         contract = batch_task.build_batch_task_single_dispatch_contract()
         profiles = batch_task.build_batch_task_single_dispatch_profiles()
@@ -1218,9 +1217,9 @@ def _installed_operation_facts(
         contract, resource, effect = definition.operation_contract, definition.profiles.resource, definition.profiles.effect
         interpreter = contract.interpreter_compatibility_ref.profile_digest
         authority = contract.authority_profile_ref.profile_digest
-    elif ref.kind in WORKFLOW_RUNTIME_NODE_KINDS.values():
-        operation = build_workflow_runtime_definition().operation_for_kind(ref.kind)
-        contract, resource, effect = operation.contract, operation.profiles.resource, operation.profiles.effect
+    elif workflow_operation is not None:
+        contract = workflow_operation.contract
+        resource, effect = workflow_operation.profiles.resource, workflow_operation.profiles.effect
         interpreter = contract.interpreter_compatibility_ref.profile_digest
         authority = contract.authority_profile_ref.profile_digest
     else:
@@ -1663,35 +1662,13 @@ def _installed_operation_handler(
     )
     from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
     from app.successor_runtime.capabilities import acquisition_url, batch_business, retrieval_material_native
-    from app.successor_runtime.capabilities.workflow_native_contribution import (
-        WORKFLOW_RUNTIME_NODE_KINDS, WorkflowExecutionContext,
-        build_workflow_runtime_definition, validate_workflow_context_bound_inputs,
-    )
-    if contract.ref.kind in WORKFLOW_RUNTIME_NODE_KINDS.values():
-        from functools import partial
-        from app.services.projects.context import bind_resolved_project
-        from app.services.workflow_graph.runtime import WorkflowNodeSettledFailure, invoke_workflow_runtime_node
-        from app.successor_runtime.runtime.node import DefiniteInterpreterFailure
-
-        workflow_operation = build_workflow_runtime_definition().operation_for_kind(contract.ref.kind)
-
-        def check_workflow_scope(context: WorkflowExecutionContext, project: ProjectScopeRef, capability_id: str) -> None:
-            if context.project_key != project.project_key:
-                raise ValueError("workflow context crosses the installed project scope")
-
-        def invoke_workflow(context: WorkflowExecutionContext) -> WorkflowExecutionContext:
-            with bind_resolved_project(scope.project_scope.project_key, scope.project_scope.resolved_schema):
-                try:
-                    return invoke_workflow_runtime_node(context)
-                except WorkflowNodeSettledFailure as exc:
-                    raise DefiniteInterpreterFailure(exc.failure_code) from exc
-
-        return PersistentOperationHandler(
-            uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
-            contract=workflow_operation.contract, input_codec=workflow_operation.context_codec,
-            output_codec=workflow_operation.context_codec, invoke=invoke_workflow,
-            validate_input=check_workflow_scope,
-            validate_bound_inputs=partial(validate_workflow_context_bound_inputs, operation=workflow_operation),
+    from app.successor_runtime.capabilities.workflow_native_contribution import build_workflow_runtime_definition
+    workflow_operation = build_workflow_runtime_definition().operation_for_ref(contract.ref)
+    if workflow_operation is not None:
+        from app.successor_runtime.assembly.workflow_assembly import assemble_workflow_runtime_handler
+        return assemble_workflow_runtime_handler(
+            operation=workflow_operation, uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
+            project_key=scope.project_scope.project_key, resolved_schema=scope.project_scope.resolved_schema,
         )
     if contract.ref.kind in retrieval_material_native.RETRIEVAL_LEAF_KINDS:
         from app.services.project_retrieval.execution import (

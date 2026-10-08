@@ -8,8 +8,8 @@ bytes remain owned by the project-scoped ``successor_values`` repository.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import dataclass, fields
+from typing import Literal, get_args
 
 from sqlalchemy import insert, select, update
 from sqlalchemy.engine import Connection
@@ -73,21 +73,7 @@ class RuntimeValueBinding:
                 require_digest(digest, name)
 
     def values(self) -> dict[str, object]:
-        return {
-            "value_id": self.value_id,
-            "object_type": self.object_type,
-            "codec_id": self.codec_id,
-            "content_digest": self.content_digest,
-            "byte_size": self.byte_size,
-            "project_value_ref": self.project_value_ref,
-            "runtime_blob_ref": self.runtime_blob_ref,
-            "canonical_ref": self.canonical_ref,
-            "storage_digest": self.storage_digest,
-            "temporary_storage_ref": self.temporary_storage_ref,
-            "final_storage_ref": self.final_storage_ref,
-            "write_intent_digest": self.write_intent_digest,
-            "write_receipt_digest": self.write_receipt_digest,
-        }
+        return {field.name: getattr(self, field.name) for field in fields(self)}
 
 
 class RuntimeValueRepository:
@@ -103,7 +89,7 @@ class RuntimeValueRepository:
         *,
         state: RuntimeValueState = "AVAILABLE",
     ) -> Mapping[str, object]:
-        if state not in {"PREPARED", "AVAILABLE", "FAILED", "ORPHANED"}:
+        if state not in get_args(RuntimeValueState):
             raise ValueError("invalid runtime value state")
         table = _table("runtime_values")
         by_id = _one_mapping(

@@ -11,10 +11,6 @@ from app.services.llm_report_export import (
     render_markdown_export,
     verify_llm_report_export_token,
 )
-from app.services.local_index.embedding_provider import (
-    RepoLocalHashingEmbeddingProvider,
-    _embedding_failure,
-)
 from app.services.source_library import external_project as external
 from app.services.source_library import external_project_registration as registration
 from app.services.source_library import external_project_registry as registry
@@ -37,14 +33,7 @@ def test_w01_failure_constructors_use_registered_families() -> None:
         runner._runner_failure("required_params_missing", "missing", site="test"),
         resolver._resolver_failure("url_routing_urls_required", "urls", site="test"),
         loader._loader_failure("yaml_parser_unavailable", "missing yaml", site="test"),
-        resolver._parallel_failure(
-            "parallel_item_failed",
-            "worker failed",
-            site="test",
-            public_exception="RuntimeError",
-        ),
         single_channel._orchestrator_failure("channel_not_found", "missing", site="test"),
-        _embedding_failure("embedding_dimension_invalid", "bad dim", site="test"),
         _report_export_failure("unsupported_export_format", "bad format", site="test", public_exception="ValueError"),
         _guard_failure(
             "single_source_guard_blocked",
@@ -56,8 +45,6 @@ def test_w01_failure_constructors_use_registered_families() -> None:
     assert {outcome.family for outcome in outcomes} == {
         "source_library.contract_failure",
         "source_library.loader.failure",
-        "source_library.resolver.failure",
-        "indexer.policy.failure",
         "llm.report.request.failure",
         "source.single-source-guard.failure",
     }
@@ -72,11 +59,6 @@ def test_w01_single_source_guard_abi_preserves_details() -> None:
     with pytest.raises(SourceLibrarySingleSourceGuardError) as raised:
         validate_single_source_guard({"single_source_guard": {}})
     assert raised.value.details["reason_code"] == "single_source_guard_strict_source_required"
-
-
-def test_w01_embedding_dimension_abi_still_raises_value_error() -> None:
-    with pytest.raises(ValueError, match="embedding_dim must be at least 8"):
-        RepoLocalHashingEmbeddingProvider(4)
 
 
 def test_w01_report_export_token_failure_is_typed_before_abi_lift() -> None:
@@ -113,42 +95,6 @@ def test_w01_loader_yaml_dependency_failure_is_typed_before_runtime_error_lift(t
     with pytest.raises(RuntimeError, match="Cannot parse YAML without a captured cause\\.") as raised_no_cause:
         loader._raise_loader_failure(no_cause)
     assert raised_no_cause.value.__cause__ is None
-
-
-def test_w01_resolver_parallel_failures_are_typed_before_legacy_lift() -> None:
-    failure = RuntimeError("worker failed")
-    outcome = resolver._try_run_tasks_with_concurrency_plan(
-        values=["value"],
-        worker=lambda _value: (_ for _ in ()).throw(failure),
-        max_workers=1,
-        timeout_seconds=None,
-        fail_fast=True,
-        thread_name_prefix="w01-test",
-    )
-    assert isinstance(outcome, Failure)
-    assert outcome.family == "source_library.resolver.failure"
-    assert outcome.code == "parallel_item_failed"
-    assert outcome.context["cause"] is failure
-    with pytest.raises(RuntimeError) as raised:
-        resolver._run_tasks_with_concurrency_plan(
-            values=["value"],
-            worker=lambda _value: (_ for _ in ()).throw(failure),
-            max_workers=1,
-            timeout_seconds=None,
-            fail_fast=True,
-            thread_name_prefix="w01-test",
-        )
-    assert raised.value is failure
-
-    with pytest.raises(TimeoutError, match="w01-timeout timeout after 0.010s"):
-        resolver._run_tasks_with_concurrency_plan(
-            values=["value"],
-            worker=lambda _value: __import__("time").sleep(0.05),
-            max_workers=2,
-            timeout_seconds=0.01,
-            fail_fast=True,
-            thread_name_prefix="w01-timeout",
-        )
 
 
 def test_w01_disabled_source_item_is_typed_before_value_error_lift() -> None:

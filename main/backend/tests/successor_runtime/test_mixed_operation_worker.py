@@ -151,20 +151,26 @@ def test_mixed_worker_rebuild_reads_actual_ack_and_business_result(live_database
         assert json.loads(bytes(values[0]["content_bytes"]))["output"] == {"document_id": 731, "nested": [True, 2]}
 
 
+@pytest.mark.parametrize("alternate_kind", [False, True], ids=("default", "alternate"))
 def test_graph_facade_real_tasks_replay_exact_upstream_outputs(
-    live_database: LiveDatabase, monkeypatch: pytest.MonkeyPatch,
+    live_database: LiveDatabase, monkeypatch: pytest.MonkeyPatch, alternate_kind: bool,
 ) -> None:
     from app.models import base
     from app.services import tasks, workflow_graph
     from app.services.workflow_graph.executors import llm_call
     from app.services.workflow_graph.store import InMemoryCompiledGraphStore
+    from app.successor_runtime.capabilities import workflow_native_contribution as workflow_native
     from app.successor_runtime.capabilities.workflow_native_contribution import (
         WORKFLOW_RUNTIME_OWNER,
-        build_workflow_runtime_definition,
     )
     from app.successor_runtime.substrate.postgres import session as runtime_session
 
-    definition = build_workflow_runtime_definition()
+    kinds = dict(workflow_native.WORKFLOW_RUNTIME_NODE_KINDS)
+    if alternate_kind:
+        kinds["llm_call"] = "workflow.runtime.llm-call.nondefault.v1"
+    definition = workflow_native.build_workflow_runtime_definition(kinds if alternate_kind else None)
+    if alternate_kind:
+        monkeypatch.setattr(workflow_native, "build_workflow_runtime_definition", lambda: definition)
     operation = definition.operation_for_node_type("llm_call")
     now = datetime.now(UTC)
     actor_id = live_database.runtime_scope.actor_id

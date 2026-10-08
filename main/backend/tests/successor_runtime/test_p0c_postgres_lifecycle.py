@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -53,7 +53,9 @@ from app.successor_runtime.substrate.postgres.qualification_store import (
     QualificationStoreRepository,
 )
 from app.successor_runtime.substrate.postgres.runtime_journal import (
+    ExactBindingConflict,
     ExactQualificationBinding,
+    PublicPayloadViolation,
 )
 from app.successor_runtime.substrate.postgres.runtime_lifecycle import (
     ActivateQualification,
@@ -188,10 +190,53 @@ def test_runtime_value_index_and_staged_artifact_store_only_opaque_refs(scope) -
         byte_size=42,
         storage_digest=_digest("storage"),
         project_value_ref="project-value:value-1",
+        temporary_storage_ref="staged:temporary-value-1",
+        final_storage_ref="artifact:final-value-1",
+        write_intent_digest=_digest("write-intent"),
+        write_receipt_digest=_digest("write-receipt"),
     )
+    expected_values = {
+        "value_id": "value-1",
+        "object_type": "CapturedMaterialSnapshot.v1",
+        "codec_id": "json.v1",
+        "content_digest": _digest("content"),
+        "byte_size": 42,
+        "project_value_ref": "project-value:value-1",
+        "runtime_blob_ref": None,
+        "canonical_ref": None,
+        "storage_digest": _digest("storage"),
+        "temporary_storage_ref": "staged:temporary-value-1",
+        "final_storage_ref": "artifact:final-value-1",
+        "write_intent_digest": _digest("write-intent"),
+        "write_receipt_digest": _digest("write-receipt"),
+    }
+    assert value.values() == expected_values
     stored = RuntimeValueRepository(connection, scope).put_exact(value)
+    assert {field: stored[field] for field in expected_values} == expected_values
+    assert stored["project_key"] == "project-a"
+    assert stored["state"] == "AVAILABLE"
     assert stored["project_value_ref"] == "project-value:value-1"
     assert "content_bytes" not in stored and "content_json" not in stored
+
+    for state in ("PREPARED", "FAILED", "ORPHANED"):
+        state_row = RuntimeValueRepository(_StoreConnection(), scope).put_exact(
+            value, state=state
+        )
+        assert state_row["state"] == state
+
+    with pytest.raises(ValueError, match="invalid runtime value state"):
+        RuntimeValueRepository(_StoreConnection(), scope).put_exact(
+            value,
+            state="UNKNOWN",  # type: ignore[arg-type]
+        )
+
+    with pytest.raises(ExactBindingConflict, match="identity/content"):
+        RuntimeValueRepository(connection, scope).put_exact(
+            replace(value, value_id="value-2")
+        )
+
+    with pytest.raises(PublicPayloadViolation, match="opaque locator"):
+        replace(value, project_value_ref="https://example.invalid/value-1")
 
     artifact = StagedArtifactBinding(
         artifact_id="artifact-1",
@@ -206,14 +251,8 @@ def test_runtime_value_index_and_staged_artifact_store_only_opaque_refs(scope) -
     assert staged["value_id"] == "value-1"
 
     with pytest.raises(ValueError, match="exactly one"):
-        RuntimeValueBinding(
-            value_id="bad",
-            object_type="X",
-            codec_id="json.v1",
-            content_digest=_digest("bad"),
-            byte_size=1,
-            storage_digest=_digest("bad-storage"),
-            project_value_ref="project-value:bad",
+        replace(
+            value,
             runtime_blob_ref="runtime-blob:bad",
         )
 

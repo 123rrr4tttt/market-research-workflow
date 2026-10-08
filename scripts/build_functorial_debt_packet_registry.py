@@ -68,7 +68,6 @@ def _packet_id(row: dict[str, Any]) -> str:
             "main/backend/app/successor_runtime/language/",
             "main/backend/app/successor_runtime/runtime/",
             "main/backend/app/successor_runtime/research/",
-            "main/backend/app/successor_runtime/ops_domain/",
         )
     ):
         return "W07"

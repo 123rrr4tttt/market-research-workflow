@@ -16,7 +16,6 @@ from ...settings.config import get_effective_project_key_enforcement_mode
 from ..projects import bind_project, current_project_key
 from ..resource_pool import get_site_entry_by_url, list_site_entries
 from ..resource_pool.url_utils import normalize_url
-from ..streamplus.contracts import SOURCE_ITEM_CAPABILITY_DEFAULT
 from .external_project import (
     EXTERNAL_PROJECT_CHANNEL_KEY,
     normalize_external_project_extra,
@@ -29,6 +28,12 @@ SourceLibraryWriteResponse: TypeAlias = dict[str, object]
 
 ITEM_TYPE_USER_DEFINED: ItemType = "user_defined"
 ITEM_TYPE_SERVICE_AGGREGATED: ItemType = "service_aggregated"
+
+SOURCE_ITEM_CAPABILITY_DEFAULT: dict[str, object] = {
+    "supports_incremental": True,
+    "supports_backfill": False,
+    "rate_limit_class": "normal",
+}
 
 logger = logging.getLogger(__name__)
 
