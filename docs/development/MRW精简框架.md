@@ -50,11 +50,20 @@ $$
 
 首公共接缝取workflow的真实production路径：`workflow_native_contribution.py::build_workflow_runtime_definition`、`assemble_workflow_native_definition`及`WORKFLOW_NATIVE_CONTRIBUTION_RULE`已有类型与规则，`workflow_assembly.py::build_workflow_assembly`仍有手写binding/refs；`composition/production.py::_installed_operation_facts`和`_installed_operation_handler`又按同一kind独立分支。将已有typed operation definition加显式kernel/codec/authority绑定沿原规则派生，供同一个生产安装入口读取，消除这部分重复录入。复用`PersistentOperationHandler`及`services/workflow_graph/__init__.py`的`submit_installed_program`与reader；`runtime.py::invoke_workflow_runtime_node`的输入关系与`execute_node`效果继续由领域核承担。`contributions/project_catalog.py`当前主要给CLI/check投影，`retrieval_native_catalog.py`也区分native与projection，均不能单凭catalog声称worker已安装。
 
+Runtime自身同样沿“原生typed状态/值/事件/命令语义 → 已有关系规则 → 当前Node/PG消费者与只读readback”收敛。同一运行事实的codec、row映射、装配、投影与验证接入可以有向派生，减少重复模型和检查维护；结构收益不自动等于总代码减少，新增规则与派生生产量均计成本。现有局部静态候选分为四面：
+
+- 状态与事件：复用`runtime/transitions.py`的`RunState/StepState/EffectDisposition`、`RunEvent/StepEvent`、`RUN_TRANSITIONS/STEP_TRANSITIONS`及`transition_run_result/transition_step_result`共同查表解释；可派生的是这些既定关系的表示和校验，Run/Step/Effect身份与语义不同，不另抄TransitionSpec、词表或万能状态机。
+- 值与row：`substrate/postgres/runtime_values.py::RuntimeValueBinding`的typed字段与`values()`手工字段映射，是核查同源类型能否派生必要row projection的首候选；该映射被`RuntimeValueRepository.put_exact/load_exact`用于row字段及exact-binding比较；`RuntimeValueState`与`put_exact`的合法state集合也可核查同源判别。选一个真实闭包校准，不把几个字段逐点微修或以更大工具包装替换十余行映射；不从名字猜业务或重复声明schema，当前尚未证明该闭包可删或净减。
+- 命令与journal：`substrate/postgres/runtime_journal.py::JournalCommandSet/RuntimeJournalRepository`的开放snapshot/events/work_items及`append_transition`是typed命令与row/event projection候选；`FOR UPDATE`、revision CAS、seq分配、同Connection原子写入及失败仍由现repository承担，repository自身不commit/rollback，不能把所有SQL都归为模板。
+- 权限与恢复：`runtime/ports.py::RuntimeScope/ProjectScopeRef/ControlPlaneScope`可支持既定shape的同源检查，但trusted resolver和执行前current grant读取才拥有授权判断；`runtime/recovery.py::NonStartProof/authorize_successor_attempt`保留UNKNOWN与真实未开始证明。转换可派生，claim/commit、幂等、事务、真实reconcile读回、cancel、版本identity与领域writer权限不转移到投影。
+
+这些是现役符号与候选的静态依据，不是可删量或运行证明。已有原生状态表/普通函数足够时直接复用，不为每个函数加贡献壳；不预定新IR、数据库生成框架、通用schema、注册器或恢复平台。若确需补共同规则，由一个owner用一个真实消费者打通后释放依赖的同形包；与workflow规则机制能复用就复用，不各建框架或重复计成本。无现役需求的功能直接退役，无需为生成保留。
+
 标准化范围包括source/material/knowledge/writing/host/项目API、同步工具与reader、前端manifest和WebUI边界，均沿各自权威源到原消费者；durable operation只承担首公共案例。已贯通的前端manifest等形状直接复用，真实protocol/lifecycle差异不抹平。能力按真实形状处理：已有规则支持的同形定义直接复用；新语义形状只补当前所需的一条规则；特殊kernel与权限判断由作者明确；无现役需求的功能整体退役。不强制所有API/CRUD变成durable，也不以`Any`或unchecked cast抹平输入输出差异。领域作者只提供语义、类型、特殊核及独立见证；公共规则owner补lower/derive缺口；集成owner唯一维护共享production消费者、有效native目录及其投影与sync/check。三者是责任分工，可以由同一作者承担，不增加管理层。
 
 公共首例由一个owner贯通原声明、真实消费者及删除闭包；依赖该接缝的同形批量迁移随后展开，已有形状、独立kernel和安全删除不等待。一次权威事实修改应驱动所有已确定装配字段；非默认同形定义也必须到真实消费者，可用现有第二实例或受控测试实例。交叉输入输出类型、重复/缺失identity、错误authority须明确失败，声明和sync/check不得执行effect。框架机制用原kit独立见证验证，项目迁移用真实消费者验证行为、顺序、失败与权限，二者不能互相替代；首例不是新审批关卡，不另建万能CapabilitySpec、Runtime、DSL、scheduler或注册审批平台。
 
-新规则、公共首例、派生生产物、提取和集成成本均计回受益删除族；没有无限共享建设预算。旧services整体承载、旧runtime及旧执行owner全部退役，既选Runtime保留必要核并压缩重复壳，不推倒重写。上一轮workflow＋999、retrieval＋3763、shared＋1594继续分别复审，source−5991不抵消；有消费者的`projection_contracts.py`、`retrieval_material_native.py`按类型与效果定界，已退staged/effect和旧URL ThreadPool不得重复算删除。
+新规则、公共首例、派生生产物、提取和集成成本均计回受益删除族；没有无限共享建设预算。旧services整体承载、旧runtime及旧执行owner全部退役，既选Runtime通过同源结构收敛消除重复模型、映射与装配，保留必要核，不推倒重写。上一轮workflow＋999、retrieval＋3763、shared＋1594继续分别复审，source−5991不抵消；有消费者的`projection_contracts.py`、`retrieval_material_native.py`按类型与效果定界，已退staged/effect和旧URL ThreadPool不得重复算删除。
 
 ## 4. 全项目规模预算与收支约束
 
@@ -75,7 +84,7 @@ app当前路径基线互斥覆盖：services398文件130558行、successor_runti
 
 **运行结构计量与保持。** `successor_runtime/{language,runtime,substrate,assembly}`及根`__init__.py`共130文件79503行，分别为7856、16099、49162、6385、1行；这是含部分领域handler的物理调查面，不能冒充纯泛用Runtime语义统计，也不再附加未经证明的族净减量。各实际退役包抽出的领域核、跨目录保留原字节、新增替代与共同接缝全部计回原族`A_actual`，搬家净收益为零；族与app及全项目总账同一代码只计一次。旧services执行owner与控制循环另行整族退出，不重复计收益，不因现核收缩难度而永久保留。
 
-沿既选Runtime保留typed AST/codec、组合与版本身份、claim/commit、幂等、PG journal与UoW、staged-value及原子终态记录、effect/commit边界的current grant重读、真实审批引用、UNKNOWN按attempt读回、取消和必要恢复。领域canonical writer保持原owner，外部effect与DB不冒称天然原子；已发生或未知effect不能记作未发生，读回投影不取得第二状态写权。现核按真实消费者压缩重复实现，不要求推倒重写或另造kernel。
+沿既选Runtime保留typed AST/codec、组合与版本身份、claim/commit、幂等、PG journal与UoW、staged-value及原子终态记录、effect/commit边界的current grant重读、真实审批引用、UNKNOWN按attempt读回、取消和必要恢复。领域canonical writer保持原owner，外部effect与DB不冒称天然原子；已发生或未知effect不能记作未发生，读回投影不取得第二状态写权。现核按上述同源结构链收敛重复实现；一个内核的多种表示均有向派生，不建立第二事实owner或Runtime，也不要求推倒重写。
 
 泛用validation、codec、claim/commit、install/admission、assembly、reconcile/recovery、运行状态及readback无论目录均归Runtime责任。领域handler保留自身schema、业务前置条件和特殊effect，不能包住旧loop藏成本。first-specimen/sample、重复状态与codec、安装外壳和冻结审批生产化按实际义务删除或合并，不能因唯一Runtime已选而豁免整个现实现。
 
@@ -87,7 +96,7 @@ app当前路径基线互斥覆盖：services398文件130558行、successor_runti
 
 ## 5. 推进与验证
 
-当前可执行前沿包括已证安全删除、已有规则支持且闭包预算明确的迁移，以及workflow首例的精确接缝/预算定界；本轮只形成方案，不把这些包记为实施ready或passed。首例一名owner贯通共享规则与production后，释放依赖它的同形作者；公共消费者和目录始终由集成owner串行收敛，消费者切换与整族删除同包验收。具体合同、依赖、写面及命令见阶段文档；完整路径覆盖账只防漏项，不决定架构切片。
+当前可执行前沿包括已证安全删除、已有规则支持且闭包预算明确的迁移，以及workflow接缝与Runtime同源结构候选的精确闭包/预算定界；本轮只形成方案，不把这些包记为实施ready或passed。首例一名owner贯通共享规则与production后，释放依赖它的同形作者；公共消费者和目录始终由集成owner串行收敛，消费者切换与整族删除同包验收。具体合同、依赖、写面及命令见阶段文档；完整路径覆盖账只防漏项，不决定架构切片。
 
 全局最多6名活跃Agent，root分发与Astra编排各1名，最多4名作者/调查者；集成owner占其中1席。领域作者不各写adapter补共同缺口；共同规则失败回到唯一owner，独立包继续。PG、coverage、前端build/E2E独占，pure最多2个资源隔离进程。原进度记录汇总现成分派、首次共同验收、失败、手写机械接线、调用/token及共同修复成本；缺失不记零，不能由局部通过推断整体提速。
 
