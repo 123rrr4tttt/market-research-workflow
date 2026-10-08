@@ -53,7 +53,7 @@ from app.successor_runtime.substrate.postgres.captured_values import (
 from app.successor_runtime.substrate.postgres.composition_root import (
     InstalledMaterialReadHandler,
     PostgresMaterialReadHandler,
-    compose_postgres_first_specimen_runtime,
+    compose_postgres_runtime,
 )
 from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
 
@@ -317,7 +317,7 @@ def test_real_postgres_production_root_runs_two_isomorphic_nodes(
 
     reports = []
     for node_id in ("p0c-node-a", "p0c-node-b"):
-        composition = compose_postgres_first_specimen_runtime(
+        composition = compose_postgres_runtime(
             engine=database.engine,
             identity=NodeIdentity(
                 node_id=node_id,

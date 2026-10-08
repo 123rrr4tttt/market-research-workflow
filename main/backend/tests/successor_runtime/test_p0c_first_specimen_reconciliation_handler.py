@@ -25,15 +25,15 @@ from app.successor_runtime.substrate.blob.internal_export import (
     InternalExportInterpreter,
     InternalExportReadbackFacade,
 )
-from app.successor_runtime.substrate.postgres.first_specimen_reconciliation_handler import (
-    FirstSpecimenReconciliationError,
-    InstalledFirstSpecimenReconciliationHandler,
-    PostgresFirstSpecimenReconciliationHandler,
+from app.successor_runtime.substrate.postgres.effect_reconciliation import (
+    EffectReconciliationError,
+    InstalledDeliveryReconciliationHandler,
+    PostgresDeliveryReconciliationHandler,
 )
 from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
 from app.successor_runtime.substrate.postgres.runtime_lifecycle import (
     AssignmentEnvelope,
-    _assignment_values,
+    assignment_values,
 )
 
 from .test_p0c_first_specimen_delivery_handler import (
@@ -111,7 +111,7 @@ def _seed_original(
         ),
         delivery_intent_ref="delivery-intent:first-specimen",
     )
-    work_values = _assignment_values(envelope, due_at=NOW)
+    work_values = assignment_values(envelope, due_at=NOW)
     work_values.update(
         state="WAITING",
         wait_reason="BACKOFF",
@@ -187,8 +187,8 @@ def _setup(reconciliation_db, tmp_path):
         operation_contract_ref=original.operation_contract_ref,
         blob_store=blob,
     )
-    handler = PostgresFirstSpecimenReconciliationHandler(
-        InstalledFirstSpecimenReconciliationHandler(
+    handler = PostgresDeliveryReconciliationHandler(
+        InstalledDeliveryReconciliationHandler(
             recovery_binding=recovery,
             operation_contract_digest=original.operation_contract_digest,
         ),
@@ -335,8 +335,8 @@ def test_authoritative_failure_binds_failure_digest_and_profile_drift_fails_clos
         _,
     ) = _setup(reconciliation_db, tmp_path)
     failed = _FailedReadback(original.operation_contract_ref)
-    handler = PostgresFirstSpecimenReconciliationHandler(
-        InstalledFirstSpecimenReconciliationHandler(
+    handler = PostgresDeliveryReconciliationHandler(
+        InstalledDeliveryReconciliationHandler(
             recovery_binding=recovery,
             operation_contract_digest=original.operation_contract_digest,
         ),
@@ -388,5 +388,5 @@ def test_authoritative_failure_binds_failure_digest_and_profile_drift_fails_clos
         interpreter_profile_digest=drifted.interpreter_profile_digest,
         authority_digest=reconcile_claim.authority_digest,
     )
-    with pytest.raises(FirstSpecimenReconciliationError, match="RecoveryBinding"):
+    with pytest.raises(EffectReconciliationError, match="RecoveryBinding"):
         handler.execute(drifted_assignment, drifted_claim, context)

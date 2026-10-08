@@ -14,7 +14,7 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
-from typing import Any, Literal, Protocol, cast
+from typing import Any, Literal, Protocol, TypeGuard
 
 from functorial_kit import Failure
 
@@ -91,8 +91,8 @@ from .runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
     StaleRevisionError,
-    _scope_key,
-    _utcnow,
+    runtime_scope_key,
+    utc_now,
     validate_authorization_row,
     validate_qualification_row,
     ExactQualificationBinding,
@@ -100,7 +100,7 @@ from .runtime_journal import (
 )
 from .runtime_lifecycle import (
     ActivateQualification, AssignmentEnvelope, AttachPlan, RequestCancel, RuntimeLifecycleRepository,
-    SubmitRun, _assignment_values,
+    SubmitRun, assignment_values,
 )
 from .qualification_store import QualificationStoreRepository
 from .runtime_values import RuntimeValueBinding, RuntimeValueRepository
@@ -147,7 +147,7 @@ class ActivationCatalogEntry:
 
 
 @dataclass(frozen=True, slots=True)
-class FirstSpecimenActivationCatalog:
+class OperationActivationCatalog:
     """Exact digest index plus the registries needed by the pure fold."""
 
     entries: tuple[ActivationCatalogEntry, ...]
@@ -351,7 +351,7 @@ def submit_compiled_program(
     program: ProgramSpec,
     operation_catalog: OperationContractCatalogSnapshot,
     operation_contracts: OperationContractRegistry,
-    activation_catalog: FirstSpecimenActivationCatalog,
+    activation_catalog: OperationActivationCatalog,
     values: tuple[tuple[ValueRef, bytes], ...],
     idempotency: IdempotencyBinding,
     incarnation: str,
@@ -501,11 +501,11 @@ def materialize_active_children(
     root_value_identity: str,
     operation_catalog: OperationContractCatalogSnapshot,
     operation_contracts: OperationContractRegistry,
-    activation_catalog: FirstSpecimenActivationCatalog,
+    activation_catalog: OperationActivationCatalog,
     trigger: ActivationTrigger,
     empty_result_bytes: bytes | None = None,
-    child_activation_catalog_factory: Callable[[Connection, RuntimeScope, ProgramSpec], FirstSpecimenActivationCatalog] | None = None,
-    active_child_materializer_factory: Callable[[FirstSpecimenActivationCatalog], ActiveChildMaterializer] | None = None,
+    child_activation_catalog_factory: Callable[[Connection, RuntimeScope, ProgramSpec], OperationActivationCatalog] | None = None,
+    active_child_materializer_factory: Callable[[OperationActivationCatalog], ActiveChildMaterializer] | None = None,
 ) -> ActiveChildMaterializationReceipt:
     """Create one immutable child run per ordered traversal element.
 
@@ -702,12 +702,12 @@ def settle_active_children(
     *,
     parent_run_id: str,
     source_step_id: str,
-    activation_catalog: FirstSpecimenActivationCatalog,
+    activation_catalog: OperationActivationCatalog,
     settlement_builder: ActiveChildSettlementBuilder,
     trigger: ActivationTrigger,
     empty_result_bytes: bytes | None = None,
-    parent_activation_catalog_factory: Callable[[Connection, RuntimeScope, ProgramSpec], FirstSpecimenActivationCatalog] | None = None,
-    active_child_materializer_factory: Callable[[FirstSpecimenActivationCatalog], ActiveChildMaterializer] | None = None,
+    parent_activation_catalog_factory: Callable[[Connection, RuntimeScope, ProgramSpec], OperationActivationCatalog] | None = None,
+    active_child_materializer_factory: Callable[[OperationActivationCatalog], ActiveChildMaterializer] | None = None,
 ) -> ActiveChildSettlementReceipt:
     """Publish the ordered traversal result after every child is terminal."""
 
@@ -801,7 +801,7 @@ def settle_active_children(
             raise ExactBindingConflict("parent settlement lacks one qualified authority subject")
         scope = _active_child_authority_scope(
             connection, scope, run_id=str(authority_run["run_id"]), authority_step_id=bindings[0].step_id,
-            authority_digest=bindings[0].binding_digest, observed_at=trigger.observed_at or _utcnow(),
+            authority_digest=bindings[0].binding_digest, observed_at=trigger.observed_at or utc_now(),
         )
         lifecycle = RuntimeLifecycleRepository(connection, scope)
         if failed is not None:
@@ -843,12 +843,12 @@ def settle_active_children(
                 connection, scope, run_id=parent_run_id,
                 authority_step_id=binding.step_id,
                 authority_digest=binding.binding_digest,
-                observed_at=trigger.observed_at or _utcnow(),
+                observed_at=trigger.observed_at or utc_now(),
             )
         activation_catalog = parent_activation_catalog_factory(connection, scope, parent_program)
     traversal_step = _traversal_plan_step(parent_plan, source_step_id)
     observations: list[ActiveChildTerminalObservation] = []
-    value_reader = PostgresFirstSpecimenActivationBindingAdapter()
+    value_reader = PostgresRuntimeActivationBindingAdapter()
     for relation, child in zip(metadata, child_rows, strict=True):
         child_program = ProgramRepository(connection, tables).get(
             scope,
@@ -909,7 +909,7 @@ def settle_active_children(
         )
         observations.append(
             ActiveChildTerminalObservation(
-                element_index=int(relation["element_index"]),
+                element_index=_db_int(relation["element_index"], "element_index"),
                 element_digest=str(relation["element_digest"]),
                 child_run_id=str(child["run_id"]),
                 state="COMPLETED",
@@ -928,8 +928,7 @@ def settle_active_children(
         return ActiveChildSettlementReceipt(
             parent_run_id, source_step_id, "WAIT", child_ids
         )
-    if not isinstance(aggregate_bytes, bytes):
-        raise ExactBindingConflict("active child settlement builder returned no bytes")
+    aggregate_bytes = _require_settlement_bytes(aggregate_bytes)
     if activation_catalog.encode_value(traversal_step.output_type, json.loads(aggregate_bytes)) != aggregate_bytes:
         raise ExactBindingConflict("active child settlement bytes differ from their declared codec")
     result_ref = _publish_active_child_result(
@@ -983,7 +982,7 @@ def settle_active_children(
             active_child_materializer_factory(activation_catalog),
         )
     return_steps = frozenset(parent_plan.control_root.semantic_return_step_ids)
-    if return_steps == {source_step_id}:
+    if return_steps == frozenset({source_step_id}):
         RuntimeLifecycleRepository(connection, scope).complete_if_satisfied(
             parent_run_id,
             required_step_ids=return_steps,
@@ -1005,11 +1004,11 @@ def settle_active_parents_for_child(
     scope: RuntimeScope,
     *,
     child_run_id: str,
-    activation_catalog: FirstSpecimenActivationCatalog,
+    activation_catalog: OperationActivationCatalog,
     settlement_builder: ActiveChildSettlementBuilder,
     trigger: ActivationTrigger,
-    parent_activation_catalog_factory: Callable[[Connection, RuntimeScope, ProgramSpec], FirstSpecimenActivationCatalog] | None = None,
-    active_child_materializer_factory: Callable[[FirstSpecimenActivationCatalog], ActiveChildMaterializer] | None = None,
+    parent_activation_catalog_factory: Callable[[Connection, RuntimeScope, ProgramSpec], OperationActivationCatalog] | None = None,
+    active_child_materializer_factory: Callable[[OperationActivationCatalog], ActiveChildMaterializer] | None = None,
 ) -> tuple[ActiveChildSettlementReceipt, ...]:
     """Settle every parent that names the terminal child in its own journal."""
 
@@ -1055,17 +1054,17 @@ def _materialize_active_traversals(
         )
 
 
-class PostgresFirstSpecimenActivationPort:
+class PostgresRuntimeActivationPort:
     """Terminal-hook adapter around caller-owned :func:`activate_run`."""
 
     def __init__(
         self,
-        catalog: FirstSpecimenActivationCatalog,
+        catalog: OperationActivationCatalog,
         *,
         active_child_materializer: ActiveChildMaterializer | None = None,
         active_child_settlement: ActiveChildSettlementBuilder | None = None,
-        parent_activation_catalog_factory: Callable[[Connection, RuntimeScope, ProgramSpec], FirstSpecimenActivationCatalog] | None = None,
-        active_child_materializer_factory: Callable[[FirstSpecimenActivationCatalog], ActiveChildMaterializer] | None = None,
+        parent_activation_catalog_factory: Callable[[Connection, RuntimeScope, ProgramSpec], OperationActivationCatalog] | None = None,
+        active_child_materializer_factory: Callable[[OperationActivationCatalog], ActiveChildMaterializer] | None = None,
         trace_prefix: str = "trace:first-specimen:activation",
     ) -> None:
         if not trace_prefix:
@@ -1151,7 +1150,7 @@ def persist_qualification_step_shells(
     *,
     run_id: str,
     plan: ExecutionPlan,
-    catalog: FirstSpecimenActivationCatalog,
+    catalog: OperationActivationCatalog,
     authorizations: tuple[StepAuthorizationBinding, ...],
     observed_at: datetime,
 ) -> tuple[str, ...]:
@@ -1223,7 +1222,7 @@ def persist_qualification_step_shells(
     return tuple(created)
 
 
-class PostgresFirstSpecimenActivationBindingAdapter:
+class PostgresRuntimeActivationBindingAdapter:
     """Reconstruct a ReadyActivation without a second descriptor truth.
 
     The event carries only bounded digests and the work identity.  Full
@@ -1333,8 +1332,10 @@ class PostgresFirstSpecimenActivationBindingAdapter:
         )
         plan = PlanRepository(connection, tables).get(scope, assignment.plan_digest)
         step = _plan_step(plan, assignment.step_id)
+        step_kind = step.step_kind
         if (
-            step.operation_id is None
+            step_kind not in ("EFFECT", "ADMISSION")
+            or step.operation_id is None
             or step.operation_contract_ref is None
             or step.operation_contract_ref.contract_digest
             != assignment.operation_contract_digest
@@ -1378,7 +1379,7 @@ class PostgresFirstSpecimenActivationBindingAdapter:
             plan,
             ReadyActivation(
                 step_id=step.step_id,
-                step_kind=step.step_kind,  # type: ignore[arg-type]
+                step_kind=step_kind,
                 operation_id=step.operation_id,
                 ordered_dependency_refs=tuple(dynamic),
                 static_atom_input_refs=static,
@@ -1427,12 +1428,12 @@ def activate_run(
     connection: Connection,
     scope: RuntimeScope,
     run_id: str,
-    catalog: FirstSpecimenActivationCatalog,
+    catalog: OperationActivationCatalog,
     trigger: ActivationTrigger,
 ) -> ActivationReceipt:
     """Activate one exact run inside the caller-owned transaction."""
 
-    project_key = _scope_key(scope)
+    project_key = runtime_scope_key(scope)
     runs = PUBLIC_TABLES["runtime_runs"]
     run = one_mapping(
         connection.execute(
@@ -1482,7 +1483,7 @@ def activate_run(
 
     steps_table = PUBLIC_TABLES["runtime_steps"]
     work_table = PUBLIC_TABLES["runtime_work_items"]
-    now = trigger.observed_at or _utcnow()
+    now = trigger.observed_at or utc_now()
     new_steps: list[str] = []
     new_work: list[str] = []
     awaiting_external_gate: list[str] = []
@@ -1492,7 +1493,10 @@ def activate_run(
         authorization = _authorization_for(
             connection, run, qualified, step, descriptor, catalog, now
         )
-        entry = catalog.entry_for(str(step.operation_contract_ref.contract_digest))
+        operation = step.operation_contract_ref
+        if operation is None:
+            raise ExactBindingConflict("activated step lacks operation contract")
+        entry = catalog.entry_for(operation.contract_digest)
         if entry.external_gate_required and step.step_kind == "EFFECT":
             awaiting_external_gate.append(step.step_id)
             continue
@@ -1507,7 +1511,7 @@ def activate_run(
         )
         envelope = _envelope(assignment, authorization, entry, str(run["qualification_digest"]))
         step_values = _step_values(run, step, descriptor, authorization, entry, now)
-        work_values = _assignment_values(envelope, due_at=trigger.due_at)
+        work_values = assignment_values(envelope, due_at=trigger.due_at)
 
         existing_step = one_mapping(
             connection.execute(
@@ -1644,7 +1648,8 @@ def _require_run_scope(run: Mapping[str, object], scope: RuntimeScope) -> None:
     expected = scope.project_scope
     if (
         run["project_key"] != expected.project_key
-        or int(run["project_registry_revision"]) != expected.project_registry_revision
+        or _db_int(run["project_registry_revision"], "project_registry_revision")
+        != expected.project_registry_revision
         or run["project_scope_digest"] != expected.scope_digest
         or run["resolved_schema"] != expected.resolved_schema
     ):
@@ -1665,7 +1670,9 @@ def _require_program_plan_run(
         raise ExactBindingConflict("run/Program/Plan exact identity drift")
 
 
-def _load_qualified_plan(connection: Connection, run: Mapping[str, object]):
+def _load_qualified_plan(
+    connection: Connection, run: Mapping[str, object]
+) -> QualifiedPlan:
     table = PUBLIC_TABLES["runtime_qualifications"]
     rows = connection.execute(
         select(table)
@@ -1735,9 +1742,13 @@ def load_runtime_observations(
     all_plan_steps = {step.step_id: step for step in plan.ordered_steps}
     requests = RuntimeJournalRepository(connection, scope).load_events(str(run["run_id"]))
     for event in settled:
-        metadata = event["event_metadata_json"]
+        metadata = _event_metadata(event)
         step_id = metadata.get("source_step_id")
-        step = all_plan_steps.get(step_id) if isinstance(step_id, str) else None
+        if not isinstance(step_id, str):
+            raise ExactBindingConflict(
+                "active-child settlement lacks source step identity"
+            )
+        step = all_plan_steps.get(step_id)
         if (
             step is None
             or step.step_kind != "TRANSFORM"
@@ -1756,19 +1767,36 @@ def load_runtime_observations(
             raise ExactBindingConflict("settled traversal lacks one original materialization")
         request = _event_metadata(matching[0])
         descriptor = TraversalMaterialization(
-            step_id=step_id, traversal_policy=request["traversal_policy"],
-            input_ref=_read_project_value(connection, scope, tables, request["input_ref"], step.input_type)[0],
-            input_sequence_digest=request["input_sequence_digest"],
-            element_program_digest=request["element_program_digest"],
-            element_count=request["element_count"], element_digests=tuple(request["element_digests"]),
-            shape_digest=request["shape_digest"], binding_digest=request["binding_digest"],
-            materialization_digest=request["materialization_digest"],
+            step_id=step_id,
+            traversal_policy=_traversal_policy(request.get("traversal_policy")),
+            input_ref=_read_project_value(
+                connection,
+                scope,
+                tables,
+                _metadata_string(request, "input_ref"),
+                step.input_type,
+            )[0],
+            input_sequence_digest=_metadata_string(
+                request, "input_sequence_digest"
+            ),
+            element_program_digest=_metadata_string(
+                request, "element_program_digest"
+            ),
+            element_count=_db_int(request.get("element_count"), "element_count"),
+            element_digests=_metadata_string_tuple(
+                request.get("element_digests"), "element_digests"
+            ),
+            shape_digest=_metadata_string(request, "shape_digest"),
+            binding_digest=_metadata_string(request, "binding_digest"),
+            materialization_digest=_metadata_string(
+                request, "materialization_digest"
+            ),
         )
         relations = _active_child_rows(connection, project_key=str(run["project_key"]),
                                       parent_run_id=str(run["run_id"]), source_step_id=step_id)
         children = tuple(_event_metadata(row) for row in relations)
         raw_digests = metadata.get("child_result_digests")
-        digests = cast(tuple[object, ...] | list[object], raw_digests) if isinstance(raw_digests, (tuple, list)) else None
+        digests = raw_digests if _is_object_sequence(raw_digests) else None
         if (not isinstance(metadata.get("child_count"), int) or isinstance(metadata.get("child_count"), bool)
                 or metadata.get("child_count") != descriptor.element_count
                 or descriptor.element_count != len(children)
@@ -1966,8 +1994,8 @@ def read_linked_runtime_frontier(
     children_by_parent: dict[str, list[str]] = {}
     for edge in edges:
         parent_id = str(edge["run_id"])
-        metadata = edge["event_metadata_json"]
-        child_id = metadata.get("child_run_id") if isinstance(metadata, dict) else None
+        metadata = _event_metadata(edge)
+        child_id = metadata.get("child_run_id")
         if not isinstance(child_id, str) or not child_id or child_id == parent_id:
             raise ExactBindingConflict("active-child lineage event is invalid")
         prior = parent_by_child.setdefault(child_id, parent_id)
@@ -2113,7 +2141,7 @@ def read_ordered_prior_effect_outputs(
     if parent["state"] != "WAITING" or parent["cancellation_requested"]:
         raise ExactBindingConflict("ordered effect parent is not waiting")
     tables = project_tables(MetaData(), scope.project_scope.resolved_schema)
-    reader = PostgresFirstSpecimenActivationBindingAdapter()
+    reader = PostgresRuntimeActivationBindingAdapter()
     outputs: list[tuple[bytes, bytes]] = []
     current_input: bytes | None = None
     root_keys = ("root_value_identity", "root_value_ref", "root_value_digest", "materialization_digest")
@@ -2224,14 +2252,70 @@ def _publish_typed_content(
     return ref
 
 
-def _event_metadata(row: Mapping[Any, Any]) -> dict[str, Any]:
+def _require_settlement_bytes(value: object) -> bytes:
+    if not isinstance(value, bytes):
+        raise ExactBindingConflict(
+            "active child settlement builder returned no bytes"
+        )
+    return value
+
+
+def _db_int(value: object, field_name: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ExactBindingConflict(f"{field_name} is not an exact database integer")
+    return value
+
+
+def _metadata_string(values: Mapping[str, object], field_name: str) -> str:
+    value = values.get(field_name)
+    if not isinstance(value, str):
+        raise ExactBindingConflict(f"runtime event {field_name} is not a string")
+    return value
+
+
+def _traversal_policy(
+    value: object,
+) -> Literal["STATIC_SHAPE", "MATERIALIZED_SHAPE"]:
+    if value == "STATIC_SHAPE":
+        return "STATIC_SHAPE"
+    if value == "MATERIALIZED_SHAPE":
+        return "MATERIALIZED_SHAPE"
+    raise ExactBindingConflict("runtime event traversal_policy is invalid")
+
+
+def _is_object_sequence(
+    value: object,
+) -> TypeGuard[tuple[object, ...] | list[object]]:
+    return isinstance(value, (tuple, list))
+
+
+def _metadata_string_tuple(value: object, field_name: str) -> tuple[str, ...]:
+    if not _is_object_sequence(value) or any(
+        not isinstance(item, str) for item in value
+    ):
+        raise ExactBindingConflict(
+            f"runtime event {field_name} is not a string sequence"
+        )
+    return tuple(item for item in value if isinstance(item, str))
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _event_metadata(row: object) -> dict[str, object]:
+    if not _is_object_mapping(row):
+        raise ExactBindingConflict("runtime event row is not a mapping")
     raw = row.get("event_metadata_json")
-    if not isinstance(raw, dict):
+    if not _is_object_dict(raw):
         raise ExactBindingConflict("runtime event metadata is not an object")
-    metadata = cast(dict[Any, Any], raw)
-    if any(not isinstance(key, str) for key in metadata):
+    if any(not isinstance(key, str) for key in raw):
         raise ExactBindingConflict("runtime event metadata keys must be strings")
-    return {str(key): value for key, value in metadata.items()}
+    return {key: value for key, value in raw.items() if isinstance(key, str)}
 
 
 def load_bound_runtime_output(
@@ -2529,10 +2613,10 @@ def _value_write_intent(
 def _authorization_for(
     connection: Connection,
     run: Mapping[str, object],
-    qualified,
+    qualified: QualifiedPlan,
     step: CompiledStep,
     descriptor: ReadyActivation,
-    catalog: FirstSpecimenActivationCatalog,
+    catalog: OperationActivationCatalog,
     now: datetime,
 ) -> StepAuthorizationBinding:
     frozen = qualified.step_binding(step.step_id)
@@ -2664,7 +2748,7 @@ def _assignment(
         program_digest=str(run["program_digest"]),
         plan_digest=plan.plan_digest,
         deployment_catalog_digest=entry.interpreter_binding.deployment_catalog_digest,
-        execution_epoch=int(run["execution_epoch"]),
+        execution_epoch=_db_int(run["execution_epoch"], "execution_epoch"),
         incarnation=str(run["incarnation"]),
         input_refs=tuple(ref.storage_ref for ref in descriptor.ordered_input_refs),
         input_closure_digest=descriptor.input_closure_digest,
@@ -2760,7 +2844,10 @@ def _activate_pending_step(
     existing: Mapping[str, object],
     ready: Mapping[str, object],
 ) -> None:
-    if existing.get("state") != "PENDING" or int(existing.get("revision", -1)) != 0:
+    if (
+        existing.get("state") != "PENDING"
+        or _db_int(existing.get("revision", -1), "revision") != 0
+    ):
         raise ExactBindingConflict("pre-qualified runtime step is not PENDING@0")
     immutable = (
         "project_key",
@@ -2881,12 +2968,12 @@ __all__ = [
     "ActivationCatalogEntry",
     "ActivationReceipt",
     "ActivationTrigger",
-    "FirstSpecimenActivationCatalog",
+    "OperationActivationCatalog",
     "FirstSpecimenActivationError",
     "LinkedRuntimeFrontier",
     "LinkedRuntimeWork",
-    "PostgresFirstSpecimenActivationBindingAdapter",
-    "PostgresFirstSpecimenActivationPort",
+    "PostgresRuntimeActivationBindingAdapter",
+    "PostgresRuntimeActivationPort",
     "load_bound_runtime_output",
     "materialize_active_children",
     "read_linked_runtime_frontier",

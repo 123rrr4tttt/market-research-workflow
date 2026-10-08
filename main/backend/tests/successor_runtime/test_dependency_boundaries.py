@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from scripts.check_successor_runtime_dependencies import _find_cycles, check
 
 
@@ -54,6 +56,34 @@ def test_lint_scans_function_local_inner_layer_importing_outer_layer(
     )
     report = check(tmp_path)
     assert any(item["code"] == "LAYER_DIRECTION" for item in report["violations"])
+    assert report["function_local_imports_scanned"] >= 1
+
+
+@pytest.mark.unit
+def test_lint_rejects_assembly_importing_application_composition(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path,
+        "assembly/installed_operation.py",
+        "from app.composition.production import assemble_operation\n",
+    )
+    report = check(tmp_path)
+    assert any(item["code"] == "FORBIDDEN_IMPORT" for item in report["violations"])
+
+
+@pytest.mark.unit
+def test_lint_rejects_function_local_assembly_importing_application_composition(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path,
+        "assembly/installed_operation.py",
+        "def assemble():\n"
+        "    from app.composition.production import assemble_operation\n",
+    )
+    report = check(tmp_path)
+    assert any(item["code"] == "FORBIDDEN_IMPORT" for item in report["violations"])
     assert report["function_local_imports_scanned"] >= 1
 
 

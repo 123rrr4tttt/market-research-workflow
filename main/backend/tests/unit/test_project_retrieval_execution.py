@@ -66,7 +66,7 @@ from app.successor_runtime.capabilities.retrieval_material_native import (
 )
 from app.successor_runtime.language.algebra import ValueRef
 from app.successor_runtime.language.compile import compile_program
-from app.successor_runtime.substrate.postgres.first_specimen_activation import (
+from app.successor_runtime.substrate.postgres.runtime_activation import (
     ActiveChildTerminalObservation,
 )
 

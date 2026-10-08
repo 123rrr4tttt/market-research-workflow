@@ -16,7 +16,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Literal, TypeGuard
 from typing import TypeVar
 
 from pydantic import Field, model_validator
@@ -177,7 +177,7 @@ def _require_opaque_locator(value: Any, *, path: str) -> str:
     return value
 
 
-def _utcnow() -> datetime:
+def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
@@ -188,10 +188,7 @@ def runtime_table(name: str) -> Table:
         raise RuntimeError(f"missing P0-B public table: {name}") from exc
 
 
-_table = runtime_table
-
-
-def _scope_key(scope: RuntimeScope) -> str:
+def runtime_scope_key(scope: RuntimeScope) -> str:
     project_key = scope.project_scope.project_key
     if not project_key:
         raise ValueError("RuntimeScope has no project key")
@@ -213,9 +210,6 @@ def one_mapping(result: Result[tuple[object, ...]]) -> RowMapping | None:
     """Return the unique SQLAlchemy mapping row without weakening its type."""
 
     return result.mappings().one_or_none()
-
-
-_one_mapping = one_mapping
 
 
 def _mapping_rows(result: Any) -> tuple[Mapping[str, Any], ...]:
@@ -391,10 +385,10 @@ def _parse_exact_binding(
     return binding
 
 
-def _project_values(scope: RuntimeScope, values: Mapping[str, Any]) -> dict[str, Any]:
+def project_values(scope: RuntimeScope, values: Mapping[str, Any]) -> dict[str, Any]:
     projected = dict(values)
-    supplied = projected.pop("project_key", _scope_key(scope))
-    if supplied != _scope_key(scope):
+    supplied = projected.pop("project_key", runtime_scope_key(scope))
+    if supplied != runtime_scope_key(scope):
         raise ExactBindingConflict("row project_key does not match RuntimeScope")
     projected["project_key"] = supplied
     _assert_no_payload_bytes(projected)
@@ -463,7 +457,9 @@ def assignment_index_values(assignment: RuntimeAssignment) -> dict[str, Any]:
     return values
 
 
-def validate_runtime_assignment_row(values: Mapping[str, Any]) -> RuntimeAssignment:
+def validate_runtime_assignment_row(
+    values: Mapping[str, object] | RowMapping,
+) -> RuntimeAssignment:
     """Parse, rehash, and compare every duplicated assignment column."""
 
     raw = values.get("assignment_binding_json")
@@ -516,11 +512,15 @@ def validate_runtime_assignment_row(values: Mapping[str, Any]) -> RuntimeAssignm
     return assignment
 
 
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
 def validate_qualification_row(
-    values: Mapping[str, Any],
+    values: Mapping[str, object] | RowMapping,
 ) -> ExactQualificationBinding:
     raw = values.get("qualification_binding_json")
-    if not isinstance(raw, Mapping):
+    if not _is_object_mapping(raw):
         raise ExactBindingConflict("qualification row lacks exact binding JSON")
     try:
         binding = ExactQualificationBinding.model_validate(raw)
@@ -554,10 +554,10 @@ def validate_qualification_row(
 
 
 def validate_authorization_row(
-    values: Mapping[str, Any],
+    values: Mapping[str, object] | RowMapping,
 ) -> StepAuthorizationBinding:
     raw = values.get("authorization_binding_json")
-    if not isinstance(raw, Mapping):
+    if not _is_object_mapping(raw):
         raise ExactBindingConflict("authorization row lacks exact binding JSON")
     try:
         binding = StepAuthorizationBinding.model_validate(raw)
@@ -640,7 +640,7 @@ class JournalCommandSet:
         _assert_no_payload_bytes(self.events, path="events")
         _assert_no_payload_bytes(self.work_items, path="work_items")
         for work_item in self.work_items:
-            values = _project_values(self.scope, work_item)
+            values = project_values(self.scope, work_item)
             values.setdefault("run_id", self.run_id)
             validate_runtime_assignment_row(values)
 
@@ -652,11 +652,11 @@ class JournalCommandSet:
         Any later command failure leaves rollback to the enclosing UoW.
         """
 
-        runs = _table("runtime_runs")
-        events_table = _table("runtime_events")
-        work_items_table = _table("runtime_work_items")
-        project_key = _scope_key(self.scope)
-        locked = _one_mapping(
+        runs = runtime_table("runtime_runs")
+        events_table = runtime_table("runtime_events")
+        work_items_table = runtime_table("runtime_work_items")
+        project_key = runtime_scope_key(self.scope)
+        locked = one_mapping(
             connection.execute(
                 select(runs.c.revision, runs.c.next_event_seq)
                 .where(runs.c.project_key == project_key, runs.c.run_id == self.run_id)
@@ -674,10 +674,10 @@ class JournalCommandSet:
 
         first_seq = int(locked["next_event_seq"]) if self.events else None
         next_seq = int(locked["next_event_seq"]) + len(self.events)
-        snapshot = _project_values(self.scope, self.snapshot_values)
+        snapshot = project_values(self.scope, self.snapshot_values)
         for immutable in ("run_id", "revision", "next_event_seq"):
             snapshot.pop(immutable, None)
-        now = _utcnow()
+        now = utc_now()
         snapshot.update(
             revision=self.expected_revision + 1,
             next_event_seq=next_seq,
@@ -696,7 +696,7 @@ class JournalCommandSet:
             raise StaleRevisionError("runtime run CAS update affected no row")
 
         for offset, event in enumerate(self.events):
-            event_values = _project_values(self.scope, event)
+            event_values = project_values(self.scope, event)
             supplied_run = event_values.pop("run_id", self.run_id)
             if supplied_run != self.run_id:
                 raise ExactBindingConflict("event run_id does not match transition run")
@@ -711,7 +711,7 @@ class JournalCommandSet:
             connection.execute(insert(events_table).values(**event_values))
 
         for work_item in self.work_items:
-            values = _project_values(self.scope, work_item)
+            values = project_values(self.scope, work_item)
             values.setdefault("run_id", self.run_id)
             assignment = validate_runtime_assignment_row(values)
             values["assignment_binding_json"] = assignment.model_dump(mode="json")
@@ -771,13 +771,13 @@ class RuntimeJournalRepository:
         return self.commands(**kwargs).execute(self.connection)
 
     def load_run(self, run_id: str, *, for_update: bool = False) -> RowMapping:
-        runs = _table("runtime_runs")
+        runs = runtime_table("runtime_runs")
         statement = select(runs).where(
-            runs.c.project_key == _scope_key(self.scope), runs.c.run_id == run_id
+            runs.c.project_key == runtime_scope_key(self.scope), runs.c.run_id == run_id
         )
         if for_update:
             statement = statement.with_for_update()
-        row = _one_mapping(self.connection.execute(statement))
+        row = one_mapping(self.connection.execute(statement))
         if row is None:
             raise RecordNotFound(f"runtime run not found: {run_id}")
         return row
@@ -785,12 +785,12 @@ class RuntimeJournalRepository:
     def load_events(self, run_id: str, *, after_seq: int = 0) -> tuple[Mapping[str, Any], ...]:
         if after_seq < 0:
             raise ValueError("after_seq must be non-negative")
-        events = _table("runtime_events")
+        events = runtime_table("runtime_events")
         return _mapping_rows(
             self.connection.execute(
                 select(events)
                 .where(
-                    events.c.project_key == _scope_key(self.scope),
+                    events.c.project_key == runtime_scope_key(self.scope),
                     events.c.run_id == run_id,
                     events.c.seq > after_seq,
                 )
@@ -809,6 +809,11 @@ __all__ = [
     "RecordNotFound",
     "RuntimeJournalRepository",
     "StaleRevisionError",
+    "one_mapping",
+    "project_values",
+    "runtime_scope_key",
+    "runtime_table",
+    "utc_now",
     "validate_authorization_row",
     "validate_qualification_row",
     "validate_runtime_assignment_row",

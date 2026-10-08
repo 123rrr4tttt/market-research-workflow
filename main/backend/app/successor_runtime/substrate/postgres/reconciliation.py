@@ -48,11 +48,11 @@ from .runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
     StaleRevisionError,
-    _one_mapping,
-    _table,
+    one_mapping,
+    runtime_table,
     validate_runtime_assignment_row,
 )
-from .runtime_lifecycle import AssignmentEnvelope, _assignment_values
+from .runtime_lifecycle import AssignmentEnvelope, assignment_values
 from .session import ProjectScopeStale, ServerProjectScopeResolver
 from .terminal_authority import PostgresTerminalAuthorityVerifier
 
@@ -366,17 +366,17 @@ class PostgresReconciliationOwner:
             "updated_at": observed_at,
         }
         self._cas(
-            update(_table("runtime_effect_attempts"))
+            update(runtime_table("runtime_effect_attempts"))
             .where(
-                _table("runtime_effect_attempts").c.project_key
+                runtime_table("runtime_effect_attempts").c.project_key
                 == claim.assignment.project_key,
-                _table("runtime_effect_attempts").c.attempt_id
+                runtime_table("runtime_effect_attempts").c.attempt_id
                 == target_attempt["attempt_id"],
-                _table("runtime_effect_attempts").c.revision
+                runtime_table("runtime_effect_attempts").c.revision
                 == target_attempt["revision"],
-                _table("runtime_effect_attempts").c.disposition
+                runtime_table("runtime_effect_attempts").c.disposition
                 == EffectDisposition.OUTCOME_UNKNOWN.value,
-                _table("runtime_effect_attempts").c.claim_binding_digest
+                runtime_table("runtime_effect_attempts").c.claim_binding_digest
                 == target_attempt["claim_binding_digest"],
             )
             .values(**attempt_values),
@@ -438,15 +438,15 @@ class PostgresReconciliationOwner:
                 )
         failure_ref = attempt_values["failure_ref"]
         self._cas(
-            update(_table("runtime_work_items"))
+            update(runtime_table("runtime_work_items"))
             .where(
-                _table("runtime_work_items").c.project_key
+                runtime_table("runtime_work_items").c.project_key
                 == claim.assignment.project_key,
-                _table("runtime_work_items").c.work_item_id
+                runtime_table("runtime_work_items").c.work_item_id
                 == original_work["work_item_id"],
-                _table("runtime_work_items").c.revision == original_work["revision"],
-                _table("runtime_work_items").c.state == original_work["state"],
-                _table("runtime_work_items").c.assignment_digest
+                runtime_table("runtime_work_items").c.revision == original_work["revision"],
+                runtime_table("runtime_work_items").c.state == original_work["state"],
+                runtime_table("runtime_work_items").c.assignment_digest
                 == original_work["assignment_digest"],
             )
             .values(
@@ -462,14 +462,14 @@ class PostgresReconciliationOwner:
             "original work terminal adoption CAS failed",
         )
         self._cas(
-            update(_table("runtime_steps"))
+            update(runtime_table("runtime_steps"))
             .where(
-                _table("runtime_steps").c.project_key == claim.assignment.project_key,
-                _table("runtime_steps").c.run_id == claim.assignment.run_id,
-                _table("runtime_steps").c.step_id == claim.assignment.step_id,
-                _table("runtime_steps").c.revision == step["revision"],
-                _table("runtime_steps").c.state == "RECONCILING",
-                _table("runtime_steps").c.lease_token
+                runtime_table("runtime_steps").c.project_key == claim.assignment.project_key,
+                runtime_table("runtime_steps").c.run_id == claim.assignment.run_id,
+                runtime_table("runtime_steps").c.step_id == claim.assignment.step_id,
+                runtime_table("runtime_steps").c.revision == step["revision"],
+                runtime_table("runtime_steps").c.state == "RECONCILING",
+                runtime_table("runtime_steps").c.lease_token
                 == claim.claim_binding.lease_token,
             )
             .values(
@@ -615,16 +615,16 @@ class PostgresReconciliationOwner:
             delivery_intent_ref=current_work["delivery_intent_ref"],
             declared_priority=int(current_work["declared_priority"]),
         )
-        next_work_values = _assignment_values(envelope, due_at=next_due)
+        next_work_values = assignment_values(envelope, due_at=next_due)
         self._cas(
-            update(_table("runtime_steps"))
+            update(runtime_table("runtime_steps"))
             .where(
-                _table("runtime_steps").c.project_key == claim.assignment.project_key,
-                _table("runtime_steps").c.run_id == claim.assignment.run_id,
-                _table("runtime_steps").c.step_id == claim.assignment.step_id,
-                _table("runtime_steps").c.revision == step["revision"],
-                _table("runtime_steps").c.state == "RECONCILING",
-                _table("runtime_steps").c.lease_token
+                runtime_table("runtime_steps").c.project_key == claim.assignment.project_key,
+                runtime_table("runtime_steps").c.run_id == claim.assignment.run_id,
+                runtime_table("runtime_steps").c.step_id == claim.assignment.step_id,
+                runtime_table("runtime_steps").c.revision == step["revision"],
+                runtime_table("runtime_steps").c.state == "RECONCILING",
+                runtime_table("runtime_steps").c.lease_token
                 == claim.claim_binding.lease_token,
             )
             .values(
@@ -638,15 +638,15 @@ class PostgresReconciliationOwner:
             "reconciliation waiting step CAS failed",
         )
         self._cas(
-            update(_table("runtime_work_items"))
+            update(runtime_table("runtime_work_items"))
             .where(
-                _table("runtime_work_items").c.project_key
+                runtime_table("runtime_work_items").c.project_key
                 == claim.assignment.project_key,
-                _table("runtime_work_items").c.work_item_id
+                runtime_table("runtime_work_items").c.work_item_id
                 == claim.assignment.work_item_id,
-                _table("runtime_work_items").c.revision == current_work["revision"],
-                _table("runtime_work_items").c.state == "CLAIMED",
-                _table("runtime_work_items").c.lease_token
+                runtime_table("runtime_work_items").c.revision == current_work["revision"],
+                runtime_table("runtime_work_items").c.state == "CLAIMED",
+                runtime_table("runtime_work_items").c.lease_token
                 == claim.claim_binding.lease_token,
             )
             .values(
@@ -662,7 +662,7 @@ class PostgresReconciliationOwner:
             "reconciliation waiting work CAS failed",
         )
         self.connection.execute(
-            insert(_table("runtime_work_items")).values(**next_work_values)
+            insert(runtime_table("runtime_work_items")).values(**next_work_values)
         )
         self._append_event_and_run(
             claim=claim,
@@ -682,15 +682,15 @@ class PostgresReconciliationOwner:
         observed_at: datetime,
     ) -> None:
         self._cas(
-            update(_table("runtime_work_items"))
+            update(runtime_table("runtime_work_items"))
             .where(
-                _table("runtime_work_items").c.project_key
+                runtime_table("runtime_work_items").c.project_key
                 == claim.assignment.project_key,
-                _table("runtime_work_items").c.work_item_id
+                runtime_table("runtime_work_items").c.work_item_id
                 == claim.assignment.work_item_id,
-                _table("runtime_work_items").c.revision == current_work["revision"],
-                _table("runtime_work_items").c.state == "CLAIMED",
-                _table("runtime_work_items").c.lease_token
+                runtime_table("runtime_work_items").c.revision == current_work["revision"],
+                runtime_table("runtime_work_items").c.state == "CLAIMED",
+                runtime_table("runtime_work_items").c.lease_token
                 == claim.claim_binding.lease_token,
             )
             .values(
@@ -733,13 +733,13 @@ class PostgresReconciliationOwner:
             )
         event_count = 2 if required_step_failed else 1
         self._cas(
-            update(_table("runtime_runs"))
+            update(runtime_table("runtime_runs"))
             .where(
-                _table("runtime_runs").c.project_key == claim.assignment.project_key,
-                _table("runtime_runs").c.run_id == claim.assignment.run_id,
-                _table("runtime_runs").c.revision == run["revision"],
-                _table("runtime_runs").c.next_event_seq == seq,
-                _table("runtime_runs").c.state == run["state"],
+                runtime_table("runtime_runs").c.project_key == claim.assignment.project_key,
+                runtime_table("runtime_runs").c.run_id == claim.assignment.run_id,
+                runtime_table("runtime_runs").c.revision == run["revision"],
+                runtime_table("runtime_runs").c.next_event_seq == seq,
+                runtime_table("runtime_runs").c.state == run["state"],
             )
             .values(
                 state=target_run_state,
@@ -776,7 +776,7 @@ class PostgresReconciliationOwner:
         if required_step_failed:
             event_metadata["required_step_failed_event_revision"] = seq + 1
         self.connection.execute(
-            insert(_table("runtime_events")).values(
+            insert(runtime_table("runtime_events")).values(
                 project_key=claim.assignment.project_key,
                 run_id=claim.assignment.run_id,
                 seq=seq,
@@ -806,7 +806,7 @@ class PostgresReconciliationOwner:
                 authority_digest=claim.claim_binding.authorization_digest,
             )
             self.connection.execute(
-                insert(_table("runtime_events")).values(
+                insert(runtime_table("runtime_events")).values(
                     project_key=claim.assignment.project_key,
                     run_id=claim.assignment.run_id,
                     seq=seq + 1,
@@ -829,11 +829,11 @@ class PostgresReconciliationOwner:
             )
 
     def _one_locked(self, table_name: str, **identity: object) -> Mapping[str, Any]:
-        table = _table(table_name)
+        table = runtime_table(table_name)
         statement = select(table)
         for name, value in identity.items():
             statement = statement.where(getattr(table.c, name) == value)
-        row = _one_mapping(self.connection.execute(statement.with_for_update()))
+        row = one_mapping(self.connection.execute(statement.with_for_update()))
         if row is None:
             rendered = ", ".join(f"{key}={value!r}" for key, value in identity.items())
             raise RecordNotFound(f"{table_name} row not found: {rendered}")

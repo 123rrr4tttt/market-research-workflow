@@ -51,10 +51,10 @@ from app.successor_runtime.runtime.ports import (
     ControlPlaneScope,
 )
 from app.successor_runtime.substrate.postgres.composition_root import (
-    compose_postgres_first_specimen_runtime,
+    compose_postgres_runtime,
 )
-from app.successor_runtime.substrate.postgres.first_specimen_successor import (
-    PostgresFirstSpecimenSuccessorHandler,
+from app.successor_runtime.substrate.postgres.gap_successor import (
+    PostgresGapSuccessorHandler,
     SuccessorCompileEnvelope,
     materialize_gap_successor,
 )
@@ -73,7 +73,7 @@ from app.successor_runtime.substrate.postgres.runtime_lifecycle import (
     AssignmentEnvelope,
     RuntimeLifecycleRepository,
     SubmitRun,
-    _assignment_values,
+    assignment_values,
 )
 from app.successor_runtime.substrate.postgres.unit_of_work import RuntimeUnitOfWork
 from app.successor_runtime.substrate.postgres.values import ValueRepository
@@ -395,7 +395,7 @@ def _seed_predecessor(database: LiveP0CDatabase) -> tuple[object, object, object
         authority_digest=_digest("p0d-materialize-authority"),
     )
     with database.engine.begin() as connection:
-        values = _assignment_values(
+        values = assignment_values(
             AssignmentEnvelope(
                 assignment=assignment,
                 required_node_profile_selector=NODE_PROFILE_DIGEST,
@@ -690,7 +690,7 @@ def test_two_runtime_nodes_atomically_materialize_one_gap_successor(
                 started_at=NOW - timedelta(minutes=1),
             )
 
-    handler = PostgresFirstSpecimenSuccessorHandler(
+    handler = PostgresGapSuccessorHandler(
         engine=p0c_database.engine,
         tables=p0c_database.project_tables,
         scope=p0c_database.scope,
@@ -711,7 +711,7 @@ def test_two_runtime_nodes_atomically_materialize_one_gap_successor(
     protocol = RuntimeNodeProtocol(version="1", claim_batch_size=1)
     clock = _AdvancingClock(NOW)
     nodes = tuple(
-        compose_postgres_first_specimen_runtime(
+        compose_postgres_runtime(
             engine=p0c_database.engine,
             identity=NodeIdentity(
                 node_id=node_id,
@@ -939,7 +939,7 @@ def _runtime_materializer_nodes(
                 started_at=NOW - timedelta(minutes=1),
             )
     handler = wrap(
-        PostgresFirstSpecimenSuccessorHandler(
+        PostgresGapSuccessorHandler(
             engine=database.engine,
             tables=database.project_tables,
             scope=database.scope,
@@ -960,7 +960,7 @@ def _runtime_materializer_nodes(
     )
     clock = _AdvancingClock(NOW)
     return tuple(
-        compose_postgres_first_specimen_runtime(
+        compose_postgres_runtime(
             engine=database.engine,
             identity=NodeIdentity(
                 node_id=node_id,

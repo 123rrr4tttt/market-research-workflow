@@ -8,8 +8,8 @@ from typing import Any, Self
 
 import pytest
 
-import app.successor_runtime.substrate.postgres.first_specimen_activation as activation_module
-import app.successor_runtime.substrate.postgres.first_specimen_terminal as terminal_module
+import app.successor_runtime.substrate.postgres.runtime_activation as activation_module
+import app.successor_runtime.substrate.postgres.terminal_commit as terminal_module
 from app.successor_runtime.capabilities.first_specimen import (
     build_first_specimen_bundle,
 )
@@ -65,12 +65,12 @@ from app.successor_runtime.runtime.reconciliation import (
     ReconciliationState,
 )
 from app.successor_runtime.runtime.transitions import EffectDisposition
-from app.successor_runtime.substrate.postgres.first_specimen_terminal import (
+from app.successor_runtime.substrate.postgres.terminal_commit import (
     ExactAdmissionPacket,
-    ExactFirstSpecimenStage,
-    FirstSpecimenCandidateDecoder,
+    ExactTerminalStage,
+    TerminalCandidateDecoder,
     FirstSpecimenTerminalError,
-    PostgresFirstSpecimenTerminalHook,
+    PostgresTerminalCommitHook,
     PostgresVerifyAdmitHandler,
 )
 from app.successor_runtime.substrate.postgres.runtime_lifecycle import (
@@ -223,10 +223,10 @@ def _stage(
     assignment: RuntimeAssignment,
     exact: bytes,
     object_type: str,
-) -> ExactFirstSpecimenStage:
+) -> ExactTerminalStage:
     digest = _digest(exact)
     provenance = {"candidate": object_type, "digest": digest}
-    return ExactFirstSpecimenStage(
+    return ExactTerminalStage(
         scope=_scope(),
         tables=SimpleNamespace(),
         plan=SimpleNamespace(compiler_id="compiler", compiler_version="1"),
@@ -297,7 +297,7 @@ class _ReadUow:
 
 @dataclass
 class _StageReader:
-    stage: ExactFirstSpecimenStage
+    stage: ExactTerminalStage
     expected_connection: object
     calls: int = 0
 
@@ -402,7 +402,7 @@ def test_candidate_decoder_covers_claim_gap_and_artifact(kind: str) -> None:
     digest_field = "content_digest"
     exact = canonical_bytes(dataclass_to_json(payload, (digest_field,)))
     assert payload.content_digest == _digest(exact)
-    candidate = FirstSpecimenCandidateDecoder().decode_exact(
+    candidate = TerminalCandidateDecoder().decode_exact(
         object(), _stage(assignment, exact, kind), _authorization(assignment)
     )
     assert isinstance(candidate, terminal_module.ResearchObjectCandidate)
@@ -457,7 +457,7 @@ def test_candidate_decoder_keeps_evidence_qualification_relation_only(
         "_load_current_object",
         lambda _connection, _staged, object_id: refs[object_id],
     )
-    candidate = FirstSpecimenCandidateDecoder().decode_exact(
+    candidate = TerminalCandidateDecoder().decode_exact(
         object(),
         _stage(assignment, exact, EVIDENCE_QUALIFICATION_TYPE.type_id),
         _authorization(assignment),
@@ -498,7 +498,7 @@ def test_candidate_decoder_covers_delivery_receipt_with_authoritative_readback(
         lambda *_args: artifact,
     )
     receipts = _ReceiptPort(receipt_content)
-    candidate = FirstSpecimenCandidateDecoder(delivery_receipts=receipts).decode_exact(
+    candidate = TerminalCandidateDecoder(delivery_receipts=receipts).decode_exact(
         object(),
         _stage(assignment, exact, DELIVERY_RECEIPT_REF_TYPE.type_id),
         _authorization(assignment),
@@ -685,7 +685,7 @@ def test_terminal_hook_enlists_commit_and_activation_on_the_same_connection(
         terminal_module, "_one_public", lambda *_args, **_kwargs: {"state": "RUNNING"}
     )
     reader = _StageReader(staged, connection)
-    hook = PostgresFirstSpecimenTerminalHook(
+    hook = PostgresTerminalCommitHook(
         bundle=build_first_specimen_bundle(),
         activation=activation,
         stage_reader=reader,
@@ -741,7 +741,7 @@ def test_terminal_hook_settles_parent_after_failed_child_without_reactivation() 
     claim_binding = _claim(assignment, authorization)
     connection = object()
     activation = _Activation(connection)
-    hook = PostgresFirstSpecimenTerminalHook(activation=activation)
+    hook = PostgresTerminalCommitHook(activation=activation)
     lifecycle = _lifecycle(claim_binding)
 
     hook.after_terminal(
@@ -768,7 +768,7 @@ def test_terminal_hook_settles_parent_after_resolved_failed_readback() -> None:
     assignment = _assignment()
     connection = object()
     activation = _Activation(connection)
-    hook = PostgresFirstSpecimenTerminalHook(activation=activation)
+    hook = PostgresTerminalCommitHook(activation=activation)
 
     hook.after_reconciliation(
         connection=connection,
@@ -811,7 +811,7 @@ def test_activation_port_materializes_each_traversal_in_terminal_uow(
         calls.append(dict(kwargs))
         return object()
 
-    port = activation_module.PostgresFirstSpecimenActivationPort(
+    port = activation_module.PostgresRuntimeActivationPort(
         SimpleNamespace(),
         active_child_materializer=materialize,
     )
@@ -845,7 +845,7 @@ def test_terminal_hook_fails_closed_if_shared_commit_transition_is_absent(
     monkeypatch.setattr(
         terminal_module, "_one_public", lambda *_args, **_kwargs: {"state": "SUCCEEDED"}
     )
-    hook = PostgresFirstSpecimenTerminalHook(
+    hook = PostgresTerminalCommitHook(
         bundle=build_first_specimen_bundle(), activation=_Activation(object())
     )
     lifecycle = _lifecycle(claim_binding)
@@ -879,7 +879,7 @@ def test_non_admission_return_needs_no_prototype_bundle(return_ref: str) -> None
         authority_digest=_authorization(assignment).binding_digest,
         output_digest=_digest("runtime-value"), observed_at=NOW,
     )
-    hook = PostgresFirstSpecimenTerminalHook(activation=_Activation(object()))
+    hook = PostgresTerminalCommitHook(activation=_Activation(object()))
     assert hook.prepare_terminal(
         connection=object(), scope=_scope(),
         claim=SimpleNamespace(assignment=SimpleNamespace(
@@ -891,6 +891,6 @@ def test_non_admission_return_needs_no_prototype_bundle(return_ref: str) -> None
 
 
 def test_required_admission_without_bundle_remains_fail_closed() -> None:
-    hook = PostgresFirstSpecimenTerminalHook(activation=_Activation(object()))
+    hook = PostgresTerminalCommitHook(activation=_Activation(object()))
     with pytest.raises(FirstSpecimenTerminalError, match="requires an installed admission bundle"):
         hook._default_admission(object(), _scope(), object())

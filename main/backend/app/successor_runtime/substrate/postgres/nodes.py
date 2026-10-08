@@ -15,9 +15,9 @@ from .runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
     StaleRevisionError,
-    _one_mapping,
-    _table,
-    _utcnow,
+    one_mapping,
+    runtime_table,
+    utc_now,
 )
 
 
@@ -36,9 +36,9 @@ class DeploymentCatalogRepository:
         self.connection = connection
 
     def put_exact(self, catalog: DeploymentCatalog) -> Mapping[str, Any]:
-        table = _table("runtime_deployment_catalogs")
+        table = runtime_table("runtime_deployment_catalogs")
         values = {name: getattr(catalog, name) for name in catalog.__dataclass_fields__}
-        values["created_at"] = _utcnow()
+        values["created_at"] = utc_now()
         self.connection.execute(pg_insert(table).values(**values).on_conflict_do_nothing(index_elements=(table.c.catalog_digest,)))
         row = self.load(catalog.catalog_digest)
         if any(row[name] != getattr(catalog, name) for name in catalog.__dataclass_fields__):
@@ -46,8 +46,8 @@ class DeploymentCatalogRepository:
         return row
 
     def load(self, catalog_digest: str) -> Mapping[str, Any]:
-        table = _table("runtime_deployment_catalogs")
-        row = _one_mapping(self.connection.execute(select(table).where(table.c.catalog_digest == catalog_digest)))
+        table = runtime_table("runtime_deployment_catalogs")
+        row = one_mapping(self.connection.execute(select(table).where(table.c.catalog_digest == catalog_digest)))
         if row is None:
             raise RecordNotFound(f"deployment catalog not found: {catalog_digest}")
         return row
@@ -58,10 +58,10 @@ class RuntimeNodeRepository:
         self.connection = connection
 
     def register(self, *, node_id: str, node_profile_digest: str, deployment_catalog_digest: str, runtime_protocol_version: str, started_at: datetime) -> Mapping[str, Any]:
-        table = _table("runtime_nodes")
+        table = runtime_table("runtime_nodes")
         values = dict(node_id=node_id, node_profile_digest=node_profile_digest, deployment_catalog_digest=deployment_catalog_digest,
                       runtime_protocol_version=runtime_protocol_version, state="ACTIVE", heartbeat_at=started_at, started_at=started_at,
-                      drain_requested_at=None, current_claim_count=0, revision=0, created_at=_utcnow(), updated_at=_utcnow())
+                      drain_requested_at=None, current_claim_count=0, revision=0, created_at=utc_now(), updated_at=utc_now())
         self.connection.execute(pg_insert(table).values(**values).on_conflict_do_nothing(index_elements=(table.c.node_id,)))
         row = self.load(node_id)
         immutable = ("node_profile_digest", "deployment_catalog_digest", "runtime_protocol_version", "started_at")
@@ -70,24 +70,24 @@ class RuntimeNodeRepository:
         return row
 
     def load(self, node_id: str) -> Mapping[str, Any]:
-        table = _table("runtime_nodes")
-        row = _one_mapping(self.connection.execute(select(table).where(table.c.node_id == node_id)))
+        table = runtime_table("runtime_nodes")
+        row = one_mapping(self.connection.execute(select(table).where(table.c.node_id == node_id)))
         if row is None:
             raise RecordNotFound(f"runtime node not found: {node_id}")
         return row
 
     def heartbeat(self, node_id: str, *, expected_revision: int, heartbeat_at: datetime, current_claim_count: int) -> Mapping[str, Any]:
-        table = _table("runtime_nodes")
+        table = runtime_table("runtime_nodes")
         result = self.connection.execute(update(table).where(table.c.node_id == node_id, table.c.revision == expected_revision).values(
-            heartbeat_at=heartbeat_at, current_claim_count=current_claim_count, revision=expected_revision + 1, updated_at=_utcnow()))
+            heartbeat_at=heartbeat_at, current_claim_count=current_claim_count, revision=expected_revision + 1, updated_at=utc_now()))
         if getattr(result, "rowcount", None) != 1:
             raise StaleRevisionError("runtime node heartbeat CAS failed")
         return self.load(node_id)
 
     def request_drain(self, node_id: str, *, expected_revision: int, requested_at: datetime) -> Mapping[str, Any]:
-        table = _table("runtime_nodes")
+        table = runtime_table("runtime_nodes")
         result = self.connection.execute(update(table).where(table.c.node_id == node_id, table.c.revision == expected_revision).values(
-            state="DRAINING", drain_requested_at=requested_at, revision=expected_revision + 1, updated_at=_utcnow()))
+            state="DRAINING", drain_requested_at=requested_at, revision=expected_revision + 1, updated_at=utc_now()))
         if getattr(result, "rowcount", None) != 1:
             raise StaleRevisionError("runtime node drain CAS failed")
         return self.load(node_id)

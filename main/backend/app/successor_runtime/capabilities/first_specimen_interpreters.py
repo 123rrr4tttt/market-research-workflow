@@ -121,11 +121,20 @@ class CaptureDocumentSnapshotInputView(Protocol):
 
 
 class CanonicalReadInputView(Protocol):
-    source_ref: str
-    locator: str
-    owner_id: str
-    observed_at: str
-    payload_digest: str
+    @property
+    def source_ref(self) -> str: ...
+
+    @property
+    def locator(self) -> str: ...
+
+    @property
+    def owner_id(self) -> str: ...
+
+    @property
+    def observed_at(self) -> str: ...
+
+    @property
+    def payload_digest(self) -> str: ...
 
 
 class EvidenceQualificationInputView(Protocol):

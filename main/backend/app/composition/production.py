@@ -18,9 +18,10 @@ import json
 import os
 from pathlib import Path
 from types import MappingProxyType
-from typing import Annotated, Any, Protocol, runtime_checkable
+from typing import Annotated, Protocol, TypeGuard, cast, runtime_checkable
 
 from fastapi import HTTPException, Request
+from pydantic import TypeAdapter, ValidationError
 from starlette.routing import BaseRoute
 from functorial_kit import Failure
 
@@ -57,16 +58,11 @@ from app.successor_runtime.language.transforms import TransformRegistry
 from app.successor_runtime.research.object_types import ObjectType
 from app.successor_runtime.runtime.activation import ValueEncoder
 from app.successor_runtime.language.profiles import EffectProfile, ResourceProfile
-from app.successor_runtime.capabilities import (
-    acquisition_url, batch_business, batch_task, retrieval_candidate_native,
-    retrieval_material_native, workflow_native_contribution,
-)
-from app.successor_runtime.assembly.installed_operation import InstalledOperationView
+from app.successor_runtime.capabilities import batch_task
 from app.services.agent_batch.business_readback import BrokerBusinessReadback, CeleryBrokerBusinessReadback
 from app.successor_runtime.runtime.node import RunOnceReport, RuntimeHandler
-from app.successor_runtime.runtime.assignments import RuntimeAssignment
 from app.successor_runtime.runtime.ports import RuntimeScope
-from app.successor_runtime.substrate.postgres.first_specimen_activation import ActiveChildMaterializer, ActiveChildTerminalObservation, ActivationCatalogEntry, FirstSpecimenActivationCatalog
+from app.successor_runtime.substrate.postgres.runtime_activation import ActiveChildMaterializer, ActiveChildTerminalObservation, ActivationCatalogEntry, OperationActivationCatalog
 from app.successor_runtime.substrate.postgres.nodes import DeploymentCatalog
 from app.successor_runtime.substrate.postgres.runtime_failures import RuntimeFailureRecord
 
@@ -77,8 +73,138 @@ _WILDCARD_VALUES = frozenset({"*", "all", "any"})
 _TOKEN_HEADER = "Authorization"
 _APPROVAL_HEADER = "X-Approval-Id"
 
+_JSON_OBJECT_ADAPTER = TypeAdapter(dict[str, object])
+_JSON_OBJECTS_ADAPTER = TypeAdapter(list[dict[str, object]])
+_STRING_LIST_ADAPTER = TypeAdapter(list[str])
 
-def is_production_environment(settings_obj: Any | None = None) -> bool:
+
+class _SupportsInt(Protocol):
+    def __int__(self) -> int: ...
+
+
+class _SupportsIndex(Protocol):
+    def __index__(self) -> int: ...
+
+
+_TextSettingInput = str | list[str] | tuple[str, ...] | set[str] | frozenset[str]
+_PositiveSettingInput = (
+    int | str | bytes | bytearray | float | _SupportsInt | _SupportsIndex
+)
+
+
+class _ProductionSettings(Protocol):
+    @property
+    def env(self) -> str: ...
+
+    @property
+    def codex_oauth_enabled(self) -> bool: ...
+
+    @property
+    def codex_oauth_cookie_secure(self) -> bool: ...
+
+    @property
+    def production_allowed_hosts(self) -> _TextSettingInput: ...
+
+    @property
+    def production_allowed_origins(self) -> _TextSettingInput: ...
+
+    @property
+    def production_trusted_actor_sources(self) -> _TextSettingInput: ...
+
+    @property
+    def production_trusted_auth_modes(self) -> _TextSettingInput: ...
+
+    @property
+    def production_max_body_bytes(self) -> _PositiveSettingInput: ...
+
+    @property
+    def production_http_rate_max_requests(self) -> _PositiveSettingInput: ...
+
+    @property
+    def production_http_rate_window_seconds(self) -> _PositiveSettingInput: ...
+
+    @property
+    def production_provider_rate_max_requests(self) -> _PositiveSettingInput: ...
+
+    @property
+    def production_provider_rate_window_seconds(self) -> _PositiveSettingInput: ...
+
+    @property
+    def production_provider_max_payload_bytes(self) -> _PositiveSettingInput: ...
+
+    @property
+    def production_canonical_writer_owner(self) -> str: ...
+
+    @property
+    def production_canonical_writer_binding(self) -> str: ...
+
+    @property
+    def production_metrics_token(self) -> str: ...
+
+    @property
+    def production_require_tls(self) -> bool: ...
+
+    @property
+    def production_allowed_methods(self) -> _TextSettingInput: ...
+
+    @property
+    def production_allowed_content_types(self) -> _TextSettingInput: ...
+
+
+@dataclass(slots=True)
+class _ProductionPolicyActor:
+    actor_id: str
+    actor_source: str
+    actor_auth_mode: str
+    actor_trusted: bool
+
+
+def _is_effect_contract(value: object) -> TypeGuard[EndpointEffectContract]:
+    return isinstance(value, EndpointEffectContract)
+
+
+def _is_provider_class(value: object) -> TypeGuard[ProviderClass]:
+    return isinstance(value, ProviderClass)
+
+
+def _is_runtime_bindings(value: object) -> TypeGuard[ProductionRuntimeBindings]:
+    return isinstance(value, ProductionRuntimeBindings)
+
+
+def _is_project_scope(value: object) -> TypeGuard[ProjectScopeRef]:
+    return isinstance(value, ProjectScopeRef)
+
+
+def _is_provider_selection(value: object) -> TypeGuard[ProviderSelection]:
+    return isinstance(value, ProviderSelection)
+
+
+def _is_non_bool_int(value: object) -> TypeGuard[int]:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _supports_int(value: object) -> TypeGuard[_SupportsInt]:
+    return callable(getattr(value, "__int__", None))
+
+
+def _supports_index(value: object) -> TypeGuard[_SupportsIndex]:
+    return callable(getattr(value, "__index__", None))
+
+
+def _is_csv_collection(value: object) -> TypeGuard[Iterable[object]]:
+    return isinstance(value, (list, tuple, set, frozenset))
+
+
+def _string_object_mapping(value: object) -> dict[str, object] | None:
+    if not isinstance(value, Mapping):
+        return None
+    observed = cast(Mapping[object, object], value)
+    if any(not isinstance(key, str) for key in observed):
+        return None
+    return {cast(str, key): item for key, item in observed.items()}
+
+
+def is_production_environment(settings_obj: _ProductionSettings | None = None) -> bool:
     if settings_obj is None:
         from app.settings.config import settings
 
@@ -86,27 +212,45 @@ def is_production_environment(settings_obj: Any | None = None) -> bool:
     return str(getattr(settings_obj, "env", "") or "").strip().lower() in PRODUCTION_ENVIRONMENTS
 
 
-def _csv(value: Any) -> tuple[str, ...]:
-    if isinstance(value, (list, tuple, set, frozenset)):
+def _csv(value: object) -> tuple[str, ...]:
+    if _is_csv_collection(value):
         items = value
     else:
         items = str(value or "").split(",")
-    return tuple(dict.fromkeys(item.strip() for item in items if str(item).strip()))
+    cleaned: list[str] = []
+    for item in items:
+        if not isinstance(item, str):
+            raise TypeError("comma-separated production values must contain only strings")
+        text = item.strip()
+        if text:
+            cleaned.append(text)
+    return tuple(dict.fromkeys(cleaned))
 
 
-def _setting(settings_obj: Any, *names: str, default: Any = None) -> Any:
+def _setting(
+    settings_obj: _ProductionSettings,
+    *names: str,
+    default: object = None,
+) -> object:
     for name in names:
-        value = getattr(settings_obj, name, None)
+        value: object = getattr(settings_obj, name, None)
         if value is not None and (not isinstance(value, str) or value.strip()):
             return value
     return default
 
 
-def _positive(value: Any, name: str) -> int:
+def _positive(value: object, name: str) -> int:
     if isinstance(value, bool):
         raise TypeError(f"production setting {name} must be positive")
     try:
-        parsed = int(value)
+        if _is_non_bool_int(value):
+            parsed = value
+        elif isinstance(value, (str, bytes, bytearray, float)):
+            parsed = int(value)
+        elif _supports_int(value) or _supports_index(value):
+            parsed = int(value)
+        else:
+            raise TypeError
     except (TypeError, ValueError) as exc:
         raise RuntimeError(f"production setting {name} must be positive") from exc
     if parsed <= 0:
@@ -114,14 +258,14 @@ def _positive(value: Any, name: str) -> int:
     return parsed
 
 
-def _required_values(settings_obj: Any, *names: str) -> tuple[str, ...]:
+def _required_values(settings_obj: _ProductionSettings, *names: str) -> tuple[str, ...]:
     values = _csv(_setting(settings_obj, *names, default=""))
     if not values or any(value.lower() in _WILDCARD_VALUES for value in values):
         raise RuntimeError(f"production setting {names[0]} must be explicit and non-wildcard")
     return values
 
 
-def _explicit_values(value: Any, name: str) -> tuple[str, ...]:
+def _explicit_values(value: object, name: str) -> tuple[str, ...]:
     values = _csv(value)
     if any(item.lower() in _WILDCARD_VALUES for item in values):
         raise RuntimeError(f"production runtime binding {name} must be explicit and non-wildcard")
@@ -157,7 +301,7 @@ class ProductionEndpointBinding:
         # compatibility policy flags before validating the legacy projection.
         # Registry loading follows the same path and never stores a second
         # effect truth.
-        if isinstance(self.effect_contract, EndpointEffectContract):
+        if _is_effect_contract(self.effect_contract):
             contract = self.effect_contract
             object.__setattr__(self, "requires_provider", contract.requires_provider)
             object.__setattr__(self, "requires_canonical_writer", contract.requires_canonical_writer)
@@ -184,7 +328,7 @@ class ProductionEndpointBinding:
         ):
             if not isinstance(getattr(self, field_name), bool):
                 raise TypeError(f"{field_name} must be bool")
-        if not isinstance(self.provider_class, ProviderClass):
+        if not _is_provider_class(self.provider_class):
             raw_provider_class = str(self.provider_class or "").strip()
             if raw_provider_class not in {item.value for item in ProviderClass}:
                 raise ValueError("provider_class must use the closed provider vocabulary")
@@ -205,7 +349,7 @@ class ProductionEndpointBinding:
             raise ValueError("capability_id must be null when approval is not required")
         if self.requires_canonical_writer:
             required_writer_fields = ("canonical_owner_ref",)
-            if not isinstance(self.effect_contract, EndpointEffectContract) or self.effect_contract.admitted:
+            if not _is_effect_contract(self.effect_contract) or self.effect_contract.admitted:
                 required_writer_fields = ("canonical_owner_ref", "writer_port_kind")
             for field_name in required_writer_fields:
                 value = str(getattr(self, field_name) or "").strip()
@@ -233,7 +377,7 @@ class ProductionEndpointBinding:
                 provider_class=self.provider_class,
                 canonical_writer_port=self.writer_port_kind,
             )
-        elif not isinstance(contract, EndpointEffectContract):
+        elif not _is_effect_contract(contract):
             raise RouteEffectContractError(
                 "route_effect_unclassified",
                 "effect_contract must be an EndpointEffectContract",
@@ -312,11 +456,10 @@ class ProviderSelection:
         if not str(self.provider_id or "").strip():
             raise ValueError("provider_id is required")
         object.__setattr__(self, "provider_id", str(self.provider_id).strip())
-        if not isinstance(self.provider_class, ProviderClass):
+        if not _is_provider_class(self.provider_class):
             raise TypeError("provider_class must be closed")
         if (
-            not isinstance(self.request_payload_bytes, int)
-            or isinstance(self.request_payload_bytes, bool)
+            not _is_non_bool_int(self.request_payload_bytes)
             or self.request_payload_bytes < 0
         ):
             raise ValueError("provider request_payload_bytes must be a non-negative integer")
@@ -440,19 +583,44 @@ def _route_methods(route: BaseRoute) -> tuple[str, ...]:
     )
 
 
-def _read_registry(path: Path | str) -> dict[str, Any]:
+def _required_text(values: Mapping[str, object], name: str) -> str:
+    value = values.get(name)
+    if not isinstance(value, str) or not value.strip():
+        raise TypeError(f"{name} must be a non-empty string")
+    return value
+
+
+def _optional_text(values: Mapping[str, object], name: str) -> str | None:
+    value = values.get(name)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string or null")
+    return value
+
+
+def _text_tuple(value: object, name: str) -> tuple[str, ...]:
     try:
-        content = json.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        return tuple(_STRING_LIST_ADAPTER.validate_python(value))
+    except ValidationError as exc:
+        raise TypeError(f"{name} must be a list of strings") from exc
+
+
+def _read_registry(path: Path | str) -> dict[str, object]:
+    try:
+        content = _JSON_OBJECT_ADAPTER.validate_json(
+            Path(path).read_text(encoding="utf-8")
+        )
+    except (OSError, ValidationError) as exc:
         raise RouteEffectContractError(
             "route_effect_unclassified",
             "production route binding registry is unavailable or malformed",
         ) from exc
-    if not isinstance(content, dict) or content.get("schema") not in _ROUTE_BINDING_SCHEMAS:
+    if content.get("schema") not in _ROUTE_BINDING_SCHEMAS:
         raise RouteEffectContractError(
             "route_effect_unclassified",
             "production route binding registry schema mismatch",
-            details={"schema": content.get("schema") if isinstance(content, dict) else None},
+            details={"schema": content.get("schema")},
         )
     return content
 
@@ -464,15 +632,17 @@ def load_production_route_exemptions(
     raw_exemptions = content.get("exemptions")
     if not isinstance(raw_exemptions, list):
         raise TypeError("production route exemptions must be a list")
+    try:
+        exemption_rows = _JSON_OBJECTS_ADAPTER.validate_python(raw_exemptions)
+    except ValidationError as exc:
+        raise TypeError("production route exemption entries must be objects") from exc
     exemptions: list[ProductionRouteExemption] = []
     seen: set[tuple[str, str]] = set()
-    for raw in raw_exemptions:
-        if not isinstance(raw, dict):
-            raise TypeError("production route exemption entries must be objects")
+    for raw in exemption_rows:
         exemption = ProductionRouteExemption(
-            route_template=raw.get("route_template"),
-            methods=raw.get("methods", ()),
-            reason=raw.get("reason"),
+            route_template=_required_text(raw, "route_template"),
+            methods=_text_tuple(raw.get("methods"), "methods"),
+            reason=_required_text(raw, "reason"),
         )
         for method in exemption.methods:
             pair = (exemption.route_template, method)
@@ -492,6 +662,10 @@ def load_production_route_bindings(
     raw_bindings = content.get("bindings")
     if not isinstance(raw_bindings, list) or not raw_bindings:
         raise RuntimeError("production route binding registry has no bindings")
+    try:
+        binding_rows = _JSON_OBJECTS_ADAPTER.validate_python(raw_bindings)
+    except ValidationError as exc:
+        raise TypeError("production route binding entries must be objects") from exc
     bindings: list[ProductionEndpointBinding] = []
     seen: set[tuple[str, str]] = set()
     required_fields = {
@@ -519,9 +693,7 @@ def load_production_route_bindings(
         "conditional_discriminator",
         "conditional_branches",
     }
-    for raw in raw_bindings:
-        if not isinstance(raw, dict):
-            raise TypeError("production route binding entries must be objects")
+    for raw in binding_rows:
         missing = required_fields - raw.keys()
         extra = raw.keys() - required_fields
         if missing or extra:
@@ -536,8 +708,9 @@ def load_production_route_bindings(
                 "route_effect_unclassified",
                 "effect_contract must be an object",
             )
-        effect_missing = effect_required_fields - effect_raw.keys()
-        effect_extra = effect_raw.keys() - effect_required_fields
+        effect_values = _JSON_OBJECT_ADAPTER.validate_python(effect_raw)
+        effect_missing = effect_required_fields - effect_values.keys()
+        effect_extra = effect_values.keys() - effect_required_fields
         if not compact and (effect_missing or effect_extra):
             raise RouteEffectContractError(
                 "route_effect_unclassified",
@@ -546,8 +719,9 @@ def load_production_route_bindings(
             )
         try:
             effect_contract = (
-                EndpointEffectContract.from_declaration(effect_raw)
-                if compact else EndpointEffectContract(**effect_raw)
+                EndpointEffectContract.from_declaration(effect_values)
+                if compact
+                else EndpointEffectContract.from_expanded_declaration(effect_values)
             )
         except RouteEffectContractError:
             raise
@@ -557,17 +731,20 @@ def load_production_route_bindings(
                 "effect contract is malformed",
             ) from exc
         binding = ProductionEndpointBinding(
-            route_template=raw.get("route_template"),
-            domain=raw.get("domain"),
-            operation=raw.get("operation"),
+            route_template=_required_text(raw, "route_template"),
+            domain=_required_text(raw, "domain"),
+            operation=_required_text(raw, "operation"),
             metrics_label=(
                 f"{str(raw['domain'] or '').strip()}:{str(raw['route_template'] or '').strip()}"
-                if compact else raw.get("metrics_label")
+                if compact else _required_text(raw, "metrics_label")
             ),
-            methods=raw.get("methods", ()),
-            required_scope=raw["required_scope"],
-            required_approval_ids=raw.get("required_approval_ids", ()),
-            capability_id=raw.get("capability_id"),
+            methods=_text_tuple(raw.get("methods"), "methods"),
+            required_scope=_required_text(raw, "required_scope"),
+            required_approval_ids=_text_tuple(
+                raw.get("required_approval_ids"),
+                "required_approval_ids",
+            ),
+            capability_id=_optional_text(raw, "capability_id"),
             effect_contract=effect_contract,
         )
         for method in binding.methods:
@@ -627,10 +804,10 @@ def build_production_endpoint_bindings() -> Annotated[
 
 
 def build_production_composition(
-    settings_obj: Any | None = None,
+    settings_obj: _ProductionSettings | None = None,
     *,
     routes: Iterable[BaseRoute],
-    runtime_bindings: ProductionRuntimeBindings,
+    runtime_bindings: ProductionRuntimeBindings | None,
 ) -> Annotated[
     ProductionComposition,
     "kit:non-authoritative derived_as=plan "
@@ -641,7 +818,7 @@ def build_production_composition(
 
     if runtime_bindings is None:
         raise RuntimeError("production runtime bindings are required")
-    if not isinstance(runtime_bindings, ProductionRuntimeBindings):
+    if not _is_runtime_bindings(runtime_bindings):
         raise TypeError("production runtime bindings have the wrong type")
     if settings_obj is None:
         from app.settings.config import settings
@@ -725,6 +902,11 @@ def build_production_composition(
     validate_production_route_coverage(bindings, route_tuple)
     operations: dict[str, OperationPolicy] = {}
     for binding in bindings:
+        effect_contract = binding.effect_contract
+        if effect_contract is None or effect_contract.admission is None:
+            raise RuntimeError(
+                f"production operation lacks an exact effect admission: {binding.operation}"
+            )
         operation_policy = OperationPolicy(
             required_scope=binding.required_scope,
             required_approval_ids=binding.required_approval_ids,
@@ -735,7 +917,7 @@ def build_production_composition(
             capability_id=binding.capability_id or "",
             canonical_owner_ref=binding.canonical_owner_ref,
             writer_port_kind=binding.writer_port_kind,
-            effect_admission=binding.effect_contract.admission,
+            effect_admission=effect_contract.admission,
         )
         existing = operations.get(binding.operation)
         if existing is not None and existing != operation_policy:
@@ -782,7 +964,7 @@ def _composition_for_request(request: Request) -> ProductionComposition:
 
 
 def _route_project_key(request: Request) -> str | None:
-    params = getattr(request, "path_params", {}) or {}
+    params = request.path_params
     for key in ("project_key", "project", "projectId"):
         value = params.get(key)
         if isinstance(value, str) and value.strip():
@@ -794,14 +976,15 @@ def _payload_project_key(body: bytes, content_type: str | None) -> str | None:
     if not body or (content_type is not None and content_type != "application/json"):
         return None
     try:
-        payload = json.loads(body)
+        payload: object = json.loads(body)
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise HTTPException(
             status_code=400,
             detail={"message": "JSON payload is malformed", "reason_code": "json_payload_invalid"},
         ) from exc
     if isinstance(payload, dict):
-        value = payload.get("project_key") or payload.get("projectKey")
+        payload_object = _JSON_OBJECT_ADAPTER.validate_python(payload)
+        value = payload_object.get("project_key") or payload_object.get("projectKey")
         if isinstance(value, str) and value.strip():
             return value.strip()
     return None
@@ -827,7 +1010,7 @@ def _host_matches(host: str, allowed: tuple[str, ...]) -> bool:
 
 def _project_binding(runtime: ProductionRuntimeBindings, project_key: str) -> ProjectBinding:
     try:
-        scope = runtime.project_scope_resolver.resolve(project_key)
+        observed_scope: object = runtime.project_scope_resolver.resolve(project_key)
     except Exception as exc:
         raise HTTPException(
             status_code=503,
@@ -836,12 +1019,12 @@ def _project_binding(runtime: ProductionRuntimeBindings, project_key: str) -> Pr
                 "reason_code": "project_scope_unavailable",
             },
         ) from exc
-    if not isinstance(scope, ProjectScopeRef) or scope.project_key != project_key:
+    if not _is_project_scope(observed_scope) or observed_scope.project_key != project_key:
         raise HTTPException(
             status_code=503,
             detail={"message": "project scope binding is invalid", "reason_code": "project_scope_invalid"},
         )
-    return ProjectBinding(project_key=project_key, scope=scope)
+    return ProjectBinding(project_key=project_key, scope=observed_scope)
 
 
 async def require_production_policy(request: Request) -> PolicyDecision | None:
@@ -889,6 +1072,15 @@ async def require_production_policy(request: Request) -> PolicyDecision | None:
                 "reason_code": "public_effect_route_unadmitted",
             },
         )
+    effect_admission = effect_contract.admission
+    if effect_admission is None:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": "production effect route has no exact admission",
+                "reason_code": "public_effect_route_unadmitted",
+            },
+        )
     if not effect_contract.admitted:
         # This check intentionally precedes body buffering, Redis windows and
         # authority reads.  A route without an admitted effect binding cannot
@@ -899,7 +1091,7 @@ async def require_production_policy(request: Request) -> PolicyDecision | None:
                 "message": "production effect route is not admitted",
                 "reason_code": "public_effect_route_unadmitted",
                 "effect_class": effect_contract.effect_class.value,
-                "admission": effect_contract.admission.value,
+                "admission": effect_admission.value,
             },
         )
     if not _host_matches(request.headers.get("host", ""), composition.allowed_hosts):
@@ -959,7 +1151,7 @@ async def require_production_policy(request: Request) -> PolicyDecision | None:
             )
         ) if binding.approval_required else ()
         http_rate = runtime.rate_observations.observe_http(actor, binding.operation)
-        selection = (
+        observed_selection: object = (
             runtime.provider_selection.select(
                 actor,
                 binding.provider_class,
@@ -968,8 +1160,11 @@ async def require_production_policy(request: Request) -> PolicyDecision | None:
             if binding.requires_provider
             else None
         )
-        if selection is not None and not isinstance(selection, ProviderSelection):
-            raise RuntimeError("provider selection has invalid type")  # noqa: TRY301
+        if observed_selection is not None and not _is_provider_selection(
+            observed_selection
+        ):
+            raise RuntimeError("provider selection has invalid type")
+        selection = observed_selection
         provider_rate = (
             runtime.rate_observations.observe_provider(actor, binding.operation, selection.provider_id)
             if selection is not None
@@ -1001,9 +1196,15 @@ async def require_production_policy(request: Request) -> PolicyDecision | None:
         composition.policy,
         projects=MappingProxyType({binding_project.project_key: binding_project}),
     )
+    policy_actor = _ProductionPolicyActor(
+        actor_id=actor.actor_id,
+        actor_source=actor.actor_source,
+        actor_auth_mode=actor.actor_auth_mode,
+        actor_trusted=actor.actor_trusted,
+    )
     request_obj = ProductionRequest(
         operation=binding.operation,
-        actor=actor,
+        actor=policy_actor,
         actor_scopes=actor_scopes,
         approvals=approvals,
         observed_at=observed_at,
@@ -1081,7 +1282,7 @@ def build_operation_activation(
     interpreter_profile_digest: str, authority_requirement_digest: str,
     resource_profile: ResourceProfile, effect_profile: EffectProfile,
     deployment: DeploymentCatalog | None = None,
-) -> Annotated[tuple[FirstSpecimenActivationCatalog, DeploymentCatalog], 'kit:authoritative-write canonical_writer=DeploymentCatalogRepository witness=test:test_post_waits_for_real_business_outputs_in_input_order']:
+) -> Annotated[tuple[OperationActivationCatalog, DeploymentCatalog], 'kit:authoritative-write canonical_writer=DeploymentCatalogRepository witness=test:test_post_waits_for_real_business_outputs_in_input_order']:
     """Bind installed dispatch code to the project's existing resource policy.
 
     This registers immutable deployment metadata; grants, claim ownership and
@@ -1090,7 +1291,7 @@ def build_operation_activation(
     from app.successor_runtime.runtime.assignments import InterpreterBinding, RecoveryBinding, canonical_digest
     from app.successor_runtime.runtime.resources import QueueEligibility, ResourceClass
     from app.successor_runtime.language.transforms import TransformRegistry
-    from app.successor_runtime.substrate.postgres.first_specimen_activation import ActivationCatalogEntry
+    from app.successor_runtime.substrate.postgres.runtime_activation import ActivationCatalogEntry
     from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
     from app.successor_runtime.substrate.postgres.nodes import DeploymentCatalogRepository
 
@@ -1134,7 +1335,7 @@ def build_operation_activation(
         resource_class=resource_class, units=resource_profile.units,
         policy_epoch=int(policy["policy_epoch"]), policy_digest=str(policy["policy_digest"]),
     )
-    return FirstSpecimenActivationCatalog(
+    return OperationActivationCatalog(
         entries=(ActivationCatalogEntry(
             operation_contract_digest=contract.ref.contract_digest, interpreter_binding=binding,
             recovery_binding=RecoveryBinding.from_content(
@@ -1156,7 +1357,7 @@ def _installed_operation_facts(
     ref: OperationContractRef,
 ) -> tuple[OperationContract, ResourceProfile, EffectProfile, str, str]:
     """Resolve original declarations; caller data cannot install executable code."""
-    from app.successor_runtime.assembly.installed_operation import (
+    from app.composition.installed_operation import (
         installed_operation_catalog,
         installed_operation_for_ref,
     )
@@ -1184,7 +1385,7 @@ def _installed_value_encoder(
     from app.successor_runtime.capabilities.checksum import canonical_json
     from app.successor_runtime.capabilities.retrieval_candidate_native import RETRIEVAL_CANDIDATE_ATTEMPT_SEQUENCE_TYPE
     from app.successor_runtime.language.checksum import canonical_bytes
-    from app.successor_runtime.language.program import _tuple_object_type, sequence_object_type
+    from app.successor_runtime.language.program import sequence_object_type, tuple_object_type
 
     endpoints = {endpoint for contract in contracts for endpoint in (contract.input_type, contract.output_type)}
     for ref in transforms.transform_refs():
@@ -1194,7 +1395,7 @@ def _installed_value_encoder(
     for ref in merges.merge_refs():
         merge = merges.resolve_merge(ref)
         endpoints.update((merge.left_type, merge.right_type, merge.output_type))
-        structural.add(_tuple_object_type((merge.left_type, merge.right_type)))
+        structural.add(tuple_object_type((merge.left_type, merge.right_type)))
     structural.update(sequence_object_type(endpoint, version=version)
                       for endpoint in endpoints for version in ("1", "2"))
     structural.intersection_update(endpoints)
@@ -1209,7 +1410,7 @@ def _installed_value_encoder(
 
 def build_program_activation(
     connection: Connection, scope: RuntimeScope, program: ProgramSpec,
-) -> Annotated[tuple[FirstSpecimenActivationCatalog, DeploymentCatalog], 'kit:authoritative-write canonical_writer=DeploymentCatalogRepository witness=test:test_post_waits_for_real_business_outputs_in_input_order']:
+) -> Annotated[tuple[OperationActivationCatalog, DeploymentCatalog], 'kit:authoritative-write canonical_writer=DeploymentCatalogRepository witness=test:test_post_waits_for_real_business_outputs_in_input_order']:
     """Assemble every exact operation of a Program into one Node deployment."""
     from app.successor_runtime.capabilities.batch_task_program import build_ordered_dispatch_merge_registry
     from app.successor_runtime.capabilities.retrieval_candidate_native import (
@@ -1268,7 +1469,7 @@ def build_program_activation(
             )
             if installed != ref:
                 raise ValueError("installed retrieval merge differs from its native declaration")
-    return FirstSpecimenActivationCatalog(
+    return OperationActivationCatalog(
         entries=tuple(entries), transform_registry=transforms,
         merge_registry=merges, discriminator_registry=discriminators,
         encode_value=_installed_value_encoder(
@@ -1287,12 +1488,12 @@ def submit_installed_program(
     canonical_bindings: Mapping[str, tuple[int, str]],
     approvals_by_step: Mapping[str, tuple[str, ...]], trace_id: str,
     now: datetime, queue: str,
-) -> tuple[dict[str, Any], tuple[str, ...]]:
+) -> tuple[dict[str, object], tuple[str, ...]]:
     """Submit exact declarations through the existing authority and runtime owners."""
     from app.services.tasks import task_successor_runtime
     from app.successor_runtime.substrate.postgres.authority import AuthorityGrantRepository
     from app.successor_runtime.substrate.postgres.authority_provider import CurrentAuthorityGrantUnavailable
-    from app.successor_runtime.substrate.postgres.first_specimen_activation import (
+    from app.successor_runtime.substrate.postgres.runtime_activation import (
         ActivationTrigger, compiled_submission_request_digest, submit_compiled_program,
     )
     from app.successor_runtime.substrate.postgres.runtime_journal import ExactBindingConflict, RuntimeJournalRepository
@@ -1369,8 +1570,8 @@ def read_installed_program_outputs(
 ) -> tuple[tuple[str, ValueRef, bytes], ...]:
     """Read exact successful step bytes for an API-authorized project viewer."""
     from sqlalchemy import MetaData
-    from app.successor_runtime.substrate.postgres.first_specimen_activation import (
-        load_runtime_observations, PostgresFirstSpecimenActivationBindingAdapter,
+    from app.successor_runtime.substrate.postgres.runtime_activation import (
+        load_runtime_observations, PostgresRuntimeActivationBindingAdapter,
     )
     from app.successor_runtime.substrate.postgres.models import project_tables
     from app.successor_runtime.substrate.postgres.plans import PlanRepository
@@ -1388,9 +1589,19 @@ def read_installed_program_outputs(
         if (plan.plan_id != run["plan_id"] or plan.program_id != run["program_id"]
                 or plan.program_digest != run["program_digest"]):
             raise ExactBindingConflict("runtime output Run/Plan identity drift")
-        observed, _ = load_runtime_observations(connection, scope, tables, run, plan, lock=False)
+        run_values = _string_object_mapping(run)
+        if run_values is None:
+            raise ExactBindingConflict("runtime output Run row has non-string fields")
+        observed, _ = load_runtime_observations(
+            connection,
+            scope,
+            tables,
+            run_values,
+            plan,
+            lock=False,
+        )
         by_step = {item.step_id: item.value_ref for item in observed}
-        reader = PostgresFirstSpecimenActivationBindingAdapter()
+        reader = PostgresRuntimeActivationBindingAdapter()
         return tuple((step.step_id, by_step[step.step_id], reader.read_value_bytes(
             connection, scope, tables, by_step[step.step_id],
         )) for step in plan.ordered_steps if step.step_id in by_step)
@@ -1430,8 +1641,10 @@ def read_installed_program_failures(
             if event["event_type"] != "EffectFailed":
                 continue
             step_id, attempt_id = str(event.get("step_id") or ""), str(event.get("attempt_id") or "")
-            metadata = event.get("event_metadata_json")
-            work_item_id = metadata.get("work_item_id") if isinstance(metadata, dict) else None
+            metadata = _string_object_mapping(event.get("event_metadata_json"))
+            if metadata is None:
+                raise ExactBindingConflict("EffectFailed metadata is not an object")
+            work_item_id = metadata.get("work_item_id")
             if (not step_id or not attempt_id or not isinstance(work_item_id, str) or not work_item_id
                     or (step_id, attempt_id) in seen or event["schema_version"] != "mrw.runtime.event.effect_failed.v1"
                     or event["project_key"] != project_key or event["run_id"] != run_id):
@@ -1452,7 +1665,10 @@ def read_installed_program_failures(
             plan_steps = tuple(item for item in plan.ordered_steps if item.step_id == step_id)
             if attempt is None or work is None or step is None or len(plan_steps) != 1:
                 raise ExactBindingConflict("EffectFailed exact attempt/work/step is absent")
-            assignment = validate_runtime_assignment_row(work)
+            work_values = _string_object_mapping(work)
+            if work_values is None:
+                raise ExactBindingConflict("runtime work row has non-string fields")
+            assignment = validate_runtime_assignment_row(work_values)
             claim = ClaimBinding.model_validate(attempt["claim_binding_json"])
             claim.validate_against(assignment)
             contract = plan_steps[0].operation_contract_ref
@@ -1498,8 +1714,8 @@ def read_installed_program_input_bindings(
 ]:
     """Read exact static and started semantic inputs without execution effects."""
     from sqlalchemy import MetaData
-    from app.successor_runtime.substrate.postgres.first_specimen_activation import (
-        PostgresFirstSpecimenActivationBindingAdapter,
+    from app.successor_runtime.substrate.postgres.runtime_activation import (
+        PostgresRuntimeActivationBindingAdapter,
     )
     from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES, project_tables
     from app.successor_runtime.substrate.postgres.plans import PlanRepository
@@ -1528,7 +1744,7 @@ def read_installed_program_input_bindings(
                 or program.program_digest != run["program_digest"]):
             raise ExactBindingConflict("runtime input Run/Program/Plan identity drift")
 
-        reader = PostgresFirstSpecimenActivationBindingAdapter()
+        reader = PostgresRuntimeActivationBindingAdapter()
         static_refs = tuple(dict.fromkeys(
             ref
             for atom in program_atoms(program.root)
@@ -1556,8 +1772,10 @@ def read_installed_program_input_bindings(
             seen_started.add(identity)
             if event["schema_version"] != "mrw.runtime.event.effect_started.v1":
                 raise ExactBindingConflict("EffectStarted schema version drift")
-            metadata = event.get("event_metadata_json")
-            work_item_id = metadata.get("work_item_id") if isinstance(metadata, dict) else None
+            metadata = _string_object_mapping(event.get("event_metadata_json"))
+            if metadata is None:
+                raise ExactBindingConflict("EffectStarted metadata is not an object")
+            work_item_id = metadata.get("work_item_id")
             if not isinstance(work_item_id, str) or not work_item_id:
                 raise ExactBindingConflict("EffectStarted lacks its exact work identity")
 
@@ -1576,7 +1794,10 @@ def read_installed_program_input_bindings(
             if len(work_rows) != 1:
                 raise ExactBindingConflict("EffectStarted assignment digest is absent or ambiguous")
             work = work_rows[0]
-            assignment = validate_runtime_assignment_row(work)
+            work_values = _string_object_mapping(work)
+            if work_values is None:
+                raise ExactBindingConflict("runtime work row has non-string fields")
+            assignment = validate_runtime_assignment_row(work_values)
             plan_steps = tuple(item for item in plan.ordered_steps if item.step_id == step_id)
             if len(plan_steps) != 1:
                 raise ExactBindingConflict("EffectStarted step is absent from exact Plan")
@@ -1644,7 +1865,7 @@ def _ready_run_work(
 
 def successor_ready_work(engine: Engine, source_work_item_id: str) -> tuple[tuple[str, datetime], ...]:
     """Read canonical frontier and due times; transport only delivers these facts."""
-    from app.successor_runtime.substrate.postgres.first_specimen_activation import read_linked_runtime_frontier
+    from app.successor_runtime.substrate.postgres.runtime_activation import read_linked_runtime_frontier
     with engine.connect() as connection:
         frontier = read_linked_runtime_frontier(connection, source_work_item_id=source_work_item_id)
         return tuple((work.work_item_id, work.due_at) for work in frontier.ready_work)
@@ -1688,228 +1909,13 @@ def dispatch_batch_item(payload: batch_task.BatchTaskSingleDispatchPayload) -> b
     )
 
 
-def _assemble_workflow_operation(  # pyright: ignore[reportUnusedFunction]
-    operation: workflow_native_contribution.WorkflowRuntimeOperationDefinition,
-    engine: Engine, scope: RuntimeScope, entry: ActivationCatalogEntry,
-) -> RuntimeHandler:
-    from app.services.projects.context import bind_resolved_project
-    from app.services.workflow_graph.runtime import WorkflowNodeSettledFailure, invoke_workflow_runtime_node
-    from app.successor_runtime.assembly.workflow_assembly import assemble_workflow_runtime_handler
-    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
-    return assemble_workflow_runtime_handler(
-        operation=operation, uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
-        project_key=scope.project_scope.project_key, resolved_schema=scope.project_scope.resolved_schema,
-        bind_project_scope=bind_resolved_project, invoke_runtime_node=invoke_workflow_runtime_node,
-        settled_failure_type=WorkflowNodeSettledFailure,
-    )
-
-
-def _assemble_candidate_operation(  # pyright: ignore[reportUnusedFunction]
-    operation: retrieval_candidate_native.CandidateRuntimeDefinition,
-    engine: Engine, scope: RuntimeScope, entry: ActivationCatalogEntry,
-) -> RuntimeHandler:
-    from app.services.projects.context import bind_resolved_project
-    from app.services.search.candidate_search import discover_candidates
-    from app.successor_runtime.capabilities.retrieval_candidate_native import complete_retrieval_candidate_attempt
-    from app.successor_runtime.substrate.postgres.batch_task_submission_handler import PersistentOperationHandler
-    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
-    def check_scope(invocation: retrieval_candidate_native.RetrievalCandidateInvocation,
-                    project: ProjectScopeRef, _capability_id: str) -> None:
-        if invocation.request.project_ref is not None and invocation.request.project_ref != project.project_key:
-            raise ValueError("candidate request crosses the installed project scope")
-    def discover(invocation: retrieval_candidate_native.RetrievalCandidateInvocation
-                 ) -> retrieval_candidate_native.RetrievalCandidateAttemptOutcome:
-        with bind_resolved_project(scope.project_scope.project_key, scope.project_scope.resolved_schema):
-            return complete_retrieval_candidate_attempt(invocation, discover_candidates(invocation.request))
-    return PersistentOperationHandler(
-        uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
-        contract=operation.operation_contract, input_codec=operation.invocation_codec,
-        output_codec=operation.output_codec, invoke=discover, validate_input=check_scope,
-        validate_bound_inputs=operation.validate_bound_inputs,
-    )
-
-
-def _assemble_retrieval_work_leaf_operation(  # pyright: ignore[reportUnusedFunction]
-    operation: InstalledOperationView[
-        retrieval_material_native.RetrievalLeafDefinition[retrieval_material_native.CandidateWork],
-        retrieval_material_native.CandidateWork, retrieval_material_native.CandidateWork,
-    ], engine: Engine, scope: RuntimeScope, entry: ActivationCatalogEntry,
-) -> RuntimeHandler:
-    from app.services.project_retrieval.execution import (
-        build_retrieval_leaf_invocations, build_retrieval_runtime_journal_reader,
-        validate_retrieval_work_bound_inputs, review_candidate_work,
-    )
-    from app.services.project_retrieval.service import ProjectRetrievalService
-    from app.services.project_retrieval.topology import build_topology_service
-    from app.services.projects.context import bind_resolved_project
-    from app.successor_runtime.substrate.postgres.batch_task_submission_handler import PersistentOperationHandler
-    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
-    work_invocations, _ = build_retrieval_leaf_invocations(
-        topology_service=build_topology_service(),
-        plan_loader=ProjectRetrievalService().read_plan,
-        journal_reader=build_retrieval_runtime_journal_reader(engine=engine, actor_id=scope.actor_id),
-    )
-
-    def check_retrieval_scope(
-        payload: retrieval_material_native.CandidateWork,
-        project: ProjectScopeRef, capability_id: str,
-    ) -> None:
-        if payload.project_key != project.project_key or capability_id != operation.contract.owner_capability_id:
-            raise ValueError("retrieval payload crosses installed project or capability")
-
-    def invoke_retrieval(
-        payload: retrieval_material_native.CandidateWork,
-    ) -> retrieval_material_native.CandidateWork:
-        if operation.contract.ref.kind == retrieval_material_native.RETRIEVAL_CANDIDATE_REVIEW_KIND:
-            raise ValueError("review requires its exact assignment prefix")
-        with bind_resolved_project(scope.project_scope.project_key, scope.project_scope.resolved_schema):
-            return work_invocations[operation.contract.ref.kind](payload)
-
-    def invoke_review(
-        payload: retrieval_material_native.CandidateWork, assignment: RuntimeAssignment,
-    ) -> retrieval_material_native.CandidateWork:
-        from app.successor_runtime.substrate.postgres.first_specimen_activation import read_ordered_prior_effect_outputs
-        with runtime_uow_factory(engine)() as uow:
-            current_bytes, prior = read_ordered_prior_effect_outputs(uow.connection, scope, assignment)
-        codec = operation.input_codec
-        current = codec.decode_payload(json.loads(current_bytes))
-        if current != payload or payload.candidate_ordinal != len(prior) + 1:
-            raise ValueError("review current ordered invocation drift")
-        approved = 0
-        for position, (before_bytes, after_bytes) in enumerate(prior, 1):
-            before = codec.decode_payload(json.loads(before_bytes))
-            after = codec.decode_payload(json.loads(after_bytes))
-            retrieval_material_native.validate_candidate_work_transition(before, after)
-            if (before.candidate_ordinal != position or before.stage != "candidate"
-                    or after.stage != "reviewed" or after.review is None
-                    or (before.project_key, before.root_run_id, before.retrieval_budget_id,
-                        before.plan_id, before.mode_version, before.route_id,
-                        before.material_budget_remaining)
-                    != (payload.project_key, payload.root_run_id, payload.retrieval_budget_id,
-                        payload.plan_id, payload.mode_version, payload.route_id,
-                        payload.material_budget_remaining)):
-                raise ValueError("review prior ordered output identity drift")
-            approved += after.disposition == "approved"
-        with bind_resolved_project(scope.project_scope.project_key, scope.project_scope.resolved_schema):
-            return review_candidate_work(payload, approved_prefix_count=approved)
-
-    return PersistentOperationHandler(
-        uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
-        contract=operation.contract, input_codec=operation.input_codec, output_codec=operation.output_codec,
-        invoke=invoke_retrieval, validate_input=check_retrieval_scope,
-        invoke_with_assignment=(invoke_review if operation.contract.ref.kind
-                                == retrieval_material_native.RETRIEVAL_CANDIDATE_REVIEW_KIND else None),
-        validate_bound_inputs=validate_retrieval_work_bound_inputs, bound_payload_source="semantic",
-    )
-
-
-def _assemble_retrieval_control_leaf_operation(  # pyright: ignore[reportUnusedFunction]
-    operation: InstalledOperationView[
-        retrieval_material_native.RetrievalLeafDefinition[retrieval_material_native.RetrievalControl],
-        retrieval_material_native.RetrievalControl, retrieval_material_native.RetrievalControl,
-    ], engine: Engine, scope: RuntimeScope, entry: ActivationCatalogEntry,
-) -> RuntimeHandler:
-    from app.services.project_retrieval.execution import (
-        build_retrieval_leaf_invocations, build_retrieval_runtime_journal_reader,
-        validate_retrieval_work_bound_inputs,
-    )
-    from app.services.project_retrieval.service import ProjectRetrievalService
-    from app.services.project_retrieval.topology import build_topology_service
-    from app.services.projects.context import bind_resolved_project
-    from app.successor_runtime.substrate.postgres.batch_task_submission_handler import PersistentOperationHandler
-    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
-    _, control_invocations = build_retrieval_leaf_invocations(
-        topology_service=build_topology_service(), plan_loader=ProjectRetrievalService().read_plan,
-        journal_reader=build_retrieval_runtime_journal_reader(engine=engine, actor_id=scope.actor_id),
-    )
-
-    def invoke(payload: retrieval_material_native.RetrievalControl) -> retrieval_material_native.RetrievalControl:
-        with bind_resolved_project(scope.project_scope.project_key, scope.project_scope.resolved_schema):
-            return control_invocations[operation.contract.ref.kind](payload)
-
-    def check_scope(
-        payload: retrieval_material_native.RetrievalControl,
-        project: ProjectScopeRef, capability_id: str,
-    ) -> None:
-        if payload.project_key != project.project_key or capability_id != operation.contract.owner_capability_id:
-            raise ValueError("retrieval payload crosses installed project or capability")
-
-    return PersistentOperationHandler(
-        uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
-        contract=operation.contract, input_codec=operation.input_codec, output_codec=operation.output_codec,
-        invoke=invoke, validate_input=check_scope,
-        validate_bound_inputs=validate_retrieval_work_bound_inputs, bound_payload_source="semantic",
-    )
-
-
-def _assemble_url_operation(  # pyright: ignore[reportUnusedFunction]
-    operation: InstalledOperationView[OperationContract, acquisition_url.UrlSingleUrlRequest,
-                                      acquisition_url.UrlSingleUrlOutcome],
-    engine: Engine, scope: RuntimeScope, entry: ActivationCatalogEntry,
-) -> RuntimeHandler:
-    from app.services.ingest.url_pool import invoke_url_single_url, validate_url_single_url_input
-    from app.services.projects.context import bind_resolved_project
-    from app.successor_runtime.runtime.node import DefiniteInterpreterFailure, OutcomeUncertain
-    from app.successor_runtime.substrate.postgres.batch_task_submission_handler import PersistentOperationHandler
-    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
-    def check_bindings(request: acquisition_url.UrlSingleUrlRequest,
-                       bound_inputs: tuple[tuple[ValueRef, bytes], ...]) -> None:
-        if len(bound_inputs) != 1:
-            from app.services.project_retrieval.execution import validate_retrieval_url_bound_inputs
-            validate_retrieval_url_bound_inputs(request, bound_inputs)
-    def invoke(request: acquisition_url.UrlSingleUrlRequest) -> acquisition_url.UrlSingleUrlOutcome:
-        with bind_resolved_project(scope.project_scope.project_key, scope.project_scope.resolved_schema):
-            result = invoke_url_single_url(request)
-        if result.status == "failed":
-            raise DefiniteInterpreterFailure("URL_POOL_EXECUTION_FAILED")
-        if result.status != "completed":
-            raise OutcomeUncertain("URL_POOL_TERMINAL_READBACK_REQUIRED")
-        return result
-    return PersistentOperationHandler(
-        uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
-        contract=operation.contract, input_codec=operation.input_codec, output_codec=operation.output_codec,
-        invoke=invoke, validate_input=validate_url_single_url_input,
-        validate_bound_inputs=check_bindings, bound_payload_source="semantic",
-    )
-
-
-def _assemble_wait_operation(  # pyright: ignore[reportUnusedFunction]
-    operation: InstalledOperationView[OperationContract, batch_business.BusinessWaitInput,
-                                      batch_business.BatchBusinessResult],
-    engine: Engine, _scope: RuntimeScope, entry: ActivationCatalogEntry, broker: BrokerBusinessReadback,
-) -> RuntimeHandler:
-    from app.services.agent_batch.business_readback import build_batch_business_wait_invoke
-    from app.successor_runtime.substrate.postgres.first_specimen_reconciliation_handler import BatchBusinessWaitHandler
-    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
-    return BatchBusinessWaitHandler(
-        uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
-        contract=operation.contract, input_codec=operation.input_codec, output_codec=operation.output_codec,
-        invoke=build_batch_business_wait_invoke(broker),
-    )
-
-
-def _assemble_dispatch_operation(  # pyright: ignore[reportUnusedFunction]
-    operation: InstalledOperationView[OperationContract, batch_task.BatchTaskSingleDispatchPayload,
-                                      batch_task.BatchTaskSingleDispatchAck],
-    engine: Engine, _scope: RuntimeScope, entry: ActivationCatalogEntry,
-    dispatch: Callable[[batch_task.BatchTaskSingleDispatchPayload], batch_task.BatchTaskSingleDispatchAck],
-) -> RuntimeHandler:
-    from app.successor_runtime.substrate.postgres.batch_task_submission_handler import BatchTaskSingleDispatchHandler
-    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
-    return BatchTaskSingleDispatchHandler(
-        uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
-        contract=operation.contract, input_codec=operation.input_codec, output_codec=operation.output_codec,
-        dispatch=dispatch,
-    )
-
-
 def _installed_operation_handler(
     *, engine: Engine, scope: RuntimeScope, contract: OperationContract,
     entry: ActivationCatalogEntry,
     dispatch: Callable[[batch_task.BatchTaskSingleDispatchPayload], batch_task.BatchTaskSingleDispatchAck],
     broker: BrokerBusinessReadback,
 ) -> RuntimeHandler:
-    from app.successor_runtime.assembly.installed_operation import (
+    from app.composition.installed_operation import (
         installed_operation_catalog, installed_operation_for_ref,
     )
     installed = installed_operation_for_ref(installed_operation_catalog, contract.ref)
@@ -1920,7 +1926,7 @@ def _installed_operation_handler(
         raise RuntimeError(f"installed operation binding failed: {result.message}")
     return result
 
-def _retrieval_active_child_materializer(catalog: FirstSpecimenActivationCatalog) -> ActiveChildMaterializer:
+def _retrieval_active_child_materializer(catalog: OperationActivationCatalog) -> ActiveChildMaterializer:
     from app.services.project_retrieval.execution import RetrievalWorkActiveChildMaterializer
     return RetrievalWorkActiveChildMaterializer(
         catalog, active_child_materializer_factory=_retrieval_active_child_materializer,
@@ -1947,9 +1953,9 @@ def execute_successor_work_item(
     from app.successor_runtime.runtime.assignments import AssignmentKind
     from app.successor_runtime.runtime.node import DeploymentBinding, NodeIdentity, RuntimeNodeProfile, RuntimeNodeProtocol
     from app.successor_runtime.runtime.ports import ControlPlaneScope, RUNTIME_CROSS_PROJECT_CLAIM_PERMISSION
-    from app.successor_runtime.substrate.postgres.composition_root import compose_postgres_first_specimen_runtime
-    from app.successor_runtime.substrate.postgres.first_specimen_activation import PostgresFirstSpecimenActivationPort
-    from app.successor_runtime.substrate.postgres.first_specimen_terminal import PostgresFirstSpecimenTerminalHook
+    from app.successor_runtime.substrate.postgres.composition_root import compose_postgres_runtime
+    from app.successor_runtime.substrate.postgres.runtime_activation import PostgresRuntimeActivationPort
+    from app.successor_runtime.substrate.postgres.terminal_commit import PostgresTerminalCommitHook
     from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
     from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
     from app.successor_runtime.substrate.postgres.nodes import RuntimeNodeRepository
@@ -2000,7 +2006,7 @@ def execute_successor_work_item(
     ) for atom_ref in sorted({atom.operation.contract_ref for atom in program_atoms(program.root)},
                              key=lambda ref: (ref.kind, ref.contract_version, ref.contract_digest)))
     from app.successor_runtime.capabilities import batch_business
-    from app.successor_runtime.substrate.postgres.first_specimen_reconciliation_handler import (
+    from app.successor_runtime.substrate.postgres.effect_reconciliation import (
         BatchBusinessBrokerReadbackFacade, InstalledBatchTaskBusinessReadbackHandler,
         PostgresBatchTaskBusinessReadbackHandler,
     )
@@ -2013,7 +2019,7 @@ def execute_successor_work_item(
                 runtime_uow_factory(engine),
                 readback=BatchBusinessBrokerReadbackFacade(operation_contract_ref=wait_contract.ref, broker=broker),
             ),)
-    runtime = compose_postgres_first_specimen_runtime(
+    runtime = compose_postgres_runtime(
         engine=engine, identity=NodeIdentity(node_id, node_id, now),
         profile=RuntimeNodeProfile(deployment.node_profile_digest, frozenset({AssignmentKind.INTERPRET, AssignmentKind.RECONCILE}),
                                    frozenset(item.interpreter_binding.interpreter_profile_digest for item in catalog.entries)),
@@ -2023,8 +2029,8 @@ def execute_successor_work_item(
         control_scope=ControlPlaneScope(node_id, RUNTIME_CROSS_PROJECT_CLAIM_PERMISSION,
                                        assignment.claim_authority_epoch),
         installations=(), additional_handlers=handlers,
-        terminal_hook=PostgresFirstSpecimenTerminalHook(
-            activation=PostgresFirstSpecimenActivationPort(
+        terminal_hook=PostgresTerminalCommitHook(
+            activation=PostgresRuntimeActivationPort(
                 catalog,
                 active_child_materializer_factory=_retrieval_active_child_materializer,
                 active_child_settlement=(_settle_retrieval_children if any(
@@ -2041,7 +2047,7 @@ def execute_successor_work_item(
 
 
 def validate_production_startup(
-    settings_obj: Any | None = None,
+    settings_obj: _ProductionSettings | None = None,
     *,
     routes: Iterable[BaseRoute],
     runtime_bindings: ProductionRuntimeBindings,

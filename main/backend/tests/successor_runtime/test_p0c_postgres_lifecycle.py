@@ -66,7 +66,7 @@ from app.successor_runtime.substrate.postgres.runtime_lifecycle import (
     RuntimeLifecycleRepository,
     SubmitRun,
     TerminalOutcome,
-    _assignment_values,
+    assignment_values,
 )
 from app.successor_runtime.substrate.postgres.runtime_values import (
     RuntimeValueBinding,
@@ -595,7 +595,7 @@ def _claimed_fixture(now: datetime):
         recovery_binding=recovery,
         authoritative_readback_profile_ref=recovery.authoritative_readback_profile_ref,
     )
-    work = _assignment_values(envelope, due_at=now)
+    work = assignment_values(envelope, due_at=now)
     work.update(
         state="CLAIMED",
         revision=4,
@@ -638,7 +638,7 @@ def _claimed_fixture(now: datetime):
         reconciliation_attempt_id=claim.attempt_id,
         trace_id=assignment.trace_id,
     )
-    reconcile = _assignment_values(
+    reconcile = assignment_values(
         AssignmentEnvelope(
             assignment=reconcile_assignment,
             required_node_profile_selector=_digest("node-profile"),

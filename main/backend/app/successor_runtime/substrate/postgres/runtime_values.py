@@ -21,12 +21,12 @@ from .runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
     StaleRevisionError,
-    _one_mapping,
-    _project_values,
+    one_mapping,
+    project_values,
     _require_opaque_locator,
-    _scope_key,
-    _table,
-    _utcnow,
+    runtime_scope_key,
+    runtime_table,
+    utc_now,
 )
 
 RuntimeValueState = Literal["PREPARED", "AVAILABLE", "FAILED", "ORPHANED"]
@@ -91,25 +91,25 @@ class RuntimeValueRepository:
     ) -> Mapping[str, object]:
         if state not in get_args(RuntimeValueState):
             raise ValueError("invalid runtime value state")
-        table = _table("runtime_values")
-        by_id = _one_mapping(
+        table = runtime_table("runtime_values")
+        by_id = one_mapping(
             self.connection.execute(
                 select(table).where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.value_id == binding.value_id,
                 )
             )
         )
-        by_content = _one_mapping(
+        by_content = one_mapping(
             self.connection.execute(
                 select(table).where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.content_digest == binding.content_digest,
                     table.c.codec_id == binding.codec_id,
                 )
             )
         )
-        expected = _project_values(
+        expected = project_values(
             self.scope,
             {**binding.values(), "state": state},
         )
@@ -124,7 +124,7 @@ class RuntimeValueRepository:
                     "runtime value identity/content has a different exact ref binding"
                 )
         if by_id is None:
-            now = _utcnow()
+            now = utc_now()
             self.connection.execute(
                 insert(table).values(
                     **expected,
@@ -136,11 +136,11 @@ class RuntimeValueRepository:
         return self.load_exact(binding)
 
     def load_exact(self, binding: RuntimeValueBinding) -> Mapping[str, object]:
-        table = _table("runtime_values")
-        row = _one_mapping(
+        table = runtime_table("runtime_values")
+        row = one_mapping(
             self.connection.execute(
                 select(table).where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.value_id == binding.value_id,
                     table.c.content_digest == binding.content_digest,
                     table.c.codec_id == binding.codec_id,
@@ -174,18 +174,18 @@ class RuntimeValueRepository:
             raise ValueError("invalid runtime value lifecycle transition")
         if write_receipt_digest is not None:
             require_digest(write_receipt_digest, "write_receipt_digest")
-        table = _table("runtime_values")
+        table = runtime_table("runtime_values")
         values: dict[str, object] = {
             "state": target_state,
             "revision": expected_revision + 1,
-            "updated_at": _utcnow(),
+            "updated_at": utc_now(),
         }
         if write_receipt_digest is not None:
             values["write_receipt_digest"] = write_receipt_digest
         result = self.connection.execute(
             update(table)
             .where(
-                table.c.project_key == _scope_key(self.scope),
+                table.c.project_key == runtime_scope_key(self.scope),
                 table.c.value_id == value_id,
                 table.c.state == expected_state,
                 table.c.revision == expected_revision,
@@ -194,10 +194,10 @@ class RuntimeValueRepository:
         )
         if getattr(result, "rowcount", None) != 1:
             raise StaleRevisionError("runtime value lifecycle CAS failed")
-        row = _one_mapping(
+        row = one_mapping(
             self.connection.execute(
                 select(table).where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.value_id == value_id,
                 )
             )

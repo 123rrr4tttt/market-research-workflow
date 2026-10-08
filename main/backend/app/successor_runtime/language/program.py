@@ -783,7 +783,7 @@ def _check_decide_branches(branches: "tuple[DecisionBranch, ...]") -> None:
             raise ProgramTypeError("Decide branch return contracts must agree")
 
 
-def _tuple_object_type(types: "tuple[ObjectType, ...]") -> ObjectType:
+def tuple_object_type(types: "tuple[ObjectType, ...]") -> ObjectType:
     return ObjectType(
         type_id="tuple:" + ",".join(t.type_id for t in types),
         schema_version="1",
@@ -966,7 +966,7 @@ def try_zip_ordered_node(
     try:
         _check_zip_types(left, right)
         if output_type is None:
-            output_type = _tuple_object_type((left.output_type, right.output_type))
+            output_type = tuple_object_type((left.output_type, right.output_type))
         _check_runtime_object_type(output_type, "zip_ordered.output_type")
         if is_placeholder_object_type(output_type):
             # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_map_output_and_zip_ordered_reject_unresolved_target_as_typed_failure

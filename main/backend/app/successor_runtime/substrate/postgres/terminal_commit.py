@@ -3,7 +3,7 @@
 The effect handler remains deliberately read-only: it proves that a claimed
 ``VERIFY_ADMIT`` assignment names one exact, already verified staged value and
 returns that value's digest.  Canonical mutation is enlisted later by
-``PostgresFirstSpecimenTerminalHook`` in the RuntimeNode terminal UoW.  The
+``PostgresTerminalCommitHook`` in the RuntimeNode terminal UoW.  The
 hook re-opens current authority/base/event state, uses the existing
 ``AdmissionCoordinator`` and capability-owned PostgreSQL admission handler,
 and finally lets the shared lifecycle repository append the terminal event and
@@ -22,10 +22,14 @@ import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime
-from typing import Any, Protocol, Self
+from typing import Any, Literal, Protocol, Self, TypeAlias, TypeGuard, overload
 
-from sqlalchemy import MetaData, select
-from sqlalchemy.engine import Connection
+from sqlalchemy import MetaData, Table, select
+from sqlalchemy.engine import Connection, RowMapping
+
+from app.successor_runtime.capabilities.first_specimen import (
+    FirstSpecimenCapabilityBundle,
+)
 
 from app.successor_runtime.language.plan import ExecutionPlan
 from app.successor_runtime.research.artifacts import (
@@ -50,6 +54,7 @@ from app.successor_runtime.runtime.admission_coordinator import (
     AdmissionCoordinator,
     AdmissionProgress,
     AdmissionResult,
+    CanonicalCommit,
 )
 from app.successor_runtime.runtime.assignments import (
     AssignmentKind,
@@ -63,6 +68,7 @@ from app.successor_runtime.runtime.node import (
     InterpreterOutcome,
     RuntimeExecutionContext,
     RuntimeHandler,
+    RuntimeClaim,
 )
 from app.successor_runtime.runtime.ports import RuntimeScope
 from app.successor_runtime.runtime.qualification import (
@@ -89,10 +95,10 @@ from .research_admission import (
     build_first_specimen_admission_registry,
     commit_binding_from_assignment,
 )
-from .research_ledger import one_mapping
 from .runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
+    one_mapping,
     validate_authorization_row,
 )
 from .runtime_lifecycle import (
@@ -127,7 +133,7 @@ class TerminalReadUnitOfWork(Protocol):
 TerminalReadUnitOfWorkFactory = Callable[[], TerminalReadUnitOfWork]
 
 
-class FirstSpecimenActivationPort(Protocol):
+class TerminalActivationPort(Protocol):
     """Capability-local adapter around the shared ``activate_run`` fold."""
 
     def activate_after_terminal(
@@ -154,18 +160,18 @@ class DeliveryReceiptContentPort(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
-class ExactFirstSpecimenStage:
+class ExactTerminalStage:
     """Exact public/project readback of one effect result staged for admission."""
 
     scope: RuntimeScope
     tables: ProjectTables
     plan: ExecutionPlan
     assignment: RuntimeAssignment
-    staged_row: Mapping[str, Any]
-    runtime_value_row: Mapping[str, Any]
-    project_value_row: Mapping[str, Any]
-    effect_step_row: Mapping[str, Any]
-    effect_attempt_row: Mapping[str, Any]
+    staged_row: RowMapping
+    runtime_value_row: RowMapping
+    project_value_row: RowMapping
+    effect_step_row: RowMapping
+    effect_attempt_row: RowMapping
     exact_bytes: bytes
 
     @property
@@ -193,16 +199,21 @@ class ExactFirstSpecimenStage:
         return str(self.project_value_row["provenance_digest"])
 
 
+AdmissionCandidate: TypeAlias = (
+    EvidenceRelationCandidate | ResearchObjectCandidate | DeliveryReceiptCandidate
+)
+
+
 @dataclass(frozen=True, slots=True)
 class ExactAdmissionPacket:
-    candidate: object
+    candidate: AdmissionCandidate
     intent: CommitIntent
     binding: VerificationBinding
     ordered_event_payloads: tuple[object, ...]
     authorization: StepAuthorizationBinding
 
 
-class PostgresFirstSpecimenStageReader:
+class PostgresTerminalStageReader:
     """Read and validate the compiled effect/admission/staged-value closure."""
 
     def load_exact(
@@ -213,7 +224,7 @@ class PostgresFirstSpecimenStageReader:
         claim: ClaimBinding,
         *,
         expected_state: str,
-    ) -> ExactFirstSpecimenStage:
+    ) -> ExactTerminalStage:
         compiled = assignment.compiled_admission_binding
         if (
             assignment.assignment_kind is not AssignmentKind.VERIFY_ADMIT
@@ -304,7 +315,7 @@ class PostgresFirstSpecimenStageReader:
             project_key=assignment.project_key,
             value_id=project_value_id,
         )
-        exact = self._exact_bytes(project_value)
+        exact = self.exact_bytes(project_value)
         expected = {
             "stage_value_id": (staged["value_id"], runtime_value["value_id"]),
             "effect_state": (effect_step["state"], "SUCCEEDED"),
@@ -344,11 +355,11 @@ class PostgresFirstSpecimenStageReader:
             raise FirstSpecimenTerminalError("staged value content digest drift")
         provenance = project_value["provenance_json"]
         if (
-            not isinstance(provenance, Mapping)
+            not _is_string_object_dict(provenance)
             or sha256_hex(dict(provenance)) != (project_value["provenance_digest"])
         ):
             raise FirstSpecimenTerminalError("staged value provenance digest drift")
-        return ExactFirstSpecimenStage(
+        return ExactTerminalStage(
             scope=scope,
             tables=tables,
             plan=plan,
@@ -363,8 +374,8 @@ class PostgresFirstSpecimenStageReader:
 
     @staticmethod
     def _one(
-        connection: Connection, table: Any, **identity: object
-    ) -> Mapping[str, Any]:
+        connection: Connection, table: Table, **identity: object
+    ) -> RowMapping:
         statement = select(table)
         for name, value in identity.items():
             statement = statement.where(getattr(table.c, name) == value)
@@ -379,7 +390,7 @@ class PostgresFirstSpecimenStageReader:
         return row
 
     @staticmethod
-    def _exact_bytes(row: Mapping[str, Any]) -> bytes:
+    def exact_bytes(row: RowMapping) -> bytes:
         if row["content_bytes"] is not None and row["content_json"] is None:
             return bytes(row["content_bytes"])
         if row["content_json"] is not None and row["content_bytes"] is None:
@@ -390,7 +401,7 @@ class PostgresFirstSpecimenStageReader:
 
     @staticmethod
     def _require_run_scope(
-        run: Mapping[str, Any], scope: RuntimeScope, assignment: RuntimeAssignment
+        run: RowMapping, scope: RuntimeScope, assignment: RuntimeAssignment
     ) -> None:
         ref = scope.project_scope
         expected = {
@@ -456,7 +467,7 @@ class PostgresVerifyAdmitHandler(RuntimeHandler):
         operation_contract_digest: str,
         handler_binding_digest: str,
         interpreter_profile_digest: str,
-        stage_reader: PostgresFirstSpecimenStageReader | None = None,
+        stage_reader: PostgresTerminalStageReader | None = None,
     ) -> None:
         require_digest(operation_contract_digest, "operation_contract_digest")
         require_digest(handler_binding_digest, "handler_binding_digest")
@@ -465,7 +476,7 @@ class PostgresVerifyAdmitHandler(RuntimeHandler):
         self.operation_contract_digest = operation_contract_digest
         self.handler_binding_digest = handler_binding_digest
         self.interpreter_profile_digest = interpreter_profile_digest
-        self._stage_reader = stage_reader or PostgresFirstSpecimenStageReader()
+        self._stage_reader = stage_reader or PostgresTerminalStageReader()
 
     def execute(
         self,
@@ -514,7 +525,7 @@ class PostgresVerifyAdmitHandler(RuntimeHandler):
             raise FirstSpecimenTerminalError("exact VERIFY_ADMIT handler binding drift")
 
 
-class FirstSpecimenCandidateDecoder:
+class TerminalCandidateDecoder:
     """Strict decoder from staged canonical bytes to capability candidates."""
 
     def __init__(
@@ -525,16 +536,16 @@ class FirstSpecimenCandidateDecoder:
     def decode_exact(
         self,
         connection: Connection,
-        staged: ExactFirstSpecimenStage,
+        staged: ExactTerminalStage,
         authorization: StepAuthorizationBinding,
-    ) -> object:
+    ) -> AdmissionCandidate:
         try:
             raw = json.loads(staged.exact_bytes)
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise FirstSpecimenCandidateDecodeError(
                 "staged candidate is not canonical JSON"
             ) from exc
-        if not isinstance(raw, dict) or canonical_bytes(raw) != staged.exact_bytes:
+        if not _is_string_object_dict(raw) or canonical_bytes(raw) != staged.exact_bytes:
             raise FirstSpecimenCandidateDecodeError(
                 "staged candidate is not a canonical JSON object"
             )
@@ -651,13 +662,13 @@ class FirstSpecimenCandidateDecoder:
 
 def _read_project_provider_receipt(
     connection: Connection,
-    staged: ExactFirstSpecimenStage,
+    staged: ExactTerminalStage,
     receipt: DeliveryReceiptRef,
 ) -> bytes:
     """Read the exact provider receipt body staged by the delivery handler."""
 
     provenance = staged.project_value_row["provenance_json"]
-    if not isinstance(provenance, Mapping):
+    if not _is_string_object_dict(provenance):
         raise FirstSpecimenCandidateDecodeError(
             "delivery candidate provenance is malformed"
         )
@@ -692,7 +703,7 @@ def _read_project_provider_receipt(
         raise FirstSpecimenCandidateDecodeError(
             "exact project provider receipt is absent"
         )
-    exact = PostgresFirstSpecimenStageReader._exact_bytes(row)
+    exact = PostgresTerminalStageReader.exact_bytes(row)
     if hashlib.sha256(exact).hexdigest() != receipt.receipt_digest:
         raise FirstSpecimenCandidateDecodeError(
             "authoritative delivery receipt bytes drift"
@@ -703,21 +714,21 @@ def _read_project_provider_receipt(
 AdmissionCoordinatorFactory = Callable[
     [Connection, RuntimeScope, ProjectTables], AdmissionCoordinator
 ]
-AdmissionBundleFactory = Callable[[], Any]
-PlanRepositoryFactory = Callable[[Connection, ProjectTables], Any]
+AdmissionBundleFactory = Callable[[], FirstSpecimenCapabilityBundle]
+PlanRepositoryFactory = Callable[[Connection, ProjectTables], PlanRepository]
 
 
-class PostgresFirstSpecimenTerminalHook:
+class PostgresTerminalCommitHook:
     """Enlist staged lifecycle, canonical admission, and activation in one UoW."""
 
     def __init__(
         self,
         *,
-        activation: FirstSpecimenActivationPort,
-        bundle: Any | None = None,
+        activation: TerminalActivationPort,
+        bundle: FirstSpecimenCapabilityBundle | None = None,
         bundle_factory: AdmissionBundleFactory | None = None,
-        stage_reader: PostgresFirstSpecimenStageReader | None = None,
-        candidate_decoder: FirstSpecimenCandidateDecoder | None = None,
+        stage_reader: PostgresTerminalStageReader | None = None,
+        candidate_decoder: TerminalCandidateDecoder | None = None,
         admission_factory: AdmissionCoordinatorFactory | None = None,
         plan_repository_factory: PlanRepositoryFactory | None = None,
         authority_factory: Callable[
@@ -729,11 +740,11 @@ class PostgresFirstSpecimenTerminalHook:
         self._bundle = bundle
         self._bundle_factory = bundle_factory
         self._activation = activation
-        self._stage_reader = stage_reader or PostgresFirstSpecimenStageReader()
-        self._decoder = candidate_decoder or FirstSpecimenCandidateDecoder()
+        self._stage_reader = stage_reader or PostgresTerminalStageReader()
+        self._decoder = candidate_decoder or TerminalCandidateDecoder()
         self._admission_factory = admission_factory or self._default_admission
-        self._plan_repository_factory = plan_repository_factory or (
-            lambda connection, tables: PlanRepository(connection, tables)
+        self._plan_repository_factory: PlanRepositoryFactory = (
+            plan_repository_factory or PlanRepository
         )
         self._authority_factory = authority_factory
 
@@ -742,7 +753,7 @@ class PostgresFirstSpecimenTerminalHook:
         *,
         connection: Connection,
         scope: RuntimeScope,
-        claim: Any,
+        claim: RuntimeClaim,
         lifecycle: ClaimedLifecycle,
         outcome: InterpreterOutcome,
         terminal: TerminalOutcome,
@@ -976,15 +987,37 @@ class PostgresFirstSpecimenTerminalHook:
             receipt_ref=receipt_ref,
         )
 
+    @overload
     def _commit_packet(
         self,
         *,
         connection: Connection,
         scope: RuntimeScope,
-        staged: ExactFirstSpecimenStage,
+        staged: ExactTerminalStage,
+        packet: ExactAdmissionPacket,
+        waiting_as_result: Literal[False] = False,
+    ) -> CanonicalCommit: ...
+
+    @overload
+    def _commit_packet(
+        self,
+        *,
+        connection: Connection,
+        scope: RuntimeScope,
+        staged: ExactTerminalStage,
+        packet: ExactAdmissionPacket,
+        waiting_as_result: Literal[True],
+    ) -> CanonicalCommit | AdmissionResult: ...
+
+    def _commit_packet(
+        self,
+        *,
+        connection: Connection,
+        scope: RuntimeScope,
+        staged: ExactTerminalStage,
         packet: ExactAdmissionPacket,
         waiting_as_result: bool = False,
-    ) -> Any:
+    ) -> CanonicalCommit | AdmissionResult:
         admission_scope = RuntimeScope(
             project_scope=scope.project_scope,
             actor_id=packet.authorization.actor_id,
@@ -1029,7 +1062,7 @@ class PostgresFirstSpecimenTerminalHook:
         *,
         connection: Connection,
         scope: RuntimeScope,
-        claim: Any,
+        claim: RuntimeClaim,
         lifecycle: ClaimedLifecycle,
         outcome: InterpreterOutcome,
         terminal: TerminalOutcome,
@@ -1059,7 +1092,7 @@ class PostgresFirstSpecimenTerminalHook:
         *,
         connection: Connection,
         scope: RuntimeScope,
-        claim: Any,
+        claim: RuntimeClaim,
         outcome: ReconciliationHandlerOutcome,
         observed_at: datetime,
     ) -> None:
@@ -1115,7 +1148,12 @@ class PostgresFirstSpecimenTerminalHook:
             raise FirstSpecimenTerminalError(
                 "reconciled admission step is absent from exact Plan"
             )
-        effect_step_id = admission_steps[0].admission.effect_step_id
+        admission = admission_steps[0].admission
+        if admission is None:
+            raise FirstSpecimenTerminalError(
+                "reconciled admission step lacks compiled admission metadata"
+            )
+        effect_step_id = admission.effect_step_id
         rows = tuple(
             connection.execute(
                 select(PUBLIC_TABLES["runtime_staged_artifacts"])
@@ -1180,7 +1218,7 @@ class PostgresFirstSpecimenTerminalHook:
             for step in plan.ordered_steps
             if step.step_kind in {"EFFECT", "ADMISSION"}
         )
-        from .first_specimen_activation import ActivationReceipt, selected_completion_steps
+        from .runtime_activation import ActivationReceipt, selected_completion_steps
         journal_steps: frozenset[str] = frozenset()
         if isinstance(activation, ActivationReceipt):
             completion = selected_completion_steps(plan, activation.result)
@@ -1223,7 +1261,7 @@ class PostgresFirstSpecimenTerminalHook:
         *,
         connection: Connection,
         scope: RuntimeScope,
-        staged: ExactFirstSpecimenStage,
+        staged: ExactTerminalStage,
         claim: ClaimBinding,
         observed_at: datetime | None,
         require_current_base: bool = True,
@@ -1412,7 +1450,7 @@ def _load_effect_stage(
     claim: ClaimBinding,
     *,
     expected_state: str,
-) -> ExactFirstSpecimenStage:
+) -> ExactTerminalStage:
     if assignment.step_id is None:
         raise FirstSpecimenTerminalError("INTERPRET terminal lacks step identity")
     rows = tuple(
@@ -1456,7 +1494,7 @@ def _load_effect_stage(
     )
     if project_value is None:
         raise RecordNotFound("staged INTERPRET project value is absent")
-    exact = PostgresFirstSpecimenStageReader._exact_bytes(project_value)
+    exact = PostgresTerminalStageReader.exact_bytes(project_value)
     effect_step = _one_public(
         connection,
         "runtime_steps",
@@ -1482,7 +1520,7 @@ def _load_effect_stage(
         or hashlib.sha256(exact).hexdigest() != runtime_value["content_digest"]
     ):
         raise FirstSpecimenTerminalError("staged INTERPRET value digest drift")
-    return ExactFirstSpecimenStage(
+    return ExactTerminalStage(
         scope,
         tables,
         plan,
@@ -1515,8 +1553,13 @@ def _load_exact_authorization(
             "VERIFY_ADMIT lacks one exact persisted step authorization"
         )
     binding = validate_authorization_row(rows[0])
+    operation = assignment.operation_contract_ref
+    if operation is None:
+        raise FirstSpecimenTerminalError(
+            "VERIFY_ADMIT authorization lacks operation contract identity"
+        )
     expected = {
-        "operation_kind": assignment.operation_contract_ref.kind,
+        "operation_kind": operation.kind,
         "operation_contract_digest": assignment.operation_contract_digest,
         "capability_id": assignment.capability_id,
         "claim_policy_digest": assignment.claim_policy_digest,
@@ -1600,7 +1643,7 @@ def _ordered_runtime_event_payloads(
 
 def _require_current_base(
     connection: Connection,
-    staged: ExactFirstSpecimenStage,
+    staged: ExactTerminalStage,
     *,
     object_id: str,
     base_revision: int,
@@ -1643,7 +1686,7 @@ def _require_current_base(
 
 
 def _load_current_object(
-    connection: Connection, staged: ExactFirstSpecimenStage, object_id: str
+    connection: Connection, staged: ExactTerminalStage, object_id: str
 ) -> ResearchObjectRef:
     table = staged.tables.research_objects
     row = one_mapping(
@@ -1686,7 +1729,7 @@ def _load_current_object(
 
 def _load_delivery_artifact(
     connection: Connection,
-    staged: ExactFirstSpecimenStage,
+    staged: ExactTerminalStage,
     receipt: DeliveryReceiptRef,
 ) -> ResearchObjectRef:
     intent = _load_current_object(connection, staged, receipt.delivery_intent_ref)
@@ -1709,7 +1752,7 @@ def _load_delivery_artifact(
     )
     if row is None:
         raise FirstSpecimenCandidateDecodeError("DeliveryIntent exact bytes are absent")
-    exact = PostgresFirstSpecimenStageReader._exact_bytes(row)
+    exact = PostgresTerminalStageReader.exact_bytes(row)
     try:
         artifact_locator = json.loads(exact)["artifact_ref"]
     except (KeyError, TypeError, json.JSONDecodeError) as exc:
@@ -1765,7 +1808,19 @@ def _decode_qualification(
     return value
 
 
-def _decode_object_payload(kind: str, raw: Mapping[str, Any], digest: str) -> object:
+def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return _is_object_dict(value) and all(
+        isinstance(key, str) for key in value
+    )
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _decode_object_payload(
+    kind: str, raw: Mapping[str, Any], digest: str
+) -> Claim | Gap | ResearchArtifact:
     try:
         if kind == CLAIM_TYPE.type_id:
             return Claim(
@@ -1823,7 +1878,11 @@ def _decode_delivery_receipt(raw: Mapping[str, Any], digest: str) -> DeliveryRec
         ) from exc
 
 
-def _payload_object_id(payload: object) -> str:
+def _payload_object_id(payload: Claim | Gap | ResearchArtifact) -> str:
+    return _payload_object_id_unchecked(payload)
+
+
+def _payload_object_id_unchecked(payload: object) -> str:
     if isinstance(payload, Claim):
         return payload.claim_id
     if isinstance(payload, Gap):
@@ -1833,7 +1892,11 @@ def _payload_object_id(payload: object) -> str:
     raise TypeError("unsupported research object candidate")
 
 
-def _candidate_identity(candidate: object) -> tuple[str, str]:
+def _candidate_identity(candidate: AdmissionCandidate) -> tuple[str, str]:
+    return _candidate_identity_unchecked(candidate)
+
+
+def _candidate_identity_unchecked(candidate: object) -> tuple[str, str]:
     if isinstance(candidate, EvidenceRelationCandidate):
         return candidate.qualification.qualification_id, "ResearchLedger"
     if isinstance(candidate, ResearchObjectCandidate):
@@ -1850,7 +1913,7 @@ def _candidate_identity(candidate: object) -> tuple[str, str]:
 
 def _one_public(
     connection: Connection, table_name: str, **identity: object
-) -> Mapping[str, Any]:
+) -> RowMapping:
     table = PUBLIC_TABLES[table_name]
     statement = select(table)
     for name, value in identity.items():
@@ -1861,7 +1924,7 @@ def _one_public(
     return row
 
 
-def _bounded_stage_payload(row: Mapping[str, Any]) -> dict[str, object]:
+def _bounded_stage_payload(row: RowMapping) -> dict[str, object]:
     return {
         name: row[name]
         for name in (
@@ -1879,7 +1942,7 @@ def _bounded_stage_payload(row: Mapping[str, Any]) -> dict[str, object]:
     }
 
 
-def _bounded_value_payload(row: Mapping[str, Any]) -> dict[str, object]:
+def _bounded_value_payload(row: RowMapping) -> dict[str, object]:
     return {
         name: row[name]
         for name in (
@@ -1896,7 +1959,7 @@ def _bounded_value_payload(row: Mapping[str, Any]) -> dict[str, object]:
     }
 
 
-def _bounded_step_payload(row: Mapping[str, Any]) -> dict[str, object]:
+def _bounded_step_payload(row: RowMapping) -> dict[str, object]:
     return {
         name: row[name]
         for name in (
@@ -1911,7 +1974,7 @@ def _bounded_step_payload(row: Mapping[str, Any]) -> dict[str, object]:
     }
 
 
-def _bounded_attempt_payload(row: Mapping[str, Any]) -> dict[str, object]:
+def _bounded_attempt_payload(row: RowMapping) -> dict[str, object]:
     return {
         name: row[name]
         for name in (
@@ -1945,13 +2008,13 @@ def _optional_datetime(value: object) -> datetime | None:
 __all__ = [
     "DeliveryReceiptContentPort",
     "ExactAdmissionPacket",
-    "ExactFirstSpecimenStage",
-    "FirstSpecimenActivationPort",
+    "ExactTerminalStage",
+    "TerminalActivationPort",
     "FirstSpecimenCandidateDecodeError",
-    "FirstSpecimenCandidateDecoder",
+    "TerminalCandidateDecoder",
     "FirstSpecimenTerminalError",
     "FirstSpecimenTerminalLifecycleGap",
-    "PostgresFirstSpecimenStageReader",
-    "PostgresFirstSpecimenTerminalHook",
+    "PostgresTerminalStageReader",
+    "PostgresTerminalCommitHook",
     "PostgresVerifyAdmitHandler",
 ]

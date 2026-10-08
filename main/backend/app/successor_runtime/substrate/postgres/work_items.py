@@ -68,14 +68,14 @@ from .runtime_journal import (
     RecordNotFound,
     StaleRevisionError,
     _mapping_rows,
-    _one_mapping,
-    _table,
-    _utcnow,
+    one_mapping,
+    runtime_table,
+    utc_now,
     validate_authorization_row,
     validate_qualification_row,
     validate_runtime_assignment_row,
 )
-from .runtime_lifecycle import AssignmentEnvelope, _assignment_values
+from .runtime_lifecycle import AssignmentEnvelope, assignment_values
 
 
 class ClaimConflict(StaleRevisionError):
@@ -129,7 +129,7 @@ class ClaimRecord:
 
 def _ordered_child_claim_eligible(work: Table) -> ColumnElement[bool]:
     """Only a completed ordered prefix releases the next child's effects."""
-    events, runs = _table("runtime_events"), _table("runtime_runs")
+    events, runs = runtime_table("runtime_events"), runtime_table("runtime_runs")
     child = events.alias("claim_child")
     prior = events.alias("claim_prior_child")
     prior_run = runs.alias("claim_prior_run")
@@ -176,7 +176,7 @@ def due_claim_statement(
     is never represented as the fairness policy itself.
     """
 
-    work = _table("runtime_work_items")
+    work = runtime_table("runtime_work_items")
     claimed_work = work.alias("claimed_work")
     project_active = (
         select(func.count())
@@ -430,7 +430,7 @@ class WorkItemClaimRepository:
         control_scope.require_permission(RUNTIME_CROSS_PROJECT_CLAIM_PERMISSION)
         if limit <= 0:
             return ()
-        observed_at = now or _utcnow()
+        observed_at = now or utc_now()
         policy = fairness or FairSharePolicy()
         effective_cursor = (
             int(observed_at.timestamp()) // policy.claim_cycle_seconds
@@ -465,8 +465,8 @@ class WorkItemClaimRepository:
         return tuple(claimed)
 
     def _require_active_node(self, context: NodeClaimContext) -> None:
-        nodes = _table("runtime_nodes")
-        row = _one_mapping(
+        nodes = runtime_table("runtime_nodes")
+        row = one_mapping(
             self.connection.execute(
                 select(nodes)
                 .where(nodes.c.node_id == context.node_id)
@@ -503,26 +503,26 @@ class WorkItemClaimRepository:
         ):
             raise ClaimConflict("locked work item is no longer claimable")
         assignment = validate_runtime_assignment_row(work)
-        table = _table("runtime_work_items")
+        table = runtime_table("runtime_work_items")
         if self.connection.execute(select(table.c.work_item_id).where(
             table.c.work_item_id == work["work_item_id"], _ordered_child_claim_eligible(table),
         )).first() is None:
             return None
         if assignment.assignment_kind in {AssignmentKind.INTERPRET, AssignmentKind.VERIFY_ADMIT}:
-            from .first_specimen_activation import ordered_active_child_lineage
+            from .runtime_activation import ordered_active_child_lineage
             lineage = ordered_active_child_lineage(
                 self.connection, project_key=assignment.project_key, child_run_id=assignment.run_id,
             )
             if lineage is not None:
                 parent_id, siblings, index = lineage
-                runs = _table("runtime_runs")
-                parent = _one_mapping(self.connection.execute(select(runs).where(
+                runs = runtime_table("runtime_runs")
+                parent = one_mapping(self.connection.execute(select(runs).where(
                     runs.c.project_key == assignment.project_key, runs.c.run_id == parent_id,
                 ).with_for_update()))
                 if parent is None or parent["state"] != "WAITING" or parent["cancellation_requested"]:
                     return None
                 for sibling in siblings[:index]:
-                    prior = _one_mapping(self.connection.execute(select(runs).where(
+                    prior = one_mapping(self.connection.execute(select(runs).where(
                         runs.c.project_key == assignment.project_key, runs.c.run_id == sibling["child_run_id"],
                     )))
                     if prior is None or prior["state"] != "COMPLETED":
@@ -602,7 +602,7 @@ class WorkItemClaimRepository:
                 # receives only a bounded wait observation.  The provisional
                 # attempt insert is removed in this same transaction, so no
                 # effect attempt or execution slot exists for RESOURCE_LIMIT.
-                attempts = _table("runtime_effect_attempts")
+                attempts = runtime_table("runtime_effect_attempts")
                 self.connection.execute(
                     delete(attempts).where(attempts.c.attempt_id == attempt_id)
                 )
@@ -667,8 +667,8 @@ class WorkItemClaimRepository:
         Mapping[str, Any] | None,
         Mapping[str, Any],
     ]:
-        runs = _table("runtime_runs")
-        run = _one_mapping(
+        runs = runtime_table("runtime_runs")
+        run = one_mapping(
             self.connection.execute(
                 select(runs)
                 .where(
@@ -687,8 +687,8 @@ class WorkItemClaimRepository:
             or int(run["execution_epoch"]) != assignment.execution_epoch
         ):
             raise ClaimBindingMismatch("assignment run incarnation/epoch/content drift")
-        scopes = _table("project_scope_registry")
-        scope = _one_mapping(
+        scopes = runtime_table("project_scope_registry")
+        scope = one_mapping(
             self.connection.execute(
                 select(scopes)
                 .where(
@@ -713,8 +713,8 @@ class WorkItemClaimRepository:
             now=now,
         )
 
-        authorities = _table("runtime_capability_authority")
-        authority = _one_mapping(
+        authorities = runtime_table("runtime_capability_authority")
+        authority = one_mapping(
             self.connection.execute(
                 select(authorities)
                 .where(
@@ -734,8 +734,8 @@ class WorkItemClaimRepository:
 
         if work["step_id"] is None:
             return authority, None, None, run
-        steps = _table("runtime_steps")
-        step = _one_mapping(
+        steps = runtime_table("runtime_steps")
+        step = one_mapping(
             self.connection.execute(
                 select(steps)
                 .where(
@@ -763,8 +763,8 @@ class WorkItemClaimRepository:
             or step["input_digest"] != assignment.input_closure_digest
         ):
             raise ClaimBindingMismatch("assignment step epoch/input closure drift")
-        auths = _table("runtime_step_authorizations")
-        authorization = _one_mapping(
+        auths = runtime_table("runtime_step_authorizations")
+        authorization = one_mapping(
             self.connection.execute(
                 select(auths)
                 .where(
@@ -818,8 +818,8 @@ class WorkItemClaimRepository:
         ):
             raise ClaimBindingMismatch("assignment/authorization exact binding drift")
         if kind is AssignmentKind.RECONCILE:
-            attempts = _table("runtime_effect_attempts")
-            original_attempt = _one_mapping(
+            attempts = runtime_table("runtime_effect_attempts")
+            original_attempt = one_mapping(
                 self.connection.execute(
                     select(attempts)
                     .where(
@@ -862,8 +862,8 @@ class WorkItemClaimRepository:
         }:
             return None
 
-        plan_refs = _table("runtime_plan_refs")
-        plan_ref = _one_mapping(
+        plan_refs = runtime_table("runtime_plan_refs")
+        plan_ref = one_mapping(
             self.connection.execute(
                 select(plan_refs)
                 .where(
@@ -881,7 +881,7 @@ class WorkItemClaimRepository:
 
         tables = project_tables(MetaData(), resolved_schema)
         plan_table = tables.research_execution_plans
-        plan_row = _one_mapping(
+        plan_row = one_mapping(
             self.connection.execute(
                 select(plan_table)
                 .where(
@@ -922,8 +922,8 @@ class WorkItemClaimRepository:
         ):
             raise ClaimBindingMismatch("assignment ExecutionPlan digest drift")
 
-        qualifications = _table("runtime_qualifications")
-        qualification = _one_mapping(
+        qualifications = runtime_table("runtime_qualifications")
+        qualification = one_mapping(
             self.connection.execute(
                 select(qualifications)
                 .where(
@@ -1085,12 +1085,12 @@ class WorkItemClaimRepository:
     ) -> bool:
         """Recheck active ceilings under the locked project-scope row."""
 
-        table = _table("runtime_work_items")
+        table = runtime_table("runtime_work_items")
         max_project_active = fairness.max_project_active
         max_capability_active = fairness.max_capability_active
         if assignment_requires_reservation(str(work["assignment_kind"])):
-            policies = _table("runtime_resource_policies")
-            policy = _one_mapping(
+            policies = runtime_table("runtime_resource_policies")
+            policy = one_mapping(
                 self.connection.execute(
                     select(policies)
                     .where(
@@ -1183,7 +1183,7 @@ class WorkItemClaimRepository:
         claim_binding: ClaimBinding,
         now: Any,
     ) -> None:
-        table = _table("runtime_effect_attempts")
+        table = runtime_table("runtime_effect_attempts")
         try:
             self.connection.execute(
                 insert(table).values(
@@ -1241,8 +1241,8 @@ class WorkItemClaimRepository:
             raise ClaimBindingMismatch(
                 "step resource binding differs from qualification"
             )
-        policies = _table("runtime_resource_policies")
-        policy = _one_mapping(
+        policies = runtime_table("runtime_resource_policies")
+        policy = one_mapping(
             self.connection.execute(
                 select(policies)
                 .where(
@@ -1260,7 +1260,7 @@ class WorkItemClaimRepository:
         return eligibility, policy
 
     def _record_resource_wait(self, work: Mapping[str, Any], now: Any) -> None:
-        table = _table("runtime_work_items")
+        table = runtime_table("runtime_work_items")
         # The frozen schema represents an observation through WAITING, then a
         # bounded external retry transition returns it to READY.  No lease or
         # reservation has been acquired at this point.
@@ -1299,7 +1299,7 @@ class WorkItemClaimRepository:
         lease_expires_at: Any,
         now: Any,
     ) -> None:
-        table = _table("runtime_work_items")
+        table = runtime_table("runtime_work_items")
         result = self.connection.execute(
             update(table)
             .where(
@@ -1400,7 +1400,7 @@ class WorkItemClaimRepository:
             deadline_at=assignment.deadline_at,
             trace_id=assignment.trace_id,
         )
-        table = _table("runtime_work_items")
+        table = runtime_table("runtime_work_items")
         self.connection.execute(
             insert(table).values(
                 work_item_id=work_item_id,
@@ -1463,9 +1463,9 @@ class WorkItemClaimRepository:
         """Extend a live claim only for the exact token and revision."""
 
         control_scope.require_permission(RUNTIME_CROSS_PROJECT_CLAIM_PERMISSION)
-        table = _table("runtime_work_items")
-        observed_at = _utcnow()
-        locked = _one_mapping(
+        table = runtime_table("runtime_work_items")
+        observed_at = utc_now()
+        locked = one_mapping(
             self.connection.execute(
                 select(table)
                 .where(table.c.work_item_id == work_item_id)
@@ -1515,7 +1515,7 @@ class WorkItemClaimRepository:
         if getattr(result, "rowcount", None) != 1:
             raise ClaimConflict("work-item heartbeat token/revision CAS failed")
 
-        steps = _table("runtime_steps")
+        steps = runtime_table("runtime_steps")
         if locked["step_id"] is not None:
             step_result = self.connection.execute(
                 update(steps)
@@ -1543,7 +1543,7 @@ class WorkItemClaimRepository:
             if getattr(step_result, "rowcount", None) != 1:
                 raise ClaimConflict("step heartbeat lease binding drift")
 
-        reservations = _table("runtime_resource_reservations")
+        reservations = runtime_table("runtime_resource_reservations")
         self.connection.execute(
             update(reservations)
             .where(
@@ -1559,7 +1559,7 @@ class WorkItemClaimRepository:
             )
         )
         if locked["claim_attempt_id"] is not None:
-            attempts = _table("runtime_effect_attempts")
+            attempts = runtime_table("runtime_effect_attempts")
             self.connection.execute(
                 update(attempts)
                 .where(
@@ -1584,7 +1584,7 @@ class WorkItemClaimRepository:
                 )
                 .values(due_at=new_expiry, updated_at=observed_at)
             )
-        row = _one_mapping(
+        row = one_mapping(
             self.connection.execute(
                 select(table).where(table.c.work_item_id == work_item_id)
             )
@@ -1606,10 +1606,10 @@ class WorkItemClaimRepository:
 
         if terminal_state not in {"READY", "COMPLETED", "FAILED", "CANCELLED"}:
             raise ValueError("invalid work-item release state")
-        observed_at = now or _utcnow()
-        table = _table("runtime_work_items")
+        observed_at = now or utc_now()
+        table = runtime_table("runtime_work_items")
         project_key = scope.project_scope.project_key
-        locked = _one_mapping(
+        locked = one_mapping(
             self.connection.execute(
                 select(table)
                 .where(
@@ -1655,7 +1655,7 @@ class WorkItemClaimRepository:
                 "FAILED": "FAILED",
                 "CANCELLED": "CANCELLED",
             }[terminal_state]
-            steps = _table("runtime_steps")
+            steps = runtime_table("runtime_steps")
             self.connection.execute(
                 update(steps)
                 .where(
@@ -1674,7 +1674,7 @@ class WorkItemClaimRepository:
                     updated_at=observed_at,
                 )
             )
-        reservations = _table("runtime_resource_reservations")
+        reservations = runtime_table("runtime_resource_reservations")
         self.connection.execute(
             update(reservations)
             .where(
@@ -1705,7 +1705,7 @@ class WorkItemClaimRepository:
                     revision=table.c.revision + 1,
                 )
             )
-        row = _one_mapping(
+        row = one_mapping(
             self.connection.execute(
                 select(table).where(
                     table.c.project_key == project_key,
@@ -1728,7 +1728,7 @@ class WorkItemClaimRepository:
         control_scope.require_permission(RUNTIME_CROSS_PROJECT_CLAIM_PERMISSION)
         if limit <= 0:
             return ()
-        table = _table("runtime_work_items")
+        table = runtime_table("runtime_work_items")
         locked = _mapping_rows(
             self.connection.execute(
                 select(table)
@@ -1755,8 +1755,8 @@ class WorkItemClaimRepository:
                 "expired effect claim lacks exact claim identity"
             )
 
-        table = _table("runtime_work_items")
-        reconcile = _one_mapping(
+        table = runtime_table("runtime_work_items")
+        reconcile = one_mapping(
             self.connection.execute(
                 select(table)
                 .where(
@@ -1775,8 +1775,8 @@ class WorkItemClaimRepository:
                 "expired effect claim has no durable exact RECONCILE assignment"
             )
 
-        attempts = _table("runtime_effect_attempts")
-        attempt = _one_mapping(
+        attempts = runtime_table("runtime_effect_attempts")
+        attempt = one_mapping(
             self.connection.execute(
                 select(attempts)
                 .where(
@@ -1815,8 +1815,8 @@ class WorkItemClaimRepository:
         }:
             raise ClaimBindingMismatch("expired effect attempt disposition is invalid")
 
-        steps = _table("runtime_steps")
-        step = _one_mapping(
+        steps = runtime_table("runtime_steps")
+        step = one_mapping(
             self.connection.execute(
                 select(steps)
                 .where(
@@ -1876,7 +1876,7 @@ class WorkItemClaimRepository:
         if getattr(step_result, "rowcount", None) != 1:
             raise ClaimConflict("expired effect step CAS failed")
 
-        reservations = _table("runtime_resource_reservations")
+        reservations = runtime_table("runtime_resource_reservations")
         self.connection.execute(
             update(reservations)
             .where(
@@ -1952,7 +1952,7 @@ class WorkItemClaimRepository:
             expected_step_revision=next_step_revision,
         )
         successor = RuntimeAssignment(**assignment_values)
-        table = _table("runtime_work_items")
+        table = runtime_table("runtime_work_items")
         superseded = self.connection.execute(
             update(table)
             .where(
@@ -2025,12 +2025,12 @@ class WorkItemClaimRepository:
         return successor_work_item_id
 
     def _requeue_non_effect_claim(self, work: Mapping[str, Any], *, now: Any) -> None:
-        table = _table("runtime_work_items")
+        table = runtime_table("runtime_work_items")
         step: Mapping[str, Any] | None = None
         next_step_revision: int | None = None
         if work["step_id"] is not None:
-            steps = _table("runtime_steps")
-            step = _one_mapping(
+            steps = runtime_table("runtime_steps")
+            step = one_mapping(
                 self.connection.execute(
                     select(steps)
                     .where(
@@ -2079,7 +2079,7 @@ class WorkItemClaimRepository:
         if getattr(result, "rowcount", None) != 1:
             raise ClaimConflict("expired non-effect work-item CAS failed")
         if step is not None:
-            steps = _table("runtime_steps")
+            steps = runtime_table("runtime_steps")
             target_state = (
                 "RECONCILING"
                 if work["assignment_kind"] == AssignmentKind.RECONCILE.value
@@ -2150,8 +2150,8 @@ class WorkItemClaimRepository:
             delivery_intent_ref=work["delivery_intent_ref"],
             declared_priority=int(work["declared_priority"]),
         )
-        successor_values = _assignment_values(envelope, due_at=now)
-        table = _table("runtime_work_items")
+        successor_values = assignment_values(envelope, due_at=now)
+        table = runtime_table("runtime_work_items")
         replaced = self.connection.execute(
             update(table)
             .where(
@@ -2175,7 +2175,7 @@ class WorkItemClaimRepository:
         if getattr(replaced, "rowcount", None) != 1:
             raise ClaimConflict("expired RECONCILE work supersede CAS failed")
         self.connection.execute(insert(table).values(**successor_values))
-        steps = _table("runtime_steps")
+        steps = runtime_table("runtime_steps")
         released = self.connection.execute(
             update(steps)
             .where(
@@ -2213,8 +2213,8 @@ class WorkItemClaimRepository:
         outcome_unknown: bool,
         now: Any,
     ) -> None:
-        runs = _table("runtime_runs")
-        run = _one_mapping(
+        runs = runtime_table("runtime_runs")
+        run = one_mapping(
             self.connection.execute(
                 select(runs)
                 .where(
@@ -2244,7 +2244,7 @@ class WorkItemClaimRepository:
         )
         if getattr(result, "rowcount", None) != 1:
             raise ClaimConflict("lease-expiry event run CAS failed")
-        events = _table("runtime_events")
+        events = runtime_table("runtime_events")
         event_type = (
             "LeaseExpiredOutcomeUnknown"
             if outcome_unknown
@@ -2288,7 +2288,7 @@ class WorkItemClaimRepository:
         authority_digest: str,
         now: Any,
     ) -> None:
-        steps = _table("runtime_steps")
+        steps = runtime_table("runtime_steps")
         revision = int(step["revision"])
         kind = AssignmentKind(str(work["assignment_kind"]))
         expected_state = str(step["state"])
@@ -2335,7 +2335,7 @@ class WorkItemClaimRepository:
         if getattr(result, "rowcount", None) != 1:
             raise ClaimConflict("step expected-revision CAS failed")
 
-        runs = _table("runtime_runs")
+        runs = runtime_table("runtime_runs")
         seq = int(run["next_event_seq"])
         run_revision = int(run["revision"])
         advanced = self.connection.execute(
@@ -2354,7 +2354,7 @@ class WorkItemClaimRepository:
         )
         if getattr(advanced, "rowcount", None) != 1:
             raise ClaimConflict("StepClaimed event sequence CAS failed")
-        events = _table("runtime_events")
+        events = runtime_table("runtime_events")
         event_type = (
             StepEvent.RECONCILE_REQUESTED.value
             if kind is AssignmentKind.RECONCILE and expected_state == "WAITING_EXTERNAL"

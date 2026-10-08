@@ -56,10 +56,10 @@ from .runtime_journal import (
     RecordNotFound,
     RuntimeJournalRepository,
     StaleRevisionError,
-    _one_mapping,
-    _scope_key,
-    _table,
-    _utcnow,
+    one_mapping,
+    runtime_scope_key,
+    runtime_table,
+    utc_now,
     assignment_index_values,
     validate_authorization_row,
     validate_qualification_row,
@@ -260,7 +260,7 @@ class RuntimeLifecycleRepository:
         )
 
     def submit(self, command: SubmitRun) -> Mapping[str, Any]:
-        project_key = _scope_key(self.scope)
+        project_key = runtime_scope_key(self.scope)
         assignment = command.compile_work.assignment if command.compile_work else None
         if assignment is not None and (
             assignment.project_key != project_key
@@ -270,8 +270,8 @@ class RuntimeLifecycleRepository:
             or assignment.assignment_kind.value != "COMPILE"
         ):
             raise ExactBindingConflict("compile assignment differs from submitted run")
-        programs = _table("runtime_program_refs")
-        existing_ref = _one_mapping(
+        programs = runtime_table("runtime_program_refs")
+        existing_ref = one_mapping(
             self.connection.execute(
                 select(programs).where(
                     programs.c.project_key == project_key,
@@ -290,15 +290,15 @@ class RuntimeLifecycleRepository:
             if any(existing_ref[key] != value for key, value in program_values.items()):
                 raise ExactBindingConflict("runtime Program ref identity was rebound")
         else:
-            now = _utcnow()
+            now = utc_now()
             self.connection.execute(
                 insert(programs).values(
                     **program_values, created_at=now, updated_at=now
                 )
             )
 
-        runs = _table("runtime_runs")
-        now = _utcnow()
+        runs = runtime_table("runtime_runs")
+        now = utc_now()
         self.connection.execute(
             insert(runs).values(
                 run_id=command.run_id,
@@ -324,7 +324,7 @@ class RuntimeLifecycleRepository:
                 updated_at=now,
             )
         )
-        events = _table("runtime_events")
+        events = runtime_table("runtime_events")
         self.connection.execute(
             insert(events).values(
                 project_key=project_key,
@@ -342,15 +342,15 @@ class RuntimeLifecycleRepository:
             )
         )
         if command.compile_work is not None:
-            work_items = _table("runtime_work_items")
+            work_items = runtime_table("runtime_work_items")
             self.connection.execute(
                 insert(work_items).values(
-                    **_assignment_values(command.compile_work, due_at=command.due_at),
+                    **assignment_values(command.compile_work, due_at=command.due_at),
                     created_at=now,
                     updated_at=now,
                 )
             )
-        row = _one_mapping(
+        row = one_mapping(
             self.connection.execute(
                 select(runs).where(
                     runs.c.project_key == project_key, runs.c.run_id == command.run_id
@@ -368,7 +368,7 @@ class RuntimeLifecycleRepository:
         and activate the exact qualification through the existing owner.
         """
 
-        project_key = _scope_key(self.scope)
+        project_key = runtime_scope_key(self.scope)
         assignment = command.qualify_work.assignment if command.qualify_work else None
         if assignment is not None and (
             assignment.assignment_kind.value != "QUALIFY"
@@ -386,8 +386,8 @@ class RuntimeLifecycleRepository:
         )
         if not authority_digest:
             raise ExactBindingConflict("compiled Plan requires explicit authority")
-        plans = _table("runtime_plan_refs")
-        now = _utcnow()
+        plans = runtime_table("runtime_plan_refs")
+        now = utc_now()
         plan_values = {
             "plan_id": command.plan_id,
             "project_key": project_key,
@@ -404,7 +404,7 @@ class RuntimeLifecycleRepository:
             "authority_closure_digest": command.authority_closure_digest,
             "resource_closure_digest": command.resource_closure_digest,
         }
-        existing_plan = _one_mapping(
+        existing_plan = one_mapping(
             self.connection.execute(
                 select(plans).where(
                     plans.c.project_key == project_key,
@@ -424,7 +424,7 @@ class RuntimeLifecycleRepository:
                     updated_at=now,
                 )
             )
-        runs = _table("runtime_runs")
+        runs = runtime_table("runtime_runs")
         locked = self._lock_run(command.run_id)
         if (
             int(locked["revision"]) != command.expected_run_revision
@@ -452,7 +452,7 @@ class RuntimeLifecycleRepository:
         )
         _require_one(result, "attach Plan run CAS failed")
         self.connection.execute(
-            insert(_table("runtime_events")).values(
+            insert(runtime_table("runtime_events")).values(
                 project_key=project_key,
                 run_id=command.run_id,
                 seq=seq,
@@ -469,8 +469,8 @@ class RuntimeLifecycleRepository:
         )
         if command.qualify_work is not None:
             self.connection.execute(
-                insert(_table("runtime_work_items")).values(
-                    **_assignment_values(command.qualify_work, due_at=command.due_at),
+                insert(runtime_table("runtime_work_items")).values(
+                    **assignment_values(command.qualify_work, due_at=command.due_at),
                     created_at=now,
                     updated_at=now,
                 )
@@ -488,11 +488,11 @@ class RuntimeLifecycleRepository:
         """Bind a persisted QualifiedPlan to its run and reduce run readiness."""
 
         binding = command.binding
-        project_key = _scope_key(self.scope)
+        project_key = runtime_scope_key(self.scope)
         if binding.project_key != project_key or binding.run_id != command.run_id:
             raise ExactBindingConflict("qualification activation scope/run mismatch")
-        qualifications = _table("runtime_qualifications")
-        qualification = _one_mapping(
+        qualifications = runtime_table("runtime_qualifications")
+        qualification = one_mapping(
             self.connection.execute(
                 select(qualifications)
                 .where(
@@ -536,8 +536,8 @@ class RuntimeLifecycleRepository:
             reducer_event = RunEvent.REQUIRED_STEP_FAILED
         reduced = reduce_run_event(current, reducer_event, target, guard=True)
         seq = int(run["next_event_seq"])
-        now = _utcnow()
-        runs = _table("runtime_runs")
+        now = utc_now()
+        runs = runtime_table("runtime_runs")
         _require_one(
             self.connection.execute(
                 update(runs)
@@ -562,7 +562,7 @@ class RuntimeLifecycleRepository:
             "qualification activation run CAS failed",
         )
         self.connection.execute(
-            insert(_table("runtime_events")).values(
+            insert(runtime_table("runtime_events")).values(
                 project_key=project_key,
                 run_id=command.run_id,
                 seq=seq,
@@ -590,7 +590,7 @@ class RuntimeLifecycleRepository:
     def start_claim(
         self, claimed: ClaimedLifecycle, *, observed_at: datetime | None = None
     ) -> None:
-        now = observed_at or _utcnow()
+        now = observed_at or utc_now()
         rows = self._lock_claimed(claimed)
         run, step, work, attempt, reservation = rows
         if int(run["revision"]) != claimed.expected_run_revision:
@@ -612,16 +612,16 @@ class RuntimeLifecycleRepository:
         )
         _require_one(
             self.connection.execute(
-                update(_table("runtime_effect_attempts"))
+                update(runtime_table("runtime_effect_attempts"))
                 .where(
-                    _table("runtime_effect_attempts").c.project_key
-                    == _scope_key(self.scope),
-                    _table("runtime_effect_attempts").c.attempt_id
+                    runtime_table("runtime_effect_attempts").c.project_key
+                    == runtime_scope_key(self.scope),
+                    runtime_table("runtime_effect_attempts").c.attempt_id
                     == claimed.attempt_id,
-                    _table("runtime_effect_attempts").c.revision
+                    runtime_table("runtime_effect_attempts").c.revision
                     == claimed.expected_attempt_revision,
-                    _table("runtime_effect_attempts").c.disposition == "NOT_STARTED",
-                    _table("runtime_effect_attempts").c.claim_binding_digest
+                    runtime_table("runtime_effect_attempts").c.disposition == "NOT_STARTED",
+                    runtime_table("runtime_effect_attempts").c.claim_binding_digest
                     == claimed.claim.binding_digest,
                 )
                 .values(
@@ -674,7 +674,7 @@ class RuntimeLifecycleRepository:
         )
 
     def commit_outcome(self, outcome: TerminalOutcome) -> None:
-        now = outcome.observed_at or _utcnow()
+        now = outcome.observed_at or utc_now()
         claimed = outcome.claimed
         run, step, work, attempt, reservation = self._lock_claimed(claimed)
         if int(run["revision"]) != claimed.expected_run_revision:
@@ -726,7 +726,7 @@ class RuntimeLifecycleRepository:
                 "reducer terminal disposition differs from outcome"
             )
 
-        attempts = _table("runtime_effect_attempts")
+        attempts = runtime_table("runtime_effect_attempts")
         attempt_values: dict[str, object] = {
             "disposition": reduced.effect_disposition.value,
             "receipt_ref": outcome.receipt_ref,
@@ -741,7 +741,7 @@ class RuntimeLifecycleRepository:
             self.connection.execute(
                 update(attempts)
                 .where(
-                    attempts.c.project_key == _scope_key(self.scope),
+                    attempts.c.project_key == runtime_scope_key(self.scope),
                     attempts.c.attempt_id == claimed.attempt_id,
                     attempts.c.revision == claimed.expected_attempt_revision,
                     attempts.c.disposition == "IN_FLIGHT",
@@ -856,7 +856,7 @@ class RuntimeLifecycleRepository:
     ) -> ClaimedLifecycle:
         """Advance one VERIFY_ADMIT claim to COMMITTING in this caller UoW."""
 
-        now = observed_at or _utcnow()
+        now = observed_at or utc_now()
         run, step, work, attempt, reservation = self._lock_claimed(claimed)
         if int(run["revision"]) != claimed.expected_run_revision:
             raise StaleRevisionError("commit preparation run revision drift")
@@ -925,13 +925,13 @@ class RuntimeLifecycleRepository:
             raise ExactBindingConflict("run completion requires explicit steps")
         if not journal_succeeded_step_ids.issubset(required_step_ids):
             raise ExactBindingConflict("journal completion steps exceed required closure")
-        now = observed_at or _utcnow()
-        runs = _table("runtime_runs")
-        run = _one_mapping(
+        now = observed_at or utc_now()
+        runs = runtime_table("runtime_runs")
+        run = one_mapping(
             self.connection.execute(
                 select(runs)
                 .where(
-                    runs.c.project_key == _scope_key(self.scope),
+                    runs.c.project_key == runtime_scope_key(self.scope),
                     runs.c.run_id == run_id,
                 )
                 .with_for_update()
@@ -943,12 +943,12 @@ class RuntimeLifecycleRepository:
             return True
 
         if journal_succeeded_step_ids:
-            events = _table("runtime_events")
+            events = runtime_table("runtime_events")
             rows = tuple(
                 self.connection.execute(
                     select(events)
                     .where(
-                        events.c.project_key == _scope_key(self.scope),
+                        events.c.project_key == runtime_scope_key(self.scope),
                         events.c.run_id == run_id,
                         events.c.event_type == "ActiveChildrenSettled",
                     )
@@ -978,14 +978,14 @@ class RuntimeLifecycleRepository:
             if witnessed != set(journal_succeeded_step_ids):
                 raise ExactBindingConflict("journal completion witness is absent")
 
-        steps_table = _table("runtime_steps")
+        steps_table = runtime_table("runtime_steps")
         persisted_step_ids = required_step_ids - journal_succeeded_step_ids
         rows = (
             tuple(
                 self.connection.execute(
                     select(steps_table)
                     .where(
-                        steps_table.c.project_key == _scope_key(self.scope),
+                        steps_table.c.project_key == runtime_scope_key(self.scope),
                         steps_table.c.run_id == run_id,
                         steps_table.c.step_id.in_(tuple(sorted(persisted_step_ids))),
                     )
@@ -1034,7 +1034,7 @@ class RuntimeLifecycleRepository:
         updated = self.connection.execute(
             update(runs)
             .where(
-                runs.c.project_key == _scope_key(self.scope),
+                runs.c.project_key == runtime_scope_key(self.scope),
                 runs.c.run_id == run_id,
                 runs.c.state == RunState.RUNNING.value,
                 runs.c.revision == run["revision"],
@@ -1051,8 +1051,8 @@ class RuntimeLifecycleRepository:
         if getattr(updated, "rowcount", None) != 1:
             raise StaleRevisionError("run completion CAS failed")
         self.connection.execute(
-            insert(_table("runtime_events")).values(
-                project_key=_scope_key(self.scope),
+            insert(runtime_table("runtime_events")).values(
+                project_key=runtime_scope_key(self.scope),
                 run_id=run_id,
                 seq=seq,
                 event_type=RunEvent.RUN_COMPLETION_DERIVED.value,
@@ -1101,11 +1101,11 @@ class RuntimeLifecycleRepository:
         observed_at: datetime | None = None,
     ) -> None:
         """Propagate a journal-proven required child failure without a fake effect."""
-        from .first_specimen_activation import _active_child_rows, _require_program_plan_run, _traversal_plan_step
+        from .runtime_activation import _active_child_rows, _require_program_plan_run, _traversal_plan_step
         from .plans import PlanRepository
         from .programs import ProgramRepository
 
-        now = observed_at or _utcnow()
+        now = observed_at or utc_now()
         journal = RuntimeJournalRepository(self.connection, self.scope)
         parent = dict(journal.load_run(parent_run_id, for_update=True))
         child = dict(journal.load_run(child_run_id, for_update=True))
@@ -1115,11 +1115,11 @@ class RuntimeLifecycleRepository:
         plan = PlanRepository(self.connection, tables).get(self.scope, str(parent["plan_digest"]))
         _require_program_plan_run(program, plan, parent)
         _traversal_plan_step(plan, source_step_id)
-        events = _table("runtime_events")
+        events = runtime_table("runtime_events")
 
         def replay(run: Mapping[str, Any]) -> tuple[ReplayEvent, ...]:
             rows = self.connection.execute(select(events).where(
-                events.c.project_key == _scope_key(self.scope),
+                events.c.project_key == runtime_scope_key(self.scope),
                 events.c.run_id == run["run_id"],
             ).order_by(events.c.seq)).mappings().all()
             return tuple(
@@ -1137,9 +1137,9 @@ class RuntimeLifecycleRepository:
             raise ExactBindingConflict("active child failure cause is absent or ambiguous")
         cause = causes[0]
         if cause.step_id is not None:
-            authz = _table("runtime_step_authorizations")
-            authority = _one_mapping(self.connection.execute(select(authz).where(
-                authz.c.project_key == _scope_key(self.scope), authz.c.run_id == child_run_id,
+            authz = runtime_table("runtime_step_authorizations")
+            authority = one_mapping(self.connection.execute(select(authz).where(
+                authz.c.project_key == runtime_scope_key(self.scope), authz.c.run_id == child_run_id,
                 authz.c.step_id == cause.step_id,
                 authz.c.authorization_digest == cause.authority_digest,
             )))
@@ -1148,7 +1148,7 @@ class RuntimeLifecycleRepository:
             validate_authorization_row(dict(authority))
         elif cause.authority_digest != child["submission_authority_digest"]:
             raise ExactBindingConflict("nested child failure authority drift")
-        relations = _active_child_rows(self.connection, project_key=_scope_key(self.scope),
+        relations = _active_child_rows(self.connection, project_key=runtime_scope_key(self.scope),
                                       parent_run_id=parent_run_id, source_step_id=source_step_id)
         matches = tuple(row["event_metadata_json"] for row in relations
                         if row["event_metadata_json"].get("child_run_id") == child_run_id)
@@ -1175,7 +1175,7 @@ class RuntimeLifecycleRepository:
         if parent["state"] != "WAITING" or parent_projection.run_state is not RunState.WAITING:
             raise ExactBindingConflict("active child failure requires a waiting parent")
         event = ReplayEvent.from_content(
-            project_key=_scope_key(self.scope), run_id=parent_run_id,
+            project_key=runtime_scope_key(self.scope), run_id=parent_run_id,
             run_incarnation=str(parent["incarnation"]), seq=int(parent["next_event_seq"]),
             event_type="RequiredStepFailed", schema_version="mrw.runtime.event.required_step_failed.active_child.v2",
             step_id=None, attempt_id=None, metadata=metadata, payload_ref=None, payload_digest=None,
@@ -1202,7 +1202,7 @@ class RuntimeLifecycleRepository:
         unknown effect outcome is never fabricated as terminal.
         """
 
-        now = observed_at or _utcnow()
+        now = observed_at or utc_now()
         journal = RuntimeJournalRepository(self.connection, self.scope)
         run = journal.load_run(command.run_id, for_update=True)
         if int(run["revision"]) != command.expected_run_revision:
@@ -1313,11 +1313,11 @@ class RuntimeLifecycleRepository:
             PostgresAuthorityProvider,
         )
 
-        authz = _table("runtime_step_authorizations")
+        authz = runtime_table("runtime_step_authorizations")
         authz_result = self.connection.execute(
             select(authz)
             .where(
-                authz.c.project_key == _scope_key(self.scope),
+                authz.c.project_key == runtime_scope_key(self.scope),
                 authz.c.run_id == run_id,
             )
             .order_by(authz.c.step_id)
@@ -1340,11 +1340,11 @@ class RuntimeLifecycleRepository:
             )
 
     def _load_cancel_steps(self, run_id: str) -> tuple[Mapping[str, Any], ...]:
-        steps = _table("runtime_steps")
+        steps = runtime_table("runtime_steps")
         steps_result = self.connection.execute(
             select(steps)
             .where(
-                steps.c.project_key == _scope_key(self.scope),
+                steps.c.project_key == runtime_scope_key(self.scope),
                 steps.c.run_id == run_id,
             )
             .order_by(steps.c.step_id)
@@ -1357,7 +1357,7 @@ class RuntimeLifecycleRepository:
     def _cancel_step_row(
         self, step: Mapping[str, Any], state: StepState, *, now: datetime
     ) -> None:
-        steps = _table("runtime_steps")
+        steps = runtime_table("runtime_steps")
         values: dict[str, object] = {
             "state": state.value,
             "revision": int(step["revision"]) + 1,
@@ -1374,7 +1374,7 @@ class RuntimeLifecycleRepository:
             self.connection.execute(
                 update(steps)
                 .where(
-                    steps.c.project_key == _scope_key(self.scope),
+                    steps.c.project_key == runtime_scope_key(self.scope),
                     steps.c.run_id == step["run_id"],
                     steps.c.step_id == step["step_id"],
                     steps.c.state == step["state"],
@@ -1386,11 +1386,11 @@ class RuntimeLifecycleRepository:
         )
 
     def _cancel_queued_work_items(self, run_id: str, *, now: datetime) -> None:
-        work_items = _table("runtime_work_items")
+        work_items = runtime_table("runtime_work_items")
         self.connection.execute(
             update(work_items)
             .where(
-                work_items.c.project_key == _scope_key(self.scope),
+                work_items.c.project_key == runtime_scope_key(self.scope),
                 work_items.c.run_id == run_id,
                 work_items.c.state.in_(("PENDING", "READY", "WAITING")),
             )
@@ -1457,16 +1457,16 @@ class RuntimeLifecycleRepository:
             events=events,
         )
         if target_state == RunState.CANCELLED.value:
-            self._settle_active_parent_cancellations(run_id, now=_utcnow())
+            self._settle_active_parent_cancellations(run_id, now=utc_now())
 
     def _has_non_terminal_steps(self, run_id: str) -> bool:
-        steps = _table("runtime_steps")
+        steps = runtime_table("runtime_steps")
         terminal_values = tuple(state.value for state in TERMINAL_STEP_STATES)
-        row = _one_mapping(
+        row = one_mapping(
             self.connection.execute(
                 select(steps)
                 .where(
-                    steps.c.project_key == _scope_key(self.scope),
+                    steps.c.project_key == runtime_scope_key(self.scope),
                     steps.c.run_id == run_id,
                     steps.c.state.notin_(terminal_values),
                 )
@@ -1476,11 +1476,11 @@ class RuntimeLifecycleRepository:
         return row is not None
 
     def _cancel_active_children(self, run_id: str, *, now: datetime) -> bool:
-        events = _table("runtime_events")
+        events = runtime_table("runtime_events")
         rows = self.connection.execute(
             select(events.c.event_metadata_json)
             .where(
-                events.c.project_key == _scope_key(self.scope),
+                events.c.project_key == runtime_scope_key(self.scope),
                 events.c.run_id == run_id,
                 events.c.event_type == "ActiveChildMaterialized",
             )
@@ -1511,11 +1511,11 @@ class RuntimeLifecycleRepository:
     def _settle_active_parent_cancellations(
         self, child_run_id: str, *, now: datetime
     ) -> None:
-        events = _table("runtime_events")
+        events = runtime_table("runtime_events")
         rows = self.connection.execute(
             select(events.c.run_id)
             .where(
-                events.c.project_key == _scope_key(self.scope),
+                events.c.project_key == runtime_scope_key(self.scope),
                 events.c.event_type == "ActiveChildMaterialized",
                 events.c.event_metadata_json["child_run_id"].astext == child_run_id,
             )
@@ -1547,11 +1547,11 @@ class RuntimeLifecycleRepository:
             self._settle_active_parent_cancellations(parent_id, now=now)
 
     def _has_live_active_children(self, parent_run_id: str) -> bool:
-        events = _table("runtime_events")
-        runs = _table("runtime_runs")
+        events = runtime_table("runtime_events")
+        runs = runtime_table("runtime_runs")
         rows = self.connection.execute(
             select(events.c.event_metadata_json).where(
-                events.c.project_key == _scope_key(self.scope),
+                events.c.project_key == runtime_scope_key(self.scope),
                 events.c.run_id == parent_run_id,
                 events.c.event_type == "ActiveChildMaterialized",
             )
@@ -1559,10 +1559,10 @@ class RuntimeLifecycleRepository:
         terminal = {state.value for state in TERMINAL_RUN_STATES}
         for row in rows:
             child_id = str(row["event_metadata_json"]["child_run_id"])
-            child = _one_mapping(
+            child = one_mapping(
                 self.connection.execute(
                     select(runs.c.state).where(
-                        runs.c.project_key == _scope_key(self.scope),
+                        runs.c.project_key == runtime_scope_key(self.scope),
                         runs.c.run_id == child_id,
                     )
                 )
@@ -1572,12 +1572,12 @@ class RuntimeLifecycleRepository:
         return False
 
     def _lock_run(self, run_id: str) -> Mapping[str, Any]:
-        table = _table("runtime_runs")
-        row = _one_mapping(
+        table = runtime_table("runtime_runs")
+        row = one_mapping(
             self.connection.execute(
                 select(table)
                 .where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.run_id == run_id,
                 )
                 .with_for_update()
@@ -1588,8 +1588,8 @@ class RuntimeLifecycleRepository:
         return row
 
     def _lock_claimed(self, claimed: ClaimedLifecycle) -> tuple[Mapping[str, Any], ...]:
-        project_key = _scope_key(self.scope)
-        if claimed.claim.lease_expires_at <= _utcnow():
+        project_key = runtime_scope_key(self.scope)
+        if claimed.claim.lease_expires_at <= utc_now():
             raise ExactBindingConflict("claim lease has expired")
         run = self._lock_run(claimed.run_id)
         lookups = (
@@ -1603,11 +1603,11 @@ class RuntimeLifecycleRepository:
         )
         rows: list[Mapping[str, Any]] = [run]
         for name, *pairs in lookups:
-            table = _table(name)
+            table = runtime_table(name)
             statement = select(table).where(table.c.project_key == project_key)
             for column, value in pairs:
                 statement = statement.where(getattr(table.c, column) == value)
-            row = _one_mapping(self.connection.execute(statement.with_for_update()))
+            row = one_mapping(self.connection.execute(statement.with_for_update()))
             if row is None:
                 raise RecordNotFound(f"claimed lifecycle row not found: {name}")
             rows.append(row)
@@ -1626,7 +1626,7 @@ class RuntimeLifecycleRepository:
         output_digest: str | None = None,
         failure_digest: str | None = None,
     ) -> None:
-        table = _table("runtime_steps")
+        table = runtime_table("runtime_steps")
         values: dict[str, object] = {
             "state": target_state,
             "revision": expected_revision + 1,
@@ -1647,7 +1647,7 @@ class RuntimeLifecycleRepository:
             self.connection.execute(
                 update(table)
                 .where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.run_id == claimed.run_id,
                     table.c.step_id == claimed.step_id,
                     table.c.state == expected_state,
@@ -1662,12 +1662,12 @@ class RuntimeLifecycleRepository:
     def _touch_work(
         self, claimed: ClaimedLifecycle, *, expected_revision: int, now: datetime
     ) -> None:
-        table = _table("runtime_work_items")
+        table = runtime_table("runtime_work_items")
         _require_one(
             self.connection.execute(
                 update(table)
                 .where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.work_item_id == claimed.work_item_id,
                     table.c.state == "CLAIMED",
                     table.c.revision == expected_revision,
@@ -1688,12 +1688,12 @@ class RuntimeLifecycleRepository:
         failure_ref: str | None,
         now: datetime,
     ) -> None:
-        table = _table("runtime_work_items")
+        table = runtime_table("runtime_work_items")
         _require_one(
             self.connection.execute(
                 update(table)
                 .where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.work_item_id == claimed.work_item_id,
                     table.c.state == "CLAIMED",
                     table.c.revision == expected_revision,
@@ -1722,12 +1722,12 @@ class RuntimeLifecycleRepository:
         reason: str,
         now: datetime,
     ) -> None:
-        table = _table("runtime_resource_reservations")
+        table = runtime_table("runtime_resource_reservations")
         _require_one(
             self.connection.execute(
                 update(table)
                 .where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.reservation_id == claimed.reservation_id,
                     table.c.attempt_id == claimed.attempt_id,
                     table.c.state == "ACTIVE",
@@ -1746,7 +1746,7 @@ class RuntimeLifecycleRepository:
         )
 
     def _terminal_staged(self, outcome: TerminalOutcome, *, now: datetime) -> None:
-        table = _table("runtime_staged_artifacts")
+        table = runtime_table("runtime_staged_artifacts")
         assert outcome.staged_artifact_id is not None
         assert outcome.expected_staged_revision is not None
         expected_state = "VERIFIED" if outcome.admit_staged else "STAGED"
@@ -1755,7 +1755,7 @@ class RuntimeLifecycleRepository:
             self.connection.execute(
                 update(table)
                 .where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.artifact_id == outcome.staged_artifact_id,
                     table.c.run_id == outcome.claimed.run_id,
                     table.c.revision == outcome.expected_staged_revision,
@@ -1778,12 +1778,12 @@ class RuntimeLifecycleRepository:
         expected_step_revision: int,
         now: datetime,
     ) -> None:
-        table = _table("runtime_work_items")
-        row = _one_mapping(
+        table = runtime_table("runtime_work_items")
+        row = one_mapping(
             self.connection.execute(
                 select(table)
                 .where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.assignment_kind == "RECONCILE",
                     table.c.reconciliation_attempt_id == attempt_id,
                     table.c.state == "PENDING",
@@ -1802,7 +1802,7 @@ class RuntimeLifecycleRepository:
             self.connection.execute(
                 update(table)
                 .where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.work_item_id == row["work_item_id"],
                     table.c.state == "PENDING",
                     table.c.revision == row["revision"],
@@ -1833,7 +1833,7 @@ class RuntimeLifecycleRepository:
         payload_ref: str | None = None,
         payload_digest: str | None = None,
     ) -> None:
-        runs = _table("runtime_runs")
+        runs = runtime_table("runtime_runs")
         seq = int(run["next_event_seq"])
         revision = int(run["revision"])
         event_metadata = dict(metadata)
@@ -1854,7 +1854,7 @@ class RuntimeLifecycleRepository:
             self.connection.execute(
                 update(runs)
                 .where(
-                    runs.c.project_key == _scope_key(self.scope),
+                    runs.c.project_key == runtime_scope_key(self.scope),
                     runs.c.run_id == run_id,
                     runs.c.revision == revision,
                     runs.c.next_event_seq == seq,
@@ -1875,8 +1875,8 @@ class RuntimeLifecycleRepository:
             "run/event allocator CAS failed",
         )
         self.connection.execute(
-            insert(_table("runtime_events")).values(
-                project_key=_scope_key(self.scope),
+            insert(runtime_table("runtime_events")).values(
+                project_key=runtime_scope_key(self.scope),
                 run_id=run_id,
                 seq=seq,
                 event_type=event_type,
@@ -1893,7 +1893,7 @@ class RuntimeLifecycleRepository:
         )
         if required_step_failed:
             source_event_digest = runtime_event_digest(
-                project_key=_scope_key(self.scope),
+                project_key=runtime_scope_key(self.scope),
                 run_id=run_id,
                 run_incarnation=str(run["incarnation"]),
                 seq=seq,
@@ -1907,8 +1907,8 @@ class RuntimeLifecycleRepository:
                 authority_digest=authority_digest,
             )
             self.connection.execute(
-                insert(_table("runtime_events")).values(
-                    project_key=_scope_key(self.scope),
+                insert(runtime_table("runtime_events")).values(
+                    project_key=runtime_scope_key(self.scope),
                     run_id=run_id,
                     seq=seq + 1,
                     event_type=RunEvent.REQUIRED_STEP_FAILED.value,
@@ -1932,7 +1932,7 @@ class RuntimeLifecycleRepository:
             )
 
 
-def _assignment_values(
+def assignment_values(
     envelope: AssignmentEnvelope, *, due_at: datetime
 ) -> dict[str, object]:
     recovery = envelope.recovery_binding
@@ -2026,4 +2026,5 @@ __all__ = [
     "RuntimeLifecycleRepository",
     "SubmitRun",
     "TerminalOutcome",
+    "assignment_values",
 ]

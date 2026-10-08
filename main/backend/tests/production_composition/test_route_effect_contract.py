@@ -17,7 +17,11 @@ if str(BACKEND_ROOT) not in sys.path:
 if str(REPOSITORY_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
 
-from app.composition.production import load_production_route_bindings
+from app.composition.production import (
+    ProductionEndpointBinding,
+    ProviderSelection,
+    load_production_route_bindings,
+)
 from app.production_contract import (
     EffectAdmission,
     EffectClass,
@@ -28,6 +32,33 @@ from app.production_contract import (
 
 
 pytestmark = pytest.mark.unit
+
+
+def test_runtime_validators_preserve_supported_subclass_inputs() -> None:
+    class ReadEffectContract(EndpointEffectContract):
+        pass
+
+    class PayloadSize(int):
+        pass
+
+    contract = ReadEffectContract(effect_class=EffectClass.READ)
+    binding = ProductionEndpointBinding(
+        route_template="/subclass",
+        domain="test",
+        operation="test.read",
+        metrics_label="test:subclass",
+        methods=("GET",),
+        effect_contract=contract,
+    )
+    selection = ProviderSelection(
+        provider_id="provider-1",
+        request_payload_bytes=PayloadSize(7),
+    )
+
+    assert binding.effect_contract is contract
+    assert selection.request_payload_bytes == 7
+    with pytest.raises(ValueError, match="non-negative integer"):
+        ProviderSelection(provider_id="provider-1", request_payload_bytes=True)
 
 
 @pytest.mark.parametrize(
@@ -155,6 +186,22 @@ def test_conditional_and_filesystem_effects_are_conservative_by_default() -> Non
     assert filesystem.admitted is False
 
 
+def test_expanded_declaration_delegates_complete_kwargs_to_constructor() -> None:
+    read = EndpointEffectContract.from_expanded_declaration(
+        {"effect_class": "read"}
+    )
+    filesystem = EndpointEffectContract.from_expanded_declaration(
+        {"effect_class": "filesystem_subprocess"}
+    )
+
+    assert read == EndpointEffectContract(effect_class="read")
+    assert filesystem == EndpointEffectContract(effect_class="filesystem_subprocess")
+    with pytest.raises(TypeError, match="unexpected"):
+        EndpointEffectContract.from_expanded_declaration(
+            {"effect_class": "read", "unexpected": None}
+        )
+
+
 def test_v3_registry_rejects_missing_or_extra_effect_fields(tmp_path: Path) -> None:
     entry = {
         "route_template": "/example",
@@ -183,6 +230,39 @@ def test_v3_registry_rejects_missing_or_extra_effect_fields(tmp_path: Path) -> N
     legacy, = load_production_route_bindings(valid)
     assert legacy.effect_contract == EndpointEffectContract(effect_class="read")
     assert legacy.metrics_label == "legacy-custom-label"
+
+    default_admission = tmp_path / "default-admission-v3.json"
+    default_payload = json.loads(json.dumps(payload))
+    default_payload["bindings"][0]["effect_contract"]["admission"] = None
+    default_admission.write_text(json.dumps(default_payload), encoding="utf-8")
+    default_binding, = load_production_route_bindings(default_admission)
+    assert default_binding.effect_contract.admission is EffectAdmission.ADMITTED
+
+    filesystem_default = tmp_path / "filesystem-default-admission-v3.json"
+    filesystem_payload = json.loads(json.dumps(default_payload))
+    filesystem_payload["bindings"][0]["effect_contract"][
+        "effect_class"
+    ] = "filesystem_subprocess"
+    filesystem_default.write_text(json.dumps(filesystem_payload), encoding="utf-8")
+    filesystem_binding, = load_production_route_bindings(filesystem_default)
+    assert (
+        filesystem_binding.effect_contract.admission
+        is EffectAdmission.BLOCKED_UNTIL_EFFECT_BINDING
+    )
+
+    invalid_provider_class = tmp_path / "invalid-provider-class-v3.json"
+    invalid_provider_payload = json.loads(json.dumps(payload))
+    invalid_provider_payload["bindings"][0]["effect_contract"][
+        "provider_class"
+    ] = "not-a-provider-class"
+    invalid_provider_class.write_text(
+        json.dumps(invalid_provider_payload),
+        encoding="utf-8",
+    )
+    with pytest.raises(RouteEffectContractError) as provider_exc:
+        load_production_route_bindings(invalid_provider_class)
+    assert provider_exc.value.code == "provider_class_mismatch"
+
     missing = tmp_path / "missing.json"
     missing_payload = json.loads(json.dumps(payload))
     del missing_payload["bindings"][0]["effect_contract"]["provider_port"]

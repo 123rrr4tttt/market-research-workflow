@@ -37,7 +37,7 @@ from app.successor_runtime.runtime.node import (
 from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
 from app.successor_runtime.runtime.reconciliation import ReconciliationState
 from app.successor_runtime.runtime.transitions import EffectDisposition
-from app.successor_runtime.substrate.postgres.first_specimen_reconciliation_handler import (
+from app.successor_runtime.substrate.postgres.effect_reconciliation import (
     BatchBusinessBrokerReadbackFacade,
     BatchBusinessNonStartUnprovable,
     BatchBusinessReadback,
@@ -54,7 +54,7 @@ from app.successor_runtime.substrate.postgres.models import (
 )
 from app.successor_runtime.substrate.postgres.runtime_lifecycle import (
     AssignmentEnvelope,
-    _assignment_values,
+    assignment_values,
 )
 from app.successor_runtime.substrate.postgres.session import compute_scope_digest
 
@@ -380,7 +380,7 @@ def _seed_wait(
         recovery_binding=recovery,
         authoritative_readback_profile_ref=recovery.authoritative_readback_profile_ref,
     )
-    work_values = _assignment_values(envelope, due_at=NOW)
+    work_values = assignment_values(envelope, due_at=NOW)
     work_values.update(
         state="WAITING",
         wait_reason="BACKOFF",

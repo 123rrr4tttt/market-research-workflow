@@ -39,7 +39,7 @@ from app.successor_runtime.runtime.ports import (
 from .runtime_journal import (
     ExactBindingConflict,
     _mapping_rows,
-    _table,
+    runtime_table,
     validate_runtime_assignment_row,
 )
 
@@ -248,7 +248,7 @@ class DeploymentBacklogRepository:
         *,
         observed_at: datetime,
     ) -> DeploymentBacklogReport:
-        work = _table("runtime_work_items")
+        work = runtime_table("runtime_work_items")
         rows = _mapping_rows(
             self.connection.execute(
                 select(work).where(
@@ -313,7 +313,7 @@ class DeploymentBacklogRepository:
         to_wait_reason: str | None,
         observed_at: datetime,
     ) -> bool:
-        work = _table("runtime_work_items")
+        work = runtime_table("runtime_work_items")
         predicates = [
             work.c.work_item_id == row["work_item_id"],
             work.c.project_key == row["project_key"],

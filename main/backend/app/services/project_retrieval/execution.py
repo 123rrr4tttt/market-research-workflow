@@ -135,14 +135,14 @@ from app.successor_runtime.language.transforms import (
 from app.successor_runtime.research.object_types import ObjectType
 from app.successor_runtime.runtime.activation import TraversalMaterialization
 from app.successor_runtime.runtime.ports import RuntimeScope
-from app.successor_runtime.substrate.postgres.first_specimen_activation import (
+from app.successor_runtime.substrate.postgres.runtime_activation import (
     ActiveChildMaterializer,
     ActiveChildSubmission,
     ActiveChildMaterializationReceipt,
     ActiveChildTerminalObservation,
     ActivationTrigger,
-    FirstSpecimenActivationCatalog,
-    PostgresFirstSpecimenActivationBindingAdapter,
+    OperationActivationCatalog,
+    PostgresRuntimeActivationBindingAdapter,
     materialize_active_children,
 )
 from app.successor_runtime.substrate.postgres.models import (
@@ -1634,14 +1634,14 @@ class RetrievalWorkActiveChildMaterializer:
 
     def __init__(
         self,
-        activation_catalog: FirstSpecimenActivationCatalog,
+        activation_catalog: OperationActivationCatalog,
         *,
         active_child_materializer_factory: Callable[
-            [FirstSpecimenActivationCatalog], ActiveChildMaterializer
+            [OperationActivationCatalog], ActiveChildMaterializer
         ]
         | None = None,
         child_activation_catalog_factory: Callable[
-            [Connection, RuntimeScope, ProgramSpec], FirstSpecimenActivationCatalog
+            [Connection, RuntimeScope, ProgramSpec], OperationActivationCatalog
         ]
         | None = None,
     ) -> None:
@@ -1692,7 +1692,7 @@ class RetrievalWorkActiveChildMaterializer:
         if not candidate_atoms or len(budget_refs) != 1:
             raise_retrieval_contract_error(ValueError, 'retrieval work Program lacks one shared root budget')
         budget_ref = next(iter(budget_refs))
-        reader = PostgresFirstSpecimenActivationBindingAdapter()
+        reader = PostgresRuntimeActivationBindingAdapter()
         budget_bytes = reader.read_value_bytes(connection, scope, tables, budget_ref)
         budget = build_retrieval_candidate_runtime_definition().budget_codec.decode_payload(
             cast(CanonicalJsonObject, json.loads(budget_bytes))

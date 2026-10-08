@@ -12,7 +12,7 @@ from functorial_kit.contributions import (
 from app.successor_runtime.capabilities.workflow_common import (
     WORKFLOW_DEFINITION_FAILURES,
 )
-from app.successor_runtime.assembly.installed_operation import installed_operation_contribution_catalog
+from app.composition.installed_operation import installed_operation_contribution_catalog
 
 from mrw_functorial_kit.contributions.source import source_contribution_catalog
 from mrw_functorial_kit.contributions.batch import batch_contribution_catalog

@@ -2507,9 +2507,9 @@ def test_step_qualification_reads_real_grants_without_minting_authority(
         )) == 0
         from dataclasses import replace
         from app.successor_runtime.language.transforms import TransformRegistry
-        from app.successor_runtime.substrate.postgres.first_specimen_activation import (
-            ActivationCatalogEntry, ActivationTrigger, FirstSpecimenActivationCatalog,
-            PostgresFirstSpecimenActivationBindingAdapter, submit_compiled_program,
+        from app.successor_runtime.substrate.postgres.runtime_activation import (
+            ActivationCatalogEntry, ActivationTrigger, OperationActivationCatalog,
+            PostgresRuntimeActivationBindingAdapter, submit_compiled_program,
         )
         from app.successor_runtime.substrate.postgres.runtime_journal import validate_runtime_assignment_row
         from app.successor_runtime.substrate.postgres.idempotency import IdempotencyBinding
@@ -2525,7 +2525,7 @@ def test_step_qualification_reads_real_grants_without_minting_authority(
         ).with_digest()
         plan = compile_program(program, OPERATION_CATALOG, operation_contracts=OPERATION_REGISTRY)
         step = next(step for step in plan.ordered_steps if step.step_kind == "EFFECT")
-        activation_catalog = FirstSpecimenActivationCatalog(
+        activation_catalog = OperationActivationCatalog(
             entries=(ActivationCatalogEntry(
                 operation_contract_digest=OPERATION_CONTRACTS[0].ref.contract_digest,
                 interpreter_binding=_interpreter_binding(STEP_ONE_ID),
@@ -2571,7 +2571,7 @@ def test_step_qualification_reads_real_grants_without_minting_authority(
         assert len(work_items) == 1
         assert work_items[0]["assignment_kind"] == "INTERPRET"
         assert work_items[0]["run_id"] == "submitted-run"
-        adapter = PostgresFirstSpecimenActivationBindingAdapter()
+        adapter = PostgresRuntimeActivationBindingAdapter()
         assignment = validate_runtime_assignment_row(work_items[0])
         assert adapter.read_value_bytes(connection, live_database.runtime_scope,
                                         live_database.project_tables, refs[-1]) == values[-1][1]
@@ -2636,7 +2636,7 @@ def test_installed_dispatch_node_persists_ack_and_never_retries_unknown(
         AuthorityOperationScope, AuthorityResourceCeiling, AuthorityResourceLimit,
     )
     from app.successor_runtime.substrate.postgres.authority import AuthorityGrant
-    from app.successor_runtime.substrate.postgres.first_specimen_activation import (
+    from app.successor_runtime.substrate.postgres.runtime_activation import (
         ActivationTrigger, compiled_submission_request_digest, submit_compiled_program,
     )
     from app.successor_runtime.substrate.postgres.idempotency import IdempotencyBinding
@@ -2806,8 +2806,8 @@ def test_installed_candidate_node_uses_original_search_kernel(live_database: Liv
     from app.successor_runtime.runtime.authority_grants import AuthorityOperationScope, AuthorityResourceCeiling, AuthorityResourceLimit
     from app.successor_runtime.runtime.resources import ResourceClass, ResourcePolicySnapshot
     from app.successor_runtime.substrate.postgres.authority import AuthorityGrant, CapabilityAuthority
-    from app.successor_runtime.substrate.postgres.first_specimen_activation import (
-        ActivationTrigger, PostgresFirstSpecimenActivationBindingAdapter,
+    from app.successor_runtime.substrate.postgres.runtime_activation import (
+        ActivationTrigger, PostgresRuntimeActivationBindingAdapter,
         compiled_submission_request_digest, submit_compiled_program,
     )
     from app.successor_runtime.substrate.postgres.idempotency import IdempotencyBinding
@@ -2901,7 +2901,7 @@ def test_installed_candidate_node_uses_original_search_kernel(live_database: Liv
         first_work = connection.execute(sa.select(work).where(work.c.run_id == "candidate-run",
             work.c.step_id == effect_steps[0].step_id)).mappings().one()
         work_id = first_work["work_item_id"]
-        adapter = PostgresFirstSpecimenActivationBindingAdapter()
+        adapter = PostgresRuntimeActivationBindingAdapter()
         assignment = validate_runtime_assignment_row(first_work)
         descriptor = adapter.load_exact(connection, assignment, live_database.runtime_scope, live_database.project_tables)
         assert descriptor.static_atom_input_refs == (first.budget_ref, first.invocation_ref)

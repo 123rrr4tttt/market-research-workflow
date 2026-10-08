@@ -21,7 +21,7 @@ from app.successor_runtime.runtime.ports import (
 )
 from app.successor_runtime.substrate.postgres.composition_root import (
     InstalledMaterialReadHandler,
-    compose_postgres_first_specimen_runtime,
+    compose_postgres_runtime,
 )
 from app.successor_runtime.substrate.postgres.deployment_backlog import (
     DeploymentBacklogRepository,
@@ -102,7 +102,7 @@ def _compose_old_node(
     old_snapshot: DeploymentInstallationSnapshot,
     installation: InstalledMaterialReadHandler,
 ):
-    return compose_postgres_first_specimen_runtime(
+    return compose_postgres_runtime(
         engine=database.engine,
         identity=NodeIdentity(
             node_id=node_id,

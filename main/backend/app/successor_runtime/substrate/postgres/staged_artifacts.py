@@ -15,11 +15,11 @@ from .runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
     StaleRevisionError,
-    _one_mapping,
-    _project_values,
-    _scope_key,
-    _table,
-    _utcnow,
+    one_mapping,
+    project_values,
+    runtime_scope_key,
+    runtime_table,
+    utc_now,
 )
 
 StagedArtifactState = Literal["STAGED", "VERIFIED", "ADMITTED", "REJECTED", "ORPHANED"]
@@ -67,23 +67,23 @@ class StagedArtifactRepository:
         self.scope = scope
 
     def stage(self, binding: StagedArtifactBinding) -> Mapping[str, object]:
-        table = _table("runtime_staged_artifacts")
-        current = _one_mapping(
+        table = runtime_table("runtime_staged_artifacts")
+        current = one_mapping(
             self.connection.execute(
                 select(table).where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.artifact_id == binding.artifact_id,
                 )
             )
         )
-        values = _project_values(self.scope, binding.values())
+        values = project_values(self.scope, binding.values())
         if current is not None:
             if current["state"] != "STAGED" or any(
                 current[field] != expected for field, expected in values.items()
             ):
                 raise ExactBindingConflict("staged artifact identity was rebound")
             return current
-        now = _utcnow()
+        now = utc_now()
         self.connection.execute(
             insert(table).values(
                 **values,
@@ -98,14 +98,14 @@ class StagedArtifactRepository:
     def load(
         self, artifact_id: str, *, for_update: bool = False
     ) -> Mapping[str, object]:
-        table = _table("runtime_staged_artifacts")
+        table = runtime_table("runtime_staged_artifacts")
         statement = select(table).where(
-            table.c.project_key == _scope_key(self.scope),
+            table.c.project_key == runtime_scope_key(self.scope),
             table.c.artifact_id == artifact_id,
         )
         if for_update:
             statement = statement.with_for_update()
-        row = _one_mapping(self.connection.execute(statement))
+        row = one_mapping(self.connection.execute(statement))
         if row is None:
             raise RecordNotFound(f"staged artifact not found: {artifact_id}")
         return row
@@ -129,18 +129,18 @@ class StagedArtifactRepository:
         }
         if (expected_state, target_state) not in allowed:
             raise ValueError("invalid staged artifact lifecycle transition")
-        table = _table("runtime_staged_artifacts")
+        table = runtime_table("runtime_staged_artifacts")
         values: dict[str, object] = {
             "state": target_state,
             "revision": expected_revision + 1,
-            "updated_at": _utcnow(),
+            "updated_at": utc_now(),
         }
         if receipt_ref is not None:
             values["receipt_ref"] = receipt_ref
         result = self.connection.execute(
             update(table)
             .where(
-                table.c.project_key == _scope_key(self.scope),
+                table.c.project_key == runtime_scope_key(self.scope),
                 table.c.artifact_id == artifact_id,
                 table.c.state == expected_state,
                 table.c.revision == expected_revision,

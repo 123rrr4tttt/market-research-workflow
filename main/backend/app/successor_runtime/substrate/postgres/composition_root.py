@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Annotated, Any, Protocol, Self
+from typing import Protocol, Self
 
 from sqlalchemy import select
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection, Engine, RowMapping
 
 from app.successor_runtime.capabilities.first_specimen_interpreters import (
     FirstSpecimenInterpreters,
@@ -36,6 +36,7 @@ from app.successor_runtime.runtime.node import (
     NodeIdentity,
     RuntimeExecutionContext,
     RuntimeHandler,
+    RuntimeClaim,
     RuntimeNode,
     RuntimeNodeProfile,
     RuntimeNodeProtocol,
@@ -71,7 +72,7 @@ class RuntimeCompositionError(RuntimeError):
 
 
 class _ReadUow(Protocol):
-    connection: Any
+    connection: Connection
 
     def __enter__(self) -> Self: ...
 
@@ -207,7 +208,7 @@ class PostgresCancellationAuthorityGuard:
     def require_not_cancelled(
         self,
         *,
-        claim: Any,
+        claim: RuntimeClaim,
         observed_at: datetime,
     ) -> None:
         assignment = claim.assignment
@@ -224,7 +225,7 @@ class PostgresCancellationAuthorityGuard:
     def require_current_authority(
         self,
         *,
-        claim: Any,
+        claim: RuntimeClaim,
         expected_authority_digest: str,
         expected_authority_epoch: int,
         observed_at: datetime,
@@ -354,7 +355,7 @@ class PostgresCancellationAuthorityGuard:
 
     @staticmethod
     def _require_materializer_capability_authority(
-        connection: Any,
+        connection: Connection,
         assignment: RuntimeAssignment,
         *,
         expected_authority_epoch: int,
@@ -385,7 +386,7 @@ class PostgresCancellationAuthorityGuard:
             )
 
     @staticmethod
-    def _run(connection: Any, assignment: RuntimeAssignment) -> Any:
+    def _run(connection: Connection, assignment: RuntimeAssignment) -> RowMapping:
         runs = PUBLIC_TABLES["runtime_runs"]
         run = (
             connection.execute(
@@ -410,8 +411,8 @@ class PostgresCancellationAuthorityGuard:
 
     @staticmethod
     def _scope(
-        connection: Any,
-        run: Any,
+        connection: Connection,
+        run: RowMapping,
         assignment: RuntimeAssignment,
         actor_id: str,
     ) -> RuntimeScope:
@@ -434,7 +435,7 @@ class SystemClock(Clock):
 
 
 @dataclass(frozen=True, slots=True)
-class PostgresFirstSpecimenRuntime:
+class PostgresRuntimeComposition:
     """Inspectable production composition; ``node`` is the executable root."""
 
     node: RuntimeNode
@@ -446,7 +447,7 @@ class PostgresFirstSpecimenRuntime:
     backlog_claims: PostgresBacklogAwareClaimPort
 
 
-def compose_postgres_first_specimen_runtime(
+def compose_postgres_runtime(
     *,
     engine: Engine,
     identity: NodeIdentity,
@@ -459,7 +460,7 @@ def compose_postgres_first_specimen_runtime(
     available_installations: tuple[DeploymentInstallationSnapshot, ...] | None = None,
     terminal_hook: TerminalCommitHook | None = None,
     clock: Clock | None = None,
-) -> PostgresFirstSpecimenRuntime:
+) -> PostgresRuntimeComposition:
     """Wire one same-form RuntimeNode over fresh PostgreSQL UoWs."""
 
     uow_factory = runtime_uow_factory(engine)
@@ -499,7 +500,7 @@ def compose_postgres_first_specimen_runtime(
         cancellation=authority,
         clock=clock or SystemClock(),
     )
-    return PostgresFirstSpecimenRuntime(
+    return PostgresRuntimeComposition(
         node=node,
         lifecycle=lifecycle,
         replay=replay,
@@ -510,27 +511,14 @@ def compose_postgres_first_specimen_runtime(
     )
 
 
-def build_postgres_first_specimen_runtime_node(
-    **kwargs: Any,
-) -> Annotated[
-    RuntimeNode,
-    "kit:prepared-command effect_boundary=postgres.first_specimen_runtime_node "
-    "witness=test:test_w08c_postgres_builder_metadata_preserves_return_types",
-]:
-    """Convenience entry point for process startup."""
-
-    return compose_postgres_first_specimen_runtime(**kwargs).node
-
-
 __all__ = [
     "DeploymentInstallationSnapshot",
     "ExactInstalledHandlerResolver",
     "InstalledMaterialReadHandler",
     "PostgresCancellationAuthorityGuard",
-    "PostgresFirstSpecimenRuntime",
+    "PostgresRuntimeComposition",
     "PostgresMaterialReadHandler",
     "RuntimeCompositionError",
     "SystemClock",
-    "build_postgres_first_specimen_runtime_node",
-    "compose_postgres_first_specimen_runtime",
+    "compose_postgres_runtime",
 ]

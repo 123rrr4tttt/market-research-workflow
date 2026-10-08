@@ -25,7 +25,8 @@ from app.successor_runtime.capabilities.workflow_native_contribution import (
     build_workflow_runtime_program,
     validate_workflow_context_bound_inputs,
 )
-from app.successor_runtime.assembly.installed_operation import (
+from app.composition.installed_operation import (
+    Dispatch,
     installed_operation_catalog,
     installed_operation_contribution_catalog,
     installed_operation_for_ref,
@@ -268,18 +269,30 @@ def test_workflow_runtime_validation_uses_typed_failure_lift() -> None:
 
 def test_runtime_handler_assembly_rejects_drift_without_effect(monkeypatch: pytest.MonkeyPatch) -> None:
     from importlib import import_module
+    from types import SimpleNamespace
+    from typing import cast
 
-    from app.successor_runtime.assembly.base import successor_binding
+    from sqlalchemy.engine import Engine
+
+    from app.successor_runtime.assembly.base import runtime_binding
     from app.successor_runtime.assembly.workflow_assembly import assemble_workflow_runtime_handler
+    from app.successor_runtime.capabilities.batch_business import BrokerBusinessReadback
     from app.successor_runtime.capabilities.codecs import dataclass_codec
     from app.successor_runtime.research.object_types import ObjectType
+    from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
+    from app.successor_runtime.substrate.postgres.runtime_activation import (
+        ActivationCatalogEntry,
+    )
 
     workflow_kernel = import_module("app.services.workflow_graph.runtime")
+    node_adapter = import_module(
+        "app.successor_runtime.substrate.postgres.node_adapter"
+    )
     definition = build_workflow_runtime_definition()
     operation = definition.operation_for_node_type("join")
     other = definition.operation_for_node_type("llm_call")
     contract, profiles, codec = operation.contract, operation.profiles, operation.context_codec
-    binding = successor_binding(
+    binding = runtime_binding(
         operation_contract_digest=contract.ref.contract_digest,
         interpreter_profile_digest=profiles.interpreter.ref.profile_digest,
         deployment_catalog_digest="a" * 64, project_scope_digest="b" * 64, resource_policy_epoch=1,
@@ -303,16 +316,38 @@ def test_runtime_handler_assembly_rejects_drift_without_effect(monkeypatch: pyte
     def assemble(candidate):
         return assemble_with(candidate, binding)
 
-    handler = assemble(operation)
-    assert handler.contract == contract
-    assert calls == []
     join_native = installed_operation_for_ref(
         workflow_installed_operation_catalog(definition), contract.ref,
     )
     assert join_native is not None
-    accepted = validate_installed_operation(join_native.definition, handler)
+    monkeypatch.setattr(
+        node_adapter,
+        "runtime_uow_factory",
+        lambda _engine: lambda: (_ for _ in ()).throw(AssertionError("UoW opened")),
+    )
+    scope = RuntimeScope(
+        project_scope=ProjectScopeRef(
+            project_key="project-1",
+            resolved_schema="project_1",
+            project_registry_revision=1,
+            incarnation="test",
+            scope_digest="b" * 64,
+        ),
+        actor_id="actor-1",
+    )
+    factory_handler = join_native.assemble((
+        cast(Engine, object()),
+        scope,
+        cast(ActivationCatalogEntry, SimpleNamespace(interpreter_binding=binding)),
+        cast(Dispatch, lambda _payload: None),
+        cast(BrokerBusinessReadback, object()),
+    ))
+    assert not isinstance(factory_handler, Failure)
+    assert factory_handler.contract == contract
+    assert calls == []
+    accepted = validate_installed_operation(join_native.definition, factory_handler)
     assert isinstance(accepted, BindingAccepted)
-    other_binding = successor_binding(
+    other_binding = runtime_binding(
         operation_contract_digest=other.contract.ref.contract_digest,
         interpreter_profile_digest=other.profiles.interpreter.ref.profile_digest,
         deployment_catalog_digest="a" * 64, project_scope_digest="b" * 64, resource_policy_epoch=1,
@@ -322,7 +357,7 @@ def test_runtime_handler_assembly_rejects_drift_without_effect(monkeypatch: pyte
         join_native.definition, assemble_with(other, other_binding),
     )
     assert isinstance(cross_definition, BindingRejected)
-    wrong_profile_binding = successor_binding(
+    wrong_profile_binding = runtime_binding(
         operation_contract_digest=contract.ref.contract_digest,
         interpreter_profile_digest=other.profiles.interpreter.ref.profile_digest,
         deployment_catalog_digest="a" * 64, project_scope_digest="b" * 64, resource_policy_epoch=1,
@@ -332,7 +367,7 @@ def test_runtime_handler_assembly_rejects_drift_without_effect(monkeypatch: pyte
         join_native.definition, assemble_with(operation, wrong_profile_binding),
     )
     assert isinstance(wrong_profile, BindingRejected)
-    wrong_authority_binding = successor_binding(
+    wrong_authority_binding = runtime_binding(
         operation_contract_digest=contract.ref.contract_digest,
         interpreter_profile_digest=profiles.interpreter.ref.profile_digest,
         deployment_catalog_digest="a" * 64, project_scope_digest="b" * 64, resource_policy_epoch=1,

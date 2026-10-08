@@ -13,7 +13,7 @@ from app.services.agent_batch.business_readback import BusinessTaskObservation, 
 from app.services.request_identity import RequestActorContext
 from app.successor_runtime.capabilities import batch_business as business, batch_task as c4
 from app.successor_runtime.capabilities import workflow_native_contribution as workflow_native
-from app.successor_runtime.assembly import installed_operation as installed_operation_module
+from app.composition import installed_operation as installed_operation_module
 from app.successor_runtime.capabilities.batch_task_program import (
     build_batch_task_single_dispatch_program,
     build_ordered_dispatch_merge_registry,
@@ -29,7 +29,7 @@ from app.successor_runtime.language.program import atom_node, program_atoms, the
 from app.successor_runtime.runtime.authority_grants import AuthorityOperationScope, AuthorityResourceCeiling, AuthorityResourceLimit
 from app.successor_runtime.runtime.resources import ResourceClass, ResourcePolicySnapshot
 from app.successor_runtime.substrate.postgres.authority import AuthorityGrant, CapabilityAuthority
-from app.successor_runtime.substrate.postgres.first_specimen_activation import ActivationTrigger, compiled_submission_request_digest, submit_compiled_program
+from app.successor_runtime.substrate.postgres.runtime_activation import ActivationTrigger, compiled_submission_request_digest, submit_compiled_program
 from app.successor_runtime.substrate.postgres.idempotency import IdempotencyBinding
 from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
 from app.successor_runtime.substrate.postgres.runtime_journal import ExactBindingConflict

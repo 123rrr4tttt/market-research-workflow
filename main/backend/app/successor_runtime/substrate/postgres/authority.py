@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
 from sqlalchemy import insert, select, update
 from sqlalchemy.engine import Connection
+from sqlalchemy.engine.row import RowMapping
 
 from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
 from app.successor_runtime.runtime.authority_grants import (
@@ -20,11 +19,11 @@ from .runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
     StaleRevisionError,
-    _one_mapping,
-    _project_values,
-    _scope_key,
-    _table,
-    _utcnow,
+    one_mapping,
+    project_values,
+    runtime_scope_key,
+    runtime_table,
+    utc_now,
 )
 from .session import compute_scope_digest, validate_project_schema_identifier, validate_project_scope_ref
 
@@ -77,7 +76,7 @@ class ProjectScopeRegistryRepository:
             raise ValueError("initial project scope requires a canonical approval_ref")
         if not self.scope.actor_id or self.scope.actor_id != self.scope.actor_id.strip():
             raise ValueError("initial project scope requires a canonical administrator")
-        table = _table("project_scope_registry")
+        table = runtime_table("project_scope_registry")
         expected = {
             "project_key": ref.project_key,
             "resolved_schema": ref.resolved_schema,
@@ -100,18 +99,18 @@ class ProjectScopeRegistryRepository:
         ).limit(1).with_for_update()).mappings().first()
         if collision is not None:
             raise ExactBindingConflict("project scope incarnation has already been used")
-        now = _utcnow()
+        now = utc_now()
         self.connection.execute(insert(table).values(
             **expected, created_at=now, updated_at=now,
         ))
         return ref
 
-    def load(self, *, for_update: bool = False) -> Mapping[str, Any]:
+    def load(self, *, for_update: bool = False) -> RowMapping:
         """Load the sole current ACTIVE binding for this project."""
 
-        table = _table("project_scope_registry")
+        table = runtime_table("project_scope_registry")
         statement = select(table).where(
-            table.c.project_key == _scope_key(self.scope),
+            table.c.project_key == runtime_scope_key(self.scope),
             table.c.state == "ACTIVE",
         )
         if for_update:
@@ -131,26 +130,26 @@ class ProjectScopeRegistryRepository:
         *,
         incarnation: str | None = None,
         for_update: bool = False,
-    ) -> Mapping[str, Any]:
+    ) -> RowMapping:
         """Load one immutable historical binding by its exact revision."""
 
-        table = _table("project_scope_registry")
+        table = runtime_table("project_scope_registry")
         statement = select(table).where(
-            table.c.project_key == _scope_key(self.scope),
+            table.c.project_key == runtime_scope_key(self.scope),
             table.c.registry_revision == registry_revision,
         )
         if incarnation is not None:
             statement = statement.where(table.c.incarnation == incarnation)
         if for_update:
             statement = statement.with_for_update()
-        row = _one_mapping(self.connection.execute(statement))
+        row = one_mapping(self.connection.execute(statement))
         if row is None:
             raise RecordNotFound(
                 f"project scope registry revision not found: {registry_revision}"
             )
         return row
 
-    def require_exact(self) -> Mapping[str, Any]:
+    def require_exact(self) -> RowMapping:
         ref = self.scope.project_scope
         row = self.load_exact(
             ref.project_registry_revision,
@@ -165,7 +164,7 @@ class ProjectScopeRegistryRepository:
             raise ExactBindingConflict("ProjectScopeRef is stale")
         return row
 
-    def require_current(self) -> Mapping[str, Any]:
+    def require_current(self) -> RowMapping:
         row = self.require_exact()
         current = self.load()
         if (
@@ -185,7 +184,7 @@ class ProjectScopeRegistryRepository:
         incarnation: str,
         state: str,
         approval_ref: str,
-    ) -> Mapping[str, Any]:
+    ) -> RowMapping:
         """Append a successor scope row while retaining the predecessor.
 
         The predecessor's identity columns are immutable because runtime runs
@@ -193,7 +192,7 @@ class ProjectScopeRegistryRepository:
         is retired; the successor gets a fresh revision and incarnation.
         """
 
-        table = _table("project_scope_registry")
+        table = runtime_table("project_scope_registry")
         if registry_revision != expected_revision + 1:
             raise ValueError(
                 "successor registry_revision must equal expected_revision + 1"
@@ -202,7 +201,7 @@ class ProjectScopeRegistryRepository:
             raise ValueError("successor project scope must enter ACTIVE state")
         validate_project_schema_identifier(resolved_schema)
         expected_digest = compute_scope_digest(
-            _scope_key(self.scope),
+            runtime_scope_key(self.scope),
             resolved_schema,
             registry_revision,
             incarnation,
@@ -234,7 +233,7 @@ class ProjectScopeRegistryRepository:
         result = self.connection.execute(
             update(table)
             .where(
-                table.c.project_key == _scope_key(self.scope),
+                table.c.project_key == runtime_scope_key(self.scope),
                 table.c.registry_revision == expected_revision,
                 table.c.scope_digest == self.scope.project_scope.scope_digest,
                 table.c.incarnation == self.scope.project_scope.incarnation,
@@ -242,15 +241,15 @@ class ProjectScopeRegistryRepository:
             )
             .values(
                 state="RETIRED",
-                updated_at=_utcnow(),
+                updated_at=utc_now(),
             )
         )
         if getattr(result, "rowcount", None) != 1:
             raise StaleRevisionError("project scope registry CAS failed")
-        now = _utcnow()
+        now = utc_now()
         self.connection.execute(
             insert(table).values(
-                project_key=_scope_key(self.scope),
+                project_key=runtime_scope_key(self.scope),
                 resolved_schema=resolved_schema,
                 registry_revision=registry_revision,
                 scope_digest=scope_digest,
@@ -270,9 +269,9 @@ class AuthorityGrantRepository:
         self.connection = connection
         self.scope = scope
 
-    def create(self, grant: AuthorityGrant) -> Mapping[str, Any]:
-        table = _table("runtime_authority_grants")
-        values = _project_values(
+    def create(self, grant: AuthorityGrant) -> RowMapping:
+        table = runtime_table("runtime_authority_grants")
+        values = project_values(
             self.scope,
             {
                 "grant_id": grant.grant_id,
@@ -285,33 +284,33 @@ class AuthorityGrantRepository:
                 "expires_at": grant.expires_at,
                 "revoked_at": None,
                 "revision": 0,
-                "created_at": _utcnow(),
-                "updated_at": _utcnow(),
+                "created_at": utc_now(),
+                "updated_at": utc_now(),
             },
         )
         self.connection.execute(insert(table).values(**values))
         return self.load(grant.grant_id)
 
-    def load(self, grant_id: str, *, for_update: bool = False) -> Mapping[str, Any]:
-        table = _table("runtime_authority_grants")
+    def load(self, grant_id: str, *, for_update: bool = False) -> RowMapping:
+        table = runtime_table("runtime_authority_grants")
         statement = select(table).where(
-            table.c.project_key == _scope_key(self.scope), table.c.grant_id == grant_id
+            table.c.project_key == runtime_scope_key(self.scope), table.c.grant_id == grant_id
         )
         if for_update:
             statement = statement.with_for_update()
-        row = _one_mapping(self.connection.execute(statement))
+        row = one_mapping(self.connection.execute(statement))
         if row is None:
             raise RecordNotFound(f"authority grant not found: {grant_id}")
         return row
 
     def revoke(
         self, grant_id: str, *, expected_revision: int, revoked_at: datetime
-    ) -> Mapping[str, Any]:
-        table = _table("runtime_authority_grants")
+    ) -> RowMapping:
+        table = runtime_table("runtime_authority_grants")
         result = self.connection.execute(
             update(table)
             .where(
-                table.c.project_key == _scope_key(self.scope),
+                table.c.project_key == runtime_scope_key(self.scope),
                 table.c.grant_id == grant_id,
                 table.c.revision == expected_revision,
                 table.c.revoked_at.is_(None),
@@ -319,7 +318,7 @@ class AuthorityGrantRepository:
             .values(
                 revoked_at=revoked_at,
                 revision=expected_revision + 1,
-                updated_at=_utcnow(),
+                updated_at=utc_now(),
             )
         )
         if getattr(result, "rowcount", None) != 1:
@@ -328,11 +327,11 @@ class AuthorityGrantRepository:
 
     def current_for(
         self, *, actor_id: str, capability_id: str, at: datetime
-    ) -> tuple[Mapping[str, Any], ...]:
-        table = _table("runtime_authority_grants")
+    ) -> tuple[RowMapping, ...]:
+        table = runtime_table("runtime_authority_grants")
         rows = self.connection.execute(
             select(table).where(
-                table.c.project_key == _scope_key(self.scope),
+                table.c.project_key == runtime_scope_key(self.scope),
                 table.c.actor_id == actor_id,
                 table.c.capability_id == capability_id,
                 table.c.revoked_at.is_(None),
@@ -347,15 +346,15 @@ class CapabilityAuthorityRepository:
         self.connection = connection
         self.scope = scope
 
-    def load(self, capability_id: str, *, for_update: bool = False) -> Mapping[str, Any]:
-        table = _table("runtime_capability_authority")
+    def load(self, capability_id: str, *, for_update: bool = False) -> RowMapping:
+        table = runtime_table("runtime_capability_authority")
         statement = select(table).where(
-            table.c.project_key == _scope_key(self.scope),
+            table.c.project_key == runtime_scope_key(self.scope),
             table.c.capability_id == capability_id,
         )
         if for_update:
             statement = statement.with_for_update()
-        row = _one_mapping(self.connection.execute(statement))
+        row = one_mapping(self.connection.execute(statement))
         if row is None:
             raise RecordNotFound(f"capability authority not found: {capability_id}")
         if row["successor_claim_enabled"] and row["legacy_claim_enabled"]:
@@ -364,12 +363,12 @@ class CapabilityAuthorityRepository:
 
     def revise(
         self, authority: CapabilityAuthority, *, expected_revision: int
-    ) -> Mapping[str, Any]:
-        table = _table("runtime_capability_authority")
+    ) -> RowMapping:
+        table = runtime_table("runtime_capability_authority")
         result = self.connection.execute(
             update(table)
             .where(
-                table.c.project_key == _scope_key(self.scope),
+                table.c.project_key == runtime_scope_key(self.scope),
                 table.c.capability_id == authority.capability_id,
                 table.c.revision == expected_revision,
             )
@@ -385,7 +384,7 @@ class CapabilityAuthorityRepository:
                 approval_ref=authority.approval_ref,
                 rollback_target_ref=authority.rollback_target_ref,
                 revision=expected_revision + 1,
-                updated_at=_utcnow(),
+                updated_at=utc_now(),
             )
         )
         if getattr(result, "rowcount", None) != 1:

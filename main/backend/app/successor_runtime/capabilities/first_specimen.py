@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Annotated, Literal, NoReturn
+from typing import Annotated, Literal, NoReturn, TypeAlias, overload
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.w06_semantics import first_specimen_capability_failures
@@ -406,11 +406,21 @@ class InternalExportInput:
             _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "InternalExportInput.payload_digest does not match content"))
 
 
+_FirstSpecimenPayloadCodec: TypeAlias = (
+    PayloadCodec[CaptureDocumentSnapshotInput]
+    | PayloadCodec[CanonicalReadInput]
+    | PayloadCodec[EvidenceQualificationInput]
+    | PayloadCodec[ClaimOrGapInput]
+    | PayloadCodec[MarkdownComposeInput]
+    | PayloadCodec[InternalExportInput]
+)
+
+
 @dataclass(frozen=True, slots=True)
 class FirstSpecimenCapabilityBundle:
     bundle_id: str
     operations: tuple[OperationContract, ...]
-    codecs: tuple[PayloadCodec, ...]
+    codecs: tuple[_FirstSpecimenPayloadCodec, ...]
     profiles: dict[str, object]
 
     def operation_by_kind(self, kind: str) -> OperationContract:
@@ -423,7 +433,40 @@ class FirstSpecimenCapabilityBundle:
             kind,
         )
 
-    def codec_by_kind(self, kind: str) -> PayloadCodec:
+    @overload
+    def codec_by_kind(
+        self, kind: Literal["material.capture_document_snapshot.v1"]
+    ) -> PayloadCodec[CaptureDocumentSnapshotInput]: ...
+
+    @overload
+    def codec_by_kind(
+        self, kind: Literal["material.read_canonical_ref.v1"]
+    ) -> PayloadCodec[CanonicalReadInput]: ...
+
+    @overload
+    def codec_by_kind(
+        self, kind: Literal["evidence.qualify.v1"]
+    ) -> PayloadCodec[EvidenceQualificationInput]: ...
+
+    @overload
+    def codec_by_kind(
+        self, kind: Literal["claim.form_or_open_gap.v1"]
+    ) -> PayloadCodec[ClaimOrGapInput]: ...
+
+    @overload
+    def codec_by_kind(
+        self, kind: Literal["artifact.compose_markdown.v1"]
+    ) -> PayloadCodec[MarkdownComposeInput]: ...
+
+    @overload
+    def codec_by_kind(
+        self, kind: Literal["delivery.internal_export.v1"]
+    ) -> PayloadCodec[InternalExportInput]: ...
+
+    @overload
+    def codec_by_kind(self, kind: str) -> _FirstSpecimenPayloadCodec: ...
+
+    def codec_by_kind(self, kind: str) -> _FirstSpecimenPayloadCodec:
         for codec in self.codecs:
             if codec.contract_ref.kind == kind:
                 return codec

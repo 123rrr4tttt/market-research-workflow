@@ -193,6 +193,18 @@ class EndpointEffectContract:
             conditional_discriminator=discriminator, conditional_branches=branches,
         )
 
+    @classmethod
+    def from_expanded_declaration(
+        cls,
+        declaration: Mapping[str, object],
+    ) -> EndpointEffectContract:
+        """Construct the expanded v3 shape through the canonical validators."""
+
+        constructed: object = type.__call__(cls, **declaration)
+        if not isinstance(constructed, EndpointEffectContract):
+            raise TypeError("expanded effect declaration constructed the wrong type")
+        return constructed
+
     def __post_init__(self) -> None:
         try:
             effect_class = (

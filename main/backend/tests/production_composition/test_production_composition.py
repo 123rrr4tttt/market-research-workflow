@@ -5,7 +5,8 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 import sys
@@ -22,6 +23,7 @@ for path in (str(BACKEND_ROOT), str(REPOSITORY_ROOT / "src")):
         sys.path.insert(0, path)
 
 from app.composition.production import (
+    ProductionEndpointBinding,
     ProductionRuntimeBindings,
     ProviderSelection,
     RateObservation,
@@ -46,6 +48,7 @@ from app.production_contract import (
     ApprovalGrant,
     EffectAdmission,
     EffectClass,
+    EndpointEffectContract,
     PolicyOutcome,
     ProviderClass,
 )
@@ -259,6 +262,12 @@ def test_production_build_requires_runtime_bindings_and_exact_route_coverage() -
 
     with pytest.raises(RuntimeError, match="production runtime binding"):
         build_production_composition(_settings(), routes=production_app.routes, runtime_bindings=None)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="wrong type"):
+        build_production_composition(
+            _settings(),
+            routes=production_app.routes,
+            runtime_bindings=SimpleNamespace(),  # type: ignore[arg-type]
+        )
 
     composition = build_production_composition(
         _settings(),
@@ -275,6 +284,51 @@ def test_production_build_requires_runtime_bindings_and_exact_route_coverage() -
     assert not composition.policy.projects
     assert composition.binding_for("/api/v1/policies", "GET") is not None
     assert composition.binding_for("/api/v1/policies", "POST") is None
+
+
+class _IndexSize:
+    def __index__(self) -> int:
+        return 1024
+
+
+@pytest.mark.parametrize(
+    "size",
+    [b"1024", Decimal("1024"), _IndexSize()],
+)
+def test_production_settings_keep_convertible_sizes(size: object) -> None:
+    composition = build_production_composition(
+        _settings(production_max_body_bytes=size),
+        routes=production_app.routes,
+        runtime_bindings=_runtime(),
+    )
+    assert composition.policy.transport.max_body_bytes == 1024
+
+
+@pytest.mark.parametrize(
+    "allowed_hosts",
+    [
+        ["testserver"],
+        ("testserver",),
+        {"testserver"},
+        frozenset({"testserver"}),
+    ],
+)
+def test_production_settings_keep_string_containers(allowed_hosts: object) -> None:
+    composition = build_production_composition(
+        _settings(production_allowed_hosts=allowed_hosts),
+        routes=production_app.routes,
+        runtime_bindings=_runtime(),
+    )
+    assert composition.allowed_hosts == ("testserver",)
+
+
+def test_production_settings_reject_nontext_lists() -> None:
+    with pytest.raises(TypeError, match="only strings"):
+        build_production_composition(
+            _settings(production_allowed_hosts=["testserver", 1]),
+            routes=production_app.routes,
+            runtime_bindings=_runtime(),
+        )
 
 
 def test_production_oauth_requires_secure_session_cookie() -> None:
@@ -432,6 +486,88 @@ def test_port_missing_scope_is_not_replaced_by_request_metadata(
 
     assert raised.value.status_code == 403
     assert raised.value.detail["reason_code"] == "scope_denied"
+
+
+def test_runtime_ports_reject_matching_duck_scope_and_provider_dtos(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.composition.production as production
+
+    monkeypatch.setattr("app.settings.config.settings.env", "production")
+
+    class DuckScopeResolver:
+        def resolve(self, _project_key: str) -> object:
+            return SimpleNamespace(
+                project_key="demo",
+                resolved_schema="project_demo",
+                project_registry_revision=1,
+                incarnation="incarnation",
+                scope_digest="a" * 64,
+            )
+
+    scope_runtime = replace(
+        _runtime(),
+        project_scope_resolver=DuckScopeResolver(),  # type: ignore[arg-type]
+    )
+    scope_request = _request(
+        path="/api/v1/policies",
+        headers=_base_headers(),
+        runtime=scope_runtime,
+    )
+    with pytest.raises(HTTPException) as scope_error:
+        asyncio.run(require_production_policy(scope_request))
+    assert scope_error.value.status_code == 503
+    assert scope_error.value.detail["reason_code"] == "project_scope_invalid"
+
+    class DuckProviderSelection:
+        def select(self, *_args: object) -> object:
+            return SimpleNamespace(
+                provider_id="serper",
+                provider_class=ProviderClass.CRAWLER,
+                request_payload_bytes=0,
+            )
+
+    provider_runtime = replace(
+        _runtime(),
+        provider_selection=DuckProviderSelection(),  # type: ignore[arg-type]
+    )
+    provider_contract = EndpointEffectContract(
+        effect_class=EffectClass.PROVIDER_CALL,
+        admission=EffectAdmission.ADMITTED,
+        provider_port="provider.test.v1",
+        provider_class=ProviderClass.CRAWLER,
+    )
+    provider_binding = ProductionEndpointBinding(
+        route_template="/api/v1/policies",
+        domain="test",
+        operation="test.provider",
+        metrics_label="test:provider",
+        methods=("GET",),
+        capability_id="test.provider",
+        effect_contract=provider_contract,
+    )
+    provider_composition = replace(
+        build_production_composition(
+            _settings(),
+            routes=production_app.routes,
+            runtime_bindings=provider_runtime,
+        ),
+        endpoint_bindings=(provider_binding,),
+    )
+    monkeypatch.setattr(
+        production,
+        "_composition_for_request",
+        lambda _request: provider_composition,
+    )
+    provider_request = _request(
+        path="/api/v1/policies",
+        headers=[*_base_headers(), (b"x-approval-id", b"approval-1")],
+        runtime=provider_runtime,
+    )
+    with pytest.raises(HTTPException) as provider_error:
+        asyncio.run(require_production_policy(provider_request))
+    assert provider_error.value.status_code == 503
+    assert provider_error.value.detail["reason_code"] == "authority_observation_unavailable"
 
 
 def test_non_empty_malformed_json_body_is_rejected(

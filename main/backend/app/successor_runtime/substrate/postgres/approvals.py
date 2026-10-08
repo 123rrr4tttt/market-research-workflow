@@ -19,11 +19,11 @@ from app.successor_runtime.runtime.ports import RuntimeScope
 from .runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
-    _one_mapping,
-    _project_values,
-    _scope_key,
-    _table,
-    _utcnow,
+    one_mapping,
+    project_values,
+    runtime_scope_key,
+    runtime_table,
+    utc_now,
 )
 
 
@@ -73,9 +73,9 @@ class ApprovalRepository:
     def decide(self, binding: ApprovalBinding) -> Mapping[str, Any]:
         if binding.actor_id != self.scope.actor_id:
             raise ExactBindingConflict("approval actor does not match RuntimeScope actor")
-        table = _table("runtime_approvals")
-        values = _project_values(self.scope, binding.values())
-        now = _utcnow()
+        table = runtime_table("runtime_approvals")
+        values = project_values(self.scope, binding.values())
+        now = utc_now()
         values.update(revision=0, created_at=now, updated_at=now)
         self.connection.execute(
             pg_insert(table)
@@ -93,14 +93,14 @@ class ApprovalRepository:
         return current
 
     def load(self, approval_id: str, *, for_update: bool = False) -> Mapping[str, Any]:
-        table = _table("runtime_approvals")
+        table = runtime_table("runtime_approvals")
         statement = select(table).where(
-            table.c.project_key == _scope_key(self.scope),
+            table.c.project_key == runtime_scope_key(self.scope),
             table.c.approval_id == approval_id,
         )
         if for_update:
             statement = statement.with_for_update()
-        row = _one_mapping(self.connection.execute(statement))
+        row = one_mapping(self.connection.execute(statement))
         if row is None:
             raise RecordNotFound(f"runtime approval not found: {approval_id}")
         return row

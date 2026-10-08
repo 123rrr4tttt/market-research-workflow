@@ -6,7 +6,7 @@ from .base import (
     CellBinding,
     require_assembly_digest,
     sha256_hex,
-    successor_binding,
+    runtime_binding,
 )
 
 __all__ = [
@@ -15,5 +15,5 @@ __all__ = [
     "CellBinding",
     "require_assembly_digest",
     "sha256_hex",
-    "successor_binding",
+    "runtime_binding",
 ]

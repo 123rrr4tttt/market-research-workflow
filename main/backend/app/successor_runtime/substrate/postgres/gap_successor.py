@@ -12,10 +12,10 @@ import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import TypeGuard
 
 from sqlalchemy import insert, select, update
-from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.engine import Connection, Engine, RowMapping
 
 from app.successor_runtime.capabilities.first_specimen_successor import (
     GAP_SUCCESSOR_CAPABILITY_ID,
@@ -61,9 +61,12 @@ from .research_ledger import (
     ProjectRecordNotFound,
     ResearchLedgerRepository,
     object_ref_text,
-    one_mapping,
 )
-from .runtime_journal import ExactBindingConflict, validate_runtime_assignment_row
+from .runtime_journal import (
+    ExactBindingConflict,
+    one_mapping,
+    validate_runtime_assignment_row,
+)
 from .runtime_lifecycle import (
     AssignmentEnvelope,
     RuntimeLifecycleRepository,
@@ -271,7 +274,7 @@ def materialize_gap_successor(
     )
 
 
-class PostgresFirstSpecimenSuccessorHandler(RuntimeHandler):
+class PostgresGapSuccessorHandler(RuntimeHandler):
     """Exact RuntimeNode realization of one MaterializerBinding."""
 
     interpreter_profile_digest = None
@@ -350,7 +353,7 @@ def _load_predecessor(
     connection: Connection,
     scope: RuntimeScope,
     assignment: RuntimeAssignment,
-) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+) -> tuple[RowMapping, RowMapping]:
     runs = PUBLIC_TABLES["runtime_runs"]
     steps = PUBLIC_TABLES["runtime_steps"]
     run = one_mapping(
@@ -659,13 +662,15 @@ def _load_gap(
     raw = _value_json(value_row)
     try:
         gap = Gap(
-            gap_id=raw["gap_id"],
-            inquiry_ref=raw["inquiry_ref"],
-            requirement=raw["requirement"],
-            reason=raw["reason"],
-            closure_condition=raw["closure_condition"],
-            reopen_policy=dict(raw["reopen_policy"]),
-            missing_evidence_or_decision=raw["missing_evidence_or_decision"],
+            gap_id=_required_string(raw, "gap_id"),
+            inquiry_ref=_required_string(raw, "inquiry_ref"),
+            requirement=_required_string(raw, "requirement"),
+            reason=_required_string(raw, "reason"),
+            closure_condition=_required_string(raw, "closure_condition"),
+            reopen_policy=_required_object_dict(raw, "reopen_policy"),
+            missing_evidence_or_decision=_required_string(
+                raw, "missing_evidence_or_decision"
+            ),
             content_digest=str(value_row["content_digest"]),
         )
     except (KeyError, TypeError, ValueError) as exc:
@@ -721,13 +726,17 @@ def _load_successor_intent(
     raw = _value_json(inquiry_value)
     try:
         inquiry = Inquiry(
-            inquiry_id=raw["inquiry_id"],
-            intent_ref=raw["intent_ref"],
-            question_or_hypothesis=raw["question_or_hypothesis"],
-            acceptance_conditions=tuple(raw["acceptance_conditions"]),
-            stop_conditions=tuple(raw["stop_conditions"]),
-            uncertainty_ceiling=raw["uncertainty_ceiling"],
-            content_digest=str(raw["content_digest"]),
+            inquiry_id=_required_string(raw, "inquiry_id"),
+            intent_ref=_required_string(raw, "intent_ref"),
+            question_or_hypothesis=_required_string(
+                raw, "question_or_hypothesis"
+            ),
+            acceptance_conditions=_required_string_tuple(
+                raw, "acceptance_conditions"
+            ),
+            stop_conditions=_required_string_tuple(raw, "stop_conditions"),
+            uncertainty_ceiling=_required_string(raw, "uncertainty_ceiling"),
+            content_digest=_required_string(raw, "content_digest"),
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise GapSuccessorPersistenceRejected(
@@ -753,7 +762,7 @@ def _one_admitted_object(
     *,
     object_id: str,
     object_type: str,
-) -> Mapping[str, Any]:
+) -> RowMapping:
     row = one_mapping(
         connection.execute(
             select(tables.research_objects).where(
@@ -774,8 +783,8 @@ def _value_for_object(
     connection: Connection,
     scope: RuntimeScope,
     tables: ProjectTables,
-    object_row: Mapping[str, Any],
-) -> Mapping[str, Any]:
+    object_row: RowMapping,
+) -> RowMapping:
     prefix = "project-value:"
     content_ref = str(object_row["content_ref"])
     if not content_ref.startswith(prefix):
@@ -1000,7 +1009,7 @@ def _require_compile_envelope(
 
 
 def _require_exact_successor_run(
-    row: Mapping[str, Any],
+    row: RowMapping,
     closure: GapSuccessorClosure,
     claim: ClaimBinding,
     compile_assignment: RuntimeAssignment,
@@ -1039,19 +1048,62 @@ def _require_exact_successor_run(
         raise ExactBindingConflict("successor compile work exact readback failed")
 
 
-def _value_json(row: Mapping[str, Any]) -> Mapping[str, Any]:
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return _is_object_dict(value) and all(isinstance(key, str) for key in value)
+
+
+def _is_object_sequence(
+    value: object,
+) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _required_string(values: Mapping[str, object], field_name: str) -> str:
+    value = values.get(field_name)
+    if not isinstance(value, str):
+        raise GapSuccessorPersistenceRejected(f"{field_name} is not a string")
+    return value
+
+
+def _required_object_dict(
+    values: Mapping[str, object], field_name: str
+) -> dict[str, object]:
+    value = values.get(field_name)
+    if not _is_string_object_dict(value):
+        raise GapSuccessorPersistenceRejected(f"{field_name} is not an object")
+    return value
+
+
+def _required_string_tuple(
+    values: Mapping[str, object], field_name: str
+) -> tuple[str, ...]:
+    value = values.get(field_name)
+    if not _is_object_sequence(value) or any(
+        not isinstance(item, str) for item in value
+    ):
+        raise GapSuccessorPersistenceRejected(
+            f"{field_name} is not a string sequence"
+        )
+    return tuple(item for item in value if isinstance(item, str))
+
+
+def _value_json(row: RowMapping) -> dict[str, object]:
     if row["content_json"] is not None:
         value = row["content_json"]
     elif row["content_bytes"] is not None:
         value = json.loads(bytes(row["content_bytes"]).decode("utf-8"))
     else:
         raise GapSuccessorPersistenceRejected("successor value has no content")
-    if not isinstance(value, Mapping):
+    if not _is_string_object_dict(value):
         raise GapSuccessorPersistenceRejected("successor value is not an object")
     return value
 
 
-def _ref_from_row(row: Mapping[str, Any]) -> ResearchObjectRef:
+def _ref_from_row(row: RowMapping) -> ResearchObjectRef:
     object_type = OBJECT_TYPE_BY_ID.get(str(row["object_type"]))
     if object_type is None:
         raise ProjectRecordNotFound("unknown research object type")
@@ -1085,7 +1137,7 @@ __all__ = [
     "CompileAssignmentFactory",
     "GapSuccessorPersistenceRejected",
     "GapSuccessorReceipt",
-    "PostgresFirstSpecimenSuccessorHandler",
+    "PostgresGapSuccessorHandler",
     "SuccessorCompileEnvelope",
     "materialize_gap_successor",
 ]

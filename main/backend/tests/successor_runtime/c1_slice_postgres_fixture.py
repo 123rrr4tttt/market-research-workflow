@@ -127,7 +127,7 @@ from app.successor_runtime.substrate.postgres.runtime_lifecycle import (
     AttachPlan,
     RuntimeLifecycleRepository,
     SubmitRun,
-    _assignment_values,
+    assignment_values,
 )
 from app.successor_runtime.substrate.postgres.session import (
     compute_scope_digest,
@@ -1291,7 +1291,7 @@ def prepare_runtime(
             )
             connection.execute(
                 sa.insert(PUBLIC_TABLES["runtime_work_items"]).values(
-                    **_assignment_values(envelope, due_at=NOW)
+                    **assignment_values(envelope, due_at=NOW)
                 )
             )
 

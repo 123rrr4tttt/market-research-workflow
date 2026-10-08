@@ -28,7 +28,7 @@ from .runtime_journal import (
     StaleRevisionError,
     validate_authorization_row,
 )
-from .runtime_lifecycle import AssignmentEnvelope, _assignment_values
+from .runtime_lifecycle import AssignmentEnvelope, assignment_values
 
 
 class PostgresDeliveryRuntimePort:
@@ -150,7 +150,7 @@ class PostgresDeliveryRuntimePort:
             ),
         )
         now = packet.ready_at
-        work_values = _assignment_values(envelope, due_at=now)
+        work_values = assignment_values(envelope, due_at=now)
         if existing_step is not None and existing_work is not None:
             expected = {
                 "state": "READY",

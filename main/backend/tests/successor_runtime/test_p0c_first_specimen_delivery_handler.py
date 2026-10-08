@@ -48,11 +48,11 @@ from app.successor_runtime.substrate.blob.internal_export import (
     InternalExportRequest,
 )
 from app.successor_runtime.substrate.blob.store import ProjectBlobStore
-from app.successor_runtime.substrate.postgres.first_specimen_delivery_handler import (
-    FirstSpecimenDeliveryEffectStore,
-    FirstSpecimenDeliveryReplay,
-    InstalledFirstSpecimenDeliveryHandler,
-    PostgresFirstSpecimenDeliveryHandler,
+from app.successor_runtime.substrate.postgres.internal_delivery_handler import (
+    InternalDeliveryEffectStore,
+    InternalDeliveryReplay,
+    InstalledInternalDeliveryHandler,
+    PostgresInternalDeliveryHandler,
     _require_semantic_closure,
 )
 from app.successor_runtime.substrate.postgres.models import (
@@ -131,11 +131,11 @@ class _Uow:
 
 
 class _Replay:
-    def __init__(self, replay: FirstSpecimenDeliveryReplay) -> None:
+    def __init__(self, replay: InternalDeliveryReplay) -> None:
         self.replay = replay
         self.loads = 0
 
-    def load_exact(self, *_args: object) -> FirstSpecimenDeliveryReplay:
+    def load_exact(self, *_args: object) -> InternalDeliveryReplay:
         self.loads += 1
         _require_semantic_closure(
             self.replay.payload,
@@ -183,7 +183,7 @@ def delivery_db():
 
 
 def _assignment() -> tuple[
-    InstalledFirstSpecimenDeliveryHandler,
+    InstalledInternalDeliveryHandler,
     RuntimeAssignment,
     ClaimBinding,
     RuntimeExecutionContext,
@@ -203,7 +203,7 @@ def _assignment() -> tuple[
         resource_policy_epoch=2,
         authority_requirement_digest=authority,
     )
-    installation = InstalledFirstSpecimenDeliveryHandler.bind(
+    installation = InstalledInternalDeliveryHandler.bind(
         handler_binding_digest=binding.binding_digest,
         interpreter_profile_digest=profile,
     )
@@ -325,7 +325,7 @@ def _replay(scope: RuntimeScope, tables: Any, assignment: RuntimeAssignment):
         payload_digest=intent.content_digest,
     )
     approvals = _ApprovalReader(intent)
-    return FirstSpecimenDeliveryReplay(
+    return InternalDeliveryReplay(
         scope=scope,
         tables=tables,
         payload=payload,
@@ -344,7 +344,7 @@ def test_dynamic_payload_executes_internal_only_and_stages_receipt(
     installation, assignment, claim, context = _assignment()
     replay, approvals = _replay(scope, tables, assignment)
     store = _CountingBlobStore(tmp_path)
-    effect = FirstSpecimenDeliveryEffectStore(
+    effect = InternalDeliveryEffectStore(
         lambda: _Uow(connection),
         replay=_Replay(replay),
         interpreter=InternalExportInterpreter(
@@ -353,7 +353,7 @@ def test_dynamic_payload_executes_internal_only_and_stages_receipt(
         ),
     )
 
-    outcome = PostgresFirstSpecimenDeliveryHandler(
+    outcome = PostgresInternalDeliveryHandler(
         installation, effect
     ).execute(assignment, claim, context)
 
@@ -421,12 +421,12 @@ def test_cw10_commit_crash_reads_marker_without_duplicate_export(
         operation_contract_ref=assignment.operation_contract_ref,
         blob_store=blob,
     )
-    failed = FirstSpecimenDeliveryEffectStore(
+    failed = InternalDeliveryEffectStore(
         lambda: _Uow(connection, fail_commit=True),
         replay=_Replay(replay),
         interpreter=interpreter,
     )
-    first = PostgresFirstSpecimenDeliveryHandler(
+    first = PostgresInternalDeliveryHandler(
         installation, failed
     ).execute(assignment, claim, context)
     assert first.disposition is EffectDisposition.OUTCOME_UNKNOWN
@@ -436,12 +436,12 @@ def test_cw10_commit_crash_reads_marker_without_duplicate_export(
     ) == 0
     connection.rollback()
 
-    recovered = FirstSpecimenDeliveryEffectStore(
+    recovered = InternalDeliveryEffectStore(
         lambda: _Uow(connection),
         replay=_Replay(replay),
         interpreter=interpreter,
     )
-    second = PostgresFirstSpecimenDeliveryHandler(
+    second = PostgresInternalDeliveryHandler(
         installation, recovered
     ).execute(assignment, claim, context)
     assert second.disposition is EffectDisposition.SUCCEEDED
@@ -454,7 +454,7 @@ def test_approval_drift_fails_before_export(delivery_db, tmp_path) -> None:
     replay, approvals = _replay(scope, tables, assignment)
     approvals.current = False
     blob = _CountingBlobStore(tmp_path)
-    effect = FirstSpecimenDeliveryEffectStore(
+    effect = InternalDeliveryEffectStore(
         lambda: _Uow(connection),
         replay=_Replay(replay),
         interpreter=InternalExportInterpreter(
@@ -463,7 +463,7 @@ def test_approval_drift_fails_before_export(delivery_db, tmp_path) -> None:
         ),
     )
     with pytest.raises(DefiniteInterpreterFailure):
-        PostgresFirstSpecimenDeliveryHandler(
+        PostgresInternalDeliveryHandler(
             installation, effect
         ).execute(assignment, claim, context)
     assert blob.store_calls == 0
@@ -486,7 +486,7 @@ def test_base_artifact_and_exact_handler_drift_fail_closed(
         revision=2,
         lifecycle_state="ADMITTED",
     )
-    replay = FirstSpecimenDeliveryReplay(
+    replay = InternalDeliveryReplay(
         scope=replay.scope,
         tables=replay.tables,
         payload=replay.payload,
@@ -497,7 +497,7 @@ def test_base_artifact_and_exact_handler_drift_fail_closed(
         approvals=replay.approvals,
     )
     blob = _CountingBlobStore(tmp_path)
-    effect = FirstSpecimenDeliveryEffectStore(
+    effect = InternalDeliveryEffectStore(
         lambda: _Uow(connection),
         replay=_Replay(replay),
         interpreter=InternalExportInterpreter(
@@ -506,17 +506,17 @@ def test_base_artifact_and_exact_handler_drift_fail_closed(
         ),
     )
     with pytest.raises(DefiniteInterpreterFailure):
-        PostgresFirstSpecimenDeliveryHandler(
+        PostgresInternalDeliveryHandler(
             installation, effect
         ).execute(assignment, claim, context)
     assert blob.store_calls == 0
 
-    wrong_installation = InstalledFirstSpecimenDeliveryHandler.bind(
+    wrong_installation = InstalledInternalDeliveryHandler.bind(
         handler_binding_digest=_digest("wrong-handler"),
         interpreter_profile_digest=installation.interpreter_profile_digest,
     )
     with pytest.raises(DefiniteInterpreterFailure):
-        PostgresFirstSpecimenDeliveryHandler(
+        PostgresInternalDeliveryHandler(
             wrong_installation, effect
         ).execute(assignment, claim, context)
     assert blob.store_calls == 0

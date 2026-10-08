@@ -39,10 +39,10 @@ from .runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
     _mapping_rows,
-    _one_mapping,
-    _scope_key,
-    _table,
-    _utcnow,
+    one_mapping,
+    runtime_scope_key,
+    runtime_table,
+    utc_now,
     validate_authorization_row,
 )
 
@@ -92,7 +92,7 @@ class PostgresAuthorityProvider:
         Optional approvals are checked against the exact run, step and payload;
         capability-specific requirements remain part of admission.
         """
-        observed_at = now or _utcnow()
+        observed_at = now or utc_now()
         scope_ref = self.scope.project_scope
         contract = step.operation_contract_ref
         payload = operation.payload_ref
@@ -118,8 +118,8 @@ class PostgresAuthorityProvider:
             canonical_incarnation=canonical_incarnation,
             now=observed_at,
         )
-        capabilities = _table("runtime_capability_authority")
-        capability = _one_mapping(self.connection.execute(
+        capabilities = runtime_table("runtime_capability_authority")
+        capability = one_mapping(self.connection.execute(
             select(capabilities).where(
                 capabilities.c.project_key == scope_ref.project_key,
                 capabilities.c.capability_id == eligibility.capability_id,
@@ -131,8 +131,8 @@ class PostgresAuthorityProvider:
             or capability["effective_at"] > observed_at
         ):
             raise ExactBindingConflict("qualification capability is not currently executable")
-        policies = _table("runtime_resource_policies")
-        policy = _one_mapping(self.connection.execute(
+        policies = runtime_table("runtime_resource_policies")
+        policy = one_mapping(self.connection.execute(
             select(policies).where(
                 policies.c.project_key == scope_ref.project_key,
                 policies.c.capability_id == eligibility.capability_id,
@@ -143,7 +143,7 @@ class PostgresAuthorityProvider:
         ))
         if policy is None or int(policy["units_ceiling"]) < eligibility.units:
             raise ExactBindingConflict("qualification resource policy is absent or exceeded")
-        grants = _table("runtime_authority_grants")
+        grants = runtime_table("runtime_authority_grants")
         rows = _mapping_rows(self.connection.execute(
             select(grants).where(
                 grants.c.project_key == scope_ref.project_key,
@@ -170,9 +170,9 @@ class PostgresAuthorityProvider:
                 covered = True
         if not covered:
             raise CurrentAuthorityGrantUnavailable("no current grant covers this operation and resource")
-        approvals = _table("runtime_approvals")
+        approvals = runtime_table("runtime_approvals")
         for approval_ref in approval_refs:
-            approval = _one_mapping(self.connection.execute(
+            approval = one_mapping(self.connection.execute(
                 select(approvals).where(
                     approvals.c.project_key == scope_ref.project_key,
                     approvals.c.approval_id == approval_ref,
@@ -229,12 +229,12 @@ class PostgresAuthorityProvider:
     ) -> AuthorityContext:
         if actor_id != self.scope.actor_id:
             raise ExactBindingConflict("authority actor differs from RuntimeScope")
-        observed_at = now or _utcnow()
-        project_key = _scope_key(self.scope)
+        observed_at = now or utc_now()
+        project_key = runtime_scope_key(self.scope)
         scope_ref = self.scope.project_scope
 
-        scopes = _table("project_scope_registry")
-        scope_row = _one_mapping(
+        scopes = runtime_table("project_scope_registry")
+        scope_row = one_mapping(
             self.connection.execute(
                 select(scopes)
                 .where(
@@ -251,8 +251,8 @@ class PostgresAuthorityProvider:
         if scope_row is None:
             raise ExactBindingConflict("current project scope binding is stale")
 
-        capabilities = _table("runtime_capability_authority")
-        capability = _one_mapping(
+        capabilities = runtime_table("runtime_capability_authority")
+        capability = one_mapping(
             self.connection.execute(
                 select(capabilities)
                 .where(
@@ -272,7 +272,7 @@ class PostgresAuthorityProvider:
                 "successor is not the current single claim owner"
             )
 
-        grants_table = _table("runtime_authority_grants")
+        grants_table = runtime_table("runtime_authority_grants")
         grants = _mapping_rows(
             self.connection.execute(
                 select(grants_table)
@@ -293,10 +293,10 @@ class PostgresAuthorityProvider:
         if not grants:
             raise CurrentAuthorityGrantUnavailable("no current authority grant")
 
-        approvals_table = _table("runtime_approvals")
+        approvals_table = runtime_table("runtime_approvals")
         approvals: list[Mapping[str, Any]] = []
         for approval_ref in approval_refs:
-            approval = _one_mapping(
+            approval = one_mapping(
                 self.connection.execute(
                     select(approvals_table)
                     .where(
@@ -485,11 +485,11 @@ class PostgresAuthorityProvider:
             raise ExactBindingConflict("effect actor differs from RuntimeScope")
         if not approval_ref:
             raise ExactBindingConflict("real effect requires an exact approval")
-        observed_at = now or _utcnow()
-        project_key = _scope_key(self.scope)
+        observed_at = now or utc_now()
+        project_key = runtime_scope_key(self.scope)
 
-        approvals = _table("runtime_approvals")
-        approval = _one_mapping(
+        approvals = runtime_table("runtime_approvals")
+        approval = one_mapping(
             self.connection.execute(
                 select(approvals)
                 .where(
@@ -516,8 +516,8 @@ class PostgresAuthorityProvider:
         if approval["step_id"] is None:
             raise ExactBindingConflict("effect approval is not step-scoped")
 
-        capabilities = _table("runtime_capability_authority")
-        capability = _one_mapping(
+        capabilities = runtime_table("runtime_capability_authority")
+        capability = one_mapping(
             self.connection.execute(
                 select(capabilities)
                 .where(
@@ -539,7 +539,7 @@ class PostgresAuthorityProvider:
                 "effect capability mode/effective-time/claim-owner binding is stale"
             )
 
-        authorizations = _table("runtime_step_authorizations")
+        authorizations = runtime_table("runtime_step_authorizations")
         rows = _mapping_rows(
             self.connection.execute(
                 select(authorizations)
@@ -606,7 +606,7 @@ class PostgresAuthorityProvider:
                 "effect step authorization drift: " + ", ".join(drift)
             )
 
-        grants = _table("runtime_authority_grants")
+        grants = runtime_table("runtime_authority_grants")
         grant_rows = _mapping_rows(
             self.connection.execute(
                 select(grants)
@@ -665,24 +665,24 @@ class PostgresAuthorityProvider:
     ) -> DeliveryAuthoritySnapshot:
         if scope != self.scope:
             raise ExactBindingConflict("delivery authority scope drift")
-        table = _table("runtime_capability_authority")
-        row = _one_mapping(
+        table = runtime_table("runtime_capability_authority")
+        row = one_mapping(
             self.connection.execute(
                 select(table).where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.capability_id == capability_id,
                 )
             )
         )
         if row is None:
             raise RecordNotFound("delivery capability authority is absent")
-        authorizations = _table("runtime_step_authorizations")
+        authorizations = runtime_table("runtime_step_authorizations")
         rows = self.connection.execute(
             select(
                 authorizations.c.claim_authority_epoch,
                 authorizations.c.claim_policy_digest,
             ).where(
-                authorizations.c.project_key == _scope_key(self.scope),
+                authorizations.c.project_key == runtime_scope_key(self.scope),
                 authorizations.c.capability_id == capability_id,
             )
         ).mappings().all()
@@ -705,12 +705,12 @@ class PostgresAuthorityProvider:
     def current_step_binding(
         self, run_id: str, step_id: str, *, now: datetime | None = None
     ) -> StepAuthorizationBinding:
-        table = _table("runtime_step_authorizations")
-        row = _one_mapping(
+        table = runtime_table("runtime_step_authorizations")
+        row = one_mapping(
             self.connection.execute(
                 select(table)
                 .where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.run_id == run_id,
                     table.c.step_id == step_id,
                 )
@@ -758,11 +758,11 @@ class PostgresAuthorityProvider:
         )
 
     def current_approval(self, approval_id: str) -> Mapping[str, Any]:
-        table = _table("runtime_approvals")
-        row = _one_mapping(
+        table = runtime_table("runtime_approvals")
+        row = one_mapping(
             self.connection.execute(
                 select(table).where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.approval_id == approval_id,
                 )
             )
@@ -770,7 +770,7 @@ class PostgresAuthorityProvider:
         if row is None:
             raise RecordNotFound(f"approval not found: {approval_id}")
         if row["decision"] != "APPROVED" or (
-            row["expires_at"] is not None and row["expires_at"] <= _utcnow()
+            row["expires_at"] is not None and row["expires_at"] <= utc_now()
         ):
             raise ExactBindingConflict("approval is not currently effective")
         return row
@@ -780,11 +780,11 @@ class PostgresAuthorityProvider:
     ) -> Mapping[str, Any]:
         tables = project_tables(MetaData(), self.scope.project_scope.resolved_schema)
         objects = tables.research_objects
-        row = _one_mapping(
+        row = one_mapping(
             self.connection.execute(
                 select(objects)
                 .where(
-                    objects.c.project_key == _scope_key(self.scope),
+                    objects.c.project_key == runtime_scope_key(self.scope),
                     objects.c.object_id == object_id,
                     objects.c.object_type == canonical_owner,
                     objects.c.lifecycle_state.in_(("DRAFT", "ADMITTED")),
@@ -802,11 +802,11 @@ class PostgresAuthorityProvider:
     def is_revoked(
         self, binding_digest: str, grant_epoch: int, *, now: datetime | None = None
     ) -> bool:
-        table = _table("runtime_step_authorizations")
-        row = _one_mapping(
+        table = runtime_table("runtime_step_authorizations")
+        row = one_mapping(
             self.connection.execute(
                 select(table).where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.authorization_digest == binding_digest,
                 )
             )

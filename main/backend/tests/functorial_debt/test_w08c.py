@@ -8,9 +8,6 @@ from typing import Annotated, get_args, get_origin, get_type_hints
 from functorial_kit.arch.gates import scan_project
 from functorial_kit.arch.scan import ratchet, violation_key
 
-from app.successor_runtime.substrate.postgres.composition_root import (
-    build_postgres_first_specimen_runtime_node,
-)
 from app.successor_runtime.substrate.postgres.delivery_runtime import (
     build_delivery_runtime_assignment,
 )
@@ -21,15 +18,11 @@ from app.successor_runtime.runtime.admission_coordinator import (
     ExactAdmissionRegistry,
 )
 from app.successor_runtime.runtime.assignments import RuntimeAssignment
-from app.successor_runtime.runtime.node import RuntimeNode
 
 _POSTGRES_PATHS = (
     "main/backend/app/successor_runtime/substrate/postgres/",
 )
 _EXACT_BASELINE_KEYS = {
-    "derived-marked|"
-    "main/backend/app/successor_runtime/substrate/postgres/composition_root.py|"
-    "build_postgres_first_specimen_runtime_node returns an unmarked derived value",
     "derived-marked|"
     "main/backend/app/successor_runtime/substrate/postgres/delivery_runtime.py|"
     "build_delivery_runtime_assignment returns an unmarked derived value",
@@ -42,10 +35,6 @@ _EXACT_BASELINE_KEYS = {
 def test_w08c_postgres_builder_metadata_preserves_return_types() -> None:
     prepared_command = "kit:prepared-command"
     metadata = {
-        build_postgres_first_specimen_runtime_node: (
-            RuntimeNode,
-            prepared_command,
-        ),
         build_delivery_runtime_assignment: (
             RuntimeAssignment,
             prepared_command,
@@ -56,7 +45,7 @@ def test_w08c_postgres_builder_metadata_preserves_return_types() -> None:
         ),
     }
 
-    assert len(_EXACT_BASELINE_KEYS) == 3
+    assert len(_EXACT_BASELINE_KEYS) == 2
     for function, (expected_return_type, expected_prefix) in metadata.items():
         return_type = get_type_hints(function, include_extras=True)["return"]
         assert get_origin(return_type) is Annotated

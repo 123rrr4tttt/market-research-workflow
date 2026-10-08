@@ -13,7 +13,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from typing import Any, Protocol, Self
+from typing import Any, Final, Protocol, Self, TypeGuard
 
 from sqlalchemy import MetaData, select
 from sqlalchemy.engine import Connection
@@ -24,11 +24,14 @@ from app.successor_runtime.capabilities.first_specimen import (
     InternalExportInput,
     build_first_specimen_bundle,
 )
+from app.successor_runtime.capabilities.checksum import (
+    CanonicalJsonObject,
+    CanonicalJsonValue,
+)
 from app.successor_runtime.language.object_contracts import (
     build_first_specimen_return_contract_registry,
 )
 from app.successor_runtime.language.program import (
-    ProgramNode,
     program_atoms,
 )
 from app.successor_runtime.research.artifacts import (
@@ -77,14 +80,13 @@ from .authority_provider import PostgresAuthorityProvider
 from .models import PUBLIC_TABLES, ProjectTables, project_tables
 from .plans import PlanRepository
 from .programs import ProgramRepository
-from .research_ledger import one_mapping
-from .runtime_journal import ExactBindingConflict
+from .runtime_journal import ExactBindingConflict, one_mapping
 from .runtime_values import RuntimeValueBinding, RuntimeValueRepository
 from .session import ProjectScopeStale, ServerProjectScopeResolver
 from .staged_artifacts import StagedArtifactBinding, StagedArtifactRepository
 from .values import ValueRepository
 
-DELIVERY_OPERATION = "delivery.internal_export.v1"
+DELIVERY_OPERATION: Final = "delivery.internal_export.v1"
 _ARTIFACT_REF = re.compile(
     r"^(?P<artifact_id>.+)@(?P<revision>[1-9][0-9]*):sha256:"
     r"(?P<digest>[0-9a-f]{64})$"
@@ -103,8 +105,46 @@ class DeliveryOutputDrift(DeliveryHandlerError):
     """A receipt candidate identity was reused for different exact content."""
 
 
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _canonical_json_value(value: object) -> CanonicalJsonValue:
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    if _is_object_dict(value):
+        if any(not isinstance(key, str) for key in value):
+            raise TypeError("JSON object key is not a string")
+        return {
+            key: _canonical_json_value(item)
+            for key, item in value.items()
+            if isinstance(key, str)
+        }
+    if _is_object_list(value):
+        return [_canonical_json_value(item) for item in value]
+    raise TypeError("value is not canonical JSON")
+
+
+def _decode_canonical_json_object(exact: bytes) -> CanonicalJsonObject:
+    raw: object = json.loads(exact)
+    value = _canonical_json_value(raw)
+    if not isinstance(value, dict):
+        raise TypeError("payload root is not an object")
+    return value
+
+
+def _require_internal_export_outcome(value: object) -> InternalExportOutcome:
+    if not isinstance(value, InternalExportOutcome):
+        raise DeliveryOutputDrift("internal export returned no exact outcome")
+    return value
+
+
 @dataclass(frozen=True, slots=True)
-class InstalledFirstSpecimenDeliveryHandler:
+class InstalledInternalDeliveryHandler:
     handler_binding_digest: str
     interpreter_profile_digest: str
     operation_contract_digest: str
@@ -143,7 +183,7 @@ class InstalledFirstSpecimenDeliveryHandler:
         *,
         handler_binding_digest: str,
         interpreter_profile_digest: str,
-    ) -> InstalledFirstSpecimenDeliveryHandler:
+    ) -> InstalledInternalDeliveryHandler:
         bundle = build_first_specimen_bundle()
         operation = bundle.operation_by_kind(DELIVERY_OPERATION)
         codec = bundle.codec_by_kind(DELIVERY_OPERATION)
@@ -161,7 +201,7 @@ class InstalledFirstSpecimenDeliveryHandler:
 
 
 @dataclass(frozen=True, slots=True)
-class FirstSpecimenDeliveryReplay:
+class InternalDeliveryReplay:
     scope: RuntimeScope
     tables: ProjectTables
     payload: InternalExportInput
@@ -190,17 +230,17 @@ class DeliveryReplayPort(Protocol):
     def load_exact(
         self,
         connection: Connection,
-        installation: InstalledFirstSpecimenDeliveryHandler,
+        installation: InstalledInternalDeliveryHandler,
         assignment: RuntimeAssignment,
         claim: ClaimBinding,
         context: RuntimeExecutionContext,
-    ) -> FirstSpecimenDeliveryReplay: ...
+    ) -> InternalDeliveryReplay: ...
 
 
 class DeliveryEffectPort(Protocol):
     def execute_exact(
         self,
-        installation: InstalledFirstSpecimenDeliveryHandler,
+        installation: InstalledInternalDeliveryHandler,
         assignment: RuntimeAssignment,
         claim: ClaimBinding,
         context: RuntimeExecutionContext,
@@ -249,7 +289,7 @@ def _exact_project_value(
 
 
 def _decode_payload(
-    installation: InstalledFirstSpecimenDeliveryHandler,
+    installation: InstalledInternalDeliveryHandler,
     exact: bytes,
     provenance: dict[str, Any],
 ) -> InternalExportInput:
@@ -261,14 +301,10 @@ def _decode_payload(
     ):
         raise DeliveryReplayDrift("typed internal-export payload binding drift")
     try:
-        raw = json.loads(exact)
-        if not isinstance(raw, dict):
-            raise TypeError("payload root is not an object")
+        raw = _decode_canonical_json_object(exact)
         payload = codec.decode_payload(raw)
     except (TypeError, ValueError, json.JSONDecodeError) as exc:
         raise DeliveryReplayDrift("typed internal-export payload is malformed") from exc
-    if not isinstance(payload, InternalExportInput):
-        raise DeliveryReplayDrift("delivery payload decoded to the wrong type")
     if canonical_bytes(codec.encode_payload(payload)) != exact:
         raise DeliveryReplayDrift("typed internal-export payload round-trip drift")
     return payload
@@ -319,17 +355,17 @@ def _decode_artifact(exact: bytes) -> ResearchArtifact:
     return artifact
 
 
-class PostgresFirstSpecimenDeliveryReplay:
+class PostgresInternalDeliveryReplay:
     """Re-open the exact delivery closure on the effect UoW."""
 
     def load_exact(
         self,
         connection: Connection,
-        installation: InstalledFirstSpecimenDeliveryHandler,
+        installation: InstalledInternalDeliveryHandler,
         assignment: RuntimeAssignment,
         claim: ClaimBinding,
         context: RuntimeExecutionContext,
-    ) -> FirstSpecimenDeliveryReplay:
+    ) -> InternalDeliveryReplay:
         _require_exact_handler(installation, assignment, claim)
         runs = PUBLIC_TABLES["runtime_runs"]
         run = one_mapping(
@@ -369,7 +405,12 @@ class PostgresFirstSpecimenDeliveryReplay:
             connection, scope, tables, installation, assignment
         )
 
-        if assignment.payload_ref is None or assignment.payload_digest is None:
+        operation_contract_ref = assignment.operation_contract_ref
+        if (
+            assignment.payload_ref is None
+            or assignment.payload_digest is None
+            or operation_contract_ref is None
+        ):
             raise DeliveryReplayDrift("delivery assignment lacks typed payload")
         payload_bytes, payload_provenance, payload_row = _exact_project_value(
             connection,
@@ -442,7 +483,7 @@ class PostgresFirstSpecimenDeliveryReplay:
             step_id=assignment.step_id or "",
             attempt_id=claim.attempt_id,
             assignment_digest=assignment.assignment_digest,
-            operation_contract_ref=assignment.operation_contract_ref,
+            operation_contract_ref=operation_contract_ref,
             handler_binding_digest=assignment.handler_binding_digest,
             delivery_intent=intent,
             artifact_bytes=artifact_bytes,
@@ -451,7 +492,7 @@ class PostgresFirstSpecimenDeliveryReplay:
             # while assignment.payload_digest binds the typed runtime payload.
             payload_digest=intent.content_digest,
         )
-        return FirstSpecimenDeliveryReplay(
+        return InternalDeliveryReplay(
             scope=scope,
             tables=tables,
             payload=payload,
@@ -467,7 +508,7 @@ class PostgresFirstSpecimenDeliveryReplay:
         connection: Connection,
         assignment: RuntimeAssignment,
         claim: ClaimBinding,
-    ) -> Atom:
+    ) -> None:
         work = one_mapping(
             connection.execute(
                 select(PUBLIC_TABLES["runtime_work_items"]).where(
@@ -514,9 +555,9 @@ class PostgresFirstSpecimenDeliveryReplay:
         connection: Connection,
         scope: RuntimeScope,
         tables: ProjectTables,
-        installation: InstalledFirstSpecimenDeliveryHandler,
+        installation: InstalledInternalDeliveryHandler,
         assignment: RuntimeAssignment,
-    ) -> None:
+    ) -> Atom:
         run = one_mapping(
             connection.execute(
                 select(PUBLIC_TABLES["runtime_runs"]).where(
@@ -644,7 +685,7 @@ def _require_semantic_closure(
         raise DeliveryReplayDrift("delivery artifact bytes drift")
 
 
-class FirstSpecimenDeliveryEffectStore:
+class InternalDeliveryEffectStore:
     """Execute/read back the internal effect and stage its exact receipt."""
 
     def __init__(
@@ -660,7 +701,7 @@ class FirstSpecimenDeliveryEffectStore:
 
     def execute_exact(
         self,
-        installation: InstalledFirstSpecimenDeliveryHandler,
+        installation: InstalledInternalDeliveryHandler,
         assignment: RuntimeAssignment,
         claim: ClaimBinding,
         context: RuntimeExecutionContext,
@@ -692,10 +733,9 @@ class FirstSpecimenDeliveryEffectStore:
                 return InterpreterOutcome.outcome_unknown(
                     self._interpreter.readback_locator(replay.request)
                 )
-            if not isinstance(effect, InternalExportOutcome):
-                raise DeliveryOutputDrift("internal export returned no exact outcome")
+            effect = _require_internal_export_outcome(effect)
             try:
-                self._persist_receipt(
+                self.persist_receipt(
                     uow.connection,
                     installation,
                     assignment,
@@ -716,12 +756,12 @@ class FirstSpecimenDeliveryEffectStore:
             )
 
     @staticmethod
-    def _persist_receipt(
+    def persist_receipt(
         connection: Connection,
-        installation: InstalledFirstSpecimenDeliveryHandler,
+        installation: InstalledInternalDeliveryHandler,
         assignment: RuntimeAssignment,
         claim: ClaimBinding,
-        replay: FirstSpecimenDeliveryReplay,
+        replay: InternalDeliveryReplay,
         receipt: DeliveryReceiptRef,
     ) -> None:
         if receipt.content_digest is None:
@@ -888,12 +928,12 @@ def _provider_receipt_body(
     }
 
 
-class PostgresFirstSpecimenDeliveryHandler(RuntimeHandler):
+class PostgresInternalDeliveryHandler(RuntimeHandler):
     """RuntimeNode handler for one exact installed internal-export realization."""
 
     def __init__(
         self,
-        installation: InstalledFirstSpecimenDeliveryHandler,
+        installation: InstalledInternalDeliveryHandler,
         effects: DeliveryEffectPort,
     ) -> None:
         self.installation = installation
@@ -922,7 +962,7 @@ class PostgresFirstSpecimenDeliveryHandler(RuntimeHandler):
 
 
 def _require_exact_handler(
-    installation: InstalledFirstSpecimenDeliveryHandler,
+    installation: InstalledInternalDeliveryHandler,
     assignment: RuntimeAssignment,
     claim: ClaimBinding,
 ) -> None:
@@ -971,9 +1011,9 @@ __all__ = [
     "DeliveryHandlerError",
     "DeliveryOutputDrift",
     "DeliveryReplayDrift",
-    "FirstSpecimenDeliveryEffectStore",
-    "FirstSpecimenDeliveryReplay",
-    "InstalledFirstSpecimenDeliveryHandler",
-    "PostgresFirstSpecimenDeliveryHandler",
-    "PostgresFirstSpecimenDeliveryReplay",
+    "InternalDeliveryEffectStore",
+    "InternalDeliveryReplay",
+    "InstalledInternalDeliveryHandler",
+    "PostgresInternalDeliveryHandler",
+    "PostgresInternalDeliveryReplay",
 ]

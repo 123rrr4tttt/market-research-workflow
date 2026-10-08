@@ -57,8 +57,8 @@ from .runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
     StaleRevisionError,
-    _one_mapping,
-    _table,
+    one_mapping,
+    runtime_table,
     validate_runtime_assignment_row,
 )
 from .runtime_lifecycle import (
@@ -407,11 +407,11 @@ class _PostgresClaimStateReader:
         )
 
     def _one(self, table_name: str, **identity: object) -> Mapping[str, Any]:
-        table = _table(table_name)
+        table = runtime_table(table_name)
         statement = select(table)
         for name, value in identity.items():
             statement = statement.where(getattr(table.c, name) == value)
-        row = _one_mapping(self.connection.execute(statement.with_for_update()))
+        row = one_mapping(self.connection.execute(statement.with_for_update()))
         if row is None:
             rendered = ", ".join(f"{key}={value!r}" for key, value in identity.items())
             raise RecordNotFound(f"{table_name} row not found: {rendered}")
@@ -432,8 +432,8 @@ class _PostgresClaimStateReader:
     ) -> EffectDisposition:
         if attempt_id is None:
             return EffectDisposition.NOT_STARTED
-        table = _table("runtime_effect_attempts")
-        row = _one_mapping(
+        table = runtime_table("runtime_effect_attempts")
+        row = one_mapping(
             self.connection.execute(
                 select(table).where(
                     table.c.project_key == project_key,
@@ -657,8 +657,8 @@ class PostgresRuntimeNodeAdapter:
                         callable(after_reconciliation)
                         and outcome.result.state is ReconciliationState.RESOLVED
                     ):
-                        runs = _table("runtime_runs")
-                        run = _one_mapping(
+                        runs = runtime_table("runtime_runs")
+                        run = one_mapping(
                             uow.connection.execute(
                                 select(runs).where(
                                     runs.c.project_key == claim.assignment.project_key,
@@ -805,7 +805,7 @@ class PostgresRuntimeNodeAdapter:
                     raise StaleRevisionError(
                         "non-start cancel work-item revision drift"
                     )
-                attempts = _table("runtime_effect_attempts")
+                attempts = runtime_table("runtime_effect_attempts")
                 attempt_result = uow.connection.execute(
                     update(attempts)
                     .where(

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import MetaData, select
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection, Engine
 
 from app.successor_runtime.capabilities.first_specimen_delivery_gate import (
     DeliveryAssignmentParameters,
@@ -31,7 +31,7 @@ from .delivery_runtime import (
     PostgresDeliveryRuntimePort,
     build_delivery_runtime_assignment,
 )
-from .first_specimen_activation import FirstSpecimenActivationCatalog
+from .runtime_activation import OperationActivationCatalog
 from .models import PUBLIC_TABLES, project_tables
 from .plans import PlanRepository
 from .research_ledger import ResearchLedgerRepository, one_mapping
@@ -40,8 +40,15 @@ from .unit_of_work import RuntimeUnitOfWork
 from .values import ValueRepository
 
 
+def _uow_connection(uow: object) -> Connection:
+    connection = getattr(uow, "connection", None)
+    if not isinstance(connection, Connection):
+        raise TypeError("delivery gate UoW must expose a SQLAlchemy Connection")
+    return connection
+
+
 @dataclass(frozen=True, slots=True)
-class FirstSpecimenDeliveryGateRequest:
+class DeliveryGateRequest:
     scope: RuntimeScope
     run_id: str
     artifact_id: str
@@ -69,30 +76,34 @@ class FirstSpecimenDeliveryGateRequest:
             raise ValueError("delivery gate request time must be timezone-aware")
 
 
-class PostgresFirstSpecimenDeliveryGate:
+class PostgresDeliveryGate:
     """Derive exact delivery assignment parameters from persisted Run/Plan facts."""
 
     def __init__(
         self,
         *,
         engine: Engine,
-        activation_catalog: FirstSpecimenActivationCatalog,
+        activation_catalog: OperationActivationCatalog,
     ) -> None:
         self.engine = engine
         self.catalog = activation_catalog
 
-    def admit(self, request: FirstSpecimenDeliveryGateRequest) -> DeliveryGateReceipt:
+    def admit(self, request: DeliveryGateRequest) -> DeliveryGateReceipt:
         scope = request.scope
         tables = project_tables(MetaData(), scope.project_scope.resolved_schema)
         gate = DeliveryGate(
             uow_factory=lambda: RuntimeUnitOfWork(engine=self.engine),
-            value_port=lambda uow: ValueRepository(uow.connection, tables),
-            ledger_port=lambda uow: ResearchLedgerRepository(uow.connection, tables),
+            value_port=lambda uow: ValueRepository(_uow_connection(uow), tables),
+            ledger_port=lambda uow: ResearchLedgerRepository(_uow_connection(uow), tables),
             approval_port=lambda uow: PostgresDeliveryApprovalPort(
-                uow.connection, scope
+                _uow_connection(uow), scope
             ),
-            authority_port=lambda uow: PostgresAuthorityProvider(uow.connection, scope),
-            runtime_port=lambda uow: PostgresDeliveryRuntimePort(uow.connection, scope),
+            authority_port=lambda uow: PostgresAuthorityProvider(
+                _uow_connection(uow), scope
+            ),
+            runtime_port=lambda uow: PostgresDeliveryRuntimePort(
+                _uow_connection(uow), scope
+            ),
             assignment_factory=build_delivery_runtime_assignment,
         )
         artifact, parameters = self._load_exact_request(request)
@@ -111,7 +122,7 @@ class PostgresFirstSpecimenDeliveryGate:
         )
 
     def _load_exact_request(
-        self, request: FirstSpecimenDeliveryGateRequest
+        self, request: DeliveryGateRequest
     ) -> tuple[ResearchObjectRef, DeliveryAssignmentParameters]:
         scope = request.scope
         tables = project_tables(MetaData(), scope.project_scope.resolved_schema)
@@ -227,6 +238,6 @@ class PostgresFirstSpecimenDeliveryGate:
 
 
 __all__ = [
-    "FirstSpecimenDeliveryGateRequest",
-    "PostgresFirstSpecimenDeliveryGate",
+    "DeliveryGateRequest",
+    "PostgresDeliveryGate",
 ]

@@ -135,7 +135,7 @@ from app.successor_runtime.substrate.postgres.runtime_lifecycle import (
     AttachPlan,
     RuntimeLifecycleRepository,
     SubmitRun,
-    _assignment_values,
+    assignment_values,
 )
 from app.successor_runtime.substrate.postgres.runtime_values import (
     RuntimeValueBinding,
@@ -967,7 +967,7 @@ def _prepare_execution(database: LiveP0CDatabase) -> _PreparedNodeSpecimen:
             )
             connection.execute(
                 sa.insert(PUBLIC_TABLES["runtime_work_items"]).values(
-                    **_assignment_values(envelope, due_at=NOW)
+                    **assignment_values(envelope, due_at=NOW)
                 )
             )
             payloads[step.step_id] = (

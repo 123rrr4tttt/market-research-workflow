@@ -31,9 +31,9 @@ from .runtime_journal import (
     RecordNotFound,
     StaleRevisionError,
     _mapping_rows,
-    _one_mapping,
-    _table,
-    _utcnow,
+    one_mapping,
+    runtime_table,
+    utc_now,
 )
 
 
@@ -52,7 +52,7 @@ class ReservationAttempt:
 
 
 def _lock_policy_statement(eligibility: QueueEligibility):
-    policies = _table("runtime_resource_policies")
+    policies = runtime_table("runtime_resource_policies")
     return (
         select(policies)
         .where(
@@ -69,7 +69,7 @@ def _lock_policy_statement(eligibility: QueueEligibility):
 def _active_reservations_statement(
     eligibility: QueueEligibility, now: datetime, *, resource_policy_id: str
 ):
-    reservations = _table("runtime_resource_reservations")
+    reservations = runtime_table("runtime_resource_reservations")
     return select(reservations).where(
         reservations.c.project_key == eligibility.project_key,
         reservations.c.state == "ACTIVE",
@@ -159,8 +159,8 @@ class ResourceReservationRepository:
             or reservation.provider_key != eligibility.provider_key
         ):
             raise ExactBindingConflict("reservation differs from queue eligibility")
-        observed_at = now or _utcnow()
-        locked = _one_mapping(
+        observed_at = now or utc_now()
+        locked = one_mapping(
             self.connection.execute(_lock_policy_statement(eligibility))
         )
         if locked is None:
@@ -182,7 +182,7 @@ class ResourceReservationRepository:
         if not decision.granted:
             return ReservationAttempt(decision, None)
 
-        table = _table("runtime_resource_reservations")
+        table = runtime_table("runtime_resource_reservations")
         values = {
             "reservation_id": reservation.reservation_id,
             "project_key": reservation.project_key,
@@ -224,7 +224,7 @@ class ResourceReservationRepository:
         expected_revision: int,
         new_expiry: datetime,
     ) -> Mapping[str, Any]:
-        table = _table("runtime_resource_reservations")
+        table = runtime_table("runtime_resource_reservations")
         predicates = [
                 table.c.reservation_id == reservation_id,
                 table.c.lease_token == lease_token,
@@ -232,7 +232,7 @@ class ResourceReservationRepository:
         ]
         values: dict[str, Any] = {
             "lease_expires_at": new_expiry,
-            "updated_at": _utcnow(),
+            "updated_at": utc_now(),
             "revision": expected_revision + 1,
         }
         predicates.append(table.c.revision == expected_revision)
@@ -252,8 +252,8 @@ class ResourceReservationRepository:
         reason: str,
         now: datetime | None = None,
     ) -> Mapping[str, Any]:
-        table = _table("runtime_resource_reservations")
-        observed_at = now or _utcnow()
+        table = runtime_table("runtime_resource_reservations")
+        observed_at = now or utc_now()
         predicates = [
                 table.c.reservation_id == reservation_id,
                 table.c.lease_token == lease_token,
@@ -277,7 +277,7 @@ class ResourceReservationRepository:
     def reap_expired(self, now: datetime, *, limit: int = 128) -> tuple[str, ...]:
         if limit <= 0:
             return ()
-        table = _table("runtime_resource_reservations")
+        table = runtime_table("runtime_resource_reservations")
         locked = _mapping_rows(
             self.connection.execute(
                 select(
@@ -313,8 +313,8 @@ class ResourceReservationRepository:
         return tuple(reaped)
 
     def load(self, reservation_id: str) -> Mapping[str, Any]:
-        table = _table("runtime_resource_reservations")
-        row = _one_mapping(
+        table = runtime_table("runtime_resource_reservations")
+        row = one_mapping(
             self.connection.execute(
                 select(table).where(table.c.reservation_id == reservation_id)
             )

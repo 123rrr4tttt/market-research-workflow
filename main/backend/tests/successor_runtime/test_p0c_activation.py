@@ -32,7 +32,7 @@ from app.successor_runtime.language.program import (
     then_node,
     zip_ordered_node,
 )
-from app.successor_runtime.language.program import _tuple_object_type, sequence_object_type
+from app.successor_runtime.language.program import sequence_object_type, tuple_object_type
 from app.successor_runtime.language.checksum import canonical_bytes
 from app.successor_runtime.language.algebra import sha256_digest_bytes
 from app.successor_runtime.language.transforms import TransformRegistry
@@ -786,7 +786,7 @@ def test_decide_reuses_reducer_and_releases_only_selected_branch() -> None:
     )
     assert states[claim_step.step_id] is StepState.READY
     assert states[gap_step.step_id] is StepState.NOT_SELECTED
-    from app.successor_runtime.substrate.postgres.first_specimen_activation import selected_completion_steps
+    from app.successor_runtime.substrate.postgres.runtime_activation import selected_completion_steps
     assert selected_completion_steps(plan, result) is None
     completed = activate_plan(
         run_id="run-decide", program=program, plan=plan,
@@ -985,7 +985,7 @@ def test_installed_encoder_separates_domain_payload_language_sequence_and_tuple(
 
     transforms, merges, discriminators = _empty_registries()
     domain = ObjectType("CodecDomain.v1")
-    tuple_type = _tuple_object_type((LEFT, RIGHT))
+    tuple_type = tuple_object_type((LEFT, RIGHT))
     sequence_type = sequence_object_type(domain, version="2")
     _, domain_contract = _operation("codec-domain", domain, OUTPUT)
     _, tuple_contract = _operation("codec-tuple", tuple_type, OUTPUT)

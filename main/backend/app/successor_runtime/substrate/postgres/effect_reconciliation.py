@@ -9,13 +9,13 @@ original internal export.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Protocol, Self
+from typing import Protocol, Self, TypeGuard
 
 from sqlalchemy import MetaData, select
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from app.successor_runtime.capabilities.codecs import PayloadCodec
 from app.successor_runtime.language.object_contracts import OperationContract, OperationContractRef
@@ -45,26 +45,47 @@ from app.successor_runtime.substrate.blob.internal_export import (
     InternalExportRequest,
 )
 
-from .first_specimen_delivery_handler import (
+from .internal_delivery_handler import (
     DELIVERY_OPERATION,
-    FirstSpecimenDeliveryEffectStore,
-    FirstSpecimenDeliveryReplay,
-    InstalledFirstSpecimenDeliveryHandler,
-    PostgresFirstSpecimenDeliveryReplay,
+    InternalDeliveryEffectStore,
+    InternalDeliveryReplay,
+    InstalledInternalDeliveryHandler,
+    PostgresInternalDeliveryReplay,
 )
 from .models import PUBLIC_TABLES, project_tables
-from .research_ledger import one_mapping
-from .runtime_journal import validate_runtime_assignment_row
+from .runtime_journal import one_mapping, validate_runtime_assignment_row
 from .session import ProjectScopeStale, ServerProjectScopeResolver
 from .staged_artifacts import StagedArtifactRepository
 
 
-class FirstSpecimenReconciliationError(RuntimeError):
+class EffectReconciliationError(RuntimeError):
     """The durable recovery graph or authoritative readback drifted."""
 
 
+def _require_authoritative_readback(value: object) -> AuthoritativeEffectReadback:
+    if not isinstance(value, AuthoritativeEffectReadback):
+        raise EffectReconciliationError(
+            "readback facade returned no authoritative typed evidence"
+        )
+    return value
+
+
+def _db_int(value: object, field_name: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise EffectReconciliationError(f"{field_name} is not an exact integer")
+    return value
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return _is_object_dict(value) and all(isinstance(key, str) for key in value)
+
+
 @dataclass(frozen=True, slots=True)
-class InstalledFirstSpecimenReconciliationHandler:
+class InstalledDeliveryReconciliationHandler:
     """Exact recovery realization installed on one runtime node."""
 
     recovery_binding: RecoveryBinding
@@ -135,13 +156,13 @@ def _load_exact_original_graph(
         )
     )
     if attempt is None:
-        raise FirstSpecimenReconciliationError(
+        raise EffectReconciliationError(
             "recovery target is not the exact unknown attempt"
         )
     try:
         original_claim = ClaimBinding.model_validate(attempt["claim_binding_json"])
     except (TypeError, ValueError) as exc:
-        raise FirstSpecimenReconciliationError(
+        raise EffectReconciliationError(
             "original attempt ClaimBinding is malformed"
         ) from exc
     work = one_mapping(
@@ -155,7 +176,7 @@ def _load_exact_original_graph(
         )
     )
     if work is None:
-        raise FirstSpecimenReconciliationError("original recovery work is absent")
+        raise EffectReconciliationError("original recovery work is absent")
     original = validate_runtime_assignment_row(work)
     binding = original.handler_binding
     copied_fields = (
@@ -207,7 +228,7 @@ def _load_exact_original_graph(
         or work["interpreter_profile_digest"] != interpreter_profile_digest
         or work["state"] not in {"WAITING", "COMPLETED"}
     ):
-        raise FirstSpecimenReconciliationError("original recovery graph drift")
+        raise EffectReconciliationError("original recovery graph drift")
     return original, original_claim
 
 
@@ -231,7 +252,7 @@ class InternalExportRecoveryReadback(Protocol):
 class _OriginalDeliveryAttempt:
     assignment: RuntimeAssignment
     claim: ClaimBinding
-    replay: FirstSpecimenDeliveryReplay
+    replay: InternalDeliveryReplay
     observation: EffectAttemptObservation
 
 
@@ -258,35 +279,31 @@ class _ExactRequestReadbackAdapter:
         self, attempt: EffectAttemptObservation
     ) -> AuthoritativeEffectReadback:
         if attempt != self._expected:
-            raise FirstSpecimenReconciliationError(
+            raise EffectReconciliationError(
                 "reconciler changed the exact original-attempt observation"
             )
         observed = self._facade.readback_exact(self._request)
         if isinstance(observed, InternalExportOutcome):
             self.receipt = observed.receipt
             return observed.readback
-        if not isinstance(observed, AuthoritativeEffectReadback):
-            raise FirstSpecimenReconciliationError(
-                "readback facade returned no authoritative typed evidence"
-            )
-        return observed
+        return _require_authoritative_readback(observed)
 
     def prove_not_started(self, attempt: EffectAttemptObservation) -> object:
-        raise FirstSpecimenReconciliationError(
+        raise EffectReconciliationError(
             "first-specimen reconciliation does not materialize successor attempts"
         )
 
 
-class PostgresFirstSpecimenReconciliationHandler:
+class PostgresDeliveryReconciliationHandler:
     """RuntimeHandler that performs readback and candidate recovery only."""
 
     def __init__(
         self,
-        installation: InstalledFirstSpecimenReconciliationHandler,
+        installation: InstalledDeliveryReconciliationHandler,
         uow_factory: ReconciliationUnitOfWorkFactory,
         *,
         readback: InternalExportRecoveryReadback,
-        delivery_replay: PostgresFirstSpecimenDeliveryReplay | None = None,
+        delivery_replay: PostgresInternalDeliveryReplay | None = None,
         recover_verify_admit: VerifyAdmitRecoveryPort | None = None,
     ) -> None:
         if (
@@ -301,7 +318,7 @@ class PostgresFirstSpecimenReconciliationHandler:
         self.operation_contract_digest = installation.operation_contract_digest
         self._uow_factory = uow_factory
         self._readback = readback
-        self._delivery_replay = delivery_replay or PostgresFirstSpecimenDeliveryReplay()
+        self._delivery_replay = delivery_replay or PostgresInternalDeliveryReplay()
         self._reconciler = EffectReconciler()
         self._recover_verify_admit = recover_verify_admit
 
@@ -322,7 +339,7 @@ class PostgresFirstSpecimenReconciliationHandler:
             )
             if original_assignment.assignment_kind is AssignmentKind.VERIFY_ADMIT:
                 if self._recover_verify_admit is None:
-                    raise FirstSpecimenReconciliationError(
+                    raise EffectReconciliationError(
                         "delivery VERIFY_ADMIT recovery realization is not installed"
                     )
                 run = one_mapping(
@@ -335,7 +352,7 @@ class PostgresFirstSpecimenReconciliationHandler:
                     )
                 )
                 if run is None:
-                    raise FirstSpecimenReconciliationError(
+                    raise EffectReconciliationError(
                         "delivery admission recovery run is absent"
                     )
                 resolver = ServerProjectScopeResolver(connection=uow.connection)
@@ -348,7 +365,7 @@ class PostgresFirstSpecimenReconciliationHandler:
                     isinstance(scope_ref, ProjectScopeStale)
                     or resolver.resolve(assignment.project_key) != scope_ref
                 ):
-                    raise FirstSpecimenReconciliationError(
+                    raise EffectReconciliationError(
                         "delivery admission recovery project scope is stale"
                     )
                 outcome = self._recover_verify_admit(
@@ -388,7 +405,7 @@ class PostgresFirstSpecimenReconciliationHandler:
                 or result.readback is None
                 or adapter.receipt is None
             ):
-                raise FirstSpecimenReconciliationError(
+                raise EffectReconciliationError(
                     "first-specimen readback produced an unsupported reconciliation state"
                 )
             receipt = adapter.receipt
@@ -398,10 +415,10 @@ class PostgresFirstSpecimenReconciliationHandler:
                 or receipt.receipt_digest != result.readback.receipt_digest
                 or receipt.provider_locator != result.readback.provider_locator
             ):
-                raise FirstSpecimenReconciliationError(
+                raise EffectReconciliationError(
                     "reconstructed delivery receipt/readback exact binding drift"
                 )
-            original_installation = InstalledFirstSpecimenDeliveryHandler.bind(
+            original_installation = InstalledInternalDeliveryHandler.bind(
                 handler_binding_digest=original.assignment.handler_binding_digest,
                 interpreter_profile_digest=self.interpreter_profile_digest,
             )
@@ -422,7 +439,7 @@ class PostgresFirstSpecimenReconciliationHandler:
                 )
             )
             if existing_stage is None or existing_stage["state"] == "STAGED":
-                FirstSpecimenDeliveryEffectStore._persist_receipt(
+                InternalDeliveryEffectStore.persist_receipt(
                     uow.connection,
                     original_installation,
                     original.assignment,
@@ -441,19 +458,19 @@ class PostgresFirstSpecimenReconciliationHandler:
                     f"epoch-{original.assignment.execution_epoch}"
                 )
             ):
-                raise FirstSpecimenReconciliationError(
+                raise EffectReconciliationError(
                     "recovered delivery candidate exact binding drift"
                 )
             stage = staged.load(stage_id, for_update=True)
             if stage["state"] == "STAGED":
                 staged.transition(
                     stage_id,
-                    expected_revision=int(stage["revision"]),
+                    expected_revision=_db_int(stage["revision"], "stage revision"),
                     expected_state="STAGED",
                     target_state="VERIFIED",
                 )
             elif stage["state"] != "VERIFIED":
-                raise FirstSpecimenReconciliationError(
+                raise EffectReconciliationError(
                     "recovered delivery candidate is not verifiable"
                 )
             uow.commit()
@@ -487,7 +504,7 @@ class PostgresFirstSpecimenReconciliationHandler:
             or claim.interpreter_profile_digest != self.interpreter_profile_digest
             or assignment.reconciliation_attempt_id is None
         ):
-            raise FirstSpecimenReconciliationError(
+            raise EffectReconciliationError(
                 "exact RecoveryBinding/readback/original-profile drift"
             )
 
@@ -508,13 +525,13 @@ class PostgresFirstSpecimenReconciliationHandler:
             )
         )
         if attempt is None:
-            raise FirstSpecimenReconciliationError(
+            raise EffectReconciliationError(
                 "original reconciliation attempt is absent"
             )
         try:
             original_claim = ClaimBinding.model_validate(attempt["claim_binding_json"])
         except (TypeError, ValueError) as exc:
-            raise FirstSpecimenReconciliationError(
+            raise EffectReconciliationError(
                 "original attempt claim binding is malformed"
             ) from exc
 
@@ -528,13 +545,13 @@ class PostgresFirstSpecimenReconciliationHandler:
             )
         )
         if work is None:
-            raise FirstSpecimenReconciliationError(
+            raise EffectReconciliationError(
                 "original reconciliation work item is absent"
             )
         try:
             original_assignment = validate_runtime_assignment_row(work)
         except Exception as exc:
-            raise FirstSpecimenReconciliationError(
+            raise EffectReconciliationError(
                 "original assignment binding is malformed or drifted"
             ) from exc
         self._require_original_graph(
@@ -547,7 +564,7 @@ class PostgresFirstSpecimenReconciliationHandler:
 
         original_binding = original_assignment.handler_binding
         assert isinstance(original_binding, InterpreterBinding)
-        original_installation = InstalledFirstSpecimenDeliveryHandler.bind(
+        original_installation = InstalledInternalDeliveryHandler.bind(
             handler_binding_digest=original_assignment.handler_binding_digest,
             interpreter_profile_digest=original_binding.interpreter_profile_digest,
         )
@@ -560,7 +577,7 @@ class PostgresFirstSpecimenReconciliationHandler:
         )
         locator = self._readback.readback_locator(replay.request)
         if replay.request.delivery_intent.idempotency_key == "" or not locator:
-            raise FirstSpecimenReconciliationError(
+            raise EffectReconciliationError(
                 "original DeliveryIntent readback identity is absent"
             )
         observation = EffectAttemptObservation(
@@ -585,8 +602,8 @@ class PostgresFirstSpecimenReconciliationHandler:
     def _require_original_graph(
         self,
         recovery: RuntimeAssignment,
-        attempt: Mapping[str, Any],
-        work: Mapping[str, Any],
+        attempt: RowMapping,
+        work: RowMapping,
         original: RuntimeAssignment,
         original_claim: ClaimBinding,
     ) -> None:
@@ -651,17 +668,17 @@ class PostgresFirstSpecimenReconciliationHandler:
             or work_row["interpreter_profile_digest"] != self.interpreter_profile_digest
             or work_row["state"] not in {"WAITING", "COMPLETED"}
         ):
-            raise FirstSpecimenReconciliationError(
+            raise EffectReconciliationError(
                 "original attempt/work/assignment/claim graph drift"
             )
 
 
-class PostgresFirstSpecimenLocalReconciliationHandler:
+class PostgresLocalEffectReconciliationHandler:
     """Read an already persisted local output without re-running its effect."""
 
     def __init__(
         self,
-        installation: InstalledFirstSpecimenReconciliationHandler,
+        installation: InstalledDeliveryReconciliationHandler,
         uow_factory: ReconciliationUnitOfWorkFactory,
         *,
         recover_verify_admit: VerifyAdmitRecoveryPort | None = None,
@@ -692,7 +709,7 @@ class PostgresFirstSpecimenLocalReconciliationHandler:
                 )
             )
             if run is None:
-                raise FirstSpecimenReconciliationError("local recovery run is absent")
+                raise EffectReconciliationError("local recovery run is absent")
             resolver = ServerProjectScopeResolver(connection=uow.connection)
             scope_ref = resolver.resolve_expected(
                 assignment.project_key,
@@ -703,13 +720,13 @@ class PostgresFirstSpecimenLocalReconciliationHandler:
                 isinstance(scope_ref, ProjectScopeStale)
                 or resolver.resolve(assignment.project_key) != scope_ref
             ):
-                raise FirstSpecimenReconciliationError(
+                raise EffectReconciliationError(
                     "local recovery project scope is stale"
                 )
             scope = RuntimeScope(project_scope=scope_ref, actor_id=claim.node_id)
             if original.assignment_kind is AssignmentKind.VERIFY_ADMIT:
                 if self._recover_verify_admit is None:
-                    raise FirstSpecimenReconciliationError(
+                    raise EffectReconciliationError(
                         "VERIFY_ADMIT recovery realization is not installed"
                     )
                 outcome = self._recover_verify_admit(
@@ -742,7 +759,7 @@ class PostgresFirstSpecimenLocalReconciliationHandler:
             if not isinstance(project_ref, str) or not project_ref.startswith(
                 "project-value:"
             ):
-                raise FirstSpecimenReconciliationError(
+                raise EffectReconciliationError(
                     "local recovery output is not project-value owned"
                 )
             project_value = one_mapping(
@@ -766,10 +783,10 @@ class PostgresFirstSpecimenLocalReconciliationHandler:
                 or len(exact) != int(runtime_value["byte_size"])
                 or runtime_value["object_type"] != project_value["object_type"]
                 or runtime_value["codec_id"] != project_value["codec_id"]
-                or not isinstance(provenance, Mapping)
+                or not _is_string_object_dict(provenance)
                 or sha256_hex(dict(provenance)) != project_value["provenance_digest"]
             ):
-                raise FirstSpecimenReconciliationError(
+                raise EffectReconciliationError(
                     "local recovery value exact readback drift"
                 )
             if (
@@ -839,15 +856,15 @@ class PostgresFirstSpecimenLocalReconciliationHandler:
             or assignment.reconciliation_attempt_id is None
             or claim.interpreter_profile_digest != self.interpreter_profile_digest
         ):
-            raise FirstSpecimenReconciliationError("local recovery exact binding drift")
+            raise EffectReconciliationError("local recovery exact binding drift")
 
     @staticmethod
-    def _exact_bytes(row: Mapping[str, Any]) -> bytes:
+    def _exact_bytes(row: RowMapping) -> bytes:
         if row["content_bytes"] is not None and row["content_json"] is None:
             return bytes(row["content_bytes"])
         if row["content_json"] is not None and row["content_bytes"] is None:
             return canonical_bytes(row["content_json"])
-        raise FirstSpecimenReconciliationError(
+        raise EffectReconciliationError(
             "local recovery value lacks one exact representation"
         )
 
@@ -869,18 +886,18 @@ class PostgresFirstSpecimenLocalReconciliationHandler:
             stage["attempt_id"] != original_claim.attempt_id
             or stage["value_id"] != runtime_value_id
         ):
-            raise FirstSpecimenReconciliationError(
+            raise EffectReconciliationError(
                 "local recovery staged candidate binding drift"
             )
         if stage["state"] == "STAGED":
             staged.transition(
                 stage_id,
-                expected_revision=int(stage["revision"]),
+                expected_revision=_db_int(stage["revision"], "stage revision"),
                 expected_state="STAGED",
                 target_state="VERIFIED",
             )
         elif stage["state"] != "VERIFIED":
-            raise FirstSpecimenReconciliationError(
+            raise EffectReconciliationError(
                 "local recovery candidate is not verifiable"
             )
 
@@ -909,11 +926,11 @@ class PostgresFirstSpecimenLocalReconciliationHandler:
 
 
 __all__ = [
-    "FirstSpecimenReconciliationError",
-    "InstalledFirstSpecimenReconciliationHandler",
+    "EffectReconciliationError",
+    "InstalledDeliveryReconciliationHandler",
     "InternalExportRecoveryReadback",
-    "PostgresFirstSpecimenLocalReconciliationHandler",
-    "PostgresFirstSpecimenReconciliationHandler",
+    "PostgresLocalEffectReconciliationHandler",
+    "PostgresDeliveryReconciliationHandler",
     "ReconciliationUnitOfWorkFactory",
     "VerifyAdmitRecoveryPort",
     "BatchBusinessBrokerReadbackFacade",
@@ -949,7 +966,7 @@ from app.successor_runtime.capabilities import batch_business
 from app.successor_runtime.capabilities.checksum import canonical_json
 from app.successor_runtime.runtime.recovery import NonStartProof
 
-from .first_specimen_activation import PostgresFirstSpecimenActivationBindingAdapter
+from .runtime_activation import PostgresRuntimeActivationBindingAdapter
 from .batch_task_submission_handler import PersistentOperationHandler
 from .node_adapter import UowFactory
 
@@ -1348,7 +1365,7 @@ class PostgresBatchBusinessReadbackReplay:
             raise BatchBusinessReadbackError("business wait project scope is stale")
         scope = RuntimeScope(project_scope=resolved, actor_id=context.node.node_id)
         tables = project_tables(MetaData(), resolved.resolved_schema)
-        adapter = PostgresFirstSpecimenActivationBindingAdapter()
+        adapter = PostgresRuntimeActivationBindingAdapter()
         descriptor = adapter.load_exact(connection, assignment, scope, tables)
         input_ref = adapter.semantic_input_ref(
             connection, assignment, scope, tables, descriptor
@@ -1455,7 +1472,7 @@ class PostgresBusinessResultPublisher:
                 "business wait assignment lacks operation contract"
             )
         tables = project_tables(MetaData(), scope.project_scope.resolved_schema)
-        adapter = PostgresFirstSpecimenActivationBindingAdapter()
+        adapter = PostgresRuntimeActivationBindingAdapter()
         codec = batch_business.build_batch_business_wait_result_codec(
             contract_ref
         )

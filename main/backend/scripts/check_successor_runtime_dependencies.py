@@ -47,6 +47,7 @@ RUNTIME_FORBIDDEN = (
     "app.api",
 )
 SUCCESSOR_FORBIDDEN = (
+    "app.composition",
     "app.services.workflow_graph",
     "app.services.source_library",
     "app.services.collect_runtime",

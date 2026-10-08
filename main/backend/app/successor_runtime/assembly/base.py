@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal
 
+from app.contracts.json import JSONObject
 from app.successor_runtime.runtime.assignments import InterpreterBinding
 
 AssemblyStatus = Literal[
@@ -43,7 +44,7 @@ def require_assembly_digest(value: str, label: str) -> None:
         raise ValueError(f"{label} must be a sha256 hex digest")
 
 
-def successor_binding(
+def runtime_binding(
     *,
     operation_contract_digest: str,
     interpreter_profile_digest: str,
@@ -56,11 +57,11 @@ def successor_binding(
     """Construct an exact runtime binding from caller-owned digests."""
 
     for value, label in (
-        (operation_contract_digest, "successor binding operation contract digest"),
-        (interpreter_profile_digest, "successor binding interpreter profile digest"),
-        (deployment_catalog_digest, "successor binding deployment catalog digest"),
-        (project_scope_digest, "successor binding project scope digest"),
-        (authority_requirement_digest, "successor binding authority requirement digest"),
+        (operation_contract_digest, "runtime binding operation contract digest"),
+        (interpreter_profile_digest, "runtime binding interpreter profile digest"),
+        (deployment_catalog_digest, "runtime binding deployment catalog digest"),
+        (project_scope_digest, "runtime binding project scope digest"),
+        (authority_requirement_digest, "runtime binding authority requirement digest"),
     ):
         require_assembly_digest(value, label)
     return InterpreterBinding.from_content(
@@ -103,7 +104,7 @@ class CellBinding:
                 f"{self.cell_id} non-installed status cannot carry a binding digest"
             )
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> JSONObject:
         return {
             "cell_id": self.cell_id,
             "family_id": self.family_id,
@@ -123,5 +124,5 @@ __all__ = [
     "CellBinding",
     "require_assembly_digest",
     "sha256_hex",
-    "successor_binding",
+    "runtime_binding",
 ]

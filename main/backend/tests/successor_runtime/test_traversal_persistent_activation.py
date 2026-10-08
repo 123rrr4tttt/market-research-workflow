@@ -102,7 +102,7 @@ from app.successor_runtime.substrate.postgres.authority import (
     AuthorityGrant,
     CapabilityAuthority,
 )
-from app.successor_runtime.substrate.postgres.first_specimen_activation import (
+from app.successor_runtime.substrate.postgres.runtime_activation import (
     ActivationTrigger,
     compiled_submission_request_digest,
     submit_compiled_program,

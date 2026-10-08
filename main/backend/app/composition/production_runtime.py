@@ -8,12 +8,12 @@ production authority source use explicit conservative-denial ports.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 import hashlib
-from typing import Annotated
+from typing import Annotated, Protocol, TypeGuard
 
 import redis as redis_client
 from sqlalchemy import MetaData, and_, inspect, or_, select, text
@@ -207,7 +207,7 @@ def install_project_runtime(
 
 
 @contextmanager
-def _read_only_connection(engine: Engine) -> Iterator[Connection]:
+def _read_only_connection(engine: Engine) -> Generator[Connection, None, None]:
     with engine.connect() as connection:
         # Adapters only issue SELECT statements; connection close rolls back
         # the implicit read transaction.
@@ -374,12 +374,53 @@ class PostgresProductionApprovals:
         )
 
 
+class _RedisRateScript(Protocol):
+    def __call__(self, *, keys: list[str], args: list[int]) -> object: ...
+
+
+class _RedisRateClient(Protocol):
+    def register_script(self, script: str) -> _RedisRateScript: ...
+
+
+def _is_redis_rate_values(value: object) -> TypeGuard[Sequence[object]]:
+    return isinstance(value, (list, tuple))
+
+
+def _redis_rate_pair(value: object) -> tuple[int, int]:
+    if not _is_redis_rate_values(value):
+        raise ValueError("rate script response must contain count and ttl")
+    if len(value) != 2:
+        raise ValueError("rate script response must contain count and ttl")
+    count_raw = value[0]
+    ttl_raw = value[1]
+    if (
+        isinstance(count_raw, bool)
+        or not isinstance(count_raw, (bytes, str, int))
+        or isinstance(ttl_raw, bool)
+        or not isinstance(ttl_raw, (bytes, str, int))
+    ):
+        raise TypeError("rate script response values must be integers")
+    return int(count_raw), int(ttl_raw)
+
+
+def _redis_client_from_url(url: str) -> redis_client.Redis:
+    """Call redis-py's real URL factory across its untyped kwargs boundary."""
+
+    factory: object = getattr(redis_client.Redis, "from_url", None)
+    if not callable(factory):  # pragma: no cover - broken dependency surface
+        raise TypeError("redis.Redis.from_url is not callable")
+    candidate: object = factory(url)
+    if not isinstance(candidate, redis_client.Redis):  # pragma: no cover - broken dependency surface
+        raise TypeError("redis.Redis.from_url returned an invalid client")
+    return candidate
+
+
 class AtomicRedisRateObservations:
     """Atomic actor/operation windows backed by the configured Redis URL."""
 
     def __init__(
         self,
-        client: redis_client.Redis,
+        client: _RedisRateClient,
         *,
         http_window_seconds: int,
         provider_window_seconds: int,
@@ -396,9 +437,7 @@ class AtomicRedisRateObservations:
         }[scope]
         try:
             raw = self._script(keys=[f"mrw:production:rate:{scope}:v1:{digest}"], args=[window])
-            if not isinstance(raw, (list, tuple)) or len(raw) != 2:
-                raise ValueError("rate script response must contain count and ttl")  # noqa: TRY301
-            count, ttl = (int(raw[0]), int(raw[1]))
+            count, ttl = _redis_rate_pair(raw)
             if count < 1 or ttl <= 0:
                 raise ValueError("rate script returned an invalid observation")  # noqa: TRY301
         except Exception as exc:
@@ -588,7 +627,7 @@ def build_production_runtime_bindings(
         actor_scopes=PostgresProductionActorScopes(engine),
         approvals=PostgresProductionApprovals(engine),
         rate_observations=AtomicRedisRateObservations(
-            redis_client.Redis.from_url(str(getattr(settings_obj, "redis_url", "") or "")),
+            _redis_client_from_url(str(getattr(settings_obj, "redis_url", "") or "")),
             http_window_seconds=int(getattr(settings_obj, "production_http_rate_window_seconds", 60)),
             provider_window_seconds=int(getattr(settings_obj, "production_provider_rate_window_seconds", 60)),
         ),

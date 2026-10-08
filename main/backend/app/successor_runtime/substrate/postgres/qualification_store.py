@@ -14,11 +14,11 @@ from .runtime_journal import (
     ExactBindingConflict,
     ExactQualificationBinding,
     RecordNotFound,
-    _one_mapping,
-    _project_values,
-    _scope_key,
-    _table,
-    _utcnow,
+    one_mapping,
+    project_values,
+    runtime_scope_key,
+    runtime_table,
+    utc_now,
     validate_authorization_row,
     validate_qualification_row,
 )
@@ -68,7 +68,7 @@ class QualificationStoreRepository:
         self.scope = scope
 
     def persist(self, binding: ExactQualificationBinding) -> Mapping[str, object]:
-        project_key = _scope_key(self.scope)
+        project_key = runtime_scope_key(self.scope)
         if binding.project_key != project_key:
             raise ExactBindingConflict("qualification scope mismatch")
         if binding.authority_context.actor_id != self.scope.actor_id:
@@ -90,8 +90,8 @@ class QualificationStoreRepository:
             ):
                 raise ExactBindingConflict("step authorization ProjectScopeRef drift")
 
-        qualifications = _table("runtime_qualifications")
-        current = _one_mapping(
+        qualifications = runtime_table("runtime_qualifications")
+        current = one_mapping(
             self.connection.execute(
                 select(qualifications).where(
                     qualifications.c.project_key == project_key,
@@ -99,7 +99,7 @@ class QualificationStoreRepository:
                 )
             )
         )
-        values = _project_values(
+        values = project_values(
             self.scope,
             {
                 "qualification_id": binding.qualification_id,
@@ -135,22 +135,22 @@ class QualificationStoreRepository:
             ):
                 raise ExactBindingConflict("qualification identity was rebound")
         else:
-            now = _utcnow()
+            now = utc_now()
             self.connection.execute(
                 insert(qualifications).values(**values, created_at=now, updated_at=now)
             )
 
-        authorizations = _table("runtime_step_authorizations")
+        authorizations = runtime_table("runtime_step_authorizations")
         for authorization in binding.qualified_plan.step_bindings:
             # These nested JSON columns are themselves covered by the exact
             # typed StepAuthorizationBinding.  Do not pass them through the
             # generic public metadata allowlist, which intentionally rejects
             # untyped nested control objects.
             auth_values = {
-                "project_key": _scope_key(self.scope),
+                "project_key": runtime_scope_key(self.scope),
                 **_authorization_values(authorization),
             }
-            current_auth = _one_mapping(
+            current_auth = one_mapping(
                 self.connection.execute(
                     select(authorizations).where(
                         authorizations.c.project_key == project_key,
@@ -166,7 +166,7 @@ class QualificationStoreRepository:
                 if current_auth["authorization_digest"] != authorization.binding_digest:
                     raise ExactBindingConflict("step authorization epoch was rebound")
                 continue
-            now = _utcnow()
+            now = utc_now()
             self.connection.execute(
                 insert(authorizations).values(
                     **auth_values, created_at=now, updated_at=now
@@ -175,11 +175,11 @@ class QualificationStoreRepository:
         return self.load(binding.qualification_id)
 
     def load(self, qualification_id: str) -> Mapping[str, object]:
-        table = _table("runtime_qualifications")
-        row = _one_mapping(
+        table = runtime_table("runtime_qualifications")
+        row = one_mapping(
             self.connection.execute(
                 select(table).where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.qualification_id == qualification_id,
                 )
             )
@@ -190,12 +190,12 @@ class QualificationStoreRepository:
         return row
 
     def load_step_binding(self, run_id: str, step_id: str) -> StepAuthorizationBinding:
-        table = _table("runtime_step_authorizations")
+        table = runtime_table("runtime_step_authorizations")
         rows = (
             self.connection.execute(
                 select(table)
                 .where(
-                    table.c.project_key == _scope_key(self.scope),
+                    table.c.project_key == runtime_scope_key(self.scope),
                     table.c.run_id == run_id,
                     table.c.step_id == step_id,
                 )

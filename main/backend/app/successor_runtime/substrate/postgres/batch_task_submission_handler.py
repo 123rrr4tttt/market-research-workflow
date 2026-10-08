@@ -37,8 +37,8 @@ from app.successor_runtime.substrate.postgres.runtime_journal import (
 from app.successor_runtime.substrate.postgres.session import (
     ServerProjectScopeResolver,
 )
-from app.successor_runtime.substrate.postgres.first_specimen_activation import (
-    PostgresFirstSpecimenActivationBindingAdapter,
+from app.successor_runtime.substrate.postgres.runtime_activation import (
+    PostgresRuntimeActivationBindingAdapter,
 )
 from app.successor_runtime.substrate.postgres.node_adapter import UowFactory
 
@@ -81,7 +81,7 @@ class PersistentOperationHandler(RuntimeHandler, Generic[Input, Output]):
         self._validate_bound_inputs = validate_bound_inputs
         self._bound_payload_source = bound_payload_source
         self._validate_output = validate_output
-        self._values = PostgresFirstSpecimenActivationBindingAdapter()
+        self._values = PostgresRuntimeActivationBindingAdapter()
 
     @property
     def input_codec(self) -> PayloadCodec[Input]:

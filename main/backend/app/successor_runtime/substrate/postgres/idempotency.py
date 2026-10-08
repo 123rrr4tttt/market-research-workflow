@@ -16,11 +16,11 @@ from .runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
     StaleRevisionError,
-    _one_mapping,
-    _project_values,
-    _scope_key,
-    _table,
-    _utcnow,
+    one_mapping,
+    project_values,
+    runtime_scope_key,
+    runtime_table,
+    utc_now,
 )
 
 
@@ -66,9 +66,9 @@ class IdempotencyRepository:
         self.scope = scope
 
     def reserve(self, binding: IdempotencyBinding) -> Mapping[str, Any]:
-        table = _table("runtime_idempotency")
-        values = _project_values(self.scope, binding.values())
-        now = _utcnow()
+        table = runtime_table("runtime_idempotency")
+        values = project_values(self.scope, binding.values())
+        now = utc_now()
         values.update(revision=0, created_at=now, updated_at=now)
         self.connection.execute(
             pg_insert(table)
@@ -100,15 +100,15 @@ class IdempotencyRepository:
         *,
         for_update: bool = False,
     ) -> Mapping[str, Any]:
-        table = _table("runtime_idempotency")
+        table = runtime_table("runtime_idempotency")
         statement = select(table).where(
-            table.c.project_key == _scope_key(self.scope),
+            table.c.project_key == runtime_scope_key(self.scope),
             table.c.capability_id == capability_id,
             table.c.logical_request_id == logical_request_id,
         )
         if for_update:
             statement = statement.with_for_update()
-        row = _one_mapping(self.connection.execute(statement))
+        row = one_mapping(self.connection.execute(statement))
         if row is None:
             raise RecordNotFound("idempotency binding not found")
         return row
@@ -123,11 +123,11 @@ class IdempotencyRepository:
     ) -> Mapping[str, Any]:
         if not terminal_observation_ref:
             raise ValueError("terminal_observation_ref is required")
-        table = _table("runtime_idempotency")
+        table = runtime_table("runtime_idempotency")
         result = self.connection.execute(
             update(table)
             .where(
-                table.c.project_key == _scope_key(self.scope),
+                table.c.project_key == runtime_scope_key(self.scope),
                 table.c.capability_id == capability_id,
                 table.c.logical_request_id == logical_request_id,
                 table.c.revision == expected_revision,
@@ -137,7 +137,7 @@ class IdempotencyRepository:
                 state="TERMINAL",
                 terminal_observation_ref=terminal_observation_ref,
                 revision=expected_revision + 1,
-                updated_at=_utcnow(),
+                updated_at=utc_now(),
             )
         )
         if getattr(result, "rowcount", None) != 1:

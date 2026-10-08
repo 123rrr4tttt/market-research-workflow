@@ -513,6 +513,31 @@ K、H、S、L未达初始净减/新增预算及G2最终N162低于原N_min164均�
 
 共同cwd为仓库根；Python为`main/backend/.venv311/bin/python`，`PYTHONPATH`为根、`src`、`main/backend`。PG专属端口50923由集成管理，PG/coverage/frontend build/E2E各独占；pure最多2进程，使用独立tmp/cache/Hypothesis目录及不可达DB/服务端口，不写共享coverage。测试并发按资源与输入判断，不按语言/文件名猜测。旧部署Stage4–6仍STOPPED；本轮本地精简与验证不授予push/deploy权限。
 
+### 安装边界与选定内部类型修复（2026-10-09）
+
+本轮以已提交的`c2a86b60fc2f1fcb8b53295dc8bb7ce00d686b4c`为基线，完成安装依赖与选定内部类型两项质量修复，并为六个现役PG基础设施模块及composition root按职责正名。上方有限精简验收与§2.1/§2.2历史事实保持，不把本轮搬迁计为删减收益。
+
+七个真实factory与原installed operation定义合并到`app/composition/installed_operation.py`，删除旧assembly模块及其反向调用production私有函数的forwarder层；production facts、handler装配和project contribution投影仍消费同一effective native tuple。完整ref、实际codec对象身份、profile/authority绑定与构造无effect边界保持。PG现役入口改为`runtime_activation`、`terminal_commit`、`effect_reconciliation`、`internal_delivery_handler`、`delivery_gate`、`gap_successor`及`compose_postgres_runtime`；原research specimen能力合同、表、codec、领域Failure和canonical writer归属不变。旧模块import、旧compose/builder及已改公共helper的现役源码引用为0，没有新增Runtime、binder或manager。
+
+本轮strict0只覆盖明确加入检查的production、production_runtime、authority、六个PG模块、composition root及相应既有边界；journal仅核受改方法与消费者，不宣称整个journal文件或全仓内部类型清零。row/metadata运行时守卫再收窄到原DTO，claim使用原`RuntimeClaim`，候选和commit返回沿原union及分支，不以新增Any、整row unchecked cast或权限放宽消除诊断。review发现的三项P2（外部DTO拒绝删除、expanded effect默认值/错误分类变化、settings容器被标量限制拒绝）及subclass/CSV误改已修复，对应原消费者回归包含在本轮254项实际pure结果中。
+
+四个异常Python类名作为真实wire兼容身份保留：`FirstSpecimenTerminalError`、`FirstSpecimenTerminalLifecycleGap`、`FirstSpecimenCandidateDecodeError`属于原terminal公开异常族，该族在VERIFY_ADMIT路径存在由`type(exc).__name__.upper()`形成持久失败码的边界；`FirstSpecimenActivationError`可由原handler异常路径进入`UNCLASSIFIED_INTERPRETER_EXCEPTION:{type(exc).__name__}`读回提示。保留原类名与消息，不新增名字到wire的转换层。`trace:first-specimen:activation`及`mrw.first-specimen.verification-receipt.v1`等协议字节继续保持。
+
+| 本轮实际验证 | 结果与证据边界 |
+| --- | --- |
+| 公共strict与贡献同步 | 明确加入检查的边界0 errors；sync/check均clean |
+| 现役架构七gate | 235 passed |
+| 选定pure | collection254、实际254 passed，3项既有Pydantic warnings，15.65秒；含本轮输入/失败语义回归 |
+| 选定真实PostgreSQL | collection36、实际36 passed，3 warnings，25.57秒；独占50923，覆盖mixed worker、retrieval n0/n2/reject/gap children、real production root、two-node lease/terminal/UNKNOWN/reopen、gap successor commit/replay/authority及CW12 |
+| 完整collection | backend3770、root1343；原输出为`/tmp/mrw-internal-cleanup-20261009/backend-collect.log`与`root-collect.log`，只证明collection，没有执行全量suite |
+| 源码与协议读回 | 整体diff-check clean，旧命名现役引用为0；`/tmp/mrw-internal-cleanup-20261009/identity-literals-final.json`记录协议字节核对 |
+
+公共strict、sync/check、gates及选定pure/PG首次执行未重定向raw stdout；实际命令、selector和结果由集成统一记入`/tmp/mrw-internal-cleanup-20261009/final-integration-summary.json`。该文件是结果账本，不是原始输出日志；不为补日志重复执行，不把collection或账本生成当作测试通过。
+
+app Python完整成本为632文件227991行→632文件228755行，净增764行，计量见`/tmp/mrw-internal-cleanup-20261009/source-size-final.json`。必要guard、typing、共同接口与主线补修全部进入增量；名称搬迁收益为0，七factory合并与旧forwarder退出的结构收益单独成立，不宣称省行。源码写入期间的collection/SyntaxError及GLM429尝试保留为本轮失败/等待成本，不改写为首轮通过。root、协调、source owner和集成的返工均属本轮；完整调用/token、首次整组验收耗时及精确失败尝试次数未完整取得，缺失不记零，不报告提速。
+
+本轮只实际执行上述选定pure/PG与门禁，selected collection254/36不是全仓collection或全量运行。没有用本轮结果覆盖上轮全集、coverage、前端或外部live证据。独占PG容器`mrw-internal-cleanup-pg-20261009`及50923 listener已清理，用户8000/8172/5173/55436服务未动；未push/deploy，旧Stage4–6继续STOPPED。
+
 ## 6. 原验证入口
 
 统一根cwd和原venv；下列是按影响面选择的原验证入口，不是本轮全量运行清单。各批实际执行及复用分别以§2.1/§2.2为准。不安装依赖，不恢复已停止历史部署任务，不新增测试调度/证据平台。

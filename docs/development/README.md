@@ -12,6 +12,8 @@
 
 最终backend collection3757、root1342由原全集执行、精确失败修复和本地PG补跑闭合，未声称一次全部重跑；当前coverage core100%/other67.12%，公共类型0/0、sync/check clean、七gate234通过。K真实PG45、L真实PG5及Ops mock Playwright11分别保留证明范围。两个外部live链未执行，两个静态negative由Pyright预期失败承担；旧失败attempt不改为PASS，内部类型债不追加为新治理项目。必要领域writer、Runtime事实owner、权限/UNKNOWN及具名provider/恢复核保持。未push/deploy，旧Stage4–6继续STOPPED；[原结构整理方案](MRW结构整理方案与分发包.md)只作历史。
 
+2026-10-09追加的安装边界与选定内部类型质量修复已完成本地有界验证，见[阶段修复记录](MRW平台结构精简与删减阶段.md#安装边界与选定内部类型修复2026-10-09)。本轮从`c2a86b60`的632文件227991行变为632文件228755行，净增764行；七factory合并与旧反向forwarder退出的结构收益独立记录，名称搬迁收益为0。公共及明确扩入的strict边界0错误、选定pure254与真实PG36、七gate235实际通过；完整collection不等于全量执行，不宣称全仓内部类型清零。四个`FirstSpecimen` wire异常名保留；上轮有限精简完成事实、冻结历史及未push/deploy边界保持。
+
 ## 找到修改位置
 
 | 需求 | 入口 |

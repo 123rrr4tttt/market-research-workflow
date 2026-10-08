@@ -15,11 +15,11 @@ from .runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
     StaleRevisionError,
-    _one_mapping,
-    _project_values,
-    _scope_key,
-    _table,
-    _utcnow,
+    one_mapping,
+    project_values,
+    runtime_scope_key,
+    runtime_table,
+    utc_now,
 )
 
 
@@ -61,11 +61,11 @@ class ProjectionOffsetRepository:
         offset_ref: str,
     ) -> Mapping[str, object]:
         _validate_position(projection_generation, source_revision, source_digest)
-        table = _table("runtime_projection_offsets")
-        now = _utcnow()
+        table = runtime_table("runtime_projection_offsets")
+        now = utc_now()
         self.connection.execute(
             insert(table).values(
-                **_project_values(
+                **project_values(
                     self.scope,
                     {
                         "projection_offset_id": projection_offset_id,
@@ -90,14 +90,14 @@ class ProjectionOffsetRepository:
     def load(
         self, projection_offset_id: str, *, for_update: bool = False
     ) -> Mapping[str, object]:
-        table = _table("runtime_projection_offsets")
+        table = runtime_table("runtime_projection_offsets")
         statement = select(table).where(
-            table.c.project_key == _scope_key(self.scope),
+            table.c.project_key == runtime_scope_key(self.scope),
             table.c.projection_offset_id == projection_offset_id,
         )
         if for_update:
             statement = statement.with_for_update()
-        row = _one_mapping(self.connection.execute(statement))
+        row = one_mapping(self.connection.execute(statement))
         if row is None:
             raise RecordNotFound(f"projection offset not found: {projection_offset_id}")
         return row
@@ -105,9 +105,9 @@ class ProjectionOffsetRepository:
     def load_source(
         self, key: ProjectionOffsetKey, *, for_update: bool = False
     ) -> Mapping[str, object] | None:
-        table = _table("runtime_projection_offsets")
+        table = runtime_table("runtime_projection_offsets")
         statement = select(table).where(
-            table.c.project_key == _scope_key(self.scope),
+            table.c.project_key == runtime_scope_key(self.scope),
             table.c.projector_id == key.projector_id,
             table.c.projector_version == key.projector_version,
             table.c.source_ref == key.source_ref,
@@ -115,7 +115,7 @@ class ProjectionOffsetRepository:
         )
         if for_update:
             statement = statement.with_for_update()
-        row = _one_mapping(self.connection.execute(statement))
+        row = one_mapping(self.connection.execute(statement))
         if row is not None and row["source_kind"] != key.source_kind:
             raise ExactBindingConflict("projection source kind was rebound")
         return row
@@ -136,11 +136,11 @@ class ProjectionOffsetRepository:
         _validate_position(expected_generation, source_revision, source_digest)
         if source_revision < expected_source_revision:
             raise StaleRevisionError("projection source revision regressed")
-        table = _table("runtime_projection_offsets")
+        table = runtime_table("runtime_projection_offsets")
         result = self.connection.execute(
             update(table)
             .where(
-                table.c.project_key == _scope_key(self.scope),
+                table.c.project_key == runtime_scope_key(self.scope),
                 table.c.projection_offset_id == projection_offset_id,
                 table.c.projector_id == key.projector_id,
                 table.c.projector_version == key.projector_version,
@@ -157,7 +157,7 @@ class ProjectionOffsetRepository:
                 source_digest=source_digest,
                 offset_ref=offset_ref,
                 revision=expected_revision + 1,
-                updated_at=_utcnow(),
+                updated_at=utc_now(),
             )
         )
         if getattr(result, "rowcount", None) != 1:
@@ -171,10 +171,10 @@ class ProjectionOffsetRepository:
         expected_revision: int,
         expected_generation: int,
     ) -> None:
-        table = _table("runtime_projection_offsets")
+        table = runtime_table("runtime_projection_offsets")
         result = self.connection.execute(
             delete(table).where(
-                table.c.project_key == _scope_key(self.scope),
+                table.c.project_key == runtime_scope_key(self.scope),
                 table.c.projector_id == key.projector_id,
                 table.c.projector_version == key.projector_version,
                 table.c.source_kind == key.source_kind,

@@ -11,12 +11,11 @@ from .composition_root import (
     ExactInstalledHandlerResolver,
     InstalledMaterialReadHandler,
     PostgresCancellationAuthorityGuard,
-    PostgresFirstSpecimenRuntime,
+    PostgresRuntimeComposition,
     PostgresMaterialReadHandler,
-    build_postgres_first_specimen_runtime_node,
-    compose_postgres_first_specimen_runtime,
+    compose_postgres_runtime,
 )
-from .first_specimen_activation import load_bound_runtime_output
+from .runtime_activation import load_bound_runtime_output
 from .models import (
     PROJECT_TABLE_NAMES,
     PUBLIC_METADATA,
@@ -83,7 +82,7 @@ __all__ = [
     "PostgresCancellationAuthorityGuard",
     "PostgresCapturedValueReplayAdapter",
     "PostgresCommitIntentAdapter",
-    "PostgresFirstSpecimenRuntime",
+    "PostgresRuntimeComposition",
     "PostgresMaterialReadHandler",
     "PostgresRuntimeNodeAdapter",
     "ProjectTables",
@@ -101,10 +100,9 @@ __all__ = [
     "TerminalOutcome",
     "TerminalCommitHook",
     "build_first_specimen_admission_registry",
-    "build_postgres_first_specimen_runtime_node",
     "canonical_read_payload_from_source",
     "commit_binding_from_assignment",
-    "compose_postgres_first_specimen_runtime",
+    "compose_postgres_runtime",
     "load_bound_runtime_output",
     "project_tables",
     "runtime_uow_factory",

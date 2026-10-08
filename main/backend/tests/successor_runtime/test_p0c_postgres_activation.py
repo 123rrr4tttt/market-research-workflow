@@ -20,9 +20,9 @@ from app.successor_runtime.runtime.qualification import (
     StepAuthorizationBinding,
 )
 from app.successor_runtime.runtime.resources import QueueEligibility, ResourceClass
-from app.successor_runtime.substrate.postgres.first_specimen_activation import (
+from app.successor_runtime.substrate.postgres.runtime_activation import (
     ActivationCatalogEntry,
-    FirstSpecimenActivationCatalog,
+    OperationActivationCatalog,
     _assignment,
     _bind_materializations_to_project,
     _require_exact_existing,
@@ -153,17 +153,17 @@ def test_branch_releases_only_selected_effect_and_duplicate_pair_is_absent_or_ex
     )
     assert tuple(item.operation_id for item in result.activations) == ("pg-claim",)
     from types import SimpleNamespace
-    from app.successor_runtime.substrate.postgres.first_specimen_activation import PostgresFirstSpecimenActivationBindingAdapter
+    from app.successor_runtime.substrate.postgres.runtime_activation import PostgresRuntimeActivationBindingAdapter
     from app.successor_runtime.substrate.postgres.plans import PlanRepository
     monkeypatch.setattr(PlanRepository, "get", lambda *_args: plan)
     descriptor = result.activations[0]
     assignment = SimpleNamespace(plan_digest=plan.plan_digest, step_id=descriptor.step_id)
-    actual = PostgresFirstSpecimenActivationBindingAdapter().semantic_input_ref(None, assignment, None, None, descriptor)
+    actual = PostgresRuntimeActivationBindingAdapter().semantic_input_ref(None, assignment, None, None, descriptor)
     assert actual == descriptor.ordered_dependency_refs[0]
     assert actual != descriptor.payload_ref
     assignment.step_id = "unselected-or-forged"
     with pytest.raises(ExactBindingConflict, match="exact assignment plan"):
-        PostgresFirstSpecimenActivationBindingAdapter().semantic_input_ref(None, assignment, None, None, descriptor)
+        PostgresRuntimeActivationBindingAdapter().semantic_input_ref(None, assignment, None, None, descriptor)
     expected = {"work_item_id": "work:1", "assignment_digest": _digest("assignment")}
     _require_exact_existing(dict(expected), expected, "runtime work item")
     with pytest.raises(ExactBindingConflict, match="assignment_digest"):
@@ -307,7 +307,7 @@ def test_admission_assignment_binds_staged_effect_pair_and_catalog_rejects_handl
             effect_class="CPU_LIGHT",
         )
 
-    FirstSpecimenActivationCatalog(
+    OperationActivationCatalog(
         entries=(entry,),
         transform_registry=transforms,
         merge_registry=merges,
@@ -467,7 +467,7 @@ def test_settled_traversal_releases_suffix_only_with_exact_project_witness(count
 
 @pytest.mark.parametrize("mutation", ["duplicate_index", "bool_index", "missing_source", "duplicate_child", "materialization", "missing_current", "multiple_parents"])
 def test_ordered_active_child_lineage_rejects_drift(mutation: str) -> None:
-    from app.successor_runtime.substrate.postgres.first_specimen_activation import ordered_active_child_lineage
+    from app.successor_runtime.substrate.postgres.runtime_activation import ordered_active_child_lineage
     rows = [{"run_id": "parent", "event_metadata_json": {
         "source_step_id": "traverse", "child_run_id": f"child-{index}",
         "element_index": index, "materialization_digest": "a" * 64,
@@ -510,7 +510,7 @@ def test_project_value_reader_preserves_exact_owner_checks(drift: str | None) ->
     from sqlalchemy import MetaData
     from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
     from app.successor_runtime.substrate.postgres.models import project_tables
-    from app.successor_runtime.substrate.postgres.first_specimen_activation import _read_project_value
+    from app.successor_runtime.substrate.postgres.runtime_activation import _read_project_value
     from app.successor_runtime.substrate.postgres.research_ledger import ExactContentConflict, ProjectRecordNotFound
     from tests.successor_runtime.test_p0b_control_plane import _Result
     exact = b'{"value":1}'
@@ -686,7 +686,7 @@ def test_zip_siblings_bind_shared_input_separately_from_order(monkeypatch):
     from dataclasses import replace
     from types import SimpleNamespace
     from app.successor_runtime.language.program import zip_ordered_node
-    from app.successor_runtime.substrate.postgres.first_specimen_activation import PostgresFirstSpecimenActivationBindingAdapter
+    from app.successor_runtime.substrate.postgres.runtime_activation import PostgresRuntimeActivationBindingAdapter
     from app.successor_runtime.substrate.postgres.plans import PlanRepository
     transforms, merges, discriminators = _empty_registries()
     left, left_contract = _operation("data-left", INPUT, OUTPUT)
@@ -713,7 +713,7 @@ def test_zip_siblings_bind_shared_input_separately_from_order(monkeypatch):
     assert shared.object_type == INPUT
     monkeypatch.setattr(PlanRepository, "get", lambda *_args: plan)
     assignment = SimpleNamespace(plan_digest=plan.plan_digest, step_id=descriptor.step_id)
-    adapter = PostgresFirstSpecimenActivationBindingAdapter()
+    adapter = PostgresRuntimeActivationBindingAdapter()
     assert adapter.semantic_input_ref(None, assignment, None, None, descriptor) == shared
     with pytest.raises((ValueError, ExactBindingConflict)):
         adapter.semantic_input_ref(None, assignment, None, None,
@@ -728,7 +728,7 @@ def test_effect_publication_reuses_exact_pure_content_owner(monkeypatch, drift):
     import hashlib
     from sqlalchemy import MetaData
     from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
-    from app.successor_runtime.substrate.postgres import first_specimen_activation as module
+    from app.successor_runtime.substrate.postgres import runtime_activation as module
     from app.successor_runtime.substrate.postgres.models import project_tables
     from app.successor_runtime.substrate.postgres.values import ValueRepository, derive_value_write_intent_digest
     from app.successor_runtime.substrate.postgres.runtime_values import RuntimeValueRepository
