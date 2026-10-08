@@ -196,7 +196,7 @@ function extractRendererComponentPaths(source) {
 
 function extractCatalogKeys(source) {
   const keys = new Set()
-  const namespacePattern = /(?:shell|navigation|settings|settingsPage|shared|codexAgentPage|projects|catalogPage|rawDataPage|policyPage|opsPage|dashboardPage|ingestPage|graphPage|processPage|crawlerManagePage|resourcePage|llmDesignerPage|writingWorkbenchPage):\s*\{([\s\S]*?)\n\s*\}/g
+  const namespacePattern = /(?:shell|navigation|settings|settingsPage|shared|codexAgentPage|projects|catalogPage|rawDataPage|policyPage|opsPage|dashboardPage|ingestPage|graphPage|processPage|crawlerManagePage|resourcePage|writingWorkbenchPage):\s*\{([\s\S]*?)\n\s*\}/g
   let namespaceMatch = namespacePattern.exec(source)
   while (namespaceMatch) {
     const namespaceText = namespaceMatch[0]
@@ -337,7 +337,7 @@ function isDefineModuleSurfaceKindLiteral(value, before) {
 }
 
 function isCatalogKey(value) {
-  return /^(shell|navigation|settings|settingsPage|shared|codexAgentPage|projects|catalogPage|rawDataPage|policyPage|opsPage|dashboardPage|ingestPage|graphPage|processPage|crawlerManagePage|resourcePage|llmDesignerPage|writingWorkbenchPage)\.[A-Za-z0-9_.-]+$/.test(value)
+  return /^(shell|navigation|settings|settingsPage|shared|codexAgentPage|projects|catalogPage|rawDataPage|policyPage|opsPage|dashboardPage|ingestPage|graphPage|processPage|crawlerManagePage|resourcePage|writingWorkbenchPage)\.[A-Za-z0-9_.-]+$/.test(value)
 }
 
 function isModuleOrRouteToken(value) {

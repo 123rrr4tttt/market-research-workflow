@@ -5,6 +5,8 @@ from collections import deque
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import cast
+import pytest
+from functorial_kit import Failure
 
 from app.successor_runtime.language.object_contracts import (
     OperationContractRef,
@@ -24,6 +26,7 @@ from app.successor_runtime.runtime.claims import ClaimBinding
 from app.successor_runtime.runtime.node import (
     ClaimRunState,
     DeploymentBinding,
+    DefiniteInterpreterFailure,
     ExactHandlerMismatch,
     InterpreterOutcome,
     LeaseLost,
@@ -542,6 +545,33 @@ def _node(
         cancellation=guard or CurrentGuard(),
         clock=FixedClock(),
     )
+
+
+def test_node_transports_original_domain_failure_from_definite_exception() -> None:
+    assignment = _assignment("domain-failure")
+    domain = Failure("workflow", "PROVIDER_REJECTED", "中文失败", {"nested": [True, 2]})
+    handler = DeterministicSimulationInterpreter(assignment.handler_binding_digest, {})
+    def fail(*_args):
+        raise DefiniteInterpreterFailure(domain.code, domain_failure=domain)
+    handler.execute = fail
+    commits = FakeOutcomeCommitter()
+    result = _node("node-domain", FakeClaimBatch((PendingClaim(assignment),)), handler, commits).run_once()
+    assert result.results[0].committed
+    assert commits.committed[0][1].disposition is EffectDisposition.FAILED
+    assert commits.committed[0][1].domain_failure is domain
+
+
+def test_domain_failure_transport_rejects_invalid_type_code_and_unknown() -> None:
+    domain = Failure("workflow", "PROVIDER_REJECTED", "message")
+    for factory in (DefiniteInterpreterFailure, InterpreterOutcome.failed):
+        with pytest.raises(TypeError, match="must be Failure"):
+            factory(domain.code, domain_failure={"code": domain.code})
+        with pytest.raises(ValueError, match="same failure_code"):
+            factory("OTHER", domain_failure=domain)
+    with pytest.raises(ValueError, match="requires FAILED"):
+        InterpreterOutcome(EffectDisposition.OUTCOME_UNKNOWN, failure_code=domain.code,
+                           reconciliation_hint="readback", domain_failure=domain)
+    assert InterpreterOutcome.outcome_unknown("readback").domain_failure is None
 
 
 def test_two_nodes_use_one_interface_and_only_one_claims_shared_work() -> None:

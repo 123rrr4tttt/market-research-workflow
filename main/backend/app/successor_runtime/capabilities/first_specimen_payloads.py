@@ -1,4 +1,4 @@
-"""Persist the C8 internal-export payload at its approval boundary."""
+"""Persist the first-specimen internal-export payload at its approval boundary."""
 
 from __future__ import annotations
 

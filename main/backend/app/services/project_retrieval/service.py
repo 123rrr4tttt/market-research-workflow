@@ -27,7 +27,7 @@ from app.successor_runtime.capabilities.retrieval_candidate_native import (
 from functorial_kit import Failure
 
 from .contracts import RetrievalJsonObject, RetrievalJsonValue
-from .failures import ProjectRetrievalFailureCode, retrieval_failure
+from app.successor_runtime.capabilities.retrieval_common import ProjectRetrievalFailureCode, retrieval_failure
 
 
 class RetrievalError(Exception):

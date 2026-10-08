@@ -25,4 +25,6 @@
 python3 scripts/verify_r8_1_d.py
 ```
 
+> 该验证脚本已随 R8.1-D 资格生成器退役（历史验收命令保留原文，不再作为现役入口）。
+
 预期：输出 `R8.1-D verification passed` 且退出码 0。

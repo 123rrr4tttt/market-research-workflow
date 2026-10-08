@@ -53,7 +53,7 @@ HISTORICAL_C1_DSL_FAILURE_CODES = (
 )
 HISTORICAL_C1_OPERATION_CATALOG_ID = "mrw.functorial-successor.c1.operations"
 WORKFLOW_FAILURE_OWNER = "workflow.definition.compile.v2"
-WORKFLOW_FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
+WORKFLOW_FAILURE_WITNESS = "test:test_w06_retained_failure_lifts_preserve_public_abi"
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,7 +187,7 @@ def _raise_contract_failure(
         or context.get("public_exception") != exception_type.__name__
         or not context.get("public_message")
     ):
-        # kit:boundary owner=workflow_legacy_dsl.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        # kit:boundary owner=workflow_legacy_dsl.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_retained_failure_lifts_preserve_public_abi
         raise TypeError("workflow compile contract lift context is incomplete")
     # kit:boundary owner=workflow_legacy_dsl.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=workflow.definition.failure witness=test:test_current_compile_reader_and_unknown_versions_are_explicit
     raise exception_type(str(context["public_message"]))

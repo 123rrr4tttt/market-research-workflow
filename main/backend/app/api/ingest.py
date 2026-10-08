@@ -40,7 +40,7 @@ from ..services.source_library.single_source_guard import (
     validate_single_source_guard,
 )
 from ..settings.config import get_effective_project_key_enforcement_mode, settings
-from ..successor_runtime.capabilities.material_ingest_registry import (
+from ..services.ingest.adapters.submission_registry import (
     MaterialIngestRegistryBackendUnavailableError,
     MaterialIngestRegistryConflictError,
 )

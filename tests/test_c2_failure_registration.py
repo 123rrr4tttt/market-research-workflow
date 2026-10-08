@@ -10,27 +10,15 @@ ROOT = Path(__file__).resolve().parents[1]
 C2_SOURCE = ROOT / "main/backend/app/successor_runtime/capabilities/source_contracts.py"
 
 LEGACY_OWNERS = {"VersionedWarning", "versioned_warning_from_legacy_string", "SourceRejection"}
-SCOPE_OWNERS = {"project_scope_digest", "AuthenticatedProjectScope", "SourceExecutionRequest"}
-CATALOG_OWNERS = {
-    "ChannelCatalogEntry",
-    "ChannelCatalogSnapshot",
+SCOPE_OWNERS = {
+    "project_scope_digest",
+    "AuthenticatedProjectScope",
+    "SourceExecutionRequest",
     "SourceItemDefinition",
     "source_item_definition_from_dict",
     "SourceTaxonomy",
-}
-MODE_OWNERS = {
     "SourceMode",
     "NormalizedParamsSnapshot",
-    "SourceModePlanningPayload",
-    "OrderedFoldPolicy",
-    "SourceModeTask",
-    "SourceModePlan",
-    "PlannedPlanning",
-    "RejectedPlanning",
-    "mode_for_kind",
-    "kind_for_mode",
-    "source_mode_planning_payload_from_plain",
-    "source_mode_planning_payload_from_historical_plain",
 }
 TERMINAL_OWNERS = {
     "SourceCollectionTerminal",
@@ -44,7 +32,6 @@ TERMINAL_OWNERS = {
     "OrderedFailure",
 }
 PROVIDER_OWNERS = {
-    "ResourceCeiling",
     "CredentialRef",
     "ProviderResourcePolicy",
     "ProviderEffectRequest",
@@ -67,25 +54,6 @@ PROVIDER_OWNERS = {
     "ReconciledProviderEffect",
     "ProviderHandoff",
     "RedactedCredentialRejection",
-}
-PLAIN_SCHEMA_DECODER_OWNERS = {
-    "_catalog_schema",
-    "_concurrency_stage_from_plain",
-    "_plain_bool",
-    "_plain_extra",
-    "_plain_int",
-    "_plain_object",
-    "_plain_optional_float",
-    "_plain_pairs",
-    "_plain_sequence",
-    "_plain_string",
-    "_planning_kind",
-    "_planning_schema",
-    "_required_plain_field",
-    "_source_mode",
-    "_taxonomy_item_type",
-    "_taxonomy_manager",
-    "_warning_code",
 }
 
 
@@ -113,14 +81,11 @@ def test_INVARIANT__c2_failure_family_matches_registry() -> None:
 
 def test_INVARIANT__every_c2_constructor_failure_owner_is_classified() -> None:
     classified = (
-        {"_validate_resolved_schema", "VersionedSchema", "_require_closed_code"}
+        {"_validate_resolved_schema", "_require_closed_code"}
         | LEGACY_OWNERS
         | SCOPE_OWNERS
-        | CATALOG_OWNERS
-        | MODE_OWNERS
         | TERMINAL_OWNERS
         | PROVIDER_OWNERS
-        | PLAIN_SCHEMA_DECODER_OWNERS
     )
     assert _owners_with_contract_rejections() == classified
 

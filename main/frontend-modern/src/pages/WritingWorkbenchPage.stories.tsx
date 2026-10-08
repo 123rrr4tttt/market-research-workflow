@@ -108,62 +108,6 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
         template_content: '# Policy Brief',
       },
     ] as never)
-    if (mode === 'longform') {
-      mocked(api.listWritingLlmActionHistory).mockResolvedValue([
-        {
-          job_id: 101,
-          job_type: 'llm_action',
-          status: 'completed',
-          action_id: 'outline_generate',
-          template_key: 'weekly-report',
-          request_meta: {},
-          result_summary: {},
-          trace_id: 'trace-101',
-          created_at: '2026-04-02T18:10:00Z',
-          duration_ms: 820,
-        },
-        {
-          job_id: 102,
-          job_type: 'llm_action',
-          status: 'completed',
-          action_id: 'expand_section',
-          template_key: 'weekly-report',
-          request_meta: {},
-          result_summary: {},
-          trace_id: 'trace-102',
-          created_at: '2026-04-02T18:15:00Z',
-          duration_ms: 960,
-        },
-      ] as never)
-    } else {
-      mocked(api.listWritingLlmActionHistory).mockResolvedValue([
-        {
-          job_id: 101,
-          job_type: 'llm_action',
-          status: 'completed',
-          action_id: 'outline_generate',
-          template_key: 'weekly-report',
-          request_meta: {},
-          result_summary: {},
-          trace_id: 'trace-101',
-          created_at: '2026-04-02T18:10:00Z',
-          duration_ms: 820,
-        },
-      ] as never)
-    }
-    mocked(api.getWritingLlmActionDetail).mockResolvedValue({
-      job_id: 101,
-      job_type: 'llm_action',
-      status: 'completed',
-      action_id: 'outline_generate',
-      template_key: 'weekly-report',
-      template_version: 'v1',
-      request_meta: {},
-      result_summary: {},
-      trace_id: 'trace-101',
-      created_at: '2026-04-02T18:10:00Z',
-      duration_ms: 820,
-    } as never)
     mocked(api.previewWritingKeywordCard).mockResolvedValue({
       card_id: 'card-1',
       title: '储能需求跟踪',
@@ -222,8 +166,6 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
     } as never)
     mocked(api.listWritingCitations).mockResolvedValue([] as never)
     mocked(api.listWritingTemplates).mockResolvedValue([] as never)
-    mocked(api.listWritingLlmActionHistory).mockResolvedValue([] as never)
-    mocked(api.getWritingLlmActionDetail).mockResolvedValue(null as never)
     mocked(api.previewWritingKeywordCard).mockResolvedValue(null as never)
     mocked(api.getWritingCardDetail).mockResolvedValue(null as never)
   } else if (mode === 'selection-error') {
@@ -259,8 +201,6 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
     } as never)
     mocked(api.listWritingCitations).mockResolvedValue([] as never)
     mocked(api.listWritingTemplates).mockResolvedValue([] as never)
-    mocked(api.listWritingLlmActionHistory).mockResolvedValue([] as never)
-    mocked(api.getWritingLlmActionDetail).mockResolvedValue(null as never)
     mocked(api.previewWritingKeywordCard).mockResolvedValue(null as never)
     mocked(api.getWritingCardDetail).mockResolvedValue(null as never)
   } else {
@@ -274,8 +214,6 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
     mocked(api.getWritingDocument).mockResolvedValue(null as never)
     mocked(api.listWritingCitations).mockResolvedValue([] as never)
     mocked(api.listWritingTemplates).mockResolvedValue([] as never)
-    mocked(api.listWritingLlmActionHistory).mockResolvedValue([] as never)
-    mocked(api.getWritingLlmActionDetail).mockResolvedValue(null as never)
     mocked(api.previewWritingKeywordCard).mockResolvedValue(null as never)
     mocked(api.getWritingCardDetail).mockResolvedValue(null as never)
   }
@@ -323,16 +261,6 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
       card_id: 'card-1',
     },
   ] as never)
-  mocked(api.runWritingLlmAction).mockResolvedValue({
-    content: '1. 储能招标升温\n2. 价格链条分化\n3. 政策支持增强',
-    sources: [],
-    mode: 'sync',
-    warnings: [],
-    trace_id: 'trace-run',
-    job_id: 101,
-    status: 'completed',
-    observability: {},
-  } as never)
   mocked(api.validateWritingTemplate).mockResolvedValue({
     valid: true,
     errors: [],

@@ -77,7 +77,7 @@ function defineModule<ModuleKey extends string>(
 // Presentation grouping only. Routes, labels and module identities still come from the manifest.
 export const ADMIN_NAV_SECTIONS: readonly { labelKey: 'shell.admin.group.projectData' | 'shell.admin.group.runtime' | 'shell.admin.group.configuration'; items: readonly KernelModuleKey[] }[] = [
   { labelKey: 'shell.admin.group.projectData', items: ['overviewData', 'sysResource', 'flowExtract', 'sysCrawler'] },
-  { labelKey: 'shell.admin.group.runtime', items: ['overviewTasks', 'flowProcessing', 'sysBackend', 'sysSuccessorRuntime'] },
+  { labelKey: 'shell.admin.group.runtime', items: ['overviewTasks', 'flowProcessing', 'sysBackend'] },
   { labelKey: 'shell.admin.group.configuration', items: ['sysProjects', 'sysSettings', 'sysLlm', 'sysBusinessGuide'] },
 ]
 
@@ -123,7 +123,6 @@ export const moduleManifest = [
   defineModule('sysBackend', 'C', 'management', '/admin/backend', '#backend-dashboard.html', 'navigation.group.system', ['status-review', 'ops-control'], false),
   defineModule('sysSettings', 'C', 'management', '/admin/settings', '#settings.html', 'navigation.group.system', ['settings-edit', 'template-config'], false),
   defineModule('sysLlm', 'C', 'management', '/admin/settings/llm', '#settings.html#llm-config', 'navigation.group.system', ['llm-template-edit', 'settings-edit'], false),
-  defineModule('sysSuccessorRuntime', 'C', 'management', '/admin/successor-runtime', '#successor-runtime.html', 'navigation.group.system', ['status-review'], false),
   defineModule('sysBusinessGuide', 'C', 'management', '/admin/guide', '#business-guide.html', 'navigation.group.system', ['chain-overview', 'detail-inspect'], false),
 ] as const
 

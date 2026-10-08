@@ -16,7 +16,7 @@ test('management navigation opens the independent business guide', async ({ page
   await expect(guide.locator('svg.business-chain-guide__graph')).toBeHidden()
   await expect(guide.getByText('把同一条业务运动投影为入口、变换、效果、证据与观察结果。').first()).toBeVisible()
   await expect(guide.getByText('采集与原始入库').first()).toBeVisible()
-  await expect(guide.getByText('运行态与 Successor').first()).toBeVisible()
+  await expect(guide.getByText('运行态').first()).toBeVisible()
 
   await guide.locator('.business-chain-guide__map > summary').click()
   await expect(guide.locator('svg.business-chain-guide__graph')).toBeVisible()
@@ -40,7 +40,7 @@ test('root management navigation exposes every responsibility without a more men
   const navigation = page.getByRole('navigation', { name: '管理导航' })
   await expect(navigation.locator('.kernel-admin__section')).toHaveCount(3)
   await expect(navigation.locator('details')).toHaveCount(0)
-  await expect(navigation.getByRole('button')).toHaveCount(12)
+  await expect(navigation.getByRole('button')).toHaveCount(11)
   for (const label of ['资料与来源', '任务与运行', '设置与帮助']) {
     await expect(navigation.getByText(label, { exact: true })).toBeVisible()
   }

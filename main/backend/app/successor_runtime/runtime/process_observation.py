@@ -7,8 +7,7 @@ only their facility-specific readback functions.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable
 from datetime import datetime
 from typing import (
     Final,
@@ -22,7 +21,7 @@ from typing import (
 )
 
 from functorial_kit import Failure
-from pydantic import Field, TypeAdapter, model_validator
+from pydantic import Field, model_validator
 
 from .assignments import Digest, FrozenContract, canonical_digest
 from .failure_policy import raise_runtime_failure, runtime_failure
@@ -63,24 +62,6 @@ def _process_observation_failure(
     )
 
 
-def _historical_process_observation_failure(
-    message: object,
-    *,
-    site: str,
-) -> Failure:
-    """Retain the original failure identity for explicit historical v1 input."""
-
-    return runtime_failure(
-        "LEGACY_OBSERVATION_INVALID",
-        message,
-        ProcessProjectionError,
-        site=site,
-        context={
-            "owner": "successor_runtime.runtime.process_observation",
-            "operation": site,
-            "input_schema": HISTORICAL_PROCESS_OBSERVATION_PROJECTION_SCHEMA_V1,
-        },
-    )
 
 
 def _try_process_observation(
@@ -112,16 +93,6 @@ PROCESS_OBSERVATION_PROJECTION_SCHEMA_V1: Final = "mrw.process-observation.v1"
 PROCESS_OBSERVATION_TASK_SCHEMA_V1: Final = "mrw.process-observation.task.v1"
 PROCESS_OBSERVATION_PROJECTOR_REF: Final = (
     "app.successor_runtime.runtime.process_observation:try_join_process_observations"
-)
-LINE_EVENT_READBACK_PROJECTOR_REF: Final = (
-    "app.successor_runtime.substrate.projections.legacy_process:"
-    "project_line_event_readbacks"
-)
-HISTORICAL_PROCESS_OBSERVATION_PROJECTOR_ID: Final = (
-    "successor.legacy_process_observation_join.v1"
-)
-HISTORICAL_PROCESS_OBSERVATION_PROJECTION_SCHEMA_V1: Final = (
-    "mrw.runtime.legacy-process-projection.v1"
 )
 
 
@@ -509,92 +480,21 @@ def _is_legacy_source_observation(
     return isinstance(value, LegacySourceObservation)
 
 
-def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
-    return isinstance(value, Mapping)
 
 
-def _is_object_list(value: object) -> TypeGuard[list[object]]:
-    return isinstance(value, list)
 
 
-def _is_historical_task(value: object) -> TypeGuard[Mapping[str, object]]:
-    """Recognize one historical object without rewriting its stored mapping."""
-
-    return _is_object_mapping(value) and all(isinstance(key, str) for key in value)
 
 
-def _is_historical_task_list(
-    value: object,
-) -> TypeGuard[list[Mapping[str, object]]]:
-    return _is_object_list(value) and all(
-        _is_historical_task(task) for task in value
-    )
 
 
-@dataclass(frozen=True, slots=True)
-class HistoricalProcessObservationProjectionRead:
-    """Explicit historical v1 process-projection decode; no rehashing."""
-
-    schema_version: Literal["mrw.runtime.legacy-process-projection.v1"]
-    captured_at: datetime
-    tasks: tuple[Mapping[str, object], ...]
-    view_digest: str
 
 
-def read_historical_process_observation_projection(
-    payload: Mapping[str, object],
-) -> HistoricalProcessObservationProjectionRead:
-    """Compatibility exception ABI over the typed historical reader."""
-
-    result = try_read_historical_process_observation_projection(payload)
-    if isinstance(result, Failure):
-        _raise_process_observation_failure(result, ProcessProjectionError)
-    return result
 
 
-def try_read_historical_process_observation_projection(
-    payload: Mapping[str, object],
-) -> HistoricalProcessObservationProjectionRead | Failure:
-    """Decode original historical bytes without rewriting or rehashing them."""
-
-    if payload.get("schema_version") != HISTORICAL_PROCESS_OBSERVATION_PROJECTION_SCHEMA_V1:
-        return _historical_process_observation_failure(
-            "historical process projection schema mismatch",
-            site="successor_runtime.runtime.process_observation.history.schema",
-        )
-    captured_at_value = payload.get("captured_at")
-    try:
-        captured_at = TypeAdapter(datetime).validate_python(captured_at_value)
-    except (TypeError, ValueError):
-        return _historical_process_observation_failure(
-            "historical process projection captured_at is invalid",
-            site="successor_runtime.runtime.process_observation.history.captured_at",
-        )
-    raw_tasks = payload.get("tasks", ())
-    if not _is_historical_task_list(raw_tasks):
-        return _historical_process_observation_failure(
-            "historical process projection tasks are invalid",
-            site="successor_runtime.runtime.process_observation.history.tasks",
-        )
-    digest = payload.get("view_digest")
-    if not isinstance(digest, str) or len(digest) != 64:
-        return _historical_process_observation_failure(
-            "historical process projection view digest is invalid",
-            site="successor_runtime.runtime.process_observation.history.digest",
-        )
-    return HistoricalProcessObservationProjectionRead(
-        schema_version=HISTORICAL_PROCESS_OBSERVATION_PROJECTION_SCHEMA_V1,
-        captured_at=captured_at,
-        tasks=tuple(raw_tasks),
-        view_digest=digest,
-    )
 
 
 __all__ = [
-    "HISTORICAL_PROCESS_OBSERVATION_PROJECTOR_ID",
-    "HISTORICAL_PROCESS_OBSERVATION_PROJECTION_SCHEMA_V1",
-    "HistoricalProcessObservationProjectionRead",
-    "LINE_EVENT_READBACK_PROJECTOR_REF",
     "PROCESS_OBSERVATION_PROJECTION_SCHEMA_V1",
     "PROCESS_OBSERVATION_PROJECTOR_ID",
     "PROCESS_OBSERVATION_PROJECTOR_REF",
@@ -606,9 +506,7 @@ __all__ = [
     "SourceBindingMismatch",
     "join_process_observations",
     "normalize_observed_status",
-    "read_historical_process_observation_projection",
     "try_join_process_observations",
     "try_process_observation_projection",
     "try_process_task_projection",
-    "try_read_historical_process_observation_projection",
 ]

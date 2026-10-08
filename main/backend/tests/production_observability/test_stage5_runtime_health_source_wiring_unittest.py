@@ -16,10 +16,7 @@ from app.production_observability import health as production_health  # noqa: E4
 from app.production_observability import http as production_http  # noqa: E402
 from app.release_identity import RELEASE_VERSION  # noqa: E402
 from app.production_observability import (  # noqa: E402
-    ProjectionDriftStatus,
-    ProjectionReadStatus,
     ProjectionReleaseStatus,
-    ProjectionRuntimeSignal,
     ProviderRuntimeStatus,
     QueueReadStatus,
     QueueRuntimeSignal,
@@ -49,7 +46,7 @@ class Stage5RuntimeHealthSourceWiringTestCase(unittest.TestCase):
             tenant_id="tenant:authority:test",
             project_scope_digest="a" * 64,
             project_registry_revision=7,
-            capability_id="capability:successor-runtime:c9",
+            capability_id="capability:successor-runtime:first-specimen",
             step_id="step:authority:test",
             claim_authority_epoch=1,
             expected_project_scope_digest="a" * 64,
@@ -63,24 +60,8 @@ class Stage5RuntimeHealthSourceWiringTestCase(unittest.TestCase):
             read_status=QueueReadStatus.OK,
             depth=2,
         )
-        projection_signal = ProjectionRuntimeSignal(
-            source="postgres.c9:semantic-source-closure+active-offset",
-            read_status=ProjectionReadStatus.OK,
-            drift_status=ProjectionDriftStatus.MATCH,
-            active_source_digest="a" * 64,
-            expected_source_digest="a" * 64,
-            projection_generation=1,
-            offset_revision=2,
-            source_revision=3,
-            offset_ref="c9:semantic-source:test:closure_manifest",
-        )
         with (
             patch.object(production_health, "read_runtime_queue_signal", return_value=queue_signal),
-            patch.object(
-                production_health,
-                "read_runtime_projection_signal",
-                return_value=projection_signal,
-            ),
             patch.object(
                 production_health,
                 "read_runtime_authority_signal",
@@ -113,7 +94,6 @@ class Stage5RuntimeHealthSourceWiringTestCase(unittest.TestCase):
             item.runtime_binding.projection_release_status,
             ProjectionReleaseStatus.MATCH,
         )
-        self.assertEqual(item.projection, projection_signal)
 
     def test_task_authority_fields_read_normal_mismatch_and_recover(self) -> None:
         scope = SimpleNamespace(
@@ -125,13 +105,13 @@ class Stage5RuntimeHealthSourceWiringTestCase(unittest.TestCase):
             project_key="tenant:authority:test",
             project_scope_digest="a" * 64,
             project_registry_revision=7,
-            capability_id="capability:successor-runtime:c9",
+            capability_id="capability:successor-runtime:first-specimen",
             step_id="step:authority:test",
             claim_authority_epoch=1,
         )
         capability = SimpleNamespace(
             project_key="tenant:authority:test",
-            capability_id="capability:successor-runtime:c9",
+            capability_id="capability:successor-runtime:first-specimen",
             authority_epoch=1,
         )
 

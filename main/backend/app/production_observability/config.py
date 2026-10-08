@@ -180,7 +180,6 @@ def production_observability_config_from_settings(
         ("local-runtime-db-connection.v2", MetricFamily.DATABASE_CONNECTION_UNAVAILABLE),
         ("local-runtime-provider-failure.v2", MetricFamily.PROVIDER_FAILURE),
         ("local-runtime-authority-mismatch.v2", MetricFamily.AUTHORITY_MISMATCH),
-        ("local-runtime-projection-drift.v2", MetricFamily.PROJECTION_DRIFT),
         ("local-runtime-request-latency.v2", MetricFamily.REQUEST_LATENCY_BREACH_RATE),
     )
     existing_rules = tuple(

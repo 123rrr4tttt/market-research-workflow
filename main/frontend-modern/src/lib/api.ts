@@ -289,17 +289,14 @@ export {
   getWritingCardDetail,
   getWritingDocument,
   getWritingKeywordCards,
-  getWritingLlmActionDetail,
   getWritingSuggest,
   getTypedKnowledgeWritingContext,
   listWritingCitations,
   listWritingDocuments,
-  listWritingLlmActionHistory,
   listWritingTemplates,
   previewWritingKeywordCard,
   readTypedKnowledgeWritingContext,
   readTypedKnowledgeWritingContextFromDocument,
-  runWritingLlmAction,
   seedTypedKnowledgeLiveSample,
   updateWritingDocument,
   updateTypedKnowledgeReviewState,
@@ -329,10 +326,6 @@ export type WritingKeywordCardPreview = import('./api/domains/writing').WritingK
 export type WritingKeywordCardPreviewRequest = import('./api/domains/writing').WritingKeywordCardPreviewRequest
 export type WritingKeywordCardRequest = import('./api/domains/writing').WritingKeywordCardRequest
 export type WritingKeywordCardSource = import('./api/domains/writing').WritingKeywordCardSource
-export type WritingLlmActionHistoryItem = import('./api/domains/writing').WritingLlmActionHistoryItem
-export type WritingLlmActionId = import('./api/domains/writing').WritingLlmActionId
-export type WritingLlmActionPayload = import('./api/domains/writing').WritingLlmActionPayload
-export type WritingLlmActionResponse = import('./api/domains/writing').WritingLlmActionResponse
 export type WritingSuggestItem = import('./api/domains/writing').WritingSuggestItem
 export type WritingSuggestMode = import('./api/domains/writing').WritingSuggestMode
 export type WritingSuggestParams = import('./api/domains/writing').WritingSuggestParams

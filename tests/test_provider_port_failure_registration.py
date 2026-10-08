@@ -225,17 +225,10 @@ def test_FAILURE_PRESERVED__collect_registration_contracts_fail_closed(
 ) -> None:
     from app.services.collect_runtime import runtime
 
-    class _Adapter:
-        @staticmethod
-        def run(_request: object) -> object:
-            return object()
-
-    with pytest.raises(ValueError, match="skill_id is required"):
-        runtime.register_collect_skill("", _Adapter())
-    with pytest.raises(TypeError, match="collect adapter must provide run"):
-        runtime.register_collect_skill("bad", object())
     with pytest.raises(TypeError, match="projector must be callable"):
         runtime.register_source_library_compat_projector(object())
+    with pytest.raises(TypeError, match="gateway must be callable"):
+        runtime.register_successor_collect_effect_gateway(object())
 
     class _ClassifiedFailure(Exception):
         def __init__(self, failure: object) -> None:
@@ -246,14 +239,13 @@ def test_FAILURE_PRESERVED__collect_registration_contracts_fail_closed(
 
     monkeypatch.setattr(runtime, "_raise_collect_contract", capture_failure)
     classified_cases = (
-        (lambda: runtime.register_collect_skill("", _Adapter()), "skill_id_required"),
-        (
-            lambda: runtime.register_collect_skill("bad", object()),
-            "collect_adapter_contract_invalid",
-        ),
         (
             lambda: runtime.register_source_library_compat_projector(object()),
             "compat_projector_contract_invalid",
+        ),
+        (
+            lambda: runtime.register_successor_collect_effect_gateway(object()),
+            "successor_effect_gateway_invalid",
         ),
     )
     for invoke, expected_code in classified_cases:
@@ -285,15 +277,15 @@ def test_INVARIANT__runtime_failure_literals_are_bounded_by_source() -> None:
 
     collect_tree = _parse("main/backend/app/services/collect_runtime/runtime.py")
     for function_name in (
-        "register_collect_skill",
         "register_source_library_compat_projector",
+        "register_successor_collect_effect_gateway",
     ):
         assert _constant_raises(_function(collect_tree, function_name)) == set()
 
     collect_failure_source = ast.unparse(_function(collect_tree, "_collect_contract_failure"))
     assert "collect_runtime_failures.fail" in collect_failure_source
-    assert {
-        "skill_id_required",
-        "collect_adapter_contract_invalid",
+    assert collect_runtime_failures.codes == (
         "compat_projector_contract_invalid",
-    } <= set(collect_runtime_failures.codes)
+        "auto_batch_execution_failed",
+        "successor_effect_gateway_invalid",
+    )

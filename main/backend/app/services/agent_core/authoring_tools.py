@@ -2292,6 +2292,9 @@ def _writing_document_insert_paragraph_handler() -> Callable[
         dry_run = bool(tool_call.arguments.get("dry_run"))
         allow_latest = bool(tool_call.arguments.get("allow_latest"))
         base_version = safe_int(tool_call.arguments.get("base_version"))
+        contract_version = str(tool_spec.metadata.get("contract_version") or "")
+        source_refs = normalize_string_list(tool_call.arguments.get("source_refs"))
+        provenance = json_object(tool_call.arguments.get("provenance"))
         if_match = str(tool_call.arguments.get("if_match") or "").strip() or None
         create_if_missing = bool(tool_call.arguments.get("create_if_missing"))
         title = str(tool_call.arguments.get("title") or "").strip()
@@ -2327,6 +2330,14 @@ def _writing_document_insert_paragraph_handler() -> Callable[
                     content_md=content_md,
                     operation=operation,
                 )
+                common_content: JSONObject = {
+                    "contract_version": contract_version,
+                    "project_key": project_key,
+                    "doc_id": doc_id or current.get("id"),
+                    "operation": operation,
+                    "source_refs": source_refs,
+                    "provenance": provenance,
+                }
                 if replayed_update is not None:
                     return CoreToolResult(
                         call_id=tool_call.call_id,
@@ -2338,11 +2349,8 @@ def _writing_document_insert_paragraph_handler() -> Callable[
                         ),
                         ui_summary=f"Writing update already applied: {current.get('title') or doc_id or title}.",
                         structured_content={
-                            "contract_version": "writing.document.insert_paragraph.v1",
-                            "project_key": project_key,
-                            "doc_id": doc_id or current.get("id"),
+                            **common_content,
                             "document": _compact_writing_document(current, include_body=False),
-                            "operation": operation,
                             "replayed": True,
                             "diff": {
                                 "added_lines": 0,
@@ -2352,8 +2360,6 @@ def _writing_document_insert_paragraph_handler() -> Callable[
                                 "diff_excerpt": "",
                                 "diff_truncated": False,
                             },
-                            "source_refs": normalize_string_list(tool_call.arguments.get("source_refs")),
-                            "provenance": json_object(tool_call.arguments.get("provenance")),
                             "agent_update": replayed_update,
                         },
                     )
@@ -2397,14 +2403,9 @@ def _writing_document_insert_paragraph_handler() -> Callable[
                         status="completed",
                         model_summary=f"Prepared writing document edit preview: +{diff['added_lines']} -{diff['removed_lines']} lines.",
                         structured_content={
-                            "contract_version": "writing.document.insert_paragraph.v1",
-                            "project_key": project_key,
-                            "doc_id": doc_id,
+                            **common_content,
                             "dry_run": True,
-                            "operation": operation,
                             "diff": diff,
-                            "source_refs": normalize_string_list(tool_call.arguments.get("source_refs")),
-                            "provenance": json_object(tool_call.arguments.get("provenance")),
                             "agent_update": agent_update,
                         },
                     )
@@ -2422,7 +2423,7 @@ def _writing_document_insert_paragraph_handler() -> Callable[
                                 "or allow_latest=true for an explicit latest-version edit."
                             ),
                             structured_content={
-                                "contract_version": "writing.document.insert_paragraph.v1",
+                                "contract_version": contract_version,
                                 "project_key": project_key,
                                 "doc_id": doc_id,
                                 "current_version": current_version,
@@ -2454,8 +2455,8 @@ def _writing_document_insert_paragraph_handler() -> Callable[
                         {
                             "created_by": "agent_core",
                             "agent_core_call_id": tool_call.call_id,
-                            "source_refs": normalize_string_list(tool_call.arguments.get("source_refs")),
-                            "provenance": json_object(tool_call.arguments.get("provenance")),
+                            "source_refs": source_refs,
+                            "provenance": provenance,
                         },
                         agent_update,
                     )
@@ -2468,6 +2469,7 @@ def _writing_document_insert_paragraph_handler() -> Callable[
                         metadata_json=metadata_json,
                     )
                     doc_id = safe_int(saved.get("id")) or 0
+                    common_content["doc_id"] = doc_id
         except WritingVersionConflictError as exc:
             return CoreToolResult(
                 call_id=tool_call.call_id,
@@ -2499,7 +2501,7 @@ def _writing_document_insert_paragraph_handler() -> Callable[
             (saved or {}).get("title") or current.get("title") or tool_call.arguments.get("title") or "Untitled"
         ).strip()
         inserted_excerpt = " ".join(str(content_md or "").split())[:180]
-        source_ref_count = len(normalize_string_list(tool_call.arguments.get("source_refs")))
+        source_ref_count = len(source_refs)
         return CoreToolResult(
             call_id=tool_call.call_id,
             tool_name=tool_call.tool_name,
@@ -2511,14 +2513,9 @@ def _writing_document_insert_paragraph_handler() -> Callable[
             ),
             ui_summary=f"Updated writing document {doc_id}: {document_title}.",
             structured_content={
-                "contract_version": "writing.document.insert_paragraph.v1",
-                "project_key": project_key,
-                "doc_id": doc_id,
+                **common_content,
                 "document": _compact_writing_document(saved, include_body=False),
-                "operation": operation,
                 "diff": diff,
-                "source_refs": normalize_string_list(tool_call.arguments.get("source_refs")),
-                "provenance": json_object(tool_call.arguments.get("provenance")),
                 "agent_update": agent_update,
             },
         )

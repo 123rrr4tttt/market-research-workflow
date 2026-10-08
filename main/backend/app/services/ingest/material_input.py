@@ -1,8 +1,8 @@
 """Prepare material from an explicit starting point before any ingest writer runs.
 
 The input kind describes availability, not the ontology of a source. In
-particular, a URL is a locator and never document text. Existing C7 snapshots
-keep their original identity; this module does not mint a C7 write closure.
+particular, a URL is a locator and never document text. Existing raw snapshots
+keep their original identity; this module does not mint a write closure.
 """
 
 from __future__ import annotations
@@ -12,11 +12,112 @@ from hashlib import sha256
 from typing import Callable, Literal
 from urllib.parse import urlsplit
 
-from ...successor_runtime.capabilities.material_ingest_movements import RawSnapshot
+from ...successor_runtime.capabilities.checksum import (
+    content_digest,
+    require_hex64,
+    sha256_hex,
+)
 
 
 class MaterialPreparationError(ValueError):
     """Input cannot be turned into supported text material."""
+
+
+def _required_text(value: str, field_name: str) -> str:
+    normalized = str(value or "").strip()
+    if not normalized:
+        # kit:boundary owner=ingest.material_input.raw_snapshot_invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_raw_snapshot_constructor_rejects_invalid_fields_with_public_exception_types
+        raise ValueError(f"{field_name} is required")
+    return normalized
+
+
+def _optional_refs(values: tuple[str, ...] | list[str] | None) -> tuple[str, ...]:
+    return tuple(
+        normalized
+        for item in values or ()
+        if (normalized := str(item or "").strip())
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class RawSnapshot:
+    """Exact immutable input bytes bound to a full material identity."""
+
+    project_key: str
+    source_locator: str
+    raw_bytes: bytes
+    raw_content_digest: str = ""
+    revision: int = 1
+    incarnation: str = "c7-raw-v1"
+    mime_type: str = "application/octet-stream"
+    provenance_refs: tuple[str, ...] = ()
+    snapshot_identity_digest: str = ""
+    snapshot_ref: str = ""
+
+    def __post_init__(self) -> None:
+        project_key = _required_text(self.project_key, "RawSnapshot.project_key")
+        source_locator = _required_text(
+            self.source_locator, "RawSnapshot.source_locator"
+        )
+        if not isinstance(self.raw_bytes, bytes):
+            # kit:boundary owner=ingest.material_input.raw_snapshot_invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_raw_snapshot_constructor_rejects_invalid_fields_with_public_exception_types
+            raise TypeError("RawSnapshot.raw_bytes must be bytes")
+        try:
+            revision = int(self.revision)
+        except (OverflowError, TypeError, ValueError) as exc:
+            # kit:boundary owner=ingest.material_input.raw_snapshot_invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_raw_snapshot_constructor_rejects_invalid_fields_with_public_exception_types
+            raise type(exc)(str(exc)) from exc
+        if revision < 1:
+            # kit:boundary owner=ingest.material_input.raw_snapshot_invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_raw_snapshot_constructor_rejects_invalid_fields_with_public_exception_types
+            raise ValueError("RawSnapshot.revision must be >= 1")
+        incarnation = _required_text(self.incarnation, "RawSnapshot.incarnation")
+        mime_type = _required_text(
+            self.mime_type or "application/octet-stream", "RawSnapshot.mime_type"
+        )
+        provenance_refs = _optional_refs(self.provenance_refs)
+        computed = sha256_hex(self.raw_bytes)
+        raw_content_digest = _required_text(
+            self.raw_content_digest or computed, "RawSnapshot.raw_content_digest"
+        )
+        require_hex64(raw_content_digest, "RawSnapshot.raw_content_digest")
+        if raw_content_digest != computed:
+            # kit:boundary owner=ingest.material_input.raw_snapshot_invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_existing_snapshot_identity_rejects_byte_and_identity_substitution
+            raise ValueError(
+                "RawSnapshot.raw_content_digest does not match raw bytes"
+            )
+        identity = content_digest(
+            {
+                "project_key": project_key,
+                "source_locator": source_locator,
+                "raw_content_digest": raw_content_digest,
+                "revision": revision,
+                "incarnation": incarnation,
+                "mime_type": mime_type,
+                "provenance_refs": provenance_refs,
+            }
+        )
+        if self.snapshot_identity_digest and self.snapshot_identity_digest != identity:
+            # kit:boundary owner=ingest.material_input.raw_snapshot_invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_existing_snapshot_identity_rejects_byte_and_identity_substitution
+            raise ValueError(
+                "RawSnapshot.snapshot_identity_digest does not match identity fields"
+            )
+        snapshot_ref = f"material:raw:sha256:{identity}"
+        if self.snapshot_ref and self.snapshot_ref != snapshot_ref:
+            # kit:boundary owner=ingest.material_input.raw_snapshot_invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_existing_snapshot_identity_rejects_byte_and_identity_substitution
+            raise ValueError("RawSnapshot.snapshot_ref does not match full identity")
+        object.__setattr__(self, "project_key", project_key)
+        object.__setattr__(self, "source_locator", source_locator)
+        object.__setattr__(self, "revision", revision)
+        object.__setattr__(self, "incarnation", incarnation)
+        object.__setattr__(self, "mime_type", mime_type)
+        object.__setattr__(self, "provenance_refs", provenance_refs)
+        object.__setattr__(self, "raw_content_digest", raw_content_digest)
+        object.__setattr__(self, "snapshot_identity_digest", identity)
+        object.__setattr__(self, "snapshot_ref", snapshot_ref)
+
+    @property
+    def content_digest(self) -> str:
+        return self.raw_content_digest
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,6 +295,7 @@ __all__ = [
     "GivenContent",
     "MaterialPreparationError",
     "PreparedMaterial",
+    "RawSnapshot",
     "ResourceRef",
     "prepare_material",
     "prepare_resource_via_http_port",

@@ -292,6 +292,153 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         assert result.error["current_version"] == 4
         assert result.structured_content["conflict"]["version"] == 4
 
+    def test_authoring_writing_insert_projection_covers_completed_paths(self):
+        from app.services.agent_core.authoring_tools import (
+            AuthoringToolContext,
+            authoring_ingest_writing_batch_sources,
+        )
+        from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+        from app.services.agent_core.host_authorization import TrustedHostContext
+        from app.services.agent_core.tool_contribution import (
+            register_project_tool_contributions,
+        )
+
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        session = service.create_session(
+            source="trusted_host", entrypoint_type="agent_macro", project_key="demo_proj",
+            goal="writing projection",
+        )["session"]
+        session_id = session["session_id"]
+        initial_context = TrustedHostContext("demo_proj", session_id, "thread-insert", "turn-0", "input-insert")
+        service.create_host_user_message(initial_context, content="update writing")
+        registry = CoreToolRegistry()
+        assert register_project_tool_contributions(
+            registry,
+            authoring_ingest_writing_batch_sources(
+                AuthoringToolContext(service=service, structured_data_searcher=lambda **_kwargs: {})
+            ),
+        ) is None
+        spec = registry.get("writing.document.insert_paragraph")
+        assert spec is not None
+        current = {
+            "id": 7,
+            "title": "Market brief",
+            "body_md": "Existing analysis",
+            "version": 4,
+            "etag": "etag-4",
+        }
+        arguments = {
+            "doc_id": 7,
+            "content_md": "New paragraph",
+            "operation": "append",
+            "idempotency_key": "stable-writing-key",
+            "source_refs": ["record:94"],
+            "provenance": {"message_id": "message-94"},
+        }
+        saved = {
+            "id": 7,
+            "title": "Market brief",
+            "body_md": "Existing analysis\n\nNew paragraph\n",
+            "version": 5,
+            "etag": "etag-5",
+        }
+        turn = -1
+
+        def execute(updated_arguments: dict[str, object]):
+            nonlocal turn
+            turn += 1
+            if turn == 0:
+                pending_context = initial_context
+            else:
+                pending_context = TrustedHostContext(
+                    "demo_proj", session_id, "thread-insert", f"turn-{turn}", f"input-{turn}"
+                )
+                service.create_host_user_message(pending_context, content="update writing")
+            call = CoreToolCall(
+                tool_name="writing.document.insert_paragraph",
+                call_id=f"call-writing-{turn}",
+                arguments=updated_arguments,
+            )
+            request = AgentCoreRequest(
+                message="update writing", session_id=session_id, project_key="demo_proj",
+                turn_id=pending_context.turn_id,
+            )
+            pending = registry.execute_tool(
+                tool_call=call, tool_spec=spec, request=request,
+                trusted_context=pending_context, authorization_service=service,
+                emit=lambda _event: None,
+            )
+            assert pending.status == "needs_approval"
+            confirmation = TrustedHostContext(
+                "demo_proj", session_id, "thread-insert", f"turn-{turn}-confirm", f"confirm-{turn}"
+            )
+            approval_id = pending.structured_content["approval_id"]
+            service.record_host_tool_confirmation(
+                confirmation, approval_id=approval_id, content=f"Allow once approval:{approval_id}"
+            )
+            return registry.execute_tool(
+                tool_call=call, tool_spec=spec,
+                request=AgentCoreRequest(
+                    message="update writing", session_id=session_id, project_key="demo_proj",
+                    turn_id=confirmation.turn_id,
+                ),
+                trusted_context=confirmation, authorization_service=service,
+                emit=lambda _event: None,
+            )
+
+        import app.services.agent_core.authoring_tools as authoring_tools
+        with (
+            patch.object(authoring_tools, "bind_project", return_value=nullcontext()),
+            patch.object(authoring_tools, "get_document", return_value=current),
+            patch.object(authoring_tools, "create_document", return_value=saved) as mocked_create,
+            patch.object(
+                authoring_tools, "save_document_with_conflict", return_value=saved
+            ) as mocked_save,
+        ):
+            dry = execute({**arguments, "dry_run": True})
+            assert dry.status == "completed", dry.to_dict()
+            assert dry.call_id == "call-writing-0"
+            assert dry.tool_name == "writing.document.insert_paragraph"
+            assert dry.structured_content["contract_version"] == spec.metadata["contract_version"]
+            assert dry.structured_content["doc_id"] == 7
+            assert dry.structured_content["dry_run"] is True
+            assert dry.structured_content["source_refs"] == ["record:94"]
+            assert dry.structured_content["provenance"] == {"message_id": "message-94"}
+            mocked_save.assert_not_called()
+            mocked_create.assert_not_called()
+
+            locked = execute(dict(arguments))
+            assert locked.status == "failed"
+            assert locked.structured_content["current_version"] == 4
+            assert locked.structured_content["current_etag"] == "etag-4"
+            assert locked.structured_content["retry_arguments"]["base_version"] == 4
+            assert locked.error["code"] == "version_lock_required"
+            mocked_save.assert_not_called()
+            mocked_create.assert_not_called()
+
+            success = execute({**arguments, "base_version": 4, "if_match": "etag-4"})
+            assert success.status == "completed"
+            assert success.structured_content["document"]["version"] == 5
+            assert success.structured_content["diff"]["added_lines"] == 2
+            assert success.structured_content["agent_update"]["idempotency_key"] == "stable-writing-key"
+            mocked_save.assert_called_once()
+            mocked_create.assert_not_called()
+
+            replayed_document = {
+                **current,
+                "metadata_json": {
+                    "agent_updates": [success.structured_content["agent_update"]],
+                },
+            }
+            with patch.object(authoring_tools, "get_document", return_value=replayed_document):
+                replayed = execute({**arguments, "base_version": 4, "if_match": "etag-4"})
+                assert replayed.status == "completed"
+                assert replayed.structured_content["replayed"] is True
+                assert replayed.structured_content["diff"]["added_lines"] == 0
+                assert replayed.structured_content["agent_update"] == success.structured_content["agent_update"]
+            mocked_save.assert_called_once()
+            mocked_create.assert_not_called()
+
     def test_authoring_url_pool_submit_respects_cooperative_abort(self):
         from app.services.agent_core.authoring_tools import (
             AuthoringToolContext,

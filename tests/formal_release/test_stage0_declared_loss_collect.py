@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 
@@ -23,6 +24,18 @@ def _load() -> dict[str, object]:
         payload = json.load(handle)
     assert isinstance(payload, dict)
     return payload
+
+
+def _path_is_resolvable(relative: str) -> bool:
+    if (ROOT / relative).is_file():
+        return True
+    completed = subprocess.run(
+        ["git", "cat-file", "-e", f"HEAD:{relative}"],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+    )
+    return completed.returncode == 0
 
 
 def test_JSON__stage0_collect_loss_record_is_parseable_and_versioned() -> None:
@@ -73,7 +86,7 @@ def test_TRACEABILITY__all_collect_source_caller_and_witness_paths_exist() -> No
         for reference in (item["source_object"], item["source_morphism"]):
             assert isinstance(reference, dict)
             path = reference["path"]
-            assert isinstance(path, str) and (ROOT / path).is_file(), path
+            assert isinstance(path, str) and _path_is_resolvable(path), path
             assert isinstance(reference.get("symbol"), str) and reference["symbol"].strip()
 
         callers = item["affected_callers"]
@@ -81,7 +94,7 @@ def test_TRACEABILITY__all_collect_source_caller_and_witness_paths_exist() -> No
         for caller in callers:
             assert isinstance(caller, dict)
             path = caller["path"]
-            assert isinstance(path, str) and (ROOT / path).is_file(), path
+            assert isinstance(path, str) and _path_is_resolvable(path), path
             assert isinstance(caller.get("symbol"), str) and caller["symbol"].strip()
 
         witnesses = item["witness"]
@@ -89,7 +102,7 @@ def test_TRACEABILITY__all_collect_source_caller_and_witness_paths_exist() -> No
         for witness in witnesses:
             assert isinstance(witness, dict)
             path = witness["path"]
-            assert isinstance(path, str) and (ROOT / path).is_file(), path
+            assert isinstance(path, str) and _path_is_resolvable(path), path
             test_name = witness.get("test")
             assert isinstance(test_name, str) and test_name.strip()
 

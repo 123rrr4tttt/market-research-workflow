@@ -1273,7 +1273,6 @@ def build_evidence_matrix() -> Annotated[
                                 "/api/v1/market/*",
                                 "/api/v1/products",
                                 "/api/v1/topics",
-                                "/api/v1/reports",
                             ],
                             evidence_contracts=[
                                 "tests/core_business/test_admin_dashboard_process_core_contract.py",
@@ -1346,7 +1345,6 @@ def build_evidence_matrix() -> Annotated[
                                 readback_paths=[
                                     "/api/v1/dashboard/stats",
                                     "/api/v1/admin/audit?scope=governance",
-                                    "/api/v1/reports?limit=1",
                                 ],
                                 required_events=[
                                     "metric_snapshot_requested",

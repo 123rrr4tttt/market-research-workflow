@@ -17,7 +17,7 @@ from functorial_kit import Failure
 
 from app.services.information_topology.modules.retrieval import validate_evidence_v2
 from .contracts import FormalizationResult
-from .failures import ProjectRetrievalFailureCode, retrieval_failure
+from app.successor_runtime.capabilities.retrieval_common import ProjectRetrievalFailureCode, retrieval_failure
 
 
 ModelInvoke = Callable[[str], object]

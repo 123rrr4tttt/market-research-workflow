@@ -16,8 +16,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.services.agent_core.project_tools import build_project_core_tool_registry
-from app.services.agent_runtime.control_tools import AgentControlToolRuntime
-from app.services.agent_runtime.read_only_tools import ReadOnlyAgentToolRuntime
 
 from .contracts import OPERATOR_RISKS, OperatorRisk, OperatorValidationError
 
@@ -118,26 +116,6 @@ def _normalize_risk(risk: Any) -> str:
     )
 
 
-def _risk_from_tool_definition(tool: dict[str, Any]) -> str:
-    concurrency = str(tool.get("concurrency_class") or "read_only").strip().lower()
-    risk = "read_only" if concurrency == "read_only" else concurrency
-    return _normalize_risk(risk)
-
-
-def _operator_from_tool_definition(tool: dict[str, Any]) -> OperatorSpec:
-    name = str(
-        tool.get("name") or tool.get("tool_name") or tool.get("capability_id") or ""
-    ).strip()
-    return OperatorSpec(
-        operator_id=name,
-        name=name,
-        input_schema=_normalize_input_schema(tool.get("input_schema")),
-        output_schema=_normalize_output_schema(tool.get("output_schema"), name),
-        impl_ref=f"agent_runtime:{name}",
-        risk=_risk_from_tool_definition(tool),
-    )
-
-
 def _operator_from_core_spec(spec: Any) -> OperatorSpec:
     name = str(getattr(spec, "name", "") or "").strip()
     return OperatorSpec(
@@ -151,28 +129,8 @@ def _operator_from_core_spec(spec: Any) -> OperatorSpec:
 
 
 def project_process_operators() -> list[OperatorSpec]:
-    """Project existing process interfaces into a deduplicated OperatorSpec list.
-
-    Sources (all already live in the repository):
-
-    1. ``read_only_tools.ReadOnlyAgentToolRuntime.list_tool_definitions()``
-    2. ``control_tools.AgentControlToolRuntime.list_tool_definitions()``
-    3. ``project_tools.build_project_core_tool_registry(...).list_specs()``
-
-    The three sources overlap (the core registry already adapts the read-only and
-    control runtimes), so projection is keyed by ``operator_id`` and deduplicated.
-    """
+    """Project the registered Core tool interfaces into OperatorSpecs."""
     projected: dict[str, OperatorSpec] = {}
-
-    read_only_runtime = ReadOnlyAgentToolRuntime(service=None)  # type: ignore[arg-type]
-    for tool in read_only_runtime.list_tool_definitions():
-        spec = _operator_from_tool_definition(tool)
-        projected[spec.operator_id] = spec
-
-    control_runtime = AgentControlToolRuntime(service=None)  # type: ignore[arg-type]
-    for tool in control_runtime.list_tool_definitions():
-        spec = _operator_from_tool_definition(tool)
-        projected[spec.operator_id] = spec
 
     core_registry = build_project_core_tool_registry(service=None)  # type: ignore[arg-type]
     for tool in core_registry.list_specs():

@@ -265,7 +265,6 @@ def _deterministic_coverage(root: Path, sources: Mapping[str, Mapping[str, Any]]
                 (
                     '"/documents"',
                     '"/keyword-cards"',
-                    '"/llm-actions"',
                     '"/export/markdown"',
                     "response_model=ApiEnvelope[KeywordCardListResponse]",
                 ),

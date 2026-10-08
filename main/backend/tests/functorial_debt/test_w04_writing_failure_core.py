@@ -7,7 +7,7 @@ import pytest
 from functorial_kit import Failure
 from mrw_functorial_kit.core.w04_service_semantics import writing_failures
 
-from app.services.writing import document_service, keyword_card_service, llm_action_service
+from app.services.writing import document_service, keyword_card_service
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -58,38 +58,10 @@ def test_w04_writing_cache_and_action_not_found_keep_public_messages(monkeypatch
     with pytest.raises(KeyError, match=r"^'card not found: missing-card'$" ):
         keyword_card_service.get_card_preview(type("Payload", (), {"card_id": "missing-card"})())
 
-    monkeypatch.setattr(llm_action_service, "get_action_history", lambda **_kwargs: [])
-    action = llm_action_service.try_get_action_detail(909, project_key="demo")
-    assert isinstance(action, Failure)
-    assert action.code == "action_not_found"
-    with pytest.raises(KeyError, match=r"^'action history not found: 909'$" ):
-        llm_action_service.get_action_detail(909, project_key="demo")
-
-
-def test_w04_writing_llm_failure_fails_job_before_original_cause(monkeypatch: pytest.MonkeyPatch) -> None:
-    cause = RuntimeError("provider exploded")
-    failure = llm_action_service._writing_failure(
-        "action_execution_failed",
-        str(cause),
-        owner="writing.llm_action_service.dispatch_action",
-        public_exception=type(cause).__name__,
-        cause=cause,
-        job_id=17,
-    )
-    events: list[tuple[str, object]] = []
-    monkeypatch.setattr(llm_action_service, "try_dispatch_action", lambda _payload: failure)
-    monkeypatch.setattr(llm_action_service, "fail_job", lambda job_id, message: events.append(("fail_job", (job_id, message))))
-    with pytest.raises(RuntimeError) as raised:
-        llm_action_service.dispatch_action(object())
-    assert raised.value is cause
-    assert events == [("fail_job", (17, "provider exploded"))]
-
-
 def test_w04_writing_owned_services_have_only_centralized_raise_boundary() -> None:
     paths = (
         REPO_ROOT / "main/backend/app/services/writing/document_service.py",
         REPO_ROOT / "main/backend/app/services/writing/keyword_card_service.py",
-        REPO_ROOT / "main/backend/app/services/writing/llm_action_service.py",
     )
     for path in paths:
         source = path.read_text(encoding="utf-8")

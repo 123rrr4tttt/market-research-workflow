@@ -19,8 +19,6 @@ CAPABILITY_SHARED_MODULES = frozenset(
         "checksum",
         "codecs",
         "failure",
-        "material_ingest_common",
-        "knowledge_common",
         "retrieval_common",
         "workflow_common",
     }

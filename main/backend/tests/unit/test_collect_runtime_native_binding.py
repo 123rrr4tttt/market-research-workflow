@@ -81,10 +81,10 @@ def test_runtime_uses_ordered_sync_and_preserves_gateway_order(
     ]
     assert result is not None
     assert result.status == "failed"
-    assert [item["input_index"] for item in result.meta["raw"]["typed_batch_results"]] == [0, 1, 2]
+    assert [item["input_index"] for item in result.meta["raw"]["delivery_observations"]] == [0, 1, 2]
     raw = result.meta.get("raw")
     assert isinstance(raw, dict)
-    assert raw.get("aggregate_kind") == "failed"
+    assert "aggregate_kind" not in raw
 
 
 def test_STATIC_NEGATIVE__gateway_return_type_is_rejected() -> None:

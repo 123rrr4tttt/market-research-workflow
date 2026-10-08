@@ -17,10 +17,7 @@ from app.production_observability import (  # noqa: E402
     DatabaseRuntimeSignal,
     MetricFamily,
     ProductionObservabilityController,
-    ProjectionDriftStatus,
-    ProjectionReadStatus,
     ProjectionReleaseStatus,
-    ProjectionRuntimeSignal,
     ProviderRuntimeSignal,
     ProviderRuntimeStatus,
     QueueReadStatus,
@@ -40,12 +37,10 @@ GAP_RULE_IDS = (
     "local-runtime-db-connection.v2",
     "local-runtime-provider-failure.v2",
     "local-runtime-authority-mismatch.v2",
-    "local-runtime-projection-drift.v2",
     "local-runtime-request-latency.v2",
 )
 OBSERVED_AT = "2026-09-13T00:00:00+00:00"
 MATCHING_DIGEST = "a" * 64
-DRIFTED_DIGEST = "b" * 64
 
 
 def settings() -> SimpleNamespace:
@@ -81,7 +76,7 @@ def authority_signal(
         tenant_id=None if not_observed else "tenant:authority:test",
         project_scope_digest=None if not_observed else MATCHING_DIGEST,
         project_registry_revision=None if not_observed else 7,
-        capability_id=None if not_observed else "capability:successor-runtime:c9",
+        capability_id=None if not_observed else "capability:successor-runtime:first-specimen",
         step_id=None if not_observed else "step:authority:test",
         claim_authority_epoch=None if not_observed else 1,
         expected_project_scope_digest=None if not_observed else MATCHING_DIGEST,
@@ -110,36 +105,7 @@ def snapshot(
     authority_status: RuntimeBindingStatus = RuntimeBindingStatus.BOUND,
     authority_read_status: RuntimeAuthorityReadStatus = RuntimeAuthorityReadStatus.OBSERVED,
     projection_release_status: ProjectionReleaseStatus = ProjectionReleaseStatus.MATCH,
-    projection_drift: bool = False,
-    projection_not_observed: bool = False,
 ) -> RuntimeHealthSnapshot:
-    if projection_not_observed:
-        projection = ProjectionRuntimeSignal(
-            source="postgres.c9:semantic-source-closure+active-offset",
-            read_status=ProjectionReadStatus.NOT_OBSERVED,
-            drift_status=ProjectionDriftStatus.UNKNOWN,
-            active_source_digest="",
-            expected_source_digest="",
-            projection_generation=0,
-            offset_revision=0,
-            source_revision=0,
-            offset_ref="",
-            status_detail="active C9 semantic-source offset missing",
-        )
-    else:
-        projection = ProjectionRuntimeSignal(
-            source="postgres.c9:semantic-source-closure+active-offset",
-            read_status=ProjectionReadStatus.OK,
-            drift_status=(
-                ProjectionDriftStatus.MISMATCH if projection_drift else ProjectionDriftStatus.MATCH
-            ),
-            active_source_digest=DRIFTED_DIGEST if projection_drift else MATCHING_DIGEST,
-            expected_source_digest=MATCHING_DIGEST,
-            projection_generation=1,
-            offset_revision=2,
-            source_revision=3,
-            offset_ref="c9:semantic-source:test:closure_manifest",
-        )
     return RuntimeHealthSnapshot(
         observed_at=observed_at,
         queue=QueueRuntimeSignal(
@@ -166,7 +132,6 @@ def snapshot(
             projection_release_status=projection_release_status,
             authority_read=authority_signal(authority_read_status),
         ),
-        projection=projection,
     )
 
 
@@ -178,7 +143,7 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
         )
         gap_rules = [rule for rule in config.alert_rules if rule.rule_id in GAP_RULE_IDS]
 
-        self.assertEqual(len(config.alert_rules), 9)
+        self.assertEqual(len(config.alert_rules), 8)
         self.assertEqual(
             {rule.metric_family for rule in gap_rules},
             {
@@ -186,7 +151,6 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
                 MetricFamily.DATABASE_CONNECTION_UNAVAILABLE,
                 MetricFamily.PROVIDER_FAILURE,
                 MetricFamily.AUTHORITY_MISMATCH,
-                MetricFamily.PROJECTION_DRIFT,
                 MetricFamily.REQUEST_LATENCY_BREACH_RATE,
             },
         )
@@ -206,7 +170,6 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
                 authority_status=RuntimeBindingStatus.MISMATCH,
                 authority_read_status=RuntimeAuthorityReadStatus.MISMATCH,
                 projection_release_status=ProjectionReleaseStatus.MATCH,
-                projection_drift=True,
             ),
         )
         unreceipted_recovery = item.observe_runtime_health(
@@ -222,7 +185,7 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
             evaluation.rule_id: evaluation.state
             for evaluation in unreceipted_recovery.decision.alert_evaluations
         }
-        runtime_gap_rules = GAP_RULE_IDS[:-2]
+        runtime_gap_rules = GAP_RULE_IDS[:-1]
         self.assertTrue(
             all(trigger_states[rule_id] is AlertState.TRIGGERED for rule_id in runtime_gap_rules)
         )
@@ -240,7 +203,6 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
             authority_status=RuntimeBindingStatus.MISMATCH,
             authority_read_status=RuntimeAuthorityReadStatus.MISMATCH,
             projection_release_status=ProjectionReleaseStatus.MATCH,
-            projection_drift=True,
         )
         good = snapshot(observed_at="2026-09-13T00:01:00+00:00")
 
@@ -271,7 +233,7 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
             evaluation.rule_id: evaluation.state
             for evaluation in recovered.decision.alert_evaluations
         }
-        runtime_gap_rules = GAP_RULE_IDS[:-2]
+        runtime_gap_rules = GAP_RULE_IDS[:-1]
         self.assertTrue(
             all(trigger_states[rule_id] is AlertState.TRIGGERED for rule_id in runtime_gap_rules)
         )
@@ -280,24 +242,6 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
         )
         self.assertTrue(triggered.decision.receipt_valid)
         self.assertTrue(recovered.decision.receipt_valid)
-
-    def test_release_label_mismatch_alone_does_not_trigger_c9_projection_drift(self) -> None:
-        item = controller()
-        evaluation = item.observe_runtime_health(
-            observation_id="release-label-without-c9-observation",
-            snapshot=snapshot(
-                projection_release_status=ProjectionReleaseStatus.MISMATCH,
-                projection_not_observed=True,
-            ),
-        )
-
-        alert = next(
-            item
-            for item in evaluation.decision.alert_evaluations
-            if item.rule_id == "local-runtime-projection-drift.v2"
-        )
-        self.assertIsNone(alert.latest_value)
-        self.assertEqual(alert.state, AlertState.UNKNOWN)
 
     def test_authority_normal_mismatch_recovery_with_derived_receipt(self) -> None:
         item = controller()
@@ -427,76 +371,6 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
         self.assertTrue(slow.decision.receipt_valid)
         self.assertTrue(fast.decision.receipt_valid)
 
-    def test_c9_projection_closure_drift_recoveries_with_derived_receipt(self) -> None:
-        item = controller()
-        drift_base = item.observe_runtime_health(
-            observation_id="c9-projection-drift",
-            snapshot=snapshot(projection_drift=True),
-        )
-        drift = item.observe_runtime_health(
-            observation_id="c9-projection-drift",
-            snapshot=snapshot(projection_drift=True),
-            production_receipt=drift_base.receipt,
-        )
-        match_base = item.observe_runtime_health(
-            observation_id="c9-projection-match",
-            snapshot=snapshot(observed_at="2026-09-13T00:01:00+00:00"),
-        )
-        match = item.observe_runtime_health(
-            observation_id="c9-projection-match",
-            snapshot=snapshot(observed_at="2026-09-13T00:01:00+00:00"),
-            production_receipt=match_base.receipt,
-        )
-
-        drift_alert = next(
-            item
-            for item in drift.decision.alert_evaluations
-            if item.rule_id == "local-runtime-projection-drift.v2"
-        )
-        match_alert = next(
-            item
-            for item in match.decision.alert_evaluations
-            if item.rule_id == "local-runtime-projection-drift.v2"
-        )
-        self.assertEqual(drift_alert.latest_value, 1.0)
-        self.assertEqual(drift_alert.state, AlertState.TRIGGERED)
-        self.assertEqual(match_alert.latest_value, 0.0)
-        self.assertEqual(match_alert.state, AlertState.RECOVERED)
-
-    def test_projection_unavailable_stays_unknown_and_does_not_recover_drift(self) -> None:
-        item = controller()
-        drift_base = item.observe_runtime_health(
-            observation_id="c9-projection-unknown",
-            snapshot=snapshot(projection_drift=True),
-        )
-        drift = item.observe_runtime_health(
-            observation_id="c9-projection-unknown",
-            snapshot=snapshot(projection_drift=True),
-            production_receipt=drift_base.receipt,
-        )
-        unavailable = item.observe_runtime_health(
-            observation_id="c9-projection-unknown-recheck",
-            snapshot=snapshot(
-                observed_at="2026-09-13T00:01:00+00:00",
-                projection_not_observed=True,
-            ),
-        )
-
-        drift_alert = next(
-            item
-            for item in drift.decision.alert_evaluations
-            if item.rule_id == "local-runtime-projection-drift.v2"
-        )
-        unavailable_alert = next(
-            item
-            for item in unavailable.decision.alert_evaluations
-            if item.rule_id == "local-runtime-projection-drift.v2"
-        )
-        self.assertEqual(drift_alert.latest_value, 1.0)
-        self.assertEqual(drift_alert.state, AlertState.TRIGGERED)
-        self.assertIsNone(unavailable_alert.latest_value)
-        self.assertEqual(unavailable_alert.state, AlertState.UNKNOWN)
-
     def test_runtime_health_observations_are_exported_on_default_metrics_registry(self) -> None:
         config = production_observability_config_from_settings(
             settings(),
@@ -529,18 +403,6 @@ class Stage5RuntimeHealthGapRuleTestCase(unittest.TestCase):
             )
         with self.assertRaises(ValueError):
             snapshot(queue_depth=-1)
-        with self.assertRaises(ValueError):
-            ProjectionRuntimeSignal(
-                source="postgres.c9",
-                read_status=ProjectionReadStatus.OK,
-                drift_status=ProjectionDriftStatus.MATCH,
-                active_source_digest="not-a-digest",
-                expected_source_digest="not-a-digest",
-                projection_generation=0,
-                offset_revision=0,
-                source_revision=0,
-                offset_ref="offset",
-            )
         with self.assertRaises(ValueError):
             ProviderRuntimeSignal(
                 source="real-provider",

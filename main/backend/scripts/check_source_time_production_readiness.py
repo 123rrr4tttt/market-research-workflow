@@ -165,10 +165,7 @@ def _sample_density_rows(*, start: date, end: date, **_: object) -> list[dict[st
 
 
 def _deterministic_sample_readback_stage() -> dict[str, Any]:
-    try:
-        from app.services.ingest import digestion_scaffold
-    except Exception:  # noqa: BLE001 - deterministic gate must not require full app import.
-        from scripts.check_time_density_runtime_support import digestion_scaffold
+    from scripts.check_time_density_runtime_support import digestion_scaffold
 
     try:
         from app.services.stats import prompt_time_density

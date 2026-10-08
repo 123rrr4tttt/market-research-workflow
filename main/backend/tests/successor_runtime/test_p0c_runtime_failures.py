@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 import sqlalchemy as sa
+from functorial_kit import Failure
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.compiler import compiles
 
@@ -30,9 +34,11 @@ from app.successor_runtime.substrate.postgres.research_ledger import (
 from app.successor_runtime.substrate.postgres.runtime_failures import (
     FAILURE_CODEC_ID,
     FAILURE_OBJECT_TYPE,
+    DOMAIN_FAILURE_OBJECT_TYPE,
     RuntimeFailureBindingError,
     RuntimeFailureRepository,
 )
+from app.successor_runtime.substrate.postgres.runtime_journal import ExactBindingConflict
 
 pytestmark = pytest.mark.unit
 
@@ -184,6 +190,9 @@ def test_runtime_failure_is_exact_idempotent_and_project_scoped(failure_db) -> N
     assert row["state"] == "FAILED"
     assert row["content_json"] is None
     assert b'"failure_code":"PROVIDER_REJECTED"' in bytes(row["content_bytes"])
+    assert first.domain_failure is None
+    assert len(bytes(row["content_bytes"])) == 898
+    assert hashlib.sha256(bytes(row["content_bytes"])).hexdigest() == "1aa9d3014e039b3f0e7203e68ccd7e17120105b379bf6060abf1f5dc70fc872c"
     assert (
         connection.scalar(
             sa.select(sa.func.count()).select_from(tables.successor_values)
@@ -192,7 +201,8 @@ def test_runtime_failure_is_exact_idempotent_and_project_scoped(failure_db) -> N
     )
 
 
-def test_runtime_failure_rejects_mutation_digest_drift_and_aba(failure_db) -> None:
+@pytest.mark.parametrize("domain_failure", [None, Failure("workflow", "PROVIDER_REJECTED", "中文", {"nested": [1]})])
+def test_runtime_failure_rejects_mutation_digest_drift_and_aba(failure_db, domain_failure) -> None:
     connection, tables = failure_db
     scope = _scope()
     assignment, claim = _assignment_and_claim()
@@ -202,6 +212,7 @@ def test_runtime_failure_rejects_mutation_digest_drift_and_aba(failure_db) -> No
         assignment=assignment,
         claim=claim,
         failure_code="PROVIDER_REJECTED",
+        domain_failure=domain_failure,
     )
 
     with pytest.raises(ProjectRecordNotFound, match="exact value not found"):
@@ -231,6 +242,7 @@ def test_runtime_failure_rejects_mutation_digest_drift_and_aba(failure_db) -> No
         assignment=assignment,
         claim=claim,
         failure_code="PROVIDER_REJECTED",
+        domain_failure=domain_failure,
     )
     connection.execute(
         sa.update(tables.successor_values).values(incarnation="reused-incarnation")
@@ -245,7 +257,8 @@ def test_runtime_failure_rejects_mutation_digest_drift_and_aba(failure_db) -> No
         )
 
 
-def test_runtime_failure_rejects_wrong_scope_attempt_and_ref(failure_db) -> None:
+@pytest.mark.parametrize("domain_failure", [None, Failure("workflow", "PROVIDER_REJECTED", "中文", {"nested": [1]})])
+def test_runtime_failure_rejects_wrong_scope_attempt_and_ref(failure_db, domain_failure) -> None:
     connection, tables = failure_db
     scope = _scope()
     assignment, claim = _assignment_and_claim()
@@ -255,6 +268,7 @@ def test_runtime_failure_rejects_wrong_scope_attempt_and_ref(failure_db) -> None
         assignment=assignment,
         claim=claim,
         failure_code="PROVIDER_REJECTED",
+        domain_failure=domain_failure,
     )
 
     with pytest.raises(RuntimeFailureBindingError, match="assignment project"):
@@ -319,3 +333,171 @@ def test_failure_code_must_be_typed_and_canonical(failure_db) -> None:
             claim=claim,
             failure_code="  ",
         )
+
+
+def test_domain_failure_v2_preserves_chinese_nested_context_and_exact_identity(failure_db) -> None:
+    connection, tables = failure_db
+    assignment, claim = _assignment_and_claim()
+    domain = Failure("workflow.graph.failure", "PROVIDER_REJECTED", "上游节点没有文本", {"node": "first", "nested": {"原因": [None, True, 2, "中文"]}})
+    repository = RuntimeFailureRepository(connection, tables)
+    record = repository.put_exact(_scope(), assignment=assignment, claim=claim,
+                                  failure_code=domain.code, domain_failure=domain)
+    assert record.domain_failure == domain
+    assert repository.verify_exact(_scope(), assignment=assignment, claim=claim,
+                                   failure_ref=record.failure_ref, failure_digest=record.failure_digest) == record
+    row = connection.execute(sa.select(tables.successor_values)).mappings().one()
+    assert row["object_type"] == DOMAIN_FAILURE_OBJECT_TYPE
+    body = json.loads(bytes(row["content_bytes"]))
+    assert body["schema_version"] == "mrw.runtime.failure.v2"
+    assert body["domain_failure"] == {"family": domain.family, "code": domain.code, "message": domain.message, "context": domain.context}
+    for changed in (replace(domain, message="不同说明"), replace(domain, context={"node": "second"})):
+        with pytest.raises(ExactContentConflict, match="different bytes"):
+            repository.put_exact(_scope(), assignment=assignment, claim=claim,
+                                 failure_code=domain.code, domain_failure=changed)
+    connection.execute(sa.update(tables.successor_values).values(object_type=FAILURE_OBJECT_TYPE))
+    with pytest.raises(RuntimeFailureBindingError, match="object identity"):
+        repository.verify_exact(_scope(), assignment=assignment, claim=claim,
+                                failure_ref=record.failure_ref, failure_digest=record.failure_digest)
+
+
+@pytest.mark.parametrize("invalid", [
+    {"code": "PROVIDER_REJECTED"}, Failure("workflow", "OTHER", "message"),
+    Failure("workflow", "PROVIDER_REJECTED", "message", {"bad": object()}),
+    Failure("workflow", "PROVIDER_REJECTED", "message", {"bad": (1, 2)}),
+    Failure("workflow", "PROVIDER_REJECTED", "message", {"bad": float("nan")}),
+])
+def test_domain_failure_invalid_body_is_rejected_before_write(failure_db, invalid) -> None:
+    connection, tables = failure_db
+    assignment, claim = _assignment_and_claim()
+    with pytest.raises((TypeError, ValueError)):
+        RuntimeFailureRepository(connection, tables).put_exact(
+            _scope(), assignment=assignment, claim=claim, failure_code="PROVIDER_REJECTED", domain_failure=invalid,
+        )
+    assert connection.scalar(sa.select(sa.func.count()).select_from(tables.successor_values)) == 0
+
+
+def test_domain_failure_write_uses_caller_rollback(failure_db) -> None:
+    connection, tables = failure_db
+    assignment, claim = _assignment_and_claim()
+    with pytest.raises(RuntimeError, match="caller rollback"), connection.begin_nested():
+        RuntimeFailureRepository(connection, tables).put_exact(
+            _scope(), assignment=assignment, claim=claim, failure_code="PROVIDER_REJECTED",
+            domain_failure=Failure("workflow", "PROVIDER_REJECTED", "中文失败", {"nested": {"a": 1}}),
+        )
+        raise RuntimeError("caller rollback")
+    assert connection.scalar(sa.select(sa.func.count()).select_from(tables.successor_values)) == 0
+
+
+@pytest.fixture
+def failure_reader(failure_db, monkeypatch):
+    from contextlib import nullcontext
+    from app.successor_runtime.substrate.postgres.plans import PlanRepository
+    from app.successor_runtime.substrate.postgres.runtime_journal import RuntimeJournalRepository
+    from app.successor_runtime.substrate.postgres import runtime_journal
+    from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
+
+    connection, tables = failure_db
+    assignment, claim = _assignment_and_claim()
+    record = RuntimeFailureRepository(connection, tables).put_exact(
+        _scope(), assignment=assignment, claim=claim, failure_code="PROVIDER_REJECTED",
+    )
+    plan_step = SimpleNamespace(step_id=assignment.step_id, operation_id="workflow-node:0:first",
+                                operation_contract_ref=assignment.operation_contract_ref)
+    plan = SimpleNamespace(plan_id="plan-1", plan_digest=assignment.plan_digest, program_id="program-1",
+                           program_digest=assignment.program_digest, ordered_steps=(plan_step,))
+    run = dict(resolved_schema="project_a", plan_id=plan.plan_id, plan_digest=plan.plan_digest,
+               program_id=plan.program_id, program_digest=plan.program_digest, execution_epoch=assignment.execution_epoch,
+               incarnation=assignment.incarnation, project_registry_revision=3, project_scope_digest=_scope().project_scope.scope_digest)
+    event = dict(seq=1, project_key=assignment.project_key, run_id=assignment.run_id, event_type="EffectFailed",
+                 schema_version="mrw.runtime.event.effect_failed.v1", step_id=assignment.step_id, attempt_id=claim.attempt_id,
+                 authority_digest=claim.authorization_digest, event_metadata_json={"work_item_id": assignment.work_item_id})
+    work = dict(authority_digest=claim.authorization_digest, claim_attempt_id=claim.attempt_id,
+                claim_binding_digest=claim.binding_digest, claim_binding_json=claim.model_dump(mode="json"))
+    attempt = dict(run_id=assignment.run_id, step_id=assignment.step_id, attempt_id=claim.attempt_id,
+                   incarnation=assignment.incarnation, execution_epoch=assignment.execution_epoch,
+                   assignment_digest=assignment.assignment_digest, handler_binding_digest=assignment.handler_binding_digest,
+                   handler_realization_digest=assignment.handler_binding_digest, claim_binding_json=claim.model_dump(mode="json"),
+                   claim_binding_digest=claim.binding_digest, authorization_digest=claim.authorization_digest,
+                   disposition="FAILED", input_digest=assignment.input_closure_digest,
+                   failure_ref=record.failure_ref, failure_digest=record.failure_digest)
+    step = dict(operation_id=plan_step.operation_id, operation_kind=assignment.operation_contract_ref.kind,
+                operation_version=assignment.operation_contract_ref.contract_version, execution_epoch=assignment.execution_epoch,
+                input_digest=assignment.input_closure_digest, step_id=assignment.step_id, state="FAILED")
+    rows = {"runtime_work_items": work, "runtime_effect_attempts": attempt, "runtime_steps": step}
+
+    class ReaderConnection:
+        def execute(self, statement):
+            name = statement.get_final_froms()[0].name
+            if name == "successor_values":
+                return connection.execute(statement)
+            return SimpleNamespace(mappings=lambda: SimpleNamespace(one_or_none=lambda: rows[name]))
+
+    monkeypatch.setattr(ServerProjectScopeResolver, "resolve", lambda self, key: _scope().project_scope)
+    monkeypatch.setattr(PlanRepository, "get", lambda self, scope, digest: plan)
+    monkeypatch.setattr(RuntimeJournalRepository, "load_run", lambda self, run_id: run)
+    monkeypatch.setattr(RuntimeJournalRepository, "load_events", lambda self, run_id: (event,))
+    monkeypatch.setattr(runtime_journal, "validate_runtime_assignment_row", lambda row: assignment)
+    return SimpleNamespace(engine=SimpleNamespace(connect=lambda: nullcontext(ReaderConnection())),
+                           run=run, event=event, work=work, attempt=attempt, step=step, plan=plan, record=record)
+
+
+def test_failure_reader_reads_v1_exact_bytes_from_event_bound_attempt(failure_reader) -> None:
+    from app.composition.production import read_installed_program_failures
+
+    assert read_installed_program_failures(engine=failure_reader.engine, project_key="project-a", actor_id="viewer", run_id="run-1") == (
+        (1, failure_reader.record),
+    )
+
+
+@pytest.mark.parametrize("drift", [
+    "scope", "registry_revision", "plan_digest", "event_run", "event_project", "event_work", "event_ref",
+    "event_digest", "attempt_run", "handler", "work_claim", "work_claim_json", "work_attempt", "work_authority",
+])
+def test_failure_reader_rejects_scope_plan_event_and_claim_drift(failure_reader, drift) -> None:
+    from app.composition.production import read_installed_program_failures
+
+    if drift == "scope":
+        failure_reader.run["project_scope_digest"] = _digest("wrong-scope")
+    elif drift == "registry_revision":
+        failure_reader.run["project_registry_revision"] = 4
+    elif drift == "plan_digest":
+        failure_reader.plan.plan_digest = _digest("wrong-plan")
+    elif drift in {"event_run", "event_project"}:
+        failure_reader.event["run_id" if drift == "event_run" else "project_key"] = "other"
+    elif drift == "event_work":
+        failure_reader.event["event_metadata_json"]["work_item_id"] = "other-work"
+    elif drift == "event_ref":
+        failure_reader.event["payload_ref"] = "project-value:wrong"
+    elif drift == "event_digest":
+        failure_reader.event.update(payload_ref=failure_reader.record.failure_ref, payload_digest=_digest("wrong-digest"))
+    elif drift == "attempt_run":
+        failure_reader.attempt["run_id"] = "other-run"
+    elif drift == "handler":
+        failure_reader.attempt["handler_binding_digest"] = _digest("wrong-handler")
+    else:
+        field = {"work_claim": "claim_binding_digest", "work_claim_json": "claim_binding_json",
+                 "work_attempt": "claim_attempt_id", "work_authority": "authority_digest"}[drift]
+        failure_reader.work[field] = {} if drift == "work_claim_json" else _digest("wrong-work-binding")
+    with pytest.raises(ExactBindingConflict):
+        read_installed_program_failures(engine=failure_reader.engine, project_key="project-a", actor_id="viewer", run_id="run-1")
+
+
+@pytest.mark.parametrize("domain", [None, Failure("workflow", "PROVIDER_REJECTED", "中文错误", {"nested": [True, 2]})])
+def test_facade_projects_verified_failure_v1_or_v2_without_inventing_fields(failure_reader, monkeypatch, domain) -> None:
+    from app.composition import production
+    from app.services.workflow_graph import WorkflowGraphRuntimeService
+
+    service = WorkflowGraphRuntimeService()
+    event = failure_reader.event
+    required = {**event, "event_type": "RequiredStepFailed", "seq": 2, "event_metadata_json": {"required_step_failed": True}}
+    record = replace(failure_reader.record, domain_failure=domain)
+    monkeypatch.setattr(production, "read_installed_program_failures", lambda **kwargs: ((1, record),))
+    monkeypatch.setattr(service, "_read_runtime", lambda **kwargs: (failure_reader.run, (failure_reader.step,), (event, required)))
+    items = service.get_run_events("run-1", project_key="project-a", actor_id="viewer")["items"]
+    expected = {"work_item_id": event["event_metadata_json"]["work_item_id"], "failure_ref": record.failure_ref,
+                "failure_digest": record.failure_digest, "failure_code": record.failure_code}
+    if domain is not None:
+        expected.update(failure_family=domain.family, error=domain.message, context=domain.context)
+    assert items[0]["payload"] == expected
+    assert [item["event_type"] for item in items] == ["EffectFailed", "RequiredStepFailed"]
+    assert items[1]["payload"] == {"required_step_failed": True}

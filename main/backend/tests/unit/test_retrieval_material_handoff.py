@@ -19,7 +19,7 @@ from app.services.ingest.material_ingress import (
     MaterialTargetSpec,
     build_material_frontdoor_payload,
 )
-from app.successor_runtime.capabilities.material_ingest_movements import RawSnapshot
+from app.services.ingest.material_input import RawSnapshot
 
 
 pytestmark = pytest.mark.unit
@@ -95,6 +95,80 @@ def test_existing_snapshot_reuses_identity_and_never_fetches():
     assert prepared.snapshot_ref == snapshot.snapshot_ref
     assert prepared.snapshot_identity_digest == snapshot.snapshot_identity_digest
     assert prepared.raw_content_digest == snapshot.raw_content_digest
+
+
+def test_existing_snapshot_identity_rejects_byte_and_identity_substitution():
+    snapshot = RawSnapshot(
+        project_key="project-a",
+        source_locator="https://example.test/source",
+        raw_bytes=b"snapshot body",
+        mime_type="text/plain",
+        provenance_refs=("source:one", "source:one"),
+    )
+    same = RawSnapshot(
+        project_key=snapshot.project_key,
+        source_locator=snapshot.source_locator,
+        raw_bytes=snapshot.raw_bytes,
+        raw_content_digest=snapshot.raw_content_digest,
+        revision=snapshot.revision,
+        incarnation=snapshot.incarnation,
+        mime_type=snapshot.mime_type,
+        provenance_refs=snapshot.provenance_refs,
+        snapshot_identity_digest=snapshot.snapshot_identity_digest,
+        snapshot_ref=snapshot.snapshot_ref,
+    )
+    assert same.snapshot_ref == snapshot.snapshot_ref
+    assert same.provenance_refs == ("source:one", "source:one")
+
+    with pytest.raises(ValueError, match="does not match raw bytes"):
+        RawSnapshot(
+            project_key=snapshot.project_key,
+            source_locator=snapshot.source_locator,
+            raw_bytes=b"mutated body",
+            raw_content_digest=snapshot.raw_content_digest,
+        )
+    with pytest.raises(ValueError, match="does not match identity fields"):
+        RawSnapshot(
+            project_key=snapshot.project_key,
+            source_locator="https://example.test/forged-source",
+            raw_bytes=snapshot.raw_bytes,
+            raw_content_digest=snapshot.raw_content_digest,
+            snapshot_identity_digest=snapshot.snapshot_identity_digest,
+        )
+    with pytest.raises(ValueError, match="does not match full identity"):
+        RawSnapshot(
+            project_key=snapshot.project_key,
+            source_locator=snapshot.source_locator,
+            raw_bytes=snapshot.raw_bytes,
+            raw_content_digest=snapshot.raw_content_digest,
+            snapshot_ref=f"material:raw:sha256:{'0' * 64}",
+        )
+
+
+@pytest.mark.parametrize(
+    ("overrides", "exception_type", "message"),
+    [
+        ({"project_key": ""}, ValueError, "RawSnapshot.project_key is required"),
+        ({"source_locator": ""}, ValueError, "RawSnapshot.source_locator is required"),
+        ({"raw_bytes": "not-bytes"}, TypeError, "RawSnapshot.raw_bytes must be bytes"),
+        ({"revision": "not-an-integer"}, ValueError, "invalid literal for int"),
+        ({"revision": 0}, ValueError, "RawSnapshot.revision must be >= 1"),
+    ],
+)
+def test_raw_snapshot_constructor_rejects_invalid_fields_with_public_exception_types(
+    overrides: dict[str, object],
+    exception_type: type[Exception],
+    message: str,
+) -> None:
+    values: dict[str, object] = {
+        "project_key": "project-a",
+        "source_locator": "https://example.test/source",
+        "raw_bytes": b"snapshot body",
+        "mime_type": "text/plain",
+    }
+    values.update(overrides)
+    with pytest.raises(exception_type, match=message):
+        RawSnapshot(**values)
 
 
 @pytest.mark.parametrize(

@@ -12,7 +12,7 @@ from app.successor_runtime.capabilities.agent_macro_native import (
     MacroAssemblyContext, MacroCellDefinition, MacroObservation, MacroRelationRealization,
     SkillContentRef, compile_agent_macro_native, project_macro_cell_structure,
 )
-from app.successor_runtime.capabilities.retrieval_flow_native import (
+from app.successor_runtime.capabilities.retrieval_common import (
     FlowInterface, FlowOperation, FlowOperationBinding, FlowPort, FlowThen, PortWire,
     RetrievalFlowSource, lower_retrieval_flow_source,
 )

@@ -32,7 +32,7 @@ def raise_capability_failure(
 ) -> NoReturn:
     """Lift a typed core failure only at the compatibility ABI boundary."""
 
-    # kit:boundary owner=first_specimen.capabilities class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=first_specimen.capability.failure witness=test:test_w06_c2_total_core_failure_lifts
+    # kit:boundary owner=first_specimen.capabilities class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=first_specimen.capability.failure witness=test:test_w06_retained_failure_lifts_preserve_public_abi
     raise exception_type(*(exception_args or (failure.message,)))
 
 

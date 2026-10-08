@@ -23,19 +23,6 @@
     },
     {
       "codes": [
-        "first_specimen_handler_contract_invalid",
-        "first_specimen_operation_unsupported",
-        "first_specimen_semantic_product_invalid",
-        "first_specimen_replay_projection_invalid",
-        "first_specimen_activation_binding_invalid",
-        "first_specimen_handler_binding_invalid",
-        "first_specimen_output_write_invalid",
-        "first_specimen_output_readback_invalid"
-      ],
-      "name": "first_specimen.handler_failure"
-    },
-    {
-      "codes": [
         "config_invalid",
         "authority_enabled",
         "path_escape",
@@ -808,120 +795,6 @@
     },
     {
       "codes": [
-        "SOURCE_SCHEMA_INVALID",
-        "SOURCE_DIGEST_INVALID",
-        "SOURCE_SCOPE_INVALID",
-        "SOURCE_CATALOG_INVALID",
-        "SOURCE_PROGRAM_BINDING_INVALID",
-        "SOURCE_CODEC_INVALID"
-      ],
-      "name": "source.acquire.failure"
-    },
-    {
-      "codes": [
-        "BATCH_TASK_SCHEMA_INVALID",
-        "BATCH_TASK_DIGEST_INVALID",
-        "BATCH_TASK_SCOPE_INVALID",
-        "BATCH_TASK_CATALOG_INVALID",
-        "BATCH_TASK_PROGRAM_BINDING_INVALID",
-        "BATCH_TASK_CODEC_INVALID"
-      ],
-      "name": "batch.task.failure"
-    },
-    {
-      "codes": [
-        "DEMAND_READ_UNAVAILABLE",
-        "DEMAND_READ_AMBIGUOUS",
-        "CANONICAL_REF_VALIDATION_FAILED"
-      ],
-      "name": "knowledge.read.failure"
-    },
-    {
-      "codes": [
-        "WRITING_SYNTHESIS_INCOMPLETE",
-        "WRITING_STAGE_INVALID"
-      ],
-      "name": "knowledge.writing.failure"
-    },
-    {
-      "codes": [
-        "REPORT_LOCATOR_READ_ONLY_UNAVAILABLE",
-        "REPORT_ADMISSION_INTERFACE_ONLY",
-        "REPORT_EXPORT_NOT_EXECUTED"
-      ],
-      "name": "knowledge.report-delivery.failure"
-    },
-    {
-      "codes": [
-        "GRAPH_PROJECTION_DECLARED_LOSS",
-        "GRAPH_ITEM_CANONICAL_REF_INVALID"
-      ],
-      "name": "knowledge.graph.failure"
-    },
-    {
-      "codes": [
-        "SOURCE_UNAVAILABLE",
-        "SOURCE_DRIFT",
-        "SOURCE_INCARNATION_STALE",
-        "OFFSET_STALE",
-        "PROJECTION_OFFSET_CLOSURE_DRIFT",
-        "EXTERNAL_INDEX_EFFECT_FAILED",
-        "REBUILD_FAILED"
-      ],
-      "name": "projection.processing.failure"
-    },
-    {
-      "codes": [
-        "authority_contract_invalid",
-        "canonical_json_invalid",
-        "digest_binding_invalid",
-        "evidence_surface_invalid",
-        "input_contract_invalid",
-        "lookup_not_found",
-        "operation_contract_invalid",
-        "payload_codec_invalid",
-        "program_binding_invalid"
-      ],
-      "name": "knowledge.report.export-contract.failure"
-    },
-    {
-      "codes": [
-        "export_token_actor_mismatch",
-        "export_token_already_used",
-        "export_token_expired",
-        "export_token_markdown_hash_mismatch",
-        "export_token_missing_expiry",
-        "export_token_revoked",
-        "invalid_export_token_format",
-        "invalid_export_token_payload",
-        "invalid_export_token_signature",
-        "unsupported_export_token_contract"
-      ],
-      "name": "knowledge.report.export-token.failure"
-    },
-    {
-      "codes": [
-        "backend_unavailable",
-        "conflict",
-        "credential_rejected",
-        "input_contract_invalid",
-        "not_found"
-      ],
-      "name": "knowledge.report.export-token-state.failure"
-    },
-    {
-      "codes": [
-        "schema_contract_invalid",
-        "digest_contract_invalid",
-        "scope_contract_invalid",
-        "catalog_contract_invalid",
-        "program_binding_invalid",
-        "codec_contract_invalid"
-      ],
-      "name": "successor.capability.contract_failure"
-    },
-    {
-      "codes": [
         "schema_contract_invalid",
         "digest_contract_invalid",
         "scope_contract_invalid",
@@ -970,89 +843,6 @@
     },
     {
       "codes": [
-        "INGEST_SUBMISSION_INVALID",
-        "STAGED_CANDIDATE_FAILED",
-        "COMMIT_INTENT_READBACK_UNAVAILABLE",
-        "PROJECTION_OFFSET_DRIFT",
-        "RECONCILIATION_TERMINAL_READBACK_REQUIRED",
-        "RECONCILIATION_AUTHORITY_MISMATCH",
-        "alternative_mismatch",
-        "authority_digest_invalid",
-        "authority_epoch_revoked",
-        "authority_mismatch",
-        "branch_mismatch",
-        "candidate_digest_mismatch",
-        "candidate_id_mismatch",
-        "candidate_replay_mismatch",
-        "chunk_codepoint_exceeds_ceiling",
-        "chunk_count_ceiling_exceeded",
-        "chunk_mode_mismatch",
-        "chunk_policy_ceiling_exceeded",
-        "chunk_policy_invalid",
-        "decision_digest_mismatch",
-        "derived_mode_mismatch",
-        "empty_chunk_input",
-        "empty_or_insufficient_derived_report",
-        "empty_pass_through_rejected",
-        "empty_structured_output",
-        "envelope_digest_mismatch",
-        "expected_candidate_digest_invalid",
-        "expected_candidate_digest_mismatch",
-        "format_mismatch",
-        "input_closure_mismatch",
-        "malformed_structured_json",
-        "ordered_source_closure_mismatch",
-        "ordered_source_mismatch",
-        "pass_through_resource_limit_exceeded",
-        "payload_content_digest_mismatch",
-        "payload_ref_mismatch",
-        "project_key_mismatch",
-        "provenance_closure_mismatch",
-        "provenance_mismatch",
-        "raw_content_digest_mismatch",
-        "raw_snapshot_limit_exceeded",
-        "replay_terminal",
-        "server_identity_missing",
-        "snapshot_identity_mismatch",
-        "snapshot_ref_mismatch",
-        "structured_payload_limit_exceeded",
-        "unsafe_pass_through_deferred"
-      ],
-      "name": "material.ingest.failure"
-    },
-    {
-      "codes": [
-        "input_contract_invalid",
-        "lookup_not_found",
-        "program_binding_invalid",
-        "stage_invalid"
-      ],
-      "name": "material.ingest.contract_failure"
-    },
-    {
-      "codes": [
-        "backend_unavailable",
-        "conflict",
-        "credential_rejected",
-        "input_contract_invalid",
-        "integrity_violation",
-        "not_found"
-      ],
-      "name": "material.ingest.registry_failure"
-    },
-    {
-      "codes": [
-        "authority_contract_invalid",
-        "evidence_integrity_invalid",
-        "evidence_line_set_invalid",
-        "evidence_source_invalid",
-        "projection_input_invalid",
-        "surface_contract_invalid"
-      ],
-      "name": "projection.evidence-surface.failure"
-    },
-    {
-      "codes": [
         "compat_projector_contract_invalid",
         "auto_batch_execution_failed",
         "successor_effect_gateway_invalid"
@@ -1089,6 +879,28 @@
         "CONTRIBUTION_INVALID"
       ],
       "name": "kit.contribution"
+    },
+    {
+      "codes": [
+        "schema_contract_invalid",
+        "digest_contract_invalid",
+        "scope_contract_invalid",
+        "catalog_contract_invalid",
+        "program_binding_invalid",
+        "codec_contract_invalid"
+      ],
+      "name": "successor.capability.contract_failure"
+    },
+    {
+      "codes": [
+        "authority_contract_invalid",
+        "evidence_integrity_invalid",
+        "evidence_line_set_invalid",
+        "evidence_source_invalid",
+        "projection_input_invalid",
+        "surface_contract_invalid"
+      ],
+      "name": "projection.evidence-surface.failure"
     }
   ],
   "version": "kit-registry.failures.v1"

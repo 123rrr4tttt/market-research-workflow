@@ -108,17 +108,6 @@ _CONSUMER_BOUNDARY_TABLE: dict[str, LlmConsumerAdapterBoundary] = {
         allowed_agent_roles=("orchestration_runtime", "user_facing_assistant"),
         allowed_permissions=("llm.invoke", "project.read", "project.write", "provider.route_override"),
     ),
-    "writing.llm_action": LlmConsumerAdapterBoundary(
-        consumer="writing.llm_action",
-        capability="writing_action",
-        adapter_kind="business_adapter",
-        business_validation_owner="writing.api_and_service",
-        routing_owner="llm.platformization_routing",
-        observability_owner="writing.llm_action_service",
-        default_agent_role="business_capability_wrapper",
-        allowed_agent_roles=("business_capability_wrapper",),
-        allowed_permissions=("llm.invoke", "project.read", "project.write"),
-    ),
     "llm_report.generate": LlmConsumerAdapterBoundary(
         consumer="llm_report.generate",
         capability="report_generation",

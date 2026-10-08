@@ -10,10 +10,13 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypedDict
 
+from functorial_kit import Failure
+from sqlalchemy import select
 from sqlalchemy.engine import Connection
 
+from app.successor_runtime.capabilities.checksum import CanonicalJsonObject, CanonicalJsonValue
 from app.successor_runtime.research.codec import canonical_bytes, sha256_hex
 from app.successor_runtime.runtime.assignments import (
     RuntimeAssignment,
@@ -22,11 +25,13 @@ from app.successor_runtime.runtime.assignments import (
 from app.successor_runtime.runtime.claims import ClaimBinding
 from app.successor_runtime.runtime.ports import RuntimeScope
 
-from .research_ledger import ExactContentConflict
+from .research_ledger import ExactContentConflict, project_table
 from .values import ValueRepository
 
 FAILURE_SCHEMA = "mrw.runtime.failure.v1"
 FAILURE_OBJECT_TYPE = "RuntimeFailure.v1"
+DOMAIN_FAILURE_SCHEMA = "mrw.runtime.failure.v2"
+DOMAIN_FAILURE_OBJECT_TYPE = "RuntimeFailure.v2"
 FAILURE_CODEC_ID = "mrw.canonical-json.v1"
 FAILURE_PROVENANCE_SCHEMA = "mrw.runtime.failure-provenance.v1"
 _FAILURE_REF_PREFIX = "project-value:runtime-failure:"
@@ -47,6 +52,40 @@ class RuntimeFailureRecord:
     value_revision: int
     value_incarnation: str
     byte_size: int
+    domain_failure: Failure | None = None
+
+
+class DomainFailureBody(TypedDict):
+    family: str
+    code: str
+    message: str
+    context: CanonicalJsonObject | None
+
+
+def _domain_failure_body(failure: Failure, failure_code: str) -> DomainFailureBody:
+    if not isinstance(failure, Failure):
+        raise TypeError("domain_failure must be Failure")
+    if any(not isinstance(value, str) for value in (failure.family, failure.code, failure.message)):
+        raise TypeError("domain Failure family/code/message must be strings")
+    if failure.code != failure_code or not failure.family:
+        raise ValueError("domain Failure code/family differs from its failure declaration")
+    def checked_json(value: object) -> CanonicalJsonValue:
+        if value is None or isinstance(value, (str, bool, int, float)):
+            return value
+        if isinstance(value, list):
+            return [checked_json(item) for item in value]
+        if isinstance(value, dict) and all(isinstance(key, str) for key in value):
+            return {key: checked_json(item) for key, item in value.items()}
+        raise TypeError("domain Failure context must use JSON-native values")
+
+    context = checked_json(failure.context)
+    if context is not None and not isinstance(context, dict):
+        raise TypeError("domain Failure context must be a JSON object or null")
+    body: DomainFailureBody = {
+        "family": failure.family, "code": failure.code, "message": failure.message, "context": context,
+    }
+    json.dumps(body, allow_nan=False)
+    return body
 
 
 def _require_failure_code(failure_code: str) -> str:
@@ -127,8 +166,9 @@ def _failure_body(
     assignment: RuntimeAssignment,
     claim: ClaimBinding,
     failure_code: str,
+    domain_failure: Failure | None = None,
 ) -> dict[str, Any]:
-    return {
+    body = {
         "schema_version": FAILURE_SCHEMA,
         "project_key": scope.project_scope.project_key,
         "project_registry_revision": scope.project_scope.project_registry_revision,
@@ -148,6 +188,10 @@ def _failure_body(
         "claim_authority_epoch": claim.claim_authority_epoch,
         "failure_code": _require_failure_code(failure_code),
     }
+    if domain_failure is not None:
+        body["schema_version"] = DOMAIN_FAILURE_SCHEMA
+        body["domain_failure"] = _domain_failure_body(domain_failure, failure_code)
+    return body
 
 
 def _failure_provenance(
@@ -179,16 +223,17 @@ class RuntimeFailureRepository:
         assignment: RuntimeAssignment,
         claim: ClaimBinding,
         failure_code: str,
+        domain_failure: Failure | None = None,
     ) -> RuntimeFailureRecord:
         assignment, claim = _validate_exact_bindings(scope, assignment, claim)
-        body = _failure_body(scope, assignment, claim, failure_code)
+        body = _failure_body(scope, assignment, claim, failure_code, domain_failure)
         exact = canonical_bytes(body)
         failure_digest = hashlib.sha256(exact).hexdigest()
         provenance = _failure_provenance(scope, assignment, claim)
         stored = ValueRepository(self.connection, self.tables).put_exact(
             scope,
             value_id=_failure_value_id(claim),
-            object_type=FAILURE_OBJECT_TYPE,
+            object_type=FAILURE_OBJECT_TYPE if domain_failure is None else DOMAIN_FAILURE_OBJECT_TYPE,
             codec_id=FAILURE_CODEC_ID,
             content=exact,
             expected_digest=failure_digest,
@@ -250,13 +295,28 @@ class RuntimeFailureRepository:
             raise RuntimeFailureBindingError(
                 "runtime failure body has no typed failure_code"
             )
-        expected = canonical_bytes(
-            _failure_body(scope, assignment, claim, failure_code)
-        )
+        domain_failure = None
+        if decoded.get("schema_version") == DOMAIN_FAILURE_SCHEMA:
+            domain = decoded.get("domain_failure")
+            if not isinstance(domain, dict) or set(domain) != {"family", "code", "message", "context"}:
+                raise RuntimeFailureBindingError("runtime domain Failure body is malformed")
+            domain_failure = Failure(**domain)
+        try:
+            expected = canonical_bytes(_failure_body(scope, assignment, claim, failure_code, domain_failure))
+        except (TypeError, ValueError) as exc:
+            raise RuntimeFailureBindingError("runtime domain Failure body is invalid") from exc
         if exact != expected or hashlib.sha256(exact).hexdigest() != failure_digest:
             raise RuntimeFailureBindingError(
                 "runtime failure body differs from exact assignment/claim binding"
             )
+        values = project_table(self.tables, "successor_values")
+        identity = self.connection.execute(select(values).where(
+            values.c.project_key == scope.project_scope.project_key,
+            values.c.value_id == _failure_value_id(claim),
+        )).mappings().one()
+        if (identity["object_type"] != (FAILURE_OBJECT_TYPE if domain_failure is None else DOMAIN_FAILURE_OBJECT_TYPE)
+                or identity["codec_id"] != FAILURE_CODEC_ID or identity["state"] != "FAILED"):
+            raise RuntimeFailureBindingError("runtime failure value object identity drift")
         return RuntimeFailureRecord(
             failure_ref=expected_ref,
             failure_digest=failure_digest,
@@ -267,6 +327,7 @@ class RuntimeFailureRepository:
             value_revision=1,
             value_incarnation=incarnation,
             byte_size=len(exact),
+            domain_failure=domain_failure,
         )
 
 
@@ -274,6 +335,8 @@ __all__ = [
     "FAILURE_CODEC_ID",
     "FAILURE_OBJECT_TYPE",
     "FAILURE_SCHEMA",
+    "DOMAIN_FAILURE_SCHEMA",
+    "DOMAIN_FAILURE_OBJECT_TYPE",
     "RuntimeFailureBindingError",
     "RuntimeFailureRecord",
     "RuntimeFailureRepository",

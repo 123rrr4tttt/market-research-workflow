@@ -9,33 +9,18 @@ from mrw_functorial_kit.core.w06_semantics import (
     C1CapabilityFailureCode,
     C2InterpreterFailureCode,
     C2ProviderEffectFailureCode,
-    C8ContractFailureCode,
-    C8ReportExportTokenFailureCode,
-    C8ReportExportTokenStateFailureCode,
-    C9EvidenceSurfaceFailureCode,
     CapabilityPrimitiveContractFailureCode,
     FirstSpecimenCapabilityFailureCode,
     LineEventReadbackFailureCode,
-    MaterialIngestContractFailureCode,
-    MaterialIngestRegistryFailureCode,
     ProjectionEvidenceSurfaceFailureCode,
     QualityPromotionContractFailureCode,
     SourceLibrarySingleSourceGuardFailureCode,
     c1_capability_failures,
-    c8_contract_failures,
-    c8_report_export_token_failures,
-    c8_report_export_token_state_failures,
-    c9_evidence_surface_failures,
     capability_primitive_contract_failures,
     first_specimen_capability_failures,
     line_event_readback_failures,
-    material_ingest_contract_failures,
-    material_ingest_registry_failures,
     projection_evidence_surface_failures,
     quality_promotion_contract_failures,
-    read_historical_c7_ingest_contract_failure_family,
-    read_historical_c7_ingest_registry_failure_family,
-    read_historical_c9_evidence_surface_failure_family,
     source_provider_acquisition_failures,
     source_runtime_binding_failures,
     source_single_source_guard_failures,
@@ -48,32 +33,6 @@ FAMILIES: tuple[tuple[object, FailureFamily, str], ...] = (
         C2ProviderEffectFailureCode,
         source_provider_acquisition_failures,
         "source.provider-acquisition.failure",
-    ),
-    (
-        MaterialIngestContractFailureCode,
-        material_ingest_contract_failures,
-        "material.ingest.contract_failure",
-    ),
-    (
-        MaterialIngestRegistryFailureCode,
-        material_ingest_registry_failures,
-        "material.ingest.registry_failure",
-    ),
-    (C8ContractFailureCode, c8_contract_failures, "c8.contract.failure"),
-    (
-        C8ReportExportTokenFailureCode,
-        c8_report_export_token_failures,
-        "c8.report_export_token.failure",
-    ),
-    (
-        C8ReportExportTokenStateFailureCode,
-        c8_report_export_token_state_failures,
-        "c8.report_export_token_state.failure",
-    ),
-    (
-        C9EvidenceSurfaceFailureCode,
-        c9_evidence_surface_failures,
-        "c9.evidence_surface.failure",
     ),
     (
         ProjectionEvidenceSurfaceFailureCode,
@@ -141,58 +100,6 @@ EXPECTED_CODES: dict[str, tuple[str, ...]] = {
         "UNAUTHORIZED",
         "UNSUPPORTED_PROVIDER",
     ),
-    "material.ingest.contract_failure": (
-        "input_contract_invalid",
-        "lookup_not_found",
-        "program_binding_invalid",
-        "stage_invalid",
-    ),
-    "material.ingest.registry_failure": (
-        "backend_unavailable",
-        "conflict",
-        "credential_rejected",
-        "input_contract_invalid",
-        "integrity_violation",
-        "not_found",
-    ),
-    "c8.contract.failure": (
-        "authority_contract_invalid",
-        "canonical_json_invalid",
-        "digest_binding_invalid",
-        "evidence_surface_invalid",
-        "input_contract_invalid",
-        "lookup_not_found",
-        "operation_contract_invalid",
-        "payload_codec_invalid",
-        "program_binding_invalid",
-    ),
-    "c8.report_export_token.failure": (
-        "export_token_actor_mismatch",
-        "export_token_already_used",
-        "export_token_expired",
-        "export_token_markdown_hash_mismatch",
-        "export_token_missing_expiry",
-        "export_token_revoked",
-        "invalid_export_token_format",
-        "invalid_export_token_payload",
-        "invalid_export_token_signature",
-        "unsupported_export_token_contract",
-    ),
-    "c8.report_export_token_state.failure": (
-        "backend_unavailable",
-        "conflict",
-        "credential_rejected",
-        "input_contract_invalid",
-        "not_found",
-    ),
-    "c9.evidence_surface.failure": (
-        "authority_contract_invalid",
-        "evidence_integrity_invalid",
-        "evidence_line_set_invalid",
-        "evidence_source_invalid",
-        "projection_input_invalid",
-        "surface_contract_invalid",
-    ),
     "projection.evidence-surface.failure": (
         "authority_contract_invalid",
         "evidence_integrity_invalid",
@@ -257,26 +164,6 @@ def test_INVARIANT__w06_family_names_and_literal_codes_are_exact() -> None:
         assert family.codes == get_args(code_alias)
         assert family.codes == EXPECTED_CODES[family_name]
         assert len(family.codes) == len(set(family.codes))
-
-
-def test_c9_evidence_surface_history_and_current_projection_are_distinct() -> None:
-    historical = read_historical_c9_evidence_surface_failure_family()
-
-    assert historical.name == "c9.evidence_surface.failure"
-    assert historical.codes == projection_evidence_surface_failures.codes
-    assert projection_evidence_surface_failures.name == (
-        "projection.evidence-surface.failure"
-    )
-
-
-def test_c7_failure_history_preserves_exact_names_outside_live_registration() -> None:
-    historical_contract = read_historical_c7_ingest_contract_failure_family()
-    historical_registry = read_historical_c7_ingest_registry_failure_family()
-
-    assert historical_contract.name == "c7.ingest.contract_failure"
-    assert historical_contract.codes == material_ingest_contract_failures.codes
-    assert historical_registry.name == "c7.ingest_registry.failure"
-    assert historical_registry.codes == material_ingest_registry_failures.codes
 
 
 @pytest.mark.parametrize(("code_alias", "family", "family_name"), FAMILIES)

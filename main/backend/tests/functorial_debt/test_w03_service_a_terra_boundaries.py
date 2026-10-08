@@ -178,14 +178,17 @@ def test_w03_effect_boundaries(monkeypatch: pytest.MonkeyPatch) -> None:
 
     raw = result.meta["raw"]
     assert isinstance(raw, dict)
-    typed_results = raw["typed_batch_results"]
-    assert isinstance(typed_results, list)
-    assert len(typed_results) == 1
-    typed_failure = typed_results[0]
+    observations = raw["delivery_observations"]
+    assert isinstance(observations, list)
+    assert [row["execution_state"] for row in observations] == [
+        "attempted_unknown",
+        "not_attempted",
+    ]
+    typed_failure = observations[0]
     assert isinstance(typed_failure, dict)
     assert typed_failure["counts"] == {"inserted": 0, "updated": 0, "skipped": 0}
-    assert typed_failure["links"] == ()
-    assert typed_failure["receipt"] is None
+    assert typed_failure["links"] == []
+    assert "receipt" not in typed_failure
 
     http_client = object.__new__(HttpClient)
     http_client.max_retries = 0

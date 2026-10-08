@@ -387,10 +387,4 @@ def __getattr__(name: str):
         return session_observation_projector_authority()
     if name == "PostgresRuntimeRunProjector":
         return runtime_run_projector_authority()
-    if name == "project_line_event_readbacks":
-        from ..substrate.projections.legacy_process import project_line_event_readbacks  # kit:boundary
-        return project_line_event_readbacks
-    if name == "projection_offsets":
-        from . import projection_contracts  # kit:boundary
-        return projection_contracts
     raise AttributeError(name)  # kit:boundary owner=successor.runtime.ports class=PROGRAMMER_DEFECT failure_family=none witness=test:test_successor_runtime_dependency_direction_is_fail_closed

@@ -5,48 +5,33 @@ from typing import get_args
 
 import pytest
 
-from app.successor_runtime.capabilities import (
-    source_provider_test_interpreters as c23_fixtures,
-)
+from functorial_kit import Failure
 from app.successor_runtime.capabilities import source_contracts as shared
-from app.successor_runtime.capabilities.checksum import content_digest
 
+def test_w06_c2_total_core_failure_lifts() -> None:
+    failure = shared.source_contract_failure(
+        "schema_contract_invalid",
+        "typed source contract rejected",
+        operation="test.source_contract",
+        site="test.source_contracts",
+        owner="source.resolve_and_acquire.shared.v2",
+        public_exception="ValueError",
+    )
+    assert failure.family == "source.contract.failure"
+    assert failure.code == "schema_contract_invalid"
+    assert failure.context["witness"] == "test:test_w06_c2_total_core_failure_lifts"
+    with pytest.raises(ValueError, match="^typed source contract rejected$"):
+        shared.raise_source_contract_failure(failure)
 
-def _effect_request() -> shared.ProviderEffectRequest:
-    project_key = "demo_proj"
-    resolved_schema = "mrw_p_demo_proj"
-    incarnation = "scope-inc-5"
-    scope = shared.AuthenticatedProjectScope(
-        project_key=project_key,
-        resolved_schema=resolved_schema,
-        registry_revision=5,
-        incarnation=incarnation,
-        scope_digest=shared.project_scope_digest(
-            project_key, resolved_schema, 5, incarnation
-        ),
-    )
-    return shared.ProviderEffectRequest(
-        schema_version=shared.SOURCE_PROVIDER_ACQUISITION_PAYLOAD_SCHEMA,
-        operation_kind=shared.SOURCE_PROVIDER_ACQUISITION_KIND,
-        request_id="request:c2-runtime-closure",
-        idempotency_key="idem:c2-runtime-closure",
-        project_scope=scope,
-        item_key="item:demo",
-        item_revision=1,
-        item_incarnation="item-inc-1",
-        item_content_digest=content_digest({"item": "demo"}),
-        channel_key="channel:demo",
-        provider="fixture",
-        provider_config_ref="catalog:demo",
-        effect_payload_codec_ref="codec:demo",
-        effect_payload_digest=content_digest({"payload": "demo"}),
-        effect_payload={"query": "demo"},
-        credential_refs=(),
-        policy=shared.SOURCE_PROVIDER_ACQUISITION_DEFAULT_RESOURCE_POLICY,
-        catalog_revision=1,
-        catalog_incarnation="catalog-inc-1",
-        catalog_digest=content_digest({"catalog": "demo"}),
-    )
+    with pytest.raises(TypeError, match="^C2 contract lift context is invalid$"):
+        shared.raise_source_contract_failure(
+            Failure(
+                "other.family",
+                "bad",
+                "bad",
+                {"public_exception": "ValueError", "public_message": "bad"},
+            )
+        )
 
 
 def test_literal_aliases_reuse_frozen_runtime_unions() -> None:
@@ -185,14 +170,3 @@ def test_valid_failure_projections_keep_their_serialization() -> None:
         "message": "credential unavailable",
         "credential_decision_receipt": None,
     }
-
-
-def test_fixture_missing_script_is_a_rejection_not_execution_failure() -> None:
-    interpreter = c23_fixtures.FixtureProviderEffectPort()
-    request = _effect_request()
-    outcome = interpreter.execute(request, ())
-
-    assert isinstance(outcome, shared.RejectedProviderEffect)
-    assert outcome.kind == "rejected"
-    assert outcome.code == "UNSUPPORTED_PROVIDER"
-    assert interpreter.provider_calls == [request.request_id]

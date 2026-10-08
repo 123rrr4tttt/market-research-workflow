@@ -17,7 +17,7 @@ from urllib.parse import urlsplit
 
 from functorial_kit import Failure
 
-from .failures import retrieval_failure
+from app.successor_runtime.capabilities.retrieval_common import retrieval_failure
 from .contracts import RetrievalJsonObject
 
 

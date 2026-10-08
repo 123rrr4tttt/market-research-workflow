@@ -29,9 +29,6 @@ from app.composition.production_runtime import (
     ProductionRuntimeAuthorityUnavailable,
     RegisteredCanonicalWriter,
 )
-from app.successor_runtime.substrate.postgres.c7_canonical_write import (
-    PostgresC7CanonicalWritePort,
-)
 from app.composition.production import load_production_route_bindings
 from app.production_contract import (
     APPROVED_DECISION,
@@ -259,12 +256,6 @@ def test_writer_owner_requires_exact_claim_and_registered_port() -> None:
                 writer_port_kind="runtime_step_authorization.v1",
                 port=SimpleNamespace(admit=lambda *args, **kwargs: None),
             ),
-            InstalledCanonicalWriterBinding(
-                operation="ingest_index.c7.v2.canonical_commit_write",
-                canonical_owner_ref="document.canonical.v1",
-                writer_port_kind="postgres.c7_canonical_write.v1",
-                port=PostgresC7CanonicalWritePort(),
-            ),
         ),
     )
     grant = ApprovalGrant(
@@ -313,14 +304,7 @@ def test_route_declaration_without_installed_writer_port_denies() -> None:
     )
     route_only = RegisteredCanonicalWriter(
         bindings=(("ingest.ingest_source_library_run", "successor-runtime", "runtime_step_authorization.v1"),),
-        installed=(
-            InstalledCanonicalWriterBinding(
-                operation="ingest_index.c7.v2.canonical_commit_write",
-                canonical_owner_ref="document.canonical.v1",
-                writer_port_kind="postgres.c7_canonical_write.v1",
-                port=PostgresC7CanonicalWritePort(),
-            ),
-        ),
+        installed=(),
     )
 
     assert (
@@ -329,55 +313,6 @@ def test_route_declaration_without_installed_writer_port_denies() -> None:
             "demo",
             "successor-runtime",
             "runtime_step_authorization.v1",
-            (grant,),
-        )
-        is None
-    )
-
-
-def test_c7_writer_owner_requires_route_and_installed_port_exact_match() -> None:
-    operation = "ingest_index.c7.v2.canonical_commit_write"
-    owner = "document.canonical.v1"
-    port_kind = "postgres.c7_canonical_write.v1"
-    writer = RegisteredCanonicalWriter(
-        bindings=((operation, owner, port_kind),),
-        installed=(
-            InstalledCanonicalWriterBinding(
-                operation=operation,
-                canonical_owner_ref=owner,
-                writer_port_kind=port_kind,
-                port=PostgresC7CanonicalWritePort(),
-            ),
-        ),
-    )
-    grant = ApprovalGrant(
-        approval_id="approval-1",
-        actor_id="actor-1",
-        decision=APPROVED_DECISION,
-        project_key="demo",
-        operation=operation,
-        capability_id=operation,
-        payload_digest=PAYLOAD_DIGEST,
-        claim_authority_epoch=7,
-    )
-
-    assert writer.owner(operation, "demo", owner, port_kind, (grant,)) == owner
-    assert (
-        writer.owner(
-            "document.write",
-            "demo",
-            "legacy-runtime",
-            "runtime_step_authorization.v1",
-            (grant,),
-        )
-        is None
-    )
-    assert (
-        writer.owner(
-            "document.write",
-            "demo",
-            "successor-runtime",
-            "legacy.writer.v1",
             (grant,),
         )
         is None

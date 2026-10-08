@@ -390,19 +390,21 @@ def test_current_c1_recovery_journal_rebuild_preserves_original_effect_attempt(
     )
     assert in_flight.effect_disposition is EffectDisposition.IN_FLIGHT
 
-    other_assignment = next(
-        assignment
+    other_work_ids = tuple(
+        assignment.work_item_id
         for assignment in prepared.assignments
         if assignment.step_id != target_step_id
     )
+    assert other_work_ids
     with c1_database.engine.begin() as connection:
         connection.execute(
             sa.update(PUBLIC_TABLES["runtime_work_items"])
             .where(
                 PUBLIC_TABLES["runtime_work_items"].c.project_key
                 == prepared.project_key,
-                PUBLIC_TABLES["runtime_work_items"].c.work_item_id
-                == other_assignment.work_item_id,
+                PUBLIC_TABLES["runtime_work_items"].c.work_item_id.in_(
+                    other_work_ids
+                ),
             )
             .values(state="COMPLETED")
         )

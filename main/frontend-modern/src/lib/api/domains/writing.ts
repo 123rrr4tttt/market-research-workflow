@@ -206,41 +206,6 @@ export type WritingSuggestResponse = {
   selection_hash?: string | null
 }
 
-export type WritingLlmActionId = 'outline_generate' | 'section_expand' | 'selection_rewrite' | 'evidence_summary'
-
-export type WritingLlmActionResponse = {
-  content: string
-  sources: Array<Record<string, unknown>>
-  mode: string
-  warnings: string[]
-  trace_id?: string | null
-  job_id?: number | null
-  status: string
-  requested_async: boolean
-  execution_mode: 'inline'
-  async_honored: boolean
-  capability_truth: Record<string, unknown>
-  observability: Record<string, unknown>
-  action_boundary: Record<string, unknown>
-  dependency_gate: Record<string, unknown>
-}
-
-export type WritingLlmActionHistoryItem = {
-  job_id: number
-  job_type: string
-  status: string
-  project_key?: string | null
-  action_id?: string | null
-  template_key?: string | null
-  template_version?: string | null
-  request_meta: Record<string, unknown>
-  actor_id?: string | null
-  trace_id?: string | null
-  created_at?: string | null
-  duration_ms?: number | null
-  result_summary: Record<string, unknown>
-}
-
 export type CreateWritingDocumentPayload = {
   project_key?: string
   title: string
@@ -307,21 +272,6 @@ export type WritingSuggestParams = {
   mode?: WritingSuggestMode
   project_key?: string
   limit?: number
-}
-
-export type WritingLlmActionPayload = {
-  project_key?: string
-  trace_id?: string | null
-  request_id?: string | null
-  action_id: WritingLlmActionId
-  template_key?: string | null
-  template_version?: string | null
-  document_id?: string | null
-  input_markdown?: string
-  selection_text?: string | null
-  target_scope?: 'selection' | 'document' | null
-  async?: boolean
-  gate_mode?: string | null
 }
 
 export const WRITING_CONTEXT_BOUNDARY_CONTRACT_VERSION = 'writing.context_boundary.e3.v1' as const
@@ -607,21 +557,6 @@ export async function getWritingSuggest(query: string, params: WritingSuggestPar
       limit: params.limit ?? 20,
     }),
   )
-}
-
-export async function runWritingLlmAction(payload: WritingLlmActionPayload) {
-  return post<WritingLlmActionResponse>(endpoints.writing.llmActions, payload)
-}
-
-export async function listWritingLlmActionHistory(limit = 20) {
-  const data = await get<WritingLlmActionHistoryItem[] | { items?: WritingLlmActionHistoryItem[] }>(
-    withQuery(endpoints.writing.llmActionHistory, { limit }),
-  )
-  return listResponse<WritingLlmActionHistoryItem>(data)
-}
-
-export async function getWritingLlmActionDetail(jobId: number) {
-  return get<WritingLlmActionHistoryItem>(endpoints.writing.llmActionById(jobId))
 }
 
 export async function exportWritingMarkdown(docId: number, projectKey?: string) {

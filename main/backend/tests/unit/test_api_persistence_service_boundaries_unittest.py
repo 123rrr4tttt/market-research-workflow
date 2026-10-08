@@ -8,7 +8,7 @@ import pytest
 from app.api import ingest as ingest_api
 from app.services.ingest.adapters import submission_registry
 from app.services.typed_knowledge.adapters import live_service
-from app.successor_runtime.capabilities.material_ingest_registry import (
+from app.services.ingest.adapters.submission_registry import (
     MaterialIngestRegistryBackendUnavailableError,
     MaterialIngestRegistryConflictError,
 )

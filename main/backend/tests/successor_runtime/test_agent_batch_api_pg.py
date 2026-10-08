@@ -19,6 +19,7 @@ from app.services.request_identity import RequestActorContext
 from app.successor_runtime.capabilities import batch_task as c4, batch_business
 from app.successor_runtime.capabilities.catalog import build_operation_catalog
 from app.successor_runtime.language.catalog import OperationContractRegistry
+from app.successor_runtime.language.object_contracts import OperationContract
 from app.successor_runtime.runtime.authority_grants import (
     AuthorityOperationScope,
     AuthorityResourceCeiling,
@@ -56,7 +57,7 @@ def _install(
     live_database: LiveDatabase,
     *,
     actor_id: str = REQUEST_ACTOR_ID,
-) -> c4.OperationContract:
+) -> OperationContract:
     contract = c4.build_batch_task_single_dispatch_contract()
     wait = batch_business.build_batch_business_wait_contract()
     registry = OperationContractRegistry(build_operation_catalog(

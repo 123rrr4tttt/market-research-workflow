@@ -728,6 +728,7 @@ class PostgresRuntimeNodeAdapter:
                         assignment=claim.assignment,
                         claim=claim.claim_binding,
                         failure_code=outcome.failure_code,
+                        domain_failure=outcome.domain_failure,
                     )
                     terminal = replace(
                         terminal,

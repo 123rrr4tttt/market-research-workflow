@@ -241,8 +241,19 @@ class InterpreterOutcome:
     receipt_ref: str | None = None
     failure_code: str | None = None
     reconciliation_hint: str | None = None
+    domain_failure: Failure | None = None
 
     def __post_init__(self) -> None:
+        if self.domain_failure is not None:
+            if not isinstance(self.domain_failure, Failure):
+                _raise_node_failure("NODE_PORT_RESULT_INVALID", "domain_failure must be Failure", TypeError,
+                                    site="runtime.node.interpreter_outcome.domain_failure.type")
+            if not isinstance(self.failure_code, str) or not isinstance(self.domain_failure.code, str):
+                _raise_node_failure("NODE_PORT_RESULT_INVALID", "domain_failure code must be a string", TypeError,
+                                    site="runtime.node.interpreter_outcome.domain_failure.code")
+            if self.disposition is not EffectDisposition.FAILED or self.domain_failure.code != self.failure_code:
+                _raise_node_failure("NODE_PORT_RESULT_INVALID", "domain_failure requires FAILED with the same failure_code", ValueError,
+                                    site="runtime.node.interpreter_outcome.domain_failure.disposition")
         terminal = {
             EffectDisposition.SUCCEEDED,
             EffectDisposition.FAILED,
@@ -306,10 +317,11 @@ class InterpreterOutcome:
         )
 
     @classmethod
-    def failed(cls, failure_code: str) -> InterpreterOutcome:
+    def failed(cls, failure_code: str, *, domain_failure: Failure | None = None) -> InterpreterOutcome:
         return cls(
             disposition=EffectDisposition.FAILED,
             failure_code=failure_code,
+            domain_failure=domain_failure,
         )
 
     @classmethod
@@ -481,9 +493,12 @@ class ExactHandlerMismatch(RuntimeError):
 class DefiniteInterpreterFailure(RuntimeError):
     """Interpreter-declared failure with no uncertain external effect."""
 
-    def __init__(self, failure_code: str) -> None:
+    def __init__(self, failure_code: str, *, domain_failure: Failure | None = None) -> None:
+        if domain_failure is not None:
+            InterpreterOutcome.failed(failure_code, domain_failure=domain_failure)
         super().__init__(failure_code)
         self.failure_code = failure_code
+        self.domain_failure = domain_failure
 
 
 class OutcomeUncertain(RuntimeError):
@@ -764,7 +779,7 @@ class RuntimeNode:
                     site="runtime.node.interpreter.handler_result",
                 )
         except DefiniteInterpreterFailure as exc:
-            outcome = InterpreterOutcome.failed(exc.failure_code)
+            outcome = InterpreterOutcome.failed(exc.failure_code, domain_failure=exc.domain_failure)
         except OutcomeUncertain as exc:
             outcome = InterpreterOutcome.outcome_unknown(exc.reconciliation_hint)
         except Exception as exc:  # noqa: BLE001 - unknown post-effect errors reconcile

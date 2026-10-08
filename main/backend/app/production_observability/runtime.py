@@ -31,8 +31,6 @@ from .decision import (
 )
 from .errors import ObservabilityTypeError, ObservabilityValueError
 from .health import (
-    ProjectionDriftStatus,
-    ProjectionReadStatus,
     ProviderRuntimeStatus,
     QueueReadStatus,
     RuntimeAuthorityReadStatus,
@@ -367,7 +365,6 @@ class ProductionObservabilityController:
         database = snapshot.database
         provider = snapshot.provider
         runtime_binding = snapshot.runtime_binding
-        projection = snapshot.projection
         values: list[tuple[MetricFamily, float, dict[str, str]]] = [
             (
                 MetricFamily.QUEUE_DEPTH,
@@ -462,30 +459,6 @@ class ProductionObservabilityController:
                         }
                     ),
                 },
-                ),
-            )
-        projection_drift_known = (
-            projection.read_status is ProjectionReadStatus.OK
-        )
-        if projection_drift_known:
-            values.append(
-                (
-                    MetricFamily.PROJECTION_DRIFT,
-                    1.0
-                    if projection.drift_status is ProjectionDriftStatus.MISMATCH
-                    else 0.0,
-                    {
-                        "source": projection.source,
-                        "read_status": projection.read_status.value,
-                        "drift_status": projection.drift_status.value,
-                        "active_source_digest": projection.active_source_digest,
-                        "expected_source_digest": projection.expected_source_digest,
-                        "projection_generation": str(projection.projection_generation),
-                        "offset_revision": str(projection.offset_revision),
-                        "source_revision": str(projection.source_revision),
-                        "offset_ref": projection.offset_ref,
-                        "status_detail": projection.status_detail,
-                    },
                 ),
             )
         source_labels = {f"source_{key}": value for key, value in snapshot.labels.items()}

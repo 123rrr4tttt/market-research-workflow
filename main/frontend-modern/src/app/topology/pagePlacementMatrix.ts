@@ -55,10 +55,10 @@ const PAGE_PLACEMENT_BASELINE: readonly PagePlacementRecord[] = [
     },
   },
   {
-    page: 'LlmDesignerPage',
+    page: 'WorkflowManagerPage',
     navModes: ['flowLlmNodeDesign'],
     phase1Surface: 'workbench',
-    reason: 'Node design workspace; already launched as immersive standalone.',
+    reason: 'Workflow composition workspace with operator, motif, and runtime graph management.',
     revisit: false,
     rubricSignals: {
       interactionDensity: 'workbench',
@@ -232,20 +232,6 @@ const PAGE_PLACEMENT_BASELINE: readonly PagePlacementRecord[] = [
       interactionDensity: 'management',
       contextContinuity: 'management',
       panelCoordination: 'workbench',
-      stateCoupling: 'management',
-      primaryOutcome: 'management',
-    },
-  },
-  {
-    page: 'SuccessorRuntimePage',
-    navModes: ['sysSuccessorRuntime'],
-    phase1Surface: 'management',
-    reason: 'Read-only successor runtime observation stays in the admin review surface; no command or control action is mounted.',
-    revisit: false,
-    rubricSignals: {
-      interactionDensity: 'management',
-      contextContinuity: 'management',
-      panelCoordination: 'management',
       stateCoupling: 'management',
       primaryOutcome: 'management',
     },

@@ -14,7 +14,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from app.services.ingest import (  # noqa: E402
     canary_metrics_readback,
     commodity,
-    digestion_scaffold,
     ecom,
     frontdoor_ingress,
     market_web,
@@ -26,7 +25,6 @@ from mrw_functorial_kit.core.application_failure_semantics import (  # noqa: E40
     source_library_contract_failures,
 )
 from mrw_functorial_kit.core.provider_port_failures import (  # noqa: E402
-    ingest_long_cycle_failures,
     ingest_operation_failures,
     ingest_policy_failures,
 )
@@ -152,21 +150,6 @@ def test_ingest_service_a_failure_lifts() -> None:
     with pytest.raises(TypeError, match="^canary metrics readback failure lift context is incomplete or inconsistent$"):
         canary_metrics_readback._raise_failure(Failure("other.family", "bad", "bad", {}))
 
-    long_cycle_failure = digestion_scaffold._failure(
-        "required_ref_missing",
-        "long-cycle reference is required",
-        operation="test",
-        site="test.long_cycle",
-    )
-    with pytest.raises(ValueError, match="^long-cycle reference is required$"):
-        digestion_scaffold._raise_failure(long_cycle_failure)
-    long_cycle_cause = RuntimeError("long-cycle cause")
-    with pytest.raises(ValueError, match="^long-cycle reference is required$") as raised:
-        digestion_scaffold._raise_failure(long_cycle_failure, cause=long_cycle_cause)
-    assert raised.value.__cause__ is long_cycle_cause
-    with pytest.raises(TypeError, match="^long-cycle failure lift context is incomplete or inconsistent$"):
-        digestion_scaffold._raise_failure(Failure("other.family", "bad", "bad", {}))
-
     frontdoor_failure = frontdoor_ingress._frontdoor_contract_failure(
         "entrypoint is required",
         ingress_type="discovery",
@@ -213,7 +196,6 @@ def test_ingest_service_a_failure_lifts() -> None:
     market_web_fail.assert_called_once_with(4, "search provider failed")
 
     assert canary_failure.family == ingest_operation_failures.name
-    assert long_cycle_failure.family == ingest_long_cycle_failures.name
     assert frontdoor_failure.family == source_library_contract_failures.name
 
 

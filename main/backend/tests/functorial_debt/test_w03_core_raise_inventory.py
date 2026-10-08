@@ -29,7 +29,6 @@ W03_NO_THROW_FILES: tuple[str, ...] = (
     "indexer/policy.py",
     "ingest/canary_metrics_readback.py",
     "ingest/commodity.py",
-    "ingest/digestion_scaffold.py",
     "ingest/ecom.py",
     "ingest/frontdoor_ingress.py",
     "ingest/market_web.py",
@@ -66,8 +65,8 @@ def _raise_windows(source: str) -> Iterable[tuple[int, str]]:
 
 
 def test_w03_no_throw_closure_for_exact_owned_files() -> None:
-    assert len(W03_NO_THROW_FILES) == 27
-    assert len(set(W03_NO_THROW_FILES)) == 27
+    assert len(W03_NO_THROW_FILES) == 26
+    assert len(set(W03_NO_THROW_FILES)) == 26
 
     retained: list[tuple[str, int, str]] = []
     for relative_path in W03_NO_THROW_FILES:

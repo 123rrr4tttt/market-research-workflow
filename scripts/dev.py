@@ -21,21 +21,8 @@ PYPROJECT = ROOT / "pyproject.toml"
 CATALOG = ROOT / "contributions" / "project_catalog.py"
 PILOT_TESTS = (
     "main/backend/tests/unit/test_project_tool_contribution.py",
-    "main/backend/tests/successor_runtime/test_i1_c7_c9_assembly.py",
-    "main/backend/tests/successor_runtime/test_p4_c8_4_graph.py",
-    "main/backend/tests/successor_runtime/test_c8_graph_projection_contribution.py",
-    "main/backend/tests/successor_runtime/test_c8_typed_knowledge_contribution.py",
-    "main/backend/tests/successor_runtime/test_c8_writing_contribution.py",
-    "main/backend/tests/successor_runtime/test_c8_report_contribution.py",
-    "main/backend/tests/successor_runtime/test_c8_native_catalog.py",
     "main/backend/tests/successor_runtime/test_c1_native_catalog.py",
-    "main/backend/tests/successor_runtime/test_c2_native_catalog.py",
-    "main/backend/tests/successor_runtime/test_c4_native_contribution.py",
-    "main/backend/tests/successor_runtime/test_c5_native_catalog.py",
-    "main/backend/tests/successor_runtime/test_c7_native_catalog.py",
-    "main/backend/tests/successor_runtime/test_c9_native_catalog.py",
     "main/backend/tests/successor_runtime/test_retrieval_native_catalog.py",
-    "tests/test_c8_semantic_registration.py",
 )
 ARCHITECTURE_TEST = "tests/test_architecture.py"
 VALIDATE_COMMANDS = ("sync", "check", "typecheck", "test", "gates")

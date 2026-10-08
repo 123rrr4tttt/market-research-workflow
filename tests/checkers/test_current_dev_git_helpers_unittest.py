@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib
 import subprocess
 import unittest
 from unittest.mock import patch
@@ -9,14 +8,6 @@ from scripts._current_dev_git import changed_files_in_worktree, run_git
 
 
 class CurrentDevGitHelpersTest(unittest.TestCase):
-    def test_all_current_dev_plan_scripts_share_one_implementation(self) -> None:
-        for wave in range(8, 21):
-            with self.subTest(wave=wave):
-                module = importlib.import_module(f"scripts.check_current_dev_wave{wave}_plan")
-
-                self.assertIs(module.run_git, run_git)
-                self.assertIs(module.changed_files_in_worktree, changed_files_in_worktree)
-
     def test_run_git_invokes_git_and_strips_stdout(self) -> None:
         completed = subprocess.CompletedProcess(
             ["git", "status"], returncode=0, stdout="  value  \n", stderr="noise\n"

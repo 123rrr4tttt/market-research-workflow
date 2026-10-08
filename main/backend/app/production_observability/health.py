@@ -19,7 +19,6 @@ AUTHORITY_READ_SOURCE = (
     "postgres.project_scope_registry+runtime_step_authorizations"
     "+runtime_capability_authority"
 )
-PROJECTION_SOURCE = "postgres.projection:project-source+active-offset"
 DATABASE_SOURCE = "sqlalchemy.engine:select_1+pool_status"
 PROVIDER_SOURCE = "production.provider-runtime:explicit-local-simulation-or-unknown"
 
@@ -51,18 +50,6 @@ class ProjectionReleaseStatus(StrEnum):
 class RuntimeAuthorityReadStatus(StrEnum):
     OBSERVED = "observed"
     NOT_OBSERVED = "not_observed"
-    MISMATCH = "mismatch"
-
-
-class ProjectionReadStatus(StrEnum):
-    OK = "ok"
-    NOT_OBSERVED = "not_observed"
-    ERROR = "error"
-
-
-class ProjectionDriftStatus(StrEnum):
-    UNKNOWN = "unknown"
-    MATCH = "match"
     MISMATCH = "mismatch"
 
 
@@ -199,78 +186,12 @@ class RuntimeAuthorityReadSignal:
 
 
 @dataclass(frozen=True, slots=True)
-class ProjectionRuntimeSignal:
-    source: str
-    read_status: ProjectionReadStatus
-    drift_status: ProjectionDriftStatus
-    active_source_digest: str
-    expected_source_digest: str
-    projection_generation: int
-    offset_revision: int
-    source_revision: int
-    offset_ref: str
-    status_detail: str = ""
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "source", _required_text(self.source, "projection source"))
-        if not isinstance(self.read_status, ProjectionReadStatus):
-            raise ObservabilityTypeError("projection read_status is closed")
-        if not isinstance(self.drift_status, ProjectionDriftStatus):
-            raise ObservabilityTypeError("projection drift_status is closed")
-        counts = (self.projection_generation, self.offset_revision, self.source_revision)
-        if any(
-            not isinstance(value, int) or isinstance(value, bool) or value < 0
-            for value in counts
-        ):
-            raise ObservabilityValueError(
-                "projection generation, offset revision, and source revision must be non-negative integers"
-            )
-        digests = (self.active_source_digest, self.expected_source_digest)
-        if self.read_status is ProjectionReadStatus.OK:
-            if not self.offset_ref.strip():
-                raise ObservabilityValueError("readable projection offset_ref is required")
-            if any(len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest) for digest in digests):
-                raise ObservabilityValueError(
-                    "readable projection digests must be canonical SHA-256 hex"
-                )
-            expected_drift = (
-                ProjectionDriftStatus.MATCH
-                if self.active_source_digest == self.expected_source_digest
-                else ProjectionDriftStatus.MISMATCH
-            )
-            if self.drift_status is not expected_drift:
-                raise ObservabilityValueError("projection drift_status must match its digests")
-        elif any(digests):
-            raise ObservabilityValueError("failed projection reads cannot invent source digests")
-        if self.read_status is ProjectionReadStatus.OK:
-            if self.drift_status is ProjectionDriftStatus.UNKNOWN:
-                raise ObservabilityValueError(
-                    "observed projection signal cannot leave drift unknown"
-                )
-        elif self.drift_status is not ProjectionDriftStatus.UNKNOWN:
-            raise ObservabilityValueError(
-                "unavailable projection read cannot claim a drift verdict"
-            )
-        if self.read_status is ProjectionReadStatus.OK and self.status_detail:
-            raise ObservabilityValueError("readable projection signal cannot carry status_detail")
-        if (
-            self.read_status is not ProjectionReadStatus.OK
-            and not self.status_detail.strip()
-        ):
-            raise ObservabilityValueError("unavailable projection read requires status_detail")
-
-    def to_dict(self) -> dict[str, str | int]:
-        return asdict(self)
-
-
-@dataclass(frozen=True, slots=True)
 class RuntimeHealthSnapshot:
     observed_at: datetime | str
     queue: QueueRuntimeSignal
     database: DatabaseRuntimeSignal
     provider: ProviderRuntimeSignal
     runtime_binding: RuntimeBindingSignal
-    projection: ProjectionRuntimeSignal
     labels: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -285,7 +206,6 @@ class RuntimeHealthSnapshot:
             "database": self.database.to_dict(),
             "provider": self.provider.to_dict(),
             "runtime_binding": self.runtime_binding.to_dict(),
-            "projection": self.projection.to_dict(),
             "labels": dict(self.labels),
         }
 
@@ -447,106 +367,6 @@ def read_runtime_authority_signal(engine: Engine) -> RuntimeAuthorityReadSignal:
     )
 
 
-def read_runtime_projection_signal(engine: Engine) -> ProjectionRuntimeSignal:
-    from app.successor_runtime.substrate.postgres.projection_sources import (
-        PROJECT_SOURCE_KIND,
-        PROJECT_SOURCE_IDENTITY_PROJECTOR_ID,
-        PROJECT_SOURCE_IDENTITY_PROJECTOR_VERSION,
-        load_exact_project_source_closure,
-    )
-    from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
-    from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
-
-    offsets = PUBLIC_TABLES["runtime_projection_offsets"]
-    scopes = PUBLIC_TABLES["project_scope_registry"]
-    selected = (
-        scopes.c.project_key.label("project_key"),
-        scopes.c.registry_revision.label("registry_revision"),
-        scopes.c.resolved_schema.label("resolved_schema"),
-        scopes.c.incarnation.label("incarnation"),
-        scopes.c.scope_digest.label("scope_digest"),
-        offsets.c.projection_generation.label("projection_generation"),
-        offsets.c.revision.label("revision"),
-        offsets.c.source_revision.label("source_revision"),
-        offsets.c.source_digest.label("source_digest"),
-        offsets.c.offset_ref.label("offset_ref"),
-    )
-    try:
-        with engine.connect() as connection:
-            rows = connection.execute(
-                select(*selected)
-                .select_from(offsets)
-                .join(
-                    scopes,
-                    (scopes.c.project_key == offsets.c.project_key)
-                    & (scopes.c.incarnation == offsets.c.source_incarnation)
-                    & (scopes.c.state == "ACTIVE"),
-                )
-                .where(
-                    offsets.c.projector_id == PROJECT_SOURCE_IDENTITY_PROJECTOR_ID,
-                    offsets.c.projector_version == PROJECT_SOURCE_IDENTITY_PROJECTOR_VERSION,
-                    offsets.c.source_kind == PROJECT_SOURCE_KIND,
-                )
-                .order_by(offsets.c.updated_at.desc(), offsets.c.revision.desc())
-                .limit(1)
-            ).mappings().all()
-            if not rows:
-                return ProjectionRuntimeSignal(
-                    source=PROJECTION_SOURCE,
-                    read_status=ProjectionReadStatus.NOT_OBSERVED,
-                    drift_status=ProjectionDriftStatus.UNKNOWN,
-                    active_source_digest="",
-                    expected_source_digest="",
-                    projection_generation=0,
-                    offset_revision=0,
-                    source_revision=0,
-                    offset_ref="",
-                    status_detail="active material projection offset missing",
-                )
-
-            row = rows[0]
-            scope_ref = ProjectScopeRef(
-                project_key=str(row["project_key"]),
-                resolved_schema=str(row["resolved_schema"]),
-                project_registry_revision=int(row["registry_revision"]),
-                incarnation=str(row["incarnation"]),
-                scope_digest=str(row["scope_digest"]),
-            )
-            runtime_scope = RuntimeScope(
-                project_scope=scope_ref,
-                actor_id="observability:runtime-health",
-            )
-            closure = load_exact_project_source_closure(connection, runtime_scope)
-            active_digest = str(row["source_digest"])
-            expected_digest = closure.closure_digest
-            return ProjectionRuntimeSignal(
-                source=PROJECTION_SOURCE,
-                read_status=ProjectionReadStatus.OK,
-                drift_status=ProjectionDriftStatus.MATCH
-                if active_digest == expected_digest
-                else ProjectionDriftStatus.MISMATCH,
-                active_source_digest=active_digest,
-                expected_source_digest=expected_digest,
-                projection_generation=int(row["projection_generation"]),
-                offset_revision=int(row["revision"]),
-                source_revision=int(row["source_revision"]),
-                offset_ref=str(row["offset_ref"]),
-            )
-    except Exception as exc:  # noqa: BLE001 - projection reads become typed failures
-        return ProjectionRuntimeSignal(
-            source=PROJECTION_SOURCE,
-            read_status=ProjectionReadStatus.ERROR,
-            drift_status=ProjectionDriftStatus.UNKNOWN,
-            active_source_digest="",
-            expected_source_digest="",
-            projection_generation=0,
-            offset_revision=0,
-            source_revision=0,
-            offset_ref="",
-            status_detail=f"material projection source read failed: {type(exc).__name__}",
-        )
-
-
 def read_runtime_queue_signal(
     settings_obj: object,
     *,
@@ -646,29 +466,23 @@ def build_runtime_health_snapshot(
             else ProjectionReleaseStatus.MISMATCH,
             authority_read=authority_read,
         ),
-        projection=read_runtime_projection_signal(engine),
     )
 
 
 __all__ = [
     "DatabaseRuntimeSignal",
-    "ProjectionDriftStatus",
-    "ProjectionReadStatus",
     "ProjectionReleaseStatus",
-    "ProjectionRuntimeSignal",
     "ProviderRuntimeSignal",
     "ProviderRuntimeStatus",
     "QueueReadStatus",
     "QueueRuntimeSignal",
     "AUTHORITY_READ_SOURCE",
     "DATABASE_SOURCE",
-    "PROJECTION_SOURCE",
     "PROVIDER_SOURCE",
     "authority_not_observed",
     "build_runtime_health_snapshot",
     "read_runtime_authority_signal",
     "read_runtime_provider_signal",
-    "read_runtime_projection_signal",
     "read_runtime_queue_signal",
     "RuntimeBindingSignal",
     "RuntimeBindingStatus",

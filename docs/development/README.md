@@ -2,9 +2,11 @@
 
 项目修改从当前源码、原生声明和相关测试出发。运行步骤见[使用说明](../usage.md)，模块与事实归属见[架构说明](../architecture/README.md)。
 
-总体设计见[MRW精简框架](MRW精简框架.md)，本批实际结果见[阶段§2.2](MRW平台结构精简与删减阶段.md#22-第二批整族退役结果与证据)。2026-10-08第二批已退役旧generator、I1装配外壳及workflow静态资格链，app净减6124行至299234行，较初始`c3adced`累计净减8238行；工具、原生贡献与测试分别计量。所需局部验证已完成，失败返工、复用与未运行范围集中记录于阶段文档。真实kernel、权限与读回保持；旧compiled graph可读取，运行必须重新编译。
+总体设计见[MRW精简框架](MRW精简框架.md)，当前结果及剩余切口见[阶段§4](MRW平台结构精简与删减阶段.md#4-有限删除波次与待重构组合)。从`a17930da`实施的有限删除波次及本批修复使app Python由299234减至231701行，净减67533行（22.57%）；JSON、前端、kit、工具与测试另账，首两批历史保持在阶段§2.1/§2.2。
 
-整体精简和全能力native规则贯通仍未完成。下一前沿是寻找计入公共规则与集成成本后仍有正收益的同形整族重复装配或旧执行owner闭包；其它形状和预算继续待定，不累积字段微修或新建共享框架。已撤硬行数帽不恢复，“6–10万”仍为未校准历史情景，不宣称总体减量或提速。全项目基线沿[框架§4](MRW精简框架.md#4-全项目规模预算与收支约束)；旧部署Stage4–6继续STOPPED，未push或deploy。[原结构整理方案](MRW结构整理方案与分发包.md)只作历史，不驱动当前分包。
+终版ci-pr精确清单2444项为69 actual passed＋2371 kept＋4 skipped；root suite为304 actual passed＋1046 kept，七gate242、公共类型0错误、coverage原100/20门槛通过。实际本机host summary已有canonical SQL读回；两项workflow已通过有效Bearer与隔离安装接线，原多resource installer修复19/19实际通过；领域Failure v2正文及Plan-aware replay修复完成，两原live E2E实际通过，最后reader guard的受影响failure selector补验通过，success按未变依赖kept；v1字节保持。产品首次正式provisioning、宿主只读循环十次、retrieval缺配置及未验证cookie代理lane仍独立记录。测试时点、原失败attempt及未验证范围均以阶段文档为准。
+
+本批删除与九项能力覆盖不等于整体架构重构完成。source resolver/runner、Agent URL提交、search matrix、discovery/clue组合、旧tool协议桥等仍有具名待重构组织，不能把整handler包装或搬家叫特殊核保留；八个现有切口按旧整体架构组织、迁移中介、迁移后残留、新架构特殊核归属，逐项列出生产入口到保留核、现有装配、旧闭包删除和完成见证；独占写面与接缝依赖沿阶段文档实施，不新建Runtime或大框架。旧部署Stage4–6继续STOPPED，未push或deploy；[原结构整理方案](MRW结构整理方案与分发包.md)只作历史。
 
 ## 找到修改位置
 

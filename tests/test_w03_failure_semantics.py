@@ -33,12 +33,8 @@ from mrw_functorial_kit.core.provider_port_failures import (
 
 _EXPECTED_CODES: dict[str, tuple[str, ...]] = {
     "collect.runtime.failure": (
-        "skill_id_required",
-        "collect_adapter_contract_invalid",
         "compat_projector_contract_invalid",
-        "collect_channel_unsupported",
         "auto_batch_execution_failed",
-        "product_mode_unsupported",
         "successor_effect_gateway_invalid",
     ),
     "ingest.policy.failure": (
@@ -158,10 +154,10 @@ def test_FAILURE_PRESERVED__w03_literal_aliases_match_exact_families() -> None:
 
 
 def test_FAILURE_PRESERVED__w03_preexisting_codes_are_not_removed() -> None:
-    assert collect_runtime_failures.codes[:3] == (
-        "skill_id_required",
-        "collect_adapter_contract_invalid",
+    assert collect_runtime_failures.codes == (
         "compat_projector_contract_invalid",
+        "auto_batch_execution_failed",
+        "successor_effect_gateway_invalid",
     )
     assert ingest_policy_failures.codes[:2] == (
         "policy_adapter_not_configured",

@@ -23,11 +23,15 @@ from app.successor_runtime.capabilities.workflow_native_contribution import (
     WORKFLOW_RUNTIME_CONTEXT_CODEC_ID,
     WorkflowExecutionContext,
     build_workflow_runtime_definition,
+    build_workflow_runtime_program,
     decode_workflow_runtime_output,
 )
 from app.successor_runtime.capabilities.checksum import canonical_json, content_digest, sha256_hex
 from app.successor_runtime.language.algebra import ValueRef
+from app.successor_runtime.language.compile import compile_program
 from app.successor_runtime.runtime.ports import ProjectScopeRef
+from app.successor_runtime.runtime.replay import ReplayEvent, replay_runtime_events
+from app.successor_runtime.substrate.projections.agent_session import fold_agent_session
 
 
 pytestmark = pytest.mark.unit
@@ -85,6 +89,89 @@ def _context(*, cursor: int = 0, results: dict[str, Any] | None = None) -> Workf
         cursor=cursor,
         results=dict(results or {}),
     )
+
+
+def _replay_state(*, failed_node: str | None = None):
+    context = _context()
+    runtime = build_workflow_runtime_program(
+        workflow_id=context.workflow_id,
+        nodes=context.nodes,
+        topo_order=("n1", "n2"),
+        inputs=context.inputs,
+        program_id="workflow-program:run-1",
+        project_key=context.project_key,
+        project_registry_revision=3,
+        project_scope_digest=content_digest({"project": context.project_key}),
+        incarnation="workflow:run-1",
+        trace_id=context.trace_id,
+    )
+    plan = compile_program(runtime.program, runtime.catalog, operation_contracts=runtime.registry)
+    effects = tuple(step for step in plan.ordered_steps if step.step_kind == "EFFECT")
+    journal: list[ReplayEvent] = []
+
+    def append(event_type, schema, *, step_id=None, attempt_id=None, metadata=None):
+        event = ReplayEvent.from_content(
+            project_key=context.project_key,
+            run_id="run-1",
+            run_incarnation="workflow:run-1",
+            seq=len(journal) + 1,
+            event_type=event_type,
+            schema_version=f"mrw.runtime.event.{schema}.v1",
+            step_id=step_id,
+            attempt_id=attempt_id,
+            metadata={} if metadata is None else metadata,
+            payload_ref=None,
+            payload_digest=None,
+            authority_digest=content_digest({"actor": "trusted-actor"}),
+        )
+        journal.append(event)
+        return event
+
+    append("ProgramAccepted", "program_accepted", metadata={
+        "program_id": runtime.program.program_id, "program_digest": runtime.program.program_digest,
+    })
+    append("PlanCompiled", "plan_compiled", metadata={
+        "plan_id": plan.plan_id, "plan_digest": plan.plan_digest,
+    })
+    append("QualificationActivated", "qualification_activated", metadata={
+        "qualification_digest": content_digest({"qualified_plan": plan.plan_digest}),
+        "decision": "QUALIFIED",
+    })
+    for step in effects:
+        node_id = step.operation_id.split(":", 2)[2]
+        attempt_id = f"attempt:{step.step_id}"
+        append("StepActivated", "step_activated", step_id=step.step_id, metadata={
+            "assignment_digest": content_digest({"assignment_step": step.step_id}),
+            "activation_digest": content_digest({"activated_step": step.step_id}),
+            "input_closure_digest": content_digest({"input_step": step.step_id}),
+        })
+        append("StepClaimed", "step_claimed", step_id=step.step_id, attempt_id=attempt_id,
+               metadata={"assignment_kind": "INTERPRET", "reconciliation_attempt_id": None})
+        append("EffectStarted", "effect_started", step_id=step.step_id, attempt_id=attempt_id)
+        if node_id == failed_node:
+            policy_digest = content_digest({"required_failure": step.step_id})
+            failed = append("EffectFailed", "effect_failed", step_id=step.step_id, attempt_id=attempt_id,
+                            metadata={"status": "FAILED", "failure_policy_decision_digest": policy_digest,
+                                      "required_step_failed": True,
+                                      "required_step_failed_event_revision": len(journal) + 2})
+            append("RequiredStepFailed", "required_step_failed", step_id=step.step_id, attempt_id=attempt_id,
+                   metadata={"status": "FAILED", "source_revision": failed.seq,
+                             "source_event_digest": failed.event_digest,
+                             "failure_policy_decision_digest": policy_digest})
+            break
+        append("RuntimeValueProduced", "effect_succeeded", step_id=step.step_id, attempt_id=attempt_id)
+    else:
+        append("RunCompletionDerived", "run_completion_derived",
+               metadata={"required_step_ids": [step.step_id for step in effects]})
+
+    snapshot = fold_agent_session(replay_runtime_events(journal))
+    projected_states = {task.step_id: task.step_state.value for task in snapshot.tasks}
+    steps = tuple({"step_id": step.step_id, "operation_id": step.operation_id,
+                   "state": projected_states.get(step.step_id, "PENDING")} for step in effects)
+    events = tuple({"seq": event.seq, "event_type": event.event_type, "step_id": event.step_id,
+                    "event_metadata_json": dict(event.metadata)} for event in journal)
+    run = {"state": "COMPLETED" if failed_node is None else "FAILED", "incarnation": "workflow:run-1"}
+    return plan, run, steps, events, snapshot
 
 
 class WorkflowRuntimeKernelUnitTest(unittest.TestCase):
@@ -494,27 +581,21 @@ class WorkflowGraphServiceUnitTest(unittest.TestCase):
 
     def test_replay_consistency_is_derived_from_journal_projection(self) -> None:
         service = WorkflowGraphRuntimeService()
-        run = {"state": "COMPLETED", "incarnation": "workflow:run-1"}
-        steps = (
-            {
-                "step_id": "step-1",
-                "operation_id": "workflow-node:0:n1",
-                "state": "SUCCEEDED",
-                "output_digest": "a" * 64,
-            },
-        )
-        task = MagicMock(step_id="step-1", step_state="SUCCEEDED")
-        snapshot = MagicMock(status="completed", tasks=(task,))
+        plan, run, steps, events, snapshot = _replay_state()
         with (
-            patch.object(service, "_read_runtime", return_value=(run, steps, ({},))),
+            patch.object(service, "_read_runtime", return_value=(run, steps, events)),
+            patch.object(service, "_read_runtime_plan", return_value=plan),
             patch.object(service, "_load_agent_session_snapshot", return_value=snapshot),
             patch.object(service, "get_run_events", return_value={"items": []}),
             patch.object(
                 service,
                 "_read_runtime_outputs",
-                return_value=(("step-1", _context(
-                    cursor=1, results={"n1": {"text": "found"}},
-                )),),
+                return_value=(
+                    (steps[0]["step_id"], _context(cursor=1, results={"n1": {"text": "found"}})),
+                    (steps[1]["step_id"], _context(cursor=2, results={
+                        "n1": {"text": "found"}, "n2": {"text": "answer"},
+                    })),
+                ),
             ),
         ):
             replay = service.replay_run(
@@ -523,36 +604,22 @@ class WorkflowGraphServiceUnitTest(unittest.TestCase):
             )
 
         self.assertEqual(replay["status"], "succeeded")
-        self.assertEqual(replay["node_statuses"], {"n1": "succeeded"})
+        self.assertEqual(replay["node_statuses"], {"n1": "succeeded", "n2": "succeeded"})
         self.assertTrue(replay["replay_consistency"]["consistent"])
-        self.assertEqual(replay["results"], {"n1": {"text": "found"}})
+        self.assertEqual(replay["results"], {"n1": {"text": "found"}, "n2": {"text": "answer"}})
 
     def test_stateful_replay_returns_latest_partial_results_after_failure(self) -> None:
         service = WorkflowGraphRuntimeService()
-        run = {"state": "FAILED", "incarnation": "workflow:run-1"}
-        steps = (
-            {
-                "step_id": "step-1",
-                "operation_id": "workflow-node:0:n1",
-                "state": "SUCCEEDED",
-            },
-            {
-                "step_id": "step-2",
-                "operation_id": "workflow-node:1:n2",
-                "state": "FAILED",
-            },
-        )
-        first_task = MagicMock(step_id="step-1", step_state="SUCCEEDED")
-        second_task = MagicMock(step_id="step-2", step_state="FAILED")
-        snapshot = MagicMock(status="failed", tasks=(first_task, second_task))
+        plan, run, steps, events, snapshot = _replay_state(failed_node="n2")
         with (
-            patch.object(service, "_read_runtime", return_value=(run, steps, ({},))),
+            patch.object(service, "_read_runtime", return_value=(run, steps, events)),
+            patch.object(service, "_read_runtime_plan", return_value=plan),
             patch.object(service, "_load_agent_session_snapshot", return_value=snapshot),
             patch.object(service, "get_run_events", return_value={"items": []}),
             patch.object(
                 service,
                 "_read_runtime_outputs",
-                return_value=(("step-1", _context(
+                return_value=((steps[0]["step_id"], _context(
                     cursor=1, results={"n1": {"text": "partial"}},
                 )),),
             ),
@@ -563,7 +630,75 @@ class WorkflowGraphServiceUnitTest(unittest.TestCase):
             )
 
         self.assertEqual(replay["status"], "failed")
+        self.assertEqual(replay["node_statuses"], {"n1": "succeeded", "n2": "failed"})
+        self.assertTrue(replay["replay_consistency"]["consistent"])
         self.assertEqual(replay["results"], {"n1": {"text": "partial"}})
+
+
+@pytest.mark.parametrize("stored_downstream_state", ["PENDING", "SUCCEEDED"])
+def test_failed_first_node_replay_uses_plan_for_untouched_downstream(stored_downstream_state) -> None:
+    service = WorkflowGraphRuntimeService()
+    plan, run, steps, events, snapshot = _replay_state(failed_node="n1")
+    assert len(snapshot.tasks) == 1
+    assert all(event["step_id"] != steps[1]["step_id"] for event in events)
+    steps = (steps[0], {**steps[1], "state": stored_downstream_state})
+    with (
+        patch.object(service, "_read_runtime", return_value=(run, steps, events)),
+        patch.object(service, "_read_runtime_plan", return_value=plan),
+        patch.object(service, "_load_agent_session_snapshot", return_value=snapshot),
+    ):
+        replay = service.replay_run("run-1", project_key="demo_proj", actor_id="trusted-actor")
+
+    assert replay["status"] == "failed"
+    assert replay["node_statuses"] == {"n1": "failed", "n2": "queued"}
+    consistency = replay["replay_consistency"]
+    assert consistency["consistent"] is (stored_downstream_state == "PENDING")
+    if stored_downstream_state == "SUCCEEDED":
+        assert consistency["issues"] == [{
+            "code": "node_status_mismatch",
+            "message": "stored node status does not match journal replay: n2",
+            "details": {"node_id": "n2", "stored": "succeeded", "replayed": "queued"},
+        }]
+
+
+@pytest.mark.parametrize("drift", [
+    "program_digest", "plan_digest", "missing_plan_anchor", "duplicate_program_anchor",
+    "unknown_task", "unknown_event_step", "missing_touched_task",
+    "journal_sequence", "snapshot_frontier", "snapshot_run", "snapshot_incarnation",
+])
+def test_replay_rejects_plan_anchor_task_and_frontier_drift(drift) -> None:
+    service = WorkflowGraphRuntimeService()
+    plan, run, steps, original_events, snapshot = _replay_state(failed_node="n1")
+    events = list(deepcopy(original_events))
+    if drift in {"program_digest", "plan_digest"}:
+        events[0 if drift == "program_digest" else 1]["event_metadata_json"][drift] = "f" * 64
+    elif drift == "missing_plan_anchor":
+        events[1]["event_type"] = "CompileSucceeded"
+    elif drift == "duplicate_program_anchor":
+        events[2].update(event_type="ProgramAccepted", event_metadata_json=dict(events[0]["event_metadata_json"]))
+    elif drift == "unknown_task":
+        task = snapshot.tasks[0].model_copy(update={"step_id": "unknown-step", "task_id": "unknown-step"})
+        snapshot = snapshot.model_copy(update={"tasks": (task,)})
+    elif drift == "unknown_event_step":
+        events[3]["step_id"] = "unknown-step"
+    elif drift == "missing_touched_task":
+        snapshot = snapshot.model_copy(update={"tasks": ()})
+    elif drift == "journal_sequence":
+        events[3]["seq"] = events[2]["seq"]
+    elif drift == "snapshot_frontier":
+        snapshot = snapshot.model_copy(update={"last_seq": snapshot.last_seq - 1})
+    elif drift == "snapshot_run":
+        snapshot = snapshot.model_copy(update={"run_id": "other-run"})
+    else:
+        snapshot = snapshot.model_copy(update={"run_incarnation": "other-incarnation"})
+    with (
+        patch.object(service, "_read_runtime", return_value=(run, steps, tuple(events))),
+        patch.object(service, "_read_runtime_plan", return_value=plan),
+        patch.object(service, "_load_agent_session_snapshot", return_value=snapshot),
+        pytest.raises(ValueError, match="workflow replay") as rejected,
+    ):
+        service.replay_run("run-1", project_key="demo_proj", actor_id="trusted-actor")
+    assert rejected.value.workflow_failure.code == "integrity_invalid"
 
 
 class WorkflowGraphCompatibilityUnitTest(unittest.TestCase):

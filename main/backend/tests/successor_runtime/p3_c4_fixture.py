@@ -1,35 +1,22 @@
-"""Shared deterministic fixtures for the P3 C4 agent-batch family line."""
+"""Fixtures for the retained single-dispatch Program witnesses."""
 
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
 
-from app.successor_runtime.capabilities import (
-    batch_task as batch_task,
-)
-from app.successor_runtime.capabilities import source_contracts as c2_shared
-from app.successor_runtime.capabilities.batch_task import (
-    AgentBatchTask,
-    BatchPlanPayload,
-    CriticDecision,
-    RetryAction,
-    RetryBudget,
-    RetryReducerInput,
-    build_batch_task_bundle,
-    build_batch_task_catalog,
-    build_batch_task_registry,
-)
+from app.successor_runtime.capabilities import batch_task
 from app.successor_runtime.capabilities.batch_task_program import (
-    build_batch_task_plan_program,
-    build_batch_task_retry_program,
-    compile_batch_task_program,
+    _ordered_dispatch_sequence_type,
+    _register_ordered_dispatch_merges,
+    build_batch_task_single_dispatch_program,
 )
 from app.successor_runtime.capabilities.checksum import sha256_hex
-from app.successor_runtime.capabilities.source_contracts import (
-    build_channel_catalog_snapshot,
-    project_scope_digest,
-)
+from app.successor_runtime.capabilities.source_contracts import project_scope_digest
+from app.successor_runtime.language.catalog import OperationContractCatalogSnapshot
+from app.successor_runtime.language.algebra import freeze_json_object
+from app.successor_runtime.language.program import ProgramSpec, zip_ordered_node
+from app.successor_runtime.language.transforms import TransformRegistry
+
 
 PROJECT_KEY = "batch-task-demo"
 REGISTRY_REVISION = 3
@@ -41,242 +28,59 @@ SCOPE_DIGEST = project_scope_digest(
     REGISTRY_REVISION,
     SCOPE_INCARNATION,
 )
-DEPLOYMENT_CATALOG_DIGEST = sha256_hex(
-    batch_task.BATCH_TASK_DEPLOYMENT_CATALOG_ID.encode("utf-8")
-)
+DEPLOYMENT_CATALOG_DIGEST = sha256_hex(b"batch-task-dispatch-deployment")
 PROGRAM_ID = "program:batch-task-direct-test"
 
 
-def bundle() -> Any:
-    return build_batch_task_bundle()
-
-
-def catalog() -> Any:
-    return build_batch_task_catalog(bundle())
-
-
-def registry() -> Any:
-    return build_batch_task_registry(bundle())
-
-
-def contract_ref(kind: str) -> Any:
-    ref = catalog().lookup(kind)
-    if ref is None:
-        raise KeyError(kind)
-    return ref
-
-
-def _source_item(
-    item_key: str, *, enabled: bool = True
-) -> c2_shared.SourceItemDefinition:
-    values = {
-        "item_key": item_key,
-        "channel_key": "handler.cluster"
-        if item_key.startswith("handler")
-        else "market.default",
-        "enabled": enabled,
-        "params": {},
-        "extra": {},
-        "revision": 3,
-        "incarnation": "item-inc-batch-task-demo",
-    }
-    values["content_digest"] = c2_shared.source_item_definition_content_digest(values)
-    return c2_shared.source_item_definition_from_dict(values)
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class C2ProducerSnapshotView:
-    """Fixture binding the real C2 producer snapshot and item digests."""
-
-    catalog: c2_shared.ChannelCatalogSnapshot
-    source_items: tuple[c2_shared.SourceItemDefinition, ...]
-
-
-def c2_snapshot(
+def ordered_dispatch_program(
     *,
-    item_keys: tuple[str, ...] = ("handler.cluster.news", "market.default.tech"),
-    catalog_revision: int = 9,
-    enabled_keys: tuple[str, ...] | None = None,
-) -> C2ProducerSnapshotView:
-    catalog = build_channel_catalog_snapshot(
-        revision=catalog_revision,
-        incarnation="channel-catalog-inc-batch-task-demo",
-        entries=(),
-    )
-    disabled = set(item_keys) - set(enabled_keys or item_keys)
-    source_items = tuple(
-        _source_item(item_key, enabled=item_key not in disabled)
-        for item_key in item_keys
-    )
-    return C2ProducerSnapshotView(catalog=catalog, source_items=source_items)
-
-
-def _task(**overrides: Any) -> AgentBatchTask:
-    values = {
-        "task_id": "search_1",
-        "channel": "search.market",
-        "query_terms": ("机器人",),
-        "max_items": 20,
-        "provider": "auto",
-        "language": "zh",
-        "days_back": 30,
-        "item_key": None,
-        "scope": None,
-        "platforms": (),
-        "override_params": {},
-    }
-    values.update(overrides)
-    return AgentBatchTask(**values)
-
-
-def plan_payload(
-    *,
-    tasks: tuple[AgentBatchTask, ...] | None = None,
-    retrieval_mode: str = "hybrid",
-    command: str = "调研机器人产品、公司和最近动态",
-    limited_branching: bool = False,
-    candidates: Any | None = None,
-    max_source_tasks: int = 2,
-) -> BatchPlanPayload:
-    return BatchPlanPayload(
-        schema_version=batch_task.BATCH_PLAN_PAYLOAD_SCHEMA,
-        operation_kind=batch_task.BATCH_PLAN_KIND,
-        project_key=PROJECT_KEY,
-        registry_revision=REGISTRY_REVISION,
-        resolved_schema=RESOLVED_SCHEMA,
-        scope_incarnation=SCOPE_INCARNATION,
-        scope_digest=SCOPE_DIGEST,
-        tasks=tasks if tasks is not None else (_task(),),
-        retrieval_mode=retrieval_mode,
-        command=command,
-        language="zh",
-        coverage_axes=(),
-        candidates=candidates or c2_snapshot(),
-        limited_branching_enabled=limited_branching,
-        max_source_tasks=max_source_tasks,
-    )
-
-
-def plan_program_and_plan(payload: BatchPlanPayload) -> tuple[Any, Any, Any, Any]:
-    program = build_batch_task_plan_program(
-        payload=payload,
-        catalog=catalog(),
-        program_id=PROGRAM_ID,
-        project_key=PROJECT_KEY,
-        project_registry_revision=REGISTRY_REVISION,
-        project_scope_digest=SCOPE_DIGEST,
-    )
-    plan = compile_batch_task_program(
-        program,
-        catalog(),
-        operation_contracts=registry(),
-    )
-    ref = program.root.operation.contract_ref
-    payload_ref = program.root.operation.payload_ref
-    return program, plan, ref, payload_ref
-
-
-def retry_payload(
-    *,
-    tasks: tuple[AgentBatchTask, ...] | None = None,
-    action: RetryAction | None = None,
-    score: float = 0.5,
-    next_action: str = "retry_with_source_library",
-    reason_codes: tuple[str, ...] = ("source_backing_missing",),
-    budget: RetryBudget | None = None,
-    retry_enabled: bool = True,
-    dry_run: bool = False,
-) -> RetryReducerInput:
-    return RetryReducerInput(
-        schema_version=batch_task.RETRY_REDUCER_PAYLOAD_SCHEMA,
-        operation_kind=batch_task.RETRY_REDUCE_KIND,
-        project_key=PROJECT_KEY,
-        registry_revision=REGISTRY_REVISION,
-        resolved_schema=RESOLVED_SCHEMA,
-        scope_incarnation=SCOPE_INCARNATION,
-        scope_digest=SCOPE_DIGEST,
-        tasks=tasks if tasks is not None else (_task(),),
-        critic=CriticDecision(
-            score=score,
-            next_action=next_action,
-            reason_codes=reason_codes,
-            rewrite={},
-        ),
-        retry_action=action
-        or RetryAction(
-            action="attach_source_library",
-            reason="source_backing_missing",
-            channel="source_library",
-            rewrite={
-                "item_key": "handler.cluster.news",
-                "query_terms": ("机器人",),
-                "max_items": 20,
-            },
-        ),
-        budget=budget or RetryBudget(remaining=1, used=0, max_rounds=1),
-        prior_attempt_ref="attempt:round-1",
-        command="调研机器人",
-        retry_enabled=retry_enabled,
-        dry_run=dry_run,
-    )
-
-
-def retry_program_and_plan(payload: RetryReducerInput) -> tuple[Any, Any, Any, Any]:
-    program = build_batch_task_retry_program(
-        payload=payload,
-        catalog=catalog(),
-        program_id=PROGRAM_ID,
-        project_key=PROJECT_KEY,
-        project_registry_revision=REGISTRY_REVISION,
-        project_scope_digest=SCOPE_DIGEST,
-    )
-    plan = compile_batch_task_program(
-        program,
-        catalog(),
-        operation_contracts=registry(),
-    )
-    ref = program.root.operation.contract_ref
-    payload_ref = program.root.operation.payload_ref
-    return program, plan, ref, payload_ref
-
-
-def payload_value_id(program: Any) -> str:
-    return program.root.operation.payload_ref.value_id
-
-
-def asdict(value: Any) -> dict[str, Any]:
-    return dataclasses.asdict(value)
-
-
-def ordered_dispatch_program(*, payloads: Any, catalog: Any, program_id: str,
-                             project_key: str, project_registry_revision: int,
-                             project_scope_digest: str) -> Any:
-    """Compose test dispatch atoms with the original ordered ACK merge."""
-    from app.successor_runtime.capabilities.batch_task_program import (
-        _register_ordered_dispatch_merges, _ordered_dispatch_sequence_type,
-        build_batch_task_single_dispatch_program,
-    )
-    from app.successor_runtime.language.program import zip_ordered_node
-    from app.successor_runtime.language.transforms import TransformRegistry
-    from app.successor_runtime.language.algebra import freeze_json_object
+    payloads: tuple[batch_task.BatchTaskSingleDispatchPayload, ...]
+    | list[batch_task.BatchTaskSingleDispatchPayload],
+    catalog: OperationContractCatalogSnapshot,
+    program_id: str,
+    project_key: str,
+    project_registry_revision: int,
+    project_scope_digest: str,
+) -> ProgramSpec:
+    """Build an ordered Program from the installed single-dispatch contract."""
 
     pair, append = _register_ordered_dispatch_merges(TransformRegistry())
     roots = []
     for index, payload in enumerate(payloads):
         item = build_batch_task_single_dispatch_program(
-            payload=payload, catalog=catalog, program_id=f"{program_id}:{index}",
-            project_key=project_key, project_registry_revision=project_registry_revision,
+            payload=payload,
+            catalog=catalog,
+            program_id=f"{program_id}:{index}",
+            project_key=project_key,
+            project_registry_revision=project_registry_revision,
             project_scope_digest=project_scope_digest,
         )
-        roots.append(dataclasses.replace(item.root, operation=dataclasses.replace(
-            item.root.operation,
-            operation_id=f"{batch_task.DISPATCH_SINGLE_OPERATION_ID}:{payload.dispatch_id}",
-        )))
+        roots.append(
+            dataclasses.replace(
+                item.root,
+                operation=dataclasses.replace(
+                    item.root.operation,
+                    operation_id=(
+                        f"{batch_task.DISPATCH_SINGLE_OPERATION_ID}:"
+                        f"{payload.dispatch_id}"
+                    ),
+                ),
+            )
+        )
     root = roots[0]
     for index, atom in enumerate(roots[1:], start=1):
-        merge = pair if index == 1 else append
-        root = zip_ordered_node(left=root, right=atom, merge_ref=merge, output_type=_ordered_dispatch_sequence_type())
-    return dataclasses.replace(item, program_id=f"{program_id}:ordered-dispatch",
-                               root=root, input_type=root.input_type, output_type=root.output_type,
-                               metadata=freeze_json_object({"ordered_element_count": len(payloads)}),
-                               program_digest="").with_digest()
+        root = zip_ordered_node(
+            left=root,
+            right=atom,
+            merge_ref=pair if index == 1 else append,
+            output_type=_ordered_dispatch_sequence_type(),
+        )
+    return dataclasses.replace(
+        item,
+        program_id=f"{program_id}:ordered-dispatch",
+        root=root,
+        input_type=root.input_type,
+        output_type=root.output_type,
+        metadata=freeze_json_object({"ordered_element_count": len(payloads)}),
+        program_digest="",
+    ).with_digest()

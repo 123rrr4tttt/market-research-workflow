@@ -30,7 +30,6 @@ from app.composition.production import (
 )
 from app.composition.production_runtime import (
     AtomicRedisRateObservations,
-    EngineC9QueryReadPort,
     PostgresProductionActorScopes,
     PostgresProductionApprovals,
     ProductionRuntimeAuthorityUnavailable,
@@ -38,7 +37,6 @@ from app.composition.production_runtime import (
     RegisteredProviderCatalog,
     RegisteredProviderSelection,
     build_production_runtime_bindings,
-    build_production_successor_runtime_app_dependencies,
 )
 from app.main import _validate_production_composition, app as production_app, engine
 from app.production_contract import (
@@ -54,12 +52,7 @@ from app.services.request_identity import (
     authenticated_actor_context,
     set_request_actor_context,
 )
-from app.successor_runtime.runtime.facade import SuccessorRuntimeFacade
-from app.successor_runtime.runtime.facade_contracts import (
-    FacadeQueryV2,
-    QueryMetaV2,
-)
-from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
+from app.successor_runtime.runtime.ports import ProjectScopeRef
 from app.successor_runtime.substrate.postgres.session import RegistryBackedProjectScopeResolver, compute_scope_digest
 
 
@@ -264,93 +257,6 @@ def _rate_actor() -> RequestActorContext:
     )
 
 
-def _successor_query(scope: ProjectScopeRef) -> FacadeQueryV2:
-    return FacadeQueryV2(
-        query_id="query:production-scope",
-        query_kind="projection_snapshot",
-        project_scope_ref=scope,
-        actor_ref="actor-production-1",
-        meta=QueryMetaV2(
-            project_key=scope.project_key,
-            trace_id="trace:production-scope",
-            query_id="query:production-scope",
-            project_scope_ref=scope,
-        ),
-        params={
-            "projection_id": "projection:production-scope",
-            "projector_id": "projector:c9-production",
-            "projector_version": "1",
-            "source_kind": "successor_values",
-            "source_ref": "source:c9-production",
-            "source_incarnation": scope.incarnation,
-        },
-    )
-
-
-def test_production_successor_runtime_dependencies_preserve_scope_and_actor(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    import app.composition.production_runtime as production_runtime
-
-    connection = object()
-
-    class _ConnectionContext:
-        def __enter__(self) -> object:
-            return connection
-
-        def __exit__(self, *_args: object) -> None:
-            return None
-
-    class _Engine:
-        def connect(self) -> _ConnectionContext:
-            return _ConnectionContext()
-
-    captured: dict[str, object] = {}
-    readback = object()
-
-    class _Repository:
-        def __init__(self, observed_connection: object, scope: RuntimeScope) -> None:
-            captured["connection"] = observed_connection
-            captured["scope"] = scope
-
-        def read(self, query: FacadeQueryV2) -> object:
-            captured["query"] = query
-            return readback
-
-    monkeypatch.setattr(production_runtime, "PostgresC9QueryRepository", _Repository)
-    engine = _Engine()
-    dependencies = build_production_successor_runtime_app_dependencies(engine)  # type: ignore[arg-type]
-    assert isinstance(dependencies.resolver, RegistryBackedProjectScopeResolver)
-    assert isinstance(dependencies.facade, SuccessorRuntimeFacade)
-    query_port = dependencies.facade._query_port  # noqa: SLF001
-    assert isinstance(query_port, EngineC9QueryReadPort)
-
-    scope = FakeScopeResolver().resolve("production-scope")
-    query = _successor_query(scope)
-    assert query_port.read(query) is readback
-    assert captured == {
-        "connection": connection,
-        "scope": RuntimeScope(project_scope=scope, actor_id=query.actor_ref),
-        "query": query,
-    }
-
-    request = Request({"type": "http", "state": {}, "headers": []})
-    set_request_actor_context(
-        request,
-        authenticated_actor_context(
-            actor_id=query.actor_ref,
-            source="authenticated_request_state",
-            auth_mode="oidc_claims",
-        ),
-    )
-    assert dependencies.actor_provider(request) == query.actor_ref
-
-
-def test_production_successor_runtime_actor_fails_closed_without_trusted_identity() -> None:
-    dependencies = build_production_successor_runtime_app_dependencies(engine)
-    request = Request({"type": "http", "state": {}, "headers": []})
-    with pytest.raises(Exception, match="trusted actor required"):
-        dependencies.actor_provider(request)
 
 
 @dataclass

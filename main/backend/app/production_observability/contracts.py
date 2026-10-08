@@ -53,7 +53,6 @@ class MetricFamily(StrEnum):
     DATABASE_CONNECTION_UNAVAILABLE = "database.connection_unavailable"
     PROVIDER_FAILURE = "provider.failure"
     AUTHORITY_MISMATCH = "authority.mismatch"
-    PROJECTION_DRIFT = "projection.drift"
     REQUEST_LATENCY_BREACH_RATE = "request.latency_breach_rate"
 
 

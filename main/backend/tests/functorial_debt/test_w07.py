@@ -12,8 +12,6 @@ from app.successor_runtime.language.catalog import (
     build_first_specimen_object_contracts,
 )
 from app.successor_runtime.language.object_contracts import (
-    DOCUMENT_ADMISSION_RETURN_CONTRACT_REF,
-    build_c7_document_admission_return_contract_extension,
     build_first_specimen_return_contract_registry,
     build_frozen_base_return_contract_registry,
 )
@@ -27,8 +25,6 @@ W07_DERIVED_EXACT_KEYS = {
     "build_first_specimen_domain_snapshot returns an unmarked derived value",
     "derived-marked|main/backend/app/successor_runtime/language/catalog.py|"
     "build_first_specimen_object_contracts returns an unmarked derived value",
-    "derived-marked|main/backend/app/successor_runtime/language/object_contracts.py|"
-    "build_c7_document_admission_return_contract_extension returns an unmarked derived value",
     "derived-marked|main/backend/app/successor_runtime/language/object_contracts.py|"
     "build_first_specimen_return_contract_registry returns an unmarked derived value",
     "derived-marked|main/backend/app/successor_runtime/language/object_contracts.py|"
@@ -58,12 +54,6 @@ _W07_VIEWS: tuple[tuple[Callable[..., object], str, str], ...] = (
         "build_first_specimen_object_contracts returns an unmarked derived value",
     ),
     (
-        build_c7_document_admission_return_contract_extension,
-        "successor_runtime.language.object_contracts.DOCUMENT_ADMISSION_RETURN_CONTRACT_REF",
-        "derived-marked|main/backend/app/successor_runtime/language/object_contracts.py|"
-        "build_c7_document_admission_return_contract_extension returns an unmarked derived value",
-    ),
-    (
         build_first_specimen_return_contract_registry,
         "successor_runtime.language.object_contracts.FROZEN_BASE_RETURN_CONTRACT_REFS",
         "derived-marked|main/backend/app/successor_runtime/language/object_contracts.py|"
@@ -85,7 +75,7 @@ _W07_VIEWS: tuple[tuple[Callable[..., object], str, str], ...] = (
 
 
 def test_w07_derived_metadata_is_exact_and_non_authoritative() -> None:
-    assert len(W07_DERIVED_EXACT_KEYS) == 7
+    assert len(W07_DERIVED_EXACT_KEYS) == 6
     observed_keys: set[str] = set()
 
     for function, fact_source, exact_key in _W07_VIEWS:
@@ -104,14 +94,11 @@ def test_w07_derived_metadata_is_exact_and_non_authoritative() -> None:
     assert observed_keys == W07_DERIVED_EXACT_KEYS
 
 
-def test_w07_frozen_return_registry_preserves_additive_abi() -> None:
+def test_w07_first_specimen_return_registry_is_the_frozen_abi() -> None:
     base = build_frozen_base_return_contract_registry()
-    extension = build_c7_document_admission_return_contract_extension()
     combined = build_first_specimen_return_contract_registry()
 
-    assert len(extension) == 1
-    assert extension[0][0] == DOCUMENT_ADMISSION_RETURN_CONTRACT_REF
-    assert combined.entries == base.entries + extension
+    assert combined.entries == base.entries
 
 
 def test_w07_first_specimen_contract_projection_is_frozen() -> None:

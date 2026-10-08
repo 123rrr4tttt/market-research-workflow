@@ -172,7 +172,7 @@ def test_INVARIANT__i1_uses_the_live_b22_candidate_and_stage0_generator() -> Non
     authority = _load(AUTHORITY_MAP)
     i1 = next(entry for entry in authority["priority_order"] if entry["surface"] == "I1 exact-binding drift projection")
     assert i1["path"] == "scripts/generate_stage0_i1_exact_binding_rebind.py"
-    assert i1["state"] == "STAGE_B22_CANDIDATE_NOT_AUTHORITY"
+    assert i1["state"] == "RETIRED_GENERATOR_HISTORICAL_READBACK_ONLY"
     candidate = i1["successor_candidate"]
     assert "stage-b22-2026-09-05/candidates/I1/candidate.v2.json" in candidate["path"]
     assert candidate["candidate_id"] == "ab3f9b96856d3c8e41b30d96ac8c1291dad5a71abe7d68d95d40d2f83ff07e66"

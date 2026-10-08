@@ -80,20 +80,13 @@ def _compile(
     return program, plan, catalog
 
 
-def test_dispatch_single_contract_is_effectful_not_in_c4_bundle() -> None:
+def test_dispatch_single_contract_has_exact_installed_endpoints() -> None:
     contract = c4.build_batch_task_single_dispatch_contract()
     assert contract.ref.kind == c4.DISPATCH_SINGLE_KIND
     assert contract.input_type.type_id == c4.DISPATCH_SINGLE_PAYLOAD_TYPE.type_id
     assert contract.output_type.type_id == c4.DISPATCH_SINGLE_ACK_TYPE.type_id
 
-    bundle = c4.build_batch_task_bundle()
-    kinds = [operation.ref.kind for operation in bundle.operations]
-    assert kinds == [
-        c4.BATCH_PLAN_KIND,
-        c4.RETRY_REDUCE_KIND,
-        c4.SUBMISSION_KIND,
-    ]
-    assert c4.DISPATCH_SINGLE_KIND not in kinds
+    assert contract.owner_capability_id == c4.DISPATCH_SINGLE_OWNER
 
 
 def test_dispatch_single_profiles_are_real_semantics() -> None:

@@ -2,18 +2,21 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Literal, NoReturn, SupportsIndex, SupportsInt, TypeGuard
+from typing import Literal, NoReturn, SupportsIndex, SupportsInt, TypeGuard
 
 from functorial_kit.core.failure import Failure
 
 from mrw_functorial_kit.core.provider_port_failures import collect_runtime_failures
 
 from ..agent_batch.task_contract import parse_source_library_runtime_params
+from app.successor_runtime.capabilities import acquisition_batch as acquisition
 from app.successor_runtime.language.sync import interpret_ordered_sync
 
 from .contracts import (
     FLOW_SOURCE_COLLECT,
     CollectEffectGateway,
+    CollectBatchCounts as _CollectDeliveryCounts,
+    CollectBatchRow as _CollectDeliveryRow,
     CollectFailure,
     CollectJsonObject,
     CollectJsonValue,
@@ -21,11 +24,10 @@ from .contracts import (
     CollectResult,
     SourceLibraryCompatResponse,
     SourceLibraryCompatProjector,
+    collect_failure_to_plain,
+    fold_collect_batch_rows,
 )
 from .delivery import DeliveryObservation, observe_delivery
-
-if TYPE_CHECKING:
-    from app.successor_runtime.capabilities import acquisition_batch as acquisition
 
 _source_library_compat_projector: SourceLibraryCompatProjector | None = None
 _successor_effect_gateway: CollectEffectGateway | None = None
@@ -101,39 +103,11 @@ class _CollectDeliveryView:
     meta: dict[str, object] | None
 
 
-@dataclass(slots=True)
-class _CollectDeliveryCounts:
-    inserted: int
-    updated: int
-    skipped: int
-
-
-@dataclass(slots=True)
-class _CollectDeliveryRow:
+@dataclass(frozen=True, slots=True)
+class _CollectChild:
     element_id: str
     input_index: int
-    query_terms: tuple[str, ...]
-    observation: DeliveryObservation
-    counts: _CollectDeliveryCounts | None = None
-    links: tuple[str, ...] = ()
-    execution_state: Literal["attempted", "attempted_unknown", "not_attempted"] = "not_attempted"
-
-    def to_plain(self) -> CollectJsonObject:
-        value: CollectJsonObject = {
-            "element_id": self.element_id,
-            "input_index": self.input_index,
-            "query_terms": list(self.query_terms),
-            "observation": asdict(self.observation),
-            "execution_state": self.execution_state,
-        }
-        if self.counts is not None:
-            value["counts"] = {
-                "inserted": self.counts.inserted,
-                "updated": self.counts.updated,
-                "skipped": self.counts.skipped,
-            }
-            value["links"] = list(self.links)
-        return value
+    request: CollectRequest
 
 
 def _collect_delivery_observation(
@@ -217,530 +191,247 @@ def _json_links(value: CollectJsonValue) -> tuple[str, ...]:
     return tuple(str(link).strip() for link in _json_link_values(value) if str(link).strip())
 
 
-def _collect_result_to_element_outcome(
-    result: CollectResult, element: acquisition.CollectBatchElement
-) -> acquisition.CollectElementOutcome:
-    from app.successor_runtime.capabilities import acquisition_batch as acquisition
+def _attempt_receipt(
+    result: CollectResult, observation: DeliveryObservation, raw: CollectJsonObject
+) -> acquisition.CollectAttemptReceipt | None:
     from app.successor_runtime.capabilities.checksum import content_digest
 
-    raw = dict(_json_object(result.meta.get("raw")))
-    links = _json_links(raw.get("links"))
-    delivery = _collect_delivery_observation(result)
-    target_delivery_ok = delivery.state == "delivered"
-    receipt = None
-    if delivery.provider_job_id:
-        provider_status = None if result.provider_status is None else str(result.provider_status)
-        authoritative = target_delivery_ok
-        receipt = acquisition.CollectAttemptReceipt(
-            schema_version=acquisition.COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
-            receipt_kind=("AUTHORITATIVE_READBACK" if authoritative else "DISPATCH_ACKNOWLEDGEMENT"),
-            provider_type=str(result.provider_type or "unknown"),
-            provider_job_id=delivery.provider_job_id,
-            provider_status=provider_status,
-            attempt_count=int(result.attempt_count or 0),
-            observed_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-            raw_digest=content_digest(raw),
-            authoritative_readback=authoritative,
-            receipt_digest="",
-        )
-    counts = acquisition.CollectCounts(
-        inserted=int(result.inserted or 0),
-        updated=int(result.updated or 0),
-        skipped=int(result.skipped or 0),
-    )
-    legacy_ref = "legacy:" + content_digest({"element": element.element_id, "result": raw})
-    if target_delivery_ok:
-        return acquisition.CollectElementSucceeded(
-            schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
-            element_id=element.element_id,
-            input_index=element.input_index,
-            counts=counts,
-            links=links,
-            receipt=receipt,
-            legacy_observation_ref=legacy_ref,
-            outcome_digest="",
-        )
-    first_error: CollectFailure = (result.errors or [{}])[0]
-    if not target_delivery_ok and not first_error.get("message"):
-        first_error = {
-            "code": "runner_unavailable",
-            "message": "target delivery readback is required for successor completion",
-        }
-    return acquisition.CollectElementFailed(
-        schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
-        element_id=element.element_id,
-        input_index=element.input_index,
-        error=acquisition.CollectElementError(
-            code=(str(first_error.get("code") or "auto_batch_execution_failed") if str(first_error.get("code") or "") in acquisition.COLLECT_ELEMENT_ERROR_CODES else "auto_batch_execution_failed"),
-            message=str(first_error.get("message") or result.status or "collect element failed"),
-            query_terms=tuple(element.query_terms),
-            exception_type=first_error.get("exception_type"),
-            error_digest="",
-        ),
-        counts=counts,
-        links=links,
-        receipt=receipt,
-        legacy_observation_ref=legacy_ref,
-        outcome_digest="",
-    )
-
-
-def _build_collect_batch_plan(
-    request: CollectRequest,
-) -> tuple[acquisition.CollectBatchPlan, acquisition.CollectResourcePolicy]:
-    from app.successor_runtime.capabilities import acquisition_batch as acquisition
-    from app.successor_runtime.capabilities.checksum import content_digest
-
-    project_key = str(request.project_key or "").strip()
-    request_id = "collect:" + content_digest(
-        {
-            "flow": request.flow,
-            "channel": request.channel,
-            "project_key": project_key,
-            "query_terms": list(request.query_terms or []),
-            "urls": list(request.urls or []),
-            "limit": request.limit,
-            "provider": request.provider,
-            "language": request.language,
-            "scope": request.scope,
-            "item_key": request.item_key,
-            "options": dict(request.options or {}),
-            "source_context": dict(request.source_context or {}),
-        }
-    )
-    request_ref = acquisition.build_collect_request_ref(
-        request_id=request_id,
-        project_key=project_key,
-        channel=request.channel,
-    )
-    snapshot = acquisition.CollectLegacyRequestSnapshot(
-        schema_version=acquisition.COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
-        flow=request.flow,
-        channel=request.channel,
-        project_key=project_key,
-        query_terms=tuple(request.query_terms or ()),
-        urls=tuple(request.urls or ()),
-        limit=request.limit,
-        options=acquisition.freeze_json_object(dict(request.options or {})),
-        source_context=acquisition.freeze_json_object(dict(request.source_context or {})),
-        snapshot_digest="",
-    )
-    raw_deadline = request.options.get("deadline_seconds")
-    deadline_seconds: int | None = None
-    if isinstance(raw_deadline, (bool, int, float, str)):
-        try:
-            deadline_seconds = max(1, int(raw_deadline))
-        except (TypeError, ValueError):
-            deadline_seconds = None
-    policy = acquisition.CollectResourcePolicy(
-        schema_ref=acquisition.COLLECT_RESOURCE_POLICY_SCHEMA_REF,
-        max_parallelism=1,
-        deadline_seconds=deadline_seconds,
-        cancellation=(
-            "COORDINATED"
-            if acquisition.resolve_auto_batch_fail_fast(request)
-            else "NONE"
-        ),
-        backpressure=True,
-        provider_concurrency_key=f"{request.channel}:{request.provider or 'default'}",
-        policy_digest="",
-    )
-    plan = acquisition.build_collect_batch_plan(
-        request_ref=request_ref,
-        snapshot=snapshot,
-        plan_id=f"collect-sync:{request_id}",
-        resource_policy=policy,
-        authority_scope_ref=f"project:{project_key}",
-    )
-    return plan, policy
-
-
-def _failed_collect_outcome(
-    element: acquisition.CollectBatchElement,
-    exc: Exception,
-) -> acquisition.CollectElementFailed:
-    from app.successor_runtime.capabilities import acquisition_batch as acquisition
-
-    error = acquisition.CollectElementError(
-        code="auto_batch_execution_failed",
-        message=str(exc) or exc.__class__.__name__,
-        query_terms=element.query_terms,
-        exception_type=exc.__class__.__name__,
-        error_digest="",
-    )
-    return acquisition.CollectElementFailed(
-        schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
-        element_id=element.element_id,
-        input_index=element.input_index,
-        error=error,
-        counts=acquisition.CollectCounts(),
-        links=(),
-        receipt=None,
-        legacy_observation_ref="legacy:" + error.error_digest,
-        outcome_digest="",
-    )
-
-
-def _collect_cancellation_receipt(
-    cause: acquisition.CollectElementError,
-    *,
-    trigger_input_index: int,
-) -> acquisition.CollectCancellationReceipt:
-    from app.successor_runtime.capabilities import acquisition_batch as acquisition
-
-    return acquisition.CollectCancellationReceipt(
-        schema_version=acquisition.COLLECT_CANCELLATION_RECEIPT_SCHEMA_REF,
-        code="FAIL_FAST_CANCELLED",
-        message=cause.message,
-        trigger_input_index=trigger_input_index,
-        observed="SERIAL_EXECUTION",
+    if not observation.provider_job_id:
+        return None
+    authoritative = observation.state == "delivered"
+    return acquisition.CollectAttemptReceipt(
+        schema_version=acquisition.COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
+        receipt_kind="AUTHORITATIVE_READBACK" if authoritative else "DISPATCH_ACKNOWLEDGEMENT",
+        provider_type=str(result.provider_type or "unknown"),
+        provider_job_id=observation.provider_job_id,
+        provider_status=None if result.provider_status is None else str(result.provider_status),
+        attempt_count=int(result.attempt_count or 0),
+        observed_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        raw_digest=content_digest(raw),
+        authoritative_readback=authoritative,
         receipt_digest="",
     )
 
 
-def _project_collect_aggregate(
-    request: CollectRequest,
-    aggregate: acquisition.CollectAggregateOutcome,
-    sequence: acquisition.OrderedCollectElementOutcomeSequence,
-    plan: acquisition.CollectBatchPlan,
-    *,
-    cancellation: acquisition.CollectCancellationReceipt | None = None,
-) -> CollectResult:
-    from app.successor_runtime.capabilities import acquisition_batch as acquisition
+def _execution_error(message: str, exception_type: str | None = None) -> CollectFailure:
+    return {"code": "auto_batch_execution_failed", "message": message, "exception_type": exception_type}
 
-    counts: acquisition.CollectCounts | None = None
-    receipts: tuple[acquisition.CollectAttemptReceipt, ...] = ()
+
+def _run_collect_child(child: _CollectChild, gateway: CollectEffectGateway) -> _CollectDeliveryRow:
+    try:
+        result = gateway(child.request)
+    except Exception as exc:  # noqa: BLE001 - the gateway produced no inspectable result
+        return _CollectDeliveryRow(
+            child.element_id, child.input_index, tuple(child.request.query_terms), observe_delivery(None),
+            _CollectDeliveryCounts(0, 0, 0), errors=(_execution_error(str(exc) or exc.__class__.__name__, exc.__class__.__name__),),
+            execution_state="attempted_unknown",
+        )
+
+    raw = dict(_json_object(result.meta.get("raw")))
+    observation = _collect_delivery_observation(result)
+    execution_state: Literal["attempted", "attempted_unknown"] = (
+        "attempted_unknown"
+        if observation.state == observation.provider_state == "unknown"
+        else "attempted"
+    )
+    projection_errors: list[CollectFailure] = []
+    counts: _CollectDeliveryCounts | None
+    try:
+        counts = _CollectDeliveryCounts(int(result.inserted or 0), int(result.updated or 0), int(result.skipped or 0))
+    except Exception as exc:  # noqa: BLE001 - preserve provider observation on invalid counts
+        counts = None
+        projection_errors.append(
+            _execution_error(str(exc) or exc.__class__.__name__, exc.__class__.__name__)
+        )
+    if counts is not None and min(counts.inserted, counts.updated, counts.skipped) < 0:
+        projection_errors.append(
+            _execution_error("collect counts must be non-negative", "ValueError")
+        )
     links: tuple[str, ...] = ()
-    element_errors: tuple[acquisition.CollectElementError, ...] = ()
-    if isinstance(
-        aggregate,
-        (
-            acquisition.CollectAggregateSucceeded,
-            acquisition.CollectAggregatePartial,
-            acquisition.CollectAggregateFailed,
-        ),
-    ):
-        counts = aggregate.aggregate_counts
-        receipts = aggregate.receipts
-        links = aggregate.links
-    if isinstance(
-        aggregate,
-        (acquisition.CollectAggregatePartial, acquisition.CollectAggregateFailed),
-    ):
-        element_errors = aggregate.errors
+    try:
+        links = _json_links(raw.get("links"))
+    except Exception as exc:  # noqa: BLE001 - retain independent effect facts
+        projection_errors.append(
+            _execution_error(str(exc) or exc.__class__.__name__, exc.__class__.__name__)
+        )
+    receipt = None
+    try:
+        receipt = _attempt_receipt(result, observation, raw)
+    except Exception as exc:  # noqa: BLE001 - preserve observed job and counts
+        projection_errors.append(
+            _execution_error(str(exc) or exc.__class__.__name__, exc.__class__.__name__)
+        )
+    succeeded = (
+        result.status in {"completed", "accepted"}
+        and not result.errors
+        and not projection_errors
+    )
+    first = (result.errors or [{}])[0]
+    code = first.get("code")
+    normalized = code if code in {"element_rejected", "runner_unavailable"} else "auto_batch_execution_failed"
+    result_errors: tuple[CollectFailure, ...] = () if not result.errors else ({
+        **first,
+        "code": normalized,
+        "message": str(first.get("message") or "target delivery readback is required for successor completion"),
+        "query_terms": tuple(child.request.query_terms),
+    },)
+    errors = (*projection_errors, *result_errors)
+    return _CollectDeliveryRow(
+        child.element_id, child.input_index, tuple(child.request.query_terms), observation,
+        counts, links, errors, receipt, "succeeded" if succeeded else "failed", execution_state,
+    )
 
+
+def _collect_fail_fast_stop(row: _CollectDeliveryRow) -> bool:
+    """Preserve the collect consumer's target-delivery fail-fast boundary."""
+
+    return (
+        row.result_status == "failed"
+        or row.observation is None
+        or row.observation.state != "delivered"
+    )
+
+
+def _expand_collect_children(request: CollectRequest) -> tuple[_CollectChild, ...]:
+    from app.successor_runtime.capabilities.checksum import content_digest
+
+    batches = acquisition.split_query_terms(request.query_terms)
+    per_limit = acquisition.per_batch_limit_for(request.limit, len(batches))
+    request_id = content_digest({
+        "flow": request.flow, "channel": request.channel, "project_key": request.project_key,
+        "query_terms": request.query_terms, "urls": request.urls, "limit": request.limit,
+        "provider": request.provider, "language": request.language, "scope": request.scope,
+        "item_key": request.item_key, "options": request.options, "source_context": request.source_context,
+    })
+    return tuple(_CollectChild(
+        f"collect-sync:collect:{request_id}:element:{index}", index,
+        replace(request, query_terms=list(terms), limit=per_limit, source_context={**request.source_context, "auto_batched_child": True}),
+    ) for index, terms in enumerate(batches))
+
+
+def _project_collect_rows(
+    request: CollectRequest, rows: tuple[_CollectDeliveryRow, ...], requested: int,
+    cancellation: acquisition.CollectCancellationReceipt | None,
+) -> CollectResult:
+    folded = fold_collect_batch_rows(rows, cancellation=cancellation)
+    attempted = tuple(row for row in folded.rows if row.execution_state != "not_attempted")
+    counts, links = folded.counts, folded.links
+    errors: list[CollectFailure] = []
+    receipts = folded.receipts
     batch_results: list[CollectJsonValue] = []
-    inserted_count = 0 if counts is None else counts.inserted
-    updated_count = 0 if counts is None else counts.updated
-    skipped_count = 0 if counts is None else counts.skipped
-    raw: CollectJsonObject = {
-        "inserted": inserted_count,
-        "updated": updated_count,
-        "skipped": skipped_count,
-        "auto_batched": True,
-        "batches_total": len(plan.elements),
-        "batch_parallelism": plan.effective_parallelism,
-        "batch_parallelism_requested": plan.requested_parallelism,
-        "batch_independence_policy_explicit": plan.effective_parallelism > 1,
-        "batch_results": batch_results,
-        "typed_batch_results": [outcome.to_plain() for outcome in sequence.outcomes],
-        "ordered_outcomes": sequence.to_plain(),
-        "aggregate": aggregate.to_plain(),
-        "aggregate_kind": aggregate.kind,
-    }
-    for outcome in sequence.outcomes:
-        projection: CollectJsonObject = {
-            "status": outcome.status,
-            "inserted": outcome.counts.inserted,
-            "updated": outcome.counts.updated,
-            "skipped": outcome.counts.skipped,
-            "errors": (
-                [outcome.error.to_plain()]
-                if isinstance(outcome, acquisition.CollectElementFailed)
-                and outcome.error is not None
-                else []
-            ),
-            "links": list(outcome.links),
-        }
-        item: CollectJsonObject = {
-            "query_terms": list(
-                plan.elements[outcome.input_index].query_terms
-                if 0 <= outcome.input_index < len(plan.elements)
-                else (
-                    outcome.error.query_terms
-                    if isinstance(outcome, acquisition.CollectElementFailed)
-                    and outcome.error is not None
-                    else ()
-                )
-            ),
-            "result": projection,
-        }
-        if outcome.receipt is not None:
-            item.update(
-                {
-                    "provider_job_id": outcome.receipt.provider_job_id,
-                    "provider_type": outcome.receipt.provider_type,
-                    "provider_status": outcome.receipt.provider_status,
-                    "attempt_count": outcome.receipt.attempt_count,
-                }
-            )
+    for row in attempted:
+        target_status = "failed" if _collect_fail_fast_stop(row) else "succeeded"
+        target_errors = row.errors
+        if target_status == "failed" and not target_errors:
+            fallback: CollectFailure = {
+                "code": "runner_unavailable",
+                "message": "target delivery readback is required for successor completion",
+                "query_terms": row.query_terms,
+            }
+            target_errors = (fallback,)
+        errors.extend(target_errors)
+        item: CollectJsonObject = {"query_terms": list(row.query_terms), "result": {
+            "status": target_status,
+            "inserted": row.counts.inserted if row.counts else 0,
+            "updated": row.counts.updated if row.counts else 0,
+            "skipped": row.counts.skipped if row.counts else 0,
+            "errors": [collect_failure_to_plain(error) for error in target_errors], "links": list(row.links),
+        }}
+        if row.receipt:
+            item.update({"provider_job_id": row.receipt.provider_job_id, "provider_type": row.receipt.provider_type,
+                         "provider_status": row.receipt.provider_status, "attempt_count": row.receipt.attempt_count})
         batch_results.append(item)
-    if cancellation is not None:
+    states = [
+        row.observation.state
+        for row in attempted
+        if row.execution_state == "attempted" and row.observation is not None
+    ]
+    pending = any(state in {"waiting", "unknown"} for state in states)
+    provider_cancelled = any(state == "cancelled" for state in states)
+    failed = sum(_collect_fail_fast_stop(row) for row in attempted)
+    if pending or provider_cancelled:
+        status: Literal["unknown", "cancelled", "completed", "accepted", "partial", "failed"] = "unknown" if pending else "cancelled"
+    elif folded.receipt_conflict:
+        status = "failed"
+        errors.append(_execution_error("duplicate provider_job_id has divergent receipt identity"))
+    elif cancellation:
+        status = "cancelled"
+    elif not failed:
+        status = "completed" if receipts and all(acquisition.receipt_implies_completed(item) for item in receipts) else "accepted"
+    else:
+        status = "partial" if failed < len(attempted) else "failed"
+    delivery: list[CollectJsonValue] = [row.to_plain() for row in rows]
+    raw: CollectJsonObject = {
+        "inserted": counts.inserted, "updated": counts.updated, "skipped": counts.skipped,
+        "links": list(links), "auto_batched": True, "batches_total": len(rows),
+        "batch_parallelism": 1, "batch_parallelism_requested": requested,
+        "batch_independence_policy_explicit": False, "batch_results": batch_results,
+        "delivery_observations": delivery,
+    }
+    if pending or provider_cancelled:
+        raw.update({"outcome": "OutcomeUnknown" if pending else "Cancelled", "reason": (
+            "target_delivery_readback_required" if any(
+                row.observation is not None
+                and row.observation.state == "unknown"
+                and row.observation.provider_state == "delivered"
+                for row in attempted
+            )
+            else "provider_readback_pending" if pending else "provider_cancelled"
+        )})
+        errors = []
+    if cancellation:
         raw["cancellation_receipt"] = cancellation.to_plain()
     if receipts:
-        raw["receipts"] = [receipt.to_plain() for receipt in receipts]
-        raw["provider_job_ids"] = [receipt.provider_job_id for receipt in receipts]
-    if links:
-        raw["links"] = list(links)
-    errors: list[CollectFailure] = [
-        CollectFailure(**error.to_plain()) for error in element_errors
-    ]
-    terminal_receipts = bool(receipts) and all(
-        acquisition.receipt_implies_completed(receipt) for receipt in receipts
-    )
-    if cancellation is not None:
-        status = "cancelled"
-    elif aggregate.kind == "succeeded" and terminal_receipts:
-        status = "completed"
-    elif aggregate.kind == "succeeded":
-        status = "accepted"
-    elif aggregate.kind == "partial":
-        status = "partial"
-    else:
-        status = "failed"
+        raw["receipts"] = [item.to_plain() for item in receipts]
+        raw["provider_job_ids"] = [item.provider_job_id for item in receipts]
     result = CollectResult(
-        flow=request.flow,
-        channel=request.channel,
-        status=status,
-        inserted=inserted_count,
-        updated=updated_count,
-        skipped=skipped_count,
-        errors=errors,
-        meta={
-            "raw": raw,
-            "batch_parallelism": plan.effective_parallelism,
-            "batch_parallelism_requested": plan.requested_parallelism,
-            "batch_independence_policy_explicit": plan.effective_parallelism > 1,
-        },
+        flow=request.flow, channel=request.channel, status=status,
+        inserted=counts.inserted, updated=counts.updated, skipped=counts.skipped, errors=errors,
+        meta={"raw": raw, "delivery_observations": delivery, "batch_parallelism": 1,
+              "batch_parallelism_requested": requested, "batch_independence_policy_explicit": False},
     )
     if len(receipts) == 1:
-        result.provider_job_id = receipts[0].provider_job_id
-        result.provider_type = receipts[0].provider_type
-        result.provider_status = receipts[0].provider_status
-        result.attempt_count = receipts[0].attempt_count
+        receipt = receipts[0]
+        result.provider_job_id, result.provider_type = receipt.provider_job_id, receipt.provider_type
+        result.provider_status, result.attempt_count = receipt.provider_status, receipt.attempt_count
+    from .display_meta import build_display_meta
+    summary = request.source_context.get("summary")
+    result.display_meta = build_display_meta(request, result, summary=summary if isinstance(summary, str) else None)
     return result
 
 
 def _run_successor_collect(request: CollectRequest) -> CollectResult | None:
-    """Interpret one known finite collect batch in request-local order."""
-
-    from app.successor_runtime.capabilities import acquisition_batch as acquisition
-    if (
-        request.channel not in acquisition.COLLECT_AUTO_BATCH_CHANNELS
-        or not request.project_key
-        or not acquisition.should_auto_batch(request)
-    ):
+    """Expand a collect request and fold actual delivery facts once."""
+    if request.channel not in acquisition.COLLECT_AUTO_BATCH_CHANNELS or not request.project_key or not acquisition.should_auto_batch(request):
         return None
     gateway = _successor_effect_gateway
     if gateway is None:
         return _outcome_unknown_result(request)
-    plan, policy = _build_collect_batch_plan(request)
-    delivery_by_index: dict[int, _CollectDeliveryRow] = {}
-
-    def _run_bound_effect(
-        element: acquisition.CollectBatchElement,
-        _previous: None,
-    ) -> acquisition.CollectElementOutcome:
-        effect_request = replace(
-            request,
-            query_terms=list(element.query_terms),
-            limit=element.per_batch_limit,
-            source_context={
-                **dict(request.source_context or {}),
-                "auto_batched_child": True,
-            },
-        )
-        try:
-            effect_result = gateway(effect_request)
-        except Exception as exc:  # noqa: BLE001 - domain failure row preserves partial order
-            return _failed_collect_outcome(element, exc)
-        effect_raw = _json_object(effect_result.meta.get("raw"))
-        try:
-            observed_links = tuple(
-                str(link)
-                for link in _json_link_values(effect_raw.get("links"))
-                if str(link).strip()
-            )
-        except Exception as exc:  # noqa: BLE001 - preserve the attempted delivery before typed projection
-            delivery_by_index[element.input_index] = _CollectDeliveryRow(
-                element_id=element.element_id,
-                input_index=element.input_index,
-                query_terms=element.query_terms,
-                observation=_collect_delivery_observation(effect_result),
-                counts=_CollectDeliveryCounts(
-                    inserted=int(effect_result.inserted or 0),
-                    updated=int(effect_result.updated or 0),
-                    skipped=int(effect_result.skipped or 0),
-                ),
-                execution_state="attempted_unknown",
-            )
-            return _failed_collect_outcome(element, exc)
-        delivery_by_index[element.input_index] = _CollectDeliveryRow(
-            element_id=element.element_id,
-            input_index=element.input_index,
-            query_terms=element.query_terms,
-            observation=_collect_delivery_observation(effect_result),
-            counts=_CollectDeliveryCounts(
-                inserted=int(effect_result.inserted or 0),
-                updated=int(effect_result.updated or 0),
-                skipped=int(effect_result.skipped or 0),
+    children = _expand_collect_children(request)
+    fail_fast = acquisition.resolve_auto_batch_fail_fast(request)
+    rows = interpret_ordered_sync(
+        children, initial_value=None, invoke=lambda child, _previous: _run_collect_child(child, gateway),
+        continue_after=lambda row: not (fail_fast and _collect_fail_fast_stop(row)), output_value=lambda _row: None,
+    )
+    attempted = {row.input_index for row in rows}
+    rows += tuple(_CollectDeliveryRow(
+        child.element_id, child.input_index, tuple(child.request.query_terms), observe_delivery(None)
+    ) for child in children if child.input_index not in attempted)
+    stopped = next((
+        row for row in rows
+        if row.execution_state != "not_attempted" and _collect_fail_fast_stop(row)
+    ), None)
+    cancellation = None
+    if fail_fast and stopped:
+        cancellation = acquisition.CollectCancellationReceipt(
+            schema_version=acquisition.COLLECT_CANCELLATION_RECEIPT_SCHEMA_REF,
+            code="FAIL_FAST_CANCELLED", message=str(
+                (stopped.errors[0].get("message") if stopped.errors else None)
+                or (stopped.observation.state if stopped.observation is not None else "failed")
             ),
-            links=observed_links,
+            trigger_input_index=stopped.input_index, observed="SERIAL_EXECUTION", receipt_digest="",
         )
-        try:
-            return _collect_result_to_element_outcome(effect_result, element)
-        except Exception as exc:  # noqa: BLE001 - typed projection failure remains one ordered element failure
-            row = delivery_by_index[element.input_index]
-            if row.observation.state == "unknown" and row.observation.provider_state == "unknown":
-                delivery_by_index[element.input_index] = replace(
-                    row,
-                    execution_state="attempted_unknown",
-                )
-            return _failed_collect_outcome(element, exc)
-
-    ordered_outcomes = interpret_ordered_sync(
-        plan.elements,
-        initial_value=None,
-        invoke=_run_bound_effect,
-        continue_after=lambda outcome: not (
-            isinstance(outcome, acquisition.CollectElementFailed)
-            and plan.failure_policy == "FAIL_FAST_WITH_PARTIAL_OBSERVATION"
-        ),
-        output_value=lambda _outcome: None,
-    )
-    failed = next(
-        (
-            outcome
-            for outcome in ordered_outcomes
-            if isinstance(outcome, acquisition.CollectElementFailed)
-        ),
-        None,
-    )
-    if failed is not None and plan.failure_policy == "FAIL_FAST_WITH_PARTIAL_OBSERVATION":
-        assert failed.error is not None
-        cancelled = True
-        cancellation = _collect_cancellation_receipt(
-            failed.error,
-            trigger_input_index=failed.input_index,
-        )
-    else:
-        cancelled = False
-        cancellation = None
-    outcome_indexes = {item.input_index for item in ordered_outcomes}
-    delivery_rows: list[_CollectDeliveryRow] = []
-    for element in plan.elements:
-        row = delivery_by_index.get(element.input_index)
-        if row is None:
-            row = _CollectDeliveryRow(
-                element_id=element.element_id,
-                input_index=element.input_index,
-                query_terms=element.query_terms,
-                observation=observe_delivery(None),
-            )
-        delivery_rows.append(replace(row,
-            execution_state=(
-                row.execution_state if row.execution_state != "not_attempted"
-                else "attempted" if element.input_index in delivery_by_index
-                else "attempted_unknown" if element.input_index in outcome_indexes
-                else "not_attempted"
-            ),
-        ))
-    delivery_states = [
-        row.observation.state
-        for row in delivery_rows if row.execution_state == "attempted"
-    ]
-    pending_delivery = any(state in {"waiting", "unknown"} for state in delivery_states)
-    delivery_cancelled = any(state == "cancelled" for state in delivery_states)
-    if pending_delivery or delivery_cancelled:
-        # The acquisition outcome union has only succeeded/failed element variants. Preserve
-        # uncertain or cancelled owner observations before its fold would
-        # mislabel them as failures, and do not unlock the next collect step.
-        counts = {
-            "inserted": sum(row.counts.inserted for row in delivery_rows if row.counts is not None),
-            "updated": sum(row.counts.updated for row in delivery_rows if row.counts is not None),
-            "skipped": sum(row.counts.skipped for row in delivery_rows if row.counts is not None),
-        }
-        links = list(dict.fromkeys(
-            link for row in delivery_rows for link in row.links
-        ))
-        state: Literal["unknown", "cancelled"] = "unknown" if pending_delivery else "cancelled"
-        requested_parallelism = acquisition.resolve_auto_batch_parallelism(request)
-        fail_fast = acquisition.resolve_auto_batch_fail_fast(request)
-        reason = (
-            "target_delivery_readback_required"
-            if any(
-                row.observation.state == "unknown"
-                and row.observation.provider_state == "delivered"
-                for row in delivery_rows if row.execution_state == "attempted"
-            )
-            else "provider_readback_pending" if pending_delivery else "provider_cancelled"
-        )
-        raw_meta: CollectJsonObject = {
-            "links": list(links),
-            "outcome": "OutcomeUnknown" if pending_delivery else "Cancelled",
-            "reason": reason,
-            "batch_parallelism": policy.max_parallelism,
-            "batch_parallelism_requested": requested_parallelism,
-            "batch_fail_fast": fail_fast,
-            "delivery_observations": [row.to_plain() for row in delivery_rows],
-            "typed_batch_results": [item.to_plain() for item in ordered_outcomes],
-        }
-        raw_meta.update(counts)
-        if cancellation is not None:
-            raw_meta["cancellation_receipt"] = cancellation.to_plain()
-        return CollectResult(
-            flow=request.flow,
-            channel=request.channel,
-            status=state,
-            inserted=counts["inserted"],
-            updated=counts["updated"],
-            skipped=counts["skipped"],
-            meta={
-                "batch_parallelism": policy.max_parallelism,
-                "batch_parallelism_requested": requested_parallelism,
-                "batch_fail_fast": fail_fast,
-                "raw": raw_meta,
-            },
-        )
-    sequence = acquisition.OrderedCollectElementOutcomeSequence(
-        schema_version=acquisition.ORDERED_OUTCOME_SEQUENCE_SCHEMA_REF,
-        parent_request_ref=plan.request_ref,
-        outcomes=ordered_outcomes,
-        sequence_digest="",
-    )
-    aggregate = acquisition.fold_ordered_results(
-        sequence,
-        aggregation_policy_ref=acquisition.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
-        observation_profile_ref=acquisition.COLLECT_FOLD_OBSERVATION_PROFILE,
-    )
-
-    result = _project_collect_aggregate(
-        request,
-        aggregate,
-        sequence,
-        plan,
-        cancellation=(cancellation if cancelled else None),
-    )
-    delivery_plain: list[CollectJsonValue] = [row.to_plain() for row in delivery_rows]
-    result.meta["delivery_observations"] = delivery_plain
-    result_raw = result.meta["raw"]
-    assert isinstance(result_raw, dict)
-    result_raw["delivery_observations"] = delivery_plain
-    from .display_meta import build_display_meta
-
-    summary = request.source_context.get("summary")
-    result.display_meta = build_display_meta(request, result, summary=(summary if isinstance(summary, str) else None))
-    return result
+    return _project_collect_rows(request, rows, acquisition.resolve_auto_batch_parallelism(request), cancellation)
 
 
 def _run_collect_no_batch(request: CollectRequest) -> CollectResult:

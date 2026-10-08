@@ -10,6 +10,7 @@ from uuid import NAMESPACE_URL, uuid4, uuid5
 from functorial_kit import Failure
 
 if TYPE_CHECKING:
+    from app.successor_runtime.language.plan import ExecutionPlan
     from app.successor_runtime.substrate.projections.agent_session import (
         AgentSessionSnapshot,
     )
@@ -363,6 +364,31 @@ class WorkflowGraphRuntimeService:
         )
 
     @staticmethod
+    def _read_runtime_plan(
+        *, run: Mapping[str, object], project_key: str, actor_id: str,
+    ) -> ExecutionPlan:
+        from sqlalchemy import MetaData
+        from app.models.base import engine
+        from app.successor_runtime.runtime.ports import RuntimeScope
+        from app.successor_runtime.substrate.postgres.models import project_tables
+        from app.successor_runtime.substrate.postgres.plans import PlanRepository
+        from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
+
+        with engine.connect() as connection:
+            project = ServerProjectScopeResolver(connection=connection).resolve(project_key)
+            if (run["resolved_schema"] != project.resolved_schema
+                    or run["project_registry_revision"] != project.project_registry_revision
+                    or run["project_scope_digest"] != project.scope_digest):
+                _raise_facade_failure("integrity_invalid", "workflow replay project scope drift")
+            plan = PlanRepository(connection, project_tables(MetaData(), project.resolved_schema)).get(
+                RuntimeScope(project_scope=project, actor_id=actor_id), str(run["plan_digest"]),
+            )
+            if (plan.plan_id != run["plan_id"] or plan.plan_digest != run["plan_digest"]
+                    or plan.program_id != run["program_id"] or plan.program_digest != run["program_digest"]):
+                _raise_facade_failure("integrity_invalid", "workflow replay Run/Plan identity drift")
+            return plan
+
+    @staticmethod
     def _load_agent_session_snapshot(
         *, run_id: str, incarnation: str, project_key: str, actor_id: str,
     ) -> AgentSessionSnapshot:
@@ -582,6 +608,14 @@ class WorkflowGraphRuntimeService:
             run_id=str(run_id), project_key=project_key, actor_id=actor_id,
         )
         node_by_step = {str(step.get("step_id") or ""): self._node_id(step) for step in steps}
+        failures = {}
+        if any(event.get("event_type") == "EffectFailed" for event in events):
+            from app.composition.production import read_installed_program_failures
+            from app.models.base import engine
+
+            failures = dict(read_installed_program_failures(
+                engine=engine, run_id=str(run_id), project_key=project_key, actor_id=actor_id,
+            ))
         items: list[WorkflowEventView] = []
         for event in events:
             created_at = event.get("created_at")
@@ -593,6 +627,18 @@ class WorkflowGraphRuntimeService:
             )
             raw_seq = event.get("seq")
             seq = raw_seq if isinstance(raw_seq, int) and not isinstance(raw_seq, bool) else 0
+            if event_type == "EffectFailed":
+                record = failures.get(seq)
+                if record is None:
+                    _raise_facade_failure("integrity_invalid", "canonical workflow failure was not verified")
+                metadata.update(failure_ref=record.failure_ref, failure_digest=record.failure_digest,
+                                failure_code=record.failure_code)
+                if record.domain_failure is not None:
+                    failure = record.domain_failure
+                    context = None if failure.context is None else _require_json_object(
+                        failure.context, "verified workflow Failure context must be JSON",
+                    )
+                    metadata.update(failure_family=failure.family, error=failure.message, context=context)
             items.append({
                 "ts": timestamp, "type": event_type,
                 "node_id": node_by_step.get(str(event.get("step_id") or "")),
@@ -660,6 +706,18 @@ class WorkflowGraphRuntimeService:
             run_id=str(run_id), incarnation=incarnation,
             project_key=project_key, actor_id=actor_id,
         )
+        plan = self._read_runtime_plan(run=run, project_key=project_key, actor_id=actor_id)
+        if (snapshot.run_id != str(run_id) or snapshot.run_incarnation != incarnation
+                or len(events) != snapshot.last_seq
+                or any(event.get("seq") != index for index, event in enumerate(events, 1))):
+            _raise_facade_failure("integrity_invalid", "workflow replay journal frontier drift")
+        for event_type, expected in (
+            ("ProgramAccepted", {"program_id": plan.program_id, "program_digest": plan.program_digest}),
+            ("PlanCompiled", {"plan_id": plan.plan_id, "plan_digest": plan.plan_digest}),
+        ):
+            anchors = tuple(event for event in events if event.get("event_type") == event_type)
+            if len(anchors) != 1 or anchors[0].get("event_metadata_json") != expected:
+                _raise_facade_failure("integrity_invalid", "workflow replay Program/Plan journal identity drift")
         session_status = str(snapshot.status)
         if session_status == "pending":
             replayed_status: WorkflowRunStatus = "queued"
@@ -679,14 +737,18 @@ class WorkflowGraphRuntimeService:
                 if any(str(task.step_state) in active_states for task in snapshot.tasks)
                 else "queued"
             )
-        node_by_step = {
-            str(step.get("step_id") or ""): self._node_id(step) for step in steps
-        }
+        node_by_step = {step.step_id: self._node_id({"operation_id": step.operation_id})
+                        for step in plan.ordered_steps if step.step_kind == "EFFECT"}
+        touched_steps = {event["step_id"] for event in events if event.get("step_id") is not None}
+        task_steps = {task.step_id for task in snapshot.tasks}
+        if (task_steps - set(node_by_step) or touched_steps - set(node_by_step)
+                or (set(node_by_step) - task_steps) & touched_steps):
+            _raise_facade_failure("integrity_invalid", "workflow replay task/activation differs from exact Plan")
         replayed_node_statuses: dict[str, WorkflowNodeStatus] = {
-            node_by_step[task.step_id]: self._node_status(task.step_state)
-            for task in snapshot.tasks
-            if task.step_id in node_by_step
+            node_id: "queued" for node_id in node_by_step.values()
         }
+        replayed_node_statuses.update({node_by_step[task.step_id]: self._node_status(task.step_state)
+                                      for task in snapshot.tasks})
         issues: list[WorkflowIntegrityIssueValue] = []
         if stored_status != replayed_status:
             issues.append({

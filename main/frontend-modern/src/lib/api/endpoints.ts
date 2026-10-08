@@ -236,9 +236,6 @@ export const endpoints = {
     keywordCardPreview: `${API_BASE}/writing/keyword-cards/preview`,
     cardById: (cardId: string) => `${API_BASE}/writing/cards/${encodeURIComponent(cardId)}`,
     suggest: `${API_BASE}/writing/suggest`,
-    llmActions: `${API_BASE}/writing/llm-actions`,
-    llmActionHistory: `${API_BASE}/writing/llm-actions/history`,
-    llmActionById: (jobId: number) => `${API_BASE}/writing/llm-actions/${encodeURIComponent(String(jobId))}`,
     exportMarkdown: `${API_BASE}/writing/export/markdown`,
   },
   typedKnowledge: {

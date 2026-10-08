@@ -272,7 +272,7 @@
       "classification": "GENERATED_EVIDENCE_REGISTRATION_PROJECTION",
       "derived_as": "view",
       "authority_direction": "frozen I1 build manifests plus current exact bytes -> additive candidate documents",
-      "state": "STAGE_B22_CANDIDATE_NOT_AUTHORITY",
+      "state": "RETIRED_GENERATOR_HISTORICAL_READBACK_ONLY",
       "successor_candidate": {
         "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b22-2026-09-05/candidates/I1/candidate.v2.json",
         "candidate_id": "ab3f9b96856d3c8e41b30d96ac8c1291dad5a71abe7d68d95d40d2f83ff07e66",

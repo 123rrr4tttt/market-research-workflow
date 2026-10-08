@@ -218,7 +218,7 @@ def build_fixture_capability_bundle() -> Annotated[
     Literal[
         "kit:non-authoritative derived_as=simulation "
         "fact_source=fixture_capability_inputs "
-        "witness=test:test_w06_successor_authority_metadata"
+        "witness=test:test_fixture_capability_is_additive_only"
     ],
 ]:
     (

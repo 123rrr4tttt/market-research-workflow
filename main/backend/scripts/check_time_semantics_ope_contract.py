@@ -14,10 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.generate_prompt_time_density_gonogo import build_gonogo_report
 
-try:
-    from app.services.ingest import digestion_scaffold
-except Exception:  # noqa: BLE001 - deterministic gate must survive app import drift.
-    from scripts.check_time_density_runtime_support import digestion_scaffold
+from scripts.check_time_density_runtime_support import digestion_scaffold
 
 try:
     from app.services.stats import prompt_time_density

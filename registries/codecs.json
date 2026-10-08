@@ -19,26 +19,6 @@
     {
       "discriminant": "information_topology.state.v1",
       "name": "information-topology-state"
-    },
-    {
-      "discriminant": "material.digestion.alternative.v2",
-      "name": "material.digestion.alternative"
-    },
-    {
-      "discriminant": "material.ingest.input_kind.v2",
-      "name": "material.ingest.input_kind"
-    },
-    {
-      "discriminant": "material.ingest.content_format.v2",
-      "name": "material.ingest.content_format"
-    },
-    {
-      "discriminant": "material.ingest.movement_disposition.v2",
-      "name": "material.ingest.movement_disposition"
-    },
-    {
-      "discriminant": "material.ingest.terminal_outcome.v2",
-      "name": "material.ingest.terminal_outcome"
     }
   ],
   "version": "kit-registry.codecs.v1"

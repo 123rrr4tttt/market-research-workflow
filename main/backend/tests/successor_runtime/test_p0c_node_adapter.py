@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Self
 
 import pytest
+from functorial_kit import Failure
 
 from app.successor_runtime.language.object_contracts import (
     OperationContractRef,
@@ -167,6 +168,7 @@ class _Backend:
         self.durable: dict[str, _Durable] = {}
         self.claim_contexts: list[NodeClaimContext] = []
         self.terminals: list[TerminalOutcome] = []
+        self.domain_failures: list[Failure | None] = []
         self.reconciliation_adoptions: list[dict[str, object]] = []
         self.fail_heartbeat = False
         self.connection_ids: list[int] = []
@@ -206,7 +208,7 @@ class _Backend:
         self, connection: Any, scope: RuntimeScope
     ) -> _FakeRuntimeFailureRepository:
         assert scope.project_scope == self.scope.project_scope
-        return _FakeRuntimeFailureRepository(connection)
+        return _FakeRuntimeFailureRepository(connection, self)
 
 
 @dataclass(frozen=True)
@@ -216,8 +218,9 @@ class _FakeFailureRecord:
 
 
 class _FakeRuntimeFailureRepository:
-    def __init__(self, connection: Any) -> None:
+    def __init__(self, connection: Any, backend: _Backend) -> None:
         self.connection = connection
+        self.backend = backend
 
     def put_exact(
         self,
@@ -226,7 +229,9 @@ class _FakeRuntimeFailureRepository:
         assignment: RuntimeAssignment,
         claim: ClaimBinding,
         failure_code: str,
+        domain_failure: Failure | None = None,
     ) -> _FakeFailureRecord:
+        self.backend.domain_failures.append(domain_failure)
         return _FakeFailureRecord(
             failure_ref=f"project-value:runtime-failure:{claim.attempt_id}",
             failure_digest=canonical_digest(
@@ -637,6 +642,19 @@ def test_start_heartbeat_and_terminal_mapping_use_fresh_uows(
     assert len(backend.connection_ids) == 5
     assert len(set(backend.connection_ids)) == 5
     assert all(uow.committed for uow in backend.uows)
+
+
+def test_adapter_transports_the_original_domain_failure_to_terminal_writer() -> None:
+    backend = _Backend((_Pending(_assignment("domain-failure"), _digest("authorization")),))
+    adapter, claim, scope = _started_claim(backend)
+    domain = Failure("workflow", "PROVIDER_REJECTED", "中文失败", {"nested": [1, True]})
+    adapter.commit_outcome(control_scope=scope, claim=claim,
+                           outcome=InterpreterOutcome.failed(domain.code, domain_failure=domain),
+                           expected_revision=claim.work_item_revision, observed_at=NOW + timedelta(seconds=2))
+    assert backend.domain_failures == [domain]
+    assert backend.domain_failures[0] is domain
+    assert backend.terminals[-1].kind is EffectTerminalKind.FAILED
+    assert backend.uows[-1].committed
 
 
 def test_heartbeat_revision_loss_is_lease_loss_and_rolls_back_uow() -> None:

@@ -1,41 +1,12 @@
-"""Shared contracts for the I1 successor family assembly builders.
-
-The assembly layer is an explicit wiring boundary, not a new semantic
-implementation.  Each family builder reuses existing capability programs,
-handlers, store-rehydrated handlers, canary handlers, recovery bindings,
-projection contracts and kernel mechanisms and records one ``CellBinding``
-per capability cell.  Statuses are fail-closed: a cell is ``INSTALLED`` only
-when a real ``RuntimeHandler`` with an exact binding digest, or an explicit
-``KernelWiring`` declaration with an exact kernel digest, is included in the
-family assembly; every other status is an explicit unresolved, design-only or
-declared-gap classification.  No assembly here mounts an app route, starts a
-node, calls a live provider or performs a canonical write.
-"""
+"""Shared assembly primitives retained by installed runtime contributions."""
 
 from __future__ import annotations
 
-import dataclasses
 import hashlib
-import json
-from collections.abc import Mapping
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from dataclasses import dataclass
+from typing import Any, Literal
 
 from app.successor_runtime.runtime.assignments import InterpreterBinding
-from app.successor_runtime.runtime.node import RuntimeHandler
-from app.successor_runtime.substrate.projections.registry import (
-    ProjectorContract,
-    ProjectorKey,
-    ProjectorRegistry,
-    validate_projector_contract,
-    validate_registry,
-)
-
-if TYPE_CHECKING:
-    from app.successor_runtime.capabilities.knowledge_program import (
-        KnowledgeNativeContribution,
-        GraphProjectionNativeContribution,
-    )
 
 AssemblyStatus = Literal[
     "INSTALLED",
@@ -61,46 +32,14 @@ ASSEMBLY_STATUSES: frozenset[str] = frozenset(
     }
 )
 
-LOCAL_ONLY_SCOPE_IDENTITY = "mrw.runtime.assembly.local-only.scope.v2"
-PROJECTOR_REGISTRY_INCARNATION = "mrw.runtime.assembly.projector-registry.v2"
-PROJECTOR_REGISTRATION_SCHEMA = "mrw.runtime.assembly.projector-registration.v2"
-
-
-@dataclass(frozen=True, slots=True)
-class ProjectorSourceKey:
-    """Exact per-run projector/source identity supplied by the run owner."""
-
-    source_ref: str
-    source_incarnation: str
-
-    def __post_init__(self) -> None:
-        if not self.source_ref.strip():
-            raise ValueError("projector source_ref must be a non-empty string")
-        if not self.source_incarnation.strip():
-            raise ValueError("projector source_incarnation must be a non-empty string")
-
 
 def sha256_hex(value: str | bytes) -> str:
     data = value.encode("utf-8") if isinstance(value, str) else value
     return hashlib.sha256(data).hexdigest()
 
 
-def local_assembly_scope_digest() -> str:
-    """Deterministic local-only assembly scope identity.
-
-    This is an explicit LOCAL_ONLY identity for offline assembly smoke and
-    rehearsal evidence.  It is not a production scope and must be replaced by
-    the caller with the exact persisted project scope digest before any run.
-    """
-
-    return sha256_hex(LOCAL_ONLY_SCOPE_IDENTITY)
-
-
 def require_assembly_digest(value: str, label: str) -> None:
-    if (
-        len(value) != 64
-        or any(character not in "0123456789abcdef" for character in value)
-    ):
+    if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
         raise ValueError(f"{label} must be a sha256 hex digest")
 
 
@@ -114,34 +53,16 @@ def successor_binding(
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
 ) -> InterpreterBinding:
-    """Mechanical successor binding construction without legacy imports.
+    """Construct an exact runtime binding from caller-owned digests."""
 
-    This mirrors the exact fields used by the family canary binding builders
-    while keeping the runtime tree free of legacy/migration imports.  It
-    constructs only the immutable interpreter binding; it never adds semantic
-    behavior.
-    """
-
-    require_assembly_digest(
-        operation_contract_digest,
-        "successor binding operation contract digest",
-    )
-    require_assembly_digest(
-        interpreter_profile_digest,
-        "successor binding interpreter profile digest",
-    )
-    require_assembly_digest(
-        deployment_catalog_digest,
-        "successor binding deployment catalog digest",
-    )
-    require_assembly_digest(
-        project_scope_digest,
-        "successor binding project scope digest",
-    )
-    require_assembly_digest(
-        authority_requirement_digest,
-        "successor binding authority requirement digest",
-    )
+    for value, label in (
+        (operation_contract_digest, "successor binding operation contract digest"),
+        (interpreter_profile_digest, "successor binding interpreter profile digest"),
+        (deployment_catalog_digest, "successor binding deployment catalog digest"),
+        (project_scope_digest, "successor binding project scope digest"),
+        (authority_requirement_digest, "successor binding authority requirement digest"),
+    ):
+        require_assembly_digest(value, label)
     return InterpreterBinding.from_content(
         operation_contract_digest=operation_contract_digest,
         interpreter_profile_digest=interpreter_profile_digest,
@@ -196,373 +117,10 @@ class CellBinding:
         }
 
 
-@dataclass(frozen=True, slots=True)
-class ProjectorWiring:
-    """Declared projector wiring for one exact projector identity.
-
-    The assembly records which existing projector class implements a family
-    projection.  Exact per-run source keys (source_ref, source_incarnation)
-    are never invented here; a run must supply them before
-    ``ProjectorRegistry.register`` can happen.
-    """
-
-    cell_id: str
-    projector_id: str
-    projector_version: str
-    source_kind: str
-    projection_id: str
-    projection_schema_ref: str
-    declared_loss: tuple[str, ...] = ()
-    note: str = ""
-
-    def to_contract(self, source_key: ProjectorSourceKey) -> ProjectorContract:
-        """Bind one exact per-run source key to this declared projector."""
-
-        return ProjectorContract(
-            key=ProjectorKey(
-                projector_id=self.projector_id,
-                projector_version=self.projector_version,
-                source_kind=self.source_kind,
-                source_ref=source_key.source_ref,
-                source_incarnation=source_key.source_incarnation,
-            ),
-            projection_id=self.projection_id,
-            projection_schema_ref=self.projection_schema_ref,
-            declared_loss=self.declared_loss,
-        )
-
-    def registration_digest(self, contract: ProjectorContract) -> str:
-        """Deterministic digest for one exact registered projector contract."""
-
-        payload = {
-            "schema": PROJECTOR_REGISTRATION_SCHEMA,
-            "contract": dataclasses.asdict(contract),
-        }
-        return sha256_hex(
-            json.dumps(
-                payload,
-                sort_keys=True,
-                separators=(",", ":"),
-                ensure_ascii=True,
-            )
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "cell_id": self.cell_id,
-            "projector_id": self.projector_id,
-            "projector_version": self.projector_version,
-            "source_kind": self.source_kind,
-            "projection_id": self.projection_id,
-            "projection_schema_ref": self.projection_schema_ref,
-            "declared_loss": list(self.declared_loss),
-            "note": self.note,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class KernelWiring:
-    """Explicit wiring of an existing kernel mechanism to one capability cell.
-
-    A kernel wiring declares that the cell is realized by an existing
-    infrastructure mechanism (for example the RuntimeNode kernel or the replay
-    adapter) that is installed by the composition root itself, not by a family
-    ``RuntimeHandler``.  The exact kernel identity and binding digest are
-    declared here so the cell can be ``INSTALLED`` without inventing a handler.
-    """
-
-    cell_id: str
-    kernel_id: str
-    kernel_version: str
-    binding_digest: str
-    binding_refs: tuple[str, ...] = ()
-    note: str = ""
-
-    def __post_init__(self) -> None:
-        if not self.cell_id or not self.kernel_id or not self.kernel_version:
-            raise ValueError("kernel wiring requires cell_id, kernel_id and version")
-        require_assembly_digest(self.binding_digest, f"{self.cell_id} kernel digest")
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "cell_id": self.cell_id,
-            "kernel_id": self.kernel_id,
-            "kernel_version": self.kernel_version,
-            "binding_digest": self.binding_digest,
-            "binding_refs": list(self.binding_refs),
-            "note": self.note,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class RollbackBindingDeclaration:
-    """Per-cell rollback evidence or an explicit declared gap."""
-
-    cell_id: str
-    status: Literal["PRESENT", "DECLARED_GAP", "DECLARED_OPEN"]
-    binding_refs: tuple[str, ...] = ()
-    note: str = ""
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "cell_id": self.cell_id,
-            "status": self.status,
-            "binding_refs": list(self.binding_refs),
-            "note": self.note,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class FamilyAssembly:
-    """One family's reusable installation set and cell coverage matrix."""
-
-    family_id: str
-    cells: tuple[CellBinding, ...]
-    handlers: tuple[RuntimeHandler, ...] = ()
-    recovery_handlers: tuple[RuntimeHandler, ...] = ()
-    kernel_wiring: tuple[KernelWiring, ...] = ()
-    projector_wiring: tuple[ProjectorWiring, ...] = ()
-    rollback_bindings: tuple[RollbackBindingDeclaration, ...] = ()
-    projector_registry: ProjectorRegistry | None = None
-
-    def __post_init__(self) -> None:
-        if not self.family_id or not self.cells:
-            raise ValueError("family assembly requires family_id and cells")
-        for cell in self.cells:
-            if cell.family_id != self.family_id:
-                raise ValueError(
-                    f"cell {cell.cell_id} does not belong to family {self.family_id}"
-                )
-        by_digest: dict[str, str] = {}
-        for handler in self.handlers:
-            digest = handler.handler_binding_digest
-            require_assembly_digest(digest, f"{self.family_id} handler digest")
-            owner = by_digest.get(digest)
-            if owner is not None:
-                raise ValueError(
-                    f"duplicate handler binding digest {digest} in family "
-                    f"{self.family_id} ({owner})"
-                )
-            by_digest[digest] = "handler"
-        for handler in self.recovery_handlers:
-            digest = handler.handler_binding_digest
-            require_assembly_digest(digest, f"{self.family_id} recovery digest")
-            owner = by_digest.get(digest)
-            if owner is not None:
-                raise ValueError(
-                    f"duplicate recovery binding digest {digest} in family "
-                    f"{self.family_id} ({owner})"
-                )
-            by_digest[digest] = "recovery"
-        family_cell_ids = {cell.cell_id for cell in self.cells}
-        for wiring in self.kernel_wiring:
-            if wiring.cell_id not in family_cell_ids:
-                raise ValueError(
-                    f"kernel wiring {wiring.cell_id} does not belong to family "
-                    f"{self.family_id}"
-                )
-            digest = wiring.binding_digest
-            owner = by_digest.get(digest)
-            if owner is not None:
-                raise ValueError(
-                    f"duplicate kernel wiring digest {digest} in family "
-                    f"{self.family_id} ({owner})"
-                )
-            by_digest[digest] = f"kernel:{wiring.cell_id}"
-        if self.projector_registry is not None:
-            registry_validation = validate_registry(self.projector_registry)
-            if not registry_validation.valid:
-                raise ValueError(
-                    f"{self.family_id} projector registry invalid: "
-                    + "; ".join(item.message for item in registry_validation.violations)
-                )
-        projector_contracts: dict[str, ProjectorContract] = {}
-        for wiring in self.projector_wiring:
-            if self.projector_registry is None:
-                continue
-            matches = tuple(
-                projector
-                for projector in self.projector_registry.projectors
-                if (
-                    projector.key.projector_id == wiring.projector_id
-                    and projector.key.projector_version == wiring.projector_version
-                    and projector.key.source_kind == wiring.source_kind
-                    and projector.projection_id == wiring.projection_id
-                    and projector.projection_schema_ref == wiring.projection_schema_ref
-                )
-            )
-            if len(matches) > 1:
-                raise ValueError(
-                    f"duplicate registered projector identity in family "
-                    f"{self.family_id}"
-                )
-            if matches:
-                contract = matches[0]
-                contract_validation = validate_projector_contract(contract)
-                if not contract_validation.valid:
-                    raise ValueError(
-                        f"{self.family_id} projector contract invalid: "
-                        + "; ".join(
-                            item.message for item in contract_validation.violations
-                        )
-                    )
-                digest = wiring.registration_digest(contract)
-                owner = by_digest.get(digest)
-                if owner is not None:
-                    raise ValueError(
-                        f"duplicate projector registration digest {digest} in "
-                        f"family {self.family_id} ({owner})"
-                    )
-                by_digest[digest] = f"projector:{wiring.cell_id}"
-                projector_contracts[wiring.cell_id] = contract
-        for wiring in self.projector_wiring:
-            cell = next(
-                (item for item in self.cells if item.cell_id == wiring.cell_id),
-                None,
-            )
-            if cell is None:
-                raise ValueError(
-                    f"projector wiring {wiring.cell_id} does not belong to "
-                    f"family {self.family_id}"
-                )
-            if cell.status == "INSTALLED":
-                contract = projector_contracts.get(wiring.cell_id)
-                if contract is None:
-                    raise ValueError(
-                        f"{wiring.cell_id} is INSTALLED but no registered "
-                        "projector contract exists in the family registry"
-                    )
-                expected = wiring.registration_digest(contract)
-                if cell.handler_binding_digest != expected:
-                    raise ValueError(
-                        f"{wiring.cell_id} binding digest does not match its "
-                        "registered projector contract"
-                    )
-            elif cell.status == "PROJECTOR_WIRING_DECLARED":
-                if wiring.cell_id in projector_contracts:
-                    raise ValueError(
-                        f"{wiring.cell_id} stays PROJECTOR_WIRING_DECLARED but "
-                        "carries a registered projector contract"
-                    )
-        installed_handlers = {
-            cell.cell_id: cell for cell in self.cells if cell.status == "INSTALLED"
-        }
-        for cell_id, cell in installed_handlers.items():
-            assert cell.handler_binding_digest is not None
-            if cell.handler_binding_digest not in by_digest:
-                raise ValueError(
-                    f"{cell_id} is INSTALLED but no handler or kernel wiring "
-                    "carries its binding digest"
-                )
-
-    def cell(self, cell_id: str) -> CellBinding:
-        matches = tuple(item for item in self.cells if item.cell_id == cell_id)
-        if len(matches) != 1:
-            raise KeyError(f"family {self.family_id} lacks one exact cell {cell_id}")
-        return matches[0]
-
-    def coverage(self) -> dict[str, str]:
-        return {item.cell_id: item.status for item in self.cells}
-
-
-@dataclass(frozen=True, slots=True)
-class TaskObservationAssemblyOptions:
-    """Optional run-bound C5.2 reconciliation route closure."""
-
-    reconciliation_binding: Any | None = None
-    line_event_readback_records: Any | None = None
-    note: str = "LOCAL_OFFLINE deterministic reconciliation route closure"
-
-
-@dataclass(frozen=True, slots=True)
-class BatchTaskAssemblyOptions:
-    """Optional deterministic payloads for the C4.1/C4.2 canary handlers."""
-
-    plan_payload: Any | None = None
-    retry_payload: Any | None = None
-    quality_evidence: Any | None = None
-    note: str = "LOCAL_OFFLINE deterministic fixture closure"
-
-
-@dataclass(frozen=True, slots=True)
-class MaterialIngestAssemblyOptions:
-    """Optional deterministic C7 rollback-route closures.
-
-    Each field carries one exact pure-route fixture.  A cell is installed only
-    when its route closure is supplied; absent routes fail closed with the
-    missing dimensions listed in the cell note.
-    """
-
-    submission: Any | None = None
-    commit_readback: Any | None = None
-    projection_diff: Any | None = None
-    reconciliation_decision: Any | None = None
-    registry_store: Any | None = None
-    registry_command: Any | None = None
-    note: str = "LOCAL_OFFLINE deterministic rollback-route fixture closure"
-
-
-@dataclass(frozen=True, slots=True)
-class KnowledgeAssemblyOptions:
-    """Optional dependencies for the existing C8.3 delivery bridge assembly."""
-
-    bundle: Any | None = None
-    activation_catalog: Any | None = None
-    delivery_interpreter: Any | None = None
-    c81_payload: Any | None = None
-    c82_payload: Any | None = None
-    native_composition: tuple[KnowledgeNativeContribution, ...] | None = None
-    graph_projection_composition: tuple[GraphProjectionNativeContribution, ...] | None = None
-    export_token_store: Any | None = None
-    export_token_command: Any | None = None
-    note: str = "reuses the PostgreSQL knowledge delivery assembly"
-
-
-@dataclass(frozen=True, slots=True)
-class ProjectionAssemblyOptions:
-    """Optional run-bound C9 facade validation closure."""
-
-    facade: Any | None = None
-    evidence_records: Any | None = None
-    note: str = "LOCAL_OFFLINE deterministic facade validation closure"
-
-
-def _empty_projector_source_keys() -> dict[str, ProjectorSourceKey]:
-    return {}
-
-
-@dataclass(frozen=True, slots=True)
-class FamilyAssemblyOptions:
-    """Caller-controlled fixture/dependency closures for assembly builders."""
-
-    c5: TaskObservationAssemblyOptions = TaskObservationAssemblyOptions()
-    c4: BatchTaskAssemblyOptions = BatchTaskAssemblyOptions()
-    c7: MaterialIngestAssemblyOptions = MaterialIngestAssemblyOptions()
-    c8: KnowledgeAssemblyOptions = KnowledgeAssemblyOptions()
-    c9: ProjectionAssemblyOptions = ProjectionAssemblyOptions()
-    projector_source_keys: Mapping[str, ProjectorSourceKey] = field(
-        default_factory=_empty_projector_source_keys
-    )
-
-
 __all__ = [
     "ASSEMBLY_STATUSES",
-    "LOCAL_ONLY_SCOPE_IDENTITY",
-    "PROJECTOR_REGISTRY_INCARNATION",
     "AssemblyStatus",
-    "BatchTaskAssemblyOptions",
-    "TaskObservationAssemblyOptions",
-    "MaterialIngestAssemblyOptions",
-    "KnowledgeAssemblyOptions",
-    "ProjectionAssemblyOptions",
     "CellBinding",
-    "FamilyAssembly",
-    "FamilyAssemblyOptions",
-    "KernelWiring",
-    "ProjectorSourceKey",
-    "ProjectorWiring",
-    "RollbackBindingDeclaration",
-    "local_assembly_scope_digest",
     "require_assembly_digest",
     "sha256_hex",
     "successor_binding",

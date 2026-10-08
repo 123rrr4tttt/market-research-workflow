@@ -213,11 +213,7 @@ def test_v3_registry_shape_and_route_effect_invariants() -> None:
     canonical_writes = [
         contract for contract in contracts if contract.effect_class is EffectClass.CANONICAL_WRITE
     ]
-    # Stage 4 admits exactly one task-scoped C9 canonical writer.  The route
-    # remains local/non-authoritative; all other effectful routes stay blocked.
-    assert len(canonical_writes) == 1
-    assert canonical_writes[0].admission is EffectAdmission.ADMITTED
-    assert canonical_writes[0].canonical_writer_port == "postgres.projection_rebuild.v2"
+    assert canonical_writes == []
     assert conditional
     assert len(provider_calls) == 2
     assert all(

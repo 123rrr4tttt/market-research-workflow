@@ -9,7 +9,7 @@ import pytest
 from functorial_kit import Failure
 from functorial_kit.arch.gates import scan_project
 
-from app.services import keyword_memory, report, task_readback_metadata
+from app.services import keyword_memory, task_readback_metadata
 from app.services.llm_report_export_token_state import (
     _request_failure as token_request_failure,
     _validate_retention_days,
@@ -21,7 +21,6 @@ from mrw_functorial_kit.core.application_failure_semantics import (
     keyword_memory_contract_failures,
     llm_report_request_failures,
     prompt_time_density_request_failures,
-    report_query_contract_failures,
     task_readback_contract_failures,
 )
 
@@ -29,7 +28,6 @@ from mrw_functorial_kit.core.application_failure_semantics import (
 REPO_ROOT = Path(__file__).resolve().parents[4]
 OWNED_FILES = {
     "main/backend/app/services/keyword_memory.py",
-    "main/backend/app/services/report.py",
     "main/backend/app/services/task_readback_metadata.py",
     "main/backend/app/services/stats/prompt_time_density.py",
     "main/backend/app/services/llm_report_export_token_state.py",
@@ -40,7 +38,6 @@ OWNED_FILES = {
 def test_w01_request_failure_families_are_closed() -> None:
     specimens = [
         keyword_memory._keyword_failure("keyword is required", operation="test"),
-        report._report_query_failure("start must be YYYY-MM-DD", operation="test", field="start"),
         task_readback_metadata._task_readback_failure("line_key is required", operation="test"),
         prompt_time_density._request_failure("bucket_invalid", "bad bucket", operation="test"),
         token_request_failure("retention_days_invalid", "retention_days must be >= 1", operation="test"),
@@ -48,7 +45,6 @@ def test_w01_request_failure_families_are_closed() -> None:
     ]
     families = {
         keyword_memory_contract_failures,
-        report_query_contract_failures,
         task_readback_contract_failures,
         prompt_time_density_request_failures,
         llm_report_request_failures,
@@ -60,8 +56,6 @@ def test_w01_request_failure_families_are_closed() -> None:
 def test_w01_request_failure_public_abi_is_preserved() -> None:
     with pytest.raises(ValueError, match="^keyword is required$"):
         keyword_memory.upsert_keyword_prior(keyword="   ")
-    with pytest.raises(ValueError, match="^start must be YYYY-MM-DD$"):
-        report.generate_html_report([], "bad", None)
     with pytest.raises(ValueError, match="^line_key is required for runtime readback metadata$"):
         task_readback_metadata.build_runtime_readback_payload(line_key="   ")
     with pytest.raises(ValueError, match="^bucket must be one of: day, week, month$"):
@@ -87,7 +81,6 @@ def test_w01_request_failure_core_outcomes_are_total() -> None:
     assert isinstance(prompt_time_density._window_days_outcome("bad"), Failure)
     assert isinstance(prompt_time_density._smoothing_outcome([1.0, 2.0, 3.0], "bad"), Failure)
     assert isinstance(_validate_retention_days("bad"), Failure)
-    assert isinstance(report._parse_date_outcome("bad", field="start"), Failure)
 
 
 def test_w01_request_failure_no_throw_scan_is_clear() -> None:

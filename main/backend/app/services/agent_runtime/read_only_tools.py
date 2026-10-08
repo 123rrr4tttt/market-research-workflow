@@ -518,7 +518,7 @@ class ReadOnlyAgentToolRuntime:
         )
 
     def tool_pool_list(self, *, turn_id: str, project_key: str | None) -> dict[str, Any]:
-        pool = AgentToolPoolAssembler().assemble(
+        pool = AgentToolPoolAssembler(service=self.service).assemble(
             ToolPoolRequest(
                 project_key=project_key,
                 agent_mode="read_only",
@@ -540,7 +540,7 @@ class ReadOnlyAgentToolRuntime:
         )
 
     def tool_search(self, *, turn_id: str, project_key: str | None, query: str, limit: int = 12) -> dict[str, Any]:
-        result = AgentToolPoolAssembler().search(
+        result = AgentToolPoolAssembler(service=self.service).search(
             query=query,
             request=ToolPoolRequest(
                 project_key=project_key,

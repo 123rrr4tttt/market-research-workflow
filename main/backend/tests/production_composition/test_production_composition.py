@@ -235,10 +235,7 @@ def test_checked_in_route_registry_exactly_covers_installed_routes() -> None:
         for binding in bindings
         if binding.effect_contract.requires_canonical_writer
     ]
-    assert [binding.operation for binding in canonical_writer_bindings] == ["rebuild_projection"]
-    assert canonical_writer_bindings[0].effect_contract.canonical_writer_port == (
-        "postgres.projection_rebuild.v2"
-    )
+    assert canonical_writer_bindings == []
     assert not agent_host.effect_contract.requires_canonical_writer
     agent_contract = agent_host.effect_contract
     assert agent_contract.effect_class is EffectClass.CONDITIONAL

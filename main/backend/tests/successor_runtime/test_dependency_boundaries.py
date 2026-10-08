@@ -166,8 +166,6 @@ def test_lint_allows_public_capability_shared_modules(tmp_path: Path) -> None:
         "checksum",
         "codecs",
         "failure",
-        "material_ingest_common",
-        "knowledge_common",
         "retrieval_common",
         "workflow_common",
     ):
@@ -185,52 +183,12 @@ def test_lint_allows_public_capability_shared_modules(tmp_path: Path) -> None:
     assert report["ok"], report["violations"]
 
 
-def test_lint_allows_knowledge_common_module(tmp_path: Path) -> None:
-    _write(
-        tmp_path,
-        "capabilities/knowledge_common.py",
-        "class ReadHandle:\n    pass\n",
-    )
-    _write(
-        tmp_path,
-        "capabilities/knowledge_writing.py",
-        "from .knowledge_common import ReadHandle\n",
-    )
-    report = check(tmp_path)
-    assert report["ok"], report["violations"]
-
-
 def test_lint_allows_declared_capability_family_modules(tmp_path: Path) -> None:
     _write(tmp_path, "capabilities/first_specimen.py", "class FailureCore:\n    pass\n")
     _write(
         tmp_path,
         "capabilities/first_specimen_program.py",
         "from .first_specimen import FailureCore\n",
-    )
-    _write(
-        tmp_path,
-        "capabilities/material_ingest_common.py",
-        "class Contract:\n    pass\n",
-    )
-    _write(
-        tmp_path,
-        "capabilities/material_ingest_interpreters.py",
-        "from .material_ingest_common import Contract\n",
-    )
-    report = check(tmp_path)
-    assert report["ok"], report["violations"]
-
-
-def test_lint_allows_material_ingest_common_contract_module(tmp_path: Path) -> None:
-    _write(
-        tmp_path,
-        "capabilities/material_ingest_common.py",
-        "class CommitIntent:\n    pass\n",
-    )
-    _write(
-        tmp_path,
-        "capabilities/material_ingest_program.py",
-        "from .material_ingest_common import CommitIntent\nclass Program:\n    pass\n",
     )
     report = check(tmp_path)
     assert report["ok"], report["violations"]

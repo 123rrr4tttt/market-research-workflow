@@ -53,6 +53,7 @@ from app.successor_runtime.language.program import (
     then_node,
 )
 from app.successor_runtime.research.object_types import ObjectType
+from app.successor_runtime.runtime.resources import ResourceClass
 
 __all__ = [
     "WORKFLOW_DEFINITION_FAILURES",
@@ -237,7 +238,7 @@ class WorkflowRuntimeProgram:
 
 def _build_workflow_runtime_profiles(node_type: str, kind: str) -> OperationProfiles:
     network_required = node_type in {"vector_search", "llm_call"}
-    resource_class = "NETWORK_IO" if network_required else "CPU"
+    resource_class = ResourceClass.NETWORK_IO.value if network_required else ResourceClass.CPU_LIGHT.value
     dependency_digest = content_digest(
         {
             "interpreter": "app.services.workflow_graph.executors.kernel.execute_node",

@@ -24,20 +24,16 @@ from sqlalchemy.sql import text
 
 from app.successor_runtime.capabilities import (
     build_first_specimen_bundle,
+    build_first_specimen_catalog,
 )
-from app.successor_runtime.capabilities import knowledge_program as c8p
-from app.successor_runtime.capabilities import material_ingest_common as c7
+from app.successor_runtime.capabilities.catalog import build_first_specimen_registry
 from app.successor_runtime.capabilities.checksum import content_digest
-from app.successor_runtime.capabilities.material_ingest_program import (
-    build_material_stage_candidate_program,
-    compile_material_ingest_program,
+from app.successor_runtime.language.combinators import (
+    build_first_specimen_program,
+    default_registries,
 )
-from app.successor_runtime.language.algebra import ValueRef
-from app.successor_runtime.language.normalize import normalize_program
-from app.successor_runtime.research.object_types import (
-    CANONICAL_CODEC_ID,
-    ObjectType,
-)
+from app.successor_runtime.language.compile import compile_program
+from app.successor_runtime.research.sources import SourceRef
 from app.successor_runtime.runtime.assignments import (
     AssignmentKind,
     CompiledAdmissionBinding,
@@ -232,135 +228,33 @@ def _slice_program_plan(
     registry_revision: int,
     scope_digest: str,
 ) -> tuple[Any, Any, Any]:
-    """Return (program, plan, catalog) for one exact C1 slice."""
+    """Return one installed first-specimen program, plan, and catalog."""
 
-    if slice_id == "A":
-        bundle = c7.build_material_ingest_bundle()
-        catalog = c7.build_material_ingest_catalog(bundle)
-        submission = c7.MaterialIngestSubmission(
-            idempotency_key=f"idem:{project_key}:a",
-            project_key=project_key,
-            source_locator=f"https://example.invalid/{project_key}/a",
-            request_key=f"req:{project_key}:a",
-            raw_payload={
-                "title": "C1 Slice A",
-                "text": "C1 stage-candidate runtime acceptance",
-            },
+    bundle = build_first_specimen_bundle()
+    catalog = build_first_specimen_catalog(bundle.operations)
+    registry = build_first_specimen_registry(bundle.operations)
+    source_refs = tuple(
+        SourceRef(
+            source_ref_id=f"source:{project_key}:{label}",
+            owner_id="c1-runtime-fixture",
+            locator=f"document://{project_key}/{label}",
+            source_class="existing_project_document",
+            observed_at=NOW,
+            access_profile_ref="DocumentCanonicalReadPort",
         )
-        program = build_material_stage_candidate_program(
-            payload=submission,
-            catalog=catalog,
-            program_id=f"program:{project_key}:slice-a",
-            project_key=project_key,
-            project_registry_revision=registry_revision,
-            project_scope_digest=scope_digest,
-        )
-        plan = compile_material_ingest_program(
-            program,
-            catalog,
-            operation_contracts=c7.build_material_ingest_registry(bundle),
-        )
-        return program, plan, catalog
-
-    if slice_id == "B":
-        bundle = c8p.build_knowledge_bundle()
-        catalog = c8p.build_knowledge_catalog(bundle)
-        program = c8p.build_knowledge_program(
-            cell_id=c8p.KNOWLEDGE_WRITING_CELL_ID,
-            payload=c8p.KnowledgeWritingComposeInput(
-                project_key=project_key,
-                knowledge_item_key="knowledge:c1",
-                selection_hash="selection:c1",
-                selection_text="C1 bounded writing",
-                demand_fields=("canonical_statement", "evidence_refs"),
-            ),
-            catalog=catalog,
-            program_id=f"program:{project_key}:slice-b",
-            project_key=project_key,
-            project_registry_revision=registry_revision,
-            project_scope_digest=scope_digest,
-        )
-        plan = c8p.compile_knowledge_program(
-            program,
-            catalog,
-            operation_contracts=c8p.build_knowledge_registry(bundle),
-        )
-        return program, plan, catalog
-
-    if slice_id == "C":
-        first_specimen = build_first_specimen_bundle()
-        delivery_operation = first_specimen.operation_by_kind(
-            c8p.DELIVERY_INTERNAL_EXPORT_KIND
-        )
-        delivery_codec = first_specimen.codec_by_kind(c8p.DELIVERY_INTERNAL_EXPORT_KIND)
-        bundle = c8p.build_knowledge_delivery_bridge_bundle(
-            delivery_operation,
-            delivery_codec,
-        )
-        catalog = c8p.build_knowledge_catalog(bundle)
-        program_id = f"program:{project_key}:slice-c"
-
-        def value_ref(
-            suffix: str,
-            object_type: ObjectType,
-            codec_id: str,
-        ) -> ValueRef:
-            value_id = f"{program_id}:payload:{suffix}"
-            storage_ref = f"project-value:{value_id}"
-            return ValueRef(
-                value_id=value_id,
-                project_key=project_key,
-                object_type=object_type,
-                codec_id=codec_id,
-                content_digest=content_digest({"storage_ref": storage_ref}),
-                storage_kind="project_value_ref",
-                store_id="successor_values",
-                store_version="1",
-                storage_ref=storage_ref,
-                byte_size=1,
-                provenance_digest=content_digest({"provenance": storage_ref}),
-            )
-
-        program = normalize_program(
-            c8p.build_knowledge_delivery_bridge_program(
-                delivery_operation=delivery_operation,
-                delivery_codec=delivery_codec,
-                delivery_payload_ref=value_ref(
-                    "internal-export-input",
-                    ObjectType("InternalExportInput.v1"),
-                    delivery_codec.codec_id,
-                ),
-                artifact_input_ref=value_ref(
-                    "research-artifact",
-                    c8p.KNOWLEDGE_RESEARCH_ARTIFACT_TYPE,
-                    CANONICAL_CODEC_ID,
-                ),
-                intent_input_ref=value_ref(
-                    "delivery-intent",
-                    c8p.KNOWLEDGE_DELIVERY_INTENT_TYPE,
-                    CANONICAL_CODEC_ID,
-                ),
-                stage_payload=c8p.KnowledgeReportStageInput(
-                    project_key=project_key,
-                    report_id="report:c1",
-                    topic="C1 report delivery acceptance",
-                    source_keys=("knowledge:c1",),
-                ),
-                catalog=catalog,
-                program_id=program_id,
-                project_key=project_key,
-                project_registry_revision=registry_revision,
-                project_scope_digest=scope_digest,
-            )
-        )
-        plan = c8p.compile_knowledge_delivery_bridge_program(
-            program,
-            catalog,
-            operation_contracts=c8p.build_knowledge_registry(bundle),
-        )
-        return program, plan, catalog
-
-    raise AssertionError(f"unsupported C1 slice {slice_id!r}")
+        for label in ("a", "b")
+    )
+    program = build_first_specimen_program(
+        catalog=catalog,
+        program_id=f"program:{project_key}:slice-{slice_id.lower()}",
+        project_key=project_key,
+        project_registry_revision=registry_revision,
+        project_scope_digest=scope_digest,
+        registries=default_registries(),
+        source_refs=source_refs,
+    )
+    plan = compile_program(program, catalog, operation_contracts=registry)
+    return program, plan, catalog
 
 
 class _C1InterpreterHandler:
@@ -1024,23 +918,7 @@ def prepare_runtime(
         authority_epoch=authority_epoch,
     )
 
-    bundle_for_ops = None
-    if slice_id == "A":
-        bundle_for_ops = c7.build_material_ingest_bundle()
-    else:
-        first_specimen = build_first_specimen_bundle()
-        delivery_operation = first_specimen.operation_by_kind(
-            c8p.DELIVERY_INTERNAL_EXPORT_KIND
-        )
-        delivery_codec = first_specimen.codec_by_kind(c8p.DELIVERY_INTERNAL_EXPORT_KIND)
-        bundle_for_ops = (
-            c8p.build_knowledge_bundle()
-            if slice_id == "B"
-            else c8p.build_knowledge_delivery_bridge_bundle(
-                delivery_operation,
-                delivery_codec,
-            )
-        )
+    bundle_for_ops = build_first_specimen_bundle()
 
     contracts_by_kind: dict[str, Any] = {}
     for step in plan.ordered_steps:
@@ -1492,16 +1370,16 @@ def prepare_runtime(
         )
         for kind in interpreter_bindings
     }
+    for recovery in recovery_bindings.values():
+        recovery_profile_digest = recovery.interpreter_profile_digest
+        assert recovery_profile_digest is not None
+        handlers[recovery.binding_digest] = _C1WaitingReconcileHandler(
+            handler_binding_digest=recovery.binding_digest,
+            interpreter_profile_digest=recovery_profile_digest,
+        )
     first_kind = next(iter(contracts_by_kind))
     reconcile_binding_digest = recovery_bindings[first_kind].binding_digest
-    reconcile_profile_digest = recovery_bindings[first_kind].interpreter_profile_digest
-    assert reconcile_profile_digest is not None
-    reconcile_handler = _C1WaitingReconcileHandler(
-        handler_binding_digest=reconcile_binding_digest,
-        interpreter_profile_digest=reconcile_profile_digest,
-    )
-    for recovery in recovery_bindings.values():
-        handlers[recovery.binding_digest] = reconcile_handler
+    reconcile_handler = handlers[recovery_bindings[first_kind].binding_digest]
 
     profile_digests = frozenset(
         binding.interpreter_profile_digest

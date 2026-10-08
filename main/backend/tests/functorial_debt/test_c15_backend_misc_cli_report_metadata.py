@@ -16,9 +16,7 @@ from scripts.build_single_url_provider_credentials_evidence import (
     build_provider_credentials_evidence,
 )
 from scripts.build_time_semantics_configured_live_evidence import build_evidence
-from scripts.c9_projection_rebuild import build_loss_profile
 from scripts.check_source_time_production_readiness import build_check
-from scripts.check_wave14_vectorization_provider_capability import build_contract
 from scripts.cleanup_llm_report_export_token_state import build_cleanup_report
 from scripts.flake_trend import build_summary
 from scripts.remove_cn_policy_docs import build_query
@@ -28,9 +26,7 @@ METADATA = {
     build_public_shard_outputs: "kit:non-authoritative derived_as=generated_evidence",
     build_provider_credentials_evidence: "kit:non-authoritative derived_as=generated_evidence",
     build_evidence: "kit:non-authoritative derived_as=generated_evidence",
-    build_loss_profile: "kit:non-authoritative derived_as=view",
     build_check: "kit:non-authoritative derived_as=generated_evidence",
-    build_contract: "kit:non-authoritative derived_as=preflight",
     build_cleanup_report: "kit:non-authoritative derived_as=generated_evidence",
     build_summary: "kit:non-authoritative derived_as=view",
     build_query: "kit:prepared-command effect_boundary=sqlalchemy.session.query",
@@ -45,11 +41,7 @@ FACT_SOURCES = {
     build_evidence: (
         "fact_source=prompt_time_policy_decision_logs+prompt_time_window_feedback"
     ),
-    build_loss_profile: "fact_source=sink_loss_profile_catalog",
     build_check: "fact_source=runtime_contracts+live_evidence+repo_token_checks",
-    build_contract: (
-        "fact_source=wave10_contract+wave12_provider_readiness+repo_topics"
-    ),
     build_cleanup_report: (
         "fact_source=prune_llm_report_export_token_states.summary"
     ),
@@ -58,7 +50,7 @@ FACT_SOURCES = {
 
 
 def test_c15_backend_misc_cli_report_metadata_preserves_abi() -> None:
-    assert len(METADATA) == 9
+    assert len(METADATA) == 7
 
     for function, expected_metadata in METADATA.items():
         return_type = get_type_hints(function, include_extras=True)["return"]

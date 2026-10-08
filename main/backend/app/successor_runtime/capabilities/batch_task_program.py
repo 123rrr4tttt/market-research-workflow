@@ -1,17 +1,4 @@
-"""Family-local Program builders for the C4 agent-batch atoms.
-
-The C4.1 batch-plan and C4.2 retry-reducer atoms compile through the shared
-Program AST/compiler as single-Atom programs with exact content-addressed
-payload ValueRefs.  The C4.1 ordered traversal is additionally compiled as a
-shared ``TraverseOrdered(STATIC_SHAPE)`` Program whose metadata binds the exact
-``traversal_shape_digest`` and ``traversal_element_count`` for the payload's
-ordered task sequence.
-
-The C4.3 submit atom is contract/submission-repository only: durable
-submission uses the shared STARTED/TERMINAL idempotency repository, and the
-family-specific acceptance status stays in the typed receipt, so no C4-owned
-DB enum exists.
-"""
+"""Program builders for installed single-item dispatch and business readback."""
 
 from __future__ import annotations
 
@@ -41,29 +28,22 @@ from app.successor_runtime.language.object_contracts import (
     OperationContractRef,
     OperationContractResolver,
 )
-from app.successor_runtime.language.plan import traversal_shape_digest
 from app.successor_runtime.language.program import (
     ProgramNode,
     ProgramSpec,
     atom_node,
     then_node,
     sequence_object_type,
-    traverse_ordered_node,
     zip_ordered_node,
 )
 from app.successor_runtime.language.transforms import MergeRef, TransformRegistry
 __all__ = [
-    "build_batch_task_plan_program",
-    "build_batch_task_plan_traversal_program",
-    "build_batch_task_retry_program",
     "build_batch_task_single_dispatch_program",
-    "build_batch_task_submission_program",
     "build_ordered_dispatch_merge_registry",
     "build_batch_business_program",
     "compile_batch_task_program",
     "exact_contract_ref",
     "payload_value_ref",
-    "traversal_shape_binding",
 ]
 
 
@@ -203,16 +183,6 @@ def _batch_task_program_scope_failure(
     return None
 
 
-def _traversal_program_payload_failure(
-    payloads: tuple[Any, ...] | list[Any],
-) -> Failure | None:
-    if not payloads:
-        return batch_task._failure(
-            "schema_contract_invalid",
-            "traversal program requires at least one payload",
-            site="program/traversal/payloads",
-        )
-    return None
 
 
 def _build_batch_task_program(
@@ -301,74 +271,8 @@ def _build_batch_task_program(
     ).with_digest()
 
 
-def build_batch_task_plan_program(
-    *,
-    payload: batch_task.BatchPlanPayload,
-    catalog: OperationContractCatalogSnapshot,
-    program_id: str,
-    project_key: str,
-    project_registry_revision: int,
-    project_scope_digest: str,
-) -> Annotated[  # NonAuthoritative
-    ProgramSpec,
-    "kit:prepared-command effect_boundary=successor_program_interpreter "
-    "witness=test:test_w05_agent_batch_authority_metadata",
-]:
-    """Compilable single-Atom Program for the C4.1 ordered batch plan."""
-
-    return _build_batch_task_program(
-        payload=payload,
-        catalog=catalog,
-        program_id=program_id,
-        project_key=project_key,
-        project_registry_revision=project_registry_revision,
-        project_scope_digest=project_scope_digest,
-        kind=batch_task.BATCH_PLAN_KIND,
-        operation_id=batch_task.BATCH_PLAN_OPERATION_ID,
-        semantic_identity=batch_task.BATCH_PLAN_SEMANTIC_IDENTITY,
-        observation_profile=batch_task.BATCH_PLAN_OBSERVATION_PROFILE,
-        owner=batch_task.BATCH_TASK_OWNER,
-        input_type=batch_task.BATCH_PLAN_PAYLOAD_TYPE,
-        output_type=batch_task.BATCH_PLAN_RESULT_TYPE,
-        object_type=batch_task.BATCH_PLAN_PAYLOAD_TYPE,
-        codec_id=batch_task.BATCH_PLAN_PAYLOAD_CODEC_ID,
-        value_suffix="task-plan",
-    )
 
 
-def build_batch_task_retry_program(
-    *,
-    payload: batch_task.RetryReducerInput,
-    catalog: OperationContractCatalogSnapshot,
-    program_id: str,
-    project_key: str,
-    project_registry_revision: int,
-    project_scope_digest: str,
-) -> Annotated[  # NonAuthoritative
-    ProgramSpec,
-    "kit:prepared-command effect_boundary=successor_program_interpreter "
-    "witness=test:test_w05_agent_batch_authority_metadata",
-]:
-    """Compilable single-Atom Program for the C4.2 retry reducer."""
-
-    return _build_batch_task_program(
-        payload=payload,
-        catalog=catalog,
-        program_id=program_id,
-        project_key=project_key,
-        project_registry_revision=project_registry_revision,
-        project_scope_digest=project_scope_digest,
-        kind=batch_task.RETRY_REDUCE_KIND,
-        operation_id=batch_task.RETRY_REDUCE_OPERATION_ID,
-        semantic_identity=batch_task.RETRY_REDUCE_SEMANTIC_IDENTITY,
-        observation_profile=batch_task.RETRY_REDUCE_OBSERVATION_PROFILE,
-        owner=batch_task.BATCH_TASK_OWNER,
-        input_type=batch_task.RETRY_REDUCER_PAYLOAD_TYPE,
-        output_type=batch_task.RETRY_TRANSITION_TYPE,
-        object_type=batch_task.RETRY_REDUCER_PAYLOAD_TYPE,
-        codec_id=batch_task.RETRY_REDUCER_PAYLOAD_CODEC_ID,
-        value_suffix="retry-action",
-    )
 
 
 def compile_batch_task_program(
@@ -386,116 +290,10 @@ def compile_batch_task_program(
     )
 
 
-def traversal_shape_binding(
-    payloads: tuple[batch_task.BatchPlanPayload, ...] | list[batch_task.BatchPlanPayload],
-) -> dict[str, object]:
-    """Exact STATIC_SHAPE binding via the shared ``language.plan`` digest.
-
-    The shape is computed over the actual TraverseOrdered input sequence,
-    which is the ordered ``BatchPlanPayload`` sequence, using the shared
-    ``traversal_shape_digest``/``traversal_element_digests`` identities.
-    """
-
-    return {
-        "traversal_shape_digest": traversal_shape_digest(
-            tuple(dataclasses.asdict(payload) for payload in payloads)
-        ),
-        "traversal_element_count": len(payloads),
-    }
 
 
-def build_batch_task_plan_traversal_program(
-    *,
-    payloads: tuple[batch_task.BatchPlanPayload, ...] | list[batch_task.BatchPlanPayload],
-    catalog: OperationContractCatalogSnapshot,
-    program_id: str,
-    project_key: str,
-    project_registry_revision: int,
-    project_scope_digest: str,
-) -> Annotated[  # NonAuthoritative
-    ProgramSpec,
-    "kit:prepared-command effect_boundary=successor_program_interpreter "
-    "witness=test:test_w05_agent_batch_authority_metadata",
-]:
-    """Build the C4.1 ordered traversal Program over batch-plan payloads.
-
-    The root is ``TraverseOrdered(STATIC_SHAPE)`` whose input is the ordered
-    ``BatchPlanPayload`` sequence.  Exact shape digest and element count come
-    from the shared ``language.plan.traversal_shape_digest`` and are bound in
-    Program metadata; the shared compiler realizes the traversal as a pure
-    ordered materialization step.
-    """
-
-    failure = _traversal_program_payload_failure(payloads)
-    if failure is not None:
-        batch_task._raise_contract_failure(failure)
-    payload = payloads[0]
-    atom = build_batch_task_plan_program(
-        payload=payload,
-        catalog=catalog,
-        program_id=program_id,
-        project_key=project_key,
-        project_registry_revision=project_registry_revision,
-        project_scope_digest=project_scope_digest,
-    )
-    binding = traversal_shape_binding(payloads)
-    metadata_values = {key: value for key, value in dict(atom.metadata).items()}
-    metadata_values.update(binding)
-    root = traverse_ordered_node(
-        element_program=atom.root,
-        traversal_policy="STATIC_SHAPE",
-    )
-    return ProgramSpec(
-        program_id=program_id + ":traverse-static",
-        contract_version="mrw.functorial-successor.program-spec.v1",
-        project_key=project_key,
-        project_registry_revision=project_registry_revision,
-        project_scope_digest=project_scope_digest,
-        semantic_identity="batch.task.build-plan-traverse-static",
-        input_type=root.input_type,
-        output_type=root.output_type,
-        root=root,
-        algebra_refs=atom.algebra_refs,
-        transform_refs=(),
-        observation_profile=batch_task.BATCH_PLAN_OBSERVATION_PROFILE,
-        metadata=freeze_json_object(metadata_values),
-        program_digest="",
-    ).with_digest()
 
 
-def build_batch_task_submission_program(
-    *,
-    payload: batch_task.AgentBatchSubmission,
-    catalog: OperationContractCatalogSnapshot,
-    program_id: str,
-    project_key: str,
-    project_registry_revision: int,
-    project_scope_digest: str,
-) -> Annotated[  # NonAuthoritative
-    ProgramSpec,
-    "kit:prepared-command effect_boundary=successor_program_interpreter "
-    "witness=test:test_w05_agent_batch_authority_metadata",
-]:
-    """Compilable single-Atom Program for the C4.3 submission atom."""
-
-    return _build_batch_task_program(
-        payload=payload,
-        catalog=catalog,
-        program_id=program_id,
-        project_key=project_key,
-        project_registry_revision=project_registry_revision,
-        project_scope_digest=project_scope_digest,
-        kind=batch_task.SUBMISSION_KIND,
-        operation_id=batch_task.SUBMISSION_OPERATION_ID,
-        semantic_identity=batch_task.SUBMISSION_SEMANTIC_IDENTITY,
-        observation_profile=batch_task.SUBMISSION_OBSERVATION_PROFILE,
-        owner=batch_task.SUBMISSION_OWNER,
-        input_type=batch_task.SUBMISSION_TYPE,
-        output_type=batch_task.SUBMISSION_RECEIPT_TYPE,
-        object_type=batch_task.SUBMISSION_TYPE,
-        codec_id=batch_task.SUBMISSION_PAYLOAD_CODEC_ID,
-        value_suffix="task-submission",
-    )
 
 
 def build_batch_task_single_dispatch_program(
@@ -509,7 +307,7 @@ def build_batch_task_single_dispatch_program(
 ) -> Annotated[  # NonAuthoritative
     ProgramSpec,
     "kit:prepared-command effect_boundary=successor_program_interpreter "
-    "witness=test:test_w05_agent_batch_authority_metadata",
+    "witness=test:test_dispatch_single_program_compiles_to_one_effect_step",
 ]:
     """Compilable single-Atom Program for the independent single-item dispatch."""
 

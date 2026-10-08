@@ -3998,52 +3998,6 @@
       }
     },
     {
-      "route_template": "/api/v1/material-projections/v2/commands",
-      "domain": "material-projections",
-      "operation": "rebuild_projection",
-      "metrics_label": "material-projections:/api/v1/material-projections/v2/commands",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": "capability:material-projections:v2",
-      "effect_contract": {
-        "effect_class": "canonical_write",
-        "admission": "admitted",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": "postgres.projection_rebuild.v2",
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": null,
-        "conditional_branches": []
-      }
-    },
-    {
-      "route_template": "/api/v1/material-projections/v2/queries",
-      "domain": "material-projections",
-      "operation": "material-projections.run_query",
-      "metrics_label": "material-projections:/api/v1/material-projections/v2/queries",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": null,
-        "conditional_branches": []
-      }
-    },
-    {
       "route_template": "/api/v1/policies",
       "domain": "policies",
       "operation": "policies.list_policies",
@@ -5132,32 +5086,6 @@
         "filesystem_port": null,
         "conditional_discriminator": null,
         "conditional_branches": []
-      }
-    },
-    {
-      "route_template": "/api/v1/reports",
-      "domain": "reports",
-      "operation": "reports.create_report",
-      "metrics_label": "reports:/api/v1/reports",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": "handler_effect_path.v1",
-        "conditional_branches": [
-          "no_effect_or_read",
-          "external_or_legacy_effect"
-        ]
       }
     },
     {
@@ -7291,78 +7219,6 @@
       "metrics_label": "writing:/api/v1/writing/keyword-cards/preview",
       "methods": [
         "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": null,
-        "conditional_branches": []
-      }
-    },
-    {
-      "route_template": "/api/v1/writing/llm-actions",
-      "domain": "writing",
-      "operation": "writing.post_writing_llm_action",
-      "metrics_label": "writing:/api/v1/writing/llm-actions",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": "handler_effect_path.v1",
-        "conditional_branches": [
-          "no_effect_or_read",
-          "external_or_legacy_effect"
-        ]
-      }
-    },
-    {
-      "route_template": "/api/v1/writing/llm-actions/history",
-      "domain": "writing",
-      "operation": "writing.get_writing_llm_action_history",
-      "metrics_label": "writing:/api/v1/writing/llm-actions/history",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted",
-        "provider_port": null,
-        "provider_class": "null",
-        "canonical_writer_port": null,
-        "external_auth_port": null,
-        "filesystem_port": null,
-        "conditional_discriminator": null,
-        "conditional_branches": []
-      }
-    },
-    {
-      "route_template": "/api/v1/writing/llm-actions/{job_id}",
-      "domain": "writing",
-      "operation": "writing.get_writing_llm_action_detail",
-      "metrics_label": "writing:/api/v1/writing/llm-actions/{job_id}",
-      "methods": [
-        "GET"
       ],
       "required_scope": "api:invoke",
       "required_approval_ids": [],

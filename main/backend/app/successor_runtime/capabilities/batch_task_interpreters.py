@@ -1,14 +1,4 @@
-"""Successor-native pure interpreters for the C4 agent-batch atoms.
-
-The interpreters are deterministic implementations of the current batch plan
-and retry contracts.  They perform no network, database, provider, submit or
-credential work and never import legacy service packages.  All typed outputs
-come from the single canonical DTO vocabulary in ``agent_batch_c4.py``.
-
-The C4.3 submit atom is not interpreted here: durable submission remains
-contract/repository scaffold only and is explicitly blocked by the shared
-idempotency enum mismatch.
-"""
+"""Exact binding validation for the installed single-dispatch operation."""
 
 from __future__ import annotations
 
@@ -16,11 +6,9 @@ import dataclasses
 from dataclasses import dataclass
 from typing import (
     Annotated,
-    Generic,
     Literal,
     Protocol,
     TypeAlias,
-    TypeVar,
     runtime_checkable,
 )
 
@@ -38,74 +26,11 @@ from app.successor_runtime.language.object_contracts import OperationContractRef
 from app.successor_runtime.language.plan import ExecutionPlan, with_plan_digest
 from app.successor_runtime.language.program import ProgramSpec
 from app.successor_runtime.research.codec import is_sha256_hex
-__all__ = [
-    "BATCH_TASK_SUCCESSOR_PLAN_INTERPRETER_ID",
-    "BATCH_TASK_SUCCESSOR_RETRY_INTERPRETER_ID",
-    "BATCH_TASK_SUCCESSOR_DISPATCH_INTERPRETER_ID",
-    "BatchTaskPlanSuccessorInterpreter",
-    "BatchTaskRetrySuccessorInterpreter",
-    "BatchTaskSubmissionSuccessorInterpreter",
-    "BatchTaskInterpreterBindingSpec",
-    "InterpreterBindingView",
-    "BatchPlanBindingMismatch",
-    "DispatchSingleBindingMismatch",
-    "InterpreterFailure",
-    "InterpreterOutcome",
-    "InterpreterSuccess",
-    "PayloadView",
-    "ProjectScopeView",
-    "RetryBindingMismatch",
-    "authority_requirement_digest",
-    "dispatch_single_authority_requirement_digest",
-    "build_successor_agent_batch_c4_plan_binding",
-    "build_successor_agent_batch_c4_retry_binding",
-    "build_successor_agent_batch_c4_submission_binding",
-    "build_successor_agent_batch_c4_dispatch_binding",
-    "require_exact_batch_plan_binding",
-    "require_exact_retry_binding",
-    "require_exact_dispatch_single_binding",
-    "successor_plan_interpreter_profile_digest",
-    "successor_retry_interpreter_profile_digest",
-    "successor_submission_interpreter_profile_digest",
-    "successor_dispatch_single_interpreter_profile_digest",
-    "validate_exact_batch_plan_binding",
-    "validate_exact_retry_binding",
-    "validate_exact_dispatch_single_binding",
-]
 
 
-BATCH_TASK_SUCCESSOR_PLAN_INTERPRETER_ID = (
-    "batch.task.build_plan.native.v2"
-)
-BATCH_TASK_SUCCESSOR_RETRY_INTERPRETER_ID = (
-    "batch.task.reduce_retry.native.v2"
-)
-BATCH_TASK_SUCCESSOR_SUBMISSION_INTERPRETER_ID = (
-    "batch.task.submit.native.v2"
-)
 BATCH_TASK_SUCCESSOR_DISPATCH_INTERPRETER_ID = (
     "batch.task.dispatch_single.native.v2"
 )
-
-T = TypeVar("T")
-
-
-@dataclass(frozen=True, slots=True)
-class InterpreterSuccess(Generic[T]):
-    value: T
-    disposition: Literal["SUCCEEDED"] = "SUCCEEDED"
-
-
-@dataclass(frozen=True, slots=True)
-class InterpreterFailure:
-    code: str
-    message: str
-    retryable: bool = False
-    disposition: Literal["FAILED"] = "FAILED"
-
-
-InterpreterOutcome: TypeAlias = InterpreterSuccess[T] | InterpreterFailure
-
 
 @runtime_checkable
 class InterpreterBindingView(Protocol):
@@ -171,22 +96,7 @@ class ProjectScopeView(Protocol):
     def scope_digest(self) -> str: ...
 
 
-PayloadView: TypeAlias = (
-    batch_task.BatchPlanPayload
-    | batch_task.RetryReducerInput
-    | batch_task.AgentBatchSubmission
-    | batch_task.BatchTaskSingleDispatchPayload
-)
-
-
-class BatchPlanBindingMismatch(ValueError):
-    """Raised when the C4.1 Program/Plan/payload/catalog/binding drifts."""
-
-
-class RetryBindingMismatch(ValueError):
-    """Raised when the C4.2 Program/Plan/payload/catalog/binding drifts."""
-
-
+PayloadView: TypeAlias = batch_task.BatchTaskSingleDispatchPayload
 class DispatchSingleBindingMismatch(ValueError):
     """Raised when the single-dispatch Program/Plan/payload/catalog/binding drifts."""
 
@@ -333,128 +243,12 @@ def _validate_exact_binding(
     }
 
 
-def require_exact_batch_plan_binding(
-    *,
-    program: ProgramSpec,
-    plan: ExecutionPlan,
-    contract_ref: OperationContractRef,
-    payload_ref: ValueRef,
-    payload: batch_task.BatchPlanPayload,
-    project_scope: ProjectScopeView,
-    catalog: OperationContractCatalogSnapshot,
-    deployment_catalog_digest: str,
-    binding: InterpreterBindingView,
-    expected_interpreter_profile_digest: str | None = None,
-) -> dict[str, str]:
-    result = validate_exact_batch_plan_binding(
-        program=program,
-        plan=plan,
-        contract_ref=contract_ref,
-        payload_ref=payload_ref,
-        payload=payload,
-        project_scope=project_scope,
-        catalog=catalog,
-        deployment_catalog_digest=deployment_catalog_digest,
-        binding=binding,
-        expected_interpreter_profile_digest=expected_interpreter_profile_digest,
-    )
-    if isinstance(result, Failure):
-        batch_task.raise_agent_batch_contract_failure(result, BatchPlanBindingMismatch)
-    return result
 
 
-def validate_exact_batch_plan_binding(
-    *,
-    program: ProgramSpec,
-    plan: ExecutionPlan,
-    contract_ref: OperationContractRef,
-    payload_ref: ValueRef,
-    payload: batch_task.BatchPlanPayload,
-    project_scope: ProjectScopeView,
-    catalog: OperationContractCatalogSnapshot,
-    deployment_catalog_digest: str,
-    binding: InterpreterBindingView,
-    expected_interpreter_profile_digest: str | None = None,
-) -> dict[str, str] | Failure:
-    return _validate_exact_binding(
-        kind=batch_task.BATCH_PLAN_KIND,
-        operation_id=batch_task.BATCH_PLAN_OPERATION_ID,
-        payload_type_id=batch_task.BATCH_PLAN_PAYLOAD_TYPE.type_id,
-        result_type_id=batch_task.BATCH_PLAN_RESULT_TYPE.type_id,
-        mismatch_type=BatchPlanBindingMismatch,
-        program=program,
-        plan=plan,
-        contract_ref=contract_ref,
-        payload_ref=payload_ref,
-        payload=payload,
-        project_scope=project_scope,
-        catalog=catalog,
-        deployment_catalog_digest=deployment_catalog_digest,
-        binding=binding,
-        expected_interpreter_profile_digest=expected_interpreter_profile_digest,
-    )
 
 
-def require_exact_retry_binding(
-    *,
-    program: ProgramSpec,
-    plan: ExecutionPlan,
-    contract_ref: OperationContractRef,
-    payload_ref: ValueRef,
-    payload: batch_task.RetryReducerInput,
-    project_scope: ProjectScopeView,
-    catalog: OperationContractCatalogSnapshot,
-    deployment_catalog_digest: str,
-    binding: InterpreterBindingView,
-    expected_interpreter_profile_digest: str | None = None,
-) -> dict[str, str]:
-    result = validate_exact_retry_binding(
-        program=program,
-        plan=plan,
-        contract_ref=contract_ref,
-        payload_ref=payload_ref,
-        payload=payload,
-        project_scope=project_scope,
-        catalog=catalog,
-        deployment_catalog_digest=deployment_catalog_digest,
-        binding=binding,
-        expected_interpreter_profile_digest=expected_interpreter_profile_digest,
-    )
-    if isinstance(result, Failure):
-        batch_task.raise_agent_batch_contract_failure(result, RetryBindingMismatch)
-    return result
 
 
-def validate_exact_retry_binding(
-    *,
-    program: ProgramSpec,
-    plan: ExecutionPlan,
-    contract_ref: OperationContractRef,
-    payload_ref: ValueRef,
-    payload: batch_task.RetryReducerInput,
-    project_scope: ProjectScopeView,
-    catalog: OperationContractCatalogSnapshot,
-    deployment_catalog_digest: str,
-    binding: InterpreterBindingView,
-    expected_interpreter_profile_digest: str | None = None,
-) -> dict[str, str] | Failure:
-    return _validate_exact_binding(
-        kind=batch_task.RETRY_REDUCE_KIND,
-        operation_id=batch_task.RETRY_REDUCE_OPERATION_ID,
-        payload_type_id=batch_task.RETRY_REDUCER_PAYLOAD_TYPE.type_id,
-        result_type_id=batch_task.RETRY_TRANSITION_TYPE.type_id,
-        mismatch_type=RetryBindingMismatch,
-        program=program,
-        plan=plan,
-        contract_ref=contract_ref,
-        payload_ref=payload_ref,
-        payload=payload,
-        project_scope=project_scope,
-        catalog=catalog,
-        deployment_catalog_digest=deployment_catalog_digest,
-        binding=binding,
-        expected_interpreter_profile_digest=expected_interpreter_profile_digest,
-    )
 
 
 def require_exact_dispatch_single_binding(
@@ -521,15 +315,6 @@ def validate_exact_dispatch_single_binding(
     )
 
 
-def authority_requirement_digest() -> str:
-    return content_digest(
-        {
-            "schema": batch_task.BATCH_TASK_AUTHORITY_SCHEMA,
-            "canonical_owner": batch_task.BATCH_TASK_OWNER,
-            "authority": "read-only batch plan and retry reduction",
-            "grant_scope": "project",
-        }
-    )
 
 
 def dispatch_single_authority_requirement_digest() -> str:
@@ -546,111 +331,14 @@ def dispatch_single_authority_requirement_digest() -> str:
     )
 
 
-def successor_plan_interpreter_profile_digest() -> str:
-    return content_digest(
-        {
-            "interpreter_id": BATCH_TASK_SUCCESSOR_PLAN_INTERPRETER_ID,
-            "version": "1.0.0",
-            "boundary": "batch task ordered plan",
-        }
-    )
 
 
-def successor_retry_interpreter_profile_digest() -> str:
-    return content_digest(
-        {
-            "interpreter_id": BATCH_TASK_SUCCESSOR_RETRY_INTERPRETER_ID,
-            "version": "1.0.0",
-            "boundary": "batch task ordered retry reducer",
-        }
-    )
 
 
-def build_successor_agent_batch_c4_plan_binding(
-    *,
-    contract_digest: str,
-    deployment_catalog_digest: str,
-    project_scope_digest: str,
-    resource_policy_epoch: int = 1,
-    runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> Annotated[
-    BatchTaskInterpreterBindingSpec,
-    Literal[
-        "kit:non-authoritative derived_as=view "
-        "fact_source=contract_digest+deployment_catalog_digest+project_scope_digest"
-        "+resource_policy_epoch+runtime_protocol_version"
-        "+successor_plan_interpreter_profile_digest+authority_requirement_digest "
-        "witness=test:test_native_plan_interpreter_binds_and_projects_exact_order"
-    ],
-]:
-    return BatchTaskInterpreterBindingSpec(
-        binding_kind="INTERPRETER",
-        operation_contract_digest=contract_digest,
-        interpreter_profile_digest=successor_plan_interpreter_profile_digest(),
-        deployment_catalog_digest=deployment_catalog_digest,
-        runtime_protocol_version=runtime_protocol_version,
-        project_scope_digest=project_scope_digest,
-        resource_policy_epoch=resource_policy_epoch,
-        authority_requirement_digest=authority_requirement_digest(),
-    )
 
 
-def build_successor_agent_batch_c4_retry_binding(
-    *,
-    contract_digest: str,
-    deployment_catalog_digest: str,
-    project_scope_digest: str,
-    resource_policy_epoch: int = 1,
-    runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> Annotated[
-    BatchTaskInterpreterBindingSpec,
-    Literal[
-        "kit:non-authoritative derived_as=view "
-        "fact_source=contract_digest+deployment_catalog_digest+project_scope_digest"
-        "+resource_policy_epoch+runtime_protocol_version"
-        "+successor_retry_interpreter_profile_digest+authority_requirement_digest "
-        "witness=test:test_native_retry_interpreter_binds_exact_attempt"
-    ],
-]:
-    return BatchTaskInterpreterBindingSpec(
-        binding_kind="INTERPRETER",
-        operation_contract_digest=contract_digest,
-        interpreter_profile_digest=successor_retry_interpreter_profile_digest(),
-        deployment_catalog_digest=deployment_catalog_digest,
-        runtime_protocol_version=runtime_protocol_version,
-        project_scope_digest=project_scope_digest,
-        resource_policy_epoch=resource_policy_epoch,
-        authority_requirement_digest=authority_requirement_digest(),
-    )
 
 
-def build_successor_agent_batch_c4_submission_binding(
-    *,
-    contract_digest: str,
-    deployment_catalog_digest: str,
-    project_scope_digest: str,
-    resource_policy_epoch: int = 1,
-    runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> Annotated[
-    BatchTaskInterpreterBindingSpec,
-    Literal[
-        "kit:non-authoritative derived_as=view "
-        "fact_source=contract_digest+deployment_catalog_digest+project_scope_digest"
-        "+resource_policy_epoch+runtime_protocol_version"
-        "+successor_submission_interpreter_profile_digest+authority_requirement_digest "
-        "witness=test:test_submission_payload_codec_restores_nested_typed_jobs"
-    ],
-]:
-    return BatchTaskInterpreterBindingSpec(
-        binding_kind="INTERPRETER",
-        operation_contract_digest=contract_digest,
-        interpreter_profile_digest=successor_submission_interpreter_profile_digest(),
-        deployment_catalog_digest=deployment_catalog_digest,
-        runtime_protocol_version=runtime_protocol_version,
-        project_scope_digest=project_scope_digest,
-        resource_policy_epoch=resource_policy_epoch,
-        authority_requirement_digest=authority_requirement_digest(),
-    )
 
 
 def build_successor_agent_batch_c4_dispatch_binding(
@@ -683,103 +371,10 @@ def build_successor_agent_batch_c4_dispatch_binding(
     )
 
 
-class BatchTaskPlanSuccessorInterpreter:
-    """Bound successor interpreter for the C4.1 ordered batch plan atom."""
-
-    interpreter_id = BATCH_TASK_SUCCESSOR_PLAN_INTERPRETER_ID
-
-    def interpret(
-        self,
-        *,
-        program: ProgramSpec,
-        plan: ExecutionPlan,
-        contract_ref: OperationContractRef,
-        payload_ref: ValueRef,
-        payload: batch_task.BatchPlanPayload,
-        project_scope: ProjectScopeView,
-        catalog: OperationContractCatalogSnapshot,
-        deployment_catalog_digest: str,
-        binding: InterpreterBindingView,
-    ) -> InterpreterOutcome[batch_task.BatchPlanResult]:
-        binding_result = validate_exact_batch_plan_binding(
-            program=program,
-            plan=plan,
-            contract_ref=contract_ref,
-            payload_ref=payload_ref,
-            payload=payload,
-            project_scope=project_scope,
-            catalog=catalog,
-            deployment_catalog_digest=deployment_catalog_digest,
-            binding=binding,
-            expected_interpreter_profile_digest=(
-                successor_plan_interpreter_profile_digest()
-            ),
-        )
-        if isinstance(binding_result, Failure):
-            return InterpreterFailure(
-                code="ASSIGNMENT_BINDING_MISMATCH",
-                message=str((binding_result.context or {})["public_message"]),
-                retryable=False,
-            )
-        plan_result = batch_task.try_build_batch_plan(payload)
-        if isinstance(plan_result, Failure):
-            return InterpreterFailure(
-                code="INVALID_PLAN",
-                message=str((plan_result.context or {})["public_message"]),
-                retryable=False,
-            )
-        return InterpreterSuccess(plan_result)
 
 
-class BatchTaskRetrySuccessorInterpreter:
-    """Bound successor interpreter for the C4.2 retry reducer atom."""
-
-    interpreter_id = BATCH_TASK_SUCCESSOR_RETRY_INTERPRETER_ID
-
-    def interpret(
-        self,
-        *,
-        program: ProgramSpec,
-        plan: ExecutionPlan,
-        contract_ref: OperationContractRef,
-        payload_ref: ValueRef,
-        payload: batch_task.RetryReducerInput,
-        project_scope: ProjectScopeView,
-        catalog: OperationContractCatalogSnapshot,
-        deployment_catalog_digest: str,
-        binding: InterpreterBindingView,
-    ) -> InterpreterOutcome[batch_task.RetryTransition]:
-        binding_result = validate_exact_retry_binding(
-            program=program,
-            plan=plan,
-            contract_ref=contract_ref,
-            payload_ref=payload_ref,
-            payload=payload,
-            project_scope=project_scope,
-            catalog=catalog,
-            deployment_catalog_digest=deployment_catalog_digest,
-            binding=binding,
-            expected_interpreter_profile_digest=(
-                successor_retry_interpreter_profile_digest()
-            ),
-        )
-        if isinstance(binding_result, Failure):
-            return InterpreterFailure(
-                code="ASSIGNMENT_BINDING_MISMATCH",
-                message=str((binding_result.context or {})["public_message"]),
-                retryable=False,
-            )
-        return InterpreterSuccess(batch_task.reduce_retry_action(payload))
 
 
-def successor_submission_interpreter_profile_digest() -> str:
-    return content_digest(
-        {
-            "interpreter_id": BATCH_TASK_SUCCESSOR_SUBMISSION_INTERPRETER_ID,
-            "version": "1.0.0",
-            "boundary": "batch task typed submission receipt derivation",
-        }
-    )
 
 
 def successor_dispatch_single_interpreter_profile_digest() -> str:
@@ -790,82 +385,3 @@ def successor_dispatch_single_interpreter_profile_digest() -> str:
             "boundary": "batch task single-item skill dispatch ACK derivation",
         }
     )
-
-
-class BatchTaskSubmissionSuccessorInterpreter:
-    """Bound successor interpreter for the C4.3 submission atom.
-
-    The interpreter validates the exact Program/Plan/payload closure and
-    derives a typed submission receipt.  Acceptance state lives in the typed
-    receipt (and is persisted by the store-rehydrated handler as a project
-    value), never in the generic DB idempotency enum.
-    """
-
-    interpreter_id = BATCH_TASK_SUCCESSOR_SUBMISSION_INTERPRETER_ID
-
-    def interpret(
-        self,
-        *,
-        program: ProgramSpec,
-        plan: ExecutionPlan,
-        contract_ref: OperationContractRef,
-        payload_ref: ValueRef,
-        payload: batch_task.AgentBatchSubmission,
-        project_scope: ProjectScopeView,
-        catalog: OperationContractCatalogSnapshot,
-        deployment_catalog_digest: str,
-        binding: InterpreterBindingView,
-        run_ref: str = "run:batch-task-submission",
-        created_at: str = "2030-09-01T08:00:00Z",
-    ) -> InterpreterOutcome[batch_task.AgentBatchSubmissionReceipt]:
-        binding_result = _validate_exact_binding(
-            kind=batch_task.SUBMISSION_KIND,
-            operation_id=batch_task.SUBMISSION_OPERATION_ID,
-            payload_type_id=batch_task.SUBMISSION_TYPE.type_id,
-            result_type_id=batch_task.SUBMISSION_RECEIPT_TYPE.type_id,
-            mismatch_type=BatchPlanBindingMismatch,
-            program=program,
-            plan=plan,
-            contract_ref=contract_ref,
-            payload_ref=payload_ref,
-            payload=payload,
-            project_scope=project_scope,
-            catalog=catalog,
-            deployment_catalog_digest=deployment_catalog_digest,
-            binding=binding,
-            expected_interpreter_profile_digest=(
-                successor_submission_interpreter_profile_digest()
-            ),
-        )
-        if isinstance(binding_result, Failure):
-            return InterpreterFailure(
-                code="ASSIGNMENT_BINDING_MISMATCH",
-                message=str((binding_result.context or {})["public_message"]),
-                retryable=False,
-            )
-        accepted = tuple(
-            job.job_id
-            for job in payload.jobs
-            if job.channel in {"search.market", "source_library"}
-        )
-        rejected = tuple(
-            (job.job_id, "unsupported_channel")
-            for job in payload.jobs
-            if job.channel not in {"search.market", "source_library"}
-        )
-        if not accepted:
-            return InterpreterFailure(
-                code="SUBMISSION_REJECTED",
-                message="no accepted submission items",
-                retryable=False,
-            )
-        receipt = batch_task.AgentBatchSubmissionReceipt(
-            submission_id=payload.submission_id,
-            job_id=",".join(accepted),
-            accepted_items=accepted,
-            rejected_items=rejected,
-            run_ref=run_ref,
-            state="PARTIALLY_ACCEPTED" if rejected else "ACCEPTED",
-            created_at=created_at,
-        )
-        return InterpreterSuccess(receipt)

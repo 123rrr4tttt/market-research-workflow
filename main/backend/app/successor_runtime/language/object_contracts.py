@@ -120,7 +120,6 @@ __all__ = [
     "CAPTURE_DOCUMENT_SNAPSHOT_RETURN_CONTRACT_REF",
     "CLAIM_OR_GAP_RETURN_CONTRACT_REF",
     "DELIVERY_INTENT_RECEIPT_RETURN_CONTRACT_REF",
-    "DOCUMENT_ADMISSION_RETURN_CONTRACT_REF",
     "EVIDENCE_QUALIFICATION_RETURN_CONTRACT_REF",
     "FROZEN_BASE_RETURN_CONTRACT_REFS",
     "READ_CANONICAL_REF_RETURN_CONTRACT_REF",
@@ -134,7 +133,6 @@ __all__ = [
     "ReturnContractRegistry",
     "language_failure",
     "raise_language_failure",
-    "build_c7_document_admission_return_contract_extension",
     "build_first_specimen_return_contract_registry",
     "build_frozen_base_return_contract_registry",
     "make_operation_contract",
@@ -194,10 +192,7 @@ RESEARCH_ARTIFACT_RETURN_CONTRACT_REF = (
 DELIVERY_INTENT_RECEIPT_RETURN_CONTRACT_REF = (
     "mrw.return.delivery.intent-receipt-admission.v1"
 )
-DOCUMENT_ADMISSION_RETURN_CONTRACT_REF = "mrw.return.ingest.document-admission.v1"
-
-# Frozen order and identity of the six P0-A return boundaries.  The C7 family
-# may only extend this list by the single Document admission contract below.
+# Frozen order and identity of the first-specimen return boundaries.
 FROZEN_BASE_RETURN_CONTRACT_REFS: tuple[str, ...] = (
     RUNTIME_VALUE_RETURN_CONTRACT_REF,
     SINGLE_TYPED_OUTPUT_RETURN_CONTRACT_REF,
@@ -301,38 +296,16 @@ def build_frozen_base_return_contract_registry() -> Annotated[
     )
 
 
-def build_c7_document_admission_return_contract_extension() -> Annotated[
-    tuple[tuple[str, ReturnContract], ...],
-    "kit:non-authoritative derived_as=view "
-    "fact_source=successor_runtime.language.object_contracts.DOCUMENT_ADMISSION_RETURN_CONTRACT_REF "
-    "witness=test:test_w07_derived_metadata_is_exact_and_non_authoritative",
-]:
-    """Exact additive C7 extension: one Document admission contract."""
-    # derived(view) is explicitly non-authoritative; the contract ref is the fact source.
-
-    return (
-        (
-            DOCUMENT_ADMISSION_RETURN_CONTRACT_REF,
-            _first_specimen_return_contract(admission_required=True),
-        ),
-    )
-
-
 def build_first_specimen_return_contract_registry() -> Annotated[
     ReturnContractRegistry,
     "kit:non-authoritative derived_as=view "
     "fact_source=successor_runtime.language.object_contracts.FROZEN_BASE_RETURN_CONTRACT_REFS "
     "witness=test:test_w07_derived_metadata_is_exact_and_non_authoritative",
 ]:
-    """Frozen base return vocabulary plus the single additive C7 extension."""
-    # derived(view) is explicitly non-authoritative; the base and extension refs are fact sources.
+    """Return the frozen first-specimen return vocabulary."""
+    # derived(view) is explicitly non-authoritative; the frozen refs are the fact source.
 
-    return ReturnContractRegistry(
-        entries=(
-            build_frozen_base_return_contract_registry().entries
-            + build_c7_document_admission_return_contract_extension()
-        )
-    )
+    return build_frozen_base_return_contract_registry()
 
 
 @dataclass(frozen=True, slots=True)

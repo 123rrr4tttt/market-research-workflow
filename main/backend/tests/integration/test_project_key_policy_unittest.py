@@ -509,17 +509,6 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         body = resp.json()
         self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
 
-    def test_writing_llm_actions_missing_project_key_in_require_mode_fails(self):
-        client = TestClient(backend_app)
-        with patch("app.api.writing.get_effective_project_key_enforcement_mode", return_value="require"):
-            resp = client.post(
-                "/api/v1/writing/llm-actions",
-                json={"action_id": "selection_rewrite", "input_markdown": "draft", "async": False},
-            )
-        self.assertEqual(resp.status_code, 400)
-        body = resp.json()
-        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
-
     def test_writing_export_markdown_missing_project_key_in_require_mode_fails(self):
         client = TestClient(backend_app)
         with patch("app.api.writing.get_effective_project_key_enforcement_mode", return_value="require"):

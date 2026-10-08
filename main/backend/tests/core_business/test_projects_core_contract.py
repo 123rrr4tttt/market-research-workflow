@@ -276,6 +276,9 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
         from app.api.projects import TENANT_TABLES
 
         table_names = {table.name for table in TENANT_TABLES}
+        self.assertIn("graph_nodes", table_names)
+        self.assertIn("graph_node_aliases", table_names)
+        self.assertIn("graph_edges", table_names)
         self.assertIn("writing_documents", table_names)
         self.assertIn("writing_document_drafts", table_names)
         self.assertIn("writing_document_citations", table_names)

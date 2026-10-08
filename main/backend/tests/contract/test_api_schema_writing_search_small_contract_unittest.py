@@ -12,7 +12,6 @@ pytestmark = pytest.mark.contract
 
 _TARGET_MODULE_OPERATIONS = {
     "indexer.py": frozenset((("POST", "/api/v1/indexer/policy"),)),
-    "reports.py": frozenset((("POST", "/api/v1/reports"),)),
     "search.py": frozenset(
         (
             ("GET", "/api/v1/search/runs/{retrieval_run_id}"),
@@ -36,9 +35,6 @@ _TARGET_MODULE_OPERATIONS = {
             ("POST", "/api/v1/writing/keyword-cards/preview"),
             ("GET", "/api/v1/writing/cards/{card_id}"),
             ("GET", "/api/v1/writing/suggest"),
-            ("POST", "/api/v1/writing/llm-actions"),
-            ("GET", "/api/v1/writing/llm-actions/history"),
-            ("GET", "/api/v1/writing/llm-actions/{job_id}"),
             ("POST", "/api/v1/writing/export/markdown"),
         )
     ),
@@ -76,7 +72,7 @@ class ApiSchemaWritingSearchSmallContractTestCase(unittest.TestCase):
             counts[operation["source_module"]] += 1
 
         self.assertEqual(counts, _TARGET_MODULE_COUNTS)
-        self.assertEqual(sum(counts.values()), 23)
+        self.assertEqual(sum(counts.values()), 19)
         actual_operations = {
             module: {
                 (operation["method"], operation["path"])

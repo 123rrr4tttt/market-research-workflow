@@ -40,10 +40,7 @@ from .decision import (
 from .observations import Observation, make_observation, observation_digest
 from .health import (
     DatabaseRuntimeSignal,
-    ProjectionDriftStatus,
-    ProjectionReadStatus,
     ProjectionReleaseStatus,
-    ProjectionRuntimeSignal,
     ProviderRuntimeSignal,
     ProviderRuntimeStatus,
     QueueReadStatus,
@@ -103,10 +100,7 @@ __all__ = [
     "DatabaseRuntimeSignal",
     "finalize_request_metrics",
     "MetricFamily",
-    "ProjectionDriftStatus",
-    "ProjectionReadStatus",
     "ProjectionReleaseStatus",
-    "ProjectionRuntimeSignal",
     "ProviderRuntimeSignal",
     "ProviderRuntimeStatus",
     "QueueReadStatus",

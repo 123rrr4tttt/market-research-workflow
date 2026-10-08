@@ -13,10 +13,23 @@ from mrw_functorial_kit.core.provider_port_failures import ingest_policy_failure
 
 from ...models.base import SessionLocal
 from ...models.entities import Document, Source
+from ..collect_runtime.contracts import (
+    COLLECT_BATCH_FOLD_SCHEMA_REF,
+    CollectBatchCounts,
+    CollectBatchFold,
+    CollectBatchRow,
+    CollectFailure,
+    collect_failure_to_plain,
+    fold_collect_batch_rows,
+)
 from ..job_logger import start_job, complete_job, fail_job
 from .frontdoor_ingress import build_frontdoor_ingress_envelope
 from .postprocess_frontdoor import run_postprocess_frontdoor
 from .provider_ports import PolicyDocument, get_policy_adapter
+
+POLICY_MATERIALIZATION_PROJECTION_SCHEMA_REF = (
+    "mrw.successor.ingest.policy.materialization-projection.v2"
+)
 
 
 def _get_or_create_source(session: Session, doc: PolicyDocument) -> Source:
@@ -56,12 +69,12 @@ def _policy_request_ref(
     )
 
 
-def _policy_document_observation(
+def _policy_document_row(
     *,
     document: PolicyDocument,
     state: str,
     input_index: int,
-) -> acquisition.CollectElementSucceeded:
+) -> CollectBatchRow:
     raw = {
         "state": str(getattr(document, "state", None) or state),
         "title": str(getattr(document, "title", None) or ""),
@@ -77,19 +90,14 @@ def _policy_document_observation(
         "source_name": getattr(document, "source_name", None),
     }
     raw_digest = content_digest(raw)
-    replay_identity = content_digest(
-        {
-            "schema": "mrw.successor.ingest.policy.materialization.v1",
-            "state": str(state).strip().upper(),
-            "input_index": input_index,
-            "raw_digest": raw_digest,
-        }
-    )
+    replay_identity = content_digest({
+        "schema": "mrw.successor.ingest.policy.materialization.v1",
+        "state": str(state).strip().upper(),
+        "input_index": input_index,
+        "raw_digest": raw_digest,
+    })
     receipt = acquisition.CollectAttemptReceipt(
         schema_version=acquisition.COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
-        # The iterable yields a provider value, but the local content digest
-        # is not an authoritative provider readback. Keep the acknowledgement
-        # explicit so callers cannot treat materialization as completion.
         receipt_kind="DISPATCH_ACKNOWLEDGEMENT",
         provider_type="policy.adapter",
         provider_job_id=f"policy:{str(state).strip().upper()}:{replay_identity}",
@@ -100,15 +108,37 @@ def _policy_document_observation(
         authoritative_readback=False,
         receipt_digest="",
     )
-    return acquisition.CollectElementSucceeded(
-        schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+    return CollectBatchRow(
         element_id=f"policy:{str(state).strip().upper()}:document:{input_index}",
         input_index=input_index,
-        counts=acquisition.CollectCounts(),
+        query_terms=(str(state).strip().upper(),),
+        observation=None,
+        counts=CollectBatchCounts(),
         links=((str(raw["uri"]).strip(),) if raw["uri"] else ()),
         receipt=receipt,
-        legacy_observation_ref=f"legacy:{replay_identity}",
-        outcome_digest="",
+        result_status="succeeded",
+        execution_state="attempted",
+    )
+
+
+def _policy_failure_row(
+    *, state: str, input_index: int, message: str, exception_type: str
+) -> CollectBatchRow:
+    error: CollectFailure = {
+        "code": "auto_batch_execution_failed",
+        "message": message,
+        "query_terms": (str(state).strip().upper(),),
+        "exception_type": exception_type,
+    }
+    return CollectBatchRow(
+        element_id=f"policy:{str(state).strip().upper()}:document:{input_index}",
+        input_index=input_index,
+        query_terms=(str(state).strip().upper(),),
+        observation=None,
+        counts=CollectBatchCounts(),
+        errors=(error,),
+        result_status="failed",
+        execution_state="attempted",
     )
 
 
@@ -121,47 +151,28 @@ def materialize_policy_documents(
     request_id: str | None = None,
     idempotency_key: str | None = None,
     _iteration_error_out: list[BaseException] | None = None,
-) -> tuple[list[PolicyDocument], acquisition.CollectTraversalResult]:
-    """Materialize a bounded policy iterable with typed ordered observations.
-
-    The iterable is consumed in input order and each yielded document receives
-    a content-bound attempt/readback receipt and replay identity. Cancellation
-    is observed only at an element boundary, which is the strongest guarantee
-    available for a synchronous provider iterable.
-    """
+) -> tuple[list[PolicyDocument], CollectBatchFold]:
+    """Materialize the provider iterable and fold its ordered observations once."""
     bounded = max(0, int(max_documents)) if max_documents is not None else None
     materialized: list[PolicyDocument] = []
-    outcomes: list[acquisition.CollectElementOutcome] = []
+    rows: list[CollectBatchRow] = []
     request_ref = _policy_request_ref(
-        state,
-        request_id=request_id,
-        idempotency_key=idempotency_key,
+        state, request_id=request_id, idempotency_key=idempotency_key
     )
     iterator = iter(documents)
     index = 0
     while bounded is None or index < bounded:
         if cancel_check is not None and bool(cancel_check(index)):
-            cause = acquisition.CollectElementError(
-                code="auto_batch_execution_failed",
+            cancellation = acquisition.CollectCancellationReceipt(
+                schema_version=acquisition.COLLECT_CANCELLATION_RECEIPT_SCHEMA_REF,
+                code="FAIL_FAST_CANCELLED",
                 message="policy materialization cancelled",
-                query_terms=(str(state).strip().upper(),),
-                exception_type="CancellationRequested",
-                error_digest="",
+                trigger_input_index=index,
+                observed="SERIAL_EXECUTION",
+                receipt_digest="",
             )
-            return materialized, acquisition.OrderedTraversalAborted(
-                schema_version=acquisition.COLLECT_TRAVERSAL_RESULT_SCHEMA_REF,
-                partial_outcomes=tuple(outcomes),
-                cause=cause,
-                cancellation_receipt=acquisition.CollectCancellationReceipt(
-                    schema_version=acquisition.COLLECT_CANCELLATION_RECEIPT_SCHEMA_REF,
-                    code="FAIL_FAST_CANCELLED",
-                    message=cause.message,
-                    trigger_input_index=index,
-                    observed="SERIAL_EXECUTION",
-                    receipt_digest="",
-                ),
-                cancellation_observed=True,
-                request_ref=request_ref,
+            return materialized, fold_collect_batch_rows(
+                tuple(rows), request_ref=request_ref, cancellation=cancellation
             )
         try:
             document = next(iterator)
@@ -170,80 +181,24 @@ def materialize_policy_documents(
         except Exception as exc:  # noqa: BLE001 - provider iterable boundary
             if _iteration_error_out is not None:
                 _iteration_error_out.append(exc)
-            error = acquisition.CollectElementError(
-                code="auto_batch_execution_failed",
+            rows.append(_policy_failure_row(
+                state=state, input_index=index,
                 message=str(exc) or exc.__class__.__name__,
-                query_terms=(str(state).strip().upper(),),
                 exception_type=exc.__class__.__name__,
-                error_digest="",
-            )
-            outcomes.append(
-                acquisition.CollectElementFailed(
-                    schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
-                    element_id=f"policy:{str(state).strip().upper()}:document:{index}",
-                    input_index=index,
-                    error=error,
-                    legacy_observation_ref=f"legacy:{error.error_digest}",
-                    outcome_digest="",
-                )
-            )
+            ))
             break
-        # Keep the legacy structural port contract: adapters and tests may
-        # return compatible record objects rather than the concrete dataclass.
         if any(not hasattr(document, field) for field in ("content", "title", "state")):
-            error = acquisition.CollectElementError(
-                code="auto_batch_execution_failed",
+            rows.append(_policy_failure_row(
+                state=state, input_index=index,
                 message="policy provider yielded an invalid document",
-                query_terms=(str(state).strip().upper(),),
                 exception_type="TypeError",
-                error_digest="",
-            )
-            outcomes.append(
-                acquisition.CollectElementFailed(
-                    schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
-                    element_id=f"policy:{str(state).strip().upper()}:document:{index}",
-                    input_index=index,
-                    error=error,
-                    legacy_observation_ref=f"legacy:{error.error_digest}",
-                    outcome_digest="",
-                )
-            )
+            ))
             index += 1
             continue
         materialized.append(document)
-        outcomes.append(
-            _policy_document_observation(
-                document=document,
-                state=state,
-                input_index=index,
-            )
-        )
+        rows.append(_policy_document_row(document=document, state=state, input_index=index))
         index += 1
-
-    observation = acquisition.CollectTraversalObservation(
-        schema_version=acquisition.COLLECT_TRAVERSAL_OBSERVATION_SCHEMA_REF,
-        observation_profile=acquisition.COLLECT_TRAVERSAL_OBSERVATION_PROFILE,
-        request_ref=request_ref,
-        traversal_policy="MATERIALIZED_SHAPE",
-        failure_policy="ACCUMULATE",
-        ordered_outcomes=tuple(outcomes),
-        requested_parallelism=1,
-        effective_parallelism=1,
-        cancellation_observed=False,
-        observation_digest="",
-    )
-    traversal: acquisition.CollectTraversalResult
-    if len(outcomes) == 1:
-        traversal = acquisition.CollectTraversalSingleton(
-            schema_version=acquisition.COLLECT_TRAVERSAL_RESULT_SCHEMA_REF,
-            observation=observation,
-        )
-    else:
-        traversal = acquisition.OrderedTraversalCompleted(
-            schema_version=acquisition.COLLECT_TRAVERSAL_RESULT_SCHEMA_REF,
-            observation=observation,
-        )
-    return materialized, traversal
+    return materialized, fold_collect_batch_rows(tuple(rows), request_ref=request_ref)
 
 
 def _extraction_readback(
@@ -271,40 +226,6 @@ def _extraction_readback(
         "domains": dict(raw.get("domains") or {}),
     }
     return {**payload, "readback_digest": content_digest(payload)}
-
-
-def _policy_materialization_typed_views(
-    traversal: acquisition.CollectTraversalResult,
-    *,
-    state: str,
-    request_id: str | None = None,
-    idempotency_key: str | None = None,
-) -> tuple[acquisition.OrderedCollectElementOutcomeSequence, acquisition.CollectAggregateOutcome]:
-    observation = getattr(traversal, "observation", None)
-    outcomes = (
-        getattr(observation, "ordered_outcomes", None)
-        if observation is not None
-        else getattr(traversal, "partial_outcomes", ())
-    ) or ()
-    sequence = acquisition.OrderedCollectElementOutcomeSequence(
-        schema_version=acquisition.ORDERED_OUTCOME_SEQUENCE_SCHEMA_REF,
-        parent_request_ref=(
-            getattr(observation, "request_ref", None)
-            or _policy_request_ref(
-                state,
-                request_id=request_id,
-                idempotency_key=idempotency_key,
-            )
-        ),
-        outcomes=tuple(outcomes),
-        sequence_digest="",
-    )
-    aggregate = acquisition.fold_ordered_results(
-        sequence,
-        aggregation_policy_ref=acquisition.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
-        observation_profile_ref=acquisition.COLLECT_FOLD_OBSERVATION_PROFILE,
-    )
-    return sequence, aggregate
 
 
 def _policy_provider_iteration_failure(
@@ -497,25 +418,28 @@ def ingest_policy_documents(
 
             index_policy_documents(document_ids=inserted_ids)
 
-        sequence, aggregate = _policy_materialization_typed_views(
-            materialization,
-            state=state,
-            request_id=request_id,
-            idempotency_key=idempotency_key,
-        )
-        materialized_outcomes = sequence.outcomes
         materialization_status = (
             "CANCELLED"
-            if isinstance(materialization, acquisition.OrderedTraversalAborted)
+            if materialization.cancellation is not None
             else "FAILED"
-            if any(isinstance(outcome, acquisition.CollectElementFailed) for outcome in materialized_outcomes)
+            if materialization.failed_count or materialization.receipt_conflict
             else "OUTCOME_UNKNOWN"
             if any(
-                outcome.receipt is not None
-                and not acquisition.receipt_implies_completed(outcome.receipt)
-                for outcome in materialized_outcomes
+                not acquisition.receipt_implies_completed(receipt)
+                for receipt in materialization.receipts
             )
             else "COMPLETED"
+        )
+        aggregate_kind = (
+            "failed"
+            if materialization.receipt_conflict
+            or (
+                materialization.attempted_count > 0
+                and materialization.failed_count == materialization.attempted_count
+            )
+            else "partial"
+            if materialization.failed_count
+            else "succeeded"
         )
         result = {
             "inserted": inserted,
@@ -524,16 +448,36 @@ def ingest_policy_documents(
             "document_ids": inserted_ids,
             "items": item_results[:50],
             "materialization": {
+                "schema_version": POLICY_MATERIALIZATION_PROJECTION_SCHEMA_REF,
                 "status": materialization_status,
-                "outcome_count": len(sequence.outcomes),
-                "sequence_digest": sequence.sequence_digest,
-                "aggregate": aggregate.to_plain(),
-                "replay_identity": getattr(getattr(materialization, "observation", None), "request_ref", None).request_digest if getattr(getattr(materialization, "observation", None), "request_ref", None) else None,
-                "cancellation": (getattr(materialization, "cancellation_receipt", None).to_plain() if getattr(materialization, "cancellation_receipt", None) is not None else None),
+                "outcome_count": len(materialization.rows),
+                "sequence_digest": materialization.sequence_digest,
+                "aggregate": {
+                    "schema_version": COLLECT_BATCH_FOLD_SCHEMA_REF,
+                    "kind": aggregate_kind,
+                    "aggregate_counts": materialization.counts.to_plain(),
+                    "errors": [
+                        collect_failure_to_plain(error)
+                        for error in materialization.errors
+                    ],
+                    "receipts": [receipt.to_plain() for receipt in materialization.receipts],
+                    "links": list(materialization.links),
+                    "ordered_rows": [row.to_plain() for row in materialization.rows],
+                },
+                "replay_identity": (
+                    materialization.request_ref.request_digest
+                    if materialization.request_ref is not None
+                    else None
+                ),
+                "cancellation": (
+                    materialization.cancellation.to_plain()
+                    if materialization.cancellation is not None
+                    else None
+                ),
             },
             "extraction": extraction_stats,
         }
-        if isinstance(materialization, acquisition.OrderedTraversalAborted):
+        if materialization.cancellation is not None:
             fail_job(job_id, "policy materialization cancelled")
         else:
             complete_job(job_id, result=result)

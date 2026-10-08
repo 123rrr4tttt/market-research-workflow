@@ -258,9 +258,6 @@ assertIncludesAll('endpoints.writing', writingEndpointKeys, [
   'keywordCardPreview',
   'cardById',
   'suggest',
-  'llmActions',
-  'llmActionHistory',
-  'llmActionById',
   'exportMarkdown',
 ])
 
@@ -275,18 +272,6 @@ assertIncludesAll('WritingKeywordCardListResponse', extractTypePropertyKeys(writ
   'context_boundary',
   'dependency_gate',
 ])
-assertIncludesAll('WritingLlmActionPayload', extractTypePropertyKeys(writingDomainFile, 'WritingLlmActionPayload'), [
-  'target_scope',
-])
-assertIncludesAll('WritingLlmActionResponse', extractTypePropertyKeys(writingDomainFile, 'WritingLlmActionResponse'), [
-  'requested_async',
-  'execution_mode',
-  'async_honored',
-  'capability_truth',
-  'action_boundary',
-  'dependency_gate',
-])
-
 assertIncludesAll('backend writing schema', backendSchemaSource, [
   'class WritingContextEnvelope',
   'class TypedKnowledgeWritingHandoffData',
@@ -294,12 +279,6 @@ assertIncludesAll('backend writing schema', backendSchemaSource, [
   'typed_knowledge_context',
   'context_boundary',
   'dependency_gate',
-  'action_boundary',
-  'capability_truth',
-  'requested_async',
-  'execution_mode: Literal["inline"]',
-  'async_honored',
-  'target_scope',
 ])
 assertIncludesAll('backend writing api', backendApiSource, [
   '"/documents"',
@@ -310,9 +289,6 @@ assertIncludesAll('backend writing api', backendApiSource, [
   '"/keyword-cards/preview"',
   '"/cards/{card_id}"',
   '"/suggest"',
-  '"/llm-actions"',
-  '"/llm-actions/history"',
-  '"/llm-actions/{job_id}"',
   '"/export/markdown"',
 ])
 
@@ -323,8 +299,6 @@ const summary = {
   checked_frontend_types: [
     'WritingKeywordCardRequest',
     'WritingKeywordCardListResponse',
-    'WritingLlmActionPayload',
-    'WritingLlmActionResponse',
   ],
   checked_files: Object.values(files),
   failures,

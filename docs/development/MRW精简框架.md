@@ -1,6 +1,6 @@
 # MRW 精简框架
 
-> 2026-10-08 · 当前主线为原生规则贯通生产消费者并同批整族退役，基线为已提交的 `c3adced5946a52b66be4494aba3dbb707ee879b5`。上一轮完成的是迁移保持与本地验证，生产仅净减29行，不构成全局退役或显著瘦身完成。第二批已从`0dc9b3c3`退出旧generator、I1装配外壳及workflow静态资格链，app本批净减6124行至299234行，较初始基线累计净减8238行。整体精简仍未完成，不外推总体减量或提速；实际收支、验证及attempt集中见[阶段§2.2](MRW平台结构精简与删减阶段.md#22-第二批整族退役结果与证据)。
+> 2026-10-08 · 从`a17930da`实施的有限删除波次及本批修复，使app Python从737文件299234行减至641文件231701行，净减67533行（22.57%）；JSON、前端、kit、工具与测试另账。局部构造、集中验证及八个仍待重构的Source/Agent等语义组合见[阶段§4](MRW平台结构精简与删减阶段.md#4-有限删除波次与待重构组合)。九项能力覆盖、本批CI通过和显著删减不等于全平台架构重构完成。首两批已提交结果与attempt保留于阶段§2.1/§2.2，旧部署Stage4–6继续STOPPED。
 
 ## 1. 从必要能力确定退役对象
 
@@ -24,12 +24,12 @@ MRW服务项目中的来源获取、材料组织、检索、信息拓扑、分�
 | 组织来源、资源与候选 | resource/site-entry等实体、`services/resource_pool/site_entries.py`；source/channel与候选typed contracts | resource_pool/source_library/discovery API、资源界面、搜索与采集工具 | 来源发现、URL资源、项目/共享资源有不同身份和可见性；适配器承担外部协议 |
 | 导入、取得和管理材料 | `models/entities.py::Material`及领域writer族；`Document`为同一映射的兼容别名；原导入/抽取核 | ingest/crawler API与任务、document queries/views、搜索、拓扑、写作引用、原生工具 | `services/ingest`与领域数据接口；provider和项目抽取adapter可替换，正文权威不转移到图节点 |
 | 检索、索引和迭代调查 | `services/search`候选/查询合同、现行index服务与ES协议、`services/project_retrieval`方法/预算/结果 | search/indexer/project_retrieval API、检索工具、图谱和资源搜索、写作suggest | 搜索索引是派生表示；研究方法决定问题/后续判断，执行层承担需要持久化的生命周期 |
-| 表达知识、关系与信息结构 | `services/information_topology/{contracts,structural_schema,repository,service}.py`、typed知识原贡献与writer、图节点/边实体 | information_topology/typed_knowledge API、Graph、检索IO、写作context | 信息结构包含对象/关系/出现位置；方法结构和运行状态分别关联，不压成一张无类型图 |
-| 分析、报告与引用写作 | `models/writing_entities.py`的WritingDocument/Draft/Citation；`services/writing`文档/引用/模板等事务；报告和LLM动作各自合同 | writing/reports/llm_report API、WritingWorkbench、拓扑写作context、工具 | 材料引用保留来源身份；正文版本/ETag、草稿、引用更新各有生命周期；LLM/provider是效果边界 |
-| 调用工具、构造和观察工作 | `agent_core/contracts.py::CoreToolSpec`、原native贡献、工作流模板/版本、原组合语言；运行事实owner | 原生Core、functorial/workflow_graph/agent_batch API、session/process、WorkflowDesigner | direct/sync/durable按合同选择；宿主推理和MRW领域/运行权限分属各自owner |
+| 表达知识、关系与信息结构 | `services/information_topology/{contracts,structural_schema,repository,service}.py`、typed知识现役合同与SQL writer、图节点/边实体 | information_topology/typed_knowledge API、Graph、检索IO、写作context | 信息结构包含对象/关系/出现位置；方法结构和运行状态分别关联，不压成一张无类型图 |
+| 分析、报告与引用写作 | `models/writing_entities.py`的WritingDocument/Draft/Citation；`services/writing`文档/引用/模板等事务；现役LLM报告合同 | writing/llm_report API、WritingWorkbench、拓扑写作context、工具 | 材料引用保留来源身份；正文版本/ETag、草稿、引用更新各有生命周期；LLM/provider是效果边界 |
+| 调用工具、构造和观察工作 | `agent_core/contracts.py::CoreToolSpec`、原native贡献、工作流模板/版本、原组合语言；运行事实owner | 原生Core、functorial/workflow_graph/agent_batch API、session/process、WorkflowManager | direct/sync/durable按合同选择；宿主推理和MRW领域/运行权限分属各自owner |
 | 访问、管理和部署平台 | API显式mount与权限依赖；`F/app/kernel/moduleManifest.ts`及页面表达；部署脚本/依赖清单 | HTTP客户端、业务前端、CodexAgentPage、WebUI、CLI/CI和开发者 | frontend已有manifest派生routes/registry；WebUI为上游vendor＋MRW边界适配；运行模式和验证工具属于交付责任 |
 
-API挂载见`A/api/__init__.py`，包括上述领域、配置/治理、skills、agent_cell、clue_chains等。挂载证明入口存在；provider是否可用、各分析/报告链是否完成真实读回，仍由对应能力owner验证。历史[能力清单](../architecture/MRW项目能力清单_替代方案评估.md)用于识别覆盖面，其历史实施描述不代替当前源码证据。
+API挂载见`A/api/__init__.py`，包括上述领域、配置/治理、skills、agent_batch、agent_macro_host、clue_chains等。挂载证明入口存在；provider是否可用、各分析/报告链是否完成真实读回，仍由对应能力owner验证。历史[能力清单](../architecture/MRW项目能力清单_替代方案评估.md)用于识别覆盖面，其历史实施描述不代替当前源码证据。
 
 
 这张地图定义需要判断的能力，不给现有实现发放保留凭证。每个退役包先指出仍需哪项用户操作、哪一事实owner和哪种独立效果，再定位最小实现；如果只是旧表示或包装继续引用另一层，应切掉包装和其专属接线。真实的草稿/发布、材料/索引、项目出现位置、provider协议和运行生命周期差异继续保留。
@@ -46,9 +46,11 @@ $$
 
 这是待实现和见证的设计义务，不是已验证定理；只主张已声明端点及有序复合保持，不自动推出交换、自然性或不同形状同构，不据此新增代码schema。operation输入/输出、codec、kernel签名及reader结果关系须由同一原生定义维持；本批重复接线产生的Any/宽dict随壳消除，不能先擦成object/cast再称同源。JSON/provider不可信值只在解析边界开放，经原具体模型或判别失败收窄后进入领域/Runtime；现有无关类型债不纳入全库清零。
 
-已有局部链路证明此方向可复用，但尚未全域贯通。`successor_runtime/capabilities/knowledge_graph_projection_contribution.py`的`KnowledgeGraphProjectionAuthorSource`经`lower_knowledge_graph_projection_author_source`派生contract/profile/dataclass codec/Program atom，`knowledge_graph_projection_native_rule`及`KNOWLEDGE_GRAPH_PROJECTION_NATIVE_RULE`组织规则；原`assembly/knowledge_assembly.py`曾组合`native.assemble`和`binding.install`，现已随I1局部总装退役；既有native binding及真实kernel仍保留，不将旧总装存在作为能力成立条件。图的`substrate/postgres/c8_graph_projector.py::project_graph_generation/read_active_graph`仍承担不能由模板猜出的业务/持久化语义。本批真实消费者的运行范围见阶段§2.2，不由静态链路推断全域贯通。
+当前可复用的具名链路分为耐久执行与有限同步组合。原C8 contribution、binding与projector已随第三波原型岛退出，不再作为现存机制示例；第二批当时保留这些组件的历史状态见阶段§2.2，原记录不改写。以下源码调用链仅界定机制，真实执行范围与验证时点见阶段§4，不由静态链路推断全域贯通。
 
-workflow局部首例已使`composition/production.py::_installed_operation_facts`和`_installed_operation_handler`从同一选定`WorkflowRuntimeDefinition`查找完整operation ref，并由`workflow_assembly.py::assemble_workflow_runtime_handler`构造原handler、检查完整类型/codec/authority关联。原`build_workflow_runtime_definition`支持既有三类节点内的kind映射，真实PG见证覆盖default与alternate。此处只统一operation安装接缝；第二批已删除服务旧静态资格cell的`WORKFLOW_NATIVE_CONTRIBUTION_RULE`及其catalog，保留真实runtime definition与handler。首例成本见阶段§2.1，整族退役及旧compiled运行需重编译的显式损失见§2.2；不宣称全能力目录贯通。复用`PersistentOperationHandler`及`services/workflow_graph/__init__.py`的`submit_installed_program`与reader；`runtime.py::invoke_workflow_runtime_node`的输入关系与`execute_node`效果继续由领域核承担。`contributions/project_catalog.py`当前主要给CLI/check投影，`retrieval_native_catalog.py`也区分native与projection，均不能单凭catalog声称worker已安装。
+workflow的权威定义位于`successor_runtime/capabilities/workflow_native_contribution.py::WorkflowRuntimeDefinition/build_workflow_runtime_definition`。`composition/production.py::_installed_operation_facts`与`_installed_operation_handler`从同一定义按完整operation ref取得contract、profiles与codec；production向`assembly/workflow_assembly.py::assemble_workflow_runtime_handler`注入项目绑定、`services/workflow_graph/runtime.py::invoke_workflow_runtime_node`与原settled-failure类型，构造`PersistentOperationHandler`并检查类型、codec、authority与scope关联。`services/workflow_graph/__init__.py`提交现有Program到`submit_installed_program`，既选`RuntimeNode`及PG adapter承担运行状态，领域node kernel承担实际效果。这是operation安装与执行接缝的同源链，不是把整个旧业务handler称为特殊核。当前`services/workflow_graph/runtime.py`的346行单节点核有这条实际安装消费者，旧耐久循环已退出；该具名核保留不扩为整个services的豁免。首例default/alternate PG、成本及旧compiled运行需重编译的损失见阶段§2.1/§2.2；本批保持见§4。`contributions/project_catalog.py`与`retrieval_native_catalog.py`中的检查投影不单独证明worker安装。
+
+collect的当前行与聚合权威位于`services/collect_runtime/contracts.py::CollectBatchRow/CollectBatchCounts/CollectBatchFold/fold_collect_batch_rows`。`runtime.py::_run_successor_collect`复用`language/sync.py::interpret_ordered_sync`有序调用原effect gateway，再由`_project_collect_rows`消费同一fold；`services/ingest/policy.py::materialize_policy_documents`也直接生成这些行并折叠，保留原材料writer。fold只组织计数、顺序、错误、稳定去重链接与receipt关系，consumer分别解释本地结果和provider终态；ACK不升格为完成，policy无终态观察仍保持UNKNOWN。旧Plan/Sequence/Aggregate等中间组织已退出，没有增加第二Runtime、调度器或新的运行事实owner。具体有损投影版本、返工与原消费者验证见阶段§4。
 
 Runtime自身同样沿“原生typed状态/值/事件/命令语义 → 已有关系规则 → 当前Node/PG消费者与只读readback”收敛。同一运行事实的codec、row映射、装配、投影与验证接入可以有向派生，减少重复模型和检查维护；结构收益不自动等于总代码减少，新增规则与派生生产量均计成本。现有局部调查与首例分为四面：
 
@@ -59,11 +61,11 @@ Runtime自身同样沿“原生typed状态/值/事件/命令语义 → 已有关
 
 除已完成的值映射首例外，这些仍只是现役符号与候选的静态依据，不是可删量或运行证明。已有原生状态表/普通函数足够时直接复用，不为每个函数加贡献壳；不预定新IR、数据库生成框架、通用schema、注册器或恢复平台。若确需补共同规则，由一个owner用一个真实消费者打通后释放依赖的同形包；与workflow规则机制能复用就复用，不各建框架或重复计成本。无现役需求的功能直接退役，无需为生成保留。
 
-标准化范围包括source/material/knowledge/writing/host/项目API、同步工具与reader、前端manifest和WebUI边界，均沿各自权威源到原消费者；durable operation只承担首公共案例。已贯通的前端manifest等形状直接复用，真实protocol/lifecycle差异不抹平。能力按真实形状处理：已有规则支持的同形定义直接复用；新语义形状只补当前所需的一条规则；特殊kernel与权限判断由作者明确；无现役需求的功能整体退役。不强制所有API/CRUD变成durable，也不以`Any`或unchecked cast抹平输入输出差异。领域作者只提供语义、类型、特殊核及独立见证；公共规则owner补lower/derive缺口；集成owner唯一维护共享production消费者、有效native目录及其投影与sync/check。三者是责任分工，可以由同一作者承担，不增加管理层。
+标准化范围包括source/material/knowledge/writing/host/项目API、同步工具与reader、前端manifest和WebUI边界，均沿各自权威源到原消费者；durable operation只承担首公共案例。已贯通的前端manifest等形状直接复用，真实protocol/lifecycle差异不抹平。能力按真实形状处理：已有规则支持的同形定义直接复用；新语义形状只补当前所需的一条规则；特殊kernel与权限判断由作者明确；无现役需求的功能整体退役。统一运行owner专指需要耐久生命周期的执行；必要操作从原生权威定义到真实consumer，普通HTTP CRUD、一次同步组合和有不同事实owner的领域writer沿各自原边界保留，不各建native Runtime。不强制所有API/CRUD变成durable，也不以`Any`或unchecked cast抹平输入输出差异；身份、权限、版本与失败保持仍须有具体见证。领域作者只提供语义、类型、特殊核及独立见证；公共规则owner补lower/derive缺口；集成owner唯一维护共享production消费者、有效native目录及其投影与sync/check。三者是责任分工，可以由同一作者承担，不增加管理层。
 
 公共首例由一个owner贯通原声明、真实消费者及删除闭包；依赖该接缝的同形批量迁移随后展开，已有形状、独立kernel和安全删除不等待。一次权威事实修改应驱动所有已确定装配字段；非默认同形定义也必须到真实消费者，可用现有第二实例或受控测试实例。交叉输入输出类型、重复/缺失identity、错误authority须明确失败，声明和sync/check不得执行effect。框架机制用原kit独立见证验证，项目迁移用真实消费者验证行为、顺序、失败与权限，二者不能互相替代；首例不是新审批关卡，不另建万能CapabilitySpec、Runtime、DSL、scheduler或注册审批平台。
 
-新规则、公共首例、派生生产物、提取和集成成本均计回受益删除族；没有无限共享建设预算。旧services整体承载、旧runtime及旧执行owner全部退役，既选Runtime通过同源结构收敛消除重复模型、映射与装配，保留必要核，不推倒重写。上一轮workflow＋999、retrieval＋3763、shared＋1594继续分别复审，source−5991不抵消；有消费者的`projection_contracts.py`、`retrieval_material_native.py`按类型与效果定界，已退staged/effect和旧URL ThreadPool不得重复算删除。
+新规则、公共首例、派生生产物、提取和集成成本均计回受益删除族；没有无限共享建设预算。旧services整体承载、旧runtime及旧执行owner全部退役，既选Runtime通过同源结构收敛消除重复模型、映射与装配，保留必要核，不推倒重写。上一轮workflow＋999、retrieval＋3763、shared＋1594继续分别复审，source−5991不抵消；`projection_contracts.py`及C7/C8/C9原型岛已按有限兼容撤回退出，现役`retrieval_material_native.py`按真实动态检索消费者与效果定界，已退staged/effect和旧URL ThreadPool不得重复算删除。
 
 ## 4. 全项目规模预算与收支约束
 
@@ -76,9 +78,9 @@ Runtime自身同样沿“原生typed状态/值/事件/命令语义 → 已有关
 | 后端app | 307472 | 全部758文件；运行结构、领域、API与其它平台各有owner，按真实闭包取得预算 |
 | 业务前端src | 69822 | 234文件，test/spec另入测试账；按必要交互与重复表达定界 |
 | 全部自有kit/native贡献与开发、迁移、运维工具 | 137848 | kit3875、contributions36、backend migrations4845、backend scripts55543、root scripts52275、frontend tools4903、owned ops3296、search-lab11648、local入口1427；外移native实现同样计入 |
-| 自有主体小计 | 515142 | 不含尚未完整分离的vendor内MRW定制增量 |
-| vendor内MRW定制改动 | 待分离 | 以具名上游基线分离MRW维护的实现增量；定制测试入测试账，不以vendor标签豁免 |
-| 自有运行实现与工具总计 | 515142＋未分离增量 | 未知量不记零，整体规模承诺由具名保留核及互斥删除包校准后确定 |
+| 自有主体小计 | 515142 | 不含下行单列的vendor内MRW定制与生成差异 |
+| vendor内MRW定制改动 | 实现净增1207；生成净增8283，分别列 | 相对具名上游`44ad73a9`逐blob分离；完整实现维护面为32个改/增路径（当前7315行）及6个删除路径，不能把净增1207当维护代码总量；18定制测试净增1847另账。详见阶段§4 |
+| 自有运行实现与工具计量 | 自有主体515142；vendor差异单列 | vendor实现净增1207与生成净增8283按上游差异口径计，不与完整vendor库存或38路径维护面重复加总；整体净减仍以本轮实际互斥闭包核算 |
 
 app的c3路径基线互斥覆盖：services398文件130558行、successor_runtime233文件135154行、api39文件26297行、其它88文件15463行。路径清单负责不漏文件，语义归属负责不藏成本。领域按来源采集、检索资源、材料知识、写作报告、宿主工具与业务工作流、项目治理及业务根胶水组织，全部必要类型、kernel、effect与adapter入账；不自动授权删除provider、报告或其它用户必要能力。
 
@@ -96,7 +98,7 @@ app的c3路径基线互斥覆盖：services398文件130558行、successor_runtim
 
 ## 5. 推进与验证
 
-首批安全退役与首例、第二批旧generator/I1/workflow静态资格链均已有局部结果；下一前沿是寻找既有同形的整族重复装配或旧执行owner闭包，证明计入规则和集成成本后仍有正净收益，再发包。其它能力形状与D/A/N仍待定，不由首例通过直接宣布可批量迁移。首例一名owner贯通共享规则与production后，释放依赖它的同形作者；公共消费者和目录始终由集成owner串行收敛，消费者切换与整族删除同包验收。具体合同、依赖、写面及命令见阶段文档；完整路径覆盖账只防漏项，不决定架构切片。
+首两批结果保持历史；当前从`a17930da`推进有限删除波次，能力覆盖分为来源采集、检索资源、材料导入、知识写作、宿主工作流、项目/API、选定Runtime、前端宿主适配、kit工具ops九项。九项不是全部剩余实现的穷尽清单；Source resolver/provider组织、Agent URL提交、搜索矩阵、discovery/clue组合、旧tool协议桥及native provider残留等真实待重构面见阶段§4。每项按旧整体架构组织、迁移中介、迁移后残留、新架构特殊核分别定界，沿生产入口→旧组织→保留算法/功能/事实owner→既有贡献或Runtime装配→删除闭包→完成见证贯通，再形成可删闭包、同形收敛、具名保留或具体阻塞；整handler被注册或迁到新目录不构成重构。已定删除包验证后关闭该包，仍须继续具名未重构切口，不以补测试代替结构变化。分类全覆盖仍不等于services旧整体组织退役或单一Runtime/全能力同源接线完成；后两项须沿实际执行与事实owner分别证明，必要kernel只能逐项具名保留。预算、独占写面、原验证入口与总体退出见[阶段§4–5](MRW平台结构精简与删减阶段.md#4-有限删除波次与待重构组合)；物理代码面不冒充净减承诺，旧执行owner必须退出，必要权限/类型/UNKNOWN/恢复保持。
 
 全局最多6名活跃Agent，root分发与Astra编排各1名，最多4名作者/调查者；集成owner占其中1席。领域作者不各写adapter补共同缺口；共同规则失败回到唯一owner，独立包继续。PG、coverage、前端build/E2E独占，pure最多2个资源隔离进程。原进度记录汇总现成分派、首次共同验收、失败、手写机械接线、调用/token及共同修复成本；缺失不记零，不能由局部通过推断整体提速。
 
@@ -108,4 +110,4 @@ app的c3路径基线互斥覆盖：services398文件130558行、successor_runtim
 
 精确历史可从`git show c3adced:docs/development/MRW平台结构精简与删减阶段.md`读取；原aggregate为`/tmp/mrw-structure-20261007-w4uct7gr/integration/ci-group-resumption-2.json`。这些是旧候选证据，新退役改动只能按未变依赖复用。全文件类型债、浏览器mocks、direct HOST写作工具证明范围和不完整调用/token成本仍保留，不新增为本次后置治理工程。
 
-当前状态：第二批整族退役已完成所需局部验证，保留实际kernel、权限、PG、UNKNOWN及历史reader；旧compiled graph只读保留、运行需重新编译。实际收支、返工与成本缺失见[阶段§2.2](MRW平台结构精简与删减阶段.md#22-第二批整族退役结果与证据)，首批结果保留于§2.1。全能力规则贯通和整体精简仍未完成。未经证明的硬行数帽继续撤回，“6–10万”保留为未校准历史情景，不是可信预期；不外推总体删减或提速。文档交回集成统一提交，未push或deploy；旧生产部署Stage4–6继续STOPPED。
+当前状态：有限删除波次已取得上述源码净减；终版ci-pr精确清单2444项为69 actual passed、2371 kept、4 skipped，root suite为304 actual passed与1046 kept，七gate242、公共类型0错误、coverage原100/20门槛通过，具体时点及原失败attempt见阶段§4。真实本机host summary已取得canonical SQL读回；两项workflow已补有效Bearer并经过隔离scope/grant安装，原多resource installer修复19/19实际通过；领域Failure v2正文及Plan-aware replay已修复，两原live E2E实际通过，最后reader guard的受影响failure selector亦实际通过，success按未变依赖kept；v1正文与digest保持。首次正式provisioning入口、宿主只读循环十次、retrieval缺配置和未验证cookie代理lane仍独立保留。整体精简及全能力原生规则贯通仍未完成；未push或deploy，旧生产部署Stage4–6继续STOPPED。

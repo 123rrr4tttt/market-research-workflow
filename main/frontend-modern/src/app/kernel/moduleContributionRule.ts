@@ -19,7 +19,6 @@ const WritingWorkbenchPage = lazy(() => import('../../pages/WritingWorkbenchPage
 const CodexAgentPage = lazy(() => import('../../pages/CodexAgentPage'))
 const AgentCellPage = lazy(() => import('../../pages/AgentCellPage'))
 const WorkflowManagerPage = lazy(() => import('../../pages/WorkflowManagerPage'))
-const SuccessorRuntimePage = lazy(() => import('../../pages/SuccessorRuntimePage'))
 const BusinessGuidePage = lazy(() => import('../../pages/BusinessGuidePage'))
 
 export type ModuleRendererArgs = {
@@ -83,10 +82,6 @@ const MODULE_RENDERERS: Record<KernelModuleKey, ModuleRenderer> = {
   flowExtract: ({ projectKey }) => h(ResourcePage, { projectKey, variant: 'extract' }),
   sysSettings: ({ projectKey }) => h(SettingsPage, { projectKey, variant: 'settings' }),
   sysLlm: ({ projectKey }) => h(SettingsPage, { projectKey, variant: 'llm' }),
-  sysSuccessorRuntime: ({ projectKey, shellMode }) =>
-    shellMode === KERNEL_RENDER_SHELL_MODE.admin
-      ? h(SuccessorRuntimePage, { projectKey })
-      : null,
   sysBusinessGuide: () => h(BusinessGuidePage),
 }
 

@@ -63,6 +63,7 @@ from app.successor_runtime.runtime.assignments import RuntimeAssignment
 from app.successor_runtime.runtime.ports import RuntimeScope
 from app.successor_runtime.substrate.postgres.first_specimen_activation import ActiveChildMaterializer, ActiveChildTerminalObservation, ActivationCatalogEntry, FirstSpecimenActivationCatalog
 from app.successor_runtime.substrate.postgres.nodes import DeploymentCatalog
+from app.successor_runtime.substrate.postgres.runtime_failures import RuntimeFailureRecord
 
 
 PRODUCTION_ENVIRONMENTS = frozenset({"production", "prod"})
@@ -816,31 +817,10 @@ def _operation_payload_digest(
     scope: ProjectScopeRef,
     actor_id: str,
 ) -> str:
-    """Use the canonical projection request identity for approval observation."""
+    """Hash the exact request body observed by production admission."""
 
-    if binding.route_template != "/api/v1/material-projections/v2/commands":
-        return hashlib.sha256(body).hexdigest()
-    try:
-        from app.contracts.successor_runtime import SuccessorRuntimeCommandV2DTO
-        from app.successor_runtime.runtime.facade_contracts import (
-            derive_projection_request_identity,
-        )
-
-        dto = SuccessorRuntimeCommandV2DTO.model_validate(json.loads(body))
-        return derive_projection_request_identity(
-            scope_digest=scope.scope_digest,
-            actor_ref=actor_id,
-            command_id=dto.command_id,
-            command_kind=dto.command_kind,
-            payload=dto.payload.model_dump(mode="json"),
-            expected_base_token=dto.expected_base_token,
-            approval_locator=dto.approval_locator,
-        )
-    except Exception:
-        # DTO validation remains the route handler's responsibility; malformed
-        # input keeps the raw digest and fails closed at the approval/effect
-        # boundary rather than being treated as an exact authorized request.
-        return hashlib.sha256(body).hexdigest()
+    del binding, scope, actor_id
+    return hashlib.sha256(body).hexdigest()
 
 
 def _host_matches(host: str, allowed: tuple[str, ...]) -> bool:
@@ -1450,6 +1430,99 @@ def read_installed_program_outputs(
         )) for step in plan.ordered_steps if step.step_id in by_step)
 
 
+def read_installed_program_failures(
+    *, engine: Engine, project_key: str, actor_id: str, run_id: str,
+) -> tuple[tuple[int, RuntimeFailureRecord], ...]:
+    """Read only exact EffectFailed bodies for an API-authorized project viewer."""
+    from sqlalchemy import MetaData
+    from app.successor_runtime.runtime.assignments import InterpreterBinding
+    from app.successor_runtime.runtime.claims import ClaimBinding
+    from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES, project_tables
+    from app.successor_runtime.substrate.postgres.plans import PlanRepository
+    from app.successor_runtime.substrate.postgres.runtime_failures import RuntimeFailureRepository
+    from app.successor_runtime.substrate.postgres.runtime_journal import (
+        ExactBindingConflict, RuntimeJournalRepository, validate_runtime_assignment_row,
+    )
+    from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
+
+    with engine.connect() as connection:
+        project = ServerProjectScopeResolver(connection=connection).resolve(project_key)
+        scope = RuntimeScope(project_scope=project, actor_id=actor_id)
+        journal = RuntimeJournalRepository(connection, scope)
+        run = journal.load_run(run_id)
+        tables = project_tables(MetaData(), project.resolved_schema)
+        plan = PlanRepository(connection, tables).get(scope, str(run["plan_digest"]))
+        if (run["resolved_schema"] != project.resolved_schema
+                or run["project_registry_revision"] != project.project_registry_revision
+                or run["project_scope_digest"] != project.scope_digest or plan.plan_id != run["plan_id"]
+                or plan.plan_digest != run["plan_digest"]
+                or plan.program_id != run["program_id"] or plan.program_digest != run["program_digest"]):
+            raise ExactBindingConflict("runtime failure Run/Plan/project identity drift")
+        records: list[tuple[int, RuntimeFailureRecord]] = []
+        seen: set[tuple[str, str]] = set()
+        for event in journal.load_events(run_id):
+            if event["event_type"] != "EffectFailed":
+                continue
+            step_id, attempt_id = str(event.get("step_id") or ""), str(event.get("attempt_id") or "")
+            metadata = event.get("event_metadata_json")
+            work_item_id = metadata.get("work_item_id") if isinstance(metadata, dict) else None
+            if (not step_id or not attempt_id or not isinstance(work_item_id, str) or not work_item_id
+                    or (step_id, attempt_id) in seen or event["schema_version"] != "mrw.runtime.event.effect_failed.v1"
+                    or event["project_key"] != project_key or event["run_id"] != run_id):
+                raise ExactBindingConflict("EffectFailed identity/schema is absent or duplicated")
+            seen.add((step_id, attempt_id))
+            attempts, work_items, steps = (PUBLIC_TABLES[name] for name in (
+                "runtime_effect_attempts", "runtime_work_items", "runtime_steps",
+            ))
+            attempt = connection.execute(select(attempts).where(
+                attempts.c.project_key == project_key, attempts.c.attempt_id == attempt_id,
+            )).mappings().one_or_none()
+            work = connection.execute(select(work_items).where(
+                work_items.c.project_key == project_key, work_items.c.work_item_id == work_item_id,
+            )).mappings().one_or_none()
+            step = connection.execute(select(steps).where(
+                steps.c.project_key == project_key, steps.c.run_id == run_id, steps.c.step_id == step_id,
+            )).mappings().one_or_none()
+            plan_steps = tuple(item for item in plan.ordered_steps if item.step_id == step_id)
+            if attempt is None or work is None or step is None or len(plan_steps) != 1:
+                raise ExactBindingConflict("EffectFailed exact attempt/work/step is absent")
+            assignment = validate_runtime_assignment_row(work)
+            claim = ClaimBinding.model_validate(attempt["claim_binding_json"])
+            claim.validate_against(assignment)
+            contract = plan_steps[0].operation_contract_ref
+            if (assignment.work_item_id != work_item_id or assignment.run_id != run_id or assignment.step_id != step_id
+                    or assignment.program_digest != run["program_digest"] or assignment.plan_digest != run["plan_digest"]
+                    or assignment.execution_epoch != run["execution_epoch"] or assignment.incarnation != run["incarnation"]
+                    or attempt["run_id"] != run_id or attempt["step_id"] != step_id or attempt["attempt_id"] != attempt_id
+                    or attempt["incarnation"] != run["incarnation"] or attempt["execution_epoch"] != run["execution_epoch"]
+                    or attempt["assignment_digest"] != assignment.assignment_digest
+                    or attempt["handler_binding_digest"] != assignment.handler_binding_digest
+                    or attempt["handler_realization_digest"] != assignment.handler_binding_digest
+                    or attempt["claim_binding_digest"] != claim.binding_digest or claim.attempt_id != attempt_id
+                    or attempt["authorization_digest"] != claim.authorization_digest
+                    or work["authority_digest"] != claim.authorization_digest
+                    or work["claim_attempt_id"] != claim.attempt_id or work["claim_binding_digest"] != claim.binding_digest
+                    or work["claim_binding_json"] != claim.model_dump(mode="json")
+                    or (isinstance(assignment.handler_binding, InterpreterBinding)
+                        and assignment.handler_binding.project_scope_digest != project.scope_digest)
+                    or event["authority_digest"] != claim.authorization_digest or attempt["disposition"] != "FAILED"
+                    or step["operation_id"] != plan_steps[0].operation_id
+                    or step["execution_epoch"] != run["execution_epoch"] or attempt["input_digest"] != step["input_digest"]
+                    or contract is None or assignment.operation_contract_ref != contract
+                    or step["operation_kind"] != contract.kind or step["operation_version"] != contract.contract_version):
+                raise ExactBindingConflict("EffectFailed run/plan/attempt/claim/handler binding drift")
+            failure_ref, failure_digest = attempt["failure_ref"], attempt["failure_digest"]
+            if ((event.get("payload_ref"), event.get("payload_digest")) not in ((None, None), (failure_ref, failure_digest))
+                    or metadata.get("failure_ref", failure_ref) != failure_ref
+                    or metadata.get("failure_digest", failure_digest) != failure_digest):
+                raise ExactBindingConflict("EffectFailed failure reference/digest drift")
+            record = RuntimeFailureRepository(connection, tables).verify_exact(
+                scope, assignment=assignment, claim=claim, failure_ref=failure_ref, failure_digest=failure_digest,
+            )
+            records.append((int(event["seq"]), record))
+        return tuple(records)
+
+
 def read_installed_program_input_bindings(
     *, engine: Engine, project_key: str, actor_id: str, run_id: str,
     static_input_type: ObjectType,
@@ -1666,9 +1739,18 @@ def _installed_operation_handler(
     workflow_operation = build_workflow_runtime_definition().operation_for_ref(contract.ref)
     if workflow_operation is not None:
         from app.successor_runtime.assembly.workflow_assembly import assemble_workflow_runtime_handler
+        from app.services.projects.context import bind_resolved_project
+        from app.services.workflow_graph.runtime import (
+            WorkflowNodeSettledFailure,
+            invoke_workflow_runtime_node,
+        )
+
         return assemble_workflow_runtime_handler(
             operation=workflow_operation, uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
             project_key=scope.project_scope.project_key, resolved_schema=scope.project_scope.resolved_schema,
+            bind_project_scope=bind_resolved_project,
+            invoke_runtime_node=invoke_workflow_runtime_node,
+            settled_failure_type=WorkflowNodeSettledFailure,
         )
     if contract.ref.kind in retrieval_material_native.RETRIEVAL_LEAF_KINDS:
         from app.services.project_retrieval.execution import (

@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
-from functorial_kit import Failure
 
 from app.successor_runtime.capabilities import acquisition_batch as acquisition
+from app.services.collect_runtime.contracts import (
+    CollectBatchCounts,
+    CollectBatchFold,
+    CollectBatchRow,
+    CollectFailure,
+    fold_collect_batch_rows,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -17,43 +23,6 @@ def _request_ref() -> acquisition.CollectRequestRef:
         request_id="request:acquisition-kernel",
         project_key="project:acquisition-kernel",
         channel="search.market",
-    )
-
-
-def _snapshot(*, options: dict[str, object] | None = None) -> acquisition.CollectLegacyRequestSnapshot:
-    return acquisition.CollectLegacyRequestSnapshot(
-        schema_version=acquisition.COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF,
-        flow="collect",
-        channel="search.market",
-        project_key="project:acquisition-kernel",
-        query_terms=("a1", "a2", "a3", "a4", "b1", "b2", "b3", "b4"),
-        urls=(),
-        limit=80,
-        options=acquisition.freeze_json_object(dict(options or {})),
-        source_context=acquisition.freeze_json_object({}),
-        snapshot_digest="",
-    )
-
-
-def _policy() -> acquisition.CollectResourcePolicy:
-    return acquisition.CollectResourcePolicy(
-        schema_ref=acquisition.COLLECT_RESOURCE_POLICY_SCHEMA_REF,
-        max_parallelism=2,
-        deadline_seconds=60,
-        cancellation="COORDINATED",
-        backpressure=True,
-        provider_concurrency_key="search.market",
-        policy_digest="",
-    )
-
-
-def _plan(*, options: dict[str, object] | None = None) -> acquisition.CollectBatchPlan:
-    return acquisition.build_collect_batch_plan(
-        request_ref=_request_ref(),
-        snapshot=_snapshot(options=options),
-        plan_id="plan:acquisition-kernel",
-        resource_policy=_policy(),
-        authority_scope_ref="project:acquisition-kernel",
     )
 
 
@@ -72,117 +41,90 @@ def _receipt(job_id: str, *, raw_digest: str = "0" * 64) -> acquisition.CollectA
     )
 
 
-def _succeeded(
+def _row(
     index: int,
     *,
     inserted: int = 1,
     links: tuple[str, ...] = (),
     receipt: acquisition.CollectAttemptReceipt | None = None,
-) -> acquisition.CollectElementSucceeded:
-    return acquisition.CollectElementSucceeded(
-        schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
+    message: str | None = None,
+) -> CollectBatchRow:
+    errors: tuple[CollectFailure, ...] = ()
+    if message is not None:
+        errors = ({"code": "auto_batch_execution_failed", "message": message},)
+    return CollectBatchRow(
         element_id=f"element:{index}",
         input_index=index,
-        counts=acquisition.CollectCounts(inserted=inserted),
+        query_terms=(),
+        observation=None,
+        counts=CollectBatchCounts(inserted=0 if message is not None else inserted),
         links=links,
+        errors=errors,
         receipt=receipt,
-        legacy_observation_ref="legacy:" + f"{index:064x}",
-        outcome_digest="",
+        result_status="failed" if message is not None else "succeeded",
+        execution_state="attempted",
     )
 
 
-def _failed(index: int, message: str) -> acquisition.CollectElementFailed:
-    return acquisition.CollectElementFailed(
-        schema_version=acquisition.COLLECT_ELEMENT_OUTCOME_SCHEMA_REF,
-        element_id=f"element:{index}",
-        input_index=index,
-        error=acquisition.CollectElementError(
-            code="auto_batch_execution_failed",
-            message=message,
-            error_digest="",
-        ),
-        legacy_observation_ref="legacy:" + f"{index + 100:064x}",
-        outcome_digest="",
-    )
-
-
-def _fold(*outcomes: acquisition.CollectElementOutcome) -> acquisition.CollectAggregateOutcome:
-    sequence = acquisition.OrderedCollectElementOutcomeSequence(
-        schema_version=acquisition.ORDERED_OUTCOME_SEQUENCE_SCHEMA_REF,
-        parent_request_ref=_request_ref(),
-        outcomes=outcomes,
-        sequence_digest="",
-    )
-    return acquisition.fold_ordered_results(
-        sequence,
-        aggregation_policy_ref=acquisition.COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
-        observation_profile_ref=acquisition.COLLECT_FOLD_OBSERVATION_PROFILE,
-    )
-
-
-def test_acquisition_plan_is_ordered_and_resource_bounded() -> None:
-    plan = _plan(options={"batch_parallelism": 8})
-    assert [element.input_index for element in plan.elements] == [0, 1]
-    assert [element.query_terms for element in plan.elements] == [
-        ("a1", "a2", "a3", "a4"),
-        ("b1", "b2", "b3", "b4"),
-    ]
-    assert plan.requested_parallelism == 8
-    assert plan.effective_parallelism == 2
-    assert plan.per_batch_limit == 40
-
-
-def test_acquisition_plan_rejects_order_and_shape_drift() -> None:
-    plan = _plan()
-    with pytest.raises(ValueError, match="contiguous"):
-        replace(plan, elements=(plan.elements[1], plan.elements[0]))
-
-    malformed = replace(
-        plan.elements[0],
-        traversal_policy="STATIC_SHAPE",
-        query_terms=("different",),
-        element_digest="",
-    )
-    result = acquisition.try_build_collect_batch_plan(
+def _fold(*rows: CollectBatchRow) -> CollectBatchFold:
+    return fold_collect_batch_rows(
+        rows,
         request_ref=_request_ref(),
-        snapshot=_snapshot(),
-        plan_id="plan:acquisition-kernel",
-        resource_policy=_policy(),
-        authority_scope_ref="project:acquisition-kernel",
-        traversal_policy="STATIC_SHAPE",
-        static_elements=(malformed,),
     )
-    assert isinstance(result, Failure)
-    assert result.code == "INVALID_INPUT"
+
+
+def test_acquisition_batch_rules_preserve_order_limits_and_options() -> None:
+    request = SimpleNamespace(
+        channel="search.market",
+        query_terms=["a1", "a2", "a3", "a4", "b1", "b2", "b3", "b4"],
+        limit=80,
+        options={"batch_parallelism": 8, "batch_fail_fast": True},
+        source_context={"batch_parallelism": 2},
+    )
+    assert acquisition.should_auto_batch(request)
+    batches = acquisition.split_query_terms(request.query_terms)
+    assert batches == [["a1", "a2", "a3", "a4"], ["b1", "b2", "b3", "b4"]]
+    assert acquisition.per_batch_limit_for(request.limit, len(batches)) == 40
+    assert acquisition.resolve_auto_batch_parallelism(request) == 8
+    assert acquisition.resolve_auto_batch_fail_fast(request) is True
+
+
+def test_acquisition_batch_rules_use_safe_defaults_for_invalid_options() -> None:
+    request = SimpleNamespace(
+        channel="search.market", query_terms=["a"] * 6, limit="bad",
+        options={"batch_parallelism": []}, source_context={"batch_fail_fast": "off"},
+    )
+    assert acquisition.per_batch_limit_for(request.limit, 2) == 10
+    assert acquisition.resolve_auto_batch_parallelism(request) == 1
+    assert acquisition.resolve_auto_batch_fail_fast(request) is False
 
 
 def test_acquisition_fold_preserves_order_counts_errors_links_and_receipts() -> None:
     queued = _receipt("job-1")
-    aggregate = _fold(
-        _succeeded(0, inserted=2, links=("https://a", "https://b"), receipt=queued),
-        _failed(1, "second batch failed"),
-        _succeeded(2, inserted=3, links=("https://b", "https://c")),
+    folded = _fold(
+        _row(0, inserted=2, links=("https://a", "https://b"), receipt=queued),
+        _row(1, message="second batch failed"),
+        _row(2, inserted=3, links=("https://b", "https://c")),
     )
-    assert isinstance(aggregate, acquisition.CollectAggregatePartial)
-    assert [outcome.input_index for outcome in aggregate.ordered_outcomes.outcomes] == [0, 1, 2]
-    assert aggregate.aggregate_counts.inserted == 5
-    assert [error.message for error in aggregate.errors] == ["second batch failed"]
-    assert aggregate.links == ("https://a", "https://b", "https://c")
-    assert aggregate.receipts == (queued,)
+    assert [row.input_index for row in folded.rows] == [0, 1, 2]
+    assert folded.counts.inserted == 5
+    assert [error["message"] for error in folded.errors] == ["second batch failed"]
+    assert folded.links == ("https://a", "https://b", "https://c")
+    assert folded.receipts == (queued,)
+    assert folded.failed_count == 1
     assert acquisition.receipt_implies_completed(queued) is False
 
 
 def test_acquisition_fold_deduplicates_identical_receipts_and_rejects_drift() -> None:
     first = _receipt("job-same")
     identical = _receipt("job-same")
-    accepted = _fold(_succeeded(0, receipt=first), _succeeded(1, receipt=identical))
-    assert isinstance(accepted, acquisition.CollectAggregateSucceeded)
+    accepted = _fold(_row(0, receipt=first), _row(1, receipt=identical))
     assert accepted.receipts == (first,)
+    assert accepted.receipt_conflict is False
 
     divergent = _receipt("job-same", raw_digest="1" * 64)
-    rejected = _fold(_succeeded(0, receipt=first), _succeeded(1, receipt=divergent))
-    assert isinstance(rejected, acquisition.CollectFoldContractFailure)
-    assert "duplicate provider_job_id" in rejected.reason
+    rejected = _fold(_row(0, receipt=first), _row(1, receipt=divergent))
+    assert rejected.receipt_conflict is True
 
 
 def test_acquisition_contract_failures_use_canonical_value() -> None:

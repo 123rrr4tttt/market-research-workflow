@@ -57,7 +57,7 @@ __all__ = [
 
 QUALITY_PROMOTION_PORT_SCHEMA = "mrw.successor.agent-batch.quality-promotion-port.v1"
 QUALITY_PROMOTION_PORT_SCOPE = "successor.provider_independent_quality_gate_and_promotion_readback"
-_FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
+_FAILURE_WITNESS = "test:test_w06_retained_failure_lifts_preserve_public_abi"
 
 
 def _failure(
@@ -82,9 +82,9 @@ def _raise_contract_failure(failure: Failure, exception_type: type[Exception] = 
         failure.family != quality_promotion_contract_failures.name
         or context.get("public_exception") != exception_type.__name__
     ):
-        # kit:boundary owner=quality_promotion_port.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        # kit:boundary owner=quality_promotion_port.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_retained_failure_lifts_preserve_public_abi
         raise TypeError("quality-promotion contract lift context is incomplete")  # noqa: TRY003
-    # kit:boundary owner=quality_promotion_port.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=quality.promotion.contract_failure witness=test:test_w06_c2_total_core_failure_lifts
+    # kit:boundary owner=quality_promotion_port.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=quality.promotion.contract_failure witness=test:test_w06_retained_failure_lifts_preserve_public_abi
     raise exception_type(str(context.get("public_message", failure.message)))
 
 

@@ -48,28 +48,6 @@
       "authority_ceiling": "Independent acceptance does not promote the candidate, rewrite the frozen P3 fragment, or authorize canonical write/cutover."
     },
     {
-      "surface": "FirstSpecimen PostgreSQL handlers",
-      "path": "main/backend/app/successor_runtime/substrate/postgres/first_specimen_handlers.py",
-      "classification": "SHELL_BOUNDARY",
-      "proposed_family": "first_specimen.handler_failure",
-      "registered_family": "first_specimen.handler_failure",
-      "registered_codes": [
-        "first_specimen_handler_contract_invalid",
-        "first_specimen_operation_unsupported",
-        "first_specimen_semantic_product_invalid",
-        "first_specimen_replay_projection_invalid",
-        "first_specimen_activation_binding_invalid",
-        "first_specimen_handler_binding_invalid",
-        "first_specimen_output_write_invalid",
-        "first_specimen_output_readback_invalid"
-      ],
-      "state": "REGISTERED_LOCAL_SHELL_CLOSURE",
-      "closure_scope": "Class-level failure_code members of local FirstSpecimen error classes only; this is not a global runtime failure closure.",
-      "passthrough_family": "capability-owned InterpreterFailure codes are forwarded unchanged as a separate family",
-      "witness": "tests/test_first_specimen_failure_registration.py and main/backend/tests/successor_runtime/test_s5_first_specimen_failure_family.py::test_capability_interpreter_failure_is_passed_through",
-      "action": "Keep the eight stable local shell codes and preserve capability-owned InterpreterFailure passthrough without message-derived reclassification."
-    },
-    {
       "surface": "Typed Knowledge persistence boundary",
       "path": "main/backend/app/services/typed_knowledge/persistence_boundary.py",
       "classification": "TYPED_INTERFACE_EXCEPTION",

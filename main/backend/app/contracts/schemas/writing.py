@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 from functorial_kit import Failure
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
 from ..materials import normalize_material_source_type
 from mrw_functorial_kit.core.application_failure_semantics import writing_request_contract_failures
 
@@ -212,67 +212,6 @@ class WritingTemplateListData(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
-class LlmActionRequest(WritingRequestContext):
-    action_id: Literal["outline_generate", "section_expand", "selection_rewrite", "evidence_summary"]
-    template_key: str | None = Field(default=None, max_length=128)
-    template_version: str | None = Field(default=None, max_length=64)
-    document_id: str | None = Field(default=None, max_length=128)
-    input_markdown: str = Field(default="", max_length=50000)
-    selection_text: str | None = Field(default=None, max_length=5000)
-    target_scope: Literal["selection", "document"] | None = None
-    async_mode: bool = Field(default=False, alias="async")
-    gate_mode: str | None = Field(default=None, max_length=32)
-
-    model_config = ConfigDict(populate_by_name=True, extra="forbid")
-
-    @model_validator(mode="after")
-    def _infer_target_scope(self) -> "LlmActionRequest":
-        if self.target_scope is not None:
-            return self
-        self.target_scope = "selection" if str(self.selection_text or "").strip() else "document"
-        return self
-
-
-class LlmActionResponse(BaseModel):
-    content: str = ""
-    sources: list[dict[str, Any]] = Field(default_factory=list)
-    mode: str = ""
-    warnings: list[str] = Field(default_factory=list)
-    trace_id: str | None = None
-    job_id: int | None = None
-    status: str = "completed"
-    requested_async: bool = False
-    execution_mode: Literal["inline"] = "inline"
-    async_honored: bool = True
-    capability_truth: dict[str, Any] = Field(default_factory=dict)
-    observability: dict[str, Any] = Field(default_factory=dict)
-    action_boundary: dict[str, Any] = Field(default_factory=dict)
-    dependency_gate: dict[str, Any] = Field(default_factory=dict)
-
-
-class LlmActionHistoryItem(BaseModel):
-    job_id: int
-    job_type: str
-    status: str
-    project_key: str | None = None
-    action_id: str | None = None
-    template_key: str | None = None
-    template_version: str | None = None
-    request_meta: dict[str, Any] = Field(default_factory=dict)
-    actor_id: str | None = None
-    trace_id: str | None = None
-    created_at: str | None = None
-    duration_ms: int | None = None
-    result_summary: dict[str, Any] = Field(default_factory=dict)
-    content: str | None = None
-
-
-class LlmActionHistoryListData(BaseModel):
-    items: list[LlmActionHistoryItem] = Field(default_factory=list)
-
-    model_config = ConfigDict(extra="allow")
-
-
 class WritingDocumentData(BaseModel):
     id: int | None = None
     project_key: str | None = None
@@ -338,69 +277,6 @@ class WritingCitationListData(BaseModel):
     items: list[WritingCitationData] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="allow")
-
-
-PrimaryWritingLoopStage = Literal[
-    "document_ready",
-    "editing",
-    "saved",
-    "context_loaded",
-    "citation_applied",
-    "action_executed",
-    "write_back_ready",
-]
-
-
-class WritingBaselineCapability(BaseModel):
-    capability_id: str = Field(..., min_length=1, max_length=64)
-    designed: bool
-    implemented: bool
-    still_open: bool
-    owner_modules: list[str] = Field(default_factory=list)
-    notes: str = Field(default="", max_length=500)
-
-    model_config = ConfigDict(extra="forbid")
-
-
-class WritingBaselineDeltaMatrix(BaseModel):
-    contract_version: str = Field(default="writing.wave_a.e1.v1", min_length=1, max_length=64)
-    capabilities: list[WritingBaselineCapability] = Field(default_factory=list)
-    non_goals: list[str] = Field(default_factory=list)
-    repo_reality: str = Field(default="", max_length=500)
-
-    model_config = ConfigDict(extra="forbid")
-
-
-class WritingPrimaryLoopCheckpoint(BaseModel):
-    project_key: str | None = Field(default=None, max_length=64)
-    document_id: int | None = Field(default=None, ge=1)
-    has_markdown_body: bool = False
-    saved_version: int | None = Field(default=None, ge=1)
-    has_context_cards: bool = False
-    has_accepted_citation: bool = False
-    llm_action_invoked: bool = False
-    has_write_back_candidate: bool = False
-    graph_context_attached: bool = False
-    graph_handoff_contract_version: str | None = Field(default=None, max_length=64)
-    llm_consumer: str | None = Field(default="writing.llm_action", max_length=128)
-    frontend_surface: str | None = Field(default="writing.workbench", max_length=128)
-
-    model_config = ConfigDict(extra="forbid")
-
-
-class WritingPrimaryLoopState(BaseModel):
-    contract_version: str = Field(default="writing.wave_a.e2.v1", min_length=1, max_length=64)
-    stages: list[PrimaryWritingLoopStage] = Field(default_factory=list)
-    next_required_stage: PrimaryWritingLoopStage | None = None
-    always_on_layers: list[str] = Field(default_factory=list)
-    optional_layers: list[str] = Field(default_factory=list)
-    no_graph_happy_path_complete: bool = False
-    selection_level_entry_supported: bool = True
-    document_level_entry_supported: bool = True
-    ordering_violations: list[str] = Field(default_factory=list)
-    cross_theme_dependency_gate: dict[str, Any] = Field(default_factory=dict)
-
-    model_config = ConfigDict(extra="forbid")
 
 
 class TypedKnowledgeWritingHandoffData(BaseModel):

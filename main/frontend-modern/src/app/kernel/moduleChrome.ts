@@ -9,7 +9,6 @@ import {
   Factory,
   FileInput,
   Folders,
-  Gauge,
   Landmark,
   Layers,
   LineChart,
@@ -65,7 +64,6 @@ export const MODULE_ICON_BY_KEY: Record<KernelModuleKey, LucideIcon> = {
   sysBackend: Layers,
   sysSettings: Settings2,
   sysLlm: Wrench,
-  sysSuccessorRuntime: Gauge,
   sysBusinessGuide: BookOpen,
 }
 

@@ -17,13 +17,32 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from ....models.base import SessionLocal
 from ....models.ingest_registry import IngestSubmissionRegistry
-from ....successor_runtime.capabilities.material_ingest_registry import (
-    MaterialIngestRegistryBackendUnavailableError,
-    MaterialIngestRegistryConflictError,
-)
 from ...projects import bind_project
 
 SubmissionJsonObject: TypeAlias = dict[str, object]
+
+
+class MaterialIngestRegistryError(RuntimeError):
+    """Base typed failure for product ingest submission persistence."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        registry_key: str | None = None,
+        request_hash: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.registry_key = registry_key
+        self.request_hash = request_hash
+
+
+class MaterialIngestRegistryConflictError(MaterialIngestRegistryError):
+    """A submission key is already bound to different request content."""
+
+
+class MaterialIngestRegistryBackendUnavailableError(MaterialIngestRegistryError):
+    """The submission backend could not answer the request."""
 
 
 @runtime_checkable

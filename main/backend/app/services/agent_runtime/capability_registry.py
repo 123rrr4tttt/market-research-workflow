@@ -300,6 +300,7 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         "entrypoints": [{"type": "http_api", "method": "GET", "path": "/api/v1/agent-sessions/{session_id}/stream"}],
         "required_input": ["session_id"],
         "risks": [],
+        "implemented": True,
     },
 )
 

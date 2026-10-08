@@ -21,7 +21,7 @@ import pytest
 from app.api import ingest as ingest_api
 from app.models.ingest_registry import IngestSubmissionRegistry
 from app.services.ingest.adapters import submission_registry
-from app.successor_runtime.capabilities.material_ingest_registry import (
+from app.services.ingest.adapters.submission_registry import (
     MaterialIngestRegistryConflictError,
 )
 from fastapi import HTTPException

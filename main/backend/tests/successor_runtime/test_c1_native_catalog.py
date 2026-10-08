@@ -82,6 +82,24 @@ def test_compile_artifact_reader_rejects_non_bytes_at_runtime() -> None:
     with pytest.raises(TypeError, match="raw_bytes must be bytes"):
         read_workflow_compile_artifact(schema=WORKFLOW_DSL_RECEIPT_SCHEMA, raw_bytes="{}")
 
+def test_workflow_runtime_resource_profiles_use_installable_classes() -> None:
+    from app.successor_runtime.runtime.resources import ResourceClass
+
+    expected = {
+        "vector_search": ResourceClass.NETWORK_IO,
+        "llm_call": ResourceClass.NETWORK_IO,
+        "join": ResourceClass.CPU_LIGHT,
+    }
+    definition = build_workflow_runtime_definition()
+    assert {operation.node_type for operation in definition.operations} == set(expected)
+    for operation in definition.operations:
+        resource_classes = operation.profiles.resource.resource_classes
+        assert len(resource_classes) == 1
+        assert ResourceClass(resource_classes[0]) is expected[operation.node_type]
+        assert operation.profiles.effect.network_required is (
+            expected[operation.node_type] is ResourceClass.NETWORK_IO
+        )
+
 def test_runtime_program_uses_real_profiles_exact_bytes_and_unique_occurrences() -> None:
     definition = build_workflow_runtime_definition()
     runtime = build_workflow_runtime_program(
@@ -228,6 +246,9 @@ def test_runtime_handler_assembly_rejects_drift_without_effect(monkeypatch: pyte
         return assemble_workflow_runtime_handler(
             operation=candidate, uow_factory=lambda: (_ for _ in ()).throw(AssertionError("UoW opened")),
             binding=binding, project_key="project-1", resolved_schema="project_1",
+            bind_project_scope=import_module("app.services.projects.context").bind_resolved_project,
+            invoke_runtime_node=workflow_kernel.invoke_workflow_runtime_node,
+            settled_failure_type=workflow_kernel.WorkflowNodeSettledFailure,
         )
 
     handler = assemble(operation)

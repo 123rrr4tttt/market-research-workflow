@@ -1,16 +1,14 @@
 """Production-only adapters for existing authoritative runtime sources.
 
-Read adapters remain observation boundaries.  The explicitly installed C9
-command port is the one bounded canonical effect for this Stage 4 milestone;
-capabilities without an installed production authority source use explicit
-conservative-denial ports.
+Read adapters remain observation boundaries. Capabilities without an installed
+production authority source use explicit conservative-denial ports.
 """
 
 # ruff: noqa: TRY003
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -18,31 +16,21 @@ import hashlib
 from typing import Annotated
 
 import redis as redis_client
-from fastapi import Request
 from sqlalchemy import and_, or_, select
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.production_contract import APPROVED_DECISION, ApprovalGrant, ProviderClass
-from app.services.request_identity import RequestActorContext, require_trusted_actor_context
+from app.services.request_identity import RequestActorContext
 from app.services.llm.ports import LLMProviderResolutionError, resolve_llm_provider
 from app.successor_runtime.runtime.authority_grants import AuthorityOperationScope
-from app.successor_runtime.runtime.facade import SuccessorRuntimeFacade
-from app.successor_runtime.runtime.facade_contracts import FacadeQueryV2, QueryResult
-from app.successor_runtime.runtime.facade_contracts import CommandReceipt, FacadeCommandV2
 from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
 from app.successor_runtime.runtime.resources import ResourcePolicySnapshot
 from app.successor_runtime.language.catalog import OperationContractRegistry
 from app.successor_runtime.substrate.postgres.authority import AuthorityGrant, AuthorityGrantRepository, CapabilityAuthority
 from app.successor_runtime.substrate.postgres.runtime_journal import ExactBindingConflict
-from app.successor_runtime.substrate.postgres.facade_commands import (
-    C9_CAPABILITY_ID,
-    PostgresC9CommandRepository,
-    PostgresC9QueryRepository,
-)
 from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
 from app.successor_runtime.substrate.postgres.session import (
-    ProjectScopeResolver,
     RegistryBackedProjectScopeResolver,
     ServerProjectScopeResolver,
 )
@@ -70,7 +58,8 @@ class ProductionRuntimeAuthorityUnavailable(RuntimeError):
 def install_runtime_authority(
     connection: Connection, *, administrator: RequestActorContext,
     project_scope: ProjectScopeRef, grant: AuthorityGrant,
-    capability: CapabilityAuthority, resource: ResourcePolicySnapshot,
+    capability: CapabilityAuthority,
+    resource: ResourcePolicySnapshot | tuple[ResourcePolicySnapshot, ...],
     installed: OperationContractRegistry,
 ) -> None:
     """Apply an explicit, finite administrator deployment declaration.
@@ -86,10 +75,14 @@ def install_runtime_authority(
         raise ProductionRuntimeAuthorityUnavailable("installation requires a trusted administrator and a finite grant")
     if ServerProjectScopeResolver(connection=connection).resolve(project_scope.project_key) != project_scope:
         raise ExactBindingConflict("installation project scope is stale")
+    resources = (resource,) if isinstance(resource, ResourcePolicySnapshot) else resource
+    policies_by_class = {policy.resource_class.value: policy for policy in resources}
+    if not resources or len(policies_by_class) != len(resources):
+        raise ExactBindingConflict("installation resource policies must be non-empty and unique")
     if (
         grant.capability_id != capability.capability_id
-        or resource.capability_id != capability.capability_id
-        or resource.project_key != project_scope.project_key
+        or any(policy.capability_id != capability.capability_id
+               or policy.project_key != project_scope.project_key for policy in resources)
         or grant.operation_scope_json.project_scope_digest != project_scope.scope_digest
         or capability.legacy_claim_enabled or not capability.successor_claim_enabled
         or capability.mode not in {"on", "canary"}
@@ -101,34 +94,36 @@ def install_runtime_authority(
         if ref is None or installed.resolve_required(ref).owner_capability_id != capability.capability_id:
             raise ExactBindingConflict("installation grant references an uninstalled operation")
     resource_limits = grant.resource_ceiling_json.limits
-    if any(limit.resource_class != resource.resource_class.value or limit.units > resource.max_units
-           for limit in resource_limits) or grant.resource_ceiling_json.max_active > resource.max_capability_active:
-        raise ExactBindingConflict("installation grant exceeds the declared resource policy")
+    for limit in resource_limits:
+        policy = policies_by_class.get(limit.resource_class)
+        if (policy is None or limit.units > policy.max_units
+                or grant.resource_ceiling_json.max_active > policy.max_capability_active):
+            raise ExactBindingConflict("installation grant exceeds the declared resource policy")
     capability_values = {
         **asdict(capability), "project_key": project_scope.project_key,
         "updated_by": administrator.actor_id,
     }
-    resource_values = {
-        "resource_policy_id": f"policy:{resource.policy_digest}",
-        "project_key": resource.project_key, "capability_id": resource.capability_id,
-        "resource_class": resource.resource_class.value,
-        "concurrency_limit": resource.max_capability_active,
-        "max_project_active": resource.max_project_active,
-        "max_capability_active": resource.max_capability_active,
-        "max_resource_active": resource.max_resource_active,
-        "units_ceiling": resource.max_units, "provider_limit": resource.max_provider_active,
-        "policy_epoch": resource.policy_epoch, "policy_digest": resource.policy_digest,
-    }
+    resource_values = tuple({
+        "resource_policy_id": f"policy:{policy.policy_digest}",
+        "project_key": policy.project_key, "capability_id": policy.capability_id,
+        "resource_class": policy.resource_class.value,
+        "concurrency_limit": policy.max_capability_active,
+        "max_project_active": policy.max_project_active,
+        "max_capability_active": policy.max_capability_active,
+        "max_resource_active": policy.max_resource_active,
+        "units_ceiling": policy.max_units, "provider_limit": policy.max_provider_active,
+        "policy_epoch": policy.policy_epoch, "policy_digest": policy.policy_digest,
+    } for policy in resources)
     for name, values in (("runtime_capability_authority", capability_values),
-                         ("runtime_resource_policies", resource_values)):
+                         *(("runtime_resource_policies", values) for values in resource_values)):
         table = PUBLIC_TABLES[name]
         connection.execute(pg_insert(table).values(**values).on_conflict_do_nothing())
         row = connection.execute(select(table).where(
             table.c.project_key == project_scope.project_key,
             table.c.capability_id == capability.capability_id,
             *(() if name == "runtime_capability_authority" else (
-                table.c.policy_epoch == resource.policy_epoch,
-                table.c.resource_class == resource.resource_class.value,
+                table.c.policy_epoch == values["policy_epoch"],
+                table.c.resource_class == values["resource_class"],
             )),
         )).mappings().one()
         if any(row[key] != value for key, value in values.items()):
@@ -156,83 +151,6 @@ def _read_only_connection(engine: Engine) -> Iterator[Connection]:
         # Adapters only issue SELECT statements; connection close rolls back
         # the implicit read transaction.
         yield connection
-
-
-class EngineC9QueryReadPort:
-    """Open one read-only connection for an exact server-bound C9 query."""
-
-    def __init__(self, engine: Engine) -> None:
-        self._engine = engine
-
-    def read(self, query: FacadeQueryV2) -> QueryResult:
-        runtime_scope = RuntimeScope(
-            project_scope=query.project_scope_ref,
-            actor_id=query.actor_ref,
-        )
-        with _read_only_connection(self._engine) as connection:
-            return PostgresC9QueryRepository(connection, runtime_scope).read(query)
-
-
-class PostgresC9CommandSubmissionPort:
-    """Production C9 command port with the approved effect enabled."""
-
-    def __init__(self, engine: Engine) -> None:
-        self._engine = engine
-
-    def submit(self, command: FacadeCommandV2) -> CommandReceipt:
-        runtime_scope = RuntimeScope(
-            project_scope=command.project_scope_ref,
-            actor_id=command.actor_ref,
-        )
-        with self._engine.begin() as connection:
-            return PostgresC9CommandRepository(
-                connection,
-                runtime_scope,
-                execute_effects=True,
-            ).submit(command)
-
-
-class C9ProjectionCanonicalWriterBinding:
-    """Installed operation-specific writer marker used by policy admission."""
-
-    capability = C9_CAPABILITY_ID
-
-    def admit(self, command: FacadeCommandV2) -> bool:
-        return command.command_kind == "rebuild_projection"
-
-
-def _trusted_successor_runtime_actor(request: Request) -> str:
-    """Reuse the authenticated request identity already checked by policy."""
-
-    return require_trusted_actor_context(request).actor_id
-
-
-@dataclass(frozen=True, slots=True)
-class ProductionSuccessorRuntimeAppDependencies:
-    """Production successor runtime dependencies with C9 effect execution."""
-
-    resolver: ProjectScopeResolver
-    facade: SuccessorRuntimeFacade
-    actor_provider: Callable[[Request], str]
-
-
-def build_production_successor_runtime_app_dependencies(
-    engine: Engine,
-) -> Annotated[
-    ProductionSuccessorRuntimeAppDependencies,
-    "kit:prepared-command effect_boundary=successor_runtime.production_query_assembly "
-    "witness=test:test_production_successor_runtime_dependencies_preserve_scope_and_actor",
-]:
-    """Bind the mounted C9 command/query paths to PostgreSQL."""
-
-    return ProductionSuccessorRuntimeAppDependencies(
-        resolver=RegistryBackedProjectScopeResolver(engine=engine),
-        facade=SuccessorRuntimeFacade(
-            submission_port=PostgresC9CommandSubmissionPort(engine),
-            query_port=EngineC9QueryReadPort(engine),
-        ),
-        actor_provider=_trusted_successor_runtime_actor,
-    )
 
 
 class PostgresProductionActorScopes:
@@ -549,17 +467,7 @@ class RegisteredCanonicalWriter:
 
 
 def _installed_canonical_writer_bindings() -> tuple[InstalledCanonicalWriterBinding, ...]:
-    # This is an installation fact, not generated from route requirements.  The
-    # C7 transport operation has no current HTTP route binding, so unmatched
-    # route declarations still deny rather than becoming self-certified owners.
-    return (
-        InstalledCanonicalWriterBinding(
-            operation="rebuild_projection",
-            canonical_owner_ref="successor-runtime",
-            writer_port_kind="postgres.projection_rebuild.v2",
-            port=C9ProjectionCanonicalWriterBinding(),
-        ),
-    )
+    return ()
 
 
 def _configured_provider_catalog(settings_obj: object) -> RegisteredProviderCatalog:
@@ -637,12 +545,8 @@ def build_production_runtime_bindings(
 
 
 __all__ = [
-    "EngineC9QueryReadPort",
-    "PostgresC9CommandSubmissionPort",
-    "C9ProjectionCanonicalWriterBinding",
     "PostgresProductionActorScopes",
     "PostgresProductionApprovals",
-    "ProductionSuccessorRuntimeAppDependencies",
     "ProductionRuntimeAuthorityUnavailable",
     "AtomicRedisRateObservations",
     "RegisteredProviderCatalog",
@@ -650,5 +554,4 @@ __all__ = [
     "RegisteredCanonicalWriter",
     "RegisteredProviderSelection",
     "build_production_runtime_bindings",
-    "build_production_successor_runtime_app_dependencies",
 ]

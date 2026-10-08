@@ -5,7 +5,6 @@ import {
   Boxes,
   DatabaseZap,
   FolderKanban,
-  Gauge,
   Radar,
   Settings2,
   ShieldCheck,
@@ -64,7 +63,6 @@ const ICON_BY_MODULE: Record<KernelModuleKey, LucideIcon> = {
   sysBackend: ShieldCheck,
   sysSettings: Settings2,
   sysLlm: Bot,
-  sysSuccessorRuntime: Gauge,
   sysBusinessGuide: BookOpen,
 }
 

@@ -15,10 +15,6 @@ from ..contracts.schemas.writing import (
     KeywordCardPreviewRequest,
     KeywordCardPreviewResponse,
     KeywordCardRequest,
-    LlmActionHistoryItem,
-    LlmActionHistoryListData,
-    LlmActionRequest,
-    LlmActionResponse,
     SuggestRequest,
     SuggestResponse,
     TemplateValidateRequest,
@@ -37,10 +33,7 @@ from ..services.writing import (
     aggregate_cards,
     create_document,
     delete_document,
-    dispatch_action,
     export_document_markdown,
-    get_action_detail,
-    get_action_history,
     get_card_detail,
     get_card_preview,
     get_document,
@@ -413,51 +406,6 @@ def get_writing_suggest(
     )
     with _writing_project_context(resolved_project_key):
         return success_response(suggest(model).model_dump())
-
-
-@router.post(
-    "/llm-actions",
-    response_model=ApiEnvelope[LlmActionResponse],
-    response_model_exclude_unset=True,
-)
-def post_writing_llm_action(payload: LlmActionRequest, request: Request):
-    resolved_project_key = _resolve_project_key(payload.project_key, request=request)
-    model = payload.model_copy(
-        update={
-            "project_key": resolved_project_key,
-            "request_id": _resolve_request_id(request),
-            "trace_id": payload.trace_id or _resolve_request_id(request),
-            "actor_id": payload.actor_id or _resolve_actor_id(request),
-        }
-    )
-    with _writing_project_context(resolved_project_key):
-        return success_response(dispatch_action(model).model_dump(by_alias=True))
-
-
-@router.get(
-    "/llm-actions/history",
-    response_model=ApiEnvelope[LlmActionHistoryListData],
-    response_model_exclude_unset=True,
-)
-def get_writing_llm_action_history(request: Request, project_key: str | None = Query(default=None), limit: int = Query(default=20, ge=1, le=100)):
-    resolved_project_key = _resolve_project_key(project_key, request=request)
-    with _writing_project_context(resolved_project_key):
-        items = [item.model_dump() for item in get_action_history(limit=limit, project_key=resolved_project_key)]
-        return success_response({"items": items})
-
-
-@router.get(
-    "/llm-actions/{job_id}",
-    response_model=ApiEnvelope[LlmActionHistoryItem],
-    response_model_exclude_unset=True,
-)
-def get_writing_llm_action_detail(request: Request, job_id: int, project_key: str | None = Query(default=None)):
-    resolved_project_key = _resolve_project_key(project_key, request=request)
-    with _writing_project_context(resolved_project_key):
-        try:
-            return success_response(get_action_detail(job_id=job_id, project_key=resolved_project_key).model_dump())
-        except KeyError as exc:
-            raise _handle_not_found(exc) from exc
 
 
 @router.post(

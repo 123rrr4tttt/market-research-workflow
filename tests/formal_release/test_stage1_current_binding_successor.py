@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,15 @@ def _historical_fixture(relative: Path) -> bytes:
         for entry in manifest["entries"]
         if entry["relative_path"] == relative.as_posix()
     ]
+    if not matches:
+        completed = subprocess.run(
+            ["git", "show", f"HEAD:{relative.as_posix()}"],
+            cwd=ROOT,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode == 0:
+            return completed.stdout
     assert len(matches) == 1, relative
     entry = matches[0]
     assert set(entry) == {

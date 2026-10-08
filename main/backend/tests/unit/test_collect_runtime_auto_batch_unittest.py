@@ -70,8 +70,8 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
         self.assertEqual(calls, [("a1", "a2", "a3", "a4"), ("b1", "b2", "b3", "b4")])
         self.assertEqual(with_flags.inserted, 8)
         self.assertEqual(
-            [item["status"] for item in with_flags.meta["raw"]["typed_batch_results"]],
-            ["failed", "failed"],
+            [item["result_status"] for item in with_flags.meta["raw"]["delivery_observations"]],
+            ["succeeded", "succeeded"],
         )
 
     def test_all_channels_use_the_same_effect_gateway_signature(self):
@@ -138,7 +138,7 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
             ("search.policy", ("b1", "b2", "b3", "b4")),
         ])
         self.assertEqual(result.status, "failed")
-        self.assertEqual(result.meta["raw"]["aggregate_kind"], "failed")
+        self.assertNotIn("aggregate_kind", result.meta["raw"])
         self.assertEqual(result.meta["raw"]["batches_total"], 2)
 
     def _successor_request(self, **kwargs):
@@ -175,15 +175,16 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
             self.assertEqual(result.status, "unknown")
             self.assertEqual(result.meta["raw"]["reason"], "target_delivery_readback_required")
             self.assertNotIn("aggregate_kind", result.meta["raw"])
-            self.assertEqual(result.meta["raw"]["typed_batch_results"][0]["input_index"], 0)
+            observations = result.meta["raw"]["delivery_observations"]
+            self.assertEqual(observations[0]["input_index"], 0)
             self.assertEqual(
-                [item["status"] for item in result.meta["raw"]["typed_batch_results"]],
-                ["failed", "failed"],
+                [item["result_status"] for item in observations],
+                ["succeeded", "succeeded"],
             )
             self.assertTrue(all(
                 item["receipt"]["receipt_kind"] == "DISPATCH_ACKNOWLEDGEMENT"
                 and not item["receipt"]["authoritative_readback"]
-                for item in result.meta["raw"]["typed_batch_results"]
+                for item in observations
             ))
             self.assertEqual(
                 [row["observation"]["state"] for row in result.meta["raw"]["delivery_observations"]],
@@ -227,9 +228,16 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
                 result = runtime.run_collect(self._successor_request())
             self.assertEqual(result.status, "unknown")
             self.assertNotIn("aggregate_kind", result.meta["raw"])
-            self.assertEqual(len(result.meta["raw"]["typed_batch_results"]), 2)
-            self.assertEqual(result.meta["raw"]["delivery_observations"][0]["observation"]["state"], "unknown")
-            self.assertEqual(result.meta["raw"]["delivery_observations"][1]["observation"]["state"], "failed")
+            self.assertEqual(len(result.meta["raw"]["delivery_observations"]), 2)
+            observations = result.meta["raw"]["delivery_observations"]
+            self.assertEqual(observations[0]["observation"]["state"], "unknown")
+            self.assertEqual(observations[1]["observation"]["state"], "failed")
+            self.assertEqual(result.inserted, 4)
+            self.assertEqual([row["counts"]["inserted"] for row in observations], [4, 0])
+            self.assertEqual(
+                [row["receipt"]["provider_job_id"] for row in observations],
+                ["job-b2", "job-b1"],
+            )
         finally:
             runtime.reset_successor_collect_effect_gateway()
 
@@ -250,13 +258,86 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
         try:
             result = runtime.run_collect(self._successor_request())
             self.assertEqual(result.status, "failed")
-            self.assertEqual(result.meta["raw"]["aggregate_kind"], "failed")
+            self.assertNotIn("aggregate_kind", result.meta["raw"])
         finally:
             runtime.reset_successor_collect_effect_gateway()
 
+    def test_terminal_failed_readback_controls_final_status_when_local_return_completed(self):
+        def gateway(request: CollectRequest) -> CollectResult:
+            job_id = f"job-{request.query_terms[0]}"
+            provider_errors = (
+                [{"code": "element_rejected", "message": "provider rejected second batch"}]
+                if request.query_terms[0] == "b1"
+                else []
+            )
+            return CollectResult(
+                channel=request.channel,
+                status="failed" if provider_errors else "completed",
+                provider_job_id=job_id,
+                errors=provider_errors,
+                meta={"terminal_readback": {
+                    "kind": "terminal",
+                    "provider_job_id": job_id,
+                    "status": "failed",
+                }},
+            )
+
+        runtime.register_successor_collect_effect_gateway(gateway)
+        try:
+            result = runtime.run_collect(self._successor_request())
+        finally:
+            runtime.reset_successor_collect_effect_gateway()
+
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(
+            [row["result_status"] for row in result.meta["raw"]["delivery_observations"]],
+            ["succeeded", "failed"],
+        )
+        self.assertEqual(
+            [item["result"]["status"] for item in result.meta["raw"]["batch_results"]],
+            ["failed", "failed"],
+        )
+        self.assertEqual(
+            [error["code"] for error in result.errors],
+            ["runner_unavailable", "element_rejected"],
+        )
+        self.assertEqual(
+            [error["message"] for error in result.errors],
+            [
+                "target delivery readback is required for successor completion",
+                "provider rejected second batch",
+            ],
+        )
+        self.assertEqual(
+            [item["result"]["errors"] for item in result.meta["raw"]["batch_results"]],
+            [
+                [{
+                    "code": "runner_unavailable",
+                    "message": "target delivery readback is required for successor completion",
+                    "query_terms": ["a1", "a2", "a3", "a4"],
+                }],
+                [{
+                    "code": "element_rejected",
+                    "message": "provider rejected second batch",
+                    "query_terms": ["b1", "b2", "b3", "b4"],
+                }],
+            ],
+        )
+        self.assertEqual(
+            [row["errors"] for row in result.meta["raw"]["delivery_observations"]],
+            [[], [{
+                "code": "element_rejected",
+                "message": "provider rejected second batch",
+                "query_terms": ["b1", "b2", "b3", "b4"],
+            }]],
+        )
+
     def test_successor_fail_fast_projection_is_cancelled_and_keeps_receipts(self):
+        calls: list[tuple[str, ...]] = []
+
         class _Adapter:
             def run(self, request):
+                calls.append(tuple(request.query_terms))
                 if request.query_terms[0] == "b1":
                     return CollectResult(channel=request.channel, status="failed", errors=[{"code": "x", "message": "bad"}], meta={"terminal_readback": {"kind": "terminal", "status": "failed"}})
                 return CollectResult(
@@ -275,8 +356,14 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
             result = runtime.run_collect(self._successor_request(options={"batch_fail_fast": True}))
             self.assertEqual(result.status, "unknown")
             self.assertIn("cancellation_receipt", result.meta["raw"])
-            self.assertEqual(result.meta["raw"]["typed_batch_results"][0]["receipt"]["provider_job_id"], "job-a")
-            self.assertFalse(result.meta["raw"]["typed_batch_results"][0]["receipt"]["authoritative_readback"])
+            receipt = result.meta["raw"]["delivery_observations"][0]["receipt"]
+            self.assertEqual(receipt["provider_job_id"], "job-a")
+            self.assertFalse(receipt["authoritative_readback"])
+            self.assertEqual(calls, [("a1", "a2", "a3", "a4")])
+            self.assertEqual(
+                [row["execution_state"] for row in result.meta["raw"]["delivery_observations"]],
+                ["attempted", "not_attempted"],
+            )
         finally:
             runtime.reset_successor_collect_effect_gateway()
 
@@ -307,7 +394,7 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
 
         self.assertEqual(calls, [("a1", "a2", "a3", "a4")])
         self.assertEqual(result.status, "cancelled")
-        self.assertEqual(len(result.meta["raw"]["typed_batch_results"]), 1)
+        self.assertEqual(len(result.meta["raw"]["batch_results"]), 1)
         self.assertEqual(
             [row["execution_state"] for row in result.meta["raw"]["delivery_observations"]],
             ["attempted", "not_attempted"],
@@ -406,9 +493,43 @@ class CollectRuntimeAutoBatchUnitTestCase(unittest.TestCase):
         self.assertEqual([row["observation"]["state"] for row in rows], ["waiting", "waiting"])
         self.assertEqual([row["execution_state"] for row in rows], ["attempted", "attempted"])
         self.assertEqual(
-            [outcome["status"] for outcome in result.meta["raw"]["typed_batch_results"]],
+            [outcome["result_status"] for outcome in result.meta["raw"]["delivery_observations"]],
             ["failed", "failed"],
         )
+
+    def test_receipt_rejection_preserves_waiting_job_and_counts(self):
+        def gateway(request: CollectRequest) -> CollectResult:
+            return CollectResult(
+                channel=request.channel,
+                status="accepted",
+                inserted=3,
+                provider_job_id="job-x",
+                provider_status="waiting",
+                attempt_count=-1,
+                meta={
+                    "raw": {"links": ["https://example/observed"]},
+                    "terminal_readback": {"kind": "waiting"},
+                },
+            )
+
+        runtime.register_successor_collect_effect_gateway(gateway)
+        try:
+            result = runtime.run_collect(self._successor_request())
+        finally:
+            runtime.reset_successor_collect_effect_gateway()
+
+        self.assertEqual(result.status, "unknown")
+        self.assertEqual(result.inserted, 6)
+        rows = result.meta["raw"]["delivery_observations"]
+        self.assertEqual([row["counts"]["inserted"] for row in rows], [3, 3])
+        self.assertEqual([row["observation"]["state"] for row in rows], ["waiting", "waiting"])
+        self.assertEqual([row["observation"]["provider_job_id"] for row in rows], ["job-x", "job-x"])
+        self.assertEqual(result.meta["raw"]["links"], ["https://example/observed"])
+        self.assertEqual(
+            [row["links"] for row in rows],
+            [["https://example/observed"], ["https://example/observed"]],
+        )
+        self.assertTrue(all("receipt" not in row for row in rows))
 
     def test_non_iterable_links_remain_an_element_execution_failure(self):
         def gateway(request: CollectRequest) -> CollectResult:

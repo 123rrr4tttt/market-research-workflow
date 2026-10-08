@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { resolve } from 'node:path'
 import { expect, test } from '@playwright/test'
 import type { APIRequestContext, Page } from '@playwright/test'
 import {
@@ -66,6 +67,7 @@ type RunEvents = {
 }
 
 const headers = { 'X-Project-Key': PROJECT_KEY }
+const workflowBearerToken = process.env.MRW_E2E_WORKFLOW_BEARER_TOKEN || ''
 
 function withProject(path: string) {
   const query = `project_key=${encodeURIComponent(PROJECT_KEY)}`
@@ -80,7 +82,7 @@ async function apiSend<T>(
 ) {
   const response = await request.fetch(withProject(path), {
     method,
-    headers,
+    headers: { ...headers, Authorization: `Bearer ${workflowBearerToken}` },
     data: payload === undefined ? undefined : payload,
   })
   const text = await response.text()
@@ -97,6 +99,7 @@ function assertIsolatedLiveEnvironment() {
     '127.0.0.1:55436/mrw_completion_test',
   )
   expect(apiTarget, 'live workflow chain must use the isolated backend').toContain('127.0.0.1:18086')
+  expect(Boolean(workflowBearerToken), 'configure the isolated backend E2E Bearer credential').toBe(true)
 }
 
 function psqlJson(query: string) {
@@ -107,6 +110,77 @@ function psqlJson(query: string) {
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
   )
   return JSON.parse(output.trim()) as unknown
+}
+
+function installIsolatedWorkflowFixture() {
+  const backend = resolve(process.cwd(), '../backend')
+  const repository = resolve(backend, '../..')
+  // Project CRUD creates the business schema; this explicit admin fixture installs Runtime authority.
+  execFileSync(resolve(backend, '.venv311/bin/python'), ['-c', `
+import os, sys
+from datetime import UTC, datetime, timedelta
+import sqlalchemy as sa
+from app.composition.production_runtime import install_runtime_authority
+from app.services.request_identity import RequestActorContext, actor_id_from_secret
+from app.successor_runtime.capabilities.workflow_native_contribution import build_workflow_runtime_definition, WORKFLOW_RUNTIME_OWNER
+from app.successor_runtime.runtime.assignments import canonical_digest
+from app.successor_runtime.runtime.authority_grants import AuthorityOperationScope, AuthorityResourceCeiling, AuthorityResourceLimit
+from app.successor_runtime.runtime.resources import ResourceClass, ResourcePolicySnapshot
+from app.successor_runtime.substrate.postgres.authority import AuthorityGrant, CapabilityAuthority
+from app.successor_runtime.substrate.postgres.models import PUBLIC_METADATA, PUBLIC_TABLES, project_tables
+from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver, compute_scope_digest
+
+project = sys.argv[1]
+url = sa.engine.make_url(os.environ['DATABASE_URL'])
+assert url.host == '127.0.0.1' and url.port == 55436 and url.database == 'mrw_completion_test'
+assert project.startswith('e2e_live_workflow_')
+engine = sa.create_engine(url)
+definition = build_workflow_runtime_definition()
+operations = tuple(definition.operation_for_node_type(kind) for kind in ('vector_search', 'llm_call', 'join'))
+actor = actor_id_from_secret('actor:codex-token', os.environ['MRW_E2E_WORKFLOW_BEARER_TOKEN'])
+now = datetime.now(UTC)
+admin = RequestActorContext('e2e-workflow-admin', 'deployment', True, 'localdev-installation')
+with engine.begin() as connection:
+    PUBLIC_METADATA.create_all(connection, checkfirst=True)
+    for name in ('project_scope_registry', 'runtime_authority_grants'):
+        table = PUBLIC_TABLES[name]
+        assert connection.execute(sa.select(table).where(table.c.project_key == project)).first() is None
+    schema = connection.execute(sa.text('SELECT schema_name FROM public.projects WHERE project_key=:project'), {'project': project}).scalar_one()
+    incarnation = 'e2e-scope:' + project
+    digest = compute_scope_digest(project, schema, 1, incarnation)
+    metadata = sa.MetaData()
+    project_tables(metadata, schema)
+    metadata.create_all(connection, checkfirst=True)
+    connection.execute(sa.insert(PUBLIC_TABLES['project_scope_registry']).values(
+        project_key=project, registry_revision=1, resolved_schema=schema,
+        scope_digest=digest, incarnation=incarnation, state='ACTIVE', updated_by=admin.actor_id))
+    scope = ServerProjectScopeResolver(connection=connection).resolve(project)
+    capability = CapabilityAuthority(WORKFLOW_RUNTIME_OWNER, 'on', 1, True, False,
+        canonical_digest((project, 'allow')), canonical_digest((project, 'config')), now,
+        'e2e-admin:workflow', 'e2e-admin:workflow-disabled')
+    resource_classes = sorted({op.profiles.resource.resource_classes[0] for op in operations})
+    install_runtime_authority(connection, administrator=admin, project_scope=scope,
+        capability=capability, installed=definition.registry,
+        resource=tuple(ResourcePolicySnapshot(project, WORKFLOW_RUNTIME_OWNER, ResourceClass(resource_class),
+            1, canonical_digest((project, resource_class)), 1, 1, 1, 1, 1) for resource_class in resource_classes),
+        grant=AuthorityGrant('e2e-grant:' + project, actor, WORKFLOW_RUNTIME_OWNER,
+            AuthorityOperationScope.from_content(operation_kinds=tuple(op.contract.ref.kind for op in operations), project_scope_digest=digest),
+            AuthorityResourceCeiling.from_content(limits=tuple(AuthorityResourceLimit(resource_class=resource_class, units=1)
+                for resource_class in resource_classes), max_active=1),
+            None, 1, now + timedelta(hours=1)))
+engine.dispose()
+`, PROJECT_KEY], {
+    cwd: backend,
+    env: { ...process.env, PYTHONPATH: [repository, resolve(repository, 'src'), backend].join(':') },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}
+
+async function waitForRun(request: APIRequestContext, runId: string, status: string) {
+  await expect.poll(async () => (
+    await apiSend<RunResult>(request, 'GET', `/api/v1/workflow-graph/runs/${runId}`)
+  ).status, { timeout: 90_000, intervals: [15_000] }).toBe(status)
+  return apiSend<RunResult>(request, 'GET', `/api/v1/workflow-graph/runs/${runId}`)
 }
 
 async function openGraphBuilder(page: Page) {
@@ -182,10 +256,16 @@ test.describe('live workflow result chain', () => {
   test.beforeAll(async ({ request }) => {
     assertIsolatedLiveEnvironment()
     await createE2eProject(request, PROJECT_KEY)
+    installIsolatedWorkflowFixture()
   })
 
-  test.afterAll(async ({ request }) => {
-    await deleteE2eProject(request, PROJECT_KEY)
+  test.afterAll(async ({ request }, testInfo) => {
+    if (testInfo.status !== testInfo.expectedStatus) return
+    const activeRuns = psqlJson(`SELECT count(*) FROM public.runtime_runs
+      WHERE project_key = '${PROJECT_KEY}' AND state NOT IN ('COMPLETED', 'FAILED', 'CANCELLED', 'SUPERSEDED')`)
+    if (activeRuns === 0) {
+      await deleteE2eProject(request, PROJECT_KEY)
+    }
   })
 
   test('GraphPage edit, current compile/run, live kernels, and persistent API/DB readback', async ({
@@ -249,14 +329,28 @@ test.describe('live workflow result chain', () => {
     expect(compiled.checksum).toMatch(/^[0-9a-f]{64}$/)
     expect(compiled.topo_order).toEqual(['retrieve', 'draft', 'combine'])
 
-    const run = await apiSend<RunResult>(request, 'POST', '/api/v1/workflow-graph/run', {
+    const runPayload = {
       project_key: PROJECT_KEY,
       graph_id: SUCCESS_GRAPH_ID,
       run_id: SUCCESS_RUN_ID,
       input: { query: 'Hong Kong water policy research', topic: 'Hong Kong water' },
       trace_id: `${PROJECT_KEY}:success`,
-    })
-    expect(run.run_id).toBe(SUCCESS_RUN_ID)
+    }
+    for (const untrustedHeaders of [headers, { ...headers, 'X-Actor-Id': 'forged-e2e-actor' }]) {
+      const denied = await request.post(withProject('/api/v1/workflow-graph/run'), {
+        headers: untrustedHeaders,
+        data: runPayload,
+      })
+      expect(denied.status()).toBe(403)
+      expect((await denied.json()).error?.details?.reason_code).toBe('trusted_actor_required')
+      expect(psqlJson(`SELECT jsonb_build_object(
+        'runs', (SELECT count(*) FROM public.runtime_runs WHERE run_id = '${SUCCESS_RUN_ID}'),
+        'attempts', (SELECT count(*) FROM public.runtime_effect_attempts WHERE run_id = '${SUCCESS_RUN_ID}')
+      )`)).toEqual({ runs: 0, attempts: 0 })
+    }
+    const submitted = await apiSend<RunResult>(request, 'POST', '/api/v1/workflow-graph/run', runPayload)
+    expect(submitted.run_id).toBe(SUCCESS_RUN_ID)
+    const run = await waitForRun(request, SUCCESS_RUN_ID, 'succeeded')
     expect(run.status).toBe('succeeded')
     expect(run.node_statuses).toEqual({
       retrieve: 'succeeded',
@@ -298,15 +392,23 @@ test.describe('live workflow result chain', () => {
       ?.filter((event) => !String(event.type || event.event_type || '').startsWith('agent_session.'))
       .map((event) => [event.type || event.event_type, event.node_id])
     expect(eventOrder).toEqual([
-      ['run.queued', null],
-      ['run.running', null],
-      ['node.running', 'retrieve'],
-      ['node.succeeded', 'retrieve'],
-      ['node.running', 'draft'],
-      ['node.succeeded', 'draft'],
-      ['node.running', 'combine'],
-      ['node.succeeded', 'combine'],
-      ['run.succeeded', null],
+      ['ProgramAccepted', null],
+      ['CompileSucceeded', null],
+      ['PlanCompiled', null],
+      ['QualificationActivated', null],
+      ['StepActivated', 'retrieve'],
+      ['StepClaimed', 'retrieve'],
+      ['EffectStarted', 'retrieve'],
+      ['RuntimeValueProduced', 'retrieve'],
+      ['StepActivated', 'draft'],
+      ['StepClaimed', 'draft'],
+      ['EffectStarted', 'draft'],
+      ['RuntimeValueProduced', 'draft'],
+      ['StepActivated', 'combine'],
+      ['StepClaimed', 'combine'],
+      ['EffectStarted', 'combine'],
+      ['RuntimeValueProduced', 'combine'],
+      ['RunCompletionDerived', null],
     ])
 
     const dbCompiled = psqlJson(
@@ -399,14 +501,15 @@ test.describe('live workflow result chain', () => {
     })
     expect(compiled.topo_order).toEqual(['missing_prompt', 'not_started_join'])
 
-    const run = await apiSend<RunResult>(request, 'POST', '/api/v1/workflow-graph/run', {
+    const submitted = await apiSend<RunResult>(request, 'POST', '/api/v1/workflow-graph/run', {
       project_key: PROJECT_KEY,
       graph_id: FAILURE_GRAPH_ID,
       run_id: FAILURE_RUN_ID,
       input: {},
       trace_id: `${PROJECT_KEY}:failure`,
     })
-    expect(run.run_id).toBe(FAILURE_RUN_ID)
+    expect(submitted.run_id).toBe(FAILURE_RUN_ID)
+    const run = await waitForRun(request, FAILURE_RUN_ID, 'failed')
     expect(run.status).toBe('failed')
     expect(run.node_statuses).toEqual({
       missing_prompt: 'failed',
@@ -414,11 +517,34 @@ test.describe('live workflow result chain', () => {
     })
 
     const events = await apiSend<RunEvents>(request, 'GET', `/api/v1/workflow-graph/runs/${FAILURE_RUN_ID}/events`)
-    const failedEvent = events.items?.find((event) => (event.type || event.event_type) === 'node.failed')
+    const failedEvent = events.items?.find((event) => (event.type || event.event_type) === 'EffectFailed')
     expect(failedEvent?.node_id).toBe('missing_prompt')
     expect(failedEvent?.payload?.failure_family).toBe('workflow_graph.failure')
     expect(failedEvent?.payload?.failure_code).toBe('required_input_missing')
     expect(failedEvent?.payload?.error).toContain('required_for_live_failure')
+    const projectSchema = psqlJson(`SELECT to_json(schema_name) FROM public.projects WHERE project_key = '${PROJECT_KEY}'`)
+    expect(projectSchema).toMatch(/^[a-z0-9_]+$/)
+    const persistedFailure = psqlJson(`SELECT jsonb_build_object(
+      'failure_ref', attempt.failure_ref, 'failure_digest', attempt.failure_digest,
+      'value_ref', 'project-value:' || value.value_id, 'value_digest', value.content_digest,
+      'object_type', value.object_type, 'body', convert_from(value.content_bytes, 'UTF8')::jsonb
+    ) FROM public.runtime_effect_attempts AS attempt
+    JOIN "${projectSchema}".successor_values AS value ON value.content_digest = attempt.failure_digest
+    WHERE attempt.run_id = '${FAILURE_RUN_ID}'`) as {
+      failure_ref: string; failure_digest: string; value_ref: string; value_digest: string
+      object_type: string; body: { schema_version: string; run_id: string; domain_failure: Record<string, unknown> }
+    }
+    expect(persistedFailure.failure_ref).toBe(failedEvent?.payload?.failure_ref)
+    expect(persistedFailure.failure_digest).toBe(failedEvent?.payload?.failure_digest)
+    expect(persistedFailure.value_ref).toBe(persistedFailure.failure_ref)
+    expect(persistedFailure.value_digest).toBe(persistedFailure.failure_digest)
+    expect(persistedFailure.object_type).toBe('RuntimeFailure.v2')
+    expect(persistedFailure.body.schema_version).toBe('mrw.runtime.failure.v2')
+    expect(persistedFailure.body.run_id).toBe(FAILURE_RUN_ID)
+    expect(persistedFailure.body.domain_failure).toEqual({
+      family: failedEvent?.payload?.failure_family, code: failedEvent?.payload?.failure_code,
+      message: failedEvent?.payload?.error, context: failedEvent?.payload?.context,
+    })
 
     const stateful = await apiSend<StatefulReplay>(
       request,

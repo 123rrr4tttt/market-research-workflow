@@ -237,10 +237,6 @@ def dedupe_and_score(
                 "consumer": "writing.keyword_card",
                 "card_source_type": "resource",
             },
-            "llm": {
-                "mode": "consume_only",
-                "consumer": "writing.llm_action",
-            },
             "frontend": {
                 "mode": "placement_boundary_only",
                 "surface": "writing.workbench",

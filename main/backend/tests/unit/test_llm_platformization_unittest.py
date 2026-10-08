@@ -23,7 +23,7 @@ class LlmPlatformizationUnitTest(unittest.TestCase):
 
     def test_resolve_request_identity_uses_request_id_when_trace_missing(self):
         identity = resolve_request_identity(
-            consumer="writing.llm_action",
+            consumer="llm_report.generate",
             trace_id=None,
             request_id="req-1",
             project_key="demo_proj",
@@ -65,8 +65,8 @@ class LlmPlatformizationUnitTest(unittest.TestCase):
 
     def test_evaluate_agent_permission_boundary_denies_cross_consumer_permission(self):
         decision = evaluate_agent_permission_boundary(
-            consumer="writing.llm_action",
-            agent_role=normalize_agent_role("business_capability_wrapper", consumer="writing.llm_action"),
+            consumer="workflow_graph.llm_call",
+            agent_role=normalize_agent_role("orchestration_runtime", consumer="workflow_graph.llm_call"),
             requested_permissions=["llm.invoke", "cross_consumer.invoke"],
         )
         self.assertFalse(decision.allowed)

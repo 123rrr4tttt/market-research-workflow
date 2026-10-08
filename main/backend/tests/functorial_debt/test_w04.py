@@ -81,6 +81,16 @@ def test_w04_authority_metadata() -> None:
         function_name = message.removesuffix(" returns an unmarked derived value")
         expected_targets.add((relative_path, function_name))
 
+    historical_retired_targets = {
+        (
+            "main/backend/app/services/writing/primary_loop_service.py",
+            "build_wave_a_baseline_matrix",
+        ),
+    }
+    assert historical_retired_targets <= expected_targets
+    assert all(not (REPO_ROOT / relative_path).exists() for relative_path, _ in historical_retired_targets)
+    active_expected_targets = expected_targets - historical_retired_targets
+
     classifications: dict[tuple[str, str], tuple[str, dict[str, str]]] = {
         ("main/backend/app/services/clue_chains/external_search_expansion.py", "build_external_search_provider"): (
             "kit:prepared-command",
@@ -282,13 +292,9 @@ def test_w04_authority_metadata() -> None:
             "kit:prepared-command",
             {"effect_boundary": "workflow_graph_compiled_store"},
         ),
-        ("main/backend/app/services/writing/primary_loop_service.py", "build_wave_a_baseline_matrix"): (
-            "kit:non-authoritative",
-            {"derived_as": "view", "fact_source": "writing_baseline_capability_constants"},
-        ),
     }
 
-    assert set(classifications) == expected_targets
+    assert set(classifications) == active_expected_targets
     for (relative_path, function_name), (tag, fields) in sorted(classifications.items()):
         _assert_authority(
             REPO_ROOT / relative_path,

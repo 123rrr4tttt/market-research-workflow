@@ -41,7 +41,7 @@ def build_operation_catalog(
 def build_first_specimen_catalog(
     first_specimen_contracts: tuple[OperationContract, ...],
     fixture_contract: OperationContract | None = None,
-) -> Annotated[CapabilityCatalogSnapshot, Literal["kit:non-authoritative derived_as=view fact_source=FirstSpecimen_contracts witness=test:test_w06_successor_authority_metadata"]]:
+) -> Annotated[CapabilityCatalogSnapshot, Literal["kit:non-authoritative derived_as=view fact_source=FirstSpecimen_contracts witness=test:test_gap_materializes_schema_valid_successor_and_opens_relation"]]:
     contracts = first_specimen_contracts
     if fixture_contract is not None:
         contracts = contracts + (fixture_contract,)
@@ -54,7 +54,7 @@ def build_first_specimen_catalog(
 
 def build_first_specimen_registry(
     first_specimen_contracts: tuple[OperationContract, ...],
-) -> Annotated[OperationContractRegistry, Literal["kit:non-authoritative derived_as=view fact_source=FirstSpecimen_contracts witness=test:test_w06_successor_authority_metadata"]]:
+) -> Annotated[OperationContractRegistry, Literal["kit:non-authoritative derived_as=view fact_source=FirstSpecimen_contracts witness=test:test_gap_materializes_schema_valid_successor_and_opens_relation"]]:
     return OperationContractRegistry(
         build_first_specimen_catalog(first_specimen_contracts),
         first_specimen_contracts,

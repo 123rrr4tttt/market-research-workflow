@@ -12,11 +12,9 @@ from app.successor_runtime.runtime.observations import (
     ObservationSourceKind,
 )
 from app.successor_runtime.runtime.process_observation import (
+    SourceBindingMismatch,
     join_process_observations,
     try_join_process_observations,
-)
-from app.successor_runtime.substrate.projections.legacy_process import (
-    SourceBindingMismatch,
 )
 from functorial_kit import Failure
 
